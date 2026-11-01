@@ -282,9 +282,9 @@ function MessageDayGroup({
   const unread = group.messages.filter((message) => message.threadUnread ?? message.unread).length;
   return (
     <section data-message-day={group.day}>
-      {/* Linear's group band: a soft fill inset like the rows, opaque below
-          it so rows scroll under. */}
-      <h3 className="sticky top-0 z-10 bg-canvas px-1 py-0.5">
+      {/* Linear's group band: a soft fill inset evenly from the card, its
+          corners concentric with the card's; opaque below so rows scroll under. */}
+      <h3 className="sticky top-0 z-10 bg-canvas p-1">
         <button
           type="button"
           data-message-day-header=""
@@ -292,7 +292,7 @@ function MessageDayGroup({
           aria-expanded={!collapsed}
           aria-controls={bodyId}
           onClick={onToggle}
-          className="flex h-8 w-full cursor-pointer items-center gap-1.5 rounded-md bg-foreground/[0.04] px-3 text-left text-xs outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+          className="flex h-8 w-full cursor-pointer items-center gap-1.5 rounded-lg bg-foreground/[0.04] px-3 text-left text-xs outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
         >
           <ChevronDownIcon
             aria-hidden
@@ -301,10 +301,8 @@ function MessageDayGroup({
           <span className="min-w-0 flex-1 truncate font-medium text-foreground">{label}</span>
           <span className="shrink-0 tabular-nums text-muted-foreground">
             {group.messages.length}
+            {unread > 0 ? ` · ${unread} unread` : null}
           </span>
-          {unread > 0 ? (
-            <span className="shrink-0 text-muted-foreground">· {unread} unread</span>
-          ) : null}
         </button>
       </h3>
       <div id={bodyId} hidden={collapsed}>
