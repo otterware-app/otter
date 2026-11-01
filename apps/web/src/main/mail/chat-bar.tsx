@@ -84,7 +84,7 @@ export function ChatBar({
       data-tour="chats"
       className="flex h-8 shrink-0 items-center justify-end gap-1 ps-2 pe-2"
     >
-      <div className="flex min-w-0 items-center justify-end gap-1">
+      <div className="flex min-w-0 items-center justify-end gap-1 overflow-hidden">
         {tabs.map((c) => (
           <ChatBarTab
             key={c.id}

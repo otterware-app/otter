@@ -1521,7 +1521,7 @@ function MailHome() {
   return (
     <>
       <div
-        className="surface-grain flex h-full flex-col bg-sidebar-surface text-foreground"
+        className="surface-grain flex h-full bg-sidebar-surface text-foreground"
         data-panel-animations={panelAnimationsActive ? "true" : "false"}
         data-mail-layout={isChats ? "split" : mailLayout}
         style={{ "--panel-animation-duration": `${panelAnimationDurationMs}ms` } as CSSProperties}
@@ -1529,7 +1529,7 @@ function MailHome() {
         <div className="contents">
           {/* The frame's width round the cards (the right edge is the last
               card's own gap), so they float with every corner rounded. */}
-          <div className="relative isolate flex min-h-0 min-w-0 flex-1 pl-1">
+          <div className="relative isolate flex min-w-0 flex-1 pb-8 pl-1">
             <div
               ref={setMailWorkspace}
               data-mail-workspace=""
@@ -1557,6 +1557,8 @@ function MailHome() {
                     style={{ width: sidebarOpen ? sidebarWidth : 0 }}
                     className={cn(
                       PANE_FRAME,
+                      // Down to the window's foot, past the cards and beside the bottom bar.
+                      "-mb-8",
                       // Anchored left: the sidebar stays put while the columns
                       // after it slide over it, and back out.
                       sidebarOpen && "[[data-panel-animations=true]_&]:starting:w-0!",
@@ -1752,16 +1754,26 @@ function MailHome() {
                 inputRef={chatInputRef}
               />
             ) : null}
+            {/* The bottom bar: under the cards, right of the sidebar, which runs on down beside it. */}
+            <div
+              className="absolute bottom-0 right-0 z-40"
+              style={{ left: sidebarOpen ? FRAME_INSET + sidebarWidth : 0 }}
+            >
+              <ChatBar
+                shownId={
+                  isChats && !settingsRoute
+                    ? selectedLabelId
+                    : chatWindowShown
+                      ? activeChatId
+                      : null
+                }
+                onSelect={selectChat}
+                onCloseTab={closeChatTab}
+                onNewChat={startNewChat}
+              />
+            </div>
           </div>
         </div>
-        <ChatBar
-          shownId={
-            isChats && !settingsRoute ? selectedLabelId : chatWindowShown ? activeChatId : null
-          }
-          onSelect={selectChat}
-          onCloseTab={closeChatTab}
-          onNewChat={startNewChat}
-        />
       </div>
 
       {/* Pinned titlebar toggles (Otter Code): same window spot whatever the panes do. */}
