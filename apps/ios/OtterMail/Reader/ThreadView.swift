@@ -34,7 +34,7 @@ struct ThreadView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 Text(thread.subject)
-                    .font(.title2.weight(.semibold))
+                    .font(.inter(.title2).weight(.semibold))
                     .foregroundStyle(palette.text)
                     .textSelection(.enabled)
                     .padding(.bottom, 8)
@@ -118,12 +118,12 @@ struct ThreadView: View {
         HStack(spacing: 6) {
             Circle().fill(Color(hex: mailbox.color)).frame(width: 7, height: 7)
             Text(mailbox.displayName)
-                .font(.footnote)
+                .font(.inter(.footnote))
                 .foregroundStyle(palette.muted)
                 .padding(.trailing, 2)
             ForEach(userLabels) { label in
                 Text(label.leaf)
-                    .font(.caption2.weight(.medium))
+                    .font(.inter(.caption2).weight(.medium))
                     .foregroundStyle(palette.text)
                     .padding(.horizontal, 7)
                     .frame(height: 20)

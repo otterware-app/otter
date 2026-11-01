@@ -41,19 +41,19 @@ struct ComposeView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     fields
                     TextField("Subject", text: $draft.subject, axis: .vertical)
-                        .font(.title2.weight(.semibold))
+                        .font(.inter(.title2).weight(.semibold))
                         .foregroundStyle(palette.text)
                         .padding(.top, 20).padding(.bottom, 10)
                     TextField("Message", text: $draft.body, selection: $selection, axis: .vertical)
                         .focused($bodyFocused)
-                        .font(.body).foregroundStyle(palette.text).lineSpacing(3)
+                        .font(.inter(.body)).foregroundStyle(palette.text).lineSpacing(3)
                         .frame(maxWidth: .infinity, minHeight: 220, alignment: .topLeading)
                     attachments
                     if let recoveryError {
-                        Text(recoveryError).font(.footnote).foregroundStyle(palette.error).padding(.top, 12)
+                        Text(recoveryError).font(.inter(.footnote)).foregroundStyle(palette.error).padding(.top, 12)
                     } else if store.recoveredDrafts.contains(where: { $0.id == draft.id }) {
                         Label("Saved on this iPhone", systemImage: "checkmark")
-                            .font(.footnote).foregroundStyle(palette.muted).padding(.top, 12)
+                            .font(.inter(.footnote)).foregroundStyle(palette.muted).padding(.top, 12)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -157,7 +157,7 @@ struct ComposeView: View {
                 Spacer()
                 if !showCc && draft.cc.isEmpty { Button("Cc") { showCc = true } }
                 if !showBcc && draft.bcc.isEmpty { Button("Bcc") { showBcc = true } }
-            }.font(.subheadline).foregroundStyle(palette.muted)
+            }.font(.inter(.subheadline)).foregroundStyle(palette.muted)
         }
     }
 
@@ -179,7 +179,7 @@ struct ComposeView: View {
                 }
                 if importing { ProgressView() }
             }
-            .font(.subheadline).foregroundStyle(palette.text)
+            .font(.inter(.subheadline)).foregroundStyle(palette.text)
             .disabled(importing)
             .padding(.vertical, 10)
         }

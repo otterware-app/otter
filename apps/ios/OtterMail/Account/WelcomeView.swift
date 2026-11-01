@@ -19,10 +19,10 @@ struct WelcomeView: View {
                 .clipShape(.rect(cornerRadius: 26))
                 .padding(.bottom, 28)
             Text("Otter Mail")
-                .font(.system(size: 34, weight: .semibold))
+                .font(.inter(size: 34, weight: .semibold))
                 .foregroundStyle(palette.text)
             Text("A calm, fast Gmail client.")
-                .font(.title3)
+                .font(.inter(.title3))
                 .foregroundStyle(palette.muted)
                 .padding(.top, 6)
             Spacer()
@@ -40,7 +40,7 @@ struct WelcomeView: View {
                     }
                 } label: {
                     Label(session.busy ?? "Sign in with Google", systemImage: "person.crop.circle")
-                        .font(.headline)
+                        .font(.inter(.headline))
                         .foregroundStyle(palette.actionText)
                         .frame(maxWidth: .infinity, minHeight: 34)
                 }
@@ -52,7 +52,7 @@ struct WelcomeView: View {
                         session.tryDemo()
                     } label: {
                         Text("Try the demo mailbox")
-                            .font(.headline)
+                            .font(.inter(.headline))
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
                     .buttonStyle(.glass)
@@ -60,7 +60,7 @@ struct WelcomeView: View {
                 }
 
                 Text("Your mail goes straight between this iPhone and Gmail. Your mailboxes, themes and settings follow your Otter account to the Mac and the web.")
-                    .font(.footnote)
+                    .font(.inter(.footnote))
                     .foregroundStyle(palette.muted)
                     .multilineTextAlignment(.center)
                     .padding(.top, 8)

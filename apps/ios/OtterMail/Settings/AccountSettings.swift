@@ -16,7 +16,7 @@ struct AccountSettings: View {
 
     var body: some View {
         SettingsForm {
-            Section("Devices") {
+            Section {
                 if let devices {
                     ForEach(devices) { device in
                         let here = device.token == session.relay.token?.split(separator: ".").first.map(String.init)
@@ -35,7 +35,7 @@ struct AccountSettings: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(Self.name(device.userAgent))
                                 Text("Active \(device.updatedAt.formatted(.relative(presentation: .named)))")
-                                    .font(.subheadline)
+                                    .font(.inter(.subheadline))
                                     .foregroundStyle(palette.muted)
                             }
                         }
@@ -43,6 +43,8 @@ struct AccountSettings: View {
                 } else {
                     ProgressView().frame(maxWidth: .infinity)
                 }
+            } header: {
+                Text("Devices").sectionHeader()
             }
 
             Section {
@@ -66,7 +68,7 @@ struct AccountSettings: View {
                         Text("Signs out every device and forgets your mailboxes and preferences. Your mail stays on its servers.")
                     }
             } footer: {
-                Text("Your Otter account carries your mailboxes, themes and settings to the Mac and the web.")
+                Text("Your Otter account carries your mailboxes, themes and settings to the Mac and the web.").sectionFooter()
             }
         }
         .navigationTitle("Otter account")

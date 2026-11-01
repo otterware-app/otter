@@ -27,7 +27,7 @@ struct SignInAgainButton: View {
         Button(title ?? (mailbox.imap != nil ? "Enter password" : "Sign in")) {
             if mailbox.imap != nil { askPassword = true } else { run { try await session.signIn(mailbox: mailbox.email) } }
         }
-        .font(title == nil ? .subheadline.weight(.semibold) : nil)
+        .font(title == nil ? .inter(.subheadline).weight(.semibold) : nil)
         .disabled(session.busy != nil)
         .alert("Password for \(mailbox.email)", isPresented: $askPassword) {
             SecureField("Password", text: $password)
@@ -70,12 +70,12 @@ struct SignedOutBanners: View {
                 ForEach(lost) { mailbox in
                     HStack(spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(palette.warning)
-                        Text(signedOutTitle(mailbox)).font(.subheadline).lineLimit(1)
+                        Text(signedOutTitle(mailbox)).font(.inter(.subheadline)).lineLimit(1)
                         Spacer(minLength: 8)
                         SignInAgainButton(mailbox: mailbox)
                         Button("Close", systemImage: "xmark") { closed.insert(mailbox.email) }
                             .labelStyle(.iconOnly)
-                            .font(.footnote.weight(.semibold))
+                            .font(.inter(.footnote).weight(.semibold))
                             .foregroundStyle(palette.muted)
                     }
                     .foregroundStyle(palette.text)
@@ -108,7 +108,7 @@ struct SyncStatusLine: View {
                     if warning { Circle().fill(palette.warning).frame(width: 6, height: 6) }
                     Text(text).lineLimit(1)
                 }
-                .font(.footnote)
+                .font(.inter(.footnote))
                 .foregroundStyle(warning ? palette.sidebarText : palette.sidebarMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(.rect)

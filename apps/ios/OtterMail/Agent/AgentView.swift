@@ -124,7 +124,7 @@ struct AgentView: View {
                     QuestionCard(question: question).id(question.id)
                 } else if let readOnly = agent.readOnly {
                     Text(readOnly)
-                        .font(.footnote)
+                        .font(.inter(.footnote))
                         .foregroundStyle(palette.muted)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 28)
@@ -140,13 +140,13 @@ struct AgentView: View {
     private var welcome: some View {
         VStack(spacing: 18) {
             Text("What can I help with?")
-                .font(.title2.weight(.semibold))
+                .font(.inter(.title2).weight(.semibold))
                 .foregroundStyle(palette.text)
             if !context.isEmpty {
                 VStack(spacing: 8) {
                     ForEach(["Summarize this conversation", "Draft a reply", "What do I need to do?"], id: \.self) { suggestion in
                         Button(suggestion) { send(suggestion) }
-                            .font(.subheadline)
+                            .font(.inter(.subheadline))
                             .foregroundStyle(palette.text)
                             .padding(.horizontal, 16)
                             .frame(height: 38)
@@ -172,9 +172,9 @@ struct AgentView: View {
                                 Text(item.subject).lineLimit(1)
                                 Button("Remove", systemImage: "xmark") { context.removeAll { $0 == item } }
                                     .labelStyle(.iconOnly)
-                                    .font(.caption.weight(.bold))
+                                    .font(.inter(.caption).weight(.bold))
                             }
-                            .font(.subheadline)
+                            .font(.inter(.subheadline))
                             .foregroundStyle(palette.text)
                             .padding(.horizontal, 12)
                             .frame(height: 32, alignment: .leading)
@@ -265,10 +265,10 @@ struct AgentView: View {
                 Text(agent.providerName).foregroundStyle(palette.text)
                 if let model { Text(model.shortName).foregroundStyle(palette.muted).lineLimit(1) }
                 Image(systemName: "chevron.down")
-                    .font(.caption.weight(.semibold))
+                    .font(.inter(.caption).weight(.semibold))
                     .foregroundStyle(palette.muted)
             }
-            .font(.headline)
+            .font(.inter(.headline))
             .frame(maxWidth: 230)
         }
         .disabled(agent.models.isEmpty)
@@ -292,7 +292,7 @@ private struct TurnView: View {
             VStack(alignment: .trailing, spacing: 6) {
                 if !turn.context.isEmpty {
                     Label(turn.context.count > 1 ? "\(turn.context.count) conversations" : turn.context[0], systemImage: "envelope")
-                        .font(.caption)
+                        .font(.inter(.caption))
                         .foregroundStyle(palette.muted)
                         .lineLimit(1)
                 }
@@ -303,7 +303,7 @@ private struct TurnView: View {
                     .background(palette.card, in: .rect(cornerRadius: 22))
                     .textSelection(.enabled)
                 if let error = turn.error {
-                    Text(error).font(.caption).foregroundStyle(palette.muted)
+                    Text(error).font(.inter(.caption)).foregroundStyle(palette.muted)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -325,7 +325,7 @@ private struct TurnView: View {
                         .padding(.top, 4)
                     } label: {
                         Label("Used \(turn.tools.count) tool\(turn.tools.count == 1 ? "" : "s")", systemImage: "wrench.and.screwdriver")
-                            .font(.footnote)
+                            .font(.inter(.footnote))
                             .foregroundStyle(palette.muted)
                     }
                     .tint(palette.muted)
@@ -342,11 +342,11 @@ private struct TurnView: View {
                 }
                 if let error = turn.error {
                     Label(error, systemImage: "exclamationmark.triangle")
-                        .font(.footnote)
+                        .font(.inter(.footnote))
                         .foregroundStyle(palette.error)
                 }
                 if let note = turn.note {
-                    Text(note).font(.footnote).foregroundStyle(palette.muted)
+                    Text(note).font(.inter(.footnote)).foregroundStyle(palette.muted)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -386,7 +386,7 @@ private struct QuestionCard: View {
         let agent = session.agent
         VStack(alignment: .leading, spacing: 12) {
             Label("\(agent.providerName) asks", systemImage: "questionmark.bubble")
-                .font(.caption)
+                .font(.inter(.caption))
                 .foregroundStyle(palette.muted)
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
@@ -395,10 +395,10 @@ private struct QuestionCard: View {
                             Text(item.question).foregroundStyle(palette.text)
                             if item.secret {
                                 Text("This asks for a secret, which only goes through OpenClaw's own app.")
-                                    .font(.footnote).foregroundStyle(palette.muted)
+                                    .font(.inter(.footnote)).foregroundStyle(palette.muted)
                             } else {
                                 if item.multiSelect {
-                                    Text("Choose any that apply.").font(.caption).foregroundStyle(palette.muted)
+                                    Text("Choose any that apply.").font(.inter(.caption)).foregroundStyle(palette.muted)
                                 }
                                 ForEach(item.options, id: \.label) { option in
                                     let on = chosen[item.id]?.contains(option.label) == true
@@ -411,7 +411,7 @@ private struct QuestionCard: View {
                                             VStack(alignment: .leading, spacing: 2) {
                                                 Text(option.label).foregroundStyle(palette.text)
                                                 if let description = option.description {
-                                                    Text(description).font(.footnote).foregroundStyle(palette.muted)
+                                                    Text(description).font(.inter(.footnote)).foregroundStyle(palette.muted)
                                                 }
                                             }
                                             Spacer(minLength: 0)
@@ -430,7 +430,7 @@ private struct QuestionCard: View {
                                         if !item.multiSelect, !value.isEmpty { chosen[item.id] = [] }
                                     }
                                 ))
-                                .font(.subheadline)
+                                .font(.inter(.subheadline))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                                 .background(palette.canvas, in: .rect(cornerRadius: 12))
@@ -455,7 +455,7 @@ private struct QuestionCard: View {
             }
             .buttonBorderShape(.capsule)
             .tint(palette.text)
-            .font(.subheadline.weight(.medium))
+            .font(.inter(.subheadline).weight(.medium))
         }
         .padding(16)
         .glassEffect(.regular, in: .rect(cornerRadius: 26))
@@ -492,7 +492,7 @@ private struct ApprovalCard: View {
         let agent = session.agent
         VStack(alignment: .leading, spacing: 12) {
             Label("Permissions", systemImage: "hand.raised")
-                .font(.caption)
+                .font(.inter(.caption))
                 .foregroundStyle(palette.muted)
             VStack(alignment: .leading, spacing: 6) {
                 Text(approval.question)
@@ -507,7 +507,7 @@ private struct ApprovalCard: View {
                         .background(palette.canvas, in: .rect(cornerRadius: 10))
                 }
                 if let note = [approval.reason, approval.isCommand ? nil : approval.detail].compactMap(\.self).first {
-                    Text(note).font(.footnote).foregroundStyle(palette.muted)
+                    Text(note).font(.inter(.footnote)).foregroundStyle(palette.muted)
                 }
             }
             HStack(spacing: 8) {
@@ -534,7 +534,7 @@ private struct ApprovalCard: View {
             }
             .buttonBorderShape(.capsule)
             .tint(palette.text)
-            .font(.subheadline.weight(.medium))
+            .font(.inter(.subheadline).weight(.medium))
         }
         .padding(16)
         .glassEffect(.regular, in: .rect(cornerRadius: 26))
@@ -576,11 +576,11 @@ struct ChatHistory: View {
                                     Text(chat.title).foregroundStyle(palette.text).lineLimit(1)
                                     Spacer()
                                     Text(RelativeTime.short(chat.updatedAt))
-                                        .font(.subheadline)
+                                        .font(.inter(.subheadline))
                                         .foregroundStyle(palette.muted)
                                 }
                                 Text(chat.device.map { "\(chat.providerName) on \($0)" } ?? chat.providerName)
-                                    .font(.subheadline)
+                                    .font(.inter(.subheadline))
                                     .foregroundStyle(palette.muted)
                                     .lineLimit(1)
                             }
@@ -594,7 +594,7 @@ struct ChatHistory: View {
                     }
                 }
                 if !sessions.isEmpty {
-                    Section("On \(agent.providerName)") {
+                    Section {
                         ForEach(sessions) { chat in
                             Button {
                                 Task { await agent.open(chat) }
@@ -607,11 +607,11 @@ struct ChatHistory: View {
                                             .lineLimit(1)
                                         Spacer()
                                         Text(RelativeTime.short(chat.lastActive))
-                                            .font(.subheadline)
+                                            .font(.inter(.subheadline))
                                             .foregroundStyle(palette.muted)
                                     }
                                     if let preview = chat.preview, chat.title != nil {
-                                        Text(preview).font(.subheadline).foregroundStyle(palette.muted).lineLimit(1)
+                                        Text(preview).font(.inter(.subheadline)).foregroundStyle(palette.muted).lineLimit(1)
                                     }
                                 }
                             }
@@ -622,6 +622,8 @@ struct ChatHistory: View {
                                 }
                             }
                         }
+                    } header: {
+                        Text("On \(agent.providerName)").sectionHeader()
                     }
                 }
             }

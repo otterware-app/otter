@@ -14,12 +14,6 @@ final class Preferences {
         var title: String { rawValue.capitalized }
     }
 
-    enum MessageListStyle: String, CaseIterable, Identifiable {
-        case classic, dividers
-        var id: String { rawValue }
-        var title: String { self == .classic ? "Classic" : "With dividers" }
-    }
-
     enum Advance: String, CaseIterable, Identifiable {
         case next, previous, none
         var id: String { rawValue }
@@ -71,9 +65,7 @@ final class Preferences {
     var scheme: Scheme { didSet { ui("otter:theme-source", scheme.rawValue) } }
     var lightTheme: String { didSet { ui("otter:theme:light", lightTheme) } }
     var darkTheme: String { didSet { ui("otter:theme:dark", darkTheme) } }
-    var messageListStyle: MessageListStyle { didSet { ui("otter:message-list-style", messageListStyle.rawValue) } }
     var groupMessagesByDay: Bool { didSet { ui("otter:group-messages-by-day", String(groupMessagesByDay)) } }
-    var dimReadMessages: Bool { didSet { ui("otter:dim-read-messages", String(dimReadMessages)) } }
     /** Messages' content edge to edge, without the reader's side inset (the iPhone's own). */
     var fullWidthMessages: Bool { didSet { ui("otter:full-width-messages", String(fullWidthMessages)) } }
     var advance: Advance { didSet { ui("gmail:advance-direction", advance.rawValue) } }
@@ -110,9 +102,7 @@ final class Preferences {
             "otter:theme-source": scheme.rawValue,
             "otter:theme:light": lightTheme,
             "otter:theme:dark": darkTheme,
-            "otter:message-list-style": messageListStyle.rawValue,
             "otter:group-messages-by-day": String(groupMessagesByDay),
-            "otter:dim-read-messages": String(dimReadMessages),
             "otter:full-width-messages": String(fullWidthMessages),
             "gmail:advance-direction": advance.rawValue,
             "mail:mailboxes": Self.json(arrangement),
@@ -136,9 +126,7 @@ final class Preferences {
         if let value = (ui["otter:theme-source"] as? String).flatMap(Scheme.init), value != scheme { scheme = value }
         if let value = ui["otter:theme:light"] as? String, value != lightTheme { lightTheme = value }
         if let value = ui["otter:theme:dark"] as? String, value != darkTheme { darkTheme = value }
-        if let value = (ui["otter:message-list-style"] as? String).flatMap(MessageListStyle.init), value != messageListStyle { messageListStyle = value }
         if let value = (ui["otter:group-messages-by-day"] as? String).flatMap(Bool.init), value != groupMessagesByDay { groupMessagesByDay = value }
-        if let value = (ui["otter:dim-read-messages"] as? String).flatMap(Bool.init), value != dimReadMessages { dimReadMessages = value }
         if let value = (ui["otter:full-width-messages"] as? String).flatMap(Bool.init), value != fullWidthMessages {
             fullWidthMessages = value
         }
@@ -159,9 +147,7 @@ final class Preferences {
         scheme = defaults.string(forKey: "otter:theme-source").flatMap(Scheme.init) ?? .system
         lightTheme = defaults.string(forKey: "otter:theme:light") ?? Self.initialTheme
         darkTheme = defaults.string(forKey: "otter:theme:dark") ?? Self.initialTheme
-        messageListStyle = defaults.string(forKey: "otter:message-list-style").flatMap(MessageListStyle.init) ?? .classic
         groupMessagesByDay = defaults.string(forKey: "otter:group-messages-by-day").flatMap(Bool.init) ?? true
-        dimReadMessages = defaults.string(forKey: "otter:dim-read-messages").flatMap(Bool.init) ?? true
         fullWidthMessages = defaults.string(forKey: "otter:full-width-messages").flatMap(Bool.init) ?? false
         advance = defaults.string(forKey: "gmail:advance-direction").flatMap(Advance.init) ?? .next
         arrangement = defaults.string(forKey: "mail:mailboxes")?.data(using: .utf8)

@@ -61,7 +61,7 @@ struct MessageView: View {
                     if quote != nil && !showQuote {
                         Button("Show quoted text", systemImage: "ellipsis") { showQuote = true }
                             .labelStyle(.iconOnly)
-                            .font(.footnote.weight(.bold))
+                            .font(.inter(.footnote).weight(.bold))
                             .foregroundStyle(palette.muted)
                             .frame(width: 36, height: 22)
                             .background(palette.surface, in: .capsule)
@@ -74,7 +74,7 @@ struct MessageView: View {
                     Button(showOriginal ? "Show translation" : "Translated · Show original") {
                         showOriginal.toggle()
                     }
-                    .font(.footnote)
+                    .font(.inter(.footnote))
                     .foregroundStyle(palette.muted)
                     .padding(.horizontal, Self.inset)
                 }
@@ -138,22 +138,22 @@ struct MessageView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(message.from.isAddress(mailbox.email) ? "Me" : message.from.label)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.inter(.subheadline).weight(.semibold))
                         .foregroundStyle(palette.text)
                         .lineLimit(1)
                     if message.draft {
                         Text("Draft")
-                            .font(.subheadline)
+                            .font(.inter(.subheadline))
                             .foregroundStyle(palette.error)
                     }
                     Spacer()
                     Text(RelativeTime.short(message.date))
-                        .font(.footnote)
+                        .font(.inter(.footnote))
                         .foregroundStyle(palette.muted)
                         .monospacedDigit()
                 }
                 Text(open ? recipients : message.snippet)
-                    .font(.subheadline)
+                    .font(.inter(.subheadline))
                     .foregroundStyle(palette.muted)
                     .lineLimit(1)
             }
@@ -184,11 +184,11 @@ struct AttachmentChip: View {
             .background(palette.surface, in: .rect(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 1) {
                 Text(attachment.filename)
-                    .font(.subheadline.weight(.medium))
+                    .font(.inter(.subheadline).weight(.medium))
                     .foregroundStyle(palette.text)
                     .lineLimit(1)
                 Text(ByteCountFormatStyle().format(Int64(attachment.size)))
-                    .font(.caption)
+                    .font(.inter(.caption))
                     .foregroundStyle(palette.muted)
             }
         }
@@ -238,7 +238,7 @@ private struct SelectableText: UIViewRepresentable {
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = 4
         view.attributedText = NSAttributedString(string: text, attributes: [
-            .font: UIFont.preferredFont(forTextStyle: .callout),
+            .font: UIFont.inter(.callout),
             .foregroundColor: UIColor(palette.text),
             .paragraphStyle: paragraph,
         ])

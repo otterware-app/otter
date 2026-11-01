@@ -98,7 +98,7 @@ struct HomeView: View {
                 .safeAreaInset(edge: .bottom, spacing: 8) {
                     if let action = store.undoAction {
                         HStack {
-                            Text(action.title).font(.subheadline).lineLimit(2)
+                            Text(action.title).font(.inter(.subheadline)).lineLimit(2)
                             Spacer(minLength: 12)
                             Button("Undo") { store.undo() }.fontWeight(.semibold)
                                 .accessibilityHint("Restores the conversations to their previous folders")

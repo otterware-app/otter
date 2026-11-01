@@ -41,11 +41,11 @@ struct MailSwipeActions: ViewModifier {
                         ForEach(fullSwipe ? [first] : offset > 0 ? actions : Array(actions.reversed())) { action in
                             Button { perform(action) } label: {
                                 VStack(spacing: 6) {
-                                    Image(systemName: action.symbol).font(.title3)
+                                    Image(systemName: action.symbol).font(.inter(.title3))
                                     Text(action.title).lineLimit(1).minimumScaleFactor(0.8)
                                 }
                                     .padding(.horizontal, 4)
-                                    .font(.caption.weight(.medium))
+                                    .font(.inter(.caption).weight(.medium))
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                                     .background(action.tint)

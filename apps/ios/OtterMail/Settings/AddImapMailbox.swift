@@ -35,7 +35,7 @@ struct AddImapMailbox: View {
             Section {
                 Toggle("Background notifications", isOn: $backgroundNotifications)
             } footer: {
-                Text("When enabled, Otter securely stores the IMAP password to watch for new mail while the app is closed. The watcher reads new-mail metadata; previews load directly on your iPhone.")
+                Text("When enabled, Otter securely stores the IMAP password to watch for new mail while the app is closed. The watcher reads new-mail metadata; previews load directly on your iPhone.").sectionFooter()
             }
             Section {
                 TextField("Email", text: $email)
@@ -46,11 +46,14 @@ struct AddImapMailbox: View {
                 SecureField("Password", text: $password)
                     .textContentType(.password)
             } footer: {
-                if finding {
-                    Text("Looking for the servers…")
-                } else if let note {
-                    Text(note)
+                Group {
+                    if finding {
+                        Text("Looking for the servers…")
+                    } else if let note {
+                        Text(note)
+                    }
                 }
+                .sectionFooter()
             }
 
             Section {
@@ -66,7 +69,7 @@ struct AddImapMailbox: View {
                 }
                 .tint(palette.text)
             } footer: {
-                Text("The password stays on this iPhone. The servers follow your Otter account; your other devices ask for the password once.")
+                Text("The password stays on this iPhone. The servers follow your Otter account; your other devices ask for the password once.").sectionFooter()
             }
 
             Section {

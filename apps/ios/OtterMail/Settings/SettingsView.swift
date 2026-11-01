@@ -21,10 +21,10 @@ struct SettingsView: View {
                     VStack(spacing: 8) {
                         ProfilePicture(url: session.user?.picture, size: 64)
                         Text(session.user.map { $0.name ?? $0.email } ?? "Demo mailbox")
-                            .font(.headline)
+                            .font(.inter(.headline))
                             .foregroundStyle(palette.text)
                         Text(session.user?.email ?? "Pretend mail, to try Otter Mail. Nothing here reaches Google.")
-                            .font(.subheadline)
+                            .font(.inter(.subheadline))
                             .foregroundStyle(palette.muted)
                             .multilineTextAlignment(.center)
                     }
@@ -56,11 +56,14 @@ struct SettingsView: View {
                         Label("After archive", systemImage: "arrow.turn.down.right")
                     }
                 } header: {
-                    Text("Mail")
+                    Text("Mail").sectionHeader()
                 } footer: {
-                    if !store.isDemo {
-                        Text("Connect background notifications for each mailbox to receive alerts while the app is closed. Alerts are sent only for verified new mail; sender and preview load on this iPhone.")
+                    Group {
+                        if !store.isDemo {
+                            Text("Connect background notifications for each mailbox to receive alerts while the app is closed. Alerts are sent only for verified new mail; sender and preview load on this iPhone.")
+                        }
                     }
+                    .sectionFooter()
                 }
 
                 Section {
@@ -77,9 +80,9 @@ struct SettingsView: View {
                         Label("Translate automatically", systemImage: "translate")
                     }
                 } header: {
-                    Text("Translation")
+                    Text("Translation").sectionHeader()
                 } footer: {
-                    Text("Mail in other languages is translated on this iPhone, by Apple's Translation.")
+                    Text("Mail in other languages is translated on this iPhone, by Apple's Translation.").sectionFooter()
                 }
 
                 Section {
@@ -94,7 +97,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Appearance") {
+                Section {
                     Picker(selection: $preferences.scheme) {
                         ForEach(Preferences.Scheme.allCases) { Text($0.title).tag($0) }
                     } label: {
@@ -112,17 +115,17 @@ struct SettingsView: View {
                     Toggle(isOn: $preferences.fullWidthMessages) {
                         Label("Full-width messages", systemImage: "arrow.left.and.right")
                     }
+                } header: {
+                    Text("Appearance").sectionHeader()
                 }
 
-                Section("Message list") {
-                    Picker("Style", selection: $preferences.messageListStyle) {
-                        ForEach(Preferences.MessageListStyle.allCases) { Text($0.title).tag($0) }
-                    }
+                Section {
                     Toggle("Group by day", isOn: $preferences.groupMessagesByDay)
-                    Toggle("Dim read messages", isOn: $preferences.dimReadMessages)
+                } header: {
+                    Text("Message list").sectionHeader()
                 }
 
-                Section("Account") {
+                Section {
                     if session.user != nil {
                         NavigationLink {
                             AccountSettings()
@@ -142,6 +145,8 @@ struct SettingsView: View {
                     } label: {
                         Label("Version", systemImage: "info.circle")
                     }
+                } header: {
+                    Text("Account").sectionHeader()
                 }
             }
             .foregroundStyle(palette.text)

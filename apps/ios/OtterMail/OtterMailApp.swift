@@ -17,6 +17,7 @@ struct OtterMailApp: App {
     static let refreshTask = "dev.otterware.mail.refresh"
 
     init() {
+        UIFont.useInterInBars()
         let preferences = Preferences()
         _preferences = State(initialValue: preferences)
         _session = State(initialValue: Session(preferences: preferences))
@@ -139,6 +140,8 @@ struct Themed<Content: View>: View {
             let palette = (preferences.theme(id) ?? Theme.named(Preferences.initialTheme))?.palette(colorScheme)
             content
                 .environment(\.palette, palette ?? EnvironmentValues().palette)
+                // Inter wherever a view doesn't pick its own text style (Typography.swift).
+                .font(.inter(.body))
                 .tint(palette?.action)
                 // Switches wear the focus color, as on the desktop (a monochrome action would vanish).
                 .toggleStyle(SwitchToggleStyle(tint: palette?.focus ?? .blue))

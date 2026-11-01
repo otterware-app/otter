@@ -64,7 +64,7 @@ struct AgentSettings: View {
                         Link("Usage and credits", destination: URL(string: "https://openrouter.ai/activity")!)
                     }
                 } footer: {
-                    Text(session.relay.isSignedIn ? "The API key stays on Otter Mail's server. When you use this agent, your prompts and mail returned by its tools are sent to Otter Mail's server, OpenRouter and the selected model provider. Chat history stays until you delete the chat or your Otter account. Usage is billed to your OpenRouter account." : "Sign in to your Otter account to connect OpenRouter.")
+                    Text(session.relay.isSignedIn ? "The API key stays on Otter Mail's server. When you use this agent, your prompts and mail returned by its tools are sent to Otter Mail's server, OpenRouter and the selected model provider. Chat history stays until you delete the chat or your Otter account. Usage is billed to your OpenRouter account." : "Sign in to your Otter account to connect OpenRouter.").sectionFooter()
                 }
             } else if agent.selected == "openclaw" {
                 openClaw
@@ -74,7 +74,7 @@ struct AgentSettings: View {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Hermes")
-                                Text(statusText).font(.subheadline).foregroundStyle(statusColor)
+                                Text(statusText).font(.inter(.subheadline)).foregroundStyle(statusColor)
                             }
                         } icon: {
                             Image(decorative: "OtterAgent")
@@ -122,7 +122,7 @@ struct AgentSettings: View {
                         .disabled(url.isEmpty || key.isEmpty || connecting)
                     }
                 } footer: {
-                    Text("Your agent server, reached from every device. Chats live on it, so they're the same here, on the Mac and on the web. The key follows your Otter account, sealed.")
+                    Text("Your agent server, reached from every device. Chats live on it, so they're the same here, on the Mac and on the web. The key follows your Otter account, sealed.").sectionFooter()
                 }
             }
         }
@@ -141,7 +141,7 @@ struct AgentSettings: View {
                 Label {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("OpenClaw")
-                        Text(statusText).font(.subheadline).foregroundStyle(statusColor)
+                        Text(statusText).font(.inter(.subheadline)).foregroundStyle(statusColor)
                     }
                 } icon: {
                     Image(decorative: "OtterAgent")
@@ -173,7 +173,7 @@ struct AgentSettings: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Button("Allow answering its questions") { Task { await agent.allowOpenClawQuestions() } }
                                 Text("OpenClaw sometimes stops to ask you something. This iPhone was paired before it could answer.")
-                                    .font(.footnote).foregroundStyle(palette.muted)
+                                    .font(.inter(.footnote)).foregroundStyle(palette.muted)
                             }
                         }
                     }
@@ -224,7 +224,7 @@ struct AgentSettings: View {
                 }
             }
         } footer: {
-            Text("Your OpenClaw gateway, usually over Tailscale. Make a setup code on it with openclaw qr --setup-code-only and paste it here, then approve this iPhone there. Chats live on the gateway, so they're the same everywhere; this iPhone's key and tokens stay on it.")
+            Text("Your OpenClaw gateway, usually over Tailscale. Make a setup code on it with openclaw qr --setup-code-only and paste it here, then approve this iPhone there. Chats live on the gateway, so they're the same everywhere; this iPhone's key and tokens stay on it.").sectionFooter()
         }
     }
 

@@ -35,7 +35,7 @@ struct SignatureEditor: View {
                 }
             HStack {
                 if let status {
-                    Text(status).font(.footnote).foregroundStyle(palette.muted)
+                    Text(status).font(.inter(.footnote)).foregroundStyle(palette.muted)
                 }
                 Spacer()
                 if needsSignIn, let signIn {

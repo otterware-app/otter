@@ -26,7 +26,7 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 0) {
             // The desktop's wordmark: "Mail" quieter.
             Text("\(Text("Otter").foregroundStyle(palette.sidebarText)) \(Text("Mail").foregroundStyle(palette.sidebarMuted))")
-                .font(.title3.weight(.semibold))
+                .font(.inter(.title3).weight(.semibold))
                 .padding(.horizontal, 24)
                 .padding(.top, 8)
                 .padding(.bottom, 14)
@@ -90,7 +90,7 @@ struct SidebarView: View {
                     Text(mailbox.displayName)
                 }
             }
-            .font(.subheadline.weight(.medium))
+            .font(.inter(.subheadline).weight(.medium))
             .foregroundStyle(selected ? palette.sidebarText : palette.sidebarMuted)
             .padding(.horizontal, 12)
             .frame(height: 32)
@@ -108,7 +108,7 @@ struct SidebarView: View {
                 if let mailbox, mailbox.signedOut {
                     HStack(spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(palette.warning)
-                        Text(signedOutTitle(mailbox)).font(.subheadline).lineLimit(1)
+                        Text(signedOutTitle(mailbox)).font(.inter(.subheadline)).lineLimit(1)
                         Spacer(minLength: 8)
                         SignInAgainButton(mailbox: mailbox)
                     }
@@ -152,7 +152,7 @@ struct SidebarView: View {
     private func labelSection(_ title: String, labels: [MailLabel], scope: String, flat: Bool = false) -> some View {
         if !labels.isEmpty {
             Text(title)
-                .font(.footnote)
+                .font(.inter(.footnote))
                 .foregroundStyle(palette.sidebarMuted)
                 .padding(.horizontal, 12)
                 .padding(.top, 20)
@@ -177,13 +177,13 @@ struct SidebarView: View {
                     .foregroundStyle(color.map(Color.init(hex:)) ?? (selected ? palette.sidebarText : palette.sidebarMuted))
                     .frame(width: 22)
                 Text(folder.title(in: mailbox))
-                    .font(.callout)
+                    .font(.inter(.callout))
                     .foregroundStyle(palette.sidebarText)
                     .lineLimit(1)
                 Spacer()
                 if count > 0 {
                     Text("\(count)")
-                        .font(.footnote)
+                        .font(.inter(.footnote))
                         .foregroundStyle(palette.sidebarMuted)
                         .monospacedDigit()
                 }
@@ -211,7 +211,7 @@ struct SidebarView: View {
         HStack {
             Button(action: onCompose) {
                 Label("Compose", systemImage: "square.and.pencil")
-                    .font(.callout.weight(.medium))
+                    .font(.inter(.callout).weight(.medium))
                     .foregroundStyle(palette.sidebarText)
                     .padding(.horizontal, 18)
                     .frame(height: 44)

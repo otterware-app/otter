@@ -28,7 +28,7 @@ struct MailboxesSettings: View {
                                     Text(mailbox.displayName).foregroundStyle(palette.text)
                                 }
                                 Text(mailbox.signedOut ? "Sign in on this iPhone" : mailbox.email)
-                                    .font(.subheadline)
+                                    .font(.inter(.subheadline))
                                     .foregroundStyle(mailbox.signedOut ? palette.warning : palette.muted)
                             }
                             Spacer()
@@ -73,7 +73,7 @@ struct MailboxesSettings: View {
                     .disabled(session.busy != nil)
                 }
             } footer: {
-                Text("Turned-off mailboxes stay signed in but aren't shown or synced, on every device.")
+                Text("Turned-off mailboxes stay signed in but aren't shown or synced, on every device.").sectionFooter()
             }
         }
         .navigationTitle("Mailboxes")
@@ -115,7 +115,7 @@ struct MailboxSettings: View {
                     LabeledContent("Sync", value: "\(failure) — will retry")
                     SignInAgainButton(mailbox: mailbox, title: mailbox.imap != nil ? "Enter password" : "Sign in again")
                 } footer: {
-                    Text("If it keeps failing, signing in again may fix it.")
+                    Text("If it keeps failing, signing in again may fix it.").sectionFooter()
                 }
             }
             if !mailbox.signedOut, session.notificationProviders.contains(mailbox.provider.rawValue) {
@@ -133,9 +133,12 @@ struct MailboxSettings: View {
                         }.disabled(session.busy != nil)
                     }
                 } footer: {
-                    Text(mailbox.imap != nil
-                        ? "Otter securely stores the IMAP password to watch for new mail. The watcher reads new-mail metadata; sender and preview load directly on this iPhone."
-                        : "Otter needs limited provider permission to confirm new mail before sending an alert. Sender and preview load directly on this iPhone.")
+                    Group {
+                        Text(mailbox.imap != nil
+                            ? "Otter securely stores the IMAP password to watch for new mail. The watcher reads new-mail metadata; sender and preview load directly on this iPhone."
+                            : "Otter needs limited provider permission to confirm new mail before sending an alert. Sender and preview load directly on this iPhone.")
+                    }
+                    .sectionFooter()
                 }
                 .confirmationDialog("Enable IMAP background notifications?", isPresented: $confirmNotifications, titleVisibility: .visible) {
                     Button("Enable notifications") { connectNotifications() }
@@ -153,11 +156,14 @@ struct MailboxSettings: View {
                     }
                     .disabled(password.isEmpty || session.busy != nil)
                 } header: {
-                    // Whose password, and where it goes: the servers can change on another device.
-                    Text("\(imap.username) on \(imap.imap.host)")
-                        .textCase(nil)
+                    Group {
+                        // Whose password, and where it goes: the servers can change on another device.
+                        Text("\(imap.username) on \(imap.imap.host)")
+                            .textCase(nil)
+                    }
+                    .sectionHeader()
                 } footer: {
-                    Text("This iPhone needs the password: the mailbox is new here, the server refused it, or its servers changed. It stays on this iPhone; your mail goes straight between it and \(imap.imap.host).")
+                    Text("This iPhone needs the password: the mailbox is new here, the server refused it, or its servers changed. It stays on this iPhone; your mail goes straight between it and \(imap.imap.host).").sectionFooter()
                 }
             } else if mailbox.signedOut {
                 let outlook = mailbox.provider == .outlook
@@ -178,7 +184,7 @@ struct MailboxSettings: View {
                     }
                     .disabled(session.busy != nil)
                 } footer: {
-                    Text("Linked to your Otter account, but this iPhone isn't signed in to it yet. Your mail goes straight between the iPhone and \(outlook ? "Outlook" : "Gmail").")
+                    Text("Linked to your Otter account, but this iPhone isn't signed in to it yet. Your mail goes straight between the iPhone and \(outlook ? "Outlook" : "Gmail").").sectionFooter()
                 }
             }
 
@@ -193,7 +199,7 @@ struct MailboxSettings: View {
                     set: { var m = mailbox; m.color = $0.hex; session.update(m) }
                 ), supportsOpacity: false)
             } footer: {
-                Text("Shown in the sidebar and on its mail, on every device. Only used in Otter Mail.")
+                Text("Shown in the sidebar and on its mail, on every device. Only used in Otter Mail.").sectionFooter()
             }
 
             if !mailbox.signedOut {
@@ -206,11 +212,14 @@ struct MailboxSettings: View {
                         try await session.setSignature(html, for: email)
                     }
                 } header: {
-                    Text("Signature")
+                    Text("Signature").sectionHeader()
                 } footer: {
-                    Text(mailbox.capabilities.serverSignatures
-                        ? "Added to new messages, replies and forwards from this mailbox. Saved in Gmail, so it's the same there and on every device."
-                        : "Added to new messages, replies and forwards from this mailbox. Saved with your Otter account, so it's the same on every device.")
+                    Group {
+                        Text(mailbox.capabilities.serverSignatures
+                            ? "Added to new messages, replies and forwards from this mailbox. Saved in Gmail, so it's the same there and on every device."
+                            : "Added to new messages, replies and forwards from this mailbox. Saved with your Otter account, so it's the same on every device.")
+                    }
+                    .sectionFooter()
                 }
             }
 
@@ -307,14 +316,16 @@ struct LanguagesSettings: View {
                     if !next.isEmpty { preferences.readLanguages = next }
                 }
             } footer: {
-                Text("Mail in these isn't translated. The first is the language translations go into.")
+                Text("Mail in these isn't translated. The first is the language translations go into.").sectionFooter()
             }
 
-            Section("Add") {
+            Section {
                 ForEach(Self.choices.filter { !read.contains($0) }, id: \.self) { code in
                     Button(name(code)) { preferences.readLanguages = read + [code] }
                         .foregroundStyle(palette.text)
                 }
+            } header: {
+                Text("Add").sectionHeader()
             }
         }
         .navigationTitle("Languages I read")

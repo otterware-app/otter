@@ -2,12 +2,12 @@ import SwiftUI
 
 /**
  * One thread, three lines, as the desktop lists them: who (the unread dot
- * before) and when, the subject, then a line of the latest message. List
- * styling and read backgrounds live in ThreadListView.
+ * before) and when, the subject, then a line of the latest message. Unread
+ * is the dot and a brighter, medium-weight name; read mail recedes to grey
+ * (message-list.tsx). Its card behind unread mail lives in ThreadListView.
  */
 struct ThreadRow: View {
     @Environment(\.palette) private var palette
-    @Environment(Preferences.self) private var preferences
     let thread: MailThread
     /** How the mailbox marks mail (`Mailbox.mark`): a star, or a flag. */
     var mark = "star"
@@ -17,44 +17,44 @@ struct ThreadRow: View {
         let unread = thread.unread
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
-                if unread && !preferences.dimReadMessages {
+                if unread {
                     Circle().fill(palette.action).frame(width: 7, height: 7)
                 }
                 Text(senders)
-                    .font(.subheadline)
-                    .foregroundStyle(palette.text.opacity(0.72))
+                    .font(.inter(.subheadline).weight(unread ? .medium : .regular))
+                    .foregroundStyle(unread ? palette.text : palette.text.opacity(0.7))
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 if thread.starred {
                     Image(systemName: "\(mark).fill")
-                        .font(.caption2)
+                        .font(.inter(.caption2))
                         .foregroundStyle(palette.text)
                 }
                 if thread.hasAttachments {
                     Image(systemName: "paperclip")
-                        .font(.caption2)
+                        .font(.inter(.caption2))
                         .foregroundStyle(palette.muted)
                 }
                 if thread.messages.count > 1 {
                     Text("\(thread.messages.count)")
-                        .font(.footnote)
+                        .font(.inter(.footnote))
                         .foregroundStyle(palette.muted)
                         .monospacedDigit()
                 }
                 Text(RelativeTime.short(latest.date))
-                    .font(.footnote)
+                    .font(.inter(.footnote))
                     .foregroundStyle(palette.muted)
                     .monospacedDigit()
             }
 
             Text(thread.subject)
-                .font(.subheadline.weight(unread ? .semibold : .medium))
-                .foregroundStyle(palette.text)
+                .font(.inter(.subheadline))
+                .foregroundStyle(unread ? palette.text : palette.text.opacity(0.6))
                 .lineLimit(1)
 
             Text(thread.isDraft ? "Draft · \(latest.snippet)" : latest.snippet)
-                .font(.subheadline)
-                .foregroundStyle(palette.muted.opacity(preferences.messageListStyle == .dividers ? 1 : 0.8))
+                .font(.inter(.subheadline))
+                .foregroundStyle(palette.muted.opacity(0.8))
                 .lineLimit(1)
         }
         .contentShape(.rect)
@@ -84,7 +84,7 @@ struct MailboxMark: View {
 
     var body: some View {
         Text(mailbox.displayName.prefix(1).uppercased())
-            .font(.system(size: size * 0.6, weight: .bold))
+            .font(.inter(size: size * 0.6, weight: .bold))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
             .background(Color(hex: mailbox.color), in: .rect(cornerRadius: size * 0.28))
@@ -99,7 +99,7 @@ struct SenderAvatar: View {
 
     var body: some View {
         Text(person.label.prefix(1).uppercased())
-            .font(.system(size: size * 0.42, weight: .medium))
+            .font(.inter(size: size * 0.42, weight: .medium))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
             .background(color, in: .rect(cornerRadius: size * 0.22))

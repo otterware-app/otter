@@ -33,10 +33,10 @@ struct RecipientField: View {
                                     Button {
                                         chips.remove(at: index)
                                         publish()
-                                    } label: { Image(systemName: "xmark").font(.caption2.weight(.bold)) }
+                                    } label: { Image(systemName: "xmark").font(.inter(.caption2).weight(.bold)) }
                                     .accessibilityLabel("Remove \(token)")
                                 }
-                                .font(.subheadline)
+                                .font(.inter(.subheadline))
                                 .foregroundStyle(Draft.validRecipient(token) ? palette.text : palette.error)
                                 .padding(.horizontal, 10).padding(.vertical, 7)
                                 .background(palette.surface, in: .capsule)
@@ -73,7 +73,7 @@ struct RecipientField: View {
                             SenderAvatar(person: person, size: 30)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(person.label).foregroundStyle(palette.text)
-                                if !person.name.isEmpty { Text(person.email).font(.caption).foregroundStyle(palette.muted) }
+                                if !person.name.isEmpty { Text(person.email).font(.inter(.caption)).foregroundStyle(palette.muted) }
                             }
                             Spacer()
                             Image(systemName: "plus").foregroundStyle(palette.muted)

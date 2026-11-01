@@ -53,7 +53,7 @@ private struct ThemeCard: View {
 
             HStack {
                 Text(theme.label)
-                    .font(.subheadline.weight(.medium))
+                    .font(.inter(.subheadline).weight(.medium))
                     .foregroundStyle(palette.text)
                     .lineLimit(1)
                 Spacer()

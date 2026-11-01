@@ -35,14 +35,14 @@ struct ThreadListView: View {
 
         List {
             if !searching && !searchTab && !selecting && !recoveries.isEmpty {
-                Section("On this iPhone") {
+                Section {
                     ForEach(recoveries) { recovery in
                         Button { onResume(recovery.draft) } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 Label(recovery.draft.subject.isEmpty ? "Unfinished message" : recovery.draft.subject, systemImage: "square.and.pencil")
                                     .foregroundStyle(palette.text).lineLimit(1)
                                 Text(recovery.draft.to.isEmpty ? recovery.draft.from : recovery.draft.to)
-                                    .font(.footnote).foregroundStyle(palette.muted).lineLimit(1)
+                                    .font(.inter(.footnote)).foregroundStyle(palette.muted).lineLimit(1)
                             }.padding(.vertical, 6)
                         }
                         .listRowBackground(palette.canvas)
@@ -50,6 +50,8 @@ struct ThreadListView: View {
                             Button("Delete local copy", systemImage: "trash", role: .destructive) { store.removeRecovery(recovery.draft, deletingFiles: true) }
                         }
                     }
+                } header: {
+                    Text("On this iPhone").sectionHeader()
                 }.textCase(nil)
             }
             if preferences.groupMessagesByDay {
@@ -254,7 +256,7 @@ struct ThreadListView: View {
 
     private func rows(_ threads: [MailThread]) -> some View {
         ForEach(threads) { thread in
-            row(thread, divider: thread.id != threads.first?.id)
+            row(thread)
         }
     }
 
@@ -266,15 +268,13 @@ struct ThreadListView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: collapsed ? "chevron.right" : "chevron.down")
-                    .font(.caption2)
-                Text(day.title).fontWeight(.medium)
+                    .font(.inter(.caption2))
+                Text(day.title).fontWeight(.medium).foregroundStyle(palette.text)
                 Spacer()
-                Text("\(day.threads.count)").monospacedDigit()
-                if day.unread > 0 {
-                    Text("· \(day.unread) unread").foregroundStyle(palette.action)
-                }
+                Text(day.unread > 0 ? "\(day.threads.count) · \(day.unread) unread" : "\(day.threads.count)")
+                    .monospacedDigit()
             }
-            .font(.footnote)
+            .font(.inter(.footnote))
             .foregroundStyle(palette.muted)
             .frame(minHeight: 44)
             .contentShape(.rect)
@@ -286,7 +286,7 @@ struct ThreadListView: View {
         .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
     }
 
-    private func row(_ thread: MailThread, divider: Bool) -> some View {
+    private func row(_ thread: MailThread) -> some View {
         Group {
             let content = ThreadRow(thread: thread, mark: mailbox?.mark ?? "star")
             if selecting {
@@ -314,17 +314,13 @@ struct ThreadListView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 9)
         .background(
+            // Unread mail is a card, read mail sits on the list (the desktop's).
             palette.canvas.overlay {
-                if preferences.dimReadMessages && !thread.unread && !thread.isDraft {
-                    RoundedRectangle(cornerRadius: preferences.messageListStyle == .classic ? 8 : 0)
+                if thread.unread && !thread.isDraft {
+                    RoundedRectangle(cornerRadius: 8)
                         .fill(palette.text.opacity(0.04))
-                        .padding(.horizontal, preferences.messageListStyle == .classic ? 4 : 0)
-                        .padding(.vertical, preferences.messageListStyle == .classic ? 1 : 0)
-                }
-            }
-            .overlay(alignment: .top) {
-                if preferences.messageListStyle == .dividers && divider {
-                    Rectangle().fill(palette.border).frame(height: 0.5)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
                 }
             }
         )
@@ -380,7 +376,7 @@ struct ThreadListView: View {
 
         var body: some View {
             Text("\(Text(title).fontWeight(.semibold).foregroundStyle(palette.text)) \(Text(scope).foregroundStyle(palette.muted))")
-                .font(.title3)
+                .font(.inter(.title3))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .fixedSize()

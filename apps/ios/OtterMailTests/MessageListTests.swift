@@ -8,29 +8,36 @@ struct MessageListTests {
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let preferences = Preferences(defaults: defaults)
-        #expect(preferences.messageListStyle == .classic)
-        #expect(preferences.groupMessagesByDay && preferences.dimReadMessages)
+        #expect(preferences.groupMessagesByDay)
         #expect(!preferences.fullWidthMessages)
         var changed: [String] = []
         preferences.onChange = { changed.append($0) }
         let remote = [
-            "otter:message-list-style": "dividers",
             "otter:group-messages-by-day": "false",
-            "otter:dim-read-messages": "false",
             "otter:full-width-messages": "true",
         ]
         preferences.apply(ui: remote, settings: [:])
         #expect(changed.isEmpty)
         let restored = Preferences(defaults: defaults)
-        #expect(restored.messageListStyle == .dividers)
-        #expect(!restored.groupMessagesByDay && !restored.dimReadMessages)
+        #expect(!restored.groupMessagesByDay)
         #expect(restored.fullWidthMessages)
         for (key, value) in remote { #expect(restored.uiSection[key] == value) }
-        preferences.dimReadMessages = true
+        preferences.groupMessagesByDay = true
         #expect(changed == ["ui"])
-        #expect(preferences.uiSection["otter:dim-read-messages"] == "true")
-        preferences.apply(ui: ["otter:message-list-style": "unknown", "otter:dim-read-messages": "invalid"], settings: [:])
-        #expect(preferences.messageListStyle == .dividers && preferences.dimReadMessages)
+        #expect(preferences.uiSection["otter:group-messages-by-day"] == "true")
+        preferences.apply(ui: ["otter:group-messages-by-day": "invalid"], settings: [:])
+        #expect(preferences.groupMessagesByDay)
+    }
+
+    /** One list style and unread always shaded, as on the Mac and the web: the old keys are gone. */
+    @Test func noLongerSyncsListStyleOrDimRead() throws {
+        let name = "MessageListTests.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = Preferences(defaults: defaults)
+        preferences.apply(ui: ["otter:message-list-style": "dividers", "otter:dim-read-messages": "false"], settings: [:])
+        #expect(preferences.uiSection["otter:message-list-style"] == nil)
+        #expect(preferences.uiSection["otter:dim-read-messages"] == nil)
     }
 
     @Test func groupsByLocalDayAcrossDaylightSavingTime() throws {
