@@ -512,8 +512,8 @@ html[data-window-controls="none"] {
 }
 
 /* Unread mail is a raised card and read mail sits on the list's own surface,
-   so the shade marks what still needs you. Faint as the day band; hovered,
-   a step up (the plain hover would match it); selection stays strongest. */
+   so the shade marks what still needs you. Hovered, a step up (the plain
+   hover would match it); the open conversation is well above both. */
 :is(.message-list-row, .message-list-thread-row):not([data-read], [data-selected], [data-checked]) {
   background-color: color-mix(in srgb, var(--foreground) 4%, transparent);
 }
@@ -524,6 +524,10 @@ html[data-window-controls="none"] {
     [data-checked]
   ):hover {
   background-color: color-mix(in srgb, var(--foreground) 7%, transparent);
+}
+
+:is(.message-list-row, .message-list-thread-row)[data-selected] {
+  background-color: color-mix(in srgb, var(--foreground) 11%, transparent);
 }
 
 /* The wide layouts use the extra width for a denser row. A narrow workspace
@@ -630,43 +634,6 @@ html[data-window-controls="none"] {
   border-bottom: 1px solid var(--border);
   -webkit-app-region: no-drag;
   app-region: no-drag;
-}
-
-[data-message-list-style="dividers"] {
-  scrollbar-gutter: auto;
-  padding-top: 0;
-}
-
-/* Rows are cards inset like the day band (read mail's shade, hover and
-   selection round off inside the dividers); the dividers stay full width. */
-[data-message-list-style="dividers"] .message-list-group {
-  padding: 0.125rem 0.25rem;
-}
-
-[data-message-list-style="dividers"] .message-list-group + .message-list-group {
-  border-top: 1px solid var(--contrast-sidebar-line);
-}
-
-[data-message-list-style="dividers"] .message-list-row {
-  padding-inline: 0.75rem;
-}
-
-[data-message-list-style="dividers"] .message-list-snippet {
-  color: var(--contrast-muted-foreground);
-}
-
-/* The conversation's messages hang from the face above them, their text in
-   line with the row's. */
-[data-message-list-style="dividers"] .message-list-thread-messages {
-  margin-inline: 1.875rem 0.5rem;
-  padding: 0 0 0.375rem 0.5rem;
-  border-inline-start: 1px solid var(--contrast-sidebar-line);
-  gap: 0.125rem;
-}
-
-[data-message-list-style="dividers"] .message-list-thread-row {
-  border-radius: 0;
-  padding-inline-start: 1.3125rem;
 }
 
 /* Frosted surfaces (popovers, menus, floating bars, dialogs). */

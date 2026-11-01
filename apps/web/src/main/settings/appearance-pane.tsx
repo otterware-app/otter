@@ -53,28 +53,23 @@ import {
   CONTRAST,
   GLASS_OPACITY,
   DEFAULT_READING_WIDTH,
-  DEFAULT_MESSAGE_LIST_STYLE,
   DEFAULT_MAIL_LAYOUT,
   INTERFACE_FONT_SIZE,
   GROUP_MESSAGES_BY_DAY,
   OPEN_MESSAGES_WITH_ARROWS,
   MARK_READ_DELAY,
-  MESSAGE_LIST_STYLES,
   MAIL_LAYOUTS,
   READING_WIDTHS,
   setInterfaceSetting,
   setInterfaceToggle,
   setReadingWidth,
-  setMessageListStyle,
   setMailLayout,
   useInterfaceSetting,
   useInterfaceToggle,
   useReadingWidth,
-  useMessageListStyle,
   useMailLayout,
   type InterfaceSetting,
   type ReadingWidth,
-  type MessageListStyle,
   type MailLayout,
 } from "../theme/interface-settings";
 import {
@@ -862,96 +857,6 @@ function MailLayoutPicker() {
   );
 }
 
-function MessageListStylePicker() {
-  const selectedStyle = useMessageListStyle();
-  return (
-    <SettingsSection
-      {...searchableSetting("message-list-style")}
-      description="Choose how conversations are separated in the message list."
-      variant="plain"
-      headerAction={
-        selectedStyle !== DEFAULT_MESSAGE_LIST_STYLE ? (
-          <SettingResetButton
-            label="message list style"
-            onClick={() => setMessageListStyle(DEFAULT_MESSAGE_LIST_STYLE)}
-          />
-        ) : null
-      }
-    >
-      <div className="@container">
-        <div className="grid grid-cols-1 gap-2 @min-[24rem]:grid-cols-2">
-          {Object.entries(MESSAGE_LIST_STYLES).map(([value, { label, description }]) => {
-            const selected = selectedStyle === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                aria-label={label}
-                aria-pressed={selected}
-                aria-describedby={`message-list-style-${value}-description`}
-                onClick={() => setMessageListStyle(value as MessageListStyle)}
-                className={cn(
-                  "flex cursor-pointer flex-col rounded-xl border bg-card p-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
-                  selected
-                    ? "border-focus-ring ring-1 ring-focus-ring"
-                    : "border-border/60 hover:border-input",
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  data-message-list-style={value}
-                  className="block h-40 w-full overflow-hidden rounded-lg border border-border/60 bg-sidebar-surface"
-                >
-                  <span
-                    className={cn("block", value === "classic" && "pt-2")}
-                    style={{ zoom: 0.75 }}
-                  >
-                    {[
-                      {
-                        sender: "Alex Morgan",
-                        subject: "Weekend plans",
-                        snippet: "How about Saturday?",
-                      },
-                      {
-                        sender: "Jamie Lee",
-                        subject: "A little update",
-                        snippet: "Here's what I've been working on.",
-                      },
-                    ].map(({ sender, subject, snippet }) => (
-                      <span key={sender} className="message-list-group block">
-                        <span className="message-list-row block px-3">
-                          <span className="message-list-row-content flex min-w-0 flex-col">
-                            <span className="truncate text-sm font-medium leading-snug text-foreground">
-                              {sender}
-                            </span>
-                            <span className="truncate text-[13px] leading-snug text-foreground/90">
-                              {subject}
-                            </span>
-                            <span className="message-list-snippet truncate text-[13px] leading-snug text-muted-foreground/75">
-                              {snippet}
-                            </span>
-                          </span>
-                        </span>
-                      </span>
-                    ))}
-                  </span>
-                </span>
-                <span className="mt-2 px-2.5 text-sm font-medium text-foreground">{label}</span>
-                <span
-                  id={`message-list-style-${value}-description`}
-                  className="mt-1 mb-1 px-2.5 text-xs leading-relaxed text-muted-foreground"
-                >
-                  {description}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </SettingsSection>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Pane
 // ---------------------------------------------------------------------------
@@ -1029,7 +934,6 @@ export function AppearancePane() {
       </div>
 
       <MailLayoutPicker />
-      <MessageListStylePicker />
 
       <SettingsSection title="Message list" description="These options apply to every mail layout.">
         <SettingsRow

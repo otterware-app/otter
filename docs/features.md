@@ -260,7 +260,7 @@ On iPhone, iOS's tab bar holds Mail, the Agent (with an agent on, or an Otter ac
 | Panel animations                                                                                                 | ✓   | ✓   | —                                                                          |
 | Contrast, glass opacity, font size, reading width                                                                | ✓   | ✓   | —                                                                          |
 | Full-width messages: content edge to edge, without the side inset (off by default)                               | —   | —   | ✓                                                                          |
-| Message list styles: Classic, With dividers                                                                      | ✓   | ✓   | ✓                                                                          |
+| Message list styles: Classic, With dividers                                                                      | —   | —   | ✓                                                                          |
 | Collapsible day separators, on by default in every mail layout                                                   | ✓   | ✓   | ✓                                                                          |
 | Overlay scrollbars in the mail panes and Settings, hidden when idle                                              | ✓   | ✓   | native                                                                     |
 | Unread messages on a soft background, in every mail layout                                                       | ✓   | ✓   | —                                                                          |

@@ -213,12 +213,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
-    id: "message-list-style",
-    title: "Message list style",
-    pane: "appearance",
-    searchTerms: ["classic with dividers", "rows spacing separation density inbox accessibility"],
-  },
-  {
     id: "reading-width",
     title: "Reading width",
     pane: "appearance",

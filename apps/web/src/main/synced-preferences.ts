@@ -20,7 +20,6 @@ const SYNCED_KEYS = [
   "otter:glass-opacity",
   "otter:interface-font-size",
   "otter:reading-width",
-  "otter:message-list-style",
   "otter:group-messages-by-day",
   "otter:mail-layout",
   "otter:open-messages-with-arrows",

@@ -7,7 +7,6 @@ import {
   OPEN_MESSAGES_WITH_ARROWS,
   GROUP_MESSAGES_BY_DAY,
   useInterfaceToggle,
-  useMessageListStyle,
 } from "../theme/interface-settings";
 import { Dialog } from "~/components/ui/dialog";
 import { EmptyState } from "~/components/ui/empty-state";
@@ -281,8 +280,8 @@ function MessageDayGroup({
   const unread = group.messages.filter((message) => message.threadUnread ?? message.unread).length;
   return (
     <section data-message-day={group.day}>
-      {/* Linear's group band: a soft fill inset evenly from the card, its
-          corners concentric with the card's; opaque below so rows scroll under. */}
+      {/* Linear's group heading: text only, so it doesn't read as another
+          card among unread mail; opaque below so rows scroll under. */}
       <h3 className="sticky top-0 z-10 bg-canvas p-1">
         <button
           type="button"
@@ -291,7 +290,7 @@ function MessageDayGroup({
           aria-expanded={!collapsed}
           aria-controls={bodyId}
           onClick={onToggle}
-          className="flex h-8 w-full cursor-pointer items-center gap-1.5 rounded-lg bg-foreground/[0.04] px-3 text-left text-xs outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+          className="flex h-8 w-full cursor-pointer items-center gap-1.5 rounded-lg px-3 text-left text-xs outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
         >
           <ChevronDownIcon
             aria-hidden
@@ -523,7 +522,7 @@ function MessageRow({
               if (e.shiftKey) e.preventDefault();
             }}
             className={[
-              "message-list-row group relative flex w-full cursor-pointer select-none items-start gap-3 overflow-hidden pl-4 pr-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+              "message-list-row group relative flex w-full cursor-pointer select-none items-start gap-3 overflow-hidden pl-5 pr-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
               selected
                 ? "bg-sidebar-row-active"
                 : checked
@@ -534,11 +533,12 @@ function MessageRow({
             ].join(" ")}
           >
             {/* Who it's from, at a glance (Outlook's column of faces); new
-                mail's dot sits in the gutter before it, so names stay aligned. */}
+                mail's dot sits centered in the gutter before it, clear of the
+                card's edge, so names stay aligned. */}
             <span className="message-list-avatar relative mt-0.5 flex shrink-0">
               {unread && !selected ? (
                 <span
-                  className="absolute -left-[11px] top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-primary"
+                  className="absolute -left-[13px] top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-primary"
                   aria-hidden
                 />
               ) : null}
@@ -566,7 +566,6 @@ function MessageRow({
             <div className="message-list-row-content flex min-w-0 flex-1 flex-col">
               <div className="message-list-row-header flex items-center justify-between gap-2">
                 <span className="message-list-sender flex min-w-0 flex-1 items-center gap-1.5">
-                  {labelIds.includes("IMPORTANT") ? <ImportantMarker muted /> : null}
                   {isDraft ? (
                     <span className="shrink-0 text-[13px] font-medium leading-snug text-destructive-foreground">
                       Draft
@@ -588,6 +587,8 @@ function MessageRow({
                         : ""
                       : senderLabel(message.fromName, message.fromEmail, ownerAccountId)}
                   </span>
+                  {/* After the name, so every sender starts at the same place. */}
+                  {labelIds.includes("IMPORTANT") ? <ImportantMarker muted /> : null}
                 </span>
                 <div className="message-list-meta flex shrink-0 items-center gap-1.5">
                   {threadCount > 1 ? (
@@ -860,7 +861,6 @@ export function MessageList({
   viewQueryRef,
   search,
 }: MessageListProps) {
-  const messageListStyle = useMessageListStyle();
   const groupByDay = useInterfaceToggle(GROUP_MESSAGES_BY_DAY);
   const openMessagesWithArrows = useInterfaceToggle(OPEN_MESSAGES_WITH_ARROWS);
   const [cursor, setCursor] = useState<{ messageId: string; focusId?: string } | null>(null);
@@ -1918,7 +1918,6 @@ export function MessageList({
 
       <ScrollArea
         ref={scrollRef}
-        data-message-list-style={messageListStyle}
         data-group-messages-by-day={groupByDay || undefined}
         onScroll={maybeLoadMore}
         // Clipped to its card's corners (home-view.tsx), sticky day headers too.
@@ -1935,7 +1934,7 @@ export function MessageList({
           <div className="flex flex-col gap-0">
             {["row-1", "row-2", "row-3", "row-4", "row-5", "row-6", "row-7", "row-8"].map((key) => (
               <div key={key} className="message-list-group">
-                <div className="message-list-row flex gap-3 pl-4 pr-3">
+                <div className="message-list-row flex gap-3 pl-5 pr-3">
                   <div className="message-list-avatar size-9 shrink-0 animate-skeleton rounded-lg bg-secondary" />
                   <div className="message-list-skeleton flex min-w-0 flex-1 flex-col gap-2">
                     <div className="h-3.5 w-32 animate-skeleton rounded-full bg-secondary" />
