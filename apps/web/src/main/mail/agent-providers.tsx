@@ -140,6 +140,64 @@ export function ProviderIcon({ kind, className }: { kind: ProviderKind; classNam
   return <HermesIcon className={cn("size-4", className)} />;
 }
 
+/** The OpenClaw agent a chat runs as, from its session key (`agent:<id>:…`). */
+export function openClawAgentId(sessionKey: string | null): string | null {
+  return sessionKey?.match(/^agent:([^:]+):/)?.[1] ?? null;
+}
+
+/**
+ * Who a chat talks to, so chats on different agents tell apart: an OpenClaw
+ * agent's picture (or emoji), else its provider's mark. `kind` and `agent`
+ * are the provider and model it runs on; without them, those new chats take
+ * (a chat not started yet).
+ */
+export function AgentAvatar({
+  kind,
+  agent,
+  className,
+}: {
+  kind?: ProviderKind;
+  agent?: string | null;
+  className?: string;
+}) {
+  // The state only: the chat UI around it keeps it live (useAgentProviders), and lists show many of these.
+  const state = useQuery({
+    queryKey: PROVIDERS_KEY,
+    queryFn: () => mailApi.agentProviders(),
+    staleTime: 30_000,
+  }).data;
+  const shown = kind ?? state?.selected ?? "openrouter";
+  const provider = state?.providers.find((p) => p.kind === shown);
+  const model = provider?.models.find((m) => m.slug === (agent ?? provider.model));
+  const label = model?.avatar || model?.emoji ? model.name : provider?.displayName;
+  const size = cn("size-4 shrink-0", className);
+  if (model?.avatar)
+    return (
+      <img
+        src={model.avatar}
+        alt={label}
+        title={label}
+        className={cn(size, "rounded-full object-cover")}
+      />
+    );
+  if (model?.emoji)
+    return (
+      <span
+        role="img"
+        aria-label={label}
+        title={label}
+        className={cn(size, "flex items-center justify-center leading-none")}
+      >
+        {model.emoji}
+      </span>
+    );
+  return (
+    <span role="img" aria-label={label} title={label} className="inline-flex shrink-0 opacity-80">
+      <ProviderIcon kind={shown} className={className} />
+    </span>
+  );
+}
+
 export const PROVIDER_STATUS_DOT: Record<ProviderSnapshot["status"], string> = {
   disabled: "bg-muted-foreground/50",
   error: "bg-destructive",

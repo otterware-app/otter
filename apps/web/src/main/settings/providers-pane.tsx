@@ -23,6 +23,7 @@ import {
   type RuntimeMode,
 } from "../mail/api";
 import {
+  AgentAvatar,
   PROVIDER_STATUS_DOT,
   ProviderIcon,
   providerSummary,
@@ -344,6 +345,13 @@ function ModelsSection({
                     onClick={() => onPick?.(m.slug)}
                     className="flex min-w-0 items-baseline gap-2 text-left enabled:cursor-pointer"
                   >
+                    {m.avatar || m.emoji ? (
+                      <AgentAvatar
+                        kind={provider.kind}
+                        agent={m.slug}
+                        className="size-3.5 self-center"
+                      />
+                    ) : null}
                     <span
                       className={cn(
                         "truncate text-xs",

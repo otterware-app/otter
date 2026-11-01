@@ -120,6 +120,9 @@ export type ProviderModel = {
   subProvider?: string;
   isDefault?: boolean;
   options?: ProviderModelOption[];
+  /** An OpenClaw agent's picture (an https or data URL), else its emoji. */
+  avatar?: string;
+  emoji?: string;
 };
 export type ProviderSnapshot = {
   kind: ProviderKind;

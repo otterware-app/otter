@@ -9,7 +9,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { HistoryIcon, LoaderCircleIcon, XIcon } from "lucide-react";
 
-import { useChatProvider } from "./agent-providers";
+import { AgentAvatar, openClawAgentId, useChatProvider } from "./agent-providers";
 import { AgentIcon } from "./agent-icon";
 import { mailApi, type ChatSession } from "./api";
 import { HistoryList } from "./chat-history";
@@ -154,6 +154,7 @@ export function ChatBar({
             onSelect(useChats.getState().activeId);
           }}
           providerName={chat.name}
+          providerKind={chat.kind}
         />
       ) : null}
     </div>
@@ -180,22 +181,32 @@ function ChatBarTab({
         title={convo.title}
         className={cn(
           BAR_BUTTON,
-          "w-full min-w-0 pe-6",
+          "w-full min-w-0",
           shown && "bg-foreground/[0.08] text-foreground",
         )}
       >
         {status === "working" ? (
-          <LoaderCircleIcon className="size-3.5 animate-spin" />
-        ) : status ? (
+          <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin" />
+        ) : (
+          <AgentAvatar
+            kind={convo.provider}
+            agent={openClawAgentId(convo.sessionId)}
+            className="size-3.5"
+          />
+        )}
+        {status === "waiting" || status === "finished" ? (
           <span
             aria-label={status === "waiting" ? "Waiting for you" : "Finished"}
             className={cn(
-              "mx-1 size-1.5 shrink-0 rounded-full",
+              "size-1.5 shrink-0 rounded-full",
               status === "waiting" ? "bg-warning" : "bg-primary",
             )}
           />
         ) : null}
-        <span className="min-w-0 truncate">{convo.title}</span>
+        {/* The close button shows over its end on hover, the title fading under it. */}
+        <span className="min-w-0 truncate group-hover/tab:mask-[linear-gradient(to_left,transparent_1.25rem,black_2.25rem)] group-has-focus-visible/tab:mask-[linear-gradient(to_left,transparent_1.25rem,black_2.25rem)]">
+          {convo.title}
+        </span>
       </button>
       {/* Takes the tab out of the bar; the chat stays in history. */}
       <button

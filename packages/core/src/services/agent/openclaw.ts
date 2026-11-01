@@ -366,7 +366,21 @@ export async function allowOpenClawQuestions(
     });
 }
 
-type Agent = { id: string; name?: string; identity?: { name?: string } };
+type Agent = {
+  id: string;
+  name?: string;
+  identity?: { name?: string; emoji?: string; avatarUrl?: string };
+};
+
+/** Pictures past this (a data URL's length) stay on the gateway: the providers' state goes to every window. */
+const MAX_AVATAR_LENGTH = 512_000;
+
+/** The agent's picture, when the app can show it: the gateway inlines one from its files, or links one online. */
+function agentAvatar(agent: Agent): string | undefined {
+  const url = agent.identity?.avatarUrl;
+  if (!url || url.length > MAX_AVATAR_LENGTH) return undefined;
+  return /^(https:|data:image\/)/i.test(url) ? url : undefined;
+}
 
 async function listAgents(g: Gateway): Promise<{ defaultId: string; agents: Agent[] }> {
   const result = await g.client.request<{ defaultId?: string; agents?: Agent[] }>(
@@ -868,6 +882,8 @@ export const openClawProvider: ChatProvider = {
           slug: agent.id,
           name: agent.identity?.name ?? agent.name ?? agent.id,
           ...(agent.id === defaultId ? { isDefault: true } : {}),
+          avatar: agentAvatar(agent),
+          emoji: agent.identity?.emoji,
         })),
         message: new URL(settings.openclaw.url).host,
       };

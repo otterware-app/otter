@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CheckIcon, HistoryIcon, SearchIcon, Trash2Icon } from "lucide-react";
-import type { ChatSession } from "./api";
+import { AgentAvatar, openClawAgentId } from "./agent-providers";
+import type { ChatSession, ProviderKind } from "./api";
 import { cn } from "./ui";
 import { isBlank, type Conversation } from "./chat-store";
 
@@ -46,10 +47,13 @@ export function HistoryList({
   serverLoading,
   onPickServer,
   providerName,
+  providerKind,
   className,
   backdropClassName,
 }: {
   providerName: string;
+  /** The provider the server's sessions are on. */
+  providerKind: ProviderKind;
   /** Where the sheet sits, under its button. */
   className?: string;
   /** What the click-away backdrop covers. */
@@ -130,6 +134,11 @@ export function HistoryList({
               {items.map((c) => (
                 <div key={c.id} className="group/row relative">
                   <button type="button" onClick={() => onPick(c.id)} className={row}>
+                    <AgentAvatar
+                      kind={c.provider}
+                      agent={openClawAgentId(c.sessionId)}
+                      className="size-3.5"
+                    />
                     <span className="min-w-0 flex-1 truncate">{c.title}</span>
                     {c.id === activeId ? (
                       <CheckIcon className="size-4 shrink-0 text-foreground group-hover/row:invisible" />
@@ -166,6 +175,11 @@ export function HistoryList({
                       title={sourceLabel(sess.source)}
                       className={row}
                     >
+                      <AgentAvatar
+                        kind={providerKind}
+                        agent={providerKind === "openclaw" ? sess.source : null}
+                        className="size-3.5"
+                      />
                       <span className="min-w-0 flex-1 truncate">
                         {sess.title || sess.preview || sess.id}
                       </span>

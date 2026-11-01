@@ -46,6 +46,9 @@ export type ProviderModel = {
   subProvider?: string;
   isDefault?: boolean;
   options?: ProviderModelOption[];
+  /** An OpenClaw agent's picture (an https or data URL), else its emoji. */
+  avatar?: string;
+  emoji?: string;
 };
 
 /** Health snapshot of one provider, as shown in Settings and the composer. */

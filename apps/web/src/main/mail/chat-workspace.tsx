@@ -49,7 +49,7 @@ import { FilePreview } from "./attachment-preview";
 import { MessageReader } from "./message-reader";
 import { PanelTab } from "./panel-tab";
 import { mostRecentTab } from "./panel-tabs";
-import { useChatProvider } from "./agent-providers";
+import { AgentAvatar, openClawAgentId, useChatProvider } from "./agent-providers";
 import { usePanelTabDrag } from "./use-panel-tab-drag";
 import { cn } from "./ui";
 
@@ -261,6 +261,11 @@ export function ChatWorkspace({
           className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-2 px-4"
         >
           {titleLeading}
+          {blank ? (
+            <AgentAvatar />
+          ) : (
+            <AgentAvatar kind={convo.provider} agent={openClawAgentId(convo.sessionId)} />
+          )}
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
             {blank ? "New chat" : convo.title}
           </span>
@@ -398,12 +403,17 @@ function RecentChats({ onSelect }: { onSelect: (chatId: string) => void }) {
             onClick={() => onSelect(c.id)}
             className="flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 text-left text-sm text-muted-foreground outline-none hover:bg-foreground/[0.05] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
-            {unseen.has(c.id) ? (
-              <span aria-label="New" className="size-1.5 shrink-0 rounded-full bg-primary" />
-            ) : null}
+            <AgentAvatar
+              kind={c.provider}
+              agent={openClawAgentId(c.sessionId)}
+              className="size-3.5"
+            />
             <span className={cn("min-w-0 flex-1 truncate", unseen.has(c.id) && "text-foreground")}>
               {c.title}
             </span>
+            {unseen.has(c.id) ? (
+              <span aria-label="New" className="size-1.5 shrink-0 rounded-full bg-primary" />
+            ) : null}
             <span className="shrink-0 text-xs">{formatAgo(c.updatedAt)}</span>
           </button>
         </li>

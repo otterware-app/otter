@@ -10,6 +10,8 @@ import { PlusIcon } from "lucide-react";
 import { create } from "zustand";
 
 import { AgentIcon } from "./mail/agent-icon";
+import { AgentAvatar, openClawAgentId } from "./mail/agent-providers";
+import { isBlank, useChats } from "./mail/chat-store";
 import { PanelTab } from "./mail/panel-tab";
 import { HistoryControls, RECENT_ICONS } from "./mail/top-bar";
 import { HintTooltip, IconBtn, cn } from "./mail/ui";
@@ -160,6 +162,7 @@ export function WindowTabsBar({
       >
         {tabs.map((tab) => {
           const Icon = RECENT_ICONS[tab.icon] ?? AgentIcon;
+          const chatId = tab.icon === "chat" ? tab.href.match(/\/chats\/([^/?#]+)/)?.[1] : null;
           return (
             <PanelTab
               key={tab.id}
@@ -170,7 +173,7 @@ export function WindowTabsBar({
               closable={tabs.length > 1}
               onSelect={() => onSelect(tab.id)}
               onClose={() => onClose(tab.id)}
-              icon={<Icon className="size-3.5" />}
+              icon={chatId ? <ChatTabIcon chatId={chatId} /> : <Icon className="size-3.5" />}
               // Each a pill, the others fainter (Linear's).
               className={cn("w-52 max-w-52", tab.id !== activeId && "bg-foreground/[0.04]")}
             />
@@ -183,5 +186,19 @@ export function WindowTabsBar({
         </IconBtn>
       </HintTooltip>
     </div>
+  );
+}
+
+/** A chat's tab shows who it talks to. */
+function ChatTabIcon({ chatId }: { chatId: string }) {
+  const chat = useChats((s) => s.conversations.find((c) => c.id === chatId));
+  return chat && !isBlank(chat) ? (
+    <AgentAvatar
+      kind={chat.provider}
+      agent={openClawAgentId(chat.sessionId)}
+      className="size-3.5"
+    />
+  ) : (
+    <AgentAvatar className="size-3.5" />
   );
 }

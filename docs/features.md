@@ -344,7 +344,8 @@ those steps. Each device pairs on its own; the Hermes connection instead follows
 account. The web app also
 needs its site in the gateway's `gateway.controlUi.allowedOrigins`. Each chat is a gateway
 session, so the gateway's other conversations can be resumed; the gateway's agents are the models
-to pick. Replies, tool steps, steering and command approvals come through; it works on mail with
+to pick, each with its picture (or emoji) from the gateway, which also marks its chats (title,
+tabs, history; other providers' chats show the provider's mark) on Mac and web. Replies, tool steps, steering and command approvals come through; it works on mail with
 its own skills. A run belongs to the gateway, not the app: when the connection drops it's
 followed again on the next one, and a chat whose reply was cut off by quitting picks the run up
 on the next launch, showing what it did meanwhile and streaming the rest (the chat says so while

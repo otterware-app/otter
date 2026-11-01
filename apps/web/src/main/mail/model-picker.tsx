@@ -26,7 +26,7 @@ import type {
   ProviderSnapshot,
   RuntimeMode,
 } from "./api";
-import { ProviderIcon, isProviderUsable } from "./agent-providers";
+import { AgentAvatar, ProviderIcon, isProviderUsable } from "./agent-providers";
 import { modelKey, toggleFavorite, useModelPrefs } from "./model-prefs";
 import {
   DropdownMenu,
@@ -78,6 +78,8 @@ type PickerItem = {
   providerName: string;
   /** Sub-provider (Hermes' "Anthropic", …): the heading it sits under. */
   group: string | null;
+  /** An OpenClaw agent with a picture or emoji of its own. */
+  pictured: boolean;
 };
 
 /**
@@ -239,7 +241,9 @@ function ModelListRow({
         highlighted && "bg-foreground/[0.06]",
       )}
     >
-      {showProvider ? <ProviderIcon kind={item.kind} className="size-3.5 shrink-0" /> : null}
+      {showProvider || item.pictured ? (
+        <AgentAvatar kind={item.kind} agent={item.slug} className="size-3.5" />
+      ) : null}
       <span className="min-w-0 truncate text-foreground">{modelLabel(item.name)}</span>
       {showProvider ? (
         <span className="min-w-0 truncate text-[13px] text-muted-foreground">
@@ -326,6 +330,7 @@ function ModelPickerContent({
               name: m.name,
               providerName: m.subProvider ? `${p.displayName} · ${m.subProvider}` : p.displayName,
               group: m.subProvider ?? null,
+              pictured: Boolean(m.avatar || m.emoji),
             })),
         ),
     [railProviders, hiddenSet, activeKind],
@@ -562,7 +567,7 @@ export function ProviderModelPicker({
             )}
           >
             <span className="flex min-w-0 flex-1 items-center gap-1.5">
-              <ProviderIcon kind={activeKind} className="size-3.5 opacity-80" />
+              <AgentAvatar kind={activeKind} className="size-3.5" />
               <span className="min-w-0 flex-1 truncate">{label}</span>
             </span>
             {chevron ? (
