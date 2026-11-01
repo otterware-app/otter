@@ -80,7 +80,7 @@ export function HistoryList({
   const matches = (text: string) => !q || text.toLowerCase().includes(q);
   const all = conversations.filter((c) => !isBlank(c));
   const items = all.filter((c) => matches(c.title));
-  const showServer = serverSessions !== undefined || serverLoading;
+  const showServer = (serverSessions?.length ?? 0) > 0 || serverLoading;
   const server = (serverSessions ?? []).filter((s) => matches(s.title || s.preview || s.id));
   const nothingYet = all.length === 0 && (serverSessions?.length ?? 0) === 0 && !serverLoading;
   // Section labels only when there are two sections to tell apart.
