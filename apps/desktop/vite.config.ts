@@ -1,5 +1,6 @@
 import "vite-plus/test/config";
 import * as NodeFS from "node:fs";
+import * as NodeURL from "node:url";
 import { defineConfig } from "vite-plus";
 
 import pkg from "./package.json" with { type: "json" };
@@ -29,6 +30,12 @@ const isExternal = (id: string) => id === "electron" || id.startsWith("electron/
 
 const shared = {
   format: "cjs",
+  // Extensions' desktop halves reach the desktop backend through its kit (src/extension-kit.ts).
+  alias: {
+    "@otter-mail/desktop/extension-kit": NodeURL.fileURLToPath(
+      new URL("./src/extension-kit.ts", import.meta.url),
+    ),
+  },
   outDir: "dist-electron",
   dts: false,
   sourcemap: true,

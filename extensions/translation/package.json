@@ -1,0 +1,39 @@
+{
+  "name": "@otter-mail/extension-translation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Translates mail in languages you don't read, on this device.",
+  "type": "module",
+  "exports": {
+    "./manifest": "./manifest.ts",
+    "./core": "./core/index.ts",
+    "./ui": "./ui/index.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vp test run --passWithNoTests"
+  },
+  "dependencies": {
+    "@otter-mail/contracts": "workspace:*",
+    "@otter-mail/core": "workspace:*",
+    "@tanstack/react-query": "^5.87.4",
+    "lucide-react": "^0.542.0",
+    "react": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.12",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "otterMail": {
+    "id": "translation",
+    "name": "Translation",
+    "description": "Translates mail in languages you don't read, on this device.",
+    "category": "mail",
+    "dataUse": "Translates on this device. Nothing is sent anywhere.",
+    "platforms": [
+      "mac",
+      "web"
+    ]
+  }
+}

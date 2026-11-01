@@ -31,6 +31,8 @@ const SYNCED_KEYS = [
   "assistant:hidden-models",
   "assistant:follow-up-behavior",
   "mail:mailboxes",
+  // Built-in extensions turned off (extensions/registry.ts).
+  "otter:extensions:disabled",
 ] as const;
 
 export type SyncedKey = (typeof SYNCED_KEYS)[number];

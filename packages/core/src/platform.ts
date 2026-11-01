@@ -6,7 +6,6 @@
  * `initCore(platform)` once before using anything else.
  */
 
-import type { ChatProvider } from "./services/agent/types.js";
 import type { MailAccount } from "./types.js";
 import type { DemoGmailMailbox, DemoOutlookMailbox } from "@otter-mail/contracts/demo";
 import type { SupportError } from "@otter-mail/shared/support";
@@ -206,8 +205,6 @@ export interface Platform {
   offlineDownloads: boolean;
   /** Absent where there's no on-device translator (browsers other than Chrome). */
   translator?: Translator;
-  /** Agents beyond Hermes and OpenClaw that run on this device (Codex and Claude, on the Mac). */
-  agentProviders?: ChatProvider[];
   /** Local demo agent endpoint; production uses the signed-in relay. */
   agentServerUrl?: string;
 }

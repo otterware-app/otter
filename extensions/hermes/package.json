@@ -1,0 +1,33 @@
+{
+  "name": "@otter-mail/extension-hermes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chats with your Hermes Agent server.",
+  "type": "module",
+  "exports": {
+    "./manifest": "./manifest.ts",
+    "./core": "./core/index.ts",
+    "./ui": "./ui/index.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vp test run --passWithNoTests"
+  },
+  "dependencies": {
+    "@otter-mail/contracts": "workspace:*",
+    "@otter-mail/core": "workspace:*",
+    "react": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.12",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "otterMail": {
+    "id": "hermes",
+    "name": "Hermes",
+    "description": "Chats with your Hermes Agent server.",
+    "category": "agent",
+    "dataUse": "Your messages, and the mail and calendar data its tools read, go to your Hermes server."
+  }
+}

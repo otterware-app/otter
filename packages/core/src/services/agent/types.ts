@@ -5,15 +5,11 @@
  * turns, and every provider streams the same canonical {@link ChatEvent}s.
  */
 
-export type ProviderKind = "hermes" | "openclaw" | "openrouter" | "codex" | "claude";
+/** An agent's id: its extension's (`openrouter`, `hermes`, `claude`, …). */
+export type ProviderKind = string;
 
-export const PROVIDER_KINDS: readonly ProviderKind[] = [
-  "openrouter",
-  "hermes",
-  "openclaw",
-  "codex",
-  "claude",
-];
+/** The agent new chats start with until the user picks another. */
+export const DEFAULT_AGENT = "openrouter";
 
 export type ProviderState = "ready" | "warning" | "error" | "disabled";
 
@@ -69,6 +65,8 @@ export type ProviderSnapshot = {
   model: string | null;
   /** Chats persist on the provider and can be listed/resumed. */
   sessions: boolean;
+  /** The agent's settings, plus what its `settingsView` adds (never its secrets). */
+  settings: AgentSettingsView;
 };
 
 /** Everything the renderer needs for the provider picker and settings. */
@@ -76,7 +74,6 @@ export type ProvidersState = {
   providers: ProviderSnapshot[];
   /** Provider new chats start with. */
   selected: ProviderKind;
-  settings: ProviderSettingsView;
 };
 
 /** T3 Code's runtime modes: how much an agent may do without asking. */
@@ -102,89 +99,31 @@ export type ApprovalRequest = {
   choices: ApprovalDecision[];
 };
 
-export type HermesSettings = {
+/**
+ * What every agent's settings have; each agent adds its own (Hermes' server,
+ * Codex's binary). Stored per agent id in assistant-providers.json.
+ */
+export type AgentSettings = {
   enabled: boolean;
-  baseUrl: string;
-  /** The agent's virtual model id from /v1/models (Responses API). */
-  agentModel: string;
-  /** Chosen `provider::model`; empty → the gateway's default model. */
-  model: string;
-  /** Empty → the gateway's configured default. */
-  reasoningEffort: string;
-  /** Empty / "default" → standard speed. */
-  serviceTier: string;
-  /** Whether the server exposes the native Sessions API (probed at connect). */
-  sessions?: boolean;
-};
-
-export type OpenClawSettings = {
-  enabled: boolean;
-  /** The gateway's WebSocket, `wss://<machine>.<tailnet>.ts.net`. */
-  url: string;
-  /** The gateway agent new chats use; empty → its default agent. */
-  model: string;
-};
-
-export type CodexSettings = {
-  enabled: boolean;
-  /** Empty → `codex` on the login shell's PATH. */
-  binaryPath: string;
-  /** Empty → Codex's default (~/.codex). */
-  homePath: string;
-  /** Extra arguments after `codex app-server`. */
-  launchArgs: string;
-  /** Empty → the model Codex marks as default. */
+  /** Empty → the agent's default model. */
   model: string;
   /** Empty → the model's default effort. */
-  reasoningEffort: string;
+  reasoningEffort?: string;
   /** Empty / "default" → standard speed. */
-  serviceTier: string;
-  runtimeMode: RuntimeMode;
+  serviceTier?: string;
+  runtimeMode?: RuntimeMode;
 };
 
-export type ClaudeSettings = {
-  enabled: boolean;
-  /** Empty → `claude` on the login shell's PATH. */
-  binaryPath: string;
-  /** Empty → Claude's default config dir (CLAUDE_CONFIG_DIR). */
-  homePath: string;
-  /** Empty → Claude Code's default model. */
-  model: string;
-  /** Empty → the model's default effort. */
-  reasoningEffort: string;
-  /** "fast" → fast mode; empty / "default" → standard. */
-  serviceTier: string;
-  runtimeMode: RuntimeMode;
-};
+/** An agent's settings as the renderer sees them: its fields and what `settingsView` adds. */
+export type AgentSettingsView = AgentSettings & Record<string, unknown>;
 
-export type OpenRouterSettings = {
-  enabled: boolean;
-  model: string;
-  reasoningEffort: string;
-  serviceTier: string;
-  runtimeMode: RuntimeMode;
-};
+/** The kind of value each settings field the renderer may change holds, to check patches. */
+export type AgentSettingField = "string" | "boolean" | "runtimeMode";
 
+/** Every agent's settings, by agent id, and the one new chats start with. */
 export type ProviderSettings = {
   selected: ProviderKind;
-  hermes: HermesSettings;
-  openclaw: OpenClawSettings;
-  codex: CodexSettings;
-  claude: ClaudeSettings;
-  openrouter: OpenRouterSettings;
-};
-
-/** Settings as the renderer sees them: Hermes' key and OpenClaw's token never leave the backend. */
-export type ProviderSettingsView = ProviderSettings & {
-  hermesHasKey: boolean;
-  openclawHasToken: boolean;
-  /** The pairing request this device waits on (`openclaw devices approve <id>`). */
-  openclawPairingRequest: string | null;
-  /**
-   * Whether OpenClaw's questions reach this device (null until connected),
-   * and the scope upgrade it waits on to answer them.
-   */
-  openclawQuestions: { allowed: boolean | null; request: string | null };
+  agents: Record<ProviderKind, AgentSettings>;
 };
 
 /**
@@ -303,15 +242,31 @@ export type SendTurnInput = {
 export type ResumeTurnInput = { requestId: string; sessionId: string };
 
 /**
- * One provider. `checkStatus` probes health; the session methods exist only
- * when the provider keeps chats server-side.
+ * The agent contribution: an agent the chat UI drives. Every agent streams the
+ * same {@link ChatEvent}s and the UI draws them; an agent brings only its
+ * health, its turns and, on the renderer's side, its icon and settings form.
+ * Optional methods are capabilities: the UI shows what an agent has.
  */
-export interface ChatProvider {
+export interface ChatProvider<S extends AgentSettings = AgentSettings> {
   readonly kind: ProviderKind;
   readonly displayName: string;
-  checkStatus(settings: ProviderSettings): Promise<Omit<ProviderSnapshot, "checkedAt" | "enabled">>;
+  /** Settings before the user changes any. */
+  readonly defaults: S;
+  /** The fields `agent:updateSettings` may change, and their kind. */
+  readonly fields: { [K in keyof S]?: AgentSettingField };
+  /** Fields that stay on this device (paths on this computer); the rest follow the account. */
+  readonly deviceFields?: readonly (keyof S)[];
+  /** Fields whose change restarts the agent (a new binary, another server). */
+  readonly restartFields?: readonly (keyof S)[];
+  /** A chosen model it no longer lists falls back to its default (OpenRouter's catalog changes). */
+  readonly strictModels?: boolean;
+  /** Settings that never follow the account (OpenClaw's pairing is this device's). */
+  readonly localOnly?: boolean;
+  /** What the settings form needs beyond the settings: whether a key is saved, a pairing request. */
+  settingsView?(settings: S): Promise<Record<string, unknown>>;
+  checkStatus(settings: S): Promise<Omit<ProviderSnapshot, "checkedAt" | "enabled" | "settings">>;
   /** Runs one turn to completion, reporting progress through `emit`. */
-  sendTurn(input: SendTurnInput, settings: ProviderSettings, emit: Emit): Promise<void>;
+  sendTurn(input: SendTurnInput, settings: S, emit: Emit): Promise<void>;
   /**
    * Picks up a run sent earlier with this request id, which the panel lost
    * (the app quit, the window closed): emits the run so far as a
@@ -320,7 +275,7 @@ export interface ChatProvider {
    * when the message never got there. Only providers whose runs outlive
    * the app have it.
    */
-  resume?(input: ResumeTurnInput, settings: ProviderSettings, emit: Emit): Promise<void>;
+  resume?(input: ResumeTurnInput, settings: S, emit: Emit): Promise<void>;
   cancel(requestId: string): void;
   /** Adds a message to the running turn; false when it can't (then queue it). */
   steer(requestId: string, input: string): Promise<boolean>;
@@ -332,12 +287,12 @@ export interface ChatProvider {
     questionId: string,
     answers: Record<string, string[]> | null,
   ): Promise<void>;
-  listSkills(settings: ProviderSettings): Promise<Skill[]>;
-  listSessions(settings: ProviderSettings, limit: number): Promise<ChatSession[]>;
-  readSession(settings: ProviderSettings, sessionId: string): Promise<ChatSessionMessage[]>;
+  listSkills(settings: S): Promise<Skill[]>;
+  listSessions(settings: S, limit: number): Promise<ChatSession[]>;
+  readSession(settings: S, sessionId: string): Promise<ChatSessionMessage[]>;
   /** A file linked by the agent, read on the machine that owns the session. */
-  readFile?(settings: ProviderSettings, sessionId: string, href: string): Promise<ChatFile>;
-  deleteSession(settings: ProviderSettings, sessionId: string): Promise<void>;
+  readFile?(settings: S, sessionId: string, href: string): Promise<ChatFile>;
+  deleteSession(settings: S, sessionId: string): Promise<void>;
   /** Stop background processes (settings changed, app quitting). */
   shutdown(): void;
 }

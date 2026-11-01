@@ -17,6 +17,7 @@ import {
 } from "@otter-mail/core";
 
 import { appInfo, type ToBackend } from "./backend-protocol.js";
+import { desktopExtensions } from "./extensions.js";
 import { registerBackendHandlers } from "./handlers/backend.js";
 import { logger, sendLogsTo } from "./logger.js";
 import { postToMain, settleRequest, tellMain } from "./main-link.js";
@@ -28,7 +29,7 @@ sendLogsTo((level, scope, message, data) => tellMain({ kind: "log", level, scope
 
 async function start(): Promise<void> {
   const platform = desktopPlatform();
-  await startCore(platform);
+  await startCore(platform, desktopExtensions);
   registerBackendHandlers();
   // Agents on this Mac reach the tools whether or not a chat has started.
   serverUrl().catch((error: unknown) =>

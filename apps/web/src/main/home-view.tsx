@@ -1,5 +1,5 @@
 import { useLatest } from "./use-latest";
-import { TodoistDialogs } from "./integrations/todoist";
+import { ExtensionDialogs } from "./extensions/slots";
 import {
   useLayoutEffect,
   useCallback,
@@ -201,10 +201,12 @@ function placeFor(loc: MailLoc, accounts: MailAccount[], views: MailView[] | nul
 
 /** The Settings pane the route names, if it names one. */
 function useRouteSettings(): SettingsRoute | null {
-  const match = useMatch({ from: "/mail/settings/$pane", shouldThrow: false });
-  const pane = match?.params.pane;
-  const target = match?.search.target;
-  return useMemo(() => (pane ? { pane, target } : null), [pane, target]);
+  const paneMatch = useMatch({ from: "/mail/settings/$pane", shouldThrow: false });
+  const itemMatch = useMatch({ from: "/mail/settings/$pane/$item", shouldThrow: false });
+  const pane = itemMatch?.params.pane ?? paneMatch?.params.pane;
+  const item = itemMatch?.params.item;
+  const target = (itemMatch ?? paneMatch)?.search.target;
+  return useMemo(() => (pane ? { pane, item, target } : null), [pane, item, target]);
 }
 
 function onWindowResize(listener: () => void): () => void {
@@ -445,13 +447,21 @@ function MailHome() {
   const openSettings = useCallback(
     (route: SettingsRoute) => {
       // Only the scroll target going (it was reached): the same place.
-      const replace = !!settingsRoute && route.pane === settingsRoute.pane;
-      void navigate({
-        to: "/settings/$pane",
-        params: { pane: route.pane },
-        search: { target: route.target },
-        replace,
-      });
+      const replace =
+        !!settingsRoute && route.pane === settingsRoute.pane && route.item === settingsRoute.item;
+      void (route.item
+        ? navigate({
+            to: "/settings/$pane/$item",
+            params: { pane: route.pane, item: route.item },
+            search: { target: route.target },
+            replace,
+          })
+        : navigate({
+            to: "/settings/$pane",
+            params: { pane: route.pane },
+            search: { target: route.target },
+            replace,
+          }));
     },
     [navigate, settingsRoute],
   );
@@ -462,8 +472,8 @@ function MailHome() {
         const target = await mailApi.getSettingsTarget();
         if (!target) return;
         const pane = target.pane ?? lastPaneRef.current;
-        console.log("[HomeView:openSettings]", { pane });
-        openSettingsRef.current({ pane });
+        console.log("[HomeView:openSettings]", { pane, item: target.item });
+        openSettingsRef.current({ pane, item: target.item });
       } catch (error) {
         console.log("[HomeView:getSettingsTarget] failed", { error: String(error) });
       }
@@ -1647,7 +1657,7 @@ function MailHome() {
                           <SidebarTitle />
                           <SettingsNav
                             pane={settingsRoute.pane}
-                            onSelect={(pane, target) => openSettings({ pane, target })}
+                            onSelect={(pane, target, item) => openSettings({ pane, target, item })}
                             onBack={leaveSettings}
                           />
                         </>
@@ -1883,7 +1893,7 @@ function MailHome() {
         />
       ) : null}
 
-      <TodoistDialogs />
+      <ExtensionDialogs />
       <ViewEditorDialog
         key={viewEditor ?? "closed"}
         open={viewEditor !== null}

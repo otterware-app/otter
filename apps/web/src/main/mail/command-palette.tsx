@@ -1,4 +1,4 @@
-import { browseTodoist } from "../integrations/todoist";
+import { useExtensionCommands } from "../extensions/slots";
 import {
   useEffect,
   useLayoutEffect,
@@ -225,6 +225,7 @@ export function CommandPalette({
 
   // Shortcut labels follow the live keybindings (Settings › Keybindings).
   const { resolved: keybindings } = useKeybindingsState();
+  const extensionCommands = useExtensionCommands();
   const groups: PaletteGroup[] = useMemo(() => {
     const sc = (command: KeybindingCommand) => shortcutLabelFor(keybindings, command) ?? undefined;
     const jump = (digit: number) => sc(`mailbox.jump.${digit}` as KeybindingCommand);
@@ -283,13 +284,13 @@ export function CommandPalette({
     }
 
     const actions: PaletteItem[] = [
-      {
-        id: "todoist",
-        icon: <CheckIcon className={ICON} />,
-        title: "Browse Todoist tasks",
-        keywords: "tasks projects complete todo",
-        run: browseTodoist,
-      },
+      ...extensionCommands.map(({ id, title, keywords, Icon, run }) => ({
+        id,
+        icon: <Icon className={ICON} />,
+        title,
+        keywords,
+        run,
+      })),
       {
         id: "compose",
         icon: <SquarePenIcon className={ICON} />,
@@ -493,6 +494,7 @@ export function CommandPalette({
       ? [searchGroup, ...strong, ...mailGroup, ...weak]
       : [...strong, searchGroup, ...mailGroup, ...weak];
   }, [
+    extensionCommands,
     keybindings,
     themes,
     page,

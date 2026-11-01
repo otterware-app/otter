@@ -18,6 +18,7 @@ function field(file: string, key: string): string | null {
 }
 
 export const linuxBackend: BackendOS = {
+  platform: "linux",
   /** The pretty hostname Settings shows ("Chris's ThinkPad"), else the hostname. */
   deviceName: () => field("/etc/machine-info", "PRETTY_HOSTNAME") ?? os.hostname(),
   environment() {

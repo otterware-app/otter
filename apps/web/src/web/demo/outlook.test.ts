@@ -291,7 +291,9 @@ async function boot() {
     offlineDownloads: false,
   };
   vi.spyOn(console, "log").mockImplementation(() => {});
-  await core.startCore(platform);
+  // After resetModules: the extensions must share this test's fresh core.
+  const { webExtensions } = await import("../extensions");
+  await core.startCore(platform, webExtensions);
   const invoke = <T>(channel: string, params?: unknown) =>
     core.registeredHandlers().get(channel)!(params) as Promise<T>;
   return { core, invoke };

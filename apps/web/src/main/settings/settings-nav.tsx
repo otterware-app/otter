@@ -1,5 +1,6 @@
 import { useLatest } from "../use-latest";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -17,6 +18,7 @@ import {
   KeyboardIcon,
   PaletteIcon,
   PlugIcon,
+  PuzzleIcon,
   Settings2Icon,
   MailIcon,
   MailCheckIcon,
@@ -40,6 +42,7 @@ import { HintTooltip, IconBtn, cn } from "../mail/ui";
 import { features } from "../features";
 import { useCommandHandlers } from "../keybindings/dispatch";
 import {
+  PLUG_IN_PANES,
   searchSettings,
   SETTINGS_SECTION_LABELS,
   type SettingsSearchItem,
@@ -54,9 +57,10 @@ const SETTINGS_SECTION_ICONS: Readonly<
   appearance: PaletteIcon,
   keybindings: KeyboardIcon,
   accounts: MailIcon,
-  agents: AgentIcon,
   browser: GlobeIcon,
+  agents: AgentIcon,
   integrations: PlugIcon,
+  features: PuzzleIcon,
 };
 
 const SETTINGS_SECTIONS = (Object.keys(SETTINGS_SECTION_LABELS) as SettingsPane[])
@@ -85,7 +89,7 @@ export function SettingsNav({
   onBack,
 }: {
   pane: SettingsPane;
-  onSelect: (pane: SettingsPane, target?: string) => void;
+  onSelect: (pane: SettingsPane, target?: string, item?: string) => void;
   onBack: () => void;
 }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -119,7 +123,7 @@ export function SettingsNav({
   const openResult = (item: SettingsSearchItem) => {
     console.log("[SettingsNav:openResult]", { id: item.id });
     clearSearch();
-    onSelect(item.pane, item.targetId ?? item.id);
+    onSelect(item.pane, item.targetId ?? item.id, item.item);
   };
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Escape" && isSearching) {
@@ -244,22 +248,27 @@ export function SettingsNav({
           SETTINGS_SECTIONS.map((section) => {
             const Icon = section.icon;
             const active = section.id === pane;
+            // What plugs into the app, set apart by a gap.
+            const heading =
+              section.id === PLUG_IN_PANES[0] ? <div aria-hidden className="h-4" /> : null;
             return (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => onSelect(section.id)}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  ROW,
-                  active
-                    ? "bg-sidebar-row-selected text-sidebar-foreground [&>svg]:text-sidebar-foreground"
-                    : ROW_IDLE,
-                )}
-              >
-                <Icon />
-                <span className="truncate">{section.label}</span>
-              </button>
+              <Fragment key={section.id}>
+                {heading}
+                <button
+                  type="button"
+                  onClick={() => onSelect(section.id)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    ROW,
+                    active
+                      ? "bg-sidebar-row-selected text-sidebar-foreground [&>svg]:text-sidebar-foreground"
+                      : ROW_IDLE,
+                  )}
+                >
+                  <Icon />
+                  <span className="truncate">{section.label}</span>
+                </button>
+              </Fragment>
             );
           })
         )}

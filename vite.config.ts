@@ -39,5 +39,44 @@ export default defineConfig({
       "eslint/no-await-in-loop": "off",
       "eslint/no-underscore-dangle": "off",
     },
+    overrides: [
+      {
+        // Extensions reach the app only through its kits (packages/contracts/src/extensions.ts).
+        files: ["extensions/**/*.{ts,tsx}"],
+        rules: {
+          "eslint/no-restricted-imports": [
+            "error",
+            {
+              paths: [
+                {
+                  name: "@otter-mail/core",
+                  message: "Import from @otter-mail/core/extension-kit.",
+                },
+              ],
+              patterns: [
+                {
+                  group: [
+                    "~/*",
+                    "**/apps/**",
+                    "**/packages/**",
+                    "@otter-mail/web/*",
+                    "!@otter-mail/web/extension-kit",
+                    "@otter-mail/desktop/*",
+                    "!@otter-mail/desktop/extension-kit",
+                  ],
+                  message:
+                    "Extensions use the app through @otter-mail/core/extension-kit, @otter-mail/web/extension-kit or @otter-mail/desktop/extension-kit.",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        // Tests stand in for the parts of core an extension uses.
+        files: ["extensions/**/*.test.ts"],
+        rules: { "eslint/no-restricted-imports": "off" },
+      },
+    ],
   },
 });

@@ -12,7 +12,8 @@
 
 import type { ChatChange } from "./index.js";
 
-export type ChatProvider = "hermes" | "openclaw" | "openrouter" | "codex" | "claude";
+/** The agent a chat runs on: its extension's id (openrouter, hermes, claude, …). */
+export type ChatProvider = string;
 
 /** Providers whose sessions live on the computer that ran them. */
 export const LOCAL_CHAT_PROVIDERS: readonly ChatProvider[] = ["claude", "codex"];

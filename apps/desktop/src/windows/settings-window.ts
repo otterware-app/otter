@@ -7,8 +7,11 @@ export type SettingsTarget = {
     | "accounts"
     | "agents"
     | "integrations"
+    | "features"
     | "browser"
     | "otter";
+  /** An extension's page in that pane. */
+  item?: string;
 };
 
 // Where the in-app settings page should navigate on open. The main window

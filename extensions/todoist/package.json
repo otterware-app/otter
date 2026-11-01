@@ -1,0 +1,36 @@
+{
+  "name": "@otter-mail/extension-todoist",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Turns email into Todoist tasks, and browses your tasks.",
+  "type": "module",
+  "exports": {
+    "./manifest": "./manifest.ts",
+    "./core": "./core/index.ts",
+    "./ui": "./ui/index.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vp test run --passWithNoTests"
+  },
+  "dependencies": {
+    "@otter-mail/contracts": "workspace:*",
+    "@otter-mail/core": "workspace:*",
+    "@tanstack/react-query": "^5.87.4",
+    "@tanstack/react-router": "^1.131.36",
+    "lucide-react": "^0.542.0",
+    "react": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.12",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "otterMail": {
+    "id": "todoist",
+    "name": "Todoist",
+    "description": "Turns email into Todoist tasks, and browses your tasks.",
+    "category": "integration",
+    "dataUse": "Sends Todoist the tasks you make: their title, your notes and a link back to the email. Your Todoist sign-in stays on this device."
+  }
+}

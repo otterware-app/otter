@@ -29,10 +29,10 @@ vi.mock("../os/index.js", () => ({
 }));
 vi.mock("../backend-host.js", () => ({
   invokeBackend: async () => ({
-    settings: {
-      claude: { binaryPath: fixture.binary, homePath: "", model: "" },
-      codex: { binaryPath: fixture.binary, homePath: "", model: "" },
-    },
+    providers: ["claude", "codex"].map((kind) => ({
+      kind,
+      settings: { binaryPath: fixture.binary, homePath: "", model: "" },
+    })),
   }),
 }));
 vi.mock("../services/agent/shell-path.js", () => ({ ensureShellPath: async () => {} }));

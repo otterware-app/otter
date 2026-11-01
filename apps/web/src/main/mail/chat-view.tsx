@@ -183,7 +183,7 @@ export function ChatView({
           <div className="mt-1 flex items-center gap-2">
             <button
               type="button"
-              onClick={() => void mailApi.openSettings({ pane: "agents" })}
+              onClick={() => void mailApi.openSettings({ pane: "agents", item: chat.kind })}
               className={buttonClass("outline", "sm")}
             >
               Open Settings

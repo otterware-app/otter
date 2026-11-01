@@ -1,4 +1,5 @@
 import { features } from "../features";
+import { CATEGORY_PANE, availableExtensions } from "../extensions/registry";
 import { osNames } from "../os-names";
 import type { SettingsPane } from "../mail/api";
 import { commandLabel, DEFAULT_KEYBINDINGS, KEYBINDING_COMMANDS } from "../keybindings/commands";
@@ -13,6 +14,8 @@ export interface SettingsSearchItem {
   readonly id: string;
   readonly title: string;
   readonly pane: SettingsPane;
+  /** Where in the pane, when it's one thing's page: the extension whose setting it is. */
+  readonly item?: string;
   /** Where to scroll when the item has no row of its own. Defaults to `id`. */
   readonly targetId?: string;
   /** Descriptions, option labels, and aliases people may remember instead of the title. */
@@ -37,9 +40,22 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPane, string>> = {
   keybindings: "Keybindings",
   accounts: "Mailboxes",
   agents: "Agents",
-  browser: "Browser",
   integrations: "Integrations",
+  features: "Features",
+  browser: "Browser",
 };
+
+/**
+ * What plugs into the app, each with its defaults: agents, integrations,
+ * features (the extensions' panes), and the browser, with its Chrome
+ * extensions. The sidebar sets them apart as a group.
+ */
+export const PLUG_IN_PANES: readonly SettingsPane[] = [
+  "agents",
+  "integrations",
+  "features",
+  "browser",
+];
 
 /** Anchor id of the first row bound to `command` on the Keybindings pane. */
 export function keybindingSearchAnchorId(command: string) {
@@ -73,6 +89,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "todoist",
     title: "Todoist",
     pane: "integrations",
+    item: "todoist",
     searchTerms: ["tasks projects due date priority API token connect disconnect"],
   },
   // General
@@ -111,14 +128,16 @@ export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "read-languages",
     title: "Languages I read",
-    pane: "general",
+    pane: "features",
+    item: "translation",
     available: features.translation,
     searchTerms: ["translation translate language foreign"],
   },
   {
     id: "auto-translate",
     title: "Translate automatically",
-    pane: "general",
+    pane: "features",
+    item: "translation",
     available: features.translation,
     searchTerms: ["translation language foreign auto"],
   },
@@ -290,7 +309,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   // Agents
   {
     id: "agent-providers",
-    title: "Providers",
+    title: "New chats start with",
     pane: "agents",
     searchTerms: [
       "agents openrouter api key server model claude codex hermes openclaw enable turn on off default new chats",
@@ -300,6 +319,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "agent-binary-path",
     title: "Binary path",
     pane: "agents",
+    item: "claude",
     available: features.localAgents,
     searchTerms: ["agents cli claude codex runtime home config directory launch arguments"],
   },
@@ -307,6 +327,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "agent-access",
     title: "Access",
     pane: "agents",
+    item: "claude",
     available: features.localAgents,
     searchTerms: ["agents permissions runtime mode full access supervised approvals"],
   },
@@ -314,18 +335,21 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "agent-models",
     title: "Models",
     pane: "agents",
+    item: "openrouter",
     searchTerms: ["agents favorites hidden default model"],
   },
   {
     id: "hermes-connection",
     title: "Connection",
     pane: "agents",
+    item: "hermes",
     searchTerms: ["hermes base url api key server connect"],
   },
   {
     id: "openclaw-connection",
     title: "Connection",
     pane: "agents",
+    item: "openclaw",
     searchTerms: ["openclaw gateway address token connect pair approve device tailscale"],
   },
   {
@@ -397,9 +421,20 @@ function normalizeSearchText(value: string): string {
   return value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+/** Each extension this app has, by name: it opens to its page. */
+function extensionSearchItems(): SettingsSearchItem[] {
+  return availableExtensions().map(({ manifest }) => ({
+    id: `extension-${manifest.id}`,
+    title: manifest.name,
+    pane: CATEGORY_PANE[manifest.category],
+    item: manifest.id,
+    searchTerms: [`${manifest.description} extension`],
+  }));
+}
+
 export function searchSettings(
   query: string,
-  items: ReadonlyArray<SettingsSearchItem> = SETTINGS_SEARCH_ITEMS,
+  items: ReadonlyArray<SettingsSearchItem> = [...SETTINGS_SEARCH_ITEMS, ...extensionSearchItems()],
 ): ReadonlyArray<SettingsSearchItem> {
   const normalizedQuery = normalizeSearchText(query);
   if (normalizedQuery.length === 0) return [];

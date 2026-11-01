@@ -1,56 +1,48 @@
 /**
- * Provider settings (assistant-providers.json) plus the Hermes API key and the
+ * Agent settings (assistant-providers.json: the agent new chats start with,
+ * then each agent's settings under its id) plus the Hermes API key and the
  * OpenClaw gateway token, which are full agent control: kept in the platform's
  * secrets, never sent to the renderer, never logged.
  */
 
 import { readJson, writeJson } from "../../json-file.js";
 import { platform } from "../../platform.js";
-import {
-  PROVIDER_KINDS,
-  type ClaudeSettings,
-  type CodexSettings,
-  type HermesSettings,
-  type OpenClawSettings,
-  type ProviderKind,
-  type ProviderSettings,
-} from "./types.js";
+import { DEFAULT_AGENT, type AgentSettings, type ProviderSettings } from "./types.js";
 
-const DEFAULT_HERMES: HermesSettings = {
-  enabled: true,
-  baseUrl: "",
-  agentModel: "hermes-agent",
-  model: "",
-  reasoningEffort: "",
-  serviceTier: "",
-};
+type Stored = { selected?: string } & Record<string, unknown>;
 
-const DEFAULT_OPENCLAW: OpenClawSettings = {
-  enabled: true,
-  url: "",
-  model: "",
-};
+let cache: ProviderSettings | null = null;
+/** Agents this file holds settings for whose extension isn't here: kept as they were. */
+let unknown: Record<string, unknown> = {};
 
-const DEFAULT_CODEX: CodexSettings = {
-  enabled: true,
-  binaryPath: "",
-  homePath: "",
-  launchArgs: "",
-  model: "",
-  reasoningEffort: "",
-  serviceTier: "",
-  runtimeMode: "full-access",
-};
+/** Every registered agent's settings, its defaults filled in. */
+export async function getProviderSettings(
+  defaults: () => Record<string, AgentSettings>,
+): Promise<ProviderSettings> {
+  if (cache) return cache;
+  const { selected, ...stored } = (await readJson<Stored>("assistant-providers.json")) ?? {};
+  const known = defaults();
+  unknown = Object.fromEntries(Object.entries(stored).filter(([id]) => !(id in known)));
+  cache = {
+    selected: typeof selected === "string" ? selected : DEFAULT_AGENT,
+    agents: Object.fromEntries(
+      Object.entries(known).map(([id, base]) => [
+        id,
+        { ...base, ...(stored[id] as Partial<AgentSettings> | undefined) },
+      ]),
+    ),
+  };
+  return cache;
+}
 
-const DEFAULT_CLAUDE: ClaudeSettings = {
-  enabled: true,
-  binaryPath: "",
-  homePath: "",
-  model: "",
-  reasoningEffort: "",
-  serviceTier: "",
-  runtimeMode: "full-access",
-};
+export async function saveProviderSettings(next: ProviderSettings): Promise<void> {
+  cache = next;
+  await writeJson("assistant-providers.json", {
+    ...unknown,
+    selected: next.selected,
+    ...next.agents,
+  });
+}
 
 // Stored under names from when agents were "assistants"; renaming them would lose them.
 const HERMES_KEY_SECRET = "assistant-hermes-key";
@@ -60,37 +52,6 @@ const OPENCLAW_BOOTSTRAP_SECRET = "openclaw-bootstrap-token";
 /** This device's Ed25519 key (JWK) and the device token the gateway issued it. */
 const OPENCLAW_DEVICE_KEY_SECRET = "openclaw-device-key";
 const OPENCLAW_DEVICE_TOKEN_SECRET = "openclaw-device-token";
-
-let cache: ProviderSettings | null = null;
-
-export async function getProviderSettings(): Promise<ProviderSettings> {
-  if (cache) return cache;
-  const stored = await readJson<ProviderSettings>("assistant-providers.json");
-  const selected = PROVIDER_KINDS.includes(stored?.selected as ProviderKind)
-    ? (stored?.selected as ProviderKind)
-    : "openrouter";
-  cache = {
-    selected,
-    hermes: { ...DEFAULT_HERMES, ...stored?.hermes },
-    openclaw: { ...DEFAULT_OPENCLAW, ...stored?.openclaw },
-    codex: { ...DEFAULT_CODEX, ...stored?.codex },
-    claude: { ...DEFAULT_CLAUDE, ...stored?.claude },
-    openrouter: {
-      enabled: true,
-      model: "",
-      reasoningEffort: "",
-      serviceTier: "",
-      runtimeMode: "approval-required",
-      ...stored?.openrouter,
-    },
-  };
-  return cache;
-}
-
-export async function saveProviderSettings(next: ProviderSettings): Promise<void> {
-  cache = next;
-  await writeJson("assistant-providers.json", next);
-}
 
 export async function getHermesKey(): Promise<string> {
   return (

@@ -1342,7 +1342,8 @@ describe("chats", () => {
     const { token } = await signIn("chats-bad@example.com");
     expect((await call("PUT", "/v1/chats/c_2", token, chat)).status).toBe(400);
     expect((await call("PUT", "/v1/chats/a%20b", token, { ...chat, id: "a b" })).status).toBe(400);
-    const odd = { ...chat, provider: "eliza" };
+    // Any agent extension's id syncs; something that isn't one doesn't.
+    const odd = { ...chat, provider: "Not an id!" };
     expect((await call("PUT", "/v1/chats/c_1", token, odd)).status).toBe(400);
     const huge = { ...chat, turns: [{ id: "u-1", role: "user", text: "x".repeat(700_000) }] };
     expect((await call("PUT", "/v1/chats/c_1", token, huge)).status).toBe(413);

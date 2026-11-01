@@ -105,6 +105,19 @@ Folders and Categories in separate sections on every app. On Mac and web, Move t
 Categorize lists categories. Applying a category keeps the message in
 its folder. Deleting an Outlook folder moves it and its mail to Deleted Items.
 
+## Extensions
+
+Sign-in codes, Calendar invites, Translation, Todoist and the agents (the Otter Mail agent, Hermes,
+OpenClaw, Claude, Codex) are built-in extensions (`extensions/`). Settings lists them by kind,
+under "Extensions": Agents (with chat's own settings above them), Integrations and Features, each
+row with its switch. One with something to set up opens to its page: its switch, where its data
+goes, and its settings. Turning a feature off hides it everywhere (the choice follows the Otter
+account); turning an agent off stops chats on it.
+
+| Feature                                                                                    | Mac | Web                    | iPhone |
+| ------------------------------------------------------------------------------------------ | --- | ---------------------- | ------ |
+| Settings: Agents, Integrations, Features; a switch on each, a page for those with settings | ✓   | ✓ (no Claude or Codex) | —      |
+
 ## Todoist
 
 Implementation boundaries and removal steps: [Todoist feature guide](integrations/todoist.md).

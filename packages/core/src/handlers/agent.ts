@@ -7,32 +7,18 @@
 import { handle } from "../ipc.js";
 import { runAsTask } from "./ipc-budget.js";
 import { ATTACHMENTS_DIR, stageAttachment } from "../services/agent/attachments.js";
-import {
-  connectOpenRouter,
-  disconnectOpenRouter,
-  openRouterConnection,
-} from "../services/agent/openrouter.js";
 import * as agent from "../services/agent/service.js";
 import { preferenceChanged } from "../services/preferences.js";
-import {
-  PROVIDER_KINDS,
-  RUNTIME_MODES,
-  type ApprovalDecision,
-  type ProviderKind,
-  type RuntimeMode,
-  type ChatAttachment,
-} from "../services/agent/types.js";
+import { registeredAgents } from "../extensions.js";
+import type { ApprovalDecision, ProviderKind, ChatAttachment } from "../services/agent/types.js";
 
 type Params = Record<string, unknown> | undefined;
 
 const str = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
-const bool = (value: unknown): boolean | undefined =>
-  typeof value === "boolean" ? value : undefined;
 
 function providerOf(p: Params): ProviderKind {
   const kind = p?.provider;
-  if (typeof kind === "string" && PROVIDER_KINDS.includes(kind as ProviderKind))
-    return kind as ProviderKind;
+  if (typeof kind === "string" && registeredAgents().has(kind)) return kind;
   throw new Error("Unknown agent provider.");
 }
 
@@ -40,50 +26,6 @@ function sessionIdOf(p: Params): string {
   const sessionId = str(p?.sessionId);
   if (!sessionId) throw new Error("A session id is required.");
   return sessionId;
-}
-
-/** Codex / Claude settings: enabled, model choices, launch paths, runtime mode. */
-function agentPatch<K extends string>(
-  raw: Record<string, unknown>,
-  launchKeys: readonly K[],
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  if (bool(raw.enabled) !== undefined) out.enabled = bool(raw.enabled);
-  for (const key of [...launchKeys, "model", "reasoningEffort", "serviceTier"]) {
-    if (typeof raw[key] === "string") out[key] = str(raw[key]);
-  }
-  if (RUNTIME_MODES.includes(raw.runtimeMode as RuntimeMode)) out.runtimeMode = raw.runtimeMode;
-  return out;
-}
-
-/** Only known fields of the right type make it into the patch. */
-function settingsPatch(p: Params): agent.SettingsPatch {
-  const patch: agent.SettingsPatch = {};
-  if (typeof p?.selected === "string" && PROVIDER_KINDS.includes(p.selected as ProviderKind))
-    patch.selected = p.selected as ProviderKind;
-  const hermes = p?.hermes as Params;
-  if (hermes) {
-    const h: NonNullable<agent.SettingsPatch["hermes"]> = {};
-    if (bool(hermes.enabled) !== undefined) h.enabled = bool(hermes.enabled);
-    for (const key of ["model", "reasoningEffort", "serviceTier"] as const) {
-      if (typeof hermes[key] === "string") h[key] = str(hermes[key]);
-    }
-    patch.hermes = h;
-  }
-  const openclaw = p?.openclaw as Params;
-  if (openclaw) {
-    const o: NonNullable<agent.SettingsPatch["openclaw"]> = {};
-    if (bool(openclaw.enabled) !== undefined) o.enabled = bool(openclaw.enabled);
-    if (typeof openclaw.model === "string") o.model = str(openclaw.model);
-    patch.openclaw = o;
-  }
-  const codex = p?.codex as Params;
-  if (codex) patch.codex = agentPatch(codex, ["binaryPath", "homePath", "launchArgs"]);
-  const claude = p?.claude as Params;
-  if (claude) patch.claude = agentPatch(claude, ["binaryPath", "homePath"]);
-  const openrouter = p?.openrouter as Params;
-  if (openrouter) patch.openrouter = agentPatch(openrouter, []);
-  return patch;
 }
 
 const MAX_ATTACHMENTS = 10;
@@ -113,7 +55,6 @@ function attachmentsOf(raw: unknown): ChatAttachment[] {
 }
 
 export function registerAgentHandlers(): void {
-  agent.watchAgentAccount();
   handle("agent:providers", async () => agent.providersState());
 
   handle("agent:refreshProviders", async () => {
@@ -122,45 +63,9 @@ export function registerAgentHandlers(): void {
   });
 
   handle("agent:updateSettings", async (params: unknown) => {
-    const state = await agent.updateProviderSettings(settingsPatch(params as Params));
+    const state = await agent.updateProviderSettings((params ?? {}) as Record<string, unknown>);
     preferenceChanged("assistant");
     return state;
-  });
-
-  handle("agent:openrouterConnection", () => openRouterConnection());
-  handle("agent:connectOpenRouter", async (params: unknown) => {
-    const key = str((params as Params)?.apiKey);
-    await connectOpenRouter(key);
-    await agent.updateProviderSettings({ selected: "openrouter", openrouter: { enabled: true } });
-    await agent.refreshProvider("openrouter");
-    preferenceChanged("assistant");
-    return agent.providersState();
-  });
-  handle("agent:disconnectOpenRouter", async () => {
-    await disconnectOpenRouter();
-    await agent.refreshProvider("openrouter");
-    return agent.providersState();
-  });
-
-  handle("agent:connectHermes", async (params: unknown) => {
-    const p = params as Params;
-    const baseUrl = str(p?.baseUrl);
-    const apiKey = str(p?.apiKey);
-    if (!baseUrl || !apiKey) throw new Error("Base URL and API key are both required.");
-    const state = await agent.connectHermes(baseUrl, apiKey);
-    preferenceChanged("assistant");
-    preferenceChanged("hermesKey");
-    return state;
-  });
-
-  handle("agent:connectOpenClaw", async (params: unknown) => {
-    const p = params as Params;
-    const code = str(p?.code);
-    if (code) return agent.connectOpenClaw({ code });
-    const url = str(p?.url);
-    const token = str(p?.token);
-    if (!url || !token) throw new Error("Paste a setup code, or the gateway address and token.");
-    return agent.connectOpenClaw({ url, token });
   });
 
   handle("agent:send", async (params: unknown) => {
@@ -238,8 +143,6 @@ export function registerAgentHandlers(): void {
     await agent.answerQuestion(providerOf(p), str(p?.requestId), str(p?.questionId), answers);
     return { ok: true };
   });
-
-  handle("agent:allowOpenClawQuestions", async () => agent.allowOpenClawQuestions());
 
   handle("agent:steer", async (params: unknown) => {
     const p = params as Params;

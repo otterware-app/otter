@@ -11,7 +11,8 @@
     "./demo": "./src/demo.ts",
     "./mail": "./src/mail.ts",
     "./todoist": "./src/todoist.ts",
-    "./openrouter": "./src/openrouter.ts"
+    "./openrouter": "./src/openrouter.ts",
+    "./extensions": "./src/extensions.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

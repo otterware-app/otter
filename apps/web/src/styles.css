@@ -4,6 +4,7 @@
 
 /* Tell Tailwind to scan every renderer source file for class names. */
 @source "./**/*.{ts,tsx}";
+@source "../../../extensions/*/ui/**/*.{ts,tsx}";
 
 /* `dark:` follows the `dark` class on <html> (set before first paint in the
    HTML entries, then kept in sync by the theme code). */

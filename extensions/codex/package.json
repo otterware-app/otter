@@ -1,0 +1,38 @@
+{
+  "name": "@otter-mail/extension-codex",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Runs Codex, installed on this computer.",
+  "type": "module",
+  "exports": {
+    "./manifest": "./manifest.ts",
+    "./desktop": "./desktop/index.ts",
+    "./ui": "./ui/index.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vp test run --passWithNoTests"
+  },
+  "dependencies": {
+    "@otter-mail/contracts": "workspace:*",
+    "@otter-mail/core": "workspace:*",
+    "react": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "^19.1.12",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "otterMail": {
+    "id": "codex",
+    "name": "Codex",
+    "description": "Runs Codex, installed on this computer.",
+    "category": "agent",
+    "dataUse": "Runs Codex on this computer. Your messages, and the mail and calendar data its tools read, go to OpenAI.",
+    "platforms": [
+      "mac",
+      "linux"
+    ]
+  }
+}

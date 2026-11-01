@@ -1,51 +1,31 @@
 /**
- * The provider registry + routing layer (T3 Code's ProviderService in
- * miniature). Health snapshots are managed like T3's: served from cache at
- * once, re-checked in the background when stale or when settings change, and
+ * The agents' registry and routing layer (T3 Code's ProviderService in
+ * miniature). The agents are extensions' (`context.registerAgent`): the
+ * Otter Mail agent, Hermes and OpenClaw everywhere, Codex and Claude from the
+ * desktop backend. Only what this backend runs is listed: the web app doesn't
+ * show the Mac's agents.
+ *
+ * Health snapshots are managed like T3's: served from cache at once,
+ * re-checked in the background when stale or when settings change, and
  * pushed to the windows as `agent:providersChanged`. Chat turns are
  * fire-and-forget; their events stream as `agent:chatEvent`.
- *
- * Hermes and OpenClaw are servers, so they work everywhere; Codex and Claude
- * are local CLIs, which the Mac app hands over as `Platform.agentProviders`.
- * Only what the platform runs is listed: the web app doesn't show the Mac's
- * agents.
  */
 
+import { registeredAgents } from "../../extensions.js";
 import { broadcast } from "../../ipc.js";
 import { logger } from "../../logger.js";
-import { platform } from "../../platform.js";
-import {
-  fetchHermesModels,
-  hermesProvider,
-  normalizeHermesBaseUrl,
-  probeHermesSessions,
-} from "./hermes.js";
-import {
-  hasOpenClawCredentials,
-  normalizeOpenClawUrl,
-  allowOpenClawQuestions as requestOpenClawQuestions,
-  openClawPairingRequest,
-  openClawProvider,
-  openClawQuestions,
-  parseOpenClawSetupCode,
-  resetOpenClawConnection,
-} from "./openclaw.js";
-import { openRouterProvider } from "./openrouter.js";
-import { onOtterAccountChange } from "../otter-account.js";
 import { answerToolApproval } from "./tools/index.js";
 import {
+  clearHermesKey,
   getHermesKey,
   getProviderSettings,
   saveProviderSettings,
   setHermesKey,
-  setOpenClawToken,
-  clearOpenClawToken,
-  setOpenClawBootstrapToken,
-  clearOpenClawBootstrapToken,
-  clearHermesKey,
 } from "./settings.js";
 import {
-  PROVIDER_KINDS,
+  DEFAULT_AGENT,
+  RUNTIME_MODES,
+  type AgentSettings,
   type ApprovalDecision,
   type ChatEvent,
   type ChatProvider,
@@ -60,50 +40,47 @@ import {
   type Skill,
 } from "./types.js";
 
-let providers: Partial<Record<ProviderKind, ChatProvider>> | null = null;
-
-/** The providers this platform runs. */
-function available(): Partial<Record<ProviderKind, ChatProvider>> {
-  providers ??= Object.fromEntries(
-    [
-      openRouterProvider,
-      hermesProvider,
-      openClawProvider,
-      ...(platform().agentProviders ?? []),
-    ].map((p) => [p.kind, p]),
-  );
-  return providers;
-}
-
 function provider(kind: ProviderKind): ChatProvider {
-  const found = available()[kind];
-  if (!found) throw new Error("This agent runs in the Mac app.");
+  const found = registeredAgents().get(kind);
+  if (!found) throw new Error("This agent isn't on this device.");
   return found;
 }
 
-const DISPLAY_NAMES: Record<ProviderKind, string> = {
-  hermes: "Hermes",
-  openclaw: "OpenClaw",
-  codex: "Codex",
-  claude: "Claude",
-  openrouter: "OpenRouter",
-};
+function allSettings(): Promise<ProviderSettings> {
+  return getProviderSettings(() =>
+    Object.fromEntries([...registeredAgents()].map(([kind, agent]) => [kind, agent.defaults])),
+  );
+}
+
+/** One agent's settings. */
+export async function agentSettings(kind: ProviderKind): Promise<AgentSettings> {
+  return (await allSettings()).agents[kind] ?? provider(kind).defaults;
+}
+
+/** The agent new chats start with: the user's pick if it's here, else the default. */
+function selectedOf(settings: ProviderSettings): ProviderKind {
+  const agents = registeredAgents();
+  if (agents.has(settings.selected)) return settings.selected;
+  return agents.has(DEFAULT_AGENT) ? DEFAULT_AGENT : ([...agents.keys()][0] ?? DEFAULT_AGENT);
+}
 
 /** Re-check health when a snapshot is older than this (T3's default interval). */
 const STALE_AFTER_MS = 5 * 60_000;
 
-const checked = new Map<ProviderKind, ProviderSnapshot>();
+type Checked = Omit<ProviderSnapshot, "settings">;
+const checked = new Map<ProviderKind, Checked>();
 const checking = new Map<ProviderKind, Promise<void>>();
-let accountGeneration = 0;
+/** Bumped when a check's answer may be stale before it lands (the Otter account changed). */
+const generations = new Map<ProviderKind, number>();
 
-function pendingSnapshot(kind: ProviderKind, settings: ProviderSettings): ProviderSnapshot {
+function pendingSnapshot(agent: ChatProvider, settings: AgentSettings): Checked {
   return {
-    kind,
-    displayName: available()[kind]?.displayName ?? DISPLAY_NAMES[kind],
-    enabled: settings[kind].enabled,
+    kind: agent.kind,
+    displayName: agent.displayName,
+    enabled: settings.enabled,
     installed: false,
     version: null,
-    status: settings[kind].enabled ? "warning" : "disabled",
+    status: settings.enabled ? "warning" : "disabled",
     auth: { status: "unknown" },
     checkedAt: null,
     models: [],
@@ -112,57 +89,51 @@ function pendingSnapshot(kind: ProviderKind, settings: ProviderSettings): Provid
   };
 }
 
-async function getState(): Promise<ProvidersState> {
-  const settings = await getProviderSettings();
-  const snapshots = PROVIDER_KINDS.filter((kind) => available()[kind]).map((kind) => {
-    const snapshot = checked.get(kind) ?? pendingSnapshot(kind, settings);
-    const enabled = settings[kind].enabled;
-    const chosen = settings[kind].model;
-    const fallback = snapshot.models.find((m) => m.isDefault)?.slug ?? snapshot.models[0]?.slug;
-    return {
-      ...snapshot,
-      enabled,
-      status: enabled ? snapshot.status : "disabled",
-      model:
-        chosen && (kind !== "openrouter" || snapshot.models.some((m) => m.slug === chosen))
-          ? chosen
-          : fallback || null,
-    } as ProviderSnapshot;
-  });
-  const { hermes, openclaw, codex, claude, openrouter, selected } = settings;
-  return {
-    providers: snapshots,
-    selected: available()[selected] ? selected : "openrouter",
-    settings: {
-      hermes,
-      openclaw,
-      codex,
-      claude,
-      openrouter,
-      selected,
-      hermesHasKey: (await getHermesKey()).length > 0,
-      openclawHasToken: await hasOpenClawCredentials(),
-      openclawPairingRequest: openClawPairingRequest(),
-      openclawQuestions: openClawQuestions(),
-    },
-  };
+/** Every agent's snapshot and settings, as the renderer shows them. */
+export async function providersState(): Promise<ProvidersState> {
+  const all = await allSettings();
+  const providers = await Promise.all(
+    [...registeredAgents().values()].map(async (agent) => {
+      const settings = all.agents[agent.kind] ?? agent.defaults;
+      const snapshot = checked.get(agent.kind) ?? pendingSnapshot(agent, settings);
+      const fallback = snapshot.models.find((m) => m.isDefault)?.slug ?? snapshot.models[0]?.slug;
+      // A model a strict agent doesn't list anymore falls back to its default.
+      const chosen =
+        settings.model &&
+        (!agent.strictModels || snapshot.models.some((m) => m.slug === settings.model))
+          ? settings.model
+          : null;
+      return {
+        ...snapshot,
+        enabled: settings.enabled,
+        status: settings.enabled ? snapshot.status : "disabled",
+        model: chosen || fallback || null,
+        settings: { ...settings, ...(await agent.settingsView?.(settings)) },
+      } satisfies ProviderSnapshot;
+    }),
+  );
+  for (const p of providers) {
+    if (p.enabled && (!p.checkedAt || Date.now() - p.checkedAt > STALE_AFTER_MS))
+      void check(p.kind);
+  }
+  return { providers, selected: selectedOf(all) };
 }
 
 async function broadcastState(): Promise<void> {
-  broadcast("agent:providersChanged", await getState());
+  broadcast("agent:providersChanged", await providersState());
 }
 
-/** Single-flight health check of one provider; broadcasts when it lands. */
+/** Single-flight health check of one agent; broadcasts when it lands. */
 function check(kind: ProviderKind): Promise<void> {
   const inFlight = checking.get(kind);
   if (inFlight) return inFlight;
-  const generation = accountGeneration;
+  const generation = generations.get(kind) ?? 0;
   const run = (async () => {
-    const settings = await getProviderSettings();
-    const found = available()[kind];
-    if (!found || !settings[kind].enabled) return;
-    const result = await found.checkStatus(settings);
-    if (kind === "openrouter" && generation !== accountGeneration) return;
+    const agent = registeredAgents().get(kind);
+    const settings = await agentSettings(kind);
+    if (!agent || !settings.enabled) return;
+    const result = await agent.checkStatus(settings);
+    if (generation !== (generations.get(kind) ?? 0)) return;
     checked.set(kind, { ...result, enabled: true, checkedAt: Date.now() });
     logger.info("agent", "provider checked", {
       kind,
@@ -184,134 +155,84 @@ function check(kind: ProviderKind): Promise<void> {
   return run;
 }
 
-/** Cached state now; stale or never-checked providers refresh in the background. */
-export async function providersState(): Promise<ProvidersState> {
-  const state = await getState();
-  for (const p of state.providers) {
-    if (p.enabled && (!p.checkedAt || Date.now() - p.checkedAt > STALE_AFTER_MS))
-      void check(p.kind);
-  }
-  return state;
-}
-
 export async function refreshProviders(): Promise<void> {
-  await Promise.all(PROVIDER_KINDS.filter((kind) => available()[kind]).map(check));
+  await Promise.all([...registeredAgents().keys()].map(check));
 }
 
-/** A connection changed while a probe may still have been using its old credentials. */
+/**
+ * Re-checks an agent from scratch: its connection changed while a probe may
+ * still have been using the old one. Extensions call it after connecting.
+ */
 export async function refreshProvider(kind: ProviderKind): Promise<void> {
+  generations.set(kind, (generations.get(kind) ?? 0) + 1);
   await checking.get(kind);
   checked.delete(kind);
   await check(kind);
 }
 
-export type SettingsPatch = {
-  selected?: ProviderKind;
-  hermes?: Partial<
-    Pick<ProviderSettings["hermes"], "enabled" | "model" | "reasoningEffort" | "serviceTier">
-  >;
-  openclaw?: Partial<Pick<ProviderSettings["openclaw"], "enabled" | "model">>;
-  codex?: Partial<ProviderSettings["codex"]>;
-  claude?: Partial<ProviderSettings["claude"]>;
-  openrouter?: Partial<ProviderSettings["openrouter"]>;
-};
+/** Saves fields of one agent's settings that the user doesn't edit directly (a server it connected to). */
+export async function saveAgentSettings(
+  kind: ProviderKind,
+  patch: Partial<AgentSettings> & Record<string, unknown>,
+): Promise<void> {
+  const current = await allSettings();
+  await saveProviderSettings({
+    ...current,
+    agents: { ...current.agents, [kind]: { ...(await agentSettings(kind)), ...patch } },
+  });
+}
 
-/** Settings that change how a provider's process is launched. */
-const LAUNCH_KEYS = ["binaryPath", "homePath", "launchArgs"];
-
-export async function updateProviderSettings(patch: SettingsPatch): Promise<ProvidersState> {
-  const current = await getProviderSettings();
-  const next: ProviderSettings = {
-    selected:
-      patch.selected && PROVIDER_KINDS.includes(patch.selected) ? patch.selected : current.selected,
-    hermes: { ...current.hermes, ...patch.hermes },
-    openclaw: { ...current.openclaw, ...patch.openclaw },
-    codex: { ...current.codex, ...patch.codex },
-    claude: { ...current.claude, ...patch.claude },
-    openrouter: { ...current.openrouter, ...patch.openrouter },
-  };
-  await saveProviderSettings(next);
-  for (const kind of PROVIDER_KINDS) {
-    const changed = patch[kind];
-    if (!changed || !available()[kind]) continue;
-    // A new binary / home: drop running processes and re-probe.
-    if (LAUNCH_KEYS.some((key) => key in changed)) {
-      provider(kind).shutdown();
-      checked.delete(kind);
-      void check(kind);
-    } else if ("enabled" in changed) {
-      if (next[kind].enabled) void check(kind);
-      else provider(kind).shutdown();
-    }
+/** The fields each agent lets `agent:updateSettings` change, of the right kind. */
+function checkedPatch(agent: ChatProvider, raw: unknown): Partial<AgentSettings> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const field = (agent.fields as Record<string, string | undefined>)[key];
+    if (field === "boolean" && typeof value === "boolean") out[key] = value;
+    else if (field === "string" && typeof value === "string") out[key] = value.trim();
+    else if (field === "runtimeMode" && RUNTIME_MODES.includes(value as never)) out[key] = value;
   }
-  const state = await getState();
+  return out as Partial<AgentSettings>;
+}
+
+/** `{ selected?, <agent id>: { field: value } }`, from the renderer: only known fields are kept. */
+export async function updateProviderSettings(
+  patch: Record<string, unknown>,
+): Promise<ProvidersState> {
+  const current = await allSettings();
+  const agents = { ...current.agents };
+  const changes = new Map<ProviderKind, Partial<AgentSettings>>();
+  for (const [kind, agent] of registeredAgents()) {
+    const change = checkedPatch(agent, patch[kind]);
+    if (Object.keys(change).length === 0) continue;
+    agents[kind] = { ...(agents[kind] ?? agent.defaults), ...change };
+    changes.set(kind, change);
+  }
+  const selected =
+    typeof patch.selected === "string" && registeredAgents().has(patch.selected)
+      ? patch.selected
+      : current.selected;
+  await saveProviderSettings({ selected, agents });
+  for (const [kind, change] of changes) restartIfNeeded(provider(kind), change, agents[kind]);
+  const state = await providersState();
   broadcast("agent:providersChanged", state);
   return state;
 }
 
-/** Verifies the URL and key against the server, then saves them. */
-export async function connectHermes(baseUrl: string, apiKey: string): Promise<ProvidersState> {
-  const base = normalizeHermesBaseUrl(baseUrl);
-  const [models, sessions] = await Promise.all([
-    fetchHermesModels(base, apiKey),
-    probeHermesSessions(base, apiKey),
-  ]);
-  await setHermesKey(apiKey);
-  const current = await getProviderSettings();
-  await saveProviderSettings({
-    ...current,
-    hermes: {
-      ...current.hermes,
-      baseUrl: base,
-      agentModel: models[0] || "hermes-agent",
-      sessions,
-    },
-  });
-  logger.info("agent", "hermes connected", { baseUrl: base, sessions });
-  checked.delete("hermes");
-  void check("hermes");
-  return getState();
-}
-
-/**
- * Saves how to reach the gateway (a setup code, or its address and token),
- * then connects in the background: the status that follows says whether the
- * device still needs approving.
- */
-export async function connectOpenClaw(
-  input: { code: string } | { url: string; token: string },
-): Promise<ProvidersState> {
-  let url: string;
-  if ("code" in input) {
-    const code = parseOpenClawSetupCode(input.code);
-    if (!code)
-      throw new Error("That isn't a setup code. Copy what openclaw qr --setup-code-only prints.");
-    if (code.expiresAtMs && code.expiresAtMs < Date.now())
-      throw new Error(
-        "That setup code has expired. Make a new one with openclaw qr --setup-code-only.",
-      );
-    url = code.url;
-    await resetOpenClawConnection();
-    await clearOpenClawToken();
-    await setOpenClawBootstrapToken(code.bootstrapToken);
-  } else {
-    url = input.url;
-    await resetOpenClawConnection();
-    await clearOpenClawBootstrapToken();
-    await setOpenClawToken(input.token);
+/** A new binary / home / server: drop running processes and re-probe; turned off: stop. */
+function restartIfNeeded(
+  agent: ChatProvider,
+  change: Record<string, unknown>,
+  next: AgentSettings,
+): void {
+  if ((agent.restartFields ?? []).some((key) => key in change)) {
+    agent.shutdown();
+    checked.delete(agent.kind);
+    void check(agent.kind);
+  } else if ("enabled" in change) {
+    if (next.enabled) void check(agent.kind);
+    else agent.shutdown();
   }
-  const current = await getProviderSettings();
-  await saveProviderSettings({
-    ...current,
-    openclaw: { ...current.openclaw, url: normalizeOpenClawUrl(url) },
-  });
-  logger.info("agent", "openclaw connecting", {
-    url: normalizeOpenClawUrl(url),
-    with: "code" in input ? "setup code" : "token",
-  });
-  checked.delete("openclaw");
-  void check("openclaw");
-  return getState();
 }
 
 function emit(event: ChatEvent): void {
@@ -320,7 +241,7 @@ function emit(event: ChatEvent): void {
 
 /** Starts a turn and returns at once; progress streams as chat events. */
 export async function sendTurn(kind: ProviderKind, turn: SendTurnInput): Promise<void> {
-  const settings = await getProviderSettings();
+  const settings = await agentSettings(kind);
   logger.info("agent", "send", {
     provider: kind,
     requestId: turn.requestId,
@@ -328,7 +249,7 @@ export async function sendTurn(kind: ProviderKind, turn: SendTurnInput): Promise
     session: turn.sessionId ? "existing" : "new",
     skill: turn.skill?.name,
   });
-  if (!settings[kind].enabled) {
+  if (!settings.enabled) {
     emit({
       requestId: turn.requestId,
       type: "error",
@@ -357,23 +278,14 @@ export async function sendTurn(kind: ProviderKind, turn: SendTurnInput): Promise
  */
 export async function resumeTurn(kind: ProviderKind, turn: ResumeTurnInput): Promise<boolean> {
   const found = provider(kind);
-  const settings = await getProviderSettings();
-  if (!found.resume || !settings[kind].enabled) return false;
+  const settings = await agentSettings(kind);
+  if (!found.resume || !settings.enabled) return false;
   logger.info("agent", "resume", { provider: kind, requestId: turn.requestId });
   void found.resume(turn, settings, emit).catch((error: unknown) => {
     logger.info("agent", "resume crashed", { provider: kind, error: String(error) });
     emit({ requestId: turn.requestId, type: "error", message: "detached" });
   });
   return true;
-}
-
-/** Asks the gateway to let this device answer OpenClaw's questions (approved there). */
-export async function allowOpenClawQuestions(): Promise<ProvidersState> {
-  await requestOpenClawQuestions(await getProviderSettings(), () => {
-    checked.delete("openclaw");
-    void check("openclaw");
-  });
-  return getState();
 }
 
 /** Answers a question the run asked; null skips it. */
@@ -415,25 +327,22 @@ export function cancelTurn(kind: ProviderKind, requestId: string): void {
 }
 
 export async function listSkills(kind: ProviderKind): Promise<Skill[]> {
-  return provider(kind).listSkills(await getProviderSettings());
+  return provider(kind).listSkills(await agentSettings(kind));
 }
 
 export async function listSessions(kind: ProviderKind, limit: number): Promise<ChatSession[]> {
-  return provider(kind).listSessions(
-    await getProviderSettings(),
-    Math.min(Math.max(limit, 1), 200),
-  );
+  return provider(kind).listSessions(await agentSettings(kind), Math.min(Math.max(limit, 1), 200));
 }
 
 export async function readSession(
   kind: ProviderKind,
   sessionId: string,
 ): Promise<ChatSessionMessage[]> {
-  return provider(kind).readSession(await getProviderSettings(), sessionId);
+  return provider(kind).readSession(await agentSettings(kind), sessionId);
 }
 
 export async function deleteSession(kind: ProviderKind, sessionId: string): Promise<void> {
-  await provider(kind).deleteSession(await getProviderSettings(), sessionId);
+  await provider(kind).deleteSession(await agentSettings(kind), sessionId);
 }
 
 export async function readFile(kind: ProviderKind, sessionId: string, href: string) {
@@ -442,93 +351,79 @@ export async function readFile(kind: ProviderKind, sessionId: string, href: stri
     throw new Error(
       `${found.displayName} hasn't made this file available. Ask it to attach the image directly.`,
     );
-  return found.readFile(await getProviderSettings(), sessionId, href);
+  return found.readFile(await agentSettings(kind), sessionId, href);
 }
 
 export function shutdownProviders(): void {
-  for (const found of Object.values(available())) found.shutdown();
+  for (const found of registeredAgents().values()) found.shutdown();
 }
 
 // ── Preferences sync (services/preferences.ts) ──────────────────────────────
 
 /**
- * Where the CLIs live, and OpenClaw's gateway (its token stays on the device),
- * are this device's business; everything else follows the account.
+ * Each agent's settings follow the account, except its device fields (where
+ * a CLI lives) and agents that are this device's alone (OpenClaw's pairing).
+ * Agents this device doesn't run keep the account's as they were.
  */
-const DEVICE_KEYS = ["binaryPath", "homePath", "launchArgs"] as const;
+export type SyncedProviderSettings = { selected: ProviderKind } & Record<string, unknown>;
 
-type Synced<T> = Omit<T, (typeof DEVICE_KEYS)[number]>;
-export type SyncedProviderSettings = {
-  selected: ProviderKind;
-  hermes: ProviderSettings["hermes"];
-  codex: Synced<ProviderSettings["codex"]>;
-  claude: Synced<ProviderSettings["claude"]>;
-  openrouter: ProviderSettings["openrouter"];
-};
-
-const withoutDeviceKeys = <T extends object>(settings: T) =>
+const synced = (agent: ChatProvider | undefined, settings: Record<string, unknown>) =>
   Object.fromEntries(
-    Object.entries(settings).filter(([key]) => !(DEVICE_KEYS as readonly string[]).includes(key)),
-  ) as Synced<T>;
+    Object.entries(settings).filter(
+      ([key]) => !(agent?.deviceFields as readonly string[] | undefined)?.includes(key),
+    ),
+  );
 
 export async function syncedProviderSettings(): Promise<SyncedProviderSettings> {
-  const { selected, hermes, codex, claude, openrouter } = await getProviderSettings();
-  return {
-    selected,
-    hermes,
-    codex: withoutDeviceKeys(codex),
-    claude: withoutDeviceKeys(claude),
-    openrouter,
-  };
+  const { selected, agents } = await allSettings();
+  const out: SyncedProviderSettings = { selected };
+  for (const [kind, settings] of Object.entries(agents)) {
+    const agent = registeredAgents().get(kind);
+    if (agent?.localOnly) continue;
+    out[kind] = synced(agent, settings);
+  }
+  return out;
 }
 
-/** Takes the account's provider settings, keeping this device's CLI paths. */
+/** Takes the account's agent settings, keeping this device's own fields. */
 export async function applySyncedProviderSettings(
-  synced: Partial<SyncedProviderSettings>,
+  remote: Partial<SyncedProviderSettings>,
 ): Promise<void> {
-  const current = await getProviderSettings();
-  const next: ProviderSettings = {
-    selected:
-      synced.selected && PROVIDER_KINDS.includes(synced.selected)
-        ? synced.selected
-        : current.selected,
-    hermes: { ...current.hermes, ...synced.hermes },
-    openclaw: current.openclaw,
-    codex: { ...current.codex, ...(synced.codex && withoutDeviceKeys(synced.codex)) },
-    claude: { ...current.claude, ...(synced.claude && withoutDeviceKeys(synced.claude)) },
-    openrouter: { ...current.openrouter, ...synced.openrouter },
-  };
-  await saveProviderSettings(next);
-  if (next.hermes.baseUrl !== current.hermes.baseUrl) {
-    provider("hermes").shutdown();
-    checked.delete("hermes");
+  const current = await allSettings();
+  const agents = { ...current.agents };
+  const changed: [ChatProvider, Record<string, unknown>][] = [];
+  for (const [kind, agent] of registeredAgents()) {
+    const theirs = remote[kind];
+    if (agent.localOnly || !theirs || typeof theirs !== "object") continue;
+    const before = agents[kind] ?? agent.defaults;
+    const next = {
+      ...before,
+      ...synced(agent, theirs as Record<string, unknown>),
+    } as AgentSettings;
+    agents[kind] = next;
+    const diff = Object.fromEntries(
+      Object.entries(next).filter(([key, value]) => before[key as keyof AgentSettings] !== value),
+    );
+    if (Object.keys(diff).length) changed.push([agent, diff]);
   }
-  void check("hermes");
-  void check("openrouter");
+  const selected =
+    typeof remote.selected === "string" && registeredAgents().has(remote.selected)
+      ? remote.selected
+      : current.selected;
+  await saveProviderSettings({ selected, agents });
+  for (const [agent, diff] of changed) restartIfNeeded(agent, diff, agents[agent.kind]);
   await broadcastState();
 }
 
 /** Drops this device's Hermes key (it belonged to an Otter account that signed out). */
 export async function forgetHermesKey(): Promise<void> {
   await clearHermesKey();
-  checked.delete("hermes");
-  await broadcastState();
+  if (registeredAgents().has("hermes")) await refreshProvider("hermes");
 }
 
 /** Takes the account's Hermes key. */
 export async function applySyncedHermesKey(key: string): Promise<void> {
   if (key === (await getHermesKey())) return;
   await setHermesKey(key);
-  checked.delete("hermes");
-  void check("hermes");
-}
-
-/** Install account listeners when the backend starts, after the platform is ready. */
-export function watchAgentAccount(): void {
-  onOtterAccountChange(() => {
-    accountGeneration++;
-    openRouterProvider.shutdown();
-    checked.delete("openrouter");
-    void refreshProvider("openrouter");
-  });
+  if (registeredAgents().has("hermes")) void refreshProvider("hermes");
 }

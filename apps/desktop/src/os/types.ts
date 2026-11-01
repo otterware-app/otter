@@ -82,6 +82,8 @@ export interface HostOS {
 
 /** The mail backend's side of the operating system (its utility process has no windows). */
 export interface BackendOS {
+  /** Which desktop app this is, for extensions' `platforms`. */
+  platform: "mac" | "linux";
   /** The computer's name as the user knows it, for the Otter account's device list. */
   deviceName(): string;
   /** The OS and its version, for support reports ("macOS (Darwin 25.0.0, arm64)"). */

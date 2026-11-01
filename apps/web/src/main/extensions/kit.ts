@@ -1,0 +1,57 @@
+/**
+ * What extensions' `./ui` halves may use of the renderer
+ * (`@otter-mail/web/extension-kit`, an alias: the app depends on the
+ * extensions, not the other way round): the contribution types, the UI
+ * primitives, and the parts of the mail UI the built-in extensions build on.
+ * Extensions import the app only through here (the lint rule in
+ * vite.config.ts holds them to it), so this file is the whole surface they
+ * depend on.
+ */
+
+export type * from "./types";
+export { useCommandHandlers } from "../keybindings/dispatch";
+export { useShortcutLabel } from "../keybindings/store";
+
+export { Dialog } from "~/components/ui/dialog";
+export { Field } from "~/components/ui/field";
+export { Input } from "~/components/ui/input";
+export { Switch } from "~/components/ui/switch";
+export { ipc, task } from "~/lib/ipc";
+export { openLink } from "../browser/store";
+export { features } from "../features";
+export { isModClick } from "../keybindings/keys";
+export { useSetProvidersState } from "../mail/agent-providers";
+export { mailApi } from "../mail/api";
+export type { ProviderSnapshot } from "../mail/api";
+export { useCapabilities } from "../mail/capabilities";
+export {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../mail/menu";
+export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../mail/select";
+export { toast } from "../mail/toast";
+export type { MessageDetail } from "../mail/types";
+export { Btn, HintTooltip, IconBtn, buttonClass, cn } from "../mail/ui";
+export { searchableSetting } from "../settings/settings-search";
+export {
+  SettingResetButton,
+  SettingsRow,
+  SettingsSection,
+  TextInput,
+} from "../settings/settings-ui";
+
+// For agent contributions' settings forms.
+export type { ProvidersState, RuntimeMode } from "../mail/api";
+export { RUNTIME_MODE_OPTIONS } from "../mail/model-picker";
+export {
+  Command,
+  LocalAgentSettings,
+  ModelsSection,
+  type LocalAgentRuntime,
+} from "../settings/agent-settings-kit";
+export { osNames } from "../os-names";
+// For message cards.
+export { htmlToText } from "../mail/text";
+export { AgentIcon } from "../mail/agent-icon";

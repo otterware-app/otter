@@ -8,6 +8,7 @@
 import { parseDemoMailboxes } from "@otter-mail/contracts/demo";
 import { addDemoMailboxes, registeredHandlers, startCore, type Platform } from "@otter-mail/core";
 
+import { webExtensions } from "./extensions";
 import { webPlatform, type Page } from "./platform";
 import type { FromWorker, PageRequests, ToWorker } from "./protocol";
 
@@ -67,11 +68,13 @@ async function startDemo(platform: Platform): Promise<void> {
     });
     if (!response.ok) throw new Error(`The relay couldn't sign in ${email} (${response.status}).`);
   }
-  await startCore(platform);
+  await startCore(platform, webExtensions);
   await addDemoMailboxes(json).catch((err: unknown) => console.error("Demo mailboxes:", err));
 }
 
-const ready = webPlatform(page).then(__DEV_DEMO__ ? startDemo : startCore);
+const ready = webPlatform(page).then(
+  __DEV_DEMO__ ? startDemo : (platform) => startCore(platform, webExtensions),
+);
 
 self.addEventListener("message", (event: MessageEvent<ToWorker>) => {
   const message = event.data;

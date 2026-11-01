@@ -42,7 +42,12 @@ async function launchAgents() {
   ]);
   const agents = await Promise.all(
     (["claude", "codex"] as const).map(async (id) => {
-      const settings = state.settings[id];
+      const agent = state.providers.find((p) => p.kind === id);
+      if (!agent) return null;
+      const settings = agent.settings as typeof agent.settings & {
+        binaryPath: string;
+        homePath: string;
+      };
       const binary = await supportBinary(settings.binaryPath, id);
       return binary
         ? {

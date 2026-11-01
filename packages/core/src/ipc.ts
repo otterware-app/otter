@@ -15,6 +15,11 @@ export function handle(channel: string, handler: Handler): void {
   handlers.set(channel, handler);
 }
 
+/** Drops the handler for `channel` (an extension that failed to activate). */
+export function unhandle(channel: string): void {
+  handlers.delete(channel);
+}
+
 /** Every registered handler, for the shell to serve. */
 export function registeredHandlers(): ReadonlyMap<string, Handler> {
   return handlers;

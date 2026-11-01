@@ -1,6 +1,6 @@
 import { useLatest } from "../use-latest";
 import { DEFAULT_SETTINGS } from "@otter-mail/contracts";
-import { TodoistSettingsPane } from "../integrations/todoist";
+import { ExtensionCategoryPane } from "../extensions/extensions-pane";
 import { useCallback, useEffect, useState } from "react";
 import { Switch } from "~/components/ui/switch";
 import { toast } from "../mail/toast";
@@ -16,7 +16,6 @@ import { AccountsPane } from "./accounts-pane";
 import { OtterAccountPane } from "./otter-account-pane";
 import { ProvidersPane } from "./providers-pane";
 import { BrowserSettingsPane } from "../browser/browser-settings";
-import { TranslationSection } from "./translation-section";
 import { UpdatesSection } from "../updates";
 import {
   RowSelect,
@@ -36,6 +35,8 @@ import { requestProblemReport } from "../support/report-problem";
 /** Where the settings page is. */
 export type SettingsRoute = {
   pane: SettingsPane;
+  /** One thing inside the pane: an extension's page. */
+  item?: string;
   /** A settings-search result's anchor to scroll to, cleared once it's reached. */
   target?: string;
 };
@@ -306,8 +307,6 @@ function GeneralPane() {
         />
       </SettingsSection>
 
-      <TranslationSection />
-
       {features.defaultMailApp ? (
         <SettingsSection title="System">
           <SettingsRow
@@ -390,10 +389,27 @@ export function SettingsPage({
 function SettingsPane({ route }: { route: SettingsRoute }) {
   if (route.pane === "appearance") return <AppearancePane />;
   if (route.pane === "keybindings") return <KeybindingsPane />;
-  if (route.pane === "integrations") return <TodoistSettingsPane />;
+  if (route.pane === "integrations")
+    return (
+      <ExtensionCategoryPane
+        category="integration"
+        item={route.item}
+        title="Integrations"
+        description="Services Otter Mail connects to. Turning one off hides it everywhere, on every device with your Otter account."
+      />
+    );
+  if (route.pane === "features")
+    return (
+      <ExtensionCategoryPane
+        category="mail"
+        item={route.item}
+        title="Features"
+        description="Extras for your mail. Turning one off hides it everywhere, on every device with your Otter account."
+      />
+    );
   if (route.pane === "accounts") return <AccountsPane />;
   if (route.pane === "otter") return <OtterAccountPane />;
-  if (route.pane === "agents") return <ProvidersPane />;
+  if (route.pane === "agents") return <ProvidersPane item={route.item} />;
   if (route.pane === "browser" && features.browser) return <BrowserSettingsPane />;
   return <GeneralPane />;
 }

@@ -22,7 +22,7 @@ export function registerHandlers(): void {
   // the main window pulls the target on mount and whenever settings:open is
   // broadcast.
   ipcMain.handle("window:openSettings", async (_event, params: unknown) => {
-    const p = params as { pane?: unknown } | undefined;
+    const p = params as { pane?: unknown; item?: unknown } | undefined;
     const pane =
       p?.pane === "general" ||
       p?.pane === "appearance" ||
@@ -30,11 +30,13 @@ export function registerHandlers(): void {
       p?.pane === "keybindings" ||
       p?.pane === "agents" ||
       p?.pane === "integrations" ||
+      p?.pane === "features" ||
       p?.pane === "browser" ||
       p?.pane === "otter"
         ? p.pane
         : undefined;
-    setSettingsTarget({ pane });
+    const item = pane && typeof p?.item === "string" ? p.item : undefined;
+    setSettingsTarget({ pane, item });
     await focusMainWindow();
     broadcast("settings:open");
   });

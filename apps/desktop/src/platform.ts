@@ -21,8 +21,6 @@ import { backendOS } from "./os/backend.js";
 import { googleAuth } from "./services/gmail-oauth.js";
 import { connectMailSocket } from "./services/mail-socket.js";
 import { microsoftAuth } from "./services/microsoft-oauth.js";
-import { claudeProvider } from "./services/agent/claude.js";
-import { codexProvider } from "./services/agent/codex.js";
 import { desktopSupportDiagnostics } from "./services/support-diagnostics.js";
 
 const home = () => appInfo().stateDir;
@@ -132,6 +130,5 @@ export function desktopPlatform(): Platform {
     },
     offlineDownloads: true,
     translator: backendOS.translator,
-    agentProviders: [codexProvider, claudeProvider],
   };
 }

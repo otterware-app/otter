@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { agentContribution } from "../extensions/registry";
 import { useQuery } from "@tanstack/react-query";
 import { CheckIcon, CornerUpRightIcon, ListPlusIcon, PlusIcon, QuoteIcon } from "lucide-react";
 import { IconBtn, HintTooltip, cn } from "./ui";
@@ -326,20 +327,17 @@ export function ChatComposer({
     updateSettings({ selected: kind, [kind]: { model: slug } });
   };
 
-  // Hermes' and OpenClaw's approval modes are server-side config; Codex / Claude pick it per turn.
-  const runtimeMode =
-    providerKind === "hermes" || providerKind === "openclaw"
-      ? null
-      : (chat.state?.settings[providerKind].runtimeMode ?? null);
+  // Some agents' approval modes are server-side config (Hermes, OpenClaw); others pick it per turn.
+  const agent = agentContribution(providerKind);
+  const runtimeMode = agent?.serverApprovals ? null : (provider?.settings.runtimeMode ?? null);
   const pendingApproval = activeApprovals[0];
   const pendingQuestion = activeQuestions[0];
 
   // Reasoning / Service Tier of the model in use, with the saved choices.
   const currentModel = provider?.models.find((m) => m.slug === provider.model);
   const traitOptions = currentModel?.options ?? [];
-  // OpenClaw's agents bring their own model settings.
-  const traitSettings =
-    providerKind === "openclaw" ? undefined : chat.state?.settings[providerKind];
+  // Some agents bring their own model settings (OpenClaw's).
+  const traitSettings = agent?.ownModelSettings ? undefined : provider?.settings;
   const traitValues = {
     reasoningEffort: traitSettings?.reasoningEffort ?? "",
     serviceTier: traitSettings?.serviceTier ?? "",

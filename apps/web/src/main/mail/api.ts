@@ -3,7 +3,6 @@ import type { ImapSettings } from "@otter-mail/contracts";
 import type { NotificationConnection } from "@otter-mail/contracts/relay";
 export type { ChatChange } from "@otter-mail/contracts";
 import type { AgentAccess, AgentTokens, ConnectedAgent } from "@otter-mail/contracts/agent-tokens";
-import type { OpenRouterConnection } from "@otter-mail/contracts/openrouter";
 import type {
   ComposeAttachment,
   ContactSuggestion,
@@ -54,26 +53,6 @@ export type ListCombinedMessagesParams = {
 
 export type CombinedCounts = { total: number; unread: number };
 
-export type RsvpResponse = "accepted" | "declined" | "tentative";
-
-/** A calendar invitation found in a message (from its .ics). */
-export type CalendarInvite = {
-  uid: string;
-  method: string;
-  summary: string;
-  start: string | null;
-  end: string | null;
-  allDay: boolean;
-  location: string | null;
-  organizer: { name: string; email: string } | null;
-  sequence: number;
-  response: RsvpResponse | "needsAction";
-  /** False: this account hasn't granted calendar access (replies go by email). */
-  calendarAccess: boolean;
-  htmlLink: string | null;
-  cancelled: boolean;
-};
-
 /** One page of Gmail's own search (conversation rows, newest first). */
 export type MailSearchResult = {
   messages: MessageSummary[];
@@ -96,10 +75,14 @@ export type MailApp = { id: string; name: string; path: string };
 export type MailAppsResult = { apps: MailApp[]; defaultId: string | null };
 
 /*
- * Agent providers (mirrors main/services/agent/types.ts). A snapshot
- * is one provider's health; every provider streams the same ChatEvents.
+ * Agents (mirrors core's services/agent/types.ts). Each is an extension's
+ * (its id: openrouter, hermes, claude, …). A snapshot is one agent's health
+ * and settings; every agent streams the same ChatEvents.
  */
-export type ProviderKind = "hermes" | "openclaw" | "openrouter" | "codex" | "claude";
+export type ProviderKind = string;
+
+/** The agent new chats start with until the user picks another (core's DEFAULT_AGENT). */
+export const DEFAULT_AGENT = "openrouter";
 export type ProviderState = "ready" | "warning" | "error" | "disabled";
 export type ProviderOptionChoice = {
   id: string;
@@ -143,7 +126,17 @@ export type ProviderSnapshot = {
   model: string | null;
   /** Chats persist on the provider and can be listed/resumed. */
   sessions: boolean;
+  /** The agent's settings, plus what it adds for its settings form (never its secrets). */
+  settings: AgentSettingsView;
 };
+/** What every agent's settings have; each agent's form reads its own on top. */
+export type AgentSettingsView = {
+  enabled: boolean;
+  model: string;
+  reasoningEffort?: string;
+  serviceTier?: string;
+  runtimeMode?: RuntimeMode;
+} & Record<string, unknown>;
 /** T3 Code's runtime modes: how much an agent may do without asking. */
 export type RuntimeMode = "approval-required" | "auto-accept-edits" | "full-access";
 
@@ -158,70 +151,14 @@ export type ApprovalRequest = {
   reason?: string;
   choices: ApprovalDecision[];
 };
-export type ProviderSettingsView = {
-  selected: ProviderKind;
-  openrouter: {
-    enabled: boolean;
-    model: string;
-    reasoningEffort: string;
-    serviceTier: string;
-    runtimeMode: RuntimeMode;
-  };
-  hermes: {
-    enabled: boolean;
-    baseUrl: string;
-    agentModel: string;
-    /** `provider::model`; empty → the gateway default. */
-    model: string;
-    reasoningEffort: string;
-    serviceTier: string;
-    sessions?: boolean;
-  };
-  openclaw: {
-    enabled: boolean;
-    /** The gateway's WebSocket, `wss://<computer>.<tailnet>.ts.net`. */
-    url: string;
-    /** The gateway agent new chats use; empty → its default agent. */
-    model: string;
-  };
-  claude: {
-    enabled: boolean;
-    binaryPath: string;
-    homePath: string;
-    model: string;
-    reasoningEffort: string;
-    serviceTier: string;
-    runtimeMode: RuntimeMode;
-  };
-  codex: {
-    enabled: boolean;
-    binaryPath: string;
-    homePath: string;
-    launchArgs: string;
-    model: string;
-    reasoningEffort: string;
-    serviceTier: string;
-    runtimeMode: RuntimeMode;
-  };
-  hermesHasKey: boolean;
-  openclawHasToken: boolean;
-  /** The pairing request this device waits on (`openclaw devices approve <id>`). */
-  openclawPairingRequest: string | null;
-  /** Whether OpenClaw's questions reach this device (null until connected), and the upgrade it waits on. */
-  openclawQuestions: { allowed: boolean | null; request: string | null };
-};
 export type ProvidersState = {
   providers: ProviderSnapshot[];
+  /** The agent new chats start with. */
   selected: ProviderKind;
-  settings: ProviderSettingsView;
 };
-export type AgentSettingsPatch = {
-  selected?: ProviderKind;
-  hermes?: { enabled?: boolean; model?: string; reasoningEffort?: string; serviceTier?: string };
-  openclaw?: { enabled?: boolean; model?: string };
-  codex?: Partial<ProviderSettingsView["codex"]>;
-  claude?: Partial<ProviderSettingsView["claude"]>;
-  openrouter?: Partial<ProviderSettingsView["openrouter"]>;
+/** `{ selected?, <agent id>: { field: value } }`: core keeps the fields each agent allows. */
+export type AgentSettingsPatch = { selected?: ProviderKind } & {
+  [kind: string]: Record<string, string | boolean> | string | undefined;
 };
 
 /** One step an agent took, the same for every agent (core's steps.ts). */
@@ -399,19 +336,6 @@ export type SyncSettings = {
   dockBadgeEnabled: boolean;
 };
 
-export type TranslationSettings = {
-  /** Languages the user reads; empty until set (system languages apply). */
-  readLanguages: string[];
-  autoTranslate: boolean;
-};
-
-export type TranslationStatus =
-  | "ok"
-  | "notInstalled"
-  | "needsDownload"
-  | "unsupported"
-  | "unavailable";
-
 export type SaveViewParams = {
   id?: string;
   name: string;
@@ -425,14 +349,16 @@ export type SettingsPane =
   | "appearance"
   | "keybindings"
   | "accounts"
-  | "agents"
   /** The browser (Mac): links, extensions, browsing data. */
   | "browser"
+  /** Extensions, by kind: chat settings and the agents; services it connects; mail features. */
+  | "agents"
   | "integrations"
+  | "features"
   /** The Otter account page, opened from the user button at the bottom of the nav. */
   | "otter";
 /** No pane: the one Settings was last on. */
-export type SettingsTarget = { pane?: SettingsPane };
+export type SettingsTarget = { pane?: SettingsPane; item?: string };
 
 export type AddImapAccountParams = {
   email: string;
@@ -505,35 +431,6 @@ export const mailApi = {
   listCombinedMessages: (params: ListCombinedMessagesParams): Promise<ListMessagesResult> =>
     ipc("gmail:listCombinedMessages", params),
 
-  /** How this message offers unsubscribing (List-Unsubscribe), or null. */
-  getUnsubscribe: (
-    accountId: string,
-    messageId: string,
-    fromEmail: string,
-  ): Promise<{
-    method: "oneClick" | "mailto" | "web";
-    target: string;
-    unsubscribed: boolean;
-  } | null> => ipc("gmail:getUnsubscribe", { accountId, messageId, fromEmail }),
-
-  /** Unsubscribes in place, or returns the page to open (web-only lists). */
-  unsubscribe: (
-    accountId: string,
-    messageId: string,
-  ): Promise<{ done: true } | { openUrl: string }> =>
-    task("gmail:unsubscribe", { accountId, messageId }),
-
-  /** The calendar invitation in a message, with your current answer (null: none). */
-  getCalendarInvite: (accountId: string, messageId: string): Promise<CalendarInvite | null> =>
-    task("calendar:getInvite", { accountId, messageId }),
-
-  /** RSVP to an invitation (Calendar API, or an email reply to the organizer). */
-  respondToInvite: (
-    accountId: string,
-    messageId: string,
-    response: RsvpResponse,
-  ): Promise<CalendarInvite | null> => task("calendar:respond", { accountId, messageId, response }),
-
   /** Gmail's own search (all operators, all mail) across the given accounts. */
   gmailSearch: (params: {
     q: string;
@@ -576,6 +473,26 @@ export const mailApi = {
   /** Empty Junk / Empty Trash: deletes every message there forever. */
   emptyFolder: (accountId: string, labelId: "SPAM" | "TRASH"): Promise<{ deleted: number }> =>
     task("gmail:emptyFolder", { accountId, labelId }),
+
+  /** How this message offers unsubscribing (List-Unsubscribe), or null. */
+  getUnsubscribe: (
+    accountId: string,
+    messageId: string,
+    fromEmail: string,
+  ): Promise<{
+    method: "oneClick" | "mailto" | "web";
+    target: string;
+    unsubscribed: boolean;
+  } | null> => ipc("gmail:getUnsubscribe", { accountId, messageId, fromEmail }),
+
+  /** Unsubscribes in place, or returns the page to open (web-only lists). */
+  unsubscribe: (
+    accountId: string,
+    messageId: string,
+  ): Promise<{ done: true } | { openUrl: string }> =>
+    task("gmail:unsubscribe", { accountId, messageId }),
+
+  /** The calendar invitation in a message, with your current answer (null: none). */
 
   listSchedules: (): Promise<import("@otter-mail/contracts").MailSchedule[]> =>
     ipc("gmail:listSchedules"),
@@ -658,23 +575,6 @@ export const mailApi = {
   setSyncSettings: (params: Partial<SyncSettings>): Promise<SyncSettings> =>
     ipc("gmail:setSyncSettings", params),
 
-  getTranslationSettings: (): Promise<TranslationSettings> => ipc("translation:getSettings"),
-
-  setTranslationSettings: (params: Partial<TranslationSettings>): Promise<TranslationSettings> =>
-    ipc("translation:setSettings", params),
-
-  /** Apple's on-device language detection. */
-  detectLanguage: (text: string): Promise<{ language: string | null; confidence: number }> =>
-    ipc("translation:detect", { text }),
-
-  /** Apple's on-device translation, one result per segment. */
-  translate: (params: {
-    segments: string[];
-    source: string;
-    target: string;
-  }): Promise<{ status: TranslationStatus; texts: string[] }> =>
-    task("translation:translate", params),
-
   listViews: (): Promise<MailView[]> => ipc("gmail:listViews"),
 
   saveView: (params: SaveViewParams): Promise<MailView> => ipc("gmail:saveView", params),
@@ -704,22 +604,10 @@ export const mailApi = {
   /** Cached provider snapshots; stale ones re-check and arrive as `agent:providersChanged`. */
   agentProviders: (): Promise<ProvidersState> => ipc("agent:providers"),
 
-  openrouterConnection: (): Promise<OpenRouterConnection> => ipc("agent:openrouterConnection"),
-  connectOpenRouter: (apiKey: string): Promise<ProvidersState> =>
-    ipc("agent:connectOpenRouter", { apiKey }),
-  disconnectOpenRouter: (): Promise<ProvidersState> => ipc("agent:disconnectOpenRouter"),
-
   refreshAgentProviders: (): Promise<{ ok: boolean }> => ipc("agent:refreshProviders"),
 
   updateAgentSettings: (patch: AgentSettingsPatch): Promise<ProvidersState> =>
     ipc("agent:updateSettings", patch),
-
-  connectHermes: (params: { baseUrl: string; apiKey: string }): Promise<ProvidersState> =>
-    ipc("agent:connectHermes", params),
-
-  connectOpenClaw: (
-    params: { code: string } | { url: string; token: string },
-  ): Promise<ProvidersState> => ipc("agent:connectOpenClaw", params),
 
   /**
    * Starts a turn and returns at once; it streams as `agent:chatEvent`.
@@ -764,9 +652,6 @@ export const mailApi = {
     questionId: string;
     answers: Record<string, string[]> | null;
   }): Promise<{ ok: boolean }> => ipc("agent:answerQuestion", params),
-
-  /** Asks the OpenClaw gateway to let this device answer the agent's questions. */
-  agentAllowOpenClawQuestions: (): Promise<ProvidersState> => ipc("agent:allowOpenClawQuestions"),
 
   /** Adds a message to the running turn; `accepted: false` → queue it instead. */
   agentSteer: (

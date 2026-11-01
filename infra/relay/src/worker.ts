@@ -671,7 +671,8 @@ const tabRef = z.discriminatedUnion("kind", [
 const chatBody = z.object({
   id: z.string(),
   title: z.string().max(CHAT_LIMITS.title + 1),
-  provider: z.enum(["hermes", "openclaw", "openrouter", "codex", "claude"]),
+  // An agent extension's id: any agent's chats sync.
+  provider: z.string().regex(/^[a-z0-9-]{1,40}$/),
   sessionId: z.string().max(256).nullable(),
   sessionOwned: z.boolean(),
   lastResponseId: z.string().max(256).nullable(),

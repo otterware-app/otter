@@ -26,6 +26,7 @@ import {
 } from "@otter-mail/contracts/chats";
 
 import { ipc } from "~/lib/ipc";
+import { EXTENSIONS } from "../extensions/registry";
 import { closeChatPages } from "../browser/store";
 import { isProviderUsable, useAgentProviders } from "./agent-providers";
 import {
@@ -243,16 +244,7 @@ function withTranscript(
 
 /** Canonical error codes from the backend → what the transcript says. */
 function friendlyError(code: string, provider: ProviderKind): string {
-  const name =
-    provider === "openrouter"
-      ? "OpenRouter"
-      : provider === "codex"
-        ? "Codex"
-        : provider === "claude"
-          ? "Claude"
-          : provider === "openclaw"
-            ? "OpenClaw"
-            : "Hermes";
+  const name = EXTENSIONS.find((e) => e.manifest.id === provider)?.manifest.name ?? provider;
   switch (code) {
     case "not_configured":
       return `${name} isn't set up — connect it in Settings → Agents.`;

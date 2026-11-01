@@ -1,5 +1,5 @@
 import { useLatest } from "../use-latest";
-import { addEmailToTodoist } from "../integrations/todoist";
+import { ExtensionContextMenuActions } from "../extensions/slots";
 import type React from "react";
 import type { ReactNode } from "react";
 import { useLayoutEffect, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -676,17 +676,13 @@ function MessageRow({
           <ContextMenuItem icon="cursorarrow" onSelect={onChatAgent}>
             Open in agent chat
           </ContextMenuItem>
-          <ContextMenuItem
-            onSelect={() =>
-              addEmailToTodoist({
-                accountId: message.accountId ?? accountId,
-                messageId: message.id,
-                subject: message.subject,
-              })
-            }
-          >
-            Add to Todoist…
-          </ContextMenuItem>
+          <ExtensionContextMenuActions
+            target={{
+              accountId: message.accountId ?? accountId,
+              messageId: message.id,
+              subject: message.subject,
+            }}
+          />
           <ContextMenuSeparator />
           <ContextMenuSub label={labelChoices.title}>
             {renderLabelChoices(labelChoices, CONTEXT_MENU_KIT)}

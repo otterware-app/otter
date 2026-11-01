@@ -56,6 +56,24 @@ when a feature lands or goes.
   through the relay (mailboxes, preferences under the same keys, live events). `Resources/` holds
   the themes and demo mailbox, exported from `packages/shared` by `pnpm ios:resources`. See its
   README.
+- `extensions/`: the built-in extensions, a package each (VS Code's model; contracts'
+  `src/extensions.ts`): Sign-in codes, Calendar invites, Translation, Todoist, and
+  the agents (`openrouter`, the Otter Mail agent; `hermes`, `openclaw`, `claude`, `codex`). Each
+  `package.json` carries its manifest (`otterMail`); its halves are `./core` (`activate(context)`:
+  handlers, an agent; core's `src/extensions.ts`), `./ui` (what it contributes to the screens'
+  slots: cards, actions, commands, settings, an agent's form; `apps/web/src/main/extensions`;
+  Settings lists them by manifest `category` in Agents, Integrations and Features, each with a
+  page) and
+  `./desktop` (Claude, Codex). The manifest's `platforms` (mac, linux, web; absent: all) says where one runs, and each
+  app loads the half it can run, as VS Code loads `main` or `browser`: the desktop app `./desktop`
+  when there is one, else `./core`; the web app `./core`. Core doesn't import them: the shells pass
+  their list to `startCore`
+  (`apps/desktop/src/extensions.ts`, `apps/web/src/web/extensions.ts`), the renderer lists the
+  `./ui` halves (`extensions/registry.ts`). Extensions reach the app only through the kits
+  (`@otter-mail/core/extension-kit`, `@otter-mail/web/extension-kit`,
+  `@otter-mail/desktop/extension-kit`; the last two are aliases), which lint enforces. An agent is
+  the strict contribution: core's `ChatProvider` (its settings are its own, under its id) and, in
+  the renderer, its icon and settings form; the chat UI is shared.
 - `packages/contracts`: types shared by both sides, including `DesktopBridge`, the
   `window.desktopBridge` API the preload exposes, and the relay's API (`src/relay.ts`).
 - `packages/shared`: what every app shows the same, the iPhone app included: the color themes

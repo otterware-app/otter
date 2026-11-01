@@ -71,7 +71,13 @@ export default defineConfig(({ command }) => ({
   resolve: {
     alias: {
       "~": NodeURL.fileURLToPath(new URL("./src", import.meta.url)),
+      // Extensions' UI halves reach the app through its kit (src/main/extensions/kit.ts).
+      "@otter-mail/web/extension-kit": NodeURL.fileURLToPath(
+        new URL("./src/main/extensions/kit.ts", import.meta.url),
+      ),
     },
+    // One React for the app and the extensions' UI halves (each declares its own).
+    dedupe: ["react", "react-dom", "@tanstack/react-query", "@tanstack/react-router"],
   },
   // The web app's backend runs in a module Web Worker, with SQLite as WASM.
   worker: { format: "es" },

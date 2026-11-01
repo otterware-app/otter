@@ -1,20 +1,20 @@
 /**
  * @otter-mail/core: the mail backend. The desktop app runs it in an Electron
  * utility process, the web app in a Web Worker; each hands `startCore` its
- * Platform (platform.ts) and serves `registeredHandlers()` to the renderer.
+ * Platform (platform.ts) and the extensions it runs (extensions.ts), and
+ * serves `registeredHandlers()` to the renderer.
  */
 
-import { registerTodoistHandlers } from "./handlers/todoist.js";
 import { registerAgentHandlers } from "./handlers/agent.js";
 import { registerChatHandlers } from "./handlers/chats.js";
-import { registerCalendarHandlers } from "./handlers/calendar.js";
 import { registerMailHandlers } from "./handlers/mail.js";
 import { registerImapAccountHandlers } from "./handlers/imap-accounts.js";
 import { registerOutlookAccountHandlers } from "./handlers/outlook-accounts.js";
 import { registerOtterAccountHandlers } from "./handlers/otter-account.js";
 import { registerSearchHandlers } from "./handlers/search.js";
-import { registerTranslationHandlers } from "./handlers/translation.js";
+import { registerUnsubscribeHandlers } from "./handlers/unsubscribe.js";
 import { registerSupportHandlers } from "./handlers/support.js";
+import { activateExtensions, type CoreExtension } from "./extensions.js";
 import { broadcast, handle } from "./ipc.js";
 import { setPlatform, type Platform } from "./platform.js";
 import { pruneAttachmentCache } from "./services/attachment-cache.js";
@@ -32,8 +32,11 @@ import { refreshProfiles } from "./services/google-profile.js";
 import { startMailSchedule } from "./services/mail-schedule.js";
 import { refreshSignatures } from "./services/signatures.js";
 
-/** Starts the backend: restores sign-ins, registers every handler, and syncs. */
-export async function startCore(platform: Platform): Promise<void> {
+/** Starts the backend: restores sign-ins, registers every handler, activates the extensions, and syncs. */
+export async function startCore(
+  platform: Platform,
+  extensions: readonly CoreExtension[] = [],
+): Promise<void> {
   setPlatform(platform);
   await platform.google.load();
   await platform.microsoft?.load();
@@ -45,13 +48,12 @@ export async function startCore(platform: Platform): Promise<void> {
   registerImapAccountHandlers();
   registerOutlookAccountHandlers();
   registerSearchHandlers();
-  registerCalendarHandlers();
+  registerUnsubscribeHandlers();
   registerOtterAccountHandlers();
-  registerTranslationHandlers();
   registerAgentHandlers();
   registerChatHandlers();
   registerSupportHandlers();
-  registerTodoistHandlers();
+  await activateExtensions(extensions);
   handle("keybindings:read", async () => readKeybindings());
   handle("preferences:getUi", async (params: unknown) =>
     getUiPreferences((params as { initialize?: unknown } | undefined)?.initialize === true),
@@ -80,6 +82,7 @@ export async function startCore(platform: Platform): Promise<void> {
 }
 
 export { broadcast, handle, registeredHandlers, type Handler } from "./ipc.js";
+export type { CoreExtension, ExtensionContext } from "./extensions.js";
 export { fromBase64, toBase64 } from "./bytes.js";
 export { SIGNED_OUT_MESSAGE, SignInCancelledError } from "./google.js";
 export { GRAPH_ME_URL, OUTLOOK_SIGNED_OUT_MESSAGE, signInFromMe } from "./microsoft.js";

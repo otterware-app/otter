@@ -1,7 +1,14 @@
 import { withOccurrenceKeys } from "./list-keys";
 import { useLatest } from "../use-latest";
-import { ListTodoIcon } from "lucide-react";
-import { addEmailToTodoist } from "../integrations/todoist";
+import {
+  ExtensionMenuActions,
+  ExtensionMessageCards,
+  ExtensionToolbarActions,
+  useExtensionBodyLinks,
+  useExtensionConversation,
+  useExtensionMessageBody,
+  type BodyLinkHandler,
+} from "../extensions/slots";
 import { SnoozeButton } from "./mail-schedule";
 import {
   Fragment,
@@ -32,7 +39,6 @@ import {
   FolderIcon,
   ForwardIcon,
   ImageIcon,
-  LanguagesIcon,
   PaperclipIcon,
   MailIcon,
   MailOpenIcon,
@@ -49,20 +55,10 @@ import { AgentIcon } from "./agent-icon";
 import { SenderHoverCard } from "./sender-hovercard";
 import { UnsubscribeLink } from "./unsubscribe-link";
 import {
-  ConversationTranslationContext,
-  useIsForeignMessage,
-  useMessageTranslation,
-} from "./translate-banner";
-import {
   INTERFACE_FONT_SIZE,
   MARK_READ_DELAY,
   useInterfaceSetting,
 } from "../theme/interface-settings";
-import { useTranslationSettings } from "./translation";
-import { InviteCard, requestRsvp, rsvpFromGoogleLink } from "./invite-card";
-import { CodeCard } from "./code-card";
-import { findVerificationCode } from "@otter-mail/shared/verification-code";
-import type { RsvpResponse } from "./api";
 import {
   useAccounts,
   useMessage,
@@ -563,13 +559,13 @@ function HtmlBody({
   html,
   inlineImages,
   onQuoteText,
-  inviteMessageId,
+  bodyLinks,
 }: {
   html: string;
   inlineImages?: InlineImageSource;
   onQuoteText?: (text: string) => void;
-  /** A calendar invite: its Yes / No / Maybe links answer in the app. */
-  inviteMessageId?: string;
+  /** Extensions answering some of its links in the app (an invite's Yes / No / Maybe). */
+  bodyLinks?: BodyLinkHandler[];
 }) {
   // Quoted history is hidden inside the frame; the toggle lives outside it
   // (WKWebView doesn't reliably deliver clicks from the sandboxed frame).
@@ -588,7 +584,7 @@ function HtmlBody({
   const frameRef = useRef<HTMLIFrameElement>(null);
   const quoteRef = useLatest(onQuoteText);
   const inlineRef = useLatest(inlineImages);
-  const inviteRef = useLatest(inviteMessageId);
+  const linksRef = useLatest(bodyLinks ?? []);
   const dark = useDarkAppearance();
   // 15px at a 16px interface (the size the app is drawn at), scaled with it.
   const bodyFontSize = (15 * useInterfaceSetting(INTERFACE_FONT_SIZE)) / 16;
@@ -712,20 +708,29 @@ function HtmlBody({
       // `target="_blank"` links (common in marketing mail) otherwise do nothing
       // on a plain click, and a targetless link would navigate the iframe away
       // from the email — route them all through the OS instead.
-      // Google Calendar's Yes / No / Maybe links answer in place: they become
-      // in-page anchors (#otter-rsvp-…), caught by click or, when the sandbox
-      // swallows the click, by the frame's hashchange.
-      const inviteId = inviteRef.current;
-      if (inviteId) {
+      // Links an extension answers in place (Google Calendar's Yes / No /
+      // Maybe) become in-page anchors (#otter-ext:<id>:<answer>), caught by
+      // click or, when the sandbox swallows the click, by the frame's hashchange.
+      const links = linksRef.current;
+      const openLinkAnswer = (hash: string): boolean => {
+        const m = hash.match(/^#otter-ext:([a-z0-9-]+):([\w-]+)$/);
+        const handler = m && linksRef.current.find((l) => l.id === m[1]);
+        if (!m || !handler) return false;
+        handler.open(m[2]!);
+        return true;
+      };
+      if (links.length > 0) {
         doc.querySelectorAll<HTMLAnchorElement>("a[href]").forEach((a) => {
-          const response = rsvpFromGoogleLink(a.href);
-          if (response) a.setAttribute("href", `#otter-rsvp-${response}`);
+          for (const link of links) {
+            const answer = link.answer(a.href);
+            if (answer) {
+              a.setAttribute("href", `#otter-ext:${link.id}:${answer}`);
+              break;
+            }
+          }
         });
         iframe.contentWindow?.addEventListener("hashchange", () => {
-          const hash = iframe.contentWindow?.location.hash ?? "";
-          const m = hash.match(/^#otter-rsvp-(accepted|declined|tentative)$/);
-          if (!m) return;
-          requestRsvp(inviteId, m[1] as RsvpResponse);
+          if (!openLinkAnswer(iframe.contentWindow?.location.hash ?? "")) return;
           iframe.contentWindow?.history.replaceState(null, "", " ");
         });
       }
@@ -733,10 +738,8 @@ function HtmlBody({
         const anchor = (e.target as Element | null)?.closest?.("a");
         if (!anchor) return;
         const raw = anchor.getAttribute("href") ?? "";
-        const rsvp = raw.match(/^#otter-rsvp-(accepted|declined|tentative)$/);
-        if (rsvp && inviteRef.current) {
+        if (raw.startsWith("#otter-ext:") && openLinkAnswer(raw)) {
           e.preventDefault();
-          requestRsvp(inviteRef.current, rsvp[1] as RsvpResponse);
           return;
         }
         if (raw.startsWith("#")) return; // in-page anchor: let the iframe scroll
@@ -831,7 +834,7 @@ function HtmlBody({
     bodyFontSize,
     adaptColorsForEffect,
     inlineRef,
-    inviteRef,
+    linksRef,
     quoteRef,
     adaptColorsForEffect,
   ]);
@@ -929,9 +932,9 @@ function MessageBody({
   bodyText,
   inlineImages,
   onQuoteText,
-  inviteMessageId,
+  bodyLinks,
 }: {
-  inviteMessageId?: string;
+  bodyLinks?: BodyLinkHandler[];
   bodyHtml: string | null;
   bodyText: string | null;
   inlineImages?: InlineImageSource;
@@ -944,7 +947,7 @@ function MessageBody({
         html={bodyHtml}
         inlineImages={inlineImages}
         onQuoteText={onQuoteText}
-        inviteMessageId={inviteMessageId}
+        bodyLinks={bodyLinks}
       />
     );
   }
@@ -1434,26 +1437,10 @@ export function ExpandedRow({
     () => matchInlineImages(detail?.bodyHtml ?? null, detail?.attachments ?? []),
     [detail],
   );
-  // Mail in a language the user doesn't read gets the translate banner; once
-  // translated, the body's text is swapped in place.
-  const translation = useMessageTranslation(accountId, detail);
-  // Sign-in and verification mail gets its code on a card, with Copy.
-  const code = useMemo(
-    () =>
-      detail
-        ? findVerificationCode(
-            summary.subject,
-            detail.bodyText ?? (detail.bodyHtml ? htmlToText(detail.bodyHtml) : ""),
-          )
-        : null,
-    [detail, summary.subject],
-  );
-  // Calendar invitations (an .ics part) get the RSVP bar.
-  const hasInvite = Boolean(
-    detail?.attachments.some(
-      (a) => /text\/calendar|application\/ics/i.test(a.mimeType) || /\.ics$/i.test(a.filename),
-    ),
-  );
+  // Extensions may swap the body's text (Translation, with its banner) and
+  // answer some of its links in place (an invite's Yes / No / Maybe).
+  const body = useExtensionMessageBody(accountId, detail);
+  const bodyLinks = useExtensionBodyLinks(summary.id, detail);
 
   return (
     <div className="group px-6 py-5">
@@ -1541,13 +1528,17 @@ export function ExpandedRow({
             </p>
           ) : detail ? (
             <>
-              {translation.banner}
-              {hasInvite ? <InviteCard accountId={accountId} messageId={summary.id} /> : null}
-              {code ? <CodeCard code={code} onTrash={onTrash} /> : null}
+              {body.banner}
+              <ExtensionMessageCards
+                accountId={accountId}
+                summary={summary}
+                detail={detail}
+                onTrash={onTrash}
+              />
               <MessageBody
-                inviteMessageId={hasInvite ? summary.id : undefined}
-                bodyHtml={translation.bodyHtml}
-                bodyText={translation.bodyText}
+                bodyLinks={bodyLinks}
+                bodyHtml={body.bodyHtml}
+                bodyText={body.bodyText}
                 inlineImages={
                   inlineImages.size > 0
                     ? { accountId, messageId: summary.id, byCid: inlineImages }
@@ -2122,13 +2113,11 @@ export function MessageReader({
     reply?: () => void;
     replyAll?: () => void;
     forward?: () => void;
-    translate?: () => void;
   }>({});
   const junkShortcut = useShortcutLabel("message.junk");
   const replyAllShortcut = useShortcutLabel("message.replyAll");
   const forwardShortcut = useShortcutLabel("message.forward");
   const flagShortcut = useShortcutLabel("message.star");
-  const translateShortcut = useShortcutLabel("message.translate");
   // The band adapts to the reader's width (panels open → narrow): secondary
   // actions fold into "…" below 36rem. Measured in JS because the "…" menu
   // renders outside this element.
@@ -2153,7 +2142,7 @@ export function MessageReader({
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [summaryFile, setSummaryFile] = useState<PreviewFile | null>(null);
   const summaryShown = summaryFits && summaryPinned;
-  const readerAction = (name: "reply" | "replyAll" | "forward" | "translate") => () => {
+  const readerAction = (name: "reply" | "replyAll" | "forward") => () => {
     const action = readerActions.current[name];
     if (!action) return false;
     action();
@@ -2162,7 +2151,6 @@ export function MessageReader({
     "message.reply": readerAction("reply"),
     "message.replyAll": readerAction("replyAll"),
     "message.forward": readerAction("forward"),
-    "message.translate": readerAction("translate"),
   });
   // Cleared every render; the message-open path below re-populates it, so the
   // shortcuts are inert when no message is on screen.
@@ -2189,20 +2177,9 @@ export function MessageReader({
   const message = messageQuery.data;
   const threadId = message?.threadId || null;
 
-  // Translation is per conversation (starts on with "Translate
-  // automatically"); each message in another language follows it.
-  const { autoTranslate } = useTranslationSettings();
-  const [translation, setTranslation] = useState<{ on: boolean; target: string | null }>({
-    on: false,
-    target: null,
-  });
-  // oxlint-disable-next-line react/set-state-in-effect, react/exhaustive-effect-dependencies -- Re-run this DOM/reset lifecycle when its explicit trigger changes, even when the callback reads refs.
-  useEffect(() => setTranslation({ on: autoTranslate, target: null }), [messageId, autoTranslate]);
-  const conversationTranslation = useMemo(
-    () => ({ ...translation, set: setTranslation }),
-    [translation],
-  );
-  const openedForeign = useIsForeignMessage(accountId, message);
+  // Extensions' part in the open conversation (Translation's): context around
+  // the reader, and items in its "…" menu.
+  const conversation = useExtensionConversation({ accountId, messageId, message });
   const threadQuery = useThread(messageId ? accountId : null, threadId);
   const threadMessages = threadQuery.data ?? [];
   const isThread = !single && threadMessages.length > 1;
@@ -2501,22 +2478,13 @@ export function MessageReader({
     setSummaryFile(previewFile(accountId, fileMessageId, attachment, save));
   };
 
-  const handleToggleTranslation = () => {
-    if (!translation.on && !openedForeign) {
-      toast.info("This message is already in a language you read");
-      return;
-    }
-    console.log("[MessageReader:translate]", { messageId, on: !translation.on });
-    setTranslation((t) => ({ ...t, on: !t.on }));
-  };
-
   Object.assign(renderedActions, {
     reply: handleReply,
     replyAll: handleReplyAll,
     forward: handleForward,
-    translate: handleToggleTranslation,
   });
 
+  const extensionTarget = { accountId, messageId: message.id, subject: message.subject };
   const isFlagged = message.labelIds.includes("STARRED");
   const isTrashed = message.labelIds.includes("TRASH");
 
@@ -2613,8 +2581,8 @@ export function MessageReader({
     </>
   );
 
-  return (
-    <ConversationTranslationContext.Provider value={conversationTranslation}>
+  return conversation.wrap(
+    <>
       <div ref={readerRef} className="relative flex h-full min-h-0 min-w-0 flex-col">
         {/* The title band: the everyday actions, a "more" menu, then the
             window's panel toggle. The subject heads the conversation below. */}
@@ -2727,16 +2695,7 @@ export function MessageReader({
             </>
           )}
 
-          <HintTooltip label="Add to Todoist" side="bottom">
-            <IconBtn
-              label="Add to Todoist"
-              onClick={() =>
-                addEmailToTodoist({ accountId, messageId: message.id, subject: message.subject })
-              }
-            >
-              <ListTodoIcon className="size-4" />
-            </IconBtn>
-          </HintTooltip>
+          <ExtensionToolbarActions target={extensionTarget} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <IconBtn label="More actions">
@@ -2789,15 +2748,7 @@ export function MessageReader({
               >
                 {isUnread ? "Mark as read" : "Mark as unread"}
               </DropdownMenuItem>
-              {openedForeign || translation.on ? (
-                <DropdownMenuItem
-                  icon={<LanguagesIcon />}
-                  accelerator={translateShortcut}
-                  onSelect={handleToggleTranslation}
-                >
-                  {translation.on ? "Show original" : "Translate"}
-                </DropdownMenuItem>
-              ) : null}
+              {conversation.menuItems}
               {isJunk ? (
                 <DropdownMenuItem
                   icon={<ShieldCheckIcon />}
@@ -2822,13 +2773,7 @@ export function MessageReader({
               <DropdownMenuItem icon={<AgentIcon />} onSelect={() => onOpenChat?.()}>
                 Chat about this with the agent
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() =>
-                  addEmailToTodoist({ accountId, messageId: message.id, subject: message.subject })
-                }
-              >
-                Add to Todoist…
-              </DropdownMenuItem>
+              <ExtensionMenuActions target={extensionTarget} />
               {isTrashed || isJunk ? (
                 <>
                   <DropdownMenuSeparator />
@@ -3047,6 +2992,6 @@ export function MessageReader({
         <Text variant="small">Permanently delete this conversation? This cannot be undone.</Text>
       </Dialog>
       <AttachmentPreview file={summaryFile} onClose={() => setSummaryFile(null)} />
-    </ConversationTranslationContext.Provider>
+    </>,
   );
 }

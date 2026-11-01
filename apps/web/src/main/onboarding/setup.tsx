@@ -18,12 +18,7 @@ import {
 } from "lucide-react";
 import { AgentIcon } from "../mail/agent-icon";
 import { Switch } from "~/components/ui/switch";
-import {
-  mailApi,
-  type NotificationsMode,
-  type ProvidersState,
-  type SyncSettings,
-} from "../mail/api";
+import { mailApi, type NotificationsMode, type SyncSettings } from "../mail/api";
 import { ImapAccountDialog, readableError, useAddOutlook } from "../mail/add-mailbox";
 import { GmailMark, MicrosoftMark } from "../mail/provider-mark";
 import { getAccountDisplayName } from "../mail/account-style";
@@ -61,8 +56,8 @@ import {
   ThemeCard,
   useColorScheme,
 } from "../settings/appearance-pane";
-import { SettingsGroup, SettingsRow, TextInput } from "../settings/settings-ui";
-import { HERMES_URL_HINT, useConnectHermes } from "../settings/providers-pane";
+import { SettingsGroup, SettingsRow } from "../settings/settings-ui";
+import { agentContribution } from "../extensions/registry";
 import {
   setThemeForAppearance,
   themeColors,
@@ -731,46 +726,11 @@ function HabitsStep() {
 // Agent
 // ---------------------------------------------------------------------------
 
-/** Hermes' server URL and key, checked against the server as in Settings → Agents. */
-function HermesConnect({ state, onConnected }: { state: ProvidersState; onConnected: () => void }) {
-  const { baseUrl, setBaseUrl, apiKey, setApiKey, saving, connect } = useConnectHermes(state);
-  return (
-    <form
-      className="flex flex-col gap-2 px-3.5 pb-3.5"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void connect().then((ok) => ok && onConnected());
-      }}
-    >
-      <TextInput
-        autoFocus
-        value={baseUrl}
-        onChange={(e) => setBaseUrl(e.target.value)}
-        placeholder={state.settings.hermes.baseUrl || "https://<host>:8642"}
-        aria-label="Hermes API base URL"
-      />
-      <TextInput
-        type="password"
-        value={apiKey}
-        onChange={(e) => setApiKey(e.target.value)}
-        placeholder="API key (API_SERVER_KEY)"
-        aria-label="Hermes API key"
-      />
-      <p className="text-xs leading-[17px] text-muted-foreground">
-        {HERMES_URL_HINT} The key stays on this device.
-      </p>
-      <Btn type="submit" size="sm" variant="primary" disabled={saving} className="self-end">
-        {saving ? "Connecting…" : "Connect"}
-      </Btn>
-    </form>
-  );
-}
-
 function AgentStep({ firstRun }: { firstRun: boolean }) {
   const query = useAgentProviders();
   const setState = useSetProvidersState();
   const state = query.data;
-  const [hermesOpen, setHermesOpen] = useState(false);
+  const [connecting, setConnecting] = useState<string | null>(null);
   const pick = (kind: NonNullable<typeof state>["selected"]) => {
     console.log("[Setup:selectAgent]", { kind });
     mailApi
@@ -832,10 +792,11 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
             <div className="flex flex-col gap-2">
               {state.providers.map((p) => {
                 const usable = isProviderUsable(p);
-                // Hermes connects right here; the Mac's CLIs are set up outside the app.
-                const connectable = !usable && p.kind === "hermes";
+                // An agent with a connect form (Hermes) connects right here; the Mac's CLIs are set up outside the app.
+                const Connect = usable ? undefined : agentContribution(p.kind)?.Connect;
+                const connectable = Boolean(Connect);
                 const selected = usable && state.selected === p.kind;
-                const open = connectable && hermesOpen;
+                const open = connectable && connecting === p.kind;
                 return (
                   <div
                     key={p.kind}
@@ -853,7 +814,9 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
                       aria-pressed={usable ? selected : undefined}
                       aria-expanded={connectable ? open : undefined}
                       disabled={!usable && !connectable}
-                      onClick={() => (connectable ? setHermesOpen(!open) : pick(p.kind))}
+                      onClick={() =>
+                        connectable ? setConnecting(open ? null : p.kind) : pick(p.kind)
+                      }
                       className="flex w-full cursor-pointer items-start gap-3 rounded-xl px-3.5 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-default"
                     >
                       <span className="flex h-5 shrink-0 items-center">
@@ -880,12 +843,13 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
                         </span>
                       ) : null}
                     </button>
-                    {open ? (
-                      <HermesConnect
+                    {open && Connect ? (
+                      <Connect
                         state={state}
+                        provider={p}
                         onConnected={() => {
-                          setHermesOpen(false);
-                          pick("hermes");
+                          setConnecting(null);
+                          pick(p.kind);
                         }}
                       />
                     ) : null}

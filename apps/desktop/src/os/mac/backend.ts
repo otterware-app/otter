@@ -7,6 +7,7 @@ import type { BackendOS } from "../types.js";
 import { appleTranslator } from "./translator.js";
 
 export const macBackend: BackendOS = {
+  platform: "mac",
   /** The Mac's name as the user set it ("Chris's MacBook Pro"). */
   deviceName() {
     try {

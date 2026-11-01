@@ -55,6 +55,7 @@ const SETTINGS_PANES = new Set<string>([
   "agents",
   "browser",
   "integrations",
+  "features",
   "otter",
 ]);
 
@@ -70,6 +71,23 @@ const settingsRoute = createRoute({
       pane: SETTINGS_PANES.has(pane) ? (pane as SettingsPane) : "general",
     }),
     stringify: ({ pane }) => ({ pane }),
+  },
+  validateSearch: (search: Record<string, unknown>): SettingsSearch => ({
+    target: typeof search.target === "string" ? search.target : undefined,
+  }),
+  component: () => null,
+});
+
+/** One thing inside a pane: an extension's page (`/settings/extensions/todoist`). */
+const settingsItemRoute = createRoute({
+  getParentRoute: () => mailRoute,
+  path: "settings/$pane/$item",
+  params: {
+    parse: ({ pane, item }) => ({
+      pane: SETTINGS_PANES.has(pane) ? (pane as SettingsPane) : "general",
+      item,
+    }),
+    stringify: ({ pane, item }) => ({ pane, item }),
   },
   validateSearch: (search: Record<string, unknown>): SettingsSearch => ({
     target: typeof search.target === "string" ? search.target : undefined,
@@ -134,7 +152,7 @@ const appRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
-  mailRoute.addChildren([indexRoute, settingsRoute, labelRoute, messageRoute]),
+  mailRoute.addChildren([indexRoute, settingsRoute, settingsItemRoute, labelRoute, messageRoute]),
   appRoute,
 ]);
 
