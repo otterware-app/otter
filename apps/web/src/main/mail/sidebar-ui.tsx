@@ -184,8 +184,7 @@ export function Section({
         onDragLeave={dropZone?.onDragLeave}
         onDrop={dropZone?.onDrop}
       >
-        {/* A small muted heading (Linear's "Workspace"); the chevron shows on
-            hover, or while the section is collapsed. */}
+        {/* A small muted heading with its caret after it (Linear's "Workspace ▾"). */}
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
@@ -195,10 +194,7 @@ export function Section({
         >
           {title}
           <ChevronDownIcon
-            className={[
-              "size-3 transition-[opacity,transform]",
-              open ? "opacity-0 group-hover:opacity-100" : "-rotate-90",
-            ].join(" ")}
+            className={["size-3 transition-transform", open ? "" : "-rotate-90"].join(" ")}
           />
         </button>
         <span className="flex-1" />

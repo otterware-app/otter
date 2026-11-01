@@ -282,7 +282,9 @@ function MessageDayGroup({
   const unread = group.messages.filter((message) => message.threadUnread ?? message.unread).length;
   return (
     <section data-message-day={group.day}>
-      <h3 className="sticky top-0 z-10 bg-canvas">
+      {/* Linear's group band: a soft fill inset like the rows, opaque below
+          it so rows scroll under. */}
+      <h3 className="sticky top-0 z-10 bg-canvas px-1 py-0.5">
         <button
           type="button"
           data-message-day-header=""
@@ -290,7 +292,7 @@ function MessageDayGroup({
           aria-expanded={!collapsed}
           aria-controls={bodyId}
           onClick={onToggle}
-          className="flex h-8 w-full cursor-pointer items-center gap-1.5 border-y border-border/60 px-4 text-left text-xs outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+          className="flex h-8 w-full cursor-pointer items-center gap-1.5 rounded-md bg-foreground/[0.04] px-3 text-left text-xs outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
         >
           <ChevronDownIcon
             aria-hidden

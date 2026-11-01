@@ -1,26 +1,18 @@
-import type { CSSProperties } from "react";
 import { ChevronsRightIcon, InboxIcon, XIcon } from "lucide-react";
 import type { MailLabel } from "./types";
 
-/** Badge chrome shared by every chip (Otter Code's `Badge`, size sm). */
+/** Badge chrome shared by every chip: Linear's outlined pill, grey text, a
+    dot for color. */
 // no-drag: in the reader's title band (a window-drag region in the Mac app)
 // the pill must get hover, or its remove button never shows.
 const PILL =
-  "no-drag group relative inline-flex h-5 w-fit max-w-32 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border px-2 text-2xs font-medium leading-none";
+  "no-drag group relative inline-flex h-5 w-fit max-w-32 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-transparent px-2 text-2xs font-medium leading-none text-muted-foreground";
 
-/** Neutral outline chip. */
-const OUTLINE = "border-border/60 bg-transparent text-muted-foreground";
-
-/**
- * Tinted chip driven by a `--label` color: a faint wash of the label over the
- * surface and text that leans towards it, so colored labels stay quiet next
- * to the list copy (Otter Code's `label` badge variant).
- */
-const TINTED =
-  "border-transparent bg-[color-mix(in_srgb,var(--label)_8%,transparent)] text-[color-mix(in_srgb,var(--label)_30%,var(--foreground))] dark:bg-[color-mix(in_srgb,var(--label)_12%,transparent)] dark:text-[color-mix(in_srgb,var(--label)_45%,var(--foreground))]";
-
-function tint(color: string): CSSProperties {
-  return { "--label": color } as CSSProperties;
+/** The label's color, as a dot before its name. */
+function Dot({ color }: { color: string }) {
+  return (
+    <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: color }} />
+  );
 }
 
 /** Hover-revealed remove control, after the name: the chip is see-through,
@@ -54,7 +46,8 @@ export function CategoryChip({ id, onRemove }: { id: string; onRemove?: () => vo
   const meta = CATEGORY_CHIPS[id];
   if (!meta) return null;
   return (
-    <span className={`${PILL} ${TINTED}`} style={tint(meta.bg)}>
+    <span className={PILL}>
+      <Dot color={meta.bg} />
       {meta.name}
       {onRemove ? <RemoveButton label={`Remove "${meta.name}"`} onRemove={onRemove} /> : null}
     </span>
@@ -82,7 +75,7 @@ export function ImportantMarker({ muted }: { muted?: boolean }) {
     `onRemove` (reader header) reveals a hover ✕ that archives. */
 export function InboxChip({ selected, onRemove }: { selected?: boolean; onRemove?: () => void }) {
   return (
-    <span className={`${PILL} ${OUTLINE} ${selected ? "border-foreground/20" : ""}`}>
+    <span className={`${PILL} ${selected ? "border-foreground/20" : ""}`}>
       <InboxIcon className="size-3" />
       Inbox
       {onRemove ? <RemoveButton label="Archive" onRemove={onRemove} /> : null}
@@ -91,9 +84,9 @@ export function InboxChip({ selected, onRemove }: { selected?: boolean; onRemove
 }
 
 /**
- * Chip for a label: tinted with the label's Gmail color, or a neutral outline
- * when the label has none. Selection only firms up the outline, since the
- * selected row is a quiet surface rather than a filled block.
+ * Chip for a label (Linear's): an outline with the label's Gmail color as a
+ * dot, or just the outline when it has none. Selection only firms up the
+ * outline, since the selected row is a quiet surface rather than a filled block.
  */
 export function LabelChip({
   label,
@@ -105,22 +98,11 @@ export function LabelChip({
   onRemove?: () => void;
 }) {
   const displayName = label.name.split("/").pop() ?? label.name;
-  const remove = onRemove ? (
-    <RemoveButton label={`Remove "${displayName}"`} onRemove={onRemove} />
-  ) : null;
-  const text = <span className="min-w-0 truncate">{displayName}</span>;
-  if (label.color) {
-    return (
-      <span className={`${PILL} ${TINTED}`} style={tint(label.color.backgroundColor)}>
-        {text}
-        {remove}
-      </span>
-    );
-  }
   return (
-    <span className={`${PILL} ${OUTLINE} ${selected ? "border-foreground/20" : ""}`}>
-      {text}
-      {remove}
+    <span className={`${PILL} ${selected ? "border-foreground/20" : ""}`}>
+      {label.color ? <Dot color={label.color.backgroundColor} /> : null}
+      <span className="min-w-0 truncate">{displayName}</span>
+      {onRemove ? <RemoveButton label={`Remove "${displayName}"`} onRemove={onRemove} /> : null}
     </span>
   );
 }
