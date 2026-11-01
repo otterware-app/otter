@@ -34,5 +34,7 @@ if (!window.desktopBridge) {
 // Where the window's own controls sit; the top bar leaves them room (styles.css).
 document.documentElement.dataset.windowControls =
   window.desktopBridge.features.windowControls ?? "none";
+// The window's tabs take the top row: each column's header moves into its card.
+if (window.desktopBridge.features.windowTabs) document.documentElement.dataset.windowTabs = "";
 
 await import("./app");

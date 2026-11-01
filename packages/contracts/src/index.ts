@@ -60,6 +60,8 @@ export interface BridgeFeatures {
   windowControls: "left" | "right" | null;
   /** Back and forward buttons in the title bar (a browser has its own). */
   historyButtons: boolean;
+  /** Tabs across the window's top, each a place in the app (a browser has its own). */
+  windowTabs: boolean;
   launchAtLogin: boolean;
   /** The unread count on the Dock icon. */
   dockBadge: boolean;

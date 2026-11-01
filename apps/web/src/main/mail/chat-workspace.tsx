@@ -34,6 +34,7 @@ import { mailApi, type ChatChange } from "./api";
 import { useMailChatContext } from "./chat-context";
 import {
   closeChatTab,
+  isBlank,
   newChat,
   openChatTab,
   reorderChatTabs,
@@ -42,6 +43,7 @@ import {
   watchChat,
   type ChatTab,
 } from "./chat-store";
+import { formatAgo } from "./chat-history";
 import { ChatView } from "./chat-view";
 import { FilePreview } from "./attachment-preview";
 import { MessageReader } from "./message-reader";
@@ -231,10 +233,12 @@ export function ChatWorkspace({
   const allPages = useBrowser((s) => s.tabs);
   const pageTabs = allPages.filter((t) => t.chatId === chatId);
 
+  const blank = !convo || isBlank(convo);
   const chat = (
     <ChatView
       chatId={chatId}
       context={context}
+      home={blank ? <RecentChats onSelect={onSelectChat} /> : undefined}
       inputRef={inputRef}
       onOpenChange={openChange}
       onOpenFile={(href) => open({ kind: "file", href }, href.split(/[\\/]/).pop() || href)}
@@ -258,7 +262,7 @@ export function ChatWorkspace({
         >
           {titleLeading}
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-            {convo && convo.turns.length > 0 ? convo.title : "New chat"}
+            {blank ? "New chat" : convo.title}
           </span>
           {tabs.length > 0 ? null : titleTrailing}
         </div>
@@ -371,4 +375,39 @@ function FileTab({ chatId, href }: { chatId: string; href: string }) {
   if (!file.data) return null;
   const data = file.data;
   return <FilePreview file={{ ...data, load: async () => data.data }} />;
+}
+
+/**
+ * The Agent home's past chats, under its composer (Linear's): newest first,
+ * a dot on those that finished while you were away.
+ */
+function RecentChats({ onSelect }: { onSelect: (chatId: string) => void }) {
+  const conversations = useChats((s) => s.conversations);
+  const unseen = useChats((s) => s.unseen);
+  const recent = conversations
+    .filter((c) => !isBlank(c))
+    .toSorted((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 8);
+  if (recent.length === 0) return null;
+  return (
+    <ul aria-label="Recent chats" className="flex flex-col">
+      {recent.map((c) => (
+        <li key={c.id}>
+          <button
+            type="button"
+            onClick={() => onSelect(c.id)}
+            className="flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 text-left text-sm text-muted-foreground outline-none hover:bg-foreground/[0.05] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            {unseen.has(c.id) ? (
+              <span aria-label="New" className="size-1.5 shrink-0 rounded-full bg-primary" />
+            ) : null}
+            <span className={cn("min-w-0 flex-1 truncate", unseen.has(c.id) && "text-foreground")}>
+              {c.title}
+            </span>
+            <span className="shrink-0 text-xs">{formatAgo(c.updatedAt)}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
 }

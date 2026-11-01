@@ -20,6 +20,8 @@ export function PanelTab({
   onSelect,
   onClose,
   dragging = false,
+  closable = true,
+  className,
 }: {
   id: string;
   title: string;
@@ -29,6 +31,9 @@ export function PanelTab({
   onSelect: () => void;
   onClose: () => void;
   dragging?: boolean;
+  /** Whether it has a × (the window's last tab doesn't). */
+  closable?: boolean;
+  className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -44,7 +49,7 @@ export function PanelTab({
       title={tooltip}
       onClick={onSelect}
       onAuxClick={(e) => {
-        if (e.button === 1) onClose();
+        if (e.button === 1 && closable) onClose();
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -58,24 +63,27 @@ export function PanelTab({
           ? "bg-foreground/10 text-foreground"
           : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
         dragging && "z-10 cursor-grabbing bg-canvas shadow-sm ring-1 ring-border",
+        className,
       )}
     >
       <span className="relative flex size-3.5 shrink-0 items-center justify-center">{icon}</span>
       <span className="min-w-0 flex-1 truncate">{title}</span>
-      <button
-        type="button"
-        aria-label={`Close ${title}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
-        className={cn(
-          "flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/8 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-focus-ring",
-          selected ? "opacity-100" : "opacity-0 group-hover/tab:opacity-100",
-        )}
-      >
-        <XIcon className="size-3.5" />
-      </button>
+      {closable ? (
+        <button
+          type="button"
+          aria-label={`Close ${title}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className={cn(
+            "flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/8 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-focus-ring",
+            selected ? "opacity-100" : "opacity-0 group-hover/tab:opacity-100",
+          )}
+        >
+          <XIcon className="size-3.5" />
+        </button>
+      ) : null}
     </div>
   );
 }

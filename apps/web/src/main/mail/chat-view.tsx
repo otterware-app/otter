@@ -5,7 +5,7 @@
  * Codex chat from another computer reads here and continues there.
  */
 
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useState, type ReactNode, type RefObject } from "react";
 import { MessageScroller } from "@shadcn/react/message-scroller";
 import { ArrowDownIcon, MailIcon } from "lucide-react";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -55,6 +55,7 @@ export function ChatView({
   onOpenChange,
   onOpenFile,
   compact = false,
+  home,
 }: {
   chatId: string;
   context: MailChatContext;
@@ -65,6 +66,11 @@ export function ChatView({
   onOpenFile?: (href: string) => void;
   /** The small window's: a smaller headline, closer to the edges. */
   compact?: boolean;
+  /**
+   * Under the composer of an empty chat (the workspace's Agent home, Linear's):
+   * the composer moves up from the foot to sit between the headline and this.
+   */
+  home?: ReactNode;
 }) {
   const convo = useChats((s) => s.conversations.find((c) => c.id === chatId));
   const device = useChats((s) => s.device);
@@ -143,6 +149,24 @@ export function ChatView({
   );
   // An empty chat shows a centered headline above the pinned composer (Codex).
   const hero = turns.length === 0 && !hydrating && !unloaded;
+  const composer = elsewhere ? (
+    <p className="shrink-0 px-6 pb-4 pt-2 text-center text-[13px] text-muted-foreground">
+      This chat ran in {chat.name} on {elsewhere.name}. Continue it there.
+    </p>
+  ) : (
+    <ChatComposer
+      chatId={chatId}
+      convo={convo}
+      chat={chat}
+      context={context}
+      onClearQuote={onClearQuote}
+      files={files}
+      inputRef={inputRef}
+      onEditCitation={(id, anchor) => setCommenting({ id, anchor, side: "above" })}
+      onSent={() => setCommenting(null)}
+      updateSettings={updateSettings}
+    />
+  );
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col" {...(needsSetup ? {} : drop.handlers)}>
@@ -175,6 +199,17 @@ export function ChatView({
             ) : null}
           </div>
         </div>
+      ) : hero && home ? (
+        <ScrollArea className="min-h-0 flex-1" viewportClassName="px-3 pb-6 pt-[16vh]">
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+            <h1 className="flex flex-col items-center gap-4 text-balance text-center text-2xl font-normal tracking-tight text-foreground">
+              <MailIcon aria-hidden strokeWidth={1.25} className="size-10 text-muted-foreground" />
+              {context.headline}
+            </h1>
+            {composer}
+            <div className="px-3">{home}</div>
+          </div>
+        </ScrollArea>
       ) : (
         <MessageScroller.Provider autoScroll defaultScrollPosition="end">
           <MessageScroller.Root className="relative min-h-0 flex-1">
@@ -264,24 +299,7 @@ export function ChatView({
               </div>
             ) : null}
           </MessageScroller.Root>
-          {elsewhere ? (
-            <p className="shrink-0 px-6 pb-4 pt-2 text-center text-[13px] text-muted-foreground">
-              This chat ran in {chat.name} on {elsewhere.name}. Continue it there.
-            </p>
-          ) : (
-            <ChatComposer
-              chatId={chatId}
-              convo={convo}
-              chat={chat}
-              context={context}
-              onClearQuote={onClearQuote}
-              files={files}
-              inputRef={inputRef}
-              onEditCitation={(id, anchor) => setCommenting({ id, anchor, side: "above" })}
-              onSent={() => setCommenting(null)}
-              updateSettings={updateSettings}
-            />
-          )}
+          {composer}
         </MessageScroller.Provider>
       )}
       <AttachmentPreview file={previewFile} onClose={() => setPreviewFile(null)} />

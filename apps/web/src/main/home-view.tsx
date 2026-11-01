@@ -103,7 +103,16 @@ import {
   spansMailboxes as spanning,
 } from "./mail/spaces";
 import { useSignInAlerts } from "./mail/sync-health";
-import { useRecordRecentlyViewed } from "./recently-viewed";
+import { useRecordRecentlyViewed, type RecentIcon } from "./recently-viewed";
+import {
+  addTab,
+  closeTab as closeWindowTab,
+  followLocation,
+  nameTab,
+  selectTab as selectWindowTab,
+  useWindowTabs,
+  WindowTabsBar,
+} from "./window-tabs";
 import { SetupFlow } from "./onboarding/setup";
 import {
   newTab,
@@ -215,6 +224,8 @@ function useStoredWidth(
   max: number,
   dir: 1 | -1 = 1,
   room?: () => number,
+  /** A CSS variable on the page that follows the width, mid-drag too (the window's tabs line up by it). */
+  cssVar?: string,
 ) {
   const [width, setWidth] = useState(() => {
     const saved = Number(localStorage.getItem(key));
@@ -225,6 +236,9 @@ function useStoredWidth(
     room ? Math.min(width, Math.max(min, room())) : width,
   );
   const widthRef = useLatest(shown);
+  useLayoutEffect(() => {
+    if (cssVar) document.documentElement.style.setProperty(cssVar, `${shown}px`);
+  }, [cssVar, shown]);
   // The pane element itself, resized imperatively during a drag.
   const paneRef = useRef<HTMLDivElement>(null);
   // The animated frame around a collapsible pane: follows the drag with its
@@ -253,6 +267,7 @@ function useStoredWidth(
       raf = 0;
       if (paneRef.current) paneRef.current.style.width = `${latest}px`;
       if (frameRef.current) frameRef.current.style.width = `${latest}px`;
+      if (cssVar) document.documentElement.style.setProperty(cssVar, `${latest}px`);
     };
     const move = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return;
@@ -339,7 +354,7 @@ function PaneResizer({ onPointerDown }: { onPointerDown: (e: ReactPointerEvent) 
 const PANE = "min-h-0 overflow-hidden";
 /** The card behind a pane's body, and its edge over it (above sticky day
     headers and full-width rows). Its surface comes with the pane. */
-const CARD = `${PANE} relative pr-1 before:pointer-events-none before:absolute before:left-0 before:right-1 before:bottom-0 before:top-(--workspace-topbar-height) before:-z-10 before:rounded-xl after:pointer-events-none after:absolute after:left-0 after:right-1 after:bottom-0 after:top-(--workspace-topbar-height) after:z-30 after:rounded-xl after:border after:border-(--panel-edge)`;
+const CARD = `${PANE} relative pr-1 before:pointer-events-none before:absolute before:left-0 before:right-1 before:bottom-0 before:top-(--workspace-card-top) before:-z-10 before:rounded-xl after:pointer-events-none after:absolute after:left-0 after:right-1 after:bottom-0 after:top-(--workspace-card-top) after:z-30 after:rounded-xl after:border after:border-(--panel-edge)`;
 /** The sidebar is the window's left edge, on the frame: the only column that isn't a card. */
 const PANE_SIDEBAR = `${PANE} relative text-sidebar-foreground`;
 const PANE_LIST = `${CARD} before:bg-canvas`;
@@ -458,8 +473,8 @@ function MailHome() {
   }, [openSettingsRef]);
 
   // ⌘W (File ▸ Close): close the browser panel's page (the last closes the
-  // panel), the workspace's tab, or the agent's small window (its chat leaves
-  // the bottom bar); else the window.
+  // panel), the workspace's tab, the agent's small window (its chat leaves
+  // the bottom bar), or the window's tab; else the window.
   const closeBrowserTabRef = useRef<(() => boolean) | null>(null);
   const closeWorkspaceTabRef = useRef<(() => boolean) | null>(null);
   const closeChatWindowRef = useRef<() => boolean>(() => false);
@@ -469,9 +484,17 @@ function MailHome() {
         if (closeBrowserTabRef.current?.()) return;
         if (closeWorkspaceTabRef.current?.()) return;
         if (closeChatWindowRef.current()) return;
+        if (features.windowTabs) {
+          const { tabs, activeId } = useWindowTabs.getState();
+          const next = tabs.length > 1 ? closeWindowTab(activeId) : null;
+          if (next) {
+            void router.navigate({ href: next, replace: true });
+            return;
+          }
+        }
         void mailApi.closeMainWindow();
       }),
-    [],
+    [router],
   );
 
   /** Moves the mail to `to`, from where it is (or was, under Settings). */
@@ -554,7 +577,15 @@ function MailHome() {
     start: sidebarStart,
     paneRef: sidebarPaneRef,
     frameRef: sidebarFrameRef,
-  } = useStoredWidth("gmail:pane:sidebar", 240, 180, 400);
+  } = useStoredWidth(
+    "gmail:pane:sidebar",
+    240,
+    180,
+    400,
+    1,
+    undefined,
+    "--workspace-sidebar-width",
+  );
   const {
     width: listWidth,
     start: listStart,
@@ -952,13 +983,17 @@ function MailHome() {
   });
 
   // A window opened on no place in particular (the index route) goes to the
-  // last one, once accounts are known.
+  // place its tab showing was at, or the last one, once accounts are known.
   const onIndex = !routeLoc && !settingsRoute;
   const hasMail = mailLoc !== null;
   const goForEffect = useLatest(go);
   useEffect(() => {
-    if (onIndex && hasMail) goForEffect.current({}, true);
-  }, [onIndex, hasMail, goForEffect]);
+    if (!onIndex || !hasMail) return;
+    const { tabs, activeId } = useWindowTabs.getState();
+    const tab = features.windowTabs ? tabs.find((t) => t.id === activeId) : undefined;
+    if (tab) void navigate({ href: tab.href, replace: true });
+    else goForEffect.current({}, true);
+  }, [onIndex, hasMail, goForEffect, navigate]);
 
   // Persist where the user is so we can reopen here next launch.
   useEffect(() => {
@@ -1399,9 +1434,10 @@ function MailHome() {
     selectedRows: chatSelection,
     quote: pendingQuote,
   });
-  useRecordRecentlyViewed({
+  const locationHref = router.state.location.href;
+  const place = useRecordRecentlyViewed({
     ready: initialized,
-    href: router.state.location.href,
+    href: locationHref,
     settingsPane: settingsRoute?.pane ?? null,
     mailbox: selectedAccountId,
     label: selectedLabelId,
@@ -1410,6 +1446,33 @@ function MailHome() {
     accounts,
     views,
   });
+  // The window's tab showing follows the window, named for where it is.
+  const routed = routeLoc !== null || settingsRoute !== null;
+  const placeKey = place ? JSON.stringify([place.title, place.icon]) : null;
+  const placeHref = place?.href ?? null;
+  useEffect(() => {
+    if (!features.windowTabs || !initialized || !routed) return;
+    followLocation(locationHref);
+    if (!placeKey || placeHref !== locationHref) return;
+    const [title, icon] = JSON.parse(placeKey) as [string, RecentIcon];
+    nameTab(locationHref, title, icon);
+  }, [initialized, routed, locationHref, placeKey, placeHref]);
+  const showWindowTab = (href: string | null) => {
+    if (!href) return;
+    setComposeOpen(false);
+    void navigate({ href, replace: true });
+  };
+  /** A new tab, at the Inbox of the mailbox showing (or the first). */
+  const newWindowTab = () => {
+    const mailbox = space?.kind === "mailbox" ? space.id : firstRealAccountId;
+    if (!mailbox) return;
+    const { href } = router.buildLocation({
+      to: "/$mailbox/$label",
+      params: { mailbox, label: "INBOX" },
+    });
+    addTab(href);
+    showWindowTab(href);
+  };
   // The workspace has no list: a chat and its tabs.
   const hasListTarget = effectiveAccountId != null && !isChats;
   const showMain =
@@ -1490,6 +1553,7 @@ function MailHome() {
       labelId={selectedLabelId}
       settingsOpen={settingsRoute !== null}
       onGo={goToSpace}
+      onOpenAgent={() => goToSpace(CHATS_SPACE)}
       onCompose={() => {
         sidebarPeek.close();
         setComposeOpen(true);
@@ -1521,12 +1585,21 @@ function MailHome() {
   return (
     <>
       <div
-        className="surface-grain flex h-full bg-sidebar-surface text-foreground"
+        className="surface-grain flex h-full flex-col bg-sidebar-surface text-foreground"
         data-panel-animations={panelAnimationsActive ? "true" : "false"}
         data-mail-layout={isChats ? "split" : mailLayout}
         style={{ "--panel-animation-duration": `${panelAnimationDurationMs}ms` } as CSSProperties}
       >
-        <div className="contents">
+        {features.windowTabs ? (
+          <WindowTabsBar
+            // The tabs start with the columns, after the sidebar (Linear's).
+            sidebarOpen={sidebarOpen}
+            onSelect={(id) => showWindowTab(selectWindowTab(id))}
+            onClose={(id) => showWindowTab(closeWindowTab(id))}
+            onNew={newWindowTab}
+          />
+        ) : null}
+        <div className="flex min-h-0 flex-1">
           {/* The frame's width round the cards (the right edge is the last
               card's own gap), so they float with every corner rounded. */}
           <div className="relative isolate flex min-w-0 flex-1 pb-8 pl-1">
@@ -1582,8 +1655,10 @@ function MailHome() {
                         </>
                       ) : (
                         <>
-                          {/* The traffic lights and the pinned toggle sit over its band. */}
-                          <div className="drag-region h-(--workspace-topbar-height) shrink-0" />
+                          {/* The traffic lights and the pinned toggle sit over its band (or the tabs' row). */}
+                          {features.windowTabs ? null : (
+                            <div className="drag-region h-(--workspace-topbar-height) shrink-0" />
+                          )}
                           {sidebar}
                         </>
                       )}
@@ -1757,7 +1832,12 @@ function MailHome() {
             {/* The bottom bar: under the cards, right of the sidebar, which runs on down beside it. */}
             <div
               className="absolute bottom-0 right-0 z-40"
-              style={{ left: sidebarOpen ? FRAME_INSET + sidebarWidth : 0 }}
+              // Follows the sidebar's edge mid-drag too.
+              style={{
+                left: sidebarOpen
+                  ? "calc(var(--workspace-sidebar-width) + var(--workspace-frame-inset))"
+                  : 0,
+              }}
             >
               <ChatBar
                 shownId={

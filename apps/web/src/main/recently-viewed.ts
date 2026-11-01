@@ -106,7 +106,8 @@ const SYSTEM_LABEL_ICONS: Record<string, RecentIcon> = {
  * Records where HomeView is, once it knows what to call it: a conversation
  * by its subject (from its sender), a mailbox's label or view by name (in
  * that mailbox), a Settings page by its pane, a chat by its title.
- * Searches aren't places.
+ * Searches aren't places. Returns it, to name the window's tab (a new chat's
+ * too, which isn't recorded).
  */
 export function useRecordRecentlyViewed({
   ready,
@@ -128,7 +129,7 @@ export function useRecordRecentlyViewed({
   readerAccount: string | null;
   accounts: MailAccount[];
   views: MailView[];
-}): void {
+}): RecentPlace | null {
   const inSettings = settingsPane !== null;
   const message = useMessage(
     !inSettings && messageId ? readerAccount : null,
@@ -161,7 +162,14 @@ export function useRecordRecentlyViewed({
       };
     }
   } else if (mailbox === CHATS_SPACE) {
-    if (chat && !isBlank(chat)) place = { href, context: "Chats", title: chat.title, icon: "chat" };
+    if (chat) {
+      place = {
+        href,
+        context: "Agent",
+        title: isBlank(chat) ? "New chat" : chat.title,
+        icon: "chat",
+      };
+    }
   } else if (mailbox && label !== SEARCH_MAILBOX) {
     const account = accounts.find((a) => a.id === mailbox);
     const context = account
@@ -189,8 +197,10 @@ export function useRecordRecentlyViewed({
     }
   }
 
-  const key = place ? JSON.stringify(place) : null;
+  // A new chat names its tab, but isn't anywhere to come back to yet.
+  const key = place && !(chat && isBlank(chat)) ? JSON.stringify(place) : null;
   useEffect(() => {
     if (key) recordRecentlyViewed(JSON.parse(key) as RecentPlace);
   }, [key]);
+  return place;
 }

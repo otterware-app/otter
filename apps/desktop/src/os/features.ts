@@ -7,6 +7,7 @@ import type { BridgeFeatures } from "@otter-mail/contracts";
 
 const everywhere = {
   historyButtons: true,
+  windowTabs: true,
   launchAtLogin: true,
   defaultMailApp: true,
   dragOut: true,

@@ -1,8 +1,9 @@
 /**
  * The sidebar, the window's only one (Notion's): Search or ask (the command
- * palette), a tab for each mailbox, then the tab's page. A mailbox: New message, its folders and
- * labels, then the views; in the AI workspace, the last mailbox's. Sync health, an
- * update and you (with Settings) at its foot.
+ * palette), a tab for each mailbox, then the tab's page. A mailbox: New message, Agent (the
+ * AI workspace, Linear's: picked while it shows), its folders and labels, then the views; in
+ * the AI workspace, the last mailbox's. Sync health, an update and you (with Settings) at its
+ * foot.
  */
 
 import { useState, type ReactNode } from "react";
@@ -26,7 +27,9 @@ import { UpdateCard } from "../updates";
 import { AccountPicture } from "./account-picture";
 import { MailboxFolders, SearchRow, type SidebarSearch } from "./accounts-sidebar";
 import { AddMailboxMenu } from "./add-mailbox";
+import { AgentIcon } from "./agent-icon";
 import type { SettingsPane } from "./api";
+import { useChats } from "./chat-store";
 import { useAddAccount, useViewUnreadCounts } from "./hooks";
 import { ScheduledMailButton } from "./mail-schedule";
 import {
@@ -56,6 +59,7 @@ export function AppSidebar({
   labelId,
   settingsOpen,
   onGo,
+  onOpenAgent,
   onCompose,
   onNewView,
   onEditView,
@@ -77,6 +81,8 @@ export function AppSidebar({
   settingsOpen: boolean;
   /** Goes to a space: where it opens, or `labelId` in it. */
   onGo: (spaceId: string, labelId?: string) => void;
+  /** The AI workspace, on a new chat. */
+  onOpenAgent: () => void;
   onCompose: () => void;
   onNewView: () => void;
   onEditView: (viewId: string) => void;
@@ -119,6 +125,7 @@ export function AppSidebar({
         spaceId={spaceId}
         labelId={labelId}
         onGo={onGo}
+        onOpenAgent={onOpenAgent}
         onCompose={onCompose}
         onNewView={onNewView}
         onEditView={onEditView}
@@ -257,6 +264,7 @@ function MailPage({
   spaceId,
   labelId,
   onGo,
+  onOpenAgent,
   onCompose,
   onNewView,
   onEditView,
@@ -271,6 +279,8 @@ function MailPage({
   spaceId: string | null;
   labelId: string;
   onGo: (spaceId: string, labelId?: string) => void;
+  /** The AI workspace, on a new chat. */
+  onOpenAgent: () => void;
   onCompose: () => void;
   onNewView: () => void;
   onEditView: (viewId: string) => void;
@@ -279,6 +289,8 @@ function MailPage({
   onCloseSearch: (id: string) => void;
 }) {
   const viewUnread = useViewUnreadCounts(views, accounts);
+  // A chat finished while you were away.
+  const agentDot = useChats((s) => s.unseen.size > 0);
   const addAccount = useAddAccount();
   const showing = mailbox != null && mailbox === spaceId;
 
@@ -316,6 +328,15 @@ function MailPage({
         onClick={onCompose}
       />
       <ScheduledMailButton />
+      <div className="flex shrink-0 flex-col px-(--sidebar-content-inset)">
+        <SkRow
+          icon={<AgentIcon className="size-4" />}
+          title="Agent"
+          selected={spaceId === CHATS_SPACE}
+          dot={agentDot}
+          onClick={onOpenAgent}
+        />
+      </div>
       <SidebarBody>
         {mailbox ? (
           <MailboxFolders

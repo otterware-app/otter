@@ -62,7 +62,7 @@ function trackHistory(history: RouterHistory): void {
   });
 }
 
-const RECENT_ICONS: Record<RecentIcon, ComponentType<{ className?: string }>> = {
+export const RECENT_ICONS: Record<RecentIcon, ComponentType<{ className?: string }>> = {
   inbox: InboxIcon,
   starred: StarIcon,
   flagged: FlagIcon,
@@ -236,7 +236,8 @@ export function SidebarControl({
           <PaneIcon side="left" open={sidebarOpen} className="size-4" />
         </IconBtn>
       </HintTooltip>
-      <HistoryControls />
+      {/* Under the window's tabs, history sits by them (window-tabs.tsx). */}
+      {features.windowTabs ? null : <HistoryControls />}
     </div>
   );
 }
@@ -262,8 +263,12 @@ export function PanelControl({ open, onToggle }: { open: boolean; onToggle: () =
   );
 }
 
-/** Room left in a band for the pinned panel toggle, and the window controls beside it. */
+/**
+ * Room left in a band for the pinned panel toggle, and the window controls
+ * beside it; none under the window's tabs, which hold them.
+ */
 export function PanelControlSlot() {
+  if (features.windowTabs) return null;
   return (
     <span
       aria-hidden
@@ -278,6 +283,8 @@ export function PanelControlSlot() {
  * sidebar, so no toggle (`SidebarControl`): only the traffic lights.
  */
 export function TitlebarInset() {
+  // Under the window's tabs, nothing sits over the bands.
+  if (features.windowTabs) return null;
   // The band's own px-4 already covers 1rem of it, and the frame its inset.
   return (
     <span
@@ -319,6 +326,7 @@ export function WindowTitle({ className }: { className?: string }) {
  * so Settings' heading takes the band instead.
  */
 export function SidebarTitle() {
+  if (features.windowTabs) return null;
   return <div className="drag-region h-(--workspace-topbar-height) shrink-0 web:hidden" />;
 }
 
