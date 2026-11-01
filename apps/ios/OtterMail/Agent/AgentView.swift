@@ -15,8 +15,6 @@ struct AgentView: View {
     /** Shown as a sheet (from a conversation) rather than in the frame. */
     var sheet = false
     var onSettings: () -> Void = {}
-    /** The Agent tab's: its chats are a drawer, not a sheet. */
-    var onHistory: (() -> Void)?
 
     @State private var draft = ""
     @State private var showHistory = false
@@ -37,7 +35,7 @@ struct AgentView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     // The account's chats read without an agent connected here.
                     Button("Chats", systemImage: "clock.arrow.circlepath") {
-                        if let onHistory { onHistory() } else { showHistory = true }
+                        showHistory = true
                     }
                         .disabled(agent.status != .ready && session.user == nil)
                 }
@@ -547,15 +545,12 @@ private struct ApprovalCard: View {
  * The account's chats, from every device and agent, newest first; then the
  * picked agent's own sessions that aren't one of them (Hermes' web UI, …).
  */
-/** The chats: the account's, then the agent's own. A sheet, or the Agent tab's drawer (`onClose`). */
+/** The chats: the account's, then the agent's own, in a sheet. */
 struct ChatHistory: View {
     @Environment(Session.self) private var session
     @Environment(\.palette) private var palette
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
-    /** In the drawer: whether it shows (it loads the chats again when it does). */
-    var shown = true
-    var onClose: (() -> Void)?
 
     var body: some View {
         let agent = session.agent
@@ -569,7 +564,7 @@ struct ChatHistory: View {
                     ForEach(synced) { chat in
                         Button {
                             Task { await agent.open(synced: chat) }
-                            close()
+                            dismiss()
                         } label: {
                             VStack(alignment: .leading, spacing: 3) {
                                 HStack {
@@ -585,7 +580,7 @@ struct ChatHistory: View {
                                     .lineLimit(1)
                             }
                         }
-                        .listRowBackground(background)
+                        .listRowBackground(palette.canvas)
                         .swipeActions {
                             Button("Delete", systemImage: "trash", role: .destructive) {
                                 Task { await agent.delete(synced: chat) }
@@ -598,7 +593,7 @@ struct ChatHistory: View {
                         ForEach(sessions) { chat in
                             Button {
                                 Task { await agent.open(chat) }
-                                close()
+                                dismiss()
                             } label: {
                                 VStack(alignment: .leading, spacing: 3) {
                                     HStack {
@@ -615,7 +610,7 @@ struct ChatHistory: View {
                                     }
                                 }
                             }
-                            .listRowBackground(background)
+                            .listRowBackground(palette.canvas)
                             .swipeActions {
                                 Button("Delete", systemImage: "trash", role: .destructive) {
                                     Task { await agent.delete(chat) }
@@ -629,7 +624,7 @@ struct ChatHistory: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .background(background)
+            .background(palette.canvas)
             .overlay {
                 if synced.isEmpty && sessions.isEmpty {
                     ContentUnavailableView("No chats", systemImage: "bubble.left.and.bubble.right")
@@ -639,24 +634,15 @@ struct ChatHistory: View {
             .navigationTitle("Chats")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
-                if onClose == nil {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Close", systemImage: "xmark") { dismiss() }
-                    }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark") { dismiss() }
                 }
             }
-            .task(id: shown) {
-                guard shown else { return }
+            .task {
                 await agent.loadSynced()
                 await agent.loadHistory()
             }
         }
     }
 
-    /** The drawer sits on the sidebar's color, as the mail's does. */
-    private var background: Color { onClose == nil ? palette.canvas : palette.sidebar }
-
-    private func close() {
-        if let onClose { onClose() } else { dismiss() }
-    }
 }

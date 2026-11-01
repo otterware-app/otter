@@ -6,19 +6,19 @@ their code.
 
 ## Design
 
-- **ChatGPT's frame.** The mail list is the page; a swipe from the left (or a tap on its title)
-  slides it aside to show the drawer: a page per mailbox that you swipe through, as on the
-  desktop, each with its folders and labels, then Compose and Settings. Settings is ChatGPT's grouped sheet.
+- **Linear's frame.** The mail list is the page, with All and Unread pills under its title and
+  Compose and More at the top right. Under it, a glass bar (`Home/PlacesBar.swift`): the mailbox's
+  picture (tap to switch mailbox, the one switcher), Inbox, Drafts, Search, and ⌃⌄ for every other
+  place (the mailbox's folders and labels, Search, Settings; the title opens it too). The agent has
+  its own round button beside the bar and opens as a sheet; so does Search. Settings is ChatGPT's grouped sheet.
   Gmail's folders include All Mail and Important; Outlook's and IMAP's an Archive of their own,
   and their Starred is Flagged (a flag, not a star).
 - **The desktop's rows.** Who and when, the subject, a line of the latest message; unread mail on
   a soft card, read mail flat. Swipe for read,
   archive and trash; long-press for the rest. Archive takes a conversation out of the inbox, or
   (Outlook, IMAP) out of a folder into the Archive; in the Archive it's Move to Inbox.
-- **iOS's own bars.** The tab bar holds Mail and the Agent (the AI workspace: the account's chats, in a
-  drawer a swipe from the left shows, as Mail's mailboxes are), with Search on its own at the end (it
-  searches the mailbox Mail shows); Compose lives in the sidebar. The reader
-  hides the tabs for compact glass buttons: Archive and Trash on the left, Reply on the right.
+- **The reader's bars.** The reader
+  hides the bar for compact glass buttons: Archive and Trash on the left, Reply on the right.
   Tap Reply for the sender, or hold it for Reply, Reply all and Forward.
 - **The desktop's type.** Inter (`Resources/Fonts`, SIL OFL), the Mac and web apps' face, at
   iOS's text styles so Dynamic Type still scales it (`Theme/Typography.swift`). Code stays in SF Mono.

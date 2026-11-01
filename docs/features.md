@@ -48,9 +48,9 @@ from GitHub Releases. Everything in the Mac column works the same, except:
 | Provider icons in mailbox settings (Gmail, Outlook, IMAP)    | ✓                  | ✓                                   | ✓                       |
 | IMAP through the relay tunnel                                | — (direct)         | ✓ (TLS 1.3 servers only)            | — (direct)              |
 | Several mailboxes: on/off, reorder                           | ✓                  | ✓                                   | ✓                       |
-| One sidebar: mailbox tabs, Search or ask (⌘K)                | ✓                  | ✓                                   | — (drawer)              |
+| One sidebar: mailbox tabs, Search or ask (⌘K)                | ✓                  | ✓                                   | — (bar menu)            |
 | Window tabs (Linear's): mail, chats and Settings, ⌘W closes  | ✓                  | — (the browser's tabs)              | —                       |
-| Sidebar: each mailbox opens to its folders and labels; views | ✓                  | ✓                                   | — (drawer)              |
+| Sidebar: each mailbox opens to its folders and labels; views | ✓                  | ✓                                   | — (bar menu)            |
 | Sidebar hidden: hover the window's edge to peek              | ✓                  | ✓                                   | —                       |
 | Rename and color a mailbox (synced)                          | ✓                  | ✓                                   | ✓                       |
 | Google profile picture per mailbox                           | ✓ (kept current)   | ✓ (kept current)                    | —                       |
@@ -176,7 +176,7 @@ chats read the same everywhere and continue on that Mac.
 | Signatures                             | Gmail: saved in Gmail; IMAP, Outlook: synced preference | ✓        | ✓ (same)                                       |
 | Handles mailto: links                  | ✓ (default mail app)                                    | —        | —                                              |
 
-On iPhone, Compose lives in the sidebar. In a conversation, tap the compact Reply button to
+On iPhone, Compose sits at the list's top right. In a conversation, tap the compact Reply button to
 reply to the sender, or hold it for Reply, Reply all and Forward; Trash sits beside Archive.
 
 Scheduled sends and snoozes work with Gmail, IMAP and Outlook on Mac and web. The queue is local to
@@ -247,7 +247,7 @@ recalled. See [behavior and setup](../apps/ios/README.md#verified-background-not
 | New mail during a long sync           | ✓                                  | ✓                      | —                                    |
 | Changes applied at once, synced after | ✓                                  | ✓                      | ✓ (no outbox)                        |
 
-On iPhone, iOS's tab bar holds Mail, the Agent (with an agent on, or an Otter account's chats to read) and, on its own at the end, Search, which searches the mailbox Mail shows. The bar minimizes while scrolling and steps aside for the reader, the sidebar and selection. Conversations zoom from their list rows (respecting Reduce Motion), the reader's navigation bar minimizes while scrolling, and selection morphs the glass buttons into bulk actions.
+On iPhone, a glass bar under the list holds the mailbox's picture (tap to switch mailbox), Inbox, Drafts, Search (a sheet that searches the mailbox shown) and ⌃⌄, which opens every other folder and label, Search and Settings. The Agent (with an agent on, or an Otter account's chats to read) has its own round button beside it and opens as a sheet. The bar steps aside for the reader and selection. Conversations zoom from their list rows (respecting Reduce Motion), the reader's navigation bar minimizes while scrolling, and selection morphs the glass buttons into bulk actions.
 
 ## Settings & customization
 

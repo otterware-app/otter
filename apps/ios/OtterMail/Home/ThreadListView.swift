@@ -2,8 +2,9 @@ import SwiftUI
 
 /**
  * A folder's threads, laid out like Otter Code's task list: who, what, and a
- * line of it. In the Search tab, what the search found in the mailbox shown.
- * Compose lives in the sidebar, a swipe from the left or a tap on the title.
+ * line of it, with Linear's pills (All, Unread) under the title. In search,
+ * what the search found in the mailbox shown. Tapping the title opens every
+ * place (the bar's ⌃⌄); Compose and More share the glass at the top right.
  */
 struct ThreadListView: View {
     @Environment(MailStore.self) private var store
@@ -16,14 +17,15 @@ struct ThreadListView: View {
     /** The Search tab's: what it searches for, and no folder of its own. */
     var query = ""
     var searchTab = false
-    /** The sidebar has the screen to itself, tabs and all. */
-    var drawerOpen = false
-    let onDrawer: () -> Void
+    /** Selecting messages: the frame hides its bar for the list's actions. */
+    @Binding var selecting: Bool
+    let onTitle: () -> Void
+    let onCompose: () -> Void
     let onSettings: () -> Void
     let onResume: (Draft) -> Void
 
     @State private var collapsedDays: Set<Date> = []
-    @State private var selecting = false
+    @State private var unreadOnly = false
     @State private var selected: Set<String> = []
     @State private var swipedThread: String?
     /** What Gmail's search found for `query` (it knows mail that isn't loaded here). */
@@ -31,9 +33,12 @@ struct ThreadListView: View {
 
     var body: some View {
         let searching = !query.trimmingCharacters(in: .whitespaces).isEmpty
-        let threads = searching ? results : searchTab ? [] : listed
+        let threads = searching ? results : searchTab ? [] : unreadOnly ? listed.filter(\.unread) : listed
 
         List {
+            if !searchTab {
+                pills
+            }
             if !searching && !searchTab && !selecting && !recoveries.isEmpty {
                 Section {
                     ForEach(recoveries) { recovery in
@@ -120,6 +125,7 @@ struct ThreadListView: View {
             collapsedDays.removeAll()
             selected.removeAll()
             selecting = false
+            unreadOnly = false
             // Where a folder's list ends comes from its first page: fetch it now, while the list is at the top.
             if !searchTab { await store.sync?.open(place.folder, scope: place.scope) }
         }
@@ -135,17 +141,23 @@ struct ThreadListView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button { swipedThread = nil; onDrawer() } label: {
+                Button { swipedThread = nil; onTitle() } label: {
                     Header(title: searching || searchTab ? "Search" : place.folder.title(in: mailbox), scope: scopeName)
                 }
                 .buttonStyle(.plain)
-                .accessibilityHint("Shows the mailboxes and folders")
+                .disabled(searchTab)
+                .accessibilityHint("Shows every folder and label")
             }
             .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .topBarTrailing) {
                 if selecting {
                     Button("Done", action: endSelection)
-                } else {
+                } else if !searchTab {
+                    Button("Compose", systemImage: "square.and.pencil", action: onCompose)
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                if !selecting && !searchTab {
                     Menu("More", systemImage: "ellipsis") {
                         Button("Select messages", systemImage: "checkmark.circle") { withAnimation(actionAnimation) { selecting = true } }
                             .disabled(threads.isEmpty)
@@ -196,8 +208,6 @@ struct ThreadListView: View {
         }
         .onChange(of: threads.map(\.id)) { _, ids in selected.formIntersection(ids) }
         .onChange(of: query) { _, _ in selected.removeAll() }
-        // Selecting, the actions take the tab bar's place.
-        .toolbarVisibility(selecting || drawerOpen ? .hidden : .automatic, for: .tabBar)
         .toolbarTitleDisplayMode(.inline)
         // Search and scroll minimization otherwise animate the same bar's insets.
         .minimizingNavigationBar(enabled: false)
@@ -258,6 +268,34 @@ struct ThreadListView: View {
         ForEach(threads) { thread in
             row(thread)
         }
+    }
+
+    /** Linear's pills: the folder whole, or only what's unread. */
+    private var pills: some View {
+        HStack(spacing: 4) {
+            pill("All", selected: !unreadOnly) { unreadOnly = false }
+            pill("Unread", selected: unreadOnly) { unreadOnly = true }
+            Spacer()
+        }
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+        .listRowSeparator(.hidden)
+        .listRowBackground(palette.canvas)
+    }
+
+    private func pill(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(actionAnimation) { action() }
+        } label: {
+            Text(title)
+                .font(.inter(.subheadline).weight(.medium))
+                .foregroundStyle(selected ? palette.text : palette.muted)
+                .padding(.horizontal, 16)
+                .frame(height: 36)
+                .background(selected ? palette.text.opacity(0.08) : .clear, in: .capsule)
+                .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func dayHeader(_ day: ThreadDay) -> some View {
