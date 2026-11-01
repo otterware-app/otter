@@ -1565,8 +1565,6 @@ function MailHome() {
         setPaletteOpen(true);
       }}
       onOpenSettings={(pane = lastPaneRef.current) => openSettings({ pane })}
-      onSync={syncNow}
-      syncing={globalSync.syncing || manualSyncing}
       searches={searchTabs
         .filter((t) => t.mailbox === searchMailbox && t.parent)
         .map((t) => ({

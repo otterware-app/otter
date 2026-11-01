@@ -12,7 +12,7 @@ import { signInProvider, signsInWithPassword } from "./capabilities";
 import { syncStatusPollMs, useAddAccount } from "./hooks";
 import { toast, type ToastId } from "./toast";
 import type { MailAccount, SyncStatus } from "./types";
-import { Btn, cn } from "./ui";
+import { Btn, HintTooltip, IconBtn, cn } from "./ui";
 
 /**
  * How each mailbox's sync is doing: the status line (Settings › Mailboxes and
@@ -224,19 +224,64 @@ export function useSignInAlerts(): void {
 
 // ── The mailbox's health ─────────────────────────────────────────────────
 
-/**
- * The foot of a mailbox's sidebar: how its sync is doing, always. A mailbox
- * whose sign-in was refused gets a card with the button that fixes it;
- * otherwise one quiet line (last synced, syncing, or why it failed, with
- * Sync now). All mailboxes shows the worst of them.
- */
-export function MailboxHealth({ accountIds }: { accountIds: string[] }) {
+function useAccountStatuses(accountIds: string[]) {
   const { accounts: all } = useMailboxes();
   const accounts = accountIds
     .map((id) => all.find((a) => a.id === id))
     .filter((a): a is MailAccount => a != null);
-  const statuses = useSyncStatuses(accounts.map((a) => a.id));
+  return { accounts, statuses: useSyncStatuses(accounts.map((a) => a.id)) };
+}
+
+/**
+ * Above the foot of a mailbox's sidebar: a card for each mailbox whose
+ * sign-in was refused, with the button that fixes it.
+ */
+export function SignInCards({ accountIds }: { accountIds: string[] }) {
+  const { accounts, statuses } = useAccountStatuses(accountIds);
   const { signIn, pending } = useSignInAgain();
+  const signedOut = accounts.filter((a, i) => needsSignIn(a, statuses[i]));
+  if (signedOut.length === 0) return null;
+  return (
+    <div className="mx-(--sidebar-content-inset) mb-1 flex flex-col gap-2">
+      {signedOut.map((account) => (
+        <div
+          key={account.id}
+          className="rounded-xl border border-destructive/30 bg-destructive/6 px-3 py-2.5"
+        >
+          <div className="flex items-center gap-2">
+            <KeyRoundIcon className="size-3.5 shrink-0 text-destructive-foreground" />
+            <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+              {signedOutTitle(account)}
+            </p>
+          </div>
+          {pending ? (
+            <Btn size="xs" className="mt-2 w-full" onClick={() => void mailApi.cancelAddAccount()}>
+              Cancel sign-in
+            </Btn>
+          ) : (
+            <Btn
+              size="xs"
+              variant="primary"
+              className="mt-2 w-full"
+              onClick={() => signIn(account)}
+            >
+              {signInLabel(account)}
+            </Btn>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Sync now, in the sidebar's foot: it spins while a sync runs, carries a dot
+ * when one failed, and says how sync is doing on hover (last synced, syncing,
+ * or that it failed: Settings › Mailboxes says why). All mailboxes shows the
+ * worst of them.
+ */
+export function SyncButton({ accountIds }: { accountIds: string[] }) {
+  const { accounts, statuses } = useAccountStatuses(accountIds);
   const [syncing, setSyncing] = useState(false);
   useEffect(() => {
     if (!syncing) return;
@@ -245,89 +290,41 @@ export function MailboxHealth({ accountIds }: { accountIds: string[] }) {
   }, [syncing]);
 
   if (accounts.length === 0) return null;
-  const signedOut = accounts.filter((a, i) => needsSignIn(a, statuses[i]));
-  if (signedOut.length > 0) {
-    return (
-      <div className="mx-(--sidebar-content-inset) mb-1 flex flex-col gap-2">
-        {signedOut.map((account) => (
-          <div
-            key={account.id}
-            className="rounded-xl border border-destructive/30 bg-destructive/6 px-3 py-2.5"
-          >
-            <div className="flex items-center gap-2">
-              <KeyRoundIcon className="size-3.5 shrink-0 text-destructive-foreground" />
-              <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
-                {signedOutTitle(account)}
-              </p>
-            </div>
-            {pending ? (
-              <Btn
-                size="xs"
-                className="mt-2 w-full"
-                onClick={() => void mailApi.cancelAddAccount()}
-              >
-                Cancel sign-in
-              </Btn>
-            ) : (
-              <Btn
-                size="xs"
-                variant="primary"
-                className="mt-2 w-full"
-                onClick={() => signIn(account)}
-              >
-                {signInLabel(account)}
-              </Btn>
-            )}
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  // One line for them all: a failure first, then a sync running, then the
-  // least recently synced.
-  const lines = accounts.map((a, i) => ({ account: a, line: accountStatus(a, statuses[i]) }));
-  const failed = lines.filter((l) => l.line.tone === "error");
-  const shown =
+  // A failure first, then a sync running, then the least recently synced.
+  const lines = accounts.map((a, i) => accountStatus(a, statuses[i]));
+  const failed = lines.filter((l) => l.tone === "error");
+  const shown: StatusLine =
     failed.length > 1
-      ? {
-          text: `Sync failed for ${failed.length} mailboxes — will retry`,
-          tone: "error" as const,
-          detail: failed.map((l) => `${l.account.email}: ${l.line.detail}`).join("\n"),
-        }
-      : failed.length === 1
-        ? {
-            ...failed[0]!.line,
-            detail:
-              accounts.length > 1
-                ? `${failed[0]!.account.email}: ${failed[0]!.line.detail}`
-                : failed[0]!.line.detail,
-          }
-        : (lines.find((l) => l.line.tone === "active")?.line ??
-          syncLine(
-            statuses.reduce<SyncStatus | undefined>(
-              (oldest, s) =>
-                !oldest || (s?.lastSyncAt ?? 0) < (oldest.lastSyncAt ?? 0) ? s : oldest,
-              undefined,
-            ),
-          ));
+      ? { text: `Sync failed for ${failed.length} mailboxes — will retry`, tone: "error" }
+      : (failed[0] ??
+        lines.find((l) => l.tone === "active") ??
+        syncLine(
+          statuses.reduce<SyncStatus | undefined>(
+            (oldest, s) =>
+              !oldest || (s?.lastSyncAt ?? 0) < (oldest.lastSyncAt ?? 0) ? s : oldest,
+            undefined,
+          ),
+        ));
   const busy = syncing || shown.tone === "active";
   return (
-    <div className="mx-(--sidebar-content-inset) mb-1 flex h-7 items-center gap-1 pl-2 text-2xs text-muted-foreground">
-      <StatusText status={shown} className="flex-1" />
-      <button
-        type="button"
-        aria-label="Sync now"
-        title="Sync now"
+    <HintTooltip label={shown.text}>
+      <IconBtn
+        label="Sync now"
         disabled={busy}
         onClick={() => {
           setSyncing(true);
           for (const a of accounts) void mailApi.syncAccount(a.id).catch(() => {});
         }}
-        className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-default disabled:opacity-60"
+        className="relative disabled:cursor-default"
       >
-        <RotateCwIcon className={cn("size-3", busy && "animate-spin")} />
-      </button>
-    </div>
+        <RotateCwIcon className={cn("size-4", busy && "animate-spin")} />
+        {shown.tone === "error" ? (
+          <span
+            aria-hidden
+            className="absolute top-1 right-1 size-1.5 rounded-full bg-destructive"
+          />
+        ) : null}
+      </IconBtn>
+    </HintTooltip>
   );
 }

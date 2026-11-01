@@ -2,27 +2,15 @@
  * The sidebar, the window's only one (Notion's): Search or ask (the command
  * palette), a tab for each mailbox, then the tab's page. A mailbox: New message, Agent (the
  * AI workspace, Linear's: picked while it shows), its folders and labels, then the views; in
- * the AI workspace, the last mailbox's. Sync health, an update and you (with Settings) at its
- * foot.
+ * the AI workspace, the last mailbox's. Sign-in cards, an update,
+ * then Settings and Sync now at its foot.
  */
 
 import { useState, type ReactNode } from "react";
-import {
-  CircleUserRoundIcon,
-  LogInIcon,
-  MessageSquareIcon,
-  PlusIcon,
-  RotateCwIcon,
-  SearchIcon,
-  SettingsIcon,
-  SquarePenIcon,
-} from "lucide-react";
+import { PlusIcon, SearchIcon, SettingsIcon, SquarePenIcon } from "lucide-react";
 
 import { shortcutText } from "../keybindings/keys";
 import { useShortcutLabel } from "../keybindings/store";
-import { useOtterAccount } from "../otter-account";
-import { OtterAvatar } from "../settings/otter-account-pane";
-import { requestProblemReport } from "../support/report-problem";
 import { UpdateCard } from "../updates";
 import { AccountPicture } from "./account-picture";
 import { MailboxFolders, SearchRow, type SidebarSearch } from "./accounts-sidebar";
@@ -32,24 +20,14 @@ import type { SettingsPane } from "./api";
 import { useChats } from "./chat-store";
 import { useAddAccount, useViewUnreadCounts } from "./hooks";
 import { ScheduledMailButton } from "./mail-schedule";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./menu";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "./menu";
 import { NewRow, SIDEBAR_ROW, Section, SectionAddButton, SidebarBody, SkRow } from "./sidebar-ui";
 import { CHATS_SPACE, VIEW_LIST } from "./spaces";
-import { MailboxHealth } from "./sync-health";
+import { SignInCards, SyncButton } from "./sync-health";
 import { toast } from "./toast";
 import { useInboxUnread, useMailboxOptions, type MailboxOption } from "./top-bar";
 import type { MailAccount, MailView } from "./types";
-import { HintTooltip, cn } from "./ui";
+import { HintTooltip, IconBtn, cn } from "./ui";
 import { ViewMark } from "./view-icon";
 
 export function AppSidebar({
@@ -65,8 +43,6 @@ export function AppSidebar({
   onEditView,
   onOpenPalette,
   onOpenSettings,
-  onSync,
-  syncing,
   searches,
   onSelectSearch,
   onCloseSearch,
@@ -87,10 +63,8 @@ export function AppSidebar({
   onNewView: () => void;
   onEditView: (viewId: string) => void;
   onOpenPalette: () => void;
-  /** The account menu's Settings (a pane, General by default). */
+  /** Settings (a pane, General by default). */
   onOpenSettings: (pane?: SettingsPane) => void;
-  onSync: () => void;
-  syncing: boolean;
   /** Searches opened from a folder (⌘F), nested under it. */
   searches: SidebarSearch[];
   onSelectSearch: (id: string) => void;
@@ -107,6 +81,9 @@ export function AppSidebar({
     : isMailbox(lastMailbox)
       ? lastMailbox
       : (options[0]?.id ?? null);
+  // Sync health for the mailbox you're in, or all of them.
+  const healthIds =
+    spaceId && accounts.some((a) => a.id === spaceId) ? [spaceId] : accounts.map((a) => a.id);
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-col gap-2 px-(--sidebar-content-inset) pb-2 pt-(--sidebar-content-inset)">
@@ -133,18 +110,16 @@ export function AppSidebar({
         onSelectSearch={onSelectSearch}
         onCloseSearch={onCloseSearch}
       />
-      <MailboxHealth
-        accountIds={
-          accounts.some((a) => a.id === spaceId) && spaceId ? [spaceId] : accounts.map((a) => a.id)
-        }
-      />
+      <SignInCards accountIds={healthIds} />
       <UpdateCard />
-      <AccountMenu
-        active={settingsOpen}
-        onOpenSettings={onOpenSettings}
-        onSync={onSync}
-        syncing={syncing}
-      />
+      <div className="flex shrink-0 items-center gap-0.5 px-(--sidebar-content-inset) pb-(--sidebar-content-inset)">
+        <HintTooltip label="Settings" hint={shortcutText("mod+,")}>
+          <IconBtn label="Settings" active={settingsOpen} onClick={() => onOpenSettings()}>
+            <SettingsIcon />
+          </IconBtn>
+        </HintTooltip>
+        <SyncButton accountIds={healthIds} />
+      </div>
     </div>
   );
 }
@@ -382,95 +357,6 @@ function MailPage({
           ))}
         </Section>
       </SidebarBody>
-    </div>
-  );
-}
-
-/**
- * The sidebar's foot: the Otter account (or Settings when signed out),
- * opening the app's menu: the account (or Sign in), Settings, feedback, and
- * Sync now (only while push isn't live; ⌘, and ⌘R work either way).
- */
-function AccountMenu({
-  active,
-  onOpenSettings,
-  onSync,
-  syncing,
-}: {
-  /** Settings is showing. */
-  active: boolean;
-  onOpenSettings: (pane?: SettingsPane) => void;
-  onSync: () => void;
-  syncing: boolean;
-}) {
-  const otter = useOtterAccount();
-  const user = otter?.user ?? null;
-  return (
-    <div className="shrink-0 px-(--sidebar-content-inset) pb-(--sidebar-content-inset)">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label="Account and settings"
-            className={cn(
-              SIDEBAR_ROW,
-              "px-(--sidebar-row-content-inset) text-sidebar-foreground data-[state=open]:bg-sidebar-row-hover",
-              active ? "bg-sidebar-row-selected" : "hover:bg-sidebar-row-hover",
-            )}
-          >
-            {user ? (
-              <OtterAvatar user={user} className="size-5" />
-            ) : (
-              <CircleUserRoundIcon className="size-4 text-sidebar-muted-foreground" />
-            )}
-            <span className="min-w-0 flex-1 truncate">
-              {user ? (user.name ?? user.email) : "Settings"}
-            </span>
-            <SettingsIcon className="size-4 shrink-0 text-sidebar-muted-foreground" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" align="start" className="min-w-56">
-          {user ? (
-            <DropdownMenuItem
-              icon={<OtterAvatar user={user} className="size-5" />}
-              onSelect={() => onOpenSettings("otter")}
-              className="h-auto py-1.5"
-            >
-              <span className="block truncate text-foreground">{user.name ?? user.email}</span>
-              {user.name ? (
-                <span className="block truncate text-[13px] text-muted-foreground">
-                  {user.email}
-                </span>
-              ) : null}
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem icon={<LogInIcon />} onSelect={() => onOpenSettings("otter")}>
-              Sign in to Otter Mail
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            icon={<SettingsIcon />}
-            accelerator={shortcutText("mod+,")}
-            onSelect={() => onOpenSettings()}
-          >
-            Settings
-          </DropdownMenuItem>
-          <DropdownMenuItem icon={<MessageSquareIcon />} onSelect={requestProblemReport}>
-            Send feedback
-          </DropdownMenuItem>
-          {otter?.realtime === "live" ? null : (
-            <DropdownMenuItem
-              icon={<RotateCwIcon className={syncing ? "animate-spin" : undefined} />}
-              accelerator={shortcutText("mod+r")}
-              disabled={syncing}
-              onSelect={onSync}
-            >
-              {syncing ? "Syncing…" : "Sync now"}
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
     </div>
   );
 }
