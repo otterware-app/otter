@@ -1,3 +1,4 @@
+import type { ThemeSource } from "@otter-mail/contracts";
 import { setSyncedPreference } from "../synced-preferences";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
@@ -57,6 +58,17 @@ export function getThemeChoice(): ThemeChoice {
 export function setThemeForAppearance(mode: ThemeAppearance, themeId: string): void {
   console.log("[AppTheme:set]", { mode, themeId });
   setSyncedPreference(STORAGE_KEY[mode], themeId);
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
+/**
+ * System, Light or Dark, here and with the account. The choice is stored
+ * before the window's appearance flips: `appearance()` reads it, and the
+ * media query's change can fire before the native call returns.
+ */
+export async function setColorScheme(scheme: ThemeSource): Promise<void> {
+  setSyncedPreference("otter:theme-source", scheme);
+  await window.desktopBridge.nativeTheme.setThemeSource(scheme);
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 

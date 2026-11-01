@@ -325,7 +325,7 @@ function MailPage({
           <AddMailboxMenu onGmail={() => void addGmail()} onAdded={(a) => onGo(a.id)}>
             <button
               type="button"
-              className={`${SIDEBAR_ROW} px-(--sidebar-row-content-inset) text-sidebar-foreground/90 hover:bg-sidebar-row-hover hover:text-sidebar-foreground`}
+              className={`${SIDEBAR_ROW} px-(--sidebar-row-content-inset) text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground`}
             >
               <PlusIcon className="size-4 shrink-0 text-sidebar-muted-foreground" />
               <span className="truncate">Add mailbox</span>

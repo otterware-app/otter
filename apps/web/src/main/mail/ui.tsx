@@ -300,7 +300,7 @@ export function Kbd({ children, className }: { children: ReactNode; className?: 
 export function UnreadPill({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <span className="ml-auto shrink-0 text-xs font-medium tabular-nums text-sidebar-foreground">
+    <span className="ml-auto shrink-0 text-xs tabular-nums text-sidebar-muted-foreground">
       {count > 999 ? "999+" : count}
     </span>
   );

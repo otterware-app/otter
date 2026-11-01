@@ -300,7 +300,9 @@ function MessageDayGroup({
           <span className="shrink-0 tabular-nums text-muted-foreground">
             {group.messages.length}
           </span>
-          {unread > 0 ? <span className="shrink-0 text-primary">· {unread} unread</span> : null}
+          {unread > 0 ? (
+            <span className="shrink-0 text-muted-foreground">· {unread} unread</span>
+          ) : null}
         </button>
       </h3>
       <div id={bodyId} hidden={collapsed}>
@@ -567,18 +569,18 @@ function MessageRow({
                 <span className="message-list-sender flex min-w-0 flex-1 items-center gap-1.5">
                   {labelIds.includes("IMPORTANT") ? <ImportantMarker muted /> : null}
                   {isDraft ? (
-                    <span className="shrink-0 text-sm font-medium leading-snug text-destructive-foreground">
+                    <span className="shrink-0 text-[13px] font-medium leading-snug text-destructive-foreground">
                       Draft
                     </span>
                   ) : null}
                   <span
                     className={[
-                      "message-list-sender-name min-w-0 truncate text-sm leading-snug",
+                      "message-list-sender-name min-w-0 truncate text-[13px] leading-snug",
                       isDraft
                         ? "text-muted-foreground"
                         : unread
-                          ? "font-semibold text-foreground"
-                          : "font-normal text-foreground",
+                          ? "font-medium text-foreground"
+                          : "font-normal text-foreground/70",
                     ].join(" ")}
                   >
                     {isDraft
@@ -610,12 +612,7 @@ function MessageRow({
                       />
                     </span>
                   ) : null}
-                  <span
-                    className={cn(
-                      "text-xs tabular-nums",
-                      unread ? "font-medium text-primary" : "text-muted-foreground",
-                    )}
-                  >
+                  <span className="text-xs tabular-nums text-muted-foreground">
                     {formatRelativeDate(message.date)}
                   </span>
                 </div>
@@ -624,7 +621,7 @@ function MessageRow({
                 <span
                   className={cn(
                     "message-list-subject truncate text-[13px] leading-snug",
-                    unread ? "font-medium text-foreground" : "text-foreground/75",
+                    unread ? "text-foreground" : "text-foreground/60",
                   )}
                 >
                   {message.subject || "(no subject)"}

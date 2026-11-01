@@ -25,7 +25,7 @@ export type RowDragProps = {
 
 /** A sidebar row's box (Settings' nav mirrors it). */
 export const SIDEBAR_ROW =
-  "group flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-lg text-left text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-focus-ring active:bg-sidebar-row-active";
+  "group flex h-7 w-full cursor-pointer items-center gap-2 rounded-md text-left text-[13px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring active:bg-sidebar-row-active";
 
 /** A space's New row (ChatGPT's "New chat"): the first thing under the heading. */
 export function NewRow({
@@ -48,7 +48,7 @@ export function NewRow({
         <button
           type="button"
           onClick={onClick}
-          className={`${SIDEBAR_ROW} px-(--sidebar-row-content-inset) text-sidebar-foreground hover:bg-sidebar-row-hover`}
+          className={`${SIDEBAR_ROW} px-(--sidebar-row-content-inset) text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground`}
         >
           <span className="flex shrink-0 text-sidebar-muted-foreground group-hover:text-sidebar-foreground [&_svg]:size-4">
             {icon}
@@ -72,8 +72,8 @@ export function SidebarBody({ children }: { children: ReactNode }) {
   );
 }
 
-/** Sidebar row (Codex): 14px regular text, muted icon, a rounded pill on hover
-    and when selected; counts live in the badge only. */
+/** Sidebar row (Linear's): 28px tall, 13px medium text, grey until hovered or
+    selected, a muted icon; counts live in the badge only. */
 export function SkRow({
   icon,
   title,
@@ -110,7 +110,7 @@ export function SkRow({
         "pr-(--sidebar-row-content-inset)",
         selected
           ? "bg-sidebar-row-selected text-sidebar-foreground"
-          : "text-sidebar-foreground/90 hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
+          : "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
         dropActive ? "bg-sidebar-row-hover ring-1 ring-inset ring-primary/70" : "",
       ].join(" ")}
     >
@@ -177,26 +177,26 @@ export function Section({
     <div className={depth > 0 ? "mt-1" : "mt-4"} data-tour={tour}>
       <div
         className={[
-          "group flex h-8 items-center gap-1 rounded-lg pr-1",
+          "group flex h-7 items-center gap-1 rounded-md pr-1",
           dropZone?.active ? "bg-sidebar-row-hover ring-1 ring-inset ring-primary/70" : "",
         ].join(" ")}
         onDragOver={dropZone?.onDragOver}
         onDragLeave={dropZone?.onDragLeave}
         onDrop={dropZone?.onDrop}
       >
-        {/* A plain muted heading (Codex's "Projects"); the chevron shows on
+        {/* A small muted heading (Linear's "Workspace"); the chevron shows on
             hover, or while the section is collapsed. */}
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           style={depth > 0 ? { paddingLeft: 10 + depth * 16 } : undefined}
-          className="flex h-8 items-center gap-1 rounded-lg px-(--sidebar-row-content-inset) text-[13px] font-normal text-sidebar-muted-foreground outline-none hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+          className="flex h-7 items-center gap-1 rounded-md px-(--sidebar-row-content-inset) text-xs font-medium text-sidebar-muted-foreground outline-none hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
           aria-label={`Toggle ${title}`}
         >
           {title}
           <ChevronDownIcon
             className={[
-              "size-3.5 transition-[opacity,transform]",
+              "size-3 transition-[opacity,transform]",
               open ? "opacity-0 group-hover:opacity-100" : "-rotate-90",
             ].join(" ")}
           />

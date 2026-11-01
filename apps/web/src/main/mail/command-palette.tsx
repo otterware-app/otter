@@ -43,6 +43,7 @@ import { openLink } from "../browser/store";
 import { getThemeModes } from "../theme/themePalette";
 import {
   previewTheme,
+  setColorScheme,
   setThemeForAppearance,
   useAppThemes,
   useThemeChoice,
@@ -256,7 +257,7 @@ export function CommandPalette({
             icon: o.icon,
             title: o.title,
             checked: scheme === o.id,
-            run: () => void window.desktopBridge.nativeTheme.setThemeSource(o.id),
+            run: () => void setColorScheme(o.id),
           })),
         },
       ]);

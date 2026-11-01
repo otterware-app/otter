@@ -1,5 +1,5 @@
 @import "tailwindcss";
-/* Inter is only a fallback: macOS resolves -apple-system (SF) first. */
+/* Inter is the face, as in Linear; the system font is the fallback. */
 @import "@fontsource-variable/inter";
 
 /* Tell Tailwind to scan every renderer source file for class names. */
@@ -359,8 +359,12 @@ html[data-window-controls="none"] {
 
 @theme {
   --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Variable", "Segoe UI", system-ui,
+    "Inter Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui,
     sans-serif;
+  /* Linear's weights: Inter's medium and semibold a touch lighter, so dense
+     UI reads crisp rather than bold. */
+  --font-weight-medium: 510;
+  --font-weight-semibold: 590;
   --font-mono:
     ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
 }
@@ -810,7 +814,7 @@ html[data-theme-switching] *::after {
 /* Tailwind v4 resets buttons to the default cursor; every clickable control
    in the app shows the pointer, like Otter Code. Utilities still override. */
 @layer base {
-  /* A native-feeling window: 13px system text, no page scroll, no stray text
+  /* A native-feeling window: 13px text (Linear's size), no page scroll, no stray text
      selection (fields and message bodies opt back in), and a transparent
      page over the window's own background (the frame's, apps/desktop/src/os)
      until the app paints its frame. */
@@ -830,6 +834,8 @@ html[data-theme-switching] *::after {
     user-select: none;
     -webkit-font-smoothing: antialiased;
     font-synthesis: none;
+    /* Linear's Inter: the plain 1 (cv01), round quotes and commas (ss03). */
+    font-feature-settings: "cv01", "ss03";
   }
   .no-background body {
     background: transparent;
