@@ -39,26 +39,18 @@ export function PanelTab({
   useEffect(() => {
     if (selected) ref.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [selected]);
+  // The pill holds the tab and, beside it rather than in it, its ×: a tab's
+  // contents are one name to assistive tech, so a × inside couldn't be pressed.
   return (
     <div
       ref={ref}
-      role="tab"
       data-panel-tab-id={id}
-      aria-selected={selected}
-      tabIndex={selected ? 0 : -1}
       title={tooltip}
-      onClick={onSelect}
       onAuxClick={(e) => {
         if (e.button === 1 && closable) onClose();
       }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onSelect();
-        }
-      }}
       className={cn(
-        "group/tab relative flex h-7 min-w-32 max-w-44 shrink touch-none cursor-pointer select-none items-center gap-1.5 rounded-lg pl-2.5 pr-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
+        "group/tab relative flex h-7 min-w-32 max-w-44 shrink touch-none cursor-pointer select-none items-center rounded-lg pr-1 text-sm has-[[role=tab]:focus-visible]:ring-2 has-[[role=tab]:focus-visible]:ring-inset has-[[role=tab]:focus-visible]:ring-focus-ring",
         selected || dragging
           ? "bg-foreground/10 text-foreground"
           : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
@@ -66,16 +58,27 @@ export function PanelTab({
         className,
       )}
     >
-      <span className="relative flex size-3.5 shrink-0 items-center justify-center">{icon}</span>
-      <span className="min-w-0 flex-1 truncate">{title}</span>
+      <div
+        role="tab"
+        aria-selected={selected}
+        tabIndex={selected ? 0 : -1}
+        onClick={onSelect}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelect();
+          }
+        }}
+        className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch pl-2.5 pr-1.5 outline-none"
+      >
+        <span className="relative flex size-3.5 shrink-0 items-center justify-center">{icon}</span>
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+      </div>
       {closable ? (
         <button
           type="button"
           aria-label={`Close ${title}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
+          onClick={onClose}
           className={cn(
             "flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/8 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-focus-ring",
             selected ? "opacity-100" : "opacity-0 group-hover/tab:opacity-100",
