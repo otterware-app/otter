@@ -511,14 +511,19 @@ html[data-window-controls="none"] {
   scroll-margin-top: 2rem;
 }
 
-/* Read mail recedes and new mail stays on the bright surface: a shade toward
-   the text in light, toward black in dark (lighter would read as raised). */
-[data-dim-read-messages="true"] [data-read]:not([data-selected], [data-checked], :hover) {
-  background-color: color-mix(in srgb, var(--canvas) 96%, var(--foreground));
+/* Unread mail is a raised card and read mail sits on the list's own surface,
+   so the shade marks what still needs you. Faint as the day band; hovered,
+   a step up (the plain hover would match it); selection stays strongest. */
+:is(.message-list-row, .message-list-thread-row):not([data-read], [data-selected], [data-checked]) {
+  background-color: color-mix(in srgb, var(--foreground) 4%, transparent);
 }
 
-.dark [data-dim-read-messages="true"] [data-read]:not([data-selected], [data-checked], :hover) {
-  background-color: color-mix(in srgb, var(--canvas) 70%, black);
+:is(.message-list-row, .message-list-thread-row):not(
+    [data-read],
+    [data-selected],
+    [data-checked]
+  ):hover {
+  background-color: color-mix(in srgb, var(--foreground) 7%, transparent);
 }
 
 /* The wide layouts use the extra width for a denser row. A narrow workspace

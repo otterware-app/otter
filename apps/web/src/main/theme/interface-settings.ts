@@ -29,17 +29,12 @@ export const GROUP_MESSAGES_BY_DAY: InterfaceToggle = {
   defaultValue: true,
 };
 
-export const DIM_READ_MESSAGES: InterfaceToggle = {
-  key: "otter:dim-read-messages",
-  defaultValue: true,
-};
-
 export const OPEN_MESSAGES_WITH_ARROWS: InterfaceToggle = {
   key: "otter:open-messages-with-arrows",
   defaultValue: false,
 };
 
-const TOGGLES = [GROUP_MESSAGES_BY_DAY, DIM_READ_MESSAGES, OPEN_MESSAGES_WITH_ARROWS];
+const TOGGLES = [GROUP_MESSAGES_BY_DAY, OPEN_MESSAGES_WITH_ARROWS];
 
 /** How long an email opened by keyboard navigation stays visible before being read. */
 export const MARK_READ_DELAY: InterfaceSetting = {

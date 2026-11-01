@@ -263,7 +263,8 @@ On iPhone, iOS's tab bar holds Mail, the Agent (with an agent on, or an Otter ac
 | Message list styles: Classic, With dividers                                                                      | ✓   | ✓   | ✓                                                                          |
 | Collapsible day separators, on by default in every mail layout                                                   | ✓   | ✓   | ✓                                                                          |
 | Overlay scrollbars in the mail panes and Settings, hidden when idle                                              | ✓   | ✓   | native                                                                     |
-| Dim read message backgrounds, on by default in every mail layout                                                 | ✓   | ✓   | ✓                                                                          |
+| Unread messages on a soft background, in every mail layout                                                       | ✓   | ✓   | —                                                                          |
+| Dim read message backgrounds (a setting, on by default)                                                          | —   | —   | ✓                                                                          |
 | Keyboard navigation highlights rows; Enter opens (optional open with arrows)                                     | ✓   | ✓   | —                                                                          |
 | Configurable delay before keyboard previews are marked read (2 seconds by default); clicks mark read immediately | ✓   | ✓   | —                                                                          |
 | Mail layouts: Split view, Full inbox, Floating                                                                   | ✓   | ✓   | —                                                                          |

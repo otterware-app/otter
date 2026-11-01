@@ -231,12 +231,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["date separators today yesterday collapse expand sections inbox"],
   },
   {
-    id: "dim-read-messages",
-    title: "Dim read messages",
-    pane: "appearance",
-    searchTerms: ["gray grey muted background unread message list inbox"],
-  },
-  {
     id: "open-messages-with-arrows",
     title: "Open messages with arrow keys",
     pane: "appearance",

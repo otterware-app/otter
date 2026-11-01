@@ -4,7 +4,6 @@ import type React from "react";
 import type { ReactNode } from "react";
 import { useLayoutEffect, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
-  DIM_READ_MESSAGES,
   OPEN_MESSAGES_WITH_ARROWS,
   GROUP_MESSAGES_BY_DAY,
   useInterfaceToggle,
@@ -863,7 +862,6 @@ export function MessageList({
 }: MessageListProps) {
   const messageListStyle = useMessageListStyle();
   const groupByDay = useInterfaceToggle(GROUP_MESSAGES_BY_DAY);
-  const dimReadMessages = useInterfaceToggle(DIM_READ_MESSAGES);
   const openMessagesWithArrows = useInterfaceToggle(OPEN_MESSAGES_WITH_ARROWS);
   const [cursor, setCursor] = useState<{ messageId: string; focusId?: string } | null>(null);
   const selectedMessageId = openMessageId ?? cursor?.messageId ?? null;
@@ -1922,7 +1920,6 @@ export function MessageList({
         ref={scrollRef}
         data-message-list-style={messageListStyle}
         data-group-messages-by-day={groupByDay || undefined}
-        data-dim-read-messages={dimReadMessages || undefined}
         onScroll={maybeLoadMore}
         // Clipped to its card's corners (home-view.tsx), sticky day headers too.
         className="flex-1 rounded-xl"

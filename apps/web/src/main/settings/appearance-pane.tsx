@@ -57,7 +57,6 @@ import {
   DEFAULT_MAIL_LAYOUT,
   INTERFACE_FONT_SIZE,
   GROUP_MESSAGES_BY_DAY,
-  DIM_READ_MESSAGES,
   OPEN_MESSAGES_WITH_ARROWS,
   MARK_READ_DELAY,
   MESSAGE_LIST_STYLES,
@@ -990,7 +989,6 @@ export function AppearancePane() {
   const choice = useThemeChoice();
   const [scheme, setScheme] = useColorScheme();
   const groupMessagesByDay = useInterfaceToggle(GROUP_MESSAGES_BY_DAY);
-  const dimReadMessages = useInterfaceToggle(DIM_READ_MESSAGES);
   const openMessagesWithArrows = useInterfaceToggle(OPEN_MESSAGES_WITH_ARROWS);
   const markReadDelay = useInterfaceSetting(MARK_READ_DELAY);
 
@@ -1052,27 +1050,6 @@ export function AppearancePane() {
               aria-label="Group messages by day"
               checked={groupMessagesByDay}
               onCheckedChange={(value) => setInterfaceToggle(GROUP_MESSAGES_BY_DAY, value)}
-            />
-          }
-        />
-        <SettingsRow
-          {...searchableSetting("dim-read-messages")}
-          resetAction={
-            dimReadMessages !== DIM_READ_MESSAGES.defaultValue ? (
-              <SettingResetButton
-                label="dim read messages"
-                onClick={() =>
-                  setInterfaceToggle(DIM_READ_MESSAGES, DIM_READ_MESSAGES.defaultValue)
-                }
-              />
-            ) : null
-          }
-          description="Give read messages a muted background so unread mail stands out."
-          control={
-            <Switch
-              aria-label="Dim read messages"
-              checked={dimReadMessages}
-              onCheckedChange={(value) => setInterfaceToggle(DIM_READ_MESSAGES, value)}
             />
           }
         />

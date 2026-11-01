@@ -22,7 +22,6 @@ const SYNCED_KEYS = [
   "otter:reading-width",
   "otter:message-list-style",
   "otter:group-messages-by-day",
-  "otter:dim-read-messages",
   "otter:mail-layout",
   "otter:open-messages-with-arrows",
   "otter:mark-read-delay",
