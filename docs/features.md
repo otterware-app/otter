@@ -48,7 +48,7 @@ from GitHub Releases. Everything in the Mac column works the same, except:
 | Provider icons in mailbox settings (Gmail, Outlook, IMAP)    | ✓                  | ✓                                   | ✓                       |
 | IMAP through the relay tunnel                                | — (direct)         | ✓ (TLS 1.3 servers only)            | — (direct)              |
 | Several mailboxes: on/off, reorder                           | ✓                  | ✓                                   | ✓                       |
-| One sidebar: Mail and Chats tabs, Search or ask (⌘K)         | ✓                  | ✓                                   | — (drawer)              |
+| One sidebar: mailbox tabs, Search or ask (⌘K)                | ✓                  | ✓                                   | — (drawer)              |
 | Sidebar: each mailbox opens to its folders and labels; views | ✓                  | ✓                                   | — (drawer)              |
 | Sidebar hidden: hover the window's edge to peek              | ✓                  | ✓                                   | —                       |
 | Rename and color a mailbox (synced)                          | ✓                  | ✓                                   | ✓                       |
@@ -145,8 +145,9 @@ chats read the same everywhere and continue on that Mac.
 | Feature                                                                  | Mac                 | Web                  | iPhone                                     |
 | ------------------------------------------------------------------------ | ------------------- | -------------------- | ------------------------------------------ |
 | Small window over the mail (⌘I), the mail on screen as its context       | ✓                   | ✓                    | — (a sheet)                                |
-| Its launcher: working, waiting for you, finished while away              | ✓                   | ✓                    | —                                          |
-| AI workspace (the sidebar's Chats tab): chats by day, the chat, its tabs | ✓                   | ✓                    | the Agent tab (chats: swipe from the left) |
+| Bottom bar: minimized chats as tabs (working, waiting, finished), Agent  | ✓                   | ✓                    | —                                          |
+| Chat history from the bottom bar                                         | ✓                   | ✓                    | the Agent tab (chats: swipe from the left) |
+| AI workspace (a chat opened full size): chats by day, the chat, its tabs | ✓                   | ✓                    | the Agent tab                              |
 | Open the small window's chat in the workspace (⌘⇧F, and back)            | ✓                   | ✓                    | —                                          |
 | Tabs: conversations and drafts it was given, read or made; files         | ✓                   | ✓                    | —                                          |
 | Tabs: pages it read, events it made, links clicked in it                 | ✓                   | — (links: a new tab) | —                                          |

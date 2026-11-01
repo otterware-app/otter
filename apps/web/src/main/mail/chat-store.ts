@@ -101,6 +101,8 @@ type ChatsState = {
   device: Device | null;
   /** The chat showing: in the small window, and the one the workspace last showed. */
   activeId: string;
+  /** Chats kept as tabs in the bottom bar, oldest first: minimized, or showing. */
+  docked: string[];
   /** Each chat's tab showing in the workspace. */
   activeTabs: Record<string, string>;
   /** The chat on screen now (the small window open, or the workspace): its replies are seen. */
@@ -126,6 +128,9 @@ type ChatsState = {
 
 const ACTIVE_KEY = "gmail:chat-active";
 const ACTIVE_TABS_KEY = "gmail:chat-active-tabs";
+const DOCKED_KEY = "gmail:chat-docked";
+/** The bottom bar keeps this many chats; an older one leaves as another comes. */
+const MAX_DOCKED = 5;
 const OPEN_REQUESTS_KEY = "gmail:chat-open-requests";
 // Chats were kept here before they synced; they start over.
 localStorage.removeItem("gmail:hermes-chat:v2");
@@ -288,6 +293,7 @@ export const useChats = create<ChatsState>(() => ({
   ready: false,
   device: null,
   activeId: localStorage.getItem(ACTIVE_KEY) ?? "",
+  docked: readJson<string[]>(DOCKED_KEY, []),
   activeTabs: readJson<Record<string, string>>(ACTIVE_TABS_KEY, {}),
   watched: null,
   runs: {},
@@ -348,6 +354,7 @@ function scheduleSave(id: string): void {
 
 useChats.subscribe((state, prev) => {
   if (state.activeId !== prev.activeId) localStorage.setItem(ACTIVE_KEY, state.activeId);
+  if (state.docked !== prev.docked) localStorage.setItem(DOCKED_KEY, JSON.stringify(state.docked));
   if (state.activeTabs !== prev.activeTabs)
     localStorage.setItem(ACTIVE_TABS_KEY, JSON.stringify(state.activeTabs));
   if (state.conversations === prev.conversations) return;
@@ -801,6 +808,16 @@ export function showChat(id: string): void {
   });
 }
 
+/** Keeps a chat as a tab in the bottom bar. */
+export function dockChat(id: string): void {
+  set((s) => (s.docked.includes(id) ? s : { docked: [...s.docked, id].slice(-MAX_DOCKED) }));
+}
+
+/** Takes a chat's tab out of the bottom bar (the chat stays in history). */
+export function undockChat(id: string): void {
+  set((s) => (s.docked.includes(id) ? { docked: s.docked.filter((d) => d !== id) } : s));
+}
+
 /** A view shows `id` now (null: none does): what it finished is seen. */
 export function watchChat(id: string | null): void {
   set((s) => {
@@ -846,6 +863,7 @@ export function deleteConversation(id: string, provider: ProviderKind): void {
     const unseen = new Set(s.unseen);
     unseen.delete(id);
     const left = {
+      docked: s.docked.filter((d) => d !== id),
       approvals: s.approvals.filter((a) => a.requestId !== request),
       questions: s.questions.filter((q) => q.requestId !== request),
       unseen,

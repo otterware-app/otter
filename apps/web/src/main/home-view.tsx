@@ -26,9 +26,10 @@ import { MessageReader } from "./mail/message-reader";
 import { NewMessageView } from "./mail/new-message-view";
 import { CommandPalette } from "./mail/command-palette";
 import { BrowserPanel } from "./browser/browser-panel";
-import { ChatLauncher, ChatWindow } from "./mail/chat-window";
+import { ChatBar } from "./mail/chat-bar";
+import { ChatWindow } from "./mail/chat-window";
 import { ChatWorkspace } from "./mail/chat-workspace";
-import { newChat, showChat, useChatEvents, useChats } from "./mail/chat-store";
+import { newChat, showChat, undockChat, useChatEvents, useChats } from "./mail/chat-store";
 import { useMailChatContext } from "./mail/chat-context";
 import { useChatProvider } from "./mail/agent-providers";
 import { SEARCH_MAILBOX } from "./mail/gmail-query";
@@ -457,7 +458,8 @@ function MailHome() {
   }, [openSettingsRef]);
 
   // ⌘W (File ▸ Close): close the browser panel's page (the last closes the
-  // panel), the workspace's tab, or the agent's small window; else the window.
+  // panel), the workspace's tab, or the agent's small window (its chat leaves
+  // the bottom bar); else the window.
   const closeBrowserTabRef = useRef<(() => boolean) | null>(null);
   const closeWorkspaceTabRef = useRef<(() => boolean) | null>(null);
   const closeChatWindowRef = useRef<() => boolean>(() => false);
@@ -666,10 +668,16 @@ function MailHome() {
     if (isChats) leaveWorkspace();
     setChatWindow(true);
   };
+  const chatWindowShown = chatWindowOpen && !isChats && !settingsRoute;
+  /** Closes the small window and takes its chat out of the bottom bar. */
+  const closeChat = () => {
+    undockChat(useChats.getState().activeId);
+    setChatWindow(false);
+  };
   useLayoutEffect(() => {
     closeChatWindowRef.current = () => {
-      if (!chatWindowOpen || isChats || settingsRoute) return false;
-      setChatWindow(false);
+      if (!chatWindowShown) return false;
+      closeChat();
       return true;
     };
   });
@@ -681,6 +689,19 @@ function MailHome() {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const { selectedKind } = useChatProvider(undefined);
   const activeChatId = useChats((s) => s.activeId);
+  /** A chat picked in the bottom bar: in the workspace when it shows; else the small window, or minimized if it showed it. */
+  const selectChat = (id: string) => {
+    if (isChats && !settingsRoute) go({ label: id }, true);
+    else if (chatWindowShown && activeChatId === id) setChatWindow(false);
+    else {
+      showChat(id);
+      openChat();
+    }
+  };
+  const closeChatTab = (id: string) => {
+    if (chatWindowShown && activeChatId === id) closeChat();
+    else undockChat(id);
+  };
 
   // Where the mail was before the workspace, to go back to.
   const mailBeforeChats = useRef<MailLoc | null>(null);
@@ -1473,7 +1494,6 @@ function MailHome() {
         sidebarPeek.close();
         setComposeOpen(true);
       }}
-      onNewChat={() => goToSpace(CHATS_SPACE, NEW_CHAT)}
       onNewView={() => openViewEditor("new")}
       onEditView={openViewEditor}
       onOpenPalette={() => {
@@ -1501,7 +1521,7 @@ function MailHome() {
   return (
     <>
       <div
-        className="surface-grain flex h-full bg-sidebar-surface text-foreground"
+        className="surface-grain flex h-full flex-col bg-sidebar-surface text-foreground"
         data-panel-animations={panelAnimationsActive ? "true" : "false"}
         data-mail-layout={isChats ? "split" : mailLayout}
         style={{ "--panel-animation-duration": `${panelAnimationDurationMs}ms` } as CSSProperties}
@@ -1509,7 +1529,7 @@ function MailHome() {
         <div className="contents">
           {/* The frame's width round the cards (the right edge is the last
               card's own gap), so they float with every corner rounded. */}
-          <div className="relative isolate flex min-w-0 flex-1 pb-1 pl-1">
+          <div className="relative isolate flex min-h-0 min-w-0 flex-1 pl-1">
             <div
               ref={setMailWorkspace}
               data-mail-workspace=""
@@ -1719,22 +1739,29 @@ function MailHome() {
                 </div>
               </>
             ) : null}
-            {/* The agent: its small window, or the launcher, in the workspace's
-                corner (over the browser when it's open). */}
-            {isChats || settingsRoute ? null : chatWindowOpen ? (
+            {/* The agent's small window, in the workspace's corner over the
+                bottom bar (and over the browser when it's open). */}
+            {chatWindowShown ? (
               <ChatWindow
                 context={mailChatContext}
                 onClearQuote={() => setPendingQuote(null)}
                 onOpenChange={openChatChange}
                 onOpenWorkspace={openWorkspace}
-                onClose={() => setChatWindow(false)}
+                onMinimize={() => setChatWindow(false)}
+                onClose={closeChat}
                 inputRef={chatInputRef}
               />
-            ) : (
-              <ChatLauncher onOpen={openChat} />
-            )}
+            ) : null}
           </div>
         </div>
+        <ChatBar
+          shownId={
+            isChats && !settingsRoute ? selectedLabelId : chatWindowShown ? activeChatId : null
+          }
+          onSelect={selectChat}
+          onCloseTab={closeChatTab}
+          onNewChat={startNewChat}
+        />
       </div>
 
       {/* Pinned titlebar toggles (Otter Code): same window spot whatever the panes do. */}

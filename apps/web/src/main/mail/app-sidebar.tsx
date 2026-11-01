@@ -1,7 +1,7 @@
 /**
  * The sidebar, the window's only one (Notion's): Search or ask (the command
- * palette), a tab for each mailbox and one for Chats, then the tab's page. A mailbox: New message, its folders and
- * labels, then the views. Chats: the AI workspace's chats. Sync health, an
+ * palette), a tab for each mailbox, then the tab's page. A mailbox: New message, its folders and
+ * labels, then the views; in the AI workspace, the last mailbox's. Sync health, an
  * update and you (with Settings) at its foot.
  */
 
@@ -26,9 +26,7 @@ import { UpdateCard } from "../updates";
 import { AccountPicture } from "./account-picture";
 import { MailboxFolders, SearchRow, type SidebarSearch } from "./accounts-sidebar";
 import { AddMailboxMenu } from "./add-mailbox";
-import { AgentIcon } from "./agent-icon";
 import type { SettingsPane } from "./api";
-import { ChatsSidebar } from "./chats-sidebar";
 import { useAddAccount, useViewUnreadCounts } from "./hooks";
 import { ScheduledMailButton } from "./mail-schedule";
 import {
@@ -59,7 +57,6 @@ export function AppSidebar({
   settingsOpen,
   onGo,
   onCompose,
-  onNewChat,
   onNewView,
   onEditView,
   onOpenPalette,
@@ -81,7 +78,6 @@ export function AppSidebar({
   /** Goes to a space: where it opens, or `labelId` in it. */
   onGo: (spaceId: string, labelId?: string) => void;
   onCompose: () => void;
-  onNewChat: () => void;
   onNewView: () => void;
   onEditView: (viewId: string) => void;
   onOpenPalette: () => void;
@@ -94,7 +90,6 @@ export function AppSidebar({
   onSelectSearch: (id: string) => void;
   onCloseSearch: (id: string) => void;
 }) {
-  const chats = spaceId === CHATS_SPACE;
   const options = useMailboxOptions(accounts);
   const isMailbox = (id: string | null) => options.some((option) => option.id === id);
   // The mailbox whose folders show: the one you're in, or (in Chats or a
@@ -113,41 +108,29 @@ export function AppSidebar({
         <SidebarTabs
           options={options}
           accounts={accounts}
-          selectedId={chats ? CHATS_SPACE : mailbox}
+          selectedId={spaceId === CHATS_SPACE ? null : mailbox}
           onSelect={(id) => onGo(id)}
         />
       </div>
-      {chats ? (
-        <ChatsSidebar
-          selectedId={labelId}
-          onSelect={(id) => onGo(CHATS_SPACE, id)}
-          onNewChat={onNewChat}
-        />
-      ) : (
-        <MailPage
-          accounts={accounts}
-          views={views}
-          mailbox={mailbox}
-          spaceId={spaceId}
-          labelId={labelId}
-          onGo={onGo}
-          onCompose={onCompose}
-          onNewView={onNewView}
-          onEditView={onEditView}
-          searches={searches}
-          onSelectSearch={onSelectSearch}
-          onCloseSearch={onCloseSearch}
-        />
-      )}
-      {chats ? null : (
-        <MailboxHealth
-          accountIds={
-            accounts.some((a) => a.id === spaceId) && spaceId
-              ? [spaceId]
-              : accounts.map((a) => a.id)
-          }
-        />
-      )}
+      <MailPage
+        accounts={accounts}
+        views={views}
+        mailbox={mailbox}
+        spaceId={spaceId}
+        labelId={labelId}
+        onGo={onGo}
+        onCompose={onCompose}
+        onNewView={onNewView}
+        onEditView={onEditView}
+        searches={searches}
+        onSelectSearch={onSelectSearch}
+        onCloseSearch={onCloseSearch}
+      />
+      <MailboxHealth
+        accountIds={
+          accounts.some((a) => a.id === spaceId) && spaceId ? [spaceId] : accounts.map((a) => a.id)
+        }
+      />
       <UpdateCard />
       <AccountMenu
         active={settingsOpen}
@@ -180,7 +163,7 @@ function SearchField({ onOpen }: { onOpen: () => void }) {
 }
 
 /**
- * The tabs (Notion's Home, Chat, Meetings): each mailbox, then Chats. The one
+ * The tabs (Notion's Home, Chat, Meetings): one for each mailbox. The one
  * showing is named, the others are their pictures (a dot for unread mail).
  * Switching slides: one name opens as the other folds.
  */
@@ -202,14 +185,12 @@ function SidebarTabs({
     icon,
     hint,
     dot = false,
-    tour,
   }: {
     id: string;
     label: string;
     icon: ReactNode;
     hint?: string;
     dot?: boolean;
-    tour?: string;
   }) => {
     const selected = id === selectedId;
     return (
@@ -218,7 +199,6 @@ function SidebarTabs({
           type="button"
           aria-label={label}
           aria-current={selected ? "page" : undefined}
-          data-tour={tour}
           onClick={() => onSelect(id)}
           className={cn(
             "flex h-8 min-w-0 shrink-0 cursor-pointer items-center rounded-lg px-1.5 text-sm font-medium outline-none transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-focus-ring motion-reduce:transition-none",
@@ -266,7 +246,6 @@ function SidebarTabs({
           dot: (unread[option.id] ?? 0) > 0,
         }),
       )}
-      {tab({ id: CHATS_SPACE, label: "Chats", icon: <AgentIcon />, tour: "chats" })}
     </div>
   );
 }
