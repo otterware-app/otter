@@ -76,13 +76,30 @@ export type DrivePreview =
     };
 export type DriveSignIn = { userCode: string; verificationUrl: string; deviceCode: string };
 
-async function session(): Promise<Session | null> {
-  const saved = await platform().secrets.get(SECRET);
-  return saved ? (JSON.parse(saved) as Session) : null;
+/** The drives turned off here: kept apart from the sign-in, so signing in again keeps them. */
+const HIDDEN = "otter-drive-hidden";
+
+async function readHidden(): Promise<string[]> {
+  try {
+    const value: unknown = JSON.parse((await platform().secrets.get(HIDDEN)) ?? "[]");
+    return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
-async function save(next: Session): Promise<void> {
-  await platform().secrets.set(SECRET, JSON.stringify(next));
+async function session(): Promise<Session | null> {
+  const saved = await platform().secrets.get(SECRET);
+  if (!saved) return null;
+  return { token: (JSON.parse(saved) as { token: string }).token, hidden: await readHidden() };
+}
+
+/** Writes to the stored sign-in and switches, one at a time, each reading what the last left. */
+let writes: Promise<unknown> = Promise.resolve();
+function serially<T>(work: () => Promise<T>): Promise<T> {
+  const run = writes.then(work);
+  writes = run.catch(() => {});
+  return run;
 }
 
 async function call(
@@ -167,16 +184,17 @@ export async function startSignIn(): Promise<DriveSignIn> {
   };
 }
 
-let waiting: string | null = null;
+/** The sign-in waiting for its code: a newer one, Cancel or Sign out ends it. */
+let attempt = 0;
 
 /** Polls until the code is approved in the browser, or expires (10 minutes). */
 export async function finishSignIn(deviceCode: string): Promise<void> {
-  waiting = deviceCode;
+  const mine = ++attempt;
   let interval = 5_000;
   const expiresAt = Date.now() + 10 * 60_000;
   while (Date.now() < expiresAt) {
     await new Promise((resolve) => setTimeout(resolve, interval));
-    if (waiting !== deviceCode) throw new Error("Otter Drive sign-in was cancelled.");
+    if (attempt !== mine) throw new Error("Otter Drive sign-in was cancelled.");
     try {
       const token = await request<{ access_token: string }>("/api/auth/device/token", {
         method: "POST",
@@ -186,8 +204,12 @@ export async function finishSignIn(deviceCode: string): Promise<void> {
           client_id: CLIENT_ID,
         }),
       });
-      waiting = null;
-      await save({ token: token.access_token });
+      // Cancelled or replaced while the token was on its way: it isn't kept.
+      await serially(async () => {
+        if (attempt !== mine) throw new Error("Otter Drive sign-in was cancelled.");
+        attempt++;
+        await platform().secrets.set(SECRET, JSON.stringify({ token: token.access_token }));
+      });
       return;
     } catch (error) {
       if (!(error instanceof DriveError)) throw error;
@@ -200,12 +222,12 @@ export async function finishSignIn(deviceCode: string): Promise<void> {
 }
 
 export function cancelSignIn(): void {
-  waiting = null;
+  attempt++;
 }
 
 export async function disconnect(): Promise<void> {
-  waiting = null;
-  await platform().secrets.delete(SECRET);
+  attempt++;
+  await serially(() => platform().secrets.delete(SECRET));
 }
 
 let folderCache: { at: number; token: string; list: DriveFolder[] } | null = null;
@@ -253,11 +275,13 @@ export async function folders(): Promise<DriveFolder[]> {
 
 /** Turns a drive (or Shared with me) off or on, on this device. */
 export async function setDriveHidden(id: string, hidden: boolean): Promise<void> {
-  const auth = await signedIn();
-  const next = new Set(auth.hidden ?? []);
-  if (hidden) next.add(id);
-  else next.delete(id);
-  await save({ ...auth, hidden: [...next] });
+  await signedIn();
+  await serially(async () => {
+    const next = new Set(await readHidden());
+    if (hidden) next.add(id);
+    else next.delete(id);
+    await platform().secrets.set(HIDDEN, JSON.stringify([...next]));
+  });
 }
 
 /**
@@ -277,6 +301,29 @@ async function reachable(folderId: string | undefined): Promise<Session> {
     throw new Error("That drive is turned off in Otter Mail.");
   if (!folder && hidden.has(SHARED)) throw new Error("Shared with me is turned off in Otter Mail.");
   return auth;
+}
+
+/**
+ * A document, when its own folder is in a drive that's on. Drive finds a
+ * document by id anywhere you can reach, so the folder the caller names is
+ * only a hint: the check is on where the document is. Gives the folder to
+ * name in later calls (none for a document shared with you on its own).
+ */
+async function documentAccess(
+  id: string,
+  hint: string | undefined,
+): Promise<{ auth: Session; folder: string | undefined; raw: RawArtifact }> {
+  const auth = await signedIn();
+  const result = await request<{ data: RawArtifact }>(
+    `/api/v1/artifacts/${ref(id)}`,
+    {},
+    auth,
+    hint,
+  );
+  const home = result.data.folderId ?? result.data.organizationId;
+  await reachable(home);
+  const list = await allFolders(auth);
+  return { auth, folder: list.some((f) => f.id === home) ? home : undefined, raw: result.data };
 }
 
 type RawVersion = {
@@ -329,6 +376,13 @@ const artifact = (a: RawArtifact): DriveArtifact => ({
 
 const ref = (id: string) => encodeURIComponent(id);
 
+/** Thumbnails by document, from the lists (a single document doesn't carry its own). */
+const thumbnails = new Map<string, string>();
+function remember(list: DriveArtifact[]): DriveArtifact[] {
+  for (const a of list) if (a.thumbnailUrl) thumbnails.set(a.id, a.thumbnailUrl);
+  return list;
+}
+
 /** A folder's documents, most recently updated first (archived ones apart). */
 export async function artifacts(folderId: string, archived = false): Promise<DriveArtifact[]> {
   const auth = await reachable(folderId);
@@ -348,7 +402,7 @@ export async function artifacts(folderId: string, archived = false): Promise<Dri
     list.push(...page.data.map(artifact));
     cursor = page.pagination.nextCursor;
   } while (cursor && list.length < 500);
-  return list;
+  return remember(list);
 }
 
 /** Documents shared with you on their own (folders shared with you are in `folders`). */
@@ -359,27 +413,24 @@ export async function sharedWithMe(): Promise<DriveArtifact[]> {
     {},
     auth,
   );
-  return result.data.flatMap((item) =>
-    item.type === "artifact" && item.artifact ? [artifact(item.artifact)] : [],
+  return remember(
+    result.data.flatMap((item) =>
+      item.type === "artifact" && item.artifact ? [artifact(item.artifact)] : [],
+    ),
   );
 }
 
 export async function getArtifact(id: string, folderId?: string): Promise<DriveArtifact> {
-  const result = await request<{ data: RawArtifact }>(
-    `/api/v1/artifacts/${ref(id)}`,
-    {},
-    await reachable(folderId),
-    folderId,
-  );
-  return artifact(result.data);
+  return artifact((await documentAccess(id, folderId)).raw);
 }
 
 export async function versions(id: string, folderId?: string): Promise<DriveVersion[]> {
+  const { auth, folder } = await documentAccess(id, folderId);
   const result = await request<{ data: RawVersion[] }>(
     `/api/v1/artifacts/${ref(id)}/versions`,
     {},
-    await reachable(folderId),
-    folderId,
+    auth,
+    folder,
   );
   return result.data.map(version);
 }
@@ -395,6 +446,13 @@ const TEXT_KINDS: Record<string, { kind: "markdown" | "table" | "text"; delimite
 };
 
 const MAX_PAGE = 5_000_000;
+/**
+ * A script or stylesheet fetched from another site, which the app's CSP blocks
+ * in a preview. Web fonts alone only change the type, so those stay.
+ */
+const LOADS_FROM_WEB =
+  /<script\b[^>]*\bsrc\s*=\s*["']?(?:https?:)?\/\/|<link\b(?=[^>]*\brel\s*=\s*["']?stylesheet)(?![^>]*fonts\.googleapis\.com)[^>]*\bhref\s*=\s*["']?(?:https?:)?\/\/|@import\s+(?:url\()?\s*["']?(?:https?:)?\/\/(?!fonts\.googleapis\.com)/i;
+export const loadsFromWeb = (html: string) => LOADS_FROM_WEB.test(html);
 const MAX_IMAGE = 15_000_000;
 
 /**
@@ -408,13 +466,13 @@ export async function preview(
   folderId?: string,
   versionNumber?: number,
 ): Promise<DrivePreview> {
-  const auth = await reachable(folderId);
+  const { auth, folder } = await documentAccess(id, folderId);
   const query = versionNumber ? `?version=${versionNumber}` : "";
   const page = await request<{ data: { contentType: string; version: RawVersion } }>(
     `/api/v1/artifacts/${ref(id)}/preview${query}`,
     {},
     auth,
-    folderId,
+    folder,
   );
   const { entryPath, fileCount, byteSize } = page.data.version;
   const contentType = page.data.contentType.split(";")[0]!.trim().toLowerCase();
@@ -432,11 +490,17 @@ export async function preview(
     `/api/v1/artifacts/${ref(id)}/content?${params}`,
     { headers: { accept: "*/*" } },
     auth,
-    folderId,
+    folder,
   );
   const bytes = new Uint8Array(await response.arrayBuffer());
   if (image) return { kind: "image", src: `data:${contentType};base64,${toBase64(bytes)}` };
-  if (html) return { kind: "html", html: new TextDecoder().decode(bytes) };
+  if (html) {
+    const page = new TextDecoder().decode(bytes);
+    // The app's CSP would block what it loads from the web: Otter Drive shows it whole.
+    if (loadsFromWeb(page))
+      return { kind: "elsewhere", entryPath, contentType, fileCount, byteSize };
+    return { kind: "html", html: page };
+  }
   return {
     ...text!,
     text: new TextDecoder().decode(bytes.subarray(0, MAX_TEXT)),
@@ -451,11 +515,12 @@ export async function rename(
 ): Promise<DriveArtifact> {
   const clean = title.trim().slice(0, 200);
   if (!clean) throw new Error("Give it a title.");
+  const { auth, folder } = await documentAccess(id, folderId);
   const result = await request<{ data: RawArtifact }>(
     `/api/v1/artifacts/${ref(id)}`,
     { method: "PATCH", body: JSON.stringify({ title: clean }) },
-    await reachable(folderId),
-    folderId,
+    auth,
+    folder,
   );
   return artifact(result.data);
 }
@@ -466,11 +531,12 @@ export async function setArchived(
   folderId: string | undefined,
   archived: boolean,
 ): Promise<void> {
+  const { auth, folder } = await documentAccess(id, folderId);
   await request(
     `/api/v1/artifacts/${ref(id)}${archived ? "" : "/restore"}`,
     { method: archived ? "DELETE" : "POST" },
-    await reachable(folderId),
-    folderId,
+    auth,
+    folder,
   );
 }
 
@@ -480,7 +546,10 @@ const THUMBNAILS = "https://usercontent.otterware.app/raw/thumbnail/";
  * A thumbnail as a data URL: Drive serves them same-site only, which the
  * desktop app's pages aren't, so its cards ask here when the image won't load.
  */
-export async function thumbnail(url: string): Promise<string | null> {
+export async function thumbnail(id: string, folderId?: string): Promise<string | null> {
+  await documentAccess(id, folderId);
+  const url = thumbnails.get(id);
+  if (!url) return null;
   if (!url.startsWith(THUMBNAILS)) throw new Error("Not an Otter Drive thumbnail.");
   const response = await call(url, { headers: { accept: "image/*" } });
   const type = response.headers.get("content-type") ?? "";

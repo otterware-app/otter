@@ -67,11 +67,7 @@ export default {
     slow("otterDrive:setArchived", (p) =>
       drive.setArchived(id(p), folder(p), p?.archived === true),
     );
-    slow("otterDrive:thumbnail", (p) => {
-      const url = text(p?.url, 4_000);
-      if (!url) throw new Error("Invalid thumbnail.");
-      return drive.thumbnail(url);
-    });
+    slow("otterDrive:thumbnail", (p) => drive.thumbnail(id(p), folder(p)));
 
     slow("otterDrive:uploadPicked", (p) => drive.uploadPicked(needFolder(p)));
     slow("otterDrive:uploadBytes", (p) => {

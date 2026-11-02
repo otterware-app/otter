@@ -1237,7 +1237,8 @@ function MailHome() {
 
   const searchActive = selectedLabelId === SEARCH_MAILBOX;
   const searchReturnRef = useRef<string>("INBOX");
-  const searchMailbox = selectedAccountId ?? "";
+  // Mail search from a workspace searches mail, from the first mailbox.
+  const searchMailbox = (workspace ? firstRealAccountId : selectedAccountId) ?? "";
   const topSearchId = searchTabId(searchMailbox, null);
   const activeSearch = searchActive
     ? (searchTabs.find((t) => t.id === activeSearchId) ?? null)
@@ -1257,9 +1258,13 @@ function MailHome() {
       input?.setSelectionRange(input.value.length, input.value.length);
     }, 0);
   const showSearch = (id: string) => {
-    if (!searchActive) searchReturnRef.current = selectedLabelId;
+    if (!searchActive) searchReturnRef.current = workspace ? "INBOX" : selectedLabelId;
     setActiveSearchId(id);
-    go({ label: SEARCH_MAILBOX, messageId: null });
+    go({
+      ...(workspace ? { mailbox: searchMailbox, account: null, focusId: null } : {}),
+      label: SEARCH_MAILBOX,
+      messageId: null,
+    });
   };
   const openSearch = (q?: string) => {
     console.log("[HomeView:openSearch]", { hasQuery: Boolean(q) });
@@ -1353,7 +1358,8 @@ function MailHome() {
   };
 
   const openMessage = (owner: string, messageId: string) => {
-    const switching = !spansMailboxes && owner !== effectiveAccountId;
+    // A workspace's item isn't a message: mail opens in its own mailbox.
+    const switching = (!spansMailboxes && owner !== effectiveAccountId) || workspace !== undefined;
     setAutoFocusDraft(true);
     go({
       ...(switching ? { mailbox: owner, label: "INBOX" } : {}),
@@ -1420,10 +1426,10 @@ function MailHome() {
   const [workspaceTitle, setWorkspaceTitle] = useState<{ href: string; title: string } | null>(
     null,
   );
-  const hrefNow = useLatest(locationHref);
+  // Bound to this address, so a new address asks again (even for an equal title).
   const nameWorkspacePlace = useCallback(
-    (title: string | null) => setWorkspaceTitle(title ? { href: hrefNow.current, title } : null),
-    [hrefNow],
+    (title: string | null) => setWorkspaceTitle(title ? { href: locationHref, title } : null),
+    [locationHref],
   );
   const place = useRecordRecentlyViewed({
     ready: initialized,

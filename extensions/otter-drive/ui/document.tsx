@@ -126,6 +126,8 @@ export function DocumentView({
   });
 
   const a = artifact.data;
+  // A viewer reads; renaming and archiving are an editor's.
+  const canEdit = a !== undefined && a.role !== "viewer";
   // The document names its tab and its place in history.
   const title = a?.title ?? null;
   useEffect(() => {
@@ -183,10 +185,10 @@ export function DocumentView({
           ) : (
             <button
               type="button"
-              title="Rename"
-              disabled={!a}
+              title={canEdit ? "Rename" : undefined}
+              disabled={!canEdit}
               onClick={() => a && setRenaming(a.title)}
-              className="no-drag min-w-0 truncate rounded px-1 text-left text-sm font-medium text-foreground hover:bg-accent"
+              className="no-drag min-w-0 truncate rounded px-1 text-left text-sm font-medium text-foreground enabled:hover:bg-accent"
             >
               {a?.title ?? "Loading…"}
             </button>
@@ -232,19 +234,21 @@ export function DocumentView({
                 <ExternalLinkIcon />
               </IconBtn>
             </HintTooltip>
-            <HintTooltip label={a.archived ? "Restore" : "Archive"}>
-              <IconBtn
-                label={a.archived ? "Restore" : "Archive"}
-                onClick={() =>
-                  void act(
-                    () => driveApi.setArchived(id, folderId, !a.archived),
-                    a.archived ? "Restored" : "Archived",
-                  ).then((ok) => ok && !a.archived && back())
-                }
-              >
-                {a.archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
-              </IconBtn>
-            </HintTooltip>
+            {canEdit ? (
+              <HintTooltip label={a.archived ? "Restore" : "Archive"}>
+                <IconBtn
+                  label={a.archived ? "Restore" : "Archive"}
+                  onClick={() =>
+                    void act(
+                      () => driveApi.setArchived(id, folderId, !a.archived),
+                      a.archived ? "Restored" : "Archived",
+                    ).then((ok) => ok && !a.archived && back())
+                  }
+                >
+                  {a.archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
+                </IconBtn>
+              </HintTooltip>
+            ) : null}
           </div>
         ) : null}
       </TitleBar>

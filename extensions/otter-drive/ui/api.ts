@@ -74,7 +74,8 @@ export const driveApi = {
     task("otterDrive:rename", { id, folderId, title }),
   setArchived: (id: string, folderId: string | undefined, archived: boolean): Promise<void> =>
     task("otterDrive:setArchived", { id, folderId, archived }),
-  thumbnail: (url: string): Promise<string | null> => task("otterDrive:thumbnail", { url }),
+  thumbnail: (id: string, folderId?: string): Promise<string | null> =>
+    task("otterDrive:thumbnail", { id, folderId }),
   uploadPicked: (folderId: string): Promise<DriveArtifact[]> =>
     task("otterDrive:uploadPicked", { folderId }),
   uploadBytes: (

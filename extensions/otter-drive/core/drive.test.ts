@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { emailPage, slugFor } from "./drive.js";
+import { emailPage, loadsFromWeb, slugFor } from "./drive.js";
 
 describe("slugFor", () => {
   it("makes a valid Otter Drive slug with a random tail", () => {
@@ -23,5 +23,21 @@ describe("emailPage", () => {
     const page = emailPage("<Hi>", null, "a < b & c");
     expect(page).toContain("<title>&lt;Hi&gt;</title>");
     expect(page).toContain("a &lt; b &amp; c");
+  });
+});
+
+describe("loadsFromWeb", () => {
+  it("sends pages that load scripts or stylesheets from the web to Otter Drive", () => {
+    expect(loadsFromWeb('<script src="https://cdn.example/chart.js"></script>')).toBe(true);
+    expect(loadsFromWeb('<link rel="stylesheet" href="//cdn.example/a.css">')).toBe(true);
+    expect(loadsFromWeb('<style>@import url("https://cdn.example/a.css");</style>')).toBe(true);
+  });
+
+  it("keeps self-contained pages, icons and web fonts", () => {
+    expect(loadsFromWeb("<script>draw()</script><style>p{}</style>")).toBe(false);
+    expect(loadsFromWeb('<link rel="icon" href="https://example.com/i.png">')).toBe(false);
+    expect(
+      loadsFromWeb('<link href="https://fonts.googleapis.com/css2?family=Inter" rel="stylesheet">'),
+    ).toBe(false);
   });
 });

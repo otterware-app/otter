@@ -520,7 +520,7 @@ function DocumentRow({
   onOpen: () => void;
 }) {
   const kind = KINDS[kindOf(artifact)];
-  const thumb = useThumbnail(artifact.thumbnailUrl);
+  const thumb = useThumbnail(artifact);
   const subtitle = artifact.description || artifact.current?.entryPath || "";
   return (
     <button
@@ -576,11 +576,11 @@ function DocumentRow({
 }
 
 /** Its thumbnail straight from Drive, or through the backend where Drive won't serve this page. */
-function useThumbnail(url: string | null) {
+function useThumbnail({ id, folderId, thumbnailUrl: url }: DriveArtifact) {
   const [direct, setDirect] = useState(true);
   const fetched = useQuery({
-    queryKey: ["otter-drive", "thumbnail", url],
-    queryFn: () => driveApi.thumbnail(url!),
+    queryKey: ["otter-drive", "thumbnail", id],
+    queryFn: () => driveApi.thumbnail(id, folderId || undefined),
     enabled: url !== null && !direct,
     retry: false,
     staleTime: 4 * 60_000,
@@ -600,7 +600,7 @@ export function DriveMain(props: WorkspaceMainProps) {
   const place = usePlace(props.location);
   if (status.data && !status.data.connected) return <SignInScreen {...props} />;
   return props.item ? (
-    <DocumentView {...props} id={props.item} folderId={place.folder?.id} />
+    <DocumentView key={props.item} {...props} id={props.item} folderId={place.folder?.id} />
   ) : (
     <Overview {...props} place={place} />
   );
@@ -770,7 +770,7 @@ function Grid({ children }: { children: ReactNode }) {
 
 function DocumentCard({ artifact, onOpen }: { artifact: DriveArtifact; onOpen: () => void }) {
   const kind = KINDS[kindOf(artifact)];
-  const thumb = useThumbnail(artifact.thumbnailUrl);
+  const thumb = useThumbnail(artifact);
   return (
     <button
       type="button"
