@@ -489,6 +489,7 @@ final class MailStore {
         do {
             try await sync.write(draft, asDraft: asDraft)
         } catch {
+            ErrorReports.capture(error, scope: asDraft ? "save-draft" : "send", tags: ["provider": mailbox.provider.rawValue])
             remove(messageID: localID)
             throw error
         }

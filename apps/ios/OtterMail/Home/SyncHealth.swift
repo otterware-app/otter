@@ -42,6 +42,7 @@ struct SignInAgainButton: View {
         Task {
             do { try await signIn() }
             catch GoogleAuth.Failure.cancelled {} catch MicrosoftAuth.Failure.cancelled {} catch {
+                ErrorReports.capture(error, scope: "oauth")
                 self.error = error.localizedDescription
             }
         }

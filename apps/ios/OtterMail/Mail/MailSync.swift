@@ -212,6 +212,7 @@ final class MailSync {
         } catch is CancellationError {
         } catch {
             guard !Task.isCancelled, (error as? URLError)?.code != .cancelled else { return }
+            ErrorReports.capture(error, scope: "mail-sync", tags: ["provider": store.mailbox(email)?.provider.rawValue ?? "unknown"])
             store.recordSync(email, failure: error is URLError ? "Can't connect" : "Sync failed")
         }
     }

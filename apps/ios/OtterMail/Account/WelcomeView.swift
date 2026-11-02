@@ -33,6 +33,7 @@ struct WelcomeView: View {
                             await session.requestNotifications()
                         } catch GoogleAuth.Failure.cancelled {
                         } catch {
+                            ErrorReports.capture(error, scope: "oauth")
                             self.error = error.localizedDescription
                         }
                     }

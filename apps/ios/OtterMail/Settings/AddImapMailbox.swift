@@ -125,6 +125,7 @@ struct AddImapMailbox: View {
             if backgroundNotifications { try await session.connectNotifications(email) }
             dismiss()
         } catch {
+            ErrorReports.capture(error, scope: "imap")
             let hint = await MailDiscovery.certificateHint(error, email: email, tried: [settings.imap.host, settings.smtp.host])
             self.error = hint ?? error.localizedDescription
             showsServers = true

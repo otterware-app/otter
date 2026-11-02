@@ -16,6 +16,7 @@
 		0B0000000000000000000022 /* ImapClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000021; };
 		0B0000000000000000000032 /* ImapParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000031; };
 		0B0000000000000000000042 /* MailSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000041; };
+		0C0000000000000000000001 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 0C0000000000000000000002 /* Sentry */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -74,6 +75,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0C0000000000000000000001 /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -131,6 +133,9 @@
 				0B0000000000000000000007 /* NotificationShared */,
 			);
 			name = OtterMail;
+			packageProductDependencies = (
+				0C0000000000000000000002 /* Sentry */,
+			);
 			productName = OtterMail;
 			productReference = 0A0000000000000000000001 /* Otter Mail.app */;
 			productType = "com.apple.product-type.application";
@@ -196,6 +201,9 @@
 			);
 			mainGroup = 0A0000000000000000000004;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0C0000000000000000000003 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0A0000000000000000000005 /* Products */;
 			projectDirPath = "";
@@ -498,6 +506,25 @@
 		};
 		0B000000000000000000000B = {isa = XCConfigurationList; buildConfigurations = (0B000000000000000000000E, 0B000000000000000000000F, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0C0000000000000000000003 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = exactVersion;
+				version = 9.29.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0C0000000000000000000002 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0C0000000000000000000003 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 0A0000000000000000000009 /* Project object */;
 }

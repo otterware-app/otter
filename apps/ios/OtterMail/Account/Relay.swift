@@ -349,7 +349,11 @@ final class Relay {
             guard let token else { throw Failure(status: 401, message: "Not signed in to Otter Mail.") }
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        let (body, response) = try await URLSession.shared.data(for: request)
+        let body: Data, response: URLResponse
+        do { (body, response) = try await URLSession.shared.data(for: request) } catch {
+            ErrorReports.capture(error, scope: "relay", tags: ["route": method + " " + request.url!.path()])
+            throw error
+        }
         let http = response as! HTTPURLResponse
         guard (200..<300).contains(http.statusCode) else {
             let message = (try? JSONSerialization.jsonObject(with: body) as? [String: Any])
@@ -358,7 +362,9 @@ final class Relay {
                 forget()
                 onSignedOut()
             }
-            throw Failure(status: http.statusCode, message: message ?? "The relay answered \(http.statusCode).")
+            let failure = Failure(status: http.statusCode, message: message ?? "The relay answered \(http.statusCode).")
+            if http.statusCode != 404 { ErrorReports.capture(failure, scope: "relay", tags: ["route": method + " " + request.url!.path()]) }
+            throw failure
         }
         return (body, http)
     }

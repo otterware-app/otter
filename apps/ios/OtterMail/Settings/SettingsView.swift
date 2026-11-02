@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(MailStore.self) private var store
     @Environment(\.palette) private var palette
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(ErrorReports.enabledKey) private var errorReports = true
 
     var body: some View {
         @Bindable var preferences = preferences
@@ -117,6 +118,22 @@ struct SettingsView: View {
                     Toggle("Group by day", isOn: $preferences.groupMessagesByDay)
                 } header: {
                     Text("Message list").sectionHeader()
+                }
+
+                if ErrorReports.isRunning {
+                    Section {
+                        Toggle(isOn: $errorReports) {
+                            Label("Send error reports", systemImage: "ant")
+                        }
+                    } header: {
+                        Text("Support").sectionHeader()
+                    } footer: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("When something fails, tell Otterware what broke and where. Never your mail, addresses or passwords.")
+                            Text("Report ID \(ErrorReports.reportID)").textSelection(.enabled)
+                        }
+                        .sectionFooter()
+                    }
                 }
 
                 Section {

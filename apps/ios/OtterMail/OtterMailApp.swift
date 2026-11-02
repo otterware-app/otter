@@ -12,6 +12,7 @@ struct OtterMailApp: App {
     static let refreshTask = "dev.otterware.mail.refresh"
 
     init() {
+        ErrorReports.start()
         UIFont.useInterInBars()
         let preferences = Preferences()
         _preferences = State(initialValue: preferences)

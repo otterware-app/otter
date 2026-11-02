@@ -82,6 +82,10 @@ add limited server grants (or an encrypted IMAP password), while mail content st
   the others are read, and each finished turn is written back after the chat's other turns,
   keeping what other devices wrote (it stays the relay's JSON).
 - `Mail/`: the model and `MailStore`, which screens render from. `DemoMail.swift` loads the demo.
+- `Reports/`: error reports to Sentry (`otter-mail-ios`), scrubbed by the shared rules
+  (`docs/error-reports.md`): crashes and the failures of sync, sign-in, the relay and sending, with a
+  random report id; off in Settings › Support. Release builds report; Debug builds only with
+  `OTTER_MAIL_ERROR_REPORTS=1` in the launch environment.
 - `Home/`, `Reader/`, `Compose/`, `Settings/`: the screens.
 
 Also: Apple's on-device Translation (on request, or automatically for languages you don't read),

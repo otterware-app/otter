@@ -42,6 +42,7 @@ struct MailboxesSettings: View {
                     Button {
                         Task {
                             do { try await session.addMailbox() } catch GoogleAuth.Failure.cancelled {} catch {
+                                ErrorReports.capture(error, scope: "oauth")
                                 self.error = error.localizedDescription
                             }
                         }
@@ -52,6 +53,7 @@ struct MailboxesSettings: View {
                     Button {
                         Task {
                             do { try await session.addOutlookMailbox() } catch MicrosoftAuth.Failure.cancelled {} catch {
+                                ErrorReports.capture(error, scope: "oauth")
                                 self.error = error.localizedDescription
                             }
                         }
@@ -164,6 +166,7 @@ struct MailboxSettings: View {
                         Task {
                             do { try await session.signIn(mailbox: email) }
                             catch GoogleAuth.Failure.cancelled {} catch MicrosoftAuth.Failure.cancelled {} catch {
+                                ErrorReports.capture(error, scope: "oauth")
                                 self.error = error.localizedDescription
                             }
                         }
