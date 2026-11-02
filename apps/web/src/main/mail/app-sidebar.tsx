@@ -11,7 +11,7 @@ import { AccountPicture } from "./account-picture";
 import { MailboxFolders, SearchRow, type SidebarSearch } from "./accounts-sidebar";
 import { AddMailboxMenu } from "./add-mailbox";
 import { AgentIcon } from "./agent-icon";
-import { OtterCalendarIcon, OtterMailIcon } from "./app-icons";
+import { type NavGlyphProps, OtterCalendarIcon, OtterMailIcon } from "./app-icons";
 import { AgentSidebar } from "./agent-sidebar";
 import type { SettingsPane } from "./api";
 import { useChats } from "./chat-store";
@@ -159,14 +159,14 @@ function ModeSwitcher({
   const modes: {
     mode: AppMode;
     label: string;
-    icon: ReactNode;
+    Icon: (props: NavGlyphProps) => ReactNode;
     shortcut: KeybindingCommand;
     dot: boolean;
   }[] = [
     {
       mode: "mail",
       label: "Mail",
-      icon: <OtterMailIcon className="size-4" />,
+      Icon: OtterMailIcon,
       shortcut: "mode.mail",
       dot: unread,
     },
@@ -175,7 +175,7 @@ function ModeSwitcher({
           {
             mode: "calendar" as const,
             label: "Calendar",
-            icon: <OtterCalendarIcon className="size-4" />,
+            Icon: OtterCalendarIcon,
             shortcut: "mode.calendar" as const,
             dot: false,
           },
@@ -184,7 +184,7 @@ function ModeSwitcher({
     {
       mode: "agent",
       label: "Agent",
-      icon: <AgentIcon className="size-4" />,
+      Icon: AgentIcon,
       shortcut: "mode.agent",
       dot: agentDot,
     },
@@ -204,11 +204,11 @@ function ModeSwitcher({
               className={cn(
                 "relative flex h-7 w-8 cursor-pointer items-center justify-center rounded-lg outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-focus-ring [&>svg]:size-4",
                 selected
-                  ? "bg-sidebar-row-selected text-sidebar-foreground"
+                  ? "text-sidebar-foreground"
                   : "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
               )}
             >
-              {m.icon}
+              <m.Icon selected={selected} />
               {m.dot && !selected ? (
                 <span
                   aria-hidden
