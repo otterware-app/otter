@@ -7,10 +7,12 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   AlignLeftIcon,
   ArrowRightIcon,
   CalendarIcon,
+  CheckIcon,
   ClockIcon,
   ExternalLinkIcon,
   MapPinIcon,
@@ -28,13 +30,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "../mail/menu";
-import { HintTooltip, IconBtn, cn } from "../mail/ui";
+import { HintTooltip, IconBtn, buttonClass, cn } from "../mail/ui";
 import {
   calendarKey,
   eventTimes,
   hasGuests,
   type CalEvent,
   type EventInput,
+  type Repeat,
   type RsvpResponse,
   type useCalendarActions,
 } from "./api";
@@ -287,6 +290,23 @@ const withDate = (ms: number, value: string) => {
   return next.getTime();
 };
 
+/** Every day, Weekly on Monday, Monthly on day 12... from the day it starts. */
+function repeatLabel(repeat: Repeat, startMs: number): string {
+  const d = new Date(startMs);
+  switch (repeat) {
+    case "daily":
+      return "Every day";
+    case "weekdays":
+      return "Every weekday";
+    case "weekly":
+      return `Weekly on ${d.toLocaleDateString(undefined, { weekday: "long" })}`;
+    case "monthly":
+      return `Monthly on day ${d.getDate()}`;
+    case "yearly":
+      return `Yearly on ${d.toLocaleDateString(undefined, { month: "long", day: "numeric" })}`;
+  }
+}
+
 const dayLabel = (ms: number) =>
   new Date(ms).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 
@@ -330,11 +350,16 @@ function TimeRows({
   endMs,
   allDay,
   onChange,
+  repeat,
+  onRepeat,
 }: {
   startMs: number;
   endMs: number;
   allDay: boolean;
   onChange: (startMs: number, endMs: number, allDay: boolean) => void;
+  /** New events: how it repeats (Notion Calendar's Repeat). */
+  repeat?: Repeat | null;
+  onRepeat?: (repeat: Repeat | null) => void;
 }) {
   const length = endMs - startMs;
   // All-day events end the day after their last.
@@ -403,17 +428,48 @@ function TimeRows({
         />
         <span />
       </div>
-      <button
-        type="button"
-        aria-pressed={allDay}
-        onClick={toggleAllDay}
-        className={cn(
-          "-mx-1.5 mt-0.5 h-7 cursor-pointer rounded-md px-1.5 text-[13px] outline-none transition-colors hover:bg-foreground/[0.05]",
-          allDay ? "text-foreground" : "text-muted-foreground",
-        )}
-      >
-        All-day
-      </button>
+      <div className="mt-0.5 flex items-center gap-3">
+        <button
+          type="button"
+          aria-pressed={allDay}
+          onClick={toggleAllDay}
+          className={cn(
+            "-mx-1.5 h-7 cursor-pointer rounded-md px-1.5 text-[13px] outline-none transition-colors hover:bg-foreground/[0.05]",
+            allDay ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          All-day
+        </button>
+        {onRepeat ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex h-7 min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-[13px] outline-none transition-colors hover:bg-foreground/[0.05]",
+                  repeat ? "text-foreground" : "text-muted-foreground",
+                )}
+              >
+                <RepeatIcon className="size-3.5 shrink-0" />
+                <span className="truncate">{repeat ? repeatLabel(repeat, startMs) : "Repeat"}</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {([null, "daily", "weekdays", "weekly", "monthly", "yearly"] as const).map(
+                (option) => (
+                  <DropdownMenuItem
+                    key={option ?? "none"}
+                    icon={option === (repeat ?? null) ? <CheckIcon /> : <span className="size-4" />}
+                    onSelect={() => onRepeat(option)}
+                  >
+                    {option ? repeatLabel(option, startMs) : "Does not repeat"}
+                  </DropdownMenuItem>
+                ),
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
     </Row>
   );
 }
@@ -605,6 +661,90 @@ function ReadOnlyEvent({
   );
 }
 
+/** Answering a repeating invitation: this event or all of them, and a note for the organizer. */
+function SeriesResponseDialog({
+  onCancel,
+  onSave,
+}: {
+  onCancel: () => void;
+  onSave: (allEvents: boolean, comment: string) => void;
+}) {
+  const [allEvents, setAllEvents] = useState(false);
+  const [note, setNote] = useState("");
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[130] flex items-start justify-center bg-black/25 pt-[22vh]"
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) onCancel();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          onCancel();
+        }
+      }}
+    >
+      <div
+        role="dialog"
+        aria-label="Save response status for repeat event"
+        className="w-[420px] max-w-[calc(100vw-32px)] overflow-hidden rounded-xl border border-border/70 text-foreground shadow-[0_24px_60px_-20px_rgb(0_0_0/55%)] animate-calendar-pop [background:linear-gradient(var(--popover),var(--popover)),var(--canvas)]"
+      >
+        <div className="px-5 pb-3 pt-5 text-[15px] font-medium">
+          Save response status for repeat event
+        </div>
+        <div className="flex flex-col gap-1 px-5 pb-4" role="radiogroup">
+          {[
+            [false, "This event"],
+            [true, "All events"],
+          ].map(([value, label]) => (
+            <label
+              key={String(value)}
+              className="flex h-8 cursor-pointer items-center gap-3 text-[13px]"
+            >
+              <input
+                type="radio"
+                name="series-response"
+                checked={allEvents === value}
+                onChange={() => setAllEvents(value as boolean)}
+                className="size-4 accent-primary"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        <div className="h-px bg-border/60" />
+        <div className="px-5 pb-4 pt-3">
+          <input
+            autoFocus
+            value={note}
+            placeholder="Leave a note (optional)"
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) onSave(allEvents, note.trim());
+            }}
+            className="h-9 w-full bg-transparent text-[13px] outline-none placeholder:text-placeholder"
+          />
+          <div className="mt-2 flex justify-end gap-2">
+            <button type="button" onClick={onCancel} className={buttonClass("outline", "sm")}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => onSave(allEvents, note.trim())}
+              className={buttonClass("primary", "sm")}
+            >
+              Save response
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function EventDetails({
   event,
   color,
@@ -621,8 +761,19 @@ function EventDetails({
   const notify = hasGuests(event);
   const mine = !event.organizer || event.organizer.toLowerCase() === event.accountId.toLowerCase();
   const update = (patch: EventInput) => actions.update(event, patch, notify);
+  // A repeating invitation: this occurrence or all of them (Notion Calendar's question).
+  const [asking, setAsking] = useState<RsvpResponse | null>(null);
   return (
     <>
+      {asking ? (
+        <SeriesResponseDialog
+          onCancel={() => setAsking(null)}
+          onSave={(allEvents, comment) => {
+            actions.respond(event, asking, { allEvents, comment });
+            setAsking(null);
+          }}
+        />
+      ) : null}
       <Header title={event.recurring ? "Event · repeats" : "Event"} onClose={onClose}>
         {event.htmlLink ? (
           <HintTooltip label="Open in your calendar">
@@ -689,7 +840,10 @@ function EventDetails({
       </Row>
       <People event={event} />
       {event.response && !mine ? (
-        <Rsvp value={event.response} onChange={(r) => actions.respond(event, r)} />
+        <Rsvp
+          value={event.response}
+          onChange={(r) => (event.recurring ? setAsking(r) : actions.respond(event, r))}
+        />
       ) : null}
       <Divider />
       <Row icon={<AlignLeftIcon />}>
@@ -750,6 +904,7 @@ function NewEvent({
       ...eventTimes(draft.startMs, draft.endMs, draft.allDay),
       ...(location.trim() ? { location: location.trim() } : {}),
       ...(attendees.length ? { attendees } : {}),
+      ...(draft.repeat ? { repeat: draft.repeat } : {}),
     });
   };
   const enter = (e: ReactKeyboardEvent) => {
@@ -777,6 +932,8 @@ function NewEvent({
         endMs={draft.endMs}
         allDay={draft.allDay}
         onChange={(startMs, endMs, allDay) => onChange({ ...draft, startMs, endMs, allDay })}
+        repeat={draft.repeat ?? null}
+        onRepeat={(repeat) => onChange({ ...draft, repeat: repeat ?? undefined })}
       />
       <Row icon={<MapPinIcon />}>
         <input

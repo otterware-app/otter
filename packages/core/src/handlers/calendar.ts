@@ -87,8 +87,11 @@ async function listRange(
   }
 }
 
+const REPEATS = new Set(["daily", "weekdays", "weekly", "monthly", "yearly"]);
+
 function eventInput(value: unknown): EventInput {
-  const input = (value ?? {}) as EventInput;
+  const input = { ...((value ?? {}) as EventInput) };
+  if (input.repeat !== undefined && !REPEATS.has(input.repeat)) delete input.repeat;
   return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as EventInput;
 }
 
@@ -206,6 +209,7 @@ export function registerCalendarHandlers(): void {
         eventId,
         response as RsvpResponse,
         str(p?.calendarId) || undefined,
+        { allEvents: p?.allEvents === true, comment: str(p?.comment) || undefined },
       ),
     );
   });

@@ -21,7 +21,12 @@ export type CalendarEvent = {
   meetingLink: string | null;
   htmlLink: string | null;
   recurring: boolean;
+  /** The series it's an occurrence of, for answering all of them at once. */
+  seriesId: string | null;
 };
+
+/** How a new event repeats, from its start. */
+export type Repeat = "daily" | "weekdays" | "weekly" | "monthly" | "yearly";
 
 export type EventInput = {
   title?: string;
@@ -31,6 +36,7 @@ export type EventInput = {
   location?: string;
   description?: string;
   attendees?: string[];
+  repeat?: Repeat;
 };
 
 /** One of a mailbox's calendars. */
@@ -117,6 +123,7 @@ export function useTeamEvents(accountIds: string[], emails: string[], from: numb
             meetingLink: null,
             htmlLink: null,
             recurring: false,
+            seriesId: null,
           }),
           teammate: email,
           readOnly: true,
@@ -277,9 +284,27 @@ export function useCalendarActions() {
         fail("Couldn't delete the event"),
       );
     },
-    respond(event: CalEvent, response: RsvpResponse): void {
-      replace(event, { ...event, response });
-      task<CalendarEvent>("calendar:respondToEvent", { ...where(event), response }).then((done) => {
+    /** This occurrence, or (allEvents) every one of its series, with an optional note. */
+    respond(
+      event: CalEvent,
+      response: RsvpResponse,
+      { allEvents = false, comment = "" }: { allEvents?: boolean; comment?: string } = {},
+    ): void {
+      if (allEvents && event.seriesId)
+        patchCache((events) =>
+          events.map((e) =>
+            e.accountId === event.accountId && e.seriesId === event.seriesId
+              ? { ...e, response }
+              : e,
+          ),
+        );
+      else replace(event, { ...event, response });
+      task<CalendarEvent>("calendar:respondToEvent", {
+        ...where(event),
+        response,
+        allEvents,
+        comment,
+      }).then((done) => {
         replace(event, saved(event, done));
         // A declined invitation can leave the calendar (Outlook removes it).
         settle();

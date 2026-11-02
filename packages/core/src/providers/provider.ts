@@ -77,7 +77,15 @@ export type CalendarEvent = {
   meetingLink: string | null;
   htmlLink: string | null;
   recurring: boolean;
+  /** The series it's an occurrence of (or is), for answering all of them at once. */
+  seriesId: string | null;
 };
+
+/** How a new event repeats, from its start: that weekday, that date of the month... */
+export type Repeat = "daily" | "weekdays" | "weekly" | "monthly" | "yearly";
+
+/** Answering an invitation: just this occurrence or the whole series, with a note. */
+export type RespondOptions = { allEvents?: boolean; comment?: string };
 
 /** One of an account's calendars: its own, another it was given, or one it follows. */
 export type CalendarInfo = {
@@ -106,6 +114,8 @@ export type EventInput = {
   description?: string;
   attendees?: string[];
   videoCall?: boolean;
+  /** New events only: repeats from its start, without end. */
+  repeat?: Repeat;
 };
 
 export type ErrorKind = "rateLimit" | "network" | "notFound" | "auth";
@@ -256,6 +266,7 @@ export interface MailProvider {
       eventId: string,
       response: RsvpResponse,
       calendarId?: string,
+      options?: RespondOptions,
     ): Promise<CalendarEvent>;
     /** Other people's busy times, by address; null where theirs can't be seen. */
     schedule(

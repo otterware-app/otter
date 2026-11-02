@@ -11,6 +11,8 @@ import {
   type BusyBlock,
   type CalendarEvent,
   type CalendarInfo,
+  type Repeat,
+  type RespondOptions,
   type EventInput,
   type RsvpResponse,
 } from "../provider.js";
@@ -97,10 +99,15 @@ export async function findEvent(
   return { response: asResponse(found.responseStatus?.response), htmlLink: found.webLink ?? null };
 }
 
-async function answer(accountId: string, eventId: string, response: RsvpResponse) {
+async function answer(
+  accountId: string,
+  eventId: string,
+  response: RsvpResponse,
+  comment?: string,
+) {
   await calendarGraph(accountId, `${eventPath(eventId)}/${ACTION[response]}`, {
     method: "POST",
-    body: { sendResponse: true },
+    body: { sendResponse: true, ...(comment ? { comment } : {}) },
   });
 }
 
@@ -144,6 +151,7 @@ function toEvent(e: ApiEvent): CalendarEvent {
     meetingLink: e.onlineMeeting?.joinUrl ?? e.onlineMeetingUrl ?? null,
     htmlLink: e.webLink ?? null,
     recurring: e.type !== undefined ? e.type !== "singleInstance" : Boolean(e.seriesMasterId),
+    seriesId: e.seriesMasterId ?? (e.type === "seriesMaster" ? e.id : null),
   };
 }
 
@@ -163,6 +171,27 @@ function duration(event: ApiEvent | undefined): number {
   return ms > 0 ? ms : event?.isAllDay ? DAY_MS : 3_600_000;
 }
 
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+/** How it repeats, as Graph's recurrence, from the day it starts, without end. */
+function repeatPattern(repeat: Repeat, start: string) {
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(start) ? new Date(`${start}T00:00`) : new Date(start);
+  const startDate = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+  const pattern = {
+    daily: { type: "daily", interval: 1 },
+    weekdays: { type: "weekly", interval: 1, daysOfWeek: WEEKDAYS.slice(1, 6) },
+    weekly: { type: "weekly", interval: 1, daysOfWeek: [WEEKDAYS[day.getDay()]] },
+    monthly: { type: "absoluteMonthly", interval: 1, dayOfMonth: day.getDate() },
+    yearly: {
+      type: "absoluteYearly",
+      interval: 1,
+      dayOfMonth: day.getDate(),
+      month: day.getMonth() + 1,
+    },
+  }[repeat];
+  return { pattern, range: { type: "noEnd", startDate } };
+}
+
 function apiBody(input: EventInput, current?: ApiEvent): Record<string, unknown> {
   const allDay = input.allDay ?? current?.isAllDay ?? false;
   const timeZone = input.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -179,6 +208,7 @@ function apiBody(input: EventInput, current?: ApiEvent): Record<string, unknown>
     }));
   }
   if (input.allDay !== undefined) body.isAllDay = input.allDay;
+  if (input.repeat && input.start) body.recurrence = repeatPattern(input.repeat, input.start);
   if (input.start !== undefined) {
     body.start = apiTime(input.start, allDay, timeZone);
     const length = current ? duration(current) : allDay ? DAY_MS : 3_600_000;
@@ -335,9 +365,13 @@ export async function respondToEvent(
   accountId: string,
   eventId: string,
   response: RsvpResponse,
+  _calendarId?: string,
+  options: RespondOptions = {},
 ): Promise<CalendarEvent> {
   const before = await fetchEvent(accountId, eventId);
-  await answer(accountId, eventId, response);
+  // All of a series: answered on its master, which every occurrence follows.
+  const target = options.allEvents && before.seriesMasterId ? before.seriesMasterId : eventId;
+  await answer(accountId, target, response, options.comment);
   try {
     return await getEvent(accountId, eventId);
   } catch (err) {

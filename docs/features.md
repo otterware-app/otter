@@ -237,8 +237,9 @@ color, the others their color in Google or Outlook. IMAP mailboxes have none.
 | Followed and read-only calendars: looked at, not changed (no drag, read-only card)                          | ✓   | ✓   | —      |
 | New events on any calendar that takes them (picked in the card; the default first)                          | ✓   | ✓   | —      |
 | Event panel: title, time, place, notes edit in place; guests                                                | ✓   | ✓   | —      |
-| Yes / No / Maybe on invitations; Join meeting                                                               | ✓   | ✓   | —      |
+| Yes / No / Maybe on invitations, with a note; repeating ones ask: this event or all events; Join meeting    | ✓   | ✓   | —      |
 | Draw or click a slot to create; drag to move; drag edge to resize                                           | ✓   | ✓   | —      |
+| New events repeat: every day, every weekday, weekly, monthly, yearly (from their start, no end)             | ✓   | ✓   | —      |
 | Delete an event (Delete key or the panel)                                                                   | ✓   | ✓   | —      |
 | Scroll sideways day by day; ‹ › and Today glide; any day can lead the week                                  | ✓   | ✓   | —      |
 | Teammates' calendars over yours (⌘P to add, Esc to clear): Outlook with titles they share, Gmail busy times | ✓   | ✓   | —      |

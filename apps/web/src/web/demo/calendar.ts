@@ -18,7 +18,12 @@ type ApiEvent = {
   attendees?: { email: string; displayName?: string; self?: boolean; responseStatus: string }[];
   hangoutLink?: string;
   recurringEventId?: string;
+  /** A series of its own (RRULE), expanded into occurrences when listed. */
+  recurrence?: string[];
 };
+
+/** Changes to single occurrences of a series, by occurrence id. */
+const overrides = new Map<string, Partial<ApiEvent>>();
 
 /** Events by account, then by calendar. */
 const calendars = new Map<string, Map<string, ApiEvent[]>>();
@@ -207,8 +212,10 @@ function seed(email: string): ApiEvent[] {
       end: { dateTime: at(week * 7 + 2, 15) },
       recurringEventId: "design",
       location: "Studio 3",
+      // A weekly invitation not yet answered: answering asks this one or all.
+      organizer: { email: "leo@northwind.example", displayName: "Leo Park" },
       attendees: people(
-        "accepted",
+        "needsAction",
         ["Maya Chen", "maya@northwind.example"],
         ["Leo Park", "leo@northwind.example"],
       ),
@@ -244,6 +251,7 @@ function fromBody(body: Record<string, unknown>, email: string): Partial<ApiEven
   if (typeof body.description === "string") patch.description = body.description;
   if (body.start) patch.start = body.start as ApiTime;
   if (body.end) patch.end = body.end as ApiTime;
+  if (Array.isArray(body.recurrence)) patch.recurrence = body.recurrence as string[];
   if (Array.isArray(body.attendees))
     patch.attendees = (body.attendees as ApiEvent["attendees"] & object).map((a) => ({
       ...a,
@@ -280,6 +288,52 @@ export function busyWeek(
   return busy;
 }
 
+const RRULE_DAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+
+/** A series' occurrences in [from, to): daily, weekly (by day), monthly (by date), yearly. */
+function occurrences(base: ApiEvent, from: number, to: number): ApiEvent[] {
+  const rule = Object.fromEntries(
+    (base.recurrence?.[0] ?? "")
+      .replace(/^RRULE:/, "")
+      .split(";")
+      .map((part) => part.split("=") as [string, string]),
+  );
+  const first = startOf(base);
+  const length = endOf(base) - first;
+  const allDay = Boolean(base.start.date);
+  const days = rule.BYDAY ? rule.BYDAY.split(",") : [RRULE_DAYS[new Date(first).getDay()]];
+  const out: ApiEvent[] = [];
+  const day = new Date(Math.max(first, from - length));
+  day.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 400 && day.getTime() < to; i++, day.setDate(day.getDate() + 1)) {
+    const at = new Date(first);
+    const start = new Date(day);
+    start.setHours(at.getHours(), at.getMinutes(), 0, 0);
+    const s = start.getTime();
+    const matches =
+      rule.FREQ === "DAILY" ||
+      (rule.FREQ === "WEEKLY" && days.includes(RRULE_DAYS[day.getDay()]!)) ||
+      (rule.FREQ === "MONTHLY" && day.getDate() === Number(rule.BYMONTHDAY ?? at.getDate())) ||
+      (rule.FREQ === "YEARLY" &&
+        day.getDate() === at.getDate() &&
+        day.getMonth() === at.getMonth());
+    if (!matches || s < first || s + length <= from || s >= to) continue;
+    const id = `${base.id}_${dayKey(day).replaceAll("-", "")}`;
+    out.push({
+      ...base,
+      id,
+      recurringEventId: base.id,
+      recurrence: undefined,
+      start: allDay ? { date: dayKey(day) } : { dateTime: new Date(s).toISOString() },
+      end: allDay
+        ? { date: dayKey(new Date(s + length)) }
+        : { dateTime: new Date(s + length).toISOString() },
+      ...overrides.get(id),
+    });
+  }
+  return out;
+}
+
 /** The answer to a request under /calendar/v3/calendars/primary, or the free/busy query. */
 export function fakeCalendar(
   email: string,
@@ -312,6 +366,7 @@ export function fakeCalendar(
     const from = Date.parse(url.searchParams.get("timeMin") ?? "");
     const to = Date.parse(url.searchParams.get("timeMax") ?? "");
     const items = events
+      .flatMap((e) => (e.recurrence ? occurrences(e, from, to) : [e]))
       .filter((e) => endOf(e) > from && startOf(e) < to)
       .sort((a, b) => startOf(a) - startOf(b));
     return json({ items });
@@ -328,8 +383,27 @@ export function fakeCalendar(
     events.push(event);
     return json(event);
   }
-  const index = events.findIndex((e) => e.id === decodeURIComponent(id ?? ""));
-  if (index < 0) return json({ error: { code: 404, message: "Not found" } }, 404);
+  const wanted = decodeURIComponent(id ?? "");
+  const index = events.findIndex((e) => e.id === wanted);
+  if (index < 0) {
+    // One occurrence of a series made here: changed on its own.
+    const base = events.find((e) => e.recurrence && wanted.startsWith(`${e.id}_`));
+    const date = wanted.slice(wanted.lastIndexOf("_") + 1);
+    if (base) {
+      const day = Date.parse(`${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}T00:00`);
+      if (method === "PATCH")
+        overrides.set(wanted, { ...overrides.get(wanted), ...fromBody(body, email) });
+      const found = occurrences(base, day, day + 86_400_000).find((e) => e.id === wanted);
+      if (found) return json(found);
+    }
+    // A seeded series (its occurrences only): changing it changes them all.
+    const group = events.filter((e) => e.recurringEventId === wanted);
+    if (group.length) {
+      if (method === "PATCH") for (const e of group) Object.assign(e, fromBody(body, email));
+      return json({ ...group[0], id: wanted, recurringEventId: undefined });
+    }
+    return json({ error: { code: 404, message: "Not found" } }, 404);
+  }
   if (method === "DELETE") {
     events.splice(index, 1);
     return new Response(null, { status: 204 });

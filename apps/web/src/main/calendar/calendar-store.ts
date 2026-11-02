@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { Repeat } from "./api";
 import { startOfDay } from "./dates";
 
 const SHOWN_KEY = "calendar:shown";
@@ -45,6 +46,7 @@ export type DraftEvent = {
   endMs: number;
   allDay: boolean;
   title?: string;
+  repeat?: Repeat;
 };
 
 export type Selection = { accountId: string; calendarId: string; id: string } | { draft: true };
