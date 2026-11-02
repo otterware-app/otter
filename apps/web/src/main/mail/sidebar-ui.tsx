@@ -63,14 +63,17 @@ export function NewRow({
 export function SidebarBody({
   children,
   contentClassName,
+  flushBottom = false,
 }: {
   children: ReactNode;
   contentClassName?: string;
+  /** Content that sits at the bottom (Agent's shelves) needs no room to scroll clear of it. */
+  flushBottom?: boolean;
 }) {
   return (
     <ScrollArea
       className="flex-1"
-      viewportClassName="scroll-fade-y px-(--sidebar-content-inset) pb-8 pt-3"
+      viewportClassName={`scroll-fade-y px-(--sidebar-content-inset) pt-3 ${flushBottom ? "pb-2" : "pb-8"}`}
       contentClassName={contentClassName}
     >
       {children}
@@ -208,7 +211,16 @@ export function Section({
           {action}
         </span>
       </div>
-      {open ? children : null}
+      {/* Opens and closes by sliding (rows 0fr ⇄ 1fr), so no height is measured. */}
+      <div
+        inert={!open}
+        className={cn(
+          "grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">{children}</div>
+      </div>
     </div>
   );
 }
