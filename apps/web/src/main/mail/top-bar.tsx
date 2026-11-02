@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "./menu";
 import { useRecentlyViewed, type RecentIcon } from "../recently-viewed";
+import { OtterCalendarIcon } from "./app-icons";
 import type { MailAccount } from "./types";
 import type { KeybindingCommand } from "../keybindings/commands";
 import { shortcutLabelFor, useKeybindingsState } from "../keybindings/store";
@@ -75,6 +76,7 @@ export const RECENT_ICONS: Record<RecentIcon, ComponentType<{ className?: string
   settings: Settings2Icon,
   compose: SquarePenIcon,
   chat: AgentIcon,
+  calendar: OtterCalendarIcon,
 };
 
 function RecentlyViewedMenu() {

@@ -29,6 +29,8 @@ import { BrowserPanel } from "./browser/browser-panel";
 import { ChatBar } from "./mail/chat-bar";
 import { ChatWindow } from "./mail/chat-window";
 import { ChatWorkspace } from "./mail/chat-workspace";
+import { CALENDAR_MODES, CalendarView, calendarAccounts } from "./calendar/calendar-view";
+import type { CalendarMode } from "./calendar/dates";
 import { newChat, showChat, undockChat, useChatEvents, useChats } from "./mail/chat-store";
 import { useMailChatContext } from "./mail/chat-context";
 import { useChatProvider } from "./mail/agent-providers";
@@ -94,7 +96,10 @@ import { useMonochromeTheme } from "./theme/apply-theme";
 import { features } from "./features";
 import { useMailboxes } from "./mailboxes";
 import {
+  CALENDAR_SPACE,
   CHATS_SPACE,
+  modeOf,
+  type AppMode,
   NEW_CHAT,
   VIEW_LIST,
   firstLabelOf,
@@ -104,6 +109,7 @@ import {
 } from "./mail/spaces";
 import { useSignInAlerts } from "./mail/sync-health";
 import { useRecordRecentlyViewed, type RecentIcon } from "./recently-viewed";
+import { iconForHref, takeNewTabClick, watchNewTabClicks } from "./new-tab-click";
 import {
   addTab,
   closeTab as closeWindowTab,
@@ -519,9 +525,12 @@ function MailHome() {
   const space = selectedAccountId ? spaceOf(selectedAccountId, { accounts, views }) : null;
   // The AI workspace: a chat (the label) instead of a list and a reader.
   const isChats = space?.kind === "chats";
+  // The calendar: its own view across the main area, no list.
+  const isCalendar = space?.kind === "calendar";
+  const ownsMain = isChats || isCalendar;
   const mailLayout = useMailLayout();
-  const fullInbox = mailLayout === "full" && !isChats;
-  const floatingLayout = mailLayout === "floating" && !isChats;
+  const fullInbox = mailLayout === "full" && !ownsMain;
+  const floatingLayout = mailLayout === "floating" && !ownsMain;
   const wideInbox = fullInbox || floatingLayout;
   const [mailWorkspace, setMailWorkspace] = useState<HTMLDivElement | null>(null);
   const viewSpace = space?.kind === "view" ? space.view : null;
@@ -532,6 +541,28 @@ function MailHome() {
   useSignInAlerts();
   useExternalMailChanges();
   useBrowserEvents();
+  // ⌘-click on a place: a new tab for it (a browser tab on the web).
+  useEffect(() => {
+    const unwatch = watchNewTabClicks();
+    const unblock = router.history.block({
+      blockerFn: ({ nextLocation }) => {
+        const click = takeNewTabClick();
+        if (!click) return false;
+        const { href } = nextLocation;
+        if (!features.windowTabs) {
+          window.open(href, "_blank", "noopener");
+          return true;
+        }
+        addTab(href, { background: !click.show, title: click.title, icon: iconForHref(href) });
+        return !click.show;
+      },
+      enableBeforeUnload: false,
+    });
+    return () => {
+      unwatch();
+      unblock();
+    };
+  }, [router]);
   useChatEvents();
 
   const {
@@ -684,10 +715,13 @@ function MailHome() {
     else undockChat(id);
   };
 
-  // Where the mail was before the workspace, to go back to.
+  // Where the mail was before the agent or the calendar, to go back to.
   const mailBeforeChats = useRef<MailLoc | null>(null);
+  const lastCalendarMode = useRef<string>("week");
   useEffect(() => {
-    if (mailLoc && !isChats) mailBeforeChats.current = mailLoc;
+    if (mailLoc && !ownsMain) mailBeforeChats.current = mailLoc;
+    if (isCalendar && CALENDAR_MODES.some((m) => m.mode === selectedLabelId))
+      lastCalendarMode.current = selectedLabelId;
   });
   const openWorkspace = (chatId: string) => {
     setChatWindow(false);
@@ -696,8 +730,28 @@ function MailHome() {
   };
   const leaveWorkspace = () => {
     const back = mailBeforeChats.current;
-    if (back && back.mailbox !== CHATS_SPACE) go({ ...back, messageId: null });
+    if (back && modeOf(back.mailbox) === "mail") go({ ...back, messageId: null });
     else if (firstRealAccountId) handleSelectAccount(firstRealAccountId);
+  };
+  const mode: AppMode = composeOpen ? "mail" : modeOf(space?.id ?? null);
+  // Each mode opens where it was left.
+  const switchMode = (next: AppMode) => {
+    sidebarPeek.close();
+    if (next === mode && !settingsRoute) return;
+    if (next === "mail") {
+      if (composeOpen || (settingsRoute && mode === "mail")) leaveSettings();
+      else leaveWorkspace();
+    } else if (next === "calendar") {
+      go({
+        mailbox: CALENDAR_SPACE,
+        label: lastCalendarMode.current,
+        messageId: null,
+        account: null,
+        focusId: null,
+      });
+    } else {
+      openWorkspace(activeChatId);
+    }
   };
   const showNewChat = useLatest(() => go({ label: newChat(selectedKind) }, true));
   const chatsLabel = isChats ? selectedLabelId : null;
@@ -856,7 +910,7 @@ function MailHome() {
 
   useKeybindingDispatcher();
   useKeybindingContext("settingsOpen", settingsRoute !== null);
-  useKeybindingContext("workspaceOpen", isChats && !settingsRoute);
+  useKeybindingContext("workspaceOpen", ownsMain && !settingsRoute);
   useKeybindingContext("agentOpen", !settingsRoute && (isChats || chatWindowOpen));
   useKeybindingContext("messageOpen", selectedMessageId !== null);
   const goTo = (labelId: string | ((account: MailAccount) => string)) => {
@@ -885,6 +939,11 @@ function MailHome() {
       else openWorkspace(activeChatId);
     },
     "agent.newChat": () => startNewChat(),
+    "mode.mail": () => switchMode("mail"),
+    "mode.calendar": () => {
+      if (calendarAccounts(accounts).length === 0) return false;
+      switchMode("calendar");
+    },
     "browser.toggle": () => toggleBrowser(),
     "browser.newTab": () => {
       if (!features.browser || isChats) return false;
@@ -1002,6 +1061,11 @@ function MailHome() {
   useEffect(() => {
     if (!initialized || !viewsLoaded || selectedLabelId === SEARCH_MAILBOX) return;
     if (isChats) return;
+    if (isCalendar) {
+      if (!CALENDAR_MODES.some((m) => m.mode === selectedLabelId))
+        correctForEffect.current({ label: "week" });
+      return;
+    }
     if (viewSpace) {
       if (selectedLabelId !== VIEW_LIST) correctForEffect.current({ label: VIEW_LIST });
       return;
@@ -1015,6 +1079,7 @@ function MailHome() {
     selectedLabelId,
     effectiveAccountId,
     isChats,
+    isCalendar,
     viewSpace,
     correctForEffect,
   ]);
@@ -1351,7 +1416,7 @@ function MailHome() {
     addTab(href);
     showWindowTab(href);
   };
-  const hasListTarget = effectiveAccountId != null && !isChats;
+  const hasListTarget = effectiveAccountId != null && !ownsMain;
   const showMain =
     !!settingsRoute ||
     !wideInbox ||
@@ -1419,12 +1484,15 @@ function MailHome() {
     <AppSidebar
       accounts={accounts}
       views={views}
+      mode={mode}
       spaceId={effectiveAccountId}
       labelId={selectedLabelId}
       settingsOpen={settingsRoute !== null}
       composing={composeOpen}
       onGo={goToSpace}
-      onOpenAgent={() => goToSpace(CHATS_SPACE)}
+      onMode={switchMode}
+      onSelectChat={(id) => go({ label: id }, true)}
+      onNewChat={startNewChat}
       onCompose={() => {
         sidebarPeek.close();
         openCompose();
@@ -1456,7 +1524,7 @@ function MailHome() {
       <div
         className="surface-grain flex h-full flex-col bg-sidebar-surface text-foreground"
         data-panel-animations={panelAnimationsActive ? "true" : "false"}
-        data-mail-layout={isChats ? "split" : mailLayout}
+        data-mail-layout={ownsMain ? "split" : mailLayout}
         style={{ "--panel-animation-duration": `${panelAnimationDurationMs}ms` } as CSSProperties}
       >
         {features.windowTabs ? (
@@ -1613,7 +1681,7 @@ function MailHome() {
                   )}
                   data-tour={showMain ? "reader" : undefined}
                 >
-                  {readerOwnsBand || (isChats && !settingsRoute && !composeOpen)
+                  {readerOwnsBand || (ownsMain && !settingsRoute && !composeOpen)
                     ? null
                     : titleControls}
                   <div className="flex min-h-0 flex-1 flex-col">
@@ -1629,6 +1697,14 @@ function MailHome() {
                           leaveSettings();
                         }}
                         prefill={mailtoPrefill ?? undefined}
+                      />
+                    ) : isCalendar ? (
+                      <CalendarView
+                        mode={selectedLabelId as CalendarMode}
+                        accounts={accounts}
+                        titleLeading={sidebarOpen ? null : titlebarInset}
+                        titleTrailing={titleTrailing}
+                        onMode={(mode) => go({ label: mode }, true)}
                       />
                     ) : isChats ? (
                       selectedLabelId !== NEW_CHAT ? (

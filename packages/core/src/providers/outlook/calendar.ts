@@ -8,6 +8,7 @@
 
 import {
   NoCalendarAccess,
+  type BusyBlock,
   type CalendarEvent,
   type EventInput,
   type RsvpResponse,
@@ -297,4 +298,49 @@ export async function respondToEvent(
 ): Promise<CalendarEvent> {
   await answer(accountId, eventId, response);
   return getEvent(accountId, eventId);
+}
+
+type ScheduleItem = {
+  status?: string;
+  subject?: string;
+  isPrivate?: boolean;
+  start?: ApiTime;
+  end?: ApiTime;
+};
+
+const utc = (time: ApiTime | undefined) =>
+  time?.dateTime ? new Date(`${time.dateTime.replace(/Z$/, "")}Z`).toISOString() : "";
+
+/** Teammates' busy times: Graph's getSchedule; the subject where they share it. */
+export async function schedule(
+  accountId: string,
+  emails: string[],
+  range: { from: string; to: string },
+): Promise<Record<string, BusyBlock[] | null>> {
+  const at = (iso: string) => ({
+    dateTime: new Date(iso).toISOString().slice(0, 19),
+    timeZone: "UTC",
+  });
+  const data = await calendarGraph<{
+    value?: { scheduleId: string; scheduleItems?: ScheduleItem[]; error?: unknown }[];
+  }>(accountId, "/me/calendar/getSchedule", {
+    method: "POST",
+    body: { schedules: emails, startTime: at(range.from), endTime: at(range.to) },
+  });
+  const byEmail = new Map((data.value ?? []).map((s) => [s.scheduleId.toLowerCase(), s]));
+  return Object.fromEntries(
+    emails.map((email) => {
+      const found = byEmail.get(email.toLowerCase());
+      if (!found || found.error) return [email, null];
+      const items = (found.scheduleItems ?? []).filter((i) => i.status && i.status !== "free");
+      return [
+        email,
+        items.map((i) => ({
+          start: utc(i.start),
+          end: utc(i.end),
+          title: !i.isPrivate && i.subject ? i.subject : null,
+        })),
+      ];
+    }),
+  );
 }

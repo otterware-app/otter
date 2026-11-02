@@ -21,6 +21,7 @@ import {
 } from "@otter-mail/core";
 
 import { DEMO_ACCOUNTS, type SeedAccount } from "@otter-mail/shared/demo-mailboxes";
+import { fakeCalendar } from "./calendar";
 
 /** A seeded file's text as Gmail sends attachment data: base64url. */
 const attachmentData = (content: string) =>
@@ -808,9 +809,11 @@ function answer(url: URL, method: string, headers: Headers, rawBody: unknown): R
     const body = typeof rawBody === "string" && rawBody ? JSON.parse(rawBody) : {};
     return gmail(box, method, url, body as Record<string, unknown>);
   }
-  // Calendar: no event found, so an RSVP goes out as an email reply.
   if (url.hostname === "www.googleapis.com" && url.pathname.startsWith("/calendar/")) {
-    return json({ items: [] });
+    const account = /^Bearer demo:(.+)$/.exec(headers.get("Authorization") ?? "")?.[1];
+    if (!account) return json({ error: { code: 401, message: "Not a demo account." } }, 401);
+    const body = typeof rawBody === "string" && rawBody ? JSON.parse(rawBody) : {};
+    return fakeCalendar(account, method, url, body as Record<string, unknown>);
   }
   if (url.hostname === "www.googleapis.com" && url.pathname === "/oauth2/v3/userinfo") {
     const account = /^Bearer demo:(.+)$/.exec(headers.get("Authorization") ?? "")?.[1];

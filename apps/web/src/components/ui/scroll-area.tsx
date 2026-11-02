@@ -22,7 +22,9 @@ export function ScrollArea({
       <ScrollAreaPrimitive.Viewport
         {...props}
         data-slot="scroll-area-viewport"
-        className={cn("size-full", viewportClassName)}
+        // Focusable once it can scroll (keys scroll it), but a click on empty
+        // space focuses it too, and the next keypress would ring the whole pane.
+        className={cn("size-full outline-none", viewportClassName)}
       >
         <ScrollAreaPrimitive.Content className={cn("min-h-full min-w-0!", contentClassName)}>
           {children}

@@ -27,6 +27,7 @@ import {
 } from "@otter-mail/shared/demo-mailboxes";
 
 import { parseMime } from "./gmail";
+import { busyWeek } from "./calendar";
 
 const GRAPH_HOST = "graph.microsoft.com";
 const GRAPH = `https://${GRAPH_HOST}/v1.0`;
@@ -1311,6 +1312,30 @@ function calendarView(box: Mailbox, req: Req): Answer {
   return page(req, list, (e) => pick(eventResource(e), select(req)));
 }
 
+const SUBJECTS = ["1:1", "Pipeline review", "Customer call", "Focus", "Planning", "Interview"];
+
+/** Colleagues' made-up weeks, with the subjects Outlook shares. */
+function getSchedule(req: Req): Answer {
+  const body = fields(req) as {
+    schedules?: string[];
+    startTime?: { dateTime: string };
+    endTime?: { dateTime: string };
+  };
+  const from = Date.parse(`${body.startTime?.dateTime ?? ""}Z`);
+  const to = Date.parse(`${body.endTime?.dateTime ?? ""}Z`);
+  return ok({
+    value: (body.schedules ?? []).map((scheduleId) => ({
+      scheduleId,
+      scheduleItems: busyWeek(scheduleId, from, to).map((b, i) => ({
+        status: "busy",
+        subject: SUBJECTS[i % SUBJECTS.length],
+        start: { dateTime: b.start.replace(/Z$/, ""), timeZone: "UTC" },
+        end: { dateTime: b.end.replace(/Z$/, ""), timeZone: "UTC" },
+      })),
+    })),
+  });
+}
+
 function subscriptions(box: Mailbox, req: Req, id: string | undefined): Answer {
   if (!id) {
     if (req.method !== "POST") return ok({ value: box.subscriptions.map((s) => ({ id: s })) });
@@ -1363,6 +1388,9 @@ function route(box: Mailbox, req: Req): Answer {
       return events(box, req, rest);
     case "calendarView":
       return calendarView(box, req);
+    case "calendar":
+      if (rest[0] === "getSchedule" && req.method === "POST") return getSchedule(req);
+      break;
   }
   return badRequest(`Resource not found for the segment '${collection}'.`);
 }

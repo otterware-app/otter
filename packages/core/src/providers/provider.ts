@@ -79,6 +79,9 @@ export type CalendarEvent = {
   recurring: boolean;
 };
 
+/** Someone else's time taken: the title only where their calendar shows it. */
+export type BusyBlock = { start: string; end: string; title: string | null };
+
 export type EventInput = {
   title?: string;
   start?: string;
@@ -225,5 +228,11 @@ export interface MailProvider {
       eventId: string,
       response: RsvpResponse,
     ): Promise<CalendarEvent>;
+    /** Other people's busy times, by address; null where theirs can't be seen. */
+    schedule(
+      accountId: string,
+      emails: string[],
+      range: { from: string; to: string },
+    ): Promise<Record<string, BusyBlock[] | null>>;
   };
 }

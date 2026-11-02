@@ -71,13 +71,21 @@ export function nameTab(href: string, title: string, icon: RecentIcon): void {
   });
 }
 
-export function addTab(href: string): void {
+/** A tab after the one showing; shown, or (⌘-click) left in the background with what it's called so far. */
+export function addTab(
+  href: string,
+  {
+    background = false,
+    title = "",
+    icon,
+  }: { background?: boolean; title?: string; icon?: RecentIcon } = {},
+): void {
   set((s) => {
-    const tab = newTabFor(href);
+    const tab = { ...newTabFor(href), title, ...(icon ? { icon } : {}) };
     const at = s.tabs.findIndex((t) => t.id === s.activeId);
     const tabs = [...s.tabs];
     tabs.splice(at + 1, 0, tab);
-    return { tabs, activeId: tab.id };
+    return { tabs, activeId: background ? s.activeId : tab.id };
   });
 }
 

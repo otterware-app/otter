@@ -10,6 +10,7 @@
 import { platform } from "../../platform.js";
 import {
   NoCalendarAccess,
+  type BusyBlock,
   type CalendarEvent,
   type EventInput,
   type RsvpResponse,
@@ -23,7 +24,7 @@ async function calendarFetch(
   init: { method?: string; body?: string; headers?: Record<string, string> } = {},
 ): Promise<unknown> {
   const token = await platform().google.getAccessToken(accountId);
-  const response = await fetch(`${CALENDAR}${path}`, {
+  const response = await fetch(path.startsWith("https://") ? path : `${CALENDAR}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -277,4 +278,29 @@ export async function respondToEvent(
 ): Promise<CalendarEvent> {
   const event = await fetchEvent(accountId, eventId);
   return toEvent(accountId, await setResponse(accountId, event, response));
+}
+
+/** Teammates' busy times: Google's free/busy (the calendar.freebusy scope), no titles. */
+export async function schedule(
+  accountId: string,
+  emails: string[],
+  range: { from: string; to: string },
+): Promise<Record<string, BusyBlock[] | null>> {
+  const data = (await calendarFetch(accountId, "https://www.googleapis.com/calendar/v3/freeBusy", {
+    method: "POST",
+    body: JSON.stringify({
+      timeMin: new Date(range.from).toISOString(),
+      timeMax: new Date(range.to).toISOString(),
+      items: emails.map((id) => ({ id })),
+    }),
+  })) as {
+    calendars?: Record<string, { busy?: { start: string; end: string }[]; errors?: unknown[] }>;
+  };
+  return Object.fromEntries(
+    emails.map((email) => {
+      const found = data.calendars?.[email];
+      if (!found || found.errors?.length) return [email, null];
+      return [email, (found.busy ?? []).map((b) => ({ start: b.start, end: b.end, title: null }))];
+    }),
+  );
 }

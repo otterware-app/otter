@@ -14,6 +14,8 @@
 
 :root {
   --radius: 0.5rem;
+  /* Today in the calendar: a warm red, in light and dark. */
+  --calendar-today: #eb5757;
   --control-radius: 0.5rem;
   --sidebar-content-inset: 0.5rem;
   --sidebar-control-gap: 0.5rem;
@@ -337,6 +339,8 @@ html[data-window-controls="none"] {
   --shadow-composer-dark: 0 14px 32px -18px rgb(0 0 0 / 75%);
   --animate-skeleton: skeleton 2.4s infinite;
   --animate-status-pulse: status-pulse 2s infinite;
+  --animate-calendar-in: calendar-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-calendar-pop: calendar-pop 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 
   --color-canvas: var(--canvas);
   --color-background: var(--canvas);
@@ -407,6 +411,18 @@ html[data-window-controls="none"] {
     }
     100% {
       opacity: 1;
+    }
+  }
+  @keyframes calendar-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+  @keyframes calendar-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
     }
   }
   @keyframes status-pulse {

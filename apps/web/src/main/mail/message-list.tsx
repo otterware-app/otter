@@ -1093,10 +1093,16 @@ export function MessageList({
   };
 
   const handleRowClick = (e: React.MouseEvent, message: MessageSummary) => {
-    // ⌘-click (Ctrl-click off the Mac, or Option/Alt-click) adds/removes one
-    // row, Finder-style. The open message counts as already selected, so the
-    // first such click keeps it instead of starting over.
-    if ((isModClick(e) || e.altKey) && !e.shiftKey) {
+    // ⌘-click (Ctrl-click off the Mac) opens the conversation in a new tab, as
+    // a link would in a browser (new-tab-click.ts turns the navigation into it).
+    if (isModClick(e) && !e.altKey && !e.shiftKey) {
+      onSelectMessage(message.id, message.accountId ?? accountId);
+      return;
+    }
+    // Option/Alt-click adds/removes one row, Finder-style. The open message
+    // counts as already selected, so the first such click keeps it instead of
+    // starting over.
+    if (e.altKey && !e.shiftKey) {
       if (
         checkedRef.current.size === 0 &&
         selectedMessageId &&

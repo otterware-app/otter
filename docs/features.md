@@ -40,25 +40,27 @@ from GitHub Releases. Everything in the Mac column works the same, except:
 
 ## Mailboxes & accounts
 
-| Feature                                                      | Mac                | Web                                 | iPhone                  |
-| ------------------------------------------------------------ | ------------------ | ----------------------------------- | ----------------------- |
-| Add a Gmail mailbox (Google sign-in)                         | ✓ (loopback OAuth) | ✓ (popup; tokens kept by the relay) | ✓ (PKCE)                |
-| Add an IMAP mailbox, servers discovered                      | ✓                  | ✓ (no domain autoconfig file: CORS) | ✓                       |
-| Add an Outlook mailbox (Microsoft sign-in)                   | ✓ (loopback OAuth) | ✓ (popup; tokens kept by the relay) | ✓ (PKCE)                |
-| Provider icons in mailbox settings (Gmail, Outlook, IMAP)    | ✓                  | ✓                                   | ✓                       |
-| IMAP through the relay tunnel                                | — (direct)         | ✓ (TLS 1.3 servers only)            | — (direct)              |
-| Several mailboxes: on/off, reorder                           | ✓                  | ✓                                   | ✓                       |
-| One sidebar: mailbox tabs, Search or ask (⌘K)                | ✓                  | ✓                                   | — (bar menu)            |
-| Window tabs (Linear's): mail, chats and Settings, ⌘W closes  | ✓                  | — (the browser's tabs)              | —                       |
-| Sidebar: each mailbox opens to its folders and labels; views | ✓                  | ✓                                   | — (bar menu)            |
-| Sidebar hidden: hover the window's edge to peek              | ✓                  | ✓                                   | —                       |
-| Rename and color a mailbox (synced)                          | ✓                  | ✓                                   | ✓                       |
-| Google profile picture per mailbox                           | ✓ (kept current)   | ✓ (kept current)                    | —                       |
-| Remove a mailbox (unlinks it everywhere)                     | ✓                  | ✓                                   | ✓                       |
-| Mailbox linked elsewhere shows "signed out"                  | ✓                  | ✓                                   | ✓                       |
-| Sync health at the foot of the sidebar, Sync now             | ✓                  | ✓                                   | ✓ (tap to sync)         |
-| Refused sign-in: toast and card to sign in again             | ✓                  | ✓                                   | ✓ (banner on the list)  |
-| Demo mailbox                                                 | —                  | `pnpm dev:fake` only                | TestFlight / Xcode only |
+| Feature                                                                                                     | Mac                | Web                                 | iPhone                  |
+| ----------------------------------------------------------------------------------------------------------- | ------------------ | ----------------------------------- | ----------------------- |
+| Add a Gmail mailbox (Google sign-in)                                                                        | ✓ (loopback OAuth) | ✓ (popup; tokens kept by the relay) | ✓ (PKCE)                |
+| Add an IMAP mailbox, servers discovered                                                                     | ✓                  | ✓ (no domain autoconfig file: CORS) | ✓                       |
+| Add an Outlook mailbox (Microsoft sign-in)                                                                  | ✓ (loopback OAuth) | ✓ (popup; tokens kept by the relay) | ✓ (PKCE)                |
+| Provider icons in mailbox settings (Gmail, Outlook, IMAP)                                                   | ✓                  | ✓                                   | ✓                       |
+| IMAP through the relay tunnel                                                                               | — (direct)         | ✓ (TLS 1.3 servers only)            | — (direct)              |
+| Several mailboxes: on/off, reorder                                                                          | ✓                  | ✓                                   | ✓                       |
+| One sidebar: mailbox tabs, Search or ask (⌘K)                                                               | ✓                  | ✓                                   | — (bar menu)            |
+| Modes at the sidebar's foot: Mail, Calendar, Agent (G M, G C, G A); each its own sidebar, back where it was | ✓                  | ✓                                   | —                       |
+| ⌘-click a place (folder, conversation, chat, mode, Settings): a new tab behind; ⌘⇧ shows it                 | ✓ (window tab)     | ✓ (browser tab)                     | —                       |
+| Window tabs (Linear's): mail, chats and Settings, ⌘W closes                                                 | ✓                  | — (the browser's tabs)              | —                       |
+| Sidebar: each mailbox opens to its folders and labels; views                                                | ✓                  | ✓                                   | — (bar menu)            |
+| Sidebar hidden: hover the window's edge to peek                                                             | ✓                  | ✓                                   | —                       |
+| Rename and color a mailbox (synced)                                                                         | ✓                  | ✓                                   | ✓                       |
+| Google profile picture per mailbox                                                                          | ✓ (kept current)   | ✓ (kept current)                    | —                       |
+| Remove a mailbox (unlinks it everywhere)                                                                    | ✓                  | ✓                                   | ✓                       |
+| Mailbox linked elsewhere shows "signed out"                                                                 | ✓                  | ✓                                   | ✓                       |
+| Sync health at the foot of the sidebar, Sync now                                                            | ✓                  | ✓                                   | ✓ (tap to sync)         |
+| Refused sign-in: toast and card to sign in again                                                            | ✓                  | ✓                                   | ✓ (banner on the list)  |
+| Demo mailbox                                                                                                | —                  | `pnpm dev:fake` only                | TestFlight / Xcode only |
 
 ## Reading
 
@@ -89,7 +91,7 @@ from GitHub Releases. Everything in the Mac column works the same, except:
 | Empty Trash / Empty Junk                 | ✓                                                                  | ✓                               | —                                                        |
 | Star (flag), read / unread               | ✓                                                                  | ✓                               | ✓                                                        |
 | Mark all as read                         | —                                                                  | —                               | ✓                                                        |
-| Multi-select and bulk actions            | ✓ (⌘/⇧-click, ⇧↑/⇧↓)                                               | ✓                               | ✓ (archive, trash, read, labels/folders)                 |
+| Multi-select and bulk actions            | ✓ (⌥/⇧-click, ⇧↑/⇧↓)                                               | ✓                               | ✓ (archive, trash, read, labels/folders)                 |
 | Undo and redo (z ⌘Z, ⇧Z ⇧⌘Z)             | ✓                                                                  | ✓                               | Undo archive/trash (6 seconds)                           |
 | Apply / remove labels                    | ✓ (IMAP: move to folder; Outlook: categories, or move to a folder) | ✓                               | ✓ (IMAP: move; Outlook: categories, or move to a folder) |
 | Create, rename, delete labels            | ✓ (IMAP: folders; Outlook: categories; folders rename, delete)     | ✓                               | —                                                        |
@@ -220,6 +222,23 @@ These are Otter Mail actions, separate from Gmail's own scheduled and snoozed fo
 | Invitation card (what, when, where) | ✓                                                                                 | ✓   | —      |
 | Yes / No / Maybe                    | Gmail: Google Calendar; Outlook: Outlook calendar; IMAP: email reply to organizer | ✓   | —      |
 | Google's RSVP links in the body     | ✓ (answered in place)                                                             | ✓   | —      |
+
+## Calendar
+
+Calendar mode (the switcher at the sidebar's foot, G C, or "Open calendar" in ⌘K): every Gmail and Outlook mailbox's
+primary calendar side by side, in its mailbox's color. IMAP mailboxes have none.
+
+| Feature                                                                                                     | Mac | Web | iPhone |
+| ----------------------------------------------------------------------------------------------------------- | --- | --- | ------ |
+| Day, week and month views; mini month and calendars in sidebar                                              | ✓   | ✓   | —      |
+| Show or hide each mailbox's calendar                                                                        | ✓   | ✓   | —      |
+| Event panel: title, time, place, notes edit in place; guests                                                | ✓   | ✓   | —      |
+| Yes / No / Maybe on invitations; Join meeting                                                               | ✓   | ✓   | —      |
+| Draw or click a slot to create; drag to move; drag edge to resize                                           | ✓   | ✓   | —      |
+| Delete an event (Delete key or the panel)                                                                   | ✓   | ✓   | —      |
+| Scroll sideways day by day; ‹ › and Today glide; any day can lead the week                                  | ✓   | ✓   | —      |
+| Teammates' calendars over yours (⌘P to add, Esc to clear): Outlook with titles they share, Gmail busy times | ✓   | ✓   | —      |
+| Keys: T today, D / W / M view, J / K or ← → to step                                                         | ✓   | ✓   | —      |
 
 ## Contacts & avatars
 
@@ -453,6 +472,8 @@ profile`).
 - `gmail.settings.basic`: saving signatures in Gmail (reading them needs only the mail scope).
 - `calendar.events.owned`: answering invitations in Google Calendar, replacing the broader
   `calendar.events` the Mac and web apps ask for today. Without it, RSVPs go by email reply.
+- `calendar.freebusy`: teammates' busy times in the calendar (⌘P), no details. Older sign-ins
+  see a note to sign in again; Outlook needs nothing new (`Calendars.ReadWrite` covers it).
 - `contacts.readonly` + `contacts.other.readonly`: contact photos for sender avatars.
 
 ## Gaps worth closing

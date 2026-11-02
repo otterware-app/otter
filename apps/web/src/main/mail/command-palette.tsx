@@ -58,6 +58,8 @@ import { updateNow, useUpdateState } from "../updates";
 import { requestProblemReport } from "../support/report-problem";
 import { isBlank, useChats } from "./chat-store";
 import { ViewMark } from "./view-icon";
+import { CALENDAR_SPACE } from "./spaces";
+import { OtterCalendarIcon } from "./app-icons";
 import { features } from "../features";
 import { shortcutText } from "../keybindings/keys";
 
@@ -277,6 +279,13 @@ export function CommandPalette({
         run: onCompose,
       },
       { id: "sync", icon: <RotateCwIcon className={ICON} />, title: "Sync now", run: onSync },
+      {
+        id: "calendar",
+        icon: <OtterCalendarIcon className={ICON} />,
+        title: "Open calendar",
+        keywords: "events meetings schedule week month day",
+        run: () => onSelectAccount(CALENDAR_SPACE),
+      },
       {
         id: "chat",
         icon: <AgentIcon className={ICON} />,

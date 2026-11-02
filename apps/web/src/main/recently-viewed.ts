@@ -9,7 +9,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { getAccountDisplayName } from "./mail/account-style";
 import { senderLabel } from "./mail/address";
-import { CHATS_SPACE, isViewSpaceId } from "./mail/spaces";
+import { CALENDAR_SPACE, CHATS_SPACE, isViewSpaceId } from "./mail/spaces";
 import { SEARCH_MAILBOX } from "./mail/gmail-query";
 import { useLabels, useMessage } from "./mail/hooks";
 import { isBlank, useChats } from "./mail/chat-store";
@@ -35,7 +35,8 @@ export type RecentIcon =
   | "conversation"
   | "settings"
   | "compose"
-  | "chat";
+  | "chat"
+  | "calendar";
 
 export type RecentPlace = Readonly<{
   href: string;
@@ -155,6 +156,13 @@ export function useRecordRecentlyViewed({
         icon: "conversation",
       };
     }
+  } else if (mailbox === CALENDAR_SPACE) {
+    place = {
+      href,
+      context: "Calendar",
+      title: "Calendar",
+      icon: "calendar",
+    };
   } else if (mailbox === CHATS_SPACE) {
     if (chat) {
       place = {
