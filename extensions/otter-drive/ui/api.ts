@@ -51,10 +51,14 @@ export const SHARED = "shared";
 
 export const driveApi = {
   status: (): Promise<{ connected: boolean; hidden: string[] }> => ipc("otterDrive:status"),
-  startSignIn: (): Promise<{ userCode: string; verificationUrl: string; deviceCode: string }> =>
-    ipc("otterDrive:startSignIn"),
-  finishSignIn: (deviceCode: string): Promise<void> =>
-    task("otterDrive:finishSignIn", { deviceCode }),
+  startSignIn: (): Promise<{
+    attempt: number;
+    userCode: string;
+    verificationUrl: string;
+    deviceCode: string;
+  }> => ipc("otterDrive:startSignIn"),
+  finishSignIn: (deviceCode: string, attempt: number): Promise<void> =>
+    task("otterDrive:finishSignIn", { deviceCode, attempt }),
   cancelSignIn: (): Promise<void> => ipc("otterDrive:cancelSignIn"),
   disconnect: (): Promise<void> => ipc("otterDrive:disconnect"),
   drives: (): Promise<DriveFolder[]> => task("otterDrive:drives", {}),

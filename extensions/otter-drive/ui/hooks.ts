@@ -1,6 +1,6 @@
 import { toast } from "@otter-mail/web/extension-kit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { driveApi } from "./api";
 
@@ -41,7 +41,15 @@ export function useDriveSignIn() {
   const qc = useQueryClient();
   const [code, setCode] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  useEffect(() => () => void driveApi.cancelSignIn().catch(() => {}), []);
+  // Leaving ends it, even before its code has come: nothing opens, nothing is kept.
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      void driveApi.cancelSignIn().catch(() => {});
+    };
+  }, []);
   const run = async (action: () => Promise<void>) => {
     setPending(true);
     try {
@@ -61,9 +69,10 @@ export function useDriveSignIn() {
     signIn: () =>
       run(async () => {
         const start = await driveApi.startSignIn();
+        if (!alive.current) return;
         setCode(start.userCode);
         void window.desktopBridge.openExternal(start.verificationUrl).catch(() => {});
-        await driveApi.finishSignIn(start.deviceCode);
+        await driveApi.finishSignIn(start.deviceCode, start.attempt);
       }),
     cancel: () => void driveApi.cancelSignIn(),
   };

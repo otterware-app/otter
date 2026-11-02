@@ -31,10 +31,16 @@ describe("loadsFromWeb", () => {
     expect(loadsFromWeb('<script src="https://cdn.example/chart.js"></script>')).toBe(true);
     expect(loadsFromWeb('<link rel="stylesheet" href="//cdn.example/a.css">')).toBe(true);
     expect(loadsFromWeb('<style>@import url("https://cdn.example/a.css");</style>')).toBe(true);
+    expect(
+      loadsFromWeb('<script type="module">import { h } from "https://esm.sh/preact";</script>'),
+    ).toBe(true);
+    expect(loadsFromWeb('<script type="module">import "https://esm.sh/x";</script>')).toBe(true);
+    expect(loadsFromWeb('<script>await import("https://esm.sh/x")</script>')).toBe(true);
   });
 
   it("keeps self-contained pages, icons and web fonts", () => {
     expect(loadsFromWeb("<script>draw()</script><style>p{}</style>")).toBe(false);
+    expect(loadsFromWeb("<p>import this from the web: http://x</p>")).toBe(false);
     expect(loadsFromWeb('<link rel="icon" href="https://example.com/i.png">')).toBe(false);
     expect(
       loadsFromWeb('<link href="https://fonts.googleapis.com/css2?family=Inter" rel="stylesheet">'),

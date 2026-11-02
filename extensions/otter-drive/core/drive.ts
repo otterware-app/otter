@@ -74,7 +74,12 @@ export type DrivePreview =
       fileCount: number;
       byteSize: number;
     };
-export type DriveSignIn = { userCode: string; verificationUrl: string; deviceCode: string };
+export type DriveSignIn = {
+  attempt: number;
+  userCode: string;
+  verificationUrl: string;
+  deviceCode: string;
+};
 
 /** The drives turned off here: kept apart from the sign-in, so signing in again keeps them. */
 const HIDDEN = "otter-drive-hidden";
@@ -164,7 +169,12 @@ export async function driveStatus(): Promise<{ connected: boolean; hidden: strin
   return { connected: s !== null, hidden: s?.hidden ?? [] };
 }
 
+/** The sign-in waiting for its code: a newer one, Cancel or Sign out ends it. */
+let attempt = 0;
+
+/** Starts a sign-in: its code, and the attempt to finish (or that Cancel ends before then). */
 export async function startSignIn(): Promise<DriveSignIn> {
+  const mine = ++attempt;
   const code = await request<{
     device_code: string;
     user_code: string;
@@ -174,7 +184,9 @@ export async function startSignIn(): Promise<DriveSignIn> {
     method: "POST",
     body: JSON.stringify({ client_id: CLIENT_ID, scope: "openid profile email offline_access" }),
   });
+  if (attempt !== mine) throw new Error("Otter Drive sign-in was cancelled.");
   return {
+    attempt: mine,
     deviceCode: code.device_code,
     userCode: code.user_code,
     verificationUrl: new URL(
@@ -184,12 +196,8 @@ export async function startSignIn(): Promise<DriveSignIn> {
   };
 }
 
-/** The sign-in waiting for its code: a newer one, Cancel or Sign out ends it. */
-let attempt = 0;
-
 /** Polls until the code is approved in the browser, or expires (10 minutes). */
-export async function finishSignIn(deviceCode: string): Promise<void> {
-  const mine = ++attempt;
+export async function finishSignIn(deviceCode: string, mine: number): Promise<void> {
   let interval = 5_000;
   const expiresAt = Date.now() + 10 * 60_000;
   while (Date.now() < expiresAt) {
@@ -413,10 +421,19 @@ export async function sharedWithMe(): Promise<DriveArtifact[]> {
     {},
     auth,
   );
+  // A document in a folder you can reach follows that folder's drive: off, it's left out.
+  const hidden = new Set(auth.hidden ?? []);
+  const list = await allFolders(auth);
+  const shown = (a: DriveArtifact) => {
+    const folder = list.find((f) => f.id === a.folderId);
+    return !folder || !hidden.has(driveOf(list, folder).id);
+  };
   return remember(
-    result.data.flatMap((item) =>
-      item.type === "artifact" && item.artifact ? [artifact(item.artifact)] : [],
-    ),
+    result.data
+      .flatMap((item) =>
+        item.type === "artifact" && item.artifact ? [artifact(item.artifact)] : [],
+      )
+      .filter(shown),
   );
 }
 
@@ -447,11 +464,11 @@ const TEXT_KINDS: Record<string, { kind: "markdown" | "table" | "text"; delimite
 
 const MAX_PAGE = 5_000_000;
 /**
- * A script or stylesheet fetched from another site, which the app's CSP blocks
+ * A script, module or stylesheet fetched from another site, which the app's CSP blocks
  * in a preview. Web fonts alone only change the type, so those stay.
  */
 const LOADS_FROM_WEB =
-  /<script\b[^>]*\bsrc\s*=\s*["']?(?:https?:)?\/\/|<link\b(?=[^>]*\brel\s*=\s*["']?stylesheet)(?![^>]*fonts\.googleapis\.com)[^>]*\bhref\s*=\s*["']?(?:https?:)?\/\/|@import\s+(?:url\()?\s*["']?(?:https?:)?\/\/(?!fonts\.googleapis\.com)/i;
+  /<script\b[^>]*\bsrc\s*=\s*["']?(?:https?:)?\/\/|<link\b(?=[^>]*\brel\s*=\s*["']?stylesheet)(?![^>]*fonts\.googleapis\.com)[^>]*\bhref\s*=\s*["']?(?:https?:)?\/\/|@import\s+(?:url\()?\s*["']?(?:https?:)?\/\/(?!fonts\.googleapis\.com)|\bimport\s*(?:\(\s*|[^'"();]*?from\s*|)["'](?:https?:)?\/\//i;
 export const loadsFromWeb = (html: string) => LOADS_FROM_WEB.test(html);
 const MAX_IMAGE = 15_000_000;
 

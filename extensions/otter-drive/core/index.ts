@@ -34,8 +34,10 @@ export default {
     handle("otterDrive:finishSignIn", (params: unknown) => {
       const p = params as Params;
       const deviceCode = text(p?.deviceCode);
-      if (!deviceCode) throw new Error("Invalid Otter Drive sign-in.");
-      return runAsTask(text(p?.taskId), () => drive.finishSignIn(deviceCode));
+      const attempt = p?.attempt;
+      if (!deviceCode || typeof attempt !== "number")
+        throw new Error("Invalid Otter Drive sign-in.");
+      return runAsTask(text(p?.taskId), () => drive.finishSignIn(deviceCode, attempt));
     });
     handle("otterDrive:cancelSignIn", () => drive.cancelSignIn());
     handle("otterDrive:disconnect", () => drive.disconnect());
