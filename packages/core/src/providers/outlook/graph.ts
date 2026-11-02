@@ -67,6 +67,15 @@ export function isNetworkError(err: unknown): boolean {
 export const isNotFound = (err: unknown): boolean =>
   err instanceof GraphError && (err.status === 404 || err.code === "ErrorItemNotFound");
 
+/**
+ * Outlook refusing this sign-in one thing (a folder it may not read), not
+ * refusing the sign-in: a 403 that isn't a challenge to sign in again.
+ */
+export const isAccessDenied = (err: unknown): boolean =>
+  err instanceof GraphError &&
+  err.status === 403 &&
+  !/claims|token|authenticat|consent/i.test(err.message);
+
 export function errorKind(err: unknown): ErrorKind | null {
   if (err instanceof GraphError && (err.throttled || err.status === 503)) return "rateLimit";
   if (isNetworkError(err)) return "network";

@@ -2,7 +2,7 @@ import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "@otter-mail/contracts";
 
 import * as store from "../../services/mail-store.js";
 import type { MailLabel } from "../../types.js";
-import { GraphError, graph, graphAll, graphBatch, ok } from "./graph.js";
+import { graph, graphAll, graphBatch, isAccessDenied, ok } from "./graph.js";
 
 export const FOLDER_PREFIX = "folder:";
 export const CATEGORY_PREFIX = "category:";
@@ -90,8 +90,15 @@ type ApiFolder = {
 const FOLDER_FIELDS =
   "id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount";
 
+/** A folder's subfolders, all the way down, as last listed. */
+function descendants(mailbox: Mailbox | null, parent: string): Folder[] {
+  const children = mailbox?.folders.filter((f) => f.parentId === parent) ?? [];
+  return children.flatMap((f) => [f, ...descendants(mailbox, f.id)]);
+}
+
 export async function readMailbox(accountId: string): Promise<Mailbox> {
-  const known = mailboxOf(accountId)?.wellKnown;
+  const previous = mailboxOf(accountId);
+  const known = previous?.wellKnown;
   const wellKnown: Mailbox["wellKnown"] = {};
   if (known?.inbox) {
     Object.assign(wellKnown, known);
@@ -120,18 +127,20 @@ export async function readMailbox(accountId: string): Promise<Mailbox> {
 
   const folders: Folder[] = [];
   const visit = async (parent: string | null, parentPath: string, inherited: string | null) => {
-    const children = await graphAll<ApiFolder>(
-      accountId,
-      parent
-        ? `/me/mailFolders/${parent}/childFolders?$top=100&$select=${FOLDER_FIELDS}`
-        : `/me/mailFolders?$top=100&$select=${FOLDER_FIELDS}`,
-    ).catch((err: unknown) => {
-      // A folder whose subfolders this sign-in may not read: left out, not a sign-out.
-      if (parent && err instanceof GraphError && (err.status === 401 || err.status === 403)) {
-        return [];
-      }
-      throw err;
-    });
+    let children: ApiFolder[];
+    try {
+      children = await graphAll<ApiFolder>(
+        accountId,
+        parent
+          ? `/me/mailFolders/${parent}/childFolders?$top=100&$select=${FOLDER_FIELDS}`
+          : `/me/mailFolders?$top=100&$select=${FOLDER_FIELDS}`,
+      );
+    } catch (err) {
+      if (!parent || !isAccessDenied(err)) throw err;
+      // Subfolders this sign-in may not list: kept as last listed, so their mail isn't taken for deleted.
+      folders.push(...descendants(previous, parent));
+      return;
+    }
     for (const child of children) {
       const role = roleOf.get(child.id);
       if (role && SKIPPED.includes(role)) continue;

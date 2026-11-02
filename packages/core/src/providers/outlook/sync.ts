@@ -13,7 +13,7 @@ import {
   type Folder,
   type Mailbox,
 } from "./folders.js";
-import { GraphError, graph, graphAll, type Page } from "./graph.js";
+import { GraphError, graph, graphAll, isAccessDenied, type Page } from "./graph.js";
 import {
   getApiMessages,
   getSummaries,
@@ -51,26 +51,24 @@ function setFolderDelta(accountId: string, folderId: string, delta: FolderDelta 
 
 /**
  * Folders Outlook won't let this sign-in read (a locked system folder, say),
- * skipped for this run of the app rather than taken for a sign-out: the
- * rest of the mailbox keeps syncing. The inbox refusing still stops sync.
+ * skipped for a while rather than taken for a sign-out: the rest of the
+ * mailbox keeps syncing. The inbox refusing, or a 401, still means signed out.
  */
-const refused = new Set<string>();
+const REFUSED_RETRY_MS = 60 * 60_000;
+const refused = new Map<string, number>();
 const refusedKey = (accountId: string, folderId: string) => `${accountId}\n${folderId}`;
 const isRefused = (accountId: string, folderId: string) =>
-  refused.has(refusedKey(accountId, folderId));
+  Date.now() < (refused.get(refusedKey(accountId, folderId)) ?? 0);
 
-function skipIfRefused(accountId: string, folder: Folder, mailbox: Mailbox, err: unknown) {
-  if (
-    !(err instanceof GraphError && (err.status === 401 || err.status === 403)) ||
-    folder.id === mailbox.wellKnown.inbox
-  ) {
-    throw err;
-  }
-  logger.warn("outlook-sync", `Outlook refused a folder of ${accountId}; skipping it`, {
+/** Whether `err`, from reading the folder itself, was Outlook refusing it; then it's skipped. */
+function refuse(accountId: string, folder: Folder, mailbox: Mailbox, err: unknown): boolean {
+  if (!isAccessDenied(err) || folder.id === mailbox.wellKnown.inbox) return false;
+  logger.warn("outlook-sync", `Outlook refused a folder of ${accountId}; skipping it for now`, {
     folder: folder.name,
-    error: err.message,
+    error: (err as Error).message,
   });
-  refused.add(refusedKey(accountId, folder.id));
+  refused.set(refusedKey(accountId, folder.id), Date.now() + REFUSED_RETRY_MS);
+  return true;
 }
 
 const firstDelta = (folderId: string) =>
@@ -78,7 +76,7 @@ const firstDelta = (folderId: string) =>
 
 export function forgetOutlookSync(accountId: string): void {
   folderRefresh.delete(accountId);
-  for (const key of refused) if (key.startsWith(`${accountId}\n`)) refused.delete(key);
+  for (const key of refused.keys()) if (key.startsWith(`${accountId}\n`)) refused.delete(key);
 }
 
 // ── Folders ─────────────────────────────────────────────────────────────────
@@ -155,8 +153,8 @@ async function relabelFolders(accountId: string, mailbox: Mailbox, ctx: SyncCont
           `/me/mailFolders/${encodeURIComponent(folder.id)}/messages?$select=id&$top=500`,
         );
       } catch (err) {
-        skipIfRefused(accountId, folder, mailbox, err);
-        continue;
+        if (refuse(accountId, folder, mailbox, err)) continue;
+        throw err;
       }
       ctx.assertActive();
       store.applyHistoryChanges(
@@ -189,13 +187,7 @@ export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<
   for (const folder of mailbox.folders) {
     const state = delta[folder.id];
     if (!state?.done || isRefused(accountId, folder.id)) continue;
-    let result: Awaited<ReturnType<typeof followDelta>>;
-    try {
-      result = await followDelta(accountId, folder, state.link, ctx);
-    } catch (err) {
-      skipIfRefused(accountId, folder, mailbox, err);
-      continue;
-    }
+    const result = await followDelta(accountId, mailbox, folder, state.link, ctx);
     added.push(...result.added);
     changed ||= result.changed;
   }
@@ -230,6 +222,7 @@ async function peekInbox(accountId: string, mailbox: Mailbox, ctx: SyncContext):
  */
 async function followDelta(
   accountId: string,
+  mailbox: Mailbox,
   folder: Folder,
   link: string,
   ctx: SyncContext,
@@ -256,6 +249,7 @@ async function followDelta(
       setFolderDelta(accountId, folder.id, null);
       return { added: [], changed: false };
     }
+    if (refuse(accountId, folder, mailbox, err)) return { added: [], changed: false };
     throw err;
   }
 
@@ -323,9 +317,14 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
   const total = mailbox.folders.reduce((sum, f) => sum + f.total, 0);
   let count = store.countAllMessages(accountId);
   ctx.update({ phase: "full", synced: count, total: total || null });
+  let skipped = false;
   for (const folder of mailbox.folders) {
     const state = readDelta(accountId)[folder.id];
-    if (state?.done || isRefused(accountId, folder.id)) continue;
+    if (state?.done) continue;
+    if (isRefused(accountId, folder.id)) {
+      skipped = true;
+      continue;
+    }
     let next: string | undefined = state?.link ?? firstDelta(folder.id);
     while (next) {
       let page: Page<ApiMessage>;
@@ -334,7 +333,8 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
           prefer: [`odata.maxpagesize=${PAGE_SIZE}`],
         });
       } catch (err) {
-        skipIfRefused(accountId, folder, mailbox, err);
+        if (!refuse(accountId, folder, mailbox, err)) throw err;
+        skipped = true;
         break;
       }
       ctx.assertActive();
@@ -368,7 +368,11 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
     labelsOf(accountId, mailbox).map((l) => l.id),
   );
   store.upsertLabels(accountId, labelsOf(accountId, mailbox));
-  store.setSyncState(accountId, { fullSyncDone: true });
+  // Not done while a folder is skipped: lists keep paging from Outlook, and it's asked again later.
+  if (!skipped) store.setSyncState(accountId, { fullSyncDone: true });
   ctx.bumpRevision();
-  logger.info("outlook-sync", `listed every folder of ${accountId}`);
+  logger.info(
+    "outlook-sync",
+    `listed ${skipped ? "the folders it may read" : "every folder"} of ${accountId}`,
+  );
 }

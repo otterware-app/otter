@@ -44,7 +44,10 @@ let searches: { path: string; search: string }[];
 let notified: string[];
 let sparseDeltas: boolean;
 let failedReads: boolean;
-let refusedFolder: string | null;
+/** What Outlook won't let this sign-in read, and how it says so. */
+let denied: { delta?: string; children?: string; message?: string; status: number };
+/** Subfolders, by parent. */
+let subfolders: Record<string, string[]>;
 
 function deliver(id: string, folder: string, patch: Partial<Message> = {}): Message {
   const m: Message = {
@@ -81,6 +84,9 @@ function remove(id: string): void {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
+const refusal = () =>
+  json({ error: { code: "ErrorAccessDenied", message: "Access is denied." } }, denied.status);
+
 const notFound = () => json({ error: { code: "ErrorItemNotFound", message: "Not found." } }, 404);
 
 const resource = (m: Message) => ({
@@ -112,12 +118,24 @@ function handle(method: string, url: URL, body: unknown): Response {
   const wellKnown = /^\/me\/mailFolders\/([a-z]+)$/.exec(path);
   if (wellKnown && FOLDERS.includes(wellKnown[1]!)) return json({ id: wellKnown[1] });
   if (wellKnown) return notFound();
+  const folderInfo = (id: string) => ({
+    id,
+    displayName: id,
+    childFolderCount: subfolders[id]?.length ?? 0,
+    unreadItemCount: [...messages.values()].filter((m) => m.folder === id && !m.isRead).length,
+    totalItemCount: [...messages.values()].filter((m) => m.folder === id).length,
+  });
+  const children = /^\/me\/mailFolders\/([a-z]+)\/childFolders$/.exec(path);
+  if (children) {
+    if (children[1] === denied.children) return refusal();
+    return json({ value: (subfolders[children[1]!] ?? []).map(folderInfo) });
+  }
   if (path === "/me/mailFolders") {
     return json({
       value: FOLDERS.map((id) => ({
         id,
         displayName: id,
-        childFolderCount: 0,
+        childFolderCount: subfolders[id]?.length ?? 0,
         unreadItemCount: [...messages.values()].filter((m) => m.folder === id && !m.isRead).length,
         totalItemCount: [...messages.values()].filter((m) => m.folder === id).length,
       })),
@@ -130,9 +148,7 @@ function handle(method: string, url: URL, body: unknown): Response {
   const delta = /^\/me\/mailFolders\/([a-z]+)\/messages\/delta$/.exec(path);
   if (delta) {
     const folder = delta[1]!;
-    if (folder === refusedFolder) {
-      return json({ error: { code: "ErrorAccessDenied", message: "Access is denied." } }, 403);
-    }
+    if (folder === denied.delta) return refusal();
     const since = Number(url.searchParams.get("since") ?? -1);
     const present = [...messages.values()]
       .filter((m) => m.folder === folder && m.version > since)
@@ -177,6 +193,7 @@ function handle(method: string, url: URL, body: unknown): Response {
   if (one) {
     const m = messages.get(decodeURIComponent(one[1]!));
     if (!m) return notFound();
+    if (method === "GET" && m.id === denied.message) return refusal();
     if (method === "GET" && failedReads)
       return json({ error: { code: "ErrorInternalServerError", message: "Test failure." } }, 500);
     if (one[2]) {
@@ -330,12 +347,14 @@ beforeEach(() => {
   notified = [];
   sparseDeltas = false;
   failedReads = false;
-  refusedFolder = null;
+  denied = { status: 403 };
+  subfolders = {};
   vi.stubGlobal("fetch", fakeFetch);
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("Outlook sync", () => {
@@ -367,22 +386,60 @@ describe("Outlook sync", () => {
   });
 
   it("skips a folder Outlook refuses instead of signing the mailbox out", async () => {
-    refusedFolder = "junkemail";
+    denied.delta = "junkemail";
     deliver("a", "inbox");
     deliver("b", "archive", { isRead: true });
     deliver("d", "junkemail");
 
     const { status, labelsOf, sync } = await boot();
-    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
-    expect(status()).toMatchObject({ signInNeeded: false, error: null });
+    await until(() => !!labelsOf("b") && !status().syncing, "the first sync");
+    expect(status()).toMatchObject({ signInNeeded: false, error: null, fullSyncDone: false });
     expect(labelsOf("a")).toContain("INBOX");
-    expect(labelsOf("b")).toEqual(["ARCHIVE"]);
     expect(labelsOf("d")).toBeUndefined();
 
     deliver("e", "inbox");
     await sync();
     expect(status()).toMatchObject({ signInNeeded: false, error: null });
     expect(labelsOf("e")).toContain("INBOX");
+  });
+
+  it("still signs the mailbox out when a folder answers 401", async () => {
+    denied = { delta: "junkemail", status: 401 };
+    deliver("a", "inbox");
+
+    const { status } = await boot();
+    await until(() => status().signInNeeded, "the sign-out");
+  });
+
+  it("keeps a folder's subfolders and their mail when Outlook won't list them", async () => {
+    subfolders = { inbox: ["projects"] };
+    deliver("p", "projects");
+
+    const { status, labelsOf, sync } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+    expect(labelsOf("p")).toContain("folder:projects");
+
+    denied.children = "inbox";
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => now + 5 * 60_000);
+    deliver("q", "inbox");
+    await sync();
+    expect(status()).toMatchObject({ signInNeeded: false, error: null });
+    expect(labelsOf("p")).toContain("folder:projects");
+  });
+
+  it("syncs a folder on when one of its messages can't be read", async () => {
+    deliver("x", "archive");
+
+    const { status, labelsOf, sync } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+    denied.message = "x";
+    messages.get("x")!.version = ++version;
+    deliver("y", "archive");
+    await sync();
+    expect(status()).toMatchObject({ signInNeeded: false, error: null });
+    expect(labelsOf("y")).toContain("ARCHIVE");
   });
 
   it("follows each folder's delta: new mail, moves and deletions", async () => {

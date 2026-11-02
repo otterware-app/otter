@@ -10,7 +10,15 @@ import { getMessageLabelIds } from "../../services/mail-store.js";
 import type { MessageDetail, MessageSummary } from "../../types.js";
 import { formatAddresses, snippetOf } from "../imap/messages.js";
 import { labelsFor } from "./folders.js";
-import { graph, graphBatch, graphBytes, isNotFound, ok, batchError } from "./graph.js";
+import {
+  batchError,
+  graph,
+  graphBatch,
+  graphBytes,
+  isAccessDenied,
+  isNotFound,
+  ok,
+} from "./graph.js";
 
 /** What a list row needs, asked of Graph. */
 export const SUMMARY_FIELDS = [
@@ -109,7 +117,11 @@ export async function getApiMessages(
   const messages: ApiMessage[] = [];
   for (const answer of answers) {
     if (ok(answer)) messages.push(answer.body as ApiMessage);
-    else if (answer && answer.status !== 404) throw batchError(answer);
+    else if (answer && answer.status !== 404) {
+      // One message this sign-in may not read (moved into a locked folder, say): as if gone.
+      const err = batchError(answer);
+      if (!isAccessDenied(err)) throw err;
+    }
   }
   return messages;
 }
