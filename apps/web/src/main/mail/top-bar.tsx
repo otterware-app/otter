@@ -15,6 +15,7 @@ import {
   MailsIcon,
   SendIcon,
   Settings2Icon,
+  SquarePenIcon,
   StarIcon,
   FlagIcon,
   TagIcon,
@@ -77,6 +78,7 @@ export const RECENT_ICONS: Record<RecentIcon, ComponentType<{ className?: string
   label: TagIcon,
   conversation: MailIcon,
   settings: Settings2Icon,
+  compose: SquarePenIcon,
   chat: AgentIcon,
 };
 

@@ -78,6 +78,13 @@ const settingsRoute = createRoute({
   component: () => null,
 });
 
+/** A new message, over the mail it was started from (like Settings). */
+const composeRoute = createRoute({
+  getParentRoute: () => mailRoute,
+  path: "compose",
+  component: () => null,
+});
+
 /** One thing inside a pane: an extension's page (`/settings/extensions/todoist`). */
 const settingsItemRoute = createRoute({
   getParentRoute: () => mailRoute,
@@ -152,7 +159,14 @@ const appRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
-  mailRoute.addChildren([indexRoute, settingsRoute, settingsItemRoute, labelRoute, messageRoute]),
+  mailRoute.addChildren([
+    indexRoute,
+    composeRoute,
+    settingsRoute,
+    settingsItemRoute,
+    labelRoute,
+    messageRoute,
+  ]),
   appRoute,
 ]);
 

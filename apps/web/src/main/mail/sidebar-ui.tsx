@@ -12,7 +12,6 @@ import {
 import { ChevronDownIcon, PlusIcon } from "lucide-react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 
-import type { KeybindingCommand } from "../keybindings/commands";
 import { HintTooltip, UnreadPill } from "./ui";
 
 export type RowDragProps = {
@@ -31,31 +30,41 @@ export const SIDEBAR_ROW =
 export function NewRow({
   icon,
   label,
-  shortcut,
+  selected = false,
   tour,
   onClick,
 }: {
   icon: ReactNode;
   label: string;
-  shortcut?: KeybindingCommand;
+  /** Where the window is (the new message's page). */
+  selected?: boolean;
   /** Its `data-tour` part, for the tour's spotlight. */
   tour?: string;
   onClick: () => void;
 }) {
   return (
     <div className="flex shrink-0 flex-col px-(--sidebar-content-inset)" data-tour={tour}>
-      <HintTooltip label={label} shortcut={shortcut}>
-        <button
-          type="button"
-          onClick={onClick}
-          className={`${SIDEBAR_ROW} px-(--sidebar-row-content-inset) text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground`}
+      <button
+        type="button"
+        onClick={onClick}
+        aria-current={selected ? "page" : undefined}
+        className={`${SIDEBAR_ROW} px-(--sidebar-row-content-inset) ${
+          selected
+            ? "bg-sidebar-row-selected text-sidebar-foreground"
+            : "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
+        }`}
+      >
+        <span
+          className={`flex shrink-0 [&_svg]:size-4 ${
+            selected
+              ? "text-sidebar-foreground"
+              : "text-sidebar-muted-foreground group-hover:text-sidebar-foreground"
+          }`}
         >
-          <span className="flex shrink-0 text-sidebar-muted-foreground group-hover:text-sidebar-foreground [&_svg]:size-4">
-            {icon}
-          </span>
-          <span className="truncate">{label}</span>
-        </button>
-      </HintTooltip>
+          {icon}
+        </span>
+        <span className="truncate">{label}</span>
+      </button>
     </div>
   );
 }

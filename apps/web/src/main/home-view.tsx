@@ -428,11 +428,13 @@ function MailHome() {
   // unrun text while you visit other mailboxes; × or Escape closes them.
   const [searchTabs, setSearchTabs] = useState<SearchTab[]>([]);
   const [activeSearchId, setActiveSearchId] = useState<string | null>(null);
-  const [composeOpen, setComposeOpen] = useState(false);
+  // A new message is a page of its own (`/compose`), over the mail it was started from.
+  const composeOpen = useMatch({ from: "/mail/compose", shouldThrow: false }) !== undefined;
   // The view being made ("new") or edited, in a dialog.
   const [viewEditor, setViewEditor] = useState<string | null>(null);
-  // mailto: target from the OS (OtterMail as default mail app). The seq keys
-  // NewMessageView so a link arriving while the composer is open re-seeds it.
+  // What the new message starts with (a mailto: link from the OS, an address
+  // from the reader). The seq keys NewMessageView so one arriving while the
+  // composer is open re-seeds it.
   const [mailtoPrefill, setMailtoPrefill] = useState<MailtoTarget | null>(null);
   const [mailtoSeq, setMailtoSeq] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -540,13 +542,22 @@ function MailHome() {
     else if (lastMail) setLastMail({ ...lastMail, ...to });
   };
 
-  // Back to the mail Settings was opened over.
+  // Back to the mail Settings (or the new message) was opened over.
   const leaveSettings = () => {
     if (mailLoc) go({});
     else void navigate({ to: "/" });
   };
+  /** The new message's page, empty or starting with `prefill`. */
+  const openCompose = (prefill: MailtoTarget | null = null) => {
+    if (composeOpen && !prefill) return;
+    setMailtoPrefill(prefill);
+    if (prefill) setMailtoSeq((n) => n + 1);
+    if (!composeOpen) void navigate({ to: "/compose" });
+  };
   const settingsRouteRef = useLatest(settingsRoute);
   const leaveSettingsRef = useLatest(leaveSettings);
+  const composeOpenRef = useLatest(composeOpen);
+  const openComposeRef = useLatest(openCompose);
   // Escape leaves settings (blurring a focused field first, like a dialog).
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -752,7 +763,6 @@ function MailHome() {
   /** The workspace, showing `chatId` (the small window's chat moves there). */
   const openWorkspace = (chatId: string) => {
     setChatWindow(false);
-    setComposeOpen(false);
     showChat(chatId);
     go({ mailbox: CHATS_SPACE, label: chatId, messageId: null, account: null, focusId: null });
   };
@@ -789,12 +799,11 @@ function MailHome() {
   const tourRequested = useTourRequested();
   useEffect(() => {
     if (!tourRequested) return;
-    if (settingsRouteRef.current) leaveSettingsRef.current();
-    // oxlint-disable-next-line react/set-state-in-effect -- Synchronize pane and composer state with route, notification and navigation events.
-    setComposeOpen(false);
+    if (settingsRouteRef.current || composeOpenRef.current) leaveSettingsRef.current();
     localStorage.setItem("gmail:sidebar-open", "1");
+    // oxlint-disable-next-line react/set-state-in-effect -- The tour asks for the sidebar.
     setMailSidebarOpen(true);
-  }, [tourRequested, leaveSettingsRef, settingsRouteRef]);
+  }, [tourRequested, leaveSettingsRef, settingsRouteRef, composeOpenRef]);
 
   // MessageList fills this each render; reader archive/trash advance through it.
   const advanceRef = useRef<(fromMessageId: string) => boolean>(() => false);
@@ -969,7 +978,7 @@ function MailHome() {
       newTab();
     },
     "search.focus": () => searchFromView(),
-    "compose.new": () => setComposeOpen(true),
+    "compose.new": () => openCompose(),
     "keybindings.show": () => openSettings({ pane: "keybindings" }),
     "mail.undo": () => {
       const action = takeUndo();
@@ -994,7 +1003,7 @@ function MailHome() {
 
   // A window opened on no place in particular (the index route) goes to the
   // place its tab showing was at, or the last one, once accounts are known.
-  const onIndex = !routeLoc && !settingsRoute;
+  const onIndex = !routeLoc && !settingsRoute && !composeOpen;
   const hasMail = mailLoc !== null;
   const goForEffect = useLatest(go);
   useEffect(() => {
@@ -1056,14 +1065,12 @@ function MailHome() {
       const target = await mailApi.takePendingMailto();
       if (!target) return;
       console.log("[HomeView:mailto]", { to: target.to });
-      setMailtoPrefill(target);
-      setMailtoSeq((n) => n + 1);
-      setComposeOpen(true);
+      openComposeRef.current(target);
     };
     void pull();
     const unsub = window.desktopBridge.on("compose:mailto", () => void pull());
     return unsub;
-  }, []);
+  }, [openComposeRef]);
 
   // A conversation clicked in a new-mail notification opens here, in the
   // reader (once there's mail to open it in, when it started the app).
@@ -1145,7 +1152,6 @@ function MailHome() {
 
   const handleSelectAccount = (accountId: string) => {
     console.log("[HomeView:selectAccount]", { accountId });
-    setComposeOpen(false);
     go({ mailbox: accountId, label: firstLabelOf(accountId), messageId: null });
   };
   useLayoutEffect(() => {
@@ -1158,8 +1164,6 @@ function MailHome() {
   const goForAccountEffect = useLatest(go);
   useEffect(() => {
     if (!misplaced) return;
-    // oxlint-disable-next-line react/set-state-in-effect -- Synchronize pane and composer state with route, notification and navigation events.
-    setComposeOpen(false);
     goForAccountEffect.current({}, true);
   }, [misplaced, goForAccountEffect]);
 
@@ -1172,7 +1176,6 @@ function MailHome() {
     sidebarPeek.close();
     if (label === undefined) handleSelectAccount(spaceId);
     else {
-      setComposeOpen(false);
       go({ mailbox: spaceId, label, messageId: null, account: null, focusId: null });
     }
   };
@@ -1192,7 +1195,6 @@ function MailHome() {
   ) => {
     console.log("[HomeView:selectMessage]", { messageId, accountId, focusId });
     setAutoFocusDraft(options?.autoFocusDraft !== false);
-    setComposeOpen(false);
     go({ messageId, account: accountId, focusId: focusId ?? null });
   };
 
@@ -1221,7 +1223,6 @@ function MailHome() {
         messageId = message.id;
       }
       void queryClient.invalidateQueries({ queryKey: ["gmail:messages", target.accountId] });
-      setComposeOpen(false);
       go({
         mailbox: target.accountId,
         label: target.kind === "draft" ? "DRAFT" : ALL_MAIL_LABEL_ID,
@@ -1271,7 +1272,6 @@ function MailHome() {
     }, 0);
   const showSearch = (id: string) => {
     if (!searchActive) searchReturnRef.current = selectedLabelId;
-    setComposeOpen(false);
     setActiveSearchId(id);
     go({ label: SEARCH_MAILBOX, messageId: null });
   };
@@ -1392,7 +1392,6 @@ function MailHome() {
     if (!openFromNotification || !hasMail) return;
     // oxlint-disable-next-line react/set-state-in-effect -- Synchronize pane and composer state with route, notification and navigation events.
     setOpenFromNotification(null);
-    setComposeOpen(false);
     openMessageForEffect.current(openFromNotification.accountId, openFromNotification.messageId);
   }, [openFromNotification, hasMail, openMessageForEffect]);
 
@@ -1449,6 +1448,7 @@ function MailHome() {
     ready: initialized,
     href: locationHref,
     settingsPane: settingsRoute?.pane ?? null,
+    composing: composeOpen,
     mailbox: selectedAccountId,
     label: selectedLabelId,
     messageId: selectedMessageId,
@@ -1457,7 +1457,7 @@ function MailHome() {
     views,
   });
   // The window's tab showing follows the window, named for where it is.
-  const routed = routeLoc !== null || settingsRoute !== null;
+  const routed = routeLoc !== null || settingsRoute !== null || composeOpen;
   const placeKey = place ? JSON.stringify([place.title, place.icon]) : null;
   const placeHref = place?.href ?? null;
   useEffect(() => {
@@ -1469,7 +1469,6 @@ function MailHome() {
   }, [initialized, routed, locationHref, placeKey, placeHref]);
   const showWindowTab = (href: string | null) => {
     if (!href) return;
-    setComposeOpen(false);
     void navigate({ href, replace: true });
   };
   /** A new tab, at the Inbox of the mailbox showing (or the first). */
@@ -1491,7 +1490,7 @@ function MailHome() {
     !hasListTarget ||
     (fullInbox && !!selectedMessageId) ||
     composeOpen;
-  const listVisible = hasListTarget && !settingsRoute && (!wideInbox || !showMain);
+  const listVisible = hasListTarget && !settingsRoute && !composeOpen && (!wideInbox || !showMain);
 
   // Full-height columns: each pane owns its slice of the title band (on the
   // chrome); the content panel is painted behind them from under that band.
@@ -1532,11 +1531,7 @@ function MailHome() {
       onQuote={(q) => {
         if (chatWindowOpen) setPendingQuote(q);
       }}
-      onComposeTo={(email) => {
-        setMailtoPrefill({ to: email, cc: "", subject: "", body: "" });
-        setMailtoSeq((n) => n + 1);
-        setComposeOpen(true);
-      }}
+      onComposeTo={(email) => openCompose({ to: email, cc: "", subject: "", body: "" })}
       onSearchSender={(email) => handleSearchChange(`from:${email}`)}
     />
   );
@@ -1562,11 +1557,12 @@ function MailHome() {
       spaceId={effectiveAccountId}
       labelId={selectedLabelId}
       settingsOpen={settingsRoute !== null}
+      composing={composeOpen}
       onGo={goToSpace}
       onOpenAgent={() => goToSpace(CHATS_SPACE)}
       onCompose={() => {
         sidebarPeek.close();
-        setComposeOpen(true);
+        openCompose();
       }}
       onNewView={() => openViewEditor("new")}
       onEditView={openViewEditor}
@@ -1768,8 +1764,8 @@ function MailHome() {
                         accounts={accounts}
                         defaultAccountId={composeAccountId}
                         onClose={() => {
-                          setComposeOpen(false);
                           setMailtoPrefill(null);
+                          leaveSettings();
                         }}
                         prefill={mailtoPrefill ?? undefined}
                       />
@@ -1922,7 +1918,7 @@ function MailHome() {
           onOpenChat={openWorkspace}
           onNewChat={startNewChat}
           onToggleBrowser={toggleBrowser}
-          onCompose={() => setComposeOpen(true)}
+          onCompose={() => openCompose()}
           onOpenSettings={(pane = lastPaneRef.current) => openSettings({ pane })}
           onNewView={() => openViewEditor("new")}
           onToggleChat={toggleChat}

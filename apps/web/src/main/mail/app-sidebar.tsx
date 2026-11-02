@@ -1,16 +1,15 @@
 /**
- * The sidebar, the window's only one (Notion's): Search or ask (the command
- * palette), a tab for each mailbox, then the tab's page. A mailbox: New message, Agent (the
- * AI workspace, Linear's: picked while it shows), its folders and labels, then the views; in
- * the AI workspace, the last mailbox's. Sign-in cards, an update,
- * then Settings and Sync now at its foot.
+ * The sidebar, the window's only one (Notion's). First what belongs to no one mailbox: Search
+ * or ask (the command palette), New message, Agent (the AI workspace, Linear's: picked while
+ * it shows). Then a tab for each mailbox, and the tab's page: its folders and labels, then the
+ * views; in the AI workspace, the last mailbox's. Sign-in cards, an update, then Settings and
+ * Sync now at its foot.
  */
 
 import { useState, type ReactNode } from "react";
 import { PlusIcon, SearchIcon, SettingsIcon, SquarePenIcon } from "lucide-react";
 
 import { shortcutText } from "../keybindings/keys";
-import { useShortcutLabel } from "../keybindings/store";
 import { UpdateCard } from "../updates";
 import { AccountPicture } from "./account-picture";
 import { MailboxFolders, SearchRow, type SidebarSearch } from "./accounts-sidebar";
@@ -36,6 +35,7 @@ export function AppSidebar({
   spaceId,
   labelId,
   settingsOpen,
+  composing,
   onGo,
   onOpenAgent,
   onCompose,
@@ -55,6 +55,8 @@ export function AppSidebar({
   spaceId: string | null;
   labelId: string;
   settingsOpen: boolean;
+  /** On the new message's page: New message is where the window is, nothing else. */
+  composing: boolean;
   /** Goes to a space: where it opens, or `labelId` in it. */
   onGo: (spaceId: string, labelId?: string) => void;
   /** The AI workspace, on a new chat. */
@@ -84,14 +86,35 @@ export function AppSidebar({
   // Sync health for the mailbox you're in, or all of them.
   const healthIds =
     spaceId && accounts.some((a) => a.id === spaceId) ? [spaceId] : accounts.map((a) => a.id);
+  // A chat finished while you were away.
+  const agentDot = useChats((s) => s.unseen.size > 0);
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex shrink-0 flex-col gap-2 px-(--sidebar-content-inset) pb-2 pt-(--sidebar-content-inset)">
-        <SearchField onOpen={onOpenPalette} />
+      <div className="flex shrink-0 flex-col pt-(--sidebar-content-inset)">
+        <NewRow icon={<SearchIcon />} label="Search or ask" onClick={onOpenPalette} />
+        <NewRow
+          icon={<SquarePenIcon />}
+          label="New message"
+          selected={composing}
+          tour="compose"
+          onClick={onCompose}
+        />
+        <ScheduledMailButton />
+        <div className="flex shrink-0 flex-col px-(--sidebar-content-inset)">
+          <SkRow
+            icon={<AgentIcon className="size-4" />}
+            title="Agent"
+            selected={spaceId === CHATS_SPACE && !composing}
+            dot={agentDot}
+            onClick={onOpenAgent}
+          />
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-col px-(--sidebar-content-inset) pt-3">
         <SidebarTabs
           options={options}
           accounts={accounts}
-          selectedId={spaceId === CHATS_SPACE ? null : mailbox}
+          selectedId={mailbox}
           onSelect={(id) => onGo(id)}
         />
       </div>
@@ -99,11 +122,9 @@ export function AppSidebar({
         accounts={accounts}
         views={views}
         mailbox={mailbox}
-        spaceId={spaceId}
+        spaceId={composing ? null : spaceId}
         labelId={labelId}
         onGo={onGo}
-        onOpenAgent={onOpenAgent}
-        onCompose={onCompose}
         onNewView={onNewView}
         onEditView={onEditView}
         searches={searches}
@@ -121,26 +142,6 @@ export function AppSidebar({
         <SyncButton accountIds={healthIds} />
       </div>
     </div>
-  );
-}
-
-/** Notion's "Search or ask": the command palette, which searches mail and asks the agent. */
-function SearchField({ onOpen }: { onOpen: () => void }) {
-  const shortcut = useShortcutLabel("commandPalette.toggle");
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="flex h-8 w-full cursor-pointer items-center gap-2 rounded-lg border border-sidebar-line bg-canvas/60 ps-2.5 pe-1.5 text-sm text-sidebar-muted-foreground outline-none transition-colors hover:border-input hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-    >
-      <SearchIcon className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate text-left">Search or ask</span>
-      {shortcut ? (
-        <kbd className="shrink-0 rounded-md bg-sidebar-row-hover px-1.5 font-sans text-[11px] leading-5 text-sidebar-muted-foreground">
-          {shortcut}
-        </kbd>
-      ) : null}
-    </button>
   );
 }
 
@@ -239,8 +240,6 @@ function MailPage({
   spaceId,
   labelId,
   onGo,
-  onOpenAgent,
-  onCompose,
   onNewView,
   onEditView,
   searches,
@@ -254,9 +253,6 @@ function MailPage({
   spaceId: string | null;
   labelId: string;
   onGo: (spaceId: string, labelId?: string) => void;
-  /** The AI workspace, on a new chat. */
-  onOpenAgent: () => void;
-  onCompose: () => void;
   onNewView: () => void;
   onEditView: (viewId: string) => void;
   searches: SidebarSearch[];
@@ -264,8 +260,6 @@ function MailPage({
   onCloseSearch: (id: string) => void;
 }) {
   const viewUnread = useViewUnreadCounts(views, accounts);
-  // A chat finished while you were away.
-  const agentDot = useChats((s) => s.unseen.size > 0);
   const addAccount = useAddAccount();
   const showing = mailbox != null && mailbox === spaceId;
 
@@ -295,23 +289,6 @@ function MailPage({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <NewRow
-        icon={<SquarePenIcon />}
-        label="New message"
-        shortcut="compose.new"
-        tour="compose"
-        onClick={onCompose}
-      />
-      <ScheduledMailButton />
-      <div className="flex shrink-0 flex-col px-(--sidebar-content-inset)">
-        <SkRow
-          icon={<AgentIcon className="size-4" />}
-          title="Agent"
-          selected={spaceId === CHATS_SPACE}
-          dot={agentDot}
-          onClick={onOpenAgent}
-        />
-      </div>
       <SidebarBody>
         {mailbox ? (
           <MailboxFolders
