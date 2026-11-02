@@ -30,7 +30,7 @@ import { CommandPalette } from "./mail/command-palette";
 import { BrowserPanel } from "./browser/browser-panel";
 import { ChatBar } from "./mail/chat-bar";
 import { ChatWindow } from "./mail/chat-window";
-import { ChatWorkspace } from "./mail/chat-workspace";
+import { ChatWorkspace, type ChatPanelControl } from "./mail/chat-workspace";
 import { CALENDAR_MODES, CalendarView, calendarAccounts } from "./calendar/calendar-view";
 import type { CalendarMode } from "./calendar/dates";
 import { newChat, showChat, undockChat, useChatEvents, useChats } from "./mail/chat-store";
@@ -449,6 +449,8 @@ function MailHome() {
 
   const closeBrowserTabRef = useRef<(() => boolean) | null>(null);
   const closeWorkspaceTabRef = useRef<(() => boolean) | null>(null);
+  const chatPanelRef = useRef<ChatPanelControl | null>(null);
+  const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const closeChatWindowRef = useRef<() => boolean>(() => false);
   useEffect(
     () =>
@@ -657,7 +659,13 @@ function MailHome() {
     setBrowserOpen(false);
   };
   const toggleBrowser = () => {
-    if (!features.browser || isChats) return false;
+    if (!features.browser) return false;
+    // Agent mode's panel is the open chat's own browser.
+    if (isChats) {
+      if (!chatPanelRef.current) return false;
+      chatPanelRef.current.toggle();
+      return;
+    }
     if (browserVisible) {
       closeBrowser();
       return;
@@ -979,9 +987,15 @@ function MailHome() {
       if (calendarAccounts(accounts).length === 0) return false;
       switchMode("calendar");
     },
+    "mode.agent": () => switchMode("agent"),
     "browser.toggle": () => toggleBrowser(),
     "browser.newTab": () => {
-      if (!features.browser || isChats) return false;
+      if (!features.browser) return false;
+      if (isChats) {
+        if (!chatPanelRef.current) return false;
+        chatPanelRef.current.newPage();
+        return;
+      }
       newTab();
     },
     "search.focus": () => searchFromView(),
@@ -1484,7 +1498,8 @@ function MailHome() {
   const readerOwnsBand =
     !settingsRoute && !(composeOpen && composeAccountId) && !!readerAccount && !!selectedMessageId;
   // Room for the pinned browser toggle, while the panel doesn't show (it keeps it then).
-  const browserToggleRoom = features.browser && !browserVisible && !settingsRoute && !isChats;
+  // Agent mode's panel button sits over its rightmost header, the chat's or its tabs'.
+  const browserToggleRoom = features.browser && !settingsRoute && (isChats || !browserVisible);
   const titleTrailing = <TitleTrailing showPanelToggle={browserToggleRoom} />;
   const titlebarInset = <TitlebarInset />;
   const readerLeading = fullInbox ? (
@@ -1781,6 +1796,8 @@ function MailHome() {
                           titleTrailing={titleTrailing}
                           inputRef={chatInputRef}
                           closeTabRef={closeWorkspaceTabRef}
+                          panelRef={chatPanelRef}
+                          onPanelOpen={setChatPanelOpen}
                           onNavigate={openChatChange}
                           onSelectChat={(id) => go({ label: id }, true)}
                         />
@@ -1868,8 +1885,8 @@ function MailHome() {
         onToggleSidebar={toggleSidebar}
         onHover={sidebarOpen || settingsRoute ? undefined : sidebarPeek.hover}
       />
-      {features.browser && !settingsRoute && !isChats ? (
-        <PanelControl open={browserOpen} onToggle={toggleBrowser} />
+      {features.browser && !settingsRoute ? (
+        <PanelControl open={isChats ? chatPanelOpen : browserOpen} onToggle={toggleBrowser} />
       ) : null}
 
       {tourRequested && initialized ? (

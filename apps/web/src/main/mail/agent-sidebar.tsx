@@ -1,12 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   AlarmClockIcon,
-  CheckIcon,
   ChevronDownIcon,
   LoaderCircleIcon,
-  MessageSquarePlusIcon,
+  PlusIcon,
   SearchIcon,
-  UndoIcon,
   XIcon,
 } from "lucide-react";
 import { Input } from "~/components/ui/input";
@@ -34,12 +32,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./menu";
-import { NewRow, Section, SidebarBody } from "./sidebar-ui";
-import { cn } from "./ui";
+import { ShelveActions } from "./chat-shelve-actions";
+import { Section, SidebarBody } from "./sidebar-ui";
+import { HintTooltip, cn } from "./ui";
 
 /** Settled chats show this many at first, then this many more at a time (Otter Code's). */
 const SETTLED_FIRST = 10;
 const SETTLED_PAGE = 25;
+
+const HEADER_BUTTON =
+  "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring";
 
 const AGENT_FILTER_KEY = "gmail:chat-agent-filter";
 
@@ -201,7 +203,9 @@ export function AgentSidebar({
               {trailing}
             </span>
           </button>
-          <RowActions chat={c} shelf={shelf} now={now} />
+          <div className="hidden shrink-0 group-hover/row:flex group-has-[[data-state=open]]/row:flex">
+            <ShelveActions chat={c} settled={shelf === "settled"} />
+          </div>
         </div>
       </ChatRowMenu>
     );
@@ -257,12 +261,26 @@ export function AgentSidebar({
             aria-label="Search chats"
             onClick={() => setQuery((q) => (q === null ? "" : null))}
             className={cn(
-              "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring",
+              HEADER_BUTTON,
               query !== null && "bg-sidebar-row-hover text-sidebar-foreground",
             )}
           >
             <SearchIcon className="size-4" />
           </button>
+          <HintTooltip label="New chat" shortcut="agent.newChat" side="bottom">
+            <button
+              type="button"
+              aria-label="New chat"
+              aria-current={current && isBlank(current) ? "page" : undefined}
+              onClick={onNewChat}
+              className={cn(
+                HEADER_BUTTON,
+                current && isBlank(current) && "bg-sidebar-row-selected text-sidebar-foreground",
+              )}
+            >
+              <PlusIcon className="size-4" />
+            </button>
+          </HintTooltip>
         </div>
         {query !== null ? (
           <div className="relative px-(--sidebar-content-inset) pb-1">
@@ -288,14 +306,8 @@ export function AgentSidebar({
             </button>
           </div>
         ) : null}
-        <NewRow
-          icon={<MessageSquarePlusIcon />}
-          label="New chat"
-          selected={current ? isBlank(current) : false}
-          onClick={onNewChat}
-        />
       </div>
-      <SidebarBody contentClassName="flex flex-col">
+      <SidebarBody contentClassName="flex flex-col" flushBottom>
         {empty ? (
           <p className="px-(--sidebar-row-content-inset) py-1.5 text-[13px] text-sidebar-muted-foreground">
             {needle || filter ? "No chats match." : "Chats you start show up here."}
@@ -334,58 +346,6 @@ export function AgentSidebar({
           </>
         )}
       </SidebarBody>
-    </div>
-  );
-}
-
-const ROW_ACTION =
-  "flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 text-xs text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=open]:bg-sidebar-row-hover data-[state=open]:text-sidebar-foreground";
-
-/** Otter Code's hover actions: snooze (⏰) and Settle, or Unsettle a settled chat. */
-function RowActions({ chat, shelf, now }: { chat: Conversation; shelf: ChatShelf; now: number }) {
-  return (
-    <div className="hidden shrink-0 items-center gap-0.5 group-hover/row:flex group-has-[[data-state=open]]/row:flex">
-      {shelf === "settled" ? (
-        <button
-          type="button"
-          className={ROW_ACTION}
-          onClick={() => void shelveChat(chat.id, { snoozedUntil: null, settledAt: null })}
-        >
-          <UndoIcon className="size-3.5" />
-          Unsettle
-        </button>
-      ) : (
-        <>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button" aria-label="Snooze" title="Snooze" className={ROW_ACTION}>
-                <AlarmClockIcon className="size-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {snoozePresets(new Date(now)).map((p) => (
-                <DropdownMenuItem
-                  key={p.id}
-                  accelerator={p.when}
-                  onSelect={() =>
-                    void shelveChat(chat.id, { snoozedUntil: p.until, settledAt: null })
-                  }
-                >
-                  {p.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <button
-            type="button"
-            className={ROW_ACTION}
-            onClick={() => void shelveChat(chat.id, { snoozedUntil: null, settledAt: Date.now() })}
-          >
-            <CheckIcon className="size-3.5" />
-            Settle
-          </button>
-        </>
-      )}
     </div>
   );
 }

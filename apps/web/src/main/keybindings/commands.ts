@@ -126,6 +126,7 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+b", command: "sidebar.toggle", when: OUTSIDE_FIELDS },
   { key: "mod+i", command: "agent.toggle", when: "!dialogOpen" },
   { key: "mod+shift+f", command: "agent.openWorkspace", when: "!dialogOpen" },
+  { key: "mod+n", command: "agent.newChat", when: "agentOpen && !dialogOpen" },
   { key: "mod+shift+o", command: "agent.newChat", when: "!dialogOpen" },
   { key: "g m", command: "mode.mail", when: OUTSIDE_FIELDS },
   { key: "g c", command: "mode.calendar", when: OUTSIDE_FIELDS },

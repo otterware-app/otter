@@ -13,6 +13,7 @@ import {
   useChats,
   type Conversation,
 } from "./chat-store";
+import { ShelveActions } from "./chat-shelve-actions";
 import { HintTooltip, cn } from "./ui";
 
 type Status = "waiting" | "working" | "finished" | null;
@@ -190,20 +191,24 @@ function ChatBarTab({
             )}
           />
         ) : null}
-        {/* The close button shows over its end on hover, the title fading under it. */}
-        <span className="min-w-0 truncate group-hover/tab:mask-[linear-gradient(to_left,transparent_1.25rem,black_2.25rem)] group-has-focus-visible/tab:mask-[linear-gradient(to_left,transparent_1.25rem,black_2.25rem)]">
+        {/* Its actions show over its end on hover, the title fading under them. */}
+        <span className="min-w-0 truncate group-hover/tab:mask-[linear-gradient(to_left,transparent_4rem,black_5rem)] group-has-focus-visible/tab:mask-[linear-gradient(to_left,transparent_4rem,black_5rem)] group-has-[[data-state=open]]/tab:mask-[linear-gradient(to_left,transparent_4rem,black_5rem)]">
           {convo.title}
         </span>
       </button>
-      {/* Takes the tab out of the bar; the chat stays in history. */}
-      <button
-        type="button"
-        aria-label="Close tab"
-        onClick={onClose}
-        className="absolute right-1 top-1 flex size-4 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 hover:bg-foreground/[0.08] hover:text-foreground focus-visible:opacity-100 group-hover/tab:opacity-100"
-      >
-        <XIcon className="size-3" />
-      </button>
+      <div className="absolute inset-y-0 right-0.5 flex items-center gap-0.5 opacity-0 has-focus-visible:opacity-100 group-hover/tab:opacity-100 group-has-[[data-state=open]]/tab:opacity-100">
+        {/* Snoozing or settling it puts it away, so its tab goes too. */}
+        <ShelveActions chat={convo} settled={convo.settledAt != null} compact onDone={onClose} />
+        {/* Takes the tab out of the bar; the chat stays in history. */}
+        <button
+          type="button"
+          aria-label="Close tab"
+          onClick={onClose}
+          className="flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+        >
+          <XIcon className="size-3" />
+        </button>
+      </div>
     </div>
   );
 }

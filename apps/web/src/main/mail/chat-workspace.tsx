@@ -7,7 +7,14 @@ import {
   type RefObject,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileIcon, FilePenLineIcon, GlobeIcon, MailIcon, TriangleAlertIcon } from "lucide-react";
+import {
+  FileIcon,
+  FilePenLineIcon,
+  GlobeIcon,
+  MailIcon,
+  PlusIcon,
+  TriangleAlertIcon,
+} from "lucide-react";
 import { chatTabId, type ChatTabRef } from "@otter-mail/contracts/chats";
 
 import { BrowserPages } from "../browser/browser-view";
@@ -42,7 +49,10 @@ import { PanelTab } from "./panel-tab";
 import { mostRecentTab } from "./panel-tabs";
 import { AgentAvatar, openClawAgentId, useChatProvider } from "./agent-providers";
 import { usePanelTabDrag } from "./use-panel-tab-drag";
-import { cn } from "./ui";
+import { HintTooltip, cn } from "./ui";
+
+/** The chat's side panel, as the window's panel button and browser shortcuts drive it. */
+export type ChatPanelControl = { toggle: () => void; newPage: () => void };
 
 const TAB_ICONS = { thread: MailIcon, draft: FilePenLineIcon, page: GlobeIcon, file: FileIcon };
 
@@ -104,10 +114,15 @@ export function ChatWorkspace({
   titleTrailing,
   inputRef,
   closeTabRef,
+  panelRef,
+  onPanelOpen,
   onNavigate,
   onSelectChat,
 }: {
   closeTabRef: MutableRefObject<(() => boolean) | null>;
+  panelRef: MutableRefObject<ChatPanelControl | null>;
+  /** Whether the chat's tabs show beside it, for the window's panel button. */
+  onPanelOpen: (open: boolean) => void;
   chatId: string;
   titleLeading?: ReactNode;
   titleTrailing?: ReactNode;
@@ -207,6 +222,26 @@ export function ChatWorkspace({
     handlers,
   } = usePanelTabDrag((order) => reorderChatTabs(chatId, order));
 
+  // The chat's own browser: hidden by hand, or with nothing in it.
+  const [panelHidden, setPanelHidden] = useState(false);
+  const panelOpen = tabs.length > 0 && !panelHidden;
+  const newPage = () => {
+    if (!features.browser) return;
+    openChatTab(chatId, { kind: "page", url: "" }, "New tab");
+    setPanelHidden(false);
+  };
+  useEffect(() => {
+    panelRef.current = {
+      toggle: () => (tabs.length === 0 ? newPage() : setPanelHidden((hidden) => !hidden)),
+      newPage,
+    };
+    return () => {
+      panelRef.current = null;
+    };
+  });
+  const onPanelOpenRef = useLatest(onPanelOpen);
+  useEffect(() => onPanelOpenRef.current(panelOpen), [panelOpen, onPanelOpenRef]);
+
   const pages = tabs.filter((t) => t.ref.kind === "page");
   useEffect(() => {
     for (const tab of pages)
@@ -230,10 +265,10 @@ export function ChatWorkspace({
   return (
     <div ref={workspaceRef} className="relative flex min-h-0 min-w-0 flex-1" data-tour="workspace">
       <div
-        style={tabs.length > 0 ? { flexBasis: width } : undefined}
+        style={panelOpen ? { flexBasis: width } : undefined}
         className={cn(
           "flex min-h-0 flex-col",
-          tabs.length > 0 ? "min-w-[300px] shrink" : "min-w-0 flex-1",
+          panelOpen ? "min-w-[300px] shrink" : "min-w-0 flex-1",
         )}
       >
         {/* data-toolbar: the window's own drag strip steps back, so it can't swallow the tabs' clicks. */}
@@ -250,11 +285,11 @@ export function ChatWorkspace({
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
             {blank ? "New chat" : convo.title}
           </span>
-          {tabs.length > 0 ? null : titleTrailing}
+          {panelOpen ? null : titleTrailing}
         </div>
         {chat}
       </div>
-      {tabs.length > 0 ? (
+      {panelOpen ? (
         <>
           <div className="relative z-20 w-0 shrink-0" aria-hidden>
             <div
@@ -295,6 +330,18 @@ export function ChatWorkspace({
                   );
                 })}
               </div>
+              {features.browser ? (
+                <HintTooltip label="New tab" shortcut="browser.newTab" side="bottom">
+                  <button
+                    type="button"
+                    aria-label="New tab"
+                    onClick={newPage}
+                    className="no-drag flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  >
+                    <PlusIcon className="size-3.5" />
+                  </button>
+                </HintTooltip>
+              ) : null}
               <span className="min-w-0 flex-1" />
               {titleTrailing}
             </div>
