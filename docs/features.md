@@ -160,17 +160,28 @@ the Mac app receives its callback on a temporary localhost listener.
 
 Implementation boundaries and removal steps: [Otter Drive feature guide](integrations/otter-drive.md).
 
-Sign in to Otter Drive in Settings → Connections (a code confirmed in the browser), and pick the
-organization when you're in more than one. "Save to Otter Drive…" in a message's menu publishes
-one of its attachments, or the email itself as a page, as a new artifact that everyone in the
-organization can see; the toast opens it. ⌘K's "Browse Otter Drive" lists the organization's
-artifacts. The sign-in stays on this device.
+Drive is a workspace beside Mail, Calendar and Agent (its mark at the sidebar's foot, ⌘K's "Open
+Drive", `/drive/<folder>/<document>`), laid out like Otter Drive: the sidebar picks a drive (My
+Drive, your shared drives, Shared with me) with Mail's mailbox picker, filters it (Type, Updated
+this week, Archived), searches it, and lists its folders and documents; the main area shows the
+open document, or the drive's documents as a grid of thumbnails. Markdown, CSV/TSV and text are
+drawn in the app's style, images shown, a one-file page in a sandboxed frame; anything else (a site
+of several files, a PDF, a video, a workbook) opens in Otter Drive. A document renames in place,
+switches versions, copies its link, archives and restores; files upload by picking or dropping.
 
-| Feature                                        | Mac | Web | iPhone |
-| ---------------------------------------------- | --- | --- | ------ |
-| Sign in, organization, sign out                | ✓   | —   | —      |
-| Save an attachment or the email as an artifact | ✓   | —   | —      |
-| Browse the organization's artifacts            | ✓   | —   | —      |
+Sign in from Drive or Settings → Connections (a code confirmed in the browser). Settings lists your
+drives with a switch each: a drive that's off is hidden in Drive, can't be saved to, and is refused
+to anything else asking (agents included). "Save to Otter Drive…" in a message's menu saves an
+attachment, or the email as a page, into the drive you pick. The sign-in and the switches stay on
+this device. Drive's API answers only the desktop app for now: the web app needs Drive's CORS
+change (otter-drive `otter-mail-cors`).
+
+| Feature                                             | Mac | Web | iPhone |
+| --------------------------------------------------- | --- | --- | ------ |
+| Drive workspace: drives, filters, search, documents | ✓   | —   | —      |
+| Previews, versions, rename, archive, upload         | ✓   | —   | —      |
+| Drives on or off (Settings)                         | ✓   | —   | —      |
+| Save an attachment or the email to a drive          | ✓   | —   | —      |
 
 ## Chats
 

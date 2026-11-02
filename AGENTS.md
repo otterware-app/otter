@@ -57,15 +57,18 @@ when a feature lands or goes.
   the themes and demo mailbox, exported from `packages/shared` by `pnpm ios:resources`. See its
   README.
 - `extensions/`: the built-in extensions, a package each (VS Code's model; contracts'
-  `src/extensions.ts`): Sign-in codes, Calendar invites, Translation, Todoist, and
+  `src/extensions.ts`): Sign-in codes, Calendar invites, Translation, Todoist, Otter Drive, and
   the agents (`openrouter`, the Otter Mail agent; `hermes`, `openclaw`, `claude`, `codex`). Each
   `package.json` carries its manifest (`otterMail`); its halves are `./core` (`activate(context)`:
   handlers, an agent; core's `src/extensions.ts`), `./ui` (what it contributes to the screens'
-  slots: cards, actions, commands, settings, an agent's form; `apps/web/src/main/extensions`;
+  slots: cards, actions, commands, settings, an agent's form, a workspace; `apps/web/src/main/extensions`;
   Settings lists them by manifest `category` in Agents, Connections (services you sign in to,
-  beside the mailboxes: Todoist), Integrations (hidden while empty) and Features, each with a
+  beside the mailboxes: Todoist, Otter Drive), Integrations (hidden while empty) and Features, each with a
   page) and
-  `./desktop` (Claude, Codex). The manifest's `platforms` (mac, linux, web; absent: all) says where one runs, and each
+  `./desktop` (Claude, Codex). A workspace (Otter Drive's Drive) is declared in the manifest's
+  `contributes.workspaces` (VS Code's view containers: known without running it) and drawn by the
+  `./ui` half: a mode beside Mail, Calendar and Agent at `/<id>/<location>/<item>`, with its own
+  sidebar and main area (`extensions/workspaces.ts`). The manifest's `platforms` (mac, linux, web; absent: all) says where one runs, and each
   app loads the half it can run, as VS Code loads `main` or `browser`: the desktop app `./desktop`
   when there is one, else `./core`; the web app `./core`. Core doesn't import them: the shells pass
   their list to `startCore`

@@ -2,7 +2,7 @@
   "name": "@otter-mail/extension-otter-drive",
   "version": "0.1.0",
   "private": true,
-  "description": "Saves attachments and emails to Otter Drive, and browses your artifacts.",
+  "description": "Your drives' documents in a Drive workspace, and attachments saved from mail.",
   "type": "module",
   "exports": {
     "./manifest": "./manifest.ts",
@@ -29,12 +29,20 @@
   "otterMail": {
     "id": "otter-drive",
     "name": "Otter Drive",
-    "description": "Saves attachments and emails to Otter Drive, and browses your artifacts.",
+    "description": "Your drives' documents in a Drive workspace, and attachments saved from mail.",
     "category": "connection",
     "platforms": [
       "mac",
       "linux"
     ],
-    "dataUse": "Sends Otter Drive only what you choose to save: the attachment or the email, with the title you give it. Everyone in the Otter Drive organization can see it. Your Otter Drive sign-in stays on this device."
+    "dataUse": "Sends Otter Drive only what you upload or choose to save: the attachment or the email, with the title you give it, into the drive you pick. Everyone with access to that drive can see it. Your Otter Drive sign-in, and which drives are on, stay on this device.",
+    "contributes": {
+      "workspaces": [
+        {
+          "id": "drive",
+          "title": "Drive"
+        }
+      ]
+    }
   }
 }

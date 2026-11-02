@@ -1,5 +1,7 @@
 import { useLatest } from "./use-latest";
 import { ExtensionDialogs } from "./extensions/slots";
+import { useWorkspaces, workspaceOf, workspaceSpace } from "./extensions/workspaces";
+import type { WorkspaceLocation } from "./extensions/types";
 import {
   useLayoutEffect,
   useCallback,
@@ -385,7 +387,10 @@ function MailHome() {
   const initialized = ready && mailLoc !== null;
   const selectedAccountId = mailLoc?.mailbox ?? null;
   const selectedLabelId = mailLoc?.label ?? "INBOX";
-  const selectedMessageId = mailLoc?.messageId ?? null;
+  // A workspace's item (a document) is its own, never a message the mail would load.
+  const inWorkspace = workspaceOf(selectedAccountId) !== undefined;
+  const selectedMessageId = inWorkspace ? null : (mailLoc?.messageId ?? null);
+  const workspaceItem = inWorkspace ? (mailLoc?.messageId ?? null) : null;
   const readerAccountId = mailLoc?.account ?? null;
   const focusedMessageId = mailLoc?.focusId ?? null;
   const [autoFocusDraft, setAutoFocusDraft] = useState(true);
@@ -527,7 +532,11 @@ function MailHome() {
   const isChats = space?.kind === "chats";
   // The calendar: its own view across the main area, no list.
   const isCalendar = space?.kind === "calendar";
-  const ownsMain = isChats || isCalendar;
+  // An extension's workspace: its own sidebar and main area, like the calendar.
+  const workspace = space?.kind === "workspace" ? workspaceOf(space.id) : undefined;
+  // Turning one off re-reads where we are (spaceOf drops it).
+  useWorkspaces();
+  const ownsMain = isChats || isCalendar || workspace !== undefined;
   const mailLayout = useMailLayout();
   const fullInbox = mailLayout === "full" && !ownsMain;
   const floatingLayout = mailLayout === "floating" && !ownsMain;
@@ -718,11 +727,27 @@ function MailHome() {
   // Where the mail was before the agent or the calendar, to go back to.
   const mailBeforeChats = useRef<MailLoc | null>(null);
   const lastCalendarMode = useRef<string>("week");
+  const lastInWorkspace = useRef(new Map<string, WorkspaceLocation>());
   useEffect(() => {
     if (mailLoc && !ownsMain) mailBeforeChats.current = mailLoc;
     if (isCalendar && CALENDAR_MODES.some((m) => m.mode === selectedLabelId))
       lastCalendarMode.current = selectedLabelId;
+    if (workspace)
+      lastInWorkspace.current.set(workspace.id, {
+        location: selectedLabelId,
+        item: workspaceItem,
+      });
   });
+  const goInWorkspace = (to: Partial<WorkspaceLocation>, replace = false) =>
+    go(
+      {
+        label: to.location ?? selectedLabelId,
+        messageId: to.item ?? null,
+        account: null,
+        focusId: null,
+      },
+      replace,
+    );
   const openWorkspace = (chatId: string) => {
     setChatWindow(false);
     showChat(chatId);
@@ -746,6 +771,16 @@ function MailHome() {
         mailbox: CALENDAR_SPACE,
         label: lastCalendarMode.current,
         messageId: null,
+        account: null,
+        focusId: null,
+      });
+    } else if (next.startsWith("workspace:")) {
+      const id = next.slice("workspace:".length);
+      const last = lastInWorkspace.current.get(id);
+      go({
+        mailbox: workspaceSpace(id),
+        label: last?.location ?? firstLabelOf(workspaceSpace(id)),
+        messageId: last?.item ?? null,
         account: null,
         focusId: null,
       });
@@ -1060,7 +1095,7 @@ function MailHome() {
   /* oxlint-disable react/exhaustive-effect-dependencies -- Explicit DOM and reset triggers must re-run this lifecycle. */
   useEffect(() => {
     if (!initialized || !viewsLoaded || selectedLabelId === SEARCH_MAILBOX) return;
-    if (isChats) return;
+    if (isChats || workspace) return;
     if (isCalendar) {
       if (!CALENDAR_MODES.some((m) => m.mode === selectedLabelId))
         correctForEffect.current({ label: "week" });
@@ -1080,6 +1115,7 @@ function MailHome() {
     effectiveAccountId,
     isChats,
     isCalendar,
+    workspace,
     viewSpace,
     correctForEffect,
   ]);
@@ -1380,9 +1416,19 @@ function MailHome() {
     quote: pendingQuote,
   });
   const locationHref = router.state.location.href;
+  // What a workspace calls where it is (a document's title), for this address only.
+  const [workspaceTitle, setWorkspaceTitle] = useState<{ href: string; title: string } | null>(
+    null,
+  );
+  const hrefNow = useLatest(locationHref);
+  const nameWorkspacePlace = useCallback(
+    (title: string | null) => setWorkspaceTitle(title ? { href: hrefNow.current, title } : null),
+    [hrefNow],
+  );
   const place = useRecordRecentlyViewed({
     ready: initialized,
     href: locationHref,
+    workspaceTitle: workspaceTitle?.href === locationHref ? workspaceTitle.title : null,
     settingsPane: settingsRoute?.pane ?? null,
     composing: composeOpen,
     mailbox: selectedAccountId,
@@ -1487,6 +1533,11 @@ function MailHome() {
       mode={mode}
       spaceId={effectiveAccountId}
       labelId={selectedLabelId}
+      workspace={
+        workspace
+          ? { workspace, location: selectedLabelId, item: workspaceItem, go: goInWorkspace }
+          : null
+      }
       settingsOpen={settingsRoute !== null}
       composing={composeOpen}
       onGo={goToSpace}
@@ -1697,6 +1748,15 @@ function MailHome() {
                           leaveSettings();
                         }}
                         prefill={mailtoPrefill ?? undefined}
+                      />
+                    ) : workspace ? (
+                      <workspace.Main
+                        location={selectedLabelId}
+                        item={workspaceItem}
+                        go={goInWorkspace}
+                        setTitle={nameWorkspacePlace}
+                        titleLeading={sidebarOpen ? null : titlebarInset}
+                        titleTrailing={titleTrailing}
                       />
                     ) : isCalendar ? (
                       <CalendarView

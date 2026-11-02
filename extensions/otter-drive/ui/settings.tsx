@@ -1,140 +1,153 @@
 import {
   Btn,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   SettingsRow,
   SettingsSection,
+  Switch,
   searchableSetting,
   toast,
+  useOpenWorkspace,
 } from "@otter-mail/web/extension-kit";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 
-import { driveApi } from "./api";
-import { browseOtterDrive, useDriveStatus } from "./dialogs";
+import { SHARED, driveApi, driveLabel, type DriveFolder } from "./api";
+import { DriveMark, SharedMark } from "./drive-mark";
+import { errorText, useDriveSignIn, useDriveStatus, useDrives } from "./hooks";
+
+const KIND_TEXT: Record<DriveFolder["kind"], string> = {
+  personal: "Your drive",
+  shared: "Shared drive",
+  folder: "Shared with you",
+};
 
 export function OtterDriveSettingsPane() {
   const status = useDriveStatus();
-  const qc = useQueryClient();
-  const [code, setCode] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
   const connected = status.data?.connected === true;
-  const organizations = useQuery({
-    queryKey: ["otter-drive", "organizations"],
-    queryFn: driveApi.organizations,
-    enabled: connected,
-    retry: false,
-  });
-  useEffect(() => () => void driveApi.cancelSignIn().catch(() => {}), []);
+  const drives = useDrives(connected);
+  const { code, pending, run, signIn, cancel } = useDriveSignIn();
+  const openWorkspace = useOpenWorkspace();
+  const qc = useQueryClient();
+  const hidden = new Set(status.data?.hidden ?? []);
 
-  const refresh = async () => {
-    await qc.resetQueries({ queryKey: ["otter-drive"] });
-  };
-  const run = async (action: () => Promise<void>) => {
-    setPending(true);
+  const setShown = async (id: string, shown: boolean) => {
     try {
-      await action();
-      await refresh();
+      await driveApi.setDriveHidden(id, !shown);
+      await qc.invalidateQueries({ queryKey: ["otter-drive"] });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
-    } finally {
-      setPending(false);
-      setCode(null);
+      toast.error(errorText(error));
     }
   };
-  const signIn = () =>
-    run(async () => {
-      const start = await driveApi.startSignIn();
-      setCode(start.userCode);
-      // The system browser, where Otter Drive's session is: Settings stays open with the code.
-      void window.desktopBridge.openExternal(start.verificationUrl).catch(() => {});
-      await driveApi.finishSignIn(start.deviceCode);
-    });
+  const driveRow = (id: string, mark: ReactNode, title: string, detail: string) => (
+    <SettingsRow
+      key={id}
+      title={
+        <span className="flex items-center gap-2.5">
+          {mark}
+          {title}
+        </span>
+      }
+      description={detail}
+      control={
+        <Switch
+          checked={!hidden.has(id)}
+          onCheckedChange={(checked: boolean) => void setShown(id, Boolean(checked))}
+          aria-label={`${hidden.has(id) ? "Turn on" : "Turn off"} ${title}`}
+        />
+      }
+    />
+  );
 
   return (
-    <SettingsSection {...searchableSetting("otter-drive")}>
-      <SettingsRow
-        title="Otter Drive"
-        description={
-          status.isError
-            ? "Could not read the connection. Try again."
-            : !status.data
-              ? "Loading…"
-              : connected
-                ? "Signed in on this device. Save attachments and emails from the reader's menu."
-                : "Save attachments and emails to your Otter Drive organization."
-        }
-        control={
-          connected ? (
-            <Btn size="sm" onClick={browseOtterDrive}>
-              Browse
-            </Btn>
-          ) : undefined
-        }
-      />
-      {connected && organizations.data && organizations.data.length > 1 ? (
+    <>
+      <SettingsSection {...searchableSetting("otter-drive")}>
         <SettingsRow
-          title="Organization"
-          description="Where what you save goes, and what Browse shows."
+          title="Otter Drive"
+          description={
+            status.isError
+              ? "Could not read the connection. Try again."
+              : !status.data
+                ? "Loading…"
+                : connected
+                  ? "Signed in on this device. Your documents are in Drive, beside Mail and Calendar."
+                  : "Your drives' documents in a Drive workspace, and attachments saved from mail."
+          }
           control={
-            <Select
-              value={status.data?.organizationId ?? organizations.data[0]!.id}
-              onValueChange={(id) => void run(() => driveApi.selectOrganization(id))}
-              disabled={pending}
-            >
-              <SelectTrigger aria-label="Otter Drive organization">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {organizations.data.map((o) => (
-                  <SelectItem key={o.id} value={o.id}>
-                    {o.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            connected ? (
+              <Btn size="sm" onClick={() => openWorkspace("drive")}>
+                Open Drive
+              </Btn>
+            ) : undefined
           }
         />
-      ) : null}
-      <SettingsRow
-        title={connected ? "Connection" : "Sign in to Otter Drive"}
-        description={
-          code ? (
-            <span>
-              Confirm the code <span className="font-mono font-medium">{code}</span> in your
-              browser.
-            </span>
-          ) : (
-            "Sign in in your browser. Your sign-in stays on this device."
-          )
-        }
-        control={
-          <div className="flex gap-2">
-            {code ? (
-              <Btn size="sm" onClick={() => void driveApi.cancelSignIn()}>
-                Cancel
-              </Btn>
+        <SettingsRow
+          title={connected ? "Connection" : "Sign in to Otter Drive"}
+          description={
+            code ? (
+              <span>
+                Confirm the code <span className="font-mono font-medium">{code}</span> in your
+                browser.
+              </span>
             ) : (
-              <Btn
-                size="sm"
-                variant={connected ? "outline" : "primary"}
-                disabled={pending || !status.data}
-                onClick={() => void signIn()}
-              >
-                {pending ? "Signing in…" : connected ? "Sign in again" : "Sign in"}
-              </Btn>
-            )}
-            {connected && !code ? (
-              <Btn size="sm" disabled={pending} onClick={() => void run(driveApi.disconnect)}>
-                Sign out
-              </Btn>
-            ) : null}
-          </div>
-        }
-      />
-    </SettingsSection>
+              "Sign in in your browser. Your sign-in stays on this device."
+            )
+          }
+          control={
+            <div className="flex gap-2">
+              {code ? (
+                <Btn size="sm" onClick={cancel}>
+                  Cancel
+                </Btn>
+              ) : (
+                <Btn
+                  size="sm"
+                  variant={connected ? "outline" : "primary"}
+                  disabled={pending || !status.data}
+                  onClick={() => void signIn()}
+                >
+                  {pending ? "Signing in…" : connected ? "Sign in again" : "Sign in"}
+                </Btn>
+              )}
+              {connected && !code ? (
+                <Btn size="sm" disabled={pending} onClick={() => void run(driveApi.disconnect)}>
+                  Sign out
+                </Btn>
+              ) : null}
+            </div>
+          }
+        />
+      </SettingsSection>
+      {connected ? (
+        <SettingsSection
+          title="Drives"
+          description="What Otter Mail can reach on this device. A drive that's off isn't shown in Drive, can't be saved to, and isn't offered to agents."
+        >
+          {drives.isError ? (
+            <SettingsRow
+              title="Couldn't load your drives"
+              description={errorText(drives.error)}
+              control={
+                <Btn size="sm" onClick={() => void drives.refetch()}>
+                  Try again
+                </Btn>
+              }
+            />
+          ) : !drives.data ? (
+            <SettingsRow title="Loading…" />
+          ) : (
+            <>
+              {drives.data.map((d) =>
+                driveRow(d.id, <DriveMark folder={d} />, driveLabel(d), KIND_TEXT[d.kind]),
+              )}
+              {driveRow(
+                SHARED,
+                <SharedMark />,
+                "Shared with me",
+                "Documents people shared with you on their own",
+              )}
+            </>
+          )}
+        </SettingsSection>
+      ) : null}
+    </>
   );
 }

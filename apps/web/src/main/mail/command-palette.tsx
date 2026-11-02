@@ -58,6 +58,7 @@ import { updateNow, useUpdateState } from "../updates";
 import { requestProblemReport } from "../support/report-problem";
 import { isBlank, useChats } from "./chat-store";
 import { ViewMark } from "./view-icon";
+import { useWorkspaces, workspaceSpace } from "../extensions/workspaces";
 import { CALENDAR_SPACE } from "./spaces";
 import { OtterCalendarIcon } from "./app-icons";
 import { features } from "../features";
@@ -208,6 +209,7 @@ export function CommandPalette({
 
   const { resolved: keybindings } = useKeybindingsState();
   const extensionCommands = useExtensionCommands();
+  const workspaces = useWorkspaces();
   const groups: PaletteGroup[] = useMemo(() => {
     const sc = (command: KeybindingCommand) => shortcutLabelFor(keybindings, command) ?? undefined;
     const jump = (digit: number) => sc(`mailbox.jump.${digit}` as KeybindingCommand);
@@ -286,6 +288,12 @@ export function CommandPalette({
         keywords: "events meetings schedule week month day",
         run: () => onSelectAccount(CALENDAR_SPACE),
       },
+      ...workspaces.map((w) => ({
+        id: `workspace:${w.id}`,
+        icon: <w.Icon className={ICON} />,
+        title: `Open ${w.title}`,
+        run: () => onSelectAccount(workspaceSpace(w.id)),
+      })),
       {
         id: "chat",
         icon: <AgentIcon className={ICON} />,
@@ -478,6 +486,7 @@ export function CommandPalette({
       ? [searchGroup, ...strong, ...mailGroup, ...weak]
       : [...strong, searchGroup, ...mailGroup, ...weak];
   }, [
+    workspaces,
     extensionCommands,
     keybindings,
     themes,

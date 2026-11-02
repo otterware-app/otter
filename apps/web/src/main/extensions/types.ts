@@ -32,6 +32,41 @@ export type UiExtension = {
   Settings?: ComponentType;
   /** A connection (manifest category `connection`): listed in Connections beside the mailboxes. */
   connection?: ConnectionContribution;
+  /** How it draws the workspaces its manifest declares (`contributes.workspaces`): one per id. */
+  workspaces?: readonly WorkspaceContribution[];
+};
+
+/**
+ * A workspace beside Mail, Calendar and Agent (VS Code's view container): a
+ * mode at the sidebar's foot that swaps the sidebar and the main area, at
+ * `/<id>/<location>/<item>`. The location and item are its own (a folder, a
+ * document); the app keeps them in the address, its tabs and history.
+ */
+export type WorkspaceContribution = {
+  /** The manifest's workspace id. */
+  id: string;
+  /** Its mark in the mode switcher and tabs: solid when selected, contoured when not. */
+  Icon: ComponentType<{ selected?: boolean; className?: string }>;
+  /** The location it opens on the first time. */
+  home: string;
+  Sidebar: ComponentType<WorkspaceProps>;
+  Main: ComponentType<WorkspaceMainProps>;
+};
+
+export type WorkspaceLocation = { location: string; item: string | null };
+
+export type WorkspaceProps = WorkspaceLocation & {
+  /** Moves within the workspace (the item clears unless given). */
+  go: (to: Partial<WorkspaceLocation>, replace?: boolean) => void;
+};
+
+export type WorkspaceMainProps = WorkspaceProps & {
+  /** Names where it is in its tab and history (a document's title); null for the workspace's name. */
+  setTitle: (title: string | null) => void;
+  /** The window's controls to draw first in its title bar (the sidebar toggle, when it's hidden). */
+  titleLeading: ReactNode;
+  /** And last (the browser panel's toggle). */
+  titleTrailing: ReactNode;
 };
 
 export type ConnectionContribution = {

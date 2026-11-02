@@ -7,7 +7,7 @@ import {
 import { ChevronDownIcon, PlusIcon } from "lucide-react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 
-import { HintTooltip, UnreadPill } from "./ui";
+import { HintTooltip, UnreadPill, cn } from "./ui";
 
 export type RowDragProps = {
   draggable?: boolean;
@@ -210,5 +210,76 @@ export function SectionAddButton({ label, onClick }: { label: string; onClick: (
         <PlusIcon className="size-4" />
       </button>
     </HintTooltip>
+  );
+}
+
+export type SidebarPickerItem = {
+  id: string;
+  label: string;
+  icon: ReactNode;
+  hint?: string;
+  dot?: boolean;
+};
+
+/**
+ * A row of places to pick from by their pictures (Mail's mailboxes, Drive's
+ * drives): the one you're in shows its name, opening from nothing.
+ */
+export function SidebarPicker({
+  items,
+  selectedId,
+  onSelect,
+  tour,
+}: {
+  items: readonly SidebarPickerItem[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  tour?: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-0.5" data-tour={tour}>
+      {items.map(({ id, label, icon, hint, dot = false }) => {
+        const selected = id === selectedId;
+        return (
+          <HintTooltip key={id} label={label} hint={hint} disabled={selected}>
+            <button
+              type="button"
+              aria-label={label}
+              aria-current={selected ? "page" : undefined}
+              onClick={() => onSelect(id)}
+              className={cn(
+                "flex h-8 min-w-0 shrink-0 cursor-pointer items-center rounded-lg px-1.5 text-sm font-medium outline-none transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-focus-ring motion-reduce:transition-none",
+                selected
+                  ? "shrink bg-sidebar-row-selected text-sidebar-foreground"
+                  : "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
+              )}
+            >
+              <span className="relative flex size-5 shrink-0 items-center justify-center [&>svg]:size-4">
+                {icon}
+                {dot && !selected ? (
+                  <span
+                    aria-hidden
+                    className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-sidebar-foreground ring-2 ring-sidebar-surface"
+                  />
+                ) : null}
+              </span>
+              {/* Its width opens from nothing (a grid track 0fr → 1fr, its padding
+                  clipped while folded), and it fades in. */}
+              <span
+                aria-hidden
+                className={cn(
+                  "grid min-w-0 overflow-hidden transition-[grid-template-columns,opacity] duration-200 ease-out motion-reduce:transition-none",
+                  selected
+                    ? "grid-cols-[minmax(0,1fr)] opacity-100"
+                    : "grid-cols-[minmax(0,0fr)] opacity-0",
+                )}
+              >
+                <span className="truncate ps-2 pe-1">{label}</span>
+              </span>
+            </button>
+          </HintTooltip>
+        );
+      })}
+    </div>
   );
 }

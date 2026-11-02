@@ -1,15 +1,20 @@
 import type { UiExtension } from "@otter-mail/web/extension-kit";
-import { FolderOpenIcon, HardDriveUploadIcon } from "lucide-react";
+import { HardDriveUploadIcon } from "lucide-react";
 
 import { manifest } from "../manifest";
 import { driveApi } from "./api";
-import { OtterDriveDialogs, browseOtterDrive, saveToOtterDrive } from "./dialogs";
+import { OtterDriveDialogs, saveToOtterDrive } from "./dialogs";
+import { DriveGlyph } from "./glyph";
 import { OtterDriveIcon } from "./icon";
 import { OtterDriveSettingsPane } from "./settings";
+import { DriveMain, DriveSidebar, MINE } from "./workspace";
 
 export default {
   manifest,
   Icon: OtterDriveIcon,
+  workspaces: [
+    { id: "drive", Icon: DriveGlyph, home: MINE, Sidebar: DriveSidebar, Main: DriveMain },
+  ],
   messageActions: [
     {
       id: "otter-drive:save",
@@ -17,15 +22,6 @@ export default {
       menuLabel: "Save to Otter Drive…",
       Icon: HardDriveUploadIcon,
       run: saveToOtterDrive,
-    },
-  ],
-  commands: [
-    {
-      id: "otter-drive",
-      title: "Browse Otter Drive",
-      keywords: "drive artifacts files documents",
-      Icon: FolderOpenIcon,
-      run: browseOtterDrive,
     },
   ],
   Dialogs: OtterDriveDialogs,

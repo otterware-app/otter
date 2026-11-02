@@ -12,6 +12,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { ErrorBoundaryView } from "~/components/ui/error-boundary-view";
 import type { SettingsPane } from "./mail/api";
 import { SEARCH_MAILBOX } from "./mail/gmail-query";
+import { isWorkspaceSegment, workspaceSpace } from "./extensions/workspaces";
 import { CALENDAR_SPACE, CHATS_SPACE } from "./mail/spaces";
 
 const rootRoute = createRootRouteWithContext<{
@@ -99,7 +100,8 @@ const settingsItemRoute = createRoute({
 });
 
 const SPACE_SEGMENTS: Record<string, string> = { chats: CHATS_SPACE, calendar: CALENDAR_SPACE };
-const toMailbox = (segment: string) => SPACE_SEGMENTS[segment] ?? segment;
+const toMailbox = (segment: string) =>
+  SPACE_SEGMENTS[segment] ?? (isWorkspaceSegment(segment) ? workspaceSpace(segment) : segment);
 const fromMailbox = (id: string) => /^__([a-z]+)__$/.exec(id)?.[1] ?? id;
 const toLabel = (segment: string) => (segment === "search" ? SEARCH_MAILBOX : segment);
 const fromLabel = (id: string) => /^__([a-z]+)__$/.exec(id)?.[1] ?? id;

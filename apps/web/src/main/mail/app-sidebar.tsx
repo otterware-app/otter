@@ -1,7 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ComponentType } from "react";
 import { PlusIcon, SearchIcon, SettingsIcon, SquarePenIcon } from "lucide-react";
 
 import { CalendarSidebar } from "../calendar/calendar-sidebar";
+import type { WorkspaceProps } from "../extensions/types";
+import { useWorkspaces, type Workspace } from "../extensions/workspaces";
 import { calendarAccounts } from "../calendar/calendar-view";
 import type { CalendarMode } from "../calendar/dates";
 import type { KeybindingCommand } from "../keybindings/commands";
@@ -18,7 +20,15 @@ import { useChats } from "./chat-store";
 import { useAddAccount, useViewUnreadCounts } from "./hooks";
 import { ScheduledMailButton } from "./mail-schedule";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "./menu";
-import { NewRow, SIDEBAR_ROW, Section, SectionAddButton, SidebarBody, SkRow } from "./sidebar-ui";
+import {
+  NewRow,
+  SIDEBAR_ROW,
+  Section,
+  SectionAddButton,
+  SidebarBody,
+  SidebarPicker,
+  SkRow,
+} from "./sidebar-ui";
 import { VIEW_LIST, type AppMode } from "./spaces";
 import { SignInCards, SyncButton } from "./sync-health";
 import { toast } from "./toast";
@@ -33,6 +43,7 @@ export function AppSidebar({
   mode,
   spaceId,
   labelId,
+  workspace,
   settingsOpen,
   composing,
   onMode,
@@ -53,6 +64,8 @@ export function AppSidebar({
   mode: AppMode;
   spaceId: string | null;
   labelId: string;
+  /** The workspace that's open, and where in it. */
+  workspace: (WorkspaceProps & { workspace: Workspace }) | null;
   settingsOpen: boolean;
   composing: boolean;
   onMode: (mode: AppMode) => void;
@@ -81,7 +94,13 @@ export function AppSidebar({
     spaceId && accounts.some((a) => a.id === spaceId) ? [spaceId] : accounts.map((a) => a.id);
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {mode === "calendar" ? (
+      {workspace && !composing ? (
+        <workspace.workspace.Sidebar
+          location={workspace.location}
+          item={workspace.item}
+          go={workspace.go}
+        />
+      ) : mode === "calendar" ? (
         <CalendarSidebar accounts={accounts} mode={labelId as CalendarMode} />
       ) : mode === "agent" ? (
         <AgentSidebar chatId={labelId} onSelect={onSelectChat} onNewChat={onNewChat} />
@@ -156,11 +175,12 @@ function ModeSwitcher({
 }) {
   const unread = Object.values(useInboxUnread(accounts)).some((n) => n > 0);
   const agentDot = useChats((s) => s.unseen.size > 0);
+  const workspaces = useWorkspaces();
   const modes: {
     mode: AppMode;
     label: string;
-    Icon: (props: NavGlyphProps) => ReactNode;
-    shortcut: KeybindingCommand;
+    Icon: ComponentType<Pick<NavGlyphProps, "selected" | "className">>;
+    shortcut?: KeybindingCommand;
     dot: boolean;
   }[] = [
     {
@@ -181,6 +201,12 @@ function ModeSwitcher({
           },
         ]
       : []),
+    ...workspaces.map((w) => ({
+      mode: `workspace:${w.id}` as const,
+      label: w.title,
+      Icon: w.Icon,
+      dot: false,
+    })),
     {
       mode: "agent",
       label: "Agent",
@@ -235,74 +261,19 @@ function SidebarTabs({
   onSelect: (id: string) => void;
 }) {
   const unread = useInboxUnread(accounts);
-  const tab = ({
-    id,
-    label,
-    icon,
-    hint,
-    dot = false,
-  }: {
-    id: string;
-    label: string;
-    icon: ReactNode;
-    hint?: string;
-    dot?: boolean;
-  }) => {
-    const selected = id === selectedId;
-    return (
-      <HintTooltip key={id} label={label} hint={hint} disabled={selected}>
-        <button
-          type="button"
-          aria-label={label}
-          aria-current={selected ? "page" : undefined}
-          onClick={() => onSelect(id)}
-          className={cn(
-            "flex h-8 min-w-0 shrink-0 cursor-pointer items-center rounded-lg px-1.5 text-sm font-medium outline-none transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-focus-ring motion-reduce:transition-none",
-            selected
-              ? "shrink bg-sidebar-row-selected text-sidebar-foreground"
-              : "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
-          )}
-        >
-          <span className="relative flex size-5 shrink-0 items-center justify-center [&>svg]:size-4">
-            {icon}
-            {dot && !selected ? (
-              <span
-                aria-hidden
-                className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-sidebar-foreground ring-2 ring-sidebar-surface"
-              />
-            ) : null}
-          </span>
-          {/* Its width opens from nothing (a grid track 0fr → 1fr, its padding
-              clipped while folded), and it fades in. */}
-          <span
-            aria-hidden
-            className={cn(
-              "grid min-w-0 overflow-hidden transition-[grid-template-columns,opacity] duration-200 ease-out motion-reduce:transition-none",
-              selected
-                ? "grid-cols-[minmax(0,1fr)] opacity-100"
-                : "grid-cols-[minmax(0,0fr)] opacity-0",
-            )}
-          >
-            <span className="truncate ps-2 pe-1">{label}</span>
-          </span>
-        </button>
-      </HintTooltip>
-    );
-  };
   return (
-    <div className="flex min-w-0 items-center gap-0.5" data-tour="mailbox">
-      {options.map((option) =>
-        tab({
-          id: option.id,
-          label: option.name,
-          icon: (
-            <AccountPicture account={option.account} className="size-5 rounded-md text-[10px]" />
-          ),
-          hint: option.shortcut,
-          dot: (unread[option.id] ?? 0) > 0,
-        }),
-      )}
-    </div>
+    <SidebarPicker
+      tour="mailbox"
+      selectedId={selectedId}
+      onSelect={onSelect}
+      items={options.map((option) => ({
+        id: option.id,
+        label: option.name,
+        icon: <AccountPicture account={option.account} className="size-5 rounded-md text-[10px]" />,
+        hint: option.shortcut,
+        dot: (unread[option.id] ?? 0) > 0,
+      }))}
+    />
   );
 }
 

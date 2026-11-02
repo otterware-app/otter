@@ -32,6 +32,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "./menu";
+import { allWorkspaces } from "../extensions/workspaces";
 import { useRecentlyViewed, type RecentIcon } from "../recently-viewed";
 import { OtterCalendarIcon } from "./app-icons";
 import type { MailAccount } from "./types";
@@ -59,7 +60,17 @@ function trackHistory(history: RouterHistory): void {
   });
 }
 
-export const RECENT_ICONS: Record<RecentIcon, ComponentType<{ className?: string }>> = {
+/** A place's icon: the app's own, or a workspace's mark. */
+export function recentIcon(icon: RecentIcon): ComponentType<{ className?: string }> | undefined {
+  if (icon.startsWith("workspace:"))
+    return allWorkspaces().find((w) => `workspace:${w.id}` === icon)?.Icon;
+  return RECENT_ICONS[icon as Exclude<RecentIcon, `workspace:${string}`>];
+}
+
+const RECENT_ICONS: Record<
+  Exclude<RecentIcon, `workspace:${string}`>,
+  ComponentType<{ className?: string }>
+> = {
   inbox: InboxIcon,
   starred: StarIcon,
   flagged: FlagIcon,
@@ -99,7 +110,7 @@ function RecentlyViewedMenu() {
           </p>
         ) : (
           places.map((place) => {
-            const Icon = RECENT_ICONS[place.icon] ?? MailIcon;
+            const Icon = recentIcon(place.icon) ?? MailIcon;
             return (
               <DropdownMenuItem
                 key={place.href}

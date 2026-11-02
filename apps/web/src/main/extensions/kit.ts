@@ -9,6 +9,16 @@
  */
 
 export type * from "./types";
+export { useOpenWorkspace } from "./workspaces";
+export { NavGlyph } from "../mail/app-icons";
+export { ChatMarkdown as Markdown } from "../mail/chat-markdown";
+export {
+  NewRow as SidebarAction,
+  Section as SidebarSection,
+  SidebarBody,
+  SidebarPicker,
+  SkRow as SidebarRow,
+} from "../mail/sidebar-ui";
 export { useCommandHandlers } from "../keybindings/dispatch";
 export { useShortcutLabel } from "../keybindings/store";
 

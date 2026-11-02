@@ -1,4 +1,5 @@
 import { isModClick } from "./keybindings/keys";
+import { isWorkspaceSegment } from "./extensions/workspaces";
 import type { RecentIcon } from "./recently-viewed";
 
 /**
@@ -44,6 +45,7 @@ export function iconForHref(href: string): RecentIcon {
   const [first = "", second = "", third] = href.split(/[?#]/)[0]!.split("/").filter(Boolean);
   if (first === "settings") return "settings";
   if (first === "calendar") return "calendar";
+  if (isWorkspaceSegment(first)) return `workspace:${first}`;
   if (first === "chats") return "chat";
   if (first === "compose") return "compose";
   if (third) return "conversation";

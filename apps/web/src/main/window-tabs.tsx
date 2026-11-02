@@ -5,7 +5,7 @@ import { AgentIcon } from "./mail/agent-icon";
 import { AgentAvatar, openClawAgentId } from "./mail/agent-providers";
 import { isBlank, useChats } from "./mail/chat-store";
 import { PanelTab } from "./mail/panel-tab";
-import { HistoryControls, RECENT_ICONS } from "./mail/top-bar";
+import { HistoryControls, recentIcon } from "./mail/top-bar";
 import { HintTooltip, IconBtn, cn } from "./mail/ui";
 import { usePanelTabDrag } from "./mail/use-panel-tab-drag";
 import type { RecentIcon } from "./recently-viewed";
@@ -157,7 +157,7 @@ export function WindowTabsBar({
         {...handlers}
       >
         {tabs.map((tab) => {
-          const Icon = RECENT_ICONS[tab.icon] ?? AgentIcon;
+          const Icon = recentIcon(tab.icon) ?? AgentIcon;
           const chatId = tab.icon === "chat" ? tab.href.match(/\/chats\/([^/?#]+)/)?.[1] : null;
           return (
             <PanelTab

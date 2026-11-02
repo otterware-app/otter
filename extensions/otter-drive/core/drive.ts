@@ -1,7 +1,9 @@
 /**
- * Otter Drive's API (https://drive.otterware.app, the `otterdrive` CLI's): a
- * device sign-in, the organizations, and publishing an attachment or the email
- * as a new artifact. The token stays in this device's secrets.
+ * Otter Drive's API (https://drive.otterware.app): a device sign-in, your
+ * drives and what's shared with you, their documents, and publishing files
+ * (an attachment, the email, an upload) as new ones. The token, and the drives
+ * you've turned off here, stay in this device's secrets; a drive that's off is
+ * refused below, whoever asks (the workspace or an agent).
  */
 
 import {
@@ -10,6 +12,7 @@ import {
   mailStore,
   platform,
   sha256Hex,
+  toBase64,
   utf8Encode,
 } from "@otter-mail/core/extension-kit";
 
@@ -18,17 +21,59 @@ const BASE = "https://drive.otterware.app";
 const CLIENT_ID = "otterware-cli";
 const SECRET = "otter-drive";
 
-type Session = { token: string; organizationId?: string };
-export type DriveOrganization = { id: string; name: string; slug: string };
+/** `hidden`: drives turned off on this device (their ids, or "shared" for Shared with me). */
+type Session = { token: string; hidden?: string[] };
+export type DriveFolder = {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  kind: "personal" | "shared" | "folder";
+  role: "owner" | "editor" | "viewer";
+  shared: boolean;
+};
+/** Shared with me, as a pseudo-drive's id. */
+export const SHARED = "shared";
+export type DriveVersion = {
+  number: number;
+  label: string;
+  entryPath: string;
+  createdAt: string;
+  createdBy: string | null;
+  fileCount: number;
+  byteSize: number;
+};
 export type DriveArtifact = {
   id: string;
+  folderId: string;
+  role: "owner" | "editor" | "viewer" | null;
+  shared: boolean;
   slug: string;
   title: string;
   description: string;
   updatedAt: string;
+  archived: boolean;
   url: string;
+  thumbnailUrl: string | null;
   versionCount: number;
+  current: DriveVersion | null;
 };
+/**
+ * What the workspace shows of a document: what it draws itself (Markdown, a
+ * table, text, an image, a one-file page in a sandbox), or what only Otter
+ * Drive shows (sites of several files, PDFs, video, workbooks).
+ */
+export type DrivePreview =
+  | { kind: "markdown" | "table" | "text"; text: string; delimiter?: string; truncated: boolean }
+  | { kind: "html"; html: string }
+  | { kind: "image"; src: string }
+  | {
+      kind: "elsewhere";
+      entryPath: string;
+      contentType: string;
+      fileCount: number;
+      byteSize: number;
+    };
 export type DriveSignIn = { userCode: string; verificationUrl: string; deviceCode: string };
 
 async function session(): Promise<Session | null> {
@@ -40,17 +85,18 @@ async function save(next: Session): Promise<void> {
   await platform().secrets.set(SECRET, JSON.stringify(next));
 }
 
-async function request<T>(
+async function call(
   path: string,
   init: RequestInit = {},
   auth: Session | null = null,
-): Promise<T> {
+  folderId?: string,
+) {
   const headers = new Headers(init.headers);
-  headers.set("accept", "application/json");
+  if (!headers.has("accept")) headers.set("accept", "application/json");
   if (typeof init.body === "string") headers.set("content-type", "application/json");
   if (auth) {
     headers.set("authorization", `Bearer ${auth.token}`);
-    if (auth.organizationId) headers.set("x-otterdrive-organization", auth.organizationId);
+    if (folderId) headers.set("x-otterdrive-folder", folderId);
   }
   let response: Response;
   try {
@@ -73,6 +119,16 @@ async function request<T>(
       throw new Error("Your Otter Drive sign-in expired. Sign in again in Settings → Connections.");
     throw new Error(body?.error?.message ?? `Otter Drive answered ${response.status}.`);
   }
+  return response;
+}
+
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  auth: Session | null = null,
+  folderId?: string,
+) {
+  const response = await call(path, init, auth, folderId);
   // An upload's PUT may answer with no JSON.
   return (await response.json().catch(() => undefined)) as T;
 }
@@ -86,12 +142,9 @@ async function signedIn(): Promise<Session> {
   return s;
 }
 
-export async function driveStatus(): Promise<{
-  connected: boolean;
-  organizationId?: string;
-}> {
+export async function driveStatus(): Promise<{ connected: boolean; hidden: string[] }> {
   const s = await session();
-  return s ? { connected: true, organizationId: s.organizationId } : { connected: false };
+  return { connected: s !== null, hidden: s?.hidden ?? [] };
 }
 
 export async function startSignIn(): Promise<DriveSignIn> {
@@ -155,74 +208,302 @@ export async function disconnect(): Promise<void> {
   await platform().secrets.delete(SECRET);
 }
 
-export async function organizations(): Promise<DriveOrganization[]> {
-  const list = await request<DriveOrganization[]>(
-    "/api/auth/organization/list",
-    {},
-    await signedIn(),
-  );
-  return list.map(({ id, name, slug }) => ({ id, name, slug }));
-}
+let folderCache: { at: number; token: string; list: DriveFolder[] } | null = null;
 
-export async function selectOrganization(id: string): Promise<void> {
-  const s = await signedIn();
-  if (!(await organizations()).some((o) => o.id === id))
-    throw new Error("That Otter Drive organization isn't yours.");
-  await save({ ...s, organizationId: id });
-}
-
-export async function artifacts(): Promise<DriveArtifact[]> {
-  const result = await request<{ data: DriveArtifact[] }>(
-    "/api/v1/artifacts?limit=50",
-    {},
-    await signedIn(),
-  );
-  return result.data.map(({ id, slug, title, description, updatedAt, url, versionCount }) => ({
+/** Every folder you can reach: your drives, their folders, and folders shared with you. */
+async function allFolders(auth: Session): Promise<DriveFolder[]> {
+  if (folderCache?.token === auth.token && Date.now() - folderCache.at < 30_000)
+    return folderCache.list;
+  const result = await request<{ data: DriveFolder[] }>("/api/v1/folders", {}, auth);
+  const list = result.data.map(({ id, name, slug, parentId, kind, role, shared }) => ({
     id,
+    name,
     slug,
-    title,
-    description,
-    updatedAt,
-    url,
-    versionCount,
+    parentId,
+    kind,
+    role,
+    shared: shared === true,
   }));
+  folderCache = { at: Date.now(), token: auth.token, list };
+  return list;
 }
 
-export type PublishInput = {
-  accountId: string;
-  messageId: string;
-  /** An attachment's id, or absent for the email itself. */
-  attachmentId?: string;
-  title: string;
+/** The topmost folder you can reach above this one: its drive, or the folder shared with you. */
+function driveOf(list: DriveFolder[], folder: DriveFolder): DriveFolder {
+  const byId = new Map(list.map((f) => [f.id, f]));
+  let current = folder;
+  for (let i = 0; current.parentId && byId.has(current.parentId) && i < 50; i++)
+    current = byId.get(current.parentId)!;
+  return current;
+}
+
+/** The drives (and folders shared with you at their top), on or off here: for Settings. */
+export async function drives(): Promise<DriveFolder[]> {
+  const list = await allFolders(await signedIn());
+  return list.filter((f) => driveOf(list, f).id === f.id);
+}
+
+/** The folders of the drives that are on. */
+export async function folders(): Promise<DriveFolder[]> {
+  const auth = await signedIn();
+  const hidden = new Set(auth.hidden ?? []);
+  const list = await allFolders(auth);
+  return list.filter((f) => !hidden.has(driveOf(list, f).id));
+}
+
+/** Turns a drive (or Shared with me) off or on, on this device. */
+export async function setDriveHidden(id: string, hidden: boolean): Promise<void> {
+  const auth = await signedIn();
+  const next = new Set(auth.hidden ?? []);
+  if (hidden) next.add(id);
+  else next.delete(id);
+  await save({ ...auth, hidden: [...next] });
+}
+
+/**
+ * The session, when the folder (or, with none, Shared with me) is in a drive
+ * that's on; refused otherwise, so nothing here reaches a drive you turned off.
+ */
+async function reachable(folderId: string | undefined): Promise<Session> {
+  const auth = await signedIn();
+  const hidden = new Set(auth.hidden ?? []);
+  if (!folderId) {
+    if (hidden.has(SHARED)) throw new Error("Shared with me is turned off in Otter Mail.");
+    return auth;
+  }
+  const list = await allFolders(auth);
+  const folder = list.find((f) => f.id === folderId);
+  if (folder && hidden.has(driveOf(list, folder).id))
+    throw new Error("That drive is turned off in Otter Mail.");
+  if (!folder && hidden.has(SHARED)) throw new Error("Shared with me is turned off in Otter Mail.");
+  return auth;
+}
+
+type RawVersion = {
+  number: number;
+  label: string;
+  entryPath: string;
+  createdAt: string;
+  createdBy: { name: string } | null;
+  fileCount: number;
+  byteSize: number;
+};
+type RawArtifact = Omit<
+  DriveArtifact,
+  "archived" | "current" | "thumbnailUrl" | "role" | "shared" | "folderId"
+> & {
+  folderId?: string;
+  organizationId?: string;
+  role?: DriveArtifact["role"];
+  shared?: boolean;
+  archivedAt: string | null;
+  thumbnailUrl?: string | null;
+  currentVersion: RawVersion | null;
 };
 
-/** Publishes one file as a new artifact (version 1) and returns its page. */
-export async function publish(input: PublishInput): Promise<{ url: string; title: string }> {
-  const auth = await signedIn();
-  const title = input.title.trim().slice(0, 200);
-  if (!title) throw new Error("Give it a title.");
-  const message = mailStore.getMessageDetail(input.accountId, input.messageId);
-  if (!message) throw new Error("Open the email again and retry.");
+const version = (v: RawVersion): DriveVersion => ({
+  number: v.number,
+  label: v.label,
+  entryPath: v.entryPath,
+  createdAt: v.createdAt,
+  createdBy: v.createdBy?.name ?? null,
+  fileCount: v.fileCount,
+  byteSize: v.byteSize,
+});
 
-  let file: { path: string; contentType: string; bytes: Uint8Array };
-  if (input.attachmentId) {
-    const part = message.attachments.find((a) => a.id === input.attachmentId);
-    if (!part) throw new Error("That attachment isn't on this email.");
-    const { base64 } = await getAttachmentData(input.accountId, input.messageId, part.id);
-    file = {
-      path: safeName(part.filename) || "attachment",
-      contentType: part.mimeType || "application/octet-stream",
-      bytes: fromBase64(base64),
-    };
-  } else {
-    file = {
-      path: "index.html",
-      contentType: "text/html",
-      bytes: utf8Encode(emailPage(message.subject, message.bodyHtml, message.bodyText)),
-    };
-  }
+const artifact = (a: RawArtifact): DriveArtifact => ({
+  id: a.id,
+  folderId: a.folderId ?? a.organizationId ?? "",
+  role: a.role ?? null,
+  shared: a.shared === true,
+  slug: a.slug,
+  title: a.title,
+  description: a.description,
+  updatedAt: a.updatedAt,
+  archived: a.archivedAt !== null,
+  url: a.url,
+  thumbnailUrl: a.thumbnailUrl ?? null,
+  versionCount: a.versionCount,
+  current: a.currentVersion ? version(a.currentVersion) : null,
+});
+
+const ref = (id: string) => encodeURIComponent(id);
+
+/** A folder's documents, most recently updated first (archived ones apart). */
+export async function artifacts(folderId: string, archived = false): Promise<DriveArtifact[]> {
+  const auth = await reachable(folderId);
+  const list: DriveArtifact[] = [];
+  let cursor: string | null = null;
+  // Up to 500: the workspace filters and searches them in place.
+  do {
+    const query = new URLSearchParams({ limit: "100" });
+    if (archived) query.set("archived", "only");
+    if (cursor) query.set("cursor", cursor);
+    const page = await request<{ data: RawArtifact[]; pagination: { nextCursor: string | null } }>(
+      `/api/v1/artifacts?${query}`,
+      {},
+      auth,
+      folderId,
+    );
+    list.push(...page.data.map(artifact));
+    cursor = page.pagination.nextCursor;
+  } while (cursor && list.length < 500);
+  return list;
+}
+
+/** Documents shared with you on their own (folders shared with you are in `folders`). */
+export async function sharedWithMe(): Promise<DriveArtifact[]> {
+  const auth = await reachable(undefined);
+  const result = await request<{ data: { type: string; artifact?: RawArtifact }[] }>(
+    "/api/v1/shared",
+    {},
+    auth,
+  );
+  return result.data.flatMap((item) =>
+    item.type === "artifact" && item.artifact ? [artifact(item.artifact)] : [],
+  );
+}
+
+export async function getArtifact(id: string, folderId?: string): Promise<DriveArtifact> {
+  const result = await request<{ data: RawArtifact }>(
+    `/api/v1/artifacts/${ref(id)}`,
+    {},
+    await reachable(folderId),
+    folderId,
+  );
+  return artifact(result.data);
+}
+
+export async function versions(id: string, folderId?: string): Promise<DriveVersion[]> {
+  const result = await request<{ data: RawVersion[] }>(
+    `/api/v1/artifacts/${ref(id)}/versions`,
+    {},
+    await reachable(folderId),
+    folderId,
+  );
+  return result.data.map(version);
+}
+
+const MAX_TEXT = 2_000_000;
+const TEXT_KINDS: Record<string, { kind: "markdown" | "table" | "text"; delimiter?: string }> = {
+  md: { kind: "markdown" },
+  markdown: { kind: "markdown" },
+  csv: { kind: "table", delimiter: "," },
+  tsv: { kind: "table", delimiter: "\t" },
+  txt: { kind: "text" },
+  json: { kind: "text" },
+};
+
+const MAX_PAGE = 5_000_000;
+const MAX_IMAGE = 15_000_000;
+
+/**
+ * A one-file document comes back for the app to draw: Markdown, tables and
+ * text as text, a page's HTML for a sandboxed frame, an image as data. Drive's
+ * own previews hang on a same-site cookie that a frame in the desktop app
+ * never gets, so anything else is opened in Otter Drive.
+ */
+export async function preview(
+  id: string,
+  folderId?: string,
+  versionNumber?: number,
+): Promise<DrivePreview> {
+  const auth = await reachable(folderId);
+  const query = versionNumber ? `?version=${versionNumber}` : "";
+  const page = await request<{ data: { contentType: string; version: RawVersion } }>(
+    `/api/v1/artifacts/${ref(id)}/preview${query}`,
+    {},
+    auth,
+    folderId,
+  );
+  const { entryPath, fileCount, byteSize } = page.data.version;
+  const contentType = page.data.contentType.split(";")[0]!.trim().toLowerCase();
+  const extension = entryPath.split(".").pop()?.toLowerCase() ?? "";
+  const text = TEXT_KINDS[extension];
+  const html = contentType === "text/html" || extension === "html" || extension === "htm";
+  const image = contentType.startsWith("image/") && contentType !== "image/svg+xml";
+  const drawn =
+    fileCount === 1 && (text || (html && byteSize <= MAX_PAGE) || (image && byteSize <= MAX_IMAGE));
+  if (!drawn) return { kind: "elsewhere", entryPath, contentType, fileCount, byteSize };
+
+  const params = new URLSearchParams({ path: entryPath });
+  if (versionNumber) params.set("version", String(versionNumber));
+  const response = await call(
+    `/api/v1/artifacts/${ref(id)}/content?${params}`,
+    { headers: { accept: "*/*" } },
+    auth,
+    folderId,
+  );
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (image) return { kind: "image", src: `data:${contentType};base64,${toBase64(bytes)}` };
+  if (html) return { kind: "html", html: new TextDecoder().decode(bytes) };
+  return {
+    ...text!,
+    text: new TextDecoder().decode(bytes.subarray(0, MAX_TEXT)),
+    truncated: bytes.length > MAX_TEXT,
+  };
+}
+
+export async function rename(
+  id: string,
+  folderId: string | undefined,
+  title: string,
+): Promise<DriveArtifact> {
+  const clean = title.trim().slice(0, 200);
+  if (!clean) throw new Error("Give it a title.");
+  const result = await request<{ data: RawArtifact }>(
+    `/api/v1/artifacts/${ref(id)}`,
+    { method: "PATCH", body: JSON.stringify({ title: clean }) },
+    await reachable(folderId),
+    folderId,
+  );
+  return artifact(result.data);
+}
+
+/** Archives it (Otter Drive keeps it, out of the list), or brings it back. */
+export async function setArchived(
+  id: string,
+  folderId: string | undefined,
+  archived: boolean,
+): Promise<void> {
+  await request(
+    `/api/v1/artifacts/${ref(id)}${archived ? "" : "/restore"}`,
+    { method: archived ? "DELETE" : "POST" },
+    await reachable(folderId),
+    folderId,
+  );
+}
+
+const THUMBNAILS = "https://usercontent.otterware.app/raw/thumbnail/";
+
+/**
+ * A thumbnail as a data URL: Drive serves them same-site only, which the
+ * desktop app's pages aren't, so its cards ask here when the image won't load.
+ */
+export async function thumbnail(url: string): Promise<string | null> {
+  if (!url.startsWith(THUMBNAILS)) throw new Error("Not an Otter Drive thumbnail.");
+  const response = await call(url, { headers: { accept: "image/*" } });
+  const type = response.headers.get("content-type") ?? "";
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (!type.startsWith("image/") || bytes.length > 2_000_000) return null;
+  return `data:${type};base64,${toBase64(bytes)}`;
+}
+
+type LocalFile = { path: string; contentType: string; bytes: Uint8Array };
+
+const MAX_UPLOAD = 100 * 1024 * 1024;
+
+/** Uploads one file as a new document (version 1). */
+async function publishFile(
+  auth: Session,
+  folderId: string,
+  file: LocalFile,
+  meta: { title: string; description: string },
+): Promise<DriveArtifact> {
+  if (file.bytes.length > MAX_UPLOAD) throw new Error(`${file.path} is over 100 MB.`);
+  const title = meta.title.trim().slice(0, 200) || file.path;
   const sha256 = await sha256Hex(file.bytes);
-
+  const label = "Saved from Otter Mail";
   const created = await request<{ data: { id: string } }>(
     "/api/v1/artifacts",
     {
@@ -230,12 +511,13 @@ export async function publish(input: PublishInput): Promise<{ url: string; title
       body: JSON.stringify({
         slug: slugFor(title),
         title,
-        description: `From “${message.subject}”`.slice(0, 2_000),
+        description: meta.description.slice(0, 2_000),
         entryPath: file.path,
-        label: "Saved from Otter Mail",
+        label,
       }),
     },
     auth,
+    folderId,
   );
   try {
     const upload = await request<{
@@ -248,7 +530,7 @@ export async function publish(input: PublishInput): Promise<{ url: string; title
       {
         method: "POST",
         body: JSON.stringify({
-          label: "Saved from Otter Mail",
+          label,
           entryPath: file.path,
           expectedCurrentVersion: 0,
           files: [
@@ -257,6 +539,7 @@ export async function publish(input: PublishInput): Promise<{ url: string; title
         }),
       },
       auth,
+      folderId,
     );
     const remote = upload.data.files[0];
     if (!remote) throw new Error("Otter Drive didn't accept the file.");
@@ -265,13 +548,11 @@ export async function publish(input: PublishInput): Promise<{ url: string; title
         url,
         {
           method: "PUT",
-          headers: {
-            "content-type": file.contentType,
-            "x-content-sha256": sha256,
-          },
+          headers: { "content-type": file.contentType, "x-content-sha256": sha256 },
           body: bytes as BodyInit,
         },
         auth,
+        folderId,
       );
     if (remote.multipart && remote.partSize) {
       const parts: { partNumber: number; etag: string }[] = [];
@@ -289,22 +570,106 @@ export async function publish(input: PublishInput): Promise<{ url: string; title
         `${remote.uploadUrl}/complete`,
         { method: "POST", body: JSON.stringify({ parts }) },
         auth,
+        folderId,
       );
     } else {
       await put(remote.uploadUrl, file.bytes);
     }
-    const done = await request<{ data: { artifact: { url: string; title: string } } }>(
+    const done = await request<{ data: { artifact: RawArtifact } }>(
       `/api/v1/uploads/${upload.data.id}/complete`,
       { method: "POST" },
       auth,
+      folderId,
     );
-    return { url: done.data.artifact.url, title: done.data.artifact.title };
+    return artifact(done.data.artifact);
   } catch (error) {
-    await request(`/api/v1/artifacts/${created.data.id}/draft`, { method: "DELETE" }, auth).catch(
-      () => {},
-    );
+    await request(
+      `/api/v1/artifacts/${created.data.id}/draft`,
+      { method: "DELETE" },
+      auth,
+      folderId,
+    ).catch(() => {});
     throw error;
   }
+}
+
+const titleOf = (name: string) => name.replace(/\.[^.]+$/, "") || name;
+
+/** Files the user picks, each as a new document. */
+export async function uploadPicked(folderId: string): Promise<DriveArtifact[]> {
+  const auth = await reachable(folderId);
+  const picked = await platform().userFiles.pick();
+  const done: DriveArtifact[] = [];
+  for (const f of picked)
+    done.push(
+      await publishFile(
+        auth,
+        folderId,
+        {
+          path: safeName(f.name) || "file",
+          contentType: f.mimeType || "application/octet-stream",
+          bytes: f.bytes,
+        },
+        { title: titleOf(f.name), description: "" },
+      ),
+    );
+  return done;
+}
+
+/** A file dropped on the workspace. */
+export async function uploadBytes(
+  folderId: string,
+  file: { name: string; type: string; base64: string },
+): Promise<DriveArtifact> {
+  return publishFile(
+    await reachable(folderId),
+    folderId,
+    {
+      path: safeName(file.name) || "file",
+      contentType: file.type || "application/octet-stream",
+      bytes: fromBase64(file.base64),
+    },
+    { title: titleOf(file.name), description: "" },
+  );
+}
+
+export type PublishInput = {
+  /** The drive or folder to save into. */
+  folderId: string;
+  accountId: string;
+  messageId: string;
+  /** An attachment's id, or absent for the email itself. */
+  attachmentId?: string;
+  title: string;
+};
+
+/** Publishes an attachment, or the email as a page, as a new document. */
+export async function publish(input: PublishInput): Promise<DriveArtifact> {
+  const auth = await reachable(input.folderId);
+  if (!input.title.trim()) throw new Error("Give it a title.");
+  const message = mailStore.getMessageDetail(input.accountId, input.messageId);
+  if (!message) throw new Error("Open the email again and retry.");
+  let file: LocalFile;
+  if (input.attachmentId) {
+    const part = message.attachments.find((a) => a.id === input.attachmentId);
+    if (!part) throw new Error("That attachment isn't on this email.");
+    const { base64 } = await getAttachmentData(input.accountId, input.messageId, part.id);
+    file = {
+      path: safeName(part.filename) || "attachment",
+      contentType: part.mimeType || "application/octet-stream",
+      bytes: fromBase64(base64),
+    };
+  } else {
+    file = {
+      path: "index.html",
+      contentType: "text/html",
+      bytes: utf8Encode(emailPage(message.subject, message.bodyHtml, message.bodyText)),
+    };
+  }
+  return publishFile(auth, input.folderId, file, {
+    title: input.title,
+    description: `From “${message.subject}”`,
+  });
 }
 
 const safeName = (name: string) =>

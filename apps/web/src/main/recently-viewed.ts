@@ -9,6 +9,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { getAccountDisplayName } from "./mail/account-style";
 import { senderLabel } from "./mail/address";
+import { workspaceOf } from "./extensions/workspaces";
 import { CALENDAR_SPACE, CHATS_SPACE, isViewSpaceId } from "./mail/spaces";
 import { SEARCH_MAILBOX } from "./mail/gmail-query";
 import { useLabels, useMessage } from "./mail/hooks";
@@ -36,7 +37,9 @@ export type RecentIcon =
   | "settings"
   | "compose"
   | "chat"
-  | "calendar";
+  | "calendar"
+  /** An extension's workspace, by id (its mark). */
+  | `workspace:${string}`;
 
 export type RecentPlace = Readonly<{
   href: string;
@@ -103,6 +106,7 @@ const SYSTEM_LABEL_ICONS: Record<string, RecentIcon> = {
 export function useRecordRecentlyViewed({
   ready,
   href,
+  workspaceTitle,
   settingsPane,
   composing,
   mailbox,
@@ -114,6 +118,8 @@ export function useRecordRecentlyViewed({
 }: {
   ready: boolean;
   href: string;
+  /** Where in a workspace it is, as the workspace names it (a document's title). */
+  workspaceTitle: string | null;
   settingsPane: SettingsPane | null;
   composing: boolean;
   mailbox: string | null;
@@ -156,6 +162,14 @@ export function useRecordRecentlyViewed({
         icon: "conversation",
       };
     }
+  } else if (workspaceOf(mailbox)) {
+    const workspace = workspaceOf(mailbox)!;
+    place = {
+      href,
+      context: workspace.title,
+      title: workspaceTitle ?? workspace.title,
+      icon: `workspace:${workspace.id}`,
+    };
   } else if (mailbox === CALENDAR_SPACE) {
     place = {
       href,

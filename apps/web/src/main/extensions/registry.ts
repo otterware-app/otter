@@ -55,6 +55,11 @@ export function hasIntegrations(): boolean {
 const DISABLED_KEY = "otter:extensions:disabled";
 const CHANGE_EVENT = "otter:extensions-changed";
 
+/** Whether it's turned on (Settings), read outside React. */
+export function extensionEnabled(id: string): boolean {
+  return !parseDisabled(readDisabled()).has(id);
+}
+
 function readDisabled(): string {
   return localStorage.getItem(DISABLED_KEY) ?? "[]";
 }

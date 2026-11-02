@@ -9,47 +9,33 @@ import {
   SelectTrigger,
   SelectValue,
   mailApi,
-  openLink,
   toast,
+  useOpenWorkspace,
   type MessageTarget,
 } from "@otter-mail/web/extension-kit";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { ExternalLinkIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { driveApi } from "./api";
+import { driveApi, driveLabel } from "./api";
+import { DriveMark } from "./drive-mark";
+import { errorText, useDriveStatus, useFolders } from "./hooks";
 
-export function useDriveStatus() {
-  return useQuery({ queryKey: ["otter-drive", "status"], queryFn: driveApi.status });
-}
-
-const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 const EMAIL = "__email__";
 
-type Request = { kind: "browse" } | { kind: "save"; email: MessageTarget };
-const listeners = new Set<(request: Request) => void>();
-export function browseOtterDrive(): void {
-  for (const listener of listeners) listener({ kind: "browse" });
-}
+const listeners = new Set<(email: MessageTarget) => void>();
 export function saveToOtterDrive(email: MessageTarget): void {
-  for (const listener of listeners) listener({ kind: "save", email });
+  for (const listener of listeners) listener(email);
 }
 
-/** Mounted once so the message action and ⌘K work from anywhere. */
+/** Mounted once so the message action works from the list and the reader. */
 export function OtterDriveDialogs() {
-  const [request, setRequest] = useState<Request | null>(null);
+  const [email, setEmail] = useState<MessageTarget | null>(null);
   useEffect(() => {
-    listeners.add(setRequest);
-    return () => void listeners.delete(setRequest);
+    listeners.add(setEmail);
+    return () => void listeners.delete(setEmail);
   }, []);
-  if (!request) return null;
-  const close = () => setRequest(null);
-  return request.kind === "browse" ? (
-    <DriveBrowser onClose={close} />
-  ) : (
-    <SaveToDrive email={request.email} onClose={close} />
-  );
+  return email ? <SaveToDrive email={email} onClose={() => setEmail(null)} /> : null;
 }
 
 function ConnectDrive({ onClose }: { onClose: () => void }) {
@@ -88,6 +74,14 @@ function SaveToDrive({ email, onClose }: { email: MessageTarget; onClose: () => 
   const shownTitle = title ?? (pickedName || "Email");
   const [pending, setPending] = useState(false);
   const connected = status.data?.connected === true;
+  // Drives you can add to: on here, and not just a viewer's.
+  const drives = (useFolders(connected).data ?? []).filter(
+    (f) => f.parentId === null && f.kind !== "folder" && f.role !== "viewer",
+  );
+  const [driveChoice, setDriveChoice] = useState<string | null>(null);
+  const driveId = driveChoice ?? drives.find((d) => d.kind === "personal")?.id ?? drives[0]?.id;
+  const openWorkspace = useOpenWorkspace();
+  const qc = useQueryClient();
 
   const save = async () => {
     setPending(true);
@@ -96,11 +90,16 @@ function SaveToDrive({ email, onClose }: { email: MessageTarget; onClose: () => 
         accountId: email.accountId,
         messageId: email.messageId,
         ...(picked === EMAIL ? {} : { attachmentId: picked }),
+        folderId: driveId!,
         title: shownTitle.trim(),
       });
       onClose();
+      void qc.invalidateQueries({ queryKey: ["otter-drive", "artifacts"] });
       toast.success(`Saved “${saved.title}” to Otter Drive`, {
-        action: { label: "Open", onClick: () => openLink(saved.url) },
+        action: {
+          label: "Open",
+          onClick: () => openWorkspace("drive", { location: saved.folderId, item: saved.id }),
+        },
       });
     } catch (error) {
       toast.error(errorText(error));
@@ -113,12 +112,12 @@ function SaveToDrive({ email, onClose }: { email: MessageTarget; onClose: () => 
     <Dialog
       open
       title="Save to Otter Drive"
-      description="Publishes it as a new artifact. Everyone in your Otter Drive organization can see it."
+      description="Saves it as a new document in the drive you choose. Everyone with access to that drive can see it."
       onOpenChange={(open) => {
         if (!open && !pending) onClose();
       }}
       confirmLabel={pending ? "Saving…" : "Save"}
-      confirmDisabled={!connected || pending || !shownTitle.trim() || !message.data}
+      confirmDisabled={!connected || pending || !shownTitle.trim() || !message.data || !driveId}
       onConfirm={save}
     >
       {status.data && !connected ? (
@@ -146,6 +145,25 @@ function SaveToDrive({ email, onClose }: { email: MessageTarget; onClose: () => 
               </SelectContent>
             </Select>
           </Field>
+          {drives.length > 1 ? (
+            <Field label="Drive" orientation="vertical">
+              <Select value={driveId} onValueChange={setDriveChoice}>
+                <SelectTrigger aria-label="Drive">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {drives.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      <span className="flex items-center gap-2">
+                        <DriveMark folder={d} className="size-4 text-[8px]" />
+                        {driveLabel(d)}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          ) : null}
           <Field label="Title" orientation="vertical">
             <Input
               value={shownTitle}
@@ -155,60 +173,6 @@ function SaveToDrive({ email, onClose }: { email: MessageTarget; onClose: () => 
             />
           </Field>
         </div>
-      )}
-    </Dialog>
-  );
-}
-
-function DriveBrowser({ onClose }: { onClose: () => void }) {
-  const status = useDriveStatus();
-  const connected = status.data?.connected === true;
-  const artifacts = useQuery({
-    queryKey: ["otter-drive", "artifacts", status.data?.organizationId],
-    queryFn: driveApi.artifacts,
-    enabled: connected,
-    retry: false,
-  });
-  return (
-    <Dialog
-      open
-      onOpenChange={(open) => !open && onClose()}
-      title="Otter Drive"
-      description="Your organization's artifacts, most recently updated first."
-      size="large"
-    >
-      {status.data && !connected ? (
-        <ConnectDrive onClose={onClose} />
-      ) : artifacts.isError ? (
-        <p className="text-sm text-destructive">{errorText(artifacts.error)}</p>
-      ) : !artifacts.data ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : artifacts.data.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nothing here yet.</p>
-      ) : (
-        <ul className="-mx-2 flex max-h-[60vh] flex-col overflow-y-auto">
-          {artifacts.data.map((a) => (
-            <li key={a.id}>
-              <button
-                type="button"
-                className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-accent"
-                onClick={() => openLink(a.url)}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm">{a.title}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {a.description || a.slug} ·{" "}
-                    {new Date(a.updatedAt).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                </span>
-                <ExternalLinkIcon className="size-3.5 shrink-0 text-muted-foreground" />
-              </button>
-            </li>
-          ))}
-        </ul>
       )}
     </Dialog>
   );
