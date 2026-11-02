@@ -13,6 +13,9 @@
 @custom-variant web (&:where([data-window-controls="none"] *));
 
 :root {
+  /* Native scrollbars and form controls follow the app's appearance, not the
+     system's (a white scrollbar track in dark mode otherwise). */
+  color-scheme: light;
   --radius: 0.5rem;
   /* Today in the calendar: a warm red, in light and dark. */
   --calendar-today: #eb5757;
@@ -132,6 +135,7 @@ html[data-window-controls="none"] {
   );
 }
 .dark {
+  color-scheme: dark;
   --glass-blur: 16px;
   --glass-saturation: 1.08;
   --appearance-contrast-target: white;
