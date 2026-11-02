@@ -114,7 +114,7 @@ import {
 import { RichTextArea, textToHtml, type RichTextRef } from "./rich-text";
 import { RecipientInput } from "./recipient-input";
 import { FromPicker } from "./new-message-view";
-import { addressesOf, ownAddress, replyAddress } from "./send-from";
+import { addressesOf, chosenAddress, replyAddress } from "./send-from";
 import {
   AttachmentChips,
   ComposeDropOverlay,
@@ -1706,9 +1706,14 @@ function InlineComposer({
   const ownAddresses = useMemo(() => (account ? addressesOf(account) : []), [account]);
   // Which of the mailbox's addresses it goes from: the one the mail was sent to, unless picked.
   const [pickedAddress, setPickedAddress] = useState<string>();
-  const fromAddress = account
-    ? (ownAddress(account, pickedAddress) ?? replyAddress(account, lastDetail ?? lastMessage))
-    : undefined;
+  // The default needs the detail: the summary lacks Cc, where the address contacted may be.
+  const sender =
+    account && lastDetail
+      ? chosenAddress(account, pickedAddress, replyAddress(account, lastDetail))
+      : undefined;
+  const fromAddress = sender?.address;
+  // A sender the mailbox no longer has opens the fields, where its notice is.
+  const showFields = fieldsOpen || !!sender?.unavailable;
 
   const previousMode = useRef(mode);
   useEffect(() => {
@@ -1818,7 +1823,8 @@ function InlineComposer({
       att: attachmentSignature(attachments),
     }),
     getPayload: () => {
-      if (!text.trim() || attachments == null) return null;
+      // Until the sender is known, a save would go from whichever address the server picks.
+      if (!text.trim() || attachments == null || !fromAddress) return null;
       const plain = editorRef.current?.getText() ?? text;
       const html = editorRef.current?.getHTML() ?? textToHtml(plain);
       return {
@@ -1838,8 +1844,10 @@ function InlineComposer({
   const forwardReady = attachments != null && (mode !== "forward" || lastDetail != null);
   const canSend =
     !sendMessage.isPending &&
-    // Not before the mailbox's addresses are known: the reply might go from the wrong one.
+    // Not before the sender is known (the mailbox's addresses, the message's Cc), nor from an
+    // address the mailbox no longer sends from.
     !!fromAddress &&
+    !sender?.unavailable &&
     hasRecipient &&
     forwardReady &&
     (mode === "forward" || text.trim().length > 0);
@@ -1923,7 +1931,7 @@ function InlineComposer({
       <ComposerCard onSend={() => void handleSend()}>
         <div className="flex min-h-10 items-center gap-1 border-b border-border/50 pl-2 pr-1.5">
           <ModeSwitcher mode={mode} onChange={onModeChange} />
-          {!fieldsOpen ? (
+          {!showFields ? (
             <button
               type="button"
               onClick={() => setFieldsOpen(true)}
@@ -1956,14 +1964,15 @@ function InlineComposer({
           onKeepMine={draft.keepMine}
           onSaveAsNew={draft.saveAsNew}
         />
-        {fieldsOpen ? (
+        {showFields ? (
           <>
-            {account && fromAddress && ownAddresses.length > 1 ? (
+            {account && fromAddress && (ownAddresses.length > 1 || sender?.unavailable) ? (
               <ComposerField label="From">
                 <FromPicker
                   accounts={[account]}
                   value={account}
                   address={fromAddress}
+                  unavailable={sender?.unavailable}
                   onChange={(_, address) => setPickedAddress(address)}
                 />
               </ComposerField>

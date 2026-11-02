@@ -10,7 +10,7 @@ import { mailApi } from "./api";
 import { RichTextArea, textToHtml, type RichTextRef } from "./rich-text";
 import { RecipientInput } from "./recipient-input";
 import { FromPicker } from "./new-message-view";
-import { addressesOf, ownAddress } from "./send-from";
+import { addressesOf, chosenAddress } from "./send-from";
 import { useDraftAutosave } from "./use-draft-autosave";
 import { IconBtn, HintTooltip } from "./ui";
 import { normalizeAddressList, parseAddressEntry, splitAddressList } from "./address";
@@ -64,10 +64,9 @@ export function DraftEditor({
   // The draft keeps the address it was written from. One the mailbox no longer sends from stays
   // (sending refuses it) until another is picked: never quietly swapped for the mailbox's own.
   const [pickedAddress, setPickedAddress] = useState(detail.fromEmail);
-  const fromAddress = account
-    ? (ownAddress(account, pickedAddress) ?? (pickedAddress || account.email))
-    : undefined;
-  const fromUnavailable = !!account && !!fromAddress && !ownAddress(account, fromAddress);
+  const sender = account ? chosenAddress(account, pickedAddress, account.email) : undefined;
+  const fromAddress = sender?.address;
+  const fromUnavailable = !!sender?.unavailable;
   const [to, setTo] = useState(detail.to ?? "");
   const [cc, setCc] = useState(detail.cc ?? "");
   const [ccVisible, setCcVisible] = useState(!!detail.cc);
@@ -300,13 +299,9 @@ export function DraftEditor({
             accounts={[account]}
             value={account}
             address={fromAddress}
+            unavailable={fromUnavailable}
             onChange={(_, address) => setPickedAddress(address)}
           />
-          {fromUnavailable ? (
-            <span className="ml-2 truncate text-xs text-destructive">
-              No longer one of this mailbox's addresses. Pick another to send.
-            </span>
-          ) : null}
         </ComposerField>
       ) : null}
       <ComposerField

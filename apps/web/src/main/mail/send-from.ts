@@ -28,3 +28,18 @@ export function replyAddress(
     account.email
   );
 }
+
+/**
+ * The address a composer sends from: the one picked (or the draft's), else `fallback`. A picked
+ * address the mailbox no longer sends from (removed in Settings, maybe on another device) stays,
+ * `unavailable`, so sending waits for another: never quietly swapped for a different sender.
+ */
+export function chosenAddress(
+  account: MailAccount,
+  picked: string | undefined,
+  fallback: string,
+): { address: string; unavailable: boolean } {
+  if (!picked) return { address: fallback, unavailable: false };
+  const own = ownAddress(account, picked);
+  return { address: own ?? picked, unavailable: !own };
+}
