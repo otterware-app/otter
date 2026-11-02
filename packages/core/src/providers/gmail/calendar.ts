@@ -12,11 +12,15 @@ import {
   NoCalendarAccess,
   type BusyBlock,
   type CalendarEvent,
+  type CalendarInfo,
   type EventInput,
   type RsvpResponse,
 } from "../provider.js";
 
-const CALENDAR = "https://www.googleapis.com/calendar/v3/calendars/primary";
+const API = "https://www.googleapis.com/calendar/v3";
+const CALENDAR = `${API}/calendars/primary`;
+/** One of the account's calendars (its primary, unless said). */
+const on = (calendarId = "primary") => `${API}/calendars/${encodeURIComponent(calendarId)}`;
 
 async function calendarFetch(
   accountId: string,
@@ -105,6 +109,7 @@ async function setResponse(
   accountId: string,
   event: ApiEvent,
   response: RsvpResponse,
+  calendarId?: string,
 ): Promise<ApiEvent> {
   const email = accountId.toLowerCase();
   const attendees = (event.attendees ?? []).map((a) =>
@@ -115,7 +120,7 @@ async function setResponse(
   }
   return (await calendarFetch(
     accountId,
-    `/events/${encodeURIComponent(event.id)}?sendUpdates=all`,
+    `${on(calendarId)}/events/${encodeURIComponent(event.id)}?sendUpdates=all`,
     { method: "PATCH", body: JSON.stringify({ attendees }) },
   )) as ApiEvent;
 }
@@ -209,13 +214,58 @@ function apiBody(input: EventInput, current?: ApiEvent): Record<string, unknown>
 
 const updates = (notify: boolean) => `sendUpdates=${notify ? "all" : "none"}`;
 
-async function fetchEvent(accountId: string, eventId: string): Promise<ApiEvent> {
-  return (await calendarFetch(accountId, `/events/${encodeURIComponent(eventId)}`)) as ApiEvent;
+async function fetchEvent(
+  accountId: string,
+  eventId: string,
+  calendarId?: string,
+): Promise<ApiEvent> {
+  return (await calendarFetch(
+    accountId,
+    `${on(calendarId)}/events/${encodeURIComponent(eventId)}`,
+  )) as ApiEvent;
+}
+
+type ApiCalendar = {
+  id: string;
+  summary?: string;
+  summaryOverride?: string;
+  backgroundColor?: string;
+  primary?: boolean;
+  accessRole?: string;
+  selected?: boolean;
+  hidden?: boolean;
+};
+
+/** Every calendar on the account's list (calendar.readonly): its own, shared, and followed. */
+export async function listCalendars(accountId: string): Promise<CalendarInfo[]> {
+  const items: ApiCalendar[] = [];
+  let pageToken: string | undefined;
+  do {
+    const params = new URLSearchParams({ maxResults: "250" });
+    if (pageToken) params.set("pageToken", pageToken);
+    const data = (await calendarFetch(accountId, `${API}/users/me/calendarList?${params}`)) as {
+      items?: ApiCalendar[];
+      nextPageToken?: string;
+    };
+    items.push(...(data.items ?? []));
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+  return items
+    .filter((c) => !c.hidden)
+    .map((c) => ({
+      id: c.primary ? "primary" : c.id,
+      name: c.summaryOverride || c.summary || c.id,
+      color: c.backgroundColor ?? null,
+      primary: Boolean(c.primary),
+      writable: c.accessRole === "owner" || c.accessRole === "writer",
+      hiddenByDefault: c.selected === false,
+    }))
+    .sort((a, b) => Number(b.primary) - Number(a.primary));
 }
 
 export async function listEvents(
   accountId: string,
-  range: { from: string; to: string; query?: string; limit: number },
+  range: { from: string; to: string; query?: string; limit: number; calendarId?: string },
 ): Promise<CalendarEvent[]> {
   const params = new URLSearchParams({
     timeMin: new Date(range.from).toISOString(),
@@ -225,22 +275,29 @@ export async function listEvents(
     maxResults: String(range.limit),
   });
   if (range.query) params.set("q", range.query);
-  const data = (await calendarFetch(accountId, `/events?${params}`)) as { items?: ApiEvent[] };
+  const data = (await calendarFetch(accountId, `${on(range.calendarId)}/events?${params}`)) as {
+    items?: ApiEvent[];
+  };
   return (data.items ?? []).map((e) => toEvent(accountId, e));
 }
 
-export async function getEvent(accountId: string, eventId: string): Promise<CalendarEvent> {
-  return toEvent(accountId, await fetchEvent(accountId, eventId));
+export async function getEvent(
+  accountId: string,
+  eventId: string,
+  calendarId?: string,
+): Promise<CalendarEvent> {
+  return toEvent(accountId, await fetchEvent(accountId, eventId, calendarId));
 }
 
 export async function createEvent(
   accountId: string,
   input: EventInput,
   notify: boolean,
+  calendarId?: string,
 ): Promise<CalendarEvent> {
   const created = (await calendarFetch(
     accountId,
-    `/events?${updates(notify)}&conferenceDataVersion=1`,
+    `${on(calendarId)}/events?${updates(notify)}&conferenceDataVersion=1`,
     { method: "POST", body: JSON.stringify(apiBody(input)) },
   )) as ApiEvent;
   return toEvent(accountId, created);
@@ -251,11 +308,13 @@ export async function updateEvent(
   eventId: string,
   patch: EventInput,
   notify: boolean,
+  calendarId?: string,
 ): Promise<CalendarEvent> {
-  const current = patch.start || patch.end ? await fetchEvent(accountId, eventId) : undefined;
+  const current =
+    patch.start || patch.end ? await fetchEvent(accountId, eventId, calendarId) : undefined;
   const updated = (await calendarFetch(
     accountId,
-    `/events/${encodeURIComponent(eventId)}?${updates(notify)}&conferenceDataVersion=1`,
+    `${on(calendarId)}/events/${encodeURIComponent(eventId)}?${updates(notify)}&conferenceDataVersion=1`,
     { method: "PATCH", body: JSON.stringify(apiBody(patch, current)) },
   )) as ApiEvent;
   return toEvent(accountId, updated);
@@ -265,28 +324,32 @@ export async function deleteEvent(
   accountId: string,
   eventId: string,
   notify: boolean,
+  calendarId?: string,
 ): Promise<void> {
-  await calendarFetch(accountId, `/events/${encodeURIComponent(eventId)}?${updates(notify)}`, {
-    method: "DELETE",
-  });
+  await calendarFetch(
+    accountId,
+    `${on(calendarId)}/events/${encodeURIComponent(eventId)}?${updates(notify)}`,
+    { method: "DELETE" },
+  );
 }
 
 export async function respondToEvent(
   accountId: string,
   eventId: string,
   response: RsvpResponse,
+  calendarId?: string,
 ): Promise<CalendarEvent> {
-  const event = await fetchEvent(accountId, eventId);
-  return toEvent(accountId, await setResponse(accountId, event, response));
+  const event = await fetchEvent(accountId, eventId, calendarId);
+  return toEvent(accountId, await setResponse(accountId, event, response, calendarId));
 }
 
-/** Teammates' busy times: Google's free/busy (the calendar.freebusy scope), no titles. */
+/** Teammates' busy times: Google's free/busy (calendar.readonly covers it), no titles. */
 export async function schedule(
   accountId: string,
   emails: string[],
   range: { from: string; to: string },
 ): Promise<Record<string, BusyBlock[] | null>> {
-  const data = (await calendarFetch(accountId, "https://www.googleapis.com/calendar/v3/freeBusy", {
+  const data = (await calendarFetch(accountId, `${API}/freeBusy`, {
     method: "POST",
     body: JSON.stringify({
       timeMin: new Date(range.from).toISOString(),

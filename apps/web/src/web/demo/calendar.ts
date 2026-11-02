@@ -1,6 +1,8 @@
 /**
- * The demo mailbox's Google Calendar: a made-up week of events around today,
- * kept in memory, answering the Calendar API calls the provider makes.
+ * The demo mailbox's Google Calendar: a made-up week of events around today
+ * on each account's primary calendar, a few more calendars beside it
+ * (birthdays, holidays, a project), kept in memory, answering the Calendar
+ * API calls the provider makes.
  */
 
 type ApiTime = { date?: string; dateTime?: string; timeZone?: string };
@@ -18,7 +20,90 @@ type ApiEvent = {
   recurringEventId?: string;
 };
 
-const calendars = new Map<string, ApiEvent[]>();
+/** Events by account, then by calendar. */
+const calendars = new Map<string, Map<string, ApiEvent[]>>();
+
+type ListedCalendar = {
+  id: string;
+  summary: string;
+  backgroundColor: string;
+  accessRole: "owner" | "reader";
+  primary?: boolean;
+  selected?: boolean;
+};
+
+/** Each account's calendar list: its own primary, and a few others. */
+function calendarList(email: string): ListedCalendar[] {
+  const primary = {
+    id: email,
+    summary: email,
+    backgroundColor: "#9a9cff",
+    accessRole: "owner" as const,
+    primary: true,
+  };
+  if (email.startsWith("demo@"))
+    return [
+      primary,
+      {
+        id: "birthdays@demo",
+        summary: "Birthdays",
+        backgroundColor: "#4fa3e0",
+        accessRole: "reader",
+      },
+      {
+        id: "be.holidays@demo",
+        summary: "Holidays in Belgium",
+        backgroundColor: "#16a765",
+        accessRole: "reader",
+        selected: false,
+      },
+    ];
+  return [
+    primary,
+    {
+      id: `projects@${email}`,
+      summary: "Projects",
+      backgroundColor: "#a47ae2",
+      accessRole: "owner",
+    },
+    {
+      id: "us.holidays@demo",
+      summary: "United States holidays",
+      backgroundColor: "#cd74e6",
+      accessRole: "reader",
+    },
+  ];
+}
+
+/** A calendar other than the primary: a few events around today. */
+function seedOther(calendarId: string): Omit<ApiEvent, "id" | "status">[] {
+  const day = (offset: number) => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + offset);
+    return dayKey(d);
+  };
+  const allDay = (summary: string, offset: number) => ({
+    summary,
+    start: { date: day(offset) },
+    end: { date: day(offset + 1) },
+  });
+  const at = (offset: number, hour: number) => {
+    const d = new Date();
+    d.setHours(hour, 0, 0, 0);
+    d.setDate(d.getDate() + offset);
+    return d.toISOString();
+  };
+  if (calendarId.startsWith("birthdays"))
+    return [allDay("Sam Park's birthday", 3), allDay("Leo Park's birthday", 12)];
+  if (calendarId.startsWith("be.holidays")) return [allDay("Armistice Day", 9)];
+  if (calendarId.startsWith("us.holidays"))
+    return [allDay("Veterans Day", 9), allDay("Thanksgiving", 24)];
+  return [
+    { summary: "Roadmap review", start: { dateTime: at(1, 10) }, end: { dateTime: at(1, 11) } },
+    { summary: "Ship the beta", start: { dateTime: at(4, 15) }, end: { dateTime: at(4, 16) } },
+  ];
+}
 let nextId = 1;
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -134,9 +219,18 @@ function seed(email: string): ApiEvent[] {
   return events.map((e) => ({ ...e, id: `ev${nextId++}`, status: "confirmed" }));
 }
 
-function eventsOf(email: string): ApiEvent[] {
-  let events = calendars.get(email);
-  if (!events) calendars.set(email, (events = seed(email)));
+function eventsOf(email: string, calendarId: string): ApiEvent[] {
+  let byCalendar = calendars.get(email);
+  if (!byCalendar) calendars.set(email, (byCalendar = new Map()));
+  const id = calendarId === "primary" ? email : calendarId;
+  let events = byCalendar.get(id);
+  if (!events) {
+    events =
+      id === email
+        ? seed(email)
+        : seedOther(id).map((e) => ({ ...e, id: `ev${nextId++}`, status: "confirmed" }));
+    byCalendar.set(id, events);
+  }
   return events;
 }
 
@@ -206,7 +300,11 @@ export function fakeCalendar(
       calendars: Object.fromEntries(items.map(({ id }) => [id, { busy: busyWeek(id, from, to) }])),
     });
   }
-  const events = eventsOf(email);
+  if (url.pathname.endsWith("/users/me/calendarList")) return json({ items: calendarList(email) });
+  const calendarId = decodeURIComponent(
+    /\/calendars\/([^/]+)/.exec(url.pathname)?.[1] ?? "primary",
+  );
+  const events = eventsOf(email, calendarId);
   const id = /\/events\/([^/]+)$/.exec(url.pathname)?.[1];
   // Invitations in the demo mail aren't on it: RSVPs go out as email replies.
   if (url.searchParams.has("iCalUID")) return json({ items: [] });

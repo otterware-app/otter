@@ -1,11 +1,25 @@
 import { useState, type ReactNode } from "react";
-import { ChevronDownIcon, ChevronUpIcon, EyeOffIcon, Undo2Icon, XIcon } from "lucide-react";
-import { getAccountColor, getAccountDisplayName } from "../mail/account-style";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  EyeIcon,
+  EyeOffIcon,
+  RssIcon,
+  Undo2Icon,
+  XIcon,
+} from "lucide-react";
+import { getAccountDisplayName } from "../mail/account-style";
 import { Section, SidebarBody } from "../mail/sidebar-ui";
 import type { MailAccount } from "../mail/types";
 import { HintTooltip, cn } from "../mail/ui";
-import { useCalendar } from "./calendar-store";
-import { TEAM_COLORS, calendarAccounts } from "./calendar-view";
+import { isShown, useCalendar } from "./calendar-store";
+import { useCalendarLists } from "./api";
+import {
+  TEAM_COLORS,
+  calendarAccounts,
+  listedCalendars,
+  type ListedCalendar,
+} from "./calendar-view";
 import {
   addDays,
   sameDay,
@@ -187,48 +201,86 @@ export function CalendarSidebar({
   accounts: MailAccount[];
   mode: CalendarMode;
 }) {
-  const hidden = useCalendar((s) => s.hidden);
-  const toggleHidden = useCalendar((s) => s.toggleHidden);
-  const calendars = calendarAccounts(accounts);
+  const shown = useCalendar((s) => s.shown);
+  const setShown = useCalendar((s) => s.setShown);
+  const mailboxes = calendarAccounts(accounts);
+  const lists = useCalendarLists(mailboxes.map((a) => a.id)).data;
+  const listed = listedCalendars(mailboxes, lists);
   return (
     <div className="flex min-h-0 flex-1 flex-col pt-2">
       <MiniMonth mode={mode} />
       <SidebarBody>
         <TeamCalendars />
-        <Section title="Calendars">
-          {calendars.map((account) => {
-            const off = hidden.includes(account.id);
-            const color = getAccountColor(account);
-            return (
-              <button
-                key={account.id}
-                type="button"
-                aria-pressed={!off}
-                onClick={() => toggleHidden(account.id)}
-                title={off ? "Show this calendar" : "Hide this calendar"}
-                className="group flex h-7 w-full cursor-pointer items-center gap-2 rounded-md px-(--sidebar-row-content-inset) text-left text-[13px] font-medium outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring"
-              >
-                <span
-                  aria-hidden
-                  className="size-3.5 shrink-0 rounded-[4px] border-[1.5px] transition-colors duration-150"
-                  style={{ borderColor: color, background: off ? "transparent" : color }}
-                />
-                <span
-                  className={cn(
-                    "min-w-0 flex-1 truncate transition-colors",
-                    off ? "text-sidebar-muted-foreground" : "text-sidebar-foreground",
-                  )}
-                >
-                  {getAccountDisplayName(account)}
-                </span>
-                {off ? (
-                  <EyeOffIcon className="size-3.5 shrink-0 text-sidebar-muted-foreground" />
-                ) : null}
-              </button>
-            );
-          })}
-        </Section>
+        {/* Each mailbox's calendars under its name, as Notion Calendar lists accounts. */}
+        {mailboxes.map((account) => {
+          const group = listed.filter((c) => c.account.id === account.id);
+          if (!group.length) return null;
+          return (
+            <Section key={account.id} title={getAccountDisplayName(account)}>
+              {group.map((calendar) => {
+                const on = isShown(shown, calendar.key, calendar.info.hiddenByDefault);
+                return (
+                  <CalendarRow
+                    key={calendar.key}
+                    calendar={calendar}
+                    on={on}
+                    onToggle={() => setShown(calendar.key, !on)}
+                  />
+                );
+              })}
+            </Section>
+          );
+        })}
       </SidebarBody>
     </div>
+  );
+}
+
+/** A calendar: its color (a followed one's with a feed mark), its name, and whether it shows. */
+function CalendarRow({
+  calendar,
+  on,
+  onToggle,
+}: {
+  calendar: ListedCalendar;
+  on: boolean;
+  onToggle: () => void;
+}) {
+  const { info, color } = calendar;
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onToggle}
+      title={on ? "Hide this calendar" : "Show this calendar"}
+      className="group flex h-7 w-full cursor-pointer items-center gap-2 rounded-md px-(--sidebar-row-content-inset) text-left text-[13px] font-medium outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring"
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "flex size-3.5 shrink-0 items-center justify-center rounded-[4px] transition-opacity duration-150",
+          !on && "opacity-40",
+        )}
+        style={{ background: color }}
+      >
+        {info.writable ? null : <RssIcon className="size-2.5 text-white" strokeWidth={3} />}
+      </span>
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate transition-colors",
+          on ? "text-sidebar-foreground" : "text-sidebar-muted-foreground/70",
+        )}
+      >
+        {info.name}
+        {info.primary ? (
+          <span className="ml-1.5 font-normal text-sidebar-muted-foreground">Default</span>
+        ) : null}
+      </span>
+      {on ? (
+        <EyeIcon className="size-3.5 shrink-0 text-sidebar-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+      ) : (
+        <EyeOffIcon className="size-3.5 shrink-0 text-sidebar-muted-foreground" />
+      )}
+    </button>
   );
 }

@@ -10,6 +10,7 @@ import {
   NoCalendarAccess,
   type BusyBlock,
   type CalendarEvent,
+  type CalendarInfo,
   type EventInput,
   type RsvpResponse,
 } from "../provider.js";
@@ -203,9 +204,50 @@ async function fetchEvent(accountId: string, eventId: string): Promise<ApiEvent>
   return calendarGraph<ApiEvent>(accountId, `${eventPath(eventId)}?$select=${EVENT_FIELDS}`);
 }
 
+// Outlook's named calendar colors, as Outlook shows them.
+const NAMED_COLORS: Record<string, string> = {
+  lightBlue: "#5ea3e0",
+  lightGreen: "#5ebd73",
+  lightOrange: "#f5a64a",
+  lightGray: "#a6a6a6",
+  lightYellow: "#e8c43c",
+  lightTeal: "#4cb8b8",
+  lightPink: "#e57ab8",
+  lightBrown: "#b58a68",
+  lightRed: "#e06666",
+  maxColor: "#7f7f7f",
+};
+
+type ApiCalendar = {
+  id: string;
+  name?: string;
+  hexColor?: string;
+  color?: string;
+  isDefaultCalendar?: boolean;
+  canEdit?: boolean;
+};
+
+/** Every calendar the mailbox has: its own, and those shared with it. */
+export async function listCalendars(accountId: string): Promise<CalendarInfo[]> {
+  const data = await calendarGraph<{ value?: ApiCalendar[] }>(
+    accountId,
+    "/me/calendars?$select=id,name,hexColor,color,isDefaultCalendar,canEdit&$top=100",
+  );
+  return (data.value ?? [])
+    .map((c) => ({
+      id: c.id,
+      name: c.name || "Calendar",
+      color: c.hexColor || (c.color ? (NAMED_COLORS[c.color] ?? null) : null),
+      primary: Boolean(c.isDefaultCalendar),
+      writable: c.canEdit !== false,
+      hiddenByDefault: false,
+    }))
+    .sort((a, b) => Number(b.primary) - Number(a.primary));
+}
+
 export async function listEvents(
   accountId: string,
-  range: { from: string; to: string; query?: string; limit: number },
+  range: { from: string; to: string; query?: string; limit: number; calendarId?: string },
 ): Promise<CalendarEvent[]> {
   const params = new URLSearchParams({
     startDateTime: new Date(range.from).toISOString(),
@@ -217,7 +259,7 @@ export async function listEvents(
   });
   const data = await calendarGraph<{ value?: ApiEvent[] }>(
     accountId,
-    `/me/calendarView?${params.toString()}`,
+    `${range.calendarId ? `/me/calendars/${encodeURIComponent(range.calendarId)}` : "/me"}/calendarView?${params.toString()}`,
   );
   const query = range.query?.toLowerCase();
   return (data.value ?? [])
@@ -240,20 +282,18 @@ export async function createEvent(
   accountId: string,
   input: EventInput,
   _notify: boolean,
+  calendarId?: string,
 ): Promise<CalendarEvent> {
   const body = apiBody(input);
+  const path = calendarId ? `/me/calendars/${encodeURIComponent(calendarId)}/events` : "/me/events";
   try {
-    return toEvent(
-      await calendarGraph<ApiEvent>(accountId, "/me/events", { method: "POST", body }),
-    );
+    return toEvent(await calendarGraph<ApiEvent>(accountId, path, { method: "POST", body }));
   } catch (err) {
     // Personal accounts can't make Teams meetings: the event without one.
     if (!(err instanceof GraphError) || err.status !== 400 || !body.isOnlineMeeting) throw err;
     delete body.isOnlineMeeting;
     delete body.onlineMeetingProvider;
-    return toEvent(
-      await calendarGraph<ApiEvent>(accountId, "/me/events", { method: "POST", body }),
-    );
+    return toEvent(await calendarGraph<ApiEvent>(accountId, path, { method: "POST", body }));
   }
 }
 

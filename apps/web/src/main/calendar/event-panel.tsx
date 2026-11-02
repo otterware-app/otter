@@ -25,11 +25,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "../mail/menu";
-import type { MailAccount } from "../mail/types";
 import { HintTooltip, IconBtn, cn } from "../mail/ui";
 import {
+  calendarKey,
   eventTimes,
   hasGuests,
   type CalEvent,
@@ -38,7 +39,9 @@ import {
   type useCalendarActions,
 } from "./api";
 import { useCalendar, type DraftEvent } from "./calendar-store";
+import type { ListedCalendar } from "./calendar-view";
 import { DAY, HOUR, dayKey, durationLabel, startOfDay, timeLabel } from "./dates";
+import { eventKey } from "./time-grid";
 
 const WIDTH = 304;
 const GAP = 8;
@@ -91,21 +94,23 @@ export function EventPanel({
   containerRef,
   event,
   draft,
-  accounts,
+  calendars,
   colorOf,
   actions,
 }: {
   containerRef: RefObject<HTMLElement | null>;
   event: CalEvent | null;
   draft: DraftEvent | null;
-  accounts: MailAccount[];
-  colorOf: (accountId: string) => string;
+  calendars: ListedCalendar[];
+  colorOf: (key: string) => string;
   actions: Actions;
 }) {
   const select = useCalendar((s) => s.select);
   const setDraft = useCalendar((s) => s.setDraft);
   const panelRef = useRef<HTMLDivElement>(null);
-  const anchorKey = event ? `${event.accountId}:${event.id}` : "draft";
+  const anchorKey = event ? eventKey(event) : "draft";
+  const calendarOf = (ref: { accountId: string; calendarId: string }) =>
+    calendars.find((c) => c.key === calendarKey(ref));
   const place = usePlacement(containerRef, anchorKey, panelRef);
   const close = () => select(null);
 
@@ -136,29 +141,33 @@ export function EventPanel({
       className="absolute z-40 border border-border/70 [background:linear-gradient(var(--popover),var(--popover)),var(--canvas)] flex max-h-[calc(100%-16px)] flex-col overflow-y-auto rounded-xl text-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] transition-[left,top] duration-150 ease-out animate-calendar-pop dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
     >
       {event?.teammate ? (
-        <TeammateEvent event={event} color={colorOf(event.accountId)} onClose={close} />
+        <TeammateEvent event={event} color={colorOf(calendarKey(event))} onClose={close} />
+      ) : event?.readOnly ? (
+        <ReadOnlyEvent
+          event={event}
+          color={colorOf(calendarKey(event))}
+          owner={calendarLabel(calendarOf(event)) ?? event.accountId}
+          onClose={close}
+        />
       ) : event ? (
         <EventDetails
           key={anchorKey}
           event={event}
-          color={colorOf(event.accountId)}
-          account={accounts.find((a) => a.id === event.accountId)}
+          color={colorOf(calendarKey(event))}
+          calendarName={calendarLabel(calendarOf(event)) ?? event.accountId}
           actions={actions}
           onClose={close}
         />
       ) : draft ? (
         <NewEvent
           draft={draft}
-          accounts={accounts}
+          calendars={calendars.filter((c) => c.info.writable)}
           colorOf={colorOf}
           onChange={(next) => setDraft(next)}
           onCreate={async (input) => {
-            const made = await actions.create(
-              draft.accountId,
-              input,
-              (input.attendees ?? []).length > 0,
-            );
-            if (made) select({ accountId: made.accountId, id: made.id });
+            const made = await actions.create(draft, input, (input.attendees ?? []).length > 0);
+            if (made)
+              select({ accountId: made.accountId, calendarId: made.calendarId, id: made.id });
             else setDraft(null);
           }}
           onClose={close}
@@ -498,6 +507,12 @@ function Rsvp({
   );
 }
 
+/** A calendar's name as shown: the mailbox's for its primary calendar. */
+function calendarLabel(calendar: ListedCalendar | undefined): string | undefined {
+  if (!calendar) return undefined;
+  return calendar.info.primary ? getAccountDisplayName(calendar.account) : calendar.info.name;
+}
+
 /** A teammate's busy time: what it is, when, and whose. */
 function TeammateEvent({
   event,
@@ -509,41 +524,81 @@ function TeammateEvent({
   onClose: () => void;
 }) {
   const name = useCalendar((s) => s.team.find((t) => t.email === event.teammate)?.name);
+  return (
+    <ReadOnlyEvent
+      event={event}
+      color={color}
+      owner={name ?? event.teammate ?? ""}
+      note="Busy"
+      onClose={onClose}
+    />
+  );
+}
+
+/** An event only to look at (a followed calendar's, a teammate's): what, when, where, whose. */
+function ReadOnlyEvent({
+  event,
+  color,
+  owner,
+  note,
+  onClose,
+}: {
+  event: CalEvent;
+  color: string;
+  owner: string;
+  note?: string;
+  onClose: () => void;
+}) {
+  const lastDay = event.allDay ? event.endMs - DAY : event.endMs - 1;
   const sameDay =
-    startOfDay(new Date(event.startMs)).getTime() ===
-    startOfDay(new Date(event.endMs - 1)).getTime();
+    startOfDay(new Date(event.startMs)).getTime() === startOfDay(new Date(lastDay)).getTime();
   return (
     <>
       <Header title="Event" onClose={onClose} />
       <div className="px-4 pb-2 text-[15px] font-medium">{event.title}</div>
       <Divider />
       <Row icon={<ClockIcon />} className="py-1.5">
-        <div className="flex h-7 items-center gap-2.5 text-[13px] tabular-nums">
-          <span>{timeLabel(new Date(event.startMs))}</span>
-          <ArrowRightIcon className="size-3.5 text-muted-foreground" />
-          <span>{timeLabel(new Date(event.endMs))}</span>
-          <span className="text-muted-foreground">
-            {durationLabel(event.endMs - event.startMs)}
-          </span>
-        </div>
+        {event.allDay ? null : (
+          <div className="flex h-7 items-center gap-2.5 text-[13px] tabular-nums">
+            <span>{timeLabel(new Date(event.startMs))}</span>
+            <ArrowRightIcon className="size-3.5 text-muted-foreground" />
+            <span>{timeLabel(new Date(event.endMs))}</span>
+            <span className="text-muted-foreground">
+              {durationLabel(event.endMs - event.startMs)}
+            </span>
+          </div>
+        )}
         <div className="flex h-7 items-center gap-2.5 text-[13px]">
           <span>{dayLabel(event.startMs)}</span>
           {sameDay ? null : (
             <>
               <ArrowRightIcon className="size-3.5 text-muted-foreground" />
-              <span>{dayLabel(event.endMs)}</span>
+              <span>{dayLabel(lastDay)}</span>
             </>
           )}
+          {event.allDay ? <span className="text-muted-foreground">All day</span> : null}
         </div>
       </Row>
+      {event.location ? (
+        <Row icon={<MapPinIcon />}>
+          <span className="flex min-h-6 items-center text-[13px]">{event.location}</span>
+        </Row>
+      ) : null}
+      {event.description ? (
+        <Row icon={<AlignLeftIcon />}>
+          <p className="whitespace-pre-wrap py-0.5 text-[13px] leading-5 text-foreground">
+            {event.description.replace(/<[^>]+>/g, "")}
+          </p>
+        </Row>
+      ) : null}
       <Divider />
       <Row
         icon={<span className="size-3 rounded-[3px]" style={{ background: color }} />}
         className="mb-2"
       >
         <span className="flex h-6 items-center truncate text-[13px]">
-          {name ?? event.teammate}
-          <span className="ml-3 text-muted-foreground">Busy</span>
+          {owner}
+          {note ? <span className="ml-3 text-muted-foreground">{note}</span> : null}
         </span>
       </Row>
     </>
@@ -553,13 +608,13 @@ function TeammateEvent({
 function EventDetails({
   event,
   color,
-  account,
+  calendarName,
   actions,
   onClose,
 }: {
   event: CalEvent;
   color: string;
-  account: MailAccount | undefined;
+  calendarName: string;
   actions: Actions;
   onClose: () => void;
 }) {
@@ -650,9 +705,7 @@ function EventDetails({
         icon={<span className="size-3 rounded-[3px]" style={{ background: color }} />}
         className="mb-2"
       >
-        <span className="flex h-6 items-center truncate text-[13px]">
-          {account ? getAccountDisplayName(account) : event.accountId}
-        </span>
+        <span className="flex h-6 items-center truncate text-[13px]">{calendarName}</span>
       </Row>
     </>
   );
@@ -660,15 +713,16 @@ function EventDetails({
 
 function NewEvent({
   draft,
-  accounts,
+  calendars,
   colorOf,
   onChange,
   onCreate,
   onClose,
 }: {
   draft: DraftEvent;
-  accounts: MailAccount[];
-  colorOf: (accountId: string) => string;
+  /** The calendars it can go on. */
+  calendars: ListedCalendar[];
+  colorOf: (key: string) => string;
   onChange: (draft: DraftEvent) => void;
   onCreate: (input: EventInput) => Promise<void>;
   onClose: () => void;
@@ -683,7 +737,7 @@ function NewEvent({
   const [location, setLocation] = useState("");
   const [guests, setGuests] = useState("");
   const [saving, setSaving] = useState(false);
-  const account = accounts.find((a) => a.id === draft.accountId);
+  const target = calendars.find((c) => c.key === calendarKey(draft));
   const create = async () => {
     if (saving) return;
     setSaving(true);
@@ -752,25 +806,37 @@ function NewEvent({
             >
               <span
                 className="size-3 shrink-0 rounded-[3px]"
-                style={{ background: colorOf(draft.accountId) }}
+                style={{ background: colorOf(calendarKey(draft)) }}
               />
-              <span className="truncate">
-                {account ? getAccountDisplayName(account) : draft.accountId}
-              </span>
+              <span className="truncate">{calendarLabel(target) ?? draft.accountId}</span>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            {accounts.map((a) => (
-              <DropdownMenuItem
-                key={a.id}
-                icon={
-                  <span className="size-3 rounded-[3px]" style={{ background: colorOf(a.id) }} />
-                }
-                onSelect={() => onChange({ ...draft, accountId: a.id })}
-              >
-                {getAccountDisplayName(a)}
-              </DropdownMenuItem>
-            ))}
+            {/* By mailbox, as in the sidebar. */}
+            {[...new Set(calendars.map((c) => c.account.id))].map((accountId) => {
+              const group = calendars.filter((c) => c.account.id === accountId);
+              return (
+                <div key={accountId}>
+                  <DropdownMenuLabel>{getAccountDisplayName(group[0]!.account)}</DropdownMenuLabel>
+                  {group.map((c) => (
+                    <DropdownMenuItem
+                      key={c.key}
+                      icon={
+                        <span
+                          className="size-3 rounded-[3px]"
+                          style={{ background: colorOf(c.key) }}
+                        />
+                      }
+                      onSelect={() =>
+                        onChange({ ...draft, accountId: c.account.id, calendarId: c.info.id })
+                      }
+                    >
+                      {c.info.primary ? getAccountDisplayName(c.account) : c.info.name}
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       </Row>

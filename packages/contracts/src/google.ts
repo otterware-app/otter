@@ -13,8 +13,9 @@ export const GMAIL_SCOPES = [
   // broader calendar.events before work the same; older tokens lack both: RSVP
   // then falls back to an email reply; re-adding the account upgrades it.
   "https://www.googleapis.com/auth/calendar.events.owned",
-  // Teammates' availability in the calendar (busy times only, no details).
-  // Older tokens get NoCalendarAccess there until the mailbox signs in again.
-  "https://www.googleapis.com/auth/calendar.freebusy",
+  // The calendar's list and every calendar on it (shared, followed: birthdays,
+  // holidays), and teammates' availability. Older tokens see only the primary
+  // calendar, and no teammates, until the mailbox signs in again.
+  "https://www.googleapis.com/auth/calendar.readonly",
   "https://www.googleapis.com/auth/gmail.settings.basic",
 ];

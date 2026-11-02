@@ -225,13 +225,17 @@ These are Otter Mail actions, separate from Gmail's own scheduled and snoozed fo
 
 ## Calendar
 
-Calendar mode (the switcher at the sidebar's foot, G C, or "Open calendar" in ⌘K): every Gmail and Outlook mailbox's
-primary calendar side by side, in its mailbox's color. IMAP mailboxes have none.
+Calendar mode (the switcher at the sidebar's foot, G C, or "Open calendar" in ⌘K): every calendar
+of every Gmail and Outlook mailbox side by side (its own, shared and followed: birthdays,
+holidays), grouped by mailbox as Notion Calendar does. The default calendar wears its mailbox's
+color, the others their color in Google or Outlook. IMAP mailboxes have none.
 
 | Feature                                                                                                     | Mac | Web | iPhone |
 | ----------------------------------------------------------------------------------------------------------- | --- | --- | ------ |
 | Day, week and month views; mini month and calendars in sidebar                                              | ✓   | ✓   | —      |
-| Show or hide each mailbox's calendar                                                                        | ✓   | ✓   | —      |
+| Show or hide each calendar (Google's unchecked ones start hidden)                                           | ✓   | ✓   | —      |
+| Followed and read-only calendars: looked at, not changed (no drag, read-only card)                          | ✓   | ✓   | —      |
+| New events on any calendar that takes them (picked in the card; the default first)                          | ✓   | ✓   | —      |
 | Event panel: title, time, place, notes edit in place; guests                                                | ✓   | ✓   | —      |
 | Yes / No / Maybe on invitations; Join meeting                                                               | ✓   | ✓   | —      |
 | Draw or click a slot to create; drag to move; drag edge to resize                                           | ✓   | ✓   | —      |
@@ -472,8 +476,11 @@ profile`).
 - `gmail.settings.basic`: saving signatures in Gmail (reading them needs only the mail scope).
 - `calendar.events.owned`: answering invitations in Google Calendar, replacing the broader
   `calendar.events` the Mac and web apps ask for today. Without it, RSVPs go by email reply.
-- `calendar.freebusy`: teammates' busy times in the calendar (⌘P), no details. Older sign-ins
-  see a note to sign in again; Outlook needs nothing new (`Calendars.ReadWrite` covers it).
+- `calendar.readonly`: every calendar on the account's list (shared, followed: birthdays,
+  holidays) and teammates' busy times (⌘P). Older sign-ins see the primary calendar only, with a
+  note to sign in again. Outlook needs nothing new for its own calendars (`Calendars.ReadWrite`);
+  calendars shared with an Outlook mailbox are listed but can't be read without
+  `Calendars.Read.Shared`, which isn't asked for (a refresh asking for an ungranted scope fails).
 - `contacts.readonly` + `contacts.other.readonly`: contact photos for sender avatars.
 
 ## Gaps worth closing

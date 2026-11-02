@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { startOfDay } from "./dates";
 
-const HIDDEN_KEY = "calendar:hidden";
+const SHOWN_KEY = "calendar:shown";
 const TEAM_KEY = "calendar:team";
 
 /** Someone whose calendar is shown over yours (⌘P). */
@@ -23,25 +23,31 @@ function saveTeam(team: Teammate[]): { team: Teammate[] } {
   return { team };
 }
 
-function readHidden(): string[] {
+/** Calendars shown or hidden by hand (by calendarKey); the rest follow where they came from. */
+function readShown(): Record<string, boolean> {
   try {
-    const value = JSON.parse(localStorage.getItem(HIDDEN_KEY) ?? "[]");
-    return Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
+    const value = JSON.parse(localStorage.getItem(SHOWN_KEY) ?? "{}");
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   } catch {
-    return [];
+    return {};
   }
 }
+
+/** Whether a calendar shows: as set by hand, else as where it came from. */
+export const isShown = (shown: Record<string, boolean>, key: string, hiddenByDefault: boolean) =>
+  shown[key] ?? !hiddenByDefault;
 
 /** A new event being drawn, before it has a title and is saved. */
 export type DraftEvent = {
   accountId: string;
+  calendarId: string;
   startMs: number;
   endMs: number;
   allDay: boolean;
   title?: string;
 };
 
-export type Selection = { accountId: string; id: string } | { draft: true };
+export type Selection = { accountId: string; calendarId: string; id: string } | { draft: true };
 
 type CalendarState = {
   /** The day the view is around; scrolled sideways (`free`), the week's first day shown. */
@@ -51,7 +57,7 @@ type CalendarState = {
   peek: Date | null;
   /** A day to glide to (Today, the mini month); the view takes it and clears it. */
   target: Date | null;
-  hidden: string[];
+  shown: Record<string, boolean>;
   team: Teammate[];
   selection: Selection | null;
   draft: DraftEvent | null;
@@ -60,7 +66,7 @@ type CalendarState = {
   setStart: (date: Date) => void;
   setPeek: (date: Date | null) => void;
   goTo: (date: Date) => void;
-  toggleHidden: (accountId: string) => void;
+  setShown: (key: string, show: boolean) => void;
   addTeammate: (teammate: Teammate) => void;
   removeTeammate: (email: string) => void;
   clearTeam: () => void;
@@ -73,7 +79,7 @@ export const useCalendar = create<CalendarState>((set) => ({
   free: false,
   peek: null,
   target: null,
-  hidden: readHidden(),
+  shown: readShown(),
   team: readTeam(),
   selection: null,
   draft: null,
@@ -81,13 +87,11 @@ export const useCalendar = create<CalendarState>((set) => ({
   setStart: (date) => set({ date: startOfDay(date), free: true, peek: null }),
   setPeek: (peek) => set({ peek }),
   goTo: (date) => set({ target: startOfDay(date) }),
-  toggleHidden: (accountId) =>
+  setShown: (key, show) =>
     set((s) => {
-      const hidden = s.hidden.includes(accountId)
-        ? s.hidden.filter((id) => id !== accountId)
-        : [...s.hidden, accountId];
-      localStorage.setItem(HIDDEN_KEY, JSON.stringify(hidden));
-      return { hidden };
+      const shown = { ...s.shown, [key]: show };
+      localStorage.setItem(SHOWN_KEY, JSON.stringify(shown));
+      return { shown };
     }),
   addTeammate: (teammate) =>
     set((s) =>

@@ -33,14 +33,52 @@ export type EventInput = {
   attendees?: string[];
 };
 
-/** An event on one mailbox's calendar, with its times read once. */
+/** One of a mailbox's calendars. */
+export type CalendarInfo = {
+  id: string;
+  name: string;
+  color: string | null;
+  primary: boolean;
+  writable: boolean;
+  hiddenByDefault: boolean;
+};
+
+export type AccountCalendars = {
+  accountId: string;
+  calendars: CalendarInfo[];
+  /** Only the primary calendar: the sign-in may not list the others yet. */
+  needsAccess?: boolean;
+  error?: "noAccess" | "failed";
+};
+
+/** Which calendar: a mailbox's, by its id there. */
+export type CalendarRef = { accountId: string; calendarId: string; writable: boolean };
+
+export const calendarKey = (ref: { accountId: string; calendarId: string }) =>
+  `${ref.accountId}|${ref.calendarId}`;
+
+/** An event on one of a mailbox's calendars, with its times read once. */
 export type CalEvent = CalendarEvent & {
   accountId: string;
+  calendarId: string;
   startMs: number;
   endMs: number;
-  /** A teammate's busy time (⌘P): theirs, so it's only looked at. */
+  /** On a calendar it can't change (a followed one, a teammate's): only looked at. */
+  readOnly?: boolean;
+  /** A teammate's busy time (⌘P). */
   teammate?: string;
 };
+
+/** Each mailbox's calendars; they change rarely. */
+export function useCalendarLists(accountIds: string[]) {
+  return useQuery({
+    queryKey: ["calendar", "lists", accountIds],
+    queryFn: () => ipc<AccountCalendars[]>("calendar:listCalendars", { accountIds }),
+    enabled: accountIds.length > 0,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+  });
+}
 
 export type BusyBlock = { start: string; end: string; title: string | null };
 
@@ -64,7 +102,7 @@ export function useTeamEvents(accountIds: string[], emails: string[], from: numb
       });
       const events: CalEvent[] = found.flatMap(({ email, blocks }) =>
         (blocks ?? []).map((b, i) => ({
-          ...withTimes(`team:${email}`, {
+          ...withTimes(`team:${email}`, "busy", {
             id: `${email}:${i}:${b.start}`,
             title: b.title ?? "Busy",
             start: b.start,
@@ -81,6 +119,7 @@ export function useTeamEvents(accountIds: string[], emails: string[], from: numb
             recurring: false,
           }),
           teammate: email,
+          readOnly: true,
         })),
       );
       return { events, schedules: found };
@@ -92,8 +131,8 @@ export function useTeamEvents(accountIds: string[], emails: string[], from: numb
 }
 
 type Range =
-  | { accountId: string; events: CalendarEvent[] }
-  | { accountId: string; error: "noAccess" | "failed"; message: string };
+  | { accountId: string; calendarId: string; events: CalendarEvent[] }
+  | { accountId: string; calendarId: string; error: "noAccess" | "failed"; message: string };
 
 /** All-day dates are local days; their end is the day after. */
 function instant(value: string, allDay: boolean): number {
@@ -104,56 +143,73 @@ function instant(value: string, allDay: boolean): number {
   return Date.parse(value);
 }
 
-export function withTimes(accountId: string, event: CalendarEvent): CalEvent {
+export function withTimes(accountId: string, calendarId: string, event: CalendarEvent): CalEvent {
   const startMs = instant(event.start, event.allDay);
   const endMs = Math.max(instant(event.end, event.allDay), startMs + (event.allDay ? DAY : 0));
-  return { ...event, accountId, startMs, endMs };
+  return { ...event, accountId, calendarId, startMs, endMs };
 }
+
+const sameEvent = (e: CalEvent, of: CalEvent) =>
+  e.accountId === of.accountId && e.calendarId === of.calendarId && e.id === of.id;
 
 const KEY = ["calendar", "events"] as const;
 
-type Cached = { events: CalEvent[]; failed: { accountId: string; error: string }[] };
+type Cached = {
+  events: CalEvent[];
+  failed: { accountId: string; calendarId: string; error: string }[];
+};
 
-async function fetchRange(accountIds: string[], from: number, to: number): Promise<Cached> {
+async function fetchRange(refs: CalendarRef[], from: number, to: number): Promise<Cached> {
   const ranges = await ipc<Range[]>("calendar:listEvents", {
-    accountIds,
+    calendars: refs.map(({ accountId, calendarId }) => ({ accountId, calendarId })),
     from: new Date(from).toISOString(),
     to: new Date(to).toISOString(),
   });
+  const writable = new Set(refs.filter((r) => r.writable).map(calendarKey));
   return {
     events: ranges.flatMap((r) =>
-      "error" in r ? [] : r.events.map((e) => withTimes(r.accountId, e)),
+      "error" in r
+        ? []
+        : r.events.map((e) => ({
+            ...withTimes(r.accountId, r.calendarId, e),
+            ...(writable.has(calendarKey(r)) ? {} : { readOnly: true }),
+          })),
     ),
     failed: ranges.flatMap((r) =>
-      "error" in r ? [{ accountId: r.accountId, error: r.error }] : [],
+      "error" in r ? [{ accountId: r.accountId, calendarId: r.calendarId, error: r.error }] : [],
     ),
   };
 }
 
-const rangeKey = (accountIds: string[], from: number, to: number) => [...KEY, from, to, accountIds];
+const rangeKey = (refs: CalendarRef[], from: number, to: number) => [
+  ...KEY,
+  from,
+  to,
+  refs.map(calendarKey),
+];
 
-/** Each mailbox's events in [from, to); the neighbouring ranges load too, so stepping is instant. */
-export function useCalendarEvents(accountIds: string[], from: number, to: number) {
+/** The calendars' events in [from, to); the neighbouring ranges load too, so stepping is instant. */
+export function useCalendarEvents(refs: CalendarRef[], from: number, to: number) {
   const qc = useQueryClient();
   const query = useQuery({
-    queryKey: rangeKey(accountIds, from, to),
-    queryFn: () => fetchRange(accountIds, from, to),
-    enabled: accountIds.length > 0,
+    queryKey: rangeKey(refs, from, to),
+    queryFn: () => fetchRange(refs, from, to),
+    enabled: refs.length > 0,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     refetchInterval: 120_000,
   });
-  const ids = accountIds.join(",");
+  const latest = JSON.stringify(refs);
   useEffect(() => {
-    if (!ids) return;
-    const list = ids.split(",");
+    const list = JSON.parse(latest) as CalendarRef[];
+    if (!list.length) return;
     for (const shift of [from - to, to - from])
       void qc.prefetchQuery({
         queryKey: rangeKey(list, from + shift, to + shift),
         queryFn: () => fetchRange(list, from + shift, to + shift),
         staleTime: 30_000,
       });
-  }, [qc, ids, from, to]);
+  }, [qc, latest, from, to]);
   return query;
 }
 
@@ -169,22 +225,36 @@ export function useCalendarActions() {
     toast.error(what, { description: err instanceof Error ? err.message : String(err) });
     settle();
   };
-  const replace = (accountId: string, id: string, next: CalEvent | null) =>
+  const replace = (of: CalEvent, next: CalEvent | null) =>
     patchCache((events) =>
       next
-        ? events.map((e) => (e.accountId === accountId && e.id === id ? next : e))
-        : events.filter((e) => !(e.accountId === accountId && e.id === id)),
+        ? events.map((e) => (sameEvent(e, of) ? next : e))
+        : events.filter((e) => !sameEvent(e, of)),
     );
+  const saved = (of: CalEvent, event: CalendarEvent): CalEvent => ({
+    ...withTimes(of.accountId, of.calendarId, event),
+    ...(of.readOnly ? { readOnly: true } : {}),
+  });
+  const where = (event: CalEvent) => ({
+    accountId: event.accountId,
+    calendarId: event.calendarId,
+    eventId: event.id,
+  });
 
   return {
-    async create(accountId: string, input: EventInput, notify: boolean): Promise<CalEvent | null> {
+    async create(
+      ref: { accountId: string; calendarId: string },
+      input: EventInput,
+      notify: boolean,
+    ): Promise<CalEvent | null> {
       try {
         const made = await task<CalendarEvent>("calendar:createEvent", {
-          accountId,
+          accountId: ref.accountId,
+          calendarId: ref.calendarId,
           input,
           notify,
         });
-        const event = withTimes(accountId, made);
+        const event = withTimes(ref.accountId, ref.calendarId, made);
         patchCache((events) => [...events, event]);
         settle();
         return event;
@@ -194,34 +264,23 @@ export function useCalendarActions() {
       }
     },
     update(event: CalEvent, patch: EventInput, notify: boolean): void {
-      const optimistic = withTimes(event.accountId, { ...event, ...patch } as CalendarEvent);
-      replace(event.accountId, event.id, optimistic);
-      task<CalendarEvent>("calendar:updateEvent", {
-        accountId: event.accountId,
-        eventId: event.id,
-        patch,
-        notify,
-      }).then(
-        (saved) => replace(event.accountId, event.id, withTimes(event.accountId, saved)),
+      replace(event, saved(event, { ...event, ...patch } as CalendarEvent));
+      task<CalendarEvent>("calendar:updateEvent", { ...where(event), patch, notify }).then(
+        (done) => replace(event, saved(event, done)),
         fail("Couldn't change the event"),
       );
     },
     remove(event: CalEvent, notify: boolean): void {
-      replace(event.accountId, event.id, null);
-      task("calendar:deleteEvent", {
-        accountId: event.accountId,
-        eventId: event.id,
-        notify,
-      }).then(settle, fail("Couldn't delete the event"));
+      replace(event, null);
+      task("calendar:deleteEvent", { ...where(event), notify }).then(
+        settle,
+        fail("Couldn't delete the event"),
+      );
     },
     respond(event: CalEvent, response: RsvpResponse): void {
-      replace(event.accountId, event.id, { ...event, response });
-      task<CalendarEvent>("calendar:respondToEvent", {
-        accountId: event.accountId,
-        eventId: event.id,
-        response,
-      }).then((saved) => {
-        replace(event.accountId, event.id, withTimes(event.accountId, saved));
+      replace(event, { ...event, response });
+      task<CalendarEvent>("calendar:respondToEvent", { ...where(event), response }).then((done) => {
+        replace(event, saved(event, done));
         // A declined invitation can leave the calendar (Outlook removes it).
         settle();
       }, fail("Couldn't answer the invitation"));

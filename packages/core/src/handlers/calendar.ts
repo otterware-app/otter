@@ -1,6 +1,6 @@
 /**
- * The Calendar space: each mailbox's calendar (Google Calendar, Outlook's),
- * read for a range and changed in place through its provider.
+ * The Calendar space: each mailbox's calendars (Google Calendar, Outlook's),
+ * listed, read for a range and changed in place through its provider.
  */
 
 import { handle } from "../ipc.js";
@@ -9,6 +9,7 @@ import {
   NoCalendarAccess,
   type BusyBlock,
   type CalendarEvent,
+  type CalendarInfo,
   type EventInput,
   type MailProvider,
   type RsvpResponse,
@@ -26,9 +27,17 @@ export type TeammateSchedule = {
   error?: "noAccess" | "failed";
 };
 
+export type AccountCalendars = {
+  accountId: string;
+  calendars: CalendarInfo[];
+  /** Only the primary calendar: the sign-in may not list the others yet. */
+  needsAccess?: boolean;
+  error?: "noAccess" | "failed";
+};
+
 export type CalendarRange =
-  | { accountId: string; events: CalendarEvent[] }
-  | { accountId: string; error: "noAccess" | "failed"; message: string };
+  | { accountId: string; calendarId: string; events: CalendarEvent[] }
+  | { accountId: string; calendarId: string; error: "noAccess" | "failed"; message: string };
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 const RESPONSES = new Set(["accepted", "declined", "tentative"]);
@@ -39,13 +48,42 @@ function calendarOf(accountId: string): Calendar {
   return calendar;
 }
 
-async function listRange(accountId: string, from: string, to: string): Promise<CalendarRange> {
+/** An account's calendars; a sign-in that can't list them still has its primary one. */
+async function accountCalendars(accountId: string): Promise<AccountCalendars> {
   try {
-    const events = await calendarOf(accountId).listEvents(accountId, { from, to, limit: 500 });
-    return { accountId, events: events.filter((e) => e.status !== "cancelled") };
+    return { accountId, calendars: await calendarOf(accountId).listCalendars(accountId) };
+  } catch (error) {
+    if (!(error instanceof NoCalendarAccess)) return { accountId, calendars: [], error: "failed" };
+    const primary: CalendarInfo = {
+      id: "primary",
+      name: accountId,
+      color: null,
+      primary: true,
+      writable: true,
+      hiddenByDefault: false,
+    };
+    return { accountId, calendars: [primary], needsAccess: true };
+  }
+}
+
+async function listRange(
+  accountId: string,
+  calendarId: string,
+  from: string,
+  to: string,
+): Promise<CalendarRange> {
+  try {
+    const events = await calendarOf(accountId).listEvents(accountId, {
+      from,
+      to,
+      limit: 500,
+      calendarId: calendarId || undefined,
+    });
+    return { accountId, calendarId, events: events.filter((e) => e.status !== "cancelled") };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { accountId, error: error instanceof NoCalendarAccess ? "noAccess" : "failed", message };
+    const kind = error instanceof NoCalendarAccess ? "noAccess" : "failed";
+    return { accountId, calendarId, error: kind, message };
   }
 }
 
@@ -96,22 +134,31 @@ export function registerCalendarHandlers(): void {
     return teammateSchedules(strings(p?.accountIds), strings(p?.emails), from, to);
   });
 
+  handle("calendar:listCalendars", async (params: unknown) =>
+    Promise.all(strings((params as Params)?.accountIds).map(accountCalendars)),
+  );
+
   handle("calendar:listEvents", async (params: unknown) => {
     const p = params as Params;
     const from = str(p?.from);
     const to = str(p?.to);
-    const ids = ((p?.accountIds ?? []) as unknown[]).filter(
-      (id): id is string => typeof id === "string",
-    );
     if (!from || !to) throw new Error("from and to are required.");
-    return Promise.all(ids.map((id) => listRange(id, from, to)));
+    const calendars = ((p?.calendars ?? []) as { accountId?: unknown; calendarId?: unknown }[])
+      .map((c) => ({ accountId: str(c?.accountId), calendarId: str(c?.calendarId) }))
+      .filter((c) => c.accountId);
+    return Promise.all(calendars.map((c) => listRange(c.accountId, c.calendarId, from, to)));
   });
 
   handle("calendar:createEvent", async (params: unknown) => {
     const p = params as Params;
     const accountId = str(p?.accountId);
     return runAsTask(str(p?.taskId) || undefined, () =>
-      calendarOf(accountId).createEvent(accountId, eventInput(p?.input), p?.notify === true),
+      calendarOf(accountId).createEvent(
+        accountId,
+        eventInput(p?.input),
+        p?.notify === true,
+        str(p?.calendarId) || undefined,
+      ),
     );
   });
 
@@ -126,6 +173,7 @@ export function registerCalendarHandlers(): void {
         eventId,
         eventInput(p?.patch),
         p?.notify === true,
+        str(p?.calendarId) || undefined,
       ),
     );
   });
@@ -136,7 +184,12 @@ export function registerCalendarHandlers(): void {
     const eventId = str(p?.eventId);
     if (!eventId) throw new Error("eventId is required.");
     return runAsTask(str(p?.taskId) || undefined, () =>
-      calendarOf(accountId).deleteEvent(accountId, eventId, p?.notify === true),
+      calendarOf(accountId).deleteEvent(
+        accountId,
+        eventId,
+        p?.notify === true,
+        str(p?.calendarId) || undefined,
+      ),
     );
   });
 
@@ -148,7 +201,12 @@ export function registerCalendarHandlers(): void {
     if (!eventId || !RESPONSES.has(response))
       throw new Error("eventId and a valid response are required.");
     return runAsTask(str(p?.taskId) || undefined, () =>
-      calendarOf(accountId).respondToEvent(accountId, eventId, response as RsvpResponse),
+      calendarOf(accountId).respondToEvent(
+        accountId,
+        eventId,
+        response as RsvpResponse,
+        str(p?.calendarId) || undefined,
+      ),
     );
   });
 }

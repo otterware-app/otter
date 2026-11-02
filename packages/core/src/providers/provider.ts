@@ -79,6 +79,20 @@ export type CalendarEvent = {
   recurring: boolean;
 };
 
+/** One of an account's calendars: its own, another it was given, or one it follows. */
+export type CalendarInfo = {
+  id: string;
+  name: string;
+  /** Its color in Google or Outlook, if it has one. */
+  color: string | null;
+  /** The account's default calendar. */
+  primary: boolean;
+  /** Its events can be added and changed (else they're only looked at). */
+  writable: boolean;
+  /** Turned off where it came from (Google's unchecked calendars). */
+  hiddenByDefault: boolean;
+};
+
 /** Someone else's time taken: the title only where their calendar shows it. */
 export type BusyBlock = { start: string; end: string; title: string | null };
 
@@ -210,23 +224,38 @@ export interface MailProvider {
       uid: string,
     ): Promise<{ response: RsvpResponse | "needsAction"; htmlLink: string | null } | null>;
     respond(accountId: string, uid: string, response: RsvpResponse): Promise<boolean>;
+    /** Every calendar the account has (its default first). */
+    listCalendars(accountId: string): Promise<CalendarInfo[]>;
+    // Without a calendarId, the account's default calendar.
     listEvents(
       accountId: string,
-      range: { from: string; to: string; query?: string; limit: number },
+      range: { from: string; to: string; query?: string; limit: number; calendarId?: string },
     ): Promise<CalendarEvent[]>;
-    getEvent(accountId: string, eventId: string): Promise<CalendarEvent>;
-    createEvent(accountId: string, input: EventInput, notify: boolean): Promise<CalendarEvent>;
+    getEvent(accountId: string, eventId: string, calendarId?: string): Promise<CalendarEvent>;
+    createEvent(
+      accountId: string,
+      input: EventInput,
+      notify: boolean,
+      calendarId?: string,
+    ): Promise<CalendarEvent>;
     updateEvent(
       accountId: string,
       eventId: string,
       patch: EventInput,
       notify: boolean,
+      calendarId?: string,
     ): Promise<CalendarEvent>;
-    deleteEvent(accountId: string, eventId: string, notify: boolean): Promise<void>;
+    deleteEvent(
+      accountId: string,
+      eventId: string,
+      notify: boolean,
+      calendarId?: string,
+    ): Promise<void>;
     respondToEvent(
       accountId: string,
       eventId: string,
       response: RsvpResponse,
+      calendarId?: string,
     ): Promise<CalendarEvent>;
     /** Other people's busy times, by address; null where theirs can't be seen. */
     schedule(

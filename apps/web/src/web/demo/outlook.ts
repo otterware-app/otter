@@ -1312,6 +1312,73 @@ function calendarView(box: Mailbox, req: Req): Answer {
   return page(req, list, (e) => pick(eventResource(e), select(req)));
 }
 
+const DEFAULT_CALENDAR = "AAMk-calendar";
+
+/** The mailbox's calendars: its own (the events above), a team one, and holidays it follows. */
+function calendars(box: Mailbox, req: Req, rest: string[]): Answer {
+  const [id, collection] = rest;
+  if (!id)
+    return ok({
+      value: [
+        {
+          id: DEFAULT_CALENDAR,
+          name: "Calendar",
+          hexColor: "",
+          color: "auto",
+          isDefaultCalendar: true,
+          canEdit: true,
+        },
+        {
+          id: "AAMk-team",
+          name: "Team",
+          hexColor: "",
+          color: "lightGreen",
+          isDefaultCalendar: false,
+          canEdit: true,
+        },
+        {
+          id: "AAMk-holidays",
+          name: "United States holidays",
+          hexColor: "#e3008c",
+          isDefaultCalendar: false,
+          canEdit: false,
+        },
+      ],
+    });
+  // New events: kept with the mailbox's own (the demo doesn't sort them by calendar).
+  if (collection === "events") return events(box, req, rest.slice(2));
+  if (id === DEFAULT_CALENDAR) return calendarView(box, req);
+  if (collection !== "calendarView")
+    return badRequest(`Resource not found for the segment '${collection}'.`);
+  // The other calendars: a couple of made-up events around today.
+  const day = (offset: number, hour = 0) => {
+    const d = new Date();
+    d.setHours(hour, 0, 0, 0);
+    d.setDate(d.getDate() + offset);
+    return { dateTime: d.toISOString().slice(0, 19), timeZone: "UTC" };
+  };
+  const made =
+    id === "AAMk-team"
+      ? [
+          {
+            id: "team-1",
+            subject: "Team retro",
+            start: day(2, 14),
+            end: day(2, 15),
+            isAllDay: false,
+          },
+          {
+            id: "team-2",
+            subject: "Quarter planning",
+            start: day(5, 10),
+            end: day(5, 12),
+            isAllDay: false,
+          },
+        ]
+      : [{ id: "hol-1", subject: "Veterans Day", start: day(9), end: day(10), isAllDay: true }];
+  return ok({ value: made.map((e) => ({ ...e, showAs: "busy", isOrganizer: true })) });
+}
+
 const SUBJECTS = ["1:1", "Pipeline review", "Customer call", "Focus", "Planning", "Interview"];
 
 /** Colleagues' made-up weeks, with the subjects Outlook shares. */
@@ -1391,6 +1458,8 @@ function route(box: Mailbox, req: Req): Answer {
     case "calendar":
       if (rest[0] === "getSchedule" && req.method === "POST") return getSchedule(req);
       break;
+    case "calendars":
+      return calendars(box, req, rest);
   }
   return badRequest(`Resource not found for the segment '${collection}'.`);
 }

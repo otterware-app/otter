@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { cn } from "../mail/ui";
-import type { CalEvent } from "./api";
+import { calendarKey, type CalEvent } from "./api";
 import { useCalendar } from "./calendar-store";
 import { DAY, sameDay, timeLabel, weekdayShort } from "./dates";
 import { eventStyle, isPending } from "./event-style";
@@ -13,14 +13,15 @@ export function MonthGrid({
   month,
   events,
   colorOf,
-  defaultAccountId,
+  defaultCalendar,
   onOpenDay,
 }: {
   days: Date[];
   month: number;
   events: CalEvent[];
   colorOf: (accountId: string) => string;
-  defaultAccountId: string | null;
+  /** Where a new event goes. */
+  defaultCalendar: { accountId: string; calendarId: string } | null;
   onOpenDay: (day: Date) => void;
 }) {
   const selection = useCalendar((s) => s.selection);
@@ -79,9 +80,9 @@ export function MonthGrid({
             <div
               key={start}
               onDoubleClick={(e) => {
-                if ((e.target as HTMLElement).closest("[data-event]") || !defaultAccountId) return;
+                if ((e.target as HTMLElement).closest("[data-event]") || !defaultCalendar) return;
                 setDraft({
-                  accountId: defaultAccountId,
+                  ...defaultCalendar,
                   startMs: start + 9 * 3_600_000,
                   endMs: start + 10 * 3_600_000,
                   allDay: false,
@@ -122,11 +123,17 @@ export function MonthGrid({
                     type="button"
                     data-event=""
                     data-event-key={key}
-                    onClick={() => select({ accountId: event.accountId, id: event.id })}
+                    onClick={() =>
+                      select({
+                        accountId: event.accountId,
+                        calendarId: event.calendarId,
+                        id: event.id,
+                      })
+                    }
                     style={
                       solid || selected
-                        ? eventStyle(colorOf(event.accountId), event, selected)
-                        : ({ "--event-color": colorOf(event.accountId) } as CSSProperties)
+                        ? eventStyle(colorOf(calendarKey(event)), event, selected)
+                        : ({ "--event-color": colorOf(calendarKey(event)) } as CSSProperties)
                     }
                     className={cn(
                       "flex h-5 shrink-0 cursor-default items-center gap-1.5 overflow-hidden rounded-[5px] border border-transparent px-1 text-left text-[11px] transition-colors duration-150",
@@ -166,7 +173,7 @@ export function MonthGrid({
                 <div
                   data-event=""
                   data-event-key="draft"
-                  style={eventStyle(colorOf(draft.accountId), { response: null }, true)}
+                  style={eventStyle(colorOf(calendarKey(draft)), { response: null }, true)}
                   className="flex h-5 shrink-0 items-center rounded-[5px] border px-1.5 text-[11px] font-medium"
                 >
                   <span className="truncate">{draft.title?.trim() || "New event"}</span>

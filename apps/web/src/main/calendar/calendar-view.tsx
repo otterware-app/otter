@@ -12,8 +12,17 @@ import {
 } from "../mail/menu";
 import type { MailAccount } from "../mail/types";
 import { HintTooltip, IconBtn, buttonClass } from "../mail/ui";
-import { hasGuests, useCalendarActions, useCalendarEvents, useTeamEvents } from "./api";
-import { useCalendar } from "./calendar-store";
+import {
+  calendarKey,
+  hasGuests,
+  useCalendarActions,
+  useCalendarEvents,
+  useCalendarLists,
+  useTeamEvents,
+  type AccountCalendars,
+  type CalendarInfo,
+} from "./api";
+import { isShown, useCalendar } from "./calendar-store";
 import {
   DAY,
   addDays,
@@ -70,6 +79,32 @@ function legible(hex: string): string {
 /** Teammates' colors, apart from the mailboxes'. */
 export const TEAM_COLORS = ["#34c759", "#af52de", "#ff9500", "#00c7be", "#ff2d55", "#5856d6"];
 
+/** A calendar of one of the mailboxes, with the color it's drawn in. */
+export type ListedCalendar = {
+  account: MailAccount;
+  info: CalendarInfo;
+  key: string;
+  color: string;
+};
+
+/**
+ * Every mailbox's calendars, in the mailboxes' order. The primary one wears
+ * the mailbox's color; the others, the color they have in Google or Outlook.
+ */
+export function listedCalendars(
+  accounts: MailAccount[],
+  lists: AccountCalendars[] | undefined,
+): ListedCalendar[] {
+  return accounts.flatMap((account) =>
+    (lists?.find((l) => l.accountId === account.id)?.calendars ?? []).map((info) => ({
+      account,
+      info,
+      key: calendarKey({ accountId: account.id, calendarId: info.id }),
+      color: info.primary || !info.color ? getAccountColor(account) : info.color,
+    })),
+  );
+}
+
 /** The mailboxes whose calendars the app can show. */
 export const calendarAccounts = (accounts: MailAccount[]) =>
   accounts.filter((a) => a.capabilities?.calendar && !a.signedOut);
@@ -89,7 +124,7 @@ export function CalendarView({
 }) {
   const date = useCalendar((s) => s.date);
   const setDate = useCalendar((s) => s.setDate);
-  const hidden = useCalendar((s) => s.hidden);
+  const shown = useCalendar((s) => s.shown);
   const selection = useCalendar((s) => s.selection);
   const draft = useCalendar((s) => s.draft);
   const select = useCalendar((s) => s.select);
@@ -97,7 +132,16 @@ export function CalendarView({
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const calendars = calendarAccounts(accounts);
-  const shownIds = calendars.filter((a) => !hidden.includes(a.id)).map((a) => a.id);
+  // Every calendar of every mailbox, and those shown.
+  const lists = useCalendarLists(calendars.map((a) => a.id)).data;
+  const listed = listedCalendars(calendars, lists);
+  const visible = listed.filter((c) => isShown(shown, c.key, c.info.hiddenByDefault));
+  const refs = visible.map((c) => ({
+    accountId: c.account.id,
+    calendarId: c.info.id,
+    writable: c.info.writable,
+  }));
+  const visibleKeys = new Set(visible.map((c) => c.key));
   const free = useCalendar((s) => s.free);
   const setStart = useCalendar((s) => s.setStart);
   const setPeek = useCalendar((s) => s.setPeek);
@@ -114,7 +158,7 @@ export function CalendarView({
   const from = strip[0].getTime();
   const to = addDays(strip[strip.length - 1], 1).getTime();
   const stepGrid = useRef<((days: number) => void) | null>(null);
-  const { data } = useCalendarEvents(shownIds, from, to);
+  const { data } = useCalendarEvents(refs, from, to);
   // Teammates (⌘P): their busy times over yours, each in a color of their own.
   const team = useCalendar((s) => s.team);
   const [picking, setPicking] = useState(false);
@@ -125,22 +169,32 @@ export function CalendarView({
     to,
   ).data;
   const events = [
-    ...(data?.events ?? []).filter((e) => shownIds.includes(e.accountId)),
+    ...(data?.events ?? []).filter((e) => visibleKeys.has(calendarKey(e))),
     ...(team.length ? (teamData?.events ?? []) : []),
   ];
   const colors = new Map<string, string>([
-    ...calendars.map((a): [string, string] => [a.id, getAccountColor(a)]),
+    ...listed.map((c): [string, string] => [c.key, c.color]),
     ...team.map((t, i): [string, string] => [
-      `team:${t.email}`,
+      calendarKey({ accountId: `team:${t.email}`, calendarId: "busy" }),
       TEAM_COLORS[i % TEAM_COLORS.length]!,
     ]),
   ]);
-  const colorOf = (id: string) => legible(colors.get(id) ?? "#8a8a8a");
-  const defaultAccountId = shownIds[0] ?? null;
+  const colorOf = (key: string) => legible(colors.get(key) ?? "#8a8a8a");
+  // New events go to the first shown calendar that takes them, primary first.
+  const defaultTarget =
+    visible.find((c) => c.info.primary && c.info.writable) ?? visible.find((c) => c.info.writable);
+  const defaultCalendar = defaultTarget
+    ? { accountId: defaultTarget.account.id, calendarId: defaultTarget.info.id }
+    : null;
 
   const selected =
     selection && !("draft" in selection)
-      ? (events.find((e) => e.accountId === selection.accountId && e.id === selection.id) ?? null)
+      ? (events.find(
+          (e) =>
+            e.accountId === selection.accountId &&
+            e.calendarId === selection.calendarId &&
+            e.id === selection.id,
+        ) ?? null)
       : null;
 
   const go = (by: number) => {
@@ -216,7 +270,7 @@ export function CalendarView({
       else if (key === "m") run(() => k.onMode("month"));
       else if (key === "j" || key === "arrowright") run(() => k.go(1));
       else if (key === "k" || key === "arrowleft") run(() => k.go(-1));
-      else if ((key === "backspace" || key === "delete") && k.selected) {
+      else if ((key === "backspace" || key === "delete") && k.selected && !k.selected.readOnly) {
         const event = k.selected;
         const mine =
           !event.organizer || event.organizer.toLowerCase() === event.accountId.toLowerCase();
@@ -230,20 +284,24 @@ export function CalendarView({
     return () => window.removeEventListener("keydown", down);
   }, [keys]);
 
+  const nameOf = (accountId: string) => {
+    const account = calendars.find((a) => a.id === accountId);
+    return account ? getAccountDisplayName(account) : accountId;
+  };
   const failed = (data?.failed ?? []).flatMap((f) => {
-    const account = calendars.find((a) => a.id === f.accountId);
-    return account ? [{ ...f, name: getAccountDisplayName(account) }] : [];
+    const found = listed.find((c) => c.key === calendarKey(f));
+    return found && f.error !== "noAccess"
+      ? [found.info.primary ? nameOf(f.accountId) : found.info.name]
+      : [];
   });
-  // A Gmail sign-in from before teammates' availability needs to sign in again for it.
-  const teamBlocked = [
-    ...new Set(
-      (team.length ? (teamData?.schedules ?? []) : [])
+  // Google sign-ins from before the app read every calendar need to sign in again.
+  const needsSignIn = [
+    ...new Set([
+      ...(lists ?? []).filter((l) => l.needsAccess).map((l) => nameOf(l.accountId)),
+      ...(team.length ? (teamData?.schedules ?? []) : [])
         .filter((s) => s.error === "noAccess")
-        .flatMap((s) => {
-          const account = calendars.find((a) => a.id === s.accountId);
-          return account ? [getAccountDisplayName(account)] : [];
-        }),
-    ),
+        .map((s) => nameOf(s.accountId)),
+    ]),
   ];
   const modeLabel = CALENDAR_MODES.find((m) => m.mode === mode)!.label;
 
@@ -257,18 +315,12 @@ export function CalendarView({
         <CalendarTitle mode={mode} date={date} first={days[0]} />
         {failed.length ? (
           <span className="min-w-0 truncate text-xs text-muted-foreground">
-            {failed
-              .map((f) =>
-                f.error === "noAccess"
-                  ? `Sign in to ${f.name} again to show its calendar`
-                  : `Couldn't load ${f.name}'s calendar`,
-              )
-              .join(" · ")}
+            Couldn&apos;t load {failed.join(", ")}
           </span>
         ) : null}
-        {teamBlocked.length ? (
+        {needsSignIn.length ? (
           <span className="min-w-0 truncate text-xs text-muted-foreground">
-            Sign in to {teamBlocked.join(", ")} again to see teammates&apos; availability
+            Sign in to {needsSignIn.join(", ")} again to see all its calendars
           </span>
         ) : null}
         <span className="min-w-0 flex-1" />
@@ -321,7 +373,7 @@ export function CalendarView({
       <div
         ref={bodyRef}
         // Within the card's rounded corners: the grid's sticky parts are opaque.
-        className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-b-xl"
+        className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl"
         onPointerDown={(e) => {
           if (!(e.target as HTMLElement).closest("[data-event]")) select(null);
         }}
@@ -341,7 +393,7 @@ export function CalendarView({
                 month={date.getMonth()}
                 events={events}
                 colorOf={colorOf}
-                defaultAccountId={defaultAccountId}
+                defaultCalendar={defaultCalendar}
                 onOpenDay={openDay}
               />
             ) : (
@@ -354,7 +406,7 @@ export function CalendarView({
                 onPeek={(shift) => setPeek(shift ? addDays(days[0], shift) : null)}
                 events={events}
                 colorOf={colorOf}
-                defaultAccountId={defaultAccountId}
+                defaultCalendar={defaultCalendar}
                 actions={actions}
                 onOpenDay={openDay}
               />
@@ -366,7 +418,7 @@ export function CalendarView({
             containerRef={bodyRef}
             event={selected}
             draft={selected ? null : draft}
-            accounts={calendars}
+            calendars={listed}
             colorOf={colorOf}
             actions={actions}
           />

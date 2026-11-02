@@ -9,7 +9,7 @@ import {
 import { useLatest } from "../use-latest";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "../mail/ui";
-import { eventTimes, hasGuests, type CalEvent, type useCalendarActions } from "./api";
+import { eventTimes, hasGuests, type CalEvent, type useCalendarActions, calendarKey } from "./api";
 import { useCalendar } from "./calendar-store";
 import {
   DAY,
@@ -32,7 +32,8 @@ const GUTTER_PX = 56;
 
 type Actions = ReturnType<typeof useCalendarActions>;
 
-export const eventKey = (e: Pick<CalEvent, "accountId" | "id">) => `${e.accountId}:${e.id}`;
+export const eventKey = (e: Pick<CalEvent, "accountId" | "calendarId" | "id">) =>
+  `${e.accountId}|${e.calendarId}|${e.id}`;
 
 /** Side by side where they overlap: each cluster's events share its width in columns. */
 function layoutDay(events: CalEvent[]): Map<CalEvent, { col: number; cols: number }> {
@@ -81,7 +82,7 @@ export function TimeGrid({
   onPeek,
   events,
   colorOf,
-  defaultAccountId,
+  defaultCalendar,
   actions,
   onOpenDay,
 }: {
@@ -97,7 +98,8 @@ export function TimeGrid({
   onPeek: (shift: number) => void;
   events: CalEvent[];
   colorOf: (accountId: string) => string;
-  defaultAccountId: string | null;
+  /** Where a new event goes. */
+  defaultCalendar: { accountId: string; calendarId: string } | null;
   actions: Actions;
   onOpenDay: (day: Date) => void;
 }) {
@@ -204,7 +206,7 @@ export function TimeGrid({
   const at = (day: number, minute: number) => days[day].getTime() + minute * MINUTE;
 
   const onColumnsDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || !defaultAccountId) return;
+    if (e.button !== 0 || !defaultCalendar) return;
     if ((e.target as HTMLElement).closest("[data-event]")) return;
     // A click away from an open event only closes it.
     if (useCalendar.getState().selection) return;
@@ -218,9 +220,9 @@ export function TimeGrid({
   const onEventDown = (e: PointerEvent<HTMLElement>, event: CalEvent, resize: boolean) => {
     if (e.button !== 0) return;
     e.stopPropagation();
-    // A teammate's: only to look at.
-    if (event.teammate) {
-      select({ accountId: event.accountId, id: event.id });
+    // A teammate's, or on a calendar it can't change: only to look at.
+    if (event.readOnly) {
+      select({ accountId: event.accountId, calendarId: event.calendarId, id: event.id });
       return;
     }
     const { day, minute } = pointAt(e.clientX, e.clientY);
@@ -251,7 +253,7 @@ export function TimeGrid({
       useCalendar.setState({
         draft: {
           ...useCalendar.getState().draft,
-          accountId: defaultAccountId!,
+          ...defaultCalendar!,
           startMs,
           endMs,
           allDay: false,
@@ -287,7 +289,7 @@ export function TimeGrid({
       else {
         const start = Math.floor(g.anchor / 30) * 30;
         setDraft({
-          accountId: defaultAccountId!,
+          ...defaultCalendar!,
           startMs: at(g.day, start),
           endMs: at(g.day, Math.min(start + 60, 24 * 60)),
           allDay: false,
@@ -296,7 +298,7 @@ export function TimeGrid({
       return;
     }
     if (!g.moved) {
-      select({ accountId: g.event.accountId, id: g.event.id });
+      select({ accountId: g.event.accountId, calendarId: g.event.calendarId, id: g.event.id });
       return;
     }
     const moved = preview;
@@ -361,7 +363,9 @@ export function TimeGrid({
               events={allDay}
               colorOf={colorOf}
               selectedKey={selectedKey}
-              onSelect={(event) => select({ accountId: event.accountId, id: event.id })}
+              onSelect={(event) =>
+                select({ accountId: event.accountId, calendarId: event.calendarId, id: event.id })
+              }
             />
           </div>
         </div>
@@ -440,7 +444,7 @@ export function TimeGrid({
                         dayStart={dayStart}
                         col={col}
                         cols={cols}
-                        color={colorOf(event.accountId)}
+                        color={colorOf(calendarKey(event))}
                         selected={key === selectedKey}
                         dragging={preview?.key === key}
                         onPointerDown={onEventDown}
@@ -456,7 +460,7 @@ export function TimeGrid({
                         draft.startMs >= dayStart ? rangeLabel(draft.startMs, draft.endMs) : null
                       }
                       dayStart={dayStart}
-                      color={colorOf(draft.accountId)}
+                      color={colorOf(calendarKey(draft))}
                     />
                   ) : null}
                   {i === todayIndex ? <NowLine now={now} strong /> : null}
@@ -548,8 +552,8 @@ function TimedEvent({
           {short ? timeLabel(new Date(event.startMs)) : rangeLabel(event.startMs, event.endMs)}
         </span>
       </div>
-      {/* The bottom edge stretches it (yours, not a teammate's). */}
-      {event.teammate ? null : (
+      {/* The bottom edge stretches it (where it can be changed). */}
+      {event.readOnly ? null : (
         <div
           aria-hidden
           onPointerDown={(e) => onPointerDown(e, event, true)}
@@ -670,7 +674,7 @@ function AllDayRow({
             data-event-key={key}
             onClick={() => onSelect(event)}
             style={{
-              ...eventStyle(colorOf(event.accountId), event, selected),
+              ...eventStyle(colorOf(calendarKey(event)), event, selected),
               top: lane * 22 + 2,
               left: `calc(${(from / days.length) * 100}% + 2px)`,
               width: `calc(${((to - from) / days.length) * 100}% - 5px)`,
