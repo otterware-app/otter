@@ -429,7 +429,7 @@ export function ChatComposer({
             onAnswer={(answers) => answer(pendingQuestion.question.id, answers)}
           />
         ) : (
-          <div className={cn("relative", COMPOSER_SURFACE, compact && "rounded-2xl")}>
+          <div className={cn("relative", COMPOSER_SURFACE, compact && "rounded-lg")}>
             <ComposerAttachments items={files.items} onRemove={files.remove} compact={compact}>
               {/* The mail this message is about; click to leave it out. */}
               {attached ? (

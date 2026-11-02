@@ -281,8 +281,8 @@ export function AttachmentChip({
     <div
       title={title ?? name}
       className={cn(
-        "group/attachment relative flex w-max min-w-0 shrink-0 items-center gap-2 rounded-xl border border-foreground/10 bg-card pl-1.5 pr-3 transition-opacity",
-        compact ? "h-9 max-w-44 py-1 pl-1" : "h-11 max-w-60 py-1.5",
+        "group/attachment relative flex w-max min-w-0 shrink-0 items-center gap-2 border border-foreground/10 bg-card pl-1.5 pr-3 transition-opacity",
+        compact ? "h-9 max-w-44 rounded-lg py-1 pl-1" : "h-11 max-w-60 rounded-xl py-1.5",
         off && "opacity-50",
       )}
     >
@@ -292,13 +292,13 @@ export function AttachmentChip({
           aria-pressed={!off}
           aria-label={name}
           onClick={onClick}
-          className="absolute inset-0 z-10 cursor-pointer rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+          className="absolute inset-0 z-10 cursor-pointer rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
         />
       ) : null}
       <span
         className={cn(
-          "relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-foreground/[0.06] text-muted-foreground",
-          compact ? "size-7 [&_svg]:size-3.5" : "size-8 [&_svg]:size-4",
+          "relative flex shrink-0 items-center justify-center overflow-hidden bg-foreground/[0.06] text-muted-foreground",
+          compact ? "size-7 rounded-sm [&_svg]:size-3.5" : "size-8 rounded-lg [&_svg]:size-4",
         )}
       >
         {tile}
