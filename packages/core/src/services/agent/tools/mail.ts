@@ -365,7 +365,7 @@ export const mailTools: AgentTool[] = [
     name: "list_accounts",
     title: "List mailboxes",
     description:
-      "The user's mailboxes (Gmail, IMAP, …) in Otter Mail: each one's address, provider, whether it has a calendar, and what its sign-in still needs permission for (tell the user to allow it in Settings › Mailboxes rather than retrying). Every other tool names a mailbox by its address.",
+      "The user's mailboxes (Gmail, IMAP, …) in Otter Mail: each one's address, provider, whether it has a calendar, and what its sign-in still needs permission for (tell the user to allow it in Settings › Connections rather than retrying). Every other tool names a mailbox by its address.",
     input: { type: "object", properties: {} },
     readOnly: true,
     async run() {

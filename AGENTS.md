@@ -62,7 +62,8 @@ when a feature lands or goes.
   `package.json` carries its manifest (`otterMail`); its halves are `./core` (`activate(context)`:
   handlers, an agent; core's `src/extensions.ts`), `./ui` (what it contributes to the screens'
   slots: cards, actions, commands, settings, an agent's form; `apps/web/src/main/extensions`;
-  Settings lists them by manifest `category` in Agents, Integrations and Features, each with a
+  Settings lists them by manifest `category` in Agents, Connections (services you sign in to,
+  beside the mailboxes: Todoist), Integrations (hidden while empty) and Features, each with a
   page) and
   `./desktop` (Claude, Codex). The manifest's `platforms` (mac, linux, web; absent: all) says where one runs, and each
   app loads the half it can run, as VS Code loads `main` or `browser`: the desktop app `./desktop`

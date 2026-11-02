@@ -30,7 +30,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPane, string>> = {
   otter: "Account",
   appearance: "Appearance",
   keybindings: "Keybindings",
-  accounts: "Mailboxes",
+  accounts: "Connections",
   calendar: "Calendar",
   agents: "Agents",
   integrations: "Integrations",
@@ -274,9 +274,11 @@ export const SETTINGS_SEARCH_ITEMS = [
   ...KEYBINDING_SEARCH_ITEMS,
   {
     id: "mailboxes",
-    title: "Mailboxes",
+    title: "Connections",
     pane: "accounts",
-    searchTerms: ["accounts gmail imap turn on off order reorder drag add"],
+    searchTerms: [
+      "mailboxes accounts connected google gmail outlook microsoft icloud imap todoist turn on off order reorder drag add",
+    ],
   },
   {
     id: "mailbox-status",

@@ -1,4 +1,5 @@
 import { type ExtensionCategory } from "@otter-mail/contracts/extensions";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon, ChevronRightIcon, PuzzleIcon, ShieldIcon } from "lucide-react";
 import type { ReactNode } from "react";
@@ -289,4 +290,84 @@ function ExtensionSettings({ entry }: { entry: Entry }) {
   }
   const Settings = extension.Settings;
   return Settings ? <Settings /> : null;
+}
+
+/** The extensions that are connections (Todoist), for Connections' list and Add account menu. */
+export function connectionExtensions(): readonly UiExtension[] {
+  return availableExtensions().filter((e) => e.manifest.category === "connection" && e.connection);
+}
+
+/** A connection extension's page, under Connections (`/settings/accounts/todoist`). */
+export function ConnectionExtensionPage({ id }: { id: string }) {
+  const { entries, setEnabled } = useEntries();
+  const entry = entries.find((e) => e.extension.manifest.id === id);
+  if (!entry || !hasPage(entry)) return null;
+  return <ExtensionPage key={id} entry={entry} setEnabled={setEnabled} />;
+}
+
+/** Connections' rows for the services that aren't mailboxes: what each gives, and its state. */
+export function ConnectionExtensionsSection() {
+  const { entries } = useEntries();
+  const navigate = useNavigate();
+  const connections = entries.filter(
+    (e) => e.extension.manifest.category === "connection" && e.extension.connection,
+  );
+  if (connections.length === 0) return null;
+  return (
+    <SettingsSection title="Other services">
+      {connections.map((entry) => (
+        <ConnectionExtensionRow
+          key={entry.extension.manifest.id}
+          entry={entry}
+          onOpen={() =>
+            void navigate({
+              to: "/settings/$pane/$item",
+              params: { pane: "accounts", item: entry.extension.manifest.id },
+            })
+          }
+        />
+      ))}
+    </SettingsSection>
+  );
+}
+
+function ConnectionExtensionRow({ entry, onOpen }: { entry: Entry; onOpen: () => void }) {
+  const { manifest, connection } = entry.extension;
+  const connected = useQuery(connection!.status).data?.connected;
+  const state = !entry.enabled
+    ? "Turned off"
+    : connected === undefined
+      ? "…"
+      : connected
+        ? "Connected on this device"
+        : "Not connected";
+  return (
+    <div
+      data-slot="settings-row"
+      className="group relative flex min-h-[60px] items-center gap-3 px-4 py-2.5 hover:bg-foreground/[0.03]"
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Open ${manifest.name}`}
+        className="absolute inset-0 cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-inset"
+      />
+      <span
+        className={cn(
+          "pointer-events-none flex min-w-0 flex-1 items-center gap-3",
+          (!entry.enabled || !connected) && "opacity-60",
+        )}
+      >
+        <ExtensionIcon extension={entry.extension} size="sm" />
+        <span className="min-w-0 flex-1">
+          <span className="flex min-w-0 items-baseline gap-2 text-sm text-foreground">
+            <span className="truncate">{manifest.name}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">{connection!.provides}</span>
+          </span>
+          <span className="block text-[13px] leading-[18px] text-muted-foreground">{state}</span>
+        </span>
+      </span>
+      <ChevronRightIcon className="pointer-events-none size-4 text-muted-foreground" />
+    </div>
+  );
 }

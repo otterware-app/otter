@@ -71,8 +71,12 @@ Microsoft, an IMAP server) and the mailbox it gives. Everything else hangs off t
    relay to pass `scope` through `GoogleSignInResult` and its sealed record; Microsoft's stored
    tokens need a `scope` field. Where grants are known, needs come from them (and "unknown" stays
    distinct from "missing").
-3. **Extension connections**: `registerConnectionProvider` with per-instance operations, Todoist
-   onto it with a `tasks` resource and agent tools, "Connected accounts" as the Settings pane
-   (mailboxes first, then other services). Sync only once ownership and per-key merging exist.
-4. Later: calendars not tied to a mailbox (iCloud CalDAV), Drive and Notion, per-connection agent
+3. **Connections hub** (done): Settings › Mailboxes is now Connections: each mailbox says what it
+   provides (Mail · Calendar), Add account offers every kind (Google, Microsoft, IMAP, then other
+   services), and an extension of category `connection` (Todoist) is listed there with its page,
+   through a renderer contribution (`connection: { provides, status }`). Core is unchanged.
+4. **Extension connections in core**: `registerConnectionProvider` with per-instance operations, Todoist
+   onto it with a `tasks` resource and agent tools; per-resource toggles (use this account's
+   calendar or not). Sync only once ownership and per-key merging exist.
+5. Later: calendars not tied to a mailbox (iCloud CalDAV), Drive and Notion, per-connection agent
    permissions, the iPhone app.

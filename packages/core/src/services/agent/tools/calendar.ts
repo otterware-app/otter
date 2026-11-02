@@ -33,7 +33,7 @@ async function calendarOf<T>(
   } catch (error) {
     if (error instanceof NoCalendarAccess)
       throw new Error(
-        `Otter Mail may not use ${account.email}'s calendar yet: the user can allow it by signing in to the mailbox again (Settings → Mailboxes).`,
+        `Otter Mail may not use ${account.email}'s calendar yet: the user can allow it by signing in to the mailbox again (Settings → Connections).`,
         { cause: error },
       );
     throw error;

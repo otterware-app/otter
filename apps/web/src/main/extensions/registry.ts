@@ -30,6 +30,7 @@ export const EXTENSIONS: readonly UiExtension[] = [
 export const CATEGORY_PANE: Record<ExtensionCategory, SettingsPane> = {
   agent: "agents",
   integration: "integrations",
+  connection: "accounts",
   mail: "features",
 };
 
@@ -42,6 +43,11 @@ const APP_PLATFORM: AppPlatform =
 
 export function availableExtensions(): readonly UiExtension[] {
   return EXTENSIONS.filter((e) => runsOn(e.manifest, APP_PLATFORM) && (e.available?.() ?? true));
+}
+
+/** Whether Integrations has anything to list (every service may be a connection instead). */
+export function hasIntegrations(): boolean {
+  return availableExtensions().some((e) => e.manifest.category === "integration");
 }
 
 const DISABLED_KEY = "otter:extensions:disabled";

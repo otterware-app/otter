@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Popover } from "radix-ui";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
@@ -20,6 +21,12 @@ import {
 import { RichTextArea, type RichTextRef } from "../mail/rich-text";
 import { AddMailboxMenu, ImapPasswordForm } from "../mail/add-mailbox";
 import { AllowAccessButton, needsOf, useConnections } from "../mail/allow-access";
+import { DropdownMenuItem } from "../mail/menu";
+import {
+  ConnectionExtensionPage,
+  ConnectionExtensionsSection,
+  connectionExtensions,
+} from "../extensions/extensions-pane";
 import { ProviderMark } from "../mail/provider-mark";
 import {
   capabilitiesOf,
@@ -142,10 +149,12 @@ function SignInButton({
   email,
   provider = "gmail",
   label,
+  services,
 }: {
   email?: string;
   provider?: "gmail" | "outlook";
   label: string;
+  services?: ReactNode;
 }) {
   const signIn = useAddAccount(provider);
   if (signIn.isPending) {
@@ -169,7 +178,7 @@ function SignInButton({
     );
   }
   return (
-    <AddMailboxMenu onGmail={google} align="end">
+    <AddMailboxMenu onGmail={google} align="end" services={services}>
       <Btn size="sm" variant="outline">
         <PlusIcon className="size-3.5" />
         {label}
@@ -211,7 +220,9 @@ function AccountListRow({
 }) {
   const sync = useSyncStatusOnly(account.id);
   const status = accountStatus(account, sync.data);
-  const needsPermission = needsOf(useConnections().data, account.id).length > 0;
+  const connection = useConnections().data?.find((c) => c.id === account.id);
+  const needsPermission = needsOf(connection ? [connection] : undefined, account.id).length > 0;
+  const provides = connection?.resources.map((r) => RESOURCE_NAMES[r.kind]).join(" · ");
   const dropHere = dropSpot?.email === account.email;
   return (
     <div
@@ -264,6 +275,9 @@ function AccountListRow({
           <span className="flex min-w-0 items-center gap-1.5 text-sm text-foreground">
             <ProviderMark provider={account.provider} />
             <span className="truncate">{getAccountDisplayName(account)}</span>
+            {provides ? (
+              <span className="shrink-0 text-xs text-muted-foreground">{provides}</span>
+            ) : null}
           </span>
           <span className="flex min-w-0 items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
             <span className="min-w-0 shrink truncate">{account.email}</span>
@@ -295,6 +309,8 @@ function AccountListRow({
     </div>
   );
 }
+
+const RESOURCE_NAMES = { mail: "Mail", calendar: "Calendar" } as const;
 
 function editedSignature(editor: RichTextRef): string {
   const html = editor.getHTML();
@@ -528,7 +544,6 @@ function AccountEditor({ account }: { account: MailAccount }) {
 function MailboxAccess({ account }: { account: MailAccount }) {
   const connection = useConnections().data?.find((c) => c.id === account.id);
   if (!connection || connection.provider === "imap" || !connection.signedIn) return null;
-  const RESOURCE = { mail: "Mail", calendar: "Calendar" } as const;
   return (
     <SettingsSection
       {...searchableSetting("mailbox-access")}
@@ -539,7 +554,7 @@ function MailboxAccess({ account }: { account: MailAccount }) {
         return (
           <SettingsRow
             key={resource.kind}
-            title={RESOURCE[resource.kind]}
+            title={RESOURCE_NAMES[resource.kind]}
             description={
               first ? [first, ...more].map((need) => need.consequence).join(". ") : "Allowed"
             }
@@ -742,7 +757,18 @@ function MailboxNotifications({ account }: { account: MailAccount }) {
   );
 }
 
-export function AccountsPane() {
+/**
+ * Connections: every account you've connected and what each gives Otter Mail. The mailboxes
+ * (Google, Microsoft, IMAP) first, which turn on and off and take an order on every device; then
+ * other services (Todoist), whose pages open here too (`item`).
+ */
+export function AccountsPane({ item }: { item?: string }) {
+  if (item) return <ConnectionExtensionPage id={item} />;
+  return <ConnectionsHub />;
+}
+
+function ConnectionsHub() {
+  const navigate = useNavigate();
   const accountsQuery = useAccounts();
   const arrangement = useMailboxArrangement();
   const accounts = arrangeAccounts(accountsQuery.data ?? [], arrangement);
@@ -766,9 +792,30 @@ export function AccountsPane() {
   return (
     <SettingsPageContainer
       searchId={searchableSetting("mailboxes").id}
-      title="Mailboxes"
-      description="Turn mailboxes on or off and drag them into order, on every device."
-      action={<SignInButton label="Add mailbox" />}
+      title="Connections"
+      description="The accounts you've connected and what each gives Otter Mail. Mailboxes turn on or off and drag into order, on every device."
+      action={
+        <SignInButton
+          label="Add account"
+          services={connectionExtensions().map((extension) => {
+            const Icon = extension.Icon;
+            return (
+              <DropdownMenuItem
+                key={extension.manifest.id}
+                icon={Icon ? <Icon /> : undefined}
+                onSelect={() =>
+                  void navigate({
+                    to: "/settings/$pane/$item",
+                    params: { pane: "accounts", item: extension.manifest.id },
+                  })
+                }
+              >
+                {extension.manifest.name}
+              </DropdownMenuItem>
+            );
+          })}
+        />
+      }
     >
       {current ? (
         <>
@@ -808,15 +855,19 @@ export function AccountsPane() {
               );
             })}
           </SettingsGroup>
+          <ConnectionExtensionsSection />
           <AccountEditor key={current.id} account={current} />
         </>
       ) : (
-        <SettingsGroup>
-          <SettingsRow
-            title={accountsQuery.isLoading ? "Loading mailboxes…" : "No mailboxes yet"}
-            description="Add a Gmail account, or any mailbox that works with IMAP, to start syncing mail."
-          />
-        </SettingsGroup>
+        <>
+          <SettingsGroup>
+            <SettingsRow
+              title={accountsQuery.isLoading ? "Loading accounts…" : "No accounts yet"}
+              description="Add a Google or Microsoft account, or any mailbox that works with IMAP, to start syncing mail."
+            />
+          </SettingsGroup>
+          <ConnectionExtensionsSection />
+        </>
       )}
     </SettingsPageContainer>
   );

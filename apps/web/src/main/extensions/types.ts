@@ -30,6 +30,15 @@ export type UiExtension = {
   commands?: readonly PaletteCommand[];
   Dialogs?: ComponentType;
   Settings?: ComponentType;
+  /** A connection (manifest category `connection`): listed in Connections beside the mailboxes. */
+  connection?: ConnectionContribution;
+};
+
+export type ConnectionContribution = {
+  /** What it gives Otter Mail, as the list says it: "Tasks". */
+  provides: string;
+  /** Whether it's connected on this device: a query the list runs (share its key to stay in step). */
+  status: { queryKey: readonly unknown[]; queryFn: () => Promise<{ connected: boolean }> };
 };
 
 export type MessageTarget = { accountId: string; messageId: string; subject: string };

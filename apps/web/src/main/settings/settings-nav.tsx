@@ -12,20 +12,20 @@ import {
 import {
   ArrowLeftIcon,
   ArrowUpRightIcon,
+  CableIcon,
   CalendarDaysIcon,
   CircleHelpIcon,
   CircleUserRoundIcon,
   GlobeIcon,
   KeyboardIcon,
+  MailCheckIcon,
+  MessageSquareIcon,
   PaletteIcon,
   PlugIcon,
   PuzzleIcon,
-  Settings2Icon,
-  MailIcon,
-  MailCheckIcon,
-  MessageSquareIcon,
   ScrollTextIcon,
   SearchIcon,
+  Settings2Icon,
   XIcon,
 } from "lucide-react";
 import { AgentIcon } from "../mail/agent-icon";
@@ -49,6 +49,7 @@ import {
   type SettingsSearchItem,
 } from "./settings-search";
 import { requestProblemReport } from "../support/report-problem";
+import { hasIntegrations } from "../extensions/registry";
 
 const SETTINGS_SECTION_ICONS: Readonly<
   Record<SettingsPane, ComponentType<{ className?: string }>>
@@ -57,7 +58,7 @@ const SETTINGS_SECTION_ICONS: Readonly<
   otter: CircleUserRoundIcon,
   appearance: PaletteIcon,
   keybindings: KeyboardIcon,
-  accounts: MailIcon,
+  accounts: CableIcon,
   calendar: CalendarDaysIcon,
   browser: GlobeIcon,
   agents: AgentIcon,
@@ -67,6 +68,7 @@ const SETTINGS_SECTION_ICONS: Readonly<
 
 const SETTINGS_SECTIONS = (Object.keys(SETTINGS_SECTION_LABELS) as SettingsPane[])
   .filter((id) => id !== "browser" || features.browser)
+  .filter((id) => id !== "integrations" || hasIntegrations())
   .map((id) => ({
     id,
     label: SETTINGS_SECTION_LABELS[id],

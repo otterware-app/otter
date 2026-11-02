@@ -30,7 +30,7 @@
     "id": "todoist",
     "name": "Todoist",
     "description": "Turns email into Todoist tasks, and browses your tasks.",
-    "category": "integration",
+    "category": "connection",
     "dataUse": "Sends Todoist the tasks you make: their title, your notes and a link back to the email. Your Todoist sign-in stays on this device."
   }
 }

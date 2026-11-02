@@ -40,6 +40,10 @@ from GitHub Releases. Everything in the Mac column works the same, except:
 
 ## Mailboxes & accounts
 
+Settings › Connections lists every account you've connected and what each gives Otter Mail:
+Google and Microsoft (Mail · Calendar), IMAP (Mail), then other services (Todoist: Tasks). Add
+account offers each kind.
+
 | Feature                                                                                                     | Mac                | Web                                 | iPhone                  |
 | ----------------------------------------------------------------------------------------------------------- | ------------------ | ----------------------------------- | ----------------------- |
 | Add a Gmail mailbox (Google sign-in)                                                                        | ✓ (loopback OAuth) | ✓ (popup; tokens kept by the relay) | ✓ (PKCE)                |
@@ -112,8 +116,9 @@ its folder. Deleting an Outlook folder moves it and its mail to Deleted Items.
 
 Sign-in codes, Calendar invites, Translation, Todoist and the agents (the Otter Mail agent, Hermes,
 OpenClaw, Claude, Codex) are built-in extensions (`extensions/`). Settings lists them by kind,
-under "Extensions": Agents (with chat's own settings above them), Integrations and Features, each
-row with its switch. One with something to set up opens to its page: its switch, where its data
+under "Extensions": Agents (with chat's own settings above them), Integrations (hidden while it has
+none) and Features, each row with its switch; a service you sign in to (Todoist) is a connection,
+listed in Connections beside the mailboxes. One with something to set up opens to its page: its switch, where its data
 goes, and its settings. Turning a feature off hides it everywhere (the choice follows the Otter
 account); turning an agent off stops chats on it.
 
@@ -482,7 +487,7 @@ profile`).
   `calendar.events` the Mac and web apps ask for today. Without it, RSVPs go by email reply.
 - `calendar.readonly`: every calendar on the account's list (shared, followed: birthdays,
   holidays) and teammates' busy times (⌘P). Older sign-ins see the primary calendar only; the
-  calendar and Settings › Mailboxes › Access say so, with Allow calendar access (signs in again). Outlook needs nothing new for its own calendars (`Calendars.ReadWrite`);
+  calendar and Settings › Connections › Access say so, with Allow calendar access (signs in again). Outlook needs nothing new for its own calendars (`Calendars.ReadWrite`);
   calendars shared with an Outlook mailbox are listed but can't be read without
   `Calendars.Read.Shared`, which isn't asked for (a refresh asking for an ungranted scope fails).
 - `contacts.readonly` + `contacts.other.readonly`: contact photos for sender avatars.

@@ -1,6 +1,7 @@
 import { useLatest } from "../use-latest";
 import { DEFAULT_SETTINGS } from "@otter-mail/contracts";
 import { ExtensionCategoryPane } from "../extensions/extensions-pane";
+import { hasIntegrations } from "../extensions/registry";
 import { useCallback, useEffect, useState } from "react";
 import { Switch } from "~/components/ui/switch";
 import { toast } from "../mail/toast";
@@ -375,6 +376,9 @@ export function SettingsPage({
 function SettingsPane({ route }: { route: SettingsRoute }) {
   if (route.pane === "appearance") return <AppearancePane />;
   if (route.pane === "keybindings") return <KeybindingsPane />;
+  // Integrations has nothing while every service is a connection: its old links open Connections.
+  if (route.pane === "integrations" && !hasIntegrations())
+    return <AccountsPane item={route.item} />;
   if (route.pane === "integrations")
     return (
       <ExtensionCategoryPane
@@ -393,7 +397,7 @@ function SettingsPane({ route }: { route: SettingsRoute }) {
         description="Extras for your mail. Turning one off hides it everywhere, on every device with your Otter account."
       />
     );
-  if (route.pane === "accounts") return <AccountsPane />;
+  if (route.pane === "accounts") return <AccountsPane item={route.item} />;
   if (route.pane === "calendar") return <CalendarPane />;
   if (route.pane === "otter") return <OtterAccountPane />;
   if (route.pane === "agents") return <ProvidersPane item={route.item} />;

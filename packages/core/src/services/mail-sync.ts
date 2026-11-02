@@ -120,7 +120,7 @@ const isPushed = (accountId: string) => pushedAccounts.has(accountId) || watched
  * skips. A push or explicit request arriving mid-run runs once more after it.
  */
 /**
- * Mailboxes turned off in Settings → Mailboxes (the renderer's synced UI
+ * Mailboxes turned off in Settings → Connections (the renderer's synced UI
  * preference `mail:mailboxes`, which names them by address, as account ids
  * do): left unsynced, so they cost no mail traffic and raise no
  * notifications. Turning one back on syncs it at once.

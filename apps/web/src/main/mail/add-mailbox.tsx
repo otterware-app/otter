@@ -8,7 +8,14 @@ import { Field } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
 import { mailApi } from "./api";
 import { useAddAccount, useAddImapAccount, useMailProviders, useSignInImap } from "./hooks";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 import { toast } from "./toast";
 import type { MailAccount } from "./types";
@@ -37,11 +44,14 @@ export function AddMailboxMenu({
   onGmail,
   onAdded,
   align = "start",
+  services,
   children,
 }: {
   onGmail: () => void;
   onAdded?: (account: MailAccount) => void;
   align?: "start" | "end";
+  /** Connections' other services (Todoist), listed under the mail ones. */
+  services?: ReactNode;
   children: ReactNode;
 }) {
   const [imapOpen, setImapOpen] = useState(false);
@@ -52,6 +62,7 @@ export function AddMailboxMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent align={align}>
+          {services ? <DropdownMenuLabel>Mail & calendar</DropdownMenuLabel> : null}
           <DropdownMenuItem icon={<GmailMark />} onSelect={onGmail}>
             Gmail
           </DropdownMenuItem>
@@ -63,6 +74,13 @@ export function AddMailboxMenu({
           <DropdownMenuItem icon={<ServerIcon />} onSelect={() => setImapOpen(true)}>
             Other mail (IMAP)
           </DropdownMenuItem>
+          {services ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Other services</DropdownMenuLabel>
+              {services}
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
       <ImapAccountDialog open={imapOpen} onOpenChange={setImapOpen} onAdded={onAdded} />

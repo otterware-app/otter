@@ -18,6 +18,8 @@ export function runsOn(manifest: ExtensionManifest, platform: AppPlatform): bool
 export const EXTENSION_CATEGORIES = {
   mail: "Mail",
   integration: "Integrations",
+  /** A service you sign in to (Todoist): listed with the mailboxes, in Connections. */
+  connection: "Connections",
   agent: "Agents",
 } as const;
 
@@ -32,7 +34,9 @@ export function extensionManifest(pkg: { otterMail?: unknown }): ExtensionManife
       "An extension's package.json needs otterMail.id, name, description and dataUse.",
     );
   if (typeof m.category !== "string" || !(m.category in EXTENSION_CATEGORIES))
-    throw new Error(`${String(m.id)}: otterMail.category is mail, integration or agent.`);
+    throw new Error(
+      `${String(m.id)}: otterMail.category is mail, integration, connection or agent.`,
+    );
   const platforms = m.platforms;
   if (
     platforms !== undefined &&

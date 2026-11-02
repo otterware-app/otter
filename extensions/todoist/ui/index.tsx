@@ -2,6 +2,7 @@ import type { UiExtension } from "@otter-mail/web/extension-kit";
 import { CheckIcon, ListTodoIcon } from "lucide-react";
 
 import { manifest } from "../manifest";
+import { todoistApi } from "./api";
 import { TodoistDialogs, addEmailToTodoist, browseTodoist } from "./dialogs";
 import { TodoistSettingsPane } from "./settings";
 import { TodoistIcon } from "./icon";
@@ -30,4 +31,8 @@ export default {
   ],
   Dialogs: TodoistDialogs,
   Settings: TodoistSettingsPane,
+  connection: {
+    provides: "Tasks",
+    status: { queryKey: ["todoist", "status"], queryFn: todoistApi.todoistStatus },
+  },
 } satisfies UiExtension;

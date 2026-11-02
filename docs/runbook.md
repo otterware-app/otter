@@ -136,7 +136,7 @@ Simulator injection checks local presentation/tap flow, not live APNs or extensi
 The app list cache still synchronizes from the provider; alert enrichment is not a whole-inbox
 background sync. APNs is best effort and cannot recall an already submitted alert.
 
-A stopped connection appears in Settings → Mailboxes → Background notifications. `reauthorize`
+A stopped connection appears in Settings → Connections → Background notifications. `reauthorize`
 needs user consent/password again; `retry` backs off transient failures. Check OAuth client-secret
 expiry, registered redirect URLs, server granted scopes and subscription renewal when investigating.
 Setup reports an error if the provider consent succeeds but watcher startup rejects its grant.

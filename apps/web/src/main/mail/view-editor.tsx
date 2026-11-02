@@ -334,7 +334,7 @@ export function ViewEditorDialog({
         <div className="mt-1 text-[13px] font-medium text-foreground">Show conversations</div>
         {accounts.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">
-            Add a mailbox (Settings › Mailboxes) to make a view.
+            Add a mailbox (Settings › Connections) to make a view.
           </p>
         ) : (
           <div className="rounded-xl border border-border/60 p-1">
