@@ -5,8 +5,8 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  type ComponentProps,
   type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
 } from "react";
 import {
   BoldIcon,
@@ -18,7 +18,10 @@ import {
   ListOrderedIcon,
   TextQuoteIcon,
   RemoveFormattingIcon,
+  ALargeSmallIcon,
+  BaselineIcon,
 } from "lucide-react";
+import { Popover, PopoverPopup, PopoverTrigger } from "~/components/ui/popover";
 import { cn } from "./ui";
 import { shortcutText } from "../keybindings/keys";
 
@@ -46,6 +49,57 @@ export function textToHtml(value: string): string {
   return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
+// Gmail's sizes and a few of its colors, as <font> tags every mail client reads. Normal and
+// Default take the size or color off. The colors read on light and dark backgrounds.
+const TEXT_SIZES = [
+  { label: "Small", size: "1", preview: "0.75rem" },
+  { label: "Normal", size: null, preview: "0.875rem" },
+  { label: "Large", size: "4", preview: "1.125rem" },
+  { label: "Huge", size: "6", preview: "1.5rem" },
+] as const;
+
+const TEXT_COLORS = [
+  { label: "Gray", color: "#666666" },
+  { label: "Red", color: "#cc0000" },
+  { label: "Orange", color: "#e69138" },
+  { label: "Green", color: "#6aa84f" },
+  { label: "Blue", color: "#3d85c6" },
+  { label: "Purple", color: "#8e7cc3" },
+] as const;
+
+/**
+ * execCommand can set a size or color but not take one off: apply a stand-in, then strip it
+ * from the <font> tags it made (and unwrap those left bare).
+ */
+function clearFontAttribute(
+  editor: HTMLElement,
+  attribute: "size" | "color",
+  apply: (standIn: string) => void,
+) {
+  const standIn = attribute === "size" ? "7" : "#010203";
+  const selector = `font[${attribute}="${standIn}"]`;
+  const existing = new Set(editor.querySelectorAll(selector));
+  apply(standIn);
+  const unwrapped: ChildNode[] = [];
+  for (const font of editor.querySelectorAll(selector)) {
+    if (existing.has(font)) continue;
+    font.removeAttribute(attribute);
+    if (font.attributes.length > 0) continue;
+    unwrapped.push(...font.childNodes);
+    font.replaceWith(...font.childNodes);
+  }
+  // The selection was inside the tags just removed: keep the same text selected.
+  const first = unwrapped[0];
+  const last = unwrapped.at(-1);
+  if (!first || !last) return;
+  const range = document.createRange();
+  range.setStartBefore(first);
+  range.setEndAfter(last);
+  const selection = document.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+}
+
 type ToolbarState = {
   bold: boolean;
   italic: boolean;
@@ -53,35 +107,30 @@ type ToolbarState = {
   strike: boolean;
 };
 
-function ToolBtn({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
+const ToolBtn = forwardRef<
+  HTMLButtonElement,
+  ComponentProps<"button"> & { label: string; active?: boolean }
+>(function ToolBtn({ label, active, className, children, ...props }, ref) {
   return (
     <button
+      ref={ref}
       type="button"
       aria-label={label}
       title={label}
       onMouseDown={(e) => e.preventDefault()}
-      onClick={onClick}
-      className={[
+      {...props}
+      className={cn(
         "flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg",
         active
           ? "bg-accent-surface text-foreground"
           : "text-muted-foreground hover:bg-accent-surface hover:text-foreground",
-      ].join(" ")}
+        className,
+      )}
     >
       {children}
     </button>
   );
-}
+});
 
 export const RichTextArea = forwardRef<
   RichTextRef,
@@ -101,6 +150,8 @@ export const RichTextArea = forwardRef<
      * (switching "From"), never touching what the user typed.
      */
     signatureHTML?: string;
+    /** Text sizes and colors in the toolbar (signatures). */
+    textStyles?: boolean;
   }
 >(function RichTextArea(
   {
@@ -114,6 +165,7 @@ export const RichTextArea = forwardRef<
     showToolbar = true,
     initialHTML,
     signatureHTML,
+    textStyles,
   },
   ref,
 ) {
@@ -128,6 +180,7 @@ export const RichTextArea = forwardRef<
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const savedRange = useRef<Range | null>(null);
+  const [styleMenu, setStyleMenu] = useState<"size" | "color" | null>(null);
 
   const readText = () => editorRef.current?.innerText ?? "";
 
@@ -236,13 +289,49 @@ export const RichTextArea = forwardRef<
     if (e.code === "Digit9") return run(() => exec("formatBlock", "blockquote"));
   };
 
-  const openLinkInput = () => {
+  const saveRange = () => {
     const selection = document.getSelection();
     savedRange.current =
       selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
+  };
+
+  const restoreRange = () => {
+    editorRef.current?.focus();
+    const selection = document.getSelection();
+    if (savedRange.current && selection) {
+      selection.removeAllRanges();
+      selection.addRange(savedRange.current);
+    }
+  };
+
+  const openLinkInput = () => {
+    saveRange();
     setLinkUrl("");
     setLinkOpen(true);
   };
+
+  const openStyleMenu = (menu: "size" | "color") => (open: boolean) => {
+    if (open) saveRange();
+    setStyleMenu(open ? menu : null);
+  };
+
+  const applyStyle = (attribute: "size" | "color", value: string | null) => {
+    setStyleMenu(null);
+    const editor = editorRef.current;
+    if (!editor) return;
+    restoreRange();
+    document.execCommand("styleWithCSS", false, "false");
+    const command = attribute === "size" ? "fontSize" : "foreColor";
+    if (value) document.execCommand(command, false, value);
+    else
+      clearFontAttribute(editor, attribute, (standIn) =>
+        document.execCommand(command, false, standIn),
+      );
+    emitChange();
+  };
+
+  const menuItem =
+    "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left text-foreground hover:bg-accent-surface";
 
   const applyLink = () => {
     const raw = linkUrl.trim();
@@ -251,12 +340,8 @@ export const RichTextArea = forwardRef<
     const url = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus();
+    restoreRange();
     const selection = document.getSelection();
-    if (savedRange.current && selection) {
-      selection.removeAllRanges();
-      selection.addRange(savedRange.current);
-    }
     if (selection && !selection.isCollapsed) {
       document.execCommand("createLink", false, url);
     } else {
@@ -305,6 +390,67 @@ export const RichTextArea = forwardRef<
         >
           <StrikethroughIcon className="size-4" />
         </ToolBtn>
+        {textStyles ? (
+          <>
+            <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
+            <Popover open={styleMenu === "size"} onOpenChange={openStyleMenu("size")}>
+              <PopoverTrigger
+                render={
+                  <ToolBtn label="Text size" active={styleMenu === "size"}>
+                    <ALargeSmallIcon className="size-4" />
+                  </ToolBtn>
+                }
+              />
+              <PopoverPopup align="start" padding="compact" finalFocus={editorRef}>
+                <div className="flex w-32 flex-col">
+                  {TEXT_SIZES.map(({ label, size, preview }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      className={menuItem}
+                      style={{ fontSize: preview }}
+                      onClick={() => applyStyle("size", size)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </PopoverPopup>
+            </Popover>
+            <Popover open={styleMenu === "color"} onOpenChange={openStyleMenu("color")}>
+              <PopoverTrigger
+                render={
+                  <ToolBtn label="Text color" active={styleMenu === "color"}>
+                    <BaselineIcon className="size-4" />
+                  </ToolBtn>
+                }
+              />
+              <PopoverPopup align="start" padding="compact" finalFocus={editorRef}>
+                <div className="flex w-36 flex-col text-sm">
+                  <button
+                    type="button"
+                    className={menuItem}
+                    onClick={() => applyStyle("color", null)}
+                  >
+                    <span className="size-3.5 rounded-full border border-border bg-foreground" />
+                    Default
+                  </button>
+                  {TEXT_COLORS.map(({ label, color }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      className={menuItem}
+                      onClick={() => applyStyle("color", color)}
+                    >
+                      <span className="size-3.5 rounded-full" style={{ backgroundColor: color }} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </PopoverPopup>
+            </Popover>
+          </>
+        ) : null}
         <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
         <ToolBtn label={`Link (${shortcutText("mod+k")})`} onClick={openLinkInput}>
           <Link2Icon className="size-4" />

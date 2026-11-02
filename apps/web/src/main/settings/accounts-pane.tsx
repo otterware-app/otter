@@ -498,6 +498,7 @@ function AccountEditor({ account }: { account: MailAccount }) {
           ariaLabel={`Signature for ${account.email}`}
           minHeightClass="min-h-[96px]"
           initialHTML={shown}
+          textStyles
         />
       </SettingsSection>
 
