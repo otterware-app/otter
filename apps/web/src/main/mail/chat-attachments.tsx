@@ -260,6 +260,7 @@ export function AttachmentChip({
   title,
   pending,
   off,
+  compact = false,
   onClick,
   onRemove,
 }: {
@@ -271,6 +272,8 @@ export function AttachmentChip({
   pending?: boolean;
   /** Left out of the message (the attached mail, toggled off). */
   off?: boolean;
+  /** The small window's: shorter, with a smaller tile. */
+  compact?: boolean;
   onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
   onRemove?: () => void;
 }) {
@@ -278,7 +281,8 @@ export function AttachmentChip({
     <div
       title={title ?? name}
       className={cn(
-        "group/attachment relative flex h-11 w-max min-w-0 max-w-60 shrink-0 items-center gap-2 rounded-xl border border-foreground/10 bg-card py-1.5 pl-1.5 pr-3 transition-opacity",
+        "group/attachment relative flex w-max min-w-0 shrink-0 items-center gap-2 rounded-xl border border-foreground/10 bg-card pl-1.5 pr-3 transition-opacity",
+        compact ? "h-9 max-w-44 py-1 pl-1" : "h-11 max-w-60 py-1.5",
         off && "opacity-50",
       )}
     >
@@ -291,7 +295,12 @@ export function AttachmentChip({
           className="absolute inset-0 z-10 cursor-pointer rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
         />
       ) : null}
-      <span className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-foreground/[0.06] text-muted-foreground [&_svg]:size-4">
+      <span
+        className={cn(
+          "relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-foreground/[0.06] text-muted-foreground",
+          compact ? "size-7 [&_svg]:size-3.5" : "size-8 [&_svg]:size-4",
+        )}
+      >
         {tile}
         {pending ? (
           <span className="absolute inset-0 flex items-center justify-center bg-card/70">
@@ -336,15 +345,22 @@ function extensionOf(name: string): string {
 export function ComposerAttachments({
   items,
   onRemove,
+  compact = false,
   children,
 }: {
   items: DraftAttachment[];
   onRemove: (key: string) => void;
+  compact?: boolean;
   children?: ReactNode;
 }) {
   if (items.length === 0 && Children.toArray(children).length === 0) return null;
   return (
-    <div className="flex gap-2 overflow-x-auto px-3 pb-0.5 pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div
+      className={cn(
+        "flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        compact ? "px-2 pt-2" : "px-3 pt-3",
+      )}
+    >
       {children}
       {items.map((item) => (
         <AttachmentChip
@@ -356,6 +372,7 @@ export function ComposerAttachments({
               : `${extensionOf(item.name)} · ${formatAttachmentSize(item.size)}`
           }
           pending={!item.staged}
+          compact={compact}
           onRemove={() => onRemove(item.key)}
           tile={
             item.kind === "image" && item.previewUrl ? (

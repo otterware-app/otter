@@ -430,10 +430,11 @@ export function ChatComposer({
           />
         ) : (
           <div className={cn("relative", COMPOSER_SURFACE, compact && "rounded-2xl")}>
-            <ComposerAttachments items={files.items} onRemove={files.remove}>
+            <ComposerAttachments items={files.items} onRemove={files.remove} compact={compact}>
               {/* The mail this message is about; click to leave it out. */}
               {attached ? (
                 <AttachmentChip
+                  compact={compact}
                   name={attached.name}
                   detail={attached.detail}
                   title={attach ? "Attached to this message" : "Not attached"}
@@ -444,6 +445,7 @@ export function ChatComposer({
               ) : null}
               {citations.map((citation) => (
                 <AttachmentChip
+                  compact={compact}
                   key={citation.id}
                   name={`“${citation.text}”`}
                   detail={citation.comment || "Quote"}
