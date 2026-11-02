@@ -1,5 +1,5 @@
 import { Toast } from "@base-ui/react/toast";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import {
   CheckIcon,
   CircleAlertIcon,
@@ -172,6 +172,15 @@ function Toasts({ position }: { position: ToastPosition }) {
   const { toasts } = Toast.useToastManager<ToastData>();
   const isTop = position.startsWith("top");
   const layout = buildVisibleToastLayout(toasts);
+
+  // Base UI's viewport hears window blur/focus only while it has toasts: leave
+  // the app with one up, close it, come back, and it still thinks the window
+  // is unfocused, so every later toast's timer stays paused. When toasts
+  // appear (its listeners are attached by now), replay the focus it missed.
+  const hasToasts = toasts.length > 0;
+  useEffect(() => {
+    if (hasToasts && document.hasFocus()) window.dispatchEvent(new FocusEvent("focus"));
+  }, [hasToasts]);
 
   return (
     <Toast.Portal data-slot="toast-portal">
