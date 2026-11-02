@@ -77,3 +77,20 @@ test("packaged icons follow the build, with no user icon collection or cross-cha
     }
   }
 });
+
+test("signed Mac builds notarize through our hook, which retries stapling", () => {
+  const build = (signed: boolean) =>
+    createBuildConfig({
+      platform: "mac",
+      version: "0.13.9",
+      target: "dmg",
+      signed,
+      electronVersion: "44.4.2",
+      entitlementsPath: signed ? "/tmp/entitlements.mac.plist" : undefined,
+      env: {},
+    });
+  const signed = build(true);
+  assert.equal((signed.mac as { notarize: boolean }).notarize, false);
+  assert.match(String(signed.afterSign), /scripts\/notarize-mac\.ts$/);
+  assert.equal(build(false).afterSign, undefined);
+});

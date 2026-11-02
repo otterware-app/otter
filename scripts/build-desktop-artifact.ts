@@ -33,6 +33,8 @@ const desktopDir = NodePath.join(repoRoot, "apps", "desktop");
 const webDir = NodePath.join(repoRoot, "apps", "web");
 const vpBin = NodePath.join(repoRoot, "node_modules", ".bin", "vp");
 const electronBuilderBin = NodePath.join(desktopDir, "node_modules", ".bin", "electron-builder");
+// Signed Mac builds: notarizes and staples (electron-builder's afterSign).
+const NOTARIZE_HOOK = NodePath.join(repoRoot, "scripts", "notarize-mac.ts");
 
 const HELP = `Usage: node scripts/build-desktop-artifact.ts [options]
 
@@ -241,8 +243,8 @@ export function createBuildConfig(options: {
         ? {
             entitlements: options.entitlementsPath,
             entitlementsInherit: options.entitlementsPath,
-            // electron-builder notarizes with APPLE_API_KEY/_ID/_ISSUER.
-            notarize: true,
+            // NOTARIZE_HOOK notarizes (APPLE_API_KEY/_ID/_ISSUER) and retries stapling.
+            notarize: false,
           }
         : {
             // No Developer ID: seal the bundle ad hoc ("-"). Skipping signing
@@ -300,6 +302,7 @@ export function createBuildConfig(options: {
       ],
     },
   };
+  if (options.platform === "mac" && options.signed) config.afterSign = NOTARIZE_HOOK;
   if (publish) config.publish = [publish];
   return config;
 }
