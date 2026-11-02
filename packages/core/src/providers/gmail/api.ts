@@ -787,7 +787,9 @@ export async function sendMessage(
   params: OutgoingMail,
 ): Promise<{ ok: true; messageId?: string }> {
   const account = await getAccount(accountId);
-  const fromAddress = account ? senderOf(account, params.from, account.name).from : accountId;
+  const fromAddress = account
+    ? senderOf(account, params.from, { name: account.name }).from
+    : accountId;
 
   const raw = buildMime({
     from: fromAddress,
@@ -832,7 +834,9 @@ export async function saveDraft(
   params: DraftSave,
 ): Promise<{ draftId: string; messageId?: string; threadId?: string }> {
   const account = await getAccount(accountId);
-  const fromAddress = account ? senderOf(account, params.from, account.name).from : accountId;
+  const fromAddress = account
+    ? senderOf(account, params.from, { name: account.name, draft: true }).from
+    : accountId;
 
   const raw = buildMime({
     from: fromAddress,

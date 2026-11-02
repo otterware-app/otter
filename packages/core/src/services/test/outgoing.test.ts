@@ -29,3 +29,14 @@ describe("senderOf", () => {
     expect(() => senderOf(account, "someone@else.com")).toThrow(/can't send from/);
   });
 });
+
+describe("senderOf for drafts", () => {
+  it("keeps an address the mailbox no longer has, so saving never fails", () => {
+    expect(senderOf(account, "old@samlee.dev", { draft: true }).email).toBe("old@samlee.dev");
+    expect(() => senderOf(account, "old@samlee.dev")).toThrow(/can't send from/);
+  });
+
+  it("still refuses what isn't one address", () => {
+    expect(() => senderOf(account, "a@b.com, c@d.com", { draft: true })).toThrow();
+  });
+});

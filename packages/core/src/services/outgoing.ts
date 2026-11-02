@@ -47,19 +47,34 @@ export function formatAddress(name: string, email: string): string {
   return `${name} <${email}>`;
 }
 
+// One bare address: no whitespace, control characters or address-list delimiters, so it's safe
+// as the From header and the SMTP envelope sender.
+const ADDRESS_PART = String.raw`[^\s\x00-\x1f\x7f@<>()[\]\\,;:"]+`;
+const SINGLE_ADDRESS = new RegExp(`^${ADDRESS_PART}@${ADDRESS_PART}\\.${ADDRESS_PART}$`);
+
+export function isSingleAddress(value: string): boolean {
+  return SINGLE_ADDRESS.test(value);
+}
+
 /**
  * Who a message goes out from: the mailbox's own address, or `from` when it's one of the other
  * addresses the mailbox sends from (`sendAs`). Anything else is refused, never quietly replaced.
+ * A draft (`draft: true`) may keep an address the mailbox no longer has, so editing it never
+ * fails; it can't be sent from that address.
  */
 export function senderOf(
   account: MailAccount,
   from?: string,
-  name = account.displayName || account.name,
+  {
+    name = account.displayName || account.name,
+    draft = false,
+  }: { name?: string; draft?: boolean } = {},
 ): { email: string; from: string } {
   const email =
     !from || from.toLowerCase() === account.email.toLowerCase()
       ? account.email
-      : account.sendAs?.find((address) => address.toLowerCase() === from.toLowerCase());
+      : (account.sendAs?.find((address) => address.toLowerCase() === from.toLowerCase()) ??
+        (draft && isSingleAddress(from) ? from : undefined));
   if (!email) throw new Error(`${account.email} can't send from ${from}.`);
   return { email, from: formatAddress(name, email) };
 }

@@ -44,10 +44,10 @@ function addressesIn(...lists: (string | undefined)[]): string[] {
 const filesSentMail = (smtpHost: string) =>
   /(^|\.)(gmail|googlemail|office365|outlook|hotmail|live)\.com$/i.test(smtpHost);
 
-async function sender(accountId: string, from?: string) {
+async function sender(accountId: string, from?: string, draft = false) {
   const account = await getAccount(accountId);
   if (!account) throw new Error(`Account not found: ${accountId}`);
-  return senderOf(account, from);
+  return senderOf(account, from, { draft });
 }
 
 async function submit(
@@ -164,7 +164,7 @@ export async function saveDraft(
   accountId: string,
   draft: DraftSave,
 ): Promise<{ draftId: string; messageId?: string; threadId?: string }> {
-  const { email, from } = await sender(accountId, draft.from);
+  const { email, from } = await sender(accountId, draft.from, true);
   const draftId = isMessageIdHeader(draft.draftId) ? draft.draftId : newMessageIdHeader(email);
   const root = referencesFor(draft.threadId);
   const references = root === draftId ? undefined : root;

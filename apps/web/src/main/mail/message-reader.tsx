@@ -1722,6 +1722,12 @@ function InlineComposer({
       ? chosenAddress(account, pickedAddress, defaultAddress ?? account.email)
       : undefined;
   const fromAddress = sender?.address;
+  // The default, once known, is kept like a pick: an alias removed later is flagged, not swapped.
+  useEffect(() => {
+    if (pickedAddress || !defaultAddress) return;
+    // oxlint-disable-next-line react/set-state-in-effect -- Freezes the sender once it's resolved.
+    setPickedAddress(defaultAddress);
+  }, [pickedAddress, defaultAddress]);
   // A sender the mailbox no longer has opens the fields, where its notice is.
   const showFields = fieldsOpen || !!sender?.unavailable;
 
