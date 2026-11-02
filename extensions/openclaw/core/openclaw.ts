@@ -698,9 +698,21 @@ async function follow(
       turn.text.assistant((p.data ?? {}) as Record<string, unknown>);
       return;
     }
-    if (event === "agent" && p.stream === "item" && turn.resynced) {
+    if (event === "agent" && p.stream === "item") {
       const data = (p.data ?? {}) as Record<string, unknown>;
-      if (data.kind === "tool" && data.phase === "end" && typeof data.toolCallId === "string")
+      // What the agent says between its tool calls ("I'll check the catalog first…").
+      if (data.kind === "preamble" && typeof data.progressText === "string")
+        turn.text.preamble(
+          typeof data.itemId === "string" ? data.itemId : undefined,
+          data.progressText,
+          data.phase === "end",
+        );
+      else if (
+        turn.resynced &&
+        data.kind === "tool" &&
+        data.phase === "end" &&
+        typeof data.toolCallId === "string"
+      )
         endStep(data.toolCallId, data.status === "failed");
       return;
     }
@@ -1058,12 +1070,19 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
         );
       throw new Error("OpenClaw couldn't read this image. Ask it to attach the image directly.");
     }
-    const result = await g.client.request<{
-      file?: { name?: string; content?: string; contentEncoding?: string; mimeType?: string };
-      reason?: string;
-    }>("sessions.files.get", { sessionKey: sessionId, path });
-    if (result.file?.content === undefined)
-      throw new Error("OpenClaw couldn't read this file. Ask it to attach the image directly.");
+    // The gateway serves only files in the agent's workspace: one it wrote
+    // elsewhere on its machine (/tmp, say) can't be read from here.
+    const unreadable =
+      "This file is outside the agent's workspace on the OpenClaw machine. Ask it to save the file in its workspace, or attach it.";
+    const result = await g.client
+      .request<{
+        file?: { name?: string; content?: string; contentEncoding?: string; mimeType?: string };
+        reason?: string;
+      }>("sessions.files.get", { sessionKey: sessionId, path })
+      .catch((error: unknown) => {
+        throw /not found|outside/i.test(String(error)) ? new Error(unreadable) : error;
+      });
+    if (result.file?.content === undefined) throw new Error(unreadable);
     const bytes =
       result.file.contentEncoding === "base64"
         ? fromBase64(result.file.content)

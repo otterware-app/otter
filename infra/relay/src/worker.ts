@@ -626,6 +626,8 @@ const chatBody = z.object({
   device: z.object({ id: z.string().max(64), name: z.string().max(200) }).nullable(),
   createdAt: timestamp,
   updatedAt: timestamp,
+  snoozedUntil: timestamp.nullish(),
+  settledAt: timestamp.nullish(),
   tabs: z
     .array(
       z.object({

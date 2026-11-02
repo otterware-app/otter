@@ -11,7 +11,7 @@ import {
   type ProviderKind,
   type Skill,
 } from "./api";
-import type { ChatProvider } from "./agent-providers";
+import { openClawAgentId, type ChatProvider } from "./agent-providers";
 import { ProviderModelPicker, RuntimeModePicker, TraitsPicker } from "./model-picker";
 import { ApprovalCard } from "./approval-card";
 import { QuestionCard } from "./question-card";
@@ -535,6 +535,9 @@ export function ChatComposer({
                   providers={chat.state?.providers ?? []}
                   activeKind={providerKind}
                   lockedKind={convo && convo.turns.length > 0 ? convo.provider : null}
+                  lockedModel={
+                    convo && convo.turns.length > 0 ? openClawAgentId(convo.sessionId) : null
+                  }
                   onPick={pickModel}
                   returnFocus={focusComposer}
                   chevron={traitOptions.length === 0}

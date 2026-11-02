@@ -71,6 +71,13 @@
       "when": 1792490804667,
       "tag": "0009_chats",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793647714993,
+      "tag": "0010_chat_shelves",
+      "breakpoints": true
     }
   ]
 }

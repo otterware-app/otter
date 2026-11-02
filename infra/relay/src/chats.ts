@@ -29,6 +29,8 @@ export async function list(db: Db, userId: string): Promise<ChatSummary[]> {
       tabs: chats.tabs,
       createdAt: chats.createdAt,
       updatedAt: chats.updatedAt,
+      snoozedUntil: chats.snoozedUntil,
+      settledAt: chats.settledAt,
       deletedAt: chats.deletedAt,
     })
     .from(chats)
@@ -81,6 +83,8 @@ export async function put(db: Db, userId: string, chat: Chat): Promise<Refusal |
     turns: JSON.stringify(chat.turns),
     createdAt: new Date(chat.createdAt),
     updatedAt: new Date(chat.updatedAt),
+    snoozedUntil: chat.snoozedUntil ?? null,
+    settledAt: chat.settledAt ?? null,
     deletedAt: null,
   };
   const written = await db
@@ -106,6 +110,8 @@ export async function remove(db: Db, userId: string, id: string): Promise<boolea
       device: null,
       tabs: [],
       turns: "[]",
+      snoozedUntil: null,
+      settledAt: null,
       deletedAt: new Date(),
     })
     .where(and(row(userId, id), isNull(chats.deletedAt)))

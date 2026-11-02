@@ -60,11 +60,18 @@ export function NewRow({
   );
 }
 
-export function SidebarBody({ children }: { children: ReactNode }) {
+export function SidebarBody({
+  children,
+  contentClassName,
+}: {
+  children: ReactNode;
+  contentClassName?: string;
+}) {
   return (
     <ScrollArea
       className="flex-1"
       viewportClassName="scroll-fade-y px-(--sidebar-content-inset) pb-8 pt-3"
+      contentClassName={contentClassName}
     >
       {children}
     </ScrollArea>
@@ -145,6 +152,7 @@ export function SkRow({
 
 export function Section({
   title,
+  count,
   action,
   children,
   dropZone,
@@ -153,6 +161,8 @@ export function Section({
   defaultOpen = true,
 }: {
   title: string;
+  /** How many it holds, beside the title (Otter Code's shelves). */
+  count?: number;
   action?: ReactNode;
   children: ReactNode;
   defaultOpen?: boolean;
@@ -186,6 +196,9 @@ export function Section({
           aria-label={`Toggle ${title}`}
         >
           {title}
+          {count != null ? (
+            <span className="ms-0.5 tabular-nums text-sidebar-muted-foreground/70">{count}</span>
+          ) : null}
           <ChevronDownIcon
             className={["size-3 transition-transform", open ? "" : "-rotate-90"].join(" ")}
           />

@@ -393,9 +393,12 @@ function appendExchange(
   requestKey: string,
   intent?: ChatTurn["intent"],
 ): void {
+  // Writing to a snoozed or settled chat brings it back.
   patchConversation(convoId, (c) => ({
     ...c,
     updatedAt: Date.now(),
+    snoozedUntil: null,
+    settledAt: null,
     turns: [
       ...c.turns.map((t, i) =>
         i === c.turns.length - 1 && t.role === "assistant" && !t.finishedAt
@@ -723,6 +726,18 @@ export function watchChat(id: string | null): void {
   });
 }
 
+/**
+ * Snooze a chat until a time (`snoozedUntil`), settle it (`settledAt`), or
+ * bring it back (both null). Saved like any change, so every device has it.
+ */
+export async function shelveChat(
+  id: string,
+  change: Pick<Chat, "snoozedUntil" | "settledAt">,
+): Promise<void> {
+  if (!get().conversations.find((c) => c.id === id)?.loaded) await loadChat(id);
+  patchConversation(id, (c) => ({ ...c, ...change, updatedAt: Date.now() }));
+}
+
 export function newChat(provider: ProviderKind): string {
   const blank = get().conversations.find(isBlank);
   if (blank) {
@@ -965,7 +980,16 @@ function onChatEvent(raw: unknown): void {
     // A session deleted elsewhere: unbind so the next send starts a fresh one.
     const sessionId =
       event.type === "error" && event.message === "session_not_found" ? null : c.sessionId;
-    return { ...c, turns: nextTurns, lastResponseId, sessionId, updatedAt: Date.now() };
+    // A turn ending wakes a chat snoozed while it ran (T3 Code's raised hand).
+    const snoozedUntil = event.type === "done" || event.type === "error" ? null : c.snoozedUntil;
+    return {
+      ...c,
+      turns: nextTurns,
+      lastResponseId,
+      sessionId,
+      snoozedUntil,
+      updatedAt: Date.now(),
+    };
   });
   if (opens.result) openChatTab(s.convoId, opens.result.ref, opens.result.title);
   for (const url of opens.pages)

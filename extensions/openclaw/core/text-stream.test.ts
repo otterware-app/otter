@@ -58,6 +58,21 @@ describe("OpenClaw text projections", () => {
     ]);
   });
 
+  it("shows each preamble between tool calls as its own text, apart from the answer", () => {
+    const events: ChatEvent[] = [];
+    const text = new OpenClawText("run", (event) => events.push(event));
+    text.preamble("c1", "I'll check", false);
+    text.preamble("c1", "I'll check the catalog first.", true);
+    text.boundary();
+    text.preamble("c2", "The scan is complete.", true);
+    text.chat({ message: { content: "All passed." } });
+    expect(transcript(events)).toEqual([
+      "I'll check the catalog first.",
+      "The scan is complete.",
+      "All passed.",
+    ]);
+  });
+
   it("supports compact deltas, distinct assistant items, and revisions", () => {
     const events: ChatEvent[] = [];
     const text = new OpenClawText("run", (event) => events.push(event));

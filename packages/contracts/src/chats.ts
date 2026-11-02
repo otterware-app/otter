@@ -73,6 +73,10 @@ export interface Chat {
   device: { id: string; name: string } | null;
   createdAt: number;
   updatedAt: number;
+  /** Out of the list until then, unless the agent needs you or finishes sooner. */
+  snoozedUntil?: number | null;
+  /** Put away by hand; a new message brings it back. Chats idle a week settle on their own. */
+  settledAt?: number | null;
   tabs: ChatTab[];
   turns: ChatTurn[];
 }

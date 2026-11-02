@@ -606,6 +606,36 @@ html[data-window-controls="none"] {
   app-region: no-drag;
 }
 
+/* A light sweeping across text while it's under way (Otter Code's live-tool-shine). */
+@keyframes text-shimmer {
+  from {
+    background-position:
+      -4.5rem 0,
+      0 0;
+  }
+  to {
+    background-position:
+      calc(100% + 4.5rem) 0,
+      0 0;
+  }
+}
+
+@utility text-shimmer {
+  @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+    color: transparent;
+    background-image:
+      linear-gradient(to right, transparent, var(--color-foreground), transparent),
+      linear-gradient(var(--color-secondary-label), var(--color-secondary-label));
+    background-size:
+      4.5rem 100%,
+      100% 100%;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: text-shimmer 2.2s linear infinite;
+  }
+}
+
 @utility surface-glass {
   background: color-mix(in srgb, var(--canvas) var(--glass-opacity), transparent);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));

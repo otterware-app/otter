@@ -251,12 +251,15 @@ function ModelPickerContent({
   providers,
   activeKind,
   lockedKind,
+  lockedModel = null,
   onPick,
   onClose,
 }: {
   providers: ProviderSnapshot[];
   activeKind: ProviderKind;
   lockedKind: ProviderKind | null;
+  /** The model a started chat is bound to (an OpenClaw agent): the only one it offers. */
+  lockedModel?: string | null;
   onPick: (kind: ProviderKind, slug: string) => void;
   onClose: () => void;
 }) {
@@ -274,7 +277,8 @@ function ModelPickerContent({
   const listRef = useRef<HTMLDivElement>(null);
 
   const active = providers.find((p) => p.kind === activeKind);
-  const activeKey = active?.model ? modelKey(activeKind, active.model) : null;
+  const activeModel = lockedModel ?? active?.model;
+  const activeKey = activeModel ? modelKey(activeKind, activeModel) : null;
   const railProviders = providers.filter((p) => p.enabled);
 
   const allItems = useMemo(
@@ -287,7 +291,7 @@ function ModelPickerContent({
             .filter(
               (m) =>
                 !hiddenSet.has(modelKey(p.kind, m.slug)) ||
-                (p.kind === activeKind && m.slug === p.model),
+                (p.kind === activeKind && m.slug === activeModel),
             )
             .map((m: ProviderModel) => ({
               key: modelKey(p.kind, m.slug),
@@ -299,11 +303,15 @@ function ModelPickerContent({
               pictured: Boolean(m.avatar || m.emoji),
             })),
         ),
-    [railProviders, hiddenSet, activeKind],
+    [railProviders, hiddenSet, activeKind, activeModel],
   );
 
   const items = useMemo(() => {
-    const allowed = allItems.filter((i) => lockedKind === null || i.kind === lockedKind);
+    const allowed = allItems.filter(
+      (i) =>
+        (lockedKind === null || i.kind === lockedKind) &&
+        (lockedModel === null || i.slug === lockedModel),
+    );
     if (query.trim()) {
       return allowed
         .map((item) => ({
@@ -327,7 +335,7 @@ function ModelPickerContent({
         ...inGroup.filter((i) => !favoriteSet.has(i.key)),
       ];
     });
-  }, [allItems, favoriteSet, lockedKind, query, rail]);
+  }, [allItems, favoriteSet, lockedKind, lockedModel, query, rail]);
 
   const highlightKey = `${activeKey}:${items.map((item) => item.key).join(",")}`;
   const [highlightFor, setHighlightFor] = useState(highlightKey);
@@ -487,6 +495,7 @@ export function ProviderModelPicker({
   providers,
   activeKind,
   lockedKind,
+  lockedModel = null,
   onPick,
   returnFocus,
   chevron = true,
@@ -495,6 +504,7 @@ export function ProviderModelPicker({
   providers: ProviderSnapshot[];
   activeKind: ProviderKind;
   lockedKind: ProviderKind | null;
+  lockedModel?: string | null;
   onPick: (kind: ProviderKind, slug: string) => void;
   returnFocus?: () => void;
   chevron?: boolean;
@@ -503,10 +513,11 @@ export function ProviderModelPicker({
   const [open, setOpen] = useState(false);
   useCommandHandlers({ "modelPicker.toggle": () => setOpen((o) => !o) });
   const active = providers.find((p) => p.kind === activeKind);
-  const model = active?.models.find((m) => m.slug === active.model);
+  const slug = lockedModel ?? active?.model;
+  const model = active?.models.find((m) => m.slug === slug);
   const label =
-    (model?.name ?? active?.model)
-      ? modelLabel(model?.name ?? active?.model ?? "")
+    (model?.name ?? slug)
+      ? modelLabel(model?.name ?? slug ?? "")
       : (active?.displayName ?? "Choose model");
 
   return (
@@ -524,7 +535,7 @@ export function ProviderModelPicker({
             )}
           >
             <span className="flex min-w-0 flex-1 items-center gap-1.5">
-              <AgentAvatar kind={activeKind} className="size-3.5" />
+              <AgentAvatar kind={activeKind} agent={lockedModel} className="size-3.5" />
               <span className="min-w-0 flex-1 truncate">{label}</span>
             </span>
             {chevron ? (
@@ -548,6 +559,7 @@ export function ProviderModelPicker({
             providers={providers}
             activeKind={activeKind}
             lockedKind={lockedKind}
+            lockedModel={lockedModel}
             onClose={() => setOpen(false)}
             onPick={(kind, slug) => {
               onPick(kind, slug);

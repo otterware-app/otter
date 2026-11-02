@@ -32,6 +32,7 @@ export class OpenClawText {
   private chatText = "";
   private said = "";
   private held: string | undefined;
+  private preambleId: string | undefined;
 
   constructor(requestId: string, emit: Emit) {
     this.stream = new TextStream(requestId, emit);
@@ -40,8 +41,24 @@ export class OpenClawText {
   boundary(): void {
     this.stream.start();
     this.itemId = undefined;
+    this.preambleId = undefined;
     this.said = "";
     this.held = undefined;
+  }
+
+  /**
+   * Commentary between tool calls: the gateway sends it as `item` events
+   * (kind "preamble") with the whole text so far, each in a text item of its own.
+   */
+  preamble(itemId: string | undefined, text: string, ended: boolean): void {
+    if (!itemId || itemId !== this.preambleId) {
+      this.boundary();
+      if (itemId) this.stream.start(`preamble:${itemId}`);
+      this.preambleId = itemId;
+    }
+    this.stream.snapshot(text);
+    // What follows (the answer) starts a text item of its own.
+    if (ended) this.stream.start();
   }
 
   replay(): void {

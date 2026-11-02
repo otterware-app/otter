@@ -1242,6 +1242,8 @@ describe("chats", () => {
     device: null,
     createdAt: 1_000,
     updatedAt: 2_000,
+    snoozedUntil: 5_000,
+    settledAt: null,
     tabs: [
       {
         id: "thread:me@example.com:t1",

@@ -197,6 +197,7 @@ chats read the same everywhere and continue on that Mac.
 | Bottom bar: minimized chats as tabs (working, waiting, finished), Agent | ✓                   | ✓                    | —                                          |
 | Chat history from the bottom bar                                        | ✓                   | ✓                    | the Agent tab (chats: swipe from the left) |
 | AI workspace (Agent in the sidebar): recent chats, the chat, its tabs   | ✓                   | ✓                    | the Agent tab                              |
+| Chats sorted like Otter Code's: Working, Snoozed, Settled (synced)      | ✓                   | ✓                    | —                                          |
 | Open the small window's chat in the workspace (⌘⇧F, and back)           | ✓                   | ✓                    | —                                          |
 | Tabs: conversations and drafts it was given, read or made; files        | ✓                   | ✓                    | —                                          |
 | Tabs: pages it read, events it made, links clicked in it                | ✓                   | — (links: a new tab) | —                                          |

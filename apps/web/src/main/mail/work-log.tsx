@@ -128,7 +128,7 @@ function RowHead({
           "min-w-0 truncate text-sm leading-relaxed text-secondary-label",
           expandable && "group-hover/step:text-foreground",
           open && "text-foreground",
-          pending && "animate-status-pulse",
+          pending && "text-shimmer",
         )}
       >
         {title}
