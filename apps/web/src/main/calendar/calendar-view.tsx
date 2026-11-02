@@ -145,7 +145,15 @@ function AllowAccessButton({ account, label }: { account: MailAccount; label: st
   const allow = () => {
     console.log("[CalendarView:allowAccess]", { accountId: account.id });
     void signIn.mutateAsync(account.email).then(
-      () => void qc.invalidateQueries({ queryKey: ["calendar"] }),
+      (signedIn) => {
+        void qc.invalidateQueries({ queryKey: ["calendar"] });
+        // Google lets you pick another account than the one hinted: that one gets added instead.
+        if (signedIn && signedIn.email.toLowerCase() !== account.email.toLowerCase()) {
+          toast.error(`You signed in to ${signedIn.email}`, {
+            description: `To allow access for ${account.email}, choose that account at Google.`,
+          });
+        }
+      },
       (err: unknown) =>
         toast.error(`Couldn't get permission for ${account.email}`, {
           description: err instanceof Error ? err.message : String(err),

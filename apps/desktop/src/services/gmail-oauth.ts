@@ -325,7 +325,11 @@ async function saveAccount(tokens: StoredTokens): Promise<MailAccount> {
   await saveStore();
   tokenCache.delete(email);
 
+  // Signing in again (a new permission, an expired sign-in) keeps what the mailbox already had:
+  // its display name, color, signature, addresses. Not another kind of mailbox's at that address.
+  const existing = await accountStore.getAccount(email);
   const account: MailAccount = {
+    ...(existing && (existing.provider ?? "gmail") === "gmail" ? existing : {}),
     id: email,
     email,
     name: userInfo.name ?? email,
