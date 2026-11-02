@@ -96,13 +96,15 @@ export function TeamPicker({ onClose }: { onClose: () => void }) {
                 onPointerEnter={() => setHighlight(i)}
                 onClick={() => pick(option)}
                 className={cn(
-                  "flex h-9 min-w-0 cursor-pointer items-baseline gap-2 rounded-lg px-3 text-left text-sm outline-none",
+                  "flex h-9 min-w-0 cursor-pointer items-center gap-2 rounded-lg px-3 text-left text-sm outline-none",
                   i === at && "bg-foreground/[0.07]",
                 )}
               >
-                <span className="shrink-0 font-medium">{option.name}</span>
+                <span className="min-w-0 max-w-[60%] shrink-0 truncate font-medium">
+                  {option.name}
+                </span>
                 {option.name !== option.email ? (
-                  <span className="truncate text-muted-foreground">{option.email}</span>
+                  <span className="min-w-0 truncate text-muted-foreground">{option.email}</span>
                 ) : null}
               </button>
             ))}

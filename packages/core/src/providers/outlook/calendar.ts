@@ -296,8 +296,15 @@ export async function respondToEvent(
   eventId: string,
   response: RsvpResponse,
 ): Promise<CalendarEvent> {
+  const before = await fetchEvent(accountId, eventId);
   await answer(accountId, eventId, response);
-  return getEvent(accountId, eventId);
+  try {
+    return await getEvent(accountId, eventId);
+  } catch (err) {
+    // Declining takes the invitation off the calendar: answered, and gone.
+    if (!isNotFound(err)) throw err;
+    return { ...toEvent(before), response };
+  }
 }
 
 type ScheduleItem = {

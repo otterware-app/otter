@@ -127,16 +127,16 @@ function TeamCalendars() {
       <div className="flex h-7 items-center px-(--sidebar-row-content-inset) text-xs font-medium text-sidebar-muted-foreground">
         Team calendars
       </div>
-      <div className="relative rounded-lg bg-sidebar-row-selected py-1">
+      <div className="relative rounded-lg bg-sidebar-row-selected py-0.5">
         {team.map((teammate, i) => (
           <div
             key={teammate.email}
             title={teammate.email}
-            className="flex h-8 items-center gap-2.5 px-(--sidebar-row-content-inset) text-sm text-sidebar-foreground"
+            className="flex h-7 items-center gap-2 px-(--sidebar-row-content-inset) text-[13px] font-medium text-sidebar-foreground"
           >
             <span
               aria-hidden
-              className="flex size-5 shrink-0 items-center justify-center rounded-full bg-sidebar-muted-foreground/45 text-[8.5px] font-semibold text-sidebar-foreground"
+              className="flex size-4 shrink-0 items-center justify-center rounded-full bg-sidebar-muted-foreground/45 text-[7px] font-semibold text-sidebar-foreground"
               style={{ boxShadow: `0 0 0 1.5px ${TEAM_COLORS[i % TEAM_COLORS.length]}` }}
             >
               {initials(teammate.name)}
@@ -206,7 +206,7 @@ export function CalendarSidebar({
                 aria-pressed={!off}
                 onClick={() => toggleHidden(account.id)}
                 title={off ? "Show this calendar" : "Hide this calendar"}
-                className="group flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-lg px-(--sidebar-row-content-inset) text-left text-sm outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring"
+                className="group flex h-7 w-full cursor-pointer items-center gap-2 rounded-md px-(--sidebar-row-content-inset) text-left text-[13px] font-medium outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring"
               >
                 <span
                   aria-hidden

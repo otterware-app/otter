@@ -60,6 +60,13 @@ function CalendarTitle({
   return <h1 className="shrink-0 text-sm font-semibold text-foreground">{monthTitle(middle)}</h1>;
 }
 
+/** A near-black calendar color (a mailbox colored black) lifted toward the text, so it reads on a dark canvas. */
+function legible(hex: string): string {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const luminance = 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+  return luminance < 0.12 ? `color-mix(in srgb, ${hex} 45%, var(--color-foreground))` : hex;
+}
+
 /** Teammates' colors, apart from the mailboxes'. */
 export const TEAM_COLORS = ["#34c759", "#af52de", "#ff9500", "#00c7be", "#ff2d55", "#5856d6"];
 
@@ -128,7 +135,7 @@ export function CalendarView({
       TEAM_COLORS[i % TEAM_COLORS.length]!,
     ]),
   ]);
-  const colorOf = (id: string) => colors.get(id) ?? "#8a8a8a";
+  const colorOf = (id: string) => legible(colors.get(id) ?? "#8a8a8a");
   const defaultAccountId = shownIds[0] ?? null;
 
   const selected =

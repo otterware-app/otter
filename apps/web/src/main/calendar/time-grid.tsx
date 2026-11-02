@@ -147,6 +147,13 @@ export function TimeGrid({
       }
       clearTimeout(timer);
       timer = setTimeout(() => {
+        // At rest between days: glide onto the nearest, then settle there.
+        // (Not CSS snapping: a mouse wheel's steps would each be pulled back.)
+        const nearest = Math.round(el.scrollLeft / colW) * colW;
+        if (Math.abs(nearest - el.scrollLeft) > 1) {
+          el.scrollTo({ left: nearest, behavior: "smooth" });
+          return;
+        }
         aim = null;
         const shift = Math.round(el.scrollLeft / colW) - buffer;
         if (shift) onSettleRef.current(shift);
@@ -303,11 +310,7 @@ export function TimeGrid({
 
   const stripWidth = colW * days.length;
   return (
-    <ScrollArea
-      ref={scrollRef}
-      className="min-h-0 flex-1"
-      viewportClassName="snap-x snap-mandatory scroll-pl-14 overscroll-contain"
-    >
+    <ScrollArea ref={scrollRef} className="min-h-0 flex-1" viewportClassName="overscroll-contain">
       <div
         className="relative"
         style={{ width: GUTTER_PX + stripWidth, visibility: colW ? undefined : "hidden" }}
@@ -423,7 +426,7 @@ export function TimeGrid({
                   key={dayStart}
                   style={{ width: colW }}
                   className={cn(
-                    "relative shrink-0 snap-start border-l border-border/50",
+                    "relative shrink-0 border-l border-border/50",
                     weekend && "bg-foreground/[0.015]",
                   )}
                 >

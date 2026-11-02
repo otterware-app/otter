@@ -220,10 +220,11 @@ export function useCalendarActions() {
         accountId: event.accountId,
         eventId: event.id,
         response,
-      }).then(
-        (saved) => replace(event.accountId, event.id, withTimes(event.accountId, saved)),
-        fail("Couldn't answer the invitation"),
-      );
+      }).then((saved) => {
+        replace(event.accountId, event.id, withTimes(event.accountId, saved));
+        // A declined invitation can leave the calendar (Outlook removes it).
+        settle();
+      }, fail("Couldn't answer the invitation"));
     },
   };
 }
