@@ -1706,10 +1706,20 @@ function InlineComposer({
   const ownAddresses = useMemo(() => (account ? addressesOf(account) : []), [account]);
   // Which of the mailbox's addresses it goes from: the one the mail was sent to, unless picked.
   const [pickedAddress, setPickedAddress] = useState<string>();
-  // The default needs the detail: the summary lacks Cc, where the address contacted may be.
+  // With other addresses, the default needs the detail: the summary lacks Cc, where the address
+  // contacted may be. If the detail can't load, the summary's To is the best guess.
+  const defaultAddress = !account
+    ? undefined
+    : ownAddresses.length === 1
+      ? account.email
+      : lastDetail
+        ? replyAddress(account, lastDetail)
+        : lastDetailQuery.isError
+          ? replyAddress(account, lastMessage)
+          : undefined;
   const sender =
-    account && lastDetail
-      ? chosenAddress(account, pickedAddress, replyAddress(account, lastDetail))
+    account && (pickedAddress || defaultAddress)
+      ? chosenAddress(account, pickedAddress, defaultAddress ?? account.email)
       : undefined;
   const fromAddress = sender?.address;
   // A sender the mailbox no longer has opens the fields, where its notice is.
