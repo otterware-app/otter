@@ -483,7 +483,10 @@ export function ChatComposer({
               rows={compact ? 1 : 2}
               className={cn(
                 "w-full resize-none bg-transparent pb-1 text-sm leading-relaxed text-foreground outline-none placeholder:text-placeholder",
-                compact ? "field-sizing-content max-h-40 px-3.5 pt-3" : "px-4.5 pt-4",
+                "field-sizing-content",
+                compact
+                  ? "max-h-40 px-3.5 pt-3"
+                  : "min-h-[calc(2lh+1.25rem)] max-h-[min(20rem,45vh)] px-4.5 pt-4",
               )}
             />
             <div
