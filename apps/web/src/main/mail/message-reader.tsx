@@ -157,6 +157,25 @@ export type DownloadAttachment = (
   mimeType: string,
 ) => void;
 
+/** An element's width, kept current: `[width, ref]`. */
+function useWidth(initial: number): [number, (el: HTMLElement | null) => void] {
+  const [width, setWidth] = useState(initial);
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = useCallback(
+    (el: HTMLElement | null) => {
+      observer.current?.disconnect();
+      observer.current = null;
+      if (!el) return setWidth(initial);
+      setWidth(el.getBoundingClientRect().width);
+      const ro = new ResizeObserver(([entry]) => setWidth(entry.borderBoxSize[0].inlineSize));
+      ro.observe(el);
+      observer.current = ro;
+    },
+    [initial],
+  );
+  return [width, ref];
+}
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -2035,17 +2054,21 @@ export function MessageReader({
   // The band adapts to the reader's width (panels open → narrow): secondary
   // actions fold into "…" below 36rem. Measured in JS because the "…" menu
   // renders outside this element.
-  const [readerWidth, setReaderWidth] = useState(Infinity);
-  const readerObserver = useRef<ResizeObserver | null>(null);
-  const readerRef = useCallback((el: HTMLDivElement | null) => {
-    readerObserver.current?.disconnect();
-    readerObserver.current = null;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setReaderWidth(entry.contentRect.width));
-    ro.observe(el);
-    readerObserver.current = ro;
-  }, []);
+  const [readerWidth, readerRef] = useWidth(Infinity);
+  const [leadingWidth, leadingRef] = useWidth(0);
+  const [actionsWidth, actionsRef] = useWidth(0);
   const compactActions = readerWidth < 36 * 16;
+  // Read before paint on every render, so a new subject never shows in the
+  // wrong place first.
+  const titleMeasureRef = useRef<HTMLDivElement>(null);
+  const [titleWidth, setTitleWidth] = useState(0);
+  useLayoutEffect(() => {
+    if (titleMeasureRef.current) setTitleWidth(titleMeasureRef.current.offsetWidth);
+  });
+  // The subject sits in the band beside the actions when it fits there on one
+  // line; otherwise it takes its own row below, where it can wrap. The band
+  // keeps its height either way.
+  const titleInBand = readerWidth - 3.75 * 16 - leadingWidth - actionsWidth >= titleWidth;
   const summaryFits = readerWidth >= 48 * 16 + 16 * 16 + 2 * 16;
   const [summaryPinned, setSummaryPinned] = useState(
     () => localStorage.getItem("gmail:summary-pinned") !== "0",
@@ -2429,7 +2452,7 @@ export function MessageReader({
   const title = (
     <>
       <h1
-        className="select-text text-xl font-semibold leading-snug tracking-[-0.01em] text-foreground"
+        className="no-drag select-text text-xl font-semibold leading-7 tracking-[-0.01em] text-foreground [overflow-wrap:anywhere]"
         title={isThread ? `${rows.length} messages` : formatFullDate(message.date)}
       >
         {message.subject || "(no subject)"}
@@ -2481,385 +2504,409 @@ export function MessageReader({
   return conversation.wrap(
     <>
       <div ref={readerRef} className="relative flex h-full min-h-0 min-w-0 flex-col">
-        {/* The title band: the everyday actions, a "more" menu, then the
-            window's panel toggle. The subject heads the conversation below. */}
+        {/* The title band: the subject and its labels when they fit, the
+            everyday actions, a "more" menu, then the window's panel toggle. */}
         <div
           data-toolbar=""
           className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-1 px-4"
         >
-          {titleLeading}
-          <span className="min-w-0 flex-1" />
+          {titleLeading ? (
+            <span ref={leadingRef} className="flex shrink-0 items-center gap-1">
+              {titleLeading}
+            </span>
+          ) : null}
+          <div className="flex min-w-0 flex-1 items-center gap-2 pl-2 pr-3">
+            {titleInBand ? title : null}
+          </div>
 
-          {/* Priority + overflow: Reply, Archive, Trash and "…" always show;
+          <span ref={actionsRef} className="flex shrink-0 items-center gap-1">
+            {/* Priority + overflow: Reply, Archive, Trash and "…" always show;
               as the pane narrows the rest folds into "…". */}
-          <HintTooltip label="Reply" shortcut="message.reply" side="bottom">
-            <IconBtn label="Reply" onClick={handleReply}>
-              <ReplyIcon className="size-4" />
-            </IconBtn>
-          </HintTooltip>
-          {compactActions ? null : (
-            <>
-              <HintTooltip label="Reply all" shortcut="message.replyAll" side="bottom">
-                <IconBtn label="Reply all" onClick={handleReplyAll}>
-                  <ReplyAllIcon className="size-4" />
+            <HintTooltip label="Reply" shortcut="message.reply" side="bottom">
+              <IconBtn label="Reply" onClick={handleReply}>
+                <ReplyIcon className="size-4" />
+              </IconBtn>
+            </HintTooltip>
+            {compactActions ? null : (
+              <>
+                <HintTooltip label="Reply all" shortcut="message.replyAll" side="bottom">
+                  <IconBtn label="Reply all" onClick={handleReplyAll}>
+                    <ReplyAllIcon className="size-4" />
+                  </IconBtn>
+                </HintTooltip>
+                <HintTooltip label="Forward" shortcut="message.forward" side="bottom">
+                  <IconBtn label="Forward" onClick={handleForward}>
+                    <ForwardIcon className="size-4" />
+                  </IconBtn>
+                </HintTooltip>
+              </>
+            )}
+
+            {groupDivider}
+
+            {isTrashed ? (
+              <HintTooltip label="Restore from Trash" shortcut="message.trash" side="bottom">
+                <IconBtn label="Restore from Trash" onClick={handleUntrash}>
+                  <RotateCcwIcon className="size-4" />
                 </IconBtn>
               </HintTooltip>
-              <HintTooltip label="Forward" shortcut="message.forward" side="bottom">
-                <IconBtn label="Forward" onClick={handleForward}>
-                  <ForwardIcon className="size-4" />
-                </IconBtn>
-              </HintTooltip>
-            </>
-          )}
-
-          {groupDivider}
-
-          {isTrashed ? (
-            <HintTooltip label="Restore from Trash" shortcut="message.trash" side="bottom">
-              <IconBtn label="Restore from Trash" onClick={handleUntrash}>
-                <RotateCcwIcon className="size-4" />
-              </IconBtn>
-            </HintTooltip>
-          ) : archiveSource ? (
-            <HintTooltip label="Archive" shortcut="message.archive" side="bottom">
-              <IconBtn
-                label="Archive"
-                onClick={() => {
-                  onAdvance?.();
-                  handleArchive();
-                }}
-              >
-                <ArchiveIcon className="size-4" />
-              </IconBtn>
-            </HintTooltip>
-          ) : (
-            <HintTooltip label="Move to Inbox" shortcut="message.archive" side="bottom">
-              <IconBtn label="Move to Inbox" onClick={handleUnarchive}>
-                <ArchiveRestoreIcon className="size-4" />
-              </IconBtn>
-            </HintTooltip>
-          )}
-          {!isTrashed && rows.some((m) => m.labelIds.includes("INBOX")) && (
-            <SnoozeButton
-              accountId={accountId}
-              threadId={threadId || messageId}
-              onDone={onAdvance ?? onDeselect}
-            />
-          )}
-          {isTrashed ? null : (
-            <HintTooltip label="Move to Trash" shortcut="message.trash" side="bottom">
-              <IconBtn
-                label="Move to Trash"
-                onClick={() => {
-                  onAdvance?.();
-                  handleTrash();
-                }}
-              >
-                <Trash2Icon className="size-4" />
-              </IconBtn>
-            </HintTooltip>
-          )}
-          {compactActions ? null : (
-            <>
-              <LabelPickerMenu
-                accountId={accountId}
-                threadId={conversationId}
-                labelIds={conversationLabelIds}
-              >
+            ) : archiveSource ? (
+              <HintTooltip label="Archive" shortcut="message.archive" side="bottom">
                 <IconBtn
-                  label={
-                    foldersAndCategories
-                      ? "Categorize"
-                      : multipleLabels
-                        ? "Label"
-                        : "Move to folder"
-                  }
+                  label="Archive"
+                  onClick={() => {
+                    onAdvance?.();
+                    handleArchive();
+                  }}
                 >
-                  <FolderIcon className="size-4" />
-                </IconBtn>
-              </LabelPickerMenu>
-              <HintTooltip
-                label={isFlagged ? "Unflag" : "Flag"}
-                shortcut="message.star"
-                side="bottom"
-              >
-                <IconBtn label={isFlagged ? "Unflag" : "Flag"} onClick={handleToggleFlag}>
-                  <FlagIcon
-                    className={cn("size-4", isFlagged ? "fill-current text-(--red)" : "")}
-                  />
+                  <ArchiveIcon className="size-4" />
                 </IconBtn>
               </HintTooltip>
-            </>
-          )}
+            ) : (
+              <HintTooltip label="Move to Inbox" shortcut="message.archive" side="bottom">
+                <IconBtn label="Move to Inbox" onClick={handleUnarchive}>
+                  <ArchiveRestoreIcon className="size-4" />
+                </IconBtn>
+              </HintTooltip>
+            )}
+            {!isTrashed && rows.some((m) => m.labelIds.includes("INBOX")) && (
+              <SnoozeButton
+                accountId={accountId}
+                threadId={threadId || messageId}
+                onDone={onAdvance ?? onDeselect}
+              />
+            )}
+            {isTrashed ? null : (
+              <HintTooltip label="Move to Trash" shortcut="message.trash" side="bottom">
+                <IconBtn
+                  label="Move to Trash"
+                  onClick={() => {
+                    onAdvance?.();
+                    handleTrash();
+                  }}
+                >
+                  <Trash2Icon className="size-4" />
+                </IconBtn>
+              </HintTooltip>
+            )}
+            {compactActions ? null : (
+              <>
+                <LabelPickerMenu
+                  accountId={accountId}
+                  threadId={conversationId}
+                  labelIds={conversationLabelIds}
+                >
+                  <IconBtn
+                    label={
+                      foldersAndCategories
+                        ? "Categorize"
+                        : multipleLabels
+                          ? "Label"
+                          : "Move to folder"
+                    }
+                  >
+                    <FolderIcon className="size-4" />
+                  </IconBtn>
+                </LabelPickerMenu>
+                <HintTooltip
+                  label={isFlagged ? "Unflag" : "Flag"}
+                  shortcut="message.star"
+                  side="bottom"
+                >
+                  <IconBtn label={isFlagged ? "Unflag" : "Flag"} onClick={handleToggleFlag}>
+                    <FlagIcon
+                      className={cn("size-4", isFlagged ? "fill-current text-(--red)" : "")}
+                    />
+                  </IconBtn>
+                </HintTooltip>
+              </>
+            )}
 
-          <ExtensionToolbarActions target={extensionTarget} />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <IconBtn label="More actions">
-                <EllipsisIcon className="size-4" />
-              </IconBtn>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {compactActions ? (
-                <>
-                  <DropdownMenuItem
-                    icon={<ReplyAllIcon />}
-                    accelerator={replyAllShortcut}
-                    onSelect={handleReplyAll}
-                  >
-                    Reply all
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    icon={<ForwardIcon />}
-                    accelerator={forwardShortcut}
-                    onSelect={handleForward}
-                  >
-                    Forward
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <LabelSubmenu
-                    accountId={accountId}
-                    threadId={conversationId}
-                    labelIds={conversationLabelIds}
-                  />
-                  {foldersAndCategories ? (
+            <ExtensionToolbarActions target={extensionTarget} />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <IconBtn label="More actions">
+                  <EllipsisIcon className="size-4" />
+                </IconBtn>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {compactActions ? (
+                  <>
+                    <DropdownMenuItem
+                      icon={<ReplyAllIcon />}
+                      accelerator={replyAllShortcut}
+                      onSelect={handleReplyAll}
+                    >
+                      Reply all
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      icon={<ForwardIcon />}
+                      accelerator={forwardShortcut}
+                      onSelect={handleForward}
+                    >
+                      Forward
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <LabelSubmenu
                       accountId={accountId}
                       threadId={conversationId}
                       labelIds={conversationLabelIds}
-                      folders
                     />
-                  ) : null}
-                  <DropdownMenuItem
-                    icon={<FlagIcon />}
-                    accelerator={flagShortcut}
-                    onSelect={handleToggleFlag}
-                  >
-                    {isFlagged ? "Unflag" : "Flag"}
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-              <DropdownMenuItem
-                icon={isUnread ? <MailOpenIcon /> : <MailIcon />}
-                onSelect={handleToggleRead}
-              >
-                {isUnread ? "Mark as read" : "Mark as unread"}
-              </DropdownMenuItem>
-              {conversation.menuItems}
-              {isJunk ? (
+                    {foldersAndCategories ? (
+                      <LabelSubmenu
+                        accountId={accountId}
+                        threadId={conversationId}
+                        labelIds={conversationLabelIds}
+                        folders
+                      />
+                    ) : null}
+                    <DropdownMenuItem
+                      icon={<FlagIcon />}
+                      accelerator={flagShortcut}
+                      onSelect={handleToggleFlag}
+                    >
+                      {isFlagged ? "Unflag" : "Flag"}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
                 <DropdownMenuItem
-                  icon={<ShieldCheckIcon />}
-                  accelerator={junkShortcut}
-                  onSelect={handleJunk}
+                  icon={isUnread ? <MailOpenIcon /> : <MailIcon />}
+                  onSelect={handleToggleRead}
                 >
-                  Not junk
+                  {isUnread ? "Mark as read" : "Mark as unread"}
                 </DropdownMenuItem>
-              ) : isTrashed ? null : (
-                <DropdownMenuItem
-                  icon={<ArchiveXIcon />}
-                  accelerator={junkShortcut}
-                  onSelect={() => {
-                    onAdvance?.();
-                    handleJunk();
+                {conversation.menuItems}
+                {isJunk ? (
+                  <DropdownMenuItem
+                    icon={<ShieldCheckIcon />}
+                    accelerator={junkShortcut}
+                    onSelect={handleJunk}
+                  >
+                    Not junk
+                  </DropdownMenuItem>
+                ) : isTrashed ? null : (
+                  <DropdownMenuItem
+                    icon={<ArchiveXIcon />}
+                    accelerator={junkShortcut}
+                    onSelect={() => {
+                      onAdvance?.();
+                      handleJunk();
+                    }}
+                  >
+                    Move to junk
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem icon={<AgentIcon />} onSelect={() => onOpenChat?.()}>
+                  Chat about this with the agent
+                </DropdownMenuItem>
+                <ExtensionMenuActions target={extensionTarget} />
+                {isTrashed || isJunk ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      icon={<Trash2Icon />}
+                      color="red"
+                      onSelect={() => setConfirmDeleteOpen(true)}
+                    >
+                      Delete forever…
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {summaryFits ? (
+              <HintTooltip label={summaryPinned ? "Hide summary" : "Show summary"} side="bottom">
+                <IconBtn
+                  label="Toggle summary"
+                  active={summaryPinned}
+                  onClick={() => {
+                    localStorage.setItem("gmail:summary-pinned", summaryPinned ? "0" : "1");
+                    setSummaryPinned(!summaryPinned);
                   }}
                 >
-                  Move to junk
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem icon={<AgentIcon />} onSelect={() => onOpenChat?.()}>
-                Chat about this with the agent
-              </DropdownMenuItem>
-              <ExtensionMenuActions target={extensionTarget} />
-              {isTrashed || isJunk ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    icon={<Trash2Icon />}
-                    color="red"
-                    onSelect={() => setConfirmDeleteOpen(true)}
-                  >
-                    Delete forever…
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {summaryFits ? (
-            <HintTooltip label={summaryPinned ? "Hide summary" : "Show summary"} side="bottom">
-              <IconBtn
-                label="Toggle summary"
-                active={summaryPinned}
-                onClick={() => {
-                  localStorage.setItem("gmail:summary-pinned", summaryPinned ? "0" : "1");
-                  setSummaryPinned(!summaryPinned);
-                }}
-              >
-                <ListIcon className="size-4" />
-              </IconBtn>
-            </HintTooltip>
-          ) : (
-            <Popover.Root open={summaryOpen} onOpenChange={setSummaryOpen}>
-              <HintTooltip label="Summary" side="bottom">
-                <Popover.Trigger asChild>
-                  <IconBtn label="Toggle summary" active={summaryOpen}>
-                    <ListIcon className="size-4" />
-                  </IconBtn>
-                </Popover.Trigger>
+                  <ListIcon className="size-4" />
+                </IconBtn>
               </HintTooltip>
-              <Popover.Portal>
-                <Popover.Content
-                  side="bottom"
-                  align="end"
-                  sideOffset={6}
-                  collisionPadding={8}
-                  className="z-[130] outline-none"
-                >
-                  {summary}
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
+            ) : (
+              <Popover.Root open={summaryOpen} onOpenChange={setSummaryOpen}>
+                <HintTooltip label="Summary" side="bottom">
+                  <Popover.Trigger asChild>
+                    <IconBtn label="Toggle summary" active={summaryOpen}>
+                      <ListIcon className="size-4" />
+                    </IconBtn>
+                  </Popover.Trigger>
+                </HintTooltip>
+                <Popover.Portal>
+                  <Popover.Content
+                    side="bottom"
+                    align="end"
+                    sideOffset={6}
+                    collisionPadding={8}
+                    className="z-[130] outline-none"
+                  >
+                    {summary}
+                  </Popover.Content>
+                </Popover.Portal>
+              </Popover.Root>
+            )}
+
+            {titleTrailing ? (
+              <span className="ml-1 flex items-center gap-1">{titleTrailing}</span>
+            ) : null}
+          </span>
+        </div>
+
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {/* The subject on one line, unseen: how much room it needs in the band. */}
+          <div
+            ref={titleMeasureRef}
+            aria-hidden
+            inert
+            className="pointer-events-none invisible absolute left-0 top-0 flex w-max items-center gap-2 whitespace-nowrap"
+          >
+            {title}
+          </div>
+
+          {titleInBand ? null : (
+            <div className="mx-auto flex w-full max-w-(--reading-width) shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-6 pb-2 pt-1">
+              {title}
+            </div>
           )}
 
-          {titleTrailing ? (
-            <span className="ml-1 flex items-center gap-1">{titleTrailing}</span>
-          ) : null}
-        </div>
-
-        {/* The subject + labels: what this is, before who said what. */}
-        <div className="mx-auto flex w-full max-w-(--reading-width) shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 px-6 pb-2 pt-3">
-          {title}
-        </div>
-
-        {single && threadMessages.length > 1 ? (
-          <div className="mx-auto flex w-full max-w-(--reading-width) shrink-0 items-center gap-2 px-6 py-1.5">
-            <span className="text-sm text-muted-foreground">
-              One message of {threadMessages.length} in this conversation
-            </span>
-            <span className="flex-1" />
-            <button
-              type="button"
-              onClick={onShowConversation}
-              className={buttonClass("outline", "sm", "rounded-full border-border/60")}
-            >
-              Show conversation
-            </button>
-          </div>
-        ) : null}
-
-        {isTrashed ? (
-          <div className="mx-auto w-full max-w-(--reading-width) shrink-0 px-5 pt-3">
-            <div className="flex items-center gap-2 rounded-2xl border border-warning/32 bg-warning-surface py-2 pl-4 pr-2">
-              <Trash2Icon className="size-4 shrink-0 text-warning-foreground" />
-              <span className="text-sm text-warning-foreground">
-                This conversation is in the Trash
+          {single && threadMessages.length > 1 ? (
+            <div className="mx-auto flex w-full max-w-(--reading-width) shrink-0 items-center gap-2 px-6 py-1.5">
+              <span className="text-sm text-muted-foreground">
+                One message of {threadMessages.length} in this conversation
               </span>
               <span className="flex-1" />
               <button
                 type="button"
-                onClick={handleUntrash}
-                className={buttonClass("outline", "sm", "rounded-full")}
+                onClick={onShowConversation}
+                className={buttonClass("outline", "sm", "rounded-full border-border/60")}
               >
-                Restore
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmDeleteOpen(true)}
-                className={buttonClass("outline", "sm", "rounded-full text-destructive-foreground")}
-              >
-                Delete forever
+                Show conversation
               </button>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {/* Conversation */}
-        <ScrollArea
-          className="flex-1"
-          viewportClassName={cn(
-            "pb-6",
-            // Room for the pinned summary, so the column centers beside it.
-            summaryShown && "pr-[18rem]",
-          )}
-          onMouseUp={onParentMouseUp}
-        >
-          <div className="mx-auto w-full max-w-(--reading-width)">
-            {(() => {
-              type Segment =
-                | { kind: "day"; ts: number }
-                | { kind: "open"; m: MessageSummary }
-                | { kind: "closed"; ms: MessageSummary[] };
-              const segments: Segment[] = [];
-              rows.forEach((m, i) => {
-                const prev = rows[i - 1];
-                if (!prev || dayKey(prev.date) !== dayKey(m.date)) {
-                  segments.push({ kind: "day", ts: m.date });
-                }
-                const open = expandedIds.has(m.id) || rows.length === 1;
-                const last = segments[segments.length - 1];
-                if (open) segments.push({ kind: "open", m });
-                else if (last?.kind === "closed") last.ms.push(m);
-                else segments.push({ kind: "closed", ms: [m] });
-              });
-              return segments.map((seg) => {
-                if (seg.kind === "day")
-                  return <DayDivider key={`d-${seg.ts}`} timestamp={seg.ts} />;
-                if (seg.kind === "open") {
-                  const m = seg.m;
+          {isTrashed ? (
+            <div className="mx-auto w-full max-w-(--reading-width) shrink-0 px-5 pt-3">
+              <div className="flex items-center gap-2 rounded-2xl border border-warning/32 bg-warning-surface py-2 pl-4 pr-2">
+                <Trash2Icon className="size-4 shrink-0 text-warning-foreground" />
+                <span className="text-sm text-warning-foreground">
+                  This conversation is in the Trash
+                </span>
+                <span className="flex-1" />
+                <button
+                  type="button"
+                  onClick={handleUntrash}
+                  className={buttonClass("outline", "sm", "rounded-full")}
+                >
+                  Restore
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteOpen(true)}
+                  className={buttonClass(
+                    "outline",
+                    "sm",
+                    "rounded-full text-destructive-foreground",
+                  )}
+                >
+                  Delete forever
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Conversation */}
+          <ScrollArea
+            className="flex-1"
+            viewportClassName={cn(
+              "pb-6",
+              // Room for the pinned summary, so the column centers beside it.
+              summaryShown && "pr-[18rem]",
+            )}
+            onMouseUp={onParentMouseUp}
+          >
+            <div className="mx-auto w-full max-w-(--reading-width)">
+              {(() => {
+                type Segment =
+                  | { kind: "day"; ts: number }
+                  | { kind: "open"; m: MessageSummary }
+                  | { kind: "closed"; ms: MessageSummary[] };
+                const segments: Segment[] = [];
+                rows.forEach((m, i) => {
+                  const prev = rows[i - 1];
+                  if (!prev || dayKey(prev.date) !== dayKey(m.date)) {
+                    segments.push({ kind: "day", ts: m.date });
+                  }
+                  const open = expandedIds.has(m.id) || rows.length === 1;
+                  const last = segments[segments.length - 1];
+                  if (open) segments.push({ kind: "open", m });
+                  else if (last?.kind === "closed") last.ms.push(m);
+                  else segments.push({ kind: "closed", ms: [m] });
+                });
+                return segments.map((seg) => {
+                  if (seg.kind === "day")
+                    return <DayDivider key={`d-${seg.ts}`} timestamp={seg.ts} />;
+                  if (seg.kind === "open") {
+                    const m = seg.m;
+                    return (
+                      <ExpandedRow
+                        key={m.id}
+                        accountId={accountId}
+                        summary={m}
+                        onCollapse={rows.length === 1 ? undefined : () => toggleExpanded(m.id)}
+                        onTrash={
+                          m.labelIds.includes("TRASH")
+                            ? undefined
+                            : () => {
+                                if (rows.length === 1) onAdvance?.();
+                                void trashMessage.mutateAsync({ accountId, messageId: m.id });
+                              }
+                        }
+                        onDownload={handleDownloadAttachment}
+                        onQuoteText={(text) => emitQuote(text)}
+                        onComposeTo={onComposeTo}
+                        onSearchSender={onSearchSender}
+                      />
+                    );
+                  }
+                  const fold = !unfolded && seg.ms.length > 3;
+                  const visible = fold ? [seg.ms[0], seg.ms[seg.ms.length - 1]] : seg.ms;
                   return (
-                    <ExpandedRow
-                      key={m.id}
-                      accountId={accountId}
-                      summary={m}
-                      onCollapse={rows.length === 1 ? undefined : () => toggleExpanded(m.id)}
-                      onTrash={
-                        m.labelIds.includes("TRASH")
-                          ? undefined
-                          : () => {
-                              if (rows.length === 1) onAdvance?.();
-                              void trashMessage.mutateAsync({ accountId, messageId: m.id });
-                            }
-                      }
-                      onDownload={handleDownloadAttachment}
-                      onQuoteText={(text) => emitQuote(text)}
-                      onComposeTo={onComposeTo}
-                      onSearchSender={onSearchSender}
-                    />
-                  );
-                }
-                const fold = !unfolded && seg.ms.length > 3;
-                const visible = fold ? [seg.ms[0], seg.ms[seg.ms.length - 1]] : seg.ms;
-                return (
-                  <div key={`c-${seg.ms[0].id}`}>
-                    <div>
-                      {visible.map((m, idx) => (
-                        <Fragment key={m.id}>
-                          {fold && idx === 1 ? (
-                            <FoldRow count={seg.ms.length - 2} onUnfold={() => setUnfolded(true)} />
-                          ) : null}
-                          <CollapsedRow
-                            accountId={accountId}
-                            summary={m}
-                            standalone={false}
-                            onExpand={() => toggleExpanded(m.id)}
-                          />
-                        </Fragment>
-                      ))}
+                    <div key={`c-${seg.ms[0].id}`}>
+                      <div>
+                        {visible.map((m, idx) => (
+                          <Fragment key={m.id}>
+                            {fold && idx === 1 ? (
+                              <FoldRow
+                                count={seg.ms.length - 2}
+                                onUnfold={() => setUnfolded(true)}
+                              />
+                            ) : null}
+                            <CollapsedRow
+                              accountId={accountId}
+                              summary={m}
+                              standalone={false}
+                              onExpand={() => toggleExpanded(m.id)}
+                            />
+                          </Fragment>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              });
-            })()}
-          </div>
-        </ScrollArea>
+                  );
+                });
+              })()}
+            </div>
+          </ScrollArea>
 
-        {/* Pinned in the reader's top-right corner, still while the conversation scrolls. */}
-        {summaryShown ? (
-          <aside className="absolute right-4 top-[calc(var(--workspace-topbar-height)+0.75rem)] z-10">
-            {summary}
-          </aside>
-        ) : null}
+          {/* Pinned in the reader's top-right corner, still while the conversation scrolls. */}
+          {summaryShown ? <aside className="absolute right-4 top-3 z-10">{summary}</aside> : null}
+        </div>
 
         {/* In-thread composer, hidden until replying/forwarding */}
         {lastRow && inline ? (

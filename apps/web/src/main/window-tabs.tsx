@@ -130,10 +130,12 @@ export function WindowTabsBar({
   const { ref, draggingId, handlers } = usePanelTabDrag(reorderTabs);
   return (
     <div className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-1 pr-[calc(var(--workspace-controls-right)+var(--workspace-titlebar-control-size)+0.5rem)]">
-      {/* Room for the traffic lights and the sidebar toggle, at least; history at its end. */}
+      {/* Room for the traffic lights and the sidebar toggle, at least; history
+          at its end. With the sidebar open, the first tab lines up with the
+          cards' left edge (less the bar's gap). */}
       <div
         style={{
-          width: `max(calc(var(--workspace-titlebar-content-left) + var(--workspace-history-controls-width) + 0.25rem), ${sidebarOpen ? "calc(var(--workspace-sidebar-width) + var(--workspace-frame-inset))" : "0px"})`,
+          width: `max(calc(var(--workspace-titlebar-content-left) + var(--workspace-history-controls-width) + 0.25rem), ${sidebarOpen ? "calc(var(--workspace-sidebar-width) + var(--workspace-frame-inset) - 0.25rem)" : "0px"})`,
         }}
         className="flex shrink-0 justify-end pr-1.5"
       >
@@ -160,7 +162,7 @@ export function WindowTabsBar({
               onSelect={() => onSelect(tab.id)}
               onClose={() => onClose(tab.id)}
               icon={chatId ? <ChatTabIcon chatId={chatId} /> : <Icon className="size-3.5" />}
-              className={cn("w-52 max-w-52", tab.id !== activeId && "bg-foreground/[0.04]")}
+              className={cn("h-6.5 w-52 max-w-52", tab.id !== activeId && "bg-foreground/[0.04]")}
             />
           );
         })}
