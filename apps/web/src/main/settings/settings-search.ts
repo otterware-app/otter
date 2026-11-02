@@ -128,6 +128,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["declined invitations no rsvp hide calendar"],
   },
   {
+    id: "calendar-meetings",
+    title: "Conferencing",
+    pane: "calendar",
+    searchTerms: ["google meet microsoft teams video call online meeting conference default"],
+  },
+  {
     id: "calendar-time-format",
     title: "Time format",
     pane: "calendar",

@@ -96,6 +96,8 @@ type CalendarEvent = {
   isOrganizer: boolean;
   response: string;
   isCancelled: boolean;
+  /** A Teams meeting's join link, made when asked for (isOnlineMeeting). */
+  joinUrl?: string;
 };
 
 type Mailbox = {
@@ -490,7 +492,7 @@ function eventResource(e: CalendarEvent): Record<string, unknown> {
     organizer: e.organizer,
     attendees: e.attendees,
     responseStatus: { response: e.response, time: iso(Date.now()) },
-    onlineMeeting: null,
+    onlineMeeting: e.joinUrl ? { joinUrl: e.joinUrl } : null,
     onlineMeetingUrl: null,
     webLink: `https://outlook.office.com/calendar/item/${e.id}`,
     type: "singleInstance",
@@ -1218,6 +1220,10 @@ function eventFields(e: CalendarEvent, body: Record<string, unknown>): void {
     e.location = String((body.location as { displayName?: string }).displayName ?? "");
   }
   if (typeof body.isAllDay === "boolean") e.isAllDay = body.isAllDay;
+  // Once made, a Teams meeting stays (Graph ignores isOnlineMeeting: false).
+  if (body.isOnlineMeeting === true && !e.joinUrl) {
+    e.joinUrl = `https://teams.microsoft.com/l/meetup-join/19%3ameeting_${e.id}%40thread.v2/0`;
+  }
   const start = parseTime(body.start, e.isAllDay);
   const end = parseTime(body.end, e.isAllDay);
   if (Number.isFinite(start)) e.start = start;
@@ -1337,6 +1343,7 @@ function calendars(box: Mailbox, req: Req, rest: string[]): Answer {
           color: "auto",
           isDefaultCalendar: true,
           canEdit: true,
+          allowedOnlineMeetingProviders: ["teamsForBusiness"],
         },
         {
           id: "AAMk-team",
@@ -1345,6 +1352,7 @@ function calendars(box: Mailbox, req: Req, rest: string[]): Answer {
           color: "lightGreen",
           isDefaultCalendar: false,
           canEdit: true,
+          allowedOnlineMeetingProviders: ["teamsForBusiness"],
         },
         {
           id: "AAMk-holidays",

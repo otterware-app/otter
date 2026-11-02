@@ -19,9 +19,9 @@ import {
   RepeatIcon,
   Trash2Icon,
   UsersIcon,
-  VideoIcon,
   XIcon,
 } from "lucide-react";
+import { meetingProvider, type MeetingService } from "@otter-mail/contracts";
 import { getAccountDisplayName } from "../mail/account-style";
 import {
   DropdownMenu,
@@ -44,6 +44,8 @@ import {
 import { useCalendar, type DraftEvent } from "./calendar-store";
 import type { ListedCalendar } from "./calendar-view";
 import { DAY, HOUR, dayKey, durationLabel, startOfDay, timeLabel } from "./dates";
+import { AddMeetingRow, MeetingRow } from "./meeting";
+import { useCalendarPreferences } from "./preferences";
 import { eventKey } from "./time-grid";
 
 const WIDTH = 304;
@@ -158,6 +160,7 @@ export function EventPanel({
           event={event}
           color={colorOf(calendarKey(event))}
           calendarName={calendarLabel(calendarOf(event)) ?? event.accountId}
+          meetings={calendarOf(event)?.info.meetings ?? null}
           actions={actions}
           onClose={close}
         />
@@ -563,6 +566,15 @@ function Rsvp({
   );
 }
 
+/** A description as text: Google's may be HTML (an invitation's paragraphs, breaks, entities). */
+function plainText(description: string): string {
+  if (!/<[a-z][^>]*>/i.test(description)) return description;
+  const lines = description.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(?:p|div|li|h\d)>/gi, "$&\n");
+  // Parsed, never shown as HTML: nothing in it runs.
+  const text = new DOMParser().parseFromString(lines, "text/html").body.textContent ?? "";
+  return text.replace(/\n{3,}/g, "\n\n").trim();
+}
+
 /** A calendar's name as shown: the mailbox's for its primary calendar. */
 function calendarLabel(calendar: ListedCalendar | undefined): string | undefined {
   if (!calendar) return undefined;
@@ -635,6 +647,7 @@ function ReadOnlyEvent({
           {event.allDay ? <span className="text-muted-foreground">All day</span> : null}
         </div>
       </Row>
+      {event.meetingLink ? <MeetingRow link={event.meetingLink} /> : null}
       {event.location ? (
         <Row icon={<MapPinIcon />}>
           <span className="flex min-h-6 items-center text-[13px]">{event.location}</span>
@@ -643,7 +656,7 @@ function ReadOnlyEvent({
       {event.description ? (
         <Row icon={<AlignLeftIcon />}>
           <p className="whitespace-pre-wrap py-0.5 text-[13px] leading-5 text-foreground">
-            {event.description.replace(/<[^>]+>/g, "")}
+            {plainText(event.description)}
           </p>
         </Row>
       ) : null}
@@ -726,12 +739,15 @@ function EventDetails({
   event,
   color,
   calendarName,
+  meetings,
   actions,
   onClose,
 }: {
   event: CalEvent;
   color: string;
   calendarName: string;
+  /** The online meeting its calendar can add. */
+  meetings: MeetingService | null;
   actions: Actions;
   onClose: () => void;
 }) {
@@ -795,16 +811,21 @@ function EventDetails({
         </Row>
       ) : null}
       {event.meetingLink ? (
-        <Row icon={<VideoIcon />}>
-          <a
-            href={event.meetingLink}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex h-6 items-center rounded-md bg-primary px-2.5 text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            Join meeting
-          </a>
-        </Row>
+        <MeetingRow
+          link={event.meetingLink}
+          // Google lets its Meet come off; Outlook keeps a Teams meeting once it's made.
+          onRemove={
+            mine && meetings === "googleMeet" && meetingProvider(event.meetingLink) === "googleMeet"
+              ? () => update({ videoCall: false })
+              : undefined
+          }
+        />
+      ) : mine && meetings ? (
+        <AddMeetingRow
+          service={meetings}
+          added={false}
+          onChange={() => update({ videoCall: true })}
+        />
       ) : null}
       <Row icon={<MapPinIcon />}>
         <CommitInput
@@ -823,7 +844,7 @@ function EventDetails({
       <Divider />
       <Row icon={<AlignLeftIcon />}>
         <CommitInput
-          value={event.description?.replace(/<[^>]+>/g, "") ?? ""}
+          value={plainText(event.description ?? "")}
           placeholder="Description"
           multiline
           onCommit={(description) => update({ description })}
@@ -867,6 +888,12 @@ function NewEvent({
   const [guests, setGuests] = useState("");
   const [saving, setSaving] = useState(false);
   const target = calendars.find((c) => c.key === calendarKey(draft));
+  // On by default for the mailboxes set so in Settings, until turned off here.
+  const { meetingsByDefault } = useCalendarPreferences();
+  const [meetingChoice, setMeetingChoice] = useState<boolean | null>(null);
+  const meetings = target?.info.meetings ?? null;
+  const meeting =
+    meetings !== null && (meetingChoice ?? meetingsByDefault.includes(draft.accountId));
   const create = async () => {
     if (saving) return;
     setSaving(true);
@@ -880,6 +907,7 @@ function NewEvent({
       ...(location.trim() ? { location: location.trim() } : {}),
       ...(attendees.length ? { attendees } : {}),
       ...(draft.repeat ? { repeat: draft.repeat } : {}),
+      ...(meeting ? { videoCall: true } : {}),
     });
   };
   const enter = (e: ReactKeyboardEvent) => {
@@ -910,6 +938,9 @@ function NewEvent({
         repeat={draft.repeat ?? null}
         onRepeat={(repeat) => onChange({ ...draft, repeat: repeat ?? undefined })}
       />
+      {meetings ? (
+        <AddMeetingRow service={meetings} added={meeting} onChange={setMeetingChoice} />
+      ) : null}
       <Row icon={<MapPinIcon />}>
         <input
           value={location}

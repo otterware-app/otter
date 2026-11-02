@@ -8,7 +8,7 @@
  * `capabilities`, never on the provider.
  */
 
-import type { MailCapabilities, MailProviderKind } from "@otter-mail/contracts";
+import type { MailCapabilities, MailProviderKind, MeetingService } from "@otter-mail/contracts";
 
 import type {
   ComposeAttachment,
@@ -101,6 +101,8 @@ export type CalendarInfo = {
   writable: boolean;
   /** Turned off where it came from (Google's unchecked calendars). */
   hiddenByDefault: boolean;
+  /** The online meeting it can add to its events (Google Meet, Teams), if any. */
+  meetings: MeetingService | null;
 };
 
 /** Someone else's time taken: the title only where their calendar shows it. */
@@ -115,6 +117,7 @@ export type EventInput = {
   location?: string;
   description?: string;
   attendees?: string[];
+  /** Adds the calendar's online meeting (Google Meet, Teams); false takes Meet off. */
   videoCall?: boolean;
   /** New events only: repeats from its start, without end. */
   repeat?: Repeat;

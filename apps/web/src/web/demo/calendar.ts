@@ -17,6 +17,7 @@ type ApiEvent = {
   organizer?: { email: string; displayName?: string };
   attendees?: { email: string; displayName?: string; self?: boolean; responseStatus: string }[];
   hangoutLink?: string;
+  conferenceData?: { entryPoints: { entryPointType: string; uri: string }[] };
   recurringEventId?: string;
   /** A series of its own (RRULE), expanded into occurrences when listed. */
   recurrence?: string[];
@@ -35,6 +36,7 @@ type ListedCalendar = {
   accessRole: "owner" | "reader";
   primary?: boolean;
   selected?: boolean;
+  conferenceProperties?: { allowedConferenceSolutionTypes: string[] };
 };
 
 /** Each account's calendar list: its own primary, and a few others. */
@@ -45,6 +47,7 @@ function calendarList(email: string): ListedCalendar[] {
     backgroundColor: "#9a9cff",
     accessRole: "owner" as const,
     primary: true,
+    conferenceProperties: { allowedConferenceSolutionTypes: ["hangoutsMeet"] },
   };
   if (email.startsWith("demo@"))
     return [
@@ -70,6 +73,7 @@ function calendarList(email: string): ListedCalendar[] {
       summary: "Projects",
       backgroundColor: "#a47ae2",
       accessRole: "owner",
+      conferenceProperties: { allowedConferenceSolutionTypes: ["hangoutsMeet"] },
     },
     {
       id: "us.holidays@demo",
@@ -181,6 +185,9 @@ function seed(email: string): ApiEvent[] {
     },
     {
       summary: "Quarterly sync with Acme",
+      // Acme is on Teams: the join link is only in the invitation's text.
+      description:
+        '<p>Microsoft Teams meeting</p><p><a href="https://teams.microsoft.com/l/meetup-join/19%3ameeting_acme%40thread.v2/0?context=%7b%7d&amp;anon=true">Join the meeting now</a></p><p>Meeting ID: 398 804 647 106</p>',
       start: { dateTime: at(1, 16) },
       end: { dateTime: at(1, 17) },
       organizer: { email: "jordan@acme.example", displayName: "Jordan Blake" },
@@ -191,6 +198,7 @@ function seed(email: string): ApiEvent[] {
       summary: "Hiring panel",
       start: { dateTime: at(3, 13) },
       end: { dateTime: at(3, 14) },
+      location: "https://northwind.zoom.us/j/8812345678",
       organizer: { email: "leo@northwind.example", displayName: "Leo Park" },
       attendees: people("tentative", ["Leo Park", "leo@northwind.example"]),
     },
@@ -252,6 +260,19 @@ function fromBody(body: Record<string, unknown>, email: string): Partial<ApiEven
   if (body.start) patch.start = body.start as ApiTime;
   if (body.end) patch.end = body.end as ApiTime;
   if (Array.isArray(body.recurrence)) patch.recurrence = body.recurrence as string[];
+  // A Meet made on request, or taken off.
+  if (body.conferenceData === null) {
+    patch.conferenceData = undefined;
+    patch.hangoutLink = undefined;
+  } else if (body.conferenceData) {
+    const code = Math.random()
+      .toString(36)
+      .slice(2, 12)
+      .replace(/(...)(....)(...)/, "$1-$2-$3");
+    const uri = `https://meet.google.com/${code}`;
+    patch.conferenceData = { entryPoints: [{ entryPointType: "video", uri }] };
+    patch.hangoutLink = uri;
+  }
   if (Array.isArray(body.attendees))
     patch.attendees = (body.attendees as ApiEvent["attendees"] & object).map((a) => ({
       ...a,

@@ -105,7 +105,11 @@ const EVENT_FIELDS = {
     items: { type: "string" },
     description: "Every attendee's address (replaces the list when changing an event).",
   },
-  videoCall: { type: "boolean", description: "Adds a video call link (Google Meet)." },
+  videoCall: {
+    type: "boolean",
+    description:
+      "Adds an online meeting: Google Meet, or Teams on work and school Outlook mailboxes.",
+  },
   notify: { type: "boolean", description: "Email the attendees about it (default true)." },
 } as const;
 

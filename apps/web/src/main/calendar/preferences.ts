@@ -10,6 +10,8 @@ export type CalendarPreferences = {
   showWeekends: boolean;
   showDeclined: boolean;
   timeFormat: TimeFormat;
+  /** The mailboxes whose new events get their calendar's online meeting (Notion's default conferencing). */
+  meetingsByDefault: string[];
 };
 
 export const CALENDAR_DEFAULTS: CalendarPreferences = {
@@ -17,6 +19,7 @@ export const CALENDAR_DEFAULTS: CalendarPreferences = {
   showWeekends: true,
   showDeclined: true,
   timeFormat: "auto",
+  meetingsByDefault: [],
 };
 
 const KEYS = {
@@ -24,6 +27,7 @@ const KEYS = {
   showWeekends: "calendar:show-weekends",
   showDeclined: "calendar:show-declined",
   timeFormat: "calendar:time-format",
+  meetingsByDefault: "calendar:meetings-by-default",
 } as const;
 
 const WEEK_STARTS = new Set<string>(["auto", "sunday", "monday", "saturday"]);
@@ -37,6 +41,15 @@ function readStorage(key: string): string | null {
   }
 }
 
+function readList(key: string): string[] {
+  try {
+    const value: unknown = JSON.parse(readStorage(key) ?? "[]");
+    return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 function read(): CalendarPreferences {
   const weekStart = readStorage(KEYS.weekStart) as WeekStart;
   const timeFormat = readStorage(KEYS.timeFormat) as TimeFormat;
@@ -45,6 +58,7 @@ function read(): CalendarPreferences {
     showWeekends: readStorage(KEYS.showWeekends) !== "false",
     showDeclined: readStorage(KEYS.showDeclined) !== "false",
     timeFormat: TIME_FORMATS.has(timeFormat) ? timeFormat : CALENDAR_DEFAULTS.timeFormat,
+    meetingsByDefault: readList(KEYS.meetingsByDefault),
   };
 }
 
@@ -79,6 +93,6 @@ export function setCalendarPreference<K extends keyof CalendarPreferences>(
   key: K,
   value: CalendarPreferences[K],
 ): void {
-  setSyncedPreference(KEYS[key], String(value));
+  setSyncedPreference(KEYS[key], Array.isArray(value) ? JSON.stringify(value) : String(value));
   refresh();
 }

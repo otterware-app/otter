@@ -27,6 +27,7 @@ const SYNCED_KEYS = [
   "calendar:show-weekends",
   "calendar:show-declined",
   "calendar:time-format",
+  "calendar:meetings-by-default",
 ] as const;
 
 export type SyncedKey = (typeof SYNCED_KEYS)[number];

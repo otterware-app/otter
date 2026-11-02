@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import type { MeetingService } from "@otter-mail/contracts";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc, task } from "~/lib/ipc";
 import { toast } from "../mail/toast";
@@ -37,6 +38,8 @@ export type EventInput = {
   description?: string;
   attendees?: string[];
   repeat?: Repeat;
+  /** Adds the calendar's online meeting; false takes Google Meet off. */
+  videoCall?: boolean;
 };
 
 /** One of a mailbox's calendars. */
@@ -47,6 +50,8 @@ export type CalendarInfo = {
   primary: boolean;
   writable: boolean;
   hiddenByDefault: boolean;
+  /** The online meeting it can add to its events, if any. */
+  meetings: MeetingService | null;
 };
 
 export type AccountCalendars = {
@@ -271,7 +276,10 @@ export function useCalendarActions() {
       }
     },
     update(event: CalEvent, patch: EventInput, notify: boolean): void {
-      replace(event, saved(event, { ...event, ...patch } as CalendarEvent));
+      const { videoCall, ...fields } = patch;
+      // A meeting being added shows when it's made; one taken off goes at once.
+      const shown = videoCall === false ? { ...fields, meetingLink: null } : fields;
+      replace(event, saved(event, { ...event, ...shown } as CalendarEvent));
       task<CalendarEvent>("calendar:updateEvent", { ...where(event), patch, notify }).then(
         (done) => replace(event, saved(event, done)),
         fail("Couldn't change the event"),

@@ -66,6 +66,7 @@ async function accountCalendars(accountId: string): Promise<AccountCalendars> {
       primary: true,
       writable: true,
       hiddenByDefault: false,
+      meetings: null,
     };
     return { accountId, calendars: [primary], needsAccess: true };
   }

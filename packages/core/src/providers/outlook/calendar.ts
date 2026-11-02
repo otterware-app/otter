@@ -16,6 +16,7 @@ import {
   type EventInput,
   type RsvpResponse,
 } from "../provider.js";
+import { findMeetingLink } from "@otter-mail/contracts";
 import { wallClock } from "../wall-clock.js";
 import { GraphError, graph, isNotFound, type GraphInit } from "./graph.js";
 
@@ -149,7 +150,10 @@ function toEvent(e: ApiEvent): CalendarEvent {
         response: asResponse(a.status?.response),
       })),
     response: e.isOrganizer ? null : asResponse(e.responseStatus?.response),
-    meetingLink: e.onlineMeeting?.joinUrl ?? e.onlineMeetingUrl ?? null,
+    meetingLink:
+      e.onlineMeeting?.joinUrl ??
+      e.onlineMeetingUrl ??
+      findMeetingLink(e.location?.displayName, e.bodyPreview),
     htmlLink: e.webLink ?? null,
     recurring: e.type !== undefined ? e.type !== "singleInstance" : Boolean(e.seriesMasterId),
     seriesId: e.seriesMasterId ?? (e.type === "seriesMaster" ? e.id : null),
@@ -254,13 +258,14 @@ type ApiCalendar = {
   color?: string;
   isDefaultCalendar?: boolean;
   canEdit?: boolean;
+  allowedOnlineMeetingProviders?: string[];
 };
 
 /** Every calendar the mailbox has: its own, and those shared with it. */
 export async function listCalendars(accountId: string): Promise<CalendarInfo[]> {
   const data = await calendarGraph<{ value?: ApiCalendar[] }>(
     accountId,
-    "/me/calendars?$select=id,name,hexColor,color,isDefaultCalendar,canEdit&$top=100",
+    "/me/calendars?$select=id,name,hexColor,color,isDefaultCalendar,canEdit,allowedOnlineMeetingProviders&$top=100",
   );
   return (data.value ?? [])
     .map((c) => ({
@@ -270,6 +275,10 @@ export async function listCalendars(accountId: string): Promise<CalendarInfo[]> 
       primary: Boolean(c.isDefaultCalendar),
       writable: c.canEdit !== false,
       hiddenByDefault: false,
+      // Work and school mailboxes; personal ones have no Teams meetings to add.
+      meetings: c.allowedOnlineMeetingProviders?.includes("teamsForBusiness")
+        ? ("teams" as const)
+        : null,
     }))
     .sort((a, b) => Number(b.primary) - Number(a.primary));
 }

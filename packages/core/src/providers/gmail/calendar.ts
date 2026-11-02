@@ -7,6 +7,7 @@
  * services/calendar-invites.ts replies by email instead.
  */
 
+import { findMeetingLink } from "@otter-mail/contracts";
 import { wallClock } from "../wall-clock.js";
 import { platform } from "../../platform.js";
 import {
@@ -161,7 +162,7 @@ function toEvent(accountId: string, e: ApiEvent): CalendarEvent {
       response: asResponse(a.responseStatus),
     })),
     response: attendees.some((a) => isSelf(a, email)) ? selfStatus(e, email) : null,
-    meetingLink: video ?? e.hangoutLink ?? null,
+    meetingLink: video ?? e.hangoutLink ?? findMeetingLink(e.location, e.description),
     htmlLink: e.htmlLink ?? null,
     recurring: Boolean(e.recurringEventId || e.recurrence),
     seriesId: e.recurringEventId ?? (e.recurrence ? e.id : null),
@@ -235,6 +236,8 @@ function apiBody(input: EventInput, current?: ApiEvent): Record<string, unknown>
         conferenceSolutionKey: { type: "hangoutsMeet" },
       },
     };
+  } else if (input.videoCall === false) {
+    body.conferenceData = null;
   }
   return body;
 }
@@ -261,6 +264,7 @@ type ApiCalendar = {
   accessRole?: string;
   selected?: boolean;
   hidden?: boolean;
+  conferenceProperties?: { allowedConferenceSolutionTypes?: string[] };
 };
 
 /** Every calendar on the account's list (calendar.readonly): its own, shared, and followed. */
@@ -286,6 +290,9 @@ export async function listCalendars(accountId: string): Promise<CalendarInfo[]> 
       primary: Boolean(c.primary),
       writable: c.accessRole === "owner" || c.accessRole === "writer",
       hiddenByDefault: c.selected === false,
+      meetings: c.conferenceProperties?.allowedConferenceSolutionTypes?.includes("hangoutsMeet")
+        ? ("googleMeet" as const)
+        : null,
     }))
     .sort((a, b) => Number(b.primary) - Number(a.primary));
 }

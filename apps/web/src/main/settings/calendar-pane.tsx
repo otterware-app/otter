@@ -1,4 +1,9 @@
 import { Switch } from "~/components/ui/switch";
+import { useCalendarLists } from "../calendar/api";
+import { calendarAccounts } from "../calendar/calendar-view";
+import { MEETING_NAMES, MeetingMark } from "../calendar/meeting";
+import { getAccountDisplayName } from "../mail/account-style";
+import { useAccounts } from "../mail/hooks";
 import {
   CALENDAR_DEFAULTS,
   setCalendarPreference,
@@ -41,6 +46,51 @@ function reset<K extends keyof CalendarPreferences>(
       onClick={() => setCalendarPreference(key, CALENDAR_DEFAULTS[key])}
     />
   ) : null;
+}
+
+/** Each mailbox's online meeting (Google Meet, Teams), added to its new events or not. */
+function ConferencingSection({ meetingsByDefault }: { meetingsByDefault: string[] }) {
+  const accounts = calendarAccounts(useAccounts().data ?? []);
+  const lists = useCalendarLists(accounts.map((a) => a.id));
+  const rows = accounts.flatMap((account) => {
+    const calendars = lists.data?.find((l) => l.accountId === account.id)?.calendars;
+    const service = calendars?.find((c) => c.primary)?.meetings;
+    return service ? [{ account, service }] : [];
+  });
+  if (!rows.length) return null;
+  return (
+    <SettingsSection
+      {...searchableSetting("calendar-meetings")}
+      description="Add an online meeting to new events from each mailbox. Each event can still add or remove one."
+    >
+      {rows.map(({ account, service }) => (
+        <SettingsRow
+          key={account.id}
+          title={
+            <span className="flex items-center gap-2">
+              <MeetingMark provider={service} className="size-4" />
+              {MEETING_NAMES[service]}
+            </span>
+          }
+          description={`New events from ${getAccountDisplayName(account)} (${account.email})`}
+          control={
+            <Switch
+              checked={meetingsByDefault.includes(account.id)}
+              onCheckedChange={(checked) =>
+                setCalendarPreference(
+                  "meetingsByDefault",
+                  checked
+                    ? [...meetingsByDefault, account.id]
+                    : meetingsByDefault.filter((id) => id !== account.id),
+                )
+              }
+              aria-label={`Add ${MEETING_NAMES[service]} to new events from ${account.email}`}
+            />
+          }
+        />
+      ))}
+    </SettingsSection>
+  );
 }
 
 /** Settings → Calendar: how the calendar lays out the week and shows its events. */
@@ -103,6 +153,8 @@ export function CalendarPane() {
           }
         />
       </SettingsSection>
+
+      <ConferencingSection meetingsByDefault={prefs.meetingsByDefault} />
     </SettingsPageContainer>
   );
 }

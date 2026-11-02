@@ -1,6 +1,7 @@
 export * from "./connections.js";
 export * from "./google.js";
 export * from "./mail.js";
+export * from "./meetings.js";
 export * from "./microsoft.js";
 export * from "./settings.js";
 

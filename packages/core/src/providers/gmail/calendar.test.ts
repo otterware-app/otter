@@ -93,6 +93,43 @@ describe("Google Calendar events", () => {
     });
   });
 
+  it("takes Google Meet off an event", async () => {
+    replies.push({ body: event });
+    await updateEvent(ME, "ev1", { videoCall: false }, false);
+    expect(calls[0].method).toBe("PATCH");
+    expect(calls[0].url.searchParams.get("conferenceDataVersion")).toBe("1");
+    expect(calls[0].body).toEqual({ conferenceData: null });
+  });
+
+  it("finds a Teams or Zoom link in an invitation from another calendar", async () => {
+    const teams = "https://teams.microsoft.com/l/meetup-join/19%3ameeting_x%40thread.v2/0?a=1&b=2";
+    replies.push({
+      body: {
+        items: [
+          {
+            ...event,
+            hangoutLink: undefined,
+            conferenceData: undefined,
+            description: `<p>Join: <a href="${teams.replace("&", "&amp;")}">Click here</a></p>`,
+          },
+          {
+            ...event,
+            id: "ev2",
+            hangoutLink: undefined,
+            conferenceData: undefined,
+            location: "https://acme.zoom.us/j/123.",
+          },
+        ],
+      },
+    });
+    const read = await listEvents(ME, {
+      from: "2026-10-01T00:00:00Z",
+      to: "2026-10-08T00:00:00Z",
+      limit: 50,
+    });
+    expect(read.map((e) => e.meetingLink)).toEqual([teams, "https://acme.zoom.us/j/123"]);
+  });
+
   it("ends an all-day event the next day", async () => {
     replies.push({ body: event });
     await createEvent(ME, { title: "Off", start: "2026-10-05", allDay: true }, false);
