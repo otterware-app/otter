@@ -12,10 +12,8 @@ import * as path from "node:path";
 import type { HostOS } from "../types.js";
 import { desktopEntries, type DesktopEntry } from "./desktop-entries.js";
 
-/** The system's default terminal (Debian's alternatives, also on Ubuntu). */
 const DEFAULT_TERMINAL = "/usr/bin/x-terminal-emulator";
 
-/** What comes before the command, by executable; most terminals take `-e`. */
 const RUN_ARGS: Record<string, string[]> = {
   "gnome-terminal": ["--"],
   kgx: ["--"],
@@ -30,7 +28,6 @@ const RUN_ARGS: Record<string, string[]> = {
 
 const isTerminal = (entry: DesktopEntry) => entry.categories.includes("TerminalEmulator");
 
-/** The command that runs `launcher` in the terminal `exec` (an Exec line's words). */
 export function terminalCommand(exec: string[], launcher: string): string[] {
   const binary = path.basename(exec[0]!);
   return [...exec, ...(RUN_ARGS[binary] ?? ["-e"]), launcher];
@@ -46,7 +43,6 @@ function defaultTerminalBinary(): string | null {
 
 function launch(command: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    // The terminal outlives the app's interest in it.
     const child = spawn(command[0]!, command.slice(1), { detached: true, stdio: "ignore" });
     child.once("error", reject);
     child.once("spawn", () => {
@@ -60,7 +56,6 @@ export const linuxTerminals: HostOS["terminals"] = {
   async list() {
     const terminals = (await desktopEntries()).filter(isTerminal);
     const binary = defaultTerminalBinary();
-    // gnome-terminal's alternative is a wrapper script beside it.
     const byDefault = terminals.find(
       (entry) => binary && binary.replace(/\.wrapper$/, "") === path.basename(entry.exec[0]!),
     );

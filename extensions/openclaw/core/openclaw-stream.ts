@@ -1,7 +1,6 @@
 import { TextStream } from "@otter-mail/core/extension-kit";
 import type { Emit } from "@otter-mail/core/extension-kit";
 
-/** Preserve assistant image references alongside its text, including in history. */
 export function openClawMessageText(message: unknown): string {
   const content = (message as { content?: unknown })?.content;
   if (typeof content === "string") return content;
@@ -26,15 +25,11 @@ export function openClawMessageText(message: unknown): string {
     .join("");
 }
 
-/** Prefer current-item assistant events; chat is a separate display projection. */
 export class OpenClawText {
   private stream: TextStream;
   private agentSeen = false;
   private itemId: string | undefined;
   private chatText = "";
-  // What was said since the last tool call: a new item that only repeats it
-  // (the reply re-sent under another id, or again as the final message) stays
-  // held back, unless it goes on to say something else.
   private said = "";
   private held: string | undefined;
 
@@ -89,7 +84,6 @@ export class OpenClawText {
       else this.stream.snapshot(next);
       this.chatText = next;
     } else if (final && !this.stream.text) {
-      // A non-streaming final message after the last tool call.
       this.show(next);
     } else if (final) {
       const content = (payload.message as { content?: unknown })?.content;

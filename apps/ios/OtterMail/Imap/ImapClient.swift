@@ -1,6 +1,5 @@
 import Foundation
 
-/** How to log in to a mail server: a password, or an OAuth access token (XOAUTH2, for Outlook later). */
 nonisolated enum MailAuth: Sendable {
     case password(String)
     case oauth(String)
@@ -16,11 +15,8 @@ nonisolated enum MailAuth: Sendable {
 
 nonisolated enum ImapError: LocalizedError {
     case closed
-    /** No password on this iPhone. */
     case signedOut
-    /** The server refused the login. */
     case authentication(String)
-    /** The server said NO or BAD (IMAP), or 4xx/5xx (SMTP). */
     case server(String)
     /** Busy or unwell (UNAVAILABLE, SERVERBUG, LIMIT, INUSE): a refused login then isn't a wrong password. */
     case unavailable(String)
@@ -43,23 +39,15 @@ nonisolated enum ImapError: LocalizedError {
     }
 }
 
-/** A folder as LIST answers it. */
 nonisolated struct ImapFolder: Hashable, Codable, Sendable {
     var path: String
     var delimiter: String?
-    /** Lowercased: \noselect, \sent, \trash, … */
     var attributes: Set<String>
 }
 
-/**
- * One IMAP connection (RFC 3501, with IDLE, UIDPLUS, MOVE, CONDSTORE and
- * QRESYNC when the server has them): a command at a time, each answered
- * with its untagged responses. Callers keep one connection per job (sync,
- * IDLE) and take turns on it.
- */
+// One job at a time per IMAP connection: commands share the selected folder.
 actor ImapClient {
     private let socket: MailSocket
-    /** Closed from outside the actor when a command hangs or IDLE is cancelled. */
     nonisolated let transport: any MailTransport
     private(set) var capabilities: Set<String> = []
     private(set) var selected: String?
@@ -68,7 +56,6 @@ actor ImapClient {
 
     struct Reply: Sendable {
         var untagged: [ImapResponse]
-        /** The tagged OK's response code (`APPENDUID 9 12`). */
         var code: [ImapValue]
     }
 
@@ -145,19 +132,11 @@ actor ImapClient {
         for response in reply.untagged where response.kind == "CAPABILITY" { take([.atom("CAPABILITY")] + response.values) }
     }
 
-    /** A CAPABILITY response or response code. */
     private func take(_ code: [ImapValue]) {
         guard code.first?.text?.uppercased() == "CAPABILITY" else { return }
         capabilities = Set(code.dropFirst().compactMap { $0.text?.uppercased() })
     }
 
-    // ── Commands ─────────────────────────────────────────────────────────────
-
-    /**
-     * Sends a command and collects what the server answers until it's done.
-     * `literal` is sent as the command's last argument; `continuation` when
-     * the server asks for more ("+"), as AUTHENTICATE does.
-     */
     @discardableResult
     func command(_ text: String, literal: Data? = nil, continuation: Data? = nil) async throws -> Reply {
         tag += 1
@@ -200,7 +179,6 @@ actor ImapClient {
         }
     }
 
-    /** A response: its line, and any literals it carries with the lines after them. */
     private func readResponse() async throws -> Data {
         var out = Data()
         while true {
@@ -218,12 +196,9 @@ actor ImapClient {
         }
     }
 
-    /** A string argument: quoted, escaped. */
     static func quote(_ text: String) -> String {
         "\"\(text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\""))\""
     }
-
-    // ── Folders ──────────────────────────────────────────────────────────────
 
     func list() async throws -> [ImapFolder] {
         let specialUse = capabilities.contains("SPECIAL-USE") && capabilities.contains("LIST-EXTENDED")
@@ -250,7 +225,6 @@ actor ImapClient {
         try await command("CREATE \(Self.quote(path))")
     }
 
-    /** Opens a folder (read-write), with where it's at. */
     @discardableResult
     func select(_ path: String, readOnly: Bool = false) async throws -> Status {
         let condstore = capabilities.contains("CONDSTORE") && !capabilities.contains("QRESYNC")
@@ -270,14 +244,12 @@ actor ImapClient {
             }
         }
         if status.uidNext == 0 {
-            // Not every server says; the newest message's UID tells.
             let newest = status.exists > 0 ? try await fetch("*", "(UID)").compactMap { $0.values.first?.pairs["UID"]?.number }.max() : nil
             status.uidNext = UInt32(clamping: (newest ?? 0) + 1)
         }
         return status
     }
 
-    /** Opens the folder unless it's open already. */
     func open(_ path: String) async throws {
         if selected != path { try await select(path) }
     }
@@ -294,14 +266,11 @@ actor ImapClient {
         )
     }
 
-    // ── Messages (in the open folder) ────────────────────────────────────────
-
     func search(_ criteria: String) async throws -> [UInt32] {
         let reply = try await command("UID SEARCH \(criteria)")
         return reply.untagged.filter { $0.kind == "SEARCH" }.flatMap { $0.values.compactMap { $0.number.map { UInt32(clamping: $0) } } }
     }
 
-    /** FETCH responses (and VANISHED ones, with QRESYNC's modifier). */
     func fetch(_ uids: String, _ items: String, modifiers: String = "") async throws -> [ImapResponse] {
         let reply = try await command("UID FETCH \(uids) \(items)\(modifiers.isEmpty ? "" : " \(modifiers)")")
         return reply.untagged.filter { $0.kind == "FETCH" || $0.kind == "VANISHED" }
@@ -312,7 +281,6 @@ actor ImapClient {
         try await command("UID STORE \(imapSet(uids)) \(change)")
     }
 
-    /** Moves messages to `path`; answers their new UIDs there (when the server says, UIDPLUS). */
     func move(_ uids: [UInt32], to path: String) async throws -> [UInt32: UInt32] {
         guard !uids.isEmpty else { return [:] }
         guard capabilities.contains("MOVE") else {
@@ -323,13 +291,11 @@ actor ImapClient {
         return Self.copied(try await command("UID MOVE \(imapSet(uids)) \(Self.quote(path))"))
     }
 
-    /** Copies messages to `path`; answers their UIDs there (when the server says, UIDPLUS). */
     func copy(_ uids: [UInt32], to path: String) async throws -> [UInt32: UInt32] {
         guard !uids.isEmpty else { return [:] }
         return Self.copied(try await command("UID COPY \(imapSet(uids)) \(Self.quote(path))"))
     }
 
-    /** COPYUID's old UID → new UID, from a MOVE's or COPY's reply. */
     private static func copied(_ reply: Reply) -> [UInt32: UInt32] {
         let codes = [reply.code] + reply.untagged.filter { $0.kind == "OK" }.map(\.values)
         guard let copy = codes.first(where: { $0.first?.text?.uppercased() == "COPYUID" }), copy.count == 4 else { return [:] }
@@ -362,12 +328,6 @@ actor ImapClient {
         return (UInt32(clamping: validity), UInt32(clamping: uid))
     }
 
-    // ── Watching ─────────────────────────────────────────────────────────────
-
-    /**
-     * Waits in IDLE on the open folder until something changes there (true)
-     * or `duration` passes (false), as servers drop an IDLE after 30 minutes.
-     */
     func idle(for duration: Duration) async throws -> Bool {
         tag += 1
         let tag = "A\(tag)"

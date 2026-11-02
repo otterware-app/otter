@@ -1,10 +1,3 @@
-/**
- * The bar along the window's foot (Linear's): the agent's chats kept as tabs,
- * minimized or showing, then Agent (a new chat) and the chat history. A tab
- * spins while its chat works, and a dot says it waits on you or finished
- * while you were away.
- */
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { HistoryIcon, LoaderCircleIcon, XIcon } from "lucide-react";
@@ -24,7 +17,6 @@ import { HintTooltip, cn } from "./ui";
 
 type Status = "waiting" | "working" | "finished" | null;
 
-/** How a chat is doing, for its tab. */
 function useStatus(id: string): Status {
   return useChats((s) => {
     const run = s.runs[id];
@@ -44,11 +36,8 @@ export function ChatBar({
   onCloseTab,
   onNewChat,
 }: {
-  /** The chat on screen (the small window's, or the workspace's); null when none is. */
   shownId: string | null;
-  /** A tab or a past chat, picked. */
   onSelect: (id: string) => void;
-  /** Takes a tab out of the bar (and the window, if it shows it). */
   onCloseTab: (id: string) => void;
   onNewChat: () => void;
 }) {
@@ -56,7 +45,6 @@ export function ChatBar({
   const docked = useChats((s) => s.docked);
   const tabs = docked.flatMap((id) => conversations.find((c) => c.id === id) ?? []);
   const shown = conversations.find((c) => c.id === shownId);
-  // A chat not in the bar that finished, or waits on you, marks History.
   const elsewhere = useChats((s) =>
     s.conversations.some((c) => {
       if (s.docked.includes(c.id)) return false;
@@ -68,7 +56,6 @@ export function ChatBar({
 
   const chat = useChatProvider(undefined);
   const [historyOpen, setHistoryOpen] = useState(false);
-  // Other sessions persisted on the provider (Hermes WebUI, Codex threads…), fetched when history opens.
   const sessionsAvailable = Boolean(chat.provider?.sessions && chat.usable);
   const serverSessions = useQuery<ChatSession[]>({
     queryKey: ["agent-sessions", chat.kind],

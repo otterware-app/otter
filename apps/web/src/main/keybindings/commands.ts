@@ -1,22 +1,3 @@
-/**
- * Every command a keybinding can trigger, and the default bindings (the Otter
- * Code model: a closed set of command ids; titles derive from the id, e.g.
- * `message.markUnread` → "Message: Mark Unread").
- *
- * `when` context keys (see dispatch.ts):
- * - editableFocus: typing in an input, textarea, or rich-text field
- * - dialogOpen:    a dialog, popover, or menu is open
- * - settingsOpen:  the settings page is showing
- * - workspaceOpen: the AI workspace is showing (the mail is hidden)
- * - messageOpen:   a conversation is open in the reader
- * - agentOpen:     a chat is showing (the small window, or the AI workspace)
- * - modelPickerOpen: the composer's model picker is open
- *
- * Besides the closed set, `label.move:<label name>` rules move the selection
- * to one of the user's labels (by full name, so one binding works in every
- * account).
- */
-
 export const MAILBOX_JUMP_COMMANDS = [
   "mailbox.jump.1",
   "mailbox.jump.2",
@@ -29,7 +10,6 @@ export const MAILBOX_JUMP_COMMANDS = [
   "mailbox.jump.9",
 ] as const;
 
-/** ⌘1…⌘9 pick the Nth model while the model picker is open (T3's modelPicker.jump.N). */
 export const MODEL_PICKER_JUMP_COMMANDS = [
   "modelPicker.jump.1",
   "modelPicker.jump.2",
@@ -98,14 +78,12 @@ export type LabelMoveCommand = `${typeof LABEL_MOVE_PREFIX}${string}`;
 
 export type KeybindingCommand = (typeof KEYBINDING_COMMANDS)[number] | LabelMoveCommand;
 
-/** What a handler registers under: a fixed command, or every label move. */
 export type CommandHandlerKey = (typeof KEYBINDING_COMMANDS)[number] | "label.move";
 
 export function labelMoveCommand(labelName: string): LabelMoveCommand {
   return `${LABEL_MOVE_PREFIX}${labelName}`;
 }
 
-/** The label name of a `label.move:<name>` command, else null. */
 export function labelMoveName(command: string): string | null {
   if (!command.startsWith(LABEL_MOVE_PREFIX)) return null;
   const name = command.slice(LABEL_MOVE_PREFIX.length).trim();
@@ -124,7 +102,6 @@ export type KeybindingRule = {
   when?: string;
 };
 
-/** Context keys offered in the When editor (plus the literals). */
 export const WHEN_VARIABLES = [
   "editableFocus",
   "dialogOpen",
@@ -143,9 +120,7 @@ const ON_MESSAGE = `${IN_MAIL} && messageOpen`;
 
 export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+k", command: "commandPalette.toggle" },
-  // ⌘B means bold while typing.
   { key: "mod+b", command: "sidebar.toggle", when: OUTSIDE_FIELDS },
-  // ⌘I is italic while writing mail: the editor takes it first.
   { key: "mod+i", command: "agent.toggle", when: "!dialogOpen" },
   { key: "mod+shift+f", command: "agent.openWorkspace", when: "!dialogOpen" },
   { key: "mod+shift+o", command: "agent.newChat", when: "!dialogOpen" },
@@ -232,7 +207,6 @@ function titleCaseSegment(segment: string): string {
     .join(" ");
 }
 
-/** "message.markUnread" → "Message: Mark Unread"; label moves → "Move to Label: Clients/Acme". */
 export function commandLabel(command: string): string {
   const labelName = labelMoveName(command);
   if (labelName !== null) return `Move to Label: ${labelName}`;

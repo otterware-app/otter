@@ -1,10 +1,3 @@
-/**
- * The desktop-only channels the mail backend serves itself (backend.ts), as
- * core handlers: syncing every mailbox, an attachment's bytes for main to drag
- * out, and the agents on this computer given Otter Mail's tools
- * (services/agent/connected-agents.ts).
- */
-
 import type { AgentAccess, AgentTokens, ConnectedAgent } from "@otter-mail/contracts/agent-tokens";
 import { getAttachmentBytes, handle, syncAllAccounts } from "@otter-mail/core";
 
@@ -17,13 +10,11 @@ import {
 import { serverUrl } from "../services/agent/mcp-server.js";
 
 export function registerBackendHandlers(): void {
-  // Mailbox → Synchronize All Mailboxes.
   handle("desktop:syncAll", async () => {
     await syncAllAccounts({ force: true });
     return { ok: true };
   });
 
-  // gmail:dragAttachment (main) drags the file out; the bytes come from here.
   handle("desktop:attachmentBytes", async (params: unknown) => {
     const { accountId, messageId, attachmentId } = params as Record<string, string>;
     return getAttachmentBytes(accountId, messageId, attachmentId);
@@ -34,7 +25,6 @@ export function registerBackendHandlers(): void {
     tokens: await listAgents(),
   }));
 
-  // Answers the token, this once.
   handle("mcp:addAgent", async (params: unknown) => {
     const p = params as Record<string, unknown> | undefined;
     const name = typeof p?.name === "string" ? p.name.trim() : "";

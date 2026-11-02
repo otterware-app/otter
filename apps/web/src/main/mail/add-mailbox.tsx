@@ -14,19 +14,12 @@ import { toast } from "./toast";
 import type { MailAccount } from "./types";
 import { cn } from "./ui";
 
-/**
- * Adding a mailbox: Gmail (Google's sign-in in the browser), Outlook
- * (Microsoft's, where this app has an OAuth client for it), or any other mail
- * over IMAP (address and password, the servers found from the domain).
- */
-
 /** The reason from a rejected invoke, without the IPC bridge's wrapping. */
 export function readableError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
   return raw.replace(/^Error invoking remote method '[^']*':\s*/, "").replace(/^Error:\s*/, "");
 }
 
-/** Adds an Outlook mailbox; answers it (null when cancelled), or toasts why it couldn't. */
 export function useAddOutlook(onAdded?: (account: MailAccount) => void) {
   const add = useAddAccount("outlook");
   const start = () =>
@@ -40,7 +33,6 @@ export function useAddOutlook(onAdded?: (account: MailAccount) => void) {
   return { start, pending: add.isPending };
 }
 
-/** "Add mailbox" as a menu: Gmail, Outlook, or other mail (the IMAP dialog). */
 export function AddMailboxMenu({
   onGmail,
   onAdded,
@@ -48,10 +40,8 @@ export function AddMailboxMenu({
   children,
 }: {
   onGmail: () => void;
-  /** The Outlook or IMAP mailbox just added. */
   onAdded?: (account: MailAccount) => void;
   align?: "start" | "end";
-  /** The trigger (rendered via asChild). */
   children: ReactNode;
 }) {
   const [imapOpen, setImapOpen] = useState(false);
@@ -110,7 +100,6 @@ function appPasswordHint(settings: ImapSettings | null): string | undefined {
   return host ? APP_PASSWORDS.find((p) => p.host.test(host))?.hint : undefined;
 }
 
-/** A first guess when discovery finds nothing: the usual names and ports. */
 function guessSettings(email: string): ImapSettings {
   const domain = email.split("@")[1] ?? "";
   return {
@@ -161,7 +150,6 @@ export function ImapAccountDialog({
     const next = found ?? guessSettings(address);
     setSettings(next);
     setDiscovery({ email: address, state: found ? "found" : "none" });
-    // Nothing known about the domain: show the guess, to be checked.
     if (!found) setShowServers(true);
     return next;
   };

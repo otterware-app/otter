@@ -14,7 +14,6 @@ const { chats } = schema;
 
 const row = (userId: string, id: string) => and(eq(chats.userId, userId), eq(chats.id, id));
 
-/** Why a write didn't happen: a later write is there, or the account has too many chats. */
 export type Refusal = "stale" | "full";
 
 export async function list(db: Db, userId: string): Promise<ChatSummary[]> {
@@ -90,14 +89,12 @@ export async function put(db: Db, userId: string, chat: Chat): Promise<Refusal |
     .onConflictDoUpdate({
       target: [chats.userId, chats.id],
       set: values,
-      // A deleted chat stays deleted; an older write loses to the one there.
       setWhere: sql`${chats.deletedAt} is null and ${chats.updatedAt} <= ${chat.updatedAt}`,
     })
     .returning({ id: chats.id });
   return written.length > 0 ? null : "stale";
 }
 
-/** Whether there was a chat to delete. */
 export async function remove(db: Db, userId: string, id: string): Promise<boolean> {
   const removed = await db
     .update(chats)

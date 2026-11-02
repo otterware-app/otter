@@ -1,28 +1,17 @@
-/**
- * mail-socket.ts
- *
- * Platform.connect for the Mac app: a TCP connection to an IMAP or SMTP
- * server with node:net, TLS by node:tls (Mozilla's roots plus any the Mac
- * trusts, the host's name checked), from the first byte or after STARTTLS.
- */
-
 import * as net from "node:net";
 import * as tls from "node:tls";
 
 import type { ByteStream } from "@otter-mail/core";
 
 const CONNECT_TIMEOUT_MS = 20_000;
-/** Unread bytes past which the socket pauses until core catches up. */
 const HIGH_WATER_BYTES = 1 << 20;
 
 let trusted: string[] | undefined;
-/** Node's roots and the Keychain's (a self-hosted server's own CA, say); read once. */
 const ca = () =>
   (trusted ??= [
     ...new Set([...tls.getCACertificates("default"), ...tls.getCACertificates("system")]),
   ]);
 
-/** A readable message for what went wrong reaching `host`. */
 function describe(err: NodeJS.ErrnoException, host: string, port: number): Error {
   switch (err.code) {
     case "ENOTFOUND":
@@ -35,14 +24,12 @@ function describe(err: NodeJS.ErrnoException, host: string, port: number): Error
     case "ECONNRESET":
       return new Error(`${host} closed the connection.`);
   }
-  // node:tls's certificate checks (expired, self-signed, wrong name, …)
   if (err.code?.startsWith("ERR_TLS_") || /CERT|SELF_SIGNED|UNABLE_TO/.test(err.code ?? "")) {
     return new Error(`${host}'s certificate isn't trusted: ${err.message}`);
   }
   return new Error(`Couldn't connect to ${host}: ${err.message}`);
 }
 
-/** Resolves once `socket` emits `event`; rejects on an error or after the timeout. */
 function ready(socket: net.Socket, event: string, host: string, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {

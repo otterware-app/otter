@@ -1,10 +1,3 @@
-/**
- * Adding Outlook mailboxes (`gmail:*` channels, like the rest): Microsoft's
- * sign-in in the browser, then the mailbox is saved, linked and synced.
- * Signing one back in (one linked on another device, or a lapsed sign-in)
- * is the same sign-in with its address prefilled.
- */
-
 import { OUTLOOK_CAPABILITIES } from "@otter-mail/contracts";
 
 import { SignInCancelledError } from "../google.js";
@@ -17,7 +10,6 @@ import * as mailSync from "../services/mail-sync.js";
 import { syncedSignature } from "../services/preferences.js";
 import type { MailAccount } from "../types.js";
 
-/** Signs in with Microsoft; answers the mailbox, or null when the user cancelled. */
 export async function addOutlookAccount(params: unknown): Promise<MailAccount | null> {
   const auth = platform().microsoft;
   if (!auth || !(await auth.available())) throw new Error("This app can't sign in to Outlook.");
@@ -32,7 +24,6 @@ export async function addOutlookAccount(params: unknown): Promise<MailAccount | 
   return saveOutlookAccount(signIn);
 }
 
-/** After a Microsoft sign-in: saves the mailbox, links it, syncs it. */
 export async function saveOutlookAccount(signIn: MicrosoftSignIn): Promise<MailAccount> {
   const auth = platform().microsoft!;
   const existing = await accountStore.getAccount(signIn.email);
@@ -52,14 +43,12 @@ export async function saveOutlookAccount(signIn: MicrosoftSignIn): Promise<MailA
   mailSync.syncAccount(account.id, { force: true });
   void accountAdded(account);
   void refreshProfiles();
-  // The browser sign-in outlasts the renderer's IPC timeout: every window reloads accounts.
   broadcast("gmail:accounts-changed");
   return { ...account, capabilities: OUTLOOK_CAPABILITIES };
 }
 
 export function registerOutlookAccountHandlers(): void {
   handle("gmail:addOutlookAccount", addOutlookAccount);
-  /** Which kinds of mailbox this app can add besides Gmail and IMAP. */
   handle("gmail:mailProviders", async () => ({
     outlook: (await platform().microsoft?.available()) ?? false,
   }));

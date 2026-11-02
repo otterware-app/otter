@@ -9,7 +9,6 @@
 export type { CoreExtension, ExtensionContext } from "./extensions.js";
 export { extensionManifest, type ExtensionManifest } from "@otter-mail/contracts/extensions";
 
-// Agents: what an agent contribution implements, and the shared machinery it streams through.
 export type {
   AgentSettings,
   AgentSettingsView,

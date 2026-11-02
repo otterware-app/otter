@@ -1,8 +1,3 @@
-/**
- * The main mail window: one instance, created on launch and again from the
- * Dock, a second launch or a notification after it was closed.
- */
-
 import { app, BrowserWindow, shell } from "electron";
 
 import { logger } from "../logger.js";
@@ -30,7 +25,6 @@ export function openLinksExternally(win: BrowserWindow): void {
     if (url === win.webContents.getURL()) return;
     const current = new URL(win.webContents.getURL());
     const next = new URL(url);
-    // In-app navigation (dev reloads, router) stays; anything else leaves the app.
     if (next.origin === current.origin) return;
     event.preventDefault();
     if (/^(https?|mailto):$/i.test(next.protocol)) void shell.openExternal(url);
@@ -52,7 +46,6 @@ export async function createMainWindow(): Promise<BrowserWindow> {
 
   creating = (async () => {
     const frame = savedFrame(FRAME_KEY);
-    // Its frame is the OS's: macOS's glass and traffic lights, Linux's controls.
     const chrome = hostOS.mainWindowOptions();
     const win = new BrowserWindow({
       ...chrome,
@@ -70,7 +63,6 @@ export async function createMainWindow(): Promise<BrowserWindow> {
         nodeIntegration: false,
         sandbox: true,
         spellcheck: true,
-        // The browser's tabs (services/browser.ts vets each one).
         webviewTag: true,
       },
     });
@@ -96,7 +88,6 @@ export async function createMainWindow(): Promise<BrowserWindow> {
   return creating;
 }
 
-/** Show (creating it if needed) and focus the main window. */
 export async function focusMainWindow(): Promise<void> {
   const win = getMainWindow() ?? (await createMainWindow());
   if (win.isMinimized()) win.restore();

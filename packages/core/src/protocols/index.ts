@@ -1,9 +1,3 @@
-/**
- * Mail protocols in plain TypeScript: IMAP and SMTP clients over the
- * platform's ByteStream, and MIME parsing. No Node APIs: the web app runs
- * them in its worker, through the relay's tunnel.
- */
-
 export {
   MailProtocolError,
   type Connector,

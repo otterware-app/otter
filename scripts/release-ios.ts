@@ -1,19 +1,4 @@
 #!/usr/bin/env node
-// Builds the iPhone app (apps/ios) for the App Store and uploads it to App Store
-// Connect, where it lands in TestFlight once Apple has processed it (10–30 min).
-// The Release iPhone workflow runs it (.github/workflows/release-ios.yml); from
-// a Mac with Xcode 27 it works by hand too:
-//
-//   pnpm release:ios                  # the app's version (MARKETING_VERSION in the project)
-//   pnpm release:ios --version 0.6.0
-//
-// The iPhone app is versioned apart from the Mac and web apps.
-//
-// Signing needs, on this Mac: the "Apple Distribution" identity in the keychain,
-// the "Otter Mail App Store" provisioning profile, and an App Store Connect API
-// key to upload with. The key comes from OTTER_MAIL_ASC_KEY (path to the .p8),
-// OTTER_MAIL_ASC_KEY_ID and OTTER_MAIL_ASC_ISSUER, or ~/.otter-mail/signing
-// (AuthKey_<id>.p8, whose issuer is the team's). See apps/ios/README.md.
 
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";

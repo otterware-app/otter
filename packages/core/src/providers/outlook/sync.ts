@@ -1,18 +1,4 @@
-/**
- * Outlook's part of sync (the engine around it is services/mail-sync.ts),
- * with Graph's delta queries, one per folder.
- *
- * A folder's first delta lists every message in it, page by page: that's the
- * backfill, in its own lane, the inbox first and resumable (the next page's
- * link is kept). Once a folder's listing ends, Graph hands a delta link, and
- * every sync run asks it what changed since: new mail, read and flag changes,
- * categories, and messages that left the folder. Immutable ids keep a moved
- * message's id, so a message that left one folder is looked up to see where
- * it went (or whether it's gone).
- *
- * A brand-new mailbox shows the newest page of its inbox first, before the
- * backfill gets to it.
- */
+// A delta removal can mean a move: look up the immutable message id before deleting its cached copy.
 
 import { logger } from "../../logger.js";
 import * as store from "../../services/mail-store.js";
@@ -36,13 +22,8 @@ import {
   type ApiMessage,
 } from "./messages.js";
 
-/** Messages a delta page carries. */
 const PAGE_SIZE = 100;
 
-/**
- * Each folder's delta: the next page's link while listing, then the delta
- * link; and the label the folder's cached mail carries.
- */
 type FolderDelta = { link: string; done: boolean; label?: string | null };
 type DeltaState = Record<string, FolderDelta>;
 
@@ -107,7 +88,6 @@ async function refreshFolders(
   return mailbox;
 }
 
-/** Folders deleted for good take their cached mail with them. */
 function followFolderChanges(accountId: string, before: Mailbox | null, after: Mailbox): void {
   if (!before) return;
   const now = new Set(after.folders.map((f) => f.id));
@@ -165,8 +145,6 @@ async function relabelFolders(accountId: string, mailbox: Mailbox, ctx: SyncCont
   }
 }
 
-// ── Sync ────────────────────────────────────────────────────────────────────
-
 export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<void> {
   ctx.update({ phase: mailboxOf(accountId) ? "incremental" : "labels" });
   const mailbox = await refreshFolders(accountId, false, ctx);
@@ -186,7 +164,6 @@ export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<
   }
   if (changed) {
     ctx.bumpRevision();
-    // Counts and categories moved with the mail.
     await refreshFolders(accountId, true, ctx);
   }
   await ctx.newMail(added.filter((m) => m.labelIds.includes("INBOX")));
@@ -237,7 +214,6 @@ async function followDelta(
       if (page["@odata.deltaLink"]) deltaLink = page["@odata.deltaLink"];
     }
   } catch (err) {
-    // The delta expired (or Graph lost track): list the folder again.
     if (err instanceof GraphError && (err.status === 410 || /syncState|resync/i.test(err.code))) {
       logger.info("outlook-sync", `delta expired for a folder of ${accountId}; listing it again`);
       setFolderDelta(accountId, folder.id, null);
@@ -257,7 +233,6 @@ async function followDelta(
       summaries.map((m) => m.id),
     ),
   );
-  // Counts change for the labels messages had as well as for the ones they have now.
   const touched = new Set<string>();
   for (const m of summaries) {
     for (const l of store.getMessageLabelIds(accountId, m.id) ?? []) touched.add(l);
@@ -265,7 +240,6 @@ async function followDelta(
   store.upsertMessages(accountId, summaries);
   for (const m of summaries) for (const l of m.labelIds) touched.add(l);
 
-  // What left the folder: moved (immutable ids keep it), or deleted.
   const gone = removed.filter((id) => !present.some((m) => m.id === id));
   if (gone.length > 0) {
     const found = new Map((await getApiMessages(accountId, gone)).map((m) => [m.id, m]));
@@ -299,8 +273,6 @@ async function followDelta(
   };
 }
 
-// ── Backfill ────────────────────────────────────────────────────────────────
-
 export function needsBackfill(accountId: string): boolean {
   const mailbox = mailboxOf(accountId);
   if (!mailbox) return false;
@@ -308,7 +280,6 @@ export function needsBackfill(accountId: string): boolean {
   return mailbox.folders.some((f) => !delta[f.id]?.done);
 }
 
-/** Lists every folder not listed yet (the inbox first), resuming where a run stopped. */
 export async function backfillOutlook(accountId: string, ctx: SyncContext): Promise<void> {
   const mailbox = mailboxOf(accountId);
   if (!mailbox) return;
@@ -327,7 +298,6 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
       const summaries = (page.value ?? [])
         .filter((m) => !m["@removed"] && isSyncedFolder(accountId, m.parentFolderId))
         .map((m) => toSummary(accountId, m));
-      // Mail the delta's syncs wrote meanwhile is newer than this listing.
       const unknown = new Set(
         store.filterUnknownIds(
           accountId,
@@ -341,7 +311,6 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
       count += unknown.size;
       next = page["@odata.nextLink"];
       setFolderDelta(accountId, folder.id, {
-        // Listed from the start, its mail has the folder's label now.
         ...(readDelta(accountId)[folder.id] ?? { label: folder.labelId }),
         link: next ?? page["@odata.deltaLink"] ?? firstDelta(folder.id),
         done: !next,

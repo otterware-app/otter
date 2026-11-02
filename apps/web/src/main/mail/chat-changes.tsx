@@ -16,7 +16,6 @@ export function chatChangeKey({ target }: ChatChange): string {
   return JSON.stringify([target.kind, "accountId" in target ? target.accountId : null, target.id]);
 }
 
-/** One row per result, keeping its latest name and whether this turn created it. */
 export function mergeChatChanges(changes: ChatChange[]): ChatChange[] {
   const results = new Map<string, ChatChange>();
   for (const change of changes) {

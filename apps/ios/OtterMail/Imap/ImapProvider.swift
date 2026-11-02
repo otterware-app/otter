@@ -1,28 +1,5 @@
 import Foundation
 
-/**
- * An IMAP mailbox behind `MailProvider`, as docs/imap.md designs it:
- *
- * - Folders are labels: INBOX → `INBOX`, \Sent → `SENT`, \Trash → `TRASH`,
- *   \Junk → `SPAM`, \Archive → `ARCHIVE`; Drafts are drafts; any other
- *   folder is a label named by its path. A message sits in one folder, so
- *   labeling, archiving and trashing move it. Gmail's IMAP archives into All
- *   Mail (\All, not synced: it holds every message), which only takes mail
- *   out of the inbox.
- * - Flags: no \Seen is unread, \Flagged is starred.
- * - Messages are `<uidvalidity>:<uid>:<folder>`; threads join by the root of
- *   their References, when the subject agrees (anyone can write References).
- * - \Deleted mail is as good as gone: without UIDPLUS, what we delete can
- *   stay marked until the folder is expunged (ImapClient.delete).
- * - Each folder synced keeps its UIDVALIDITY, UIDNEXT and HIGHESTMODSEQ: new
- *   mail is what's past UIDNEXT, flag changes come since the mod-sequence
- *   (CONDSTORE/QRESYNC), or from a listing of what's here without it.
- * - Summaries come from ENVELOPE and BODYSTRUCTURE with the plain and HTML
- *   parts alone; attachments are fetched when opened.
- *
- * Mail goes out over SMTP, and a copy into Sent. The password stays in this
- * iPhone's Keychain and never leaves it.
- */
 final class ImapProvider: MailProvider {
     let email: String
     let settings: ImapSettings
@@ -35,7 +12,6 @@ final class ImapProvider: MailProvider {
     /** Gmail's All Mail, where its IMAP archives (not synced). */
     private var allMail: String?
 
-    /** How many messages a page of a folder brings. */
     private static let page = 30
 
     init(email: String, settings: ImapSettings) {
@@ -46,11 +22,8 @@ final class ImapProvider: MailProvider {
     var capabilities: MailCapabilities { .imap }
     var takesTurns: Bool { true }
 
-    // ── The password ─────────────────────────────────────────────────────────
-
     private static func key(_ email: String) -> String { "imap-password:\(email.lowercased())" }
     static func password(_ email: String) -> String? { Keychain.get(key(email)) }
-    /** Kept on this iPhone alone: not in backups, nor restored to another device. */
     static func setPassword(_ password: String?, for email: String) { Keychain.set(key(email), password, thisDeviceOnly: true) }
 
     /** Logs in to the IMAP and SMTP servers, to check settings before they're saved. */
@@ -59,8 +32,6 @@ final class ImapProvider: MailProvider {
         await client.logout()
         try await SMTP.verify(settings.smtp, username: settings.username, auth: .password(password))
     }
-
-    // ── The connection ───────────────────────────────────────────────────────
 
     /** Runs `body` on the connection, a job at a time (jobs open folders, so they can't interleave). */
     private func session<T>(_ body: (ImapClient) async throws -> T) async throws -> T {
@@ -72,7 +43,6 @@ final class ImapProvider: MailProvider {
             usedAt = .now
             return result
         } catch {
-            // The server said no: the connection is fine. Anything else: start over next time.
             if case ImapError.server = error {} else {
                 client.close()
                 self.client = nil
@@ -83,7 +53,6 @@ final class ImapProvider: MailProvider {
 
     private func connection() async throws -> ImapClient {
         if let client {
-            // One left alone may have been dropped while the app slept.
             if usedAt > .now.addingTimeInterval(-60) { return client }
             if (try? await client.noop()) != nil { return client }
             client.close()
@@ -96,12 +65,9 @@ final class ImapProvider: MailProvider {
         return client
     }
 
-    // ── Folders ──────────────────────────────────────────────────────────────
-
     enum Role: String, CaseIterable {
         case inbox, sent, drafts, trash, junk, archive
 
-        /** Its label, as core's are (Drafts' is the messages' own). */
         var label: String {
             switch self {
             case .inbox: "INBOX"
@@ -149,7 +115,6 @@ final class ImapProvider: MailProvider {
         return (folders, roles, gmail ? list.first { $0.attributes.contains("\\all") }?.path : nil)
     }
 
-    /** A role's folder, created when the server has none (a first message sent, trashed, archived, …). */
     private func path(_ role: Role, _ client: ImapClient) async throws -> String {
         if let path = roles[role] { return path }
         let name = role.rawValue.capitalized
@@ -158,7 +123,6 @@ final class ImapProvider: MailProvider {
         do {
             try await client.create(name, use: use)
         } catch ImapError.server {
-            // Some servers keep every folder under INBOX ("INBOX.Sent").
             try await client.create("INBOX\(folders.first?.delimiter ?? ".")\(name)", use: use)
         }
         try await refreshFolders(client)
@@ -166,7 +130,6 @@ final class ImapProvider: MailProvider {
         return path
     }
 
-    /** Where archived mail goes: the Archive (made if missing), or Gmail's All Mail. */
     private func archive(_ client: ImapClient) async throws -> String {
         if let allMail { return allMail }
         return try await path(.archive, client)
@@ -174,7 +137,6 @@ final class ImapProvider: MailProvider {
 
     private func role(_ path: String) -> Role? { roles.first { $0.value == path }?.key }
 
-    /** The label a message in `path` wears (nil in Drafts, and Gmail's All Mail). */
     private func label(_ path: String) -> String? {
         switch role(path) {
         case .drafts: nil
@@ -187,7 +149,6 @@ final class ImapProvider: MailProvider {
         Set(thread.messages.compactMap { ImapID($0.id).flatMap { label($0.path) } })
     }
 
-    /** The folder a sidebar entry shows. */
     private func path(_ folder: Folder) -> String? {
         switch folder {
         case .inbox: roles[.inbox]
@@ -201,7 +162,6 @@ final class ImapProvider: MailProvider {
         }
     }
 
-    /** The sidebar entry that shows `path` (its key keeps where the folder's pages got to). */
     private func folder(_ path: String) -> Folder {
         switch role(path) {
         case .inbox: .inbox
@@ -232,12 +192,9 @@ final class ImapProvider: MailProvider {
         return parts.joined(separator: "/")
     }
 
-    // ── Syncing ──────────────────────────────────────────────────────────────
-
     /** What a sync found, before it's folded into threads. */
     private struct Changes {
         var new: [Fetched] = []
-        /** Message id → its flags now (lowercased). */
         var flags: [String: Set<String>] = [:]
         var gone: Set<String> = []
     }
@@ -276,7 +233,6 @@ final class ImapProvider: MailProvider {
         for path in (state.folders ?? [:]).keys.sorted() {
             let mine = here.filter { $0.path == path }
             guard folders.contains(where: { $0.path == path }) else {
-                // The folder is gone (deleted or renamed elsewhere), and its mail with it.
                 changes.gone.formUnion(mine.map(\.id))
                 state.folders?[path] = nil
                 continue
@@ -297,19 +253,16 @@ final class ImapProvider: MailProvider {
         }
         let status = try await client.select(path)
         guard status.uidValidity == saved.uidValidity else {
-            // The folder was rebuilt: its UIDs mean nothing now. Start it over.
             changes.gone.formUnion(mine.map(\.id))
             state.folders?[path] = nil
             return try await loadPage(path, &state, client, &changes)
         }
         if status.uidNext > saved.uidNext {
-            // New mail (the newest couple of hundred, after a flood).
             let uids = try await client.search("UID \(saved.uidNext):* UNDELETED").filter { $0 >= saved.uidNext }.suffix(200)
             changes.new += try await messages(Array(uids), in: path, validity: status.uidValidity, client)
         }
         let uids = Set(mine.filter { $0.validity == status.uidValidity }.map(\.uid))
         if let low = uids.min() {
-            // Flags changed, and mail gone, among what's here.
             let responses: [ImapResponse]
             var present: Set<UInt32>?
             if condstore, let modseq = saved.highestModSeq {
@@ -342,12 +295,11 @@ final class ImapProvider: MailProvider {
         state.folders?[path] = saved
     }
 
-    /** A folder's next page, back from the oldest loaded (its newest, the first time); the folder syncs from then on. */
     private func loadPage(_ path: String, _ state: inout MailboxState, _ client: ImapClient, _ changes: inout Changes) async throws {
         let status = try await client.select(path)
         var saved = state.folders?[path]
             ?? ImapFolderState(uidValidity: status.uidValidity, uidNext: status.uidNext, highestModSeq: status.highestModSeq, oldest: status.uidNext)
-        guard saved.uidValidity == status.uidValidity else { return } // The next sync starts it over.
+        guard saved.uidValidity == status.uidValidity else { return }
         let older = saved.oldest > 1 ? try await client.search("UID 1:\(saved.oldest - 1) UNDELETED").filter { $0 < saved.oldest } : []
         let page = older.sorted().suffix(Self.page)
         let fetched = try await messages(Array(page), in: path, validity: status.uidValidity, client)
@@ -381,21 +333,16 @@ final class ImapProvider: MailProvider {
         }
     }
 
-    /** Search runs on what's here (MailStore.search), as core's does on its cache. */
     func search(_ query: String, known: [MailThread]) async throws -> (ids: [String], threads: [MailThread]) { ([], []) }
-
-    // ── Messages ─────────────────────────────────────────────────────────────
 
     /** A message as fetched, with what threading it needs. */
     private struct Fetched {
         var message: Message
         var subject: String
-        /** The root of its References: what its thread is keyed by. */
         var root: String
         var bodies: [ImapBodyPart]
     }
 
-    /** Summaries of `uids` in the open folder, with their words (plain and HTML parts only). */
     private func messages(_ uids: [UInt32], in path: String, validity: UInt32, _ client: ImapClient) async throws -> [Fetched] {
         guard !uids.isEmpty else { return [] }
         let responses = try await client.fetch(
@@ -404,7 +351,6 @@ final class ImapProvider: MailProvider {
         )
         let drafts = role(path) == .drafts
         var fetched = responses.compactMap { Self.fetched($0.values.first?.pairs ?? [:], path: path, validity: validity, inDrafts: drafts) }
-        // One FETCH for the words of every message whose parts sit in the same places.
         let groups = Dictionary(grouping: fetched.indices) { fetched[$0].bodies.map(\.section) }
         for (sections, indices) in groups where !sections.isEmpty {
             let byUID = Dictionary(indices.map { (ImapID(fetched[$0].message.id)!.uid, $0) }) { a, _ in a }
@@ -433,7 +379,6 @@ final class ImapProvider: MailProvider {
         return formatter
     }()
 
-    /** A FETCH's items (ENVELOPE, BODYSTRUCTURE, …) as a message. */
     private static func fetched(_ items: [String: ImapValue], path: String, validity: UInt32, inDrafts: Bool) -> Fetched? {
         guard let uid = items["UID"]?.number, !isDeleted(items) else { return nil }
         let flags = Set(items["FLAGS"]?.list.compactMap { $0.text?.lowercased() } ?? [])
@@ -495,7 +440,6 @@ final class ImapProvider: MailProvider {
         return topic == "(no subject)" ? "" : topic
     }
 
-    /** Folds what a sync found into the mailbox's threads: whole threads that changed, and those left empty. */
     private func merge(_ known: [MailThread], _ changes: Changes) -> MailDelta {
         var threads = Dictionary(known.map { ($0.id, $0) }) { a, _ in a }
         var owner: [String: String] = [:]
@@ -516,7 +460,6 @@ final class ImapProvider: MailProvider {
         }
         for fetched in changes.new {
             var id = owner[fetched.message.id] ?? "\(email) \(fetched.root)"
-            // References (and Message-IDs) are the sender's to write: a thread is only joined on the same subject.
             if owner[fetched.message.id] == nil, let thread = threads[id], Self.topic(thread.subject) != Self.topic(fetched.subject) {
                 id = "\(email) \(fetched.message.id)"
             }
@@ -524,7 +467,6 @@ final class ImapProvider: MailProvider {
                 threads[id] = MailThread(id: id, mailbox: email, subject: fetched.subject, labels: [], messages: [])
             }
             threads[id]!.messages.removeAll { $0.id == fetched.message.id }
-            // A thread is called what its first message is (a reply found first gave it its "Re:").
             if threads[id]!.messages.allSatisfy({ $0.date > fetched.message.date }) { threads[id]!.subject = fetched.subject }
             threads[id]!.messages.append(fetched.message)
             owner[fetched.message.id] = id
@@ -543,8 +485,6 @@ final class ImapProvider: MailProvider {
         }
         return delta
     }
-
-    // ── Changing ─────────────────────────────────────────────────────────────
 
     func apply(_ change: MailStore.Change, to thread: MailThread, _ state: inout MailboxState) async throws -> MailDelta {
         let ids = thread.messages.compactMap { ImapID($0.id) }
@@ -573,7 +513,6 @@ final class ImapProvider: MailProvider {
             case .untrash:
                 var origins = state.trashedFrom ?? [:]
                 let trashed = ids.filter { role($0.path) == .trash }
-                // Back where it came from while that folder's still there, else to the inbox.
                 let inbox = roles[.inbox] ?? "INBOX"
                 let destination = { (id: ImapID) -> String in
                     guard let origin = origins[id.id], self.folders.contains(where: { $0.path == origin }) else { return inbox }
@@ -585,7 +524,6 @@ final class ImapProvider: MailProvider {
                 for id in trashed { origins[id.id] = nil }
                 state.trashedFrom = origins
             case .delete:
-                // Only what's in Trash or Junk (where it's offered): the rest of the thread stays.
                 let doomed = ids.filter { [.trash, .junk].contains(role($0.path)) }
                 if var origins = state.trashedFrom {
                     for id in doomed { origins[id.id] = nil }
@@ -602,7 +540,6 @@ final class ImapProvider: MailProvider {
                 return MailDelta(threads: [kept])
             }
             guard !moved.isEmpty else { return MailDelta() }
-            // The messages under their new ids (those the server didn't say come with the next sync).
             var updated = thread
             updated.messages = thread.messages.compactMap { message in
                 guard let new = moved[message.id] else { return message }
@@ -617,7 +554,6 @@ final class ImapProvider: MailProvider {
         }
     }
 
-    /** A label's folder: a system label's (made if missing), or the folder a user label is. */
     private func path(label: String, _ client: ImapClient) async throws -> String? {
         switch label {
         case "INBOX": roles[.inbox]
@@ -629,14 +565,6 @@ final class ImapProvider: MailProvider {
         }
     }
 
-    /**
-     * Where a label change on a conversation sends its messages, as core's
-     * imap/writes.ts plans it. A folder added wins: the conversation goes
-     * there, its own mail staying in Sent and Drafts (and out of Junk and
-     * Trash) unless the change takes it from there or it's trashed. Taking
-     * the inbox or a folder away archives what's there; taking Junk or the
-     * Archive away puts it back in the inbox (your own mail in Sent).
-     */
     private func moves(_ ids: [ImapID], add: [String], remove: [String], in thread: MailThread, _ client: ImapClient) async throws -> [String: [ImapID]] {
         let isFolder = { (label: String) in
             ["INBOX", "TRASH", "SPAM", "ARCHIVE"].contains(label) || self.folders.contains { $0.path == label && self.role(label) == nil }
@@ -646,9 +574,7 @@ final class ImapProvider: MailProvider {
             let kept = (target == "TRASH" ? [] : Set(["SENT", "DRAFT", "TRASH", "SPAM"])).subtracting(remove)
             let others = ids.filter { $0.path != destination }
             var movable = others.filter { !kept.contains(role($0.path)?.label ?? "") }
-            // Only your own mail in it (a conversation you started): that moves.
             if movable.isEmpty { movable = others.filter { role($0.path) != .drafts } }
-            // Junk and Not junk take only what was seen where they were asked (else the latest): anyone can make their mail look part of a conversation.
             if target == "SPAM" || remove.contains("SPAM") {
                 let seen = movable.filter { label($0.path).map(remove.contains) ?? false }
                 movable = seen.isEmpty ? Array(movable.suffix(1)) : seen
@@ -677,7 +603,6 @@ final class ImapProvider: MailProvider {
         }
     }
 
-    /** Moves messages to `destination`; answers each one's id there (nil when the server didn't say). */
     private func move(_ ids: [ImapID], to destination: String, _ state: inout MailboxState, _ client: ImapClient) async throws -> [String: String?] {
         let movers = ids.filter { $0.path != destination }
         guard !movers.isEmpty else { return [:] }
@@ -725,12 +650,9 @@ final class ImapProvider: MailProvider {
         }
     }
 
-    // ── Writing ──────────────────────────────────────────────────────────────
-
     func send(_ message: Outgoing, _ state: inout MailboxState, known: [MailThread]) async throws -> MailDelta {
         guard let password = Self.password(email) else { throw ImapError.signedOut }
         try await SMTP.send(message.raw, from: message.from, to: message.recipients, server: settings.smtp, username: settings.username, auth: .password(password))
-        // Sent: filing a copy is a courtesy, and a failure there isn't a failure to send.
         do {
             return try await session { client in
                 // Gmail and Outlook file what their SMTP sends; a copy would make two.
@@ -810,13 +732,8 @@ final class ImapProvider: MailProvider {
         }
     }
 
-    // ── Settings ─────────────────────────────────────────────────────────────
-
-    /** The server keeps no signatures: the mailbox keeps one, following the Otter account (Session, `signatures`). */
     func signature() async throws -> String? { nil }
     func setSignature(_ html: String) async throws -> String { html }
-
-    // ── Live ─────────────────────────────────────────────────────────────────
 
     /**
      * IDLE on the inbox, on a connection of its own, while the app is open:
@@ -841,13 +758,11 @@ final class ImapProvider: MailProvider {
                         let started = ContinuousClock.now
                         if try await client.idle(for: .seconds(25 * 60)) { onChange() }
                         let lasted = ContinuousClock.now - started
-                        // Only an IDLE that held a while says the server is well.
                         if lasted > .seconds(60) { delay = .seconds(2) }
                         // A server that ends every IDLE at once mustn't be asked again at once.
                         if lasted < .seconds(5) { try await Task.sleep(for: .seconds(5) - lasted) }
                     }
                 } catch ImapError.authentication {
-                    // The sync this starts meets the same refusal and asks for the password (MailSync).
                     onChange()
                     return
                 } catch {

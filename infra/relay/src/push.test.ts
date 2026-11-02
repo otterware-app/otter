@@ -22,7 +22,6 @@ const registration: PutPushDeviceRequest = {
   mailboxes: ["me@example.com"],
 };
 
-/** Uses real SQLite SQL/FKs, with the small subset of D1 called by the routing store. */
 beforeEach(() => {
   db?.close();
   db = new DatabaseSync(":memory:");

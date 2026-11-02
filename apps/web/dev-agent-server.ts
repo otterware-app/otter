@@ -1,4 +1,3 @@
-/** A private local server for the demo. Uses the production AI SDK runtime. */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -15,7 +14,6 @@ export function demoAgentServer(): Plugin {
     configureServer(server) {
       if (process.env.VITE_DEMO !== "1") return;
       const root = path.resolve(server.config.root, "../..");
-      // Linked worktrees can share the main checkout's preferred development model.
       let shared = root;
       try {
         shared = path.dirname(

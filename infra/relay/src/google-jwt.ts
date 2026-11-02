@@ -1,8 +1,3 @@
-/**
- * Verifies JWTs that Google signs: ID tokens from Google sign-in, and the
- * OIDC tokens Pub/Sub attaches to push requests.
- */
-
 import { createRemoteJWKSet, errors, jwtVerify, type JWTPayload, type JWTVerifyGetKey } from "jose";
 
 export interface GoogleClaims extends JWTPayload {
@@ -17,7 +12,6 @@ export const GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 
 const keySets = new Map<string, JWTVerifyGetKey>();
 
-/** Signing keys published at `url`, fetched and cached (and refetched on rotation) by jose. */
 export function remoteKeys(url: string): JWTVerifyGetKey {
   let keys = keySets.get(url);
   if (!keys) {
@@ -30,10 +24,6 @@ export function remoteKeys(url: string): JWTVerifyGetKey {
 /** The token is malformed, forged, expired, meant for someone else, or lacks a verified email. */
 export class InvalidTokenError extends Error {}
 
-/**
- * Checks the signature, issuer, audience and lifetime, and that Google
- * verified the email address. Returns the claims, with the address lowercased.
- */
 export async function verifyGoogleJwt(
   token: string,
   audience: string | string[],

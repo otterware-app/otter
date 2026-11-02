@@ -1,6 +1,3 @@
-// `pnpm start`: runs the built app unpackaged, production-like. The main
-// process loads the renderer from apps/web/dist (no dev server).
-
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";

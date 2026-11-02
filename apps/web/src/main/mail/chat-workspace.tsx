@@ -1,12 +1,3 @@
-/**
- * The AI workspace (the Chats space): a chat on the left and, on the right,
- * what it used, made and opened, as tabs: conversations and drafts (in the
- * reader), pages (the Mac app's browser) and files. A chat with nothing open
- * has the width to itself. What the agent makes opens as it makes it, and
- * links and files in the chat open here too. The tab showing is the next
- * message's context, as the open conversation is in the mail.
- */
-
 import {
   useEffect,
   useRef,
@@ -55,7 +46,6 @@ import { cn } from "./ui";
 
 const TAB_ICONS = { thread: MailIcon, draft: FilePenLineIcon, page: GlobeIcon, file: FileIcon };
 
-/** The message a conversation or draft tab opens at: the conversation's latest, the draft's own. */
 function useTabMessage(ref: ChatTabRef | undefined) {
   const mail = ref?.kind === "thread" || ref?.kind === "draft" ? ref : null;
   return useQuery({
@@ -79,7 +69,6 @@ function useTabMessage(ref: ChatTabRef | undefined) {
   });
 }
 
-/** The chat's width beside its tabs, dragged on the seam between them. */
 function useChatWidth() {
   const key = "gmail:pane:workspace-chat";
   const [width, setWidth] = useState(() => Number(localStorage.getItem(key)) || 460);
@@ -118,15 +107,11 @@ export function ChatWorkspace({
   onNavigate,
   onSelectChat,
 }: {
-  /** ⌘W: closes the tab showing, if there is one. */
   closeTabRef: MutableRefObject<(() => boolean) | null>;
   chatId: string;
-  /** Start of the chat's title band (room for the window's controls, the sidebar hidden). */
   titleLeading?: ReactNode;
-  /** End of the rightmost title band (room for the browser toggle). */
   titleTrailing?: ReactNode;
   inputRef: RefObject<HTMLTextAreaElement | null>;
-  /** A result that isn't a tab (a label, a view, a theme): the app goes there. */
   onNavigate: (change: ChatChange) => Promise<void>;
   onSelectChat: (chatId: string) => void;
 }) {
@@ -144,7 +129,6 @@ export function ChatWorkspace({
   });
   const { width, start } = useChatWidth();
 
-  // Its replies are seen while it shows here.
   useEffect(() => {
     watchChat(chatId);
     return () => watchChat(null);
@@ -171,7 +155,6 @@ export function ChatWorkspace({
       open({ kind: "page", url: target.url }, change.title);
     else await onNavigate(change);
   };
-  // Links from the chat and its conversations open as its pages (Mac).
   useEffect(() => {
     routeLinks((url) => openChatTab(chatId, { kind: "page", url }, url));
     return () => routeLinks(null);
@@ -224,7 +207,6 @@ export function ChatWorkspace({
     handlers,
   } = usePanelTabDrag((order) => reorderChatTabs(chatId, order));
 
-  // The chat's pages, kept in the browser while it shows.
   const pages = tabs.filter((t) => t.ref.kind === "page");
   useEffect(() => {
     for (const tab of pages)
@@ -251,7 +233,6 @@ export function ChatWorkspace({
         style={tabs.length > 0 ? { flexBasis: width } : undefined}
         className={cn(
           "flex min-h-0 flex-col",
-          // Beside its tabs, it gives way first, down to a readable column.
           tabs.length > 0 ? "min-w-[300px] shrink" : "min-w-0 flex-1",
         )}
       >
@@ -358,7 +339,6 @@ function TabProblem({ message }: { message: string }) {
   );
 }
 
-/** A file the agent wrote or linked, read through its chat's agent. */
 function FileTab({ chatId, href }: { chatId: string; href: string }) {
   const convo = useChats((s) => s.conversations.find((c) => c.id === chatId));
   const file = useQuery({
@@ -382,10 +362,6 @@ function FileTab({ chatId, href }: { chatId: string; href: string }) {
   return <FilePreview file={{ ...data, load: async () => data.data }} />;
 }
 
-/**
- * The Agent home's past chats, under its composer (Linear's): newest first,
- * a dot on those that finished while you were away.
- */
 function RecentChats({ onSelect }: { onSelect: (chatId: string) => void }) {
   const conversations = useChats((s) => s.conversations);
   const unseen = useChats((s) => s.unseen);

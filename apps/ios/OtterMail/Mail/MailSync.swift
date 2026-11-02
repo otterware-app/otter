@@ -26,10 +26,8 @@ final class MailSync {
     @ObservationIgnored private var cacheLoad: Task<Void, Never>?
     @ObservationIgnored private var forgotten: Set<String> = []
     private(set) var loadingCache = false
-    /** Successfully registered Gmail mailboxes use APNs as the sole alert source. */
     var pushMailboxes: Set<String> = []
     @ObservationIgnored private var stopped = false
-    /** Mailboxes with a provider call under way, and the calls waiting their turn. */
     private var busy: Set<String> = []
     private var waiting: [String: [CheckedContinuation<Void, Never>]] = [:]
     /** Folder pages being fetched ("email key"), so the same page isn't asked for twice at once. */
@@ -43,7 +41,6 @@ final class MailSync {
         self.cache = cache
     }
 
-    /** The mailbox's provider: IMAP when it has IMAP settings, Outlook for an Outlook mailbox, else Gmail. */
     private func provider(_ email: String) -> any MailProvider {
         if let provider = providers[email] { return provider }
         let provider: any MailProvider = if let settings = store.mailbox(email)?.imap {
@@ -102,8 +99,6 @@ final class MailSync {
         return delta
     }
 
-    // ── The cache ────────────────────────────────────────────────────────────
-
     /** Restore before network sync, without holding up the first frame or gestures. */
     func loadCache(for emails: [String]) {
         guard cacheLoad == nil else { return }
@@ -125,14 +120,12 @@ final class MailSync {
 
     func waitForCache() async { await cacheLoad?.value }
 
-    /** A notified Outlook conversation may be in a folder that has not been opened yet. */
     func loadNotificationThread(_ id: String, email: String) async {
         _ = try? await run(email) { provider, state, known in
             try await provider.refresh(MailThread(id: id, mailbox: email, subject: "", labels: [], messages: []), &state, known: known)
         }
     }
 
-    /** Writes the copy soon (changes come in bursts). */
     private func scheduleSave() {
         guard !stopped else { return }
         saving?.cancel()
@@ -160,7 +153,6 @@ final class MailSync {
         cache.remove(email)
     }
 
-    /** Signed out (or moved to other servers): the provider and its IDLE go; the copy stays. */
     func stop(_ email: String) {
         providers[email] = nil
         watching.removeValue(forKey: email)?.cancel()
@@ -174,9 +166,6 @@ final class MailSync {
         cache.removeAll()
     }
 
-    // ── Syncing ──────────────────────────────────────────────────────────────
-
-    /** Catches every signed-in, turned-on mailbox up. */
     func syncAll(notify: Bool = false) async {
         await withTaskGroup(of: Void.self) { group in
             for mailbox in store.shownMailboxes where !mailbox.signedOut {
@@ -185,7 +174,6 @@ final class MailSync {
         }
     }
 
-    /** Catches one mailbox up (one sync at a time per mailbox). */
     func sync(_ email: String, notify: Bool = false) async {
         await waitForCache()
         guard !stopped, !Task.isCancelled, store.mailbox(email) != nil else { return }
@@ -223,24 +211,18 @@ final class MailSync {
             stop(email)
         } catch is CancellationError {
         } catch {
-            // Offline or the server refused: the copy stands, and the next sync tries again.
             guard !Task.isCancelled, (error as? URLError)?.code != .cancelled else { return }
             store.recordSync(email, failure: error is URLError ? "Can't connect" : "Sync failed")
         }
     }
 
-    /** The sign-in is gone (Google's, Microsoft's, or the IMAP password): only signing in again helps. */
     private static func signedOut(_ error: Error) -> Bool {
         if case GoogleAuth.Failure.signedOut = error { return true }
         if case MicrosoftAuth.Failure.signedOut = error { return true }
-        // Refused even with a fresh token (both APIs retry a 401 with one).
         if (error as? GmailAPI.Failure)?.status == 401 || (error as? GraphAPI.Failure)?.status == 401 { return true }
         return (error as? ImapError)?.isSignedOut == true
     }
 
-    // ── Live ─────────────────────────────────────────────────────────────────
-
-    /** Keeps new mail coming while the app is open (Gmail's and Outlook's pushes through the relay, IMAP's IDLE); only the former in the background. */
     func watch(pushTopic: String?, relayOnly: Bool = false) async {
         for mailbox in store.shownMailboxes where !mailbox.signedOut && watching[mailbox.email] == nil && (!relayOnly || mailbox.capabilities.relayPush) {
             let email = mailbox.email
@@ -255,13 +237,10 @@ final class MailSync {
         }
     }
 
-    /** The app went to the background: IDLE and polling stop (Gmail's and Outlook's pushes carry on through the relay). */
     func stopWatching() {
         for task in watching.values { task.cancel() }
         watching = [:]
     }
-
-    // ── Folders and search ───────────────────────────────────────────────────
 
     static func key(_ folder: Folder) -> String {
         switch folder {
@@ -270,24 +249,20 @@ final class MailSync {
         }
     }
 
-    /** Whether a folder has more on the server than has been loaded. */
     func hasMore(_ folder: Folder, scope: String) -> Bool {
         mailboxes(scope).contains { states[$0]?.pages[Self.key(folder)] != "" }
     }
 
-    /** Where the folder's pages got to in the mailbox; a new page changes it. */
     func cursor(_ folder: Folder, scope: String) -> String {
         mailboxes(scope).map { states[$0]?.pages[Self.key(folder)] ?? "" }.joined(separator: " ")
     }
 
-    /** The folder's threads its list shows: down to where its pages reached (MailboxState.lists). */
     func listed(_ threads: [MailThread], in folder: Folder) -> [MailThread] {
         let key = Self.key(folder)
         let paged = Set(store.shownMailboxes.filter { !$0.signedOut }.map(\.email))
         return threads.filter { !paged.contains($0.mailbox) || states[$0.mailbox]?.lists($0, in: key) != false }
     }
 
-    /** The folder's next page in the mailbox (its first, the first time). */
     func loadMore(_ folder: Folder, scope: String) async {
         await loadMore(folder, in: mailboxes(scope))
     }
@@ -308,7 +283,6 @@ final class MailSync {
         }
     }
 
-    /** The server's search, in the mailbox; answers the matching thread ids. */
     func search(_ query: String, scope: String) async -> [String] {
         await waitForCache()
         var found: [String] = []
@@ -323,8 +297,6 @@ final class MailSync {
     private func mailboxes(_ scope: String) -> [String] {
         store.shownMailboxes.filter { !$0.signedOut && $0.email == scope }.map(\.email)
     }
-
-    // ── Writing changes ──────────────────────────────────────────────────────
 
     /** Writes a change the store already shows; if the server refuses, the thread is reloaded as it has it. */
     func apply(_ change: MailStore.Change, to thread: MailThread) {
@@ -341,11 +313,9 @@ final class MailSync {
         }
     }
 
-    /** Sends (or keeps in Drafts) a message the store already shows, then shows the server's copy of its thread. */
     func write(_ draft: Draft, asDraft: Bool) async throws {
         guard let mailbox = store.mailbox(draft.from), !mailbox.signedOut else { throw Draft.Failure.mailboxUnavailable }
         let replyTo = draft.threadID.flatMap(store.thread)
-        // The message replied to (not the copy the store shows of this one, which has no Message-ID yet).
         let quoted = replyTo?.sent.last { $0.headers["Message-ID"] != nil }
         let to = Draft.people(draft.to), cc = Draft.people(draft.cc), bcc = Draft.people(draft.bcc)
         var files: [MIME.File] = []
@@ -368,7 +338,6 @@ final class MailSync {
             html: html,
             inReplyTo: quoted?.headers["Message-ID"],
             references: quoted?.headers["References"],
-            // Gmail stamps its own; an IMAP server keeps the message as written.
             stamped: mailbox.imap != nil
         )
         let message = Outgoing(
@@ -399,7 +368,6 @@ final class MailSync {
         scheduleSave()
     }
 
-    /** An inline image's bytes, for the HTML that shows it. */
     func inlineImage(_ attachment: Attachment, of message: Message, in email: String) async -> Data? {
         try? await provider(email).attachment(attachment, of: message)
     }
@@ -413,9 +381,6 @@ final class MailSync {
         return url
     }
 
-    // ── Notifications ────────────────────────────────────────────────────────
-
-    /** New mail found by sync, as Settings › Notifications says (core's notifier.ts). */
     private func announce(_ threads: [MailThread], before: [String: MailThread]) async {
         let mode = store.preferences.notifications
         guard mode != .off, !stopped, !Task.isCancelled else { return }
@@ -441,14 +406,12 @@ final class MailSync {
     }
 }
 
-/** What the composer's plain text becomes as HTML, with the mailbox's signature as Gmail keeps it. */
 enum Compose {
     static func html(_ text: String, signature: String) -> String {
         let escape = { (s: String) in
             s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
                 .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\n", with: "<br>")
         }
-        // The composer shows the signature as text; send Gmail's formatted one in its place.
         let plain = Signature.plainText(signature)
         if !plain.isEmpty, let range = text.range(of: plain) {
             return "<div dir=\"ltr\">\(escape(String(text[..<range.lowerBound])))\(signature)\(escape(String(text[range.upperBound...])))</div>"

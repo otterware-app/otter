@@ -1,10 +1,3 @@
-/**
- * Outlook (Microsoft 365, outlook.com), through Microsoft Graph: a Microsoft
- * sign-in (the platform's MicrosoftAuth), folders and categories as labels,
- * per-folder delta sync, Outlook's search and calendar, and push through the
- * relay (a Graph subscription → relay → devices). See docs/outlook.md.
- */
-
 import { OUTLOOK_CAPABILITIES } from "@otter-mail/contracts";
 
 import { OUTLOOK_SIGNED_OUT_MESSAGE } from "../../microsoft.js";

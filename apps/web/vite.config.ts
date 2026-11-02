@@ -12,7 +12,6 @@ import { releaseChannel } from "../../packages/shared/src/release-channel";
 
 const port = Number(process.env.PORT ?? 5833);
 
-/** `pnpm dev:demo`: its mailboxes, signed in through the local relay (packages/contracts/src/demo.ts). */
 const devDemo = Boolean(
   process.env.OTTER_MAIL_DEMO_MAILBOXES &&
   process.env.VITE_RELAY_URL?.startsWith("http://localhost:"),
@@ -63,23 +62,18 @@ export default defineConfig(({ command }) => ({
   define: {
     __APP_DISPLAY_NAME__: JSON.stringify("Otter Mail"),
     __APP_VERSION__: JSON.stringify(process.env.OTTER_MAIL_VERSION?.trim() || pkg.version),
-    // `pnpm dev:fake`: a made-up mailbox, no Google or Otter account.
     __DEMO__: JSON.stringify(process.env.VITE_DEMO === "1"),
-    // `pnpm dev:demo`: real demo mailboxes, kept apart from the mail you develop with.
     __DEV_DEMO__: JSON.stringify(command === "serve" && devDemo),
   },
   resolve: {
     alias: {
       "~": NodeURL.fileURLToPath(new URL("./src", import.meta.url)),
-      // Extensions' UI halves reach the app through its kit (src/main/extensions/kit.ts).
       "@otter-mail/web/extension-kit": NodeURL.fileURLToPath(
         new URL("./src/main/extensions/kit.ts", import.meta.url),
       ),
     },
-    // One React for the app and the extensions' UI halves (each declares its own).
     dedupe: ["react", "react-dom", "@tanstack/react-query", "@tanstack/react-router"],
   },
-  // The web app's backend runs in a module Web Worker, with SQLite as WASM.
   worker: { format: "es" },
   optimizeDeps: { exclude: ["@sqlite.org/sqlite-wasm"] },
   server: {

@@ -22,7 +22,6 @@ import {
 import { cn } from "./ui";
 import { shortcutText } from "../keybindings/keys";
 
-/** Marks the signature block inside the editor. */
 const SIGNATURE_ATTR = "data-signature";
 
 const signatureBlock = (html: string) => `<br><br><div ${SIGNATURE_ATTR}="">${html}</div>`;
@@ -30,7 +29,6 @@ const signatureBlock = (html: string) => `<br><br><div ${SIGNATURE_ATTR}="">${ht
 export type RichTextRef = {
   getHTML: () => string;
   getText: () => string;
-  /** Replaces the whole content (e.g. a draft version edited elsewhere). */
   setHTML: (html: string) => void;
   clear: () => void;
   focus: () => void;
@@ -44,7 +42,6 @@ export function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Plain text → simple HTML (escaped, newlines as <br>). */
 export function textToHtml(value: string): string {
   return escapeHtml(value).replace(/\n/g, "<br>");
 }
@@ -72,7 +69,6 @@ function ToolBtn({
       type="button"
       aria-label={label}
       title={label}
-      // preventDefault keeps the editor selection alive through the click.
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       className={[
@@ -87,11 +83,6 @@ function ToolBtn({
   );
 }
 
-/**
- * Gmail-style rich-text area: contentEditable body with a formatting strip
- * (execCommand — deprecated but the exact engine Gmail's composer grew up
- * on, and fully supported by WebKit). Uncontrolled; read via the ref.
- */
 export const RichTextArea = forwardRef<
   RichTextRef,
   {
@@ -101,11 +92,8 @@ export const RichTextArea = forwardRef<
     onBlur?: () => void;
     autoFocus?: boolean;
     minHeightClass?: string;
-    /** Caps the editor's height (it scrolls inside); omit for the inline cap. */
     maxHeightClass?: string;
-    /** Shows the formatting toolbar (composers toggle it from their footer). */
     showToolbar?: boolean;
-    /** Seeds the editor once on mount (e.g. resuming a draft). */
     initialHTML?: string;
     /**
      * The account's signature, kept in its own block below the text: set on
@@ -210,7 +198,6 @@ export const RichTextArea = forwardRef<
     });
   };
 
-  // Reflect the caret's formatting in the strip while moving around.
   const refreshToolbarForEffect = useLatest(refreshToolbar);
   useEffect(() => {
     const refresh = () => refreshToolbarForEffect.current();
@@ -227,8 +214,6 @@ export const RichTextArea = forwardRef<
     refreshToolbar();
   };
 
-  // Gmail formatting shortcuts. stopPropagation keeps app-level
-  // listeners (⌘K palette, ⌘digit account switch) out of the way while typing.
   const handleKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
     const key = e.key.toLowerCase();

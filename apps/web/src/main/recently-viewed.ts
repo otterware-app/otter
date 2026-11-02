@@ -19,7 +19,6 @@ import type { MailAccount, MailView } from "./mail/types";
 import type { SettingsPane } from "./mail/api";
 import { SETTINGS_SECTION_LABELS } from "./settings/settings-search";
 
-/** The icon a place shows: a system folder's, a view's ("custom"), a label, a conversation, Settings, or a chat. */
 export type RecentIcon =
   | "inbox"
   | "starred"
@@ -39,7 +38,6 @@ export type RecentIcon =
   | "chat";
 
 export type RecentPlace = Readonly<{
-  /** The router location that brings it back. */
   href: string;
   /** Where it is (its mailbox, the sender, "Settings"), quieter, before the icon. */
   context: string;
@@ -67,7 +65,6 @@ export function getRecentlyViewed(): RecentPlace[] {
   return places;
 }
 
-/** Puts `place` first (once: an earlier visit to the same URL goes). */
 function recordRecentlyViewed(place: RecentPlace): void {
   const rest = getRecentlyViewed().filter((p) => p.href !== place.href);
   localStorage.setItem(KEY, JSON.stringify([place, ...rest].slice(0, MAX)));
@@ -90,7 +87,6 @@ export function useRecentlyViewed(): RecentPlace[] {
   return useSyncExternalStore(subscribe, getRecentlyViewed);
 }
 
-/** A system label's icon. */
 const SYSTEM_LABEL_ICONS: Record<string, RecentIcon> = {
   INBOX: "inbox",
   STARRED: "starred",
@@ -103,13 +99,6 @@ const SYSTEM_LABEL_ICONS: Record<string, RecentIcon> = {
   TRASH: "trash",
 };
 
-/**
- * Records where HomeView is, once it knows what to call it: a conversation
- * by its subject (from its sender), a mailbox's label or view by name (in
- * that mailbox), a Settings page by its pane, a chat by its title.
- * Searches and new messages aren't places. Returns it, to name the window's tab (a new chat's
- * too, which isn't recorded).
- */
 export function useRecordRecentlyViewed({
   ready,
   href,
@@ -125,7 +114,6 @@ export function useRecordRecentlyViewed({
   ready: boolean;
   href: string;
   settingsPane: SettingsPane | null;
-  /** On the new message's page (it names the tab, but isn't recorded). */
   composing: boolean;
   mailbox: string | null;
   label: string;
@@ -183,7 +171,6 @@ export function useRecordRecentlyViewed({
       : isViewSpaceId(mailbox)
         ? "Views"
         : null;
-    // A view's space is its list: the view itself.
     const view = views.find((v) => v.id === (isViewSpaceId(mailbox) ? mailbox : label));
     const ownLabel = ownLabels?.find((l) => l.id === label);
     const capabilities = capabilitiesOf(account);
@@ -203,7 +190,6 @@ export function useRecordRecentlyViewed({
     }
   }
 
-  // A new chat names its tab, but isn't anywhere to come back to yet.
   const key = place && !composing && !(chat && isBlank(chat)) ? JSON.stringify(place) : null;
   useEffect(() => {
     if (key) recordRecentlyViewed(JSON.parse(key) as RecentPlace);

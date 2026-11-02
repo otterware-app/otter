@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { setPlatform, type Platform } from "../platform.ts";
 import { discoverImap, parseAutoconfig } from "./imap-discovery.ts";
 
-// Recorded from https://autoconfig.thunderbird.net/v1.1/gmx.net (September 2026).
 const GMX = `<clientConfig version="1.1">
   <emailProvider id="gmx.net">
     <domain>gmx.net</domain>
@@ -77,7 +76,6 @@ const GMX = `<clientConfig version="1.1">
 
 const setKind = (kind: Platform["kind"]) => setPlatform({ kind } as Platform);
 
-/** Answers fetches by URL prefix; anything else is a 404. */
 function stubFetch(routes: Record<string, string>): string[] {
   const asked: string[] = [];
   vi.stubGlobal("fetch", async (url: string) => {
@@ -209,7 +207,6 @@ describe("discoverImap", () => {
   });
 
   it("uses the mail server itself when it answers IMAP with its own certificate", async () => {
-    // All-Inkl: imap.<domain> reaches the same machine, but its certificate is *.kasserver.com.
     stubFetch({
       "https://cloudflare-dns.com/dns-query?name=ternes.info": JSON.stringify({
         Answer: [{ type: 15, data: "10 w020d192.kasserver.com." }],

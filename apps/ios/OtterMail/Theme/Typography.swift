@@ -15,14 +15,12 @@ extension Font {
         return style == .headline ? font.weight(.semibold) : font
     }
 
-    /** A fixed size, for text drawn inside a shape (avatars, marks). */
     static func inter(size: CGFloat, weight: Weight = .regular) -> Font {
         .custom(interFamily, fixedSize: size).weight(weight)
     }
 }
 
 extension UIFont {
-    /** Inter at a text style, scaled for Dynamic Type: for UIKit (bars, attributed text). */
     static func inter(_ style: TextStyle, weight: Weight = .regular) -> UIFont {
         let descriptor = UIFontDescriptor(fontAttributes: [
             .family: Font.interFamily,
@@ -37,7 +35,6 @@ extension UIFont {
         preferredFont(forTextStyle: style, compatibleWith: UITraitCollection(preferredContentSizeCategory: .large)).pointSize
     }
 
-    /** The bars UIKit draws (titles, tab labels) in Inter, once at launch. */
     static func useInterInBars() {
         let navigation = UINavigationBar.appearance()
         navigation.titleTextAttributes = [.font: inter(.headline, weight: .semibold)]
@@ -68,6 +65,5 @@ extension View {
     /** A Form section's heading in Inter, as bold as iOS's own (the app's Inter default would flatten it). */
     func sectionHeader() -> some View { font(.inter(.headline)) }
 
-    /** A Form section's note in Inter, at iOS's footnote size. */
     func sectionFooter() -> some View { font(.inter(.footnote)) }
 }

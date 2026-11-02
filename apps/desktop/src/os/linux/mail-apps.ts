@@ -1,9 +1,3 @@
-/**
- * Linux's mail apps (HostOS.mailApps): the installed apps whose .desktop file
- * handles x-scheme-handler/mailto, and xdg-mime to read and set the default.
- * An app's id is its .desktop file's name.
- */
-
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 

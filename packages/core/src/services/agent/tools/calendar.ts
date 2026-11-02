@@ -1,8 +1,3 @@
-/**
- * The calendar tools: the calendar of every mailbox whose provider has one
- * (`capabilities.calendar`; Google Calendar's primary calendar for Gmail).
- */
-
 import { providerFor } from "../../../providers/index.js";
 import {
   NoCalendarAccess,
@@ -45,7 +40,6 @@ async function calendarOf<T>(
   }
 }
 
-/** An ISO date or date-time argument; a date alone is midnight here. */
 function instant(value: string, key: string): Date {
   const time = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00`) : new Date(value);
   if (Number.isNaN(time.getTime())) throw new Error(`"${key}" must be an ISO date or date-time.`);
@@ -54,7 +48,6 @@ function instant(value: string, key: string): Date {
 
 const RESPONSES: RsvpResponse[] = ["accepted", "declined", "tentative"];
 
-/** The fields of an event to create or change. */
 function eventInput(args: ToolArgs): EventInput {
   for (const key of ["start", "end"]) {
     const value = optStr(args, key);
@@ -74,12 +67,10 @@ function eventInput(args: ToolArgs): EventInput {
   return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as EventInput;
 }
 
-/** An event as approvals show it. */
 function describeEvent(event: Pick<CalendarEvent, "title" | "start" | "end">): string {
   return `“${event.title}”, ${event.start} – ${event.end}`;
 }
 
-/** What an input sets, one line each, for approvals. */
 function describeInput(input: EventInput): string {
   return Object.entries(input)
     .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : String(value)}`)

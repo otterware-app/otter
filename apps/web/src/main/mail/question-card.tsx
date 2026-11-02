@@ -1,10 +1,3 @@
-/**
- * The agent asking the user something mid-run (OpenClaw's `ask_user`), in
- * place of the composer like an approval: each question with its options
- * (one or several), room for an answer of the user's own, and Skip (Esc) or
- * Answer (↩). A single question with one choice answers on a click.
- */
-
 import { CheckIcon, MessageCircleQuestionIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ChatQuestion } from "./api";
@@ -18,18 +11,15 @@ export function QuestionCard({
   responding,
   onAnswer,
 }: {
-  /** Who is asking ("OpenClaw"). */
   agent: string;
   question: ChatQuestion;
   pendingCount: number;
   responding: boolean;
-  /** Answers by question id; null skips. */
   onAnswer: (answers: Record<string, string[]> | null) => void;
 }) {
   const [chosen, setChosen] = useState<Record<string, string[]>>({});
   const [own, setOwn] = useState<Record<string, string>>({});
   const card = useRef<HTMLDivElement>(null);
-  // Secrets only go through the agent's own masked prompt.
   const secret = question.questions.some((q) => q.secret);
   const quick = question.questions.length === 1 && !question.questions[0].multiSelect && !secret;
 
@@ -58,7 +48,6 @@ export function QuestionCard({
         : [label];
       return { ...all, [id]: next };
     });
-    // One choice replaces a typed answer.
     if (!multi) setOwn((all) => ({ ...all, [id]: "" }));
   };
 
@@ -148,7 +137,6 @@ export function QuestionCard({
                   onChange={(event) => {
                     const value = event.target.value;
                     setOwn((all) => ({ ...all, [q.id]: value }));
-                    // Typing replaces a single choice.
                     if (!q.multiSelect && value) setChosen((all) => ({ ...all, [q.id]: [] }));
                   }}
                   className="h-8 rounded-lg border border-border/70 bg-transparent px-2.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"

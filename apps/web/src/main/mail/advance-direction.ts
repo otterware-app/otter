@@ -1,6 +1,3 @@
-/** After archiving, deleting, or moving the selected message, which row (if
-    any) the list should select next. */
-
 import { setSyncedPreference } from "../synced-preferences";
 export type AdvanceDirection = "next" | "previous" | "none";
 

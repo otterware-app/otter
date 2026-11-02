@@ -1,9 +1,3 @@
-/**
- * OpenClaw in Settings → Agents: the setup on the gateway's computer, then a
- * setup code (or its address and token), approving this device, and letting
- * its questions through.
- */
-
 import {
   Btn,
   ModelsSection,
@@ -26,7 +20,6 @@ import { openClawApi } from "./api";
 /** Where the web app runs, which the gateway must allow (the Mac app needs no origin). */
 const SITE_ORIGIN = window.desktopBridge.platform === "web" ? location.origin : null;
 
-/** `wss://computer.tailnet.ts.net` or a bare host → `computer.tailnet.ts.net`. */
 const gatewayHost = (address: string) =>
   address
     .trim()
@@ -79,7 +72,6 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
     return () => clearInterval(timer);
   }, [openclawPairingRequest]);
 
-  /** Asks the gateway to let this device answer the agent's questions; approved there. */
   const allowQuestions = async () => {
     setAsking(true);
     try {

@@ -1,19 +1,12 @@
-/**
- * Verifies Microsoft ID tokens (Outlook sign-in, work, school and personal
- * accounts), and whether one proves a mailbox's address.
- */
-
 import { MICROSOFT_CONSUMER_TENANT } from "@otter-mail/contracts";
 import { errors, jwtVerify, type JWTPayload, type JWTVerifyGetKey } from "jose";
 
 import { InvalidTokenError } from "./google-jwt.ts";
 
 export interface MicrosoftClaims extends JWTPayload {
-  /** The directory (tenant) the account belongs to. */
   tid: string;
   preferred_username?: string;
   email?: string;
-  /** The tenant verified the domain of `email` (an optional claim, set up on the app registration). */
   xms_edov?: boolean;
   name?: string;
 }

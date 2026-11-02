@@ -58,8 +58,6 @@ async function start(
       await run("docker", ["rm", "-f", name]).catch(() => {});
     },
   };
-  // Ready once the server greets on every port in `ready`: TLS listeners can
-  // come up after the plain ones.
   const greets = async ({ port, tls }: { port: number; tls: boolean }) => {
     const stream = await nodeConnect(container.host, container.port(port), { tls });
     try {

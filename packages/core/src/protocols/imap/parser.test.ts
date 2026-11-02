@@ -14,7 +14,6 @@ import { decodeMailboxName, encodeMailboxName } from "./utf7.ts";
 
 const parse = (line: string) => parseResponse(utf8Encode(`${line}\r\n`));
 
-/** Feeds `text` to a reader `size` bytes at a time, collecting every response. */
 function readAll(text: string | Uint8Array, size: number): ImapResponse[] {
   const bytes = typeof text === "string" ? utf8Encode(text) : text;
   const reader = new ResponseReader();

@@ -61,8 +61,6 @@ const rowOf = (accountId: string, id: string): Row => {
 const threadRows = (accountId: string, threadId: string): Row[] =>
   store.getThreadMessages(accountId, threadId);
 
-// ── Flags and moves ────────────────────────────────────────────────────────
-
 /** Removes \Deleted messages: only `uids` (UID EXPUNGE); without UIDPLUS, only when nothing else is marked. */
 export async function expungeOnly(client: ImapClient, uids: number[]): Promise<void> {
   if (uids.length === 0) return;
@@ -147,13 +145,11 @@ async function moveMessages(
   return moved;
 }
 
-/** A row's labels in `folder`: the folder's, and what its flags stand for. */
 function rowLabels(folder: Folder | undefined, labels: string[]): string[] {
   const flags = labels.filter((l) => FLAG_LABELS.includes(l) && l !== folder?.labelId);
   return folder?.labelId ? [folder.labelId, ...flags] : flags;
 }
 
-/** Puts rows the change didn't move back to what their folder says (the mirror may have guessed). */
 function settleRows(accountId: string, folders: Folders, rows: Row[], moved: Map<string, string>) {
   for (const row of rows) {
     if (moved.has(row.id)) continue;
@@ -187,11 +183,6 @@ async function setFlags(client: ImapClient, ids: string[], change: LabelChange):
 const roleOfRow = (folders: Folders, row: Row): Role | null =>
   folders.get(parseMessageId(row.id).path)?.role ?? null;
 
-/**
- * Where a label change sends messages (id → folder), or none. A folder
- * added wins (moving between folders sends both); removing only INBOX or a
- * folder archives; removing only Junk, Trash or Archive puts mail back.
- */
 async function planMoves(
   accountId: string,
   client: ImapClient,
@@ -221,8 +212,6 @@ async function planMoves(
             ? await ensureFolder(accountId, client, "ARCHIVE", "Archive")
             : folders.forLabel(target);
     if (!dest) return moves;
-    // A conversation's own mail stays in Sent and Drafts (and out of Junk and
-    // Trash) unless the change takes it from there.
     const kept = new Set<Role>(target === "TRASH" ? [] : ["SENT", "DRAFT", "TRASH", "SPAM"]);
     for (const label of remove) kept.delete(label as Role);
     const others = rows.filter((r) => parseMessageId(r.id).path !== dest.path);
@@ -232,13 +221,9 @@ async function planMoves(
           return !role || !kept.has(role);
         })
       : others;
-    // Only your own mail in it (a conversation you started): that moves.
     if (movable.length === 0 && thread) {
       movable = others.filter((r) => roleOfRow(folders, r) !== "DRAFT");
     }
-    // Junk and Not junk take only what the user saw where they asked (the
-    // Inbox's messages, or Junk's), else just the latest: anyone can make
-    // their mail look like part of a conversation, and junk gets emptied.
     if (thread && (target === "SPAM" || remove.includes("SPAM"))) {
       const shown = movable.filter((r) => {
         const label = folders.get(parseMessageId(r.id).path)?.labelId;
@@ -260,7 +245,6 @@ async function planMoves(
     return moves;
   }
 
-  // Junk's, Trash's and the Archive's labels are their roles.
   const putBack = (["SPAM", "TRASH", "ARCHIVE"] as const).filter((role) => remove.includes(role));
   if (putBack.length > 0) {
     const account = await getAccount(accountId);
@@ -278,7 +262,6 @@ async function planMoves(
   return moves;
 }
 
-/** Applies a label change to messages: flags, then moves; answers the moved ones' new ids. */
 async function changeLabels(
   accountId: string,
   rows: Row[],
@@ -333,9 +316,6 @@ export const untrashMessage = (accountId: string, id: string) =>
 export const untrashThread = (accountId: string, threadId: string) =>
   untrash(accountId, threadRows(accountId, threadId));
 
-// ── Deleting ───────────────────────────────────────────────────────────────
-
-/** Marks \Deleted and expunges just those (see expungeOnly). PERMANENT. */
 export async function deleteForever(accountId: string, ids: string[]): Promise<void> {
   await withImap(accountId, async (client) => {
     for (const [path, refs] of byFolder(ids.map(currentId))) {
@@ -354,7 +334,6 @@ export async function deleteForever(accountId: string, ids: string[]): Promise<v
   });
 }
 
-/** Empties Junk or Trash on the server; answers every id that went, cached ones included. */
 export async function emptyFolder(
   accountId: string,
   labelId: "SPAM" | "TRASH",
@@ -376,8 +355,6 @@ export async function emptyFolder(
   return [...ids];
 }
 
-// ── Folders as labels ──────────────────────────────────────────────────────
-
 export async function createLabel(accountId: string, name: string): Promise<MailLabel> {
   return withImap(accountId, async (client) => {
     const path = (await listFolders(accountId, client)).pathFor(name);
@@ -387,7 +364,6 @@ export async function createLabel(accountId: string, name: string): Promise<Mail
   });
 }
 
-/** Renames the folder (label colors aren't IMAP's: ignored). Its cached mail follows. */
 export async function updateLabel(
   accountId: string,
   params: { labelId: string; name?: string },
@@ -407,7 +383,6 @@ export async function updateLabel(
   });
 }
 
-/** Deletes the folder; its mail goes to the archive first (like deleting a Gmail label). */
 export async function deleteLabel(accountId: string, labelId: string): Promise<void> {
   await withImap(accountId, async (client) => {
     const folders = await listFolders(accountId, client);

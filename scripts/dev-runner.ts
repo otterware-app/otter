@@ -1,16 +1,5 @@
 #!/usr/bin/env node
-// Runs the app for development, like Otter Code's runner: `pnpm dev` is the
-// web app with a local relay, `pnpm dev:web` the web app alone, `pnpm dev:fake`
-// the web app on a made-up mailbox (no accounts), and
-// `pnpm dev:desktop` the web dev server, the main-process bundler in watch mode
-// and Electron (restarted on main/preload changes). `pnpm dev:demo` and
-// `pnpm dev:demo:desktop` are `pnpm dev` and `pnpm dev:desktop` opening on the
-// demo mailboxes (packages/contracts/src/demo.ts). One Ctrl-C stops them all.
-//
-// Ports: 5833 in the main checkout. Linked git worktrees get a stable offset
-// hashed from their path so several checkouts can run side by side.
-// Override with OTTER_MAIL_PORT_OFFSET=<n> or PORT=<port>. The relay sits on
-// 8787 plus the same offset.
+// Worktrees use a stable port offset so dev runs can coexist; PORT and OTTER_MAIL_PORT_OFFSET override it.
 
 import * as NodeChildProcess from "node:child_process";
 import * as NodeCrypto from "node:crypto";
@@ -90,7 +79,6 @@ export function hashOffset(seed: string): number {
   return (digest.readUInt32BE(0) % MAX_HASH_OFFSET) + 1;
 }
 
-/** Linked worktrees have a `.git` file (not directory) pointing at the main repo. */
 export function resolvePortOffset(
   env: NodeJS.ProcessEnv,
   root: string,
@@ -155,10 +143,6 @@ function prepareRelay(wrangler: string): void {
   }
 }
 
-/**
- * The checkout's .env.local: in a T3 worktree a link to the main checkout's,
- * else the main checkout's own (the parent of git's common dir).
- */
 function envLocalPath(): string {
   const own = NodePath.join(repoRoot, ".env.local");
   if (NodeFS.existsSync(own)) return own;
@@ -170,10 +154,6 @@ function envLocalPath(): string {
   return NodePath.join(NodePath.dirname(common.trim()), ".env.local");
 }
 
-/**
- * The Google client a demo sign-in is for: the Mac app's (.env.local), or the
- * local relay's web client, through the callback registered for it.
- */
 function googleClient(app: "desktop" | "web", env: Record<string, string | undefined>) {
   if (app === "desktop") {
     const id = process.env.OTTER_MAIL_GOOGLE_CLIENT_ID ?? env.OTTER_MAIL_GOOGLE_CLIENT_ID;
@@ -195,11 +175,6 @@ function googleClient(app: "desktop" | "web", env: Record<string, string | undef
   return { id, secret, redirectUri: `http://localhost:${BASE_RELAY_PORT}/v1/gmail/callback` };
 }
 
-/**
- * The Microsoft client a demo sign-in is for: the Mac app's public one
- * (.env.local), or the local relay's web client (infra/relay/.dev.vars),
- * through the callback registered for it.
- */
 function microsoftClient(app: "desktop" | "web", env: Record<string, string | undefined>) {
   if (app === "desktop") {
     const id = process.env.OTTER_MAIL_MICROSOFT_CLIENT_ID ?? env.OTTER_MAIL_MICROSOFT_CLIENT_ID;
@@ -221,11 +196,6 @@ function microsoftClient(app: "desktop" | "web", env: Record<string, string | un
   return { id, secret, redirectUri: `http://localhost:${BASE_RELAY_PORT}/v1/outlook/callback` };
 }
 
-/**
- * The demo runs' mailboxes (packages/contracts/src/demo.ts): .env.local's,
- * signed in to Google first with `--login`, then the local IMAP server's,
- * started for them.
- */
 async function demoMailboxes(mode: Mode, signIn: boolean): Promise<DemoMailbox[]> {
   const file = envLocalPath();
   const env = NodeFS.existsSync(file) ? parseEnv(NodeFS.readFileSync(file, "utf8")) : {};
@@ -318,7 +288,6 @@ async function main(): Promise<void> {
       command: wrangler,
       args: [
         "dev",
-        // Its own sign-in, not production's Otter Accounts (infra/relay/scripts/dev.ts).
         "--config",
         relayConfig,
         "--port",
@@ -358,7 +327,6 @@ async function main(): Promise<void> {
   }
 
   const devHome = resolveDevHome({ cwd: repoRoot, explicitHome: values.home });
-  // The demo keeps its own data, apart from the mailboxes you develop with.
   const dataHome =
     demo && !values.home
       ? NodePath.join(devHome ?? NodePath.join(NodeOS.homedir(), ".otter-mail"), "demo")
@@ -405,7 +373,6 @@ async function main(): Promise<void> {
     });
   }
 
-  // `pnpm dev:mail`'s CA, for its local mail server (docs/development.md).
   const trustDevMail = mode !== "dev:fake" && NodeFS.existsSync(devMailCa);
 
   const env: NodeJS.ProcessEnv = {
@@ -521,7 +488,6 @@ function stopLeftoverGroups(): void {
       // Unreadable: drop it below.
     }
     for (const pid of pids) {
-      // Only groups that still look like ours: the pid may have been reused.
       const command = NodeChildProcess.spawnSync("ps", ["-o", "command=", "-p", String(pid)], {
         encoding: "utf8",
       }).stdout;

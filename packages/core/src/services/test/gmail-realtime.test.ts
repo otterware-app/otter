@@ -45,8 +45,6 @@ const relayAccount = (account: MailAccount): RelayAccount => ({
   color: null,
 });
 
-// ── The relay's event stream ────────────────────────────────────────────────
-
 class FakeSocket {
   static CONNECTING = 0;
   static OPEN = 1;
@@ -77,7 +75,6 @@ class FakeSocket {
     this.emit("close", { code });
   }
 
-  // What the relay does:
   open(): void {
     this.readyState = FakeSocket.OPEN;
     this.emit("open", {});
@@ -90,13 +87,10 @@ class FakeSocket {
 
 const socket = () => FakeSocket.all.at(-1)!;
 
-// ── The relay's HTTP API and Gmail ──────────────────────────────────────────
-
 type Call = { method: string; host: string; path: string; account: string | null; body?: unknown };
 
 let calls: Call[];
 let relayAccounts: RelayAccount[];
-/** A Gmail history call waits on this while it's set (a sync still running). */
 let historyGate: Promise<void> | null;
 
 const json = (body: unknown, status = 200) =>
@@ -153,8 +147,6 @@ const gmailCalls = (path: string, account?: string) =>
 const relayCalls = (route: string) =>
   calls.filter((c) => c.host === "relay.test" && `${c.method} ${c.path}` === route);
 
-// ── Core on Node ────────────────────────────────────────────────────────────
-
 let broadcasts: { channel: string; params?: unknown }[];
 let imapWatch: { accountId: string; onChange: () => void; stopped: boolean } | null;
 let imapSyncs: string[];
@@ -170,12 +162,6 @@ async function until(check: () => boolean, what: string): Promise<void> {
 /** Lets pending work (a sync's promise chain) run; what it didn't start by then, it won't. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
 
-/**
- * Starts core fresh (module state and all) the way the apps do, signed in to
- * the Otter account, with a linked Gmail account signed in on this device, a
- * linked Gmail account signed out, and a linked IMAP mailbox with its
- * password. The IMAP provider's sync and IDLE are stood in for.
- */
 async function boot() {
   vi.resetModules();
   const { setPlatform } = await import("../../platform.ts");
@@ -272,7 +258,6 @@ async function boot() {
   setPlatform(platform);
   mailStore.setSyncState(gmail.id, { fullSyncDone: true, historyId: "50" });
   mailStore.setKv(`spamTrashBackfilled:${gmail.id}`, "1");
-  // Linked on an earlier run.
   mailStore.setKv(
     "otter:linkedAccounts",
     JSON.stringify([gmail, signedOut, imap].map((a) => a.email.toLowerCase())),
@@ -283,7 +268,6 @@ async function boot() {
   return { mailSync, mailStore };
 }
 
-/** Connects the event stream and waits for what connecting starts to finish. */
 async function goLive(): Promise<void> {
   await until(() => FakeSocket.all.length > 0, "the event stream");
   socket().open();
@@ -322,7 +306,6 @@ describe("Gmail realtime", () => {
       .filter((b) => b.channel === "otter:state")
       .map((b) => (b.params as { realtime: string }).realtime);
     expect(states.at(-1)).toBe("live");
-    // Connecting catches up: the linked accounts, the preferences, and every mailbox.
     expect(relayCalls("GET /v1/me").length).toBeGreaterThan(0);
     expect(relayCalls("GET /v1/accounts").length).toBeGreaterThan(0);
     expect(relayCalls("GET /v1/preferences").length).toBeGreaterThan(0);
@@ -333,13 +316,11 @@ describe("Gmail realtime", () => {
     await goLive();
     expect(gmailCalls("/watch").map((c) => c.account)).toEqual([gmail.id]);
 
-    // Within the day, a refresh reuses the watch.
     socket().event({ type: "accounts" });
     await until(() => relayCalls("GET /v1/accounts").length >= 2, "the refresh");
     await settle();
     expect(gmailCalls("/watch")).toHaveLength(1);
 
-    // A day later it's renewed.
     vi.setSystemTime(Date.now() + 25 * 60 * 60_000);
     socket().event({ type: "accounts" });
     await until(() => gmailCalls("/watch").length === 2, "the renewal");
@@ -360,7 +341,6 @@ describe("Gmail realtime", () => {
     await settle();
     expect(imapSyncs.length).toBe(imapBefore);
 
-    // Even right after a sync (no read-path cooldown for pushes).
     socket().event({ type: "mail", email: "live@gmail.test", historyId: "102" });
     await until(() => gmailCalls("/history", gmail.id).length === before + 2, "the next push");
 
@@ -398,19 +378,16 @@ describe("Gmail realtime", () => {
     const history = () => gmailCalls("/history", gmail.id).length;
     const before = history();
 
-    // IDLE reports: the IMAP mailbox syncs as a push, and counts as pushed too.
     imapWatch!.onChange();
     await until(() => imapSyncs.length >= 2, "the IMAP push sync");
     await settle();
 
-    // A tick soon after: neither is polled (the Gmail account is still pushed).
     const imapBefore = imapSyncs.length;
     void mailSync.syncAllAccounts({ force: true, trigger: "timer" });
     await settle();
     expect(history()).toBe(before);
     expect(imapSyncs.length).toBe(imapBefore);
 
-    // A refresh sets the Gmail pushed set again; the IMAP watch still counts.
     socket().event({ type: "accounts" });
     await until(() => relayCalls("GET /v1/accounts").length >= 2, "the refresh");
     await settle();
@@ -419,7 +396,6 @@ describe("Gmail realtime", () => {
     expect(history()).toBe(before);
     expect(imapSyncs.length).toBe(imapBefore);
 
-    // Five minutes on, the timer checks on both in case a push got lost.
     vi.setSystemTime(Date.now() + 5 * 60_000 + 1);
     void mailSync.syncAllAccounts({ force: true, trigger: "timer" });
     await until(() => history() === before + 1, "the fallback poll");
@@ -456,7 +432,6 @@ describe("Gmail realtime", () => {
     const accounts = relayCalls("GET /v1/accounts").length;
     const preferences = relayCalls("GET /v1/preferences").length;
 
-    // Linked on another device: it arrives here, signed out.
     const added: MailAccount = { id: "new@gmail.test", email: "new@gmail.test", name: "New" };
     relayAccounts = [...relayAccounts, relayAccount(added)];
     const changed = broadcasts.filter((b) => b.channel === "gmail:accounts-changed").length;

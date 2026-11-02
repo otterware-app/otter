@@ -12,10 +12,8 @@ import { DEFAULT_AGENT, type AgentSettings, type ProviderSettings } from "./type
 type Stored = { selected?: string } & Record<string, unknown>;
 
 let cache: ProviderSettings | null = null;
-/** Agents this file holds settings for whose extension isn't here: kept as they were. */
 let unknown: Record<string, unknown> = {};
 
-/** Every registered agent's settings, its defaults filled in. */
 export async function getProviderSettings(
   defaults: () => Record<string, AgentSettings>,
 ): Promise<ProviderSettings> {
@@ -47,9 +45,7 @@ export async function saveProviderSettings(next: ProviderSettings): Promise<void
 // Stored under names from when agents were "assistants"; renaming them would lose them.
 const HERMES_KEY_SECRET = "assistant-hermes-key";
 const OPENCLAW_TOKEN_SECRET = "openclaw-gateway-token";
-/** A setup code's one-time bootstrap token (`openclaw qr`), until the gateway issues a device token. */
 const OPENCLAW_BOOTSTRAP_SECRET = "openclaw-bootstrap-token";
-/** This device's Ed25519 key (JWK) and the device token the gateway issued it. */
 const OPENCLAW_DEVICE_KEY_SECRET = "openclaw-device-key";
 const OPENCLAW_DEVICE_TOKEN_SECRET = "openclaw-device-token";
 

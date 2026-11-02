@@ -1,8 +1,3 @@
-/**
- * Hermes in Settings → Agents: how to run its API server, connecting to it
- * (the URL and key, checked against the server), and its models.
- */
-
 import {
   Btn,
   Command,
@@ -29,17 +24,11 @@ export function hermesSettings(provider: ProviderSnapshot) {
 /** Where the web app runs, which Hermes must allow (the Mac app needs no origin). */
 const SITE_ORIGIN = window.desktopBridge.platform === "web" ? location.origin : null;
 
-/** Where Hermes' URL comes from, for the field's description. */
 export const HERMES_URL_HINT =
   window.desktopBridge.platform === "web"
     ? `Hermes' built-in API server (port 8642), over HTTPS. Allow ${location.origin} in its API_SERVER_CORS_ORIGINS.`
     : "Hermes' built-in API server (port 8642), reached over Tailscale.";
 
-/**
- * Connecting Hermes (Settings and the setup): the URL and key as typed, and
- * `connect`, which checks them against the server, then saves them. Resolves
- * true once connected.
- */
 export function useConnectHermes(provider: ProviderSnapshot) {
   const setState = useSetProvidersState();
   const [baseUrl, setBaseUrl] = useState("");
@@ -161,7 +150,6 @@ export function HermesSettings({ provider, update }: AgentSettingsProps) {
   );
 }
 
-/** Hermes' server URL and key, checked against the server as in Settings → Agents. */
 export function HermesConnect({
   provider,
   onConnected,

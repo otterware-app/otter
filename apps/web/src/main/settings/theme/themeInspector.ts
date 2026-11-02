@@ -325,7 +325,6 @@ function withThemeTokenProbeSession<Result>(run: () => Result): Result {
 }
 
 function applyThemeTokenProbe(role: ThemeColorRole): () => void {
-  // Mail: every variable the role paints, wherever the theme sets it.
   const scopes = [
     document.documentElement,
     ...document.querySelectorAll<HTMLElement>("[data-app-sidebar]"),
@@ -470,7 +469,6 @@ export function highlightThemeRoleUsage(roles: ReadonlyArray<ThemeColorRole>): n
   return highlightedElements.size;
 }
 
-/** Resolves the nearest painted token at a touched element. */
 export function inspectThemeRoleAtElement(initialElement: Element): ThemeElementInspection | null {
   if (initialElement.closest("[data-theme-editor-panel]")) return null;
 

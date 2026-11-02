@@ -1,11 +1,5 @@
 import type { CSSProperties } from "react";
 
-/**
- * The setup's backdrop: lines of
- * real-sounding mail drifting past, too soft to read. The middle stays clear
- * for the step in front of it, and the field fades out at the top and bottom.
- */
-
 const LINES = [
   "Hi Sam, our contract renews on 1 November. We'd like to add 40 seats and move to annual billing.",
   "Thanks for the time today. As promised, the order form is attached. Let me know if legal wants changes.",
@@ -21,7 +15,6 @@ const LINES = [
   "Glad the numbers work. SSO can be live well before your freeze, and I'll send our SOC 2 report tomorrow.",
 ];
 
-/** Seconds per loop, row by row: slow enough to feel still. */
 const PACE = [1800, 2200, 1600, 2000, 2400, 1700, 2100, 1500, 2300, 1900];
 
 // Each row repeats one period twice, so sliding it by half loops seamlessly.

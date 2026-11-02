@@ -1,8 +1,3 @@
-/**
- * What the desktop app can do on each operating system, as the renderer sees
- * it (`desktopBridge.features`). Plain data: the sandboxed preload imports it.
- */
-
 import type { BridgeFeatures } from "@otter-mail/contracts";
 
 const everywhere = {
@@ -21,7 +16,6 @@ const mac: BridgeFeatures = {
   ...everywhere,
   windowControls: "left",
   dockBadge: true,
-  // Apple's Translation, through native/translator.
   translation: true,
 };
 

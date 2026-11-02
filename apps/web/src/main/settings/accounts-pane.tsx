@@ -44,13 +44,6 @@ import {
 } from "./settings-ui";
 import { searchableSetting } from "./settings-search";
 
-/**
- * Settings › Mailboxes: the list of mailboxes (turn on or off, drag to
- * reorder), then the selected mailbox's settings (status, profile, signature,
- * removal) below it.
- */
-
-/** Read-only sync status (the main view starts syncs; settings only watches). */
 function useSyncStatusOnly(accountId: string) {
   return useQuery<SyncStatus>({
     queryKey: ["gmail:syncStatus", accountId],
@@ -142,11 +135,6 @@ function AccountAvatar({
   );
 }
 
-/**
- * Sign in again with Google or Microsoft (signed-out account), or add a
- * mailbox: Gmail, Outlook, or other mail over IMAP. Cancellable while the
- * sign-in is open in the browser.
- */
 function SignInButton({
   email,
   provider = "gmail",
@@ -186,10 +174,6 @@ function SignInButton({
     </AddMailboxMenu>
   );
 }
-
-// ---------------------------------------------------------------------------
-// List
-// ---------------------------------------------------------------------------
 
 /** Row reordering (drag the grip): where a dragged mailbox would land. */
 type DropSpot = { email: string; after: boolean } | null;
@@ -302,11 +286,6 @@ function AccountListRow({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Editor
-// ---------------------------------------------------------------------------
-
-/** The editor's signature: empty when it holds neither text nor an image. */
 function editedSignature(editor: RichTextRef): string {
   const html = editor.getHTML();
   return editor.getText().trim() || /<img\b/i.test(html) ? html : "";
@@ -321,8 +300,6 @@ function AccountEditor({ account }: { account: MailAccount }) {
   const status = accountStatus(account, sync.data);
   const capabilities = capabilitiesOf(account);
   const signatureRef = useRef<RichTextRef>(null);
-  // Gmail's signature as loaded into the editor. A newer one from Gmail replaces it only while
-  // the editor holds no unsaved edits (compared with what the editor showed once loaded).
   const [shown, setShown] = useState(account.signature ?? "");
   const loadedRef = useRef<string | null>(null);
   useEffect(() => {
@@ -528,7 +505,6 @@ function AccountEditor({ account }: { account: MailAccount }) {
   );
 }
 
-/** An explicit server connection, separate from local desktop banners. */
 function MailboxNotifications({ account }: { account: MailAccount }) {
   const otter = useOtterAccount();
   const [busy, setBusy] = useState(false);
@@ -636,14 +612,8 @@ function MailboxNotifications({ account }: { account: MailAccount }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Pane
-// ---------------------------------------------------------------------------
-
 export function AccountsPane() {
   const accountsQuery = useAccounts();
-  // Every mailbox, turned-off ones too, in the user's order: turning them on
-  // or off and reordering follow the Otter account to every device.
   const arrangement = useMailboxArrangement();
   const accounts = arrangeAccounts(accountsQuery.data ?? [], arrangement);
   const onCount = accounts.filter((a) => !arrangement.off.includes(a.email)).length;
@@ -659,10 +629,8 @@ export function AccountsPane() {
     setDragEmail(null);
     setDropSpot(null);
   };
-  // A mailbox asked for elsewhere (its password, from the sidebar or a toast).
   const [selectedId, setSelectedId] = useState<string | null>(takeRequestedMailbox);
   const current = accounts.find((a) => a.id === selectedId) ?? accounts[0];
-  // Signatures live in Gmail: pick up edits made there.
   useEffect(() => void mailApi.refreshSignatures().catch(() => {}), []);
 
   return (

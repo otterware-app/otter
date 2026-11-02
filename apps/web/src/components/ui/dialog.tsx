@@ -5,19 +5,6 @@ import * as React from "react";
 import { cn } from "~/lib/utils";
 import { Button } from "./button";
 
-/**
- * Modal dialog (Radix underneath, frosted glass popup in the Otter Code
- * style). Two ways to use it:
- *
- *  - Props mode: pass `title` (plus `onConfirm`, `confirmLabel`, …) and the
- *    body as children; the header and a Cancel / Confirm footer are built for
- *    you. A successful `onConfirm` closes the dialog; a Promise disables the
- *    confirm button until it settles, and a rejection keeps the dialog open.
- *    Enter confirms (Cmd+Enter inside multi-line fields).
- *  - Composition: `<Dialog open onOpenChange>` + `<DialogContent>` with
- *    `DialogHeader` / `DialogTitle` / `DialogFooter` parts.
- */
-
 type DialogSize = "small" | "medium" | "large" | "xl";
 
 const SIZE_CLASS: Record<DialogSize, string> = {
@@ -41,9 +28,7 @@ type DialogProps = React.ComponentProps<typeof DialogPrimitive.Root> & {
   confirmLabel?: React.ReactNode;
   confirmVariant?: "accent" | "destructive";
   confirmDisabled?: boolean;
-  /** Left-aligned neutral button for a destructive escape hatch (e.g. "Remove"). */
   destructiveAction?: DialogAction;
-  /** Left-aligned neutral button, after `destructiveAction`. */
   secondaryAction?: DialogAction;
   size?: DialogSize;
 };
@@ -188,10 +173,6 @@ function PropsDialogBody({
     if (onConfirm && canConfirm) void run(onConfirm, true);
   };
 
-  // Enter confirms, like the default button of a macOS sheet. Multi-line
-  // fields keep Enter for newlines and confirm on Cmd/Ctrl+Enter instead;
-  // other buttons keep Enter for themselves; anything that handled the key
-  // (a shortcut recorder, an IME composition) wins.
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Enter" || event.defaultPrevented) return;
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;

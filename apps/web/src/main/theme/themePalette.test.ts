@@ -8,7 +8,6 @@
  */
 import { describe, expect, it, vi } from "vite-plus/test";
 
-// Mail: the library stores through synced-preferences.ts; here, straight to the stubbed storage.
 vi.mock("../synced-preferences", () => ({
   setSyncedPreference: (key: string, value: string) => window.localStorage.setItem(key, value),
 }));
@@ -110,7 +109,6 @@ describe("theme files", () => {
       ["dark", "#101a2c", "#4f8fe8"],
       ["dark", "#211a23", "#df5398"],
       ["light", "#fdf6ec", "#c2571b"],
-      // Inverted canvases: the palette follows the picked color, not the slot.
       ["light", "#111827", "#8ab4f8"],
       ["dark", "#f5ecf5", "#a84370"],
     ];
@@ -122,12 +120,10 @@ describe("theme files", () => {
       ];
     for (const [appearance, canvas, accent] of seeds) {
       const colors = createVividThemeColors(appearance, canvas, accent);
-      // Exact seeds are honored.
       expect(colors.canvas).toMatch(/^oklch\(/);
       expect(colors.accent).toMatch(/^oklch\(/);
       expect(asHex(colors.canvas)).toBe(canvas);
       expect(asHex(colors.accent)).toBe(accent);
-      // Readability is solved per surface.
       expect(contrastRatio(colors.text, colors.canvas)).toBeGreaterThanOrEqual(7);
       expect(contrastRatio(colors.textMuted, colors.canvas)).toBeGreaterThanOrEqual(4.5);
       expect(contrastRatio(colors.textMuted, colors.canvas)).toBeLessThan(5.5);
@@ -151,9 +147,7 @@ describe("theme files", () => {
         4.5,
       );
       expect(contrastRatio(colors.sidebarForeground, colors.sidebar)).toBeGreaterThanOrEqual(4.5);
-      // The companion action is a distinct voice, not the accent again.
       expect(colors.messageAction).not.toBe(colors.accent);
-      // Update family follows the theme, not the default palette.
       expect(asHex(colors.update)).toBe(accent);
       // Semantic statuses stay red and amber instead of inheriting a brand tint.
       const [errorRed, errorGreen, errorBlue] = channels(colors.error);

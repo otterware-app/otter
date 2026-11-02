@@ -1,6 +1,5 @@
 import Foundation
 
-/** The iPhone's mail tools, using the same names as core's tools. No mail credentials go to the agent server. */
 @MainActor
 struct AgentMailTools {
     let store: MailStore
@@ -66,7 +65,6 @@ struct AgentMailTools {
         let system = ["inbox": "INBOX", "sent": "SENT", "drafts": "DRAFT", "starred": "STARRED",
                       "unread": "UNREAD", "spam": "SPAM", "trash": "TRASH", "important": "IMPORTANT", "all": "ALL"]
         if let id = system[name.lowercased()] { return id }
-        // The Archive, where it's a folder of its own (Outlook, IMAP).
         if name.lowercased() == "archive", mailbox.capabilities.archiveFolder { return "ARCHIVE" }
         guard let label = mailbox.labels.first(where: { $0.id == name || $0.name == name }) else { throw fail("Unknown label \(name). Use list_labels.") }
         return label.id

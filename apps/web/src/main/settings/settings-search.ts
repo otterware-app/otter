@@ -4,19 +4,11 @@ import { osNames } from "../os-names";
 import type { SettingsPane } from "../mail/api";
 import { commandLabel, DEFAULT_KEYBINDINGS, KEYBINDING_COMMANDS } from "../keybindings/commands";
 
-/*
- * Settings search (Otter Code's): a catalog of the settings people look for,
- * matched on title, pane and search terms. A result opens its pane and scrolls
- * to the row or section whose id is the item's (or its `targetId`).
- */
-
 export interface SettingsSearchItem {
   readonly id: string;
   readonly title: string;
   readonly pane: SettingsPane;
-  /** Where in the pane, when it's one thing's page: the extension whose setting it is. */
   readonly item?: string;
-  /** Where to scroll when the item has no row of its own. Defaults to `id`. */
   readonly targetId?: string;
   /** Descriptions, option labels, and aliases people may remember instead of the title. */
   readonly searchTerms?: ReadonlyArray<string>;
@@ -45,11 +37,6 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPane, string>> = {
   browser: "Browser",
 };
 
-/**
- * What plugs into the app, each with its defaults: agents, integrations,
- * features (the extensions' panes), and the browser, with its Chrome
- * extensions. The sidebar sets them apart as a group.
- */
 export const PLUG_IN_PANES: readonly SettingsPane[] = [
   "agents",
   "integrations",
@@ -57,7 +44,6 @@ export const PLUG_IN_PANES: readonly SettingsPane[] = [
   "browser",
 ];
 
-/** Anchor id of the first row bound to `command` on the Keybindings pane. */
 export function keybindingSearchAnchorId(command: string) {
   return `keybinding-${command}`;
 }
@@ -80,10 +66,6 @@ const KEYBINDING_SEARCH_ITEMS: ReadonlyArray<SettingsSearchItem> = KEYBINDING_CO
   secondary: true,
 }));
 
-/**
- * Searchable settings, in result order. Rows and sections with an anchor
- * render their id and title via `searchableSetting`.
- */
 export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "todoist",
@@ -92,7 +74,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     item: "todoist",
     searchTerms: ["tasks projects due date priority API token connect disconnect"],
   },
-  // General
   {
     id: "launch-at-login",
     title: "Launch at login",
@@ -172,7 +153,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     pane: "general",
     searchTerms: ["support report bug problem suggest feature help"],
   },
-  // Account
   {
     id: "otter-account",
     title: "Otter account",
@@ -191,7 +171,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     pane: "otter",
     searchTerms: ["remove close"],
   },
-  // Appearance
   {
     id: "color-scheme",
     title: "Color scheme",
@@ -261,7 +240,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     pane: "appearance",
     searchTerms: ["motion speed duration fast slow"],
   },
-  // Keybindings
   {
     id: "keybindings",
     title: "Keybindings",
@@ -269,7 +247,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["keyboard shortcuts hotkeys commands bindings"],
   },
   ...KEYBINDING_SEARCH_ITEMS,
-  // Mailboxes
   {
     id: "mailboxes",
     title: "Mailboxes",
@@ -306,7 +283,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     pane: "accounts",
     searchTerms: ["delete mailbox sign out"],
   },
-  // Agents
   {
     id: "agent-providers",
     title: "New chats start with",
@@ -365,7 +341,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     available: features.localAgents,
     searchTerms: ["mcp server token connect claude code codex cursor external tools"],
   },
-  // Browser
   {
     id: "browser-links",
     title: "Open links",
@@ -421,7 +396,6 @@ function normalizeSearchText(value: string): string {
   return value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-/** Each extension this app has, by name: it opens to its page. */
 function extensionSearchItems(): SettingsSearchItem[] {
   return availableExtensions().map(({ manifest }) => ({
     id: `extension-${manifest.id}`,

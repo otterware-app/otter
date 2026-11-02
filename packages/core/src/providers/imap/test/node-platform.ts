@@ -11,7 +11,6 @@ import { nodeConnect } from "../../../protocols/test/node-stream.ts";
 const resumeListeners = new Set<() => void>();
 let connections = 0;
 
-/** As if the machine woke from sleep. */
 export function resumeNow(): void {
   for (const listener of resumeListeners) listener();
 }

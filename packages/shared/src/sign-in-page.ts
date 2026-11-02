@@ -1,11 +1,3 @@
-/**
- * The page a browser sign-in ends on (Google, Microsoft, Todoist): the
- * desktop app's loopback listeners, the relay's sign-in popups and the dev
- * runner's `--login`. One look for all of them, the app's own: its canvas,
- * text colors and font (apps/web/src/styles.css), light or dark with
- * the system.
- */
-
 const escapeHtml = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -13,15 +5,10 @@ const CHECK = `<path d="M5 10.5l3.2 3.2L15 7" />`;
 const CROSS = `<path d="M6.5 6.5l7 7M13.5 6.5l-7 7" />`;
 
 export interface SignInPage {
-  /** What happened, in a few words ("Signed in to Otter Mail"). */
   title: string;
-  /** What to do next ("You can close this tab."). */
   detail?: string;
-  /** Whether it worked: a check, or a cross in the destructive color. */
   ok: boolean;
-  /** A script to run on the page (the relay's popups hand the result to the app). */
   script?: string;
-  /** A CSP nonce for the style and script, where the page has a strict policy. */
   nonce?: string;
 }
 

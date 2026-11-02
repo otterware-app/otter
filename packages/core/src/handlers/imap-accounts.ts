@@ -20,7 +20,6 @@ import type { MailAccount } from "../types.js";
 
 const VERIFY_TIMEOUT_MS = 20_000;
 
-/** Why logging in failed, in words for the add-mailbox form. */
 function describe(err: unknown, server: MailServer, settings: ImapSettings): string {
   const message = err instanceof Error ? err.message : String(err);
   if (!(err instanceof MailProtocolError)) return message;
@@ -31,7 +30,6 @@ function describe(err: unknown, server: MailServer, settings: ImapSettings): str
       : `${server.host} didn't accept the password for ${settings.username}. Check it, or use an app password if your provider has two-step verification.`;
   }
   if (err.kind === "network" || err.kind === "timeout") {
-    // The transport's words already name the host and port (and the certificate, TLS).
     return /couldn't connect|couldn't reach/i.test(message)
       ? message
       : `Couldn't reach ${server.host} on port ${server.port}: ${message}`;
@@ -39,11 +37,6 @@ function describe(err: unknown, server: MailServer, settings: ImapSettings): str
   return `${server.host} (port ${server.port}): ${message}`;
 }
 
-/**
- * A certificate for another name usually means the host points at a shared
- * server (imap.<domain> on a hosting provider): name the domain's own mail
- * server, when it answers IMAP with a certificate of its own.
- */
 async function certificateHint(message: string, host: string, email: string): Promise<string> {
   if (!/certificate/i.test(message)) return message;
   const domain = email.split("@")[1]?.toLowerCase();
@@ -52,7 +45,6 @@ async function certificateHint(message: string, host: string, email: string): Pr
   return `${message}. Your domain's mail server is ${mx}: use that as the server name, for incoming and outgoing mail.`;
 }
 
-/** Logs in to the IMAP server, then the SMTP server; throws a readable Error when either fails. */
 export async function verifyLogin(
   settings: ImapSettings,
   password: string,
@@ -75,8 +67,6 @@ export async function verifyLogin(
     throw new Error(describe(err, settings.smtp, settings), { cause: err });
   }
 }
-
-// ── Params ──────────────────────────────────────────────────────────────────
 
 const text = (value: unknown, name: string): string => {
   if (typeof value !== "string" || !value.trim()) throw new Error(`${name} is required.`);
@@ -103,14 +93,11 @@ function settings(value: unknown): ImapSettings {
   };
 }
 
-// ── Flows ───────────────────────────────────────────────────────────────────
-
 const withCapabilities = (account: MailAccount) => ({
   ...account,
   capabilities: capabilitiesOf(account) ?? IMAP_CAPABILITIES,
 });
 
-/** Checks the password, keeps it on this device, saves the mailbox, links it and syncs. */
 export async function addImapAccount(params: unknown): Promise<MailAccount> {
   const p = (params ?? {}) as Record<string, unknown>;
   const email = text(p.email, "Email");
@@ -136,14 +123,12 @@ export async function addImapAccount(params: unknown): Promise<MailAccount> {
     signature: existing?.signature ?? syncedSignature(email),
   };
   await accountStore.addAccount(account);
-  // Linked first: on the web, the relay's tunnel only carries a sync to linked servers.
   await accountAdded(account);
   mailSync.syncAccount(id, { force: true });
   broadcast("gmail:accounts-changed");
   return withCapabilities(account);
 }
 
-/** Signs a mailbox back in on this device with its stored settings. */
 export async function signInImap(params: unknown): Promise<void> {
   const p = (params ?? {}) as Record<string, unknown>;
   const accountId = text(p.accountId, "accountId");

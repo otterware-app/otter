@@ -1,17 +1,4 @@
 #!/usr/bin/env node
-// Builds the distributable Otter Mail app with electron-builder: a DMG + ZIP
-// for macOS (Apple Silicon), or a .deb for Linux (Debian, Ubuntu; x64 or arm64).
-//
-//   node scripts/build-desktop-artifact.ts --platform mac --arch arm64
-//   node scripts/build-desktop-artifact.ts --platform mac --build-version 0.2.0 --signed
-//   node scripts/build-desktop-artifact.ts --platform linux --arch x64
-//
-// Steps: build web + desktop bundles (and, for macOS, the arm64 translator),
-// stage a self-contained app directory (package.json, dist-electron/,
-// renderer/, the translator), run electron-builder on it, and copy the
-// artifacts and update manifests into --output-dir. The main process and
-// preload are fully bundled, so the stage has no node_modules: a Linux build
-// for either architecture runs on any Linux machine.
 
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
@@ -24,7 +11,6 @@ import { isNightlyVersion } from "../packages/shared/src/release-channel.ts";
 
 const APP_ID = "dev.otterware.mail";
 const PRODUCT_NAME = "Otter Mail";
-// Linux: the executable, the .desktop file (otter-mail.desktop) and the package.
 const LINUX_NAME = "otter-mail";
 const MAINTAINER = "Christophe Kafrouni <chris.kafrouni@gmail.com>";
 const DEFAULT_UPDATE_REPOSITORY = "otterware-app/otter-mail";
@@ -33,7 +19,6 @@ const desktopDir = NodePath.join(repoRoot, "apps", "desktop");
 const webDir = NodePath.join(repoRoot, "apps", "web");
 const vpBin = NodePath.join(repoRoot, "node_modules", ".bin", "vp");
 const electronBuilderBin = NodePath.join(desktopDir, "node_modules", ".bin", "electron-builder");
-// Signed Mac builds: notarizes and staples (electron-builder's afterSign).
 const NOTARIZE_HOOK = NodePath.join(repoRoot, "scripts", "notarize-mac.ts");
 
 const HELP = `Usage: node scripts/build-desktop-artifact.ts [options]
@@ -214,15 +199,12 @@ export function createBuildConfig(options: {
     electronVersion: options.electronVersion,
     artifactName: "Otter-Mail-${version}-${arch}.${ext}",
     electronLanguages: ["en-US"],
-    // Everything is bundled; there is nothing to install or rebuild.
     npmRebuild: false,
     nodeGypRebuild: false,
     files: ["package.json", "dist-electron/**/*", "renderer/**/*", "!**/*.map"],
     directories: { buildResources: "resources", output: "dist" },
     extraResources: [{ from: `resources/${icon}.png`, to: `${icon}.png` }],
     generateUpdatesFilesForAllChannels: false,
-    // macOS: Info.plist's URL types. Linux: the .desktop file's MimeType, which
-    // lets the app be the default mail app (x-scheme-handler/mailto).
     protocols: [
       { name: "Email", schemes: ["mailto"] },
       { name: PRODUCT_NAME, schemes: ["ottermail"] },
@@ -236,14 +218,12 @@ export function createBuildConfig(options: {
       hardenedRuntime: true,
       extendInfo: {
         LSApplicationCategoryType: "public.app-category.productivity",
-        // Show new-mail notifications as banners that stay out of the way.
         NSUserNotificationAlertStyle: "banner",
       },
       ...(options.signed
         ? {
             entitlements: options.entitlementsPath,
             entitlementsInherit: options.entitlementsPath,
-            // NOTARIZE_HOOK notarizes (APPLE_API_KEY/_ID/_ISSUER) and retries stapling.
             notarize: false,
           }
         : {
@@ -260,14 +240,10 @@ export function createBuildConfig(options: {
       target: ["deb"],
       executableName: LINUX_NAME,
       icon: `${icon}.png`,
-      // The .desktop file's Categories (electron-builder writes it as is).
       category: "Network;Email;Office",
       synopsis: "Gmail, calm and fast.",
       maintainer: MAINTAINER,
       vendor: "Otterware",
-      // The windows' WM_CLASS / app_id is the package.json's desktopName, which
-      // ties them to otter-mail.desktop (their icon in docks and Alt+Tab) and
-      // names the app to xdg-settings when it becomes the default mail app.
       syncDesktopName: true,
       desktop: {
         entry: {
@@ -278,8 +254,6 @@ export function createBuildConfig(options: {
     },
     deb: {
       packageName: LINUX_NAME,
-      // electron-builder's defaults (GTK, NSS, libnotify, libsecret…) plus
-      // xdg-utils, for xdg-mime (the default mail app) and xdg-open.
       depends: [
         "libgtk-3-0",
         "libnotify4",
@@ -373,7 +347,6 @@ function main(): void {
   }
   const mac = options.platform === "mac";
   if (mac && process.platform !== "darwin") fail("macOS artifacts must be built on macOS.");
-  // fpm, which electron-builder packages the .deb with, only runs on Linux.
   if (!mac && process.platform !== "linux") fail("Linux artifacts must be built on Linux.");
 
   const electronVersion = readJson<{ version: string }>(
@@ -400,7 +373,6 @@ function main(): void {
       label: `(apps/desktop) OTTER_MAIL_VERSION=${options.version} vp pack`,
     });
   }
-  // Apple's Translation: macOS only.
   const translatorBinary = mac ? resolveTranslatorBinary(options) : null;
 
   const requiredInputs = [
@@ -414,7 +386,6 @@ function main(): void {
     fail(`Missing build output (drop --skip-build?):\n  ${missing.join("\n  ")}`);
   }
 
-  // Stage the app directory electron-builder packages.
   const stageDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otter-mail-stage-"));
   log(`Staging in ${stageDir}`);
   const notMap = (source: string) => !source.endsWith(".map");
@@ -462,13 +433,11 @@ function main(): void {
     `${JSON.stringify(stagedPackageJson, null, 2)}\n`,
   );
 
-  // electron-builder treats set-but-empty variables (CSC_LINK="") as set.
   const buildEnv: NodeJS.ProcessEnv = { ...process.env };
   for (const [key, value] of Object.entries(buildEnv)) {
     if (value === "") delete buildEnv[key];
   }
   if (options.signed) {
-    // CI imports the .p12 (CSC_LINK); on a Mac that has the identity, CSC_NAME names it.
     const required = [
       ...(buildEnv.CSC_NAME ? [] : ["CSC_LINK", "CSC_KEY_PASSWORD"]),
       "APPLE_API_KEY",

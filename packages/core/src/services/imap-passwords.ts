@@ -13,7 +13,6 @@ const passwords = new Map<string, string>();
 
 const secretName = (accountId: string) => `imap-password:${accountId}`;
 
-/** Reads every IMAP mailbox's password; call once at startup. */
 export async function loadImapPasswords(): Promise<void> {
   passwords.clear();
   for (const account of await listAccounts()) {
@@ -51,7 +50,7 @@ export async function deleteImapPassword(accountId: string): Promise<void> {
  * that was the server's hiccup heals on the next launch (one more try).
  */
 export function setAsideImapPassword(accountId: string, password: string, why: string): void {
-  if (passwords.get(accountId) !== password) return; // already set aside, or replaced
+  if (passwords.get(accountId) !== password) return;
   passwords.delete(accountId);
   logger.warn("imap", `Not using ${accountId}'s password until it's entered again: ${why}`);
   broadcast("gmail:accounts-changed");

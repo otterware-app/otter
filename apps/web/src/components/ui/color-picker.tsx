@@ -1,7 +1,3 @@
-/**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
- * apps/web/src/components/ui/color-picker.tsx, unchanged.
- */
 import {
   useId,
   useRef,
@@ -18,7 +14,6 @@ function clamp(value: number) {
   return Math.min(1, Math.max(0, value));
 }
 
-/** Keep pointer capture and drag completion consistent across color controls. */
 function useColorDrag(
   update: (event: PointerEvent<HTMLDivElement>) => void,
   onInteractionEnd?: () => void,
@@ -61,7 +56,6 @@ type ColorControlProps<T> = {
   label: string;
   value: T;
   onChange: (value: T) => void;
-  /** Flush pending consumer updates when pointer interaction finishes. */
   onInteractionEnd?: () => void;
   className?: string;
 };

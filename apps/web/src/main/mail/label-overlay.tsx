@@ -42,13 +42,11 @@ export function LabelOverlay({
   mode: LabelOverlayMode;
   accountId: string | null;
   appliedLabelIds: string[];
-  /** Move mode: the context label being left (excluded from the choices). */
   currentLabelId: string | null;
   onPick: (labelId: string, wasApplied: boolean) => void;
 }) {
   const [query, setQuery] = useState("");
   const labelsQuery = useLabels(open ? accountId : null);
-  // One folder per message (IMAP): labelling is moving, to Inbox too.
   const capabilities = useCapabilities(accountId);
   const folders = !capabilities.multipleLabels;
   const applied = new Set(appliedLabelIds);

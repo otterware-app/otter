@@ -1,6 +1,5 @@
 import { defaultUrlTransform } from "react-markdown";
 
-/** File links stay inside the chat; only ordinary web links leave it. */
 export function isChatFileLink(href: string): boolean {
   return (
     /^(file:|sandbox:|otter-artifact:|~\/)/i.test(href) ||

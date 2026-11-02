@@ -3,7 +3,6 @@ import type { ChatFile } from "./types.js";
 
 export const MAX_CHAT_FILE_BYTES = 50 * 1024 * 1024;
 
-/** Agent file links may use a file URL, a sandbox URL, or a plain path. */
 export function chatFilePath(href: string): string {
   let path = href;
   if (/^file:/i.test(path)) {

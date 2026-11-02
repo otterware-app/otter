@@ -1,8 +1,3 @@
-/**
- * The clients against real servers in Docker (GreenMail, Dovecot). Skipped
- * when Docker isn't running.
- */
-
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { utf8Decode } from "../../bytes.ts";
 import { connectImap, type ImapClient, type ImapOptions, type ImapUpdate } from "../imap/client.ts";
@@ -52,7 +47,6 @@ const waitFor = async <T>(check: () => Promise<T | undefined>, ms = 10_000): Pro
   }
 };
 
-/** What every IMAP server should do; `connect` logs a fresh client in. */
 function imapBasics(connect: () => Promise<ImapClient>, folder: string) {
   let client: ImapClient;
   let uids: number[] = [];
@@ -117,7 +111,6 @@ function imapBasics(connect: () => Promise<ImapClient>, folder: string) {
       to: [{ name: "Alice", address: "alice@example.com" }],
       messageId: first.id,
     });
-    // GreenMail keeps only the day of APPEND's date.
     expect(summary!.internalDate?.toISOString().slice(0, 10)).toBe("2026-09-01");
     // GreenMail's RFC822.SIZE counts only the body.
     expect(summary!.size).toBeGreaterThan(0);

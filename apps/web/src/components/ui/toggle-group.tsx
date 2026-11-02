@@ -1,9 +1,5 @@
 "use client";
 
-/**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
- * apps/web/src/components/ui/toggle-group.tsx, unchanged.
- */
 import type { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
 import { ToggleGroup as ToggleGroupPrimitive } from "@base-ui/react/toggle-group";
 import type { VariantProps } from "class-variance-authority";

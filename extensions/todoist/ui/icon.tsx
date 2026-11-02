@@ -1,6 +1,5 @@
 import { cn } from "@otter-mail/web/extension-kit";
 
-/** Todoist's mark: its red tile with the three stacked checks. */
 export function TodoistIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={cn("size-4", className)} aria-hidden>

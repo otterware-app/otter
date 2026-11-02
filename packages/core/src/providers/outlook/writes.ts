@@ -1,13 +1,3 @@
-/**
- * Changing Outlook mail through labels (docs/outlook.md): UNREAD, STARRED and
- * IMPORTANT set the read state, the flag and the importance; categories are
- * set on the message; a folder label (INBOX, ARCHIVE, SPAM, TRASH,
- * `folder:<id>`) moves it, and taking the inbox's or a folder's away moves it
- * to the Archive, as Outlook's Archive does (out of Junk, Deleted Items or
- * the Archive: back to the inbox). Labels themselves are categories (made,
- * renamed, recolored, deleted) or folders (renamed, deleted).
- */
-
 import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "@otter-mail/contracts";
 
 import * as store from "../../services/mail-store.js";
@@ -31,14 +21,12 @@ import { getApiMessages, messagePath, toSummary, type ApiMessage } from "./messa
 
 const STATE_FIELDS = "id,parentFolderId,categories,isRead,flag,importance,isDraft,from";
 
-/** Runs a batch of writes; a message already gone (404) is fine, any other failure isn't. */
 async function run(accountId: string, requests: BatchRequest[]): Promise<void> {
   for (const answer of await graphBatch(accountId, requests)) {
     if (answer && !ok(answer) && answer.status !== 404) throw batchError(answer);
   }
 }
 
-/** Where a label change sends a message, if anywhere. */
 async function destination(
   accountId: string,
   message: ApiMessage,
@@ -48,7 +36,6 @@ async function destination(
   const add = change.addLabelIds ?? [];
   const remove = change.removeLabelIds ?? [];
   const current = folderLabel(accountId, message.parentFolderId);
-  // A thread's sent mail and drafts stay where they are, except when it's trashed.
   const ownMail =
     current === "SENT" ||
     current === "DRAFT" ||
@@ -77,7 +64,6 @@ async function destination(
   return null;
 }
 
-/** The property changes a label change makes to a message (null: none). */
 function patchFor(message: ApiMessage, change: LabelChange): Record<string, unknown> | null {
   const add = new Set(change.addLabelIds ?? []);
   const remove = new Set(change.removeLabelIds ?? []);
@@ -163,7 +149,6 @@ export const trashMessage = (accountId: string, messageId: string) =>
 export const trashThread = (accountId: string, threadId: string) =>
   modifyThread(accountId, threadId, { addLabelIds: ["TRASH"] });
 
-/** Back from Deleted Items: received mail to the inbox, your own to Sent Items. */
 async function untrash(accountId: string, messages: ApiMessage[]): Promise<MessageSummary[]> {
   const trashed = messages.filter((m) => folderLabel(accountId, m.parentFolderId) === "TRASH");
   await apply(accountId, trashed, { removeLabelIds: ["TRASH"] }, false);
@@ -179,7 +164,6 @@ export async function untrashThread(accountId: string, threadId: string) {
   return untrash(accountId, await threadMessages(accountId, threadId));
 }
 
-/** PERMANENT: past Deleted Items and its recovery. */
 export async function deleteForever(accountId: string, messageIds: string[]): Promise<void> {
   await run(
     accountId,
@@ -187,7 +171,6 @@ export async function deleteForever(accountId: string, messageIds: string[]): Pr
   );
 }
 
-/** PERMANENTLY empties Junk Email or Deleted Items (and the folders in it). */
 export async function emptyFolder(
   accountId: string,
   labelId: "SPAM" | "TRASH",
@@ -217,8 +200,6 @@ export async function emptyFolder(
   return [...ids];
 }
 
-// ── Labels ──────────────────────────────────────────────────────────────────
-
 type MasterCategory = { id: string; displayName: string; color?: string };
 
 async function masterCategories(accountId: string): Promise<MasterCategory[]> {
@@ -228,7 +209,6 @@ async function masterCategories(accountId: string): Promise<MasterCategory[]> {
   );
 }
 
-/** A new label is a category (Outlook's colored labels). */
 export async function createLabel(accountId: string, name: string): Promise<MailLabel> {
   const created = await graph<MasterCategory>(accountId, "/me/outlook/masterCategories", {
     method: "POST",
@@ -245,7 +225,6 @@ export async function createLabel(accountId: string, name: string): Promise<Mail
   };
 }
 
-/** Every message carrying a category, with its categories. */
 async function messagesInCategory(accountId: string, name: string) {
   const filter = encodeURIComponent(`categories/any(c:c eq '${name.replace(/'/g, "''")}')`);
   return graphAll<{ id: string; categories?: string[] }>(
@@ -254,7 +233,6 @@ async function messagesInCategory(accountId: string, name: string) {
   );
 }
 
-/** The cache's messages (and the app's pending writes) follow a category to its new name: its id. */
 function renameCachedLabel(accountId: string, from: string, to: string): void {
   store.applyHistoryChanges(
     accountId,
@@ -266,7 +244,6 @@ function renameCachedLabel(accountId: string, from: string, to: string): void {
   renamePendingLabel(accountId, from, to);
 }
 
-/** Swaps (or with `to` null, takes away) a category on every message carrying it. */
 async function retag(accountId: string, from: string, to: string | null): Promise<void> {
   const messages = await messagesInCategory(accountId, from);
   await run(
@@ -363,10 +340,6 @@ export async function updateLabel(
   }
 }
 
-/**
- * Deletes a label: a category comes off every message and out of the list;
- * a folder goes to Deleted Items with its mail, as in Outlook.
- */
 export async function deleteLabel(accountId: string, labelId: string): Promise<void> {
   const category = categoryOf(labelId);
   if (category !== null) {

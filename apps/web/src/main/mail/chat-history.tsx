@@ -5,7 +5,6 @@ import type { ChatSession, ProviderKind } from "./api";
 import { cn } from "./ui";
 import { isBlank, type Conversation } from "./chat-store";
 
-/** Human label for a session's origin (WebUI, CLI, this API, …). */
 function sourceLabel(source: string): string {
   switch (source) {
     case "hermes_browser":
@@ -32,11 +31,6 @@ export function formatAgo(ts: number): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-/**
- * Dropdown sheet of past conversations plus, when the provider keeps them, the
- * other sessions persisted there (Hermes WebUI, earlier Codex threads, …).
- * Escape/backdrop-click closes it.
- */
 export function HistoryList({
   conversations,
   activeId,
@@ -52,18 +46,14 @@ export function HistoryList({
   backdropClassName,
 }: {
   providerName: string;
-  /** The provider the server's sessions are on. */
   providerKind: ProviderKind;
-  /** Where the sheet sits, under its button. */
   className?: string;
-  /** What the click-away backdrop covers. */
   backdropClassName?: string;
   conversations: Conversation[];
   activeId: string;
   onPick: (id: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
-  /** Undefined when the server has no Sessions API (section hidden). */
   serverSessions?: ChatSession[];
   serverLoading: boolean;
   onPickServer: (session: ChatSession) => void;

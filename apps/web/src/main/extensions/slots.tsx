@@ -24,7 +24,6 @@ import type {
   UiExtension,
 } from "./types";
 
-/** Whether each extension is on here: in this app, and not turned off. */
 function useIsOn(): (id: string) => boolean {
   const disabled = useDisabledExtensions();
   const available = new Set(availableExtensions().map((e) => e.manifest.id));
@@ -40,7 +39,6 @@ export function ExtensionMessageCards(props: MessageCardProps) {
   );
 }
 
-/** The body after the extensions that swap it (Translation), and their banners. */
 export function useExtensionMessageBody(accountId: string, detail: MessageDetail | undefined) {
   const isOn = useIsOn();
   let bodyHtml = detail?.bodyHtml ?? null;
@@ -56,14 +54,12 @@ export function useExtensionMessageBody(accountId: string, detail: MessageDetail
   return { banner: banners, bodyHtml, bodyText };
 }
 
-/** A link in a body an extension answers in place: `#otter-ext:<id>:<answer>` in the frame. */
 export type BodyLinkHandler = {
   id: string;
   answer: (href: string) => string | null;
   open: (answer: string) => void;
 };
 
-/** The extensions answering links in this message's body (an invite's Yes / No / Maybe). */
 export function useExtensionBodyLinks(
   messageId: string,
   detail: MessageDetail | undefined,
@@ -83,7 +79,6 @@ export function useExtensionBodyLinks(
   );
 }
 
-/** Per open conversation: what wraps the reader, and the extensions' items in its "…" menu. */
 export function useExtensionConversation(input: Omit<ConversationInput, "enabled">) {
   const isOn = useIsOn();
   const outputs: ({ id: string } & ReturnType<NonNullable<UiExtension["useConversation"]>>)[] = [];
@@ -105,7 +100,6 @@ function useMessageActions() {
   return useEnabledExtensions().flatMap((e) => e.messageActions ?? []);
 }
 
-/** The extensions' buttons in the reader's toolbar. */
 export function ExtensionToolbarActions({ target }: { target: MessageTarget }) {
   return useMessageActions()
     .filter((a) => a.toolbar)
@@ -118,7 +112,6 @@ export function ExtensionToolbarActions({ target }: { target: MessageTarget }) {
     ));
 }
 
-/** The extensions' items in the reader's "…" menu. */
 export function ExtensionMenuActions({ target }: { target: MessageTarget }) {
   return useMessageActions().map(({ id, label, menuLabel, run }) => (
     <DropdownMenuItem key={id} onSelect={() => run(target)}>
@@ -127,7 +120,6 @@ export function ExtensionMenuActions({ target }: { target: MessageTarget }) {
   ));
 }
 
-/** The extensions' items in the list's right-click menu. */
 export function ExtensionContextMenuActions({ target }: { target: MessageTarget }) {
   return useMessageActions().map(({ id, label, menuLabel, run }) => (
     <ContextMenuItem key={id} onSelect={() => run(target)}>
@@ -136,13 +128,11 @@ export function ExtensionContextMenuActions({ target }: { target: MessageTarget 
   ));
 }
 
-/** The extensions' commands for ⌘K. */
 export function useExtensionCommands(): PaletteCommand[] {
   const enabled = useEnabledExtensions();
   return useMemo(() => enabled.flatMap((e) => e.commands ?? []), [enabled]);
 }
 
-/** Mounted once with the app: the dialogs extensions open. */
 export function ExtensionDialogs() {
   return useEnabledExtensions().map(({ manifest, Dialogs }) =>
     Dialogs ? <Dialogs key={manifest.id} /> : null,

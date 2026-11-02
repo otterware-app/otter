@@ -36,14 +36,12 @@ const BASE_URL = "https://gmail.googleapis.com/gmail/v1/users/me";
  */
 const FOREGROUND_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15_000, 30_000];
 const BACKGROUND_MAX_RETRIES = 6;
-/** Transient failures (network drop, Gmail 5xx) retried by background work. */
 const BACKGROUND_TRANSIENT_RETRIES = 3;
 /** A request that hangs must not stall a sync run forever. */
 const REQUEST_TIMEOUT_MS = 90_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Gmail reports per-user quota exhaustion as 403 as well as 429. */
 function isRateLimited(status: number, body: string): boolean {
   if (status === 429) return true;
   return (
@@ -52,7 +50,6 @@ function isRateLimited(status: number, body: string): boolean {
   );
 }
 
-/** Gmail's own sentence from an error body ({"error": {"message": …}}), if it has one. */
 function gmailErrorMessage(body: string): string {
   try {
     return (JSON.parse(body) as { error?: { message?: string } }).error?.message?.trim() ?? "";
@@ -61,10 +58,6 @@ function gmailErrorMessage(body: string): string {
   }
 }
 
-/**
- * A failed Gmail call. The message keeps the "Gmail API error: <status>" shape
- * callers match on, followed by a readable reason; the full body stays in `body`.
- */
 export class GmailApiError extends Error {
   constructor(
     readonly status: number,
@@ -83,12 +76,10 @@ export class GmailApiError extends Error {
   }
 }
 
-/** Whether an error is Gmail telling us to slow down (after gmailFetch's own retries). */
 export function isRateLimitError(err: unknown): boolean {
   return err instanceof GmailApiError && err.rateLimited;
 }
 
-/** Whether an error is the request not reaching Gmail at all (offline, DNS, timeout). */
 export function isNetworkError(err: unknown): boolean {
   if (!(err instanceof Error) || err instanceof GmailApiError) return false;
   return (
@@ -120,7 +111,6 @@ function isSignInError(err: unknown): boolean {
   return text.includes(SIGNED_OUT_MESSAGE) || text.includes("Google sign-in expired");
 }
 
-/** A short, readable reason for the status line (Gmail errors carry whole JSON bodies). */
 export function describeError(err: unknown): string {
   if (isRateLimitError(err)) return "Gmail is limiting requests right now — retrying shortly";
   if (isNetworkError(err)) return "Can't reach Gmail — retrying when the connection is back";
@@ -150,8 +140,6 @@ type GmailFetchInit = {
   headers?: Record<string, string>;
 };
 
-// ── gmailFetch ────────────────────────────────────────────────────────────────
-
 async function gmailFetch(
   accountId: string,
   path: string,
@@ -175,7 +163,6 @@ async function gmailFetch(
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (err) {
-    // Wi-Fi hiccups and sleep/wake drop requests; sync rides them out.
     const tries = attempt.transientRetries ?? 0;
     if (background && tries < BACKGROUND_TRANSIENT_RETRIES && isNetworkError(err)) {
       await sleep(2000 * 2 ** tries);
@@ -189,7 +176,6 @@ async function gmailFetch(
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    // The cached access token was revoked or expired early: refresh it once.
     if (response.status === 401 && !attempt.tokenRefreshed) {
       await platform().google.getAccessToken(accountId, { forceRefresh: true });
       return gmailFetch(accountId, path, init, retryCount, { ...attempt, tokenRefreshed: true });
@@ -216,7 +202,6 @@ async function gmailFetch(
         return gmailFetch(accountId, path, init, retryCount + 1, attempt);
       }
     }
-    // Gmail's own hiccups ("backendError", 502/503): background work retries.
     const tries = attempt.transientRetries ?? 0;
     if (background && response.status >= 500 && tries < BACKGROUND_TRANSIENT_RETRIES) {
       await sleep(1000 * 2 ** tries);
@@ -228,15 +213,10 @@ async function gmailFetch(
     throw new GmailApiError(response.status, response.statusText, body);
   }
 
-  // DELETE endpoints (drafts) return an empty 204 body.
   const text = await response.text();
   return text ? JSON.parse(text) : {};
 }
 
-// ── listLabels ────────────────────────────────────────────────────────────────
-
-/** Just the label ids and names (one cheap call) — sync uses it to notice
-    labels created, renamed or deleted elsewhere. */
 export async function listLabelNames(
   accountId: string,
 ): Promise<{ id: string; name: string; type: string }[]> {
@@ -280,8 +260,6 @@ export async function listLabels(accountId: string): Promise<MailLabel[]> {
   });
 }
 
-// ── createLabel ──────────────────────────────────────────────────────────────
-
 export async function createLabel(accountId: string, name: string): Promise<MailLabel> {
   const data = (await gmailFetch(accountId, "/labels", {
     method: "POST",
@@ -295,14 +273,8 @@ export async function createLabel(accountId: string, name: string): Promise<Mail
   return { id: data.id, name: data.name, type: "user" };
 }
 
-// ── Signatures ───────────────────────────────────────────────────────────────
-
 type SendAs = { sendAsEmail: string; isPrimary?: boolean; signature?: string };
 
-/**
- * The signature Gmail keeps for `email` (Settings › Signature on the web).
- * The API has one per send-as address; Gmail's named signatures aren't in it.
- */
 export async function getSignature(accountId: string, email: string): Promise<string> {
   const { sendAs = [] } = (await gmailFetch(accountId, "/settings/sendAs")) as {
     sendAs?: SendAs[];
@@ -313,7 +285,6 @@ export async function getSignature(accountId: string, email: string): Promise<st
   return own?.signature ?? "";
 }
 
-/** Saves `email`'s signature in Gmail; answers it as Gmail stored it (sanitized). */
 export async function setSignature(
   accountId: string,
   email: string,
@@ -325,8 +296,6 @@ export async function setSignature(
   })) as SendAs;
   return saved.signature ?? "";
 }
-
-// ── updateLabel / deleteLabel ────────────────────────────────────────────────
 
 /**
  * Rename and/or recolor a label. Gmail nests by "/" path but a patch does not
@@ -377,8 +346,6 @@ export async function deleteLabel(accountId: string, labelId: string): Promise<{
   return { ok: true };
 }
 
-// ── parseFrom ─────────────────────────────────────────────────────────────────
-
 function parseFrom(from: string): { fromName: string; fromEmail: string } {
   const match = from.match(/^(.*?)\s*<([^>]+)>$/);
   if (match) {
@@ -386,8 +353,6 @@ function parseFrom(from: string): { fromName: string; fromEmail: string } {
   }
   return { fromName: from, fromEmail: from };
 }
-
-// ── getHeaderValue ─────────────────────────────────────────────────────────────
 
 function getHeaderValue(headers: { name: string; value: string }[], name: string): string {
   return headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? "";
@@ -408,8 +373,6 @@ export async function getUnsubscribeHeaders(
     oneClick: /List-Unsubscribe=One-Click/i.test(getHeaderValue(headers, "List-Unsubscribe-Post")),
   };
 }
-
-// ── mapMessageSummary ─────────────────────────────────────────────────────────
 
 export interface RawMessageMetadata {
   id: string;
@@ -447,13 +410,6 @@ export function mapMessageSummary(msg: RawMessageMetadata): MessageSummary {
   };
 }
 
-// ── fetchMetadataForIds ─────────────────────────────────────────────────────
-
-/**
- * Fetch metadata-format summaries for a set of message ids, capped at 5
- * concurrent requests. Shared by live paging (cold-cache warm-up) and the
- * background sync engine (quota.ts paces the latter behind user actions).
- */
 export async function fetchMetadataForIds(
   accountId: string,
   ids: string[],
@@ -478,12 +434,6 @@ export async function fetchMetadataForIds(
   return fetched.filter((m): m is RawMessageMetadata => m !== null).map(mapMessageSummary);
 }
 
-/**
- * Whole messages (the summary, bodies and attachment list) for a set of ids.
- * A full fetch costs about 2.5 metadata fetches (quota.ts), less than a
- * metadata fetch now and a full one later: sync uses it where bodies are
- * kept for offline reading.
- */
 export async function fetchMessagesForIds(
   accountId: string,
   ids: string[],
@@ -492,7 +442,6 @@ export async function fetchMessagesForIds(
     try {
       return await getMessage(accountId, id);
     } catch (err) {
-      // Purged since it was listed: skip it, as fetchMetadataForIds does.
       if (err instanceof GmailApiError && err.status === 404) return null;
       throw err;
     }
@@ -500,9 +449,6 @@ export async function fetchMessagesForIds(
   return fetched.filter((m): m is MessageDetail => m !== null);
 }
 
-// ── Sync primitives ───────────────────────────────────────────────────────────
-
-/** Mailbox profile — used to seed/track the incremental-sync history cursor. */
 export async function getProfile(
   accountId: string,
 ): Promise<{ historyId: string; messagesTotal: number }> {
@@ -513,14 +459,12 @@ export async function getProfile(
   return { historyId: data.historyId ?? "", messagesTotal: data.messagesTotal ?? 0 };
 }
 
-/** A single page of message ids (no metadata) for full-mailbox sync. */
 export async function listMessageIdsPage(
   accountId: string,
   params: { pageToken?: string; maxResults?: number; labelIds?: string[]; spamTrash?: boolean },
 ): Promise<{ ids: string[]; nextPageToken?: string; resultSizeEstimate: number }> {
   const query = new URLSearchParams();
   query.set("maxResults", String(params.maxResults ?? 500));
-  // Spam/Trash are synced too — the Junk and Trash views read the local cache.
   if (params.spamTrash !== false) query.set("includeSpamTrash", "true");
   for (const lid of params.labelIds ?? []) query.append("labelIds", lid);
   if (params.pageToken) query.set("pageToken", params.pageToken);
@@ -538,11 +482,6 @@ export async function listMessageIdsPage(
   };
 }
 
-/**
- * One page of Gmail's own search (the same engine and operators as the Gmail
- * web search box). Spam and Trash are left out unless the query asks for them,
- * like Gmail does.
- */
 export async function searchMailPage(
   accountId: string,
   q: string,
@@ -579,7 +518,6 @@ export interface GmailHistoryPage {
   }[];
 }
 
-/** One page of the history feed since `startHistoryId`. */
 export async function listHistory(
   accountId: string,
   startHistoryId: string,
@@ -592,10 +530,6 @@ export async function listHistory(
   return (await gmailFetch(accountId, `/history?${query.toString()}`)) as GmailHistoryPage;
 }
 
-/**
- * Asks Gmail to publish this mailbox's changes to a Pub/Sub topic (the
- * relay's). A watch lasts 7 days; Gmail recommends renewing it daily.
- */
 export async function watchMailbox(
   accountId: string,
   topicName: string,
@@ -607,12 +541,9 @@ export async function watchMailbox(
   return { historyId: data.historyId ?? "", expiration: Number(data.expiration ?? 0) };
 }
 
-/** Distinguish an expired-history-cursor (HTTP 404) from other failures. */
 export function isHistoryExpiredError(err: unknown): boolean {
   return err instanceof GmailApiError && err.status === 404;
 }
-
-// ── getMessage ────────────────────────────────────────────────────────────────
 
 interface MimePart {
   mimeType?: string;
@@ -649,7 +580,6 @@ function walkParts(
         filename: part.filename,
         mimeType,
         size: part.body.size ?? 0,
-        // Inline images are referenced from the HTML as `cid:<Content-ID>`.
         contentId:
           getHeaderValue(part.headers ?? [], "Content-ID").replace(/^<|>$/g, "") || undefined,
       });
@@ -734,8 +664,6 @@ function detailOf(msg: RawMessageFull): MessageDetail {
   };
 }
 
-// ── modifyMessage ─────────────────────────────────────────────────────────────
-
 export async function modifyMessage(
   accountId: string,
   messageId: string,
@@ -751,14 +679,10 @@ export async function modifyMessage(
   return { ok: true };
 }
 
-// ── trashMessage ──────────────────────────────────────────────────────────────
-
 export async function trashMessage(accountId: string, messageId: string): Promise<{ ok: true }> {
   await gmailFetch(accountId, `/messages/${messageId}/trash`, { method: "POST" });
   return { ok: true };
 }
-
-// ── Thread actions ────────────────────────────────────────────────────────────
 
 export async function modifyThread(
   accountId: string,
@@ -804,7 +728,6 @@ export async function batchDeleteMessages(accountId: string, messageIds: string[
   }
 }
 
-/** PERMANENT thread delete — fallback for threads with no locally-known messages. */
 export async function deleteThreadPermanently(
   accountId: string,
   threadId: string,
@@ -821,8 +744,6 @@ export async function untrashMessage(
   return fetchMetadataForIds(accountId, [messageId]);
 }
 
-// ── Reply headers ─────────────────────────────────────────────────────────────
-
 /** Live fetch of the RFC 2822 reply headers for a message not yet cached with them. */
 export async function fetchReplyHeaders(
   accountId: string,
@@ -838,8 +759,6 @@ export async function fetchReplyHeaders(
     referencesHeader: getHeaderValue(headers, "References") || null,
   };
 }
-
-// ── sendMessage ───────────────────────────────────────────────────────────────
 
 function encodeBase64url(data: string): string {
   return toBase64Url(utf8Encode(data));
@@ -890,7 +809,6 @@ export async function sendRawMessage(
   })) as { id?: string };
 }
 
-/** Creates or updates a Gmail draft with the same MIME builder as sends. */
 export async function saveDraft(
   accountId: string,
   params: DraftSave,
@@ -926,10 +844,6 @@ export async function saveDraft(
   };
 }
 
-/**
- * The message currently backing a draft (every edit mints a new one), or null
- * when the draft no longer exists (sent or deleted elsewhere).
- */
 export async function getDraftVersion(accountId: string, draftId: string): Promise<string | null> {
   try {
     const res = (await gmailFetch(accountId, `/drafts/${draftId}?format=minimal`)) as {
@@ -942,7 +856,6 @@ export async function getDraftVersion(accountId: string, draftId: string): Promi
   }
 }
 
-/** Every draft's id with its current message (up to 500 drafts). */
 export async function listDraftIds(
   accountId: string,
 ): Promise<{ draftId: string; messageId: string; threadId?: string }[]> {
@@ -999,8 +912,6 @@ export async function deleteDraft(
   await gmailFetch(accountId, `/drafts/${draftId}`, { method: "DELETE" });
   return { ok: true, messageId };
 }
-
-// ── Attachments ───────────────────────────────────────────────────────────────
 
 export async function fetchAttachment(
   accountId: string,

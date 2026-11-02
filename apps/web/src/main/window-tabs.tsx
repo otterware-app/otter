@@ -1,11 +1,3 @@
-/**
- * The window's tabs (Linear's), across its top in the desktop app: each is a
- * place in the app (a mailbox's folder, a conversation, a chat, Settings),
- * kept as the route that brings it back and named as Recently viewed names
- * it. Moving around moves the tab showing; another tab is another place to
- * come back to. This device's own, like a browser's tabs: localStorage.
- */
-
 import { PlusIcon } from "lucide-react";
 import { create } from "zustand";
 
@@ -20,7 +12,6 @@ import type { RecentIcon } from "./recently-viewed";
 
 export type WindowTab = {
   id: string;
-  /** The router location it shows. */
   href: string;
   title: string;
   icon: RecentIcon;
@@ -60,7 +51,6 @@ const newTabFor = (href: string): WindowTab => ({
   icon: "inbox",
 });
 
-/** The tab showing goes where the window went (the first tab is made here). */
 export function followLocation(href: string): void {
   set((s) => {
     const active = s.tabs.find((t) => t.id === s.activeId);
@@ -73,7 +63,6 @@ export function followLocation(href: string): void {
   });
 }
 
-/** Names the tab showing `href`, once what it shows is known. */
 export function nameTab(href: string, title: string, icon: RecentIcon): void {
   set((s) => {
     const tab = s.tabs.find((t) => t.href === href && t.id === s.activeId);
@@ -82,7 +71,6 @@ export function nameTab(href: string, title: string, icon: RecentIcon): void {
   });
 }
 
-/** A new tab at `href`, after the one showing; it shows. */
 export function addTab(href: string): void {
   set((s) => {
     const tab = newTabFor(href);
@@ -93,7 +81,6 @@ export function addTab(href: string): void {
   });
 }
 
-/** Shows a tab; its place, to go to. */
 export function selectTab(id: string): string | null {
   const tab = useWindowTabs.getState().tabs.find((t) => t.id === id);
   if (!tab) return null;
@@ -133,7 +120,6 @@ export function WindowTabsBar({
   onClose,
   onNew,
 }: {
-  /** The columns start at the sidebar's edge (home-view's --workspace-sidebar-width), or with it hidden after the controls. */
   sidebarOpen: boolean;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
@@ -174,7 +160,6 @@ export function WindowTabsBar({
               onSelect={() => onSelect(tab.id)}
               onClose={() => onClose(tab.id)}
               icon={chatId ? <ChatTabIcon chatId={chatId} /> : <Icon className="size-3.5" />}
-              // Each a pill, the others fainter (Linear's).
               className={cn("w-52 max-w-52", tab.id !== activeId && "bg-foreground/[0.04]")}
             />
           );
@@ -189,7 +174,6 @@ export function WindowTabsBar({
   );
 }
 
-/** A chat's tab shows who it talks to. */
 function ChatTabIcon({ chatId }: { chatId: string }) {
   const chat = useChats((s) => s.conversations.find((c) => c.id === chatId));
   return chat && !isBlank(chat) ? (

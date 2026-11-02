@@ -28,7 +28,6 @@ function db() {
   return db;
 }
 
-/** Mirrors a change in the cache as it lands (Outlook and IMAP archive into a folder). */
 function mirror(accountId: string, messageId: string, add: string[], remove: string[]): void {
   const prior = store.getMessageLabelIds(accountId, messageId);
   if (!prior) return;
@@ -65,7 +64,6 @@ export function listSchedules(): MailSchedule[] {
 
 export async function scheduleSend(accountId: string, mail: OutgoingMail, dueAt: number) {
   futureTime(dueAt);
-  // Outlook holds it and sends it itself; it's listed here to cancel.
   const provider = providerFor(accountId);
   const held = provider.scheduleSend && (await provider.scheduleSend(accountId, mail, dueAt));
   db()
@@ -151,10 +149,8 @@ async function wake(entry: MailSchedule): Promise<void> {
   const inboxIds = new Set<string>(payload ? (JSON.parse(String(payload)) as string[]) : []);
   for (const m of fresh) {
     if (m.labelIds.some((l) => ["TRASH", "SPAM", "DRAFT"].includes(l))) continue;
-    // Mail sent to yourself can be both Sent and Inbox; ordinary replies stay in Sent.
     if (m.labelIds.includes("SENT") && !inboxIds.has(m.id)) continue;
     await provider.modifyMessage(entry.accountId, m.id, { addLabelIds: ["INBOX"] });
-    // IMAP moves re-key their cached rows themselves.
     mirror(entry.accountId, m.id, ["INBOX"], []);
   }
 }
@@ -185,7 +181,6 @@ export async function cancelSchedule(id: string): Promise<void> {
       const provider = providerFor(entry.accountId);
       if (row.serverId != null) {
         sent = !(await provider.cancelScheduledSend!(entry.accountId, String(row.serverId)));
-        // Cancelled there: a retry only restores the draft.
         db().prepare("UPDATE mail_schedule SET serverId = NULL WHERE id = ?").run(id);
       }
       if (!sent) {
@@ -212,7 +207,6 @@ export async function cancelSchedule(id: string): Promise<void> {
     failed(id, error);
     throw error;
   }
-  // The server had already sent it: its contents are in Sent.
   if (sent) throw new Error("Too late to cancel: it has been sent.");
 }
 
@@ -229,7 +223,6 @@ export async function processSchedules(): Promise<void> {
     for (const item of listSchedules()) {
       if (item.state !== "pending" || item.dueAt > Date.now()) continue;
       if (item.onServer) {
-        // The server sends it: nothing left to do here.
         db().prepare("DELETE FROM mail_schedule WHERE id = ? AND state = 'pending'").run(item.id);
         changed();
         continue;
@@ -238,7 +231,6 @@ export async function processSchedules(): Promise<void> {
         removeAccountSchedules(item.accountId);
         continue;
       }
-      // Account lookup yielded: cancellation may have changed or removed the job.
       if (!listSchedules().some((s) => s.id === item.id && s.state === "pending")) continue;
       const entry = claim(item.id);
       try {

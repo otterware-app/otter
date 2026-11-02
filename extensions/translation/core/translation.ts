@@ -1,10 +1,3 @@
-/**
- * Email translation on the device: the platform's translator (Apple
- * Translation on the Mac, Chrome's built-in Translator on the web), with
- * translations cached in the app's files (reopening a translated email is
- * instant) and language detections cached in memory.
- */
-
 import { sha256Hex, platform } from "@otter-mail/core/extension-kit";
 import type { LanguageDetection, TranslationResult } from "@otter-mail/core/extension-kit";
 

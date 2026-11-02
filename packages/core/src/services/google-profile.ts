@@ -40,7 +40,6 @@ async function refreshProfile(account: MailAccount): Promise<boolean> {
   return true;
 }
 
-/** Brings every signed-in account's name and picture up to date with Google's (or Microsoft's). */
 export async function refreshProfiles(): Promise<void> {
   let changed = false;
   for (const account of await listAccounts()) {

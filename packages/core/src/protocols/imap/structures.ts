@@ -33,7 +33,6 @@ export interface ImapEnvelope {
 }
 
 export interface BodyStructure {
-  /** The section to fetch it by: "1", "2.1"; "" for the message's own multipart. */
   part: string;
   /** Lower-cased, "text/plain". */
   type: string;
@@ -46,7 +45,6 @@ export interface BodyStructure {
   /** "attachment" or "inline", lower-cased; null without Content-Disposition. */
   disposition: string | null;
   dispositionParameters: Record<string, string>;
-  /** The disposition's filename, else the type's name. */
   filename: string | null;
   /** A multipart's parts, or a message/rfc822's own body. */
   childNodes: BodyStructure[];
@@ -55,7 +53,6 @@ export interface BodyStructure {
 }
 
 export interface FetchedMessage {
-  /** The message number in the selected mailbox. */
   seq: number;
   uid: number;
   flags?: string[];
@@ -67,11 +64,8 @@ export interface FetchedMessage {
   size?: number;
   /** The header fields asked for, lower-cased names (the first of repeated ones), decoded. */
   headers?: Record<string, string>;
-  /** The whole message (BODY[]). */
   source?: Uint8Array;
-  /** The start of the body (BODY[TEXT]<0.N>). */
   textStart?: Uint8Array;
-  /** Gmail's X-GM-MSGID and X-GM-THRID: its API's message and thread ids, in decimal. */
   gmailId?: bigint;
   gmailThreadId?: bigint;
   /** Gmail's X-GM-LABELS, as sent (modified UTF-7; system labels as \Inbox, \Sent, …). */
@@ -127,14 +121,13 @@ export function parseEnvelope(token: ImapToken | undefined): ImapEnvelope {
   };
 }
 
-/** Group syntax, `(NIL NIL "group" NIL) … (NIL NIL NIL NIL)`, is flattened into its members. */
 function parseAddresses(token: ImapToken | undefined): ImapAddress[] {
   const addresses: ImapAddress[] = [];
   for (const entry of tokenList(token)) {
     const [name, , mailbox, host] = tokenList(entry);
     const hostText = tokenText(host);
     const mailboxText = tokenText(mailbox);
-    if (hostText === null) continue; // a group's start or end
+    if (hostText === null) continue;
     addresses.push({
       name: decodeHeader(tokenText(name) ?? ""),
       address: mailboxText ? `${mailboxText}@${hostText}` : hostText,
@@ -179,11 +172,11 @@ export function parseBodyStructure(
     node.envelope = parseEnvelope(envelope);
     const inner = tokenList(body);
     node.childNodes = [parseBodyStructure(body, inner[0]?.type === "list" ? own : `${own}.1`)];
-    extension = rest.slice(3); // envelope, body, lines
+    extension = rest.slice(3);
   } else if (mimeType === "text") {
-    extension = rest.slice(1); // lines
+    extension = rest.slice(1);
   }
-  const [, disposition] = extension; // md5, disposition, language, location
+  const [, disposition] = extension;
   return {
     ...describe(mimeType, subtype, params, disposition),
     part: own,
@@ -294,7 +287,6 @@ export function parseHeaders(bytes: Uint8Array): Record<string, string> {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** INTERNALDATE: `17-Jul-1996 02:44:25 -0700`. */
 export function parseInternalDate(text: string): Date | null {
   const match = /^\s*(\d{1,2})-(\w{3})-(\d{4}) (\d{2}):(\d{2}):(\d{2}) ([+-])(\d{2})(\d{2})$/.exec(
     text,
@@ -308,7 +300,6 @@ export function parseInternalDate(text: string): Date | null {
   return new Date(utc - offset * 60_000);
 }
 
-/** The other way, in UTC, for APPEND. */
 export function formatInternalDate(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return (
@@ -317,7 +308,6 @@ export function formatInternalDate(date: Date): string {
   );
 }
 
-/** `[5, 1, 2, 3, 9]` → "1:3,5,9". A string passes through ("1:*"). */
 export function uidSet(uids: readonly number[] | string): string {
   if (typeof uids === "string") return uids;
   const sorted = [...new Set(uids)].sort((a, b) => a - b);
@@ -330,7 +320,6 @@ export function uidSet(uids: readonly number[] | string): string {
   return ranges.join(",");
 }
 
-/** A UID range, both ends included, low to high. */
 export type UidRange = [from: number, to: number];
 
 const MAX_UID = 4_294_967_295;
@@ -349,7 +338,6 @@ export function parseUidRanges(text: string): UidRange[] {
   return ranges;
 }
 
-/** A test for "is this UID in `ranges`?", a binary search per UID however many ranges. */
 export function inUidRanges(ranges: readonly UidRange[]): (uid: number) => boolean {
   const sorted: UidRange[] = [];
   for (const [from, to] of [...ranges].sort((a, b) => a[0] - b[0])) {

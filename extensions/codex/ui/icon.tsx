@@ -1,6 +1,5 @@
 import { cn } from "@otter-mail/web/extension-kit";
 
-/** OpenAI mark, as T3 Code draws Codex. */
 export function OpenAIIcon({ className }: { className?: string }) {
   return (
     <svg

@@ -1,25 +1,14 @@
 import Foundation
 import Observation
 
-/**
- * The agent, as on the desktop (core's agent service and the renderer's
- * chat). OpenRouter runs on the Otter server; Hermes and OpenClaw on the
- * user's servers. Chats and settings follow the account, except OpenClaw's
- * gateway, which each device pairs with on its own. Codex and Claude run on
- * the Mac.
- */
 @Observable
 final class Agent {
-    /** The account's `assistant.hermes` settings, under the desktop's names. */
     struct HermesSettings: Codable, Equatable {
         var enabled = true
         var baseUrl = ""
         var agentModel = ""
-        /** `provider::model`; empty → the gateway's default. */
         var model = ""
-        /** Empty → the gateway's default; "none" → off. */
         var reasoningEffort = ""
-        /** Empty or "default" → standard; "priority" → fast. */
         var serviceTier = ""
         var sessions: Bool?
 
@@ -51,12 +40,9 @@ final class Agent {
         }
     }
 
-    /** This iPhone's OpenClaw gateway: kept here, as each device pairs with it on its own. */
     struct OpenClawSettings: Codable, Equatable {
         var enabled = true
-        /** The gateway's WebSocket, `wss://<machine>.<tailnet>.ts.net`. */
         var url = ""
-        /** The gateway agent new chats use; empty → its default. */
         var model = ""
 
         init() {}
@@ -84,11 +70,8 @@ final class Agent {
     /** An agent asking before it does something: Hermes running a command. */
     struct Approval: Equatable {
         var id: String
-        /** "Allow Hermes to run this command?" */
         var question: String
-        /** Exactly what will happen, shown verbatim. */
         var detail: String?
-        /** A command, shown as code. */
         var isCommand = false
         var reason: String?
         var choices: [String]
@@ -100,17 +83,12 @@ final class Agent {
         var role: Role
         var text: String
         var tools: [Tool] = []
-        /** The conversations attached to a question (their subjects, for the chip). */
         var context: [String] = []
         var approval: Approval?
-        /** What OpenClaw asks the user mid-run, answered in the composer's place. */
         var question: OpenClaw.Question?
         var error: String?
-        /** Not an error: what's going on with a reply (a run waiting to be picked up again). */
         var note: String?
     }
-
-    // ── Settings, shared with the account ────────────────────────────────────
 
     var hermes: HermesSettings { didSet { settingsChanged() } }
     var openrouter: OpenRouterSettings { didSet { settingsChanged() } }
@@ -135,13 +113,13 @@ final class Agent {
     private(set) var hasOpenRouterKey = false
     @ObservationIgnored var relay: Relay?
     @ObservationIgnored var mailStore: () -> MailStore? = { nil }
-    /** Told when the settings (`assistant`) or the key (`hermesKey`) change here, to sync them. */
     @ObservationIgnored var onChange: (String) -> Void = { _ in }
     /** The account's whole `assistant` section, kept so writes don't drop the Mac's Codex and Claude settings. */
     @ObservationIgnored private var section: [String: Any]
     @ObservationIgnored private var applying = false
 
-    private static let settingsKey = "assistant" // stored and synced under its old name
+    // Keep the old storage key so existing synced settings remain readable.
+    private static let settingsKey = "assistant"
     private static let keychainKey = "hermes-key"
     private static let openClawKey = "openclaw"
     private static let openRunKey = "openclaw-run"
@@ -174,7 +152,6 @@ final class Agent {
         section["hermes"] = ((section["hermes"] as? [String: Any]) ?? [:]).merging(own) { _, mine in mine }
         let router = ((try? JSONSerialization.jsonObject(with: JSONEncoder().encode(openrouter))) as? [String: Any]) ?? [:]
         section["openrouter"] = ((section["openrouter"] as? [String: Any]) ?? [:]).merging(router) { _, mine in mine }
-        // Keep the Mac's local provider selection when merely syncing other settings.
         if Self.providers.contains(section["selected"] as? String ?? "") || section["selected"] == nil {
             section["selected"] = selected
         }
@@ -188,7 +165,6 @@ final class Agent {
         if !isOn && running { stop() }
     }
 
-    /** Takes the account's settings and key (from another device). */
     func apply(section remote: [String: Any]?, key: String?) {
         applying = true
         defer { applying = false }
@@ -209,7 +185,6 @@ final class Agent {
 
     var key: String? { Keychain.get(Self.keychainKey) }
 
-    /** Connects to a Hermes server (from Settings › Agents), for every device. */
     func connect(url: String, key: String) async {
         Keychain.set(Self.keychainKey, key)
         hasKey = true
@@ -228,7 +203,6 @@ final class Agent {
         onChange("hermesKey")
     }
 
-    /** Forgets the key here (the Otter account it came with signed out). */
     func forgetKey() {
         newChat()
         models = []
@@ -239,12 +213,9 @@ final class Agent {
         status = .notConfigured
     }
 
-    // ── Status and models ────────────────────────────────────────────────────
-
     private(set) var status: Status = .notConfigured
     private(set) var models: [Hermes.Model] = []
 
-    /** Whether the phone has an agent on: the one chosen here (Codex and Claude run on the Mac). Off, the agent's buttons go. */
     var isOn: Bool {
         switch selected {
         case "openrouter": openrouter.enabled
@@ -334,7 +305,6 @@ final class Agent {
         }
     }
 
-    /** The model new turns use: the one chosen, else the gateway's default. */
     var model: Hermes.Model? {
         models.first { $0.slug == chosenModel && !chosenModel.isEmpty } ?? models.first(where: \.isDefault) ?? models.first
     }
@@ -357,18 +327,12 @@ final class Agent {
         return fields
     }
 
-    // ── The chat ─────────────────────────────────────────────────────────────
-
     private(set) var turns: [Turn] = []
     private(set) var session: String?
     private(set) var running = false
-    /** The account's chats (contracts' chats.ts), newest first: AgentChats.swift. */
     var synced: [SyncedChat] = []
-    /** The synced chat this one is (a new chat gets one with its first reply). */
     @ObservationIgnored var chatID: String?
-    /** That chat as the relay had it, written back with this iPhone's turns after its own. */
     @ObservationIgnored var chatBase: [String: Any]?
-    /** How many of `turns` came from it. */
     @ObservationIgnored var baseTurns = 0
     /** Why this chat can only be read here (it ran in Claude on a Mac, or needs another agent). */
     var readOnly: String?
@@ -379,13 +343,9 @@ final class Agent {
     @ObservationIgnored private var allowedTools: Set<String> = []
     @ObservationIgnored private var approvalTool: String?
     @ObservationIgnored private var generation = UUID()
-    /** This iPhone's connection to its OpenClaw gateway. */
     @ObservationIgnored private var gateway: OpenClaw?
-    /** The approval this iPhone waits for on the gateway (`openclaw devices approve <id>`). */
     private(set) var openClawPairing: String?
-    /** Whether OpenClaw's questions reach this iPhone (nil until connected). */
     private(set) var openClawQuestions: Bool?
-    /** The permission for them this iPhone waits on (`openclaw devices approve <id>`). */
     private(set) var openClawQuestionsRequest: String?
     @ObservationIgnored private var openRun: OpenRun? {
         didSet {
@@ -406,14 +366,12 @@ final class Agent {
         readOnly = nil
     }
 
-    /** Asks, with the conversations as pointers (the desktop's handoff block). */
     func send(_ text: String, context: [MailContext] = []) {
         if selected == "openrouter" { sendOpenRouter(text, context: context); return }
         if selected == "openclaw" { sendOpenClaw(text, context: context); return }
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let client, !question.isEmpty || !context.isEmpty else { return }
         if running, let run {
-            // Mid-turn: it lands after the current tool calls.
             Task { if await client.steer(run: run, question) { self.turns.append(Turn(role: .user, text: question)) } }
             return
         }
@@ -517,7 +475,6 @@ final class Agent {
         }
     }
 
-    /** What the running turn is waiting on, shown in the composer's place. */
     var pendingApproval: Approval? { turns.last { $0.role == .agent }?.approval }
     var pendingQuestion: OpenClaw.Question? { turns.last { $0.role == .agent }?.question }
 
@@ -564,8 +521,6 @@ final class Agent {
             updateLast { $0.approval = nil }
         }
     }
-
-    // ── History ──────────────────────────────────────────────────────────────
 
     private(set) var history: [Hermes.Session] = []
 
@@ -623,14 +578,11 @@ final class Agent {
         self.turns = turns
     }
 
-    // ── The account's chats (AgentChats.swift) ───────────────────────────────
-
     func loadSynced() async {
         guard let relay, relay.token != nil, let objects = try? await relay.chats() else { return }
         synced = objects.compactMap(SyncedChat.init).sorted { $0.updatedAt > $1.updatedAt }
     }
 
-    /** A chat from the account: its transcript, continued here when this iPhone's agent can. */
     func open(synced chat: SyncedChat) async {
         newChat()
         let generation = self.generation
@@ -655,14 +607,9 @@ final class Agent {
         synced.removeAll { $0.id == chat.id }
     }
 
-    /**
-     * After a turn, this chat in the account's: the relay's copy as it is now
-     * (another device may have added to it), then this iPhone's turns since.
-     */
     func saveChat() async {
         guard let relay, relay.token != nil, readOnly == nil, turns.contains(where: { $0.role == .user }) else { return }
         let fresh: [String: Any]? = if let chatID { try? await relay.chat(chatID) } else { nil }
-        // A provider's session that's one of the account's chats: only the last exchange is new.
         if chatBase == nil, fresh != nil { baseTurns = max(0, turns.count - 2) }
         let id = chatID ?? UUID().uuidString.lowercased()
         var chat = fresh ?? chatBase ?? [:]
@@ -688,7 +635,6 @@ final class Agent {
             baseTurns = turns.count
             await loadSynced()
         } catch {
-            // The next turn tries again, with these turns too.
         }
     }
 
@@ -701,8 +647,6 @@ final class Agent {
         history.removeAll { $0.id == chat.id }
     }
 }
-
-// ── OpenClaw ─────────────────────────────────────────────────────────────────
 
 extension Agent {
     /** The run in flight, kept so one the app left (in the background, or quit) is picked up again. */
@@ -726,7 +670,6 @@ extension Agent {
         return gateway
     }
 
-    /** Introduces this iPhone with a setup code from `openclaw qr --setup-code-only`. */
     func connectOpenClaw(code: String) async throws {
         guard let setup = OpenClaw.setupCode(code) else {
             throw Hermes.Failure(message: "That isn't a setup code. Copy what openclaw qr --setup-code-only prints.")
@@ -740,7 +683,6 @@ extension Agent {
         await useOpenClaw(url: setup.url)
     }
 
-    /** Or with the gateway's address and token. */
     func connectOpenClaw(url: String, token: String) async {
         forgetOpenClawDevice()
         Keychain.set(OpenClaw.bootstrapName, nil)
@@ -762,7 +704,6 @@ extension Agent {
         if selected == "openclaw" { await check() } else { selected = "openclaw" }
     }
 
-    /** A new gateway or token: the old connection and device token go. */
     private func forgetOpenClawDevice() {
         gateway?.disconnect()
         gateway = nil
@@ -815,7 +756,6 @@ extension Agent {
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let gateway = openClawClient, !question.isEmpty || !context.isEmpty else { return }
         if running, let session, let run {
-            // Mid-turn: it lands after the current tool calls, or runs after the turn, which waits for it.
             Task { if await gateway.steer(session: session, run: run, question) { self.turns.append(Turn(role: .user, text: question)) } }
             return
         }
@@ -827,14 +767,9 @@ extension Agent {
         follow(gateway.send(MailContext.handoff(question, context), session: chat, run: run), session: chat, run: run)
     }
 
-    /**
-     * Back in the foreground, or opened again: the run the app let go of, as
-     * far as it got, then the rest if it's still going.
-     */
     func resumeOpenClaw() async {
         guard selected == "openclaw", !running, let pending = openRun, let gateway = openClawClient else { return }
         if session != pending.session {
-            // Opened anew (the app was quit): the chat the run is in.
             await open(Hermes.Session(id: pending.session, title: nil, preview: nil, lastActive: .now, messageCount: 0))
             guard selected == "openclaw", session == pending.session, !running, openRun == pending else { return }
             if turns.last?.role != .agent { turns.append(Turn(role: .agent, text: "")) }
@@ -843,7 +778,6 @@ extension Agent {
         follow(gateway.resume(session: pending.session, run: pending.run), session: pending.session, run: pending.run)
     }
 
-    /** The app went to the background: let go of the run, which goes on on the gateway. */
     func suspendOpenClaw() {
         guard selected == "openclaw" else { return }
         if running {
@@ -856,7 +790,6 @@ extension Agent {
         gateway?.disconnect()
     }
 
-    /** Shows a run in the last agent turn; its id is kept until it ends, to pick it up again. */
     private func follow(_ events: AsyncStream<OpenClaw.Event>, session: String, run: String) {
         self.run = run
         running = true
@@ -900,7 +833,6 @@ extension Agent {
         }
     }
 
-    /** Answers what OpenClaw asks (answers by question id); nil skips it. The run goes on with the answer. */
     func answer(_ question: OpenClaw.Question, _ answers: [String: [String]]?) {
         guard let gateway = openClawClient else { return }
         Task {
@@ -913,10 +845,6 @@ extension Agent {
         }
     }
 
-    /**
-     * Asks the gateway to let this iPhone answer OpenClaw's questions; the
-     * user approves it there (`openclaw devices approve <id>`).
-     */
     func allowOpenClawQuestions() async {
         guard let gateway = openClawClient else { return }
         do {
@@ -952,7 +880,6 @@ struct MailContext: Hashable {
         messageIDs = [thread.latest.id]
     }
 
-    /** The question, then the pointer block, as the desktop sends it. */
     static func handoff(_ question: String, _ context: [MailContext], reader: String = "gog") -> String {
         guard !context.isEmpty else { return question }
         var lines = [question, "", "— context from Otter Mail —"]

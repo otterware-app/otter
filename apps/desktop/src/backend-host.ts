@@ -1,11 +1,3 @@
-/**
- * Runs the mail backend (backend.ts: @otter-mail/core) in an Electron utility
- * process and connects it to the app: the windows' invokes on its channels
- * are forwarded to it, what it broadcasts goes out to every window, and what
- * it asks of main (safeStorage, dialogs, notifications, the badge) is done
- * here. A backend that dies is started again. See backend-protocol.ts.
- */
-
 import {
   app,
   clipboard,
@@ -39,14 +31,12 @@ import { focusMainWindow } from "./windows/main-window.js";
 
 let backend: UtilityProcess | null = null;
 let stopping = false;
-/** Resolves once the running backend is ready (a restart makes a new one). */
 let ready: Promise<void> = Promise.resolve();
 let nextInvokeId = 1;
 const invoking = new Map<
   number,
   { resolve: (value: unknown) => void; reject: (error: Error) => void }
 >();
-/** Channels forwarded to the backend (ipcMain handles each once). */
 const forwarded = new Set<string>();
 
 const RESTART_DELAY_MS = 1_000;
@@ -56,7 +46,6 @@ let restartDelay = RESTART_DELAY_MS;
 // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a process has none
 const send = (message: ToBackend) => backend?.postMessage(message);
 
-/** Starts the backend; resolves once core is running and its channels are served. */
 export function startBackend(): Promise<void> {
   const child = utilityProcess.fork(path.join(__dirname, "backend.cjs"), [], {
     serviceName: "Otter Mail Backend",
@@ -94,13 +83,11 @@ export function startBackend(): Promise<void> {
   return ready;
 }
 
-/** Tells the backend the app is quitting: it stops the assistants and exits. */
 export function stopBackend(): void {
   stopping = true;
   send({ type: "shutdown" });
 }
 
-/** Calls one of the backend's channels, as a window would. */
 export async function invokeBackend(channel: string, params?: unknown): Promise<unknown> {
   await ready;
   const id = nextInvokeId++;
@@ -136,8 +123,6 @@ function receive(message: Exclude<FromBackend, { type: "ready" }>): void {
     carryOut(message);
   }
 }
-
-// ── What the backend asks ─────────────────────────────────────────────────
 
 async function answer(
   kind: keyof MainRequests,
@@ -184,8 +169,6 @@ async function answer(
   }
 }
 
-// ── What the backend has main do ──────────────────────────────────────────
-
 const MAX_AWAITING_CLICK = 50;
 const notificationsAwaitingClick = new Set<Notification>();
 
@@ -199,7 +182,6 @@ function carryOut(effect: MainEffect): void {
       if (!Notification.isSupported()) return;
       const notification = new Notification({
         ...options,
-        // A button on macOS; Linux has none (the code is in the text).
         ...(code && { actions: [{ type: "button" as const, text: "Copy & trash" }] }),
       });
       notificationsAwaitingClick.add(notification);
@@ -208,7 +190,6 @@ function carryOut(effect: MainEffect): void {
       }
       notification.on("click", () => {
         notificationsAwaitingClick.delete(notification);
-        // The main window pulls it on mount, or on mail:open.
         if (open) setPendingOpenMessage(open);
         void focusMainWindow().then(() => open && broadcast("mail:open"));
       });
@@ -216,7 +197,6 @@ function carryOut(effect: MainEffect): void {
         notificationsAwaitingClick.delete(notification);
         if (!code) return;
         clipboard.writeText(code);
-        // A code is spent once used: its mail goes to the Trash.
         if (open) {
           invokeBackend("gmail:trashMessage", open).catch((err: unknown) =>
             logger.warn("notify", "trashing the code's mail failed", String(err)),
@@ -246,13 +226,11 @@ function showDockBadge(): void {
   hostOS.setBadge(dockBadgeEnabled ? unreadCount : 0);
 }
 
-/** Shows or hides the unread badge, keeping the count for when it comes back. */
 export function setDockBadgeEnabled(enabled: boolean): void {
   dockBadgeEnabled = enabled;
   showDockBadge();
 }
 
-/** The settings main carries out itself. */
 function applySettings(settings: AppSettings, patch: Partial<AppSettings>): void {
   if (patch.dockBadgeEnabled !== undefined) {
     setDockBadgeEnabled(settings.dockBadgeEnabled);
@@ -261,8 +239,6 @@ function applySettings(settings: AppSettings, patch: Partial<AppSettings>): void
     hostOS.setLaunchAtLogin(settings.launchAtLogin);
   }
 }
-
-// ── Files ─────────────────────────────────────────────────────────────────
 
 const MIME_BY_EXT: Record<string, string> = {
   pdf: "application/pdf",
@@ -300,10 +276,6 @@ function sanitizeFilename(name: string): string {
   return cleaned || "attachment";
 }
 
-/**
- * Writes `bytes` to a temp file named `name` (reused while its content is
- * the same) and returns its path: what Preview and Finder drags need.
- */
 export async function tempFile(name: string, bytes: Uint8Array): Promise<string> {
   const key = createHash("sha256").update(bytes).digest("hex").slice(0, 16);
   const file = path.join(app.getPath("temp"), "otter-mail-files", key, sanitizeFilename(name));

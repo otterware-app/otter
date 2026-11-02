@@ -11,13 +11,11 @@ nonisolated enum MIMEParser {
         var filename: String
         var mimeType: String
         var data: Data
-        /** Set on an image the HTML shows inline (`cid:` + this). */
         var contentID: String?
         var inline: Bool
     }
 
     struct Parsed {
-        /** The message's own header block. */
         var headers: String
         var text: String?
         var html: String?
@@ -30,8 +28,6 @@ nonisolated enum MIMEParser {
         walk(bytes[...], into: &parsed, depth: 0)
         return parsed
     }
-
-    // ── Parts ────────────────────────────────────────────────────────────────
 
     private static func walk(_ part: ArraySlice<UInt8>, into parsed: inout Parsed, depth: Int) {
         let (head, body) = split(part)
@@ -47,19 +43,16 @@ nonisolated enum MIMEParser {
         let data = MailDecoding.transfer(Data(body), encoding: field("Content-Transfer-Encoding") ?? "7bit")
         if (type == "text/plain" || type == "text/html"), disposition != "attachment", filename == nil {
             let text = MailDecoding.text(data, charset: params["charset"]).replacingOccurrences(of: "\r\n", with: "\n")
-            // The first of each is the message's (later ones are forwarded or attached).
             if type == "text/html" { parsed.html = parsed.html ?? text } else { parsed.text = parsed.text ?? text }
             return
         }
         let contentID = field("Content-ID")?.trimmingCharacters(in: CharacterSet(charactersIn: "<> "))
         let inline = contentID != nil && disposition != "attachment" && type.hasPrefix("image/")
-        // A nameless part that's no attachment (an invitation's text/calendar alternative) isn't a file to show.
         guard filename != nil || inline || disposition == "attachment" || type == "message/rfc822" else { return }
         let name = filename ?? (type == "message/rfc822" ? "message.eml" : "")
         parsed.files.append(File(filename: name, mimeType: type, data: data, contentID: contentID, inline: inline))
     }
 
-    /** A part's header block and body: they part at the first empty line. */
     static func split(_ part: ArraySlice<UInt8>) -> (headers: ArraySlice<UInt8>, body: ArraySlice<UInt8>) {
         let start = part.startIndex
         if part.starts(with: [13, 10]) { return (part[start..<start], part.dropFirst(2)) }
@@ -74,15 +67,12 @@ nonisolated enum MIMEParser {
         }
     }
 
-    /** A multipart body's parts, between its `--boundary` lines. */
     static func parts(_ body: ArraySlice<UInt8>, boundary: String) -> [ArraySlice<UInt8>] {
         let delimiter = Array("--\(boundary)".utf8)
         var parts: [ArraySlice<UInt8>] = []
-        // The first delimiter starts the body or a line.
         var at: Int? = body.starts(with: delimiter) ? body.startIndex : find([10] + delimiter, in: body, from: body.startIndex).map { $0 + 1 }
         while let found = at {
             let after = found + delimiter.count
-            // "--boundary--" closes it.
             if body[after...].starts(with: [45, 45]) { break }
             guard let lineEnd = find([10], in: body, from: after) else { break }
             let start = lineEnd + 1
@@ -105,8 +95,6 @@ nonisolated enum MIMEParser {
         }
         return nil
     }
-
-    // ── Headers ──────────────────────────────────────────────────────────────
 
     /** Headers as text: UTF-8 when they are (RFC 6532), else byte for byte. */
     private static func headerText(_ bytes: ArraySlice<UInt8>) -> String {

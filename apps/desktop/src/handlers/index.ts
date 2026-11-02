@@ -1,8 +1,3 @@
-/**
- * Registers the IPC handlers the main process serves itself (the mail
- * backend's channels are forwarded to it by backend-host.ts).
- */
-
 import { app, ipcMain, nativeImage } from "electron";
 
 import { invokeBackend, tempFile } from "../backend-host.js";
@@ -18,9 +13,6 @@ import { registerBrowserHandlers } from "./browser.js";
 
 export function registerHandlers(): void {
   registerBrowserHandlers();
-  // Settings live in the main window. Any window can deep-link into a pane;
-  // the main window pulls the target on mount and whenever settings:open is
-  // broadcast.
   ipcMain.handle("window:openSettings", async (_event, params: unknown) => {
     const p = params as { pane?: unknown; item?: unknown } | undefined;
     const pane =
@@ -43,12 +35,8 @@ export function registerHandlers(): void {
 
   ipcMain.handle("window:getSettingsTarget", async () => takeSettingsTarget());
 
-  // A conversation a notification asked the main window to open.
   ipcMain.handle("window:takePendingOpenMessage", async () => takePendingOpenMessage());
 
-  // Default-mail-app plumbing: the renderer pulls pending mailto targets on
-  // mount and on the compose:mailto broadcast; Settings offers a "set as
-  // default" button (macOS shows its own consent dialog; Linux asks xdg-settings).
   ipcMain.handle("app:takePendingMailto", async () => takePendingMailto());
 
   ipcMain.handle("app:getDefaultMailStatus", async () => {
@@ -56,8 +44,6 @@ export function registerHandlers(): void {
     return { isDefault };
   });
 
-  // Without an id this registers Otter Mail itself; with one it hands the
-  // default to that app instead (the Settings dropdown; HostOS.mailApps).
   ipcMain.handle("app:setDefaultMailApp", async (_event, params: unknown) => {
     const id = (params as { id?: unknown } | undefined)?.id;
     if (typeof id === "string" && id.length > 0) {
@@ -72,7 +58,6 @@ export function registerHandlers(): void {
 
   ipcMain.handle("app:listMailApps", async () => hostOS.mailApps.list());
 
-  // gmail:dragAttachment — native drag-out to the file manager (startDrag needs a real file on disk)
   ipcMain.handle("gmail:dragAttachment", async (event, params: unknown) => {
     const p = params as Record<string, unknown> | undefined;
     const { accountId, messageId, attachmentId, filename, taskId } = p ?? {};
@@ -101,7 +86,6 @@ export function registerHandlers(): void {
       });
       return { ok: true };
     };
-    // With a taskId (core's runAsTask): answer at once, the outcome follows as task:done.
     if (typeof taskId !== "string") return drag();
     void drag().then(
       (result) => broadcast("task:done", { taskId, result }),

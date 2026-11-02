@@ -1,9 +1,3 @@
-/**
- * Gmail, through the Gmail API: a Google sign-in (the platform's GoogleAuth),
- * Gmail's per-user quota, history sync, and push through the relay
- * (users.watch → Pub/Sub → relay).
- */
-
 import { GMAIL_CAPABILITIES, GMAIL_SETTINGS_PERMISSION } from "@otter-mail/contracts";
 
 import { SIGNED_OUT_MESSAGE } from "../../google.js";

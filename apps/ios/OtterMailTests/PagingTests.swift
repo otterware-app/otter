@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Otter_Mail
 
-/** Where a folder's pages got to, and what its list shows meanwhile (MailboxState). */
 struct PagingTests {
     private let day: TimeInterval = 86_400
     private let now = Date(timeIntervalSince1970: 1_790_000_000)
@@ -33,7 +32,6 @@ struct PagingTests {
         #expect(state.pages["All Mail"] == "token-2")
         #expect(state.lists(thread("new", daysAgo: 0), in: "All Mail"))
         #expect(state.lists(thread("edge", daysAgo: 5), in: "All Mail"))
-        // Cached from the inbox, older than the pages: it waits for its page, below.
         #expect(!state.lists(thread("old", daysAgo: 90), in: "All Mail"))
         #expect(!state.unbounded("All Mail"))
     }
@@ -51,7 +49,6 @@ struct PagingTests {
     @Test func listNeverShrinks() {
         var state = MailboxState()
         state.paged("Inbox", next: "token-2", oldest: now.addingTimeInterval(-30 * day))
-        // A page whose oldest is newer (IMAP pages go by UID, not date) keeps the list as long.
         state.paged("Inbox", next: "token-3", oldest: now.addingTimeInterval(-2 * day))
 
         #expect(state.lists(thread("t", daysAgo: 20), in: "Inbox"))

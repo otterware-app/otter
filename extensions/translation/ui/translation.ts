@@ -1,17 +1,9 @@
-/**
- * In-place email translation through Apple's on-device translator: which
- * language a message is in, whether the user reads it, and swapping a body's
- * text for its translation while keeping the markup (links, formatting,
- * images) exactly as it was.
- */
-
 import { features } from "@otter-mail/web/extension-kit";
 import type { MessageDetail } from "@otter-mail/web/extension-kit";
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { translationApi, type TranslationStatus } from "./api";
 
-/** Languages Apple's translator offers (LanguageAvailability.supportedLanguages). */
 export const TRANSLATION_LANGUAGES = [
   "ar",
   "zh-Hans",
@@ -43,7 +35,6 @@ export const TRANSLATION_LANGUAGES = [
 
 const displayNames = new Intl.DisplayNames(["en"], { type: "language" });
 
-/** "de" → "German", "zh-Hant" → "Traditional Chinese". */
 export function languageName(code: string): string {
   try {
     return displayNames.of(code) ?? code;
@@ -52,12 +43,10 @@ export function languageName(code: string): string {
   }
 }
 
-/** Compares languages, not regional variants: "fr-CA" reads as "fr". */
 export function sameLanguage(a: string, b: string): boolean {
   return a.split("-")[0].toLowerCase() === b.split("-")[0].toLowerCase();
 }
 
-/** The system's languages that the translator offers — the default reading list. */
 export function systemReadLanguages(): string[] {
   const out: string[] = [];
   for (const tag of navigator.languages) {
@@ -77,7 +66,6 @@ export type ResolvedTranslationSettings = {
 
 const SETTINGS_KEY = ["translation-settings"] as const;
 
-/** The reading languages (system languages until set) and auto-translate. */
 export function useTranslationSettings(): ResolvedTranslationSettings {
   const queryClient = useQueryClient();
   const query = useQuery({
@@ -86,7 +74,6 @@ export function useTranslationSettings(): ResolvedTranslationSettings {
     staleTime: Infinity,
     enabled: features.translation,
   });
-  // Settings may change in another window; the backend tells every one.
   useEffect(
     () =>
       window.desktopBridge.on("translation:settingsChanged", () => {
@@ -101,17 +88,12 @@ export function useTranslationSettings(): ResolvedTranslationSettings {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Detection
-// ---------------------------------------------------------------------------
-
 const NON_CONTENT = "script, style, noscript, template, title, head";
 
 function parseHtml(html: string): Document {
   return new DOMParser().parseFromString(html, "text/html");
 }
 
-/** The first few thousand characters of what the message says. */
 function sampleText(detail: MessageDetail): string {
   let text = detail.bodyText ?? "";
   if (detail.bodyHtml) {
@@ -122,7 +104,6 @@ function sampleText(detail: MessageDetail): string {
   return `${detail.subject}\n${text}`.replace(/\s+/g, " ").trim().slice(0, 3000);
 }
 
-/** Below this, a guess isn't worth offering a translation for. */
 const MIN_CONFIDENCE = 0.6;
 
 /** The message's language (BCP-47), or null while unknown or undetermined. */
@@ -134,7 +115,6 @@ export function useMessageLanguage(
     queryKey: ["message-language", accountId, detail?.id],
     queryFn: async () => {
       const sample = sampleText(detail!);
-      // A one-liner ("Danke!") says too little to be sure of.
       if (sample.length < 12) return null;
       const detection = await translationApi.detectLanguage(sample);
       console.log("[translation:detect]", { messageId: detail!.id, ...detection });
@@ -148,17 +128,12 @@ export function useMessageLanguage(
   return query.data ?? null;
 }
 
-// ---------------------------------------------------------------------------
-// Translating a body in place
-// ---------------------------------------------------------------------------
-
 export class TranslationUnavailableError extends Error {
   constructor(readonly status: Exclude<TranslationStatus, "ok">) {
     super(status);
   }
 }
 
-/** Worth translating: has letters and isn't just a link or an address. */
 function hasWords(text: string): boolean {
   const t = text.trim();
   return /\p{L}/u.test(t) && !/^(https?:\/\/|www\.)\S+$/i.test(t) && !/^\S+@\S+\.\S+$/.test(t);
@@ -166,7 +141,6 @@ function hasWords(text: string): boolean {
 
 const SKIPPED = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "TITLE", "SVG", "MATH"]);
 
-/** Inline formatting a sentence can run through ("Sehr <b>geehrter</b> Herr"). */
 const INLINE_FORMATTING = new Set([
   "B",
   "STRONG",
@@ -188,7 +162,6 @@ const INLINE_FORMATTING = new Set([
   "TIME",
 ]);
 
-/** Only text and inline formatting inside — no links, images or line breaks. */
 function isPlainRun(el: Element): boolean {
   for (const child of el.children) {
     if (!INLINE_FORMATTING.has(child.tagName) || !isPlainRun(child)) return false;
@@ -196,10 +169,8 @@ function isPlainRun(el: Element): boolean {
   return true;
 }
 
-/** A piece of text to translate and where the translation goes. */
 type Slot = { text: string; apply: (translated: string) => void };
 
-/** Keeps the original's surrounding whitespace around the translation. */
 function withSpacing(original: string, translated: string): string {
   const lead = original.match(/^\s*/)?.[0] ?? "";
   const trail = original.match(/\s*$/)?.[0] ?? "";
@@ -243,7 +214,6 @@ function collectSlots(root: Element, slots: Slot[]): void {
   }
 }
 
-/** Translates each slot's text (identical texts once) and writes it back. */
 async function fillSlots(slots: Slot[], source: string, target: string): Promise<void> {
   const unique = [...new Set(slots.map((s) => s.text))];
   if (unique.length === 0) return;
@@ -263,7 +233,6 @@ async function translateHtml(html: string, source: string, target: string): Prom
 }
 
 async function translatePlain(text: string, source: string, target: string): Promise<string> {
-  // Line by line, keeping quote markers ("> ") and blank lines.
   const lines = text.split("\n");
   const slots: Slot[] = [];
   lines.forEach((line, i) => {
@@ -277,7 +246,6 @@ async function translatePlain(text: string, source: string, target: string): Pro
 
 export type TranslatedBody = { bodyHtml: string | null; bodyText: string | null };
 
-/** The message's body in `target`, same markup — fetched while `enabled`. */
 export function useTranslatedBody(
   accountId: string,
   detail: MessageDetail | undefined,
@@ -309,6 +277,5 @@ export function useTranslatedBody(
   });
 }
 
-/** Where Apple's translation languages are downloaded. */
 export const TRANSLATION_SETTINGS_URL =
   "x-apple.systempreferences:com.apple.Localization-Settings.extension";

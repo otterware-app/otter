@@ -1,9 +1,3 @@
-/**
- * The mail backend's line to the main process (backend.ts connects it):
- * requests main answers (the Keychain, dialogs) and effects it carries out
- * (notifications, the badge, broadcasts to the windows).
- */
-
 import type { FromBackend, MainEffect, MainRequests } from "./backend-protocol.js";
 
 export function postToMain(message: FromBackend): void {
@@ -17,7 +11,6 @@ const pending = new Map<
   { resolve: (value: unknown) => void; reject: (error: Error) => void }
 >();
 
-/** Asks main for something only it can do. */
 export function requestMain<K extends keyof MainRequests>(
   kind: K,
   params: MainRequests[K]["params"],
@@ -29,7 +22,6 @@ export function requestMain<K extends keyof MainRequests>(
   });
 }
 
-/** Main's answer to a request. */
 export function settleRequest(id: number, result: unknown, error?: string): void {
   const request = pending.get(id);
   pending.delete(id);
@@ -37,7 +29,6 @@ export function settleRequest(id: number, result: unknown, error?: string): void
   else request?.resolve(result);
 }
 
-/** Has main do something. */
 export function tellMain(effect: MainEffect): void {
   postToMain({ type: "effect", ...effect });
 }

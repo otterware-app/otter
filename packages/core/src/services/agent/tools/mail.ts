@@ -1,10 +1,3 @@
-/**
- * The mail tools: find, read, sort and write mail in any of the user's
- * mailboxes. Conversations are threads, labels are the vocabulary for every
- * provider (an IMAP folder is a label; archiving removes INBOX; read and
- * starred are UNREAD and STARRED), as everywhere else in core.
- */
-
 import { ARCHIVE_LABEL_ID } from "@otter-mail/contracts";
 
 import { toBase64 } from "../../../bytes.js";
@@ -47,9 +40,6 @@ import {
   type ToolContext,
 } from "./tool.js";
 
-// ── Labels ───────────────────────────────────────────────────────────────────
-
-/** Names agents use for the labels every mailbox has. */
 const LABEL_ALIASES: Record<string, string> = {
   inbox: "INBOX",
   sent: "SENT",
@@ -70,10 +60,8 @@ export function labelsOf(account: MailAccount): Promise<MailLabel[]> {
   return invoke<MailLabel[]>("gmail:listLabels", { accountId: account.id });
 }
 
-/** A label's id from its name, id or alias. */
 export function labelId(account: MailAccount, labels: MailLabel[], ref: string): string {
   const wanted = ref.trim().toLowerCase();
-  // Outlook's and IMAP's Archive is a folder; Gmail's archived mail is in All Mail.
   if (wanted === "archive" && labels.some((l) => l.id === ARCHIVE_LABEL_ID)) {
     return ARCHIVE_LABEL_ID;
   }
@@ -88,9 +76,6 @@ export function labelId(account: MailAccount, labels: MailLabel[], ref: string):
   );
 }
 
-// ── Rows ─────────────────────────────────────────────────────────────────────
-
-/** One conversation in a list, as agents get it. */
 function threadRow(m: MessageSummary, account: MailAccount, labels: MailLabel[]) {
   const names = new Map(labels.map((l) => [l.id, l.name]));
   const labelIds = (m.threadLabelIds ?? m.labelIds).filter(
@@ -113,7 +98,6 @@ function threadRow(m: MessageSummary, account: MailAccount, labels: MailLabel[])
   };
 }
 
-/** Rows from several mailboxes (each row carries its accountId). */
 async function threadRows(accounts: MailAccount[], messages: MessageSummary[]) {
   const byId = new Map(accounts.map((a) => [a.id, a]));
   const labels = new Map<string, MailLabel[]>();
@@ -133,7 +117,6 @@ function clip(text: string, limit: number): string {
   return text.length > limit ? `${text.slice(0, limit)}\n[… cut: ${text.length} characters]` : text;
 }
 
-/** The subjects of some conversations, for approvals. */
 function subjects(account: MailAccount, threadIds: string[]): string {
   const shown = threadIds.slice(0, 5).map((id) => {
     const first = mailStore.getThreadMessages(account.id, id)[0];
@@ -142,7 +125,6 @@ function subjects(account: MailAccount, threadIds: string[]): string {
   return shown.join(", ") + (threadIds.length > 5 ? ` and ${threadIds.length - 5} more` : "");
 }
 
-/** The conversations an argument names, each one known on this device. */
 function threads(args: ToolArgs, account: MailAccount): string[] {
   const ids = strList(args, "threadIds");
   if (!ids?.length) throw new Error(`"threadIds" is required.`);
@@ -154,8 +136,6 @@ function threads(args: ToolArgs, account: MailAccount): string[] {
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-
-// ── Writing ──────────────────────────────────────────────────────────────────
 
 type Composed = {
   to: string;
@@ -171,11 +151,9 @@ type Composed = {
 
 const emailOf = (entry: string) => (entry.match(/<([^>]+)>/)?.[1] ?? entry).trim().toLowerCase();
 
-/** Who a reply goes to, as the reader's Reply and Reply all work it out. */
 function replyRecipients(source: MessageDetail, ownEmail: string, all: boolean) {
   const own = ownEmail.toLowerCase();
   const sender = address(source.fromName, source.fromEmail);
-  // Replying to your own message goes to its recipients instead.
   const fromSelf = source.fromEmail.toLowerCase() === own;
   if (!all) return { to: fromSelf ? source.to : sender, cc: undefined };
   const seen = new Set([own]);
@@ -330,7 +308,6 @@ async function compose(args: ToolArgs, account: MailAccount, ctx: ToolContext): 
   };
 }
 
-/** The message as the approval shows it. */
 function describeMail(account: MailAccount, mail: Composed, body: string): string {
   return [
     `From: ${account.email}`,
@@ -377,8 +354,6 @@ const COMPOSE_INPUT = {
   },
 } as const;
 
-// ── The tools ────────────────────────────────────────────────────────────────
-
 const ACCOUNT = {
   type: "string",
   description: "The mailbox, by address. Optional when there's only one.",
@@ -404,7 +379,6 @@ export const mailTools: AgentTool[] = [
           // IMAP: a message sits in one folder, so adding a label moves it.
           labels: a.capabilities?.multipleLabels ? "labels" : "folders",
           ...(a.signedOut ? { signedOut: true } : {}),
-          // Turned off on this device: left out unless named.
           ...(off.has(a.id) ? { turnedOff: true } : {}),
         })),
       };
@@ -460,7 +434,6 @@ export const mailTools: AgentTool[] = [
         try {
           id = labelId(account, await labelsOf(account), ref);
         } catch (error) {
-          // A label only some mailboxes have lists theirs.
           if (accounts.length === 1) throw error;
           continue;
         }
@@ -587,7 +560,6 @@ export const mailTools: AgentTool[] = [
           };
         }),
       );
-      // The conversation's labels: every message's (a thread is in the inbox if any message is).
       const row = threadRow(
         { ...summaries[0], threadLabelIds: [...new Set(summaries.flatMap((m) => m.labelIds))] },
         account,
@@ -804,7 +776,6 @@ export const mailTools: AgentTool[] = [
         draftId: { type: "string", description: "The draft to replace." },
       },
     },
-    // A draft sends nothing and is the user's to look at: no approval.
     async run(args, ctx) {
       const account = await mailbox(args);
       const mail = await compose(args, account, ctx);

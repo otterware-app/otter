@@ -62,7 +62,6 @@ final class NotificationService: UNNotificationServiceExtension, @unchecked Send
     }
 }
 
-/** The received content is immutable; only its copy is changed by the enrichment task. */
 private final class NotificationOriginal: @unchecked Sendable {
     let content: UNNotificationContent
     init(_ content: UNNotificationContent) { self.content = content }

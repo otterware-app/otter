@@ -1,11 +1,3 @@
-/**
- * Attachments open in the app, as Otter Code shows files: PDFs and HTML in a
- * frame, images, video and audio in place, text as text, Markdown rendered and
- * CSV as a table. One header row: the name, a rendered/source toggle where
- * there is one, then Open in the default app (Mac), Save and Close. Anything
- * else (Word, Keynote, zips, …) still opens in its app (Mac) or downloads (web).
- */
-
 /* oxlint-disable react/no-array-index-key -- Table rows and columns have stable positions and may contain identical values. */
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -31,9 +23,7 @@ export type PreviewFile = {
   size: number;
   /** The file's bytes, as base64. */
   load: () => Promise<string>;
-  /** Saves a copy (not offered for a file you're attaching: it's yours already). */
   onSave?: () => void;
-  /** Opens it in its default app (the Mac app only). */
   onOpen?: () => void;
 };
 
@@ -74,7 +64,6 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   yml: "application/yaml",
 };
 
-/** Images, video and audio Chromium plays itself (no HEIC, TIFF or AVI). */
 const MEDIA_MIME =
   /^(image\/(avif|bmp|gif|x-icon|vnd\.microsoft\.icon|jpeg|png|svg\+xml|webp)|video\/(mp4|quicktime|webm)|audio\/(aac|flac|mp4|x-m4a|mpeg|mp3|ogg|wav|x-wav|webm))$/;
 
@@ -139,7 +128,6 @@ function decodeHtmlSource(bytes: Uint8Array): Loaded["text"] {
 
 const MEDIA_KINDS = new Set<PreviewKind>(["image", "video", "audio"]);
 
-/** Keeps quoted delimiters, escaped quotes and multiline cells; the source view has every byte. */
 function parseDelimited(text: string, delimiter: "," | "\t") {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -185,10 +173,6 @@ function parseDelimited(text: string, delimiter: "," | "\t") {
   return { rows, truncated: truncated || quoted };
 }
 
-/**
- * The preview window for one file, or none. The rest of the app keeps its
- * place underneath; Esc or Close puts it back.
- */
 export function AttachmentPreview({
   file,
   onClose,
@@ -243,7 +227,6 @@ function PreviewSurface({
   const [attempt, setAttempt] = useState(0);
   const toggles = kind === "markdown" || kind === "html" || kind === "table";
 
-  // The surface is keyed by its file; only Try again reloads it.
   useEffect(() => {
     let cancelled = false;
     let url: string | null = null;
@@ -434,7 +417,6 @@ function PreviewSurface({
   );
 }
 
-/** A bounded, readable table for CSV and TSV; the source view keeps every byte. */
 function DelimitedTable({
   name,
   text,

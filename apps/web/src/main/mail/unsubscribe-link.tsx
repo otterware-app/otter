@@ -1,9 +1,3 @@
-/**
- * Gmail's "Unsubscribe" beside the sender, for mail with a List-Unsubscribe
- * header. A confirmation says what will happen (one-click request, an email
- * to the list, or opening the sender's page), then it's done in place.
- */
-
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog } from "~/components/ui/dialog";

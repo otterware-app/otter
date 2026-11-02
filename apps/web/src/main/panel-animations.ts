@@ -1,9 +1,3 @@
-/**
- * Panel animation duration (ported from Otter Code's panelAnimations): how
- * long the sidebar, browser panel and floating reader take to open and close. 0 turns the
- * motion off. Lives in localStorage like the other per-device UI choices.
- */
-
 import { setSyncedPreference } from "./synced-preferences";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
@@ -92,7 +86,6 @@ export function usePanelAnimationSettings(navigationKey: string): {
   return { active: durationMs > 0 && !prefersReducedMotion && !suppressed, durationMs };
 }
 
-/** Keeps a closing panel mounted until its opt-in transition ends. */
 export function usePanelPresence(open: boolean, animated: boolean, durationMs: number): boolean {
   const [present, setPresent] = useState(open);
 

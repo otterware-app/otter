@@ -58,7 +58,6 @@ export type ApiMessage = {
   parentFolderId?: string;
   internetMessageId?: string | null;
   internetMessageHeaders?: { name: string; value: string }[];
-  /** Delta's mark for a message gone from the folder. */
   "@removed"?: { reason?: string };
 };
 
@@ -72,7 +71,6 @@ const addresses = (recipients: Recipient[] | undefined) =>
 export function toSummary(accountId: string, message: ApiMessage): MessageSummary {
   const from = (message.from ?? message.sender)?.emailAddress;
   const labelIds = labelsFor(accountId, message);
-  // Drafts and sent mail are dated when written; received mail when it arrived.
   const when = message.isDraft
     ? (message.sentDateTime ?? message.receivedDateTime)
     : message.receivedDateTime;
@@ -80,7 +78,6 @@ export function toSummary(accountId: string, message: ApiMessage): MessageSummar
     id: message.id,
     threadId: message.conversationId || message.id,
     fromName: from?.name && from.name !== from.address ? from.name : "",
-    // Your own mail can name you by Exchange's internal address (/O=…/CN=…) for a while.
     fromEmail: from?.address?.includes("@")
       ? from.address
       : message.isDraft || from?.address
@@ -100,7 +97,6 @@ export function toSummary(accountId: string, message: ApiMessage): MessageSummar
 
 export const messagePath = (id: string) => `/me/messages/${encodeURIComponent(id)}`;
 
-/** Messages' properties, 20 to a request; ids gone from Outlook are left out. */
 export async function getApiMessages(
   accountId: string,
   ids: string[],
@@ -151,7 +147,6 @@ export async function getMessage(accountId: string, id: string): Promise<Message
   }
   if (!parsed) parsed = await source(accountId, id);
   const summary = toSummary(accountId, message);
-  // Attachment ids are indexes into postal-mime's list, as for IMAP.
   const attachments = parsed.attachments.map((a, i) => ({
     id: String(i),
     filename: a.filename ?? `attachment-${i + 1}`,
@@ -167,7 +162,6 @@ export async function getMessage(accountId: string, id: string): Promise<Message
     bcc: addresses(message.bccRecipients) || undefined,
     bodyHtml: parsed.html,
     bodyText: parsed.text,
-    // Graph's own answer: an invitation's .ics isn't an attachment to show.
     hasAttachments: summary.hasAttachments,
     attachments,
   };
@@ -190,7 +184,6 @@ export async function fetchAttachment(
   return attachment.bytes;
 }
 
-/** A received message's own headers (Graph has none for drafts and sent mail). */
 async function headersOf(accountId: string, id: string) {
   try {
     const message = await graph<ApiMessage>(

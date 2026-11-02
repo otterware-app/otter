@@ -1,11 +1,3 @@
-/**
- * translator.ts
- *
- * The Mac's on-device translator for core (Platform.translator): Apple's
- * Translation through the native/translator helper. Nothing leaves the Mac;
- * core caches the results.
- */
-
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "path";
@@ -18,7 +10,6 @@ const STATUSES: ReadonlySet<string> = new Set(["ok", "notInstalled", "unsupporte
 
 const HELPER_TIMEOUT_MS = 60_000;
 
-/** The helper ships in Resources/bin; unpackaged runs use the SwiftPM build. */
 function helperPath(): string {
   const { packaged, resourcesPath } = appInfo();
   if (packaged) return path.join(resourcesPath, "bin", "translator");
@@ -30,7 +21,6 @@ function helperPath(): string {
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0]!;
 }
 
-/** Runs `translator <command>` with `request` as JSON on stdin; resolves with its JSON reply. */
 function runHelper(command: "detect" | "translate", request: unknown): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const child = execFile(

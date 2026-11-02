@@ -1,9 +1,3 @@
-/**
- * The demo's pretend Microsoft Graph: its delta links and $batch answered
- * directly, then core's Outlook provider syncing, reading and changing the
- * demo mailbox through it (core on node:sqlite, as core's own tests run).
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { Platform, SqlDatabase } from "@otter-mail/core";
@@ -51,7 +45,6 @@ async function graph<T = Page>(path: string, init: RequestInit = {}): Promise<T>
   return (text ? JSON.parse(text) : {}) as T;
 }
 
-/** Every page of a delta, following its links: the items and the delta link at the end. */
 async function followDelta(link: string, pageSize = 5) {
   const items: Item[] = [];
   let next: string | undefined = link;
@@ -107,11 +100,9 @@ describe("the pretend Graph", () => {
     expect(first.items.map((m) => m.id).sort()).toEqual(listed.map((m) => m.id).sort());
     expect(first.items.every((m) => m.parentFolderId === inbox && !("@removed" in m))).toBe(true);
 
-    // Nothing changed: an empty delta, and a link to carry on from.
     const quiet = await followDelta(first.deltaLink);
     expect(quiet.items).toEqual([]);
 
-    // Read one, archive another, delete a third.
     const [read, moved, gone] = first.items;
     await graph(`/me/messages/${read.id}`, {
       method: "PATCH",
@@ -133,7 +124,6 @@ describe("the pretend Graph", () => {
       ]),
     );
     expect(changes.items).toHaveLength(3);
-    // The archive's own delta has the message that came in.
     const archived = await followDelta(`/me/mailFolders/${archive}/messages/delta`);
     expect(archived.items.map((m) => m.id)).toContain(moved.id);
     expect((await followDelta(changes.deltaLink)).items).toEqual([]);
@@ -188,7 +178,6 @@ describe("the pretend Graph", () => {
       `/me/messages?$filter=${encodeURIComponent(`conversationId eq '${String(lunch.conversationId)}'`)}&$select=id,parentFolderId,isRead`,
     );
     const inbox = await folderId("inbox");
-    // Diego's message, and the copy of the reply sent to yourself.
     expect(thread.value.filter((m) => m.parentFolderId === inbox && !m.isRead)).toHaveLength(2);
 
     const mime = [
@@ -226,8 +215,6 @@ describe("the pretend Graph", () => {
   });
 });
 
-// ── Core's Outlook provider against it ──────────────────────────────────────
-
 async function until(check: () => boolean | Promise<boolean>, what: string) {
   for (let i = 0; i < 1000; i++) {
     if (await check()) return;
@@ -239,7 +226,6 @@ async function until(check: () => boolean | Promise<boolean>, what: string) {
 async function boot() {
   const fake = await install();
   const core = await import("@otter-mail/core");
-  // Core's own tests' SQLite; kept out of the web app's types.
   const sqlite = "node:sqlite";
   const { DatabaseSync } = (await import(/* @vite-ignore */ sqlite)) as {
     DatabaseSync: new (path: string) => SqlDatabase;
@@ -554,13 +540,11 @@ describe("core's Outlook provider on the demo mailbox", () => {
         })
       ).messages;
     const inbox = await list("INBOX");
-    // A received message of the inbox's conversations, by its subject.
     const find = (subject: string) =>
       inbox
         .flatMap((row) => core.mailStore.getThreadMessages(EMAIL, row.threadId))
         .find((m) => m.subject === subject && m.labelIds.includes("INBOX"))!;
 
-    // Whole messages come from their MIME source: inline images, attachments.
     type Detail = {
       bodyHtml: string | null;
       attachments: { filename: string; contentId?: string }[];
@@ -578,7 +562,6 @@ describe("core's Outlook provider on the demo mailbox", () => {
     });
     expect(invoice.attachments.map((a) => a.filename)).toEqual(["INV-2041.pdf"]);
 
-    // The invitation's event is found in the calendar and answered there.
     const invite = inbox
       .flatMap((r) => core.mailStore.getThreadMessages(EMAIL, r.threadId))
       .find((m) => m.subject.startsWith("Sprint review"))!;
@@ -598,13 +581,11 @@ describe("core's Outlook provider on the demo mailbox", () => {
       }),
     ).toMatchObject({ response: "tentative" });
 
-    // The newsletter offers one-click unsubscribe from its headers.
     const newsletter = find("Design Weekly #58: Calm interfaces");
     expect(
       await invoke("gmail:getUnsubscribe", { accountId: EMAIL, messageId: newsletter.id }),
     ).toMatchObject({ method: "oneClick", target: "designweekly.example" });
 
-    // Archive a conversation, flag and categorize a message, send one to yourself.
     const offsite = find("RE: Contoso offsite: venue shortlist");
     await invoke("gmail:modifyThread", {
       accountId: EMAIL,
@@ -628,13 +609,11 @@ describe("core's Outlook provider on the demo mailbox", () => {
     const conversation = await graph(
       `/me/messages?$filter=${encodeURIComponent(`conversationId eq '${offsite.threadId}'`)}&$select=parentFolderId`,
     );
-    // Archived from the inbox; the reply you sent stays in Sent Items.
     expect(conversation.value.filter((m) => m.parentFolderId === archive)).toHaveLength(2);
     expect(
       await graph<Item>(`/me/messages/${lunch.id}?$select=flag,categories,isRead`),
     ).toMatchObject({ flag: { flagStatus: "flagged" }, categories: ["Follow up"], isRead: true });
 
-    // The next sync brings it all back from the delta links.
     await invoke("gmail:syncAccount", { accountId: EMAIL });
     await until(
       () => (core.mailStore.getAllMessageLabels(EMAIL).size ?? 0) === 27,
@@ -649,7 +628,6 @@ describe("core's Outlook provider on the demo mailbox", () => {
       expect.arrayContaining(["INBOX", "STARRED", "category:Follow up"]),
     );
     expect(labelsOf(lunch.id)).not.toContain("UNREAD");
-    // Sent Items has what you sent; the inbox has its copy, unread.
     const row = (await list("INBOX")).find((m) => m.subject === "Note to self")!;
     expect(
       core.mailStore.getThreadMessages(EMAIL, row.threadId).map((m) => m.labelIds.sort()),

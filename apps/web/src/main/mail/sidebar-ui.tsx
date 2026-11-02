@@ -1,8 +1,3 @@
-/**
- * What the sidebar is built from (Notion's): the New row, sections of rows,
- * and the scrolling body. Its Mail and Chats pages draw with these.
- */
-
 import {
   useState,
   type CSSProperties,
@@ -22,11 +17,9 @@ export type RowDragProps = {
   onDrop?: (e: ReactDragEvent<HTMLButtonElement>) => void;
 };
 
-/** A sidebar row's box (Settings' nav mirrors it). */
 export const SIDEBAR_ROW =
   "group flex h-7 w-full cursor-pointer items-center gap-2 rounded-md text-left text-[13px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring active:bg-sidebar-row-active";
 
-/** A space's New row (ChatGPT's "New chat"): the first thing under the heading. */
 export function NewRow({
   icon,
   label,
@@ -36,9 +29,7 @@ export function NewRow({
 }: {
   icon: ReactNode;
   label: string;
-  /** Where the window is (the new message's page). */
   selected?: boolean;
-  /** Its `data-tour` part, for the tour's spotlight. */
   tour?: string;
   onClick: () => void;
 }) {
@@ -69,7 +60,6 @@ export function NewRow({
   );
 }
 
-/** A sidebar's scrolling body, under its heading and New row. */
 export function SidebarBody({ children }: { children: ReactNode }) {
   return (
     <ScrollArea
@@ -81,8 +71,6 @@ export function SidebarBody({ children }: { children: ReactNode }) {
   );
 }
 
-/** Sidebar row (Linear's): 28px tall, 13px medium text, grey until hovered or
-    selected, a muted icon; counts live in the badge only. */
 export function SkRow({
   icon,
   title,
@@ -104,7 +92,6 @@ export function SkRow({
   onClick?: () => void;
   dragProps?: RowDragProps;
   dropActive?: boolean;
-  /** A small dot on the right: something is waiting here (a kept search). */
   dot?: boolean;
 }) {
   const style: CSSProperties = { paddingLeft: 10 + depth * 16 };
@@ -168,11 +155,8 @@ export function Section({
   title: string;
   action?: ReactNode;
   children: ReactNode;
-  /** Folded until opened. */
   defaultOpen?: boolean;
-  /** Nested under a row (a mailbox's labels), indented like its rows. */
   depth?: number;
-  /** Its `data-tour` part, for the tour's spotlight. */
   tour?: string;
   dropZone?: {
     active: boolean;
@@ -216,7 +200,6 @@ export function Section({
   );
 }
 
-/** A section heading's action button (+). */
 const SECTION_ACTION =
   "flex size-6 items-center justify-center rounded-md text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=open]:bg-sidebar-row-hover";
 

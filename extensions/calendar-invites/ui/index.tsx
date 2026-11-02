@@ -1,8 +1,3 @@
-/**
- * Calendar invites: the RSVP bar above an invitation (an .ics part), and
- * Google Calendar's own Yes / No / Maybe links in its body, answered in place.
- */
-
 import type { MessageCardProps, MessageDetail, UiExtension } from "@otter-mail/web/extension-kit";
 
 import { manifest } from "../manifest";

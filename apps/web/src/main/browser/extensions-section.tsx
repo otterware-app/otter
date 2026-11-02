@@ -17,7 +17,6 @@ import {
 import { searchableSetting } from "../settings/settings-search";
 import { CHROME_WEB_STORE_URL, openTab, setExtensionsButton, setPinned, useBrowser } from "./store";
 
-/** An installed extension (apps/desktop/src/services/extensions.ts' BrowserExtension). */
 type Extension = {
   id: string;
   name: string;
@@ -33,7 +32,6 @@ type Extension = {
 const EXTENSIONS_KEY = ["browser-extensions"];
 const DEVELOPER_MODE_KEY = "gmail:browser-developer-mode";
 
-/** The installed extensions, kept current as they're added, turned off or removed. */
 function useExtensions() {
   const queryClient = useQueryClient();
   const query = useQuery({
@@ -52,11 +50,6 @@ function useExtensions() {
 
 const PILL = "rounded-full px-3.5";
 
-/**
- * Settings › Browser › Extensions (Mac): Chrome's extensions page, as ChatGPT
- * has it. Each one's card turns it on or off, shows its details, or removes
- * it; developer mode loads one from a folder.
- */
 export function ExtensionsSection() {
   const extensions = useExtensions();
   const pinned = useBrowser((s) => s.pinned);

@@ -14,13 +14,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mailApi, type SaveViewParams } from "./api";
 import type { MailAccount, MailView, ViewRule } from "./types";
 
-/** A view's rules, pruned to accounts that still exist. */
 export function resolveRules(view: MailView, accounts: MailAccount[]): ViewRule[] {
   const accountIds = new Set(accounts.map((a) => a.id));
   return view.rules.filter((r) => accountIds.has(r.accountId));
 }
-
-// ── View hooks ───────────────────────────────────────────────────────────────
 
 const VIEWS_QUERY_KEY = ["gmail:views"] as const;
 
@@ -48,7 +45,6 @@ export function useMailViews() {
     [qc],
   );
 
-  // Optimistic: patch the views cache immediately, reconcile on settle.
   const patchViews = useCallback(
     async (patch: (views: MailView[]) => MailView[]) => {
       await qc.cancelQueries({ queryKey: VIEWS_QUERY_KEY });
@@ -121,14 +117,11 @@ export function useMailViews() {
 
   return {
     views: query.data ?? [],
-    /** False until the saved views have loaded. */
     loaded: !query.isPlaceholderData,
     saveView,
     deleteView,
   };
 }
-
-// ── Last location (restore where the user left off) ─────────────────────────
 
 const LAST_LOCATION_KEY = "gmail:last-location";
 

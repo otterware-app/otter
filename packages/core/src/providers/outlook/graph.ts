@@ -22,14 +22,11 @@ const MAX_IN_FLIGHT = 4;
 const REQUEST_TIMEOUT_MS = 90_000;
 const FOREGROUND_RETRY_DELAYS_MS = [1000, 2000, 5000, 10_000];
 const BACKGROUND_MAX_RETRIES = 6;
-/** Network drops and Graph's 5xx, retried by background work. */
 const BACKGROUND_TRANSIENT_RETRIES = 3;
-/** After a 429, background work stands down at least this long. */
 const COOLDOWN_MS = 30_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** A failed Graph call: its status and Graph's own error code and words. */
 export class GraphError extends Error {
   constructor(
     readonly status: number,
@@ -47,7 +44,6 @@ export class GraphError extends Error {
   }
 }
 
-/** Graph's `{ error: { code, message } }`, if that's what the body is. */
 function parseError(body: string): { code: string; message: string } {
   try {
     const error = (JSON.parse(body) as { error?: { code?: string; message?: string } }).error;
@@ -96,10 +92,7 @@ export function describeError(err: unknown): string {
   return text.length > 240 ? `${text.slice(0, 240)}…` : text;
 }
 
-// ── Turns ───────────────────────────────────────────────────────────────────
-
 let tierContext: AsyncContext<Lane> | null = null;
-/** Which lane the running work belongs to; none is the user's own request. */
 export const tier = (): AsyncContext<Lane> => (tierContext ??= platform().asyncContext<Lane>());
 const RANK = { user: 0, sync: 1, backfill: 2, prefetch: 3 } as const;
 
@@ -107,7 +100,6 @@ type Slots = { inFlight: number; waiting: { rank: number; start: () => void }[] 
 const slots = new Map<string, Slots>();
 const cooldownUntil = new Map<string, number>();
 
-/** Background work is standing down after a 429 (offline downloads check this). */
 export const isCoolingDown = (accountId: string): boolean =>
   Date.now() < (cooldownUntil.get(accountId) ?? 0);
 
@@ -134,20 +126,16 @@ async function takeSlot(accountId: string): Promise<() => void> {
   };
 }
 
-/** Drops a removed account's turns and cooldown. */
 export function forgetGraph(accountId: string): void {
   slots.delete(accountId);
   cooldownUntil.delete(accountId);
 }
-
-// ── Requests ────────────────────────────────────────────────────────────────
 
 export type GraphInit = {
   method?: string;
   /** JSON (an object), or text sent as is (a base64 MIME message: `contentType` text/plain). */
   body?: unknown;
   contentType?: string;
-  /** More `Prefer` preferences (odata.maxpagesize=…, outlook.body-content-type=…). */
   prefer?: string[];
   headers?: Record<string, string>;
 };
@@ -156,7 +144,6 @@ const IMMUTABLE_IDS = 'IdType="ImmutableId"';
 
 export const preferHeader = (prefer: string[] = []) => [IMMUTABLE_IDS, ...prefer].join(", ");
 
-/** A Graph request's response, after retries; throws GraphError when it failed. */
 async function request(
   accountId: string,
   path: string,
@@ -201,7 +188,6 @@ async function request(
   if (response.ok) return response;
 
   const text = await response.text().catch(() => "");
-  // The cached access token was revoked or expired early: refresh it once.
   if (response.status === 401 && !attempt.tokenRefreshed) {
     await platform().microsoft?.getAccessToken(accountId, { forceRefresh: true });
     return request(accountId, path, init, retry, { ...attempt, tokenRefreshed: true });
@@ -227,7 +213,6 @@ async function request(
   throw new GraphError(response.status, code, message);
 }
 
-/** A Graph call answering JSON (`{}` for an empty 202/204). */
 export async function graph<T = unknown>(
   accountId: string,
   path: string,
@@ -237,19 +222,16 @@ export async function graph<T = unknown>(
   return (text ? JSON.parse(text) : {}) as T;
 }
 
-/** A Graph call answering bytes (a message's MIME source, a photo). */
 export async function graphBytes(accountId: string, path: string): Promise<Uint8Array> {
   return new Uint8Array(await (await request(accountId, path)).arrayBuffer());
 }
 
-/** One page of a collection: its items and the link to the next. */
 export type Page<T> = {
   value?: T[];
   "@odata.nextLink"?: string;
   "@odata.deltaLink"?: string;
 };
 
-/** Every item of a collection, following `@odata.nextLink`. */
 export async function graphAll<T>(accountId: string, path: string, init?: GraphInit) {
   const items: T[] = [];
   let next: string | undefined = path;
@@ -261,25 +243,16 @@ export async function graphAll<T>(accountId: string, path: string, init?: GraphI
   return items;
 }
 
-// ── Batches ─────────────────────────────────────────────────────────────────
-
 export type BatchRequest = {
   method: "GET" | "POST" | "PATCH" | "DELETE";
-  /** Relative to the API root: `/me/messages/…`. */
   url: string;
   body?: unknown;
 };
 
 export type BatchResponse = { status: number; body: unknown };
 
-/** Graph takes 20 requests per $batch. */
 const BATCH_SIZE = 20;
 
-/**
- * Runs requests in `$batch`es of 20, in order, answering each one's status
- * and body. Throttled ones are retried after Graph's Retry-After; other
- * failures are answered as they are, for the caller to judge.
- */
 export async function graphBatch(
   accountId: string,
   requests: BatchRequest[],

@@ -1,24 +1,4 @@
-/**
- * Gmail's part of sync (the engine around it is services/mail-sync.ts).
- *
- * A sync run replays Gmail's history feed, a cheap delta, and keeps labels
- * and draft ids current: it's short, so new mail shows up on every push and
- * tick. What takes long runs as a backfill in its own lane beside it (the
- * engine's): listing the whole mailbox the first time, comparing it with
- * Gmail's listings after the history feed expired, and Spam and Trash after
- * a first listing through the API.
- *
- * The feed starts where a backfill does (its seed), so syncs keep bringing
- * new mail while it runs. Once it's done, the next run replays the feed from
- * that seed: what changed meanwhile lands on top of the older copies it
- * wrote (the feed's changes can be applied twice).
- *
- * On the Mac the first sync goes over IMAP (imap-fill.ts): every list row in
- * seconds, off the API's quota. Elsewhere, or when IMAP isn't to be had, it
- * lists the mailbox through the API, the inbox first; where bodies are kept
- * for offline reading, messages are fetched whole there: one request gives
- * the list row and the body, instead of one each.
- */
+// Replay history from the backfill seed after it finishes so newer changes overwrite older backfill copies.
 
 import { logger } from "../../logger.js";
 import { platform } from "../../platform.js";
@@ -40,13 +20,9 @@ import {
 import { fillOverImap } from "./imap-fill.js";
 
 // Kept in kv, so a backfill survives quitting and picks up where it stopped.
-/** The history id a backfill began at: the feed replays from it once it's done. */
 const seedKey = (accountId: string) => `fullSyncSeed:${accountId}`;
-/** The first listing's page cursor. */
 const cursorKey = (accountId: string) => `fullSyncCursor:${accountId}`;
-/** "1" once the history feed expired: the cache is compared with Gmail's listings. */
 const refreshKey = (accountId: string) => `fullSyncRefresh:${accountId}`;
-/** A finished backfill's seed, until a run has replayed the feed from it. */
 const replayKey = (accountId: string) => `replayFrom:${accountId}`;
 const spamTrashKey = (accountId: string) => `spamTrashBackfilled:${accountId}`;
 
@@ -78,7 +54,6 @@ export function needsBackfill(accountId: string): boolean {
   );
 }
 
-/** The long work needsBackfill reports, in the engine's backfill lane. */
 export async function backfillGmail(accountId: string, ctx: SyncContext): Promise<void> {
   // The feed starts first (syncGmail), so nothing is missed meanwhile.
   if (!store.getSyncState(accountId).historyId) return;
@@ -87,7 +62,6 @@ export async function backfillGmail(accountId: string, ctx: SyncContext): Promis
   if (store.getKv(spamTrashKey(accountId)) !== "1") await backfillSpamTrash(accountId, ctx);
 }
 
-/** Starts the history feed now and returns its history id. */
 async function startFeed(accountId: string, ctx: SyncContext): Promise<string> {
   const seed = (await getProfile(accountId)).historyId;
   if (!seed) throw new Error("Gmail didn't say where the mailbox's history starts.");
@@ -97,7 +71,6 @@ async function startFeed(accountId: string, ctx: SyncContext): Promise<string> {
   return seed;
 }
 
-/** A backfill is done: the next sync replays the feed from its seed. */
 function finishBackfill(accountId: string): void {
   const seed = store.getKv(seedKey(accountId));
   store.setSyncState(accountId, { fullSyncDone: true });
@@ -107,13 +80,6 @@ function finishBackfill(accountId: string): void {
   store.setKv(refreshKey(accountId), "");
 }
 
-/**
- * Fetches messages and caches them: whole where bodies are kept for offline
- * reading (one full fetch costs less than a summary now and a body later),
- * else the summary.
- * With `skipCached`, rows cached meanwhile are left alone: a backfill's copy
- * is older than the feed's. Returns what was fetched.
- */
 async function fetchAndStore(
   accountId: string,
   ids: string[],
@@ -142,24 +108,15 @@ async function fetchAndStore(
   return summaries;
 }
 
-/** Drops a removed account's in-memory sync state. */
 export function forgetGmailSync(accountId: string): void {
   labelRefresh.delete(accountId);
   draftCheckAt.delete(accountId);
 }
 
-// ── Labels ───────────────────────────────────────────────────────────────
-// labels.get per label (names, colors, Gmail's counts) is ~30 requests per
-// account — too much for every 30s tick. Each tick does one labels.list to
-// catch labels created/renamed/deleted elsewhere; the per-label detail is
-// re-read when mail changed (at most once a minute) and every 10 minutes.
-// Between detail reads, applyHistoryChanges keeps counts current locally.
-
 const LABEL_DETAIL_MIN_GAP_MS = 60_000;
 const LABEL_DETAIL_MAX_AGE_MS = 10 * 60_000;
 const labelRefresh = new Map<string, { refreshedAt: number; dirty: boolean }>();
 
-/** Refreshes the cached labels when due. Returns whether they were rewritten. */
 async function refreshLabels(
   accountId: string,
   mailChanged: boolean,
@@ -226,7 +183,6 @@ async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
   ctx.update({ phase: "full", synced, total });
   if (pageToken) logger.info("mail-sync", `full sync resuming for ${accountId} at ${synced}`);
 
-  // What the user looks at first: the newest page of the inbox.
   const inbox = await listMessageIdsPage(accountId, {
     labelIds: ["INBOX"],
     maxResults: 500,
@@ -245,7 +201,6 @@ async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
     try {
       page = await listMessageIdsPage(accountId, { pageToken, maxResults: 500, spamTrash: false });
     } catch (err) {
-      // A stale saved cursor: start the listing over (cached ids are skipped).
       if (pageToken && err instanceof Error && err.message.includes("Gmail API error: 400")) {
         store.setKv(cursorKey(accountId), "");
         pageToken = undefined;
@@ -317,7 +272,6 @@ async function refreshMailbox(accountId: string, ctx: SyncContext): Promise<void
     }
     const has = new Set(labelIds);
     const add = [...members].filter(([l, ids]) => ids.has(id) && !has.has(l)).map(([l]) => l);
-    // Labels that weren't listed (Gmail's hidden ones) stay as they were.
     const remove = labelIds.filter((l) => members.get(l)?.has(id) === false);
     if (add.length > 0) ops.push({ kind: "labelsAdded", id, labelIds: add });
     if (remove.length > 0) ops.push({ kind: "labelsRemoved", id, labelIds: remove });
@@ -340,7 +294,6 @@ async function refreshMailbox(accountId: string, ctx: SyncContext): Promise<void
   finishBackfill(accountId);
 }
 
-/** Every message id Gmail lists, newest first; with `labelId`, those carrying it. */
 async function listAllIds(accountId: string, labelId?: string): Promise<string[]> {
   const ids: string[] = [];
   let pageToken: string | undefined;
@@ -355,7 +308,6 @@ async function listAllIds(accountId: string, labelId?: string): Promise<string[]
   return ids;
 }
 
-/** Draft ids are re-checked when mail changed, else at most this often. */
 const DRAFT_CHECK_MAX_AGE_MS = 10 * 60_000;
 const draftCheckAt = new Map<string, number>();
 
@@ -382,10 +334,7 @@ async function learnDraftIds(
     ctx.assertActive();
     draftCheckAt.set(accountId, listedAt);
     for (const d of drafts) store.setDraftId(accountId, d.messageId, d.draftId);
-    // Only prune against a complete list (listDraftIds stops at 500).
     if (drafts.length < 500) {
-      // Rows saved around the listing (a composer autosaving right now) may be
-      // newer than it — leave anything from the last minute alone.
       const current = new Set(drafts.map((d) => d.messageId));
       const stale = store
         .getMessageDates(accountId, local)
@@ -502,7 +451,6 @@ async function incrementalSync(
   return { added, changed };
 }
 
-/** The history feed expired: restart it from now and have a backfill compare the cache. */
 async function restartFeed(accountId: string, ctx: SyncContext): Promise<void> {
   logger.info("mail-sync", `history expired for ${accountId}; refreshing the mailbox`);
   const { historyId } = await getProfile(accountId);

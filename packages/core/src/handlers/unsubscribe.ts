@@ -1,5 +1,3 @@
-/** Unsubscribe (List-Unsubscribe): what a message offers, and doing it. Doing it runs as a task. */
-
 import { handle } from "../ipc.js";
 import { getUnsubscribe, isUnsubscribed, unsubscribe } from "../services/unsubscribe.js";
 import { runAsTask } from "./ipc-budget.js";

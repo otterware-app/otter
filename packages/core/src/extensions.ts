@@ -1,10 +1,3 @@
-/**
- * Core's half of extensions (packages/contracts/src/extensions.ts): each one's
- * `activate` runs once as the backend starts, and contributes through its
- * context: channels its UI half invokes, agents the chat drives. The shell hands `startCore` the extensions it runs: core imports
- * none of them.
- */
-
 import type { ExtensionManifest } from "@otter-mail/contracts/extensions";
 
 import { handle, registeredHandlers, unhandle, type Handler } from "./ipc.js";
@@ -13,9 +6,7 @@ import type { AgentSettings, ChatProvider } from "./services/agent/types.js";
 
 export type ExtensionContext = {
   readonly manifest: ExtensionManifest;
-  /** Serves a channel its UI half invokes (`desktopBridge.invoke`). Keep names stable. */
   handle(channel: string, handler: Handler): void;
-  /** Contributes an agent: Settings → Agents lists it, chats run on it. */
   registerAgent<S extends AgentSettings>(agent: ChatProvider<S>): void;
 };
 
@@ -62,7 +53,6 @@ export async function activateExtensions(extensions: readonly CoreExtension[]): 
   }
 }
 
-/** The agents extensions contributed, in the order they activated. */
 export function registeredAgents(): ReadonlyMap<string, ChatProvider> {
   return agents;
 }

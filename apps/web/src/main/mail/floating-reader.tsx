@@ -202,7 +202,6 @@ export function FloatingReader({
     const startY = event.clientY;
     let latest = { width: start.width, height: start.height };
     let frame = 0;
-    // Keep the pointer in this document when it crosses a message's iframe.
     const cover = document.createElement("div");
     cover.className = "no-drag fixed inset-0 z-[200] touch-none select-none";
     cover.style.cursor =

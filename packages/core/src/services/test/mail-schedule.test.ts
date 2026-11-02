@@ -13,7 +13,6 @@ const mocks = vi.hoisted(() => ({
   getAccount: vi.fn(),
   broadcast: vi.fn(),
 }));
-// "outlook" has a server that holds scheduled sends.
 const held = vi.hoisted(() => ({ scheduleSend: vi.fn(), cancelScheduledSend: vi.fn() }));
 vi.mock("../../providers/index.js", () => ({
   providerFor: (accountId: string) => (accountId === "outlook" ? { ...mocks, ...held } : mocks),

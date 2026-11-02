@@ -1,19 +1,3 @@
-/**
- * gmail-oauth.ts
- *
- * Google OAuth per account: the installed-app flow (RFC 8252) with PKCE and a
- * loopback redirect. The browser signs in, Google redirects to a one-shot
- * HTTP listener on 127.0.0.1, and the code is exchanged for tokens.
- *
- * Tokens live in userData/google-tokens.json, each account's entry encrypted
- * with Electron's safeStorage (Keychain-backed; main does it for the mail
- * backend this runs in). Access tokens are served from memory and refreshed a
- * little before they expire.
- *
- * The same flow, with identity scopes only, signs in to the Otter account
- * (otter-account.ts): it needs a Google ID token, not Gmail access.
- */
-
 import { createHash, randomBytes } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as http from "node:http";
@@ -41,20 +25,13 @@ const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
 
-/**
- * The loopback port. Google "Desktop app" clients accept any port; "Web
- * application" clients only accept redirect URIs registered verbatim, so this
- * fixed one (http://127.0.0.1:42813) must be listed on such a client.
- */
+// Web OAuth clients require this exact loopback redirect URI to be registered.
 const LOOPBACK_PORT = 42813;
 const AUTHORIZE_TIMEOUT_MS = 5 * 60_000;
 
 const SCOPES = GMAIL_SCOPES;
 
-/** Who the user is, for the Otter account: no access to their data. */
 const IDENTITY_SCOPES = ["openid", "email", "profile"];
-
-// ── Token storage ────────────────────────────────────────────────────────────
 
 type StoredTokens = {
   /** The OAuth client that issued these tokens; Google only refreshes them for that client. */
@@ -76,7 +53,6 @@ function tokenFilePath(): string {
   return path.join(appInfo().stateDir, "google-tokens.json");
 }
 
-/** Read once (each entry is unsealed by main): every caller shares the same map. */
 function loadStore(): Promise<Map<string, StoredTokens>> {
   return (storeLoad ??= readStore().then((store) => (storeCache = store)));
 }
@@ -121,11 +97,8 @@ async function saveStore(): Promise<void> {
   await storeWrite;
 }
 
-// ── Protocol helpers ─────────────────────────────────────────────────────────
-
 const base64url = (buffer: Buffer) => buffer.toString("base64url");
 
-/** Google revoked or expired the refresh token: only a new sign-in helps. */
 class SignInExpiredError extends Error {
   constructor(detail: string) {
     super(`Google sign-in expired (${detail}). Sign in to this account again.`);
@@ -134,7 +107,6 @@ class SignInExpiredError extends Error {
 
 type TokenResponse = {
   access_token: string;
-  /** Present when the grant includes `openid`, on refreshes too. */
   id_token?: string;
   refresh_token?: string;
   expires_in?: number;
@@ -180,7 +152,6 @@ function toStored(
 /** The sign-in waiting on the browser, if any. Only one runs at a time: they share the port. */
 let pendingSignIn: { cancel: () => void; done: Promise<unknown> } | null = null;
 
-/** Stops waiting for the browser, e.g. after Google showed an error page instead of redirecting. */
 function cancelSignIn(): void {
   pendingSignIn?.cancel();
 }
@@ -290,13 +261,6 @@ async function authorizeInBrowser(opts: {
   }
 }
 
-// ── Accounts ─────────────────────────────────────────────────────────────────
-
-/**
- * Adds (or re-authorizes) an account: browser sign-in, then userinfo for the
- * email/name/picture, then tokens and metadata are stored under the email.
- * `loginHint` preselects that Google account when signing an account back in.
- */
 async function addAccount(loginHint?: string): Promise<MailAccount> {
   let tokens: StoredTokens;
   try {
@@ -320,10 +284,6 @@ async function addAccount(loginHint?: string): Promise<MailAccount> {
   return saveAccount(tokens);
 }
 
-/**
- * The demo mailbox (`pnpm dev:demo:desktop`): its saved sign-in with this
- * app's client instead of the browser; the first refresh proves it still works.
- */
 async function addDemoAccount(mailbox: DemoGmailMailbox): Promise<MailAccount> {
   const refreshToken = mailbox.refreshTokens.desktop;
   if (!refreshToken) {
@@ -335,7 +295,6 @@ async function addDemoAccount(mailbox: DemoGmailMailbox): Promise<MailAccount> {
   return saveAccount(toStored((await getCredentials()).clientId, response, refreshToken));
 }
 
-/** Who signed in (userinfo), then their tokens and the account, stored under the email. */
 async function saveAccount(tokens: StoredTokens): Promise<MailAccount> {
   // Right after a new grant, Google can answer 500 for a few seconds.
   let userInfoResponse: Response;
@@ -364,7 +323,6 @@ async function saveAccount(tokens: StoredTokens): Promise<MailAccount> {
   const store = await loadStore();
   store.set(email, tokens);
   await saveStore();
-  // Re-adding an account (e.g. to grant new scopes) replaces its tokens.
   tokenCache.delete(email);
 
   const account: MailAccount = {
@@ -377,7 +335,6 @@ async function saveAccount(tokens: StoredTokens): Promise<MailAccount> {
   return account;
 }
 
-/** Signs in to Google in the browser for identity only; resolves with the ID token. */
 async function signInForIdToken(): Promise<string> {
   const { code, redirectUri, verifier } = await authorizeInBrowser({ purpose: "identity" });
   const response = await tokenRequest({
@@ -390,19 +347,13 @@ async function signInForIdToken(): Promise<string> {
   return response.id_token;
 }
 
-// ── Sign-in state ────────────────────────────────────────────────────────────
-
-/** Reads the token store; call once at startup so `isSignedIn` answers right away. */
 async function loadSignIns(): Promise<void> {
   await loadStore();
 }
 
-/** Whether the account has a stored Google sign-in (false once Google revokes it). */
 function isSignedIn(accountId: string): boolean {
   return storeCache?.has(accountId) ?? true;
 }
-
-// ── Access tokens ────────────────────────────────────────────────────────────
 
 /** Refresh a little before Google expires the token, never mid-request. */
 const REFRESH_AHEAD_MS = 2 * 60_000;
@@ -412,7 +363,6 @@ type CachedToken = { accessToken: string; expiresAt: number };
 const tokenCache = new Map<string, CachedToken>();
 const tokenLoads = new Map<string, Promise<string>>();
 
-/** Refreshes the account's tokens with Google and stores the new access token. */
 async function refreshTokens(accountId: string): Promise<TokenResponse> {
   const store = await loadStore();
   const stored = store.get(accountId);
@@ -452,10 +402,6 @@ async function loadAccessToken(accountId: string, forceRefresh: boolean): Promis
   return (await refreshTokens(accountId)).access_token;
 }
 
-/**
- * A fresh Google ID token for a signed-in account, proving to the relay that
- * this device signed in to it. Google returns one with every refresh.
- */
 async function getIdToken(accountId: string): Promise<string> {
   const { id_token } = await refreshTokens(accountId);
   if (!id_token)
@@ -463,12 +409,6 @@ async function getIdToken(accountId: string): Promise<string> {
   return id_token;
 }
 
-/**
- * Returns a valid access token for the given accountId (email), refreshing it
- * when it is about to expire. Served from memory; concurrent callers share
- * one load/refresh. `forceRefresh` discards the current token (Gmail answered
- * 401 with it).
- */
 async function getAccessToken(
   accountId: string,
   opts?: { forceRefresh?: boolean },
@@ -488,14 +428,12 @@ async function getAccessToken(
   return load;
 }
 
-/** Removes stored OAuth tokens for an account. */
 async function removeAccountTokens(accountId: string): Promise<void> {
   tokenCache.delete(accountId);
   const store = await loadStore();
   if (store.delete(accountId)) await saveStore();
 }
 
-/** The desktop's Google sign-in: the loopback flow, tokens in safeStorage. */
 export const googleAuth: GoogleAuth = {
   load: loadSignIns,
   addAccount,

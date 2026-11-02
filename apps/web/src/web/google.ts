@@ -1,12 +1,3 @@
-/**
- * Gmail sign-in in the browser. The page opens the relay's sign-in popup
- * (Google's consent for the web OAuth client); the relay exchanges the code,
- * seals the refresh token (only it can use it), and hands the page the sealed
- * token and a first access token. Access tokens then come from the relay's
- * `/v1/gmail/token`, which refreshes with Google. Nothing is stored on the
- * relay.
- */
-
 import {
   accountStore,
   broadcast,
@@ -39,7 +30,6 @@ export function webGoogleAuth(deps: {
     await files.write(FILE, JSON.stringify(Object.fromEntries(tokens)));
   }
 
-  /** New tokens from the relay; drops the account's sign-in if Google revoked it. */
   function refresh(accountId: string) {
     let pending = refreshes.get(accountId);
     if (pending) return pending;
@@ -79,7 +69,6 @@ export function webGoogleAuth(deps: {
     return pending;
   }
 
-  /** A sign-in from the relay: its tokens, then the account, kept under the address. */
   async function keep(result: GoogleSignInResult): Promise<MailAccount> {
     tokens.set(result.email, {
       sealed: result.sealed,

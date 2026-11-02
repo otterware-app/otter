@@ -1,5 +1,4 @@
 export type SettingsTarget = {
-  /** None: the pane Settings was last on. */
   pane?:
     | "general"
     | "appearance"
@@ -10,12 +9,9 @@ export type SettingsTarget = {
     | "features"
     | "browser"
     | "otter";
-  /** An extension's page in that pane. */
   item?: string;
 };
 
-// Where the in-app settings page should navigate on open. The main window
-// pulls this via window:getSettingsTarget on mount and on settings:open.
 let pendingTarget: SettingsTarget | null = null;
 
 export function setSettingsTarget(target: SettingsTarget): void {

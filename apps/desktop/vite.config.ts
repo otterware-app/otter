@@ -5,11 +5,6 @@ import { defineConfig } from "vite-plus";
 
 import pkg from "./package.json" with { type: "json" };
 
-/**
- * Build-time config from the environment, falling back to the repo's
- * gitignored .env.local and .env (KEY=VALUE lines). Holds the Google and
- * Microsoft OAuth clients, which must not be committed.
- */
 function buildEnv(key: string): string {
   const fromEnv = process.env[key]?.trim();
   if (fromEnv) return fromEnv;
@@ -24,13 +19,10 @@ function buildEnv(key: string): string {
   return "";
 }
 
-// Everything but Electron itself is bundled into the main-process and preload
-// files, so the packaged app ships without a node_modules folder.
 const isExternal = (id: string) => id === "electron" || id.startsWith("electron/");
 
 const shared = {
   format: "cjs",
-  // Extensions' desktop halves reach the desktop backend through its kit (src/extension-kit.ts).
   alias: {
     "@otter-mail/desktop/extension-kit": NodeURL.fileURLToPath(
       new URL("./src/extension-kit.ts", import.meta.url),
@@ -60,12 +52,9 @@ export default defineConfig({
       entry: ["src/main.ts"],
       clean: true,
       outputOptions: { codeSplitting: false },
-      // electron-chrome-web-store's preload, for the Web Store's pages: the
-      // library looks for it next to main.cjs when there's no node_modules.
       copy: { from: "node_modules/electron-chrome-web-store/dist/chrome-web-store.preload.js" },
     },
     {
-      // The mail backend's utility process (backend-host.ts forks it).
       ...shared,
       entry: ["src/backend.ts"],
       clean: false,
@@ -78,7 +67,6 @@ export default defineConfig({
       clean: false,
     },
     {
-      // The browser's extensions' preload (services/extensions.ts).
       ...shared,
       entry: ["src/extensions-preload.ts"],
       clean: false,

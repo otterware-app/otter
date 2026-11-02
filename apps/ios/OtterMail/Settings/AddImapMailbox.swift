@@ -93,7 +93,6 @@ struct AddImapMailbox: View {
         }
     }
 
-    /** Fills in the servers for the address's domain (once the typing stops). */
     private func discover() async {
         guard !domain.isEmpty else { return }
         try? await Task.sleep(for: .milliseconds(600))
@@ -108,7 +107,6 @@ struct AddImapMailbox: View {
             username = found.settings.username
             note = found.note
         } catch {
-            // Gmail or Outlook: nothing to add here.
             imap.host = ""
             smtp.host = ""
             note = error.localizedDescription
@@ -138,7 +136,6 @@ struct AddImapMailbox: View {
 private struct ServerFields: View {
     let title: String
     @Binding var server: MailServer
-    /** The usual ports: with TLS from the start, and with STARTTLS. */
     let ports: (tls: Int, starttls: Int)
 
     var body: some View {

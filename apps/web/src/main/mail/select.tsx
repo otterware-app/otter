@@ -3,11 +3,6 @@ import { Select as Primitive } from "radix-ui";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { cn, restoreFocusForKeyboardOnly } from "./ui";
 
-/**
- * Otter Code-style select (renderer-drawn, Radix underneath), replacing the
- * native popup. Trigger and popup follow T3's `SelectTrigger` / `SelectPopup` recipes.
- */
-
 export const Select = Primitive.Root;
 
 export function SelectTrigger({
@@ -18,7 +13,6 @@ export function SelectTrigger({
   ...props
 }: ComponentProps<typeof Primitive.Trigger> & {
   size?: string;
-  /** "pill": a compact trigger sized to its value (settings rows, like ChatGPT's). */
   variant?: "pill";
 }) {
   return (

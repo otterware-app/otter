@@ -37,7 +37,6 @@ const STATE_VERSION = 2;
 const LATENCY_MS = 30;
 /** Graph's page when the request doesn't say: small, so paging gets exercised. */
 const DEFAULT_PAGE = 10;
-/** Folder departures kept for delta links; an older link is expired (410). */
 const DEPARTURES_KEPT = 2000;
 
 type Person = { name: string; email: string };
@@ -74,10 +73,8 @@ type Message = {
   internetMessageId: string;
   inReplyTo?: string;
   references?: string;
-  /** More headers its source carries (List-Unsubscribe). */
   headers: { name: string; value: string }[];
   attachments: Attachment[];
-  /** The change number it last changed at. */
   version: number;
 };
 
@@ -96,7 +93,6 @@ type CalendarEvent = {
   organizer: Recipient;
   attendees: (Recipient & { type: string; status: { response: string } })[];
   isOrganizer: boolean;
-  /** Your answer, in Graph's words (notResponded, accepted, …, organizer). */
   response: string;
   isCancelled: boolean;
 };
@@ -104,14 +100,12 @@ type CalendarEvent = {
 type Mailbox = {
   email: string;
   name: string;
-  /** The last change number given out. */
   counter: number;
   nextId: number;
   rootId: string;
   folders: Folder[];
   categories: Category[];
   messages: Record<string, Message>;
-  /** Messages that left a folder (moved or deleted), at which change. */
   departures: { id: string; folderId: string; at: number }[];
   /** Delta links from before this change are expired (their departures are gone). */
   departureFloor: number;
@@ -122,15 +116,11 @@ type Mailbox = {
 type State = {
   version: number;
   seededAt: number;
-  /** The mailbox was added to the app's accounts once (removing it keeps it removed). */
   introduced: boolean;
   signedIn: string[];
   mailboxes: Record<string, Mailbox>;
 };
 
-// ── Seeding ──────────────────────────────────────────────────────────────────
-
-/** An opaque, URL-safe id, like Graph's immutable ones. */
 function newId(box: Mailbox, kind: string): string {
   return `AAMkADdlbW8${kind}${(box.nextId++).toString(36).padStart(6, "0")}AAA`;
 }
@@ -275,8 +265,6 @@ function seedMailbox(seed: OutlookSeedAccount, seededAt: number): Mailbox {
   return box;
 }
 
-// ── State ────────────────────────────────────────────────────────────────────
-
 let state: State;
 let files: Platform["files"];
 let saving: ReturnType<typeof setTimeout> | null = null;
@@ -308,8 +296,6 @@ async function loadState(): Promise<void> {
   };
   await files.write(STATE_FILE, JSON.stringify(state));
 }
-
-// ── Changes ──────────────────────────────────────────────────────────────────
 
 function touch(box: Mailbox, m: Message): void {
   m.version = ++box.counter;
@@ -344,7 +330,6 @@ function deleteMessage(box: Mailbox, m: Message): void {
 
 const wellKnown = (box: Mailbox, name: string) => box.folders.find((f) => f.wellKnown === name)!.id;
 
-/** A message sent to the mailbox itself lands in its inbox too, unread. */
 function deliverToSelf(box: Mailbox, m: Message): void {
   const all = [...m.to, ...m.cc, ...m.bcc];
   if (!all.some((r) => r.emailAddress.address.toLowerCase() === box.email)) return;
@@ -356,8 +341,6 @@ function deliverToSelf(box: Mailbox, m: Message): void {
     isDraft: false,
   });
 }
-
-// ── Resources ────────────────────────────────────────────────────────────────
 
 const iso = (time: number) => new Date(time).toISOString().replace(/\.\d{3}Z$/, "Z");
 const rfc2822 = (time: number) => new Date(time).toUTCString().replace("GMT", "+0000");
@@ -375,7 +358,6 @@ function plainText(m: Message): string {
 const isMine = (box: Mailbox, m: Message) =>
   m.isDraft || m.folderId === wellKnown(box, "sentitems");
 
-/** The headers a received message arrived with (Graph has none for drafts and sent mail). */
 function receivedHeaders(m: Message): { name: string; value: string }[] {
   return [
     { name: "From", value: addressHeader([m.from]) },
@@ -505,8 +487,6 @@ function eventResource(e: CalendarEvent): Record<string, unknown> {
   };
 }
 
-// ── MIME (a message's source, /$value) ───────────────────────────────────────
-
 const CRLF = "\r\n";
 const encodeWord = (text: string) =>
   /[^\x20-\x7e]/.test(text) ? `=?UTF-8?B?${toBase64(utf8(text))}?=` : text;
@@ -581,7 +561,6 @@ function mimeSource(m: Message): Uint8Array {
   return utf8(render({ headers, body: entity.body }));
 }
 
-/** "Ann <a@b>, c@d" (headers decoded) → Graph's recipients. */
 function parseAddresses(header: string): Recipient[] {
   const entries = header.match(/(?:"[^"]*"|<[^>]*>|[^,])+/g) ?? [];
   return entries.flatMap((entry) => {
@@ -592,9 +571,6 @@ function parseAddresses(header: string): Recipient[] {
   });
 }
 
-// ── Queries ──────────────────────────────────────────────────────────────────
-
-/** `$filter`'s conditions, joined by `and` (what core asks for); null when one isn't known. */
 function parseFilter<T>(
   filter: string,
   fields: Record<string, (item: T, value: string) => boolean>,
@@ -626,7 +602,6 @@ const MESSAGE_FILTERS: Record<string, (m: Message, value: string) => boolean> = 
 const people = (list: Recipient[]) =>
   list.map((r) => `${r.emailAddress.name} ${r.emailAddress.address}`.toLowerCase()).join(" ");
 
-/** `$search`'s KQL, simply: words anywhere, `from:` `to:` `cc:` `subject:` `hasattachments:` and `received`. */
 function searchTest(raw: string): (m: Message) => boolean {
   const q = raw
     .trim()
@@ -681,7 +656,6 @@ function searchTest(raw: string): (m: Message) => boolean {
 const pageSize = (prefer: string, top: string | null) =>
   Number(top) || Number(/odata\.maxpagesize=(\d+)/.exec(prefer)?.[1]) || DEFAULT_PAGE;
 
-/** A page of a collection, and the link to the next (`$skip`). */
 function page<T>(req: Req, items: T[], map: (item: T) => unknown): Answer {
   const size = Math.min(pageSize(req.prefer, req.url.searchParams.get("$top")), 1000);
   const skip = Number(req.url.searchParams.get("$skip")) || 0;
@@ -692,8 +666,6 @@ function page<T>(req: Req, items: T[], map: (item: T) => unknown): Answer {
     ...(skip + size < items.length ? { "@odata.nextLink": next.toString() } : {}),
   });
 }
-
-// ── The API ──────────────────────────────────────────────────────────────────
 
 type Req = {
   method: string;
@@ -734,7 +706,6 @@ function newFolder(box: Mailbox, parentFolderId: string, req: Req): Answer {
   return ok(folderResource(box, folder), 201);
 }
 
-/** A folder and the folders in it, all the way down. */
 function subtree(box: Mailbox, id: string): string[] {
   return [
     id,
@@ -816,12 +787,6 @@ function listMessages(box: Mailbox, req: Req, folderId: string | null): Answer {
   return page(req, list, (m) => pick(messageResource(box, m), select(req)));
 }
 
-/**
- * A folder's delta: the first call lists the folder; a delta link answers
- * what came in or changed since its change number, and `@removed` for what
- * left. Tokens: `$skiptoken=<since>.<upto>.<offset>` while paging, then
- * `$deltatoken=<upto>`.
- */
 function delta(box: Mailbox, req: Req, folder: Folder): Answer {
   const params = req.url.searchParams;
   const fieldList = select(req);
@@ -872,7 +837,6 @@ function delta(box: Mailbox, req: Req, folder: Folder): Answer {
   });
 }
 
-/** A message's writable fields from a request body (PATCH, a new draft). */
 function applyFields(m: Message, body: Record<string, unknown>): void {
   if (typeof body.isRead === "boolean") m.isRead = body.isRead;
   if (body.flag && typeof body.flag === "object")
@@ -1062,7 +1026,6 @@ function attachments(box: Mailbox, req: Req, m: Message, rest: string[]): Answer
   return ok(pick(attachmentResource(attachment, true), select(req)));
 }
 
-/** An upload session's chunk (no bearer: the URL is the authorization). */
 function upload(url: URL, method: string, headers: Headers, raw: unknown): Answer {
   const token = url.pathname.split("/")[2] ?? "";
   const session = uploads.get(token);
@@ -1404,7 +1367,6 @@ function route(box: Mailbox, req: Req): Answer {
   return badRequest(`Resource not found for the segment '${collection}'.`);
 }
 
-/** A request's path segments after the version (`/v1.0/me/messages/…` → me, messages, …). */
 const segments = (url: URL) =>
   url.pathname
     .replace(/^\/v1\.0\/?/, "")
@@ -1412,7 +1374,6 @@ const segments = (url: URL) =>
     .filter(Boolean)
     .map(decodeURIComponent);
 
-/** `$batch`: up to 20 requests with URLs relative to the version, answered together. */
 function batch(box: Mailbox, req: Req): Answer {
   const requests =
     (
@@ -1492,11 +1453,6 @@ function toResponse(answer: Answer): Response {
   });
 }
 
-/**
- * Loads (or seeds) the demo's Outlook mailbox and puts the pretend Graph in
- * front of fetch; everything else goes on to the fetch it wraps (the fake
- * Gmail's, when that's installed first).
- */
 export async function installFakeOutlook(demoFiles: Platform["files"]): Promise<void> {
   files = demoFiles;
   await loadState();
@@ -1517,8 +1473,6 @@ export async function installFakeOutlook(demoFiles: Platform["files"]): Promise<
   };
 }
 
-// ── Sign-in ──────────────────────────────────────────────────────────────────
-
 function demoAccount(seed: OutlookSeedAccount): MailAccount {
   return {
     id: seed.email,
@@ -1532,12 +1486,10 @@ function demoAccount(seed: OutlookSeedAccount): MailAccount {
   };
 }
 
-/** The demo's Outlook mailbox is signed in; "adding an Outlook mailbox" brings it back. */
 export function demoMicrosoftAuth(): MicrosoftAuth {
   const seed = DEMO_OUTLOOK_ACCOUNT;
   return {
     available: async () => true,
-    // The mailbox appears beside the Gmail ones the first time the demo opens.
     async load() {
       if (state.introduced) return;
       state.introduced = true;

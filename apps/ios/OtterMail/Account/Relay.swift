@@ -1,13 +1,5 @@
 import Foundation
 
-/**
- * The Otter relay (infra/relay; its API is packages/contracts/src/relay.ts):
- * who's signed in, the mailboxes linked to them (Gmail, Outlook, and IMAP
- * with its server settings), the preferences that follow them, and a
- * WebSocket that says when mail, accounts or preferences changed. The agent
- * API also hosts chats and relevant mail tool results; Google and Microsoft
- * tokens and IMAP passwords stay here.
- */
 @MainActor
 final class Relay {
     struct User: Codable, Equatable {
@@ -19,7 +11,6 @@ final class Relay {
 
     struct Account: Codable {
         var email: String
-        /** "gmail", "imap" or "outlook" (absent from older relays: Gmail). */
         var provider: MailProviderKind?
         var imap: ImapSettings?
         var name: String?
@@ -66,7 +57,6 @@ final class Relay {
         case mail(email: String)
         case accounts
         case preferences
-        /** Agent chats changed on another device (contracts' chats.ts). */
         case chats
     }
 
@@ -76,12 +66,10 @@ final class Relay {
         var errorDescription: String? { message }
     }
 
-    /** `OTTER_RELAY_URL` in the scheme points a dev build at `pnpm dev`'s relay (http://localhost:8787). */
     let baseURL = URL(string: ProcessInfo.processInfo.environment["OTTER_RELAY_URL"] ?? "https://relay.mail.otterware.app")!
 
     private static let sessionKey = "otter-session"
     private(set) var token: String? = Keychain.get(sessionKey)
-    /** Called when the relay ends this session (signed out on another device, or expired). */
     var onSignedOut: () -> Void = {}
 
     var isSignedIn: Bool { token != nil }
@@ -92,9 +80,6 @@ final class Relay {
 
     init() { Task { await retrySignOuts() } }
 
-    // ── Session ──────────────────────────────────────────────────────────────
-
-    /** Signs in with a Google ID token, as the Mac app does; keeps the session. */
     func signIn(idToken: String) async throws -> User {
         struct Body: Encodable { var provider = "google"; var idToken: [String: String] }
         struct Response: Decodable { var user: User }
@@ -107,7 +92,6 @@ final class Relay {
         return try JSONDecoder().decode(Response.self, from: data).user
     }
 
-    /** Ends the session on the relay when it can, and forgets it here. */
     func signOut() async {
         guard let token else { return }
         let entry = PendingSignOut(token: token, origin: baseURL.absoluteString)
@@ -119,7 +103,6 @@ final class Relay {
         await retrySignOuts()
     }
 
-    /** Offline sign-out forgets local access immediately and retries server revocation on later launches/foregrounding. */
     func retrySignOuts() async {
         guard !retryingSignOuts else { return }
         retryingSignOuts = true
@@ -181,8 +164,6 @@ final class Relay {
         forget()
     }
 
-    // ── Linked accounts ──────────────────────────────────────────────────────
-
     func accounts() async throws -> [Account] {
         struct Response: Decodable { var accounts: [Account] }
         let response: Response = try await get("/v1/accounts?providers=gmail,imap,outlook")
@@ -212,7 +193,6 @@ final class Relay {
         _ = try await send("DELETE", "/v1/accounts/\(Self.path(email))?providers=gmail,imap,outlook")
     }
 
-    /** Where Graph should send an Outlook mailbox's changes (`POST /v1/outlook/watch`); the relay passes them on as `mail` events. */
     struct OutlookWatch: Decodable {
         var notificationUrl: String
         var clientState: String
@@ -223,8 +203,6 @@ final class Relay {
         return try JSONDecoder().decode(OutlookWatch.self, from: data)
     }
 
-    // ── Preferences ──────────────────────────────────────────────────────────
-
     func registerPush(token: String, mode: String, mailboxes: [String]) async throws {
         struct Body: Encodable { var token: String; var topic: String; var environment: String; var mode: String; var mailboxes: [String] }
         let environment = Bundle.main.object(forInfoDictionaryKey: "APNsEnvironment") as? String
@@ -233,22 +211,17 @@ final class Relay {
             environment: environment == "development" ? "sandbox" : "production", mode: mode, mailboxes: mailboxes))
     }
 
-    /** The account's preference sections (`ui`, `settings`, `assistant`, …) as JSON, and the Hermes key. */
     func preferences() async throws -> (sections: [String: Any], hermesKey: String?) {
         let (data, _) = try await send("GET", "/v1/preferences")
         let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         return (object?["preferences"] as? [String: Any] ?? [:], object?["hermesKey"] as? String)
     }
 
-    /** Replaces the sections given (the others stay); sets or clears the Hermes key when given. */
     func putPreferences(_ sections: [String: Any], hermesKey: String?? = nil) async throws {
         var body: [String: Any] = ["preferences": sections]
         if let hermesKey { body["hermesKey"] = hermesKey ?? NSNull() }
         _ = try await send("PUT", "/v1/preferences", data: try JSONSerialization.data(withJSONObject: body))
     }
-
-    // ── Agent chats (contracts' chats.ts) ────────────────────────────────────
-    // Kept as JSON objects: what this iPhone writes back keeps what other devices wrote.
 
     /** The account's chats, without their turns (deleted ones too, with `deletedAt`). */
     func chats() async throws -> [[String: Any]] {
@@ -257,7 +230,6 @@ final class Relay {
         return object?["chats"] as? [[String: Any]] ?? []
     }
 
-    /** A chat with its turns; nil once it's deleted. */
     func chat(_ id: String) async throws -> [String: Any]? {
         do {
             let (data, _) = try await send("GET", "/v1/chats/" + Self.segment(id))
@@ -274,12 +246,9 @@ final class Relay {
 
     func deleteChat(_ id: String) async throws { _ = try await send("DELETE", "/v1/chats/" + Self.segment(id)) }
 
-    // ── Events ───────────────────────────────────────────────────────────────
-
     private var socket: URLSessionWebSocketTask?
     private var listening: Task<Void, Never>?
 
-    /** Keeps the event stream open (reconnecting as needed) until `disconnect()`. */
     func connect(onEvent: @escaping (Event) -> Void) {
         guard listening == nil, token != nil else { return }
         listening = Task { [weak self] in
@@ -306,7 +275,6 @@ final class Relay {
                 pinging.cancel()
                 let ended = socket.closeCode.rawValue == 4001 || socket.closeReason == Data("Signed out".utf8)
                 if ended || (socket.response as? HTTPURLResponse)?.statusCode == 401 {
-                    // The relay ended this session (signed out from another device).
                     self.forget()
                     self.onSignedOut()
                     return
@@ -343,8 +311,6 @@ final class Relay {
         default: return nil
         }
     }
-
-    // ── Requests ─────────────────────────────────────────────────────────────
 
     /** An id as one path segment, as it is (unlike `path`, which lowercases an address). */
     private static func segment(_ id: String) -> String {

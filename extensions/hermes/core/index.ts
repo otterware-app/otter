@@ -1,9 +1,3 @@
-/**
- * Hermes Agent (hermes.ts): chats with the user's Hermes server over its
- * Responses and Sessions APIs. Its key is kept in the platform's secrets and
- * follows the Otter account (core's preferences sync it).
- */
-
 import {
   logger,
   preferenceChanged,
@@ -28,7 +22,6 @@ export default {
   manifest,
   activate({ handle, registerAgent }) {
     registerAgent(hermesProvider);
-    // Verifies the URL and key against the server, then saves them.
     handle("agent:connectHermes", async (params: unknown) => {
       const p = params as Record<string, unknown> | undefined;
       const baseUrl = str(p?.baseUrl);

@@ -4,8 +4,6 @@ packages:
   - extensions/*
   - site
   - infra/*
-
-# true = allowed to run install scripts.
 allowBuilds:
   electron: true
   electron-winstaller: false

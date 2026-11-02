@@ -128,7 +128,6 @@ describe("OpenClaw runs picked up again", () => {
     done = true;
     fixture.onEvent({ event: "chat", payload: { ...run, state: "final", message: reply } });
     await ended;
-    // The final completes the text; the end reads the transcript and drops the unanswered approval.
     expect(events.map((e) => e.type)).toEqual([
       "transcript",
       "approval",

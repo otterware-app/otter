@@ -1,8 +1,3 @@
-/**
- * What Otter Mail asks Google for when a Gmail account signs in (the desktop
- * app, and the relay for the web app). The iPhone app asks for less
- * (apps/ios GoogleAuth.swift): it has no calendar or contacts features.
- */
 export const GMAIL_SCOPES = [
   "https://mail.google.com/",
   "openid",
@@ -18,7 +13,5 @@ export const GMAIL_SCOPES = [
   // broader calendar.events before work the same; older tokens lack both: RSVP
   // then falls back to an email reply; re-adding the account upgrades it.
   "https://www.googleapis.com/auth/calendar.events.owned",
-  // Gmail settings, for editing signatures (they live in Gmail). Older tokens
-  // can read them but not save them; re-adding the account upgrades it.
   "https://www.googleapis.com/auth/gmail.settings.basic",
 ];

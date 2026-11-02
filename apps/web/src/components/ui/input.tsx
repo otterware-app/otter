@@ -3,15 +3,11 @@ import type * as React from "react";
 import { cn } from "~/lib/utils";
 
 type InputProps = Omit<React.ComponentProps<"input">, "size"> & {
-  /** Otter Code's sizes, for the theme editor ported from it. */
   size?: "sm" | "compact" | "default";
-  /** Monospace with tabular digits, for colors and numbers. */
   font?: "default" | "mono";
-  /** Otter Code's: a plain <input> (as this always is). */
   nativeInput?: boolean;
 };
 
-/** Single-line text field: a quiet filled well with a faint border and a soft focus ring. */
 function Input({
   className,
   type = "text",

@@ -1,5 +1,3 @@
-/** The portable report handed to GitHub or the user's own coding agent. */
-
 export const SUPPORT_REPO = "https://github.com/otterware-app/otter-mail";
 export const MAX_SUPPORT_BODY = 100_000;
 export const SUPPORT_TYPES = { bug: "Bug report", feature: "Feature request" } as const;
@@ -12,7 +10,6 @@ export const SUPPORT_PLATFORMS = {
 
 export type SupportAgent = { id: "claude" | "codex"; label: string };
 export type SupportTerminals = {
-  /** By id: a bundle identifier on macOS, a .desktop file's on Linux. */
   apps: { id: string; name: string }[];
   defaultName: string | null;
   selectedId: string | null;
@@ -36,7 +33,6 @@ export type SupportSession = {
   hasScreenshot: boolean;
 };
 
-/** issue.md is portable Markdown: one title heading followed by the issue body. */
 export function parseSupportDraft(
   contents: string,
   kind: SupportDraft["kind"] = "issue",
@@ -145,7 +141,6 @@ export function supportError(at: string, scope: string, text: string): SupportEr
   return { at, scope, category, httpStatus: status ? Number(status[1]) : null, frames };
 }
 
-/** Read our log's envelope only. Free-form log messages become classified summaries. */
 export function summarizeSupportLog(text: string): SupportError[] {
   const errors: SupportError[] = [];
   for (const line of text.split("\n")) {
@@ -201,7 +196,6 @@ export function supportIssueUrl(
   return url.length <= 7_500 ? url : null;
 }
 
-// Keep this byte-identical to .github/triage/PLAYBOOK.md (tested by the desktop app).
 export const SUPPORT_PLAYBOOK = `# Otter Mail support playbook
 
 You are helping an Otter Mail user investigate feedback and prepare a useful

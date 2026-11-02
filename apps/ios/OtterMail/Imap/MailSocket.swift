@@ -23,7 +23,6 @@ nonisolated final class MailSocket {
         self.transport = transport
     }
 
-    /** Connects; STARTTLS servers start in plaintext until `startTLS()`. */
     static func open(_ server: MailServer, maxResponseBytes: Int = maxLiteral) async throws -> MailSocket {
         let transport: any MailTransport = switch server.security {
         case .tls: NWTransport(host: server.host, port: server.port)
@@ -36,7 +35,6 @@ nonisolated final class MailSocket {
         return socket
     }
 
-    /** The longest line read (literals aside), and the most an IMAP response's literals may carry. */
     static let maxLine = 1 << 20
     static let maxLiteral = 100 << 20
 
@@ -54,7 +52,6 @@ nonisolated final class MailSocket {
         }
     }
 
-    /** Exactly `count` bytes (an IMAP literal). */
     func read(_ count: Int) async throws -> Data {
         guard count <= literalLimit else { throw ImapError.protocolError("The mail server sent too much at once.") }
         while buffer.count < count { buffer.append(try await transport.receive()) }
@@ -66,7 +63,6 @@ nonisolated final class MailSocket {
     func write(_ text: String) async throws { try await transport.send(Data(text.utf8)) }
     func write(_ data: Data) async throws { try await transport.send(data) }
 
-    /** Upgrades to TLS (after the server's go-ahead to STARTTLS). */
     func startTLS() async throws {
         buffer = Data()
         try await transport.startTLS()
@@ -77,7 +73,6 @@ nonisolated final class MailSocket {
 
 nonisolated protocol MailTransport: AnyObject, Sendable {
     func start() async throws
-    /** Some bytes; throws once the connection is closed. */
     func receive() async throws -> Data
     func send(_ data: Data) async throws
     func startTLS() async throws
@@ -88,7 +83,6 @@ nonisolated private func isLocal(_ host: String) -> Bool {
     ["localhost", "127.0.0.1", "::1"].contains(host.lowercased())
 }
 
-/** TLS from the first byte, over NWConnection. */
 nonisolated private final class NWTransport: MailTransport, @unchecked Sendable {
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "dev.otterware.mail.socket")
@@ -159,7 +153,6 @@ nonisolated private final class NWTransport: MailTransport, @unchecked Sendable 
     func close() { connection.cancel() }
 }
 
-/** Plaintext until STARTTLS, over URLSessionStreamTask. */
 nonisolated private final class StreamTransport: NSObject, MailTransport, URLSessionTaskDelegate, @unchecked Sendable {
     private let host: String
     private var session: URLSession!
@@ -184,7 +177,6 @@ nonisolated private final class StreamTransport: NSObject, MailTransport, URLSes
 
     func send(_ data: Data) async throws { try await task.write(data, timeout: 0) }
 
-    /** TLS begins once pending reads and writes are done; its errors come with the next read. */
     func startTLS() async throws { task.startSecureConnection() }
 
     func close() {

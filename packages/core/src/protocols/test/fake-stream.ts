@@ -20,7 +20,6 @@ export class FakeStream implements ByteStream {
     this.send(greeting);
   }
 
-  /** Queues bytes for the client, in pieces of `chunkSize` to exercise the reader. */
   send(text: string | Uint8Array, chunkSize = Infinity): void {
     const bytes = typeof text === "string" ? new TextEncoder().encode(text) : text;
     for (let i = 0; i < bytes.length; i += chunkSize) {
@@ -55,5 +54,4 @@ export class FakeStream implements ByteStream {
   }
 }
 
-/** The tag of an IMAP command line: "A3 SELECT INBOX" → "A3". */
 export const tagOf = (line: string): string => line.split(" ")[0]!;

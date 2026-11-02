@@ -30,7 +30,6 @@ type PendingPush = {
   inboxMessage?: PendingPush["verified"];
 };
 
-/** Set by the Worker on the upgrade request it forwards: the socket's session. */
 export const SESSION_HEADER = "x-otter-session";
 
 export class UserHub extends DurableObject<Env> {
@@ -39,7 +38,6 @@ export class UserHub extends DurableObject<Env> {
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
   }
 
-  /** Accepts a device's WebSocket (the Worker already authenticated it). */
   override async fetch(request: Request): Promise<Response> {
     const sessionId = request.headers.get(SESSION_HEADER);
     if (!sessionId) return new Response("Missing session", { status: 400 });
@@ -49,7 +47,6 @@ export class UserHub extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  /** Sends the event to every connected device; returns how many got it. */
   publish(event: RelayEvent): number {
     const message = JSON.stringify(event);
     let delivered = 0;
@@ -64,7 +61,6 @@ export class UserHub extends DurableObject<Env> {
     return delivered;
   }
 
-  /** Five-second bursts coalesce, then at most one alert per mailbox each 30 seconds. */
   async queuePush(userId: string, email: string, _historyId: string): Promise<void> {
     // Legacy change markers never produce a visible alert. The provider watcher verifies additions.
     if (this.env.NOTIFICATION_MAILBOX) {
@@ -201,7 +197,6 @@ export class UserHub extends DurableObject<Env> {
       await this.ctx.storage.setAlarm(Math.min(...Array.from(remaining.values(), (p) => p.due)));
   }
 
-  /** Closes a signed-out session's sockets, or every socket when the account is deleted. */
   async disconnect(sessionId?: string): Promise<void> {
     for (const socket of this.ctx.getWebSockets(sessionId)) {
       socket.close(4001, "Signed out");

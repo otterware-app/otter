@@ -1,10 +1,3 @@
-/**
- * The extensions the desktop backend can run (packages/contracts/src/extensions.ts),
- * in the order Settings lists their agents: each one's `./desktop` half when
- * it has one (Claude, Codex), else its `./core`. Those whose manifest leaves
- * out this OS don't start.
- */
-
 import calendarInvites from "@otter-mail/extension-calendar-invites/core";
 import claude from "@otter-mail/extension-claude/desktop";
 import codex from "@otter-mail/extension-codex/desktop";

@@ -1,12 +1,3 @@
-/**
- * gmail.ts — IPC handler registration for the mail client (`gmail:*`
- * channels, whichever provider an account uses).
- *
- * All channels proxy to services (account-store, mail-store, mail-sync) and
- * the account's provider (providers/). Handlers are thin; business logic
- * lives in services.
- */
-
 import {
   scheduleSend,
   snoozeThread,
@@ -65,7 +56,6 @@ import type { ComposeAttachment, ViewRule } from "../types.js";
 
 const LOCAL_PAGE_SIZE = 50;
 
-/** Removes an account from this device: its sync, sign-in, and cached mail. */
 export async function removeLocalAccount(accountId: string): Promise<void> {
   removeAccountSchedules(accountId);
   mailSync.forgetAccount(accountId);
@@ -77,13 +67,10 @@ export async function removeLocalAccount(accountId: string): Promise<void> {
   updateDockBadge();
 }
 
-/** Re-reads every label from the server (names, colors, counts) into the cache. */
 async function refreshLabels(accountId: string): Promise<void> {
   mailStore.upsertLabels(accountId, await providerFor(accountId).listLabels(accountId));
 }
 
-/** Re-reads Gmail's labels for messages after a trash/untrash (Gmail may
- *  also drop INBOX etc.) and recounts the labels involved. */
 async function refreshMetadata(accountId: string, ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const before = new Set(ids.flatMap((id) => mailStore.getMessageLabelIds(accountId, id) ?? []));
@@ -121,7 +108,6 @@ function applyLocalLabelChange(
   };
 }
 
-/** Each message's latest Gmail write (settled either way), for the next one to wait on. */
 const lastWrites = new Map<string, Promise<void>>();
 
 /**
@@ -148,10 +134,6 @@ function afterEarlierWrites(
   return running;
 }
 
-/** Mirrors a label change locally, then settles its Gmail write within the IPC
- *  budget. While the write is pending, reads from Gmail keep the change (see
- *  pending-label-writes); if it fails, the local change is reverted. Writes to
- *  the same messages reach Gmail in order. */
 function settleLabelWrite(
   channel: string,
   accountId: string,
@@ -184,8 +166,6 @@ function parseRules(raw: unknown): ViewRule[] {
         : [],
     }));
 }
-
-// ── Type guards ───────────────────────────────────────────────────────────────
 
 function assertString(value: unknown, name: string): string {
   if (typeof value !== "string" || value.length === 0) {
@@ -227,8 +207,6 @@ function parseAttachments(raw: unknown): ComposeAttachment[] | undefined {
   return list.length > 0 ? list : undefined;
 }
 
-// ── Registration ──────────────────────────────────────────────────────────────
-
 export function registerMailHandlers(): void {
   handle("gmail:listSchedules", () => listSchedules());
   handle("gmail:scheduleMessage", (params: unknown) => {
@@ -252,7 +230,6 @@ export function registerMailHandlers(): void {
       ),
     );
   });
-  // gmail:listAccounts
   handle("gmail:listAccounts", async () => {
     console.log("[gmail:listAccounts]", {});
     try {
@@ -268,7 +245,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:addAccount — opens browser OAuth flow; `email` signs an existing account back in
   handle("gmail:addAccount", async (params: unknown) => {
     const email = asString((params as Record<string, unknown> | undefined)?.email);
     console.log("[gmail:addAccount]", { email });
@@ -282,14 +258,12 @@ export function registerMailHandlers(): void {
       broadcast("gmail:accounts-changed");
       return account;
     } catch (err) {
-      // The user cancelled: not an error to show. The renderer gets null.
       if (err instanceof SignInCancelledError) return null;
       console.log("[gmail:addAccount] error", { error: String(err) });
       throw err;
     }
   });
 
-  // Settings → Accounts opening: signatures, and names and pictures, from Google.
   handle("gmail:refreshSignatures", async () => {
     void refreshSignatures();
     void refreshProfiles();
@@ -300,7 +274,6 @@ export function registerMailHandlers(): void {
     platform().microsoft?.cancelSignIn();
   });
 
-  // gmail:removeAccount
   handle("gmail:removeAccount", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:removeAccount]", { accountId: p?.accountId });
@@ -340,7 +313,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:listLabels — served from the local cache; sync refreshes in background
   handle("gmail:listLabels", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:listLabels]", { accountId: p?.accountId });
@@ -359,7 +331,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:createLabel
   handle("gmail:createLabel", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:createLabel]", { accountId: p?.accountId, name: p?.name });
@@ -377,7 +348,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:updateLabel — rename (cascades to nested labels) and/or recolor
   handle("gmail:updateLabel", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:updateLabel]", {
@@ -396,8 +366,6 @@ export function registerMailHandlers(): void {
             textColor: assertString(colorRaw.textColor, "color.textColor"),
           }
         : undefined;
-      // Mirror first, answer inside the IPC budget; the full label refresh
-      // (one request per label) runs after Gmail confirms.
       const revert = mailStore.editLabelLocally(accountId, labelId, { name, color });
       return await settleWrite(
         "gmail:updateLabel",
@@ -420,8 +388,6 @@ export function registerMailHandlers(): void {
       const accountId = assertString(p?.accountId, "accountId");
       const labelId = assertString(p?.labelId, "labelId");
       const provider = providerFor(accountId);
-      // Outlook folder deletion moves its mail to Trash; keep the source
-      // mappings until the provider relabels them after the server confirms.
       const revert =
         provider.capabilities.foldersAndCategories && labelId.startsWith("folder:")
           ? () => {}
@@ -461,7 +427,6 @@ export function registerMailHandlers(): void {
 
       mailSync.syncAccount(accountId);
 
-      // All Mail has no Gmail label: live-fill it from the unfiltered listing.
       const liveLabelId = labelId === ALL_MAIL_LABEL_ID ? null : labelId;
       const page = await pageWithLiveFill([{ accountId, labelId: liveLabelId }], maxResults, () =>
         mailStore.getThreadsPage(accountId, labelId, offset, maxResults),
@@ -478,11 +443,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:searchMessages — instant local full-text search (FTS5 over the mail
-  // cache). accountId omitted = search every account; message-level rows.
-  // labelId/rules restrict to the current view; starred/important/
-  // hasAttachments/withinDays are structured filters that also work with an
-  // empty q.
   handle("gmail:searchMessages", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:searchMessages]", {
@@ -523,10 +483,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:listCombinedMessages — cross-account query for the "Combined" mailbox.
-  // `rules` are per-account: a message matches a rule when it has every label in
-  // allOf (empty = any mail from the account) and none in noneOf; rules union.
-  // Reads the local store and refreshes all accounts in the background.
   handle("gmail:listCombinedMessages", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:listCombinedMessages]", {
@@ -555,7 +511,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:countCombinedMessages — total/unread counts for a rule set (local store)
   handle("gmail:countCombinedMessages", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     try {
@@ -614,7 +569,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:getMessage
   handle("gmail:getMessage", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:getMessage]", { accountId: p?.accountId, messageId: p?.messageId });
@@ -634,7 +588,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:modifyMessage
   handle("gmail:modifyMessage", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:modifyMessage]", {
@@ -664,15 +617,12 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:trashMessage
   handle("gmail:trashMessage", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:trashMessage]", { accountId: p?.accountId, messageId: p?.messageId });
     try {
       const accountId = assertString(p?.accountId, "accountId");
       const messageId = assertString(p?.messageId, "messageId");
-      // Mirror locally first (lists drop it now, counts update) and answer
-      // inside the IPC budget; Gmail + the metadata refresh finish after.
       return await settleLabelWrite(
         "gmail:trashMessage",
         accountId,
@@ -690,7 +640,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:getThread — all locally-cached messages of a thread, oldest first
   handle("gmail:getThread", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:getThread]", { accountId: p?.accountId, threadId: p?.threadId });
@@ -704,7 +653,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:modifyThread — one Gmail call for the whole conversation, mirrored locally
   handle("gmail:modifyThread", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:modifyThread]", { accountId: p?.accountId, threadId: p?.threadId });
@@ -732,15 +680,12 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:trashThread
   handle("gmail:trashThread", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:trashThread]", { accountId: p?.accountId, threadId: p?.threadId });
     try {
       const accountId = assertString(p?.accountId, "accountId");
       const threadId = assertString(p?.threadId, "threadId");
-      // Keep the rows (the Trash view reads them from the cache), mirrored as
-      // trashed right away; Gmail + the metadata refresh finish after.
       const ids = mailStore.getThreadMessages(accountId, threadId).map((m) => m.id);
       return await settleLabelWrite("gmail:trashThread", accountId, ids, ["TRASH"], [], () =>
         providerFor(accountId)
@@ -753,8 +698,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:untrashThread / gmail:untrashMessage — undo for trash: Gmail restores
-  // the previous labels; the fresh metadata re-seeds the locally-deleted rows.
   handle("gmail:untrashThread", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:untrashThread]", { accountId: p?.accountId, threadId: p?.threadId });
@@ -950,8 +893,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:getDraftVersion — which message backs a draft right now (null = the
-  // draft is gone). Open composers poll this to notice edits made elsewhere.
   handle("gmail:getDraftVersion", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     try {
@@ -971,8 +912,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:loadDraftVersion — a draft's content at a given version, mirrored
-  // into the cache (the lists show the new version too).
   handle("gmail:loadDraftVersion", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:loadDraftVersion]", { draftId: p?.draftId, messageId: p?.messageId });
@@ -992,14 +931,12 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:getDraftForMessage — resolve the draft id owning a message row
   handle("gmail:getDraftForMessage", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     try {
       const accountId = assertString(p?.accountId, "accountId");
       const messageId = assertString(p?.messageId, "messageId");
       const threadId = asString(p?.threadId);
-      // Local first (recorded on save and by sync); a server lookup as fallback.
       const known = mailStore.getDraftId(accountId, messageId, threadId);
       if (known) return { draftId: known };
       const draftId = await providerFor(accountId).findDraftId(accountId, messageId, threadId);
@@ -1032,8 +969,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:sendMessage — threading (threadId + In-Reply-To/References resolved
-  // from replyToMessageId) and multipart attachments are optional.
   handle("gmail:sendMessage", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:sendMessage]", {
@@ -1047,7 +982,6 @@ export function registerMailHandlers(): void {
       const accountId = assertString(p?.accountId, "accountId");
       const to = assertString(p?.to, "to");
       const subject = assertString(p?.subject, "subject");
-      // An empty body is fine (subject-only, or just attachments).
       const body = asString(p?.body) ?? "";
       const threadId = asString(p?.threadId);
       const replyToMessageId = asString(p?.replyToMessageId);
@@ -1075,7 +1009,6 @@ export function registerMailHandlers(): void {
               headers.referencesHeader,
             );
           } catch (headerErr) {
-            // Still threads via threadId; the reply just loses the References chain.
             console.log("[gmail:sendMessage] reply-header fetch failed", {
               error: String(headerErr),
             });
@@ -1137,7 +1070,7 @@ export function registerMailHandlers(): void {
         (error: unknown) => ({ error }),
       );
       const outcome = await Promise.race([settled, sleep(IPC_WRITE_BUDGET_MS).then(() => null)]);
-      if (outcome?.error) throw outcome.error; // failed in time: the composer keeps its draft
+      if (outcome?.error) throw outcome.error;
       if (outcome === null) {
         void settled.then(async ({ error }) => {
           if (!error) return;
@@ -1161,7 +1094,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:pickAttachments — backend open-file dialog, returns file contents
   handle("gmail:pickAttachments", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:pickAttachments]", { existingBytes: p?.existingBytes });
@@ -1195,7 +1127,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:openAttachment — save to the temp cache and open with the default app
   handle("gmail:openAttachment", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:openAttachment]", {
@@ -1219,7 +1150,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:openComposeAttachment — write in-memory compose bytes to temp and open
   handle("gmail:openComposeAttachment", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:openComposeAttachment]", { name: p?.name });
@@ -1234,8 +1164,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:proxyImage — fetch a remote email image server-side (bypasses the
-  // iframe's Cross-Origin-Resource-Policy block) and return it as a data URL
   handle("gmail:proxyImage", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     try {
@@ -1247,7 +1175,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:suggestContacts — recipient autocomplete from the local cache
   handle("gmail:suggestContacts", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     try {
@@ -1260,7 +1187,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:getAttachment
   handle("gmail:getAttachment", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:getAttachment]", {
@@ -1283,7 +1209,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:syncAccount — kick off a background sync, return current status
   handle("gmail:syncAccount", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:syncAccount]", { accountId: p?.accountId });
@@ -1297,7 +1222,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:getSenderAvatar — cached sender photo (People API / Gravatar / domain logo)
   handle("gmail:getSenderAvatar", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     try {
@@ -1311,7 +1235,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:getSyncStatus — poll background sync progress for an account
   handle("gmail:getSyncStatus", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     try {
@@ -1323,7 +1246,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:getSyncSettings — read the periodic pull-sync configuration
   handle("gmail:getSyncSettings", async () => {
     try {
       return await getSettings();
@@ -1333,8 +1255,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:setSyncSettings — persist any provided settings; restarts the sync
-  // timer when the interval changed.
   handle("gmail:setSyncSettings", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:setSyncSettings]", {

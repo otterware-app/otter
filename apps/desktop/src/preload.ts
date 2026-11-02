@@ -26,7 +26,6 @@ function subscribe(channel: string, listener: (params: unknown) => void): () => 
 
 const bridge: DesktopBridge = {
   platform: process.platform,
-  // What this OS's app can do; the renderer hides the rest.
   features: featuresFor(process.platform),
   invoke: <T>(channel: string, params?: unknown) =>
     ipcRenderer.invoke(channel, params) as Promise<T>,

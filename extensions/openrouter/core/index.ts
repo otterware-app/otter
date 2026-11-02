@@ -1,9 +1,3 @@
-/**
- * The Otter Mail agent (openrouter.ts): runs on the relay for the signed-in
- * Otter account, through OpenRouter with the user's API key, and calls Otter
- * Mail's tools on this device.
- */
-
 import {
   onOtterAccountChange,
   preferenceChanged,
@@ -25,7 +19,6 @@ export default {
   manifest,
   activate({ handle, registerAgent }) {
     registerAgent(openRouterProvider);
-    // Another Otter account, another agent: its runs and connection are the account's.
     onOtterAccountChange(() => {
       openRouterProvider.shutdown();
       void refreshProvider("openrouter");

@@ -38,16 +38,12 @@ final class Preferences {
         }
     }
 
-    /** How the mailboxes are arranged (apps/web/src/main/mailboxes.ts). */
     struct Arrangement: Codable, Equatable {
-        /** Addresses in the user's order; mailboxes not listed follow, as added. */
         var order: [String] = []
-        /** Addresses of turned-off mailboxes. */
         var off: [String] = []
 
         init() {}
 
-        /** Older devices also wrote `combined` (an "All mailboxes" inbox, gone): it's ignored. */
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             order = try container.decodeIfPresent([String].self, forKey: .order) ?? []
@@ -58,7 +54,6 @@ final class Preferences {
     static let initialTheme = "codex"
 
     private let defaults: UserDefaults
-    /** Told which section (`ui` or `settings`) the user changed, to sync it with the account. */
     @ObservationIgnored var onChange: (String) -> Void = { _ in }
     @ObservationIgnored private var applying = false
 
@@ -96,7 +91,6 @@ final class Preferences {
         (try? JSONEncoder().encode(arrangement)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
     }
 
-    /** The `ui` section's keys this app has, as the other apps store them. */
     var uiSection: [String: String] {
         [
             "otter:theme-source": scheme.rawValue,
@@ -109,7 +103,6 @@ final class Preferences {
         ]
     }
 
-    /** The `settings` section's keys this app has. */
     var settingsSection: [String: Any] {
         ["notificationsMode": notifications.rawValue, "readLanguages": readLanguages, "autoTranslate": autoTranslate]
     }
@@ -158,13 +151,10 @@ final class Preferences {
         autoTranslate = defaults.bool(forKey: "settings.autoTranslate")
     }
 
-    /** A stock theme, or one of your own. */
     func theme(_ id: String) -> Theme? { Theme.named(id) ?? customThemes.first { $0.id == id } }
 
-    /** Every theme to pick from: the stock ones, then your own. */
     var themes: [Theme] { Theme.all + customThemes }
 
-    /** The languages the user reads, falling back to the system's. */
     var effectiveReadLanguages: [String] {
         readLanguages.isEmpty
             ? Locale.preferredLanguages.map { Locale.Language(identifier: $0).minimalIdentifier }

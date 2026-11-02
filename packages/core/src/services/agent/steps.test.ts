@@ -1,8 +1,3 @@
-/**
- * Every agent's tool calls read the same in the chat: Claude's tool_use
- * blocks, Codex's thread items and Hermes' tool events map to one ToolStep.
- */
-
 import { describe, expect, it } from "vite-plus/test";
 
 import { claudeStep, codexStep, hermesStep } from "./steps.ts";

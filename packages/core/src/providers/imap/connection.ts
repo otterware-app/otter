@@ -28,7 +28,6 @@ const IDLE_CLOSE_MS = 2 * 60_000;
 /** What a signed-in IMAP account needs to reach its servers. */
 export type ImapAccess = { settings: ImapSettings; password: string };
 
-/** Who's asking: background work waits behind the user (quota.ts's tiers, for IMAP). */
 let tierContext: AsyncContext<Lane> | null = null;
 export const tier = (): AsyncContext<Lane> => (tierContext ??= platform().asyncContext<Lane>());
 const RANK = { user: 0, sync: 1, backfill: 2, prefetch: 3 } as const;
@@ -42,10 +41,8 @@ type Connection = {
 
 const connections = new Map<string, Connection>();
 
-/** Where a failure happened, for describeError's text. */
 export const failedServer = new WeakMap<object, { host: string; user: string }>();
 
-/** No password on this device (or the server refused it): nothing to try until the user enters one. */
 export class NeedsPassword extends Error {
   constructor(email: string) {
     super(`Enter the password for ${email} to sync it.`);
@@ -56,7 +53,6 @@ export class NeedsPassword extends Error {
 export const isSignInFailure = (err: unknown): boolean =>
   err instanceof NeedsPassword || (err instanceof MailProtocolError && err.kind === "auth");
 
-/** Sets the password aside when the server refused it (see setAsideImapPassword). */
 export function noteSignInFailure(accountId: string, access: ImapAccess, err: unknown): void {
   if (err instanceof MailProtocolError && err.kind === "auth") {
     setAsideImapPassword(accountId, access.password, err.message);
@@ -83,7 +79,6 @@ export function smtpOptions({ settings, password }: ImapAccess): SmtpOptions {
   return { ...settings.smtp, auth: { user: settings.username, pass: password } };
 }
 
-/** Tags a failure with the server it came from (see describeError). */
 export function tagFailure(err: unknown, host: string, user: string): unknown {
   if (err instanceof MailProtocolError && !failedServer.has(err)) {
     failedServer.set(err, { host, user });
@@ -91,7 +86,6 @@ export function tagFailure(err: unknown, host: string, user: string): unknown {
   return err;
 }
 
-/** A new connection, logged in, with CONDSTORE and QRESYNC on where the server has them. */
 export async function openImap(accountId: string): Promise<ImapClient> {
   const access = await accessFor(accountId);
   try {
@@ -183,7 +177,6 @@ export class FolderChanged extends Error {
   }
 }
 
-/** The folder isn't there (anymore): SELECT said NO. */
 export class FolderGone extends Error {
   constructor(path: string, options?: { cause?: unknown }) {
     super(`The folder ${path} is gone.`, options);
@@ -212,7 +205,6 @@ export async function selectFolder(
   return mailbox;
 }
 
-/** A whole `<id>` Message-ID: nothing SEARCH could match inside other ids, nothing to break a header. */
 export const isMessageIdHeader = (value: string | null | undefined): value is string =>
   !!value && /^<[^<>\s]+>$/.test(value);
 
@@ -245,7 +237,6 @@ export function inFolder<T>(
   );
 }
 
-/** Logs the account's command connection out (a removed or signed-out account). */
 export function closeImap(accountId: string): void {
   const connection = connections.get(accountId);
   connections.delete(accountId);

@@ -45,11 +45,6 @@ import { features } from "../features";
  * and the right-hand controls.
  */
 
-/**
- * Where history can go: the router gives each entry its index, and a push
- * drops everything ahead of it. Tracked from the first HistoryControls on,
- * which mount with the window.
- */
 let trackedHistory: RouterHistory | null = null;
 let furthestIndex = 0;
 
@@ -82,7 +77,6 @@ export const RECENT_ICONS: Record<RecentIcon, ComponentType<{ className?: string
   chat: AgentIcon,
 };
 
-/** The clock: where you've been lately (recently-viewed.ts), to go back to in one click. */
 function RecentlyViewedMenu() {
   const { navigate } = useRouter();
   const places = useRecentlyViewed();
@@ -125,11 +119,6 @@ function RecentlyViewedMenu() {
   );
 }
 
-/**
- * Recently viewed, back and forward through the mailboxes, conversations and
- * Settings pages you've been to (Linear's), in the Mac app, where no browser
- * offers them: after the pinned sidebar toggle.
- */
 export function HistoryControls() {
   const { history } = useRouter();
   trackHistory(history);
@@ -222,7 +211,6 @@ export function SidebarControl({
 }: {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
-  /** While the sidebar's hidden: the pointer came onto the toggle (true) or left it, to peek. */
   onHover?: (inside: boolean) => void;
 }) {
   return (
@@ -244,11 +232,6 @@ export function SidebarControl({
   );
 }
 
-/**
- * The browser panel toggle (the Mac app's), pinned at the window's top-right. The rightmost
- * band (list, reader, draft, or the panel's own header) keeps a
- * `PanelControlSlot` where it sits.
- */
 export function PanelControl({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   return (
     <div className="pointer-events-none fixed right-(--workspace-controls-right) top-0 z-40 flex h-(--workspace-topbar-height) items-center">
@@ -265,10 +248,6 @@ export function PanelControl({ open, onToggle }: { open: boolean; onToggle: () =
   );
 }
 
-/**
- * Room left in a band for the pinned panel toggle, and the window controls
- * beside it; none under the window's tabs, which hold them.
- */
 export function PanelControlSlot() {
   if (features.windowTabs) return null;
   return (
@@ -285,9 +264,7 @@ export function PanelControlSlot() {
  * sidebar, so no toggle (`SidebarControl`): only the traffic lights.
  */
 export function TitlebarInset() {
-  // Under the window's tabs, nothing sits over the bands.
   if (features.windowTabs) return null;
-  // The band's own px-4 already covers 1rem of it, and the frame its inset.
   return (
     <span
       aria-hidden
@@ -301,10 +278,6 @@ export function TitlebarInset() {
   );
 }
 
-/**
- * The setup's title band: room for the traffic lights, then the wordmark (in
- * a browser tab, in line with the panel's content below).
- */
 export function WindowTitle({ className }: { className?: string }) {
   return (
     <div
@@ -339,7 +312,6 @@ export type MailboxOption = {
   shortcut: string;
 };
 
-/** The mailboxes to switch between, in ⌘1… order. */
 export function useMailboxOptions(accounts: MailAccount[]): MailboxOption[] {
   const { resolved: keybindings } = useKeybindingsState();
   const jump = (digit: number) =>
@@ -352,7 +324,6 @@ export function useMailboxOptions(accounts: MailAccount[]): MailboxOption[] {
   }));
 }
 
-/** Unread in each mailbox's Inbox (as its sidebar shows it). */
 export function useInboxUnread(accounts: MailAccount[]): Record<string, number> {
   return Object.fromEntries(
     useAllAccountLabels(accounts.map((a) => a.id)).map(({ accountId, labels }) => [
@@ -362,16 +333,10 @@ export function useInboxUnread(accounts: MailAccount[]): Record<string, number> 
   );
 }
 
-/**
- * Right end of the content column's title band: room for the pinned
- * agent toggle. Views that own the band (the reader) render it at the end
- * of their own header.
- */
 export function TitleTrailing({ showPanelToggle }: { showPanelToggle: boolean }) {
   return <>{showPanelToggle ? <PanelControlSlot /> : null}</>;
 }
 
-/** Title band of the content column: optional breadcrumb, sync status, trailing controls. */
 export function TitleControls({
   leading,
   syncing,

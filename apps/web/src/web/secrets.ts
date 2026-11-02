@@ -31,7 +31,6 @@ async function loadKey(): Promise<CryptoKey> {
       "encrypt",
       "decrypt",
     ]);
-    // `add`: should another worker have just made one, theirs stays and is used.
     const added = await request(
       db.transaction("keys", "readwrite").objectStore("keys").add(key, "key"),
     )
@@ -100,7 +99,6 @@ export function webSecrets(files: Platform["files"]): Platform["secrets"] {
     await files.write(FILE, JSON.stringify(sealed));
   }
 
-  // One change at a time: each rewrites the whole file.
   let queue: Promise<unknown> = Promise.resolve();
   const inTurn = <T>(fn: () => Promise<T>): Promise<T> => {
     const run = queue.then(fn, fn);

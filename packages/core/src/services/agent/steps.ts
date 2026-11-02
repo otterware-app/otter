@@ -10,10 +10,8 @@ import type { ToolStep } from "./types.js";
 
 const DETAIL_CHARS = 2_000;
 
-/** How much of a step's output the chat keeps, to show when the step opens. */
 export const TOOL_OUTPUT_CHARS = 4_000;
 
-/** `search_mail` / `getThread` → "Search mail". */
 export function sentence(name: string): string {
   const words = name
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -23,7 +21,6 @@ export function sentence(name: string): string {
   return words ? words[0].toUpperCase() + words.slice(1) : name;
 }
 
-/** `chris-google-accounts` → "Chris Google Accounts". */
 function titled(name: string): string {
   return sentence(name).replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -35,7 +32,6 @@ function oneLine(text: string, max = 80): string {
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
 
-/** Arguments as compact JSON (the chat pretty-prints it). */
 function argsDetail(args: unknown): string | undefined {
   if (args === undefined || args === null || args === "") return undefined;
   let value = args;
@@ -52,10 +48,7 @@ function argsDetail(args: unknown): string | undefined {
 
 const skillOf = (path: string) => path.match(/\/skills\/([^/]+)\/SKILL\.md$/i)?.[1];
 
-// ── Kinds of step ────────────────────────────────────────────────────────────
-
 export function commandStep(command: string): ToolStep {
-  // Reading a skill's instructions is reading the skill.
   const skill = command.match(/\/skills\/([^/\s'"]+)\/SKILL\.md/i)?.[1];
   if (skill && /^\s*(cat|sed|head|less|bat|nl)\b/.test(command))
     return { kind: "skill", title: `Read ${titled(skill)} skill`, detail: command };
@@ -98,7 +91,6 @@ function skillStep(name: string): ToolStep {
   return { kind: "skill", title: `Used ${titled(name)} skill` };
 }
 
-/** A tool of an MCP server; Otter Mail's own read by their titles. */
 export function mcpStep(server: string, tool: string, args: unknown): ToolStep {
   const ours = server.replace(/_/g, "-") === OTTER_TOOLS_SERVER;
   return {
@@ -115,9 +107,6 @@ function genericStep(name: string, args: unknown): ToolStep {
   return { kind: "tool", title: sentence(name), ...withDetail(argsDetail(args)) };
 }
 
-// ── Each agent's tools ───────────────────────────────────────────────────────
-
-/** A Claude Code tool_use; null for its own bookkeeping (loading deferred tools). */
 export function claudeStep(name: string, input: Record<string, unknown>): ToolStep | null {
   const text = (key: string) => (typeof input[key] === "string" ? (input[key] as string) : "");
   switch (name) {
@@ -153,11 +142,9 @@ export function claudeStep(name: string, input: Record<string, unknown>): ToolSt
 
 type CodexItem = { type?: string } & Record<string, unknown>;
 
-/** A Codex thread item that is a step; null for messages and reasoning. */
 export function codexStep(item: CodexItem): ToolStep | null {
   switch (item.type) {
     case "commandExecution": {
-      // Codex parses what a command does: reading a file reads like Claude's Read.
       const actions = (item.commandActions ?? []) as {
         type?: string;
         command?: string;
@@ -170,7 +157,6 @@ export function codexStep(item: CodexItem): ToolStep | null {
       if (actions.length === 1 && action.type === "search" && action.query)
         return searchStep(action.query);
       const command = action?.command ?? String(item.command ?? "command");
-      // The shell wrapper Codex reports (`/bin/zsh -lc 'echo hi'`) → `echo hi`.
       return commandStep(command.replace(/^\/bin\/\w+ -l?c '(.*)'$/s, "$1"));
     }
     case "mcpToolCall":
@@ -190,7 +176,6 @@ export function codexStep(item: CodexItem): ToolStep | null {
   }
 }
 
-/** A Hermes tool call (its own tools: terminal, read_file, skill_view, …). */
 export function hermesStep(name: string, args: unknown): ToolStep {
   let parsed: Record<string, unknown> = {};
   if (typeof args === "string") {
@@ -226,9 +211,7 @@ export function hermesStep(name: string, args: unknown): ToolStep {
   return genericStep(name, args);
 }
 
-/** An OpenClaw tool call: its shell (`bash`, `/usr/bin/bash -lc <command>`), else the tool by name. */
 export function openClawStep(name: string, args: unknown): ToolStep {
-  // A tool reached through the tool catalog comes wrapped: `tool_call { id: "ask_user", args }`.
   const wrapped = args as { id?: unknown; args?: unknown } | null;
   if (name === "tool_call" && typeof wrapped?.id === "string")
     return openClawStep(wrapped.id, wrapped.args);

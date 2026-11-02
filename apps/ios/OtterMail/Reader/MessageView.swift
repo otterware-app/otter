@@ -11,7 +11,6 @@ import SwiftUI
  * whole message's Translate and Copy are on its header.
  */
 struct MessageView: View {
-    /** The reader's side inset; Settings › Full-width messages takes it off the content. */
     static let inset: CGFloat = 20
 
     @Environment(Preferences.self) private var preferences
@@ -119,7 +118,6 @@ struct MessageView: View {
         }
     }
 
-    /** Downloads the file from Gmail and shows it in Quick Look. */
     private func open(_ attachment: Attachment, share: Bool = false) {
         guard opening == nil else { return }
         opening = attachment.filename
@@ -167,7 +165,6 @@ struct MessageView: View {
     }
 }
 
-/** A file on a message: its kind, name and size, compact (the desktop's attachment chip). */
 struct AttachmentChip: View {
     @Environment(\.palette) private var palette
     let attachment: Attachment
@@ -209,11 +206,6 @@ struct AttachmentChip: View {
     }
 }
 
-/**
- * A plain-text body in UIKit's text view, which selects like Mail: hold to
- * pick a word, drag the handles, then Copy, Translate or Share. (SwiftUI's
- * selectable Text only copies all of it.)
- */
 private struct SelectableText: UIViewRepresentable {
     @Environment(\.palette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -267,7 +259,6 @@ private struct SharedFile: Identifiable {
     let url: URL
 }
 
-/** The native share sheet includes Save to Files, AirDrop, and installed destinations. */
 private struct FileShare: UIViewControllerRepresentable {
     let url: URL
     func makeUIViewController(context: Context) -> UIActivityViewController {

@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-// Picks stable versions for Mac/Linux or iPhone (--app ios), or derives a
-// Mac/Linux nightly (--channel nightly --date YYYYMMDD --run-number N --sha SHA).
-// Stable accepts --version, --tag, or --bump patch|minor|major. --github-output
-// appends the release metadata to GITHUB_OUTPUT. iPhone is versioned separately.
 
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
@@ -62,7 +58,6 @@ const APPS: Record<App, { prefix: string; name: string; sourceVersion: () => str
   },
 };
 
-/** The app's stable tags, newest first. */
 function stableTags(prefix: string): string[] {
   const out = NodeChildProcess.execFileSync(
     "git",

@@ -15,7 +15,6 @@ import type { ApiMessage } from "./messages.js";
 
 const quote = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
-/** A `$filter` condition for a label that isn't a folder (null: it is one, or unknown). */
 function filterFor(labelId: string): string | null {
   if (labelId === "UNREAD") return "isRead eq false";
   if (labelId === "STARRED") return "flag/flagStatus eq 'flagged'";
@@ -24,7 +23,6 @@ function filterFor(labelId: string): string | null {
   return category !== null ? `categories/any(c:c eq ${quote(category)})` : null;
 }
 
-/** Where to list from: a folder's messages, or the whole mailbox's. */
 async function scope(accountId: string, labelIds: string[]) {
   for (const labelId of labelIds) {
     const folder = await folderOfLabel(accountId, labelId);
@@ -56,8 +54,6 @@ export async function listIds(
   };
 }
 
-// ── Search ──────────────────────────────────────────────────────────────────
-
 type Operator = { key: string; value: string; negated: boolean };
 
 const SYSTEM_LABELS: Record<string, string> = {
@@ -84,7 +80,6 @@ const day = (time: number) => new Date(time).toISOString().slice(0, 10);
 const term = (value: string) =>
   /\s/.test(value) ? `"${value.replace(/"/g, "")}"` : value.replace(/"/g, "");
 
-/** Gmail's query, split into its operators and its free text. */
 function parse(q: string): { ops: Operator[]; text: string } {
   const ops = [...q.matchAll(/(^|\s)(-?)([a-z_]+):("[^"]*"|\S+)/gi)].map((m) => {
     const op = {
@@ -92,7 +87,6 @@ function parse(q: string): { ops: Operator[]; text: string } {
       value: m[4].replace(/^"|"$/g, ""),
       negated: m[2] === "-",
     };
-    // `is:read` is `-is:unread`.
     return op.key === "is" && op.value.toLowerCase() === "read"
       ? { ...op, value: "unread", negated: !op.negated }
       : op;
@@ -134,7 +128,6 @@ function kql(op: Operator): string | null {
   }
 }
 
-/** The label an `in:`, `is:` or `label:` operator names, if any. */
 function labelOf(op: Operator, labels: { id: string; name: string }[]): string | null {
   const value = op.value.toLowerCase();
   if ((op.key === "in" || op.key === "is") && SYSTEM_LABELS[value]) return SYSTEM_LABELS[value];
@@ -156,7 +149,6 @@ export async function search(
   resultSizeEstimate: number;
 }> {
   const { ops, text } = parse(q);
-  // `in:` a folder is where to search; other labels are checked on each result.
   const wanted = ops
     .map((op) => ({ op, label: labelOf(op, labels) }))
     .filter((x): x is { op: Operator; label: string } => x.label !== null);
@@ -196,7 +188,6 @@ export async function search(
     .filter((message) => {
       const has = new Set(labelsFor(accountId, message));
       return wanted.every(({ op, label }) => {
-        // `in:` a folder was searched in already.
         if (label === folder && !op.negated) return true;
         return has.has(label) !== op.negated;
       });

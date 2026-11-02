@@ -1,8 +1,5 @@
 name: Release
 
-# Every push to main publishes a nightly; manual stable releases promote the latest
-# published nightly commit. A stable vX.Y.Z tag releases that exact commit.
-
 on:
   push:
     branches:
@@ -317,8 +314,6 @@ jobs:
           files: release-assets/*
           fail_on_unmatched_files: true
 
-  # Record the released version in apps/*/package.json on main, so dev builds
-  # and the next release start from it.
   finalize:
     name: Bump package versions on main
     needs: [preflight, release]

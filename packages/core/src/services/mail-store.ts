@@ -22,8 +22,6 @@ import type {
   ContactSuggestion,
 } from "../types.js";
 
-// ── DB bootstrap ────────────────────────────────────────────────────────────
-
 let db: SqlDatabase | null = null;
 
 function getDb(): SqlDatabase {
@@ -91,7 +89,6 @@ function getDb(): SqlDatabase {
   // Legacy rows synced before threading behave as single-message threads.
   handle.exec("UPDATE messages SET threadId = id WHERE threadId = '';");
 
-  // Reply-threading headers, added after the initial schema shipped.
   const messageCols = new Set(
     (
       handle.prepare("SELECT name FROM pragma_table_info('messages')").all() as unknown as {
@@ -105,7 +102,6 @@ function getDb(): SqlDatabase {
   if (!messageCols.has("referencesHeader")) {
     handle.exec("ALTER TABLE messages ADD COLUMN referencesHeader TEXT;");
   }
-  // Gmail draft id of a DRAFT message (drafts are edited/deleted by draft id).
   if (!messageCols.has("draftId")) {
     handle.exec("ALTER TABLE messages ADD COLUMN draftId TEXT;");
   }
@@ -125,8 +121,6 @@ function getDb(): SqlDatabase {
   }
   if (!messageCols.has("draftRevision")) {
     handle.exec("ALTER TABLE messages ADD COLUMN draftRevision TEXT;");
-    // Older Outlook draft bodies have no revision; reload them once rather
-    // than editing a cached body with an unknown remote version.
     handle.exec(`UPDATE messages SET detailFetched = 0
       WHERE EXISTS (SELECT 1 FROM message_labels l WHERE l.accountId = messages.accountId AND l.messageId = messages.id AND l.labelId = 'DRAFT')
         AND EXISTS (SELECT 1 FROM kv WHERE key = 'outlookPeeked:' || messages.accountId)`);
@@ -135,8 +129,6 @@ function getDb(): SqlDatabase {
     "CREATE INDEX IF NOT EXISTS idx_messages_undownloaded ON messages (accountId, detailFetched, date DESC);",
   );
 
-  // Full-text search: external-content FTS5 over messages, kept in sync via
-  // triggers. On first creation, rebuild indexes every already-cached row.
   const ftsExists =
     handle
       .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'messages_fts'")
@@ -180,8 +172,6 @@ function getDb(): SqlDatabase {
   db = handle;
   return handle;
 }
-
-// ── Row mapping ───────────────────────────────────────────────────────────────
 
 interface MessageRow {
   accountId: string;
@@ -239,7 +229,6 @@ interface ThreadRow extends MessageRow {
   threadCount: number;
   threadUnread: number;
   threadStarred: number;
-  /** Comma-joined union of every message's labels in the thread. */
   threadLabels: string | null;
 }
 
@@ -273,14 +262,11 @@ function rowToDetail(row: MessageRow): MessageDetail {
   };
 }
 
-// ── Messages: writes ────────────────────────────────────────────────────────
-
 export function upsertMessages(accountId: string, fetched: MessageSummary[]): void {
   if (fetched.length === 0) return;
   inTransaction(() => writeSummaries(accountId, fetched));
 }
 
-/** Runs `fn` in one transaction: one commit (and one WAL sync) for many rows. */
 function inTransaction(fn: () => void): void {
   const d = getDb();
   d.exec("BEGIN");
@@ -351,7 +337,6 @@ export function upsertMessageDetail(accountId: string, detail: MessageDetail): v
   upsertMessageDetails(accountId, [detail]);
 }
 
-/** Whole messages (metadata, labels, bodies, attachments), in one transaction. */
 export function upsertMessageDetails(accountId: string, details: MessageDetail[]): void {
   if (details.length === 0) return;
   const setBody = getDb().prepare(`
@@ -360,7 +345,6 @@ export function upsertMessageDetails(accountId: string, details: MessageDetail[]
      WHERE accountId = ? AND id = ?
   `);
   inTransaction(() => {
-    // Metadata + labels first, then the body/attachments on the same row.
     writeSummaries(accountId, details);
     for (const detail of details) {
       setBody.run(
@@ -378,7 +362,6 @@ export function upsertMessageDetails(accountId: string, details: MessageDetail[]
   });
 }
 
-/** Recounts the given labels' total/unread from the local cache. */
 export function recountLabels(accountId: string, labelIds: string[]): void {
   recomputeLabelCounts(accountId, [...new Set(labelIds)]);
 }
@@ -440,7 +423,6 @@ export function deleteOtherDraftsInThread(
   for (const row of rows) deleteMessage(accountId, row.id);
 }
 
-/** Removes a cached message; returns whether it was cached. */
 export function deleteMessage(accountId: string, messageId: string): boolean {
   const d = getDb();
   const existing = d
@@ -466,11 +448,6 @@ export function deleteMessage(accountId: string, messageId: string): boolean {
   return true;
 }
 
-/**
- * Re-keys a cached message, body and all, and sets its labels: an IMAP
- * message moved to another folder has a new id. When the new id is cached
- * already (a sync got there first), the old row just goes.
- */
 export function renameMessage(
   accountId: string,
   fromId: string,
@@ -517,8 +494,6 @@ export function getMessageIdsWithPrefix(accountId: string, prefix: string): stri
   return rows.map((r) => r.id);
 }
 
-/** Apply an optimistic label add/remove to a locally-cached message. */
-/** A cached message's current label ids, or null when it isn't cached. */
 export function getMessageLabelIds(accountId: string, messageId: string): string[] | null {
   const row = getDb()
     .prepare("SELECT labelIds FROM messages WHERE accountId = ? AND id = ?")
@@ -573,8 +548,6 @@ export function applyLabelChange(
 
   recomputeLabelCounts(accountId, [...new Set([...priorLabelIds, ...newLabelIds])]);
 }
-
-// ── Messages: reads ───────────────────────────────────────────────────────────
 
 /**
  * One row per thread: `matchedSql` selects the (accountId, threadId) pairs the
@@ -636,7 +609,6 @@ export function getThreadsPage(
       .all(accountId, limit + 1, offset) as unknown as ThreadRow[];
     return { messages: rows.slice(0, limit).map(rowToThreadSummary), hasMore: rows.length > limit };
   }
-  // Gmail semantics: spam/trash stay out of every view except their own.
   const exclusion = labelId === "SPAM" || labelId === "TRASH" ? "" : `AND ${NOT_SPAM_TRASH}`;
   const rows = d
     .prepare(
@@ -654,10 +626,6 @@ export function getThreadsPage(
   return { messages: rows.slice(0, limit).map(rowToThreadSummary), hasMore };
 }
 
-/**
- * Conversation rows for the given threads (Gmail search results), in the
- * order given. Threads with nothing cached are skipped.
- */
 export function getThreadSummaries(accountId: string, threadIds: string[]): MessageSummary[] {
   if (threadIds.length === 0) return [];
   const rows = getDb()
@@ -676,7 +644,6 @@ export function getThreadSummaries(accountId: string, threadIds: string[]): Mess
   });
 }
 
-/** All locally-cached messages of a thread, oldest first. */
 export function getThreadMessages(accountId: string, threadId: string): MessageSummary[] {
   const d = getDb();
   const rows = d
@@ -710,7 +677,6 @@ export function getMessageDetail(accountId: string, messageId: string): MessageD
   return rowToDetail(row);
 }
 
-/** The revision paired with a cached draft body and its attachment indexes. */
 export function getStoredDraftRevision(accountId: string, id: string): string | null {
   const row = getDb()
     .prepare(
@@ -758,8 +724,6 @@ export function setReplyHeaders(
     .run(messageIdHeader, referencesHeader, accountId, messageId);
 }
 
-/** Messages whose full body hasn't been downloaded yet, the inbox's first and
-    then newest first, skipping ones waiting out a retry backoff. */
 export function getUndownloadedMessages(
   accountId: string,
   limit: number,
@@ -777,7 +741,6 @@ export function getUndownloadedMessages(
     .all(accountId, Date.now(), limit) as unknown as { id: string; threadId: string }[];
 }
 
-/** Messages still missing a body that are due for download. */
 export function countUndownloaded(accountId: string): number {
   const row = getDb()
     .prepare(
@@ -790,7 +753,6 @@ export function countUndownloaded(accountId: string): number {
 const BODY_RETRY_BASE_MS = 10 * 60_000;
 const BODY_RETRY_MAX_MS = 24 * 60 * 60_000;
 
-/** Backs off a body download that failed: 10 min, 20 min, … up to a day. */
 export function markBodyFetchFailed(accountId: string, messageId: string): void {
   const row = getDb()
     .prepare("SELECT bodyAttempts FROM messages WHERE accountId = ? AND id = ?")
@@ -804,8 +766,6 @@ export function markBodyFetchFailed(accountId: string, messageId: string): void 
     .run(Date.now() + delay, accountId, messageId);
 }
 
-/** One history-feed change, applied in feed order (a message can be marked
-    read and unread again within one delta). */
 export type HistoryOp =
   | { kind: "labelsAdded" | "labelsRemoved"; id: string; labelIds: string[] }
   | { kind: "deleted"; id: string };
@@ -893,16 +853,12 @@ export function applyHistoryChanges(accountId: string, ops: HistoryOp[]): { unkn
   return { unknownIds: [...unknown] };
 }
 
-// ── Draft ids ───────────────────────────────────────────────────────────────
-
-/** Records which Gmail draft owns a cached message (no-op if not cached). */
 export function setDraftId(accountId: string, messageId: string, draftId: string): void {
   getDb()
     .prepare("UPDATE messages SET draftId = ? WHERE accountId = ? AND id = ?")
     .run(draftId, accountId, messageId);
 }
 
-/** The draft id owning a message: by message id, else a draft in its thread. */
 export function getDraftId(accountId: string, messageId: string, threadId?: string): string | null {
   const d = getDb();
   const own = d
@@ -918,7 +874,6 @@ export function getDraftId(accountId: string, messageId: string, threadId?: stri
   return inThread?.draftId ?? null;
 }
 
-/** The subset of `ids` not cached yet for the account (sync skips the rest). */
 export function filterUnknownIds(accountId: string, ids: string[]): string[] {
   if (ids.length === 0) return [];
   const d = getDb();
@@ -935,8 +890,6 @@ export function filterUnknownIds(accountId: string, ids: string[]): string[] {
   return ids.filter((id) => !known.has(id));
 }
 
-/** Every cached message's labels, by id (the refresh after the history feed
-    expired compares them with Gmail's). */
 export function getAllMessageLabels(accountId: string): Map<string, string[]> {
   const rows = getDb()
     .prepare("SELECT id, labelIds FROM messages WHERE accountId = ?")
@@ -944,7 +897,6 @@ export function getAllMessageLabels(accountId: string): Map<string, string[]> {
   return new Map(rows.map((r) => [r.id, parseLabelIds(r.labelIds)]));
 }
 
-/** Dates of the given cached messages (e.g. to age-gate draft pruning). */
 export function getMessageDates(accountId: string, ids: string[]): { id: string; date: number }[] {
   if (ids.length === 0) return [];
   const d = getDb();
@@ -962,7 +914,6 @@ export function getMessageDates(accountId: string, ids: string[]): { id: string;
   return out;
 }
 
-/** Messages cached for an account (full-sync progress after a resume). */
 export function countAllMessages(accountId: string): number {
   const d = getDb();
   const row = d
@@ -985,7 +936,6 @@ export function getMessageIdsForLabel(accountId: string, labelId: string): strin
   return rows.map((r) => r.id);
 }
 
-/** Total unread INBOX messages across accounts, leaving out `except` — drives the dock badge. */
 export function countInboxUnreadAll(except: ReadonlySet<string> = new Set()): number {
   const d = getDb();
   const rows = d
@@ -1009,7 +959,6 @@ export function countMessagesForLabel(accountId: string, labelId: string): numbe
   return row?.n ?? 0;
 }
 
-/** Unread messages cached locally under a label. */
 export function countUnreadForLabel(accountId: string, labelId: string): number {
   const d = getDb();
   const row = d
@@ -1022,7 +971,6 @@ export function countUnreadForLabel(accountId: string, labelId: string): number 
   return row?.n ?? 0;
 }
 
-/** The label's unread counter as last reported by Gmail (or recomputed locally). */
 export function getLabelUnread(accountId: string, labelId: string): number {
   const d = getDb();
   const row = d
@@ -1031,12 +979,9 @@ export function getLabelUnread(accountId: string, labelId: string): number {
   return row?.unread ?? 0;
 }
 
-// ── Combined (cross-account) reads ──────────────────────────────────────────
-
 const HAS_LABEL =
   "EXISTS (SELECT 1 FROM message_labels ml WHERE ml.accountId = m.accountId AND ml.messageId = m.id AND ml.labelId = ?)";
 
-/** WHERE fragment for a rule set: rules OR'd; within a rule, allOf AND'd and noneOf excluded. */
 function rulesWhere(rules: ViewRule[]): { clause: string; params: string[] } {
   const parts: string[] = [];
   const params: string[] = [];
@@ -1110,13 +1055,6 @@ export function countCombinedByRules(rules: ViewRule[]): { total: number; unread
   return { total: row?.total ?? 0, unread: row?.unread ?? 0 };
 }
 
-// ── Full-text search ──────────────────────────────────────────────────────────
-
-/**
- * User input → FTS5 MATCH syntax: each whitespace token becomes a quoted phrase
- * (neutralizing operators like AND/NEAR/parens), the last one prefix-matched
- * for search-as-you-type.
- */
 function toFtsMatch(query: string): string | null {
   const tokens = query
     .split(/\s+/)
@@ -1127,14 +1065,11 @@ function toFtsMatch(query: string): string | null {
 }
 
 export type SearchScope = {
-  /** Restrict to one label (view filter, account mode). */
   labelId?: string;
-  /** Restrict to a Combined view's rules (carry their own spam/trash semantics). */
   rules?: ViewRule[];
   starred?: boolean;
   important?: boolean;
   hasAttachments?: boolean;
-  /** Only messages newer than N days. */
   withinDays?: number;
 };
 
@@ -1205,8 +1140,6 @@ export function searchMessages(
   return { messages: rows.slice(0, limit).map(rowToSummary), hasMore };
 }
 
-// ── Contact suggestions ───────────────────────────────────────────────────────
-
 function parseAddressEntry(entry: string): { name: string; email: string } {
   const trimmed = entry.trim();
   const match = trimmed.match(/^(.*?)\s*<([^>]+)>$/);
@@ -1216,7 +1149,6 @@ function parseAddressEntry(entry: string): { name: string; email: string } {
   return { name: "", email: trimmed };
 }
 
-/** Split an address-list header on commas outside double quotes. */
 function splitAddressEntries(list: string): { name: string; email: string }[] {
   const out: { name: string; email: string }[] = [];
   let current = "";
@@ -1234,11 +1166,6 @@ function splitAddressEntries(list: string): { name: string; email: string }[] {
   return out.filter((e) => e.email.includes("@"));
 }
 
-/**
- * Recipient autocomplete from the local cache: senders aggregated across the
- * whole store plus To/Cc addressees from the most recent matching messages,
- * ranked by frequency then recency.
- */
 export function suggestContacts(queryText: string, limit: number): ContactSuggestion[] {
   const q = queryText.trim().toLowerCase();
   if (!q) return [];
@@ -1297,8 +1224,6 @@ export function suggestContacts(queryText: string, limit: number): ContactSugges
     .map((e) => ({ name: e.name === e.email ? "" : e.name, email: e.email }));
 }
 
-// ── Labels ──────────────────────────────────────────────────────────────────
-
 export function upsertLabels(accountId: string, labels: MailLabel[]): void {
   const d = getDb();
   d.exec("BEGIN");
@@ -1353,8 +1278,6 @@ export function getLabels(accountId: string): MailLabel[] {
   }));
 }
 
-// ── Sync state ────────────────────────────────────────────────────────────────
-
 export interface SyncStateRow {
   historyId: string | null;
   fullSyncDone: boolean;
@@ -1376,10 +1299,6 @@ export function getSyncState(accountId: string): SyncStateRow {
   };
 }
 
-/** Drops a deleted label's message mappings (sync reconciles the rest). */
-// ── Label edits (mirrored locally before Gmail confirms) ────────────────────
-
-/** Inserts a label or updates its name/color, keeping cached counts. */
 export function putLabel(accountId: string, label: MailLabel): void {
   getDb()
     .prepare(`
@@ -1403,10 +1322,6 @@ export function putLabel(accountId: string, label: MailLabel): void {
     );
 }
 
-/**
- * Renames/recolors a label, renaming nested labels ("Old/child" → "New/child")
- * like Gmail does. Returns a revert that restores the previous rows.
- */
 export function editLabelLocally(
   accountId: string,
   labelId: string,
@@ -1436,10 +1351,6 @@ export function editLabelLocally(
   };
 }
 
-/**
- * Removes a label from the cache: the label row and every message's link to
- * it (both the message_labels rows and the labelIds JSON). Returns a revert.
- */
 export function removeLabelLocally(accountId: string, labelId: string): () => void {
   const label = getLabels(accountId).find((l) => l.id === labelId);
   const messageIds = getMessageIdsForLabel(accountId, labelId);
@@ -1483,8 +1394,6 @@ export function setSyncState(accountId: string, patch: Partial<SyncStateRow>): v
       lastSyncAt   = excluded.lastSyncAt
   `).run(accountId, next.historyId, next.fullSyncDone ? 1 : 0, next.lastSyncAt);
 }
-
-// ── Account teardown ──────────────────────────────────────────────────────────
 
 export function removeAccountData(accountId: string): void {
   const d = getDb();

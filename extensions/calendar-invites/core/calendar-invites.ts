@@ -29,20 +29,15 @@ export type CalendarInvite = {
   uid: string;
   method: string;
   summary: string;
-  /** ISO start/end; all-day events have date-only values. */
   start: string | null;
   end: string | null;
   allDay: boolean;
   location: string | null;
   organizer: { name: string; email: string } | null;
   sequence: number;
-  /** Your answer: from the calendar when readable, else the last one sent from here. */
   response: RsvpResponse | "needsAction";
-  /** No calendar to answer in for this account (email replies are used). */
   calendarAccess: boolean;
-  /** Link to the event in the calendar. */
   htmlLink: string | null;
-  /** The invite was cancelled (METHOD:CANCEL). */
   cancelled: boolean;
 };
 
@@ -72,7 +67,6 @@ function unescapeText(value: string): string {
   return value.replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1");
 }
 
-/** DTSTART/DTEND → ISO (UTC "Z", floating/TZID read as local wall time). */
 function toIso(prop: Prop | undefined): { iso: string | null; allDay: boolean } {
   if (!prop) return { iso: null, allDay: false };
   const v = prop.value;
@@ -103,7 +97,7 @@ function parseIcs(ics: string): ParsedIcs | null {
     if (!prop) continue;
     if (prop.name === "METHOD" && !inEvent) method = prop.value.toUpperCase();
     if (prop.name === "BEGIN" && prop.value.toUpperCase() === "VEVENT") {
-      if (event.length > 0) break; // first event only
+      if (event.length > 0) break;
       inEvent = true;
       continue;
     }
@@ -119,10 +113,6 @@ const mailto = (value: string) =>
     .replace(/^mailto:/i, "")
     .trim()
     .toLowerCase();
-
-// ---------------------------------------------------------------------------
-// Invite lookup
-// ---------------------------------------------------------------------------
 
 const icsCache = new Map<string, ParsedIcs | null>();
 
@@ -200,10 +190,6 @@ export async function getInvite(
     cancelled: method === "CANCEL" || get(event, "STATUS")?.value.toUpperCase() === "CANCELLED",
   };
 }
-
-// ---------------------------------------------------------------------------
-// RSVP
-// ---------------------------------------------------------------------------
 
 const PARTSTAT: Record<RsvpResponse, string> = {
   accepted: "ACCEPTED",

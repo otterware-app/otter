@@ -56,7 +56,6 @@ describe("Gmail quota", () => {
     for (let i = 0; i < 12; i++) await acquireQuota(account, 50);
     expect(spentLastMinute(account)).toBe(600);
 
-    // Refused after spending little (another device, a restart): a trim.
     expect(reportQuotaExceeded(account, 0)).toBe(true);
     expect(budgetOf(account)).toBe(3840);
     // The other requests in flight are refused too: the same event.
@@ -72,7 +71,6 @@ describe("Gmail quota", () => {
 
   it("takes what was spent as the budget when that was most of it", async () => {
     const account = "b@gmail.test";
-    // Spend 3,000 units over the minute (foreground, as the bucket refills).
     for (let i = 0; i < 60; i++) {
       await acquireQuota(account, 50);
       vi.setSystemTime(Date.now() + 900);

@@ -32,12 +32,9 @@ import { Btn } from "../mail/ui";
 import { requestTour, startSetup } from "../onboarding/onboarding";
 import { requestProblemReport } from "../support/report-problem";
 
-/** Where the settings page is. */
 export type SettingsRoute = {
   pane: SettingsPane;
-  /** One thing inside the pane: an extension's page. */
   item?: string;
-  /** A settings-search result's anchor to scroll to, cleared once it's reached. */
   target?: string;
 };
 
@@ -47,7 +44,6 @@ const NOTIFICATIONS_OPTIONS: { value: NotificationsMode; label: string }[] = [
   { value: "all", label: "All new mail" },
 ];
 
-/** Auto-sync cadence choices in seconds; 0 = manual only. */
 const SYNC_INTERVAL_OPTIONS = [
   { value: 0, label: "Manually" },
   { value: 15, label: "Every 15 seconds" },
@@ -62,10 +58,6 @@ const ADVANCE_DIRECTION_OPTIONS: { value: AdvanceDirection; label: string }[] = 
   { value: "previous", label: "Previous message" },
   { value: "none", label: "Don't select another message" },
 ];
-
-// ---------------------------------------------------------------------------
-// General
-// ---------------------------------------------------------------------------
 
 function GeneralPane() {
   const [syncInterval, setSyncInterval] = useState<number | null>(null);
@@ -107,7 +99,6 @@ function GeneralPane() {
   useEffect(() => {
     void loadSyncSettingsForEffect.current();
     void loadMailAppsForEffect.current();
-    // Changed on another device.
     const offSettings = window.desktopBridge.on(
       "settings:changed",
       () => void loadSyncSettingsForEffect.current(),
@@ -317,7 +308,6 @@ function GeneralPane() {
                 value={defaultMailAppId ?? undefined}
                 onValueChange={(v) => void handleDefaultMailChange(v)}
                 options={(mailApps ?? []).map((app) => ({ value: app.id, label: app.name }))}
-                // Linux may have no mail app at all, or none set as the default.
                 placeholder={mailApps ? "None" : undefined}
                 ariaLabel="Default email app"
               />
@@ -363,11 +353,6 @@ function GeneralPane() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
-/** In-app settings: one pane at a time, chosen from the sidebar nav. */
 export function SettingsPage({
   route,
   onNavigate,

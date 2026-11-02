@@ -8,14 +8,11 @@ import type { MailServer } from "@otter-mail/contracts/mail";
 import { toBase64, utf8Encode } from "../bytes.js";
 import { platform, type ByteStream } from "../platform.js";
 
-/** A password, or an OAuth access token (XOAUTH2: Outlook, Gmail over IMAP). */
 export type MailAuth = { user: string; pass: string } | { user: string; accessToken: string };
 
-/** Opens a connection; `platform().connect` unless a test hands in its own. */
 export type Connector = (host: string, port: number, opts: { tls: boolean }) => Promise<ByteStream>;
 
 export interface ServerOptions extends Omit<MailServer, "security"> {
-  /** "none" is plain text throughout: local test servers only. */
   security: MailServer["security"] | "none";
   auth: MailAuth;
   /** How long to wait for the server to say anything before giving up. */
@@ -25,13 +22,6 @@ export interface ServerOptions extends Omit<MailServer, "security"> {
 
 export const DEFAULT_TIMEOUT_MS = 60_000;
 
-/**
- * - `auth`: the server refused the credentials.
- * - `network`: the connection failed or dropped.
- * - `timeout`: the server went quiet.
- * - `server`: the server refused a command (NO, BAD, a 4xx/5xx reply).
- * - `protocol`: the server said something we couldn't make sense of.
- */
 export type MailErrorKind = "auth" | "network" | "timeout" | "server" | "protocol";
 
 export class MailProtocolError extends Error {
@@ -58,10 +48,6 @@ export function openStream(options: ServerOptions): Promise<ByteStream> {
   );
 }
 
-/**
- * The stream's next chunk, or a timeout error (closing the stream) when the
- * server stays quiet for `timeoutMs`. Null once the server has closed it.
- */
 export async function readChunk(
   stream: ByteStream,
   timeoutMs: number | null,
@@ -106,7 +92,6 @@ export async function writeBytes(
 export const saslPlain = (user: string, pass: string): string =>
   toBase64(utf8Encode(`\0${user}\0${pass}`));
 
-/** SASL XOAUTH2, as Google and Microsoft define it. */
 export const saslXoauth2 = (user: string, accessToken: string): string =>
   toBase64(utf8Encode(`user=${user}\x01auth=Bearer ${accessToken}\x01\x01`));
 

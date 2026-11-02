@@ -1,6 +1,5 @@
 import Foundation
 
-/** On-device OAuth shared with the extension; refreshes go directly to Microsoft. */
 nonisolated enum MicrosoftCredentials {
     static let clientID = "b0c4e8bf-e651-456e-9bc6-408a741b36f9"
     static let authority = "https://login.microsoftonline.com/common/oauth2/v2.0"

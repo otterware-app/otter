@@ -29,7 +29,6 @@ const updatedAt = () =>
     .$defaultFn(() => new Date())
     .$onUpdateFn(() => new Date());
 
-/** Otter accounts. */
 export const user = sqliteTable("user", {
   id: text().primaryKey(),
   name: text().notNull(),
@@ -45,7 +44,6 @@ export const deletedIdentity = sqliteTable("deleted_identity", {
   userId: text().primaryKey(),
 });
 
-/** One per signed-in device. */
 export const session = sqliteTable(
   "session",
   {
@@ -63,7 +61,6 @@ export const session = sqliteTable(
   (t) => [index("session_user").on(t.userId)],
 );
 
-/** The Google identity an Otter account signs in with. */
 export const account = sqliteTable(
   "account",
   {
@@ -95,14 +92,12 @@ export const verification = sqliteTable("verification", {
   updatedAt: updatedAt(),
 });
 
-/** Mailboxes (Gmail, IMAP) linked to an Otter account, with the profile the app shows. */
 export const linkedAccounts = sqliteTable(
   "linked_accounts",
   {
     userId: text()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    /** Lowercased. */
     email: text().notNull(),
     provider: text().$type<MailProviderKind>().notNull().default("gmail"),
     /** JSON, for IMAP mailboxes: where the mailbox lives (never its password). */
@@ -113,14 +108,9 @@ export const linkedAccounts = sqliteTable(
     color: text(),
     linkedAt: integer({ mode: "timestamp_ms" }).notNull(),
   },
-  (t) => [
-    primaryKey({ columns: [t.userId, t.email] }),
-    // Gmail push notifications look accounts up by address.
-    index("linked_accounts_email").on(t.email),
-  ],
+  (t) => [primaryKey({ columns: [t.userId, t.email] }), index("linked_accounts_email").on(t.email)],
 );
 
-/** APNs routing only. Session IDs also come from Accounts, whose lifecycle RPC removes these rows. */
 export const pushDevices = sqliteTable(
   "push_devices",
   {
@@ -172,7 +162,6 @@ export const pushRevocations = sqliteTable(
   (t) => [primaryKey({ columns: [t.userId, t.sessionId] })],
 );
 
-/** Provider credentials encrypted for this user/mailbox. No mail content is stored. */
 export const notificationConnections = sqliteTable(
   "notification_connections",
   {
@@ -193,7 +182,6 @@ export const notificationConnections = sqliteTable(
   ],
 );
 
-/** Single-use, short-lived OAuth requests, bound to the original Otter session. */
 export const notificationAuthorizations = sqliteTable("notification_authorizations", {
   id: text().primaryKey(),
   userId: text()
@@ -208,14 +196,11 @@ export const notificationAuthorizations = sqliteTable("notification_authorizatio
   expiresAt: integer().notNull(),
 });
 
-/** Each Otter account's preferences (contracts' `Preferences`), synced to its devices. */
 export const preferences = sqliteTable("preferences", {
   userId: text()
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
-  /** JSON: section name → value. */
   data: text().notNull(),
-  /** The Hermes API key, encrypted (only the relay can open it). */
   hermesKey: text(),
   updatedAt: updatedAt(),
 });
@@ -239,7 +224,6 @@ export const chats = sqliteTable(
     lastResponseId: text(),
     device: text({ mode: "json" }).$type<Chat["device"]>(),
     tabs: text({ mode: "json" }).$type<ChatTab[]>().notNull(),
-    /** JSON: the transcript (`ChatTurn[]`), read only a chat at a time. */
     turns: text().notNull(),
     createdAt: integer({ mode: "timestamp_ms" }).notNull(),
     updatedAt: integer({ mode: "timestamp_ms" }).notNull(),
@@ -248,7 +232,6 @@ export const chats = sqliteTable(
   (t) => [primaryKey({ columns: [t.userId, t.id] })],
 );
 
-/** Shared Otter sign-in: Better Auth OAuth provider and signing keys. */
 export const jwks = sqliteTable("jwks", {
   id: text().primaryKey(),
   publicKey: text().notNull(),
@@ -429,7 +412,6 @@ export const oauthClientAssertion = sqliteTable("oauth_client_assertion", {
   expiresAt: integer({ mode: "timestamp_ms" }).notNull(),
 });
 
-/** Remembers app membership even after OAuth tokens expire or a device signs out. */
 export const identityApps = sqliteTable(
   "identity_apps",
   {

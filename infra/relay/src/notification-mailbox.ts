@@ -1,4 +1,3 @@
-/** One serialized provider connection per Otter user/mailbox. Only cursors and message IDs live in the object. */
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./worker.ts";
 import * as connections from "./notification-connections.ts";
@@ -18,10 +17,7 @@ export class NotificationMailbox extends DurableObject<Env> {
       await this.check(false);
   }
   async changed(): Promise<void> {
-    // A provider that is throttling us keeps its backoff: new deliveries wait for the retry,
-    // which reads everything they announced.
     if (await this.ctx.storage.get<number>("failures")) return;
-    // Multiple Pub/Sub/Graph deliveries become one history walk.
     const alarm = await this.ctx.storage.getAlarm();
     const due = Date.now() + 2000;
     if (!alarm || alarm > due) await this.ctx.storage.setAlarm(due);

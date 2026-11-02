@@ -9,10 +9,6 @@
 import { readJson, writeJson } from "../json-file.js";
 import type { MailView, ViewRule } from "../types.js";
 
-/**
- * The user's own views (ids `v_…`). Older versions also kept "All mailboxes'"
- * built-in folders here (`__inbox__`, …): they're left out.
- */
 const ownViews = (views: MailView[]): MailView[] =>
   views.filter((v) => typeof v?.id === "string" && v.id.startsWith("v_"));
 
@@ -37,7 +33,6 @@ export async function saveView(input: {
   id?: string;
   name: string;
   rules: ViewRule[];
-  /** Left as they are when absent. */
   icon?: string | null;
   color?: string | null;
 }): Promise<MailView> {

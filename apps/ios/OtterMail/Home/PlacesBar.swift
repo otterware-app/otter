@@ -1,16 +1,10 @@
 import SwiftUI
 
-/**
- * The app's navigation, Linear's: a glass bar with the mailbox shown (its
- * picture, the one switcher), the places used most (Inbox, Drafts, Search),
- * a ⌃⌄ that opens every other place, and the agent on its own button beside it.
- */
 struct PlacesBar: View {
     @Environment(MailStore.self) private var store
     @Environment(\.palette) private var palette
 
     let place: Place
-    /** The ⌃⌄ panel is open. */
     let menuOpen: Bool
     let showsAgent: Bool
     let onSelect: (Folder) -> Void
@@ -93,10 +87,6 @@ struct PlacesBar: View {
     }
 }
 
-/**
- * Every place, from the bar's ⌃⌄ (Linear's menu): the mailbox switcher on top,
- * then its folders and labels, then Search and Settings.
- */
 struct PlacesPanel: View {
     @Environment(MailStore.self) private var store
     @Environment(\.palette) private var palette
@@ -148,7 +138,6 @@ struct PlacesPanel: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 32))
     }
 
-    /** The mailbox shown (the bar's picture switches it). */
     private func header(_ mailbox: Mailbox?) -> some View {
         HStack(spacing: 10) {
             MailboxAvatar(mailbox: mailbox, size: 24)
@@ -212,7 +201,6 @@ struct PlacesPanel: View {
     }
 }
 
-/** Every mailbox to switch to, with its unread count (the bar's picture). */
 struct MailboxChoices: View {
     @Environment(MailStore.self) private var store
     let current: String
@@ -233,7 +221,6 @@ struct MailboxChoices: View {
     }
 }
 
-/** A mailbox's picture (the Google account's), or its mark until there is one. */
 struct MailboxAvatar: View {
     let mailbox: Mailbox?
     var size: CGFloat = 30

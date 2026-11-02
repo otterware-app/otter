@@ -1,6 +1,5 @@
 import Foundation
 
-/** Graph's message resource, with the fields Otter Mail asks for (core's outlook/messages.ts). */
 nonisolated struct GraphMessage: Decodable {
     struct Recipient: Decodable {
         struct Address: Decodable { var name: String?; var address: String? }
@@ -9,7 +8,6 @@ nonisolated struct GraphMessage: Decodable {
     struct Flag: Decodable { var flagStatus: String? }
     struct Body: Decodable { var contentType: String?; var content: String? }
     struct Header: Decodable { var name: String; var value: String }
-    /** Delta's mark on a message gone from the folder. */
     struct Removed: Decodable { var reason: String? }
 
     var id: String
@@ -45,11 +43,9 @@ nonisolated struct GraphMessage: Decodable {
     /** What a thread needs of each message (its words come from the MIME source). */
     static let fields = "id,conversationId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,isDraft,flag,importance,categories,hasAttachments,parentFolderId,internetMessageId"
 
-    /** Its thread: Outlook's conversation. */
     var thread: String { conversationId ?? id }
     var flagged: Bool { flag?.flagStatus == "flagged" }
 
-    /** Drafts and sent mail are dated when written; received mail when it arrived. */
     var date: Date {
         let text = isDraft == true ? sentDateTime ?? receivedDateTime : receivedDateTime
         return text.flatMap { try? Date($0, strategy: .iso8601) } ?? .distantPast
@@ -74,9 +70,7 @@ nonisolated struct OutlookContent {
     var headers: [String: String]
 }
 
-/** Outlook's messages in the app's shape, and label changes as Graph writes them. */
 nonisolated enum OutlookMail {
-    /** From the MIME source; attachment ids are `mime:<index>` into its files, as core's are. */
     static func content(_ parsed: MIMEParser.Parsed) -> OutlookContent {
         let files = Array(parsed.files.enumerated())
         let attachment = { (item: (offset: Int, element: MIMEParser.File)) in
@@ -96,7 +90,6 @@ nonisolated enum OutlookMail {
         )
     }
 
-    /** From Graph's properties (a message with big attachments); files are `graph:<attachment id>`, fetched when opened. */
     static func content(_ message: GraphMessage, attachments: [GraphAttachment]) -> OutlookContent {
         let html = message.body?.contentType?.lowercased() == "html" ? message.body?.content : nil
         var headers: [String: String] = [:]
@@ -130,7 +123,6 @@ nonisolated enum OutlookMail {
         }
         let from = (message.from ?? message.sender)?.emailAddress
         let address = from?.address ?? ""
-        // Your own mail can name you by Exchange's internal address (/O=…/CN=…) for a while.
         let email = address.contains("@") ? address : message.isDraft == true || !address.isEmpty ? mailbox : ""
         var headers = content?.headers ?? [:]
         if headers["Message-ID"] == nil, let id = message.internetMessageId { headers["Message-ID"] = id }
@@ -153,11 +145,6 @@ nonisolated enum OutlookMail {
         )
     }
 
-    /**
-     * A conversation as a thread: its messages in synced folders, oldest
-     * first, wearing their folders', categories' and importance's labels
-     * (read state, flags and drafts are the messages' own, as for Gmail).
-     */
     static func thread(
         _ id: String, _ messages: [GraphMessage], mailbox: String, folders: OutlookFolders,
         contents: [String: OutlookContent], known: [String: Message]
@@ -176,9 +163,6 @@ nonisolated enum OutlookMail {
         )
     }
 
-    // ── Changing ─────────────────────────────────────────────────────────────
-
-    /** The property changes a label change makes to a message (nil: none). */
     static func patch(_ message: GraphMessage, add: [String], remove: [String]) -> [String: Any]? {
         var patch: [String: Any] = [:]
         if add.contains("UNREAD"), message.isRead != false { patch["isRead"] = false }
@@ -194,13 +178,6 @@ nonisolated enum OutlookMail {
         return patch.isEmpty ? nil : patch
     }
 
-    /**
-     * Where a label change sends a message (nil: it stays), as core's
-     * outlook/writes.ts: into an added folder label's folder (`ARCHIVE`'s
-     * too); out of the inbox or a folder, to the Archive; out of Junk,
-     * Deleted Items or the Archive, back to the inbox (Sent Items for your
-     * own). On a thread, your sent mail and drafts stay put unless it's trashed.
-     */
     static func destination(_ message: GraphMessage, add: [String], remove: [String], wholeThread: Bool, mailbox: String, folders: OutlookFolders) -> String? {
         let current = folders.label(ofFolder: message.parentFolderId)
         let own = current == "SENT" || current == "DRAFT" || message.isDraft == true
@@ -218,7 +195,6 @@ nonisolated enum OutlookMail {
         return nil
     }
 
-    /** The composer's message as Graph's fields. */
     static func fields(_ message: Outgoing) -> [String: Any] {
         let recipients = { (people: [Person]) in
             people.map { person -> [String: Any] in

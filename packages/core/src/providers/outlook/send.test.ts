@@ -1,9 +1,3 @@
-/**
- * Outlook's scheduled sends, as Graph is asked for them: the deferred send
- * time on the draft, held in the Outbox, then sent; cancelled by deleting it.
- * (Tried against Exchange Online: it holds the message, locked, until then.)
- */
-
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { GraphError } from "./graph.ts";

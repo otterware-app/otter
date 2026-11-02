@@ -47,7 +47,6 @@ function formatByteSize(bytes: number): string {
   return `${bytes} bytes`;
 }
 
-/** Returns the error to show for a file too large to be a theme, else null. */
 function versionedCopy(theme: ThemeDefinition, preferredName?: string | null): ThemeDefinition {
   if (preferredName && preferredName.toLowerCase() !== theme.label.toLowerCase()) {
     const candidate = parseThemeFile({
@@ -327,9 +326,6 @@ export function ThemeImportDialog({
     [readThemeFiles],
   );
 
-  /** Copy of an already-installed theme under the source file's name when
-   *  that differs (Dracula Soft), else the next free "Name (1)". */
-
   const resolveConflicts = useCallback(
     (mode: "update" | "copy") => {
       if (!conflicts) return;
@@ -374,8 +370,6 @@ export function ThemeImportDialog({
     }
     try {
       const parsed: unknown = JSON.parse(json);
-      // VS Code themes are converted on the way in; anything else has to be
-      // one of our own files.
       const theme = isVsCodeThemeFile(parsed)
         ? parseVsCodeThemeFile(parsed)
         : parseThemeFile(parsed);
@@ -409,7 +403,6 @@ export function ThemeImportDialog({
         if (!nextOpen) setError(null);
         onOpenChange(nextOpen);
       }}
-      // Mail: Mail's dialog takes its title and size as props.
       title="Add a theme"
       size="xl"
     >
@@ -425,7 +418,6 @@ export function ThemeImportDialog({
               setIsDropTarget(true);
             },
             onDragLeave: (event: DragEvent<HTMLDivElement>) => {
-              // Ignore moves between children of the drop zone.
               if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
               setIsDropTarget(false);
             },

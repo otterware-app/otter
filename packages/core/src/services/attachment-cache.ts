@@ -24,7 +24,6 @@ async function pathFor(accountId: string, messageId: string, attachmentId: strin
   } catch {
     /* Cache lookup remains best-effort. */
   }
-  // Outlook reuses both the draft's message ID and MIME attachment indexes.
   const key = `${accountId}:${messageId}:${attachmentId}${revision ? `:${revision}` : ""}`;
   return `${DIR}/${await sha256Hex(key)}`;
 }
@@ -77,7 +76,6 @@ export async function getAttachmentBytes(
     /* Cache lookup is best-effort. */
   }
   const bytes = await providerFor(accountId).fetchAttachment(accountId, messageId, attachmentId);
-  // Keep the revision captured at the start if a draft changes during the read.
   try {
     await platform().files.write(path, bytes);
   } catch {
@@ -96,7 +94,6 @@ export async function getAttachmentData(
   return { base64: toBase64(bytes), size: bytes.length };
 }
 
-/** Saves an attachment where the user chooses (a save dialog, or a download). */
 export async function saveAttachment(
   accountId: string,
   messageId: string,
@@ -107,7 +104,6 @@ export async function saveAttachment(
   return { saved: await platform().userFiles.save(filename, bytes) };
 }
 
-/** Drop oldest files once the cache passes the size cap (run at startup). */
 export async function pruneAttachmentCache(): Promise<void> {
   try {
     const files = await platform().files.list(DIR);

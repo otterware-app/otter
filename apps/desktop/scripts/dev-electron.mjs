@@ -1,7 +1,3 @@
-// Runs Electron against the Vite dev server and restarts it whenever
-// `vp pack --watch` rewrites the main-process, backend or preload bundle.
-// Started by scripts/dev-runner.ts; expects VITE_DEV_SERVER_URL.
-
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodeNet from "node:net";
@@ -72,7 +68,6 @@ async function waitForResources() {
 await waitForResources();
 
 const electronPath = resolveElectronPath();
-// Lets Playwright (connectOverCDP) and DevTools attach to the running app.
 const debuggingPort = Number(process.env.OTTER_MAIL_REMOTE_DEBUGGING_PORT ?? 0);
 const debuggingArgs =
   debuggingPort > 0 ? [`--remote-debugging-port=${debuggingPort}`, "--remote-allow-origins=*"] : [];

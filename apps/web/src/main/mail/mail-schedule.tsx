@@ -44,7 +44,6 @@ export function TimePicker({
   onChoose,
 }: {
   title: string;
-  /** The server sends it at that time (Outlook's scheduled sends), not this device. */
   onServer?: boolean;
   disabled?: boolean;
   onChoose: (time: number) => Promise<unknown>;

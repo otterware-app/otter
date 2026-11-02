@@ -1,14 +1,3 @@
-/**
- * Outlook, end to end inside core: startCore on a Node platform against a
- * pretend Microsoft Graph with per-folder delta queries. What it locks in: a
- * new mailbox shows its inbox first and then lists every folder; folders
- * (the Archive as ARCHIVE), flags, importance and categories become labels;
- * later syncs follow each folder's delta (new mail notified, a message moved
- * out of the inbox keeps its id and lands in ARCHIVE, a deleted one leaves the
- * cache); and label changes become the right Graph writes (archive moves only
- * what's in the inbox, to the Archive folder, and undo moves it back).
- */
-
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -22,8 +11,6 @@ const account: MailAccount = {
   name: "Me",
   provider: "outlook",
 };
-
-// ── The pretend Graph ───────────────────────────────────────────────────────
 
 const FOLDERS = [
   "inbox",
@@ -44,19 +31,15 @@ type Message = {
   flagged: boolean;
   importance: "normal" | "high";
   categories: string[];
-  /** Sent by the mailbox itself. */
   fromMe: boolean;
   date: number;
-  /** Bumped on every change; delta links remember the last one they saw. */
   version: number;
 };
 
 let messages: Map<string, Message>;
 let version: number;
-/** Messages that were in each folder at each version, for `@removed`. */
 let leftFolder: { id: string; folder: string; version: number }[];
 let writes: { method: string; path: string; body?: unknown }[];
-/** Every `$search` Graph was asked, with where. */
 let searches: { path: string; search: string }[];
 let notified: string[];
 let sparseDeltas: boolean;
@@ -235,8 +218,6 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
   return handle(init?.method ?? "GET", url, body);
 }
 
-// ── Core ────────────────────────────────────────────────────────────────────
-
 async function until(check: () => boolean, what: string): Promise<void> {
   for (let i = 0; i < 400; i++) {
     if (check()) return;
@@ -332,7 +313,6 @@ async function boot() {
     mailSync.syncAccount(account.id, { force: true, trigger: "push" });
     await until(() => status().lastSyncAt !== before && !status().syncing, "a sync");
   };
-  /** What a window asks of the backend. */
   const invoke = (channel: string, params: unknown) => registeredHandlers().get(channel)!(params);
   return { mailStore, status, labelsOf, sync, invoke, provider: providerFor(account.id) };
 }
@@ -374,7 +354,6 @@ describe("Outlook sync", () => {
       color: { backgroundColor: expect.any(String) },
     });
     expect(labels.find((l) => l.id === "INBOX")).toMatchObject({ type: "system", unread: 1 });
-    // The Archive is a folder, with Outlook's counts, as Outlook shows it.
     expect(labels.find((l) => l.id === "ARCHIVE")).toMatchObject({
       type: "system",
       total: 1,
@@ -397,7 +376,6 @@ describe("Outlook sync", () => {
 
     expect(labelsOf("new")).toEqual(["INBOX", "UNREAD"]);
     expect(notified).toEqual(["Subject new"]);
-    // Moved: the same id, out of the inbox and into the Archive.
     expect(labelsOf("a")?.sort()).toEqual(["ARCHIVE", "UNREAD"]);
     expect(labelsOf("c")).toBeUndefined();
     expect(labelsOf("b")).toEqual(["INBOX", "UNREAD"]);
@@ -476,7 +454,6 @@ describe("Outlook sync", () => {
     await until(() => status().fullSyncDone && !status().syncing, "the first sync");
     writes = [];
 
-    // Archiving the conversation moves what's in the inbox; the sent reply stays.
     await provider.modifyThread(account.id, "t", { removeLabelIds: ["INBOX"] });
     expect(messages.get("in")?.folder).toBe("archive");
     expect(messages.get("sent")?.folder).toBe("sentitems");
@@ -506,7 +483,6 @@ describe("Outlook sync", () => {
     await until(() => status().fullSyncDone && !status().syncing, "the first sync");
     writes = [];
 
-    // What the Archive button, e, a swipe or a bulk archive send: INBOX off the conversation.
     await invoke("gmail:modifyThread", {
       accountId: account.id,
       threadId: "t",
@@ -527,7 +503,6 @@ describe("Outlook sync", () => {
     await sync();
     expect(labelsOf("in")?.sort()).toEqual(["ARCHIVE", "UNREAD"]);
 
-    // Undo: INBOX back on, which moves it out of the Archive.
     await invoke("gmail:modifyThread", {
       accountId: account.id,
       threadId: "t",
@@ -560,7 +535,6 @@ describe("Outlook sync", () => {
     deliver("in", "inbox");
     const { status, labelsOf, mailStore, sync } = await boot();
     await until(() => status().fullSyncDone && !status().syncing, "the first sync");
-    // As an older version left it: no label on the Archive's mail, none kept for its folders.
     mailStore.applyHistoryChanges(account.id, [
       { kind: "labelsRemoved", id: "old", labelIds: ["ARCHIVE"] },
     ]);
@@ -584,7 +558,6 @@ describe("Outlook sync", () => {
       type: "system",
       total: 1,
     });
-    // Back to the inbox early.
     await provider.modifyThread(account.id, "s", { addLabelIds: ["INBOX"] });
     expect(messages.get("later")?.folder).toBe("inbox");
   });

@@ -24,7 +24,6 @@ const DAY_S = 24 * 60 * 60;
 
 export const googleKeys = (env: Env) => remoteKeys(env.GOOGLE_JWKS_URL || GOOGLE_JWKS_URL);
 
-/** The audiences of ID tokens from Otter Mail's own Google sign-ins (desktop, web and iPhone). */
 export const googleClientIds = (env: Env) =>
   [
     env.GOOGLE_GMAIL_CLIENT_ID,
@@ -41,11 +40,9 @@ export function createAuth(env: Env, db: Db) {
     basePath: "/v1/auth",
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db, { provider: "sqlite", schema }),
-    // The web app signs in with Google by redirect, and comes back to its origin.
     trustedOrigins: [env.APP_ORIGIN],
     socialProviders: {
       google: {
-        // The web client does the redirect sign-in; ID tokens may come from either app.
         clientId: googleClientIds(env),
         clientSecret: env.GOOGLE_GMAIL_CLIENT_SECRET,
         verifyIdToken: async (token) => {
@@ -59,7 +56,6 @@ export function createAuth(env: Env, db: Db) {
       },
     },
     session: {
-      // A desktop app stays signed in: sessions last 90 days and renew with use.
       expiresIn: 90 * DAY_S,
       updateAge: DAY_S,
       // Deleting the account needs no recent sign-in; the app asks for confirmation.
@@ -111,7 +107,6 @@ export function createAuth(env: Env, db: Db) {
     databaseHooks: {
       session: {
         delete: {
-          // Signed out or revoked: close that device's event stream.
           after: async (session) => {
             await push.remove(env, session.userId, session.id, true);
             await hub(env, session.userId).disconnect(session.id);
@@ -127,8 +122,7 @@ export function createAuth(env: Env, db: Db) {
       },
     },
     advanced: env.COOKIE_DOMAIN
-      ? // The web app at mail.otterware.app sees the session cookie (and knows you're signed in).
-        { crossSubDomainCookies: { enabled: true, domain: env.COOKIE_DOMAIN } }
+      ? { crossSubDomainCookies: { enabled: true, domain: env.COOKIE_DOMAIN } }
       : {},
     telemetry: { enabled: false },
   });

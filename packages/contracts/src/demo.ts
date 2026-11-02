@@ -20,13 +20,7 @@ const server = z.object({
 export const demoGmailMailbox = z.object({
   provider: z.literal("gmail"),
   email: z.email(),
-  /** For signing in by hand (Google's page): `--login`, or the web app's Otter account. */
   password: z.string().optional(),
-  /**
-   * Google sign-ins, by the OAuth client they were made with: Google only
-   * refreshes a token for its own client (the Mac app's, or the relay's for
-   * the web app). `pnpm dev:demo --login` writes them.
-   */
   refreshTokens: z
     .object({ desktop: z.string().min(1).optional(), web: z.string().min(1).optional() })
     .default({}),
@@ -35,13 +29,7 @@ export const demoGmailMailbox = z.object({
 export const demoOutlookMailbox = z.object({
   provider: z.literal("outlook"),
   email: z.email(),
-  /** For signing in by hand (Microsoft's page): `--login`. */
   password: z.string().optional(),
-  /**
-   * Microsoft sign-ins, by the OAuth client they were made with (the Mac
-   * app's public client, or the relay's for the web app). `pnpm dev:demo
-   * --login` writes them. They lapse after 90 days unused: log in again.
-   */
   refreshTokens: z
     .object({ desktop: z.string().min(1).optional(), web: z.string().min(1).optional() })
     .default({}),
@@ -51,7 +39,6 @@ export const demoImapMailbox = z.object({
   provider: z.literal("imap"),
   email: z.email(),
   password: z.string().min(1),
-  /** The login, when it isn't the address. */
   username: z.string().min(1).optional(),
   imap: server,
   smtp: server,
@@ -66,7 +53,6 @@ export type DemoOutlookMailbox = z.infer<typeof demoOutlookMailbox>;
 export type DemoImapMailbox = z.infer<typeof demoImapMailbox>;
 export type DemoMailbox = DemoGmailMailbox | DemoOutlookMailbox | DemoImapMailbox;
 
-/** The variable's list; throws naming what's wrong with it. */
 export function parseDemoMailboxes(json: string): DemoMailbox[] {
   let value: unknown;
   try {

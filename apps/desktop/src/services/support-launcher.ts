@@ -26,7 +26,6 @@ export async function supportBinary(configured: string, fallback: string): Promi
   return null;
 }
 
-/** Every value is a literal shell argument; the user's report stays in prompt.md. */
 export function buildSupportLauncher(input: {
   agent: SupportAgent["id"];
   binary: string;
@@ -34,7 +33,6 @@ export function buildSupportLauncher(input: {
   model: string;
   directory: string;
   searchPath: string;
-  /** The script's first line: the OS's login shell (HostOS.terminals.launcher). */
   shebang: string;
 }): string {
   const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;

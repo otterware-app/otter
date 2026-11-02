@@ -1,10 +1,5 @@
 name: Changelog notes
 
-# A changelog note written (or edited) after its release: put it on the GitHub
-# release too, above GitHub's generated notes, the way the Release workflow
-# does for notes that are on main before it runs. Versions not released yet
-# are skipped; the Release workflow picks their notes up.
-
 on:
   push:
     branches: [main]

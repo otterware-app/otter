@@ -1,5 +1,3 @@
-/** Email translation, on the device (translation.ts), and its settings. */
-
 import type { CoreExtension } from "@otter-mail/core/extension-kit";
 
 import { manifest } from "../manifest.ts";

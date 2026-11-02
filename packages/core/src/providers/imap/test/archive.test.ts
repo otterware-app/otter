@@ -23,7 +23,6 @@ const provider = imapProvider;
 
 type Box = { flags: string; uidValidity: number; uidNext: number; uids: number[] };
 
-/** A pretend IMAP server: its folders, and every command it was sent (tags dropped). */
 class PretendServer {
   readonly boxes = new Map<string, Box>();
   readonly commands: string[] = [];
@@ -41,7 +40,6 @@ class PretendServer {
     this.boxes.set(path, { flags, uidValidity: ++this.validity, uidNext: 1, uids: [] });
   }
 
-  /** New mail in a folder: its UID. */
   deliver(path: string): number {
     const box = this.boxes.get(path)!;
     box.uids.push(box.uidNext);
@@ -122,7 +120,6 @@ let server: PretendServer;
 platform.connect = async () => server.connect();
 
 let counter = 0;
-/** An IMAP mailbox on `server`, with a conversation: Bob's mail in INBOX, your reply in Sent. */
 async function mailbox(sent: string) {
   const accountId = `me${++counter}@example.com`;
   await accounts.addAccount({
@@ -160,7 +157,6 @@ async function mailbox(sent: string) {
   return { accountId, reply };
 }
 
-/** The conversation's cached messages: where each is, and its labels. */
 const thread = (accountId: string) =>
   store
     .getThreadMessages(accountId, "t")
@@ -190,7 +186,6 @@ describe("Archiving over IMAP", () => {
       { path: "Old mail", labels: ["ARCHIVE", "UNREAD"] },
       { path: "Sent", labels: ["SENT"] },
     ]);
-    // The sidebar's Archive, with the server's counts; a folder named Archive is just a folder.
     const labels = await provider.listLabels(accountId);
     expect(labels.find((l) => l.id === "ARCHIVE")).toMatchObject({
       type: "system",
@@ -199,7 +194,6 @@ describe("Archiving over IMAP", () => {
     });
     expect(labels.find((l) => l.id === "Archive")).toMatchObject({ type: "user" });
 
-    // Undo: back to the inbox.
     await provider.modifyThread(accountId, "t", { addLabelIds: ["INBOX"] });
     expect(server.commands.at(-1)).toBe("UID MOVE 1 INBOX");
     expect(thread(accountId)).toEqual([
@@ -262,7 +256,6 @@ describe("Archiving over IMAP", () => {
     expect(server.commands).toContain('UID MOVE 1 "[Gmail]/All Mail"');
     expect(server.commands.some((c) => c.startsWith("CREATE"))).toBe(false);
     expect(server.boxes.get("Archive")!.uids).toEqual([]);
-    // Gmail's archived mail is All Mail's: no folder label, nor ARCHIVE.
     expect(thread(accountId)).toEqual([
       { path: "[Gmail]/All Mail", labels: ["UNREAD"] },
       { path: "[Gmail]/Sent Mail", labels: ["SENT"] },
@@ -300,12 +293,10 @@ describe("Finding the archive", () => {
 
   it("archives into All Mail only on Gmail's server", () => {
     const list = [folder("INBOX"), folder("All", "\\All"), folder("Archive")];
-    // A server's virtual All folder (Dovecot) isn't somewhere to move mail.
     expect(new Folders(list).archive?.path).toBe("Archive");
     const gmail = new Folders([...list, folder("Important", "\\Important")], true);
     expect(gmail.archive?.path).toBe("All");
     expect(gmail.isAllMail("All")).toBe(true);
-    // Of All Mail, only what's archived (Gmail's search) is synced; Important holds copies.
     expect(gmail.synced.map((f) => [f.path, f.labelId, f.gmailRaw])).toEqual([
       ["INBOX", "INBOX", undefined],
       ["Archive", "Archive", undefined],

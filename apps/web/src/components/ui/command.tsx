@@ -4,10 +4,6 @@ import type * as React from "react";
 
 import { cn } from "~/lib/utils";
 
-/**
- * Filterable command list (cmdk underneath), styled like the app's command
- * palette: a search row over a scrolling list of compact, highlighted rows.
- */
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (
     <CommandPrimitive

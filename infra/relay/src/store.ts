@@ -1,8 +1,3 @@
-/**
- * Queries over the relay's own tables, linked_accounts and preferences
- * (schema.ts). Users and sessions belong to better-auth (auth.ts).
- */
-
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
 import type { MailProviderKind } from "@otter-mail/contracts/mail";
@@ -16,7 +11,6 @@ export type Db = DrizzleD1Database<typeof schema>;
 
 export const openDb = (d1: D1Database): Db => drizzle(d1, { schema, casing: "snake_case" });
 
-/** Mail's local profile is a projection; only Accounts can authenticate it. */
 export async function ensureUser(
   db: D1Database,
   user: { id: string; name: string; email: string; emailVerified: boolean; image?: string | null },
@@ -51,7 +45,6 @@ const accountFields = {
   color: linkedAccounts.color,
 };
 
-/** The accounts linked with one of `providers`. */
 export function listAccounts(
   db: Db,
   userId: string,
@@ -64,7 +57,6 @@ export function listAccounts(
     .orderBy(asc(linkedAccounts.linkedAt), asc(linkedAccounts.email));
 }
 
-/** The servers ("host:port", host lowercased) of the user's IMAP mailboxes, IMAP and SMTP. */
 export async function imapServers(db: Db, userId: string): Promise<Set<string>> {
   const rows = await db
     .select({ imap: linkedAccounts.imap })
@@ -77,7 +69,6 @@ export async function imapServers(db: Db, userId: string): Promise<Set<string>> 
   );
 }
 
-/** The provider the account is linked with, or null when it isn't linked. */
 export async function linkedProvider(
   db: Db,
   userId: string,
@@ -90,10 +81,8 @@ export async function linkedProvider(
   return row?.provider ?? null;
 }
 
-/** Fields to write (profile, provider, IMAP settings): a field left out keeps its value, `null` clears it. */
 export type AccountPatch = Partial<Omit<RelayAccount, "email">>;
 
-/** Links the account, or updates the fields present in `patch` if it's linked already. */
 export async function putAccount(
   db: Db,
   userId: string,
@@ -111,7 +100,6 @@ export async function putAccount(
     : insert.onConflictDoNothing());
 }
 
-/** Unlinks the account if it's linked with one of `providers`; false when it wasn't. */
 export async function deleteAccount(
   db: Db,
   userId: string,
@@ -148,7 +136,6 @@ export async function usersWithMailbox(
   return rows.map((row) => row.userId);
 }
 
-/** The account's preferences, and its Hermes key as stored (sealed). */
 export async function getPreferences(
   db: Db,
   userId: string,

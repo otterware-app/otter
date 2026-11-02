@@ -1,17 +1,4 @@
-/**
- * credentials-store.ts
- *
- * The Google OAuth client (a "Desktop app" client in the otterware Google
- * Cloud project), shared by every install so users don't need their own
- * project. Sign-in uses PKCE and a loopback redirect (see gmail-oauth.ts).
- *
- * Per RFC 8252 a distributed desktop app's client secret can't be kept
- * confidential; PKCE plus the user's own Google sign-in is the real security
- * boundary. It still stays out of the repository: builds bake it in from
- * OTTER_MAIL_GOOGLE_CLIENT_ID / OTTER_MAIL_GOOGLE_CLIENT_SECRET (the
- * environment, or a gitignored .env.local; see apps/desktop/vite.config.ts),
- * and the same variables override it at runtime.
- */
+// A distributed OAuth client secret is public; PKCE and Google sign-in provide the security boundary.
 
 declare const __GOOGLE_CLIENT_ID__: string;
 declare const __GOOGLE_CLIENT_SECRET__: string;

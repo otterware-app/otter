@@ -1,11 +1,5 @@
 import SwiftUI
 
-/**
- * A folder's threads, laid out like Otter Code's task list: who, what, and a
- * line of it, with Linear's pills (All, Unread) under the title. In search,
- * what the search found in the mailbox shown. Tapping the title opens every
- * place (the bar's ⌃⌄); Compose and More share the glass at the top right.
- */
 struct ThreadListView: View {
     @Environment(MailStore.self) private var store
     @Environment(Preferences.self) private var preferences
@@ -14,10 +8,8 @@ struct ThreadListView: View {
 
     let place: Place
     let messageTransition: Namespace.ID
-    /** The Search tab's: what it searches for, and no folder of its own. */
     var query = ""
     var searchTab = false
-    /** Selecting messages: the frame hides its bar for the list's actions. */
     @Binding var selecting: Bool
     let onTitle: () -> Void
     let onCompose: () -> Void
@@ -28,7 +20,6 @@ struct ThreadListView: View {
     @State private var unreadOnly = false
     @State private var selected: Set<String> = []
     @State private var swipedThread: String?
-    /** What Gmail's search found for `query` (it knows mail that isn't loaded here). */
     @State private var found: (query: String, ids: [String]) = ("", [])
 
     var body: some View {
@@ -75,7 +66,6 @@ struct ThreadListView: View {
             }
 
             if !searching && !searchTab, let sync = store.sync, sync.hasMore(place.folder, scope: place.scope) {
-                // The folder's next page from Gmail, when the list gets here.
                 ProgressView()
                     .frame(maxWidth: .infinity)
                     .listRowSeparator(.hidden)
@@ -118,7 +108,6 @@ struct ThreadListView: View {
         .onChange(of: selecting) { _, _ in swipedThread = nil }
         .onChange(of: query) { _, _ in swipedThread = nil }
         .contentMargins(.bottom, 24, for: .scrollContent)
-        // A mailbox whose sign-in was ended, under the title until it's back (or closed).
         .safeAreaInset(edge: .top, spacing: 0) { SignedOutBanners() }
         .task(id: place) {
             swipedThread = nil
@@ -126,7 +115,6 @@ struct ThreadListView: View {
             selected.removeAll()
             selecting = false
             unreadOnly = false
-            // Where a folder's list ends comes from its first page: fetch it now, while the list is at the top.
             if !searchTab { await store.sync?.open(place.folder, scope: place.scope) }
         }
         .task(id: query) {
@@ -219,7 +207,6 @@ struct ThreadListView: View {
         return store.sync?.listed(threads, in: place.folder) ?? threads
     }
 
-    /** Here first, then what Gmail found. */
     private var results: [MailThread] {
         let local = store.search(query, scope: place.scope)
         guard found.query == query else { return local }
@@ -270,7 +257,6 @@ struct ThreadListView: View {
         }
     }
 
-    /** Linear's pills: the folder whole, or only what's unread. */
     private var pills: some View {
         HStack(spacing: 4) {
             pill("All", selected: !unreadOnly) { unreadOnly = false }
@@ -352,7 +338,6 @@ struct ThreadListView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 9)
         .background(
-            // Unread mail is a card, read mail sits on the list (the desktop's).
             palette.canvas.overlay {
                 if thread.unread && !thread.isDraft {
                     RoundedRectangle(cornerRadius: 8)
@@ -405,7 +390,6 @@ struct ThreadListView: View {
         return actions
     }
 
-    /** "Inbox Personal": the folder, then where it is, quieter (Otter Code's wordmark). */
     private struct Header: View {
         @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -422,7 +406,6 @@ struct ThreadListView: View {
     }
 }
 
-/** A thread's actions, for its context menu and the reader's menu. */
 struct ThreadActions: View {
     @Environment(MailStore.self) private var store
     let thread: MailThread

@@ -1,16 +1,4 @@
-/**
- * Claude Code through the Claude Agent SDK, following T3 Code's Claude driver:
- *  - health probe: `claude --version`, then an SDK query whose prompt never
- *    yields (no API request) for `initializationResult()` → account, live
- *    models (with effort levels), slash commands.
- *  - one long-lived `query()` per chat, fed by a streaming prompt queue; each
- *    turn pushes a user message and ends at the SDK's `result`.
- *  - runtime modes → permissionMode; `canUseTool` surfaces approvals.
- *  - stop closes the query (T3: a hard session boundary); the next turn
- *    resumes the session by id.
- * Sessions run in the app's agent workspace, so listing it yields exactly
- * the chats started from Otter Mail.
- */
+// Stop closes the SDK query; the next turn resumes its session by id.
 
 import { execFile } from "node:child_process";
 import os from "node:os";
@@ -61,10 +49,8 @@ import type {
 import { CLAUDE_DEFAULTS, type ClaudeSettings } from "./settings.js";
 
 const PROBE_TIMEOUT_MS = 25_000;
-/** Image types Claude accepts as content blocks. */
 const CLAUDE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 const VERSION_TIMEOUT_MS = 10_000;
-/** Idle chats release their Claude process after this long. */
 const SESSION_IDLE_MS = 15 * 60_000;
 
 function expandHome(p: string): string {
@@ -99,7 +85,6 @@ function claudeEnv(settings: ClaudeSettings): Record<string, string | undefined>
   return env;
 }
 
-/** T3's runtime mode → Claude permission mode ("approval-required" = the SDK default). */
 function permissionMode(mode: RuntimeMode): PermissionMode {
   return mode === "full-access"
     ? "bypassPermissions"
@@ -107,10 +92,6 @@ function permissionMode(mode: RuntimeMode): PermissionMode {
       ? "acceptEdits"
       : "default";
 }
-
-// ---------------------------------------------------------------------------
-// Tool labels + approvals (T3's classifyRequestType / summarizeToolRequest)
-// ---------------------------------------------------------------------------
 
 function isReadOnlyTool(name: string): boolean {
   const n = name.toLowerCase();
@@ -138,10 +119,8 @@ const APPROVAL_TITLES: Record<ApprovalRequest["kind"], string> = {
   tool: "Tool approval",
 };
 
-/** Otter Mail's own tools, as Claude names them. */
 const OTTER_TOOL_PREFIX = `mcp__${MCP_SERVER_NAME}__`;
 
-/** `Bash: gog gmail …`, a file path, or the tool name + JSON input (≤400 chars). */
 function summarizeTool(name: string, input: Record<string, unknown>): string {
   const command = input.command ?? input.cmd;
   if (typeof command === "string" && command.trim())
@@ -154,7 +133,6 @@ function summarizeTool(name: string, input: Record<string, unknown>): string {
   return json.length <= 400 ? `${name}: ${json}` : `${name}: ${json.slice(0, 397)}...`;
 }
 
-/** "Always allow this session": the SDK's suggestions scoped to the session. */
 function sessionPermissionUpdates(
   name: string,
   suggestions: PermissionUpdate[] | undefined,
@@ -175,10 +153,6 @@ function sessionPermissionUpdates(
       ];
 }
 
-// ---------------------------------------------------------------------------
-// Sessions
-// ---------------------------------------------------------------------------
-
 type PendingApproval = {
   resolve: (decision: ApprovalDecision | "cancel") => void;
 };
@@ -188,17 +162,13 @@ type ActiveTurn = {
   emit: Emit;
   text: TextStream;
   approvals: Map<string, PendingApproval>;
-  /** Steers pushed this turn: a late one gets its own result after this one's. */
   steers: number;
-  /** A success result waiting to see whether a late steer continues the turn. */
   settle: ReturnType<typeof setTimeout> | null;
   finish: () => void;
 };
 
-/** How long a steered turn waits after a result for the steer's own reply. */
 const STEER_SETTLE_MS = 2_000;
 
-/** An async-iterable prompt queue: the long-lived input of one query. */
 class PromptQueue implements AsyncIterable<SDKUserMessage> {
   private items: SDKUserMessage[] = [];
   private waiters: ((result: IteratorResult<SDKUserMessage>) => void)[] = [];
@@ -238,7 +208,6 @@ type Session = {
   model: string;
   idleTimer: ReturnType<typeof setTimeout> | null;
   closed: boolean;
-  /** Otter Mail's tools, on this chat's token. */
   tools: ToolAccess;
   /** Tool uses the chat doesn't show (Claude's own bookkeeping), so their results aren't shown either. */
   hiddenTools: Set<string>;
@@ -247,7 +216,6 @@ type Session = {
 const sessions = new Map<string, Session>();
 const turnsByRequest = new Map<string, Session>();
 
-/** Closes the query; open approvals are cancelled and a running turn ends as stopped. */
 function closeSession(session: Session, reason: "cancelled" | "unreachable" = "cancelled"): void {
   if (session.closed) return;
   session.closed = true;
@@ -275,7 +243,6 @@ function armIdle(session: Session): void {
   }, SESSION_IDLE_MS);
 }
 
-/** Text of a tool_result's content (string or text blocks). */
 function resultText(content: unknown): string {
   if (typeof content === "string") return content;
   if (Array.isArray(content))
@@ -285,12 +252,10 @@ function resultText(content: unknown): string {
   return "";
 }
 
-/** Routes one SDK message to the running turn (T3's handle*Message family, trimmed). */
 function handleMessage(session: Session, message: SDKMessage): void {
   const turn = session.turn;
   if (!turn) return;
   const { requestId, emit } = turn;
-  // Activity after a result: a late steer is being answered — keep the turn.
   if (turn.settle && (message.type === "stream_event" || message.type === "assistant")) {
     clearTimeout(turn.settle);
     turn.settle = null;
@@ -298,7 +263,6 @@ function handleMessage(session: Session, message: SDKMessage): void {
   }
   switch (message.type) {
     case "stream_event": {
-      // Subagent output stays inside its tool row.
       if (message.parent_tool_use_id) break;
       const event = message.event as {
         type: string;
@@ -373,7 +337,6 @@ function handleMessage(session: Session, message: SDKMessage): void {
         errors?: string[];
         terminal_reason?: string;
       };
-      // Claude aborted its stream to take the steer: the turn goes on.
       if (
         turn.steers > 0 &&
         (result.terminal_reason === "aborted_streaming" ||
@@ -494,7 +457,6 @@ async function openSession(
     ...(pm === "bypassPermissions" ? { allowDangerouslySkipPermissions: true } : {}),
     ...(sessionId ? { resume: sessionId } : { sessionId: id }),
     includePartialMessages: true,
-    // Attached documents (and downloaded mail attachments) live outside the workspace.
     additionalDirectories: [await attachmentsDir()],
     mcpServers: {
       // In the prompt from the start, rather than found through ToolSearch.
@@ -529,7 +491,6 @@ async function openSession(
   } satisfies Session);
   sessions.set(id, session);
 
-  // One pump per query: every SDK message goes to whichever turn is running.
   void (async () => {
     try {
       for await (const message of session.query) handleMessage(session, message);
@@ -545,10 +506,6 @@ async function openSession(
   })();
   return session;
 }
-
-// ---------------------------------------------------------------------------
-// Health probe (T3's checkClaudeProviderStatus)
-// ---------------------------------------------------------------------------
 
 function claudeVersion(settings: ClaudeSettings): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -567,7 +524,6 @@ function claudeVersion(settings: ClaudeSettings): Promise<string> {
   });
 }
 
-/** "Claude Max" / "Claude API Key" / "Amazon Bedrock", as T3 labels auth. */
 function authLabel(account: {
   subscriptionType?: string;
   tokenSource?: string;
@@ -654,7 +610,6 @@ async function probe(settings: ClaudeSettings): Promise<ProbeResult> {
       pathToClaudeCodeExecutable: claudeBinary(settings),
       abortController: abort,
       settingSources: ["user", "project", "local"],
-      // No hooks, tools or MCP servers for a health check.
       settings: { disableAllHooks: true },
       allowedTools: [],
       mcpServers: {},
@@ -697,10 +652,6 @@ async function probe(settings: ClaudeSettings): Promise<ProbeResult> {
 
 let knownSkills: Skill[] = [];
 
-// ---------------------------------------------------------------------------
-// Provider
-// ---------------------------------------------------------------------------
-
 export const claudeProvider: ChatProvider<ClaudeSettings> = {
   kind: "claude",
   displayName: "Claude",
@@ -714,7 +665,6 @@ export const claudeProvider: ChatProvider<ClaudeSettings> = {
     serviceTier: "string",
     runtimeMode: "runtimeMode",
   },
-  // Where the CLI lives is this computer's; a new one restarts it.
   deviceFields: ["binaryPath", "homePath"],
   restartFields: ["binaryPath", "homePath"],
 
@@ -786,7 +736,6 @@ export const claudeProvider: ChatProvider<ClaudeSettings> = {
       emit({ requestId, type: "session", sessionId: session.sessionId });
     if (session.idleTimer) clearTimeout(session.idleTimer);
 
-    // Mode and model apply to a live query; effort/fast reopen it (launchKey).
     if (session.mode !== settings.runtimeMode) {
       session.mode = settings.runtimeMode;
       await session.query.setPermissionMode(permissionMode(session.mode)).catch(() => {});
@@ -808,7 +757,6 @@ export const claudeProvider: ChatProvider<ClaudeSettings> = {
       };
     });
     turnsByRequest.set(requestId, session);
-    // Slash commands (skills) expand when the text starts with them.
     const text = turn.skill
       ? `/${turn.skill.name}${turn.input ? ` ${turn.input}` : ""}`
       : turn.input;
@@ -846,12 +794,10 @@ export const claudeProvider: ChatProvider<ClaudeSettings> = {
     }
   },
 
-  /** T3: a message sent while a turn runs joins the live agent loop. */
   async steer(requestId, input) {
     const session = turnsByRequest.get(requestId);
     if (!session || session.closed || session.turn?.requestId !== requestId) return false;
     session.turn.steers += 1;
-    // Otter Code: "now" makes Claude pick the steer up mid-stream.
     session.prompts.push({
       type: "user",
       priority: "now",
@@ -861,7 +807,6 @@ export const claudeProvider: ChatProvider<ClaudeSettings> = {
     return true;
   },
 
-  /** T3: stop is a hard boundary — close the query; the next turn resumes by id. */
   cancel(requestId) {
     const session = turnsByRequest.get(requestId);
     if (session) closeSession(session);

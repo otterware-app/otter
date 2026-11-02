@@ -42,7 +42,6 @@ export {
   TextInput,
 } from "../settings/settings-ui";
 
-// For agent contributions' settings forms.
 export type { ProvidersState, RuntimeMode } from "../mail/api";
 export { RUNTIME_MODE_OPTIONS } from "../mail/model-picker";
 export {
@@ -52,6 +51,5 @@ export {
   type LocalAgentRuntime,
 } from "../settings/agent-settings-kit";
 export { osNames } from "../os-names";
-// For message cards.
 export { htmlToText } from "../mail/text";
 export { AgentIcon } from "../mail/agent-icon";

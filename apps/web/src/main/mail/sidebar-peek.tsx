@@ -8,7 +8,6 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-/** Whether the sidebar peeks, and the edge's, the toggle's and the card's hover. */
 export function useSidebarPeek() {
   const [open, setOpen] = useState(false);
   const timer = useRef(0);
@@ -55,9 +54,7 @@ export function SidebarPeekCard({
   onHover,
   children,
 }: {
-  /** The docked sidebar's width. */
   width: number;
-  /** The pointer came into the card (true) or left it. */
   onHover: (inside: boolean) => void;
   children: ReactNode;
 }) {

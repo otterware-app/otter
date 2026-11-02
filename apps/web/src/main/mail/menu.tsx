@@ -3,12 +3,6 @@ import { ContextMenu as ContextPrimitive, DropdownMenu as Menu } from "radix-ui"
 import { CheckIcon, ChevronRightIcon } from "lucide-react";
 import { cn, restoreFocusForKeyboardOnly } from "./ui";
 
-/**
- * Otter Code-style dropdown menus (renderer-drawn, Radix underneath).
- * Styling follows Codex's floating cards: the popover surface, 14px radius,
- * 32px rows with a rounded soft highlight.
- */
-
 const POPUP =
   "dropdown-glass z-[130] max-h-(--radix-dropdown-menu-content-available-height) min-w-44 overflow-y-auto rounded-xl p-1.5 text-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] outline-none dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]";
 
@@ -57,7 +51,6 @@ export function DropdownMenuItem({
   ...props
 }: ComponentProps<typeof Menu.Item> & {
   icon?: ReactNode;
-  /** Shortcut shown right-aligned. */
   accelerator?: string;
   color?: "red";
 }) {
@@ -112,10 +105,6 @@ export function DropdownMenuLabel({ className, ...props }: ComponentProps<typeof
   );
 }
 
-/**
- * Submenu with a text trigger (`label`), like the native menu's API, or with
- * a `trigger` of its own (a row's ⋯ button).
- */
 export function DropdownMenuSub({
   label,
   trigger,
@@ -124,7 +113,6 @@ export function DropdownMenuSub({
 }: {
   label: string;
   trigger?: ReactNode;
-  /** Indent past the check column, when siblings are checkbox items. */
   inset?: boolean;
   children: ReactNode;
 }) {
@@ -151,13 +139,6 @@ export function DropdownMenuSub({
   );
 }
 
-/*
- * Right-click menus with the same look. String icon names (SF Symbols, from
- * the old native menu API) are ignored; React icons render like dropdown
- * items.
- */
-
-/** Non-modal for the same reason as {@link DropdownMenu}. */
 export function ContextMenu(props: ComponentProps<typeof ContextPrimitive.Root>) {
   return <ContextPrimitive.Root modal={false} {...props} />;
 }
@@ -254,7 +235,6 @@ export function ContextMenuSub({
 }: {
   label: string;
   icon?: string;
-  /** Indent past the check column, when siblings are checkbox items. */
   inset?: boolean;
   children: ReactNode;
 }) {

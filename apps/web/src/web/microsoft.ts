@@ -43,8 +43,6 @@ export function webMicrosoftAuth(deps: {
     await files.write(FILE, JSON.stringify(Object.fromEntries(tokens)));
   }
 
-  /** New tokens from the relay; drops the mailbox's sign-in if Microsoft revoked it. */
-  /** A sign-in from the relay: its tokens, kept under the address. */
   async function keep(result: OutlookSignInResult) {
     tokens.set(result.email, {
       sealed: result.sealed,

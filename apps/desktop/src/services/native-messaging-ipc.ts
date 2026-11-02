@@ -153,7 +153,6 @@ async function call(event: CallEvent, extensionId: unknown, method: unknown, arg
   } else throw new Error("Unknown native messaging method.");
 }
 
-/** One transport per browser profile, with ports private to the calling frame or worker. */
 export function enableNativeMessaging(session: Session, directories: string[]): void {
   if (profiles.has(session)) return;
   const profile: Profile = { directories, owners: new Map() };

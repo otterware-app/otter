@@ -2,10 +2,6 @@ import * as React from "react";
 
 import { cn } from "~/lib/utils";
 
-/**
- * Inline text in the app's type scale. `variant` pairs a size with a weight
- * (14px `regular` is the body size); `color` picks a foreground role.
- */
 const VARIANTS = {
   large: "text-base leading-[22px] font-normal",
   "large-strong": "text-base leading-[22px] font-medium",
@@ -40,7 +36,6 @@ function Text({
   className,
   ...props
 }: TextProps) {
-  // Every allowed tag takes the same props at runtime; type it as the default.
   const Tag = as as "span";
   return (
     <Tag

@@ -1,5 +1,3 @@
-// Main process entry point.
-
 import { app, BrowserWindow, Menu, ipcMain, nativeTheme, shell } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -22,7 +20,6 @@ import { setSettingsTarget } from "./windows/settings-window.js";
 import { createMainWindow, focusMainWindow, getMainWindow } from "./windows/main-window.js";
 import { handleRendererProtocol, registerRendererScheme } from "./windows/window-paths.js";
 
-// Each kind of run has its own data home; see paths.ts.
 configureAppPaths();
 logToFile(app.getPath("logs"), !app.isPackaged);
 
@@ -47,12 +44,6 @@ if (!app.requestSingleInstanceLock()) {
 
 registerRendererScheme();
 
-// ── mailto: handling (default mail app) ───────────────────────────────
-// Clicking a mailto link anywhere on the computer lands here once Otter Mail
-// is the default mail app: macOS sends it as `open-url`, Linux starts the app
-// with it as an argument (a running app hears of it as a second instance).
-// Stash the parsed target (the renderer pulls it via app:takePendingMailto on
-// mount — covers cold starts) and nudge any live main window via broadcast.
 function openMailto(url: string): void {
   const target = parseMailtoUrl(url);
   logger.info("main", "open-url", { mailto: target != null });
@@ -78,9 +69,6 @@ app.on("second-instance", (_event, argv) => {
   if (url) openMailto(url);
   else void focusMainWindow();
 });
-
-// ── Appearance ────────────────────────────────────────────────────────
-// Light/dark/system is chosen in Settings; Electron doesn't persist it.
 
 function themeFile(): string {
   return path.join(app.getPath("userData"), "appearance.json");
@@ -129,7 +117,6 @@ ipcMain.handle("shell:openExternal", async (_event, url: unknown) => {
   }
 });
 
-// ⌘Z / ⇧⌘Z landed in a text field: give it the regular text undo and redo.
 ipcMain.handle("edit:nativeUndo", (event) => {
   event.sender.undo();
 });
@@ -141,8 +128,6 @@ ipcMain.handle("window:closeMain", () => {
   getMainWindow()?.close();
 });
 
-// ── Application menu ──────────────────────────────────────────────────
-// The items are the same everywhere; each OS arranges them (HostOS.applicationMenu).
 function setupApplicationMenu(): void {
   const isMainFocused = () => {
     const focused = BrowserWindow.getFocusedWindow();
@@ -166,8 +151,6 @@ function setupApplicationMenu(): void {
       },
     },
     file: [
-      // ⌘W closes the panel's active tab, or the panel for its last tab.
-      // Without the panel, the renderer closes the main window.
       {
         label: "Close",
         accelerator: "CommandOrControl+W",
@@ -180,7 +163,6 @@ function setupApplicationMenu(): void {
         },
       },
       { type: "separator" },
-      // The browser panel (services/browser.ts).
       {
         label: "New Tab",
         accelerator: "CommandOrControl+T",
@@ -203,10 +185,6 @@ function setupApplicationMenu(): void {
       },
     ],
     edit: [
-      // ⌘Z undoes the last mail action (archive, move, send…), ⇧⌘Z redoes
-      // it — but text fields keep their own undo: the main window decides
-      // (edit:undo → mail undo, or edit:nativeUndo back to the page). A
-      // browser tab's page undoes its own typing.
       {
         label: "Undo",
         accelerator: "CommandOrControl+Z",
@@ -259,7 +237,6 @@ function setupApplicationMenu(): void {
       { type: "separator" },
       { role: "togglefullscreen" },
     ],
-    // Through the mail's history, or a focused browser tab's.
     go: [
       {
         label: "Back",
@@ -281,9 +258,6 @@ function setupApplicationMenu(): void {
       },
     ],
     mailbox: [
-      // ⌘R refreshes mail like the sidebar's Sync button (with its spinner)
-      // instead of reloading the page; see the View menu. In a focused
-      // browser tab it reloads that page, as in a browser.
       {
         label: "Sync Now",
         accelerator: "CommandOrControl+R",
@@ -319,10 +293,6 @@ function setupApplicationMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(hostOS.applicationMenu(items)));
 }
 
-// ── Lifecycle events ──────────────────────────────────────────────────
-// Closing the window may leave the app running in the background, where mail
-// keeps syncing and notifying, as long as the OS can bring the window back
-// (HostOS.runsWithoutWindows).
 app.on("window-all-closed", () => {
   if (!hostOS.runsWithoutWindows) app.quit();
 });
@@ -332,11 +302,9 @@ app.on("activate", (_event, hasVisibleWindows) => {
 });
 
 app.on("will-quit", () => {
-  // It stops the assistants' processes (Codex app-servers) on its way out.
   stopBackend();
 });
 
-// ── App ready ─────────────────────────────────────────────────────────
 void app.whenReady().then(async () => {
   logger.info("main", "App ready", {
     version: app.getVersion(),
@@ -353,7 +321,6 @@ void app.whenReady().then(async () => {
   });
 
   setupBrowser();
-  // The mail backend (@otter-mail/core) runs in its own process.
   await startBackend();
   registerHandlers();
   setupApplicationMenu();

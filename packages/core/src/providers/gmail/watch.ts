@@ -1,11 +1,3 @@
-/**
- * Gmail push notifications: `users.watch` asks Gmail to publish a mailbox's
- * changes to the relay's Pub/Sub topic. A watch lasts 7 days and Gmail
- * recommends renewing it daily; every device signed in to the account renews
- * the same watch, which is harmless. Watches aren't stopped on sign-out:
- * another device may still rely on them, and they lapse on their own.
- */
-
 import { logger } from "../../logger.js";
 import * as mailStore from "../../services/mail-store.js";
 import { watchMailbox } from "./api.js";

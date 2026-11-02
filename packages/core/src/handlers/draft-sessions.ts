@@ -8,17 +8,12 @@ import { getAccount } from "../services/account-store.js";
 import * as mailStore from "../services/mail-store.js";
 import type { ComposeAttachment, MessageSummary } from "../types.js";
 
-// ── Draft sessions (one per open composer) ──────────────────────────────────
-
-/** Draft id per composer session, `${accountId}|${sessionKey}`. */
 const draftSessions = new Map<string, string>();
-/** The tail of each session's save queue. */
 const draftSaveQueues = new Map<string, Promise<unknown>>();
 
 export const draftSessionId = (accountId: string, sessionKey: string | undefined) =>
   sessionKey ? `${accountId}|${sessionKey}` : "";
 
-/** Runs a session's saves one after another (no session: runs directly). */
 export function queueDraftSave<T>(sessionId: string, save: () => Promise<T>): Promise<T> {
   if (!sessionId) return save();
   const previous = draftSaveQueues.get(sessionId) ?? Promise.resolve();
@@ -100,8 +95,6 @@ export function rememberSessionDraft(sessionId: string, draftId: string): void {
   if (sessionId) draftSessions.set(sessionId, draftId);
 }
 
-/** Ends a session: waits for its queued saves, then returns (and forgets) the
-    draft id they produced. */
 export async function takeSessionDraft(sessionId: string): Promise<string | undefined> {
   if (!sessionId) return undefined;
   await draftSaveQueues.get(sessionId)?.catch(() => {});

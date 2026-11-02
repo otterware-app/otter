@@ -1,12 +1,5 @@
 import SwiftUI
 
-/**
- * The color themes the other apps wear (apps/web's theme-palettes.ts,
- * exported to Resources/Themes.json by `pnpm ios:resources`). Each has a
- * light and a dark palette of product roles; `Palette` maps the roles the
- * phone uses, blending structure colors toward their surface as apply-theme.ts
- * does, unless the theme is `exact`.
- */
 struct Theme: Identifiable, Decodable {
     let id: String
     let label: String
@@ -15,7 +8,6 @@ struct Theme: Identifiable, Decodable {
     let monochrome: Bool
     let light: [String: String]
     let dark: [String: String]
-    /** The appearances it has palettes for: a theme of your own may have one only (`CustomThemes`). */
     var modes: [ColorScheme] = [.light, .dark]
 
     private enum CodingKeys: String, CodingKey { case id, label, exact, monochrome, light, dark }
@@ -36,7 +28,6 @@ struct Theme: Identifiable, Decodable {
     }
 }
 
-/** The colors a screen paints with. */
 struct Palette {
     let canvas: Color
     let chrome: Color
@@ -46,7 +37,6 @@ struct Palette {
     let sidebarSelected: Color
     let surface: Color
     let raised: Color
-    /** Grouped rows (Settings): a step off the canvas, in either appearance. */
     let card: Color
     let text: Color
     let muted: Color
@@ -85,7 +75,6 @@ struct Palette {
         self.monochrome = monochrome
     }
 
-    /** What actions wear in a mailbox: the theme's color, or the mailbox's when the theme has none of its own. */
     func action(for mailbox: Mailbox?) -> Color {
         guard !monochrome, let mailbox else { return action }
         return Color(hex: mailbox.color)
@@ -101,11 +90,9 @@ extension Color {
     init(hex: String) { self = RGB(css: hex).color }
 }
 
-/** An sRGB color, blended in Oklab like CSS's `color-mix(in oklab, …)`. */
 struct RGB {
     var r, g, b: Double
 
-    /** "#rrggbb", or "oklch(L C H)" as some themes are written. */
     init(css: String) {
         if css.hasPrefix("oklch(") {
             // L C H, then maybe "/ alpha" (which the phone doesn't paint).

@@ -28,14 +28,12 @@ const liveKey = (accountId: string, labelId: string | null) => `${accountId}:${l
 
 function needsLive(accountId: string, labelId: string | null): boolean {
   if (mailStore.getSyncState(accountId).fullSyncDone) return false;
-  // Nothing to page from until the account signs in on this device.
   if (!isSignedIn(accountId) || !findProvider(accountId)?.listIds) return false;
   return !(liveCursors.get(liveKey(accountId, labelId))?.exhausted ?? false);
 }
 
 const inflightFills = new Map<string, Promise<void>>();
 
-/** Drops a removed account's live-paging cursors. */
 export function forgetLiveCursors(accountId: string): void {
   for (const key of liveCursors.keys()) {
     if (key.startsWith(`${accountId}:`)) liveCursors.delete(key);
@@ -71,10 +69,6 @@ async function fillOnce(accountId: string, labelId: string | null): Promise<void
   console.log("[gmail:livePage]", { labelId, listed: page.ids.length, fetched: fresh.length });
 }
 
-/**
- * Re-reads `read()` after live fills until the page is full, Gmail has no
- * more, or the time budget runs out. `more` = keep offering a next page.
- */
 export async function pageWithLiveFill(
   sources: { accountId: string; labelId: string | null }[],
   maxResults: number,
@@ -106,7 +100,6 @@ export async function pageWithLiveFill(
 const RECONCILE_COOLDOWN_MS = 60_000;
 const lastUnreadReconcile = new Map<string, number>();
 
-/** Fetches a label's unread messages live when the cache has fewer than the server counts. */
 export async function reconcileUnread(accountId: string, labelId: string): Promise<void> {
   const provider = findProvider(accountId);
   if (!provider?.listIds) return;

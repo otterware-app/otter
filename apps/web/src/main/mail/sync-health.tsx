@@ -14,12 +14,6 @@ import { toast, type ToastId } from "./toast";
 import type { MailAccount, SyncStatus } from "./types";
 import { Btn, HintTooltip, IconBtn, cn } from "./ui";
 
-/**
- * How each mailbox's sync is doing: the status line (Settings › Mailboxes and
- * the foot of the mailbox's sidebar), and the one failure only the user can
- * fix, a refused sign-in, raised as a toast that stays until it's fixed.
- */
-
 export function timeAgo(ts: number): string {
   const mins = Math.floor((Date.now() - ts) / 60_000);
   if (mins < 1) return "just now";
@@ -58,12 +52,10 @@ function notOnThisDevice(account: MailAccount, status: SyncStatus | undefined): 
   return account.signedOut === true && status != null && !status.lastSyncAt;
 }
 
-/** Sync stopped until the user signs in again (or enters the password). */
 export function needsSignIn(account: MailAccount, status: SyncStatus | undefined): boolean {
   return account.signedOut === true || status?.signInNeeded === true;
 }
 
-/** Sync state for an account, with a signed-out account called out first. */
 export function accountStatus(account: MailAccount, status: SyncStatus | undefined): StatusLine {
   if (notOnThisDevice(account, status)) {
     return {
@@ -107,7 +99,6 @@ export function StatusText({ status, className }: { status: StatusLine; classNam
   );
 }
 
-/** Each account's sync status, polled like the rest of the app's. */
 function useSyncStatuses(accountIds: string[]): (SyncStatus | undefined)[] {
   return useQueries({
     queries: accountIds.map((id) => ({
@@ -119,9 +110,6 @@ function useSyncStatuses(accountIds: string[]): (SyncStatus | undefined)[] {
   }).map((r) => r.data);
 }
 
-// ── Signing in again ─────────────────────────────────────────────────────
-
-/** The mailbox Settings › Mailboxes opens on next (an IMAP mailbox's password). */
 let requestedMailbox: string | null = null;
 export function takeRequestedMailbox(): string | null {
   const id = requestedMailbox;
@@ -138,10 +126,6 @@ function signedOutTitle(account: MailAccount): string {
 const signInLabel = (account: MailAccount) =>
   signsInWithPassword(account) ? "Enter password" : "Sign in";
 
-/**
- * Signs a mailbox back in: Google or Microsoft in the browser, with the
- * address filled in; an IMAP mailbox's password in Settings › Mailboxes.
- */
 export function useSignInAgain() {
   const google = useAddAccount("gmail");
   const microsoft = useAddAccount("outlook");
@@ -210,7 +194,6 @@ export function useSignInAlerts(): void {
         timeout: 0,
         action: { label: signInLabel(account), onClick: () => signInRef.current(account) },
         onRemove: () => {
-          // Closed (or acted on) by the user, not by the mailbox recovering.
           if (shown.current.get(id) !== toastId) return;
           shown.current.delete(id);
           dismissed.current.add(id);
@@ -222,8 +205,6 @@ export function useSignInAlerts(): void {
   }, [key]);
 }
 
-// ── The mailbox's health ─────────────────────────────────────────────────
-
 function useAccountStatuses(accountIds: string[]) {
   const { accounts: all } = useMailboxes();
   const accounts = accountIds
@@ -232,10 +213,6 @@ function useAccountStatuses(accountIds: string[]) {
   return { accounts, statuses: useSyncStatuses(accounts.map((a) => a.id)) };
 }
 
-/**
- * Above the foot of a mailbox's sidebar: a card for each mailbox whose
- * sign-in was refused, with the button that fixes it.
- */
 export function SignInCards({ accountIds }: { accountIds: string[] }) {
   const { accounts, statuses } = useAccountStatuses(accountIds);
   const { signIn, pending } = useSignInAgain();
@@ -274,12 +251,6 @@ export function SignInCards({ accountIds }: { accountIds: string[] }) {
   );
 }
 
-/**
- * Sync now, in the sidebar's foot: it spins while a sync runs, carries a dot
- * when one failed, and says how sync is doing on hover (last synced, syncing,
- * or that it failed: Settings › Mailboxes says why). All mailboxes shows the
- * worst of them.
- */
 export function SyncButton({ accountIds }: { accountIds: string[] }) {
   const { accounts, statuses } = useAccountStatuses(accountIds);
   const [syncing, setSyncing] = useState(false);
@@ -290,7 +261,6 @@ export function SyncButton({ accountIds }: { accountIds: string[] }) {
   }, [syncing]);
 
   if (accounts.length === 0) return null;
-  // A failure first, then a sync running, then the least recently synced.
   const lines = accounts.map((a, i) => accountStatus(a, statuses[i]));
   const failed = lines.filter((l) => l.tone === "error");
   const shown: StatusLine =

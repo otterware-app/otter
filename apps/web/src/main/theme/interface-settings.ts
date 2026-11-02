@@ -1,13 +1,3 @@
-/**
- * Contrast, glass opacity and the interface font size (Otter Code's
- * appearance settings, ported from it at a944cac52), and the reading width
- * (Mail's take on its chat width), plus the mail layout and message list style.
- * Kept like the other UI choices
- * (localStorage, synced with the account), painted onto <html> for
- * styles.css: CSS variables, and the font size as the root font size every
- * rem scales from. Layout and message list choices are read directly by their views.
- */
-
 import { useSyncExternalStore } from "react";
 import { setSyncedPreference, type SyncedKey } from "../synced-preferences";
 
@@ -45,7 +35,6 @@ export const MARK_READ_DELAY: InterfaceSetting = {
   defaultValue: 2000,
 };
 
-/** Text and borders against their surface, in %: 100 is the theme as designed. */
 export const CONTRAST: InterfaceSetting = {
   key: "otter:contrast",
   min: 50,
@@ -54,7 +43,6 @@ export const CONTRAST: InterfaceSetting = {
   defaultValue: 100,
 };
 
-/** How solid the frosted surfaces (menus, popovers, dialogs, toasts) are, in %. */
 export const GLASS_OPACITY: InterfaceSetting = {
   key: "otter:glass-opacity",
   min: 40,
@@ -63,7 +51,6 @@ export const GLASS_OPACITY: InterfaceSetting = {
   defaultValue: 80,
 };
 
-/** The interface's base font size, in px. */
 export const INTERFACE_FONT_SIZE: InterfaceSetting = {
   key: "otter:interface-font-size",
   min: 12,
@@ -75,7 +62,6 @@ export const INTERFACE_FONT_SIZE: InterfaceSetting = {
 const SETTINGS = [CONTRAST, GLASS_OPACITY, INTERFACE_FONT_SIZE, MARK_READ_DELAY];
 const CHANGE_EVENT = "otter:interface-settings-change";
 
-/** How wide an open thread grows on a large window: its max-width. */
 export const READING_WIDTHS = {
   normal: { label: "Normal", maxWidth: "48rem" },
   wide: { label: "Wide", maxWidth: "64rem" },
@@ -185,13 +171,9 @@ export function useMailLayout(): MailLayout {
   return useSyncExternalStore(subscribe, getMailLayout);
 }
 
-/** Paints them onto this window. */
 export function applyInterfaceSettings(): void {
   const style = document.documentElement.style;
 
-  // Otter Code's appearanceContrast.ts: below 100 text fades toward its
-  // surface and borders thin out; above it text goes toward black (white in
-  // dark) and borders take on a quarter as much of the text color.
   const contrast = getInterfaceSetting(CONTRAST);
   style.setProperty("--appearance-contrast-base", `${Math.min(contrast, 100)}%`);
   style.setProperty("--appearance-contrast-boost", `${Math.max(contrast - 100, 0)}%`);
@@ -199,7 +181,6 @@ export function applyInterfaceSettings(): void {
 
   const glass = getInterfaceSetting(GLASS_OPACITY);
   style.setProperty("--glass-opacity", `${glass}%`);
-  // Solid glass has nothing to blur.
   if (glass === 100) style.setProperty("--glass-blur", "0px");
   else style.removeProperty("--glass-blur");
 
@@ -208,7 +189,6 @@ export function applyInterfaceSettings(): void {
   style.setProperty("--reading-width", READING_WIDTHS[getReadingWidth()].maxWidth);
 }
 
-/** Applies now and follows changes from this window, the others and other devices. */
 export function startInterfaceSettings(): () => void {
   applyInterfaceSettings();
   return subscribe(applyInterfaceSettings);

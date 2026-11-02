@@ -16,7 +16,6 @@ import { getOtterUser, getSessionToken } from "./otter-account.js";
 export type RealtimeState = "off" | "connecting" | "live";
 
 export type RealtimeHandlers = {
-  /** Connected: catch up on whatever happened while disconnected. */
   onConnected: () => void;
   onEvent: (event: RelayEvent) => void;
   onStateChange: (state: RealtimeState) => void;
@@ -140,7 +139,6 @@ function reconnectNow(): void {
   connect();
 }
 
-/** Opens the event stream (and keeps it open) for the signed-in Otter account. */
 export function startRealtime(next: RealtimeHandlers): void {
   const first = handlers === null;
   handlers = next;

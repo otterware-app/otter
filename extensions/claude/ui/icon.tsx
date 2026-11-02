@@ -1,6 +1,5 @@
 import { cn } from "@otter-mail/web/extension-kit";
 
-/** Anthropic's Claude mark, as T3 Code draws Claude. */
 export function ClaudeIcon({ className }: { className?: string }) {
   return (
     <svg

@@ -1,5 +1,3 @@
-/** The Otter Mail agent's connection calls (core: agent:*OpenRouter). */
-
 import { ipc } from "@otter-mail/web/extension-kit";
 import type { OpenRouterConnection } from "@otter-mail/contracts/openrouter";
 import type { ProvidersState } from "@otter-mail/web/extension-kit";

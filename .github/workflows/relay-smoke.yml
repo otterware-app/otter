@@ -1,11 +1,5 @@
 name: Relay smoke test
 
-# Checks production end to end: a real Google ID token signs in, a real
-# Pub/Sub push reaches the socket, then the test account is deleted
-# (infra/relay/scripts/smoke.ts). Cloudflare Workers Builds deploys the relay;
-# this watches that it works. Google Cloud access is keyless (Workload
-# Identity Federation); see infra/relay/README.md.
-
 on:
   schedule:
     - cron: "17 */6 * * *"

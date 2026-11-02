@@ -11,9 +11,7 @@ import Foundation
  */
 nonisolated struct GraphAPI {
     let email: String
-    /** A fresh access token; `force` skips the cached one (after a 401). */
     let token: @Sendable (_ force: Bool) async throws -> String
-    /** Where requests go (tests answer them). */
     var transport: @Sendable (URLRequest) async throws -> (Data, URLResponse) = { try await URLSession.shared.data(for: $0) }
     let gate = GraphGate()
 
@@ -21,16 +19,12 @@ nonisolated struct GraphAPI {
 
     struct Failure: LocalizedError {
         var status: Int
-        /** Graph's own code ("ErrorItemNotFound", "syncStateNotFound", …). */
         var code: String
         var message: String
         var errorDescription: String? { message.isEmpty ? "Outlook answered \(status)." : message }
         var notFound: Bool { status == 404 || code == "ErrorItemNotFound" }
     }
 
-    // ── Requests ─────────────────────────────────────────────────────────────
-
-    /** `path` (under the API root) with its query, each value percent-encoded. */
     static func path(_ path: String, _ query: [(String, String)] = []) -> String {
         guard !query.isEmpty else { return path }
         var allowed = CharacterSet.alphanumerics
@@ -38,7 +32,6 @@ nonisolated struct GraphAPI {
         return path + "?" + query.map { "\($0)=\($1.addingPercentEncoding(withAllowedCharacters: allowed) ?? $1)" }.joined(separator: "&")
     }
 
-    /** A request's answer: retried after a 401 (a fresh token), a 429 or 503 (Graph's wait), or a 5xx. */
     func data(_ method: String = "GET", _ path: String, body: Data? = nil, contentType: String = "application/json", prefer: [String] = []) async throws -> Data {
         guard let url = URL(string: path.hasPrefix("https://") ? path : Self.root + path) else {
             throw Failure(status: 0, code: "", message: "Couldn't make a request to Outlook.")
@@ -51,7 +44,6 @@ nonisolated struct GraphAPI {
             request.httpBody = body
             request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         } else if method != "GET" {
-            // Graph wants a length on every POST (`/send`, `/move` …), even an empty one.
             request.httpBody = Data()
         }
         var refreshed = false, force = false
@@ -93,7 +85,6 @@ nonisolated struct GraphAPI {
         try JSONDecoder().decode(T.self, from: try await data("GET", path, prefer: prefer))
     }
 
-    /** A JSON request's answer (`{}` for an empty one). */
     @discardableResult
     func send(_ method: String, _ path: String, _ body: [String: Any]? = nil) async throws -> Data {
         let answer = try await data(method, path, body: try body.map { try JSONSerialization.data(withJSONObject: $0) })
@@ -109,28 +100,18 @@ nonisolated struct GraphAPI {
         return Failure(status: status, code: error?["code"] as? String ?? "", message: (error?["message"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
-    // ── Batches ──────────────────────────────────────────────────────────────
-
     struct BatchRequest {
         var method = "GET"
-        /** Relative to the API root: `/me/messages/…`. */
         var url: String
-        /** JSON. */
         var body: Data? = nil
     }
 
     struct BatchResponse {
         var status: Int
-        /** The answer's body, as JSON. */
         var body: Data
         var ok: Bool { (200..<300).contains(status) }
     }
 
-    /**
-     * Runs requests in `$batch`es of 20 (Graph's most), in order, answering
-     * each one's status and body. Throttled ones are asked again after Graph's
-     * Retry-After; other failures are answered for the caller to judge.
-     */
     func batch(_ requests: [BatchRequest]) async throws -> [BatchResponse] {
         var results = [BatchResponse?](repeating: nil, count: requests.count)
         for start in stride(from: 0, to: requests.count, by: 20) {
@@ -175,10 +156,7 @@ nonisolated struct GraphAPI {
     }
 }
 
-// ── Mail ─────────────────────────────────────────────────────────────────────
-
 nonisolated extension GraphAPI {
-    /** One page of a collection, and the link to the next page or (a delta's last) the next round. */
     struct Page<T: Decodable>: Decodable {
         var value: [T]?
         var nextLink: String?
@@ -191,7 +169,6 @@ nonisolated extension GraphAPI {
         }
     }
 
-    /** A message's resource path (immutable ids carry "=" and the like). */
     static func messagePath(_ id: String) -> String { "/me/messages/\(encoded(id))" }
     static func folderPath(_ id: String) -> String { "/me/mailFolders/\(encoded(id))" }
 
@@ -201,7 +178,6 @@ nonisolated extension GraphAPI {
         return id.addingPercentEncoding(withAllowedCharacters: allowed) ?? id
     }
 
-    /** Every item of a collection, following its pages. */
     func all<T: Decodable>(_ path: String) async throws -> [T] {
         var items: [T] = []
         var next: String? = path
@@ -213,9 +189,6 @@ nonisolated extension GraphAPI {
         return items
     }
 
-    // ── Folders ──────────────────────────────────────────────────────────────
-
-    /** The folder tree and categories (a few requests); the well-known folders' ids are asked for once. */
     func folders(wellKnown known: [String: String]?) async throws -> OutlookFolders {
         var wellKnown = known ?? [:]
         struct Ref: Decodable { var id: String }
@@ -244,9 +217,6 @@ nonisolated extension GraphAPI {
         return OutlookFolders(wellKnown: wellKnown, children: children, categories: categories.map { .init(name: $0.displayName, color: $0.color ?? "none") })
     }
 
-    // ── Messages ─────────────────────────────────────────────────────────────
-
-    /** Conversations' messages, by conversation id (20 conversations to a request); a gone one has none. */
     func conversations(_ ids: [String]) async throws -> [String: [GraphMessage]] {
         let requests = ids.map { id in
             BatchRequest(url: Self.path("/me/messages", [
@@ -271,7 +241,6 @@ nonisolated extension GraphAPI {
         return found
     }
 
-    /** Words, files and headers of messages, 4 at a time (Graph's most); a message gone meanwhile is left out. */
     func contents(_ messages: [GraphMessage]) async throws -> [String: OutlookContent] {
         try await withThrowingTaskGroup(of: (String, OutlookContent?).self) { group in
             var contents: [String: OutlookContent] = [:]
@@ -311,7 +280,6 @@ nonisolated extension GraphAPI {
         return OutlookMail.content(try await source(message.id))
     }
 
-    /** The message's MIME source, parsed off the main actor. */
     func source(_ id: String) async throws -> MIMEParser.Parsed {
         await Self.parse(try await data("GET", Self.messagePath(id) + "/$value"))
     }
@@ -319,16 +287,12 @@ nonisolated extension GraphAPI {
     @concurrent
     private static func parse(_ source: Data) async -> MIMEParser.Parsed { MIMEParser.parse(source) }
 
-    // ── Delta ────────────────────────────────────────────────────────────────
-
-    /** What a folder's delta said: messages added or changed, messages gone, and the link for the next round. */
     struct Delta {
         var changed: [GraphMessage] = []
         var removed: [String] = []
         var link: String
     }
 
-    /** Where following a folder's changes starts: its mail since `since` (a first round lists it, then come changes). */
     static func deltaStart(_ folder: String, since: Date) -> String {
         path(folderPath(folder) + "/messages/delta", [
             ("$select", "id,conversationId,receivedDateTime"),
@@ -336,7 +300,6 @@ nonisolated extension GraphAPI {
         ])
     }
 
-    /** Follows a delta link to its round's end. */
     func delta(_ link: String) async throws -> Delta {
         var delta = Delta(link: link)
         var next: String? = link
@@ -370,23 +333,18 @@ nonisolated extension GraphAPI {
         return delta
     }
 
-    /** Graph lost track of a delta (it expired): the folder starts over. */
     static func expired(_ error: Error) -> Bool {
         guard let failure = error as? Failure else { return false }
         return failure.status == 410 || failure.code.localizedCaseInsensitiveContains("syncState")
             || failure.code.localizedCaseInsensitiveContains("resync")
     }
 
-    // ── Writing ──────────────────────────────────────────────────────────────
-
-    /** Batched writes; a message already gone (404) is fine, any other failure isn't. */
     func run(_ requests: [BatchRequest]) async throws {
         for answer in try await batch(requests) where !answer.ok && answer.status != 404 {
             throw Self.failure(answer.status, answer.body)
         }
     }
 
-    /** Puts files on a draft: small ones in one request, those past 3 MB in an upload session's chunks. */
     func attach(_ files: [MIME.File], to draft: String) async throws {
         let path = Self.messagePath(draft) + "/attachments"
         for file in files {
@@ -404,7 +362,6 @@ nonisolated extension GraphAPI {
                 "AttachmentItem": ["attachmentType": "file", "name": file.filename, "size": file.data.count, "contentType": file.mimeType] as [String: Any],
             ])
             guard let url = URL(string: upload.uploadUrl) else { throw Failure(status: 0, code: "", message: "Outlook didn't take \(file.filename).") }
-            // Chunks in multiples of 320 KiB; the upload URL carries its own authorization.
             let chunk = 10 * 320 * 1024
             for start in stride(from: 0, to: file.data.count, by: chunk) {
                 let end = min(start + chunk, file.data.count)
@@ -420,7 +377,6 @@ nonisolated extension GraphAPI {
         }
     }
 
-    /** Makes a draft's files the composer's: drops those it no longer has, adds the new ones (matched by name). */
     func replaceAttachments(_ files: [MIME.File], on draft: String) async throws {
         let path = Self.messagePath(draft) + "/attachments"
         let existing: [GraphAttachment] = try await all(Self.path(path, [("$select", "id,name,isInline")]))
@@ -447,7 +403,6 @@ actor GraphGate {
 
     func enter() async {
         while until > .now { try? await Task.sleep(for: .seconds(until.timeIntervalSinceNow)) }
-        // A waiting request is handed the slot of the one that leaves.
         if inFlight >= 4 { await withCheckedContinuation { waiting.append($0) } } else { inFlight += 1 }
     }
 
@@ -455,7 +410,6 @@ actor GraphGate {
         if waiting.isEmpty { inFlight -= 1 } else { waiting.removeFirst().resume() }
     }
 
-    /** Holds every request back `seconds` (at most a minute: Graph's waits are short). */
     func coolDown(for seconds: Double) async {
         until = max(until, .now.addingTimeInterval(min(max(seconds, 1), 60)))
         while until > .now { try? await Task.sleep(for: .seconds(until.timeIntervalSinceNow)) }

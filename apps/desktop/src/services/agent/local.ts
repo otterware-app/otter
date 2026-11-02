@@ -1,9 +1,3 @@
-/**
- * Where agents on this Mac work: Codex's and Claude's workspace, the absolute
- * paths of the attachments core stages in the app's files, and the files
- * Otter Mail's tools hand any agent here.
- */
-
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -20,17 +14,13 @@ import {
 
 import { appInfo } from "../../backend-protocol.js";
 
-/**
- * Codex threads started from Otter Mail run here (their cwd), so they're listable as ours.
- * Named when agents were "assistants": renaming it would orphan those threads.
- */
+// Keep the old workspace name: renaming it would orphan existing Codex threads.
 export async function agentWorkspace(): Promise<string> {
   const dir = path.join(appInfo().stateDir, "assistant-workspace");
   await fs.mkdir(dir, { recursive: true });
   return dir;
 }
 
-/** Read agent output on this computer, resolving relative links in its workspace. */
 export async function readAgentFile(href: string) {
   const file = chatFilePath(href);
   const resolved = file.startsWith("~/")
@@ -58,7 +48,6 @@ export function attachmentPath(attachment: ChatAttachment): string {
   return path.join(appInfo().stateDir, attachment.path);
 }
 
-/** The tools' files: attachments land in the attachments folder (Claude may read there). */
 export const deviceFiles: ToolFiles = {
   async save(name, bytes) {
     const dir = path.join(await attachmentsDir(), "mail", randomUUID());

@@ -15,7 +15,6 @@ type HostManifest = {
   allowed_origins: string[];
 };
 
-/** Only installed manifests may choose an executable; extensions supply a host name. */
 export async function findNativeHost(
   directories: readonly string[],
   name: string,

@@ -1,15 +1,5 @@
-/**
- * Built-in color themes, ported verbatim from Otter Code (the T3 Code fork,
- * packages/shared/src/themePalettes.ts). Each theme is a set of product color
- * roles with light and dark variants. The web app maps the roles onto its CSS
- * variables (apps/web's apply-theme.ts); the iPhone app reads them from
- * Themes.json (scripts/export-ios-resources.ts). The standard palette is
- * "T3 Code".
- */
-
 export type ThemeAppearance = "light" | "dark";
 
-/** Product roles shared by web CSS, React Native tokens, and native surfaces. */
 export const THEME_COLOR_ROLES = [
   "canvas",
   "chrome",
@@ -79,11 +69,8 @@ export type ThemeDefinition = Readonly<{
   appearance: ThemeAppearance;
   colors: ThemeColors;
   variants?: ThemeVariants;
-  /** Groups related imported variants into one library card. */
   collection?: Readonly<{ id: string; label: string }>;
-  /** Allows reviewed built-ins to render product artwork over their sidebar. */
   sidebarArtwork?: boolean;
-  /** Generated from the guided editor's canvas and accent roles. */
   managed?: boolean;
   /** Paint the roles as given, without softening structure colors toward the canvas. */
   exact?: boolean;
@@ -1004,7 +991,6 @@ export function getThemeColorsForAppearance(
   return theme.variants?.[appearance] ?? null;
 }
 
-/** The stock palette ("otter", styles.css in the web app) as a definition. */
 export const OTTER_THEME: ThemeDefinition = {
   id: "otter",
   label: "Otter Mail",
@@ -1013,5 +999,4 @@ export const OTTER_THEME: ThemeDefinition = {
   variants: { light: OTTER_LIGHT_THEME_COLORS, dark: OTTER_DARK_THEME_COLORS },
 };
 
-/** Every theme a user can pick, the stock one first. */
 export const APP_THEMES: ReadonlyArray<ThemeDefinition> = [OTTER_THEME, ...BUILT_IN_THEMES];

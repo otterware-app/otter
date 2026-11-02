@@ -132,24 +132,15 @@ import {
   useTourRequested,
 } from "./onboarding/onboarding";
 
-/** Narrowest the reader gets when the browser panel is dragged wider. */
 const READER_MIN_WIDTH = 360;
-/** How wide the browser panel opens, when there's the room. */
 const BROWSER_OPEN_WIDTH = 720;
-/** The frame's margin left of the first column (styles.css's --workspace-frame-inset). */
 const FRAME_INSET = 4;
 
-/** A place in the mail, as the route names it (router.tsx). */
 type MailLoc = {
-  /** The space (spaces.ts): an account id, a view's id, or CHATS_SPACE. */
   mailbox: string;
-  /** A label or view id (in Chats, a chat's id or NEW_CHAT), or SEARCH_MAILBOX. */
   label: string;
-  /** The conversation (or message) open in the reader. */
   messageId: string | null;
-  /** The open message's own account, where it isn't `mailbox`. */
   account: string | null;
-  /** One message picked from the open conversation: the reader shows just that one. */
   focusId: string | null;
 };
 
@@ -161,7 +152,6 @@ const sameLoc = (a: MailLoc, b: MailLoc | null) =>
   a.account === b.account &&
   a.focusId === b.focusId;
 
-/** The place in the mail the route names, if it names one. */
 function useRouteMailLoc(): MailLoc | null {
   const message = useMatch({ from: "/mail/$mailbox/$label/$messageId", shouldThrow: false });
   const list = useMatch({ from: "/mail/$mailbox/$label", shouldThrow: false });
@@ -177,18 +167,12 @@ function useRouteMailLoc(): MailLoc | null {
   return null;
 }
 
-/** Where the mail was last time (custom-views' saved location). */
 function savedLoc(): MailLoc {
   const saved = loadLastLocation();
   const [mailbox, label] = saved ? [saved.accountId, saved.labelId] : ["", "INBOX"];
   return { mailbox, label, messageId: null, account: null, focusId: null };
 }
 
-/**
- * `loc` among the spaces there are: one turned off (a view deleted, or one
- * not there at all) gives way to the first mailbox, at its inbox. Views count
- * as there until they're known (`views` null).
- */
 function placeFor(loc: MailLoc, accounts: MailAccount[], views: MailView[] | null): MailLoc {
   const there =
     views === null && isViewSpaceId(loc.mailbox)
@@ -199,7 +183,6 @@ function placeFor(loc: MailLoc, accounts: MailAccount[], views: MailView[] | nul
   return { mailbox, label: firstLabelOf(mailbox), messageId: null, account: null, focusId: null };
 }
 
-/** The Settings pane the route names, if it names one. */
 function useRouteSettings(): SettingsRoute | null {
   const paneMatch = useMatch({ from: "/mail/settings/$pane", shouldThrow: false });
   const itemMatch = useMatch({ from: "/mail/settings/$pane/$item", shouldThrow: false });
@@ -226,14 +209,12 @@ function useStoredWidth(
   max: number,
   dir: 1 | -1 = 1,
   room?: () => number,
-  /** A CSS variable on the page that follows the width, mid-drag too (the window's tabs line up by it). */
   cssVar?: string,
 ) {
   const [width, setWidth] = useState(() => {
     const saved = Number(localStorage.getItem(key));
     return Number.isFinite(saved) && saved >= min && saved <= max ? saved : def;
   });
-  // What fits now. Only a change to it re-renders, not every resize.
   const shown = useSyncExternalStore(onWindowResize, () =>
     room ? Math.min(width, Math.max(min, room())) : width,
   );
@@ -241,10 +222,7 @@ function useStoredWidth(
   useLayoutEffect(() => {
     if (cssVar) document.documentElement.style.setProperty(cssVar, `${shown}px`);
   }, [cssVar, shown]);
-  // The pane element itself, resized imperatively during a drag.
   const paneRef = useRef<HTMLDivElement>(null);
-  // The animated frame around a collapsible pane: follows the drag with its
-  // open/close transition switched off.
   const frameRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ cleanup: () => void; finish: () => void } | null>(null);
   useEffect(() => () => dragRef.current?.cleanup(), []);
@@ -277,12 +255,7 @@ function useStoredWidth(
         finish();
         return;
       }
-      // dir -1: right-side panes grow when the handle drags left.
       latest = Math.min(cap, Math.max(min, startW + dir * (ev.clientX - startX)));
-      // Drive the drag through the DOM only — calling setWidth on every
-      // pointermove re-renders the whole HomeView tree (message list, reader,
-      // chat) each frame, which is what made resizing slow and shaky. Batch the
-      // style write to one per frame and commit to React state once, on release.
       if (!raf) raf = requestAnimationFrame(apply);
     };
     const cleanup = () => {
@@ -320,7 +293,6 @@ function useStoredWidth(
     handle.setPointerCapture(pointerId);
   };
 
-  /** At least `to` (within min and max), for now: what was dragged stays stored. */
   const widen = useCallback(
     (to: number) => setWidth((w) => Math.max(w, Math.min(max, Math.max(min, to)))),
     [min, max],
@@ -354,10 +326,7 @@ function PaneResizer({ onPointerDown }: { onPointerDown: (e: ReactPointerEvent) 
  * window's edges. Each card keeps that gap on its right.
  */
 const PANE = "min-h-0 overflow-hidden";
-/** The card behind a pane's body, and its edge over it (above sticky day
-    headers and full-width rows). Its surface comes with the pane. */
 const CARD = `${PANE} relative pr-1 before:pointer-events-none before:absolute before:left-0 before:right-1 before:bottom-0 before:top-(--workspace-card-top) before:-z-10 before:rounded-xl after:pointer-events-none after:absolute after:left-0 after:right-1 after:bottom-0 after:top-(--workspace-card-top) after:z-30 after:rounded-xl after:border after:border-(--panel-edge)`;
-/** The sidebar is the window's left edge, on the frame: the only column that isn't a card. */
 const PANE_SIDEBAR = `${PANE} relative text-sidebar-foreground`;
 const PANE_LIST = `${CARD} before:bg-canvas`;
 const PANE_MAIN = PANE_LIST;
@@ -383,8 +352,6 @@ export function HomeView() {
 }
 
 function MailHome() {
-  // Where the window is comes from the route: a place in the mail, or a
-  // Settings pane over the mail it was opened from (router.tsx).
   const navigate = useNavigate();
   const router = useRouter();
   const routeLoc = useRouteMailLoc();
@@ -393,15 +360,12 @@ function MailHome() {
   const accountsQuery = useAccounts();
   const { views, loaded: viewsLoaded, saveView, deleteView } = useMailViews();
 
-  // The mailboxes shown: turned-on accounts, in the user's order (Settings →
-  // Mailboxes, synced with the Otter account).
   const mailboxes = useMailboxes();
   const accounts = mailboxes.accounts;
   const accountIds = accounts.map((a) => a.id);
   const firstRealAccountId = accounts[0]?.id ?? null;
   const ready = !accountsQuery.isLoading && accounts.length > 0;
 
-  // The mail under Settings: where it was when Settings opened.
   const [lastMail, setLastMail] = useState<MailLoc | null>(null);
   if (routeLoc && !sameLoc(routeLoc, lastMail)) setLastMail(routeLoc);
   // Where the route names no place in the mail (the index route, or a window
@@ -416,21 +380,12 @@ function MailHome() {
   const selectedAccountId = mailLoc?.mailbox ?? null;
   const selectedLabelId = mailLoc?.label ?? "INBOX";
   const selectedMessageId = mailLoc?.messageId ?? null;
-  // Account that owns the currently-open message (differs per row in a view).
   const readerAccountId = mailLoc?.account ?? null;
-  // One message picked from an expanded conversation in the list: the reader
-  // shows just that message.
   const focusedMessageId = mailLoc?.focusId ?? null;
-  // Browsing past a draft keeps mail navigation active until it is opened to edit.
   const [autoFocusDraft, setAutoFocusDraft] = useState(true);
-  // Open searches, each a sidebar row: the top Search row (all mail) and one
-  // per view it was started from (⌘F there). They keep their query and any
-  // unrun text while you visit other mailboxes; × or Escape closes them.
   const [searchTabs, setSearchTabs] = useState<SearchTab[]>([]);
   const [activeSearchId, setActiveSearchId] = useState<string | null>(null);
-  // A new message is a page of its own (`/compose`), over the mail it was started from.
   const composeOpen = useMatch({ from: "/mail/compose", shouldThrow: false }) !== undefined;
-  // The view being made ("new") or edited, in a dialog.
   const [viewEditor, setViewEditor] = useState<string | null>(null);
   // What the new message starts with (a mailto: link from the OS, an address
   // from the reader). The seq keys NewMessageView so one arriving while the
@@ -444,11 +399,8 @@ function MailHome() {
   useLayoutEffect(() => {
     if (settingsRoute) lastPaneRef.current = settingsRoute.pane;
   });
-  // In-app settings page; null = mail. Opened from the sidebar footer, ⌘,
-  // (menu accelerator → backend broadcast), or any window's deep link.
   const openSettings = useCallback(
     (route: SettingsRoute) => {
-      // Only the scroll target going (it was reached): the same place.
       const replace =
         !!settingsRoute && route.pane === settingsRoute.pane && route.item === settingsRoute.item;
       void (route.item
@@ -484,9 +436,6 @@ function MailHome() {
     return window.desktopBridge.on("settings:open", () => void pull());
   }, [openSettingsRef]);
 
-  // ⌘W (File ▸ Close): close the browser panel's page (the last closes the
-  // panel), the workspace's tab, the agent's small window (its chat leaves
-  // the bottom bar), or the window's tab; else the window.
   const closeBrowserTabRef = useRef<(() => boolean) | null>(null);
   const closeWorkspaceTabRef = useRef<(() => boolean) | null>(null);
   const closeChatWindowRef = useRef<() => boolean>(() => false);
@@ -509,12 +458,10 @@ function MailHome() {
     [router],
   );
 
-  /** Moves the mail to `to`, from where it is (or was, under Settings). */
   const go = (to: Partial<MailLoc>, replace = false) => {
     if (!mailLoc) return;
     const next = { ...mailLoc, ...to };
     const params = { mailbox: next.mailbox, label: next.label };
-    // Opening and closing a floating reader keeps the inbox at its current scroll offset.
     const resetScroll =
       !floatingLayout ||
       !!settingsRoute ||
@@ -536,18 +483,15 @@ function MailHome() {
     });
   };
   const closeMessage = () => go({ messageId: null });
-  /** Puts the mail right where it is; under Settings, where Back returns to. */
   const correct = (to: Partial<MailLoc>) => {
     if (routeLoc) go(to, true);
     else if (lastMail) setLastMail({ ...lastMail, ...to });
   };
 
-  // Back to the mail Settings (or the new message) was opened over.
   const leaveSettings = () => {
     if (mailLoc) go({});
     else void navigate({ to: "/" });
   };
-  /** The new message's page, empty or starting with `prefill`. */
   const openCompose = (prefill: MailtoTarget | null = null) => {
     if (composeOpen && !prefill) return;
     setMailtoPrefill(prefill);
@@ -558,7 +502,6 @@ function MailHome() {
   const leaveSettingsRef = useLatest(leaveSettings);
   const composeOpenRef = useLatest(composeOpen);
   const openComposeRef = useLatest(openCompose);
-  // Escape leaves settings (blurring a focused field first, like a dialog).
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented || !settingsRouteRef.current) return;
@@ -573,7 +516,6 @@ function MailHome() {
     return () => window.removeEventListener("keydown", down, true);
   }, [leaveSettingsRef, settingsRouteRef]);
 
-  // The space showing (spaces.ts); none until the mailboxes are known.
   const space = selectedAccountId ? spaceOf(selectedAccountId, { accounts, views }) : null;
   // The AI workspace: a chat (the label) instead of a list and a reader.
   const isChats = space?.kind === "chats";
@@ -582,7 +524,6 @@ function MailHome() {
   const floatingLayout = mailLayout === "floating" && !isChats;
   const wideInbox = fullInbox || floatingLayout;
   const [mailWorkspace, setMailWorkspace] = useState<HTMLDivElement | null>(null);
-  // A view's space: its list, across the mailboxes.
   const viewSpace = space?.kind === "view" ? space.view : null;
   const spansMailboxes = spanning(space);
 
@@ -612,15 +553,12 @@ function MailHome() {
     start: listStart,
     paneRef: listPaneRef,
   } = useStoredWidth("gmail:pane:list", 380, 280, 640);
-  // The browser panel (the Mac app's), and the agent's small window over the mail.
   const [browserOpen, setBrowserOpen] = useState(
     () => features.browser && localStorage.getItem("gmail:browser-open") === "1",
   );
   const [chatWindowOpen, setChatWindowOpen] = useState(
     () => localStorage.getItem("gmail:chat-window-open") === "1",
   );
-  // Mail and Settings are separate spaces: each keeps its sidebar open or
-  // closed on its own, and the toggle acts on the one showing.
   const [mailSidebarOpen, setMailSidebarOpen] = useState(
     () => localStorage.getItem("gmail:sidebar-open") !== "0",
   );
@@ -628,7 +566,6 @@ function MailHome() {
     () => localStorage.getItem("gmail:settings-sidebar-open") !== "0",
   );
   const sidebarOpen = settingsRoute ? settingsSidebarOpen : mailSidebarOpen;
-  // The browser can grow wide, as long as the reader keeps READER_MIN_WIDTH.
   const browserRoom = () =>
     window.innerWidth -
     FRAME_INSET -
@@ -645,7 +582,6 @@ function MailHome() {
   // Entering or leaving Settings swaps panes in place rather than animating them.
   const { active: panelAnimationsActive, durationMs: panelAnimationDurationMs } =
     usePanelAnimationSettings(settingsRoute ? "settings" : "mail");
-  // The browser panel is the mail's: the workspace opens a chat's pages beside it.
   const browserVisible = browserOpen && !settingsRoute && !isChats;
   const sidebarPresent = usePanelPresence(
     sidebarOpen,
@@ -671,7 +607,6 @@ function MailHome() {
       return !open;
     });
   };
-  // Rows multi-selected in the list, surfaced to the agent's context chip.
   const [chatSelection, setChatSelection] = useState<MessageSummary[]>([]);
   const openBrowser = () => {
     localStorage.setItem("gmail:browser-open", "1");
@@ -681,7 +616,6 @@ function MailHome() {
     localStorage.setItem("gmail:browser-open", "0");
     setBrowserOpen(false);
   };
-  /** The panel shows the last page, or a new tab's start page. */
   const toggleBrowser = () => {
     if (!features.browser || isChats) return false;
     if (browserVisible) {
@@ -698,7 +632,6 @@ function MailHome() {
     }
     openBrowser();
   };
-  // A page opening in the browser (a link, ⌘T) shows in the panel, out of Settings.
   const browserRevealed = useBrowser((s) => s.revealed);
   const openBrowserForEffect = useLatest(openBrowser);
   useEffect(() => {
@@ -707,21 +640,18 @@ function MailHome() {
     openBrowserForEffect.current();
   }, [browserRevealed, leaveSettingsRef, openBrowserForEffect, settingsRouteRef]);
 
-  // A highlighted excerpt handed from the reader to the agent (one-shot).
   const [pendingQuote, setPendingQuote] = useState<QuoteContext | null>(null);
   const setChatWindow = (open: boolean) => {
     localStorage.setItem("gmail:chat-window-open", open ? "1" : "0");
     setChatWindowOpen(open);
     if (!open) setPendingQuote(null);
   };
-  /** The agent over the mail: the small window, out of Settings and the workspace. */
   const openChat = () => {
     if (settingsRouteRef.current) leaveSettingsRef.current();
     if (isChats) leaveWorkspace();
     setChatWindow(true);
   };
   const chatWindowShown = chatWindowOpen && !isChats && !settingsRoute;
-  /** Closes the small window and takes its chat out of the bottom bar. */
   const closeChat = () => {
     undockChat(useChats.getState().activeId);
     setChatWindow(false);
@@ -741,7 +671,6 @@ function MailHome() {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const { selectedKind } = useChatProvider(undefined);
   const activeChatId = useChats((s) => s.activeId);
-  /** A chat picked in the bottom bar: in the workspace when it shows; else the small window, or minimized if it showed it. */
   const selectChat = (id: string) => {
     if (isChats && !settingsRoute) go({ label: id }, true);
     else if (chatWindowShown && activeChatId === id) setChatWindow(false);
@@ -760,7 +689,6 @@ function MailHome() {
   useEffect(() => {
     if (mailLoc && !isChats) mailBeforeChats.current = mailLoc;
   });
-  /** The workspace, showing `chatId` (the small window's chat moves there). */
   const openWorkspace = (chatId: string) => {
     setChatWindow(false);
     showChat(chatId);
@@ -771,14 +699,12 @@ function MailHome() {
     if (back && back.mailbox !== CHATS_SPACE) go({ ...back, messageId: null });
     else if (firstRealAccountId) handleSelectAccount(firstRealAccountId);
   };
-  // The workspace's address names its chat: "new" gets a new one, at its own address.
   const showNewChat = useLatest(() => go({ label: newChat(selectedKind) }, true));
   const chatsLabel = isChats ? selectedLabelId : null;
   useEffect(() => {
     if (chatsLabel === NEW_CHAT) showNewChat.current();
     else if (chatsLabel) showChat(chatsLabel);
   }, [chatsLabel, showNewChat]);
-  /** A new chat: in the workspace when it shows, else in the small window. */
   const startNewChat = () => {
     if (isChats && !settingsRoute) {
       go({ label: newChat(selectedKind) });
@@ -788,14 +714,11 @@ function MailHome() {
     openChat();
     requestAnimationFrame(() => chatInputRef.current?.focus());
   };
-  // Getting started. A device whose mail was already here skips the setup,
-  // and is offered the tour, once.
   useEffect(() => {
     if (accountsQuery.isLoading || accounts.length === 0 || getSetupStage()) return;
     markSetUp();
     offerTour();
   }, [accountsQuery.isLoading, accounts.length]);
-  // The tour walks the mail view: out of Settings and the composer, with the sidebar showing.
   const tourRequested = useTourRequested();
   useEffect(() => {
     if (!tourRequested) return;
@@ -805,7 +728,6 @@ function MailHome() {
     setMailSidebarOpen(true);
   }, [tourRequested, leaveSettingsRef, settingsRouteRef, composeOpenRef]);
 
-  // MessageList fills this each render; reader archive/trash advance through it.
   const advanceRef = useRef<(fromMessageId: string) => boolean>(() => false);
   const handleReaderAdvance = () => {
     if (!selectedMessageId || !advanceRef.current(selectedMessageId)) closeMessage();
@@ -813,8 +735,6 @@ function MailHome() {
 
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // ⌘1…⌘9 = accounts in rail order. The ref is populated below once
-  // handleSelectAccount exists.
   const accountSwitchRef = useRef<{
     ids: string[];
     select: (id: string) => void;
@@ -854,8 +774,6 @@ function MailHome() {
         return Promise.all(action.actions.map((a) => runAction(a, quiet)));
     }
   };
-  // ⌘Z / ⇧⌘Z (Edit › Undo and Redo in the app menu): text undo while typing,
-  // else the mail action, like z and ⇧Z.
   useEffect(() => {
     const onEdit = (native: "edit:nativeUndo" | "edit:nativeRedo", run: () => void) => () => {
       const context = keybindingContext();
@@ -882,7 +800,6 @@ function MailHome() {
       offRedo();
     };
   }, []);
-  // Each action's toast, stacked; undoing an action (z or its Undo) closes it.
   const actionToasts = useRef(new Map<UndoAction, ToastId>());
   useLayoutEffect(() => {
     undoRunner.current = (action) => {
@@ -896,7 +813,6 @@ function MailHome() {
       runAction(action, true).then(
         () => {
           registerRedo(action);
-          // Callbacks (e.g. holding back a send) say what happened themselves.
           if (action.kind !== "callback") toast.success("Undone");
         },
         () => toast.error("Could not undo"),
@@ -938,13 +854,11 @@ function MailHome() {
     [],
   );
 
-  // Keyboard commands (Settings › Keybindings; defaults in keybindings/commands.ts).
   useKeybindingDispatcher();
   useKeybindingContext("settingsOpen", settingsRoute !== null);
   useKeybindingContext("workspaceOpen", isChats && !settingsRoute);
   useKeybindingContext("agentOpen", !settingsRoute && (isChats || chatWindowOpen));
   useKeybindingContext("messageOpen", selectedMessageId !== null);
-  /** A folder of the mailbox showing (from Chats or a view, the first mailbox's). */
   const goTo = (labelId: string | ((account: MailAccount) => string)) => {
     const mailbox = isChats || viewSpace ? firstRealAccountId : selectedAccountId;
     const account = accounts.find((a) => a.id === mailbox);
@@ -957,7 +871,6 @@ function MailHome() {
   };
   const jumpToMailbox = (digit: number) => {
     const { ids, select } = accountSwitchRef.current;
-    // The accounts in sidebar order.
     const target = ids[digit - 1];
     if (!target) return false;
     select(target);
@@ -990,7 +903,6 @@ function MailHome() {
     "go.sent": () => goTo("SENT"),
     "go.starred": () => goTo("STARRED"),
     "go.drafts": () => goTo("DRAFT"),
-    // Where archived mail is: the Archive folder (Outlook, IMAP), or Gmail's All Mail.
     "go.allMail": () =>
       goTo((account) =>
         capabilitiesOf(account).archiveFolder ? ARCHIVE_LABEL_ID : ALL_MAIL_LABEL_ID,
@@ -1001,8 +913,6 @@ function MailHome() {
     ),
   });
 
-  // A window opened on no place in particular (the index route) goes to the
-  // place its tab showing was at, or the last one, once accounts are known.
   const onIndex = !routeLoc && !settingsRoute && !composeOpen;
   const hasMail = mailLoc !== null;
   const goForEffect = useLatest(go);
@@ -1017,7 +927,6 @@ function MailHome() {
   // Persist where the user is so we can reopen here next launch.
   useEffect(() => {
     if (!initialized || !selectedAccountId) return;
-    // The Search mailbox isn't a place to reopen into.
     if (selectedLabelId === SEARCH_MAILBOX) return;
     saveLastLocation({ accountId: selectedAccountId, labelId: selectedLabelId });
   }, [initialized, selectedAccountId, selectedLabelId]);
@@ -1057,9 +966,6 @@ function MailHome() {
     };
   }, [router]);
 
-  // mailto: links (default mail app): pull the pending target on mount (cold
-  // start) and whenever the backend broadcasts one, then open the composer
-  // prefilled.
   useEffect(() => {
     const pull = async () => {
       const target = await mailApi.takePendingMailto();
@@ -1091,19 +997,15 @@ function MailHome() {
 
   const effectiveAccountId = space?.id ?? firstRealAccountId;
 
-  // If the selected view disappears (deleted, or it has no rules for the
-  // active account), fall back to Inbox.
   const correctForEffect = useLatest(correct);
   /* oxlint-disable react/exhaustive-effect-dependencies -- Explicit DOM and reset triggers must re-run this lifecycle. */
   useEffect(() => {
     if (!initialized || !viewsLoaded || selectedLabelId === SEARCH_MAILBOX) return;
-    // Chats' labels are chats (the workspace finds a new one for one that's gone).
     if (isChats) return;
     if (viewSpace) {
       if (selectedLabelId !== VIEW_LIST) correctForEffect.current({ label: VIEW_LIST });
       return;
     }
-    // A view as a label (views were once in each mailbox): its own space.
     const view = views.find((v) => v.id === selectedLabelId);
     if (view) correctForEffect.current({ mailbox: view.id, label: VIEW_LIST });
   }, [
@@ -1118,8 +1020,6 @@ function MailHome() {
   ]);
   /* oxlint-enable react/exhaustive-effect-dependencies */
 
-  // Local-first: keep the on-disk cache synced in the background. A view
-  // refreshes its accounts through its own list handler.
   useAccountSync(spansMailboxes ? null : effectiveAccountId);
 
   // Per-account branding: the primary (send, unread dot, focus ring) and the
@@ -1127,7 +1027,6 @@ function MailHome() {
   // neutral. Set on the document root so portaled dialogs/menus rebrand too;
   // inline properties win over the injected theme rule.
   const brandAccount = accounts.find((a) => a.id === effectiveAccountId) ?? null;
-  // Monochrome themes (Codex) keep their own primary.
   const monochrome = useMonochromeTheme();
   const brand = brandAccount && !monochrome ? getAccountColor(brandAccount) : null;
   useEffect(() => {
@@ -1145,7 +1044,6 @@ function MailHome() {
     root.setProperty("--ring", brand);
   }, [brand]);
 
-  // The view showing, with its rules across the mailboxes.
   const combined = viewSpace
     ? { viewId: viewSpace.id, name: viewSpace.name, rules: resolveRules(viewSpace, accounts) }
     : null;
@@ -1158,8 +1056,6 @@ function MailHome() {
     accountSwitchRef.current = { ids: accountIds, select: handleSelectAccount };
   });
 
-  // The route's mailbox was turned off, or isn't there: the route catches up
-  // with what shows instead.
   const misplaced = ready && !!routeLoc && routeLoc.mailbox !== mailLoc?.mailbox;
   const goForAccountEffect = useLatest(go);
   useEffect(() => {
@@ -1167,11 +1063,8 @@ function MailHome() {
     goForAccountEffect.current({}, true);
   }, [misplaced, goForAccountEffect]);
 
-  // Peeking at the sidebar from the window's edge (sidebar-peek.tsx): only
-  // while it's hidden, and not in Settings.
   const sidebarPeek = useSidebarPeek();
   const peeking = sidebarPeek.open && !sidebarOpen && !settingsRoute;
-  /** Goes to a space (at its first place, or `label`), closing the peek. */
   const goToSpace = (spaceId: string, label?: string) => {
     sidebarPeek.close();
     if (label === undefined) handleSelectAccount(spaceId);
@@ -1180,7 +1073,6 @@ function MailHome() {
     }
   };
 
-  /** The view editor ("new", or a view's id). */
   const openViewEditor = (viewId: string) => {
     console.log("[HomeView:openViewEditor]", { isNew: viewId === "new" });
     sidebarPeek.close();
@@ -1199,7 +1091,6 @@ function MailHome() {
   };
 
   const queryClient = useQueryClient();
-  /** Agent results open in the app; draft ids resolve to their current message. */
   const openChatChange = async ({ target }: ChatChange) => {
     if (target.kind === "view") {
       goToSpace(target.id, VIEW_LIST);
@@ -1232,7 +1123,6 @@ function MailHome() {
       });
     }
   };
-  // A send taken back with Undo reopens its draft here (the reader edits drafts).
   const selectMessageRef = useLatest(handleSelectMessage);
   useEffect(
     () =>
@@ -1244,10 +1134,6 @@ function MailHome() {
     [queryClient, selectMessageRef],
   );
 
-  // ── Search mailbox ───────────────────────────────────────────────────────
-  // Search is a mailbox like Inbox: selecting a search row (the top Search
-  // row, or one under the view it was started from) shows Gmail's search in
-  // the list pane. Escape clears it, then closes it back to where you were.
   const searchActive = selectedLabelId === SEARCH_MAILBOX;
   const searchReturnRef = useRef<string>("INBOX");
   const searchMailbox = selectedAccountId ?? "";
@@ -1257,7 +1143,6 @@ function MailHome() {
     : null;
   const patchSearch = (id: string, patch: Partial<SearchTab>) =>
     setSearchTabs((tabs) => tabs.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-  // Where a new search looks by default: the mailbox you started it from.
   const defaultScope = (): string[] =>
     spansMailboxes || !effectiveAccountId
       ? combined && selectedLabelId !== SEARCH_MAILBOX
@@ -1275,7 +1160,6 @@ function MailHome() {
     setActiveSearchId(id);
     go({ label: SEARCH_MAILBOX, messageId: null });
   };
-  /** The top Search row (all mail), optionally running `q`. */
   const openSearch = (q?: string) => {
     console.log("[HomeView:openSearch]", { hasQuery: Boolean(q) });
     setSearchTabs((tabs) => {
@@ -1298,12 +1182,8 @@ function MailHome() {
       ];
     });
     showSearch(topSearchId);
-    // Focus once the header has mounted (no query: ready to type).
     if (!q) focusSearchEnd();
   };
-  // ⌘F / the list's search icon: the view's own search row, opened under it
-  // with its operators prefilled (`in:inbox `) and the cursor after them.
-  // Already in a search, it just focuses the bar.
   const viewQueryRef = useRef("");
   const searchFromView = () => {
     if (searchActive && !settingsRoute) {
@@ -1336,8 +1216,6 @@ function MailHome() {
   const runSearch = (q: string) => {
     const tab = activeSearch;
     if (!tab) return openSearch(q);
-    // Dropping the view's operators makes it a search of all mail: it moves
-    // up to the top Search row.
     if (tab.parent && !q.includes(tab.base)) {
       console.log("[HomeView:searchLeavesView]");
       setSearchTabs((tabs) => [
@@ -1358,14 +1236,11 @@ function MailHome() {
     }
   };
   const handleSearchChange = (q: string) => openSearch(q);
-  // Back/forward (or a reload) into a search that was since closed: the top
-  // Search row. Only on arriving: closing the open search leaves it at once.
   const openSearchForEffect = useLatest(openSearch);
   useEffect(() => {
     if (searchActive && !activeSearch) openSearchForEffect.current();
   }, [searchActive, activeSearch, openSearchForEffect]);
 
-  // Palette mail result: jump to the owning account (a view stays put) and open.
   const handlePaletteOpenMessage = (message: MessageSummary) => {
     console.log("[HomeView:paletteOpenMessage]", {
       messageId: message.id,
@@ -1376,7 +1251,6 @@ function MailHome() {
     openMessage(owner, message.id);
   };
 
-  /** Opens a message of `owner`'s where it is: a view stays put, another account's inbox opens. */
   const openMessage = (owner: string, messageId: string) => {
     const switching = !spansMailboxes && owner !== effectiveAccountId;
     setAutoFocusDraft(true);
@@ -1421,14 +1295,12 @@ function MailHome() {
       }
     })();
   };
-  // ⌘R (Mailbox › Sync Now in the app menu) is the same manual refresh.
   const syncNowRef = useLatest(syncNow);
   useEffect(
     () => window.desktopBridge.on("mail:syncNow", () => syncNowRef.current()),
     [syncNowRef],
   );
 
-  // From a view, the first of the mailboxes it draws on.
   const composeAccountId = viewSpace
     ? (combined?.rules[0]?.accountId ?? firstRealAccountId)
     : spansMailboxes
@@ -1436,7 +1308,6 @@ function MailHome() {
       : effectiveAccountId;
   const readerAccount =
     readerAccountId ?? (spansMailboxes ? firstRealAccountId : effectiveAccountId);
-  // The mail the small window's chat is about: a quote, the selection, or the open conversation.
   const mailChatContext = useMailChatContext({
     accountId: selectedMessageId ? readerAccount : null,
     messageId: selectedMessageId,
@@ -1456,7 +1327,6 @@ function MailHome() {
     accounts,
     views,
   });
-  // The window's tab showing follows the window, named for where it is.
   const routed = routeLoc !== null || settingsRoute !== null || composeOpen;
   const placeKey = place ? JSON.stringify([place.title, place.icon]) : null;
   const placeHref = place?.href ?? null;
@@ -1471,7 +1341,6 @@ function MailHome() {
     if (!href) return;
     void navigate({ href, replace: true });
   };
-  /** A new tab, at the Inbox of the mailbox showing (or the first). */
   const newWindowTab = () => {
     const mailbox = space?.kind === "mailbox" ? space.id : firstRealAccountId;
     if (!mailbox) return;
@@ -1482,7 +1351,6 @@ function MailHome() {
     addTab(href);
     showWindowTab(href);
   };
-  // The workspace has no list: a chat and its tabs.
   const hasListTarget = effectiveAccountId != null && !isChats;
   const showMain =
     !!settingsRoute ||
@@ -1544,12 +1412,9 @@ function MailHome() {
       leading={mainIsLeftmost ? titlebarInset : null}
       syncing={globalSync.syncing}
       syncLabel={globalSync.label}
-      // Room for the pinned browser toggle while the panel is closed; when
-      // open, the panel's header keeps it. Settings has no panel.
       showPanelToggle={browserToggleRoom}
     />
   );
-  // Docked, or peeking from the window's edge.
   const sidebar = (
     <AppSidebar
       accounts={accounts}
@@ -1596,7 +1461,6 @@ function MailHome() {
       >
         {features.windowTabs ? (
           <WindowTabsBar
-            // The tabs start with the columns, after the sidebar (Linear's).
             sidebarOpen={sidebarOpen}
             onSelect={(id) => showWindowTab(selectWindowTab(id))}
             onClose={(id) => showWindowTab(closeWindowTab(id))}
@@ -1634,10 +1498,7 @@ function MailHome() {
                     style={{ width: sidebarOpen ? sidebarWidth : 0 }}
                     className={cn(
                       PANE_FRAME,
-                      // Down to the window's foot, past the cards and beside the bottom bar.
                       "-mb-8",
-                      // Anchored left: the sidebar stays put while the columns
-                      // after it slide over it, and back out.
                       sidebarOpen && "[[data-panel-animations=true]_&]:starting:w-0!",
                       !sidebarOpen && "pointer-events-none",
                     )}
@@ -1836,7 +1697,6 @@ function MailHome() {
             {/* The bottom bar: under the cards, right of the sidebar, which runs on down beside it. */}
             <div
               className="absolute bottom-0 right-0 z-40"
-              // Follows the sidebar's edge mid-drag too.
               style={{
                 left: sidebarOpen
                   ? "calc(var(--workspace-sidebar-width) + var(--workspace-frame-inset))"
@@ -1877,7 +1737,6 @@ function MailHome() {
             setAgentOpen: (open) => (open ? openChat() : setChatWindow(false)),
             openMessage: () => {
               if (selectedMessageId) return;
-              // A read one where there is one: opening marks a conversation read.
               const row =
                 document.querySelector<HTMLElement>(
                   "[data-message-row]:not([data-draft]):not([data-unread])",
@@ -1895,7 +1754,6 @@ function MailHome() {
         open={viewEditor !== null}
         view={views.find((v) => v.id === viewEditor) ?? null}
         accounts={accountsQuery.data ?? []}
-        // A new view opens in its space once saved.
         onSave={(input) =>
           saveView(input).then((saved) => {
             if (!input.id) handleSelectAccount(saved.id);

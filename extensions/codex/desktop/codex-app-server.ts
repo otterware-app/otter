@@ -20,7 +20,6 @@ type Pending = {
 export type Notification = { method: string; params: Record<string, unknown> };
 export type ServerRequest = Notification & { id: number | string };
 
-/** The app-server couldn't be started at all (binary missing / not executable). */
 export class CodexSpawnError extends Error {}
 
 function expandHome(p: string): string {
@@ -42,7 +41,6 @@ export class CodexAppServer {
   private pending = new Map<number, Pending>();
   private buffer = "";
   private exited = false;
-  /** Version parsed from the initialize userAgent ("otter_mail/0.157.0 (…)"). */
   version: string | null = null;
   onNotification: (message: Notification) => void = () => {};
   /** Approvals / user-input requests; must be answered or the turn blocks. */
@@ -55,7 +53,6 @@ export class CodexAppServer {
     child.stdout.on("data", (chunk: string) => this.read(chunk));
     child.stderr.setEncoding("utf-8");
     child.stderr.on("data", (chunk: string) => {
-      // Only errors are interesting; Codex logs a lot at info level.
       for (const line of chunk.split("\n")) {
         if (/\bERROR\b/.test(line))
           logger.info("agent", "codex stderr", {
@@ -71,7 +68,6 @@ export class CodexAppServer {
     });
   }
 
-  /** Spawns and handshakes (initialize → initialized). */
   static async start(settings: CodexSettings, cwd: string): Promise<CodexAppServer> {
     await ensureShellPath();
     const binary = codexBinary(settings);

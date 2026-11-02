@@ -41,7 +41,6 @@ export default defineConfig({
     },
     overrides: [
       {
-        // Extensions reach the app only through its kits (packages/contracts/src/extensions.ts).
         files: ["extensions/**/*.{ts,tsx}"],
         rules: {
           "eslint/no-restricted-imports": [
@@ -73,7 +72,6 @@ export default defineConfig({
         },
       },
       {
-        // Tests stand in for the parts of core an extension uses.
         files: ["extensions/**/*.test.ts"],
         rules: { "eslint/no-restricted-imports": "off" },
       },

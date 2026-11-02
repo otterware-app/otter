@@ -4,14 +4,11 @@ import { QuoteIcon } from "lucide-react";
 import { buttonClass } from "./ui";
 import { useLatest } from "../use-latest";
 
-/** A passage of an agent's reply quoted into the next message (Otter Code's citations). */
 export type Citation = { id: string; text: string; comment?: string };
 
 const MAX_CITATION = 4000;
-// Painted over the cited passage while its comment is open (styles.css).
 const HIGHLIGHT = "otter-cite";
 
-/** The selection, clipped to the one reply (`[data-cite-source]`) in `root` it starts in. */
 function citableRange(root: HTMLElement): Range | null {
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed || selection.rangeCount === 0) return null;
@@ -28,13 +25,11 @@ function citableRange(root: HTMLElement): Range | null {
   return clipped.toString().trim() ? clipped : null;
 }
 
-/** Where a popup sits by a selection: under its last line. */
 export function rangeAnchor(range: Range): DOMRect {
   const rects = range.getClientRects();
   return rects[rects.length - 1] ?? range.getBoundingClientRect();
 }
 
-/** "Cite" by text selected in an agent's reply; quotes it into the composer. */
 export function CiteSelectionButton({
   root,
   onCite,
@@ -45,7 +40,6 @@ export function CiteSelectionButton({
   const [range, setRange] = useState<Range | null>(null);
   useEffect(() => {
     if (!root) return;
-    // Shown once the selection settles (mouse up, shift+arrows), gone as it clears.
     const settle = () => requestAnimationFrame(() => setRange(citableRange(root)));
     const change = () => {
       if (!citableRange(root)) setRange(null);
@@ -74,7 +68,6 @@ export function CiteSelectionButton({
     <button
       type="button"
       aria-label="Cite selection in composer"
-      // Keep the selection while clicking.
       onMouseDown={(e) => e.preventDefault()}
       onClick={cite}
       className="surface-glass fixed z-50 flex items-center gap-1 rounded-full border border-border/60 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm hover:bg-accent-surface"
@@ -90,10 +83,6 @@ export function CiteSelectionButton({
   );
 }
 
-/**
- * The optional comment on a citation, in a popup under the cited passage
- * (`side: "below"`, highlighted while it's open) or over its composer chip.
- */
 export function CitationCommentEditor({
   citation,
   anchor,
@@ -113,7 +102,6 @@ export function CitationCommentEditor({
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
 
-  // Follows the passage as the chat scrolls (the composer grows by the new chip).
   useLayoutEffect(() => {
     const place = () => {
       const box = ref.current?.getBoundingClientRect();
@@ -200,7 +188,6 @@ export function CitationCommentEditor({
   );
 }
 
-/** The citations block that follows the user's words in what the agent receives. */
 export function withCitations(question: string, citations: Citation[]): string {
   if (citations.length === 0) return question;
   const quotes = citations.map((c) => {

@@ -12,11 +12,8 @@ import Foundation
  */
 @MainActor
 final class MicrosoftAuth {
-    /** Otter Mail's Microsoft app registration (not a secret; the relay knows it too). */
     static let clientID = "b0c4e8bf-e651-456e-9bc6-408a741b36f9"
-    /** Microsoft's sign-in for every kind of account (contracts/src/microsoft.ts). */
     static let authority = "https://login.microsoftonline.com/common/oauth2/v2.0"
-    /** OUTLOOK_SCOPES (contracts/src/microsoft.ts): mail, categories, the calendar, who you are, and a refresh token. */
     static let scopes = [
         "openid", "email", "profile", "offline_access",
         "https://graph.microsoft.com/User.Read",
@@ -29,14 +26,12 @@ final class MicrosoftAuth {
     typealias Tokens = MicrosoftCredentials.Tokens
 
     struct Profile {
-        /** The mailbox's address, lowercased: its id everywhere. */
         var email: String
         var name: String?
     }
 
     enum Failure: LocalizedError {
         case cancelled
-        /** Microsoft no longer honors the sign-in (revoked, expired, or consent needed): only signing in again helps. */
         case signedOut(String)
         case microsoft(String)
 
@@ -53,14 +48,12 @@ final class MicrosoftAuth {
     private var refreshing: [String: Task<Tokens, Error>] = [:]
     private let presenter = Presenter()
 
-    /** The redirect registered for this build's bundle id (iOS platform, in Azure). */
     private static var redirectScheme: String { "msauth.\(Bundle.main.bundleIdentifier ?? "dev.otterware.mail")" }
     private static var redirectURI: String { "\(redirectScheme)://auth" }
     private static func refreshKey(_ email: String) -> String { "microsoft-refresh-token:\(email.lowercased())" }
 
     func isSignedIn(_ email: String) -> Bool { Keychain.get(Self.refreshKey(email)) != nil }
 
-    /** Opens Microsoft's sign-in; keeps the refresh token for the address it signed in. */
     func signIn(loginHint: String? = nil) async throws -> (profile: Profile, tokens: Tokens) {
         let verifier = Self.randomURLSafe(32)
         let challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64URL
@@ -110,21 +103,18 @@ final class MicrosoftAuth {
         return (profile, tokens)
     }
 
-    /** A fresh access token for the mailbox (`force`: not the one Graph just refused). */
     func accessToken(_ email: String, force: Bool = false) async throws -> String {
         guard isSignedIn(email) else { throw Failure.signedOut(email) }
         if !force, let cached = tokens[email.lowercased()], cached.expiresAt > .now { return cached.accessToken }
         return try await refresh(email).accessToken
     }
 
-    /** A fresh Microsoft ID token, the proof the relay asks for to link a mailbox. */
     func idToken(_ email: String) async throws -> String {
         if let cached = tokens[email.lowercased()], cached.expiresAt > .now, let id = cached.idToken { return id }
         guard let id = try await refresh(email).idToken else { throw Failure.microsoft("Microsoft didn't return an ID token.") }
         return id
     }
 
-    /** Forgets the mailbox's sign-in here (Microsoft has no revocation for a single refresh token). */
     func forget(_ email: String) {
         let key = email.lowercased()
         refreshing[key]?.cancel()
@@ -150,8 +140,6 @@ final class MicrosoftAuth {
         return fresh
     }
 
-    // ── Microsoft's endpoints ────────────────────────────────────────────────
-
     private struct Response: Decodable {
         var access_token: String?
         var expires_in: Double?
@@ -164,7 +152,6 @@ final class MicrosoftAuth {
         }
     }
 
-    /** The token endpoint; a refused grant (revoked, expired, or new consent needed) is `signedOut`. */
     private static func tokenRequest(_ params: [String: String]) async throws -> Response {
         var request = URLRequest(url: URL(string: "\(authority)/token")!)
         request.httpMethod = "POST"
@@ -185,7 +172,6 @@ final class MicrosoftAuth {
         return response
     }
 
-    /** Who signed in: Graph's `mail`, else the sign-in name, as core's profile does. */
     private static func profile(accessToken: String) async throws -> Profile {
         struct Me: Decodable { var mail: String?; var userPrincipalName: String?; var displayName: String? }
         var request = URLRequest(url: URL(string: "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName,displayName")!)
@@ -205,7 +191,6 @@ final class MicrosoftAuth {
         return Data(bytes).base64URL
     }
 
-    /** Runs the browser sheet over the app's window. */
     private final class Presenter: NSObject, ASWebAuthenticationPresentationContextProviding {
         func authenticate(url: URL, scheme: String) async throws -> URL {
             try await withCheckedThrowingContinuation { continuation in

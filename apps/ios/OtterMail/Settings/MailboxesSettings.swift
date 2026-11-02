@@ -1,10 +1,5 @@
 import SwiftUI
 
-/**
- * Settings › Mailboxes, as on the desktop: each mailbox on or off, their
- * order (Edit, then drag), and adding one. The arrangement and the
- * mailboxes follow the Otter account to every device.
- */
 struct MailboxesSettings: View {
     @Environment(Session.self) private var session
     @Environment(MailStore.self) private var store
@@ -37,7 +32,6 @@ struct MailboxesSettings: View {
                                 set: { store.setOn($0, mailbox) }
                             ))
                             .labelsHidden()
-                            // The last mailbox on stays on.
                             .disabled(on && shown.count == 1)
                         }
                     }
@@ -87,7 +81,6 @@ struct MailboxesSettings: View {
     }
 }
 
-/** One mailbox: signing in here, its name and color, its signature, and removing it. */
 struct MailboxSettings: View {
     @Environment(Session.self) private var session
     @Environment(MailStore.self) private var store
@@ -157,7 +150,6 @@ struct MailboxSettings: View {
                     .disabled(password.isEmpty || session.busy != nil)
                 } header: {
                     Group {
-                        // Whose password, and where it goes: the servers can change on another device.
                         Text("\(imap.username) on \(imap.imap.host)")
                             .textCase(nil)
                     }
@@ -265,7 +257,6 @@ struct MailboxSettings: View {
         }
     }
 
-    /** Where the mailbox's mail stays. */
     private static func server(_ mailbox: Mailbox) -> String {
         switch mailbox.provider {
         case .gmail: "Gmail"
@@ -295,7 +286,6 @@ struct MailboxSettings: View {
     }
 }
 
-/** Settings › Languages I read: the first is where translations go. */
 struct LanguagesSettings: View {
     @Environment(Preferences.self) private var preferences
     @Environment(\.palette) private var palette
@@ -375,7 +365,6 @@ struct ProviderMark: View {
     }
 }
 
-/** Microsoft's four squares, beside what signs in with Microsoft. */
 struct MicrosoftMark: View {
     var size: CGFloat = 18
 
@@ -397,7 +386,6 @@ struct MicrosoftMark: View {
 }
 
 extension Color {
-    /** "#rrggbb", as the other apps store colors. */
     var hex: String {
         let c = UIColor(self).resolvedColor(with: .current)
         var (r, g, b, a): (CGFloat, CGFloat, CGFloat, CGFloat) = (0, 0, 0, 0)

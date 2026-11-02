@@ -1,9 +1,3 @@
-/**
- * What agents' settings forms share (Settings → Agents): the models list,
- * a command to copy, and a CLI-backed agent's runtime fields. The extension
- * kit gives them to agent extensions; the pane draws the header above them.
- */
-
 import { useState } from "react";
 import { CheckIcon, StarIcon } from "lucide-react";
 import { Switch } from "~/components/ui/switch";
@@ -32,16 +26,10 @@ import {
 } from "./settings-ui";
 import { searchableSetting } from "./settings-search";
 
-/** T3's capability summary for a row: "Reasoning · Fast". */
 function capabilityLabels(model: ProviderModel): string[] {
   return (model.options ?? []).map((o) => (o.id === "serviceTier" ? "Fast" : o.label));
 }
 
-/**
- * Models, as T3 Code's ProviderModelsSection: favorites and picker visibility
- * (stored on this device), a filter for long catalogs, and Enable / Disable all.
- * Clicking a name makes it the provider's default model.
- */
 export function ModelsSection({
   provider,
   onPick,
@@ -233,7 +221,6 @@ export function ModelsSection({
   );
 }
 
-/** A command to run on the gateway's computer, with Copy. */
 export function Command({ value }: { value: string }) {
   return (
     <div className="mt-2 mb-1.5 flex items-start gap-2 rounded-lg bg-input/40 py-1.5 pr-1 pl-3">
@@ -243,12 +230,10 @@ export function Command({ value }: { value: string }) {
   );
 }
 
-/** What a CLI-backed agent's runtime fields say (Codex, Claude), per T3's provider settings. */
 export type LocalAgentRuntime = {
   name: string;
   binary: string;
   home: { title: string; description: string; placeholder: string };
-  /** Its launch arguments' description, when it takes any. */
   launchArgs: string | null;
 };
 
@@ -260,7 +245,6 @@ type LocalAgentSettingsValues = {
   model: string;
 };
 
-/** A CLI-backed agent's settings: where it lives, its access, its models. */
 export function LocalAgentSettings({
   runtime: meta,
   provider,

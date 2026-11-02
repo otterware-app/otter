@@ -229,7 +229,6 @@ export function getCustomThemes(): ReadonlyArray<ThemeDefinition> {
   return snapshot.status === "ready" ? snapshot.themes : EMPTY_CUSTOM_THEMES;
 }
 
-/** Ids no published theme may occupy: appearance keywords and built-in ids. */
 export function isReservedThemeId(themeId: string): boolean {
   return RESERVED_THEME_IDS.has(themeId);
 }
@@ -260,12 +259,6 @@ export function subscribeToCustomThemes(listener: () => void): () => void {
   };
 }
 
-/**
- * The standard T3 Code look as a theme palette, for seeding a new theme when
- * no theme is installed. Distinct from {@link getDefaultThemeColors}, which
- * carries the flagship T3 Chat palette used to fill roles omitted by theme
- * files.
- */
 export function getStandardThemeColors(appearance: ThemeAppearance): ThemeColors {
   if (appearance === "dark") {
     return (standardDarkThemeColors ??= decodeThemeColors(T3_CODE_DARK_THEME_COLORS));
@@ -335,7 +328,6 @@ export function toCanonicalThemeColor(value: unknown): string | null {
   return parsed ? formatOklchThemeColor(parsed.color, parsed.alpha) : null;
 }
 
-/** Convert a runtime theme color for hex-only editor and import adapters. */
 export function themeColorToHex(value: string): string | null {
   const color = parseThemeColor(value);
   const parsed = color ? { rgb: themeOklchToRgb(color.color), alpha: color.alpha } : null;
@@ -420,9 +412,6 @@ function themeRelativeLuminance(color: ThemeRgbColor): number {
   return 0.2126 * linearize(color.r) + 0.7152 * linearize(color.g) + 0.0722 * linearize(color.b);
 }
 
-// ---------------------------------------------------------------------------
-// Vivid palette engine: perceptual (OKLCH) derivation for user-created themes.
-
 function srgbChannelToLinear(channel: number): number {
   const c = channel / 255;
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
@@ -460,7 +449,6 @@ function oklchToRgbUnclamped({ L, C, h }: ThemeOklch): { r: number; g: number; b
   };
 }
 
-/** Find the greatest chroma along the same lightness and hue that fits in sRGB. */
 function mapThemeOklchToSrgbGamut(color: ThemeOklch): ThemeOklch {
   const isInGamut = (C: number) => {
     const linear = oklchToRgbUnclamped({ ...color, C });
@@ -485,7 +473,6 @@ function mapThemeOklchToSrgbGamut(color: ThemeOklch): ThemeOklch {
   return { ...color, C: low };
 }
 
-/** Convert to sRGB after applying the palette engine's gamut mapping. */
 function themeOklchToRgb(color: ThemeOklch): ThemeRgbColor {
   const linear = oklchToRgbUnclamped(mapThemeOklchToSrgbGamut(color));
   return {
@@ -499,7 +486,6 @@ function themeOklchToThemeColor(color: ThemeOklch): string {
   return formatOklchThemeColor(mapThemeOklchToSrgbGamut(color));
 }
 
-/** Binary-search the lightness that reaches the contrast target against a background. */
 function solveOklchLightness(
   base: ThemeOklch,
   against: ThemeRgbColor,
@@ -575,7 +561,6 @@ function standardStatusColors(canvas: ThemeRgbColor): {
       solveOklchLightness(
         themeRgbToOklch(parseThemeRgbColor(foreground, canvas)),
         surface,
-        // Leave a little headroom for browser color conversion at render time.
         4.6,
         appearance === "dark" ? "lighter" : "darker",
       ),
@@ -592,12 +577,6 @@ function standardStatusColors(canvas: ThemeRgbColor): {
   };
 }
 
-/**
- * Derive a full palette from two exact seed colors, in OKLCH. Surfaces climb a
- * perceptually even lightness ramp that carries the accent hue at low chroma,
- * a companion action color is rotated off the accent, and every foreground is
- * contrast-solved against its own surface.
- */
 export function createVividThemeColors(
   appearance: ThemeAppearance,
   backgroundValue: string,
@@ -765,10 +744,6 @@ function readableThemeText(
   const softened = mixThemeRgbColors(foreground, background, amount);
   if (themeContrastRatio(softened, background) >= minimumRatio) return softened;
 
-  // Find the quietest point between the requested mix and the primary
-  // foreground that still clears the contrast floor. Returning the primary
-  // foreground here made secondary labels jump from slightly too dim to full
-  // brightness, which is especially conspicuous in dark custom themes.
   let readable = foreground;
   let lowerAmount = 0;
   let upperAmount = amount;
@@ -802,7 +777,6 @@ function standardMutedThemeText(
   return readableThemeText(background, foreground, 1, target);
 }
 
-/** Theme-file defaults follow the flagship palette for the requested mode. */
 export function getDefaultThemeColors(appearance: ThemeAppearance): ThemeColors {
   return appearance === "dark" ? T3_CHAT_THEME.variants!.dark! : T3_CHAT_THEME.colors;
 }
@@ -1014,7 +988,6 @@ export function getThemeDefinition(theme: ThemePreference): ThemeDefinition | nu
 
 const displayedThemes = new Map<string, ThemeDefinition>();
 
-/** Mail: a built-in's palettes as the app paints them. */
 function displayedTheme(theme: ThemeDefinition): ThemeDefinition {
   // The stock palette is styles.css's own, never blended.
   if (theme.exact || theme.id === "otter") return theme;
@@ -1105,7 +1078,6 @@ function saveCustomThemes(
 ): void {
   if (typeof window === "undefined") return;
   try {
-    // Mail: stored and synced with the account.
     setSyncedPreference(CUSTOM_THEMES_STORAGE_KEY, JSON.stringify(storedThemes));
     customThemeLibrarySnapshot = { status: "ready", storedThemes, themes };
   } catch (cause) {

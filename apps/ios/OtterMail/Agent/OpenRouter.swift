@@ -1,6 +1,5 @@
 import Foundation
 
-/** A client of the relay's AI SDK agent. The OpenRouter key and model loop stay on the server. */
 @MainActor
 struct OpenRouter {
     let baseURL: URL
@@ -70,7 +69,6 @@ struct OpenRouter {
 
     func delete(session: String) async throws { _ = try await send("DELETE", "/sessions/\(session)") }
 
-    /** Streams server events; only tool execution and its permissions happen on this iPhone. */
     func turn(_ body: [String: Any], event: @MainActor ([String: Any]) async throws -> Void,
               tool: @MainActor (String, [String: Any]) async -> [String: Any]) async throws {
         let (bytes, response) = try await URLSession.shared.bytes(for: request("POST", "/turn", body: body))

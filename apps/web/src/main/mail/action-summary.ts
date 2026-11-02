@@ -26,7 +26,6 @@ export function summarizeLabelChange(
 
   const addedLabel = add.find(isUser);
   if (addedLabel) {
-    // Leaving something behind (the Inbox, another label) makes it a move.
     return remove.length > 0
       ? s("Moved", ` to ${quoted(addedLabel)}`)
       : s("Labeled", ` ${quoted(addedLabel)}`);

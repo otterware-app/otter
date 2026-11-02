@@ -2,7 +2,6 @@ import Foundation
 import CryptoKit
 import Darwin
 
-/** Only routing and preferences in the App Group; secrets are in its Keychain group. */
 nonisolated enum PushState {
     static var group: String { Bundle.main.object(forInfoDictionaryKey: "NotificationAppGroup") as? String ?? "" }
     static var directory: URL? { FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)?.appending(path: "Notifications", directoryHint: .isDirectory) }
@@ -25,7 +24,6 @@ nonisolated enum PushState {
         return config.userId == userId && config.mode != "off" && config.mailboxes.contains(email.lowercased())
     }
 
-    /** Nonblocking flock retries yield, including between app and extension processes. */
     static func locked<T>(_ key: String, isolation: isolated (any Actor)? = #isolation, body: () async throws -> T) async throws -> T {
         guard let directory else { throw Failure.unavailable }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,

@@ -9,7 +9,6 @@ import { FolderGone, inFolder } from "./connection.js";
 import { byFolder, foldersOf, parseMessageId, type Folder } from "./folders.js";
 import { DETAIL_QUERY, SUMMARY_QUERY, toDetail, toSummary } from "./messages.js";
 
-/** A message that's no longer where its id says (moved or deleted elsewhere). */
 export class MessageGone extends Error {
   constructor(id: string) {
     super(`Message ${id} is no longer on the server.`);
@@ -17,21 +16,18 @@ export class MessageGone extends Error {
   }
 }
 
-/** Where messages went when this device moved them: old id → new id. */
 const movedTo = new Map<string, string>();
 
 export function rememberMove(fromId: string, toId: string): void {
   movedTo.set(fromId, toId);
 }
 
-/** The message's id now, following moves made here since its id was handed out. */
 export function currentId(id: string): string {
   let current = id;
   for (let hops = 0; movedTo.has(current) && hops < 10; hops++) current = movedTo.get(current)!;
   return current;
 }
 
-/** One message's FETCH, with its folder; MessageGone when it isn't there. */
 async function fetchOne(
   accountId: string,
   id: string,

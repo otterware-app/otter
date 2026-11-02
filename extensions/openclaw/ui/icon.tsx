@@ -1,4 +1,3 @@
-/** The OpenClaw lobster, from openclaw.ai's favicon. */
 export function OpenClawIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 120 120" fill="none" className={className} aria-hidden>

@@ -41,7 +41,6 @@ import {
 } from "./store";
 import { shortcutText } from "../keybindings/keys";
 
-/** Electron's `<webview>`, the parts used here. */
 type Webview = HTMLElement & {
   getWebContentsId(): number;
   loadURL(url: string): Promise<void>;
@@ -54,7 +53,6 @@ type Webview = HTMLElement & {
   openDevTools(): void;
 };
 
-/** The main process lets tabs into this session only (apps/desktop/src/services/browser.ts). */
 const PARTITION = "persist:browser";
 
 /**
@@ -92,11 +90,6 @@ export function BrowserTabIcon({ tab }: { tab: BrowserTab }) {
   return <GlobeIcon className="size-3.5" />;
 }
 
-/**
- * Pages: the panel's, or the ones a chat opened (in the workspace). A tab's
- * page loads the first time it shows and then stays alive, waiting offscreen
- * while another shows.
- */
 export function BrowserPages({
   tabs,
   activeId,
@@ -130,7 +123,6 @@ export function BrowserPages({
 
 function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean }) {
   const [view, setView] = useState<Webview | null>(null);
-  // The page's webContents id once it's attached: its tab id, to extensions.
   const [pageId, setPageId] = useState<number | null>(null);
   // The address the page opens at; later ones go through loadURL (a new src
   // attribute would load the page over again).
@@ -198,12 +190,10 @@ function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean }) {
       for (const [name, listener] of Object.entries(on)) {
         view.removeEventListener(name, listener as EventListener);
       }
-      // Gone mid-load (the panel closed): no spinner left in its tab.
       updateTab(tab.id, { loading: false });
     };
   }, [view, tab.id]);
 
-  // Extensions see the page showing as the active tab, and can show or close one.
   useEffect(() => {
     if (active && pageId !== null) void window.desktopBridge.invoke("browser:activeTab", pageId);
   }, [active, pageId]);
@@ -314,11 +304,6 @@ function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean }) {
   );
 }
 
-/**
- * The address pill (ChatGPT's): the site's name, centered; the whole address
- * to edit once focused, where text that isn't an address searches Google.
- * Hovering it offers the site's info and opening it in the default browser.
- */
 function AddressBar({
   url,
   focusRequest,
@@ -326,13 +311,11 @@ function AddressBar({
   onSiteDataCleared,
 }: {
   url: string;
-  /** Changes when ⌘L asks for this address bar. */
   focusRequest: number;
   onNavigate: (url: string) => void;
   onSiteDataCleared: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  // What's typed, while editing.
   const [draft, setDraft] = useState<string | null>(null);
   useEffect(() => {
     if (focusRequest) inputRef.current?.focus();
@@ -345,7 +328,6 @@ function AddressBar({
         ref={inputRef}
         aria-label="Address"
         placeholder="Search or enter a URL"
-        // A new tab starts at its address bar.
         autoFocus={!url}
         spellCheck={false}
         autoComplete="off"
@@ -391,7 +373,6 @@ function AddressBar({
   );
 }
 
-/** "View site information": is the connection private, and clearing what the site keeps. */
 function SiteInfo({
   url,
   origin,
@@ -486,7 +467,6 @@ function PageMenu({ url, onDevTools }: { url: string; onDevTools?: () => void })
   );
 }
 
-/** A new tab's page (ChatGPT's): the panel's other tools, then places to start. */
 function StartPage({ onNavigate }: { onNavigate: (url: string) => void }) {
   const tile =
     "flex cursor-pointer items-center gap-2.5 rounded-xl bg-foreground/[0.04] px-4 py-3 text-left text-sm text-foreground outline-none hover:bg-foreground/[0.07] focus-visible:ring-2 focus-visible:ring-focus-ring [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground";

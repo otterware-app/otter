@@ -1,8 +1,3 @@
-/**
- * Google Calendar as the agents' tools use it: what each call asks Google
- * for, and how Google's events read back.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { setPlatform, type Platform } from "../../platform.ts";

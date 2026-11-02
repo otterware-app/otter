@@ -24,7 +24,6 @@ export function diffText(before: string, after: string): DiffPart[] {
     b = tokenize(after, true);
   }
 
-  // Longest common subsequence table, filled from the end.
   const n = a.length;
   const m = b.length;
   const lcs: Uint32Array[] = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));

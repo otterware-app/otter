@@ -1,8 +1,4 @@
 /**
- * Stack layout for the toast viewport, from Otter Code's toast.logic.ts.
- */
-
-/**
  * Base UI toast updates omit `undefined` fields, so callers that need to remove
  * an action must pass a defined `actionProps` whose `children` are empty.
  * Treat that payload (and missing children) as "no visible action".
@@ -66,7 +62,6 @@ export function buildVisibleToastLayout<TToast extends object>(
     return item;
   });
 
-  // The stack sizes to the first toast that's staying on screen.
   const frontmostLiveToast = visibleToasts.find((toast) => toast.transitionStatus !== "ending");
   return { frontmostHeight: normalizeToastHeight(frontmostLiveToast?.height), items };
 }

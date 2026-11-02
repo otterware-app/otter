@@ -1,5 +1,3 @@
-/** Calendar invitations: read the invite and your answer, and RSVP. Slow calls run as tasks. */
-
 import { runAsTask } from "@otter-mail/core/extension-kit";
 import type { ExtensionContext } from "@otter-mail/core/extension-kit";
 import { getInvite, respondToInvite, type RsvpResponse } from "./calendar-invites.js";

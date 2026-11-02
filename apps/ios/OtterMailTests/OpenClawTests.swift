@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Otter_Mail
 
-/** OpenClaw's gateway, as the phone reads it (OpenClaw.swift). */
 struct OpenClawTests {
     @Test func reachesTheGatewayOverItsWebSocketWhateverAddressIsPasted() {
         #expect(OpenClaw.normalized("chris-agent-01.tail1234.ts.net") == "wss://chris-agent-01.tail1234.ts.net")
@@ -36,7 +35,6 @@ struct OpenClawTests {
         let item = try #require(question.items.first)
         #expect(item.id == "target" && item.multiSelect && !item.secret)
         #expect(item.options == [.init(label: "Staging", description: "Safe"), .init(label: "Production", description: nil)])
-        // Answered or expired ones aren't asked.
         #expect(OpenClaw.question(record.merging(["status": "answered"]) { $1 }) == nil)
     }
 
@@ -50,7 +48,6 @@ struct OpenClawTests {
             ["role": "user", "content": "Check the build"],
             ["role": "assistant", "content": [["type": "toolCall", "id": "c1", "name": "exec", "arguments": ["command": "make test"]]]],
             ["role": "toolResult", "toolCallId": "c1", "toolName": "exec", "content": [["type": "text", "text": "ok"]]],
-            // A model's own wrapper, mirrored beside the real call.
             ["role": "assistant", "content": [["type": "toolCall", "id": "c2", "name": "exec", "arguments": [:]]]],
             ["role": "toolResult", "toolCallId": "c2", "content": "ok", "__openclaw": ["toolOutput": ["source": "provider-response"]]],
             ["role": "assistant", "content": [["type": "text", "text": "The build passes."]]],

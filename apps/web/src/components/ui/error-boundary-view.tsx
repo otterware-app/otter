@@ -2,7 +2,6 @@ import type { ErrorComponentProps } from "@tanstack/react-router";
 
 import { Button } from "./button";
 
-/** Route error screen: what broke, with a way to try again. */
 function ErrorBoundaryView({ error, reset }: ErrorComponentProps) {
   const message = error instanceof Error ? error.message : String(error);
   return (

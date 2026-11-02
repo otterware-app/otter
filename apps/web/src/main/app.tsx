@@ -10,13 +10,11 @@ declare const __APP_DISPLAY_NAME__: string | undefined;
 
 document.title = __APP_DISPLAY_NAME__ || document.title;
 
-// Get the root element
 const rootElement = document.getElementById("root");
 if (!rootElement) {
   throw new Error("Root element not found");
 }
 
-// Create React root and render
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
@@ -29,7 +27,6 @@ root.render(
   </React.StrictMode>,
 );
 
-// Hot Module Replacement (HMR) support
 if (import.meta.hot) {
   import.meta.hot.accept();
 }

@@ -1,17 +1,3 @@
-/**
- * otter-account.ts
- *
- * The Otter account, signed in to the relay (infra/relay,
- * relay.mail.otterware.app), which keeps the list of linked Gmail accounts
- * and pushes new-mail events. Sign-in, devices and account deletion go
- * through better-auth's client; the relay's own routes through
- * relayRequest. linked-accounts.ts and realtime.ts build on this module.
- *
- * The desktop app holds a bearer token (one session per device, kept in the
- * platform's secrets); the web app is signed in by the browser's session
- * cookie, set when it signs in with Google by redirect.
- */
-
 import { createAuthClient } from "better-auth/client";
 
 import type { OtterDevice } from "@otter-mail/contracts";
@@ -25,7 +11,6 @@ const SESSION_SECRET = "otter-session";
 let session: { token: string | null; user: RelayUser } | null = null;
 const listeners = new Set<() => void>();
 
-/** Runs `listener` whenever the Otter account signs in or out. */
 export function onOtterAccountChange(listener: () => void): void {
   listeners.add(listener);
 }
@@ -41,7 +26,6 @@ async function setSession(next: typeof session): Promise<void> {
   for (const listener of listeners) listener();
 }
 
-/** Restores the session; call once at startup. */
 export async function loadOtterAccount(): Promise<void> {
   try {
     if (usesCookie()) {
@@ -56,17 +40,14 @@ export async function loadOtterAccount(): Promise<void> {
   }
 }
 
-/** Who is signed in to Otter Mail, or null. */
 export function getOtterUser(): RelayUser | null {
   return session?.user ?? null;
 }
 
-/** The bearer token for the event stream (null when a cookie signs the browser in). */
 export function getSessionToken(): string | null {
   return session?.token ?? null;
 }
 
-/** The relay answered with an error (`status` 0: it couldn't be reached). */
 export class RelayError extends Error {
   constructor(
     readonly status: number,
@@ -104,10 +85,6 @@ async function request<T>(
   return (response.status === 204 ? null : await response.json()) as T;
 }
 
-/**
- * A signed-in call to the relay. A 401 means the session is gone (signed out
- * elsewhere, or revoked): this device signs out too.
- */
 export async function relayRequest<T = null>(
   method: string,
   route: string,
@@ -126,8 +103,6 @@ export async function relayRequest<T = null>(
   }
 }
 
-// ── better-auth ─────────────────────────────────────────────────────────────
-
 let authClient: ReturnType<typeof createClient> | null = null;
 
 function createClient() {
@@ -138,8 +113,6 @@ function createClient() {
     fetchOptions: {
       credentials: usesCookie() ? "include" : "omit",
       auth: { type: "Bearer", token: () => session?.token ?? undefined },
-      // How this device appears in the account's device list (browsers send their own).
-      // Percent-encoded: headers only take Latin-1, and Macs are named "Laurin’s MacBook Pro".
       ...(deviceName
         ? {
             headers: {
@@ -153,7 +126,6 @@ function createClient() {
 
 const auth = () => (authClient ??= createClient());
 
-/** better-auth answers `{ data, error }`; turn an error into a RelayError. */
 async function unwrap<T>(
   call: Promise<
     { data: T; error: null } | { data: null; error: { status: number; message?: string } }
@@ -167,7 +139,6 @@ async function unwrap<T>(
   return data;
 }
 
-/** Signs in to the relay with a Google ID token (the desktop's "Sign in with Google"). */
 export async function signIn(idToken: string): Promise<RelayUser> {
   let token: string | null = null;
   const data = await unwrap(
@@ -176,7 +147,6 @@ export async function signIn(idToken: string): Promise<RelayUser> {
       { onSuccess: (ctx) => void (token = ctx.response.headers.get("set-auth-token")) },
     ),
   );
-  // A browser's session is the cookie that came with the response.
   if (!data || !("user" in data) || (!token && !usesCookie())) {
     throw new RelayError(0, "The relay didn't return a session.");
   }
@@ -192,22 +162,16 @@ export async function signIn(idToken: string): Promise<RelayUser> {
   return relayUser;
 }
 
-/** Adopts an Otter Accounts device credential after checking it with Mail's relay. */
 export async function signInWithSession(token: string): Promise<RelayUser> {
   const { user } = await request<MeResponse>("GET", "/v1/me", { token });
   await setSession({ token, user });
   return user;
 }
 
-/** For a host whose account session owns sign-out; mailbox connections stay on this device. */
 export async function clearOtterSession(): Promise<void> {
   await setSession(null);
 }
 
-/**
- * Where to send the browser to sign in with Google (the web app's sign-in);
- * Google returns it to `callbackURL`, signed in by cookie.
- */
 export async function signInRedirect(callbackURL: string): Promise<string> {
   const data = await unwrap(
     auth().signIn.social({ provider: "google", callbackURL, disableRedirect: true }),
@@ -216,7 +180,6 @@ export async function signInRedirect(callbackURL: string): Promise<string> {
   return data.url;
 }
 
-/** Signs out here, and ends the session on the relay when it can be reached. */
 export async function signOut(): Promise<void> {
   if (!session) return;
   await auth()
@@ -227,7 +190,6 @@ export async function signOut(): Promise<void> {
   await setSession(null);
 }
 
-/** A device's name from its session's user agent: the Mac's name, or the browser. */
 function deviceName(userAgent: string | null | undefined): string {
   const ua = userAgent ?? "";
   const mac = /^Otter Mail\/\S+ \((.+)\)$/.exec(ua)?.[1];
@@ -250,7 +212,6 @@ function deviceName(userAgent: string | null | undefined): string {
   return browser ? `${browser} (web)` : "Unknown device";
 }
 
-/** The devices signed in to this Otter account, this one first. */
 export async function listDevices(): Promise<OtterDevice[]> {
   const [sessions, current] = await Promise.all([
     unwrap(auth().listSessions()),
@@ -266,12 +227,10 @@ export async function listDevices(): Promise<OtterDevice[]> {
     .sort((a, b) => Number(b.current) - Number(a.current) || b.lastActiveAt - a.lastActiveAt);
 }
 
-/** Signs another device out of this Otter account. */
 export async function signOutDevice(token: string): Promise<void> {
   await unwrap(auth().revokeSession({ token }));
 }
 
-/** Deletes the Otter account and everything the relay keeps for it; signs every device out. */
 export async function deleteOtterAccount(): Promise<void> {
   await unwrap(auth().deleteUser({}));
   await setSession(null);

@@ -1,8 +1,3 @@
-/**
- * Any other mailbox, through IMAP (and SMTP to send): a password kept on the
- * device, folders as labels, UID/modseq sync and IDLE (docs/imap.md).
- */
-
 import { IMAP_CAPABILITIES } from "@otter-mail/contracts";
 
 import { MailProtocolError } from "../../protocols/index.js";
@@ -57,14 +52,12 @@ export const imapProvider: MailProvider = {
 
   isSignedIn: hasImapPassword,
   signedOutMessage: "Enter this mailbox's password to sync it.",
-  // The password goes with the account (handlers' removeLocalAccount).
   async removeAccount(accountId) {
     closeImap(accountId);
     forgetFolders(accountId);
   },
 
   sync: syncImap,
-  // No quota to share; background work just waits behind the user's for the connection.
   background: (lane, fn) => tier().run(lane, fn),
   errorKind,
   describeError,

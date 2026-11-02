@@ -1,13 +1,6 @@
 import Foundation
 
-/**
- * Hermes over its API server, as core's Hermes client talks to it:
- * chats are server-side sessions (so they're the same on the Mac, the web and
- * here), turns stream as server-sent events, and a running turn can be
- * stopped or asked for approval.
- */
 nonisolated struct Hermes {
-    /** "https://host:8642/v1" (the OpenAI-compatible base); the Sessions API hangs off the root. */
     let baseURL: String
     let key: String
 
@@ -17,7 +10,6 @@ nonisolated struct Hermes {
     }
 
     struct Model: Identifiable, Hashable {
-        /** "provider::model"; empty for the agent's own default. */
         var slug: String
         var name: String
         var subProvider: String?
@@ -26,7 +18,6 @@ nonisolated struct Hermes {
         var canDisableReasoning: Bool
         var fast: Bool
         var id: String { slug.isEmpty ? name : slug }
-        /** "anthropic/claude-sonnet-5" → "claude-sonnet-5", for tight spots. */
         var shortName: String { name.split(separator: "/").last.map(String.init) ?? name }
     }
 
@@ -44,7 +35,6 @@ nonisolated struct Hermes {
         var tools: [String]
     }
 
-    /** One event of a running turn (the desktop's ChatEvent). */
     enum Event {
         case run(String)
         case delta(String)
@@ -63,9 +53,6 @@ nonisolated struct Hermes {
 
     private var root: String { String(baseURL.dropLast(3)) }
 
-    // ── Status ───────────────────────────────────────────────────────────────
-
-    /** Checks the key, and whether chats persist as sessions. */
     func check() async throws -> (models: [Model], sessions: Bool) {
         let (data, response) = try await send("GET", "\(baseURL)/models", timeout: 6)
         if response.statusCode == 401 { throw Failure(message: "The API key was rejected.") }
@@ -80,7 +67,6 @@ nonisolated struct Hermes {
         return (models.isEmpty ? agentModels.map { Model(slug: "", name: $0, isDefault: true, reasoning: false, canDisableReasoning: false, fast: false) } : models, await sessions)
     }
 
-    /** The providers and models Hermes is set up with (`provider::model`), its default marked. */
     private func catalog() async -> [Model] {
         guard
             let (data, response) = try? await send("GET", "\(root)/api/model/options", timeout: 6),
@@ -112,8 +98,6 @@ nonisolated struct Hermes {
         }
         return models
     }
-
-    // ── Sessions ─────────────────────────────────────────────────────────────
 
     func sessions(limit: Int = 50) async throws -> [Session] {
         let (data, response) = try await send("GET", "\(root)/api/sessions?limit=\(limit)")
@@ -157,13 +141,10 @@ nonisolated struct Hermes {
         return id
     }
 
-    // ── Turns ────────────────────────────────────────────────────────────────
-
-    /** One turn in a session, streamed. Ending the stream stops the run server-side. */
     func turn(session: String, message: String, model: [String: Any]) -> AsyncThrowingStream<Event, Error> {
         var request = URLRequest(url: URL(string: "\(root)/api/sessions/\(session)/chat/stream")!)
         request.httpMethod = "POST"
-        request.timeoutInterval = 180 // quiet for three minutes: gone
+        request.timeoutInterval = 180
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
@@ -244,20 +225,16 @@ nonisolated struct Hermes {
         _ = try? await send("POST", "\(root)/v1/runs/\(run)/stop")
     }
 
-    /** Adds a message to the running turn (it lands after the current tool calls). */
     func steer(run: String, _ message: String) async -> Bool {
         (try? await send("POST", "\(root)/v1/runs/\(run)/steer", json: ["message": message]).1.statusCode) == 200
     }
 
     func approve(run: String, request: String, choice: String) async throws {
         let (data, response) = try await send("POST", "\(root)/v1/runs/\(run)/approval", json: ["choice": choice, "request_id": request])
-        // 409: already answered or timed out; settled either way.
         guard (200..<300).contains(response.statusCode) || response.statusCode == 409 else {
             throw Failure(message: Self.error(data, response))
         }
     }
-
-    // ── Requests ─────────────────────────────────────────────────────────────
 
     private func send(_ method: String, _ url: String, json: [String: Any]? = nil, timeout: TimeInterval = 30) async throws -> (Data, HTTPURLResponse) {
         guard let url = URL(string: url) else { throw Failure(message: "That isn't a URL.") }
@@ -293,7 +270,6 @@ nonisolated struct Hermes {
         )
     }
 
-    /** A stored message's text: a string, or text parts. */
     private static func text(_ content: Any?) -> String {
         if let text = content as? String { return text }
         if let parts = content as? [Any] {

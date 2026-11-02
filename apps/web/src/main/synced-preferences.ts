@@ -1,11 +1,3 @@
-/**
- * UI choices that follow the Otter account to every device. They're kept in
- * localStorage (read synchronously, and shared by this app's windows) and
- * mirrored to the backend, which syncs them with the account (core's
- * services/preferences.ts, section `ui`). Changes from elsewhere land here as
- * `storage` events, which the modules owning these keys already listen to.
- */
-
 import type { ThemeSource } from "@otter-mail/contracts";
 
 const THEME_SOURCE = "otter:theme-source";
@@ -26,12 +18,10 @@ const SYNCED_KEYS = [
   "otter:mark-read-delay",
   "gmail:panel-animation-duration",
   "gmail:advance-direction",
-  // The agent's, under their old names: other devices sync these keys.
   "assistant:favorite-models",
   "assistant:hidden-models",
   "assistant:follow-up-behavior",
   "mail:mailboxes",
-  // Built-in extensions turned off (extensions/registry.ts).
   "otter:extensions:disabled",
 ] as const;
 
@@ -42,7 +32,6 @@ type UiPreferences = Partial<Record<string, string>>;
 /** Keys set since startup: the startup snapshot, answered later, mustn't undo them. */
 const settled = new Set<string>();
 
-/** Stores a UI choice here and with the account. */
 export function setSyncedPreference(key: SyncedKey, value: string): void {
   settled.add(key);
   localStorage.setItem(key, value);
@@ -79,7 +68,6 @@ export function loadSyncedPreferences(initialize = false): Promise<void> {
     }));
 }
 
-/** Takes the account's UI choices, gives it the ones it lacks, and follows its changes. */
 export function startSyncedPreferences(): () => void {
   void loadSyncedPreferences().catch((err) => console.warn("Couldn't load UI preferences", err));
   return window.desktopBridge.on("preferences:uiChanged", (ui) => apply(ui as UiPreferences));

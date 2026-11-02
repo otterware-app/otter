@@ -1,8 +1,5 @@
 import SwiftUI
 
-/**
- * Settings › Agents: the server agents, their connections and models.
- */
 struct AgentSettings: View {
     @Environment(Session.self) private var session
     @Environment(\.palette) private var palette
@@ -132,7 +129,6 @@ struct AgentSettings: View {
         .task(id: "\(session.agent.selected):\(session.agent.isOn)") { await session.agent.check() }
     }
 
-    /** OpenClaw: pairing this iPhone with the gateway (each device pairs on its own), then its agents. */
     @ViewBuilder
     private var openClaw: some View {
         @Bindable var agent = session.agent

@@ -1,11 +1,3 @@
-/**
- * Agents on this Mac that Otter Mail doesn't run itself (Claude Code, Codex in
- * a terminal, Cursor, …): each gets Otter Mail's tools at the MCP server
- * (mcp-server.ts) with an agent token made in Settings › Agents (contracts'
- * agent-tokens.ts). Making the token was the user's say: its access decides
- * which tools it gets, and nothing asks again.
- */
-
 import {
   agentTokenHash,
   newAgentToken,
@@ -30,7 +22,6 @@ export async function listAgents(): Promise<ConnectedAgent[]> {
   return (await load()).map(toConnectedAgent);
 }
 
-/** A new agent; answers its token, this once. */
 export async function addAgent(name: string, access: AgentAccess): Promise<string> {
   const { token, hash } = await newAgentToken("otter_mac_");
   const agents = await load();
@@ -53,7 +44,6 @@ export async function setAgentAccess(id: string, access: AgentAccess): Promise<v
   await save();
 }
 
-/** Revokes an agent's token. */
 export async function removeAgent(id: string): Promise<void> {
   const agents = await load();
   const index = agents.findIndex((a) => a.id === id);
@@ -62,7 +52,6 @@ export async function removeAgent(id: string): Promise<void> {
   callers.delete(id);
 }
 
-/** The caller a token stands for, or null. */
 export async function agentCaller(token: string): Promise<ToolCaller | null> {
   const hash = await agentTokenHash(token);
   const agent = (await load()).find((a) => a.hash === hash);

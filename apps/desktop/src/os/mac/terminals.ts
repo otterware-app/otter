@@ -1,8 +1,3 @@
-/**
- * The Mac's terminal apps (HostOS.terminals): the apps LaunchServices would
- * open a `.command` script with, by bundle identifier, and `open` to run one.
- */
-
 import { execFile } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -55,6 +50,5 @@ export const macTerminals: HostOS["terminals"] = {
     const args = terminalId ? ["-b", terminalId, launcher] : [launcher];
     await exec("/usr/bin/open", args, { timeout: 5_000 });
   },
-  // A .command file opens in the default terminal; zsh is the Mac's login shell.
   launcher: { fileName: "Investigate Otter Mail.command", shebang: "#!/bin/zsh -l" },
 };

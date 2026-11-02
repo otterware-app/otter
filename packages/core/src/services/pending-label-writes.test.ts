@@ -23,15 +23,12 @@ describe("How a label change lands", () => {
   });
 
   it("leaves mail that wasn't in the inbox where it is", () => {
-    // A conversation's reply in Sent, archived with it.
     expect(land(["SENT"], [], ["INBOX"])).toEqual({ add: [], remove: ["INBOX"] });
     // Moved to Junk or a folder, rather than archived.
     expect(land(["INBOX"], ["SPAM"], ["INBOX"]).add).toEqual(["SPAM"]);
     expect(land(["INBOX"], ["folder:Clients"], ["INBOX"]).add).toEqual(["folder:Clients"]);
-    // Out of Junk or Trash: back where it came from, not the Archive.
     expect(land(["SPAM"], ["INBOX"], ["SPAM"]).add).toEqual(["INBOX"]);
     expect(land(["TRASH"], [], ["TRASH"]).add).toEqual([]);
-    // Flags and categories aren't folders.
     expect(land(["INBOX"], ["STARRED"], ["UNREAD", "category:Finance"])).toEqual({
       add: ["STARRED"],
       remove: ["UNREAD", "category:Finance"],
@@ -54,7 +51,6 @@ describe("How a label change lands", () => {
   it("keeps a conversation's own mail in Sent and Drafts unless it's trashed", () => {
     const thread = (labels: string[], add: string[], remove: string[] = []) =>
       landLabelChange(labels, add, remove, { archiveFolder: true, thread: true });
-    // Back to the inbox (undoing an archive): your reply stays in Sent.
     expect(thread(["SENT"], ["INBOX"])).toEqual({ add: [], remove: [] });
     expect(thread(["ARCHIVE", "UNREAD"], ["INBOX"])).toEqual({
       add: ["INBOX"],
@@ -65,9 +61,7 @@ describe("How a label change lands", () => {
       remove: [],
     });
     expect(thread(["SENT"], ["TRASH"]).add).toEqual(["TRASH"]);
-    // One message of it, moved on its own, goes.
     expect(land(["SENT"], ["INBOX"], []).add).toEqual(["INBOX"]);
-    // Gmail's labels go on every message of a conversation.
     expect(landLabelChange(["SENT"], ["INBOX"], [], { thread: true }).add).toEqual(["INBOX"]);
   });
 });
@@ -92,7 +86,6 @@ describe("Pending label writes", () => {
     const write = trackLabelWrite("me@outlook.test", ["a"], [], ["INBOX"], { archiveFolder: true });
     const [stale] = withPendingLabels("me@outlook.test", [message("a", ["INBOX", "UNREAD"])]);
     expect(stale!.labelIds.sort()).toEqual(["ARCHIVE", "UNREAD"]);
-    // Once the server has moved it, its answer stands.
     const [moved] = withPendingLabels("me@outlook.test", [message("a", ["ARCHIVE"])]);
     expect(moved!.labelIds).toEqual(["ARCHIVE"]);
     write.dropped();

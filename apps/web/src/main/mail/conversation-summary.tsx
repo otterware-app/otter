@@ -12,12 +12,6 @@ import { isModClick } from "../keybindings/keys";
 
 type OpenFile = (messageId: string, attachment: MessageDetail["attachments"][number]) => void;
 
-/**
- * A conversation at a glance (Codex's pinned summary): where it lives and
- * how long it's run, everyone in it, every file sent in it, and the way out
- * of a mailing list. Pinned beside the reader when there's room, or opened
- * from the header's toggle as a popover.
- */
 export function ConversationSummary({
   accountId,
   threadId,
@@ -194,7 +188,6 @@ function PersonAction({
   );
 }
 
-/** One message's files (its detail is usually cached from the reader). */
 function MessageFiles({
   accountId,
   messageId,
@@ -224,7 +217,6 @@ function MessageFiles({
 
 type Person = { name: string; email: string; sent: number; seenAt: number };
 
-/** Everyone on the conversation but you: who wrote (most first), then who was written to. */
 function participants(rows: MessageSummary[], self?: string): Person[] {
   const me = self?.toLowerCase();
   const people = new Map<string, Person>();

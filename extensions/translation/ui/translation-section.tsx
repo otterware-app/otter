@@ -25,7 +25,6 @@ import {
 } from "./translation";
 import { translationApi, type TranslationSettings } from "./api";
 
-/** Languages the user reads (mail in others offers a translation) + auto-translate. */
 export function TranslationSection() {
   const queryClient = useQueryClient();
   const { readLanguages, autoTranslate } = useTranslationSettings();

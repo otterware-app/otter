@@ -1,12 +1,3 @@
-/**
- * The mail backend: @otter-mail/core in an Electron utility process, so its
- * syncing, SQLite writes and message parsing never hold up the main process
- * (windows, menus, the windows' IPC). Main (backend-host.ts) forwards the
- * windows' invokes here and sends out what core broadcasts; this asks main
- * for what only main can do (main-link.ts). The web app runs core the same
- * way, in a Web Worker.
- */
-
 import { DEMO_MAILBOXES_ENV } from "@otter-mail/contracts/demo";
 import {
   addDemoMailboxes,
@@ -24,19 +15,16 @@ import { postToMain, settleRequest, tellMain } from "./main-link.js";
 import { desktopPlatform, resumeListeners } from "./platform.js";
 import { serverUrl } from "./services/agent/mcp-server.js";
 
-// One log: main writes this process's lines with its own.
 sendLogsTo((level, scope, message, data) => tellMain({ kind: "log", level, scope, message, data }));
 
 async function start(): Promise<void> {
   const platform = desktopPlatform();
   await startCore(platform, desktopExtensions);
   registerBackendHandlers();
-  // Agents on this Mac reach the tools whether or not a chat has started.
   serverUrl().catch((error: unknown) =>
     logger.error("backend", "MCP server failed to start", error),
   );
   onSettingsChanged((settings, patch) => tellMain({ kind: "settings", settings, patch }));
-  // `pnpm dev:demo:desktop`: its mailboxes are here before the windows ask.
   const demo = process.env[DEMO_MAILBOXES_ENV];
   if (demo && !appInfo().packaged) {
     await addDemoMailboxes(demo).catch((error: unknown) =>

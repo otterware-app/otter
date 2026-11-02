@@ -1,21 +1,11 @@
-/**
- * Open searches, shown as sidebar rows: the top Search row (all mail) and
- * at most one per view, nested under the view it was started from.
- */
-
 export type SearchTab = {
   id: string;
-  /** The sidebar's mailbox (an account id, or Combined) the row lives in. */
   mailbox: string;
-  /** The view / label it was started from; null = the top Search row. */
   parent: string | null;
-  /** The parent as Gmail operators (`in:inbox`), prefilled and kept. */
   base: string;
-  /** The query that ran. */
   query: string;
   /** What's in the bar (may not have run yet). */
   draft: string;
-  /** Accounts searched. */
   scope: string[];
 };
 

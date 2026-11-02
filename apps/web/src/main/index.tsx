@@ -1,9 +1,3 @@
-/**
- * The main window's entry. The desktop's preload provides window.desktopBridge;
- * in a browser the web app brings its own, with the mail backend in a Web
- * Worker (src/web). Then the app loads: everything in it may use the bridge.
- */
-
 import "../styles.css";
 
 if (!window.desktopBridge) {
@@ -31,10 +25,8 @@ if (!window.desktopBridge) {
   );
 }
 
-// Where the window's own controls sit; the top bar leaves them room (styles.css).
 document.documentElement.dataset.windowControls =
   window.desktopBridge.features.windowControls ?? "none";
-// The window's tabs take the top row: each column's header moves into its card.
 if (window.desktopBridge.features.windowTabs) document.documentElement.dataset.windowTabs = "";
 
 await import("./app");

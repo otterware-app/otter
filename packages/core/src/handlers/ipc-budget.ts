@@ -46,12 +46,6 @@ export async function settleWrite(
 
 export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/**
- * Work that can take long — a file dialog waiting
- * on the user, a large attachment download. With a `taskId` the call returns
- * at once and the outcome arrives as a `task:done` notification (the
- * renderer's `task()` helper turns that back into a promise).
- */
 export function runAsTask(
   taskId: string | undefined,
   work: () => Promise<unknown>,

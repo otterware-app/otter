@@ -1,18 +1,3 @@
-/**
- * OpenClaw over its gateway's WebSocket, the way OpenClaw's own apps connect
- * (wss://<machine>.<tailnet>.ts.net with Tailscale Serve). This install is a
- * device with its own Ed25519 key: it introduces itself once, with a setup
- * code from `openclaw qr` (the gateway's address and a one-time bootstrap
- * token) or the gateway token, the user approves it on the gateway
- * (`openclaw devices approve`), and from then on it signs in with the device
- * token the gateway issued.
- *
- * Each chat is a gateway session (`agent:<agentId>:otter-mail:<uuid>`);
- * replies, tool calls and command approvals arrive as gateway events. A run
- * belongs to the gateway, not this app: it goes on when the socket drops or
- * the app quits, and is picked up again from the session's transcript.
- */
-
 import {
   toBase64,
   fromBase64,
@@ -63,7 +48,6 @@ const CONNECT_TIMEOUT_MS = 8_000;
 const QUESTIONS = "operator.questions";
 const SCOPES = ["operator.read", "operator.write", "operator.approvals", QUESTIONS];
 
-/** `chris-agent-01.tail1234.ts.net`, `https://…` → `wss://…`. */
 export function normalizeOpenClawUrl(raw: string): string {
   const trimmed = raw.trim().replace(/\/+$/, "");
   if (/^wss?:\/\//i.test(trimmed)) return trimmed;
@@ -91,14 +75,11 @@ export function parseOpenClawSetupCode(code: string): OpenClawSetupCode | null {
   }
 }
 
-// ── Device identity ──────────────────────────────────────────────────────────
-
 const base64url = (bytes: Uint8Array) =>
   toBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 let identity: Promise<GatewayBrowserDeviceIdentity> | null = null;
 
-/** This install's Ed25519 key, made once and kept in the platform's secrets; its id is the key's SHA-256. */
 function deviceIdentity(): Promise<GatewayBrowserDeviceIdentity> {
   identity ??= (async () => {
     let jwk = JSON.parse((await getOpenClawDeviceKey()) || "null") as JsonWebKey | null;
@@ -139,9 +120,6 @@ const lifecycle = new GatewayBrowserDeviceAuthLifecycle({
   },
 });
 
-// ── Connection ───────────────────────────────────────────────────────────────
-
-/** The approval this device waits for on the gateway, shown in Settings. */
 let pairingRequest: string | null = null;
 
 export function openClawPairingRequest(): string | null {
@@ -151,13 +129,10 @@ export function openClawPairingRequest(): string | null {
 type Gateway = {
   url: string;
   client: GatewayProtocolClient<GatewayBrowserDeviceAuthPlan>;
-  /** What the gateway granted this device. */
   scopes: string[];
 };
 
-/** Whether the agent's questions reach this device (null until it has connected). */
 let questionsAllowed: boolean | null = null;
-/** The scope upgrade for questions this device waits on (`openclaw devices approve <id>`). */
 let questionsRequest: string | null = null;
 
 export function openClawQuestions(): { allowed: boolean | null; request: string | null } {
@@ -168,15 +143,12 @@ let current: { url: string; ready: Promise<Gateway> } | null = null;
 const listeners = new Set<(event: EventFrame) => void>();
 const closeListeners = new Set<(client: Gateway["client"]) => void>();
 
-/** The gateway's reason for refusing a connection: `PAIRING_REQUIRED`, `CONTROL_UI_ORIGIN_NOT_ALLOWED`, … */
 function gatewayCode(error: unknown): string {
   return (error as { details?: { code?: string } })?.details?.code ?? "";
 }
 
-/** How this device introduces itself: the gateway token or a setup code's bootstrap token. */
 type Credentials = { token: string; bootstrapToken: string };
 
-/** Null until there's a way in: a token, a setup code, or the device token from an earlier pairing. */
 async function credentials(): Promise<Credentials | null> {
   const [token, bootstrapToken, deviceToken] = await Promise.all([
     getOpenClawToken(),
@@ -234,7 +206,6 @@ function open(url: string, { token, bootstrapToken }: Credentials): Promise<Gate
         lifecycle.buildPlan({
           client: clientInfo,
           role: "operator",
-          // The scopes this device was approved for, when it has been.
           defaultScopes: (await heldScopes()) ?? SCOPES,
           token: token || undefined,
           bootstrapToken: bootstrapToken || undefined,
@@ -257,7 +228,6 @@ function open(url: string, { token, bootstrapToken }: Credentials): Promise<Gate
         pairingRequest = null;
         scopes = hello.auth?.scopes ?? [];
         questionsAllowed = scopes.includes(QUESTIONS);
-        // The device token the gateway just issued replaces the one-time setup code.
         if (bootstrapToken) void clearOpenClawBootstrapToken();
         settle(null);
       },
@@ -268,7 +238,6 @@ function open(url: string, { token, bootstrapToken }: Credentials): Promise<Gate
         return { closeCode: 1000, closeReason: "connect failed", stop: true, error };
       },
       onConnectError: (error) => settle(error),
-      // One socket at a time; the next use reconnects.
       resolveClose: () => ({ retry: false, notify: false }),
       onClose: () => {
         if (current?.url === url) current = null;
@@ -285,7 +254,6 @@ function open(url: string, { token, bootstrapToken }: Credentials): Promise<Gate
   });
 }
 
-/** The connected gateway, connecting first when needed. */
 async function gateway(settings: OpenClawSettings): Promise<Gateway> {
   const { url } = settings;
   const creds = await credentials();
@@ -313,7 +281,6 @@ function disconnect(): void {
     .catch(() => {});
 }
 
-/** New gateway or token: forget the old connection and device token. */
 export async function resetOpenClawConnection(): Promise<void> {
   disconnect();
   pairingRequest = null;
@@ -322,7 +289,6 @@ export async function resetOpenClawConnection(): Promise<void> {
   await clearOpenClawDeviceToken();
 }
 
-/** The scopes the device token from an earlier pairing carries. */
 async function heldScopes(): Promise<string[] | null> {
   const stored = JSON.parse((await getOpenClawDeviceToken()) || "null") as {
     scopes?: string[];
@@ -330,11 +296,6 @@ async function heldScopes(): Promise<string[] | null> {
   return stored?.scopes?.length ? stored.scopes : null;
 }
 
-/**
- * Asks the gateway to let this device answer the agent's questions; the user
- * approves it there (`openclaw devices approve <id>`). Approved, the gateway
- * issues a new device token, and the next connection signs in with it.
- */
 export async function allowOpenClawQuestions(
   settings: OpenClawSettings,
   changed: () => void,
@@ -376,10 +337,8 @@ type Agent = {
   identity?: { name?: string; emoji?: string; avatarUrl?: string };
 };
 
-/** Pictures past this (a data URL's length) stay on the gateway: the providers' state goes to every window. */
 const MAX_AVATAR_LENGTH = 512_000;
 
-/** The agent's picture, when the app can show it: the gateway inlines one from its files, or links one online. */
 function agentAvatar(agent: Agent): string | undefined {
   const url = agent.identity?.avatarUrl;
   if (!url || url.length > MAX_AVATAR_LENGTH) return undefined;
@@ -419,7 +378,6 @@ async function whoAmI(g: Gateway): Promise<{ label: string } | null> {
   }
 }
 
-/** A failed connection, as the chat's error codes. */
 function connectError(error: unknown): string {
   const code = gatewayCode(error);
   if (code === "PAIRING_REQUIRED") return "pairing_required";
@@ -429,18 +387,10 @@ function connectError(error: unknown): string {
   return /token|unauthori[sz]ed/i.test(message) ? "unauthorized" : "unreachable";
 }
 
-// ── Turns ────────────────────────────────────────────────────────────────────
-
 /** How long a run may go quiet before asking the gateway whether it's still going. */
 const QUIET_MS = 60_000;
-/** Waits between tries to get the gateway back when the socket drops mid-run. */
 const RECONNECT_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 20_000, 30_000];
 
-/**
- * A run this app follows. It's sent with the request id as its idempotency
- * key, which the gateway keeps on the user's transcript row: a chat reopened
- * after a quit finds its run by the id it saved.
- */
 type Turn = {
   requestId: string;
   sessionKey: string;
@@ -453,18 +403,13 @@ type Turn = {
   steers: Set<string>;
   gateway: Gateway;
   emit: Emit;
-  /** The run's live text, sent again to a window that comes back mid-run. */
   text: OpenClawText;
-  /** Part of the run went unseen (a reconnect, a window back): its end is read from the transcript. */
   resynced: boolean;
-  /** Reports the turn's last event and ends it. */
   finish: (event: ChatEvent) => void;
 };
 
 const turns = new Map<string, Turn>();
-/** Approvals the user hasn't answered, by id. */
 const approvals = new Map<string, { requestId: string; approval: ApprovalRequest }>();
-/** Questions the user hasn't answered, by id. */
 const questions = new Map<string, { requestId: string; question: ChatQuestion }>();
 
 const DECISIONS: Record<ApprovalDecision, string> = {
@@ -488,21 +433,16 @@ function newTurn(requestId: string, sessionKey: string, gateway: Gateway, emit: 
   };
 }
 
-/** One of the turn's runs: the one its message started, or one a steer did. */
 const ownsRun = (turn: Turn, runId: unknown) =>
   runId === turn.runId || (typeof runId === "string" && turn.steers.has(runId));
 
-/** The send a user row came from: its idempotency key, less the gateway's `:user` suffix. */
 function sendKeyOf(row: Record<string, unknown>): string | undefined {
   const meta = row.__openclaw as { idempotencyKey?: unknown } | undefined;
   const key = meta?.idempotencyKey ?? row.idempotencyKey;
   return typeof key === "string" ? key.replace(/:user$/, "") : undefined;
 }
 
-/** Transcript rows as the panel shows them. */
 function transcript(messages: Record<string, unknown>[]): ChatSessionMessage[] {
-  // A model's own wrapper around a tool (Codex's `exec`) is mirrored beside
-  // the real call; the gateway marks its result as the provider's response.
   const mirrored = new Set(
     messages
       .filter((m) => {
@@ -527,7 +467,6 @@ function transcript(messages: Record<string, unknown>[]): ChatSessionMessage[] {
   });
 }
 
-/** Where a run stands on the gateway: whether it got the message, what it wrote since, whether it's going. */
 type RunState = { found: boolean; messages: ChatSessionMessage[]; active: boolean };
 
 async function runState(turn: Turn): Promise<RunState> {
@@ -547,7 +486,6 @@ async function runState(turn: Turn): Promise<RunState> {
   };
 }
 
-/** A command approval, from its `exec.approval.requested` event or `exec.approval.list`. */
 function askApproval(turn: Turn, payload: Record<string, unknown>): void {
   const request = (payload.request ?? {}) as Record<string, unknown>;
   if (request.sessionKey !== turn.sessionKey || typeof payload.id !== "string") return;
@@ -562,7 +500,6 @@ function askApproval(turn: Turn, payload: Record<string, unknown>): void {
   turn.emit({ requestId: turn.requestId, type: "approval", approval });
 }
 
-/** A question the run asks, from its `question.requested` event or `question.list`. */
 function askQuestion(turn: Turn, record: Record<string, unknown>): void {
   if (record.sessionKey !== turn.sessionKey || typeof record.id !== "string") return;
   if ((record.runId && !ownsRun(turn, record.runId)) || record.status !== "pending") return;
@@ -586,7 +523,6 @@ function askQuestion(turn: Turn, record: Record<string, unknown>): void {
   turn.emit({ requestId: turn.requestId, type: "question", question });
 }
 
-/** Approvals and questions the run asked while this app wasn't listening. */
 async function askPending(turn: Turn): Promise<void> {
   const [pendingApprovals, pendingQuestions] = await Promise.all([
     turn.gateway.client
@@ -603,11 +539,6 @@ async function askPending(turn: Turn): Promise<void> {
   for (const record of pendingQuestions.questions ?? []) askQuestion(turn, record);
 }
 
-/**
- * The session's transcript rows as they're written: a run picked up on
- * another connection gets its tool calls (with their arguments) from them,
- * as only the connection that sent the message gets `tool` events.
- */
 function watchTranscript(turn: Turn): void {
   void turn.gateway.client
     .request("sessions.messages.subscribe", { key: turn.sessionKey })
@@ -639,7 +570,6 @@ async function follow(
   const { requestId, sessionKey, emit } = turn;
   let ended: (() => void) | null = null;
   const finished = new Promise<void>((resolve) => (ended = resolve));
-  // The first ending wins (a final, a cancel, the gateway gone for good).
   turn.finish = (event) => {
     if (!ended) return;
     emit(event);
@@ -648,7 +578,6 @@ async function follow(
   };
   turns.set(requestId, turn);
 
-  /** The run is over: its end as the transcript has it, when some of it went unseen. */
   const settle = async (state?: RunState) => {
     if (turn.resynced) {
       try {
@@ -687,7 +616,6 @@ async function follow(
       if (!ended) return;
       try {
         turn.gateway = await gateway(settings);
-        // Live text on the new socket starts from a fresh snapshot.
         turn.text = new OpenClawText(requestId, emit);
         const state = await runState(turn);
         if (!ended) return;
@@ -705,12 +633,9 @@ async function follow(
     turn.finish({ requestId, type: "error", message: "detached" });
   };
 
-  // Tool calls already shown (`<call id>:start|done`), as both `tool` events and the transcript may tell of one.
   const seen = new Set<string>();
-  // The turn's runs that have ended.
   const finals = new Set<string>();
   const startStep = (id: string | undefined, name: string, args: unknown) => {
-    // A catalog tool's own call (`tool_call:<call id>:ask_user:1`) repeats its `tool_call`.
     if (id?.startsWith("tool_call:")) return;
     if (id && seen.has(`${id}:start`)) return;
     if (id) seen.add(`${id}:start`);
@@ -746,7 +671,6 @@ async function follow(
         mirrorOrigin?: unknown;
         toolOutput?: { source?: string };
       };
-      // Another run's rows, or a model's own wrapper mirrored beside the real call.
       if ((meta.runId && !ownsRun(turn, meta.runId)) || meta.mirrorOrigin) return;
       if (meta.toolOutput?.source === "provider-response") return;
       hush();
@@ -774,15 +698,12 @@ async function follow(
       turn.text.assistant((p.data ?? {}) as Record<string, unknown>);
       return;
     }
-    // A tool's end reaches every connection as an activity item (results aren't transcript events).
     if (event === "agent" && p.stream === "item" && turn.resynced) {
       const data = (p.data ?? {}) as Record<string, unknown>;
       if (data.kind === "tool" && data.phase === "end" && typeof data.toolCallId === "string")
         endStep(data.toolCallId, data.status === "failed");
       return;
     }
-    // Only the connection that sent the message gets these (a run picked up
-    // on another reads its tool calls from the transcript).
     if (event === "agent" && p.stream === "tool") {
       const data = (p.data ?? {}) as Record<string, unknown>;
       const id = typeof data.toolCallId === "string" ? data.toolCallId : undefined;
@@ -798,7 +719,6 @@ async function follow(
       case "final":
         turn.text.chat(p, true);
         clearTimeout(quiet);
-        // Over when its runs are; a steer queued behind it may still be going.
         if ([turn.runId, ...turn.steers].every((id) => finals.has(id))) void settle();
         else void check();
         break;
@@ -856,9 +776,7 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
   kind: "openclaw",
   displayName: "OpenClaw",
   defaults: OPENCLAW_DEFAULTS,
-  // The gateway comes from connecting (index.ts), not from the form.
   fields: { enabled: "boolean", model: "string" },
-  // This device's pairing with the gateway: another device pairs on its own.
   localOnly: true,
   async settingsView() {
     return {
@@ -908,7 +826,6 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
       logger.info("agent", "openclaw check failed", { code, error: String(error) });
       return {
         ...base,
-        // Asking for approval or refusing the site still proves the gateway answered.
         installed: code !== "unreachable",
         status: code === "pairing_required" ? "warning" : "error",
         auth: { status: code === "unreachable" ? "unknown" : "unauthenticated" },
@@ -1024,7 +941,6 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
       .catch(() => turn.finish({ requestId, type: "error", message: "cancelled" }));
   },
 
-  /** A steer joins the running turn on the gateway. */
   async steer(requestId, input) {
     const turn = turns.get(requestId);
     if (!turn) return false;
@@ -1068,7 +984,6 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
     return [];
   },
 
-  /** The gateway's conversations, newest first (not cron runs or sub-agents). */
   async listSessions(settings, limit) {
     const g = await gateway(settings);
     const result = await g.client.request<{ sessions?: Record<string, unknown>[] }>(
@@ -1088,7 +1003,6 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
         String(s.derivedTitle ?? s.displayName ?? s.label ?? "") || (s.isMain ? "Main chat" : null),
       source: String(s.agentId ?? "openclaw"),
       lastActive: Number(s.updatedAt) || 0,
-      // The list carries no count; a last message means there are messages.
       messageCount: s.lastMessagePreview ? 1 : 0,
       preview: s.lastMessagePreview ? String(s.lastMessagePreview) : null,
     }));
@@ -1130,7 +1044,6 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
       throw new Error("OpenClaw hasn't made this image available to download.");
     }
     const path = chatFilePath(href);
-    // The file preview's text cap is small; media assets have their own larger budget.
     if (/\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(path)) {
       const ref = encodeURIComponent(path.split("/").pop() || "image");
       const result = await g.client.request<{
@@ -1167,7 +1080,6 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
     await g.client.request("sessions.delete", { key: sessionId });
   },
 
-  /** The runs go on on the gateway: the panel picks them up again (`resume`). */
   shutdown() {
     for (const [requestId, turn] of turns)
       turn.finish({ requestId, type: "error", message: "detached" });

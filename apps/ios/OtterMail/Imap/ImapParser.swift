@@ -1,13 +1,11 @@
 import Foundation
 
-/** A value in an IMAP response: an atom, a string (quoted or literal), a parenthesized list, or NIL. */
 nonisolated enum ImapValue: Equatable, Sendable {
     case atom(String)
     case string(Data)
     case list([ImapValue])
     case none
 
-    /** An atom or a string, as text (header words left encoded). */
     var text: String? {
         switch self {
         case .atom(let atom): atom
@@ -27,7 +25,6 @@ nonisolated enum ImapValue: Equatable, Sendable {
     var list: [ImapValue] { if case .list(let items) = self { items } else { [] } }
     var number: UInt64? { text.flatMap { UInt64($0) } }
 
-    /** `(key value key value …)` as a dictionary, keys uppercased (FETCH items, body parameters). */
     var pairs: [String: ImapValue] {
         let items = list
         var out: [String: ImapValue] = [:]
@@ -38,15 +35,11 @@ nonisolated enum ImapValue: Equatable, Sendable {
     }
 }
 
-/** One untagged response: `* 12 FETCH (…)`, `* LIST (…) "/" INBOX`, `* OK [UIDNEXT 9] …`. */
 nonisolated struct ImapResponse: Sendable {
     /** The message number or count before the kind (`* 12 EXISTS`). */
     var number: UInt32?
-    /** Uppercased: FETCH, LIST, SEARCH, OK, EXISTS, VANISHED, … */
     var kind: String
-    /** What follows the kind; for OK/NO/BAD, the response code's contents (`[UIDNEXT 9]` → UIDNEXT, 9). */
     var values: [ImapValue]
-    /** For OK/NO/BAD, the human text. */
     var text = ""
 }
 
@@ -57,7 +50,6 @@ nonisolated struct ImapParser {
 
     init(_ data: Data) { bytes = [UInt8](data) }
 
-    /** An untagged response (the line after "* "), or a tagged one's status after the tag. */
     static func response(_ data: Data) -> ImapResponse {
         var parser = ImapParser(data)
         var first = parser.atom()
@@ -87,7 +79,6 @@ nonisolated struct ImapParser {
         while peek == UInt8(ascii: " ") { i += 1 }
     }
 
-    /** Values up to `close` (consumed), or to the end. */
     private mutating func values(until close: UInt8?) -> [ImapValue] {
         var out: [ImapValue] = []
         while true {
@@ -102,7 +93,7 @@ nonisolated struct ImapParser {
                 i += 1
                 out.append(.list(values(until: UInt8(ascii: "]"))))
             case UInt8(ascii: ")"), UInt8(ascii: "]"):
-                i += 1 // Unbalanced: skip it.
+                i += 1
             case UInt8(ascii: "\""):
                 out.append(.string(quoted()))
             case UInt8(ascii: "{"):
@@ -114,13 +105,12 @@ nonisolated struct ImapParser {
         }
     }
 
-    /** An atom; a `[section]` right after it (BODY[1.2], BODY[HEADER.FIELDS (…)]) and a `<partial>` belong to it. */
     private mutating func atom() -> String {
         skipSpaces()
         let start = i
         while let c = peek {
             if c == UInt8(ascii: "[") {
-                guard i > start else { break } // A list, not part of an atom.
+                guard i > start else { break }
                 while let d = peek, d != UInt8(ascii: "]") { i += 1 }
                 i = min(i + 1, bytes.count)
                 continue
@@ -143,7 +133,6 @@ nonisolated struct ImapParser {
         return out
     }
 
-    /** `{12}` CRLF and 12 bytes (`{12+}` too). */
     private mutating func literal() -> Data {
         i += 1
         var count = 0
@@ -151,16 +140,13 @@ nonisolated struct ImapParser {
             if let digit = Int(String(UnicodeScalar(c))) { count = count * 10 + digit }
             i += 1
         }
-        i += 3 // "}\r\n"
+        i += 3
         let end = min(i + count, bytes.count)
         defer { i = end }
         return Data(bytes[min(i, end)..<end])
     }
 }
 
-// ── What FETCH answers ────────────────────────────────────────────────────
-
-/** A message's address list (ENVELOPE's `((name adl mailbox host) …)`). */
 nonisolated func imapAddresses(_ value: ImapValue) -> [Person] {
     value.list.compactMap { address in
         let parts = address.list
@@ -169,16 +155,13 @@ nonisolated func imapAddresses(_ value: ImapValue) -> [Person] {
     }
 }
 
-/** A leaf of BODYSTRUCTURE: where it is (`1.2`), what it is, and how it's encoded. */
 nonisolated struct ImapBodyPart: Sendable {
     var section: String
-    /** Lowercased, "text/plain". */
     var type: String
     var params: [String: String]
     var contentID: String?
     var encoding: String
     var size: Int
-    /** Lowercased, "attachment" or "inline". */
     var disposition: String?
     var dispositionParams: [String: String]
 
@@ -190,7 +173,6 @@ nonisolated struct ImapBodyPart: Sendable {
     /** The message's own words (not a file), plain or HTML. */
     var isBody: Bool { (type == "text/plain" || type == "text/html") && disposition != "attachment" && filename == nil }
 
-    /** The leaves of a BODYSTRUCTURE, depth first (a forwarded message counts as one). */
     static func leaves(_ value: ImapValue, section: String = "") -> [ImapBodyPart] {
         let items = value.list
         guard let first = items.first else { return [] }
@@ -223,7 +205,6 @@ nonisolated struct ImapBodyPart: Sendable {
     }
 }
 
-/** UIDs as an IMAP set: [1, 2, 3, 7] → "1:3,7". */
 nonisolated func imapSet(_ uids: some Sequence<UInt32>) -> String {
     var ranges: [(UInt32, UInt32)] = []
     for uid in Set(uids).sorted() {
@@ -232,7 +213,6 @@ nonisolated func imapSet(_ uids: some Sequence<UInt32>) -> String {
     return ranges.map { $0 == $1 ? "\($0)" : "\($0):\($1)" }.joined(separator: ",")
 }
 
-/** "1:3,7" → [1, 2, 3, 7]. */
 nonisolated func imapUIDs(_ set: String) -> [UInt32] {
     set.split(separator: ",").flatMap { range -> [UInt32] in
         let ends = range.split(separator: ":").compactMap { UInt32($0) }

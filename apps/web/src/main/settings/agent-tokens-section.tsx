@@ -20,7 +20,6 @@ import { SettingsGroup, SettingsRow, SettingsSection, timeAgo } from "./settings
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/** Copies `value`; the icon turns to a check for a moment. */
 export function CopyButton({
   value,
   label,
@@ -47,7 +46,6 @@ export function CopyButton({
   );
 }
 
-/** A value to hand an agent (its command, the address, the token), one line, with Copy. */
 function CopyRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex h-8 items-center gap-3 rounded-lg bg-input/40 pr-1 pl-3">
@@ -60,12 +58,6 @@ function CopyRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-/**
- * The tokens agents reach an MCP server with (contracts' agent-tokens.ts):
- * the relay's in Settings › Account, the Mac's in Settings › Agents. A row
- * per agent (last used, Revoke), the server's address under them, and
- * "Add agent…", which shows the agent's token once.
- */
 export function AgentTokensSection<T extends AgentToken>({
   id,
   title,
@@ -82,18 +74,14 @@ export function AgentTokensSection<T extends AgentToken>({
   id?: string;
   title: string;
   description: ReactNode;
-  /** The tokens' query; refreshed after every change. */
   queryKey: string;
   list: () => Promise<AgentTokens<T>>;
-  /** Makes a token; answers the token itself. */
   create: (name: string) => Promise<string>;
   revoke: (id: string) => Promise<void>;
   defaultName: string;
-  /** More to choose for a new agent, below its name. */
   newTokenFields?: ReactNode;
   /** More controls on an agent's row, before Revoke. */
   renderControl?: (token: T) => ReactNode;
-  /** Commands that add the server and a new token to an agent in one go, by agent. */
   commands?: { agent: string; text: (url: string, token: string) => string }[];
 }) {
   const qc = useQueryClient();

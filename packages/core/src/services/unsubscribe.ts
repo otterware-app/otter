@@ -15,7 +15,6 @@ import { buildMime, formatAddress } from "./outgoing.js";
 
 export type UnsubscribeInfo = {
   method: "oneClick" | "mailto" | "web";
-  /** Where it goes: the list's domain or address, for the confirmation. */
   target: string;
 };
 
@@ -23,7 +22,6 @@ type Parsed = { https?: string; mailto?: string; oneClick: boolean };
 
 const cache = new Map<string, Parsed | null>();
 
-/** `<https://…>, <mailto:…>` → the first link of each kind. */
 function parse(header: string, oneClick: boolean): Parsed | null {
   const links = [...header.matchAll(/<([^>]+)>/g)].map((m) => m[1].trim());
   const https = links.find((l) => /^https:\/\//i.test(l));
@@ -58,11 +56,6 @@ export async function getUnsubscribe(
   return parsed ? describe(parsed) : null;
 }
 
-/**
- * The email a `mailto:list@x?subject=…&body=…` link asks for. The link is
- * the sender's to write: exactly one plain address, only subject and body
- * taken from it, and no line breaks anywhere they could add headers.
- */
 export function unsubscribeEmail(
   mailto: string,
   from: string,
@@ -86,7 +79,6 @@ async function sendUnsubscribeEmail(accountId: string, mailto: string): Promise<
   await providerFor(accountId).sendRaw(accountId, raw);
 }
 
-/** Returns "done" when handled in place, or the URL the caller should open. */
 export async function unsubscribe(
   accountId: string,
   messageId: string,

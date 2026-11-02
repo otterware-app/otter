@@ -1,4 +1,3 @@
-/** Todoist's v1 API. Credentials stay in this device's secret store. */
 import {
   broadcast,
   platform,

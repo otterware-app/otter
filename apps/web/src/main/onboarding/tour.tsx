@@ -7,13 +7,6 @@ import { isMacPlatform, modKeyName, shortcutText } from "../keybindings/keys";
 import { Btn, IconBtn, cn } from "../mail/ui";
 import { ShortcutKeys } from "./keycap";
 
-/**
- * The tour: a spotlight walks the live app, one part at a time, with a card
- * saying what it does and the keys for it. Parts are marked `data-tour` where
- * they're rendered; a stop whose part isn't on screen shows centered. While it
- * runs, keys drive the tour (← → Esc) and mail shortcuts stay quiet.
- */
-
 export type TourActions = {
   /** Opens a conversation if none is open, so the reader has something to show. */
   openMessage: () => void;
@@ -22,7 +15,6 @@ export type TourActions = {
 };
 
 type TourStop = {
-  /** The `data-tour` part to light up; centered when absent. */
   target?: string;
   title: string;
   body: ReactNode;
@@ -106,7 +98,6 @@ const PAD = 4;
 
 type Box = { left: number; top: number; width: number; height: number };
 
-/** Where a part is on screen, followed every frame (panels animate). */
 function useTargetBox(target: string | undefined): Box | null {
   const [box, setBox] = useState<Box | null>(null);
   useEffect(() => {
@@ -158,7 +149,6 @@ export function Tour({ actions, onClose }: { actions: TourActions; onClose: () =
   const box = useTargetBox(stop.target);
 
   const actionsRef = useLatest(actions);
-  // The agent's window is put back as it was when the tour ends.
   const agentWasOpen = useRef(actions.agentOpen);
   useEffect(() => {
     const { openMessage, setAgentOpen } = actionsRef.current;
@@ -179,7 +169,6 @@ export function Tour({ actions, onClose }: { actions: TourActions; onClose: () =
   const nav = useLatest({ next, move, onClose });
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      // Nothing reaches the app's shortcuts while the tour is up.
       e.stopPropagation();
       if (e.key === "Escape") {
         e.preventDefault();

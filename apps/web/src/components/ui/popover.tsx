@@ -1,9 +1,5 @@
 "use client";
 
-/**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
- * apps/web/src/components/ui/popover.tsx, unchanged.
- */
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 
 import { cn } from "~/lib/utils";
@@ -29,8 +25,6 @@ const popoverPopupWidthClassName = {
   lg: "w-96",
 } as const;
 
-// The inset around the content. "compact" suits dense content (a list, a code excerpt, a
-// row of reactions); "none" is for content that draws its own frame edge to edge.
 const popoverViewportPaddingClassName = {
   default: "py-4 [--viewport-inline-padding:--spacing(4)]",
   compact: "py-2 [--viewport-inline-padding:--spacing(3)]",

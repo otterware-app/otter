@@ -9,7 +9,6 @@ import SwiftUI
 struct ThreadRow: View {
     @Environment(\.palette) private var palette
     let thread: MailThread
-    /** How the mailbox marks mail (`Mailbox.mark`): a star, or a flag. */
     var mark = "star"
 
     var body: some View {
@@ -61,7 +60,6 @@ struct ThreadRow: View {
         .accessibilityElement(children: .combine)
     }
 
-    /** "Maya, José, me": who wrote, in order. */
     private var senders: String {
         var names: [String] = []
         for message in thread.messages where !message.draft {
@@ -77,7 +75,6 @@ struct ThreadRow: View {
     }
 }
 
-/** A mailbox's mark: a rounded square in its color with its initial (Otter Code's project mark). */
 struct MailboxMark: View {
     let mailbox: Mailbox
     var size: CGFloat = 16
@@ -92,7 +89,6 @@ struct MailboxMark: View {
     }
 }
 
-/** The sender's initial on a color picked from the address, the desktop's tile (sender-avatar.tsx). */
 struct SenderAvatar: View {
     let person: Person
     var size: CGFloat = 32
@@ -106,7 +102,6 @@ struct SenderAvatar: View {
             .accessibilityHidden(true)
     }
 
-    /** The desktop's hue for the address, at hsl(h 48% 52%) (as hue, saturation and brightness). */
     private var color: Color {
         var hash: Int32 = 0
         for unit in person.email.trimmingCharacters(in: .whitespaces).lowercased().utf16 {
@@ -118,7 +113,6 @@ struct SenderAvatar: View {
 }
 
 enum RelativeTime {
-    /** "14:05" today, "Tue" this week, "12 Sep" this year, else "12/09/25". */
     static func short(_ date: Date, now: Date = .now) -> String {
         let calendar = Calendar.current
         if calendar.isDateInToday(date) { return date.formatted(date: .omitted, time: .shortened) }
@@ -132,7 +126,6 @@ enum RelativeTime {
     }
 }
 
-/** Local calendar days, newest first, shared by inbox and search results. */
 struct ThreadDay: Identifiable {
     let id: Date
     let threads: [MailThread]

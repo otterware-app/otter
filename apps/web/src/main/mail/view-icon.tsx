@@ -1,10 +1,3 @@
-/**
- * A view's mark in the sidebar (and wherever it's named): an icon or an emoji,
- * in a color, picked in the view's dialog; its initial until one is picked.
- * Views keep the pick as `icon` (an icon's key, or the emoji itself) and
- * `color` (shared's view-marks.ts).
- */
-
 import { useState } from "react";
 import {
   ArchiveIcon,
@@ -54,7 +47,6 @@ import { VIEW_COLORS, type ViewIconKey } from "@otter-mail/shared/view-marks";
 import { cn } from "./ui";
 import type { MailView } from "./types";
 
-/** Each icon key's drawing (shared's VIEW_ICON_KEYS, which the agents offer too). */
 export const VIEW_ICONS: Record<ViewIconKey, LucideIcon> = {
   star: StarIcon,
   bookmark: BookmarkIcon,
@@ -145,7 +137,6 @@ const COLORS = Object.values(VIEW_COLORS);
 
 type Mark = Pick<MailView, "name" | "icon" | "color">;
 
-/** A view's mark: its icon (in its color), its emoji, or its initial. */
 export function ViewMark({ view, className }: { view: Mark; className?: string }) {
   const Icon = view.icon ? VIEW_ICONS[view.icon as ViewIconKey] : undefined;
   if (Icon) {
@@ -180,7 +171,6 @@ export function ViewMark({ view, className }: { view: Mark; className?: string }
 const CELL =
   "flex size-8 items-center justify-center rounded-lg outline-none hover:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring";
 
-/** Emoji or icon, then (for an icon) its color; Remove goes back to the initial. */
 export function ViewIconPicker({
   icon,
   color,

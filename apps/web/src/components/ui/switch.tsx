@@ -2,11 +2,6 @@ import { Switch as SwitchPrimitive } from "@base-ui/react/switch";
 
 import { cn } from "~/lib/utils";
 
-/**
- * Toggle switch (adapted from Otter Code's components/ui/switch.tsx): an
- * iOS-style pill with a sliding thumb, in the focus tone when on (like
- * ChatGPT's: blue under Codex, whose primary is white).
- */
 function Switch({ className, ...props }: SwitchPrimitive.Root.Props) {
   return (
     <SwitchPrimitive.Root

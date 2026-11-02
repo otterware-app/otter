@@ -1,9 +1,4 @@
 #!/usr/bin/env node
-// Regenerates the stable, nightly (night sky) and dev (blueprint) icons from
-// assets/prod/otter-mail-symbol.svg. Desktop and web use all three; iPhone
-// uses its primary AppIcon for releases and AppIconDev for Debug builds.
-// Renders with playwright-core's Chromium (`pnpm exec playwright-core install
-// chromium-headless-shell` once). Run with `pnpm icons:export`.
 
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
@@ -26,15 +21,12 @@ const svg = (body: string, defs = "") =>
 const glyph = ({ color }: Art) => `<path fill="${color}" fill-rule="evenodd" d="${mark}"/>`;
 const art = (a: Art) => a.background + glyph(a);
 
-/** Full bleed, for iOS (which masks it) and the web's pictures. */
 const square = (a: Art) => svg(art(a), a.defs);
-/** A rounded tile filling the canvas: Linux, favicons. */
 const tile = (a: Art) =>
   svg(
     `<g clip-path="url(#tile)">${art(a)}</g>`,
     `${a.defs ?? ""}<clipPath id="tile"><rect width="1024" height="1024" rx="230"/></clipPath>`,
   );
-/** The classic macOS icon: an 824 tile inset 100, with a shadow. */
 const mac = (a: Art) =>
   svg(
     `<rect x="100" y="100" width="824" height="824" rx="184" filter="url(#shadow)"/>` +
@@ -67,7 +59,6 @@ function blueprint(): Art {
   };
 }
 
-/** Otter Code's nightly treatment: ivory on a purple night sky, above clouds. */
 function nightSky(): Art {
   const stars = [
     [156, 190, 2],
@@ -93,7 +84,6 @@ function nightSky(): Art {
   };
 }
 
-/** An icon's .icns: PNGs for every size macOS asks for (iconutil's types). */
 async function icns(png: (size: number) => Promise<Buffer>): Promise<Buffer> {
   const types = {
     ic11: 32,
@@ -119,7 +109,6 @@ async function icns(png: (size: number) => Promise<Buffer>): Promise<Buffer> {
   return Buffer.concat([head, ...chunks]);
 }
 
-/** An .ico of PNGs (Vista and later read them). */
 function ico(pngs: { size: number; data: Buffer }[]): Buffer {
   const head = Buffer.alloc(6 + 16 * pngs.length);
   head.writeUInt16LE(1, 2);
@@ -184,7 +173,6 @@ try {
     write(`${directory}/apple-touch-icon.png`, await png(square(icon), 180));
   }
 
-  // The stable web favicon follows the system's light or dark.
   write(
     "apps/web/public/favicon.svg",
     svg(
@@ -198,7 +186,6 @@ try {
   write("apps/web/public/apple-touch-icon.png", await png(square(light), 180));
   write("apps/web/src/main/assets/otter-mail-icon.png", await png(square(light), 192));
 
-  // The iPhone: light, dark and tinted (the system colors the light mark on black).
   const appIcon = `${catalog}/AppIcon.appiconset`;
   write(`${appIcon}/icon-1024.png`, await png(square(light), 1024));
   write(`${appIcon}/icon-dark-1024.png`, await png(square(dark), 1024));

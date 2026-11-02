@@ -1,9 +1,3 @@
-/**
- * The installed apps' .desktop files (the XDG Desktop Entry spec): how Linux
- * says which apps open mailto: links and which are terminals. An entry's id
- * is its file name ("org.gnome.Terminal.desktop"), as xdg-mime knows it.
- */
-
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -11,21 +5,18 @@ import * as path from "node:path";
 export type DesktopEntry = {
   id: string;
   name: string;
-  /** The Exec line's words, without field codes (%U, %f…). */
   exec: string[];
   mimeTypes: string[];
   categories: string[];
   path: string;
 };
 
-/** Where .desktop files live, the user's first: their entries override the system's. */
 export function applicationDirs(env: NodeJS.ProcessEnv = process.env): string[] {
   const dataHome = env.XDG_DATA_HOME || path.join(os.homedir(), ".local/share");
   const dataDirs = (env.XDG_DATA_DIRS || "/usr/local/share:/usr/share").split(":");
   return [dataHome, ...dataDirs].filter(Boolean).map((dir) => path.join(dir, "applications"));
 }
 
-/** Splits an Exec value into words: double quotes group, backslash escapes. */
 export function execWords(value: string): string[] {
   const words: string[] = [];
   let word: string | null = null;
@@ -77,7 +68,6 @@ export function parseDesktopEntry(id: string, file: string, text: string): Deskt
   };
 }
 
-/** Every installed app, once each (the first directory with an id wins). */
 export async function desktopEntries(dirs = applicationDirs()): Promise<DesktopEntry[]> {
   const seen = new Set<string>();
   const entries: DesktopEntry[] = [];

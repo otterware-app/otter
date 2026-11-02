@@ -78,7 +78,6 @@ type Mailbox = {
   idPrefix: string;
   labels: Label[];
   messages: Record<string, Message>;
-  /** Draft id → the message backing it. */
   drafts: Record<string, string>;
   history: HistoryRecord[];
   signature: string;
@@ -105,8 +104,6 @@ const SYSTEM_LABELS = [
   "CATEGORY_UPDATES",
   "CATEGORY_FORUMS",
 ];
-
-// ── Seeding ──────────────────────────────────────────────────────────────────
 
 function newId(box: Mailbox): string {
   return `${box.idPrefix}${(box.nextId++).toString(16).padStart(12, "0")}`;
@@ -214,8 +211,6 @@ function seedMailbox(seed: SeedAccount, index: number, seededAt: number): Mailbo
   return box;
 }
 
-// ── State ────────────────────────────────────────────────────────────────────
-
 type State = { version: number; seededAt: number; mailboxes: Record<string, Mailbox> };
 
 let state: State;
@@ -248,8 +243,6 @@ async function loadState(): Promise<void> {
   };
   await files.write(STATE_FILE, JSON.stringify(state));
 }
-
-// ── Changes (recorded in the history feed) ───────────────────────────────────
 
 const ref = (m: Message): Ref => ({
   message: { id: m.id, threadId: m.threadId, labelIds: m.labelIds },
@@ -287,8 +280,6 @@ function deleteMessage(box: Mailbox, id: string): void {
   }
   record(box, { messagesDeleted: [ref(m)] });
 }
-
-// ── MIME (what the app sends: messages.send and drafts) ──────────────────────
 
 function decodeWords(value: string): string {
   return value
@@ -412,8 +403,6 @@ function fromRaw(box: Mailbox, raw: string, threadId: string | undefined, labels
   return message;
 }
 
-// ── Reading ──────────────────────────────────────────────────────────────────
-
 const escapeHtml = (text: string) =>
   text.replace(
     /[&<>"']/g,
@@ -495,8 +484,6 @@ function messageResource(box: Mailbox, m: Message, url: URL): object {
   return { ...base, payload: payload(m) };
 }
 
-// ── Search (a small subset of Gmail's operators) ─────────────────────────────
-
 const IN: Record<string, string> = {
   inbox: "INBOX",
   sent: "SENT",
@@ -575,8 +562,6 @@ function matchesQuery(box: Mailbox, m: Message, q: string): boolean {
     return negated ? !hit : hit;
   });
 }
-
-// ── The API ──────────────────────────────────────────────────────────────────
 
 const json = (body: unknown, status = 200) =>
   new Response(status === 204 ? null : JSON.stringify(body), {
@@ -782,7 +767,6 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
       }
       if (method === "PUT") {
         const message = (body.message ?? {}) as { raw?: string };
-        // Like Gmail, every edit is a new message in the same thread.
         const m = fromRaw(box, message.raw ?? "", current.threadId, ["DRAFT"]);
         deleteMessage(box, current.id);
         box.drafts[id] = m.id;
@@ -792,7 +776,6 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
     }
 
     case "settings": {
-      // settings/sendAs[/{email}]
       const sendAs = {
         sendAsEmail: box.email,
         displayName: box.name,
@@ -814,8 +797,6 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
   return notFound();
 }
 
-// ── The fetch shim ───────────────────────────────────────────────────────────
-
 function answer(url: URL, method: string, headers: Headers, rawBody: unknown): Response | null {
   if (url.origin === DEMO_RELAY_URL) {
     return json({ error: "Demo mode has no Otter account." }, 401);
@@ -831,7 +812,6 @@ function answer(url: URL, method: string, headers: Headers, rawBody: unknown): R
   if (url.hostname === "www.googleapis.com" && url.pathname.startsWith("/calendar/")) {
     return json({ items: [] });
   }
-  // The account's name and picture, as Google keeps them.
   if (url.hostname === "www.googleapis.com" && url.pathname === "/oauth2/v3/userinfo") {
     const account = /^Bearer demo:(.+)$/.exec(headers.get("Authorization") ?? "")?.[1];
     const seed = DEMO_ACCOUNTS.find((s) => s.email === account);
@@ -839,7 +819,6 @@ function answer(url: URL, method: string, headers: Headers, rawBody: unknown): R
     return json({ email: seed.email, name: seed.name, picture: seed.picture });
   }
   if (url.hostname === "people.googleapis.com") return json({ results: [] });
-  // Avatars: the demo's people have no photos or favicons to find.
   if (
     url.hostname === "www.gravatar.com" ||
     url.hostname === "icons.duckduckgo.com" ||
@@ -847,14 +826,12 @@ function answer(url: URL, method: string, headers: Headers, rawBody: unknown): R
   ) {
     return new Response(null, { status: 404 });
   }
-  // The seed's made-up domains (one-click unsubscribe, links).
   if (url.hostname.endsWith(".example") || url.hostname === "example.com") {
     return new Response(null, { status: 200 });
   }
   return null;
 }
 
-/** Loads (or seeds) the demo mailboxes and puts the fake Gmail in front of fetch. */
 export async function installFakeGmail(demoFiles: Platform["files"]): Promise<void> {
   files = demoFiles;
   await loadState();
@@ -876,8 +853,6 @@ export async function installFakeGmail(demoFiles: Platform["files"]): Promise<vo
   };
 }
 
-// ── Sign-in ──────────────────────────────────────────────────────────────────
-
 function demoAccount(seed: SeedAccount): MailAccount {
   return {
     id: seed.email,
@@ -889,7 +864,6 @@ function demoAccount(seed: SeedAccount): MailAccount {
   };
 }
 
-/** Every demo mailbox is signed in; "adding an account" brings back one that was removed. */
 export function demoGoogleAuth(): GoogleAuth {
   const isDemo = (accountId: string) => DEMO_ACCOUNTS.some((seed) => seed.email === accountId);
   return {

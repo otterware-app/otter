@@ -1,18 +1,3 @@
-/**
- * The agent chats, shared by every view that shows one (the small window over
- * the mail, the AI workspace): the account's chats and the one showing, the
- * turns in flight and what they wait on, the follow-ups queued behind them,
- * and each chat's unsent draft and citations. Each chat is bound to the
- * provider it started with; turns stream through the backend's provider
- * layer as canonical chat events, which `useChatEvents` (the main window's)
- * lays into their chat whether or not a view shows it.
- *
- * Chats are the account's (contracts' chats.ts): core keeps them and syncs
- * them through the relay. Each comes from core without its turns, which load
- * when it's first shown (`loadChat`), and each change here is saved back. A
- * chat also keeps what it used, made and opened as tabs, for the workspace.
- */
-
 import { useEffect } from "react";
 import { create } from "zustand";
 import {
@@ -52,7 +37,6 @@ import { toast } from "./toast";
 
 export type { ChatTab, ChatTurn };
 
-/** A chat, and what this device keeps of it besides. */
 export type Conversation = Chat & {
   /**
    * The turn in flight (its request id), kept on this device so one the app
@@ -60,7 +44,6 @@ export type Conversation = Chat & {
    * runs outlive it.
    */
   openRequest?: string | null;
-  /** Its turns are here: a chat from core loads them when first shown. */
   loaded: boolean;
 };
 
@@ -71,10 +54,8 @@ export type Run = { requestId: string; convoId: string; provider: ProviderKind }
 export type Outgoing = {
   id: string;
   convoId: string;
-  /** Who it was written for: an empty chat takes the provider the picker shows. */
   provider: ProviderKind;
   question: string;
-  /** What the agent receives (question + attached context block). */
   input: string;
   skill?: Skill;
   title: string;
@@ -84,11 +65,6 @@ export type Outgoing = {
   citations?: Citation[];
 };
 
-/**
- * A follow-up waiting for the running turn (Otter Code's queued run). It has
- * no transcript row until it starts; it lives in the queue banner. In memory
- * only: a queued message is a live intent, not a draft worth persisting.
- */
 export type QueuedMessage = Outgoing;
 
 type Device = { id: string; name: string };
@@ -96,41 +72,27 @@ type Device = { id: string; name: string };
 type ChatsState = {
   /** The account's chats, newest first, and a new one before its first message. */
   conversations: Conversation[];
-  /** Core's list is in. */
   ready: boolean;
-  /** This device: Claude and Codex chats continue only on theirs. */
   device: Device | null;
-  /** The chat showing: in the small window, and the one the workspace last showed. */
   activeId: string;
-  /** Chats kept as tabs in the bottom bar, oldest first: minimized, or showing. */
   docked: string[];
-  /** Each chat's tab showing in the workspace. */
   activeTabs: Record<string, string>;
-  /** The chat on screen now (the small window open, or the workspace): its replies are seen. */
   watched: string | null;
   /** Turns in flight, by chat: each streams into its own chat, so chats work in parallel. */
   runs: Record<string, Run>;
-  /** Chats whose turn finished since you last looked at them. */
   unseen: ReadonlySet<string>;
-  /** Approvals the running turns wait on (oldest first). */
   approvals: { requestId: string; approval: ApprovalRequest }[];
-  /** Questions the running turns ask (OpenClaw's ask_user), oldest first. */
   questions: { requestId: string; question: ChatQuestion }[];
   queue: QueuedMessage[];
-  /** The queued message the composer is editing: it waits until the edit ends. */
   editingQueued: string | null;
-  /** The chat whose transcript is being pulled from its provider. */
   hydrating: string | null;
-  /** Each chat's unsent message. */
   drafts: Record<string, string>;
-  /** Passages cited from replies into each chat's next message. */
   citations: Record<string, Citation[]>;
 };
 
 const ACTIVE_KEY = "gmail:chat-active";
 const ACTIVE_TABS_KEY = "gmail:chat-active-tabs";
 const DOCKED_KEY = "gmail:chat-docked";
-/** The bottom bar keeps this many chats; an older one leaves as another comes. */
 const MAX_DOCKED = 5;
 const OPEN_REQUESTS_KEY = "gmail:chat-open-requests";
 // Chats were kept here before they synced; they start over.
@@ -172,7 +134,6 @@ function newConversation(provider: ProviderKind = "openrouter"): Conversation {
 /** A new chat, before its first message: nowhere but here. */
 export const isBlank = (c: Conversation) => c.loaded && c.turns.length === 0;
 
-/** A Claude or Codex chat that ran on another computer: read here, continued there. */
 export const isElsewhere = (c: Conversation, device: Device | null) =>
   LOCAL_CHAT_PROVIDERS.includes(c.provider) && c.device !== null && c.device.id !== device?.id;
 
@@ -182,11 +143,6 @@ function stripHandoff(text: string): string {
   return cut === -1 ? text : text.slice(0, cut);
 }
 
-/**
- * Rebuilds transcript turns from a session's stored messages: what the agent
- * said and did between two user messages is one agent turn, in order, as a
- * live stream renders it.
- */
 function turnsFromMessages(messages: ChatSessionMessage[]): ChatTurn[] {
   const turns: ChatTurn[] = [];
   let open: ChatTurn | null = null;
@@ -200,7 +156,6 @@ function turnsFromMessages(messages: ChatSessionMessage[]): ChatTurn[] {
         open = { id: `h-${i}`, role: "assistant", text: "", items: [] };
         turns.push(open);
       }
-      // Everything the agent says and does until the user's next message is one turn.
       if (m.text) open.items!.push({ kind: "text", text: m.text });
       for (const step of m.toolCalls ?? []) open.items!.push({ kind: "step", step });
     } else if (m.role === "tool" && open) {
@@ -211,12 +166,6 @@ function turnsFromMessages(messages: ChatSessionMessage[]): ChatTurn[] {
   return turns.filter((t) => t.role === "user" || (t.items?.length ?? 0) > 0);
 }
 
-/**
- * A run's turns as the provider recorded them, after the message that
- * started it (`u-<requestId>`): the agent turns take the record's items one
- * for one when the steers line up; else the record replaces them, steers and
- * all. It ends on an agent turn, for the rest of the run to stream into.
- */
 function withTranscript(
   turns: ChatTurn[],
   requestId: string,
@@ -242,7 +191,6 @@ function withTranscript(
   return [...turns.slice(0, at + 1), ...next];
 }
 
-/** Canonical error codes from the backend → what the transcript says. */
 function friendlyError(code: string, provider: ProviderKind): string {
   const name = EXTENSIONS.find((e) => e.manifest.id === provider)?.manifest.name ?? provider;
   switch (code) {
@@ -301,8 +249,6 @@ export const useChats = create<ChatsState>(() => ({
 
 const { getState: get, setState: set } = useChats;
 
-// ── Saving ───────────────────────────────────────────────────────────────────
-
 const chatsApi = {
   list: () => ipc<{ chats: Omit<Chat, "turns">[]; device: Device }>("chats:list"),
   get: (id: string) => ipc<Chat | null>("chats:get", { id }),
@@ -316,17 +262,14 @@ const savedOpenRequests = readJson<Record<string, string>>(OPEN_REQUESTS_KEY, {}
 /** Chats core has listed: one gone from its list was deleted, one never in it is new here. */
 const coreIds = new Set<string>();
 
-/** Chats as core has them: nothing to save. */
 const fromCore = new WeakSet<Conversation>();
 const asLoaded = (c: Conversation) => (fromCore.add(c), c);
 
 const toChat = ({ openRequest: _open, loaded: _loaded, ...chat }: Conversation): Chat => chat;
 
-/** Chats being saved: their own `chats:changed` is no news. */
 const saving = new Set<string>();
 const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-/** Saves a chat after a beat, and at most that often while its turn streams. */
 function scheduleSave(id: string): void {
   if (saveTimers.has(id)) return;
   saveTimers.set(
@@ -360,7 +303,6 @@ useChats.subscribe((state, prev) => {
   localStorage.setItem(OPEN_REQUESTS_KEY, JSON.stringify(open));
 });
 
-/** The chats core has, over this window's: those changed elsewhere come in (turns to load again). */
 async function loadChats(): Promise<void> {
   const { chats, device } = await chatsApi.list();
   const known = new Set(coreIds);
@@ -370,20 +312,16 @@ async function loadChats(): Promise<void> {
     const listed = new Set(chats.map((c) => c.id));
     const conversations: Conversation[] = chats.map((chat) => {
       const local = mine.get(chat.id);
-      // Changed here since (its save on its way), or running here: it stays.
       if (local && (local.updatedAt >= chat.updatedAt || s.runs[chat.id])) return local;
       return asLoaded({
         ...chat,
         turns: local?.turns ?? [],
         loaded: false,
-        // A turn can only be picked up again in the session it was sent to.
         openRequest: chat.sessionId
           ? (local?.openRequest ?? savedOpenRequests[chat.id] ?? null)
           : null,
       });
     });
-    // A chat new here stays (core hasn't had it yet); one deleted elsewhere goes,
-    // unless it's running here.
     for (const c of s.conversations) {
       if (!listed.has(c.id) && (!known.has(c.id) || s.runs[c.id])) conversations.push(c);
     }
@@ -401,7 +339,6 @@ async function loadChats(): Promise<void> {
 
 const loading = new Set<string>();
 
-/** A chat's turns, from core; a view showing a chat that hasn't them asks. */
 export async function loadChat(id: string): Promise<void> {
   if (loading.has(id)) return;
   loading.add(id);
@@ -450,7 +387,6 @@ function startQueued(): void {
   }
 }
 
-/** The user bubble + an empty agent turn that the stream fills in. */
 function appendExchange(
   convoId: string,
   msg: Outgoing,
@@ -461,7 +397,6 @@ function appendExchange(
     ...c,
     updatedAt: Date.now(),
     turns: [
-      // A steer closes the running turn's fold; the stream continues below.
       ...c.turns.map((t, i) =>
         i === c.turns.length - 1 && t.role === "assistant" && !t.finishedAt
           ? { ...t, finishedAt: Date.now() }
@@ -486,7 +421,6 @@ function appendExchange(
       },
     ],
   }));
-  // The mail it's about opens beside the chat.
   for (const { title, target } of msg.context?.items ?? []) {
     if (target.kind === "thread")
       openChatTab(convoId, { kind: "thread", accountId: target.accountId, id: target.id }, title, {
@@ -495,7 +429,6 @@ function appendExchange(
   }
 }
 
-/** Starts a new turn in the message's conversation. */
 function startTurn(msg: Outgoing, intent?: ChatTurn["intent"]): void {
   const convo = get().conversations.find((c) => c.id === msg.convoId);
   if (!convo) return;
@@ -509,13 +442,11 @@ function startTurn(msg: Outgoing, intent?: ChatTurn["intent"]): void {
     skill: msg.skill?.name,
     session: convo.sessionId ?? "new",
   });
-  // The run first: a chat with an open request and no run is one to resume.
   set((s) => ({
     runs: { ...s.runs, [msg.convoId]: { requestId, convoId: msg.convoId, provider: kind } },
   }));
   patchConversation(msg.convoId, (c) => ({
     ...c,
-    // The first turn pins the chat to the provider it was sent with (and Claude's or Codex's to this device).
     provider: firstTurn ? kind : c.provider,
     title: firstTurn ? msg.title : c.title,
     device:
@@ -523,7 +454,6 @@ function startTurn(msg: Outgoing, intent?: ChatTurn["intent"]): void {
     openRequest: requestId,
   }));
   appendExchange(msg.convoId, msg, requestId, intent);
-  // Returns at once; the turn streams as chat events (incl. the new session id).
   mailApi
     .agentSend({
       provider: kind,
@@ -550,10 +480,6 @@ function startTurn(msg: Outgoing, intent?: ChatTurn["intent"]): void {
     });
 }
 
-/**
- * Steers the message into the running turn (Codex turn/steer, Claude's live
- * prompt, Hermes' run steer). Refused → it goes (back) to the queue.
- */
 function steer(msg: Outgoing, intent: "steer" | "promoted" = "steer"): void {
   const target = get().runs[msg.convoId];
   if (!target) return startTurn(msg);
@@ -561,7 +487,6 @@ function steer(msg: Outgoing, intent: "steer" | "promoted" = "steer"): void {
   const key = `${target.requestId}-${msg.id}`;
   appendExchange(msg.convoId, msg, key, intent);
   const refused = () => {
-    // Removes the optimistic exchange.
     patchConversation(msg.convoId, (c) => ({
       ...c,
       turns: c.turns.filter((t) => t.id !== `u-${key}` && t.id !== `a-${key}`),
@@ -574,18 +499,12 @@ function steer(msg: Outgoing, intent: "steer" | "promoted" = "steer"): void {
     .then(({ accepted }) => !accepted && refused(), refused);
 }
 
-/**
- * Otter Code's dispatch modes: idle → start; running → queue or steer per
- * `followUp`. Steering sends text only; a message with files waits for its
- * own turn.
- */
 export function sendMessage(msg: Outgoing, followUp: FollowUpBehavior): void {
   if (!get().runs[msg.convoId]) return startTurn(msg);
   if (followUp === "queue" || msg.attachments) set((s) => ({ queue: [...s.queue, msg] }));
   else steer(msg);
 }
 
-/** Promote a queued message to steer the active run (Otter Code's "Steer"). */
 export function steerQueued(id: string): void {
   const msg = get().queue.find((m) => m.id === id);
   if (!msg || !get().runs[msg.convoId]) return;
@@ -608,7 +527,6 @@ export function removeQueued(id: string): void {
   set((s) => ({ queue: s.queue.filter((m) => m.id !== id) }));
 }
 
-/** A queued message's new text; the attached context block stays below it. */
 export function updateQueued(id: string, text: string): void {
   set((s) => ({
     queue: s.queue.map((m) =>
@@ -635,7 +553,6 @@ export function setEditingQueued(id: string | null): void {
   startQueued();
 }
 
-/** Interrupts the chat's run; the queue stays and its next message starts (Otter Code). */
 export function stopRun(convoId: string): void {
   const run = get().runs[convoId];
   if (run) void mailApi.agentCancel(run.provider, run.requestId);
@@ -659,7 +576,6 @@ export async function respondApproval(
   }
 }
 
-/** Answers the question the run asked (null skips it); the run goes on with the answer. */
 export async function answerQuestion(
   questionId: string,
   answers: Record<string, string[]> | null,
@@ -685,12 +601,6 @@ export async function answerQuestion(
   }
 }
 
-// ── What a chat opens beside it (the workspace's tabs) ───────────────────────
-
-/**
- * Keeps `ref` as one of the chat's tabs (once: opening it again finds it) and,
- * with `show`, shows it in the workspace.
- */
 export function openChatTab(
   convoId: string,
   ref: ChatTabRef,
@@ -745,7 +655,6 @@ export function closeChatTab(convoId: string, tabId: string): void {
   });
 }
 
-/** The chat's tabs in a new order (a drag in the strip); tabs the strip didn't show keep their place at the end. */
 export function reorderChatTabs(convoId: string, order: string[]): void {
   patchConversation(convoId, (c) => ({
     ...c,
@@ -760,7 +669,6 @@ export function reorderChatTabs(convoId: string, order: string[]): void {
 const hostOf = (url: string) => URL.parse(url)?.host.replace(/^www\./, "") ?? url;
 const basename = (path: string) => path.split(/[\\/]/).pop() || path;
 
-/** What an agent's result opens as: the conversation or draft, or the event's page. */
 function changeTab(change: ChatChange): { ref: ChatTabRef; title: string } | null {
   const { target } = change;
   if (target.kind === "thread" || target.kind === "draft")
@@ -773,7 +681,6 @@ function changeTab(change: ChatChange): { ref: ChatTabRef; title: string } | nul
   return null;
 }
 
-/** Markdown links to files in what the agent said: what it wrote or made. */
 function linkedFiles(text: string): { title: string; href: string }[] {
   return [...text.matchAll(/\[([^\]]*)\]\(<?([^)\s>]+)>?\)/g)].flatMap(([, label, href]) =>
     isChatFileLink(href) && !href.startsWith("data:")
@@ -790,7 +697,6 @@ export function setCitations(convoId: string, update: (list: Citation[]) => Cita
   set((s) => ({ citations: { ...s.citations, [convoId]: update(s.citations[convoId] ?? []) } }));
 }
 
-/** Shows a chat (in the small window; the workspace follows its address). */
 export function showChat(id: string): void {
   set((s) => {
     if (!s.unseen.has(id)) return s.activeId === id ? s : { activeId: id };
@@ -800,17 +706,14 @@ export function showChat(id: string): void {
   });
 }
 
-/** Keeps a chat as a tab in the bottom bar. */
 export function dockChat(id: string): void {
   set((s) => (s.docked.includes(id) ? s : { docked: [...s.docked, id].slice(-MAX_DOCKED) }));
 }
 
-/** Takes a chat's tab out of the bottom bar (the chat stays in history). */
 export function undockChat(id: string): void {
   set((s) => (s.docked.includes(id) ? { docked: s.docked.filter((d) => d !== id) } : s));
 }
 
-/** A view shows `id` now (null: none does): what it finished is seen. */
 export function watchChat(id: string | null): void {
   set((s) => {
     if (!id || !s.unseen.has(id)) return s.watched === id ? s : { watched: id };
@@ -820,11 +723,9 @@ export function watchChat(id: string | null): void {
   });
 }
 
-/** A fresh chat, shown: the new chat already there if there's one. Its id. */
 export function newChat(provider: ProviderKind): string {
   const blank = get().conversations.find(isBlank);
   if (blank) {
-    // A new chat follows the picker until its first message.
     if (blank.provider !== provider) patchConversation(blank.id, (c) => ({ ...c, provider }));
     showChat(blank.id);
     return blank.id;
@@ -841,7 +742,6 @@ export function deleteConversation(id: string, provider: ProviderKind): void {
     void mailApi.agentCancel(running.provider, running.requestId);
     endRun(running.requestId);
   }
-  // Sessions this app created go with the chat; ones opened from the provider only unlink.
   const target = get().conversations.find((c) => c.id === id);
   if (!target) return;
   if (target.sessionId && target.sessionOwned) {
@@ -861,7 +761,6 @@ export function deleteConversation(id: string, provider: ProviderKind): void {
       unseen,
     };
     if (s.activeId !== id) return { conversations, ...left };
-    // The latest chat shows instead, or a fresh one.
     const next = conversations[0] ?? newConversation(provider);
     return {
       conversations: conversations.includes(next) ? conversations : [next, ...conversations],
@@ -871,7 +770,6 @@ export function deleteConversation(id: string, provider: ProviderKind): void {
   });
 }
 
-/** Resumes a session persisted on the provider (e.g. started in Hermes' WebUI) as a chat, shown. */
 export function openServerSession(
   session: ChatSession,
   provider: ProviderKind,
@@ -959,20 +857,17 @@ export function resumeRuns(providers: ProviderSnapshot[]): void {
   }
 }
 
-/** A stream event, laid into the chat whose run it belongs to (not necessarily the one showing). */
 function onChatEvent(raw: unknown): void {
   const event = raw as ChatEvent;
   const s = event
     ? Object.values(get().runs).find((r) => r.requestId === event.requestId)
     : undefined;
   if (!event || !s) return;
-  // What the event opens beside the chat: a result (shown), pages and files it used (kept).
   const opens: {
     result: { ref: ChatTabRef; title: string } | null;
     pages: string[];
     files: { title: string; href: string }[];
   } = { result: null, pages: [], files: [] };
-  // Approvals live beside the transcript, not in it.
   if (event.type === "approval") {
     set((st) => ({
       approvals: [...st.approvals, { requestId: event.requestId, approval: event.approval }],
@@ -1002,8 +897,6 @@ function onChatEvent(raw: unknown): void {
       questions: st.questions.filter((q) => q.requestId !== event.requestId),
     }));
   }
-  // The app let go of a run that goes on at the provider (it quit, or the
-  // connection's gone): the turn waits, as it is, to be picked up again.
   if (event.type === "error" && event.message === "detached") {
     endRun(event.requestId);
     return;
@@ -1017,7 +910,6 @@ function onChatEvent(raw: unknown): void {
     return;
   }
   patchConversation(s.convoId, (c) => {
-    // The provider opened a session for this chat: bind it for the next turns.
     if (event.type === "session") return { ...c, sessionId: event.sessionId, sessionOwned: true };
     const nextTurns = [...c.turns];
     const turn = nextTurns[nextTurns.length - 1];
@@ -1047,7 +939,6 @@ function onChatEvent(raw: unknown): void {
       const url = event.step.kind === "web" ? event.step.detail?.trim() : undefined;
       if (url && /^https?:\/\//i.test(url)) opens.pages.push(url);
     } else if (event.type === "toolResult") {
-      // Its step by id; else the latest one still running.
       const index = items.findLastIndex(
         (t) =>
           t.kind === "step" &&
@@ -1111,9 +1002,7 @@ function onChatEvent(raw: unknown): void {
 
 let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** The main window's part: chats load, and turns stream into them while any view, or none, shows them. */
 export function useChatEvents(): void {
-  // A turn the app quit during is picked up once its provider can run.
   const providers = useAgentProviders().data?.providers;
   useEffect(() => {
     if (!providers) return;
@@ -1128,7 +1017,6 @@ export function useChatEvents(): void {
     );
     const offs = [
       window.desktopBridge.on("agent:chatEvent", onChatEvent),
-      // Chats changed elsewhere (another device, another window): this window's catch up.
       window.desktopBridge.on("chats:changed", (params: unknown) => {
         const ids = (params as { ids?: string[] } | undefined)?.ids ?? [];
         if (ids.length > 0 && ids.every((id) => saving.has(id))) return;

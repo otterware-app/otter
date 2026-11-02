@@ -26,7 +26,6 @@ import type { MailAccount, MailLabel, MailView, ViewRule } from "./types";
  * not have" labels, added from a menu. A view is a space in the sidebar: its list.
  */
 type ViewEditorProps = {
-  /** The view being edited; null when making one. */
   view: MailView | null;
   accounts: MailAccount[];
   onSave: (input: {
@@ -226,7 +225,6 @@ function Clause({
   );
 }
 
-/** The view in words: "Receipts in Personal, or Finance and not Unread in Work". */
 function sentence(
   picks: Picks,
   accounts: MailAccount[],
@@ -249,7 +247,6 @@ function sentence(
     .join(", or ");
 }
 
-/** The editor, open while `open`; mount it with a `key` per view (its fields start from it). */
 export function ViewEditorDialog({
   open,
   view,
@@ -278,7 +275,6 @@ export function ViewEditorDialog({
 
   const labelsOf = (accountId: string) =>
     accountLabels.find((a) => a.accountId === accountId)?.labels ?? [];
-  // The mailboxes it draws on, in order, and those it could add.
   const clauses = Object.keys(picks).flatMap((id) => accounts.filter((a) => a.id === id));
   const others = accounts.filter((a) => !(a.id in picks));
 
@@ -286,7 +282,6 @@ export function ViewEditorDialog({
   const draftCounts = useCombinedCounts(rules, `draft:${view?.id ?? "new"}`, open);
 
   const canSave = name.trim().length > 0 && rules.length > 0;
-  // Mutations are optimistic: it closes at once; an error rolls back, with a toast.
   const save = () => void onSave({ id: view?.id, name: name.trim(), rules, ...mark });
 
   const matchLine = draftCounts.data

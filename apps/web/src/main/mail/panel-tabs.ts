@@ -1,4 +1,3 @@
-/** Reconcile the saved strip with open tabs, inserting new ones beside their source neighbour. */
 export function orderedPanelTabs(order: string[], tabs: string[]): string[] {
   const next = [...new Set(order)].filter((id) => tabs.includes(id));
   for (const [at, id] of tabs.entries()) {

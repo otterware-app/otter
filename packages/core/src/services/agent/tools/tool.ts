@@ -14,28 +14,21 @@ import type { ChatChange } from "@otter-mail/contracts";
 import type { MailAccount } from "../../../types.js";
 import type { Emit, RuntimeMode } from "../types.js";
 
-/** Files on this device, where the shell has them (the Mac app). */
 export type ToolFiles = {
-  /** Saves a downloaded attachment for the agent to read; answers its path. */
   save(name: string, bytes: Uint8Array): Promise<string>;
-  /** Reads a file the agent wants to attach. */
   read(path: string): Promise<{ name: string; bytes: Uint8Array }>;
 };
 
-/** Who is calling: one agent chat, or an agent on the Mac with a token. */
 export type ToolCaller = {
   /** The chat's runtime mode now: full access makes changes without asking. */
   mode(): RuntimeMode;
-  /** The turn running now, which approvals are asked on; null between turns. */
   turn(): { requestId: string; emit: Emit } | null;
-  /** Which tools it gets (default all): an agent's access, given with its token. */
   access?(): AgentAccess;
   files?: ToolFiles;
 };
 
 export type ToolContext = {
   caller: ToolCaller;
-  /** Records a successful mutation, even if a later part of the tool fails. */
   changed?(change: ChatChange): void;
   /**
    * Asks the user before a change (unless the chat has full access or they
@@ -49,10 +42,8 @@ export type ToolArgs = Record<string, unknown>;
 
 export type AgentTool = {
   name: string;
-  /** Short, for approvals and tool lists ("Send email"). */
   title: string;
   description: string;
-  /** JSON Schema of the arguments. */
   input: { type: "object"; properties: Record<string, unknown>; required?: string[] };
   /** Only reads. Anything else confirms before changing a mailbox. */
   readOnly?: boolean;
@@ -62,8 +53,6 @@ export type AgentTool = {
   needsFiles?: boolean;
   run(args: ToolArgs, ctx: ToolContext): Promise<unknown>;
 };
-
-// ── Arguments ────────────────────────────────────────────────────────────────
 
 export function str(args: ToolArgs, key: string): string {
   const value = optStr(args, key);
@@ -78,7 +67,6 @@ export function optStr(args: ToolArgs, key: string): string | undefined {
   return value.trim() || undefined;
 }
 
-/** A list of strings; a single string counts as a list of one. */
 export function strList(args: ToolArgs, key: string): string[] | undefined {
   const value = args[key];
   if (value === undefined || value === null) return undefined;
@@ -103,8 +91,6 @@ export function optInt(args: ToolArgs, key: string, max: number): number | undef
   return Math.min(Math.floor(value), max);
 }
 
-// ── Mailboxes ────────────────────────────────────────────────────────────────
-
 /** Calls one of the backend's handlers, as a window would. */
 export async function invoke<T>(channel: string, params: Record<string, unknown>): Promise<T> {
   const handler = registeredHandlers().get(channel);
@@ -117,7 +103,6 @@ export function listMailboxes(): Promise<MailAccount[]> {
   return invoke<MailAccount[]>("gmail:listAccounts", {});
 }
 
-/** The mailbox an argument names, by address (or id); optional when there's only one. */
 export async function mailbox(args: ToolArgs, key = "account"): Promise<MailAccount> {
   const accounts = await listMailboxes();
   const wanted = optStr(args, key)?.toLowerCase();
@@ -132,7 +117,6 @@ export async function mailbox(args: ToolArgs, key = "account"): Promise<MailAcco
   );
 }
 
-/** The mailboxes a list argument names; when it's left out, every one not turned off here. */
 export async function mailboxes(args: ToolArgs, key = "accounts"): Promise<MailAccount[]> {
   const wanted = strList(args, key);
   if (!wanted?.length) {

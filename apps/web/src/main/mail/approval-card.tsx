@@ -14,7 +14,6 @@ import { Btn, cn, Kbd } from "./ui";
 
 const basename = (path: string) => path.replace(/\/+$/, "").split("/").pop() || path;
 
-/** Files as ChatGPT names them in a question: an icon and the name, the path on hover. */
 function Files({ paths }: { paths: string[] }) {
   const shown = paths.slice(0, 3);
   return (
@@ -33,7 +32,6 @@ function Files({ paths }: { paths: string[] }) {
   );
 }
 
-/** "Allow Claude to run this command?", from what kind of thing the agent wants to do. */
 function question(agent: string, approval: ApprovalRequest): ReactNode {
   switch (approval.kind) {
     case "command":
@@ -51,7 +49,6 @@ function question(agent: string, approval: ApprovalRequest): ReactNode {
     case "permission":
       return `Allow ${agent} to change its permissions?`;
     case "tool":
-      // Otter Mail's tools ask with their title ("Send email"); other tools, generically.
       return approval.title === "Tool approval"
         ? `Allow ${agent} to use a tool?`
         : `Allow ${agent} to ${approval.title[0]!.toLowerCase()}${approval.title.slice(1)}?`;
@@ -66,13 +63,11 @@ export function ApprovalCard({
   onRespond,
   onCancel,
 }: {
-  /** Who is asking ("Claude"). */
   agent: string;
   approval: ApprovalRequest;
   pendingCount: number;
   responding: boolean;
   onRespond: (decision: ApprovalDecision) => void;
-  /** Stops the whole turn (T3's "Cancel" decision). */
   onCancel: () => void;
 }) {
   const allow = useRef<HTMLButtonElement>(null);
@@ -93,7 +88,6 @@ export function ApprovalCard({
       : []),
     { label: "Stop the agent", run: onCancel },
   ];
-  // Commands and permissions are shown as they are; a tool's detail is prose.
   const code = approval.kind === "command" || approval.kind === "permission";
   const note = [approval.reason, approval.kind === "tool" ? approval.detail : undefined]
     .filter(Boolean)

@@ -1,13 +1,3 @@
-/**
- * Extensions in Settings, one pane per kind (the manifest's category): Agents
- * (settings/providers-pane.tsx draws chat's own settings above the list),
- * Integrations and Features, under "Extensions" in the sidebar. Each row has
- * its switch; one with something to set up opens to its page
- * (`/settings/<pane>/<id>`): its switch, where its data goes, and its
- * settings. Turning a feature off hides it everywhere (a UI choice that
- * follows the Otter account); turning an agent off stops chats on it.
- */
-
 import { type ExtensionCategory } from "@otter-mail/contracts/extensions";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon, ChevronRightIcon, PuzzleIcon, ShieldIcon } from "lucide-react";
@@ -34,10 +24,8 @@ import {
 } from "./registry";
 import type { UiExtension } from "./types";
 
-/** An extension as Settings shows it: on or off, and the agent behind it, if it is one. */
 type Entry = { extension: UiExtension; enabled: boolean; agent?: ProviderSnapshot };
 
-/** Whether it has a page: something to set up beyond its switch. */
 const hasPage = ({ extension }: Entry) => Boolean(extension.Settings || extension.agent);
 
 function useEntries(): { entries: Entry[]; setEnabled: (entry: Entry, on: boolean) => void } {
@@ -46,7 +34,6 @@ function useEntries(): { entries: Entry[]; setEnabled: (entry: Entry, on: boolea
   const setAgents = useSetProvidersState();
   const entries = availableExtensions().flatMap((extension): Entry[] => {
     if (!extension.agent) return [{ extension, enabled: !disabled.has(extension.manifest.id) }];
-    // Agents this backend runs (the web app's has no Claude or Codex).
     const agent = agents?.providers.find((p) => p.kind === extension.manifest.id);
     return agent ? [{ extension, enabled: agent.enabled, agent }] : [];
   });
@@ -94,10 +81,6 @@ function EnabledSwitch({
   );
 }
 
-/**
- * A kind of extension's pane: its list (after `children`, the kind's own
- * settings), or, with an `item`, that extension's page.
- */
 export function ExtensionCategoryPane({
   category,
   item,
@@ -110,7 +93,6 @@ export function ExtensionCategoryPane({
   item?: string;
   title: string;
   description: string;
-  /** Beside the title (Agents: when they were last checked). */
   action?: ReactNode;
   children?: ReactNode;
 }) {
@@ -174,12 +156,10 @@ function ExtensionListRow({
   entry: Entry;
   isDefault: boolean;
   setEnabled: (entry: Entry, on: boolean) => void;
-  /** Absent: nothing to set up, the switch is all there is. */
   onOpen?: () => void;
 }) {
   const { manifest } = entry.extension;
   const { agent } = entry;
-  // An agent says how it's doing; anything else, what it does.
   const status = agent ? providerSummary(agent).headline : null;
   const needsAttention = agent && (agent.status === "warning" || agent.status === "error");
   return (
@@ -235,7 +215,6 @@ function ExtensionListRow({
   );
 }
 
-/** One extension's page: its switch, where its data goes, then its settings. */
 function ExtensionPage({
   entry,
   setEnabled,

@@ -1,9 +1,4 @@
-/**
- * Apps launched from Finder (or a Linux desktop's launcher) inherit a minimal
- * PATH, so CLIs installed by Homebrew, npm or fnm (`codex`) aren't found. Like
- * T3 Code's fixPath, read PATH from the user's login shell once and merge it
- * into process.env.PATH.
- */
+// Desktop launchers omit CLI install paths; read PATH from the user's login shell.
 
 import { spawn } from "node:child_process";
 import { logger } from "../../logger.js";

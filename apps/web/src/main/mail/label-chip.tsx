@@ -1,8 +1,6 @@
 import { ChevronsRightIcon, InboxIcon, XIcon } from "lucide-react";
 import type { MailLabel } from "./types";
 
-/** Badge chrome shared by every chip: Linear's outlined pill, grey text, a
-    dot for color. */
 // no-drag: in the reader's title band (a window-drag region in the Mac app)
 // the pill must get hover, or its remove button never shows.
 const PILL =
@@ -34,7 +32,6 @@ function RemoveButton({ label, onRemove }: { label: string; onRemove: () => void
   );
 }
 
-/** Gmail's category tabs, chipped in the reader header with Gmail's colors. */
 const CATEGORY_CHIPS: Record<string, { name: string; bg: string }> = {
   CATEGORY_SOCIAL: { name: "Social", bg: "#1a73e8" },
   CATEGORY_PROMOTIONS: { name: "Promotions", bg: "#188038" },
@@ -58,7 +55,6 @@ export function isCategoryLabelId(id: string): boolean {
   return id in CATEGORY_CHIPS;
 }
 
-/** Gmail's importance marker; `muted` for dense lists where most mail is "important". */
 export function ImportantMarker({ muted }: { muted?: boolean }) {
   return (
     <span title="Marked important" aria-label="Important" className="shrink-0">
@@ -71,8 +67,6 @@ export function ImportantMarker({ muted }: { muted?: boolean }) {
   );
 }
 
-/** "Still in the inbox" marker, shown when browsing non-inbox views.
-    `onRemove` (reader header) reveals a hover ✕ that archives. */
 export function InboxChip({ selected, onRemove }: { selected?: boolean; onRemove?: () => void }) {
   return (
     <span className={`${PILL} ${selected ? "border-foreground/20" : ""}`}>

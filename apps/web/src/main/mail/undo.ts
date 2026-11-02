@@ -1,19 +1,6 @@
 import type { ModifyMessageParams, ModifyThreadParams } from "./api";
 
-/**
- * Undo history: mutation hooks register the INVERSE of each user-initiated
- * triage action. z undoes the newest, then the one before; each action's toast
- * undoes its own, in any order. Running an inverse doesn't register again; it
- * goes on the redo list instead (⇧Z), and redoing an action registers it anew.
- *
- * Actions on different conversations undo independently. A newer action on the
- * same conversation or message retires the older one's undo, which would
- * otherwise act on a state that's gone (e.g. un-archive something since trashed).
- *
- * Each registration also says what the action did ("Archived", "Moved to
- * “X”"); listeners (the action toast) hear about it once it's committed, so a
- * bulk action announces itself once ("Archived 3 conversations").
- */
+// A newer action on the same message retires older undo entries, which would restore obsolete state.
 export type UndoAction =
   | { kind: "modifyMessage"; params: ModifyMessageParams }
   | { kind: "modifyThread"; params: ModifyThreadParams }
@@ -27,24 +14,19 @@ export type UndoAction =
   /** A bulk action: every row's inverse, undone together. */
   | { kind: "batch"; actions: UndoAction[] };
 
-/** What an action did, for its toast: `${verb}${suffix}` for one, or
-    `${verb} 3 ${noun}s${suffix}` for several ("Moved 3 conversations to “X”"). */
 export type ActionSummary = {
   verb: string;
   suffix?: string;
   noun: "conversation" | "message";
 };
 
-/** Oldest first; z takes from the end. */
 const history: UndoAction[] = [];
-/** What undos took back, oldest first; ⇧Z takes from the end. */
 const redos: UndoAction[] = [];
 const HISTORY_LIMIT = 20;
 
 type ActionListener = (title: string, action: UndoAction) => void;
 const listeners = new Set<ActionListener>();
 
-/** Hears every committed undoable action, with a title describing it. */
 export function onUndoableAction(listener: ActionListener): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -80,7 +62,6 @@ function announce(action: UndoAction, summaries: ActionSummary[]): void {
   for (const listener of listeners) listener(title, action);
 }
 
-/** The conversations and messages an action touches. */
 function targets(action: UndoAction): string[] {
   switch (action.kind) {
     case "modifyThread":
@@ -184,7 +165,6 @@ export function registerUndo(action: UndoAction, summary?: ActionSummary): void 
   if (summary) announce(action, [summary]);
 }
 
-/** Forgets every undo and redo (after an irreversible action like Delete forever). */
 export function clearUndo(): void {
   commitGroup();
   history.length = 0;
@@ -197,14 +177,11 @@ export function forgetUndo(action: UndoAction): void {
   if (i !== -1) history.splice(i, 1);
 }
 
-/** Takes `action` out of the history to run it, or the newest (z) when omitted.
-    Null when there's nothing to undo, or `action` was retired. */
 export function takeUndo(action?: UndoAction): UndoAction | null {
   const i = action ? history.indexOf(action) : history.length - 1;
   return i === -1 ? null : history.splice(i, 1)[0];
 }
 
-/** After `undone` ran: puts what it took back on the redo list. */
 export function registerRedo(undone: UndoAction): void {
   const action = inverse(undone);
   if (!action) return;
@@ -212,7 +189,6 @@ export function registerRedo(undone: UndoAction): void {
   if (redos.length > HISTORY_LIMIT) redos.shift();
 }
 
-/** The newest undone action, to run again (⇧Z). */
 export function takeRedo(): UndoAction | null {
   return redos.pop() ?? null;
 }
@@ -231,7 +207,6 @@ export function isPureMarkRead(addLabelIds?: string[], removeLabelIds?: string[]
 // TanStack hands the same variables object to onMutate.
 const quiet = new WeakSet<object>();
 
-/** Marks mutation params as coming from an undo (no action toast). */
 export function quietParams<T extends object>(params: T): T {
   const copy = { ...params };
   quiet.add(copy);

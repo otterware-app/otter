@@ -61,13 +61,6 @@ import { ViewMark } from "./view-icon";
 import { features } from "../features";
 import { shortcutText } from "../keybindings/keys";
 
-/**
- * Command palette (⌘K), modeled on Otter Code's: a frosted card anchored near
- * the top, a large search field, grouped results (icon, title, optional
- * subtitle, trailing time or shortcut), submenus (Backspace goes back), and a
- * key-hint footer. Mail search runs across every account.
- */
-
 const MAX_MAIL_RESULTS = 12;
 
 type CommandPaletteProps = {
@@ -77,17 +70,14 @@ type CommandPaletteProps = {
   views: MailView[];
   selectedAccountId: string | null;
   onOpenMessage: (message: MessageSummary) => void;
-  /** Runs the typed text as a Gmail search in the Search mailbox. */
   onSearchMail: (query: string) => void;
   onSelectAccount: (accountId: string) => void;
-  /** A chat in the AI workspace. */
   onOpenChat: (chatId: string) => void;
   onNewChat: () => void;
   onCompose: () => void;
   onOpenSettings: (pane?: SettingsPane) => void;
   onNewView: () => void;
   onToggleChat: () => void;
-  /** The browser panel (the Mac app's). */
   onToggleBrowser: () => void;
   onToggleSidebar: () => void;
   onSync: () => void;
@@ -100,7 +90,6 @@ type PaletteItem = {
   icon: ReactNode;
   title: string;
   description?: string;
-  /** Searchable text beyond the title (e.g. a view's mailbox). */
   keywords?: string;
   trailing?: ReactNode;
   shortcut?: string;
@@ -122,18 +111,10 @@ function formatResultDate(timestamp: number): string {
     : date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-/** What a match of `matchScore` or better counts as: the text names the item. */
 const STRONG = 2;
 
-/** Words of a text, for matching the start of any of them ("dark" in "Change appearance: Dark"). */
 const words = (text: string) => text.toLowerCase().split(/[^\p{L}\p{N}]+/u);
 
-/**
- * How well an item matches what's typed: 4 its title starts with it, 3 every
- * typed word starts a word of the title, 2 the same counting its description
- * and keywords (synonyms like "upgrade" for Update), 1 the text appears
- * anywhere, even mid-word; 0 not at all. Everything matches an empty query.
- */
 function matchScore(item: PaletteItem, needle: string): number {
   if (!needle) return 1;
   const title = item.title.toLowerCase();
@@ -223,14 +204,12 @@ export function CommandPalette({
   const close = () => onOpenChange(false);
   const conversations = useChats((s) => s.conversations);
 
-  // Shortcut labels follow the live keybindings (Settings › Keybindings).
   const { resolved: keybindings } = useKeybindingsState();
   const extensionCommands = useExtensionCommands();
   const groups: PaletteGroup[] = useMemo(() => {
     const sc = (command: KeybindingCommand) => shortcutLabelFor(keybindings, command) ?? undefined;
     const jump = (digit: number) => sc(`mailbox.jump.${digit}` as KeybindingCommand);
     const needle = query.trim().toLowerCase();
-    // Best first within each group (a stable sort keeps the list's own order on ties).
     const filter = (list: PaletteGroup[]) =>
       list
         .map((g) => ({
@@ -269,7 +248,6 @@ export function CommandPalette({
         {
           id: "theme",
           label: "Change theme",
-          // A theme of your own may have one palette only: it takes that side.
           items: themes.map((t) => ({
             id: `theme:${t.id}`,
             icon: <PaletteIcon className={ICON} />,
@@ -417,7 +395,6 @@ export function CommandPalette({
       run: () => onSelectAccount(account.id),
     }));
 
-    // Views are spaces.
     const viewItems: PaletteItem[] = views.map((view) => ({
       id: `view:${view.id}`,
       icon: <ViewMark view={view} className="size-4 text-[13px]" />,
@@ -467,8 +444,6 @@ export function CommandPalette({
     const mailGroup = mail.length > 0 ? [{ id: "mail", label: "Mail", items: mail }] : [];
     if (!needle) return staticGroups;
 
-    // Handing the text to the Search mailbox (Gmail's own search, every
-    // operator), like pressing Enter in Gmail's search bar.
     const searchGroup = {
       id: "search",
       label: "Search",
@@ -540,8 +515,6 @@ export function CommandPalette({
     );
   }
 
-  // Changing theme: the highlighted one shows (here only, nothing saved)
-  // until Enter or a click picks it; leaving or closing puts yours back.
   const previewId =
     open && page === "theme" ? (flat[clamped]?.id.replace(/^theme:/, "") ?? null) : null;
   useEffect(() => {
@@ -550,7 +523,6 @@ export function CommandPalette({
     return () => previewTheme(null);
   }, [previewId]);
 
-  // Keep the highlighted row in view while arrowing.
   useEffect(() => {
     const el = listRef.current?.querySelector<HTMLElement>(`[data-index="${clamped}"]`);
     el?.scrollIntoView({ block: "nearest" });

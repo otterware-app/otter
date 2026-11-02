@@ -29,7 +29,6 @@ struct MessageListTests {
         #expect(preferences.groupMessagesByDay)
     }
 
-    /** One list style and unread always shaded, as on the Mac and the web: the old keys are gone. */
     @Test func noLongerSyncsListStyleOrDimRead() throws {
         let name = "MessageListTests.\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: name))

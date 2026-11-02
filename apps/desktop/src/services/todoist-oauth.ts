@@ -3,7 +3,6 @@ import { signInPage } from "@otter-mail/shared/sign-in-page";
 
 import { requestMain } from "../main-link.js";
 
-/** A loopback callback owned by this attempt; no token enters the renderer. */
 export async function todoistSignIn(
   authorize: (redirectUri: string) => Promise<string>,
 ): Promise<string> {

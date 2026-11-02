@@ -1,9 +1,3 @@
-/**
- * OpenClaw (openclaw.ts): chats with the user's OpenClaw gateway over its
- * WebSocket, this device paired with it (by a setup code, or its address and
- * token). The pairing stays on this device.
- */
-
 import {
   agentSettings,
   clearOpenClawBootstrapToken,
@@ -76,7 +70,6 @@ export default {
       if (!url || !token) throw new Error("Paste a setup code, or the gateway address and token.");
       return connect({ url, token });
     });
-    // Asks the gateway to let this device answer OpenClaw's questions (approved there).
     handle("agent:allowOpenClawQuestions", async () => {
       await allowOpenClawQuestions((await agentSettings("openclaw")) as OpenClawSettings, () => {
         void refreshProvider("openclaw");

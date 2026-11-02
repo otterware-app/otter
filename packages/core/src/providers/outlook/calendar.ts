@@ -113,9 +113,6 @@ export async function respond(
   return true;
 }
 
-// ── Events, for the agents' tools ───────────────────────────────────────────
-
-/** Graph's UTC times ("2026-10-09T14:00:00.0000000") as ISO; all-day ones as dates. */
 function isoTime(time: ApiTime | undefined, allDay: boolean): string {
   if (!time?.dateTime) return "";
   if (allDay) return time.dateTime.slice(0, 10);
@@ -150,7 +147,6 @@ function toEvent(e: ApiEvent): CalendarEvent {
 
 const DAY_MS = 86_400_000;
 
-/** An input time as Graph wants it: all-day events start and end at midnight in their zone. */
 function apiTime(value: string, allDay: boolean, timeZone: string): ApiTime {
   if (allDay) return { dateTime: `${value.slice(0, 10)}T00:00:00`, timeZone };
   const time = new Date(value);
@@ -158,7 +154,6 @@ function apiTime(value: string, allDay: boolean, timeZone: string): ApiTime {
   return { dateTime: time.toISOString().slice(0, 19), timeZone: "UTC" };
 }
 
-/** How long an event lasts, in ms; an hour (or a day) when there's none. */
 function duration(event: ApiEvent | undefined): number {
   const start = event?.start?.dateTime;
   const end = event?.end?.dateTime;
@@ -240,10 +235,6 @@ export async function getEvent(accountId: string, eventId: string): Promise<Cale
   return toEvent(await fetchEvent(accountId, eventId));
 }
 
-/**
- * Outlook always tells attendees of a new or changed meeting; `notify` only
- * decides whether a deleted one is cancelled with them or just removed here.
- */
 export async function createEvent(
   accountId: string,
   input: EventInput,

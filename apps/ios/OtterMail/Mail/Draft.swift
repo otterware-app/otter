@@ -1,9 +1,7 @@
 import Foundation
 
-/** A message being written: a new one, a reply, or a draft picked back up. */
 nonisolated struct Draft: Identifiable, Hashable, Codable {
     var id = UUID()
-    /** The mailbox it's sent from. */
     var from: String
     var to = ""
     var cc = ""
@@ -11,9 +9,7 @@ nonisolated struct Draft: Identifiable, Hashable, Codable {
     var files: [DraftFile] = []
     var subject = ""
     var body = ""
-    /** Set for a reply: the thread it goes into. */
     var threadID: String?
-    /** Set once kept in Drafts: the draft message it replaces. */
     var messageID: String?
 
     var isEmpty: Bool {
@@ -63,12 +59,10 @@ nonisolated struct Draft: Identifiable, Hashable, Codable {
             && !person.email.contains(where: { $0.isWhitespace || "<>,;\"".contains($0) })
     }
 
-    /** A new message from `mailbox`, with its signature. */
     @MainActor static func new(from mailbox: Mailbox, to: String = "") -> Draft {
         Draft(from: mailbox.email, to: to, body: signatureBlock(mailbox))
     }
 
-    /** A reply to the thread's latest message (to everyone on it, for reply all). */
     @MainActor static func reply(to thread: MailThread, in mailbox: Mailbox, all: Bool) -> Draft {
         let last = thread.sent.last ?? thread.latest
         let mine = last.from.isAddress(mailbox.email)
@@ -104,7 +98,6 @@ nonisolated struct Draft: Identifiable, Hashable, Codable {
         )
     }
 
-    /** A draft kept in Drafts, to carry on writing. */
     static func resume(_ message: Message, in thread: MailThread) -> Draft {
         Draft(
             from: thread.mailbox,

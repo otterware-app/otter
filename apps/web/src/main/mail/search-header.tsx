@@ -65,10 +65,6 @@ function chipClass(active: boolean) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Suggestions under the search bar
-// ---------------------------------------------------------------------------
-
 type Suggestion =
   | { kind: "search"; query: string }
   | { kind: "recent"; query: string }
@@ -79,7 +75,6 @@ function useSuggestions(draft: string, accountIds: string[], open: boolean): Sug
   const text = draft.trim();
   const words = freeText(text);
   const contacts = useSuggestContacts(words, open && words.length > 1);
-  // Instant matches from this Mac, like Gmail's top results while you type.
   const local = useSearchMessages(
     words,
     accountIds.length === 1 ? accountIds[0] : null,
@@ -196,10 +191,6 @@ function SuggestionRow({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Advanced search (Gmail's "Show search options")
-// ---------------------------------------------------------------------------
 
 function AdvancedSearch({
   query,
@@ -416,11 +407,6 @@ function AdvancedSearch({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Chips
-// ---------------------------------------------------------------------------
-
-/** "From ▾" / "To ▾": a person operator, typed into a small menu. */
 function PersonChip({
   label,
   operator,
@@ -585,10 +571,6 @@ function ScopeChip({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Header
-// ---------------------------------------------------------------------------
-
 export function SearchHeader({
   headerLeading,
   headerTrailing,
@@ -611,10 +593,8 @@ export function SearchHeader({
 }: {
   headerLeading?: ReactNode;
   headerTrailing?: ReactNode;
-  /** The query that ran (the results on screen). */
   query: string;
   onSearch: (q: string) => void;
-  /** Leave the Search mailbox (Escape once the search is empty). */
   onExit: () => void;
   onOpenMessage: (message: MessageSummary) => void;
   accounts: MailAccount[];
@@ -624,11 +604,8 @@ export function SearchHeader({
   offline: boolean;
   loading: boolean;
   focusRef: RefObject<HTMLInputElement | null>;
-  /** Unrun text kept from the last visit; handed back when the header unmounts. */
   draft: string;
-  /** The parent view's operators (`in:inbox`): what clearing leaves behind. */
   base: string;
-  /** Empties the query (back to just `base`). */
   onClear: () => void;
   onDraftChange: (draft: string) => void;
   messageOpen: boolean;
@@ -646,13 +623,10 @@ export function SearchHeader({
     setDraft(query || (base ? `${base} ` : ""));
   }, [query, base]);
 
-  // Leaving for another mailbox keeps what was typed (the sidebar shows a dot).
   const draftRef = useLatest(draft);
   const onDraftChangeRef = useLatest(onDraftChange);
   useEffect(() => () => onDraftChangeRef.current(draftRef.current), [draftRef, onDraftChangeRef]);
 
-  // Escape: the first clears the search, the next (already empty) returns to
-  // the mailbox you came from.
   const escape = () => {
     if (query || draftRef.current.trim() !== base) {
       console.log("[SearchHeader:clear]");
@@ -664,8 +638,6 @@ export function SearchHeader({
   };
   const escapeRef = useLatest(escape);
   const messageOpenRef = useLatest(messageOpen);
-  // The same with focus outside the bar, when no message is open (Escape
-  // closes the reader first).
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented || isTypingTarget(e)) return;
@@ -681,7 +653,6 @@ export function SearchHeader({
   const suggestions = useSuggestions(draft, scope, suggesting);
   // oxlint-disable-next-line react/set-state-in-effect, react/exhaustive-effect-dependencies -- Re-run this DOM/reset lifecycle when its explicit trigger changes, even when the callback reads refs.
   useEffect(() => setHighlight(0), [draft]);
-  // Important is Gmail's sorting: offered while a mailbox searched has it.
   const sortsImportant = accounts.some((a) => scope.includes(a.id) && capabilitiesOf(a).categories);
 
   const run = (q: string) => {
@@ -706,7 +677,6 @@ export function SearchHeader({
     }
   };
 
-  // Clicks outside close the suggestions / the advanced form.
   useEffect(() => {
     if (!suggesting && !advancedOpen) return;
     const down = (e: PointerEvent) => {

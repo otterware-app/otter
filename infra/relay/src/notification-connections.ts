@@ -91,7 +91,6 @@ export function configured(env: Env, provider: MailProviderKind): boolean {
   if (!env.NOTIFICATION_CREDENTIAL_SECRET && env.DEV_DEMO !== "true") return false;
   if (provider === "imap") return true;
   if (provider === "gmail") return Boolean(googleClient(env) && googleSecret(env));
-  // Microsoft refresh tokens can acquire other scopes consented to this app. Use a separate app registration.
   return Boolean(
     env.NOTIFICATION_MICROSOFT_CLIENT_ID &&
     env.NOTIFICATION_MICROSOFT_CLIENT_SECRET &&
@@ -201,7 +200,6 @@ export async function remove(env: Env, userId: string, address: string): Promise
   await env.USER_HUB.get(env.USER_HUB.idFromName(userId)).forgetPush(address);
 }
 
-/** A safe description of a failed provider call: only an error code that looks like one is kept. */
 export function failureDetail(call: string, status: number, code: unknown): string {
   return typeof code === "string" && /^[A-Za-z_]{1,40}$/.test(code)
     ? `${call} ${status} ${code}`
@@ -306,7 +304,6 @@ export async function accessToken(env: Env, row: Connection): Promise<string> {
   return token.access_token;
 }
 
-/** Callback has no browser-cookie dependency: a single-use request carries the initiating session's authority. */
 export async function complete(env: Env, state: string, code?: string): Promise<Authorization> {
   const verified = await jwtVerify(state, await stateKey(env), {
     audience: "notification-authorization",

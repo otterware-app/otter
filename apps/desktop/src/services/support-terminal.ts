@@ -1,9 +1,3 @@
-/**
- * Which terminal a support investigation opens in: the system's default
- * terminal, or one the user chose (kept in support-terminal.json). The OS
- * lists and opens terminals (HostOS.terminals).
- */
-
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { SupportTerminals } from "@otter-mail/shared/support";

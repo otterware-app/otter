@@ -40,7 +40,6 @@ const mailRoute = createRoute({
   component: HomeView,
 });
 
-/** Nowhere yet: HomeView reopens the last mailbox (or the default one). */
 const indexRoute = createRoute({
   getParentRoute: () => mailRoute,
   path: "/",
@@ -59,14 +58,12 @@ const SETTINGS_PANES = new Set<string>([
   "otter",
 ]);
 
-/** `?target=` a setting to scroll to. */
 export type SettingsSearch = { target?: string };
 
 const settingsRoute = createRoute({
   getParentRoute: () => mailRoute,
   path: "settings/$pane",
   params: {
-    // A pane there isn't (any more) is General.
     parse: ({ pane }) => ({
       pane: SETTINGS_PANES.has(pane) ? (pane as SettingsPane) : "general",
     }),
@@ -78,14 +75,12 @@ const settingsRoute = createRoute({
   component: () => null,
 });
 
-/** A new message, over the mail it was started from (like Settings). */
 const composeRoute = createRoute({
   getParentRoute: () => mailRoute,
   path: "compose",
   component: () => null,
 });
 
-/** One thing inside a pane: an extension's page (`/settings/extensions/todoist`). */
 const settingsItemRoute = createRoute({
   getParentRoute: () => mailRoute,
   path: "settings/$pane/$item",
@@ -102,10 +97,6 @@ const settingsItemRoute = createRoute({
   component: () => null,
 });
 
-// Spaces are account ids (their email addresses), a view's id (its one label
-// is `all`), or `chats` (the AI workspace: a chat's id, or `new`). Labels are
-// the mailbox's label ids, but the app's own `__name__` ones read as `name`
-// (Search).
 const toMailbox = (segment: string) => (segment === "chats" ? CHATS_SPACE : segment);
 const fromMailbox = (id: string) => (id === CHATS_SPACE ? "chats" : id);
 const toLabel = (segment: string) => (segment === "search" ? SEARCH_MAILBOX : segment);
@@ -119,7 +110,6 @@ const stringifyMail = (params: MailParams): MailParams => ({
   label: fromLabel(params.label),
 });
 
-/** A mailbox's label or view: the list, with nothing open. */
 const labelRoute = createRoute({
   getParentRoute: () => mailRoute,
   path: "$mailbox/$label",
@@ -127,14 +117,8 @@ const labelRoute = createRoute({
   component: () => null,
 });
 
-/**
- * `?account=` the message's own mailbox, where it isn't this one (the
- * combined mailbox, searches); `?message=` one message of the conversation,
- * shown alone.
- */
 export type MessageSearch = { account?: string; message?: string };
 
-/** A conversation (or message) open in the reader. */
 const messageRoute = createRoute({
   getParentRoute: () => mailRoute,
   path: "$mailbox/$label/$messageId",
@@ -178,7 +162,6 @@ const router = createRouter({
   // the route in the hash; the web app's are real paths, which the site
   // Worker answers with the app.
   history: window.desktopBridge.platform === "web" ? createBrowserHistory() : createHashHistory(),
-  // Mailboxes are email addresses: keep them readable.
   pathParamsAllowedCharacters: ["@"],
   // The query holds only strings (ids, addresses): plainly, where the default
   // would quote the ids that look like numbers.

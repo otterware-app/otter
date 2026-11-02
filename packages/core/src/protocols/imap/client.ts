@@ -45,13 +45,9 @@ export interface ImapOptions extends ServerOptions {
   clientId?: Record<string, string>;
 }
 
-/** A command the server refused, or a connection that failed; `kind` says which. */
 export class ImapError extends MailProtocolError {
-  /** NO, BAD or BYE, when the server answered. */
   readonly status?: string;
-  /** The response code: AUTHENTICATIONFAILED, TRYCREATE, OVERQUOTA, … */
   readonly code?: string;
-  /** What the server said, as it said it. */
   readonly serverText?: string;
 
   constructor(
@@ -82,15 +78,11 @@ const SPECIAL_USES = [
 export type SpecialUse = (typeof SPECIAL_USES)[number];
 
 export interface ImapFolder {
-  /** The full name, decoded: "Work/Receipts". INBOX is always "INBOX". */
   path: string;
-  /** The last segment: "Receipts". */
   name: string;
-  /** The hierarchy separator ("/", "."); null in a flat namespace. */
   delimiter: string | null;
   flags: string[];
   specialUse: SpecialUse | null;
-  /** False for \Noselect and \NonExistent folders (placeholders in the hierarchy). */
   selectable: boolean;
 }
 
@@ -108,13 +100,10 @@ export interface SelectedMailbox {
   exists: number;
   uidValidity: number;
   uidNext: number | null;
-  /** Null when the server keeps no mod-sequences (no CONDSTORE, or NOMODSEQ). */
   highestModseq: bigint | null;
   flags: string[];
   permanentFlags: string[];
-  /** With `qresync`: UIDs expunged since the given modseq (ranges: they may be huge) … */
   vanished: UidRange[];
-  /** … and the messages whose flags changed since it (UID, FLAGS, MODSEQ). */
   changed: FetchedMessage[];
 }
 
@@ -125,13 +114,9 @@ export interface FetchQuery {
   internalDate?: boolean;
   size?: boolean;
   modseq?: boolean;
-  /** Header fields by name (BODY.PEEK[HEADER.FIELDS (…)]), or `true` for the whole header. */
   headers?: string[] | true;
-  /** The whole message (BODY.PEEK[]). */
   source?: boolean;
-  /** The first n bytes of the body (BODY.PEEK[TEXT]<0.n>). */
   textStart?: number;
-  /** Gmail's own ids and labels (X-GM-MSGID, X-GM-THRID, X-GM-LABELS). */
   gmail?: boolean;
 }
 
@@ -145,13 +130,10 @@ export interface SearchCriteria {
   header?: { name: string; value: string };
   messageId?: string;
   text?: string;
-  /** Messages changed since this mod-sequence (CONDSTORE). */
   modseq?: bigint;
-  /** Gmail's own search syntax (X-GM-EXT-1's X-GM-RAW). */
   gmailRaw?: string;
 }
 
-/** Where copied or moved messages landed (UIDPLUS): source UID → UID in the destination. */
 export interface CopyResult {
   uidValidity: number;
   uids: Map<number, number>;
@@ -164,25 +146,20 @@ export type ImapUpdate =
   | { type: "fetch"; message: FetchedMessage };
 
 export interface IdleSession {
-  /** Ends IDLE (DONE) and waits for the server to confirm. */
   stop(): Promise<void>;
   /** Settles when IDLE ends: resolves once stopped, rejects when the connection fails. */
   done: Promise<void>;
 }
 
-/** A piece of a command: text as is, bytes as a literal. */
 type Part = string | Uint8Array;
 
 type CommandOptions = {
-  /** Answers a "+" continuation (AUTHENTICATE). */
   onContinue?: (text: string) => string;
-  /** What a NO means: bad credentials for LOGIN and AUTHENTICATE. */
   failure?: MailErrorKind;
 };
 
 type CommandResult = { tagged: ImapResponse; untagged: ImapResponse[] };
 
-/** Connects, upgrades with STARTTLS if asked to, and logs in. */
 export async function connectImap(options: ImapOptions): Promise<ImapClient> {
   let stream: ByteStream;
   try {
@@ -203,7 +180,6 @@ export async function connectImap(options: ImapOptions): Promise<ImapClient> {
 export class ImapClient {
   /** Upper-cased: "IMAP4REV1", "IDLE", "AUTH=PLAIN", … */
   readonly capabilities = new Set<string>();
-  /** What ENABLE turned on. */
   readonly enabled = new Set<string>();
   mailbox: SelectedMailbox | null = null;
 
@@ -231,7 +207,6 @@ export class ImapClient {
     return !this.closed;
   }
 
-  /** Called by connectImap: greeting, STARTTLS, login, capabilities. */
   async start(): Promise<void> {
     const greeting = await this.readResponse(this.timeoutMs);
     if (greeting.type === "BYE") {
@@ -268,7 +243,6 @@ export class ImapClient {
 
     if (greeting.type !== "PREAUTH") {
       if (this.capabilities.size === 0) await this.capability();
-      // Logging in may unlock more; most servers list them in the tagged OK.
       const before = this.capabilityUpdates;
       await this.login();
       if (this.capabilityUpdates === before) this.capabilities.clear();
@@ -294,7 +268,6 @@ export class ImapClient {
     }
   }
 
-  /** SASL: the first response inline with SASL-IR; any later challenge (an error) gets "". */
   private async authenticate(mechanism: string, initial: string): Promise<void> {
     const inline = this.has("SASL-IR");
     let sent = inline;
@@ -393,11 +366,6 @@ export class ImapClient {
     return status;
   }
 
-  /**
-   * Opens a folder (EXAMINE when `readOnly`), asking for mod-sequences when
-   * the server keeps them. With `qresync` (and QRESYNC enabled), the answer
-   * also says what vanished and changed since that modseq.
-   */
   async select(
     path: string,
     options: { readOnly?: boolean; qresync?: { uidValidity: number; modseq: bigint } } = {},
@@ -444,7 +412,6 @@ export class ImapClient {
     return mailbox;
   }
 
-  /** UID FETCH in the selected folder. `uids` may be a set like "1:*". */
   async fetch(
     uids: readonly number[] | string,
     query: FetchQuery,
@@ -453,10 +420,6 @@ export class ImapClient {
     return (await this.fetchChanges(uids, query, options.changedSince)).messages;
   }
 
-  /**
-   * UID FETCH … (CHANGEDSINCE modseq): what changed since, and (with QRESYNC
-   * enabled) which of `uids` were expunged meanwhile.
-   */
   async fetchChanges(
     uids: readonly number[] | string,
     query: FetchQuery,
@@ -508,7 +471,6 @@ export class ImapClient {
     return { messages: [...byUid.values()], vanished };
   }
 
-  /** UID SEARCH; the matching UIDs, ascending. */
   async search(criteria: SearchCriteria | string): Promise<number[]> {
     const parts = typeof criteria === "string" ? [criteria] : this.searchKeys(criteria);
     const needsCharset =
@@ -568,7 +530,6 @@ export class ImapClient {
     );
   }
 
-  /** UID MOVE, or where there's none: COPY, flag \Deleted, expunge those. */
   async move(uids: readonly number[] | string, destination: string): Promise<CopyResult | null> {
     const set = uidSet(uids);
     if (!set) return null;
@@ -595,7 +556,6 @@ export class ImapClient {
     else await this.command(["EXPUNGE"]);
   }
 
-  /** Stores a message in a folder; its new UID when the server says (UIDPLUS). */
   async append(
     path: string,
     message: Uint8Array | string,
@@ -614,7 +574,6 @@ export class ImapClient {
     return uidValidity !== null && uid !== null ? { uidValidity, uid } : null;
   }
 
-  /** Creates a folder; `specialUse` flags its role where the server can (CREATE-SPECIAL-USE). */
   async createMailbox(path: string, options: { specialUse?: SpecialUse } = {}): Promise<void> {
     const use =
       options.specialUse && this.has("CREATE-SPECIAL-USE") ? [`(USE (${options.specialUse}))`] : [];
@@ -744,7 +703,6 @@ export class ImapClient {
     }
   }
 
-  /** Reads until the tagged response (or a continuation, when one is expected). */
   private async untilTagged(
     tag: string,
     untagged: ImapResponse[],
@@ -802,7 +760,6 @@ export class ImapClient {
     }
   }
 
-  /** Keeps what untagged responses say about the connection and the selected folder. */
   private untagged(response: ImapResponse): void {
     this.applyCode(response);
     switch (response.type) {
@@ -907,13 +864,11 @@ function copyUid({ tagged, untagged }: CommandResult, limit?: number): CopyResul
 const sentCount = (uids: readonly number[] | string): number | undefined =>
   typeof uids === "string" ? undefined : new Set(uids).size;
 
-/** `* VANISHED (EARLIER) 1:3,7` → [[1, 3], [7, 7]]. */
 const vanishedRanges = (response: ImapResponse): UidRange[] =>
   parseUidRanges(tokenText(response.args.at(-1)) ?? "");
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** SEARCH's date: `1-Feb-2026` (the day as the server's clock sees it). */
 const searchDate = (date: Date): string =>
   `${date.getUTCDate()}-${MONTHS[date.getUTCMonth()]}-${date.getUTCFullYear()}`;
 

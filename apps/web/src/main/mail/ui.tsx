@@ -24,28 +24,19 @@ if (typeof window !== "undefined") {
   window.addEventListener("pointerdown", () => (lastInputWasKeyboard = false), true);
 }
 
-/** `onCloseAutoFocus` for popups: restore trigger focus for keyboard users only. */
 export function restoreFocusForKeyboardOnly(event: Event): void {
   if (!lastInputWasKeyboard) event.preventDefault();
 }
 
 export { cn };
 
-/**
- * Shared control chrome: rounded, focus ring, disabled fade, instant hover feedback.
- * No pressed scale: a Mac button stays put.
- */
 const CONTROL =
   "relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border font-normal outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-64 [&_svg]:pointer-events-none [&_svg]:shrink-0";
 
 export const BUTTON_VARIANTS = {
-  /** Solid call to action (send, confirm), flat in the theme's primary. */
   primary: "border-transparent bg-primary text-primary-foreground hover:bg-primary/88",
-  /** Quiet pill with a faint border. */
   outline: "border-border bg-transparent text-foreground hover:bg-accent-surface",
-  /** Quiet control that only shows a surface on hover. */
   ghost: "border-transparent text-foreground hover:bg-accent-surface",
-  /** Ghost in the muted tone, brightening on hover (toolbar icons). */
   "ghost-muted":
     "border-transparent text-muted-foreground hover:bg-accent-surface hover:text-foreground",
   destructive: "border-transparent bg-destructive text-white hover:bg-destructive/88",
@@ -71,7 +62,6 @@ export function buttonClass(
   return cn(CONTROL, BUTTON_VARIANTS[variant], BUTTON_SIZES[size], className);
 }
 
-/** General button in the app's control style. */
 export const Btn = forwardRef<
   HTMLButtonElement,
   ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: ButtonSize }
@@ -86,7 +76,6 @@ export const Btn = forwardRef<
   );
 });
 
-/** Ghost icon button used across the chrome (toolbars, headers, rows). */
 export const IconBtn = forwardRef<
   HTMLButtonElement,
   ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active?: boolean }
@@ -111,11 +100,7 @@ export const IconBtn = forwardRef<
   );
 });
 
-// Tooltips render in the page (like Otter Code's), not in a separate native
-// window: a native tooltip window resets the macOS cursor to the arrow the
-// moment it opens, which made hovered buttons lose their pointer cursor.
 const TOOLTIP_DELAY_MS = 500;
-/** Moving between neighbouring controls within this window shows instantly. */
 const TOOLTIP_GRACE_MS = 300;
 const TOOLTIP_GAP = 6;
 const VIEWPORT_MARGIN = 6;
@@ -135,11 +120,8 @@ export function HintTooltip({
 }: {
   label: string;
   hint?: string;
-  /** Shows this command's live keybinding as the hint. */
   shortcut?: KeybindingCommand;
-  /** "right" for a control down the window's edge. */
   side?: TooltipSide;
-  /** Says nothing for now (the trigger already shows its label), keeping the trigger as it is. */
   disabled?: boolean;
   children: ReactNode;
 }) {
@@ -208,7 +190,6 @@ export function HintTooltip({
     setPlacement({ top, left, side: resolved });
   }, [anchor, side]);
 
-  // Any scroll or window change invalidates the anchor rect.
   const closeForEffect = useLatest(close);
   useEffect(() => {
     if (!anchor) return;
@@ -282,7 +263,6 @@ export function HintTooltip({
   );
 }
 
-/** Keyboard hint chip. */
 export function Kbd({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <kbd

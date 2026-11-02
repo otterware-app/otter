@@ -2,19 +2,9 @@ import AuthenticationServices
 import CryptoKit
 import Foundation
 
-/**
- * Google sign-in, per mailbox, as the Mac app does it: the installed-app flow
- * (RFC 8252) with PKCE, in a browser sheet. The "iOS" OAuth client has no
- * secret and Google returns to its reversed id. Refresh tokens stay in the
- * Keychain and never leave the phone; access tokens are shared with the
- * notification extension on-device and renewed a minute before they expire.
- */
+// Refresh tokens stay on-device; the notification extension shares only access tokens.
 @MainActor
 final class GoogleAuth {
-    /**
-     * The primary Google project's "iOS" client for this build's bundle ID (not a
-     * secret; the relay lists it too), from Info.plist's GoogleClientID.
-     */
     static let clientID = Bundle.main.object(forInfoDictionaryKey: "GoogleClientID") as? String ?? ""
     /**
      * Gmail, its settings (saving a signature) and who you are; no calendar or
@@ -37,7 +27,6 @@ final class GoogleAuth {
 
     enum Failure: LocalizedError {
         case cancelled
-        /** Google no longer honors the sign-in (revoked or expired): only signing in again helps. */
         case signedOut(String)
         case google(String)
 
@@ -61,7 +50,6 @@ final class GoogleAuth {
 
     func isSignedIn(_ email: String) -> Bool { Keychain.get(Self.refreshKey(email)) != nil }
 
-    /** Opens Google's sign-in; keeps the refresh token for the address it signed in. */
     func signIn(loginHint: String? = nil) async throws -> (profile: Profile, tokens: Tokens) {
         let verifier = Self.randomURLSafe(32)
         let challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64URL
@@ -106,32 +94,24 @@ final class GoogleAuth {
         return (profile, tokens)
     }
 
-    /** A fresh access token for the mailbox (`force`: not the one Gmail just refused). */
     func accessToken(_ email: String, force: Bool = false) async throws -> String {
         guard isSignedIn(email) else { throw Failure.signedOut(email) }
         if !force, let cached = tokens[email.lowercased()], cached.expiresAt > .now { return cached.accessToken }
         return try await refresh(email, force: force).accessToken
     }
 
-    /** A fresh ID token, the proof the relay asks for to link a mailbox. */
     func idToken(_ email: String) async throws -> String {
         if let cached = tokens[email.lowercased()], cached.expiresAt > .now, let id = cached.idToken { return id }
         guard let id = try await refresh(email).idToken else { throw Failure.google("Google didn't return an ID token.") }
         return id
     }
 
-    /**
-     * Forgets the mailbox's sign-in on this iPhone. Google isn't asked to revoke it: revoking ends
-     * the grant for every client in the Google Cloud project, signing the mailbox out on the
-     * account's other devices and stopping the relay's background notifications.
-     */
     @discardableResult
     func forget(_ email: String) -> Task<Void, Never> {
         let key = email.lowercased()
         let version = credentialVersions[key]
         refreshing[key]?.cancel()
         tokens[key] = nil
-        // Deletion and refresh/rotation share the same cross-process lock. A later sign-in owns a new version.
         return Task {
             try? await PushState.locked("oauth:" + email) {
                 guard credentialVersions[key] == version else { return }
@@ -165,8 +145,6 @@ final class GoogleAuth {
         return fresh
     }
 
-    // ── Google's endpoints ───────────────────────────────────────────────────
-
     private static func tokenRequest(_ params: [String: String]) async throws -> GoogleCredentials.Response {
         do { return try await GoogleCredentials.request(params) }
         catch GoogleCredentials.Failure.revoked { throw Failure.google("Google sign-in expired. Try again.") }
@@ -196,7 +174,6 @@ final class GoogleAuth {
         return Data(bytes).base64URL
     }
 
-    /** Runs the browser sheet over the app's window. */
     private final class Presenter: NSObject, ASWebAuthenticationPresentationContextProviding {
         func authenticate(url: URL, scheme: String) async throws -> URL {
             try await withCheckedThrowingContinuation { continuation in

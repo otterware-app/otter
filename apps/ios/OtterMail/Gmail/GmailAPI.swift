@@ -1,13 +1,7 @@
 import Foundation
 
-/**
- * Gmail's REST API for one mailbox, as core's gmail-api.ts uses it: threads
- * to read, history to catch up, labels to change, messages and drafts to
- * send, the signature, attachments, and `watch` for push through the relay.
- */
 nonisolated struct GmailAPI {
     let email: String
-    /** A fresh access token; `force` skips the cached one (after a 401). */
     let token: @Sendable (_ force: Bool) async throws -> String
 
     struct Failure: LocalizedError {
@@ -18,10 +12,7 @@ nonisolated struct GmailAPI {
         var insufficientScope: Bool { status == 403 && message.localizedCaseInsensitiveContains("insufficient") }
     }
 
-    /** The history cursor is too old (Gmail keeps about a week): sync from scratch. */
     struct HistoryExpired: Error {}
-
-    // ── Reading ──────────────────────────────────────────────────────────────
 
     func historyID() async throws -> String {
         struct Profile: Decodable { var historyId: String }
@@ -29,7 +20,6 @@ nonisolated struct GmailAPI {
         return profile.historyId
     }
 
-    /** The mailbox's own labels, with their colors. */
     func labels() async throws -> [MailLabel] {
         struct Response: Decodable {
             struct Label: Decodable {
@@ -48,7 +38,6 @@ nonisolated struct GmailAPI {
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    /** A page of thread ids, newest first. */
     func threadIDs(label: String?, query: String? = nil, pageToken: String? = nil, max: Int = 30) async throws -> (ids: [String], next: String?) {
         struct Response: Decodable {
             struct Thread: Decodable { var id: String }
@@ -64,7 +53,6 @@ nonisolated struct GmailAPI {
         return ((response.threads ?? []).map(\.id), response.nextPageToken)
     }
 
-    /** A whole thread; decode JSON, MIME and HTML off the caller's actor. Nil when it's gone. */
     @concurrent
     func thread(_ id: String) async throws -> MailThread? {
         do {
@@ -75,7 +63,6 @@ nonisolated struct GmailAPI {
         }
     }
 
-    /** Threads, fetched a few at a time; the missing are left out. */
     func threads(_ ids: [String]) async throws -> [MailThread] {
         try await withThrowingTaskGroup(of: (Int, MailThread?).self) { group in
             var results: [(Int, MailThread?)] = []
@@ -88,7 +75,6 @@ nonisolated struct GmailAPI {
         }
     }
 
-    /** Threads that changed since `historyID`, and the new cursor. */
     func history(since historyID: String) async throws -> (changed: Set<String>, cursor: String) {
         struct Response: Decodable {
             struct Record: Decodable {
@@ -146,8 +132,6 @@ nonisolated struct GmailAPI {
         return Data(base64URL: response.data) ?? Data()
     }
 
-    // ── Changing ─────────────────────────────────────────────────────────────
-
     func modify(thread: String, add: [String] = [], remove: [String] = []) async throws {
         try await post("threads/\(thread)/modify", ["addLabelIds": add, "removeLabelIds": remove])
     }
@@ -160,8 +144,6 @@ nonisolated struct GmailAPI {
     func untrash(thread: String) async throws { try await post("threads/\(thread)/untrash", [String: String]()) }
     func delete(thread: String) async throws { _ = try await request("DELETE", "threads/\(thread)") }
 
-    // ── Writing ──────────────────────────────────────────────────────────────
-
     struct Sent: Decodable {
         var id: String
         var threadId: String
@@ -171,7 +153,6 @@ nonisolated struct GmailAPI {
         try await decode(post("messages/send", Raw(raw: raw.base64URL, threadId: thread)))
     }
 
-    /** Creates or replaces a draft; answers its draft id and message. */
     func saveDraft(id: String?, raw: Data, thread: String?) async throws -> (draft: String, message: Sent) {
         struct Response: Decodable { var id: String; var message: Sent }
         let body = ["message": Raw(raw: raw.base64URL, threadId: thread)]
@@ -190,9 +171,6 @@ nonisolated struct GmailAPI {
 
     func deleteDraft(id: String) async throws { _ = try await request("DELETE", "drafts/\(id)") }
 
-    // ── Settings ─────────────────────────────────────────────────────────────
-
-    /** The address's signature in Gmail (Settings › Signature on the web), as HTML. */
     func signature() async throws -> String {
         struct Response: Decodable {
             struct SendAs: Decodable { var sendAsEmail: String; var isPrimary: Bool?; var signature: String? }
@@ -204,21 +182,17 @@ nonisolated struct GmailAPI {
         return own?.signature ?? ""
     }
 
-    /** Saves the signature in Gmail; answers it as Gmail stored it (sanitized). */
     func setSignature(_ html: String) async throws -> String {
         struct Response: Decodable { var signature: String? }
         let data = try await request("PATCH", "settings/sendAs/\(email)", body: try JSONEncoder().encode(["signature": html]))
         return (try decode(data) as Response).signature ?? ""
     }
 
-    /** Asks Gmail to publish the mailbox's changes to the relay's topic (renew daily; it lapses after a week). */
     struct Watch: Decodable { var historyId: String; var expiration: String }
 
     func watch(topic: String) async throws -> Watch {
         try decode(try await post("watch", ["topicName": topic]))
     }
-
-    // ── Requests ─────────────────────────────────────────────────────────────
 
     private struct Raw: Encodable {
         var raw: String
@@ -265,8 +239,6 @@ nonisolated struct GmailAPI {
     }
 }
 
-// ── Gmail's thread resource, into the app's model ─────────────────────────
-
 nonisolated private struct GmailThread: Decodable {
     var id: String
     var messages: [GmailMessage]?
@@ -305,7 +277,6 @@ nonisolated private struct GmailMessage: Decodable {
             headers?.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
         }
 
-        /** Every leaf part, depth first. */
         var leaves: [Part] { parts.map { $0.flatMap(\.leaves) } ?? [self] }
 
         var text: String? {
@@ -321,7 +292,6 @@ nonisolated private struct GmailMessage: Decodable {
         let html = leaves.first { $0.mimeType == "text/html" && !isFile($0) }?.text
         let text = leaves.first { $0.mimeType == "text/plain" && !isFile($0) }?.text
             ?? html.map(HTMLText.plain) ?? ""
-        // Inline images (a Content-ID, not marked as an attachment) are part of the body.
         let isInline = { (part: Part) in
             part.header("Content-ID") != nil
                 && part.header("Content-Disposition")?.lowercased().hasPrefix("attachment") != true
@@ -359,7 +329,6 @@ nonisolated private struct GmailMessage: Decodable {
     }
 }
 
-/** Address headers: `"Last, First" <a@b.c>, d@e.f`, with quoted commas kept. */
 nonisolated enum Addresses {
     static func parse(_ header: String) -> [Person] {
         var entries: [String] = []

@@ -4,7 +4,6 @@ import type { RelayAccount } from "@otter-mail/contracts/relay";
 
 vi.mock("electron", () => ({ app: {}, safeStorage: {}, shell: {}, BrowserWindow: {} }));
 
-// Signed in to an Otter account that links a@x.com, with the relay's requests kept.
 const relayRequests = vi.hoisted((): unknown[][] => []);
 vi.mock("./otter-account.ts", () => ({
   getOtterUser: () => ({ id: "u" }),
@@ -199,7 +198,6 @@ describe("IMAP mailboxes", () => {
       ...none,
       moved: ["me@fastmail.com"],
     });
-    // Signed out here: nothing to protect (the prompt names the host).
     const out = { ...here, signedIn: false };
     expect(planReconcile([out], [elsewhere("imap.evil.example")], linked)).toEqual(none);
   });

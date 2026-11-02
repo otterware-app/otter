@@ -11,7 +11,6 @@ import { contextBridge, ipcRenderer } from "electron";
 
 import { installNativeMessaging } from "./native-messaging-preload.js";
 
-/** The extension's id from its address: a page's, or (no `location` in a worker's preload) its worker's. */
 function ownExtensionId(): string | null {
   const own = (where: { protocol: string; host: string }) =>
     where.protocol === "chrome-extension:" ? where.host : null;
@@ -97,7 +96,6 @@ if (extensionId) {
       }
     };
 
-    // Chrome's two styles: a trailing callback, or a promise.
     const method =
       (name: string, prepare?: (args: unknown[]) => unknown[]) =>
       (...args: unknown[]) => {
@@ -185,11 +183,8 @@ if (extensionId) {
     };
     const patch = (chrome: Namespace) => {
       put(chrome, { action });
-      // Manifest V2's name for it, which some still read.
       if (!chrome.browserAction) put(chrome, { browserAction: action });
 
-      // Electron's chrome.tabs keeps what it does well (messaging, scripting);
-      // the tab strip's side is this app's.
       if (!chrome.tabs) put(chrome, { tabs: {} });
       put(chrome.tabs!, {
         TAB_ID_NONE: -1,
@@ -232,7 +227,6 @@ if (extensionId) {
         },
       });
 
-      // Electron has none of these; extensions read them as they start.
       const random = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2)}`;
       if (!chrome.contextMenus) {
         put(chrome, {
@@ -256,7 +250,6 @@ if (extensionId) {
               SEPARATOR: "separator",
             },
             ACTION_MENU_TOP_LEVEL_LIMIT: 6,
-            // Returns its id at once, as Chrome's does.
             create: (properties: Record<string, unknown> = {}, callback?: () => void) => {
               const { onclick: _onclick, ...rest } = properties;
               const id = (rest.id as string | undefined) ?? random("menu");
@@ -326,7 +319,6 @@ if (extensionId) {
         });
       }
       if (!chrome.privacy) {
-        // Chrome's ChromeSetting objects, kept per extension in the main process.
         const setting = (name: string) => ({
           get: method("privacy.get", (args) => [name, ...args]),
           set: method("privacy.set", (args) => [name, ...args]),

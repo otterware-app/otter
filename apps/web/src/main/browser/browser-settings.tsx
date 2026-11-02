@@ -23,7 +23,6 @@ const OPEN_LINKS_OPTIONS: { value: OpenLinksIn; label: string }[] = [
   { value: "browser", label: "In your default browser" },
 ];
 
-/** Settings › Browser (Mac): where links open, extensions, browsing data. */
 export function BrowserSettingsPane() {
   const openLinksIn = useBrowser((s) => s.openLinksIn);
   const [clearing, setClearing] = useState(false);

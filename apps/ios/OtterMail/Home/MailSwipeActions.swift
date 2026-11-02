@@ -8,7 +8,6 @@ struct MailSwipeAction: Identifiable {
     var id: String { title }
 }
 
-/** Row actions with a short snap on release; the drag itself follows the finger. */
 struct MailSwipeActions: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.layoutDirection) private var layoutDirection
@@ -120,7 +119,6 @@ struct MailSwipeActions: ViewModifier {
     }
 }
 
-/** A quick flick may reveal actions, but only actual travel can commit one. */
 nonisolated enum MailSwipeTarget: Equatable {
     case closed, revealed(CGFloat), committed
 

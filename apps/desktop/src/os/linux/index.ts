@@ -1,9 +1,3 @@
-/**
- * Linux (HostOS), Debian first: a frameless window with minimize, maximize
- * and close drawn over the top bar's right end, an XDG autostart entry, and
- * .desktop files and xdg-mime for mail and terminal apps.
- */
-
 import { app, nativeTheme, safeStorage } from "electron";
 
 import { logger } from "../../logger.js";
@@ -14,12 +8,9 @@ import { listMailApps, setDefaultMailApp } from "./mail-apps.js";
 import { linuxTerminals } from "./terminals.js";
 import { nativeMessagingDirectories } from "./native-messaging.js";
 
-/** The renderer's --workspace-topbar-height: the window controls fill it. */
 const TOPBAR_HEIGHT = 42;
 
-/** The frame's surface (styles.css, --sidebar-surface), shown until the page paints. */
 const background = () => (nativeTheme.shouldUseDarkColors ? "#0c0c0e" : "#ededf0");
-/** The window controls' glyphs: the renderer's muted foreground. */
 const symbolColor = () => (nativeTheme.shouldUseDarkColors ? "#d4d4d4" : "#525252");
 
 export const linuxOS: HostOS = {
@@ -27,9 +18,6 @@ export const linuxOS: HostOS = {
   modifierKey: "ctrlKey",
 
   mainWindowOptions: () => ({
-    // The top bar is the title bar: Electron draws the window controls over
-    // its right end (the renderer leaves them room, styles.css), with the
-    // page showing through behind them.
     titleBarStyle: "hidden",
     titleBarOverlay: { color: "#00000000", symbolColor: symbolColor(), height: TOPBAR_HEIGHT },
     backgroundColor: background(),
@@ -44,9 +32,6 @@ export const linuxOS: HostOS = {
     win.once("closed", () => nativeTheme.off("updated", update));
   },
 
-  // The menu bar stays hidden (the window has no frame for it); its items
-  // still answer their shortcuts. Settings, About and Quit sit where GNOME
-  // and KDE apps keep them.
   applicationMenu: (items) => [
     {
       label: "&File",
@@ -74,12 +59,7 @@ export const linuxOS: HostOS = {
   // dpkg needs the admin password (pkexec): ask when the user restarts to update.
   installsUpdatesOnQuit: false,
 
-  /**
-   * Secrets go in the desktop's keyring (GNOME Keyring, KWallet), which
-   * Chromium picks by desktop. Desktops it doesn't know (i3, sway…) have none
-   * for it: there, as Chrome does, they're sealed with a key of the app's
-   * own, so the mailboxes still work (the files stay readable only by you).
-   */
+  // Desktops without a supported keyring use the app's local key; files remain readable only by the user.
   prepareSecrets() {
     if (!safeStorage.isEncryptionAvailable()) safeStorage.setUsePlainTextEncryption(true);
     logger.info("main", "Secrets", { store: safeStorage.getSelectedStorageBackend() });
@@ -90,7 +70,6 @@ export const linuxOS: HostOS = {
     if (!app.isPackaged) return;
     setAutostart(enabled, process.env.APPIMAGE ?? process.execPath);
   },
-  // No Dock to badge.
   setBadge: () => {},
 
   mailApps: { list: listMailApps, setDefault: setDefaultMailApp },

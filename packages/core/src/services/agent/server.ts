@@ -499,7 +499,6 @@ export class OpenRouterAgentServer {
     }
   }
 
-  /** Both the relay's Durable Object and the local demo serve this API. */
   async fetch(request: Request, owner: string): Promise<Response> {
     const path = new URL(request.url).pathname.replace(/^.*\/(?:agent)\/?/, "/");
     const json = (value: unknown, status = 200) =>

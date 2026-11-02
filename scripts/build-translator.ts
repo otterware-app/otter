@@ -18,7 +18,6 @@ export const repoRoot = NodePath.resolve(
 );
 export const translatorPackageDir = NodePath.join(repoRoot, "native", "translator");
 const buildDir = NodePath.join(translatorPackageDir, ".build");
-// Swift's output folder depends on the selected toolchain.
 const translatorBinaryPaths = [
   NodePath.join(buildDir, "out", "Products", "Release", "translator"),
   NodePath.join(buildDir, "apple", "Products", "Release", "translator"),

@@ -15,7 +15,6 @@ import {
   type ThemeDefinition,
 } from "./theme-palettes.ts";
 
-/** Every role Otter Mail paints, and where. Keep in step with apply-theme.ts's VARIABLES. */
 export const PAINTED_ROLES: Readonly<Partial<Record<ThemeColorRole, string>>> = {
   canvas: "the app's background",
   chrome: "the window's top bar",
@@ -57,7 +56,6 @@ export const PAINTED_ROLES: Readonly<Partial<Record<ThemeColorRole, string>>> = 
   sidebarBorder: "the sidebar's lines",
 };
 
-/** The structure roles blended for a built-in, toward `over`, keeping `keep`. */
 export const SOFTENED_ROLES: Readonly<
   Partial<Record<ThemeColorRole, readonly [over: ThemeColorRole, keep: number]>>
 > = {
@@ -77,7 +75,6 @@ export const SOFTENED_ROLES: Readonly<
   sidebarBorder: ["sidebar", 0.3],
 };
 
-/** `colors` with the structure roles blended, as CSS's color-mix(in oklab) paints them. */
 export function softenThemeColors(colors: ThemeColors): ThemeColors {
   const softened: Record<ThemeColorRole, string> = { ...colors };
   for (const [role, [over, keep]] of Object.entries(SOFTENED_ROLES) as Array<
@@ -103,11 +100,8 @@ export function displayedThemeColors(
   return theme.exact || theme.id === "otter" ? colors : softenThemeColors(colors);
 }
 
-// ── Oklab ─────────────────────────────────────────────────────────────────────
-
 type Oklab = [number, number, number];
 
-/** "#rrggbb" (or "#rgb") or "oklch(L C H)", as the palettes write them. */
 function toOklab(css: string): Oklab | null {
   const value = css.trim().toLowerCase();
   const oklch = /^oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(value);
@@ -153,7 +147,6 @@ function gamma(c: number): number {
   return clamped <= 0.0031308 ? clamped * 12.92 : 1.055 * clamped ** (1 / 2.4) - 0.055;
 }
 
-/** Keeps `keep` of `color`, the rest `over`, in Oklab; null when either isn't readable. */
 function mixOklab(color: string, over: string, keep: number): string | null {
   const [x, y] = [toOklab(color), toOklab(over)];
   if (!x || !y) return null;

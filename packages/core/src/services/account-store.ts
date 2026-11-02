@@ -22,12 +22,10 @@ function rememberProviders(accounts: MailAccount[]): MailAccount[] {
   return accounts;
 }
 
-/** An account's provider by id (Gmail until accounts.json was read). */
 export function providerKindOf(accountId: string): MailProviderKind {
   return providerKinds.get(accountId) ?? "gmail";
 }
 
-/** An IMAP account's server by id (null: not IMAP, or not read yet). */
 export function imapHostOf(accountId: string): string | null {
   return imapHosts.get(accountId) ?? null;
 }

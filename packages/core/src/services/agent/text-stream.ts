@@ -1,6 +1,5 @@
 import type { Emit } from "./types.js";
 
-/** One assistant message at a time; snapshots backfill only that message. */
 export class TextStream {
   private sequence = 0;
   private id: string;

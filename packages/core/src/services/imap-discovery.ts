@@ -1,17 +1,4 @@
-/**
- * Finds an address's IMAP and SMTP servers, the way Thunderbird does: known
- * providers first, then Mozilla's ISPDB, then the domain's own autoconfig
- * file, then its MX records: a custom domain hosted by a provider we know, or
- * else the mail server itself, when it answers IMAP with a certificate for its
- * own name (shared hosting like All-Inkl, where imap.<domain> would point at
- * the same machine but not match its certificate).
- * Null when nothing is found, and for Gmail and Outlook, which don't sign in
- * with a password.
- *
- * Core also runs in the web app's worker, so only sources that allow CORS
- * are asked there: the ISPDB and Cloudflare's DNS-over-HTTPS do; a domain's
- * own autoconfig host usually doesn't, so only the Mac app asks it.
- */
+// Domain autoconfig usually lacks CORS, so only desktop requests it; web uses ISPDB and DNS-over-HTTPS.
 
 import type { ImapSettings, MailServer } from "@otter-mail/contracts/mail";
 
@@ -22,13 +9,11 @@ const PROBE_TIMEOUT_MS = 5_000;
 
 type Preset = {
   domains: string[];
-  /** MX hosts (or their parent domains) that mean a custom domain is hosted here. */
   mx?: string[];
   imap: MailServer;
   smtp: MailServer;
   /** The login is the part before the @ (else the whole address). */
   localPart?: boolean;
-  /** The provider only takes app passwords from mail apps: where to make one. */
   appPasswords?: string;
 };
 
@@ -204,12 +189,9 @@ function fromPreset(preset: Preset, email: string): ImapSettings {
   };
 }
 
-/** Where a known provider says to make an app password for this IMAP server, if it does. */
 export function appPasswordUrl(imapHost: string): string | null {
   return PRESETS.find((preset) => preset.imap.host === imapHost)?.appPasswords ?? null;
 }
-
-// ── Autoconfig XML (Thunderbird's clientConfig) ─────────────────────────────
 
 const tag = (xml: string, name: string): string[] =>
   [...xml.matchAll(new RegExp(`<${name}>\\s*([^<]*?)\\s*</${name}>`, "g"))].map((m) => m[1]!);
@@ -224,7 +206,6 @@ const unescape = (text: string) =>
 
 type ConfigServer = MailServer & { username: string };
 
-/** The servers of one type that take a password over TLS, implicit TLS first. */
 function configServers(xml: string, element: string, type: string): ConfigServer[] {
   const blocks = xml.matchAll(
     new RegExp(`<${element}\\s+type="${type}"\\s*>([\\s\\S]*?)</${element}>`, "g"),
@@ -263,8 +244,6 @@ export function parseAutoconfig(xml: string, email: string): ImapSettings | null
   const server = ({ host, port, security }: MailServer): MailServer => ({ host, port, security });
   return { username: fillUsername(imap.username, email), imap: server(imap), smtp: server(smtp) };
 }
-
-// ── Lookups ─────────────────────────────────────────────────────────────────
 
 async function fetchText(url: string, init?: RequestInit): Promise<string | null> {
   try {
@@ -309,17 +288,14 @@ export async function mxHosts(domain: string): Promise<string[]> {
   }
 }
 
-/** Second levels of country domains that are suffixes themselves (co.uk, com.au, …). */
 const SUFFIXES = new Set(["co", "com", "net", "org", "ac", "gov", "edu", "ne", "or"]);
 
-/** mx1.mail.example.co.uk → example.co.uk, roughly. */
 function baseDomain(host: string): string {
   const labels = host.split(".");
   const suffix = labels.at(-1)!.length === 2 && SUFFIXES.has(labels.at(-2)!);
   return labels.slice(suffix ? -3 : -2).join(".");
 }
 
-/** Whether the host completes a TLS handshake on IMAP's port, its certificate matching its name. */
 export async function servesImap(host: string): Promise<boolean> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -338,7 +314,6 @@ export async function servesImap(host: string): Promise<boolean> {
   }
 }
 
-/** The mail server itself: IMAP on 993, SMTP on 465, both over TLS. */
 const onServer = (host: string, email: string): ImapSettings => ({
   username: email,
   imap: tls(host),

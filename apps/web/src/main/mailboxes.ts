@@ -3,17 +3,8 @@ import { useAccounts } from "./mail/hooks";
 import type { MailAccount } from "./mail/types";
 import { setSyncedPreference } from "./synced-preferences";
 
-/**
- * How the mailboxes are arranged, following the Otter account to every
- * device: their order, and which are turned off. Mailboxes are named by
- * address, the one thing every device agrees on.
- * Core reads the same preference to leave turned-off mailboxes unsynced
- * (packages/core, services/mail-sync.ts).
- */
 export type MailboxArrangement = {
-  /** Addresses in the user's order; mailboxes not listed follow, as added. */
   order: string[];
-  /** Addresses of turned-off mailboxes. */
   off: string[];
 };
 
@@ -34,7 +25,6 @@ export function setMailboxArrangement(next: MailboxArrangement): void {
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
-/** The arrangement, re-read when it changes here, in another window, or on another device. */
 export function useMailboxArrangement(): MailboxArrangement {
   const [arrangement, setArrangement] = useState(read);
   useEffect(() => {
@@ -52,7 +42,6 @@ export function useMailboxArrangement(): MailboxArrangement {
   return arrangement;
 }
 
-/** Accounts in the user's order (turned-off ones included). */
 export function arrangeAccounts(
   accounts: MailAccount[],
   { order }: MailboxArrangement,
@@ -67,7 +56,6 @@ export function arrangeAccounts(
     .map((x) => x.account);
 }
 
-/** The mailboxes the app shows: turned-on accounts in the user's order. */
 export function useMailboxes(): {
   accounts: MailAccount[];
   isLoading: boolean;

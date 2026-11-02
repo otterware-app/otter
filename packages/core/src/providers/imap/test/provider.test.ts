@@ -1,10 +1,3 @@
-/**
- * The IMAP provider against real servers in Docker, driven the way core
- * drives it (sync runs, the handlers' writes) on a Node platform: Dovecot
- * for the QRESYNC paths, GreenMail (no mod-sequences) for the plain ones,
- * and GreenMail's SMTP for sending. Skipped when Docker isn't running.
- */
-
 import type { ImapSettings } from "@otter-mail/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
@@ -89,7 +82,6 @@ async function sync(accountId: string): Promise<MessageSummary[]> {
   return newMail;
 }
 
-/** The cached message with this Message-ID header. */
 function cachedByHeader(accountId: string, header: string) {
   const id = store
     .getMessageIdsWithPrefix(accountId, "")
@@ -248,7 +240,6 @@ function providerScenario(
     expect(thread()).not.toContain(cachedByHeader(accountId, stranger.id)!.id);
     expect(thread()).toContain(cachedByHeader(accountId, lookalike.id)!.id);
 
-    // Reported from the Inbox: the Inbox's own go to Junk, the rest stays put.
     await provider.modifyThread(accountId, lunch, {
       addLabelIds: ["SPAM"],
       removeLabelIds: ["INBOX"],
@@ -287,7 +278,6 @@ function providerScenario(
     expect(pathOf(cachedByHeader(accountId, b.id)!.id)).toBe("Sent");
     expect(await serverSearch("INBOX", a.id)).toEqual([]);
     expect(await serverSearch("Archive", a.id)).toHaveLength(1);
-    // The old id still finds it.
     expect(store.getThreadMessages(accountId, threadId)).toHaveLength(2);
     await sync(accountId);
     expect(pathOf(cachedByHeader(accountId, a.id)!.id)).toBe("Archive");
@@ -299,7 +289,6 @@ function providerScenario(
 
   it("gives ARCHIVE to archived mail cached before the Archive had a label", async () => {
     const { id } = cachedByHeader(accountId, a.id)!;
-    // As an older version left it: no label for the Archive's mail, nor in its sync state.
     store.applyHistoryChanges(accountId, [{ kind: "labelsRemoved", id, labelIds: ["ARCHIVE"] }]);
     const key = `imapSync:${accountId}`;
     const state = JSON.parse(store.getKv(key)!) as Record<string, { label?: string | null }>;
@@ -403,7 +392,6 @@ function providerScenario(
   it("replaces only the draft's own versions, whatever else mentions its id", async () => {
     const saved = await provider.saveDraft(accountId, { to: "", subject: "Mine", body: "1" });
     const drafts = pathOf(saved.messageId!);
-    // SEARCH HEADER matches substrings: this one's Message-ID contains the draft's.
     const decoy = mail({ subject: "Decoy" }).raw.replace(
       /^Message-ID: .*$/m,
       `Message-ID: ${saved.draftId}x`,
@@ -449,13 +437,11 @@ function providerScenario(
     let changes = 0;
     const stop = provider.watch!(accountId, () => changes++);
     try {
-      // Every (re)connect reports once, to catch up.
       await waitFor(() => (changes > 0 ? true : undefined));
       changes = 0;
       await seed.append("INBOX", mail({ subject: "While idling" }).raw);
       await waitFor(() => (changes > 0 ? true : undefined));
 
-      // Woken up (or a browser tab shown again): the same connection, checked, and a catch-up.
       changes = 0;
       const connections = connectionCount();
       resumeNow();
@@ -533,7 +519,7 @@ function providerScenario(
 
   it("says what's wrong with a wrong password", async () => {
     const { settings, password } = server();
-    await provider.removeAccount(accountId); // drops the logged-in connection
+    await provider.removeAccount(accountId);
     await setImapPassword(accountId, "nope");
     try {
       const err = await sync(accountId).catch((e: unknown) => e);
@@ -543,7 +529,6 @@ function providerScenario(
       expect(provider.isSignedIn(accountId)).toBe(false);
       await expect(sync(accountId)).rejects.toThrow(/Enter the password/);
 
-      // IDLE gives up at once too, telling the engine (which then stops it).
       await setImapPassword(accountId, "nope");
       let told = 0;
       const stop = provider.watch!(accountId, () => told++);

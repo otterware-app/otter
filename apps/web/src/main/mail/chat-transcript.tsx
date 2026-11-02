@@ -1,9 +1,3 @@
-/**
- * A chat's transcript: the user's messages with what they carried (context,
- * skill, files, citations), and each agent turn's reply, with its work folded
- * behind a "Worked for …" row once it's done and the changes it made below.
- */
-
 import { useEffect, useState } from "react";
 import { MessageScroller } from "@shadcn/react/message-scroller";
 import {
@@ -45,7 +39,6 @@ export function ContextKindIcon({ kind, className }: { kind: ContextKind; classN
   return <Icon className={className} />;
 }
 
-/** Command-style badge for an invoked skill (composer + user message). */
 export function SkillBadge({
   name,
   onRemove,
@@ -78,7 +71,6 @@ export function SkillBadge({
   );
 }
 
-/** Chip recap of the context sent with a user turn. */
 function ContextRecap({
   context,
   onOpen,
@@ -144,7 +136,6 @@ function formatDuration(ms: number): string {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
-/** Live elapsed time for the "Working for" row. */
 function WorkingTimer({ startedAt }: { startedAt: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -154,7 +145,6 @@ function WorkingTimer({ startedAt }: { startedAt: number }) {
   return <>{formatDuration(now - startedAt)}</>;
 }
 
-/** Bottom-of-turn activity row while Hermes is still running. */
 function WorkingRow({ startedAt }: { startedAt?: number }) {
   return (
     <div className="border-b border-border/40 pb-2 pt-1">
@@ -173,7 +163,6 @@ function WorkingRow({ startedAt }: { startedAt?: number }) {
   );
 }
 
-/** A run the app lost track of, waiting to be picked up again from the provider. */
 function DetachedRow({ providerName }: { providerName: string }) {
   return (
     <div className="border-b border-border/40 pb-2 pt-1">
@@ -184,7 +173,6 @@ function DetachedRow({ providerName }: { providerName: string }) {
   );
 }
 
-/** Collapsed summary of a finished run; toggles the tool rows underneath. */
 function WorkFoldRow({
   label,
   expanded,
@@ -210,7 +198,6 @@ function WorkFoldRow({
   );
 }
 
-/** Failed turn: red heading row plus the explanation underneath. */
 function ErrorRow({ message, providerName }: { message: string; providerName: string }) {
   return (
     <div className="flex flex-col px-0.5 py-1">
@@ -263,9 +250,7 @@ export function ChatTranscript({
   onOpenChange,
 }: {
   turns: ChatTurn[];
-  /** A turn of this chat is running: the last one streams. */
   streaming: boolean;
-  /** Its run was let go of mid-reply, waiting to be picked up again. */
   detached: boolean;
   providerName: string;
   onOpenFile: (href: string) => void;
@@ -273,7 +258,6 @@ export function ChatTranscript({
   onOpenContext: (item: { title: string; target: ChatChange["target"] }) => void;
   onOpenChange: (change: ChatChange) => Promise<void>;
 }) {
-  // Finished runs fold their tool rows behind a "Worked for …" summary.
   const [expandedFolds, setExpandedFolds] = useState<Set<string>>(() => new Set());
   const toggleFold = (id: string) =>
     setExpandedFolds((prev) => {
@@ -314,7 +298,6 @@ export function ChatTranscript({
     }
     const isLast = turn.id === turns[turns.length - 1]?.id;
     const live = streaming && isLast && !turn.finishedAt && !turn.error;
-    // Progress messages and tool steps fold away; the final reply stays.
     const items = (turn.items ?? []).filter((item) => item.kind === "step" || item.text.trim());
     const lastStep = items.findLastIndex((item) => item.kind === "step");
     const work = items.slice(0, lastStep + 1);

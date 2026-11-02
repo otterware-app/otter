@@ -1,6 +1,5 @@
 import Foundation
 
-/** Disk work stays off the UI thread; one queue orders reads, writes and sign-out deletions. */
 nonisolated final class MailCache: Sendable {
     struct Snapshot: Codable, Sendable {
         var mailbox: Mailbox
@@ -32,7 +31,6 @@ nonisolated final class MailCache: Sendable {
         queue.async {
             try? FileManager.default.createDirectory(at: self.folder, withIntermediateDirectories: true)
             for var cached in snapshots {
-                // The newest few hundred threads are plenty to open with; the rest reloads.
                 cached.threads = Array(cached.threads.sorted { $0.latest.date > $1.latest.date }.prefix(400))
                 try? JSONEncoder().encode(cached).write(to: self.file(cached.mailbox.email), options: .atomic)
             }

@@ -1,27 +1,4 @@
-/**
- * mail-sync.ts
- *
- * Background sync engine that keeps the local SQLite cache (mail-store) in
- * step with each account's mail. What a sync run does is the provider's
- * (providers/: Gmail's full sync and history deltas); this engine decides
- * when runs happen and keeps their status.
- *
- * Three independent lanes per account, most urgent first:
- *  - sync: the provider's run (Gmail: the history delta, labels, draft ids).
- *    Always short, so new mail shows up on every push and tick.
- *  - backfill: long work on the whole mailbox (Gmail: the first sync, the
- *    refresh after its history feed expired), beside the sync lane so it
- *    never holds up new mail. The account reads as syncing while it runs.
- *  - downloads: full bodies for offline reading, newest first, once there's
- *    no backfill left. It can take a long time on a big mailbox and never
- *    holds up the others or the "Syncing…" status.
- *
- * Syncs run when the mailbox reports a change (Gmail pushes through the
- * relay, realtime.ts), on a timer, and when the user asks. The timer is only
- * a fallback for accounts that get pushes. Sync is fire-and-forget; the
- * renderer polls getSyncStatus() to show progress and refreshes its views
- * when `revision` says the cache changed.
- */
+// Keep backfill and body downloads in separate lanes so they cannot delay new-mail sync.
 
 import { logger } from "../logger.js";
 import { broadcast } from "../ipc.js";
@@ -64,7 +41,6 @@ function update(accountId: string, patch: Partial<SyncStatus>): void {
   Object.assign(ensureStatus(accountId), patch);
 }
 
-/** The cache changed in a way lists show: the renderer refetches on a new revision. */
 function bumpRevision(accountId: string): void {
   const status = ensureStatus(accountId);
   status.revision += 1;
@@ -90,7 +66,6 @@ const BACKOFF_BASE_MS = 30_000;
 const BACKOFF_MAX_MS = 10 * 60_000;
 type Failures = Map<string, { count: number; retryAt: number }>;
 const failures: Failures = new Map();
-/** Backfills that failed: retried after a sync on the same growing delay. */
 const backfillFailures: Failures = new Map();
 /** A sync was requested while one ran: run once more when it ends (explicitly, or as a push, which respects backoff). */
 const rerun = new Map<string, "explicit" | "push">();
@@ -100,11 +75,6 @@ function recordFailure(accountId: string, map = failures): void {
   const delay = Math.min(BACKOFF_BASE_MS * 2 ** (count - 1), BACKOFF_MAX_MS);
   map.set(accountId, { count, retryAt: Date.now() + delay });
 }
-
-// ── Push ─────────────────────────────────────────────────────────────────
-// Accounts whose changes are pushed (Gmail's, through the relay; the Otter
-// account keeps this current) sync on each push; the timer only checks on
-// them every few minutes, in case a push got lost.
 
 const PUSHED_POLL_MS = 5 * 60_000;
 let pushedAccounts: ReadonlySet<string> = new Set();
@@ -184,10 +154,8 @@ export function syncAccount(
     else if (opts?.trigger === "push" && !rerun.has(accountId)) rerun.set(accountId, "push");
     return;
   }
-  // Re-added after removal: the old run has ended (not running), start fresh.
   removed.delete(accountId);
   if (turnedOff.has(accountId)) return;
-  // Nothing to sync with until the account signs in again (Settings → Accounts).
   if (!isSignedIn(accountId)) {
     stopWatch(accountId);
     update(accountId, { syncing: false, error: signedOutMessage(accountId), signInNeeded: true });
@@ -222,7 +190,6 @@ export function syncAccount(
   });
 }
 
-/** Sync every connected account — launch, menu, and the auto timer force it. */
 export async function syncAllAccounts(opts?: {
   force?: boolean;
   trigger?: "timer" | "push";
@@ -237,7 +204,6 @@ export async function syncAllAccounts(opts?: {
 
 let autoSyncTimer: ReturnType<typeof setInterval> | null = null;
 
-/** (Re)start the periodic pull-sync timer; 0 disables it. */
 export function configureAutoSync(intervalSeconds: number): void {
   if (autoSyncTimer) {
     clearInterval(autoSyncTimer);
@@ -266,7 +232,6 @@ function assertActive(accountId: string): void {
   if (removed.has(accountId)) throw new SyncCancelled(accountId);
 }
 
-/** Stops syncing a removed account and drops its in-memory sync state. */
 export function forgetAccount(accountId: string): void {
   removed.add(accountId);
   stopWatch(accountId);
@@ -277,7 +242,6 @@ export function forgetAccount(accountId: string): void {
   rerun.delete(accountId);
 }
 
-/** A short, readable reason for the status line. */
 function describeSyncError(accountId: string, err: unknown): string {
   const provider = findProvider(accountId);
   if (provider) return provider.describeError(err);
@@ -285,21 +249,15 @@ function describeSyncError(accountId: string, err: unknown): string {
   return text.length > 240 ? `${text.slice(0, 240)}…` : text;
 }
 
-/** Whether only signing in again (or the password, for IMAP) gets this account syncing again. */
 function needsSignIn(accountId: string, provider: MailProvider, err: unknown): boolean {
   return !isSignedIn(accountId) || provider.errorKind(err) === "auth";
 }
 
-/** A sync run is background work: it only spends quota the user isn't using. */
 function runSync(accountId: string): Promise<void> {
   const provider = providerFor(accountId);
   return provider.background("sync", () => runSyncNow(accountId, provider));
 }
 
-/**
- * Syncing while the sync or the backfill lane runs, showing the backfill's
- * progress over the sync's (its runs are brief next to it).
- */
 function laneStatus(
   accountId: string,
   syncRunning = running.has(accountId),
@@ -312,10 +270,7 @@ function laneStatus(
 
 async function runSyncNow(accountId: string, provider: MailProvider): Promise<void> {
   const { lastSyncAt } = store.getSyncState(accountId);
-  // Stamped as the run's START: mail arriving while the run is busy is newer
-  // than this and still gets notified next time.
   const startedAt = Date.now();
-  // A backfill's progress stays on show while the sync lane runs beside it.
   const shown = (patch: Partial<SyncStatus>) => {
     if (!backfilling.has(accountId)) return patch;
     const { phase: _phase, synced: _synced, total: _total, ...rest } = patch;
@@ -354,15 +309,11 @@ async function runSyncNow(accountId: string, provider: MailProvider): Promise<vo
       error: describeSyncError(accountId, err),
       signInNeeded: needsSignIn(accountId, provider, err),
     });
-    // The server refused the sign-in (the provider set it aside): nothing more
-    // to try, IDLE included, until the user signs in again.
     if (!isSignedIn(accountId)) stopWatch(accountId);
   }
 
   updateDockBadge();
   if (!isSignedIn(accountId)) return;
-  // Long work on the whole mailbox runs beside the sync lane once the feed is
-  // current; offline bodies download after it, in their own lane.
   if (provider.needsBackfill?.(accountId)) {
     if (synced) startBackfill(accountId, provider);
   } else {
@@ -389,7 +340,6 @@ function startBackfill(accountId: string, provider: MailProvider): void {
         update: (patch) => update(accountId, patch),
         bumpRevision: () => bumpRevision(accountId),
         assertActive: () => assertActive(accountId),
-        // Nothing a backfill finds is new mail.
         newMail: async () => {},
       }),
     )
@@ -403,7 +353,6 @@ function startBackfill(accountId: string, provider: MailProvider): void {
           fullSyncDone: store.getSyncState(accountId).fullSyncDone,
         });
         bumpRevision(accountId);
-        // Catch up on what changed meanwhile; that run starts the downloads.
         syncAccount(accountId, { force: true });
       },
       (err: unknown) => {
@@ -487,12 +436,10 @@ function startDownloads(accountId: string, provider: MailProvider): void {
 }
 
 async function downloadBodies(accountId: string, provider: MailProvider): Promise<void> {
-  // A browser's storage is too small (and too easily evicted) for every body.
   const total = platform().offlineDownloads ? store.countUndownloaded(accountId) : 0;
   if (total > 0) {
     let done = 0;
     const attempted = new Set<string>();
-    /** Messages whose thread failed to come whole: each goes on its own. */
     const singly = new Set<string>();
     update(accountId, { download: { done, total } });
     for (;;) {
@@ -502,8 +449,6 @@ async function downloadBodies(accountId: string, provider: MailProvider): Promis
         .getUndownloadedMessages(accountId, DOWNLOAD_CHUNK)
         .filter((m) => !attempted.has(m.id));
       if (batch.length === 0) break;
-      // Two or more messages of a thread come in one request where the
-      // provider can (Gmail's threads.get costs what two messages do).
       const threads = new Map<string, string[]>();
       for (const m of batch) {
         const key = provider.getThread && !singly.has(m.id) ? m.threadId : m.id;
@@ -513,7 +458,6 @@ async function downloadBodies(accountId: string, provider: MailProvider): Promis
         ([threadId, ids]) => ({ threadId: ids.length > 1 ? threadId : null, ids }),
       );
       let pushedBack = false;
-      // Written together once the chunk is in: one transaction, not sixty.
       const details: MessageDetail[] = [];
       await mapPool(jobs, DOWNLOAD_CONCURRENCY, async ({ threadId, ids }) => {
         if (pushedBack || removed.has(accountId)) return;
@@ -531,18 +475,15 @@ async function downloadBodies(accountId: string, provider: MailProvider): Promis
             kind === "auth" ||
             !isSignedIn(accountId)
           ) {
-            // Not the message's fault: leave it queued and end this pass.
             for (const each of ids) attempted.delete(each);
             pushedBack = true;
           } else if (threadId) {
-            // Next time each message goes on its own, with its own outcome.
             for (const each of ids) {
               attempted.delete(each);
               singly.add(each);
             }
             return;
           } else if (kind === "notFound") {
-            // Deleted on the server since it was listed (sync may have dropped it already).
             if (store.deleteMessage(accountId, id)) bumpRevision(accountId);
           } else {
             logger.info(
@@ -556,7 +497,6 @@ async function downloadBodies(accountId: string, provider: MailProvider): Promis
         update(accountId, { download: { done: Math.min(done, total), total } });
       });
       assertActive(accountId);
-      // Not mail the feed deleted meanwhile.
       const gone = new Set(
         store.filterUnknownIds(
           accountId,

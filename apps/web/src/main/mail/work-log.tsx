@@ -23,7 +23,6 @@ import type { ToolStep } from "./api";
 import { ChatMarkdown } from "./chat-markdown";
 import { cn } from "./ui";
 
-/** A turn's content in order: what the agent said, and the steps it took. */
 export type TurnItem =
   | { kind: "text"; id?: string; text: string }
   | { kind: "step"; id?: string; step: ToolStep; output?: string };
@@ -38,7 +37,6 @@ const STEP_ICONS: Record<ToolStep["kind"], typeof WrenchIcon> = {
   tool: WrenchIcon,
 };
 
-/** An integration's steps wear its mark; the others, what they do. */
 const stepIcon = (step: ToolStep) => (step.source ? CommandIcon : STEP_ICONS[step.kind]);
 
 type Step = Extract<TurnItem, { kind: "step" }>;
@@ -48,7 +46,6 @@ type Block =
   | { kind: "step"; item: Step }
   | { kind: "group"; source: string; items: Step[] };
 
-/** Runs of two or more steps from the same integration become one group. */
 function blocksOf(items: TurnItem[]): Block[] {
   const blocks: Block[] = [];
   for (const item of items) {
@@ -94,7 +91,6 @@ export function WorkLog({
 }
 /* oxlint-enable react/no-array-index-key */
 
-/** A row's icon, title and chevron; the rest of the log lines up under it. */
 function RowHead({
   icon: Icon,
   title,
@@ -150,7 +146,6 @@ function RowHead({
   );
 }
 
-/** "Used Otter Mail integration", open to its steps. */
 /* oxlint-disable react/no-array-index-key -- Transcript blocks append and update in place; position preserves streaming row state. */
 function StepGroup({ source, items }: { source: string; items: Step[] }) {
   const [open, setOpen] = useState(true);
@@ -217,7 +212,6 @@ function indentJson(text: string): string {
   return out;
 }
 
-/** The output as indented JSON when it is JSON (even cut short), else null. */
 function prettyJson(text: string | undefined): string | null {
   if (!text || !/^\s*[[{]/.test(text)) return null;
   try {
@@ -227,7 +221,6 @@ function prettyJson(text: string | undefined): string | null {
   }
 }
 
-/** JSON with its strings and values colored. */
 function highlightJson(json: string): ReactNode[] {
   const parts: ReactNode[] = [];
   let last = 0;
@@ -248,7 +241,6 @@ function highlightJson(json: string): ReactNode[] {
   return parts;
 }
 
-/** A step opened: what it was given, and what came back, in a code card. */
 function StepResult({ step, output }: { step: ToolStep; output?: string }) {
   const json = prettyJson(output);
   const detail = prettyJson(step.detail) ?? step.detail;
@@ -272,7 +264,6 @@ function StepResult({ step, output }: { step: ToolStep; output?: string }) {
   );
 }
 
-/** A scrolling block that fades out at the bottom while there's more below. */
 function FadingPre({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLPreElement>(null);
   const [more, setMore] = useState(false);

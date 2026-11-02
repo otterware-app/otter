@@ -1,27 +1,14 @@
-/**
- * Label changes the app has made locally that Gmail may not reflect yet.
- *
- * Archive, trash, read/unread and labelling write the local cache first and
- * reach Gmail a moment later. Anything read from Gmail in between (the unread
- * reconcile, live paging, a sync's metadata fetch) still shows the old labels,
- * and storing it as-is undid the change: an archived conversation popped back
- * into the Inbox. Every such read goes through `upsertMessages`, which re-applies
- * these pending changes on top. A change stays pending while its write is in
- * flight and for a grace period after (reads that started before it landed can
- * still arrive); a failed write drops it, so its local revert sticks.
- */
+// Overlay pending local labels on server reads until writes settle; even successful writes can have older reads in flight.
 
 import { landLabelChange, type Landing } from "@otter-mail/contracts";
 
 import type { MessageSummary } from "../types.js";
 
-/** How long a landed write keeps overriding what Gmail reports. */
 const SETTLED_GRACE_MS = 30_000;
 
 type PendingChange = {
   add: string[];
   remove: string[];
-  /** How it lands (landLabelChange): where Archive is a folder, mail moves in and out of it. */
   landing: Landing;
   until: number;
 };
@@ -39,11 +26,6 @@ function live(key: string, now = Date.now()): PendingChange[] {
   return changes;
 }
 
-/**
- * Records a label change as pending until its Gmail write settles. Call
- * `settled()` when Gmail confirmed it (it then lingers for the grace period)
- * or `dropped()` when the write failed.
- */
 export function trackLabelWrite(
   accountId: string,
   messageIds: string[],
@@ -84,7 +66,6 @@ export function renamePendingLabel(accountId: string, from: string, to: string):
   }
 }
 
-/** Whether any label write for the account is still pending. */
 export function hasPendingLabelWrites(accountId: string): boolean {
   const prefix = `${accountId}:`;
   for (const key of pending.keys()) {
@@ -93,7 +74,6 @@ export function hasPendingLabelWrites(accountId: string): boolean {
   return false;
 }
 
-/** Messages read from Gmail, with this app's pending label changes re-applied. */
 export function withPendingLabels<T extends MessageSummary>(accountId: string, messages: T[]): T[] {
   if (pending.size === 0) return messages;
   const now = Date.now();

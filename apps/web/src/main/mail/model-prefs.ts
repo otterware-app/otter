@@ -1,9 +1,3 @@
-/**
- * Per-model client preferences, as T3 Code keeps them: favorites (pinned in
- * the picker) and models hidden from the picker. Keys are `kind:slug`;
- * stored on this device and shared live between Settings and the composer.
- */
-
 import { setSyncedPreference, type SyncedKey } from "../synced-preferences";
 import { useSyncExternalStore } from "react";
 import type { ProviderKind } from "./api";
@@ -34,7 +28,6 @@ function write(name: keyof Prefs, values: string[]): void {
   for (const listener of listeners) listener();
 }
 
-// Picked on another device (or in another window).
 window.addEventListener("storage", (event) => {
   if (event.key !== KEYS.favorites && event.key !== KEYS.hidden) return;
   snapshot = { favorites: read(KEYS.favorites), hidden: read(KEYS.hidden) };

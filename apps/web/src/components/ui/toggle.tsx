@@ -1,10 +1,5 @@
 "use client";
 
-/**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
- * apps/web/src/components/ui/toggle.tsx. Mail: `accent` is `accent-surface` here,
- * as Mail's --accent is the primary color, Otter Code's a quiet surface.
- */
 import { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
 import { cva, type VariantProps } from "class-variance-authority";
 
@@ -57,5 +52,4 @@ function Toggle({
   );
 }
 
-// The *Variants function is for components/ui modules only.
 export { Toggle, toggleVariants };

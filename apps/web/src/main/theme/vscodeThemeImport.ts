@@ -1,7 +1,3 @@
-/**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
- * apps/web/src/vscodeThemeImport.ts, unchanged.
- */
 import {
   createVividThemeColors,
   getThemeModes,
@@ -31,7 +27,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** sRGB transfer function, and its inverse, shared by the wide-gamut path. */
 function decodeGamma(value: number): number {
   return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
 }
@@ -41,11 +36,6 @@ function encodeGamma(value: number): number {
   return clamped <= 0.0031308 ? clamped * 12.92 : 1.055 * clamped ** (1 / 2.4) - 0.055;
 }
 
-/**
- * `color(display-p3 r g b / a)` shows up in themes authored for wide-gamut
- * displays. Out-of-gamut colors clip to the sRGB edge, which is what a browser
- * on an sRGB screen shows anyway.
- */
 function parseColorFunction(value: string): VsCodeRgba | null {
   const match = /^color\(\s*(display-p3|srgb)\s+([^)]+)\)$/i.exec(value);
   if (!match) return null;
@@ -74,7 +64,6 @@ function parseColorFunction(value: string): VsCodeRgba | null {
     number,
     number,
   ];
-  // Display P3 linear -> sRGB linear.
   const srgb = [
     1.2249401762805 * linearRed - 0.2249401762805 * linearGreen,
     -0.042056961239 * linearRed + 1.042056961239 * linearGreen,
@@ -83,8 +72,6 @@ function parseColorFunction(value: string): VsCodeRgba | null {
   return { r: srgb[0], g: srgb[1], b: srgb[2], a: Math.max(0, Math.min(1, alpha)) };
 }
 
-/** VS Code accepts #RGB, #RGBA, #RRGGBB, and #RRGGBBAA; some themes also use
- *  CSS color() notation for wide-gamut palettes. */
 function parseVsCodeColor(value: unknown): VsCodeRgba | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -162,11 +149,9 @@ function resolveAppearance(value: Record<string, unknown>, canvas: VsCodeRgb): T
   const type = typeof value.type === "string" ? value.type.toLowerCase() : null;
   if (type === "light" || type === "hc-light") return "light";
   if (type === "dark" || type === "hc-black") return "dark";
-  // Unlabelled themes (and the odd custom `type`) follow the editor surface.
   return relativeLuminance(canvas) < 0.179 ? "dark" : "light";
 }
 
-/** Extension `name` fields are often package slugs; read them as words. */
 export function humanizeThemeName(raw: string): string {
   const trimmed = raw.trim();
   if (/\s/.test(trimmed) || !/[-_.]/.test(trimmed)) return trimmed;
@@ -192,7 +177,6 @@ export function parseVsCodeThemeFile(value: unknown): ThemeDefinition {
   if (!isRecord(value)) throw new Error("Theme files must contain a JSON object.");
   const colors = isRecord(value.colors) ? value.colors : {};
 
-  /** First key that carries a usable color, in priority order. */
   const pick = (...keys: ReadonlyArray<string>): VsCodeRgba | null => {
     for (const key of keys) {
       const parsed = parseVsCodeColor(colors[key]);
@@ -252,10 +236,6 @@ export function parseVsCodeThemeFile(value: unknown): ThemeDefinition {
     const isReadable = (candidate: string) => contrastRatio(hexToRgb(candidate), surfaceRgb) >= 4.5;
     const specified = solidOver(surfaceRgb, ...keys);
     if (specified && isReadable(specified)) return specified;
-    // The derived fallback was solved against the derived surface. When the
-    // file replaced that surface (a light sideBar in a dark theme, say), the
-    // fallback has to clear the bar there too, or the text falls back to the
-    // readable end of the greyscale for the surface actually in play.
     if (isReadable(fallback)) return fallback;
     return relativeLuminance(surfaceRgb) < 0.179 ? "#ffffff" : "#000000";
   };
@@ -308,7 +288,6 @@ export function parseVsCodeThemeFile(value: unknown): ThemeDefinition {
   if (accentHex) {
     overrides.accent = accentHex;
     overrides.focus = accentHex;
-    // The button pair is the closest thing VS Code has to our action color.
     const actionHex = solidOver(canvas, "button.background") ?? accentHex;
     overrides.messageAction = actionHex;
     overrides.messageActionForeground = readableOn(
@@ -333,12 +312,6 @@ export function parseVsCodeThemeFile(value: unknown): ThemeDefinition {
   });
 }
 
-/**
- * Extensions ship a family of themes (GitHub: dark, light, dark-colorblind,
- * light-colorblind, dark-dimmed, ...). When several are imported together,
- * a light and a dark file whose names differ only by the appearance word
- * become one dual-mode theme; everything else stays its own theme.
- */
 export function pairVsCodeThemes(
   themes: ReadonlyArray<ThemeDefinition>,
   options?: {
@@ -355,8 +328,6 @@ export function pairVsCodeThemes(
   const groups = new Map<string, Group>();
   const passthrough: Array<{ theme: ThemeDefinition; order: number }> = [];
   themes.forEach((theme, order) => {
-    // Only single-appearance themes with an appearance word in the name can
-    // pair; anything else is already what the user asked for.
     const key = stripAppearance(theme.label);
     if (getThemeModes(theme).length !== 1 || key === theme.label || key.length === 0) {
       passthrough.push({ theme, order });
@@ -369,10 +340,6 @@ export function pairVsCodeThemes(
 
   const paired: Array<{ theme: ThemeDefinition; order: number }> = [];
   for (const [key, group] of groups) {
-    // Ambiguity (two darks for one light) is not guessed at, and a pair
-    // whose stripped name collides with a built-in id ("Grove Light" +
-    // "Grove Dark" -> the reserved "grove") stays two single themes rather
-    // than failing the whole batch.
     if (group.light.length === 1 && group.dark.length === 1) {
       try {
         paired.push({
@@ -409,7 +376,6 @@ export function pairVsCodeThemes(
 export function resolveThemeLabelCollisions(
   entries: ReadonlyArray<{ theme: ThemeDefinition; sourceName?: string | undefined }>,
 ): ReadonlyArray<ThemeDefinition> {
-  // Null when the new name is unusable (reserved id, invalid characters).
   const rename = (theme: ThemeDefinition, name: string): ThemeDefinition | null => {
     try {
       return parseThemeFile({

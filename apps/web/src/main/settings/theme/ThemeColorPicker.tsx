@@ -1,10 +1,4 @@
 import { useLatest } from "../../use-latest";
-/**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
- * apps/web/src/components/settings/ThemeColorPicker.tsx, unchanged but for
- * import paths. Mail: `accent` is `accent-surface`, as Mail's --accent is the
- * primary color, Otter Code's a quiet surface.
- */
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { isThemeColor, themeColorToHex, type ThemeColorRole } from "../../theme/themePalette";
 import { cn } from "~/lib/utils";
@@ -114,9 +108,6 @@ function ThemeColorPickerPanel({
     );
   }, [normalizedValue]);
 
-  // Local state updates immediately for a smooth thumb; the parent commit
-  // (which can regenerate a whole guided palette) is batched to one call per
-  // animation frame.
   const onChangeRef = useLatest(onChange);
   const pendingCommitRef = useRef<string | null>(null);
   const commitFrameRef = useRef<number | null>(null);

@@ -46,7 +46,6 @@ import {
   highlightThemeRoleUsage,
   refreshThemeInspectorSpotlight,
 } from "./themeInspector";
-// Mail: the draft is painted by Mail's own theme code.
 import { applyThemeColorPreview } from "../../theme/apply-theme";
 
 const THEME_EDITOR_SIMPLE_ROLES: ReadonlyArray<ThemeColorRole> = ["canvas", "accent"];
@@ -132,7 +131,6 @@ const THEME_EDITOR_ROLE_GROUPS: ReadonlyArray<{
       },
       {
         id: "accent",
-        // Mail: the accent itself isn't painted in Mail; its focus ring is.
         label: "Focus ring",
         role: "accent",
         roles: [
@@ -272,7 +270,6 @@ export function ThemeEditorPanel({
     theme: ThemeDefinition,
     context: {
       created: boolean;
-      /** Set when a create merged its palette into an existing theme. */
       mergedAppearance?: ThemeAppearance;
     },
   ) => boolean;
@@ -281,9 +278,7 @@ export function ThemeEditorPanel({
   /** The theme a new theme starts from, so tuning what you already use is a
    *  matter of editing rather than rebuilding. Null starts from the defaults. */
   seedTheme?: ThemeDefinition | null;
-  /** Prefilled name for an explicit duplicate; a plain create stays unnamed. */
   seedName?: string | undefined;
-  /** Reapplies the stored theme once the draft stops being previewed. */
   restoreTheme: () => void;
 }) {
   const isEditing = editingTheme !== null;
@@ -305,7 +300,6 @@ export function ThemeEditorPanel({
   // Null parks the panel at its default corner; a value is a dragged spot,
   // kept clamped so the header can always be grabbed again.
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
-  // Null keeps the responsive default size; a value is a corner-grip resize.
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dragOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
@@ -322,12 +316,9 @@ export function ThemeEditorPanel({
   const clampPosition = (x: number, y: number, widthOverride?: number) => {
     const panel = panelRef.current;
     const margin = 8;
-    // The caller passes a width when it has just shrunk the panel: the DOM
-    // still reports the old one until React commits.
     const width = widthOverride ?? panel?.offsetWidth ?? 0;
     return {
       x: Math.min(Math.max(x, margin), Math.max(margin, window.innerWidth - width - margin)),
-      // Keep at least the header on screen even when dragged far down.
       y: Math.min(Math.max(y, margin), Math.max(margin, window.innerHeight - 48)),
     };
   };
@@ -771,7 +762,6 @@ export function ThemeEditorPanel({
             // Storage is failing wholesale; the error below covers it.
           }
         } else if (mergeTarget && mergedAppearance !== null) {
-          // Put the pre-merge definitions back for the same reason.
           try {
             updateCustomTheme(mergeTarget);
             if (retiredTheme) installCustomTheme(retiredTheme);
@@ -946,7 +936,6 @@ export function ThemeEditorPanel({
   };
 
   const handleDragPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    // Buttons in the header keep their own behavior.
     if ((event.target as HTMLElement).closest("button, input, a")) return;
     const rect = panelRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -1021,8 +1010,6 @@ export function ThemeEditorPanel({
       style={{
         ...(position ? { left: position.x, top: position.y } : {}),
         ...(size ? { width: size.width } : {}),
-        // A chosen height only applies expanded; minimized keeps hugging the
-        // header. The viewport stays the ceiling either way.
         ...(size && !isMinimized ? { height: size.height, maxHeight: "calc(100dvh - 1rem)" } : {}),
       }}
     >

@@ -43,12 +43,9 @@ import { CODEX_DEFAULTS, type CodexSettings } from "./settings.js";
 
 const PROBE_TIMEOUT_MS = 10_000;
 const REQUEST_TIMEOUT_MS = 30_000;
-/** Idle chat sessions release their app-server after this long. */
 const SESSION_IDLE_MS = 15 * 60_000;
-/** The utility server (history, skills) goes away sooner. */
 const UTILITY_IDLE_MS = 60_000;
 
-/** T3's runtime modes → Codex thread config. */
 function threadConfig(settings: CodexSettings) {
   switch (settings.runtimeMode) {
     case "approval-required":
@@ -83,10 +80,6 @@ function planLabel(plan: string | null | undefined): string {
   return `ChatGPT ${plan.charAt(0).toUpperCase()}${plan.slice(1).replace(/_/g, " ")}`;
 }
 
-// ---------------------------------------------------------------------------
-// Thread items → tool rows
-// ---------------------------------------------------------------------------
-
 type Item = { type?: string; id?: string } & Record<string, unknown>;
 
 function toolOutput(item: Item): string {
@@ -114,19 +107,13 @@ function userText(item: Item): string {
     .join("\n");
 }
 
-// ---------------------------------------------------------------------------
-// Sessions (one app-server each)
-// ---------------------------------------------------------------------------
-
 type ActiveTurn = {
   requestId: string;
   emit: Emit;
   turnId: string | null;
   cancelRequested: boolean;
   text: TextStream;
-  /** Last non-retried error, reported if the turn then fails. */
   error: string | null;
-  /** Approval requests waiting on the user, by approval id. */
   approvals: Map<string, ServerRequest>;
   finish: () => void;
 };
@@ -136,9 +123,7 @@ type Session = {
   threadId: string;
   turn: ActiveTurn | null;
   idleTimer: ReturnType<typeof setTimeout> | null;
-  /** The chat's runtime mode, as of its last turn. */
   mode: RuntimeMode;
-  /** Otter Mail's tools, on this chat's token. */
   tools: ToolAccess;
 };
 
@@ -157,7 +142,6 @@ function armIdle(session: Session): void {
   }, SESSION_IDLE_MS);
 }
 
-/** Codex's answer for an approval request, per T3's decision mapping. */
 function approvalResponse(request: ServerRequest, decision: ApprovalDecision | "cancel"): unknown {
   if (request.method === "item/permissions/requestApproval") {
     const granted = decision === "once" || decision === "session" || decision === "always";
@@ -191,7 +175,6 @@ function approvalResponse(request: ServerRequest, decision: ApprovalDecision | "
   };
 }
 
-/** A server request as the user sees it, or null when it isn't an approval. */
 function toApproval(request: ServerRequest): ApprovalRequest | null {
   const p = request.params;
   const id = String(request.id);
@@ -244,10 +227,6 @@ function toApproval(request: ServerRequest): ApprovalRequest | null {
   }
 }
 
-/**
- * Approvals go to the user as `approval` events and wait for their answer;
- * other requests (user input, MCP elicitation) are answered empty.
- */
 function handleServerRequest(session: Session, request: ServerRequest): void {
   const approval = toApproval(request);
   const turn = session.turn;
@@ -346,7 +325,6 @@ function handleNotification(session: Session, { method, params }: Notification):
   }
 }
 
-/** Resume errors that mean "no such thread" (then start a fresh one). */
 function isMissingThread(error: unknown): boolean {
   const message = String(error instanceof Error ? error.message : error).toLowerCase();
   return (
@@ -370,7 +348,6 @@ async function openSession(
   if (existing?.server.alive) return existing;
 
   const cwd = await agentWorkspace();
-  // The tools' caller is this session, once it exists.
   const current: { session?: Session } = {};
   const tools = await toolAccess({
     mode: () => current.session?.mode ?? settings.runtimeMode,
@@ -390,7 +367,6 @@ async function openSession(
         [MCP_SERVER_NAME]: {
           url: tools.url,
           http_headers: tools.headers,
-          // The tools ask the user themselves (and may wait on them).
           default_tools_approval_mode: "approve",
           tool_timeout_sec: 3600,
         },
@@ -458,10 +434,6 @@ async function openSession(
   return session;
 }
 
-// ---------------------------------------------------------------------------
-// Utility server (probe, history, skills)
-// ---------------------------------------------------------------------------
-
 let utility: {
   server: Promise<CodexAppServer>;
   timer: ReturnType<typeof setTimeout> | null;
@@ -506,7 +478,6 @@ const REASONING_EFFORT_LABELS: Record<string, string> = {
   ultra: "Ultra",
 };
 
-/** Standard speed; what an unset service tier means. */
 export const DEFAULT_SERVICE_TIER = "default";
 
 type RawModel = {
@@ -524,7 +495,6 @@ type RawModel = {
   defaultServiceTier?: string | null;
 };
 
-/** Reasoning + Service Tier options, as T3's mapCodexModelCapabilities builds them. */
 function modelOptions(m: RawModel): ProviderModelOption[] {
   const options: ProviderModelOption[] = [];
   const efforts = m.supportedReasoningEfforts ?? [];
@@ -572,7 +542,6 @@ function modelOptions(m: RawModel): ProviderModelOption[] {
   return options;
 }
 
-/** Last catalog from the health probe; turns resolve effort/tier defaults against it. */
 let knownModels: ProviderModel[] = [];
 
 async function listModels(server: CodexAppServer): Promise<ProviderModel[]> {
@@ -635,10 +604,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   });
 }
 
-// ---------------------------------------------------------------------------
-// Provider
-// ---------------------------------------------------------------------------
-
 const turnsByRequest = new Map<string, Session>();
 
 export const codexProvider: ChatProvider<CodexSettings> = {
@@ -655,7 +620,6 @@ export const codexProvider: ChatProvider<CodexSettings> = {
     serviceTier: "string",
     runtimeMode: "runtimeMode",
   },
-  // Where the CLI lives is this computer's; a new one restarts it.
   deviceFields: ["binaryPath", "homePath", "launchArgs"],
   restartFields: ["binaryPath", "homePath", "launchArgs"],
 
@@ -776,7 +740,6 @@ export const codexProvider: ChatProvider<CodexSettings> = {
         name: turn.skill.name,
         path: turn.skill.path,
       });
-    // Otter Code: text with every attachment's path, then images as data URLs.
     const attached = turn.attachments ?? [];
     const base = turn.input || (attached.length ? "" : `Use the ${turn.skill?.name ?? ""} skill.`);
     input.push({ type: "text", text: withAttachmentPaths(base, attached), text_elements: [] });
@@ -813,7 +776,6 @@ export const codexProvider: ChatProvider<CodexSettings> = {
     }
   },
 
-  /** turn/steer: adds input to the active turn (expectedTurnId guards races). */
   async steer(requestId, input) {
     const session = turnsByRequest.get(requestId);
     const turn = session?.turn;
@@ -958,7 +920,6 @@ export const codexProvider: ChatProvider<CodexSettings> = {
     return messages;
   },
 
-  /** Archived, not destroyed: it stays recoverable from the Codex CLI. */
   readFile: (_settings, _sessionId, href) => readAgentFile(href),
 
   async deleteSession(settings, sessionId) {

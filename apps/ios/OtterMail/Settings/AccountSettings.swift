@@ -1,9 +1,5 @@
 import SwiftUI
 
-/**
- * Settings › Account, as on the desktop: the devices signed in to the Otter
- * account, signing out, and deleting the account.
- */
 struct AccountSettings: View {
     @Environment(Session.self) private var session
     @Environment(\.palette) private var palette
@@ -85,7 +81,6 @@ struct AccountSettings: View {
         devices = (try? await session.relay.devices())?.sorted { $0.updatedAt > $1.updatedAt } ?? []
     }
 
-    /** A device's name from its session's user agent, as core's otter-account.ts reads it. */
     static func name(_ userAgent: String?) -> String {
         let ua = userAgent ?? ""
         if let match = ua.firstMatch(of: /^Otter Mail\/\S+ \((.+)\)$/) {
@@ -100,7 +95,6 @@ struct AccountSettings: View {
     }
 }
 
-/** A profile picture from Google, or the otter while there's none. */
 struct ProfilePicture: View {
     let url: String?
     var size: CGFloat = 36

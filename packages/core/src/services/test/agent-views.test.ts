@@ -1,8 +1,3 @@
-/**
- * The agent's view tools (agent/tools/views.ts) on fake handlers: two
- * mailboxes with their labels, and an in-memory view store.
- */
-
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({

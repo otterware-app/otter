@@ -9,23 +9,16 @@ import Foundation
  */
 
 nonisolated struct Mailbox: Identifiable, Hashable, Codable {
-    /** The address: the one thing every device agrees on. */
     var email: String
     var name: String
-    /** Set in Settings › Mailboxes; shown in the sidebar and on rows. */
     var displayName: String
     var color: String
-    /** The address's signature, as HTML: Gmail's, or for IMAP and Outlook the Otter account's (preferences, `signatures`). */
     var signature: String
     var labels: [MailLabel]
-    /** Outlook and IMAP: the mailbox has an Archive folder (`ARCHIVE`), as its last sync found. */
     var hasArchive: Bool? = nil
     var picture: String? = nil
-    /** Linked to the Otter account on another device, but not signed in on this one (Google, Microsoft, or the IMAP password). */
     var signedOut = false
-    /** Where an IMAP mailbox lives; nil for Gmail and Outlook. */
     var imap: ImapSettings? = nil
-    /** An Outlook mailbox (Microsoft Graph). */
     var outlook: Bool? = nil
 
     var id: String { email }
@@ -39,10 +32,8 @@ nonisolated struct Mailbox: Identifiable, Hashable, Codable {
         }
     }
 
-    /** How it marks mail, and the SF Symbol for it: Gmail's star, or Outlook's and IMAP's flag. */
     var mark: String { capabilities.flags ? "flag" : "star" }
 
-    /** Its system folders in the drawer: All Mail and Important are Gmail's; Archive a folder of its own elsewhere, once there's one. */
     var folders: [Folder] {
         Folder.system.filter { folder in
             switch folder {
@@ -55,18 +46,12 @@ nonisolated struct Mailbox: Identifiable, Hashable, Codable {
     }
 }
 
-// ── Providers (packages/contracts/src/mail.ts) ────────────────────────────
-
 nonisolated enum MailProviderKind: String, Codable {
     case gmail, imap, outlook
 }
 
-
-/** What a mailbox can do beyond reading, organizing and sending; the UI hides the rest. */
 nonisolated struct MailCapabilities: Hashable {
-    /** Gmail's sorting of the inbox (categories, Important). */
     var categories: Bool
-    /** A message can carry several labels at once (Gmail, Outlook's categories); IMAP mail sits in one folder. */
     var multipleLabels: Bool
     var labelColors: Bool
     /** Signatures kept by the server (Gmail's settings) rather than on this iPhone. */
@@ -89,9 +74,7 @@ nonisolated struct MailCapabilities: Hashable {
 }
 
 nonisolated struct MailLabel: Identifiable, Hashable, Codable {
-    /** Gmail's label id ("Label_12"); the demo uses the name. */
     var id: String
-    /** Gmail nests labels by "/" in the name. */
     var name: String
     var color: String?
 
@@ -100,7 +83,6 @@ nonisolated struct MailLabel: Identifiable, Hashable, Codable {
 }
 
 nonisolated struct Attachment: Hashable, Codable {
-    /** Gmail's attachment id, to download it; nil in the demo. */
     var id: String? = nil
     var filename: String
     var mimeType: String
@@ -118,7 +100,6 @@ nonisolated struct Message: Identifiable, Hashable, Codable {
     var text: String
     var html: String?
     var attachments: [Attachment]
-    /** Images the HTML shows inline (by `contentID`). */
     var inline: [Attachment]? = nil
     var unread: Bool
     var starred: Bool
@@ -126,7 +107,6 @@ nonisolated struct Message: Identifiable, Hashable, Codable {
     /** The ones replies and unsubscribing need: Message-ID, References, List-Unsubscribe. */
     var headers: [String: String]
 
-    /** The message's own words (not the history it quotes), whitespace collapsed, as Gmail's snippet. */
     var snippet: String {
         // A one-line preview must not scan megabytes of newsletter or quoted history while scrolling.
         let body = Quote.split(String(text.prefix(4096))).body
@@ -161,7 +141,6 @@ nonisolated struct MailThread: Identifiable, Hashable, Codable {
         isFolder(label) && !["SENT", "DRAFT", "SPAM", "TRASH", "ARCHIVE"].contains(label)
     }
 
-    /** What archiving takes it out of: the inbox, and where Archive is a folder (`archiveFolder`), the user's folders too. */
     func archivable(archiveFolder: Bool) -> Set<String> {
         labels.filter { $0 == "INBOX" || archiveFolder && Self.archivesFrom($0) }
     }
@@ -188,12 +167,10 @@ nonisolated struct MailThread: Identifiable, Hashable, Codable {
     }
 }
 
-/** The system folders of the sidebar, then the mailbox's labels (views-store.ts's built-ins). */
 nonisolated enum Folder: Hashable {
     case inbox, starred, sent, drafts, important, allMail, archive, junk, trash
     case label(id: String, name: String)
 
-    /** Every mailbox's, in the drawer's order; `Mailbox.folders` says which it has. */
     static let system: [Folder] = [.inbox, .starred, .sent, .drafts, .important, .allMail, .archive, .junk, .trash]
 
     var title: String {
@@ -226,7 +203,6 @@ nonisolated enum Folder: Hashable {
         }
     }
 
-    /** Its name in `mailbox`: where mail is flagged (Outlook, IMAP), Starred is Flagged. */
     func title(in mailbox: Mailbox?) -> String {
         self == .starred && mailbox?.capabilities.flags == true ? "Flagged" : title
     }
@@ -236,7 +212,6 @@ nonisolated enum Folder: Hashable {
     }
 }
 
-/** A reply's own words, and the history it quotes ("On … wrote:" and the ">" lines after). */
 nonisolated enum Quote {
     static func split(_ text: String) -> (body: String, quote: String?) {
         let pattern = /\n+(On .{4,200}wrote:\s*\n|>)/

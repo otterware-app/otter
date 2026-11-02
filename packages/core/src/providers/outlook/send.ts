@@ -17,14 +17,11 @@ import { DraftChanged, type DraftSave, type OutgoingMail } from "../provider.js"
 import { graph, graphAll, isNotFound, GraphError } from "./graph.js";
 import { messagePath, type ApiMessage } from "./messages.js";
 
-/** Attachments past this go up in an upload session (Graph takes 3 MB in one request). */
 const INLINE_ATTACHMENT_BYTES = 3 * 1024 * 1024;
-/** Upload sessions take chunks in multiples of 320 KiB. */
 const UPLOAD_CHUNK_BYTES = 10 * 320 * 1024;
 
 type Recipient = { emailAddress: { address: string; name?: string } };
 
-/** "Ann <a@b>, c@d" → Graph's recipients. */
 function recipients(list: string | undefined): Recipient[] {
   return (list ? splitAddressList(list) : []).flatMap((entry) => {
     const match = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(entry);
@@ -38,7 +35,6 @@ function recipients(list: string | undefined): Recipient[] {
 const escapeHtml = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** The message's fields as the composer has them. */
 function fields(mail: Omit<OutgoingMail, "inReplyTo" | "references" | "attachments">) {
   return {
     subject: mail.subject,
@@ -54,7 +50,6 @@ function fields(mail: Omit<OutgoingMail, "inReplyTo" | "references" | "attachmen
   };
 }
 
-/** The Graph id of the message a Message-ID header names, if it's in the mailbox. */
 async function messageByHeader(accountId: string, header: string): Promise<string | null> {
   const filter = encodeURIComponent(`internetMessageId eq '${header.replace(/'/g, "''")}'`);
   const found = await graph<{ value?: { id: string }[] }>(
@@ -64,7 +59,6 @@ async function messageByHeader(accountId: string, header: string): Promise<strin
   return found.value?.[0]?.id ?? null;
 }
 
-/** What a reply answers: the message its In-Reply-To names, else the thread's latest. */
 async function repliedTo(
   accountId: string,
   inReplyTo: string | undefined,
@@ -82,7 +76,6 @@ async function repliedTo(
   return latest?.id ?? null;
 }
 
-/** A new draft: a reply to `replyTo` (in its conversation), or a message of its own. */
 async function createDraft(
   accountId: string,
   mail: Omit<OutgoingMail, "inReplyTo" | "references" | "attachments">,
@@ -98,14 +91,12 @@ async function createDraft(
         body: fields(mail),
       });
     } catch (err) {
-      // The message it answers is gone: a message of its own, then.
       if (!isNotFound(err)) throw err;
     }
   }
   return graph<ApiMessage>(accountId, "/me/messages", { method: "POST", body: fields(mail) });
 }
 
-/** Puts the composer's attachments on a draft: small ones in one request, big ones in chunks. */
 async function attach(
   accountId: string,
   draftId: string,
@@ -137,7 +128,6 @@ async function attach(
         },
       },
     });
-    // The upload URL carries its own authorization: no bearer token.
     for (let start = 0; start < bytes.length; start += UPLOAD_CHUNK_BYTES) {
       const chunk = bytes.subarray(start, start + UPLOAD_CHUNK_BYTES);
       const response = await fetch(session.uploadUrl, {
@@ -154,7 +144,6 @@ async function attach(
   }
 }
 
-/** Makes the draft's attachments the composer's: drops the ones it no longer has, adds new ones. */
 async function syncAttachments(
   accountId: string,
   draftId: string,
@@ -165,8 +154,6 @@ async function syncAttachments(
     accountId,
     `${path}?$select=id,name,size,isInline`,
   );
-  // A same-named replacement can have different bytes. Replace regular
-  // attachments when the fingerprint changes, leaving quoted inline files.
   for (const current of existing) {
     if (current.isInline) continue;
     await graph(accountId, `${path}/${encodeURIComponent(current.id)}`, { method: "DELETE" });
@@ -196,7 +183,6 @@ async function hold(accountId: string, id: string, sendAt: number): Promise<void
   });
 }
 
-/** Sends now, or with `sendAt`, has Outlook send it then. */
 export async function send(
   accountId: string,
   mail: OutgoingMail,
@@ -232,7 +218,6 @@ export async function cancelScheduledSend(accountId: string, id: string): Promis
     if (!message.isDraft) return false;
     await graph(accountId, messagePath(id), { method: "DELETE" });
   } catch (err) {
-    // Deleted elsewhere: nothing left to send.
     if (!isNotFound(err)) throw err;
   }
   return true;
@@ -315,7 +300,6 @@ export async function deleteDraft(
   accountId: string,
   draftId: string,
 ): Promise<{ messageId?: string }> {
-  // The immutable ID still exists after another client sends the draft.
   if ((await getDraftVersion(accountId, draftId)) === null) return {};
   try {
     await graph(accountId, `${messagePath(draftId)}/permanentDelete`, { method: "POST" });
@@ -338,7 +322,6 @@ export async function getDraftVersion(accountId: string, draftId: string): Promi
   }
 }
 
-/** Outlook's immutable message ID is not a version: changeKey changes on edits. */
 export async function getDraftRevision(accountId: string, draftId: string): Promise<string | null> {
   try {
     const message = await graph<ApiMessage>(
@@ -352,7 +335,6 @@ export async function getDraftRevision(accountId: string, draftId: string): Prom
   }
 }
 
-/** A draft's id is its message's: the message itself when it's a draft, else one in its thread. */
 export async function findDraftId(
   accountId: string,
   messageId: string,

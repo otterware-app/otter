@@ -3,8 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- The site's icon (mail.otterware.app); the Mac app has its own. The SVG follows the
-         system's light or dark. -->
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -27,7 +25,6 @@
       #root {
         background: transparent;
       }
-      /* A browser tab has no vibrancy behind the page. */
       html[data-platform="web"],
       html[data-platform="web"] body {
         background: var(--canvas);
@@ -36,7 +33,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- window.desktopBridge comes from the Electron preload (apps/desktop), or src/web in a browser. -->
     <script type="module" src="/src/main/index.tsx"></script>
   </body>
 </html>

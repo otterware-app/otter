@@ -1,7 +1,3 @@
-/**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
- * apps/web/src/components/ui/alert.tsx, unchanged.
- */
 import { cva, type VariantProps } from "class-variance-authority";
 import { Children, isValidElement } from "react";
 import type * as React from "react";
@@ -14,7 +10,6 @@ const alertVariants = cva("relative rounded-xl border px-3.5 py-3 text-card-fore
     variant: "default",
   },
   variants: {
-    // "glass" floats the alert over content; alert-glass tints from data-variant.
     surface: {
       default: "",
       glass: "alert-glass",

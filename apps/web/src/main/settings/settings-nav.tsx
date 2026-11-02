@@ -71,18 +71,12 @@ const SETTINGS_SECTIONS = (Object.keys(SETTINGS_SECTION_LABELS) as SettingsPane[
     icon: SETTINGS_SECTION_ICONS[id],
   }));
 
-/** The mail sidebar's row (Linear's): 28px, 13px medium text, muted icon. */
 const ROW =
   "flex h-7 w-full cursor-pointer items-center gap-2 rounded-md px-(--sidebar-row-content-inset) text-left text-[13px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring active:bg-sidebar-row-active [&>svg]:size-4 [&>svg]:shrink-0";
 
 const ROW_IDLE =
   "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground [&>svg]:text-sidebar-muted-foreground hover:[&>svg]:text-sidebar-foreground";
 
-/**
- * Sidebar contents while the settings page is open: search (Otter Code's,
- * styled after ChatGPT's), the sections, then Back. While searching, the
- * results replace the sections; picking one opens its pane at that setting.
- */
 export function SettingsNav({
   pane,
   onSelect,
@@ -99,8 +93,6 @@ export function SettingsNav({
   const isSearching = query.trim().length > 0;
   const hasResults = results.length > 0;
 
-  // "/" and ⌘F search settings (the Keybindings pane, mounted later, takes
-  // them for its own search).
   useCommandHandlers({
     "search.focus": () => {
       searchInputRef.current?.focus();
@@ -248,7 +240,6 @@ export function SettingsNav({
           SETTINGS_SECTIONS.map((section) => {
             const Icon = section.icon;
             const active = section.id === pane;
-            // What plugs into the app, set apart by a gap.
             const heading =
               section.id === PLUG_IN_PANES[0] ? <div aria-hidden className="h-4" /> : null;
             return (
@@ -287,7 +278,6 @@ export function SettingsNav({
   );
 }
 
-/** The ? beside Back: feedback and the changelog. */
 function HelpMenu() {
   return (
     <DropdownMenu>
@@ -311,10 +301,6 @@ function HelpMenu() {
   );
 }
 
-/**
- * Shown only while Otter Mail isn't the Mac's default mail app: asks macOS
- * (a consent dialog) and hides once granted.
- */
 function DefaultMailRow() {
   const [isDefault, setIsDefault] = useState<boolean | null>(null);
   const refresh = async () => {

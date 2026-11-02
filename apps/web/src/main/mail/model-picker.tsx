@@ -1,12 +1,3 @@
-/**
- * The chat composer's model controls, ported from T3 Code:
- *  - ProviderModelPicker: trigger (provider icon + model, ⇧⌘M) opening a
- *    popover with the provider rail (favorites + one button per provider),
- *    model search, and model rows (⌘1…⌘9 jumps, favorite stars).
- *  - TraitsPicker: the model's options (Codex: Reasoning, Service Tier) as a
- *    radio menu, with the fast-tier bolt on the trigger.
- */
-
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Popover } from "radix-ui";
 import {
@@ -40,11 +31,6 @@ import { MODEL_PICKER_JUMP_COMMANDS } from "../keybindings/commands";
 import { matchesCommand, useCommandHandlers, useKeybindingContext } from "../keybindings/dispatch";
 import { shortcutLabelFor, useKeybindingsState } from "../keybindings/store";
 
-// ---------------------------------------------------------------------------
-// Composer control look (T3's ComposerControl, size "sm")
-// ---------------------------------------------------------------------------
-
-// Codex's composer controls: quiet, muted text pills that brighten on hover.
 export const COMPOSER_CONTROL =
   "relative inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-full border border-transparent outline-none hover:bg-accent-surface data-[state=open]:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-64 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:-mx-0.5 [&_svg[data-composer-control-icon]]:mx-0 h-7 gap-1.5 px-2.5 text-sm font-normal text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground hover:text-foreground [&_svg:not([class*='size-'])]:size-4";
 
@@ -76,17 +62,10 @@ type PickerItem = {
   slug: string;
   name: string;
   providerName: string;
-  /** Sub-provider (Hermes' "Anthropic", …): the heading it sits under. */
   group: string | null;
-  /** An OpenClaw agent with a picture or emoji of its own. */
   pictured: boolean;
 };
 
-/**
- * A model's name for people: a provider's display name as given, and a bare
- * id made readable ("claude-haiku-4-5-20251001" → "Claude Haiku 4.5",
- * "gpt-6-astra" → "GPT-6 Astra").
- */
 export function modelLabel(name: string): string {
   if (!/^[a-z0-9.-]+$/.test(name)) return name;
   const parts = name.split("-").filter((part) => !/^\d{8}$/.test(part));
@@ -123,10 +102,6 @@ function searchScore(item: PickerItem, query: string, favorite: boolean): number
   }
   return favorite ? score - 24 : score;
 }
-
-// ---------------------------------------------------------------------------
-// Provider rail (T3's ModelPickerSidebar)
-// ---------------------------------------------------------------------------
 
 const RAIL_BUTTON =
   "relative isolate flex aspect-square w-full cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground focus-visible:bg-foreground/10 focus-visible:outline-none aria-pressed:bg-foreground/10 aria-pressed:text-foreground";
@@ -203,10 +178,6 @@ function ModelPickerRail({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Model row (T3's ModelListRow)
-// ---------------------------------------------------------------------------
-
 function ModelListRow({
   item,
   highlighted,
@@ -222,7 +193,6 @@ function ModelListRow({
   highlighted: boolean;
   selected: boolean;
   favorite: boolean;
-  /** Favorites and search mix providers: say whose each model is. */
   showProvider: boolean;
   jumpLabel: string | null;
   onHover: () => void;
@@ -276,10 +246,6 @@ function ModelListRow({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Popover content (T3's ModelPickerContent)
-// ---------------------------------------------------------------------------
 
 function ModelPickerContent({
   providers,
@@ -353,7 +319,6 @@ function ModelPickerContent({
         ? allowed.filter((i) => favoriteSet.has(i.key))
         : allowed.filter((i) => i.kind === rail);
     if (rail === "favorites") return inRail;
-    // A provider's list: by sub-provider heading, favorites first under each.
     const groups = [...new Set(inRail.map((i) => i.group))];
     return groups.flatMap((group) => {
       const inGroup = inRail.filter((i) => i.group === group);
@@ -364,7 +329,6 @@ function ModelPickerContent({
     });
   }, [allItems, favoriteSet, lockedKind, query, rail]);
 
-  // Highlight the active model when it's in view, else the first row.
   const highlightKey = `${activeKey}:${items.map((item) => item.key).join(",")}`;
   const [highlightFor, setHighlightFor] = useState(highlightKey);
   if (highlightFor !== highlightKey) {
@@ -519,10 +483,6 @@ function ModelPickerContent({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Trigger + popover (T3's ProviderModelPicker)
-// ---------------------------------------------------------------------------
-
 export function ProviderModelPicker({
   providers,
   activeKind,
@@ -534,12 +494,9 @@ export function ProviderModelPicker({
 }: {
   providers: ProviderSnapshot[];
   activeKind: ProviderKind;
-  /** A chat with turns stays on its provider. */
   lockedKind: ProviderKind | null;
   onPick: (kind: ProviderKind, slug: string) => void;
-  /** Where focus goes when the popover closes (the composer). */
   returnFocus?: () => void;
-  /** Off when the traits picker follows and carries the chevron (Codex's "Model Medium ⌄"). */
   chevron?: boolean;
   className?: string;
 }) {
@@ -603,10 +560,6 @@ export function ProviderModelPicker({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Traits (T3's TraitsPicker): Reasoning / Service Tier
-// ---------------------------------------------------------------------------
-
 function DefaultBadge() {
   return (
     <span className="ms-1 inline-flex h-4.5 items-center rounded-sm border border-border px-1 align-middle text-2xs font-medium text-foreground/80">
@@ -615,7 +568,6 @@ function DefaultBadge() {
   );
 }
 
-/** The value in effect for an option: the chosen one when valid, else the model default. */
 export function currentChoice(option: ProviderModelOption, chosen: string): string | undefined {
   return (
     option.choices.find((c) => c.id === chosen)?.id ?? option.choices.find((c) => c.isDefault)?.id
@@ -636,7 +588,6 @@ export function TraitsPicker({
   className?: string;
 }) {
   if (options.length === 0) return null;
-  // Like T3: the Fast service tier is a bolt, not text; efforts are the label.
   const labels: string[] = [];
   let fast = false;
   for (const option of options) {
@@ -718,10 +669,6 @@ export function TraitsPicker({
     </DropdownMenu>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Runtime mode (T3's runtimeModeConfig + ComposerFooterModeControls)
-// ---------------------------------------------------------------------------
 
 export const RUNTIME_MODE_OPTIONS: {
   value: RuntimeMode;

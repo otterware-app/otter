@@ -1,5 +1,3 @@
-/** Keys derived from the auth secret (BETTER_AUTH_SECRET), one per purpose. */
-
 export async function derivedKey(secret: string, info: string): Promise<Uint8Array> {
   const material = await crypto.subtle.importKey(
     "raw",

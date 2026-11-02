@@ -5,7 +5,6 @@ import type { ByteStream } from "@otter-mail/core";
 
 import { connectMailSocket } from "./mail-socket.ts";
 
-/** Reads until the text so far matches `pattern`. */
 async function readUntil(stream: ByteStream, pattern: RegExp): Promise<string> {
   let text = "";
   while (!pattern.test(text)) {
@@ -25,7 +24,6 @@ it("explains a refused connection", async () => {
   );
 });
 
-// Real mail servers; no logging in. `NETWORK_TESTS=1 pnpm test` runs them.
 describe.runIf(process.env.NETWORK_TESTS)("real servers", () => {
   it.each(["imap.gmail.com", "imap.fastmail.com", "imap.mail.me.com"])(
     "reads %s's greeting over TLS",
@@ -48,7 +46,6 @@ describe.runIf(process.env.NETWORK_TESTS)("real servers", () => {
   });
 });
 
-/** A throwaway key and a self-signed certificate for imap.gmail.com (valid until 2126). */
 const SELF_SIGNED = `
 -----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgO9/hPhhMdplAPVO7

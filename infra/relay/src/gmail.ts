@@ -1,15 +1,4 @@
-/**
- * Gmail sign-in for the web app. A browser can't keep a Google refresh token
- * on its own (web OAuth clients need a secret), so the relay does the OAuth
- * exchange with the web client and seals the refresh token: the browser
- * keeps the sealed token, only the relay can open it, and the relay stores
- * nothing. The desktop app signs in to Gmail itself and never comes here.
- *
- *   GET  /v1/gmail/authorize  (popup) → Google's consent
- *   GET  /v1/gmail/callback   → posts the sealed token and a first access token to the page
- *   POST /v1/gmail/token      `{ sealed }` → a fresh access token (410 once Google revoked it)
- *   POST /v1/dev/gmail        `pnpm dev:demo` only: a saved sign-in, sealed as the popup would
- */
+// Only the relay can unseal refresh tokens; the browser keeps the sealed value and the relay stores none.
 
 import { GMAIL_SCOPES } from "@otter-mail/contracts";
 import { signInPage } from "@otter-mail/shared/sign-in-page";
@@ -27,11 +16,9 @@ const clientId = (env: Env) => env.GOOGLE_GMAIL_CLIENT_ID;
 
 export const callbackUrl = (env: Env) => `${env.BETTER_AUTH_URL}/v1/gmail/callback`;
 
-/** One key signs sign-in states, one seals refresh tokens. */
 const key = (env: Env, purpose: "state" | "seal") =>
   derivedKey(env.BETTER_AUTH_SECRET, `otter-mail gmail ${purpose}`);
 
-/** Google's consent screen for the web client, for the signed-in user. */
 export async function authorizeUrl(env: Env, userId: string, loginHint?: string): Promise<string> {
   const state = await new SignJWT({})
     .setProtectedHeader({ alg: "HS256" })
@@ -89,7 +76,6 @@ export class GoogleTokenError extends Error {
   }
 }
 
-/** What the popup hands the page (apps/web/src/web/protocol.ts, GoogleSignInResult). */
 export type SignInResult = {
   email: string;
   name: string;
@@ -99,7 +85,6 @@ export type SignInResult = {
   expiresIn: number;
 };
 
-/** Exchanges the code, then seals the refresh token for this user. */
 export async function completeSignIn(
   env: Env,
   userId: string,
@@ -133,7 +118,6 @@ export async function demoSignIn(
   return sealSignIn(env, userId, refreshToken, tokens);
 }
 
-/** Seals the refresh token for this user: what the page keeps, with a first access token. */
 async function sealSignIn(
   env: Env,
   userId: string,
@@ -160,7 +144,6 @@ async function sealSignIn(
   };
 }
 
-/** A fresh access token (and ID token) from a sealed refresh token, for its owner only. */
 export async function refresh(env: Env, userId: string, sealed: string) {
   const { payload } = await jwtDecrypt<{ refreshToken: string; clientId?: string }>(
     sealed,
@@ -182,15 +165,10 @@ export async function refresh(env: Env, userId: string, sealed: string) {
   };
 }
 
-/** The popup's last page: hands the result (or error) to the app and closes. */
 export function popupResponse(env: Env, message: { result?: SignInResult; error?: string }) {
   return popupPage(env, "gmail", message);
 }
 
-/**
- * The sign-in popup's last page, for Gmail or Outlook (outlook.ts): posts
- * `{ type: "otter:<provider>-sign-in", … }` to the app and closes.
- */
 export function popupPage(
   env: Env,
   provider: "gmail" | "outlook",

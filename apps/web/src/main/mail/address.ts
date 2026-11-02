@@ -5,7 +5,6 @@
 
 export type ParsedAddress = { name: string; email: string };
 
-/** Split an address list on commas outside double quotes. */
 export function splitAddressList(value: string): string[] {
   const parts: string[] = [];
   let current = "";
@@ -38,16 +37,10 @@ export function formatAddressEntry(name: string, email: string): string {
   return `${name} <${email}>`;
 }
 
-/** Canonical list for sending/saving: trims entries, drops empties and the
- *  trailing separator the recipient field leaves while typing. */
 export function normalizeAddressList(value: string): string {
   return splitAddressList(value).join(", ");
 }
 
-/**
- * Who a message is from, for display: the sender's name, or "Me" for the
- * mailbox's own address when it has none (account ids are addresses).
- */
 export function senderLabel(fromName: string, fromEmail: string, accountId?: string): string {
   if (fromName && fromName !== fromEmail) return fromName;
   return accountId && fromEmail.toLowerCase() === accountId.toLowerCase() ? "Me" : fromEmail;

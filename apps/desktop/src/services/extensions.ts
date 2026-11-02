@@ -1,14 +1,3 @@
-/**
- * The browser's extensions, beyond what Electron runs by itself: the toolbar
- * (Chrome's `chrome.action`: an icon, a badge, a popup or a click), the tab
- * strip as extensions see it (`chrome.tabs`, `chrome.windows`), and turning
- * one off, on, or away. Extensions call in through extensions-preload.ts;
- * the renderer's toolbar through the `browser:` channels (handlers/browser.ts).
- *
- * Tabs are the browser's pages (webview guests), each known by its
- * webContents id; the main window is the one window.
- */
-
 import {
   BrowserWindow,
   Notification,
@@ -40,7 +29,6 @@ import { getBrowserSession, isPageUrl, preparePage } from "./browser.js";
 import { hostOS } from "../os/index.js";
 import { enableNativeMessaging } from "./native-messaging-ipc.js";
 
-/** The parts of an extension's manifest.json read here. */
 type Manifest = {
   description?: string;
   homepage_url?: string;
@@ -60,8 +48,6 @@ type Manifest = {
 };
 
 const manifestOf = (extension: Extension) => extension.manifest as Manifest;
-
-// ── Tabs ─────────────────────────────────────────────────────────────
 
 const tabs = new Map<number, { contents: WebContents; favicon: string | null }>();
 let activeTabId = -1;
@@ -135,7 +121,6 @@ function windowOf(window: BrowserWindow, populate = false, extensionId: string |
   };
 }
 
-/** A page of the browser, as extensions see it (browser.ts calls this as it attaches). */
 export function trackTab(contents: WebContents): void {
   const tabId = contents.id;
   tabs.set(tabId, { contents, favicon: null });
@@ -148,7 +133,6 @@ export function trackTab(contents: WebContents): void {
     if (isMainFrame) updated({ url });
   });
   contents.on("page-title-updated", (_event, title) => updated({ title }));
-  // webNavigation, frame by frame (Chrome's frame ids: 0 for the page itself).
   const navigation = (name: string, frame: WebFrameMain | null | undefined, extra = {}) => {
     if (!frame) return;
     emit(() => [
@@ -237,7 +221,6 @@ function frameInfo(contents: WebContents, frame: WebFrameMain) {
   };
 }
 
-/** The page showing in the panel (the renderer tells): Chrome's active tab. */
 export function setActiveTab(tabId: number): void {
   if (!tabs.has(tabId) || tabId === activeTabId) return;
   activeTabId = tabId;
@@ -245,7 +228,6 @@ export function setActiveTab(tabId: number): void {
   actionsChanged();
 }
 
-/** Tabs an extension asked for, waiting for their page to attach. */
 const creating: { url: string; resolve: (tabId: number) => void }[] = [];
 
 function createTab(url: string, active = true): Promise<number | null> {
@@ -263,18 +245,12 @@ function createTab(url: string, active = true): Promise<number | null> {
   });
 }
 
-/** Resolves an extension's relative URL ("options.html") against its own origin. */
 function absolute(extensionId: string, url: string): string {
   return new URL(url, `chrome-extension://${extensionId}/`).href;
 }
 
-// ── Events, to extensions' workers and pages ─────────────────────────
-
-/** Which events each extension listens to (it wakes for those). */
 const listening = new Map<string, Set<string>>();
-/** Extension pages (popups, options) that listen, by extension. */
 const pages = new Map<string, Set<WebContents>>();
-/** Resolves a wait for an extension to (re)start listening to an event. */
 const listenWaiters = new Map<string, (() => void)[]>();
 
 function onListen(extensionId: string, name: string, page?: WebContents): void {
@@ -302,12 +278,10 @@ function runningWorker(ses: Session, extensionId: string): ServiceWorkerMain | u
   return undefined;
 }
 
-/** Workers that just failed to start, and when: they aren't retried for a while. */
 const failedWorkers = new Map<string, number>();
 const RETRY_FAILED_WORKER_MS = 60_000;
 const starting = new Map<string, Promise<ServiceWorkerMain | null>>();
 
-/** The extension's background worker, started if it sleeps (it re-listens as it starts). */
 async function wakeWorker(extensionId: string, name: string): Promise<ServiceWorkerMain | null> {
   const ses = getBrowserSession();
   const running = runningWorker(ses, extensionId);
@@ -321,7 +295,6 @@ async function wakeWorker(extensionId: string, name: string): Promise<ServiceWor
     listenWaiters.set(key, [...(listenWaiters.get(key) ?? []), resolve]);
     setTimeout(resolve, 2_000);
   });
-  // Events arriving together share one start.
   let start = starting.get(extensionId);
   if (!start) {
     start = ses.serviceWorkers
@@ -350,7 +323,6 @@ async function deliver(extensionId: string, name: string, args: unknown[]): Prom
   worker?.send("crx:event", name, args);
 }
 
-/** Sends an event to every extension listening for it; `make` tailors it to each. */
 function emit(make: (extensionId: string) => [string, unknown[]], only?: string): void {
   for (const [extensionId, names] of listening) {
     if (only && extensionId !== only) continue;
@@ -358,8 +330,6 @@ function emit(make: (extensionId: string) => [string, unknown[]], only?: string)
     if (names.has(name)) void deliver(extensionId, name, args);
   }
 }
-
-// ── The toolbar: chrome.action ───────────────────────────────────────
 
 type ActionDetails = {
   title?: string;
@@ -371,7 +341,6 @@ type ActionDetails = {
   enabled?: boolean;
 };
 
-/** What each extension changed, for every tab and for single tabs. */
 const actions = new Map<string, { all: ActionDetails; tabs: Map<number, ActionDetails> }>();
 
 function actionState(extensionId: string) {
@@ -380,7 +349,6 @@ function actionState(extensionId: string) {
   return state;
 }
 
-/** The icon file for about `size` px from a manifest's `{ "16": …, "32": … }` (or one path). */
 function iconFile(icons: string | { [size: number]: string } | undefined, size: number) {
   if (!icons || typeof icons === "string") return icons;
   const sizes = Object.keys(icons)
@@ -413,7 +381,6 @@ function resolvedAction(extension: Extension, tabId = activeTabId) {
   };
 }
 
-/** Chrome takes a color as a string or [r, g, b, a]. */
 function cssColor(color: unknown): string | undefined {
   if (typeof color === "string") return color;
   if (Array.isArray(color) && color.length >= 3) {
@@ -423,7 +390,6 @@ function cssColor(color: unknown): string | undefined {
   return undefined;
 }
 
-/** `setIcon`'s pixels (RGBA from an ImageData) or path, as a data: URL. */
 function iconFromDetails(extension: Extension, details: Record<string, unknown>): string | null {
   const imageData = details.imageData as
     | Record<string, { width: number; height: number; data: number[] }>
@@ -450,7 +416,6 @@ function iconFromDetails(extension: Extension, details: Record<string, unknown>)
 }
 
 let changedTimer: NodeJS.Timeout | null = null;
-/** Tells the renderer's toolbar to read the actions again (once per burst). */
 function actionsChanged(): void {
   if (changedTimer) return;
   changedTimer = setTimeout(() => {
@@ -472,7 +437,6 @@ export type ExtensionAction = {
   optionsUrl: string | null;
 };
 
-/** The toolbar's buttons for the active page. */
 export function extensionActions(): ExtensionAction[] {
   return getBrowserSession()
     .extensions.getAllExtensions()
@@ -494,7 +458,6 @@ export function extensionActions(): ExtensionAction[] {
     .toSorted((a, b) => a.name.localeCompare(b.name));
 }
 
-/** A toolbar button clicked: its popup under `anchor` (window coordinates), or the extension's onClicked. */
 export function runAction(extensionId: string, anchor: Rectangle): void {
   const extension = getBrowserSession().extensions.getExtension(extensionId);
   if (!extension) return;
@@ -508,13 +471,9 @@ export function runAction(extensionId: string, anchor: Rectangle): void {
   if (tab) void deliver(extensionId, "action.onClicked", [tab]);
 }
 
-// ── Popups ───────────────────────────────────────────────────────────
-
 let popup: BrowserWindow | null = null;
-/** Where the last popup hung from, for `chrome.action.openPopup`. */
 let lastAnchor: Rectangle | null = null;
 
-/** An extension's popup: a borderless window under its button, sized to its page, gone on blur. */
 function openPopup(extension: Extension, page: string, anchor: Rectangle): void {
   const owner = getMainWindow();
   if (!owner) return;
@@ -575,8 +534,6 @@ function openPopup(extension: Extension, page: string, anchor: Rectangle): void 
   void window.loadURL(absolute(extension.id, page));
 }
 
-// ── Context menus, notifications, settings ───────────────────────────
-
 type MenuItem = {
   id: string;
   title?: string;
@@ -589,7 +546,6 @@ type MenuItem = {
   enabled?: boolean;
   visible?: boolean;
 };
-/** Each extension's context menu items, in the order made. */
 const menus = new Map<string, Map<string, MenuItem>>();
 const menuOf = (extensionId: string) => {
   const items = menus.get(extensionId) ?? new Map<string, MenuItem>();
@@ -597,7 +553,6 @@ const menuOf = (extensionId: string) => {
   return items;
 };
 
-/** The extensions' items for a right-click in `page` (browser.ts adds them to its menu). */
 export function extensionMenuItems(
   page: WebContents,
   params: ContextMenuParams,
@@ -663,7 +618,6 @@ export function extensionMenuItems(
         });
     const top = build();
     if (top.length === 0) continue;
-    // One item shows as is; more go under the extension's name, as in Chrome.
     groups.push(top.length === 1 ? top[0]! : { label: extension.name, submenu: top });
   }
   return groups;
@@ -694,18 +648,14 @@ function showNotification(extension: Extension, id: string, options: Record<stri
   notification.show();
 }
 
-/** chrome.privacy's settings, per extension (this browser keeps none of Chrome's). */
 const privacy = new Map<string, unknown>();
 
 let downloadId = 0;
-
-// ── chrome.* calls from extensions ───────────────────────────────────
 
 type Call = (extension: Extension, args: unknown[], sender: WebContents | null) => unknown;
 
 const tabIdOf = (value: unknown) => (typeof value === "number" ? value : activeTabId);
 
-/** `tabs.query`'s filters this app can answer. */
 function matches(tab: NonNullable<ReturnType<typeof tabOf>>, query: Record<string, unknown>) {
   const mainId = getMainWindow()?.id;
   if (query.active !== undefined && tab.active !== query.active) return false;
@@ -723,7 +673,6 @@ function matches(tab: NonNullable<ReturnType<typeof tabOf>>, query: Record<strin
   return true;
 }
 
-/** Chrome's match patterns: <all_urls>, scheme://host/path with * wildcards. */
 function urlMatches(pattern: string, url: string): boolean {
   if (pattern === "<all_urls>") return /^(https?|file|ftp):/.test(url);
   const escaped = pattern
@@ -851,7 +800,6 @@ const calls: Record<string, Call> = {
       ? [windowOf(window, Boolean((info as { populate?: boolean })?.populate), extension.id)]
       : [];
   },
-  // A popup-type window (an extension's own UI) is one; anything else opens as a tab.
   "windows.create": async (extension, [data]) => {
     const { url, type, width, height, focused } = (data ?? {}) as {
       url?: string | string[];
@@ -1073,13 +1021,10 @@ function wire(target: { handle: typeof ipcMain.handle }, fromWorker: boolean): v
   });
 }
 
-// ── Turning extensions off, on, and away ─────────────────────────────
-
 const extensionsDir = () => path.join(app.getPath("userData"), "Extensions");
 /** Turned-off extensions wait here, where the Web Store's loader doesn't look. */
 const disabledDir = () => path.join(app.getPath("userData"), "Disabled Extensions");
 
-/** The folder holding an extension's manifest.json under `root/<id>/` (its version's). */
 function installedVersion(root: string, id: string): string | null {
   const dir = path.join(root, id);
   try {
@@ -1098,17 +1043,13 @@ export type BrowserExtension = {
   name: string;
   version: string;
   description: string;
-  /** A data: URL of its icon (about 64px), if it has one. */
   icon: string | null;
-  /** Its options page, which opens in a tab. */
   optionsUrl: string | null;
   enabled: boolean;
-  /** What it may read, in a sentence. */
   siteAccess: string;
   permissions: string[];
 };
 
-/** What an extension may touch, in a sentence (Chrome lists its permissions when adding one). */
 export function reachOf(
   manifest: Manifest & { content_scripts?: { matches?: string[] }[] },
 ): string {
@@ -1153,7 +1094,6 @@ function describe(
   };
 }
 
-/** Every installed extension, on or off. */
 export function listExtensions(): BrowserExtension[] {
   const loaded = getBrowserSession()
     .extensions.getAllExtensions()
@@ -1207,7 +1147,6 @@ export async function removeExtension(id: string): Promise<void> {
   actionsChanged();
 }
 
-/** Sets up extensions' side of the browser session: their preload, their calls, the toolbar. */
 export function setupExtensions(preloadPath: string): void {
   const ses = getBrowserSession();
   enableNativeMessaging(ses, hostOS.nativeMessagingDirectories());
@@ -1232,7 +1171,6 @@ export function setupExtensions(preloadPath: string): void {
   app.on("browser-window-blur", () => focus(-1));
 }
 
-/** Developer mode: an unpacked extension from a folder (kept until removed). */
 export async function loadUnpacked(owner: BrowserWindow | null): Promise<BrowserExtension | null> {
   const options = {
     title: "Load an unpacked extension",
@@ -1247,7 +1185,6 @@ export async function loadUnpacked(owner: BrowserWindow | null): Promise<Browser
   if (!fs.existsSync(path.join(dir, "manifest.json"))) {
     throw new Error("That folder has no manifest.json.");
   }
-  // Copied in with the Web Store's: the loader picks it up from then on.
   const ses = getBrowserSession();
   const extension = await ses.extensions.loadExtension(dir, { allowFileAccess: true });
   const target = path.join(extensionsDir(), extension.id, extension.version || "0");

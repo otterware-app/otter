@@ -1,17 +1,4 @@
-/**
- * linked-accounts.ts
- *
- * Keeps this device's mailboxes and the Otter account's linked accounts in
- * step, so signing in on another device brings every account along. The relay
- * only learns addresses, profiles and IMAP server settings; each device signs
- * in itself (Gmail with Google, Outlook with Microsoft, IMAP with the
- * password, which never leaves the device), so an account that arrives from the relay shows up signed out
- * here until the user signs in to it (one click, or the password).
- *
- * Reconciling compares the local accounts, the relay's list, and the
- * accounts both had last time (the snapshot): that is what tells "added on
- * another device" apart from "removed on this one".
- */
+// Compare both account lists with the previous snapshot to distinguish remote additions from local removals.
 
 import type { ImapSettings } from "@otter-mail/contracts";
 import type {
@@ -41,20 +28,10 @@ export type LocalAccount = Pick<
 export type ReconcilePlan = {
   /** On this device only, and new: link them (Gmail and Outlook need a sign-in to prove it). */
   link: string[];
-  /** Removed on this device since the last reconcile: unlink them. */
   unlink: string[];
-  /** Linked on another device: add them here, signed out. */
   add: RelayAccount[];
-  /** Unlinked on another device: remove them here. */
   remove: string[];
-  /** Linked on both, with a profile (name, picture, label, color) edited elsewhere. */
   update: RelayAccount[];
-  /**
-   * IMAP mailboxes signed in here whose servers the relay lists differently.
-   * Not adopted: whoever holds the Otter session could point them at a server
-   * of theirs to collect the password. This device keeps its own settings and
-   * asks for the password again (naming the host); signing in re-links them.
-   */
   moved: string[];
 };
 
@@ -64,7 +41,6 @@ const sameServers = (a: ImapSettings, b: ImapSettings) =>
   a.imap.host.toLowerCase() === b.imap.host.toLowerCase() &&
   a.smtp.host.toLowerCase() === b.smtp.host.toLowerCase();
 
-/** What to do to bring both sides together. Addresses compare case-insensitively. */
 export function planReconcile(
   local: LocalAccount[],
   remote: RelayAccount[],
@@ -106,8 +82,6 @@ export function planReconcile(
   return plan;
 }
 
-// ── Snapshot ────────────────────────────────────────────────────────────────
-
 const SNAPSHOT_KEY = "otter:linkedAccounts";
 
 function readSnapshot(): Set<string> {
@@ -124,19 +98,14 @@ function writeSnapshot(emails: Iterable<string>): void {
   mailStore.setKv(SNAPSHOT_KEY, JSON.stringify([...new Set([...emails].map(key))]));
 }
 
-/** Forgets what was linked (signing out): the next Otter account starts by merging. */
 export function clearLinkedSnapshot(): void {
   mailStore.setKv(SNAPSHOT_KEY, "");
 }
 
-/** Local accounts the relay has linked, as of the last reconcile. */
 export function linkedAccountIds(): Set<string> {
   return readSnapshot();
 }
 
-// ── Relay calls ─────────────────────────────────────────────────────────────
-
-/** `providers`: this build knows IMAP and Outlook mailboxes (contracts' ListAccountsResponse). */
 const PROVIDERS = "?providers=gmail,imap,outlook";
 const accountRoute = (email: string) =>
   `/v1/accounts/${encodeURIComponent(key(email))}${PROVIDERS}`;
@@ -167,7 +136,6 @@ export async function linkRequest(
   return { idToken: await idToken(account.id), ...profile(account) };
 }
 
-/** Links a signed-in account to the Otter account. */
 async function link(account: MailAccount): Promise<void> {
   const body = await linkRequest(account, (id) => {
     const auth = account.provider === "outlook" ? platform().microsoft : platform().google;
@@ -177,7 +145,6 @@ async function link(account: MailAccount): Promise<void> {
   await relayRequest("PUT", accountRoute(account.email), body);
 }
 
-/** An account linked on another device, as this device keeps it: signed out until it signs in. */
 export function accountFromRelay(account: RelayAccount): MailAccount {
   const imap = account.provider === "imap" && account.imap;
   return {
@@ -194,19 +161,16 @@ export function accountFromRelay(account: RelayAccount): MailAccount {
   };
 }
 
-/** After adding (or signing back in to) an account here. No-op when signed out of Otter. */
 export async function accountAdded(account: MailAccount): Promise<void> {
   if (!getOtterUser()) return;
   try {
     await link(account);
     writeSnapshot([...readSnapshot(), account.email]);
   } catch (err) {
-    // The next reconcile links it.
     logger.info("linked-accounts", `Couldn't link ${account.email}: ${String(err)}`);
   }
 }
 
-/** After removing an account here. */
 export async function accountRemoved(email: string): Promise<void> {
   if (!getOtterUser()) return;
   try {
@@ -220,11 +184,6 @@ export async function accountRemoved(email: string): Promise<void> {
   }
 }
 
-/**
- * After editing an account here: its label and color, or the name and picture
- * read from Google (google-profile.ts). Only `fields` go: this device's copy
- * of the others may be older than the relay's.
- */
 export async function accountEdited(
   account: MailAccount,
   fields: (keyof ReturnType<typeof profile>)[],
@@ -237,12 +196,6 @@ export async function accountEdited(
   });
 }
 
-// ── Reconcile ───────────────────────────────────────────────────────────────
-
-/**
- * Brings this device and the relay together (see planReconcile). `removeLocal`
- * deletes an account and its cached mail from this device.
- */
 export async function reconcileAccounts(
   removeLocal: (accountId: string) => Promise<void>,
 ): Promise<void> {

@@ -13,19 +13,6 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn, HintTooltip } from "../mail/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../mail/select";
 
-/*
- * Settings layout (after ChatGPT's): one centered column. The page title, page
- * description, section titles and descriptions share the card's left edge;
- * inside a card every row's text starts 16px in and every control ends 16px
- * from the right.
- */
-
-// ---------------------------------------------------------------------------
-// Search targets (Otter Code's): a settings-search result opens its pane with
-// a target id; the row or section with that id scrolls into view and pulses
-// once it mounts, then the target is cleared.
-// ---------------------------------------------------------------------------
-
 interface SettingsSearchTargetContextValue {
   readonly targetId: string | null;
   readonly onTargetHandled: () => void;
@@ -52,7 +39,6 @@ export function SettingsSearchTargetProvider({
 
 function scrollAndFocusSettingsTarget(target: HTMLElement): void {
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  // A section taller than half the window shows from its top, not its middle.
   target.scrollIntoView({
     behavior: prefersReducedMotion ? "auto" : "smooth",
     block: target.offsetHeight > window.innerHeight / 2 ? "start" : "center",
@@ -69,7 +55,6 @@ function scrollAndFocusSettingsTarget(target: HTMLElement): void {
   });
 }
 
-/** Ref for the element with `id`: scrolls to it when it's the search target. */
 export function useSettingsSearchTarget<T extends HTMLElement>(id: string | undefined) {
   const { targetId, onTargetHandled } = useContext(SettingsSearchTargetContext);
   const isSearchTarget = id !== undefined && id === targetId;
@@ -84,7 +69,6 @@ export function useSettingsSearchTarget<T extends HTMLElement>(id: string | unde
   );
 }
 
-/** A plain div that's a search target when it has an id. */
 export function SettingsSearchTarget({ children, ...props }: ComponentProps<"div">) {
   const targetRef = useSettingsSearchTarget<HTMLDivElement>(props.id);
   return (
@@ -94,7 +78,6 @@ export function SettingsSearchTarget({ children, ...props }: ComponentProps<"div
   );
 }
 
-/** Shared settings card surface, with separators between rows. */
 export function SettingsGroup({
   variant = "grouped",
   divided = true,
@@ -112,7 +95,6 @@ export function SettingsGroup({
         "relative overflow-visible text-foreground",
         variant === "grouped" ? "rounded-xl border border-border/60 bg-card" : "space-y-1",
         variant === "grouped" && divided && "[&>*+*]:border-t [&>*+*]:border-border/40",
-        // Row hovers and selections follow the card's corners.
         variant === "grouped" &&
           "[&>*:first-child]:rounded-t-[11px] [&>*:last-child]:rounded-b-[11px]",
         className,
@@ -121,7 +103,6 @@ export function SettingsGroup({
   );
 }
 
-/** A section's title (and optional description) above its card, flush with the card's edge. */
 export function SettingsSectionHeader({
   title,
   description,
@@ -137,8 +118,6 @@ export function SettingsSectionHeader({
   muted?: boolean;
 }) {
   return (
-    // Text outside the cards lines up with the text inside them (Linear):
-    // the cards' 1px border + 16px padding.
     <div
       className={cn(
         "flex min-h-7 items-center justify-between gap-4 px-[17px]",
@@ -165,7 +144,6 @@ export function SettingsSectionHeader({
   );
 }
 
-/** A titled group of rows. "plain" leaves the children uncarded (grids, lists). */
 export function SettingsSection({
   title,
   description,
@@ -202,10 +180,6 @@ export function SettingsSection({
   );
 }
 
-/**
- * One setting: title + description on the left, the control on the right.
- * Children render below the row (expanded editors, lists).
- */
 export function SettingsRow({
   title,
   description,
@@ -220,7 +194,6 @@ export function SettingsRow({
   description?: ReactNode;
   status?: ReactNode;
   control?: ReactNode;
-  /** Shown beside the title while the setting differs from its default. */
   resetAction?: ReactNode;
   children?: ReactNode;
 }) {
@@ -264,7 +237,6 @@ export function SettingsRow({
   );
 }
 
-/** Compact select in the control slot of a row. */
 export function RowSelect({
   value,
   onValueChange,
@@ -283,7 +255,6 @@ export function RowSelect({
   disabled?: boolean;
 }) {
   return (
-    // "" keeps the Select controlled (showing the placeholder) while the value loads.
     <Select value={value ?? ""} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger variant="pill" aria-label={ariaLabel} className={className}>
         <SelectValue placeholder={placeholder ?? "Loading…"} />
@@ -299,7 +270,6 @@ export function RowSelect({
   );
 }
 
-/** Small undo button that puts one setting back to its default. */
 export function SettingResetButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <HintTooltip label="Reset to default">
@@ -318,10 +288,6 @@ export function SettingResetButton({ label, onClick }: { label: string; onClick:
   );
 }
 
-/**
- * Scrollable page: the pane's title (and a one-line description) over its
- * sections, in the settings column.
- */
 export function SettingsPageContainer({
   title,
   description,
@@ -333,9 +299,7 @@ export function SettingsPageContainer({
 }: Omit<ComponentProps<"div">, "title"> & {
   title?: ReactNode;
   description?: ReactNode;
-  /** Beside the title, right-aligned with the cards' edge. */
   action?: ReactNode;
-  /** Settings-search anchor for the pane as a whole: its header. */
   searchId?: string;
 }) {
   const headerRef = useSettingsSearchTarget<HTMLElement>(searchId);
@@ -377,7 +341,6 @@ export function SettingsPageContainer({
   );
 }
 
-/** Text input in the app's control style (small size). */
 export const TextInput = forwardRef<HTMLInputElement, ComponentProps<"input">>(function TextInput(
   { className, ...props },
   ref,
@@ -426,7 +389,6 @@ export function DraftInput({
   );
 }
 
-/** "5m ago". */
 export function timeAgo(ts: number): string {
   const mins = Math.floor((Date.now() - ts) / 60_000);
   if (mins < 1) return "just now";

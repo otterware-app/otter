@@ -41,13 +41,10 @@ const STALE_TIME = 30_000;
  *  didn't this save" round trip. */
 function describeWriteError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
-  // The IPC bridge wraps handler errors as "Error invoking remote method
-  // 'gmail:x': <reason>" — only the reason is useful to the user.
   const message = raw.replace(/^Error invoking remote method '[^']*':\s*/, "");
   if (/unauthorized|oauth|signed out of google/i.test(message)) {
     return "Google sign-in expired for this account — sign in again in Settings → Accounts.";
   }
-  // "GmailApiError: Gmail API error: 403 Forbidden — <reason>": the reason is what matters.
   const reason = message.match(/Gmail API error: \d+[^—]*—\s*(.+)$/s)?.[1];
   return `Couldn't save the change: ${reason ?? message}`;
 }
@@ -86,8 +83,6 @@ export function useWriteFailureToasts(): void {
       toast.error(describeWriteError(new Error(p?.message ?? "Unknown error")));
       invalidateMailCaches(qc);
     });
-    // A send that outlasted the IPC budget and then failed: the backend put
-    // the message back in Drafts (the composer had already closed).
     const offSend = window.desktopBridge.on("gmail:send-failed", (params: unknown) => {
       const p = params as { subject?: string; savedToDrafts?: boolean } | undefined;
       const what = p?.subject ? `“${p.subject}”` : "your message";
@@ -110,7 +105,6 @@ export function useWriteFailureToasts(): void {
   }, [qc]);
 }
 
-/** Refreshes mail caches when the backend changed mail on its own (a scheduled send going out). */
 export function useExternalMailChanges(): void {
   const qc = useQueryClient();
   useEffect(
@@ -119,7 +113,6 @@ export function useExternalMailChanges(): void {
   );
 }
 
-// ---- Query Keys ----
 export const queryKeys = {
   accounts: () => ["gmail:accounts"] as const,
   labels: (accountId: string) => ["gmail:labels", accountId] as const,
@@ -136,7 +129,6 @@ export const queryKeys = {
     ["gmail:combinedCounts", viewId, rules] as const,
 };
 
-// ---- Accounts ----
 export function useAccounts() {
   const qc = useQueryClient();
 
@@ -197,7 +189,6 @@ export function useUpdateAccount() {
   });
 }
 
-// ---- Labels ----
 export function useLabels(accountId: string | null) {
   return useQuery<MailLabel[]>({
     queryKey: queryKeys.labels(accountId ?? ""),
@@ -217,8 +208,6 @@ export function useCreateLabel() {
       console.log("[hooks:useCreateLabel] creating label", { accountId, name });
       return mailApi.createLabel(accountId, name);
     },
-    // Optimistic: the label shows up in the sidebar instantly under a pending
-    // id; reconciliation swaps in the real id.
     onMutate: async ({ accountId, name }) => {
       await qc.cancelQueries({ queryKey: queryKeys.labels(accountId) });
       const prev = qc.getQueryData<MailLabel[]>(queryKeys.labels(accountId));
@@ -249,8 +238,6 @@ export function useUpdateLabel() {
       console.log("[hooks:useUpdateLabel]", params);
       return mailApi.updateLabel(params);
     },
-    // Optimistic: rename/recolor in the labels cache immediately, cascading
-    // renames to nested labels the way the backend does.
     onMutate: async ({ accountId, labelId, name, color }) => {
       await qc.cancelQueries({ queryKey: queryKeys.labels(accountId) });
       const prev = qc.getQueryData<MailLabel[]>(queryKeys.labels(accountId));
@@ -304,7 +291,6 @@ export function useDeleteLabel() {
   });
 }
 
-/** Optimistically drop a thread's rows from every message-list cache. */
 export function usePruneThreadRows() {
   const qc = useQueryClient();
   return (accountId: string, threadId: string) => {
@@ -321,7 +307,6 @@ export function usePruneThreadRows() {
   };
 }
 
-// ---- Messages (paginated) ----
 export function useMessages(accountId: string | null, labelId?: string) {
   return useInfiniteQuery<
     ListMessagesResult,
@@ -351,7 +336,6 @@ export function useMessages(accountId: string | null, labelId?: string) {
   });
 }
 
-/** Trailing-edge debounce, for search-as-you-type inputs. */
 export function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -361,11 +345,6 @@ export function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-/**
- * View restriction + structured filters for search: a label in a mailbox,
- * a view's rules, plus flag/importance/attachment/date criteria that work
- * with an empty query too.
- */
 export type SearchScope = {
   labelId?: string;
   rules?: ViewRule[];
@@ -375,11 +354,6 @@ export type SearchScope = {
   withinDays?: number;
 };
 
-/**
- * Instant local full-text search (FTS5 over the mail cache). Message-level
- * rows; accountId null searches every account (a view, the palette).
- * `scope` restricts results to the current view (the list's filter search).
- */
 export function useSearchMessages(
   q: string,
   accountId: string | null,
@@ -424,11 +398,6 @@ export function useSearchMessages(
   });
 }
 
-/**
- * The search mailbox: Gmail's own search across `accountIds`, page by page.
- * Each page is conversations newest first; a conversation seen on an earlier
- * page isn't repeated.
- */
 export function useMailSearch(q: string, accountIds: string[], enabled = true) {
   return useInfiniteQuery<
     MailSearchResult,
@@ -453,12 +422,6 @@ export function useMailSearch(q: string, accountIds: string[], enabled = true) {
   });
 }
 
-// ---- Views (lists across the mailboxes) ----
-
-/**
- * A view's message list across the mailboxes. `rules` are the view's
- * per-account filters (union across rules); `viewId` keys the cache per view.
- */
 export function useCombinedMessages(rules: ViewRule[], viewId: string, enabled = true) {
   return useInfiniteQuery<
     ListMessagesResult,
@@ -487,7 +450,6 @@ export function useCombinedMessages(rules: ViewRule[], viewId: string, enabled =
   });
 }
 
-/** Total/unread counts for a rule set, from the local store. */
 export function useCombinedCounts(rules: ViewRule[], viewId: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.combinedCounts(viewId, rules),
@@ -497,7 +459,6 @@ export function useCombinedCounts(rules: ViewRule[], viewId: string, enabled = t
   });
 }
 
-/** Unread count per view id, for the sidebar's Views. */
 export function useViewUnreadCounts(
   views: MailView[],
   accounts: MailAccount[],
@@ -516,7 +477,6 @@ export function useViewUnreadCounts(
   return Object.fromEntries(views.map((v, i) => [v.id, results[i]?.data?.unread ?? 0]));
 }
 
-/** Full label list per account, keyed by accountId, for the view-editor picker. */
 export function useAllAccountLabels(
   accountIds: string[],
   enabled = true,
@@ -536,11 +496,6 @@ export function useAllAccountLabels(
   }));
 }
 
-/**
- * Resolves a message's label id back to its MailLabel across accounts.
- * Fetches labels for each account and returns a lookup keyed by
- * `${accountId}:${labelId}` (label ids differ per account).
- */
 export function useLabelResolver(
   accountIds: string[],
 ): (accountId: string | undefined, labelId: string) => MailLabel | undefined {
@@ -563,9 +518,6 @@ export function useLabelResolver(
   return (accountId, labelId) => (accountId ? map.get(`${accountId}:${labelId}`) : undefined);
 }
 
-// ---- Threads ----
-
-/** All messages of a thread from the local store, oldest first. */
 export function useThread(accountId: string | null, threadId: string | null) {
   return useQuery<MessageSummary[]>({
     queryKey: queryKeys.thread(accountId ?? "", threadId ?? ""),
@@ -575,7 +527,6 @@ export function useThread(accountId: string | null, threadId: string | null) {
   });
 }
 
-/** Several threads at once (the list's expanded conversations), each oldest first. */
 export function useThreads(
   threads: { accountId: string; threadId: string }[],
 ): Map<string, MessageSummary[]> {
@@ -594,7 +545,6 @@ export function useThreads(
   return byKey;
 }
 
-// ---- Message Detail ----
 export function useMessage(accountId: string | null, messageId: string | null) {
   return useQuery<MessageDetail>({
     queryKey: queryKeys.message(accountId ?? "", messageId ?? ""),
@@ -710,14 +660,12 @@ function removeMessagesFromInfiniteData(
   };
 }
 
-/** Label add/remove applied to a cached summary; thread rollups follow when present. */
 /**
  * Optimistically applies a label change to a row. `scope` says what changed:
  * a whole thread (its label union changes the same way) or one message (an
  * added label joins the thread's union; a removed one may still be on sibling
  * messages, so the union keeps it until the server refresh).
  */
-/** `archiveFolder`: the change lands as it does where Archive is a folder (landLabelChange). */
 function applyLabelPatch<T extends MessageSummary>(
   m: T,
   addLabelIds: string[],
@@ -725,7 +673,6 @@ function applyLabelPatch<T extends MessageSummary>(
   scope: "thread" | "message" = "message",
   archiveFolder?: boolean,
 ): T {
-  // A conversation's own mail stays in Sent where Archive is a folder; the conversation still moves.
   const patch = (ids: string[], removals: string[], thread = false) => {
     const landed = landLabelChange(ids, addLabelIds, removals, { archiveFolder, thread });
     const set = new Set(ids);
@@ -752,7 +699,6 @@ function applyLabelPatch<T extends MessageSummary>(
   };
 }
 
-/** Whether the account's Archive is a folder (capabilities.archiveFolder): Outlook, IMAP. */
 function archiveFolderOf(
   qc: ReturnType<typeof useQueryClient>,
   accountId: string,
@@ -761,12 +707,6 @@ function archiveFolderOf(
     ?.capabilities?.archiveFolder;
 }
 
-// ---- Mutations ----
-
-/**
- * Adds a mailbox with its provider's sign-in in the browser: Google's for
- * Gmail, Microsoft's for Outlook. Given an address, signs that mailbox back in.
- */
 export function useAddAccount(provider: "gmail" | "outlook" = "gmail") {
   const qc = useQueryClient();
   return useMutation({
@@ -839,7 +779,6 @@ export function useRemoveAccount() {
   });
 }
 
-/** The action toast's summary of a label change. */
 function labelChangeSummary(
   qc: ReturnType<typeof useQueryClient>,
   params: { accountId: string; addLabelIds?: string[]; removeLabelIds?: string[] },
@@ -938,7 +877,6 @@ export function useModifyMessage() {
         (old: InfiniteData<ListMessagesResult> | undefined) =>
           patchMessagesInInfiniteData(old, isTarget, applyPatch),
       );
-      // Gmail search results (the Search mailbox) show the same rows.
       qc.setQueriesData(
         { queryKey: ["gmail-search"] },
         (old: InfiniteData<ListMessagesResult> | undefined) =>
@@ -994,8 +932,6 @@ export function useModifyMessage() {
       void qc.invalidateQueries({ queryKey: ["gmail:combinedCounts"] });
       void qc.invalidateQueries({ queryKey: ["gmail:searchMessages"] });
       void qc.invalidateQueries({ queryKey: ["gmail:thread", params.accountId] });
-      // Reconcile the optimistic label-count patch with the backend's own
-      // recompute (mail-store.ts), which is the source of truth.
       void qc.invalidateQueries({ queryKey: queryKeys.labels(params.accountId) });
     },
   });
@@ -1055,7 +991,6 @@ export function useTrashMessage() {
           .find((m) => m.id === messageId);
 
       const isTarget = (m: MessageSummary) => m.id === messageId;
-      // An open reader keeps rendering the conversation — mark it trashed there.
       const trashPatch = <T extends MessageSummary>(m: T): T =>
         applyLabelPatch(m, ["TRASH"], ["INBOX"]) as T;
       if (prevMessage) qc.setQueryData(messageKey, trashPatch(prevMessage));
@@ -1077,7 +1012,6 @@ export function useTrashMessage() {
         (old: InfiniteData<ListMessagesResult> | undefined) =>
           removeMessagesFromInfiniteData(old, isTarget),
       );
-      // Gmail search keeps trashed mail in its results (as Gmail does): mark it.
       qc.setQueriesData(
         { queryKey: ["gmail-search"] },
         (old: InfiniteData<ListMessagesResult> | undefined) =>
@@ -1107,7 +1041,6 @@ export function useTrashMessage() {
     },
     onError: (err, _vars, context) => {
       if (isIpcTimeout(err)) {
-        // The backend mirrored it locally and finishes in the background.
         invalidateMailCaches(qc);
         return;
       }
@@ -1212,7 +1145,6 @@ export function useModifyThread() {
         (old: InfiniteData<ListMessagesResult> | undefined) =>
           patchMessagesInInfiniteData(old, inThread, applyPatch),
       );
-      // Gmail search results (the Search mailbox) show the same rows.
       qc.setQueriesData(
         { queryKey: ["gmail-search"] },
         (old: InfiniteData<ListMessagesResult> | undefined) =>
@@ -1358,7 +1290,6 @@ export function useTrashThread() {
       const prevDetailQueries = qc.getQueriesData<MessageDetail>({
         queryKey: ["gmail:message", accountId],
       });
-      // An open reader keeps rendering the conversation — mark it trashed there.
       const threadTrashPatch = <T extends MessageSummary>(m: T): T =>
         applyLabelPatch(m, ["TRASH"], ["INBOX"], "thread") as T;
       qc.setQueryData(threadKey, (old: MessageSummary[] | undefined) => old?.map(threadTrashPatch));
@@ -1383,7 +1314,6 @@ export function useTrashThread() {
         (old: InfiniteData<ListMessagesResult> | undefined) =>
           removeMessagesFromInfiniteData(old, inThread),
       );
-      // Gmail search keeps trashed mail in its results (as Gmail does): mark it.
       qc.setQueriesData(
         { queryKey: ["gmail-search"] },
         (old: InfiniteData<ListMessagesResult> | undefined) =>
@@ -1414,7 +1344,6 @@ export function useTrashThread() {
     },
     onError: (err, _vars, context) => {
       if (isIpcTimeout(err)) {
-        // The backend mirrored it locally and finishes in the background.
         invalidateMailCaches(qc);
         return;
       }
@@ -1462,7 +1391,6 @@ export function useSendMessage() {
   });
 }
 
-/** Recipient autocomplete backed by the local mail cache. */
 export function useSuggestContacts(q: string, enabled = true) {
   return useQuery<ContactSuggestion[]>({
     queryKey: ["gmail:suggestContacts", q],
@@ -1473,9 +1401,6 @@ export function useSuggestContacts(q: string, enabled = true) {
   });
 }
 
-// ---- Local-first sync ----
-
-/** Status poll cadence: quick while syncing, relaxed while downloading for offline, slow idle. */
 export function syncStatusPollMs(status: SyncStatus | undefined): number {
   if (status?.syncing) return 1500;
   return status?.download ? 4000 : 10_000;
@@ -1498,7 +1423,6 @@ export function useAccountSync(accountId: string | null): SyncStatus | null {
     refetchInterval: (query) => syncStatusPollMs(query.state.data),
   });
 
-  // Start a sync whenever the active account changes.
   useEffect(() => {
     if (!accountId) return;
     console.log("[hooks:useAccountSync] starting sync", { accountId });
@@ -1516,7 +1440,6 @@ export function useAccountSync(accountId: string | null): SyncStatus | null {
       void qc.invalidateQueries({ queryKey: ["gmail:messages", accountId] });
       void qc.invalidateQueries({ queryKey: ["gmail:searchMessages"] });
       void qc.invalidateQueries({ queryKey: queryKeys.labels(accountId) });
-      // Account-owned view badges and an open conversation (new replies).
       void qc.invalidateQueries({ queryKey: ["gmail:combinedCounts"] });
       void qc.invalidateQueries({ queryKey: ["gmail:thread", accountId] });
     }
@@ -1538,7 +1461,6 @@ const refreshedRevision = new Map<string, number>();
 function shouldRefreshLists(key: string, status: SyncStatus): boolean {
   const seen = refreshedRevision.get(key);
   if (seen === undefined) {
-    // First status for this view: its lists were just loaded.
     refreshedRevision.set(key, status.revision);
     return false;
   }
@@ -1562,7 +1484,6 @@ export function syncLabel(status: SyncStatus): string {
   return "Syncing…";
 }
 
-/** Aggregated sync activity across every account, for the sidebar footer. */
 export function useGlobalSyncStatus(accountIds: string[]): { syncing: boolean; label: string } {
   const qc = useQueryClient();
   // The backend broadcasts when any sync starts so idle 10s polls don't miss
@@ -1582,8 +1503,6 @@ export function useGlobalSyncStatus(accountIds: string[]): { syncing: boolean; l
         syncStatusPollMs(query.state.data),
     })),
   });
-  // Routine incremental checks stay silent (they'd blink every auto-sync
-  // tick); only long-running work — full syncs and offline downloads — shows.
   const active = results
     .map((r) => r.data as SyncStatus | undefined)
     .filter(
@@ -1642,7 +1561,6 @@ export function useSyncAccountLabels(accountIds: string[], enabled: boolean): vo
         void qc.invalidateQueries({ queryKey: queryKeys.labels(accountId) });
       }
     });
-    // The combined list isn't reachable by any per-account invalidation.
     if (anyProgressed) {
       void qc.invalidateQueries({ queryKey: ["gmail:combinedMessages"] });
       void qc.invalidateQueries({ queryKey: ["gmail:combinedCounts"] });
@@ -1664,9 +1582,6 @@ function useUntrashInvalidation() {
   };
 }
 
-/** Optimistically clear TRASH from the open reader's caches (detail + thread);
-    restored rows themselves reappear on the settle invalidation, since Gmail
-    decides which labels come back. */
 function useUntrashOptimism() {
   const qc = useQueryClient();
   return async (accountId: string, match: (m: MessageSummary) => boolean) => {
@@ -1706,8 +1621,6 @@ function rollbackUntrash(
   for (const [key, data] of context.prevDetailQueries) qc.setQueryData(key, data);
 }
 
-/** Permanent delete for Trash/Spam threads — one batched call per account.
-    No undo entry — irreversible. */
 export function useDeleteThreadsForever() {
   const qc = useQueryClient();
   return useMutation({
@@ -1760,7 +1673,6 @@ export function useDeleteThreadsForever() {
         (old: InfiniteData<ListMessagesResult> | undefined) =>
           removeMessagesFromInfiniteData(old, inThreads),
       );
-      // Deleted forever: gone from Gmail search results too.
       qc.setQueriesData(
         { queryKey: ["gmail-search"] },
         (old: InfiniteData<ListMessagesResult> | undefined) =>
@@ -1792,7 +1704,6 @@ export function useDeleteThreadsForever() {
     },
     onError: (err, _vars, context) => {
       if (isIpcTimeout(err)) {
-        // The backend mirrored it locally and finishes in the background.
         invalidateMailCaches(qc);
         return;
       }

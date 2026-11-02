@@ -1,17 +1,4 @@
-/**
- * The first sync of a Gmail mailbox, over IMAP. Gmail speaks it with the
- * same sign-in (the https://mail.google.com/ scope, SASL XOAUTH2), a UID
- * FETCH answers a thousand messages at once, and none of it counts against
- * the Gmail API's quota: every list row of a 13,000-message mailbox is in
- * within seconds, where the API (a message fetch is 20 of the 6,000 units a
- * minute) takes most of an hour.
- *
- * Gmail's IMAP ids are its API ids in decimal (X-GM-MSGID, X-GM-THRID) and
- * X-GM-LABELS carries the labels, so rows land as the API writes them, but
- * for what IMAP doesn't have: the snippet and the category labels
- * (Promotions, Social, …). The sync fills categories in from API listings
- * after this; snippets come with the bodies, from the offline downloads.
- */
+// IMAP avoids Gmail API quota during initial sync but lacks snippets and category labels; the API fills those later.
 
 import { platform } from "../../platform.js";
 import {
@@ -29,7 +16,6 @@ import { mapMessageSummary } from "./api.js";
 const ROWS_PER_FETCH = 1000;
 const HEADERS = ["From", "To", "Cc", "Subject", "Date", "Message-ID", "References"];
 
-/** Gmail's system labels as X-GM-LABELS names them. */
 const SYSTEM_LABELS: Record<string, string> = {
   "\\Inbox": "INBOX",
   "\\Important": "IMPORTANT",
@@ -39,14 +25,12 @@ const SYSTEM_LABELS: Record<string, string> = {
   "\\Starred": "STARRED",
 };
 
-/** All Mail holds everything but Spam and Trash, which are folders of their own. */
 const FOLDERS: [SpecialUse, string | null][] = [
   ["\\All", null],
   ["\\Junk", "SPAM"],
   ["\\Trash", "TRASH"],
 ];
 
-/** Caches every message's row, newest first; throws when IMAP isn't to be had. */
 export async function fillOverImap(accountId: string, ctx: SyncContext): Promise<void> {
   const account = await getAccount(accountId);
   const client = await connectImap({
@@ -90,7 +74,6 @@ export async function fillOverImap(accountId: string, ctx: SyncContext): Promise
           .map((m) => rowOf(m, folderLabel, userLabels))
           .filter((row): row is MessageSummary => row !== null);
         ctx.assertActive();
-        // Rows the history feed cached meanwhile are newer than these.
         const fresh = new Set(
           store.filterUnknownIds(
             accountId,
@@ -120,7 +103,6 @@ function rowOf(
   if (m.gmailId === undefined) return null;
   const labelIds = new Set<string>();
   for (const raw of m.gmailLabels ?? []) {
-    // Gmail's other system labels (\Muted, …) aren't API labels.
     const id = SYSTEM_LABELS[raw] ?? userLabels.get(decodeMailboxName(raw));
     if (id) labelIds.add(id);
   }

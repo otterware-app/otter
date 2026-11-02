@@ -85,7 +85,6 @@ import { isModClick } from "../keybindings/keys";
 
 type ResolveLabel = (accountId: string | undefined, labelId: string) => MailLabel | undefined;
 
-/** A view's list: its rules across the mailboxes. */
 export type CombinedList = { viewId: string; name: string; rules: ViewRule[] };
 
 /** Mailbox + account identity shown next to the date in a view's rows.
@@ -94,55 +93,36 @@ export type CombinedList = { viewId: string; name: string; rules: ViewRule[] };
 type CombinedMeta = { mailbox: string | null; accountName: string; accountColor: string };
 
 type MessageListProps = {
-  /** Room for the panel toggle when the list fills the workspace. */
   headerTrailing?: ReactNode;
-  /** The floating reader shares this list's conversation navigation. */
   renderFloatingReader?: (navigation: ReactNode, title: string) => ReactNode;
-  /** Rendered at the start of the title band (window title when the sidebar is hidden). */
   headerLeading?: ReactNode;
-  /** Active account — used for account-mode queries and as a fallback owner id. */
   accountId: string;
   labelId: string;
-  /** When set, the list is a view's, across the mailboxes. */
   combined: CombinedList | null;
-  /** All connected account ids, for resolving label chips across accounts. */
   accountIds: string[];
-  /** Connected accounts (name/color), for a view's mailbox-account line. */
   accounts: MailAccount[];
   selectedMessageId: string | null;
-  /** A single message of the selected row's conversation shown on its own. */
   focusedMessageId: string | null;
-  /** Selects a row; `focusId` picks one message of its conversation instead
-      of the whole conversation. */
   onSelectMessage: (
     messageId: string,
     accountId: string,
     focusId?: string,
     options?: { autoFocusDraft?: boolean },
   ) => void;
-  /** Clears the selection (mark-unread returns to the list, Gmail-style). */
   onDeselect: () => void;
-  /** Reader actions (archive/trash) advance through here; false = no next row. */
   advanceRef: React.MutableRefObject<(fromMessageId: string) => boolean>;
   /** Reports the multi-selected rows so the chat panel can attach them. */
   onSelectionChange?: (rows: MessageSummary[]) => void;
-  /** Opens the in-app agent chat panel. */
   onOpenChat?: () => void;
-  /** Opens the Search mailbox prefilled with this mailbox (search icon, ⌘F). */
   onSearchView?: () => void;
-  /** This mailbox as a Gmail query (`in:inbox`, `label:acme`), kept current. */
   viewQueryRef?: React.MutableRefObject<string>;
 
-  /** Set when this is the Search mailbox (Gmail's own search). */
   search?: SearchMode;
 };
 
-/** The Search mailbox: the query that ran, its account scope, and its controls. */
 export type SearchMode = {
-  /** Which open search this is (each keeps its own bar state). */
   id: string;
   query: string;
-  /** The parent view's operators, kept when clearing. */
   base: string;
   onClear: () => void;
   accountIds: string[];
@@ -150,10 +130,8 @@ export type SearchMode = {
   onExit: () => void;
   onScope: (accountIds: string[]) => void;
   focusRef: React.RefObject<HTMLInputElement | null>;
-  /** Text typed but not run, kept while you're in another mailbox. */
   draft: string;
   onDraftChange: (draft: string) => void;
-  /** A message is open in the reader (Escape closes that first). */
   messageOpen: boolean;
 };
 
@@ -205,8 +183,6 @@ function resolveCombinedMeta(
       accountColor: getAccountColor(account),
     };
   }
-  // When the whole view is one mailbox (built-in Inbox/Sent, or the same
-  // labels required everywhere), the mailbox prefix is obvious — omit it.
   const mailbox = ruleMailboxName(matched, resolveLabel);
   const uniform = combined.rules.every((r) => ruleMailboxName(r, resolveLabel) === mailbox);
   return {
@@ -320,31 +296,22 @@ const CONTEXT_MENU_KIT = {
 type MessageRowProps = {
   message: MessageSummary;
   selected: boolean;
-  /** Part of the cmd/shift multi-selection. */
   checked: boolean;
   onRowClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
-  /** Fallback owner id when a summary has no accountId (e.g. live search results). */
   accountId: string;
   resolveLabel: ResolveLabel;
-  /** Whose mailbox it is, a badge on the face, only in a view. */
   combinedMeta: CombinedMeta | null;
-  /** Mark rows still in the inbox (shown when browsing non-inbox views). */
   showInboxChip: boolean;
-  /** What archiving takes off a conversation with these labels (archive.ts); null: Move to Inbox. */
   archiveFrom: (labelIds: string[]) => string | null;
   /** Labels that define the current view; every row has them, so no chip. */
   viewLabelIds: ReadonlySet<string>;
-  /** Opens the permanent-delete confirm (offered on trashed/junk rows only). */
   onDeleteForever: () => void;
-  /** Opens this conversation in the in-app agent chat panel. */
   onChatAgent: () => void;
   /** Closes the reader — used after marking the open row unread, so the
       reader's auto mark-read doesn't immediately undo it (Gmail does this too). */
   onDeselect: () => void;
-  /** Its conversation's messages are listed under it. */
   expanded: boolean;
   onToggleExpanded: () => void;
-  /** Starts dragging this row (or the whole multi-selection) onto a label. */
   onDragStart: (e: React.DragEvent<HTMLButtonElement>) => void;
 };
 
@@ -381,14 +348,11 @@ function MessageRow({
     .filter((id) => !viewLabelIds.has(id))
     .map((id) => resolveLabel(ownerAccountId, id))
     .filter((l): l is MailLabel => l != null && l.type === "user");
-  // At most two chips; the rest collapse into "+N".
   const MAX_CHIPS = 2;
   const shownLabels = messageLabels.slice(0, MAX_CHIPS);
   const hiddenLabelCount = messageLabels.length - shownLabels.length;
 
-  // Labels apply to the whole conversation, like Gmail's list.
   const labelChoices = useLabelChoices({ accountId: ownerAccountId, threadId, labelIds });
-  // Outlook: its folders beside its categories.
   const folderChoices = useLabelChoices({
     accountId: ownerAccountId,
     threadId,
@@ -474,10 +438,6 @@ function MessageRow({
     void trashThread.mutateAsync({ accountId: ownerAccountId, threadId });
   };
 
-  // Keyboard selection (j/k) can land on a row outside the viewport — keep the
-  // selected row visible. "nearest" makes this a no-op for click selection;
-  // "instant" keeps held-down j/k from queueing smooth-scroll animations that
-  // continue after the key is released.
   const rowRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const row = rowRef.current;
@@ -494,7 +454,6 @@ function MessageRow({
     .map(({ name, email }) => name || email.split("@")[0])
     .filter(Boolean)
     .join(", ");
-  // Who the row is about: the sender, or a draft's first recipient.
   const person = draftRecipients[0]?.email
     ? draftRecipients[0]
     : { name: message.fromName, email: message.fromEmail };
@@ -528,7 +487,6 @@ function MessageRow({
                 : checked
                   ? "bg-sidebar-row-hover"
                   : "hover:bg-sidebar-row-hover",
-              // Every row in the multi-selection is outlined — the open one too.
               checked ? "ring-1 ring-inset ring-primary/70" : "",
             ].join(" ")}
           >
@@ -592,9 +550,6 @@ function MessageRow({
                 </span>
                 <div className="message-list-meta flex shrink-0 items-center gap-1.5">
                   {threadCount > 1 ? (
-                    // Count + chevron: lists the conversation's messages
-                    // under the row (Apple Mail). A span, since the row is
-                    // already a button.
                     <span
                       role="button"
                       tabIndex={-1}
@@ -737,9 +692,6 @@ function MessageRow({
   );
 }
 
-/** One message of an expanded conversation, listed under its row (newest
-    first, like the list): sender, date, and a line of its text. Opening it
-    shows just this message. */
 function ThreadMessageRow({
   message,
   selected,
@@ -803,10 +755,6 @@ function ThreadMessageRow({
   );
 }
 
-/**
- * The unread filter's icon (Apple Mail's): a ring round three narrowing
- * lines, filled with the lines cut out while showing unread only.
- */
 function UnreadFilterIcon({ on, className }: { on: boolean; className?: string }) {
   return on ? (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
@@ -831,7 +779,6 @@ function UnreadFilterIcon({ on, className }: { on: boolean; className?: string }
   );
 }
 
-/** "260 messages, 7 unread" — omits the unread clause when nothing is unread. */
 function formatMailboxSummary(total: number, unread: number): string {
   const messages = `${total.toLocaleString()} message${total === 1 ? "" : "s"}`;
   return unread > 0 ? `${messages} · ${unread.toLocaleString()} unread` : messages;
@@ -864,7 +811,6 @@ export function MessageList({
   const focusedMessageId = openMessageId ? openFocusedMessageId : (cursor?.focusId ?? null);
   const [collapsedDays, setCollapsedDays] = useState<ReadonlySet<number>>(new Set());
   const isCombined = combined != null;
-  // This device isn't signed in to the mailbox (e.g. it was added on another device).
   const signedOutAccount = useAccounts().data?.find(
     (account) => account.id === accountId && account.signedOut,
   );
@@ -873,15 +819,11 @@ export function MessageList({
   const [mailboxMode, setMailboxMode] = useState<"all" | "unread">("all");
   const unreadOnly = mailboxMode === "unread" && !search;
 
-  // The Search mailbox runs Gmail's own search (the truth, every operator);
-  // the header's search icon opens it scoped to this mailbox, where its
-  // chips (starred, attachments, dates…) narrow it.
   const globalSearching = search !== undefined;
 
   const searching = globalSearching;
   const searchQuery = search?.query ?? "";
 
-  // All hooks are always called (rules of hooks); the inactive ones are disabled.
   const accountMessages = useMessages(isCombined || searching ? null : accountId, labelId);
   const combinedMessages = useCombinedMessages(
     combined?.rules ?? [],
@@ -896,7 +838,6 @@ export function MessageList({
       : accountMessages;
 
   const resolveLabel = useLabelResolver(isCombined ? accountIds : [accountId]);
-  // What archiving takes off a row (archive.ts): a folder listed here, or INBOX.
   const listLabel = isCombined || searching ? undefined : resolveLabel(accountId, labelId);
   const listCapabilities = useCapabilities(accountId);
   const archiveSourceOf = (labels: string[]) => archiveFrom(labels, listLabel, listCapabilities);
@@ -924,7 +865,6 @@ export function MessageList({
         : (labelSearchToken(labelId, nameOf(accountId, labelId)) ?? "");
     }
   });
-  // Named as the sidebar names it.
   const listName = combined
     ? combined.name
     : (folderName(labelId, listCapabilities) ??
@@ -937,8 +877,6 @@ export function MessageList({
         }
       : { mailboxTotal: activeLabel?.total ?? 0, mailboxUnread: activeLabel?.unread ?? 0 };
 
-  // Search pages are merged per account; a conversation seen on an earlier
-  // page isn't repeated.
   const allMessages: MessageSummary[] = useMemo(() => {
     const pages: { messages: MessageSummary[] }[] = messagesQuery.data?.pages ?? [];
     const rows = pages.flatMap((p) => p.messages);
@@ -989,8 +927,6 @@ export function MessageList({
   const selectedCapabilities = useCapabilities(selectedOwner);
   const { multipleLabels } = listCapabilities;
 
-  // Conversations opened up in place (Apple Mail), keyed `${owner}:${threadId}`;
-  // cleared with the multi-selection when the view changes.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const threadKey = (m: MessageSummary) => `${m.accountId ?? accountId}:${m.threadId || m.id}`;
   const expandedRows = visibleMessages.filter(
@@ -1002,10 +938,8 @@ export function MessageList({
       threadId: m.threadId || m.id,
     })),
   );
-  /** An expanded row's messages, newest first (like the list); [] when collapsed. */
   const threadMessagesOf = (m: MessageSummary): MessageSummary[] =>
     expanded.has(threadKey(m)) ? (threadsByKey.get(threadKey(m)) ?? []).toReversed() : [];
-  // What ↑/↓ walk through: every row, and the messages of expanded ones.
   type NavItem = { row: MessageSummary; focus: MessageSummary | null };
   const navItems: NavItem[] = visibleMessages.flatMap((row) => [
     { row, focus: null },
@@ -1014,8 +948,6 @@ export function MessageList({
   const focusedMessage =
     (selectedRow && threadMessagesOf(selectedRow).find((m) => m.id === focusedMessageId)) ?? null;
 
-  /** After the message open from `row`'s conversation leaves it: open its
-      neighbor there, or the whole conversation when none is left. */
   const advanceFocusIn = (row: MessageSummary, focus: MessageSummary) => {
     const siblings = threadMessagesOf(row);
     const next = pickAdvanceTarget(
@@ -1035,8 +967,6 @@ export function MessageList({
       else next.delete(key);
       return next;
     });
-    // Collapsing the conversation a message is open from falls back to the
-    // whole conversation.
     if (!open && row.id === selectedMessageId && focusedMessageId) {
       setCursor({ messageId: row.id });
       if (openMessageId)
@@ -1055,7 +985,6 @@ export function MessageList({
   // falling back to the open message, so shift-click ranges feel native.
   const [checked, setChecked] = useState<ReadonlySet<string>>(new Set());
   const anchorRef = useRef<string | null>(null);
-  /** The selection's other end, where Shift+↑/↓ go on from. */
   const extentRef = useRef<string | null>(null);
   const clearChecked = () => {
     setChecked(new Set());
@@ -1144,7 +1073,6 @@ export function MessageList({
 
   const openMessage = (row: MessageSummary, focus?: MessageSummary) => {
     const owner = row.accountId ?? accountId;
-    // Clicks read the conversation immediately; keyboard browsing stays debounced in the reader.
     if (focus ? focus.unread : (row.threadUnread ?? row.unread)) {
       if (focus) {
         listModifyMessage.mutate({
@@ -1202,8 +1130,6 @@ export function MessageList({
     selectionRef.current?.(checkedRowsRef.current);
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Re-run this DOM/reset lifecycle when its explicit trigger changes, even when the callback reads refs.
   }, [selectionSig, checkedRowsRef, selectionRef]);
-  /** Runs an action on every checked row. `undoable` actions register one
-      undo per row; grouped, a single z restores the whole selection. */
   const bulk = (
     label: string,
     run: (m: MessageSummary) => void,
@@ -1310,8 +1236,6 @@ export function MessageList({
   const trashCheckedRef = useLatest(allTrashed ? bulkUntrash : bulkTrash);
 
   const bulkMarkUnread = () => {
-    // Gmail-style: marking the open conversation unread returns to the list
-    // (and keeps the reader from instantly re-marking it read).
     if (selectedMessageId && checked.has(selectedMessageId)) onDeselect();
     bulk(
       "unread",
@@ -1332,7 +1256,6 @@ export function MessageList({
   };
   useLayoutEffect(() => {
     advanceRef.current = (fromMessageId: string) => {
-      // A single message open from an expanded conversation moves on within it.
       if (focusedMessage && selectedRow && fromMessageId === selectedRow.id) {
         advanceFocusIn(selectedRow, focusedMessage);
         return true;
@@ -1352,7 +1275,6 @@ export function MessageList({
     const owner = row.accountId ?? accountId;
     const rowThreadId = row.threadId || row.id;
     if (labelOverlay === "label" && !selectedCapabilities.multipleLabels) {
-      // One folder per message: "Label as" moves the conversation there.
       if (wasApplied) return;
       const labels = allLabels.find((l) => l.accountId === owner)?.labels ?? [];
       const move = moveToFolder(rowLabels(row), pickedId, labels);
@@ -1373,7 +1295,6 @@ export function MessageList({
       });
       return;
     }
-    // Move: apply the picked label and leave the current one.
     const removable =
       moveContextLabelId &&
       isMoveSourceLabel(moveContextLabelId, pickedId, selectedCapabilities.foldersAndCategories);
@@ -1423,17 +1344,11 @@ export function MessageList({
         threadId: string;
         select: (m: MessageSummary) => void;
         advance: () => void;
-        /** The single message open from an expanded conversation, if any. */
         focus: MessageSummary | null;
-        /** After `focus` is archived/trashed: open its neighbor in the
-            conversation, or the whole conversation when it was the only one. */
         advanceFocus: () => void;
       }) => boolean | void,
     ) =>
     (e: KeyboardEvent) => {
-      // Held-down key repeats can outpace rendering and pile up in the event
-      // queue, replaying moves long after the key is released — drop repeats
-      // that have been waiting more than a beat.
       if (e.repeat && performance.now() - e.timeStamp > 80) return;
       const {
         visibleMessages: rows,
@@ -1464,7 +1379,6 @@ export function MessageList({
         },
       });
     };
-  /** ↑/↓ over rows and the messages of expanded conversations. */
   const navCommand = (step: 1 | -1) => (e: KeyboardEvent) => {
     if (e.repeat && performance.now() - e.timeStamp > 80) return;
     const {
@@ -1473,7 +1387,6 @@ export function MessageList({
       focusedMessage: focus,
     } = shortcutState.current;
     if (nav.length === 0) return false;
-    // A plain move drops a multi-selection and goes on from where Shift+↑/↓ left it.
     const extent = extentRef.current;
     let idx = extent ? nav.findIndex((n) => n.row.id === extent && !n.focus) : -1;
     if (idx === -1)
@@ -1490,15 +1403,12 @@ export function MessageList({
       back toward the anchor shrinks the selection (Finder-style). */
   const extendCommand = (step: 1 | -1) => (e: KeyboardEvent) => {
     if (e.repeat && performance.now() - e.timeStamp > 80) return;
-    // Nothing to select in a list the reader covers (Full inbox).
     if (scrollRef.current?.closest("[inert]")) return false;
     const { visibleMessages: rows, selectedMessageId: selId } = shortcutState.current;
     const ids = rows.map((m) => m.id);
-    // With nothing selected yet, the selection starts at the current row.
     const anchor = ids.indexOf(
       (checkedRef.current.size > 0 ? anchorRef.current : null) ?? selId ?? "",
     );
-    // No current row: move onto the first, like ↓.
     if (anchor === -1) return navCommand(step)(e);
     const extent = extentRef.current ? ids.indexOf(extentRef.current) : -1;
     const to = (extent === -1 ? anchor : extent) + step;
@@ -1544,9 +1454,6 @@ export function MessageList({
         });
         return;
       }
-      // Archived rows un-archive; rows still in the inbox (or, where the
-      // Archive is a folder, in the folder listed) archive, and advance, since
-      // they leave the current view.
       const from = archiveSourceOf(rowLabels(row));
       if (from) advance();
       void listModifyThread.mutateAsync({
@@ -1572,7 +1479,6 @@ export function MessageList({
         }
         return;
       }
-      // Trashed rows restore in place; live rows trash and advance.
       if (rowLabels(row).includes("TRASH")) {
         void listUntrashThread.mutateAsync({ accountId: owner, threadId });
       } else {
@@ -1595,7 +1501,6 @@ export function MessageList({
         });
         return;
       }
-      // Junk rows come back to the inbox; either way the row leaves the view.
       const rowJunk = rowLabels(row).includes("SPAM");
       advance();
       void listModifyThread.mutateAsync({
@@ -1624,8 +1529,6 @@ export function MessageList({
         messageId: (focus ?? row).id,
         addLabelIds: ["UNREAD"],
       });
-      // Gmail returns to the list on mark-unread; also keeps the open
-      // reader from immediately re-marking it read.
       onDeselect();
     }),
     // oxlint-disable-next-line react/refs -- rowCommand builds an event handler; its ref reads happen when the command runs.
@@ -1693,7 +1596,6 @@ export function MessageList({
         return;
       }
       console.log("[MessageList:labelShortcut]", { labelName, count: moves.length });
-      // The open conversation leaves the mailbox: move on, like archive does.
       if (!multi && moves[0].leavesView) {
         const idx = rows.findIndex((m) => m.id === moves[0].m.id);
         const next = pickAdvanceTarget(rows, idx);
@@ -1709,7 +1611,6 @@ export function MessageList({
           removeLabelIds: remove.length > 0 ? remove : undefined,
         });
       }
-      // The action toast ("Moved to “X”", with Undo) comes from the undo registry.
       if (multi) clearChecked();
     },
   });
@@ -1738,8 +1639,6 @@ export function MessageList({
   // the view's labels by construction — no chip needed there.
   const inInboxContext = !globalSearching && !isCombined && labelId === "INBOX";
 
-  // Labels that define what's on screen (the browsed label, or a view's
-  // required labels for that account) are on every row — no chip for them.
   const EMPTY_LABELS: ReadonlySet<string> = new Set();
   const viewLabelIdsFor = (ownerId: string): ReadonlySet<string> => {
     if (globalSearching) return EMPTY_LABELS;
@@ -1782,8 +1681,6 @@ export function MessageList({
         )
       : null;
 
-  // Dragging a row onto a sidebar label: the whole multi-selection when the
-  // row is part of it, else just that row.
   const handleRowDragStart = (e: React.DragEvent, message: MessageSummary) => {
     const rows = checked.has(message.id) ? checkedRows : [message];
     console.log("[MessageList:dragStart]", { count: rows.length });
@@ -1916,7 +1813,6 @@ export function MessageList({
         ref={scrollRef}
         data-group-messages-by-day={groupByDay || undefined}
         onScroll={maybeLoadMore}
-        // Clipped to its card's corners (home-view.tsx), sticky day headers too.
         className="flex-1 rounded-xl"
         contentClassName={filteredMessages.length === 0 ? "h-full" : undefined}
         viewportClassName={[
@@ -1942,7 +1838,6 @@ export function MessageList({
             ))}
           </div>
         ) : filteredMessages.length === 0 && (hasNextPage || isFetchingNextPage) ? (
-          // Nothing to show yet, but more is coming (big mailboxes still syncing).
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
             <RotateCwIcon className="size-4 animate-spin text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Loading more mail…</span>

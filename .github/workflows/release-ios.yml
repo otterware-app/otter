@@ -1,13 +1,5 @@
 name: Release iPhone
 
-# The iPhone app (apps/ios) ships on its own, with its own version: run this
-# from main when it has changes (Actions → Release iPhone → Run workflow, or
-# `gh workflow run release-ios.yml -f bump=patch`). It builds main's HEAD,
-# uploads it to App Store Connect (TestFlight picks it up once Apple has
-# processed it), then tags the commit ios-vX.Y.Z and records the version in
-# the Xcode project on main. No GitHub Release: the Mac app updates from the
-# latest one. See docs/release.md.
-
 on:
   workflow_dispatch:
     inputs:
@@ -148,8 +140,6 @@ jobs:
         if: always()
         run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
 
-  # Only once the build is up: tag the commit it was built from, and record
-  # the version in the Xcode project on main so the next release starts there.
   finalize:
     name: Tag and bump the version on main
     needs: [preflight, build]

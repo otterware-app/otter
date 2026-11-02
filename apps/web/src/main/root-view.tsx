@@ -13,7 +13,6 @@ applyAppTheme();
 applyInterfaceSettings();
 
 export function RootView() {
-  // Re-theme live on appearance switches and theme picks from any window.
   React.useEffect(() => startAppTheme(), []);
   React.useEffect(() => startInterfaceSettings(), []);
   React.useEffect(() => startSyncedPreferences(), []);

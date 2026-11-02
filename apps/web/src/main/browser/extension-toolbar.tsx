@@ -24,7 +24,6 @@ import {
 import { HintTooltip, IconBtn, cn } from "../mail/ui";
 import { CHROME_WEB_STORE_URL, openTab, setExtensionsButton, setPinned, useBrowser } from "./store";
 
-/** A toolbar button of an extension's (apps/desktop/src/services/extensions.ts' ExtensionAction). */
 type ExtensionAction = {
   id: string;
   name: string;
@@ -40,7 +39,6 @@ type ExtensionAction = {
 
 const ACTIONS_KEY = ["browser-extension-actions"];
 
-/** The extensions' buttons for the page showing, kept current as they change them. */
 export function useExtensionActions(): ExtensionAction[] {
   const queryClient = useQueryClient();
   const query = useQuery({
@@ -58,7 +56,6 @@ export function useExtensionActions(): ExtensionAction[] {
   return query.data ?? [];
 }
 
-/** Runs an extension's button: its popup under `anchor`, or its click. */
 function run(id: string, anchor: Element | null) {
   const rect = anchor?.getBoundingClientRect();
   if (!rect) return;
@@ -88,11 +85,6 @@ function ActionIcon({ action, className }: { action: ExtensionAction; className?
   );
 }
 
-/**
- * The extensions' end of the toolbar (ChatGPT's, Chrome's): pinned
- * extensions' buttons, then the Extensions menu listing them all, to run,
- * pin, or manage. A popup hangs from the button clicked.
- */
 export function ExtensionToolbar() {
   const actions = useExtensionActions();
   const pinned = useBrowser((s) => s.pinned);
@@ -103,7 +95,6 @@ export function ExtensionToolbar() {
     .map((id) => actions.find((action) => action.id === id))
     .filter((action): action is ExtensionAction => action !== undefined);
 
-  // chrome.action.openPopup with no button clicked yet: from its own, or the menu's.
   useEffect(
     () =>
       window.desktopBridge.on("browser:openExtensionPopup", (params) => {

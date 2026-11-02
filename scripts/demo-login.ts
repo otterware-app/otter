@@ -23,19 +23,10 @@ import { signInPage } from "../packages/shared/src/sign-in-page.ts";
 const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
-/**
- * An OAuth client. A "Desktop app" one takes any loopback port; a "Web
- * application" one only its registered addresses: `redirectUri`, then.
- */
 export type GoogleClient = { id: string; secret: string; redirectUri?: string };
 
-/**
- * A Microsoft client: the Mac app's public one (no secret, any port on
- * http://localhost), or the relay's web one (a secret, its registered callback).
- */
 export type MicrosoftClient = { id: string; secret?: string; redirectUri?: string };
 
-/** Google in the browser for `email`; resolves with the refresh token it grants `client`. */
 async function signIn(client: GoogleClient, email: string): Promise<string> {
   const verifier = NodeCrypto.randomBytes(32).toString("base64url");
   const state = NodeCrypto.randomBytes(16).toString("base64url");
@@ -86,7 +77,6 @@ async function signIn(client: GoogleClient, email: string): Promise<string> {
     });
   });
   console.log(`[login] Sign in to Google as ${email} (its password is in .env.local):\n${url}`);
-  // In a terminal, open the browser; an agent opens the link in its own.
   if (process.stdout.isTTY) NodeChildProcess.spawn("open", [url], { stdio: "ignore" });
   try {
     const tokens = await tokenRequest(client, {
@@ -95,7 +85,6 @@ async function signIn(client: GoogleClient, email: string): Promise<string> {
       redirect_uri: redirectUri,
       code_verifier: verifier,
     });
-    // Who signed in: the ID token's claims (from Google itself, over TLS).
     const claims = JSON.parse(
       Buffer.from(tokens.id_token?.split(".")[1] ?? "", "base64url").toString() || "{}",
     ) as { email?: string };
@@ -130,7 +119,6 @@ async function tokenRequest(
   return json;
 }
 
-/** Microsoft in the browser for `email`; resolves with the refresh token it grants `client`. */
 async function signInMicrosoft(client: MicrosoftClient, email: string): Promise<string> {
   const verifier = NodeCrypto.randomBytes(32).toString("base64url");
   const state = NodeCrypto.randomBytes(16).toString("base64url");
@@ -142,7 +130,6 @@ async function signInMicrosoft(client: MicrosoftClient, email: string): Promise<
     );
     server.listen(fixed ? Number(fixed.port) : 0, "127.0.0.1", resolve);
   });
-  // Microsoft takes any port on http://localhost (not 127.0.0.1) for public clients.
   const redirectUri =
     client.redirectUri ?? `http://localhost:${(server.address() as { port: number }).port}`;
   const url = `${MICROSOFT_AUTHORITY}/authorize?${new URLSearchParams({
@@ -208,7 +195,6 @@ async function signInMicrosoft(client: MicrosoftClient, email: string): Promise<
         `Microsoft token request failed: ${tokens.error_description ?? tokens.error}`,
       );
     }
-    // Who signed in: Graph's /me, as the app asks.
     const me = (await (
       await fetch("https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName", {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
@@ -225,14 +211,12 @@ async function signInMicrosoft(client: MicrosoftClient, email: string): Promise<
   }
 }
 
-/** Writes the list back to `file` (.env.local), on one line, the rest of the file as it was. */
 function save(file: string, mailboxes: DemoMailbox[]): void {
   const json = JSON.stringify(mailboxes);
   const quote = json.includes("'") ? "`" : "'";
   const line = `${DEMO_MAILBOXES_ENV}=${quote}${json}${quote}`;
   const text = NodeFS.readFileSync(file, "utf8");
   const existing = new RegExp(`^${DEMO_MAILBOXES_ENV}=.*$`, "m");
-  // Written in place: in a worktree, .env.local links to the main checkout's.
   NodeFS.writeFileSync(
     file,
     existing.test(text) ? text.replace(existing, line) : `${text.replace(/\n?$/, "\n")}${line}\n`,

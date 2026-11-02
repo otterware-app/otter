@@ -135,29 +135,18 @@ import { isModClick } from "../keybindings/keys";
 type MessageReaderProps = {
   accountId: string;
   messageId: string | null;
-  /** The folder or label of the list it was opened from (none: a view, a search, a chat). */
   listLabelId?: string | null;
   /** Browsing the list previews drafts without taking focus from navigation. */
   autoFocusDraft?: boolean;
-  /** Show only this message, not its whole conversation (picked from an
-      expanded conversation in the list); actions then apply to it alone. */
   single?: boolean;
-  /** Leaves `single` mode for the whole conversation. */
   onShowConversation?: () => void;
-  /** Clears the selection (drafts return to the list after send/discard). */
   onDeselect?: () => void;
-  /** Toolbar archive/trash move on to the next conversation through this. */
   onAdvance?: () => void;
-  /** Opens the in-app agent chat panel (this conversation becomes its context). */
   onOpenChat?: () => void;
-  /** A selected excerpt was sent to the chat panel as a quote. */
   onQuote?: (quote: QuoteContext) => void;
-  /** Sender hover-card quick actions. */
   onComposeTo?: (email: string) => void;
   onSearchSender?: (email: string) => void;
-  /** Right end of the window's title band (panel toggle), drawn in this header. */
   titleTrailing?: ReactNode;
-  /** Navigation at the start of the title band (full inbox layout). */
   titleLeading?: ReactNode;
 };
 
@@ -189,7 +178,6 @@ function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-/** Day-divider label: Today, Yesterday, weekday, or a date. */
 function formatDayLabel(timestamp: number): string {
   const date = new Date(timestamp);
   const now = new Date();
@@ -210,13 +198,6 @@ export function dayKey(timestamp: number): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-/**
- * The email canvas is always light (HTML mail is designed for white), but in
- * a dark-appearance window the iframe document inherits dark UA defaults —
- * default text renders WHITE on our white card. This prelude pins the
- * document to light rendering and sane typography; email-supplied CSS comes
- * after it and still wins.
- */
 const messageBodyPrelude = (fontSize: number) => `<style>
 :root { color-scheme: light; }
 body {
@@ -232,12 +213,6 @@ a { color: #e34500; }
 blockquote { border-left: 3px solid #d6d6d6; padding-left: 12px; margin: 4px 0; color: #555555; }
 </style>`;
 
-/**
- * Dark-appearance canvas, the Apple Mail approach: the email sits on the
- * message card itself (transparent page, light default text) and only parts
- * that paint their own background keep their original look (see
- * `adaptForDarkCanvas`). Email-supplied CSS still comes after and wins.
- */
 const messageBodyPreludeDark = (fontSize: number) => `<style>
 :root { color-scheme: dark; }
 html, body { background: transparent; }
@@ -254,7 +229,6 @@ blockquote { border-left: 3px solid #3a3a3a; padding-left: 12px; margin: 4px 0; 
 hr { border: none; border-top: 1px solid #333333; }
 </style>`;
 
-/** RGB → HSL (0–1 ranges). */
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   const [rn, gn, bn] = [r / 255, g / 255, b / 255];
   const max = Math.max(rn, gn, bn);
@@ -304,7 +278,7 @@ function adaptForDarkCanvas(doc: Document | null | undefined) {
     if (!hasOwnText) continue;
     const color = parseRgb(getComputedStyle(element).color);
     if (!color || color.a < 0.05) continue;
-    if (relativeLuminance(color.r, color.g, color.b) >= 0.18) continue; // already readable
+    if (relativeLuminance(color.r, color.g, color.b) >= 0.18) continue;
     if (!onCanvas(element)) continue;
     const [h, sat, l] = rgbToHsl(color.r, color.g, color.b);
     const lightness = Math.min(0.9, Math.max(0.72, 1 - l));
@@ -313,15 +287,8 @@ function adaptForDarkCanvas(doc: Document | null | undefined) {
   }
 }
 
-/**
- * Dark mode honors the email's own dark styles, but many only half-apply:
- * LinkedIn's turn paragraph text light grey while the card behind it keeps
- * its white background. Where text sits on a light background the email
- * painted itself and is barely readable (contrast under 3:1), make it dark.
- */
 function fixLightOnLightText(doc: Document | null | undefined) {
   if (!doc?.body) return;
-  /** Luminance of the nearest painted background; null over the dark canvas or an image. */
   const paintedBg = (start: Element): number | null => {
     let node: Element | null = start;
     while (node && node !== doc.documentElement) {
@@ -344,7 +311,7 @@ function fixLightOnLightText(doc: Document | null | undefined) {
     const color = parseRgb(getComputedStyle(element).color);
     if (!color || color.a < 0.05) continue;
     const bg = paintedBg(element);
-    if (bg === null || bg < 0.5) continue; // not on a light surface
+    if (bg === null || bg < 0.5) continue;
     const text = relativeLuminance(color.r, color.g, color.b);
     const contrast = (Math.max(text, bg) + 0.05) / (Math.min(text, bg) + 0.05);
     if (contrast >= 3) continue;
@@ -381,9 +348,8 @@ function neutralizeDarkScheme(doc: Document | null | undefined) {
   };
   for (const sheet of Array.from(doc.styleSheets)) {
     try {
-      // Whole-sheet media (from `<style media=…>` / `<link media=…>`).
       if (sheet.media && isDark(sheet.media)) sheet.media.mediaText = "not all";
-      walk(sheet.cssRules); // throws for cross-origin sheets — caught below
+      walk(sheet.cssRules);
     } catch {
       /* cross-origin or unreadable stylesheet: skip */
     }
@@ -430,7 +396,7 @@ function fixWhiteOnWhiteText(doc: Document | null | undefined) {
       if (bg && bg.a > 0.05) return relativeLuminance(bg.r, bg.g, bg.b);
       node = node.parentElement;
     }
-    return 1; // falls through to our forced-white canvas
+    return 1;
   };
   const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT);
   let el: Node | null;
@@ -442,8 +408,8 @@ function fixWhiteOnWhiteText(doc: Document | null | undefined) {
     if (!hasOwnText) continue;
     const color = parseRgb(getComputedStyle(element).color);
     if (!color) continue;
-    if (relativeLuminance(color.r, color.g, color.b) < 0.85) continue; // not light text
-    if (effectiveBgLuminance(element) < 0.85) continue; // has a dark-enough backdrop
+    if (relativeLuminance(color.r, color.g, color.b) < 0.85) continue;
+    if (effectiveBgLuminance(element) < 0.85) continue;
     element.style.setProperty("color", "#1f1f1f", "important");
   }
 }
@@ -457,7 +423,6 @@ function fixWhiteOnWhiteText(doc: Document | null | undefined) {
  * for the srcdoc document as soon as it is PARSED and fit from there; `load` and
  * the per-image listeners are then just later refinements for late-arriving art.
  */
-/** Live dark/light appearance (follows the app's theme setting and the system). */
 function useDarkAppearance(): boolean {
   const query = "(prefers-color-scheme: dark)";
   const [dark, setDark] = useState(() => window.matchMedia(query).matches);
@@ -470,7 +435,6 @@ function useDarkAppearance(): boolean {
   return dark;
 }
 
-/** Containers mail clients wrap the quoted reply history in. */
 const QUOTE_SELECTOR = [
   ".gmail_quote",
   "blockquote[type='cite']",
@@ -512,7 +476,6 @@ function findQuotedHistory(doc: Document): HTMLElement[] {
   return total - quoted >= 20 ? Array.from(hidden) : [];
 }
 
-/** "•••" toggle for trimmed quoted history, as in Gmail. */
 function QuoteToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   return (
     <HintTooltip label={open ? "Hide quoted text" : "Show quoted text"}>
@@ -529,7 +492,6 @@ function QuoteToggle({ open, onToggle }: { open: boolean; onToggle: () => void }
   );
 }
 
-/** Where an HTML body's `cid:` images come from: the message's inline attachments. */
 type InlineImageSource = {
   accountId: string;
   messageId: string;
@@ -537,7 +499,6 @@ type InlineImageSource = {
   byCid: Map<string, MessageAttachment>;
 };
 
-/** Pairs each `<img src="cid:…">` in the body with the attachment it embeds, by Content-ID. */
 function matchInlineImages(
   html: string | null,
   attachments: MessageAttachment[],
@@ -564,7 +525,6 @@ function HtmlBody({
   html: string;
   inlineImages?: InlineImageSource;
   onQuoteText?: (text: string) => void;
-  /** Extensions answering some of its links in the app (an invite's Yes / No / Maybe). */
   bodyLinks?: BodyLinkHandler[];
 }) {
   // Quoted history is hidden inside the frame; the toggle lives outside it
@@ -586,11 +546,7 @@ function HtmlBody({
   const inlineRef = useLatest(inlineImages);
   const linksRef = useLatest(bodyLinks ?? []);
   const dark = useDarkAppearance();
-  // 15px at a 16px interface (the size the app is drawn at), scaled with it.
   const bodyFontSize = (15 * useInterfaceSetting(INTERFACE_FONT_SIZE)) / 16;
-  // Light: white card, email's own dark-mode CSS disabled, white-on-white
-  // rescued. Dark: transparent canvas, email's dark CSS honored, dark-on-dark
-  // rescued, islands with their own background untouched.
   const adaptColors = (doc: Document | null | undefined) => {
     if (dark) {
       adaptForDarkCanvas(doc);
@@ -625,7 +581,6 @@ function HtmlBody({
       }
     };
 
-    // Attach to whichever document is in the frame, once it has a body.
     const wire = () => {
       const doc = iframe.contentDocument;
       if (!doc?.body || doc === wired) return;
@@ -742,8 +697,8 @@ function HtmlBody({
           e.preventDefault();
           return;
         }
-        if (raw.startsWith("#")) return; // in-page anchor: let the iframe scroll
-        const url = anchor.href; // resolved absolute URL
+        if (raw.startsWith("#")) return;
+        const url = anchor.href;
         if (/^(https?|mailto):/i.test(url)) {
           console.log("[MessageBody:linkClick]", { href: raw.slice(0, 60) });
           e.preventDefault();
@@ -759,9 +714,6 @@ function HtmlBody({
       // them. Force every link to navigate in-frame instead so that path fires.
       doc.querySelectorAll("base[target]").forEach((b) => b.removeAttribute("target"));
       doc.querySelectorAll("a[target]").forEach((a) => a.setAttribute("target", "_self"));
-      // Once a click or a selection puts focus in the body, keys go to the
-      // frame's window: pass them on to the app's shortcuts (⌘I, j/k, …),
-      // except while typing in a form the mail carries.
       doc.addEventListener("keydown", (e) => {
         const target = e.target as Element | null;
         if (target?.closest?.("input, textarea, select, [contenteditable]")) return;
@@ -802,8 +754,6 @@ function HtmlBody({
     };
     requestAnimationFrame(spin);
 
-    // … then keep re-fitting for a while: CSS background images and web fonts
-    // change the height but fire no load event we can hook.
     let ticks = 0;
     const poll = setInterval(() => {
       wire();
@@ -840,8 +790,6 @@ function HtmlBody({
   ]);
   /* oxlint-enable react/exhaustive-effect-dependencies */
 
-  // Marketing/HTML mail is designed for a white canvas — give it a light card
-  // inside the dark conversation, like an unfurled preview card.
   return (
     <div>
       <iframe
@@ -860,7 +808,6 @@ function HtmlBody({
   );
 }
 
-/** Splits a plain-text body at its quoted history ("On … wrote:", "> …", Outlook marker). */
 function splitPlainQuote(text: string): [string, string] {
   const lines = text.split("\n");
   for (let i = 1; i < lines.length; i++) {
@@ -883,7 +830,6 @@ function splitPlainQuote(text: string): [string, string] {
 
 const URL_RE = /\bhttps?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]}'*]/g;
 
-/** Plain text with its URLs as links that open like the HTML body's. */
 function Linkified({ text }: { text: string }) {
   const parts: ReactNode[] = [];
   let last = 0;
@@ -938,7 +884,6 @@ function MessageBody({
   bodyHtml: string | null;
   bodyText: string | null;
   inlineImages?: InlineImageSource;
-  /** Reports selected text inside the (same-origin) HTML iframe. */
   onQuoteText?: (text: string) => void;
 }) {
   if (bodyHtml) {
@@ -952,7 +897,6 @@ function MessageBody({
     );
   }
   if (bodyText) {
-    // Flush inside the message card (the card is the surface now).
     return <PlainBody text={bodyText} />;
   }
   return <span className="text-sm text-muted-foreground">(No message body)</span>;
@@ -977,7 +921,6 @@ async function withThumbnailSlot<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-/** A message's attachment, for the in-app preview. */
 function previewFile(
   accountId: string,
   messageId: string,
@@ -1019,7 +962,6 @@ function useAttachmentActions(
 
   const save = () => onDownload(messageId, attachment.id, attachment.filename, attachment.mimeType);
 
-  // In the app's default app (the Mac), or downloaded (the web).
   const openInApp = () => {
     if (opening) return;
     console.log("[MessageReader:openAttachment]", { messageId, filename: attachment.filename });
@@ -1035,7 +977,6 @@ function useAttachmentActions(
     })();
   };
 
-  // What the app can show opens in place; the rest in its own app.
   const previewable = attachmentPreview(attachment.filename, attachment.mimeType) !== null;
   const handleOpen = () => {
     if (draggedRef.current) return;
@@ -1050,8 +991,6 @@ function useAttachmentActions(
     />
   );
 
-  // Native drag-out starts once the pointer travels past a small threshold with
-  // the button held; a plain click (no travel) opens the file instead.
   const dragProps = {
     onPointerDown: (e: PointerEvent<HTMLElement>) => {
       if (e.button !== 0) return;
@@ -1304,8 +1243,6 @@ function AttachmentList({
   );
 }
 
-// DayDivider/CollapsedRow/ExpandedRow are shared with DraftEditor, which
-// renders the same conversation above its composer.
 export function DayDivider({ timestamp }: { timestamp: number }) {
   return (
     <div className="flex justify-center px-6 pb-2 pt-6">
@@ -1322,7 +1259,6 @@ export function CollapsedRow({
   accountId: string;
   summary: MessageSummary;
   onExpand: () => void;
-  /** Kept for callers; every row is now a flat, hairline-separated row. */
   standalone?: boolean;
 }) {
   return (
@@ -1365,7 +1301,6 @@ export function CollapsedRow({
   );
 }
 
-/** "N more messages" fold inside a grouped run of collapsed messages. */
 function FoldRow({ count, onUnfold }: { count: number; onUnfold: () => void }) {
   return (
     <div className="px-3 py-px">
@@ -1397,9 +1332,7 @@ export function ExpandedRow({
 }: {
   accountId: string;
   summary: MessageSummary;
-  /** Absent for single-message conversations, which always stay expanded. */
   onCollapse?: () => void;
-  /** Moves this message to the Trash (absent when it's there). */
   onTrash?: () => void;
   onDownload: DownloadAttachment;
   onQuoteText?: (text: string) => void;
@@ -1437,8 +1370,6 @@ export function ExpandedRow({
     () => matchInlineImages(detail?.bodyHtml ?? null, detail?.attachments ?? []),
     [detail],
   );
-  // Extensions may swap the body's text (Translation, with its banner) and
-  // answer some of its links in place (an invite's Yes / No / Maybe).
   const body = useExtensionMessageBody(accountId, detail);
   const bodyLinks = useExtensionBodyLinks(summary.id, detail);
 
@@ -1565,11 +1496,6 @@ export function ExpandedRow({
   );
 }
 
-/**
- * A message's To/Cc list: each person is selectable text (the app is
- * unselectable by default) with the sender hovercard — Copy address, New
- * message, Find emails — like the From line.
- */
 function RecipientList({
   list,
   accountId,
@@ -1604,7 +1530,6 @@ function RecipientList({
   );
 }
 
-/** Reply-all recipients for the latest message, from this account's viewpoint. */
 function computeReplyAll(
   last: MessageSummary & { cc?: string },
   ownEmail: string,
@@ -1622,7 +1547,6 @@ function computeReplyAll(
     const email = parseAddressEntry(entry).email.toLowerCase();
     if (!email || seen.has(email)) continue;
     seen.add(email);
-    // Replying to your own message keeps its recipients in To.
     (fromSelf ? to : cc).push(entry);
   }
   for (const entry of splitAddressList(last.cc ?? "")) {
@@ -1643,7 +1567,6 @@ const INLINE_MODE_LABEL: Record<InlineMode, string> = {
   forward: "Forward",
 };
 
-/** Reply-to-sender recipients for the latest message. */
 /** "Name <email>" for the sender, so replies show who they're going to. */
 function senderAddress(m: MessageSummary): string {
   return formatAddressEntry(m.fromName, m.fromEmail);
@@ -1670,7 +1593,6 @@ function forwardBlock(
   const fromDisplay = source.fromName
     ? `${source.fromName} <${source.fromEmail}>`
     : source.fromEmail;
-  // HTML-only mail has no text part — derive it, or the forward arrives empty.
   const body = source.bodyText ?? (source.bodyHtml ? htmlToText(source.bodyHtml) : "");
   return `\n\n---------- Forwarded message ----------\nFrom: ${fromDisplay}\nDate: ${formatFullDate(source.date)}\nSubject: ${source.subject}\nTo: ${source.to}\n\n${body}`;
 }
@@ -1681,7 +1603,6 @@ const INLINE_MODE_ICON: Record<InlineMode, typeof ReplyIcon> = {
   forward: ForwardIcon,
 };
 
-/** "↩ Reply ⌄" — switches the inline composer between reply, reply all and forward. */
 function ModeSwitcher({
   mode,
   onChange,
@@ -1732,7 +1653,6 @@ function InlineComposer({
 }: {
   accountId: string;
   mode: InlineMode;
-  /** Switches Reply / Reply all / Forward in place (the text is kept). */
   onModeChange: (mode: InlineMode) => void;
   lastMessage: MessageSummary;
   baseSubject: string;
@@ -1749,7 +1669,6 @@ function InlineComposer({
   const [formatting, setFormatting] = useState(false);
   // Forward needs recipients typed in; replies show a one-line summary.
   const [fieldsOpen, setFieldsOpen] = useState(mode === "forward");
-  // null = still fetching the forwarded original's files.
   const [attachments, setAttachments] = useState<ComposeAttachment[] | null>(
     mode === "forward" ? null : [],
   );
@@ -1764,7 +1683,6 @@ function InlineComposer({
 
   const ownEmail = accountsQuery.data?.find((a) => a.id === accountId)?.email ?? "";
 
-  // A mode switch recomputes recipients (and drops forwarded files).
   const previousMode = useRef(mode);
   useEffect(() => {
     if (previousMode.current === mode) return;
@@ -1793,7 +1711,6 @@ function InlineComposer({
     setCcVisible(!!r.cc);
   }, [mode, lastMessage, lastDetail, ownEmail]);
 
-  // Forward seeds the original's attachments; other modes keep manual picks.
   useEffect(() => {
     if (mode !== "forward") return;
     if (!lastDetail) {
@@ -1844,13 +1761,10 @@ function InlineComposer({
   const subject =
     mode === "forward" ? prefixSubject("Fwd", baseSubject) : prefixSubject("Re", baseSubject);
 
-  // Half-written replies/forwards persist as thread drafts.
   const draft = useDraftAutosave({
     accountId,
     threadId,
     delayMs: autosaveDelayMs(attachments),
-    // Edited elsewhere (an agent, Gmail web): load that version in place.
-    // The subject stays derived from the conversation.
     onRemoteChange: async (detail) => {
       recipientsDirty.current = true;
       setTo(detail.to ?? "");
@@ -2132,9 +2046,6 @@ export function MessageReader({
     readerObserver.current = ro;
   }, []);
   const compactActions = readerWidth < 36 * 16;
-  // The summary (Codex's pinned card): in the top-right corner, the
-  // conversation re-centering in the room left of it, when the 48rem column
-  // and the card (16rem + 1rem margins) both fit; else a popover from the toggle.
   const summaryFits = readerWidth >= 48 * 16 + 16 * 16 + 2 * 16;
   const [summaryPinned, setSummaryPinned] = useState(
     () => localStorage.getItem("gmail:summary-pinned") !== "0",
@@ -2177,8 +2088,6 @@ export function MessageReader({
   const message = messageQuery.data;
   const threadId = message?.threadId || null;
 
-  // Extensions' part in the open conversation (Translation's): context around
-  // the reader, and items in its "…" menu.
   const conversation = useExtensionConversation({ accountId, messageId, message });
   const threadQuery = useThread(messageId ? accountId : null, threadId);
   const threadMessages = threadQuery.data ?? [];
@@ -2187,7 +2096,6 @@ export function MessageReader({
   const [inline, setInline] = useState<InlineMode | null>(null);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
-  // Long runs of collapsed messages fold into "N more messages" until opened.
   const [unfolded, setUnfolded] = useState(false);
   // oxlint-disable-next-line react/set-state-in-effect, react/exhaustive-effect-dependencies -- Re-run this DOM/reset lifecycle when its explicit trigger changes, even when the callback reads refs.
   useEffect(() => setUnfolded(false), [messageId]);
@@ -2229,7 +2137,6 @@ export function MessageReader({
       if (e.key !== "Escape" || !inlineRef.current) return;
       const el = e.target as Element | null;
       if (el && typeof el.closest === "function" && el.closest('[role="dialog"]')) return;
-      // An open autocomplete popup owns Escape (it dismisses itself).
       if (el && typeof el.closest === "function" && el.closest('[data-ac-open="true"]')) return;
       e.preventDefault();
       e.stopPropagation();
@@ -2239,8 +2146,6 @@ export function MessageReader({
     return () => window.removeEventListener("keydown", down, true);
   }, [inlineRef]);
 
-  // Seed which conversation rows start expanded: the last message, every
-  // unread one, and the opened message itself (differs when opened via search).
   useEffect(() => {
     if (!messageId || !threadId || threadMessages.length === 0) return;
     const seedKey = `${accountId}:${threadId}:${messageId}`;
@@ -2308,13 +2213,10 @@ export function MessageReader({
     );
   }
 
-  // From here on the conversation is renderable — a thread of one message
-  // falls back to the opened message itself.
   const rows: MessageSummary[] = !single && threadMessages.length > 0 ? threadMessages : [message];
   // Reply/forward target the last real message — never your own saved draft.
   const sentRows = rows.filter((m) => !m.labelIds.includes("DRAFT"));
   const lastRow = sentRows[sentRows.length - 1] ?? rows[rows.length - 1];
-  // Labels belong to the conversation: shown and edited as the union over it.
   const conversationLabelIds = [...new Set(rows.flatMap((m) => m.labelIds))];
   const conversationId = threadId ?? message.threadId ?? message.id;
 
@@ -2344,7 +2246,6 @@ export function MessageReader({
           removeLabelIds: ["UNREAD"],
         });
       } else {
-        // Marking a read conversation unread flags only its latest message.
         const last = threadMessages[threadMessages.length - 1];
         void modifyMessage.mutateAsync({
           accountId,
@@ -2365,7 +2266,6 @@ export function MessageReader({
     if (!isUnread) onDeselect?.();
   };
 
-  // What archiving takes off (archive.ts): INBOX, or the folder it was opened from.
   const archiveSource = archiveFrom(
     isThread ? conversationLabelIds : message.labelIds,
     labelsQuery.data?.find((l) => l.id === listLabelId),
@@ -2456,7 +2356,6 @@ export function MessageReader({
           filename,
           mimeType,
         });
-        // Not saved: the save dialog was cancelled.
         if (result.saved) toast.success(`Saved ${filename}`);
       } catch {
         toast.error("Could not download attachment");
@@ -2464,7 +2363,6 @@ export function MessageReader({
     })();
   };
 
-  // The summary's files open here: its popover closes when the preview takes focus.
   const handleOpenSummaryFile = (fileMessageId: string, attachment: MessageAttachment) => {
     const save = () =>
       handleDownloadAttachment(
@@ -2517,7 +2415,6 @@ export function MessageReader({
 
   const groupDivider = <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />;
 
-  /** Subject + label chips, the conversation's heading. */
   const summary = (
     <ConversationSummary
       accountId={accountId}
@@ -2889,8 +2786,6 @@ export function MessageReader({
         >
           <div className="mx-auto w-full max-w-(--reading-width)">
             {(() => {
-              // Day dividers, expanded messages, and runs of collapsed messages
-              // (one grouped card per run; long runs fold to "N more").
               type Segment =
                 | { kind: "day"; ts: number }
                 | { kind: "open"; m: MessageSummary }
@@ -2922,7 +2817,6 @@ export function MessageReader({
                         m.labelIds.includes("TRASH")
                           ? undefined
                           : () => {
-                              // A conversation of one goes with it, as with the toolbar's Trash.
                               if (rows.length === 1) onAdvance?.();
                               void trashMessage.mutateAsync({ accountId, messageId: m.id });
                             }

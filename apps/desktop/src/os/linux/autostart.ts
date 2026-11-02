@@ -1,9 +1,3 @@
-/**
- * Opening at login on Linux, which Electron's setLoginItemSettings doesn't
- * cover: an XDG autostart entry in ~/.config/autostart that desktops run when
- * the user logs in.
- */
-
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -13,7 +7,6 @@ export function autostartFile(env: NodeJS.ProcessEnv = process.env): string {
   return path.join(configHome, "autostart", "otter-mail.desktop");
 }
 
-/** An Exec argument, quoted per the Desktop Entry spec. */
 function quoteExec(value: string): string {
   return `"${value.replace(/["`$\\]/g, (c) => `\\${c}`)}"`;
 }

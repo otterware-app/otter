@@ -1,5 +1,3 @@
-/** Sign-in codes: the code a verification email carries, on a card above its body. */
-
 import { findVerificationCode } from "@otter-mail/shared/verification-code";
 import { htmlToText, type MessageCardProps, type UiExtension } from "@otter-mail/web/extension-kit";
 import { useMemo } from "react";

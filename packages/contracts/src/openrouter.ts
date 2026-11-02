@@ -1,4 +1,3 @@
-/** The server agent API, shared by the Mac, web, and iPhone clients. */
 export type OpenRouterModel = {
   slug: string;
   name: string;

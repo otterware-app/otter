@@ -1,15 +1,10 @@
 import SwiftUI
 import WebKit
 
-/**
- * A mailbox's signature as Gmail keeps it, HTML, edited in place (links, sizes
- * and all), as the desktop's rich-text signature editor does.
- */
 struct SignatureEditor: View {
     @Environment(\.palette) private var palette
     @Environment(\.colorScheme) private var colorScheme
     let html: String
-    /** Where saving puts it ("Gmail", "your Otter account"). */
     var savedIn = "Gmail"
     /** Signs the mailbox in again, for a sign-in that may not save signatures in Gmail. */
     var signIn: (() async throws -> Void)?
@@ -26,7 +21,6 @@ struct SignatureEditor: View {
             WebView(page)
                 .scrollDisabled(true)
                 .frame(height: height)
-                // WebKit's blank page is white: shown once the signature (in the row's colors) is in.
                 .opacity(loaded ? 1 : 0)
                 .task(id: html) { await load() }
                 // Light and dark swap without reloading what's being typed.
@@ -87,7 +81,6 @@ struct SignatureEditor: View {
                 loaded = true
             }
         } catch {}
-        // Keep the frame as tall as what's being typed.
         while !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(500))
             await measure()

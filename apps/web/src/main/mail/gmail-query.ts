@@ -1,14 +1,4 @@
-/**
- * Gmail search queries as text, the way Gmail treats them: the search chips
- * and the advanced-search form only edit operators in the query string
- * (`from:`, `has:attachment`, `after:`…), and the string is what runs.
- */
-
 export const SEARCH_MAILBOX = "__search__";
-
-// ---------------------------------------------------------------------------
-// The mailbox you search from, as Gmail operators (⌘F prefills it)
-// ---------------------------------------------------------------------------
 
 const SYSTEM_OPERATORS: Record<string, string> = {
   INBOX: "in:inbox",
@@ -27,20 +17,13 @@ const SYSTEM_OPERATORS: Record<string, string> = {
   CATEGORY_FORUMS: "category:forums",
 };
 
-/** A label as Gmail writes it in the search bar: `in:inbox`, `label:clients-acme`. */
 export function labelSearchToken(labelId: string, labelName: string | null): string | null {
   const system = SYSTEM_OPERATORS[labelId];
   if (system) return system;
   if (!labelName) return null;
-  // Gmail's own form: spaces and nesting slashes become dashes.
   return `label:${labelName.trim().replace(/[\s/]+/g, "-")}`;
 }
 
-/**
- * A mailbox view's rules as one query. Rules that differ per account are
- * OR-ed with Gmail's `{ }`; a rule taking all of an account's mail means the
- * view has no label restriction at all.
- */
 export function viewSearchQuery(
   rules: { accountId: string; allOf: string[]; noneOf: string[] }[],
   nameOf: (accountId: string, labelId: string) => string | null,
@@ -62,7 +45,6 @@ export function viewSearchQuery(
   return `{${distinct.map((c) => (c.includes(" ") ? `(${c})` : c)).join(" ")}}`;
 }
 
-/** One `key:value` operator; the value keeps its quotes/parens verbatim. */
 type Operator = { key: string; value: string; negated: boolean; raw: string };
 
 const OPERATOR_RE = /(^|\s)(-?)([a-z_]+):("[^"]*"|\([^)]*\)|\S+)/gi;
@@ -85,19 +67,16 @@ function tidy(q: string): string {
   return q.replace(/\s+/g, " ").trim();
 }
 
-/** Quote values with spaces, like Gmail writes them. */
 function quote(value: string): string {
   const v = value.trim();
   return /\s/.test(v) && !/^["(]/.test(v) ? `"${v}"` : v;
 }
 
-/** Value of the first non-negated `key:` operator, unquoted. */
 export function getOperator(q: string, key: string): string | null {
   const op = parseOperators(q).find((o) => o.key === key && !o.negated);
   return op ? op.value.replace(/^"(.*)"$/, "$1") : null;
 }
 
-/** Replaces every `key:` operator with `key:value` (or removes them for null). */
 export function setOperator(q: string, key: string, value: string | null): string {
   let next = q;
   for (const op of parseOperators(q)) {
@@ -106,7 +85,6 @@ export function setOperator(q: string, key: string, value: string | null): strin
   return tidy(value === null || value.trim() === "" ? next : `${next} ${key}:${quote(value)}`);
 }
 
-/** Whether an exact token (`has:attachment`, `is:unread`) is in the query. */
 export function hasToken(q: string, token: string): boolean {
   return parseOperators(q).some((o) => !o.negated && `${o.key}:${o.value}`.toLowerCase() === token);
 }
@@ -120,10 +98,6 @@ export function toggleToken(q: string, token: string): string {
   }
   return tidy(next);
 }
-
-// ---------------------------------------------------------------------------
-// Dates ("Any time" chip, advanced search's "Date within")
-// ---------------------------------------------------------------------------
 
 export const TIME_PRESETS = [
   { label: "Older than a week", value: "older_than:7d" },
@@ -140,7 +114,6 @@ export function clearDates(q: string): string {
   return DATE_KEYS.reduce((acc, key) => setOperator(acc, key, null), q);
 }
 
-/** Label for the "Any time" chip given the query's date operators. */
 export function timeLabel(q: string): string | null {
   const preset = TIME_PRESETS.find((p) => hasToken(q, p.value));
   if (preset) return preset.label;
@@ -152,15 +125,10 @@ export function timeLabel(q: string): string | null {
   return null;
 }
 
-/** Gmail's yyyy/mm/dd. */
 export function gmailDate(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())}`;
 }
-
-// ---------------------------------------------------------------------------
-// Advanced search (Gmail's "Show search options" form)
-// ---------------------------------------------------------------------------
 
 export const DATE_WITHIN = [
   { label: "1 day", days: 1 },
@@ -197,7 +165,7 @@ export type AdvancedFields = {
   size: string;
   sizeUnit: "MB" | "KB" | "bytes";
   withinDays: number;
-  withinDate: string; // yyyy-mm-dd, empty = off
+  withinDate: string;
   searchIn: string;
   hasAttachment: boolean;
   excludeChats: boolean;
@@ -219,7 +187,6 @@ export const EMPTY_ADVANCED: AdvancedFields = {
   excludeChats: false,
 };
 
-/** Pre-fills the form from a query (what Gmail does when you reopen it). */
 export function advancedFromQuery(q: string): AdvancedFields {
   const larger = getOperator(q, "larger");
   const smaller = getOperator(q, "smaller");
@@ -229,7 +196,6 @@ export function advancedFromQuery(q: string): AdvancedFields {
     .filter((o) => o.negated)
     .map((o) => o.raw.slice(1));
   const searchIn = SEARCH_IN.find((s) => s.value && hasToken(q, s.value))?.value ?? "";
-  // Operators the form has no field for stay in "Has the words", like Gmail.
   const FIELDS = new Set(["from", "to", "subject", "larger", "smaller"]);
   const extra = parseOperators(q)
     .filter(
@@ -256,7 +222,6 @@ export function advancedFromQuery(q: string): AdvancedFields {
   };
 }
 
-/** Builds the query exactly like Gmail's advanced search does. */
 export function queryFromAdvanced(f: AdvancedFields): string {
   const parts: string[] = [];
   if (f.from.trim()) parts.push(`from:${quote(f.from)}`);
@@ -279,10 +244,6 @@ export function queryFromAdvanced(f: AdvancedFields): string {
   if (f.excludeChats) parts.push("-in:chats");
   return parts.join(" ");
 }
-
-// ---------------------------------------------------------------------------
-// Recent searches
-// ---------------------------------------------------------------------------
 
 const RECENT_KEY = "search:recent";
 const RECENT_MAX = 8;

@@ -1,15 +1,3 @@
-/**
- * Gmail sync's lanes, end to end inside core: startCore on a Node platform
- * (the Mac's: bodies kept for offline reading) against a pretend Gmail with a
- * history feed. What it locks in: new mail keeps coming while the first sync
- * fills a mailbox (the fill runs as a backfill beside the sync lane), each
- * message is fetched once (whole), a finished fill is corrected by replaying
- * the feed from where it began, an expired feed is caught up from Gmail's
- * listings instead of re-reading every message, and on the Mac a new
- * mailbox's rows come over IMAP (a pretend Gmail IMAP server) while bodies
- * follow through the API, the inbox first and whole threads at once.
- */
-
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -20,8 +8,6 @@ import type { MailAccount } from "../../types.ts";
 
 const GMAIL = "gmail.googleapis.com";
 const account: MailAccount = { id: "me@gmail.test", email: "me@gmail.test", name: "Me" };
-
-// ── The pretend Gmail ───────────────────────────────────────────────────────
 
 type Mail = { id: string; threadId: string; labelIds: string[]; date: number; subject: string };
 type Ref = { message: { id: string; threadId: string; labelIds: string[] } };
@@ -39,17 +25,11 @@ let labels: { id: string; name: string; type: "system" | "user" }[];
 let mail: Map<string, Mail>;
 let historyId: number;
 let history: HistoryEntry[];
-/** History older than this is gone (Gmail keeps about a week). */
 let historyFloor: number;
-/** Message fetches, by id and format. */
 let fetches: { id: string; format: string }[];
-/** Thread fetches, by id. */
 let threadFetches: string[];
-/** Listings of the whole mailbox (no label), by the page asked for. */
 let listings: (string | null)[];
-/** Gmail answers pages of at most this many ids. */
 let pageSize: number;
-/** threads.modify calls: the thread, and what it was asked. */
 let modifies: { threadId: string; body: unknown }[];
 /** Messages whose next fetch Gmail refuses (once). */
 let refuse: Set<string>;
@@ -89,7 +69,6 @@ const json = (body: unknown, status = 200) =>
 
 const base64url = (text: string) => Buffer.from(text).toString("base64url");
 
-/** A message as messages.get (and threads.get) answers it. */
 function resource(m: Mail, format: string) {
   const headers = [
     { name: "From", value: "Sender <sender@example.test>" },
@@ -161,7 +140,6 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
     if (refuse.delete(id)) return json({ error: { message: "Not now." } }, 403);
     const m = mail.get(id);
     if (!m) return json({ error: { message: "Not Found" } }, 404);
-    // Answered as the message is now, delivered later.
     const body = resource(m, format);
     if (hold?.ids.includes(id) && !held.has(id)) {
       held.add(id);
@@ -184,12 +162,6 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
   return json({ error: { message: "not in this test" } }, 404);
 }
 
-// ── Gmail's IMAP ────────────────────────────────────────────────────────────
-// The same mailbox over IMAP, as Gmail serves it: All Mail (everything but
-// Spam and Trash) and those two folders, X-GM-MSGID/X-GM-THRID in decimal,
-// labels in X-GM-LABELS (no categories), unread as a missing \Seen.
-
-/** Whether Gmail lets this account in over IMAP (a Workspace admin can turn it off). */
 let imapOpen: boolean;
 let imapLogins: number;
 
@@ -207,11 +179,9 @@ function imapFolder(name: string): Mail[] {
       : name === "[Gmail]/Trash"
         ? (m: Mail) => m.labelIds.includes("TRASH")
         : (m: Mail) => !m.labelIds.includes("SPAM") && !m.labelIds.includes("TRASH");
-  // UIDs in arrival order.
   return [...mail.values()].filter(inFolder).sort((a, b) => a.date - b.date);
 }
 
-/** IMAP's date-time: "29-Sep-2026 12:00:00 +0000". */
 function internalDate(ms: number): string {
   const d = new Date(ms);
   const month = d.toLocaleString("en", { month: "short", timeZone: "UTC" });
@@ -278,8 +248,6 @@ function gmailImap(): FakeStream {
   );
 }
 
-// ── Core on Node ────────────────────────────────────────────────────────────
-
 let notified: string[];
 
 async function until(check: () => boolean, what: string): Promise<void> {
@@ -290,10 +258,6 @@ async function until(check: () => boolean, what: string): Promise<void> {
   throw new Error(`Timed out waiting for ${what}`);
 }
 
-/**
- * Starts core fresh, signed in to the Gmail account, with `seed` run on the
- * cache first (what an earlier run left there).
- */
 async function boot(
   seed?: (store: typeof import("../mail-store.ts")) => void,
   opts: { imap?: boolean } = {},
@@ -369,7 +333,6 @@ async function boot(
   const status = () => mailSync.getSyncStatus(account.id);
   const labelsOf = (id: string) => mailStore.getAllMessageLabels(account.id).get(id);
   const { registeredHandlers } = await import("../../ipc.ts");
-  /** What a window asks of the backend. */
   const invoke = (channel: string, params: unknown) => registeredHandlers().get(channel)!(params);
   return { mailSync, mailStore, status, labelsOf, invoke };
 }
@@ -409,8 +372,6 @@ describe("Gmail sync", () => {
     await until(() => fetches.length > 0, "the fill to start");
     expect(status()).toMatchObject({ syncing: true, phase: "full", fullSyncDone: false });
 
-    // Mail arrives mid-fill, a few times; each push syncs it in at once, and
-    // the fill carries on where it is: not listed again, its progress kept.
     const progress = status().total;
     for (const id of ["new1", "new2", "new3"]) {
       deliver(id, ["INBOX", "UNREAD"]);
@@ -434,7 +395,6 @@ describe("Gmail sync", () => {
   it("picks a stopped first sync up where it was when new mail comes in, not from the start", async () => {
     for (let i = 1; i <= 7; i++) deliver(`old${i}`, ["INBOX"], Date.now() - i * 60_000);
     pageSize = 3;
-    // The second page fails: the fill stops there, the first page kept.
     refuse.add("old5");
 
     const { mailSync, mailStore, status } = await boot();
@@ -442,13 +402,11 @@ describe("Gmail sync", () => {
     expect(listings).toEqual([null, "3"]);
     expect(mailStore.countAllMessages(account.id)).toBe(3);
 
-    // New mail comes in: synced at once, while the fill waits out its retry delay.
     deliver("new", ["INBOX", "UNREAD"]);
     mailSync.syncAccount(account.id, { force: true, trigger: "push" });
     await until(() => mailStore.getMessageDetail(account.id, "new") !== null, "the new mail");
     expect(listings).toEqual([null, "3"]);
 
-    // Later mail finds the delay over: the fill goes on from the second page.
     vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 60_000 });
     deliver("later", ["INBOX", "UNREAD"]);
     mailSync.syncAccount(account.id, { force: true, trigger: "push" });
@@ -470,7 +428,6 @@ describe("Gmail sync", () => {
     // The fill has all three in flight, as they were.
     await until(() => held.size === 3, "the fill's fetches");
 
-    // Changed in Gmail meanwhile, and synced in: the feed moves past it.
     relabel("a", [], ["UNREAD"]);
     remove("b");
     relabel("c", ["STARRED"], []);
@@ -480,7 +437,6 @@ describe("Gmail sync", () => {
       "the push",
     );
 
-    // Then the fill's older copies land.
     release();
     await until(() => status().fullSyncDone && !status().syncing, "the fill and its replay");
     await until(() => labelsOf("b") === undefined, "the replay");
@@ -496,7 +452,6 @@ describe("Gmail sync", () => {
       { id: "archived", labelIds: ["INBOX"] },
       { id: "deleted", labelIds: ["INBOX"] },
     ];
-    // In Gmail now: one read, one archived and starred, one deleted, one new.
     deliver("read", ["INBOX"], earlier);
     deliver("archived", ["STARRED"], earlier - 1);
     deliver("fresh", ["INBOX", "UNREAD"]);
@@ -535,7 +490,6 @@ describe("Gmail sync", () => {
     expect(mailStore.getMessageDetail(account.id, "read")?.unread).toBe(false);
     // Only the message the cache lacked was read; the rest came from listings.
     expect(fetches.map((f) => f.id)).toEqual(["fresh"]);
-    // The feed runs from now on.
     expect(mailStore.getSyncState(account.id).historyId).toBe(String(historyId));
   });
 
@@ -546,7 +500,6 @@ describe("Gmail sync", () => {
       { id: "CATEGORY_PROMOTIONS", name: "CATEGORY_PROMOTIONS", type: "system" },
     );
     const hour = 3_600_000;
-    // A thread with a reply, archived mail with a label, promotions, spam, trash.
     deliver("a1", ["INBOX", "UNREAD"], Date.now() - 5 * hour, "a1");
     deliver("a2", ["SENT"], Date.now() - 4 * hour, "a1");
     deliver("b0", ["Label_1", "CATEGORY_UPDATES", "STARRED"], Date.now() - 3 * hour);
@@ -565,11 +518,8 @@ describe("Gmail sync", () => {
     expect(labelsOf("d0")?.sort()).toEqual(["SPAM", "UNREAD"]);
     expect(labelsOf("e0")).toEqual(["TRASH"]);
 
-    // Bodies (and Gmail's snippets) follow through the API: the inbox first,
-    // the thread in one request.
     await until(() => status().download === null && threadFetches.length > 0, "the downloads");
     await until(() => mailStore.countUndownloaded(account.id) === 0, "every body");
-    // Each message came through the API once, whole: the rows cost nothing.
     expect(threadFetches).toEqual(["a1"]);
     expect(fetches.map((f) => f.id).sort()).toEqual(["b0", "c0", "d0", "e0"]);
     expect(fetches.every((f) => f.format === "full")).toBe(true);
@@ -610,7 +560,6 @@ describe("Gmail sync", () => {
     expect(listed("ALL_MAIL")).toEqual(["t"]);
     expect(listed("INBOX")).toEqual([]);
 
-    // Undo puts INBOX back.
     await invoke("gmail:modifyThread", {
       accountId: account.id,
       threadId: "t",

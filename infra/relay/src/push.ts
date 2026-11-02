@@ -1,4 +1,3 @@
-/** APNs registrations contain routing metadata only; Gmail tokens stay on the phone. */
 import { HTTPException } from "hono/http-exception";
 import type { PutPushDeviceRequest } from "@otter-mail/contracts/relay";
 import type { Env } from "./worker.ts";
@@ -33,7 +32,6 @@ export async function register(
   const allowed =
     "NOT EXISTS (SELECT 1 FROM push_revocations WHERE user_id=? AND (session_id=? OR (session_id='' AND revoked_at>=?)))";
   const results = await env.DB.batch([
-    // Token rotation and account switching replace the old owner atomically.
     env.DB.prepare(
       `DELETE FROM push_devices WHERE token = ? AND topic = ? AND environment = ? AND session_id != ? AND ${allowed}`,
     ).bind(

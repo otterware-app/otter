@@ -41,11 +41,6 @@ import {
 } from "./compose-attachments";
 import type { ComposeAttachment, MessageDetail, MessageSummary } from "./types";
 
-/**
- * Resume editing a Gmail draft in the composer pane. Autosaves over the same
- * draft (updates mint new message ids — the pane stays keyed to the opened
- * row while the lists refresh); sending deletes the draft.
- */
 export function DraftEditor({
   accountId,
   detail,
@@ -60,7 +55,6 @@ export function DraftEditor({
   threadMessages: MessageSummary[];
   autoFocus?: boolean;
   onDone: () => void;
-  /** Right end of the window's title band (panel toggle). */
   titleTrailing?: ReactNode;
   titleLeading?: ReactNode;
 }) {
@@ -79,9 +73,6 @@ export function DraftEditor({
   const pruneThreadRows = usePruneThreadRows();
   const getAttachment = useGetAttachment();
 
-  // Reply drafts show their conversation above the composer, exactly like the
-  // reader's in-thread reply flow. The draft itself stays out of the cards —
-  // its content IS the composer.
   const conversation = threadMessages.filter((m) => !m.labelIds.includes("DRAFT"));
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(
     () => new Set(conversation.length > 0 ? [conversation[conversation.length - 1].id] : []),
@@ -94,7 +85,6 @@ export function DraftEditor({
       return next;
     });
   };
-  // Open on the latest message, like a fresh reply.
   const conversationRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = conversationRef.current;
@@ -117,7 +107,6 @@ export function DraftEditor({
           filename,
           mimeType,
         });
-        // Not saved: the save dialog was cancelled.
         if (result.saved) toast.success(`Saved ${filename}`);
       } catch {
         toast.error("Could not download attachment");
@@ -150,7 +139,6 @@ export function DraftEditor({
     if (detail.attachments.length > 0) void loadAttachmentsRef.current();
   }, [detail.attachments.length, loadAttachmentsRef]);
 
-  // Which Gmail draft owns this message row (known locally; Gmail as fallback).
   const draftIdQuery = useQuery({
     queryKey: ["gmail:draftId", accountId, detail.id],
     queryFn: () => mailApi.getDraftForMessage(accountId, detail.id, detail.threadId),
@@ -200,7 +188,6 @@ export function DraftEditor({
     },
   });
 
-  // Escape returns to the list (the draft keeps autosaving).
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -227,7 +214,6 @@ export function DraftEditor({
     if (!canSend) return;
     const plain = editorRef.current?.getText() ?? text;
     const html = `<div dir="auto">${editorRef.current?.getHTML() ?? textToHtml(plain)}</div>`;
-    // Reply drafts thread onto the newest non-draft message in the conversation.
     const others = threadMessages.filter((m) => !m.labelIds.includes("DRAFT"));
     const last = others[others.length - 1];
     console.log("[DraftEditor:send]", { draftId: draftIdQuery.data?.draftId, threaded: !!last });
@@ -249,7 +235,6 @@ export function DraftEditor({
       onDone();
       return;
     }
-    // Keep the draft backup until the immediate send succeeds.
     setSending(true);
     pruneThreadRows(accountId, detail.threadId || detail.id);
     onDone();
@@ -265,7 +250,6 @@ export function DraftEditor({
     console.log("[DraftEditor:discard]", { draftId: draftIdQuery.data?.draftId });
     // finalize first: it stops autosave, so closing doesn't flush a last save.
     void draft.finalize({ deleteDraft: true });
-    // Optimistic: the row disappears and the editor closes immediately.
     pruneThreadRows(accountId, detail.threadId || detail.id);
     onDone();
   };
@@ -284,8 +268,6 @@ export function DraftEditor({
     });
   };
 
-  // One set of fields/editor/footer, laid out as a card under the thread, or
-  // as a full page for a standalone draft.
   const inThread = conversation.length > 0;
   const fields = (
     <>

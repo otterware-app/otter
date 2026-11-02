@@ -1,5 +1,3 @@
-/** Logging for core: the shell decides where lines go (terminal and log file, or the console). */
-
 import { platform } from "./platform.js";
 import { recordSupportError } from "./services/support-errors.js";
 

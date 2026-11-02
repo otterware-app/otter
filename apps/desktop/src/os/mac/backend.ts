@@ -1,5 +1,3 @@
-/** The Mac's side of the mail backend (BackendOS). */
-
 import { execFileSync } from "node:child_process";
 import * as os from "node:os";
 
@@ -8,7 +6,6 @@ import { appleTranslator } from "./translator.js";
 
 export const macBackend: BackendOS = {
   platform: "mac",
-  /** The Mac's name as the user set it ("Chris's MacBook Pro"). */
   deviceName() {
     try {
       return execFileSync("/usr/sbin/scutil", ["--get", "ComputerName"], {

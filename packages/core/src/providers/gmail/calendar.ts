@@ -100,7 +100,6 @@ export async function findEvent(
   return { response: selfStatus(found, accountId.toLowerCase()), htmlLink: found.htmlLink ?? null };
 }
 
-/** Sets your answer on the event (added as an attendee if you weren't listed). */
 async function setResponse(
   accountId: string,
   event: ApiEvent,
@@ -131,8 +130,6 @@ export async function respond(
   return true;
 }
 
-// ── Events, for the agents' tools ───────────────────────────────────────────
-
 function toEvent(accountId: string, e: ApiEvent): CalendarEvent {
   const email = accountId.toLowerCase();
   const attendees = e.attendees ?? [];
@@ -161,7 +158,6 @@ function toEvent(accountId: string, e: ApiEvent): CalendarEvent {
 
 const DAY_MS = 86_400_000;
 
-/** An input time as Google wants it: a date for all-day events, else an instant in a zone. */
 function apiTime(value: string, allDay: boolean, timeZone: string): ApiTime {
   if (allDay) return { date: value.slice(0, 10) };
   const time = new Date(value);
@@ -169,7 +165,6 @@ function apiTime(value: string, allDay: boolean, timeZone: string): ApiTime {
   return { dateTime: time.toISOString(), timeZone };
 }
 
-/** How long an event lasts, in ms (all-day: whole days); an hour when there's none. */
 function duration(event: ApiEvent | undefined): number {
   const start = event?.start?.dateTime ?? event?.start?.date;
   const end = event?.end?.dateTime ?? event?.end?.date;
@@ -177,7 +172,6 @@ function duration(event: ApiEvent | undefined): number {
   return ms > 0 ? ms : event?.start?.date ? DAY_MS : 3_600_000;
 }
 
-/** The request body for an input; `current` is the event it changes (fields left out stay). */
 function apiBody(input: EventInput, current?: ApiEvent): Record<string, unknown> {
   const allDay = input.allDay ?? Boolean(current?.start?.date);
   const timeZone = input.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -257,7 +251,6 @@ export async function updateEvent(
   patch: EventInput,
   notify: boolean,
 ): Promise<CalendarEvent> {
-  // New times are written like the event's (all-day or not) and keep its length.
   const current = patch.start || patch.end ? await fetchEvent(accountId, eventId) : undefined;
   const updated = (await calendarFetch(
     accountId,

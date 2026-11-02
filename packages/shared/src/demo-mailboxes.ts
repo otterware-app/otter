@@ -9,16 +9,12 @@ type Person = { name: string; email: string };
 export type SeedAttachment = {
   filename: string;
   mimeType: string;
-  /** The file's text (all demo files are text: PDF, SVG, ICS, CSV). */
   content: string;
-  /** Referenced from the HTML as `cid:…`. */
   contentId?: string;
 };
 
 type SeedMessage = {
-  /** Omitted: the account itself. */
   from?: Person;
-  /** Omitted: the account (mail to it), or the thread's first sender (mail from it). */
   to?: Person[];
   cc?: Person[];
   hoursAgo: number;
@@ -33,7 +29,6 @@ type SeedMessage = {
 
 export type SeedThread = {
   subject: string;
-  /** Label ids or user label names, on every received message of the thread. */
   labels: string[];
   messages: SeedMessage[];
 };
@@ -43,19 +38,14 @@ export type SeedAccount = {
   name: string;
   displayName: string;
   color: string;
-  /** The profile picture, like Google's: an image URL. */
   picture?: string;
   signature: string;
-  /** User labels; "A/B" nests B under A. */
   labels: { name: string; color?: { backgroundColor: string; textColor: string } }[];
   threads: (seededAt: number) => SeedThread[];
 };
 
 const p = (name: string, email: string): Person => ({ name, email });
 
-// ── Files ────────────────────────────────────────────────────────────────────
-
-/** A one-page PDF with a title and a few lines (ASCII only: Helvetica). */
 function pdf(title: string, lines: string[]): string {
   const esc = (s: string) => s.replace(/[\\()]/g, "\\$&");
   const content = [
@@ -95,7 +85,6 @@ function picture(label: string, sky: string, ground: string): string {
 </svg>`;
 }
 
-/** A friendly head-and-shoulders profile picture, as Google shows for an account. */
 function portrait(background: string, skin: string, hair: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
   <rect width="96" height="96" fill="${background}"/>
@@ -113,7 +102,6 @@ const icsStamp = (time: number) =>
     .replace(/[-:]/g, "")
     .replace(/\.\d{3}/, "");
 
-/** `days` after the demo was seeded, at a whole UTC hour. */
 function slot(seededAt: number, days: number, hourUtc: number): number {
   const date = new Date(seededAt + days * 86_400_000);
   date.setUTCHours(hourUtc, 0, 0, 0);
@@ -173,7 +161,6 @@ function unsubscribe(domain: string): Record<string, string> {
   };
 }
 
-/** A newsletter's HTML: a header band, sections and a footer, table-laid like the real ones. */
 function newsletter(opts: {
   brand: string;
   accent: string;
@@ -200,8 +187,6 @@ function newsletter(opts: {
   </td></tr></table>
 </body></html>`;
 }
-
-// ── Personal ─────────────────────────────────────────────────────────────────
 
 const maya = p("Maya Chen", "maya.chen@example.com");
 const jose = p("José Álvarez", "jose@alvarez.example");
@@ -710,8 +695,6 @@ const personal: SeedAccount = {
   },
 };
 
-// ── Work ─────────────────────────────────────────────────────────────────────
-
 const priya = p("Priya Natarajan", "priya@acme.example");
 const tom = p("Tom Becker", "tom.becker@acme.example");
 const karim = p("Karim Haddad", "karim@acme.example");
@@ -1202,7 +1185,6 @@ export const DEMO_ACCOUNTS: SeedAccount[] = [personal, work];
 // folders rather than labels, categories, flags and importance. Not in the
 // iPhone app's bundle (that's DEMO_ACCOUNTS).
 
-/** A folder of the Outlook seed: one of Outlook's own, or a folder of yours. */
 export type OutlookSeedFolder =
   | "inbox"
   | "archive"
@@ -1218,9 +1200,7 @@ export type OutlookSeedMessage = {
   /** Messages with the same key are one conversation, each replying to the one before. */
   conversation: string;
   subject: string;
-  /** Omitted: the mailbox itself. */
   from?: Person;
-  /** Omitted: the mailbox (mail to it), or the conversation's first sender (mail from it). */
   to?: Person[];
   cc?: Person[];
   hoursAgo: number;
@@ -1254,9 +1234,7 @@ export type OutlookSeedAccount = {
   displayName: string;
   color: string;
   picture?: string;
-  /** Your own folders: "Clients", and "Acme" in it. */
   folders: { key: OutlookSeedFolder; name: string; parent?: OutlookSeedFolder }[];
-  /** Outlook's categories, colored with its presets. */
   categories: { name: string; color: string }[];
   messages: (seededAt: number) => OutlookSeedMessage[];
   events: (seededAt: number) => OutlookSeedEvent[];

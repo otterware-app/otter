@@ -1,13 +1,3 @@
-/**
- * The Otter Mail relay: Otter accounts (better-auth, auth.ts), the mailboxes
- * (Gmail, IMAP, Outlook) linked to them, realtime mail notifications, the web app's
- * Gmail and Outlook sign-ins (gmail.ts, outlook.ts), its tunnel to IMAP/SMTP servers (tunnel.ts), and the
- * account's agent chats (chats.ts). Gmail publishes mailbox changes to a Pub/Sub
- * topic, Pub/Sub pushes them here, and the relay forwards them to the
- * signed-in devices over WebSocket; Microsoft Graph notifies here directly.
- * The API is described in packages/contracts/src/relay.ts.
- */
-
 import { zValidator } from "@hono/zod-validator";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { Hono, type MiddlewareHandler } from "hono";
@@ -72,41 +62,26 @@ export interface Env {
   ACCOUNTS_ORIGIN?: string;
   USER_HUB: DurableObjectNamespace<UserHub>;
   AGENT_HUB?: DurableObjectNamespace<AgentHub>;
-  /** The desktop app's Google OAuth client ("Desktop app" type). */
   GOOGLE_CLIENT_ID: string;
-  /** The iPhone app's Google OAuth clients ("iOS", no secret), comma-separated: one per bundle ID. */
   GOOGLE_IOS_CLIENT_ID?: string;
-  /** The web app's Google OAuth client ("Web application"): Otter and Gmail sign-in. */
   GOOGLE_GMAIL_CLIENT_ID: string;
-  /** Its secret (a Worker secret). */
   GOOGLE_GMAIL_CLIENT_SECRET: string;
   /** Where the web app runs (https://mail.otterware.app): trusted for CORS and redirects. */
   APP_ORIGIN: string;
-  /** The first-party Drive app, for the shared account lifecycle. */
   DRIVE_ORIGIN: string;
-  /** The session cookie's domain, shared with the web app ("mail.otterware.app"); unset locally. */
   COOKIE_DOMAIN?: string;
-  /** Pub/Sub topic Gmail publishes to (`projects/…/topics/…`). */
   PUSH_TOPIC: string;
-  /** Audience of the OIDC token on Pub/Sub push requests (the push route's URL). */
   PUSH_AUDIENCE: string;
-  /** Service account Pub/Sub signs push requests as. */
   PUSH_SERVICE_ACCOUNT: string;
   APNS_TEAM_ID?: string;
   APNS_KEY_ID?: string;
-  /** PKCS#8 .p8 contents, a Worker secret. */
   APNS_PRIVATE_KEY?: string;
   APNS_SANDBOX_TOPIC?: string;
   APNS_PRODUCTION_TOPIC?: string;
-  /** Local mock APNs server; only tests set it. Production uses Apple's fixed hosts. */
   APNS_TEST_ORIGIN?: string;
-  /** This Worker's public URL, for better-auth. */
   BETTER_AUTH_URL: string;
-  /** Signs better-auth's tokens (a Worker secret). */
   BETTER_AUTH_SECRET: string;
-  /** Where Google's signing keys are published; only tests change it. */
   GOOGLE_JWKS_URL?: string;
-  /** Google's OAuth token endpoint; only tests change it. */
   GOOGLE_TOKEN_URL?: string;
   /**
    * The web app's Microsoft OAuth client (an Entra app registration, "Web"
@@ -114,21 +89,14 @@ export interface Env {
    * has no Outlook.
    */
   MICROSOFT_CLIENT_ID?: string;
-  /** Its secret (a Worker secret). */
   MICROSOFT_CLIENT_SECRET?: string;
-  /** The desktop and iPhone apps' Microsoft clients, comma-separated: audiences of their ID tokens. */
   MICROSOFT_DESKTOP_CLIENT_IDS?: string;
-  /** Where Microsoft's signing keys are published; only tests change it. */
   MICROSOFT_JWKS_URL?: string;
-  /** Microsoft's OAuth token endpoint; only tests change it. */
   MICROSOFT_TOKEN_URL?: string;
-  /** Microsoft Graph's origin (https://graph.microsoft.com); only tests change it. */
   MICROSOFT_GRAPH_URL?: string;
-  /** Tunnels a minute per user to the servers of their IMAP mailboxes (wrangler.jsonc). */
   TUNNEL_LIMIT: RateLimit;
   /** Tunnels a minute per user to any other host: adding a mailbox, before it's linked. */
   TUNNEL_UNLINKED_LIMIT: RateLimit;
-  /** A "host:port" the tunnel may reach despite its rules; only tests set it (a local server). */
   TUNNEL_TEST_TARGET?: string;
   /**
    * "true" lets the tunnel reach any host and port, a mail server on this
@@ -147,7 +115,6 @@ type Session = { id: string; user: RelayUser; expiresAt: number; createdAt: numb
 
 export type App = { Bindings: Env; Variables: { db: store.Db; auth: Auth; session: Session } };
 
-/** Verifies a Google ID token issued to one of the apps. */
 async function verifyIdToken(env: Env, idToken: string) {
   try {
     return await verifyGoogleJwt(idToken, googleClientIds(env), googleKeys(env));
@@ -159,7 +126,6 @@ async function verifyIdToken(env: Env, idToken: string) {
   }
 }
 
-/** Whether a Microsoft ID token issued to one of the apps proves the caller signed in to `email`. */
 async function provesOutlook(env: Env, idToken: string, email: string) {
   const audiences = [
     env.MICROSOFT_CLIENT_ID,
@@ -178,7 +144,6 @@ async function provesOutlook(env: Env, idToken: string, email: string) {
 
 const hub = (env: Env, userId: string) => env.USER_HUB.get(env.USER_HUB.idFromName(userId));
 
-/** Malformed input answers 400 in the relay's `{ error }` shape. */
 const rejectInvalid = (result: { success: boolean }) => {
   if (!result.success) throw new HTTPException(400, { message: "Invalid request." });
 };
@@ -191,7 +156,6 @@ const mailbox = z
 
 const app = new Hono<App>();
 
-// The web app calls the relay from its own origin, with its session cookie.
 app.use("/v1/*", (c, next) =>
   cors({ origin: c.env.APP_ORIGIN, credentials: true, maxAge: 86_400 })(c, next),
 );
@@ -243,9 +207,6 @@ app.get("/v1/gmail/callback", async (c, next) => {
   await next();
 });
 
-/** Sign-in, sign-out, devices and account deletion. */
-// Standalone local development has no Accounts service. Production forwards
-// this request above to the coordinator that visits every cookie owner.
 app.post("/v1/auth/browser-sign-out/start", async (c) => {
   if (c.req.header("origin") !== c.env.APP_ORIGIN) throw new HTTPException(403);
   const headers = new Headers(c.req.raw.headers);
@@ -266,8 +227,6 @@ app.post("/v1/auth/browser-sign-out/start", async (c) => {
   return c.redirect(c.env.APP_ORIGIN, 303);
 });
 app.on(["GET", "POST"], "/v1/auth/*", (c) => c.var.auth.handler(c.req.raw));
-
-// ── The demo (`pnpm dev:demo`, DEV_DEMO) ─────────────────────────────────────
 
 /** Everywhere but the demo's local relay, these routes don't exist. */
 const demoOnly: MiddlewareHandler<App> = async (c, next) => {
@@ -303,8 +262,6 @@ app.post(
 app.get("/.well-known/*", (c) => c.var.auth.handler(c.req.raw));
 app.route("/otter", identity);
 
-// ── Signed-in routes ────────────────────────────────────────────────────────
-
 const authed = new Hono<App>();
 
 authed.use(async (c, next) => {
@@ -332,7 +289,6 @@ authed.use(async (c, next) => {
   await next();
 });
 
-// The AI SDK loop and API key stay in a Durable Object per Otter account.
 authed.route("/", notificationConnections.routes());
 authed.all("/agent/*", async (c) => {
   if (c.req.header("origin") && c.req.header("origin") !== c.env.APP_ORIGIN)
@@ -345,8 +301,6 @@ authed.all("/agent/*", async (c) => {
     new Request(c.req.raw, { headers }),
   );
 });
-
-// ── Gmail sign-in for the web app (gmail.ts) ────────────────────────────────
 
 authed.get("/gmail/authorize", (c) =>
   gmail
@@ -406,8 +360,6 @@ authed.post(
       await outlook.demoSignIn(c.env, c.var.session.user.id, c.req.valid("json").refreshToken),
     ),
 );
-
-// ── Outlook sign-in for the web app, and Graph's notifications (outlook.ts) ─
 
 authed.get("/outlook/authorize", async (c) => {
   if (!outlook.configured(c.env))
@@ -630,7 +582,6 @@ authed.put(
   zValidator(
     "json",
     z.object({
-      // Section names end up in JSON paths: plain identifiers only.
       preferences: z
         .record(z.string().regex(/^[a-zA-Z][a-zA-Z0-9]{0,63}$/), z.unknown())
         .optional(),
@@ -650,8 +601,6 @@ authed.put(
   },
 );
 
-// ── Agent chats (chats.ts) ──────────────────────────────────────────────────
-
 async function chatsChanged(env: Env, userId: string): Promise<void> {
   await hub(env, userId).publish({ type: "chats", email: "" });
 }
@@ -667,11 +616,9 @@ const tabRef = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("page"), url: z.string().max(2048) }),
   z.object({ kind: z.literal("file"), href: z.string().max(2048) }),
 ]);
-/** A chat, written whole (`chatForSync`). Turns are the apps' to read: only their shape is checked. */
 const chatBody = z.object({
   id: z.string(),
   title: z.string().max(CHAT_LIMITS.title + 1),
-  // An agent extension's id: any agent's chats sync.
   provider: z.string().regex(/^[a-z0-9-]{1,40}$/),
   sessionId: z.string().max(256).nullable(),
   sessionOwned: z.boolean(),
@@ -743,7 +690,6 @@ authed.delete("/chats/:id", zValidator("param", chatId, rejectInvalid), async (c
   return c.body(null, 204);
 });
 
-/** The device's event stream, handed to the user's Durable Object. */
 authed.get("/events", async (c) => {
   if (c.req.header("upgrade")?.toLowerCase() !== "websocket") {
     throw new HTTPException(426, { message: "Expected a WebSocket upgrade." });
@@ -774,7 +720,6 @@ authed.get(
     if (c.req.header("upgrade")?.toLowerCase() !== "websocket") {
       throw new HTTPException(426, { message: "Expected a WebSocket upgrade." });
     }
-    // Browsers send the session cookie from any page on the site: only the web app's count.
     const origin = c.req.header("origin");
     if (origin && origin !== c.env.APP_ORIGIN) {
       throw new HTTPException(403, { message: "Not from the web app." });
@@ -796,8 +741,6 @@ authed.get(
 );
 
 app.route("/v1", authed);
-
-// ── Gmail push ──────────────────────────────────────────────────────────────
 
 const gmailNotification = z.object({
   emailAddress: mailbox,
@@ -853,8 +796,6 @@ app.post(
   },
 );
 
-// ── Outlook push ────────────────────────────────────────────────────────────
-
 /**
  * Microsoft Graph's change notifications for an Outlook mailbox (a
  * subscription a device made with `/v1/outlook/watch`'s answer), sent on as
@@ -868,7 +809,6 @@ app.post(
     if (!result.success) return c.body(null, 202);
   }),
   async (c) => {
-    // A new subscription: Graph checks the URL answers within 10 seconds, echoing its token.
     const validationToken = c.req.query("validationToken");
     if (validationToken !== undefined) {
       c.header("X-Content-Type-Options", "nosniff");

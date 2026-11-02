@@ -11,19 +11,16 @@ import type { MessageSummary } from "./types";
  * its server), so ids are enough — no mail content leaves the app.
  */
 export type AgentContext = {
-  /** Owning account email per conversation (falls back to account id). */
   conversations: {
     account: string;
     threadId: string;
     subject: string;
     from: string;
     messageIds: string[];
-    /** Present when the item is a highlighted excerpt, not the whole thread. */
     quote?: string;
   }[];
 };
 
-/** A text excerpt selected from a message, plus its thread pointer. */
 export type QuoteContext = {
   text: string;
   account: string;
@@ -33,7 +30,6 @@ export type QuoteContext = {
   messageId: string;
 };
 
-/** One row (or thread rep) → context entry. */
 export function contextFromMessages(
   messages: MessageSummary[],
   accountEmailById: (accountId: string | undefined) => string,
@@ -49,7 +45,6 @@ export function contextFromMessages(
   };
 }
 
-/** A highlighted excerpt → a single quote context entry. */
 export function contextFromQuote(q: QuoteContext): AgentContext {
   return {
     conversations: [
@@ -65,7 +60,6 @@ export function contextFromQuote(q: QuoteContext): AgentContext {
   };
 }
 
-/** Question + pointer block sent with a chat turn. */
 export function buildHandoffText(
   question: string,
   context: AgentContext,
@@ -94,7 +88,6 @@ export function buildHandoffText(
 export type ContextKind = ChatContextKind;
 export type ContextMeta = ChatContextMeta;
 
-/** Classify one message from its labels. */
 function kindOf(labelIds: string[]): ContextKind {
   if (labelIds.includes("DRAFT")) return "draft";
   if (labelIds.includes("SENT")) return "sent";
@@ -108,29 +101,18 @@ function contextKind(labelSets: string[][]): ContextKind {
   return kinds.size === 1 ? [...kinds][0] : "mixed";
 }
 
-/** What a chat is about in the mail, for its composer. */
 export type MailChatContext = {
-  /** What goes with the next message, unless switched off; null with nothing open. */
   attached: {
     context: AgentContext;
     kind: ContextKind;
-    /** The composer's chip. */
     name: string;
     detail: string;
-    /** The recap the sent message keeps. */
     meta: ContextMeta;
   } | null;
-  /** A highlighted excerpt: one-shot, let go once sent. */
   quote: QuoteContext | null;
-  /** An empty chat's headline. */
   headline: string;
 };
 
-/**
- * The context the mail on screen gives a chat: a highlighted excerpt wins,
- * then the multi-selection, then the open conversation (cache hit — the
- * reader fetched it). All pointer-only; the agent reads the bodies itself.
- */
 export function useMailChatContext({
   accountId,
   messageId,
@@ -165,7 +147,6 @@ export function useMailChatContext({
           }
         : null;
   const context = mailContext;
-  // Draft / sent / mail / quote kind of what's attached, for the chip's icon.
   const kind: ContextKind = quote
     ? "quote"
     : contextKind(

@@ -1,11 +1,5 @@
 import SwiftUI
 
-/**
- * Themes, as in the desktop's Settings › Appearance: tap a theme to wear it
- * in light and dark, or one of its orbs for that appearance only. Your own
- * themes (made on the Mac or the web) follow the stock ones; one with a single
- * palette is worn for that appearance only.
- */
 struct ThemeSettings: View {
     @Environment(Preferences.self) private var preferences
     @Environment(\.palette) private var palette
@@ -73,7 +67,6 @@ private struct ThemeCard: View {
         .accessibilityAddTraits(light && dark ? .isSelected : [])
     }
 
-    /** A little window in the theme: sidebar, canvas, a line of text and its action color. */
     private func preview(_ p: Palette) -> some View {
         HStack(spacing: 0) {
             p.sidebar.frame(width: 18)

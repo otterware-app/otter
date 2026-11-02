@@ -1,16 +1,13 @@
-// relay.mail.otterware.app: Otter account sign-in, linked accounts and
-// realtime Gmail notifications. `pnpm deploy` from this folder applies D1
-// migrations, then deploys. See README.md.
 {
   "name": "otter-mail-relay",
   "main": "src/worker.ts",
   "compatibility_date": "2026-09-01",
-  // better-auth uses AsyncLocalStorage.
+  // better-auth requires AsyncLocalStorage.
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "routes": [
     { "pattern": "relay.mail.otterware.app", "custom_domain": true },
-    // Installed Mac/iPhone apps still use this hostname, including their WebSockets.
+    // Installed clients still use this hostname for API requests and WebSockets.
     { "pattern": "relay.mail.otterware.dev", "custom_domain": true },
   ],
   "d1_databases": [
@@ -36,10 +33,7 @@
     { "tag": "v2", "new_sqlite_classes": ["AgentHub"] },
     { "tag": "v3", "new_sqlite_classes": ["NotificationMailbox"] },
   ],
-  // The web app's tunnel, per user and minute (periods are 10 or 60 seconds):
-  // to the servers of their IMAP mailboxes, and to any other host (checking a
-  // password before linking a mailbox). Counted per Cloudflare location, in
-  // memory, not billed separately (no Durable Object or KV per tunnel).
+  // Limits apply per Cloudflare location, not globally.
   "ratelimits": [
     { "name": "TUNNEL_LIMIT", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
     {
@@ -48,8 +42,6 @@
       "simple": { "limit": 6, "period": 60 },
     },
   ],
-  // Secrets: BETTER_AUTH_SECRET, GOOGLE_GMAIL_CLIENT_SECRET,
-  // MICROSOFT_CLIENT_SECRET (Outlook for the web app; README.md).
   "vars": {
     "IDENTITY_MODE": "accounts",
     "ACCOUNTS_ORIGIN": "https://accounts.otterware.app",
@@ -66,9 +58,6 @@
     "PUSH_SERVICE_ACCOUNT": "gmail-push-relay@otterware.iam.gserviceaccount.com",
     "APNS_SANDBOX_TOPIC": "dev.otterware.mail.dev",
     "APNS_PRODUCTION_TOPIC": "dev.otterware.mail",
-    // Outlook (README.md, "Microsoft setup"): the web app's Microsoft client,
-    // with MICROSOFT_CLIENT_SECRET, and the apps' clients whose ID tokens
-    // link Outlook mailboxes. Empty, the web app has no Outlook.
     "MICROSOFT_CLIENT_ID": "b0c4e8bf-e651-456e-9bc6-408a741b36f9",
     "MICROSOFT_DESKTOP_CLIENT_IDS": "",
   },

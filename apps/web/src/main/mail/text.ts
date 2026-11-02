@@ -16,8 +16,6 @@ export function decodeEntities(input: string): string {
     .replace(/&amp;/g, "&"); // last, so a single-encoded string never double-decodes
 }
 
-/** Readable plain text from an HTML body (for HTML-only mail: forwards, quotes).
- *  Block elements become line breaks; scripts and styles are dropped. */
 export function htmlToText(html: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc.querySelectorAll("script, style, head").forEach((el) => el.remove());

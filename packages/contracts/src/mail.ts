@@ -1,20 +1,5 @@
-/**
- * Mailboxes and where their mail comes from, shared by core, the renderer,
- * the relay and (mirrored in Swift) the iPhone app.
- *
- * A mailbox is reached through a provider. Gmail signs in with Google and
- * talks to the Gmail API, with changes pushed through the relay. IMAP works
- * with any IMAP server, sends over SMTP and watches for new mail with IDLE.
- * Outlook (Microsoft 365, outlook.com) signs in with Microsoft and talks to
- * Microsoft Graph, with changes pushed through the relay like Gmail's.
- * Everything above the provider (the cache, lists, the UI) sees mail the same
- * way: messages carrying labels. For IMAP, a label is a folder; for Outlook,
- * a category or a folder (docs/outlook.md).
- */
-
 export type MailProviderKind = "gmail" | "imap" | "outlook";
 
-/** A mail server: TLS from the start ("tls", ports 993/465), or upgraded with STARTTLS (143/587). */
 export interface MailServer {
   host: string;
   port: number;
@@ -27,7 +12,6 @@ export interface MailServer {
  * own secret store.
  */
 export interface ImapSettings {
-  /** The login, usually the address itself. */
   username: string;
   imap: MailServer;
   smtp: MailServer;
@@ -38,9 +22,7 @@ export interface ImapSettings {
  * hides what a mailbox's provider can't do (never checks the provider itself).
  */
 export interface MailCapabilities {
-  /** Gmail's sorting of the inbox: categories (Promotions, Social, …) and Important. */
   categories: boolean;
-  /** A message can carry several labels at once (Gmail); IMAP mail sits in one folder. */
   multipleLabels: boolean;
   /** Exclusive folders alongside colored category tags (Outlook). */
   foldersAndCategories?: boolean;
@@ -51,7 +33,6 @@ export interface MailCapabilities {
   archiveFolder?: boolean;
   /** Gmail's stars: STARRED is the Starred folder. Without it (Outlook, IMAP), it's their Flagged. */
   stars?: boolean;
-  /** Label colors, kept by the server. */
   labelColors: boolean;
   /** Signatures kept by the server (Gmail's settings) rather than on this device. */
   serverSignatures: boolean;
@@ -99,10 +80,8 @@ export const IMAP_CAPABILITIES: MailCapabilities = {
   relayPush: false,
 };
 
-/** The label of the Archive folder (`capabilities.archiveFolder`); Gmail has none. */
 export const ARCHIVE_LABEL_ID = "ARCHIVE";
 
-/** Outlook's Scheduled folder, where its Snooze keeps mail until it's due. */
 export const SNOOZED_LABEL_ID = "SNOOZED";
 
 /** Labels that say how a message is rather than where it is: flags, and Outlook's categories. */
@@ -114,7 +93,6 @@ const archivesFrom = (id: string) =>
   isFolderLabel(id) &&
   !["SENT", "DRAFT", "SPAM", "TRASH", ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID].includes(id);
 
-/** How a change lands: where Archive is a folder, and whether a conversation's change. */
 export type Landing = { archiveFolder?: boolean; thread?: boolean };
 
 /**
@@ -156,7 +134,6 @@ export function landLabelChange(
   return change;
 }
 
-/** Actions saved on this device; executed by its mail backend while running. */
 export type MailSchedule = {
   id: string;
   accountId: string;

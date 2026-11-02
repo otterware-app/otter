@@ -40,9 +40,6 @@ function emit(channel: string, params?: unknown): void {
   for (const listener of listeners.get(channel) ?? []) listener(params);
 }
 
-// ── Things that need the user's click ──────────────────────────────────────
-
-/** Actions started when the renderer invoked their channel, for the worker's request to collect. */
 const started: { [K in keyof PageRequests]?: Promise<PageRequests[K]["result"]> } = {};
 
 function pickFiles(): Promise<PageRequests["pickFiles"]["result"]> {
@@ -67,23 +64,16 @@ function pickFiles(): Promise<PageRequests["pickFiles"]["result"]> {
   });
 }
 
-/** Set while the Otter sign-in redirect is out: coming back, add the address's own mailbox. */
 const ADD_OWN_MAILBOX = "otter:addOwnMailbox";
 
 let signInPopup: Window | null = null;
 
-/** The relay's mailbox sign-ins: Gmail's (`/v1/gmail/…`) and Outlook's (`/v1/outlook/…`). */
 type SignInResults = { gmail: GoogleSignInResult; outlook: OutlookSignInResult };
 type SignInProvider = keyof SignInResults;
 const PROVIDER_NAMES: Record<SignInProvider, string> = { gmail: "Google", outlook: "Microsoft" };
 
 type SignInMessage = { result?: SignInResults[SignInProvider]; error?: string };
 
-/**
- * A sign-in finished in this tab: when the browser blocks the popup, the
- * consent page opens here instead, and the relay sends the answer back in the
- * URL (`#gmail-sign-in=…`, `#outlook-sign-in=…`).
- */
 let returnedSignIn: (SignInMessage & { provider: SignInProvider }) | null = (() => {
   const match = /^#(gmail|outlook)-sign-in=(.+)$/.exec(location.hash);
   if (!match) return null;
@@ -96,7 +86,6 @@ let returnedSignIn: (SignInMessage & { provider: SignInProvider }) | null = (() 
   }
 })();
 
-/** The relay's sign-in popup for a mailbox; resolves with what it posts back. */
 function signIn<P extends SignInProvider>(
   provider: P,
   loginHint?: string,
@@ -112,7 +101,6 @@ function signIn<P extends SignInProvider>(
   signInPopup?.close();
   const popup = window.open(url, `otter-${provider}-sign-in`, "popup,width=520,height=680");
   if (!popup) {
-    // Popup blocked: sign in in this tab; the answer comes back when it reloads.
     location.assign(url);
     return new Promise(() => {});
   }
@@ -145,8 +133,6 @@ function signIn<P extends SignInProvider>(
   });
 }
 
-// ── Effects ────────────────────────────────────────────────────────────────
-
 function saveBytes(name: string, bytes: Uint8Array, open: boolean): void {
   const url = URL.createObjectURL(new Blob([bytes as BlobPart]));
   if (open) {
@@ -158,7 +144,6 @@ function saveBytes(name: string, bytes: Uint8Array, open: boolean): void {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-/** The message a clicked notification opens. */
 let pendingOpenMessage: { accountId: string; messageId: string } | null = null;
 
 function applyEffect(effect: PageEffect): void {
@@ -187,8 +172,6 @@ function applyEffect(effect: PageEffect): void {
       break;
   }
 }
-
-// ── The backend ────────────────────────────────────────────────────────────
 
 const backend = connectBackend({
   onEvent: emit,
@@ -220,8 +203,6 @@ const backend = connectBackend({
   onEffect: applyEffect,
   onFailed: (error) => console.error("The mail backend failed to start:", error),
 });
-
-// ── Channels the page answers itself ───────────────────────────────────────
 
 let settingsTarget: unknown = null;
 
@@ -264,11 +245,9 @@ async function invoke<T>(channel: string, params?: unknown): Promise<T> {
   if (channel === "otter:signIn") {
     const result = await backend.invoke<{ redirectTo?: string } | null>(channel, {
       ...(params as object),
-      // Back to the page it was opened at: a link to a message, say.
       callbackURL: location.href,
     });
     if (result?.redirectTo) {
-      // Back from it, the address's own mailbox follows (requireOtterAccount).
       sessionStorage.setItem(ADD_OWN_MAILBOX, "1");
       location.assign(result.redirectTo);
     }
@@ -289,7 +268,6 @@ async function invoke<T>(channel: string, params?: unknown): Promise<T> {
     if (channel === "todoist:signIn") closeTodoistPopup();
     throw error;
   }
-  // Signed out (or the account deleted): back to the start, which signs in again.
   if (channel === "otter:signOut" || channel === "otter:deleteAccount") location.assign("/");
   return result;
 }
@@ -370,8 +348,6 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") backend.resume();
 });
 
-// ⌘Z / ⇧⌘Z: the Mac app's Edit › Undo and Redo send edit:undo and edit:redo
-// (mail actions). Text fields keep the browser's own undo.
 window.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() !== "z" || !(event.metaKey || event.ctrlKey)) return;
   if (event.altKey || event.defaultPrevented) return;
@@ -388,11 +364,6 @@ if ("Notification" in window && Notification.permission === "default") {
   });
 }
 
-/**
- * The mailbox an Otter sign-in implies: Gmail for a Google account, Outlook
- * for a Microsoft one (where the relay can sign in to it), none for a password
- * alone. No click to open a popup with: the provider's page opens in this tab.
- */
 async function addOwnMailbox(email: string): Promise<void> {
   const accounts = await invoke<{ email: string; signedOut?: boolean }[]>("gmail:listAccounts");
   if (accounts.some((a) => a.email.toLowerCase() === email && !a.signedOut)) return;
@@ -415,13 +386,11 @@ export async function requireOtterAccount(): Promise<void> {
   if (__DEMO__) return;
   const state = await invoke<{ user: { email: string } | null }>("otter:getState");
   if (!state.user) await invoke("otter:signIn");
-  // Back from signing in to Gmail or Outlook in this tab: finish adding the mailbox.
   if (returnedSignIn?.result) {
     const channel =
       returnedSignIn.provider === "outlook" ? "gmail:addOutlookAccount" : "gmail:addAccount";
     void invoke(channel, { email: returnedSignIn.result.email });
   } else if (state.user && sessionStorage.getItem(ADD_OWN_MAILBOX)) {
-    // Just signed in to Otter: its address's mailbox next, unless this browser has it.
     sessionStorage.removeItem(ADD_OWN_MAILBOX);
     void addOwnMailbox(state.user.email.toLowerCase());
   }

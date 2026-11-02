@@ -1,18 +1,3 @@
-/**
- * Outlook's folders and categories as labels (docs/outlook.md).
- *
- * The well-known folders are system labels: Inbox → INBOX, Sent Items →
- * SENT, Drafts → DRAFT, Deleted Items → TRASH, Junk Email → SPAM, Archive
- * → ARCHIVE (Gmail has no such folder; Outlook's archive moves mail there),
- * and Scheduled → SNOOZED (where Outlook's Snooze keeps mail till it's due).
- * Every other folder is a user label, `folder:<id>`, named by its path. A
- * message sits in one folder: applying a folder label moves it.
- *
- * Categories are Outlook's labels: several per message, each with a color.
- * They're user labels too, `category:<name>`. Flags, read state and
- * importance stand for STARRED, UNREAD and IMPORTANT.
- */
-
 import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "@otter-mail/contracts";
 
 import * as store from "../../services/mail-store.js";
@@ -22,7 +7,6 @@ import { graph, graphAll, graphBatch, ok } from "./graph.js";
 export const FOLDER_PREFIX = "folder:";
 export const CATEGORY_PREFIX = "category:";
 
-/** Well-known folders Otter Mail uses by name (Graph's names for them). */
 const WELL_KNOWN = [
   "inbox",
   "sentitems",
@@ -47,32 +31,26 @@ const SYSTEM_LABEL: Partial<Record<WellKnown, string>> = {
   scheduled: SNOOZED_LABEL_ID,
 };
 
-/** Folders that hold no mail worth listing (mail on its way out, Skype logs, sync conflicts). */
 const SKIPPED: WellKnown[] = ["outbox", "conversationhistory", "syncissues"];
 
-/** The labels flags and properties stand for, besides the folder's own and categories. */
 export const FLAG_LABELS = ["UNREAD", "STARRED", "IMPORTANT"];
 
 export interface Folder {
   id: string;
-  /** Its path, "/" between levels. */
   name: string;
   parentId: string | null;
   unread: number;
   total: number;
-  /** The label its mail carries: a system label or `folder:<id>`. */
   labelId: string | null;
 }
 
 export interface Category {
   name: string;
-  /** Outlook's preset ("preset0" … "preset24"), or "none". */
   color: string;
 }
 
 export interface Mailbox {
   wellKnown: Partial<Record<WellKnown, string>>;
-  /** Folders worth syncing, the inbox first and Junk and Deleted Items last. */
   folders: Folder[];
   categories: Category[];
 }
@@ -80,7 +58,6 @@ export interface Mailbox {
 const mailboxes = new Map<string, Mailbox>();
 const key = (accountId: string) => `outlookMailbox:${accountId}`;
 
-/** The account's folders and categories as last read (from the cache after a restart). */
 export function mailboxOf(accountId: string): Mailbox | null {
   let mailbox = mailboxes.get(accountId) ?? null;
   if (!mailbox) {
@@ -113,7 +90,6 @@ type ApiFolder = {
 const FOLDER_FIELDS =
   "id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount";
 
-/** Reads the folder tree and categories from Graph (a few requests) and keeps them. */
 export async function readMailbox(accountId: string): Promise<Mailbox> {
   const known = mailboxOf(accountId)?.wellKnown;
   const wellKnown: Mailbox["wellKnown"] = {};
@@ -154,7 +130,6 @@ export async function readMailbox(accountId: string): Promise<Mailbox> {
       const role = roleOf.get(child.id);
       if (role && SKIPPED.includes(role)) continue;
       const path = parentPath ? `${parentPath}/${child.displayName}` : child.displayName;
-      // Folders in Deleted Items and Junk Email are trash and junk too.
       const labelId =
         inherited ?? (role ? (SYSTEM_LABEL[role] ?? null) : `${FOLDER_PREFIX}${child.id}`);
       folders.push({
@@ -167,7 +142,6 @@ export async function readMailbox(accountId: string): Promise<Mailbox> {
       });
       if ((child.childFolderCount ?? 0) > 0) {
         const keep = labelId === "TRASH" || labelId === "SPAM" ? labelId : null;
-        // System folders' children are named under the folder's own name ("Inbox/Clients").
         await visit(child.id, path, keep);
       }
     }
@@ -191,7 +165,6 @@ export async function readMailbox(accountId: string): Promise<Mailbox> {
   return mailbox;
 }
 
-/** The mailbox's folders and categories: as kept, else read now. */
 export async function ensureMailbox(accountId: string): Promise<Mailbox> {
   return mailboxOf(accountId) ?? readMailbox(accountId);
 }
@@ -200,14 +173,12 @@ export function folderById(accountId: string, id: string): Folder | undefined {
   return mailboxOf(accountId)?.folders.find((f) => f.id === id);
 }
 
-/** The well-known folder's id (the inbox, the archive …). */
 export async function wellKnownId(accountId: string, name: WellKnown): Promise<string> {
   const id = (await ensureMailbox(accountId)).wellKnown[name];
   // Mailboxes without an Archive folder yet: Graph makes it on first use.
   return id ?? name;
 }
 
-/** The label a folder's mail carries (null: a folder not worth listing). */
 export function folderLabel(accountId: string, folderId: string | undefined): string | null {
   if (!folderId) return null;
   const mailbox = mailboxOf(accountId);
@@ -215,18 +186,15 @@ export function folderLabel(accountId: string, folderId: string | undefined): st
   if (folder) return folder.labelId;
   const role = Object.entries(mailbox?.wellKnown ?? {}).find(([, id]) => id === folderId)?.[0];
   if (role) return SYSTEM_LABEL[role as WellKnown] ?? null;
-  // A folder made since the tree was read: the next read names it.
   return `${FOLDER_PREFIX}${folderId}`;
 }
 
-/** Whether mail in this folder is worth caching (not the outbox or the like). */
 export function isSyncedFolder(accountId: string, folderId: string | undefined): boolean {
   const mailbox = mailboxOf(accountId);
   if (!folderId || !mailbox) return true;
   return !SKIPPED.some((name) => mailbox.wellKnown[name] === folderId);
 }
 
-/** The folder a label stands for, if it's one (INBOX → the inbox …). */
 export async function folderOfLabel(accountId: string, labelId: string): Promise<string | null> {
   if (labelId.startsWith(FOLDER_PREFIX)) return labelId.slice(FOLDER_PREFIX.length);
   const role = (Object.entries(SYSTEM_LABEL) as [WellKnown, string][]).find(
@@ -239,9 +207,6 @@ export const categoryLabel = (name: string) => `${CATEGORY_PREFIX}${name}`;
 export const categoryOf = (labelId: string): string | null =>
   labelId.startsWith(CATEGORY_PREFIX) ? labelId.slice(CATEGORY_PREFIX.length) : null;
 
-// ── Colors ──────────────────────────────────────────────────────────────────
-
-/** Outlook's category presets, as Outlook on the web shows them. */
 const PRESETS: Record<string, string> = {
   preset0: "#e74856",
   preset1: "#ff8c00",
@@ -275,7 +240,6 @@ const rgb = (hex: string): [number, number, number] => {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
 
-/** Dark text on light colors, white on the rest. */
 function textOn(hex: string): string {
   const [r, g, b] = rgb(hex);
   return 0.299 * r + 0.587 * g + 0.114 * b > 160 ? "#1f1f1f" : "#ffffff";
@@ -288,7 +252,6 @@ export function presetColor(
   return hex ? { backgroundColor: hex, textColor: textOn(hex) } : undefined;
 }
 
-/** The preset nearest a color picked in the app (Outlook only has its presets). */
 export function nearestPreset(hex: string): string {
   const [r, g, b] = rgb(hex);
   let best = "preset7";
@@ -301,16 +264,12 @@ export function nearestPreset(hex: string): string {
   return best;
 }
 
-// ── Labels ──────────────────────────────────────────────────────────────────
-
-/** Every label, as the sidebar lists them: folders with Outlook's counts, categories with ours. */
 export function labelsOf(accountId: string, mailbox: Mailbox): MailLabel[] {
   const labels: MailLabel[] = [];
   const seen = new Set<string>();
   for (const folder of mailbox.folders) {
     if (!folder.labelId) continue;
     const system = !folder.labelId.startsWith(FOLDER_PREFIX);
-    // Subfolders of Deleted Items and Junk count toward theirs.
     const existing = labels.find((l) => l.id === folder.labelId);
     if (existing) {
       existing.unread = (existing.unread ?? 0) + folder.unread;
@@ -348,7 +307,6 @@ export function labelsOf(accountId: string, mailbox: Mailbox): MailLabel[] {
   return labels;
 }
 
-/** What labels a message from Graph carries. */
 export function labelsFor(
   accountId: string,
   message: {

@@ -1,10 +1,5 @@
 import SwiftUI
 
-/**
- * A conversation: its subject as the headline, then each message, earlier
- * read ones folded to a line. Compact reply and archive buttons sit at the
- * bottom; archiving moves on as Settings › After archive says.
- */
 struct ThreadView: View {
     @Environment(MailStore.self) private var store
     @Environment(Preferences.self) private var preferences
@@ -17,7 +12,6 @@ struct ThreadView: View {
     @Binding var path: [String]
     @Binding var draft: Draft?
 
-    /** The list as it was when this opened, to know what's next once this one leaves it. */
     @State private var siblings: [String] = []
     @State private var expanded: Set<String> = []
     @State private var asking: [MailContext]?
@@ -97,7 +91,6 @@ struct ThreadView: View {
         .safeAreaBar(edge: .bottom) {
             replyBar(thread, mailbox)
         }
-        // Its own bar (archive, trash, reply) stands in for the tabs.
         .toolbarVisibility(.hidden, for: .tabBar)
         .sheet(isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } })) {
             NavigationStack {
@@ -132,7 +125,6 @@ struct ThreadView: View {
         }
     }
 
-    /** Archive (in the Archive, Move to Inbox) and Trash stay together, with Reply on the other side of the message. */
     private func replyBar(_ thread: MailThread, _ mailbox: Mailbox) -> some View {
         let archives = store.canArchive(thread)
         let unarchives = !archives && thread.labels.contains("ARCHIVE")
@@ -193,7 +185,6 @@ struct ThreadView: View {
         return person.label.split(separator: " ").first.map(String.init) ?? person.label
     }
 
-    /** After archive, trash or a move: the next or previous thread, or back to the list. */
     private func leave(_ thread: MailThread) {
         let remaining = Set(store.threads(in: place.folder, scope: place.scope).map(\.id))
         let index = siblings.firstIndex(of: thread.id) ?? 0

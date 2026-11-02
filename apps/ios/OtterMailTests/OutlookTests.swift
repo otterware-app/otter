@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Otter_Mail
 
-/** Outlook through Graph: labels as core gives them, search, MIME sources, and delta paging (docs/outlook.md). */
 struct OutlookTests {
     private let me = "me@contoso.com"
 
@@ -31,8 +30,6 @@ struct OutlookTests {
         try JSONDecoder().decode(GraphMessage.self, from: Data(json.utf8))
     }
 
-    // ── Labels ───────────────────────────────────────────────────────────────
-
     @Test func foldersAreCoreLabels() {
         let box = self.box
         #expect(box.label(ofFolder: "I") == "INBOX")
@@ -41,7 +38,6 @@ struct OutlookTests {
         #expect(box.label(ofFolder: "T") == "TRASH")
         #expect(box.label(ofFolder: "J") == "SPAM")
         #expect(box.label(ofFolder: "A") == "ARCHIVE")
-        // Deleted Items' folders are trash too; other folders are labels of their own.
         #expect(box.label(ofFolder: "TO") == "TRASH")
         #expect(box.label(ofFolder: "IC") == "folder:IC")
         #expect(box.label(ofFolder: "PA") == "folder:PA")
@@ -83,7 +79,6 @@ struct OutlookTests {
         #expect(thread.labels == ["INBOX", "SENT", "IMPORTANT", "category:Red"])
         #expect(thread.unread && thread.starred)
         #expect(thread.messages[0].from == Person(name: "Ann", email: "ann@example.com"))
-        // Only the Outbox's: nothing to show.
         #expect(OutlookMail.thread("c2", [outbox], mailbox: me, folders: box, contents: [:], known: [:]) == nil)
     }
 
@@ -94,25 +89,20 @@ struct OutlookTests {
         let move = { (message: GraphMessage, add: [String], remove: [String], whole: Bool) in
             OutlookMail.destination(message, add: add, remove: remove, wholeThread: whole, mailbox: self.me, folders: box)
         }
-        // Archive: out of the inbox; your sent mail stays in Sent.
         #expect(move(received, [], ["INBOX"], true) == "A")
         #expect(move(sent, [], ["INBOX"], true) == nil)
-        // Trash takes everything; Junk leaves your own.
         #expect(move(received, ["TRASH"], ["INBOX"], true) == "T")
         #expect(move(sent, ["TRASH"], [], true) == "T")
         #expect(move(received, ["SPAM"], ["INBOX"], true) == "J")
         #expect(move(sent, ["SPAM"], ["INBOX"], true) == nil)
-        // Into a folder; out of one, to the Archive.
         #expect(move(received, ["folder:PA"], [], true) == "PA")
         let filed = try message(#"{"id":"m3","parentFolderId":"PA"}"#)
         #expect(move(filed, [], ["folder:PA"], true) == "A")
         #expect(move(filed, ["INBOX"], ["folder:PA"], true) == "I")
-        // Restored from Deleted Items: yours to Sent Items, the rest to the inbox.
         let trashedOwn = try message(#"{"id":"m4","parentFolderId":"T","from":{"emailAddress":{"address":"me@contoso.com"}}}"#)
         let trashed = try message(#"{"id":"m5","parentFolderId":"TO","from":{"emailAddress":{"address":"ann@example.com"}}}"#)
         #expect(move(trashedOwn, [], ["TRASH"], false) == "S")
         #expect(move(trashed, [], ["TRASH"], false) == "I")
-        // A category is a property, as are read state, flags and importance.
         #expect(move(received, ["category:Blue"], [], true) == nil)
         let patch = try #require(OutlookMail.patch(received, add: ["category:Blue", "STARRED"], remove: ["UNREAD", "category:Red"]))
         #expect(patch["categories"] as? [String] == ["Blue"])
@@ -121,10 +111,8 @@ struct OutlookTests {
         #expect(OutlookMail.patch(sent, add: [], remove: ["UNREAD"]) == nil)
     }
 
-    // ── Search ───────────────────────────────────────────────────────────────
-
     @Test func gmailOperatorsBecomeKQL() {
-        let now = Date(timeIntervalSince1970: 1_791_504_000) // 2026-10-09
+        let now = Date(timeIntervalSince1970: 1_791_504_000)
         let query = OutlookSearch.query(#"budget from:ann subject:"quarterly report" has:attachment is:unread in:inbox -label:red newer_than:7d"#, labels: box.labels, now: now)
         #expect(query.kql == #"budget from:ann subject:"quarterly report" hasattachments:true received>=2026-10-02"#)
         #expect(query.wanted == [
@@ -139,8 +127,6 @@ struct OutlookTests {
         #expect(OutlookSearch.filter("category:O'Brien") == "categories/any(c:c eq 'O''Brien')")
         #expect(OutlookSearch.filter("INBOX") == nil)
     }
-
-    // ── Reading ──────────────────────────────────────────────────────────────
 
     @Test func mimeSourceGivesBodiesInlineImagesFilesAndHeaders() {
         let source = [
@@ -204,8 +190,6 @@ struct OutlookTests {
         #expect(parsed.html == nil)
         #expect(parsed.files.isEmpty)
     }
-
-    // ── Graph ────────────────────────────────────────────────────────────────
 
     private func graph(_ answer: @escaping @Sendable (URLRequest) async -> (Int, String, [String: String])) -> GraphAPI {
         GraphAPI(email: me, token: { _ in "token" }, transport: { request in

@@ -1,7 +1,6 @@
 import Foundation
 import Security
 
-/** Secrets on this iPhone: the Otter session, each mailbox's Google refresh token or IMAP password. */
 nonisolated enum Keychain {
     private static let service = "dev.otterware.mail"
 
@@ -15,7 +14,6 @@ nonisolated enum Keychain {
         return String(data: data, encoding: .utf8)
     }
 
-    /** Keeps `value` (readable after the first unlock, for background refresh); `thisDeviceOnly` leaves it out of backups. */
     @discardableResult
     static func set(_ key: String, _ value: String?, thisDeviceOnly: Bool = false) -> Bool {
         let query = query(key)

@@ -1,6 +1,5 @@
 import SwiftUI
 
-/** Address chips and a small local autocomplete list; unfinished text stays in the draft too. */
 struct RecipientField: View {
     @Environment(MailStore.self) private var store
     @Environment(\.palette) private var palette
@@ -100,7 +99,6 @@ struct RecipientField: View {
     }
 }
 
-/** Wrap chips at their natural width, including at accessibility text sizes. */
 private struct RecipientFlow: Layout {
     let spacing: CGFloat
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

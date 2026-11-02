@@ -19,7 +19,6 @@ export async function connectMailSocket(
   port: number,
   opts: { tls: boolean },
 ): Promise<ByteStream> {
-  // Like realtime's `/v1/events`, the browser sends the session cookie along.
   const query = new URLSearchParams({ host, port: String(port) });
   const ws = new WebSocket(`${relayUrl.replace(/^http/, "ws")}/v1/tunnel?${query}`);
   ws.binaryType = "arraybuffer";
@@ -51,7 +50,6 @@ export async function connectMailSocket(
     return opened ? null : new Error(`Couldn't reach ${host} through Otter's relay.`);
   };
 
-  // The relay sends "open" once the TCP connection is up, then raw bytes.
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error(`${host} didn't answer on port ${port}.`));
@@ -108,7 +106,6 @@ export async function connectMailSocket(
     // Anything the server sent after its go-ahead would be unencrypted bytes
     // an attacker could have slipped in: refuse it.
     if (chunks.length > 0) throw new Error(`${host} sent data before STARTTLS completed.`);
-    // A handshake that stalls ends with the tunnel.
     const timer = setTimeout(() => ws.close(), CONNECT_TIMEOUT_MS);
     try {
       const { negotiateTls } = await import("./tls");

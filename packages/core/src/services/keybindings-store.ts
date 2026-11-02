@@ -15,7 +15,6 @@ export const KEYBINDINGS_FILE = "keybindings.json";
 
 export type KeybindingRule = { key: string; command: string; when?: string };
 export type KeybindingsFile = {
-  /** null when none are saved yet (defaults only). */
   rules: KeybindingRule[] | null;
 };
 

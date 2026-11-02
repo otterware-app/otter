@@ -1,12 +1,10 @@
 import StoreKit
 import SwiftUI
 
-/** First launch, or signed out: sign in with Google, or look around the demo mailbox. */
 struct WelcomeView: View {
     @Environment(Session.self) private var session
     @Environment(\.palette) private var palette
     @State private var error: String?
-    /** The demo is for development and testers (TestFlight, App Review), not App Store customers. */
     @State private var offersDemo = false
 
     var body: some View {
@@ -71,7 +69,6 @@ struct WelcomeView: View {
         .frame(maxWidth: .infinity)
         .background(palette.canvas)
         .task {
-            // Xcode and TestFlight builds run in the sandbox; the App Store's in production.
             guard let result = try? await AppTransaction.shared else { return offersDemo = true }
             let environment = switch result {
             case .verified(let transaction), .unverified(let transaction, _): transaction.environment

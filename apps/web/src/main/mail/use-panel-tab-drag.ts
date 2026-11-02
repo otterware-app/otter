@@ -14,7 +14,6 @@ type Drag = {
   active: boolean;
 };
 
-/** The tab follows the pointer; crossing a neighbour slides it into the vacated slot. */
 export function usePanelTabDrag(onReorder: (order: string[]) => void) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
@@ -83,7 +82,6 @@ export function usePanelTabDrag(onReorder: (order: string[]) => void) {
     const current = drag.current;
     if (!strip || !current?.active) return;
     const bounds = strip.getBoundingClientRect();
-    // Keep moving through an overflowing strip while held at either edge.
     if (current.clientX < bounds.left + 24) strip.scrollLeft -= 8;
     else if (current.clientX > bounds.right - 24) strip.scrollLeft += 8;
     const placed = placeDragged();

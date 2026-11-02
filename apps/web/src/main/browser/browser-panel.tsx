@@ -1,9 +1,3 @@
-/**
- * The browser panel beside the mail (the Mac app's): its tabs in a strip,
- * with + for a new one, then the page showing. Links from mail and the small
- * chat window open here; closing its last tab closes it.
- */
-
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { PlusIcon } from "lucide-react";
 
@@ -20,9 +14,7 @@ export function BrowserPanel({
   closeTabRef,
   onClosePanel,
 }: {
-  /** ⌘W: closes the page showing, including the last. */
   closeTabRef: MutableRefObject<(() => boolean) | null>;
-  /** Closing the last tab closes the panel. */
   onClosePanel: () => void;
 }) {
   const allTabs = useBrowser((s) => s.tabs);
@@ -31,7 +23,6 @@ export function BrowserPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const { ref, draggingId, handlers } = usePanelTabDrag(reorderTabs);
 
-  // The tabs most recently shown first, for Ctrl+Tab and for what shows after a close.
   const recentRef = useRef<string[]>([]);
   useEffect(() => {
     const open = new Set(panelTabs(allTabs).map((tab) => tab.id));

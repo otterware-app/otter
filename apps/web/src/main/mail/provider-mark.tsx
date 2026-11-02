@@ -6,7 +6,6 @@ export function GmailMark({ className = "size-4" }: { className?: string }) {
   return <img src={gmailMark} className={`${className} object-contain`} alt="" aria-hidden />;
 }
 
-/** Microsoft's four squares, for Outlook. */
 export function MicrosoftMark({ className = "size-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 21 21" className={className} aria-hidden>
@@ -18,7 +17,6 @@ export function MicrosoftMark({ className = "size-4" }: { className?: string }) 
   );
 }
 
-/** The connection's provider, beside its mailbox name. Older accounts are Gmail. */
 export function ProviderMark({
   provider = "gmail",
   className = "size-3.5",

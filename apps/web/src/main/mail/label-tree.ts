@@ -12,7 +12,6 @@ export type LabelTreeNode = {
 /** Id prefix of a label created optimistically, before Gmail assigned its id. */
 export const PENDING_LABEL_PREFIX = "pending:";
 
-/** User labels that can be applied to mail right now (not still being created). */
 export function isAssignableLabel(label: MailLabel): boolean {
   return label.type === "user" && !label.id.startsWith(PENDING_LABEL_PREFIX);
 }
@@ -47,8 +46,6 @@ export function sortLabelTree(nodes: LabelTreeNode[]): void {
   for (const node of nodes) sortLabelTree(node.children);
 }
 
-// Flatten a label tree into a depth-annotated list (pre-order) for non-collapsible,
-// indentation-only rendering (e.g. a flat checkbox list).
 export function flattenLabelTree(
   nodes: LabelTreeNode[],
   depth = 0,

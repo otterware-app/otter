@@ -12,7 +12,6 @@ const system = (id: string): MailLabel => ({ id, name: id, type: "system" });
 describe("What archiving takes off", () => {
   it("takes INBOX off, and offers Move to Inbox elsewhere, in Gmail", () => {
     expect(archiveFrom(["INBOX", "UNREAD"], system("INBOX"), GMAIL_CAPABILITIES)).toBe("INBOX");
-    // A Gmail label is a label, not a folder: archive still means the inbox.
     expect(archiveFrom(["INBOX", "Label_1"], folder("Label_1"), GMAIL_CAPABILITIES)).toBe("INBOX");
     expect(archiveFrom(["Label_1"], folder("Label_1"), GMAIL_CAPABILITIES)).toBeNull();
   });
@@ -22,11 +21,9 @@ describe("What archiving takes off", () => {
       "folder:ops",
     );
     expect(archiveFrom(["Work", "STARRED"], folder("Work"), IMAP_CAPABILITIES)).toBe("Work");
-    // An Outlook category is a tag: from its list, archive means the inbox.
     expect(
       archiveFrom(["INBOX", "category:Finance"], folder("category:Finance"), OUTLOOK_CAPABILITIES),
     ).toBe("INBOX");
-    // In the Archive, Sent or a view: nothing to archive but the inbox's.
     expect(archiveFrom(["ARCHIVE"], system("ARCHIVE"), OUTLOOK_CAPABILITIES)).toBeNull();
     expect(archiveFrom(["INBOX", "folder:ops"], undefined, OUTLOOK_CAPABILITIES)).toBe("INBOX");
   });

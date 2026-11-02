@@ -1,10 +1,3 @@
-/**
- * A chat's composer: a glass card with the prompt on top and controls below,
- * pinned to the bottom like Codex's. It carries the mail the message is about
- * (a chip that can be switched off), cited passages, files and a "/" skill,
- * and while a turn runs, its queue, approvals and questions.
- */
-
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { agentContribution } from "../extensions/registry";
 import { useQuery } from "@tanstack/react-query";
@@ -74,15 +67,11 @@ export function ChatComposer({
   chat: ChatProvider;
   context: MailChatContext;
   onClearQuote?: () => void;
-  /** Pasted / dropped / picked files for the next message. */
   files: ReturnType<typeof useChatAttachments>;
   inputRef: RefObject<HTMLTextAreaElement | null>;
-  /** A citation chip's comment, opened above it. */
   onEditCitation: (id: string, anchor: DOMRect) => void;
-  /** The composer was emptied into a message. */
   onSent: () => void;
   updateSettings: (patch: AgentSettingsPatch) => void;
-  /** The small window's: tighter, its message one line that grows (Linear's). */
   compact?: boolean;
 }) {
   const { kind: providerKind, provider, name: providerName, usable } = chat;
@@ -94,7 +83,6 @@ export function ChatComposer({
   const questions = useChats((s) => s.questions);
   const [attach, setAttach] = useState(true);
   const filePickerRef = useRef<HTMLInputElement>(null);
-  // ⌘ held: the send button previews the alternate action (queue ⇄ steer).
   const [modHeld, setModHeld] = useState(false);
   useEffect(() => {
     const sync = (e: KeyboardEvent) => setModHeld(e.metaKey || e.ctrlKey);
@@ -112,7 +100,6 @@ export function ChatComposer({
   const [respondingApproval, setRespondingApproval] = useState<string | null>(null);
   const [answeringQuestion, setAnsweringQuestion] = useState<string | null>(null);
 
-  // Skills for the "/" picker, from whichever provider this chat uses.
   const skillsQuery = useQuery<Skill[]>({
     queryKey: ["agent-skills", providerKind],
     queryFn: () => mailApi.agentSkills(providerKind),
@@ -124,12 +111,9 @@ export function ChatComposer({
   const [slashDismissed, setSlashDismissed] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
   const slashItemRef = useRef<HTMLButtonElement | null>(null);
-  // A picked skill is promoted out of the textarea into a badge; the textarea
-  // then holds only the instruction.
   const [activeSkill, setActiveSkill] = useState<Skill | null>(null);
   const handleDraftChange = (value: string) => {
     setSlashDismissed(false);
-    // Typing a space after a complete "/known-skill" promotes it to the badge.
     if (!activeSkill) {
       const m = value.match(/^\/([a-z0-9:_-]+)\s([\s\S]*)$/i);
       const sk = m && skills.find((s) => s.name.toLowerCase() === m[1].toLowerCase());
@@ -141,7 +125,6 @@ export function ChatComposer({
     }
     setDraft(chatId, value);
   };
-  // The menu opens only while typing a bare "/slug" (no space yet).
   const slashMatch = draft.match(/^\/([a-z0-9:_-]*)$/i);
   const slashQuery = slashMatch ? slashMatch[1].toLowerCase() : null;
   const slashSkills =
@@ -154,7 +137,6 @@ export function ChatComposer({
     setIndexForQuery(slashQuery);
     setSlashIndex(0);
   }
-  // Keep the keyboard-highlighted skill scrolled into view.
   useEffect(() => {
     slashItemRef.current?.scrollIntoView({ block: "nearest" });
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Re-run this DOM/reset lifecycle when its explicit trigger changes, even when the callback reads refs.
@@ -173,13 +155,10 @@ export function ChatComposer({
     if (context.quote) setAttach(true);
   }
 
-  // Editing a queued message borrows the composer; the user's own draft is
-  // set aside and comes back when the edit ends (Otter Code's queued-edit draft).
   const [editing, setEditing] = useState<{
     id: string;
     savedDraft: string;
   } | null>(null);
-  // The edited message waits in the queue until the edit ends.
   const editingId = editing?.id ?? null;
   useEffect(() => setEditingQueued(editingId), [editingId]);
   useEffect(() => () => setEditingQueued(null), []);
@@ -192,7 +171,6 @@ export function ChatComposer({
     setEditing(null);
   }
 
-  /** Consumes the composer (text, skill, attached context) into a message. */
   const compose = (): Outgoing | null => {
     const question = draft.trim();
     if (
@@ -215,7 +193,6 @@ export function ChatComposer({
     setActiveSkill(null);
     setCitations(chatId, () => []);
     onSent();
-    // A quote is one-shot — release it once it's been sent.
     if (attached && context.quote) onClearQuote?.();
     return {
       id: crypto.randomUUID(),
@@ -238,11 +215,6 @@ export function ChatComposer({
 
   const alternateAction = followUp === "queue" ? "steer" : "queue";
 
-  /**
-   * Otter Code's dispatch modes: idle → start; running → queue or steer per
-   * the follow-up setting, ⌘↩ / ⌘-click does the opposite for one message.
-   * Editing a queued message, send updates it in place instead.
-   */
   const send = (alternate = false) => {
     if (editing) {
       saveQueuedEdit();
@@ -303,7 +275,6 @@ export function ChatComposer({
   const stop = () => stopRun(chatId);
 
   const activeQueue = queue.filter((m) => m.convoId === chatId);
-  // This chat's approvals (other tabs' runs wait in their own tab).
   const activeApprovals = run ? approvals.filter((a) => a.requestId === run.requestId) : [];
   const activeQuestions = run ? questions.filter((q) => q.requestId === run.requestId) : [];
   // Steer needs a running turn in this chat that isn't waiting on an approval.
@@ -322,32 +293,25 @@ export function ChatComposer({
     },
   });
 
-  /** Where composer menus return focus when they close. */
   const focusComposer = () => inputRef.current?.focus();
 
-  /** A model from the picker becomes the default for its provider (and new chats). */
   const pickModel = (kind: ProviderKind, slug: string) => {
     updateSettings({ selected: kind, [kind]: { model: slug } });
   };
 
-  // Some agents' approval modes are server-side config (Hermes, OpenClaw); others pick it per turn.
   const agent = agentContribution(providerKind);
   const runtimeMode = agent?.serverApprovals ? null : (provider?.settings.runtimeMode ?? null);
   const pendingApproval = activeApprovals[0];
   const pendingQuestion = activeQuestions[0];
 
-  // Reasoning / Service Tier of the model in use, with the saved choices.
   const currentModel = provider?.models.find((m) => m.slug === provider.model);
   const traitOptions = currentModel?.options ?? [];
-  // Some agents bring their own model settings (OpenClaw's).
   const traitSettings = agent?.ownModelSettings ? undefined : provider?.settings;
   const traitValues = {
     reasoningEffort: traitSettings?.reasoningEffort ?? "",
     serviceTier: traitSettings?.serviceTier ?? "",
   };
 
-  // Send button (Otter Code's ComposerPrimaryActions): queue vs steer while a
-  // turn runs; holding ⌘ flips it for one message.
   const hasDraft = Boolean(draft.trim() || activeSkill || files.count > 0 || citations.length > 0);
   const submitMode: "send" | "queue" | "steer" = run
     ? modHeld
@@ -366,7 +330,6 @@ export function ChatComposer({
       ? submitLabel
       : `Click to ${followUp}, ${modKeyName}-click or ${shortcutText("mod+enter")} to ${alternateAction}`;
 
-  // Only the active conversation drives the "working…" / stop UI.
   const busy = run != null;
   const attached = context.attached;
 
@@ -520,7 +483,6 @@ export function ChatComposer({
               rows={compact ? 1 : 2}
               className={cn(
                 "w-full resize-none bg-transparent pb-1 text-sm leading-relaxed text-foreground outline-none placeholder:text-placeholder",
-                // Linear's: one line that grows with what's typed.
                 compact ? "field-sizing-content max-h-40 px-3.5 pt-3" : "px-4.5 pt-4",
               )}
             />

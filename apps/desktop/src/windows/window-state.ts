@@ -1,8 +1,3 @@
-/**
- * Remembers a window's frame across launches (userData/window-state.json,
- * keyed per window) and restores it only if it still fits on a display.
- */
-
 import { app, screen, type BrowserWindow, type Rectangle } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -34,14 +29,12 @@ function isVisible(frame: Rectangle): boolean {
   });
 }
 
-/** The saved frame for `key`, if it is still on screen. */
 export function savedFrame(key: string): SavedFrame | null {
   const frame = readAll()[key];
   if (!frame || typeof frame.width !== "number" || !isVisible(frame)) return null;
   return frame;
 }
 
-/** Saves `win`'s frame under `key` whenever it moves or resizes. */
 export function trackFrame(key: string, win: BrowserWindow): void {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const save = () => {

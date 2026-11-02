@@ -34,7 +34,6 @@ async function addDemoMailbox(mailbox: DemoMailbox): Promise<void> {
   }
   const addDemoAccount = platform().google.addDemoAccount;
   if (!addDemoAccount) throw new Error("This app can't add a demo Gmail mailbox.");
-  // As gmail:addAccount does after a sign-in.
   const account = await addDemoAccount(mailbox);
   mailSync.syncAccount(account.id, { force: true });
   void accountAdded(account);
@@ -42,7 +41,6 @@ async function addDemoMailbox(mailbox: DemoMailbox): Promise<void> {
   broadcast("gmail:accounts-changed");
 }
 
-/** Adds the mailboxes in `json` (OTTER_MAIL_DEMO_MAILBOXES) that aren't here yet. */
 export async function addDemoMailboxes(json: string): Promise<void> {
   const mailboxes = parseDemoMailboxes(json);
   const here = new Set((await accountStore.listAccounts()).map((account) => account.id));

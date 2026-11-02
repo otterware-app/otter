@@ -1,14 +1,9 @@
-/**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
- * apps/web/src/lib/color.ts, unchanged.
- */
 export type HsvColor = {
   h: number;
   s: number;
   v: number;
 };
 
-/** Convert a normalized six-digit sRGB hex color to HSV. */
 export function hexToHsv(hex: string): HsvColor {
   const numeric = Number.parseInt(hex.slice(1), 16);
   const red = ((numeric >> 16) & 255) / 255;

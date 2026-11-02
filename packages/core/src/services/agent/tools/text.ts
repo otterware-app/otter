@@ -1,5 +1,3 @@
-/** Mail as plain text for agents, and plain text back into mail. */
-
 export function decodeEntities(input: string): string {
   if (!input || !input.includes("&")) return input;
   return input
@@ -13,7 +11,6 @@ export function decodeEntities(input: string): string {
     .replace(/&amp;/g, "&"); // last, so a single-encoded string never double-decodes
 }
 
-/** Readable text from an HTML body: blocks become lines, links keep their address. */
 export function htmlToText(html: string): string {
   const text = html
     .replace(/<(style|script|head|title)[\s\S]*?<\/\1>/gi, "")
@@ -34,7 +31,6 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
-/** A message's body as text: its text part, else its HTML read as text. */
 export function bodyText(m: { bodyText: string | null; bodyHtml: string | null }): string {
   return (m.bodyText ?? (m.bodyHtml ? htmlToText(m.bodyHtml) : "")).trim();
 }
@@ -71,7 +67,6 @@ export function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Plain text as HTML: one line per line. */
 export function textToHtml(text: string): string {
   return text
     .split("\n")
@@ -79,14 +74,12 @@ export function textToHtml(text: string): string {
     .join("");
 }
 
-/** "Name <email>", or the address alone. */
 export function address(name: string, email: string): string {
   return name && name !== email ? `${name} <${email}>` : email;
 }
 
 const pad = (n: number) => String(Math.floor(Math.abs(n))).padStart(2, "0");
 
-/** A time in this device's zone, with its offset: `2026-09-30T14:05+02:00`. */
 export function localTime(ms: number): string {
   const d = new Date(ms);
   const offset = -d.getTimezoneOffset();
@@ -97,7 +90,6 @@ export function localTime(ms: number): string {
   );
 }
 
-/** A date as the reader shows it, for quote and forward headers: "Tue, Sep 29, 2026, 12:07". */
 export function fullDate(ms: number): string {
   return new Date(ms).toLocaleString([], {
     weekday: "short",

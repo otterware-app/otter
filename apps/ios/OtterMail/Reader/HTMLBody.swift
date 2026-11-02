@@ -36,7 +36,6 @@ struct HTMLBody: View {
             let next = WebPage(configuration: configuration, navigationDecider: OpenLinksOutside())
             page = next
             do {
-                // WebKit renders the text immediately and requests inline images as subresources.
                 for try await _ in next.load(html: Self.fitted(html), baseURL: URL(string: "about:blank")!) {
                     try Task.checkCancellation()
                 }
@@ -44,7 +43,6 @@ struct HTMLBody: View {
         }
     }
 
-    /** Fits fixed-width mail (600px tables) to the phone. */
     private static func fitted(_ html: String) -> String {
         """
         <meta name="viewport" content="width=device-width, initial-scale=1">

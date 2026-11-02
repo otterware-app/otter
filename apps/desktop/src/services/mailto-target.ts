@@ -1,10 +1,3 @@
-/**
- * Pending mailto: compose target. macOS delivers mailto links via the app's
- * "open-url" event (OtterMail registers as the mailto handler / default mail
- * app); the target is stashed here until the main window's renderer pulls it —
- * same pattern as the Settings window's navigation target.
- */
-
 export type MailtoTarget = {
   to: string;
   cc: string;

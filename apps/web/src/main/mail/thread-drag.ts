@@ -11,8 +11,6 @@ export const THREAD_DRAG_MIME = "application/x-ottermail-threads";
 
 export type ThreadDragPayload = {
   threads: { accountId: string; threadId: string }[];
-  /** The label the list shows (the one a move leaves), or null for views
-      that aren't a single label (search, rule-based views). */
   fromLabelId: string | null;
 };
 
@@ -79,6 +77,5 @@ export function setThreadDragImage(
   }
   document.body.appendChild(el);
   dataTransfer.setDragImage(el, -8, -8);
-  // The image is snapshotted synchronously; the element can go right away.
   setTimeout(() => el.remove(), 0);
 }

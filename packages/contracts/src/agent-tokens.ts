@@ -19,18 +19,15 @@ export interface AgentToken {
  */
 export type AgentAccess = "read-only" | "safe" | "full-access";
 
-/** An agent on the Mac (Claude Code, Cursor, …) given Otter Mail's tools. */
 export interface ConnectedAgent extends AgentToken {
   access: AgentAccess;
 }
 
-/** A server's tokens, as Settings lists them: its address, and who may reach it. */
 export interface AgentTokens<T extends AgentToken = AgentToken> {
   url: string;
   tokens: T[];
 }
 
-/** A new token (`prefix` and 32 random bytes) and the hash to keep of it. */
 export async function newAgentToken(prefix: string): Promise<{ token: string; hash: string }> {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   const token = prefix + btoa(String.fromCharCode(...bytes)).replace(/[+/=]/g, "");

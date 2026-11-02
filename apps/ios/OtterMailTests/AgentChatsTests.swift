@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Otter_Mail
 
-/** The account's agent chats, as the phone reads and writes them (AgentChats.swift). */
 @MainActor
 struct AgentChatsTests {
     @Test func listsTheAccountsChatsButNotTheDeletedOnes() {

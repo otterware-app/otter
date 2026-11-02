@@ -1,10 +1,3 @@
-/**
- * @otter-mail/core: the mail backend. The desktop app runs it in an Electron
- * utility process, the web app in a Web Worker; each hands `startCore` its
- * Platform (platform.ts) and the extensions it runs (extensions.ts), and
- * serves `registeredHandlers()` to the renderer.
- */
-
 import { registerAgentHandlers } from "./handlers/agent.js";
 import { registerChatHandlers } from "./handlers/chats.js";
 import { registerMailHandlers } from "./handlers/mail.js";
@@ -32,7 +25,6 @@ import { refreshProfiles } from "./services/google-profile.js";
 import { startMailSchedule } from "./services/mail-schedule.js";
 import { refreshSignatures } from "./services/signatures.js";
 
-/** Starts the backend: restores sign-ins, registers every handler, activates the extensions, and syncs. */
 export async function startCore(
   platform: Platform,
   extensions: readonly CoreExtension[] = [],
@@ -72,7 +64,6 @@ export async function startCore(
     return result;
   });
 
-  // Warm the local cache for every connected account (turned-off ones stay cold).
   followMailboxArrangement((await getUiPreferences())["mail:mailboxes"]);
   void syncAllAccounts({ force: true });
   configureAutoSync((await getSettings()).syncIntervalSeconds);

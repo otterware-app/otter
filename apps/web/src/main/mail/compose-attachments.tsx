@@ -39,7 +39,6 @@ export async function loadMessageAttachments(
   return out;
 }
 
-/** Open the native file picker; the backend enforces the 25 MB total cap. */
 export async function pickComposeAttachments(
   existing: ComposeAttachment[],
 ): Promise<ComposeAttachment[]> {
@@ -110,12 +109,6 @@ export async function filesToComposeAttachments(
   return out;
 }
 
-/**
- * Gmail-style drag-and-drop: drop files anywhere on the composer to attach.
- * Returns `dropProps` to spread on the drop container and `isDragging` for the
- * overlay. Ignores internal drags (e.g. dragging an attachment out to Finder),
- * which carry no `Files` type.
- */
 export function useComposeFileDrop(
   onFiles: (files: File[]) => void,
   disabled?: boolean,
@@ -170,16 +163,13 @@ export function ComposeDropOverlay({ visible }: { visible: boolean }) {
   );
 }
 
-/** Above this, autosave waits longer: every save re-uploads the attachments. */
 const HEAVY_ATTACHMENT_BYTES = 1024 * 1024;
 
-/** Autosave debounce for a draft carrying these attachments. */
 export function autosaveDelayMs(attachments: ComposeAttachment[] | null): number {
   const bytes = (attachments ?? []).reduce((sum, a) => sum + attachmentBytes(a), 0);
   return bytes > HEAVY_ATTACHMENT_BYTES ? 5000 : 1500;
 }
 
-/** Stable signature for autosave dirty-checks. */
 export function attachmentSignature(attachments: ComposeAttachment[] | null): string {
   return (attachments ?? []).map((a) => `${a.name}:${a.size}`).join("|");
 }

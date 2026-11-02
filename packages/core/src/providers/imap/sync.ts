@@ -1,20 +1,3 @@
-/**
- * IMAP's part of a sync run (the engine around it is services/mail-sync.ts).
- *
- * Folders are listed and their STATUS read (the labels and their counts);
- * then each folder, INBOX first, is brought up to date on its own, with its
- * state in kv (UIDVALIDITY, UIDNEXT, HIGHESTMODSEQ):
- *
- *  - first sync: every UID below the UIDNEXT seen at the start, newest first,
- *    200 at a time; resumable (the lowest UID done is kept after each page);
- *  - a new UIDVALIDITY: the folder's cached mail goes and it starts over;
- *  - after that: nothing when STATUS shows no change; else new UIDs from the
- *    stored UIDNEXT, flag changes since the stored HIGHESTMODSEQ (QRESYNC on
- *    SELECT, or CONDSTORE's CHANGEDSINCE), or every UID's flags on servers
- *    without mod-sequences; and when the folder's count doesn't match the
- *    cache, a UID SEARCH ALL finds what was expunged (QRESYNC also says).
- */
-
 import { logger } from "../../logger.js";
 import {
   ImapError,
@@ -50,11 +33,8 @@ interface FolderState {
   uidNext: number;
   /** HIGHESTMODSEQ, as text (a bigint); absent on servers without CONDSTORE. */
   modseq?: string;
-  /** First sync: UIDs below this are still to fetch; 0 once done. */
   below: number;
-  /** The label the folder's cached mail carries. */
   label?: string | null;
-  /** STATUS at the last run, to skip folders that didn't change. */
   messages?: number | null;
   unseen?: number | null;
   checkedAt?: number;
@@ -82,7 +62,6 @@ export async function syncImap(accountId: string, ctx: SyncContext): Promise<voi
   if (writeLabels(accountId, labelsOf(folders, statuses))) ctx.bumpRevision();
 
   const state = readState(accountId);
-  // Folders gone from the server (deleted, or renamed elsewhere): their mail goes too.
   for (const [path, folderState] of Object.entries(state)) {
     if (folders.get(path)) continue;
     dropFolder(accountId, path, folderState.uidValidity);
@@ -107,7 +86,6 @@ export async function syncImap(accountId: string, ctx: SyncContext): Promise<voi
     try {
       added = await run.sync(statuses.get(folder.path));
     } catch (err) {
-      // Deleted since the listing: the next run drops it.
       if (!(err instanceof FolderGone)) throw err;
       continue;
     }
@@ -122,8 +100,6 @@ export async function syncImap(accountId: string, ctx: SyncContext): Promise<voi
   await ctx.newMail(newMail);
 }
 
-// ── Labels ─────────────────────────────────────────────────────────────────
-
 function labelsOf(folders: Folders, statuses: Map<string, MailboxStatus>): MailLabel[] {
   const labels: MailLabel[] = [];
   for (const folder of folders.synced) {
@@ -137,13 +113,11 @@ function labelsOf(folders: Folders, statuses: Map<string, MailboxStatus>): MailL
       total: status?.messages ?? undefined,
     });
   }
-  // Counted from the cache (below): there's no folder for them.
   labels.push({ id: "STARRED", name: "STARRED", type: "system" });
   labels.push({ id: "UNREAD", name: "UNREAD", type: "system" });
   return labels;
 }
 
-/** Stores the labels; answers whether names or counts changed. */
 function writeLabels(accountId: string, labels: MailLabel[]): boolean {
   const before = store.getLabels(accountId);
   store.upsertLabels(accountId, labels);
@@ -157,11 +131,8 @@ function writeLabels(accountId: string, labels: MailLabel[]): boolean {
   return key(before) !== key(store.getLabels(accountId));
 }
 
-/** The folders, and each one's STATUS (its counts, and whether it changed). */
 function readFolders(accountId: string) {
   return withImap(accountId, async (client) => {
-    // Some servers (Dovecot) answer STATUS for the open folder as this
-    // session last saw it: NOOP catches the session up first.
     if (client.mailbox) await client.noop();
     const folders = await listFolders(accountId, client);
     const statuses = new Map<string, MailboxStatus>();
@@ -173,19 +144,14 @@ function readFolders(accountId: string) {
   });
 }
 
-/** listLabels: the folders and their counts, straight from the server. */
 export async function readLabels(accountId: string): Promise<MailLabel[]> {
   const { folders, statuses } = await readFolders(accountId);
   return labelsOf(folders, statuses);
 }
 
-// ── One folder ─────────────────────────────────────────────────────────────
-
-/** Marked for deletion and waiting for an expunge: as good as gone. */
 const isDeleted = (message: FetchedMessage) =>
   message.flags?.some((flag) => flag.toLowerCase() === "\\deleted") ?? false;
 
-/** A folder's cached message ids, by UID. */
 function cachedUids(accountId: string, uidValidity: number, path: string): Map<number, string> {
   const uids = new Map<number, string>();
   for (const id of store.getMessageIdsWithPrefix(accountId, `${uidValidity}:`)) {
@@ -266,7 +232,6 @@ class FolderSync {
     public state: FolderState | undefined,
   ) {}
 
-  /** Brings the folder up to date; answers the new mail (none on its first sync). */
   async sync(status: MailboxStatus | undefined): Promise<MessageSummary[]> {
     const prev = this.state;
     if (prev && prev.below === 0 && status && this.unchanged(prev, status)) return [];
@@ -323,12 +288,10 @@ class FolderSync {
     return status.unseen === prev.unseen && Date.now() - (prev.checkedAt ?? 0) < FLAG_CHECK_MS;
   }
 
-  /** Runs `fn` with the folder selected, as long as it's still the same folder. */
   private run<T>(fn: (client: ImapClient, mailbox: SelectedMailbox) => Promise<T>): Promise<T> {
     return inFolder(this.accountId, this.folder.path, fn, { uidValidity: this.state!.uidValidity });
   }
 
-  /** Summaries of `uids`, fetched and stored a page at a time; answers them. */
   private async fetchAndStore(uids: number[]): Promise<MessageSummary[]> {
     const stored: MessageSummary[] = [];
     for (let end = uids.length; end > 0; end -= PAGE) {
@@ -352,7 +315,6 @@ class FolderSync {
     return summaries;
   }
 
-  /** Every UID below `state.below`, newest first; the cursor is saved after each page. */
   private async firstSync(): Promise<void> {
     const state = this.state!;
     const top = state.below === Number.MAX_SAFE_INTEGER ? "*" : String(state.below - 1);
@@ -381,7 +343,6 @@ class FolderSync {
     writeState(this.accountId, all);
   }
 
-  /** A synced folder's changes since `state`: flags, new mail, expunged mail. */
   private async catchUp(
     state: FolderState,
     mailbox: {
@@ -395,7 +356,6 @@ class FolderSync {
     const { accountId, folder } = this;
     const since = state.modseq !== undefined ? BigInt(state.modseq) : null;
 
-    // Flags.
     let flags: FetchedMessage[] = [];
     let listing: number[] | null = null;
     if (qresynced) {
@@ -407,9 +367,7 @@ class FolderSync {
         );
       }
     } else if (!hasPendingLabelWrites(accountId)) {
-      // No mod-sequences: every UID's flags (which also lists what's left).
       flags = await this.run((client) => client.fetch("1:*", { flags: true }));
-      // (Gmail's All Mail lists more than is synced: its search says what's there.)
       if (!folder.gmailRaw) listing = flags.filter((m) => !isDeleted(m)).map((m) => m.uid);
     }
     const ops: store.HistoryOp[] = [];
@@ -439,7 +397,6 @@ class FolderSync {
       }
     }
 
-    // New mail.
     let fresh: number[] = [];
     if (mailbox.uidNext === null || mailbox.uidNext > state.uidNext) {
       fresh = (
@@ -449,8 +406,6 @@ class FolderSync {
       ).filter((uid) => uid >= state.uidNext);
     }
 
-    // Expunged mail, and anything an earlier run missed: when the counts disagree.
-    // (Mail marked \Deleted but not expunged yet counts as gone.)
     const missing: number[] = [];
     const count = await this.run(async (_client, box) => box.exists);
     if (listing || known.size + fresh.length !== count) {

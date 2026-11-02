@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-// `pnpm dev:mail`: a mail server on this machine for trying IMAP mailboxes in
-// development (scripts/dev-mail/compose.yaml): Dovecot with a seeded mailbox,
-// Mailpit catching what it sends. Its certificate comes from a dev CA made
-// once in ~/.otter-mail/dev-mail, shared by every checkout (one server runs
-// for them all), which the dev runs trust (and nothing else does).
-// `pnpm dev:mail down` stops it. `pnpm dev:demo` starts it too.
 
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
@@ -20,10 +14,8 @@ const compose = ["compose", "-f", NodePath.join(repoRoot, "scripts/dev-mail/comp
 const DOVECOT = "dovecot/dovecot:2.4.5";
 const USER = "me@otter.test";
 
-/** The dev CA, for the dev runs to trust. */
 export const devMailCa = NodePath.join(certDir, "ca.pem");
 
-/** The seeded mailbox, as the demo runs add it. */
 export const devMailbox: DemoImapMailbox = {
   provider: "imap",
   email: USER,
@@ -40,7 +32,6 @@ const docker = (args: string[], input?: string) =>
     stdio: [input === undefined ? "ignore" : "pipe", "pipe", "inherit"],
   });
 
-/** A dev CA and a certificate for localhost it signs, with the OpenSSL in Dovecot's image. */
 function makeCertificates(): void {
   if (NodeFS.existsSync(NodePath.join(certDir, "tls.crt"))) return;
   NodeFS.mkdirSync(certDir, { recursive: true });
@@ -94,7 +85,6 @@ function makeCertificates(): void {
     "-out",
     "/out/tls.crt",
   ]);
-  // Dovecot reads them through its mounts as vmail: a localhost certificate, for this machine.
   for (const file of ["tls.key", "tls.crt"]) NodeFS.chmodSync(NodePath.join(certDir, file), 0o644);
 }
 
@@ -172,7 +162,6 @@ function seed(): void {
     "INBOX",
   ]);
   if (!/messages=0\b/.test(count)) return;
-  // Received when it was sent (-r), as the list shows the arrival date.
   const save = (folder: string, { raw, date }: { raw: string; date: Date }) =>
     docker(
       [
@@ -248,7 +237,6 @@ function seed(): void {
   );
 }
 
-/** Starts the server (or finds it running) and seeds its mailbox. */
 export async function startDevMail(): Promise<void> {
   makeCertificates();
   docker([...compose, "up", "-d"]);

@@ -10,7 +10,6 @@ import { toast } from "./mail/toast";
 import { RowSelect, SettingsRow, SettingsSection } from "./settings/settings-ui";
 import { searchableSetting } from "./settings/settings-search";
 
-/** Live auto-update state from the main process. */
 export function useUpdateState(): UpdateState | null {
   const [state, setState] = useState<UpdateState | null>(null);
   useEffect(() => {
@@ -27,11 +26,6 @@ export function useUpdateState(): UpdateState | null {
   return state;
 }
 
-/**
- * Feedback for the app menu's "Check for Updates…" (mounted once in the main
- * window). Updates themselves download on their own and surface in the
- * sidebar's UpdateCard.
- */
 export function UpdateNotifier() {
   const state = useUpdateState();
   const manualCheck = useRef(false);
@@ -64,11 +58,6 @@ export function UpdateNotifier() {
   return null;
 }
 
-/**
- * ⌘K "Update Otter Mail": checks, downloads and restarts into the new version
- * in one go, a toast following along. It picks up wherever the updater is: a
- * download underway is waited for, a downloaded update installs at once.
- */
 export function updateNow(): void {
   const updates = window.desktopBridge.updates;
   console.log("[Updates:updateNow]");
@@ -127,10 +116,6 @@ export function updateNow(): void {
   });
 }
 
-/**
- * A small card at the bottom of the sidebar while an update downloads and once
- * it's ready: "Restart to update" (on macOS it also installs when the app quits).
- */
 export function UpdateCard() {
   const state = useUpdateState();
   const [dismissed, setDismissed] = useState<string | null>(null);
@@ -250,7 +235,6 @@ function statusLine(state: UpdateState): string {
   }
 }
 
-/** Settings → General: version, status, and the check / restart button. */
 export function UpdatesSection() {
   const state = useUpdateState();
   const [changingChannel, setChangingChannel] = useState(false);

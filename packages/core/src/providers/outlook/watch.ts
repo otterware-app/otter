@@ -29,7 +29,6 @@ function readSubscription(accountId: string): Subscription | null {
   }
 }
 
-/** Starts or renews the mailbox's subscription when due; answers whether changes are pushed. */
 export async function renewSubscription(accountId: string): Promise<boolean> {
   const current = readSubscription(accountId);
   if (current && current.expiration - Date.now() > RENEW_BEFORE_MS) return true;
@@ -80,7 +79,6 @@ export async function renewSubscription(accountId: string): Promise<boolean> {
   }
 }
 
-/** Ends this device's subscription (a removed mailbox); best effort. */
 export async function endSubscription(accountId: string): Promise<void> {
   const current = readSubscription(accountId);
   mailStore.setKv(subscriptionKey(accountId), "");

@@ -52,19 +52,16 @@ function allSettings(): Promise<ProviderSettings> {
   );
 }
 
-/** One agent's settings. */
 export async function agentSettings(kind: ProviderKind): Promise<AgentSettings> {
   return (await allSettings()).agents[kind] ?? provider(kind).defaults;
 }
 
-/** The agent new chats start with: the user's pick if it's here, else the default. */
 function selectedOf(settings: ProviderSettings): ProviderKind {
   const agents = registeredAgents();
   if (agents.has(settings.selected)) return settings.selected;
   return agents.has(DEFAULT_AGENT) ? DEFAULT_AGENT : ([...agents.keys()][0] ?? DEFAULT_AGENT);
 }
 
-/** Re-check health when a snapshot is older than this (T3's default interval). */
 const STALE_AFTER_MS = 5 * 60_000;
 
 type Checked = Omit<ProviderSnapshot, "settings">;
@@ -89,7 +86,6 @@ function pendingSnapshot(agent: ChatProvider, settings: AgentSettings): Checked 
   };
 }
 
-/** Every agent's snapshot and settings, as the renderer shows them. */
 export async function providersState(): Promise<ProvidersState> {
   const all = await allSettings();
   const providers = await Promise.all(
@@ -123,7 +119,6 @@ async function broadcastState(): Promise<void> {
   broadcast("agent:providersChanged", await providersState());
 }
 
-/** Single-flight health check of one agent; broadcasts when it lands. */
 function check(kind: ProviderKind): Promise<void> {
   const inFlight = checking.get(kind);
   if (inFlight) return inFlight;
@@ -159,10 +154,6 @@ export async function refreshProviders(): Promise<void> {
   await Promise.all([...registeredAgents().keys()].map(check));
 }
 
-/**
- * Re-checks an agent from scratch: its connection changed while a probe may
- * still have been using the old one. Extensions call it after connecting.
- */
 export async function refreshProvider(kind: ProviderKind): Promise<void> {
   generations.set(kind, (generations.get(kind) ?? 0) + 1);
   await checking.get(kind);
@@ -182,7 +173,6 @@ export async function saveAgentSettings(
   });
 }
 
-/** The fields each agent lets `agent:updateSettings` change, of the right kind. */
 function checkedPatch(agent: ChatProvider, raw: unknown): Partial<AgentSettings> {
   if (!raw || typeof raw !== "object") return {};
   const out: Record<string, unknown> = {};
@@ -195,7 +185,6 @@ function checkedPatch(agent: ChatProvider, raw: unknown): Partial<AgentSettings>
   return out as Partial<AgentSettings>;
 }
 
-/** `{ selected?, <agent id>: { field: value } }`, from the renderer: only known fields are kept. */
 export async function updateProviderSettings(
   patch: Record<string, unknown>,
 ): Promise<ProvidersState> {
@@ -219,7 +208,6 @@ export async function updateProviderSettings(
   return state;
 }
 
-/** A new binary / home / server: drop running processes and re-probe; turned off: stop. */
 function restartIfNeeded(
   agent: ChatProvider,
   change: Record<string, unknown>,
@@ -239,7 +227,6 @@ function emit(event: ChatEvent): void {
   broadcast("agent:chatEvent", event);
 }
 
-/** Starts a turn and returns at once; progress streams as chat events. */
 export async function sendTurn(kind: ProviderKind, turn: SendTurnInput): Promise<void> {
   const settings = await agentSettings(kind);
   logger.info("agent", "send", {
@@ -272,10 +259,6 @@ export async function sendTurn(kind: ProviderKind, turn: SendTurnInput): Promise
     });
 }
 
-/**
- * Picks up a turn the panel lost (the app quit mid-run); false when the
- * provider's runs end with the app. Progress streams as chat events.
- */
 export async function resumeTurn(kind: ProviderKind, turn: ResumeTurnInput): Promise<boolean> {
   const found = provider(kind);
   const settings = await agentSettings(kind);
@@ -288,7 +271,6 @@ export async function resumeTurn(kind: ProviderKind, turn: ResumeTurnInput): Pro
   return true;
 }
 
-/** Answers a question the run asked; null skips it. */
 export async function answerQuestion(
   kind: ProviderKind,
   requestId: string,
@@ -306,12 +288,10 @@ export async function respondApproval(
   decision: ApprovalDecision,
 ): Promise<void> {
   logger.info("agent", "approval", { provider: kind, requestId, decision });
-  // Otter Mail's own tools ask too (tools/index.ts).
   if (answerToolApproval(approvalId, decision)) return;
   await provider(kind).respondApproval(requestId, approvalId, decision);
 }
 
-/** Adds a message to a running turn; false → the caller queues it instead. */
 export async function steerTurn(
   kind: ProviderKind,
   requestId: string,
@@ -358,8 +338,6 @@ export function shutdownProviders(): void {
   for (const found of registeredAgents().values()) found.shutdown();
 }
 
-// ── Preferences sync (services/preferences.ts) ──────────────────────────────
-
 /**
  * Each agent's settings follow the account, except its device fields (where
  * a CLI lives) and agents that are this device's alone (OpenClaw's pairing).
@@ -385,7 +363,6 @@ export async function syncedProviderSettings(): Promise<SyncedProviderSettings> 
   return out;
 }
 
-/** Takes the account's agent settings, keeping this device's own fields. */
 export async function applySyncedProviderSettings(
   remote: Partial<SyncedProviderSettings>,
 ): Promise<void> {
@@ -415,13 +392,11 @@ export async function applySyncedProviderSettings(
   await broadcastState();
 }
 
-/** Drops this device's Hermes key (it belonged to an Otter account that signed out). */
 export async function forgetHermesKey(): Promise<void> {
   await clearHermesKey();
   if (registeredAgents().has("hermes")) await refreshProvider("hermes");
 }
 
-/** Takes the account's Hermes key. */
 export async function applySyncedHermesKey(key: string): Promise<void> {
   if (key === (await getHermesKey())) return;
   await setHermesKey(key);

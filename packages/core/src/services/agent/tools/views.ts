@@ -32,7 +32,6 @@ async function findView(id: string): Promise<MailView> {
 const counts = (rules: ViewRule[]) =>
   invoke<{ total: number; unread: number }>("gmail:countCombinedMessages", { rules });
 
-/** A view as agents see it: mailboxes by address, labels by name, and what it finds now. */
 async function describe(view: MailView, accounts: MailAccount[]) {
   const rules = view.rules ?? [];
   const mailboxes = [];
@@ -56,7 +55,6 @@ async function describe(view: MailView, accounts: MailAccount[]) {
   };
 }
 
-/** `rules` as the store keeps them: label names resolved in each mailbox. */
 async function parseRules(args: ToolArgs): Promise<{ rules: ViewRule[]; summary: string[] }> {
   const raw = args.rules;
   if (!Array.isArray(raw) || raw.length === 0)
@@ -95,22 +93,18 @@ async function parseRules(args: ToolArgs): Promise<{ rules: ViewRule[]; summary:
   return { rules, summary };
 }
 
-/** An icon key or an emoji; null clears it. */
 function iconArg(args: ToolArgs): string | null | undefined {
   if (args.icon === null) return null;
   const icon = optStr(args, "icon");
   if (icon === undefined) return undefined;
   if ((VIEW_ICON_KEYS as readonly string[]).includes(icon)) return icon;
-  // Anything else short that isn't plain letters is taken for an emoji.
   if (icon.length <= 8 && !/^[\w\s-]+$/.test(icon)) return icon;
   throw new Error(`"${icon}" isn't an icon. Icons: ${VIEW_ICON_KEYS.join(", ")}; or an emoji.`);
 }
 
-/** A view color's name ("blue"), for approvals. */
 const colorName = (hex: string) =>
   Object.entries(VIEW_COLORS).find(([, value]) => value === hex)?.[0] ?? hex;
 
-/** A color by name (or its hex); null clears it. */
 function colorArg(args: ToolArgs): string | null | undefined {
   if (args.color === null) return null;
   const color = optStr(args, "color")?.toLowerCase();

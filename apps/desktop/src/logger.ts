@@ -1,10 +1,3 @@
-/**
- * The desktop's logger: console plus a rolling file at <userData>/logs/main.log
- * (app.getPath("logs"), see paths.ts). The main process writes both
- * (`logToFile`); the mail backend hands its lines to main (backend.ts), so
- * there's still one log.
- */
-
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { inspect } from "node:util";
@@ -35,13 +28,11 @@ function write(level: Level, scope: string, message: string, data?: unknown): vo
 
 let sink: (level: Level, scope: string, message: string, data?: unknown) => void = write;
 
-/** Main: also write every line to `<dir>/main.log`; debug lines only when `debug`. */
 export function logToFile(dir: string, debug: boolean): void {
   withDebug = debug;
   try {
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, "main.log");
-    // One generation of history is plenty for bug reports.
     if (fs.existsSync(file) && fs.statSync(file).size > MAX_LOG_BYTES) {
       fs.renameSync(file, path.join(dir, "main.old.log"));
     }
@@ -51,7 +42,6 @@ export function logToFile(dir: string, debug: boolean): void {
   }
 }
 
-/** The backend: hand lines elsewhere (to main), with `data` already formatted. */
 export function sendLogsTo(
   send: (level: Level, scope: string, message: string, data?: string) => void,
 ) {

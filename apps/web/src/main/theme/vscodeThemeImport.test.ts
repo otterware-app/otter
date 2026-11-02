@@ -1,7 +1,3 @@
-/**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
- * apps/web/src/vscodeThemeImport.test.ts, unchanged.
- */
 import { describe, expect, it } from "vite-plus/test";
 
 import { getThemeColorsForMode, themeColorToHex, THEME_FILE_VERSION } from "./themePalette";
@@ -34,8 +30,6 @@ function contrastRatio(first: string, second: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-// Shaped like a real workbench theme: dotted keys, alpha overlays, and a lot
-// of roles simply left out.
 const VSCODE_DARK = {
   name: "pierre-dark-soft",
   type: "dark",
@@ -88,7 +82,6 @@ describe("VS Code theme import", () => {
 
   it("flattens alpha overlays onto the surface they sit on", () => {
     const theme = parseVsCodeThemeFile(VSCODE_DARK);
-    // #1f3e5e59 over the #101010 sidebar, not left semi-transparent.
     expect(theme.colors.sidebarRowHover).toMatch(/^oklch\(/);
     expect(asHex(theme.colors.sidebarRowHover)).not.toBe("#1f3e5e59");
     expect(theme.colors.sidebarRowSelected).not.toBe(theme.colors.sidebar);
@@ -190,7 +183,6 @@ describe("VS Code theme import", () => {
     });
     expect(asHex(theme.colors.canvas)).toMatch(/^#0[89ab]/);
     expect(asHex(theme.colors.text)).toMatch(/^#f[a-f0-9]/);
-    // The P3 blue lands in sRGB blue, not black or a clipped grey.
     const accent = asHex(theme.colors.accent);
     const [red, green, blue] = [1, 3, 5].map((index) =>
       Number.parseInt(accent.slice(index, index + 2), 16),
@@ -226,7 +218,6 @@ describe("VS Code theme import", () => {
     expect(getThemeColorsForMode(github, "dark")).not.toBeNull();
     expect(asHex(getThemeColorsForMode(github, "dark")!.canvas)).toBe("#101014");
     expect(asHex(github.colors.canvas)).toBe("#fdfdfd");
-    // The unpaired dimmed variant stays a single dark theme.
     expect(getThemeColorsForMode(themes[2]!, "light")).toBeNull();
   });
 
@@ -259,13 +250,10 @@ describe("VS Code theme import", () => {
     expect(spread(theme.colors.codeBackground)).toBeLessThanOrEqual(8);
     expect(spread(theme.colors.surface)).toBeLessThanOrEqual(8);
     expect(spread(theme.colors.text)).toBeLessThanOrEqual(12);
-    // The accent itself keeps the file's color.
     expect(asHex(theme.colors.accent)).toBe("#69b1ff");
   });
 
   it("tells same-named variants apart by their file names", () => {
-    // Dracula ships dracula.json and dracula-soft.json that both say
-    // "Dracula" inside.
     const dracula = (bg: string) =>
       parseVsCodeThemeFile({
         name: "Dracula",

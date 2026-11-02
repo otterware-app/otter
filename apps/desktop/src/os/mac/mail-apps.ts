@@ -1,10 +1,4 @@
-/**
- * The Mac's mail apps (HostOS.mailApps). Electron only covers registering
- * *this* app (`app.setAsDefaultProtocolClient`), so enumerating installed
- * mailto handlers and handing the default to another app goes through
- * LaunchServices via osascript/JXA. An app's id is its bundle identifier.
- * Values cross into the scripts as argv, never by string interpolation.
- */
+// Pass values to LaunchServices scripts as argv, never through string interpolation.
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";

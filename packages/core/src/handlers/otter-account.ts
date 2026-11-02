@@ -1,9 +1,3 @@
-/**
- * The Otter account: sign-in handlers, and the glue that runs while signed
- * in. On connecting to the relay (and hourly after), the linked accounts are
- * reconciled and Gmail watches renewed; Gmail's pushes then trigger syncs.
- */
-
 import { OTTER_ACCOUNT_STATE_CHANNEL, type OtterAccountState } from "@otter-mail/contracts";
 import type { MeResponse, RelayEvent } from "@otter-mail/contracts/relay";
 
@@ -137,7 +131,6 @@ function start(): void {
       void refresh();
       void syncPreferences();
       void syncChats();
-      // Catch up on whatever changed while disconnected.
       void syncAllAccounts({ force: true, trigger: "push" });
     },
     onEvent: (event) => void onEvent(event),
@@ -145,7 +138,6 @@ function start(): void {
       if (state !== "live") setPushedAccounts([]);
       publishState();
     },
-    // If the session was ended elsewhere, this 401s and signs this device out.
     onRefused: () => void relayRequest("GET", "/v1/me").catch(() => {}),
   });
   refreshTimer ??= setInterval(() => {
@@ -247,7 +239,6 @@ export function registerOtterAccountHandlers(): void {
     await signOutDevice(token);
   });
 
-  // Deletes the Otter account on the relay; this device's Gmail accounts and mail stay.
   handle("otter:deleteAccount", async () => {
     await deleteOtterAccount();
     return otterState();

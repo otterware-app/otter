@@ -1,5 +1,3 @@
-/** Hermes' connect call (core: agent:connectHermes). */
-
 import { ipc } from "@otter-mail/web/extension-kit";
 import type { ProvidersState } from "@otter-mail/web/extension-kit";
 

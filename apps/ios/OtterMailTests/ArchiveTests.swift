@@ -17,13 +17,10 @@ struct ArchiveTests {
         return MailThread(id: id, mailbox: mailbox, subject: id, labels: labels, messages: [message])
     }
 
-    // ── Landing ──────────────────────────────────────────────────────────────
-
     @Test func archivingLandsInTheArchiveWhereItIsAFolder() {
         var inbox = thread("a", ["INBOX", "SENT", "UNREAD", "category:Red"])
         #expect(inbox.archivable(archiveFolder: true) == ["INBOX"])
         inbox.land(add: [], remove: ["INBOX"], archiveFolder: true)
-        // Your reply stays in Sent; categories and flags stay on.
         #expect(inbox.labels == ["SENT", "UNREAD", "category:Red", "ARCHIVE"])
 
         var filed = thread("b", ["folder:X", "INBOX"])
@@ -31,14 +28,12 @@ struct ArchiveTests {
         filed.land(add: [], remove: ["folder:X"], archiveFolder: true)
         #expect(filed.labels == ["INBOX", "ARCHIVE"])
 
-        // Back to the inbox, out of the Archive and the folders; into a folder likewise.
         var archived = thread("c", ["ARCHIVE", "folder:X", "SENT"])
         archived.land(add: ["INBOX"], remove: ["SPAM", "TRASH"], archiveFolder: true)
         #expect(archived.labels == ["INBOX", "SENT"])
         archived.land(add: ["folder:Y"], remove: [], archiveFolder: true)
         #expect(archived.labels == ["folder:Y", "SENT"])
 
-        // A category or a flag isn't a folder.
         var tagged = thread("d", ["INBOX", "category:Red"])
         tagged.land(add: ["STARRED"], remove: ["category:Red"], archiveFolder: true)
         #expect(tagged.labels == ["INBOX", "STARRED"])
@@ -58,7 +53,6 @@ struct ArchiveTests {
         let gmail = Mailbox(email: "me@gmail.com", name: "Me", displayName: "Personal", color: "#336699", signature: "", labels: [])
         let filed = thread("filed", ["folder:X"]), labeled = thread("labeled", ["Label_1"], mailbox: gmail.email)
         let store = MailStore(preferences: Preferences(), mailboxes: [outlook, gmail], threads: [filed, labeled])
-        // Gmail archives only out of the inbox; Outlook out of a folder too.
         #expect(!store.canArchive(labeled))
         #expect(store.canArchive(filed))
         store.archive(filed.id)
@@ -67,15 +61,12 @@ struct ArchiveTests {
         #expect(!store.canArchive(store.thread(filed.id)!))
         store.undo()
         #expect(store.thread(filed.id)?.labels == ["folder:X"])
-        // In the Archive, back to the inbox.
         store.archive(filed.id)
         store.commitPendingAction()
         store.moveToInbox(filed.id)
         #expect(store.threads(in: .inbox, scope: me).map(\.id) == [filed.id])
         #expect(store.threads(in: .archive, scope: me).isEmpty)
     }
-
-    // ── What each mailbox shows ──────────────────────────────────────────────
 
     @Test func foldersAndMarksFollowTheProvider() {
         let gmail = Mailbox(email: "me@gmail.com", name: "", displayName: "", color: "", signature: "", labels: [])
@@ -90,7 +81,6 @@ struct ArchiveTests {
         #expect(outlook.folders == [.inbox, .starred, .sent, .drafts, .archive, .junk, .trash])
         #expect(Folder.starred.title(in: gmail) == "Starred" && gmail.mark == "star")
         #expect(Folder.starred.title(in: outlook) == "Flagged" && Folder.starred.symbol(in: imap) == "flag" && imap.mark == "flag")
-        // The page's key stays put whatever it's called.
         #expect(MailSync.key(.starred) == "Starred")
     }
 
@@ -102,8 +92,6 @@ struct ArchiveTests {
         let written = String(decoding: try JSONEncoder().encode(arrangement), as: UTF8.self)
         #expect(!written.contains("combined"))
     }
-
-    // ── Outlook ──────────────────────────────────────────────────────────────
 
     private var box: OutlookFolders {
         OutlookFolders(
@@ -134,16 +122,13 @@ struct ArchiveTests {
         let archived = try message(#"{"id":"m3","parentFolderId":"A","from":{"emailAddress":{"address":"ann@example.com"}}}"#)
         let archivedOwn = try message(#"{"id":"m4","parentFolderId":"A","from":{"emailAddress":{"address":"me@contoso.com"}}}"#)
         let sent = try message(#"{"id":"m5","parentFolderId":"S","from":{"emailAddress":{"address":"me@contoso.com"}}}"#)
-        // Archived from the inbox or a folder; your sent mail stays.
         #expect(move(received, [], ["INBOX"]) == "A")
         #expect(move(filed, [], ["folder:P"]) == "A")
         #expect(move(sent, [], ["INBOX", "folder:P"]) == nil)
-        // ARCHIVE is a place to move to; taken away, mail goes back (yours to Sent Items).
         #expect(move(received, ["ARCHIVE"], ["INBOX"]) == "A")
         #expect(move(archived, [], ["ARCHIVE"]) == "I")
         #expect(OutlookMail.destination(archivedOwn, add: [], remove: ["ARCHIVE"], wholeThread: false, mailbox: me, folders: box) == "S")
         #expect(move(archived, ["INBOX"], ["SPAM"]) == "I")
-        // Searching in:archive is searching the folder.
         #expect(OutlookSearch.query("in:archive budget", labels: box.labels).wanted == [.init(label: "ARCHIVE", negated: false)])
     }
 
@@ -182,25 +167,19 @@ struct ArchiveTests {
         #expect(delta.threads.map(\.labels) == [["ARCHIVE"]])
         #expect(state.archiveLabeled == true)
         #expect(provider.hasArchive)
-        // Once.
         #expect(try await provider.sync(&state, known: delta.threads).threads.isEmpty)
     }
-
-    // ── IMAP ─────────────────────────────────────────────────────────────────
 
     private func folder(_ path: String, _ attributes: Set<String> = [], delimiter: String = "/") -> ImapFolder {
         ImapFolder(path: path, delimiter: delimiter, attributes: attributes)
     }
 
     @Test func imapsArchiveIsFlaggedOrNamedNeverAll() {
-        // The folder flagged \Archive wins; one named Archive is just a folder then.
         let flagged = ImapProvider.folders([folder("INBOX"), folder("Archive"), folder("Kept", ["\\archive"])], gmail: false)
         #expect(flagged.roles[.archive] == "Kept")
         #expect(ImapProvider.folders([folder("INBOX"), folder("Archiv")], gmail: false).roles[.archive] == "Archiv")
         #expect(ImapProvider.folders([folder("INBOX"), folder("INBOX.Archives", delimiter: ".")], gmail: false).roles[.archive] == "INBOX.Archives")
-        // Only at the top or right under INBOX.
         #expect(ImapProvider.folders([folder("INBOX"), folder("Clients/Archive")], gmail: false).roles[.archive] == nil)
-        // A server's virtual All (Dovecot) holds copies: neither the archive nor a folder to sync.
         let dovecot = ImapProvider.folders([folder("INBOX"), folder("All", ["\\all"]), folder("Flagged", ["\\flagged"])], gmail: false)
         #expect(dovecot.roles[.archive] == nil)
         #expect(dovecot.folders.map(\.path) == ["INBOX"])
@@ -212,7 +191,6 @@ struct ArchiveTests {
             folder("INBOX"), folder("[Gmail]/All Mail", ["\\all"]), folder("[Gmail]/Sent Mail", ["\\sent"]), folder("Archive"),
         ], gmail: true)
         #expect(gmail.allMail == "[Gmail]/All Mail")
-        // A Gmail label named Archive is just a label; All Mail isn't synced.
         #expect(gmail.roles[.archive] == nil)
         #expect(gmail.folders.map(\.path) == ["INBOX", "[Gmail]/Sent Mail", "Archive"])
         #expect(gmail.roles[.sent] == "[Gmail]/Sent Mail")

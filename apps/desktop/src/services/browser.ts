@@ -1,12 +1,3 @@
-/**
- * The browser (the panel beside the mail, and chats' pages in the AI workspace): the renderer's `<webview>` tabs, in one
- * persistent session of their own (never the app's), with extensions from the
- * Chrome Web Store (electron-chrome-web-store installs them; extensions.ts
- * gives them Chrome's toolbar and tabs). Around a page it does what Chrome
- * does: links that open a tab, sign-in popups, links to other apps, the
- * context menu, and asking before a site gets more than the basics.
- */
-
 import {
   BrowserWindow,
   Menu,
@@ -35,7 +26,6 @@ export const BROWSER_PARTITION = "persist:browser";
 /** What a page may use without asking; anything else (camera, location, notifications…) is refused. */
 const ALLOWED_PERMISSIONS = new Set(["fullscreen", "clipboard-sanitized-write", "pointerLock"]);
 
-/** Where a tab may go: the web, and extensions' own pages (their options). */
 export function isPageUrl(url: string): boolean {
   return /^(https?|chrome-extension):/i.test(url);
 }
@@ -44,7 +34,6 @@ export function getBrowserSession(): Session {
   return session.fromPartition(BROWSER_PARTITION);
 }
 
-/** Sets up the browser's session and its extensions. Once, before the main window opens. */
 export function setupBrowser(): void {
   // Electron's own user agent stays, less its Electron/x: Google's sign-in gives
   // agents that name Electron a lite page that never offers your passkeys (as
@@ -70,10 +59,6 @@ export function setupBrowser(): void {
   );
 }
 
-/**
- * A link a page hands to another app. mailto: is ours: it opens a new message
- * here. Anything else asks first, as Chrome does.
- */
 async function openOutside(page: WebContents, url: string): Promise<void> {
   const mailto = parseMailtoUrl(url);
   if (mailto) {
@@ -124,10 +109,6 @@ async function confirmInstall(details: {
   return { action: response === 0 ? "allow" : "deny" };
 }
 
-/**
- * Signs out of every site: cookies, site storage and the cache go; extensions
- * (and their service workers) stay. With `origin`, just that site's.
- */
 export async function clearBrowsingData(origin?: string): Promise<void> {
   const ses = getBrowserSession();
   await ses.clearStorageData({
@@ -140,7 +121,6 @@ export async function clearBrowsingData(origin?: string): Promise<void> {
   }
 }
 
-/** The browser page with keyboard focus, if any: the menus' ⌘Z, ⌘R, ⌘[ and ⌘] act on it. */
 export function focusedBrowserPage(): WebContents | null {
   const focused = webContents.getFocusedWebContents();
   return focused && focused.getType() === "webview" && focused.session === getBrowserSession()
@@ -168,7 +148,6 @@ export function attachBrowser(win: BrowserWindow): void {
     trackTab(page);
     // A focused guest page's keys never reach the panel's dispatcher.
     page.on("before-input-event", (event, input) => {
-      // The browser, workspace and agent shortcuts (⌘⇧B, ⌘⇧F, ⌘I), even while a page has focus.
       const mod = hostOS.modifierKey === "metaKey";
       const key = input.key.toLowerCase();
       const modOnly = mod ? input.meta && !input.control : input.control && !input.meta;
@@ -202,13 +181,11 @@ export function attachBrowser(win: BrowserWindow): void {
   });
 }
 
-/** Opens `url` in a new tab of `win`'s browser (the renderer's `browser:openTab`). */
 function openTab(win: BrowserWindow, url: string, background = false): void {
   if (!isPageUrl(url) || win.isDestroyed()) return;
   win.webContents.send("browser:openTab", { url, background });
 }
 
-/** Chrome's ways around a page: links to tabs, popups, the context menu. */
 export function preparePage(win: BrowserWindow, page: WebContents): void {
   page.setWindowOpenHandler(({ url, disposition }) => {
     // A popup (a site's sign-in window) stays one: it reports back to its opener.
@@ -224,7 +201,6 @@ export function preparePage(win: BrowserWindow, page: WebContents): void {
   });
 }
 
-/** Chrome's context menu, the parts that fit: links, images, text, then the page. */
 function contextMenu(
   win: BrowserWindow,
   page: WebContents,

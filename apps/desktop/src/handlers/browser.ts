@@ -12,7 +12,6 @@ import {
   setExtensionEnabled,
 } from "../services/extensions.js";
 
-/** Settings › Browser and the browser toolbar: extensions and browsing data. */
 export function registerBrowserHandlers(): void {
   ipcMain.handle("browser:extensions", () => listExtensions());
 
@@ -34,7 +33,6 @@ export function registerBrowserHandlers(): void {
     loadUnpacked(BrowserWindow.fromWebContents(event.sender)),
   );
 
-  // The toolbar: its buttons for the page showing, and one clicked.
   ipcMain.handle("browser:extensionActions", () => extensionActions());
 
   ipcMain.handle("browser:runAction", (_event, params: unknown) => {
@@ -50,7 +48,6 @@ export function registerBrowserHandlers(): void {
     runAction(id, { x: x!, y: y!, width: width!, height: height! });
   });
 
-  // The page showing in the panel: the active tab, to extensions.
   ipcMain.handle("browser:activeTab", (_event, webContentsId: unknown) => {
     if (typeof webContentsId === "number") setActiveTab(webContentsId);
   });

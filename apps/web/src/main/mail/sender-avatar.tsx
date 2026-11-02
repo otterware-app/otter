@@ -22,7 +22,6 @@ export function SenderAvatar({
 }: {
   name?: string;
   email: string;
-  /** Account whose contacts may know this sender; omit to skip photo lookup. */
   accountId?: string;
   size?: "sm" | "md";
   className?: string;

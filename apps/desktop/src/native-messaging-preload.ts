@@ -4,7 +4,6 @@ type NativeBridge = {
   forget(id: string): void;
 };
 
-/** Self-contained: Electron executes this function in an extension's own world. */
 export function installNativeMessaging(bridge: NativeBridge): void {
   type Runtime = Record<string, unknown>;
   const { chrome, browser } = globalThis as {
@@ -76,7 +75,6 @@ export function installNativeMessaging(bridge: NativeBridge): void {
         onDisconnect,
         postMessage(message: unknown) {
           if (disconnected) throw new Error("Attempting to use a disconnected port object.");
-          // Match Chrome's JSON serialization, and fail synchronously for circular data.
           const json = JSON.stringify(message);
           if (json === undefined) throw new TypeError("Native messages must be JSON serializable.");
           const value: unknown = JSON.parse(json);

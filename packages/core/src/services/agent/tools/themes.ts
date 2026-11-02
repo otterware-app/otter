@@ -16,18 +16,15 @@ import { displayedThemeColors, PAINTED_ROLES } from "@otter-mail/shared/theme-di
 import { getUiPreferences, setUiPreference } from "../../preferences.js";
 import { optBool, optStr, str, type AgentTool, type ToolArgs } from "./tool.js";
 
-/** The keys apps/web's apply-theme.ts and themePalette.ts keep them under. */
 const LIBRARY = "otter:themes:v1";
 const WORN: Record<ThemeAppearance, string> = {
   light: "otter:theme:light",
   dark: "otter:theme:dark",
 };
-/** What a fresh install wears (apply-theme.ts's INITIAL_THEME_ID). */
 const INITIAL_THEME = "otter";
 const MODES = ["light", "dark"] as const;
 
 type Palette = Record<string, string>;
-/** A theme of your own as the library stores it (Otter Code's shape). */
 type StoredTheme = {
   id: string;
   label: string;
@@ -53,7 +50,6 @@ function builtIn(id: string): ThemeDefinition | undefined {
   return APP_THEMES.find((t) => t.id === id);
 }
 
-/** A theme's palettes by appearance: a built-in's as the app paints them. */
 async function paletteOf(id: string): Promise<Partial<Record<ThemeAppearance, Palette>>> {
   const theme = builtIn(id);
   if (theme) {
@@ -84,7 +80,6 @@ function painted(palette: Palette): Palette {
   return Object.fromEntries(Object.entries(palette).filter(([role]) => role in PAINTED_ROLES));
 }
 
-/** "#rrggbb" or "oklch(L C H)", checked; the colors the library and the iPhone app read. */
 function color(value: unknown, where: string): string {
   const css = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (/^#[0-9a-f]{6}$/.test(css) || /^oklch\(\s*[\d.]+\s+[\d.]+\s+[\d.]+\s*\)$/.test(css))
@@ -92,7 +87,6 @@ function color(value: unknown, where: string): string {
   throw new Error(`${where} must be a color like "#1a1b26" or "oklch(0.6 0.1 250)".`);
 }
 
-/** The colors an argument sets, by role; checked. */
 function changes(args: ToolArgs, mode: ThemeAppearance): Palette | undefined {
   const value = args[mode];
   if (value === undefined || value === null) return undefined;
@@ -109,7 +103,6 @@ function changes(args: ToolArgs, mode: ThemeAppearance): Palette | undefined {
   return out;
 }
 
-/** apps/web's themeIdFromName, made unique among the themes there are. */
 function newId(name: string, taken: Set<string>): string {
   const base =
     name
@@ -238,7 +231,6 @@ export const themeTools: AgentTool[] = [
         const modes = palettes(existing);
         for (const mode of MODES) {
           if (!edits[mode]) continue;
-          // A palette it lacks starts from what that appearance wears now.
           modes[mode] = {
             ...(modes[mode] ?? (await paletteOf(wearing[mode]))[mode]),
             ...edits[mode],
@@ -261,7 +253,6 @@ export const themeTools: AgentTool[] = [
         return { id: existing.id, name: label, appearances: MODES.filter((m) => modes[m]) };
       }
 
-      // A new theme: from `from`, or a copy of the built-in named in `theme`.
       const copyOf = target && builtIn(target) ? target : undefined;
       if (target && !copyOf) throw new Error(`No theme "${target}". Use list_themes to see them.`);
       const source = copyOf ?? optStr(args, "from") ?? wearing.dark;

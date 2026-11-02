@@ -17,9 +17,6 @@ import { toast } from "../../mail/toast";
 import { refreshTheme, setThemeForAppearance, useThemeChoice } from "../../theme/apply-theme";
 import { useThemeEditorStore } from "./themeEditorStore";
 
-// The host mounts above the router on every page, but the editor body only
-// renders once a session opens; lazy-loading it keeps the editor UI out of
-// the startup chunk.
 const ThemeEditorPanel = lazy(() =>
   import("./ThemeEditorPanel").then((module) => ({ default: module.ThemeEditorPanel })),
 );
@@ -40,8 +37,6 @@ function useThemeDefinition(id: string | null | undefined) {
 export function ThemeEditorHost() {
   const session = useThemeEditorStore((store) => store.session);
   const closeThemeEditor = useThemeEditorStore((store) => store.closeThemeEditor);
-  // Mail: each appearance wears its own theme; "setting" a theme wears it
-  // wherever it has a palette.
   const choice = useThemeChoice();
   const setTheme = useCallback((themeId: string) => {
     const definition = getThemeDefinition(themeId);
@@ -61,8 +56,6 @@ export function ThemeEditorHost() {
       savedTheme: ThemeDefinition,
       { created, mergedAppearance }: { created: boolean; mergedAppearance?: ThemeAppearance },
     ) => {
-      // A merge completed an existing theme's light/dark pair; activating the
-      // whole theme shows the new palette right away.
       if (mergedAppearance) {
         if (!setTheme(savedTheme.id)) {
           toast.error("Could not save your theme", {

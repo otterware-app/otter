@@ -11,7 +11,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { todoistApi } from "./api";
 import { browseTodoist, useTodoistStatus } from "./dialogs";
 
-/** Connecting to Todoist: its page in Settings → Integrations. */
 export function TodoistSettingsPane() {
   const status = useTodoistStatus();
   const qc = useQueryClient();

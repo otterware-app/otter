@@ -83,11 +83,6 @@ import { searchableSetting } from "./settings-search";
 
 export type ColorScheme = "system" | "light" | "dark";
 
-// ---------------------------------------------------------------------------
-// Color scheme cards: a miniature window painted with the chosen theme.
-// ---------------------------------------------------------------------------
-
-/** A tiny mail window (sidebar, list lines, bubble, composer) in one palette. */
 function MiniWindow({ colors }: { colors: ThemeColors }) {
   const line = (width: string, extra?: CSSProperties) => (
     <span
@@ -151,7 +146,6 @@ export function SchemeCard({
   light: ThemeColors;
   dark: ThemeColors;
   onSelect: () => void;
-  /** A short window over its name, as tall as the theme cards below it (Settings). */
   compact?: boolean;
 }) {
   const label = scheme === "system" ? "System" : scheme === "light" ? "Light" : "Dark";
@@ -199,11 +193,6 @@ export function SchemeCard({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Theme cards: the theme's own light and dark windows, side by side.
-// ---------------------------------------------------------------------------
-
-/** One side of a theme card's window: click it to wear the theme there alone. */
 function ThemeHalf({
   theme,
   mode,
@@ -213,7 +202,6 @@ function ThemeHalf({
 }: {
   theme: ThemeDefinition;
   mode: ThemeAppearance;
-  /** Which part of the window shows: light is its left, dark its right (as System's tile). */
   side: "start" | "end" | "full";
   picked: boolean;
   onPick: () => void;
@@ -266,11 +254,9 @@ export function ThemeCard({
   theme: ThemeDefinition;
   pickedModes: ThemeAppearance[];
   onPick: (modes: ThemeAppearance[]) => void;
-  /** Buttons by the label, shown on hover (Otter Code's Duplicate, Edit, Export, Remove). */
   actions?: ReactNode;
 }) {
   const active = pickedModes.length > 0;
-  // A theme of your own may have one palette only, as in Otter Code.
   const modes = (["light", "dark"] as const).filter((mode) =>
     getThemeColorsForAppearance(theme, mode),
   );
@@ -323,7 +309,6 @@ export function ThemeCard({
   );
 }
 
-/** One of a card's actions, as Otter Code's library cards have them. */
 function ThemeAction({
   label,
   tooltip,
@@ -356,7 +341,6 @@ function ThemeAction({
   );
 }
 
-/** Themes four to a row (seven built-ins leave a short row, not a lone card). */
 function ThemeGrid({ children }: { children: ReactNode }) {
   return (
     <div className="@container">
@@ -367,7 +351,6 @@ function ThemeGrid({ children }: { children: ReactNode }) {
   );
 }
 
-/** The built-in or your own themes, under a small heading. */
 function ThemeGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="space-y-2">
@@ -377,24 +360,15 @@ function ThemeGroup({ title, children }: { title: string; children: ReactNode })
   );
 }
 
-// Otter Code's (ThemeSettings.tsx).
 function downloadThemeFile(filename: string, contents: string): void {
   const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
-  // Revoking synchronously can abort the download in some browsers; give the
-  // browser time to open the stream first.
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-/**
- * The Themes grid, as Otter Code's theme library: every theme can be
- * duplicated into the editor (settings/theme, Otter Code's), your own can be
- * edited, exported as a file and removed, and themes come in from files
- * (Otter Code's and VS Code's).
- */
 function ThemeLibrary() {
   const choice = useThemeChoice();
   const themes = useAppThemes();
@@ -402,7 +376,6 @@ function ThemeLibrary() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [removing, setRemoving] = useState<ThemeDefinition | null>(null);
 
-  // Wears a theme wherever it has a palette: a one-palette theme takes its own side only.
   const wear = (theme: ThemeDefinition) => {
     for (const mode of getThemeModes(theme)) setThemeForAppearance(mode, theme.id);
   };
@@ -425,7 +398,6 @@ function ThemeLibrary() {
         for (const mode of modes) setThemeForAppearance(mode, theme.id);
       }}
       actions={
-        // One button a card: your own themes' actions sit behind it.
         custom ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -499,7 +471,6 @@ function ThemeLibrary() {
             size="xs"
             variant="outline"
             onClick={() =>
-              // Starts from what's on screen, as in Otter Code.
               openThemeEditor({
                 editingThemeId: null,
                 seedThemeId: choice[appearance()],
@@ -562,7 +533,6 @@ function ThemeLibrary() {
         confirmVariant="destructive"
         onConfirm={() => {
           if (!removing) return;
-          // Whatever wore it goes back to the theme a fresh install wears.
           for (const mode of ["light", "dark"] as const) {
             if (choice[mode] === removing.id) setThemeForAppearance(mode, INITIAL_THEME_ID);
           }
@@ -577,11 +547,6 @@ function ThemeLibrary() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Sliders (Otter Code's settings sliders)
-// ---------------------------------------------------------------------------
-
-/** A range input with its value beside it. */
 function SettingSlider({
   id,
   label,
@@ -630,7 +595,6 @@ function SettingSlider({
   );
 }
 
-/** Contrast or glass opacity: a percentage slider, reset beside the title. */
 function PercentSettingRow({
   setting,
   searchId,
@@ -679,7 +643,6 @@ const FONT_SIZE_OPTIONS = Array.from(
   (_, i) => String(INTERFACE_FONT_SIZE.min + i),
 ).map((size) => ({ value: size, label: `${size} px` }));
 
-/** Font size, in Appearance and setup's Look step (`id`: Settings' search target). */
 export function FontSizeRow({ id }: { id?: string }) {
   const fontSize = useInterfaceSetting(INTERFACE_FONT_SIZE);
   return (
@@ -709,7 +672,6 @@ export function FontSizeRow({ id }: { id?: string }) {
   );
 }
 
-/** Reading width, in Appearance and setup's Look step. */
 export function ReadingWidthRow({ id }: { id?: string }) {
   const readingWidth = useReadingWidth();
   return (
@@ -857,11 +819,6 @@ function MailLayoutPicker() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Pane
-// ---------------------------------------------------------------------------
-
-/** The app's color scheme (System, Light, Dark), and a setter that syncs it with the account. */
 export function useColorScheme(): [ColorScheme, (next: ColorScheme) => Promise<void>] {
   const [themeInfo, setThemeInfo] = useState<NativeThemeInfo | null>(null);
 

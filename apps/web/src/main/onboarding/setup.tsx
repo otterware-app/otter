@@ -80,17 +80,9 @@ import {
 } from "./onboarding";
 import otterIconUrl from "../assets/otter-mail-icon.png";
 
-/**
- * First run: a mailbox, then the choices worth making up front (the look,
- * notifications, the agent) and the keys, each step doing the real thing.
- * It stands in for the mail view until it's finished or skipped, and its
- * last step offers the tour of the app.
- */
-
 const STEPS = ["welcome", "mailbox", "look", "habits", "agent", "keys", "done"] as const;
 type Step = (typeof STEPS)[number];
 
-/** The steps the progress names (welcome and done frame them). */
 const PROGRESS: { step: Step; label: string }[] = [
   { step: "mailbox", label: "Mail" },
   { step: "look", label: "Look" },
@@ -104,14 +96,12 @@ const isStep = (value: string | null): value is Step => STEPS.includes(value as 
 export function SetupFlow() {
   const accountsQuery = useAccounts();
   const accounts = accountsQuery.data ?? [];
-  // Run again with mail already here, the setup changes only what's clicked.
   const [firstRun] = useState(() => accounts.length === 0);
   // Asked now, so the agent step opens with its list rather than growing into it.
   useAgentProviders();
   const [step, setStep] = useState<Step>(() => {
     const saved = getSavedStep();
     if (isStep(saved)) return saved;
-    // Every mailbox was removed after setting up: straight to adding one.
     return getSetupStage() === "done" ? "mailbox" : "welcome";
   });
   // Stays up once started, so adding the first mailbox doesn't end it.
@@ -251,7 +241,6 @@ function SectionTitle({ children }: { children: ReactNode }) {
   return <h2 className="mb-3 px-1 text-sm font-medium text-foreground">{children}</h2>;
 }
 
-/** A large selectable tile: icon, title, one line. */
 function ChoiceCard({
   icon,
   title,
@@ -295,10 +284,6 @@ function ChoiceCard({
     </button>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Welcome
-// ---------------------------------------------------------------------------
 
 const PILLARS: { icon: ReactNode; title: string; body: string }[] = [
   {
@@ -362,10 +347,6 @@ function WelcomeStep({ onStart }: { onStart: () => void }) {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Mailbox
-// ---------------------------------------------------------------------------
 
 function MailboxStep({ accounts }: { accounts: MailAccount[] }) {
   const addAccount = useAddAccount();
@@ -461,7 +442,6 @@ function MailboxStep({ accounts }: { accounts: MailAccount[] }) {
 }
 
 function ConnectedMailbox({ account }: { account: MailAccount }) {
-  // Starts its sync, and follows it.
   const status = useAccountSync(account.id);
   const busy = !!status && (status.syncing || status.download != null);
   return (
@@ -491,10 +471,6 @@ function ConnectedMailbox({ account }: { account: MailAccount }) {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Look
-// ---------------------------------------------------------------------------
 
 function LookStep() {
   const choice = useThemeChoice();
@@ -539,10 +515,6 @@ function LookStep() {
     </>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Habits
-// ---------------------------------------------------------------------------
 
 const NOTIFY_CHOICES: {
   value: NotificationsMode;
@@ -722,10 +694,6 @@ function HabitsStep() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Agent
-// ---------------------------------------------------------------------------
-
 function AgentStep({ firstRun }: { firstRun: boolean }) {
   const query = useAgentProviders();
   const setState = useSetProvidersState();
@@ -792,7 +760,6 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
             <div className="flex flex-col gap-2">
               {state.providers.map((p) => {
                 const usable = isProviderUsable(p);
-                // An agent with a connect form (Hermes) connects right here; the Mac's CLIs are set up outside the app.
                 const Connect = usable ? undefined : agentContribution(p.kind)?.Connect;
                 const connectable = Boolean(Connect);
                 const selected = usable && state.selected === p.kind;
@@ -871,10 +838,6 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Keys
-// ---------------------------------------------------------------------------
-
 function KeysStep() {
   const [done, setDone] = useState(0);
   return (
@@ -899,10 +862,6 @@ function KeysStep() {
     </>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Done
-// ---------------------------------------------------------------------------
 
 function DoneStep() {
   const finish = (tour: boolean) => {

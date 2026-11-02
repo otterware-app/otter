@@ -7,36 +7,23 @@
  * line just after it. Promo, order, booking and postal codes are left alone.
  */
 
-// `\b` only knows ASCII letters, even with the `u` flag.
 const START = String.raw`(?<![\p{L}\p{N}])`;
 const END = String.raw`(?![\p{L}\p{N}])`;
 
-/** What names a one-time code, in the languages it's most often mailed in. */
 const NAMES = new RegExp(
   `${START}(?:${[
-    // English
     String.raw`(?:verification|verify|security|confirmation|authentication|auth|log-?in|sign[- ]?in|sign[- ]?up|one-time|single-use|temporary|access|activation|2fa|mfa|otp|reset|recovery|approval|identity)[ -](?:code|pin|passcode|password)`,
     String.raw`passcode|otp`,
-    // French
     String.raw`code (?:de vérification|de sécurité|de confirmation|d['’]accès|d['’]activation|de connexion|d['’]authentification|à usage unique|temporaire)`,
     String.raw`mot de passe (?:à usage unique|temporaire)`,
-    // German
     String.raw`(?:bestätigungs|sicherheits|verifizierungs|verifikations|anmelde|einmal|zugangs|freischalt|aktivierungs|authentifizierungs|login-?)code|einmal(?:passwort|kennwort)`,
-    // Spanish and Portuguese
     String.raw`código de (?:verificación|verificação|seguridad|segurança|confirmación|confirmação|acceso|acesso|activación|inicio de sesión)`,
-    // Italian
     String.raw`codice (?:di verifica|di sicurezza|di conferma|di accesso|monouso)`,
-    // Dutch
     String.raw`(?:verificatie|beveiligings|inlog|bevestigings|toegangs)code`,
   ].join("|")})${END}`,
   "giu",
 );
 
-/**
- * Plain names, in the same languages. A name that says what the code is for
- * may sit a few words from it; these only right beside it, as "your code" is
- * also what developer mail talks about.
- */
 const PLAIN_NAMES = new RegExp(
   `${START}(?:${[
     String.raw`(?:your|enter|use|following)(?: [\p{L}\p{N}'’.-]+)? code|code(?=\s*:)`,
@@ -47,11 +34,9 @@ const PLAIN_NAMES = new RegExp(
   "giu",
 );
 
-/** Codes that aren't for signing in, named near the code. */
 const OTHER_CODES =
   /promo|coupon|discount|voucher|% off|checkout|gift|referral|invit|zip|postal|post ?code|postleitzahl|tracking|order (?:number|no|#)|booking|reservation|réservation|buchung|itinerary|flight|invoice|qr|bar ?code|source code|error code|status code|area code|country code|dress code|réduction|rabatt|gutschein|descuento|cupón|sconto/iu;
 
-/** 482913, 482 913, 4829-1234, Q5Z-7KJ, K7P2QX (letters only with digits). */
 const CODE = String.raw`\d{3}[ -]\d{3}|\d{4}[ -]\d{4}|\d{4,8}|(?=[A-Z\d-]*\d)(?=[A-Z\d-]*[A-Z])[A-Z\d]{3}-[A-Z\d]{3}|(?=[A-Z\d]*\d)(?=[A-Z\d]*[A-Z])[A-Z\d]{5,8}`;
 
 /** A code among words: not part of a longer number, a price, a date or a time. */
@@ -60,13 +45,10 @@ const CODE_IN_TEXT = new RegExp(
   "gu",
 );
 
-/** A line that is only a code, as the big number in a sign-in email's HTML. */
 const CODE_LINE = new RegExp(String.raw`^[\s*"'“”«»()[\]]*(${CODE})[\s*"'“”«».()[\]]*$`, "u");
 
-/** From a plain name to its code: "your code is 482913", "Code: 482913". */
 const RIGHT_BESIDE = /^\s*(?:is|est|ist|lautet|es|é|è)?\s*:?\s*$/iu;
 
-/** From a name to its code: the same sentence, and close. */
 const CLOSE = /^[^.!?。]{0,40}$/u;
 
 /** Before the name, the code leads the sentence: "482913 is your code". */
@@ -74,7 +56,6 @@ const LEADS = /^\s*(?:is|est|ist|es|é|è|är|[-–—:|])\s[^.!?。\n]{0,30}$/i
 
 type Found = { code: string; index: number };
 
-/** Whether text names a one-time code: a preview worth reading the whole message for. */
 export function mentionsVerificationCode(text: string): boolean {
   return text.search(NAMES) !== -1 || text.search(PLAIN_NAMES) !== -1;
 }
@@ -108,7 +89,6 @@ export function findVerificationCode(subject: string, body: string): string | nu
   return null;
 }
 
-/** "Your verification code for Acme is 482913", "Code: Q5Z-7KJ". */
 function codeAfter(text: string, end: number, gap: RegExp): Found | null {
   CODE_IN_TEXT.lastIndex = end;
   const match = CODE_IN_TEXT.exec(text);
@@ -116,7 +96,6 @@ function codeAfter(text: string, end: number, gap: RegExp): Found | null {
   return { code: match[0], index: match.index };
 }
 
-/** "482913 is your verification code". */
 function codeBefore(text: string, start: number): Found | null {
   let last: RegExpExecArray | null = null;
   CODE_IN_TEXT.lastIndex = Math.max(0, start - 50);
@@ -128,7 +107,6 @@ function codeBefore(text: string, start: number): Found | null {
   return { code: last[0], index: last.index };
 }
 
-/** "Use the code below to sign in:\n\n482913\n\nIt expires in 10 minutes." */
 function codeOnLineAfter(text: string, end: number): Found | null {
   const lineEnd = text.indexOf("\n", end);
   if (lineEnd === -1) return null;
@@ -144,7 +122,6 @@ function codeOnLineAfter(text: string, end: number): Found | null {
   return null;
 }
 
-/** Years read as numbers, not codes. */
 function isCode(code: string): boolean {
   return !/^(?:19|20)\d\d$/.test(code);
 }

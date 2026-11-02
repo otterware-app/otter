@@ -1,8 +1,3 @@
-/**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
- * apps/web/src/components/settings/themeInspector.test.ts. Mail: vite-plus's
- * test runner for @effect/vitest.
- */
 import { describe, expect, it } from "vite-plus/test";
 
 import {

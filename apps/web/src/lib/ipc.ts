@@ -1,11 +1,6 @@
 export const ipc = <T = unknown>(channel: string, params?: unknown): Promise<T> =>
   window.desktopBridge.invoke<T>(channel, params);
 
-/**
- * For calls that can outlast the 5s IPC timeout (file dialogs, big downloads):
- * the backend acknowledges at once and reports the outcome as a `task:done`
- * notification carrying our task id (see `runAsTask` in the gmail handlers).
- */
 export const task = <T>(channel: string, params: Record<string, unknown>): Promise<T> =>
   new Promise<T>((resolve, reject) => {
     const taskId = crypto.randomUUID();

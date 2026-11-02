@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import worker from "./worker.ts";
 
-/** The site's files: anything else is missing. */
 const FILES = new Set(["/", "/assets/app.js", "/todoist-callback/"]);
 
 function serve(url: string, accept?: string) {

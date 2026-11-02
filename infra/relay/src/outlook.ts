@@ -1,20 +1,4 @@
-/**
- * Outlook for the web app, like Gmail's (gmail.ts): a browser can't keep a
- * Microsoft refresh token for long, so the relay does the OAuth exchange with
- * its confidential client and seals the refresh token for the signed-in Otter
- * user. The browser keeps the sealed token; the relay stores nothing. The
- * desktop app signs in to Outlook itself and never comes here.
- *
- *   GET  /v1/outlook/authorize  (popup) → Microsoft's consent
- *   GET  /v1/outlook/callback   → posts the sealed token and a first access token to the page
- *   POST /v1/outlook/token      `{ sealed }` → a fresh access token and a resealed refresh token
- *   POST /v1/dev/outlook        `pnpm dev:demo` only: a saved sign-in, sealed as the popup would
- *
- * And Graph's change notifications for every Outlook mailbox:
- *
- *   POST /v1/outlook/watch      `{ email }` → where a device's Graph subscription should notify
- *   POST /push/outlook/:email   Graph's notifications, checked against `clientState`
- */
+// Microsoft rotates refresh tokens: return the resealed replacement to the browser after each refresh.
 
 import type { OutlookSignInResult, OutlookTokenResponse } from "@otter-mail/contracts/relay";
 import { MICROSOFT_AUTHORITY, OUTLOOK_SCOPES } from "@otter-mail/contracts";
@@ -30,15 +14,12 @@ const meUrl = (env: Env) =>
 
 export const callbackUrl = (env: Env) => `${env.BETTER_AUTH_URL}/v1/outlook/callback`;
 
-/** The relay has a Microsoft OAuth client to sign the web app in with. */
 export const configured = (env: Env) =>
   Boolean(env.MICROSOFT_CLIENT_ID && env.MICROSOFT_CLIENT_SECRET);
 
-/** One key signs sign-in states, one seals refresh tokens, one signs push subscriptions. */
 const key = (env: Env, purpose: "state" | "seal" | "push") =>
   derivedKey(env.BETTER_AUTH_SECRET, `otter-mail outlook ${purpose}`);
 
-/** Microsoft's consent screen for the relay's client, for the signed-in user. */
 export async function authorizeUrl(env: Env, userId: string, loginHint?: string): Promise<string> {
   const state = await new SignJWT({})
     .setProtectedHeader({ alg: "HS256" })
@@ -106,7 +87,6 @@ async function seal(env: Env, userId: string, email: string, refreshToken: strin
     .encrypt(await key(env, "seal"));
 }
 
-/** Exchanges the code, asks Graph which mailbox signed in, then seals the refresh token for this user. */
 export async function completeSignIn(
   env: Env,
   userId: string,
@@ -139,7 +119,6 @@ export async function demoSignIn(
   });
 }
 
-/** Who signed in (Graph's /me), and the refresh token sealed for this user. */
 async function sealSignIn(
   env: Env,
   userId: string,
@@ -157,7 +136,6 @@ async function sealSignIn(
     userPrincipalName?: string | null;
     displayName?: string | null;
   };
-  // As core's signInFromMe: the mailbox's address, else the sign-in name.
   const email = (me.mail || me.userPrincipalName || "").trim().toLowerCase();
   if (!email.includes("@")) throw new Error("Microsoft didn't say which mailbox signed in.");
   return {
@@ -169,11 +147,6 @@ async function sealSignIn(
   };
 }
 
-/**
- * A fresh access token (and ID token) from a sealed refresh token, for its
- * owner only. Microsoft rotates refresh tokens: the answer carries the new
- * one, sealed, for the page to keep.
- */
 export async function refresh(
   env: Env,
   userId: string,
@@ -198,12 +171,10 @@ export async function refresh(
   };
 }
 
-/** The popup's last page: hands the result (or error) to the app and closes. */
 export function popupResponse(env: Env, message: { result?: OutlookSignInResult; error?: string }) {
   return popupPage(env, "outlook", message);
 }
 
-/** Where Graph should notify about the mailbox's changes. */
 export const notificationUrl = (env: Env, email: string) =>
   `${env.BETTER_AUTH_URL}/push/outlook/${encodeURIComponent(email)}`;
 
@@ -226,7 +197,6 @@ export async function clientState(env: Env, email: string): Promise<string> {
   );
 }
 
-/** Whether `state` is the mailbox's clientState (compared in constant time). */
 export async function checkClientState(env: Env, email: string, state: string): Promise<boolean> {
   let signature: Uint8Array;
   try {

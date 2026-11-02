@@ -1,6 +1,5 @@
 import type { MailAccount } from "./types";
 
-/** Preset account colors offered in Settings — a macOS-style accent palette. */
 export const ACCOUNT_COLOR_PALETTE: string[] = [
   "#ff3b30", // red
   "#ff9500", // orange
@@ -22,19 +21,16 @@ function hashString(value: string): number {
   return Math.abs(hash);
 }
 
-/** An account's display color — its saved choice, or a stable fallback from the palette. */
 export function getAccountColor(account: Pick<MailAccount, "id" | "color">): string {
   return (
     account.color ?? ACCOUNT_COLOR_PALETTE[hashString(account.id) % ACCOUNT_COLOR_PALETTE.length]
   );
 }
 
-/** An account's display name — the user's override, or the Google profile name. */
 export function getAccountDisplayName(account: Pick<MailAccount, "name" | "displayName">): string {
   return account.displayName?.trim() || account.name;
 }
 
-/** Readable text color for surfaces painted in an account color (YIQ luma). */
 export function getAccountContrastColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);

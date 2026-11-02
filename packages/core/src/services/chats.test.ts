@@ -5,7 +5,6 @@ import { CHAT_LIMITS, chatForSync, type Chat, type ChatSummary } from "@otter-ma
 const relay = {
   chats: new Map<string, Chat & { deletedAt: number | null }>(),
   calls: [] as string[],
-  /** Fails calls (the relay unreachable) while set. */
   down: false,
 };
 
@@ -76,7 +75,6 @@ const chat = (id: string, patch: Partial<Chat> = {}): Chat => ({
   ...patch,
 });
 
-/** Lets the debounced push run (short of a retry, 30 seconds on). */
 async function settle() {
   await vi.advanceTimersByTimeAsync(1_000);
   await chats.listChats();
@@ -168,7 +166,6 @@ describe("chats", () => {
     await settle();
     const synced = relay.chats.get("c8")!;
     expect(synced.turns).toHaveLength(80);
-    // Another device adds a turn to what the relay has.
     relay.chats.set("c8", {
       ...synced,
       updatedAt: 200,

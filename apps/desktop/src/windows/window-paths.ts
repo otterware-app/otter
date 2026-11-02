@@ -1,10 +1,3 @@
-/**
- * Where windows load their pages from:
- * - dev: the Vite dev server (VITE_DEV_SERVER_URL, set by `pnpm dev:desktop`)
- * - packaged: the built renderer inside the app, served over ottermail://app/
- * - unpackaged `pnpm start`: apps/web/dist, served the same way
- */
-
 import { app, net, protocol } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -15,16 +8,13 @@ const RENDERER_HOST = "app";
 
 const devServerUrl = process.env.VITE_DEV_SERVER_URL?.trim().replace(/\/+$/, "") || null;
 
-/** The main-process bundle lives in dist-electron/, next to the preload. */
 export function getPreloadPath(): string {
   return path.join(__dirname, "preload.cjs");
 }
 
 function rendererRoot(): string {
   const candidates = [
-    // Packaged (and staged) apps carry the renderer next to dist-electron/.
     path.join(app.getAppPath(), "renderer"),
-    // Unpackaged runs from the monorepo: apps/desktop/dist-electron → apps/web/dist.
     path.resolve(__dirname, "..", "..", "web", "dist"),
   ];
   return candidates.find((dir) => fs.existsSync(path.join(dir, "index.html"))) ?? candidates[0]!;
@@ -46,7 +36,6 @@ export function registerRendererScheme(): void {
   ]);
 }
 
-/** Serves built renderer files over ottermail://app/. Call once the app is ready. */
 export function handleRendererProtocol(): void {
   if (devServerUrl) return;
   const root = rendererRoot();
@@ -62,7 +51,6 @@ export function handleRendererProtocol(): void {
   });
 }
 
-/** URL of one of the renderer's HTML entry points ("index.html"). */
 export function getWindowUrl(htmlFileName: string): string {
   if (devServerUrl) return `${devServerUrl}/${htmlFileName}`;
   return `${RENDERER_SCHEME}://${RENDERER_HOST}/${htmlFileName}`;

@@ -21,7 +21,6 @@ nonisolated enum OutlookSearch {
     }
 
     struct Query: Equatable {
-        /** `$search`'s KQL; nil when there's nothing to search for. */
         var kql: String?
         var wanted: [Wanted]
     }
@@ -39,12 +38,10 @@ nonisolated enum OutlookSearch {
         return Query(kql: terms.isEmpty ? nil : terms.joined(separator: " "), wanted: wanted)
     }
 
-    /** Gmail's query, split into its operators and its free text. */
     static func parse(_ q: String) -> (ops: [Operator], text: String) {
         let pattern = /(^|\s)(-?)([A-Za-z_]+):("[^"]*"|\S+)/
         let ops = q.matches(of: pattern).map { match in
             var op = Operator(key: match.3.lowercased(), value: String(match.4).trimmingCharacters(in: CharacterSet(charactersIn: "\"")), negated: match.2 == "-")
-            // `is:read` is `-is:unread`.
             if op.key == "is", op.value.lowercased() == "read" { op = Operator(key: "is", value: "unread", negated: !op.negated) }
             return op
         }
@@ -78,7 +75,6 @@ nonisolated enum OutlookSearch {
         }
     }
 
-    /** The label an `in:`, `is:` or `label:` operator names, if any. */
     static func label(_ op: Operator, labels: [MailLabel]) -> String? {
         let value = op.value.lowercased()
         if op.key == "in" || op.key == "is", let system = systemLabels[value] { return system }
@@ -87,7 +83,6 @@ nonisolated enum OutlookSearch {
         return labels.first { slug($0.name) == slug(value) || $0.id.lowercased() == value }?.id
     }
 
-    /** A `$filter` for a label that isn't a folder (nil: it is one, or unknown). */
     static func filter(_ label: String) -> String? {
         switch label {
         case "UNREAD": return "isRead eq false"

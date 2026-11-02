@@ -33,11 +33,6 @@ function accountLabel(account: MailAccount): string {
   return account.displayName?.trim() || account.name || account.email;
 }
 
-/**
- * The sign-in code in new mail, read from its body: the one sync stored (Gmail
- * on the desktop), else fetched now when the preview names a code, and kept
- * for opening it. A preview is one line, too little to find the code in.
- */
 async function codeIn(accountId: string, m: MessageSummary): Promise<string | undefined> {
   let detail = mailStore.getMessageDetail(accountId, m.id);
   if (!detail && mentionsVerificationCode(`${m.subject}\n${m.snippet}`)) {
@@ -71,7 +66,7 @@ export async function notifyNewMail(
     const fresh = added.filter(
       (m) =>
         m.date > cutoff &&
-        m.unread && // already read elsewhere (phone, Gmail web) — nothing to announce
+        m.unread &&
         m.fromEmail.toLowerCase() !== ownEmail &&
         (settings.notificationsMode === "all" || m.labelIds.includes("INBOX")),
     );
@@ -92,7 +87,6 @@ export async function notifyNewMail(
         });
       }
     } else {
-      // A click opens the newest of them.
       const newest = fresh.reduce((a, b) => (b.date > a.date ? b : a));
       platform().notify({
         title: `${fresh.length} new messages`,
@@ -105,7 +99,6 @@ export async function notifyNewMail(
   }
 }
 
-/** Mirror total INBOX unread (mailboxes that are on) onto the badge; clear at 0. */
 export function updateDockBadge(): void {
   try {
     platform().setUnreadCount(mailStore.countInboxUnreadAll(turnedOffMailboxes()));

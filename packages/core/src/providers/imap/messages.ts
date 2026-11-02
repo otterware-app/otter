@@ -1,9 +1,3 @@
-/**
- * IMAP messages in the cache's shape: summaries from FETCH (ENVELOPE, FLAGS,
- * BODYSTRUCTURE, the reply headers and the start of the body, for the
- * snippet), and whole messages from BODY[] parsed with postal-mime.
- */
-
 import { utf8Encode } from "../../bytes.js";
 import {
   parseMessage,
@@ -27,7 +21,6 @@ export const SUMMARY_QUERY: FetchQuery = {
   textStart: SNIPPET_BYTES,
 };
 
-/** How a list shows addresses: `Name <a@b>, c@d` (names with commas quoted). */
 export function formatAddresses(addresses: ImapAddress[]): string {
   return addresses
     .map(({ name, address }) => {
@@ -39,7 +32,6 @@ export function formatAddresses(addresses: ImapAddress[]): string {
     .join(", ");
 }
 
-/** The first `<id>` in a header (References, In-Reply-To), brackets and all. */
 const firstId = (value: string | null | undefined): string | null =>
   value?.match(/<[^<>\s]+>/)?.[0] ?? null;
 
@@ -53,7 +45,6 @@ export function baseSubject(subject: string): string {
   }
 }
 
-/** FNV-1a, as 8 hex digits: a short, stable tag for a subject. */
 function hash(text: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
@@ -78,7 +69,6 @@ export function threadIdOf(
   return root ? `${hash(baseSubject(subject))}.${root.slice(1, -1)}` : null;
 }
 
-/** The References header a draft carries to stay in its conversation (its root id). */
 export const referencesFor = (threadId: string | undefined): string | undefined => {
   const root = /^[\da-f]{8}\.(.+@.+)$/.exec(threadId ?? "")?.[1];
   return root ? `<${root}>` : undefined;
@@ -109,11 +99,6 @@ function htmlText(html: string): string {
     .replace(/&amp;/g, "&");
 }
 
-/**
- * The snippet from the first bytes of the body: put back behind the
- * message's own Content-Type (a multipart's boundary, a part's encoding), the
- * truncated body parses like any message.
- */
 async function snippetFromStart(structure: BodyStructure | undefined, start: Uint8Array) {
   if (!structure || start.length === 0) return "";
   const params = Object.entries(structure.parameters)
@@ -164,7 +149,6 @@ export async function toSummary(
 
 export const DETAIL_QUERY: FetchQuery = { ...SUMMARY_QUERY, textStart: undefined, source: true };
 
-/** A whole message; attachment ids are indexes into postal-mime's list. */
 export async function toDetail(
   folder: Folder,
   uidValidity: number,
@@ -177,7 +161,6 @@ export async function toDetail(
     filename: a.filename ?? `attachment-${i + 1}`,
     mimeType: a.mimeType,
     size: a.bytes.length,
-    // Inline images are referenced from the HTML as `cid:<Content-ID>`.
     contentId: a.contentId ?? undefined,
   }));
   return {

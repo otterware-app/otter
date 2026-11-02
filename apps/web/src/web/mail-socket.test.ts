@@ -7,11 +7,6 @@ import { TUNNEL_CLOSE } from "@otter-mail/contracts/relay";
 
 import { connectMailSocket } from "./mail-socket";
 
-/**
- * A stand-in for the relay's tunnel (infra/relay/src/tunnel.ts): "open" once
- * the TCP connection is up, then raw bytes both ways. `route` sends a host
- * somewhere else, as a relay in the middle could.
- */
 const route = new Map<string, { host: string; port: number }>();
 let relay: WebSocketServer;
 let relayUrl = "";
@@ -46,7 +41,6 @@ async function readLine(stream: ByteStream): Promise<string> {
   return text;
 }
 
-/** A throwaway key and a self-signed certificate for imap.gmail.com (valid until 2126). */
 const SELF_SIGNED = `
 -----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgO9/hPhhMdplAPVO7
@@ -99,7 +93,6 @@ it("says when the relay turns a connection away", async () => {
 
 it("drops a connection whose server sends far more than is read", async () => {
   const server = net.createServer((socket) => {
-    // The client hangs up mid-flood, which is the point: the reset is expected.
     socket.on("error", () => {});
     socket.end(Buffer.alloc(70 * 1024 * 1024));
   });
@@ -118,7 +111,6 @@ it("drops a connection whose server sends far more than is read", async () => {
   }
 });
 
-// Real mail servers, through the stand-in; no logging in. `NETWORK_TESTS=1 pnpm test` runs them.
 describe.runIf(process.env.NETWORK_TESTS)("real servers", () => {
   it.each(["imap.gmail.com", "imap.mail.me.com", "imap.fastmail.com", "imap.gmx.net"])(
     "reads %s's greeting over TLS 1.3",

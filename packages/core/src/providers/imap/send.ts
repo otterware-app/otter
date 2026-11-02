@@ -1,11 +1,3 @@
-/**
- * Sending over SMTP, and the folders mail goes to around it: what's sent is
- * appended to Sent (unless the server files it itself, like Gmail and
- * Outlook do), and a draft is a message in Drafts that each save replaces.
- * A draft's id is its Message-ID header, which every version keeps: the id
- * stays while the message behind it changes (getDraftVersion).
- */
-
 import { randomHex, utf8Encode } from "../../bytes.js";
 import { logger } from "../../logger.js";
 import { sendMail } from "../../protocols/index.js";
@@ -41,7 +33,6 @@ const newMessageIdHeader = (email: string) =>
 const withIds = (mime: string, messageIdHeader: string, date: Date) =>
   `Date: ${date.toUTCString()}\r\nMessage-ID: ${messageIdHeader}\r\n${mime}`;
 
-/** Bare addresses from address lists ("Ann <a@b>, c@d" → a@b, c@d). */
 function addressesIn(...lists: (string | undefined)[]): string[] {
   return lists
     .flatMap((list) => (list ? splitAddressList(list) : []))
@@ -119,7 +110,6 @@ export async function send(accountId: string, mail: OutgoingMail): Promise<{ mes
     references: mail.references,
     attachments: mail.attachments,
   };
-  // Bcc goes in the envelope only; the copy in Sent keeps it.
   await submit(
     accountId,
     access,
@@ -142,7 +132,6 @@ function withoutBcc(head: string): string {
   return kept.join("\r\n");
 }
 
-/** A ready-made message (unsubscribe mail, invitation replies): its own headers say where. */
 export async function sendRaw(accountId: string, raw: string): Promise<void> {
   const access = await accessFor(accountId);
   const { email } = await sender(accountId);
@@ -163,8 +152,6 @@ export async function sendRaw(accountId: string, raw: string): Promise<void> {
   await fileSent(accountId, access, complete);
 }
 
-// ── Drafts ─────────────────────────────────────────────────────────────────
-
 /** Every version of a draft in Drafts, oldest first, and the folder's UIDVALIDITY. */
 async function draftVersions(accountId: string, draftId: string) {
   return withImap(accountId, async (client) => {
@@ -182,8 +169,6 @@ export async function saveDraft(
 ): Promise<{ draftId: string; messageId?: string; threadId?: string }> {
   const { email, from } = await sender(accountId);
   const draftId = isMessageIdHeader(draft.draftId) ? draft.draftId : newMessageIdHeader(email);
-  // Keeps a reply's draft in its conversation (threadId names its root Message-ID);
-  // a new message's draft is its own conversation, and references nothing.
   const root = referencesFor(draft.threadId);
   const references = root === draftId ? undefined : root;
   const raw = withIds(
@@ -251,7 +236,6 @@ export async function getDraftVersion(accountId: string, draftId: string): Promi
   return found && uid !== undefined ? messageId(found.uidValidity, uid, found.path) : null;
 }
 
-/** A draft's id (its Message-ID header) from the cache, else from the server. */
 export async function findDraftId(
   accountId: string,
   id: string,
@@ -265,7 +249,6 @@ export async function findDraftId(
     : [];
   const last = inThread.at(-1);
   if (last && header(last.id)) return header(last.id);
-  // Not cached with its headers: ask the server, if it's in Drafts.
   const { path, uid, uidValidity } = parseMessageId(id);
   return withImap(accountId, async (client) => {
     if ((await foldersOf(accountId, client)).withRole("DRAFT")?.path !== path) return null;

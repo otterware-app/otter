@@ -28,18 +28,13 @@ export type ListMessagesResult = {
 };
 
 export type SearchMessagesParams = {
-  /** May be empty when structured filters are set. */
   q: string;
-  /** Omit to search every account (a view, the command palette). */
   accountId?: string;
-  /** Restrict to messages carrying this label (view filter, account mode). */
   labelId?: string;
-  /** Restrict to messages matching these rules (a view's filter). */
   rules?: ViewRule[];
   starred?: boolean;
   important?: boolean;
   hasAttachments?: boolean;
-  /** Only messages newer than N days. */
   withinDays?: number;
   pageToken?: string;
   maxResults?: number;
@@ -53,35 +48,20 @@ export type ListCombinedMessagesParams = {
 
 export type CombinedCounts = { total: number; unread: number };
 
-/** One page of Gmail's own search (conversation rows, newest first). */
 export type MailSearchResult = {
   messages: MessageSummary[];
-  /** Per-account cursors for the next page; undefined = no more results. */
   cursors?: Record<string, string | null>;
-  /** Gmail's estimate of the total number of matches. */
   estimate: number;
-  /** Gmail was unreachable: local results only. */
   offline?: boolean;
 };
 
-/** Parsed mailto: link, delivered when OtterMail is the default mail app. */
 export type MailtoTarget = { to: string; cc: string; subject: string; body: string };
 
-/**
- * An installed mailto: handler (Settings default-mail dropdown), by id: its
- * bundle identifier on macOS, its .desktop file on Linux.
- */
 export type MailApp = { id: string; name: string; path: string };
 export type MailAppsResult = { apps: MailApp[]; defaultId: string | null };
 
-/*
- * Agents (mirrors core's services/agent/types.ts). Each is an extension's
- * (its id: openrouter, hermes, claude, …). A snapshot is one agent's health
- * and settings; every agent streams the same ChatEvents.
- */
 export type ProviderKind = string;
 
-/** The agent new chats start with until the user picks another (core's DEFAULT_AGENT). */
 export const DEFAULT_AGENT = "openrouter";
 export type ProviderState = "ready" | "warning" | "error" | "disabled";
 export type ProviderOptionChoice = {
@@ -90,7 +70,6 @@ export type ProviderOptionChoice = {
   description?: string;
   isDefault?: boolean;
 };
-/** A per-model option (Codex: Reasoning, Service Tier), like T3's option descriptors. */
 export type ProviderModelOption = {
   id: "reasoningEffort" | "serviceTier";
   label: string;
@@ -103,7 +82,6 @@ export type ProviderModel = {
   subProvider?: string;
   isDefault?: boolean;
   options?: ProviderModelOption[];
-  /** An OpenClaw agent's picture (an https or data URL), else its emoji. */
   avatar?: string;
   emoji?: string;
 };
@@ -124,12 +102,10 @@ export type ProviderSnapshot = {
   message?: string;
   models: ProviderModel[];
   model: string | null;
-  /** Chats persist on the provider and can be listed/resumed. */
   sessions: boolean;
   /** The agent's settings, plus what it adds for its settings form (never its secrets). */
   settings: AgentSettingsView;
 };
-/** What every agent's settings have; each agent's form reads its own on top. */
 export type AgentSettingsView = {
   enabled: boolean;
   model: string;
@@ -142,7 +118,6 @@ export type RuntimeMode = "approval-required" | "auto-accept-edits" | "full-acce
 
 export type ApprovalDecision = "once" | "session" | "always" | "deny";
 
-/** An agent asking permission mid-turn (run a command, edit files, …). */
 export type ApprovalRequest = {
   id: string;
   kind: "command" | "fileChange" | "permission" | "tool";
@@ -153,25 +128,19 @@ export type ApprovalRequest = {
 };
 export type ProvidersState = {
   providers: ProviderSnapshot[];
-  /** The agent new chats start with. */
   selected: ProviderKind;
 };
-/** `{ selected?, <agent id>: { field: value } }`: core keeps the fields each agent allows. */
 export type AgentSettingsPatch = { selected?: ProviderKind } & {
   [kind: string]: Record<string, string | boolean> | string | undefined;
 };
 
-/** One step an agent took, the same for every agent (core's steps.ts). */
 export type ToolStep = {
   kind: "command" | "read" | "edit" | "search" | "web" | "skill" | "tool";
   title: string;
-  /** Its input: the command, the path, the arguments as JSON. */
   detail?: string;
-  /** The integration it came from: "Otter Mail". */
   source?: string;
 };
 
-/** The agent asking the user something mid-run (OpenClaw's `ask_user`). */
 export type ChatQuestion = {
   id: string;
   questions: {
@@ -180,7 +149,6 @@ export type ChatQuestion = {
     question: string;
     options: { label: string; description?: string }[];
     multiSelect: boolean;
-    /** Asks for a secret, which only the agent's own app takes. */
     secret: boolean;
   }[];
   /** Epoch ms when it stops waiting. */
@@ -204,7 +172,6 @@ export type ChatEvent =
   | { requestId: string; type: "done"; responseId: string | null }
   | { requestId: string; type: "error"; message: string };
 
-/** A file attached to an agent turn (staged by the backend). */
 export type ChatAttachment = {
   id: string;
   name: string;
@@ -214,10 +181,8 @@ export type ChatAttachment = {
   kind: "image" | "file";
 };
 
-/** An installed agent skill, for the composer's "/" picker. */
 export type Skill = { name: string; description: string; category: string | null; path?: string };
 
-/** A persisted provider-side chat (Hermes session / Codex thread). */
 export type ChatSession = {
   id: string;
   title: string | null;
@@ -228,7 +193,6 @@ export type ChatSession = {
   preview: string | null;
 };
 
-/** One stored session message, flattened for the transcript. */
 export type ChatSessionMessage = {
   role: "user" | "assistant" | "tool" | "system";
   text: string;
@@ -258,11 +222,8 @@ export type SendMessageParams = {
   bcc?: string;
   subject: string;
   body: string;
-  /** HTML alternative body — sent as multipart/alternative when present. */
   bodyHtml?: string;
-  /** Threads the sent message into an existing conversation (replies). */
   threadId?: string;
-  /** Original message a reply targets; backend resolves In-Reply-To/References. */
   replyToMessageId?: string;
   attachments?: ComposeAttachment[];
 };
@@ -302,7 +263,6 @@ export type GetAttachmentParams = {
   mimeType: string;
 };
 
-/** `saved` is false when the save dialog was cancelled. */
 export type GetAttachmentResult = { saved: boolean };
 
 export type GetAttachmentDataParams = {
@@ -357,7 +317,6 @@ export type SettingsPane =
   | "features"
   /** The Otter account page, opened from the user button at the bottom of the nav. */
   | "otter";
-/** No pane: the one Settings was last on. */
 export type SettingsTarget = { pane?: SettingsPane; item?: string };
 
 export type AddImapAccountParams = {
@@ -380,21 +339,14 @@ export const mailApi = {
     task<boolean>("support:saveReport", { contents, filename }),
   listAccounts: (): Promise<MailAccount[]> => ipc("gmail:listAccounts"),
 
-  /** Browser sign-in; `email` signs an existing account back in. */
-  /** Resolves null when the sign-in was cancelled. */
   addAccount: (email?: string): Promise<MailAccount | null> =>
     ipc("gmail:addAccount", email ? { email } : undefined),
-  /** Re-reads every account's signature from Gmail (answers at once; accounts-changed follows). */
   refreshSignatures: (): Promise<void> => ipc("gmail:refreshSignatures"),
-  /** Stops waiting for the browser sign-in; the pending addAccount resolves null. */
   cancelAddAccount: (): Promise<void> => ipc("gmail:cancelAddAccount"),
-  /** Microsoft's sign-in in the browser; `email` signs an Outlook mailbox back in. Null: cancelled. */
   addOutlookAccount: (email?: string): Promise<MailAccount | null> =>
     ipc("gmail:addOutlookAccount", email ? { email } : undefined),
-  /** Which kinds of mailbox this app can add besides Gmail and IMAP. */
   mailProviders: (): Promise<{ outlook: boolean }> => ipc("gmail:mailProviders"),
 
-  /** The servers an address's mail lives on, from its domain; null when unknown. */
   discoverImap: (email: string): Promise<ImapSettings | null> =>
     ipc("gmail:discoverImap", { email }),
   /** Adds an IMAP mailbox once its login and SMTP work; rejects with a readable message. */
@@ -431,7 +383,6 @@ export const mailApi = {
   listCombinedMessages: (params: ListCombinedMessagesParams): Promise<ListMessagesResult> =>
     ipc("gmail:listCombinedMessages", params),
 
-  /** Gmail's own search (all operators, all mail) across the given accounts. */
   gmailSearch: (params: {
     q: string;
     accountIds: string[];
@@ -470,11 +421,9 @@ export const mailApi = {
 
   deleteThreadsForever: (accountId: string, threadIds: string[]): Promise<{ ok: boolean }> =>
     ipc("gmail:deleteThreadsForever", { accountId, threadIds }),
-  /** Empty Junk / Empty Trash: deletes every message there forever. */
   emptyFolder: (accountId: string, labelId: "SPAM" | "TRASH"): Promise<{ deleted: number }> =>
     task("gmail:emptyFolder", { accountId, labelId }),
 
-  /** How this message offers unsubscribing (List-Unsubscribe), or null. */
   getUnsubscribe: (
     accountId: string,
     messageId: string,
@@ -485,14 +434,11 @@ export const mailApi = {
     unsubscribed: boolean;
   } | null> => ipc("gmail:getUnsubscribe", { accountId, messageId, fromEmail }),
 
-  /** Unsubscribes in place, or returns the page to open (web-only lists). */
   unsubscribe: (
     accountId: string,
     messageId: string,
   ): Promise<{ done: true } | { openUrl: string }> =>
     task("gmail:unsubscribe", { accountId, messageId }),
-
-  /** The calendar invitation in a message, with your current answer (null: none). */
 
   listSchedules: (): Promise<import("@otter-mail/contracts").MailSchedule[]> =>
     ipc("gmail:listSchedules"),
@@ -506,14 +452,12 @@ export const mailApi = {
 
   saveDraft: (params: SaveDraftParams): Promise<SaveDraftResult> => ipc("gmail:saveDraft", params),
 
-  /** The message backing a draft right now; null = the draft is gone. */
   getDraftVersion: (
     accountId: string,
     draftId: string,
   ): Promise<{ messageId: string | null; revision?: string | null }> =>
     ipc("gmail:getDraftVersion", { accountId, draftId }),
 
-  /** A draft's content at a given version (also refreshes the cache). */
   loadDraftVersion: (
     accountId: string,
     draftId: string,
@@ -547,7 +491,6 @@ export const mailApi = {
   openComposeAttachment: (params: { name: string; base64: string }): Promise<{ ok: boolean }> =>
     ipc("gmail:openComposeAttachment", params),
 
-  /** Fetch a remote email image server-side (bypasses the iframe's CORP block). */
   proxyImage: (url: string): Promise<{ dataUrl: string }> => ipc("gmail:proxyImage", { url }),
 
   openAttachment: (params: AttachmentFileParams): Promise<{ ok: boolean }> =>
@@ -586,8 +529,6 @@ export const mailApi = {
 
   getSettingsTarget: (): Promise<SettingsTarget | null> => ipc("window:getSettingsTarget"),
 
-  /** Cmd+click: open a single message in its own window. */
-  /** A conversation a notification asked this window to open, if any. */
   takePendingOpenMessage: (): Promise<{ accountId: string; messageId: string } | null> =>
     ipc("window:takePendingOpenMessage"),
 
@@ -595,13 +536,11 @@ export const mailApi = {
 
   getDefaultMailStatus: (): Promise<{ isDefault: boolean }> => ipc("app:getDefaultMailStatus"),
 
-  /** No id = register Otter Mail itself; with one, hand the default to that app. */
   setDefaultMailApp: (id?: string): Promise<{ ok: boolean }> =>
     ipc("app:setDefaultMailApp", id ? { id } : undefined),
 
   listMailApps: (): Promise<MailAppsResult> => ipc("app:listMailApps"),
 
-  /** Cached provider snapshots; stale ones re-check and arrive as `agent:providersChanged`. */
   agentProviders: (): Promise<ProvidersState> => ipc("agent:providers"),
 
   refreshAgentProviders: (): Promise<{ ok: boolean }> => ipc("agent:refreshProviders"),
@@ -625,14 +564,12 @@ export const mailApi = {
     previousResponseId?: string;
   }): Promise<{ ok: boolean }> => ipc("agent:send", params),
 
-  /** Picks up a turn lost when the app quit; `resumed: false` → the provider's runs ended with it. */
   agentResume: (params: {
     provider: ProviderKind;
     requestId: string;
     sessionId: string;
   }): Promise<{ resumed: boolean }> => ipc("agent:resume", params),
 
-  /** Copies dropped, picked or pasted files into the attachments folder. */
   agentStageAttachments: (
     items: { name: string; mime: string; bytes: Uint8Array }[],
   ): Promise<{ attachments: ChatAttachment[]; errors: string[] }> =>
@@ -645,7 +582,6 @@ export const mailApi = {
     decision: ApprovalDecision;
   }): Promise<{ ok: boolean }> => ipc("agent:respondApproval", params),
 
-  /** Answers a question the run asked (answers by question id); null skips it. */
   agentAnswerQuestion: (params: {
     provider: ProviderKind;
     requestId: string;
@@ -653,7 +589,6 @@ export const mailApi = {
     answers: Record<string, string[]> | null;
   }): Promise<{ ok: boolean }> => ipc("agent:answerQuestion", params),
 
-  /** Adds a message to the running turn; `accepted: false` → queue it instead. */
   agentSteer: (
     provider: ProviderKind,
     requestId: string,
@@ -687,9 +622,7 @@ export const mailApi = {
   agentDeleteSession: (provider: ProviderKind, sessionId: string): Promise<{ ok: boolean }> =>
     ipc("agent:deleteSession", { provider, sessionId }),
 
-  // Agents on the Mac given Otter Mail's tools with a token (the Mac only).
   connectedAgents: (): Promise<AgentTokens<ConnectedAgent>> => ipc("mcp:listAgents"),
-  /** Answers the token, this once. */
   addConnectedAgent: (name: string, access: AgentAccess): Promise<string> =>
     ipc("mcp:addAgent", { name, access }),
   setConnectedAgentAccess: (id: string, access: AgentAccess): Promise<void> =>

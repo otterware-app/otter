@@ -3,13 +3,6 @@ import Observation
 import UserNotifications
 import UIKit
 
-/**
- * Who's using the app and with which mail: the demo, or an Otter account
- * with its mailboxes. Signed in, it follows the account the way core does
- * on the Mac (otter-account.ts, linked-accounts.ts, preferences.ts,
- * realtime.ts): mailboxes linked on any device show up here, preferences
- * sync both ways, and the relay's events trigger syncs.
- */
 @Observable
 final class Session {
     enum State: Equatable {
@@ -20,12 +13,10 @@ final class Session {
 
     private(set) var state: State
     private(set) var store: MailStore
-    /** Set while a sign-in sheet or first sync is running, with what it's doing. */
     private(set) var busy: String?
     private(set) var notificationConnections: [String: Relay.NotificationConnection] = [:]
     private(set) var notificationProviders: Set<String> = []
     @ObservationIgnored private let notificationAuthorization = NotificationAuthorization()
-    /** A thread to open (from a notification). */
     var opening: NotificationDestination?
 
     struct NotificationDestination: Equatable {
@@ -79,8 +70,6 @@ final class Session {
         if case .signedIn(let user) = state { user } else { nil }
     }
 
-    // ── Starting ─────────────────────────────────────────────────────────────
-
     func tryDemo() {
         PushState.configure(nil)
         UserDefaults.standard.set(true, forKey: Self.demoKey)
@@ -88,7 +77,6 @@ final class Session {
         state = .demo
     }
 
-    /** "Sign in with Google": the Otter account, and that Google account as its first mailbox. */
     func signIn() async throws {
         busy = "Signing in…"
         defer { busy = nil }
@@ -119,7 +107,6 @@ final class Session {
         Task { await refreshAccount() }
     }
 
-    /** Everything from the relay, then mail from the mailboxes' servers: on launch, and when the app comes back. */
     func refreshAccount() async {
         if let refreshing { return await refreshing.value }
         guard case .signedIn = state, let currentSync = sync else { return }
@@ -143,11 +130,9 @@ final class Session {
         }
         refreshing = task
         await task.value
-        // A newer session may already be refreshing after sign-out.
         if sync === currentSync { refreshing = nil }
     }
 
-    /** Listens to the relay while the app is open. */
     func connect() {
         relay.connect { [weak self] event in
             guard let self else { return }
@@ -166,14 +151,12 @@ final class Session {
         }
     }
 
-    /** The app went to the background: the relay's events and IMAP's IDLE stop. */
     func disconnect() {
         store.commitPendingAction()
         relay.disconnect()
         sync?.stopWatching()
     }
 
-    /** A background refresh: catch up and say what's new. */
     func backgroundRefresh() async {
         guard case .signedIn = state else { return }
         if let account = try? await relay.me() { pushTopic = account.pushTopic }
@@ -187,9 +170,6 @@ final class Session {
         await updateBadge()
     }
 
-    // ── Mailboxes ────────────────────────────────────────────────────────────
-
-    /** Signs in to another Google account and links it to the Otter account. */
     func addMailbox() async throws {
         busy = "Adding the mailbox…"
         defer { busy = nil }
@@ -200,14 +180,12 @@ final class Session {
         await offerNotifications(profile.email)
     }
 
-    /** Signs in to Google (or Microsoft, for Outlook) for a mailbox linked on another device (or whose sign-in lapsed). */
     func signIn(mailbox email: String) async throws {
         busy = "Signing in…"
         defer { busy = nil }
         if store.mailbox(email)?.provider == .outlook {
             let (profile, _) = try await microsoft.signIn(loginHint: email)
             guard profile.email == email.lowercased() else {
-                // Not a mailbox here: its sign-in has no use.
                 if store.mailbox(profile.email) == nil { microsoft.forget(profile.email) }
                 throw MicrosoftAuth.Failure.microsoft("That's \(profile.email). Sign in as \(email).")
             }
@@ -224,10 +202,6 @@ final class Session {
         await sync?.watch(pushTopic: pushTopic)
     }
 
-    /**
-     * Signs in to an Outlook mailbox (Microsoft 365, or outlook.com and the
-     * like) and links it to the Otter account with Microsoft's ID token.
-     */
     func addOutlookMailbox() async throws {
         busy = "Adding the mailbox…"
         defer { busy = nil }
@@ -239,7 +213,6 @@ final class Session {
             name: profile.name ?? profile.email,
             displayName: existing?.displayName ?? profile.name ?? profile.email,
             color: existing?.color ?? Self.defaultColor(profile.email),
-            // Outlook's signature follows the Otter account, as IMAP's does.
             signature: existing?.signature ?? remoteSignatures[profile.email] ?? "",
             labels: existing?.labels ?? [],
             hasArchive: existing?.hasArchive,
@@ -268,7 +241,6 @@ final class Session {
         try await ImapProvider.verify(settings, password: password)
         busy = "Adding the mailbox…"
         let existing = store.mailbox(email)
-        // IMAP says nothing of who's there: the address stands for the name until it's set in Settings.
         let name = existing?.name ?? ""
         try await relay.putAccount(email, profile: .init(
             email: email, imap: settings, displayName: existing?.displayName, color: existing?.color
@@ -290,7 +262,6 @@ final class Session {
         await sync?.watch(pushTopic: pushTopic)
     }
 
-    /** Enters the password for an IMAP mailbox linked on another device (or whose password changed). */
     func signIn(mailbox email: String, password: String) async throws {
         guard let settings = store.mailbox(email)?.imap else { return }
         busy = "Signing in…"
@@ -323,20 +294,17 @@ final class Session {
         ))
     }
 
-    /** A mailbox's name and color, here and on every device. */
     func update(_ mailbox: Mailbox) {
         store.upsert(mailbox: mailbox)
         saveMailboxes()
         guard !store.isDemo else { return }
         Task {
-            // Not the name and picture: the devices signed in to Google send those, and ours may be older.
             try? await relay.putAccount(mailbox.email, profile: .init(
                 email: mailbox.email, displayName: mailbox.displayName, color: mailbox.color
             ))
         }
     }
 
-    /** Saves the signature in Gmail, or here and on the Otter account for IMAP and Outlook (the demo just keeps it). */
     func setSignature(_ html: String, for email: String) async throws {
         if let sync {
             try await sync.setSignature(html, for: email)
@@ -350,7 +318,6 @@ final class Session {
         }
     }
 
-    /** Removes the mailbox from the Otter account (every device) and signs it out here. */
     func remove(_ mailbox: Mailbox) async {
         store.remove(mailbox: mailbox.email)
         saveMailboxes()
@@ -360,7 +327,6 @@ final class Session {
         try? await relay.unlink(mailbox.email)
     }
 
-    /** Forgets the mailbox's sign-in here: Google's, Microsoft's, or the IMAP password. */
     private func signOut(_ mailbox: Mailbox) async {
         if mailbox.provider == .gmail { google.forget(mailbox.email) }
         if mailbox.provider == .imap { ImapProvider.setPassword(nil, for: mailbox.email) }
@@ -378,7 +344,6 @@ final class Session {
             let imap = account.provider == .imap ? account.imap : nil
             let outlook = account.provider == .outlook
             if let before = existing?.imap, let imap, Self.hosts(before) != Self.hosts(imap) {
-                // Moved to other servers on another device: the password isn't sent there until it's entered again for them.
                 ImapProvider.setPassword(nil, for: account.email)
                 sync?.stop(account.email)
             }
@@ -387,7 +352,6 @@ final class Session {
                 name: account.name ?? (imap == nil ? account.email : ""),
                 displayName: account.displayName ?? account.name ?? account.email,
                 color: account.color ?? Self.defaultColor(account.email),
-                // New here: an IMAP or Outlook mailbox's signature as the account keeps it.
                 signature: existing?.signature ?? (imap == nil && !outlook ? "" : remoteSignatures[account.email.lowercased()] ?? ""),
                 labels: existing?.labels ?? [],
                 hasArchive: existing?.hasArchive,
@@ -398,7 +362,6 @@ final class Session {
                 outlook: outlook ? true : nil
             ))
         }
-        // Unlinked on another device: gone here too.
         for mailbox in store.mailboxes where !linked.contains(mailbox.email.lowercased()) {
             store.remove(mailbox: mailbox.email)
             sync?.forget(mailbox.email)
@@ -425,8 +388,6 @@ final class Session {
         for unit in email.utf16 { hash = hash &* 31 &+ Int32(unit) }
         return palette[Int(hash.magnitude) % palette.count]
     }
-
-    // ── Preferences ──────────────────────────────────────────────────────────
 
     private func pullPreferences() async {
         guard let userId = user?.id else { return }
@@ -462,7 +423,6 @@ final class Session {
         (remoteSections["signatures"] as? [String: String]) ?? [:]
     }
 
-    /** IMAP servers keep no signatures: the account's (core's `signatures` section) are theirs. */
     private func applySignatures() {
         var changed = false
         for var mailbox in store.mailboxes where !mailbox.capabilities.serverSignatures {
@@ -516,11 +476,9 @@ final class Session {
                 if user?.id == userId, UserDefaults.standard.string(forKey: key) == sentMode {
                     UserDefaults.standard.removeObject(forKey: key)
                 }
-            } catch { /* Keep a pending notification mode until the next account refresh. */ }
+            } catch {   }
         }
     }
-
-    // ── Devices and signing out ──────────────────────────────────────────────
 
     func signOut() async {
         endSession()
@@ -532,7 +490,6 @@ final class Session {
         endSession()
     }
 
-    /** Back to the welcome screen, with nothing of the account left here. */
     private func endSession() {
         opening = nil
         notificationConnections = [:]
@@ -573,7 +530,6 @@ final class Session {
         Task { try? await UNUserNotificationCenter.current().setBadgeCount(0) }
     }
 
-    /** The demo ends the same way. */
     func leaveDemo() {
         store.commitPendingAction()
         store.clearRecovery()
@@ -582,9 +538,6 @@ final class Session {
         state = .welcome
     }
 
-    // ── The app icon ─────────────────────────────────────────────────────────
-
-    /** Unread in the inbox, on the icon (the Dock badge on the Mac). */
     private func updateBadge() async {
         guard preferences.notifications != .off else { return }
         let unread = store.shownMailboxes.reduce(0) { $0 + store.unreadCount(in: .inbox, scope: $1.email) }
@@ -605,7 +558,6 @@ final class Session {
         configurePush()
     }
 
-    /** Local preference/access changes take effect immediately, even when the relay is offline. */
     private func configurePush() {
         guard let user else { PushState.configure(nil); return }
         let available = store.shownMailboxes.filter { mailbox in
@@ -642,7 +594,7 @@ final class Session {
                 let emails = enabled && config.mode != "off" ? config.mailboxes : []
                 sync?.pushMailboxes = Set(emails)
                 UserDefaults.standard.set(emails, forKey: "push:mailboxes:" + config.userId)
-            } catch { /* Retry on the next lifecycle/preference/token change. */ }
+            } catch {   }
             return
         }
     }
@@ -658,7 +610,6 @@ final class Session {
         let known = { [store] (email: String?) in
             email.flatMap { email in store.mailboxes.first { $0.email.lowercased() == email.lowercased() } }
         }
-        // A mailbox linked on another device is only here once the account's mailboxes arrive.
         if known(destination.email) == nil { await refreshAccount() } else { Task { await refreshAccount() } }
         guard user?.id == originalUser else { opening = nil; return }
         guard let email = destination.email ?? destination.thread.flatMap({ store.thread($0)?.mailbox }),
@@ -680,7 +631,6 @@ final class Session {
             guard let thread = destination.thread else { return }
             await sync?.loadNotificationThread(thread, email: mailbox.email)
         case .imap:
-            // A UID only resolves to its thread through the folder.
             guard let message = destination.message else { return }
             await sync?.sync(mailbox.email)
             guard user?.id == originalUser, store.mailbox(mailbox.email) != nil else { opening = nil; return }

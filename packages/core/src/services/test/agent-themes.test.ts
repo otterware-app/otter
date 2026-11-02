@@ -1,8 +1,3 @@
-/**
- * The agent's theme tools (agent/tools/themes.ts) on an in-memory copy of the
- * synced ui preferences the app keeps its themes in.
- */
-
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const ui = vi.hoisted(() => ({ values: {} as Record<string, string> }));
@@ -51,7 +46,6 @@ describe("theme tools", () => {
     const ocean = await tool("get_theme")({ theme: "ocean" });
     expect(ocean.builtIn).toBe(true);
     expect(ocean.dark.canvas).toBeTruthy();
-    // Blended toward the canvas, as the app paints Ocean's borders.
     expect(ocean.dark.border).toMatch(/^#[0-9a-f]{6}$/);
     expect(ocean.dark).not.toHaveProperty("terminalBackground");
   });

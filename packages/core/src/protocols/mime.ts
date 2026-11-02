@@ -1,8 +1,3 @@
-/**
- * Reading a whole message (IMAP's BODY[]) with postal-mime, which runs in
- * Node and in browsers alike.
- */
-
 import PostalMime from "postal-mime";
 import { utf8Encode } from "../bytes.js";
 

@@ -23,7 +23,6 @@ export type PageHandlers = {
   onFailed(error: string): void;
 };
 
-/** The invoke a page request or effect belongs to: it goes to the tab that made it. */
 const ORIGIN_CHANNELS: Record<keyof PageRequests | "download" | "open", string[]> = {
   todoistSignIn: ["todoist:signIn"],
   pickFiles: ["gmail:pickAttachments"],
@@ -50,7 +49,6 @@ type TabMessage =
   | { type: "hello" };
 
 const ALL_TABS = "*";
-/** The demos run their own backend, apart from real mail on the same origin. */
 const NAME = __DEMO__ ? "otter-mail-demo" : __DEV_DEMO__ ? "otter-mail-dev-demo" : "otter-mail";
 
 export function connectBackend(page: PageHandlers) {
@@ -63,8 +61,6 @@ export function connectBackend(page: PageHandlers) {
   /** The tab hosting the backend, once one has said so. */
   let host: string | null = null;
 
-  // Invokes waiting for their result. `sent` ones went to a host that may
-  // since have gone away; unsent ones wait for a host.
   let nextId = 1;
   const pending = new Map<
     number,
@@ -77,7 +73,6 @@ export function connectBackend(page: PageHandlers) {
     }
   >();
 
-  /** A message for this tab's side of things (from the host, or from itself when hosting). */
   function receive(message: TabMessage): void {
     switch (message.type) {
       case "result": {
@@ -126,7 +121,6 @@ export function connectBackend(page: PageHandlers) {
     }
   }
 
-  /** To the host: straight in when this tab is it, else over the channel. */
   function send(message: TabMessage): void {
     if (hosting) hosting(message);
     else toTabs(message);
@@ -137,9 +131,7 @@ export function connectBackend(page: PageHandlers) {
     else receive(event.data);
   });
 
-  /** Runs the backend here, for every tab, until this tab closes. */
   function startHosting(): void {
-    // Calls made while the backend starts wait for it; earlier ones went elsewhere.
     host = null;
     const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
     const post = (message: ToWorker) => worker.postMessage(message, []);
@@ -147,7 +139,6 @@ export function connectBackend(page: PageHandlers) {
     const lastOrigin = new Map<string, string>();
     let nextWorkerId = 1;
 
-    /** Delivers to its tab: this one, another one, or all of them. */
     function deliver(message: TabMessage & { tab?: string }): void {
       if (message.tab === undefined || message.tab === tab || message.tab === ALL_TABS) {
         receive(message);
@@ -222,11 +213,9 @@ export function connectBackend(page: PageHandlers) {
     });
   }
 
-  // The lock is held until this tab closes; the next waiting tab then hosts.
   const resetDemo = __DEMO__ && new URLSearchParams(location.search).has("reset-demo");
   if (resetDemo) history.replaceState(null, "", location.pathname + location.hash);
   void navigator.locks.request(`${NAME}:backend`, async () => {
-    // Holding the lock, no tab has the demo's cache open: start it over.
     if (resetDemo) {
       const root = await navigator.storage.getDirectory();
       for (const name of [".otter-mail-demo", "demo-files"]) {

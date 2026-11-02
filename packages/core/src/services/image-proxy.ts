@@ -1,5 +1,3 @@
-/** Remote images in mail, fetched by the backend. */
-
 import { toBase64 } from "../bytes.js";
 
 const MAX_PROXY_IMAGE_BYTES = 10 * 1024 * 1024;

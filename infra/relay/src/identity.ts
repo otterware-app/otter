@@ -1,4 +1,3 @@
-/** Browser sign-in and account management for the shared Otter identity. */
 import { eq } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { html, raw } from "hono/html";

@@ -1,5 +1,3 @@
-/** The Otter Mail agent: its mark and settings (its OpenRouter key, access, models). */
-
 import { AgentIcon, type UiExtension } from "@otter-mail/web/extension-kit";
 
 import { manifest } from "../manifest";

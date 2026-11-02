@@ -1,17 +1,9 @@
 import Foundation
 import Network
 
-/**
- * Where an address's mail servers are: the providers people use most, then
- * Thunderbird's autoconfig database, then the domain's own autoconfig file,
- * then its MX host (Thunderbird's entry for the MX's domain, or the MX itself
- * if it takes TLS on 993 under its own name), and last a guess
- * (imap.<domain>, smtp.<domain>) to check by hand.
- */
 nonisolated enum MailDiscovery {
     struct Found {
         var settings: ImapSettings
-        /** Where they came from, or what to know (an app-specific password). */
         var note: String
     }
 
@@ -88,9 +80,6 @@ nonisolated enum MailDiscovery {
         return "Its certificate doesn't match \(host). Your domain's mail server is \(mx): use that as the server name."
     }
 
-    // ── MX ───────────────────────────────────────────────────────────────────
-
-    /** The domain's most preferred MX host (Cloudflare's DNS-over-HTTPS), unless it's Google's or Microsoft's. */
     private static func mxHost(_ domain: String) async -> String? {
         guard let url = URL(string: "https://cloudflare-dns.com/dns-query?name=\(domain)&type=MX") else { return nil }
         var request = URLRequest(url: url)
@@ -114,7 +103,6 @@ nonisolated enum MailDiscovery {
         return notImap.contains { host == $0 || host.hasSuffix(".\($0)") } ? nil : host
     }
 
-    /** mx1.mail.example.co.uk → example.co.uk, roughly. */
     private static func baseDomain(_ host: String) -> String {
         let labels = host.split(separator: ".")
         let suffixes: Set<Substring> = ["co", "com", "net", "org", "ac", "gov", "edu", "ne", "or"]
@@ -122,7 +110,6 @@ nonisolated enum MailDiscovery {
         return labels.suffix(suffix ? 3 : 2).joined(separator: ".")
     }
 
-    /** Whether the host completes a TLS handshake on 993 with a certificate for its own name (within 5 seconds). */
     private static func takesTLS(_ host: String) async -> Bool {
         let tcp = NWProtocolTCP.Options()
         tcp.connectionTimeout = 5
@@ -149,8 +136,6 @@ nonisolated enum MailDiscovery {
             queue.asyncAfter(deadline: .now() + 5) { finish(false) }
         }
     }
-
-    // ── Known providers ──────────────────────────────────────────────────────
 
     private static func preset(_ domain: String, email: String) -> Found? {
         let found = { (imap: String, smtp: String, smtpPort: Int, note: String) in
@@ -184,8 +169,6 @@ nonisolated enum MailDiscovery {
             return nil
         }
     }
-
-    // ── Autoconfig (Thunderbird's format) ────────────────────────────────────
 
     private static func autoconfig(_ url: URL, email: String) async -> ImapSettings? {
         var request = URLRequest(url: url)

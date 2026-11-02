@@ -3,12 +3,6 @@ import type * as React from "react";
 
 import { cn } from "~/lib/utils";
 
-/**
- * Centered placeholder for an empty screen, in the Codex style: an outline
- * icon, a large quiet title, a line of explanation, and optional actions
- * (layout adapted from Otter Code's components/ui/empty.tsx). `icon` is a
- * lucide icon; `media` takes any node instead.
- */
 function EmptyState({
   title,
   description,

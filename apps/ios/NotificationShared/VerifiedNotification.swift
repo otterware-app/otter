@@ -1,6 +1,5 @@
 import Foundation
 
-/** Reads only the message the server confirmed, directly from the user's provider. */
 nonisolated enum VerifiedNotification {
     struct Metadata: Decodable, Sendable {
         var version: Int

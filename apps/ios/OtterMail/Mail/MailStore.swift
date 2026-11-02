@@ -28,7 +28,6 @@ final class MailStore {
         let threads: [MailThread]
         var title: String { "\(threads.count == 1 ? "Conversation" : "\(threads.count) conversations") \(trash ? "trashed" : "archived")" }
     }
-    /** Gmail, for signed-in mailboxes; nil in the demo. */
     @ObservationIgnored var sync: MailSync?
 
     init(preferences: Preferences, mailboxes: [Mailbox] = [], threads: [MailThread] = []) {
@@ -46,9 +45,6 @@ final class MailStore {
 
     var isDemo: Bool { sync == nil }
 
-    // ── Mailboxes ────────────────────────────────────────────────────────────
-
-    /** Every mailbox in the user's order, turned-off ones included. */
     var arrangedMailboxes: [Mailbox] {
         let order = preferences.arrangement.order
         let rank = { (m: Mailbox) in order.firstIndex(of: m.email) ?? order.count }
@@ -57,7 +53,6 @@ final class MailStore {
             .map(\.element)
     }
 
-    /** The mailboxes the app shows: turned on, in order. */
     var shownMailboxes: [Mailbox] {
         arrangedMailboxes.filter { !preferences.arrangement.off.contains($0.email) }
     }
@@ -72,7 +67,6 @@ final class MailStore {
         }
     }
 
-    /** Removes the mailbox and its mail from this device; nothing is deleted from Gmail. */
     func remove(mailbox email: String) {
         commitPendingAction()
         for recovery in recoveredDrafts where recovery.draft.from == email { removeRecovery(recovery.draft, deletingFiles: true) }
@@ -89,9 +83,6 @@ final class MailStore {
         upsert(mailbox: mailbox)
     }
 
-    // ── Sync health ──────────────────────────────────────────────────────────
-
-    /** How a mailbox's last sync went, for the drawer's status line. */
     struct SyncHealth: Equatable {
         var syncedAt: Date?
         /** Why the last sync failed ("Can't connect"); nil when it worked. */
@@ -106,11 +97,6 @@ final class MailStore {
         health[email] = entry
     }
 
-    /**
-     * Mailboxes this iPhone was signed in to until the provider ended it
-     * (revoked, expired, a refused password): raised on the mail list, not
-     * just in the drawer. Kept across launches until signed in again.
-     */
     private(set) var lostSignIn = Set(UserDefaults.standard.stringArray(forKey: "mail.lostSignIn") ?? [])
 
     func setLostSignIn(_ lost: Bool, _ email: String) {
@@ -131,9 +117,6 @@ final class MailStore {
         preferences.arrangement.order = order
     }
 
-    // ── Reading ──────────────────────────────────────────────────────────────
-
-    /** A folder's threads in `scope` (a mailbox's address), newest first. */
     func threads(in folder: Folder, scope: String) -> [MailThread] {
         // Cache hits must still subscribe the view to mail changes.
         _ = threads
@@ -153,7 +136,6 @@ final class MailStore {
         return count
     }
 
-    /** A folder's count in the sidebar, as on the desktop: its unread mail, but every draft in Drafts and none on All Mail. */
     func badge(in folder: Folder, scope: String) -> Int {
         switch folder {
         case .allMail: return 0
@@ -187,11 +169,6 @@ final class MailStore {
         }
     }
 
-    /**
-     * Gmail-style search over what's here: `from:`, `to:`, `subject:`,
-     * `label:`, `is:unread`, `is:starred`, `has:attachment`, and words
-     * anywhere. Junk and Trash are left out, as in Gmail.
-     */
     func search(_ query: String, scope: String) -> [MailThread] {
         let terms = query.lowercased().split(separator: " ").map(String.init)
         guard !terms.isEmpty else { return [] }
@@ -221,8 +198,6 @@ final class MailStore {
             return haystack.contains(term)
         }
     }
-
-    // ── What sync brings ─────────────────────────────────────────────────────
 
     func upsert(threads fresh: [MailThread]) {
         guard !fresh.isEmpty else { return }
@@ -255,22 +230,16 @@ final class MailStore {
         threads.removeAll { $0.messages.isEmpty }
     }
 
-    // ── Changing ─────────────────────────────────────────────────────────────
-
-    /** A change to a thread, as Gmail takes it. */
     enum Change {
         case modify(add: [String], remove: [String])
-        /** Gmail stars a message, not a thread: the latest. */
         case star(message: String)
         case trash, untrash, delete
     }
 
-    /** Where Archive is a folder of its own in the thread's mailbox (Outlook, IMAP). */
     private func archiveFolder(_ thread: MailThread) -> Bool {
         mailbox(thread.mailbox)?.capabilities.archiveFolder == true
     }
 
-    /** Whether Archive takes the thread somewhere: out of the inbox, or (Outlook, IMAP) one of the user's folders. */
     func canArchive(_ thread: MailThread) -> Bool {
         !thread.archivable(archiveFolder: archiveFolder(thread)).isEmpty
     }
@@ -360,7 +329,6 @@ final class MailStore {
         }
     }
 
-    /** Back to the inbox, out of Junk, Trash or the Archive. */
     func moveToInbox(_ id: String) {
         guard let thread = thread(id) else { return }
         let folders = archiveFolder(thread)
@@ -387,7 +355,6 @@ final class MailStore {
         }
     }
 
-    /** Suggestions from this mailbox's cached correspondence, most recently seen first. */
     func contacts(matching query: String, from email: String, excluding: Set<String>) -> [Person] {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return [] }
@@ -463,9 +430,6 @@ final class MailStore {
         return try Data(contentsOf: await attachmentURL(original, of: message, in: source))
     }
 
-    // ── Writing ──────────────────────────────────────────────────────────────
-
-    /** Sends `draft`: into its thread when it's a reply, or as a new one. */
     func send(_ draft: Draft) async throws {
         guard draft.canSend else { throw Draft.Failure.invalidRecipients }
         try await write(draft, asDraft: false)
@@ -486,7 +450,6 @@ final class MailStore {
         await sync?.discard(draft)
     }
 
-    /** Shows the message at once, then hands it to Gmail (which answers with its own copy). */
     private func write(_ draft: Draft, asDraft: Bool) async throws {
         guard let mailbox = mailbox(draft.from), !mailbox.signedOut else { throw Draft.Failure.mailboxUnavailable }
         guard draft.files.reduce(0, { $0 + $1.size }) <= DraftFile.limit else { throw DraftFile.Failure.tooLarge }
@@ -505,7 +468,6 @@ final class MailStore {
             draft: asDraft,
             headers: draft.bcc.isEmpty ? [:] : ["Bcc": draft.bcc]
         )
-        // A draft picked back up is replaced by what it becomes.
         let threadID = draft.threadID ?? draft.messageID.flatMap { id in threads.first { $0.messages.contains { $0.id == id } }?.id }
         if let threadID, let i = threads.firstIndex(where: { $0.id == threadID }) {
             threads[i].messages.append(message)

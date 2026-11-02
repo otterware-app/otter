@@ -8,7 +8,6 @@ nonisolated struct NotificationTests: Sendable {
     @Test func googleGrantRecordsItsClient() throws {
         let email = "grant-test@otter.example"
         let accessKey = "google-access-token:\(email)"
-        // The unsigned CI simulator has no shared-Keychain entitlement.
         var saved = [accessKey: "fake-replaced-access"]
         try #require(GoogleCredentials.save(email, credential: .init(refreshToken: "fake-refresh", clientID: GoogleCredentials.clientID), write: { saved[$0] = $1; return true }))
         #expect(saved[accessKey] == nil)

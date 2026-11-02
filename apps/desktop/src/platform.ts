@@ -1,11 +1,4 @@
 import { todoistSignIn } from "./services/todoist-oauth.js";
-/**
- * The desktop's Platform for @otter-mail/core, in the mail backend's utility
- * process (backend.ts): its data in the state directory (paths.ts), SQLite
- * through node:sqlite, what only the main process can do (safeStorage,
- * dialogs, notifications, the badge) asked of main (main-link.ts), and what
- * differs between macOS and Linux from os/backend.ts.
- */
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import * as fs from "node:fs/promises";
@@ -52,7 +45,6 @@ function openDatabase(): SqlDatabase {
   return db as unknown as SqlDatabase;
 }
 
-/** Listeners for the computer waking up (main says so, backend.ts). */
 export const resumeListeners = new Set<() => void>();
 
 export function desktopPlatform(): Platform {

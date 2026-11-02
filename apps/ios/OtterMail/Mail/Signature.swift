@@ -1,9 +1,5 @@
 import Foundation
 
-/**
- * Signatures live in Gmail as HTML (one per address; core's signatures.ts).
- * The phone edits them as plain text: lines in, lines out.
- */
 enum Signature {
     static func plainText(_ html: String) -> String {
         var text = html

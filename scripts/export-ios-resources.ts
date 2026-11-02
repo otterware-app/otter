@@ -1,11 +1,3 @@
-/**
- * Hands the iPhone app (apps/ios) what it shares with the other apps, as
- * JSON in its bundle: the color themes and the demo mailbox, both from
- * packages/shared. Run it after changing either:
- *
- *   pnpm ios:resources
- */
-
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,7 +23,6 @@ const themes = APP_THEMES.map((theme) => ({
   dark: getThemeColorsForAppearance(theme, "dark") ?? OTTER_DARK_THEME_COLORS,
 }));
 
-// Dates in the mail's text are fixed at export; the app places messages by `hoursAgo`.
 const seededAt = Date.now();
 const demo = DEMO_ACCOUNTS.map(({ threads, ...account }) => ({
   ...account,
@@ -39,7 +30,6 @@ const demo = DEMO_ACCOUNTS.map(({ threads, ...account }) => ({
     ...thread,
     messages: thread.messages.map(({ attachments, html, ...message }) => ({
       ...message,
-      // Inline images (`cid:`) go into the HTML itself; the app has no Gmail to fetch them from.
       html: (attachments ?? []).reduce(
         (body, a) =>
           a.contentId && body

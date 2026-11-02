@@ -62,14 +62,8 @@ export function ChatView({
   onClearQuote?: () => void;
   inputRef: RefObject<HTMLTextAreaElement | null>;
   onOpenChange: (change: ChatChange) => Promise<void>;
-  /** Where a file the agent linked opens; by default, a preview over the app. */
   onOpenFile?: (href: string) => void;
-  /** The small window's: a smaller headline and text (13px, Linear's), closer to the edges. */
   compact?: boolean;
-  /**
-   * Under the composer of an empty chat (the workspace's Agent home, Linear's):
-   * the composer moves up from the foot to sit between the headline and this.
-   */
   home?: ReactNode;
 }) {
   const convo = useChats((s) => s.conversations.find((c) => c.id === chatId));
@@ -95,7 +89,6 @@ export function ChatView({
     inputRef.current?.focus();
   });
 
-  // The cited passage whose comment is open.
   const [commenting, setCommenting] = useState<{
     id: string;
     anchor: DOMRect;
@@ -147,7 +140,6 @@ export function ChatView({
   const fallback = chat.state?.providers.find(
     (p) => p.kind !== chat.kind && isProviderUsable(p) && p.checkedAt !== null,
   );
-  // An empty chat shows a centered headline above the pinned composer (Codex).
   const hero = turns.length === 0 && !hydrating && !unloaded;
   const composer = elsewhere ? (
     <p className="shrink-0 px-6 pb-4 pt-2 text-center text-[13px] text-muted-foreground">

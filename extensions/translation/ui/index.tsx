@@ -39,7 +39,6 @@ function useConversation({ accountId, messageId, message, enabled }: Conversatio
     on: false,
     target: null,
   });
-  // A new conversation (messageId) starts from the setting.
   /* oxlint-disable react/set-state-in-effect, react/exhaustive-effect-dependencies -- Re-run when the conversation changes, though the effect doesn't read it. */
   useEffect(
     () => setTranslation({ on: enabled && autoTranslate, target: null }),

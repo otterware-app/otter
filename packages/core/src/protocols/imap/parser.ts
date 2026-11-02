@@ -15,17 +15,13 @@ export type ImapToken =
   | { type: "list"; items: ImapToken[] };
 
 export interface ImapResponse {
-  /** "*" for untagged responses, "+" for continuations, else the command's tag. */
   tag: string;
   /** Upper-cased: OK, NO, BAD, BYE, PREAUTH, CAPABILITY, LIST, FETCH, EXISTS, … ("" for "+"). */
   type: string;
-  /** The message number of `* 12 EXISTS`, `* 3 FETCH (…)`. */
   number?: number;
   /** A status response's code: `[UIDVALIDITY 3857529045]` → { name: "UIDVALIDITY", args }. */
   code?: { name: string; args: ImapToken[] };
-  /** The human-readable text of a status response or a continuation. */
   text: string;
-  /** Everything after the type, tokenized (empty for status responses). */
   args: ImapToken[];
 }
 
@@ -53,19 +49,15 @@ const RBRACE = 125;
 const TILDE = 126;
 const PLUS = 43;
 
-/** The longest line (outside literals) a server may send: a protocol error beyond. */
 export const MAX_LINE = 1024 * 1024;
 /** The largest literal: bigger than any message a mail server would take. */
 export const MAX_LITERAL = 100 * 1024 * 1024;
 
-/** Collects chunks and hands out whole responses. */
 export class ResponseReader {
   private buf = new Uint8Array(16 * 1024);
   private start = 0;
   private end = 0;
-  /** Where the current response's current line starts (after its last literal). */
   private line = 0;
-  /** Where to look for that line's end. */
   private scan = 0;
 
   push(chunk: Uint8Array): void {
@@ -92,7 +84,6 @@ export class ResponseReader {
     return this.end - this.start;
   }
 
-  /** The next complete response, or null until more bytes arrive. */
   next(): ImapResponse | null {
     for (;;) {
       const lf = this.buf.subarray(0, this.end).indexOf(LF, this.scan);
@@ -116,7 +107,7 @@ export class ResponseReader {
         return parseResponse(frame);
       }
       if (lf + 1 + literal > this.end) {
-        this.scan = lf; // come back to this line once the literal is in
+        this.scan = lf;
         return null;
       }
       this.line = this.scan = lf + 1 + literal;
@@ -124,7 +115,6 @@ export class ResponseReader {
   }
 }
 
-/** n when the line ending at `lf` announces a literal `{n}` (or `~{n}`, `{n+}`). */
 function literalSize(buf: Uint8Array, from: number, lf: number): number | null {
   let i = lf - 1;
   if (i >= from && buf[i] === CR) i--;
@@ -143,7 +133,6 @@ function literalSize(buf: Uint8Array, from: number, lf: number): number | null {
   return digits > 0 && i >= from && buf[i] === LBRACE ? size : null;
 }
 
-/** Parses one whole response (its bytes up to and including the final CRLF). */
 export function parseResponse(frame: Uint8Array): ImapResponse {
   let end = frame.length;
   if (frame[end - 1] === LF) end--;
@@ -199,7 +188,6 @@ class Cursor {
     return text;
   }
 
-  /** `[NAME args…]`, the code of a status response. Unparseable args are kept as one atom. */
   code(): { name: string; args: ImapToken[] } {
     this.pos++;
     const name = this.atom(true).toUpperCase();
@@ -219,7 +207,6 @@ class Cursor {
     }
   }
 
-  /** Tokens up to the end (or, inside a response code, the closing bracket). */
   tokens(inCode: boolean): ImapToken[] {
     const tokens: ImapToken[] = [];
     for (;;) {
@@ -317,9 +304,6 @@ class Cursor {
   }
 }
 
-// Reading tokens.
-
-/** An atom's, string's or literal's text; null for NIL. */
 export function tokenText(token: ImapToken | undefined): string | null {
   switch (token?.type) {
     case "atom":

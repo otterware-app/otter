@@ -18,18 +18,9 @@ import type { MessageDetail } from "./types";
  * · ⌘↩ · Send).
  */
 
-/**
- * Codex's composer card: a big soft surface. Light themes keep a faint outline
- * and shadow; dark themes let the raised tone carry it.
- */
 export const COMPOSER_SURFACE =
   "rounded-3xl border border-(--chat-composer-outline) bg-(--chat-composer-surface) shadow-composer transition-colors focus-within:border-input/70 dark:border-transparent dark:shadow-none dark:inset-shadow-2xs dark:inset-shadow-(color:--chat-composer-highlight) dark:focus-within:border-transparent";
 
-/**
- * The composer surface; ⌘↩ inside it sends. `card` is Otter Code's floating
- * chat-composer card (inline reply, draft in a thread); `plain` is for the
- * full-page composer, which is its own surface.
- */
 export function ComposerCard({
   onSend,
   variant = "card",
@@ -45,7 +36,6 @@ export function ComposerCard({
     <div
       className={cn("flex min-w-0 flex-col", variant === "card" && COMPOSER_SURFACE, className)}
       onKeyDown={(e) => {
-        // Dialogs are portalled but their key events still bubble through React.
         if ((e.target as Element).closest('[role="dialog"]')) return;
         if (matchesCommand(e.nativeEvent, "composer.send")) {
           e.preventDefault();
@@ -58,7 +48,6 @@ export function ComposerCard({
   );
 }
 
-/** One labelled header row (From, To, Cc, Subject…), hairline-separated. */
 export function ComposerField({
   label,
   trailing,
@@ -77,7 +66,6 @@ export function ComposerField({
   );
 }
 
-/** Quiet "Cc Bcc" reveal buttons for the To row. */
 export function CcBccToggles({
   showCc,
   showBcc,
@@ -107,7 +95,6 @@ export function CcBccToggles({
   );
 }
 
-/** Subject field input, styled as the message's title. */
 export function SubjectInput({
   value,
   onChange,
@@ -117,7 +104,6 @@ export function SubjectInput({
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  /** The page's headline (a full-page draft), not a field row. */
   title?: boolean;
 }) {
   return (
@@ -134,7 +120,6 @@ export function SubjectInput({
   );
 }
 
-/** The fields a conflict compares. */
 export type DraftVersionText = { to: string; cc?: string; subject: string; body: string };
 
 /**
@@ -150,7 +135,6 @@ export function DraftRemoteBanner({
   onSaveAsNew,
 }: {
   remote: DraftRemoteState | null;
-  /** This composer's current version (for the conflict diff). */
   mine: DraftVersionText;
   onTakeTheirs: () => void;
   onKeepMine: () => void;
@@ -287,7 +271,6 @@ function DraftDiff({ theirs, mine }: { theirs: MessageDetail; mine: DraftVersion
 }
 /* oxlint-enable react/no-array-index-key */
 
-/** Footer status for a composer's draft. */
 export function draftStatus(draft: {
   saveState: DraftSaveState;
   remoteNotice: boolean;
@@ -303,10 +286,8 @@ export function draftStatusText(state: DraftSaveState): string | null {
   return null;
 }
 
-/** Codex-size icon buttons for the composer footer. */
 const FOOTER_ICON = "size-8 rounded-lg";
 
-/** Attach · formatting · discard on the left; status, ⌘↩ hint and Send on the right. */
 export function ComposerFooter({
   onAttach,
   attachDisabled,
@@ -328,7 +309,6 @@ export function ComposerFooter({
   onDiscard: () => void;
   status?: ReactNode;
   statusTone?: "muted" | "error";
-  /** The mailbox it's sent from. */
   accountId: string | null | undefined;
   canSend: boolean;
   onSend: () => void;
@@ -397,10 +377,6 @@ export function ComposerFooter({
   );
 }
 
-/**
- * Full-height compose page (a new message, or a draft with no conversation):
- * header fields and the body scroll as one document; the footer stays put.
- */
 export function ComposeDocument({
   fields,
   subject,
@@ -409,7 +385,6 @@ export function ComposeDocument({
   footer,
 }: {
   fields: ReactNode;
-  /** The subject as the page's headline, between the recipients and the body. */
   subject?: ReactNode;
   editor: ReactNode;
   attachments?: ReactNode;

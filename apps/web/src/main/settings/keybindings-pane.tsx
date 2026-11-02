@@ -56,19 +56,10 @@ import {
 } from "./settings-ui";
 import { keybindingSearchAnchorId, searchableSetting } from "./settings-search";
 
-/**
- * Settings › Keybindings, after Otter Code's panel: every binding as a row
- * (command, When clause, keys), click the keys to record new ones, edit the
- * When clause in a popover, and ⚠ for conflicts or unknown conditions.
- */
-
 type Row = { id: string; rule: KeybindingRule; source: "Default" | "Custom" };
 
 const KNOWN_VARIABLES = new Set<string>(WHEN_VARIABLES);
 
-// ── Logic ────────────────────────────────────────────────────────────────────
-
-/** Other rows on the same keys whose conditions can both hold (Otter Code's test). */
 function conflictLabels(rows: Row[], id: string, key: string, when: string | undefined) {
   const norm = normalizeKey(key);
   const w = normalizeWhen(when);
@@ -101,9 +92,6 @@ function warningFor(rows: Row[], id: string, key: string, when: string | undefin
   return null;
 }
 
-// ── Pieces ───────────────────────────────────────────────────────────────────
-
-/** A key string as plain glyphs: ⇧⌘K, and "then" between sequence strokes. */
 /* oxlint-disable react/no-array-index-key -- Shortcut strokes have fixed positions and can repeat the same key. */
 function KeyChips({ value }: { value: string }) {
   const shortcut = parseShortcut(value);
@@ -123,7 +111,6 @@ function KeyChips({ value }: { value: string }) {
 
 const SEQUENCE_WINDOW_MS = 1000;
 
-/** The keys cell: chips at rest, a capture field while recording. */
 function KeyControl({
   value,
   recording,
@@ -191,7 +178,6 @@ function KeyControl({
             finish(`${partial} ${stroke}`);
             return;
           }
-          // A bare key may start a sequence ("g" then "i"): wait briefly.
           if (!strokeHasModifier(stroke)) {
             setPartial(stroke);
             timer.current = setTimeout(() => finish(stroke), SEQUENCE_WINDOW_MS);
@@ -205,7 +191,6 @@ function KeyControl({
   );
 }
 
-/** "When  !editableFocus ⌄" — opens the condition editor. */
 function WhenControl({ value, onChange }: { value: string; onChange: (when: string) => void }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -215,7 +200,6 @@ function WhenControl({ value, onChange }: { value: string; onChange: (when: stri
   }, [open, value]);
   const valid = !draft.trim() || parseWhen(draft) !== null;
   const unknown = valid ? unknownVariables(draft) : [];
-  // Variables join with && unless the expression ends in an operator.
   const insertVariable = (name: string) =>
     setDraft((d) => {
       const t = d.trim();
@@ -364,8 +348,6 @@ const save = (rule: KeybindingRule, replace?: KeybindingRule) =>
     toast.error(`Couldn't save keybinding: ${String(error)}`);
   });
 
-// ── Rows ─────────────────────────────────────────────────────────────────────
-
 function KeybindingRow({ row, rows, searchId }: { row: Row; rows: Row[]; searchId?: string }) {
   const { rule } = row;
   const [keyDraft, setKeyDraft] = useState(rule.key);
@@ -415,7 +397,6 @@ function KeybindingRow({ row, rows, searchId }: { row: Row; rows: Row[]; searchI
               {defaults.length > 0 ? (
                 <DropdownMenuItem
                   onSelect={() => {
-                    // Put back this command's defaults in place of every custom rule.
                     const custom = rows.filter(
                       (r) => r.rule.command === rule.command && r.source === "Custom",
                     );
@@ -462,7 +443,6 @@ function KeybindingRow({ row, rows, searchId }: { row: Row; rows: Row[]; searchI
   );
 }
 
-/** "Message: Mark Unread" → group "Message", name "Mark Unread" (the list's grouping). */
 function splitCommandLabel(command: string): { group: string; name: string } {
   const label = commandLabel(command);
   const at = label.indexOf(": ");
@@ -475,7 +455,6 @@ const COMMAND_OPTIONS = [...KEYBINDING_COMMANDS].sort((a, b) =>
   commandLabel(a).localeCompare(commandLabel(b)),
 );
 
-/** Every user label name across the connected accounts, sorted. */
 function useUserLabelNames(): string[] {
   const accountIds = (useAccounts().data ?? []).map((a) => a.id);
   const perAccount = useAllAccountLabels(accountIds);
@@ -486,16 +465,10 @@ function useUserLabelNames(): string[] {
   return [...names].sort((a, b) => a.localeCompare(b));
 }
 
-/**
- * Records the keyboard shortcut that moves the selected conversations to one
- * label (opened from a label's menu in the sidebar). It's a regular
- * `label.move:<name>` keybinding, listed with the rest in Settings.
- */
 export function LabelShortcutDialog({
   labelName,
   onClose,
 }: {
-  /** The label's full name; null keeps the dialog closed. */
   labelName: string | null;
   onClose: () => void;
 }) {
@@ -507,7 +480,6 @@ export function LabelShortcutDialog({
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect -- Reset the local recording/editing session when its binding or dialog changes.
     setKey(existing?.key ?? "");
-    // A new binding starts recording right away.
     setRecording(labelName !== null && !existing);
     // Only when the dialog opens for a label.
   }, [labelName, existing]);
@@ -623,8 +595,6 @@ function NewKeybindingRow({ rows, onDone }: { rows: Row[]; onDone: () => void })
   );
 }
 
-// ── Pane ─────────────────────────────────────────────────────────────────────
-
 export function KeybindingsPane() {
   const { rules } = useKeybindingsState();
   const [query, setQuery] = useState("");
@@ -634,7 +604,6 @@ export function KeybindingsPane() {
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
-  // ⌘F searches the bindings while this page is open.
   useCommandHandlers({ "search.focus": () => setSearchOpen(true) });
 
   const rows = useMemo<Row[]>(
@@ -705,12 +674,10 @@ export function KeybindingsPane() {
     </div>
   );
 
-  // Settings search lands on a command's first row.
   const firstRowIds = new Set(
     new Map(visible.toReversed().map((row) => [row.rule.command, row.id])).values(),
   );
 
-  // Consecutive rows (sorted by label) share a group: "Message", "Go", …
   const groups: { name: string; rows: Row[] }[] = [];
   for (const row of visible) {
     const name = splitCommandLabel(row.rule.command).group;

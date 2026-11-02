@@ -1,9 +1,3 @@
-/**
- * Todoist: tasks from email (the reader's toolbar and menus, the list's
- * menu), browsing tasks (⌘K), and connecting (Settings → Integrations). The
- * dialogs are mounted once with the app.
- */
-
 import type { UiExtension } from "@otter-mail/web/extension-kit";
 import { CheckIcon, ListTodoIcon } from "lucide-react";
 

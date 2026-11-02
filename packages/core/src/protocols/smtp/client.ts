@@ -20,17 +20,13 @@ import {
 } from "../common.js";
 
 export interface SmtpOptions extends ServerOptions {
-  /** How we introduce ourselves in EHLO. */
   clientName?: string;
 }
 
-/** A reply the server refused with, or a connection that failed; `kind` says which. */
 export class SmtpError extends MailProtocolError {
-  /** The reply code: 535, 550, … */
   readonly code?: number;
   /** RFC 3463's status, when the server gives one: "5.7.8". */
   readonly enhancedCode?: string;
-  /** What the server said, as it said it. */
   readonly serverText?: string;
 
   constructor(
@@ -48,7 +44,6 @@ export class SmtpError extends MailProtocolError {
 
 export interface SmtpReply {
   code: number;
-  /** The reply's lines joined with newlines. */
   text: string;
 }
 
@@ -59,13 +54,10 @@ export interface SmtpEnvelope {
 
 export interface SmtpSendResult {
   accepted: string[];
-  /** Recipients the server turned down while taking the others. */
   rejected: { address: string; error: SmtpError }[];
-  /** The server's answer to the message (often with its queue id). */
   response: string;
 }
 
-/** Connects, upgrades with STARTTLS if asked to, and logs in. */
 export async function connectSmtp(options: SmtpOptions): Promise<SmtpClient> {
   let stream: ByteStream;
   try {
@@ -83,7 +75,6 @@ export async function connectSmtp(options: SmtpOptions): Promise<SmtpClient> {
   return client;
 }
 
-/** Connects, sends one message and says goodbye. */
 export async function sendMail(
   options: SmtpOptions,
   envelope: SmtpEnvelope,
@@ -117,7 +108,6 @@ export class SmtpClient {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
-  /** Called by connectSmtp: greeting, EHLO, STARTTLS, AUTH. */
   async start(): Promise<void> {
     await this.expect(await this.reply(), [220], "Connecting");
     await this.hello();
@@ -150,7 +140,6 @@ export class SmtpClient {
     this.extensions.clear();
     for (const line of reply.text.split("\n").slice(1)) {
       const [keyword = "", ...rest] = line.trim().split(/\s+/);
-      // Old servers spell AUTH as "AUTH=PLAIN LOGIN".
       const [extension = "", value] = keyword.split("=", 2);
       this.extensions.set(extension.toUpperCase(), [value, ...rest].filter(Boolean).join(" "));
     }
@@ -163,7 +152,6 @@ export class SmtpClient {
     if ("accessToken" in auth) {
       const initial = saslXoauth2(auth.user, auth.accessToken);
       const reply = await this.command(`AUTH XOAUTH2 ${initial}`, [235, 334], kind);
-      // 334 carries the error as JSON; an empty line gets the final refusal.
       if (reply.code === 334) await this.command("", [235], kind);
     } else if (mechanisms.has("PLAIN")) {
       await this.command(`AUTH PLAIN ${saslPlain(auth.user, auth.pass)}`, [235], kind);
@@ -176,7 +164,6 @@ export class SmtpClient {
     }
   }
 
-  /** Sends one message. Throws when no recipient was accepted. */
   send(envelope: SmtpEnvelope, message: Uint8Array | string): Promise<SmtpSendResult> {
     const run = this.queue.then(() => this.transaction(envelope, message));
     this.queue = run.catch(() => {});
@@ -232,7 +219,6 @@ export class SmtpClient {
       const reply = await this.expect(await this.reply(), [250], "Sending");
       return { accepted, rejected, response: reply.text };
     } catch (err) {
-      // Leave the connection ready for the next message.
       if (!this.closed) await this.command("RSET", [250]).catch(() => {});
       throw err;
     }
@@ -275,12 +261,10 @@ export class SmtpClient {
     kind: MailErrorKind = "server",
   ): Promise<SmtpReply> {
     if (expected.includes(reply.code)) return reply;
-    // A temporary refusal (4xx) of a login is the server's trouble, not the password.
     const errorKind = kind === "auth" && reply.code < 500 ? "server" : kind;
     throw new SmtpError(`${name} failed: ${reply.code} ${reply.text}`, errorKind, { reply });
   }
 
-  /** One reply, all its lines: `250-first`, `250-second`, `250 last`. */
   private async reply(): Promise<SmtpReply> {
     const lines: string[] = [];
     for (;;) {
@@ -341,10 +325,6 @@ export class SmtpClient {
   }
 }
 
-/**
- * The message as DATA sends it: every line ending CRLF, a "." starting a line
- * doubled, and the final "." line.
- */
 export function encodeData(message: Uint8Array): Uint8Array {
   const size = stuff(message, null);
   const out = new Uint8Array(size);

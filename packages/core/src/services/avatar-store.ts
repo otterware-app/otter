@@ -16,8 +16,8 @@ import { platform } from "../platform.js";
 import { findProvider } from "../providers/index.js";
 import { getKv, setKv } from "./mail-store.js";
 
-const HIT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // found photos: refresh monthly
-const MISS_TTL_MS = 7 * 24 * 60 * 60 * 1000; // misses: retry weekly
+const HIT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const MISS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_IMAGE_BYTES = 300 * 1024;
 const FETCH_TIMEOUT_MS = 6_000;
 
@@ -66,7 +66,6 @@ async function fetchWithTimeout(url: string, init?: FetchInit): Promise<Response
   return fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
 }
 
-/** Downloads an image and returns it as a data URL (null on miss/oversize/non-image). */
 async function fetchImageAsDataUrl(url: string, init?: FetchInit): Promise<string | null> {
   const response = await fetchWithTimeout(url, init);
   if (!response.ok) return null;
@@ -109,12 +108,10 @@ async function fromPeopleApi(accountId: string, email: string): Promise<string |
   ];
   for (const endpoint of endpoints) {
     const response = await fetchWithTimeout(endpoint, { headers });
-    // 403 = token predates the contacts scopes; skip the People source quietly.
     if (!response.ok) continue;
     const body = (await response.json()) as { results?: { person?: PeoplePerson }[] };
     const photoUrl = photoFromPeopleResults(body.results ?? [], email);
     if (photoUrl) {
-      // lh3 photo URLs accept a size suffix.
       const sized = photoUrl.includes("=") ? photoUrl : `${photoUrl}=s128`;
       const dataUrl = await fetchImageAsDataUrl(sized);
       if (dataUrl) return dataUrl;
@@ -128,7 +125,6 @@ async function fromGravatar(email: string): Promise<string | null> {
   return fetchImageAsDataUrl(`https://www.gravatar.com/avatar/${hash}?s=128&d=404`);
 }
 
-/** Width of a PNG from its IHDR chunk (0 when not parseable). */
 function pngWidth(dataUrl: string): number {
   const base64 = dataUrl.split(",")[1] ?? "";
   const bytes = fromBase64(base64);
@@ -137,7 +133,6 @@ function pngWidth(dataUrl: string): number {
   return view.getUint32(0) === 0x89504e47 ? view.getUint32(16) : 0;
 }
 
-/** "notify.cloudflare.com" → "cloudflare.com" (naive eTLD+1). */
 function registrableDomain(domain: string): string {
   const parts = domain.split(".");
   if (parts.length <= 2) return domain;
@@ -147,13 +142,10 @@ function registrableDomain(domain: string): string {
 }
 
 async function domainLogoFor(domain: string): Promise<string | null> {
-  // Google's favicon service answers for nearly every domain but substitutes a
-  // 16×16 globe for misses — only a ≥32px answer is a real hit.
   const s2 = await fetchImageAsDataUrl(
     `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`,
   );
   if (s2 && pngWidth(s2) >= 32) return s2;
-  // DuckDuckGo 404s cleanly on misses and often carries icons s2 lacks.
   return fetchImageAsDataUrl(`https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`);
 }
 
@@ -162,7 +154,6 @@ async function fromDomainLogo(email: string): Promise<string | null> {
   if (!domain || FREEMAIL_DOMAINS.has(domain)) return null;
   const exact = await domainLogoFor(domain);
   if (exact) return exact;
-  // Corporate mail often comes from subdomains (notify.cloudflare.com).
   const root = registrableDomain(domain);
   if (root !== domain && !FREEMAIL_DOMAINS.has(root)) return domainLogoFor(root);
   return null;
@@ -186,7 +177,6 @@ async function resolveAvatar(accountId: string, email: string): Promise<string |
   return null;
 }
 
-/** Cached sender avatar as a data URL, or null (renderer falls back to initials). */
 export async function getSenderAvatar(accountId: string, email: string): Promise<string | null> {
   const normalized = email.trim().toLowerCase();
   if (!normalized.includes("@")) return null;

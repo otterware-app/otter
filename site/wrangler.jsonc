@@ -1,8 +1,3 @@
-// mail.otterware.app: the web app (apps/web), assembled in dist/ by
-// scripts/build.ts. The Worker redirects the old domain and the pages that moved
-// to otterware.app/mail/, and answers the app's own pages with the app.
-// Cloudflare Workers Builds deploys it on pushes to main
-// (`pnpm --filter @otter-mail/site run deploy`).
 {
   "name": "otter-mail-site",
   "main": "src/worker.ts",

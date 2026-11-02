@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-// Sets the app package versions to a released version (the release workflow's
-// finalize job runs this on main after publishing).
-//
-//   node scripts/update-release-package-versions.ts 0.2.0 [--github-output]
 
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
@@ -19,7 +15,6 @@ export function updateReleasePackageVersions(version: string, root = repoRoot): 
     const source = NodeFS.readFileSync(path, "utf8");
     const packageJson = JSON.parse(source) as { version?: string };
     if (packageJson.version === version) continue;
-    // Replace in place to keep the file's formatting and key order.
     const updated = source.replace(/("version"\s*:\s*)"[^"]*"/, `$1"${version}"`);
     NodeFS.writeFileSync(path, updated);
     changed.push(file);

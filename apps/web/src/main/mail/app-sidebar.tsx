@@ -1,11 +1,3 @@
-/**
- * The sidebar, the window's only one (Notion's). First what belongs to no one mailbox: Search
- * or ask (the command palette), New message, Agent (the AI workspace, Linear's: picked while
- * it shows). Then a tab for each mailbox, and the tab's page: its folders and labels, then the
- * views; in the AI workspace, the last mailbox's. Sign-in cards, an update, then Settings and
- * Sync now at its foot.
- */
-
 import { useState, type ReactNode } from "react";
 import { PlusIcon, SearchIcon, SettingsIcon, SquarePenIcon } from "lucide-react";
 
@@ -47,35 +39,25 @@ export function AppSidebar({
   onSelectSearch,
   onCloseSearch,
 }: {
-  /** The mailboxes that are on. */
   accounts: MailAccount[];
-  /** The user's views. */
   views: MailView[];
-  /** The space showing (spaces.ts), and its folder, label, list or chat. */
   spaceId: string | null;
   labelId: string;
   settingsOpen: boolean;
-  /** On the new message's page: New message is where the window is, nothing else. */
   composing: boolean;
-  /** Goes to a space: where it opens, or `labelId` in it. */
   onGo: (spaceId: string, labelId?: string) => void;
-  /** The AI workspace, on a new chat. */
   onOpenAgent: () => void;
   onCompose: () => void;
   onNewView: () => void;
   onEditView: (viewId: string) => void;
   onOpenPalette: () => void;
-  /** Settings (a pane, General by default). */
   onOpenSettings: (pane?: SettingsPane) => void;
-  /** Searches opened from a folder (⌘F), nested under it. */
   searches: SidebarSearch[];
   onSelectSearch: (id: string) => void;
   onCloseSearch: (id: string) => void;
 }) {
   const options = useMailboxOptions(accounts);
   const isMailbox = (id: string | null) => options.some((option) => option.id === id);
-  // The mailbox whose folders show: the one you're in, or (in Chats or a
-  // view) the one you were last in.
   const [lastMailbox, setLastMailbox] = useState<string | null>(null);
   if (isMailbox(spaceId) && spaceId !== lastMailbox) setLastMailbox(spaceId);
   const mailbox = isMailbox(spaceId)
@@ -83,10 +65,8 @@ export function AppSidebar({
     : isMailbox(lastMailbox)
       ? lastMailbox
       : (options[0]?.id ?? null);
-  // Sync health for the mailbox you're in, or all of them.
   const healthIds =
     spaceId && accounts.some((a) => a.id === spaceId) ? [spaceId] : accounts.map((a) => a.id);
-  // A chat finished while you were away.
   const agentDot = useChats((s) => s.unseen.size > 0);
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -145,11 +125,6 @@ export function AppSidebar({
   );
 }
 
-/**
- * The tabs (Notion's Home, Chat, Meetings): one for each mailbox. The one
- * showing is named, the others are their pictures (a dot for unread mail).
- * Switching slides: one name opens as the other folds.
- */
 function SidebarTabs({
   options,
   accounts,
@@ -248,7 +223,6 @@ function MailPage({
 }: {
   accounts: MailAccount[];
   views: MailView[];
-  /** The mailbox whose folders show (its tab is the one picked). */
   mailbox: string | null;
   spaceId: string | null;
   labelId: string;

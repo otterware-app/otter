@@ -22,7 +22,6 @@ import type {
   OpenRouterToolOutput,
 } from "@otter-mail/contracts/openrouter";
 
-/** Capture this account's authentication for an entire turn, including cancellation. */
 function api() {
   const p = platform();
   if (!p.agentServerUrl && !getOtterUser())
@@ -157,7 +156,6 @@ export const openRouterProvider: ChatProvider<OpenRouterSettings> = {
     serviceTier: "string",
     runtimeMode: "runtimeMode",
   },
-  // Its models are OpenRouter's catalog, which changes.
   strictModels: true,
   async checkStatus(settings) {
     const base = {

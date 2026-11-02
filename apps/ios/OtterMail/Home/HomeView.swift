@@ -1,18 +1,10 @@
 import SwiftUI
 
-/** Where the user is: a mailbox and a folder in it. */
 struct Place: Hashable {
-    /** The mailbox's address ("" until there's one). */
     var scope = ""
     var folder: Folder = .inbox
 }
 
-/**
- * The app's frame, Linear's: the mail list with a glass bar under it (the
- * mailbox's picture to switch, Inbox, Drafts, Search, and ⌃⌄ for every other
- * place, PlacesBar.swift), and the
- * agent on its own button beside the bar. The agent and search open as sheets.
- */
 struct HomeView: View {
     @Environment(MailStore.self) private var store
     @Environment(Session.self) private var session
@@ -32,7 +24,6 @@ struct HomeView: View {
     @State private var query = ""
     @State private var searchPath: [String] = []
 
-    /** An agent here, or the account's chats to read (Claude and Codex ones too). */
     private var showsAgent: Bool { session.agent.isOn || session.user != nil }
 
     private var menuAnimation: Animation? { reduceMotion ? nil : .smooth(duration: 0.25) }
@@ -41,7 +32,6 @@ struct HomeView: View {
         ZStack(alignment: .bottomLeading) {
             mail
             if menuOpen {
-                // Tapping outside closes it, as Linear's does.
                 Color.black.opacity(0.25)
                     .ignoresSafeArea()
                     .onTapGesture { setMenu(open: false) }
@@ -60,7 +50,6 @@ struct HomeView: View {
             }
         }
         .onChange(of: store.shownMailboxes.map(\.email), initial: true) { _, shown in
-            // The first mailbox, or the mailbox shown was turned off or removed: fall back to what's left.
             if !shown.contains(place.scope) { place = Place(scope: shown.first ?? "") }
         }
         .onChange(of: session.opening, initial: true) { _, _ in openNotification() }
@@ -81,7 +70,6 @@ struct HomeView: View {
         .sheet(isPresented: $searchOpen) { search }
     }
 
-    /** The mail: the list (and the reader), with the bar under the list. */
     private var mail: some View {
         NavigationStack(path: $path) {
             ThreadListView(
@@ -110,7 +98,6 @@ struct HomeView: View {
                         .padding(.horizontal, 16)
                         .id(action.id)
                     }
-                    // Selecting, the list's actions take the bar's place.
                     if !selecting {
                         PlacesBar(
                             place: place,
@@ -136,7 +123,6 @@ struct HomeView: View {
         }
     }
 
-    /** Search: what it finds in the mailbox the mail shows. */
     private var search: some View {
         NavigationStack(path: $searchPath) {
             ThreadListView(
@@ -173,7 +159,6 @@ struct HomeView: View {
         setMenu(open: false)
     }
 
-    /** Another mailbox, at the same folder where it has one. */
     private func switchMailbox(_ mailbox: Mailbox) {
         select(Place(scope: mailbox.email, folder: mailbox.folders.contains(place.folder) ? place.folder : .inbox))
     }
@@ -210,7 +195,6 @@ struct HomeView: View {
     }
 }
 
-/** iOS 27 lets navigation give space back to the mail while scrolling. */
 extension View {
     @ViewBuilder
     func minimizingNavigationBar(enabled: Bool = true) -> some View {

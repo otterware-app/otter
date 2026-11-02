@@ -1,9 +1,3 @@
-/**
- * Settings → Agents, after T3 Code's provider settings: "Checked … ago"
- * refresh by the title, the provider list (icon, name, version, status, enable
- * switch), then the selected provider's settings below it.
- */
-
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AgentAccess, ConnectedAgent } from "@otter-mail/contracts/agent-tokens";
@@ -71,14 +65,6 @@ function StatusDot({ status }: { status: ProviderSnapshot["status"] }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// List
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Editor
-// ---------------------------------------------------------------------------
-
 function StatusLine({ provider }: { provider: ProviderSnapshot }) {
   const summary = providerSummary(provider);
   if (provider.enabled && provider.auth.status === "authenticated" && provider.auth.email) {
@@ -101,7 +87,6 @@ function StatusLine({ provider }: { provider: ProviderSnapshot }) {
   );
 }
 
-/** An agent's status and whether new chats use it: the top of its extension page. */
 export function AgentStatusSection({
   provider,
   isDefault,
@@ -138,15 +123,6 @@ export function AgentStatusSection({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Pane
-// ---------------------------------------------------------------------------
-
-/**
- * Settings → Agents: what goes for every agent (the one new chats start
- * with, follow-ups, other agents on this computer), then the agent
- * extensions, each opening to its page.
- */
 export function ProvidersPane({ item }: { item?: string }) {
   const query = useAgentProviders();
   const setState = useSetProvidersState();
@@ -167,7 +143,6 @@ export function ProvidersPane({ item }: { item?: string }) {
     if (refreshing) return;
     setRefreshing(true);
     void mailApi.refreshAgentProviders().catch(() => {});
-    // Results arrive as broadcasts; keep the spinner up while the probes run.
     setTimeout(() => setRefreshing(false), 1500);
   };
 
@@ -244,8 +219,6 @@ export function ProvidersPane({ item }: { item?: string }) {
   );
 }
 
-/** Chat, whichever agent runs it: the agent new chats start with (`children`), and T3's
- * "Follow-up behavior", what Enter does while the agent is working. */
 function ChatSection({ children }: { children: ReactNode }) {
   const behavior = useFollowUpBehavior();
   return (
@@ -300,12 +273,6 @@ const AGENT_ACCESS: { value: AgentAccess; label: string; description: string }[]
   },
 ];
 
-/**
- * One line to paste in Terminal that adds the server, with a new token, to
- * each agent: Claude Code's own command; for Codex, whose `mcp add` takes no
- * header, the server in its config.toml (replacing an older one); Cursor's
- * install link (cursor.com/docs/mcp/install-links), which asks first.
- */
 const AGENT_COMMANDS: { agent: string; text: (url: string, token: string) => string }[] = [
   {
     agent: "Claude Code",

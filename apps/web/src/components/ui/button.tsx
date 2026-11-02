@@ -3,11 +3,6 @@ import * as React from "react";
 
 import { cn } from "~/lib/utils";
 
-/**
- * Push button in the app's control style (adapted from Otter Code's
- * components/ui/button.tsx): rounded pill, faint border, one flat solid
- * primary. `accent` is the solid call to action. Hover feedback is instant.
- */
 const buttonVariants = cva(
   "relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border font-normal outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-64 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
@@ -18,7 +13,6 @@ const buttonVariants = cva(
         destructive: "border-transparent bg-destructive text-white hover:bg-destructive/88",
         outline: "border-border bg-transparent text-foreground hover:bg-accent-surface",
         ghost: "border-transparent text-foreground hover:bg-accent-surface",
-        // Otter Code's names, for the theme editor ported from it.
         secondary:
           "border-transparent bg-accent-surface text-foreground hover:bg-accent-surface/80",
         "ghost-destructive":
@@ -29,7 +23,6 @@ const buttonVariants = cva(
           "h-7 px-[calc(--spacing(2.5)-1px)] text-[13px] [&_svg:not([class*='size-'])]:size-3.5",
         default: "h-8 px-[calc(--spacing(3)-1px)] text-sm [&_svg:not([class*='size-'])]:size-4",
         large: "h-9 px-[calc(--spacing(3.5)-1px)] text-sm [&_svg:not([class*='size-'])]:size-4",
-        // Otter Code's names, for the theme editor ported from it.
         xs: "h-6 gap-1 px-[calc(--spacing(2)-1px)] text-xs [&_svg:not([class*='size-'])]:size-3.5",
         sm: "h-7 px-[calc(--spacing(2.5)-1px)] text-[13px] [&_svg:not([class*='size-'])]:size-3.5",
         "icon-xs": "size-6 px-0 [&_svg:not([class*='size-'])]:size-3.5",

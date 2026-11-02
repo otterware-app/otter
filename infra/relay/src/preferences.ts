@@ -39,7 +39,6 @@ export async function read(
   };
 }
 
-/** Sections the app syncs are small; this keeps a runaway client from filling D1. */
 const MAX_BYTES = 256 * 1024;
 
 /** Merges the change in; false (nothing written) when the result would be too large. */

@@ -1,6 +1,3 @@
-// Assembles the site in dist/: the web app (apps/web's build). Run by `pnpm build`
-// (and deploy).
-
 import { execFileSync } from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";

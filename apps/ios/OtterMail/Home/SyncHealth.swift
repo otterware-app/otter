@@ -1,22 +1,13 @@
 import SwiftUI
 
-/**
- * How each mailbox's sync is doing, as on the Mac and the web: a line at the
- * foot of the drawer, always, and the one failure only the user can fix, a
- * sign-in the provider ended, raised on the mail list with the button that
- * fixes it.
- */
-
 /** "Contoso is signed out", "Contoso needs its password". */
 func signedOutTitle(_ mailbox: Mailbox) -> String {
     mailbox.imap != nil ? "\(mailbox.displayName) needs its password" : "\(mailbox.displayName) is signed out"
 }
 
-/** Signs a mailbox back in: Google or Microsoft with the address filled in, or its password. */
 struct SignInAgainButton: View {
     @Environment(Session.self) private var session
     let mailbox: Mailbox
-    /** A settings row's own label; the banner and drawer have the short one. */
     var title: String?
 
     @State private var askPassword = false
@@ -57,7 +48,6 @@ struct SignInAgainButton: View {
     }
 }
 
-/** On the mail list: each mailbox whose sign-in was ended, until it's back or closed. */
 struct SignedOutBanners: View {
     @Environment(MailStore.self) private var store
     @Environment(\.palette) private var palette
@@ -91,7 +81,6 @@ struct SignedOutBanners: View {
     }
 }
 
-/** The drawer's foot: how the page's mailbox is syncing. Tap to sync now. */
 struct SyncStatusLine: View {
     @Environment(MailStore.self) private var store
     @Environment(\.palette) private var palette

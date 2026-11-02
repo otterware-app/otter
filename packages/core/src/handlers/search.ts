@@ -17,20 +17,15 @@ import type { MessageSummary } from "../types.js";
 
 const PAGE_SIZE = 50;
 
-/** Per-account Gmail page cursor; null once that account has no more results. */
 type Cursors = Record<string, string | null>;
 
 type SearchResult = {
   messages: MessageSummary[];
-  /** Next page's cursors; undefined when every account is exhausted. */
   cursors?: Cursors;
-  /** Gmail's estimate of total matches across the accounts. */
   estimate: number;
-  /** Gmail was unreachable: these are local results only. */
   offline?: boolean;
 };
 
-/** One account's page: the server's matches, cached first, as conversation rows. */
 async function searchAccount(
   accountId: string,
   q: string,
@@ -53,8 +48,6 @@ async function searchAccount(
   const rows = mailStore.getThreadSummaries(accountId, threadIds).map((m) => ({ ...m, accountId }));
   return { rows, next: page.nextPageToken ?? null, estimate: page.resultSizeEstimate };
 }
-
-// ── Local search, for providers without their own (IMAP) ───────────────────
 
 const SYSTEM_LABELS: Record<string, string> = {
   inbox: "INBOX",
@@ -88,7 +81,6 @@ function operatorsOf(q: string): Operator[] {
   }));
 }
 
-/** The label `in:` or `label:` names (`in:inbox`, `label:projects-otter`), or null. */
 function labelOf(accountId: string, op: Operator): string | null {
   if (op.key === "in" || op.key === "is") {
     if (SYSTEM_LABELS[op.value]) return SYSTEM_LABELS[op.value];
@@ -146,7 +138,6 @@ function matches(accountId: string, m: MessageSummary, op: Operator): boolean {
  */
 function searchLocal(accountId: string, q: string): MessageSummary[] {
   const ops = operatorsOf(q);
-  // The first label it names (`in:inbox`, `is:unread`) is where to look.
   const labelId = ops
     .filter((op) => !op.negated)
     .map((op) => labelOf(accountId, op))
@@ -168,13 +159,11 @@ function searchLocal(accountId: string, q: string): MessageSummary[] {
     .slice(0, PAGE_SIZE);
 }
 
-/** Network failures (not Gmail errors) mean offline. */
 function isOffline(error: unknown): boolean {
   const text = String(error);
   return /fetch failed|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|network/i.test(text);
 }
 
-/** Free text of a Gmail query, for the offline fallback (operators dropped). */
 function freeText(q: string): string {
   return q
     .replace(/(^|\s)-?[a-z_]+:("[^"]*"|\([^)]*\)|\S+)/gi, " ")
@@ -225,8 +214,6 @@ export async function searchMail(
 }
 
 export function registerSearchHandlers(): void {
-  // gmail:search — Gmail's own search. Runs as a task: a cold query can fetch
-  // up to 50 uncached matches per account, past the 5s IPC budget.
   handle("gmail:search", async (params: unknown) => {
     const p = params as Record<string, unknown> | undefined;
     const q = typeof p?.q === "string" ? p.q.trim() : "";

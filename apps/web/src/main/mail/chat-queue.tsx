@@ -1,9 +1,3 @@
-/**
- * Follow-ups while a turn runs, as Otter Code does them: the "Follow-up
- * behavior" setting (queue or steer; ⌘↩ does the opposite for one message),
- * the queue banner above the composer, and the intent marker on messages.
- */
-
 import { setSyncedPreference } from "../synced-preferences";
 import { useId, useState, useSyncExternalStore } from "react";
 import {
@@ -32,7 +26,6 @@ export function setFollowUpBehavior(value: FollowUpBehavior): void {
   for (const listener of listeners) listener();
 }
 
-// Picked on another device (or in another window).
 window.addEventListener("storage", (event) => {
   if (event.key === FOLLOW_UP_KEY) for (const listener of listeners) listener();
 });
@@ -46,11 +39,6 @@ export function useFollowUpBehavior(): FollowUpBehavior {
 
 type QueueItem = { id: string; question: string; skill?: { name: string } };
 
-/**
- * The queue banner docked above the composer (Otter Code's QueuedRunsControl):
- * a collapsible "Queued" header with a count, then one row per message —
- * drag / arrow-key reorder, edit in the composer, Steer, remove.
- */
 export function QueuedRunsControl({
   items,
   editingId,
@@ -244,7 +232,6 @@ export function QueuedRunsControl({
   );
 }
 
-/** The "Queued" / "Steer" marker above a user message (Otter Code's inputIntent). */
 export function IntentMarker({ intent }: { intent: "queued" | "steer" | "promoted" }) {
   const tooltip =
     intent === "queued"

@@ -17,14 +17,6 @@ import {
   type WhenNode,
 } from "./keys";
 
-/**
- * The live keybindings (Otter Code's merge model): the user's rules (Settings
- * → Keybindings, stored by the backend and synced with the Otter account)
- * replace every default of a command they mention; other commands keep their
- * defaults. Later rules win at dispatch. Every window loads them and re-reads
- * them on the `keybindings:updated` broadcast.
- */
-
 export type ResolvedKeybinding = {
   rule: KeybindingRule;
   shortcut: Shortcut;
@@ -36,7 +28,6 @@ type FileResult = {
 };
 
 type State = {
-  /** Effective rules in order (defaults not overridden, then the file's). */
   rules: KeybindingRule[];
   resolved: ResolvedKeybinding[];
   loaded: boolean;
@@ -115,21 +106,17 @@ export function useKeybindingsState(): State {
   return useSyncExternalStore(subscribe, () => state);
 }
 
-// ── Editing (settings) ───────────────────────────────────────────────────────
-
 const sameRule = (a: KeybindingRule, b: KeybindingRule) =>
   a.command === b.command &&
   normalizeKey(a.key) === normalizeKey(b.key) &&
   normalizeWhen(a.when) === normalizeWhen(b.when);
 
 async function write(rules: KeybindingRule[]): Promise<void> {
-  // Optimistic: the settings list updates now; the broadcast re-read confirms.
   state = { ...stateFor({ rules }), loaded: true };
   emit();
   await ipc("keybindings:write", { rules });
 }
 
-/** Adds `rule` (or swaps it in for `replace`), keeping everything else. */
 export async function upsertKeybinding(
   rule: KeybindingRule,
   replace?: KeybindingRule,
@@ -146,7 +133,6 @@ export async function removeKeybinding(rule: KeybindingRule): Promise<void> {
   await write(state.rules.filter((r) => !sameRule(r, rule)));
 }
 
-/** Keeps label shortcuts on a renamed (or re-nested) label and the labels under it. */
 export async function renameLabelKeybindings(from: string, to: string): Promise<void> {
   let changed = false;
   const rules = state.rules.map((rule) => {
@@ -164,9 +150,6 @@ export function isDefaultRule(rule: KeybindingRule): boolean {
   return DEFAULT_KEYBINDINGS.some((d) => sameRule(d, rule));
 }
 
-// ── Labels ───────────────────────────────────────────────────────────────────
-
-/** The label of a command's first effective binding (`⌘K`, `G then I`), or null. */
 export function shortcutLabelFor(
   resolved: ResolvedKeybinding[],
   command: KeybindingCommand,
@@ -175,13 +158,11 @@ export function shortcutLabelFor(
   return hit ? formatShortcut(hit.shortcut) : null;
 }
 
-/** Live shortcut label for a command, for tooltips, menus, and the palette. */
 export function useShortcutLabel(command: KeybindingCommand | undefined): string | undefined {
   const { resolved } = useKeybindingsState();
   return command ? (shortcutLabelFor(resolved, command) ?? undefined) : undefined;
 }
 
-/** Inline shortcut text (e.g. "⌘↩ send"); nothing when the command is unbound. */
 export function ShortcutText({
   command,
   suffix,

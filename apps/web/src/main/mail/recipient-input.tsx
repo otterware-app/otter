@@ -50,12 +50,9 @@ export const RecipientInput = forwardRef<
   const lastComma = value.lastIndexOf(",");
   const entries = splitAddressList(lastComma >= 0 ? value.slice(0, lastComma) : "");
   const token = value.slice(lastComma + 1).trimStart();
-  // Unfocused, every address is a chip (prefilled replies have no trailing
-  // comma); focused, the last unfinished one stays editable text.
   const chips = focused ? entries : splitAddressList(value);
   const typing = focused ? token : "";
 
-  /** Rebuilds the value from committed entries plus the text being typed. */
   const write = (next: string[], typing: string) =>
     onChange(next.length > 0 ? `${next.join(", ")}, ${typing}` : typing);
 
@@ -77,7 +74,6 @@ export const RecipientInput = forwardRef<
     setDismissed(false);
   };
 
-  /** Turns the typed text into a chip (if there is any). */
   const commitToken = () => {
     const typed = token.trim();
     if (!typed) return false;
@@ -92,7 +88,6 @@ export const RecipientInput = forwardRef<
     );
 
   const handleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
-    // Modified keys (⌘↩ send) belong to the composer.
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (open) {
       if (e.key === "ArrowDown") {
@@ -119,7 +114,6 @@ export const RecipientInput = forwardRef<
       }
     }
     if ((e.key === "Enter" || e.key === "Tab") && token.trim()) {
-      // Tab still moves focus on after committing.
       if (e.key === "Enter") e.preventDefault();
       commitToken();
       return;
@@ -137,7 +131,6 @@ export const RecipientInput = forwardRef<
     );
   };
 
-  /** Turns a chip back into editable text (the field's typed text). */
   const editAt = (index: number) => {
     const others = chips.filter((_, i) => i !== index);
     editingRef.current = true;
@@ -145,7 +138,6 @@ export const RecipientInput = forwardRef<
     inputRef.current?.focus();
   };
 
-  // Pasting a list ("a@x, b@y") commits everything but a trailing fragment.
   const handlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
     const text = e.clipboardData.getData("text");
     if (!text.includes(",") && !text.includes(";")) return;
@@ -167,8 +159,6 @@ export const RecipientInput = forwardRef<
               <span
                 tabIndex={0}
                 title={name ? `${name} <${email}>` : email}
-                // Focusable chip: ⌘C copies the address, Delete removes it,
-                // Enter / double-click puts it back into the field to edit.
                 onKeyDown={(e) => {
                   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c") {
                     e.preventDefault();
@@ -181,7 +171,6 @@ export const RecipientInput = forwardRef<
                     editAt(i);
                   }
                 }}
-                // Edit › Copy (⌘C via the app menu) fires a copy event, not a key.
                 onCopy={(e) => {
                   e.preventDefault();
                   e.clipboardData.setData("text/plain", email);
@@ -244,7 +233,6 @@ export const RecipientInput = forwardRef<
         }}
         onFocus={() => {
           setFocused(true);
-          // A prefilled list keeps its last address as a chip too.
           if (editingRef.current) editingRef.current = false;
           else if (token.trim()) write([...entries, ...splitAddressList(token)], "");
         }}
@@ -266,7 +254,6 @@ export const RecipientInput = forwardRef<
             <button
               key={suggestion.email}
               type="button"
-              // preventDefault keeps the input focused through the click.
               onMouseDown={(e) => {
                 e.preventDefault();
                 accept(i);

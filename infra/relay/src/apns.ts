@@ -103,7 +103,6 @@ export async function send(
       timestamp?: number;
     } | null;
     if (response.status === 410) {
-      // Apple's invalidation can predate a new registration of this same token.
       return error?.timestamp && error.timestamp < device.updated_at ? "rejected" : "invalid";
     }
     if (error?.reason === "BadDeviceToken" || error?.reason === "DeviceTokenNotForTopic")
@@ -115,14 +114,13 @@ export async function send(
     if (response.status >= 500) return { retryAfterMs: 15 * 60_000 };
     if (error?.reason === "TooManyProviderTokenUpdates") return { retryAfterMs: 20 * 60_000 };
     if (response.status === 429) return "retry";
-    console.warn("APNs rejected a notification", response.status); // No server response text or routing data.
+    console.warn("APNs rejected a notification", response.status);
     return "rejected";
   } catch {
     return "retry";
   }
 }
 
-/** Gmail IDs are decimal 64-bit markers, not JS numbers. Also drops older, reordered deliveries. */
 export function newer(historyId: string, previous?: string): boolean {
   return /^\d{1,20}$/.test(historyId) && (!previous || BigInt(historyId) > BigInt(previous));
 }

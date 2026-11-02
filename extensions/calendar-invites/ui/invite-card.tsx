@@ -25,14 +25,12 @@ const inviteKey = (accountId: string, messageId: string) => [
   messageId,
 ];
 
-/** Google Calendar's RESPOND links carry rst=1 (yes) / 2 (no) / 3 (maybe). */
 export function rsvpFromGoogleLink(url: string): RsvpResponse | null {
   if (!/calendar\.google\.com\/calendar\/.*action=RESPOND/i.test(url)) return null;
   const rst = url.match(/[?&]rst=(\d)/)?.[1];
   return rst === "1" ? "accepted" : rst === "2" ? "declined" : rst === "3" ? "tentative" : null;
 }
 
-/** Event-wide hook for body links: the reader's frame reports clicks here. */
 const listeners = new Set<(messageId: string, response: RsvpResponse) => void>();
 export function requestRsvp(messageId: string, response: RsvpResponse): void {
   for (const l of listeners) l(messageId, response);
@@ -88,7 +86,6 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
     mutationFn: (response: RsvpResponse) =>
       invitesApi.respondToInvite(accountId, messageId, response),
     onMutate: async (response) => {
-      // Optimistic: the chosen answer shows at once.
       await qc.cancelQueries({ queryKey: inviteKey(accountId, messageId) });
       const previous = qc.getQueryData<CalendarInvite | null>(inviteKey(accountId, messageId));
       if (previous) qc.setQueryData(inviteKey(accountId, messageId), { ...previous, response });
@@ -110,7 +107,6 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
     },
   });
 
-  // Google's own Yes / No / Maybe links in the body answer here.
   useEffect(() => {
     const onRequest = (id: string, response: RsvpResponse) => {
       if (id === messageId && !respond.isPending) respond.mutate(response);

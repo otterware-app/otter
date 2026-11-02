@@ -43,14 +43,12 @@ const TOAST_ICONS = {
 
 type ToastType = keyof typeof TOAST_ICONS;
 
-/** Visually shorten long error bodies; copying still takes the full text. */
 const ERROR_DESCRIPTION_CLAMP_MIN_CHARS = 180;
 function errorDescriptionClampClass(type: unknown, description: unknown): string | undefined {
   if (type !== "error" || typeof description !== "string") return undefined;
   return description.length < ERROR_DESCRIPTION_CLAMP_MIN_CHARS ? undefined : "line-clamp-4";
 }
 
-/** Dismiss-only: circular control overlapping the card corner (iOS notification–style). */
 const toastCornerDismissClass = "absolute z-20 -top-1.5 -right-1.5";
 const toastCornerOrbClass = cn(
   "inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border/60 bg-popover/92 text-muted-foreground shadow-sm outline-none backdrop-blur-sm",
@@ -214,11 +212,9 @@ function Toasts({ position }: { position: ToastPosition }) {
                 "data-[position*=center]:right-0 data-[position*=center]:left-0",
                 "data-[position*=top]:top-0 data-[position*=top]:bottom-auto data-[position*=top]:origin-top",
                 "data-[position*=bottom]:top-auto data-[position*=bottom]:bottom-0 data-[position*=bottom]:origin-bottom",
-                // Gap fill for hover
                 "after:absolute after:left-0 after:h-[calc(var(--toast-gap)+1px)] after:w-full",
                 "data-[position*=top]:after:top-full",
                 "data-[position*=bottom]:after:bottom-full",
-                // Behind + collapsed = peek height only (content hidden).
                 visibleIndex > 0
                   ? "not-data-expanded:[--toast-calc-height:var(--toast-frontmost-height)] data-expanded:[--toast-calc-height:max(var(--toast-frontmost-height,var(--toast-height)),var(--toast-height))]"
                   : "[--toast-calc-height:max(var(--toast-frontmost-height,var(--toast-height)),var(--toast-height))]",
@@ -234,7 +230,6 @@ function Toasts({ position }: { position: ToastPosition }) {
                 "data-position:data-expanded:transform-[translateX(var(--toast-swipe-movement-x))_translateY(var(--toast-calc-offset-y))]",
                 "data-[position*=top]:data-starting-style:transform-[translateY(calc(-100%-var(--toast-inset)))]",
                 "data-[position*=bottom]:data-starting-style:transform-[translateY(calc(100%+var(--toast-inset)))]",
-                // In and out at the corner: a short slide and a fade, not across the screen.
                 "data-[position*=top]:data-[position*=right]:data-starting-style:transform-[translateX(--spacing(6))_translateY(var(--toast-calc-offset-y))]",
                 "data-starting-style:opacity-0",
                 "data-ending-style:opacity-0",
@@ -303,17 +298,11 @@ function Toasts({ position }: { position: ToastPosition }) {
   );
 }
 
-// ── API ──────────────────────────────────────────────────────────────────────
-
 export type ToastOptions = {
   description?: ReactNode;
-  /** Auto-dismiss after this many ms; 0 keeps it until closed. */
   timeout?: number;
-  /** A button on the toast (e.g. Undo). The toast closes when it's clicked. */
   action?: { label: ReactNode; onClick: () => void };
-  /** Runs when the toast is dismissed with its × button. */
   onClose?: () => void;
-  /** Runs once the toast is gone, however it closed. */
   onRemove?: () => void;
 };
 
@@ -352,7 +341,6 @@ export const toast = Object.assign(
     warning: (title: ReactNode, options?: ToastOptions) => show("warning", title, options),
     loading: (title: ReactNode, options?: ToastOptions) =>
       show("loading", title, { timeout: 0, ...options }),
-    /** Replaces a toast's content in place (e.g. "Sending…" → "Sent"). */
     update: (
       id: ToastId,
       type: ToastType | undefined,

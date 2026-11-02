@@ -25,7 +25,6 @@ declare const LanguageDetector: {
   create(): Promise<ChromeLanguageDetector>;
 };
 
-/** Whether this browser translates on the device (Chrome does). */
 export const hasBuiltInTranslator = "Translator" in window && "LanguageDetector" in window;
 
 let detector: Promise<ChromeLanguageDetector> | null = null;

@@ -1,4 +1,3 @@
-/** The account's server agent, API key, and shared chat history. */
 import { DurableObject } from "cloudflare:workers";
 import { EncryptJWT, jwtDecrypt } from "jose";
 import { OpenRouterAgentServer, type AgentStorage } from "@otter-mail/core/agent-server";

@@ -1,11 +1,3 @@
-/**
- * The browser (the Mac app's): the panel's tabs beside the mail, where links
- * from mail and chat open, and the pages chats opened, shown beside each chat
- * in the AI workspace. The pages are `<webview>`s (browser-view.tsx) in a
- * session of their own, with the Chrome Web Store's extensions
- * (apps/desktop/src/services/browser.ts).
- */
-
 import { useEffect } from "react";
 import { create } from "zustand";
 
@@ -13,30 +5,22 @@ import { features } from "../features";
 
 export type BrowserTab = {
   id: string;
-  /** Where it is; "" for a new tab, which shows the start page. */
   url: string;
   title: string;
   favicon: string | null;
   loading: boolean;
-  /** A page a chat opened: one of its tabs in the workspace, not the panel's. */
   chatId?: string;
 };
 
-/** Where links from mail and chat open (Settings › Browser). */
 export type OpenLinksIn = "app" | "browser";
 
 type BrowserState = {
   tabs: BrowserTab[];
-  /** The panel's tab showing. */
   activeId: string | null;
-  /** Counts tabs asking to be seen: the home view opens the panel (and leaves Settings). */
   revealed: number;
-  /** Open Location (⌘L): that tab's address bar takes focus (`seq` tells requests apart). */
   addressFocus: { tabId: string; seq: number } | null;
   openLinksIn: OpenLinksIn;
-  /** Extensions with their button on the toolbar, in order. */
   pinned: string[];
-  /** The toolbar's Extensions button (the puzzle), unless hidden from its menu. */
   extensionsButton: boolean;
 };
 
@@ -56,7 +40,6 @@ function savedPinned(): string[] {
 
 export const CHROME_WEB_STORE_URL = "https://chromewebstore.google.com/";
 
-/** Tabs come back after a restart, their pages loading once they're shown. */
 function savedTabs(): Pick<BrowserState, "tabs" | "activeId"> {
   try {
     const saved = JSON.parse(localStorage.getItem(TABS_KEY) ?? "") as {
@@ -113,7 +96,6 @@ useBrowser.subscribe((state, prev) => {
 
 const { getState: get, setState: set } = useBrowser;
 
-/** A tab's address as the strip and the address bar name it: the host. */
 export function hostOf(url: string): string {
   return URL.parse(url)?.host.replace(/^www\./, "") ?? url;
 }
@@ -141,13 +123,10 @@ function blankTab(url: string): BrowserTab {
   };
 }
 
-/** The panel's tabs (not the pages chats opened). */
 export const panelTabs = (tabs: BrowserTab[]) => tabs.filter((tab) => !tab.chatId);
 
-/** The browser tab for a chat's page tab (its id there). */
 export const chatPageId = (chatId: string, tabId: string) => `${chatId}|${tabId}`;
 
-/** A chat's page, made for the workspace the first time it shows there. */
 export function ensureChatPage(chatId: string, tabId: string, url: string, title: string): void {
   const id = chatPageId(chatId, tabId);
   if (get().tabs.some((tab) => tab.id === id)) return;
@@ -159,12 +138,10 @@ export function closeChatPage(chatId: string, tabId: string): void {
   set((s) => ({ tabs: s.tabs.filter((tab) => tab.id !== id) }));
 }
 
-/** A chat's pages, gone with it. */
 export function closeChatPages(chatId: string): void {
   set((s) => ({ tabs: s.tabs.filter((tab) => tab.chatId !== chatId) }));
 }
 
-/** Opens `url` in a tab after the one showing, and shows it unless `background`. */
 export function openTab(url: string, { background = false } = {}): void {
   const tab = blankTab(url);
   set((s) => {
@@ -174,13 +151,11 @@ export function openTab(url: string, { background = false } = {}): void {
   });
 }
 
-/** ⌘T or the strip's +: a new start page, in a tab at the end. */
 export function newTab(): void {
   const tab = blankTab("");
   set((s) => ({ tabs: [...s.tabs, tab], activeId: tab.id, revealed: s.revealed + 1 }));
 }
 
-/** ⌘L: the showing tab's address bar, or a new tab's. */
 export function focusAddress(): void {
   const tabId = get().activeId;
   if (!tabId) {
@@ -193,7 +168,6 @@ export function focusAddress(): void {
   }));
 }
 
-/** Shows one of the panel's tabs (a chat's pages show in its workspace). */
 export function selectTab(id: string | null): void {
   if (id && get().tabs.find((tab) => tab.id === id)?.chatId) return;
   set({ activeId: id });
@@ -212,7 +186,6 @@ export function closeTab(id: string): void {
   });
 }
 
-/** The panel's tabs in a new order (a drag in its strip). */
 export function reorderTabs(order: string[]): void {
   set((s) => ({
     tabs: [
@@ -279,7 +252,6 @@ function quietDetachError(event: ErrorEvent): void {
   event.stopImmediatePropagation();
 }
 
-/** The main window's part: tabs pages open, and the File menu's New Tab and Open Location. */
 export function useBrowserEvents(): void {
   useEffect(() => {
     if (!features.browser) return;
@@ -287,7 +259,6 @@ export function useBrowserEvents(): void {
     const offs = [
       window.desktopBridge.on("browser:openTab", (params) => {
         const { url, background } = params as { url: string; background?: boolean };
-        // From a chat's page in the workspace: another of its pages.
         if (linkHandler) linkHandler(url);
         else openTab(url, { background });
       }),

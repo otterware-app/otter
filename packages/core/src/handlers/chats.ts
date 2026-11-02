@@ -1,9 +1,3 @@
-/**
- * Agent chats (services/chats.ts): the renderer's channels. Every change is
- * broadcast as `chats:changed` with the chats' ids, whoever made it (a
- * window, or another device through the relay).
- */
-
 import type { Chat } from "@otter-mail/contracts/chats";
 
 import { handle } from "../ipc.js";

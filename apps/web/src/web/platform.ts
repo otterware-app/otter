@@ -30,7 +30,6 @@ export type Page = {
  */
 async function openDatabase(): Promise<SqlDatabase> {
   const sqlite3 = await sqlite3InitModule();
-  // The demos keep their own cache (in OPFS's ".otter-mail-demo", ".otter-mail-dev-demo").
   const pool = await sqlite3.installOpfsSAHPoolVfs({
     name: __DEMO__ ? "otter-mail-demo" : __DEV_DEMO__ ? "otter-mail-dev-demo" : "otter-mail",
   });
@@ -48,8 +47,6 @@ async function openDatabase(): Promise<SqlDatabase> {
     }),
   };
 }
-
-// ── Files (OPFS, under files/, or the demos' demo-files/ and dev-demo-files/) ──
 
 async function directory(path: string[], create: boolean): Promise<FileSystemDirectoryHandle> {
   let dir = await (
@@ -116,7 +113,6 @@ const noContext = <T>(): AsyncContext<T> => ({ run: (_value, fn) => fn(), get: (
 
 export async function webPlatform(page: Page): Promise<Platform> {
   const database = await openDatabase();
-  // Demo mode: a pretend Gmail and Outlook in front of fetch (left out of real builds).
   const demo = __DEMO__ ? await import("./demo/gmail") : null;
   const demoOutlook = __DEMO__ ? await import("./demo/outlook") : null;
   if (demo) await demo.installFakeGmail(files);
@@ -132,12 +128,10 @@ export async function webPlatform(page: Page): Promise<Platform> {
       console[level === "debug" ? "log" : level](`[${scope}] ${message}`, data ?? ""),
 
     database: () => database,
-    // The relay's tunnel (mail-socket.ts); the demo has no relay.
     connect: demo
       ? () => Promise.reject(new Error("The demo can't connect to mail servers."))
       : (host, port, opts) => connectMailSocket(relayUrl, host, port, opts),
     files,
-    // IMAP passwords and the like, encrypted in the origin's files (secrets.ts).
     secrets: webSecrets(files),
     userFiles: {
       open: async (name, bytes) => page.effect({ kind: "open", name, bytes }),
@@ -172,7 +166,6 @@ export async function webPlatform(page: Page): Promise<Platform> {
     // which is fine without the offline body download.
     asyncContext: noContext,
     offlineDownloads: false,
-    // Chrome's built-in translator, in the page (the UI only offers it where it exists).
     translator: {
       detect: (text) => page.request("detectLanguage", { text }),
       translate: (texts, source, target) => page.request("translate", { texts, source, target }),

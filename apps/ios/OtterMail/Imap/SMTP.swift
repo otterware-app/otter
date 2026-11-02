@@ -59,7 +59,6 @@ nonisolated enum SMTP {
         }
     }
 
-    /** The server's extensions, uppercased ("STARTTLS", "AUTH PLAIN LOGIN", …). */
     private static func ehlo(_ socket: MailSocket) async throws -> [String] {
         let (code, lines) = try await reply(socket, "EHLO [127.0.0.1]")
         guard code == 250 else { throw ImapError.server(lines.joined(separator: " ")) }
@@ -71,7 +70,6 @@ nonisolated enum SMTP {
         guard codes.contains(code) else { throw ImapError.server(lines.joined(separator: " ")) }
     }
 
-    /** Sends a command (if any) and reads its reply: "250-…" lines up to "250 …". */
     private static func reply(_ socket: MailSocket, _ command: String?) async throws -> (code: Int, lines: [String]) {
         if let command { try await socket.write("\(command)\r\n") }
         var lines: [String] = []

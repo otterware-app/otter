@@ -15,7 +15,6 @@ export type SavedDraft = { accountId: string; messageId: string };
 
 let openDraft: (draft: SavedDraft) => void = () => {};
 
-/** Where a taken-back message reopens (the main view registers the reader). */
 export function setDraftOpener(open: (draft: SavedDraft) => void): () => void {
   openDraft = open;
   return () => {
@@ -29,13 +28,9 @@ export function sendWithUndo({
   onSent,
   savedDraft,
 }: {
-  /** Shown under "Sending…" / "Sent". */
   subject: string;
-  /** Hands the message to Gmail (the payload is captured by the caller). */
   send: () => Promise<unknown>;
-  /** After Gmail took it: e.g. delete the draft copy. */
   onSent?: () => Promise<unknown> | void;
-  /** The draft the composer left behind, to reopen when the send is undone. */
   savedDraft: () => Promise<SavedDraft | null>;
 }): void {
   let state: "waiting" | "sending" | "cancelled" = "waiting";
@@ -69,7 +64,6 @@ export function sendWithUndo({
     if (state !== "waiting") return;
     state = "sending";
     forgetUndo(undoEntry);
-    // Past the point of no return: the Undo button goes.
     toast.update(toastId, "loading", "Sending…", { description, timeout: 0 });
     console.log("[undoSend:sending]", { subject: description });
     send().then(

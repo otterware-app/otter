@@ -100,7 +100,6 @@ try {
   const closed = new Promise<number>((resolve) =>
     socket.addEventListener("close", (e) => resolve(e.code)),
   );
-  // Cloudflare drops the TCP connection ~10s after the close frame.
   step("unlinking and deleting the smoke-test account");
   await call("DELETE", `/v1/accounts/${encodeURIComponent(SERVICE_ACCOUNT)}`, session.token);
   await call("POST", "/v1/auth/delete-user", session.token, {});

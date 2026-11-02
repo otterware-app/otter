@@ -1,4 +1,3 @@
-/** A device-local Todoist for the demo mailbox. Connect with the token `demo`. */
 import type { TodoistTask, TodoistReminder } from "@otter-mail/contracts/todoist";
 import type { Platform } from "@otter-mail/core";
 

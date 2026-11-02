@@ -32,7 +32,6 @@ import { useDraftAutosave } from "./use-draft-autosave";
 import { RecipientInput } from "./recipient-input";
 import type { ComposeAttachment, MailAccount } from "./types";
 
-/** The From account picker (shown only with several accounts). */
 function FromPicker({
   accounts,
   value,
@@ -79,11 +78,6 @@ function FromPicker({
   );
 }
 
-/**
- * New message pane: replaces the reader when composing a fresh email —
- * recipients, subject, attachments, and body in the docked composer,
- * autosaving to a Gmail draft as you type.
- */
 export function NewMessageView({
   accounts,
   defaultAccountId,
@@ -93,7 +87,6 @@ export function NewMessageView({
   accounts: MailAccount[];
   defaultAccountId: string;
   onClose: () => void;
-  /** Seeds the composer once at mount (mailto: links); remount to re-seed. */
   prefill?: { to?: string; cc?: string; subject?: string; body?: string };
 }) {
   const [fromId, setFromId] = useState(defaultAccountId);
@@ -121,7 +114,6 @@ export function NewMessageView({
   const draft = useDraftAutosave({
     accountId: fromAccount?.id ?? null,
     delayMs: autosaveDelayMs(attachments),
-    // Edited elsewhere (an agent, Gmail web): load that version in place.
     onRemoteChange: async (detail) => {
       setTo(detail.to ?? "");
       setCc(detail.cc ?? "");
@@ -165,14 +157,11 @@ export function NewMessageView({
     toRef.current?.focus();
   }, []);
 
-  // Escape closes, keeping the autosaved draft (capture phase beats
-  // home-view's Escape handling).
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const el = e.target as Element | null;
       if (el && typeof el.closest === "function" && el.closest('[role="dialog"]')) return;
-      // An open autocomplete popup owns Escape (it dismisses itself).
       if (el && typeof el.closest === "function" && el.closest('[data-ac-open="true"]')) return;
       e.preventDefault();
       e.stopPropagation();

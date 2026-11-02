@@ -1,23 +1,14 @@
 import Foundation
 
-/**
- * The account's agent chats (contracts' chats.ts), synced through the relay:
- * every chat reads the same here, whatever agent ran it and on which device.
- * One this iPhone's agent can run continues here; the others (Claude and
- * Codex on a Mac, or another agent than the one picked) are read. Chats stay
- * the relay's JSON, so one written back keeps what other devices wrote (its
- * tabs, results, context), with this iPhone's turns after theirs.
- */
+// Preserve unknown chat fields when saving so other devices' workspace state survives.
 struct SyncedChat: Identifiable, Equatable {
     var id: String
     var title: String
     var provider: String
     var sessionId: String?
-    /** The Mac a Claude or Codex chat ran on. */
     var device: String?
     var updatedAt: Date
 
-    /** A chat from the relay's list; nil for one deleted. */
     init?(_ object: [String: Any]) {
         guard let id = object["id"] as? String, object["deletedAt"] as? NSNumber == nil else { return nil }
         self.id = id
@@ -28,22 +19,18 @@ struct SyncedChat: Identifiable, Equatable {
         updatedAt = Date(timeIntervalSince1970: ((object["updatedAt"] as? NSNumber)?.doubleValue ?? 0) / 1000)
     }
 
-    /** The agent's name, as the chat list says it. */
     var providerName: String { Self.providerNames[provider] ?? provider.capitalized }
 
     static let providerNames = [
         "openrouter": "OpenRouter", "hermes": "Hermes", "openclaw": "OpenClaw", "claude": "Claude", "codex": "Codex",
     ]
 
-    /** Claude and Codex run on one Mac: their chats continue there. */
     var isLocalToMac: Bool { provider == "claude" || provider == "codex" }
 }
 
-/** Turns between the relay's JSON and what the iPhone shows. */
 enum ChatJSON {
     static var now: Int { Int((Date().timeIntervalSince1970 * 1000).rounded()) }
 
-    /** The relay's turns as the iPhone shows them: an agent turn's text, and its steps as tools. */
     static func turns(_ objects: [[String: Any]]) -> [Agent.Turn] {
         objects.map { turn in
             if turn["role"] as? String == "user" {
@@ -59,7 +46,6 @@ enum ChatJSON {
         }
     }
 
-    /** The iPhone's turns as the relay keeps them (contracts' ChatTurn). */
     static func objects(_ turns: [Agent.Turn]) -> [[String: Any]] {
         turns.map { turn in
             var object: [String: Any] = ["id": turn.id.uuidString.lowercased()]

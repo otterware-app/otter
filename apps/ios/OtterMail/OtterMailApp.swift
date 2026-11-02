@@ -2,11 +2,6 @@ import BackgroundTasks
 import SwiftUI
 import UserNotifications
 
-/**
- * Otter Mail for iPhone. The Mac and web apps are one TypeScript app
- * (apps/desktop, apps/web); this is its native sibling, with the same
- * Otter account, mailboxes, themes and settings.
- */
 @main
 struct OtterMailApp: App {
     @UIApplicationDelegateAdaptor private var delegate: AppDelegate
@@ -40,7 +35,6 @@ struct OtterMailApp: App {
             switch phase {
             case .active:
                 Task { await session.relay.retrySignOuts(); await session.refreshAccount() }
-                // An OpenClaw reply the app let go of: as far as it got, then the rest.
                 Task { await session.agent.resumeOpenClaw() }
             case .background:
                 session.disconnect()
@@ -70,7 +64,6 @@ struct OtterMailApp: App {
     }
 }
 
-/** Opens the thread a notification is about. */
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     var session: Session? {
         didSet {
@@ -78,7 +71,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             if let token { session?.registeredForPush(token) }
         }
     }
-    /** A tap that launched the app, held until the window hands over the session. */
     private var tapped: Session.NotificationDestination?
     private var token: String?
 
@@ -93,8 +85,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         session?.registeredForPush(token)
     }
 
-    // The completion-handler forms, called on the main thread: the async forms' thunks
-    // call UIKit's completion handler from a background thread, which crashes on a tap.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         let info = response.notification.request.content.userInfo
         let metadata = info["otter"] as? [String: Any]
@@ -120,7 +110,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 }
 
-/** Paints its content with the theme picked for the current appearance. */
 struct Themed<Content: View>: View {
     @Environment(Preferences.self) private var preferences
     @ViewBuilder var content: Content

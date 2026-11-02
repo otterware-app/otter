@@ -1,17 +1,4 @@
-/**
- * Keybinding grammar (ported from Otter Code's shared/keybindings + web
- * keybindings): key strings, `when` expressions, event matching, and labels.
- *
- * Key string: `mod+shift+k` — `+`-joined modifiers then exactly one key.
- * Modifiers: `mod` (⌘ on macOS, Ctrl elsewhere), `cmd`/`meta`, `ctrl`/`control`,
- * `alt`/`option`, `shift`. Keys: a character (`k`, `#`, `/`, `[`), or a name
- * (`enter`, `escape`/`esc`, `space`, `tab`, `backspace`, `delete`,
- * `arrowup`…, `home`, `end`, `pageup`, `pagedown`, `f1`…).
- *
- * Mail additions: a space-separated two-stroke sequence (`g i`, Gmail's
- * go-to combos), and symbol keys that need Shift to type (`#`, `!`, `?`) match
- * whether or not Shift is held unless the binding names `shift` explicitly.
- */
+// Symbol keys match with or without Shift unless the binding explicitly names shift.
 
 export type KeyStroke = {
   key: string;
@@ -22,7 +9,6 @@ export type KeyStroke = {
   shiftKey: boolean;
 };
 
-/** One stroke, or a two-stroke sequence (`g i`). */
 export type Shortcut = KeyStroke[];
 
 export const isMacPlatform =
@@ -42,7 +28,6 @@ const KEY_ALIASES: Record<string, string> = {
 export function parseStroke(value: string): KeyStroke | null {
   const raw = value.trim().toLowerCase();
   if (!raw) return null;
-  // The plus key itself: "+" alone or a trailing "++" ("mod++").
   let body = raw;
   let plusKey = false;
   if (raw === "+") {
@@ -70,7 +55,7 @@ export function parseStroke(value: string): KeyStroke | null {
     else if (token === "alt" || token === "option" || token === "opt") stroke.altKey = true;
     else if (token === "shift") stroke.shiftKey = true;
     else {
-      if (stroke.key) return null; // exactly one key
+      if (stroke.key) return null;
       stroke.key = KEY_ALIASES[token] ?? token;
     }
   }
@@ -102,9 +87,6 @@ export function normalizeKey(value: string): string {
   return shortcut ? shortcut.map(encodeStroke).join(" ") : value.trim().toLowerCase();
 }
 
-// ── Matching ─────────────────────────────────────────────────────────────────
-
-/** Physical keys, for layouts/Option combos where `event.key` isn't the label. */
 function codeKey(code: string): string | null {
   if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
   if (/^Digit[0-9]$/.test(code)) return code.slice(5);
@@ -127,8 +109,6 @@ function codeKey(code: string): string | null {
 function eventKeys(event: KeyboardEvent): string[] {
   const keys = [event.key.toLowerCase()];
   const physical = codeKey(event.code);
-  // Option on macOS turns letters/digits into symbols (⌥G → ©), and non-Latin
-  // layouts produce other scripts: fall back to the physical key then.
   if (physical && !keys.includes(physical) && !/^[a-z]$/.test(keys[0])) keys.push(physical);
   return keys;
 }
@@ -154,8 +134,6 @@ export const isModifierOnly = (event: KeyboardEvent) =>
   event.key === "CapsLock" ||
   event.key === "Fn";
 
-// ── Recording ────────────────────────────────────────────────────────────────
-
 const NAMED_KEYS = new Set([
   "enter",
   "escape",
@@ -172,12 +150,10 @@ const NAMED_KEYS = new Set([
   "pagedown",
 ]);
 
-/** The key string for a pressed stroke (for the recorder), or null if unusable. */
 export function strokeFromEvent(event: KeyboardEvent): string | null {
   if (isModifierOnly(event)) return null;
   let key = event.key.toLowerCase();
   if (key === "dead" || key === "unidentified") key = codeKey(event.code) ?? "";
-  // Option-modified letters/digits type symbols; record the physical key.
   if (event.altKey && !/^[a-z0-9]$/.test(key)) key = codeKey(event.code) ?? key;
   if (key === " ") key = "space";
   const allowed =
@@ -187,7 +163,6 @@ export function strokeFromEvent(event: KeyboardEvent): string | null {
   if (event.metaKey) parts.push(isMacPlatform ? "mod" : "meta");
   if (event.ctrlKey) parts.push(isMacPlatform ? "ctrl" : "mod");
   if (event.altKey) parts.push("alt");
-  // Shift is implied by symbols it types ("#", "?"); keep it for letters/named keys.
   if (event.shiftKey && !isSymbolKey(key)) parts.push("shift");
   parts.push(key);
   return parts.join("+");
@@ -195,8 +170,6 @@ export function strokeFromEvent(event: KeyboardEvent): string | null {
 
 export const strokeHasModifier = (key: string) =>
   /(^|\+)(mod|meta|ctrl|alt)\+/.test(key.toLowerCase());
-
-// ── Labels ───────────────────────────────────────────────────────────────────
 
 function keyLabel(key: string): string {
   const named: Record<string, string> = {
@@ -220,7 +193,6 @@ function keyLabel(key: string): string {
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
-/** One chip per modifier then the key, in macOS order (⌃ ⌥ ⇧ ⌘ K). */
 export function strokeTokens(stroke: KeyStroke): string[] {
   const meta = stroke.metaKey || (stroke.modKey && isMacPlatform);
   const ctrl = stroke.ctrlKey || (stroke.modKey && !isMacPlatform);
@@ -240,25 +212,19 @@ export function strokeTokens(stroke: KeyStroke): string[] {
   return tokens;
 }
 
-/** Compact label for tooltips/menus/palette: `⇧⌘K`, `G then I`. */
 export function formatShortcut(shortcut: Shortcut): string {
   return shortcut.map((s) => strokeTokens(s).join(isMacPlatform ? "" : "+")).join(" then ");
 }
 
-/** A fixed shortcut written into copy, in this computer's keys: "mod+k" → `⌘K` or `Ctrl+K`. */
 export function shortcutText(value: string): string {
   const shortcut = parseShortcut(value);
   return shortcut ? formatShortcut(shortcut) : value;
 }
 
-/** The shortcut modifier's name in copy ("⌘-click", "Ctrl-click"). */
 export const modKeyName = isMacPlatform ? "⌘" : "Ctrl";
 
-/** A click with the shortcut modifier held: ⌘ on a Mac, Ctrl elsewhere. */
 export const isModClick = (event: { metaKey: boolean; ctrlKey: boolean }) =>
   isMacPlatform ? event.metaKey : event.ctrlKey;
-
-// ── `when` expressions ───────────────────────────────────────────────────────
 
 export type WhenNode =
   | { type: "identifier"; name: string }
@@ -291,7 +257,6 @@ function tokenize(expr: string): Token[] | null {
   return tokens;
 }
 
-/** Recursive descent: `!` > `&&` > `||`, left-associative, parentheses. */
 export function parseWhen(expr: string): WhenNode | null {
   const tokens = tokenize(expr);
   if (!tokens || tokens.length === 0) return null;
@@ -379,7 +344,6 @@ export function whenIdentifiers(node: WhenNode | undefined, out = new Set<string
   return out;
 }
 
-/** Canonical text for an expression (for comparing `when` clauses). */
 export function whenToString(node: WhenNode | undefined): string {
   if (!node) return "";
   const wrap = (child: WhenNode, parent: "and" | "or") =>

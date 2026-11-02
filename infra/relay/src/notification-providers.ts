@@ -1,4 +1,3 @@
-/** Provider readers for alert decisions. Requests explicitly exclude headers, bodies, snippets and attachments. */
 import { connect } from "cloudflare:sockets";
 import { connectImap, type ImapClient } from "@otter-mail/core/imap";
 import type { MailProviderKind } from "@otter-mail/contracts/mail";
@@ -132,7 +131,6 @@ export async function gmailCheck(
     if (pages === 4) throw new NotificationFailure(false);
   }
   const messages: IncomingMessage[] = [];
-  // Bound a large catch-up; a single alert can represent several arrivals, and only the latest is enriched.
   const candidates = [...ids].slice(-100);
   for (let offset = 0; offset < candidates.length; offset += 4) {
     const batch = await Promise.all(
@@ -242,7 +240,6 @@ export async function outlookCheck(
   return { cursor: { ...cursor, since: newest, seen: [...seen].slice(-500) }, messages };
 }
 
-/** A TLS ByteStream adapter for the existing, tested IMAP client. No credential-bearing commands are logged. */
 async function tcp(host: string, port: number, options: { tls: boolean }) {
   let socket = connect(
     { hostname: host, port },
@@ -377,7 +374,6 @@ export async function imapCheck(
             message.flags?.some((f) => ["\\seen", "\\deleted", "\\draft"].includes(f.toLowerCase()))
           )
             continue;
-          // A copy/move of old mail has a new UID but retains its old INTERNALDATE.
           if (
             !message.internalDate ||
             message.internalDate.getTime() < Math.floor(baseline.checkedAt / 1000) * 1000

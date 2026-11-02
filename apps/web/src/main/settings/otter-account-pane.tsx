@@ -20,13 +20,6 @@ import {
 } from "./settings-ui";
 import { searchableSetting } from "./settings-search";
 
-/**
- * Settings › Otter account, opened from the user button at the bottom of the
- * settings sidebar (as in Otter Code): who is signed in, whether mail arrives
- * by push, the devices signed in, sign-out and deletion. Signed out, it explains
- * the account and signs in.
- */
-
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 export function OtterAvatar({
@@ -44,12 +37,6 @@ export function OtterAvatar({
   );
 }
 
-/**
- * "Sign in with Google" for the Otter account: Google in the browser on the
- * desktop, a redirect on the web (whose bridge chains the rest, bridge.ts).
- * Signed in, the address's own mailbox follows, unless this device already has
- * it: Google again, the address prefilled. Cancellable while either waits.
- */
 function useOtterSignIn() {
   const [pending, setPending] = useState<"otter" | "mailbox" | null>(null);
   const addMailbox = useAddAccount();
@@ -247,7 +234,6 @@ export function OtterAccountPane() {
   );
 }
 
-/** First run (on the desktop, signed out): for someone who already has an Otter account. */
 export function OtterSignInOnboardingLink() {
   const state = useOtterAccount();
   const { pending, signIn, cancel } = useOtterSignIn();

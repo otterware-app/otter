@@ -25,14 +25,12 @@ import {
  */
 export type ConversationTranslation = {
   on: boolean;
-  /** Chosen language; null = the first language the user reads. */
   target: string | null;
   set: (next: { on: boolean; target: string | null }) => void;
 };
 
 export const ConversationTranslationContext = createContext<ConversationTranslation | null>(null);
 
-/** The reader's conversation translation, or a message's own (draft editor). */
 function useConversationTranslation(): ConversationTranslation {
   const shared = useContext(ConversationTranslationContext);
   const [local, setLocal] = useState<{ on: boolean; target: string | null }>({
@@ -49,10 +47,6 @@ export function useIsForeignMessage(accountId: string, detail: MessageDetail | u
   return language != null && !readLanguages.some((l) => sameLanguage(l, language));
 }
 
-/**
- * A message's translation state: its language, the banner to show above it,
- * and the body to render — translated in place once ready, else the original.
- */
 export function useMessageTranslation(accountId: string, detail: MessageDetail | undefined) {
   const { readLanguages } = useTranslationSettings();
   const conversation = useConversationTranslation();
@@ -86,7 +80,6 @@ export function useMessageTranslation(accountId: string, detail: MessageDetail |
   };
 }
 
-/** The banner's actions: outline pills. */
 const PILL = buttonClass("outline", "sm", "rounded-full border-border/60");
 
 function errorMessage(error: Error, from: string, to: string): string {

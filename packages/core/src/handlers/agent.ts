@@ -1,9 +1,3 @@
-/**
- * Agent handlers: provider state/settings plus chat routing. Every call
- * answers well inside the 5s IPC budget — health checks and turns run in the
- * background and report via `agent:providersChanged` / `agent:chatEvent`.
- */
-
 import { handle } from "../ipc.js";
 import { runAsTask } from "./ipc-budget.js";
 import { ATTACHMENTS_DIR, stageAttachment } from "../services/agent/attachments.js";
@@ -30,7 +24,6 @@ function sessionIdOf(p: Params): string {
 
 const MAX_ATTACHMENTS = 10;
 
-/** Only staged files (inside the attachments folder) are passed to agents. */
 function attachmentsOf(raw: unknown): ChatAttachment[] {
   if (!Array.isArray(raw)) return [];
   return (raw as Params[])
@@ -98,8 +91,6 @@ export function registerAgentHandlers(): void {
     };
   });
 
-  // Dropped, picked or pasted files are copied into the attachments folder;
-  // the renderer sends the returned records with a turn.
   handle("agent:stageAttachments", async (params: unknown) => {
     const p = params as Params;
     const items = Array.isArray(p?.items) ? (p.items as Params[]) : [];
@@ -130,7 +121,6 @@ export function registerAgentHandlers(): void {
   handle("agent:answerQuestion", async (params: unknown) => {
     const p = params as Params;
     const raw = p?.answers;
-    // Answers by question id, each a list of choices (or free text); null skips the question.
     const answers =
       raw && typeof raw === "object"
         ? Object.fromEntries(

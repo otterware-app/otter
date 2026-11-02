@@ -7,12 +7,8 @@
 
 import { LazyReadFunctionReadQueue, startTls, TrustedCert, type RootCertsDatabase } from "subtls";
 
-// Mozilla's root store: the certificates of https://curl.se/ca/cacert.pem
-// (refresh with `curl -s https://curl.se/ca/cacert.pem | awk
-// '/-BEGIN/{p=1} p; /-END/{p=0}' > roots.pem`).
 import rootsPem from "./roots.pem?raw";
 
-// Dev builds only: the CA of `pnpm dev:mail`'s local server, which `pnpm dev` passes in.
 const devRoots: string = (import.meta.env.DEV && import.meta.env.VITE_DEV_MAIL_CA) || "";
 
 let roots: Promise<RootCertsDatabase> | undefined;
@@ -22,7 +18,6 @@ export type TlsStream = {
   write(data: Uint8Array): Promise<void>;
 };
 
-/** Runs the handshake over `read`/`write` (the plain connection) and returns the encrypted one. */
 export async function negotiateTls(
   host: string,
   read: () => Promise<Uint8Array | null>,
@@ -34,7 +29,6 @@ export async function negotiateTls(
     return await startTls(host.toLowerCase(), await roots, queue.read.bind(queue), write);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    // How TLS 1.2-only servers answer (La Poste, Mail.ru, Runbox, OVH's SMTP, …).
     if (/alert|No TLS version|Expected 771/.test(message)) {
       throw new Error(
         `${host} doesn't offer TLS 1.3, which the web app needs. The Mac app can connect to it.`,

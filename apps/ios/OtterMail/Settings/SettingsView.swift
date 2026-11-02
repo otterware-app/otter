@@ -1,11 +1,5 @@
 import SwiftUI
 
-/**
- * Settings, ChatGPT's sheet: who's signed in, then grouped rows. Everything
- * here is also in the Mac and web apps' settings, under the same names;
- * what only a computer has (launch at login, the local agents,
- * keyboard shortcuts) stays there.
- */
 struct SettingsView: View {
     @Environment(Preferences.self) private var preferences
     @Environment(Session.self) private var session
@@ -177,7 +171,6 @@ struct SettingsView: View {
     }
 }
 
-/** Settings' grouped list, on the theme's canvas with its rows as cards (ChatGPT's settings). */
 struct SettingsForm<Content: View>: View {
     @Environment(\.palette) private var palette
     @ViewBuilder var content: Content

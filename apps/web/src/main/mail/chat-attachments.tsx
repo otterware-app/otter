@@ -1,11 +1,4 @@
 import { useLatest } from "../use-latest";
-/**
- * Attachments in the agent chat, as Otter Code does them: paste an image
- * (or files), drop files anywhere on the panel ("Drop files to attach"), or
- * pick them with the paperclip. Files dropped from Finder travel by path;
- * pasted bytes are copied by the backend. Images show as thumbnails, other
- * files as rows, in the composer and in the sent message.
- */
 
 import {
   Children,
@@ -20,14 +13,12 @@ import { toast } from "./toast";
 import { mailApi, type ChatAttachment } from "./api";
 import { cn } from "./ui";
 
-/** Otter Code's image types, 10 MB per image, 50 MB per file. */
 const IMAGE_TYPES = new Set(["image/gif", "image/jpeg", "image/png", "image/webp"]);
 const IMAGE_EXTENSIONS = /\.(gif|jpe?g|png|webp)$/i;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 export const MAX_ATTACHMENTS = 10;
 
-/** What a sent message keeps (thumbnails are small data URLs, fit for storage). */
 export type SentAttachment = { name: string; kind: "image" | "file"; size: number; thumb?: string };
 
 type DraftAttachment = {
@@ -35,7 +26,6 @@ type DraftAttachment = {
   name: string;
   kind: "image" | "file";
   size: number;
-  /** Object URL for the composer preview (images). */
   previewUrl?: string;
   thumb?: string;
   staged?: ChatAttachment;
@@ -54,7 +44,6 @@ function isImage(file: File): boolean {
   );
 }
 
-/** A ≤240px JPEG of an image, small enough to keep in the chat history. */
 function thumbnail(url: string): Promise<string | undefined> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -75,12 +64,10 @@ function thumbnail(url: string): Promise<string | undefined> {
   });
 }
 
-/** The composer's attachments: add (validate + stage), remove, take on send. */
 export function useChatAttachments() {
   const [items, setItems] = useState<DraftAttachment[]>([]);
   const itemsRef = useLatest(items);
 
-  // Object URLs die with the draft.
   useEffect(
     () => () => {
       for (const item of itemsRef.current)
@@ -149,7 +136,6 @@ export function useChatAttachments() {
       return list.filter((a) => a.key !== key);
     });
 
-  /** Hands the staged files to a send and clears the composer. */
   const take = (): { staged: ChatAttachment[]; sent: SentAttachment[] } => {
     const ready = itemsRef.current.filter((a) => a.staged);
     for (const item of itemsRef.current) if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
@@ -170,15 +156,10 @@ export function useChatAttachments() {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Drop target (the whole panel)
-// ---------------------------------------------------------------------------
-
 const isFileDrag = (e: DragEvent) => e.dataTransfer.types.includes("Files");
 const movedWithin = (e: DragEvent) =>
   e.relatedTarget !== null && e.currentTarget.contains(e.relatedTarget as Node);
 
-/** Otter Code's workspace file drop: handlers for the panel + overlay state. */
 export function useFileDrop(onFiles: (files: File[]) => void) {
   const [active, setActive] = useState(false);
   // Cancelling a drag with Escape may never fire dragleave.
@@ -244,10 +225,6 @@ export function filesFromPaste(data: DataTransfer): File[] {
   return text ? [] : files;
 }
 
-// ---------------------------------------------------------------------------
-// Composer strip + sent message
-// ---------------------------------------------------------------------------
-
 /**
  * An attachment in the composer: a compact two-line chip (mostly mail, so
  * a name and a detail say more than a preview would): a tile with the kind's
@@ -268,11 +245,8 @@ export function AttachmentChip({
   name: string;
   detail?: string;
   title?: string;
-  /** Still uploading. */
   pending?: boolean;
-  /** Left out of the message (the attached mail, toggled off). */
   off?: boolean;
-  /** The small window's: shorter, with a smaller tile. */
   compact?: boolean;
   onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
   onRemove?: () => void;
@@ -332,16 +306,11 @@ export function AttachmentChip({
   );
 }
 
-/** A file's extension, for its chip ("PDF", "XLSX"). */
 function extensionOf(name: string): string {
   const dot = name.lastIndexOf(".");
   return dot > 0 && dot < name.length - 1 ? name.slice(dot + 1, dot + 6).toUpperCase() : "File";
 }
 
-/**
- * The composer's attachments as chips in a row at its top; `children` go
- * first (the attached mail).
- */
 export function ComposerAttachments({
   items,
   onRemove,
@@ -389,7 +358,6 @@ export function ComposerAttachments({
   );
 }
 
-/** Attachments inside a sent user bubble (Otter Code's MessagesTimeline). */
 /* oxlint-disable react/no-array-index-key -- Sent messages keep immutable attachment snapshots, including repeated filenames. */
 export function SentAttachments({ attachments }: { attachments: SentAttachment[] }) {
   const images = attachments.filter((a) => a.kind === "image");

@@ -1,9 +1,3 @@
-/**
- * Adding an IMAP mailbox and signing it back in (handlers/imap-accounts.ts),
- * against GreenMail in Docker, on a fake platform. Skipped when Docker isn't
- * running.
- */
-
 import { DatabaseSync } from "node:sqlite";
 import type { ImapSettings } from "@otter-mail/contracts/mail";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
@@ -50,7 +44,6 @@ setPlatform({
   connect: nodeConnect,
   broadcast: (channel) => broadcasts.push(channel),
   setUnreadCount: () => {},
-  // Adding a mailbox starts its sync and IDLE watch.
   onResume: () => () => {},
   asyncContext: () => ({ run: (_value, fn) => fn(), get: () => undefined }),
 } as Partial<Platform> as Platform);

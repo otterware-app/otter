@@ -11,18 +11,11 @@
 
 export type ChangelogEntry = {
   version: string;
-  /** A few words naming the release: "Onboarding", "A smarter ⌘K". */
   title: string;
-  /** The release day, YYYY-MM-DD. */
   date: string;
-  /** Markdown after the front matter: a lead line, images, then ## sections of bullets. */
   body: string;
 };
 
-/**
- * One note from its file: front matter (`title:`, `date:` between `---`
- * lines), then markdown. `version` comes from the file name.
- */
 export function parseChangelogEntry(version: string, text: string): ChangelogEntry {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(text);
   if (!match) throw new Error(`changelog/${version}.md: missing front matter`);
@@ -39,7 +32,6 @@ export function parseChangelogEntry(version: string, text: string): ChangelogEnt
   return { version, title, date: date!, body: match[2]!.trim() };
 }
 
-/** Semver order of X.Y.Z versions: negative when `a` is older. */
 function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map(Number);
   const pb = b.split(".").map(Number);
@@ -50,14 +42,12 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-/** Newest first, up to `current`: notes written ahead of a release wait for it. */
 export function releasedEntries(entries: ChangelogEntry[], current: string): ChangelogEntry[] {
   return entries
     .filter((e) => compareVersions(e.version, current) <= 0)
     .sort((a, b) => compareVersions(b.version, a.version));
 }
 
-/** "2026-09-30" → "September 30, 2026". */
 export function formatChangelogDate(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
   return new Date(Date.UTC(y!, m! - 1, d!)).toLocaleDateString("en-US", {
@@ -68,12 +58,10 @@ export function formatChangelogDate(date: string): string {
   });
 }
 
-/** An image's path as written in a note (`images/onboarding.webp`) → its file name. */
 export function changelogImageName(src: string): string | null {
   const match = /^(?:\.\/)?images\/([^/]+)$/.exec(src);
   return match ? match[1]! : null;
 }
 
-/** The changelog on otterware.app, or one release's note there. */
 export const changelogUrl = (version?: string | null) =>
   `https://otterware.app/mail/changelog/${version ? `#${version}` : ""}`;

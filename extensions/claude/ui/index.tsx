@@ -1,5 +1,3 @@
-/** Claude: the CLI on this computer (the desktop app runs it); its mark and runtime settings. */
-
 import {
   LocalAgentSettings,
   type AgentSettingsProps,

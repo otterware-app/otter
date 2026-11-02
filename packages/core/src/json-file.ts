@@ -1,5 +1,3 @@
-/** The app's small JSON documents (settings.json, accounts.json, …) in its own files. */
-
 import { utf8Decode } from "./bytes.js";
 import { platform } from "./platform.js";
 

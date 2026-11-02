@@ -1,10 +1,4 @@
-// Resolves the Electron binary used by `pnpm dev:desktop` and `pnpm start`.
-//
-// On macOS a bare node_modules Electron shows up as "Electron" in the Dock,
-// menu bar, notifications and the "default mail app" picker. We copy
-// Electron.app into apps/desktop/.electron-runtime/"Otter Mail (Dev).app" once,
-// rebrand its Info.plist, and launch the copy instead. The executable keeps
-// its "Electron" name so `app.isPackaged` stays false.
+// Keep the executable named Electron so app.isPackaged stays false after rebranding.
 
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
@@ -19,7 +13,6 @@ const APP_DISPLAY_NAME = "Otter Mail (Dev)";
 const APP_BUNDLE_ID = "dev.otterware.mail.dev";
 // Bump when the patching below changes, to force a fresh copy.
 const LAUNCHER_VERSION = 1;
-// Dev builds wear the blueprint icon (assets/dev), like T3 Code.
 const iconPath = NodePath.join(desktopDir, "resources", "icon-dev.icns");
 const runtimeDir = NodePath.join(desktopDir, ".electron-runtime");
 
@@ -50,7 +43,6 @@ function readJson(filePath) {
 export function resolveElectronBinaryPath() {
   let electronPath;
   try {
-    // The electron package's main export is the path to its binary.
     electronPath = require("electron");
   } catch (error) {
     throw new Error(
@@ -117,7 +109,6 @@ function registerDevUrlScheme(appBundlePath) {
   }
 }
 
-/** Builds (or reuses) the branded dev copy of Electron.app; returns its binary. */
 function ensureMacDevBundle(electronBinaryPath) {
   const sourceBundle = NodePath.resolve(NodePath.dirname(electronBinaryPath), "..", "..");
   const targetBundle = NodePath.join(runtimeDir, `${APP_DISPLAY_NAME}.app`);
@@ -175,7 +166,6 @@ function ensureMacDevBundle(electronBinaryPath) {
   return targetBinary;
 }
 
-/** The Electron executable to spawn for local (unpackaged) runs. */
 export function resolveElectronPath() {
   const electronBinaryPath = resolveElectronBinaryPath();
   if (process.platform !== "darwin") return electronBinaryPath;

@@ -1,10 +1,5 @@
 import SwiftUI
 
-/**
- * The agent, ChatGPT's way: the model as the title (tap to switch), the
- * conversation, and a glass composer at the bottom. Conversations it's asked
- * about ride along as a chip, and go to the agent as pointers.
- */
 struct AgentView: View {
     @Environment(Session.self) private var session
     @Environment(\.palette) private var palette
@@ -51,7 +46,6 @@ struct AgentView: View {
 
     @ViewBuilder
     private var content: some View {
-        // A chat opened from the account's reads whatever this iPhone's agent is up to.
         if !agent.turns.isEmpty && agent.status != .ready {
             conversation
         } else {
@@ -93,8 +87,6 @@ struct AgentView: View {
         .foregroundStyle(palette.text)
     }
 
-    // ── The conversation ─────────────────────────────────────────────────────
-
     private var conversation: some View {
         ScrollViewReader { reader in
             ScrollView {
@@ -134,7 +126,6 @@ struct AgentView: View {
         }
     }
 
-    /** ChatGPT's empty chat: a question, and a few starts when there's mail to ask about. */
     private var welcome: some View {
         VStack(spacing: 18) {
             Text("What can I help with?")
@@ -156,8 +147,6 @@ struct AgentView: View {
         }
         .padding(.horizontal, 28)
     }
-
-    // ── The composer ─────────────────────────────────────────────────────────
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -221,15 +210,11 @@ struct AgentView: View {
     private func send(_ text: String) {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !(agent.running && agent.selected == "openrouter") else { return }
-        // The context goes with the first question of a chat.
         agent.send(text, context: agent.turns.isEmpty ? context : [])
         if agent.turns.count <= 2 { context = [] }
         draft = ""
     }
 
-    // ── The model ────────────────────────────────────────────────────────────
-
-    /** "Hermes · GPT-5 ⌄", ChatGPT's title menu: the model, its reasoning and speed. */
     private var modelMenu: some View {
         @Bindable var agent = session.agent
         let model = agent.model
@@ -278,7 +263,6 @@ struct AgentView: View {
     }
 }
 
-/** One turn: the question as a bubble, the answer as text with what the agent did. */
 private struct TurnView: View {
     @Environment(Session.self) private var session
     @Environment(\.palette) private var palette
@@ -357,12 +341,6 @@ private struct TurnView: View {
     }
 }
 
-/**
- * OpenClaw asking the user something mid-run (its `ask_user`; the desktop's
- * question-card), in the composer's place: each question with its options
- * (one or several), room for an answer of their own, then Skip or Answer. A
- * single question with one choice answers on a tap.
- */
 private struct QuestionCard: View {
     @Environment(Session.self) private var session
     @Environment(\.palette) private var palette
@@ -424,7 +402,6 @@ private struct QuestionCard: View {
                                     get: { own[item.id] ?? "" },
                                     set: { value in
                                         own[item.id] = value
-                                        // Typing replaces a single choice.
                                         if !item.multiSelect, !value.isEmpty { chosen[item.id] = [] }
                                     }
                                 ))
@@ -541,11 +518,6 @@ private struct ApprovalCard: View {
     }
 }
 
-/**
- * The account's chats, from every device and agent, newest first; then the
- * picked agent's own sessions that aren't one of them (Hermes' web UI, …).
- */
-/** The chats: the account's, then the agent's own, in a sheet. */
 struct ChatHistory: View {
     @Environment(Session.self) private var session
     @Environment(\.palette) private var palette

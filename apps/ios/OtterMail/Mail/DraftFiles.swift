@@ -1,7 +1,6 @@
 import Foundation
 import UniformTypeIdentifiers
 
-/** Files imported into a draft, or attachments still held by its original message. */
 nonisolated struct DraftFile: Identifiable, Hashable, Codable {
     var id = UUID()
     var filename: String

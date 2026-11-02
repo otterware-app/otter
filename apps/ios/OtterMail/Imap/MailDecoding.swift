@@ -6,13 +6,10 @@ import Foundation
  * IMAP's own modified UTF-7 for folder names (RFC 3501 §5.1.3).
  */
 nonisolated enum MailDecoding {
-    /** Plain display text for snippets: keep link labels and words, not Markdown destinations or styling. */
     static func preview(_ value: String, limit: Int = 240) -> String {
         var text = String(value.prefix(4096))
-        // Some text alternatives put whitespace between a link label and its URL.
         text = text.replacingOccurrences(of: #"(\[[^\]\n]+\])\s+\(\s*(?=https?://|mailto:)"#,
             with: "$1(", options: .regularExpression)
-        // Gmail can cut its snippet in the middle of the last link destination.
         text = text.replacingOccurrences(of: #"\[([^\]\n]+)\]\(\s*(?:https?://|mailto:)[^\s)]*$"#,
             with: "$1", options: .regularExpression)
         if let rendered = try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
@@ -21,9 +18,6 @@ nonisolated enum MailDecoding {
         return String(text.split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(limit))
     }
 
-    // ── Bodies ───────────────────────────────────────────────────────────────
-
-    /** A part's bytes, undoing its Content-Transfer-Encoding. */
     static func transfer(_ data: Data, encoding: String) -> Data {
         switch encoding.lowercased() {
         case "base64": base64(String(decoding: data, as: UTF8.self))
@@ -50,7 +44,6 @@ nonisolated enum MailDecoding {
         return Data(base64Encoded: clean, options: .ignoreUnknownCharacters) ?? Data()
     }
 
-    /** Quoted-printable; `underscores` for header words, where "_" is a space. */
     static func quotedPrintable(_ data: Data, underscores: Bool = false) -> Data {
         let bytes = [UInt8](data)
         var out = Data(capacity: bytes.count)
@@ -59,7 +52,6 @@ nonisolated enum MailDecoding {
             let byte = bytes[i]
             if byte == UInt8(ascii: "="), i + 1 < bytes.count {
                 if bytes[i + 1] == UInt8(ascii: "\r") || bytes[i + 1] == UInt8(ascii: "\n") {
-                    // A soft line break.
                     i += bytes[i + 1] == UInt8(ascii: "\r") && i + 2 < bytes.count && bytes[i + 2] == UInt8(ascii: "\n") ? 3 : 2
                     continue
                 }
@@ -74,8 +66,6 @@ nonisolated enum MailDecoding {
         }
         return out
     }
-
-    // ── Headers ──────────────────────────────────────────────────────────────
 
     /** "=?UTF-8?Q?Caf=C3=A9?=" → "Café"; the space between two encoded words goes. */
     static func words(_ header: String) -> String {
@@ -98,7 +88,6 @@ nonisolated enum MailDecoding {
         return out + rest
     }
 
-    /** A header's value in a block of headers (unfolded, words decoded). */
     static func header(_ name: String, in block: String) -> String? {
         let unfolded = block.replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\n[ \t]+", with: " ", options: .regularExpression)
@@ -117,8 +106,6 @@ nonisolated enum MailDecoding {
         }
         return params[name].map(words)
     }
-
-    // ── Folder names ─────────────────────────────────────────────────────────
 
     /** IMAP's modified UTF-7 → text: "Entw&APw-rfe" → "Entwürfe". */
     static func folderName(_ encoded: String) -> String {

@@ -34,7 +34,6 @@ import { HERMES_DEFAULTS, type HermesSettings } from "./settings.js";
 const IDLE_TIMEOUT_MS = 180_000;
 const PROBE_TIMEOUT_MS = 4_000;
 
-/** `https://host:8642/v1` → OpenAI-compatible base; the Sessions API hangs off the root. */
 export function normalizeHermesBaseUrl(raw: string): string {
   const trimmed = raw.trim().replace(/\/+$/, "");
   return /\/v1$/i.test(trimmed) ? trimmed : `${trimmed}/v1`;
@@ -60,13 +59,8 @@ async function requireReady(settings: HermesSettings): Promise<Ready> {
   return { baseUrl, root: apiRoot(baseUrl), key, agentModel };
 }
 
-// ---------------------------------------------------------------------------
-// Attachments (api_server accepts text + image parts only)
-// ---------------------------------------------------------------------------
-
 /** Whole request cap is 10 MB; base64 grows images by a third. */
 const HERMES_IMAGE_BUDGET = 7 * 1024 * 1024;
-/** Text parts together are capped at 64 KB server-side. */
 const HERMES_TEXT_BUDGET = 60 * 1024;
 const TEXT_TYPES = /^(text\/|application\/(json|xml)|message\/rfc822)/;
 
@@ -101,11 +95,6 @@ async function hermesContent(input: string, attachments: ChatAttachment[]): Prom
   ];
 }
 
-// ---------------------------------------------------------------------------
-// Model catalog + per-turn model options
-// ---------------------------------------------------------------------------
-
-/** Efforts the gateway accepts in model_options.reasoning.effort. */
 const REASONING_EFFORTS: [string, string][] = [
   ["minimal", "Minimal"],
   ["low", "Low"],
@@ -140,7 +129,6 @@ type Capabilities = {
   can_disable_reasoning?: boolean;
 };
 
-/** Reasoning / Service Tier for one model, from the gateway's capability flags. */
 function hermesModelOptions(caps: Capabilities | undefined): ProviderModelOption[] {
   const options: ProviderModelOption[] = [];
   if (caps?.reasoning) {
@@ -193,7 +181,6 @@ async function fetchHermesCatalog(baseUrl: string, key: string): Promise<Provide
         const caps = provider.capabilities?.[id] ?? body.capabilities?.[id];
         models.push({
           slug: `${provider.slug}::${id}`,
-          // A provider's generic "default" model reads better as the provider itself.
           name:
             id === "default"
               ? (provider.name ?? provider.slug)
@@ -215,7 +202,6 @@ async function fetchHermesCatalog(baseUrl: string, key: string): Promise<Provide
   }
 }
 
-/** `model` / `provider` / `model_options` for a turn, per the api_server contract. */
 function turnModelFields(settings: HermesSettings): Record<string, unknown> {
   const { model, reasoningEffort, serviceTier } = settings;
   const [provider, modelId] = model.includes("::") ? model.split("::", 2) : ["", ""];
@@ -251,7 +237,6 @@ export async function probeHermesSessions(baseUrl: string, key: string): Promise
   }
 }
 
-/** GET /v1/models: authenticates the key and names the agent's model. */
 export async function fetchHermesModels(baseUrl: string, key: string): Promise<string[]> {
   const response = await fetch(`${baseUrl}/models`, {
     headers: authHeaders(key),
@@ -263,10 +248,6 @@ export async function fetchHermesModels(baseUrl: string, key: string): Promise<s
   const data = (await response.json()) as { data?: { id?: string }[] };
   return (data.data ?? []).map((m) => m.id ?? "").filter(Boolean);
 }
-
-// ---------------------------------------------------------------------------
-// Sessions API payloads
-// ---------------------------------------------------------------------------
 
 type RawSession = {
   id?: string;
@@ -306,7 +287,6 @@ type RawMessage = {
     | null;
 };
 
-/** Text of a stored message: plain string or multimodal parts. */
 function contentText(content: unknown): string {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
@@ -324,7 +304,6 @@ function contentText(content: unknown): string {
   return "";
 }
 
-/** POST /api/sessions — an empty session the turn then streams into. */
 async function createSession(ready: Ready, title: string | undefined): Promise<string> {
   const attempt = (t: string | undefined) =>
     fetch(`${ready.root}/api/sessions`, {
@@ -345,14 +324,6 @@ async function createSession(ready: Ready, title: string | undefined): Promise<s
   return id;
 }
 
-// ---------------------------------------------------------------------------
-// SSE
-// ---------------------------------------------------------------------------
-
-/**
- * Pulls SSE frames off a body: `event:` (optional) + `data:` lines, blank-line
- * separated; comment lines (`: keepalive`) only reset the idle timer.
- */
 async function readSse(
   body: ReadableStream<Uint8Array>,
   onFrame: (event: string | null, data: string) => void,
@@ -393,9 +364,7 @@ function parseJson(json: string): Record<string, unknown> | null {
 type TurnContext = {
   requestId: string;
   input: string;
-  /** What the session chat sends: the text, or content parts with attachments. */
   message: string | unknown[];
-  /** model / provider / model_options for this turn. */
   modelFields: Record<string, unknown>;
   ready: Ready;
   signal: AbortSignal;
@@ -403,12 +372,6 @@ type TurnContext = {
   emit: Emit;
 };
 
-/**
- * Native session turn. Event names/payloads per gateway/platforms/api_server.py:
- * assistant.delta{delta}, assistant.commentary{text,already_streamed},
- * tool.started|completed|failed{tool_name|tool,preview}, run.completed|failed|cancelled,
- * error{message}, done. Closing the connection interrupts the run server-side.
- */
 async function streamSessionTurn(ctx: TurnContext & { sessionId: string }): Promise<void> {
   const { requestId, sessionId, ready, signal, resetIdle, emit } = ctx;
   const response = await fetch(
@@ -421,7 +384,6 @@ async function streamSessionTurn(ctx: TurnContext & { sessionId: string }): Prom
     },
   );
   if (response.status === 401) return emit({ requestId, type: "error", message: "unauthorized" });
-  // The session was deleted (e.g. from another client); the panel starts a new one.
   if (response.status === 404)
     return emit({ requestId, type: "error", message: "session_not_found" });
   if (!response.ok || !response.body) {
@@ -446,7 +408,6 @@ async function streamSessionTurn(ctx: TurnContext & { sessionId: string }): Prom
       const payload = parseJson(json);
       if (!payload) return;
       const event = name ?? String(payload.type ?? payload.event ?? "");
-      // Every event names its run: steer / stop / approvals address it.
       if (payload.run_id) runs.set(requestId, { runId: String(payload.run_id), ready });
       switch (event) {
         case "assistant.delta": {
@@ -455,7 +416,6 @@ async function streamSessionTurn(ctx: TurnContext & { sessionId: string }): Prom
           break;
         }
         case "assistant.commentary": {
-          // Mid-turn commentary beside tool calls; skip when it already streamed as deltas.
           if (payload.already_streamed) {
             textStream.start();
             break;
@@ -466,7 +426,6 @@ async function streamSessionTurn(ctx: TurnContext & { sessionId: string }): Prom
           break;
         }
         case "assistant.completed": {
-          // Also carries resolved MEDIA images that aren't present in raw deltas.
           textStream.snapshot(contentText(payload.content));
           break;
         }
@@ -489,8 +448,6 @@ async function streamSessionTurn(ctx: TurnContext & { sessionId: string }): Prom
           break;
         }
         case "approval.request": {
-          // A dangerous command waits for the user (the gateway's approvals.mode);
-          // answered via POST /v1/runs/{run_id}/approval.
           const approvalId = String(payload.request_id ?? "");
           const runId = String(payload.run_id ?? "");
           if (!approvalId || !runId) break;
@@ -517,7 +474,6 @@ async function streamSessionTurn(ctx: TurnContext & { sessionId: string }): Prom
         }
         case "run.completed":
           terminal = "completed";
-          // A steer that arrived after the final answer comes back unapplied.
           if (typeof payload.pending_steer === "string" && payload.pending_steer.trim())
             emit({
               requestId,
@@ -550,7 +506,6 @@ async function streamSessionTurn(ctx: TurnContext & { sessionId: string }): Prom
           break;
         }
         default:
-          // run.started, message.started, tool.progress (reasoning), done — nothing to relay.
           break;
       }
     },
@@ -596,8 +551,6 @@ async function streamResponsesTurn(
       if (json === "[DONE]") return;
       const event = parseJson(json);
       if (!event) return;
-      // Tool results ride on output_item.added (not .done) and their `output`
-      // is an array of {type, text} parts, not a plain string.
       const type = String(event.type ?? "");
       if (type === "response.created" || type === "response.completed") {
         const resp = event.response as { id?: string } | undefined;
@@ -642,23 +595,16 @@ async function streamResponsesTurn(
   emit({ requestId, type: "done", responseId });
 }
 
-// ---------------------------------------------------------------------------
-// Provider
-// ---------------------------------------------------------------------------
-
 let skillsCache: { at: number; baseUrl: string; data: Skill[] } | null = null;
 const active = new Map<string, AbortController>();
 
-/** The gateway run behind each streaming turn, for steer / stop. */
 const runs = new Map<string, { runId: string; ready: Ready }>();
 
-/** Approvals the user hasn't answered, by approval (request) id. */
 const pendingApprovals = new Map<
   string,
   { requestId: string; runId: string; ready: Ready; emit: Emit }
 >();
 
-/** Clears a finished turn's unanswered approvals (the gateway denies them itself). */
 function dropApprovals(requestId: string): void {
   for (const [approvalId, pending] of pendingApprovals) {
     if (pending.requestId !== requestId) continue;
@@ -671,7 +617,6 @@ export const hermesProvider: ChatProvider<HermesSettings> = {
   kind: "hermes",
   displayName: "Hermes",
   defaults: HERMES_DEFAULTS,
-  // The server and its model come from connecting (index.ts), not from the form.
   fields: { enabled: "boolean", model: "string", reasoningEffort: "string", serviceTier: "string" },
   restartFields: ["baseUrl"],
   async settingsView() {
@@ -728,7 +673,6 @@ export const hermesProvider: ChatProvider<HermesSettings> = {
       const rejected = message.includes("401");
       return {
         ...base,
-        // A rejected key still proves the server answered.
         installed: rejected,
         status: "error",
         auth: { status: rejected ? "unauthenticated" : "unknown" },
@@ -747,7 +691,6 @@ export const hermesProvider: ChatProvider<HermesSettings> = {
     const ready = await requireReady(settings).catch(() => null);
     if (!ready) return emit({ requestId, type: "error", message: "not_configured" });
 
-    // An invoked skill: the agent loads it with its skill_view tool and follows it.
     const input = turn.skill
       ? `[IMPORTANT: The user invoked the "${turn.skill.name}" skill. Load it with skill_view and follow its instructions.]${
           turn.input ? `\n\n${turn.input}` : ""
@@ -837,13 +780,11 @@ export const hermesProvider: ChatProvider<HermesSettings> = {
       headers: authHeaders(ready.key, true),
       body: JSON.stringify({ choice: decision, request_id: approvalId }),
     });
-    // 409: already answered / timed out server-side — either way it's settled.
     if (!response.ok && response.status !== 409) throw new Error(await readError(response));
     pendingApprovals.delete(approvalId);
     emit({ requestId, type: "approvalResolved", approvalId });
   },
 
-  /** POST /v1/runs/{id}/stop (hard interrupt), then drop the stream. */
   cancel(requestId) {
     const run = runs.get(requestId);
     if (run) {
@@ -862,7 +803,6 @@ export const hermesProvider: ChatProvider<HermesSettings> = {
   async steer(requestId, input) {
     const run = runs.get(requestId);
     if (!run) return false;
-    // Three tries fit the renderer's 5s IPC budget.
     for (let attempt = 0; attempt < 3; attempt++) {
       const response = await fetch(
         `${run.ready.root}/v1/runs/${encodeURIComponent(run.runId)}/steer`,
@@ -880,7 +820,6 @@ export const hermesProvider: ChatProvider<HermesSettings> = {
     return false;
   },
 
-  /** The agent's installed skills for the "/" picker (5-min cache). */
   async listSkills(settings) {
     const ready = await requireReady(settings).catch(() => null);
     if (!ready) return [];
@@ -948,7 +887,6 @@ export const hermesProvider: ChatProvider<HermesSettings> = {
     });
   },
 
-  /** A missing session counts as deleted. */
   async deleteSession(settings, sessionId) {
     const ready = await requireReady(settings);
     const response = await fetch(`${ready.root}/api/sessions/${encodeURIComponent(sessionId)}`, {

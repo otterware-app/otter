@@ -1,9 +1,3 @@
-/**
- * Tests only: a ByteStream over node:net / node:tls, trusting any certificate
- * (the local test server's is self-signed). The apps get theirs from the
- * platform.
- */
-
 import net from "node:net";
 import tls from "node:tls";
 import type { ByteStream } from "../../platform.ts";
@@ -19,7 +13,6 @@ export async function nodeConnect(
   try {
     await new Promise<void>((resolve, reject) => {
       socket.once(opts.tls ? "secureConnect" : "connect", resolve);
-      // `on`, not `once`: a failing socket can error twice (a TLS handshake reset).
       socket.on("error", reject);
     });
   } catch (err) {

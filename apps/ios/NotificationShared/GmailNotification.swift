@@ -1,6 +1,5 @@
 import Foundation
 
-/** Small direct-Gmail reader for one verified message: no threads, message bodies, attachments or relay calls. */
 nonisolated struct GmailNotification {
     struct Message: Decodable, Sendable {
         struct Payload: Decodable, Sendable {

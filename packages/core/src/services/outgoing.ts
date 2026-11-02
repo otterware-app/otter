@@ -103,14 +103,12 @@ function attachmentHeaders(att: { name: string; mimeType: string }): string[] {
 }
 
 export interface OutgoingMessage {
-  /** Already formatted, e.g. via formatAddress(). */
   from: string;
   to: string;
   cc?: string;
   bcc?: string;
   subject: string;
   body: string;
-  /** When present, the message is sent as multipart/alternative (text + html). */
   bodyHtml?: string;
   inReplyTo?: string;
   references?: string;
@@ -139,7 +137,6 @@ export function buildMime(params: OutgoingMessage): string {
     bodyBase64,
   ];
 
-  // Rich mail: text/plain + text/html under multipart/alternative.
   let bodyEntity = textPart;
   if (params.bodyHtml) {
     const altBoundary = `otter_alt_${randomHex(12)}`;
@@ -173,15 +170,12 @@ export function buildMime(params: OutgoingMessage): string {
         ...attachmentHeaders(att),
         "Content-Transfer-Encoding: base64",
         "",
-        // A round trip normalizes url-safe/whitespaced input.
         wrapBase64(toBase64(fromBase64(att.base64))),
       ].join(CRLF),
     );
   }
   return [headers.join(CRLF), "", parts.join(CRLF), `--${boundary}--`].join(CRLF);
 }
-
-// ── Compose attachments ───────────────────────────────────────────────────────
 
 export const MAX_ATTACHMENT_TOTAL_BYTES = 25 * 1024 * 1024;
 

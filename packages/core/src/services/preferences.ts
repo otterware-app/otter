@@ -1,17 +1,4 @@
-/**
- * Preferences that follow the Otter account to every device (the relay's
- * `/v1/preferences`): app settings, views, keybindings, the agent's
- * settings and Hermes key, the renderer's UI choices (`ui`, which it
- * mirrors from localStorage), and the signatures of mailboxes whose server
- * keeps none (IMAP; Gmail keeps its own). Each section is replaced whole; the last write
- * wins.
- *
- * On connecting (and on the relay's `preferences` event) this device takes
- * the account's sections. A section the account doesn't have yet (a new
- * account, or one from before the section existed) is seeded from here.
- * Local changes are pushed when they differ from what was last synced, which
- * also keeps an applied remote section from echoing back.
- */
+// Preference sections are replaced whole: preserve fields owned by other devices when updating them.
 
 import type { PreferencesResponse } from "@otter-mail/contracts/relay";
 
@@ -78,9 +65,6 @@ export function setUiPreference(key: string, value: string): Promise<void> {
   return write;
 }
 
-// ── Sections ────────────────────────────────────────────────────────────────
-
-/** App settings that follow the account (launch at login and the Dock badge stay per computer). */
 const SYNCED_SETTINGS = [
   "syncIntervalSeconds",
   "notificationsMode",
@@ -89,7 +73,6 @@ const SYNCED_SETTINGS = [
 ] as const satisfies readonly (keyof AppSettings)[];
 
 type Section = {
-  /** This device's value; undefined when it has none worth sharing. */
   read(): Promise<unknown>;
   apply(value: unknown): Promise<void>;
 };
@@ -121,14 +104,12 @@ const SECTIONS = {
     },
   },
   keybindings: {
-    // None saved yet: the defaults, nothing to share.
     read: async () => (await readKeybindings()).rules ?? undefined,
     async apply(value) {
       await writeKeybindings(value);
       broadcast("keybindings:updated");
     },
   },
-  // The agents' settings, under their old name: other devices sync this key.
   assistant: {
     read: () => syncedProviderSettings(),
     apply: (value) => applySyncedProviderSettings(value as Partial<SyncedProviderSettings>),
@@ -169,7 +150,6 @@ const SECTIONS = {
 export type SectionName = keyof typeof SECTIONS;
 const SECTION_NAMES = Object.keys(SECTIONS) as SectionName[];
 
-/** What each section (and the Hermes key) was when last synced, as JSON. */
 const synced = new Map<SectionName | "hermesKey", string>();
 
 function syncedSignatures(): Record<string, string> {
@@ -180,7 +160,6 @@ function syncedSignatures(): Record<string, string> {
   }
 }
 
-/** The account's signature for an IMAP mailbox new to this device, as last synced. */
 export function syncedSignature(email: string): string | undefined {
   return syncedSignatures()[email.toLowerCase()] || undefined;
 }
@@ -194,8 +173,6 @@ const hermesKeyOwner = () =>
     .secrets.get(HERMES_KEY_OWNER)
     .catch(() => null);
 const setHermesKeyOwner = (userId: string) => platform().secrets.set(HERMES_KEY_OWNER, userId);
-
-// ── Sync ────────────────────────────────────────────────────────────────────
 
 /** Takes the account's preferences, and seeds the ones it doesn't have from here. */
 export async function pullPreferences(): Promise<void> {
@@ -230,7 +207,6 @@ export async function pullPreferences(): Promise<void> {
 const pending = new Set<SectionName | "hermesKey">();
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** A section changed on this device: push it (debounced) if it differs from the account's. */
 export function preferenceChanged(name: SectionName | "hermesKey"): void {
   if (!getOtterUser()) return;
   pending.add(name);
@@ -269,7 +245,6 @@ async function push(): Promise<void> {
   }
 }
 
-/** Signed out: the next account starts from what it has, and the account's Hermes key goes. */
 export async function forgetSyncedPreferences(): Promise<void> {
   synced.clear();
   pending.clear();

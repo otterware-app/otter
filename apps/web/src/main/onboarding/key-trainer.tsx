@@ -8,12 +8,6 @@ import { isTypingTarget } from "../mail/keyboard";
 import { cn } from "../mail/ui";
 import { ShortcutKeys } from "./keycap";
 
-/**
- * The setup's keyboard practice: a pretend inbox that answers the real
- * bindings (rebound keys included), beside the keys to try. Nothing here
- * touches mail.
- */
-
 type Drill = { command: KeybindingCommand; label: string; caption: string };
 
 const DRILLS: Drill[] = [
@@ -50,7 +44,6 @@ const ROWS: Row[] = [
 
 type Undo = { kind: "remove"; row: Row; at: number } | { kind: "star"; id: number };
 
-/** Which drill a keydown triggers, by any of the command's single-key bindings. */
 function drillFor(event: KeyboardEvent): Drill | null {
   const { resolved } = getKeybindings();
   return (

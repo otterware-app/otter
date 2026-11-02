@@ -15,8 +15,6 @@ final class GmailProvider: MailProvider {
     var capabilities: MailCapabilities { .gmail }
     var takesTurns: Bool { false }
 
-    // ── Reading ──────────────────────────────────────────────────────────────
-
     func sync(_ state: inout MailboxState, known: [MailThread]) async throws -> MailDelta {
         var delta = MailDelta()
         if let historyID = state.historyID {
@@ -32,7 +30,6 @@ final class GmailProvider: MailProvider {
             }
         }
         if state.historyID == nil {
-            // First sync: where Gmail is now, then the inbox's first page.
             state.historyID = try await api.historyID()
             let (ids, next) = try await api.threadIDs(label: "INBOX")
             let page = try await api.threads(ids)
@@ -48,7 +45,6 @@ final class GmailProvider: MailProvider {
         let (ids, next) = try await api.threadIDs(label: Self.label(folder), pageToken: state.pages[key])
         let have = Set(known.map(\.id))
         let threads = try await api.threads(ids.filter { !have.contains($0) })
-        // How far back the page goes counts the threads already here too.
         let listed = Set(ids)
         let page = threads + known.filter { listed.contains($0.id) }
         state.paged(key, next: next, oldest: page.map(\.latest.date).min())
@@ -78,15 +74,12 @@ final class GmailProvider: MailProvider {
         case .sent: "SENT"
         case .drafts: "DRAFT"
         case .important: "IMPORTANT"
-        // Gmail's archive is All Mail: archived mail just lacks INBOX.
         case .allMail, .archive: nil
         case .junk: "SPAM"
         case .trash: "TRASH"
         case .label(let id, _): id
         }
     }
-
-    // ── Changing ─────────────────────────────────────────────────────────────
 
     func apply(_ change: MailStore.Change, to thread: MailThread, _ state: inout MailboxState) async throws -> MailDelta {
         switch change {
@@ -106,8 +99,6 @@ final class GmailProvider: MailProvider {
     private func reload(_ id: String) async throws -> MailDelta {
         if let thread = try await api.thread(id) { MailDelta(threads: [thread]) } else { MailDelta(removed: [id]) }
     }
-
-    // ── Writing ──────────────────────────────────────────────────────────────
 
     func send(_ message: Outgoing, _ state: inout MailboxState, known: [MailThread]) async throws -> MailDelta {
         let sent: GmailAPI.Sent
@@ -133,9 +124,6 @@ final class GmailProvider: MailProvider {
         state.draftIDs[messageID] = nil
     }
 
-    // ── Live ─────────────────────────────────────────────────────────────────
-
-    /** Asks Gmail to push this mailbox's changes to the relay, once a day; the relay's events do the rest. */
     func watch(pushTopic: String?, _ state: inout MailboxState, onChange: @escaping () -> Void) async -> Task<Void, Never>? {
         guard let topic = pushTopic else { return nil }
         guard state.watchTopic != topic

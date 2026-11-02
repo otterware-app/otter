@@ -46,7 +46,6 @@ async function assertReleaseSource({ github, context, releaseChannel }) {
 
 const isNightlyTag = (tag) => /^v\d+\.\d+\.\d+-nightly\.\d{8}\.[1-9]\d*$/.test(tag);
 
-// Newest published nightly by publication time, or undefined when none exists.
 async function findLatestNightly({ github, context }) {
   const releases = await github.paginate(github.rest.repos.listReleases, {
     ...context.repo,

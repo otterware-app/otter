@@ -1,6 +1,5 @@
 import Foundation
 
-/** Shared by the app and extension; every Google request goes directly to Google. */
 nonisolated enum GoogleCredentials {
     struct Tokens: Codable, Sendable {
         var accessToken: String
@@ -84,7 +83,6 @@ nonisolated enum GoogleCredentials {
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = form(params.merging(["client_id": clientID]) { a, _ in a })
         let (data, http) = try await URLSession.shared.data(for: request)
-        // A grant Google ended, or one from a client it no longer has (a 401): only signing in again helps.
         if (http as? HTTPURLResponse)?.statusCode == 401 { throw Failure.revoked }
         let response = try JSONDecoder().decode(Response.self, from: data)
         if ["invalid_grant", "invalid_client", "deleted_client", "unauthorized_client"].contains(response.error ?? "") { throw Failure.revoked }

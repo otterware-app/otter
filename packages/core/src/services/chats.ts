@@ -25,7 +25,6 @@ import { platform } from "../platform.js";
 import { getOtterUser, relayRequest, RelayError } from "./otter-account.js";
 
 const FILE = "chats.json";
-/** Chats changed (their ids): saved here, pulled from the relay, or deleted. */
 export const CHATS_CHANGED = "chats:changed";
 
 type Device = { id: string; name: string };
@@ -64,7 +63,6 @@ function mutate<T>(
   return run;
 }
 
-/** `delay`: a chat whose turn still streams goes in a while, the rest at once. */
 function queue(file: ChatsFile, id: string, delay = 300): void {
   if (!file.pending.includes(id)) file.pending.push(id);
   schedulePush(delay);
@@ -118,13 +116,10 @@ export function deleteChat(id: string): Promise<void> {
   );
 }
 
-// ── Writing to the relay ─────────────────────────────────────────────────────
-
 const RETRY_MS = 30_000;
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 let pushAt = 0;
 let pushing: Promise<void> | null = null;
-/** The chat being written right now: still this device's until the relay has it. */
 let inFlight: string | null = null;
 
 function schedulePush(delay = 300): void {
@@ -163,12 +158,10 @@ function push(): Promise<void> {
         try {
           await next.send();
         } catch (err) {
-          // A later write from another device wins: take it.
           if (err instanceof RelayError && err.status === 409) {
             schedulePull();
             continue;
           }
-          // Refused for good (invalid, too big, too many): it stays on this device.
           if (err instanceof RelayError && [400, 404, 413].includes(err.status)) {
             logger.warn("chats", `The relay refused a chat: ${err.message}`);
             continue;
@@ -191,8 +184,6 @@ function push(): Promise<void> {
   })();
   return pushing;
 }
-
-// ── Reading from the relay ───────────────────────────────────────────────────
 
 let pullTimer: ReturnType<typeof setTimeout> | null = null;
 

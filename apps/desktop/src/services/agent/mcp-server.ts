@@ -1,13 +1,3 @@
-/**
- * Otter Mail's tools (core's agent tools: mailboxes, calendars) as an MCP
- * server, the way Otter Code serves its own: streamable HTTP on 127.0.0.1,
- * on the same port every launch. A bearer token says who is calling:
- *  - a chat with an agent this Mac runs (one token each), so a tool's approval
- *    goes to that chat. Claude gets the server as `mcpServers`, Codex as
- *    `mcp_servers` in its thread config.
- *  - an agent it doesn't run, with a token made in Settings (connected-agents.ts).
- */
-
 import { randomBytes } from "node:crypto";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
@@ -32,20 +22,15 @@ import { deviceFiles } from "./local.js";
 
 export const MCP_SERVER_NAME = OTTER_TOOLS_SERVER;
 
-/** What the agent is pointed at, and how the chat lets go of it. */
 export type ToolAccess = {
   url: string;
   headers: { Authorization: string };
-  /** The chat's turn stopped: its open approvals fail. */
   cancelApprovals(): void;
-  /** The chat closed: the token stops working. */
   revoke(): void;
 };
 
-/** The chats' callers, by token. */
 const chats = new Map<string, ToolCaller>();
 
-/** One MCP server per request (stateless), bound to the caller. */
 function mcpServer(caller: ToolCaller, instructions: string | undefined): Server {
   const server = new Server(
     { name: "Otter Mail", version: appInfo().version },
@@ -94,7 +79,6 @@ async function serve(req: http.IncomingMessage, res: http.ServerResponse): Promi
     res.writeHead(401).end();
     return;
   }
-  // A chat's agent has these in its prompt already (instructions.ts).
   const server = mcpServer(
     caller,
     chat ? undefined : connectedAgentInstructions(caller.access?.() ?? "full-access"),
@@ -111,7 +95,6 @@ async function serve(req: http.IncomingMessage, res: http.ServerResponse): Promi
   await transport.handleRequest(req, res);
 }
 
-/** Listens on `port` (0: any free one); answers the port it got. */
 function listen(port: number): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
@@ -130,11 +113,6 @@ const PORT_FILE = "mcp-server.json";
 
 let listening: Promise<string> | null = null;
 
-/**
- * Starts the server once, on the port it had last time, so the address agents
- * were given keeps working (a free one the first time, or once another app
- * took it); answers its URL.
- */
 export function serverUrl(): Promise<string> {
   listening ??= (async () => {
     const saved = (await readJson<{ port: number }>(PORT_FILE))?.port;
@@ -153,7 +131,6 @@ export function serverUrl(): Promise<string> {
   return listening;
 }
 
-/** Gives a chat the tools: a token of its own on the server. */
 export async function toolAccess(caller: Omit<ToolCaller, "files">): Promise<ToolAccess> {
   const url = await serverUrl();
   const token = randomBytes(32).toString("base64url");

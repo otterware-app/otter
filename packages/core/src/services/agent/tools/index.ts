@@ -19,10 +19,8 @@ export type { AgentTool, ToolCaller, ToolFiles } from "./tool.js";
 
 const TOOLS: AgentTool[] = [...mailTools, ...calendarTools, ...themeTools, ...viewTools];
 
-/** The MCP server's name: Claude sees the tools as `mcp__otter-mail__<tool>`. */
 export const OTTER_TOOLS_SERVER = "otter-mail";
 
-/** A tool's title ("Search mail"), for the chat's step rows. */
 export function toolTitle(name: string): string | undefined {
   return TOOLS.find((t) => t.name === name)?.title;
 }
@@ -40,17 +38,14 @@ export function agentTools(caller: ToolCaller): AgentTool[] {
 type Pending = { caller: ToolCaller; resolve: (decision: ApprovalDecision | "cancel") => void };
 
 const pending = new Map<string, Pending>();
-/** Tools each chat's user allowed for the rest of the chat. */
 const allowed = new WeakMap<ToolCaller, Set<string>>();
 
-/** Answers an approval a tool waits on; false when it isn't one of the tools'. */
 export function answerToolApproval(approvalId: string, decision: ApprovalDecision): boolean {
   const waiting = pending.get(approvalId);
   waiting?.resolve(decision);
   return Boolean(waiting);
 }
 
-/** Drops a chat's open approvals (its turn stopped): those tool calls fail. */
 export function cancelToolApprovals(caller: ToolCaller): void {
   for (const waiting of pending.values()) if (waiting.caller === caller) waiting.resolve("cancel");
 }
@@ -88,7 +83,6 @@ async function confirm(
   }
 }
 
-/** Each caller's latest change, which its next one waits for. */
 const lastChange = new WeakMap<ToolCaller, Promise<unknown>>();
 
 /**

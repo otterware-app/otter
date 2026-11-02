@@ -2,7 +2,6 @@ import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
-/** Compose keeps a local recovery copy as it changes; untouched messages close quietly. */
 struct ComposeView: View {
     @Environment(MailStore.self) private var store
     @Environment(\.palette) private var palette

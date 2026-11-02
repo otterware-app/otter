@@ -1,11 +1,3 @@
-/**
- * The agent over the mail (⌘I): a small window at the workspace's bottom
- * right, over the bottom bar (chat-bar.tsx), showing one chat with the mail on
- * screen as its context. Linear's: minimize keeps the chat as a tab in the
- * bar, close takes it out (it stays in history), and open in workspace takes
- * it to the AI workspace, where what it used and made are tabs.
- */
-
 import { useEffect, type RefObject } from "react";
 import { Maximize2Icon, MinusIcon, XIcon } from "lucide-react";
 import { AgentAvatar, openClawAgentId } from "./agent-providers";
@@ -30,9 +22,7 @@ export function ChatWindow({
   onClearQuote: () => void;
   onOpenChange: (change: ChatChange) => Promise<void>;
   onOpenWorkspace: (chatId: string) => void;
-  /** Hides the window; the chat stays a tab in the bar. */
   onMinimize: () => void;
-  /** Hides the window and takes the chat's tab out of the bar. */
   onClose: () => void;
   inputRef: RefObject<HTMLTextAreaElement | null>;
 }) {
@@ -40,29 +30,24 @@ export function ChatWindow({
   const active = useChats((s) => s.conversations.find((c) => c.id === s.activeId));
   const blank = !active || isBlank(active);
 
-  // Its replies are seen while it's open.
   useEffect(() => {
     watchChat(activeId);
     return () => watchChat(null);
   }, [activeId]);
-  // A chat showing here is a tab in the bar, once it has a first message.
   useEffect(() => {
     if (!blank) dockChat(activeId);
   }, [activeId, blank]);
-  // Opening it puts you in its composer.
   useEffect(() => {
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [inputRef]);
 
   return (
-    // Not a dialog: it sits beside the mail, whose shortcuts (and ⌘I to hide it) keep working.
     <div
       role="region"
       aria-label="Agent"
       data-tour="agent"
       onKeyDown={(e) => {
         if (e.key === "Escape") {
-          // Escape in here minimizes it, unless something in it (a menu, the skills list) took it.
           if (!e.defaultPrevented && !isOverlayOpen()) {
             e.preventDefault();
             onMinimize();

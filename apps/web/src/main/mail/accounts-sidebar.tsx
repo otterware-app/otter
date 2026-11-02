@@ -59,7 +59,6 @@ const LABEL_DRAG_MIME = "application/x-gmail-label";
 
 type LabelDragPayload = { id: string; name: string };
 
-/** Gmail's labels API only accepts colors from its fixed palette. */
 const GMAIL_LABEL_COLORS: { backgroundColor: string; textColor: string }[] = [
   { backgroundColor: "#fb4c2f", textColor: "#ffffff" },
   { backgroundColor: "#cc3a21", textColor: "#ffffff" },
@@ -115,10 +114,8 @@ const SYSTEM_LABEL_MAP: Record<string, { name: string; icon: ReactNode }> = {
 
 const FLAGGED = { name: "Flagged", icon: <FlagIcon className="size-4" /> };
 
-/** An open search, listed under the view it was started from. */
 export type SidebarSearch = { id: string; parent: string; title: string; selected: boolean };
 
-/** Renders a view's / label's open search row (if any) right below it. */
 const noSearchRows = () => null;
 const SearchRowsContext = createContext<(parent: string, depth: number) => ReactNode>(noSearchRows);
 
@@ -172,17 +169,13 @@ function labelIcon(label?: MailLabel): ReactNode {
 }
 
 type LabelActions = {
-  /** "label", or "folder" in a mailbox whose mail sits in one folder (IMAP). */
   noun: string;
   onRename: (label: MailLabel) => void;
-  /** Absent when the mailbox's labels have no colors. */
   onRecolor?: (label: MailLabel) => void;
   onDelete: (label: MailLabel) => void;
   onMove: (source: LabelDragPayload, targetParentName: string | null) => void;
-  /** Conversations dropped from the message list; `keep` = ⌥ held (label only). */
   onDropThreads: (payload: ThreadDragPayload, label: MailLabel, keep: boolean) => void;
   onEditShortcut: (label: MailLabel) => void;
-  /** The label's own move shortcut, formatted (⌘⇧1), if it has one. */
   shortcutFor: (label: MailLabel) => string | undefined;
 };
 
@@ -335,11 +328,6 @@ function LabelNode({
   );
 }
 
-/**
- * One mailbox's folders and labels, in the sidebar under its tab
- * (app-sidebar.tsx), with what they offer: a label's menu, dropping
- * conversations or labels on one, emptying Junk and Trash.
- */
 export function MailboxFolders({
   mailboxId,
   selectedLabelId,
@@ -347,19 +335,15 @@ export function MailboxFolders({
   searchRows,
   depth = 0,
 }: {
-  /** The account's id. */
   mailboxId: string;
   /** The folder or label showing, while this mailbox is the one showing; "" otherwise. */
   selectedLabelId: string;
   onSelectLabel: (labelId: string) => void;
-  /** Its open searches, under where each started (the mailbox showing has them). */
   searchRows?: (parent: string, depth: number) => ReactNode;
-  /** How far its rows are indented. */
   depth?: number;
 }) {
   const labelsQuery = useLabels(mailboxId);
   const capabilities = useCapabilities(mailboxId);
-  // Mail in one folder at a time (IMAP): its labels are folders.
   const labelNoun = capabilities.foldersAndCategories
     ? "Category"
     : capabilities.multipleLabels
@@ -377,7 +361,6 @@ export function MailboxFolders({
   const [deleteTarget, setDeleteTarget] = useState<MailLabel | null>(null);
   const [rootDropActive, setRootDropActive] = useState(false);
   const [shortcutTarget, setShortcutTarget] = useState<string | null>(null);
-  // Empty Junk / Empty Trash, waiting for its confirmation.
   const [emptyTarget, setEmptyTarget] = useState<"SPAM" | "TRASH" | null>(null);
   const emptyFolder = useEmptyFolder();
   const modifyThread = useModifyThread();
@@ -536,7 +519,6 @@ export function MailboxFolders({
     },
   };
 
-  /** Right-click on Junk/Trash → Empty…. */
   const withEmptyMenu = (row: ReactNode, labelId: string) => {
     if (labelId !== "SPAM" && labelId !== "TRASH") return row;
     return (
@@ -561,10 +543,8 @@ export function MailboxFolders({
             }))
           : SIDEBAR_SYSTEM_ORDER.filter(shown).map((id) => ({ id, unread: 0, total: 0 }))
         ).map(({ id, unread, total }) => {
-          // Outlook's and IMAP's flag is Flagged, Gmail's star Starred.
           const meta = id === "STARRED" && !capabilities.stars ? FLAGGED : SYSTEM_LABEL_MAP[id];
           if (!meta) return null;
-          // Drafts is a raw count of drafts, not an unread signal.
           const isDrafts = id === "DRAFT";
           return (
             <Fragment key={id}>

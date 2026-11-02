@@ -18,7 +18,6 @@ const providers: Record<MailProviderKind, MailProvider | null> = {
   outlook: outlookProvider,
 };
 
-/** What an account whose provider isn't here yet shows. */
 const UNAVAILABLE = "This kind of mailbox isn't available in this app.";
 
 /** The account's provider; null when this build can't reach its kind of mailbox yet. */
@@ -34,14 +33,8 @@ export function providerFor(account: MailAccount | string): MailProvider {
   return provider;
 }
 
-/** Gmail's own IMAP servers. */
 const GMAIL_IMAP_HOSTS = new Set(["imap.gmail.com", "imap.googlemail.com"]);
 
-/**
- * What the account's mailbox can do: its provider's, except that Gmail
- * reached over IMAP is still Gmail: its archive is All Mail, not a folder,
- * and its \Flagged is the star (imap/folders.ts).
- */
 export function capabilitiesOf(account: MailAccount | string): MailCapabilities | null {
   const capabilities = findProvider(account)?.capabilities ?? null;
   const host = typeof account === "string" ? imapHostOf(account) : account.imap?.imap.host;
@@ -50,7 +43,6 @@ export function capabilitiesOf(account: MailAccount | string): MailCapabilities 
     : capabilities;
 }
 
-/** Whether this device can reach the account's mail now. */
 export function isSignedIn(account: MailAccount | string): boolean {
   return (
     findProvider(account)?.isSignedIn(typeof account === "string" ? account : account.id) ?? false

@@ -1,11 +1,3 @@
-/**
- * The relay end to end, as a device and Pub/Sub see it: the real Worker in
- * workerd (wrangler's local runtime) with a local D1 and Durable Object.
- * Google is played by a local server: its key signs the ID tokens and push
- * tokens, and its token endpoint serves the web app's Gmail sign-ins. The
- * same server plays Microsoft (ID tokens, token endpoint, Graph's /me).
- */
-
 import { execFileSync } from "node:child_process";
 import * as http from "node:http";
 import * as fs from "node:fs";
@@ -60,7 +52,6 @@ let jwks: http.Server;
 let worker: Awaited<ReturnType<typeof unstable_startWorker>>;
 let base: string;
 let persistDir: string;
-/** A mail server for the tunnel: greets, then echoes; `bye` makes it hang up, `stall` stop reading. */
 let mailServer: net.Server;
 let mailTarget: string;
 let notificationImapServer: net.Server;
@@ -238,7 +229,7 @@ beforeAll(async () => {
 
   mailServer = net.createServer((socket) => {
     socket.write("* OK hello\r\n");
-    socket.on("error", () => {}); // The relay resets connections it cuts off.
+    socket.on("error", () => {});
     socket.on("data", (data) => {
       if (String(data) === "bye\r\n") socket.end();
       else if (String(data) === "stall\r\n") socket.pause();
@@ -419,8 +410,6 @@ afterAll(async () => {
   fs.rmSync(persistDir, { recursive: true, force: true });
 });
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
 let nextSub = 1;
 
 /** A Google ID token for `email`, as the desktop app would get one. */
@@ -453,10 +442,6 @@ function signInRequest(token: string) {
   });
 }
 
-/**
- * Google's token endpoint for the web client: codes are "code:<email>",
- * refresh tokens "rt:<email>", and anything for revoked@ is invalid_grant.
- */
 async function googleToken(form: URLSearchParams): Promise<[number, unknown]> {
   const clientId = form.get("client_id");
   const secret =
@@ -494,7 +479,6 @@ async function googleToken(form: URLSearchParams): Promise<[number, unknown]> {
   ];
 }
 
-/** A Microsoft ID token: a work account at `email` in MS_TENANT, from the desktop app's client. */
 function msIdToken(email: string, claims: Record<string, unknown> = {}) {
   const tid = (claims.tid as string | undefined) ?? MS_TENANT;
   return new SignJWT({ tid, preferred_username: email, ...claims })
@@ -507,11 +491,6 @@ function msIdToken(email: string, claims: Record<string, unknown> = {}) {
     .sign(signingKey);
 }
 
-/**
- * Microsoft's token endpoint for the web client: codes are "mcode:<email>",
- * refresh tokens "mrt:<email>:<n>" (rotated on each refresh), and anything
- * for revoked@ is invalid_grant.
- */
 async function microsoftToken(form: URLSearchParams): Promise<[number, unknown]> {
   const notification = form.get("client_id") === NOTIFICATION_MS_CLIENT_ID;
   if (
@@ -545,7 +524,6 @@ async function microsoftToken(form: URLSearchParams): Promise<[number, unknown]>
   ];
 }
 
-/** Signs in as the desktop app does; returns the bearer token better-auth hands out. */
 async function signIn(email: string, sub?: string) {
   const response = await signInRequest(await idToken(email, { sub }));
   expect(response.status).toBe(200);
@@ -584,14 +562,12 @@ async function connectNotificationMailbox(
   expect(await result.text()).toContain("Background notifications connected");
 }
 
-/** The linked mailboxes, as a build that knows IMAP asks for them (`query` "" for older ones). */
 async function listAccounts(token: string, query = "?providers=gmail,imap") {
   const response = await call("GET", `/v1/accounts${query}`, token);
   expect(response.status).toBe(200);
   return ((await response.json()) as ListAccountsResponse).accounts;
 }
 
-/** Publishes a Gmail notification the way Pub/Sub pushes it. */
 async function push(notification: unknown, opts: { email?: string; aud?: string } = {}) {
   const token = await new SignJWT({
     email: opts.email ?? PUSH_SERVICE_ACCOUNT,
@@ -610,9 +586,7 @@ async function push(notification: unknown, opts: { email?: string; aud?: string 
   });
 }
 
-/** A device's event stream: collects what the relay sends. */
 async function connect(token: string) {
-  // Node's WebSocket (undici) takes headers, as the desktop app's does.
   const socket = new WebSocket(`${base.replace(/^http/, "ws")}/v1/events`, {
     headers: { authorization: `Bearer ${token}` },
   } as unknown as string[]);
@@ -638,8 +612,6 @@ async function until(check: () => boolean, what: string) {
   }
   throw new Error(`Timed out waiting for ${what}`);
 }
-
-// ── Tests ───────────────────────────────────────────────────────────────────
 
 describe("the hosted agent", () => {
   it("requires an Otter session and reaches the AgentHub on desktop and web", async () => {
@@ -704,7 +676,6 @@ describe("sign-in", () => {
       idToken: await idToken("iphone@example.com", { aud: IOS_CLIENT_ID }),
     });
     expect(linked.status).toBe(204);
-    // The App Store build's client too.
     const store = await signInRequest(
       await idToken("iphone@example.com", { aud: IOS_STORE_CLIENT_ID }),
     );
@@ -809,7 +780,6 @@ describe("devices", () => {
       expect((await call("GET", "/v1/me", mac2.token)).status).toBe(401);
       expect(await device.closed).toBe(4001);
 
-      // Signing in again starts from nothing; pushes for the old mailbox reach nobody.
       const again = await signIn("deleting@example.com", "deleting-sub");
       expect(await listAccounts(again.token)).toEqual([]);
     },
@@ -904,7 +874,6 @@ describe("IMAP mailboxes", () => {
     expect((await put(token, "me@fastmail.test", { provider: "imap", imap: moved })).status).toBe(
       204,
     );
-    // Profile edits may leave the provider out.
     expect((await put(token, "me@fastmail.test", { displayName: "Fastmail" })).status).toBe(204);
     expect(await listAccounts(token)).toEqual([
       {
@@ -981,7 +950,6 @@ describe("IMAP mailboxes", () => {
       "new@fastmail.test",
     ]);
 
-    // An old build's unlink leaves the IMAP mailbox alone.
     expect((await call("DELETE", "/v1/accounts/new%40fastmail.test", token)).status).toBe(204);
     expect((await listAccounts(token)).length).toBe(2);
     const route = "/v1/accounts/new%40fastmail.test?providers=gmail,imap";
@@ -1010,7 +978,6 @@ describe("Outlook mailboxes", () => {
     put(token, email, { provider: "outlook", idToken: await msIdToken(email) });
   const watch = (token: string, email: string) =>
     call("POST", "/v1/outlook/watch", token, { email });
-  /** Graph's notification of a change to the mailbox, as it posts one. */
   const notify = (email: string, clientState: string) =>
     call("POST", `/push/outlook/${encodeURIComponent(email)}`, undefined, {
       value: [{ subscriptionId: "s1", changeType: "created", clientState, resource: "x" }],
@@ -1057,16 +1024,13 @@ describe("Outlook mailboxes", () => {
     expect(
       (await put(token, "v@contoso.test", body(await msIdToken("me@contoso.test")))).status,
     ).toBe(403);
-    // A work account's email claim is whatever its admin typed.
     const unverified = await msIdToken("me@evil.test", { email: "v@contoso.test" });
     expect((await put(token, "v@contoso.test", body(unverified))).status).toBe(403);
-    // A Google ID token, or one for another Microsoft app, isn't Microsoft's for Otter Mail.
     expect((await put(token, "v@contoso.test", body(await idToken("v@contoso.test")))).status).toBe(
       401,
     );
     const otherApp = await msIdToken("v@contoso.test", { aud: "someone-else" });
     expect((await put(token, "v@contoso.test", body(otherApp))).status).toBe(401);
-    // An issuer for another tenant than the token's own.
     const forged = await new SignJWT({ tid: MS_TENANT, preferred_username: "v@contoso.test" })
       .setProtectedHeader({ alg: "RS256", kid: "test" })
       .setIssuer("https://login.microsoftonline.com/common/v2.0")
@@ -1090,7 +1054,7 @@ describe("Outlook mailboxes", () => {
     await link(token, "g@contoso.test");
     expect((await linkOutlook(token, "g@contoso.test")).status).toBe(409);
     await linkOutlook(token, "o@contoso.test");
-    expect((await link(token, "o@contoso.test")).status).toBe(204); // an edit: stays Outlook
+    expect((await link(token, "o@contoso.test")).status).toBe(204);
     expect((await put(token, "o@contoso.test", { provider: "gmail" })).status).toBe(409);
     expect((await put(token, "o@contoso.test", { provider: "imap", imap })).status).toBe(409);
 
@@ -1117,7 +1081,6 @@ describe("Outlook mailboxes", () => {
     const { notificationUrl, clientState } = (await response.json()) as OutlookWatchResponse;
     expect(notificationUrl).toMatch(/\/push\/outlook\/watched%40contoso\.test$/);
     expect(clientState.length).toBeLessThanOrEqual(128);
-    // The same for every device, and another mailbox's differs.
     const again = (await (
       await watch(token, "watched@contoso.test")
     ).json()) as OutlookWatchResponse;
@@ -1144,7 +1107,6 @@ describe("Outlook mailboxes", () => {
     await linkOutlook(alice.token, "team@contoso.test");
     await linkOutlook(bob.token, "team@contoso.test");
     await linkOutlook(mallory.token, "mallory@contoso.test");
-    // An IMAP mailbox at the address proves nothing, and gets nothing.
     await put(mallory.token, "team@contoso.test", {
       provider: "imap",
       imap: {
@@ -1206,7 +1168,6 @@ describe("preferences", () => {
     await call("PUT", "/v1/preferences", token, { hermesKey: "sk-secret" });
     expect((await preferences(token)).hermesKey).toBe("sk-secret");
 
-    // What the database holds is sealed.
     const stored = execFileSync(
       "pnpm",
       [
@@ -1227,7 +1188,6 @@ describe("preferences", () => {
     expect(stored).toContain("hermes_key");
     expect(stored).not.toContain("sk-secret");
 
-    // Other sections leave the key alone; null clears it.
     await call("PUT", "/v1/preferences", token, { preferences: { ui: {} } });
     expect((await preferences(token)).hermesKey).toBe("sk-secret");
     await call("PUT", "/v1/preferences", token, { hermesKey: null });
@@ -1389,7 +1349,6 @@ describe("web app", () => {
     expect(response.status).toBe(200);
   });
 
-  /** The popup's HTML posts `{ type, result | error }` to the app: pull it out. */
   async function popupMessage(response: Response) {
     const html = await response.text();
     const json = /const message = (\{.*?\});\n/s.exec(html)?.[1];
@@ -1427,7 +1386,7 @@ describe("web app", () => {
     );
     expect(message.type).toBe("otter:gmail-sign-in");
     expect(message.result).toMatchObject({ email: "mail@example.com" });
-    expect(message.result!.sealed).not.toContain("rt:"); // sealed, not readable
+    expect(message.result!.sealed).not.toContain("rt:");
 
     const refreshed = await call("POST", "/v1/gmail/token", owner.token, {
       sealed: message.result!.sealed,
@@ -1437,7 +1396,6 @@ describe("web app", () => {
     expect(body.accessToken).toMatch(/^at:mail@example.com:/);
     expect(body.idToken).toBeTruthy();
 
-    // The ID token links the account like the desktop's does.
     const link = await call("PUT", "/v1/accounts/mail%40example.com", owner.token, {
       idToken: body.idToken,
     });
@@ -1545,10 +1503,9 @@ describe("web app's Outlook", () => {
     };
     const first = await refresh(message.result!.sealed);
     expect(first.accessToken).toMatch(/^mat:web@contoso.test:/);
-    expect(first.sealed).not.toBe(message.result!.sealed); // Microsoft rotated the refresh token
+    expect(first.sealed).not.toBe(message.result!.sealed);
     expect((await refresh(first.sealed)).idToken).toBeTruthy();
 
-    // The ID token links the mailbox.
     const link = await call("PUT", "/v1/accounts/web%40contoso.test", owner.token, {
       provider: "outlook",
       idToken: first.idToken,
@@ -1636,7 +1593,6 @@ describe("realtime", () => {
 });
 
 describe("tunnel", () => {
-  /** The status the relay answers a WebSocket upgrade with (101 when it accepts it). */
   function upgradeStatus(query: string, headers: Record<string, string> = {}) {
     return new Promise<number>((resolve, reject) => {
       const request = http.get(`${base}/v1/tunnel?${query}`, {
@@ -1660,7 +1616,6 @@ describe("tunnel", () => {
     });
   }
 
-  /** Opens a tunnel and collects what comes through it. */
   function tunnel(token: string, target: string) {
     const [host, port] = target.split(":");
     const url = `${base.replace(/^http/, "ws")}/v1/tunnel?host=${host}&port=${port}`;
@@ -1729,7 +1684,6 @@ describe("tunnel", () => {
     socket.send(new TextEncoder().encode("a1 NOOP\r\n"));
     await until(() => frames.join("").includes("a1 NOOP"), "the echo");
 
-    // The server hanging up closes the tunnel.
     socket.send(new TextEncoder().encode("bye\r\n"));
     expect((await closed).code).toBe(1000);
   });
@@ -1744,7 +1698,6 @@ describe("tunnel", () => {
     await until(() => ended === 1, "the server's connection to close");
   });
 
-  /** Links an IMAP mailbox on the test server, making its tunnels the linked kind. */
   async function linkTestServer(token: string, email: string) {
     const [host, port] = mailTarget.split(":");
     const server = { host: host!, port: Number(port), security: "tls" };
@@ -1755,7 +1708,6 @@ describe("tunnel", () => {
     expect(response.status).toBe(204);
   }
 
-  /** Sends `total` bytes in 256 KB frames, once the tunnel is open. */
   async function flood(open: ReturnType<typeof tunnel>, total: number) {
     await until(() => open.frames.length >= 2, "the greeting");
     const frame = new Uint8Array(256 * 1024).fill(120);
@@ -1846,16 +1798,13 @@ describe("Gmail pushes next to IMAP mailboxes", () => {
     events.filter((e) => typeof e !== "string" && e.type === "mail");
 
   it("reach everyone who linked the address as Gmail, and nobody who linked it over IMAP", async () => {
-    // Two Otter accounts linked the same Gmail account; one has an IMAP mailbox too.
     const owner = await signIn("push-owner@example.com");
     const partner = await signIn("push-partner@example.com");
     const stranger = await signIn("push-stranger@example.com");
     expect((await link(owner.token, "Shared@Gmail.test")).status).toBe(204);
     expect((await link(partner.token, "shared@gmail.test")).status).toBe(204);
     expect((await put(owner.token, "owner@fastmail.test", imap("owner"))).status).toBe(204);
-    // Someone else claims the address over IMAP: it proves nothing, and takes nothing away.
     expect((await put(stranger.token, "shared@gmail.test", imap("shared"))).status).toBe(204);
-    // Editing the Gmail link's profile (no provider, as every client sends it) keeps it Gmail.
     expect((await put(owner.token, "shared@gmail.test", { displayName: "Shared" })).status).toBe(
       204,
     );
@@ -1900,7 +1849,6 @@ describe("Gmail pushes next to IMAP mailboxes", () => {
   });
 });
 
-// The shared account uses the existing Mail identity and an app-scoped code.
 describe("Otter identity provider", () => {
   const callback = "https://drive.otterware.app/api/auth/callback/otter";
   const verifier = "a".repeat(64);
@@ -2014,7 +1962,6 @@ describe("Otter identity provider", () => {
   });
 });
 
-/** Read the actual workerd D1, including foreign-key cleanup after lifecycle hooks. */
 function pushRows(table: "push_devices" | "push_mailboxes", userId?: string) {
   const file = fs
     .readdirSync(persistDir, { recursive: true })
@@ -2074,7 +2021,7 @@ describe("notification connection failures", () => {
     const result = await callbackFor(owner.token, email);
     expect(await result.text()).toContain("ottermail-notifications://complete?result=error");
     expect(await statusFor(owner.token, email)).toBe("reauthorize");
-    expect(notificationReads.filter((r) => r.email === email)).toHaveLength(1); // mailbox proof only, no reads with the broadened grant
+    expect(notificationReads.filter((r) => r.email === email)).toHaveLength(1);
     notificationRefreshScopes.delete(email);
   });
   it(

@@ -1,5 +1,3 @@
-/** Todoist: tasks from email, browsing and OAuth (handlers.ts). No background jobs. */
-
 import type { CoreExtension } from "@otter-mail/core/extension-kit";
 
 import { manifest } from "../manifest.ts";

@@ -13,7 +13,6 @@ import type { ChatAttachment } from "./types.js";
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
-// Named when agents were "assistants"; staged paths in saved chats point here.
 export const ATTACHMENTS_DIR = "assistant-attachments";
 
 function limitFor(mime: string): number {
@@ -46,13 +45,11 @@ function mimeFor(name: string, fallback?: string): string {
   return IMAGE_TYPES[ext] ?? DOCUMENT_TYPES[ext] ?? (fallback || "application/octet-stream");
 }
 
-/** Keeps names readable but safe on disk. */
 function safeName(name: string): string {
   const base = name.replace(/[^\w.\- ()]+/g, "_").slice(-120);
   return base || "attachment";
 }
 
-/** Copies a pasted, dropped or picked file into the attachments folder. */
 export async function stageAttachment(
   name: string,
   mime: string,
@@ -76,14 +73,12 @@ export async function stageAttachment(
   };
 }
 
-/** A staged attachment's bytes. */
 export async function readAttachment(attachment: ChatAttachment): Promise<Uint8Array> {
   const bytes = await platform().files.read(attachment.path);
   if (!bytes) throw new Error(`'${attachment.name}' is no longer attached.`);
   return bytes;
 }
 
-/** `data:` URL of an image attachment, for providers that take inline images. */
 export async function dataUrl(attachment: ChatAttachment): Promise<string> {
   return `data:${attachment.mime};base64,${toBase64(await readAttachment(attachment))}`;
 }

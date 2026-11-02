@@ -21,7 +21,6 @@ export type CommandHandler = (event: KeyboardEvent, arg?: string) => boolean | v
 
 const handlers = new Map<CommandHandlerKey, { run: CommandHandler }[]>();
 
-/** Where a rule's command is handled, plus its argument (label moves). */
 function handlerFor(command: KeybindingCommand): { key: CommandHandlerKey; arg?: string } {
   const labelName = labelMoveName(command);
   if (labelName !== null) return { key: "label.move", arg: labelName };
@@ -52,7 +51,6 @@ function run(command: KeybindingCommand, event: KeyboardEvent): boolean {
   const { key, arg } = handlerFor(command);
   const list = handlers.get(key);
   if (!list?.length) return false;
-  // The most recently mounted owner handles it.
   return list[list.length - 1].run(event, arg) !== false;
 }
 
@@ -69,7 +67,6 @@ function onKeyDown(event: KeyboardEvent): void {
     pending = null;
   };
 
-  // Second stroke of a sequence ("g" then "i").
   if (pending) {
     const { rules, at } = pending;
     pending = null;
@@ -89,7 +86,6 @@ function onKeyDown(event: KeyboardEvent): void {
     if (run(r.rule.command, event)) return handled();
   }
 
-  // First stroke of a sequence: wait for the second.
   const starts = resolved.filter(
     (r) =>
       r.shortcut.length === 2 &&
@@ -103,7 +99,6 @@ function onKeyDown(event: KeyboardEvent): void {
   }
 }
 
-/** Installs the dispatcher for this window (once, in the root view). */
 export function useKeybindingDispatcher(): void {
   useEffect(() => {
     getKeybindings();
@@ -124,7 +119,6 @@ export function useKeybindingDispatcher(): void {
   }, []);
 }
 
-/** Registers what commands do while the calling component is mounted. */
 export function useCommandHandlers(map: Partial<Record<CommandHandlerKey, CommandHandler>>): void {
   const ref = useLatest(map);
   const commands = (Object.keys(map) as CommandHandlerKey[]).sort().join(",");
@@ -146,7 +140,6 @@ export function useCommandHandlers(map: Partial<Record<CommandHandlerKey, Comman
   }, [commands, ref]);
 }
 
-/** Publishes a `when` context key (e.g. messageOpen) while mounted. */
 export function useKeybindingContext(name: string, value: boolean): void {
   useEffect(() => {
     published.set(name, value);
@@ -156,7 +149,6 @@ export function useKeybindingContext(name: string, value: boolean): void {
   }, [name, value]);
 }
 
-/** For element-local keys (e.g. ⌘↩ inside a composer): does the event trigger `command`? */
 export function matchesCommand(event: KeyboardEvent, command: KeybindingCommand): boolean {
   const context = keybindingContext(event);
   return getKeybindings().resolved.some(

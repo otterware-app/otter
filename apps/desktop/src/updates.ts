@@ -1,15 +1,3 @@
-/**
- * Auto-update from GitHub Releases through electron-updater. The feed comes
- * from app-update.yml, which electron-builder writes from the publish config
- * (see scripts/build-desktop-artifact.ts). Stable and nightly are separate
- * feeds; Settings → General chooses which to follow on this computer.
- *
- * A new version downloads in the background as soon as it's found. The
- * sidebar then offers "Restart to update"; on macOS it also installs whenever
- * the app quits (⌘Q, Dock → Quit, logging out). On Linux the update is the
- * .deb, which dpkg installs with the admin password (HostOS).
- */
-
 import { app, ipcMain } from "electron";
 import electronUpdater from "electron-updater";
 import * as fs from "node:fs";
@@ -54,12 +42,10 @@ function disabledReason(): string | null {
   return null;
 }
 
-/** Squirrel.Mac only installs an update signed by the same Developer ID as the running app. */
 function isSignatureError(err: Error): boolean {
   return /code signature|code requirement/i.test(err.message);
 }
 
-/** A short reason for the UI; the full error goes to the log. */
 function describeError(err: Error): string {
   if (isSignatureError(err)) {
     return "This copy of Otter Mail isn't signed, so macOS won't install updates into it. Download the new version instead.";
@@ -77,7 +63,6 @@ async function check(): Promise<UpdateState> {
   try {
     await autoUpdater.checkForUpdates();
   } catch (err) {
-    // The "error" event has already reported it.
     if (state.status === "checking") {
       logger.warn("updates", "Update check failed", err);
       setState({ status: "error", message: describeError(asError(err)) });
@@ -86,7 +71,6 @@ async function check(): Promise<UpdateState> {
   return state;
 }
 
-/** Retries a download that failed (normally it starts on its own). */
 async function download(): Promise<UpdateState> {
   const failed = state.status === "error" && state.availableVersion && !state.manualDownloadUrl;
   if (state.status !== "available" && !failed) return state;
@@ -195,7 +179,6 @@ export function initUpdates(): void {
   });
   autoUpdater.on("download-progress", (progress) => {
     const percent = Math.floor(progress.percent);
-    // Only every 5%: the renderer re-renders on each push.
     if (state.downloadPercent == null || percent - state.downloadPercent >= 5) {
       setState({ status: "downloading", downloadPercent: percent });
     }
@@ -205,7 +188,6 @@ export function initUpdates(): void {
     setState({ status: "downloaded", availableVersion: info.version, downloadPercent: 100 });
   });
   autoUpdater.on("error", (err) => {
-    // A repository without any release yet.
     if (/No published versions/i.test(err.message)) {
       setState({ status: "up-to-date", availableVersion: null, checkedAt: Date.now() });
       return;

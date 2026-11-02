@@ -1,5 +1,3 @@
-/** The Otter Mail agent in Settings → Agents: its OpenRouter key, what it may do, its models. */
-
 import {
   ModelsSection,
   RUNTIME_MODE_OPTIONS,

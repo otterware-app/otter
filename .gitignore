@@ -6,31 +6,17 @@ node_modules/
 .env.local
 .env*
 !.env.example
-
-# Build output
 apps/*/dist
 site/dist/
 dist-electron/
 .electron-runtime/
 release/
 native/*/.build/
-
-# pnpm content-addressable store
 .pnpm-store/
-
-# Development data homes (see apps/desktop/src/paths.ts)
 .otter-mail/
-
-# Agent scratch space
 tmp/
 .claude/skills/synced
-
-# Wrangler state (site/)
 .wrangler/
-
-# Wrangler local secrets (infra/relay)
 .dev.vars
 apps/ios/.build/
-
-# Generated standalone relay config for local development.
 infra/relay/.wrangler.local.jsonc
