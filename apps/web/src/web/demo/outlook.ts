@@ -452,8 +452,18 @@ const graphTime = (time: number) => ({
   dateTime: new Date(time).toISOString().replace("Z", "0000"),
   timeZone: "UTC",
 });
-const parseTime = (time: unknown) =>
-  Date.parse(`${String((time as { dateTime?: string })?.dateTime ?? "").replace(/\.\d+$/, "")}Z`);
+/** A Graph time: UTC, or (a repeating event's) the wall clock in its zone; all-day dates stay UTC days. */
+function parseTime(time: unknown, allDay = false): number {
+  const { dateTime = "", timeZone = "UTC" } = (time ?? {}) as {
+    dateTime?: string;
+    timeZone?: string;
+  };
+  const asUtc = Date.parse(`${dateTime.replace(/\.\d+$/, "")}Z`);
+  if (allDay || timeZone === "UTC" || Number.isNaN(asUtc)) return asUtc;
+  const read = new Date(new Date(asUtc).toLocaleString("en-US", { timeZone })).getTime();
+  const utc = new Date(new Date(asUtc).toLocaleString("en-US", { timeZone: "UTC" })).getTime();
+  return asUtc - (read - utc);
+}
 
 const SHOW_AS: Record<string, string> = {
   accepted: "busy",
@@ -1208,8 +1218,8 @@ function eventFields(e: CalendarEvent, body: Record<string, unknown>): void {
     e.location = String((body.location as { displayName?: string }).displayName ?? "");
   }
   if (typeof body.isAllDay === "boolean") e.isAllDay = body.isAllDay;
-  const start = parseTime(body.start);
-  const end = parseTime(body.end);
+  const start = parseTime(body.start, e.isAllDay);
+  const end = parseTime(body.end, e.isAllDay);
   if (Number.isFinite(start)) e.start = start;
   if (Number.isFinite(end)) e.end = end;
   if (e.end <= e.start) e.end = e.start + (e.isAllDay ? 86_400_000 : 3_600_000);

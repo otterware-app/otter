@@ -58,6 +58,7 @@ function Dialog({
     onConfirm !== undefined;
 
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen ?? false);
+  const opener = React.useRef<HTMLElement | null>(null);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : uncontrolledOpen;
   const setOpen = (next: boolean) => {
@@ -87,7 +88,14 @@ function Dialog({
         size={size}
         // Without a description Radix wants aria-describedby cleared explicitly.
         {...(description ? {} : { "aria-describedby": undefined })}
+        onCloseAutoFocus={(event) => {
+          // Radix returns focus to a Trigger; opened without one, back to what had it.
+          if (trigger || !opener.current?.isConnected) return;
+          event.preventDefault();
+          opener.current.focus();
+        }}
         onOpenAutoFocus={(event) => {
+          opener.current = document.activeElement as HTMLElement | null;
           // A body with its own controls keeps Radix's default (first
           // focusable); a plain confirmation focuses the default button, so
           // Enter and Space act on it as on macOS.

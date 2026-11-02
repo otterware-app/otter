@@ -103,6 +103,22 @@ describe("Google Calendar events", () => {
     });
   });
 
+  it("repeats on the day it starts in its zone", async () => {
+    replies.push({ body: event });
+    // 04:30 UTC on Tuesday is 23:30 Monday in New York.
+    await createEvent(
+      ME,
+      {
+        title: "Late",
+        start: "2026-11-03T04:30:00Z",
+        repeat: "weekly",
+        timeZone: "America/New_York",
+      },
+      false,
+    );
+    expect(calls[0].body).toMatchObject({ recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO"] });
+  });
+
   it("keeps an event's length when it moves", async () => {
     replies.push({ body: event }, { body: event });
     await updateEvent(ME, "ev1", { start: "2026-10-01T10:00:00Z" }, true);

@@ -7,7 +7,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { createPortal } from "react-dom";
+import { Dialog } from "~/components/ui/dialog";
 import {
   AlignLeftIcon,
   ArrowRightIcon,
@@ -30,7 +30,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "../mail/menu";
-import { HintTooltip, IconBtn, buttonClass, cn } from "../mail/ui";
+import { HintTooltip, IconBtn, cn } from "../mail/ui";
 import {
   calendarKey,
   eventTimes,
@@ -663,85 +663,62 @@ function ReadOnlyEvent({
 
 /** Answering a repeating invitation: this event or all of them, and a note for the organizer. */
 function SeriesResponseDialog({
-  onCancel,
+  open,
+  onClose,
   onSave,
 }: {
-  onCancel: () => void;
+  open: boolean;
+  onClose: () => void;
   onSave: (allEvents: boolean, comment: string) => void;
 }) {
   const [allEvents, setAllEvents] = useState(false);
   const [note, setNote] = useState("");
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[130] flex items-start justify-center bg-black/25 pt-[22vh]"
-      onPointerDown={(e) => {
-        e.stopPropagation();
-        if (e.target === e.currentTarget) onCancel();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          onCancel();
-        }
-      }}
+  // Each opening starts afresh.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setAllEvents(false);
+      setNote("");
+    }
+  }
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => !next && onClose()}
+      size="small"
+      title="Save response status for repeat event"
+      confirmLabel="Save response"
+      onConfirm={() => onSave(allEvents, note.trim())}
     >
-      <div
-        role="dialog"
-        aria-label="Save response status for repeat event"
-        className="w-[420px] max-w-[calc(100vw-32px)] overflow-hidden rounded-xl border border-border/70 text-foreground shadow-[0_24px_60px_-20px_rgb(0_0_0/55%)] animate-calendar-pop [background:linear-gradient(var(--popover),var(--popover)),var(--canvas)]"
-      >
-        <div className="px-5 pb-3 pt-5 text-[15px] font-medium">
-          Save response status for repeat event
-        </div>
-        <div className="flex flex-col gap-1 px-5 pb-4" role="radiogroup">
-          {[
-            [false, "This event"],
-            [true, "All events"],
-          ].map(([value, label]) => (
-            <label
-              key={String(value)}
-              className="flex h-8 cursor-pointer items-center gap-3 text-[13px]"
-            >
-              <input
-                type="radio"
-                name="series-response"
-                checked={allEvents === value}
-                onChange={() => setAllEvents(value as boolean)}
-                className="size-4 accent-primary"
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-        <div className="h-px bg-border/60" />
-        <div className="px-5 pb-4 pt-3">
-          <input
-            autoFocus
-            value={note}
-            placeholder="Leave a note (optional)"
-            onChange={(e) => setNote(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.nativeEvent.isComposing) onSave(allEvents, note.trim());
-            }}
-            className="h-9 w-full bg-transparent text-[13px] outline-none placeholder:text-placeholder"
-          />
-          <div className="mt-2 flex justify-end gap-2">
-            <button type="button" onClick={onCancel} className={buttonClass("outline", "sm")}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => onSave(allEvents, note.trim())}
-              className={buttonClass("primary", "sm")}
-            >
-              Save response
-            </button>
-          </div>
-        </div>
+      <div className="flex flex-col gap-1" role="radiogroup">
+        {[
+          [false, "This event"],
+          [true, "All events"],
+        ].map(([value, label]) => (
+          <label
+            key={String(value)}
+            className="flex h-8 cursor-pointer items-center gap-3 text-[13px]"
+          >
+            <input
+              type="radio"
+              name="series-response"
+              checked={allEvents === value}
+              onChange={() => setAllEvents(value as boolean)}
+              className="size-4 accent-primary"
+            />
+            {label}
+          </label>
+        ))}
       </div>
-    </div>,
-    document.body,
+      <input
+        value={note}
+        placeholder="Leave a note (optional)"
+        aria-label="Note for the organizer"
+        onChange={(e) => setNote(e.target.value)}
+        className="h-9 w-full rounded-lg border border-border/70 bg-transparent px-3 text-[13px] outline-none placeholder:text-placeholder focus-visible:border-focus-ring/60"
+      />
+    </Dialog>
   );
 }
 
@@ -765,15 +742,13 @@ function EventDetails({
   const [asking, setAsking] = useState<RsvpResponse | null>(null);
   return (
     <>
-      {asking ? (
-        <SeriesResponseDialog
-          onCancel={() => setAsking(null)}
-          onSave={(allEvents, comment) => {
-            actions.respond(event, asking, { allEvents, comment });
-            setAsking(null);
-          }}
-        />
-      ) : null}
+      <SeriesResponseDialog
+        open={asking !== null}
+        onClose={() => setAsking(null)}
+        onSave={(allEvents, comment) => {
+          if (asking) actions.respond(event, asking, { allEvents, comment });
+        }}
+      />
       <Header title={event.recurring ? "Event · repeats" : "Event"} onClose={onClose}>
         {event.htmlLink ? (
           <HintTooltip label="Open in your calendar">

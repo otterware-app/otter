@@ -7,6 +7,7 @@
  * services/calendar-invites.ts replies by email instead.
  */
 
+import { wallClock } from "../wall-clock.js";
 import { platform } from "../../platform.js";
 import {
   NoCalendarAccess,
@@ -169,18 +170,18 @@ function toEvent(accountId: string, e: ApiEvent): CalendarEvent {
 
 const BYDAY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
-/** How it repeats, as Google's RRULE, from the day it starts. */
-function repeatRule(repeat: Repeat, start: string): string {
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(start) ? new Date(`${start}T00:00`) : new Date(start);
+/** How it repeats, as Google's RRULE, from the day it starts in its time zone. */
+function repeatRule(repeat: Repeat, start: string, timeZone: string): string {
+  const day = wallClock(start, timeZone);
   switch (repeat) {
     case "daily":
       return "RRULE:FREQ=DAILY";
     case "weekdays":
       return "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR";
     case "weekly":
-      return `RRULE:FREQ=WEEKLY;BYDAY=${BYDAY[day.getDay()]}`;
+      return `RRULE:FREQ=WEEKLY;BYDAY=${BYDAY[day.weekday]}`;
     case "monthly":
-      return `RRULE:FREQ=MONTHLY;BYMONTHDAY=${day.getDate()}`;
+      return `RRULE:FREQ=MONTHLY;BYMONTHDAY=${day.day}`;
     case "yearly":
       return "RRULE:FREQ=YEARLY";
   }
@@ -210,7 +211,8 @@ function apiBody(input: EventInput, current?: ApiEvent): Record<string, unknown>
   if (input.location !== undefined) body.location = input.location;
   if (input.description !== undefined) body.description = input.description;
   if (input.attendees !== undefined) body.attendees = input.attendees.map((email) => ({ email }));
-  if (input.repeat && input.start) body.recurrence = [repeatRule(input.repeat, input.start)];
+  if (input.repeat && input.start)
+    body.recurrence = [repeatRule(input.repeat, input.start, timeZone)];
   if (input.start !== undefined) {
     body.start = apiTime(input.start, allDay, timeZone);
     // Without an end it keeps its length (new events: an hour, or the day).

@@ -16,6 +16,7 @@ import {
   type EventInput,
   type RsvpResponse,
 } from "../provider.js";
+import { wallClock } from "../wall-clock.js";
 import { GraphError, graph, isNotFound, type GraphInit } from "./graph.js";
 
 const UTC = 'outlook.timezone="UTC"';
@@ -157,8 +158,10 @@ function toEvent(e: ApiEvent): CalendarEvent {
 
 const DAY_MS = 86_400_000;
 
-function apiTime(value: string, allDay: boolean, timeZone: string): ApiTime {
+/** UTC, except a repeating event's times: its wall clock in its zone, so it keeps the hour over DST. */
+function apiTime(value: string, allDay: boolean, timeZone: string, repeats = false): ApiTime {
   if (allDay) return { dateTime: `${value.slice(0, 10)}T00:00:00`, timeZone };
+  if (repeats) return { dateTime: wallClock(value, timeZone).dateTime, timeZone };
   const time = new Date(value);
   if (Number.isNaN(time.getTime())) throw new Error(`Not a date-time: ${value}`);
   return { dateTime: time.toISOString().slice(0, 19), timeZone: "UTC" };
@@ -173,23 +176,17 @@ function duration(event: ApiEvent | undefined): number {
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
-/** How it repeats, as Graph's recurrence, from the day it starts, without end. */
-function repeatPattern(repeat: Repeat, start: string) {
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(start) ? new Date(`${start}T00:00`) : new Date(start);
-  const startDate = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+/** How it repeats, as Graph's recurrence, from the day it starts in its time zone, without end. */
+function repeatPattern(repeat: Repeat, start: string, timeZone: string) {
+  const day = wallClock(start, timeZone);
   const pattern = {
     daily: { type: "daily", interval: 1 },
     weekdays: { type: "weekly", interval: 1, daysOfWeek: WEEKDAYS.slice(1, 6) },
-    weekly: { type: "weekly", interval: 1, daysOfWeek: [WEEKDAYS[day.getDay()]] },
-    monthly: { type: "absoluteMonthly", interval: 1, dayOfMonth: day.getDate() },
-    yearly: {
-      type: "absoluteYearly",
-      interval: 1,
-      dayOfMonth: day.getDate(),
-      month: day.getMonth() + 1,
-    },
+    weekly: { type: "weekly", interval: 1, daysOfWeek: [WEEKDAYS[day.weekday]] },
+    monthly: { type: "absoluteMonthly", interval: 1, dayOfMonth: day.day },
+    yearly: { type: "absoluteYearly", interval: 1, dayOfMonth: day.day, month: day.month },
   }[repeat];
-  return { pattern, range: { type: "noEnd", startDate } };
+  return { pattern, range: { type: "noEnd", startDate: day.date, recurrenceTimeZone: timeZone } };
 }
 
 function apiBody(input: EventInput, current?: ApiEvent): Record<string, unknown> {
@@ -208,9 +205,11 @@ function apiBody(input: EventInput, current?: ApiEvent): Record<string, unknown>
     }));
   }
   if (input.allDay !== undefined) body.isAllDay = input.allDay;
-  if (input.repeat && input.start) body.recurrence = repeatPattern(input.repeat, input.start);
+  const repeats = Boolean(input.repeat && input.start);
+  if (input.repeat && input.start)
+    body.recurrence = repeatPattern(input.repeat, input.start, timeZone);
   if (input.start !== undefined) {
-    body.start = apiTime(input.start, allDay, timeZone);
+    body.start = apiTime(input.start, allDay, timeZone, repeats);
     const length = current ? duration(current) : allDay ? DAY_MS : 3_600_000;
     const end =
       input.end ??
@@ -219,9 +218,9 @@ function apiBody(input: EventInput, current?: ApiEvent): Record<string, unknown>
             .toISOString()
             .slice(0, 10)
         : new Date(new Date(input.start).getTime() + length).toISOString());
-    body.end = apiTime(end, allDay, timeZone);
+    body.end = apiTime(end, allDay, timeZone, repeats);
   } else if (input.end !== undefined) {
-    body.end = apiTime(input.end, allDay, timeZone);
+    body.end = apiTime(input.end, allDay, timeZone, repeats);
   }
   if (input.videoCall) {
     body.isOnlineMeeting = true;
