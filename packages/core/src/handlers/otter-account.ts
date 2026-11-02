@@ -81,24 +81,24 @@ async function refreshOnce(): Promise<void> {
       try {
         if (await watch(account.id, pushTopic)) pushed.push(account.id);
       } catch (err) {
-        logger.info("otter-account", `Couldn't watch ${account.id}: ${String(err)}`);
+        logger.failure("otter-account", `Couldn't watch ${account.id}`, err);
       }
     }
     setPushedAccounts(pushed);
   } catch (err) {
-    logger.info("otter-account", `Refresh failed: ${String(err)}`);
+    logger.failure("otter-account", "Refresh failed", err);
   }
 }
 
 async function syncPreferences(): Promise<void> {
   await pullPreferences().catch((err: unknown) =>
-    logger.info("otter-account", `Preferences sync failed: ${String(err)}`),
+    logger.failure("otter-account", "Preferences sync failed", err),
   );
 }
 
 async function syncChats(): Promise<void> {
   await pullChats().catch((err: unknown) =>
-    logger.info("otter-account", `Chats sync failed: ${String(err)}`),
+    logger.failure("otter-account", "Chats sync failed", err),
   );
 }
 

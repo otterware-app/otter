@@ -95,7 +95,7 @@ export async function notifyNewMail(
       });
     }
   } catch (err) {
-    logger.info("notifier", `notifyNewMail failed: ${String(err)}`);
+    logger.failure("notifier", "notifyNewMail failed", err);
   }
 }
 
@@ -103,6 +103,6 @@ export function updateDockBadge(): void {
   try {
     platform().setUnreadCount(mailStore.countInboxUnreadAll(turnedOffMailboxes()));
   } catch (err) {
-    logger.info("notifier", `badge update failed: ${String(err)}`);
+    logger.failure("notifier", "badge update failed", err);
   }
 }

@@ -5,6 +5,8 @@
  */
 
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+// Keep Sentry's IPC confined to this preload's window.
+import "@sentry/electron/preload";
 
 import {
   UPDATE_STATE_CHANNEL,

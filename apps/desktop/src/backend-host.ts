@@ -23,8 +23,9 @@ import {
   type MainRequests,
   type ToBackend,
 } from "./backend-protocol.js";
+import { setErrorReportsAllowed, sendsErrorReports } from "./error-reports.js";
 import { broadcast } from "./ipc.js";
-import { logger } from "./logger.js";
+import { logger, writeLog } from "./logger.js";
 import { hostOS } from "./os/index.js";
 import { setPendingOpenMessage } from "./services/open-message-target.js";
 import { focusMainWindow } from "./windows/main-window.js";
@@ -56,6 +57,7 @@ export function startBackend(): Promise<void> {
         version: app.getVersion(),
         packaged: app.isPackaged,
         resourcesPath: process.resourcesPath,
+        errorReports: sendsErrorReports,
       }),
     },
   });
@@ -214,7 +216,7 @@ function carryOut(effect: MainEffect): void {
       applySettings(effect.settings, effect.patch);
       return;
     case "log":
-      logger[effect.level](effect.scope, effect.message, effect.data);
+      writeLog(effect.level, effect.scope, effect.message, effect.data);
       return;
   }
 }
@@ -237,6 +239,9 @@ function applySettings(settings: AppSettings, patch: Partial<AppSettings>): void
   }
   if (patch.launchAtLogin !== undefined) {
     hostOS.setLaunchAtLogin(settings.launchAtLogin);
+  }
+  if (patch.errorReports !== undefined) {
+    setErrorReportsAllowed(settings.errorReports);
   }
 }
 

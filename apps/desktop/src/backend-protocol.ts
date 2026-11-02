@@ -52,6 +52,7 @@ export type AppInfo = {
   version: string;
   packaged: boolean;
   resourcesPath: string;
+  errorReports: boolean;
 };
 
 const APP_INFO_ENV = "OTTER_MAIL_APP_INFO";

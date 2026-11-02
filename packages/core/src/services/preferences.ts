@@ -43,7 +43,7 @@ export async function getUiPreferences(initialize = false): Promise<UiPreference
     Object.keys(cached).length === 0
   ) {
     await pullPreferences().catch((err: unknown) =>
-      logger.info("preferences", `Couldn't load initial appearance: ${String(err)}`),
+      logger.failure("preferences", "Couldn't load initial appearance", err),
     );
     return (await readJson<UiPreferences>(UI_FILE)) ?? cached;
   }
@@ -96,7 +96,6 @@ const SECTIONS = {
       );
       const settings = await updateSettings(patch);
       configureAutoSync(settings.syncIntervalSeconds);
-      broadcast("settings:changed", settings);
       broadcast("translation:settingsChanged");
     },
   },
@@ -232,7 +231,7 @@ export async function pullPreferences(): Promise<void> {
     try {
       await SECTIONS[name].apply(value);
     } catch (err) {
-      logger.warn("preferences", `Couldn't apply ${name}: ${String(err)}`);
+      logger.failure("preferences", `Couldn't apply ${name}`, err);
     }
   }
   const userId = getOtterUser()?.id;
@@ -281,7 +280,7 @@ async function push(): Promise<void> {
     for (const [name, json] of sending) synced.set(name, json);
     if (hermesKey !== undefined) await setHermesKeyOwner(userId);
   } catch (err) {
-    logger.info("preferences", `Couldn't save preferences, retrying: ${String(err)}`);
+    logger.failure("preferences", "Couldn't save preferences, retrying", err);
     for (const name of sending.keys()) pending.add(name);
     pushTimer ??= setTimeout(() => void push(), RETRY_MS);
   }

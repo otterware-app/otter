@@ -7,6 +7,7 @@
 
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import type { AsyncContext, FileInfo, Platform, SqlDatabase, SqlValue } from "@otter-mail/core";
+import { SENTRY_DSN, type LogLevel } from "@otter-mail/shared/error-reports";
 
 import { webGoogleAuth } from "./google";
 import { connectMailSocket } from "./mail-socket";
@@ -22,6 +23,7 @@ export type Page = {
   effect(effect: PageEffect): void;
   broadcast(channel: string, params?: unknown): void;
   onResume(listener: () => void): () => void;
+  report(level: LogLevel, scope: string, message: string, data?: unknown): void;
 };
 
 /**
@@ -109,6 +111,8 @@ const files: Platform["files"] = {
   },
 };
 
+const sendsErrorReports = Boolean(SENTRY_DSN.web) && __ERROR_REPORTS__;
+
 const noContext = <T>(): AsyncContext<T> => ({ run: (_value, fn) => fn(), get: () => undefined });
 
 export async function webPlatform(page: Page): Promise<Platform> {
@@ -124,8 +128,11 @@ export async function webPlatform(page: Page): Promise<Platform> {
     kind: "web",
     supportDiagnostics: async () => ({ environment: navigator.userAgent }),
     appVersion: __APP_VERSION__,
-    log: (level, scope, message, data) =>
-      console[level === "debug" ? "log" : level](`[${scope}] ${message}`, data ?? ""),
+    errorReports: sendsErrorReports,
+    log: (level, scope, message, data) => {
+      console[level === "debug" ? "log" : level](`[${scope}] ${message}`, data ?? "");
+      if (sendsErrorReports) page.report(level, scope, message, data);
+    },
 
     database: () => database,
     connect: demo

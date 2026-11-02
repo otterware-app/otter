@@ -33,6 +33,7 @@ import { osNames } from "../os-names";
 import { Btn } from "../mail/ui";
 import { requestTour, startSetup } from "../onboarding/onboarding";
 import { requestProblemReport } from "../support/report-problem";
+import { errorReportsAvailable } from "../error-reports";
 
 export type SettingsRoute = {
   pane: SettingsPane;
@@ -69,6 +70,7 @@ function GeneralPane() {
   );
   const [launchAtLogin, setLaunchAtLogin] = useState(DEFAULT_SETTINGS.launchAtLogin);
   const [dockBadge, setDockBadge] = useState(DEFAULT_SETTINGS.dockBadgeEnabled);
+  const [errorReports, setErrorReports] = useState(DEFAULT_SETTINGS.errorReports);
   const [mailApps, setMailApps] = useState<MailApp[] | null>(null);
   const [defaultMailAppId, setDefaultMailAppId] = useState<string | null>(null);
 
@@ -80,6 +82,7 @@ function GeneralPane() {
       setNotificationsMode(settings.notificationsMode);
       setLaunchAtLogin(settings.launchAtLogin);
       setDockBadge(settings.dockBadgeEnabled);
+      setErrorReports(settings.errorReports);
     } catch (error) {
       toast.error(`Failed to load sync settings: ${error}`);
     }
@@ -162,6 +165,16 @@ function GeneralPane() {
       await mailApi.setSyncSettings({ dockBadgeEnabled: checked });
     } catch (error) {
       toast.error(`Failed to change Dock badge: ${error}`);
+      void loadSyncSettings();
+    }
+  };
+
+  const handleErrorReportsChange = async (checked: boolean) => {
+    setErrorReports(checked);
+    try {
+      await mailApi.setSyncSettings({ errorReports: checked });
+    } catch (error) {
+      toast.error(`Failed to change error reports: ${error}`);
       void loadSyncSettings();
     }
   };
@@ -350,6 +363,27 @@ function GeneralPane() {
             </Btn>
           }
         />
+        {errorReportsAvailable ? (
+          <SettingsRow
+            {...searchableSetting("error-reports")}
+            resetAction={
+              errorReports !== DEFAULT_SETTINGS.errorReports ? (
+                <SettingResetButton
+                  label="error reports"
+                  onClick={() => void handleErrorReportsChange(DEFAULT_SETTINGS.errorReports)}
+                />
+              ) : null
+            }
+            description="When something fails, tell Otterware what broke and where. Never your mail, addresses or passwords."
+            control={
+              <Switch
+                id="errorReports"
+                checked={errorReports}
+                onCheckedChange={(checked) => void handleErrorReportsChange(checked)}
+              />
+            }
+          />
+        ) : null}
       </SettingsSection>
     </SettingsPageContainer>
   );

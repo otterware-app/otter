@@ -53,6 +53,7 @@ export function desktopPlatform(): Platform {
     kind: "desktop",
     supportDiagnostics: desktopSupportDiagnostics,
     appVersion: appInfo().version,
+    errorReports: appInfo().errorReports,
     log: (level, scope, message, data) => logger[level](scope, message, data),
 
     database: () => (database ??= openDatabase()),

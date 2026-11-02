@@ -174,7 +174,7 @@ export async function accountAdded(account: MailAccount): Promise<void> {
     await link(account);
     writeSnapshot([...readSnapshot(), account.email]);
   } catch (err) {
-    logger.info("linked-accounts", `Couldn't link ${account.email}: ${String(err)}`);
+    logger.failure("linked-accounts", `Couldn't link ${account.email}`, err);
   }
 }
 
@@ -187,7 +187,7 @@ export async function accountRemoved(email: string): Promise<void> {
     writeSnapshot(snapshot);
   } catch (err) {
     // Still in the snapshot, so the next reconcile unlinks it.
-    logger.info("linked-accounts", `Couldn't unlink ${email}: ${String(err)}`);
+    logger.failure("linked-accounts", `Couldn't unlink ${email}`, err);
   }
 }
 
@@ -199,7 +199,7 @@ export async function accountEdited(
   const all = profile(account);
   const edited = Object.fromEntries(fields.map((field) => [field, all[field]]));
   await relayRequest("PUT", accountRoute(account.email), edited).catch((err: unknown) => {
-    logger.info("linked-accounts", `Couldn't update ${account.email}: ${String(err)}`);
+    logger.failure("linked-accounts", `Couldn't update ${account.email}`, err);
   });
 }
 
@@ -233,7 +233,7 @@ export async function reconcileAccounts(
       linked.add(key(email));
     } catch (err) {
       if (err instanceof RelayError && err.status === 401) throw err;
-      logger.info("linked-accounts", `Couldn't link ${email}: ${String(err)}`);
+      logger.failure("linked-accounts", `Couldn't link ${email}`, err);
     }
   }
   for (const account of plan.add) {

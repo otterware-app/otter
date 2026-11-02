@@ -117,7 +117,7 @@ function connect(): void {
     try {
       handlers?.onEvent(JSON.parse(text) as RelayEvent);
     } catch (err) {
-      logger.warn("realtime", `Bad event: ${String(err)}`);
+      logger.failure("realtime", "Bad event", err);
     }
   });
 

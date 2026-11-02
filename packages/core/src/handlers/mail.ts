@@ -1298,6 +1298,12 @@ export function registerMailHandlers(): void {
         }
         patch.dockBadgeEnabled = p.dockBadgeEnabled;
       }
+      if (p?.errorReports !== undefined) {
+        if (typeof p.errorReports !== "boolean") {
+          throw new Error('Invalid parameter: "errorReports" must be a boolean.');
+        }
+        patch.errorReports = p.errorReports;
+      }
       const settings = await updateSettings(patch);
       if (patch.syncIntervalSeconds !== undefined) {
         mailSync.configureAutoSync(settings.syncIntervalSeconds);

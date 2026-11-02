@@ -3,11 +3,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import type { NativeThemeInfo, ThemeSource } from "@otter-mail/contracts";
-import type { AppSettings } from "@otter-mail/core";
+import type { AppSettings, ErrorReportsConfig } from "@otter-mail/core";
 
 import { invokeBackend, setDockBadgeEnabled, startBackend, stopBackend } from "./backend-host.js";
 import { registerHandlers } from "./handlers/index.js";
 import { requestSupportReport } from "./handlers/support.js";
+import { setErrorReportsAllowed, setReportId, startErrorReports } from "./error-reports.js";
 import { broadcast } from "./ipc.js";
 import { logger, logToFile } from "./logger.js";
 import { hostOS } from "./os/index.js";
@@ -22,6 +23,7 @@ import { createMainWindow, focusMainWindow, getMainWindow } from "./windows/main
 import { handleRendererProtocol, registerRendererScheme } from "./windows/window-paths.js";
 
 configureAppPaths();
+startErrorReports();
 logToFile(app.getPath("logs"), !app.isPackaged);
 
 // Logging to a terminal that has gone away (a stopped `pnpm dev`) must not
@@ -333,6 +335,11 @@ void app.whenReady().then(async () => {
     hostOS.setLaunchAtLogin(startupSettings.launchAtLogin);
   }
   setDockBadgeEnabled(startupSettings.dockBadgeEnabled);
+  void invokeBackend("errorReports:config").then((config) => {
+    const reports = config as ErrorReportsConfig;
+    setReportId(reports.reportId);
+    setErrorReportsAllowed(reports.enabled);
+  });
 
   try {
     await createMainWindow();

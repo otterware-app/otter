@@ -40,7 +40,7 @@ export async function renewWatch(accountId: string, topic: string): Promise<bool
     });
     return true;
   } catch (err) {
-    logger.info("gmail-watch", `Couldn't watch ${accountId}: ${String(err)}`);
+    logger.failure("gmail-watch", `Couldn't watch ${accountId}`, err);
     return false;
   }
 }

@@ -113,6 +113,7 @@ export interface AsyncContext<T> {
 export interface Platform {
   kind: "desktop" | "web";
   appVersion: string;
+  errorReports?: boolean;
   supportDiagnostics?(): Promise<{ environment: string; errors?: SupportError[] }>;
   log(
     level: "debug" | "info" | "warn" | "error",

@@ -20,7 +20,8 @@ GitHub before submitting. Large reports are copied to the clipboard for you
 to paste into GitHub's description.
 
 Diagnostics include the app version and environment, anonymous mailbox sync
-metadata, and up to 50 recent classified error summaries. They exclude message
+metadata, up to 50 recent classified error summaries, and the install's error
+report id when error reports are on ([error-reports.md](error-reports.md)). They exclude message
 content, mailbox addresses, credentials, and raw log messages. You can omit the
 diagnostics or edit the final report. The Mac classifies a bounded tail of its
 existing log locally; the web app retains classified backend errors in memory.

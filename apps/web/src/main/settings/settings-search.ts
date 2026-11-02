@@ -1,3 +1,4 @@
+import { errorReportsAvailable } from "../error-reports";
 import { features } from "../features";
 import { CATEGORY_PANE, availableExtensions } from "../extensions/registry";
 import { osNames } from "../os-names";
@@ -191,6 +192,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Send feedback",
     pane: "general",
     searchTerms: ["support report bug problem suggest feature help"],
+  },
+  {
+    id: "error-reports",
+    title: "Send error reports",
+    pane: "general",
+    available: errorReportsAvailable,
+    searchTerms: ["crash diagnostics sentry privacy telemetry bug"],
   },
   {
     id: "otter-account",

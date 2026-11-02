@@ -1,3 +1,4 @@
+import type { LogLevel, SerializedError } from "@otter-mail/shared/error-reports";
 import type { OutlookSignInResult } from "@otter-mail/contracts/relay";
 import type { LanguageDetection, PickedFile, TranslationResult } from "@otter-mail/core";
 
@@ -53,4 +54,11 @@ export type FromWorker =
       kind: keyof PageRequests;
       params: PageRequests[keyof PageRequests]["params"];
     }
-  | ({ type: "effect" } & PageEffect);
+  | ({ type: "effect" } & PageEffect)
+  | {
+      type: "report";
+      level: LogLevel;
+      scope: string;
+      message: string;
+      error?: SerializedError;
+    };

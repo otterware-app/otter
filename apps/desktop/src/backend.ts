@@ -1,21 +1,34 @@
+import * as Sentry from "@sentry/electron/utility";
+
 import { DEMO_MAILBOXES_ENV } from "@otter-mail/contracts/demo";
 import {
   addDemoMailboxes,
+  callHandler,
   onSettingsChanged,
   registeredHandlers,
   shutdownProviders,
   startCore,
 } from "@otter-mail/core";
+import { errorReportOptions, reportLog, SENTRY_DSN } from "@otter-mail/shared/error-reports";
 
 import { appInfo, type ToBackend } from "./backend-protocol.js";
 import { desktopExtensions } from "./extensions.js";
 import { registerBackendHandlers } from "./handlers/backend.js";
-import { logger, sendLogsTo } from "./logger.js";
+import { logger, reportLogsTo, sendLogsTo } from "./logger.js";
 import { postToMain, settleRequest, tellMain } from "./main-link.js";
 import { desktopPlatform, resumeListeners } from "./platform.js";
 import { serverUrl } from "./services/agent/mcp-server.js";
 
 sendLogsTo((level, scope, message, data) => tellMain({ kind: "log", level, scope, message, data }));
+
+if (appInfo().errorReports) {
+  Sentry.init({
+    ...errorReportOptions({ dsn: SENTRY_DSN.desktop, version: appInfo().version, environment: "" }),
+    integrations: (defaults) =>
+      defaults.filter(({ name }) => name !== "Console" && name !== "LocalVariables"),
+  });
+  reportLogsTo(reportLog);
+}
 
 async function start(): Promise<void> {
   const platform = desktopPlatform();
@@ -35,18 +48,13 @@ async function start(): Promise<void> {
 }
 
 async function invoke(id: number, channel: string, params: unknown): Promise<void> {
-  const handler = registeredHandlers().get(channel);
-  try {
-    if (!handler) throw new Error(`No handler for ${channel}.`);
-    postToMain({ type: "result", id, result: await handler(params) });
-  } catch (err) {
-    postToMain({ type: "result", id, error: err instanceof Error ? err.message : String(err) });
-  }
+  postToMain({ type: "result", id, ...(await callHandler(channel, params)) });
 }
 
 const ready = start();
-ready.catch((err: unknown) => {
+ready.catch(async (err: unknown) => {
   logger.error("backend", "Core failed to start", err);
+  await Sentry.flush(2_000);
   process.exit(1);
 });
 

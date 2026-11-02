@@ -26,6 +26,7 @@
     "@otter-mail/extension-todoist": "workspace:*",
     "@otter-mail/extension-translation": "workspace:*",
     "@otter-mail/shared": "workspace:*",
+    "@sentry/electron": "8.3.0",
     "better-auth": "^1.7.6",
     "electron": "44.4.2",
     "electron-chrome-web-store": "^0.13.0",

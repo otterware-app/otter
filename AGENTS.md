@@ -110,6 +110,9 @@ when a feature lands or goes.
   page that isn't a file (the app's own routes). Otter Mail's page, privacy policy and terms are
   on https://otterware.app/mail/ (the `website` repository, with every Otterware app's page);
   their old addresses here redirect there.
+- Errors: Sentry, scrubbed, from the desktop app, the web app and the relay
+  (`packages/shared/src/error-reports.ts`; docs/error-reports.md). Log with `logger.error`
+  or `logger.failure` and pass the Error: that's what gets reported.
 - Deploys: Cloudflare Workers Builds deploys `infra/relay` and `site/` on pushes to `main` that
   touch them; GitHub Actions smoke-tests the relay every 6 hours (keyless Google Cloud access).
 

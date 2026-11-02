@@ -1,7 +1,8 @@
 /// <reference lib="webworker" />
 
 import { parseDemoMailboxes } from "@otter-mail/contracts/demo";
-import { addDemoMailboxes, registeredHandlers, startCore, type Platform } from "@otter-mail/core";
+import { addDemoMailboxes, callHandler, startCore, type Platform } from "@otter-mail/core";
+import { serializeError } from "@otter-mail/shared/error-reports";
 
 import { webExtensions } from "./extensions";
 import { webPlatform, type Page } from "./platform";
@@ -32,16 +33,22 @@ const page: Page = {
     resumeListeners.add(listener);
     return () => resumeListeners.delete(listener);
   },
+  report(level, scope, message, data) {
+    if (level === "debug") return;
+    const error = data instanceof Error ? data : (data as { error?: unknown } | null)?.error;
+    post({ type: "report", level, scope, message, error: serializeError(error) });
+  },
 };
 
+self.addEventListener("error", (event) =>
+  page.report("error", "backend", event.message, event.error),
+);
+self.addEventListener("unhandledrejection", (event) =>
+  page.report("error", "backend", "Unhandled rejection", event.reason),
+);
+
 async function invoke(id: number, channel: string, params: unknown): Promise<void> {
-  const handler = registeredHandlers().get(channel);
-  try {
-    if (!handler) throw new Error(`No handler for ${channel}.`);
-    post({ type: "result", id, result: await handler(params) });
-  } catch (err) {
-    post({ type: "result", id, error: err instanceof Error ? err.message : String(err) });
-  }
+  post({ type: "result", id, ...(await callHandler(channel, params)) });
 }
 
 /**
@@ -91,6 +98,8 @@ self.addEventListener("online", () => {
 
 ready.then(
   () => post({ type: "ready" }),
-  (err: unknown) =>
-    post({ type: "failed", error: err instanceof Error ? err.message : String(err) }),
+  (err: unknown) => {
+    page.report("error", "backend", "Core failed to start", err);
+    post({ type: "failed", error: err instanceof Error ? err.message : String(err) });
+  },
 );

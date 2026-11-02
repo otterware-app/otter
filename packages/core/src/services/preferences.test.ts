@@ -10,7 +10,7 @@ vi.mock("../json-file.js", () => ({
 vi.mock("../platform.js", () => ({
   platform: () => ({ ...state, secrets: { get: async () => null, set: async () => {} } }),
 }));
-vi.mock("../logger.js", () => ({ logger: { info: vi.fn(), warn: vi.fn() } }));
+vi.mock("../logger.js", () => ({ logger: { info: vi.fn(), warn: vi.fn(), failure: vi.fn() } }));
 vi.mock("../ipc.js", () => ({ broadcast: vi.fn() }));
 vi.mock("./otter-account.js", () => ({
   getOtterUser: () => ({ id: "test-user" }),

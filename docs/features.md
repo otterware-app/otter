@@ -361,9 +361,10 @@ On iPhone, a glass bar under the list holds the mailbox's picture (tap to switch
 | Open a support investigation in an installed Claude / Codex terminal session | ✓   | —   | —      |
 | Return local-agent drafts and findings to the report preview                 | ✓   | —   | —      |
 | Download diagnostics as a file and import an agent's Markdown draft          | ✓   | ✓   | —      |
+| Scrubbed error reports (Sentry), off in Settings → General                   | ✓   | ✓   | —      |
 
 The support playbook covers diagnosis, duplicate detection, issue review, and
-optional fix PRs. See [support.md](support.md).
+optional fix PRs. See [support.md](support.md); error reports, [error-reports.md](error-reports.md).
 
 ## Agents
 

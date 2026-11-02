@@ -5,6 +5,7 @@ packages:
   - site
   - infra/*
 allowBuilds:
+  "@sentry/cli": false
   electron: true
   electron-winstaller: false
   esbuild: true

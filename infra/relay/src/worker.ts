@@ -1,4 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
+import * as Sentry from "@sentry/cloudflare";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { Hono, type MiddlewareHandler } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
@@ -32,18 +33,22 @@ import * as preferences from "./preferences.ts";
 import * as store from "./store.ts";
 import * as push from "./push.ts";
 import * as notificationConnections from "./notification-connections.ts";
-import { NotificationMailbox } from "./notification-mailbox.ts";
+import { errorReports } from "./error-reports.ts";
+import { AgentHub as AgentHubObject } from "./agent-hub.ts";
+import { NotificationMailbox as NotificationMailboxObject } from "./notification-mailbox.ts";
 import * as apns from "./apns.ts";
 import * as tunnel from "./tunnel.ts";
-import type { AgentHub } from "./agent-hub.ts";
-import { SESSION_HEADER, type UserHub } from "./user-hub.ts";
+import { SESSION_HEADER, UserHub as UserHubObject } from "./user-hub.ts";
 
-export { AgentHub } from "./agent-hub.ts";
-export { UserHub } from "./user-hub.ts";
-export { NotificationMailbox };
+export const AgentHub = Sentry.instrumentDurableObjectWithSentry(errorReports, AgentHubObject);
+export const UserHub = Sentry.instrumentDurableObjectWithSentry(errorReports, UserHubObject);
+export const NotificationMailbox = Sentry.instrumentDurableObjectWithSentry(
+  errorReports,
+  NotificationMailboxObject,
+);
 
 export interface Env {
-  NOTIFICATION_MAILBOX: DurableObjectNamespace<NotificationMailbox>;
+  NOTIFICATION_MAILBOX: DurableObjectNamespace<NotificationMailboxObject>;
   NOTIFICATION_CREDENTIAL_SECRET?: string;
   NOTIFICATION_GOOGLE_CLIENT_ID?: string;
   NOTIFICATION_GOOGLE_CLIENT_SECRET?: string;
@@ -53,6 +58,7 @@ export interface Env {
   NOTIFICATION_MICROSOFT_CLIENT_SECRET?: string;
   NOTIFICATION_IMAP_TEST_TARGET?: string;
   DB: D1Database;
+  CF_VERSION_METADATA?: WorkerVersionMetadata;
   /** Private compatibility adapter to the independent Otter Accounts service. */
   ACCOUNTS?: {
     fetch(request: Request): Promise<Response>;
@@ -60,8 +66,8 @@ export interface Env {
   };
   IDENTITY_MODE?: "legacy" | "paused" | "accounts";
   ACCOUNTS_ORIGIN?: string;
-  USER_HUB: DurableObjectNamespace<UserHub>;
-  AGENT_HUB?: DurableObjectNamespace<AgentHub>;
+  USER_HUB: DurableObjectNamespace<UserHubObject>;
+  AGENT_HUB?: DurableObjectNamespace<AgentHubObject>;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_IOS_CLIENT_ID?: string;
   GOOGLE_GMAIL_CLIENT_ID: string;
@@ -185,6 +191,7 @@ app.use(async (c, next) => {
 app.onError((err, c) => {
   if (err instanceof HTTPException) return c.json({ error: err.message }, err.status);
   console.error("Unhandled error", err);
+  Sentry.captureException(err);
   return c.json({ error: "Something went wrong." }, 500);
 });
 
@@ -860,4 +867,4 @@ export class IdentityLifecycle extends WorkerEntrypoint<Env> {
   }
 }
 
-export default app;
+export default Sentry.withSentry(errorReports, app);

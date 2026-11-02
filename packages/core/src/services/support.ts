@@ -3,12 +3,13 @@ import { platform } from "../platform.js";
 import { isSignedIn } from "../providers/index.js";
 import { listAccounts } from "./account-store.js";
 import { getSyncStatus, turnedOffMailboxes } from "./mail-sync.js";
+import { errorReportsConfig } from "./error-reports.js";
 import { getSettings } from "./settings-store.js";
 import { recentSupportErrors } from "./support-errors.js";
 
 export async function collectSupportDiagnostics(): Promise<SupportDiagnostics> {
   const unavailable: string[] = [];
-  const [accounts, settings, shell] = await Promise.all([
+  const [accounts, settings, shell, reports] = await Promise.all([
     listAccounts().catch(() => {
       unavailable.push("Mailbox metadata");
       return [];
@@ -23,6 +24,7 @@ export async function collectSupportDiagnostics(): Promise<SupportDiagnostics> {
         unavailable.push("Environment / recent errors");
         return null;
       }),
+    errorReportsConfig().catch(() => null),
   ]);
   const off = turnedOffMailboxes();
   return {
@@ -32,6 +34,7 @@ export async function collectSupportDiagnostics(): Promise<SupportDiagnostics> {
     platform: platform().kind,
     environment: shell?.environment ?? platform().kind,
     syncIntervalSeconds: settings?.syncIntervalSeconds ?? null,
+    reportId: reports?.enabled ? reports.reportId : null,
     mailboxes: accounts.map((account, index) => {
       let sync: SupportDiagnostics["mailboxes"][number]["sync"] = null;
       try {

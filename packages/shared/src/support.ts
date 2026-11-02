@@ -68,6 +68,7 @@ export type SupportDiagnostics = {
   platform: "desktop" | "web";
   environment: string;
   syncIntervalSeconds: number | null;
+  reportId?: string | null;
   mailboxes: {
     mailbox: string;
     provider: "gmail" | "imap" | "outlook";
@@ -176,7 +177,8 @@ export function buildSupportIssue(
   if (diagnostics) {
     body.push(
       "### Environment",
-      `Otter Mail ${diagnostics.version} · ${diagnostics.platform}\n${diagnostics.environment}`,
+      `Otter Mail ${diagnostics.version} · ${diagnostics.platform}\n${diagnostics.environment}` +
+        (diagnostics.reportId ? `\nError report id: ${diagnostics.reportId}` : ""),
       "### Diagnostics\nAttach the Otter Mail diagnostics.json file when submitting this issue.",
     );
   }

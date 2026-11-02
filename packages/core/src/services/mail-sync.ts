@@ -198,7 +198,7 @@ export async function syncAllAccounts(opts?: {
     const accounts = await listAccounts();
     for (const account of accounts) syncAccount(account.id, opts);
   } catch (err) {
-    logger.error("mail-sync", `syncAllAccounts failed: ${String(err)}`);
+    logger.error("mail-sync", `syncAllAccounts failed: ${String(err)}`, err);
   }
 }
 
@@ -247,6 +247,10 @@ function describeSyncError(accountId: string, err: unknown): string {
   if (provider) return provider.describeError(err);
   const text = String(err);
   return text.length > 240 ? `${text.slice(0, 240)}…` : text;
+}
+
+function syncFailureLevel(provider: MailProvider, err: unknown): "warn" | "error" {
+  return provider.errorKind(err) ? "warn" : "error";
 }
 
 function needsSignIn(accountId: string, provider: MailProvider, err: unknown): boolean {
@@ -303,7 +307,11 @@ async function runSyncNow(accountId: string, provider: MailProvider): Promise<vo
       return;
     }
     recordFailure(accountId);
-    logger.error("mail-sync", `sync failed for ${accountId}: ${describeSyncError(accountId, err)}`);
+    logger[syncFailureLevel(provider, err)](
+      "mail-sync",
+      `${provider.kind} sync failed for ${accountId}: ${describeSyncError(accountId, err)}`,
+      err,
+    );
     update(accountId, {
       ...laneStatus(accountId, false),
       error: describeSyncError(accountId, err),
@@ -363,7 +371,11 @@ function startBackfill(accountId: string, provider: MailProvider): void {
         }
         recordFailure(accountId, backfillFailures);
         const reason = describeSyncError(accountId, err);
-        logger.error("mail-sync", `backfill failed for ${accountId}: ${reason}`);
+        logger[syncFailureLevel(provider, err)](
+          "mail-sync",
+          `${provider.kind} backfill failed for ${accountId}: ${reason}`,
+          err,
+        );
         update(accountId, {
           ...laneStatus(accountId),
           error: reason,

@@ -60,7 +60,10 @@ export async function startCore(
       throw new Error("key and value are required.");
     await setUiPreference(key, value);
   });
-  onSettingsChanged(() => preferenceChanged("settings"));
+  onSettingsChanged((settings) => {
+    preferenceChanged("settings");
+    broadcast("settings:changed", settings);
+  });
   handle("keybindings:write", async (params: unknown) => {
     const result = await writeKeybindings((params as { rules?: unknown } | undefined)?.rules);
     broadcast("keybindings:updated");
@@ -76,7 +79,7 @@ export async function startCore(
   void refreshProfiles();
 }
 
-export { broadcast, handle, registeredHandlers, type Handler } from "./ipc.js";
+export { broadcast, callHandler, handle, registeredHandlers, type Handler } from "./ipc.js";
 export type { CoreExtension, ExtensionContext } from "./extensions.js";
 export { fromBase64, toBase64 } from "./bytes.js";
 export { SIGNED_OUT_MESSAGE, SignInCancelledError } from "./google.js";
@@ -104,6 +107,7 @@ export {
 export * from "./services/agent/types.js";
 export { getAttachmentBytes } from "./services/attachment-cache.js";
 export { addDemoMailboxes } from "./services/demo-mailboxes.js";
+export { errorReportsConfig, type ErrorReportsConfig } from "./services/error-reports.js";
 export { KEYBINDINGS_FILE } from "./services/keybindings-store.js";
 export { syncAllAccounts, turnedOffMailboxes } from "./services/mail-sync.js";
 export {

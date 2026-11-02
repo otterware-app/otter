@@ -7,6 +7,10 @@ const web = NodePath.resolve(site, "../apps/web/dist");
 const dist = NodePath.join(site, "dist");
 
 execFileSync("pnpm", ["--filter", "@otter-mail/web", "build"], { cwd: site, stdio: "inherit" });
+execFileSync("node", [NodePath.resolve(site, "../scripts/upload-sourcemaps.ts"), "web", web], {
+  cwd: site,
+  stdio: "inherit",
+});
 
 NodeFS.rmSync(dist, { recursive: true, force: true });
 NodeFS.mkdirSync(dist);

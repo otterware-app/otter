@@ -7,6 +7,7 @@ import * as NodePath from "node:path";
 import { parseArgs } from "node:util";
 
 import { buildTranslator, findTranslatorBinary, repoRoot } from "./build-translator.ts";
+import { SENTRY_PROJECTS, uploadSourcemaps } from "./upload-sourcemaps.ts";
 import { isNightlyVersion } from "../packages/shared/src/release-channel.ts";
 
 const APP_ID = "dev.otterware.mail";
@@ -372,6 +373,11 @@ function main(): void {
       env: { ...process.env, OTTER_MAIL_VERSION: options.version },
       label: `(apps/desktop) OTTER_MAIL_VERSION=${options.version} vp pack`,
     });
+    // Before staging: it writes the debug ids that pair the bundles with their maps.
+    uploadSourcemaps(SENTRY_PROJECTS.desktop, [
+      NodePath.join(desktopDir, "dist-electron"),
+      NodePath.join(webDir, "dist"),
+    ]);
   }
   const translatorBinary = mac ? resolveTranslatorBinary(options) : null;
 

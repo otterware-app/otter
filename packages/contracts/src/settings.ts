@@ -10,6 +10,7 @@ export type AppSettings = {
   readLanguages: string[];
   /** Translate mail in other languages without asking. */
   autoTranslate: boolean;
+  errorReports: boolean;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -19,4 +20,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dockBadgeEnabled: false,
   readLanguages: [],
   autoTranslate: false,
+  errorReports: true,
 };

@@ -48,7 +48,7 @@ export async function activateExtensions(extensions: readonly CoreExtension[]): 
     } catch (error) {
       for (const channel of channels) unhandle(channel);
       if (agent) agents.delete(agent);
-      logger.error("extensions", `${manifest.id} didn't activate`, { error: String(error) });
+      logger.error("extensions", `${manifest.id} didn't activate`, error);
     }
   }
 }

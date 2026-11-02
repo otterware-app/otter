@@ -64,6 +64,9 @@ export default defineConfig(({ command }) => ({
     __APP_VERSION__: JSON.stringify(process.env.OTTER_MAIL_VERSION?.trim() || pkg.version),
     __DEMO__: JSON.stringify(process.env.VITE_DEMO === "1"),
     __DEV_DEMO__: JSON.stringify(command === "serve" && devDemo),
+    __ERROR_REPORTS__: JSON.stringify(
+      command === "build" || process.env.OTTER_MAIL_ERROR_REPORTS === "1",
+    ),
   },
   resolve: {
     alias: {

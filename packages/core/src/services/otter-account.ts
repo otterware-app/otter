@@ -185,7 +185,7 @@ export async function signOut(): Promise<void> {
   await auth()
     .signOut()
     .catch((err: unknown) => {
-      logger.info("otter-account", `Couldn't end the relay session: ${String(err)}`);
+      logger.failure("otter-account", "Couldn't end the relay session", err);
     });
   await setSession(null);
 }

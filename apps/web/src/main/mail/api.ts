@@ -299,6 +299,7 @@ export type SyncSettings = {
   notificationsMode: NotificationsMode;
   launchAtLogin: boolean;
   dockBadgeEnabled: boolean;
+  errorReports: boolean;
 };
 
 export type SaveViewParams = {

@@ -74,7 +74,7 @@ export async function renewSubscription(accountId: string): Promise<boolean> {
     logger.info("outlook-watch", "Watching", { accountId, until: expirationDateTime });
     return true;
   } catch (err) {
-    logger.info("outlook-watch", `Couldn't watch ${accountId}: ${String(err)}`);
+    logger.failure("outlook-watch", `Couldn't watch ${accountId}`, err);
     return false;
   }
 }

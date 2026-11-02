@@ -26,7 +26,16 @@ function write(level: Level, scope: string, message: string, data?: unknown): vo
   stream?.write(line + "\n");
 }
 
-let sink: (level: Level, scope: string, message: string, data?: unknown) => void = write;
+type Sink = (level: Level, scope: string, message: string, data?: unknown) => void;
+
+let sink: Sink = write;
+let report: Sink | null = null;
+
+export function reportLogsTo(reporter: Sink): void {
+  report = reporter;
+}
+
+export const writeLog: Sink = (level, scope, message, data) => write(level, scope, message, data);
 
 export function logToFile(dir: string, debug: boolean): void {
   withDebug = debug;
@@ -49,9 +58,14 @@ export function sendLogsTo(
     send(level, scope, message, data === undefined ? undefined : format(data));
 }
 
+const log: Sink = (level, scope, message, data) => {
+  report?.(level, scope, message, data);
+  sink(level, scope, message, data);
+};
+
 export const logger = {
-  debug: (scope: string, message: string, data?: unknown) => sink("debug", scope, message, data),
-  info: (scope: string, message: string, data?: unknown) => sink("info", scope, message, data),
-  warn: (scope: string, message: string, data?: unknown) => sink("warn", scope, message, data),
-  error: (scope: string, message: string, data?: unknown) => sink("error", scope, message, data),
+  debug: (scope: string, message: string, data?: unknown) => log("debug", scope, message, data),
+  info: (scope: string, message: string, data?: unknown) => log("info", scope, message, data),
+  warn: (scope: string, message: string, data?: unknown) => log("warn", scope, message, data),
+  error: (scope: string, message: string, data?: unknown) => log("error", scope, message, data),
 };

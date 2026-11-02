@@ -190,9 +190,7 @@ let pullTimer: ReturnType<typeof setTimeout> | null = null;
 function schedulePull(): void {
   pullTimer ??= setTimeout(() => {
     pullTimer = null;
-    void pullChats().catch((err: unknown) =>
-      logger.info("chats", `Chats sync failed: ${String(err)}`),
-    );
+    void pullChats().catch((err: unknown) => logger.failure("chats", "Chats sync failed", err));
   }, 300);
 }
 
