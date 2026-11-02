@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../account-store.js", () => ({ listAccounts: async () => mocks.accounts }));
 vi.mock("../../ipc.js", () => ({ broadcast: mocks.broadcast }));
+vi.mock("../../logger.js", () => ({ logger: { info: () => {} } }));
 vi.mock("../../providers/index.js", () => ({
   isSignedIn: () => true,
   capabilitiesOf: (a: MailAccount) => ({ calendar: a.provider !== "imap" }),
@@ -17,7 +18,8 @@ vi.mock("../../providers/index.js", () => ({
 }));
 
 const { NoCalendarAccess } = await import("../../providers/provider.ts");
-const { forgetRefusals, listConnections, noteAllowed } = await import("../connections.ts");
+const { forgetRefusals, generationOf, listConnections, noteAllowed } =
+  await import("../connections.ts");
 
 const gmail: MailAccount = { id: "me@gmail.com", email: "me@gmail.com", name: "Me" };
 const icloud: MailAccount = {
@@ -57,7 +59,7 @@ describe("listConnections", () => {
   it("forgets a refusal once the calendar works or the mailbox signs in again", async () => {
     mocks.listCalendars.mockRejectedValue(new NoCalendarAccess("insufficient scopes"));
     await listConnections();
-    noteAllowed(gmail.id, "listCalendars");
+    noteAllowed(gmail.id, "listCalendars", generationOf(gmail.id));
     expect((await listConnections())[0]!.resources[1]!.needs).toEqual([]);
 
     forgetRefusals(gmail.id);
@@ -71,5 +73,28 @@ describe("listConnections", () => {
     mocks.accounts = [{ ...gmail, signatureInGmail: false }];
     const [connection] = await listConnections();
     expect(connection!.resources[0]!.needs.map((n) => n.operation)).toEqual(["saveSignature"]);
+  });
+
+  it("drops an answer to a check made before signing in again", async () => {
+    let refuse!: () => void;
+    mocks.listCalendars.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        refuse = () => reject(new NoCalendarAccess("insufficient scopes"));
+      }),
+    );
+    const listing = listConnections();
+    await vi.waitFor(() => expect(mocks.listCalendars).toHaveBeenCalled());
+    forgetRefusals(gmail.id);
+    refuse();
+    await listing;
+    mocks.listCalendars.mockResolvedValue([]);
+    expect((await listConnections())[0]!.resources[1]!.needs).toEqual([]);
+  });
+
+  it("shares a running check, and waits before retrying one that failed", async () => {
+    mocks.listCalendars.mockRejectedValue(new Error("offline"));
+    await Promise.all([listConnections(), listConnections()]);
+    await listConnections();
+    expect(mocks.listCalendars).toHaveBeenCalledTimes(1);
   });
 });

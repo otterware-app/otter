@@ -31,39 +31,80 @@ const need = (operation: Operation): AccessNeed => ({ operation, ...COPY[operati
 
 /** By mailbox: the operations its provider refused for want of permission. */
 const refused = new Map<string, Set<Operation>>();
-/** Mailboxes whose calendar access is known this session (refused or not). */
-const probed = new Set<string>();
+/**
+ * By mailbox: how many times it signed in again this session. An answer to a request made
+ * before the latest sign-in is about the old one, and is dropped.
+ */
+const generations = new Map<string, number>();
+/** By mailbox: the generation whose calendar access is known (refused or not). */
+const known = new Map<string, number>();
+/** By mailbox: the calendar check running or last failed (not for want of permission). */
+const probes = new Map<string, { generation: number; promise: Promise<void>; failedAt?: number }>();
+/** How long a check that failed for another reason (offline, rate limit) waits to retry. */
+const RETRY_MS = 5 * 60_000;
 
-export function noteRefused(accountId: string, operation: Operation): void {
-  probed.add(accountId);
+/** Pass it to noteRefused / noteAllowed for an answer to a request made now. */
+export function generationOf(accountId: string): number {
+  return generations.get(accountId) ?? 0;
+}
+
+function current(accountId: string, generation: number): boolean {
+  return generation === generationOf(accountId);
+}
+
+export function noteRefused(accountId: string, operation: Operation, generation: number): void {
+  if (!current(accountId, generation)) return;
+  known.set(accountId, generation);
   const ops = refused.get(accountId) ?? new Set<Operation>();
   if (ops.has(operation)) return;
   refused.set(accountId, ops.add(operation));
   broadcast("connections:changed");
 }
 
-export function noteAllowed(accountId: string, operation: Operation): void {
-  probed.add(accountId);
+export function noteAllowed(accountId: string, operation: Operation, generation: number): void {
+  if (!current(accountId, generation)) return;
+  known.set(accountId, generation);
   if (refused.get(accountId)?.delete(operation)) broadcast("connections:changed");
 }
 
 /** The mailbox signed in again: what it was refused may be allowed now. */
 export function forgetRefusals(accountId: string): void {
-  probed.delete(accountId);
+  generations.set(accountId, generationOf(accountId) + 1);
+  probes.delete(accountId);
   if (refused.delete(accountId)) broadcast("connections:changed");
 }
 
-/** Asks the calendar once a session whether it may list every calendar. */
-async function probeCalendar(account: MailAccount): Promise<void> {
+/**
+ * Asks the calendar whether it may list every calendar: once per sign-in, shared by whoever
+ * asks while it runs; one that failed for another reason is retried after a while.
+ */
+function probeCalendar(account: MailAccount): Promise<void> {
   const calendar = findProvider(account)?.calendar;
-  if (!calendar || probed.has(account.id)) return;
-  try {
-    await calendar.listCalendars(account.id);
-    noteAllowed(account.id, "listCalendars");
-  } catch (error) {
-    if (error instanceof NoCalendarAccess) noteRefused(account.id, "listCalendars");
-    else logger.info("connections", `Couldn't check ${account.email}'s calendar: ${String(error)}`);
+  const generation = generationOf(account.id);
+  if (!calendar || known.get(account.id) === generation) return Promise.resolve();
+  const running = probes.get(account.id);
+  if (
+    running?.generation === generation &&
+    (running.failedAt === undefined || Date.now() - running.failedAt < RETRY_MS)
+  ) {
+    return running.promise;
   }
+  const probe: { generation: number; promise: Promise<void>; failedAt?: number } = {
+    generation,
+    promise: calendar.listCalendars(account.id).then(
+      () => noteAllowed(account.id, "listCalendars", generation),
+      (error: unknown) => {
+        if (error instanceof NoCalendarAccess) {
+          noteRefused(account.id, "listCalendars", generation);
+          return;
+        }
+        probe.failedAt = Date.now();
+        logger.info("connections", `Couldn't check ${account.email}'s calendar: ${String(error)}`);
+      },
+    ),
+  };
+  probes.set(account.id, probe);
+  return probe.promise;
 }
 
 const PROVIDERS = { gmail: "google", outlook: "microsoft", imap: "imap" } as const;

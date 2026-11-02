@@ -14,7 +14,7 @@ import {
   type MailProvider,
   type RsvpResponse,
 } from "../providers/provider.js";
-import { noteAllowed, noteRefused } from "../services/connections.js";
+import { generationOf, noteAllowed, noteRefused } from "../services/connections.js";
 import { runAsTask } from "./ipc-budget.js";
 
 type Calendar = NonNullable<MailProvider["calendar"]>;
@@ -51,13 +51,14 @@ function calendarOf(accountId: string): Calendar {
 
 /** An account's calendars; a sign-in that can't list them still has its primary one. */
 async function accountCalendars(accountId: string): Promise<AccountCalendars> {
+  const generation = generationOf(accountId);
   try {
     const calendars = await calendarOf(accountId).listCalendars(accountId);
-    noteAllowed(accountId, "listCalendars");
+    noteAllowed(accountId, "listCalendars", generation);
     return { accountId, calendars };
   } catch (error) {
     if (!(error instanceof NoCalendarAccess)) return { accountId, calendars: [], error: "failed" };
-    noteRefused(accountId, "listCalendars");
+    noteRefused(accountId, "listCalendars", generation);
     const primary: CalendarInfo = {
       id: "primary",
       name: accountId,
