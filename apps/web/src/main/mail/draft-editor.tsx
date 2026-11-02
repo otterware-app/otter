@@ -61,9 +61,13 @@ export function DraftEditor({
   titleLeading?: ReactNode;
 }) {
   const account = useAccounts().data?.find((a) => a.id === accountId);
-  // The draft keeps the address it was written from, when that's one of the mailbox's.
+  // The draft keeps the address it was written from. One the mailbox no longer sends from stays
+  // (sending refuses it) until another is picked: never quietly swapped for the mailbox's own.
   const [pickedAddress, setPickedAddress] = useState(detail.fromEmail);
-  const fromAddress = account ? (ownAddress(account, pickedAddress) ?? account.email) : undefined;
+  const fromAddress = account
+    ? (ownAddress(account, pickedAddress) ?? (pickedAddress || account.email))
+    : undefined;
+  const fromUnavailable = !!account && !!fromAddress && !ownAddress(account, fromAddress);
   const [to, setTo] = useState(detail.to ?? "");
   const [cc, setCc] = useState(detail.cc ?? "");
   const [ccVisible, setCcVisible] = useState(!!detail.cc);
@@ -222,6 +226,8 @@ export function DraftEditor({
   const canSend =
     !sending &&
     !sendMessage.isPending &&
+    !!fromAddress &&
+    !fromUnavailable &&
     hasRecipient &&
     attachments != null &&
     (text.trim().length > 0 || subject.trim().length > 0);
@@ -288,7 +294,7 @@ export function DraftEditor({
   const inThread = conversation.length > 0;
   const fields = (
     <>
-      {account && fromAddress && addressesOf(account).length > 1 ? (
+      {account && fromAddress && (addressesOf(account).length > 1 || fromUnavailable) ? (
         <ComposerField label="From">
           <FromPicker
             accounts={[account]}
@@ -296,6 +302,11 @@ export function DraftEditor({
             address={fromAddress}
             onChange={(_, address) => setPickedAddress(address)}
           />
+          {fromUnavailable ? (
+            <span className="ml-2 truncate text-xs text-destructive">
+              No longer one of this mailbox's addresses. Pick another to send.
+            </span>
+          ) : null}
         </ComposerField>
       ) : null}
       <ComposerField

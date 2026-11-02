@@ -1838,6 +1838,8 @@ function InlineComposer({
   const forwardReady = attachments != null && (mode !== "forward" || lastDetail != null);
   const canSend =
     !sendMessage.isPending &&
+    // Not before the mailbox's addresses are known: the reply might go from the wrong one.
+    !!fromAddress &&
     hasRecipient &&
     forwardReady &&
     (mode === "forward" || text.trim().length > 0);

@@ -48,6 +48,10 @@ async function refreshSignature(account: MailAccount): Promise<boolean> {
   return true;
 }
 
+// One bare address: no whitespace, control characters or address-list delimiters.
+const ADDRESS_PART = String.raw`[^\s\x00-\x1f\x7f@<>()[\]\\,;:"]+`;
+const SINGLE_ADDRESS = new RegExp(`^${ADDRESS_PART}@${ADDRESS_PART}\\.${ADDRESS_PART}$`);
+
 /**
  * The addresses an IMAP mailbox sends from besides its own, as entered in Settings: trimmed,
  * once each, never its own. The server must accept them (iCloud+ custom domains, aliases).
@@ -59,7 +63,8 @@ export async function saveSendAs(account: MailAccount, entered: unknown[]): Prom
   const addresses: string[] = [];
   for (const entry of entered) {
     const address = typeof entry === "string" ? entry.trim() : "";
-    if (!/^[^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+$/.test(address)) {
+    // One bare address, as it goes in the From header and the SMTP envelope: no delimiters.
+    if (!SINGLE_ADDRESS.test(address)) {
       throw new Error(`${String(entry)} isn't an email address.`);
     }
     if (seen.has(address.toLowerCase())) continue;
