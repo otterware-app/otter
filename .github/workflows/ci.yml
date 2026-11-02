@@ -57,7 +57,7 @@ jobs:
             *) echo .github/workflows/ci.yml > "$RUNNER_TEMP/changed.txt" ;;
           esac
           {
-            echo "iphone=$(changed '^(apps/ios/|packages/shared/|scripts/export-ios-resources\.ts$|\.github/workflows/ci\.yml$)')"
+            echo "iphone=$(changed '^(apps/ios/|packages/shared/|package\.json$|scripts/export-ios-resources\.ts$|\.github/workflows/ci\.yml$)')"
             echo "translator=$(changed '^(native/translator/|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
           } | tee -a "$GITHUB_OUTPUT"
 
