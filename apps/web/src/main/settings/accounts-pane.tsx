@@ -19,10 +19,12 @@ import {
 } from "../mail/hooks";
 import { RichTextArea, type RichTextRef } from "../mail/rich-text";
 import { AddMailboxMenu, ImapPasswordForm } from "../mail/add-mailbox";
+import { AllowAccessButton, needsOf, useConnections } from "../mail/allow-access";
 import { ProviderMark } from "../mail/provider-mark";
 import {
   capabilitiesOf,
   mailServerName,
+  signInName,
   signInProvider,
   signsInWithPassword,
 } from "../mail/capabilities";
@@ -209,6 +211,7 @@ function AccountListRow({
 }) {
   const sync = useSyncStatusOnly(account.id);
   const status = accountStatus(account, sync.data);
+  const needsPermission = needsOf(useConnections().data, account.id).length > 0;
   const dropHere = dropSpot?.email === account.email;
   return (
     <div
@@ -270,6 +273,12 @@ function AccountListRow({
             ) : (
               <span className="shrink-0">Turned off</span>
             )}
+            {on && needsPermission ? (
+              <>
+                <span aria-hidden>·</span>
+                <span className="shrink-0 text-foreground">Needs permission</span>
+              </>
+            ) : null}
           </span>
         </span>
       </span>
@@ -451,6 +460,8 @@ function AccountEditor({ account }: { account: MailAccount }) {
         />
       </SettingsSection>
 
+      <MailboxAccess account={account} />
+
       <SettingsSection
         {...searchableSetting("signature")}
         description={
@@ -507,6 +518,40 @@ function AccountEditor({ account }: { account: MailAccount }) {
         </Text>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * What the mailbox's sign-in gives Otter Mail (mail, calendar) and what it still needs
+ * permission for, each with its Allow button. Not for IMAP: a password has no permissions.
+ */
+function MailboxAccess({ account }: { account: MailAccount }) {
+  const connection = useConnections().data?.find((c) => c.id === account.id);
+  if (!connection || connection.provider === "imap" || !connection.signedIn) return null;
+  const RESOURCE = { mail: "Mail", calendar: "Calendar" } as const;
+  return (
+    <SettingsSection
+      {...searchableSetting("mailbox-access")}
+      description={`What Otter Mail may use from your ${signInName(account)} sign-in.`}
+    >
+      {connection.resources.map((resource) => {
+        const [first, ...more] = resource.needs;
+        return (
+          <SettingsRow
+            key={resource.kind}
+            title={RESOURCE[resource.kind]}
+            description={
+              first ? [first, ...more].map((need) => need.consequence).join(". ") : "Allowed"
+            }
+            control={
+              first ? (
+                <AllowAccessButton account={account} label={first.allow} className="h-7" />
+              ) : null
+            }
+          />
+        );
+      })}
+    </SettingsSection>
   );
 }
 

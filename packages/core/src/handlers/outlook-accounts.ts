@@ -8,6 +8,7 @@ import { refreshProfiles } from "../services/google-profile.js";
 import { accountAdded } from "../services/linked-accounts.js";
 import * as mailSync from "../services/mail-sync.js";
 import { syncedSignature } from "../services/preferences.js";
+import { forgetRefusals } from "../services/connections.js";
 import type { MailAccount } from "../types.js";
 
 export async function addOutlookAccount(params: unknown): Promise<MailAccount | null> {
@@ -40,6 +41,7 @@ export async function saveOutlookAccount(signIn: MicrosoftSignIn): Promise<MailA
     signature: existing?.signature ?? syncedSignature(signIn.email),
   };
   await accountStore.addAccount(account);
+  forgetRefusals(account.id);
   mailSync.syncAccount(account.id, { force: true });
   void accountAdded(account);
   void refreshProfiles();

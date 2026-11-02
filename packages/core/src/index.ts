@@ -1,5 +1,6 @@
 import { registerAgentHandlers } from "./handlers/agent.js";
 import { registerCalendarHandlers } from "./handlers/calendar.js";
+import { registerConnectionHandlers } from "./handlers/connections.js";
 import { registerChatHandlers } from "./handlers/chats.js";
 import { registerMailHandlers } from "./handlers/mail.js";
 import { registerImapAccountHandlers } from "./handlers/imap-accounts.js";
@@ -46,6 +47,7 @@ export async function startCore(
   registerAgentHandlers();
   registerChatHandlers();
   registerCalendarHandlers();
+  registerConnectionHandlers();
   registerSupportHandlers();
   await activateExtensions(extensions);
   handle("keybindings:read", async () => readKeybindings());

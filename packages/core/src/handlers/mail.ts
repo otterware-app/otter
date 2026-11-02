@@ -49,6 +49,7 @@ import { updateDockBadge } from "../services/notifier.js";
 import { getSettings, updateSettings, type AppSettings } from "../services/settings-store.js";
 import { preferenceChanged } from "../services/preferences.js";
 import { refreshProfiles } from "../services/google-profile.js";
+import { forgetRefusals } from "../services/connections.js";
 import { refreshSignatures, saveSendAs, saveSignature } from "../services/signatures.js";
 import * as viewsStore from "../services/views-store.js";
 import { ALL_MAIL_LABEL_ID } from "../types.js";
@@ -250,6 +251,7 @@ export function registerMailHandlers(): void {
     console.log("[gmail:addAccount]", { email });
     try {
       const account = await platform().google.addAccount(email);
+      forgetRefusals(account.id);
       mailSync.syncAccount(account.id, { force: true });
       void accountAdded(account);
       void refreshSignatures();

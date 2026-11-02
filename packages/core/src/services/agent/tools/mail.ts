@@ -39,6 +39,7 @@ import {
   type ToolArgs,
   type ToolContext,
 } from "./tool.js";
+import { listConnections } from "../../connections.js";
 
 const LABEL_ALIASES: Record<string, string> = {
   inbox: "INBOX",
@@ -364,12 +365,17 @@ export const mailTools: AgentTool[] = [
     name: "list_accounts",
     title: "List mailboxes",
     description:
-      "The user's mailboxes (Gmail, IMAP, …) in Otter Mail: each one's address, provider, and whether it has a calendar. Every other tool names a mailbox by its address.",
+      "The user's mailboxes (Gmail, IMAP, …) in Otter Mail: each one's address, provider, whether it has a calendar, and what its sign-in still needs permission for (tell the user to allow it in Settings › Mailboxes rather than retrying). Every other tool names a mailbox by its address.",
     input: { type: "object", properties: {} },
     readOnly: true,
     async run() {
       const accounts = await listMailboxes();
       const off = turnedOffMailboxes();
+      const connections = await listConnections();
+      const needsOf = (id: string) =>
+        connections
+          .find((c) => c.id === id)
+          ?.resources.flatMap((r) => r.needs.map((n) => `${n.consequence} (${n.allow})`)) ?? [];
       return {
         mailboxes: accounts.map((a) => ({
           account: a.email,
@@ -380,6 +386,7 @@ export const mailTools: AgentTool[] = [
           labels: a.capabilities?.multipleLabels ? "labels" : "folders",
           ...(a.signedOut ? { signedOut: true } : {}),
           ...(off.has(a.id) ? { turnedOff: true } : {}),
+          ...(needsOf(a.id).length ? { needsPermission: needsOf(a.id) } : {}),
         })),
       };
     },

@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useLatest } from "../use-latest";
-import { signInProvider } from "../mail/capabilities";
-import { useAddAccount } from "../mail/hooks";
-import { toast } from "../mail/toast";
+import { AllowAccessButton } from "../mail/allow-access";
 import { getAccountColor, getAccountDisplayName } from "../mail/account-style";
 import { isModClick } from "../keybindings/keys";
 import { isTypingTarget } from "../mail/keyboard";
@@ -133,42 +130,10 @@ function AllowCalendarAccess({ accounts }: { accounts: MailAccount[] }) {
           key={account.id}
           account={account}
           label={accounts.length === 1 ? "Allow access" : `Allow ${getAccountDisplayName(account)}`}
+          className="h-6 px-2 text-xs"
         />
       ))}
     </span>
-  );
-}
-
-function AllowAccessButton({ account, label }: { account: MailAccount; label: string }) {
-  const qc = useQueryClient();
-  const signIn = useAddAccount(signInProvider(account));
-  const allow = () => {
-    console.log("[CalendarView:allowAccess]", { accountId: account.id });
-    void signIn.mutateAsync(account.email).then(
-      (signedIn) => {
-        void qc.invalidateQueries({ queryKey: ["calendar"] });
-        // Google lets you pick another account than the one hinted: that one gets added instead.
-        if (signedIn && signedIn.email.toLowerCase() !== account.email.toLowerCase()) {
-          toast.error(`You signed in to ${signedIn.email}`, {
-            description: `To allow access for ${account.email}, choose that account at Google.`,
-          });
-        }
-      },
-      (err: unknown) =>
-        toast.error(`Couldn't get permission for ${account.email}`, {
-          description: err instanceof Error ? err.message : String(err),
-        }),
-    );
-  };
-  return (
-    <button
-      type="button"
-      disabled={signIn.isPending}
-      onClick={allow}
-      className={buttonClass("outline", "sm", "no-drag h-6 shrink-0 px-2 text-xs")}
-    >
-      {signIn.isPending ? "Waiting for sign-in…" : label}
-    </button>
   );
 }
 

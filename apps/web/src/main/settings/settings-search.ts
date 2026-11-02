@@ -303,6 +303,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["sign off footer replies forwards"],
   },
   {
+    id: "mailbox-access",
+    title: "Access",
+    pane: "accounts",
+    searchTerms: ["permission allow calendar sign in again scopes grant"],
+  },
+  {
     id: "send-as",
     title: "Send from",
     pane: "accounts",

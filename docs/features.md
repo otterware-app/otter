@@ -60,6 +60,7 @@ from GitHub Releases. Everything in the Mac column works the same, except:
 | Mailbox linked elsewhere shows "signed out"                                                                 | ✓                  | ✓                                   | ✓                       |
 | Sync health at the foot of the sidebar, Sync now                                                            | ✓                  | ✓                                   | ✓ (tap to sync)         |
 | Refused sign-in: toast and card to sign in again                                                            | ✓                  | ✓                                   | ✓ (banner on the list)  |
+| Missing permission (calendar, Gmail signatures): "Needs permission", Settings › Access, an Allow button     | ✓                  | ✓                                   | —                       |
 | Demo mailbox                                                                                                | —                  | `pnpm dev:fake` only                | TestFlight / Xcode only |
 
 ## Reading
@@ -480,8 +481,8 @@ profile`).
 - `calendar.events.owned`: answering invitations in Google Calendar, replacing the broader
   `calendar.events` the Mac and web apps ask for today. Without it, RSVPs go by email reply.
 - `calendar.readonly`: every calendar on the account's list (shared, followed: birthdays,
-  holidays) and teammates' busy times (⌘P). Older sign-ins see the primary calendar only, with a
-  note to sign in again. Outlook needs nothing new for its own calendars (`Calendars.ReadWrite`);
+  holidays) and teammates' busy times (⌘P). Older sign-ins see the primary calendar only; the
+  calendar and Settings › Mailboxes › Access say so, with Allow calendar access (signs in again). Outlook needs nothing new for its own calendars (`Calendars.ReadWrite`);
   calendars shared with an Outlook mailbox are listed but can't be read without
   `Calendars.Read.Shared`, which isn't asked for (a refresh asking for an ungranted scope fails).
 - `contacts.readonly` + `contacts.other.readonly`: contact photos for sender avatars.

@@ -1,3 +1,4 @@
+export * from "./connections.js";
 export * from "./google.js";
 export * from "./mail.js";
 export * from "./microsoft.js";
