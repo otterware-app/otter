@@ -71,6 +71,9 @@ importers:
       '@otter-mail/extension-openrouter':
         specifier: workspace:*
         version: link:../../extensions/openrouter
+      '@otter-mail/extension-otter-drive':
+        specifier: workspace:*
+        version: link:../../extensions/otter-drive
       '@otter-mail/extension-todoist':
         specifier: workspace:*
         version: link:../../extensions/todoist
@@ -135,6 +138,9 @@ importers:
       '@otter-mail/extension-openrouter':
         specifier: workspace:*
         version: link:../../extensions/openrouter
+      '@otter-mail/extension-otter-drive':
+        specifier: workspace:*
+        version: link:../../extensions/otter-drive
       '@otter-mail/extension-sign-in-codes':
         specifier: workspace:*
         version: link:../../extensions/sign-in-codes
@@ -381,6 +387,37 @@ importers:
       '@otter-mail/core':
         specifier: workspace:*
         version: link:../../packages/core
+      react:
+        specifier: ^19.1.1
+        version: 19.3.0
+    devDependencies:
+      '@types/react':
+        specifier: ^19.1.12
+        version: 19.3.0
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.3(@types/node@26.6.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(typescript@5.9.3)
+
+  extensions/otter-drive:
+    dependencies:
+      '@otter-mail/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@otter-mail/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@tanstack/react-query':
+        specifier: ^5.87.4
+        version: 5.103.2(react@19.3.0)
+      '@tanstack/react-router':
+        specifier: ^1.131.36
+        version: 1.170.39(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      lucide-react:
+        specifier: ^0.542.0
+        version: 0.542.0(react@19.3.0)
       react:
         specifier: ^19.1.1
         version: 19.3.0

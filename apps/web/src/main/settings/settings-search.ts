@@ -76,6 +76,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["tasks projects due date priority API token connect disconnect"],
   },
   {
+    id: "otter-drive",
+    title: "Otter Drive",
+    pane: "accounts",
+    item: "otter-drive",
+    available: window.desktopBridge.platform !== "web",
+    searchTerms: ["artifacts files documents attachments save sign in organization"],
+  },
+  {
     id: "launch-at-login",
     title: "Launch at login",
     pane: "general",
@@ -277,7 +285,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Connections",
     pane: "accounts",
     searchTerms: [
-      "mailboxes accounts connected google gmail outlook microsoft icloud imap todoist turn on off order reorder drag add",
+      "mailboxes accounts connected google gmail outlook microsoft icloud imap todoist otter drive turn on off order reorder drag add",
     ],
   },
   {

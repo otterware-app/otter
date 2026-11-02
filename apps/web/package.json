@@ -20,6 +20,7 @@
     "@otter-mail/extension-hermes": "workspace:*",
     "@otter-mail/extension-openclaw": "workspace:*",
     "@otter-mail/extension-openrouter": "workspace:*",
+    "@otter-mail/extension-otter-drive": "workspace:*",
     "@otter-mail/extension-sign-in-codes": "workspace:*",
     "@otter-mail/extension-todoist": "workspace:*",
     "@otter-mail/extension-translation": "workspace:*",

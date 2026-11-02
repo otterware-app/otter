@@ -114,10 +114,10 @@ its folder. Deleting an Outlook folder moves it and its mail to Deleted Items.
 
 ## Extensions
 
-Sign-in codes, Calendar invites, Translation, Todoist and the agents (the Otter Mail agent, Hermes,
+Sign-in codes, Calendar invites, Translation, Todoist, Otter Drive and the agents (the Otter Mail agent, Hermes,
 OpenClaw, Claude, Codex) are built-in extensions (`extensions/`). Settings lists them by kind,
 under "Extensions": Agents (with chat's own settings above them), Integrations (hidden while it has
-none) and Features, each row with its switch; a service you sign in to (Todoist) is a connection,
+none) and Features, each row with its switch; a service you sign in to (Todoist, Otter Drive) is a connection,
 listed in Connections beside the mailboxes. One with something to set up opens to its page: its switch, where its data
 goes, and its settings. Turning a feature off hides it everywhere (the choice follows the Otter
 account); turning an agent off stops chats on it.
@@ -155,6 +155,22 @@ Reminders are delivered by Todoist using the user's notification settings and ac
 entitlements. Create the task first, then add a reminder in Edit. OAuth uses Todoist's public
 client registration, so no client secret is bundled. The web callback is shipped with the site;
 the Mac app receives its callback on a temporary localhost listener.
+
+## Otter Drive
+
+Implementation boundaries and removal steps: [Otter Drive feature guide](integrations/otter-drive.md).
+
+Sign in to Otter Drive in Settings → Connections (a code confirmed in the browser), and pick the
+organization when you're in more than one. "Save to Otter Drive…" in a message's menu publishes
+one of its attachments, or the email itself as a page, as a new artifact that everyone in the
+organization can see; the toast opens it. ⌘K's "Browse Otter Drive" lists the organization's
+artifacts. The sign-in stays on this device.
+
+| Feature                                        | Mac | Web | iPhone |
+| ---------------------------------------------- | --- | --- | ------ |
+| Sign in, organization, sign out                | ✓   | —   | —      |
+| Save an attachment or the email as an artifact | ✓   | —   | —      |
+| Browse the organization's artifacts            | ✓   | —   | —      |
 
 ## Chats
 
