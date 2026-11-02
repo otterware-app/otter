@@ -262,7 +262,7 @@ export function DocumentView({
           </div>
         ) : null}
       </TitleBar>
-      <div className="flex min-h-0 flex-1 flex-col px-4 pb-4">
+      <div className="flex min-h-0 flex-1 flex-col px-1 pb-1">
         {artifact.isError || preview.isError ? (
           <Empty
             title="Couldn't open this document"
