@@ -43,18 +43,22 @@ jobs:
           PUSH_BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          changed() { grep -qE "$1" "$RUNNER_TEMP/changed.txt" && echo true || echo false; }
+          # NUL-separated, so unusual names aren't quoted; no renames, so a move out of a
+          # watched folder counts as its deletion there.
+          list_changes() { git diff --name-only --no-renames -z "$@" > "$RUNNER_TEMP/changed.txt"; }
+          everything() { printf '.github/workflows/ci.yml\0' > "$RUNNER_TEMP/changed.txt"; }
+          changed() { grep -zqE "$1" "$RUNNER_TEMP/changed.txt" && echo true || echo false; }
           case "$EVENT" in
-            pull_request) git diff --name-only "$PR_BASE...$PR_HEAD" > "$RUNNER_TEMP/changed.txt" ;;
+            pull_request) list_changes "$PR_BASE...$PR_HEAD" ;;
             push)
               if git cat-file -e "$PUSH_BEFORE^{commit}" 2>/dev/null; then
-                git diff --name-only "$PUSH_BEFORE" "$GITHUB_SHA" > "$RUNNER_TEMP/changed.txt"
+                list_changes "$PUSH_BEFORE" "$GITHUB_SHA"
               else
-                echo .github/workflows/ci.yml > "$RUNNER_TEMP/changed.txt"
+                everything
               fi
               ;;
             # A manual run checks everything.
-            *) echo .github/workflows/ci.yml > "$RUNNER_TEMP/changed.txt" ;;
+            *) everything ;;
           esac
           {
             echo "iphone=$(changed '^(apps/ios/|packages/shared/|package\.json$|scripts/export-ios-resources\.ts$|\.github/workflows/ci\.yml$)')"
