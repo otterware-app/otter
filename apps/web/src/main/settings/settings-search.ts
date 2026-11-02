@@ -31,6 +31,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPane, string>> = {
   appearance: "Appearance",
   keybindings: "Keybindings",
   accounts: "Mailboxes",
+  calendar: "Calendar",
   agents: "Agents",
   integrations: "Integrations",
   features: "Features",
@@ -99,6 +100,30 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Notifications",
     pane: "general",
     searchTerms: ["alerts new mail inbox only all off banner"],
+  },
+  {
+    id: "calendar-week-start",
+    title: "Start of week",
+    pane: "calendar",
+    searchTerms: ["first day week sunday monday saturday calendar"],
+  },
+  {
+    id: "calendar-weekends",
+    title: "Show weekends",
+    pane: "calendar",
+    searchTerms: ["saturday sunday work week weekdays calendar"],
+  },
+  {
+    id: "calendar-declined",
+    title: "Show declined events",
+    pane: "calendar",
+    searchTerms: ["declined invitations no rsvp hide calendar"],
+  },
+  {
+    id: "calendar-time-format",
+    title: "Time format",
+    pane: "calendar",
+    searchTerms: ["12-hour 24-hour clock AM PM calendar"],
   },
   {
     id: "advance-direction",

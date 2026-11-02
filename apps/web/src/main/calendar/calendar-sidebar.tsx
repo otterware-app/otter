@@ -13,6 +13,7 @@ import { Section, SidebarBody } from "../mail/sidebar-ui";
 import type { MailAccount } from "../mail/types";
 import { HintTooltip, cn } from "../mail/ui";
 import { isShown, useCalendar } from "./calendar-store";
+import { useCalendarPreferences } from "./preferences";
 import { useCalendarLists } from "./api";
 import {
   TEAM_COLORS,
@@ -41,10 +42,14 @@ function MiniMonth({ mode }: { mode: CalendarMode }) {
     setLastDate(date);
     setShown(startOfMonth(date));
   }
+  // Follows Settings → Calendar: the week's first day, weekends in the view.
+  const weekends = useCalendarPreferences().showWeekends || mode === "day";
   const first = startOfWeek(shown);
   const days = Array.from({ length: 42 }, (_, i) => addDays(first, i));
   // Mid-scroll, the days passing by.
-  const inView = peek ? visibleDays(mode, peek, true) : visibleDays(mode, date, free);
+  const inView = peek
+    ? visibleDays(mode, peek, true, weekends)
+    : visibleDays(mode, date, free, weekends);
   const viewFrom = inView[0].getTime();
   const viewTo = inView[inView.length - 1].getTime();
   const today = new Date();

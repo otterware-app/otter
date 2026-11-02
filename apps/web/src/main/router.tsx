@@ -51,6 +51,7 @@ const SETTINGS_PANES = new Set<string>([
   "appearance",
   "keybindings",
   "accounts",
+  "calendar",
   "agents",
   "browser",
   "integrations",

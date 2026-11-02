@@ -23,6 +23,10 @@ const SYNCED_KEYS = [
   "assistant:follow-up-behavior",
   "mail:mailboxes",
   "otter:extensions:disabled",
+  "calendar:week-start",
+  "calendar:show-weekends",
+  "calendar:show-declined",
+  "calendar:time-format",
 ] as const;
 
 export type SyncedKey = (typeof SYNCED_KEYS)[number];

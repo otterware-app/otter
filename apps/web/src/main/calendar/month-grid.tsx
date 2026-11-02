@@ -10,6 +10,7 @@ const ROW_PX = 22;
 
 export function MonthGrid({
   days,
+  columns,
   month,
   events,
   colorOf,
@@ -17,6 +18,8 @@ export function MonthGrid({
   onOpenDay,
 }: {
   days: Date[];
+  /** 7, or 5 without weekends. */
+  columns: number;
   month: number;
   events: CalEvent[];
   colorOf: (accountId: string) => string;
@@ -29,7 +32,7 @@ export function MonthGrid({
   const setDraft = useCalendar((s) => s.setDraft);
   const draft = useCalendar((s) => s.draft);
   const now = useNow();
-  const weeks = days.length / 7;
+  const weeks = days.length / columns;
   const selectedKey = selection && !("draft" in selection) ? eventKey(selection) : null;
 
   // How many rows of events fit in a day, from the grid's height.
@@ -52,8 +55,11 @@ export function MonthGrid({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="grid shrink-0 grid-cols-7 border-b border-border/60">
-        {days.slice(0, 7).map((day) => (
+      <div
+        className="grid shrink-0 border-b border-border/60"
+        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+      >
+        {days.slice(0, columns).map((day) => (
           <div
             key={day.getDay()}
             className="flex h-9 items-center justify-center text-[13px] text-muted-foreground"
@@ -64,8 +70,11 @@ export function MonthGrid({
       </div>
       <div
         ref={gridRef}
-        className="grid min-h-0 flex-1 grid-cols-7"
-        style={{ gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))` }}
+        className="grid min-h-0 flex-1"
+        style={{
+          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))`,
+        }}
       >
         {days.map((day, i) => {
           const start = day.getTime();
@@ -90,8 +99,8 @@ export function MonthGrid({
               }}
               className={cn(
                 "flex min-h-0 min-w-0 flex-col gap-px overflow-hidden px-1 pb-1",
-                i % 7 !== 0 && "border-l border-border/50",
-                i >= 7 && "border-t border-border/50",
+                i % columns !== 0 && "border-l border-border/50",
+                i >= columns && "border-t border-border/50",
                 (day.getDay() === 0 || day.getDay() === 6) && "bg-foreground/[0.015]",
               )}
             >

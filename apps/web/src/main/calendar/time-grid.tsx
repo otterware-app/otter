@@ -19,7 +19,6 @@ import {
   hourLabel,
   minutesOfDay,
   sameDay,
-  startOfDay,
   timeLabel,
   weekdayShort,
 } from "./dates";
@@ -267,7 +266,8 @@ export function TimeGrid({
     const { event } = g;
     const delta = snap(minute - g.minute) * MINUTE;
     if (g.kind === "move") {
-      const shift = delta + (day - g.day) * DAY;
+      // By the days' dates: hidden weekends lie between columns.
+      const shift = delta + (days[day].getTime() - days[g.day].getTime());
       setPreview({
         key: eventKey(event),
         startMs: event.startMs + shift,
@@ -646,20 +646,17 @@ function AllDayRow({
   const bars = events
     .filter((e) => e.endMs > first && e.startMs < last)
     .sort((a, b) => a.startMs - b.startMs || b.endMs - a.endMs)
-    .map((event) => {
-      const from = Math.max(
-        0,
-        Math.round((startOfDay(new Date(event.startMs)).getTime() - first) / DAY),
-      );
-      // Days, not hours: a day across a clock change is 23 or 25 hours long.
-      const to = Math.min(
-        days.length,
-        Math.round((startOfDay(new Date(event.endMs - 1)).getTime() - first) / DAY) + 1,
-      );
+    .flatMap((event) => {
+      // The columns it covers (by date: a day across a clock change is 23 or
+      // 25 hours long, and hidden weekends lie between columns).
+      const from = days.findIndex((d) => addDays(d, 1).getTime() > event.startMs);
+      const to = days.filter((d) => d.getTime() < event.endMs).length;
+      // Only on hidden days.
+      if (from < 0 || to <= from) return [];
       let lane = lanes.findIndex((until) => until <= from);
       if (lane < 0) lane = lanes.push(to) - 1;
       else lanes[lane] = to;
-      return { event, from, to: Math.max(to, from + 1), lane };
+      return [{ event, from, to, lane }];
     });
   return (
     <div className="relative" style={{ height: lanes.length * 22 + (lanes.length ? 6 : 4) }}>

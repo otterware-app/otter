@@ -12,6 +12,7 @@ import {
 import {
   ArrowLeftIcon,
   ArrowUpRightIcon,
+  CalendarDaysIcon,
   CircleHelpIcon,
   CircleUserRoundIcon,
   GlobeIcon,
@@ -57,6 +58,7 @@ const SETTINGS_SECTION_ICONS: Readonly<
   appearance: PaletteIcon,
   keybindings: KeyboardIcon,
   accounts: MailIcon,
+  calendar: CalendarDaysIcon,
   browser: GlobeIcon,
   agents: AgentIcon,
   integrations: PlugIcon,

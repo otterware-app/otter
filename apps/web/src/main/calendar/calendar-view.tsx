@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useLatest } from "../use-latest";
 import { getAccountColor, getAccountDisplayName } from "../mail/account-style";
@@ -23,13 +23,15 @@ import {
   type CalendarInfo,
 } from "./api";
 import { isShown, useCalendar } from "./calendar-store";
+import { useCalendarPreferences } from "./preferences";
 import {
-  DAY,
   addDays,
   monthTitle,
+  sameDay,
   startOfDay,
   startOfWeek,
   step,
+  stepDays,
   visibleDays,
   type CalendarMode,
 } from "./dates";
@@ -145,16 +147,18 @@ export function CalendarView({
   const free = useCalendar((s) => s.free);
   const setStart = useCalendar((s) => s.setStart);
   const setPeek = useCalendar((s) => s.setPeek);
-  const days = useMemo(() => visibleDays(mode, date, free), [mode, date, free]);
+  // Re-renders on any calendar setting: the week's first day and the time format reach every label.
+  const { showWeekends, showDeclined } = useCalendarPreferences();
+  // Without weekends, the week and month show weekdays; a day is a day.
+  const weekends = showWeekends || mode === "day";
+  const days = visibleDays(mode, date, free, weekends);
   // Day and week scroll sideways: the grid holds days either side of those shown.
   const buffer = mode === "month" ? 0 : Math.max(7, days.length * 3);
-  const strip = useMemo(
-    () =>
-      buffer
-        ? Array.from({ length: days.length + buffer * 2 }, (_, i) => addDays(days[0], i - buffer))
-        : days,
-    [days, buffer],
-  );
+  const strip = buffer
+    ? Array.from({ length: days.length + buffer * 2 }, (_, i) =>
+        stepDays(days[0], i - buffer, weekends),
+      )
+    : days;
   const from = strip[0].getTime();
   const to = addDays(strip[strip.length - 1], 1).getTime();
   const stepGrid = useRef<((days: number) => void) | null>(null);
@@ -169,7 +173,9 @@ export function CalendarView({
     to,
   ).data;
   const events = [
-    ...(data?.events ?? []).filter((e) => visibleKeys.has(calendarKey(e))),
+    ...(data?.events ?? []).filter(
+      (e) => visibleKeys.has(calendarKey(e)) && (showDeclined || e.response !== "declined"),
+    ),
     ...(team.length ? (teamData?.events ?? []) : []),
   ];
   const colors = new Map<string, string>([
@@ -219,16 +225,16 @@ export function CalendarView({
       setDate(to);
       return;
     }
-    const aligned = (mode === "week" ? startOfWeek(to) : startOfDay(to)).getTime();
-    const shift = Math.round((aligned - days[0].getTime()) / DAY);
+    const aligned = stepDays(mode === "week" ? startOfWeek(to) : startOfDay(to), 0, weekends);
     useCalendar.setState({ target: null });
-    if (!shift) return;
-    if (Math.abs(shift) <= buffer) {
-      step(shift);
+    // Within the strip, glide there; from far off, start a step short of it.
+    const at = strip.findIndex((d) => sameDay(d, aligned));
+    if (at >= 0) {
+      if (at !== buffer) step(at - buffer);
       return;
     }
-    const lead = Math.sign(shift) * days.length;
-    setStart(addDays(new Date(aligned), -lead));
+    const lead = (aligned > days[0] ? 1 : -1) * days.length;
+    setStart(stepDays(aligned, -lead, weekends));
     requestAnimationFrame(() => requestAnimationFrame(() => stepGrid.current?.(lead)));
   });
   useEffect(() => {
@@ -390,6 +396,7 @@ export function CalendarView({
             {mode === "month" ? (
               <MonthGrid
                 days={days}
+                columns={weekends ? 7 : 5}
                 month={date.getMonth()}
                 events={events}
                 colorOf={colorOf}
@@ -402,8 +409,8 @@ export function CalendarView({
                 visible={days.length}
                 buffer={buffer}
                 stepRef={stepGrid}
-                onSettle={(shift) => setStart(addDays(days[0], shift))}
-                onPeek={(shift) => setPeek(shift ? addDays(days[0], shift) : null)}
+                onSettle={(shift) => setStart(strip[buffer + shift]!)}
+                onPeek={(shift) => setPeek(shift ? strip[buffer + shift]! : null)}
                 events={events}
                 colorOf={colorOf}
                 defaultCalendar={defaultCalendar}

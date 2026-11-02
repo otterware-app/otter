@@ -244,6 +244,7 @@ color, the others their color in Google or Outlook. IMAP mailboxes have none.
 | Scroll sideways day by day; ‹ › and Today glide; any day can lead the week                                  | ✓   | ✓   | —      |
 | Teammates' calendars over yours (⌘P to add, Esc to clear): Outlook with titles they share, Gmail busy times | ✓   | ✓   | —      |
 | Keys: T today, D / W / M view, J / K or ← → to step                                                         | ✓   | ✓   | —      |
+| Settings → Calendar (follows your Otter account): start of week, weekends, declined events, 12 / 24-hour    | ✓   | ✓   | —      |
 
 ## Contacts & avatars
 

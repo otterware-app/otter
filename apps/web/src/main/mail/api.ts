@@ -309,6 +309,8 @@ export type SettingsPane =
   | "appearance"
   | "keybindings"
   | "accounts"
+  /** The calendar: the week, weekends, declined events, the clock. */
+  | "calendar"
   /** The browser (Mac): links, extensions, browsing data. */
   | "browser"
   /** Extensions, by kind: chat settings and the agents; services it connects; mail features. */

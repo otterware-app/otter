@@ -13,6 +13,7 @@ import {
 import { AppearancePane } from "./appearance-pane";
 import { KeybindingsPane } from "./keybindings-pane";
 import { AccountsPane } from "./accounts-pane";
+import { CalendarPane } from "./calendar-pane";
 import { OtterAccountPane } from "./otter-account-pane";
 import { ProvidersPane } from "./providers-pane";
 import { BrowserSettingsPane } from "../browser/browser-settings";
@@ -393,6 +394,7 @@ function SettingsPane({ route }: { route: SettingsRoute }) {
       />
     );
   if (route.pane === "accounts") return <AccountsPane />;
+  if (route.pane === "calendar") return <CalendarPane />;
   if (route.pane === "otter") return <OtterAccountPane />;
   if (route.pane === "agents") return <ProvidersPane item={route.item} />;
   if (route.pane === "browser" && features.browser) return <BrowserSettingsPane />;
