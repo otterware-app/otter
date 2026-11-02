@@ -21,6 +21,10 @@ import {
 } from "@otter-mail/core";
 
 import { DEMO_ACCOUNTS, type SeedAccount } from "@otter-mail/shared/demo-mailboxes";
+import { EXTRA_DEMO_ACCOUNTS } from "./extra-mailboxes";
+
+/** The demo's mailboxes, then the extra ones Add mailbox hands out after them. */
+const SEEDS = [...DEMO_ACCOUNTS, ...EXTRA_DEMO_ACCOUNTS];
 import { fakeCalendar } from "./calendar";
 
 /** A seeded file's text as Gmail sends attachment data: base64url. */
@@ -231,6 +235,14 @@ async function loadState(): Promise<void> {
     const saved = JSON.parse(new TextDecoder().decode(bytes)) as State;
     if (saved.version === STATE_VERSION) {
       state = saved;
+      // Mailboxes added to the seeds since this demo started.
+      let added = false;
+      SEEDS.forEach((seed, i) => {
+        if (state.mailboxes[seed.email]) return;
+        state.mailboxes[seed.email] = seedMailbox(seed, i, state.seededAt);
+        added = true;
+      });
+      if (added) await files.write(STATE_FILE, JSON.stringify(state));
       return;
     }
   }
@@ -239,7 +251,7 @@ async function loadState(): Promise<void> {
     version: STATE_VERSION,
     seededAt,
     mailboxes: Object.fromEntries(
-      DEMO_ACCOUNTS.map((seed, i) => [seed.email, seedMailbox(seed, i, seededAt)]),
+      SEEDS.map((seed, i) => [seed.email, seedMailbox(seed, i, seededAt)]),
     ),
   };
   await files.write(STATE_FILE, JSON.stringify(state));
@@ -823,7 +835,7 @@ function answer(url: URL, method: string, headers: Headers, rawBody: unknown): R
   }
   if (url.hostname === "www.googleapis.com" && url.pathname === "/oauth2/v3/userinfo") {
     const account = /^Bearer demo:(.+)$/.exec(headers.get("Authorization") ?? "")?.[1];
-    const seed = DEMO_ACCOUNTS.find((s) => s.email === account);
+    const seed = SEEDS.find((s) => s.email === account);
     if (!seed) return json({ error: "Not a demo account." }, 401);
     return json({ email: seed.email, name: seed.name, picture: seed.picture });
   }
@@ -874,7 +886,7 @@ function demoAccount(seed: SeedAccount): MailAccount {
 }
 
 export function demoGoogleAuth(): GoogleAuth {
-  const isDemo = (accountId: string) => DEMO_ACCOUNTS.some((seed) => seed.email === accountId);
+  const isDemo = (accountId: string) => SEEDS.some((seed) => seed.email === accountId);
   return {
     async load() {
       if ((await accountStore.listAccounts()).length > 0) return;
@@ -883,8 +895,7 @@ export function demoGoogleAuth(): GoogleAuth {
     async addAccount(loginHint) {
       const present = new Set((await accountStore.listAccounts()).map((a) => a.id));
       const seed =
-        DEMO_ACCOUNTS.find((s) => s.email === loginHint) ??
-        DEMO_ACCOUNTS.find((s) => !present.has(s.email));
+        SEEDS.find((s) => s.email === loginHint) ?? SEEDS.find((s) => !present.has(s.email));
       if (!seed) throw new Error("Every demo mailbox is already here.");
       const account = demoAccount(seed);
       await accountStore.addAccount(account);

@@ -250,7 +250,8 @@ export function SidebarPicker({
   tour?: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-0.5" data-tour={tour}>
+    // More than fit (eight or nine mailboxes) wrap onto another row, every one reachable.
+    <div className="flex min-w-0 flex-wrap items-center gap-0.5" data-tour={tour}>
       {items.map(({ id, label, icon, hint, dot = false }) => {
         const selected = id === selectedId;
         return (
@@ -263,7 +264,7 @@ export function SidebarPicker({
               className={cn(
                 "flex h-8 min-w-0 shrink-0 cursor-pointer items-center rounded-lg px-1.5 text-sm font-medium outline-none transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-focus-ring motion-reduce:transition-none",
                 selected
-                  ? "shrink bg-sidebar-row-selected text-sidebar-foreground"
+                  ? "max-w-full shrink bg-sidebar-row-selected text-sidebar-foreground"
                   : "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
               )}
             >
