@@ -71,7 +71,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "todoist",
     title: "Todoist",
-    pane: "integrations",
+    pane: "accounts",
     item: "todoist",
     searchTerms: ["tasks projects due date priority API token connect disconnect"],
   },
