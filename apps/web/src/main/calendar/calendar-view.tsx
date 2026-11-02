@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useLatest } from "../use-latest";
+import { signInProvider } from "../mail/capabilities";
+import { useAddAccount } from "../mail/hooks";
+import { toast } from "../mail/toast";
 import { getAccountColor, getAccountDisplayName } from "../mail/account-style";
 import { isModClick } from "../keybindings/keys";
 import { isTypingTarget } from "../mail/keyboard";
@@ -110,6 +114,55 @@ export function listedCalendars(
 /** The mailboxes whose calendars the app can show. */
 export const calendarAccounts = (accounts: MailAccount[]) =>
   accounts.filter((a) => a.capabilities?.calendar && !a.signedOut);
+
+/**
+ * Which mailboxes' sign-ins may not read every calendar yet (a permission added after they
+ * signed in), and a button each that asks for it: the provider's sign-in for that address.
+ */
+function AllowCalendarAccess({ accounts }: { accounts: MailAccount[] }) {
+  const names = accounts.map(getAccountDisplayName);
+  return (
+    <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+      <span className="min-w-0 truncate">
+        {accounts.length === 1
+          ? `${names[0]} needs your permission to show all its calendars`
+          : `${names.join(", ")} need your permission to show all their calendars`}
+      </span>
+      {accounts.map((account) => (
+        <AllowAccessButton
+          key={account.id}
+          account={account}
+          label={accounts.length === 1 ? "Allow access" : `Allow ${getAccountDisplayName(account)}`}
+        />
+      ))}
+    </span>
+  );
+}
+
+function AllowAccessButton({ account, label }: { account: MailAccount; label: string }) {
+  const qc = useQueryClient();
+  const signIn = useAddAccount(signInProvider(account));
+  const allow = () => {
+    console.log("[CalendarView:allowAccess]", { accountId: account.id });
+    void signIn.mutateAsync(account.email).then(
+      () => void qc.invalidateQueries({ queryKey: ["calendar"] }),
+      (err: unknown) =>
+        toast.error(`Couldn't get permission for ${account.email}`, {
+          description: err instanceof Error ? err.message : String(err),
+        }),
+    );
+  };
+  return (
+    <button
+      type="button"
+      disabled={signIn.isPending}
+      onClick={allow}
+      className={buttonClass("outline", "sm", "no-drag h-6 shrink-0 px-2 text-xs")}
+    >
+      {signIn.isPending ? "Waiting for sign-in…" : label}
+    </button>
+  );
+}
 
 export function CalendarView({
   mode,
@@ -300,15 +353,16 @@ export function CalendarView({
       ? [found.info.primary ? nameOf(f.accountId) : found.info.name]
       : [];
   });
-  // Google sign-ins from before the app read every calendar need to sign in again.
-  const needsSignIn = [
-    ...new Set([
-      ...(lists ?? []).filter((l) => l.needsAccess).map((l) => nameOf(l.accountId)),
+  // Sign-ins from before the app read every calendar lack that permission: allowing it signs in
+  // again, which upgrades the sign-in in place.
+  const needsAccess = calendars.filter((account) =>
+    [
+      ...(lists ?? []).filter((l) => l.needsAccess).map((l) => l.accountId),
       ...(team.length ? (teamData?.schedules ?? []) : [])
         .filter((s) => s.error === "noAccess")
-        .map((s) => nameOf(s.accountId)),
-    ]),
-  ];
+        .map((s) => s.accountId),
+    ].includes(account.id),
+  );
   const modeLabel = CALENDAR_MODES.find((m) => m.mode === mode)!.label;
 
   return (
@@ -324,11 +378,7 @@ export function CalendarView({
             Couldn&apos;t load {failed.join(", ")}
           </span>
         ) : null}
-        {needsSignIn.length ? (
-          <span className="min-w-0 truncate text-xs text-muted-foreground">
-            Sign in to {needsSignIn.join(", ")} again to see all its calendars
-          </span>
-        ) : null}
+        {needsAccess.length ? <AllowCalendarAccess accounts={needsAccess} /> : null}
         <span className="min-w-0 flex-1" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
