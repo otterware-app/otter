@@ -14,6 +14,8 @@ export interface MailAccount {
   color?: string;
   signature?: string;
   signatureInGmail?: boolean;
+  /** The other addresses it sends from (`capabilities.sendAs`); never its own. */
+  sendAs?: string[];
   /** No usable Google sign-in; set by gmail:listAccounts, never stored. */
   signedOut?: boolean;
 }

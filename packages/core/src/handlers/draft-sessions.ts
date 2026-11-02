@@ -28,6 +28,7 @@ export function queueDraftSave<T>(sessionId: string, save: () => Promise<T>): Pr
 }
 
 export type DraftContent = {
+  from?: string;
   to: string;
   cc?: string;
   bcc?: string;
@@ -55,7 +56,7 @@ export async function mirrorDraft(
       id: res.messageId,
       threadId: res.threadId ?? res.messageId,
       fromName: account?.displayName || account?.name || "",
-      fromEmail: account?.email ?? accountId,
+      fromEmail: content.from || account?.email || accountId,
       to: content.to,
       subject: content.subject,
       snippet: content.body.replace(/\s+/g, " ").trim().slice(0, 200),

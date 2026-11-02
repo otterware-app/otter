@@ -42,6 +42,11 @@ export interface MailCapabilities {
   relayPush: boolean;
   /** The server holds scheduled mail and sends it on time, with Otter Mail closed (Outlook); otherwise this device sends it. */
   serverScheduledSend?: boolean;
+  /**
+   * Other addresses it sends from (aliases, a custom domain's): read from the server's settings
+   * (Gmail's send-as), or entered in Settings and synced (IMAP). Absent: only its own address.
+   */
+  sendAs?: "server" | "device";
 }
 
 export const GMAIL_CAPABILITIES: MailCapabilities = {
@@ -52,6 +57,7 @@ export const GMAIL_CAPABILITIES: MailCapabilities = {
   serverSignatures: true,
   calendar: true,
   relayPush: true,
+  sendAs: "server",
 };
 
 /**
@@ -78,6 +84,7 @@ export const IMAP_CAPABILITIES: MailCapabilities = {
   serverSignatures: false,
   calendar: false,
   relayPush: false,
+  sendAs: "device",
 };
 
 export const ARCHIVE_LABEL_ID = "ARCHIVE";

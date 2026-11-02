@@ -87,6 +87,8 @@ export const gmailProvider: MailProvider = {
   getDraftVersion: api.getDraftVersion,
   findDraftId: api.findDraftIdByMessageId,
 
+  sendAs: api.getSendAs,
+
   signatures: {
     get: api.getSignature,
     async set(accountId, email, html) {

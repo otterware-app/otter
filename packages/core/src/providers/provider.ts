@@ -41,6 +41,8 @@ export class NoCalendarAccess extends Error {}
 export type LabelChange = { addLabelIds?: string[]; removeLabelIds?: string[] };
 
 export type OutgoingMail = {
+  /** One of the mailbox's other addresses (`sendAs`) to send from; absent: its own. */
+  from?: string;
   to: string;
   cc?: string;
   bcc?: string;
@@ -212,6 +214,9 @@ export interface MailProvider {
     get(accountId: string, email: string): Promise<string>;
     set(accountId: string, email: string, html: string): Promise<string>;
   };
+
+  /** The other addresses the server lets it send from (`capabilities.sendAs === "server"`). */
+  sendAs?(accountId: string, email: string): Promise<string[]>;
 
   /**
    * The account's calendar (`capabilities.calendar`): invitations answered in

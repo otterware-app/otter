@@ -41,6 +41,7 @@ import {
   SettingsPageContainer,
   SettingsRow,
   SettingsSection,
+  TextInput,
 } from "./settings-ui";
 import { searchableSetting } from "./settings-search";
 
@@ -473,6 +474,10 @@ function AccountEditor({ account }: { account: MailAccount }) {
         />
       </SettingsSection>
 
+      {capabilities.sendAs === "device" || account.sendAs?.length ? (
+        <SendAsSection account={account} />
+      ) : null}
+
       <SettingsSection title="Remove">
         <SettingsRow
           {...searchableSetting("remove-mailbox")}
@@ -502,6 +507,86 @@ function AccountEditor({ account }: { account: MailAccount }) {
         </Text>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * The addresses the mailbox sends from besides its own: Gmail's "Send mail as" ones, shown;
+ * an IMAP mailbox's (iCloud+ custom domains, aliases) entered here and synced.
+ */
+function SendAsSection({ account }: { account: MailAccount }) {
+  const updateAccount = useUpdateAccount();
+  const [adding, setAdding] = useState("");
+  const editable = capabilitiesOf(account).sendAs === "device";
+  const addresses = account.sendAs ?? [];
+
+  const save = (sendAs: string[]) => {
+    console.log("[Settings:updateSendAs]", { accountId: account.id, count: sendAs.length });
+    return updateAccount.mutateAsync({ accountId: account.id, sendAs }).catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Couldn't save the addresses", { description: message });
+      throw err;
+    });
+  };
+  const add = () => {
+    const address = adding.trim();
+    if (!address) return;
+    void save([...addresses, address]).then(
+      () => setAdding(""),
+      () => {},
+    );
+  };
+
+  return (
+    <SettingsSection
+      {...searchableSetting("send-as")}
+      description={
+        editable
+          ? `Other addresses ${mailServerName(account)} lets you send from, like an alias or your own domain's. Offered in From, and replies go from the address the mail was sent to.`
+          : "From Gmail's “Send mail as” settings. Offered in From, and replies go from the address the mail was sent to."
+      }
+    >
+      <SettingsRow title={account.email} description="This mailbox's own address" />
+      {addresses.map((address) => (
+        <SettingsRow
+          key={address}
+          title={address}
+          control={
+            editable ? (
+              <Btn
+                size="sm"
+                onClick={() => void save(addresses.filter((a) => a !== address)).catch(() => {})}
+              >
+                Remove
+              </Btn>
+            ) : null
+          }
+        />
+      ))}
+      {editable ? (
+        <SettingsRow
+          title="Add an address"
+          control={
+            <div className="flex items-center gap-2">
+              <TextInput
+                type="email"
+                value={adding}
+                placeholder="you@yourdomain.com"
+                aria-label={`Another address ${account.email} sends from`}
+                onChange={(e) => setAdding(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") add();
+                }}
+                className="@min-[32rem]/settings-row:w-56"
+              />
+              <Btn size="sm" disabled={!adding.trim() || updateAccount.isPending} onClick={add}>
+                Add
+              </Btn>
+            </div>
+          }
+        />
+      ) : null}
+    </SettingsSection>
   );
 }
 

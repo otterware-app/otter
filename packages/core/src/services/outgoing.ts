@@ -6,7 +6,7 @@
 
 import { fromBase64, randomHex, toBase64, utf8Encode } from "../bytes.js";
 import { platform } from "../platform.js";
-import type { ComposeAttachment } from "../types.js";
+import type { ComposeAttachment, MailAccount } from "../types.js";
 
 const CRLF = "\r\n";
 
@@ -45,6 +45,23 @@ export function formatAddress(name: string, email: string): string {
     return `"${name.replace(/(["\\])/g, "\\$1")}" <${email}>`;
   }
   return `${name} <${email}>`;
+}
+
+/**
+ * Who a message goes out from: the mailbox's own address, or `from` when it's one of the other
+ * addresses the mailbox sends from (`sendAs`). Anything else is refused, never quietly replaced.
+ */
+export function senderOf(
+  account: MailAccount,
+  from?: string,
+  name = account.displayName || account.name,
+): { email: string; from: string } {
+  const email =
+    !from || from.toLowerCase() === account.email.toLowerCase()
+      ? account.email
+      : account.sendAs?.find((address) => address.toLowerCase() === from.toLowerCase());
+  if (!email) throw new Error(`${account.email} can't send from ${from}.`);
+  return { email, from: formatAddress(name, email) };
 }
 
 /**

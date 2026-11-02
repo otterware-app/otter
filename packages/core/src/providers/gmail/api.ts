@@ -13,7 +13,7 @@ import { logger } from "../../logger.js";
 import { platform } from "../../platform.js";
 import { mapPool } from "../../pool.js";
 import { getAccount } from "../../services/account-store.js";
-import { buildMime, formatAddress } from "../../services/outgoing.js";
+import { buildMime, senderOf } from "../../services/outgoing.js";
 import type { MailLabel, MessageSummary, MessageDetail } from "../../types.js";
 import type { DraftSave, ErrorKind, OutgoingMail } from "../provider.js";
 import {
@@ -273,12 +273,30 @@ export async function createLabel(accountId: string, name: string): Promise<Mail
   return { id: data.id, name: data.name, type: "user" };
 }
 
-type SendAs = { sendAsEmail: string; isPrimary?: boolean; signature?: string };
+type SendAs = {
+  sendAsEmail: string;
+  isPrimary?: boolean;
+  signature?: string;
+  verificationStatus?: "accepted" | "pending";
+};
 
-export async function getSignature(accountId: string, email: string): Promise<string> {
+async function listSendAs(accountId: string): Promise<SendAs[]> {
   const { sendAs = [] } = (await gmailFetch(accountId, "/settings/sendAs")) as {
     sendAs?: SendAs[];
   };
+  return sendAs;
+}
+
+/** Gmail's "Send mail as" addresses other than the mailbox's own, once verified. */
+export async function getSendAs(accountId: string, email: string): Promise<string[]> {
+  return (await listSendAs(accountId))
+    .filter((s) => s.sendAsEmail.toLowerCase() !== email.toLowerCase())
+    .filter((s) => s.verificationStatus !== "pending")
+    .map((s) => s.sendAsEmail);
+}
+
+export async function getSignature(accountId: string, email: string): Promise<string> {
+  const sendAs = await listSendAs(accountId);
   const own =
     sendAs.find((s) => s.sendAsEmail.toLowerCase() === email.toLowerCase()) ??
     sendAs.find((s) => s.isPrimary);
@@ -769,7 +787,7 @@ export async function sendMessage(
   params: OutgoingMail,
 ): Promise<{ ok: true; messageId?: string }> {
   const account = await getAccount(accountId);
-  const fromAddress = account ? formatAddress(account.name, account.email) : accountId;
+  const fromAddress = account ? senderOf(account, params.from, account.name).from : accountId;
 
   const raw = buildMime({
     from: fromAddress,
@@ -814,7 +832,7 @@ export async function saveDraft(
   params: DraftSave,
 ): Promise<{ draftId: string; messageId?: string; threadId?: string }> {
   const account = await getAccount(accountId);
-  const fromAddress = account ? formatAddress(account.name, account.email) : accountId;
+  const fromAddress = account ? senderOf(account, params.from, account.name).from : accountId;
 
   const raw = buildMime({
     from: fromAddress,

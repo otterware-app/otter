@@ -49,7 +49,7 @@ import { updateDockBadge } from "../services/notifier.js";
 import { getSettings, updateSettings, type AppSettings } from "../services/settings-store.js";
 import { preferenceChanged } from "../services/preferences.js";
 import { refreshProfiles } from "../services/google-profile.js";
-import { refreshSignatures, saveSignature } from "../services/signatures.js";
+import { refreshSignatures, saveSendAs, saveSignature } from "../services/signatures.js";
 import * as viewsStore from "../services/views-store.js";
 import { ALL_MAIL_LABEL_ID } from "../types.js";
 import type { ComposeAttachment, ViewRule } from "../types.js";
@@ -301,6 +301,7 @@ export function registerMailHandlers(): void {
       const signature = asString(p?.signature);
       let updated = await storeUpdateAccount(accountId, { displayName, color });
       if (signature !== undefined) updated = await saveSignature(updated, signature);
+      if (Array.isArray(p?.sendAs)) updated = await saveSendAs(updated, p.sendAs);
       broadcast("gmail:accounts-changed");
       if (displayName !== undefined || color !== undefined) {
         void accountEdited(updated, ["displayName", "color"]);
@@ -831,6 +832,7 @@ export function registerMailHandlers(): void {
       const accountId = assertString(p?.accountId, "accountId");
       const sessionKey = asString(p?.sessionKey);
       const content = {
+        from: asString(p?.from),
         to: asString(p?.to) ?? "",
         cc: asString(p?.cc),
         bcc: asString(p?.bcc),
@@ -1023,6 +1025,7 @@ export function registerMailHandlers(): void {
       }
 
       const message = {
+        from: asString(p?.from),
         to,
         cc: asString(p?.cc),
         bcc: asString(p?.bcc),

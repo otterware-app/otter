@@ -33,6 +33,7 @@ export function useDraftAutosave({
   delayMs?: number;
   signal: string;
   getPayload: () => {
+    from?: string;
     to: string;
     cc?: string;
     bcc?: string;

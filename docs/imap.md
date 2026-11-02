@@ -36,6 +36,12 @@ MailProvider                packages/core/src/providers/provider.ts
   allows CORS, then the MX records over DNS-over-HTTPS); `gmail:addImapAccount` logs in to both
   servers before saving anything.
 
+- Other addresses a mailbox sends from (iCloud+ custom domains, aliases) are `sendAs` on the
+  account (`capabilities.sendAs = "device"`): entered in Settings, synced by address like
+  signatures. Sending uses one as the From header and the SMTP envelope sender
+  (`senderOf`, `services/outgoing.ts`); the server must accept it. Gmail's come from its
+  "Send mail as" settings (`"server"`).
+
 ## Live mail
 
 - Gmail, unchanged: `users.watch` → Pub/Sub → relay `/push/gmail` → the user's Durable Object →

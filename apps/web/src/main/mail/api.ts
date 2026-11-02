@@ -217,6 +217,8 @@ export type ModifyThreadParams = {
 export type SendMessageParams = {
   scheduledAt?: number;
   accountId: string;
+  /** One of the mailbox's addresses (its own or `sendAs`); absent: its own. */
+  from?: string;
   to: string;
   cc?: string;
   bcc?: string;
@@ -238,6 +240,7 @@ export type SaveDraftParams = {
       overwrite a newer one (changed elsewhere) and reports a conflict. */
   expectMessageId?: string;
   expectRevision?: string;
+  from?: string;
   to: string;
   cc?: string;
   bcc?: string;
@@ -285,6 +288,8 @@ export type UpdateAccountParams = {
   displayName?: string;
   color?: string;
   signature?: string;
+  /** The IMAP mailbox's other addresses it sends from (`capabilities.sendAs === "device"`). */
+  sendAs?: string[];
 };
 
 export type NotificationsMode = "off" | "inbox" | "all";

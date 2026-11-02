@@ -39,6 +39,11 @@ export function keepsSignatureOnDevice(account: MailAccount): boolean {
   return (account.provider ?? "gmail") !== "gmail";
 }
 
+/** Whether the addresses it sends from besides its own are entered here and synced (IMAP's). */
+export function keepsSendAsOnDevice(account: MailAccount): boolean {
+  return account.provider === "imap";
+}
+
 async function readAccounts(): Promise<MailAccount[]> {
   return rememberProviders((await readJson<MailAccount[]>("accounts.json")) ?? []);
 }
@@ -101,6 +106,7 @@ export async function updateAccount(
     color?: string;
     signature?: string;
     signatureInGmail?: boolean;
+    sendAs?: string[];
   },
 ): Promise<MailAccount> {
   return change((accounts) => {
@@ -119,6 +125,7 @@ export async function updateAccount(
       color: patch.color !== undefined ? patch.color || undefined : current.color,
       signature: patch.signature !== undefined ? patch.signature || undefined : current.signature,
       signatureInGmail: patch.signatureInGmail ?? current.signatureInGmail,
+      sendAs: patch.sendAs !== undefined ? patch.sendAs : current.sendAs,
     };
     accounts[index] = updated;
     return updated;

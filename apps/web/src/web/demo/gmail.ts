@@ -792,7 +792,13 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
         }
         return json({ ...sendAs, signature: box.signature });
       }
-      return json({ sendAs: [sendAs] });
+      // A verified alias on the mailbox's domain, as "Send mail as" lists one.
+      const alias = {
+        sendAsEmail: `hello@${box.email.split("@")[1]}`,
+        displayName: box.name,
+        verificationStatus: "accepted",
+      };
+      return json({ sendAs: [sendAs, alias] });
     }
   }
   return notFound();

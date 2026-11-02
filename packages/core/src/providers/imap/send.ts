@@ -6,7 +6,7 @@ import { getAccount } from "../../services/account-store.js";
 import * as store from "../../services/mail-store.js";
 import {
   buildMime,
-  formatAddress,
+  senderOf,
   splitAddressList,
   type OutgoingMessage,
 } from "../../services/outgoing.js";
@@ -44,13 +44,10 @@ function addressesIn(...lists: (string | undefined)[]): string[] {
 const filesSentMail = (smtpHost: string) =>
   /(^|\.)(gmail|googlemail|office365|outlook|hotmail|live)\.com$/i.test(smtpHost);
 
-async function sender(accountId: string) {
+async function sender(accountId: string, from?: string) {
   const account = await getAccount(accountId);
   if (!account) throw new Error(`Account not found: ${accountId}`);
-  return {
-    email: account.email,
-    from: formatAddress(account.displayName || account.name, account.email),
-  };
+  return senderOf(account, from);
 }
 
 async function submit(
@@ -96,7 +93,7 @@ async function fileSent(
 
 export async function send(accountId: string, mail: OutgoingMail): Promise<{ messageId?: string }> {
   const access = await accessFor(accountId);
-  const { email, from } = await sender(accountId);
+  const { email, from } = await sender(accountId, mail.from);
   const header = newMessageIdHeader(email);
   const date = new Date();
   const message: OutgoingMessage = {
@@ -167,7 +164,7 @@ export async function saveDraft(
   accountId: string,
   draft: DraftSave,
 ): Promise<{ draftId: string; messageId?: string; threadId?: string }> {
-  const { email, from } = await sender(accountId);
+  const { email, from } = await sender(accountId, draft.from);
   const draftId = isMessageIdHeader(draft.draftId) ? draft.draftId : newMessageIdHeader(email);
   const root = referencesFor(draft.threadId);
   const references = root === draftId ? undefined : root;

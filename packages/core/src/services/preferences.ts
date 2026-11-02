@@ -17,7 +17,12 @@ import { getHermesKey } from "./agent/settings.js";
 import { readKeybindings, writeKeybindings } from "./keybindings-store.js";
 import { configureAutoSync, followMailboxArrangement } from "./mail-sync.js";
 import { getOtterUser, relayRequest } from "./otter-account.js";
-import { keepsSignatureOnDevice, listAccounts, updateAccount } from "./account-store.js";
+import {
+  keepsSendAsOnDevice,
+  keepsSignatureOnDevice,
+  listAccounts,
+  updateAccount,
+} from "./account-store.js";
 import { getSettings, updateSettings, type AppSettings } from "./settings-store.js";
 import { listViews, writeViews } from "./views-store.js";
 import type { MailView } from "../types.js";
@@ -145,6 +150,30 @@ const SECTIONS = {
       if (changed) broadcast("gmail:accounts-changed");
     },
   },
+  // The addresses IMAP mailboxes send from besides their own, by address as signatures are.
+  sendAs: {
+    async read() {
+      const sendAs = syncedSendAsAll();
+      for (const account of await listAccounts()) {
+        if (!keepsSendAsOnDevice(account)) continue;
+        sendAs[account.email.toLowerCase()] = account.sendAs ?? [];
+      }
+      return sendAs;
+    },
+    async apply(value) {
+      if (!value || typeof value !== "object") return;
+      const sendAs = value as Record<string, string[]>;
+      let changed = false;
+      for (const account of await listAccounts()) {
+        const addresses = sendAs[account.email.toLowerCase()];
+        if (!keepsSendAsOnDevice(account) || !Array.isArray(addresses)) continue;
+        if ((account.sendAs ?? []).join() === addresses.join()) continue;
+        await updateAccount(account.id, { sendAs: addresses });
+        changed = true;
+      }
+      if (changed) broadcast("gmail:accounts-changed");
+    },
+  },
 } satisfies Record<string, Section>;
 
 export type SectionName = keyof typeof SECTIONS;
@@ -162,6 +191,19 @@ function syncedSignatures(): Record<string, string> {
 
 export function syncedSignature(email: string): string | undefined {
   return syncedSignatures()[email.toLowerCase()] || undefined;
+}
+
+function syncedSendAsAll(): Record<string, string[]> {
+  try {
+    return JSON.parse(synced.get("sendAs") ?? "{}") as Record<string, string[]>;
+  } catch {
+    return {};
+  }
+}
+
+export function syncedSendAs(email: string): string[] | undefined {
+  const addresses = syncedSendAsAll()[email.toLowerCase()];
+  return Array.isArray(addresses) && addresses.length > 0 ? addresses : undefined;
 }
 
 // The Hermes key is full control of someone's agent, and a device can be shared: this remembers

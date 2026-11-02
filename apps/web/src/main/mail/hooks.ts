@@ -28,7 +28,7 @@ import type {
   SyncStatus,
   ViewRule,
 } from "./types";
-import type { MailSearchResult, ListMessagesResult } from "./api";
+import type { MailSearchResult, ListMessagesResult, UpdateAccountParams } from "./api";
 import { resolveRules } from "./custom-views";
 import { registerUndo, clearUndo, isPureMarkRead, isQuiet, type ActionSummary } from "./undo";
 import { summarizeLabelChange } from "./action-summary";
@@ -154,12 +154,7 @@ export function useAccounts() {
 export function useUpdateAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (params: {
-      accountId: string;
-      displayName?: string;
-      color?: string;
-      signature?: string;
-    }) => {
+    mutationFn: (params: UpdateAccountParams) => {
       console.log("[hooks:useUpdateAccount] updating account", params);
       return mailApi.updateAccount(params);
     },
@@ -174,6 +169,7 @@ export function useUpdateAccount() {
                 displayName: params.displayName !== undefined ? params.displayName : a.displayName,
                 color: params.color !== undefined ? params.color : a.color,
                 signature: params.signature !== undefined ? params.signature : a.signature,
+                sendAs: params.sendAs !== undefined ? params.sendAs : a.sendAs,
               }
             : a,
         ),

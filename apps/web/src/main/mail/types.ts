@@ -15,6 +15,8 @@ export type MailAccount = {
   signature?: string;
   /** False while the signature is kept only here: this sign-in may not save it in Gmail. */
   signatureInGmail?: boolean;
+  /** The other addresses it sends from (`capabilities.sendAs`); never its own. */
+  sendAs?: string[];
   signedOut?: boolean;
 };
 

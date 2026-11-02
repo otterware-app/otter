@@ -278,6 +278,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["sign off footer replies forwards"],
   },
   {
+    id: "send-as",
+    title: "Send from",
+    pane: "accounts",
+    searchTerms: ["alias aliases addresses from custom domain icloud send mail as"],
+  },
+  {
     id: "remove-mailbox",
     title: "Remove account",
     pane: "accounts",
