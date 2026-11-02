@@ -73,7 +73,7 @@ export function ChatWindow({
         // The mail's one-key shortcuts don't act from in here; ⌘ and Ctrl ones do.
         if (!e.metaKey && !e.ctrlKey && !e.altKey) e.stopPropagation();
       }}
-      className="absolute bottom-10 right-2 z-30 flex h-[min(38rem,calc(100%-5.5rem))] w-[min(27rem,calc(100%-1.5rem))] flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-canvas shadow-[0_24px_60px_-20px_rgb(0_0_0/45%)] dark:shadow-[0_24px_60px_-20px_rgb(0_0_0/80%)]"
+      className="absolute bottom-10 right-2 z-30 flex h-[min(38rem,calc(100%-5.5rem))] w-[min(25rem,calc(100%-1.5rem))] flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-canvas shadow-[0_24px_60px_-20px_rgb(0_0_0/45%)] dark:shadow-[0_24px_60px_-20px_rgb(0_0_0/80%)]"
     >
       <div className="relative flex h-11 shrink-0 items-center gap-1 border-b border-border/60 ps-3.5 pe-1.5">
         {active && !blank ? (

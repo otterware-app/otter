@@ -67,6 +67,7 @@ export function ChatComposer({
   onEditCitation,
   onSent,
   updateSettings,
+  compact = false,
 }: {
   chatId: string;
   convo: Conversation | undefined;
@@ -81,6 +82,8 @@ export function ChatComposer({
   /** The composer was emptied into a message. */
   onSent: () => void;
   updateSettings: (patch: AgentSettingsPatch) => void;
+  /** The small window's: tighter, its message one line that grows (Linear's). */
+  compact?: boolean;
 }) {
   const { kind: providerKind, provider, name: providerName, usable } = chat;
   const draft = useChats((s) => s.drafts[chatId] ?? "");
@@ -368,7 +371,7 @@ export function ChatComposer({
   const attached = context.attached;
 
   return (
-    <div className="relative shrink-0 px-3 pb-3 pt-1">
+    <div className={cn("relative shrink-0 pt-1", compact ? "px-2 pb-2" : "px-3 pb-3")}>
       <div className="relative mx-auto w-full max-w-3xl">
         {slashOpen ? (
           <div className="dropdown-glass absolute inset-x-0 bottom-full z-20 mb-1 max-h-64 overflow-y-auto rounded-xl p-1.5 shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]">
@@ -426,7 +429,7 @@ export function ChatComposer({
             onAnswer={(answers) => answer(pendingQuestion.question.id, answers)}
           />
         ) : (
-          <div className={cn("relative", COMPOSER_SURFACE)}>
+          <div className={cn("relative", COMPOSER_SURFACE, compact && "rounded-2xl")}>
             <ComposerAttachments items={files.items} onRemove={files.remove}>
               {/* The mail this message is about; click to leave it out. */}
               {attached ? (
@@ -512,14 +515,20 @@ export function ChatComposer({
               }}
               placeholder="Ask anything, / for skills"
               aria-label={`Message ${providerName}`}
-              rows={2}
-              className="w-full resize-none bg-transparent px-4.5 pb-1 pt-4 text-sm leading-relaxed text-foreground outline-none placeholder:text-placeholder"
+              rows={compact ? 1 : 2}
+              className={cn(
+                "w-full resize-none bg-transparent pb-1 text-sm leading-relaxed text-foreground outline-none placeholder:text-placeholder",
+                // Linear's: one line that grows with what's typed.
+                compact ? "field-sizing-content max-h-40 px-3.5 pt-3" : "px-4.5 pt-4",
+              )}
             />
-            <div className="flex min-w-0 items-center gap-1 px-3 pb-3">
+            <div
+              className={cn("flex min-w-0 items-center gap-1", compact ? "px-2 pb-2" : "px-3 pb-3")}
+            >
               <HintTooltip label="Attach files">
                 <IconBtn
                   label="Attach files"
-                  className="-ms-0.5 size-8 rounded-full"
+                  className={cn("-ms-0.5 rounded-full", compact ? "size-7" : "size-8")}
                   onPointerDown={(e) => e.preventDefault()}
                   onClick={() => filePickerRef.current?.click()}
                 >
@@ -588,7 +597,10 @@ export function ChatComposer({
                       type="button"
                       onClick={stop}
                       aria-label="Stop generation"
-                      className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-destructive/90 text-white shadow-xs shadow-destructive/24 inset-shadow-2xs inset-shadow-white/16 transition-transform duration-150 hover:scale-105 hover:bg-destructive active:shadow-none active:inset-shadow-black/8"
+                      className={cn(
+                        "flex cursor-pointer items-center justify-center rounded-full bg-destructive/90 text-white shadow-xs shadow-destructive/24 inset-shadow-2xs inset-shadow-white/16 transition-transform duration-150 hover:scale-105 hover:bg-destructive active:shadow-none active:inset-shadow-black/8",
+                        compact ? "size-7" : "size-8",
+                      )}
                     >
                       <svg
                         width="12"
@@ -608,7 +620,10 @@ export function ChatComposer({
                       onClick={(e) => send(e.metaKey || e.ctrlKey)}
                       disabled={!hasDraft}
                       aria-label={submitLabel}
-                      className="relative isolate flex size-8 items-center justify-center overflow-hidden rounded-full bg-primary text-primary-foreground shadow-xs transition-transform duration-150 enabled:cursor-pointer enabled:shadow-primary/24 enabled:inset-shadow-2xs enabled:inset-shadow-white/16 hover:scale-105 hover:bg-primary/90 active:shadow-none active:inset-shadow-black/8 disabled:pointer-events-none disabled:opacity-30 disabled:shadow-none"
+                      className={cn(
+                        "relative isolate flex items-center justify-center overflow-hidden rounded-full bg-primary text-primary-foreground shadow-xs transition-transform duration-150 enabled:cursor-pointer enabled:shadow-primary/24 enabled:inset-shadow-2xs enabled:inset-shadow-white/16 hover:scale-105 hover:bg-primary/90 active:shadow-none active:inset-shadow-black/8 disabled:pointer-events-none disabled:opacity-30 disabled:shadow-none",
+                        compact ? "size-7" : "size-8",
+                      )}
                     >
                       {editing ? (
                         <CheckIcon className="size-4" aria-hidden />

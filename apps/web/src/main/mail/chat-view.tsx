@@ -64,7 +64,7 @@ export function ChatView({
   onOpenChange: (change: ChatChange) => Promise<void>;
   /** Where a file the agent linked opens; by default, a preview over the app. */
   onOpenFile?: (href: string) => void;
-  /** The small window's: a smaller headline, closer to the edges. */
+  /** The small window's: a smaller headline and text (13px, Linear's), closer to the edges. */
   compact?: boolean;
   /**
    * Under the composer of an empty chat (the workspace's Agent home, Linear's):
@@ -165,11 +165,15 @@ export function ChatView({
       onEditCitation={(id, anchor) => setCommenting({ id, anchor, side: "above" })}
       onSent={() => setCommenting(null)}
       updateSettings={updateSettings}
+      compact={compact}
     />
   );
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col" {...(needsSetup ? {} : drop.handlers)}>
+    <div
+      className={cn("relative flex min-h-0 flex-1 flex-col", compact && "[--text-sm:0.8125rem]")}
+      {...(needsSetup ? {} : drop.handlers)}
+    >
       {drop.active ? <DropOverlay /> : null}
       {needsSetup ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
