@@ -105,10 +105,16 @@ export function toSummary(accountId: string, message: ApiMessage): MessageSummar
 
 export const messagePath = (id: string) => `/me/messages/${encodeURIComponent(id)}`;
 
+/**
+ * Messages by id; those gone are left out. Sync (`readable`) leaves out those
+ * this sign-in may not read too (moved into a locked folder, say); a write
+ * must not, or it would seem done while Outlook kept the message as it was.
+ */
 export async function getApiMessages(
   accountId: string,
   ids: string[],
   fields = SUMMARY_FIELDS,
+  readable = false,
 ): Promise<ApiMessage[]> {
   const answers = await graphBatch(
     accountId,
@@ -118,9 +124,8 @@ export async function getApiMessages(
   for (const answer of answers) {
     if (ok(answer)) messages.push(answer.body as ApiMessage);
     else if (answer && answer.status !== 404) {
-      // One message this sign-in may not read (moved into a locked folder, say): as if gone.
       const err = batchError(answer);
-      if (!isAccessDenied(err)) throw err;
+      if (!readable || !isAccessDenied(err)) throw err;
     }
   }
   return messages;

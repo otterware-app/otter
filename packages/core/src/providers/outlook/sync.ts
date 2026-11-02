@@ -14,13 +14,7 @@ import {
   type Mailbox,
 } from "./folders.js";
 import { GraphError, graph, graphAll, isAccessDenied, type Page } from "./graph.js";
-import {
-  getApiMessages,
-  getSummaries,
-  SUMMARY_FIELDS,
-  toSummary,
-  type ApiMessage,
-} from "./messages.js";
+import { getApiMessages, SUMMARY_FIELDS, toSummary, type ApiMessage } from "./messages.js";
 
 const PAGE_SIZE = 100;
 
@@ -256,7 +250,9 @@ async function followDelta(
   ctx.assertActive();
   // Read/flag changes can carry only part of a message. Resolve the current
   // summaries in batches before replacing any cached headers or labels.
-  const summaries = await getSummaries(accountId, [...new Set(present.map((m) => m.id))]);
+  const summaries = (
+    await getApiMessages(accountId, [...new Set(present.map((m) => m.id))], SUMMARY_FIELDS, true)
+  ).map((m) => toSummary(accountId, m));
   ctx.assertActive();
   const fresh = new Set(
     store.filterUnknownIds(
@@ -273,7 +269,9 @@ async function followDelta(
 
   const gone = removed.filter((id) => !present.some((m) => m.id === id));
   if (gone.length > 0) {
-    const found = new Map((await getApiMessages(accountId, gone)).map((m) => [m.id, m]));
+    const found = new Map(
+      (await getApiMessages(accountId, gone, SUMMARY_FIELDS, true)).map((m) => [m.id, m]),
+    );
     ctx.assertActive();
     const ops: store.HistoryOp[] = [];
     const moved: MessageSummary[] = [];
@@ -319,12 +317,12 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
   ctx.update({ phase: "full", synced: count, total: total || null });
   let skipped = false;
   for (const folder of mailbox.folders) {
-    const state = readDelta(accountId)[folder.id];
-    if (state?.done) continue;
     if (isRefused(accountId, folder.id)) {
       skipped = true;
       continue;
     }
+    const state = readDelta(accountId)[folder.id];
+    if (state?.done) continue;
     let next: string | undefined = state?.link ?? firstDelta(folder.id);
     while (next) {
       let page: Page<ApiMessage>;
@@ -369,7 +367,7 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
   );
   store.upsertLabels(accountId, labelsOf(accountId, mailbox));
   // Not done while a folder is skipped: lists keep paging from Outlook, and it's asked again later.
-  if (!skipped) store.setSyncState(accountId, { fullSyncDone: true });
+  store.setSyncState(accountId, { fullSyncDone: !skipped });
   ctx.bumpRevision();
   logger.info(
     "outlook-sync",

@@ -428,6 +428,58 @@ describe("Outlook sync", () => {
     expect(labelsOf("p")).toContain("folder:projects");
   });
 
+  it("files subfolders Outlook won't list under their parent's new place", async () => {
+    subfolders = { inbox: ["proj"], proj: ["sub"] };
+    deliver("s", "sub");
+
+    const { status, labelsOf, sync } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+    expect(labelsOf("s")).toContain("folder:sub");
+
+    subfolders = { deleteditems: ["proj"], proj: ["sub"] };
+    denied.children = "proj";
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => now + 5 * 60_000);
+    await sync();
+    expect(labelsOf("s")).toContain("TRASH");
+    expect(labelsOf("s")).not.toContain("folder:sub");
+  });
+
+  it("counts subfolders Outlook won't list from the cache", async () => {
+    subfolders = { inbox: ["projects"] };
+    deliver("p", "projects");
+
+    const { status, sync, mailStore } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+    denied.children = "inbox";
+    let now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+    now += 5 * 60_000;
+    await sync();
+    deliver("p2", "projects");
+    now += 1000;
+    await sync();
+    now += 5 * 60_000;
+    await sync();
+    expect(mailStore.getLabels(account.id).find((l) => l.id === "folder:projects")).toMatchObject({
+      total: 2,
+      unread: 2,
+    });
+    clock.mockRestore();
+  });
+
+  it("fails a write to a message Outlook won't let it read, rather than skip it", async () => {
+    deliver("x", "inbox");
+    const { status, provider } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+    denied.message = "x";
+    await expect(
+      provider.modifyMessage(account.id, "x", { removeLabelIds: ["UNREAD"] }),
+    ).rejects.toThrow(/403/);
+  });
+
   it("syncs a folder on when one of its messages can't be read", async () => {
     deliver("x", "archive");
 

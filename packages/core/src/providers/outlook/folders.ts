@@ -90,10 +90,28 @@ type ApiFolder = {
 const FOLDER_FIELDS =
   "id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount";
 
-/** A folder's subfolders, all the way down, as last listed. */
-function descendants(mailbox: Mailbox | null, parent: string): Folder[] {
-  const children = mailbox?.folders.filter((f) => f.parentId === parent) ?? [];
-  return children.flatMap((f) => [f, ...descendants(mailbox, f.id)]);
+/**
+ * A folder's subfolders as last listed, standing in for a listing Outlook
+ * refused: their mail isn't taken for deleted, their labels and paths follow
+ * the parent, and their counts are the cache's, which sync keeps current.
+ */
+function lastListed(accountId: string, mailbox: Mailbox | null, parent: string): ApiFolder[] {
+  const parentName = mailbox?.folders.find((f) => f.id === parent)?.name;
+  return (mailbox?.folders ?? [])
+    .filter((f) => f.parentId === parent)
+    .map((f) => {
+      const own = f.labelId?.startsWith(FOLDER_PREFIX);
+      return {
+        id: f.id,
+        displayName:
+          parentName && f.name.startsWith(`${parentName}/`)
+            ? f.name.slice(parentName.length + 1)
+            : f.name,
+        childFolderCount: mailbox!.folders.filter((c) => c.parentId === f.id).length,
+        unreadItemCount: own ? store.countUnreadForLabel(accountId, f.labelId!) : f.unread,
+        totalItemCount: own ? store.countMessagesForLabel(accountId, f.labelId!) : f.total,
+      };
+    });
 }
 
 export async function readMailbox(accountId: string): Promise<Mailbox> {
@@ -137,9 +155,7 @@ export async function readMailbox(accountId: string): Promise<Mailbox> {
       );
     } catch (err) {
       if (!parent || !isAccessDenied(err)) throw err;
-      // Subfolders this sign-in may not list: kept as last listed, so their mail isn't taken for deleted.
-      folders.push(...descendants(previous, parent));
-      return;
+      children = lastListed(accountId, previous, parent);
     }
     for (const child of children) {
       const role = roleOf.get(child.id);
