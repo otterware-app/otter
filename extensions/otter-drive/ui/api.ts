@@ -36,15 +36,10 @@ export type DriveArtifact = {
 };
 export type DrivePreview =
   | { kind: "markdown" | "table" | "text"; text: string; delimiter?: string; truncated: boolean }
-  | { kind: "html"; html: string }
-  | { kind: "image"; src: string }
-  | {
-      kind: "elsewhere";
-      entryPath: string;
-      contentType: string;
-      fileCount: number;
-      byteSize: number;
-    };
+  | { kind: "workbook"; sheets: { name: string; rows: string[][] }[]; truncated: boolean }
+  | { kind: "video"; url: string }
+  | { kind: "image"; url: string }
+  | { kind: "frame"; url: string };
 
 /** Shared with me, as a pseudo-drive's id. */
 export const SHARED = "shared";

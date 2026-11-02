@@ -164,9 +164,9 @@ Drive is a workspace beside Mail, Calendar and Agent (its mark at the sidebar's 
 Drive", `/drive/<folder>/<document>`), laid out like Otter Drive: the sidebar picks a drive (My
 Drive, your shared drives, Shared with me) with Mail's mailbox picker, filters it (Type, Updated
 this week, Archived), searches it, and lists its folders and documents; the main area shows the
-open document, or the drive's documents as a grid of thumbnails. Markdown, CSV/TSV and text are
-drawn in the app's style, images shown, a one-file page in a sandboxed frame; anything else (a site
-of several files, a PDF, a video, a workbook) opens in Otter Drive. A document renames in place,
+open document, or the drive's documents as a grid of thumbnails. Every kind Otter Drive shows:
+Markdown, text, CSV/TSV and Excel workbooks (with their sheets) drawn in the app's style; videos,
+images, pages, sites of several files, PDFs and the rest from Drive's content host. A document renames in place,
 switches versions, copies its link, archives and restores; files upload by picking or dropping.
 
 Sign in from Drive or Settings → Connections (a code confirmed in the browser). Settings lists your

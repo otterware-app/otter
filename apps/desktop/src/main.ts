@@ -14,6 +14,7 @@ import { hostOS } from "./os/index.js";
 import type { AppMenuItems } from "./os/types.js";
 import { configureAppPaths } from "./paths.js";
 import { focusedBrowserPage, setupBrowser } from "./services/browser.js";
+import { embedDriveContent } from "./services/drive-content.js";
 import { parseMailtoUrl, setPendingMailto } from "./services/mailto-target.js";
 import { initUpdates } from "./updates.js";
 import { setSettingsTarget } from "./windows/settings-window.js";
@@ -315,6 +316,7 @@ void app.whenReady().then(async () => {
   restoreThemeSource();
   hostOS.prepareSecrets();
   handleRendererProtocol();
+  embedDriveContent();
   app.setAboutPanelOptions({
     applicationName: app.getName(),
     applicationVersion: app.getVersion(),

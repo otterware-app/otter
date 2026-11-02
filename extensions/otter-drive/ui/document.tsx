@@ -1,7 +1,8 @@
 /**
  * A document, open in Drive: its title (rename in place), when and by whom,
- * its versions, and what it is, drawn in the app (Markdown, tables, text,
- * images, a one-file page in a sandbox) or opened in Otter Drive.
+ * its versions, and what it is, as Otter Drive shows it: Markdown, text,
+ * tables and workbooks drawn here; videos, images, pages, sites, PDFs and the
+ * rest from Drive's content host.
  */
 
 import {
@@ -21,19 +22,21 @@ import {
   type WorkspaceMainProps,
 } from "@otter-mail/web/extension-kit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   ArrowLeftIcon,
   ExternalLinkIcon,
-  FileTextIcon,
   LinkIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { driveApi, type DrivePreview } from "./api";
 import { errorText } from "./hooks";
 import { parseDelimited } from "./table";
+
+const URL_FRESH = 4 * 60_000;
 
 export function when(iso: string): string {
   const days = (Date.now() - Date.parse(iso)) / 86_400_000;
@@ -110,8 +113,15 @@ export function DocumentView({
     queryKey: ["otter-drive", "preview", id, version],
     queryFn: () => driveApi.preview(id, folderId, version ?? undefined),
     retry: false,
-    staleTime: 5 * 60_000,
+    // Text and tables are kept. Drive's URL for the rest is good for five minutes,
+    // enough to open it: reused within four, else fetched again on opening, and
+    // never while it's open (that would reload it).
+    staleTime: (query) => (query.state.data && "url" in query.state.data ? URL_FRESH : Infinity),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
+  // An expired URL isn't shown while its replacement comes.
+  const shown = preview.data && "url" in preview.data && preview.isStale ? undefined : preview.data;
   const [renaming, setRenaming] = useState<string | null>(null);
   const back = () => go({ location });
   useEffect(() => {
@@ -259,48 +269,63 @@ export function DocumentView({
             detail={errorText(artifact.error ?? preview.error)}
             action={<Btn onClick={back}>Back to documents</Btn>}
           />
-        ) : !preview.data ? (
+        ) : !shown ? (
           <div className="flex-1 animate-pulse rounded-xl bg-muted/50" />
         ) : (
-          <Preview preview={preview.data} url={a?.url ?? ""} />
+          <Preview preview={shown} />
         )}
       </div>
     </div>
   );
 }
 
-function Preview({ preview, url }: { preview: DrivePreview; url: string }) {
-  if (preview.kind === "html")
+function Preview({ preview }: { preview: DrivePreview }) {
+  if (preview.kind === "frame")
     return (
       <iframe
         title="Document preview"
-        srcDoc={preview.html}
-        // Its own opaque origin: scripts run, but can reach neither the app nor Otter Drive.
-        sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"
-        className="min-h-0 flex-1 rounded-xl border border-border bg-white"
+        src={preview.url}
+        // Otter Drive's own sandbox. Same-origin is Drive's content host, apart from the app.
+        // oxlint-disable-next-line react/iframe-missing-sandbox -- its origin isn't the app's.
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads allow-modals"
+        referrerPolicy="no-referrer"
+        className="min-h-0 flex-1 rounded-xl border border-border bg-white [color-scheme:light]"
       />
+    );
+  if (preview.kind === "video")
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-xl bg-black">
+        <video
+          src={preview.url}
+          aria-label="Video"
+          controls
+          playsInline
+          preload="metadata"
+          className="size-full object-contain"
+        />
+      </div>
     );
   if (preview.kind === "image")
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-xl border border-border bg-muted/30 p-6">
-        <img src={preview.src} alt="" className="max-h-full max-w-full object-contain" />
+        <img
+          src={preview.url}
+          alt=""
+          referrerPolicy="no-referrer"
+          className="max-h-full max-w-full object-contain"
+        />
       </div>
     );
-  if (preview.kind === "elsewhere")
+  if (preview.kind === "workbook")
+    return <Workbook sheets={preview.sheets} truncated={preview.truncated} />;
+  if (preview.kind === "table")
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card text-center">
-        <FileTextIcon className="size-8 text-muted-foreground/70" />
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium text-foreground">{preview.entryPath}</p>
-          <p className="text-xs text-muted-foreground">
-            {preview.fileCount > 1 ? `${preview.fileCount} files · ` : ""}
-            {formatBytes(preview.byteSize)}
-          </p>
-        </div>
-        <Btn size="sm" onClick={() => openLink(url)}>
-          <ExternalLinkIcon />
-          Open in Otter Drive
-        </Btn>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
+        <DelimitedTable
+          text={preview.text}
+          delimiter={preview.delimiter ?? ","}
+          footer={preview.truncated ? <Truncated /> : null}
+        />
       </div>
     );
   return (
@@ -309,67 +334,132 @@ function Preview({ preview, url }: { preview: DrivePreview; url: string }) {
         <div className="mx-auto max-w-3xl px-8 py-8">
           <Markdown text={preview.text} />
         </div>
-      ) : preview.kind === "table" ? (
-        <Table text={preview.text} delimiter={preview.delimiter ?? ","} />
       ) : (
         <pre className="px-6 py-5 font-mono text-[13px] leading-relaxed whitespace-pre-wrap text-foreground select-text">
           {preview.text}
         </pre>
       )}
-      {preview.truncated ? (
-        <p className="px-6 pb-5 text-xs text-muted-foreground">
-          Only the beginning is shown here. Open it in Otter Drive for the rest.
-        </p>
+      {preview.truncated ? <Truncated /> : null}
+    </div>
+  );
+}
+
+function Truncated() {
+  return (
+    <p className="px-6 py-4 text-xs text-muted-foreground">
+      Only the beginning is shown here. Open it in Otter Drive for the rest.
+    </p>
+  );
+}
+
+/** A workbook's sheets, one at a time, with their tabs below as in a spreadsheet. */
+function Workbook({
+  sheets,
+  truncated,
+}: {
+  sheets: { name: string; rows: string[][] }[];
+  truncated: boolean;
+}) {
+  const [open, setOpen] = useState(0);
+  const sheet = sheets[open] ?? sheets[0];
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
+      <Table key={open} rows={sheet?.rows ?? []} footer={truncated ? <Truncated /> : null} />
+      {sheets.length > 1 ? (
+        <div className="flex shrink-0 gap-1 overflow-x-auto border-t border-border px-2 py-1.5">
+          {sheets.map((s, i) => (
+            <button
+              key={s.name}
+              type="button"
+              onClick={() => setOpen(i)}
+              className={cn(
+                "shrink-0 rounded-md px-2.5 py-1 text-xs",
+                i === open
+                  ? "bg-accent font-medium text-foreground"
+                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+              )}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
       ) : null}
     </div>
   );
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+function DelimitedTable({
+  text,
+  delimiter,
+  footer,
+}: {
+  text: string;
+  delimiter: string;
+  footer: ReactNode;
+}) {
+  const rows = useMemo(() => parseDelimited(text, delimiter), [text, delimiter]);
+  return <Table rows={rows} footer={footer} />;
 }
 
-function Table({ text, delimiter }: { text: string; delimiter: string }) {
-  const rows = useMemo(() => parseDelimited(text, delimiter), [text, delimiter]);
-  const [head, ...body] = rows;
-  if (!head) return <p className="p-6 text-sm text-muted-foreground">This table is empty.</p>;
+/** A row's height: rows are one line, so only the ones in view are drawn. */
+const ROW = 32;
+
+function Table({ rows, footer }: { rows: string[][]; footer: ReactNode }) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const [first, ...body] = rows;
+  // oxlint-disable-next-line react/incompatible-library -- read in render only, as TanStack documents.
+  const virtualizer = useVirtualizer({
+    count: body.length,
+    getScrollElement: () => scroller.current,
+    estimateSize: () => ROW,
+    overscan: 20,
+  });
+  // A sheet's rows end at their last cell: the widest sets the columns.
+  const width = useMemo(() => rows.reduce((most, r) => Math.max(most, r.length), 0), [rows]);
+  if (!first) return <p className="p-6 text-sm text-muted-foreground">This table is empty.</p>;
+  const head = Array.from({ length: width }, (_, i) => first[i] ?? "");
+  const items = virtualizer.getVirtualItems();
+  const before = items[0]?.start ?? 0;
+  const after = virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0);
   return (
-    <table className="w-max min-w-full border-collapse text-[13px] select-text">
-      <thead className="sticky top-0 bg-card">
-        <tr>
-          <th className="w-10 border-b border-border px-3 py-2" />
-          {head.map((h, i) => (
-            <th
-              // oxlint-disable-next-line react/no-array-index-key -- a table's columns are its positions.
-              key={i}
-              className="border-b border-l border-border px-3 py-2 text-left font-medium text-foreground"
-            >
-              {h}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {body.map((r, i) => (
-          // oxlint-disable-next-line react/no-array-index-key -- a table's rows are its positions.
-          <tr key={i} className={cn(i % 2 === 1 && "bg-muted/30")}>
-            <td className="px-3 py-1.5 text-right text-xs text-muted-foreground tabular-nums">
-              {i + 1}
-            </td>
-            {head.map((_, j) => (
-              <td
+    <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
+      <table className="w-max min-w-full border-collapse text-[13px] select-text">
+        <thead className="sticky top-0 z-10 bg-card">
+          <tr>
+            <th className="w-10 border-b border-border px-3 py-2" />
+            {head.map((h, i) => (
+              <th
                 // oxlint-disable-next-line react/no-array-index-key -- a table's columns are its positions.
-                key={j}
-                className="max-w-80 truncate border-l border-border px-3 py-1.5 text-foreground"
+                key={i}
+                className="border-b border-l border-border px-3 py-2 text-left font-medium text-foreground"
               >
-                {r[j] ?? ""}
-              </td>
+                {h}
+              </th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {before > 0 ? <tr aria-hidden style={{ height: before }} /> : null}
+          {items.map(({ index: i }) => (
+            <tr key={i} style={{ height: ROW }} className={cn(i % 2 === 1 && "bg-muted/30")}>
+              <td className="px-3 text-right text-xs text-muted-foreground tabular-nums">
+                {i + 1}
+              </td>
+              {head.map((_, j) => (
+                <td
+                  // oxlint-disable-next-line react/no-array-index-key -- a table's columns are its positions.
+                  key={j}
+                  className="max-w-80 truncate border-l border-border px-3 whitespace-nowrap text-foreground"
+                >
+                  {body[i]![j] ?? ""}
+                </td>
+              ))}
+            </tr>
+          ))}
+          {after > 0 ? <tr aria-hidden style={{ height: after }} /> : null}
+        </tbody>
+      </table>
+      {footer}
+    </div>
   );
 }

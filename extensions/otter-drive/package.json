@@ -14,10 +14,12 @@
     "test": "vp test run --passWithNoTests"
   },
   "dependencies": {
+    "@e965/xlsx": "0.20.3",
     "@otter-mail/contracts": "workspace:*",
     "@otter-mail/core": "workspace:*",
     "@tanstack/react-query": "^5.87.4",
     "@tanstack/react-router": "^1.131.36",
+    "@tanstack/react-virtual": "^3.14.25",
     "lucide-react": "^0.542.0",
     "react": "^19.1.1"
   },

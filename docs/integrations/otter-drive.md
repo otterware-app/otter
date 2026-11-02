@@ -28,9 +28,16 @@ Otter Drive is a built-in extension: the `extensions/otter-drive` package
   drive (`settings.tsx`), the Drive marks (`glyph.tsx` from the Otterware production kit,
   `drive-mark.tsx` as Otter Drive draws drives). `api.ts` sends only `otterDrive:*` IPC calls.
 
-Previews never use Drive's own preview links: those hang on a same-site cookie a frame in the
-desktop app never gets. One-file pages are fetched with the token and shown in a `srcdoc` frame
-sandboxed without same-origin.
+Documents show as Otter Drive shows them (`documentKind` in `core/drive.ts`, Drive's own rule):
+Markdown, text, CSV/TSV and Excel workbooks (parsed in core with `@e965/xlsx`, as Drive does)
+come back as text and rows, the tables windowed with TanStack Virtual; videos, images and
+everything else (pages, sites of several files, PDFs, audio) load from Drive's preview URL on
+`usercontent.otterware.app`, which opens a content session for that version (a cookie) and
+streams the files, with ranges for video. That host is on the web app's site; the desktop
+window isn't, so its session (`apps/desktop/src/services/drive-content.ts`) lets the cookie go
+cross-site and drops Drive's same-site resource policy for that host only, and the main window
+lets frames load there rather than opening them in the browser. The app's CSP allows it in
+`frame-src`.
 
 ## App entry points
 

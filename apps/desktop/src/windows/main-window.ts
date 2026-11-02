@@ -3,6 +3,7 @@ import { app, BrowserWindow, shell } from "electron";
 import { logger } from "../logger.js";
 import { hostOS } from "../os/index.js";
 import { attachBrowser } from "../services/browser.js";
+import { isDriveContent } from "../services/drive-content.js";
 import { getPreloadPath, getWindowUrl } from "./window-paths.js";
 import { savedFrame, trackFrame } from "./window-state.js";
 
@@ -30,10 +31,11 @@ export function openLinksExternally(win: BrowserWindow): void {
     if (/^(https?|mailto):$/i.test(next.protocol)) void shell.openExternal(url);
   });
   // Email bodies render in sandboxed iframes: a link that slips past the
-  // renderer's click handling must not navigate the frame itself.
+  // renderer's click handling must not navigate the frame itself. Drive's
+  // documents are frames of Otter Drive's content host, and load there.
   win.webContents.on("will-frame-navigate", (event) => {
     if (event.isMainFrame) return;
-    if (!/^(https?|mailto):/i.test(event.url)) return;
+    if (!/^(https?|mailto):/i.test(event.url) || isDriveContent(event.url)) return;
     event.preventDefault();
     void shell.openExternal(event.url);
   });

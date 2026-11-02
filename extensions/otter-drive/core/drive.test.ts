@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { emailPage, loadsFromWeb, slugFor } from "./drive.js";
+import { documentKind, emailPage, slugFor } from "./drive.js";
 
 describe("slugFor", () => {
   it("makes a valid Otter Drive slug with a random tail", () => {
@@ -26,24 +26,23 @@ describe("emailPage", () => {
   });
 });
 
-describe("loadsFromWeb", () => {
-  it("sends pages that load scripts or stylesheets from the web to Otter Drive", () => {
-    expect(loadsFromWeb('<script src="https://cdn.example/chart.js"></script>')).toBe(true);
-    expect(loadsFromWeb('<link rel="stylesheet" href="//cdn.example/a.css">')).toBe(true);
-    expect(loadsFromWeb('<style>@import url("https://cdn.example/a.css");</style>')).toBe(true);
+describe("documentKind", () => {
+  it("shows each file the way Otter Drive does", () => {
+    expect(documentKind("text/markdown", "README.md")).toBe("markdown");
+    expect(documentKind("text/plain", "notes.txt")).toBe("text");
+    expect(documentKind("text/csv", "q3.csv")).toBe("table");
+    expect(documentKind("application/octet-stream", "q3.tsv")).toBe("table");
     expect(
-      loadsFromWeb('<script type="module">import { h } from "https://esm.sh/preact";</script>'),
-    ).toBe(true);
-    expect(loadsFromWeb('<script type="module">import "https://esm.sh/x";</script>')).toBe(true);
-    expect(loadsFromWeb('<script>await import("https://esm.sh/x")</script>')).toBe(true);
+      documentKind("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "q3"),
+    ).toBe("workbook");
+    expect(documentKind("video/mp4", "CleanShot.mp4")).toBe("video");
+    expect(documentKind("application/octet-stream", "clip.mov")).toBe("video");
+    expect(documentKind("image/png", "chart.png")).toBe("image");
   });
 
-  it("keeps self-contained pages, icons and web fonts", () => {
-    expect(loadsFromWeb("<script>draw()</script><style>p{}</style>")).toBe(false);
-    expect(loadsFromWeb("<p>import this from the web: http://x</p>")).toBe(false);
-    expect(loadsFromWeb('<link rel="icon" href="https://example.com/i.png">')).toBe(false);
-    expect(
-      loadsFromWeb('<link href="https://fonts.googleapis.com/css2?family=Inter" rel="stylesheet">'),
-    ).toBe(false);
+  it("frames the rest: pages, sites, PDFs, audio", () => {
+    expect(documentKind("text/html; charset=utf-8", "index.html")).toBe("frame");
+    expect(documentKind("application/pdf", "deck.pdf")).toBe("frame");
+    expect(documentKind("audio/mpeg", "memo.mp3")).toBe("frame");
   });
 });

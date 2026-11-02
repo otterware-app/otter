@@ -59,21 +59,13 @@ export type DriveArtifact = {
   current: DriveVersion | null;
 };
 /**
- * What the workspace shows of a document: what it draws itself (Markdown, a
- * table, text, an image, a one-file page in a sandbox), or what only Otter
- * Drive shows (sites of several files, PDFs, video, workbooks).
+ * What the workspace shows of a document: what it draws itself (Markdown, text, a table, a
+ * workbook's sheets), or Otter Drive's URL for it (a video, an image, a frame for the rest).
  */
 export type DrivePreview =
   | { kind: "markdown" | "table" | "text"; text: string; delimiter?: string; truncated: boolean }
-  | { kind: "html"; html: string }
-  | { kind: "image"; src: string }
-  | {
-      kind: "elsewhere";
-      entryPath: string;
-      contentType: string;
-      fileCount: number;
-      byteSize: number;
-    };
+  | { kind: "workbook"; sheets: { name: string; rows: string[][] }[]; truncated: boolean }
+  | { kind: "video" | "image" | "frame"; url: string };
 export type DriveSignIn = {
   attempt: number;
   userCode: string;
@@ -453,30 +445,36 @@ export async function versions(id: string, folderId?: string): Promise<DriveVers
 }
 
 const MAX_TEXT = 2_000_000;
-const TEXT_KINDS: Record<string, { kind: "markdown" | "table" | "text"; delimiter?: string }> = {
-  md: { kind: "markdown" },
-  markdown: { kind: "markdown" },
-  csv: { kind: "table", delimiter: "," },
-  tsv: { kind: "table", delimiter: "\t" },
-  txt: { kind: "text" },
-  json: { kind: "text" },
-};
+const MAX_WORKBOOK = 25_000_000;
+const MAX_ROWS = 5_000;
 
-const MAX_PAGE = 5_000_000;
 /**
- * A script, module or stylesheet fetched from another site, which the app's CSP blocks
- * in a preview. Web fonts alone only change the type, so those stay.
+ * How a document is shown, as Otter Drive decides it (its `documentKind`): text and tables
+ * are drawn by the app; video, images and everything else (pages, sites, PDFs, audio)
+ * from Otter Drive's own content URL.
  */
-const LOADS_FROM_WEB =
-  /<script\b[^>]*\bsrc\s*=\s*["']?(?:https?:)?\/\/|<link\b(?=[^>]*\brel\s*=\s*["']?stylesheet)(?![^>]*fonts\.googleapis\.com)[^>]*\bhref\s*=\s*["']?(?:https?:)?\/\/|@import\s+(?:url\()?\s*["']?(?:https?:)?\/\/(?!fonts\.googleapis\.com)|\bimport\s*(?:\(\s*|[^'"();]*?from\s*|)["'](?:https?:)?\/\//i;
-export const loadsFromWeb = (html: string) => LOADS_FROM_WEB.test(html);
-const MAX_IMAGE = 15_000_000;
+export function documentKind(contentType: string, entryPath: string): DrivePreview["kind"] {
+  const type = contentType.split(";")[0]?.trim().toLowerCase() ?? "";
+  const extension = entryPath.split(".").pop()?.toLowerCase() ?? "";
+  if (extension === "tsv" || type === "text/tab-separated-values") return "table";
+  if (extension === "csv" || type === "text/csv") return "table";
+  if (
+    extension === "xlsx" ||
+    type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  )
+    return "workbook";
+  if (extension === "md" || extension === "markdown" || type === "text/markdown") return "markdown";
+  if (extension === "txt" || extension === "json" || type === "text/plain") return "text";
+  if (type.startsWith("video/") || ["mp4", "m4v", "webm", "mov", "ogv"].includes(extension))
+    return "video";
+  if (type.startsWith("image/")) return "image";
+  return "frame";
+}
 
 /**
- * A one-file document comes back for the app to draw: Markdown, tables and
- * text as text, a page's HTML for a sandboxed frame, an image as data. Drive's
- * own previews hang on a same-site cookie that a frame in the desktop app
- * never gets, so anything else is opened in Otter Drive.
+ * A document's preview: text and tables come back to draw; anything else, Otter Drive's
+ * short-lived URL for it, which opens a content session for the file (and a site's other
+ * files) on Drive's content host.
  */
 export async function preview(
   id: string,
@@ -485,21 +483,22 @@ export async function preview(
 ): Promise<DrivePreview> {
   const { auth, folder } = await documentAccess(id, folderId);
   const query = versionNumber ? `?version=${versionNumber}` : "";
-  const page = await request<{ data: { contentType: string; version: RawVersion } }>(
+  const page = await request<{ data: { url: string; contentType: string; version: RawVersion } }>(
     `/api/v1/artifacts/${ref(id)}/preview${query}`,
     {},
     auth,
     folder,
   );
-  const { entryPath, fileCount, byteSize } = page.data.version;
-  const contentType = page.data.contentType.split(";")[0]!.trim().toLowerCase();
-  const extension = entryPath.split(".").pop()?.toLowerCase() ?? "";
-  const text = TEXT_KINDS[extension];
-  const html = contentType === "text/html" || extension === "html" || extension === "htm";
-  const image = contentType.startsWith("image/") && contentType !== "image/svg+xml";
-  const drawn =
-    fileCount === 1 && (text || (html && byteSize <= MAX_PAGE) || (image && byteSize <= MAX_IMAGE));
-  if (!drawn) return { kind: "elsewhere", entryPath, contentType, fileCount, byteSize };
+  const { url, contentType } = page.data;
+  const { entryPath, byteSize } = page.data.version;
+  const kind = documentKind(contentType, entryPath);
+  if (
+    kind === "video" ||
+    kind === "image" ||
+    kind === "frame" ||
+    (kind === "workbook" && byteSize > MAX_WORKBOOK)
+  )
+    return { kind: kind === "workbook" ? "frame" : kind, url };
 
   const params = new URLSearchParams({ path: entryPath });
   if (versionNumber) params.set("version", String(versionNumber));
@@ -510,19 +509,34 @@ export async function preview(
     folder,
   );
   const bytes = new Uint8Array(await response.arrayBuffer());
-  if (image) return { kind: "image", src: `data:${contentType};base64,${toBase64(bytes)}` };
-  if (html) {
-    const page = new TextDecoder().decode(bytes);
-    // The app's CSP would block what it loads from the web: Otter Drive shows it whole.
-    if (loadsFromWeb(page))
-      return { kind: "elsewhere", entryPath, contentType, fileCount, byteSize };
-    return { kind: "html", html: page };
-  }
+  if (kind === "workbook") return workbook(bytes);
+  const tsv = /\.tsv$/i.test(entryPath) || contentType.includes("tab-separated");
   return {
-    ...text!,
+    kind,
+    ...(kind === "table" ? { delimiter: tsv ? "\t" : "," } : {}),
     text: new TextDecoder().decode(bytes.subarray(0, MAX_TEXT)),
     truncated: bytes.length > MAX_TEXT,
   };
+}
+
+/** An Excel workbook's sheets, as text, the way Otter Drive reads them. */
+async function workbook(bytes: Uint8Array): Promise<DrivePreview> {
+  const XLSX = await import("@e965/xlsx");
+  const book = XLSX.read(bytes, { type: "array", cellDates: true });
+  let truncated = false;
+  const sheets = book.SheetNames.map((name) => {
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(book.Sheets[name]!, {
+      header: 1,
+      defval: "",
+      raw: false,
+    });
+    if (rows.length > MAX_ROWS) truncated = true;
+    return {
+      name,
+      rows: rows.slice(0, MAX_ROWS).map((row) => row.map((cell) => String(cell ?? ""))),
+    };
+  });
+  return { kind: "workbook", sheets, truncated };
 }
 
 export async function rename(
