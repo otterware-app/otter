@@ -367,7 +367,7 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
   );
   store.upsertLabels(accountId, labelsOf(accountId, mailbox));
   // Not done while a folder is skipped: lists keep paging from Outlook, and it's asked again later.
-  store.setSyncState(accountId, { fullSyncDone: !skipped });
+  if (!skipped) store.setSyncState(accountId, { fullSyncDone: true });
   ctx.bumpRevision();
   logger.info(
     "outlook-sync",

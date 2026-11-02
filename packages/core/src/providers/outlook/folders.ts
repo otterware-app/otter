@@ -93,7 +93,8 @@ const FOLDER_FIELDS =
 /**
  * A folder's subfolders as last listed, standing in for a listing Outlook
  * refused: their mail isn't taken for deleted, their labels and paths follow
- * the parent, and their counts are the cache's, which sync keeps current.
+ * the parent, and their counts are the cache's, which sync keeps current
+ * (one in Trash or Junk shares the label's count, so it adds none).
  */
 function lastListed(accountId: string, mailbox: Mailbox | null, parent: string): ApiFolder[] {
   const parentName = mailbox?.folders.find((f) => f.id === parent)?.name;
@@ -108,8 +109,8 @@ function lastListed(accountId: string, mailbox: Mailbox | null, parent: string):
             ? f.name.slice(parentName.length + 1)
             : f.name,
         childFolderCount: mailbox!.folders.filter((c) => c.parentId === f.id).length,
-        unreadItemCount: own ? store.countUnreadForLabel(accountId, f.labelId!) : f.unread,
-        totalItemCount: own ? store.countMessagesForLabel(accountId, f.labelId!) : f.total,
+        unreadItemCount: own ? store.countUnreadForLabel(accountId, f.labelId!) : 0,
+        totalItemCount: own ? store.countMessagesForLabel(accountId, f.labelId!) : 0,
       };
     });
 }
