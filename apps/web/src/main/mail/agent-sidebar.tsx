@@ -1,6 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { AlarmClockIcon, LoaderCircleIcon, MessageSquarePlusIcon } from "lucide-react";
-import { AgentAvatar, openClawAgentId } from "./agent-providers";
+import {
+  AlarmClockIcon,
+  ChevronDownIcon,
+  LoaderCircleIcon,
+  MessageSquarePlusIcon,
+  SearchIcon,
+  XIcon,
+} from "lucide-react";
+import { Input } from "~/components/ui/input";
+import { AgentAvatar, openClawAgentId, useAgentProviders } from "./agent-providers";
 import { isBlank, shelveChat, useChats, type Conversation } from "./chat-store";
 import { formatAgo } from "./chat-history";
 import {
@@ -18,6 +26,11 @@ import {
   ContextMenuSeparator,
   ContextMenuSub,
   ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "./menu";
 import { NewRow, Section, SidebarBody } from "./sidebar-ui";
 import { cn } from "./ui";
@@ -25,6 +38,14 @@ import { cn } from "./ui";
 /** Settled chats show this many at first, then this many more at a time (Otter Code's). */
 const SETTLED_FIRST = 10;
 const SETTLED_PAGE = 25;
+
+const AGENT_FILTER_KEY = "gmail:chat-agent-filter";
+
+/** Who a chat talks to: its provider, and for OpenClaw the agent its session is on. */
+function agentOf(c: Conversation): { key: string; kind: string; agent: string | null } {
+  const agent = openClawAgentId(c.sessionId);
+  return { key: agent ? `${c.provider}:${agent}` : c.provider, kind: c.provider, agent };
+}
 
 /** The time, again every `ms`: what moves a snooze's countdown and a turn's clock along. */
 function useNow(ms: number): number {
@@ -57,6 +78,43 @@ export function AgentSidebar({
   const anyWorking = Object.keys(runs).length > 0;
   const now = useNow(anyWorking ? 1000 : 30_000);
   const [settledShown, setSettledShown] = useState(SETTLED_FIRST);
+  const providers = useAgentProviders().data?.providers ?? [];
+  const [agentFilter, setAgentFilter] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(AGENT_FILTER_KEY);
+    } catch {
+      return null;
+    }
+  });
+  const [query, setQuery] = useState<string | null>(null);
+  const pickAgent = (key: string | null) => {
+    setAgentFilter(key);
+    try {
+      if (key) localStorage.setItem(AGENT_FILTER_KEY, key);
+      else localStorage.removeItem(AGENT_FILTER_KEY);
+    } catch {
+      // A per-device convenience: without storage the filter just doesn't stick.
+    }
+  };
+
+  // The agents your chats talk to, by how many chats each has.
+  const agents = new Map<string, { kind: string; agent: string | null; count: number }>();
+  for (const c of conversations) {
+    if (isBlank(c)) continue;
+    const { key, kind, agent } = agentOf(c);
+    const seen = agents.get(key);
+    agents.set(key, { kind, agent, count: (seen?.count ?? 0) + 1 });
+  }
+  const agentName = (kind: string, agent: string | null) => {
+    const provider = providers.find((p) => p.kind === kind);
+    return (
+      (agent ? (provider?.models.find((m) => m.slug === agent)?.name ?? agent) : null) ??
+      provider?.displayName ??
+      kind
+    );
+  };
+  const filter = agentFilter && agents.has(agentFilter) ? agentFilter : null;
+  const needle = query?.trim().toLowerCase() ?? "";
 
   const waiting = new Set(
     [...approvals, ...questions].flatMap(
@@ -69,8 +127,13 @@ export function AgentSidebar({
     snoozed: [],
     settled: [],
   };
-  for (const c of conversations) {
-    if (isBlank(c)) continue;
+  const shown = conversations.filter(
+    (c) =>
+      !isBlank(c) &&
+      (!filter || agentOf(c).key === filter) &&
+      (!needle || c.title.toLowerCase().includes(needle)),
+  );
+  for (const c of shown) {
     shelves[chatShelf(c, { working: Boolean(runs[c.id]), needsYou: waiting.has(c.id), now })].push(
       c,
     );
@@ -140,6 +203,83 @@ export function AgentSidebar({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-col pt-(--sidebar-content-inset)">
+        {/* Otter Code's "All projects ⌄" and search: which agent's chats, and a search of them. */}
+        <div className="flex items-center gap-1 px-(--sidebar-content-inset) pb-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex h-8 min-w-0 cursor-pointer items-center gap-1.5 rounded-lg px-(--sidebar-row-content-inset) text-[15px] font-semibold text-sidebar-foreground outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=open]:bg-sidebar-row-hover"
+              >
+                {filter ? (
+                  <AgentAvatar
+                    kind={agents.get(filter)!.kind}
+                    agent={agents.get(filter)!.agent}
+                    className="size-4"
+                  />
+                ) : null}
+                <span className="truncate">
+                  {filter
+                    ? agentName(agents.get(filter)!.kind, agents.get(filter)!.agent)
+                    : "All agents"}
+                </span>
+                <ChevronDownIcon className="size-3.5 shrink-0 text-sidebar-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={() => pickAgent(null)}>All agents</DropdownMenuItem>
+              {agents.size > 0 ? <DropdownMenuSeparator /> : null}
+              {[...agents]
+                .sort((a, b) => b[1].count - a[1].count)
+                .map(([key, { kind, agent, count }]) => (
+                  <DropdownMenuItem
+                    key={key}
+                    icon={<AgentAvatar kind={kind} agent={agent} className="size-4" />}
+                    accelerator={String(count)}
+                    onSelect={() => pickAgent(key)}
+                  >
+                    {agentName(kind, agent)}
+                  </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span className="flex-1" />
+          <button
+            type="button"
+            aria-label="Search chats"
+            onClick={() => setQuery((q) => (q === null ? "" : null))}
+            className={cn(
+              "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring",
+              query !== null && "bg-sidebar-row-hover text-sidebar-foreground",
+            )}
+          >
+            <SearchIcon className="size-4" />
+          </button>
+        </div>
+        {query !== null ? (
+          <div className="relative px-(--sidebar-content-inset) pb-1">
+            <Input
+              autoFocus
+              size="sm"
+              value={query}
+              placeholder="Search chats"
+              aria-label="Search chats"
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setQuery(null);
+              }}
+              className="pe-7"
+            />
+            <button
+              type="button"
+              aria-label="Close search"
+              onClick={() => setQuery(null)}
+              className="absolute inset-y-0 end-(--sidebar-content-inset) flex w-7 cursor-pointer items-center justify-center pb-1 text-sidebar-muted-foreground hover:text-sidebar-foreground"
+            >
+              <XIcon className="size-3.5" />
+            </button>
+          </div>
+        ) : null}
         <NewRow
           icon={<MessageSquarePlusIcon />}
           label="New chat"
@@ -150,37 +290,46 @@ export function AgentSidebar({
       <SidebarBody contentClassName="flex flex-col">
         {empty ? (
           <p className="px-(--sidebar-row-content-inset) py-1.5 text-[13px] text-sidebar-muted-foreground">
-            Chats you start show up here.
+            {needle || filter ? "No chats match." : "Chats you start show up here."}
           </p>
-        ) : null}
-        {shelves.active.map((c) => row(c, "active"))}
-        {/* The shelves sit at the bottom, under the chats you're on (Otter Code's). */}
-        <div className="mt-auto">
-          {shelves.working.length > 0 ? (
-            <Section title="Working" defaultOpen={false} count={shelves.working.length}>
-              {shelves.working.map((c) => row(c, "working"))}
-            </Section>
-          ) : null}
-          {shelves.snoozed.length > 0 ? (
-            <Section title="Snoozed" defaultOpen={false} count={shelves.snoozed.length}>
-              {shelves.snoozed.map((c) => row(c, "snoozed"))}
-            </Section>
-          ) : null}
-          {shelves.settled.length > 0 ? (
-            <Section title="Settled" defaultOpen={false} count={shelves.settled.length}>
-              {settled.map((c) => row(c, "settled"))}
-              {hiddenSettled > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setSettledShown((n) => n + SETTLED_PAGE)}
-                  className="flex h-8 w-full cursor-pointer items-center rounded-lg px-(--sidebar-row-content-inset) text-left text-sm text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-                >
-                  Show {Math.min(hiddenSettled, SETTLED_PAGE)} more
-                </button>
+        ) : needle ? (
+          // A search shows every match in one list, newest first, shelves and all.
+          (Object.entries(shelves) as [ChatShelf, Conversation[]][])
+            .flatMap(([shelf, list]) => list.map((c) => ({ c, shelf })))
+            .sort((a, b) => b.c.updatedAt - a.c.updatedAt)
+            .map(({ c, shelf }) => row(c, shelf))
+        ) : (
+          <>
+            {shelves.active.map((c) => row(c, "active"))}
+            {/* The shelves sit at the bottom, under the chats you're on (Otter Code's). */}
+            <div className="mt-auto">
+              {shelves.working.length > 0 ? (
+                <Section title="Working" defaultOpen={false} count={shelves.working.length}>
+                  {shelves.working.map((c) => row(c, "working"))}
+                </Section>
               ) : null}
-            </Section>
-          ) : null}
-        </div>
+              {shelves.snoozed.length > 0 ? (
+                <Section title="Snoozed" defaultOpen={false} count={shelves.snoozed.length}>
+                  {shelves.snoozed.map((c) => row(c, "snoozed"))}
+                </Section>
+              ) : null}
+              {shelves.settled.length > 0 ? (
+                <Section title="Settled" defaultOpen={false} count={shelves.settled.length}>
+                  {settled.map((c) => row(c, "settled"))}
+                  {hiddenSettled > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSettledShown((n) => n + SETTLED_PAGE)}
+                      className="flex h-8 w-full cursor-pointer items-center rounded-lg px-(--sidebar-row-content-inset) text-left text-sm text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    >
+                      Show {Math.min(hiddenSettled, SETTLED_PAGE)} more
+                    </button>
+                  ) : null}
+                </Section>
+              ) : null}
+            </div>
+          </>
+        )}
       </SidebarBody>
     </div>
   );
