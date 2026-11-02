@@ -1,12 +1,12 @@
 /**
  * Where a chat sits in the Agent sidebar, as Otter Code (T3 Code) sorts its
- * threads: the chats you're on; Working, while the agent runs; Snoozed, out
- * of the way until a time; Settled, done with (by hand, or idle a week).
+ * threads: the chats you're on (running ones too); Snoozed, out of the way
+ * until a time; Settled, done with (by hand, or idle a week).
  */
 
 import type { Chat } from "@otter-mail/contracts/chats";
 
-export type ChatShelf = "active" | "working" | "snoozed" | "settled";
+export type ChatShelf = "active" | "snoozed" | "settled";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -14,9 +14,9 @@ const DAY_MS = 24 * HOUR_MS;
 export const SETTLE_AFTER_MS = 7 * DAY_MS;
 
 /**
- * `working`: a turn runs in it here. `needsYou`: the agent asks for an
- * approval or an answer, which outranks a snooze or settling and keeps it
- * out of Working.
+ * `working`: a turn runs in it here, so it doesn't settle for being idle.
+ * `needsYou`: the agent asks for an approval or an answer, which outranks a
+ * snooze or settling.
  */
 export function chatShelf(
   chat: Pick<Chat, "updatedAt" | "snoozedUntil" | "settledAt">,
@@ -25,8 +25,7 @@ export function chatShelf(
   if (needsYou) return "active";
   if (chat.snoozedUntil != null && chat.snoozedUntil > now) return "snoozed";
   if (chat.settledAt != null) return "settled";
-  if (working) return "working";
-  if (now - chat.updatedAt > SETTLE_AFTER_MS) return "settled";
+  if (!working && now - chat.updatedAt > SETTLE_AFTER_MS) return "settled";
   return "active";
 }
 
