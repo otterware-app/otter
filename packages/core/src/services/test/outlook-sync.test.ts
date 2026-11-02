@@ -44,6 +44,7 @@ let searches: { path: string; search: string }[];
 let notified: string[];
 let sparseDeltas: boolean;
 let failedReads: boolean;
+let refusedFolder: string | null;
 
 function deliver(id: string, folder: string, patch: Partial<Message> = {}): Message {
   const m: Message = {
@@ -129,6 +130,9 @@ function handle(method: string, url: URL, body: unknown): Response {
   const delta = /^\/me\/mailFolders\/([a-z]+)\/messages\/delta$/.exec(path);
   if (delta) {
     const folder = delta[1]!;
+    if (folder === refusedFolder) {
+      return json({ error: { code: "ErrorAccessDenied", message: "Access is denied." } }, 403);
+    }
     const since = Number(url.searchParams.get("since") ?? -1);
     const present = [...messages.values()]
       .filter((m) => m.folder === folder && m.version > since)
@@ -326,6 +330,7 @@ beforeEach(() => {
   notified = [];
   sparseDeltas = false;
   failedReads = false;
+  refusedFolder = null;
   vi.stubGlobal("fetch", fakeFetch);
 });
 
@@ -359,6 +364,25 @@ describe("Outlook sync", () => {
       total: 1,
       unread: 0,
     });
+  });
+
+  it("skips a folder Outlook refuses instead of signing the mailbox out", async () => {
+    refusedFolder = "junkemail";
+    deliver("a", "inbox");
+    deliver("b", "archive", { isRead: true });
+    deliver("d", "junkemail");
+
+    const { status, labelsOf, sync } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+    expect(status()).toMatchObject({ signInNeeded: false, error: null });
+    expect(labelsOf("a")).toContain("INBOX");
+    expect(labelsOf("b")).toEqual(["ARCHIVE"]);
+    expect(labelsOf("d")).toBeUndefined();
+
+    deliver("e", "inbox");
+    await sync();
+    expect(status()).toMatchObject({ signInNeeded: false, error: null });
+    expect(labelsOf("e")).toContain("INBOX");
   });
 
   it("follows each folder's delta: new mail, moves and deletions", async () => {

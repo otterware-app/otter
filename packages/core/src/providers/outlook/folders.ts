@@ -2,7 +2,7 @@ import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "@otter-mail/contracts";
 
 import * as store from "../../services/mail-store.js";
 import type { MailLabel } from "../../types.js";
-import { graph, graphAll, graphBatch, ok } from "./graph.js";
+import { GraphError, graph, graphAll, graphBatch, ok } from "./graph.js";
 
 export const FOLDER_PREFIX = "folder:";
 export const CATEGORY_PREFIX = "category:";
@@ -125,7 +125,13 @@ export async function readMailbox(accountId: string): Promise<Mailbox> {
       parent
         ? `/me/mailFolders/${parent}/childFolders?$top=100&$select=${FOLDER_FIELDS}`
         : `/me/mailFolders?$top=100&$select=${FOLDER_FIELDS}`,
-    );
+    ).catch((err: unknown) => {
+      // A folder whose subfolders this sign-in may not read: left out, not a sign-out.
+      if (parent && err instanceof GraphError && (err.status === 401 || err.status === 403)) {
+        return [];
+      }
+      throw err;
+    });
     for (const child of children) {
       const role = roleOf.get(child.id);
       if (role && SKIPPED.includes(role)) continue;

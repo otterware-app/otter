@@ -49,11 +49,36 @@ function setFolderDelta(accountId: string, folderId: string, delta: FolderDelta 
   writeDelta(accountId, state);
 }
 
+/**
+ * Folders Outlook won't let this sign-in read (a locked system folder, say),
+ * skipped for this run of the app rather than taken for a sign-out: the
+ * rest of the mailbox keeps syncing. The inbox refusing still stops sync.
+ */
+const refused = new Set<string>();
+const refusedKey = (accountId: string, folderId: string) => `${accountId}\n${folderId}`;
+const isRefused = (accountId: string, folderId: string) =>
+  refused.has(refusedKey(accountId, folderId));
+
+function skipIfRefused(accountId: string, folder: Folder, mailbox: Mailbox, err: unknown) {
+  if (
+    !(err instanceof GraphError && (err.status === 401 || err.status === 403)) ||
+    folder.id === mailbox.wellKnown.inbox
+  ) {
+    throw err;
+  }
+  logger.warn("outlook-sync", `Outlook refused a folder of ${accountId}; skipping it`, {
+    folder: folder.name,
+    error: err.message,
+  });
+  refused.add(refusedKey(accountId, folder.id));
+}
+
 const firstDelta = (folderId: string) =>
   `/me/mailFolders/${encodeURIComponent(folderId)}/messages/delta?$select=${SUMMARY_FIELDS}`;
 
 export function forgetOutlookSync(accountId: string): void {
   folderRefresh.delete(accountId);
+  for (const key of refused) if (key.startsWith(`${accountId}\n`)) refused.delete(key);
 }
 
 // ── Folders ─────────────────────────────────────────────────────────────────
@@ -114,7 +139,7 @@ function followFolderChanges(accountId: string, before: Mailbox | null, after: M
 async function relabelFolders(accountId: string, mailbox: Mailbox, ctx: SyncContext) {
   for (const folder of mailbox.folders) {
     const state = readDelta(accountId)[folder.id];
-    if (!state) continue;
+    if (!state || isRefused(accountId, folder.id)) continue;
     // Listed before folders kept their label: only the Archive's has changed since.
     const had =
       state.label !== undefined
@@ -123,10 +148,16 @@ async function relabelFolders(accountId: string, mailbox: Mailbox, ctx: SyncCont
           ? null
           : folder.labelId;
     if (had !== folder.labelId) {
-      const ids = await graphAll<{ id: string }>(
-        accountId,
-        `/me/mailFolders/${encodeURIComponent(folder.id)}/messages?$select=id&$top=500`,
-      );
+      let ids: { id: string }[];
+      try {
+        ids = await graphAll<{ id: string }>(
+          accountId,
+          `/me/mailFolders/${encodeURIComponent(folder.id)}/messages?$select=id&$top=500`,
+        );
+      } catch (err) {
+        skipIfRefused(accountId, folder, mailbox, err);
+        continue;
+      }
       ctx.assertActive();
       store.applyHistoryChanges(
         accountId,
@@ -157,8 +188,14 @@ export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<
   let changed = false;
   for (const folder of mailbox.folders) {
     const state = delta[folder.id];
-    if (!state?.done) continue;
-    const result = await followDelta(accountId, folder, state.link, ctx);
+    if (!state?.done || isRefused(accountId, folder.id)) continue;
+    let result: Awaited<ReturnType<typeof followDelta>>;
+    try {
+      result = await followDelta(accountId, folder, state.link, ctx);
+    } catch (err) {
+      skipIfRefused(accountId, folder, mailbox, err);
+      continue;
+    }
     added.push(...result.added);
     changed ||= result.changed;
   }
@@ -277,7 +314,7 @@ export function needsBackfill(accountId: string): boolean {
   const mailbox = mailboxOf(accountId);
   if (!mailbox) return false;
   const delta = readDelta(accountId);
-  return mailbox.folders.some((f) => !delta[f.id]?.done);
+  return mailbox.folders.some((f) => !delta[f.id]?.done && !isRefused(accountId, f.id));
 }
 
 export async function backfillOutlook(accountId: string, ctx: SyncContext): Promise<void> {
@@ -288,12 +325,18 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
   ctx.update({ phase: "full", synced: count, total: total || null });
   for (const folder of mailbox.folders) {
     const state = readDelta(accountId)[folder.id];
-    if (state?.done) continue;
+    if (state?.done || isRefused(accountId, folder.id)) continue;
     let next: string | undefined = state?.link ?? firstDelta(folder.id);
     while (next) {
-      const page: Page<ApiMessage> = await graph<Page<ApiMessage>>(accountId, next, {
-        prefer: [`odata.maxpagesize=${PAGE_SIZE}`],
-      });
+      let page: Page<ApiMessage>;
+      try {
+        page = await graph<Page<ApiMessage>>(accountId, next, {
+          prefer: [`odata.maxpagesize=${PAGE_SIZE}`],
+        });
+      } catch (err) {
+        skipIfRefused(accountId, folder, mailbox, err);
+        break;
+      }
       ctx.assertActive();
       const summaries = (page.value ?? [])
         .filter((m) => !m["@removed"] && isSyncedFolder(accountId, m.parentFolderId))
