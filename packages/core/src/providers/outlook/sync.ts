@@ -11,6 +11,7 @@ import {
   labelsOf,
   mailboxOf,
   readMailbox,
+  skippedFolderIds,
   type Folder,
   type Mailbox,
 } from "./folders.js";
@@ -180,6 +181,7 @@ export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<
   const mailbox = await refreshFolders(accountId, false, ctx);
   await relabelFolders(accountId, mailbox, ctx);
   await repairRegularIds(accountId, ctx);
+  dropSkippedFolderMail(accountId, ctx);
   if (store.getKv(peekedKey(accountId)) !== "1") await peekInbox(accountId, mailbox, ctx);
 
   ctx.update({ phase: "incremental", synced: 0 });
@@ -460,5 +462,17 @@ async function repairRegularIds(accountId: string, ctx: SyncContext): Promise<vo
   store.upsertMessages(accountId, summaries);
   for (const m of summaries) for (const l of m.labelIds) touched.add(l);
   store.recountLabels(accountId, [...touched]);
+  ctx.bumpRevision();
+}
+
+function dropSkippedFolderMail(accountId: string, ctx: SyncContext): void {
+  const ids = skippedFolderIds(accountId).flatMap((folderId) =>
+    store.getMessageIdsForLabel(accountId, `${FOLDER_PREFIX}${folderId}`),
+  );
+  if (ids.length === 0) return;
+  store.applyHistoryChanges(
+    accountId,
+    ids.map((id) => ({ kind: "deleted" as const, id })),
+  );
   ctx.bumpRevision();
 }

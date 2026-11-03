@@ -22,6 +22,12 @@ const FOLDERS = [
   "scheduled",
 ];
 
+const RECOVERABLE = [
+  "recoverableitemsdeletions",
+  "recoverableitemspurges",
+  "recoverableitemsversions",
+];
+
 type Message = {
   id: string;
   folder: string;
@@ -49,6 +55,7 @@ let subfolders: Record<string, string[]>;
 let expired: Set<string>;
 let lagging: Set<string>;
 let restIds: boolean;
+let recoverableKnown: boolean;
 let failedTranslations: boolean;
 let listing: {
   pageSize?: number;
@@ -132,6 +139,9 @@ function handle(method: string, url: URL, body: unknown): Response {
 
   const wellKnown = /^\/me\/mailFolders\/([a-z]+)$/.exec(path);
   if (wellKnown && FOLDERS.includes(wellKnown[1]!)) return json({ id: wellKnown[1] });
+  if (wellKnown && recoverableKnown && RECOVERABLE.includes(wellKnown[1]!)) {
+    return json({ id: wellKnown[1] });
+  }
   if (wellKnown) return notFound();
   const folderInfo = (id: string) => ({
     id,
@@ -417,6 +427,7 @@ beforeEach(() => {
   lagging = new Set();
   listing = {};
   restIds = false;
+  recoverableKnown = true;
   failedTranslations = false;
   vi.stubGlobal("fetch", fakeFetch);
 });
@@ -830,6 +841,41 @@ describe("Outlook sync", () => {
       expect(labelsOf("uncached")).toEqual(["INBOX", "UNREAD"]);
       expect(labelsOf("kept")).toEqual(["INBOX", "UNREAD"]);
       expect(mailStore.getLabels(account.id).find((l) => l.id === "INBOX")?.total).toBe(4);
+    });
+  });
+
+  describe("mail Outlook deleted into Recoverable Items", () => {
+    it("drops a draft deleted after sending, which Graph can still read", async () => {
+      deliver("draft", "drafts", { conversationId: "conv-r" });
+      const { status, sync, labelsOf } = await boot();
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+      expect(labelsOf("draft")).toContain("DRAFT");
+
+      deliver("sent", "sentitems", { conversationId: "conv-r" });
+      move("draft", "recoverableitemspurges");
+      await sync();
+      expect(labelsOf("draft")).toBeUndefined();
+      expect(labelsOf("sent")).toContain("SENT");
+    });
+
+    it("finds Recoverable Items for a mailbox read before, and drops what it cached from there", async () => {
+      recoverableKnown = false;
+      deliver("draft", "drafts");
+      const { status, sync, labelsOf, mailStore } = await boot();
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      move("draft", "recoverableitemspurges");
+      await sync();
+      expect(labelsOf("draft")).toEqual(["folder:recoverableitemspurges", "UNREAD"]);
+
+      recoverableKnown = true;
+      const now = Date.now();
+      vi.spyOn(Date, "now").mockImplementation(() => now + 5 * 60_000);
+      await sync();
+      expect(labelsOf("draft")).toBeUndefined();
+      expect(mailStore.getLabels(account.id).map((l) => l.id)).not.toContain(
+        "folder:recoverableitemspurges",
+      );
     });
   });
 
