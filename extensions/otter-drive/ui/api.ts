@@ -72,6 +72,51 @@ export type Sharing = {
   inheritedLink: { folderId: string; folderName: string; role: ShareRole } | null;
 };
 
+export type DriveMember = {
+  id: string;
+  email: string;
+  role: ShareRole;
+  userId: string | null;
+};
+export type StorageLocation =
+  | {
+      provider: "s3";
+      bucket: string;
+      region: string;
+      endpoint: string | null;
+      pathStyle: boolean;
+      prefix: string;
+    }
+  | { provider: "gcs"; bucket: string; prefix: string }
+  | {
+      provider: "azure";
+      account: string;
+      container: string;
+      endpoint: string | null;
+      prefix: string;
+    };
+export type StorageBackend = {
+  id: string;
+  name: string;
+  location: StorageLocation;
+  isDefault: boolean;
+  fileCount: number;
+  byteSize: number;
+  createdAt: string;
+  verifiedAt: string | null;
+};
+export type DriveStorage = {
+  defaultBackendId: string | null;
+  otterware: { fileCount: number; byteSize: number };
+  backends: StorageBackend[];
+};
+export type ApiKey = { id: string; name: string | null; start: string | null; createdAt: string };
+export type StorageChange =
+  | { action: "connect"; input: Record<string, string | boolean> }
+  | { action: "default"; backendId: string | null }
+  | { action: "keys"; backendId: string; keys: Record<string, string> }
+  | { action: "verify" | "disconnect"; backendId: string };
+
 /** Shared with me, as a pseudo-drive's id. */
 export const SHARED = "shared";
 
@@ -138,6 +183,21 @@ export const driveApi = {
   me: (): Promise<{ userId: string }> => task("otterDrive:me", {}),
   resolveLink: (href: string): Promise<{ location: string; item: string | null } | null> =>
     task("otterDrive:resolveLink", { href }),
+  createDrive: (name: string): Promise<{ id: string }> => task("otterDrive:createDrive", { name }),
+  renameDrive: (driveId: string, name: string): Promise<void> =>
+    task("otterDrive:renameDrive", { driveId, name }),
+  deleteDrive: (driveId: string): Promise<void> => task("otterDrive:deleteDrive", { driveId }),
+  driveMembers: (driveId: string): Promise<DriveMember[]> =>
+    task("otterDrive:driveMembers", { driveId }),
+  transferDrive: (driveId: string, userId: string): Promise<void> =>
+    task("otterDrive:transferDrive", { driveId, userId }),
+  storage: (driveId: string): Promise<DriveStorage> => task("otterDrive:storage", { driveId }),
+  changeStorage: (driveId: string, change: StorageChange): Promise<unknown> =>
+    task("otterDrive:changeStorage", { driveId, ...change }),
+  apiKeys: (): Promise<ApiKey[]> => task("otterDrive:apiKeys", {}),
+  createApiKey: (name: string): Promise<{ key: string }> =>
+    task("otterDrive:createApiKey", { name }),
+  revokeApiKey: (keyId: string): Promise<void> => task("otterDrive:revokeApiKey", { keyId }),
   uploadPicked: (folderId: string): Promise<DriveArtifact[]> =>
     task("otterDrive:uploadPicked", { folderId }),
   uploadBytes: (

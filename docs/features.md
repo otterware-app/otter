@@ -184,7 +184,12 @@ folder) open in Drive; a shared link adds what it shares to Shared with me first
 
 Sign in from Drive or Settings → Connections (a code confirmed in the browser). Settings lists your
 drives with a switch each: a drive that's off is hidden in Drive, can't be saved to, and is refused
-to anything else asking (agents included). "Save to Otter Drive…" in a message's menu saves an
+to anything else asking (agents included). Each drive opens its own page there, as in Otter Drive: its
+name (a shared drive's owner renames it), your access, its members, its storage (its owner
+connects Amazon S3, Google Cloud Storage, Azure, Cloudflare R2 or any S3-compatible bucket, checks
+it, replaces its keys, chooses where new uploads go, disconnects it), transferring it to a member,
+and deleting it once empty. New shared drive… makes one; Agents shows the otterdrive CLI's setup and
+your API keys (create, copy once, revoke). "Save to Otter Drive…" in a message's menu saves an
 attachment, or the email as a page, into the drive you pick. The sign-in and the switches stay on
 this device. Drive's API answers only the desktop app for now: the web app needs Drive's CORS
 change (otter-drive `otter-mail-cors`).
@@ -199,6 +204,9 @@ change (otter-drive `otter-mail-cors`).
 | Share: people, roles, notify, link access, leave    | ✓   | —   | —      |
 | Drive links in mail open in Drive                   | ✓   | —   | —      |
 | Drives on or off (Settings)                         | ✓   | —   | —      |
+| Drive settings: name, members, storage, transfer    | ✓   | —   | —      |
+| New shared drive, delete a drive                    | ✓   | —   | —      |
+| API keys and CLI setup for agents                   | ✓   | —   | —      |
 | Save an attachment or the email to a drive          | ✓   | —   | —      |
 
 ## Chats

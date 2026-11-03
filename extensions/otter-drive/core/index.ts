@@ -130,6 +130,71 @@ export default {
       return href ? drive.resolveLink(href) : Promise.resolve(null);
     });
 
+    const driveId = (p: Params) => {
+      const value = text(p?.driveId, 200);
+      if (!value) throw new Error("Invalid drive.");
+      return value;
+    };
+    const backend = (p: Params) => {
+      const value = text(p?.backendId, 200);
+      if (!value) throw new Error("Invalid storage.");
+      return value;
+    };
+    /** Short strings (and booleans) only: a bucket's settings and keys. */
+    const fields = (value: unknown) => {
+      const out: Record<string, string | boolean> = {};
+      if (!value || typeof value !== "object") return out;
+      for (const [k, v] of Object.entries(value).slice(0, 20))
+        if (typeof v === "boolean" || (typeof v === "string" && v.length <= 4096)) out[k] = v;
+      return out;
+    };
+    const strings = (value: unknown) =>
+      Object.fromEntries(
+        Object.entries(fields(value)).filter(
+          (e): e is [string, string] => typeof e[1] === "string",
+        ),
+      );
+    slow("otterDrive:createDrive", (p) => drive.createDrive(name(p)));
+    slow("otterDrive:renameDrive", (p) => drive.renameDrive(driveId(p), name(p)));
+    slow("otterDrive:deleteDrive", (p) => drive.deleteDrive(driveId(p)));
+    slow("otterDrive:driveMembers", (p) => drive.driveMembers(driveId(p)));
+    slow("otterDrive:transferDrive", (p) => {
+      const userId = text(p?.userId, 200);
+      if (!userId) throw new Error("Choose a member.");
+      return drive.transferDrive(driveId(p), userId);
+    });
+    slow("otterDrive:storage", (p) => drive.storage(driveId(p)));
+    slow("otterDrive:changeStorage", (p) => {
+      const id = driveId(p);
+      switch (p?.action) {
+        case "connect":
+          return drive.changeStorage(id, { action: "connect", input: fields(p.input) });
+        case "default":
+          return drive.changeStorage(id, {
+            action: "default",
+            backendId: p.backendId === null ? null : backend(p),
+          });
+        case "keys":
+          return drive.changeStorage(id, {
+            action: "keys",
+            backendId: backend(p),
+            keys: strings(p.keys),
+          });
+        case "verify":
+        case "disconnect":
+          return drive.changeStorage(id, { action: p.action, backendId: backend(p) });
+        default:
+          throw new Error("Invalid storage change.");
+      }
+    });
+    slow("otterDrive:apiKeys", () => drive.apiKeys());
+    slow("otterDrive:createApiKey", (p) => drive.createApiKey(name(p)));
+    slow("otterDrive:revokeApiKey", (p) => {
+      const keyId = text(p?.keyId, 200);
+      if (!keyId) throw new Error("Invalid key.");
+      return drive.revokeApiKey(keyId);
+    });
+
     slow("otterDrive:uploadPicked", (p) => drive.uploadPicked(needFolder(p)));
     slow("otterDrive:uploadBytes", (p) => {
       const name = text(p?.name, 255);

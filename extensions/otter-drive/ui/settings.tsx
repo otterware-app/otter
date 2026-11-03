@@ -8,10 +8,12 @@ import {
   useOpenWorkspace,
 } from "@otter-mail/web/extension-kit";
 import { useQueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { ChevronRightIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
 import { SHARED, driveApi, driveLabel, type DriveFolder } from "./api";
 import { DriveMark, SharedMark } from "./drive-mark";
+import { AgentsSection, DrivePage, NewDriveDialog } from "./drive-settings";
 import { errorText, useDriveSignIn, useDriveStatus, useDrives } from "./hooks";
 
 const KIND_TEXT: Record<DriveFolder["kind"], string> = {
@@ -28,6 +30,10 @@ export function OtterDriveSettingsPane() {
   const openWorkspace = useOpenWorkspace();
   const qc = useQueryClient();
   const hidden = new Set(status.data?.hidden ?? []);
+  // A drive's own page, open in place of the list.
+  const [page, setPage] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const open = page ? drives.data?.find((d) => d.id === page) : undefined;
 
   const setShown = async (id: string, shown: boolean) => {
     try {
@@ -37,7 +43,13 @@ export function OtterDriveSettingsPane() {
       toast.error(errorText(error));
     }
   };
-  const driveRow = (id: string, mark: ReactNode, title: string, detail: string) => (
+  const driveRow = (
+    id: string,
+    mark: ReactNode,
+    title: string,
+    detail: string,
+    onOpen?: () => void,
+  ) => (
     <SettingsRow
       key={id}
       title={
@@ -48,14 +60,23 @@ export function OtterDriveSettingsPane() {
       }
       description={detail}
       control={
-        <Switch
-          checked={!hidden.has(id)}
-          onCheckedChange={(checked: boolean) => void setShown(id, Boolean(checked))}
-          aria-label={`${hidden.has(id) ? "Turn on" : "Turn off"} ${title}`}
-        />
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={!hidden.has(id)}
+            onCheckedChange={(checked: boolean) => void setShown(id, Boolean(checked))}
+            aria-label={`${hidden.has(id) ? "Turn on" : "Turn off"} ${title}`}
+          />
+          {onOpen ? (
+            <Btn size="sm" variant="ghost-muted" aria-label={`${title} settings`} onClick={onOpen}>
+              <ChevronRightIcon />
+            </Btn>
+          ) : null}
+        </div>
       }
     />
   );
+
+  if (connected && open) return <DrivePage drive={open} back={() => setPage(null)} />;
 
   return (
     <>
@@ -136,7 +157,14 @@ export function OtterDriveSettingsPane() {
           ) : (
             <>
               {drives.data.map((d) =>
-                driveRow(d.id, <DriveMark folder={d} />, driveLabel(d), KIND_TEXT[d.kind]),
+                driveRow(
+                  d.id,
+                  <DriveMark folder={d} />,
+                  driveLabel(d),
+                  KIND_TEXT[d.kind],
+                  // A folder shared with you is shared from its own menu, not here.
+                  d.kind === "folder" ? undefined : () => setPage(d.id),
+                ),
               )}
               {driveRow(
                 SHARED,
@@ -144,9 +172,28 @@ export function OtterDriveSettingsPane() {
                 "Shared with me",
                 "Documents people shared with you on their own",
               )}
+              <SettingsRow
+                title="New shared drive"
+                description="A drive for a team: its members open everything in it."
+                control={
+                  <Btn size="sm" onClick={() => setCreating(true)}>
+                    Create…
+                  </Btn>
+                }
+              />
             </>
           )}
         </SettingsSection>
+      ) : null}
+      {connected ? <AgentsSection /> : null}
+      {creating ? (
+        <NewDriveDialog
+          close={() => setCreating(false)}
+          made={(id) => {
+            setCreating(false);
+            setPage(id);
+          }}
+        />
       ) : null}
     </>
   );

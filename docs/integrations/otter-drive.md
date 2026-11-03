@@ -26,7 +26,11 @@ Otter Drive is a built-in extension: the `extensions/otter-drive` package
   that are on, listed once a minute at most (Drive has no search endpoint).
   Sharing (`/sharing`, `/sharing/people`, `/sharing/link` on a folder or document;
   `/people` suggestions; `/me` to tell you apart) and links (`resolveLink`: `/s/<token>` is
-  accepted with `POST /links/<token>`, a document's page is found by its folder's slug). The token and the drives
+  accepted with `POST /links/<token>`, a document's page is found by its folder's slug).
+  Drives and the account, for Settings: new shared drives, renaming and deleting them, members
+  and transfer (`/members`, `/owner`), storage (`/storage`: connect, default, keys, verify,
+  disconnect) and API keys (Better Auth's `/api/auth/api-key/*`). These manage a drive rather
+  than reach its documents, so a drive turned off here can still be managed. The token and the drives
   turned off (`hidden`) are kept in the platform's secrets; every document call goes through
   `reachable`, which refuses a drive that's off.
 - `ui/`: `index.tsx` is what it contributes: the workspace (`workspace.tsx`: the sidebar's drive
@@ -35,7 +39,7 @@ Otter Drive is a built-in extension: the `extensions/otter-drive` package
   dialogs; `share.tsx`: the Share dialog), ⌘K's Drive results and Drive's links in mail
   (`search.ts`, the `paletteSearch` and `bodyLinks` slots), "Save to
   Otter Drive…" on messages (`dialogs.tsx`), its page in Settings → Connections with a switch per
-  drive (`settings.tsx`), the Drive marks (`glyph.tsx` from the Otterware production kit,
+  drive and each drive's own page, and Agents (`settings.tsx`, `drive-settings.tsx`), the Drive marks (`glyph.tsx` from the Otterware production kit,
   `drive-mark.tsx` as Otter Drive draws drives). `api.ts` sends only `otterDrive:*` IPC calls.
 
 Documents show as Otter Drive shows them (`documentKind` in `core/drive.ts`, Drive's own rule):

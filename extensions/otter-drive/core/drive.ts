@@ -1066,6 +1066,166 @@ export async function resolveLink(
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Drives and your account, for Settings: making a shared drive, its members
+// and owner, where it stores files, and your API keys. These manage a drive
+// rather than reach its documents, so a drive that's off here is managed too.
+// ---------------------------------------------------------------------------
+
+/** A new shared drive, yours. */
+export async function createDrive(name: string): Promise<{ id: string }> {
+  const auth = await signedIn();
+  const clean = name.trim().slice(0, 80);
+  if (!clean) throw new Error("Give it a name.");
+  const result = await request<{ data: { id: string } }>(
+    "/api/v1/folders",
+    { method: "POST", body: JSON.stringify({ name: clean, kind: "shared" }) },
+    auth,
+  );
+  forget();
+  return { id: result.data.id };
+}
+
+/** Renames a drive (its owner only). */
+export async function renameDrive(id: string, name: string): Promise<void> {
+  const auth = await signedIn();
+  const clean = name.trim().slice(0, 80);
+  if (!clean) throw new Error("Give it a name.");
+  await request(
+    `/api/v1/folders/${ref(id)}`,
+    { method: "PATCH", body: JSON.stringify({ name: clean }) },
+    auth,
+  );
+  forget();
+}
+
+/** Deletes an empty shared drive. */
+export async function deleteDrive(id: string): Promise<void> {
+  const auth = await signedIn();
+  await request(`/api/v1/folders/${ref(id)}`, { method: "DELETE" }, auth);
+  forget();
+}
+
+export type DriveMember = {
+  id: string;
+  email: string;
+  role: "viewer" | "editor";
+  userId: string | null;
+};
+
+/** A shared drive's members, for its owner. */
+export async function driveMembers(id: string): Promise<DriveMember[]> {
+  const auth = await signedIn();
+  return (await request<{ data: DriveMember[] }>(`/api/v1/folders/${ref(id)}/members`, {}, auth))
+    .data;
+}
+
+/** Gives a shared drive to one of its members; you stay on as an editor. */
+export async function transferDrive(id: string, userId: string): Promise<void> {
+  const auth = await signedIn();
+  await request(
+    `/api/v1/folders/${ref(id)}/owner`,
+    { method: "POST", body: JSON.stringify({ userId }) },
+    auth,
+  );
+  forget();
+}
+
+/** Where a drive keeps its files: Otterware's storage, or its owner's buckets. */
+export async function storage(id: string): Promise<unknown> {
+  const auth = await signedIn();
+  return (await request<{ data: unknown }>(`/api/v1/folders/${ref(id)}/storage`, {}, auth)).data;
+}
+
+/**
+ * Changes a drive's storage: `connect` a bucket (Drive checks it first),
+ * choose the one for new uploads (`default`, null for Otterware's), replace a
+ * bucket's keys (`keys`), `verify` it, or `disconnect` it.
+ */
+export async function changeStorage(
+  id: string,
+  change:
+    | { action: "connect"; input: Record<string, string | boolean> }
+    | { action: "default"; backendId: string | null }
+    | { action: "keys"; backendId: string; keys: Record<string, string> }
+    | { action: "verify" | "disconnect"; backendId: string },
+): Promise<unknown> {
+  const auth = await signedIn();
+  const base = `/api/v1/folders/${ref(id)}/storage`;
+  switch (change.action) {
+    case "connect":
+      return (
+        await request<{ data: unknown }>(
+          base,
+          { method: "POST", body: JSON.stringify(change.input) },
+          auth,
+        )
+      ).data;
+    case "default":
+      return request(
+        base,
+        { method: "PATCH", body: JSON.stringify({ defaultBackendId: change.backendId }) },
+        auth,
+      );
+    case "keys":
+      return request(
+        `${base}/${ref(change.backendId)}`,
+        { method: "PATCH", body: JSON.stringify(change.keys) },
+        auth,
+      );
+    case "verify":
+      return request(`${base}/${ref(change.backendId)}/verify`, { method: "POST" }, auth);
+    case "disconnect":
+      return request(`${base}/${ref(change.backendId)}`, { method: "DELETE" }, auth);
+  }
+}
+
+export type ApiKey = {
+  id: string;
+  name: string | null;
+  start: string | null;
+  createdAt: string;
+};
+
+/** Your API keys, for agents that use the otterdrive CLI. */
+export async function apiKeys(): Promise<ApiKey[]> {
+  const auth = await signedIn();
+  const result = await request<{ apiKeys?: ApiKey[] } | ApiKey[]>(
+    "/api/auth/api-key/list?configId=user",
+    {},
+    auth,
+  );
+  const list = Array.isArray(result) ? result : (result.apiKeys ?? []);
+  return list.map(({ id, name, start, createdAt }) => ({
+    id,
+    name,
+    start,
+    createdAt: String(createdAt),
+  }));
+}
+
+/** A new key: its secret is answered once, here, and never again. */
+export async function createApiKey(name: string): Promise<{ key: string }> {
+  const auth = await signedIn();
+  const clean = name.trim().slice(0, 80);
+  if (!clean) throw new Error("Give it a name.");
+  const result = await request<{ key: string }>(
+    "/api/auth/api-key/create",
+    { method: "POST", body: JSON.stringify({ configId: "user", name: clean, prefix: "otw_" }) },
+    auth,
+  );
+  return { key: result.key };
+}
+
+export async function revokeApiKey(keyId: string): Promise<void> {
+  const auth = await signedIn();
+  await request(
+    "/api/auth/api-key/delete",
+    { method: "POST", body: JSON.stringify({ configId: "user", keyId }) },
+    auth,
+  );
+}
+
 /** Every document in the drives that are on, for search: built at most once a minute. */
 let index: { at: number; key: string; list: Promise<DriveArtifact[]> } | null = null;
 
