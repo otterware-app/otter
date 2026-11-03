@@ -170,14 +170,10 @@ export async function deleteForever(accountId: string, messageIds: string[]): Pr
   );
 }
 
-export async function emptyFolder(
-  accountId: string,
-  labelId: "SPAM" | "TRASH",
-  cachedIds: string[],
-): Promise<string[]> {
+export async function emptyFolder(accountId: string, labelId: "SPAM" | "TRASH"): Promise<string[]> {
   const mailbox = await readMailbox(accountId);
   const folders = mailbox.folders.filter((f) => f.labelId === labelId);
-  const ids = new Set(cachedIds);
+  const ids = new Set<string>();
   for (const folder of folders) {
     const listed = await graphAll<{ id: string }>(
       accountId,

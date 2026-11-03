@@ -55,9 +55,9 @@ export const gmailProvider: MailProvider = {
   untrashMessage: api.untrashMessage,
   untrashThread: api.untrashThread,
   deleteForever: api.batchDeleteMessages,
-  async emptyFolder(accountId, labelId, cachedIds) {
-    // Gmail's own listing too: the cache may not have every message.
-    const ids = new Set(cachedIds);
+  async emptyFolder(accountId, labelId) {
+    // Only what Gmail lists: cached mail may have been restored elsewhere since.
+    const ids = new Set<string>();
     let pageToken: string | undefined;
     do {
       const page = await api.listMessageIdsPage(accountId, { labelIds: [labelId], pageToken });

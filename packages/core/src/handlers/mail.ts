@@ -774,10 +774,9 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:emptyFolder — Empty Junk / Empty Trash: permanently deletes every
-  // message in SPAM or TRASH, on the server (the cache may not have them all)
-  // and anything only cached. Big folders outlast the IPC timeout,
-  // so it reports back as a task.
+  // Empty Junk / Empty Trash deletes what the server lists there, never cached
+  // ids alone: mail restored elsewhere may not have synced yet. Big folders
+  // outlast the IPC timeout, so it reports back as a task.
   handle("gmail:emptyFolder", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:emptyFolder]", { accountId: p?.accountId, labelId: p?.labelId });

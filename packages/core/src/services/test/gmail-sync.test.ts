@@ -32,6 +32,7 @@ let listings: (string | null)[];
 let pageSize: number;
 let modifies: { threadId: string; body: unknown }[];
 let refuse: Set<string>;
+let deletedForever: string[];
 /** While set, the first fetch of each of `ids` answers as of the request, but only once `until` resolves. */
 let hold: { ids: string[]; until: Promise<void> } | null;
 const held = new Set<string>();
@@ -90,6 +91,15 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
   const url = new URL(typeof input === "string" ? input : input instanceof URL ? input : input.url);
   if (url.host !== GMAIL) return json({ error: "not in this test" }, 404);
   const path = url.pathname.replace("/gmail/v1/users/me", "");
+
+  if (path === "/messages/batchDelete" && init?.method === "POST") {
+    const { ids } = JSON.parse(String(init.body)) as { ids: string[] };
+    for (const id of ids) {
+      deletedForever.push(id);
+      mail.delete(id);
+    }
+    return new Response(null, { status: 204 });
+  }
 
   const modify = path.match(/^\/threads\/([^/]+)\/modify$/);
   if (modify && init?.method === "POST") {
@@ -350,6 +360,7 @@ beforeEach(() => {
   pageSize = 500;
   modifies = [];
   refuse = new Set();
+  deletedForever = [];
   hold = null;
   held.clear();
   notified = [];
@@ -565,5 +576,18 @@ describe("Gmail sync", () => {
       body: { addLabelIds: ["INBOX"], removeLabelIds: [] },
     });
     expect(listed("INBOX")).toEqual(["t"]);
+  });
+
+  it("empties Trash of what Gmail lists there, never mail restored elsewhere", async () => {
+    deliver("trashed", ["TRASH"]);
+    deliver("restored", ["TRASH"]);
+    const { status, labelsOf, invoke } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+    mail.get("restored")!.labelIds = ["INBOX"];
+    await invoke("gmail:emptyFolder", { accountId: account.id, labelId: "TRASH" });
+    expect(deletedForever).toEqual(["trashed"]);
+    expect(mail.has("restored")).toBe(true);
+    expect(labelsOf("trashed")).toBeUndefined();
   });
 });

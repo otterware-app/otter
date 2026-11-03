@@ -258,6 +258,14 @@ function handle(method: string, url: URL, body: unknown): Response {
     });
   }
 
+  const purge = /^\/me\/messages\/([^/]+)\/permanentDelete$/.exec(path);
+  if (purge) {
+    const id = decodeURIComponent(purge[1]!);
+    if (!messages.has(id)) return notFound();
+    remove(id);
+    return json({});
+  }
+
   const one = /^\/me\/messages\/([^/]+)(\/move)?$/.exec(path);
   if (one) {
     const asked = decodeURIComponent(one[1]!);
@@ -1057,6 +1065,21 @@ describe("Outlook sync", () => {
     });
     await provider.modifyThread(account.id, "s", { addLabelIds: ["INBOX"] });
     expect(messages.get("later")?.folder).toBe("inbox");
+  });
+
+  it("empties Deleted Items of what Outlook lists there, never mail restored elsewhere", async () => {
+    deliver("trashed", "deleteditems");
+    deliver("restored", "deleteditems");
+    const { status, labelsOf, invoke } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+    messages.get("restored")!.folder = "inbox";
+    await invoke("gmail:emptyFolder", { accountId: account.id, labelId: "TRASH" });
+    expect(writes.filter((w) => w.path.endsWith("/permanentDelete")).map((w) => w.path)).toEqual([
+      "/me/messages/trashed/permanentDelete",
+    ]);
+    expect(messages.has("restored")).toBe(true);
+    expect(labelsOf("trashed")).toBeUndefined();
   });
 
   it("searches with Outlook's engine, Gmail's operators translated", async () => {
