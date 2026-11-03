@@ -9,7 +9,7 @@
 
 import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "@otter-mail/contracts";
 
-import { categoryOf, folderOfLabel, labelsFor } from "./folders.js";
+import { categoryOf, folderOfLabel, isSyncedFolder, labelsFor } from "./folders.js";
 import { graph, type Page } from "./graph.js";
 import { isRegularId, toImmutableIds, type ApiMessage } from "./messages.js";
 
@@ -40,16 +40,18 @@ export async function listIds(
     const labelIds = params.labelIds ?? [];
     const filters = labelIds.map(filterFor).filter((f): f is string => f !== null);
     const query = new URLSearchParams({
-      $select: "id",
+      $select: "id,parentFolderId",
       $top: String(Math.min(params.maxResults ?? 100, 500)),
     });
     if (filters.length > 0) query.set("$filter", filters.join(" and "));
     else query.set("$orderby", "receivedDateTime desc");
     url = `${await scope(accountId, labelIds)}?${query.toString()}`;
   }
-  const page = await graph<Page<{ id: string }>>(accountId, url);
+  const page = await graph<Page<{ id: string; parentFolderId?: string }>>(accountId, url);
   return {
-    ids: (page.value ?? []).map((m) => m.id),
+    ids: (page.value ?? [])
+      .filter((m) => isSyncedFolder(accountId, m.parentFolderId))
+      .map((m) => m.id),
     nextPageToken: page["@odata.nextLink"],
   };
 }
@@ -185,6 +187,7 @@ export async function search(
   const page = await graph<Page<ApiMessage>>(accountId, url);
   let refs = (page.value ?? [])
     .filter((message) => {
+      if (!isSyncedFolder(accountId, message.parentFolderId)) return false;
       const has = new Set(labelsFor(accountId, message));
       return wanted.every(({ op, label }) => {
         if (label === folder && !op.negated) return true;

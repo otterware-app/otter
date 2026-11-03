@@ -11,6 +11,7 @@ import {
   folderLabel,
   folderOfLabel,
   FOLDER_PREFIX,
+  isSyncedFolder,
   nearestPreset,
   presetColor,
   readMailbox,
@@ -119,10 +120,11 @@ async function apply(
 
 async function threadMessages(accountId: string, threadId: string): Promise<ApiMessage[]> {
   const filter = encodeURIComponent(`conversationId eq '${threadId.replace(/'/g, "''")}'`);
-  return graphAll<ApiMessage>(
+  const messages = await graphAll<ApiMessage>(
     accountId,
     `/me/messages?$filter=${filter}&$select=${STATE_FIELDS}&$top=100`,
   );
+  return messages.filter((m) => isSyncedFolder(accountId, m.parentFolderId));
 }
 
 export async function modifyMessage(

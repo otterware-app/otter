@@ -96,7 +96,9 @@ function remove(id: string): void {
   messages.delete(id);
 }
 
-const restIdOf = (m: Message) => `AAMk.${m.folder}.${m.id}`;
+let restPrefix: string;
+const isRest = (id: string) => /^A[AQ]Mk\./.test(id);
+const restIdOf = (m: Message) => `${restPrefix}.${m.folder}.${m.id}`;
 
 function byRestId(id: string): Message | undefined {
   const [, folder, ...rest] = id.split(".");
@@ -140,6 +142,7 @@ function handle(method: string, url: URL, body: unknown): Response {
 
   const wellKnown = /^\/me\/mailFolders\/([a-z]+)$/.exec(path);
   if (wellKnown && FOLDERS.includes(wellKnown[1]!)) return json({ id: wellKnown[1] });
+  if (wellKnown && wellKnown[1] === "outbox") return json({ id: "outbox" });
   if (wellKnown && recoverableKnown && RECOVERABLE.includes(wellKnown[1]!)) {
     return json({ id: wellKnown[1] });
   }
@@ -245,7 +248,7 @@ function handle(method: string, url: URL, body: unknown): Response {
     const { inputIds } = body as { inputIds: string[] };
     return json({
       value: inputIds.map((id) => {
-        const m = id.startsWith("AAMk.") ? byRestId(id) : undefined;
+        const m = isRest(id) ? byRestId(id) : undefined;
         return m ? { sourceId: id, targetId: m.id } : { sourceId: id };
       }),
     });
@@ -270,7 +273,7 @@ function handle(method: string, url: URL, body: unknown): Response {
   const one = /^\/me\/messages\/([^/]+)(\/move)?$/.exec(path);
   if (one) {
     const asked = decodeURIComponent(one[1]!);
-    if (asked.startsWith("AAMk.")) {
+    if (isRest(asked)) {
       const m = byRestId(asked);
       return m && method === "GET" ? json({ ...resource(m), id: asked }) : notFound();
     }
@@ -436,6 +439,7 @@ beforeEach(() => {
   lagging = new Set();
   listing = {};
   restIds = false;
+  restPrefix = "AAMk";
   recoverableKnown = true;
   failedTranslations = false;
   vi.stubGlobal("fetch", fakeFetch);
@@ -822,6 +826,32 @@ describe("Outlook sync", () => {
       await sync();
       expect(restRows(mailStore)).toEqual(["AAMk.inbox.locked"]);
       expect(labelsOf("live")).toEqual(["INBOX", "UNREAD"]);
+    });
+
+    it("translates the AQMk ids of personal Outlook accounts too", async () => {
+      deliver("h1", "inbox");
+      const { status, invoke, mailStore } = await boot();
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      restIds = true;
+      restPrefix = "AQMk";
+      await invoke("gmail:search", { q: "hera", accountIds: [account.id] });
+      expect(mailStore.getMessageIdsWithPrefix(account.id, "AQMk")).toEqual([]);
+      expect(mailStore.countAllMessages(account.id)).toBe(1);
+    });
+
+    it("leaves mail in folders sync skips out of search and conversation actions", async () => {
+      deliver("held", "outbox", { conversationId: "conv-o", fromMe: true });
+      deliver("reply", "inbox", { conversationId: "conv-o" });
+      const { status, invoke, labelsOf } = await boot();
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      await invoke("gmail:search", { q: "subject", accountIds: [account.id] });
+      expect(labelsOf("held")).toBeUndefined();
+
+      await invoke("gmail:trashThread", { accountId: account.id, threadId: "conv-o" });
+      expect(messages.get("held")!.folder).toBe("outbox");
+      expect(messages.get("reply")!.folder).toBe("deleteditems");
     });
 
     it("repairs copies an earlier search cached under regular ids", async () => {

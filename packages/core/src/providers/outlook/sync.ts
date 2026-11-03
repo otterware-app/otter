@@ -19,6 +19,7 @@ import { GraphError, graph, graphAll, isAccessDenied, type Page } from "./graph.
 import {
   findApiMessages,
   getApiMessages,
+  REGULAR_ID_PREFIXES,
   SUMMARY_FIELDS,
   toImmutableIds,
   toSummary,
@@ -425,7 +426,9 @@ async function reconcileUnlisted(
 }
 
 async function repairRegularIds(accountId: string, ctx: SyncContext): Promise<void> {
-  const regular = store.getMessageIdsWithPrefix(accountId, "AAMk");
+  const regular = REGULAR_ID_PREFIXES.flatMap((prefix) =>
+    store.getMessageIdsWithPrefix(accountId, prefix),
+  );
   if (regular.length === 0 || hasPendingLabelWrites(accountId)) return;
   let immutable: Map<string, string>;
   let gone: string[];

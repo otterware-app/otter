@@ -144,7 +144,8 @@ export async function findApiMessages(
 }
 
 /** `$search` ignores the immutable-id preference: its results carry regular ids, which change on a move. */
-export const isRegularId = (id: string) => id.startsWith("AAMk");
+export const REGULAR_ID_PREFIXES = ["AAMk", "AQMk"];
+export const isRegularId = (id: string) => REGULAR_ID_PREFIXES.some((p) => id.startsWith(p));
 
 export async function toImmutableIds(
   accountId: string,
