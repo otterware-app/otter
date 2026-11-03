@@ -337,6 +337,13 @@ async function documentAccess(
  */
 const looked = new Map<string, { at: number; token: string; raw: Promise<RawArtifact> }>();
 
+/** After a change: the document (or, with none, the folders) looked up again, and search rebuilt. */
+function forget(id?: string) {
+  if (id) looked.delete(id);
+  else folderCache = null;
+  index = null;
+}
+
 type RawVersion = {
   number: number;
   label: string;
@@ -565,7 +572,7 @@ export async function rename(
     folder,
   );
   // After the change, so a lookup made meanwhile isn't kept.
-  looked.delete(id);
+  forget(id);
   return artifact(result.data);
 }
 
@@ -582,7 +589,7 @@ export async function setArchived(
     auth,
     folder,
   );
-  looked.delete(id);
+  forget(id);
 }
 
 const THUMBNAILS = "https://usercontent.otterware.app/raw/thumbnail/";
@@ -616,7 +623,6 @@ async function publishFile(
 ): Promise<DriveArtifact> {
   if (file.bytes.length > MAX_UPLOAD) throw new Error(`${file.path} is over 100 MB.`);
   const title = meta.title.trim().slice(0, 200) || file.path;
-  const sha256 = await sha256Hex(file.bytes);
   const label = "Saved from Otter Mail";
   const created = await request<{ data: { id: string } }>(
     "/api/v1/artifacts",
@@ -634,68 +640,7 @@ async function publishFile(
     folderId,
   );
   try {
-    const upload = await request<{
-      data: {
-        id: string;
-        files: { path: string; uploadUrl: string; multipart?: boolean; partSize?: number }[];
-      };
-    }>(
-      `/api/v1/artifacts/${created.data.id}/uploads`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          label,
-          entryPath: file.path,
-          expectedCurrentVersion: 0,
-          files: [
-            { path: file.path, contentType: file.contentType, size: file.bytes.length, sha256 },
-          ],
-        }),
-      },
-      auth,
-      folderId,
-    );
-    const remote = upload.data.files[0];
-    if (!remote) throw new Error("Otter Drive didn't accept the file.");
-    const put = (url: string, bytes: Uint8Array) =>
-      request<{ data?: { partNumber: number; etag: string } } | undefined>(
-        url,
-        {
-          method: "PUT",
-          headers: { "content-type": file.contentType, "x-content-sha256": sha256 },
-          body: bytes as BodyInit,
-        },
-        auth,
-        folderId,
-      );
-    if (remote.multipart && remote.partSize) {
-      const parts: { partNumber: number; etag: string }[] = [];
-      for (let start = 0, n = 1; start < file.bytes.length; start += remote.partSize, n++) {
-        const url = new URL(remote.uploadUrl);
-        url.searchParams.set("part", String(n));
-        const result = await put(
-          url.toString(),
-          file.bytes.subarray(start, start + remote.partSize),
-        );
-        if (!result?.data) throw new Error("Otter Drive didn't confirm part of the upload.");
-        parts.push(result.data);
-      }
-      await request(
-        `${remote.uploadUrl}/complete`,
-        { method: "POST", body: JSON.stringify({ parts }) },
-        auth,
-        folderId,
-      );
-    } else {
-      await put(remote.uploadUrl, file.bytes);
-    }
-    const done = await request<{ data: { artifact: RawArtifact } }>(
-      `/api/v1/uploads/${upload.data.id}/complete`,
-      { method: "POST" },
-      auth,
-      folderId,
-    );
-    return artifact(done.data.artifact);
+    return await uploadVersion(auth, folderId, created.data.id, file, label, 0);
   } catch (error) {
     await request(
       `/api/v1/artifacts/${created.data.id}/draft`,
@@ -705,6 +650,82 @@ async function publishFile(
     ).catch(() => {});
     throw error;
   }
+}
+
+/**
+ * Uploads one file as a document's next version: `expected` is the version it
+ * follows, so a version someone else added meanwhile isn't overwritten.
+ */
+async function uploadVersion(
+  auth: Session,
+  folderId: string | undefined,
+  id: string,
+  file: LocalFile,
+  label: string,
+  expected: number,
+): Promise<DriveArtifact> {
+  if (file.bytes.length > MAX_UPLOAD) throw new Error(`${file.path} is over 100 MB.`);
+  const sha256 = await sha256Hex(file.bytes);
+  const upload = await request<{
+    data: {
+      id: string;
+      files: { path: string; uploadUrl: string; multipart?: boolean; partSize?: number }[];
+    };
+  }>(
+    `/api/v1/artifacts/${ref(id)}/uploads`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        label,
+        entryPath: file.path,
+        expectedCurrentVersion: expected,
+        files: [
+          { path: file.path, contentType: file.contentType, size: file.bytes.length, sha256 },
+        ],
+      }),
+    },
+    auth,
+    folderId,
+  );
+  const remote = upload.data.files[0];
+  if (!remote) throw new Error("Otter Drive didn't accept the file.");
+  const put = (url: string, bytes: Uint8Array) =>
+    request<{ data?: { partNumber: number; etag: string } } | undefined>(
+      url,
+      {
+        method: "PUT",
+        headers: { "content-type": file.contentType, "x-content-sha256": sha256 },
+        body: bytes as BodyInit,
+      },
+      auth,
+      folderId,
+    );
+  if (remote.multipart && remote.partSize) {
+    const parts: { partNumber: number; etag: string }[] = [];
+    for (let start = 0, n = 1; start < file.bytes.length; start += remote.partSize, n++) {
+      const url = new URL(remote.uploadUrl);
+      url.searchParams.set("part", String(n));
+      const result = await put(url.toString(), file.bytes.subarray(start, start + remote.partSize));
+      if (!result?.data) throw new Error("Otter Drive didn't confirm part of the upload.");
+      parts.push(result.data);
+    }
+    await request(
+      `${remote.uploadUrl}/complete`,
+      { method: "POST", body: JSON.stringify({ parts }) },
+      auth,
+      folderId,
+    );
+  } else {
+    await put(remote.uploadUrl, file.bytes);
+  }
+  const done = await request<{ data: { artifact: RawArtifact } }>(
+    `/api/v1/uploads/${upload.data.id}/complete`,
+    { method: "POST" },
+    auth,
+    folderId,
+  );
+  forget(id);
+  return artifact(done.data.artifact);
 }
 
 const titleOf = (name: string) => name.replace(/\.[^.]+$/, "") || name;
@@ -745,6 +766,179 @@ export async function uploadBytes(
     },
     { title: titleOf(file.name), description: "" },
   );
+}
+
+/** A file the user picks, as the document's next version. */
+export async function uploadNewVersion(
+  id: string,
+  folderId: string | undefined,
+): Promise<DriveArtifact | null> {
+  const { auth, folder, raw } = await documentAccess(id, folderId);
+  const [f] = await platform().userFiles.pick();
+  if (!f) return null;
+  return uploadVersion(
+    auth,
+    folder,
+    id,
+    {
+      path: safeName(f.name) || "file",
+      contentType: f.mimeType || "application/octet-stream",
+      bytes: f.bytes,
+    },
+    `Uploaded ${safeName(f.name)}`.slice(0, 300),
+    raw.currentVersion?.number ?? 0,
+  );
+}
+
+/**
+ * Saves a document where the user chooses: its one file as itself, or a
+ * version of several files (a site) as Otter Drive's zip of them.
+ */
+export async function download(
+  id: string,
+  folderId: string | undefined,
+  versionNumber?: number,
+): Promise<boolean> {
+  const { auth, folder, raw } = await documentAccess(id, folderId);
+  let entry = raw.currentVersion;
+  if (versionNumber && versionNumber !== entry?.number) {
+    const all = await request<{ data: RawVersion[] }>(
+      `/api/v1/artifacts/${ref(id)}/versions`,
+      {},
+      auth,
+      folder,
+    );
+    entry = all.data.find((v) => v.number === versionNumber) ?? null;
+  }
+  if (!entry) throw new Error("This document has no files yet.");
+  const query = new URLSearchParams();
+  if (versionNumber) query.set("version", String(versionNumber));
+  if (entry.fileCount === 1) {
+    query.set("path", entry.entryPath);
+    const response = await call(
+      `/api/v1/artifacts/${ref(id)}/content?${query}`,
+      { headers: { accept: "*/*" } },
+      auth,
+      folder,
+    );
+    const name = safeName(entry.entryPath.split("/").pop() ?? "") || raw.slug;
+    return platform().userFiles.save(name, new Uint8Array(await response.arrayBuffer()));
+  }
+  const response = await call(
+    `/api/v1/artifacts/${ref(id)}/download${query.size ? `?${query}` : ""}`,
+    { headers: { accept: "application/zip" } },
+    auth,
+    folder,
+  );
+  return platform().userFiles.save(`${raw.slug}.zip`, new Uint8Array(await response.arrayBuffer()));
+}
+
+/** Moves a document into another folder (its owner's, into one they own). */
+export async function move(
+  id: string,
+  folderId: string | undefined,
+  destination: string,
+): Promise<DriveArtifact> {
+  const { auth, folder } = await documentAccess(id, folderId);
+  await reachable(destination);
+  forget(id);
+  const result = await request<{ data: RawArtifact }>(
+    `/api/v1/artifacts/${ref(id)}/move`,
+    { method: "POST", body: JSON.stringify({ folderId: destination }) },
+    auth,
+    folder,
+  );
+  return artifact(result.data);
+}
+
+/** Deletes an archived document for good, every version. */
+export async function deletePermanently(id: string, folderId: string | undefined): Promise<void> {
+  const { auth, folder } = await documentAccess(id, folderId);
+  forget(id);
+  await request(`/api/v1/artifacts/${ref(id)}/permanent`, { method: "DELETE" }, auth, folder);
+}
+
+/** A folder in a drive that's on: a new one inside it. */
+export async function createFolder(parentId: string, name: string): Promise<{ id: string }> {
+  const auth = await reachable(parentId);
+  const clean = name.trim().slice(0, 80);
+  if (!clean) throw new Error("Give it a name.");
+  const result = await request<{ data: { id: string } }>(
+    "/api/v1/folders",
+    { method: "POST", body: JSON.stringify({ name: clean, parentId, kind: "folder" }) },
+    auth,
+  );
+  forget();
+  return { id: result.data.id };
+}
+
+/** Renames a folder, or moves it under another (in the same drive, or one you own). */
+export async function updateFolder(
+  id: string,
+  change: { name?: string; parentId?: string },
+): Promise<void> {
+  const auth = await reachable(id);
+  if (change.parentId) await reachable(change.parentId);
+  const name = change.name?.trim().slice(0, 80);
+  if (change.name !== undefined && !name) throw new Error("Give it a name.");
+  await request(
+    `/api/v1/folders/${ref(id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        ...(name ? { name } : {}),
+        ...(change.parentId ? { parentId: change.parentId } : {}),
+      }),
+    },
+    auth,
+  );
+  forget();
+}
+
+/** Deletes an empty folder. */
+export async function deleteFolder(id: string): Promise<void> {
+  const auth = await reachable(id);
+  await request(`/api/v1/folders/${ref(id)}`, { method: "DELETE" }, auth);
+  forget();
+}
+
+/** Every document in the drives that are on, for search: built at most once a minute. */
+let index: { at: number; key: string; list: Promise<DriveArtifact[]> } | null = null;
+
+async function documentIndex(): Promise<DriveArtifact[]> {
+  const auth = await signedIn();
+  const key = `${auth.token}\n${(auth.hidden ?? []).join(",")}`;
+  if (index?.key === key && Date.now() - index.at < 60_000) return index.list;
+  const list = (async () => {
+    const reach = (await folders()).slice(0, 60);
+    const found: DriveArtifact[] = [];
+    // A few folders at a time.
+    for (let i = 0; i < reach.length; i += 6)
+      for (const page of await Promise.all(
+        reach.slice(i, i + 6).map((f) => artifacts(f.id).catch(() => [])),
+      ))
+        found.push(...page);
+    if (!(auth.hidden ?? []).includes(SHARED))
+      found.push(...(await sharedWithMe().catch(() => [])));
+    const seen = new Set<string>();
+    return found.filter((a) => !seen.has(a.id) && seen.add(a.id));
+  })();
+  index = { at: Date.now(), key, list };
+  list.catch(() => index?.list === list && (index = null));
+  return list;
+}
+
+/** Documents whose title, name or description has every word typed, most recent first. */
+export async function search(query: string): Promise<DriveArtifact[]> {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  return (await documentIndex())
+    .filter((a) => {
+      const text = `${a.title} ${a.slug} ${a.description}`.toLowerCase();
+      return !a.archived && words.every((w) => text.includes(w));
+    })
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 20);
 }
 
 export type PublishInput = {

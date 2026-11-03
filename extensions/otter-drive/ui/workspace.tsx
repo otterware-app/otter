@@ -11,10 +11,17 @@
 
 import {
   Btn,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
+  HintTooltip,
+  IconBtn,
   Input,
   SidebarAction,
   SidebarBody,
@@ -27,6 +34,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArchiveIcon,
+  ArrowUpDownIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -37,7 +45,9 @@ import {
   FileTypeIcon,
   FileVideoCameraIcon,
   FolderIcon,
+  FolderPlusIcon,
   GlobeIcon,
+  MoreHorizontalIcon,
   PackageIcon,
   SearchIcon,
   UploadIcon,
@@ -53,6 +63,13 @@ import {
   type ReactNode,
 } from "react";
 
+import {
+  ActionItems,
+  openDialog,
+  useDocumentActions,
+  useFolderActions,
+  type Action,
+} from "./actions";
 import { SHARED, driveApi, driveLabel, type DriveArtifact, type DriveFolder } from "./api";
 import { DocumentView, Empty, TitleBar, previewQuery, when } from "./document";
 import { DriveMark, SharedMark } from "./drive-mark";
@@ -111,9 +128,22 @@ const kindOf = (a: DriveArtifact): Kind =>
 // Filters: one set for the sidebar's list and the overview's grid.
 // ---------------------------------------------------------------------------
 
-type Filters = { kind: Kind | null; recent: boolean; archived: boolean; query: string };
+type Sort = "updated" | "az" | "za";
+const SORTS: Record<Sort, string> = {
+  updated: "Last updated",
+  az: "Name, A to Z",
+  za: "Name, Z to A",
+};
 
-let filters: Filters = { kind: null, recent: false, archived: false, query: "" };
+type Filters = {
+  kind: Kind | null;
+  recent: boolean;
+  archived: boolean;
+  query: string;
+  sort: Sort;
+};
+
+let filters: Filters = { kind: null, recent: false, archived: false, query: "", sort: "updated" };
 const listeners = new Set<() => void>();
 
 function setFilters(patch: Partial<Filters>) {
@@ -132,6 +162,8 @@ function useFilters(): Filters {
 }
 
 const WEEK = 7 * 86_400_000;
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+const byName = (a: string, b: string) => collator.compare(a, b);
 
 // ---------------------------------------------------------------------------
 // Where we are, and what's there.
@@ -140,6 +172,8 @@ const WEEK = 7 * 86_400_000;
 type Place = {
   /** The folder open (a drive or one in it); null in Shared with me. */
   folder: DriveFolder | null;
+  /** From its drive down to it. */
+  trail: DriveFolder[];
   /** Its drive, for the picker. */
   drive: DriveFolder | null;
   /** The drives, for the picker. */
@@ -201,7 +235,11 @@ function usePlace(location: string): Place {
         (!f.kind || kindOf(a) === f.kind) &&
         matches(`${a.title} ${a.slug} ${a.description}`),
     )
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    .sort((a, b) =>
+      f.sort === "updated"
+        ? b.updatedAt.localeCompare(a.updatedAt)
+        : byName(a.title, b.title) * (f.sort === "za" ? -1 : 1),
+    );
   const subfolders =
     f.archived || f.recent || f.kind
       ? []
@@ -212,10 +250,18 @@ function usePlace(location: string): Place {
               : x.parentId === folder?.id,
           )
           .filter((x) => matches(x.name))
-          .sort((a, b) => a.name.localeCompare(b.name));
+          .sort((a, b) => byName(a.name, b.name) * (f.sort === "za" ? -1 : 1));
+
+  // From the drive (or the folder shared with you) down to the one open.
+  const trail: DriveFolder[] = [];
+  for (let c = folder, i = 0; c && i < 50; i++) {
+    trail.unshift(c);
+    c = c.parentId ? (list.find((x) => x.id === c!.parentId) ?? null) : null;
+  }
 
   return {
     folder,
+    trail,
     drive,
     drives,
     sharedWithMe,
@@ -328,6 +374,19 @@ export function DriveSidebar({ location, item, go }: WorkspaceProps) {
             icon={<UploadIcon />}
             label={upload.busy ? "Uploading…" : "Upload"}
             onClick={upload.pick}
+          />
+        ) : null}
+        {place.writable && place.folder ? (
+          <SidebarAction
+            icon={<FolderPlusIcon />}
+            label="New folder"
+            onClick={() =>
+              openDialog({
+                type: "newFolder",
+                parent: place.folder!,
+                onCreated: (id) => go({ location: id }),
+              })
+            }
           />
         ) : null}
       </div>
@@ -481,99 +540,128 @@ function DocumentList({
   return (
     <div className="flex flex-col">
       {place.subfolders.map((folder) => (
-        <button
-          key={folder.id}
-          type="button"
-          onClick={() => go({ location: folder.id })}
-          className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-sidebar-row-hover"
-        >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-sidebar-border">
-            <FolderIcon className="size-4 text-sidebar-muted-foreground" />
-          </span>
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-sidebar-foreground">
-            {folder.name}
-          </span>
-          {folder.shared ? (
-            <UsersIcon className="size-3.5 shrink-0 text-sidebar-muted-foreground" />
-          ) : null}
-        </button>
+        <FolderRow key={folder.id} folder={folder} onOpen={() => go({ location: folder.id })} />
       ))}
       {place.documents.map((a) => (
         <DocumentRow
           key={a.id}
           artifact={a}
+          folderId={place.folder?.id}
           selected={a.id === item}
           onOpen={() => go({ item: a.id })}
+          onGone={() => a.id === item && go({})}
         />
       ))}
     </div>
   );
 }
 
+/** Right-click for its actions. */
+function WithMenu({ actions, children }: { actions: Action[]; children: ReactNode }) {
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+      <ContextMenuContent className="min-w-56">
+        <ActionItems actions={actions} menu="context" />
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+function FolderRow({ folder, onOpen }: { folder: DriveFolder; onOpen: () => void }) {
+  const actions = useFolderActions(folder, { onOpen });
+  return (
+    <WithMenu actions={actions}>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-sidebar-row-hover"
+      >
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-sidebar-border">
+          <FolderIcon className="size-4 text-sidebar-muted-foreground" />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-sidebar-foreground">
+          {folder.name}
+        </span>
+        {folder.shared ? (
+          <UsersIcon className="size-3.5 shrink-0 text-sidebar-muted-foreground" />
+        ) : null}
+      </button>
+    </WithMenu>
+  );
+}
+
 function DocumentRow({
   artifact,
+  folderId,
   selected,
   onOpen,
+  onGone,
 }: {
   artifact: DriveArtifact;
+  folderId: string | undefined;
   selected: boolean;
   onOpen: () => void;
+  onGone: () => void;
 }) {
   const kind = KINDS[kindOf(artifact)];
   const thumb = useThumbnail(artifact);
   const warm = useWarm(artifact);
+  const actions = useDocumentActions(artifact, { folderId, onGone });
   const subtitle = artifact.description || artifact.current?.entryPath || "";
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      {...warm}
-      aria-current={selected ? "page" : undefined}
-      className={cn(
-        "flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
-        selected ? "bg-sidebar-row-selected" : "hover:bg-sidebar-row-hover",
-      )}
-    >
-      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-sidebar-border bg-background">
-        {thumb.src ? (
-          <img
-            src={thumb.src}
-            alt=""
-            loading="lazy"
-            onError={thumb.failed}
-            className="size-full object-cover object-top"
-          />
-        ) : (
-          <kind.Icon className="size-4 text-sidebar-muted-foreground" />
+    <WithMenu actions={actions}>
+      <button
+        type="button"
+        onClick={onOpen}
+        {...warm}
+        aria-current={selected ? "page" : undefined}
+        className={cn(
+          "flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+          selected ? "bg-sidebar-row-selected" : "hover:bg-sidebar-row-hover",
         )}
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col leading-snug">
-        <span className="flex items-baseline gap-2">
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-sidebar-foreground">
-            {artifact.title}
+      >
+        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-sidebar-border bg-background">
+          {thumb.src ? (
+            <img
+              src={thumb.src}
+              alt=""
+              loading="lazy"
+              onError={thumb.failed}
+              className="size-full object-cover object-top"
+            />
+          ) : (
+            <kind.Icon className="size-4 text-sidebar-muted-foreground" />
+          )}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col leading-snug">
+          <span className="flex items-baseline gap-2">
+            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-sidebar-foreground">
+              {artifact.title}
+            </span>
+            <span className="shrink-0 text-[11px] text-sidebar-muted-foreground tabular-nums">
+              {when(artifact.updatedAt)}
+            </span>
           </span>
-          <span className="shrink-0 text-[11px] text-sidebar-muted-foreground tabular-nums">
-            {when(artifact.updatedAt)}
+          {subtitle ? (
+            <span className="truncate text-[12px] text-sidebar-muted-foreground">{subtitle}</span>
+          ) : null}
+          <span className="flex items-center gap-1 truncate text-[11px] text-sidebar-muted-foreground/80">
+            {artifact.shared ? <UsersIcon className="size-3 shrink-0" /> : null}
+            {[
+              kind.one,
+              artifact.shared ? "Shared" : null,
+              artifact.versionCount > 1
+                ? `v${artifact.current?.number ?? artifact.versionCount}`
+                : null,
+              artifact.archived ? "Archived" : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </span>
         </span>
-        {subtitle ? (
-          <span className="truncate text-[12px] text-sidebar-muted-foreground">{subtitle}</span>
-        ) : null}
-        <span className="flex items-center gap-1 truncate text-[11px] text-sidebar-muted-foreground/80">
-          {artifact.shared ? <UsersIcon className="size-3 shrink-0" /> : null}
-          {[
-            kind.one,
-            artifact.shared ? "Shared" : null,
-            artifact.versionCount > 1
-              ? `v${artifact.current?.number ?? artifact.versionCount}`
-              : null,
-            artifact.archived ? "Archived" : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </span>
-      </span>
-    </button>
+      </button>
+    </WithMenu>
   );
 }
 
@@ -718,13 +806,15 @@ function Overview({
         ) : place.drive ? (
           <DriveMark folder={place.drive} />
         ) : null}
-        <h1 className="truncate text-sm font-medium text-foreground">{title}</h1>
+        <Crumbs place={place} title={title} go={go} />
+        {place.folder ? <FolderMenu folder={place.folder} go={go} /> : null}
         {place.loading ? null : (
           <span className="text-xs text-muted-foreground tabular-nums">
             {place.documents.length}
           </span>
         )}
         <span className="min-w-0 flex-1" />
+        <SortMenu />
         {place.writable ? (
           <Btn
             size="sm"
@@ -763,7 +853,12 @@ function Overview({
         ) : (
           <Grid>
             {place.documents.map((a) => (
-              <DocumentCard key={a.id} artifact={a} onOpen={() => go({ item: a.id })} />
+              <DocumentCard
+                key={a.id}
+                artifact={a}
+                folderId={place.folder?.id}
+                onOpen={() => go({ item: a.id })}
+              />
             ))}
           </Grid>
         )}
@@ -785,47 +880,151 @@ function Grid({ children }: { children: ReactNode }) {
   );
 }
 
-function DocumentCard({ artifact, onOpen }: { artifact: DriveArtifact; onOpen: () => void }) {
+function DocumentCard({
+  artifact,
+  folderId,
+  onOpen,
+}: {
+  artifact: DriveArtifact;
+  folderId: string | undefined;
+  onOpen: () => void;
+}) {
   const kind = KINDS[kindOf(artifact)];
   const thumb = useThumbnail(artifact);
   const warm = useWarm(artifact);
+  const actions = useDocumentActions(artifact, { folderId });
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      {...warm}
-      className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card text-left outline-none transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-focus-ring"
-    >
-      <div className="relative aspect-[4/3] overflow-hidden border-b border-border bg-muted/50">
-        {thumb.src ? (
-          <img
-            src={thumb.src}
-            alt=""
-            loading="lazy"
-            onError={thumb.failed}
-            className="size-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
-          />
-        ) : (
-          <div className="flex size-full items-center justify-center">
-            <kind.Icon className="size-8 text-muted-foreground/60" />
-          </div>
-        )}
-      </div>
-      <div className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5">
-        <span className="truncate text-[13px] font-medium text-foreground">{artifact.title}</span>
-        <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-          {artifact.shared ? (
-            <UsersIcon className="size-3 shrink-0" />
+    <WithMenu actions={actions}>
+      <button
+        type="button"
+        onClick={onOpen}
+        {...warm}
+        className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card text-left outline-none transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-focus-ring"
+      >
+        <div className="relative aspect-[4/3] overflow-hidden border-b border-border bg-muted/50">
+          {thumb.src ? (
+            <img
+              src={thumb.src}
+              alt=""
+              loading="lazy"
+              onError={thumb.failed}
+              className="size-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
+            />
           ) : (
-            <kind.Icon className="size-3 shrink-0" />
+            <div className="flex size-full items-center justify-center">
+              <kind.Icon className="size-8 text-muted-foreground/60" />
+            </div>
           )}
-          <span className="truncate">
-            {kind.one}
-            {artifact.versionCount > 1 ? ` · v${artifact.current?.number ?? ""}` : ""} ·{" "}
-            {when(artifact.updatedAt)}
+        </div>
+        <div className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5">
+          <span className="truncate text-[13px] font-medium text-foreground">{artifact.title}</span>
+          <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+            {artifact.shared ? (
+              <UsersIcon className="size-3 shrink-0" />
+            ) : (
+              <kind.Icon className="size-3 shrink-0" />
+            )}
+            <span className="truncate">
+              {kind.one}
+              {artifact.versionCount > 1 ? ` · v${artifact.current?.number ?? ""}` : ""} ·{" "}
+              {when(artifact.updatedAt)}
+            </span>
           </span>
-        </span>
-      </div>
-    </button>
+        </div>
+      </button>
+    </WithMenu>
+  );
+}
+
+/** Where you are, from the drive down: each step goes there. */
+function Crumbs({ place, title, go }: { place: Place; title: string; go: WorkspaceProps["go"] }) {
+  if (place.sharedWithMe || place.trail.length < 2)
+    return <h1 className="truncate text-sm font-medium text-foreground">{title}</h1>;
+  // A long trail keeps its first step and its last two.
+  const steps =
+    place.trail.length > 3 ? [place.trail[0]!, null, ...place.trail.slice(-2)] : place.trail;
+  return (
+    <nav aria-label="Location" className="no-drag flex min-w-0 items-center gap-0.5 text-sm">
+      {steps.map((f, i) => {
+        const last = i === steps.length - 1;
+        return (
+          <span key={f?.id ?? "more"} className="flex min-w-0 items-center gap-0.5">
+            {i > 0 ? <span className="px-0.5 text-muted-foreground">›</span> : null}
+            {!f ? (
+              <span className="text-muted-foreground">…</span>
+            ) : last ? (
+              <h1 className="truncate font-medium text-foreground">{f.name}</h1>
+            ) : (
+              <button
+                type="button"
+                onClick={() => go({ location: f.id })}
+                className="truncate rounded px-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                {f.parentId ? f.name : driveLabel(f)}
+              </button>
+            )}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** The open folder's actions. */
+function FolderMenu({ folder, go }: { folder: DriveFolder; go: WorkspaceProps["go"] }) {
+  const actions = useFolderActions(folder);
+  if (!actions.some((a) => !("separator" in a))) return null;
+  // A new folder opens; a deleted one leaves for its parent.
+  const shown = actions.map((a) =>
+    a.id === "new" && "run" in a
+      ? {
+          ...a,
+          run: () =>
+            openDialog({
+              type: "newFolder",
+              parent: folder,
+              onCreated: (id) => go({ location: id }),
+            }),
+        }
+      : a,
+  );
+  return (
+    <DropdownMenu>
+      <HintTooltip label="Folder actions">
+        <DropdownMenuTrigger asChild>
+          <IconBtn label="Folder actions" className="no-drag">
+            <MoreHorizontalIcon />
+          </IconBtn>
+        </DropdownMenuTrigger>
+      </HintTooltip>
+      <DropdownMenuContent align="start" className="min-w-52">
+        <ActionItems actions={shown} menu="dropdown" />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function SortMenu() {
+  const f = useFilters();
+  return (
+    <DropdownMenu>
+      <HintTooltip label="Sort">
+        <DropdownMenuTrigger asChild>
+          <IconBtn label="Sort" className="no-drag">
+            <ArrowUpDownIcon />
+          </IconBtn>
+        </DropdownMenuTrigger>
+      </HintTooltip>
+      <DropdownMenuContent align="end" className="min-w-44">
+        <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {(Object.keys(SORTS) as Sort[]).map((k) => (
+          <DropdownMenuItem key={k} onSelect={() => setFilters({ sort: k })}>
+            <Tick on={f.sort === k} />
+            {SORTS[k]}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

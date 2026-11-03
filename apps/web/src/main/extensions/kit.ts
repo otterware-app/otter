@@ -35,9 +35,18 @@ export { mailApi } from "../mail/api";
 export type { ProviderSnapshot } from "../mail/api";
 export { useCapabilities } from "../mail/capabilities";
 export {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuTrigger,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
   DropdownMenuTrigger,
 } from "../mail/menu";
 export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../mail/select";

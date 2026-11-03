@@ -29,6 +29,16 @@ export default {
       return value;
     };
 
+    const versionOf = (p: Params) =>
+      typeof p?.version === "number" && Number.isInteger(p.version) && p.version > 0
+        ? p.version
+        : undefined;
+    const name = (p: Params) => {
+      const value = text(p?.name, 200);
+      if (!value) throw new Error("Give it a name.");
+      return value;
+    };
+
     handle("otterDrive:status", () => drive.driveStatus());
     handle("otterDrive:startSignIn", () => drive.startSignIn());
     handle("otterDrive:finishSignIn", (params: unknown) => {
@@ -52,15 +62,10 @@ export default {
 
     slow("otterDrive:artifacts", (p) => drive.artifacts(needFolder(p), p?.archived === true));
     slow("otterDrive:shared", () => drive.sharedWithMe());
+    slow("otterDrive:search", (p) => drive.search(text(p?.query, 200) ?? ""));
     slow("otterDrive:artifact", (p) => drive.getArtifact(id(p), folder(p)));
     slow("otterDrive:versions", (p) => drive.versions(id(p), folder(p)));
-    slow("otterDrive:preview", (p) => {
-      const version =
-        typeof p?.version === "number" && Number.isInteger(p.version) && p.version > 0
-          ? p.version
-          : undefined;
-      return drive.preview(id(p), folder(p), version);
-    });
+    slow("otterDrive:preview", (p) => drive.preview(id(p), folder(p), versionOf(p)));
     slow("otterDrive:rename", (p) => {
       const title = text(p?.title, 200);
       if (!title) throw new Error("Give it a title.");
@@ -70,6 +75,24 @@ export default {
       drive.setArchived(id(p), folder(p), p?.archived === true),
     );
     slow("otterDrive:thumbnail", (p) => drive.thumbnail(id(p), folder(p)));
+
+    slow("otterDrive:download", (p) => drive.download(id(p), folder(p), versionOf(p)));
+    slow("otterDrive:uploadVersion", (p) => drive.uploadNewVersion(id(p), folder(p)));
+    slow("otterDrive:move", (p) => {
+      const to = text(p?.destination, 200);
+      if (!to) throw new Error("Choose a folder.");
+      return drive.move(id(p), folder(p), to);
+    });
+    slow("otterDrive:deletePermanently", (p) => drive.deletePermanently(id(p), folder(p)));
+    slow("otterDrive:createFolder", (p) => drive.createFolder(needFolder(p), name(p)));
+    slow("otterDrive:updateFolder", (p) => {
+      const parentId = p?.parentId === undefined ? undefined : text(p.parentId, 200);
+      return drive.updateFolder(needFolder(p), {
+        ...(p?.name === undefined ? {} : { name: name(p) }),
+        ...(parentId ? { parentId } : {}),
+      });
+    });
+    slow("otterDrive:deleteFolder", (p) => drive.deleteFolder(needFolder(p)));
 
     slow("otterDrive:uploadPicked", (p) => drive.uploadPicked(needFolder(p)));
     slow("otterDrive:uploadBytes", (p) => {

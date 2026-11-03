@@ -28,6 +28,8 @@ export type UiExtension = {
   useConversation?: (input: ConversationInput) => ConversationOutput;
   messageActions?: readonly MessageAction[];
   commands?: readonly PaletteCommand[];
+  /** What ⌘K finds of its own for the text typed (Drive's documents), under `label`. */
+  paletteSearch?: PaletteSearch;
   Dialogs?: ComponentType;
   Settings?: ComponentType;
   /** A connection (manifest category `connection`): listed in Connections beside the mailboxes. */
@@ -124,6 +126,11 @@ export type MessageAction = {
   run(target: MessageTarget): void;
 };
 
+export type PaletteSearch = {
+  label: string;
+  search(query: string): Promise<PaletteResult[]>;
+};
+export type PaletteResult = PaletteCommand & { description?: string };
 export type PaletteCommand = {
   id: string;
   title: string;

@@ -1,4 +1,5 @@
-import { useExtensionCommands } from "../extensions/slots";
+import { useQueries } from "@tanstack/react-query";
+import { useExtensionCommands, useExtensionPaletteSearches } from "../extensions/slots";
 import {
   useEffect,
   useLayoutEffect,
@@ -209,6 +210,41 @@ export function CommandPalette({
 
   const { resolved: keybindings } = useKeybindingsState();
   const extensionCommands = useExtensionCommands();
+  // Extensions' own results (Drive's documents) for the text typed, each under its label.
+  const extensionSearches = useExtensionPaletteSearches();
+  const extensionResults = useQueries({
+    queries: extensionSearches.map((e) => ({
+      queryKey: ["palette-search", e.id, debouncedQuery],
+      queryFn: () => e.search(debouncedQuery),
+      enabled: open && page === "root" && debouncedQuery !== "",
+      staleTime: 30_000,
+      retry: false,
+    })),
+    combine: (results) => results.map((r) => r.data),
+  });
+  const extensionGroups = useMemo(
+    (): PaletteGroup[] =>
+      extensionSearches.flatMap((e, i) => {
+        const results = (extensionResults[i] ?? []).slice(0, 8);
+        return results.length
+          ? [
+              {
+                id: `extension:${e.id}`,
+                label: e.label,
+                items: results.map(({ id, title, description, keywords, Icon, run }) => ({
+                  id,
+                  icon: <Icon className={ICON} />,
+                  title,
+                  description,
+                  keywords,
+                  run,
+                })),
+              },
+            ]
+          : [];
+      }),
+    [extensionSearches, extensionResults],
+  );
   const workspaces = useWorkspaces();
   const groups: PaletteGroup[] = useMemo(() => {
     const sc = (command: KeybindingCommand) => shortcutLabelFor(keybindings, command) ?? undefined;
@@ -458,7 +494,10 @@ export function CommandPalette({
         })
       : [];
 
-    const mailGroup = mail.length > 0 ? [{ id: "mail", label: "Mail", items: mail }] : [];
+    const mailGroup = [
+      ...(mail.length > 0 ? [{ id: "mail", label: "Mail", items: mail }] : []),
+      ...(needle ? extensionGroups : []),
+    ];
     if (!needle) return staticGroups;
 
     const searchGroup = {
@@ -488,6 +527,7 @@ export function CommandPalette({
   }, [
     workspaces,
     extensionCommands,
+    extensionGroups,
     keybindings,
     themes,
     page,

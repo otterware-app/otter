@@ -63,6 +63,7 @@ export const driveApi = {
   artifacts: (folderId: string, archived = false): Promise<DriveArtifact[]> =>
     task("otterDrive:artifacts", { folderId, archived }),
   shared: (): Promise<DriveArtifact[]> => task("otterDrive:shared", {}),
+  search: (query: string): Promise<DriveArtifact[]> => task("otterDrive:search", { query }),
   artifact: (id: string, folderId?: string): Promise<DriveArtifact> =>
     task("otterDrive:artifact", { id, folderId }),
   versions: (id: string, folderId?: string): Promise<DriveVersion[]> =>
@@ -75,6 +76,19 @@ export const driveApi = {
     task("otterDrive:setArchived", { id, folderId, archived }),
   thumbnail: (id: string, folderId?: string): Promise<string | null> =>
     task("otterDrive:thumbnail", { id, folderId }),
+  download: (id: string, folderId: string | undefined, version?: number): Promise<boolean> =>
+    task("otterDrive:download", { id, folderId, version }),
+  uploadVersion: (id: string, folderId: string | undefined): Promise<DriveArtifact | null> =>
+    task("otterDrive:uploadVersion", { id, folderId }),
+  move: (id: string, folderId: string | undefined, destination: string): Promise<DriveArtifact> =>
+    task("otterDrive:move", { id, folderId, destination }),
+  deletePermanently: (id: string, folderId: string | undefined): Promise<void> =>
+    task("otterDrive:deletePermanently", { id, folderId }),
+  createFolder: (parentId: string, name: string): Promise<{ id: string }> =>
+    task("otterDrive:createFolder", { folderId: parentId, name }),
+  updateFolder: (id: string, change: { name?: string; parentId?: string }): Promise<void> =>
+    task("otterDrive:updateFolder", { folderId: id, ...change }),
+  deleteFolder: (id: string): Promise<void> => task("otterDrive:deleteFolder", { folderId: id }),
   uploadPicked: (folderId: string): Promise<DriveArtifact[]> =>
     task("otterDrive:uploadPicked", { folderId }),
   uploadBytes: (

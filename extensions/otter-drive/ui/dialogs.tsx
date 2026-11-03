@@ -17,6 +17,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
+import { DriveActionDialogs } from "./actions";
+import { setDriveOpener } from "./search";
 import { driveApi, driveLabel } from "./api";
 import { DriveMark } from "./drive-mark";
 import { errorText, useDriveStatus, useFolders } from "./hooks";
@@ -31,11 +33,21 @@ export function saveToOtterDrive(email: MessageTarget): void {
 /** Mounted once so the message action works from the list and the reader. */
 export function OtterDriveDialogs() {
   const [email, setEmail] = useState<MessageTarget | null>(null);
+  const openWorkspace = useOpenWorkspace();
+  useEffect(() => {
+    setDriveOpener((location, item) => openWorkspace("drive", { location, item }));
+    return () => setDriveOpener(null);
+  }, [openWorkspace]);
   useEffect(() => {
     listeners.add(setEmail);
     return () => void listeners.delete(setEmail);
   }, []);
-  return email ? <SaveToDrive email={email} onClose={() => setEmail(null)} /> : null;
+  return (
+    <>
+      <DriveActionDialogs />
+      {email ? <SaveToDrive email={email} onClose={() => setEmail(null)} /> : null}
+    </>
+  );
 }
 
 function ConnectDrive({ onClose }: { onClose: () => void }) {

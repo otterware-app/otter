@@ -7,6 +7,9 @@
 
 import {
   Btn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
   HintTooltip,
   IconBtn,
   Input,
@@ -17,21 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
   cn,
-  openLink,
   toast,
   type WorkspaceMainProps,
 } from "@otter-mail/web/extension-kit";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  ArrowLeftIcon,
-  ExternalLinkIcon,
-  LinkIcon,
-} from "lucide-react";
+import { ArrowLeftIcon, DownloadIcon, LinkIcon, MoreHorizontalIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { ActionItems, useDocumentActions } from "./actions";
 import { driveApi, type DriveArtifact, type DrivePreview } from "./api";
 import { errorText } from "./hooks";
 import { parseDelimited } from "./table";
@@ -252,40 +249,7 @@ export function DocumentView({
             </SelectContent>
           </Select>
         ) : null}
-        {a ? (
-          <div className="no-drag flex items-center">
-            <HintTooltip label="Copy link">
-              <IconBtn
-                label="Copy link"
-                onClick={() =>
-                  void navigator.clipboard.writeText(a.url).then(() => toast.success("Link copied"))
-                }
-              >
-                <LinkIcon />
-              </IconBtn>
-            </HintTooltip>
-            <HintTooltip label="Open in Otter Drive">
-              <IconBtn label="Open in Otter Drive" onClick={() => openLink(a.url)}>
-                <ExternalLinkIcon />
-              </IconBtn>
-            </HintTooltip>
-            {canEdit ? (
-              <HintTooltip label={a.archived ? "Restore" : "Archive"}>
-                <IconBtn
-                  label={a.archived ? "Restore" : "Archive"}
-                  onClick={() =>
-                    void act(
-                      () => driveApi.setArchived(id, folderId, !a.archived),
-                      a.archived ? "Restored" : "Archived",
-                    ).then((ok) => ok && !a.archived && back())
-                  }
-                >
-                  {a.archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
-                </IconBtn>
-              </HintTooltip>
-            ) : null}
-          </div>
-        ) : null}
+        {a ? <DocumentButtons a={a} folderId={folderId} version={version} onGone={back} /> : null}
       </TitleBar>
       <div className="flex min-h-0 flex-1 flex-col px-1 pb-1">
         {artifact.isError || preview.isError ? (
@@ -300,6 +264,50 @@ export function DocumentView({
           <Preview preview={shown} />
         )}
       </div>
+    </div>
+  );
+}
+
+function DocumentButtons({
+  a,
+  folderId,
+  version,
+  onGone,
+}: {
+  a: DriveArtifact;
+  folderId: string | undefined;
+  version: number | null;
+  onGone: () => void;
+}) {
+  const actions = useDocumentActions(a, { folderId, version, onGone });
+  const run = (id: string) => {
+    const action = actions.find((x) => x.id === id);
+    if (action && "run" in action) action.run();
+  };
+  return (
+    <div className="no-drag flex items-center">
+      <HintTooltip label="Copy link">
+        <IconBtn label="Copy link" onClick={() => run("link")}>
+          <LinkIcon />
+        </IconBtn>
+      </HintTooltip>
+      <HintTooltip label="Download">
+        <IconBtn label="Download" onClick={() => run("download")}>
+          <DownloadIcon />
+        </IconBtn>
+      </HintTooltip>
+      <DropdownMenu>
+        <HintTooltip label="More">
+          <DropdownMenuTrigger asChild>
+            <IconBtn label="Document actions">
+              <MoreHorizontalIcon />
+            </IconBtn>
+          </DropdownMenuTrigger>
+        </HintTooltip>
+        <DropdownMenuContent align="end" className="min-w-56">
+          <ActionItems actions={actions} menu="dropdown" />
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

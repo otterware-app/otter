@@ -21,6 +21,7 @@ import type {
   MessageCardProps,
   MessageTarget,
   PaletteCommand,
+  PaletteSearch,
   UiExtension,
 } from "./types";
 
@@ -131,6 +132,15 @@ export function ExtensionContextMenuActions({ target }: { target: MessageTarget 
 export function useExtensionCommands(): PaletteCommand[] {
   const enabled = useEnabledExtensions();
   return useMemo(() => enabled.flatMap((e) => e.commands ?? []), [enabled]);
+}
+
+export function useExtensionPaletteSearches(): (PaletteSearch & { id: string })[] {
+  const enabled = useEnabledExtensions();
+  return useMemo(
+    () =>
+      enabled.flatMap((e) => (e.paletteSearch ? [{ id: e.manifest.id, ...e.paletteSearch }] : [])),
+    [enabled],
+  );
 }
 
 export function ExtensionDialogs() {

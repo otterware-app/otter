@@ -165,10 +165,15 @@ Drive is a workspace beside Mail, Calendar and Agent (its mark at the sidebar's 
 Drive", `/drive/<folder>/<document>`), laid out like Otter Drive: the sidebar picks a drive (My
 Drive, your shared drives, Shared with me) with Mail's mailbox picker, filters it (Type, Updated
 this week, Archived), searches it, and lists its folders and documents; the main area shows the
-open document, or the drive's documents as a grid of thumbnails. Every kind Otter Drive shows:
+open document, or the drive's documents as a grid of thumbnails, with the folder's path above and
+its sort (last updated, name). Every kind Otter Drive shows:
 Markdown, text, CSV/TSV and Excel workbooks (with their sheets) drawn in the app's style; videos,
 images, pages, sites of several files, PDFs and the rest from Drive's content host. A document renames in place,
-switches versions, copies its link, archives and restores; files upload by picking or dropping.
+switches versions, copies its link or a prompt for an agent, downloads (its file, or a site as a
+zip), takes a new version, moves to another of your folders, archives and restores, and once
+archived deletes for good, from its More menu or a right-click. Folders are made, renamed, moved
+and (empty) deleted the same way; files upload by picking or dropping. ⌘K finds documents in the
+drives that are on.
 
 Sign in from Drive or Settings → Connections (a code confirmed in the browser). Settings lists your
 drives with a switch each: a drive that's off is hidden in Drive, can't be saved to, and is refused
@@ -181,6 +186,9 @@ change (otter-drive `otter-mail-cors`).
 | --------------------------------------------------- | --- | --- | ------ |
 | Drive workspace: drives, filters, search, documents | ✓   | —   | —      |
 | Previews, versions, rename, archive, upload         | ✓   | —   | —      |
+| Folders: new, rename, move, delete; sort; path      | ✓   | —   | —      |
+| Download, move, new version, delete permanently     | ✓   | —   | —      |
+| Documents in ⌘K                                     | ✓   | —   | —      |
 | Drives on or off (Settings)                         | ✓   | —   | —      |
 | Save an attachment or the email to a drive          | ✓   | —   | —      |
 
