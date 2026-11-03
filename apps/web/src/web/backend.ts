@@ -27,10 +27,10 @@ export type PageHandlers = {
 
 const ORIGIN_CHANNELS: Record<keyof PageRequests | "download" | "open", string[]> = {
   todoistSignIn: ["todoist:signIn"],
-  pickFiles: ["gmail:pickAttachments"],
+  pickFiles: ["gmail:pickAttachments", "otterDrive:uploadPicked", "otterDrive:uploadVersion"],
   googleSignIn: ["gmail:addAccount"],
   outlookSignIn: ["gmail:addOutlookAccount"],
-  download: ["gmail:getAttachment"],
+  download: ["gmail:getAttachment", "otterDrive:download"],
   open: ["gmail:openAttachment", "gmail:openComposeAttachment"],
   detectLanguage: ["translation:detect"],
   translate: ["translation:translate"],

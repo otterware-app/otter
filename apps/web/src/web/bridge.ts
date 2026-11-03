@@ -233,7 +233,12 @@ async function invoke<T>(channel: string, params?: unknown): Promise<T> {
 
   // Start what needs the click now, while it counts as the user's.
   if (channel === "todoist:signIn") prepareTodoistPopup();
-  if (channel === "gmail:pickAttachments") started.pickFiles = pickFiles();
+  if (
+    channel === "gmail:pickAttachments" ||
+    channel === "otterDrive:uploadPicked" ||
+    channel === "otterDrive:uploadVersion"
+  )
+    started.pickFiles = pickFiles();
   if (channel === "gmail:addAccount" && !__DEMO__) {
     started.googleSignIn = signIn("gmail", (params as { email?: string } | undefined)?.email);
   }
