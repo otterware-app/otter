@@ -7,6 +7,7 @@
 
 import {
   Btn,
+  Dialog,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
@@ -29,13 +30,16 @@ import {
   ArrowLeftIcon,
   DownloadIcon,
   LinkIcon,
+  HistoryIcon,
   MoreHorizontalIcon,
+  PencilIcon,
   UserPlusIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { ActionItems, useDocumentActions } from "./actions";
 import { driveApi, type DriveArtifact, type DrivePreview } from "./api";
+import { Editor, editable, type Edit } from "./editor";
 import { errorText } from "./hooks";
 import { parseDelimited } from "./table";
 
@@ -157,12 +161,20 @@ export function DocumentView({
   if (fresh && !kept) setOpen({ version, current, data: fresh });
   const shown = kept ?? fresh;
   const [renaming, setRenaming] = useState<string | null>(null);
-  const back = () => go({ location });
+  // Editing: what it started from, and the change so far (null until something changes).
+  const [editing, setEditing] = useState<Edit | null>(null);
+  const [draft, setDraft] = useState<Edit | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [leaving, setLeaving] = useState<(() => void) | null>(null);
+  /** Leaves unless there are changes, which it asks about first. */
+  const unlessUnsaved = (then: () => void) => (draft ? setLeaving(() => then) : then());
+  const back = () => unlessUnsaved(() => go({ location }));
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (e.key !== "Escape" || e.defaultPrevented) return;
       if (target?.closest("input, textarea, [contenteditable], [role=dialog]")) return;
+      if (editing) return;
       back();
     };
     window.addEventListener("keydown", down);
@@ -182,7 +194,41 @@ export function DocumentView({
     Promise.all([
       qc.invalidateQueries({ queryKey: ["otter-drive", "artifact", id] }),
       qc.invalidateQueries({ queryKey: ["otter-drive", "artifacts"] }),
+      qc.invalidateQueries({ queryKey: ["otter-drive", "versions", id] }),
     ]);
+  /** After a new current version: its preview, fetched again and shown. */
+  const reload = async () => {
+    await qc.resetQueries({ queryKey: ["otter-drive", "preview", id] });
+    setOpen(null);
+    await refresh();
+  };
+  const startEdit = editable(shown);
+  const canStartEdit = canEdit && !a?.archived && version === null && startEdit !== null;
+  const save = async () => {
+    if (!draft) return setEditing(null);
+    setSaving(true);
+    try {
+      const saved = await driveApi.saveEdit(id, folderId, draft);
+      setEditing(null);
+      setDraft(null);
+      await reload();
+      toast.success(`Saved as version ${saved.current?.number ?? ""}`);
+    } catch (error) {
+      toast.error(errorText(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+  const promote = async (number: number) => {
+    try {
+      await driveApi.promoteVersion(id, folderId, number);
+      setVersion(null);
+      await reload();
+      toast.success(`Version ${number} is current again`);
+    } catch (error) {
+      toast.error(errorText(error));
+    }
+  };
   const act = async (action: () => Promise<unknown>, done?: string) => {
     try {
       await action();
@@ -244,7 +290,7 @@ export function DocumentView({
             </span>
           ) : null}
         </div>
-        {a && a.versionCount > 1 && versions.data ? (
+        {a && a.versionCount > 1 && versions.data && !editing ? (
           <Select
             value={String(version ?? a.current?.number ?? "")}
             onValueChange={(v) => setVersion(Number(v) === a.current?.number ? null : Number(v))}
@@ -261,7 +307,37 @@ export function DocumentView({
             </SelectContent>
           </Select>
         ) : null}
-        {a ? <DocumentButtons a={a} folderId={folderId} version={version} onGone={back} /> : null}
+        {a && version !== null && canEdit && !a.archived && !editing ? (
+          <Btn size="sm" className="no-drag" onClick={() => void promote(version)}>
+            <HistoryIcon />
+            Make current
+          </Btn>
+        ) : null}
+        {editing ? (
+          <div className="no-drag flex items-center gap-1.5">
+            <Btn size="sm" disabled={saving} onClick={() => unlessUnsaved(() => setEditing(null))}>
+              Cancel
+            </Btn>
+            <Btn
+              size="sm"
+              variant="primary"
+              disabled={saving || !draft}
+              onClick={() => void save()}
+            >
+              {saving ? "Saving…" : "Save"}
+            </Btn>
+          </div>
+        ) : a ? (
+          <>
+            {canStartEdit ? (
+              <Btn size="sm" className="no-drag" onClick={() => setEditing(startEdit)}>
+                <PencilIcon />
+                Edit
+              </Btn>
+            ) : null}
+            <DocumentButtons a={a} folderId={folderId} version={version} onGone={back} />
+          </>
+        ) : null}
       </TitleBar>
       <div className="flex min-h-0 flex-1 flex-col px-1 pb-1">
         {artifact.isError || preview.isError ? (
@@ -272,10 +348,34 @@ export function DocumentView({
           />
         ) : !shown ? (
           <div className="flex-1 animate-pulse rounded-xl bg-muted/50" />
+        ) : editing ? (
+          <Editor
+            initial={editing}
+            markdown={shown.kind === "markdown"}
+            disabled={saving}
+            onChange={setDraft}
+          />
         ) : (
           <Preview preview={shown} />
         )}
       </div>
+      {leaving ? (
+        <Dialog
+          open
+          title="Discard your changes?"
+          description="They haven't been saved as a version."
+          onOpenChange={(o) => !o && setLeaving(null)}
+          confirmLabel="Discard"
+          confirmVariant="destructive"
+          onConfirm={() => {
+            const then = leaving;
+            setLeaving(null);
+            setDraft(null);
+            setEditing(null);
+            then();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

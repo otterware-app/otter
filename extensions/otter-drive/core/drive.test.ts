@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { documentKind, emailPage, slugFor } from "./drive.js";
+import { delimited, documentKind, emailPage, slugFor } from "./drive.js";
+import { parseDelimited } from "../ui/table.js";
 
 describe("slugFor", () => {
   it("makes a valid Otter Drive slug with a random tail", () => {
@@ -44,5 +45,22 @@ describe("documentKind", () => {
     expect(documentKind("text/html; charset=utf-8", "index.html")).toBe("frame");
     expect(documentKind("application/pdf", "deck.pdf")).toBe("frame");
     expect(documentKind("audio/mpeg", "memo.mp3")).toBe("frame");
+  });
+});
+
+describe("delimited", () => {
+  it("quotes only the cells that need it, and reads back the same", () => {
+    const rows = [
+      ["name", "note"],
+      ["Ada", 'said "hi", then left'],
+      ["Bob", "two\nlines"],
+    ];
+    const csv = delimited(rows, ",");
+    expect(csv).toBe('name,note\r\nAda,"said ""hi"", then left"\r\nBob,"two\nlines"');
+    expect(parseDelimited(csv, ",")).toEqual(rows);
+  });
+
+  it("quotes a tab in a TSV cell", () => {
+    expect(delimited([["a\tb", "c"]], "\t")).toBe('"a\tb"\tc');
   });
 });

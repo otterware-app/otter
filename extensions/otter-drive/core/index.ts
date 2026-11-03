@@ -195,6 +195,38 @@ export default {
       return drive.revokeApiKey(keyId);
     });
 
+    slow("otterDrive:saveEdit", (p) => {
+      const edit = p?.edit as { text?: unknown; sheets?: unknown } | undefined;
+      if (typeof edit?.text === "string" && edit.text.length <= 10_000_000)
+        return drive.saveEdit(id(p), folder(p), { text: edit.text });
+      const sheets = Array.isArray(edit?.sheets) ? edit.sheets : null;
+      const valid =
+        sheets &&
+        sheets.length > 0 &&
+        sheets.length <= 100 &&
+        sheets.every(
+          (sheet: { name?: unknown; rows?: unknown }) =>
+            typeof sheet?.name === "string" &&
+            Array.isArray(sheet.rows) &&
+            sheet.rows.length <= 100_000 &&
+            sheet.rows.every(
+              (row: unknown) =>
+                Array.isArray(row) &&
+                row.length <= 1_000 &&
+                row.every((cell: unknown) => typeof cell === "string"),
+            ),
+        );
+      if (!valid) throw new Error("Invalid edit.");
+      return drive.saveEdit(id(p), folder(p), {
+        sheets: sheets as { name: string; rows: string[][] }[],
+      });
+    });
+    slow("otterDrive:promoteVersion", (p) => {
+      const number = versionOf(p);
+      if (!number) throw new Error("Choose a version.");
+      return drive.promoteVersion(id(p), folder(p), number);
+    });
+
     slow("otterDrive:uploadPicked", (p) => drive.uploadPicked(needFolder(p)));
     slow("otterDrive:uploadBytes", (p) => {
       const name = text(p?.name, 255);

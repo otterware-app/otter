@@ -30,13 +30,17 @@ Otter Drive is a built-in extension: the `extensions/otter-drive` package
   Drives and the account, for Settings: new shared drives, renaming and deleting them, members
   and transfer (`/members`, `/owner`), storage (`/storage`: connect, default, keys, verify,
   disconnect) and API keys (Better Auth's `/api/auth/api-key/*`). These manage a drive rather
-  than reach its documents, so a drive turned off here can still be managed. The token and the drives
+  than reach its documents, so a drive turned off here can still be managed.
+  Editing (`saveEdit`): the edit is written in the document's own format (text, CSV/TSV, or
+  Excel through `@e965/xlsx`, values only) and uploaded as the next version, following the
+  current one; a site's other files carry forward (`baseVersion`). `promoteVersion` makes an
+  earlier version current. The token and the drives
   turned off (`hidden`) are kept in the platform's secrets; every document call goes through
   `reachable`, which refuses a drive that's off.
 - `ui/`: `index.tsx` is what it contributes: the workspace (`workspace.tsx`: the sidebar's drive
   picker, filters and list, and the overview grid; `document.tsx`: the open document; `actions.tsx`:
   a document's and a folder's actions, one list drawn as a right-click or a More menu, and their
-  dialogs; `share.tsx`: the Share dialog), ⌘K's Drive results and Drive's links in mail
+  dialogs; `share.tsx`: the Share dialog; `editor.tsx`: editing text and grids), ⌘K's Drive results and Drive's links in mail
   (`search.ts`, the `paletteSearch` and `bodyLinks` slots), "Save to
   Otter Drive…" on messages (`dialogs.tsx`), its page in Settings → Connections with a switch per
   drive and each drive's own page, and Agents (`settings.tsx`, `drive-settings.tsx`), the Drive marks (`glyph.tsx` from the Otterware production kit,

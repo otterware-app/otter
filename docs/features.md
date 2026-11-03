@@ -182,6 +182,11 @@ message, change or remove anyone's access, leave something shared with you, and 
 and removes its members the same way. Drive's links in an email (a shared link, a document, a
 folder) open in Drive; a shared link adds what it shares to Shared with me first.
 
+Text and Markdown (with the page beside it), CSV, TSV and Excel workbooks (a grid, every sheet)
+edit in place: Edit, then Save makes a new version (a workbook keeps its values; formatting and
+formulas aren't kept). An earlier version shown from the version menu becomes current again with
+Make current.
+
 Sign in from Drive or Settings → Connections (a code confirmed in the browser). Settings lists your
 drives with a switch each: a drive that's off is hidden in Drive, can't be saved to, and is refused
 to anything else asking (agents included). Each drive opens its own page there, as in Otter Drive: its
@@ -203,6 +208,8 @@ change (otter-drive `otter-mail-cors`).
 | Documents in ⌘K                                     | ✓   | —   | —      |
 | Share: people, roles, notify, link access, leave    | ✓   | —   | —      |
 | Drive links in mail open in Drive                   | ✓   | —   | —      |
+| Edit text, Markdown, CSV/TSV, workbooks             | ✓   | —   | —      |
+| Make an earlier version current                     | ✓   | —   | —      |
 | Drives on or off (Settings)                         | ✓   | —   | —      |
 | Drive settings: name, members, storage, transfer    | ✓   | —   | —      |
 | New shared drive, delete a drive                    | ✓   | —   | —      |
