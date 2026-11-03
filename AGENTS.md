@@ -189,7 +189,11 @@ change in the simulator, in light and dark.
 ## Taste
 
 - Small, obvious code. Don't add machinery a change doesn't need.
-- Match the surrounding code: its naming, comment density and idioms.
+- Match the surrounding code: its naming and idioms.
+- Be aggressive about removing useless code comments, and avoid adding them. Skip narration,
+  file introductions, section dividers, and comments that repeat names or nearby code. Keep
+  tooling directives, required attribution, and explanations of non-obvious constraints,
+  invariants or workarounds.
 - The mail cache is local-first: the UI renders from SQLite and sync catches up. Keep IPC
   payloads small and never block the renderer on Gmail.
 - The desktop app targets macOS (Apple Translation, the Dock badge) and Linux (Debian first:
