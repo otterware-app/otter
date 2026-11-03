@@ -12,8 +12,9 @@ Otter Drive is a built-in extension: the `extensions/otter-drive` package
 (`@otter-mail/extension-otter-drive`).
 
 - `package.json`: its manifest (`otterMail`): a connection, the `drive` workspace
-  (`contributes.workspaces`), Mac and Linux only until Drive's API answers the web app (CORS, the
-  otter-drive branch `otter-mail-cors`).
+  (`contributes.workspaces`), on every app: Drive's API answers mail.otterware.app (and the dev
+  server on :5833) cross-origin with a bearer token, never cookies. A worktree's dev server on
+  another port isn't allowed: run it with `PORT=5833` to try Drive.
 - `core/`: `index.ts` registers the `otterDrive:*` handlers; `drive.ts` is the API: the device
   sign-in (the `otterware-cli` client Drive accepts for Otterware's apps), drives and folders
   (`/api/v1/folders`), Shared with me (`/api/v1/shared`), a folder's documents (the
@@ -59,13 +60,13 @@ lets frames load there rather than opening them in the browser. The app's CSP al
 
 ## App entry points
 
-`apps/desktop/src/extensions.ts` (core half) and `apps/web/src/main/extensions/registry.ts` (UI
-half). Nothing else in the app imports it; its workspace reaches the app only through the
-`workspaces` slot. It adds no relay endpoints, platform methods, OAuth secrets in the build, or
+`apps/desktop/src/extensions.ts` and `apps/web/src/web/extensions.ts` (core half) and `apps/web/src/main/extensions/registry.ts` (UI
+half). Nothing else in the app imports it; it reaches the app only through its slots
+(`workspaces`, `messageActions`, `paletteSearch`, `bodyLinks`, `Dialogs`, `Settings`). It adds no relay endpoints, platform methods, OAuth secrets in the build, or
 iPhone code.
 
 ## Removing Otter Drive
 
-Delete `extensions/otter-drive`, its two entries in the lists above and the two `package.json`
+Delete `extensions/otter-drive`, its three entries in the lists above and the two `package.json`
 dependencies, its section in `docs/features.md`, and this file. Users' saved sign-ins are left in
 secrets under `otter-drive`, unused.

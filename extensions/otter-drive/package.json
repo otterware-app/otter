@@ -33,10 +33,6 @@
     "name": "Otter Drive",
     "description": "Your drives' documents in a Drive workspace, and attachments saved from mail.",
     "category": "connection",
-    "platforms": [
-      "mac",
-      "linux"
-    ],
     "dataUse": "Sends Otter Drive only what you upload or choose to save: the attachment or the email, with the title you give it, into the drive you pick. Everyone with access to that drive can see it. Your Otter Drive sign-in, and which drives are on, stay on this device.",
     "contributes": {
       "workspaces": [

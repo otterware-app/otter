@@ -712,7 +712,7 @@ export function DriveMain(props: WorkspaceMainProps) {
 }
 
 function SignInScreen({ titleLeading, titleTrailing }: WorkspaceMainProps) {
-  const { code, pending, signIn, cancel } = useDriveSignIn();
+  const { code, url, pending, signIn, cancel } = useDriveSignIn();
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <TitleBar leading={titleLeading} trailing={titleTrailing}>
@@ -733,9 +733,16 @@ function SignInScreen({ titleLeading, titleTrailing }: WorkspaceMainProps) {
             <span className="rounded-lg border border-border px-4 py-2 font-mono text-lg tracking-widest text-foreground select-all">
               {code}
             </span>
-            <Btn size="sm" onClick={cancel}>
-              Cancel
-            </Btn>
+            <div className="flex gap-2">
+              {url ? (
+                <Btn size="sm" onClick={() => void window.desktopBridge.openExternal(url)}>
+                  Open sign-in page
+                </Btn>
+              ) : null}
+              <Btn size="sm" onClick={cancel}>
+                Cancel
+              </Btn>
+            </div>
           </div>
         ) : (
           <Btn variant="primary" disabled={pending} onClick={() => void signIn()}>

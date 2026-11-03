@@ -196,25 +196,25 @@ it, replaces its keys, chooses where new uploads go, disconnects it), transferri
 and deleting it once empty. New shared drive… makes one; Agents shows the otterdrive CLI's setup and
 your API keys (create, copy once, revoke). "Save to Otter Drive…" in a message's menu saves an
 attachment, or the email as a page, into the drive you pick. The sign-in and the switches stay on
-this device. Drive's API answers only the desktop app for now: the web app needs Drive's CORS
-change (otter-drive `otter-mail-cors`).
+this device (this browser, on the web: Drive's API answers mail.otterware.app with a token, never
+cookies).
 
 | Feature                                             | Mac | Web | iPhone |
 | --------------------------------------------------- | --- | --- | ------ |
-| Drive workspace: drives, filters, search, documents | ✓   | —   | —      |
-| Previews, versions, rename, archive, upload         | ✓   | —   | —      |
-| Folders: new, rename, move, delete; sort; path      | ✓   | —   | —      |
-| Download, move, new version, delete permanently     | ✓   | —   | —      |
-| Documents in ⌘K                                     | ✓   | —   | —      |
-| Share: people, roles, notify, link access, leave    | ✓   | —   | —      |
-| Drive links in mail open in Drive                   | ✓   | —   | —      |
-| Edit text, Markdown, CSV/TSV, workbooks             | ✓   | —   | —      |
-| Make an earlier version current                     | ✓   | —   | —      |
-| Drives on or off (Settings)                         | ✓   | —   | —      |
-| Drive settings: name, members, storage, transfer    | ✓   | —   | —      |
-| New shared drive, delete a drive                    | ✓   | —   | —      |
-| API keys and CLI setup for agents                   | ✓   | —   | —      |
-| Save an attachment or the email to a drive          | ✓   | —   | —      |
+| Drive workspace: drives, filters, search, documents | ✓   | ✓   | —      |
+| Previews, versions, rename, archive, upload         | ✓   | ✓   | —      |
+| Folders: new, rename, move, delete; sort; path      | ✓   | ✓   | —      |
+| Download, move, new version, delete permanently     | ✓   | ✓   | —      |
+| Documents in ⌘K                                     | ✓   | ✓   | —      |
+| Share: people, roles, notify, link access, leave    | ✓   | ✓   | —      |
+| Drive links in mail open in Drive                   | ✓   | ✓   | —      |
+| Edit text, Markdown, CSV/TSV, workbooks             | ✓   | ✓   | —      |
+| Make an earlier version current                     | ✓   | ✓   | —      |
+| Drives on or off (Settings)                         | ✓   | ✓   | —      |
+| Drive settings: name, members, storage, transfer    | ✓   | ✓   | —      |
+| New shared drive, delete a drive                    | ✓   | ✓   | —      |
+| API keys and CLI setup for agents                   | ✓   | ✓   | —      |
+| Save an attachment or the email to a drive          | ✓   | ✓   | —      |
 
 ## Chats
 

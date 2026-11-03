@@ -26,7 +26,7 @@ export function OtterDriveSettingsPane() {
   const status = useDriveStatus();
   const connected = status.data?.connected === true;
   const drives = useDrives(connected);
-  const { code, pending, run, signIn, cancel } = useDriveSignIn();
+  const { code, url, pending, run, signIn, cancel } = useDriveSignIn();
   const openWorkspace = useOpenWorkspace();
   const qc = useQueryClient();
   const hidden = new Set(status.data?.hidden ?? []);
@@ -115,9 +115,16 @@ export function OtterDriveSettingsPane() {
           control={
             <div className="flex gap-2">
               {code ? (
-                <Btn size="sm" onClick={cancel}>
-                  Cancel
-                </Btn>
+                <>
+                  {url ? (
+                    <Btn size="sm" onClick={() => void window.desktopBridge.openExternal(url)}>
+                      Open sign-in page
+                    </Btn>
+                  ) : null}
+                  <Btn size="sm" onClick={cancel}>
+                    Cancel
+                  </Btn>
+                </>
               ) : (
                 <Btn
                   size="sm"

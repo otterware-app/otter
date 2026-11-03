@@ -51,6 +51,8 @@ export function useDrives(enabled: boolean) {
 export function useDriveSignIn() {
   const qc = useQueryClient();
   const [code, setCode] = useState<string | null>(null);
+  // Its page, to open again: a browser may block the window opened for it.
+  const [url, setUrl] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   // Leaving ends it, even before its code has come: nothing opens, nothing is kept.
   const alive = useRef(true);
@@ -71,10 +73,12 @@ export function useDriveSignIn() {
     } finally {
       setPending(false);
       setCode(null);
+      setUrl(null);
     }
   };
   return {
     code,
+    url,
     pending,
     run,
     signIn: () =>
@@ -82,6 +86,7 @@ export function useDriveSignIn() {
         const start = await driveApi.startSignIn();
         if (!alive.current) return;
         setCode(start.userCode);
+        setUrl(start.verificationUrl);
         void window.desktopBridge.openExternal(start.verificationUrl).catch(() => {});
         await driveApi.finishSignIn(start.deviceCode, start.attempt);
       }),
