@@ -1,5 +1,5 @@
 import { toast } from "@otter-mail/web/extension-kit";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
 import { driveApi } from "./api";
@@ -22,8 +22,34 @@ export function useRefresh() {
     );
 }
 
+/**
+ * Fills a list's query with what this device kept of it, as of when it was fetched, while
+ * it's fetched again: the list shows at once, and stays when Drive can't be reached.
+ */
+export function useSaved(
+  queryKey: QueryKey,
+  enabled: boolean,
+  what: "folders" | "artifacts" | "shared",
+  folderId?: string,
+) {
+  const qc = useQueryClient();
+  const key = JSON.stringify(queryKey);
+  useEffect(() => {
+    const queryKey = JSON.parse(key) as QueryKey;
+    if (!enabled || qc.getQueryData(queryKey) !== undefined) return;
+    void driveApi
+      .saved(what, folderId)
+      .then((saved) => {
+        if (saved && qc.getQueryData(queryKey) === undefined)
+          qc.setQueryData(queryKey, saved.data, { updatedAt: saved.at });
+      })
+      .catch(() => {});
+  }, [qc, key, enabled, what, folderId]);
+}
+
 /** The folders of the drives that are on (drives, their folders, folders shared with you). */
 export function useFolders(enabled: boolean) {
+  useSaved(["otter-drive", "folders"], enabled, "folders");
   return useQuery({
     queryKey: ["otter-drive", "folders"],
     queryFn: driveApi.folders,

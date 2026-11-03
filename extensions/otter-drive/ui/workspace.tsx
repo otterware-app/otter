@@ -73,7 +73,7 @@ import {
 import { SHARED, driveApi, driveLabel, type DriveArtifact, type DriveFolder } from "./api";
 import { DocumentView, Empty, TitleBar, previewQuery, when } from "./document";
 import { DriveMark, SharedMark } from "./drive-mark";
-import { errorText, useDriveSignIn, useDriveStatus, useFolders } from "./hooks";
+import { errorText, useDriveSignIn, useDriveStatus, useFolders, useSaved } from "./hooks";
 import { OtterDriveIcon } from "./icon";
 
 /** My Drive, as a location: whichever folder is yours. */
@@ -215,8 +215,15 @@ function usePlace(location: string): Place {
   // Your drives and shared drives; folders shared with you sit in Shared with me.
   const drives = list.filter((x) => x.parentId === null && x.kind !== "folder");
 
+  const documentsKey = ["otter-drive", "artifacts", sharedWithMe ? SHARED : folder?.id, f.archived];
+  useSaved(
+    documentsKey,
+    connected && (sharedWithMe || folder !== null) && !f.archived,
+    sharedWithMe ? "shared" : "artifacts",
+    folder?.id,
+  );
   const documents = useQuery({
-    queryKey: ["otter-drive", "artifacts", sharedWithMe ? SHARED : folder?.id, f.archived],
+    queryKey: documentsKey,
     queryFn: () => (sharedWithMe ? driveApi.shared() : driveApi.artifacts(folder!.id, f.archived)),
     enabled: connected && (sharedWithMe || folder !== null),
     retry: false,
@@ -269,7 +276,8 @@ function usePlace(location: string): Place {
     subfolders,
     documents: shown,
     loading: folders.isPending || (documents.isPending && documents.fetchStatus !== "idle"),
-    error: folders.error ?? documents.error,
+    // What was kept stays up when Drive can't be reached.
+    error: (folders.data ? null : folders.error) ?? (documents.data ? null : documents.error),
   };
 }
 

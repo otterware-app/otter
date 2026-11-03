@@ -187,6 +187,10 @@ edit in place: Edit, then Save makes a new version (a workbook keeps its values;
 formulas aren't kept). An earlier version shown from the version menu becomes current again with
 Make current.
 
+Drive keeps a little on the device, as mail does: the lists last seen show at once (and stay when
+Drive can't be reached) while they're fetched again, and text, tables and workbooks opened before
+open from disk by version (the oldest go past 500 MB). Signing out clears it.
+
 Sign in from Drive or Settings → Connections (a code confirmed in the browser). Settings lists your
 drives with a switch each: a drive that's off is hidden in Drive, can't be saved to, and is refused
 to anything else asking (agents included). Each drive opens its own page there, as in Otter Drive: its

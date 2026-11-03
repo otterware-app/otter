@@ -136,6 +136,11 @@ export const driveApi = {
   folders: (): Promise<DriveFolder[]> => task("otterDrive:folders", {}),
   setDriveHidden: (id: string, hidden: boolean): Promise<void> =>
     task("otterDrive:setDriveHidden", { id, hidden }),
+  /** A list as this device last fetched it, and when (null: none kept). */
+  saved: <T>(
+    what: "folders" | "artifacts" | "shared",
+    folderId?: string,
+  ): Promise<{ at: number; data: T } | null> => ipc("otterDrive:saved", { what, folderId }),
   artifacts: (folderId: string, archived = false): Promise<DriveArtifact[]> =>
     task("otterDrive:artifacts", { folderId, archived }),
   shared: (): Promise<DriveArtifact[]> => task("otterDrive:shared", {}),

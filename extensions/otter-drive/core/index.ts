@@ -60,6 +60,14 @@ export default {
       return drive.setDriveHidden(value, p?.hidden === true);
     });
 
+    // What this device kept: read from disk, so not a task.
+    handle("otterDrive:saved", (params: unknown) => {
+      const p = params as Params;
+      const what = p?.what;
+      if (what !== "folders" && what !== "artifacts" && what !== "shared")
+        throw new Error("Invalid Otter Drive list.");
+      return drive.saved(what, folder(p));
+    });
     slow("otterDrive:artifacts", (p) => drive.artifacts(needFolder(p), p?.archived === true));
     slow("otterDrive:shared", () => drive.sharedWithMe());
     slow("otterDrive:search", (p) => drive.search(text(p?.query, 200) ?? ""));

@@ -16,6 +16,8 @@ import {
   utf8Encode,
 } from "@otter-mail/core/extension-kit";
 
+import * as local from "./local.js";
+
 const BASE = "https://drive.otterware.app";
 /** Otter Drive's device-flow client for Otterware's own apps. */
 const CLIENT_ID = "otterware-cli";
@@ -210,6 +212,7 @@ export async function finishSignIn(deviceCode: string, mine: number): Promise<vo
         attempt++;
         await platform().secrets.set(SECRET, JSON.stringify({ token: token.access_token }));
       });
+      await local.forgetAll();
       return;
     } catch (error) {
       if (!(error instanceof DriveError)) throw error;
@@ -228,6 +231,7 @@ export function cancelSignIn(): void {
 export async function disconnect(): Promise<void> {
   attempt++;
   await serially(() => platform().secrets.delete(SECRET));
+  await local.forgetAll();
 }
 
 let folderCache: { at: number; token: string; list: DriveFolder[] } | null = null;
@@ -247,6 +251,7 @@ async function allFolders(auth: Session): Promise<DriveFolder[]> {
     shared: shared === true,
   }));
   folderCache = { at: Date.now(), token: auth.token, list };
+  local.saveList(auth.token, "folders", list);
   return list;
 }
 
@@ -290,17 +295,18 @@ export async function setDriveHidden(id: string, hidden: boolean): Promise<void>
  */
 async function reachable(folderId: string | undefined): Promise<Session> {
   const auth = await signedIn();
-  const hidden = new Set(auth.hidden ?? []);
-  if (!folderId) {
-    if (hidden.has(SHARED)) throw new Error("Shared with me is turned off in Otter Mail.");
-    return auth;
-  }
-  const list = await allFolders(auth);
-  const folder = list.find((f) => f.id === folderId);
-  if (folder && hidden.has(driveOf(list, folder).id))
-    throw new Error("That drive is turned off in Otter Mail.");
-  if (!folder && hidden.has(SHARED)) throw new Error("Shared with me is turned off in Otter Mail.");
+  const refused = refusal(folderId ? await allFolders(auth) : [], auth, folderId);
+  if (refused) throw new Error(refused);
   return auth;
+}
+
+/** Why the folder (or, with none, Shared with me) can't be reached here, if it can't. */
+function refusal(list: DriveFolder[], auth: Session, folderId: string | undefined): string | null {
+  const hidden = new Set(auth.hidden ?? []);
+  const folder = folderId ? list.find((f) => f.id === folderId) : undefined;
+  if (folder)
+    return hidden.has(driveOf(list, folder).id) ? "That drive is turned off in Otter Mail." : null;
+  return hidden.has(SHARED) ? "Shared with me is turned off in Otter Mail." : null;
 }
 
 /**
@@ -315,7 +321,7 @@ async function documentAccess(
 ): Promise<{ auth: Session; folder: string | undefined; raw: RawArtifact }> {
   const auth = await signedIn();
   let cached = looked.get(id);
-  if (!cached || cached.token !== auth.token || Date.now() - cached.at > 30_000) {
+  if (!cached || cached.token !== auth.token || Date.now() - cached.at > LOOKED_FOR) {
     const raw = request<{ data: RawArtifact }>(`/api/v1/artifacts/${ref(id)}`, {}, auth, hint).then(
       (r) => r.data,
     );
@@ -331,11 +337,18 @@ async function documentAccess(
 }
 
 /**
- * Documents looked up in the last 30 seconds: opening one asks for it, its
- * preview and its versions at once, and each needs to know where it is.
- * Renaming or archiving one drops it.
+ * Documents looked up, or listed, in the last minute: opening one asks for it,
+ * its preview and its versions at once, and each needs to know where it is.
+ * One opened from a list is known already. Renaming or archiving one drops it.
  */
 const looked = new Map<string, { at: number; token: string; raw: Promise<RawArtifact> }>();
+const LOOKED_FOR = 60_000;
+
+/** A list's documents, known for opening them. */
+function seen(auth: Session, list: RawArtifact[]) {
+  const at = Date.now();
+  for (const raw of list) looked.set(raw.id, { at, token: auth.token, raw: Promise.resolve(raw) });
+}
 
 /** After a change: the document (or, with none, the folders) looked up again, and search rebuilt. */
 function forget(id?: string) {
@@ -404,7 +417,7 @@ function remember(list: DriveArtifact[]): DriveArtifact[] {
 /** A folder's documents, most recently updated first (archived ones apart). */
 export async function artifacts(folderId: string, archived = false): Promise<DriveArtifact[]> {
   const auth = await reachable(folderId);
-  const list: DriveArtifact[] = [];
+  const list: RawArtifact[] = [];
   let cursor: string | null = null;
   // Up to 500: the workspace filters and searches them in place.
   do {
@@ -417,10 +430,13 @@ export async function artifacts(folderId: string, archived = false): Promise<Dri
       auth,
       folderId,
     );
-    list.push(...page.data.map(artifact));
+    list.push(...page.data);
     cursor = page.pagination.nextCursor;
   } while (cursor && list.length < 500);
-  return remember(list);
+  seen(auth, list);
+  const documents = list.map(artifact);
+  if (!archived) local.saveList(auth.token, `artifacts\n${folderId}`, documents);
+  return remember(documents);
 }
 
 /** Documents shared with you on their own (folders shared with you are in `folders`). */
@@ -431,20 +447,52 @@ export async function sharedWithMe(): Promise<DriveArtifact[]> {
     {},
     auth,
   );
-  // A document in a folder you can reach follows that folder's drive: off, it's left out.
+  const raws = result.data.flatMap((item) =>
+    item.type === "artifact" && item.artifact ? [item.artifact] : [],
+  );
+  seen(auth, raws);
+  const documents = raws.map(artifact);
+  local.saveList(auth.token, "shared", documents);
+  return remember(sharedShown(await allFolders(auth), auth, documents));
+}
+
+/** A document in a folder you can reach follows that folder's drive: off, it's left out. */
+function sharedShown(list: DriveFolder[], auth: Session, documents: DriveArtifact[]) {
   const hidden = new Set(auth.hidden ?? []);
-  const list = await allFolders(auth);
-  const shown = (a: DriveArtifact) => {
+  return documents.filter((a) => {
     const folder = list.find((f) => f.id === a.folderId);
     return !folder || !hidden.has(driveOf(list, folder).id);
-  };
-  return remember(
-    result.data
-      .flatMap((item) =>
-        item.type === "artifact" && item.artifact ? [artifact(item.artifact)] : [],
-      )
-      .filter(shown),
+  });
+}
+
+/**
+ * A list as last fetched here (the folders, a folder's documents, or Shared with me), and
+ * when: shown while it's fetched again. A drive turned off since stays out.
+ */
+export async function saved(
+  what: "folders" | "artifacts" | "shared",
+  folderId?: string,
+): Promise<{ at: number; data: DriveFolder[] | DriveArtifact[] } | null> {
+  const auth = await session();
+  if (!auth) return null;
+  const folders = await local.savedList<DriveFolder[]>(auth.token, "folders");
+  const list = folders?.data ?? [];
+  if (what === "folders") {
+    if (!folders) return null;
+    const hidden = new Set(auth.hidden ?? []);
+    return { at: folders.at, data: list.filter((f) => !hidden.has(driveOf(list, f).id)) };
+  }
+  if (what === "artifacts" && !folderId) return null;
+  if (refusal(list, auth, what === "artifacts" ? folderId : undefined)) return null;
+  const documents = await local.savedList<DriveArtifact[]>(
+    auth.token,
+    what === "artifacts" ? `artifacts\n${folderId}` : "shared",
   );
+  if (!documents) return null;
+  return {
+    at: documents.at,
+    data: remember(what === "shared" ? sharedShown(list, auth, documents.data) : documents.data),
+  };
 }
 
 export async function getArtifact(id: string, folderId?: string): Promise<DriveArtifact> {
@@ -499,42 +547,69 @@ export async function preview(
   folderId?: string,
   versionNumber?: number,
 ): Promise<DrivePreview> {
-  const { auth, folder } = await documentAccess(id, folderId);
-  const query = versionNumber ? `?version=${versionNumber}` : "";
-  const page = await request<{ data: { url: string; contentType: string; version: RawVersion } }>(
-    `/api/v1/artifacts/${ref(id)}/preview${query}`,
-    {},
-    auth,
-    folder,
-  );
-  const { url, contentType } = page.data;
-  const { entryPath, byteSize } = page.data.version;
-  const kind = documentKind(contentType, entryPath);
-  if (
-    kind === "video" ||
-    kind === "image" ||
-    kind === "frame" ||
-    (kind === "workbook" && byteSize > MAX_WORKBOOK)
-  )
-    return { kind: kind === "workbook" ? "frame" : kind, url };
+  const { auth, folder, raw } = await documentAccess(id, folderId);
+  const current = raw.currentVersion;
+  const number = versionNumber ?? current?.number;
+  // Drawn here before: a version never changes.
+  const kept = number ? await local.savedDocument<DrivePreview>(id, number) : null;
+  if (kept) return kept;
 
-  const params = new URLSearchParams({ path: entryPath });
-  if (versionNumber) params.set("version", String(versionNumber));
+  // The current version, when its name says it's drawn here, is asked for straight away;
+  // anything else asks Drive what it is first (and, to show it, for its URL).
+  let target: { number: number; entryPath: string; contentType: string };
+  const known = current && current.number === number ? current : null;
+  const drawn = known ? documentKind("", known.entryPath) : null;
+  if (
+    known &&
+    drawn &&
+    !["video", "image", "frame"].includes(drawn) &&
+    known.byteSize <= MAX_WORKBOOK
+  ) {
+    target = { number: known.number, entryPath: known.entryPath, contentType: "" };
+  } else {
+    const query = versionNumber ? `?version=${versionNumber}` : "";
+    const page = await request<{ data: { url: string; contentType: string; version: RawVersion } }>(
+      `/api/v1/artifacts/${ref(id)}/preview${query}`,
+      {},
+      auth,
+      folder,
+    );
+    const { url, contentType } = page.data;
+    const { entryPath, byteSize } = page.data.version;
+    const kind = documentKind(contentType, entryPath);
+    if (
+      kind === "video" ||
+      kind === "image" ||
+      kind === "frame" ||
+      (kind === "workbook" && byteSize > MAX_WORKBOOK)
+    )
+      return { kind: kind === "workbook" ? "frame" : kind, url };
+    target = { number: page.data.version.number, entryPath, contentType };
+  }
+
+  const { entryPath } = target;
+  const params = new URLSearchParams({ path: entryPath, version: String(target.number) });
   const response = await call(
     `/api/v1/artifacts/${ref(id)}/content?${params}`,
     { headers: { accept: "*/*" } },
     auth,
     folder,
   );
+  const contentType = target.contentType || (response.headers.get("content-type") ?? "");
+  const kind = documentKind(contentType, entryPath);
   const bytes = new Uint8Array(await response.arrayBuffer());
-  if (kind === "workbook") return workbook(bytes);
   const tsv = /\.tsv$/i.test(entryPath) || contentType.includes("tab-separated");
-  return {
-    kind,
-    ...(kind === "table" ? { delimiter: tsv ? "\t" : "," } : {}),
-    text: new TextDecoder().decode(bytes.subarray(0, MAX_TEXT)),
-    truncated: bytes.length > MAX_TEXT,
-  };
+  const shown: DrivePreview =
+    kind === "workbook"
+      ? await workbook(bytes)
+      : {
+          kind: kind === "table" || kind === "markdown" ? kind : "text",
+          ...(kind === "table" ? { delimiter: tsv ? "\t" : "," } : {}),
+          text: new TextDecoder().decode(bytes.subarray(0, MAX_TEXT)),
+          truncated: bytes.length > MAX_TEXT,
+        };
+  local.saveDocument(id, target.number, shown);
+  return shown;
 }
 
 /** An Excel workbook's sheets, as text, the way Otter Drive reads them. */
