@@ -34,6 +34,7 @@ let modifies: { threadId: string; body: unknown }[];
 let refuse: Set<string>;
 let deletedForever: string[];
 let drafts: { id: string; message: { id: string; threadId: string } }[];
+let savedDrafts: string[];
 /** While set, the first fetch of each of `ids` answers as of the request, but only once `until` resolves. */
 let hold: { ids: string[]; until: Promise<void> } | null;
 const held = new Set<string>();
@@ -74,6 +75,7 @@ function resource(m: Mail, format: string) {
   const headers = [
     { name: "From", value: "Sender <sender@example.test>" },
     { name: "Subject", value: m.subject },
+    { name: "Message-ID", value: `<${m.id}@example.test>` },
   ];
   return {
     id: m.id,
@@ -167,6 +169,13 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
   if (path === "/labels") return json({ labels });
   const label = path.match(/^\/labels\/([^/]+)$/);
   if (label) return json({ id: label[1], messagesTotal: 0, messagesUnread: 0 });
+  if (path === "/drafts" && init?.method === "POST") {
+    const { message } = JSON.parse(String(init.body)) as {
+      message: { raw: string; threadId?: string };
+    };
+    savedDrafts.push(Buffer.from(message.raw, "base64url").toString());
+    return json({ id: "r-new", message: { id: "new-draft", threadId: message.threadId } });
+  }
   if (path === "/drafts") return json({ drafts });
   if (path === "/settings/sendAs") return json({ sendAs: [] });
   return json({ error: { message: "not in this test" } }, 404);
@@ -363,6 +372,7 @@ beforeEach(() => {
   refuse = new Set();
   deletedForever = [];
   drafts = [];
+  savedDrafts = [];
   hold = null;
   held.clear();
   notified = [];
@@ -612,5 +622,23 @@ describe("Gmail sync", () => {
 
     drafts = [{ id: "r-mine", message: { id: "mine-saved-again", threadId: "t" } }];
     expect(await draftFor("mine")).toEqual({ draftId: "r-mine" });
+  });
+
+  it("saves a reply draft with the headers that keep it in its conversation", async () => {
+    deliver("first", ["INBOX"], Date.now() - 120_000, "t");
+    deliver("answer", ["INBOX"], Date.now() - 60_000, "t");
+    const { status, invoke } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+    await invoke("gmail:saveDraft", {
+      accountId: account.id,
+      threadId: "t",
+      to: "sender@example.test",
+      subject: "Re: Subject answer",
+      body: "Thanks",
+    });
+    expect(savedDrafts).toHaveLength(1);
+    expect(savedDrafts[0]).toMatch(/^In-Reply-To: <answer@example\.test>/m);
+    expect(savedDrafts[0]).toMatch(/^References: .*<answer@example\.test>/m);
   });
 });

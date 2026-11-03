@@ -840,6 +840,8 @@ export async function saveDraft(
     subject: params.subject,
     body: params.body,
     bodyHtml: params.bodyHtml,
+    inReplyTo: params.inReplyTo,
+    references: params.references,
     attachments: params.attachments,
   });
   const message: { raw: string; threadId?: string } = { raw: encodeBase64url(raw) };

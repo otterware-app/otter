@@ -53,7 +53,7 @@ export type OutgoingMail = {
   attachments?: ComposeAttachment[];
 };
 
-export type DraftSave = Omit<OutgoingMail, "inReplyTo" | "references"> & {
+export type DraftSave = OutgoingMail & {
   draftId?: string;
   expectRevision?: string;
 };
