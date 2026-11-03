@@ -18,7 +18,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { DriveActionDialogs } from "./actions";
-import { setDriveOpener } from "./search";
+import { setDriveConnected, setDriveOpener } from "./search";
+import { ShareDialogHost } from "./share";
 import { driveApi, driveLabel } from "./api";
 import { DriveMark } from "./drive-mark";
 import { errorText, useDriveStatus, useFolders } from "./hooks";
@@ -46,6 +47,8 @@ export function OtterDriveDialogs() {
     qc.removeQueries({ queryKey: ["palette-search", "otter-drive"] });
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- runs when what Drive can reach changes.
   }, [qc, reach]);
+  const connected = status?.connected === true;
+  useEffect(() => setDriveConnected(connected), [connected]);
   useEffect(() => {
     listeners.add(setEmail);
     return () => void listeners.delete(setEmail);
@@ -53,6 +56,7 @@ export function OtterDriveDialogs() {
   return (
     <>
       <DriveActionDialogs />
+      <ShareDialogHost />
       {email ? <SaveToDrive email={email} onClose={() => setEmail(null)} /> : null}
     </>
   );

@@ -25,7 +25,13 @@ import {
 } from "@otter-mail/web/extension-kit";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowLeftIcon, DownloadIcon, LinkIcon, MoreHorizontalIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  DownloadIcon,
+  LinkIcon,
+  MoreHorizontalIcon,
+  UserPlusIcon,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { ActionItems, useDocumentActions } from "./actions";
@@ -291,7 +297,11 @@ function DocumentButtons({
     if (action && "run" in action) action.run();
   };
   return (
-    <div className="no-drag flex items-center">
+    <div className="no-drag flex items-center gap-0.5">
+      <Btn size="sm" className="me-1" onClick={() => run("share")}>
+        <UserPlusIcon />
+        Share
+      </Btn>
       <HintTooltip label="Copy link">
         <IconBtn label="Copy link" onClick={() => run("link")}>
           <LinkIcon />

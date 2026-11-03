@@ -41,6 +41,37 @@ export type DrivePreview =
   | { kind: "image"; url: string }
   | { kind: "frame"; url: string };
 
+export type ShareRole = "viewer" | "editor";
+export type ShareTarget = { type: "folder" | "artifact"; id: string; folderId?: string };
+export type DrivePerson = {
+  userId: string | null;
+  email: string;
+  name: string | null;
+  image: string | null;
+};
+export type AccessEntry = DrivePerson & {
+  id: string;
+  role: ShareRole;
+  inheritedFrom: { id: string; name: string } | null;
+  viaLink: boolean;
+};
+/** Who has access to a folder or document, as Otter Drive answers it. */
+export type Sharing = {
+  resource: {
+    type: "folder" | "artifact";
+    id: string;
+    name: string;
+    folderKind: "personal" | "shared" | "folder" | null;
+  };
+  drive: { id: string; name: string; kind: "personal" | "shared"; memberCount: number };
+  owner: DrivePerson;
+  role: DriveRole;
+  canShare: boolean;
+  people: AccessEntry[];
+  link: { url: string; role: ShareRole } | null;
+  inheritedLink: { folderId: string; folderName: string; role: ShareRole } | null;
+};
+
 /** Shared with me, as a pseudo-drive's id. */
 export const SHARED = "shared";
 
@@ -89,6 +120,24 @@ export const driveApi = {
   updateFolder: (id: string, change: { name?: string; parentId?: string }): Promise<void> =>
     task("otterDrive:updateFolder", { folderId: id, ...change }),
   deleteFolder: (id: string): Promise<void> => task("otterDrive:deleteFolder", { folderId: id }),
+  sharing: (target: ShareTarget): Promise<Sharing> => task("otterDrive:sharing", target),
+  sharePeople: (
+    target: ShareTarget,
+    input: { emails: string[]; role: ShareRole; notify: boolean; message?: string },
+  ): Promise<{ data: Sharing; notified?: boolean }> =>
+    task("otterDrive:sharePeople", { ...target, ...input }),
+  setShareRole: (
+    target: ShareTarget,
+    entryId: string,
+    role: ShareRole | null,
+  ): Promise<{ data: Sharing } | null> =>
+    task("otterDrive:setShareRole", { ...target, entryId, role }),
+  setShareLink: (target: ShareTarget, role: ShareRole | null): Promise<{ data: Sharing }> =>
+    task("otterDrive:setShareLink", { ...target, role }),
+  people: (query: string): Promise<DrivePerson[]> => task("otterDrive:people", { query }),
+  me: (): Promise<{ userId: string }> => task("otterDrive:me", {}),
+  resolveLink: (href: string): Promise<{ location: string; item: string | null } | null> =>
+    task("otterDrive:resolveLink", { href }),
   uploadPicked: (folderId: string): Promise<DriveArtifact[]> =>
     task("otterDrive:uploadPicked", { folderId }),
   uploadBytes: (

@@ -94,6 +94,42 @@ export default {
     });
     slow("otterDrive:deleteFolder", (p) => drive.deleteFolder(needFolder(p)));
 
+    const target = (p: Params): drive.ShareTarget => {
+      const type = p?.type === "folder" || p?.type === "artifact" ? p.type : null;
+      const value = text(p?.id, 200);
+      if (!type || !value) throw new Error("Invalid Otter Drive sharing request.");
+      return { type, id: value, ...(folder(p) ? { folderId: folder(p) } : {}) };
+    };
+    const role = (value: unknown): drive.ShareRole | null =>
+      value === "viewer" || value === "editor" ? value : null;
+    slow("otterDrive:sharing", (p) => drive.sharing(target(p)));
+    slow("otterDrive:sharePeople", (p) => {
+      const emails = Array.isArray(p?.emails)
+        ? p.emails.filter((e): e is string => typeof e === "string" && e.length <= 254)
+        : [];
+      const r = role(p?.role);
+      if (!emails.length || emails.length > 20 || !r) throw new Error("Add someone by email.");
+      const message = text(p?.message, 1_000);
+      return drive.sharePeople(target(p), {
+        emails,
+        role: r,
+        notify: p?.notify !== false,
+        ...(message ? { message } : {}),
+      });
+    });
+    slow("otterDrive:setShareRole", (p) => {
+      const entry = text(p?.entryId, 200);
+      if (!entry) throw new Error("Invalid Otter Drive sharing request.");
+      return drive.setShareRole(target(p), entry, role(p?.role));
+    });
+    slow("otterDrive:setShareLink", (p) => drive.setShareLink(target(p), role(p?.role)));
+    slow("otterDrive:people", (p) => drive.suggestPeople(text(p?.query, 200) ?? ""));
+    slow("otterDrive:me", () => drive.me());
+    slow("otterDrive:resolveLink", (p) => {
+      const href = text(p?.href, 2_000);
+      return href ? drive.resolveLink(href) : Promise.resolve(null);
+    });
+
     slow("otterDrive:uploadPicked", (p) => drive.uploadPicked(needFolder(p)));
     slow("otterDrive:uploadBytes", (p) => {
       const name = text(p?.name, 255);

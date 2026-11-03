@@ -22,7 +22,6 @@ import {
   openLink,
   toast,
 } from "@otter-mail/web/extension-kit";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
@@ -36,11 +35,14 @@ import {
   SparklesIcon,
   Trash2Icon,
   UploadIcon,
+  UserPlusIcon,
+  UsersIcon,
 } from "lucide-react";
 import { Fragment, useEffect, useState, type ComponentType } from "react";
 
 import { driveApi, driveLabel, type DriveArtifact, type DriveFolder } from "./api";
-import { errorText, useDriveStatus, useFolders } from "./hooks";
+import { errorText, useDriveStatus, useFolders, useRefresh } from "./hooks";
+import { share } from "./share";
 
 type Icon = ComponentType<{ className?: string }>;
 export type Action =
@@ -99,16 +101,6 @@ export function ActionItems({
 // ---------------------------------------------------------------------------
 // Running an action: its toast, then the lists it changed.
 // ---------------------------------------------------------------------------
-
-export function useRefresh() {
-  const qc = useQueryClient();
-  return () =>
-    Promise.all(
-      ["artifacts", "artifact", "versions", "folders", "drives"].map((key) =>
-        qc.invalidateQueries({ queryKey: ["otter-drive", key] }),
-      ),
-    );
-}
 
 export function useRun() {
   const refresh = useRefresh();
@@ -173,6 +165,19 @@ export function useDocumentActions(
   // Drive moves a document only for its owner, into folders they own.
   const destinations = owner ? list.filter((f) => f.role === "owner" && f.id !== a.folderId) : [];
   return [
+    {
+      id: "share",
+      label: "Share…",
+      Icon: UserPlusIcon,
+      run: () =>
+        share({
+          type: "artifact",
+          id: a.id,
+          name: a.title,
+          url: a.url,
+          ...(folderId ? { folderId } : {}),
+        }),
+    },
     {
       id: "open",
       label: "Open in Otter Drive",
@@ -288,6 +293,22 @@ export function useFolderActions(
             label: "New folder…",
             Icon: FolderPlusIcon,
             run: () => openDialog({ type: "newFolder", parent: folder }),
+          },
+        ]
+      : []),
+    // My Drive is yours alone: its folders and documents are shared instead.
+    ...(folder.kind !== "personal"
+      ? [
+          {
+            id: "share",
+            label: folder.kind === "shared" ? "Manage members…" : "Share…",
+            Icon: folder.kind === "shared" ? UsersIcon : UserPlusIcon,
+            run: () =>
+              share({
+                type: "folder",
+                id: folder.id,
+                name: folder.name,
+              }),
           },
         ]
       : []),

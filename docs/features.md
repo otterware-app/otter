@@ -175,6 +175,13 @@ archived deletes for good, from its More menu or a right-click. Folders are made
 and (empty) deleted the same way; files upload by picking or dropping. ⌘K finds documents in the
 drives that are on.
 
+Share (a document's Share button, or Share… on a document or folder) is Otter Drive's dialog: add
+people by email (suggested from the people you work with) as viewers or editors, notify them with a
+message, change or remove anyone's access, leave something shared with you, and set general access
+(restricted, or anyone with the link, viewing or editing). A shared drive's Manage members… adds
+and removes its members the same way. Drive's links in an email (a shared link, a document, a
+folder) open in Drive; a shared link adds what it shares to Shared with me first.
+
 Sign in from Drive or Settings → Connections (a code confirmed in the browser). Settings lists your
 drives with a switch each: a drive that's off is hidden in Drive, can't be saved to, and is refused
 to anything else asking (agents included). "Save to Otter Drive…" in a message's menu saves an
@@ -189,6 +196,8 @@ change (otter-drive `otter-mail-cors`).
 | Folders: new, rename, move, delete; sort; path      | ✓   | —   | —      |
 | Download, move, new version, delete permanently     | ✓   | —   | —      |
 | Documents in ⌘K                                     | ✓   | —   | —      |
+| Share: people, roles, notify, link access, leave    | ✓   | —   | —      |
+| Drive links in mail open in Drive                   | ✓   | —   | —      |
 | Drives on or off (Settings)                         | ✓   | —   | —      |
 | Save an attachment or the email to a drive          | ✓   | —   | —      |
 

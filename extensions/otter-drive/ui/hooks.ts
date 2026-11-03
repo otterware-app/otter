@@ -11,6 +11,17 @@ export function useDriveStatus() {
   return useQuery({ queryKey: ["otter-drive", "status"], queryFn: driveApi.status });
 }
 
+/** After a change: the lists, documents and folders it may have changed. */
+export function useRefresh() {
+  const qc = useQueryClient();
+  return () =>
+    Promise.all(
+      ["artifacts", "artifact", "versions", "folders", "drives"].map((key) =>
+        qc.invalidateQueries({ queryKey: ["otter-drive", key] }),
+      ),
+    );
+}
+
 /** The folders of the drives that are on (drives, their folders, folders shared with you). */
 export function useFolders(enabled: boolean) {
   return useQuery({

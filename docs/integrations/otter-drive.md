@@ -23,13 +23,17 @@ Otter Drive is a built-in extension: the `extensions/otter-drive` package
   version (`expectedCurrentVersion`, so a version added meanwhile isn't overwritten), download
   (the one file, or Drive's zip of a site, saved with `userFiles.save`), moving and deleting
   documents, folders (create, rename, move, delete), and search: every document in the drives
-  that are on, listed once a minute at most (Drive has no search endpoint). The token and the drives
+  that are on, listed once a minute at most (Drive has no search endpoint).
+  Sharing (`/sharing`, `/sharing/people`, `/sharing/link` on a folder or document;
+  `/people` suggestions; `/me` to tell you apart) and links (`resolveLink`: `/s/<token>` is
+  accepted with `POST /links/<token>`, a document's page is found by its folder's slug). The token and the drives
   turned off (`hidden`) are kept in the platform's secrets; every document call goes through
   `reachable`, which refuses a drive that's off.
 - `ui/`: `index.tsx` is what it contributes: the workspace (`workspace.tsx`: the sidebar's drive
   picker, filters and list, and the overview grid; `document.tsx`: the open document; `actions.tsx`:
   a document's and a folder's actions, one list drawn as a right-click or a More menu, and their
-  dialogs), ⌘K's Drive results (`search.ts`, the `paletteSearch` slot), "Save to
+  dialogs; `share.tsx`: the Share dialog), ⌘K's Drive results and Drive's links in mail
+  (`search.ts`, the `paletteSearch` and `bodyLinks` slots), "Save to
   Otter Drive…" on messages (`dialogs.tsx`), its page in Settings → Connections with a switch per
   drive (`settings.tsx`), the Drive marks (`glyph.tsx` from the Otterware production kit,
   `drive-mark.tsx` as Otter Drive draws drives). `api.ts` sends only `otterDrive:*` IPC calls.

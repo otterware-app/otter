@@ -6,7 +6,7 @@ import { driveApi } from "./api";
 import { OtterDriveDialogs, saveToOtterDrive } from "./dialogs";
 import { DriveGlyph } from "./glyph";
 import { OtterDriveIcon } from "./icon";
-import { paletteSearch } from "./search";
+import { bodyLinks, paletteSearch } from "./search";
 import { OtterDriveSettingsPane } from "./settings";
 import { DriveMain, DriveSidebar, MINE } from "./workspace";
 
@@ -27,6 +27,7 @@ export default {
   ],
   Dialogs: OtterDriveDialogs,
   paletteSearch,
+  bodyLinks,
   Settings: OtterDriveSettingsPane,
   connection: {
     provides: "Files",
