@@ -270,6 +270,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["date separators today yesterday collapse expand sections inbox"],
   },
   {
+    id: "full-width-rows",
+    title: "Full-width rows",
+    pane: "appearance",
+    searchTerms: ["dividers lines separators cards edge to edge gmail compact list rows"],
+  },
+  {
     id: "open-messages-with-arrows",
     title: "Open messages with arrow keys",
     pane: "appearance",

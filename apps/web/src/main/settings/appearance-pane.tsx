@@ -56,6 +56,7 @@ import {
   DEFAULT_MAIL_LAYOUT,
   INTERFACE_FONT_SIZE,
   GROUP_MESSAGES_BY_DAY,
+  FULL_WIDTH_ROWS,
   OPEN_MESSAGES_WITH_ARROWS,
   MARK_READ_DELAY,
   MAIL_LAYOUTS,
@@ -851,6 +852,7 @@ export function AppearancePane() {
   const choice = useThemeChoice();
   const [scheme, setScheme] = useColorScheme();
   const groupMessagesByDay = useInterfaceToggle(GROUP_MESSAGES_BY_DAY);
+  const fullWidthRows = useInterfaceToggle(FULL_WIDTH_ROWS);
   const openMessagesWithArrows = useInterfaceToggle(OPEN_MESSAGES_WITH_ARROWS);
   const markReadDelay = useInterfaceSetting(MARK_READ_DELAY);
 
@@ -911,6 +913,25 @@ export function AppearancePane() {
               aria-label="Group messages by day"
               checked={groupMessagesByDay}
               onCheckedChange={(value) => setInterfaceToggle(GROUP_MESSAGES_BY_DAY, value)}
+            />
+          }
+        />
+        <SettingsRow
+          {...searchableSetting("full-width-rows")}
+          resetAction={
+            fullWidthRows !== FULL_WIDTH_ROWS.defaultValue ? (
+              <SettingResetButton
+                label="full-width rows"
+                onClick={() => setInterfaceToggle(FULL_WIDTH_ROWS, FULL_WIDTH_ROWS.defaultValue)}
+              />
+            ) : null
+          }
+          description="Run each message edge to edge with a line between them, instead of cards."
+          control={
+            <Switch
+              aria-label="Full-width rows"
+              checked={fullWidthRows}
+              onCheckedChange={(value) => setInterfaceToggle(FULL_WIDTH_ROWS, value)}
             />
           }
         />

@@ -485,6 +485,20 @@ html[data-window-controls="none"] {
   scroll-margin-top: 2rem;
 }
 
+/* Full-width rows (Gmail's): edge to edge with a hairline between them, not cards. */
+[data-full-width-rows="true"] .message-list-group {
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+[data-full-width-rows="true"] :is(.message-list-row, .message-list-thread-row) {
+  border-radius: 0;
+}
+
+[data-full-width-rows="true"] .message-list-row {
+  padding-inline-start: 1.5rem;
+}
+
 /* Unread mail is a raised card and read mail sits on the list's own surface,
    so the shade marks what still needs you. Hovered, a step up (the plain
    hover would match it); the open conversation is well above both. */

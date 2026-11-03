@@ -6,6 +6,7 @@ import { useLayoutEffect, useEffect, useId, useMemo, useRef, useState } from "re
 import {
   OPEN_MESSAGES_WITH_ARROWS,
   GROUP_MESSAGES_BY_DAY,
+  FULL_WIDTH_ROWS,
   useInterfaceToggle,
 } from "../theme/interface-settings";
 import { Dialog } from "~/components/ui/dialog";
@@ -805,6 +806,7 @@ export function MessageList({
   search,
 }: MessageListProps) {
   const groupByDay = useInterfaceToggle(GROUP_MESSAGES_BY_DAY);
+  const fullWidthRows = useInterfaceToggle(FULL_WIDTH_ROWS);
   const openMessagesWithArrows = useInterfaceToggle(OPEN_MESSAGES_WITH_ARROWS);
   const [cursor, setCursor] = useState<{ messageId: string; focusId?: string } | null>(null);
   const selectedMessageId = openMessageId ?? cursor?.messageId ?? null;
@@ -1818,6 +1820,7 @@ export function MessageList({
       <ScrollArea
         ref={scrollRef}
         data-group-messages-by-day={groupByDay || undefined}
+        data-full-width-rows={fullWidthRows || undefined}
         onScroll={maybeLoadMore}
         className="flex-1 rounded-xl"
         contentClassName={filteredMessages.length === 0 ? "h-full" : undefined}

@@ -13,6 +13,7 @@ const SYNCED_KEYS = [
   "otter:interface-font-size",
   "otter:reading-width",
   "otter:group-messages-by-day",
+  "otter:full-width-rows",
   "otter:mail-layout",
   "otter:open-messages-with-arrows",
   "otter:mark-read-delay",

@@ -24,7 +24,12 @@ export const OPEN_MESSAGES_WITH_ARROWS: InterfaceToggle = {
   defaultValue: false,
 };
 
-const TOGGLES = [GROUP_MESSAGES_BY_DAY, OPEN_MESSAGES_WITH_ARROWS];
+export const FULL_WIDTH_ROWS: InterfaceToggle = {
+  key: "otter:full-width-rows",
+  defaultValue: false,
+};
+
+const TOGGLES = [GROUP_MESSAGES_BY_DAY, FULL_WIDTH_ROWS, OPEN_MESSAGES_WITH_ARROWS];
 
 /** How long an email opened by keyboard navigation stays visible before being read. */
 export const MARK_READ_DELAY: InterfaceSetting = {
