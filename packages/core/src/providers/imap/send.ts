@@ -1,6 +1,6 @@
 import { randomHex, utf8Encode } from "../../bytes.js";
 import { logger } from "../../logger.js";
-import { sendMail } from "../../protocols/index.js";
+import { sendMail, type ImapClient } from "../../protocols/index.js";
 import { parseHeaders } from "../../protocols/imap/structures.js";
 import { getAccount } from "../../services/account-store.js";
 import * as store from "../../services/mail-store.js";
@@ -149,12 +149,41 @@ export async function sendRaw(accountId: string, raw: string): Promise<void> {
   await fileSent(accountId, access, complete);
 }
 
+/**
+ * A draft's versions in Drafts: those SEARCH finds, and the ones the cache
+ * knows, checked by UID, since some servers' search lags behind an APPEND.
+ */
+async function versionUids(
+  accountId: string,
+  client: ImapClient,
+  draftId: string,
+  path: string,
+  uidValidity: number,
+): Promise<number[]> {
+  const cached = store
+    .getMessageIdsWithPrefix(accountId, `${uidValidity}:`)
+    .filter((id) => store.getStoredReplyHeaders(accountId, id).messageIdHeader === draftId)
+    .map(parseMessageId)
+    .filter((ref) => ref.path === path)
+    .map((ref) => ref.uid);
+  const known =
+    cached.length === 0
+      ? []
+      : (await client.fetch(cached, { envelope: true, flags: true }))
+          .filter(
+            (m) => m.envelope?.messageId?.trim() === draftId && !m.flags?.includes("\\Deleted"),
+          )
+          .map((m) => m.uid);
+  const found = await findByMessageId(client, draftId);
+  return [...new Set([...found, ...known])].sort((a, b) => a - b);
+}
+
 async function draftVersions(accountId: string, draftId: string) {
   return withImap(accountId, async (client) => {
     const drafts = (await foldersOf(accountId, client)).withRole("DRAFT");
     if (!drafts) return null;
     const mailbox = await selectFolder(client, drafts.path);
-    const uids = await findByMessageId(client, draftId);
+    const uids = await versionUids(accountId, client, draftId, drafts.path, mailbox.uidValidity);
     return { path: drafts.path, uidValidity: mailbox.uidValidity, uids };
   });
 }
@@ -188,7 +217,13 @@ export async function saveDraft(
       const drafts = await ensureFolder(accountId, client, "DRAFT", "Drafts");
       const appended = await client.append(drafts.path, raw, { flags: ["\\Draft", "\\Seen"] });
       const mailbox = await selectFolder(client, drafts.path);
-      const versions = await findByMessageId(client, draftId);
+      const versions = await versionUids(
+        accountId,
+        client,
+        draftId,
+        drafts.path,
+        mailbox.uidValidity,
+      );
       const uid = appended?.uid ?? versions.at(-1);
       const older = versions.filter((v) => v !== uid);
       if (older.length > 0) {

@@ -1,8 +1,8 @@
 import type { ImapSettings } from "@otter-mail/contracts";
-import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test";
 
 import { searchMail } from "../../../handlers/search.ts";
-import { connectImap, type ImapClient } from "../../../protocols/index.ts";
+import { connectImap, ImapClient } from "../../../protocols/index.ts";
 import { nodeConnect } from "../../../protocols/test/node-stream.ts";
 import {
   dockerAvailable,
@@ -383,6 +383,34 @@ function providerScenario(
       messageId: second.messageId,
     });
     expect(await provider.getDraftVersion(accountId, first.draftId)).toBeNull();
+  });
+
+  it("replaces and deletes draft versions the cache knows when search lags behind", async () => {
+    const first = await provider.saveDraft(accountId, { to: "", subject: "Lagging", body: "1" });
+    await sync(accountId);
+    const search = ImapClient.prototype.search;
+    const lagging = vi.spyOn(ImapClient.prototype, "search").mockImplementation(function (
+      this: ImapClient,
+      criteria,
+    ) {
+      if (typeof criteria !== "string" && criteria.messageId) return Promise.resolve([]);
+      return search.call(this, criteria);
+    });
+    try {
+      const second = await provider.saveDraft(accountId, {
+        to: "",
+        subject: "Lagging",
+        body: "2",
+        draftId: first.draftId,
+      });
+      await sync(accountId);
+      expect(await provider.getDraftVersion(accountId, first.draftId)).toBe(second.messageId);
+      await provider.deleteDraft(accountId, first.draftId);
+    } finally {
+      lagging.mockRestore();
+    }
+    await seed.select(pathOf(first.messageId!));
+    expect(await seed.search({ header: { name: "Subject", value: "Lagging" } })).toEqual([]);
   });
 
   it("replaces only the draft's own versions, whatever else mentions its id", async () => {
