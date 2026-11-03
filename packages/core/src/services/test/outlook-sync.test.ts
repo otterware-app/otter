@@ -48,6 +48,7 @@ let denied: { delta?: string; children?: string; message?: string; status: numbe
 let subfolders: Record<string, string[]>;
 let expired: Set<string>;
 let lagging: Set<string>;
+let restIds: boolean;
 let listing: {
   pageSize?: number;
   failAt?: { folder: string; skip: number };
@@ -84,6 +85,14 @@ function remove(id: string): void {
   const m = messages.get(id)!;
   leftFolder.push({ id, folder: m.folder, version: ++version });
   messages.delete(id);
+}
+
+const restIdOf = (m: Message) => `AAMk.${m.folder}.${m.id}`;
+
+function byRestId(id: string): Message | undefined {
+  const [, folder, ...rest] = id.split(".");
+  const m = messages.get(rest.join("."));
+  return m?.folder === folder ? m : undefined;
 }
 
 const json = (body: unknown, status = 200) =>
@@ -207,12 +216,23 @@ function handle(method: string, url: URL, body: unknown): Response {
   const list = /^\/me\/mailFolders\/([a-z]+)\/messages$/.exec(path);
   const search = url.searchParams.get("$search");
   if (search) searches.push({ path, search });
+  const asListed = (m: Message) =>
+    search && restIds ? { ...resource(m), id: restIdOf(m) } : resource(m);
   if (list) {
     return json({
       value: [...messages.values()]
         .filter((m) => m.folder === list[1])
         .sort((a, b) => b.date - a.date)
-        .map(resource),
+        .map(asListed),
+    });
+  }
+  if (path === "/me/translateExchangeIds") {
+    const { inputIds } = body as { inputIds: string[] };
+    return json({
+      value: inputIds.map((id) => {
+        const m = id.startsWith("AAMk.") ? byRestId(id) : undefined;
+        return m ? { sourceId: id, targetId: m.id } : { sourceId: id };
+      }),
     });
   }
   if (path === "/me/messages") {
@@ -220,13 +240,18 @@ function handle(method: string, url: URL, body: unknown): Response {
     return json({
       value: [...messages.values()]
         .filter((m) => !conversation || m.conversationId === conversation[1])
-        .map(resource),
+        .map(asListed),
     });
   }
 
   const one = /^\/me\/messages\/([^/]+)(\/move)?$/.exec(path);
   if (one) {
-    const m = messages.get(decodeURIComponent(one[1]!));
+    const asked = decodeURIComponent(one[1]!);
+    if (asked.startsWith("AAMk.")) {
+      const m = byRestId(asked);
+      return m && method === "GET" ? json({ ...resource(m), id: asked }) : notFound();
+    }
+    const m = messages.get(asked);
     if (!m) return notFound();
     if (method === "GET" && m.id === denied.message) return refusal();
     if (method === "GET" && failedReads)
@@ -387,6 +412,7 @@ beforeEach(() => {
   expired = new Set();
   lagging = new Set();
   listing = {};
+  restIds = false;
   vi.stubGlobal("fetch", fakeFetch);
 });
 
@@ -715,6 +741,64 @@ describe("Outlook sync", () => {
         "the destination's listing",
       );
       expect(await shown(booted)).toMatchObject({ badges: ["folder:projects"], cached: 5 });
+    });
+  });
+
+  describe("regular ids from Outlook's search", () => {
+    const restRows = (mailStore: Awaited<ReturnType<typeof boot>>["mailStore"]) =>
+      mailStore.getMessageIdsWithPrefix(account.id, "AAMk");
+
+    it("caches search results under their immutable ids, so a later move leaves no copy behind", async () => {
+      deliver("h1", "inbox", { conversationId: "conv-h" });
+      deliver("h2", "inbox", { conversationId: "conv-h" });
+      subfolders = { inbox: ["closures"] };
+      const { status, sync, invoke, mailStore, labelsOf } = await boot();
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      restIds = true;
+      const result = (await invoke("gmail:search", { q: "hera", accountIds: [account.id] })) as {
+        messages: { id: string }[];
+      };
+      expect(result.messages.map((m) => m.id)).not.toContainEqual(expect.stringMatching(/^AAMk/));
+      expect(restRows(mailStore)).toEqual([]);
+
+      move("h1", "closures");
+      move("h2", "closures");
+      await sync();
+      expect(restRows(mailStore)).toEqual([]);
+      expect(mailStore.countAllMessages(account.id)).toBe(2);
+      expect(labelsOf("h1")).toEqual(["folder:closures", "UNREAD"]);
+      expect(
+        mailStore.getThreadsPage(account.id, "INBOX", 0, 10).messages.map((m) => m.threadId),
+      ).not.toContain("conv-h");
+    });
+
+    it("repairs copies an earlier search cached under regular ids", async () => {
+      deliver("live", "inbox");
+      deliver("moved", "inbox");
+      deliver("uncached", "inbox");
+      deliver("kept", "inbox");
+      subfolders = { inbox: ["closures"] };
+      const { status, sync, mailStore, labelsOf } = await boot();
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      const copy = (id: string, folder: string) => ({
+        ...mailStore.getThreadMessages(account.id, `conv-${id}`)[0]!,
+        id: `AAMk.${folder}.${id}`,
+      });
+      const stale = [copy("live", "inbox"), copy("moved", "inbox"), copy("uncached", "inbox")];
+      mailStore.applyHistoryChanges(account.id, [{ kind: "deleted", id: "uncached" }]);
+      mailStore.upsertMessages(account.id, stale);
+      move("moved", "closures");
+      lagging = new Set(["inbox", "closures"]);
+
+      await sync();
+      expect(restRows(mailStore)).toEqual([]);
+      expect(mailStore.countAllMessages(account.id)).toBe(4);
+      expect(labelsOf("live")).toEqual(["INBOX", "UNREAD"]);
+      expect(labelsOf("uncached")).toEqual(["INBOX", "UNREAD"]);
+      expect(labelsOf("kept")).toEqual(["INBOX", "UNREAD"]);
+      expect(mailStore.getLabels(account.id).find((l) => l.id === "INBOX")?.total).toBe(4);
     });
   });
 

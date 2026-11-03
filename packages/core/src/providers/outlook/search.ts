@@ -11,7 +11,7 @@ import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "@otter-mail/contracts";
 
 import { categoryOf, folderOfLabel, labelsFor } from "./folders.js";
 import { graph, type Page } from "./graph.js";
-import type { ApiMessage } from "./messages.js";
+import { isRegularId, toImmutableIds, type ApiMessage } from "./messages.js";
 
 const quote = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
@@ -183,7 +183,7 @@ export async function search(
   }
 
   const page = await graph<Page<ApiMessage>>(accountId, url);
-  const refs = (page.value ?? [])
+  let refs = (page.value ?? [])
     .filter((message) => {
       const has = new Set(labelsFor(accountId, message));
       return wanted.every(({ op, label }) => {
@@ -192,6 +192,15 @@ export async function search(
       });
     })
     .map((message) => ({ id: message.id, threadId: message.conversationId || message.id }));
+  const regular = refs.filter((r) => isRegularId(r.id)).map((r) => r.id);
+  if (regular.length > 0) {
+    const immutable = await toImmutableIds(accountId, regular);
+    refs = refs.flatMap((r) => {
+      if (!isRegularId(r.id)) return [r];
+      const id = immutable.get(r.id);
+      return id ? [{ ...r, id }] : [];
+    });
+  }
   const next = page["@odata.nextLink"];
   return {
     refs,

@@ -143,6 +143,34 @@ export async function findApiMessages(
   return { found, gone };
 }
 
+/** `$search` ignores the immutable-id preference: its results carry regular ids, which change on a move. */
+export const isRegularId = (id: string) => id.startsWith("AAMk");
+
+export async function toImmutableIds(
+  accountId: string,
+  ids: string[],
+): Promise<Map<string, string>> {
+  const immutable = new Map<string, string>();
+  for (let start = 0; start < ids.length; start += 1000) {
+    const answer = await graph<{ value?: { sourceId: string; targetId?: string }[] }>(
+      accountId,
+      "/me/translateExchangeIds",
+      {
+        method: "POST",
+        body: {
+          inputIds: ids.slice(start, start + 1000),
+          sourceIdType: "restId",
+          targetIdType: "restImmutableEntryId",
+        },
+      },
+    );
+    for (const { sourceId, targetId } of answer.value ?? []) {
+      if (targetId) immutable.set(sourceId, targetId);
+    }
+  }
+  return immutable;
+}
+
 export async function getSummaries(accountId: string, ids: string[]): Promise<MessageSummary[]> {
   return (await getApiMessages(accountId, ids)).map((m) => toSummary(accountId, m));
 }
