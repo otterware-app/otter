@@ -1265,6 +1265,35 @@ describe("Outlook sync", () => {
       ]);
     });
 
+    it("never repeats a send Outlook answered 503, and counts it sent when it went", async () => {
+      const { invoke, draftId } = await saved("s6");
+      failures.push({ method: "POST", suffix: "/send", status: 503, apply: true });
+      expect(await invoke("gmail:sendMessage", { ...compose, sessionKey: "s6" })).toMatchObject({
+        ok: true,
+        uncertain: false,
+      });
+      expect(writes.filter((w) => w.path.endsWith("/send"))).toHaveLength(1);
+      expect(sent().map((m) => m.id)).toEqual([draftId]);
+    });
+
+    it("keeps a scheduled send that may have gone for review, beside its draft", async () => {
+      const { invoke, draftId } = await saved("s7");
+      failures.push({ method: "POST", suffix: "/send", status: 504 });
+      failures.push({ method: "GET", suffix: `/${draftId}`, status: 500 });
+      expect(
+        await invoke("gmail:sendMessage", {
+          ...compose,
+          sessionKey: "s7",
+          scheduledAt: Date.now() + 3_600_000,
+        }),
+      ).toMatchObject({ ok: true, uncertain: true });
+      expect(writes.some((w) => w.path.endsWith("/permanentDelete"))).toBe(false);
+      expect(messages.has(draftId)).toBe(true);
+      expect(await invoke("gmail:listSchedules", {})).toMatchObject([
+        { state: "failed", error: "May have been sent — check Sent before sending again." },
+      ]);
+    });
+
     it("leaves no half-made reply draft when filling it in fails", async () => {
       deliver("original", "inbox");
       const { provider, status } = await boot();

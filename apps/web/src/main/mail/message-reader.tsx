@@ -26,7 +26,7 @@ import { Dialog } from "~/components/ui/dialog";
 import { EmptyState } from "~/components/ui/empty-state";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Text } from "~/components/ui/text";
-import { sendWithUndo } from "./undo-send";
+import { MAY_HAVE_BEEN_SENT, sendWithUndo } from "./undo-send";
 import { toast } from "./toast";
 import {
   ArchiveIcon,
@@ -1868,8 +1868,9 @@ function InlineComposer({
     };
     if (scheduledAt !== undefined) {
       await draft.finalize();
+      let scheduled: { uncertain?: boolean };
       try {
-        await sendMessage.mutateAsync({
+        scheduled = await sendMessage.mutateAsync({
           ...payload,
           scheduledAt,
           ...draft.sending(payload.accountId),
@@ -1878,7 +1879,8 @@ function InlineComposer({
         draft.reopen();
         throw err;
       }
-      toast.success("Send scheduled", { description: new Date(scheduledAt).toLocaleString() });
+      if (scheduled.uncertain) toast.warning(MAY_HAVE_BEEN_SENT, { timeout: 0 });
+      else toast.success("Send scheduled", { description: new Date(scheduledAt).toLocaleString() });
       onClose();
       return;
     }

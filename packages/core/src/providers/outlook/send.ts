@@ -116,7 +116,7 @@ async function discard(accountId: string, id: string): Promise<void> {
 /** `/send`. When its answer is lost, the message tells: sent, still in Drafts, or unknown. */
 async function submit(accountId: string, id: string): Promise<void> {
   try {
-    await graph(accountId, `${messagePath(id)}/send`, { method: "POST" });
+    await graph(accountId, `${messagePath(id)}/send`, { method: "POST", once: true });
   } catch (err) {
     if (!isNetworkError(err) && !(err instanceof GraphError && err.status >= 500)) throw err;
     const message = await graph<ApiMessage>(
@@ -231,7 +231,9 @@ export async function send(
     if (sendAt !== undefined) await hold(accountId, draft.id, sendAt);
     await submit(accountId, draft.id);
   } catch (err) {
-    if (!(err instanceof SendUncertain)) await discard(accountId, draft.id);
+    if (err instanceof SendUncertain)
+      throw new SendUncertain({ cause: err.cause, draftId: draft.id });
+    await discard(accountId, draft.id);
     throw err;
   }
   return { messageId: draft.id };

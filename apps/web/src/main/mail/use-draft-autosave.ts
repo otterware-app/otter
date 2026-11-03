@@ -332,7 +332,11 @@ export function useDraftAutosave({
       await new Promise((r) => setTimeout(r, 100));
     }
     const account = draftAccountRef.current;
-    const messageId = messageIdRef.current;
+    const draftId = draftIdRef.current;
+    // Sending may have saved it again since (a new message id): ask for its current version.
+    const current =
+      account && draftId ? await mailApi.getDraftVersion(account, draftId).catch(() => null) : null;
+    const messageId = current?.messageId ?? messageIdRef.current;
     return account && messageId ? { accountId: account, messageId } : null;
   };
 

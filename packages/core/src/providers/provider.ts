@@ -62,9 +62,13 @@ export class DraftChanged extends Error {}
 
 /** A send that may have gone out: the request was made, its answer never came. */
 export class SendUncertain extends Error {
-  constructor(options?: { cause?: unknown }) {
-    super("May have been sent — check Sent before sending again.", options);
+  /** The draft that may have gone, when the send made one (Outlook). */
+  readonly draftId?: string;
+
+  constructor(options?: { cause?: unknown; draftId?: string }) {
+    super("May have been sent — check Sent before sending again.", { cause: options?.cause });
     this.name = "SendUncertain";
+    this.draftId = options?.draftId;
   }
 }
 

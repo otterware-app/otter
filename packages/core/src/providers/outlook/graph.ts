@@ -147,6 +147,8 @@ export type GraphInit = {
   contentType?: string;
   prefer?: string[];
   headers?: Record<string, string>;
+  /** Never repeated: a request that may have taken effect (a send). */
+  once?: boolean;
 };
 
 const IMMUTABLE_IDS = 'IdType="ImmutableId"';
@@ -202,7 +204,7 @@ async function request(
     return request(accountId, path, init, retry, { ...attempt, tokenRefreshed: true });
   }
   const { code, message } = parseError(text);
-  if (response.status === 429 || response.status === 503) {
+  if (!init.once && (response.status === 429 || response.status === 503)) {
     const retryAfter = parseInt(response.headers.get("Retry-After") ?? "", 10) * 1000;
     const wait = retryAfter > 0 ? retryAfter : Math.min(1000 * 2 ** retry, 32_000);
     if (response.status === 429) {

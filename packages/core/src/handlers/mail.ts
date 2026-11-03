@@ -1096,7 +1096,14 @@ export function registerMailHandlers(): void {
         const draftId = provider.scheduleSend
           ? await finalDraft(accountId, sessionId, askedDraft, message, threadId)
           : undefined;
-        const held = await scheduleSend(accountId, mail, dueAt, draftId);
+        let held: boolean;
+        try {
+          held = await scheduleSend(accountId, mail, dueAt, draftId);
+        } catch (error) {
+          if (!(error instanceof SendUncertain)) throw error;
+          holdForReview(accountId, mail, error.draftId ?? draftId ?? askedDraft);
+          return { ok: true as const, uncertain: true };
+        }
         if (held && draftId) {
           await takeSessionDraft(sessionId);
           forgetSaved(draftId);
@@ -1120,7 +1127,8 @@ export function registerMailHandlers(): void {
             }
             return result;
           } catch (error) {
-            if (error instanceof SendUncertain) throw error;
+            // Only a draft that was never there (not one that just went) is sent directly.
+            if (provider.errorKind(error) !== "notFound") throw error;
             const left = await provider.getDraftVersion(accountId, draftId).catch(() => draftId);
             if (left !== null) throw error;
             draftGone = true;
@@ -1164,7 +1172,8 @@ export function registerMailHandlers(): void {
               holdForReview(
                 accountId,
                 mail,
-                draftGone ? undefined : (draftId ?? askedDraft ?? sessionDraftId(sessionId)),
+                error.draftId ??
+                  (draftGone ? undefined : (draftId ?? askedDraft ?? sessionDraftId(sessionId))),
               );
             } catch (holdErr) {
               console.log("[gmail:sendMessage] couldn't keep it for review", {
@@ -1176,17 +1185,19 @@ export function registerMailHandlers(): void {
           return { error, uncertain: false, savedToDrafts: await keptAsDraft() };
         },
       );
-      // Every failure leaves one draft: the composer's, or else a copy.
+      // Every failure leaves one draft: the composer's (with what was sent, when its final save
+      // failed and this one works), or else a copy.
       const keptAsDraft = async () => {
-        if (!draftGone && (draftId ?? askedDraft ?? sessionDraftId(sessionId))) return true;
+        const stale = draftGone ? undefined : (askedDraft ?? sessionDraftId(sessionId));
+        if (draftId && !draftGone) return true;
         try {
-          await provider.saveDraft(accountId, mail);
+          await provider.saveDraft(accountId, { ...mail, draftId: stale });
           return true;
         } catch (draftErr) {
           console.log("[gmail:sendMessage] could not save a draft copy", {
             error: String(draftErr),
           });
-          return false;
+          return stale !== undefined;
         }
       };
       const outcome = await Promise.race([settled, sleep(IPC_WRITE_BUDGET_MS).then(() => null)]);

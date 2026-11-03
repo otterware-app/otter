@@ -1,7 +1,7 @@
 import { useLatest } from "../use-latest";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { sendWithUndo } from "./undo-send";
+import { MAY_HAVE_BEEN_SENT, sendWithUndo } from "./undo-send";
 import { toast } from "./toast";
 import { useQuery } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
@@ -250,8 +250,9 @@ export function DraftEditor({
     };
     if (scheduledAt !== undefined) {
       await draft.finalize();
+      let scheduled: { uncertain?: boolean };
       try {
-        await sendMessage.mutateAsync({
+        scheduled = await sendMessage.mutateAsync({
           ...payload,
           scheduledAt,
           ...draft.sending(payload.accountId),
@@ -260,7 +261,8 @@ export function DraftEditor({
         draft.reopen();
         throw err;
       }
-      toast.success("Send scheduled", { description: new Date(scheduledAt).toLocaleString() });
+      if (scheduled.uncertain) toast.warning(MAY_HAVE_BEEN_SENT, { timeout: 0 });
+      else toast.success("Send scheduled", { description: new Date(scheduledAt).toLocaleString() });
       onDone();
       return;
     }
