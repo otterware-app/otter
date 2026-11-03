@@ -21,7 +21,13 @@ export function editable(preview: DrivePreview | undefined): Edit | null {
     return { sheets: preview.sheets.map((s) => ({ name: s.name, rows: s.rows })) };
   if (preview.kind === "table")
     return {
-      sheets: [{ name: "Sheet1", rows: parseDelimited(preview.text, preview.delimiter ?? ",") }],
+      // Every row: an edit is saved over the whole file.
+      sheets: [
+        {
+          name: "Sheet1",
+          rows: parseDelimited(preview.text, preview.delimiter ?? ",", Number.POSITIVE_INFINITY),
+        },
+      ],
     };
   return { text: preview.text };
 }

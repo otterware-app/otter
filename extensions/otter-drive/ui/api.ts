@@ -202,7 +202,9 @@ export const driveApi = {
     id: string,
     folderId: string | undefined,
     edit: { text: string } | { sheets: { name: string; rows: string[][] }[] },
-  ): Promise<DriveArtifact> => task("otterDrive:saveEdit", { id, folderId, edit }),
+    /** The version the edit started from, and how many there were then. */
+    source: { version: number; count: number },
+  ): Promise<DriveArtifact> => task("otterDrive:saveEdit", { id, folderId, edit, source }),
   promoteVersion: (
     id: string,
     folderId: string | undefined,

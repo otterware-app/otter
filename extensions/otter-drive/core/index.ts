@@ -197,8 +197,14 @@ export default {
 
     slow("otterDrive:saveEdit", (p) => {
       const edit = p?.edit as { text?: unknown; sheets?: unknown } | undefined;
+      const source = p?.source as { version?: unknown; count?: unknown } | undefined;
+      const from =
+        Number.isInteger(source?.version) && Number.isInteger(source?.count)
+          ? { version: source!.version as number, count: source!.count as number }
+          : null;
+      if (!from) throw new Error("Invalid edit.");
       if (typeof edit?.text === "string" && edit.text.length <= 10_000_000)
-        return drive.saveEdit(id(p), folder(p), { text: edit.text });
+        return drive.saveEdit(id(p), folder(p), { text: edit.text }, from);
       const sheets = Array.isArray(edit?.sheets) ? edit.sheets : null;
       const valid =
         sheets &&
@@ -217,9 +223,12 @@ export default {
             ),
         );
       if (!valid) throw new Error("Invalid edit.");
-      return drive.saveEdit(id(p), folder(p), {
-        sheets: sheets as { name: string; rows: string[][] }[],
-      });
+      return drive.saveEdit(
+        id(p),
+        folder(p),
+        { sheets: sheets as { name: string; rows: string[][] }[] },
+        from,
+      );
     });
     slow("otterDrive:promoteVersion", (p) => {
       const number = versionOf(p);

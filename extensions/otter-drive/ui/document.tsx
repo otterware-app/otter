@@ -25,6 +25,7 @@ import {
   type WorkspaceMainProps,
 } from "@otter-mail/web/extension-kit";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useBlocker } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowLeftIcon,
@@ -162,13 +163,24 @@ export function DocumentView({
   const shown = kept ?? fresh;
   const [renaming, setRenaming] = useState<string | null>(null);
   // Editing: what it started from, and the change so far (null until something changes).
-  const [editing, setEditing] = useState<Edit | null>(null);
+  // And the version it started from, with how many there were: saving follows that one.
+  const [editing, setEditing] = useState<{
+    edit: Edit;
+    source: { version: number; count: number };
+  } | null>(null);
   const [draft, setDraft] = useState<Edit | null>(null);
   const [saving, setSaving] = useState(false);
   const [leaving, setLeaving] = useState<(() => void) | null>(null);
   /** Leaves unless there are changes, which it asks about first. */
   const unlessUnsaved = (then: () => void) => (draft ? setLeaving(() => then) : then());
-  const back = () => unlessUnsaved(() => go({ location }));
+  const back = () => go({ location });
+  // Leaving with changes (another document, another workspace, closing the window) asks first.
+  const discarded = useRef(false);
+  const blocker = useBlocker({
+    shouldBlockFn: () => draft !== null && !saving,
+    enableBeforeUnload: () => draft !== null,
+    withResolver: true,
+  });
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -208,7 +220,7 @@ export function DocumentView({
     if (!draft) return setEditing(null);
     setSaving(true);
     try {
-      const saved = await driveApi.saveEdit(id, folderId, draft);
+      const saved = await driveApi.saveEdit(id, folderId, draft, editing!.source);
       setEditing(null);
       setDraft(null);
       await reload();
@@ -330,7 +342,17 @@ export function DocumentView({
         ) : a ? (
           <>
             {canStartEdit ? (
-              <Btn size="sm" className="no-drag" onClick={() => setEditing(startEdit)}>
+              <Btn
+                size="sm"
+                className="no-drag"
+                onClick={() =>
+                  a.current &&
+                  setEditing({
+                    edit: startEdit!,
+                    source: { version: a.current.number, count: a.versionCount },
+                  })
+                }
+              >
                 <PencilIcon />
                 Edit
               </Btn>
@@ -350,7 +372,7 @@ export function DocumentView({
           <div className="flex-1 animate-pulse rounded-xl bg-muted/50" />
         ) : editing ? (
           <Editor
-            initial={editing}
+            initial={editing.edit}
             markdown={shown.kind === "markdown"}
             disabled={saving}
             onChange={setDraft}
@@ -359,20 +381,28 @@ export function DocumentView({
           <Preview preview={shown} />
         )}
       </div>
-      {leaving ? (
+      {leaving || blocker.status === "blocked" ? (
         <Dialog
           open
           title="Discard your changes?"
           description="They haven't been saved as a version."
-          onOpenChange={(o) => !o && setLeaving(null)}
+          onOpenChange={(o) => {
+            if (o || discarded.current) return;
+            setLeaving(null);
+            if (blocker.status === "blocked") blocker.reset();
+          }}
           confirmLabel="Discard"
           confirmVariant="destructive"
           onConfirm={() => {
+            // The dialog closes after this: that close isn't a Cancel.
+            discarded.current = true;
+            requestAnimationFrame(() => (discarded.current = false));
             const then = leaving;
             setLeaving(null);
             setDraft(null);
             setEditing(null);
-            then();
+            if (blocker.status === "blocked") blocker.proceed();
+            else then?.();
           }}
         />
       ) : null}

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { delimited, documentKind, emailPage, slugFor } from "./drive.js";
+import * as XLSX from "@e965/xlsx";
+
+import { delimited, documentKind, emailPage, patchWorkbook, slugFor } from "./drive.js";
 import { parseDelimited } from "../ui/table.js";
 
 describe("slugFor", () => {
@@ -62,5 +64,36 @@ describe("delimited", () => {
 
   it("quotes a tab in a TSV cell", () => {
     expect(delimited([["a\tb", "c"]], "\t")).toBe('"a\tb"\tc');
+  });
+});
+
+describe("patchWorkbook", () => {
+  it("rewrites only the cells that changed, keeping the others' types and formats", async () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["code", "amount", "note"],
+      ["00123", 1234.5, "old"],
+    ]);
+    ws.B2!.z = "#,##0.00";
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, ws, "Data");
+    const original = new Uint8Array(XLSX.write(book, { bookType: "xlsx", type: "array" }));
+    // As the editor shows it, with one cell changed.
+    const shown = XLSX.utils.sheet_to_json<string[]>(
+      XLSX.read(original, { type: "array", cellNF: true }).Sheets.Data!,
+      { header: 1, defval: "", raw: false },
+    );
+    expect(shown[1]).toEqual(["00123", "1,234.50", "old"]);
+    const rows = shown.map((r) => r.map(String));
+    rows[1]![2] = "new";
+    rows.push(["", "42", ""]);
+
+    const saved = XLSX.read(await patchWorkbook(original, [{ name: "Data", rows }]), {
+      type: "array",
+      cellNF: true,
+    }).Sheets.Data!;
+    expect(saved.A2).toMatchObject({ t: "s", v: "00123" });
+    expect(saved.B2).toMatchObject({ t: "n", v: 1234.5, z: "#,##0.00" });
+    expect(saved.C2).toMatchObject({ t: "s", v: "new" });
+    expect(saved.B3).toMatchObject({ t: "n", v: 42 });
   });
 });
