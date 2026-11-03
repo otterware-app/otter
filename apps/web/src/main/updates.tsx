@@ -10,6 +10,8 @@ import { toast } from "./mail/toast";
 import { RowSelect, SettingsRow, SettingsSection } from "./settings/settings-ui";
 import { searchableSetting } from "./settings/settings-search";
 
+const restart = () => (window.desktopBridge.platform === "web" ? "Reload" : "Restart");
+
 export function useUpdateState(): UpdateState | null {
   const [state, setState] = useState<UpdateState | null>(null);
   useEffect(() => {
@@ -88,7 +90,7 @@ export function updateNow(): void {
         return;
       case "downloaded":
         off();
-        toast.update(id, "loading", `Restarting into Otter Mail ${s.availableVersion}…`, {
+        toast.update(id, "loading", `${restart()}ing into Otter Mail ${s.availableVersion}…`, {
           timeout: 0,
         });
         void updates.install();
@@ -143,7 +145,7 @@ export function UpdateCard() {
           </p>
           <p className="text-2xs text-muted-foreground">
             {state.status === "downloaded"
-              ? "Restart to finish updating."
+              ? `${restart()} to finish updating.`
               : manualUrl
                 ? "Install this version by hand."
                 : failed
@@ -188,7 +190,7 @@ export function UpdateCard() {
           className="mt-2 w-full"
           onClick={() => void window.desktopBridge.updates.install()}
         >
-          Restart to update
+          {restart()} to update
         </Btn>
       ) : null}
       {manualUrl ? (
@@ -224,7 +226,7 @@ function statusLine(state: UpdateState): string {
     case "downloading":
       return `Downloading version ${state.availableVersion}… ${state.downloadPercent ?? 0}%`;
     case "downloaded":
-      return `Version ${state.availableVersion} is ready. Restart to install it.`;
+      return `Version ${state.availableVersion} is ready. ${restart()} to install it.`;
     case "up-to-date":
       return "You're on the latest version.";
     case "error":
@@ -267,7 +269,7 @@ export function UpdatesSection() {
     </Btn>
   ) : state.status === "downloaded" ? (
     <Btn variant="primary" size="sm" onClick={() => void updates.install()}>
-      Restart to Update
+      {restart()} to Update
     </Btn>
   ) : state.status === "disabled" ? null : (
     <Btn

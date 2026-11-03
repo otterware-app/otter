@@ -12,15 +12,11 @@ import { prepareTodoistPopup, closeTodoistPopup, authorizeTodoistPopup } from ".
  */
 
 import type { MeResponse, OutlookSignInResult } from "@otter-mail/contracts/relay";
-import type {
-  DesktopBridge,
-  NativeThemeInfo,
-  ThemeSource,
-  UpdateState,
-} from "@otter-mail/contracts";
+import type { DesktopBridge, NativeThemeInfo, ThemeSource } from "@otter-mail/contracts";
 
 import { connectBackend } from "./backend";
 import { detectLanguage, hasBuiltInTranslator, translate } from "./translator";
+import { webUpdates } from "./updates";
 import {
   SIGN_IN_CANCELLED,
   type GoogleSignInResult,
@@ -296,17 +292,6 @@ function themeInfo(): NativeThemeInfo {
   };
 }
 
-const updatesDisabled: UpdateState = {
-  status: "disabled",
-  channel: "stable",
-  currentVersion: __APP_VERSION__,
-  availableVersion: null,
-  downloadPercent: null,
-  checkedAt: null,
-  message: "The web app is always up to date.",
-  manualDownloadUrl: null,
-};
-
 export const webBridge: DesktopBridge = {
   platform: "web",
   features: {
@@ -340,14 +325,7 @@ export const webBridge: DesktopBridge = {
       window.dispatchEvent(new Event("otter:theme-change"));
     },
   },
-  updates: {
-    getState: async () => updatesDisabled,
-    check: async () => updatesDisabled,
-    setChannel: async () => updatesDisabled,
-    download: async () => updatesDisabled,
-    install: async () => {},
-    onState: () => () => {},
-  },
+  updates: webUpdates,
 };
 
 document.addEventListener("visibilitychange", () => {

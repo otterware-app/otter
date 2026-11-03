@@ -82,3 +82,46 @@ describe("the app's pages", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("release channels", () => {
+  function route(url: string, cookie?: string) {
+    const assets = vi.fn(async () => new Response("stable"));
+    const nightly = vi.fn(async () => new Response("nightly"));
+    const env = {
+      ASSETS: { fetch: assets } as unknown as Fetcher,
+      NIGHTLY: { fetch: nightly } as unknown as Fetcher,
+    };
+    const headers = new Headers({ accept: html });
+    if (cookie) headers.set("cookie", cookie);
+    return { response: worker.fetch(new Request(url, { headers }), env), assets, nightly };
+  }
+
+  it("serves stable unless the browser chose nightly", async () => {
+    const { response, nightly } = route("https://mail.otterware.app/all/inbox", "theme=dark");
+    expect(await (await response).text()).toBe("stable");
+    expect(nightly).not.toHaveBeenCalled();
+  });
+
+  it("hands a browser that chose nightly to the nightly build", async () => {
+    const { response, assets } = route(
+      "https://mail.otterware.app/all/inbox",
+      "a=1; otter_mail_channel=nightly",
+    );
+    expect(await (await response).text()).toBe("nightly");
+    expect(assets).not.toHaveBeenCalled();
+  });
+
+  it("sets and clears the choice, then goes back to Settings", async () => {
+    const nightly = await route("https://mail.otterware.app/__otter-mail/channel?channel=nightly")
+      .response;
+    expect(nightly.status).toBe(303);
+    expect(nightly.headers.get("location")).toBe("/settings/general");
+    expect(nightly.headers.get("set-cookie")).toContain("otter_mail_channel=nightly;");
+
+    const stable = await route(
+      "https://mail.otterware.app/__otter-mail/channel?channel=stable",
+      "otter_mail_channel=nightly",
+    ).response;
+    expect(stable.headers.get("set-cookie")).toContain("otter_mail_channel=; Path=/; Max-Age=0");
+  });
+});

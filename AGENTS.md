@@ -113,8 +113,9 @@ when a feature lands or goes.
 - Errors: Sentry, scrubbed, from the desktop app, the web app and the relay
   (`packages/shared/src/error-reports.ts`; docs/error-reports.md). Log with `logger.error`
   or `logger.failure` and pass the Error: that's what gets reported.
-- Deploys: Cloudflare Workers Builds deploys `infra/relay` and `site/` on pushes to `main` that
-  touch them; GitHub Actions smoke-tests the relay every 6 hours (keyless Google Cloud access).
+- Deploys: Cloudflare Workers Builds deploys `infra/relay` on pushes to `main` that touch it;
+  the Release workflow deploys `site/` with each release (below). GitHub Actions smoke-tests the
+  relay every 6 hours (keyless Google Cloud access).
 
 ## How the pieces talk
 
@@ -159,7 +160,7 @@ it; the web app needs it (the relay keeps its Gmail sign-ins alive).
 
 ## Releases
 
-The desktop app (Mac and Linux) has stable and nightly channels. Web deploys on pushes to main.
+The desktop app (Mac and Linux) and the web app have stable and nightly channels.
 The iPhone app releases separately, with its own version:
 
 - Mac and Linux: the Release workflow publishes a nightly on every push to main (each merge).
@@ -169,6 +170,10 @@ The iPhone app releases separately, with its own version:
   selects Stable or Nightly on this computer; updates offer "Restart to update" in the sidebar.
   Both channels use the same app identity and data; their icons change with the installed build.
   A release never needs a changelog note: don't write one, or ask about one, unless the user asks.
+- Web: each release deploys it too, after its GitHub Release: a nightly to the
+  `otter-mail-site-nightly` Worker, a stable release to mail.otterware.app. Both answer at
+  mail.otterware.app (one browser cache and sign-in): Settings → General's channel sets a
+  cookie the stable Worker routes on (`site/src/worker.ts`); open tabs offer "Reload to update".
 - iPhone: run the Release iPhone workflow from `main` when `apps/ios` (or what it bundles from
   `packages/shared`) has changed. It uploads to TestFlight and tags `ios-vX.Y.Z`.
 

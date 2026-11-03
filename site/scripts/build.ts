@@ -24,4 +24,9 @@ for (const name of [
 ]) {
   NodeFS.cpSync(NodePath.join(web, name), NodePath.join(dist, name), { recursive: true });
 }
-console.log("Site assembled in site/dist.");
+const pkg = JSON.parse(
+  NodeFS.readFileSync(NodePath.resolve(site, "../apps/web/package.json"), "utf8"),
+) as { version: string };
+const version = process.env.OTTER_MAIL_VERSION?.trim() || pkg.version;
+NodeFS.writeFileSync(NodePath.join(dist, "version.json"), JSON.stringify({ version }));
+console.log(`Site ${version} assembled in site/dist.`);

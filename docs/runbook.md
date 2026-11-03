@@ -4,17 +4,17 @@ How each part of Otter Mail gets from `main` to people, what to check, and what 
 breaks. The details behind each step are in `docs/release.md`, `infra/relay/README.md` and
 `apps/ios/README.md`.
 
-| Part           | Ships                            | You do                                 |
-| -------------- | -------------------------------- | -------------------------------------- |
-| Web app, relay | on merge to `main`               | nothing                                |
-| Mac, Linux app | nightly on merge / manual stable | promote a nightly                      |
-| iPhone app     | when you run Release iPhone      | one click, then TestFlight / App Store |
+| Part            | Ships                            | You do                                 |
+| --------------- | -------------------------------- | -------------------------------------- |
+| Relay           | on merge to `main`               | nothing                                |
+| Mac, Linux, web | nightly on merge / manual stable | promote a nightly                      |
+| iPhone app      | when you run Release iPhone      | one click, then TestFlight / App Store |
 
-## Web app and relay
+## Relay
 
-Cloudflare Workers Builds deploys `site/` (the web app, https://mail.otterware.app) and `infra/relay`
-(https://relay.mail.otterware.app) on every push to `main` that touches them. The relay's
-database and secrets stay with the existing workers. The old mail site redirects to `.app`;
+Cloudflare Workers Builds deploys `infra/relay` (https://relay.mail.otterware.app) on every
+push to `main` that touches it. The relay's database and secrets stay with the existing
+workers. The old mail site redirects to `.app`;
 the old relay still serves installed apps. See [domain migration](domain-migration.md) for
 the Google and GitHub settings that go with these URLs. D1 migrations run before deployment.
 
@@ -25,7 +25,7 @@ the Google and GitHub settings that go with these URLs. D1 migrations run before
   revert on `main` so the next deploy doesn't bring it back. Migrations don't roll back: fix
   forward.
 
-## Mac and Linux app
+## Mac, Linux and web app
 
 1. Every push to main, including each merged PR, publishes a nightly automatically. For an
    immediate nightly: Actions → **Release** → `channel=nightly` (`gh workflow run release.yml -f channel=nightly`).
@@ -36,6 +36,13 @@ the Google and GitHub settings that go with these URLs. D1 migrations run before
    prereleases; only stable changes GitHub's latest release and bumps package versions on main.
 4. Settings → General selects Stable or Nightly on this computer. Installed apps update
    themselves ("Restart to update" in the sidebar), and their icon follows the installed build.
+5. After the GitHub Release, the same run deploys the web app (job "Deploy the web app"): a
+   nightly to the `otter-mail-site-nightly` Worker, stable to `otter-mail-site`
+   (mail.otterware.app). Both answer at mail.otterware.app, so they share the browser's cache
+   and sign-in; Settings → General there sets a cookie that has the stable Worker hand requests
+   to the nightly one. Open tabs check `version.json` and offer "Reload to update". It needs the
+   `CLOUDFLARE_API_TOKEN` secret and `CLOUDFLARE_ACCOUNT_ID` variable. Roll back: Cloudflare →
+   the Worker → Deployments → Rollback.
 
 A changelog note is not part of a release. When you want one, it can land on `main` before or
 after (`changelog/<version>.md`, the `write-changelog` skill); the site shows it once that version

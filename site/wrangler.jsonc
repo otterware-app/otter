@@ -14,4 +14,14 @@
     { "pattern": "mail.otterware.app", "custom_domain": true },
     { "pattern": "mail.otterware.dev", "custom_domain": true },
   ],
+  "services": [{ "binding": "NIGHTLY", "service": "otter-mail-site-nightly" }],
+  "env": {
+    // Reachable only through the stable Worker's NIGHTLY binding.
+    "nightly": {
+      "name": "otter-mail-site-nightly",
+      "workers_dev": false,
+      "routes": [],
+      "services": [],
+    },
+  },
 }

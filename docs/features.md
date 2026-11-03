@@ -368,7 +368,7 @@ On iPhone, a glass bar under the list holds the mailbox's picture (tap to switch
 | 7 themes, a light and a dark pick; System / Light / Dark                                                         | ✓   | ✓   | ✓                                                                          |
 | Inter, the same typeface in every app                                                                            | ✓   | ✓   | ✓                                                                          |
 | App icon follows the build (stable, nightly or dev; iPhone: stable or dev)                                       | ✓   | ✓   | ✓                                                                          |
-| Stable / Nightly update channel, selected in General and remembered on this computer                             | ✓   | —   | —                                                                          |
+| Stable / Nightly update channel, selected in General and remembered on this computer (web: this browser)         | ✓   | ✓   | —                                                                          |
 | Your own themes (Otter Code's editor): duplicate, edit, import/export                                            | ✓   | ✓   | ✓ (worn and picked; made on the Mac or the web)                            |
 | Panel animations                                                                                                 | ✓   | ✓   | —                                                                          |
 | Contrast, glass opacity, font size, reading width                                                                | ✓   | ✓   | —                                                                          |
@@ -521,8 +521,8 @@ notifications are refused to pages.
 - Drag attachments out to Finder.
 - Menus: Sync Now, Back / Forward (⌘[ ⌘]).
 - Auto-update from GitHub Releases ("Restart to update"), or all at once from ⌘K ("Update Otter
-  Mail": check, download, restart). The web app is always current; the
-  iPhone app updates through TestFlight.
+  Mail": check, download, restart). The web app follows its channel's latest release: open tabs
+  offer "Reload to update"; the iPhone app updates through TestFlight.
 
 ## Otter account & devices
 
