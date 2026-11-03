@@ -558,13 +558,14 @@ export async function rename(
   const clean = title.trim().slice(0, 200);
   if (!clean) throw new Error("Give it a title.");
   const { auth, folder } = await documentAccess(id, folderId);
-  looked.delete(id);
   const result = await request<{ data: RawArtifact }>(
     `/api/v1/artifacts/${ref(id)}`,
     { method: "PATCH", body: JSON.stringify({ title: clean }) },
     auth,
     folder,
   );
+  // After the change, so a lookup made meanwhile isn't kept.
+  looked.delete(id);
   return artifact(result.data);
 }
 
@@ -575,13 +576,13 @@ export async function setArchived(
   archived: boolean,
 ): Promise<void> {
   const { auth, folder } = await documentAccess(id, folderId);
-  looked.delete(id);
   await request(
     `/api/v1/artifacts/${ref(id)}${archived ? "" : "/restore"}`,
     { method: archived ? "DELETE" : "POST" },
     auth,
     folder,
   );
+  looked.delete(id);
 }
 
 const THUMBNAILS = "https://usercontent.otterware.app/raw/thumbnail/";

@@ -142,6 +142,8 @@ export function DocumentView({
   // its freshness (swapping it would reload the video or page, or blank it).
   const fresh = preview.data && "url" in preview.data && preview.isStale ? undefined : preview.data;
   const [open, setOpen] = useState<{ version: number | null; data: DrivePreview } | null>(null);
+  // Another version drops it: coming back opens a fresh URL, never an expired one.
+  if (open && open.version !== version) setOpen(null);
   const kept = open?.version === version ? open.data : undefined;
   if (fresh && !kept) setOpen({ version, data: fresh });
   const shown = kept ?? fresh;
