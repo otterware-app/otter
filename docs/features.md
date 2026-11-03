@@ -275,7 +275,7 @@ color, the others their color in Google or Outlook. IMAP mailboxes have none.
 | Yes / No / Maybe on invitations, with a note; repeating ones ask: this event or all events                                                   | ✓   | ✓   | —      |
 | Online meetings: Google Meet, Teams, Zoom, Webex shown with Join and copy link (also links found in an invitation's text)                    | ✓   | ✓   | —      |
 | Add a meeting to an event or new event: Gmail Google Meet, Outlook Teams (work and school); Meet comes off                                   | ✓   | ✓   | —      |
-| Draw or click a slot to create; drag to move; drag edge to resize                                                                            | ✓   | ✓   | —      |
+| Draw or double-click a slot to create; drag to move; drag edge to resize                                                                     | ✓   | ✓   | —      |
 | New events repeat: every day, every weekday, weekly, monthly, yearly (from their start, no end)                                              | ✓   | ✓   | —      |
 | Delete an event (Delete key or the panel)                                                                                                    | ✓   | ✓   | —      |
 | Scroll sideways day by day; ‹ › and Today glide; any day can lead the week                                                                   | ✓   | ✓   | —      |

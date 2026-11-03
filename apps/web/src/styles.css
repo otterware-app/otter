@@ -345,6 +345,7 @@ html[data-window-controls="none"] {
   --animate-status-pulse: status-pulse 2s infinite;
   --animate-calendar-in: calendar-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
   --animate-calendar-pop: calendar-pop 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-calendar-fade: calendar-fade 140ms ease-out;
 
   --color-canvas: var(--canvas);
   --color-background: var(--canvas);
@@ -421,6 +422,11 @@ html[data-window-controls="none"] {
     from {
       opacity: 0;
       transform: translateY(4px);
+    }
+  }
+  @keyframes calendar-fade {
+    from {
+      opacity: 0;
     }
   }
   @keyframes calendar-pop {

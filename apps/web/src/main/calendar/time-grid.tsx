@@ -34,7 +34,10 @@ type Actions = ReturnType<typeof useCalendarActions>;
 export const eventKey = (e: Pick<CalEvent, "accountId" | "calendarId" | "id">) =>
   `${e.accountId}|${e.calendarId}|${e.id}`;
 
-/** Side by side where they overlap: each cluster's events share its width in columns. */
+/**
+ * Where they overlap, Notion Calendar's way: each cluster's events take a column,
+ * a later one laid over the one before, so each keeps more than its share.
+ */
 function layoutDay(events: CalEvent[]): Map<CalEvent, { col: number; cols: number }> {
   const sorted = [...events].sort((a, b) => a.startMs - b.startMs || b.endMs - a.endMs);
   const placed = new Map<CalEvent, { col: number; cols: number }>();
@@ -109,6 +112,7 @@ export function TimeGrid({
   const scrollRef = useRef<HTMLDivElement>(null);
   const columnsRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
+  const lastPress = useRef({ day: -1, slot: -1, at: 0 });
   const [preview, setPreview] = useState<{ key: string; startMs: number; endMs: number } | null>(
     null,
   );
@@ -207,10 +211,25 @@ export function TimeGrid({
   const onColumnsDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || !defaultCalendar) return;
     if ((e.target as HTMLElement).closest("[data-event]")) return;
-    // A click away from an open event only closes it.
-    if (useCalendar.getState().selection) return;
     const { day, minute } = pointAt(e.clientX, e.clientY);
     const anchor = Math.floor(minute / SNAP) * SNAP;
+    // A double click makes a quarter-hour event; a single click does nothing.
+    const last = lastPress.current;
+    lastPress.current = { day, slot: anchor, at: e.timeStamp };
+    if (last.day === day && last.slot === anchor && e.timeStamp - last.at < 500) {
+      lastPress.current.at = 0;
+      // Not closed again by the click-away below.
+      e.stopPropagation();
+      setDraft({
+        ...defaultCalendar,
+        startMs: at(day, anchor),
+        endMs: at(day, Math.min(anchor + SNAP, 24 * 60)),
+        allDay: false,
+      });
+      return;
+    }
+    // A click away from an open event only closes it.
+    if (useCalendar.getState().selection) return;
     gesture.current = { kind: "create", day, anchor, moved: false };
     e.currentTarget.setPointerCapture(e.pointerId);
     e.preventDefault();
@@ -286,15 +305,6 @@ export function TimeGrid({
     if (!g) return;
     if (g.kind === "create") {
       if (g.moved) select({ draft: true });
-      else {
-        const start = Math.floor(g.anchor / 30) * 30;
-        setDraft({
-          ...defaultCalendar!,
-          startMs: at(g.day, start),
-          endMs: at(g.day, Math.min(start + 60, 24 * 60)),
-          allDay: false,
-        });
-      }
       return;
     }
     if (!g.moved) {
@@ -499,6 +509,8 @@ function TimedEvent({
   const top = ((start - dayStart) / HOUR) * HOUR_PX;
   const height = Math.max(((end - start) / HOUR) * HOUR_PX, 18);
   const short = height < 36;
+  // Over the one before it: the last column runs to the edge, the others half again a column.
+  const width = col === cols - 1 ? 1 - col / cols : Math.min(1 - col / cols, 1.5 / cols);
   const declined = event.response === "declined";
   return (
     <div
@@ -510,16 +522,19 @@ function TimedEvent({
         top: top + 1,
         height: height - 2,
         left: `calc(${(col / cols) * 100}% + 2px)`,
-        width: `calc(${100 / cols}% - 5px)`,
+        width: `calc(${width * 100}% - 5px)`,
+        // Later ones on top; the open one in front of them all.
+        zIndex: dragging ? 20 : selected ? 10 : col + 1,
       }}
       className={cn(
         "group/event absolute flex cursor-default overflow-hidden rounded-[5px] border text-[11px] leading-[14px]",
         isPending(event) && !selected && "border-dashed",
         declined && !selected && "opacity-55",
         dragging
-          ? "z-20 shadow-[0_8px_24px_-8px_rgb(0_0_0/45%)]"
+          ? "shadow-[0_8px_24px_-8px_rgb(0_0_0/45%)]"
           : "transition-[top,height,left,width,background-color,color] duration-150 ease-out",
-        selected && "z-10",
+        // Set apart from the one it lies over.
+        !dragging && cols > 1 && "shadow-[0_0_0_1px_var(--canvas)]",
       )}
     >
       {!isPending(event) && !selected ? (

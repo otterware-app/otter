@@ -118,6 +118,13 @@ export function EventPanel({
     calendars.find((c) => c.key === calendarKey(ref));
   const place = usePlacement(containerRef, anchorKey, panelRef);
   const close = () => select(null);
+  // Slides between events once shown; appears where it is.
+  const [placed, setPlaced] = useState(false);
+  useEffect(() => {
+    if (!place || placed) return;
+    const frame = requestAnimationFrame(() => setPlaced(true));
+    return () => cancelAnimationFrame(frame);
+  }, [place, placed]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -143,7 +150,10 @@ export function EventPanel({
         top: place?.top ?? 0,
         visibility: place ? "visible" : "hidden",
       }}
-      className="absolute z-40 border border-border/70 [background:linear-gradient(var(--popover),var(--popover)),var(--canvas)] flex max-h-[calc(100%-16px)] flex-col overflow-y-auto rounded-xl text-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] transition-[left,top] duration-150 ease-out animate-calendar-pop dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
+      className={cn(
+        "absolute z-40 border border-border/70 [background:linear-gradient(var(--popover),var(--popover)),var(--canvas)] flex max-h-[calc(100%-16px)] flex-col overflow-y-auto rounded-xl text-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)] animate-calendar-fade motion-reduce:animate-none",
+        placed && "transition-[left,top] duration-150 ease-out",
+      )}
     >
       {event?.teammate ? (
         <TeammateEvent event={event} color={colorOf(calendarKey(event))} onClose={close} />
