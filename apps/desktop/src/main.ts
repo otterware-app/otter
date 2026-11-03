@@ -9,7 +9,6 @@ import { invokeBackend, setDockBadgeEnabled, startBackend, stopBackend } from ".
 import { registerHandlers } from "./handlers/index.js";
 import { requestSupportReport } from "./handlers/support.js";
 import { setErrorReportsAllowed, setReportId, startErrorReports } from "./error-reports.js";
-import { broadcast } from "./ipc.js";
 import { logger, logToFile } from "./logger.js";
 import { hostOS } from "./os/index.js";
 import type { AppMenuItems } from "./os/types.js";
@@ -19,7 +18,12 @@ import { embedDriveContent } from "./services/drive-content.js";
 import { parseMailtoUrl, setPendingMailto } from "./services/mailto-target.js";
 import { initUpdates } from "./updates.js";
 import { setSettingsTarget } from "./windows/settings-window.js";
-import { createMainWindow, focusMainWindow, getMainWindow } from "./windows/main-window.js";
+import {
+  createMainWindow,
+  focusMainWindow,
+  focusedAppWindow,
+  getMainWindow,
+} from "./windows/main-window.js";
 import { handleRendererProtocol, registerRendererScheme } from "./windows/window-paths.js";
 
 configureAppPaths();
@@ -53,7 +57,7 @@ function openMailto(url: string): void {
   if (!target) return;
   setPendingMailto(target);
   if (app.isReady()) {
-    void focusMainWindow().then(() => broadcast("compose:mailto"));
+    void focusMainWindow().then((win) => win.webContents.send("compose:mailto"));
   }
 }
 
@@ -127,30 +131,24 @@ ipcMain.handle("edit:nativeRedo", (event) => {
   event.sender.redo();
 });
 
-ipcMain.handle("window:closeMain", () => {
-  getMainWindow()?.close();
+ipcMain.handle("window:closeMain", (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.close();
 });
 
 function setupApplicationMenu(): void {
-  const isMainFocused = () => {
-    const focused = BrowserWindow.getFocusedWindow();
-    return focused != null && focused === getMainWindow();
-  };
-
   const items: AppMenuItems = {
     about: { role: "about" },
     checkForUpdates: {
       label: "Check for Updates…",
       click: () => {
-        void focusMainWindow().then(() => broadcast("updates:checkRequested"));
+        void focusMainWindow().then((win) => win.webContents.send("updates:checkRequested"));
       },
     },
     settings: {
       label: "Settings…",
       click: async () => {
         setSettingsTarget({});
-        await focusMainWindow();
-        broadcast("settings:open");
+        (await focusMainWindow()).webContents.send("settings:open");
       },
     },
     file: [
@@ -158,8 +156,9 @@ function setupApplicationMenu(): void {
         label: "Close",
         accelerator: "CommandOrControl+W",
         click: () => {
-          if (isMainFocused()) {
-            broadcast("window:closeRequest");
+          const win = focusedAppWindow();
+          if (win) {
+            win.webContents.send("window:closeRequest");
             return;
           }
           BrowserWindow.getFocusedWindow()?.close();
@@ -171,20 +170,20 @@ function setupApplicationMenu(): void {
         accelerator: "CommandOrControl+T",
         click: (_item, _window, event) => {
           if (event.triggeredByAccelerator) {
-            if (isMainFocused())
-              getMainWindow()?.webContents.send("keybindings:keydown", {
-                key: "t",
-                [hostOS.modifierKey]: true,
-              });
+            focusedAppWindow()?.webContents.send("keybindings:keydown", {
+              key: "t",
+              [hostOS.modifierKey]: true,
+            });
             return;
           }
-          void focusMainWindow().then(() => broadcast("browser:newTab"));
+          void focusMainWindow().then((win) => win.webContents.send("browser:newTab"));
         },
       },
       {
         label: "Open Location…",
         accelerator: "CommandOrControl+L",
-        click: () => void focusMainWindow().then(() => broadcast("browser:focusAddress")),
+        click: () =>
+          void focusMainWindow().then((win) => win.webContents.send("browser:focusAddress")),
       },
     ],
     edit: [
@@ -197,8 +196,9 @@ function setupApplicationMenu(): void {
             page.undo();
             return;
           }
-          if (isMainFocused()) {
-            broadcast("edit:undo");
+          const win = focusedAppWindow();
+          if (win) {
+            win.webContents.send("edit:undo");
             return;
           }
           BrowserWindow.getFocusedWindow()?.webContents.undo();
@@ -213,8 +213,9 @@ function setupApplicationMenu(): void {
             page.redo();
             return;
           }
-          if (isMainFocused()) {
-            broadcast("edit:redo");
+          const win = focusedAppWindow();
+          if (win) {
+            win.webContents.send("edit:redo");
             return;
           }
           BrowserWindow.getFocusedWindow()?.webContents.redo();
@@ -247,7 +248,7 @@ function setupApplicationMenu(): void {
         click: () => {
           const page = focusedBrowserPage();
           if (page) page.navigationHistory.goBack();
-          else broadcast("nav:back");
+          else focusedAppWindow()?.webContents.send("nav:back");
         },
       },
       {
@@ -256,7 +257,7 @@ function setupApplicationMenu(): void {
         click: () => {
           const page = focusedBrowserPage();
           if (page) page.navigationHistory.goForward();
-          else broadcast("nav:forward");
+          else focusedAppWindow()?.webContents.send("nav:forward");
         },
       },
     ],
@@ -271,7 +272,7 @@ function setupApplicationMenu(): void {
             return;
           }
           logger.info("main", "Menu: Sync Now");
-          broadcast("mail:syncNow");
+          (focusedAppWindow() ?? getMainWindow())?.webContents.send("mail:syncNow");
         },
       },
       {
@@ -288,7 +289,7 @@ function setupApplicationMenu(): void {
         label: "Send Feedback…",
         click: () => {
           requestSupportReport();
-          void focusMainWindow().then(() => broadcast("support:open"));
+          void focusMainWindow().then((win) => win.webContents.send("support:open"));
         },
       },
     ],

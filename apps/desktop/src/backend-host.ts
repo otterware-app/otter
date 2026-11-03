@@ -193,7 +193,7 @@ function carryOut(effect: MainEffect): void {
       notification.on("click", () => {
         notificationsAwaitingClick.delete(notification);
         if (open) setPendingOpenMessage(open);
-        void focusMainWindow().then(() => open && broadcast("mail:open"));
+        void focusMainWindow().then((win) => open && win.webContents.send("mail:open"));
       });
       notification.on("action", () => {
         notificationsAwaitingClick.delete(notification);

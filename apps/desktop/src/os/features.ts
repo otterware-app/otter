@@ -15,6 +15,7 @@ const everywhere = {
 const mac: BridgeFeatures = {
   ...everywhere,
   windowControls: "left",
+  tabWindows: true,
   dockBadge: true,
   translation: true,
 };
@@ -22,6 +23,7 @@ const mac: BridgeFeatures = {
 const linux: BridgeFeatures = {
   ...everywhere,
   windowControls: "right",
+  tabWindows: false,
   dockBadge: false,
   translation: false,
 };

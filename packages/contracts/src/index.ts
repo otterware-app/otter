@@ -45,6 +45,11 @@ export interface BridgeFeatures {
   windowControls: "left" | "right" | null;
   historyButtons: boolean;
   windowTabs: boolean;
+  /**
+   * Window tabs pulled off the strip into windows of their own, and between
+   * windows (moving and hiding windows, which Wayland doesn't allow).
+   */
+  tabWindows: boolean;
   launchAtLogin: boolean;
   dockBadge: boolean;
   defaultMailApp: boolean;

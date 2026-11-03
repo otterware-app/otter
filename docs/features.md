@@ -27,6 +27,7 @@ from GitHub Releases. Everything in the Mac column works the same, except:
 | Default mail app           | ✓ (xdg; the list is the apps that open mailto: links)                                       |
 | Dock badge                 | —                                                                                           |
 | Translation                | — (no on-device translator)                                                                 |
+| Tabs out into windows      | — (reorder only: Wayland doesn't let an app move its windows)                               |
 | Saved passwords and tokens | the desktop's keyring (GNOME Keyring, KWallet); elsewhere sealed with an app key, as Chrome |
 | Updates                    | the .deb; "Restart to update" asks for the admin password (not installed on quit)           |
 | Feedback to a local agent  | ✓ (x-terminal-emulator, or a chosen terminal)                                               |
@@ -55,7 +56,7 @@ account offers each kind.
 | One sidebar: mailbox tabs, Search or ask (⌘K)                                                               | ✓                  | ✓                                   | — (bar menu)            |
 | Modes at the sidebar's foot: Mail, Calendar, Agent (G M, G C, G A); each its own sidebar, back where it was | ✓                  | ✓                                   | —                       |
 | ⌘-click a place (folder, conversation, chat, mode, Settings): a new tab behind; ⌘⇧ shows it                 | ✓ (window tab)     | ✓ (browser tab)                     | —                       |
-| Window tabs (Linear's): mail, chats and Settings, ⌘W closes                                                 | ✓                  | — (the browser's tabs)              | —                       |
+| Window tabs (Linear's): mail, chats and Settings, ⌘W closes; drag one out for a window of its own           | ✓                  | — (the browser's tabs)              | —                       |
 | Sidebar: each mailbox opens to its folders and labels; views                                                | ✓                  | ✓                                   | — (bar menu)            |
 | Sidebar hidden: hover the window's edge to peek                                                             | ✓                  | ✓                                   | —                       |
 | Rename and color a mailbox (synced)                                                                         | ✓                  | ✓                                   | ✓                       |

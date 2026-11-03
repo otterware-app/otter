@@ -1604,6 +1604,7 @@ function MailHome() {
             sidebarOpen={sidebarOpen}
             onSelect={(id) => showWindowTab(selectWindowTab(id))}
             onClose={(id) => showWindowTab(closeWindowTab(id))}
+            onShow={showWindowTab}
             onNew={newWindowTab}
           />
         ) : null}

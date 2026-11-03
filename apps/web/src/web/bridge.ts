@@ -308,6 +308,7 @@ export const webBridge: DesktopBridge = {
     windowControls: null,
     historyButtons: false,
     windowTabs: false,
+    tabWindows: false,
     launchAtLogin: false,
     dockBadge: false,
     defaultMailApp: false,

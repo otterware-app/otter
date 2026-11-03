@@ -1,5 +1,17 @@
 import "../styles.css";
 
+// A window a tab was dragged out into (the desktop app's): it says so, and
+// what the tab's called, in its address. Kept for the window's life (reloads
+// too), then off the address, before the router reads it.
+{
+  const params = new URLSearchParams(location.search);
+  if (params.get("window") === "tab") {
+    const seed = { title: params.get("title") ?? "", icon: params.get("icon") ?? "" };
+    sessionStorage.setItem("otter:tab-window", JSON.stringify(seed));
+    history.replaceState(history.state, "", location.pathname + location.hash);
+  }
+}
+
 if (!window.desktopBridge) {
   const { webBridge, requireOtterAccount } = await import("../web/bridge");
   window.desktopBridge = webBridge;
