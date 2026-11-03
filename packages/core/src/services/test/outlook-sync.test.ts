@@ -49,6 +49,7 @@ let subfolders: Record<string, string[]>;
 let expired: Set<string>;
 let lagging: Set<string>;
 let restIds: boolean;
+let failedTranslations: boolean;
 let listing: {
   pageSize?: number;
   failAt?: { folder: string; skip: number };
@@ -227,6 +228,9 @@ function handle(method: string, url: URL, body: unknown): Response {
     });
   }
   if (path === "/me/translateExchangeIds") {
+    if (failedTranslations) {
+      return json({ error: { code: "ErrorInternalServerError", message: "Test failure." } }, 500);
+    }
     const { inputIds } = body as { inputIds: string[] };
     return json({
       value: inputIds.map((id) => {
@@ -413,6 +417,7 @@ beforeEach(() => {
   lagging = new Set();
   listing = {};
   restIds = false;
+  failedTranslations = false;
   vi.stubGlobal("fetch", fakeFetch);
 });
 
@@ -771,6 +776,32 @@ describe("Outlook sync", () => {
       expect(
         mailStore.getThreadsPage(account.id, "INBOX", 0, 10).messages.map((m) => m.threadId),
       ).not.toContain("conv-h");
+    });
+
+    it("keeps syncing when the repair fails, and keeps copies it can't replace", async () => {
+      deliver("live", "inbox");
+      deliver("locked", "inbox");
+      const { status, sync, mailStore, labelsOf } = await boot();
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+      const copies = ["live", "locked"].map((id) => ({
+        ...mailStore.getThreadMessages(account.id, `conv-${id}`)[0]!,
+        id: `AAMk.inbox.${id}`,
+      }));
+      mailStore.applyHistoryChanges(account.id, [{ kind: "deleted", id: "locked" }]);
+      mailStore.upsertMessages(account.id, copies);
+
+      failedTranslations = true;
+      deliver("new", "inbox");
+      await sync();
+      expect(status().error).toBeNull();
+      expect(labelsOf("new")).toEqual(["INBOX", "UNREAD"]);
+      expect(restRows(mailStore)).toHaveLength(2);
+
+      failedTranslations = false;
+      denied.message = "locked";
+      await sync();
+      expect(restRows(mailStore)).toEqual(["AAMk.inbox.locked"]);
+      expect(labelsOf("live")).toEqual(["INBOX", "UNREAD"]);
     });
 
     it("repairs copies an earlier search cached under regular ids", async () => {
