@@ -125,6 +125,8 @@ function lastListed(accountId: string, mailbox: Mailbox | null, parent: string):
     });
 }
 
+const recoverableRetry = new Map<string, number>();
+
 export async function readMailbox(accountId: string): Promise<Mailbox> {
   const previous = mailboxOf(accountId);
   const known = previous?.wellKnown;
@@ -140,7 +142,8 @@ export async function readMailbox(accountId: string): Promise<Mailbox> {
       if (archive?.id) wellKnown.archive = archive.id;
     }
     const missing = RECOVERABLE.filter((name) => !known[name]);
-    if (missing.length > 0) {
+    if (missing.length > 0 && Date.now() >= (recoverableRetry.get(accountId) ?? 0)) {
+      recoverableRetry.set(accountId, Date.now() + 60 * 60_000);
       const answers = await graphBatch(
         accountId,
         missing.map((name) => ({ method: "GET", url: `/me/mailFolders/${name}?$select=id` })),
