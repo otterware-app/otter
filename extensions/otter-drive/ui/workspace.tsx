@@ -54,7 +54,7 @@ import {
 } from "react";
 
 import { SHARED, driveApi, driveLabel, type DriveArtifact, type DriveFolder } from "./api";
-import { DocumentView, Empty, TitleBar, when } from "./document";
+import { DocumentView, Empty, TitleBar, previewQuery, when } from "./document";
 import { DriveMark, SharedMark } from "./drive-mark";
 import { errorText, useDriveSignIn, useDriveStatus, useFolders } from "./hooks";
 import { OtterDriveIcon } from "./icon";
@@ -521,11 +521,13 @@ function DocumentRow({
 }) {
   const kind = KINDS[kindOf(artifact)];
   const thumb = useThumbnail(artifact);
+  const warm = useWarm(artifact);
   const subtitle = artifact.description || artifact.current?.entryPath || "";
   return (
     <button
       type="button"
       onClick={onOpen}
+      {...warm}
       aria-current={selected ? "page" : undefined}
       className={cn(
         "flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
@@ -573,6 +575,21 @@ function DocumentRow({
       </span>
     </button>
   );
+}
+
+/** Fetches a document's preview while the pointer rests on it, so opening it is instant. */
+function useWarm({ id, folderId }: DriveArtifact) {
+  const qc = useQueryClient();
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  return {
+    onPointerEnter: () => {
+      timer.current = setTimeout(
+        () => void qc.prefetchQuery(previewQuery(id, folderId || undefined, null)),
+        120,
+      );
+    },
+    onPointerLeave: () => clearTimeout(timer.current),
+  };
 }
 
 /** Its thumbnail straight from Drive, or through the backend where Drive won't serve this page. */
@@ -771,10 +788,12 @@ function Grid({ children }: { children: ReactNode }) {
 function DocumentCard({ artifact, onOpen }: { artifact: DriveArtifact; onOpen: () => void }) {
   const kind = KINDS[kindOf(artifact)];
   const thumb = useThumbnail(artifact);
+  const warm = useWarm(artifact);
   return (
     <button
       type="button"
       onClick={onOpen}
+      {...warm}
       className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card text-left outline-none transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-focus-ring"
     >
       <div className="relative aspect-[4/3] overflow-hidden border-b border-border bg-muted/50">

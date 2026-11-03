@@ -21,7 +21,7 @@ import {
   toast,
   type WorkspaceMainProps,
 } from "@otter-mail/web/extension-kit";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArchiveIcon,
@@ -32,11 +32,37 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { driveApi, type DrivePreview } from "./api";
+import { driveApi, type DriveArtifact, type DrivePreview } from "./api";
 import { errorText } from "./hooks";
 import { parseDelimited } from "./table";
 
 const URL_FRESH = 4 * 60_000;
+
+/**
+ * A document's preview. Text and tables are kept. Drive's URL for the rest is good for five
+ * minutes, enough to open it: reused within four, else fetched again on opening.
+ */
+export const previewQuery = (id: string, folderId: string | undefined, version: number | null) =>
+  ({
+    queryKey: ["otter-drive", "preview", id, version],
+    queryFn: () => driveApi.preview(id, folderId, version ?? undefined),
+    retry: false,
+    staleTime: (query: { state: { data?: DrivePreview } }) =>
+      query.state.data && "url" in query.state.data ? URL_FRESH : Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  }) as const;
+
+/** The document as a list in the cache has it. */
+function listed(qc: QueryClient, id: string): DriveArtifact | undefined {
+  for (const [, list] of qc.getQueriesData<DriveArtifact[]>({
+    queryKey: ["otter-drive", "artifacts"],
+  })) {
+    const found = list?.find((a) => a.id === id);
+    if (found) return found;
+  }
+  return undefined;
+}
 
 export function when(iso: string): string {
   const days = (Date.now() - Date.parse(iso)) / 86_400_000;
@@ -100,6 +126,8 @@ export function DocumentView({
   const artifact = useQuery({
     queryKey: ["otter-drive", "artifact", id],
     queryFn: () => driveApi.artifact(id, folderId),
+    // The list already has it: its title and actions show at once.
+    placeholderData: () => listed(qc, id),
     retry: false,
   });
   const versions = useQuery({
@@ -109,19 +137,14 @@ export function DocumentView({
     retry: false,
   });
   const [version, setVersion] = useState<number | null>(null);
-  const preview = useQuery({
-    queryKey: ["otter-drive", "preview", id, version],
-    queryFn: () => driveApi.preview(id, folderId, version ?? undefined),
-    retry: false,
-    // Text and tables are kept. Drive's URL for the rest is good for five minutes,
-    // enough to open it: reused within four, else fetched again on opening, and
-    // never while it's open (that would reload it).
-    staleTime: (query) => (query.state.data && "url" in query.state.data ? URL_FRESH : Infinity),
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
-  // An expired URL isn't shown while its replacement comes.
-  const shown = preview.data && "url" in preview.data && preview.isStale ? undefined : preview.data;
+  const preview = useQuery(previewQuery(id, folderId, version));
+  // An expired URL isn't opened; one already open stays up, though it ages past
+  // its freshness (swapping it would reload the video or page, or blank it).
+  const fresh = preview.data && "url" in preview.data && preview.isStale ? undefined : preview.data;
+  const [open, setOpen] = useState<{ version: number | null; data: DrivePreview } | null>(null);
+  const kept = open?.version === version ? open.data : undefined;
+  if (fresh && !kept) setOpen({ version, data: fresh });
+  const shown = kept ?? fresh;
   const [renaming, setRenaming] = useState<string | null>(null);
   const back = () => go({ location });
   useEffect(() => {
