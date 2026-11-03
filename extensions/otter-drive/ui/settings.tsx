@@ -30,7 +30,6 @@ export function OtterDriveSettingsPane() {
   const openWorkspace = useOpenWorkspace();
   const qc = useQueryClient();
   const hidden = new Set(status.data?.hidden ?? []);
-  // A drive's own page, open in place of the list.
   const [page, setPage] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const open = page ? drives.data?.find((d) => d.id === page) : undefined;

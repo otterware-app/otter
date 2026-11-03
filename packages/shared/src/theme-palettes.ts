@@ -840,12 +840,6 @@ export const IRIS_THEME: ThemeDefinition = {
   sidebarArtwork: true,
 };
 
-/**
- * The ChatGPT / Codex desktop app: neutral greys with no tint, the window
- * chrome a step above the content, one monochrome action color (white in the
- * dark, near-black in the light) and blue only for focus and links. Colors
- * sampled from the app, so it is painted exactly (`exact`).
- */
 export const CODEX_THEME: ThemeDefinition = {
   id: "codex",
   label: "Codex",

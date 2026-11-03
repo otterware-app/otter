@@ -198,7 +198,6 @@ export function AttachmentPreview({
 
 type Loaded = { url: string; text: { text: string; truncated: boolean } | null };
 
-/** A file's preview in place (a workspace tab), without the window around it. */
 export function FilePreview({ file }: { file: PreviewFile }) {
   const preview = attachmentPreview(file.name, file.mimeType);
   if (!preview)

@@ -225,11 +225,6 @@ export function filesFromPaste(data: DataTransfer): File[] {
   return text ? [] : files;
 }
 
-/**
- * An attachment in the composer: a compact two-line chip (mostly mail, so
- * a name and a detail say more than a preview would): a tile with the kind's
- * icon or a thumbnail, the name over a muted detail, and remove on hover.
- */
 export function AttachmentChip({
   tile,
   name,

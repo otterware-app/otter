@@ -40,7 +40,6 @@ export function takeNewTabClick(): { show: boolean; title: string } | null {
   return click;
 }
 
-/** What a place is, from its address alone (the tab names itself once shown). */
 export function iconForHref(href: string): RecentIcon {
   const [first = "", second = "", third] = href.split(/[?#]/)[0]!.split("/").filter(Boolean);
   if (first === "settings") return "settings";

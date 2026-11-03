@@ -23,7 +23,6 @@ export async function connectMailSocket(
   const ws = new WebSocket(`${relayUrl.replace(/^http/, "ws")}/v1/tunnel?${query}`);
   ws.binaryType = "arraybuffer";
 
-  // The server's bytes, as they arrive (a WebSocket can't be paused).
   const chunks: Uint8Array[] = [];
   let unread = 0;
   let opened = false;
@@ -38,7 +37,6 @@ export async function connectMailSocket(
     if (code === TUNNEL_CLOSE.rateLimited) {
       return new Error("Too many connections through Otter's relay, retrying shortly.");
     }
-    // The relay's limits for one tunnel: like a dropped connection, the next one goes on.
     if (
       code === TUNNEL_CLOSE.lost ||
       code === TUNNEL_CLOSE.limit ||

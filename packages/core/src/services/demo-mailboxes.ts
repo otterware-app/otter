@@ -1,10 +1,3 @@
-/**
- * `pnpm dev:demo` and `pnpm dev:demo:desktop`: the demo mailboxes
- * (@otter-mail/contracts/demo) this device doesn't have yet are added at
- * startup, before the windows ask for any, so a fresh data home opens on
- * mail, past the setup. The shells call this in development only.
- */
-
 import { parseDemoMailboxes, type DemoMailbox } from "@otter-mail/contracts/demo";
 
 import { broadcast } from "../ipc.js";

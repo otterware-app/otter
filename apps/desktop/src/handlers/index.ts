@@ -21,7 +21,6 @@ import { registerBrowserHandlers } from "./browser.js";
 
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 
-/** A window tab drag's start: the tab, and where the pointer holds the window it carries. */
 function tabDragParams(
   params: unknown,
 ): { tab: CarriedTab; grab: { x: number; y: number } } | null {

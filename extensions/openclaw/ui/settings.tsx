@@ -17,7 +17,6 @@ import { useEffect, useState } from "react";
 
 import { openClawApi } from "./api";
 
-/** Where the web app runs, which the gateway must allow (the Mac app needs no origin). */
 const SITE_ORIGIN = window.desktopBridge.platform === "web" ? location.origin : null;
 
 const gatewayHost = (address: string) =>
@@ -26,7 +25,6 @@ const gatewayHost = (address: string) =>
     .replace(/^[a-z]+:\/\//i, "")
     .replace(/[/:].*$/, "");
 
-/** The gateway address inside a setup code (base64url JSON), for the allow-this-site step. */
 function setupCodeUrl(code: string): string {
   try {
     const json = JSON.parse(atob(code.trim().replace(/-/g, "+").replace(/_/g, "/"))) as {
@@ -38,12 +36,6 @@ function setupCodeUrl(code: string): string {
   }
 }
 
-/**
- * OpenClaw: the minimum setup on the gateway's computer, step by step, then a
- * setup code from `openclaw qr` (or, failing that, the address and token).
- * Connecting makes this install a device the gateway must approve once;
- * Settings waits for that and says how.
- */
 export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
   const setState = useSetProvidersState();
   const [code, setCode] = useState("");
@@ -65,7 +57,6 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
   const device = window.desktopBridge.platform === "web" ? "browser" : osNames.computer;
   const host = gatewayHost(url || setupCodeUrl(code) || savedUrl);
 
-  // Waiting for approval: look again every few seconds, so it connects once approved.
   useEffect(() => {
     if (!openclawPairingRequest) return;
     const timer = setInterval(() => void mailApi.refreshAgentProviders().catch(() => {}), 4000);

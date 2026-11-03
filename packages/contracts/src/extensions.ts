@@ -5,26 +5,18 @@ export type ExtensionManifest = {
   category: ExtensionCategory;
   dataUse: string;
   platforms?: readonly AppPlatform[];
-  /** What it adds to the app, declared up front (VS Code's `contributes`): known without running it. */
   contributes?: ExtensionContributes;
 };
 
 export type ExtensionContributes = {
-  /**
-   * Workspaces beside Mail, Calendar and Agent (VS Code's view containers): a
-   * mode at the sidebar's foot, at `/<id>/…`. The `./ui` half draws each one.
-   */
   workspaces?: readonly WorkspaceManifest[];
 };
 
 export type WorkspaceManifest = {
-  /** Lowercase letters: its address (`/drive/…`) and mode. */
   id: string;
-  /** Its name in the mode switcher and ⌘K. */
   title: string;
 };
 
-/** Addresses the app's own routes and spaces already take. */
 const RESERVED_WORKSPACES = new Set([
   "all",
   "app",
@@ -46,14 +38,12 @@ export function runsOn(manifest: ExtensionManifest, platform: AppPlatform): bool
 export const EXTENSION_CATEGORIES = {
   mail: "Mail",
   integration: "Integrations",
-  /** A service you sign in to (Todoist): listed with the mailboxes, in Connections. */
   connection: "Connections",
   agent: "Agents",
 } as const;
 
 export type ExtensionCategory = keyof typeof EXTENSION_CATEGORIES;
 
-/** Reads a package's `otterMail` field, so a bad manifest fails when it loads rather than later. */
 export function extensionManifest(pkg: { otterMail?: unknown }): ExtensionManifest {
   const m = pkg.otterMail as Partial<Record<keyof ExtensionManifest, unknown>> | undefined;
   const text = (v: unknown) => typeof v === "string" && v.trim().length > 0;

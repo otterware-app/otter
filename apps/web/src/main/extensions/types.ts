@@ -1,11 +1,3 @@
-/**
- * The renderer's half of extensions (packages/contracts/src/extensions.ts):
- * what an extension's `./ui` contributes, slot by slot (VS Code's
- * contribution points). The app draws each slot from the extensions that are
- * on (registry.ts, slots.tsx); an extension never reaches into the app's
- * screens.
- */
-
 import type { ExtensionManifest } from "@otter-mail/contracts/extensions";
 import type { ComponentType, ReactNode } from "react";
 
@@ -32,9 +24,7 @@ export type UiExtension = {
   paletteSearch?: PaletteSearch;
   Dialogs?: ComponentType;
   Settings?: ComponentType;
-  /** A connection (manifest category `connection`): listed in Connections beside the mailboxes. */
   connection?: ConnectionContribution;
-  /** How it draws the workspaces its manifest declares (`contributes.workspaces`): one per id. */
   workspaces?: readonly WorkspaceContribution[];
 };
 
@@ -45,11 +35,9 @@ export type UiExtension = {
  * document); the app keeps them in the address, its tabs and history.
  */
 export type WorkspaceContribution = {
-  /** The manifest's workspace id. */
   id: string;
   /** Its mark in the mode switcher and tabs: solid when selected, contoured when not. */
   Icon: ComponentType<{ selected?: boolean; className?: string }>;
-  /** The location it opens on the first time. */
   home: string;
   Sidebar: ComponentType<WorkspaceProps>;
   Main: ComponentType<WorkspaceMainProps>;
@@ -65,14 +53,11 @@ export type WorkspaceProps = WorkspaceLocation & {
 export type WorkspaceMainProps = WorkspaceProps & {
   /** Names where it is in its tab and history (a document's title); null for the workspace's name. */
   setTitle: (title: string | null) => void;
-  /** The window's controls to draw first in its title bar (the sidebar toggle, when it's hidden). */
   titleLeading: ReactNode;
-  /** And last (the browser panel's toggle). */
   titleTrailing: ReactNode;
 };
 
 export type ConnectionContribution = {
-  /** What it gives Otter Mail, as the list says it: "Tasks". */
   provides: string;
   /** Whether it's connected on this device: a query the list runs (share its key to stay in step). */
   status: { queryKey: readonly unknown[]; queryFn: () => Promise<{ connected: boolean }> };
@@ -149,7 +134,6 @@ export type AgentContribution = {
   }>;
   missing: { headline: string; detail?: string };
   connectedAs?: boolean;
-  /** It can't take a turn until signed in (the Otter Mail agent's OpenRouter key). */
   needsSignIn?: boolean;
   serverApprovals?: boolean;
   ownModelSettings?: boolean;

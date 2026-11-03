@@ -15,7 +15,6 @@ export type ChatTurnItem =
   | { kind: "text"; id?: string; text: string }
   | { kind: "step"; id?: string; step: ChatStep; output?: string };
 
-/** What the attached context items are, so the chip shows a fitting icon. */
 export type ChatContextKind = "draft" | "sent" | "mail" | "mixed" | "quote";
 
 export interface ChatContextMeta {
@@ -75,13 +74,11 @@ export interface Chat {
   updatedAt: number;
   /** Out of the list until then, unless the agent needs you or finishes sooner. */
   snoozedUntil?: number | null;
-  /** Put away by hand; a new message brings it back. Chats idle a week settle on their own. */
   settledAt?: number | null;
   tabs: ChatTab[];
   turns: ChatTurn[];
 }
 
-/** A chat without its transcript, as the relay lists them. Deleted ones keep their id and time. */
 export type ChatSummary = Omit<Chat, "turns"> & { deletedAt: number | null };
 
 export function chatTabId(ref: ChatTabRef): string {
@@ -150,8 +147,6 @@ export function chatForSync(chat: Chat): Chat {
   return synced;
 }
 
-// ── Relay API ────────────────────────────────────────────────────────────────
-//
 // All need the Otter account's session.
 //
 //   GET    /v1/chats      → ListChatsResponse (deleted ones too, without turns)

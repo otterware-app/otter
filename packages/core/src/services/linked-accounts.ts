@@ -26,7 +26,6 @@ export type LocalAccount = Pick<
 };
 
 export type ReconcilePlan = {
-  /** On this device only, and new: link them (Gmail and Outlook need a sign-in to prove it). */
   link: string[];
   unlink: string[];
   add: RelayAccount[];
@@ -186,7 +185,6 @@ export async function accountRemoved(email: string): Promise<void> {
     snapshot.delete(key(email));
     writeSnapshot(snapshot);
   } catch (err) {
-    // Still in the snapshot, so the next reconcile unlinks it.
     logger.failure("linked-accounts", `Couldn't unlink ${email}`, err);
   }
 }
@@ -237,7 +235,6 @@ export async function reconcileAccounts(
     }
   }
   for (const account of plan.add) {
-    // An IMAP link without its settings can't be reached from here.
     if (account.provider === "imap" && !account.imap) continue;
     await accountStore.addAccount(accountFromRelay(account));
   }

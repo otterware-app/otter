@@ -28,14 +28,12 @@ export interface SyncContext {
 
 export type Lane = "sync" | "backfill" | "prefetch";
 
-/** The account was removed while its sync ran: the run ends without writing. */
 export class SyncCancelled extends Error {
   constructor(accountId: string) {
     super(`sync cancelled: ${accountId} was removed`);
   }
 }
 
-/** The sign-in may not use the calendar: invitations are answered by email instead. */
 export class NoCalendarAccess extends Error {}
 
 export type LabelChange = { addLabelIds?: string[]; removeLabelIds?: string[] };
@@ -79,33 +77,24 @@ export type CalendarEvent = {
   meetingLink: string | null;
   htmlLink: string | null;
   recurring: boolean;
-  /** The series it's an occurrence of (or is), for answering all of them at once. */
   seriesId: string | null;
 };
 
-/** How a new event repeats, from its start: that weekday, that date of the month... */
 export type Repeat = "daily" | "weekdays" | "weekly" | "monthly" | "yearly";
 
-/** Answering an invitation: just this occurrence or the whole series, with a note. */
 export type RespondOptions = { allEvents?: boolean; comment?: string };
 
-/** One of an account's calendars: its own, another it was given, or one it follows. */
 export type CalendarInfo = {
   id: string;
   name: string;
-  /** Its color in Google or Outlook, if it has one. */
   color: string | null;
-  /** The account's default calendar. */
   primary: boolean;
-  /** Its events can be added and changed (else they're only looked at). */
   writable: boolean;
   /** Turned off where it came from (Google's unchecked calendars). */
   hiddenByDefault: boolean;
-  /** The online meeting it can add to its events (Google Meet, Teams), if any. */
   meetings: MeetingService | null;
 };
 
-/** Someone else's time taken: the title only where their calendar shows it. */
 export type BusyBlock = { start: string; end: string; title: string | null };
 
 export type EventInput = {
@@ -130,7 +119,6 @@ export interface MailProvider {
   readonly capabilities: MailCapabilities;
 
   isSignedIn(accountId: string): boolean;
-  /** What the status line says while it can't. */
   readonly signedOutMessage: string;
   removeAccount(accountId: string): Promise<void>;
 
@@ -157,7 +145,6 @@ export interface MailProvider {
   getMessage(accountId: string, messageId: string): Promise<MessageDetail>;
   getThread?(accountId: string, threadId: string): Promise<MessageDetail[]>;
   fetchAttachment(accountId: string, messageId: string, attachmentId: string): Promise<Uint8Array>;
-  /** Message-ID and References, for replying to a message cached without them. */
   getReplyHeaders(
     accountId: string,
     messageId: string,
@@ -209,7 +196,6 @@ export interface MailProvider {
     sendAt: number,
   ): Promise<{ messageId: string }>;
   cancelScheduledSend?(accountId: string, messageId: string): Promise<boolean>;
-  /** Sends a ready-made RFC 822 message (unsubscribe mail, invitation replies). */
   sendRaw(accountId: string, raw: string, threadId?: string): Promise<void>;
 
   saveDraft(
@@ -228,7 +214,6 @@ export interface MailProvider {
     set(accountId: string, email: string, html: string): Promise<string>;
   };
 
-  /** The other addresses the server lets it send from (`capabilities.sendAs === "server"`). */
   sendAs?(accountId: string, email: string): Promise<string[]>;
 
   /**
@@ -242,7 +227,6 @@ export interface MailProvider {
       uid: string,
     ): Promise<{ response: RsvpResponse | "needsAction"; htmlLink: string | null } | null>;
     respond(accountId: string, uid: string, response: RsvpResponse): Promise<boolean>;
-    /** Every calendar the account has (its default first). */
     listCalendars(accountId: string): Promise<CalendarInfo[]>;
     // Without a calendarId, the account's default calendar.
     listEvents(
@@ -276,7 +260,6 @@ export interface MailProvider {
       calendarId?: string,
       options?: RespondOptions,
     ): Promise<CalendarEvent>;
-    /** Other people's busy times, by address; null where theirs can't be seen. */
     schedule(
       accountId: string,
       emails: string[],

@@ -1,8 +1,3 @@
-/**
- * The mailbox's name and photo, from Graph: the photo as a small data URL
- * (it can only be read signed in).
- */
-
 import { toBase64 } from "../../bytes.js";
 import { GraphError, graph, graphBytes } from "./graph.js";
 

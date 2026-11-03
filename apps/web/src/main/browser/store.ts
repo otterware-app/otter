@@ -100,10 +100,6 @@ export function hostOf(url: string): string {
   return URL.parse(url)?.host.replace(/^www\./, "") ?? url;
 }
 
-/**
- * What the address bar makes of what's typed: an address (https:// unless
- * it says otherwise; http:// for this Mac), or a Google search.
- */
 export function addressToUrl(input: string): string | null {
   const text = input.trim();
   if (!text) return null;
@@ -173,7 +169,6 @@ export function selectTab(id: string | null): void {
   set({ activeId: id });
 }
 
-/** Closes a tab; in the panel, the one before it shows, then the one after it. */
 export function closeTab(id: string): void {
   set((s) => {
     const closing = s.tabs.find((tab) => tab.id === id);

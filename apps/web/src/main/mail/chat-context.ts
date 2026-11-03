@@ -94,7 +94,6 @@ function kindOf(labelIds: string[]): ContextKind {
   return "mail";
 }
 
-/** Collapse the selection's kinds: uniform → that kind, otherwise "mixed". */
 function contextKind(labelSets: string[][]): ContextKind {
   if (labelSets.length === 0) return "mail";
   const kinds = new Set(labelSets.map(kindOf));

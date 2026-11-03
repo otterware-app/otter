@@ -1,10 +1,3 @@
-/**
- * Otter Drive's Share dialog (Google Drive's): add people by email as viewers
- * or editors, see and change who has access (including through the folders
- * above), and choose whether anyone with the link can open it. A shared
- * drive itself shares by its members. Asked from anywhere with `share()`.
- */
-
 import {
   Dialog,
   DropdownMenu,
@@ -33,7 +26,6 @@ const BASE = "https://drive.otterware.app";
 
 type Request = ShareTarget & {
   name: string;
-  /** A document's own link, copied while only people with access can open it. */
   url?: string;
 };
 
@@ -42,7 +34,6 @@ export function share(request: Request): void {
   for (const listener of listeners) listener(request);
 }
 
-/** Mounted once, with the extension's other dialogs. */
 export function ShareDialogHost() {
   const [request, setRequest] = useState<Request | null>(null);
   useEffect(() => {
@@ -98,7 +89,6 @@ function ShareDialog({ request, close }: { request: Request; close: () => void }
     staleTime: Infinity,
   });
   const [emails, setEmails] = useState<string[]>([]);
-  // What's typed but not yet a chip: a complete address counts as added.
   const [draft, setDraft] = useState("");
   const typed = EMAIL.test(draft.trim()) ? draft.trim().toLowerCase() : null;
   const adding = typed && !emails.includes(typed) ? [...emails, typed] : emails;
@@ -112,7 +102,6 @@ function ShareDialog({ request, close }: { request: Request; close: () => void }
   const isMyDrive = data?.resource.folderKind === "personal";
   const you = (person: DrivePerson) => Boolean(me.data && person.userId === me.data.userId);
 
-  /** Runs a change and takes the access it answers with. */
   const change = async <T extends { data: Sharing } | null>(
     action: () => Promise<T>,
   ): Promise<T | undefined> => {
@@ -146,7 +135,6 @@ function ShareDialog({ request, close }: { request: Request; close: () => void }
         ...(message.trim() ? { message: message.trim() } : {}),
       }),
     );
-    // Keeps the dialog open on failure (the toast says why).
     if (!result) throw new Error("not shared");
     setEmails([]);
     setDraft("");
@@ -163,7 +151,6 @@ function ShareDialog({ request, close }: { request: Request; close: () => void }
   };
 
   const remove = async (entry: AccessEntry) => {
-    // Leaving answers nothing, and ends the dialog: you may no longer see it.
     if (you(entry)) {
       const left = await change(() => driveApi.setShareRole(target, entry.id, null));
       if (left === undefined) return;
@@ -280,7 +267,6 @@ function ShareDialog({ request, close }: { request: Request; close: () => void }
               ) : null}
               {data.people.map((entry) => {
                 const self = you(entry);
-                // You can leave a folder or document, not a drive.
                 const editable = !entry.inheritedFrom && (data.canShare || (self && !isDrive));
                 return (
                   <PersonRow
@@ -393,7 +379,6 @@ function PersonRow({
   );
 }
 
-/** Viewer or Editor, and Remove access: a quiet pill in a person's row, or the role to add as. */
 function RoleMenu({
   value,
   onChange,
@@ -457,7 +442,6 @@ function RoleMenu({
   );
 }
 
-/** Restricted, or anyone with the link. */
 function GeneralAccess({
   sharing,
   busy,
@@ -556,10 +540,6 @@ function GeneralAccess({
   );
 }
 
-/**
- * Email addresses as chips: type or paste them, separated by spaces, commas or
- * Enter; pick a suggestion from the people you work with.
- */
 function PeopleInput({
   emails,
   onEmailsChange,
@@ -598,8 +578,6 @@ function PeopleInput({
   const active = Math.min(highlight, suggestions.length - 1);
 
   useEffect(() => inputRef.current?.focus(), []);
-  // Escape clears the field before it closes the dialog. The dialog hears it
-  // first (on the document, capturing), so this listens on the window, earlier.
   const clearing = Boolean(text || showSuggestions);
   useEffect(() => {
     if (!clearing) return;

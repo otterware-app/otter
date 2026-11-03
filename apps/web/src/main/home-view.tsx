@@ -310,9 +310,6 @@ function useStoredWidth(
 }
 
 function PaneResizer({ onPointerDown }: { onPointerDown: (e: ReactPointerEvent) => void }) {
-  // Zero-width in the layout, after a card's gap: the grab area is that gap,
-  // an invisible strip that shows a hairline on hover (no-drag, so it resizes
-  // instead of moving the window inside the title band).
   return (
     <div className="relative z-20 w-0 shrink-0" aria-hidden>
       <div
@@ -325,30 +322,15 @@ function PaneResizer({ onPointerDown }: { onPointerDown: (e: ReactPointerEvent) 
   );
 }
 
-/**
- * Outlook-style window chrome: the window wears the sidebar's surface (and
- * grain), so the sidebar and the title bands read as one frame (Notion's), and
- * each column of mail after it (the list, the reader, the browser) is its own
- * card on it, from under its title band down: rounded and edged. One width of
- * frame runs everywhere (4px): between the cards, and round them to the
- * window's edges. Each card keeps that gap on its right.
- */
 const PANE = "min-h-0 overflow-hidden";
 const CARD = `${PANE} relative pr-1 before:pointer-events-none before:absolute before:left-0 before:right-1 before:bottom-0 before:top-(--workspace-card-top) before:-z-10 before:rounded-xl after:pointer-events-none after:absolute after:left-0 after:right-1 after:bottom-0 after:top-(--workspace-card-top) after:z-30 after:rounded-xl after:border after:border-(--panel-edge)`;
 const PANE_SIDEBAR = `${PANE} relative text-sidebar-foreground`;
 const PANE_LIST = `${CARD} before:bg-canvas`;
 const PANE_MAIN = PANE_LIST;
 const PANE_BROWSER = PANE_LIST;
-/** Clips a collapsible pane while its width animates open or closed (Otter
-    Code's panel animations); the pane keeps its width so nothing reflows. */
 const PANE_FRAME =
   "flex min-h-0 shrink-0 overflow-hidden [[data-panel-animations=true]_&]:transition-[width] [[data-panel-animations=true]_&]:[transition-duration:var(--panel-animation-duration)] [[data-panel-animations=true]_&]:ease-out";
 
-/**
- * The main window: the setup while there's no mailbox yet (or until it's
- * finished), else mail. The setup stands in for the whole view, so none of
- * mail's shortcuts run under it.
- */
 export function HomeView() {
   const accountsQuery = useAccounts();
   const stage = useSetupStage();
@@ -404,8 +386,6 @@ function MailHome() {
   const [mailtoPrefill, setMailtoPrefill] = useState<MailtoTarget | null>(null);
   const [mailtoSeq, setMailtoSeq] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  // The pane Settings was last on: opening it again without asking for one
-  // (the menu, ⌘,) returns there.
   const lastPaneRef = useRef<SettingsPane>("general");
   useLayoutEffect(() => {
     if (settingsRoute) lastPaneRef.current = settingsRoute.pane;
@@ -530,11 +510,8 @@ function MailHome() {
   }, [leaveSettingsRef, settingsRouteRef]);
 
   const space = selectedAccountId ? spaceOf(selectedAccountId, { accounts, views }) : null;
-  // The AI workspace: a chat (the label) instead of a list and a reader.
   const isChats = space?.kind === "chats";
-  // The calendar: its own view across the main area, no list.
   const isCalendar = space?.kind === "calendar";
-  // An extension's workspace: its own sidebar and main area, like the calendar.
   const workspace = space?.kind === "workspace" ? workspaceOf(space.id) : undefined;
   // Turning one off re-reads where we are (spaceOf drops it).
   useWorkspaces();
@@ -552,7 +529,6 @@ function MailHome() {
   useSignInAlerts();
   useExternalMailChanges();
   useBrowserEvents();
-  // ⌘-click on a place: a new tab for it (a browser tab on the web).
   useEffect(() => {
     const unwatch = watchNewTabClicks();
     const unblock = router.history.block({
@@ -621,7 +597,6 @@ function MailHome() {
     paneRef: browserPaneRef,
     frameRef: browserFrameRef,
   } = useStoredWidth("gmail:pane:browser", 340, 280, 1200, -1, browserRoom);
-  // Entering or leaving Settings swaps panes in place rather than animating them.
   const { active: panelAnimationsActive, durationMs: panelAnimationDurationMs } =
     usePanelAnimationSettings(settingsRoute ? "settings" : "mail");
   const browserVisible = browserOpen && !settingsRoute && !isChats;
@@ -660,7 +635,6 @@ function MailHome() {
   };
   const toggleBrowser = () => {
     if (!features.browser) return false;
-    // Agent mode's panel is the open chat's own browser.
     if (isChats) {
       if (!chatPanelRef.current) return false;
       chatPanelRef.current.toggle();
@@ -732,7 +706,6 @@ function MailHome() {
     else undockChat(id);
   };
 
-  // Where the mail was before the agent or the calendar, to go back to.
   const mailBeforeChats = useRef<MailLoc | null>(null);
   const lastCalendarMode = useRef<string>("week");
   const lastInWorkspace = useRef(new Map<string, WorkspaceLocation>());
@@ -767,7 +740,6 @@ function MailHome() {
     else if (firstRealAccountId) handleSelectAccount(firstRealAccountId);
   };
   const mode: AppMode = composeOpen ? "mail" : modeOf(space?.id ?? null);
-  // Each mode opens where it was left.
   const switchMode = (next: AppMode) => {
     sidebarPeek.close();
     if (next === mode && !settingsRoute) return;
@@ -931,7 +903,6 @@ function MailHome() {
   useEffect(
     () =>
       onUndoableAction((title, action) => {
-        // This toast undoes this action only, whatever came after it.
         const toastId = toast.success(title, {
           action: {
             label: "Undo",
@@ -1032,7 +1003,6 @@ function MailHome() {
     else goForEffect.current({}, true);
   }, [onIndex, hasMail, goForEffect, navigate]);
 
-  // Persist where the user is so we can reopen here next launch.
   useEffect(() => {
     if (!initialized || !selectedAccountId) return;
     if (selectedLabelId === SEARCH_MAILBOX) return;
@@ -1086,8 +1056,6 @@ function MailHome() {
     return unsub;
   }, [openComposeRef]);
 
-  // A conversation clicked in a new-mail notification opens here, in the
-  // reader (once there's mail to open it in, when it started the app).
   const [openFromNotification, setOpenFromNotification] = useState<{
     accountId: string;
     messageId: string;
@@ -1436,7 +1404,6 @@ function MailHome() {
     quote: pendingQuote,
   });
   const locationHref = router.state.location.href;
-  // What a workspace calls where it is (a document's title), for this address only.
   const [workspaceTitle, setWorkspaceTitle] = useState<{ href: string; title: string } | null>(
     null,
   );
@@ -1491,14 +1458,8 @@ function MailHome() {
     composeOpen;
   const listVisible = hasListTarget && !settingsRoute && !composeOpen && (!wideInbox || !showMain);
 
-  // Full-height columns: each pane owns its slice of the title band (on the
-  // chrome); the content panel is painted behind them from under that band.
-  // With a conversation open, its header is the title band (subject, actions
-  // and the panel toggle in one row) instead of an empty band above it.
   const readerOwnsBand =
     !settingsRoute && !(composeOpen && composeAccountId) && !!readerAccount && !!selectedMessageId;
-  // Room for the pinned browser toggle, while the panel doesn't show (it keeps it then).
-  // Agent mode's panel button sits over its rightmost header, the chat's or its tabs'.
   const browserToggleRoom = features.browser && !settingsRoute && (isChats || !browserVisible);
   const titleTrailing = <TitleTrailing showPanelToggle={browserToggleRoom} />;
   const titlebarInset = <TitlebarInset />;

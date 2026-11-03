@@ -58,7 +58,6 @@ export function parseOperators(q: string): Operator[] {
   }));
 }
 
-/** The query without any operators (the free text Gmail matches everywhere). */
 export function freeText(q: string): string {
   return q.replace(OPERATOR_RE, " ").replace(/\s+/g, " ").trim();
 }

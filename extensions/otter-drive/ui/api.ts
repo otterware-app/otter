@@ -55,7 +55,6 @@ export type AccessEntry = DrivePerson & {
   inheritedFrom: { id: string; name: string } | null;
   viaLink: boolean;
 };
-/** Who has access to a folder or document, as Otter Drive answers it. */
 export type Sharing = {
   resource: {
     type: "folder" | "artifact";
@@ -117,7 +116,6 @@ export type StorageChange =
   | { action: "keys"; backendId: string; keys: Record<string, string> }
   | { action: "verify" | "disconnect"; backendId: string };
 
-/** Shared with me, as a pseudo-drive's id. */
 export const SHARED = "shared";
 
 export const driveApi = {
@@ -136,7 +134,6 @@ export const driveApi = {
   folders: (): Promise<DriveFolder[]> => task("otterDrive:folders", {}),
   setDriveHidden: (id: string, hidden: boolean): Promise<void> =>
     task("otterDrive:setDriveHidden", { id, hidden }),
-  /** A list as this device last fetched it, and when (null: none kept). */
   saved: <T>(
     what: "folders" | "artifacts" | "shared",
     folderId?: string,
@@ -207,7 +204,6 @@ export const driveApi = {
     id: string,
     folderId: string | undefined,
     edit: { text: string } | { sheets: { name: string; rows: string[][] }[] },
-    /** The version the edit started from, and how many there were then. */
     source: { version: number; count: number },
   ): Promise<DriveArtifact> => task("otterDrive:saveEdit", { id, folderId, edit, source }),
   promoteVersion: (
@@ -230,6 +226,5 @@ export const driveApi = {
   }): Promise<DriveArtifact> => task("otterDrive:publish", input),
 };
 
-/** A drive's name as Drive gives it: yours is My Drive. */
 export const driveLabel = (folder: Pick<DriveFolder, "kind" | "name">) =>
   folder.kind === "personal" ? "My Drive" : folder.name;

@@ -1,9 +1,3 @@
-/**
- * An SMTP submission client (RFC 5321, RFC 6409) over the platform's
- * ByteStream: implicit TLS or STARTTLS, AUTH PLAIN / LOGIN / XOAUTH2, and
- * one message at a time to any number of recipients.
- */
-
 import { toBase64, utf8Decode, utf8Encode } from "../../bytes.js";
 import type { ByteStream } from "../../platform.js";
 import {
@@ -224,7 +218,6 @@ export class SmtpClient {
     }
   }
 
-  /** Says goodbye and closes; never throws. */
   async quit(): Promise<void> {
     if (this.closed) return;
     await this.queue;

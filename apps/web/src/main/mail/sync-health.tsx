@@ -47,7 +47,6 @@ function syncLine(status: SyncStatus | undefined): StatusLine {
   return { text: synced, tone: "muted" };
 }
 
-/** Never synced here: it was added on another device (through the Otter account). */
 function notOnThisDevice(account: MailAccount, status: SyncStatus | undefined): boolean {
   return account.signedOut === true && status != null && !status.lastSyncAt;
 }
@@ -117,7 +116,6 @@ export function takeRequestedMailbox(): string | null {
   return id;
 }
 
-/** "Contoso is signed out", "Contoso needs its password". */
 function signedOutTitle(account: MailAccount): string {
   const name = getAccountDisplayName(account);
   return signsInWithPassword(account) ? `${name} needs its password` : `${name} is signed out`;

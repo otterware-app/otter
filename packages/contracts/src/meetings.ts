@@ -1,6 +1,3 @@
-/** Online meetings on calendar events: whose a join link is, and finding one in an event's text. */
-
-/** The meetings a calendar can add to its events itself. */
 export type MeetingService = "googleMeet" | "teams";
 
 export type MeetingProvider = MeetingService | "zoom" | "webex" | "other";
@@ -19,10 +16,6 @@ export function meetingProvider(url: string): MeetingProvider {
   return PROVIDERS.find((p) => p.test.test(url))?.provider ?? "other";
 }
 
-/**
- * The first join link of a known service in an event's location or description (an invitation
- * from another calendar, a link pasted in), for events whose provider names none itself.
- */
 export function findMeetingLink(...texts: (string | null | undefined)[]): string | null {
   for (const text of texts) {
     // Descriptions may be HTML: links in attributes, & as &amp;.

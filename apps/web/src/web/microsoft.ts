@@ -26,7 +26,6 @@ import { SIGN_IN_CANCELLED } from "./protocol";
 type Stored = { sealed: string; accessToken: string; expiresAt: number };
 
 const FILE = "microsoft-tokens.json";
-/** Refresh a little before Microsoft expires the token, never mid-request. */
 const REFRESH_AHEAD_MS = 2 * 60_000;
 
 export function webMicrosoftAuth(deps: {
@@ -89,7 +88,6 @@ export function webMicrosoftAuth(deps: {
   }
 
   return {
-    // Whether the relay has a Microsoft client; asked once, again after a failure.
     available() {
       available ??= fetch(`${relayUrl}/v1/me`, { credentials: "include" })
         .then(async (response) => {

@@ -62,7 +62,6 @@ export async function putCachedAttachment(
   }
 }
 
-/** Attachment bytes. Local-first: served from the cache when present, write-through otherwise. */
 export async function getAttachmentBytes(
   accountId: string,
   messageId: string,
@@ -84,7 +83,6 @@ export async function getAttachmentBytes(
   return bytes;
 }
 
-/** Attachment bytes as standard base64 (for forwarding / in-memory use). */
 export async function getAttachmentData(
   accountId: string,
   messageId: string,

@@ -22,7 +22,6 @@ export async function saveSignature(account: MailAccount, html: string): Promise
     return updateAccount(account.id, { signature: saved, signatureInGmail: true });
   } catch (err) {
     if (!(err instanceof Error && err.message === GMAIL_SETTINGS_PERMISSION)) throw err;
-    // This sign-in may not change Gmail's settings: keep it here until one may.
     return updateAccount(account.id, { signature: html, signatureInGmail: false });
   }
 }
@@ -35,7 +34,6 @@ async function refreshSignature(account: MailAccount): Promise<boolean> {
   }
   const inGmail = await signatures.get(account.id, account.email);
   if (!account.signatureInGmail && !inGmail && account.signature) {
-    // Kept only here until now: move it to Gmail (if this sign-in may).
     await saveSignature(account, account.signature).catch((err: unknown) =>
       logger.info(
         "signatures",
@@ -73,7 +71,6 @@ export async function saveSendAs(account: MailAccount, entered: unknown[]): Prom
   return updated;
 }
 
-/** The addresses the server lets it send from besides its own (Gmail's send-as). */
 async function refreshSendAs(account: MailAccount): Promise<boolean> {
   const read = findProvider(account)?.sendAs;
   if (!read) return false;
@@ -83,7 +80,6 @@ async function refreshSendAs(account: MailAccount): Promise<boolean> {
   return true;
 }
 
-/** Refreshes each mailbox's signature and, alongside, the addresses it sends from. */
 export async function refreshSignatures(): Promise<void> {
   let changed = false;
   for (const account of await listAccounts()) {

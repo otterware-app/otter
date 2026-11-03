@@ -19,7 +19,6 @@ const ACCESS_NOTES: Record<AgentAccess, string | null> = {
   "full-access": null,
 };
 
-/** The MCP server's instructions to agents Otter Mail doesn't run (connected-agents.ts). */
 export function connectedAgentInstructions(access: AgentAccess): string {
   return [
     "Otter Mail is the user's mail client, open on this Mac.",

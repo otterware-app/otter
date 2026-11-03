@@ -23,7 +23,6 @@ export function QuestionCard({
   const secret = question.questions.some((q) => q.secret);
   const quick = question.questions.length === 1 && !question.questions[0].multiSelect && !secret;
 
-  // The card takes the focus the composer had, so Esc skips.
   useEffect(() => {
     const active = document.activeElement;
     if (!active || active === document.body) card.current?.focus();

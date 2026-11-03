@@ -22,18 +22,14 @@ export type MainEffect =
       open?: { accountId: string; messageId: string };
       code?: string;
     }
-  /** The Dock badge. */
   | { kind: "unread"; count: number }
-  /** Settings main applies itself (open at login, the Dock badge). */
   | { kind: "settings"; settings: AppSettings; patch: Partial<AppSettings> }
   | { kind: "log"; level: Level; scope: string; message: string; data?: string };
 
 export type ToBackend =
   | { type: "invoke"; id: number; channel: string; params: unknown }
   | { type: "reply"; id: number; result?: unknown; error?: string }
-  /** The Mac woke up. */
   | { type: "resume" }
-  /** The app is quitting: stop the assistants' processes and exit. */
   | { type: "shutdown" };
 
 export type FromBackend =

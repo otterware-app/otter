@@ -196,7 +196,6 @@ describe("the server OpenRouter agent", () => {
       text: '{"subject":"Hello","unread":true}',
       toolName: "list_threads",
     });
-    // A fresh server instance reads shared history rather than a device's local conversation.
     const resumed = new OpenRouterAgentServer(files);
     responses.push(completion({ content: "The subject was Hello." }));
     await resumed.turn(

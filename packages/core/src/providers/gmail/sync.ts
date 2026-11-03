@@ -41,8 +41,6 @@ export async function syncGmail(accountId: string, ctx: SyncContext): Promise<vo
   if (await refreshLabels(accountId, delta.changed, ctx)) ctx.bumpRevision();
   await ctx.newMail(delta.added);
 
-  // Local-first drafts: know every draft's id, so opening one needs no
-  // Gmail round trip.
   await learnDraftIds(accountId, delta.changed, ctx);
 }
 
@@ -227,7 +225,6 @@ async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
   finishBackfill(accountId);
 }
 
-/** The category labels (Promotions, Social, …) IMAP doesn't carry, from API listings. */
 async function fillCategories(accountId: string, ctx: SyncContext): Promise<void> {
   for (const label of store.getLabels(accountId)) {
     if (!label.id.startsWith("CATEGORY_")) continue;
@@ -280,7 +277,6 @@ async function refreshMailbox(accountId: string, ctx: SyncContext): Promise<void
   if (ops.length > 0) ctx.bumpRevision();
   logger.info("mail-sync", `${ops.length} changes found comparing ${accountId}`);
 
-  // What the cache lacks: mail that arrived while away (or never got cached).
   const missing = all.filter((id) => !cached.has(id));
   let synced = all.length - missing.length;
   ctx.update({ synced });

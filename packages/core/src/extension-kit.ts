@@ -1,11 +1,3 @@
-/**
- * What extensions may use of core (`@otter-mail/core/extension-kit`): the
- * extension context's types, and the parts of the backend the built-in
- * extensions build on. Extensions import core only through here, so this file
- * is the whole surface they depend on. It is broader than what extensions
- * from elsewhere will get: they will see the context alone.
- */
-
 export type { CoreExtension, ExtensionContext } from "./extensions.js";
 export { extensionManifest, type ExtensionManifest } from "@otter-mail/contracts/extensions";
 

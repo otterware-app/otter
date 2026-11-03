@@ -53,7 +53,6 @@ const GAP = 8;
 
 type Actions = ReturnType<typeof useCalendarActions>;
 
-/** Where the card goes: beside its event (right, else left), within the calendar. */
 function usePlacement(
   containerRef: RefObject<HTMLElement | null>,
   anchorKey: string,
@@ -118,7 +117,6 @@ export function EventPanel({
     calendars.find((c) => c.key === calendarKey(ref));
   const place = usePlacement(containerRef, anchorKey, panelRef);
   const close = () => select(null);
-  // Slides between events once shown; appears where it is.
   const [placed, setPlaced] = useState(false);
   useEffect(() => {
     if (!place || placed) return;
@@ -237,7 +235,6 @@ const Divider = () => <div className="my-1.5 h-px bg-border/60" />;
 const FIELD =
   "w-full min-w-0 rounded-md bg-transparent px-1.5 -mx-1.5 py-0.5 text-[13px] text-foreground outline-none placeholder:text-placeholder hover:bg-foreground/[0.04] focus:bg-foreground/[0.06]";
 
-/** A field that saves when it's left (or on Enter), not on every key. */
 function CommitInput({
   value,
   placeholder,
@@ -303,7 +300,6 @@ const withDate = (ms: number, value: string) => {
   return next.getTime();
 };
 
-/** Every day, Weekly on Monday, Monthly on day 12... from the day it starts. */
 function repeatLabel(repeat: Repeat, startMs: number): string {
   const d = new Date(startMs);
   switch (repeat) {
@@ -323,7 +319,6 @@ function repeatLabel(repeat: Repeat, startMs: number): string {
 const dayLabel = (ms: number) =>
   new Date(ms).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 
-/** A time or a day in words; the native picker opens from it. */
 function Pick({
   type,
   value,
@@ -354,10 +349,6 @@ function Pick({
   );
 }
 
-/**
- * Notion Calendar's time block: start → end with how long, each over its
- * day, and All-day under them. Every part edits in place.
- */
 function TimeRows({
   startMs,
   endMs,
@@ -370,7 +361,6 @@ function TimeRows({
   endMs: number;
   allDay: boolean;
   onChange: (startMs: number, endMs: number, allDay: boolean) => void;
-  /** New events: how it repeats (Notion Calendar's Repeat). */
   repeat?: Repeat | null;
   onRepeat?: (repeat: Repeat | null) => void;
 }) {
@@ -585,13 +575,11 @@ function plainText(description: string): string {
   return text.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-/** A calendar's name as shown: the mailbox's for its primary calendar. */
 function calendarLabel(calendar: ListedCalendar | undefined): string | undefined {
   if (!calendar) return undefined;
   return calendar.info.primary ? getAccountDisplayName(calendar.account) : calendar.info.name;
 }
 
-/** A teammate's busy time: what it is, when, and whose. */
 function TeammateEvent({
   event,
   color,
@@ -613,7 +601,6 @@ function TeammateEvent({
   );
 }
 
-/** An event only to look at (a followed calendar's, a teammate's): what, when, where, whose. */
 function ReadOnlyEvent({
   event,
   color,
@@ -684,7 +671,6 @@ function ReadOnlyEvent({
   );
 }
 
-/** Answering a repeating invitation: this event or all of them, and a note for the organizer. */
 function SeriesResponseDialog({
   open,
   onClose,
@@ -696,7 +682,6 @@ function SeriesResponseDialog({
 }) {
   const [allEvents, setAllEvents] = useState(false);
   const [note, setNote] = useState("");
-  // Each opening starts afresh.
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -756,7 +741,6 @@ function EventDetails({
   event: CalEvent;
   color: string;
   calendarName: string;
-  /** The online meeting its calendar can add. */
   meetings: MeetingService | null;
   actions: Actions;
   onClose: () => void;
@@ -764,7 +748,6 @@ function EventDetails({
   const notify = hasGuests(event);
   const mine = !event.organizer || event.organizer.toLowerCase() === event.accountId.toLowerCase();
   const update = (patch: EventInput) => actions.update(event, patch, notify);
-  // A repeating invitation: this occurrence or all of them (Notion Calendar's question).
   const [asking, setAsking] = useState<RsvpResponse | null>(null);
   return (
     <>
@@ -880,7 +863,6 @@ function NewEvent({
   onClose,
 }: {
   draft: DraftEvent;
-  /** The calendars it can go on. */
   calendars: ListedCalendar[];
   colorOf: (key: string) => string;
   onChange: (draft: DraftEvent) => void;
@@ -898,7 +880,6 @@ function NewEvent({
   const [guests, setGuests] = useState("");
   const [saving, setSaving] = useState(false);
   const target = calendars.find((c) => c.key === calendarKey(draft));
-  // On by default for the mailboxes set so in Settings, until turned off here.
   const { meetingsByDefault } = useCalendarPreferences();
   const [meetingChoice, setMeetingChoice] = useState<boolean | null>(null);
   const meetings = target?.info.meetings ?? null;

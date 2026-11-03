@@ -1,11 +1,3 @@
-/**
- * The app's color themes, for the agent: which are worn, what a theme's
- * colors are, and making or changing one (Settings › Appearance's library,
- * apps/web's theme/themePalette.ts, ported from Otter Code). They read and
- * write the same synced ui preferences the app does, so the app repaints as
- * soon as a tool changes them, on every device.
- */
-
 import {
   APP_THEMES,
   THEME_COLOR_ROLES,
@@ -75,7 +67,6 @@ async function worn(): Promise<Record<ThemeAppearance, string>> {
   return { light: pick("light"), dark: pick("dark") };
 }
 
-/** Only the roles the app paints, for the agent to read and change. */
 function painted(palette: Palette): Palette {
   return Object.fromEntries(Object.entries(palette).filter(([role]) => role in PAINTED_ROLES));
 }

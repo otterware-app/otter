@@ -1,10 +1,3 @@
-/**
- * Outlook messages in the cache's shape: summaries from Graph's message
- * properties, whole messages from their MIME source (`/$value`), parsed with
- * postal-mime as IMAP's are, so bodies, inline images, attachments and
- * headers read the same whatever the provider.
- */
-
 import { parseMessage } from "../../protocols/index.js";
 import { getMessageLabelIds } from "../../services/mail-store.js";
 import type { MessageDetail, MessageSummary } from "../../types.js";
@@ -20,7 +13,6 @@ import {
   ok,
 } from "./graph.js";
 
-/** What a list row needs, asked of Graph. */
 export const SUMMARY_FIELDS = [
   "id",
   "conversationId",

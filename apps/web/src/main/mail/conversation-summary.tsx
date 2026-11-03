@@ -198,7 +198,6 @@ function MessageFiles({
   onOpenFile: OpenFile;
 }) {
   const detail = useMessage(accountId, messageId).data;
-  // Inline images (a content id) are part of the body, not files people sent.
   const files = (detail?.attachments ?? []).filter((a) => !a.contentId);
   return files.map((a) => (
     <button

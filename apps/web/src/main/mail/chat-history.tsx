@@ -77,7 +77,6 @@ export function HistoryList({
   const showServer = (serverSessions?.length ?? 0) > 0 || serverLoading;
   const server = (serverSessions ?? []).filter((s) => matches(s.title || s.preview || s.id));
   const nothingYet = all.length === 0 && (serverSessions?.length ?? 0) === 0 && !serverLoading;
-  // Section labels only when there are two sections to tell apart.
   const labelled = showServer && all.length > 0;
 
   const row =

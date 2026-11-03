@@ -20,11 +20,6 @@ import { getAccountColor, getAccountDisplayName } from "./account-style";
 import { SYSTEM_LABEL_NAMES, SYSTEM_LABEL_ORDER, labelDisplayName } from "./label-names";
 import type { MailAccount, MailLabel, MailView, ViewRule } from "./types";
 
-/**
- * Making a view, or changing one, in a dialog over the mail (Smart
- * Mailbox-style): its mark and name, then each mailbox's "Must have" / "Must
- * not have" labels, added from a menu. A view is a space in the sidebar: its list.
- */
 type ViewEditorProps = {
   view: MailView | null;
   accounts: MailAccount[];
@@ -147,12 +142,10 @@ function AddLabelMenu({
   );
 }
 
-/** A word of the expression ("in", "with", "or"): quiet, so the chips read as its terms. */
 function Word({ children }: { children: ReactNode }) {
   return <span className="text-[13px] text-muted-foreground">{children}</span>;
 }
 
-/** One mailbox's clause: in it, with these labels, without those. */
 function Clause({
   account,
   picks,

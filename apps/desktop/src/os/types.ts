@@ -1,10 +1,3 @@
-/**
- * What differs between the operating systems the desktop app runs on (macOS
- * and Linux), as one interface each implements: os/mac and os/linux. The rest
- * of the app asks `hostOS` (os/index.ts) and never checks `process.platform`
- * itself. What the renderer may show follows from os/features.ts.
- */
-
 import type {
   BrowserWindow,
   BrowserWindowConstructorOptions,

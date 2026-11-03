@@ -15,7 +15,6 @@ function tokenize(text: string, byLine: boolean): string[] {
   return byLine ? text.split(/(?<=\n)/) : (text.match(/^\s+|\S+\s*/g) ?? []);
 }
 
-/** Diff from `before` to `after`: "added" is only in after, "removed" only in before. */
 export function diffText(before: string, after: string): DiffPart[] {
   let a = tokenize(before, false);
   let b = tokenize(after, false);

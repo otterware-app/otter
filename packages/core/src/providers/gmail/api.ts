@@ -37,7 +37,6 @@ const BASE_URL = "https://gmail.googleapis.com/gmail/v1/users/me";
 const FOREGROUND_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15_000, 30_000];
 const BACKGROUND_MAX_RETRIES = 6;
 const BACKGROUND_TRANSIENT_RETRIES = 3;
-/** A request that hangs must not stall a sync run forever. */
 const REQUEST_TIMEOUT_MS = 90_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -99,7 +98,6 @@ export function errorKind(err: unknown): ErrorKind | null {
   return null;
 }
 
-/** Google revoked or expired the sign-in, or it lacks the scopes Gmail needs. */
 function isSignInError(err: unknown): boolean {
   if (err instanceof GmailApiError) {
     return (
@@ -287,7 +285,6 @@ async function listSendAs(accountId: string): Promise<SendAs[]> {
   return sendAs;
 }
 
-/** Gmail's "Send mail as" addresses other than the mailbox's own, once verified. */
 export async function getSendAs(accountId: string, email: string): Promise<string[]> {
   return (await listSendAs(accountId))
     .filter((s) => s.sendAsEmail.toLowerCase() !== email.toLowerCase())
@@ -376,7 +373,6 @@ function getHeaderValue(headers: { name: string; value: string }[], name: string
   return headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? "";
 }
 
-/** A message's List-Unsubscribe / List-Unsubscribe-Post headers (RFC 2369 / 8058). */
 export async function getUnsubscribeHeaders(
   accountId: string,
   messageId: string,
@@ -762,7 +758,6 @@ export async function untrashMessage(
   return fetchMetadataForIds(accountId, [messageId]);
 }
 
-/** Live fetch of the RFC 2822 reply headers for a message not yet cached with them. */
 export async function fetchReplyHeaders(
   accountId: string,
   messageId: string,
@@ -815,7 +810,6 @@ export async function sendMessage(
   return { ok: true, messageId: sent.id };
 }
 
-/** Sends a ready-made RFC 822 message (calendar replies build their own MIME). */
 export async function sendRawMessage(
   accountId: string,
   raw: string,
@@ -921,7 +915,6 @@ export async function deleteDraft(
   accountId: string,
   draftId: string,
 ): Promise<{ ok: true; messageId?: string }> {
-  // Learn the draft's message id first so the local row can be removed too.
   let messageId: string | undefined;
   try {
     const draft = (await gmailFetch(accountId, `/drafts/${draftId}?format=minimal`)) as {

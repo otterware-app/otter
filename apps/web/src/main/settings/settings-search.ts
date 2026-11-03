@@ -11,21 +11,15 @@ export interface SettingsSearchItem {
   readonly pane: SettingsPane;
   readonly item?: string;
   readonly targetId?: string;
-  /** Descriptions, option labels, and aliases people may remember instead of the title. */
   readonly searchTerms?: ReadonlyArray<string>;
   /**
    * Sorts after every other match. Keybinding commands mirror rows on other
    * panes, so "notifications" still leads with Notifications, not a command.
    */
   readonly secondary?: boolean;
-  /** False where this app doesn't have the setting (only the Mac app does): search skips it. */
   readonly available?: boolean;
 }
 
-/**
- * Section labels in sidebar order. The sidebar nav and the search-result
- * subtitles both render from this record, so each label exists once.
- */
 export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPane, string>> = {
   general: "General",
   otter: "Account",
@@ -50,11 +44,6 @@ export function keybindingSearchAnchorId(command: string) {
   return `keybinding-${command}`;
 }
 
-/**
- * One result per built-in command, alphabetical by label. The anchor is the
- * command's first row; default keys are searchable so "mod+b" lands on
- * Sidebar: Toggle.
- */
 const KEYBINDING_SEARCH_ITEMS: ReadonlyArray<SettingsSearchItem> = KEYBINDING_COMMANDS.toSorted(
   (left, right) => commandLabel(left).localeCompare(commandLabel(right)),
 ).map((command) => ({
@@ -446,11 +435,6 @@ const SEARCH_ITEMS_BY_ID = new Map<string, SettingsSearchItem>(
   SETTINGS_SEARCH_ITEMS.map((item) => [item.id, item]),
 );
 
-/**
- * `id` and `title` props for the element a search item anchors to. Panes
- * spread (or pick from) this instead of restating the strings, so the catalog
- * and the rendered settings cannot drift apart.
- */
 export function searchableSetting(id: SettingsSearchItemId): {
   readonly id: string;
   readonly title: string;

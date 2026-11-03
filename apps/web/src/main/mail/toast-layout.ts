@@ -10,7 +10,6 @@ export function hasVisibleToastAction(actionProps: unknown): boolean {
   return children != null && children !== false && children !== "";
 }
 
-/** Toasts behind the front one only peek out until the stack is hovered. */
 export function shouldHideCollapsedToastContent(
   visibleToastIndex: number,
   visibleToastCount: number,

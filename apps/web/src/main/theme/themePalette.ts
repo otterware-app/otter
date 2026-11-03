@@ -606,8 +606,6 @@ export function createVividThemeColors(
   });
   const themeColor = (color: ThemeOklch) => themeOklchToThemeColor(color);
 
-  // Text carries a whisper of the accent hue instead of falling back to a
-  // fixed foreground, and is solved to WCAG AAA against the canvas.
   const textBase: ThemeOklch = {
     L: dark ? 0.95 : 0.2,
     C: Math.min(0.035, accent.C * 0.25),
@@ -617,8 +615,6 @@ export function createVividThemeColors(
   const textRgb = themeOklchToRgb(text);
   const textMutedRgb = standardMutedThemeText(canvasRgb, textRgb);
 
-  // The companion action rotates off the accent so a two-color theme still
-  // gets the dual-voice character of the hand-tuned palettes.
   const action: ThemeOklch = {
     L: Math.min(0.85, Math.max(0.35, accent.L + (dark ? 0.06 : -0.02))),
     C: Math.max(accent.C * 0.9, 0.06),
@@ -660,7 +656,6 @@ export function createVividThemeColors(
     ...defaults,
     ...standardStatusColors(canvasRgb),
     canvas: themeRgbToThemeColor(canvasRgb),
-    // The top bar shares the canvas so the main panel reads as one surface.
     chrome: themeRgbToThemeColor(canvasRgb),
     toolbar: themeRgbToThemeColor(canvasRgb),
     toolbarForeground: themeRgbToThemeColor(textRgb),

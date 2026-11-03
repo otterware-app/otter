@@ -1,10 +1,3 @@
-/**
- * Dragging conversations from the message list onto a sidebar label. The
- * payload names each conversation and the label the list was showing, so a
- * drop can move them out of it (Gmail/Apple Mail) — or, with ⌥ held, only
- * add the label.
- */
-
 import { ALL_MAIL_LABEL_ID, ARCHIVE_LABEL_ID } from "./label-names";
 
 export const THREAD_DRAG_MIME = "application/x-ottermail-threads";
@@ -56,8 +49,6 @@ export function isMoveSourceLabel(
   );
 }
 
-/** Compact card used as the drag image, instead of the full-size row: sender
-    and subject for one conversation, "3 conversations" for several. */
 export function setThreadDragImage(
   dataTransfer: DataTransfer,
   preview: { title: string; subtitle?: string },

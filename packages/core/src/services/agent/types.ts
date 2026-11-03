@@ -52,13 +52,11 @@ export type ProviderSnapshot = {
   settings: AgentSettingsView;
 };
 
-/** Everything the renderer needs for the provider picker and settings. */
 export type ProvidersState = {
   providers: ProviderSnapshot[];
   selected: ProviderKind;
 };
 
-/** T3 Code's runtime modes: how much an agent may do without asking. */
 export type RuntimeMode = "approval-required" | "auto-accept-edits" | "full-access";
 
 export const RUNTIME_MODES: readonly RuntimeMode[] = [
@@ -128,7 +126,6 @@ export type ChatEvent =
   | { requestId: string; type: "approval"; approval: ApprovalRequest }
   | { requestId: string; type: "approvalResolved"; approvalId: string }
   | { requestId: string; type: "question"; question: ChatQuestion }
-  /** Answered (here or elsewhere), skipped, or expired: the question is no longer asked. */
   | { requestId: string; type: "questionResolved"; questionId: string }
   /**
    * What the run has written so far, from the provider's own record: it
@@ -192,7 +189,6 @@ export type ResumeTurnInput = { requestId: string; sessionId: string };
 export interface ChatProvider<S extends AgentSettings = AgentSettings> {
   readonly kind: ProviderKind;
   readonly displayName: string;
-  /** Settings before the user changes any. */
   readonly defaults: S;
   readonly fields: { [K in keyof S]?: AgentSettingField };
   readonly deviceFields?: readonly (keyof S)[];

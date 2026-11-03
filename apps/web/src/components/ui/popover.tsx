@@ -16,8 +16,6 @@ function PopoverTrigger({ className, children, ...props }: PopoverPrimitive.Trig
   );
 }
 
-// Popovers hold prose and forms, so a width is fixed rather than a minimum,
-// and every width is capped to the viewport.
 const popoverPopupWidthClassName = {
   auto: "",
   sm: "w-64",
@@ -28,7 +26,6 @@ const popoverPopupWidthClassName = {
 const popoverViewportPaddingClassName = {
   default: "py-4 [--viewport-inline-padding:--spacing(4)]",
   compact: "py-2 [--viewport-inline-padding:--spacing(3)]",
-  // Rounded to the popup so edge-to-edge content clips to its corners.
   none: "rounded-[calc(var(--radius-lg)-1px)] py-0 [--viewport-inline-padding:0px]",
 } as const;
 

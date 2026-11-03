@@ -1,18 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { mailApi } from "./api";
 
-/** Deterministic hue per sender so people keep a stable identity color. */
 function hueFor(seed: string): number {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
   return ((h % 360) + 360) % 360;
 }
 
-/**
- * Real sender photo when one exists (backend cascade: People API contact
- * photo → Gravatar → sender-domain logo, cached in the mail store), otherwise
- * the colored-initial tile.
- */
 export function SenderAvatar({
   name,
   email,

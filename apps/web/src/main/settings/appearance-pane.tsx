@@ -389,7 +389,6 @@ function ThemeLibrary() {
       initialAppearance: appearance(),
     });
 
-  // Built-ins are never changed: duplicating one is how you make it yours.
   const card = (theme: ThemeDefinition, custom: boolean) => (
     <ThemeCard
       key={theme.id}
@@ -613,7 +612,6 @@ function PercentSettingRow({
       {...searchableSetting(searchId)}
       description={description}
       control={
-        // As wide as Panel animations' slider, so the three line up.
         <div className="w-full sm:w-52">
           <SettingSlider
             id={`${searchId}-slider`}

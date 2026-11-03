@@ -12,7 +12,6 @@ type Preset = {
   mx?: string[];
   imap: MailServer;
   smtp: MailServer;
-  /** The login is the part before the @ (else the whole address). */
   localPart?: boolean;
   appPasswords?: string;
 };
@@ -163,7 +162,6 @@ const PRESETS: Preset[] = [
   },
 ];
 
-/** Mailboxes that sign in with Google or Microsoft rather than a password. */
 const NOT_IMAP_DOMAINS = new Set([
   "gmail.com",
   "googlemail.com",
@@ -235,7 +233,6 @@ const fillUsername = (template: string, email: string) =>
     .replace(/%EMAILLOCALPART%/g, email.split("@")[0]!)
     .replace(/%EMAILDOMAIN%/g, email.split("@")[1]!);
 
-/** Reads a clientConfig document (config-v1.1.xml); null without a usable IMAP and SMTP server. */
 export function parseAutoconfig(xml: string, email: string): ImapSettings | null {
   const withoutComments = xml.replace(/<!--[\s\S]*?-->/g, "");
   const [imap] = configServers(withoutComments, "incomingServer", "imap");

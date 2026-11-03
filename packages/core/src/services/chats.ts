@@ -73,7 +73,6 @@ const STREAMING_PUSH_MS = 15_000;
 
 const summary = ({ turns: _turns, ...chat }: Chat): Omit<ChatSummary, "deletedAt"> => chat;
 
-/** This device's chats, newest first, without their turns; and this device. */
 export async function listChats(): Promise<{
   chats: Omit<ChatSummary, "deletedAt">[];
   device: Device;
@@ -229,11 +228,6 @@ function merged(remote: Chat, local: Chat | undefined): Chat {
   return { ...remote, turns: [...(at > 0 ? local.turns.slice(0, at) : []), ...turns] };
 }
 
-/**
- * The account's chats: those written elsewhere since this device last had
- * them come in whole, those deleted elsewhere go, and this device's own
- * chats the relay doesn't have yet are written to it.
- */
 export async function pullChats(): Promise<void> {
   if (!getOtterUser()) return;
   const { chats: remote } = await relayRequest<ListChatsResponse>("GET", "/v1/chats");

@@ -67,7 +67,6 @@ export function SidebarBody({
 }: {
   children: ReactNode;
   contentClassName?: string;
-  /** Content that sits at the bottom (Agent's shelves) needs no room to scroll clear of it. */
   flushBottom?: boolean;
 }) {
   return (
@@ -132,8 +131,6 @@ export function SkRow({
       </span>
       <span className="min-w-0 flex-1 truncate">{title}</span>
       {trailing ? (
-        // One trailing slot: the count at rest, the row action on hover, so
-        // the action never reserves dead space next to the count.
         <span className="relative ml-auto flex h-5 min-w-5 shrink-0 items-center justify-end">
           {badge != null && badge > 0 ? (
             <span className="group-hover:invisible group-focus-within:invisible">
@@ -164,7 +161,6 @@ export function Section({
   defaultOpen = true,
 }: {
   title: string;
-  /** How many it holds, beside the title (Otter Code's shelves). */
   count?: number;
   action?: ReactNode;
   children: ReactNode;
@@ -246,10 +242,6 @@ export type SidebarPickerItem = {
   dot?: boolean;
 };
 
-/**
- * A row of places to pick from by their pictures (Mail's mailboxes, Drive's
- * drives): the one you're in shows its name, opening from nothing.
- */
 export function SidebarPicker({
   items,
   selectedId,
@@ -262,7 +254,6 @@ export function SidebarPicker({
   tour?: string;
 }) {
   return (
-    // More than fit (eight or nine mailboxes) wrap onto another row, every one reachable.
     <div className="flex min-w-0 flex-wrap items-center gap-0.5" data-tour={tour}>
       {items.map(({ id, label, icon, hint, dot = false }) => {
         const selected = id === selectedId;

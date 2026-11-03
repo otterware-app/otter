@@ -293,8 +293,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:updateAccount — persists a user-set display name / color for an account,
-  // then notifies every window so the sidebar/message list pick up the change live.
   handle("gmail:updateAccount", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:updateAccount]", { accountId: p?.accountId });
@@ -326,7 +324,6 @@ export function registerMailHandlers(): void {
       mailSync.syncAccount(accountId);
       const local = mailStore.getLabels(accountId);
       if (local.length > 0) return local;
-      // Cold cache: fetch once live so the sidebar isn't empty on first launch.
       const labels = await providerFor(accountId).listLabels(accountId);
       mailStore.upsertLabels(accountId, labels);
       return labels;
@@ -385,7 +382,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:deleteLabel — removes the label everywhere (sub-labels survive)
   handle("gmail:deleteLabel", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:deleteLabel]", { accountId: p?.accountId, labelId: p?.labelId });
@@ -425,9 +421,6 @@ export function registerMailHandlers(): void {
       const labelId = labelIds?.[0] ?? "INBOX";
       const offset = pageToken ? Number.parseInt(pageToken, 10) || 0 : 0;
 
-      // Gmail's counter says there's unread mail we don't have yet (e.g. the
-      // first full sync is still running): pull it in so the list and its
-      // Unread filter show what the badge counts.
       if (offset === 0) await atMost(reconcileUnread(accountId, labelId), 1000);
 
       mailSync.syncAccount(accountId);
@@ -526,9 +519,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:listViews / saveView / deleteView — the user's views
-  // (userData/views.json); mutations broadcast gmail:views-changed so every
-  // window's view queries refresh.
   handle("gmail:listViews", async () => {
     try {
       return await viewsStore.listViews();
@@ -580,8 +570,6 @@ export function registerMailHandlers(): void {
     try {
       const accountId = assertString(p?.accountId, "accountId");
       const messageId = assertString(p?.messageId, "messageId");
-      // Return the cached body if we already fetched it; otherwise fetch full
-      // once and persist so re-opens are instant and work offline.
       const cached = mailStore.getMessageDetail(accountId, messageId);
       if (cached) return cached;
       const detail = await providerFor(accountId).getMessage(accountId, messageId);
@@ -758,9 +746,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:deleteThreadsForever — permanent delete; the UI only offers it on
-  // Trash/Spam conversations. Threads resolve to message ids locally so the
-  // whole batch goes out as one messages.batchDelete call.
   handle("gmail:deleteThreadsForever", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     const threadIds = asStringArray(p?.threadIds) ?? [];
@@ -820,11 +805,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:saveDraft — composer autosave; creates or updates a Gmail draft.
-  // Saves for one composer (its `sessionKey`) run in order and reuse the draft
-  // id of the previous save — so a first save that outlasted the renderer's IPC
-  // timeout (its reply, with the new id, never arrived) can't make the next
-  // save create a second draft.
   handle("gmail:saveDraft", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:saveDraft]", {
@@ -1113,7 +1093,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:getAttachmentData — attachment bytes as base64 (no save dialog)
   handle("gmail:getAttachmentData", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:getAttachmentData]", {
@@ -1182,7 +1161,6 @@ export function registerMailHandlers(): void {
     }
   });
 
-  // gmail:suggestSendAs — addresses an IMAP mailbox's mail shows it uses besides its own, to offer in From.
   handle("gmail:suggestSendAs", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     const account = await getAccount(assertString(p?.accountId, "accountId"));

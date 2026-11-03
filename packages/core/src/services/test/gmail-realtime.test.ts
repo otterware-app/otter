@@ -1,13 +1,3 @@
-/**
- * Gmail's live mail, end to end inside core: startCore on a Node platform, a
- * pretend relay (its HTTP routes, and the `/v1/events` WebSocket) and a
- * pretend Gmail answering the calls a sync and `users.watch` make. What it
- * locks in is how Gmail behaved before IMAP arrived: a relay `mail` event
- * syncs that account at once as a push, watches cover the linked, signed-in
- * Gmail accounts, pushed accounts skip timer ticks, and an IMAP mailbox's
- * IDLE watch next to them changes none of that.
- */
-
 import { DatabaseSync } from "node:sqlite";
 
 import type { RelayAccount, RelayEvent } from "@otter-mail/contracts/relay";
@@ -254,7 +244,6 @@ async function boot() {
     offlineDownloads: false,
   };
 
-  // The Gmail account synced before: its next runs replay the history feed.
   setPlatform(platform);
   mailStore.setSyncState(gmail.id, { fullSyncDone: true, historyId: "50" });
   mailStore.setKv(`spamTrashBackfilled:${gmail.id}`, "1");
@@ -334,7 +323,6 @@ describe("Gmail realtime", () => {
     const started = broadcasts.filter((b) => b.channel === "gmail:sync-started").length;
     const imapBefore = imapSyncs.length;
 
-    // The relay sends the address lower-cased; the account keeps its own case.
     socket().event({ type: "mail", email: "live@gmail.test", historyId: "101" });
     await until(() => gmailCalls("/history", gmail.id).length === before + 1, "the push sync");
     expect(broadcasts.filter((b) => b.channel === "gmail:sync-started").length).toBe(started + 1);
@@ -344,7 +332,6 @@ describe("Gmail realtime", () => {
     socket().event({ type: "mail", email: "live@gmail.test", historyId: "102" });
     await until(() => gmailCalls("/history", gmail.id).length === before + 2, "the next push");
 
-    // A mailbox this device doesn't have is ignored.
     socket().event({ type: "mail", email: "elsewhere@gmail.test", historyId: "1" });
     await settle();
     expect(gmailCalls("/history").length).toBe(before + 2);
@@ -421,7 +408,6 @@ describe("Gmail realtime", () => {
 
     void mailSync.syncAllAccounts({ force: true, trigger: "timer" });
     await until(() => gmailCalls("/history", gmail.id).length === before + 1, "the poll");
-    // IDLE doesn't go through the relay: the IMAP mailbox is still pushed.
     await settle();
     expect(imapSyncs.length).toBe(imapBefore);
   });

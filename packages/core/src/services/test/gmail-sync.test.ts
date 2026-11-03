@@ -31,7 +31,6 @@ let threadFetches: string[];
 let listings: (string | null)[];
 let pageSize: number;
 let modifies: { threadId: string; body: unknown }[];
-/** Messages whose next fetch Gmail refuses (once). */
 let refuse: Set<string>;
 /** While set, the first fetch of each of `ids` answers as of the request, but only once `until` resolves. */
 let hold: { ids: string[]; until: Promise<void> } | null;
@@ -386,7 +385,6 @@ describe("Gmail sync", () => {
     await until(() => status().download === null, "the downloads to finish");
     expect(listings).toEqual([null]);
     expect(mailStore.countAllMessages(account.id)).toBe(11);
-    // Every message fetched once, whole: no metadata pass, no body pass after it.
     expect(fetches.every((f) => f.format === "full")).toBe(true);
     expect(new Set(fetches.map((f) => f.id)).size).toBe(fetches.length);
     expect(mailStore.getMessageDetail(account.id, "old8")?.bodyText).toBe("Body of old8");
@@ -413,7 +411,6 @@ describe("Gmail sync", () => {
     await until(() => status().fullSyncDone && !status().syncing, "the fill to finish");
     expect(listings).toEqual([null, "3", "3", "6"]);
     expect(mailStore.countAllMessages(account.id)).toBe(9);
-    // The first page was never fetched again.
     expect(fetches.filter((f) => f.id === "old1")).toHaveLength(1);
   });
 
@@ -425,7 +422,6 @@ describe("Gmail sync", () => {
     hold = { ids: ["a", "b", "c"], until: new Promise((resolve) => (release = resolve)) };
 
     const { mailSync, mailStore, status, labelsOf } = await boot();
-    // The fill has all three in flight, as they were.
     await until(() => held.size === 3, "the fill's fetches");
 
     relabel("a", [], ["UNREAD"]);
@@ -488,7 +484,6 @@ describe("Gmail sync", () => {
     expect(labelsOf("archived")).toEqual(["STARRED"]);
     expect(labelsOf("deleted")).toBeUndefined();
     expect(mailStore.getMessageDetail(account.id, "read")?.unread).toBe(false);
-    // Only the message the cache lacked was read; the rest came from listings.
     expect(fetches.map((f) => f.id)).toEqual(["fresh"]);
     expect(mailStore.getSyncState(account.id).historyId).toBe(String(historyId));
   });

@@ -237,7 +237,6 @@ export function ContextMenuSub({
 }: {
   label: string;
   icon?: ReactNode;
-  /** The current choice, beside the chevron. */
   detail?: string;
   inset?: boolean;
   children: ReactNode;

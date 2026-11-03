@@ -302,7 +302,6 @@ describe.skipIf(!docker)("Dovecot", () => {
       } finally {
         await client.logout();
       }
-      // A client without it sees the same folder through modified UTF-7.
       const plain = await connectImap(imap());
       expect((await plain.list()).some((f) => f.path === "Счета")).toBe(true);
       await plain.logout();

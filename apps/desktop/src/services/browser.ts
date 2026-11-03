@@ -83,7 +83,6 @@ async function openOutside(page: WebContents, url: string): Promise<void> {
   if (response === 0) await shell.openExternal(url);
 }
 
-/** The Web Store's "Add to Chrome": asks before anything is installed. */
 async function confirmInstall(details: {
   localizedName: string;
   manifest: Parameters<typeof reachOf>[0];

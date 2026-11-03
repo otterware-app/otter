@@ -56,7 +56,6 @@ describe("theme tools", () => {
       dark: { canvas: "#1A1B26", messageAction: "#f97316" },
     });
     expect(saved).toMatchObject({ id: "ocean-copy", name: "Ocean copy" });
-    // Only dark wore Ocean, so only dark wears the copy.
     expect(ui.values["otter:theme:dark"]).toBe("ocean-copy");
     expect(ui.values["otter:theme:light"]).toBe("codex");
     const [copy] = stored();

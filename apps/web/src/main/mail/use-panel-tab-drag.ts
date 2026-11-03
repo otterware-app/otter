@@ -14,13 +14,10 @@ type Drag = {
   width: number;
   original: string[];
   active: boolean;
-  /** Off the strip, carrying a window (what it was torn off with). */
   torn: TabTearOff | null;
-  /** Torn off as the strip's only tab, carrying its own window. */
   whole: boolean;
 };
 
-/** How far off the strip a tab comes loose. */
 const TEAR_DISTANCE = 32;
 
 /**
@@ -40,11 +37,6 @@ export type TabTearOff = {
   back: (id: string) => void;
 };
 
-/**
- * Drags a strip's tabs to reorder them. With `tearOff`, a tab pulled well off
- * the strip comes loose (for a window of its own), and brought back over the
- * strip before it's let go, rejoins it.
- */
 export function usePanelTabDrag(onReorder: (order: string[]) => void, tearOff?: TabTearOff) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
@@ -116,7 +108,6 @@ export function usePanelTabDrag(onReorder: (order: string[]) => void, tearOff?: 
     const bounds = strip.getBoundingClientRect();
     if (current.torn) {
       if (current.whole) return;
-      // Back over the strip's row, anywhere across the window.
       const over =
         current.clientY >= bounds.top &&
         current.clientY <= bounds.bottom &&
@@ -140,8 +131,6 @@ export function usePanelTabDrag(onReorder: (order: string[]) => void, tearOff?: 
     ) {
       current.torn = tearOff;
       current.whole = whole;
-      // The window carried is this one, held where it was grabbed, or a new
-      // one whose first tab is under the pointer.
       tearOff.start(current.id, {
         x: whole ? current.startX : bounds.left + current.grab,
         y: current.startY,
@@ -177,7 +166,6 @@ export function usePanelTabDrag(onReorder: (order: string[]) => void, tearOff?: 
     if (frame.current !== null) cancelAnimationFrame(frame.current);
     frame.current = null;
     if (current.active) {
-      // Escape brings a torn-off tab back; let go, it stays where it was dropped.
       if (current.torn && cancelled && !current.whole) current.torn.back(current.id);
       else if (current.torn) current.torn.drop();
       else before.current = positions();
@@ -222,7 +210,6 @@ export function usePanelTabDrag(onReorder: (order: string[]) => void, tearOff?: 
     window.addEventListener("blur", cancel);
     return () => {
       window.removeEventListener("blur", cancel);
-      // Gone mid-drag: a window it was carrying stays where it is.
       drag.current?.torn?.drop();
       drag.current = null;
       if (frame.current !== null) cancelAnimationFrame(frame.current);

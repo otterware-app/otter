@@ -1,10 +1,3 @@
-/**
- * Every agent's tool calls as ToolSteps, side by side so they read the same
- * whichever agent ran them (Otter Code's canonical tool items, in small):
- * Claude's tool_use blocks, Codex's thread items and Hermes' tool events
- * each map here, and the chat renders only the steps.
- */
-
 import { OTTER_TOOLS_SERVER, toolTitle } from "./tools/index.js";
 import type { ToolStep } from "./types.js";
 

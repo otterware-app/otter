@@ -113,7 +113,6 @@ export type AgentSettingsView = {
   serviceTier?: string;
   runtimeMode?: RuntimeMode;
 } & Record<string, unknown>;
-/** T3 Code's runtime modes: how much an agent may do without asking. */
 export type RuntimeMode = "approval-required" | "auto-accept-edits" | "full-access";
 
 export type ApprovalDecision = "once" | "session" | "always" | "deny";
@@ -315,15 +314,11 @@ export type SettingsPane =
   | "appearance"
   | "keybindings"
   | "accounts"
-  /** The calendar: the week, weekends, declined events, the clock. */
   | "calendar"
-  /** The browser (Mac): links, extensions, browsing data. */
   | "browser"
-  /** Extensions, by kind: chat settings and the agents; services it connects; mail features. */
   | "agents"
   | "integrations"
   | "features"
-  /** The Otter account page, opened from the user button at the bottom of the nav. */
   | "otter";
 export type SettingsTarget = { pane?: SettingsPane; item?: string };
 
@@ -334,7 +329,6 @@ export type AddImapAccountParams = {
   imap: ImapSettings;
 };
 
-/** A window tab dragged between windows, and where the pointer holds the window it carries. */
 export type TabDrag = {
   tab: { href: string; title: string; icon: string };
   grabX: number;
@@ -364,10 +358,8 @@ export const mailApi = {
 
   discoverImap: (email: string): Promise<ImapSettings | null> =>
     ipc("gmail:discoverImap", { email }),
-  /** Adds an IMAP mailbox once its login and SMTP work; rejects with a readable message. */
   addImapAccount: (params: AddImapAccountParams): Promise<MailAccount> =>
     ipc("gmail:addImapAccount", params),
-  /** Signs an IMAP mailbox in on this device (its password never syncs). */
   signInImap: (accountId: string, password: string): Promise<void> =>
     ipc("gmail:signInImap", { accountId, password }),
 
@@ -377,7 +369,6 @@ export const mailApi = {
   updateAccount: (params: UpdateAccountParams): Promise<MailAccount> =>
     ipc("gmail:updateAccount", params),
 
-  /** Addresses an IMAP mailbox's mail shows it uses besides the ones it has, to add to From. */
   suggestSendAs: (accountId: string): Promise<string[]> =>
     ipc("gmail:suggestSendAs", { accountId }),
 

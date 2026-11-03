@@ -21,7 +21,6 @@ import {
 
 type Calendar = NonNullable<MailProvider["calendar"]>;
 
-/** The mailbox's calendar; calls that it may not make say how to allow them. */
 async function calendarOf<T>(
   account: MailAccount,
   work: (calendar: Calendar) => Promise<T>,
@@ -152,7 +151,6 @@ export const calendarTools: AgentTool[] = [
           ).then((events) => events.map((e) => ({ account: account.email, ...e }))),
         ),
       );
-      // One calendar it can't read doesn't hide the others.
       const errors = lists.flatMap((l) =>
         l.status === "rejected"
           ? [l.reason instanceof Error ? l.reason.message : String(l.reason)]

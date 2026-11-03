@@ -302,8 +302,6 @@ export function parseVsCodeThemeFile(value: unknown): ThemeDefinition {
     );
   }
 
-  // Reuse the theme-file parser so ids, names, and color values go through the
-  // same validation as a hand-written file.
   return parseThemeFile({
     version: THEME_FILE_VERSION,
     name: resolveName(value),
@@ -366,13 +364,6 @@ export function pairVsCodeThemes(
   return [...passthrough, ...paired].sort((a, b) => a.order - b.order).map((entry) => entry.theme);
 }
 
-/**
- * Some extensions reuse one display name across every file: Dracula ships
- * dracula.json and dracula-soft.json that both say "Dracula". When a batch
- * carries the same id twice, the file names are the only thing that tells
- * the variants apart, so colliding entries are relabelled from their file
- * name (and numbered only when even that collides).
- */
 export function resolveThemeLabelCollisions(
   entries: ReadonlyArray<{ theme: ThemeDefinition; sourceName?: string | undefined }>,
 ): ReadonlyArray<ThemeDefinition> {

@@ -1,11 +1,4 @@
 import { useLatest } from "../use-latest";
-/**
- * The Search mailbox's header, modelled on Gmail's: a search bar that runs on
- * Enter (suggestions while typing: recent searches, people, instant matches
- * from this Mac), a row of filter chips, and "Advanced search". Chips and the
- * form only edit operators in the query text — the text is what runs, through
- * Gmail's own search, so every Gmail operator works.
- */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
@@ -668,7 +661,6 @@ export function SearchHeader({
   };
   const pick = (s: Suggestion) => {
     if (s.kind === "search" || s.kind === "recent") run(s.query);
-    // A person replaces the typed name with a from: operator (other operators stay).
     else if (s.kind === "person")
       run(setOperator(draft.replace(freeText(draft), ""), "from", s.email));
     else {
@@ -850,6 +842,5 @@ export function SearchHeader({
   );
 }
 
-/** What the Search mailbox says before the first query. */
 export const SEARCH_HINT =
   "Searches all of Gmail. Try from:, to:, subject:, has:attachment, older_than:1y, is:unread…";

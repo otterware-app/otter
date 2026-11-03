@@ -23,11 +23,6 @@ import type { OpenClawSettings } from "./settings.js";
 
 const str = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
 
-/**
- * Saves how to reach the gateway (a setup code, or its address and token),
- * then connects in the background: the status that follows says whether the
- * device still needs approving.
- */
 async function connect(input: { code: string } | { url: string; token: string }) {
   let url: string;
   if ("code" in input) {

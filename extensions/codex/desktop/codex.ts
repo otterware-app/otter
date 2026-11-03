@@ -1,14 +1,3 @@
-/**
- * OpenAI Codex through `codex app-server`, following T3 Code's Codex driver:
- *  - health probe: a short-lived app-server → initialize, account/read,
- *    model/list; a spawn failure means "not installed".
- *  - one app-server per chat session, started with thread/start (or
- *    thread/resume for a saved Codex thread id), then turn/start per message.
- *  - raw notifications map onto the canonical ChatEvent stream.
- * Threads run in the app's agent workspace, so listing that cwd yields
- * exactly the chats started from Otter Mail.
- */
-
 import {
   CodexAppServer,
   CodexSpawnError,
@@ -57,7 +46,6 @@ function threadConfig(settings: CodexSettings) {
   }
 }
 
-/** The same mode as a turn override, so switching modes applies to the next turn. */
 function turnPolicy(settings: CodexSettings) {
   const { approvalPolicy, sandbox } = threadConfig(settings);
   const sandboxPolicy =
@@ -246,7 +234,6 @@ function handleServerRequest(session: Session, request: ServerRequest): void {
   else session.server.respond(request.id, {});
 }
 
-/** Settles every open approval (before an interrupt, or when the turn ends). */
 function settleApprovals(
   session: Session,
   turn: ActiveTurn,

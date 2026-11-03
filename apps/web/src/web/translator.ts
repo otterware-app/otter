@@ -38,7 +38,6 @@ export async function detectLanguage(text: string): Promise<LanguageDetection> {
       ? { language: best.detectedLanguage, confidence: best.confidence }
       : { language: null, confidence: 0 };
   } catch {
-    // Its model isn't downloaded yet (that needs a click): nothing to offer.
     detector = null;
     return { language: null, confidence: 0 };
   }
@@ -64,7 +63,6 @@ export async function translate(
     return { status: "ok", texts: await Promise.all(texts.map((text) => ready.translate(text))) };
   } catch (err) {
     translators.delete(key);
-    // Downloading the language pack needs a click; the next one will do.
     if (err instanceof DOMException && err.name === "NotAllowedError") {
       return { status: "needsDownload", texts: [] };
     }

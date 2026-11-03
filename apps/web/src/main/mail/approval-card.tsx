@@ -1,10 +1,3 @@
-/**
- * An agent asking before it acts, ChatGPT's way: in place of the composer, a
- * card that asks "Allow Claude to …?", shows exactly what will happen, and
- * answers with Deny (Esc) or Allow once (↩, focused). Allowing it for the rest
- * of the chat, and stopping the turn, are behind "…".
- */
-
 import { EllipsisIcon, FileIcon, HandIcon } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 import type { ApprovalDecision, ApprovalRequest } from "./api";
@@ -72,8 +65,6 @@ export function ApprovalCard({
 }) {
   const allow = useRef<HTMLButtonElement>(null);
 
-  // Allow once takes the focus the composer had, so ↩ allows; focus elsewhere
-  // (a draft being written) is left alone. The chat keys the card by approval.
   useEffect(() => {
     const active = document.activeElement;
     if (!active || active === document.body) allow.current?.focus();

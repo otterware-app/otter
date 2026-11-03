@@ -87,7 +87,6 @@ export async function mirrorDraft(
   }
 }
 
-/** The draft id a session's saves have produced so far, if any. */
 export function sessionDraftId(sessionId: string): string | undefined {
   return sessionId ? draftSessions.get(sessionId) : undefined;
 }

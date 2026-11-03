@@ -3,7 +3,6 @@ import { describe, expect, it } from "vite-plus/test";
 import { dayKey, stepDays, visibleDays } from "./dates";
 
 const keys = (days: Date[]) => days.map(dayKey);
-// Monday, November 2 2026.
 const MONDAY = new Date(2026, 10, 2);
 
 describe("weekdays only", () => {

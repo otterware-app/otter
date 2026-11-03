@@ -33,7 +33,6 @@ import { RecipientInput } from "./recipient-input";
 import { addressesOf, chosenAddress } from "./send-from";
 import type { ComposeAttachment, MailAccount } from "./types";
 
-/** The From menu: every mailbox's addresses, its own first. Exported for the other composers. */
 export function FromPicker({
   accounts,
   value,
@@ -44,7 +43,6 @@ export function FromPicker({
   accounts: MailAccount[];
   value: MailAccount;
   address: string;
-  /** No longer one of the mailbox's addresses: says so, until another is picked. */
   unavailable?: boolean;
   onChange: (accountId: string, address: string) => void;
 }) {
@@ -106,7 +104,6 @@ export function NewMessageView({
   prefill?: { to?: string; cc?: string; subject?: string; body?: string };
 }) {
   const [fromId, setFromId] = useState(defaultAccountId);
-  // Which of the mailbox's addresses; its own unless picked.
   const [pickedAddress, setPickedAddress] = useState<string>();
   const [to, setTo] = useState(prefill?.to ?? "");
   const [cc, setCc] = useState(prefill?.cc ?? "");

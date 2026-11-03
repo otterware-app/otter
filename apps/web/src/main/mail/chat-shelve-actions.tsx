@@ -8,11 +8,6 @@ import { cn } from "./ui";
 const ACTION =
   "flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 text-xs text-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=open]:bg-foreground/[0.08] data-[state=open]:text-foreground";
 
-/**
- * Otter Code's hover actions on a chat: snooze (⏰) and Settle, or Unsettle a
- * settled one. `compact`: icons only, for the bottom bar's tabs. `onDone`
- * runs once the chat is put away (the bar closes its tab).
- */
 export function ShelveActions({
   chat,
   settled,
@@ -25,7 +20,6 @@ export function ShelveActions({
   onDone?: () => void;
 }) {
   const action = cn(ACTION, compact && "h-5 px-1");
-  // The snooze times count from when the menu opens.
   const [openedAt, setOpenedAt] = useState(0);
   if (settled)
     return (

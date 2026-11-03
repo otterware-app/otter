@@ -1,11 +1,3 @@
-/**
- * mail.otterware.app: the web app, for every page that isn't one of its files
- * (/you@gmail.com/INBOX/…, /settings/…); it signs in first if need be. Otter
- * Mail's page, changelog, privacy policy and terms are on otterware.app: their
- * old addresses here (in Google's consent screen, past releases' notes, links
- * out there) go to them.
- */
-
 interface Env {
   ASSETS: Fetcher;
 }

@@ -6,7 +6,6 @@ import { setPlatform, type Platform } from "../platform.ts";
 const { addAccount, getAccount, updateAccount } = await import("./account-store.ts");
 
 const files = new Map<string, string>();
-// A slow disk, so changes started together overlap.
 const slowly = () => new Promise((resolve) => setTimeout(resolve, 5));
 
 setPlatform({

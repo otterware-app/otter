@@ -3,14 +3,6 @@ import { XIcon } from "lucide-react";
 
 import { cn } from "./ui";
 
-/**
- * A pill tab (Codex's): a page in the browser panel, or one of a chat's tabs
- * in the AI workspace.
- * The × closes it (always on the selected tab, on hover otherwise), and so
- * does a middle-click, as in a browser. In a strip too narrow for them all,
- * tabs give way down to a width that still names them, then the strip
- * scrolls, and a tab that gets selected scrolls into view.
- */
 export function PanelTab({
   id,
   title,
@@ -31,7 +23,6 @@ export function PanelTab({
   onSelect: () => void;
   onClose: () => void;
   dragging?: boolean;
-  /** Whether it has a × (the window's last tab doesn't). */
   closable?: boolean;
   className?: string;
 }) {

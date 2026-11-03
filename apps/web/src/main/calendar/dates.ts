@@ -22,7 +22,6 @@ const LOCALE_WEEK_START: number = (() => {
 
 const WEEK_START_DAY = { sunday: 0, monday: 1, saturday: 6 } as const;
 
-/** The week's first day: as set in Settings → Calendar, else the locale's. */
 export function weekStart(): number {
   const chosen = calendarPreferences().weekStart;
   return chosen === "auto" ? LOCALE_WEEK_START : WEEK_START_DAY[chosen];
@@ -74,7 +73,6 @@ export function stepDays(date: Date, by: number, weekends = true): Date {
   return d;
 }
 
-/** The days a mode shows around a date; without weekends, the week's weekdays. */
 export function visibleDays(mode: CalendarMode, date: Date, free = false, weekends = true): Date[] {
   if (mode === "day") return [startOfDay(date)];
   if (mode === "week") {
@@ -99,14 +97,12 @@ export const weekdayShort = (d: Date) => d.toLocaleDateString(undefined, { weekd
 export const monthTitle = (d: Date) =>
   d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
-/** The clock as set in Settings → Calendar; otherwise the locale's. */
 function hour12(): boolean {
   const chosen = calendarPreferences().timeFormat;
   if (chosen !== "auto") return chosen === "12";
   return new Intl.DateTimeFormat(undefined, { hour: "numeric" }).resolvedOptions().hour12 ?? false;
 }
 
-/** 9 AM, 9:30 AM, or 09:00 on a 24-hour clock. */
 export function timeLabel(d: Date): string {
   if (!hour12())
     return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });

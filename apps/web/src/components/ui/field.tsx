@@ -2,10 +2,6 @@ import * as React from "react";
 
 import { cn } from "~/lib/utils";
 
-/**
- * A labelled form row. The label is tied to the first control inside
- * (`htmlFor` / `id`), so clicking it focuses the field.
- */
 function Field({
   label,
   description,

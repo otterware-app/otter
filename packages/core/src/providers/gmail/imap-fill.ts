@@ -94,7 +94,6 @@ export async function fillOverImap(accountId: string, ctx: SyncContext): Promise
   }
 }
 
-/** The row the Gmail API would give for a message, but for the snippet and categories. */
 function rowOf(
   m: FetchedMessage,
   folderLabel: string | null,

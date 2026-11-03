@@ -1,8 +1,6 @@
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 import { cn } from "~/lib/utils";
 
-/** Native scrolling with a thumb over the content, shown only while scrolling
- * or pointing at its edge. Layout never reserves a scrollbar lane. */
 export function ScrollArea({
   className,
   viewportClassName,

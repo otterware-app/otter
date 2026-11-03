@@ -39,11 +39,6 @@ export type LabelMenuKit = {
   Separator: React.ComponentType;
 };
 
-/**
- * Renders a label tree as menu items: nested labels become submenus whose
- * first item is the parent itself (so it stays selectable), siblings
- * alphabetical at every depth via buildLabelTree.
- */
 export function renderLabelMenuNodes(
   nodes: LabelTreeNode[],
   applied: Set<string>,

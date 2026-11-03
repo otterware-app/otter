@@ -198,7 +198,6 @@ export async function send(
     if (sendAt !== undefined) await hold(accountId, draft.id, sendAt);
     await graph(accountId, `${messagePath(draft.id)}/send`, { method: "POST" });
   } catch (err) {
-    // Don't leave a half-made draft behind.
     await graph(accountId, `${messagePath(draft.id)}/permanentDelete`, { method: "POST" }).catch(
       () => {},
     );
@@ -223,7 +222,6 @@ export async function cancelScheduledSend(accountId: string, id: string): Promis
   return true;
 }
 
-/** A ready-made RFC 822 message (unsubscribe mail, invitation replies), sent as MIME. */
 export async function sendRaw(accountId: string, raw: string): Promise<void> {
   await graph(accountId, "/me/sendMail", {
     method: "POST",

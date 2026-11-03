@@ -9,7 +9,6 @@ const SIZE_CLASS = {
   large: "size-9 text-[13px]",
 } as const;
 
-/** Round user avatar: the image when it loads, initials otherwise. */
 function Avatar({
   className,
   size = "medium",

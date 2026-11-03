@@ -10,7 +10,6 @@ const FACE_UNSELECTED = [
   "M565 451C616 442 672 439 721 450C731 463 723 478 709 484C665 499 610 499 574 488C562 478 559 462 565 451Z",
 ];
 
-/** Otterware's agent. The set's 1024 square less its margin, so the face is as large as the icons beside it. */
 export const AgentIcon = (props: NavGlyphProps) => (
   <NavGlyph solid={FACE} outline={FACE_UNSELECTED} {...props} />
 );

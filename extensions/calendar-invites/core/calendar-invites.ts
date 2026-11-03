@@ -41,10 +41,6 @@ export type CalendarInvite = {
   cancelled: boolean;
 };
 
-// ---------------------------------------------------------------------------
-// iCalendar parsing (just what an invitation needs)
-// ---------------------------------------------------------------------------
-
 type Prop = { name: string; params: Record<string, string>; value: string };
 
 function unfold(ics: string): string[] {
@@ -210,7 +206,6 @@ function icsStamp(date: Date): string {
     .replace(/\.\d{3}/, "");
 }
 
-/** RFC 6047 iMIP REPLY: your PARTSTAT for the organizer's calendar. */
 async function sendImipReply(
   accountId: string,
   messageId: string,

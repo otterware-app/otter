@@ -23,7 +23,6 @@ import {
 
 const API = "https://www.googleapis.com/calendar/v3";
 const CALENDAR = `${API}/calendars/primary`;
-/** One of the account's calendars (its primary, unless said). */
 const on = (calendarId = "primary") => `${API}/calendars/${encodeURIComponent(calendarId)}`;
 
 async function calendarFetch(
@@ -171,7 +170,6 @@ function toEvent(accountId: string, e: ApiEvent): CalendarEvent {
 
 const BYDAY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
-/** How it repeats, as Google's RRULE, from the day it starts in its time zone. */
 function repeatRule(repeat: Repeat, start: string, timeZone: string): string {
   const day = wallClock(start, timeZone);
   switch (repeat) {
@@ -267,7 +265,6 @@ type ApiCalendar = {
   conferenceProperties?: { allowedConferenceSolutionTypes?: string[] };
 };
 
-/** Every calendar on the account's list (calendar.readonly): its own, shared, and followed. */
 export async function listCalendars(accountId: string): Promise<CalendarInfo[]> {
   const items: ApiCalendar[] = [];
   let pageToken: string | undefined;
@@ -375,7 +372,6 @@ export async function respondToEvent(
   options: RespondOptions = {},
 ): Promise<CalendarEvent> {
   const event = await fetchEvent(accountId, eventId, calendarId);
-  // All of a series: answered on the series itself, which every occurrence follows.
   if (options.allEvents && event.recurringEventId) {
     const series = await fetchEvent(accountId, event.recurringEventId, calendarId);
     await setResponse(accountId, series, response, calendarId, options.comment);
@@ -387,7 +383,6 @@ export async function respondToEvent(
   );
 }
 
-/** Teammates' busy times: Google's free/busy (calendar.readonly covers it), no titles. */
 export async function schedule(
   accountId: string,
   emails: string[],

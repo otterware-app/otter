@@ -24,7 +24,6 @@ describe("How a label change lands", () => {
 
   it("leaves mail that wasn't in the inbox where it is", () => {
     expect(land(["SENT"], [], ["INBOX"])).toEqual({ add: [], remove: ["INBOX"] });
-    // Moved to Junk or a folder, rather than archived.
     expect(land(["INBOX"], ["SPAM"], ["INBOX"]).add).toEqual(["SPAM"]);
     expect(land(["INBOX"], ["folder:Clients"], ["INBOX"]).add).toEqual(["folder:Clients"]);
     expect(land(["SPAM"], ["INBOX"], ["SPAM"]).add).toEqual(["INBOX"]);

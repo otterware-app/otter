@@ -1,10 +1,3 @@
-/**
- * The card above a sign-in or verification email, like Gmail's: the
- * one-time code it carries, so it never has to be selected by hand. A code
- * is spent once used, so Copy also moves the mail to the Trash (with the
- * usual Undo). The code is found by @otter-mail/shared/verification-code.
- */
-
 import { toast, Btn } from "@otter-mail/web/extension-kit";
 import { useEffect, useState } from "react";
 import { CheckIcon, CopyIcon, KeyRoundIcon } from "lucide-react";

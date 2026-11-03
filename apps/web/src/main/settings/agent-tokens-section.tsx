@@ -80,7 +80,6 @@ export function AgentTokensSection<T extends AgentToken>({
   revoke: (id: string) => Promise<void>;
   defaultName: string;
   newTokenFields?: ReactNode;
-  /** More controls on an agent's row, before Revoke. */
   renderControl?: (token: T) => ReactNode;
   commands?: { agent: string; text: (url: string, token: string) => string }[];
 }) {

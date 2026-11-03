@@ -1,8 +1,3 @@
-/**
- * Lightweight RFC 5322-ish address-list helpers for compose fields
- * (comma-separated "Name <email>" / bare-email entries).
- */
-
 export type ParsedAddress = { name: string; email: string };
 
 export function splitAddressList(value: string): string[] {

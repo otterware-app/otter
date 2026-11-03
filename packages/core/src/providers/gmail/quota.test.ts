@@ -1,9 +1,3 @@
-/**
- * Gmail's quota as the app paces it: the cost of each call (full-format
- * fetches as measured), and a minute's budget that comes down when Gmail
- * refuses and climbs back while it's quiet.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { setPlatform, type Platform } from "../../platform.ts";
@@ -58,11 +52,9 @@ describe("Gmail quota", () => {
 
     expect(reportQuotaExceeded(account, 0)).toBe(true);
     expect(budgetOf(account)).toBe(3840);
-    // The other requests in flight are refused too: the same event.
     expect(reportQuotaExceeded(account, 0)).toBe(false);
     expect(budgetOf(account)).toBe(3840);
 
-    // Quiet for ten minutes: 60 units a minute back, up to 95% of the limit.
     vi.setSystemTime(Date.now() + 10 * 60_000);
     expect(budgetOf(account)).toBe(4440);
     vi.setSystemTime(Date.now() + 60 * 60_000);

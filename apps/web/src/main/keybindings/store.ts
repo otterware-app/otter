@@ -60,7 +60,6 @@ export function mergeWithDefaults(custom: KeybindingRule[]): KeybindingRule[] {
 function stateFor(file: FileResult | null): State {
   const custom: KeybindingRule[] = [];
   for (const entry of file?.rules ?? []) {
-    // A command this version doesn't have (renamed, or from a newer one) is skipped.
     if (!isKeybindingCommand(entry.command)) continue;
     const rule: KeybindingRule = { key: entry.key, command: entry.command };
     if (entry.when) rule.when = entry.when;

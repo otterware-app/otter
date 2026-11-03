@@ -1,4 +1,3 @@
-/** A moment as a clock in a time zone reads it: what repeating events are anchored to. */
 export type WallClock = {
   /** YYYY-MM-DD */
   date: string;
@@ -12,7 +11,6 @@ export type WallClock = {
 
 const WEEKDAY: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
-/** A date-time read in `timeZone`; a bare date (all day) is that date as written. */
 export function wallClock(value: string, timeZone: string): WallClock {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const [y, m, d] = value.split("-").map(Number);

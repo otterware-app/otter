@@ -1,13 +1,3 @@
-/**
- * custom-views.ts
- *
- * The user's views: saved filters across the mailboxes. They live in the
- * backend (userData/views.json, via gmail:*View IPC) so the main and settings
- * windows share one source of truth; mutations broadcast gmail:views-changed
- * to refresh every window. Last-location persistence stays in localStorage
- * (per-window UI state).
- */
-
 import { useCallback, useEffect } from "react";
 import { toast } from "./toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

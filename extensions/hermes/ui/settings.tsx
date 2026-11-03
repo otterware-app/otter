@@ -21,7 +21,6 @@ export function hermesSettings(provider: ProviderSnapshot) {
   return provider.settings as ProviderSnapshot["settings"] & { baseUrl: string; hasKey: boolean };
 }
 
-/** Where the web app runs, which Hermes must allow (the Mac app needs no origin). */
 const SITE_ORIGIN = window.desktopBridge.platform === "web" ? location.origin : null;
 
 export const HERMES_URL_HINT =

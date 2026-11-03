@@ -8,7 +8,6 @@ import { addDays, dayKey, durationLabel, sameDay, startOfDay } from "./dates";
 import { isPending, rangeLabel } from "./event-style";
 import { useNow } from "./time-grid";
 
-/** Today, Tomorrow, Wed Nov 25, Thu Jan 28, 2027. */
 function dayTitle(day: Date, now: Date): string {
   if (sameDay(day, now)) return "Today";
   if (sameDay(day, addDays(now, 1))) return "Tomorrow";
@@ -20,7 +19,6 @@ function dayTitle(day: Date, now: Date): string {
   });
 }
 
-/** A calendar's coming events, a day at a time, as Notion Calendar's drawer lists them. */
 export function AgendaDrawer({
   calendar,
   color,
@@ -28,7 +26,6 @@ export function AgendaDrawer({
 }: {
   calendar: ListedCalendar;
   color: string;
-  /** The sidebar's toggle, when the sidebar is closed. */
   titleLeading?: ReactNode;
 }) {
   const setAgenda = useCalendar((s) => s.setAgenda);
@@ -48,7 +45,6 @@ export function AgendaDrawer({
     },
     from,
   );
-  // Its own: an event just made elsewhere lands in every cached range.
   const events = (data?.events ?? [])
     .filter(
       (e) =>

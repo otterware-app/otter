@@ -1,15 +1,4 @@
 import { fakeTodoist } from "./todoist";
-/**
- * Demo mode (`pnpm dev:demo`, built with VITE_DEMO=1): a pretend Gmail in the
- * backend's Worker, so the web app runs with no Google or Otter account.
- *
- * `installFakeGmail` wraps the Worker's fetch: calls to the Gmail REST API are
- * answered from the seeded mailboxes (@otter-mail/shared/demo-mailboxes), which live in the demo's own
- * files and change as the app archives, labels, sends and drafts. Each change
- * goes into a history feed like Gmail's, so incremental sync sees it. Other
- * Google APIs answer empty, the relay "signed out", and everything else goes
- * to the network. `demoGoogleAuth` signs the demo accounts in.
- */
 
 import {
   accountStore,
@@ -23,11 +12,9 @@ import {
 import { DEMO_ACCOUNTS, type SeedAccount } from "@otter-mail/shared/demo-mailboxes";
 import { EXTRA_DEMO_ACCOUNTS } from "./extra-mailboxes";
 
-/** The demo's mailboxes, then the extra ones Add mailbox hands out after them. */
 const SEEDS = [...DEMO_ACCOUNTS, ...EXTRA_DEMO_ACCOUNTS];
 import { fakeCalendar } from "./calendar";
 
-/** A seeded file's text as Gmail sends attachment data: base64url. */
 const attachmentData = (content: string) =>
   toBase64(new TextEncoder().encode(content))
     .replace(/\+/g, "-")
@@ -42,7 +29,6 @@ type Attachment = {
   id: string;
   filename: string;
   mimeType: string;
-  /** base64url, as Gmail sends it. */
   data: string;
   size: number;
   contentId?: string;
@@ -114,7 +100,6 @@ function newId(box: Mailbox): string {
   return `${box.idPrefix}${(box.nextId++).toString(16).padStart(12, "0")}`;
 }
 
-/** `Name <email>`, quoted when the name needs it (Gmail's headers are decoded). */
 function address(person: { name: string; email: string }): string {
   if (!person.name) return person.email;
   return /[",<>@;:]/.test(person.name)
@@ -235,7 +220,6 @@ async function loadState(): Promise<void> {
     const saved = JSON.parse(new TextDecoder().decode(bytes)) as State;
     if (saved.version === STATE_VERSION) {
       state = saved;
-      // Mailboxes added to the seeds since this demo started.
       let added = false;
       SEEDS.forEach((seed, i) => {
         if (state.mailboxes[seed.email]) return;
@@ -389,7 +373,6 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-/** A message from the app's raw RFC 822 (messages.send, drafts). */
 function fromRaw(box: Mailbox, raw: string, threadId: string | undefined, labels: string[]) {
   const id = newId(box);
   const parsed = parseMime(new TextDecoder().decode(fromBase64(raw)));
@@ -804,7 +787,6 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
         }
         return json({ ...sendAs, signature: box.signature });
       }
-      // A verified alias on the mailbox's domain, as "Send mail as" lists one.
       const alias = {
         sendAsEmail: `hello@${box.email.split("@")[1]}`,
         displayName: box.name,

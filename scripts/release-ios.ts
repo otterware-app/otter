@@ -27,7 +27,6 @@ const version =
         NodeFS.readFileSync(NodePath.join(project, "project.pbxproj"), "utf8"),
       )?.[1];
 if (!version || !/^\d+\.\d+\.\d+$/.test(version)) fail(`"${version}" isn't a version (x.y.z).`);
-// Every upload needs a new build number; the time always goes up.
 const build = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 12);
 
 const signing = NodePath.join(NodeOS.homedir(), ".otter-mail/signing");
@@ -101,8 +100,6 @@ run("xcodebuild", [
   ...auth,
 ]);
 
-// The dSYMs, so Sentry shows our Swift in iPhone stacks. The build is already up: a failure
-// here only warns.
 const { SENTRY_AUTH_TOKEN: sentryToken, SENTRY_ORG: sentryOrg } = process.env;
 if (sentryToken && sentryOrg) {
   try {

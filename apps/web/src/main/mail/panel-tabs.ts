@@ -7,7 +7,6 @@ export function orderedPanelTabs(order: string[], tabs: string[]): string[] {
   return next;
 }
 
-/** Move a chat or page to either side of another tab without changing selection. */
 export function movePanelTab(tabs: string[], id: string, target: string, after: boolean): string[] {
   if (id === target || !tabs.includes(id) || !tabs.includes(target)) return tabs;
   const next = tabs.filter((tab) => tab !== id);

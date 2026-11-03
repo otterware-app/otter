@@ -1,16 +1,9 @@
-/**
- * Keeps lists usable while an account's mail is still arriving: live paging
- * from the server during the first full sync (providers that list by label),
- * and pulling in unread mail the cache doesn't have yet.
- */
-
 import { findProvider, isSignedIn, providerFor } from "../providers/index.js";
 import * as mailStore from "../services/mail-store.js";
 import type { MessageSummary } from "../types.js";
 import { sleep } from "./ipc-budget.js";
 import { hasPendingLabelWrites } from "../services/pending-label-writes.js";
 
-// ── Live paging while an account's first full sync is still running ────────
 // Lists read the local cache, which on a big mailbox fills in over a long
 // time. When a page comes up short for an account that isn't fully synced,
 // pull that label's next page straight from Gmail (per account+label cursor)

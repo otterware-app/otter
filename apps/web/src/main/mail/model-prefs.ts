@@ -59,7 +59,6 @@ export function setHidden(key: string, hidden: boolean): void {
   write("hidden", hidden ? [...rest, key] : rest);
 }
 
-/** T3's bulk toggle: all hidden → show all; otherwise hide every one. */
 export function toggleAllHidden(keys: string[]): void {
   const allHidden = keys.every((k) => snapshot.hidden.includes(k));
   write(
@@ -70,7 +69,6 @@ export function toggleAllHidden(keys: string[]): void {
   );
 }
 
-/** Restore this provider's models without changing other providers' preferences. */
 export function resetModelPrefs(kind: ProviderKind): void {
   const prefix = `${kind}:`;
   write(

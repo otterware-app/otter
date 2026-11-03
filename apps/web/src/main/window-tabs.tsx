@@ -61,7 +61,6 @@ function load(): State {
   } catch {
     // Broken tabs start over.
   }
-  // A window a tab was dragged out into opens on that tab, already named.
   if (tabWindow && location.hash.length > 1) {
     const tab = {
       ...newTabFor(location.hash.slice(1)),
@@ -101,7 +100,6 @@ export function nameTab(href: string, title: string, icon: RecentIcon): void {
   });
 }
 
-/** A tab after the one showing; shown, or (⌘-click) left in the background with what it's called so far. */
 export function addTab(
   href: string,
   {
@@ -126,10 +124,6 @@ export function selectTab(id: string): string | null {
   return tab.href;
 }
 
-/**
- * Closes a tab (never the last); closing the one showing shows the one after
- * it (or before, for the last), whose place is returned to go to.
- */
 export function closeTab(id: string): string | null {
   const { tabs, activeId } = useWindowTabs.getState();
   const at = tabs.findIndex((t) => t.id === id);
@@ -140,7 +134,6 @@ export function closeTab(id: string): string | null {
   return next?.href ?? null;
 }
 
-/** A tab (back, or from another window) at `at`, showing; its place is returned to go to. */
 function restoreTab(tab: WindowTab, at: number): string {
   set((s) => {
     const tabs = s.tabs.filter((t) => t.id !== tab.id);
@@ -157,11 +150,6 @@ function reorderTabs(order: string[]): void {
   }));
 }
 
-/**
- * The strip across the window's top (Linear's): the tabs start where the
- * columns do, past the sidebar, with history just before them; short of the
- * browser toggle (and Linux's window controls).
- */
 export function WindowTabsBar({
   sidebarOpen,
   onSelect,
@@ -171,14 +159,12 @@ export function WindowTabsBar({
 }: {
   sidebarOpen: boolean;
   onSelect: (id: string) => void;
-  /** Goes to a tab's place. */
   onShow: (href: string) => void;
   onClose: (id: string) => void;
   onNew: () => void;
 }) {
   const tabs = useWindowTabs((s) => s.tabs);
   const activeId = useWindowTabs((s) => s.activeId);
-  /** The tab pulled off this strip, and where it was, while it's out. */
   const torn = useRef<{ tab: WindowTab; at: number } | null>(null);
   // Dragged off the strip, a tab carries a window, following the pointer
   // until it's let go: a new one of its own (brought back over the strip
@@ -223,7 +209,6 @@ export function WindowTabsBar({
       : undefined,
   );
 
-  // Another window's tab over this strip: where it would land, then landing there.
   const [incoming, setIncoming] = useState<{ tab: WindowTab; at: number } | null>(null);
   const onShowRef = useLatest(onShow);
   useEffect(() => {
@@ -246,7 +231,6 @@ export function WindowTabsBar({
     };
     const offHover = window.desktopBridge.on("window:tabHover", (params) => {
       const next = read(params);
-      // The same slot keeps the same state: no render for every pointer move.
       setIncoming((current) =>
         next && current?.at === next.at && current.tab.href === next.tab.href ? current : next,
       );
@@ -320,7 +304,6 @@ function WindowTabIcon({ tab }: { tab: WindowTab }) {
   return createElement(recentIcon(tab.icon) ?? AgentIcon, { className: "size-3.5" });
 }
 
-/** Where another window's tab, held over this strip, would land: as it will look, selected. */
 function IncomingTab({ tab }: { tab: WindowTab }) {
   return (
     <div

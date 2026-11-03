@@ -91,7 +91,6 @@ export interface SyncStatus {
   lastSyncAt: number | null;
   fullSyncDone: boolean;
   error: string | null;
-  /** Sync can't go on until the user signs in to the mailbox again (or enters its password). */
   signInNeeded: boolean;
   download: { done: number; total: number } | null;
   revision: number;

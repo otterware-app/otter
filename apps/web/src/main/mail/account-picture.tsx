@@ -2,10 +2,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { getAccountColor, getAccountDisplayName } from "./account-style";
 import type { MailAccount } from "./types";
 
-/**
- * The account's Google profile picture, round unless `className` shapes it;
- * its colored initial until it loads, or without one.
- */
 export function AccountPicture({
   account,
   className,

@@ -155,9 +155,6 @@ export function DraftEditor({
     retry: false,
   });
 
-  // Autosave over this draft, watching for edits made elsewhere (see
-  // useDraftAutosave). Ready once the draft id is known and its attachments
-  // are back in memory — a save without them would drop them server-side.
   const draft = useDraftAutosave({
     accountId,
     threadId: detail.threadId || undefined,

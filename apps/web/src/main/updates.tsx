@@ -109,7 +109,6 @@ export function updateNow(): void {
   void updates.getState().then((s) => {
     if (s.status === "downloaded" || s.status === "downloading" || s.status === "available")
       step(s);
-    // A download that failed goes again; otherwise ask GitHub.
     else if (s.status === "error" && s.availableVersion && !s.manualDownloadUrl)
       void updates.download();
     else void updates.check();

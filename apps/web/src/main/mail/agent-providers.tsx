@@ -35,7 +35,6 @@ export function useChatProvider(chat: { provider: ProviderKind; turns: unknown[]
 
 export type ChatProvider = ReturnType<typeof useChatProvider>;
 
-/** Writes the state an update call returns, so the UI doesn't wait for the broadcast. */
 export function useSetProvidersState() {
   const qc = useQueryClient();
   return (state: ProvidersState) => qc.setQueryData(PROVIDERS_KEY, state);
@@ -50,12 +49,6 @@ export function openClawAgentId(sessionKey: string | null): string | null {
   return sessionKey?.match(/^agent:([^:]+):/)?.[1] ?? null;
 }
 
-/**
- * Who a chat talks to, so chats on different agents tell apart: an OpenClaw
- * agent's picture (or emoji), else its provider's mark. `kind` and `agent`
- * are the provider and model it runs on; without them, those new chats take
- * (a chat not started yet).
- */
 export function AgentAvatar({
   kind,
   agent,

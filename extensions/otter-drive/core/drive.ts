@@ -19,7 +19,6 @@ import {
 import * as local from "./local.js";
 
 const BASE = "https://drive.otterware.app";
-/** Otter Drive's device-flow client for Otterware's own apps. */
 const CLIENT_ID = "otterware-cli";
 const SECRET = "otter-drive";
 
@@ -34,7 +33,6 @@ export type DriveFolder = {
   role: "owner" | "editor" | "viewer";
   shared: boolean;
 };
-/** Shared with me, as a pseudo-drive's id. */
 export const SHARED = "shared";
 export type DriveVersion = {
   number: number;
@@ -60,10 +58,6 @@ export type DriveArtifact = {
   versionCount: number;
   current: DriveVersion | null;
 };
-/**
- * What the workspace shows of a document: what it draws itself (Markdown, text, a table, a
- * workbook's sheets), or Otter Drive's URL for it (a video, an image, a frame for the rest).
- */
 export type DrivePreview =
   | { kind: "markdown" | "table" | "text"; text: string; delimiter?: string; truncated: boolean }
   | { kind: "workbook"; sheets: { name: string; rows: string[][] }[]; truncated: boolean }
@@ -149,7 +143,6 @@ async function request<T>(
   return (await response.json().catch(() => undefined)) as T;
 }
 
-/** An OAuth error code from the device flow (authorization_pending, slow_down, …). */
 class DriveError extends Error {}
 
 async function signedIn(): Promise<Session> {
@@ -166,7 +159,6 @@ export async function driveStatus(): Promise<{ connected: boolean; hidden: strin
 /** The sign-in waiting for its code: a newer one, Cancel or Sign out ends it. */
 let attempt = 0;
 
-/** Starts a sign-in: its code, and the attempt to finish (or that Cancel ends before then). */
 export async function startSignIn(): Promise<DriveSignIn> {
   const mine = ++attempt;
   const code = await request<{
@@ -190,7 +182,6 @@ export async function startSignIn(): Promise<DriveSignIn> {
   };
 }
 
-/** Polls until the code is approved in the browser, or expires (10 minutes). */
 export async function finishSignIn(deviceCode: string, mine: number): Promise<void> {
   let interval = 5_000;
   const expiresAt = Date.now() + 10 * 60_000;
@@ -236,7 +227,6 @@ export async function disconnect(): Promise<void> {
 
 let folderCache: { at: number; token: string; list: DriveFolder[] } | null = null;
 
-/** Every folder you can reach: your drives, their folders, and folders shared with you. */
 async function allFolders(auth: Session): Promise<DriveFolder[]> {
   if (folderCache?.token === auth.token && Date.now() - folderCache.at < 30_000)
     return folderCache.list;
@@ -255,7 +245,6 @@ async function allFolders(auth: Session): Promise<DriveFolder[]> {
   return list;
 }
 
-/** The topmost folder you can reach above this one: its drive, or the folder shared with you. */
 function driveOf(list: DriveFolder[], folder: DriveFolder): DriveFolder {
   const byId = new Map(list.map((f) => [f.id, f]));
   let current = folder;
@@ -264,13 +253,11 @@ function driveOf(list: DriveFolder[], folder: DriveFolder): DriveFolder {
   return current;
 }
 
-/** The drives (and folders shared with you at their top), on or off here: for Settings. */
 export async function drives(): Promise<DriveFolder[]> {
   const list = await allFolders(await signedIn());
   return list.filter((f) => driveOf(list, f).id === f.id);
 }
 
-/** The folders of the drives that are on. */
 export async function folders(): Promise<DriveFolder[]> {
   const auth = await signedIn();
   const hidden = new Set(auth.hidden ?? []);
@@ -278,7 +265,6 @@ export async function folders(): Promise<DriveFolder[]> {
   return list.filter((f) => !hidden.has(driveOf(list, f).id));
 }
 
-/** Turns a drive (or Shared with me) off or on, on this device. */
 export async function setDriveHidden(id: string, hidden: boolean): Promise<void> {
   await signedIn();
   await serially(async () => {
@@ -300,7 +286,6 @@ async function reachable(folderId: string | undefined): Promise<Session> {
   return auth;
 }
 
-/** Why the folder (or, with none, Shared with me) can't be reached here, if it can't. */
 function refusal(list: DriveFolder[], auth: Session, folderId: string | undefined): string | null {
   const hidden = new Set(auth.hidden ?? []);
   const folder = folderId ? list.find((f) => f.id === folderId) : undefined;
@@ -344,13 +329,11 @@ async function documentAccess(
 const looked = new Map<string, { at: number; token: string; raw: Promise<RawArtifact> }>();
 const LOOKED_FOR = 60_000;
 
-/** A list's documents, known for opening them. */
 function seen(auth: Session, list: RawArtifact[]) {
   const at = Date.now();
   for (const raw of list) looked.set(raw.id, { at, token: auth.token, raw: Promise.resolve(raw) });
 }
 
-/** After a change: the document (or, with none, the folders) looked up again, and search rebuilt. */
 function forget(id?: string) {
   if (id) looked.delete(id);
   else folderCache = null;
@@ -414,12 +397,10 @@ function remember(list: DriveArtifact[]): DriveArtifact[] {
   return list;
 }
 
-/** A folder's documents, most recently updated first (archived ones apart). */
 export async function artifacts(folderId: string, archived = false): Promise<DriveArtifact[]> {
   const auth = await reachable(folderId);
   const list: RawArtifact[] = [];
   let cursor: string | null = null;
-  // Up to 500: the workspace filters and searches them in place.
   do {
     const query = new URLSearchParams({ limit: "100" });
     if (archived) query.set("archived", "only");
@@ -439,7 +420,6 @@ export async function artifacts(folderId: string, archived = false): Promise<Dri
   return remember(documents);
 }
 
-/** Documents shared with you on their own (folders shared with you are in `folders`). */
 export async function sharedWithMe(): Promise<DriveArtifact[]> {
   const auth = await reachable(undefined);
   const result = await request<{ data: { type: string; artifact?: RawArtifact }[] }>(
@@ -465,10 +445,6 @@ function sharedShown(list: DriveFolder[], auth: Session, documents: DriveArtifac
   });
 }
 
-/**
- * A list as last fetched here (the folders, a folder's documents, or Shared with me), and
- * when: shown while it's fetched again. A drive turned off since stays out.
- */
 export async function saved(
   what: "folders" | "artifacts" | "shared",
   folderId?: string,
@@ -514,11 +490,6 @@ const MAX_TEXT = 2_000_000;
 const MAX_WORKBOOK = 25_000_000;
 const MAX_ROWS = 5_000;
 
-/**
- * How a document is shown, as Otter Drive decides it (its `documentKind`): text and tables
- * are drawn by the app; video, images and everything else (pages, sites, PDFs, audio)
- * from Otter Drive's own content URL.
- */
 export function documentKind(contentType: string, entryPath: string): DrivePreview["kind"] {
   const type = contentType.split(";")[0]?.trim().toLowerCase() ?? "";
   const extension = entryPath.split(".").pop()?.toLowerCase() ?? "";
@@ -537,11 +508,6 @@ export function documentKind(contentType: string, entryPath: string): DrivePrevi
   return "frame";
 }
 
-/**
- * A document's preview: text and tables come back to draw; anything else, Otter Drive's
- * short-lived URL for it, which opens a content session for the file (and a site's other
- * files) on Drive's content host.
- */
 export async function preview(
   id: string,
   folderId?: string,
@@ -554,8 +520,6 @@ export async function preview(
   const kept = number ? await local.savedDocument<DrivePreview>(id, number) : null;
   if (kept) return kept;
 
-  // The current version, when its name says it's drawn here, is asked for straight away;
-  // anything else asks Drive what it is first (and, to show it, for its URL).
   let target: { number: number; entryPath: string; contentType: string };
   const known = current && current.number === number ? current : null;
   const drawn = known ? documentKind("", known.entryPath) : null;
@@ -612,7 +576,6 @@ export async function preview(
   return shown;
 }
 
-/** An Excel workbook's sheets, as text, the way Otter Drive reads them. */
 async function workbook(bytes: Uint8Array): Promise<DrivePreview> {
   const XLSX = await import("@e965/xlsx");
   const book = XLSX.read(bytes, { type: "array", cellDates: true });
@@ -651,7 +614,6 @@ export async function rename(
   return artifact(result.data);
 }
 
-/** Archives it (Otter Drive keeps it, out of the list), or brings it back. */
 export async function setArchived(
   id: string,
   folderId: string | undefined,
@@ -689,7 +651,6 @@ type LocalFile = { path: string; contentType: string; bytes: Uint8Array };
 
 const MAX_UPLOAD = 100 * 1024 * 1024;
 
-/** Uploads one file as a new document (version 1). */
 async function publishFile(
   auth: Session,
   folderId: string,
@@ -808,7 +769,6 @@ async function uploadVersion(
 
 const titleOf = (name: string) => name.replace(/\.[^.]+$/, "") || name;
 
-/** Files the user picks, each as a new document. */
 export async function uploadPicked(folderId: string): Promise<DriveArtifact[]> {
   const auth = await reachable(folderId);
   const picked = await platform().userFiles.pick();
@@ -829,7 +789,6 @@ export async function uploadPicked(folderId: string): Promise<DriveArtifact[]> {
   return done;
 }
 
-/** A file dropped on the workspace. */
 export async function uploadBytes(
   folderId: string,
   file: { name: string; type: string; base64: string },
@@ -846,7 +805,6 @@ export async function uploadBytes(
   );
 }
 
-/** A file the user picks, as the document's next version. */
 export async function uploadNewVersion(
   id: string,
   folderId: string | undefined,
@@ -869,10 +827,6 @@ export async function uploadNewVersion(
   );
 }
 
-/**
- * Saves a document where the user chooses: its one file as itself, or a
- * version of several files (a site) as Otter Drive's zip of them.
- */
 export async function download(
   id: string,
   folderId: string | undefined,
@@ -1020,7 +974,6 @@ export async function patchWorkbook(
   return new Uint8Array(XLSX.write(book, { bookType: "xlsx", type: "array" }) as ArrayBuffer);
 }
 
-/** Makes an earlier version the current one again. */
 export async function promoteVersion(
   id: string,
   folderId: string | undefined,
@@ -1037,7 +990,6 @@ export async function promoteVersion(
   return artifact(result.data);
 }
 
-/** Moves a document into another folder (its owner's, into one they own). */
 export async function move(
   id: string,
   folderId: string | undefined,
@@ -1055,14 +1007,12 @@ export async function move(
   return artifact(result.data);
 }
 
-/** Deletes an archived document for good, every version. */
 export async function deletePermanently(id: string, folderId: string | undefined): Promise<void> {
   const { auth, folder } = await documentAccess(id, folderId);
   await request(`/api/v1/artifacts/${ref(id)}/permanent`, { method: "DELETE" }, auth, folder);
   forget(id);
 }
 
-/** A folder in a drive that's on: a new one inside it. */
 export async function createFolder(parentId: string, name: string): Promise<{ id: string }> {
   const auth = await reachable(parentId);
   const clean = name.trim().slice(0, 80);
@@ -1076,7 +1026,6 @@ export async function createFolder(parentId: string, name: string): Promise<{ id
   return { id: result.data.id };
 }
 
-/** Renames a folder, or moves it under another (in the same drive, or one you own). */
 export async function updateFolder(
   id: string,
   change: { name?: string; parentId?: string },
@@ -1099,18 +1048,11 @@ export async function updateFolder(
   forget();
 }
 
-/** Deletes an empty folder. */
 export async function deleteFolder(id: string): Promise<void> {
   const auth = await reachable(id);
   await request(`/api/v1/folders/${ref(id)}`, { method: "DELETE" }, auth);
   forget();
 }
-
-// ---------------------------------------------------------------------------
-// Sharing, as Otter Drive has it (Google Drive's model): people by email as
-// viewers or editors, and anyone with the link. A shared drive shares by its
-// members. Answers come back as Drive gives them (its `Sharing`).
-// ---------------------------------------------------------------------------
 
 export type ShareTarget = { type: "folder" | "artifact"; id: string; folderId?: string };
 export type ShareRole = "viewer" | "editor";
@@ -1133,7 +1075,6 @@ async function sharingCall(
   return request(`/api/v1/artifacts/${ref(target.id)}/sharing${rest}`, init, auth, folder);
 }
 
-/** Who has access, and the link. */
 export async function sharing(target: ShareTarget): Promise<unknown> {
   return ((await sharingCall(target, "")) as { data: unknown }).data;
 }
@@ -1178,7 +1119,6 @@ export async function setShareLink(target: ShareTarget, role: ShareRole | null):
   return done;
 }
 
-/** People you work with whose name or email has the text, for adding. */
 export async function suggestPeople(query: string): Promise<unknown> {
   const auth = await signedIn();
   const result = await request<{ data: unknown }>(
@@ -1191,7 +1131,6 @@ export async function suggestPeople(query: string): Promise<unknown> {
 
 let whoCache: { token: string; userId: string } | null = null;
 
-/** Your Otter Drive user id: to tell "you" among the people with access. */
 export async function me(): Promise<{ userId: string }> {
   const auth = await signedIn();
   if (whoCache?.token !== auth.token) {
@@ -1274,13 +1213,10 @@ export async function resolveLink(
   return null;
 }
 
-// ---------------------------------------------------------------------------
 // Drives and your account, for Settings: making a shared drive, its members
 // and owner, where it stores files, and your API keys. These manage a drive
 // rather than reach its documents, so a drive that's off here is managed too.
-// ---------------------------------------------------------------------------
 
-/** A new shared drive, yours. */
 export async function createDrive(name: string): Promise<{ id: string }> {
   const auth = await signedIn();
   const clean = name.trim().slice(0, 80);
@@ -1294,7 +1230,6 @@ export async function createDrive(name: string): Promise<{ id: string }> {
   return { id: result.data.id };
 }
 
-/** Renames a drive (its owner only). */
 export async function renameDrive(id: string, name: string): Promise<void> {
   const auth = await signedIn();
   const clean = name.trim().slice(0, 80);
@@ -1307,7 +1242,6 @@ export async function renameDrive(id: string, name: string): Promise<void> {
   forget();
 }
 
-/** Deletes an empty shared drive. */
 export async function deleteDrive(id: string): Promise<void> {
   const auth = await signedIn();
   await request(`/api/v1/folders/${ref(id)}`, { method: "DELETE" }, auth);
@@ -1321,7 +1255,6 @@ export type DriveMember = {
   userId: string | null;
 };
 
-/** A shared drive's members, for its owner. */
 export async function driveMembers(id: string): Promise<DriveMember[]> {
   const auth = await signedIn();
   return (await request<{ data: DriveMember[] }>(`/api/v1/folders/${ref(id)}/members`, {}, auth))
@@ -1339,7 +1272,6 @@ export async function transferDrive(id: string, userId: string): Promise<void> {
   forget();
 }
 
-/** Where a drive keeps its files: Otterware's storage, or its owner's buckets. */
 export async function storage(id: string): Promise<unknown> {
   const auth = await signedIn();
   return (await request<{ data: unknown }>(`/api/v1/folders/${ref(id)}/storage`, {}, auth)).data;
@@ -1395,7 +1327,6 @@ export type ApiKey = {
   createdAt: string;
 };
 
-/** Your API keys, for agents that use the otterdrive CLI. */
 export async function apiKeys(): Promise<ApiKey[]> {
   const auth = await signedIn();
   const result = await request<{ apiKeys?: ApiKey[] } | ApiKey[]>(
@@ -1434,7 +1365,6 @@ export async function revokeApiKey(keyId: string): Promise<void> {
   );
 }
 
-/** Every document in the drives that are on, for search: built at most once a minute. */
 let index: { at: number; key: string; list: Promise<DriveArtifact[]> } | null = null;
 
 async function documentIndex(): Promise<DriveArtifact[]> {
@@ -1444,7 +1374,6 @@ async function documentIndex(): Promise<DriveArtifact[]> {
   const list = (async () => {
     const reach = (await folders()).slice(0, 60);
     const found: DriveArtifact[] = [];
-    // A few folders at a time.
     for (let i = 0; i < reach.length; i += 6)
       for (const page of await Promise.all(
         reach.slice(i, i + 6).map((f) => artifacts(f.id).catch(() => [])),
@@ -1460,7 +1389,6 @@ async function documentIndex(): Promise<DriveArtifact[]> {
   return list;
 }
 
-/** Documents whose title, name or description has every word typed, most recent first. */
 export async function search(query: string): Promise<DriveArtifact[]> {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return [];
@@ -1474,16 +1402,13 @@ export async function search(query: string): Promise<DriveArtifact[]> {
 }
 
 export type PublishInput = {
-  /** The drive or folder to save into. */
   folderId: string;
   accountId: string;
   messageId: string;
-  /** An attachment's id, or absent for the email itself. */
   attachmentId?: string;
   title: string;
 };
 
-/** Publishes an attachment, or the email as a page, as a new document. */
 export async function publish(input: PublishInput): Promise<DriveArtifact> {
   const auth = await reachable(input.folderId);
   if (!input.title.trim()) throw new Error("Give it a title.");
@@ -1537,7 +1462,6 @@ export function slugFor(title: string): string {
 const escape = (text: string) =>
   text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
-/** The email as one page: its HTML body, or its text in a <pre>. */
 export function emailPage(subject: string, html: string | null, text: string | null): string {
   const body = html ?? `<pre style="white-space:pre-wrap;font:inherit">${escape(text ?? "")}</pre>`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(subject)}</title></head><body>${body}</body></html>`;

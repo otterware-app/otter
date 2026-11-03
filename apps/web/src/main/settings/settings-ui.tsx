@@ -114,7 +114,6 @@ export function SettingsSectionHeader({
   description?: ReactNode;
   icon?: ReactNode;
   action?: ReactNode;
-  /** Quiet group label (the keybindings list) instead of a section title. */
   muted?: boolean;
 }) {
   return (
@@ -357,7 +356,6 @@ export const TextInput = forwardRef<HTMLInputElement, ComponentProps<"input">>(f
   );
 });
 
-/** Text input that commits on blur / Enter (settings write once, not per keystroke). */
 export function DraftInput({
   value,
   onCommit,

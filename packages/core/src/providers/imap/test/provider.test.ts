@@ -101,7 +101,6 @@ const waitFor = async <T>(check: () => T | undefined, ms = 15_000): Promise<T> =
   }
 };
 
-/** What every server should do; `seed` is a second client, as another device would be. */
 function providerScenario(
   server: () => { accountId: string; settings: ImapSettings; password: string; smtp: boolean },
 ) {
@@ -195,7 +194,6 @@ function providerScenario(
       messageIdHeader: a.id,
       referencesHeader: null,
     });
-    // Reading doesn't mark it read.
     expect((await provider.getSummaries(accountId, [id]))[0]!.unread).toBe(true);
   });
 
@@ -332,7 +330,6 @@ function providerScenario(
   it("remembers where trashed mail came from across restarts", async () => {
     await provider.trashMessage(accountId, cachedByHeader(accountId, w1.id)!.id);
     const trashed = cachedByHeader(accountId, w1.id)!.id;
-    // Kept in the cache's kv (nothing in memory), so a restart doesn't send it to the Inbox.
     expect(JSON.parse(store.getKv(`imapTrashedFrom:${accountId}`)!)).toEqual({ [trashed]: "Work" });
     const restored = await provider.untrashMessage(accountId, trashed);
     expect(restored.map((m) => pathOf(m.id))).toEqual(["Work"]);
@@ -369,7 +366,6 @@ function providerScenario(
       threadId: first.threadId,
     });
     expect(second.draftId).toBe(first.draftId);
-    // A new message's draft doesn't reference itself.
     expect(await provider.getReplyHeaders(accountId, second.messageId!)).toEqual({
       messageIdHeader: first.draftId,
       referencesHeader: null,
@@ -407,7 +403,6 @@ function providerScenario(
     expect(await seed.search({ header: { name: "Subject", value: "Decoy" } })).toHaveLength(1);
     await provider.deleteDraft(accountId, saved.draftId);
     expect(await seed.search({ header: { name: "Subject", value: "Decoy" } })).toHaveLength(1);
-    // Not a whole Message-ID: nothing to find (or delete).
     expect(await provider.getDraftVersion(accountId, "")).toBeNull();
     expect(await provider.getDraftVersion(accountId, saved.draftId.slice(1, -1))).toBeNull();
   });

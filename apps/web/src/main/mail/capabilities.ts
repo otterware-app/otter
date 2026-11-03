@@ -17,7 +17,6 @@ export function useCapabilities(accountId: string | null | undefined): MailCapab
   return capabilitiesOf(accounts?.find((a) => a.id === accountId));
 }
 
-/** Signs in with a password on each device (IMAP) rather than with Google or Microsoft. */
 export function signsInWithPassword(account: MailAccount): boolean {
   return account.imap != null;
 }

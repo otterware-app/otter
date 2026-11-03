@@ -57,7 +57,6 @@ const lastFinishedAt = new Map<string, number>();
 // refetch hits those handlers again — without a cooldown that loops forever.
 const READ_TRIGGER_COOLDOWN_MS = 20_000;
 
-// ── Failure backoff ──────────────────────────────────────────────────────
 // A failing account (offline, revoked sign-in, Gmail rate limits) is retried
 // on a growing delay instead of on every timer tick and list refetch. Asking
 // explicitly (Sync button, menu, switching to the account) always runs.
@@ -82,12 +81,6 @@ let pushedAccounts: ReadonlySet<string> = new Set();
 export function setPushedAccounts(accountIds: Iterable<string>): void {
   pushedAccounts = new Set(accountIds);
 }
-
-// ── Watches ──────────────────────────────────────────────────────────────
-// Providers that watch the mailbox from the device (IMAP IDLE) instead of
-// through the relay: started with the account's first sync, stopped when
-// it's removed or turned off; after sleep each checks its own connection.
-// Once a watch reports, the account counts as pushed.
 
 const watches = new Map<string, () => void>();
 const watched = new Set<string>();
@@ -177,7 +170,6 @@ export function syncAccount(
     return;
   }
   running.add(accountId);
-  // Wake the renderer's idle status polls so even short syncs show up.
   broadcast("gmail:sync-started");
   void runSync(accountId).finally(() => {
     running.delete(accountId);
@@ -221,7 +213,6 @@ export function configureAutoSync(intervalSeconds: number): void {
   );
 }
 
-// ── Account removal ───────────────────────────────────────────────────────
 // A sync already in flight for a removed account must not write its mail
 // back into the cache: every write point checks `assertActive`, which aborts
 // the run with a SyncCancelled.
@@ -329,7 +320,6 @@ async function runSyncNow(accountId: string, provider: MailProvider): Promise<vo
   }
 }
 
-// ── Backfill ─────────────────────────────────────────────────────────────
 // The provider's long work (Gmail: the first sync of the whole mailbox, the
 // refresh after its history feed expired), in its own lane and quota tier:
 // the sync lane keeps running beside it, so new mail still comes in. Stopped
@@ -418,7 +408,6 @@ async function prefetchDraftAttachments(accountId: string, provider: MailProvide
   }
 }
 
-// ── Offline downloads ────────────────────────────────────────────────────
 // Full bodies for every message, newest first, so the whole mailbox reads
 // offline. Runs as prefetch work (after the user and sync in the quota
 // queue), in its own lane: a big backlog takes a while and must not keep the
@@ -523,6 +512,5 @@ async function downloadBodies(accountId: string, provider: MailProvider): Promis
     }
   }
 
-  // Drafts' attachment bytes must be in memory before the composer can save.
   await prefetchDraftAttachments(accountId, provider);
 }

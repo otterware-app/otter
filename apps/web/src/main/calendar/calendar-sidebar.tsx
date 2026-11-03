@@ -41,7 +41,6 @@ import {
   type CalendarMode,
 } from "./dates";
 
-/** The colors a calendar can wear, as Notion Calendar names them. */
 const CALENDAR_COLORS: { name: string; hex: string }[] = [
   { name: "Red", hex: "#e5484d" },
   { name: "Coral", hex: "#d9776f" },
@@ -62,7 +61,6 @@ const CALENDAR_COLORS: { name: string; hex: string }[] = [
   { name: "Gray", hex: "#a3a3a3" },
 ];
 
-/** The month at a glance: the days in view are marked, a click goes to one. */
 function MiniMonth({ mode }: { mode: CalendarMode }) {
   const date = useCalendar((s) => s.date);
   const free = useCalendar((s) => s.free);
@@ -74,11 +72,9 @@ function MiniMonth({ mode }: { mode: CalendarMode }) {
     setLastDate(date);
     setShown(startOfMonth(date));
   }
-  // Follows Settings → Calendar: the week's first day, weekends in the view.
   const weekends = useCalendarPreferences().showWeekends || mode === "day";
   const first = startOfWeek(shown);
   const days = Array.from({ length: 42 }, (_, i) => addDays(first, i));
-  // Mid-scroll, the days passing by.
   const inView = peek
     ? visibleDays(mode, peek, true, weekends)
     : visibleDays(mode, date, free, weekends);
@@ -168,7 +164,6 @@ function initials(name: string) {
   return (name.match(/\b\p{L}/gu) ?? [name[0] ?? "?"]).slice(0, 2).join("").toUpperCase();
 }
 
-/** Teammates shown over your calendar (⌘P), on one card; Esc or its × takes them away. */
 function TeamCalendars() {
   const team = useCalendar((s) => s.team);
   const clearTeam = useCalendar((s) => s.clearTeam);
@@ -302,10 +297,6 @@ export function CalendarSidebar({
   );
 }
 
-/**
- * A calendar: its color (a followed one's with a feed mark), its name, and whether it shows.
- * The row opens its coming events in the drawer; the eye shows or hides it.
- */
 function CalendarRow({
   calendar,
   on,
@@ -325,7 +316,6 @@ function CalendarRow({
   onOpen: () => void;
   onMakeDefault: () => void;
   onToggle: () => void;
-  /** The color picked for it, if any (else its own). */
   picked: string | null;
   onColor: (hex: string | null) => void;
   onShowOnly: () => void;
@@ -343,7 +333,6 @@ function CalendarRow({
       )}
       style={{
         background: calendar.color,
-        // The default wears a ring, as in Notion Calendar.
         outline: `1.5px solid ${isDefault ? calendar.color : "transparent"}`,
         outlineOffset: 1.5,
       }}

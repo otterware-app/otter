@@ -1,11 +1,3 @@
-/**
- * Peeking at the sidebar (Notion's): while it's hidden, hovering the window's
- * left edge, or the sidebar toggle, shows it over the window after a beat, so
- * a folder or chat is one click away. It stays while the pointer is in it,
- * and goes a moment after it leaves (not while a menu or dialog of it is
- * open). A conversation dragged to the edge opens it too, to drop on a label.
- */
-
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export function useSidebarPeek() {
@@ -42,13 +34,6 @@ export function useSidebarPeek() {
   return { open, hover, close };
 }
 
-/**
- * The card: an even gap (--peek-gap) inside the content panel, its corners
- * concentric with the panel's (the panel's radius less the gap), wearing the
- * docked sidebar's surface, raised by its shadow. The sidebar in it is laid
- * out exactly where it docks (back past the gap and the edge, at full
- * width), so going somewhere leaves every row in place and only the card goes.
- */
 export function SidebarPeekCard({
   width,
   onHover,

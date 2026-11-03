@@ -65,7 +65,6 @@ function readFileAsAttachment(file: File): Promise<ComposeAttachment> {
     reader.addEventListener(
       "load",
       () => {
-        // FileReader gives a `data:<mime>;base64,<payload>` URL — keep the payload.
         const result = String(reader.result ?? "");
         const comma = result.indexOf(",");
         resolve({
@@ -82,10 +81,6 @@ function readFileAsAttachment(file: File): Promise<ComposeAttachment> {
   });
 }
 
-/**
- * Read dropped/pasted files into attachments in the renderer (base64), skipping
- * any that would push the running total past the 25 MB cap.
- */
 export async function filesToComposeAttachments(
   files: File[],
   existing: ComposeAttachment[],
@@ -152,7 +147,6 @@ export function useComposeFileDrop(
   };
 }
 
-/** Full-cover "Drop files to attach" hint; pointer-events-none so the drop lands on the container. */
 export function ComposeDropOverlay({ visible }: { visible: boolean }) {
   if (!visible) return null;
   return (

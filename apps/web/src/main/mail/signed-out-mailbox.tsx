@@ -6,13 +6,6 @@ import { useAddAccount } from "./hooks";
 import { toast } from "./toast";
 import type { MailAccount } from "./types";
 
-/**
- * A mailbox with nothing to show because this device isn't signed in to it:
- * typically one added on another device, through the Otter account. One
- * click signs in (with Google, or Microsoft for Outlook), with the address
- * prefilled; an IMAP mailbox asks for its password, which never leaves the
- * device it was typed on.
- */
 export function SignedOutMailbox({ account }: { account: MailAccount }) {
   const signIn = useAddAccount(signInProvider(account));
   if (signsInWithPassword(account)) {

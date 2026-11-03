@@ -1,11 +1,3 @@
-/**
- * views-store.ts
- *
- * Persists the user's views (saved filters across the mailboxes) to
- * userData/views.json, so the main and settings windows share one source of
- * truth; the list follows the Otter account (preferences.ts).
- */
-
 import { readJson, writeJson } from "../json-file.js";
 import type { MailView, ViewRule } from "../types.js";
 

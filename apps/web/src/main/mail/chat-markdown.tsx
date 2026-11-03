@@ -135,11 +135,6 @@ const COMPONENTS: Components = {
   hr: () => <hr className="border-border/60" />,
 };
 
-/**
- * Agent replies rendered as GitHub-flavored markdown, styled for the app palette.
- * Links open in a browser tab (never navigate the app window). Memoized
- * on the text so streaming deltas only re-parse the growing string.
- */
 export const ChatMarkdown = memo(function ChatMarkdown({
   text,
   onOpenFile,

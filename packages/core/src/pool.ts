@@ -1,8 +1,3 @@
-/**
- * Runs `fn` over `items` with at most `concurrency` calls in flight, keeping
- * every slot busy (a slow request doesn't hold up the rest of its batch).
- * Results keep the order of `items`.
- */
 export async function mapPool<T, R>(
   items: readonly T[],
   concurrency: number,

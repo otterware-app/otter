@@ -2,12 +2,6 @@ import { ARCHIVE_LABEL_ID } from "@otter-mail/contracts";
 
 import type { ActionSummary } from "./undo";
 
-/**
- * Names a label change the way the action toast reads it: "Archived",
- * "Moved to “Clients”", "Marked as junk". `labelName` resolves user labels;
- * `archiveFolder`: the Archive is a folder (Outlook, IMAP), so mail taken out
- * of a folder of the user's is archived.
- */
 export function summarizeLabelChange(
   add: string[],
   remove: string[],

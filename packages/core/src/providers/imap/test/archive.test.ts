@@ -1,12 +1,3 @@
-/**
- * Archiving on every kind of IMAP server, against a pretend one (no Docker):
- * the Archive found by its special use or its name, made (flagged \Archive)
- * where there's none, Gmail's archive being All Mail (out of the inbox, never
- * a copy, and back with a copy only; only its archived mail synced), and
- * moves with MOVE or, without it, COPY + \Deleted + EXPUNGE. Archived mail
- * carries ARCHIVE, except Gmail's, which is All Mail's as in Gmail.
- */
-
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import type { ImapFolder, SpecialUse } from "../../../protocols/index.ts";

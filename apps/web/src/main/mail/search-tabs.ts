@@ -13,7 +13,6 @@ export function searchTabId(mailbox: string, parent: string | null): string {
   return `${mailbox}::${parent ?? "*"}`;
 }
 
-/** The row's title: the words searched, without the parent's operators. */
 export function searchTitle(tab: SearchTab): string {
   const text = (tab.query || tab.draft).trim();
   const words = tab.base ? text.replace(tab.base, "").trim() : text;

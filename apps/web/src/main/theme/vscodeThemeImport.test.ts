@@ -70,7 +70,6 @@ describe("VS Code theme import", () => {
 
   it("carries the editor surfaces and accent across", () => {
     const theme = parseVsCodeThemeFile(VSCODE_DARK);
-    // The slug name is read as words; a displayName would win verbatim.
     expect(theme.label).toBe("Pierre Dark Soft");
     expect(theme.appearance).toBe("dark");
     expect(asHex(theme.colors.canvas)).toBe("#171717");
@@ -147,8 +146,6 @@ describe("VS Code theme import", () => {
   });
 
   it("stays readable when the file replaces a surface but not its foreground", () => {
-    // A dark theme with a light sidebar: the derived sidebar foreground was
-    // solved for a dark surface and would vanish on this one.
     const theme = parseVsCodeThemeFile({
       name: "Split",
       type: "dark",
@@ -169,8 +166,6 @@ describe("VS Code theme import", () => {
   });
 
   it("reads wide-gamut color() notation", () => {
-    // Themes authored for P3 displays (the shipped Pierre "vibrant" pair) use
-    // this instead of hex.
     const theme = parseVsCodeThemeFile({
       name: "Vibrant",
       type: "dark",
@@ -233,14 +228,10 @@ describe("VS Code theme import", () => {
       make("solar-dark-soft", "dark"),
       make("solar-light", "light"),
     ]);
-    // "solar-dark-soft" groups under its own key with no light partner, so
-    // it keeps its full name; the remaining pair merges.
     expect(themes.map((theme) => theme.label).sort()).toEqual(["Solar", "Solar Dark Soft"]);
   });
 
   it("keeps derived surfaces neutral instead of washing them with the accent", () => {
-    // A gray theme with a blue focusBorder: roles the file omits (code
-    // surface, plain surfaces) must stay near the canvas, not turn blue.
     const theme = parseVsCodeThemeFile(VSCODE_DARK);
     const spread = (value: string) => {
       const hex = asHex(value);
@@ -266,7 +257,6 @@ describe("VS Code theme import", () => {
     ]);
     expect(themes.map((theme) => theme.label)).toEqual(["Dracula", "Dracula Soft"]);
     expect(themes.map((theme) => theme.id)).toEqual(["dracula", "dracula-soft"]);
-    // Without file names the second falls back to numbering.
     const numbered = resolveThemeLabelCollisions([
       { theme: dracula("#282a36") },
       { theme: dracula("#22232e") },

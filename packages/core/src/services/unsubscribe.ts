@@ -1,12 +1,3 @@
-/**
- * Unsubscribe, the way Gmail does it, from a message's List-Unsubscribe
- * header:
- *  1. One-click (RFC 8058): POST "List-Unsubscribe=One-Click" to the https
- *     link — done in place, nothing opens.
- *  2. Otherwise a mailto: address — send the unsubscribe email.
- *  3. Otherwise only a web page — open it in the browser.
- */
-
 import { logger } from "../logger.js";
 import { getAccount } from "./account-store.js";
 import { providerFor } from "../providers/index.js";
@@ -98,7 +89,6 @@ export async function unsubscribe(
       return { done: true };
     }
     logger.info("unsubscribe", "one-click refused", { status: response.status });
-    // Fall through to the next method.
   }
   if (parsed.mailto) {
     await sendUnsubscribeEmail(accountId, parsed.mailto);
@@ -109,7 +99,6 @@ export async function unsubscribe(
   return { openUrl: parsed.https! };
 }
 
-/** Senders you've unsubscribed from, so the link reads "Unsubscribed". */
 function remember(accountId: string, messageId: string): void {
   const detail = store.getMessageDetail(accountId, messageId);
   if (detail?.fromEmail)

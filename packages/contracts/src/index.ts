@@ -89,7 +89,6 @@ export const UPDATE_STATE_CHANNEL = "updates:state";
 
 export interface OtterAccountState {
   user: { email: string; name: string | null; picture: string | null } | null;
-  /** "live": the relay's event stream is connected, so Gmail changes arrive within seconds. */
   realtime: "off" | "connecting" | "live";
 }
 
@@ -105,7 +104,6 @@ export const OTTER_ACCOUNT_STATE_CHANNEL = "otter:state";
 export const GMAIL_SETTINGS_PERMISSION =
   "Otter Mail needs permission to change this account's Gmail settings. Sign in to it again to allow it.";
 
-/** A confirmed agent change, kept with the chat so its result can be reopened. */
 export type ChatChange = {
   title: string;
   action: "created" | "updated" | "deleted" | "trashed" | "restored";

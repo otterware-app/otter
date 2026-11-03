@@ -51,7 +51,6 @@ import { AgentAvatar, openClawAgentId, useChatProvider } from "./agent-providers
 import { usePanelTabDrag } from "./use-panel-tab-drag";
 import { HintTooltip, cn } from "./ui";
 
-/** The chat's side panel, as the window's panel button and browser shortcuts drive it. */
 export type ChatPanelControl = { toggle: () => void; newPage: () => void };
 
 const TAB_ICONS = { thread: MailIcon, draft: FilePenLineIcon, page: GlobeIcon, file: FileIcon };
@@ -121,7 +120,6 @@ export function ChatWorkspace({
 }: {
   closeTabRef: MutableRefObject<(() => boolean) | null>;
   panelRef: MutableRefObject<ChatPanelControl | null>;
-  /** Whether the chat's tabs show beside it, for the window's panel button. */
   onPanelOpen: (open: boolean) => void;
   chatId: string;
   titleLeading?: ReactNode;
@@ -133,7 +131,6 @@ export function ChatWorkspace({
   const convo = useChats((s) => s.conversations.find((c) => c.id === chatId));
   const activeTab = useChats((s) => s.activeTabs[chatId]);
   const { selectedKind } = useChatProvider(undefined);
-  // Pages need the Mac app's browser; elsewhere they're links.
   const tabs = (convo?.tabs ?? []).filter((t) => features.browser || t.ref.kind !== "page");
   const shown = tabs.find((t) => t.id === activeTab) ?? tabs.at(-1);
   const message = useTabMessage(shown?.ref);
@@ -189,7 +186,6 @@ export function ChatWorkspace({
     };
   });
 
-  // Ctrl+Tab: the tab shown before, within the workspace.
   const recentRef = useRef<string[]>([]);
   const shownId = shown?.id;
   useEffect(() => {
@@ -222,7 +218,6 @@ export function ChatWorkspace({
     handlers,
   } = usePanelTabDrag((order) => reorderChatTabs(chatId, order));
 
-  // The chat's own browser: hidden by hand, or with nothing in it.
   const [panelHidden, setPanelHidden] = useState(false);
   const panelOpen = tabs.length > 0 && !panelHidden;
   const newPage = () => {

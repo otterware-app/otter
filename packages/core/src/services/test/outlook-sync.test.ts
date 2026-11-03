@@ -44,9 +44,7 @@ let searches: { path: string; search: string }[];
 let notified: string[];
 let sparseDeltas: boolean;
 let failedReads: boolean;
-/** What Outlook won't let this sign-in read, and how it says so. */
 let denied: { delta?: string; children?: string; message?: string; status: number };
-/** Subfolders, by parent. */
 let subfolders: Record<string, string[]>;
 let expired: Set<string>;
 let lagging: Set<string>;
@@ -832,7 +830,6 @@ describe("Outlook sync", () => {
     ]);
     expect(messages.get("in")?.folder).toBe("archive");
     expect(messages.get("sent")?.folder).toBe("sentitems");
-    // The cache has it in the Archive before any sync, the reply still in Sent.
     expect(labelsOf("in")?.sort()).toEqual(["ARCHIVE", "UNREAD"]);
     expect(labelsOf("sent")).toEqual(["SENT"]);
     const listed = (labelId: string) =>
@@ -913,7 +910,6 @@ describe("Outlook sync", () => {
       undefined,
       50,
     );
-    // KQL in the inbox; is:unread, which KQL can't say, checked on each result.
     expect(searches).toEqual([
       { path: "/me/mailFolders/inbox/messages", search: '"invoice from:bob hasattachments:true"' },
     ]);

@@ -14,7 +14,6 @@ import { SIGN_IN_CANCELLED, type GoogleSignInResult } from "./protocol";
 type Stored = { sealed: string; accessToken: string; expiresAt: number };
 
 const FILE = "google-tokens.json";
-/** Refresh a little before Google expires the token, never mid-request. */
 const REFRESH_AHEAD_MS = 2 * 60_000;
 
 export function webGoogleAuth(deps: {

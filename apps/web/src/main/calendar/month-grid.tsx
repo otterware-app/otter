@@ -18,12 +18,10 @@ export function MonthGrid({
   onOpenDay,
 }: {
   days: Date[];
-  /** 7, or 5 without weekends. */
   columns: number;
   month: number;
   events: CalEvent[];
   colorOf: (accountId: string) => string;
-  /** Where a new event goes. */
   defaultCalendar: { accountId: string; calendarId: string } | null;
   onOpenDay: (day: Date) => void;
 }) {
@@ -35,7 +33,6 @@ export function MonthGrid({
   const weeks = days.length / columns;
   const selectedKey = selection && !("draft" in selection) ? eventKey(selection) : null;
 
-  // How many rows of events fit in a day, from the grid's height.
   const gridRef = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(4);
   useLayoutEffect(() => {

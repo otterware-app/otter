@@ -96,7 +96,6 @@ type CalendarEvent = {
   isOrganizer: boolean;
   response: string;
   isCancelled: boolean;
-  /** A Teams meeting's join link, made when asked for (isOnlineMeeting). */
   joinUrl?: string;
 };
 
@@ -182,7 +181,6 @@ function seedMailbox(seed: OutlookSeedAccount, seededAt: number): Mailbox {
 
   const me = { name: seed.name, email: seed.email };
   const conversations = new Map<string, { id: string; firstSender?: Person; last?: Message }>();
-  // Oldest first, so each message replies to the one before it.
   const seeded = seed.messages(seededAt).sort((a, b) => b.hoursAgo - a.hoursAgo);
   for (const s of seeded) {
     let conversation = conversations.get(s.conversation);
@@ -1330,7 +1328,6 @@ function calendarView(box: Mailbox, req: Req): Answer {
 
 const DEFAULT_CALENDAR = "AAMk-calendar";
 
-/** The mailbox's calendars: its own (the events above), a team one, and holidays it follows. */
 function calendars(box: Mailbox, req: Req, rest: string[]): Answer {
   const [id, collection] = rest;
   if (!id)
@@ -1363,12 +1360,10 @@ function calendars(box: Mailbox, req: Req, rest: string[]): Answer {
         },
       ],
     });
-  // New events: kept with the mailbox's own (the demo doesn't sort them by calendar).
   if (collection === "events") return events(box, req, rest.slice(2));
   if (id === DEFAULT_CALENDAR) return calendarView(box, req);
   if (collection !== "calendarView")
     return badRequest(`Resource not found for the segment '${collection}'.`);
-  // The other calendars: a couple of made-up events around today.
   const day = (offset: number, hour = 0) => {
     const d = new Date();
     d.setHours(hour, 0, 0, 0);
@@ -1399,7 +1394,6 @@ function calendars(box: Mailbox, req: Req, rest: string[]): Answer {
 
 const SUBJECTS = ["1:1", "Pipeline review", "Customer call", "Focus", "Planning", "Interview"];
 
-/** Colleagues' made-up weeks, with the subjects Outlook shares. */
 function getSchedule(req: Req): Answer {
   const body = fields(req) as {
     schedules?: string[];

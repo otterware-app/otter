@@ -979,7 +979,6 @@ const calls: Record<string, Call> = {
   },
 };
 
-/** Who's calling: an extension page of that extension, or its worker. */
 function callerOk(extensionId: string, url: string | undefined): boolean {
   return Boolean(url?.startsWith(`chrome-extension://${extensionId}/`));
 }

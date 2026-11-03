@@ -19,7 +19,6 @@ import { desktopSupportDiagnostics } from "./services/support-diagnostics.js";
 
 const home = () => appInfo().stateDir;
 
-/** Writes through a temp file, so a crash never leaves half a file. */
 async function writeFileAtomic(file: string, data: Uint8Array | string): Promise<void> {
   await fs.mkdir(path.dirname(file), { recursive: true });
   // Its own temp file each time: two writes at once mustn't rename each other's.

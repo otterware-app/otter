@@ -5,7 +5,6 @@ import { startOfDay } from "./dates";
 const SHOWN_KEY = "calendar:shown";
 const TEAM_KEY = "calendar:team";
 
-/** Someone whose calendar is shown over yours (⌘P). */
 export type Teammate = { email: string; name: string };
 
 function readTeam(): Teammate[] {
@@ -34,11 +33,9 @@ function readShown(): Record<string, boolean> {
   }
 }
 
-/** Whether a calendar shows: as set by hand, else as where it came from. */
 export const isShown = (shown: Record<string, boolean>, key: string, hiddenByDefault: boolean) =>
   shown[key] ?? !hiddenByDefault;
 
-/** A new event being drawn, before it has a title and is saved. */
 export type DraftEvent = {
   accountId: string;
   calendarId: string;
@@ -63,7 +60,6 @@ type CalendarState = {
   team: Teammate[];
   selection: Selection | null;
   draft: DraftEvent | null;
-  /** The calendar whose coming events show in the drawer (by calendarKey). */
   agenda: string | null;
   /** An event to open once the view has glided to it. */
   reveal: Selection | null;
@@ -73,7 +69,6 @@ type CalendarState = {
   setPeek: (date: Date | null) => void;
   goTo: (date: Date) => void;
   setShown: (key: string, show: boolean) => void;
-  /** Shows only this calendar of those listed. */
   showOnly: (key: string, keys: string[]) => void;
   addTeammate: (teammate: Teammate) => void;
   removeTeammate: (email: string) => void;
@@ -81,7 +76,6 @@ type CalendarState = {
   select: (selection: Selection | null) => void;
   setDraft: (draft: DraftEvent | null) => void;
   setAgenda: (key: string | null) => void;
-  /** Glides to an event's day and opens it. */
   show: (event: { accountId: string; calendarId: string; id: string; startMs: number }) => void;
 };
 

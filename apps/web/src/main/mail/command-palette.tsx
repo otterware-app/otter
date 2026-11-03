@@ -98,7 +98,6 @@ type PaletteItem = {
   trailing?: ReactNode;
   shortcut?: string;
   checked?: boolean;
-  /** Opens a submenu instead of running. */
   submenu?: Page;
   run?: () => void;
 };
@@ -210,7 +209,6 @@ export function CommandPalette({
 
   const { resolved: keybindings } = useKeybindingsState();
   const extensionCommands = useExtensionCommands();
-  // Extensions' own results (Drive's documents) for the text typed, each under its label.
   const extensionSearches = useExtensionPaletteSearches();
   const extensionResults = useQueries({
     queries: extensionSearches.map((e) => ({
@@ -644,7 +642,6 @@ export function CommandPalette({
           aria-label="Command palette"
           className={cn(
             "pointer-events-auto relative flex max-h-105 w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-foreground/10 text-foreground shadow-[0_24px_64px_-24px_rgb(0_0_0/45%)] transition-[background-color] dark:shadow-[0_24px_64px_-24px_rgb(0_0_0/80%)]",
-            // Changing theme: a see-through window, so the preview shows behind it.
             page === "theme" ? "bg-popover/70 backdrop-blur-md" : "bg-popover",
           )}
         >

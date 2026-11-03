@@ -148,9 +148,7 @@ export const TUNNEL_CLOSE = {
 
 export type RelayEvent =
   | { type: "mail"; email: string; historyId: string }
-  /** The linked accounts changed (another device linked, unlinked or edited one). */
   | { type: "accounts" }
-  /** The preferences changed on another device. */
   | { type: "preferences" }
   /**
    * Agent chats changed on another device (or this one): see chats.ts. `email`

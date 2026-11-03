@@ -8,7 +8,6 @@ import { Btn, IconBtn, cn } from "../mail/ui";
 import { ShortcutKeys } from "./keycap";
 
 export type TourActions = {
-  /** Opens a conversation if none is open, so the reader has something to show. */
   openMessage: () => void;
   setAgentOpen: (open: boolean) => void;
   agentOpen: boolean;
@@ -128,7 +127,6 @@ function useTargetBox(target: string | undefined): Box | null {
   return box;
 }
 
-/** Beside the part where there's room, else over it; centered without one. */
 function cardPosition(box: Box | null, height: number): { left: number; top: number } {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
@@ -196,7 +194,6 @@ export function Tour({ actions, onClose }: { actions: TourActions; onClose: () =
   useEffect(() => nextButton.current?.focus({ preventScroll: true }), [index]);
 
   const position = cardPosition(box, cardHeight);
-  // Without a part, the spotlight shrinks to a point mid-screen: all dimmed.
   const spot = box ?? {
     left: window.innerWidth / 2,
     top: window.innerHeight / 2,

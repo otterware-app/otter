@@ -9,7 +9,6 @@ export const NEW_CHAT = "new";
 
 export const VIEW_LIST = "all";
 
-/** Views' ids (views-store's `v_…`), never an account's address. */
 export const isViewSpaceId = (id: string) => id.startsWith("v_");
 
 export type Space =
@@ -17,7 +16,6 @@ export type Space =
   | { kind: "view"; id: string; view: MailView }
   | { kind: "chats"; id: typeof CHATS_SPACE }
   | { kind: "calendar"; id: typeof CALENDAR_SPACE }
-  /** An extension's workspace (`__drive__`). */
   | { kind: "workspace"; id: string; workspace: string };
 
 export function spaceOf(
@@ -45,7 +43,6 @@ export function firstLabelOf(spaceId: string): string {
   return "INBOX";
 }
 
-/** The app's modes, switched at the sidebar's foot: its own three and extensions' workspaces. */
 export type AppMode = "mail" | "calendar" | "agent" | `workspace:${string}`;
 
 export function modeOf(spaceId: string | null): AppMode {
@@ -55,5 +52,4 @@ export function modeOf(spaceId: string | null): AppMode {
   return workspace ? `workspace:${workspace.id}` : "mail";
 }
 
-/** Its list draws on every mailbox (or some), not one account's (Chats: none, so all of them). */
 export const spansMailboxes = (space: Space | null) => space != null && space.kind !== "mailbox";

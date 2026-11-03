@@ -38,7 +38,6 @@ type StoredTokens = {
   clientId?: string;
   accessToken: string;
   refreshToken: string;
-  /** Epoch ms when the access token expires. */
   expiresAt: number;
   scope?: string;
 };
@@ -359,7 +358,6 @@ function isSignedIn(accountId: string): boolean {
   return storeCache?.has(accountId) ?? true;
 }
 
-/** Refresh a little before Google expires the token, never mid-request. */
 const REFRESH_AHEAD_MS = 2 * 60_000;
 
 type CachedToken = { accessToken: string; expiresAt: number };

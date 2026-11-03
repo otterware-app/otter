@@ -222,9 +222,6 @@ function getThemeEditorColorFamily(role: ThemeColorRole): ThemeEditorColorFamily
 type ThemeEditorColors = ThemeColors;
 type ThemeEditorColorsByAppearance = Record<ThemeAppearance, ThemeEditorColors>;
 
-// A draft with no source theme starts as the standard T3 Code look — the
-// palette on screen when no theme is installed — so creating from the default
-// theme changes nothing until the user edits a color.
 function getThemeEditorDefaults(appearance: ThemeAppearance): ThemeEditorColors {
   return { ...getStandardThemeColors(appearance) };
 }
@@ -245,8 +242,6 @@ function getManagedEditorColors(
   colors: ThemeEditorColors,
 ): ThemeEditorColors {
   const defaults = getStandardThemeColors(appearance);
-  // The editor keeps the user's exact picks and derives the rest through the
-  // perceptual vivid engine, so a two-color theme carries its own identity.
   return createVividThemeColors(
     appearance,
     isThemeEditorColor(colors.canvas) ? colors.canvas : defaults.canvas,
@@ -275,8 +270,6 @@ export function ThemeEditorPanel({
   ) => boolean;
   editingTheme: ThemeDefinition | null;
   initialAppearance: ThemeAppearance;
-  /** The theme a new theme starts from, so tuning what you already use is a
-   *  matter of editing rather than rebuilding. Null starts from the defaults. */
   seedTheme?: ThemeDefinition | null;
   seedName?: string | undefined;
   restoreTheme: () => void;
@@ -297,8 +290,6 @@ export function ThemeEditorPanel({
   const [roleQuery, setRoleQuery] = useState("");
   const [selectedRole, setSelectedRole] = useState<ThemeColorRole | null>(null);
   const [usageCount, setUsageCount] = useState<number | null>(null);
-  // Null parks the panel at its default corner; a value is a dragged spot,
-  // kept clamped so the header can always be grabbed again.
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -366,9 +357,6 @@ export function ThemeEditorPanel({
 
   useEffect(() => {
     if (open && !previousOpenRef.current) {
-      // Editing works on the theme itself; creating starts from the theme
-      // that is currently in use, so tuning what you already run is an edit
-      // away instead of a rebuild from the defaults.
       const sourceTheme = editingTheme ?? seedTheme ?? null;
       const nextColors = getThemeEditorColorsByAppearance();
       const nextAppearance = sourceTheme
@@ -457,9 +445,6 @@ export function ThemeEditorPanel({
     });
   }, [isEditing, mergeTargetId, takenAppearancesKey]);
 
-  // The whole app wears the draft while the editor is open, so a role change
-  // is judged on the real interface rather than a miniature. The stored theme
-  // comes back when the editor closes, including on cancel.
   useEffect(() => {
     if (!open || !isDraftSeeded) return;
     applyThemeColorPreview(colorsByAppearance[activeAppearance], activeAppearance);
@@ -652,8 +637,6 @@ export function ThemeEditorPanel({
       let mergedAppearance: ThemeAppearance | null = null;
       let retiredTheme: ThemeDefinition | null = null;
       if (editingTheme && mergeTarget) {
-        // Renamed onto another installed theme: this theme's palettes fold
-        // into it and the edited entry retires, so both cards become one.
         // Colliding palettes cannot merge — neither side should be silently
         // overwritten.
         const editedModes = getThemeModes(editingTheme);
@@ -792,8 +775,6 @@ export function ThemeEditorPanel({
         size="sm"
         onChange={(event) => {
           setName(event.currentTarget.value);
-          // Most save failures are name collisions; retyping is the fix, so
-          // the stale message goes with the old name.
           setError(null);
         }}
         placeholder={isEditing ? "Theme name" : "e.g. Aurora"}

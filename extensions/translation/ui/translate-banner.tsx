@@ -19,10 +19,6 @@ import {
   useTranslationSettings,
 } from "./translation";
 
-/**
- * Translation is per conversation, like Safari's page translation: switching
- * it on shows every message in a language the user doesn't read in `target`.
- */
 export type ConversationTranslation = {
   on: boolean;
   target: string | null;
@@ -40,7 +36,6 @@ function useConversationTranslation(): ConversationTranslation {
   return shared ?? { ...local, set: setLocal };
 }
 
-/** Whether a message is in a language the user doesn't read. */
 export function useIsForeignMessage(accountId: string, detail: MessageDetail | undefined): boolean {
   const { readLanguages } = useTranslationSettings();
   const language = useMessageLanguage(accountId, detail);

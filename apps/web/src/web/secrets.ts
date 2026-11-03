@@ -62,7 +62,6 @@ export function webSecrets(files: Platform["files"]): Platform["secrets"] {
     return SEALED + toBase64(out);
   }
 
-  /** A sealed value's text; null when it can't be opened (its key is gone). */
   async function open(value: string): Promise<string | null> {
     const bytes = fromBase64(value.slice(SEALED.length));
     try {

@@ -18,7 +18,6 @@ export const workspaceSpace = (id: string) => `__${id}__`;
 
 let all: readonly Workspace[] | null = null;
 
-/** Every workspace this app has, on or off. */
 export function allWorkspaces(): readonly Workspace[] {
   all ??= availableExtensions().flatMap((e) =>
     (e.manifest.contributes?.workspaces ?? []).map((declared) => {
@@ -31,24 +30,20 @@ export function allWorkspaces(): readonly Workspace[] {
   return all;
 }
 
-/** The workspace a space is, while its extension is on. */
 export function workspaceOf(spaceId: string | null): Workspace | undefined {
   const id = spaceId ? SPACE.exec(spaceId)?.[1] : undefined;
   const workspace = id ? allWorkspaces().find((w) => w.id === id) : undefined;
   return workspace && extensionEnabled(workspace.extensionId) ? workspace : undefined;
 }
 
-/** An address's first segment that names a workspace (`drive`). */
 export const isWorkspaceSegment = (segment: string) =>
   allWorkspaces().some((w) => w.id === segment);
 
-/** The workspaces that are on, in the extensions' order. */
 export function useWorkspaces(): readonly Workspace[] {
   const disabled = useDisabledExtensions();
   return useMemo(() => allWorkspaces().filter((w) => !disabled.has(w.extensionId)), [disabled]);
 }
 
-/** Opens a workspace: where it says, or its home. */
 export function useOpenWorkspace(): (
   id: string,
   to?: Partial<WorkspaceLocation>,

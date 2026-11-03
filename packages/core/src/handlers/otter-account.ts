@@ -115,7 +115,6 @@ async function onEvent(event: RelayEvent): Promise<void> {
     await syncPreferences();
     return;
   }
-  // One this version doesn't know.
   if (event.type !== "mail") return;
   const account = (await listAccounts()).find(
     (a) => a.email.toLowerCase() === event.email.toLowerCase(),

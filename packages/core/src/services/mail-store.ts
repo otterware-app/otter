@@ -1,16 +1,3 @@
-/**
- * mail-store.ts
- *
- * Local-first mail cache backed by the built-in `node:sqlite` module
- * (Node 24+, ships with Electron — no native bindings to bundle).
- *
- * Stores message metadata, lazily-fetched full bodies, labels, and a
- * per-account sync cursor so the UI renders instantly from disk and Gmail
- * is only hit to refresh in the background.
- *
- * DB file: userData/mail-cache.db
- */
-
 import { platform, type SqlDatabase } from "../platform.js";
 import { ALL_MAIL_LABEL_ID } from "../types.js";
 import { withPendingLabels } from "./pending-label-writes.js";
@@ -486,7 +473,6 @@ export function renameMessage(
   recomputeLabelCounts(accountId, prior);
 }
 
-/** Ids of cached messages starting with `prefix` (IMAP: a folder's, by UIDVALIDITY). */
 export function getMessageIdsWithPrefix(accountId: string, prefix: string): string[] {
   const rows = getDb()
     .prepare("SELECT id FROM messages WHERE accountId = ? AND id >= ? AND id < ?")
@@ -1224,13 +1210,8 @@ export function suggestContacts(queryText: string, limit: number): ContactSugges
     .map((e) => ({ name: e.name === e.email ? "" : e.name, email: e.email }));
 }
 
-/** How often each address appears, lower-cased. */
 export type AddressCounts = Map<string, number>;
 
-/**
- * What a mailbox's recent mail says about its own addresses: who its sent mail was from, and
- * who the mail it received was to (To and Cc).
- */
 export function getAddressEvidence(
   accountId: string,
   limit = 2000,

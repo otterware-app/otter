@@ -1,9 +1,3 @@
-/**
- * A drive's page in Settings, as Otter Drive has it: its name and your
- * access, its members (a shared drive's), where it stores its files, and
- * handing it over or deleting it. And your API keys, for agents.
- */
-
 import {
   Btn,
   Dialog,
@@ -57,15 +51,10 @@ export function formatBytes(bytes: number): string {
 const usage = (files: number, bytes: number) =>
   `${files} ${files === 1 ? "file" : "files"}, ${formatBytes(bytes)}`;
 
-// ---------------------------------------------------------------------------
-// A drive's page.
-// ---------------------------------------------------------------------------
-
 export function DrivePage({ drive, back }: { drive: DriveFolder; back: () => void }) {
   const refresh = useRefresh();
   const owner = drive.role === "owner";
   const shared = drive.kind === "shared";
-  // What's typed, until it's saved: the drive's own name otherwise, as it changes.
   const [draft, setDraft] = useState<string | null>(null);
   const name = draft ?? drive.name;
   const [dialog, setDialog] = useState<"transfer" | "delete" | null>(null);
@@ -79,7 +68,6 @@ export function DrivePage({ drive, back }: { drive: DriveFolder; back: () => voi
     } catch (error) {
       toast.error(errorText(error));
     }
-    // The saved name shows from here, or the old one when it failed.
     setDraft(null);
   };
 
@@ -276,10 +264,6 @@ function TransferDialog({
     </Dialog>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Storage: Otterware's, or the owner's own buckets.
-// ---------------------------------------------------------------------------
 
 function describeLocation(location: StorageLocation): string {
   const prefix = location.prefix ? `/${location.prefix.replace(/\/$/, "")}` : "";
@@ -774,10 +758,6 @@ function RotateKeysDialog({
   );
 }
 
-// ---------------------------------------------------------------------------
-// A new shared drive.
-// ---------------------------------------------------------------------------
-
 export function NewDriveDialog({ close, made }: { close: () => void; made: (id: string) => void }) {
   const refresh = useRefresh();
   const [name, setName] = useState("");
@@ -807,10 +787,6 @@ export function NewDriveDialog({ close, made }: { close: () => void; made: (id: 
     </Dialog>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Agents: the CLI, and your API keys.
-// ---------------------------------------------------------------------------
 
 const COMMANDS = [
   {

@@ -26,7 +26,6 @@ function expandHome(p: string): string {
   return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p;
 }
 
-/** Splits launch arguments like a shell would for simple quoting. */
 function tokenizeArgs(raw: string): string[] {
   return [...raw.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
 }

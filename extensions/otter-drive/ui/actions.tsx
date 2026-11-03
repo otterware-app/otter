@@ -1,9 +1,3 @@
-/**
- * What you can do to a document or a folder, as Otter Drive offers it: one
- * list of actions drawn as a right-click menu or a "More" menu, and the
- * dialogs some of them open (mounted once, with the extension's other dialogs).
- */
-
 import {
   ContextMenuItem,
   ContextMenuSeparator,
@@ -53,7 +47,6 @@ export type Action =
 
 const separator = (id: string): Action => ({ id, separator: true });
 
-/** Draws actions as a right-click menu's items, or a dropdown's. */
 export function ActionItems({
   actions,
   menu,
@@ -63,7 +56,6 @@ export function ActionItems({
 }) {
   const Item = menu === "context" ? ContextMenuItem : DropdownMenuItem;
   const Separator = menu === "context" ? ContextMenuSeparator : DropdownMenuSeparator;
-  // No separator first, last, or twice.
   const shown = actions.filter(
     (a, i) =>
       !("separator" in a) || (i > 0 && i < actions.length - 1 && !("separator" in actions[i + 1]!)),
@@ -99,10 +91,6 @@ export function ActionItems({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Running an action: its toast, then the lists it changed.
-// ---------------------------------------------------------------------------
-
 export function useRun() {
   const refresh = useRefresh();
   return async (action: () => Promise<unknown>, done?: string) => {
@@ -124,7 +112,6 @@ const copy = (text: string, done: string) =>
     () => toast.error("Couldn't copy it."),
   );
 
-/** "Drive › Folder › Folder", for a folder. */
 export function folderPath(list: DriveFolder[], folder: DriveFolder): string {
   const byId = new Map(list.map((f) => [f.id, f]));
   const names: string[] = [];
@@ -136,24 +123,16 @@ export function folderPath(list: DriveFolder[], folder: DriveFolder): string {
   return names.join(" › ");
 }
 
-/** The folders on here, for picking a destination. */
 function useFolderList() {
   const status = useDriveStatus();
   return useFolders(status.data?.connected === true).data ?? [];
 }
 
-// ---------------------------------------------------------------------------
-// A document's actions.
-// ---------------------------------------------------------------------------
-
 export function useDocumentActions(
   a: DriveArtifact,
   options: {
-    /** The folder it's reached through (none in Shared with me). */
     folderId: string | undefined;
-    /** The version open, when it isn't the current one. */
     version?: number | null;
-    /** It's gone from here (archived, deleted, moved): leave it. */
     onGone?: () => void;
   },
 ): Action[] {
@@ -273,10 +252,6 @@ export function useDocumentActions(
   ];
 }
 
-// ---------------------------------------------------------------------------
-// A folder's actions.
-// ---------------------------------------------------------------------------
-
 export function useFolderActions(
   folder: DriveFolder,
   options: { onOpen?: () => void } = {},
@@ -345,10 +320,6 @@ export function useFolderActions(
   ];
 }
 
-// ---------------------------------------------------------------------------
-// Dialogs.
-// ---------------------------------------------------------------------------
-
 type Request =
   | { type: "newFolder"; parent: DriveFolder; onCreated?: (id: string) => void }
   | { type: "renameFolder"; folder: DriveFolder }
@@ -366,7 +337,6 @@ export function openDialog(request: Request): void {
   for (const listener of listeners) listener(request);
 }
 
-/** Mounted once, with the extension's other dialogs. */
 export function DriveActionDialogs() {
   const [request, setRequest] = useState<Request | null>(null);
   useEffect(() => {
@@ -498,7 +468,6 @@ function MoveFolderDialog({
   const { pending, submit } = usePending(close);
   const list = useFolderList();
   const { folder } = request;
-  // Not into itself or a folder inside it, nor where it already is.
   const inside = (f: DriveFolder): boolean => {
     for (let c: DriveFolder | undefined = f, i = 0; c && i < 50; i++) {
       if (c.id === folder.id) return true;
@@ -506,7 +475,6 @@ function MoveFolderDialog({
     }
     return false;
   };
-  // Drive moves a folder only within its own drive.
   const top = (f: DriveFolder) => {
     let c = f;
     for (let i = 0; c.parentId && i < 50; i++) {

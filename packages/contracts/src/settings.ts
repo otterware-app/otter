@@ -8,7 +8,6 @@ export type AppSettings = {
   /** Languages the user reads (BCP-47 codes, first = where translations go).
       Empty until set: the renderer then falls back to the system languages. */
   readLanguages: string[];
-  /** Translate mail in other languages without asking. */
   autoTranslate: boolean;
   errorReports: boolean;
 };

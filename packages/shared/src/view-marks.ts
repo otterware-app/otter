@@ -1,10 +1,3 @@
-/**
- * What a view can wear in the rail instead of its initial: an icon (by its
- * key; apps/web draws each) or any emoji, in one of these colors (Apple's
- * tag colors, readable in light and dark). The app's picker and the agents'
- * view tools offer the same.
- */
-
 export const VIEW_ICON_KEYS = [
   "star",
   "bookmark",

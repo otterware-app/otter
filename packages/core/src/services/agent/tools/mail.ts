@@ -179,7 +179,6 @@ function replyRecipients(source: MessageDetail, ownEmail: string, all: boolean) 
   return { to: to.join(", "), cc: cc.length > 0 ? cc.join(", ") : undefined };
 }
 
-/** "Re: x" / "Fwd: x", without stacking prefixes. */
 function prefixed(prefix: "Re" | "Fwd", subject: string): string {
   const already = prefix === "Re" ? /^re:/i : /^(fwd?|fw):/i;
   return already.test(subject.trim()) ? subject : `${prefix}: ${subject}`;
@@ -212,12 +211,6 @@ const MIME_TYPES: Record<string, string> = {
 const mimeTypeOf = (name: string) =>
   MIME_TYPES[name.split(".").pop()?.toLowerCase() ?? ""] ?? "application/octet-stream";
 
-/**
- * A message from the tool's arguments, as the composer would write it: a
- * reply threads, answers the right people and quotes the message; a forward
- * carries the message and its attachments; the account's signature follows
- * the body.
- */
 async function compose(args: ToolArgs, account: MailAccount, ctx: ToolContext): Promise<Composed> {
   const replyTo = optStr(args, "replyTo");
   const forward = optStr(args, "forward");

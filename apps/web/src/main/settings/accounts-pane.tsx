@@ -187,7 +187,6 @@ function SignInButton({
   );
 }
 
-/** Row reordering (drag the grip): where a dragged mailbox would land. */
 type DropSpot = { email: string; after: boolean } | null;
 
 function AccountListRow({
@@ -209,7 +208,6 @@ function AccountListRow({
   onSelect: () => void;
   on: boolean;
   onToggle: (on: boolean) => void;
-  /** The only mailbox still on: it can't be turned off. */
   lastOn: boolean;
   dragging: boolean;
   dropSpot: DropSpot;
@@ -359,7 +357,6 @@ function AccountEditor({ account }: { account: MailAccount }) {
       (saved) => {
         setShown(saved.signature ?? "");
         if (saved.signatureInGmail === false) {
-          // An older sign-in may not change Gmail's settings: core kept it here.
           toast.info("Signature saved in Otter Mail, not in Gmail", {
             description: `Sign in to ${account.email} again to let Otter Mail save it in Gmail too.`,
             action: {
@@ -538,10 +535,6 @@ function AccountEditor({ account }: { account: MailAccount }) {
   );
 }
 
-/**
- * What the mailbox's sign-in gives Otter Mail (mail, calendar) and what it still needs
- * permission for, each with its Allow button. Not for IMAP: a password has no permissions.
- */
 function MailboxAccess({ account }: { account: MailAccount }) {
   const connection = useConnections().data?.find((c) => c.id === account.id);
   if (!connection || connection.provider === "imap" || !connection.signedIn) return null;
@@ -571,10 +564,6 @@ function MailboxAccess({ account }: { account: MailAccount }) {
   );
 }
 
-/**
- * The addresses the mailbox sends from besides its own: Gmail's "Send mail as" ones, shown;
- * an IMAP mailbox's (iCloud+ custom domains, aliases) entered here and synced.
- */
 function SendAsSection({ account }: { account: MailAccount }) {
   const updateAccount = useUpdateAccount();
   const [adding, setAdding] = useState("");
@@ -780,11 +769,6 @@ function MailboxNotifications({ account }: { account: MailAccount }) {
   );
 }
 
-/**
- * Connections: every account you've connected and what each gives Otter Mail. The mailboxes
- * (Google, Microsoft, IMAP) first, which turn on and off and take an order on every device; then
- * other services (Todoist), whose pages open here too (`item`).
- */
 export function AccountsPane({ item }: { item?: string }) {
   if (item) return <ConnectionExtensionPage id={item} />;
   return <ConnectionsHub />;

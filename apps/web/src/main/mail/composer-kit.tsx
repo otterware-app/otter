@@ -11,13 +11,6 @@ import { diffText } from "./text-diff";
 import { htmlToText } from "./text";
 import type { MessageDetail } from "./types";
 
-/**
- * Shared building blocks for every composer (new message, inline reply /
- * forward, draft editor), so they look and behave the same: a card surface,
- * labelled field rows, and one footer (attach · formatting · discard · status
- * · ⌘↩ · Send).
- */
-
 export const COMPOSER_SURFACE =
   "rounded-3xl border border-(--chat-composer-outline) bg-(--chat-composer-surface) shadow-composer transition-colors focus-within:border-input/70 dark:border-transparent dark:shadow-none dark:inset-shadow-2xs dark:inset-shadow-(color:--chat-composer-highlight) dark:focus-within:border-transparent";
 
@@ -122,11 +115,6 @@ export function SubjectInput({
 
 export type DraftVersionText = { to: string; cc?: string; subject: string; body: string };
 
-/**
- * Shown when the open draft changed elsewhere (an agent, Gmail web, a phone)
- * while this composer had unsaved edits — with a diff of what "Keep mine"
- * would change in their version — or when it was sent/deleted elsewhere.
- */
 export function DraftRemoteBanner({
   remote,
   mine,
@@ -196,7 +184,6 @@ export function DraftRemoteBanner({
   );
 }
 
-/** What "Keep mine" would change in their version: fields, then the text. */
 /* oxlint-disable react/no-array-index-key -- Stateless spans represent an ordered diff snapshot. */
 function DraftDiff({ theirs, mine }: { theirs: MessageDetail; mine: DraftVersionText }) {
   const theirBody = theirs.bodyText ?? (theirs.bodyHtml ? htmlToText(theirs.bodyHtml) : "");

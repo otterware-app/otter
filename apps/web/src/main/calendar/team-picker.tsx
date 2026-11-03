@@ -7,7 +7,6 @@ import { useCalendar, type Teammate } from "./calendar-store";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** ⌘P: someone whose calendar to show over yours, from your contacts or by address. */
 export function TeamPicker({ onClose }: { onClose: () => void }) {
   const addTeammate = useCalendar((s) => s.addTeammate);
   const [query, setQuery] = useState("");

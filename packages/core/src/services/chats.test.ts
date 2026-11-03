@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { CHAT_LIMITS, chatForSync, type Chat, type ChatSummary } from "@otter-mail/contracts/chats";
 
-/** The relay, as far as chats go: its chats (deleted ones without turns), and every call made to it. */
 const relay = {
   chats: new Map<string, Chat & { deletedAt: number | null }>(),
   calls: [] as string[],

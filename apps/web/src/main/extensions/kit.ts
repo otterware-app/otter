@@ -1,13 +1,3 @@
-/**
- * What extensions' `./ui` halves may use of the renderer
- * (`@otter-mail/web/extension-kit`, an alias: the app depends on the
- * extensions, not the other way round): the contribution types, the UI
- * primitives, and the parts of the mail UI the built-in extensions build on.
- * Extensions import the app only through here (the lint rule in
- * vite.config.ts holds them to it), so this file is the whole surface they
- * depend on.
- */
-
 export type * from "./types";
 export { useOpenWorkspace } from "./workspaces";
 export { NavGlyph } from "../mail/app-icons";

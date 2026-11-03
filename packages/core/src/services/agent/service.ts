@@ -93,7 +93,6 @@ export async function providersState(): Promise<ProvidersState> {
       const settings = all.agents[agent.kind] ?? agent.defaults;
       const snapshot = checked.get(agent.kind) ?? pendingSnapshot(agent, settings);
       const fallback = snapshot.models.find((m) => m.isDefault)?.slug ?? snapshot.models[0]?.slug;
-      // A model a strict agent doesn't list anymore falls back to its default.
       const chosen =
         settings.model &&
         (!agent.strictModels || snapshot.models.some((m) => m.slug === settings.model))
@@ -161,7 +160,6 @@ export async function refreshProvider(kind: ProviderKind): Promise<void> {
   await check(kind);
 }
 
-/** Saves fields of one agent's settings that the user doesn't edit directly (a server it connected to). */
 export async function saveAgentSettings(
   kind: ProviderKind,
   patch: Partial<AgentSettings> & Record<string, unknown>,

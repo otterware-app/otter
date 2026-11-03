@@ -20,17 +20,6 @@ import {
   ContextMenuTrigger,
 } from "./menu";
 
-/**
- * Recipients field: finished addresses render as chips, the one being typed
- * stays text, with contact autocomplete (local mail cache). The value is the
- * plain comma-separated list ("Name <a@x>, b@y, partial") so composers keep
- * treating it as a string.
- *
- * Keys: ↑/↓ + Enter/Tab pick a suggestion; with no suggestions, "," Enter or
- * Tab commit the typed address; Backspace in an empty field removes the last
- * chip; Escape dismisses suggestions (marked with data-ac-open so composer
- * Escape handlers stand down).
- */
 export const RecipientInput = forwardRef<
   HTMLInputElement,
   {
@@ -222,7 +211,6 @@ export const RecipientInput = forwardRef<
         value={typing}
         onChange={(e) => {
           const next = e.target.value;
-          // A typed comma commits the address before it.
           if (next.endsWith(",") || next.endsWith(";")) {
             write([...entries, ...splitAddressList(next.replace(/;/g, ","))], "");
           } else {

@@ -1,8 +1,3 @@
-/**
- * What FETCH returns, made friendly: envelopes (with RFC 2047 encoded words
- * decoded), body structures, header fields, dates; and UID sets both ways.
- */
-
 import { decodeWords } from "postal-mime";
 import { utf8Decode, utf8Encode } from "../../bytes.js";
 import {
@@ -48,7 +43,6 @@ export interface BodyStructure {
   filename: string | null;
   /** A multipart's parts, or a message/rfc822's own body. */
   childNodes: BodyStructure[];
-  /** A message/rfc822 part's envelope. */
   envelope?: ImapEnvelope;
 }
 
@@ -267,7 +261,6 @@ function decodeCharset(bytes: Uint8Array, charset: string): string {
   }
 }
 
-/** RFC 2047 encoded words (`=?UTF-8?B?…?=`) in a header value, decoded. */
 export function decodeHeader(value: string): string {
   return value.includes("=?") ? decodeWords(value) : value;
 }

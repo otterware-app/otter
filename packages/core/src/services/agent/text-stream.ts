@@ -23,7 +23,6 @@ export class TextStream {
     this.emit({ requestId: this.requestId, type: "delta", id: this.id, text });
   }
 
-  /** The message so far again, for a panel that missed it. */
   replay(): void {
     if (this.text)
       this.emit({ requestId: this.requestId, type: "text", id: this.id, text: this.text });

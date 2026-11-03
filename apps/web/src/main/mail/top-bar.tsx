@@ -40,13 +40,6 @@ import type { KeybindingCommand } from "../keybindings/commands";
 import { shortcutLabelFor, useKeybindingsState } from "../keybindings/store";
 import { features } from "../features";
 
-/**
- * Every column owns the slice of the title band above it, so the pane
- * separators run all the way up. These pieces fill those slices: the window
- * title (traffic lights, sidebar toggle, wordmark), the mailbox breadcrumb,
- * and the right-hand controls.
- */
-
 let trackedHistory: RouterHistory | null = null;
 let furthestIndex = 0;
 
@@ -60,7 +53,6 @@ function trackHistory(history: RouterHistory): void {
   });
 }
 
-/** A place's icon: the app's own, or a workspace's mark. */
 export function recentIcon(icon: RecentIcon): ComponentType<{ className?: string }> | undefined {
   if (icon.startsWith("workspace:"))
     return allWorkspaces().find((w) => `workspace:${w.id}` === icon)?.Icon;
@@ -167,11 +159,6 @@ export function HistoryControls() {
   );
 }
 
-/**
- * The sidebar and browser panel toggles' icon: ChatGPT's and Linear's soft
- * frame, in Lucide's strokes so it sits with the rest. The pane is filled
- * while it's open, a thin bar while it's closed.
- */
 export function PaneIcon({
   side,
   open,
@@ -211,12 +198,6 @@ export function PaneIcon({
   );
 }
 
-/**
- * The sidebar toggle and back/forward, pinned at one window position (Otter
- * Code's SidebarControl, ChatGPT's): right of the traffic lights, whether the
- * sidebar is open or not, so nothing moves when it opens or closes. The
- * bands under them leave room (`SidebarTitle`, `TitlebarInset`).
- */
 export function SidebarControl({
   sidebarOpen,
   onToggleSidebar,
@@ -271,11 +252,6 @@ export function PanelControlSlot() {
   );
 }
 
-/**
- * Room left at the start of the band next to the rail (sidebar hidden) for
- * what sits over it: traffic lights, toggle, arrows. A view's space has no
- * sidebar, so no toggle (`SidebarControl`): only the traffic lights.
- */
 export function TitlebarInset() {
   if (features.windowTabs) return null;
   return (
@@ -308,11 +284,6 @@ export function WindowTitle({ className }: { className?: string }) {
   );
 }
 
-/**
- * Settings' title band in the main window: the traffic lights, the pinned
- * toggle and back/forward sit over it. A browser tab has none of them there,
- * so Settings' heading takes the band instead.
- */
 export function SidebarTitle() {
   if (features.windowTabs) return null;
   return <div className="drag-region h-(--workspace-topbar-height) shrink-0 web:hidden" />;

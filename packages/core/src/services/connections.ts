@@ -29,18 +29,14 @@ const COPY: Record<Operation, Omit<AccessNeed, "operation">> = {
 
 const need = (operation: Operation): AccessNeed => ({ operation, ...COPY[operation] });
 
-/** By mailbox: the operations its provider refused for want of permission. */
 const refused = new Map<string, Set<Operation>>();
 /**
  * By mailbox: how many times it signed in again this session. An answer to a request made
  * before the latest sign-in is about the old one, and is dropped.
  */
 const generations = new Map<string, number>();
-/** By mailbox: the generation whose calendar access is known (refused or not). */
 const known = new Map<string, number>();
-/** By mailbox: the calendar check running or last failed (not for want of permission). */
 const probes = new Map<string, { generation: number; promise: Promise<void>; failedAt?: number }>();
-/** How long a check that failed for another reason (offline, rate limit) waits to retry. */
 const RETRY_MS = 5 * 60_000;
 
 /** Pass it to noteRefused / noteAllowed for an answer to a request made now. */
@@ -67,7 +63,6 @@ export function noteAllowed(accountId: string, operation: Operation, generation:
   if (refused.get(accountId)?.delete(operation)) broadcast("connections:changed");
 }
 
-/** The mailbox signed in again: what it was refused may be allowed now. */
 export function forgetRefusals(accountId: string): void {
   generations.set(accountId, generationOf(accountId) + 1);
   probes.delete(accountId);

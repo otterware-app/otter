@@ -36,7 +36,6 @@ import { ShelveActions } from "./chat-shelve-actions";
 import { Section, SidebarBody } from "./sidebar-ui";
 import { HintTooltip, cn } from "./ui";
 
-/** Settled chats show this many at first, then this many more at a time (Otter Code's). */
 const SETTLED_FIRST = 10;
 const SETTLED_PAGE = 25;
 
@@ -45,13 +44,11 @@ const HEADER_BUTTON =
 
 const AGENT_FILTER_KEY = "gmail:chat-agent-filter";
 
-/** Who a chat talks to: its provider, and for OpenClaw the agent its session is on. */
 function agentOf(c: Conversation): { key: string; kind: string; agent: string | null } {
   const agent = openClawAgentId(c.sessionId);
   return { key: agent ? `${c.provider}:${agent}` : c.provider, kind: c.provider, agent };
 }
 
-/** The time, again every `ms`: what moves a snooze's countdown and a turn's clock along. */
 function useNow(ms: number): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -61,10 +58,6 @@ function useNow(ms: number): number {
   return now;
 }
 
-/**
- * The Agent mode's sidebar, laid out like Otter Code's: a new chat, the chats
- * you're on (running ones say so), and at the bottom Snoozed and Settled.
- */
 export function AgentSidebar({
   chatId,
   onSelect,
@@ -101,7 +94,6 @@ export function AgentSidebar({
     }
   };
 
-  // The agents your chats talk to, by how many chats each has.
   const agents = new Map<string, { kind: string; agent: string | null; count: number }>();
   for (const c of conversations) {
     if (isBlank(c)) continue;
@@ -144,7 +136,6 @@ export function AgentSidebar({
   shelves.active.sort((a, b) => chatReturnedAt(b, now) - chatReturnedAt(a, now));
   shelves.snoozed.sort((a, b) => (a.snoozedUntil ?? 0) - (b.snoozedUntil ?? 0));
   shelves.settled.sort((a, b) => b.updatedAt - a.updatedAt);
-  // The open chat stays in sight even past the settled ones shown.
   const settled = shelves.settled.filter((c, i) => i < settledShown || c.id === chatId);
   const hiddenSettled = shelves.settled.length - settled.length;
   const current = conversations.find((c) => c.id === chatId);
@@ -313,7 +304,6 @@ export function AgentSidebar({
             {needle || filter ? "No chats match." : "Chats you start show up here."}
           </p>
         ) : needle ? (
-          // A search shows every match in one list, newest first, shelves and all.
           (Object.entries(shelves) as [ChatShelf, Conversation[]][])
             .flatMap(([shelf, list]) => list.map((c) => ({ c, shelf })))
             .sort((a, b) => b.c.updatedAt - a.c.updatedAt)
@@ -350,7 +340,6 @@ export function AgentSidebar({
   );
 }
 
-/** Snooze, settle, or bring back a chat, from its row's menu. */
 function ChatRowMenu({
   chat,
   shelf,

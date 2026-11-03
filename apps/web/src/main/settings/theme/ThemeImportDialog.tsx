@@ -172,7 +172,6 @@ function ThemeJsonEditor({
   );
 }
 
-/** What the import pipeline needs from a file; DOM File satisfies it. */
 type ImportableThemeFile = { name: string; size: number; text: () => Promise<string> };
 
 export function ThemeImportDialog({
@@ -193,8 +192,6 @@ export function ThemeImportDialog({
   const [error, setError] = useState<string | null>(null);
   const [isReading, setIsReading] = useState(false);
   const [isDropTarget, setIsDropTarget] = useState(false);
-  // Imports whose id is already installed wait here for an update-or-copy
-  // decision instead of failing.
   const [conflicts, setConflicts] = useState<ReadonlyArray<ThemeDefinition> | null>(null);
   const importRequestRef = useRef(0);
 
@@ -213,8 +210,6 @@ export function ThemeImportDialog({
   }, [open]);
 
   const readThemeFile = useCallback(async (file: ImportableThemeFile) => {
-    // Check the size first: reading a large file is what locks the UI, so it
-    // never gets read at all.
     const oversized = describeOversizedThemeFile(file.size);
     if (oversized) {
       setError(oversized);
@@ -237,9 +232,6 @@ export function ThemeImportDialog({
     }
   }, []);
 
-  // Several files at once import as a batch: VS Code families pair their
-  // light and dark variants, everything installs without activating, and the
-  // single-file flow keeps filling the editor for review.
   const readThemeBatch = useCallback(async (files: ReadonlyArray<ImportableThemeFile>) => {
     const requestId = ++importRequestRef.current;
     setIsReading(true);

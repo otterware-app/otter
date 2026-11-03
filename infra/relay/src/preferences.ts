@@ -41,7 +41,6 @@ export async function read(
 
 const MAX_BYTES = 256 * 1024;
 
-/** Merges the change in; false (nothing written) when the result would be too large. */
 export async function write(
   db: store.Db,
   secret: string,

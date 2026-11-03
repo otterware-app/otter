@@ -1,9 +1,3 @@
-/**
- * Tests only: a pretend server. Each write from the client goes to `reply`,
- * whose answer (if any) the client reads next. `written` keeps the whole
- * conversation, as text.
- */
-
 import type { ByteStream } from "../../platform.ts";
 
 export class FakeStream implements ByteStream {

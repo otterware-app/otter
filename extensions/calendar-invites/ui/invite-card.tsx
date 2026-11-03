@@ -1,10 +1,3 @@
-/**
- * The RSVP bar above a calendar invitation, like Gmail's: what, when,
- * where, who invited you, and Yes / No / Maybe answered in place (Google
- * Calendar API; email reply to the organizer for accounts without calendar
- * access). Google's own Yes / No / Maybe links in the body route here too.
- */
-
 import {
   toast,
   useCapabilities,
@@ -73,7 +66,6 @@ const DONE: Record<RsvpResponse, string> = {
 
 export function InviteCard({ accountId, messageId }: { accountId: string; messageId: string }) {
   const qc = useQueryClient();
-  // Without a calendar (IMAP) answers always go out by email.
   const { calendar } = useCapabilities(accountId);
   const query = useQuery({
     queryKey: inviteKey(accountId, messageId),

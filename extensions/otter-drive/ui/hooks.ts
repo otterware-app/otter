@@ -11,7 +11,6 @@ export function useDriveStatus() {
   return useQuery({ queryKey: ["otter-drive", "status"], queryFn: driveApi.status });
 }
 
-/** After a change: the lists, documents and folders it may have changed. */
 export function useRefresh() {
   const qc = useQueryClient();
   return () =>
@@ -22,10 +21,6 @@ export function useRefresh() {
     );
 }
 
-/**
- * Fills a list's query with what this device kept of it, as of when it was fetched, while
- * it's fetched again: the list shows at once, and stays when Drive can't be reached.
- */
 export function useSaved(
   queryKey: QueryKey,
   enabled: boolean,
@@ -47,7 +42,6 @@ export function useSaved(
   }, [qc, key, enabled, what, folderId]);
 }
 
-/** The folders of the drives that are on (drives, their folders, folders shared with you). */
 export function useFolders(enabled: boolean) {
   useSaved(["otter-drive", "folders"], enabled, "folders");
   return useQuery({
@@ -59,7 +53,6 @@ export function useFolders(enabled: boolean) {
   });
 }
 
-/** Every drive, on or off here: Settings' list. */
 export function useDrives(enabled: boolean) {
   return useQuery({
     queryKey: ["otter-drive", "drives"],
@@ -70,10 +63,6 @@ export function useDrives(enabled: boolean) {
   });
 }
 
-/**
- * Otter Drive's device sign-in: a code shown here, confirmed in the system
- * browser (where Drive's own session is), while this waits.
- */
 export function useDriveSignIn() {
   const qc = useQueryClient();
   const [code, setCode] = useState<string | null>(null);

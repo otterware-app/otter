@@ -149,7 +149,6 @@ describe("theme files", () => {
       expect(contrastRatio(colors.sidebarForeground, colors.sidebar)).toBeGreaterThanOrEqual(4.5);
       expect(colors.messageAction).not.toBe(colors.accent);
       expect(asHex(colors.update)).toBe(accent);
-      // Semantic statuses stay red and amber instead of inheriting a brand tint.
       const [errorRed, errorGreen, errorBlue] = channels(colors.error);
       expect(errorRed).toBeGreaterThan(errorGreen * 2);
       expect(errorRed).toBeGreaterThan(errorBlue * 2);
@@ -164,8 +163,6 @@ describe("theme files", () => {
   });
 
   it("keys status colors off the canvas, not the appearance slot", () => {
-    // Inverted seeds: a dark canvas in the light slot must still get the dark
-    // status pair, or the alert foreground lands on a dark surface unreadable.
     const inverted = [
       createVividThemeColors("light", "#111827", "#8ab4f8"),
       createVividThemeColors("dark", "#f5ecf5", "#a84370"),

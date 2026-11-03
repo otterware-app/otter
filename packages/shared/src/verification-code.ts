@@ -60,11 +60,9 @@ export function mentionsVerificationCode(text: string): boolean {
   return text.search(NAMES) !== -1 || text.search(PLAIN_NAMES) !== -1;
 }
 
-/** The one-time code in a message, or null. `body` is its text (not HTML). */
 export function findVerificationCode(subject: string, body: string): string | null {
   const text = `${subject}\n\n${body}`
     .slice(0, 6000)
-    // Links carry numbers that aren't codes.
     .replace(/(?:https?:\/\/|www\.)\S+/giu, " ")
     .replace(/[   ]/gu, " ");
 
@@ -83,7 +81,6 @@ export function findVerificationCode(subject: string, body: string): string | nu
       Math.max(end, found.index + found.code.length) + 40,
     );
     if (OTHER_CODES.test(around)) continue;
-    // A copied code is pasted into a field that takes it whole: digits without spaces.
     return /^[\d -]+$/.test(found.code) ? found.code.replace(/[ -]/g, "") : found.code;
   }
   return null;

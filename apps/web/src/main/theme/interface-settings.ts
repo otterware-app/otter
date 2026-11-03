@@ -31,7 +31,6 @@ export const FULL_WIDTH_ROWS: InterfaceToggle = {
 
 const TOGGLES = [GROUP_MESSAGES_BY_DAY, FULL_WIDTH_ROWS, OPEN_MESSAGES_WITH_ARROWS];
 
-/** How long an email opened by keyboard navigation stays visible before being read. */
 export const MARK_READ_DELAY: InterfaceSetting = {
   key: "otter:mark-read-delay",
   min: 0,

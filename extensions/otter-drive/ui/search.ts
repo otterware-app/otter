@@ -3,13 +3,11 @@ import { FileTextIcon } from "lucide-react";
 
 import { SHARED, driveApi } from "./api";
 
-/** Opens Drive at a place: set by the mounted dialogs, which can navigate. */
 let opener: ((location: string, item: string | null) => void) | null = null;
 export function setDriveOpener(open: typeof opener) {
   opener = open;
 }
 
-/** ⌘K's Drive results: documents in the drives that are on. */
 export const paletteSearch: PaletteSearch = {
   label: "Drive",
   search: async (query) => {
@@ -25,7 +23,6 @@ export const paletteSearch: PaletteSearch = {
   },
 };
 
-/** Whether Drive is signed in here: links in mail open in Drive only then. */
 let connected = false;
 export function setDriveConnected(value: boolean) {
   connected = value;
@@ -34,10 +31,6 @@ export function setDriveConnected(value: boolean) {
 const DRIVE_LINK =
   /^https:\/\/drive\.otterware\.app\/(?:s\/[^/?#]+|[^/?#]+\/a\/[^/?#]+|home\?(?:[^#]*&)?folder=)/;
 
-/**
- * Drive's links in an email (a shared link, a document's page, a folder) open
- * in Drive rather than the browser; one that doesn't resolve opens as usual.
- */
 export const bodyLinks: BodyLinks = {
   applies: (detail) =>
     connected && `${detail.bodyHtml ?? ""}${detail.bodyText ?? ""}`.includes("drive.otterware.app"),

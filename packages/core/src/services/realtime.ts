@@ -1,12 +1,3 @@
-/**
- * realtime.ts
- *
- * The relay's event stream: one WebSocket per signed-in device, over which the
- * relay forwards Gmail's push notifications and linked-account changes.
- * Reconnects with backoff, and pings every 30s so a connection that died
- * silently (sleep, network change) is noticed and replaced.
- */
-
 import type { RelayEvent } from "@otter-mail/contracts/relay";
 
 import { logger } from "../logger.js";
@@ -57,7 +48,6 @@ function clearTimers(): void {
   retryTimer = pingTimer = pongTimer = null;
 }
 
-/** Drops the current socket without reporting its close. */
 function dropSocket(): void {
   const current = socket;
   socket = null;

@@ -23,11 +23,6 @@ import type { MailLabel } from "./types";
 
 export type LabelOverlayMode = "label" | "move";
 
-/**
- * Keyboard-driven label picker (Gmail's l / v popups): a searchable overlay
- * since native menus can't be opened programmatically. "label" toggles a label
- * on the conversation; "move" applies one and leaves the current context.
- */
 export function LabelOverlay({
   open,
   onOpenChange,

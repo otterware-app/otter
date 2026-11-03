@@ -5,11 +5,6 @@ import { CopyIcon, SearchIcon, SquarePenIcon } from "lucide-react";
 import { AgentIcon } from "./agent-icon";
 import { SenderAvatar } from "./sender-avatar";
 
-/**
- * Hover card for a message sender: identity + quick actions. Portaled to body
- * so it can't be clipped by the reader panes; opens on hover with a short
- * delay and stays open while the pointer is over the card.
- */
 export function SenderHoverCard({
   name,
   email,

@@ -218,7 +218,6 @@ function Progress({ step }: { step: Step }) {
   );
 }
 
-/** First sync keeps going while the rest of the setup runs; say so. */
 function SyncNote({ accounts }: { accounts: MailAccount[] }) {
   const sync = useGlobalSyncStatus(accounts.map((a) => a.id));
   if (!sync.syncing) return <span />;

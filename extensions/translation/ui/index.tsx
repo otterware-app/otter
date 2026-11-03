@@ -1,10 +1,3 @@
-/**
- * Translation: mail in a language the user doesn't read gets a banner; once
- * translated, the body's text is swapped in place. It's per conversation
- * (starts on with "Translate automatically"): each message in another
- * language follows it, and the reader's "…" menu and shortcut switch it.
- */
-
 import {
   DropdownMenuItem,
   features,
@@ -28,7 +21,6 @@ import { useTranslationSettings } from "./translation";
 import { TranslationSection } from "./translation-section";
 
 function useMessageBody({ accountId, detail, enabled }: MessageBodyInput) {
-  // Off: no detail, so nothing is detected or translated.
   const translation = useMessageTranslation(accountId, enabled ? detail : undefined);
   return enabled ? translation : {};
 }
@@ -58,7 +50,6 @@ function useConversation({ accountId, messageId, message, enabled }: Conversatio
     setTranslation((t) => ({ ...t, on: !t.on }));
   };
   useCommandHandlers({
-    // Inert without an open message, or with the extension off.
     "message.translate": () => {
       if (!enabled || !message) return false;
       toggle();
@@ -83,7 +74,6 @@ function useConversation({ accountId, messageId, message, enabled }: Conversatio
 export default {
   manifest,
   Icon: LanguagesIcon,
-  // Its manifest says where it runs; a browser without a translator has nothing to translate with.
   available: () => features.translation,
   useMessageBody,
   useConversation,

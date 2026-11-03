@@ -45,9 +45,7 @@ type TabMessage =
   | { type: "effect"; tab: string; effect: PageEffect }
   | { type: "failed"; error: string }
   | { type: "resume" }
-  /** From the hosting tab: the backend is up there; send what's waiting. */
   | { type: "host"; host: string }
-  /** From a new tab: who hosts the backend? */
   | { type: "hello" };
 
 const ALL_TABS = "*";
@@ -60,7 +58,6 @@ export function connectBackend(page: PageHandlers) {
     // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a BroadcastChannel has none
     channel.postMessage(message);
   let hosting: ((message: TabMessage) => void) | null = null;
-  /** The tab hosting the backend, once one has said so. */
   let host: string | null = null;
 
   let nextId = 1;

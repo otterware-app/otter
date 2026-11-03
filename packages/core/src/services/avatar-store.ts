@@ -67,7 +67,6 @@ function photoFromPeopleResults(
   return null;
 }
 
-/** Real contact photos via the People API (needs the contacts scopes). */
 async function fromPeopleApi(accountId: string, email: string): Promise<string | null> {
   const token = await platform().google.getAccessToken(accountId);
   const headers = { Authorization: `Bearer ${token}` };
@@ -132,7 +131,6 @@ async function fromDomainLogo(email: string): Promise<string | null> {
 
 async function resolveAvatar(accountId: string, email: string): Promise<string | null> {
   const sources: (() => Promise<string | null>)[] = [
-    // Contact photos need a Google sign-in; other mailboxes start at Gravatar.
     ...(findProvider(accountId)?.kind === "gmail" ? [() => fromPeopleApi(accountId, email)] : []),
     () => fromGravatar(email),
     () => fromDomainLogo(email),

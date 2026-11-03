@@ -48,7 +48,6 @@ export function finishSetup(): void {
   emit();
 }
 
-/** Marks a device that already had mail as set up, without showing the setup. */
 export function markSetUp(): void {
   localStorage.setItem(STAGE_KEY, "done");
   emit();

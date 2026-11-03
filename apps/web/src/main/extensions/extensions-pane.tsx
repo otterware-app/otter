@@ -292,12 +292,10 @@ function ExtensionSettings({ entry }: { entry: Entry }) {
   return Settings ? <Settings /> : null;
 }
 
-/** The extensions that are connections (Todoist), for Connections' list and Add account menu. */
 export function connectionExtensions(): readonly UiExtension[] {
   return availableExtensions().filter((e) => e.manifest.category === "connection" && e.connection);
 }
 
-/** A connection extension's page, under Connections (`/settings/accounts/todoist`). */
 export function ConnectionExtensionPage({ id }: { id: string }) {
   const { entries, setEnabled } = useEntries();
   const entry = entries.find((e) => e.extension.manifest.id === id);
@@ -305,7 +303,6 @@ export function ConnectionExtensionPage({ id }: { id: string }) {
   return <ExtensionPage key={id} entry={entry} setEnabled={setEnabled} />;
 }
 
-/** Connections' rows for the services that aren't mailboxes: what each gives, and its state. */
 export function ConnectionExtensionsSection() {
   const { entries } = useEntries();
   const navigate = useNavigate();

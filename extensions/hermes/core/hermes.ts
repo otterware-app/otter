@@ -224,7 +224,6 @@ async function readError(response: Response): Promise<string> {
   }
 }
 
-/** GET /api/sessions?limit=1 — 200 means the native Sessions API is served. */
 export async function probeHermesSessions(baseUrl: string, key: string): Promise<boolean> {
   try {
     const response = await fetch(`${apiRoot(baseUrl)}/api/sessions?limit=1`, {
@@ -513,11 +512,9 @@ async function streamSessionTurn(ctx: TurnContext & { sessionId: string }): Prom
   );
 
   if (terminal === "completed") emit({ requestId, type: "done", responseId: null });
-  // Stream closed without a terminal event: the gateway dropped the connection.
   else if (terminal === null) emit({ requestId, type: "error", message: "unreachable" });
 }
 
-/** A Responses-API turn (previous_response_id chaining), for servers without sessions. */
 async function streamResponsesTurn(
   ctx: TurnContext & { previousResponseId?: string },
 ): Promise<void> {
@@ -648,7 +645,6 @@ export const hermesProvider: ChatProvider<HermesSettings> = {
         probeHermesSessions(settings.baseUrl, key),
         fetchHermesCatalog(settings.baseUrl, key),
       ]);
-      // Without a catalog, the agent's virtual model is the only choice.
       const models: ProviderModel[] =
         catalog.length > 0
           ? catalog
@@ -732,8 +728,6 @@ export const hermesProvider: ChatProvider<HermesSettings> = {
     try {
       resetIdle();
       let sessionId = turn.sessionId;
-      // A new chat gets a persistent server session; a chat already chaining
-      // responses keeps its chain. If the session can't be created, chain.
       if (!sessionId && !turn.previousResponseId && settings.sessions) {
         try {
           sessionId = await createSession(ready, turn.title);
@@ -848,7 +842,6 @@ export const hermesProvider: ChatProvider<HermesSettings> = {
     }
   },
 
-  /** Most recently active first, all sources, so WebUI chats show too. */
   async listSessions(settings, limit) {
     const ready = await requireReady(settings);
     const response = await fetch(`${ready.root}/api/sessions?limit=${limit}`, {

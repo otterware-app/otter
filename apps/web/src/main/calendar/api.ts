@@ -27,11 +27,9 @@ export type CalendarEvent = {
   meetingLink: string | null;
   htmlLink: string | null;
   recurring: boolean;
-  /** The series it's an occurrence of, for answering all of them at once. */
   seriesId: string | null;
 };
 
-/** How a new event repeats, from its start. */
 export type Repeat = "daily" | "weekdays" | "weekly" | "monthly" | "yearly";
 
 export type EventInput = {
@@ -47,7 +45,6 @@ export type EventInput = {
   videoCall?: boolean;
 };
 
-/** One of a mailbox's calendars. */
 export type CalendarInfo = {
   id: string;
   name: string;
@@ -67,25 +64,20 @@ export type AccountCalendars = {
   error?: "noAccess" | "failed";
 };
 
-/** Which calendar: a mailbox's, by its id there. */
 export type CalendarRef = { accountId: string; calendarId: string; writable: boolean };
 
 export const calendarKey = (ref: { accountId: string; calendarId: string }) =>
   `${ref.accountId}|${ref.calendarId}`;
 
-/** An event on one of a mailbox's calendars, with its times read once. */
 export type CalEvent = CalendarEvent & {
   accountId: string;
   calendarId: string;
   startMs: number;
   endMs: number;
-  /** On a calendar it can't change (a followed one, a teammate's): only looked at. */
   readOnly?: boolean;
-  /** A teammate's busy time (⌘P). */
   teammate?: string;
 };
 
-/** Each mailbox's calendars; they change rarely. */
 export function useCalendarLists(accountIds: string[]) {
   return useQuery({
     queryKey: ["calendar", "lists", accountIds],
@@ -105,7 +97,6 @@ type TeammateSchedule = {
   error?: "noAccess" | "failed";
 };
 
-/** The teammates' busy times over the range, as events of their own (accountId `team:` + address). */
 export function useTeamEvents(accountIds: string[], emails: string[], from: number, to: number) {
   return useQuery({
     queryKey: ["calendar", "team", from, to, accountIds, emails],
@@ -261,7 +252,6 @@ export function useCachedEvent(
   return useSyncExternalStore(subscribe, () => (ref ? findCachedEvent(qc, ref) : null));
 }
 
-/** A calendar's events from `from` through the year after: the drawer's list. */
 export function useUpcomingEvents(ref: CalendarRef | null, from: number) {
   const to = addDays(new Date(from), 365).getTime();
   return useQuery({
@@ -272,7 +262,6 @@ export function useUpcomingEvents(ref: CalendarRef | null, from: number) {
   });
 }
 
-/** Changes land in every cached range at once, then the calendar catches up. */
 export function useCalendarActions() {
   const qc = useQueryClient();
   const patchCache = (change: (events: CalEvent[]) => CalEvent[]) =>
@@ -324,7 +313,6 @@ export function useCalendarActions() {
     },
     update(event: CalEvent, patch: EventInput, notify: boolean): void {
       const { videoCall, ...fields } = patch;
-      // A meeting being added shows when it's made; one taken off goes at once.
       const shown = videoCall === false ? { ...fields, meetingLink: null } : fields;
       replace(event, saved(event, { ...event, ...shown } as CalendarEvent));
       task<CalendarEvent>("calendar:updateEvent", { ...where(event), patch, notify }).then(
@@ -339,7 +327,6 @@ export function useCalendarActions() {
         fail("Couldn't delete the event"),
       );
     },
-    /** This occurrence, or (allEvents) every one of its series, with an optional note. */
     respond(
       event: CalEvent,
       response: RsvpResponse,
@@ -383,6 +370,5 @@ export function eventTimes(startMs: number, endMs: number, allDay: boolean): Eve
   };
 }
 
-/** Attendees other than you: changing the event tells them. */
 export const hasGuests = (event: CalEvent) =>
   event.attendees.some((a) => a.email.toLowerCase() !== event.accountId.toLowerCase());

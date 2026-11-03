@@ -6,7 +6,6 @@ import { DRIVE } from "./glyph";
 
 const COLORS = ["#ff9500", "#34c759", "#00c7be", "#007aff", "#5856d6", "#af52de", "#ff2d55"];
 
-/** Drive's colors for a drive, by its id (Otter Drive's `folderColor`). */
 function colorOf(id: string): string {
   let hash = 0;
   for (const c of id) hash = (hash * 31 + c.charCodeAt(0)) | 0;
@@ -20,10 +19,6 @@ function initialsOf(name: string): string {
   ).toUpperCase();
 }
 
-/**
- * A drive's mark, as Otter Drive draws it: My Drive is Drive's own symbol, a
- * shared drive its initials on its color (Mail's account picture).
- */
 export function DriveMark({
   folder,
   className,
@@ -59,7 +54,6 @@ export function DriveMark({
   );
 }
 
-/** Shared with me's mark. */
 export function SharedMark({ className }: { className?: string }) {
   return (
     <span

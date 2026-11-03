@@ -1,8 +1,3 @@
-/**
- * The Calendar space: each mailbox's calendars (Google Calendar, Outlook's),
- * listed, read for a range and changed in place through its provider.
- */
-
 import { handle } from "../ipc.js";
 import { capabilitiesOf, providerFor } from "../providers/index.js";
 import {
@@ -22,7 +17,6 @@ type Params = Record<string, unknown> | undefined;
 
 export type TeammateSchedule = {
   email: string;
-  /** Through which mailbox's calendar it was asked. */
   accountId: string;
   blocks: BusyBlock[] | null;
   error?: "noAccess" | "failed";
@@ -49,7 +43,6 @@ function calendarOf(accountId: string): Calendar {
   return calendar;
 }
 
-/** An account's calendars; a sign-in that can't list them still has its primary one. */
 async function accountCalendars(accountId: string): Promise<AccountCalendars> {
   const generation = generationOf(accountId);
   try {
@@ -103,7 +96,6 @@ function eventInput(value: unknown): EventInput {
 
 const domainOf = (email: string) => email.slice(email.lastIndexOf("@") + 1).toLowerCase();
 
-/** Teammates' busy times, each asked through a mailbox on their domain, else the first. */
 async function teammateSchedules(
   accountIds: string[],
   emails: string[],

@@ -79,7 +79,6 @@ export function forgetOutlookSync(accountId: string): void {
   for (const key of refused.keys()) if (key.startsWith(`${accountId}\n`)) refused.delete(key);
 }
 
-// ── Folders ─────────────────────────────────────────────────────────────────
 // The folder tree (names, Outlook's counts) and categories take a few
 // requests: re-read when mail changed (at most every 30 seconds) and every 2
 // minutes, so folders and categories made elsewhere show up soon.
@@ -198,7 +197,6 @@ export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<
   await ctx.newMail(added.filter((m) => m.labelIds.includes("INBOX")));
 }
 
-/** The newest page of the inbox, so a new mailbox shows mail before its backfill gets there. */
 async function peekInbox(accountId: string, mailbox: Mailbox, ctx: SyncContext): Promise<void> {
   const inbox = mailbox.wellKnown.inbox!;
   const page = await graph<Page<ApiMessage>>(
@@ -288,7 +286,6 @@ async function followDelta(
     const moved: MessageSummary[] = [];
     for (const id of gone) {
       const message = found.get(id);
-      // Deleted, or somewhere not synced (the Outbox): out of the cache.
       if (!message || !isSyncedFolder(accountId, message.parentFolderId)) {
         ops.push({ kind: "deleted", id });
       } else moved.push(toSummary(accountId, message));

@@ -98,7 +98,6 @@ function parse(q: string): { ops: Operator[]; text: string } {
   return { ops, text };
 }
 
-/** The KQL an operator stands for; null when KQL can't say it. */
 function kql(op: Operator): string | null {
   const value = op.value;
   switch (op.key) {

@@ -1,5 +1,3 @@
-// Stop closes the SDK query; the next turn resumes its session by id.
-
 import { execFile } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
@@ -596,11 +594,9 @@ type ProbeResult = {
   email?: string;
 };
 
-/** A query whose prompt never yields: initialization only, no API request. */
 async function probe(settings: ClaudeSettings): Promise<ProbeResult> {
   const abort = new AbortController();
   const q = query({
-    // A prompt that never yields: the probe sends no API request.
     prompt: (async function* (): AsyncGenerator<SDKUserMessage> {
       await new Promise((resolve) => abort.signal.addEventListener("abort", resolve));
       yield* [];

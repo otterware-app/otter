@@ -112,7 +112,6 @@ type MessageListProps = {
   ) => void;
   onDeselect: () => void;
   advanceRef: React.MutableRefObject<(fromMessageId: string) => boolean>;
-  /** Reports the multi-selected rows so the chat panel can attach them. */
   onSelectionChange?: (rows: MessageSummary[]) => void;
   onOpenChat?: () => void;
   onSearchView?: () => void;
@@ -136,8 +135,6 @@ export type SearchMode = {
   messageOpen: boolean;
 };
 
-/** A row's labels: rows are conversations, so the union over its messages
- *  (falls back to the message's own labels for message-level search rows). */
 function rowLabels(message: MessageSummary): string[] {
   return message.threadLabelIds ?? message.labelIds;
 }
@@ -159,8 +156,6 @@ function resolveCombinedMeta(
   resolveLabel: ResolveLabel,
 ): CombinedMeta | null {
   if (!combined || !message.accountId) return null;
-  // Account-scoped view slices read like plain label browsing — naming the
-  // (only) account on every row would be noise.
   if (
     combined.rules.length > 0 &&
     combined.rules.every((r) => r.accountId === combined.rules[0].accountId)
@@ -304,7 +299,6 @@ type MessageRowProps = {
   combinedMeta: CombinedMeta | null;
   showInboxChip: boolean;
   archiveFrom: (labelIds: string[]) => string | null;
-  /** Labels that define the current view; every row has them, so no chip. */
   viewLabelIds: ReadonlySet<string>;
   onDeleteForever: () => void;
   onChatAgent: () => void;
@@ -447,8 +441,6 @@ function MessageRow({
   }, [selected]);
 
   const unread = message.threadUnread ?? message.unread;
-  // The thread's latest message is an unsent draft: flag it like Gmail does,
-  // and name who it's going to instead of yourself.
   const isDraft = message.labelIds.includes("DRAFT");
   const draftRecipients = isDraft ? splitAddressList(message.to).map(parseAddressEntry) : [];
   const draftTo = draftRecipients
@@ -816,8 +808,6 @@ export function MessageList({
   const signedOutAccount = useAccounts().data?.find(
     (account) => account.id === accountId && account.signedOut,
   );
-  // "All / Unread" mode switcher — a segmented control in the header, not a
-  // buried icon toggle, so the current display mode is always visible.
   const [mailboxMode, setMailboxMode] = useState<"all" | "unread">("all");
   const unreadOnly = mailboxMode === "unread" && !search;
 
@@ -905,11 +895,6 @@ export function MessageList({
   const hasNextPage = messagesQuery.hasNextPage;
   const isFetchingNextPage = messagesQuery.isFetchingNextPage;
 
-  // Gmail-style list shortcuts: j/k and the arrow keys move the selection
-  // (Apple Mail-style — arrows never scroll the list), e/#/! archive/trash/
-  // junk the selected thread (advancing to the next row), s toggles the flag,
-  // Shift+U/Shift+I set unread/read. Latest state is read through a ref so the
-  // window listener mounts once.
   const listModifyMessage = useModifyMessage();
   const listModifyThread = useModifyThread();
   const listTrashThread = useTrashThread();
@@ -983,8 +968,6 @@ export function MessageList({
 
   const [labelOverlay, setLabelOverlay] = useState<LabelOverlayMode | null>(null);
 
-  // Cmd/shift multi-selection (bulk action bar). Anchor = last plain/cmd click,
-  // falling back to the open message, so shift-click ranges feel native.
   const [checked, setChecked] = useState<ReadonlySet<string>>(new Set());
   const anchorRef = useRef<string | null>(null);
   const extentRef = useRef<string | null>(null);
@@ -1095,8 +1078,6 @@ export function MessageList({
   };
 
   const handleRowClick = (e: React.MouseEvent, message: MessageSummary) => {
-    // ⌘-click (Ctrl-click off the Mac) opens the conversation in a new tab, as
-    // a link would in a browser (new-tab-click.ts turns the navigation into it).
     if (isModClick(e) && !e.altKey && !e.shiftKey) {
       onSelectMessage(message.id, message.accountId ?? accountId);
       return;
@@ -1239,8 +1220,6 @@ export function MessageList({
     checkedRows.length > 0 &&
     checkedRows.every((m) => rowLabels(m).includes("SPAM"));
 
-  // Delete acts on the multi-selection when there is one; read through a ref so
-  // the window listener (mounted once) sees the current rows.
   const trashCheckedRef = useLatest(allTrashed ? bulkUntrash : bulkTrash);
 
   const bulkMarkUnread = () => {
@@ -1340,8 +1319,6 @@ export function MessageList({
       allLabels,
     };
   });
-  // Keyboard commands on the open/selected row (Settings › Keybindings).
-  // Each handler returns false when it doesn't apply, so the key passes on.
   const rowCommand =
     (
       fn: (ctx: {
@@ -1623,9 +1600,6 @@ export function MessageList({
     },
   });
 
-  // Infinite scroll: pull the next page whenever the bottom comes within
-  // reach — on scroll, and after each render so short pages keep filling
-  // until the viewport has headroom.
   const scrollRef = useRef<HTMLDivElement>(null);
   const maybeLoadMore = () => {
     const el = scrollRef.current;
@@ -1729,8 +1703,6 @@ export function MessageList({
         onDeleteForever={() => setConfirmDeleteRows([message])}
         onDeselect={onDeselect}
         onChatAgent={() => {
-          // Open this conversation in the reader so it becomes the
-          // chat panel's attached context, then reveal the panel.
           openMessage(message);
           onOpenChat?.();
         }}

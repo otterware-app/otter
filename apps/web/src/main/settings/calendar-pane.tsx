@@ -34,7 +34,6 @@ const TIME_FORMAT_OPTIONS: { value: TimeFormat; label: string }[] = [
   { value: "24", label: "24-hour (13:00)" },
 ];
 
-/** A way back to the default, once it's been changed. */
 function reset<K extends keyof CalendarPreferences>(
   prefs: CalendarPreferences,
   key: K,
@@ -48,7 +47,6 @@ function reset<K extends keyof CalendarPreferences>(
   ) : null;
 }
 
-/** Each mailbox's online meeting (Google Meet, Teams), added to its new events or not. */
 function ConferencingSection({ meetingsByDefault }: { meetingsByDefault: string[] }) {
   const accounts = calendarAccounts(useAccounts().data ?? []);
   const lists = useCalendarLists(accounts.map((a) => a.id));
@@ -93,7 +91,6 @@ function ConferencingSection({ meetingsByDefault }: { meetingsByDefault: string[
   );
 }
 
-/** Settings → Calendar: how the calendar lays out the week and shows its events. */
 export function CalendarPane() {
   const prefs = useCalendarPreferences();
   return (

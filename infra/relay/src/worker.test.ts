@@ -412,7 +412,6 @@ afterAll(async () => {
 
 let nextSub = 1;
 
-/** A Google ID token for `email`, as the desktop app would get one. */
 function idToken(email: string, opts: { sub?: string; aud?: string } = {}) {
   return new SignJWT({ email, email_verified: true, name: "Test User" })
     .setProtectedHeader({ alg: "RS256", kid: "test" })
@@ -794,7 +793,6 @@ describe("linked accounts", () => {
     );
     expect((await link(token, "home@example.com")).status).toBe(204);
 
-    // Profile edits after linking need no proof; left-out fields keep their value.
     const edit = await call("PUT", "/v1/accounts/work%40example.com", token, {
       displayName: "Job",
     });
@@ -986,7 +984,6 @@ describe("Outlook mailboxes", () => {
   it("links with a Microsoft ID token that proves the address", async () => {
     const { token } = await signIn("outlook-owner@example.com");
     expect((await linkOutlook(token, "Me@Contoso.test")).status).toBe(204);
-    // A personal account's email claim counts; a work account's needs xms_edov.
     const personal = await msIdToken("+15555550100", {
       tid: "9188040d-6c67-4c5b-b112-36a304b66dad",
       email: "me@outlook.test",
@@ -1012,7 +1009,6 @@ describe("Outlook mailboxes", () => {
         color: null,
       })),
     );
-    // Builds that don't know Outlook don't see it.
     expect(await listAccounts(token)).toEqual([]);
     expect(await listAccounts(token, "")).toEqual([]);
   });
@@ -1058,7 +1054,6 @@ describe("Outlook mailboxes", () => {
     expect((await put(token, "o@contoso.test", { provider: "gmail" })).status).toBe(409);
     expect((await put(token, "o@contoso.test", { provider: "imap", imap })).status).toBe(409);
 
-    // Unlinking needs a build that knows Outlook.
     expect((await call("DELETE", "/v1/accounts/o%40contoso.test", token)).status).toBe(204);
     expect((await listAccounts(token, "?providers=outlook")).length).toBe(1);
     await call("DELETE", "/v1/accounts/o%40contoso.test?providers=gmail,imap,outlook", token);
@@ -1123,7 +1118,6 @@ describe("Outlook mailboxes", () => {
       await watch(mallory.token, "mallory@contoso.test")
     ).json()) as OutlookWatchResponse;
 
-    // Forged, another mailbox's, or no clientState: acknowledged, and dropped.
     expect((await notify("team@contoso.test", "forged")).status).toBe(202);
     expect((await notify("team@contoso.test", mallorys)).status).toBe(202);
     expect(
@@ -1287,7 +1281,6 @@ describe("chats", () => {
     });
     expect(deleted.deletedAt).toBeGreaterThan(0);
     expect((await call("GET", "/v1/chats/c_1", token)).status).toBe(404);
-    // A device that hadn't heard can't bring it back.
     const later = { ...chat, updatedAt: 9_000 };
     expect((await call("PUT", "/v1/chats/c_1", token, later)).status).toBe(409);
   });
@@ -1304,7 +1297,6 @@ describe("chats", () => {
     const { token } = await signIn("chats-bad@example.com");
     expect((await call("PUT", "/v1/chats/c_2", token, chat)).status).toBe(400);
     expect((await call("PUT", "/v1/chats/a%20b", token, { ...chat, id: "a b" })).status).toBe(400);
-    // Any agent extension's id syncs; something that isn't one doesn't.
     const odd = { ...chat, provider: "Not an id!" };
     expect((await call("PUT", "/v1/chats/c_1", token, odd)).status).toBe(400);
     const huge = { ...chat, turns: [{ id: "u-1", role: "user", text: "x".repeat(700_000) }] };
@@ -1573,7 +1565,6 @@ describe("realtime", () => {
       { type: "mail", email: "inbox@example.com", historyId: "4242" },
     ]);
 
-    // Bob never linked it; a mailbox nobody linked is acknowledged and dropped.
     expect((await push({ emailAddress: "nobody@example.com", historyId: "1" })).status).toBe(204);
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(bobDevice.events).toEqual([]);
@@ -1767,10 +1758,8 @@ describe("tunnel", () => {
     for (let i = 0; i < 6; i++) expect(await opened()).toBe("open");
     expect(await opened()).toBe(TUNNEL_CLOSE.rateLimited);
 
-    // Linked, the same server counts against the looser limit.
     await linkTestServer(token, "rate@tunnel.test");
     expect(await opened()).toBe("open");
-    // Someone else isn't limited.
     const other = await signIn("tunnel-rate-other@example.com");
     const theirs = tunnel(other.token, mailTarget);
     await until(() => theirs.frames.length >= 2, "the greeting");
@@ -1822,7 +1811,6 @@ describe("Gmail pushes next to IMAP mailboxes", () => {
       await until(() => mailEvents(device.events).length > 0, "the mail event");
     }
 
-    // Gmail never publishes for an IMAP mailbox; a notification for one reaches nobody.
     expect((await push({ emailAddress: "owner@fastmail.test", historyId: "1" })).status).toBe(204);
     await new Promise((resolve) => setTimeout(resolve, 100));
     for (const device of [ownerMac, ownerWeb, partnerMac]) {
@@ -2057,7 +2045,6 @@ describe("notification connection failures", () => {
       await push({ emailAddress: email, historyId: "100" });
       await expect.poll(() => statusFor(owner.token, email), { timeout: 5000 }).toBe("reauthorize");
       notificationRefreshScopes.delete(email);
-      // Arrived while the grant was stopped: reconnecting must not announce it.
       const old = { id: "0c0001", historyId: "300", labels: ["UNREAD", "INBOX"] };
       notificationMail.set(email, { historyId: "300", added: [old] });
       const result = await callbackFor(owner.token, email);
@@ -2088,7 +2075,6 @@ describe("notification connection failures", () => {
       expect(await result.text()).toContain("ottermail-notifications://complete?result=success");
       expect(await statusFor(owner.token, email)).toBe("retry");
       await call("PUT", "/v1/push/device", owner.token, pushRegistration("ab".repeat(32), [email]));
-      // Deliveries during the backoff don't call Gmail again while it is throttling.
       const reads = notificationReads.filter((r) => r.email === email).length;
       for (const historyId of ["101", "102", "103"]) await push({ emailAddress: email, historyId });
       await new Promise((resolve) => setTimeout(resolve, 4000));
@@ -2430,7 +2416,6 @@ describe("iPhone push registration and lifecycle", () => {
       await expect
         .poll(() => notifications.filter((n) => n.token === token).length, { timeout: 10_000 })
         .toBe(1);
-      // The provider is still responding: a new event must wait a full interval after that submission.
       await push({ emailAddress: email, historyId: "9007199254740995" });
       await new Promise((resolve) => setTimeout(resolve, 3000));
       expect(notifications.filter((n) => n.token === token)).toHaveLength(1);

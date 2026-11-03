@@ -10,7 +10,6 @@ const DRIVE_UNSELECTED = [
   "M172 392C259 351 384 370 502 397C636 428 774 444 857 500L852 558C771 497 636 486 490 454C369 427 251 406 171 457Z",
 ];
 
-/** Drive's mark at the sidebar's foot and in tabs: solid when selected, contoured when not. */
 export const DriveGlyph = (props: { selected?: boolean; className?: string }) => (
   <NavGlyph solid={DRIVE} outline={DRIVE_UNSELECTED} {...props} />
 );

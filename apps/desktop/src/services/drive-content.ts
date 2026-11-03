@@ -1,10 +1,8 @@
 import { session } from "electron";
 
-/** Where Otter Drive serves documents' files from (its own site, otterware.app). */
 const DRIVE_CONTENT_ORIGIN = "https://usercontent.otterware.app";
 const DRIVE_CONTENT = `${DRIVE_CONTENT_ORIGIN}/*`;
 
-/** A frame showing an Otter Drive document (the Drive workspace) loads it in place. */
 export function isDriveContent(url: string): boolean {
   return URL.parse(url)?.origin === DRIVE_CONTENT_ORIGIN;
 }

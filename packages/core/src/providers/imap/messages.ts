@@ -35,7 +35,6 @@ export function formatAddresses(addresses: ImapAddress[]): string {
 const firstId = (value: string | null | undefined): string | null =>
   value?.match(/<[^<>\s]+>/)?.[0] ?? null;
 
-/** A subject without its Re:/Fwd: prefixes (in a few languages), for threading. */
 export function baseSubject(subject: string): string {
   let text = subject.replace(/\s+/g, " ").trim().toLowerCase();
   for (;;) {

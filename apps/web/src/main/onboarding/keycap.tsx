@@ -16,10 +16,6 @@ export function Keycap({ children, className }: { children: string; className?: 
   );
 }
 
-/**
- * A command's live shortcut as keycaps (`⌘` `K`, `G` then `I`), so a rebound
- * key shows as the user has it. Nothing when the command is unbound.
- */
 /* oxlint-disable react/no-array-index-key -- Shortcut strokes have fixed positions and can repeat the same key. */
 export function ShortcutKeys({
   command,

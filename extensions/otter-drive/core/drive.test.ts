@@ -77,7 +77,6 @@ describe("patchWorkbook", () => {
     const book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book, ws, "Data");
     const original = new Uint8Array(XLSX.write(book, { bookType: "xlsx", type: "array" }));
-    // As the editor shows it, with one cell changed.
     const shown = XLSX.utils.sheet_to_json<string[]>(
       XLSX.read(original, { type: "array", cellNF: true }).Sheets.Data!,
       { header: 1, defval: "", raw: false },

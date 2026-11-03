@@ -1,9 +1,3 @@
-/**
- * Editing a document in place, as Otter Drive does: text and Markdown (with
- * the page beside it), tables and workbooks as a grid. Saving makes a new
- * version; Drive keeps every one.
- */
-
 import { Markdown, cn } from "@otter-mail/web/extension-kit";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { PlusIcon } from "lucide-react";
@@ -14,7 +8,6 @@ import { parseDelimited } from "./table";
 
 export type Edit = { text: string } | { sheets: { name: string; rows: string[][] }[] };
 
-/** What a preview starts an edit with; null when it can't be edited here. */
 export function editable(preview: DrivePreview | undefined): Edit | null {
   if (!preview || "url" in preview || preview.truncated) return null;
   if (preview.kind === "workbook")
@@ -100,7 +93,6 @@ function TextEditor({
 const ROW = 32;
 const MIN_COLUMNS = 6;
 
-/** Excel's column names: A … Z, AA … */
 function columnName(i: number): string {
   let name = "";
   for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26))
@@ -155,7 +147,6 @@ function SheetEditor({
   const items = virtualizer.getVirtualItems();
   const before = items[0]?.start ?? 0;
   const after = virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0);
-  // Enter moves down a row, as in a spreadsheet; Tab moves right on its own.
   const down = (e: KeyboardEvent<HTMLInputElement>, r: number, c: number) => {
     if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
     e.preventDefault();

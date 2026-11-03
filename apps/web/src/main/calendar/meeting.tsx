@@ -11,7 +11,6 @@ export const MEETING_NAMES: Record<MeetingProvider, string> = {
   other: "Video call",
 };
 
-/** The service's mark, as Notion Calendar shows it beside a meeting. */
 export function MeetingMark({
   provider,
   className = "size-4",
@@ -56,7 +55,6 @@ export function MeetingMark({
   }
 }
 
-/** An event's online meeting: whose, a way in, its link to share, and (yours, Meet) a way off. */
 export function MeetingRow({ link, onRemove }: { link: string; onRemove?: () => void }) {
   const provider = meetingProvider(link);
   const copy = () =>
@@ -101,7 +99,6 @@ export function MeetingRow({ link, onRemove }: { link: string; onRemove?: () => 
   );
 }
 
-/** No meeting yet: the calendar's own, a click away (or, in a new event, on until turned off). */
 export function AddMeetingRow({
   service,
   added,

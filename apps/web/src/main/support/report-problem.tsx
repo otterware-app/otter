@@ -75,7 +75,6 @@ const emptyReport: SupportReport = {
   steps: "",
 };
 
-/** One report, reviewed before it leaves the app; investigations live in the user's terminal. */
 export function ReportProblemDialog() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"describe" | "review">("describe");

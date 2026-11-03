@@ -39,7 +39,6 @@ export function TranslationSection() {
     }
   };
 
-  // Nothing to translate with here (a browser without a translator): not shown.
   if (!features.translation) return null;
 
   const setLanguages = (languages: string[]) => void save({ readLanguages: languages });

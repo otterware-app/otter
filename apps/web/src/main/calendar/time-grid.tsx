@@ -88,19 +88,14 @@ export function TimeGrid({
   actions,
   onOpenDay,
 }: {
-  /** Every day laid out: `buffer` either side of the `visible` ones shown. */
   days: Date[];
   visible: number;
   buffer: number;
-  /** Glides by whole days (the ‹ › buttons, J and K). */
   stepRef: MutableRefObject<((days: number) => void) | null>;
-  /** Scrolling came to rest this many days from the first shown. */
   onSettle: (shift: number) => void;
-  /** Mid-scroll, a day went by: this many days from the first shown now lead. */
   onPeek: (shift: number) => void;
   events: CalEvent[];
   colorOf: (accountId: string) => string;
-  /** Where a new event goes. */
   defaultCalendar: { accountId: string; calendarId: string } | null;
   actions: Actions;
   onOpenDay: (day: Date) => void;
@@ -118,7 +113,6 @@ export function TimeGrid({
   );
   const now = useNow();
 
-  // A day's width: what's beside the hours, shared by the days shown.
   const [colW, setColW] = useState(0);
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -141,12 +135,10 @@ export function TimeGrid({
     if (!el || !colW) return;
     let timer: ReturnType<typeof setTimeout>;
     let peeked = 0;
-    // Re-centred (a new width, a drawer opening): at rest on the first day shown.
     onPeekRef.current(0);
     // Where a glide is headed: steps taken mid-glide add up from there.
     let aim: number | null = null;
     const scroll = () => {
-      // Only a day passing is news, not every pixel.
       const leading = Math.round(el.scrollLeft / colW) - buffer;
       if (leading !== peeked) {
         peeked = leading;
@@ -179,7 +171,6 @@ export function TimeGrid({
     };
   }, [colW, buffer, stepRef, onSettleRef, onPeekRef]);
 
-  // Opens on the working day: the hour before now, or 8 AM.
   const [openingHour] = useState(() => {
     const today = new Date();
     return days.some((d) => sameDay(d, today)) ? Math.max(0, today.getHours() - 2) : 8;
@@ -215,7 +206,6 @@ export function TimeGrid({
     if ((e.target as HTMLElement).closest("[data-event]")) return;
     const { day, minute } = pointAt(e.clientX, e.clientY);
     const anchor = Math.floor(minute / SNAP) * SNAP;
-    // A double click makes a quarter-hour event; a single click does nothing.
     const last = lastPress.current;
     lastPress.current = { day, slot: anchor, at: e.timeStamp };
     if (last.day === day && last.slot === anchor && e.timeStamp - last.at < 500) {
@@ -230,7 +220,6 @@ export function TimeGrid({
       });
       return;
     }
-    // A click away from an open event only closes it.
     if (useCalendar.getState().selection) return;
     gesture.current = { kind: "create", day, anchor, moved: false };
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -240,7 +229,6 @@ export function TimeGrid({
   const onEventDown = (e: PointerEvent<HTMLElement>, event: CalEvent, resize: boolean) => {
     if (e.button !== 0) return;
     e.stopPropagation();
-    // A teammate's, or on a calendar it can't change: only to look at.
     if (event.readOnly) {
       select({ accountId: event.accountId, calendarId: event.calendarId, id: event.id });
       return;
@@ -265,11 +253,9 @@ export function TimeGrid({
     if (g.kind === "create") {
       if (!g.moved && day === g.day && Math.abs(minute - g.anchor) < SNAP / 2) return;
       g.moved = true;
-      // From the slot pressed to the one under the pointer, across days too.
       const anchor = at(g.day, g.anchor);
       const point = at(day, snap(minute));
       const [startMs, endMs] = point > anchor ? [anchor, point] : [point, anchor + SNAP * MINUTE];
-      // Drawn now, opened on release.
       useCalendar.setState({
         draft: {
           ...useCalendar.getState().draft,
@@ -295,7 +281,6 @@ export function TimeGrid({
         endMs: event.endMs + shift,
       });
     } else {
-      // The end follows the pointer, onto later days too.
       const endMs = Math.max(event.startMs + SNAP * MINUTE, at(day, snap(minute)));
       setPreview({ key: eventKey(event), startMs: event.startMs, endMs });
     }
@@ -511,7 +496,6 @@ function TimedEvent({
   const top = ((start - dayStart) / HOUR) * HOUR_PX;
   const height = Math.max(((end - start) / HOUR) * HOUR_PX, 18);
   const short = height < 36;
-  // Over the one before it: the last column runs to the edge, the others half again a column.
   const width = col === cols - 1 ? 1 - col / cols : Math.min(1 - col / cols, 1.5 / cols);
   const declined = event.response === "declined";
   return (
@@ -525,7 +509,6 @@ function TimedEvent({
         height: height - 2,
         left: `calc(${(col / cols) * 100}% + 2px)`,
         width: `calc(${width * 100}% - 5px)`,
-        // Later ones on top; the open one in front of them all.
         zIndex: dragging ? 20 : selected ? 10 : col + 1,
       }}
       className={cn(
@@ -535,7 +518,6 @@ function TimedEvent({
         dragging
           ? "shadow-[0_8px_24px_-8px_rgb(0_0_0/45%)]"
           : "transition-[top,height,left,width,background-color,color] duration-150 ease-out",
-        // Set apart from the one it lies over.
         !dragging && cols > 1 && "shadow-[0_0_0_1px_var(--canvas)]",
       )}
     >
@@ -581,7 +563,6 @@ function TimedEvent({
   );
 }
 
-/** The event being drawn: a soft wash of its calendar's color, as Notion Calendar draws it. */
 function DraftBlock({
   title,
   label,
@@ -668,7 +649,6 @@ function AllDayRow({
       // 25 hours long, and hidden weekends lie between columns).
       const from = days.findIndex((d) => addDays(d, 1).getTime() > event.startMs);
       const to = days.filter((d) => d.getTime() < event.endMs).length;
-      // Only on hidden days.
       if (from < 0 || to <= from) return [];
       let lane = lanes.findIndex((until) => until <= from);
       if (lane < 0) lane = lanes.push(to) - 1;
@@ -710,7 +690,6 @@ function AllDayRow({
   );
 }
 
-/** The time now, a minute at a time. */
 export function useNow(): Date {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {

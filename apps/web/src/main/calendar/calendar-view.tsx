@@ -49,7 +49,6 @@ export const CALENDAR_MODES: { mode: CalendarMode; label: string; key: string }[
   { mode: "month", label: "Month", key: "M" },
 ];
 
-/** The month in view; mid-scroll it follows the days going by, without re-rendering the grid. */
 function CalendarTitle({
   mode,
   date,
@@ -92,10 +91,8 @@ function legible(hex: string): string {
   return luminance < 0.12 ? `color-mix(in srgb, ${hex} 45%, var(--color-foreground))` : hex;
 }
 
-/** Teammates' colors, apart from the mailboxes'. */
 export const TEAM_COLORS = ["#34c759", "#af52de", "#ff9500", "#00c7be", "#ff2d55", "#5856d6"];
 
-/** A calendar of one of the mailboxes, with the color it's drawn in. */
 export type ListedCalendar = {
   account: MailAccount;
   info: CalendarInfo;
@@ -103,14 +100,9 @@ export type ListedCalendar = {
   color: string;
 };
 
-/**
- * Every mailbox's calendars, in the mailboxes' order. The primary one wears
- * the mailbox's color; the others, the color they have in Google or Outlook.
- */
 export function listedCalendars(
   accounts: MailAccount[],
   lists: AccountCalendars[] | undefined,
-  /** Picked in the sidebar, over the rest. */
   colors: Record<string, string> = {},
 ): ListedCalendar[] {
   return accounts.flatMap((account) =>
@@ -126,14 +118,9 @@ export function listedCalendars(
   );
 }
 
-/** The mailboxes whose calendars the app can show. */
 export const calendarAccounts = (accounts: MailAccount[]) =>
   accounts.filter((a) => a.capabilities?.calendar && !a.signedOut);
 
-/**
- * Which mailboxes' sign-ins may not read every calendar yet (a permission added after they
- * signed in), and a button each that asks for it: the provider's sign-in for that address.
- */
 function AllowCalendarAccess({ accounts }: { accounts: MailAccount[] }) {
   const names = accounts.map(getAccountDisplayName);
   return (
@@ -177,7 +164,6 @@ export function CalendarView({
   const actions = useCalendarActions();
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  // Re-renders on any calendar setting: the week's first day and the time format reach every label.
   const {
     showWeekends,
     showDeclined,
@@ -185,7 +171,6 @@ export function CalendarView({
     colors: chosenColors,
   } = useCalendarPreferences();
   const calendars = calendarAccounts(accounts);
-  // Every calendar of every mailbox, and those shown.
   const lists = useCalendarLists(calendars.map((a) => a.id)).data;
   const listed = listedCalendars(calendars, lists, chosenColors);
   const visible = listed.filter((c) => isShown(shown, c.key, c.info.hiddenByDefault));
@@ -198,10 +183,8 @@ export function CalendarView({
   const free = useCalendar((s) => s.free);
   const setStart = useCalendar((s) => s.setStart);
   const setPeek = useCalendar((s) => s.setPeek);
-  // Without weekends, the week and month show weekdays; a day is a day.
   const weekends = showWeekends || mode === "day";
   const days = visibleDays(mode, date, free, weekends);
-  // Day and week scroll sideways: the grid holds days either side of those shown.
   const buffer = mode === "month" ? 0 : Math.max(7, days.length * 3);
   const strip = buffer
     ? Array.from({ length: days.length + buffer * 2 }, (_, i) =>
@@ -212,7 +195,6 @@ export function CalendarView({
   const to = addDays(strip[strip.length - 1], 1).getTime();
   const stepGrid = useRef<((days: number) => void) | null>(null);
   const { data } = useCalendarEvents(refs, from, to);
-  // Teammates (⌘P): their busy times over yours, each in a color of their own.
   const team = useCalendar((s) => s.team);
   const [picking, setPicking] = useState(false);
   const teamData = useTeamEvents(
@@ -235,7 +217,6 @@ export function CalendarView({
     ]),
   ]);
   const colorOf = (key: string) => legible(colors.get(key) ?? "#8a8a8a");
-  // New events go to the default calendar, among those shown.
   const defaultTarget = defaultCalendarOf(visible, chosenDefault);
   const defaultCalendar = defaultTarget
     ? { accountId: defaultTarget.account.id, calendarId: defaultTarget.info.id }
@@ -264,12 +245,10 @@ export function CalendarView({
     onMode("day");
   };
 
-  // Notion Calendar's keys: T today, D W M the view, J K (or ← →) to step.
   // Today and the mini month glide there: the grid scrolls to the day, or,
   // from far off, starts a step short of it and scrolls the last step.
   const target = useCalendar((s) => s.target);
   const glide = useLatest((to: Date) => {
-    // From the drawer: the event opens as the view goes there.
     const reveal = useCalendar.getState().reveal;
     select(reveal);
     const step = stepGrid.current;
@@ -298,7 +277,6 @@ export function CalendarView({
   const keys = useLatest({ go, onMode, goToday, selected, actions, select });
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      // ⌘P: a teammate's calendar over yours; Esc, with nothing open, takes them away.
       if (isModClick(e) && !e.altKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         setPicking(true);
@@ -441,7 +419,6 @@ export function CalendarView({
 
         <div
           ref={bodyRef}
-          // Within the card's rounded corners: the grid's sticky parts are opaque.
           className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl"
           onPointerDown={(e) => {
             if (!(e.target as HTMLElement).closest("[data-event]")) select(null);

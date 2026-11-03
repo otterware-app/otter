@@ -1,9 +1,3 @@
-/**
- * Outgoing mail, whichever provider sends it: the RFC 822 / MIME builder
- * (RFC 2047 headers, text + html, attachments) and the compose attachment
- * picker.
- */
-
 import { fromBase64, randomHex, toBase64, utf8Encode } from "../bytes.js";
 import { platform } from "../platform.js";
 import type { ComposeAttachment, MailAccount } from "../types.js";
@@ -101,7 +95,6 @@ export function splitAddressList(value: string): string[] {
   return parts.map((p) => p.replace(/[\r\n]+/g, " ").trim()).filter((p) => p.length > 0);
 }
 
-/** Re-emit an address list with display names RFC 2047-encoded when non-ASCII. */
 function encodeAddressList(value: string): string {
   return splitAddressList(value)
     .map((entry) => {
@@ -148,7 +141,6 @@ export interface OutgoingMessage {
 }
 
 export function buildMime(params: OutgoingMessage): string {
-  // Drafts may not have recipients yet.
   const headers: string[] = [`From: ${params.from}`];
   if (params.to) headers.push(`To: ${encodeAddressList(params.to)}`);
   if (params.cc) headers.push(`Cc: ${encodeAddressList(params.cc)}`);
@@ -211,10 +203,6 @@ export function buildMime(params: OutgoingMessage): string {
 
 export const MAX_ATTACHMENT_TOTAL_BYTES = 25 * 1024 * 1024;
 
-/**
- * Lets the user pick files to attach. `existingBytes` is the size already
- * attached, so the 25 MB total cap covers the whole message.
- */
 export async function pickComposeAttachments(
   existingBytes: number,
 ): Promise<{ attachments: ComposeAttachment[]; error?: string }> {

@@ -64,7 +64,6 @@ export function AppSidebar({
   mode: AppMode;
   spaceId: string | null;
   labelId: string;
-  /** The workspace that's open, and where in it. */
   workspace: (WorkspaceProps & { workspace: Workspace }) | null;
   settingsOpen: boolean;
   composing: boolean;
@@ -161,7 +160,6 @@ export function AppSidebar({
   );
 }
 
-/** Mail, Calendar, Agent: each swaps the sidebar and the main area, and returns where it was. */
 function ModeSwitcher({
   mode,
   accounts,

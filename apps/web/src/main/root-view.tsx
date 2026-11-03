@@ -9,7 +9,6 @@ import { ThemeEditorHost } from "./settings/theme/ThemeEditorHost";
 // Color theme (Settings → Appearance) for the current appearance, applied
 // before first paint. It also owns the `dark` class on <html>.
 applyAppTheme();
-// Contrast, glass and the font size, also before first paint.
 applyInterfaceSettings();
 
 export function RootView() {

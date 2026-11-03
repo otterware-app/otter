@@ -4,7 +4,6 @@
 import { platform, type AsyncContext } from "../../platform.js";
 import type { Lane } from "../provider.js";
 
-/** Gmail's per-minute limit for this project, per user. */
 const UNITS_PER_MINUTE_LIMIT = 6_000;
 /**
  * What a minute may spend (a full minute of refill plus one full burst): it

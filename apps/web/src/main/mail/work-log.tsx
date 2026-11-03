@@ -1,11 +1,3 @@
-/**
- * What an agent did during a turn, as ChatGPT shows it: its commentary and
- * steps in order, an integration's steps grouped ("Used Otter Mail
- * integration"), and each step opening to its input and result. Every agent
- * describes its steps the same way (ToolStep, core's steps.ts), so they read
- * the same here.
- */
-
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   ChevronDownIcon,

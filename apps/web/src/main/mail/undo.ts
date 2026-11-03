@@ -9,9 +9,7 @@ export type UndoAction =
   /** Only as redos: trashing again what an undo brought back. */
   | { kind: "trashThread"; params: { accountId: string; threadId: string } }
   | { kind: "trashMessage"; params: { accountId: string; messageId: string } }
-  /** Something that isn't a mail change, e.g. holding back a message being sent. */
   | { kind: "callback"; run: () => void }
-  /** A bulk action: every row's inverse, undone together. */
   | { kind: "batch"; actions: UndoAction[] };
 
 export type ActionSummary = {
@@ -171,7 +169,6 @@ export function clearUndo(): void {
   redos.length = 0;
 }
 
-/** Drops `action` from the history (it was undone another way, or can't be anymore). */
 export function forgetUndo(action: UndoAction): void {
   const i = history.indexOf(action);
   if (i !== -1) history.splice(i, 1);

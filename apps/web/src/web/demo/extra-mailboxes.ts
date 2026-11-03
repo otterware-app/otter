@@ -1,10 +1,3 @@
-/**
- * More made-up Gmail mailboxes, only in the web app's fake mode: Settings →
- * Add mailbox hands them out one at a time after the demo's own, so a layout
- * can be tried with eight or nine mailboxes. The shared demo (and the iPhone
- * app, which bundles it) keeps its two.
- */
-
 import type { SeedAccount, SeedThread } from "@otter-mail/shared/demo-mailboxes";
 
 const person = (name: string, email: string) => ({ name, email });

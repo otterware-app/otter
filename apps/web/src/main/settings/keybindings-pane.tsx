@@ -481,7 +481,6 @@ export function LabelShortcutDialog({
     // oxlint-disable-next-line react/set-state-in-effect -- Reset the local recording/editing session when its binding or dialog changes.
     setKey(existing?.key ?? "");
     setRecording(labelName !== null && !existing);
-    // Only when the dialog opens for a label.
   }, [labelName, existing]);
   const rows = useMemo<Row[]>(
     () => rules.map((rule, i) => ({ id: `${i}`, rule, source: "Custom" as const })),

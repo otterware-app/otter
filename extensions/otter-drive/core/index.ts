@@ -11,7 +11,6 @@ const text = (value: unknown, max = 500) =>
 export default {
   manifest,
   activate({ handle }) {
-    /** A handler whose work may take a while: it answers when done (`task`). */
     const slow = (channel: string, work: (p: Params) => Promise<unknown>) =>
       handle(channel, (params: unknown) => {
         const p = params as Params;

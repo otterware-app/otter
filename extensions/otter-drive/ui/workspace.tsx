@@ -1,14 +1,3 @@
-/**
- * Drive: Otter Drive as a workspace beside Mail and Calendar, laid out like
- * Otter Drive itself. The sidebar picks a drive (Mail's mailbox picker: My
- * Drive, your shared drives, Shared with me), filters it (type, this week,
- * archived) and lists its folders and documents; the main area shows the open
- * document, or the same documents as a grid of their thumbnails.
- *
- * Its location is a folder's id (or `shared`, or `mine` for My Drive), its item a
- * document's id.
- */
-
 import {
   Btn,
   ContextMenu,
@@ -76,12 +65,7 @@ import { DriveMark, SharedMark } from "./drive-mark";
 import { errorText, useDriveSignIn, useDriveStatus, useFolders, useSaved } from "./hooks";
 import { OtterDriveIcon } from "./icon";
 
-/** My Drive, as a location: whichever folder is yours. */
 export const MINE = "mine";
-
-// ---------------------------------------------------------------------------
-// Kinds, as Otter Drive names them.
-// ---------------------------------------------------------------------------
 
 type Kind = "documents" | "spreadsheets" | "pages" | "pdfs" | "images" | "videos" | "other";
 
@@ -124,10 +108,6 @@ const KIND_BY_EXTENSION: Record<string, Kind> = {
 const kindOf = (a: DriveArtifact): Kind =>
   KIND_BY_EXTENSION[a.current?.entryPath.split(".").pop()?.toLowerCase() ?? ""] ?? "other";
 
-// ---------------------------------------------------------------------------
-// Filters: one set for the sidebar's list and the overview's grid.
-// ---------------------------------------------------------------------------
-
 type Sort = "updated" | "az" | "za";
 const SORTS: Record<Sort, string> = {
   updated: "Last updated",
@@ -165,23 +145,13 @@ const WEEK = 7 * 86_400_000;
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const byName = (a: string, b: string) => collator.compare(a, b);
 
-// ---------------------------------------------------------------------------
-// Where we are, and what's there.
-// ---------------------------------------------------------------------------
-
 type Place = {
-  /** The folder open (a drive or one in it); null in Shared with me. */
   folder: DriveFolder | null;
-  /** From its drive down to it. */
   trail: DriveFolder[];
-  /** Its drive, for the picker. */
   drive: DriveFolder | null;
-  /** The drives, for the picker. */
   drives: DriveFolder[];
   sharedWithMe: boolean;
-  /** Whether you can add to it. */
   writable: boolean;
-  /** Its folders, then its documents, filtered. */
   subfolders: DriveFolder[];
   documents: DriveArtifact[];
   loading: boolean;
@@ -212,7 +182,6 @@ function usePlace(location: string): Place {
       list.find((x) => x.parentId === null) ??
       null);
   const drive = folder ? topOf(list, folder) : null;
-  // Your drives and shared drives; folders shared with you sit in Shared with me.
   const drives = list.filter((x) => x.parentId === null && x.kind !== "folder");
 
   const documentsKey = ["otter-drive", "artifacts", sharedWithMe ? SHARED : folder?.id, f.archived];
@@ -259,7 +228,6 @@ function usePlace(location: string): Place {
           .filter((x) => matches(x.name))
           .sort((a, b) => byName(a.name, b.name) * (f.sort === "za" ? -1 : 1));
 
-  // From the drive (or the folder shared with you) down to the one open.
   const trail: DriveFolder[] = [];
   for (let c = folder, i = 0; c && i < 50; i++) {
     trail.unshift(c);
@@ -276,14 +244,9 @@ function usePlace(location: string): Place {
     subfolders,
     documents: shown,
     loading: folders.isPending || (documents.isPending && documents.fetchStatus !== "idle"),
-    // What was kept stays up when Drive can't be reached.
     error: (folders.data ? null : folders.error) ?? (documents.data ? null : documents.error),
   };
 }
-
-// ---------------------------------------------------------------------------
-// Uploads: picked or dropped files, each a new document in the open folder.
-// ---------------------------------------------------------------------------
 
 function readBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -336,10 +299,6 @@ function useUpload(folderId: string | undefined, go: WorkspaceProps["go"]) {
       }),
   };
 }
-
-// ---------------------------------------------------------------------------
-// The sidebar.
-// ---------------------------------------------------------------------------
 
 const chip = (on: boolean) =>
   cn(
@@ -564,7 +523,6 @@ function DocumentList({
   );
 }
 
-/** Right-click for its actions. */
 function WithMenu({ actions, children }: { actions: Action[]; children: ReactNode }) {
   return (
     <ContextMenu>
@@ -673,7 +631,6 @@ function DocumentRow({
   );
 }
 
-/** Fetches a document's preview while the pointer rests on it, so opening it is instant. */
 function useWarm({ id, folderId }: DriveArtifact) {
   const qc = useQueryClient();
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -688,7 +645,6 @@ function useWarm({ id, folderId }: DriveArtifact) {
   };
 }
 
-/** Its thumbnail straight from Drive, or through the backend where Drive won't serve this page. */
 function useThumbnail({ id, folderId, thumbnailUrl: url }: DriveArtifact) {
   const [direct, setDirect] = useState(true);
   const fetched = useQuery({
@@ -703,10 +659,6 @@ function useThumbnail({ id, folderId, thumbnailUrl: url }: DriveArtifact) {
     failed: () => setDirect(false),
   };
 }
-
-// ---------------------------------------------------------------------------
-// The main area.
-// ---------------------------------------------------------------------------
 
 export function DriveMain(props: WorkspaceMainProps) {
   const status = useDriveStatus();
@@ -809,7 +761,6 @@ function Overview({
         ? place.folder.name
         : driveLabel(place.folder)
       : "Drive";
-  // Another folder starts at the top (its own scroller).
   const where = place.sharedWithMe ? SHARED : place.folder?.id;
   const filtered = Boolean(f.query || f.kind || f.recent);
 
@@ -951,11 +902,9 @@ function DocumentCard({
   );
 }
 
-/** Where you are, from the drive down: each step goes there. */
 function Crumbs({ place, title, go }: { place: Place; title: string; go: WorkspaceProps["go"] }) {
   if (place.sharedWithMe || place.trail.length < 2)
     return <h1 className="truncate text-sm font-medium text-foreground">{title}</h1>;
-  // A long trail keeps its first step and its last two.
   const steps =
     place.trail.length > 3 ? [place.trail[0]!, null, ...place.trail.slice(-2)] : place.trail;
   return (
@@ -985,11 +934,9 @@ function Crumbs({ place, title, go }: { place: Place; title: string; go: Workspa
   );
 }
 
-/** The open folder's actions. */
 function FolderMenu({ folder, go }: { folder: DriveFolder; go: WorkspaceProps["go"] }) {
   const actions = useFolderActions(folder);
   if (!actions.some((a) => !("separator" in a))) return null;
-  // A new folder opens; a deleted one leaves for its parent.
   const shown = actions.map((a) =>
     a.id === "new" && "run" in a
       ? {

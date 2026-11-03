@@ -18,13 +18,6 @@ import {
   shouldHideCollapsedToastContent,
 } from "./toast-layout";
 
-/**
- * App toasts — Otter Code's toast system (Base UI toasts in a stacked glass
- * viewport, components/ui/toast.tsx there), without its thread scoping.
- * `toast.success("Archived", { action: { label: "Undo", onClick } })` and
- * friends add one; the returned id updates or closes it.
- */
-
 type ToastData = {
   onClose?: (() => void) | undefined;
   hideCopyButton?: boolean;

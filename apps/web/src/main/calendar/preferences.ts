@@ -1,7 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { setSyncedPreference } from "../synced-preferences";
 
-/** Settings → Calendar, kept with the Otter account so every device has them. */
 export type WeekStart = "auto" | "sunday" | "monday" | "saturday";
 export type TimeFormat = "auto" | "12" | "24";
 
@@ -10,11 +9,9 @@ export type CalendarPreferences = {
   showWeekends: boolean;
   showDeclined: boolean;
   timeFormat: TimeFormat;
-  /** The mailboxes whose new events get their calendar's online meeting (Notion's default conferencing). */
   meetingsByDefault: string[];
   /** Where new events go (a calendarKey), picked in the sidebar; empty, the first primary one. */
   defaultCalendar: string;
-  /** Colors picked in the sidebar, by calendarKey, over the provider's. */
   colors: Record<string, string>;
 };
 
@@ -104,7 +101,6 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-/** For the date helpers, outside React: what the calendar shows now. */
 export const calendarPreferences = (): CalendarPreferences => current;
 
 export function useCalendarPreferences(): CalendarPreferences {

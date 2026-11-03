@@ -1,10 +1,3 @@
-/**
- * The demo mailbox's Google Calendar: a made-up week of events around today
- * on each account's primary calendar, a few more calendars beside it
- * (birthdays, holidays, a project), kept in memory, answering the Calendar
- * API calls the provider makes.
- */
-
 type ApiTime = { date?: string; dateTime?: string; timeZone?: string };
 type ApiEvent = {
   id: string;
@@ -19,14 +12,11 @@ type ApiEvent = {
   hangoutLink?: string;
   conferenceData?: { entryPoints: { entryPointType: string; uri: string }[] };
   recurringEventId?: string;
-  /** A series of its own (RRULE), expanded into occurrences when listed. */
   recurrence?: string[];
 };
 
-/** Changes to single occurrences of a series, by occurrence id. */
 const overrides = new Map<string, Partial<ApiEvent>>();
 
-/** Events by account, then by calendar. */
 const calendars = new Map<string, Map<string, ApiEvent[]>>();
 
 type ListedCalendar = {
@@ -39,7 +29,6 @@ type ListedCalendar = {
   conferenceProperties?: { allowedConferenceSolutionTypes: string[] };
 };
 
-/** Each account's calendar list: its own primary, and a few others. */
 function calendarList(email: string): ListedCalendar[] {
   const primary = {
     id: email,
@@ -84,7 +73,6 @@ function calendarList(email: string): ListedCalendar[] {
   ];
 }
 
-/** A calendar other than the primary: a few events around today. */
 function seedOther(calendarId: string): Omit<ApiEvent, "id" | "status">[] {
   const day = (offset: number) => {
     const d = new Date();
@@ -185,7 +173,6 @@ function seed(email: string): ApiEvent[] {
     },
     {
       summary: "Quarterly sync with Acme",
-      // Acme is on Teams: the join link is only in the invitation's text.
       description:
         '<p>Microsoft Teams meeting</p><p><a href="https://teams.microsoft.com/l/meetup-join/19%3ameeting_acme%40thread.v2/0?context=%7b%7d&amp;anon=true">Join the meeting now</a></p><p>Meeting ID: 398 804 647 106</p>',
       start: { dateTime: at(1, 16) },
@@ -220,7 +207,6 @@ function seed(email: string): ApiEvent[] {
       end: { dateTime: at(week * 7 + 2, 15) },
       recurringEventId: "design",
       location: "Studio 3",
-      // A weekly invitation not yet answered: answering asks this one or all.
       organizer: { email: "leo@northwind.example", displayName: "Leo Park" },
       attendees: people(
         "needsAction",
@@ -229,7 +215,6 @@ function seed(email: string): ApiEvent[] {
       ),
     });
   }
-  // The first demo mailbox is someone's own; the others are work.
   const events = email.startsWith("demo@") ? personal : work;
   return events.map((e) => ({ ...e, id: `ev${nextId++}`, status: "confirmed" }));
 }
@@ -260,7 +245,6 @@ function fromBody(body: Record<string, unknown>, email: string): Partial<ApiEven
   if (body.start) patch.start = body.start as ApiTime;
   if (body.end) patch.end = body.end as ApiTime;
   if (Array.isArray(body.recurrence)) patch.recurrence = body.recurrence as string[];
-  // A Meet made on request, or taken off.
   if (body.conferenceData === null) {
     patch.conferenceData = undefined;
     patch.hangoutLink = undefined;
@@ -281,7 +265,6 @@ function fromBody(body: Record<string, unknown>, email: string): Partial<ApiEven
   return patch;
 }
 
-/** Someone's made-up busy week, the same every time for the same address. */
 export function busyWeek(
   email: string,
   from: number,
@@ -311,7 +294,6 @@ export function busyWeek(
 
 const RRULE_DAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
-/** A series' occurrences in [from, to): daily, weekly (by day), monthly (by date), yearly. */
 function occurrences(base: ApiEvent, from: number, to: number): ApiEvent[] {
   const rule = Object.fromEntries(
     (base.recurrence?.[0] ?? "")
@@ -355,7 +337,6 @@ function occurrences(base: ApiEvent, from: number, to: number): ApiEvent[] {
   return out;
 }
 
-/** The answer to a request under /calendar/v3/calendars/primary, or the free/busy query. */
 export function fakeCalendar(
   email: string,
   method: string,
@@ -407,7 +388,6 @@ export function fakeCalendar(
   const wanted = decodeURIComponent(id ?? "");
   const index = events.findIndex((e) => e.id === wanted);
   if (index < 0) {
-    // One occurrence of a series made here: changed on its own.
     const base = events.find((e) => e.recurrence && wanted.startsWith(`${e.id}_`));
     const date = wanted.slice(wanted.lastIndexOf("_") + 1);
     if (base) {
@@ -417,7 +397,6 @@ export function fakeCalendar(
       const found = occurrences(base, day, day + 86_400_000).find((e) => e.id === wanted);
       if (found) return json(found);
     }
-    // A seeded series (its occurrences only): changing it changes them all.
     const group = events.filter((e) => e.recurringEventId === wanted);
     if (group.length) {
       if (method === "PATCH") for (const e of group) Object.assign(e, fromBody(body, email));

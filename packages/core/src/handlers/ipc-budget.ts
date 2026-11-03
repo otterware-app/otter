@@ -1,8 +1,3 @@
-/**
- * IPC timing helpers. Handlers doing slow Gmail work answer inside a budget
- * and finish in the background, so the UI never sits on a stalled request.
- */
-
 import { broadcast } from "../ipc.js";
 
 /** A label write can take several seconds while the first full sync is
@@ -62,7 +57,6 @@ export function runAsTask(
   return Promise.resolve({ accepted: true });
 }
 
-/** Lets slow background work run on, but never holds a reply longer than `ms`. */
 export async function atMost(work: Promise<unknown>, ms: number): Promise<void> {
   await Promise.race([work.catch(() => {}), sleep(ms)]);
 }

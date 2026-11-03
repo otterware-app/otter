@@ -67,7 +67,6 @@ process.parentPort.on("message", (event) => {
   } else if (message.type === "resume") {
     for (const listener of resumeListeners) listener();
   } else if (message.type === "shutdown") {
-    // Codex app-servers are child processes; don't leave them behind.
     shutdownProviders();
     process.exit(0);
   }

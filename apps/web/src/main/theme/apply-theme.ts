@@ -145,7 +145,6 @@ export function appearance(): ThemeAppearance {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-/** A theme shown in this window without being chosen (the palette's preview). */
 let previewId: string | null = null;
 
 let draft: { colors: ThemeColors; appearance: ThemeAppearance } | null = null;

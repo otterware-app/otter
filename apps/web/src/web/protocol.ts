@@ -40,7 +40,6 @@ export type PageEffect =
 export type ToWorker =
   | { type: "invoke"; id: number; channel: string; params: unknown }
   | { type: "reply"; id: number; result?: unknown; error?: string }
-  /** The tab came back (visible again, or back online): reconnect and catch up. */
   | { type: "resume" };
 
 export type FromWorker =

@@ -33,7 +33,6 @@ export function useConnections() {
   });
 }
 
-/** Everything a mailbox's sign-in needs permission for. */
 export function needsOf(connections: ConnectionSummary[] | undefined, accountId: string) {
   return connections?.find((c) => c.id === accountId)?.resources.flatMap((r) => r.needs) ?? [];
 }

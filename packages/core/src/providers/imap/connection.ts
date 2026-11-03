@@ -25,7 +25,6 @@ import type { Lane } from "../provider.js";
 
 const IDLE_CLOSE_MS = 2 * 60_000;
 
-/** What a signed-in IMAP account needs to reach its servers. */
 export type ImapAccess = { settings: ImapSettings; password: string };
 
 let tierContext: AsyncContext<Lane> | null = null;
@@ -49,7 +48,6 @@ export class NeedsPassword extends Error {
   }
 }
 
-/** A failure that retrying can't fix: the password is missing or wrong. */
 export const isSignInFailure = (err: unknown): boolean =>
   err instanceof NeedsPassword || (err instanceof MailProtocolError && err.kind === "auth");
 

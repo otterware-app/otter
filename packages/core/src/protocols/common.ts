@@ -1,9 +1,3 @@
-/**
- * What the IMAP and SMTP clients share: how they reach a server, how they log
- * in, and how they fail. Plain TypeScript over a ByteStream, so both run in
- * the Mac app's backend process and in the web app's worker alike.
- */
-
 import type { MailServer } from "@otter-mail/contracts/mail";
 import { toBase64, utf8Encode } from "../bytes.js";
 import { platform, type ByteStream } from "../platform.js";
@@ -15,7 +9,6 @@ export type Connector = (host: string, port: number, opts: { tls: boolean }) => 
 export interface ServerOptions extends Omit<MailServer, "security"> {
   security: MailServer["security"] | "none";
   auth: MailAuth;
-  /** How long to wait for the server to say anything before giving up. */
   timeoutMs?: number;
   connect?: Connector;
 }

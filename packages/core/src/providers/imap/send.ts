@@ -149,7 +149,6 @@ export async function sendRaw(accountId: string, raw: string): Promise<void> {
   await fileSent(accountId, access, complete);
 }
 
-/** Every version of a draft in Drafts, oldest first, and the folder's UIDVALIDITY. */
 async function draftVersions(accountId: string, draftId: string) {
   return withImap(accountId, async (client) => {
     const drafts = (await foldersOf(accountId, client)).withRole("DRAFT");
@@ -191,7 +190,6 @@ export async function saveDraft(
       const mailbox = await selectFolder(client, drafts.path);
       const versions = await findByMessageId(client, draftId);
       const uid = appended?.uid ?? versions.at(-1);
-      // The versions before this one go.
       const older = versions.filter((v) => v !== uid);
       if (older.length > 0) {
         await client.store(older, { add: ["\\Deleted"] });

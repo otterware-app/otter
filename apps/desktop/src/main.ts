@@ -36,7 +36,6 @@ for (const stream of [process.stdout, process.stderr]) {
   stream.on("error", () => {});
 }
 
-// In development, go away with the dev runner rather than linger orphaned.
 if (process.env.VITE_DEV_SERVER_URL) {
   const parentPid = process.ppid;
   setInterval(() => {

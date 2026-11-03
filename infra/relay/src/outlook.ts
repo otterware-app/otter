@@ -40,7 +40,6 @@ export async function authorizeUrl(env: Env, userId: string, loginHint?: string)
   return url.toString();
 }
 
-/** The Otter user a sign-in state was issued to; throws if forged or stale. */
 export async function stateUser(env: Env, state: string): Promise<string> {
   const { payload } = await jwtVerify(state, await key(env, "state"), { algorithms: ["HS256"] });
   return payload.sub!;
@@ -73,7 +72,6 @@ async function tokenRequest(env: Env, params: Record<string, string>): Promise<M
 }
 
 export class MicrosoftTokenError extends Error {
-  /** The user (or their admin) took the sign-in back, or it needs consent again. */
   get revoked() {
     return this.message === "invalid_grant" || this.message === "interaction_required";
   }
@@ -100,10 +98,6 @@ export async function completeSignIn(
   return sealSignIn(env, userId, tokens);
 }
 
-/**
- * The demo (`pnpm dev:demo`, DEV_DEMO): its mailbox's saved sign-in with
- * the web client, sealed for this user as the popup's would be.
- */
 export async function demoSignIn(
   env: Env,
   userId: string,

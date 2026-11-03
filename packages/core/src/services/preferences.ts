@@ -27,8 +27,6 @@ import { getSettings, updateSettings, type AppSettings } from "./settings-store.
 import { listViews, writeViews } from "./views-store.js";
 import type { MailView } from "../types.js";
 
-// ── UI preferences (the renderer's, kept here so every device can have them) ─
-
 const UI_FILE = "ui-preferences.json";
 export type UiPreferences = Record<string, string>;
 
@@ -149,7 +147,6 @@ const SECTIONS = {
       if (changed) broadcast("gmail:accounts-changed");
     },
   },
-  // The addresses IMAP mailboxes send from besides their own, by address as signatures are.
   sendAs: {
     async read() {
       const sendAs = syncedSendAsAll();
@@ -215,7 +212,6 @@ const hermesKeyOwner = () =>
     .catch(() => null);
 const setHermesKeyOwner = (userId: string) => platform().secrets.set(HERMES_KEY_OWNER, userId);
 
-/** Takes the account's preferences, and seeds the ones it doesn't have from here. */
 export async function pullPreferences(): Promise<void> {
   if (!getOtterUser()) return;
   const remote = await relayRequest<PreferencesResponse>("GET", "/v1/preferences");

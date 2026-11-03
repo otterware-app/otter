@@ -47,10 +47,8 @@ export type Conversation = Chat & {
   loaded: boolean;
 };
 
-/** A turn in flight, bound to its conversation (several chats can run at once). */
 export type Run = { requestId: string; convoId: string; provider: ProviderKind };
 
-/** A composed message, before it becomes a turn (or a steer). */
 export type Outgoing = {
   id: string;
   convoId: string;
@@ -70,7 +68,6 @@ export type QueuedMessage = Outgoing;
 type Device = { id: string; name: string };
 
 type ChatsState = {
-  /** The account's chats, newest first, and a new one before its first message. */
   conversations: Conversation[];
   ready: boolean;
   device: Device | null;
@@ -78,7 +75,6 @@ type ChatsState = {
   docked: string[];
   activeTabs: Record<string, string>;
   watched: string | null;
-  /** Turns in flight, by chat: each streams into its own chat, so chats work in parallel. */
   runs: Record<string, Run>;
   unseen: ReadonlySet<string>;
   approvals: { requestId: string; approval: ApprovalRequest }[];
@@ -131,7 +127,6 @@ function newConversation(provider: ProviderKind = "openrouter"): Conversation {
   };
 }
 
-/** A new chat, before its first message: nowhere but here. */
 export const isBlank = (c: Conversation) => c.loaded && c.turns.length === 0;
 
 export const isElsewhere = (c: Conversation, device: Device | null) =>
@@ -393,7 +388,6 @@ function appendExchange(
   requestKey: string,
   intent?: ChatTurn["intent"],
 ): void {
-  // Writing to a snoozed or settled chat brings it back.
   patchConversation(convoId, (c) => ({
     ...c,
     updatedAt: Date.now(),
@@ -515,7 +509,6 @@ export function steerQueued(id: string): void {
   steer(msg, "promoted");
 }
 
-/** Drag / arrow-key reorder: move `id` before `beforeId` (null = to the end). */
 export function moveQueued(id: string, beforeId: string | null): void {
   set((s) => {
     const moving = s.queue.find((m) => m.id === id);
@@ -635,7 +628,6 @@ export function showChatTab(convoId: string, tabId: string): void {
   set((s) => ({ activeTabs: { ...s.activeTabs, [convoId]: tabId } }));
 }
 
-/** Closes a tab; the one before it shows (or after it, for the first). */
 export function closeChatTab(convoId: string, tabId: string): void {
   set((s) => {
     const convo = s.conversations.find((c) => c.id === convoId);
@@ -726,10 +718,6 @@ export function watchChat(id: string | null): void {
   });
 }
 
-/**
- * Snooze a chat until a time (`snoozedUntil`), settle it (`settledAt`), or
- * bring it back (both null). Saved like any change, so every device has it.
- */
 export async function shelveChat(
   id: string,
   change: Pick<Chat, "snoozedUntil" | "settledAt">,
@@ -977,10 +965,8 @@ function onChatEvent(raw: unknown): void {
     nextTurns[nextTurns.length - 1] = updated;
     const lastResponseId =
       event.type === "done" && event.responseId ? event.responseId : c.lastResponseId;
-    // A session deleted elsewhere: unbind so the next send starts a fresh one.
     const sessionId =
       event.type === "error" && event.message === "session_not_found" ? null : c.sessionId;
-    // A turn ending wakes a chat snoozed while it ran (T3 Code's raised hand).
     const snoozedUntil = event.type === "done" || event.type === "error" ? null : c.snoozedUntil;
     return {
       ...c,
@@ -1005,7 +991,6 @@ function onChatEvent(raw: unknown): void {
     }));
     endRun(event.requestId);
   }
-  // A steer the agent never got to: it goes first in line.
   if (event.type === "steerReturned") {
     set((st) => ({
       queue: [

@@ -15,7 +15,6 @@ export function resumeNow(): void {
   for (const listener of resumeListeners) listener();
 }
 
-/** Connections opened so far. */
 export const connectionCount = () => connections;
 
 export function useNodePlatform(): Platform {

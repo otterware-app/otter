@@ -117,7 +117,6 @@ async function apply(
   await run(accountId, moves);
 }
 
-/** The messages of a conversation, with what label changes need to know. */
 async function threadMessages(accountId: string, threadId: string): Promise<ApiMessage[]> {
   const filter = encodeURIComponent(`conversationId eq '${threadId.replace(/'/g, "''")}'`);
   return graphAll<ApiMessage>(

@@ -1,11 +1,3 @@
-/**
- * What a tool is, and what it's handed. The tools read and change the user's
- * mailboxes through the same handlers the app's windows call (so an agent's
- * archive mirrors into the cache, orders its writes and updates the lists
- * like a click would) and through each mailbox's provider, never Gmail or
- * IMAP themselves: every account kind gets the same tools.
- */
-
 import { registeredHandlers } from "../../../ipc.js";
 import { turnedOffMailboxes } from "../../mail-sync.js";
 import type { AgentAccess } from "@otter-mail/contracts/agent-tokens";
@@ -91,14 +83,12 @@ export function optInt(args: ToolArgs, key: string, max: number): number | undef
   return Math.min(Math.floor(value), max);
 }
 
-/** Calls one of the backend's handlers, as a window would. */
 export async function invoke<T>(channel: string, params: Record<string, unknown>): Promise<T> {
   const handler = registeredHandlers().get(channel);
   if (!handler) throw new Error(`No handler for ${channel}.`);
   return (await handler(params)) as T;
 }
 
-/** Every mailbox, with its capabilities (and `signedOut` when it can't be reached). */
 export function listMailboxes(): Promise<MailAccount[]> {
   return invoke<MailAccount[]>("gmail:listAccounts", {});
 }

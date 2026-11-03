@@ -8,8 +8,6 @@ export type LabelTreeNode = {
 };
 
 // Gmail nests user labels by "/" in the name (e.g. "99/personal" is a child of "99").
-// Build a tree from the flat list so callers can render it with proper disclosure/indent nesting.
-/** Id prefix of a label created optimistically, before Gmail assigned its id. */
 export const PENDING_LABEL_PREFIX = "pending:";
 
 export function isAssignableLabel(label: MailLabel): boolean {

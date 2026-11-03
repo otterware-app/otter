@@ -1,10 +1,3 @@
-/**
- * A document, open in Drive: its title (rename in place), when and by whom,
- * its versions, and what it is, as Otter Drive shows it: Markdown, text,
- * tables and workbooks drawn here; videos, images, pages, sites, PDFs and the
- * rest from Drive's content host.
- */
-
 import {
   Btn,
   Dialog,
@@ -61,7 +54,6 @@ export const previewQuery = (id: string, folderId: string | undefined, version: 
     refetchOnReconnect: false,
   }) as const;
 
-/** The document as a list in the cache has it. */
 function listed(qc: QueryClient, id: string): DriveArtifact | undefined {
   for (const [, list] of qc.getQueriesData<DriveArtifact[]>({
     queryKey: ["otter-drive", "artifacts"],
@@ -134,7 +126,6 @@ export function DocumentView({
   const artifact = useQuery({
     queryKey: ["otter-drive", "artifact", id],
     queryFn: () => driveApi.artifact(id, folderId),
-    // The list already has it: its title and actions show at once.
     placeholderData: () => listed(qc, id),
     retry: false,
   });
@@ -156,14 +147,11 @@ export function DocumentView({
     current: number | null;
     data: DrivePreview;
   } | null>(null);
-  // Another version drops it: coming back opens a fresh URL, never an expired one.
   if (open && (open.version !== version || open.current !== current)) setOpen(null);
   const kept = open?.version === version && open.current === current ? open.data : undefined;
   if (fresh && !kept) setOpen({ version, current, data: fresh });
   const shown = kept ?? fresh;
   const [renaming, setRenaming] = useState<string | null>(null);
-  // Editing: what it started from, and the change so far (null until something changes).
-  // And the version it started from, with how many there were: saving follows that one.
   const [editing, setEditing] = useState<{
     edit: Edit;
     source: { version: number; count: number };
@@ -171,10 +159,8 @@ export function DocumentView({
   const [draft, setDraft] = useState<Edit | null>(null);
   const [saving, setSaving] = useState(false);
   const [leaving, setLeaving] = useState<(() => void) | null>(null);
-  /** Leaves unless there are changes, which it asks about first. */
   const unlessUnsaved = (then: () => void) => (draft ? setLeaving(() => then) : then());
   const back = () => go({ location });
-  // Leaving with changes (another document, another workspace, closing the window) asks first.
   const discarded = useRef(false);
   const blocker = useBlocker({
     shouldBlockFn: () => draft !== null && !saving,
@@ -194,9 +180,7 @@ export function DocumentView({
   });
 
   const a = artifact.data;
-  // A viewer reads; renaming and archiving are an editor's.
   const canEdit = a !== undefined && a.role !== "viewer";
-  // The document names its tab and its place in history.
   const title = a?.title ?? null;
   useEffect(() => {
     setTitle(title);
@@ -208,7 +192,6 @@ export function DocumentView({
       qc.invalidateQueries({ queryKey: ["otter-drive", "artifacts"] }),
       qc.invalidateQueries({ queryKey: ["otter-drive", "versions", id] }),
     ]);
-  /** After a new current version: its preview, fetched again and shown. */
   const reload = async () => {
     await qc.resetQueries({ queryKey: ["otter-drive", "preview", id] });
     setOpen(null);
@@ -531,7 +514,6 @@ function Truncated() {
   );
 }
 
-/** A workbook's sheets, one at a time, with their tabs below as in a spreadsheet. */
 function Workbook({
   sheets,
   truncated,
@@ -580,7 +562,6 @@ function DelimitedTable({
   return <Table rows={rows} footer={footer} />;
 }
 
-/** A row's height: rows are one line, so only the ones in view are drawn. */
 const ROW = 32;
 
 function Table({ rows, footer }: { rows: string[][]; footer: ReactNode }) {
@@ -593,7 +574,6 @@ function Table({ rows, footer }: { rows: string[][]; footer: ReactNode }) {
     estimateSize: () => ROW,
     overscan: 20,
   });
-  // A sheet's rows end at their last cell: the widest sets the columns.
   const width = useMemo(() => rows.reduce((most, r) => Math.max(most, r.length), 0), [rows]);
   if (!first) return <p className="p-6 text-sm text-muted-foreground">This table is empty.</p>;
   const head = Array.from({ length: width }, (_, i) => first[i] ?? "");

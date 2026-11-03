@@ -362,7 +362,6 @@ function main(): void {
   );
 
   if (!options.skipBuild) {
-    // Same as the packages' `build` scripts, without needing pnpm on PATH.
     run(vpBin, ["build"], {
       cwd: webDir,
       env: { ...process.env, OTTER_MAIL_VERSION: options.version },

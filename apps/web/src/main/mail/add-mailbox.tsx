@@ -21,7 +21,6 @@ import { toast } from "./toast";
 import type { MailAccount } from "./types";
 import { cn } from "./ui";
 
-/** The reason from a rejected invoke, without the IPC bridge's wrapping. */
 export function readableError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
   return raw.replace(/^Error invoking remote method '[^']*':\s*/, "").replace(/^Error:\s*/, "");
@@ -50,7 +49,6 @@ export function AddMailboxMenu({
   onGmail: () => void;
   onAdded?: (account: MailAccount) => void;
   align?: "start" | "end";
-  /** Connections' other services (Todoist), listed under the mail ones. */
   services?: ReactNode;
   children: ReactNode;
 }) {
@@ -98,7 +96,6 @@ export function AddMailboxMenu({
   );
 }
 
-/** Providers that refuse the account password over IMAP, by server. */
 const APP_PASSWORDS: { host: RegExp; hint: string }[] = [
   {
     host: /(^|\.)me\.com$/,
@@ -137,7 +134,6 @@ function guessSettings(email: string): ImapSettings {
   };
 }
 
-/** iCloud's servers, for an address at a domain of its own whose servers can't be found. */
 function icloudSettings(email: string): ImapSettings {
   return {
     username: email,
@@ -149,7 +145,6 @@ function icloudSettings(email: string): ImapSettings {
 const ICLOUD_DOMAINS = /@(icloud|me|mac)\.com$/i;
 const APPLE_ACCOUNT_URL = "https://account.apple.com";
 
-/** Which IMAP mailbox the dialog adds: iCloud walks through its app-specific password. */
 export type ImapService = "icloud" | "other";
 
 const looksLikeEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -186,7 +181,6 @@ export function ImapAccountDialog({
     setError(null);
   };
 
-  /** Finds the address's servers once per address; keeps what the user typed otherwise. */
   const discover = async (address: string): Promise<ImapSettings> => {
     if (discovery?.email === address && settings) return settings;
     setDiscovery({ email: address, state: "looking" });
@@ -223,7 +217,6 @@ export function ImapAccountDialog({
     } catch (err) {
       const message = readableError(err);
       setError(message);
-      // Can't reach the server, or its certificate: the settings are what to check.
       if (/reach|connect|certificate|tls|timed out|host|port/i.test(message)) setShowServers(true);
       throw err;
     }
@@ -372,7 +365,6 @@ export function ImapAccountDialog({
   );
 }
 
-/** Host, port and security of one server, on one line. */
 function ServerFields({
   label,
   server,
@@ -381,7 +373,6 @@ function ServerFields({
 }: {
   label: string;
   server: MailServer;
-  /** The usual port for each security, switched along with it. */
   ports: Record<MailServer["security"], number>;
   onChange: (server: MailServer) => void;
 }) {

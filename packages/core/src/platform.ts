@@ -1,11 +1,3 @@
-/**
- * The seam between the mail backend (this package) and the shell running it:
- * an Electron utility process on the desktop (apps/desktop/src/platform.ts), a
- * Web Worker in the browser (apps/web/src/web/platform.ts). Everything in
- * core that isn't plain TypeScript goes through here; a shell calls
- * `initCore(platform)` once before using anything else.
- */
-
 import type { MailAccount } from "./types.js";
 import type { DemoGmailMailbox, DemoOutlookMailbox } from "@otter-mail/contracts/demo";
 import type { SupportError } from "@otter-mail/shared/support";
@@ -31,12 +23,7 @@ export interface GoogleAuth {
   /** Reads stored sign-ins; call once at startup so `isSignedIn` answers right away. */
   load(): Promise<void>;
   addAccount(loginHint?: string): Promise<MailAccount>;
-  /**
-   * Development's demo mailbox (`pnpm dev:demo`): signs it in with its saved
-   * Google sign-in for this shell's OAuth client, instead of the browser.
-   */
   addDemoAccount?(mailbox: DemoGmailMailbox): Promise<MailAccount>;
-  /** Stops waiting for a sign-in in progress; `addAccount` rejects with SignInCancelledError. */
   cancelSignIn(): void;
   isSignedIn(accountId: string): boolean;
   getAccessToken(accountId: string, opts?: { forceRefresh?: boolean }): Promise<string>;
@@ -58,12 +45,7 @@ export interface MicrosoftAuth {
   /** Reads stored sign-ins; call once at startup so `isSignedIn` answers right away. */
   load(): Promise<void>;
   addAccount(loginHint?: string): Promise<MicrosoftSignIn>;
-  /**
-   * Development's demo mailbox (`pnpm dev:demo`): signs it in with its saved
-   * Microsoft sign-in for this shell's OAuth client, instead of the browser.
-   */
   addDemoAccount?(mailbox: DemoOutlookMailbox): Promise<MicrosoftSignIn>;
-  /** Stops waiting for a sign-in in progress; `addAccount` rejects with SignInCancelledError. */
   cancelSignIn(): void;
   isSignedIn(accountId: string): boolean;
   getAccessToken(accountId: string, opts?: { forceRefresh?: boolean }): Promise<string>;
@@ -141,7 +123,6 @@ export interface Platform {
   };
 
   google: GoogleAuth;
-  /** Absent where Outlook can't be signed in to. */
   microsoft?: MicrosoftAuth;
   /** Opens browser consent and returns its callback URL; the backend builds the PKCE URL. */
   todoistSignIn?: (authorize: (redirectUri: string) => Promise<string>) => Promise<string>;

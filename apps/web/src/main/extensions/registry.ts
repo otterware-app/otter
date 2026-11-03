@@ -47,7 +47,6 @@ export function availableExtensions(): readonly UiExtension[] {
   return EXTENSIONS.filter((e) => runsOn(e.manifest, APP_PLATFORM) && (e.available?.() ?? true));
 }
 
-/** Whether Integrations has anything to list (every service may be a connection instead). */
 export function hasIntegrations(): boolean {
   return availableExtensions().some((e) => e.manifest.category === "integration");
 }
@@ -55,7 +54,6 @@ export function hasIntegrations(): boolean {
 const DISABLED_KEY = "otter:extensions:disabled";
 const CHANGE_EVENT = "otter:extensions-changed";
 
-/** Whether it's turned on (Settings), read outside React. */
 export function extensionEnabled(id: string): boolean {
   return !parseDisabled(readDisabled()).has(id);
 }

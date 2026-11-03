@@ -387,7 +387,6 @@ function connectError(error: unknown): string {
   return /token|unauthori[sz]ed/i.test(message) ? "unauthorized" : "unreachable";
 }
 
-/** How long a run may go quiet before asking the gateway whether it's still going. */
 const QUIET_MS = 60_000;
 const RECONNECT_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 20_000, 30_000];
 
@@ -547,7 +546,6 @@ function watchTranscript(turn: Turn): void {
     );
 }
 
-/** The run so far, for a panel that missed some of it: the transcript, then the live text. */
 function catchUp(turn: Turn, state: RunState): void {
   turn.resynced = true;
   turn.emit({ requestId: turn.requestId, type: "transcript", messages: state.messages });
@@ -700,7 +698,6 @@ async function follow(
     }
     if (event === "agent" && p.stream === "item") {
       const data = (p.data ?? {}) as Record<string, unknown>;
-      // What the agent says between its tool calls ("I'll check the catalog first…").
       if (data.kind === "preamble" && typeof data.progressText === "string")
         turn.text.preamble(
           typeof data.itemId === "string" ? data.itemId : undefined,
@@ -945,7 +942,6 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
     const turn = turns.get(requestId);
     if (!turn) return;
     void turn.gateway.client
-      // With steers, everything the chat has running.
       .request("chat.abort", {
         sessionKey: turn.sessionKey,
         ...(turn.steers.size > 0 ? {} : { runId: turn.runId }),

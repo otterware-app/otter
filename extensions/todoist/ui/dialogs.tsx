@@ -52,7 +52,6 @@ export function addEmailToTodoist(email: EmailTask): void {
   for (const listener of listeners) listener({ kind: "create", email });
 }
 
-/** Mounted once so menu actions work from both the list and reader. */
 export function TodoistDialogs() {
   const [request, setRequest] = useState<Request | null>(null);
   const qc = useQueryClient();

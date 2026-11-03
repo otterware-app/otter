@@ -1,16 +1,9 @@
-/**
- * Where a chat sits in the Agent sidebar, as Otter Code (T3 Code) sorts its
- * threads: the chats you're on (running ones too); Snoozed, out of the way
- * until a time; Settled, done with (by hand, or idle a week).
- */
-
 import type { Chat } from "@otter-mail/contracts/chats";
 
 export type ChatShelf = "active" | "snoozed" | "settled";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-/** A chat nothing has happened in for this long settles on its own. */
 export const SETTLE_AFTER_MS = 7 * DAY_MS;
 
 /**
@@ -48,7 +41,6 @@ function atHour(base: Date, days: number, hour: number): Date {
   return next;
 }
 
-/** T3 Code's choices: "This evening" only while it's a while off; Sunday's "Next week" is "Tomorrow". */
 export function snoozePresets(now: Date): SnoozePreset[] {
   const inHours = (hours: number) => new Date(now.getTime() + hours * HOUR_MS);
   const presets = [
@@ -74,7 +66,6 @@ export function snoozePresets(now: Date): SnoozePreset[] {
   }));
 }
 
-/** How long until a snoozed chat wakes: "45m", "3h", "7d", rounded up so it never reads 0. */
 export function wakesIn(until: number, now: number): string {
   const left = until - now;
   if (left <= 0) return "now";
@@ -83,7 +74,6 @@ export function wakesIn(until: number, now: number): string {
   return `${Math.ceil(left / DAY_MS)}d`;
 }
 
-/** How long a turn has run: "3s", "2m", "1h". */
 export function workingFor(since: number, now: number): string {
   const secs = Math.max(0, Math.floor((now - since) / 1000));
   if (secs < 60) return `${secs}s`;

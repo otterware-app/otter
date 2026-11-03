@@ -163,7 +163,6 @@ export function ChatComposer({
   useEffect(() => setEditingQueued(editingId), [editingId]);
   useEffect(() => () => setEditingQueued(null), []);
 
-  // Another chat: its own draft (kept per chat), without this one's skill or edit.
   const [shownChat, setShownChat] = useState(chatId);
   if (shownChat !== chatId) {
     setShownChat(chatId);
@@ -277,7 +276,6 @@ export function ChatComposer({
   const activeQueue = queue.filter((m) => m.convoId === chatId);
   const activeApprovals = run ? approvals.filter((a) => a.requestId === run.requestId) : [];
   const activeQuestions = run ? questions.filter((q) => q.requestId === run.requestId) : [];
-  // Steer needs a running turn in this chat that isn't waiting on an approval.
   const canSteer = run != null && activeApprovals.length === 0;
   useCommandHandlers({
     "agent.sendQueuedNow": () => {

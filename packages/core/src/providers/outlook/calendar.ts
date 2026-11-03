@@ -261,7 +261,6 @@ type ApiCalendar = {
   allowedOnlineMeetingProviders?: string[];
 };
 
-/** Every calendar the mailbox has: its own, and those shared with it. */
 export async function listCalendars(accountId: string): Promise<CalendarInfo[]> {
   const data = await calendarGraph<{ value?: ApiCalendar[] }>(
     accountId,
@@ -377,7 +376,6 @@ export async function respondToEvent(
   options: RespondOptions = {},
 ): Promise<CalendarEvent> {
   const before = await fetchEvent(accountId, eventId);
-  // All of a series: answered on its master, which every occurrence follows.
   const target = options.allEvents && before.seriesMasterId ? before.seriesMasterId : eventId;
   await answer(accountId, target, response, options.comment);
   try {
@@ -400,7 +398,6 @@ type ScheduleItem = {
 const utc = (time: ApiTime | undefined) =>
   time?.dateTime ? new Date(`${time.dateTime.replace(/Z$/, "")}Z`).toISOString() : "";
 
-/** Teammates' busy times: Graph's getSchedule; the subject where they share it. */
 export async function schedule(
   accountId: string,
   emails: string[],

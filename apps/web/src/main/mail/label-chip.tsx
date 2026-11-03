@@ -6,15 +6,12 @@ import type { MailLabel } from "./types";
 const PILL =
   "no-drag group relative inline-flex h-5 w-fit max-w-32 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-transparent px-2 text-2xs font-medium leading-none text-muted-foreground";
 
-/** The label's color, as a dot before its name. */
 function Dot({ color }: { color: string }) {
   return (
     <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: color }} />
   );
 }
 
-/** Hover-revealed remove control, after the name: the chip is see-through,
-    so an overlay couldn't cover the text. */
 function RemoveButton({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
     <button
@@ -77,11 +74,6 @@ export function InboxChip({ selected, onRemove }: { selected?: boolean; onRemove
   );
 }
 
-/**
- * Chip for a label (Linear's): an outline with the label's Gmail color as a
- * dot, or just the outline when it has none. Selection only firms up the
- * outline, since the selected row is a quiet surface rather than a filled block.
- */
 export function LabelChip({
   label,
   selected,

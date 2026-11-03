@@ -30,7 +30,6 @@ export function findTranslatorBinary(): string | undefined {
     .sort((a, b) => NodeFS.statSync(b).mtimeMs - NodeFS.statSync(a).mtimeMs)[0];
 }
 
-/** Why the translator cannot be built on this machine, or null when it can. */
 export function translatorToolchainProblem(): string | null {
   if (process.platform !== "darwin") {
     return "The translator uses Apple's Translation framework and only builds on macOS.";

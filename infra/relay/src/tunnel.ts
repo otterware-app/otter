@@ -57,10 +57,6 @@ export function refuse(code: number, reason: string): Response {
   return new Response(null, { status: 101, webSocket: client });
 }
 
-/**
- * Opens the TCP connection and answers the WebSocket upgrade that carries it.
- * It closes with `TUNNEL_CLOSE.limit` after `maxBytes` either way.
- */
 export function open(host: string, port: number, maxBytes: number): Response {
   const { 0: client, 1: ws } = new WebSocketPair();
   ws.binaryType = "arraybuffer";

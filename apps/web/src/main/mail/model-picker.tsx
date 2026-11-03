@@ -45,16 +45,11 @@ export function ComposerControlChevron() {
   );
 }
 
-/** Composer menus hand focus back to the composer, so typing just continues. */
 function closeFocus(event: Event, returnFocus?: () => void): void {
   if (!returnFocus) return restoreFocusForKeyboardOnly(event);
   event.preventDefault();
   returnFocus();
 }
-
-// ---------------------------------------------------------------------------
-// Search (tokenized; every token must hit name, slug, or provider)
-// ---------------------------------------------------------------------------
 
 type PickerItem = {
   key: string;
@@ -287,7 +282,6 @@ function ModelPickerContent({
         .filter((p) => isProviderUsable(p))
         .flatMap((p) =>
           p.models
-            // Hidden in Settings → Models, unless it's the model in use.
             .filter(
               (m) =>
                 !hiddenSet.has(modelKey(p.kind, m.slug)) ||
@@ -371,7 +365,6 @@ function ModelPickerContent({
   };
 
   const showRail = !query.trim() && railProviders.length > 0;
-  // Favorites and search results mix providers; a provider's own list doesn't.
   const mixed = rail === "favorites" || query.trim() !== "";
   return (
     <div

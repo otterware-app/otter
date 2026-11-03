@@ -81,7 +81,6 @@ function encodeStroke(s: KeyStroke): string {
   return parts.join("+");
 }
 
-/** Canonical key string, so equivalent spellings compare equal. */
 export function normalizeKey(value: string): string {
   const shortcut = parseShortcut(value);
   return shortcut ? shortcut.map(encodeStroke).join(" ") : value.trim().toLowerCase();

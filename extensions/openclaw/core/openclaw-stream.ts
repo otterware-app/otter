@@ -57,7 +57,6 @@ export class OpenClawText {
       this.preambleId = itemId;
     }
     this.stream.snapshot(text);
-    // What follows (the answer) starts a text item of its own.
     if (ended) this.stream.start();
   }
 

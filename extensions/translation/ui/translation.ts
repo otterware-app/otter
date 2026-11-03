@@ -120,7 +120,6 @@ export function useMessageLanguage(
       console.log("[translation:detect]", { messageId: detail!.id, ...detection });
       return detection.confidence >= MIN_CONFIDENCE ? detection.language : null;
     },
-    // Without the translator there's nothing to offer, so no need to know.
     enabled: Boolean(detail) && features.translation,
     staleTime: Infinity,
     retry: false,

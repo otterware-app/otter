@@ -1,4 +1,3 @@
-/** CSV / TSV rows, quotes and all. */
 export function parseDelimited(text: string, delimiter: string, maxRows = 1000): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];

@@ -1,10 +1,3 @@
-/**
- * Google's name and picture for a Gmail account change (a new photo, a new
- * name), so they're read again rather than kept from sign-in; so do
- * Microsoft's for an Outlook mailbox (its provider's readProfile). The relay
- * carries them to the other devices (linked-accounts.ts).
- */
-
 import { broadcast } from "../ipc.js";
 import { logger } from "../logger.js";
 import { platform } from "../platform.js";
@@ -31,7 +24,6 @@ async function refreshProfile(account: MailAccount): Promise<boolean> {
   const { name, picture } = readProfile
     ? await readProfile(account.id)
     : await googleProfile(account);
-  // Nothing from Google never clears what's stored.
   const newName = name && name !== account.name ? name : undefined;
   const newPicture = picture && picture !== account.picture ? picture : undefined;
   if (!newName && !newPicture) return false;

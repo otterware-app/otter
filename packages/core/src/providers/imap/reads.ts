@@ -1,8 +1,3 @@
-/**
- * Reading mail from the server: summaries, whole messages, attachments and
- * headers, each by message id (`<uidvalidity>:<uid>:<path>`).
- */
-
 import { parseMessage, type FetchQuery, type FetchedMessage } from "../../protocols/index.js";
 import type { MessageDetail, MessageSummary } from "../../types.js";
 import { FolderGone, inFolder } from "./connection.js";

@@ -125,7 +125,6 @@ function ensureTranslator(): void {
   }
 }
 
-/** The local relay needs its secrets and an up-to-date local D1 (idempotent). */
 function prepareRelay(wrangler: string): void {
   const relayDir = NodePath.join(repoRoot, "infra/relay");
   if (!NodeFS.existsSync(NodePath.join(relayDir, ".dev.vars"))) {
@@ -300,10 +299,8 @@ async function main(): Promise<void> {
         `APP_ORIGIN:${devServerUrl}`,
         "--var",
         "COOKIE_DOMAIN:",
-        // A local IMAP server for the web app (docs/development.md); never in production.
         "--var",
         "TUNNEL_ALLOW_PRIVATE:true",
-        // The demo's sign-ins, without Google (infra/relay/src/worker.ts).
         ...(demo ? ["--var", "DEV_DEMO:true"] : []),
       ],
       cwd: NodePath.join(repoRoot, "infra/relay"),

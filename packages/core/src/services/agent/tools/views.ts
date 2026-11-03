@@ -1,12 +1,3 @@
-/**
- * The user's views, for the agent: saved filters across the mailboxes, each
- * a space in the app's rail (its list alone). A view is, for each mailbox,
- * the labels its mail must have and must not have; the mailboxes' matches
- * are combined. Agents name mailboxes by address and labels by name; the
- * tools go through the same handlers as the app's view dialog, so a change
- * shows at once and follows the account to every device.
- */
-
 import { VIEW_COLORS, VIEW_ICON_KEYS } from "@otter-mail/shared/view-marks";
 import type { MailAccount, MailView, ViewRule } from "../../../types.js";
 import { labelId, labelsOf } from "./mail.js";

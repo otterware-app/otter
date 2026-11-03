@@ -109,7 +109,6 @@ let lastTooltipClosedAt = 0;
 type TooltipSide = "top" | "bottom" | "right";
 type TooltipPlacement = { top: number; left: number; side: TooltipSide };
 
-/** Hover/focus hint for a control. Wraps its child without adding layout. */
 export function HintTooltip({
   label,
   hint: fixedHint,
@@ -155,8 +154,6 @@ export function HintTooltip({
   const clearTimerForEffect = useLatest(clearTimer);
   useEffect(() => clearTimerForEffect.current, [clearTimerForEffect]);
 
-  // Place against the trigger once the bubble is measured: preferred side,
-  // flipped when it would leave the window, clamped horizontally.
   useLayoutEffect(() => {
     const popup = popupRef.current;
     if (!anchor || !popup) return;
@@ -276,7 +273,6 @@ export function Kbd({ children, className }: { children: ReactNode; className?: 
   );
 }
 
-/** Unread count: a tabular numeral in full text, so where new mail is shows at a glance. */
 export function UnreadPill({ count }: { count: number }) {
   if (count <= 0) return null;
   return (

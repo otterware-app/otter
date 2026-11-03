@@ -74,7 +74,6 @@ const SPECIAL_USES = [
   "\\Trash",
 ] as const;
 
-/** RFC 6154's folder roles. */
 export type SpecialUse = (typeof SPECIAL_USES)[number];
 
 export interface ImapFolder {
@@ -286,7 +285,6 @@ export class ImapClient {
     return this.capabilities;
   }
 
-  /** Turns on what the server has of `extensions` (CONDSTORE, QRESYNC, UTF8=ACCEPT). */
   async enable(extensions: string[]): Promise<Set<string>> {
     const wanted = extensions.filter((name) => this.has(name));
     if (wanted.length > 0 && this.has("ENABLE")) await this.command(["ENABLE", ...wanted]);
@@ -310,7 +308,6 @@ export class ImapClient {
     await this.command(["NOOP"]);
   }
 
-  /** Every folder, with its special use (RFC 6154) when the server tells. */
   async list(): Promise<ImapFolder[]> {
     const extended = this.has("SPECIAL-USE") && this.has("LIST-EXTENDED");
     const { untagged } = await this.command([
@@ -634,7 +631,6 @@ export class ImapClient {
     };
   }
 
-  /** Says goodbye and closes; never throws. */
   async logout(): Promise<void> {
     if (this.closed) return;
     try {
@@ -805,7 +801,6 @@ export class ImapClient {
     this.capabilityUpdates++;
   }
 
-  /** A string argument: quoted when it can be, a literal otherwise. */
   private astring(value: string): Part {
     const utf8 = this.enabled.has("UTF8=ACCEPT");
     const quotable = utf8 ? !/[\r\n\0]/.test(value) : /^[\x20-\x7e]*$/.test(value);

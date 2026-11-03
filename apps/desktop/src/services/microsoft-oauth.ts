@@ -44,7 +44,6 @@ function requireClientId(): string {
 type StoredTokens = {
   accessToken: string;
   refreshToken: string;
-  /** Epoch ms when the access token expires. */
   expiresAt: number;
 };
 
@@ -292,7 +291,6 @@ async function keepSignIn(tokens: StoredTokens): Promise<MicrosoftSignIn> {
   return signIn;
 }
 
-/** Refresh a little before Microsoft expires the token, never mid-request. */
 const REFRESH_AHEAD_MS = 2 * 60_000;
 
 type CachedToken = { accessToken: string; expiresAt: number };

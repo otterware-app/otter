@@ -49,8 +49,6 @@ export function textToHtml(value: string): string {
   return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
-// Gmail's sizes and a few of its colors, as <font> tags every mail client reads. Normal and
-// Default take the size or color off. The colors read on light and dark backgrounds.
 const TEXT_SIZES = [
   { label: "Small", size: "1", preview: "0.75rem" },
   { label: "Normal", size: null, preview: "0.875rem" },
@@ -150,7 +148,6 @@ export const RichTextArea = forwardRef<
      * (switching "From"), never touching what the user typed.
      */
     signatureHTML?: string;
-    /** Text sizes and colors in the toolbar (signatures). */
     textStyles?: boolean;
   }
 >(function RichTextArea(
@@ -222,7 +219,6 @@ export const RichTextArea = forwardRef<
       if (!el.textContent?.trim()) el.innerHTML = initialHTML ?? "";
       if (signatureHTML && !block) {
         el.insertAdjacentHTML("beforeend", signatureBlock(signatureHTML));
-        // Caret at the very start so typing lands above the signature.
         const range = document.createRange();
         range.setStart(el, 0);
         range.collapse(true);

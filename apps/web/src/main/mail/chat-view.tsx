@@ -1,10 +1,3 @@
-/**
- * One chat: its transcript with the composer pinned below, or, while its
- * provider can't run yet, what to set up. Files dropped on it go with the
- * next message; passages selected in a reply are cited in it. A Claude or
- * Codex chat from another computer reads here and continues there.
- */
-
 import { useCallback, useEffect, useState, type ReactNode, type RefObject } from "react";
 import { MessageScroller } from "@shadcn/react/message-scroller";
 import { ArrowDownIcon, MailIcon } from "lucide-react";
@@ -133,7 +126,6 @@ export function ChatView({
   };
 
   const openChatFile = onOpenFile ?? previewChatFile;
-  // An empty chat whose provider can't run yet shows setup instead of a composer.
   const needsSetup = Boolean(chat.state) && !chat.usable && turns.length === 0;
   const elsewhere = convo && isElsewhere(convo, device) ? convo.device : null;
   const setupSummary = providerSummary(chat.provider);

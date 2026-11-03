@@ -1,12 +1,3 @@
-/**
- * Stores the user's keybindings (a JSON array of `{ key, command, when? }`
- * rules), edited in Settings → Keybindings and synced with the Otter account.
- *
- * The backend is plain storage: it skips entries it can't read and writes
- * atomically. The renderer owns the command list, defaults, merge, and
- * grammar validation.
- */
-
 import { utf8Decode } from "../bytes.js";
 import { logger } from "../logger.js";
 import { platform } from "../platform.js";

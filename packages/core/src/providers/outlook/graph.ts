@@ -315,7 +315,6 @@ export async function graphBatch(
   return results;
 }
 
-/** A failed batch answer as the GraphError a single request would have thrown. */
 export function batchError(response: BatchResponse): GraphError {
   const error = (response.body as { error?: { code?: string; message?: string } } | null)?.error;
   return new GraphError(response.status, error?.code ?? "", error?.message ?? "");

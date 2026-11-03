@@ -142,7 +142,6 @@ describe("Google Calendar events", () => {
 
   it("repeats on the day it starts in its zone", async () => {
     replies.push({ body: event });
-    // 04:30 UTC on Tuesday is 23:30 Monday in New York.
     await createEvent(
       ME,
       {

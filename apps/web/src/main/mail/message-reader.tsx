@@ -159,7 +159,6 @@ export type DownloadAttachment = (
   mimeType: string,
 ) => void;
 
-/** An element's width, kept current: `[width, ref]`. */
 function useWidth(initial: number): [number, (el: HTMLElement | null) => void] {
   const [width, setWidth] = useState(initial);
   const observer = useRef<ResizeObserver | null>(null);
@@ -627,7 +626,6 @@ function HtmlBody({
         if (img.dataset.otterProxied) return;
         const src = img.getAttribute("src") ?? "";
         if (!/^https?:/i.test(src)) return;
-        // Don't bother proxying 1×1 tracking beacons.
         if (img.getAttribute("width") === "1" && img.getAttribute("height") === "1") return;
         img.dataset.otterProxied = "1";
         void mailApi
@@ -639,8 +637,6 @@ function HtmlBody({
           })
           .catch(() => {});
       };
-      // Inline images point at the message's own attachments (`cid:`), which
-      // the frame can't resolve — load the bytes and swap in a data URL.
       doc.querySelectorAll("img").forEach((el) => {
         const img = el as HTMLImageElement;
         const src = img.getAttribute("src") ?? "";
@@ -664,7 +660,6 @@ function HtmlBody({
       doc.querySelectorAll("img").forEach((el) => {
         const img = el as HTMLImageElement;
         if (img.complete) {
-          // Already settled: a broken load (naturalWidth 0) is our cue to proxy.
           if (img.naturalWidth === 0 && (img.getAttribute("src") ?? "").length > 0)
             proxyBrokenImage(img);
           return;
@@ -1473,8 +1468,6 @@ export function ExpandedRow({
         {/* The body takes the row's full width, not indented under the avatar. */}
         <div className="mt-4 select-text">
           {detailQuery.isLoading ? (
-            // The snippet stands in while the body loads: about the size of a
-            // short message, so the thread doesn't jump when it arrives.
             <p className="animate-skeleton text-sm leading-6 text-muted-foreground">
               {summary.snippet}
             </p>
@@ -1588,7 +1581,6 @@ const INLINE_MODE_LABEL: Record<InlineMode, string> = {
   forward: "Forward",
 };
 
-/** "Name <email>" for the sender, so replies show who they're going to. */
 function senderAddress(m: MessageSummary): string {
   return formatAddressEntry(m.fromName, m.fromEmail);
 }
@@ -1602,7 +1594,6 @@ function computeReply(
   return { to: fromSelf ? last.to : senderAddress(last), cc: undefined };
 }
 
-/** "Re: x" / "Fwd: x" without stacking prefixes (any case; FW/Fwd alike). */
 function prefixSubject(prefix: "Re" | "Fwd", subject: string): string {
   const already = prefix === "Re" ? /^re:/i : /^(fwd?|fw):/i;
   return already.test(subject.trim()) ? subject : `${prefix}: ${subject}`;
@@ -1659,10 +1650,6 @@ function ModeSwitcher({
   );
 }
 
-/**
- * The in-thread composer: reply, reply-all, or forward the latest message
- * without leaving the conversation, autosaving to a thread draft as you type.
- */
 function InlineComposer({
   accountId,
   mode,
@@ -1688,7 +1675,6 @@ function InlineComposer({
   const [bccVisible, setBccVisible] = useState(false);
   const recipientsDirty = useRef(false);
   const [formatting, setFormatting] = useState(false);
-  // Forward needs recipients typed in; replies show a one-line summary.
   const [fieldsOpen, setFieldsOpen] = useState(mode === "forward");
   const [attachments, setAttachments] = useState<ComposeAttachment[] | null>(
     mode === "forward" ? null : [],
@@ -1697,14 +1683,11 @@ function InlineComposer({
   const toRef = useRef<HTMLInputElement>(null);
   const sendMessage = useSendMessage();
   const accountsQuery = useAccounts();
-  // The latest message's detail carries its Cc line and body text (summaries
-  // don't); usually already cached since the last message renders expanded.
   const lastDetailQuery = useMessage(accountId, lastMessage.id);
   const lastDetail = lastDetailQuery.data;
 
   const account = accountsQuery.data?.find((a) => a.id === accountId);
   const ownAddresses = useMemo(() => (account ? addressesOf(account) : []), [account]);
-  // Which of the mailbox's addresses it goes from: the one the mail was sent to, unless picked.
   const [pickedAddress, setPickedAddress] = useState<string>();
   // With other addresses, the default needs the detail: the summary lacks Cc, where the address
   // contacted may be. If the detail can't load, the summary's To is the best guess.
@@ -1728,7 +1711,6 @@ function InlineComposer({
     // oxlint-disable-next-line react/set-state-in-effect -- Freezes the sender once it's resolved.
     setPickedAddress(defaultAddress);
   }, [pickedAddress, defaultAddress]);
-  // A sender the mailbox no longer has opens the fields, where its notice is.
   const showFields = fieldsOpen || !!sender?.unavailable;
 
   const previousMode = useRef(mode);
@@ -1741,8 +1723,6 @@ function InlineComposer({
     previousMode.current = mode;
   }, [mode]);
 
-  // Prefill recipients per mode; refine once the detail arrives, unless the
-  // user already edited the fields.
   useEffect(() => {
     if (recipientsDirty.current) return;
     const source = lastDetail ?? lastMessage;
@@ -1860,8 +1840,6 @@ function InlineComposer({
   const forwardReady = attachments != null && (mode !== "forward" || lastDetail != null);
   const canSend =
     !sendMessage.isPending &&
-    // Not before the sender is known (the mailbox's addresses, the message's Cc), nor from an
-    // address the mailbox no longer sends from.
     !!fromAddress &&
     !sender?.unavailable &&
     hasRecipient &&
@@ -2098,8 +2076,6 @@ export function MessageReader({
   titleTrailing,
   titleLeading,
 }: MessageReaderProps) {
-  // Reply/reply-all/forward handlers exist only when a message is open; the
-  // render below refreshes this ref so the once-mounted listener stays current.
   const readerActions = useRef<{
     reply?: () => void;
     replyAll?: () => void;
@@ -2123,9 +2099,6 @@ export function MessageReader({
   useLayoutEffect(() => {
     if (titleMeasureRef.current) setTitleWidth(titleMeasureRef.current.offsetWidth);
   });
-  // The subject sits in the band beside the actions when it fits there on one
-  // line; otherwise it takes its own row below, where it can wrap. The band
-  // keeps its height either way.
   const titleInBand = readerWidth - 3.75 * 16 - leadingWidth - actionsWidth >= titleWidth;
   const summaryFits = readerWidth >= 48 * 16 + 16 * 16 + 2 * 16;
   const [summaryPinned, setSummaryPinned] = useState(
@@ -2144,8 +2117,6 @@ export function MessageReader({
     "message.replyAll": readerAction("replyAll"),
     "message.forward": readerAction("forward"),
   });
-  // Cleared every render; the message-open path below re-populates it, so the
-  // shortcuts are inert when no message is on screen.
   const renderedActions: typeof readerActions.current = {};
   useLayoutEffect(() => {
     readerActions.current = renderedActions;
@@ -2156,8 +2127,6 @@ export function MessageReader({
   const modifyMessage = useModifyMessage();
   const trashMessage = useTrashMessage();
   const modifyThread = useModifyThread();
-  // No inbox categories (IMAP): no category chips. One folder per message: a
-  // folder chip can't just come off.
   const capabilities = useCapabilities(accountId);
   const { categories, multipleLabels, foldersAndCategories } = capabilities;
   const trashThread = useTrashThread();
@@ -2278,7 +2247,6 @@ export function MessageReader({
     );
   }
 
-  // Drafts resume in the composer pane instead of rendering read-only.
   if (message.labelIds.includes("DRAFT")) {
     return (
       <DraftEditor
@@ -2295,7 +2263,6 @@ export function MessageReader({
   }
 
   const rows: MessageSummary[] = !single && threadMessages.length > 0 ? threadMessages : [message];
-  // Reply/forward target the last real message — never your own saved draft.
   const sentRows = rows.filter((m) => !m.labelIds.includes("DRAFT"));
   const lastRow = sentRows[sentRows.length - 1] ?? rows[rows.length - 1];
   const conversationLabelIds = [...new Set(rows.flatMap((m) => m.labelIds))];
@@ -2882,11 +2849,7 @@ export function MessageReader({
           {/* Conversation */}
           <ScrollArea
             className="flex-1"
-            viewportClassName={cn(
-              "pb-6",
-              // Room for the pinned summary, so the column centers beside it.
-              summaryShown && "pr-[18rem]",
-            )}
+            viewportClassName={cn("pb-6", summaryShown && "pr-[18rem]")}
             onMouseUp={onParentMouseUp}
           >
             <div className="mx-auto w-full max-w-(--reading-width)">

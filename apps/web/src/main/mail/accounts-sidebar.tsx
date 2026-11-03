@@ -336,7 +336,6 @@ export function MailboxFolders({
   depth = 0,
 }: {
   mailboxId: string;
-  /** The folder or label showing, while this mailbox is the one showing; "" otherwise. */
   selectedLabelId: string;
   onSelectLabel: (labelId: string) => void;
   searchRows?: (parent: string, depth: number) => ReactNode;
@@ -372,7 +371,6 @@ export function MailboxFolders({
   // listed without one — and, like Gmail, without an unread badge. Where the
   // Archive is a folder of its own (Outlook, IMAP), archived mail is there and
   // All Mail isn't a place; an IMAP server's Archive may be made on first use.
-  // Important is Gmail's sorting, where the mailbox has it.
   const shown = (id: string) =>
     (id !== "IMPORTANT" || capabilities.categories) &&
     id !== (capabilities.archiveFolder ? ALL_MAIL_LABEL_ID : ARCHIVE_LABEL_ID);
@@ -497,8 +495,6 @@ export function MailboxFolders({
         removeLabelIds: removeId ? [removeId] : undefined,
       });
     }
-    // The action toast ("Moved 3 conversations to “X”", with Undo) comes from
-    // the undo registry.
   };
 
   const labelActions: LabelActions = {
@@ -569,7 +565,6 @@ export function MailboxFolders({
 
         {labelSections.map((section) =>
           section.labels.length === 0 ? (
-            // None yet: a row to make the first, rather than an empty heading.
             section.create ? (
               <SkRow
                 key={section.title}

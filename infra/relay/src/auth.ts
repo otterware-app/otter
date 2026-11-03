@@ -1,12 +1,3 @@
-/**
- * Otter account sign-in, with better-auth (served under /v1/auth).
- *
- * The desktop and iPhone apps sign in to Google themselves and hand the relay the ID token
- * (`POST /v1/auth/sign-in/social`, `{ provider: "google", idToken }`); the
- * bearer plugin answers with a session token the app keeps. One session per
- * device, so Settings can list and sign out devices.
- */
-
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";

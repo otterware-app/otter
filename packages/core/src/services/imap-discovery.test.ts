@@ -228,7 +228,6 @@ describe("discoverImap", () => {
     });
     expect(probed).toEqual(["w020d192.kasserver.com"]);
 
-    // A mail server that doesn't answer IMAP is no answer.
     stubFetch({
       "https://cloudflare-dns.com/dns-query?name=spam.dev": JSON.stringify({
         Answer: [{ type: 15, data: "10 mx.filter.example." }],

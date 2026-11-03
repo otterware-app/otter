@@ -40,7 +40,6 @@ export async function authorizeUrl(env: Env, userId: string, loginHint?: string)
   return url.toString();
 }
 
-/** The Otter user a sign-in state was issued to; throws if forged or stale. */
 export async function stateUser(env: Env, state: string): Promise<string> {
   const { payload } = await jwtVerify(state, await key(env, "state"), { algorithms: ["HS256"] });
   return payload.sub!;
@@ -101,10 +100,6 @@ export async function completeSignIn(
   return sealSignIn(env, userId, tokens.refresh_token, tokens);
 }
 
-/**
- * The demo (`pnpm dev:demo`, DEV_DEMO): its mailbox's saved sign-in with
- * the web client, sealed for this user as the popup's would be.
- */
 export async function demoSignIn(
   env: Env,
   userId: string,

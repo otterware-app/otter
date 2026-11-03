@@ -241,7 +241,6 @@ const demoOnly: MiddlewareHandler<App> = async (c, next) => {
   await next();
 };
 
-/** Signs the browser in to the Otter account for `email` (made if new), as Google would. */
 app.post(
   "/v1/dev/session",
   demoOnly,

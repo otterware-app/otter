@@ -17,14 +17,9 @@ export interface ImapSettings {
   smtp: MailServer;
 }
 
-/**
- * What a mailbox can do beyond reading, organizing and sending mail. The UI
- * hides what a mailbox's provider can't do (never checks the provider itself).
- */
 export interface MailCapabilities {
   categories: boolean;
   multipleLabels: boolean;
-  /** Exclusive folders alongside colored category tags (Outlook). */
   foldersAndCategories?: boolean;
   /**
    * Archive is a folder of its own (Outlook, IMAP): archived mail carries
@@ -150,6 +145,5 @@ export type MailSchedule = {
   subject: string;
   threadId: string | null;
   error: string | null;
-  /** A send the mail server holds and sends itself (Outlook): it doesn't wait on this device. */
   onServer: boolean;
 };

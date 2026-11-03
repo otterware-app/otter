@@ -50,7 +50,6 @@ const TILDE = 126;
 const PLUS = 43;
 
 export const MAX_LINE = 1024 * 1024;
-/** The largest literal: bigger than any message a mail server would take. */
 export const MAX_LITERAL = 100 * 1024 * 1024;
 
 export class ResponseReader {

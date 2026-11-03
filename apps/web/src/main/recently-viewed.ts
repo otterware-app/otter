@@ -38,12 +38,10 @@ export type RecentIcon =
   | "compose"
   | "chat"
   | "calendar"
-  /** An extension's workspace, by id (its mark). */
   | `workspace:${string}`;
 
 export type RecentPlace = Readonly<{
   href: string;
-  /** Where it is (its mailbox, the sender, "Settings"), quieter, before the icon. */
   context: string;
   title: string;
   icon: RecentIcon;
@@ -118,7 +116,6 @@ export function useRecordRecentlyViewed({
 }: {
   ready: boolean;
   href: string;
-  /** Where in a workspace it is, as the workspace names it (a document's title). */
   workspaceTitle: string | null;
   settingsPane: SettingsPane | null;
   composing: boolean;

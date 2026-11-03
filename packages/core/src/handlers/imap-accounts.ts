@@ -1,10 +1,3 @@
-/**
- * Adding IMAP mailboxes (`gmail:*` channels, like the rest): finding the
- * servers for an address, checking the password against both servers, and
- * signing a mailbox back in on this device (one linked on another device
- * arrives without its password).
- */
-
 import { IMAP_CAPABILITIES, type ImapSettings, type MailServer } from "@otter-mail/contracts/mail";
 
 import { broadcast, handle } from "../ipc.js";

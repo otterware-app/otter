@@ -410,7 +410,6 @@ export function SettingsPage({
 function SettingsPane({ route }: { route: SettingsRoute }) {
   if (route.pane === "appearance") return <AppearancePane />;
   if (route.pane === "keybindings") return <KeybindingsPane />;
-  // Integrations has nothing while every service is a connection: its old links open Connections.
   if (route.pane === "integrations" && !hasIntegrations())
     return <AccountsPane item={route.item} />;
   if (route.pane === "integrations")

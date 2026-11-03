@@ -31,7 +31,6 @@ export function saveToOtterDrive(email: MessageTarget): void {
   for (const listener of listeners) listener(email);
 }
 
-/** Mounted once so the message action works from the list and the reader. */
 export function OtterDriveDialogs() {
   const [email, setEmail] = useState<MessageTarget | null>(null);
   const openWorkspace = useOpenWorkspace();
@@ -48,7 +47,6 @@ export function OtterDriveDialogs() {
     );
     return () => setDriveOpener(null);
   }, [openWorkspace, qc]);
-  // ⌘K's Drive results go when the sign-in or the drives that are on change.
   const status = useDriveStatus().data;
   const reach = status ? `${status.connected}:${status.hidden.join(",")}` : null;
   useEffect(() => {
@@ -106,7 +104,6 @@ function SaveToDrive({ email, onClose }: { email: MessageTarget; onClose: () => 
   const shownTitle = title ?? (pickedName || "Email");
   const [pending, setPending] = useState(false);
   const connected = status.data?.connected === true;
-  // Drives you can add to: on here, and not just a viewer's.
   const drives = (useFolders(connected).data ?? []).filter(
     (f) => f.parentId === null && f.kind !== "folder" && f.role !== "viewer",
   );

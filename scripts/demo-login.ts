@@ -223,11 +223,6 @@ function save(file: string, mailboxes: DemoMailbox[]): void {
   );
 }
 
-/**
- * Signs in the Gmail and Outlook mailboxes with the app's client (the Mac
- * app's or the web app's), saving the sign-ins to `file`; returns the list
- * with them. The clients are asked for only when there's a mailbox for them.
- */
 export async function login(
   file: string,
   mailboxes: DemoMailbox[],

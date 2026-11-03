@@ -1,14 +1,6 @@
 import { toast } from "./toast";
 import { forgetUndo, registerUndo, type UndoAction } from "./undo";
 
-/**
- * Undo send (Gmail's): a sent message waits a few seconds before it really
- * goes, with "Sending… Undo" on screen (z / ⌘Z work too). Composers close
- * right away, and their last autosave keeps the draft in Drafts — so taking
- * the send back reopens that draft, and a send that fails leaves it there.
- */
-
-/** How long a message is held before it's handed to Gmail. */
 export const UNDO_SEND_MS = 10_000;
 
 export type SavedDraft = { accountId: string; messageId: string };

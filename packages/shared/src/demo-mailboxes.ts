@@ -1180,7 +1180,6 @@ const work: SeedAccount = {
 
 export const DEMO_ACCOUNTS: SeedAccount[] = [personal, work];
 
-// ── Outlook ──────────────────────────────────────────────────────────────────
 // A mailbox for the web demo's pretend Microsoft Graph (apps/web/src/web/demo/outlook.ts):
 // folders rather than labels, categories, flags and importance. Not in the
 // iPhone app's bundle (that's DEMO_ACCOUNTS).
@@ -1197,7 +1196,6 @@ export type OutlookSeedFolder =
 
 export type OutlookSeedMessage = {
   folder: OutlookSeedFolder;
-  /** Messages with the same key are one conversation, each replying to the one before. */
   conversation: string;
   subject: string;
   from?: Person;
@@ -1224,7 +1222,6 @@ export type OutlookSeedEvent = {
   description: string;
   organizer: Person;
   attendees: Person[];
-  /** Your answer so far (Graph's words); the organizer's own events are "organizer". */
   response: "notResponded" | "accepted" | "tentativelyAccepted" | "organizer";
 };
 

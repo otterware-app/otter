@@ -6,10 +6,7 @@ import type { ComposeAttachment, MessageDetail } from "./types";
 
 export type DraftSaveState = "idle" | "saving" | "saved" | "error";
 
-export type DraftRemoteState =
-  | { kind: "conflict"; detail: MessageDetail }
-  /** Sent or deleted elsewhere. */
-  | { kind: "gone" };
+export type DraftRemoteState = { kind: "conflict"; detail: MessageDetail } | { kind: "gone" };
 
 const REMOTE_CHECK_MS = 10_000;
 const REMOTE_NOTICE_MS = 4_000;

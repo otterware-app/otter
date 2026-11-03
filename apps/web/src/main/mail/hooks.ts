@@ -35,10 +35,6 @@ import { summarizeLabelChange } from "./action-summary";
 
 const STALE_TIME = 30_000;
 
-/** Gmail write mutations fail silently otherwise — a revoked/expired Google
- *  grant surfaces as an OAuth 401 with no other symptom (the row/badge just
- *  never updates), so calling that out specifically saves a confusing "why
- *  didn't this save" round trip. */
 function describeWriteError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
   const message = raw.replace(/^Error invoking remote method '[^']*':\s*/, "");
@@ -556,11 +552,6 @@ export function useMessage(accountId: string | null, messageId: string | null) {
   });
 }
 
-// ---- Optimistic update helpers ----
-//
-// Mutations below patch the cache in `onMutate` so the UI reacts instantly
-// (star/read/archive/trash felt laggy waiting on the Gmail round trip),
-// then reconcile with the server-confirmed state in `onSuccess`/`onError`.
 // The label-count delta math mirrors the backend's local-cache recompute in
 // `mail-store.ts`'s `applyLabelChange`/`deleteMessage`, so sidebar/header
 // unread badges move in lockstep with the message list instead of only
@@ -716,7 +707,6 @@ export function useAddAccount(provider: "gmail" | "outlook" = "gmail") {
   });
 }
 
-/** Which kinds of mailbox this app can add besides Gmail and IMAP (Outlook needs an OAuth client). */
 export function useMailProviders() {
   return useQuery({
     queryKey: ["gmail:mailProviders"],
@@ -1377,7 +1367,6 @@ export function useSendMessage() {
       void qc.invalidateQueries({
         queryKey: ["gmail:messages", params.accountId],
       });
-      // Replies land inside existing threads/views, so refresh those caches too.
       void qc.invalidateQueries({ queryKey: ["gmail:thread", params.accountId] });
       void qc.invalidateQueries({ queryKey: ["gmail:combinedMessages"] });
       void qc.invalidateQueries({ queryKey: ["gmail:combinedCounts"] });
@@ -1402,12 +1391,6 @@ export function syncStatusPollMs(status: SyncStatus | undefined): number {
   return status?.download ? 4000 : 10_000;
 }
 
-/**
- * Drives background sync for the active account: starts a sync when the
- * account changes, polls progress while syncing, and invalidates the message
- * and label queries as the local store fills in so views refresh live.
- * Returns the current sync status for display.
- */
 export function useAccountSync(accountId: string | null): SyncStatus | null {
   const qc = useQueryClient();
 
@@ -1723,8 +1706,6 @@ export function useDeleteThreadsForever() {
   });
 }
 
-/** Empty Junk / Empty Trash for some accounts — permanent, so it clears the
-    undo slot, and the toast reports what went. */
 export function useEmptyFolder() {
   const qc = useQueryClient();
   return useMutation({

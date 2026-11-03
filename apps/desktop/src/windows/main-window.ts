@@ -21,13 +21,11 @@ export function getMainWindow(): BrowserWindow | null {
   return windows.find((win) => !win.isDestroyed()) ?? null;
 }
 
-/** Whether the focused window is one of the app's (not Settings' or an extension's popup). */
 export function focusedAppWindow(): BrowserWindow | null {
   const focused = BrowserWindow.getFocusedWindow();
   return focused && windows.includes(focused) ? focused : null;
 }
 
-/** Links clicked in mail or chat open in the browser, never in a new app window. */
 export function openLinksExternally(win: BrowserWindow): void {
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^(https?|mailto):/i.test(url)) void shell.openExternal(url);
@@ -119,12 +117,9 @@ export async function createMainWindow(): Promise<BrowserWindow> {
   return creating;
 }
 
-/** The window a tab is being dragged out into, following the pointer until it's let go. */
-/** A window tab on the move between windows: where it goes, and what it's called. */
 export type CarriedTab = { href: string; title: string; icon: string };
 type Point = { x: number; y: number };
 
-/** The window tabs' bar, across the top of each app window (the renderer's --workspace-topbar-height). */
 const TAB_BAR_HEIGHT = 42;
 
 /**
@@ -140,11 +135,9 @@ type Carried = {
   tab: CarriedTab;
   grab: Point;
   target: BrowserWindow | null;
-  /** When `from` last said its pointer moved. */
   moved: number;
   /** Following on its own, should `from` fall quiet (busy rendering). */
   timer: ReturnType<typeof setInterval>;
-  /** Stops listening to `from`. */
   unwatch: () => void;
 };
 let carried: Carried | null = null;
@@ -173,7 +166,6 @@ function carry(win: BrowserWindow, from: WebContents, tab: CarriedTab, grab: Poi
   carried = { win, from, tab, grab, target: null, moved: Date.now(), timer, unwatch };
 }
 
-/** A tab pulled off `from`'s strip, in a window of its own the size of the one it left. */
 export function openTabWindow(from: WebContents, tab: CarriedTab, grab: Point): void {
   const at = screen.getCursorScreenPoint();
   const [width, height] = BrowserWindow.fromWebContents(from)?.getSize() ?? [1180, 780];
@@ -189,10 +181,8 @@ export function openTabWindow(from: WebContents, tab: CarriedTab, grab: Point): 
   carry(win, from, tab, grab);
 }
 
-/** `from`'s only tab is being dragged: the window goes with it. */
 export function carryWindow(from: WebContents, tab: CarriedTab, grab: Point): void {
   const win = BrowserWindow.fromWebContents(from);
-  // A full-screen window stays put (it's a space of its own).
   if (!win || !windows.includes(win) || win.isFullScreen()) return;
   if (win.isMaximized()) win.unmaximize();
   carry(win, from, tab, grab);
@@ -246,14 +236,12 @@ function follow(current: Carried): void {
   if (x !== left || y !== top) current.win.setPosition(x, y);
 }
 
-/** The pointer of `from`'s drag moved: the window it carries follows. */
 export function carryTabWindow(from: WebContents): void {
   if (carried?.from !== from) return;
   carried.moved = Date.now();
   follow(carried);
 }
 
-/** Ends `from`'s carry: no more following, no tab shown landing anywhere, the window shown. */
 function letGo(from: WebContents): Carried | null {
   const current = carried;
   if (!current || current.from !== from) return null;
@@ -266,11 +254,6 @@ function letGo(from: WebContents): Carried | null {
   return current;
 }
 
-/**
- * `from`'s drag let go: over another window's tab bar (where the cursor is
- * now), the tab joins that window and the one carrying it closes; elsewhere
- * that window stays there.
- */
 export function dropTabWindow(from: WebContents): void {
   if (carried?.from === from) follow(carried);
   const target = carried?.from === from ? carried.target : null;
@@ -289,7 +272,6 @@ export function dropTabWindow(from: WebContents): void {
   current.win.focus();
 }
 
-/** Closes the window `from`'s drag was carrying: its tab went back. */
 export function returnTabWindow(from: WebContents): void {
   const current = letGo(from);
   if (current && current.win.webContents !== from) current.win.destroy();

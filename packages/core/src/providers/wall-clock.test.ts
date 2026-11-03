@@ -4,7 +4,6 @@ import { wallClock } from "./wall-clock.ts";
 
 describe("wallClock", () => {
   it("reads the day in the event's zone, not the computer's", () => {
-    // Monday 23:30 in New York is already Tuesday in UTC.
     const nyc = wallClock("2026-11-03T04:30:00.000Z", "America/New_York");
     expect(nyc).toMatchObject({ date: "2026-11-02", dateTime: "2026-11-02T23:30:00", weekday: 1 });
     expect(wallClock("2026-11-03T04:30:00.000Z", "UTC")).toMatchObject({

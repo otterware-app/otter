@@ -1,14 +1,3 @@
-/**
- * The changelog: short notes on Mac and web releases, `changelog/<version>.md`
- * at the repository root (images beside it in `changelog/images/`), on
- * otterware.app/mail/changelog (the website copies them hourly) and on the
- * version's GitHub Release
- * (scripts/changelog-release-notes.ts); the app only links there. A note is marketing, written
- * when the user asks for one, before or after its release: the website shows
- * the versions up to the one main last released. How to write one: the
- * write-changelog skill (.agents/skills).
- */
-
 export type ChangelogEntry = {
   version: string;
   title: string;

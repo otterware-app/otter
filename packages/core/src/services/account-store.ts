@@ -39,7 +39,6 @@ export function keepsSignatureOnDevice(account: MailAccount): boolean {
   return (account.provider ?? "gmail") !== "gmail";
 }
 
-/** Whether the addresses it sends from besides its own are entered here and synced (IMAP's). */
 export function keepsSendAsOnDevice(account: MailAccount): boolean {
   return account.provider === "imap";
 }
@@ -117,7 +116,6 @@ export async function updateAccount(
     const current = accounts[index];
     const updated: MailAccount = {
       ...current,
-      // The name is required: never blanked.
       name: patch.name || current.name,
       picture: patch.picture !== undefined ? patch.picture || undefined : current.picture,
       displayName:

@@ -1,9 +1,3 @@
-/**
- * Preload: the only bridge between renderer windows and the main process.
- * Exposes `window.desktopBridge` (see @otter-mail/contracts). Renderer code
- * never sees ipcRenderer itself.
- */
-
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 // Keep Sentry's IPC confined to this preload's window.
 import "@sentry/electron/preload";

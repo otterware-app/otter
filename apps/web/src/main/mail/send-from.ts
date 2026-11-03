@@ -1,12 +1,10 @@
 import { parseAddressEntry, splitAddressList } from "./address";
 import type { MailAccount } from "./types";
 
-/** Every address a mailbox sends from: its own first, then its others (`sendAs`). */
 export function addressesOf(account: MailAccount): string[] {
   return [account.email, ...(account.sendAs ?? [])];
 }
 
-/** `address` as the mailbox spells it, when it's one of the mailbox's; else undefined. */
 export function ownAddress(account: MailAccount, address: string | undefined): string | undefined {
   const wanted = address?.trim().toLowerCase();
   return wanted ? addressesOf(account).find((a) => a.toLowerCase() === wanted) : undefined;
