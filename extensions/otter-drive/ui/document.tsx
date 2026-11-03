@@ -138,11 +138,17 @@ export function DocumentView({
   // An expired URL isn't opened; one already open stays up, though it ages past
   // its freshness (swapping it would reload the video or page, or blank it).
   const fresh = preview.data && "url" in preview.data && preview.isStale ? undefined : preview.data;
-  const [open, setOpen] = useState<{ version: number | null; data: DrivePreview } | null>(null);
+  // Kept for the version shown, and the current one it was (a new version replaces it).
+  const current = artifact.data?.current?.number ?? null;
+  const [open, setOpen] = useState<{
+    version: number | null;
+    current: number | null;
+    data: DrivePreview;
+  } | null>(null);
   // Another version drops it: coming back opens a fresh URL, never an expired one.
-  if (open && open.version !== version) setOpen(null);
-  const kept = open?.version === version ? open.data : undefined;
-  if (fresh && !kept) setOpen({ version, data: fresh });
+  if (open && (open.version !== version || open.current !== current)) setOpen(null);
+  const kept = open?.version === version && open.current === current ? open.data : undefined;
+  if (fresh && !kept) setOpen({ version, current, data: fresh });
   const shown = kept ?? fresh;
   const [renaming, setRenaming] = useState<string | null>(null);
   const back = () => go({ location });

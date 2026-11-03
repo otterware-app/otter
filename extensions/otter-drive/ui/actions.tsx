@@ -165,6 +165,7 @@ export function useDocumentActions(
   },
 ): Action[] {
   const run = useRun();
+  const qc = useQueryClient();
   const list = useFolderList();
   const { folderId, version, onGone } = options;
   const canEdit = a.role !== "viewer" && a.role !== null;
@@ -209,7 +210,9 @@ export function useDocumentActions(
             run: () =>
               void run(async () => {
                 const done = await driveApi.uploadVersion(a.id, folderId);
-                if (done) toast.success(`Uploaded version ${done.current?.number ?? ""}`);
+                if (!done) return;
+                await qc.resetQueries({ queryKey: ["otter-drive", "preview", a.id] });
+                toast.success(`Uploaded version ${done.current?.number ?? ""}`);
               }),
           },
         ]
@@ -481,8 +484,19 @@ function MoveFolderDialog({
     }
     return false;
   };
+  // Drive moves a folder only within its own drive.
+  const top = (f: DriveFolder) => {
+    let c = f;
+    for (let i = 0; c.parentId && i < 50; i++) {
+      const up = list.find((x) => x.id === c.parentId);
+      if (!up) break;
+      c = up;
+    }
+    return c.id;
+  };
+  const drive = top(folder);
   const options = list
-    .filter((f) => f.role === "owner" && f.id !== folder.parentId && !inside(f))
+    .filter((f) => f.role === "owner" && f.id !== folder.parentId && !inside(f) && top(f) === drive)
     .map((f) => ({ id: f.id, path: folderPath(list, f) }))
     .sort((x, y) => x.path.localeCompare(y.path));
   const [to, setTo] = useState<string | undefined>(undefined);

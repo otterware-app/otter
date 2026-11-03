@@ -38,6 +38,14 @@ export function OtterDriveDialogs() {
     setDriveOpener((location, item) => openWorkspace("drive", { location, item }));
     return () => setDriveOpener(null);
   }, [openWorkspace]);
+  // ⌘K's Drive results go when the sign-in or the drives that are on change.
+  const qc = useQueryClient();
+  const status = useDriveStatus().data;
+  const reach = status ? `${status.connected}:${status.hidden.join(",")}` : null;
+  useEffect(() => {
+    qc.removeQueries({ queryKey: ["palette-search", "otter-drive"] });
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- runs when what Drive can reach changes.
+  }, [qc, reach]);
   useEffect(() => {
     listeners.add(setEmail);
     return () => void listeners.delete(setEmail);

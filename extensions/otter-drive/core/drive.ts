@@ -653,8 +653,8 @@ async function publishFile(
 }
 
 /**
- * Uploads one file as a document's next version: `expected` is the version it
- * follows, so a version someone else added meanwhile isn't overwritten.
+ * Uploads one file as a document's next version: `expected` is how many
+ * versions it has, so a version someone else added meanwhile isn't overwritten.
  */
 async function uploadVersion(
   auth: Session,
@@ -786,7 +786,8 @@ export async function uploadNewVersion(
       bytes: f.bytes,
     },
     `Uploaded ${safeName(f.name)}`.slice(0, 300),
-    raw.currentVersion?.number ?? 0,
+    // Drive counts versions here, not the current one's number (an earlier one may be current).
+    raw.versionCount,
   );
 }
 
@@ -841,21 +842,21 @@ export async function move(
 ): Promise<DriveArtifact> {
   const { auth, folder } = await documentAccess(id, folderId);
   await reachable(destination);
-  forget(id);
   const result = await request<{ data: RawArtifact }>(
     `/api/v1/artifacts/${ref(id)}/move`,
     { method: "POST", body: JSON.stringify({ folderId: destination }) },
     auth,
     folder,
   );
+  forget(id);
   return artifact(result.data);
 }
 
 /** Deletes an archived document for good, every version. */
 export async function deletePermanently(id: string, folderId: string | undefined): Promise<void> {
   const { auth, folder } = await documentAccess(id, folderId);
-  forget(id);
   await request(`/api/v1/artifacts/${ref(id)}/permanent`, { method: "DELETE" }, auth, folder);
+  forget(id);
 }
 
 /** A folder in a drive that's on: a new one inside it. */
