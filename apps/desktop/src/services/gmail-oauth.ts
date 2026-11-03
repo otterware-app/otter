@@ -11,6 +11,7 @@ import {
   logger,
   SIGNED_OUT_MESSAGE,
   SignInCancelledError,
+  SignInTimedOutError,
   type MailAccount,
   type GoogleAuth,
 } from "@otter-mail/core";
@@ -197,7 +198,8 @@ async function authorizeInBrowser(opts: {
   let cancel = () => {};
   const waitForCode = new Promise<string>((resolve, reject) => {
     const timer = setTimeout(
-      () => reject(new Error("Google sign-in timed out. Try adding the account again.")),
+      () =>
+        reject(new SignInTimedOutError("Google sign-in timed out. Try adding the account again.")),
       AUTHORIZE_TIMEOUT_MS,
     );
     cancel = () => {
@@ -277,7 +279,7 @@ async function addAccount(loginHint?: string): Promise<MailAccount> {
       }),
     );
   } catch (err) {
-    if (err instanceof SignInCancelledError) throw err;
+    if (err instanceof SignInCancelledError || err instanceof SignInTimedOutError) throw err;
     throw new Error(`Google OAuth authorization failed: ${String(err)}`, { cause: err });
   }
   return saveAccount(tokens);

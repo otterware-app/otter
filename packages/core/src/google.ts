@@ -5,3 +5,6 @@ export class SignInCancelledError extends Error {
     super("Sign-in was cancelled.");
   }
 }
+
+/** The browser step was never finished: the user's to retry, not a failure to report. */
+export class SignInTimedOutError extends Error {}

@@ -82,7 +82,7 @@ export async function startCore(
 export { broadcast, callHandler, handle, registeredHandlers, type Handler } from "./ipc.js";
 export type { CoreExtension, ExtensionContext } from "./extensions.js";
 export { fromBase64, toBase64 } from "./bytes.js";
-export { SIGNED_OUT_MESSAGE, SignInCancelledError } from "./google.js";
+export { SIGNED_OUT_MESSAGE, SignInCancelledError, SignInTimedOutError } from "./google.js";
 export { GRAPH_ME_URL, OUTLOOK_SIGNED_OUT_MESSAGE, signInFromMe } from "./microsoft.js";
 export { readJson, writeJson } from "./json-file.js";
 export { logger } from "./logger.js";

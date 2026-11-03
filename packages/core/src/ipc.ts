@@ -1,4 +1,4 @@
-import { SignInCancelledError } from "./google.js";
+import { SignInCancelledError, SignInTimedOutError } from "./google.js";
 import { logger } from "./logger.js";
 import { platform } from "./platform.js";
 
@@ -32,7 +32,8 @@ export async function callHandler(
     return { result: await handler(params) };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (!(err instanceof SignInCancelledError))
+    if (err instanceof SignInTimedOutError) logger.info("handlers", `${channel}: ${message}`);
+    else if (!(err instanceof SignInCancelledError))
       logger.failure("handlers", `${channel} failed`, err);
     return { error: message };
   }

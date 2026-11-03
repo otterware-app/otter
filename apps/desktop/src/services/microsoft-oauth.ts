@@ -11,6 +11,7 @@ import {
   logger,
   OUTLOOK_SIGNED_OUT_MESSAGE,
   SignInCancelledError,
+  SignInTimedOutError,
   signInFromMe,
   type MicrosoftAuth,
   type MicrosoftSignIn,
@@ -178,7 +179,10 @@ async function authorizeInBrowser(loginHint?: string): Promise<{
   let cancel = () => {};
   const waitForCode = new Promise<string>((resolve, reject) => {
     const timer = setTimeout(
-      () => reject(new Error("Microsoft sign-in timed out. Try adding the mailbox again.")),
+      () =>
+        reject(
+          new SignInTimedOutError("Microsoft sign-in timed out. Try adding the mailbox again."),
+        ),
       AUTHORIZE_TIMEOUT_MS,
     );
     cancel = () => {
@@ -257,7 +261,7 @@ async function addAccount(loginHint?: string): Promise<MicrosoftSignIn> {
       }),
     );
   } catch (err) {
-    if (err instanceof SignInCancelledError) throw err;
+    if (err instanceof SignInCancelledError || err instanceof SignInTimedOutError) throw err;
     throw new Error(`Microsoft sign-in failed: ${String(err)}`, { cause: err });
   }
   return keepSignIn(tokens);
