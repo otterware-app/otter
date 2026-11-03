@@ -65,19 +65,22 @@ export function DrivePage({ drive, back }: { drive: DriveFolder; back: () => voi
   const refresh = useRefresh();
   const owner = drive.role === "owner";
   const shared = drive.kind === "shared";
-  const [name, setName] = useState(drive.name);
+  // What's typed, until it's saved: the drive's own name otherwise, as it changes.
+  const [draft, setDraft] = useState<string | null>(null);
+  const name = draft ?? drive.name;
   const [dialog, setDialog] = useState<"transfer" | "delete" | null>(null);
   const rename = async () => {
-    const clean = name.trim();
-    if (!clean || clean === drive.name) return setName(drive.name);
+    const clean = draft?.trim();
+    if (!clean || clean === drive.name) return setDraft(null);
     try {
       await driveApi.renameDrive(drive.id, clean);
       await refresh();
       toast.success("Renamed");
     } catch (error) {
-      setName(drive.name);
       toast.error(errorText(error));
     }
+    // The saved name shows from here, or the old one when it failed.
+    setDraft(null);
   };
 
   return (
@@ -119,7 +122,7 @@ export function DrivePage({ drive, back }: { drive: DriveFolder; back: () => voi
                 className="w-56"
                 value={name}
                 maxLength={80}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => setDraft(e.target.value)}
                 onBlur={() => void rename()}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") e.currentTarget.blur();

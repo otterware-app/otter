@@ -918,7 +918,12 @@ async function sharingCall(
   init: RequestInit = {},
 ): Promise<unknown> {
   if (target.type === "folder") {
-    const auth = await reachable(target.id);
+    // A shared drive's members are managed from Settings, on or off here; its
+    // folders, like its documents, only when it's on.
+    const auth = await signedIn();
+    const list = await allFolders(auth);
+    const drive = list.find((f) => f.id === target.id && f.kind === "shared" && !f.parentId);
+    if (!drive) await reachable(target.id);
     return request(`/api/v1/folders/${ref(target.id)}/sharing${rest}`, init, auth);
   }
   const { auth, folder } = await documentAccess(target.id, target.folderId);
