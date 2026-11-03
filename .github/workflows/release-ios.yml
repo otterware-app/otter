@@ -134,6 +134,8 @@ jobs:
       - name: Build and upload
         env:
           VERSION: ${{ needs.preflight.outputs.version }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
         run: node scripts/release-ios.ts --version "$VERSION"
 
       - name: Remove signing

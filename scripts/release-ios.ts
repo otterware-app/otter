@@ -101,6 +101,29 @@ run("xcodebuild", [
   ...auth,
 ]);
 
+// The dSYMs, so Sentry shows our Swift in iPhone stacks. The build is already up: a failure
+// here only warns.
+const { SENTRY_AUTH_TOKEN: sentryToken, SENTRY_ORG: sentryOrg } = process.env;
+if (sentryToken && sentryOrg) {
+  try {
+    run("npx", [
+      "--yes",
+      "@sentry/cli@3.8.0",
+      "debug-files",
+      "upload",
+      "--org",
+      sentryOrg,
+      "--project",
+      "otter-mail-ios",
+      NodePath.join(archive, "dSYMs"),
+    ]);
+  } catch {
+    console.warn("[release-ios] Couldn't upload the dSYMs to Sentry.");
+  }
+} else {
+  console.log("[release-ios] No SENTRY_AUTH_TOKEN and SENTRY_ORG, not uploading dSYMs.");
+}
+
 NodeFS.rmSync(work, { recursive: true, force: true });
 console.log(
   `[release-ios] Uploaded ${version} (${build}). It shows up in TestFlight once Apple has processed it.`,

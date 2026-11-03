@@ -99,6 +99,7 @@ nonisolated enum ErrorReports {
         if let error = error as? URLError {
             return [.notConnectedToInternet, .timedOut, .networkConnectionLost, .dataNotAllowed, .internationalRoamingOff].contains(error.code)
         }
+        if let error = error as? GmailAPI.Failure { return error.rateLimited }
         return status(error) == 429
     }
 

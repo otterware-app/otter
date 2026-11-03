@@ -26,6 +26,8 @@ export function startErrorReports(): void {
       environment: reportEnvironment(__APP_VERSION__, import.meta.env.PROD),
       allowed: desktop ? undefined : gate.allowed,
     }),
+    // Electron's `<webview>` when its element goes after its page did (browser/store.ts): harmless.
+    ignoreErrors: [/Invalid guestInstanceId/],
     // What was clicked and the console can hold mail.
     integrations: (defaults: Integration[]) => [
       ...defaults.filter(({ name }) => name !== "Console" && name !== "Breadcrumbs"),

@@ -110,6 +110,8 @@ export function scrubEvent<E extends Event>(event: E): E {
     scrubbed.request = scrubbed.request.url ? { url: scrubbed.request.url } : {};
   }
   scrubbed.user = scrubbed.user?.id ? { id: scrubbed.user.id } : undefined;
+  // Sentry otherwise places the sender by its IP address (a city) before it drops it.
+  if (scrubbed.sdk) scrubbed.sdk = { ...scrubbed.sdk, settings: { infer_ip: "never" } };
   delete scrubbed.server_name;
   return scrubbed;
 }
@@ -130,6 +132,12 @@ function scrubDeep(value: unknown, depth: number): unknown {
 export function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
   const category = breadcrumb.category ?? "";
   if (category === "console" || category.startsWith("ui.")) return null;
+  // Electron's own breadcrumbs name every page a window shows, the browser's tabs too:
+  // keep our window's routes, never what was browsed.
+  const url = breadcrumb.data?.url;
+  if (category === "electron" && typeof url === "string" && !url.startsWith("ottermail:")) {
+    breadcrumb = { ...breadcrumb, data: { ...breadcrumb.data, url: "[page]" } };
+  }
   return scrubDeep(breadcrumb, 2) as Breadcrumb;
 }
 

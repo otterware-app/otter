@@ -77,6 +77,14 @@ describe("scrubEvent", () => {
       breadcrumbs: [{ category: "fetch", data: { url: "https://x.test/a" } }],
     });
   });
+
+  it("asks Sentry not to place the sender by IP", () => {
+    const event = scrubEvent({ type: undefined, sdk: { name: "sentry.javascript.electron" } });
+    expect(event.sdk).toEqual({
+      name: "sentry.javascript.electron",
+      settings: { infer_ip: "never" },
+    });
+  });
 });
 
 describe("scrubBreadcrumb", () => {
@@ -86,6 +94,23 @@ describe("scrubBreadcrumb", () => {
     expect(scrubBreadcrumb({ category: "mail-sync", message: "jane@acme.co synced" })).toEqual({
       category: "mail-sync",
       message: "[email] synced",
+    });
+  });
+
+  it("keeps our window's routes but not the pages browsed", () => {
+    const page = (url: string) =>
+      scrubBreadcrumb({
+        category: "electron",
+        message: "renderer.dom-ready",
+        data: { id: 3, url },
+      });
+    expect(page("https://drive.otterware.app/jane/a/report")?.data).toEqual({
+      id: 3,
+      url: "[page]",
+    });
+    expect(page("ottermail://app/index.html#/settings/general")?.data).toEqual({
+      id: 3,
+      url: "ottermail://app/index.html#/settings/general",
     });
   });
 });

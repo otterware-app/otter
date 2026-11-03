@@ -1,6 +1,7 @@
 import { todoistSignIn } from "./services/todoist-oauth.js";
 
 import { AsyncLocalStorage } from "node:async_hooks";
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -21,12 +22,26 @@ const home = () => appInfo().stateDir;
 /** Writes through a temp file, so a crash never leaves half a file. */
 async function writeFileAtomic(file: string, data: Uint8Array | string): Promise<void> {
   await fs.mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
+  // Its own temp file each time: two writes at once mustn't rename each other's.
+  const tmp = `${file}.${process.pid}.${randomUUID()}.tmp`;
   await fs.writeFile(tmp, data, { mode: 0o600 });
   await fs.rename(tmp, file);
 }
 
 const SECRETS_FILE = "secrets.json";
+
+/** One change to secrets.json at a time, so two can't each write over the other's. */
+let secretsQueue: Promise<unknown> = Promise.resolve();
+function changeSecrets(change: (secrets: Record<string, string>) => Promise<boolean>) {
+  const next = secretsQueue.then(async () => {
+    const secrets = await readSecrets();
+    if (await change(secrets)) {
+      await writeFileAtomic(path.join(home(), SECRETS_FILE), JSON.stringify(secrets, null, 2));
+    }
+  });
+  secretsQueue = next.catch(() => {});
+  return next;
+}
 
 async function readSecrets(): Promise<Record<string, string>> {
   try {
@@ -86,16 +101,18 @@ export function desktopPlatform(): Platform {
         return sealed ? requestMain("unseal", { sealed }) : null;
       },
       async set(name, value) {
-        const secrets = await readSecrets();
-        secrets[name] = await requestMain("seal", { text: value });
-        await writeFileAtomic(path.join(home(), SECRETS_FILE), JSON.stringify(secrets, null, 2));
+        const sealed = await requestMain("seal", { text: value });
+        await changeSecrets(async (secrets) => {
+          secrets[name] = sealed;
+          return true;
+        });
       },
-      async delete(name) {
-        const secrets = await readSecrets();
-        if (!(name in secrets)) return;
-        delete secrets[name];
-        await writeFileAtomic(path.join(home(), SECRETS_FILE), JSON.stringify(secrets, null, 2));
-      },
+      delete: (name) =>
+        changeSecrets(async (secrets) => {
+          if (!(name in secrets)) return false;
+          delete secrets[name];
+          return true;
+        }),
     },
     userFiles: {
       open: (name, bytes) => requestMain("openFile", { name, bytes }),

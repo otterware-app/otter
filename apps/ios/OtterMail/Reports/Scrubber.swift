@@ -53,6 +53,8 @@ nonisolated enum Scrubber {
         event.logger = event.logger.map(scrub)
         event.serverName = nil
         event.user = event.user?.userId.map { User(userId: $0) }
+        // Sentry otherwise places the sender by its IP address (a city) before it drops it.
+        event.sdk = (event.sdk ?? [:]).merging(["settings": ["infer_ip": "never"]]) { _, new in new }
         if let url = event.request?.url {
             let request = SentryRequest()
             request.url = scrub(url)

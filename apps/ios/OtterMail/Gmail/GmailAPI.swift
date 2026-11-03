@@ -10,6 +10,12 @@ nonisolated struct GmailAPI {
         var errorDescription: String? { message }
         /** The sign-in wasn't granted what the call needs (Gmail settings, for sign-ins from before it was asked for). */
         var insufficientScope: Bool { status == 403 && message.localizedCaseInsensitiveContains("insufficient") }
+        var rateLimited: Bool { Self.rateLimited(status: status, message: message) }
+
+        /** Gmail says 429, or 403 with "Rate limit exceeded" or "Quota exceeded … per minute per user". */
+        static func rateLimited(status: Int, message: String?) -> Bool {
+            status == 429 || (status == 403 && ["rate", "quota"].contains { message?.localizedCaseInsensitiveContains($0) == true })
+        }
     }
 
     struct HistoryExpired: Error {}
@@ -228,9 +234,12 @@ nonisolated struct GmailAPI {
             if (200..<300).contains(status) { return data }
             let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
                 .flatMap { ($0["error"] as? [String: Any])?["message"] as? String }
-            let rateLimited = status == 429 || (status == 403 && message?.localizedCaseInsensitiveContains("rate") == true)
+            let rateLimited = Failure.rateLimited(status: status, message: message)
             if attempt < 2, status == 401 || rateLimited || status >= 500 {
-                if status != 401 { try await Task.sleep(for: .seconds(attempt + 1)) }
+                // Gmail's quota is per minute: give it a few seconds, or what it asks for.
+                let retryAfter = ((response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Retry-After")).flatMap(Int.init)
+                let wait = rateLimited ? min(retryAfter ?? 5 * (attempt + 1), 30) : attempt + 1
+                if status != 401 { try await Task.sleep(for: .seconds(wait)) }
                 continue
             }
             throw Failure(status: status, message: message ?? "Gmail answered \(status).")
