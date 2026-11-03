@@ -362,8 +362,15 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
       const before = readDelta(accountId)[folder.id] ?? { label: folder.labelId };
       let unlisted = before.unlisted;
       if (unlisted) {
-        const listed = new Set((page.value ?? []).map((m) => m.id));
-        unlisted = unlisted.filter((id) => !listed.has(id));
+        const listed = new Set(summaries.map((m) => m.id));
+        const removed = (page.value ?? []).filter((m) => m["@removed"]).map((m) => m.id);
+        const unknownRemoved = new Set(store.filterUnknownIds(accountId, removed));
+        unlisted = [
+          ...new Set([
+            ...unlisted.filter((id) => !listed.has(id)),
+            ...removed.filter((id) => !unknownRemoved.has(id)),
+          ]),
+        ];
         if (!next) {
           await reconcileUnlisted(accountId, unlisted, ctx);
           unlisted = undefined;

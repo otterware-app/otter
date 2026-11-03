@@ -50,7 +50,11 @@ let denied: { delta?: string; children?: string; message?: string; status: numbe
 let subfolders: Record<string, string[]>;
 let expired: Set<string>;
 let lagging: Set<string>;
-let listing: { pageSize?: number; failAt?: { folder: string; skip: number } };
+let listing: {
+  pageSize?: number;
+  failAt?: { folder: string; skip: number };
+  removedAt?: (folder: string, skip: number) => string[];
+};
 
 function deliver(id: string, folder: string, patch: Partial<Message> = {}): Message {
   const m: Message = {
@@ -170,8 +174,12 @@ function handle(method: string, url: URL, body: unknown): Response {
         .filter((m) => m.folder === folder)
         .sort((a, b) => a.id.localeCompare(b.id));
       const end = skip + listing.pageSize;
+      const removedHere = (listing.removedAt?.(folder, skip) ?? []).map((id) => ({
+        id,
+        "@removed": { reason: "deleted" },
+      }));
       return json({
-        value: all.slice(skip, end).map(resource),
+        value: [...all.slice(skip, end).map(resource), ...removedHere],
         ...(end < all.length
           ? {
               "@odata.nextLink": `https://graph.microsoft.com/v1.0/me/mailFolders/${folder}/messages/delta?skip=${end}`,
@@ -667,6 +675,31 @@ describe("Outlook sync", () => {
       });
       expect(labelsOf("k1")).toContain("INBOX");
       expect(labelsOf("k2")).toContain("INBOX");
+    });
+
+    it("refiles mail moved away while its folder was being listed again", async () => {
+      setUp();
+      const booted = await boot();
+      const { status, sync, labelsOf } = booted;
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      expired = new Set(["inbox"]);
+      lagging = new Set(["projects"]);
+      listing = {
+        pageSize: 1,
+        removedAt: (folder, skip) => {
+          if (folder !== "inbox" || skip !== 1) return [];
+          move("c1", "projects");
+          return ["c1"];
+        },
+      };
+      await sync();
+      await until(
+        () => !status().syncing && labelsOf("c1")?.includes("folder:projects") === true,
+        "the listing",
+      );
+      expect(labelsOf("c1")).not.toContain("INBOX");
+      expect((await shown(booted)).cached).toBe(5);
     });
 
     it("refreshes known messages when a destination is listed again", async () => {
