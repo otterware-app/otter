@@ -618,7 +618,7 @@ describe("Gmail sync", () => {
       { id: "r-mine", message: { id: "mine-saved-again", threadId: "t" } },
       { id: "r-phone", message: { id: "phone", threadId: "t" } },
     ];
-    expect(await draftFor("mine")).toEqual({ draftId: null });
+    expect(await draftFor("mine")).toEqual({ draftId: null, gone: true });
 
     drafts = [{ id: "r-mine", message: { id: "mine-saved-again", threadId: "t" } }];
     expect(await draftFor("mine")).toEqual({ draftId: "r-mine" });

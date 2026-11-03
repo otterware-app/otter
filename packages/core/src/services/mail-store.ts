@@ -473,6 +473,13 @@ export function renameMessage(
   recomputeLabelCounts(accountId, prior);
 }
 
+export function getMessageIdsByHeader(accountId: string, messageIdHeader: string): string[] {
+  const rows = getDb()
+    .prepare("SELECT id FROM messages WHERE accountId = ? AND messageIdHeader = ?")
+    .all(accountId, messageIdHeader) as unknown as { id: string }[];
+  return rows.map((r) => r.id);
+}
+
 export function getMessageIdsWithPrefix(accountId: string, prefix: string): string[] {
   const rows = getDb()
     .prepare("SELECT id FROM messages WHERE accountId = ? AND id >= ? AND id < ?")

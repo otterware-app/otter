@@ -163,6 +163,7 @@ export function DraftEditor({
     initialDraftId: draftIdQuery.data?.draftId ?? null,
     initialMessageId: detail.id,
     initialRevision: detail.draftRevision,
+    initialGone: draftIdQuery.data?.gone,
     signal: JSON.stringify({
       fromAddress,
       to,

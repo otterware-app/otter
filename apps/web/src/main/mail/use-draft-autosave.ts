@@ -23,6 +23,7 @@ export function useDraftAutosave({
   initialDraftId,
   initialMessageId,
   initialRevision,
+  initialGone,
   onRemoteChange,
 }: {
   accountId: string | null;
@@ -43,6 +44,7 @@ export function useDraftAutosave({
   initialDraftId?: string | null;
   initialMessageId?: string;
   initialRevision?: string;
+  initialGone?: boolean;
   onRemoteChange?: (detail: MessageDetail) => void | Promise<void>;
 }) {
   const qc = useQueryClient();
@@ -230,6 +232,9 @@ export function useDraftAutosave({
 
   const handleRemoteVersionForEffect = useLatest(handleRemoteVersion);
   const markGoneForEffect = useLatest(markGone);
+  useEffect(() => {
+    if (initialGone) markGoneForEffect.current();
+  }, [initialGone, markGoneForEffect]);
   useEffect(() => {
     const check = async () => {
       const account = accountRef.current;

@@ -962,6 +962,10 @@ export function registerMailHandlers(): void {
       const draftId = await providerFor(accountId).findDraftId(accountId, messageId, threadId);
       if (draftId) mailStore.setDraftId(accountId, messageId, draftId);
       console.log("[gmail:getDraftForMessage]", { accountId, messageId, found: draftId != null });
+      // A draft row whose draft can't be told apart: never save over a guess, or as a copy.
+      if (!draftId && mailStore.getMessageLabelIds(accountId, messageId)?.includes("DRAFT")) {
+        return { draftId, gone: true as const };
+      }
       return { draftId };
     } catch (err) {
       console.log("[gmail:getDraftForMessage] error", { error: String(err) });

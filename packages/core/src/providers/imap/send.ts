@@ -161,10 +161,9 @@ async function versionUids(
   uidValidity: number,
 ): Promise<number[]> {
   const cached = store
-    .getMessageIdsWithPrefix(accountId, `${uidValidity}:`)
-    .filter((id) => store.getStoredReplyHeaders(accountId, id).messageIdHeader === draftId)
+    .getMessageIdsByHeader(accountId, draftId)
     .map(parseMessageId)
-    .filter((ref) => ref.path === path)
+    .filter((ref) => ref.path === path && ref.uidValidity === uidValidity)
     .map((ref) => ref.uid);
   const known =
     cached.length === 0
