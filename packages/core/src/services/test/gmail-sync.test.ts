@@ -33,6 +33,7 @@ let pageSize: number;
 let modifies: { threadId: string; body: unknown }[];
 let refuse: Set<string>;
 let deletedForever: string[];
+let drafts: { id: string; message: { id: string; threadId: string } }[];
 /** While set, the first fetch of each of `ids` answers as of the request, but only once `until` resolves. */
 let hold: { ids: string[]; until: Promise<void> } | null;
 const held = new Set<string>();
@@ -166,7 +167,7 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
   if (path === "/labels") return json({ labels });
   const label = path.match(/^\/labels\/([^/]+)$/);
   if (label) return json({ id: label[1], messagesTotal: 0, messagesUnread: 0 });
-  if (path === "/drafts") return json({ drafts: [] });
+  if (path === "/drafts") return json({ drafts });
   if (path === "/settings/sendAs") return json({ sendAs: [] });
   return json({ error: { message: "not in this test" } }, 404);
 }
@@ -361,6 +362,7 @@ beforeEach(() => {
   modifies = [];
   refuse = new Set();
   deletedForever = [];
+  drafts = [];
   hold = null;
   held.clear();
   notified = [];
@@ -589,5 +591,26 @@ describe("Gmail sync", () => {
     expect(deletedForever).toEqual(["trashed"]);
     expect(mail.has("restored")).toBe(true);
     expect(labelsOf("trashed")).toBeUndefined();
+  });
+
+  it("never opens another draft of the same thread as the one asked for", async () => {
+    deliver("mine", ["DRAFT"], Date.now(), "t");
+    deliver("phone", ["DRAFT"], Date.now(), "t");
+    const { status, invoke } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+    drafts = [{ id: "r-phone", message: { id: "phone", threadId: "t" } }];
+    const draftFor = (messageId: string) =>
+      invoke("gmail:getDraftForMessage", { accountId: account.id, messageId, threadId: "t" });
+    expect(await draftFor("phone")).toEqual({ draftId: "r-phone" });
+
+    drafts = [
+      { id: "r-mine", message: { id: "mine-saved-again", threadId: "t" } },
+      { id: "r-phone", message: { id: "phone", threadId: "t" } },
+    ];
+    expect(await draftFor("mine")).toEqual({ draftId: null });
+
+    drafts = [{ id: "r-mine", message: { id: "mine-saved-again", threadId: "t" } }];
+    expect(await draftFor("mine")).toEqual({ draftId: "r-mine" });
   });
 });
