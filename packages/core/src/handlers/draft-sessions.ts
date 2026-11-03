@@ -4,12 +4,15 @@
  * (IPC timeout) can't lead to a second draft.
  */
 
+import { sha256Hex } from "../bytes.js";
 import { getAccount } from "../services/account-store.js";
 import * as mailStore from "../services/mail-store.js";
 import type { ComposeAttachment, MessageSummary } from "../types.js";
 
 const draftSessions = new Map<string, string>();
 const draftSaveQueues = new Map<string, Promise<unknown>>();
+/** What each draft was last saved as, so saving it unchanged before sending is skipped. */
+const savedDrafts = new Map<string, { fingerprint: string; messageId?: string }>();
 
 export const draftSessionId = (accountId: string, sessionKey: string | undefined) =>
   sessionKey ? `${accountId}|${sessionKey}` : "";
@@ -37,6 +40,32 @@ export type DraftContent = {
   bodyHtml?: string;
   attachments?: ComposeAttachment[];
 };
+
+export const draftFingerprint = (content: DraftContent): Promise<string> =>
+  sha256Hex(
+    JSON.stringify([
+      content.from ?? "",
+      content.to,
+      content.cc ?? "",
+      content.bcc ?? "",
+      content.subject,
+      content.body,
+      content.bodyHtml ?? "",
+      (content.attachments ?? []).map((a) => [a.name, a.mimeType, a.base64]),
+    ]),
+  );
+
+export function rememberSaved(draftId: string, fingerprint: string, messageId?: string): void {
+  savedDrafts.set(draftId, { fingerprint, messageId });
+}
+
+export function savedDraft(draftId: string) {
+  return savedDrafts.get(draftId);
+}
+
+export function forgetSaved(draftId: string): void {
+  savedDrafts.delete(draftId);
+}
 
 /**
  * Mirrors a saved draft into the cache from what was just saved — no Gmail
@@ -93,6 +122,13 @@ export function sessionDraftId(sessionId: string): string | undefined {
 
 export function rememberSessionDraft(sessionId: string, draftId: string): void {
   if (sessionId) draftSessions.set(sessionId, draftId);
+}
+
+/** The session's draft once its queued saves are done. */
+export async function settledSessionDraft(sessionId: string): Promise<string | undefined> {
+  if (!sessionId) return undefined;
+  await draftSaveQueues.get(sessionId)?.catch(() => {});
+  return draftSessions.get(sessionId);
 }
 
 export async function takeSessionDraft(sessionId: string): Promise<string | undefined> {

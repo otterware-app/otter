@@ -1,16 +1,17 @@
-import { randomHex, utf8Encode } from "../../bytes.js";
+import { utf8Encode } from "../../bytes.js";
 import { logger } from "../../logger.js";
-import { sendMail, type ImapClient } from "../../protocols/index.js";
+import { sendMail, SmtpError, type ImapClient } from "../../protocols/index.js";
 import { parseHeaders } from "../../protocols/imap/structures.js";
 import { getAccount } from "../../services/account-store.js";
 import * as store from "../../services/mail-store.js";
 import {
   buildMime,
+  newMessageIdHeader,
   senderOf,
   splitAddressList,
   type OutgoingMessage,
 } from "../../services/outgoing.js";
-import type { DraftSave, OutgoingMail } from "../provider.js";
+import { SendUncertain, type DraftSave, type OutgoingMail } from "../provider.js";
 import {
   accessFor,
   findByMessageId,
@@ -26,9 +27,6 @@ import { ensureFolder, foldersOf, messageId, parseMessageId } from "./folders.js
 import { referencesFor, threadIdOf } from "./messages.js";
 import { expungeOnly } from "./writes.js";
 
-const newMessageIdHeader = (email: string) =>
-  `<${randomHex(16)}@${email.split("@")[1] || "otter.mail"}>`;
-
 /** Date and Message-ID up front: the Gmail API adds them, SMTP servers may not. */
 const withIds = (mime: string, messageIdHeader: string, date: Date) =>
   `Date: ${date.toUTCString()}\r\nMessage-ID: ${messageIdHeader}\r\n${mime}`;
@@ -40,9 +38,8 @@ function addressesIn(...lists: (string | undefined)[]): string[] {
     .filter((address) => address.includes("@"));
 }
 
-/** Servers that put what you send in Sent themselves (appending would file it twice). */
-const filesSentMail = (smtpHost: string) =>
-  /(^|\.)(gmail|googlemail|office365|outlook|hotmail|live)\.com$/i.test(smtpHost);
+/** When to look for the server's own copy in Sent before filing one. */
+const FILED_CHECKS_MS = [1000, 3000];
 
 async function sender(accountId: string, from?: string, draft = false) {
   const account = await getAccount(accountId);
@@ -56,39 +53,52 @@ async function submit(
   from: string,
   to: string[],
   raw: string,
+  header: string,
 ) {
   if (to.length === 0) throw new Error("Add at least one recipient.");
   try {
     await sendMail(smtpOptions(access), { from, to }, raw);
   } catch (err) {
     noteSignInFailure(accountId, access, err);
+    if (err instanceof SmtpError && err.uncertain) {
+      if (await inSent(accountId, header).catch(() => false)) return;
+      throw new SendUncertain({ cause: err });
+    }
     throw tagFailure(err, access.settings.smtp.host, access.settings.username);
   }
 }
 
-/** Appends what was just sent to Sent; its id there, when the server says. Never throws: the mail went. */
-async function fileSent(
-  accountId: string,
-  access: ImapAccess,
-  raw: string,
-): Promise<string | undefined> {
-  if (filesSentMail(access.settings.smtp.host)) return undefined;
-  try {
-    return await withImap(
+async function inSent(accountId: string, header: string): Promise<boolean> {
+  return withImap(
+    accountId,
+    async (client) => {
+      const sent = (await foldersOf(accountId, client)).withRole("SENT");
+      if (!sent) return false;
+      await selectFolder(client, sent.path);
+      return (await findByMessageId(client, header)).length > 0;
+    },
+    { retry: false },
+  );
+}
+
+/** Files what was just sent in Sent, unless the server already has. In the background: the mail went. */
+function fileSent(accountId: string, raw: string, header: string): void {
+  void (async () => {
+    for (const wait of FILED_CHECKS_MS) {
+      await new Promise((resolve) => setTimeout(resolve, wait));
+      if (await inSent(accountId, header)) return;
+    }
+    await withImap(
       accountId,
       async (client) => {
         const sent = await ensureFolder(accountId, client, "SENT", "Sent");
-        const appended = await client.append(sent.path, raw, { flags: ["\\Seen"] });
-        if (!appended) return undefined;
-        const { uidValidity } = await selectFolder(client, sent.path);
-        return messageId(uidValidity, appended.uid, sent.path);
+        await client.append(sent.path, raw, { flags: ["\\Seen"] });
       },
       { retry: false },
     );
-  } catch (err) {
+  })().catch((err: unknown) => {
     logger.warn("imap", `Sent, but couldn't file it in Sent: ${String(err)}`);
-    return undefined;
-  }
+  });
 }
 
 export async function send(accountId: string, mail: OutgoingMail): Promise<{ messageId?: string }> {
@@ -113,9 +123,25 @@ export async function send(accountId: string, mail: OutgoingMail): Promise<{ mes
     email,
     addressesIn(mail.to, mail.cc, mail.bcc),
     withIds(buildMime(message), header, date),
+    header,
   );
-  const sent = withIds(buildMime({ ...message, bcc: mail.bcc }), header, date);
-  return { messageId: await fileSent(accountId, access, sent) };
+  fileSent(accountId, withIds(buildMime({ ...message, bcc: mail.bcc }), header, date), header);
+  return {};
+}
+
+export async function sendDraft(
+  accountId: string,
+  draftId: string,
+  mail: OutgoingMail,
+): Promise<{ messageId?: string }> {
+  const sent = await send(accountId, mail);
+  try {
+    const { messageId } = await deleteDraft(accountId, draftId);
+    if (messageId) store.deleteMessage(accountId, messageId);
+  } catch (err) {
+    logger.warn("imap", `Sent, but couldn't delete its draft: ${String(err)}`);
+  }
+  return sent;
 }
 
 /** A header block without its Bcc (folded lines too): Bcc goes in the envelope only. */
@@ -136,17 +162,17 @@ export async function sendRaw(accountId: string, raw: string): Promise<void> {
   const head = split ? raw.slice(0, split.index) : raw;
   const headers = parseHeaders(utf8Encode(head));
   const hidden = withoutBcc(head) + raw.slice(head.length);
-  const complete = headers["message-id"]
-    ? hidden
-    : withIds(hidden, newMessageIdHeader(email), new Date());
+  const header = headers["message-id"]?.trim() || newMessageIdHeader(email);
+  const complete = headers["message-id"] ? hidden : withIds(hidden, header, new Date());
   await submit(
     accountId,
     access,
     email,
     addressesIn(headers.to, headers.cc, headers.bcc),
     complete,
+    header,
   );
-  await fileSent(accountId, access, complete);
+  fileSent(accountId, complete, header);
 }
 
 /**

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { GraphError } from "./graph.ts";
-import { cancelScheduledSend, send } from "./send.ts";
+import { cancelScheduledSend, scheduleSend, send } from "./send.ts";
 
 const graph = vi.hoisted(() => vi.fn());
 vi.mock("./graph.js", async (original) => ({ ...(await original()), graph }));
@@ -51,23 +51,50 @@ describe("Outlook scheduled sends", () => {
     expect(calls().at(-1)).toEqual(["POST", "/me/messages/m1/permanentDelete", undefined]);
   });
 
-  it("cancels by deleting the held message", async () => {
-    graph.mockResolvedValueOnce({ id: "m1", isDraft: true });
-    expect(await cancelScheduledSend(ME, "m1")).toBe(true);
+  it("cancels by deleting the held message, then purges it so it isn't left in Deleted Items", async () => {
+    graph.mockImplementation(async (_account: string, path: string) =>
+      path.includes("$select") ? { id: "m1", isDraft: true } : {},
+    );
+    expect(await cancelScheduledSend(ME, "m1")).toBe("cancelled");
     expect(calls()).toEqual([
-      ["GET", "/me/messages/m1?$select=id,isDraft", undefined],
       ["DELETE", "/me/messages/m1", undefined],
+      ["GET", "/me/messages/m1?$select=id,isDraft", undefined],
+      ["POST", "/me/messages/m1/permanentDelete", undefined],
     ]);
   });
 
-  it("leaves a message Outlook already sent alone", async () => {
-    graph.mockResolvedValueOnce({ id: "m1", isDraft: false });
-    expect(await cancelScheduledSend(ME, "m1")).toBe(false);
-    expect(calls()).toHaveLength(1);
+  it("says when Outlook had already sent it, and puts it back in Sent Items", async () => {
+    graph.mockImplementation(async (_account: string, path: string) =>
+      path.includes("$select") ? { id: "m1", isDraft: false } : {},
+    );
+    expect(await cancelScheduledSend(ME, "m1")).toBe("sent");
+    expect(calls()).toEqual([
+      ["DELETE", "/me/messages/m1", undefined],
+      ["GET", "/me/messages/m1?$select=id,isDraft", undefined],
+      ["POST", "/me/messages/m1/move", { destinationId: "sentitems" }],
+    ]);
   });
 
   it("counts a message deleted elsewhere as cancelled", async () => {
     graph.mockRejectedValueOnce(new GraphError(404, "ErrorItemNotFound", ""));
-    expect(await cancelScheduledSend(ME, "m1")).toBe(true);
+    expect(await cancelScheduledSend(ME, "m1")).toBe("cancelled");
+  });
+
+  it("holds the composer's own draft instead of making another", async () => {
+    expect(await scheduleSend(ME, mail, SEND_AT, "d1")).toEqual({ messageId: "d1" });
+    expect(calls().map(([method, path]) => `${method} ${path}`)).toEqual([
+      "PATCH /me/messages/d1",
+      "POST /me/messages/d1/move",
+      "POST /me/messages/d1/send",
+    ]);
+  });
+
+  it("never deletes the composer's draft when holding it fails", async () => {
+    graph.mockImplementation(async (_account: string, path: string) => {
+      if (path.endsWith("/move")) throw new Error("Offline");
+      return {};
+    });
+    await expect(scheduleSend(ME, mail, SEND_AT, "d1")).rejects.toThrow("Offline");
+    expect(calls().some(([, path]) => String(path).endsWith("/permanentDelete"))).toBe(false);
   });
 });

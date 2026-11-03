@@ -9,7 +9,14 @@ import type { MailAccount } from "../../types.ts";
 const GMAIL = "gmail.googleapis.com";
 const account: MailAccount = { id: "me@gmail.test", email: "me@gmail.test", name: "Me" };
 
-type Mail = { id: string; threadId: string; labelIds: string[]; date: number; subject: string };
+type Mail = {
+  id: string;
+  threadId: string;
+  labelIds: string[];
+  date: number;
+  subject: string;
+  header?: string;
+};
 type Ref = { message: { id: string; threadId: string; labelIds: string[] } };
 type HistoryEntry = {
   id: string;
@@ -33,8 +40,11 @@ let pageSize: number;
 let modifies: { threadId: string; body: unknown }[];
 let refuse: Set<string>;
 let deletedForever: string[];
-let drafts: { id: string; message: { id: string; threadId: string } }[];
-let savedDrafts: string[];
+let drafts: Map<string, string>;
+let posted: string[];
+let raws: string[];
+/** Answers the next matching request with `status`; with `apply`, after doing it anyway. */
+let failures: { method: string; path: string; status: number; apply?: boolean }[];
 /** While set, the first fetch of each of `ids` answers as of the request, but only once `until` resolves. */
 let hold: { ids: string[]; until: Promise<void> } | null;
 const held = new Set<string>();
@@ -90,10 +100,82 @@ function resource(m: Mail, format: string) {
   };
 }
 
+function newMessage(raw: string | undefined, labelIds: string[], threadId?: string): Mail {
+  const text = raw ? Buffer.from(raw, "base64url").toString() : "";
+  const id = `m${++historyId}`;
+  const m = deliver(id, labelIds, Date.now(), threadId ?? id);
+  m.subject = /^Subject: (.*)$/m.exec(text)?.[1] ?? "";
+  m.header = /^Message-ID: (.*)$/m.exec(text)?.[1]?.trim();
+  raws.push(text);
+  return m;
+}
+
+function draftsApi(method: string, path: string, body: unknown): Response | null {
+  const message = (body as { message?: { raw?: string; threadId?: string } })?.message;
+  if (path === "/drafts" && method === "POST") {
+    const m = newMessage(message?.raw, ["DRAFT"], message?.threadId);
+    const id = `d${historyId}`;
+    drafts.set(id, m.id);
+    return json({ id, message: { id: m.id, threadId: m.threadId } });
+  }
+  if (path === "/drafts" && method === "GET") {
+    return json({
+      drafts: [...drafts].map(([id, messageId]) => ({
+        id,
+        message: { id: messageId, threadId: mail.get(messageId)?.threadId },
+      })),
+    });
+  }
+  if (path === "/drafts/send" && method === "POST") {
+    const id = (body as { id: string }).id;
+    const old = drafts.get(id);
+    if (!old) return json({ error: { message: "Not Found" } }, 404);
+    drafts.delete(id);
+    remove(old);
+    const m = newMessage(message?.raw, ["SENT"], message?.threadId);
+    return json({ id: m.id, threadId: m.threadId, labelIds: m.labelIds });
+  }
+  if (path === "/messages/send" && method === "POST") {
+    const m = newMessage(message?.raw, ["SENT"], message?.threadId);
+    return json({ id: m.id, threadId: m.threadId, labelIds: m.labelIds });
+  }
+  const one = /^\/drafts\/([^/]+)$/.exec(path);
+  if (!one) return null;
+  const old = drafts.get(one[1]!);
+  if (!old) return json({ error: { message: "Not Found" } }, 404);
+  if (method === "GET") return json({ id: one[1], message: { id: old } });
+  remove(old);
+  if (method === "DELETE") {
+    drafts.delete(one[1]!);
+    return new Response(null, { status: 204 });
+  }
+  const m = newMessage(message?.raw, ["DRAFT"], message?.threadId);
+  drafts.set(one[1]!, m.id);
+  return json({ id: one[1], message: { id: m.id, threadId: m.threadId } });
+}
+
 async function fakeFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
   const url = new URL(typeof input === "string" ? input : input instanceof URL ? input : input.url);
   if (url.host !== GMAIL) return json({ error: "not in this test" }, 404);
   const path = url.pathname.replace("/gmail/v1/users/me", "");
+  const method = init?.method ?? "GET";
+  const body = typeof init?.body === "string" ? (JSON.parse(init.body) as unknown) : undefined;
+  if (method !== "GET") posted.push(`${method} ${path}`);
+  const failure = failures.findIndex((f) => f.method === method && f.path === path);
+  if (failure >= 0) {
+    const [f] = failures.splice(failure, 1);
+    if (f!.apply) draftsApi(method, path, body);
+    return json({ error: { message: "Lost." } }, f!.status);
+  }
+  const answer = draftsApi(method, path, body);
+  if (answer) return answer;
+  const q = /^rfc822msgid:(\S+) in:sent$/.exec(url.searchParams.get("q") ?? "");
+  if (path === "/messages" && q) {
+    const found = [...mail.values()].filter(
+      (m) => m.header === q[1] && m.labelIds.includes("SENT"),
+    );
+    return json({ messages: found.map((m) => ({ id: m.id, threadId: m.threadId })) });
+  }
 
   if (path === "/messages/batchDelete" && init?.method === "POST") {
     const { ids } = JSON.parse(String(init.body)) as { ids: string[] };
@@ -169,14 +251,6 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
   if (path === "/labels") return json({ labels });
   const label = path.match(/^\/labels\/([^/]+)$/);
   if (label) return json({ id: label[1], messagesTotal: 0, messagesUnread: 0 });
-  if (path === "/drafts" && init?.method === "POST") {
-    const { message } = JSON.parse(String(init.body)) as {
-      message: { raw: string; threadId?: string };
-    };
-    savedDrafts.push(Buffer.from(message.raw, "base64url").toString());
-    return json({ id: "r-new", message: { id: "new-draft", threadId: message.threadId } });
-  }
-  if (path === "/drafts") return json({ drafts });
   if (path === "/settings/sendAs") return json({ sendAs: [] });
   return json({ error: { message: "not in this test" } }, 404);
 }
@@ -371,8 +445,10 @@ beforeEach(() => {
   modifies = [];
   refuse = new Set();
   deletedForever = [];
-  drafts = [];
-  savedDrafts = [];
+  drafts = new Map();
+  posted = [];
+  raws = [];
+  failures = [];
   hold = null;
   held.clear();
   notified = [];
@@ -609,18 +685,19 @@ describe("Gmail sync", () => {
     const { status, invoke } = await boot();
     await until(() => status().fullSyncDone && !status().syncing, "the first sync");
 
-    drafts = [{ id: "r-phone", message: { id: "phone", threadId: "t" } }];
+    drafts = new Map([["r-phone", "phone"]]);
     const draftFor = (messageId: string) =>
       invoke("gmail:getDraftForMessage", { accountId: account.id, messageId, threadId: "t" });
     expect(await draftFor("phone")).toEqual({ draftId: "r-phone" });
 
-    drafts = [
-      { id: "r-mine", message: { id: "mine-saved-again", threadId: "t" } },
-      { id: "r-phone", message: { id: "phone", threadId: "t" } },
-    ];
+    mail.set("mine-saved-again", { ...mail.get("mine")!, id: "mine-saved-again" });
+    drafts = new Map([
+      ["r-mine", "mine-saved-again"],
+      ["r-phone", "phone"],
+    ]);
     expect(await draftFor("mine")).toEqual({ draftId: null, gone: true });
 
-    drafts = [{ id: "r-mine", message: { id: "mine-saved-again", threadId: "t" } }];
+    drafts = new Map([["r-mine", "mine-saved-again"]]);
     expect(await draftFor("mine")).toEqual({ draftId: "r-mine" });
   });
 
@@ -637,8 +714,79 @@ describe("Gmail sync", () => {
       subject: "Re: Subject answer",
       body: "Thanks",
     });
-    expect(savedDrafts).toHaveLength(1);
-    expect(savedDrafts[0]).toMatch(/^In-Reply-To: <answer@example\.test>/m);
-    expect(savedDrafts[0]).toMatch(/^References: .*<answer@example\.test>/m);
+    expect(raws).toHaveLength(1);
+    expect(raws[0]).toMatch(/^In-Reply-To: <answer@example\.test>/m);
+    expect(raws[0]).toMatch(/^References: .*<answer@example\.test>/m);
+  });
+
+  describe("sending", () => {
+    const compose = { accountId: account.id, to: "you@example.test", subject: "Plans", body: "Hi" };
+    async function saved(sessionKey: string) {
+      const booted = await boot();
+      await until(() => booted.status().fullSyncDone && !booted.status().syncing, "the sync");
+      const draft = (await booted.invoke("gmail:saveDraft", { ...compose, sessionKey })) as {
+        draftId: string;
+      };
+      posted = [];
+      return { ...booted, draftId: draft.draftId };
+    }
+    const sent = () => [...mail.values()].filter((m) => m.labelIds.includes("SENT"));
+
+    it("sends the saved draft with drafts.send, with its own Message-ID, leaving no draft", async () => {
+      const { invoke } = await saved("s1");
+      await invoke("gmail:sendMessage", { ...compose, sessionKey: "s1" });
+      expect(posted).toEqual(["POST /drafts/send"]);
+      expect(drafts.size).toBe(0);
+      expect(sent()).toHaveLength(1);
+      expect(sent()[0]!.header).toMatch(/^<[0-9a-f]+@gmail\.test>$/);
+    });
+
+    it("sends directly when saving the final draft fails, then deletes the draft", async () => {
+      const { invoke, draftId } = await saved("s2");
+      failures.push({ method: "PUT", path: `/drafts/${draftId}`, status: 400 });
+      await invoke("gmail:sendMessage", { ...compose, body: "Changed", sessionKey: "s2" });
+      expect(posted).toEqual([
+        `PUT /drafts/${draftId}`,
+        "POST /messages/send",
+        `DELETE /drafts/${draftId}`,
+      ]);
+      expect(drafts.size).toBe(0);
+      expect(sent()).toHaveLength(1);
+    });
+
+    it("finds a send whose answer was lost in Sent, by its Message-ID", async () => {
+      const { invoke } = await saved("s3");
+      failures.push({ method: "POST", path: "/drafts/send", status: 500, apply: true });
+      expect(await invoke("gmail:sendMessage", { ...compose, sessionKey: "s3" })).toMatchObject({
+        ok: true,
+        uncertain: false,
+      });
+      expect(sent()).toHaveLength(1);
+      expect(drafts.size).toBe(0);
+    });
+
+    it("keeps an uncertain send for review, and deletes nothing", async () => {
+      const { invoke, draftId } = await saved("s4");
+      failures.push({ method: "POST", path: "/drafts/send", status: 500 });
+      expect(await invoke("gmail:sendMessage", { ...compose, sessionKey: "s4" })).toMatchObject({
+        ok: true,
+        uncertain: true,
+      });
+      expect([...drafts.keys()]).toEqual([draftId]);
+      expect(posted.some((p) => p.startsWith("DELETE"))).toBe(false);
+      expect(await invoke("gmail:listSchedules", {})).toMatchObject([
+        { state: "failed", error: "May have been sent — check Sent before sending again." },
+      ]);
+    });
+
+    it("fails a refused send, keeping the one draft", async () => {
+      const { invoke, draftId } = await saved("s5");
+      failures.push({ method: "POST", path: "/drafts/send", status: 400 });
+      await expect(invoke("gmail:sendMessage", { ...compose, sessionKey: "s5" })).rejects.toThrow(
+        "400",
+      );
+      expect([...drafts.keys()]).toEqual([draftId]);
+      expect(sent()).toEqual([]);
+    });
   });
 });

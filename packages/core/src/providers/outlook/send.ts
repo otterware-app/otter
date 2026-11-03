@@ -13,8 +13,15 @@ import { fromBase64, toBase64, utf8Encode, sha256Hex } from "../../bytes.js";
 import * as store from "../../services/mail-store.js";
 import { splitAddressList } from "../../services/outgoing.js";
 import type { ComposeAttachment } from "../../types.js";
-import { DraftChanged, type DraftSave, type OutgoingMail } from "../provider.js";
-import { graph, graphAll, isNotFound, GraphError } from "./graph.js";
+import {
+  DraftChanged,
+  SendUncertain,
+  type DraftSave,
+  type OutgoingMail,
+  type ScheduleOutcome,
+} from "../provider.js";
+import { wellKnownId } from "./folders.js";
+import { graph, graphAll, isNetworkError, isNotFound, GraphError } from "./graph.js";
 import { messagePath, type ApiMessage } from "./messages.js";
 
 const INLINE_ATTACHMENT_BYTES = 3 * 1024 * 1024;
@@ -86,15 +93,41 @@ async function createDraft(
       const draft = await graph<ApiMessage>(accountId, `${messagePath(replyTo)}/createReply`, {
         method: "POST",
       });
-      return graph<ApiMessage>(accountId, messagePath(draft.id), {
-        method: "PATCH",
-        body: fields(mail),
-      });
+      try {
+        return await graph<ApiMessage>(accountId, messagePath(draft.id), {
+          method: "PATCH",
+          body: fields(mail),
+        });
+      } catch (err) {
+        await discard(accountId, draft.id);
+        throw err;
+      }
     } catch (err) {
       if (!isNotFound(err)) throw err;
     }
   }
   return graph<ApiMessage>(accountId, "/me/messages", { method: "POST", body: fields(mail) });
+}
+
+async function discard(accountId: string, id: string): Promise<void> {
+  await graph(accountId, `${messagePath(id)}/permanentDelete`, { method: "POST" }).catch(() => {});
+}
+
+/** `/send`. When its answer is lost, the message tells: sent, still in Drafts, or unknown. */
+async function submit(accountId: string, id: string): Promise<void> {
+  try {
+    await graph(accountId, `${messagePath(id)}/send`, { method: "POST" });
+  } catch (err) {
+    if (!isNetworkError(err) && !(err instanceof GraphError && err.status >= 500)) throw err;
+    const message = await graph<ApiMessage>(
+      accountId,
+      `${messagePath(id)}?$select=id,isDraft,parentFolderId`,
+    ).catch(() => null);
+    if (message && !message.isDraft) return;
+    const drafts = await wellKnownId(accountId, "drafts").catch(() => null);
+    if (message?.parentFolderId && message.parentFolderId === drafts) throw err;
+    throw new SendUncertain({ cause: err });
+  }
 }
 
 async function attach(
@@ -196,30 +229,57 @@ export async function send(
   try {
     if (mail.attachments?.length) await attach(accountId, draft.id, mail.attachments);
     if (sendAt !== undefined) await hold(accountId, draft.id, sendAt);
-    await graph(accountId, `${messagePath(draft.id)}/send`, { method: "POST" });
+    await submit(accountId, draft.id);
   } catch (err) {
-    await graph(accountId, `${messagePath(draft.id)}/permanentDelete`, { method: "POST" }).catch(
-      () => {},
-    );
+    if (!(err instanceof SendUncertain)) await discard(accountId, draft.id);
     throw err;
   }
   return { messageId: draft.id };
 }
 
+/** The draft, saved with its final content, is what goes: it keeps its id, in Sent Items. */
+export async function sendDraft(
+  accountId: string,
+  draftId: string,
+): Promise<{ messageId: string }> {
+  await submit(accountId, draftId);
+  return { messageId: draftId };
+}
+
+export async function scheduleSend(
+  accountId: string,
+  mail: OutgoingMail,
+  sendAt: number,
+  draftId?: string,
+): Promise<{ messageId: string }> {
+  if (!draftId) return send(accountId, mail, sendAt);
+  await hold(accountId, draftId, sendAt);
+  await submit(accountId, draftId);
+  return { messageId: draftId };
+}
+
 /**
  * Deleting a held message is what cancels it (Exchange won't move or edit
- * it). Soft-deleted, so in a race with Exchange sending it the sent copy
- * stays recoverable.
+ * it). Then the message says which won: still a draft, cancelled, and purged
+ * so it doesn't sit in Deleted Items beside the restored draft; or sent, and
+ * put back in Sent Items.
  */
-export async function cancelScheduledSend(accountId: string, id: string): Promise<boolean> {
+export async function cancelScheduledSend(accountId: string, id: string): Promise<ScheduleOutcome> {
   try {
-    const message = await graph<ApiMessage>(accountId, `${messagePath(id)}?$select=id,isDraft`);
-    if (!message.isDraft) return false;
     await graph(accountId, messagePath(id), { method: "DELETE" });
+    const message = await graph<ApiMessage>(accountId, `${messagePath(id)}?$select=id,isDraft`);
+    if (!message.isDraft) {
+      await graph(accountId, `${messagePath(id)}/move`, {
+        method: "POST",
+        body: { destinationId: "sentitems" },
+      });
+      return "sent";
+    }
+    await graph(accountId, `${messagePath(id)}/permanentDelete`, { method: "POST" });
   } catch (err) {
     if (!isNotFound(err)) throw err;
   }
-  return true;
+  return "cancelled";
 }
 
 export async function sendRaw(accountId: string, raw: string): Promise<void> {
@@ -279,7 +339,12 @@ export async function saveDraft(
       draft,
       await repliedTo(accountId, undefined, draft.threadId),
     );
-    if (draft.attachments?.length) await attach(accountId, saved.id, draft.attachments);
+    try {
+      if (draft.attachments?.length) await attach(accountId, saved.id, draft.attachments);
+    } catch (err) {
+      await discard(accountId, saved.id);
+      throw err;
+    }
   }
   const revision = await getDraftRevision(accountId, saved.id);
   store.setKv(

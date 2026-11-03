@@ -26,7 +26,7 @@ describe("encodeData", () => {
 });
 
 describe("SmtpClient against a pretend server", () => {
-  it("upgrades, logs in with LOGIN, and sends to the recipients it takes", async () => {
+  it("upgrades, logs in with LOGIN, and sends", async () => {
     const stream = new FakeStream("220 smtp.example.com ESMTP\r\n", (text, server) => {
       if (text.startsWith("EHLO")) {
         return server.tls
@@ -50,17 +50,70 @@ describe("SmtpClient against a pretend server", () => {
     expect(client.extensions.get("SIZE")).toBe("1000");
 
     const result = await client.send(
-      { from: "ann@example.com", to: ["bob@example.com", "nobody@example.com"] },
+      { from: "ann@example.com", to: ["bob@example.com"] },
       "Subject: Café\n\n.dot\n",
     );
     expect(result.accepted).toEqual(["bob@example.com"]);
-    expect(result.rejected).toHaveLength(1);
-    expect(result.rejected[0]!.error).toMatchObject({ code: 550, enhancedCode: "5.1.1" });
     expect(result.response).toBe("2.0.0 Queued as 12345");
     expect(stream.written).toContain("MAIL FROM:<ann@example.com> SIZE=21 BODY=8BITMIME\r\n");
     expect(stream.written).toContain("Subject: Café\r\n\r\n..dot\r\n.\r\n");
     await client.quit();
     expect(stream.closed).toBe(true);
+  });
+
+  it("refuses the whole send when the server rejects any recipient, before the message", async () => {
+    const stream = new FakeStream("220 hi\r\n", (text) => {
+      if (text.startsWith("EHLO")) return "250-hi\r\n250 AUTH PLAIN\r\n";
+      if (text.startsWith("AUTH")) return "235 ok\r\n";
+      if (text.startsWith("RCPT TO:<nobody")) return "550 5.1.1 No such user\r\n";
+      return "250 ok\r\n";
+    });
+    const client = await connectSmtp(options(stream, { security: "tls" }));
+    const error = await client
+      .send({ from: "a@x.com", to: ["b@x.com", "nobody@x.com"] }, "Subject: x\r\n\r\nhi")
+      .catch((err: unknown) => err);
+    expect(error).toMatchObject({
+      message: "Couldn't send: nobody@x.com was rejected",
+      code: 550,
+      enhancedCode: "5.1.1",
+      uncertain: false,
+    });
+    expect(stream.written).not.toContain("DATA\r\n");
+    expect(stream.written.at(-1)).toBe("RSET\r\n");
+  });
+
+  it("waits longer for the answer to the message, and calls losing it uncertain", async () => {
+    const stream = new FakeStream("220 hi\r\n", (text) => {
+      if (text.startsWith("EHLO")) return "250-hi\r\n250 AUTH PLAIN\r\n";
+      if (text.startsWith("AUTH")) return "235 ok\r\n";
+      if (text.startsWith("DATA")) return "354 go\r\n";
+      if (text.endsWith("\r\n.\r\n")) return undefined;
+      return "250 ok\r\n";
+    });
+    const client = await connectSmtp(
+      options(stream, { security: "tls", timeoutMs: 20, dataTimeoutMs: 200 }),
+    );
+    const started = Date.now();
+    const error = await client
+      .send({ from: "a@x.com", to: ["b@x.com"] }, "Subject: x\r\n\r\nhi")
+      .catch((err: unknown) => err);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(150);
+    expect(error).toBeInstanceOf(SmtpError);
+    expect(error).toMatchObject({ kind: "timeout", uncertain: true });
+  });
+
+  it("isn't uncertain when the server refuses the message", async () => {
+    const stream = new FakeStream("220 hi\r\n", (text) => {
+      if (text.startsWith("EHLO")) return "250-hi\r\n250 AUTH PLAIN\r\n";
+      if (text.startsWith("AUTH")) return "235 ok\r\n";
+      if (text.startsWith("DATA")) return "354 go\r\n";
+      if (text.endsWith("\r\n.\r\n")) return "554 5.7.1 Spam\r\n";
+      return "250 ok\r\n";
+    });
+    const client = await connectSmtp(options(stream, { security: "tls" }));
+    await expect(
+      client.send({ from: "a@x.com", to: ["b@x.com"] }, "Subject: x\r\n\r\nhi"),
+    ).rejects.toMatchObject({ code: 554, uncertain: false });
   });
 
   it("tells a refused login apart", async () => {

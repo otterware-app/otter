@@ -127,8 +127,12 @@ function attachmentHeaders(att: { name: string; mimeType: string }): string[] {
   ];
 }
 
+export const newMessageIdHeader = (email: string) =>
+  `<${randomHex(16)}@${email.split("@")[1] || "otter.mail"}>`;
+
 export interface OutgoingMessage {
   from: string;
+  messageId?: string;
   to: string;
   cc?: string;
   bcc?: string;
@@ -142,6 +146,7 @@ export interface OutgoingMessage {
 
 export function buildMime(params: OutgoingMessage): string {
   const headers: string[] = [`From: ${params.from}`];
+  if (params.messageId) headers.push(`Message-ID: ${params.messageId}`);
   if (params.to) headers.push(`To: ${encodeAddressList(params.to)}`);
   if (params.cc) headers.push(`Cc: ${encodeAddressList(params.cc)}`);
   if (params.bcc) headers.push(`Bcc: ${encodeAddressList(params.bcc)}`);

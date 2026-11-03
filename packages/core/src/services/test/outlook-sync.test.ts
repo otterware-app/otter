@@ -58,6 +58,9 @@ let lagging: Set<string>;
 let restIds: boolean;
 let recoverableKnown: boolean;
 let failedTranslations: boolean;
+/** Answers the next matching request with `status`; with `apply`, after doing it anyway. */
+let failures: { method: string; suffix: string; status: number; apply?: boolean }[];
+let created: number;
 let listing: {
   pageSize?: number;
   failAt?: { folder: string; skip: number };
@@ -138,7 +141,43 @@ const resource = (m: Message) => ({
 
 function handle(method: string, url: URL, body: unknown): Response {
   const path = url.pathname.replace(/^\/v1\.0/, "");
+  const failure = failures.findIndex((f) => f.method === method && path.endsWith(f.suffix));
+  if (failure >= 0) {
+    const [f] = failures.splice(failure, 1);
+    const fail = () =>
+      json({ error: { code: "ErrorInternalServerError", message: "Lost." } }, f!.status);
+    if (!f!.apply) {
+      if (method !== "GET") writes.push({ method, path, body });
+      return fail();
+    }
+    handle(method, url, body);
+    return fail();
+  }
   if (method !== "GET") writes.push({ method, path, body });
+
+  if (path === "/me/messages" && method === "POST") {
+    const m = deliver(`new${++created}`, "drafts", { fromMe: true, draft: true });
+    m.subject = (body as { subject?: string }).subject ?? "";
+    return json(resource(m));
+  }
+  const action = /^\/me\/messages\/([^/]+)\/(createReply|send|attachments)$/.exec(path);
+  if (action) {
+    const m = messages.get(decodeURIComponent(action[1]!));
+    if (!m) return notFound();
+    if (action[2] === "attachments") return method === "GET" ? json({ value: [] }) : json({});
+    if (action[2] === "createReply") {
+      const reply = deliver(`new${++created}`, "drafts", {
+        fromMe: true,
+        draft: true,
+        conversationId: m.conversationId,
+        subject: `RE: ${m.subject}`,
+      });
+      return json(resource(reply));
+    }
+    m.draft = false;
+    move(m.id, "sentitems");
+    return new Response(null, { status: 202 });
+  }
 
   const wellKnown = /^\/me\/mailFolders\/([a-z]+)$/.exec(path);
   if (wellKnown && FOLDERS.includes(wellKnown[1]!)) return json({ id: wellKnown[1] });
@@ -295,7 +334,14 @@ function handle(method: string, url: URL, body: unknown): Response {
       if (patch.isRead !== undefined) m.isRead = patch.isRead;
       if (patch.flag) m.flagged = patch.flag.flagStatus === "flagged";
       if (patch.categories) m.categories = patch.categories;
+      if ((patch as { subject?: string }).subject !== undefined) {
+        m.subject = (patch as { subject: string }).subject;
+      }
       m.version = ++version;
+    }
+    if (method === "DELETE") {
+      move(m.id, "deleteditems");
+      return new Response(null, { status: 204 });
     }
     return json(resource(m));
   }
@@ -442,6 +488,8 @@ beforeEach(() => {
   restPrefix = "AAMk";
   recoverableKnown = true;
   failedTranslations = false;
+  failures = [];
+  created = 0;
   vi.stubGlobal("fetch", fakeFetch);
 });
 
@@ -1142,5 +1190,98 @@ describe("Outlook sync", () => {
       { path: "/me/mailFolders/inbox/messages", search: '"invoice from:bob hasattachments:true"' },
     ]);
     expect(page.refs.map((r) => r.id)).toEqual(["unread"]);
+  });
+
+  describe("sending", () => {
+    const compose = { accountId: account.id, to: "you@example.test", subject: "Plans", body: "Hi" };
+    const drafts = () => [...messages.values()].filter((m) => m.folder === "drafts");
+    const sent = () => [...messages.values()].filter((m) => m.folder === "sentitems");
+    async function saved(sessionKey: string) {
+      const booted = await boot();
+      await until(() => booted.status().fullSyncDone && !booted.status().syncing, "the sync");
+      const draft = (await booted.invoke("gmail:saveDraft", { ...compose, sessionKey })) as {
+        draftId: string;
+      };
+      writes = [];
+      return { ...booted, draftId: draft.draftId };
+    }
+
+    it("sends the saved draft itself, leaving no draft, without saving it again", async () => {
+      const { invoke, draftId } = await saved("s1");
+      expect(await invoke("gmail:sendMessage", { ...compose, sessionKey: "s1" })).toMatchObject({
+        ok: true,
+      });
+      expect(writes.map((w) => `${w.method} ${w.path}`)).toEqual([
+        `POST /me/messages/${draftId}/send`,
+      ]);
+      expect(drafts()).toEqual([]);
+      expect(sent().map((m) => m.id)).toEqual([draftId]);
+    });
+
+    it("sends directly when saving the final draft fails, then deletes the draft", async () => {
+      const { invoke, draftId } = await saved("s2");
+      failures.push({ method: "PATCH", suffix: `/${draftId}`, status: 400 });
+      await invoke("gmail:sendMessage", { ...compose, body: "Changed", sessionKey: "s2" });
+      expect(sent().map((m) => m.id)).not.toContain(draftId);
+      expect(sent()).toHaveLength(1);
+      expect(drafts()).toEqual([]);
+    });
+
+    it("counts a send whose answer was lost but went out as sent", async () => {
+      const { invoke, draftId } = await saved("s3");
+      failures.push({ method: "POST", suffix: "/send", status: 504, apply: true });
+      expect(await invoke("gmail:sendMessage", { ...compose, sessionKey: "s3" })).toMatchObject({
+        ok: true,
+        uncertain: false,
+      });
+      expect(sent().map((m) => m.id)).toEqual([draftId]);
+      expect(drafts()).toEqual([]);
+    });
+
+    it("fails a send Outlook never took, keeping the one draft", async () => {
+      const { invoke, draftId } = await saved("s4");
+      failures.push({ method: "POST", suffix: "/send", status: 504 });
+      await expect(invoke("gmail:sendMessage", { ...compose, sessionKey: "s4" })).rejects.toThrow(
+        "504",
+      );
+      expect(drafts().map((m) => m.id)).toEqual([draftId]);
+      expect(sent()).toEqual([]);
+    });
+
+    it("keeps an uncertain send for review, and deletes nothing", async () => {
+      const { invoke, draftId } = await saved("s5");
+      failures.push({ method: "POST", suffix: "/send", status: 504 });
+      failures.push({ method: "GET", suffix: `/${draftId}`, status: 500 });
+      expect(await invoke("gmail:sendMessage", { ...compose, sessionKey: "s5" })).toMatchObject({
+        ok: true,
+        uncertain: true,
+      });
+      expect(drafts().map((m) => m.id)).toEqual([draftId]);
+      expect(writes.some((w) => w.method === "DELETE" || w.path.endsWith("/permanentDelete"))).toBe(
+        false,
+      );
+      expect(await invoke("gmail:listSchedules", {})).toMatchObject([
+        { state: "failed", error: "May have been sent — check Sent before sending again." },
+      ]);
+    });
+
+    it("leaves no half-made reply draft when filling it in fails", async () => {
+      deliver("original", "inbox");
+      const { provider, status } = await boot();
+      await until(() => status().fullSyncDone && !status().syncing, "the sync");
+      failures.push({ method: "PATCH", suffix: "/new1", status: 400 });
+      await expect(
+        provider.send(account.id, {
+          to: "you@example.test",
+          subject: "RE",
+          body: "Hi",
+          threadId: "conv-original",
+        }),
+      ).rejects.toThrow();
+      expect(writes.map((w) => `${w.method} ${w.path}`)).toContain(
+        "POST /me/messages/new1/permanentDelete",
+      );
+      expect(drafts()).toEqual([]);
+    });
   });
 });

@@ -275,6 +275,11 @@ Snooze is available in the reader toolbar and a conversation's right-click menu.
 pending actions: cancel a send to restore its
 contents to Drafts, or return a snoozed conversation to Inbox early. A failed or interrupted
 send stays there for review; check Sent before sending again, since delivery may be uncertain.
+So does a send from the composer whose answer never came and that Otter Mail couldn't find in
+Sent ("May have been sent — check Sent before sending again."); its draft stays, and cancelling
+restores nothing twice. On Mac and web, Send sends the composer's saved draft itself (Gmail's
+drafts.send, Outlook's draft, IMAP then deleting its versions), so no draft is left beside the
+sent mail; an Outlook scheduled send is that draft, held by Outlook.
 These are Otter Mail actions, separate from Gmail's own scheduled and snoozed folders.
 
 ## Search

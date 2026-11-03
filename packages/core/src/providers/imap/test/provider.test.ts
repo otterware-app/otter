@@ -2,7 +2,7 @@ import type { ImapSettings } from "@otter-mail/contracts";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test";
 
 import { searchMail } from "../../../handlers/search.ts";
-import { connectImap, ImapClient } from "../../../protocols/index.ts";
+import { connectImap, ImapClient, SmtpClient, SmtpError } from "../../../protocols/index.ts";
 import { nodeConnect } from "../../../protocols/test/node-stream.ts";
 import {
   dockerAvailable,
@@ -14,7 +14,7 @@ import * as accounts from "../../../services/account-store.ts";
 import { setImapPassword } from "../../../services/imap-passwords.ts";
 import * as store from "../../../services/mail-store.ts";
 import type { MessageSummary } from "../../../types.ts";
-import type { SyncContext } from "../../provider.ts";
+import { SendUncertain, type SyncContext } from "../../provider.ts";
 import { imapProvider } from "../index.ts";
 import { threadIdOf } from "../messages.ts";
 import { connectionCount, resumeNow, useNodePlatform } from "./node-platform.ts";
@@ -492,19 +492,37 @@ function providerScenario(
     expect(cachedByHeader(accountId, w3.id)!.labels.sort()).toEqual(["UNREAD", "Work"]);
   });
 
+  const inSent = async (subject: string) => {
+    await seed.select("Sent");
+    return seed.search({ header: { name: "Subject", value: subject }, deleted: false });
+  };
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  /** Sent's copies, once filing (checks at 1 and 4 seconds, then an APPEND) is surely done. */
+  const filedOnce = async (subject: string) => {
+    for (let i = 0; i < 60 && (await inSent(subject)).length === 0; i++) await sleep(200);
+    await sleep(5000);
+    return inSent(subject);
+  };
+
   it("sends, filing it in Sent (and, sent to yourself, it arrives)", async ({ skip }) => {
     if (!server().smtp) skip();
     const subject = `Note to self ${counter++}`;
-    const { messageId } = await provider.send(accountId, {
+    await provider.send(accountId, {
       to: accountId,
       bcc: "bob@example.com",
       subject,
       body: "Remember the milk.",
     });
-    expect(pathOf(messageId!)).toBe("Sent");
-    const [sent] = await provider.getSummaries(accountId, [messageId!]);
+    expect(await filedOnce(subject)).toHaveLength(1);
+    await sync(accountId);
+    const inSentIds = store
+      .getMessageIdsWithPrefix(accountId, "")
+      .filter((id) => pathOf(id) === "Sent");
+    const sent = (await provider.getSummaries(accountId, inSentIds)).find(
+      (m) => m.subject === subject,
+    );
     expect(sent).toMatchObject({ subject, unread: false, labelIds: ["SENT"] });
-    expect((await provider.getMessage(accountId, messageId!)).bcc).toBe("bob@example.com");
+    expect((await provider.getMessage(accountId, sent!.id)).bcc).toBe("bob@example.com");
 
     let arrived: MessageSummary | undefined;
     for (let i = 0; i < 50 && !arrived; i++) {
@@ -515,7 +533,85 @@ function providerScenario(
       if (!arrived) await new Promise((resolve) => setTimeout(resolve, 200));
     }
     expect(arrived).toMatchObject({ subject });
-  });
+  }, 30_000);
+
+  it("files no second copy when the server already put it in Sent", async ({ skip }) => {
+    if (!server().smtp) skip();
+    const subject = `Filed by the server ${counter++}`;
+    const send = SmtpClient.prototype.send;
+    const filing = vi.spyOn(SmtpClient.prototype, "send").mockImplementation(async function (
+      this: SmtpClient,
+      envelope,
+      raw,
+    ) {
+      const result = await send.call(this, envelope, raw);
+      await seed.append("Sent", raw, { flags: ["\\Seen"] });
+      return result;
+    });
+    try {
+      await provider.send(accountId, { to: "bob@example.com", subject, body: "Hi" });
+    } finally {
+      filing.mockRestore();
+    }
+    expect(await filedOnce(subject)).toHaveLength(1);
+  }, 30_000);
+
+  it("sends a draft, leaving none behind", async ({ skip }) => {
+    if (!server().smtp) skip();
+    const subject = `From a draft ${counter++}`;
+    const draft = await provider.saveDraft(accountId, {
+      to: "bob@example.com",
+      subject,
+      body: "1",
+    });
+    await sync(accountId);
+    await provider.sendDraft(accountId, draft.draftId, {
+      to: "bob@example.com",
+      subject,
+      body: "2",
+    });
+    expect(await provider.getDraftVersion(accountId, draft.draftId)).toBeNull();
+    expect(store.getMessageLabelIds(accountId, draft.messageId!)).toBeNull();
+    const [uid] = await filedOnce(subject);
+    const [filed] = await seed.fetch([uid!], { envelope: true });
+    expect(filed!.envelope!.messageId).not.toBe(draft.draftId);
+  }, 30_000);
+
+  it("calls a send whose answer was lost uncertain, unless it's in Sent", async ({ skip }) => {
+    if (!server().smtp) skip();
+    const lost = (file: boolean) =>
+      vi.spyOn(SmtpClient.prototype, "send").mockImplementation(async (_envelope, raw) => {
+        if (file) await seed.append("Sent", raw, { flags: ["\\Seen"] });
+        throw new SmtpError("smtp didn't answer in time.", "timeout", { uncertain: true });
+      });
+    const subject = `Lost ${counter++}`;
+    const draft = await provider.saveDraft(accountId, {
+      to: "bob@example.com",
+      subject,
+      body: "1",
+    });
+    let spy = lost(false);
+    try {
+      await expect(
+        provider.sendDraft(accountId, draft.draftId, { to: "bob@example.com", subject, body: "1" }),
+      ).rejects.toBeInstanceOf(SendUncertain);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await provider.getDraftVersion(accountId, draft.draftId)).toBe(draft.messageId);
+    spy = lost(true);
+    try {
+      await provider.sendDraft(accountId, draft.draftId, {
+        to: "bob@example.com",
+        subject,
+        body: "1",
+      });
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await provider.getDraftVersion(accountId, draft.draftId)).toBeNull();
+    expect(await filedOnce(subject)).toHaveLength(1);
+  }, 30_000);
 
   it("sends a ready-made message without its Bcc", async ({ skip }) => {
     if (!server().smtp) skip();
@@ -533,12 +629,11 @@ function providerScenario(
         "",
       ].join("\r\n"),
     );
-    await seed.select("Sent");
-    const [uid] = await seed.search({ header: { name: "Subject", value: subject } });
+    const [uid] = await filedOnce(subject);
     const [filed] = await seed.fetch([uid!], { headers: true });
     expect(Object.keys(filed!.headers!)).not.toContain("bcc");
     expect(filed!.headers!.subject).toBe(subject);
-  });
+  }, 30_000);
 
   it("says what's wrong with a wrong password", async () => {
     const { settings, password } = server();

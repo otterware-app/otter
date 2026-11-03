@@ -65,7 +65,8 @@ export const outlookProvider: MailProvider = {
   deleteLabel: writes.deleteLabel,
 
   send: (accountId, mail) => send.send(accountId, mail),
-  scheduleSend: send.send,
+  sendDraft: (accountId, draftId) => send.sendDraft(accountId, draftId),
+  scheduleSend: send.scheduleSend,
   cancelScheduledSend: send.cancelScheduledSend,
   sendRaw: (accountId, raw) => send.sendRaw(accountId, raw),
 

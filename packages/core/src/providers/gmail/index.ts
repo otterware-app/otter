@@ -78,6 +78,7 @@ export const gmailProvider: MailProvider = {
   },
 
   send: api.sendMessage,
+  sendDraft: api.sendDraft,
   async sendRaw(accountId, raw, threadId) {
     await api.sendRawMessage(accountId, raw, threadId);
   },

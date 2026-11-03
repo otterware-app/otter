@@ -3,6 +3,8 @@ import { forgetUndo, registerUndo, type UndoAction } from "./undo";
 
 export const UNDO_SEND_MS = 10_000;
 
+export const MAY_HAVE_BEEN_SENT = "May have been sent — check Sent before sending again.";
+
 export type SavedDraft = { accountId: string; messageId: string };
 
 let openDraft: (draft: SavedDraft) => void = () => {};
@@ -21,7 +23,7 @@ export function sendWithUndo({
   savedDraft,
 }: {
   subject: string;
-  send: () => Promise<unknown>;
+  send: () => Promise<{ uncertain?: boolean }>;
   onSent?: () => Promise<unknown> | void;
   savedDraft: () => Promise<SavedDraft | null>;
 }): void {
@@ -59,11 +61,25 @@ export function sendWithUndo({
     toast.update(toastId, "loading", "Sending…", { description, timeout: 0 });
     console.log("[undoSend:sending]", { subject: description });
     send().then(
-      async () => {
+      async (result) => {
         await onSent?.();
-        toast.update(toastId, "success", "Sent", { description });
+        if (result.uncertain) {
+          toast.update(toastId, "warning", MAY_HAVE_BEEN_SENT, { description, timeout: 0 });
+        } else {
+          toast.update(toastId, "success", "Sent", { description });
+        }
       },
-      () => toast.update(toastId, "error", `Couldn't send “${description}” — kept in Drafts`),
+      () =>
+        toast.update(toastId, "error", `Couldn't send “${description}” — kept in Drafts`, {
+          timeout: 0,
+          action: {
+            label: "Open draft",
+            onClick: () =>
+              void savedDraft().then((draft) => {
+                if (draft) openDraft(draft);
+              }),
+          },
+        }),
     );
   }, UNDO_SEND_MS);
 }

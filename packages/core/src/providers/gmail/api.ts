@@ -13,9 +13,9 @@ import { logger } from "../../logger.js";
 import { platform } from "../../platform.js";
 import { mapPool } from "../../pool.js";
 import { getAccount } from "../../services/account-store.js";
-import { buildMime, senderOf } from "../../services/outgoing.js";
+import { buildMime, newMessageIdHeader, senderOf } from "../../services/outgoing.js";
 import type { MailLabel, MessageSummary, MessageDetail } from "../../types.js";
-import type { DraftSave, ErrorKind, OutgoingMail } from "../provider.js";
+import { SendUncertain, type DraftSave, type ErrorKind, type OutgoingMail } from "../provider.js";
 import {
   acquireQuota,
   budgetOf,
@@ -777,17 +777,14 @@ function encodeBase64url(data: string): string {
   return toBase64Url(utf8Encode(data));
 }
 
-export async function sendMessage(
-  accountId: string,
-  params: OutgoingMail,
-): Promise<{ ok: true; messageId?: string }> {
+async function outgoingRaw(accountId: string, params: OutgoingMail, messageId: string) {
   const account = await getAccount(accountId);
   const fromAddress = account
     ? senderOf(account, params.from, { name: account.name }).from
     : accountId;
-
   const raw = buildMime({
     from: fromAddress,
+    messageId,
     to: params.to,
     cc: params.cc,
     bcc: params.bcc,
@@ -798,16 +795,58 @@ export async function sendMessage(
     references: params.references,
     attachments: params.attachments,
   });
+  const message: { raw: string; threadId?: string } = { raw: encodeBase64url(raw) };
+  if (params.threadId) message.threadId = params.threadId;
+  return message;
+}
 
-  const payload: { raw: string; threadId?: string } = { raw: encodeBase64url(raw) };
-  if (params.threadId) payload.threadId = params.threadId;
+/** Sends, and when the answer is lost, looks for the message in Sent by its Message-ID. */
+async function deliver(
+  accountId: string,
+  path: string,
+  body: unknown,
+  messageId: string,
+): Promise<{ ok: true; messageId?: string }> {
+  try {
+    const sent = (await gmailFetch(accountId, path, {
+      method: "POST",
+      body: JSON.stringify(body),
+    })) as { id?: string };
+    return { ok: true, messageId: sent.id };
+  } catch (err) {
+    if (!isNetworkError(err) && !(err instanceof GmailApiError && err.status >= 500)) throw err;
+    const q = encodeURIComponent(`rfc822msgid:${messageId} in:sent`);
+    const found = (await gmailFetch(accountId, `/messages?q=${q}&maxResults=1`).catch(
+      () => ({}),
+    )) as { messages?: { id: string }[] };
+    const id = found.messages?.[0]?.id;
+    if (id) return { ok: true, messageId: id };
+    throw new SendUncertain({ cause: err });
+  }
+}
 
-  const sent = (await gmailFetch(accountId, "/messages/send", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  })) as { id?: string };
+async function ownMessageId(accountId: string): Promise<string> {
+  return newMessageIdHeader((await getAccount(accountId))?.email ?? accountId);
+}
 
-  return { ok: true, messageId: sent.id };
+export async function sendMessage(
+  accountId: string,
+  params: OutgoingMail,
+): Promise<{ ok: true; messageId?: string }> {
+  const messageId = await ownMessageId(accountId);
+  const message = await outgoingRaw(accountId, params, messageId);
+  return deliver(accountId, "/messages/send", message, messageId);
+}
+
+/** drafts.send: the draft becomes the sent message, in its thread. */
+export async function sendDraft(
+  accountId: string,
+  draftId: string,
+  params: OutgoingMail,
+): Promise<{ ok: true; messageId?: string }> {
+  const messageId = await ownMessageId(accountId);
+  const message = await outgoingRaw(accountId, params, messageId);
+  return deliver(accountId, "/drafts/send", { id: draftId, message }, messageId);
 }
 
 export async function sendRawMessage(

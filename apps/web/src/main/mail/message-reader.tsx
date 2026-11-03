@@ -1867,18 +1867,27 @@ function InlineComposer({
       ...(mode === "forward" ? {} : { threadId, replyToMessageId: lastMessage.id }),
     };
     if (scheduledAt !== undefined) {
-      await sendMessage.mutateAsync({ ...payload, scheduledAt });
-      await draft.finalize({ deleteDraft: true });
+      await draft.finalize();
+      try {
+        await sendMessage.mutateAsync({
+          ...payload,
+          scheduledAt,
+          ...draft.sending(payload.accountId),
+        });
+      } catch (err) {
+        draft.reopen();
+        throw err;
+      }
       toast.success("Send scheduled", { description: new Date(scheduledAt).toLocaleString() });
       onClose();
       return;
     }
-    // Close now; the unmount flush keeps a draft backup until sending succeeds.
+    // Close now: the unmount flush saves the draft during the undo window, and that draft is sent.
     onClose();
     sendWithUndo({
       subject,
-      send: () => sendMessage.mutateAsync(payload),
-      onSent: () => draft.finalize({ deleteDraft: true }),
+      send: () => sendMessage.mutateAsync({ ...payload, ...draft.sending(payload.accountId) }),
+      onSent: () => draft.finalize(),
       savedDraft: draft.savedDraft,
     });
   };

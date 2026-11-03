@@ -15,21 +15,28 @@ import {
 
 export interface SmtpOptions extends ServerOptions {
   clientName?: string;
+  /** How long to wait for the answer to a message: RFC 5321's 10 minutes. */
+  dataTimeoutMs?: number;
 }
+
+const DATA_TIMEOUT_MS = 10 * 60_000;
 
 export class SmtpError extends MailProtocolError {
   readonly code?: number;
   /** RFC 3463's status, when the server gives one: "5.7.8". */
   readonly enhancedCode?: string;
   readonly serverText?: string;
+  /** Lost after the whole message went: the server may have taken it. */
+  readonly uncertain: boolean;
 
   constructor(
     message: string,
     kind: MailErrorKind,
-    details: { reply?: SmtpReply; cause?: unknown } = {},
+    details: { reply?: SmtpReply; cause?: unknown; uncertain?: boolean } = {},
   ) {
     super(message, kind, { cause: details.cause });
     this.name = "SmtpError";
+    this.uncertain = details.uncertain ?? false;
     this.code = details.reply?.code;
     this.enhancedCode = details.reply?.text.match(/^([245]\.\d{1,3}\.\d{1,3})\b/)?.[1];
     this.serverText = details.reply?.text;
@@ -48,7 +55,6 @@ export interface SmtpEnvelope {
 
 export interface SmtpSendResult {
   accepted: string[];
-  rejected: { address: string; error: SmtpError }[];
   response: string;
 }
 
@@ -193,25 +199,30 @@ export class SmtpClient {
         `MAIL FROM:<${envelope.from}>${params.map((p) => ` ${p}`).join("")}`,
         [250],
       );
-      const accepted: string[] = [];
-      const rejected: SmtpSendResult["rejected"] = [];
+      if (envelope.to.length === 0) {
+        throw new SmtpError("The message has no recipients.", "protocol");
+      }
       for (const address of envelope.to) {
         try {
           await this.command(`RCPT TO:<${address}>`, [250, 251]);
-          accepted.push(address);
         } catch (err) {
           if (!(err instanceof SmtpError) || err.code === undefined) throw err;
-          rejected.push({ address, error: err });
+          throw new SmtpError(`Couldn't send: ${address} was rejected`, "server", {
+            reply: { code: err.code, text: err.serverText ?? "" },
+          });
         }
-      }
-      if (accepted.length === 0) {
-        const first = rejected[0]?.error;
-        throw first ?? new SmtpError("The message has no recipients.", "protocol");
       }
       await this.command("DATA", [354]);
       await this.write(encodeData(raw));
-      const reply = await this.expect(await this.reply(), [250], "Sending");
-      return { accepted, rejected, response: reply.text };
+      let answer: SmtpReply;
+      try {
+        answer = await this.reply(this.options.dataTimeoutMs ?? DATA_TIMEOUT_MS);
+      } catch (err) {
+        const lost = asSmtpError(err);
+        throw new SmtpError(lost.message, lost.kind, { cause: lost, uncertain: true });
+      }
+      const reply = await this.expect(answer, [250], "Sending");
+      return { accepted: envelope.to, response: reply.text };
     } catch (err) {
       if (!this.closed) await this.command("RSET", [250]).catch(() => {});
       throw err;
@@ -258,10 +269,10 @@ export class SmtpClient {
     throw new SmtpError(`${name} failed: ${reply.code} ${reply.text}`, errorKind, { reply });
   }
 
-  private async reply(): Promise<SmtpReply> {
+  private async reply(timeoutMs = this.timeoutMs): Promise<SmtpReply> {
     const lines: string[] = [];
     for (;;) {
-      const line = await this.readLine();
+      const line = await this.readLine(timeoutMs);
       if (lines.length >= MAX_REPLY_LINES) {
         this.close();
         throw new SmtpError(`${this.options.host} sent a reply that never ends.`, "protocol");
@@ -276,7 +287,7 @@ export class SmtpClient {
     }
   }
 
-  private async readLine(): Promise<string> {
+  private async readLine(timeoutMs: number): Promise<string> {
     for (;;) {
       const lf = this.buffer.indexOf(10);
       if (lf >= 0) {
@@ -290,7 +301,7 @@ export class SmtpClient {
       }
       let chunk: Uint8Array | null;
       try {
-        chunk = await readChunk(this.stream, this.timeoutMs, this.options.host);
+        chunk = await readChunk(this.stream, timeoutMs, this.options.host);
       } catch (err) {
         this.close();
         throw asSmtpError(err);

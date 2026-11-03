@@ -32,6 +32,7 @@ import type { MailSearchResult, ListMessagesResult, UpdateAccountParams } from "
 import { resolveRules } from "./custom-views";
 import { registerUndo, clearUndo, isPureMarkRead, isQuiet, type ActionSummary } from "./undo";
 import { summarizeLabelChange } from "./action-summary";
+import { MAY_HAVE_BEEN_SENT } from "./undo-send";
 
 const STALE_TIME = 30_000;
 
@@ -80,8 +81,15 @@ export function useWriteFailureToasts(): void {
       invalidateMailCaches(qc);
     });
     const offSend = window.desktopBridge.on("gmail:send-failed", (params: unknown) => {
-      const p = params as { subject?: string; savedToDrafts?: boolean } | undefined;
+      const p = params as
+        | { subject?: string; savedToDrafts?: boolean; uncertain?: boolean }
+        | undefined;
       const what = p?.subject ? `“${p.subject}”` : "your message";
+      if (p?.uncertain) {
+        toast.warning(MAY_HAVE_BEEN_SENT, { description: p.subject, timeout: 0 });
+        invalidateMailCaches(qc);
+        return;
+      }
       toast.error(
         p?.savedToDrafts ? `Couldn't send ${what} — it's back in Drafts` : `Couldn't send ${what}`,
       );

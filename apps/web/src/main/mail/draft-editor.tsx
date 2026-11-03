@@ -249,8 +249,17 @@ export function DraftEditor({
       ...(last ? { threadId: detail.threadId, replyToMessageId: last.id } : {}),
     };
     if (scheduledAt !== undefined) {
-      await sendMessage.mutateAsync({ ...payload, scheduledAt });
-      await draft.finalize({ deleteDraft: true });
+      await draft.finalize();
+      try {
+        await sendMessage.mutateAsync({
+          ...payload,
+          scheduledAt,
+          ...draft.sending(payload.accountId),
+        });
+      } catch (err) {
+        draft.reopen();
+        throw err;
+      }
       toast.success("Send scheduled", { description: new Date(scheduledAt).toLocaleString() });
       onDone();
       return;
@@ -260,8 +269,8 @@ export function DraftEditor({
     onDone();
     sendWithUndo({
       subject: payload.subject,
-      send: () => sendMessage.mutateAsync(payload),
-      onSent: () => draft.finalize({ deleteDraft: true }),
+      send: () => sendMessage.mutateAsync({ ...payload, ...draft.sending(payload.accountId) }),
+      onSent: () => draft.finalize(),
       savedDraft: draft.savedDraft,
     });
   };

@@ -85,6 +85,7 @@ export const imapProvider: MailProvider = {
   deleteLabel: writes.deleteLabel,
 
   send: send.send,
+  sendDraft: send.sendDraft,
   sendRaw: (accountId, raw) => send.sendRaw(accountId, raw),
 
   saveDraft: send.saveDraft,

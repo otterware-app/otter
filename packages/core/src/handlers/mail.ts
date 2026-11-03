@@ -1,4 +1,5 @@
 import {
+  holdForReview,
   scheduleSend,
   snoozeThread,
   listSchedules,
@@ -14,7 +15,7 @@ import { SignInCancelledError } from "../google.js";
 import { broadcast, handle, registeredHandlers } from "../ipc.js";
 import { platform } from "../platform.js";
 import { capabilitiesOf, findProvider, isSignedIn, providerFor } from "../providers/index.js";
-import { DraftChanged } from "../providers/provider.js";
+import { DraftChanged, SendUncertain } from "../providers/provider.js";
 import {
   getAccount,
   keepsSendAsOnDevice,
@@ -36,12 +37,18 @@ import { IPC_WRITE_BUDGET_MS, atMost, runAsTask, settleWrite, sleep } from "./ip
 import { forgetLiveCursors, pageWithLiveFill, reconcileUnread } from "./live-paging.js";
 import { trackLabelWrite } from "../services/pending-label-writes.js";
 import {
+  draftFingerprint,
   draftSessionId,
+  forgetSaved,
   mirrorDraft,
   queueDraftSave,
+  rememberSaved,
   rememberSessionDraft,
+  savedDraft,
   sessionDraftId,
+  settledSessionDraft,
   takeSessionDraft,
+  type DraftContent,
 } from "./draft-sessions.js";
 import * as mailSync from "../services/mail-sync.js";
 import { accountAdded, accountEdited, accountRemoved } from "../services/linked-accounts.js";
@@ -236,6 +243,55 @@ function parseAttachments(raw: unknown): ComposeAttachment[] | undefined {
     }));
   return list.length > 0 ? list : undefined;
 }
+
+/** The draft a composer is sending, saved with what it sends; undefined when there's none, or saving failed. */
+async function finalDraft(
+  accountId: string,
+  sessionId: string,
+  askedDraft: string | undefined,
+  content: DraftContent,
+  threadId: string | undefined,
+): Promise<string | undefined> {
+  const draftId = askedDraft ?? (await settledSessionDraft(sessionId));
+  if (!draftId) return undefined;
+  try {
+    return await queueDraftSave(sessionId, async () => {
+      const fingerprint = await draftFingerprint(content);
+      if (savedDraft(draftId)?.fingerprint === fingerprint) return draftId;
+      const res = await providerFor(accountId).saveDraft(accountId, {
+        ...content,
+        draftId,
+        threadId,
+      });
+      rememberSessionDraft(sessionId, res.draftId);
+      rememberSaved(res.draftId, fingerprint, res.messageId);
+      await mirrorDraft(accountId, res, content);
+      return res.draftId;
+    });
+  } catch (err) {
+    console.log("[gmail:sendMessage] couldn't save the draft; sending directly", {
+      error: String(err),
+    });
+    return undefined;
+  }
+}
+
+/** By id, or by composer session (its first save's reply may never have reached the renderer). */
+async function deleteComposerDraft(
+  accountId: string,
+  sessionId: string,
+  askedDraft: string | undefined,
+): Promise<void> {
+  const sessionDraft = await takeSessionDraft(sessionId);
+  const draftId = askedDraft ?? sessionDraft;
+  if (!draftId) return;
+  forgetSaved(draftId);
+  const res = await providerFor(accountId).deleteDraft(accountId, draftId);
+  if (res.messageId) mailStore.deleteMessage(accountId, res.messageId);
+}
+
+const logDraftLeft = (err: unknown) =>
+  console.log("[gmail:sendMessage] sent; its draft is left", { error: String(err) });
 
 export function registerMailHandlers(): void {
   handle("gmail:listSchedules", () => listSchedules());
@@ -898,6 +954,7 @@ export function registerMailHandlers(): void {
           throw error;
         }
         rememberSessionDraft(draftSessionId(accountId, sessionKey), res.draftId);
+        rememberSaved(res.draftId, await draftFingerprint(content), res.messageId);
         await mirrorDraft(accountId, res, content);
         return {
           draftId: res.draftId,
@@ -980,12 +1037,8 @@ export function registerMailHandlers(): void {
       const accountId = assertString(p?.accountId, "accountId");
       // By id, or by composer session (its first save's reply may never have
       // reached the renderer). Waits for that session's queued saves first.
-      const sessionKey = asString(p?.sessionKey);
-      const sessionDraft = await takeSessionDraft(draftSessionId(accountId, sessionKey));
-      const draftId = asString(p?.draftId) ?? sessionDraft;
-      if (!draftId) return { ok: true as const };
-      const res = await providerFor(accountId).deleteDraft(accountId, draftId);
-      if (res.messageId) mailStore.deleteMessage(accountId, res.messageId);
+      const sessionId = draftSessionId(accountId, asString(p?.sessionKey));
+      await deleteComposerDraft(accountId, sessionId, asString(p?.draftId));
       return { ok: true as const };
     } catch (err) {
       console.log("[gmail:deleteDraft] error", { error: String(err) });
@@ -1031,65 +1084,125 @@ export function registerMailHandlers(): void {
         subject,
         body,
         bodyHtml: asString(p?.bodyHtml),
-        threadId,
         attachments,
       };
+      const mail = { ...message, threadId, inReplyTo, references };
+      const sessionId = draftSessionId(accountId, asString(p?.sessionKey));
+      const askedDraft = asString(p?.draftId);
+      const provider = providerFor(accountId);
       if (p?.scheduledAt !== undefined) {
         if (!(await getAccount(accountId))) throw new Error("Mailbox no longer exists.");
-        await scheduleSend(
-          accountId,
-          { ...message, inReplyTo, references },
-          futureTime(p.scheduledAt),
-        );
+        const dueAt = futureTime(p.scheduledAt);
+        const draftId = provider.scheduleSend
+          ? await finalDraft(accountId, sessionId, askedDraft, message, threadId)
+          : undefined;
+        const held = await scheduleSend(accountId, mail, dueAt, draftId);
+        if (held && draftId) {
+          await takeSessionDraft(sessionId);
+          forgetSaved(draftId);
+        } else {
+          await deleteComposerDraft(accountId, sessionId, askedDraft).catch(logDraftLeft);
+        }
         return { ok: true as const };
       }
-      const provider = providerFor(accountId);
-      const send = provider
-        .send(accountId, { ...message, inReplyTo, references })
-        .then(async (result) => {
-          // Mirror the sent message so it shows in Sent and its conversation
-          // before the next sync. Best effort: the mail has already gone out.
-          if (!result.messageId) return;
+      let draftId: string | undefined;
+      let draftGone = false;
+      const sending = (async () => {
+        draftId = await finalDraft(accountId, sessionId, askedDraft, message, threadId);
+        if (draftId) {
           try {
-            mailStore.upsertMessages(
-              accountId,
-              await provider.getSummaries(accountId, [result.messageId]),
-            );
-          } catch (mirrorErr) {
-            console.log("[gmail:sendMessage] sent; local mirror failed", {
-              error: String(mirrorErr),
-            });
+            const result = await provider.sendDraft(accountId, draftId, mail);
+            await takeSessionDraft(sessionId);
+            const saved = savedDraft(draftId);
+            forgetSaved(draftId);
+            if (saved?.messageId && saved.messageId !== result.messageId) {
+              mailStore.deleteMessage(accountId, saved.messageId);
+            }
+            return result;
+          } catch (error) {
+            if (error instanceof SendUncertain) throw error;
+            const left = await provider.getDraftVersion(accountId, draftId).catch(() => draftId);
+            if (left !== null) throw error;
+            draftGone = true;
+            console.log("[gmail:sendMessage] draft gone; sending directly", { draftId });
           }
-        });
+        }
+        const result = await provider.send(accountId, mail);
+        if (!draftGone) {
+          await deleteComposerDraft(accountId, sessionId, draftId ?? askedDraft).catch(
+            logDraftLeft,
+          );
+        }
+        return result;
+      })();
       // Uploads (attachments, rate limits) can outlast the renderer's 5s IPC
       // timeout, which used to report a false failure and invite a duplicate
-      // send. Past the budget the composer closes as sent; if the send then
-      // fails, the message goes back to Drafts so nothing is lost.
-      // `settled` never rejects, so a failure after the deadline can't become
-      // an unhandled rejection.
-      const settled = send.then(
-        () => ({ error: null }),
-        (error: unknown) => ({ error }),
+      // send. Past the budget the composer closes as sent, and what happens
+      // next arrives as `gmail:send-failed`. `settled` never rejects.
+      const settled = sending.then(
+        async (result) => {
+          // Mirror the sent message so it shows in Sent and its conversation
+          // before the next sync. Best effort: the mail has already gone out.
+          if (result.messageId) {
+            try {
+              mailStore.upsertMessages(
+                accountId,
+                await provider.getSummaries(accountId, [result.messageId]),
+              );
+            } catch (mirrorErr) {
+              console.log("[gmail:sendMessage] sent; local mirror failed", {
+                error: String(mirrorErr),
+              });
+            }
+          }
+          return { error: null, uncertain: false };
+        },
+        async (error: unknown) => {
+          console.log("[gmail:sendMessage] send failed", { error: String(error) });
+          if (error instanceof SendUncertain) {
+            try {
+              holdForReview(
+                accountId,
+                mail,
+                draftGone ? undefined : (draftId ?? askedDraft ?? sessionDraftId(sessionId)),
+              );
+            } catch (holdErr) {
+              console.log("[gmail:sendMessage] couldn't keep it for review", {
+                error: String(holdErr),
+              });
+            }
+            return { error: null, uncertain: true };
+          }
+          return { error, uncertain: false, savedToDrafts: await keptAsDraft() };
+        },
       );
+      // Every failure leaves one draft: the composer's, or else a copy.
+      const keptAsDraft = async () => {
+        if (!draftGone && (draftId ?? askedDraft ?? sessionDraftId(sessionId))) return true;
+        try {
+          await provider.saveDraft(accountId, mail);
+          return true;
+        } catch (draftErr) {
+          console.log("[gmail:sendMessage] could not save a draft copy", {
+            error: String(draftErr),
+          });
+          return false;
+        }
+      };
       const outcome = await Promise.race([settled, sleep(IPC_WRITE_BUDGET_MS).then(() => null)]);
       if (outcome?.error) throw outcome.error;
       if (outcome === null) {
-        void settled.then(async ({ error }) => {
-          if (!error) return;
-          console.log("[gmail:sendMessage] background send failed", { error: String(error) });
-          let savedToDrafts = false;
-          try {
-            await provider.saveDraft(accountId, { ...message, inReplyTo, references });
-            savedToDrafts = true;
-          } catch (draftErr) {
-            console.log("[gmail:sendMessage] could not save a draft copy", {
-              error: String(draftErr),
+        void settled.then((late) => {
+          if (late.error || late.uncertain) {
+            broadcast("gmail:send-failed", {
+              subject,
+              uncertain: late.uncertain,
+              savedToDrafts: "savedToDrafts" in late ? late.savedToDrafts : undefined,
             });
           }
-          broadcast("gmail:send-failed", { subject, savedToDrafts });
         });
       }
-      return { ok: true as const, pending: outcome === null };
+      return { ok: true as const, pending: outcome === null, uncertain: outcome?.uncertain };
     } catch (err) {
       console.log("[gmail:sendMessage] error", { error: String(err) });
       throw err;

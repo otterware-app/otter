@@ -2,7 +2,7 @@ import { landLabelChange, type MailSchedule } from "@otter-mail/contracts";
 import { broadcast } from "../ipc.js";
 import { platform } from "../platform.js";
 import { capabilitiesOf, providerFor } from "../providers/index.js";
-import type { OutgoingMail } from "../providers/provider.js";
+import { SendUncertain, type OutgoingMail, type ScheduleOutcome } from "../providers/provider.js";
 import { getAccount } from "./account-store.js";
 import * as store from "./mail-store.js";
 import { updateDockBadge } from "./notifier.js";
@@ -62,10 +62,17 @@ export function listSchedules(): MailSchedule[] {
   return rows.map(({ serverId, ...entry }) => ({ ...entry, onServer: serverId !== null }));
 }
 
-export async function scheduleSend(accountId: string, mail: OutgoingMail, dueAt: number) {
+/** Queues a send; true when the server holds it (with `draftId`, that draft became it). */
+export async function scheduleSend(
+  accountId: string,
+  mail: OutgoingMail,
+  dueAt: number,
+  draftId?: string,
+): Promise<boolean> {
   futureTime(dueAt);
   const provider = providerFor(accountId);
-  const held = provider.scheduleSend && (await provider.scheduleSend(accountId, mail, dueAt));
+  const held =
+    provider.scheduleSend && (await provider.scheduleSend(accountId, mail, dueAt, draftId));
   db()
     .prepare("INSERT INTO mail_schedule VALUES (?, ?, 'send', ?, 'pending', ?, ?, ?, NULL, ?)")
     .run(
@@ -76,6 +83,23 @@ export async function scheduleSend(accountId: string, mail: OutgoingMail, dueAt:
       mail.threadId ?? null,
       JSON.stringify(mail),
       held ? held.messageId : null,
+    );
+  changed();
+  return !!held;
+}
+
+/** A send that may have gone out stays here for review, beside its draft (never a second one). */
+export function holdForReview(accountId: string, mail: OutgoingMail, draftId?: string): void {
+  db()
+    .prepare("INSERT INTO mail_schedule VALUES (?, ?, 'send', ?, 'failed', ?, ?, ?, ?, NULL)")
+    .run(
+      crypto.randomUUID(),
+      accountId,
+      Date.now(),
+      mail.subject,
+      mail.threadId ?? null,
+      JSON.stringify({ ...mail, draftId }),
+      new SendUncertain().message,
     );
   changed();
 }
@@ -171,19 +195,25 @@ function claim(id: string): MailSchedule {
   return entry;
 }
 
-export async function cancelSchedule(id: string): Promise<void> {
+export async function cancelSchedule(id: string): Promise<ScheduleOutcome | undefined> {
   const entry = claim(id);
-  let sent = false;
+  let outcome: ScheduleOutcome | undefined;
   try {
     if (entry.kind === "send") {
       const row = db().prepare("SELECT payload, serverId FROM mail_schedule WHERE id = ?").get(id)!;
-      const mail = JSON.parse(String(row.payload)) as OutgoingMail;
+      const { draftId, ...mail } = JSON.parse(String(row.payload)) as OutgoingMail & {
+        draftId?: string;
+      };
       const provider = providerFor(entry.accountId);
+      outcome = "cancelled";
       if (row.serverId != null) {
-        sent = !(await provider.cancelScheduledSend!(entry.accountId, String(row.serverId)));
+        outcome = await provider.cancelScheduledSend!(entry.accountId, String(row.serverId));
         db().prepare("UPDATE mail_schedule SET serverId = NULL WHERE id = ?").run(id);
       }
-      if (!sent) {
+      const kept =
+        draftId !== undefined &&
+        (await provider.getDraftVersion(entry.accountId, draftId)) !== null;
+      if (outcome === "cancelled" && !kept) {
         const draft = await provider.saveDraft(entry.accountId, mail);
         db().prepare("DELETE FROM mail_schedule WHERE id = ?").run(id);
         if (draft.messageId) {
@@ -207,7 +237,7 @@ export async function cancelSchedule(id: string): Promise<void> {
     failed(id, error);
     throw error;
   }
-  if (sent) throw new Error("Too late to cancel: it has been sent.");
+  return outcome;
 }
 
 export function removeAccountSchedules(accountId: string): void {

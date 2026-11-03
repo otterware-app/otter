@@ -573,6 +573,16 @@ const notFound = () =>
 const badRequest = (message: string) =>
   json({ error: { code: 400, message, status: "INVALID_ARGUMENT" } }, 400);
 
+/** Mail to refused.example is refused, and to lost.example never answered, to try failed sends. */
+function sendFailure(raw: string | undefined): Response | null {
+  const text = new TextDecoder().decode(fromBase64(raw ?? ""));
+  if (/@refused\.example\b/i.test(text)) return badRequest("Invalid To header");
+  if (/@lost\.example\b/i.test(text)) {
+    return json({ error: { code: 500, message: "Backend Error", status: "INTERNAL" } }, 500);
+  }
+  return null;
+}
+
 function labelResource(box: Mailbox, label: Label): object {
   const messages = Object.values(box.messages).filter((m) => m.labelIds.includes(label.id));
   const unread = messages.filter((m) => m.labelIds.includes("UNREAD"));
@@ -688,6 +698,8 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
     case "messages": {
       if (!id) return method === "GET" ? listMessages(box, url) : notFound();
       if (id === "send" && method === "POST") {
+        const failure = sendFailure(body.raw as string);
+        if (failure) return failure;
         const m = fromRaw(box, String(body.raw ?? ""), body.threadId as string, ["SENT"]);
         addMessage(box, m);
         return json({ id: m.id, threadId: m.threadId, labelIds: m.labelIds });
@@ -754,6 +766,17 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
           .filter((draftId) => box.messages[box.drafts[draftId]])
           .map((draftId) => draftResource(box, draftId));
         return json({ drafts, resultSizeEstimate: drafts.length });
+      }
+      if (id === "send" && method === "POST") {
+        const sent = box.messages[box.drafts[String(body.id)]];
+        if (!sent) return notFound();
+        const message = (body.message ?? {}) as { raw?: string };
+        const failure = sendFailure(message.raw);
+        if (failure) return failure;
+        const m = fromRaw(box, message.raw ?? "", sent.threadId, ["SENT"]);
+        deleteMessage(box, sent.id);
+        addMessage(box, m);
+        return json({ id: m.id, threadId: m.threadId, labelIds: m.labelIds });
       }
       const current = box.messages[box.drafts[id]];
       if (!current) return notFound();

@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   capabilities: { archiveFolder: false },
   send: vi.fn(),
   saveDraft: vi.fn(),
+  getDraftVersion: vi.fn(),
   getSummaries: vi.fn(),
   modifyThread: vi.fn(),
   modifyMessage: vi.fn(),
@@ -67,7 +68,7 @@ beforeEach(async () => {
   mocks.getSummaries.mockResolvedValue([]);
   mocks.saveDraft.mockResolvedValue({ draftId: "draft" });
   held.scheduleSend.mockResolvedValue({ messageId: "held" });
-  held.cancelScheduledSend.mockResolvedValue(true);
+  held.cancelScheduledSend.mockResolvedValue("cancelled");
 });
 afterEach(() => {
   vi.clearAllTimers();
@@ -239,7 +240,12 @@ describe("persistent mail scheduling", () => {
 
   it("hands sends to a server that holds them, and never sends them here", async () => {
     await schedule.scheduleSend("outlook", mail, Date.now() + 60_000);
-    expect(held.scheduleSend).toHaveBeenCalledExactlyOnceWith("outlook", mail, Date.now() + 60_000);
+    expect(held.scheduleSend).toHaveBeenCalledExactlyOnceWith(
+      "outlook",
+      mail,
+      Date.now() + 60_000,
+      undefined,
+    );
     expect(schedule.listSchedules()[0]).toMatchObject({ state: "pending", onServer: true });
     vi.setSystemTime(Date.now() + 60_000);
     await schedule.processSchedules();
@@ -255,17 +261,15 @@ describe("persistent mail scheduling", () => {
   });
   it("cancels a held send on the server, then restores it to Drafts", async () => {
     await schedule.scheduleSend("outlook", mail, Date.now() + 60_000);
-    await schedule.cancelSchedule(schedule.listSchedules()[0].id);
+    expect(await schedule.cancelSchedule(schedule.listSchedules()[0].id)).toBe("cancelled");
     expect(held.cancelScheduledSend).toHaveBeenCalledExactlyOnceWith("outlook", "held");
     expect(mocks.saveDraft).toHaveBeenCalledExactlyOnceWith("outlook", mail);
     expect(schedule.listSchedules()).toEqual([]);
   });
   it("says when the server already sent it, restoring nothing", async () => {
-    held.cancelScheduledSend.mockResolvedValue(false);
+    held.cancelScheduledSend.mockResolvedValue("sent");
     await schedule.scheduleSend("outlook", mail, Date.now() + 60_000);
-    await expect(schedule.cancelSchedule(schedule.listSchedules()[0].id)).rejects.toThrow(
-      "Too late",
-    );
+    expect(await schedule.cancelSchedule(schedule.listSchedules()[0].id)).toBe("sent");
     expect(mocks.saveDraft).not.toHaveBeenCalled();
     expect(schedule.listSchedules()).toEqual([]);
   });
@@ -279,6 +283,30 @@ describe("persistent mail scheduling", () => {
     await schedule.cancelSchedule(schedule.listSchedules()[0].id);
     expect(held.cancelScheduledSend).toHaveBeenCalledTimes(1);
     expect(mocks.saveDraft).toHaveBeenCalledTimes(2);
+    expect(schedule.listSchedules()).toEqual([]);
+  });
+  it("keeps a send that may have gone for review, and restores it beside its draft, never twice", async () => {
+    schedule.holdForReview("me", mail, "draft");
+    expect(schedule.listSchedules()).toMatchObject([
+      {
+        kind: "send",
+        state: "failed",
+        error: "May have been sent — check Sent before sending again.",
+      },
+    ]);
+    vi.setSystemTime(Date.now() + 60_000);
+    await schedule.processSchedules();
+    expect(mocks.send).not.toHaveBeenCalled();
+
+    mocks.getDraftVersion.mockResolvedValue("draft-message");
+    expect(await schedule.cancelSchedule(schedule.listSchedules()[0].id)).toBe("cancelled");
+    expect(mocks.getDraftVersion).toHaveBeenCalledWith("me", "draft");
+    expect(mocks.saveDraft).not.toHaveBeenCalled();
+
+    schedule.holdForReview("me", mail, "draft");
+    mocks.getDraftVersion.mockResolvedValue(null);
+    await schedule.cancelSchedule(schedule.listSchedules()[0].id);
+    expect(mocks.saveDraft).toHaveBeenCalledExactlyOnceWith("me", mail);
     expect(schedule.listSchedules()).toEqual([]);
   });
   it("keeps sends queued before servers held them", async () => {

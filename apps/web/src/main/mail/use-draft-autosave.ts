@@ -336,6 +336,12 @@ export function useDraftAutosave({
     return account && messageId ? { accountId: account, messageId } : null;
   };
 
+  /** What sending needs to send the draft itself: the backend knows the session's draft. */
+  const sending = (accountId: string) => ({
+    sessionKey: sessionKeyRef.current,
+    draftId: draftAccountRef.current === accountId ? (draftIdRef.current ?? undefined) : undefined,
+  });
+
   const reopen = () => {
     doneRef.current = false;
   };
@@ -349,6 +355,7 @@ export function useDraftAutosave({
     saveAsNew,
     finalize,
     savedDraft,
+    sending,
     reopen,
   };
 }

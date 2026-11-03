@@ -227,6 +227,9 @@ export type SendMessageParams = {
   threadId?: string;
   replyToMessageId?: string;
   attachments?: ComposeAttachment[];
+  /** The composer's autosave session and draft: that draft is what's sent. */
+  sessionKey?: string;
+  draftId?: string;
 };
 
 export type SaveDraftParams = {
@@ -452,10 +455,13 @@ export const mailApi = {
 
   listSchedules: (): Promise<import("@otter-mail/contracts").MailSchedule[]> =>
     ipc("gmail:listSchedules"),
-  cancelSchedule: (id: string): Promise<void> => task("gmail:cancelSchedule", { id }),
+  cancelSchedule: (id: string): Promise<"cancelled" | "sent" | undefined> =>
+    task("gmail:cancelSchedule", { id }),
   snoozeThread: (accountId: string, threadId: string, dueAt: number): Promise<void> =>
     task("gmail:snoozeThread", { accountId, threadId, dueAt }),
-  sendMessage: (params: SendMessageParams): Promise<{ ok: boolean }> =>
+  sendMessage: (
+    params: SendMessageParams,
+  ): Promise<{ ok: boolean; pending?: boolean; uncertain?: boolean }> =>
     params.scheduledAt === undefined
       ? ipc("gmail:sendMessage", params)
       : task("gmail:scheduleMessage", params),

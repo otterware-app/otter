@@ -254,7 +254,9 @@ export function ScheduledMailButton() {
                   <p role="alert" className="text-sm text-destructive-foreground">
                     {entry.error}{" "}
                     {entry.kind === "send"
-                      ? "Check Sent before sending again."
+                      ? /check Sent/i.test(entry.error ?? "")
+                        ? ""
+                        : "Check Sent before sending again."
                       : "Return it to the inbox to recover."}
                   </p>
                 )}
@@ -266,12 +268,12 @@ export function ScheduledMailButton() {
                     void mailApi
                       .cancelSchedule(entry.id)
                       .then(
-                        () =>
-                          toast.success(
-                            entry.kind === "send"
-                              ? "Schedule cancelled — restored to Drafts"
-                              : "Returned to Inbox",
-                          ),
+                        (outcome) => {
+                          if (entry.kind !== "send") toast.success("Returned to Inbox");
+                          else if (outcome === "sent")
+                            toast.info("Already sent", { description: "It's in Sent." });
+                          else toast.success("Cancelled", { description: "Restored to Drafts." });
+                        },
                         (error) => toast.error(String(error)),
                       )
                       .finally(() => {
