@@ -55,7 +55,7 @@ async function destination(
   }
   if (current && remove.includes(current)) {
     if (current === "SPAM" || current === "TRASH" || current === ARCHIVE_LABEL_ID) {
-      return wellKnownId(accountId, ownMail ? "sentitems" : "inbox");
+      return wellKnownId(accountId, message.isDraft ? "drafts" : ownMail ? "sentitems" : "inbox");
     }
     if (current === "INBOX" || current.startsWith(FOLDER_PREFIX)) {
       return wellKnownId(accountId, "archive");

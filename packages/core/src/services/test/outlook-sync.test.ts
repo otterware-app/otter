@@ -38,6 +38,7 @@ type Message = {
   importance: "normal" | "high";
   categories: string[];
   fromMe: boolean;
+  draft?: boolean;
   date: number;
   version: number;
 };
@@ -124,7 +125,7 @@ const resource = (m: Message) => ({
   toRecipients: [{ emailAddress: { name: "Me", address: account.email } }],
   receivedDateTime: new Date(m.date).toISOString(),
   isRead: m.isRead,
-  isDraft: m.folder === "drafts",
+  isDraft: m.draft ?? m.folder === "drafts",
   flag: { flagStatus: m.flagged ? "flagged" : "notFlagged" },
   importance: m.importance,
   categories: m.categories,
@@ -1065,6 +1066,19 @@ describe("Outlook sync", () => {
     });
     await provider.modifyThread(account.id, "s", { addLabelIds: ["INBOX"] });
     expect(messages.get("later")?.folder).toBe("inbox");
+  });
+
+  it("restores a trashed draft to Drafts, not Sent Items", async () => {
+    deliver("draft", "deleteditems", { draft: true, fromMe: true });
+    deliver("mine", "deleteditems", { fromMe: true });
+    const { status, labelsOf, invoke } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+    await invoke("gmail:untrashMessage", { accountId: account.id, messageId: "draft" });
+    await invoke("gmail:untrashMessage", { accountId: account.id, messageId: "mine" });
+    expect(messages.get("draft")!.folder).toBe("drafts");
+    expect(labelsOf("draft")).toContain("DRAFT");
+    expect(messages.get("mine")!.folder).toBe("sentitems");
   });
 
   it("empties Deleted Items of what Outlook lists there, never mail restored elsewhere", async () => {
