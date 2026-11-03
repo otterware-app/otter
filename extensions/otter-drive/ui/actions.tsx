@@ -38,6 +38,7 @@ import {
   UserPlusIcon,
   UsersIcon,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Fragment, useEffect, useState, type ComponentType } from "react";
 
 import { driveApi, driveLabel, type DriveArtifact, type DriveFolder } from "./api";
