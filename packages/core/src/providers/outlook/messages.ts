@@ -131,6 +131,26 @@ export async function getApiMessages(
   return messages;
 }
 
+export async function findApiMessages(
+  accountId: string,
+  ids: string[],
+): Promise<{ found: ApiMessage[]; gone: string[] }> {
+  const answers = await graphBatch(
+    accountId,
+    ids.map((id) => ({ method: "GET", url: `${messagePath(id)}?$select=${SUMMARY_FIELDS}` })),
+  );
+  const found: ApiMessage[] = [];
+  const gone: string[] = [];
+  answers.forEach((answer, i) => {
+    if (ok(answer)) found.push(answer.body as ApiMessage);
+    else if (answer?.status === 404) gone.push(ids[i]!);
+    else if (!answer || !isAccessDenied(batchError(answer))) {
+      throw answer ? batchError(answer) : new Error("Outlook didn't answer for a message.");
+    }
+  });
+  return { found, gone };
+}
+
 export async function getSummaries(accountId: string, ids: string[]): Promise<MessageSummary[]> {
   return (await getApiMessages(accountId, ids)).map((m) => toSummary(accountId, m));
 }

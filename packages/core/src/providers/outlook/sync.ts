@@ -14,11 +14,17 @@ import {
   type Mailbox,
 } from "./folders.js";
 import { GraphError, graph, graphAll, isAccessDenied, type Page } from "./graph.js";
-import { getApiMessages, SUMMARY_FIELDS, toSummary, type ApiMessage } from "./messages.js";
+import {
+  findApiMessages,
+  getApiMessages,
+  SUMMARY_FIELDS,
+  toSummary,
+  type ApiMessage,
+} from "./messages.js";
 
 const PAGE_SIZE = 100;
 
-type FolderDelta = { link: string; done: boolean; label?: string | null };
+type FolderDelta = { link: string; done: boolean; label?: string | null; unlisted?: string[] };
 type DeltaState = Record<string, FolderDelta>;
 
 const deltaKey = (accountId: string) => `outlookDelta:${accountId}`;
@@ -240,7 +246,12 @@ async function followDelta(
   } catch (err) {
     if (err instanceof GraphError && (err.status === 410 || /syncState|resync/i.test(err.code))) {
       logger.info("outlook-sync", `delta expired for a folder of ${accountId}; listing it again`);
-      setFolderDelta(accountId, folder.id, null);
+      setFolderDelta(accountId, folder.id, {
+        link: firstDelta(folder.id),
+        done: false,
+        label: folder.labelId,
+        unlisted: folder.labelId ? store.getMessageIdsForLabel(accountId, folder.labelId) : [],
+      });
       return { added: [], changed: false };
     }
     if (refuse(accountId, folder, mailbox, err)) return { added: [], changed: false };
@@ -345,19 +356,27 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
           summaries.map((m) => m.id),
         ),
       );
-      store.upsertMessages(
-        accountId,
-        summaries.filter((m) => unknown.has(m.id)),
-      );
+      store.upsertMessages(accountId, summaries);
       count += unknown.size;
       next = page["@odata.nextLink"];
+      const before = readDelta(accountId)[folder.id] ?? { label: folder.labelId };
+      let unlisted = before.unlisted;
+      if (unlisted) {
+        const listed = new Set((page.value ?? []).map((m) => m.id));
+        unlisted = unlisted.filter((id) => !listed.has(id));
+        if (!next) {
+          await reconcileUnlisted(accountId, unlisted, ctx);
+          unlisted = undefined;
+        }
+      }
       setFolderDelta(accountId, folder.id, {
-        ...(readDelta(accountId)[folder.id] ?? { label: folder.labelId }),
+        ...before,
         link: next ?? page["@odata.deltaLink"] ?? firstDelta(folder.id),
         done: !next,
+        unlisted,
       });
       ctx.update({ synced: count });
-      if (unknown.size > 0) ctx.bumpRevision();
+      if (summaries.length > 0) ctx.bumpRevision();
     }
   }
   ctx.assertActive();
@@ -373,4 +392,25 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
     "outlook-sync",
     `listed ${skipped ? "the folders it may read" : "every folder"} of ${accountId}`,
   );
+}
+
+async function reconcileUnlisted(
+  accountId: string,
+  ids: string[],
+  ctx: SyncContext,
+): Promise<void> {
+  if (ids.length === 0) return;
+  const { found, gone } = await findApiMessages(accountId, ids);
+  ctx.assertActive();
+  const synced = found.filter((m) => isSyncedFolder(accountId, m.parentFolderId));
+  const kept = new Set(synced.map((m) => m.id));
+  store.applyHistoryChanges(accountId, [
+    ...gone.map((id) => ({ kind: "deleted" as const, id })),
+    ...found.filter((m) => !kept.has(m.id)).map((m) => ({ kind: "deleted" as const, id: m.id })),
+  ]);
+  store.upsertMessages(
+    accountId,
+    synced.map((m) => toSummary(accountId, m)),
+  );
+  ctx.bumpRevision();
 }

@@ -48,6 +48,9 @@ let failedReads: boolean;
 let denied: { delta?: string; children?: string; message?: string; status: number };
 /** Subfolders, by parent. */
 let subfolders: Record<string, string[]>;
+let expired: Set<string>;
+let lagging: Set<string>;
+let listing: { pageSize?: number; failAt?: { folder: string; skip: number } };
 
 function deliver(id: string, folder: string, patch: Partial<Message> = {}): Message {
   const m: Message = {
@@ -150,6 +153,32 @@ function handle(method: string, url: URL, body: unknown): Response {
     const folder = delta[1]!;
     if (folder === denied.delta) return refusal();
     const since = Number(url.searchParams.get("since") ?? -1);
+    const link = (v: number) =>
+      `https://graph.microsoft.com/v1.0/me/mailFolders/${folder}/messages/delta?since=${v}`;
+    if (since >= 0 && expired.delete(folder)) {
+      return json({ error: { code: "SyncStateNotFound", message: "Expired." } }, 410);
+    }
+    if (since >= 0 && lagging.has(folder))
+      return json({ value: [], "@odata.deltaLink": link(since) });
+    if (since < 0 && listing.pageSize) {
+      const skip = Number(url.searchParams.get("skip") ?? 0);
+      if (listing.failAt?.folder === folder && listing.failAt.skip === skip) {
+        listing.failAt = undefined;
+        return json({ error: { code: "ErrorInternalServerError", message: "Test failure." } }, 500);
+      }
+      const all = [...messages.values()]
+        .filter((m) => m.folder === folder)
+        .sort((a, b) => a.id.localeCompare(b.id));
+      const end = skip + listing.pageSize;
+      return json({
+        value: all.slice(skip, end).map(resource),
+        ...(end < all.length
+          ? {
+              "@odata.nextLink": `https://graph.microsoft.com/v1.0/me/mailFolders/${folder}/messages/delta?skip=${end}`,
+            }
+          : { "@odata.deltaLink": link(version) }),
+      });
+    }
     const present = [...messages.values()]
       .filter((m) => m.folder === folder && m.version > since)
       .map((m) =>
@@ -349,6 +378,9 @@ beforeEach(() => {
   failedReads = false;
   denied = { status: 403 };
   subfolders = {};
+  expired = new Set();
+  lagging = new Set();
+  listing = {};
   vi.stubGlobal("fetch", fakeFetch);
 });
 
@@ -512,6 +544,147 @@ describe("Outlook sync", () => {
     expect(labelsOf("a")?.sort()).toEqual(["ARCHIVE", "UNREAD"]);
     expect(labelsOf("c")).toBeUndefined();
     expect(labelsOf("b")).toEqual(["INBOX", "UNREAD"]);
+  });
+
+  describe("a conversation moved in Outlook into a nested folder", () => {
+    const setUp = () => {
+      subfolders = { inbox: ["projects"] };
+      const date = Date.parse("2026-11-01T08:00:00Z");
+      deliver("c1", "inbox", { conversationId: "conv-x", date });
+      deliver("c2", "sentitems", { conversationId: "conv-x", date: date + 60_000 });
+      deliver("c3", "inbox", { conversationId: "conv-x", date: date + 120_000 });
+      deliver("k1", "inbox");
+      deliver("k2", "inbox");
+    };
+    const moveAll = () => ["c1", "c2", "c3"].forEach((id) => move(id, "projects"));
+
+    async function shown(booted: Awaited<ReturnType<typeof boot>>) {
+      const { mailStore, invoke } = booted;
+      const thread = (await invoke("gmail:getThread", {
+        accountId: account.id,
+        threadId: "conv-x",
+      })) as { id: string; labelIds: string[] }[];
+      return {
+        ids: thread.map((m) => m.id).sort(),
+        badges: [...new Set(thread.flatMap((m) => m.labelIds))].filter(
+          (l) => l === "INBOX" || l === "SENT" || l.startsWith("folder:"),
+        ),
+        inInbox: mailStore
+          .getThreadsPage(account.id, "INBOX", 0, 50)
+          .messages.some((m) => m.threadId === "conv-x"),
+        inboxTotal: mailStore.getLabels(account.id).find((l) => l.id === "INBOX")?.total,
+        cached: mailStore.countAllMessages(account.id),
+      };
+    }
+
+    it("shows only the destination once sync follows the move, in an open reader too", async () => {
+      setUp();
+      const booted = await boot();
+      const { status, sync } = booted;
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+      expect((await shown(booted)).badges.sort()).toEqual(["INBOX", "SENT"]);
+
+      const revision = status().revision;
+      moveAll();
+      await sync();
+      expect(status().revision).toBeGreaterThan(revision);
+      expect(await shown(booted)).toEqual({
+        ids: ["c1", "c2", "c3"],
+        badges: ["folder:projects"],
+        inInbox: false,
+        inboxTotal: 2,
+        cached: 5,
+      });
+    });
+
+    it("keeps the Inbox badge while one message is still there", async () => {
+      setUp();
+      const booted = await boot();
+      const { status, sync } = booted;
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      move("c1", "projects");
+      move("c2", "projects");
+      await sync();
+      const after = await shown(booted);
+      expect(after.badges.sort()).toEqual(["INBOX", "folder:projects"]);
+      expect(after).toMatchObject({ inInbox: true, inboxTotal: 3, cached: 5 });
+    });
+
+    it.each([
+      ["the source's removals first", ["projects"]],
+      ["the destination's additions first", ["inbox", "sentitems"]],
+    ])("converges without duplicates with %s", async (_, behind) => {
+      setUp();
+      const booted = await boot();
+      const { status, sync } = booted;
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      lagging = new Set(behind);
+      moveAll();
+      await sync();
+      expect(await shown(booted)).toMatchObject({ ids: ["c1", "c2", "c3"], cached: 5 });
+
+      lagging.clear();
+      await sync();
+      expect(await shown(booted)).toEqual({
+        ids: ["c1", "c2", "c3"],
+        badges: ["folder:projects"],
+        inInbox: false,
+        inboxTotal: 2,
+        cached: 5,
+      });
+    });
+
+    it("converges after Outlook expired the deltas, reconciling only once a listing completes", async () => {
+      setUp();
+      deliver("gone", "inbox");
+      const booted = await boot();
+      const { status, sync, labelsOf } = booted;
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      expired = new Set(["inbox", "sentitems", "projects"]);
+      moveAll();
+      remove("gone");
+      listing = { pageSize: 1, failAt: { folder: "inbox", skip: 1 } };
+      await sync();
+      await until(() => status().error != null && !status().syncing, "the interrupted listing");
+
+      expect(labelsOf("gone")).toContain("INBOX");
+      expect(labelsOf("k2")).toContain("INBOX");
+      expect((await shown(booted)).cached).toBe(6);
+
+      const now = Date.now();
+      vi.spyOn(Date, "now").mockImplementation(() => now + 60 * 60_000);
+      await sync();
+      await until(() => labelsOf("gone") === undefined && !status().syncing, "the listing");
+      expect(await shown(booted)).toEqual({
+        ids: ["c1", "c2", "c3"],
+        badges: ["folder:projects"],
+        inInbox: false,
+        inboxTotal: 2,
+        cached: 5,
+      });
+      expect(labelsOf("k1")).toContain("INBOX");
+      expect(labelsOf("k2")).toContain("INBOX");
+    });
+
+    it("refreshes known messages when a destination is listed again", async () => {
+      setUp();
+      const booted = await boot();
+      const { status, sync, labelsOf } = booted;
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      expired = new Set(["projects"]);
+      lagging = new Set(["inbox", "sentitems"]);
+      moveAll();
+      await sync();
+      await until(
+        () => !status().syncing && !labelsOf("c1")?.includes("INBOX"),
+        "the destination's listing",
+      );
+      expect(await shown(booted)).toMatchObject({ badges: ["folder:projects"], cached: 5 });
+    });
   });
 
   it("keeps headers, conversation and list position when marking read produces a sparse delta", async () => {
