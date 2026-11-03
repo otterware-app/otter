@@ -598,6 +598,20 @@ function PeopleInput({
   const active = Math.min(highlight, suggestions.length - 1);
 
   useEffect(() => inputRef.current?.focus(), []);
+  // Escape clears the field before it closes the dialog. The dialog hears it
+  // first (on the document, capturing), so this listens on the window, earlier.
+  const clearing = Boolean(text || showSuggestions);
+  useEffect(() => {
+    if (!clearing) return;
+    const escape = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape" || document.activeElement !== inputRef.current) return;
+      e.stopPropagation();
+      setText("");
+      setFocused(false);
+    };
+    window.addEventListener("keydown", escape, true);
+    return () => window.removeEventListener("keydown", escape, true);
+  }, [clearing, setText]);
 
   const add = (values: string[]) => {
     const next = [...emails];
@@ -632,12 +646,6 @@ function PeopleInput({
       add([text]);
     } else if (e.key === "Backspace" && !text && emails.length) {
       onEmailsChange(emails.slice(0, -1));
-    } else if (e.key === "Escape" && (text || showSuggestions)) {
-      // Clears the field before Escape closes the dialog.
-      e.preventDefault();
-      e.stopPropagation();
-      setText("");
-      setFocused(false);
     }
   };
 

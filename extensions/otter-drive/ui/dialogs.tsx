@@ -35,12 +35,20 @@ export function saveToOtterDrive(email: MessageTarget): void {
 export function OtterDriveDialogs() {
   const [email, setEmail] = useState<MessageTarget | null>(null);
   const openWorkspace = useOpenWorkspace();
-  useEffect(() => {
-    setDriveOpener((location, item) => openWorkspace("drive", { location, item }));
-    return () => setDriveOpener(null);
-  }, [openWorkspace]);
-  // ⌘K's Drive results go when the sign-in or the drives that are on change.
   const qc = useQueryClient();
+  useEffect(() => {
+    // What it opens may be new here (a link just accepted): the lists catch up first.
+    setDriveOpener(
+      (location, item) =>
+        void Promise.all(
+          ["folders", "artifacts", "drives"].map((key) =>
+            qc.invalidateQueries({ queryKey: ["otter-drive", key] }),
+          ),
+        ).then(() => openWorkspace("drive", { location, item })),
+    );
+    return () => setDriveOpener(null);
+  }, [openWorkspace, qc]);
+  // ⌘K's Drive results go when the sign-in or the drives that are on change.
   const status = useDriveStatus().data;
   const reach = status ? `${status.connected}:${status.hidden.join(",")}` : null;
   useEffect(() => {

@@ -1010,9 +1010,38 @@ export async function resolveLink(
   if (url.origin !== BASE) return null;
   const auth = await signedIn();
   const parts = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-  const document = async (slug: string, folderId: string) => {
-    const found = await documentAccess(slug, folderId);
-    return { location: found.folder ?? SHARED, item: found.raw.id };
+  // Opened by its id, which reaches it anywhere (and checks its drive is on).
+  const byId = async (id: string) => {
+    const found = await documentAccess(id, undefined);
+    return { location: found.folder ?? SHARED, item: id };
+  };
+  // A slug names a document only within its folder: in one you can reach, ask
+  // there; a document shared with you on its own is found in Shared with me.
+  const bySlug = async (slug: string, where: { folderId?: string; folderSlug?: string }) => {
+    const folder = (await allFolders(auth)).find((f) =>
+      where.folderId ? f.id === where.folderId : f.slug === where.folderSlug,
+    );
+    if (folder) {
+      await reachable(folder.id);
+      const found = await request<{ data: RawArtifact }>(
+        `/api/v1/artifacts/${ref(slug)}`,
+        {},
+        auth,
+        folder.id,
+      );
+      return byId(found.data.id);
+    }
+    const shared = await request<{
+      data: { type: string; folderSlug: string; artifact?: RawArtifact }[];
+    }>("/api/v1/shared", {}, auth);
+    const item = shared.data.find(
+      (i) =>
+        i.artifact?.slug === slug &&
+        (where.folderId
+          ? (i.artifact.folderId ?? i.artifact.organizationId) === where.folderId
+          : i.folderSlug === where.folderSlug),
+    );
+    return item?.artifact ? byId(item.artifact.id) : null;
   };
   try {
     if (parts[0] === "s" && parts[1]) {
@@ -1021,15 +1050,11 @@ export async function resolveLink(
       }>(`/api/v1/links/${ref(parts[1])}`, { method: "POST" }, auth);
       forget();
       const { type, folderId, slug } = opened.data;
-      if (type === "artifact" && slug) return await document(slug, folderId);
+      if (type === "artifact" && slug) return await bySlug(slug, { folderId });
       await reachable(folderId);
       return { location: folderId, item: null };
     }
-    if (parts[1] === "a" && parts[2]) {
-      const folder = (await allFolders(auth)).find((f) => f.slug === parts[0]);
-      if (!folder) return null;
-      return await document(parts[2], folder.id);
-    }
+    if (parts[1] === "a" && parts[2]) return await bySlug(parts[2], { folderSlug: parts[0] });
     const folderId = url.searchParams.get("folder");
     if (parts[0] === "home" && folderId) {
       await reachable(folderId);
