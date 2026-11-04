@@ -192,6 +192,9 @@ For UI or behavior changes, run the app and check the change in it, at a 1600x10
 For the iPhone app, build it (`pnpm dev:ios`, or `xcodebuild` as its README shows) and check the
 change in the simulator, in light and dark.
 
+Pull requests follow the `pr` skill (`.agents/skills`): a PR that changes what users see carries
+screenshots or a recording, attached with `gh pr create --attach`.
+
 ## Taste
 
 - Small, obvious code. Don't add machinery a change doesn't need.
