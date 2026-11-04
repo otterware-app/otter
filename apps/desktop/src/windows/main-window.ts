@@ -4,6 +4,7 @@ import { logger } from "../logger.js";
 import { hostOS } from "../os/index.js";
 import { attachBrowser } from "../services/browser.js";
 import { isDriveContent } from "../services/drive-content.js";
+import { addContextMenu } from "./context-menu.js";
 import { getPreloadPath, getWindowUrl } from "./window-paths.js";
 import { saveOpenWindows, savedFrame, savedOpenWindows, trackFrame } from "./window-state.js";
 
@@ -116,6 +117,7 @@ function createAppWindow(
   trackFrame(frameKey(key), win);
   hostOS.windowFollowsTheme(win);
   openLinksExternally(win);
+  addContextMenu(win);
   attachBrowser(win);
 
   win.once("ready-to-show", () => {

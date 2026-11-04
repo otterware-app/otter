@@ -20,6 +20,7 @@ import { logger } from "../logger.js";
 import { extensionMenuItems, reachOf, setupExtensions, trackTab } from "./extensions.js";
 import { parseMailtoUrl, setPendingMailto } from "./mailto-target.js";
 import { hostOS } from "../os/index.js";
+import { editingItems } from "../windows/context-menu.js";
 
 export const BROWSER_PARTITION = "persist:browser";
 
@@ -225,18 +226,7 @@ function contextMenu(
   }
   const selection = params.selectionText.trim();
   if (params.isEditable) {
-    const suggestions = params.dictionarySuggestions.slice(0, 5);
-    if (suggestions.length > 0) {
-      groups.push(
-        suggestions.map((word) => ({ label: word, click: () => page.replaceMisspelling(word) })),
-      );
-    }
-    groups.push([
-      { label: "Cut", enabled: params.editFlags.canCut, click: () => page.cut() },
-      { label: "Copy", enabled: params.editFlags.canCopy, click: () => page.copy() },
-      { label: "Paste", enabled: params.editFlags.canPaste, click: () => page.paste() },
-      { label: "Select All", click: () => page.selectAll() },
-    ]);
+    groups.push(...editingItems(page, params));
   } else if (selection) {
     const quoted = selection.length > 30 ? `${selection.slice(0, 30)}…` : selection;
     groups.push([
