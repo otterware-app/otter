@@ -234,18 +234,27 @@ export async function listLabels(accountId: string): Promise<MailLabel[]> {
 
   // labels.list omits message counts and color — only labels.get returns them,
   // so fetch per-label detail for every label.
-  const fetched = await mapPool(
-    rawLabels,
-    8,
-    (l) =>
-      gmailFetch(accountId, `/labels/${l.id}`) as Promise<{
+  const fetched = await mapPool(rawLabels, 8, async (l) => {
+    try {
+      return (await gmailFetch(accountId, `/labels/${l.id}`)) as {
         id: string;
         messagesUnread?: number;
         messagesTotal?: number;
         color?: { backgroundColor?: string; textColor?: string };
-      }>,
+      };
+    } catch (err) {
+      // Gmail refuses some labels' detail ("Precondition check failed") and a
+      // label can go between list and get; keep the label, without its counts.
+      if (err instanceof GmailApiError && (err.status === 400 || err.status === 404)) {
+        logger.info("gmail", `label detail unavailable (${err.status}): ${err.message}`);
+        return null;
+      }
+      throw err;
+    }
+  });
+  const detailById = new Map(
+    fetched.flatMap((label) => (label ? [[label.id, label] as const] : [])),
   );
-  const detailById = new Map(fetched.map((label) => [label.id, label]));
 
   return rawLabels.map((label) => {
     const detail = detailById.get(label.id);
