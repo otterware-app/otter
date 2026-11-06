@@ -22,6 +22,10 @@ public final class OtterComposerModule: Module {
       AsyncFunction("command") { (view: OtterComposerView, name: String) in
         view.command(name)
       }
+
+      AsyncFunction("snapshot") { (view: OtterComposerView, promise: Promise) in
+        view.snapshot(promise)
+      }
     }
   }
 }

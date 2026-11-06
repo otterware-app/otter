@@ -40,18 +40,26 @@ const editor = new Editor({
   },
 });
 
+const change = () => {
+  const html = emailHtml(editor.getHTML());
+  return { html, text: textOfHtml(html), blank: isBlank(editor.state) };
+};
+
 let timer: ReturnType<typeof setTimeout> | null = null;
 editor.on("update", () => {
   if (timer) clearTimeout(timer);
-  timer = setTimeout(() => {
-    const html = emailHtml(editor.getHTML());
-    post({ type: "change", html, text: textOfHtml(html), blank: isBlank(editor.state) });
-  }, 150);
+  timer = setTimeout(() => post({ type: "change", ...change() }), 150);
 });
 editor.on("focus", () => post({ type: "focus", focused: true }));
 editor.on("blur", () => post({ type: "focus", focused: false }));
 
 window.otterComposer = {
+  /** What's written now, the debounce's pending change included (Send, Save Draft). */
+  snapshot() {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    return change();
+  },
   setContent(html: string) {
     editor.commands.setContent(normalizeHtml(html), { emitUpdate: false });
   },

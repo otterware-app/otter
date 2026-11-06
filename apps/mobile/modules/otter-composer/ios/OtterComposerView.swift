@@ -87,6 +87,13 @@ public final class OtterComposerView: ExpoView, WKScriptMessageHandler, WKNaviga
   func focus(_ position: String) { run("otterComposer.focus(\(Self.literal(position)))") }
   func command(_ name: String) { run("otterComposer.command(\(Self.literal(name)))") }
 
+  func snapshot(_ promise: Promise) {
+    guard ready else { return promise.resolve(nil) }
+    webView.evaluateJavaScript("JSON.stringify(otterComposer.snapshot())") { result, _ in
+      promise.resolve(result as? String)
+    }
+  }
+
   public func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
     guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
     switch type {

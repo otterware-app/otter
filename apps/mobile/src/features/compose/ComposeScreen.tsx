@@ -101,17 +101,20 @@ export function ComposeScreen({ navigation, route }: Props) {
     }
   };
 
-  const draft = () => ({
+  const draft = (written: ComposerChange = body) => ({
     accountId,
     sessionKey,
     draftId,
     to,
     cc: cc || undefined,
     subject,
-    body: body.text,
-    bodyHtml: body.html,
+    body: written.text,
+    bodyHtml: written.html,
     threadId: mode === "forward" ? undefined : threadId,
   });
+
+  /** The editor reports changes 150 ms late; Send and Save Draft take what's written now. */
+  const latestDraft = async () => draft((await editor.current?.snapshot()) ?? body);
 
   useEffect(() => {
     if (!edited.current) return;
@@ -135,7 +138,7 @@ export function ComposeScreen({ navigation, route }: Props) {
     setSending(true);
     try {
       await core.invoke("gmail:sendMessage", {
-        ...draft(),
+        ...(await latestDraft()),
         replyToMessageId: mode === "reply" || mode === "replyAll" ? messageId : undefined,
       });
       threadLists.invalidate(accountId);
@@ -161,7 +164,9 @@ export function ComposeScreen({ navigation, route }: Props) {
             void core.invoke("gmail:deleteDraft", { accountId, draftId }).catch(() => {});
           navigation.goBack();
         } else if (i === 1) {
-          void core.invoke("gmail:saveDraft", draft()).catch(() => {});
+          void latestDraft()
+            .then((latest) => core.invoke("gmail:saveDraft", latest))
+            .catch(() => {});
           navigation.goBack();
         }
       },
