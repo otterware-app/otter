@@ -1,0 +1,70 @@
+{
+  "name": "@otter-mail/client-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "What every Otter Mail client does the same: the connection to core, its state as Effect atoms, and the operations on it.",
+  "type": "module",
+  "exports": {
+    "./platform": {
+      "types": "./src/platform/index.ts",
+      "default": "./src/platform/index.ts"
+    },
+    "./connection": {
+      "types": "./src/connection/index.ts",
+      "default": "./src/connection/index.ts"
+    },
+    "./rpc": {
+      "types": "./src/rpc/index.ts",
+      "default": "./src/rpc/index.ts"
+    },
+    "./state/mailboxes": {
+      "types": "./src/state/mailboxes.ts",
+      "default": "./src/state/mailboxes.ts"
+    },
+    "./state/messages": {
+      "types": "./src/state/messages.ts",
+      "default": "./src/state/messages.ts"
+    },
+    "./state/chats": {
+      "types": "./src/state/chats.ts",
+      "default": "./src/state/chats.ts"
+    },
+    "./operations": {
+      "types": "./src/operations/index.ts",
+      "default": "./src/operations/index.ts"
+    },
+    "./label-tree": {
+      "types": "./src/label-tree.ts",
+      "default": "./src/label-tree.ts"
+    },
+    "./label-names": {
+      "types": "./src/label-names.ts",
+      "default": "./src/label-names.ts"
+    },
+    "./address": {
+      "types": "./src/address.ts",
+      "default": "./src/address.ts"
+    },
+    "./text": {
+      "types": "./src/text.ts",
+      "default": "./src/text.ts"
+    },
+    "./capabilities": {
+      "types": "./src/capabilities.ts",
+      "default": "./src/capabilities.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@otter-mail/contracts": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

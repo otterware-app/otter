@@ -16,14 +16,17 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p src/protocols/test && tsc --noEmit -p src/providers/imap/test && tsc --noEmit -p src/services/test"
   },
   "dependencies": {
+    "@noble/hashes": "catalog:",
     "@openrouter/ai-sdk-provider": "3.1.0",
     "@otter-mail/contracts": "workspace:*",
     "@otter-mail/shared": "workspace:*",
     "ai": "7.0.127",
     "better-auth": "^1.7.6",
+    "effect": "catalog:",
     "postal-mime": "^4.0.0"
   },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vite-plus": "catalog:"

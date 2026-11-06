@@ -1,34 +1,45 @@
-import type { FromBackend, MainEffect, MainRequests } from "./backend-protocol.js";
+import { serveCore, type CoreHost, type CoreHostOptions } from "@otter-mail/core";
+import type {
+  HostEffect,
+  HostRequestKind,
+  HostRequestParams,
+  HostRequestResults,
+} from "@otter-mail/contracts/rpc";
 
-export function postToMain(message: FromBackend): void {
-  // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a process port has none
-  process.parentPort.postMessage(message);
+let link: CoreHost | null = null;
+
+/** Serves core to main over the utility process's port; first thing the backend does. */
+export function serveMain(options: CoreHostOptions): void {
+  link = serveCore(
+    {
+      // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a process port has none
+      post: (message) => process.parentPort.postMessage(message),
+      listen(listener) {
+        const onMessage = (event: Electron.MessageEvent) => listener(event.data);
+        process.parentPort.on("message", onMessage);
+        return () => process.parentPort.off("message", onMessage);
+      },
+    },
+    options,
+  );
 }
 
-let nextRequestId = 1;
-const pending = new Map<
-  number,
-  { resolve: (value: unknown) => void; reject: (error: Error) => void }
->();
+const main = () => {
+  if (!link) throw new Error("serveMain() has not run.");
+  return link;
+};
 
-export function requestMain<K extends keyof MainRequests>(
+export function requestMain<K extends HostRequestKind>(
   kind: K,
-  params: MainRequests[K]["params"],
-): Promise<MainRequests[K]["result"]> {
-  const id = nextRequestId++;
-  postToMain({ type: "request", id, kind, params });
-  return new Promise((resolve, reject) => {
-    pending.set(id, { resolve: resolve as (value: unknown) => void, reject });
-  });
+  params: HostRequestParams<K>,
+): Promise<HostRequestResults[K]> {
+  return main().request(kind, params);
 }
 
-export function settleRequest(id: number, result: unknown, error?: string): void {
-  const request = pending.get(id);
-  pending.delete(id);
-  if (error !== undefined) request?.reject(new Error(error));
-  else request?.resolve(result);
+export function tellMain(effect: HostEffect): void {
+  main().effect(effect);
 }
 
-export function tellMain(effect: MainEffect): void {
-  postToMain({ type: "effect", ...effect });
+export function broadcastToMain(channel: string, params?: unknown): void {
+  main().broadcast(channel, params);
 }

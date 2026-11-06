@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
+    "@effect/atom-react": "catalog:",
+    "@otter-mail/client-runtime": "workspace:*",
     "@otter-mail/contracts": "workspace:*",
     "@otter-mail/core": "workspace:*",
     "@otter-mail/extension-calendar-invites": "workspace:*",
@@ -47,6 +49,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "culori": "^4.0.2",
+    "effect": "catalog:",
     "libphonenumber-js": "^1.13.15",
     "lucide-react": "^0.542.0",
     "radix-ui": "^1.4.3",

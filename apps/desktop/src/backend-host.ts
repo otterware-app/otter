@@ -14,15 +14,11 @@ import { createHash } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
+import { connectCore } from "@otter-mail/client-runtime/connection";
+import type { HostEffect, HostRequest } from "@otter-mail/contracts/rpc";
 import type { AppSettings } from "@otter-mail/core";
 
-import {
-  appInfoEnv,
-  type FromBackend,
-  type MainEffect,
-  type MainRequests,
-  type ToBackend,
-} from "./backend-protocol.js";
+import { appInfoEnv } from "./backend-protocol.js";
 import { setErrorReportsAllowed, sendsErrorReports } from "./error-reports.js";
 import { broadcast } from "./ipc.js";
 import { logger, writeLog } from "./logger.js";
@@ -33,21 +29,13 @@ import { focusMainWindow } from "./windows/main-window.js";
 let backend: UtilityProcess | null = null;
 let stopping = false;
 let ready: Promise<void> = Promise.resolve();
-let nextInvokeId = 1;
-const invoking = new Map<
-  number,
-  { resolve: (value: unknown) => void; reject: (error: Error) => void }
->();
 const forwarded = new Set<string>();
 
 const RESTART_DELAY_MS = 1_000;
 const RESTART_DELAY_MAX_MS = 30_000;
 let restartDelay = RESTART_DELAY_MS;
 
-// oxlint-disable-next-line unicorn/require-post-message-target-origin -- a process has none
-const send = (message: ToBackend) => backend?.postMessage(message);
-
-export function startBackend(): Promise<void> {
+function forkBackend(): UtilityProcess {
   const child = utilityProcess.fork(path.join(__dirname, "backend.cjs"), [], {
     serviceName: "Otter Mail Backend",
     env: {
@@ -62,43 +50,52 @@ export function startBackend(): Promise<void> {
     },
   });
   backend = child;
-  ready = new Promise((resolve) => {
-    child.on("message", (message: FromBackend) => {
-      if (message.type === "ready") {
-        serve(message.channels);
-        restartDelay = RESTART_DELAY_MS;
-        resolve();
-      } else {
-        receive(message);
-      }
-    });
-  });
   child.on("exit", (code) => {
     if (backend === child) backend = null;
-    for (const call of invoking.values()) call.reject(new Error("The mail backend stopped."));
-    invoking.clear();
+    core?.stop("The mail backend stopped.");
     if (stopping) return;
     logger.error("backend", `The mail backend exited (${code}); starting it again`);
     setTimeout(() => void startBackend(), restartDelay);
     restartDelay = Math.min(restartDelay * 2, RESTART_DELAY_MAX_MS);
+  });
+  return child;
+}
+
+let core: ReturnType<typeof connectCore> | null = null;
+
+export function startBackend(): Promise<void> {
+  const open = () => {
+    const child = forkBackend();
+    return {
+      // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a process has none
+      post: (message: unknown) => child.postMessage(message),
+      listen(listener: (message: unknown) => void) {
+        child.on("message", listener);
+        return () => child.off("message", listener);
+      },
+    };
+  };
+  if (core) core.restart();
+  else core = connectCore(open, { onEvent: broadcast, onRequest: answer, onEffect: carryOut });
+  ready = core.ready().then((channels) => {
+    serve(channels);
+    restartDelay = RESTART_DELAY_MS;
   });
   return ready;
 }
 
 export function stopBackend(): void {
   stopping = true;
-  send({ type: "shutdown" });
+  core?.shutdown();
 }
 
 export async function invokeBackend(channel: string, params?: unknown): Promise<unknown> {
   await ready;
-  const id = nextInvokeId++;
-  const result = new Promise((resolve, reject) => invoking.set(id, { resolve, reject }));
-  send({ type: "invoke", id, channel, params });
-  return result;
+  if (!core) throw new Error("The mail backend stopped.");
+  return core.invoke(channel, params);
 }
 
-function serve(channels: string[]): void {
+function serve(channels: readonly string[]): void {
   for (const channel of channels) {
     if (forwarded.has(channel)) continue;
     forwarded.add(channel);
@@ -106,54 +103,26 @@ function serve(channels: string[]): void {
   }
 }
 
-void app.whenReady().then(() => powerMonitor.on("resume", () => send({ type: "resume" })));
+void app.whenReady().then(() => powerMonitor.on("resume", () => core?.resume()));
 
-function receive(message: Exclude<FromBackend, { type: "ready" }>): void {
-  if (message.type === "result") {
-    const call = invoking.get(message.id);
-    invoking.delete(message.id);
-    if (message.error !== undefined) call?.reject(new Error(message.error));
-    else call?.resolve(message.result);
-  } else if (message.type === "request") {
-    const { id, kind, params } = message;
-    answer(kind, params).then(
-      (result) => send({ type: "reply", id, result }),
-      (err: unknown) =>
-        send({ type: "reply", id, error: err instanceof Error ? err.message : String(err) }),
-    );
-  } else {
-    carryOut(message);
-  }
-}
-
-async function answer(
-  kind: keyof MainRequests,
-  params: MainRequests[keyof MainRequests]["params"],
-): Promise<unknown> {
-  switch (kind) {
-    case "seal": {
-      const { text } = params as MainRequests["seal"]["params"];
-      return safeStorage.encryptString(text).toString("base64");
-    }
-    case "unseal": {
-      const { sealed } = params as MainRequests["unseal"]["params"];
-      return safeStorage.decryptString(Buffer.from(sealed, "base64"));
-    }
-    case "openExternal": {
-      await shell.openExternal((params as MainRequests["openExternal"]["params"]).url);
+async function answer(request: HostRequest): Promise<unknown> {
+  switch (request._tag) {
+    case "seal":
+      return safeStorage.encryptString(request.text).toString("base64");
+    case "unseal":
+      return safeStorage.decryptString(Buffer.from(request.sealed, "base64"));
+    case "openExternal":
+      await shell.openExternal(request.url);
       return;
-    }
     case "openFile": {
-      const { name, bytes } = params as MainRequests["openFile"]["params"];
-      const error = await shell.openPath(await tempFile(name, bytes));
+      const error = await shell.openPath(await tempFile(request.name, request.bytes));
       if (error) throw new Error(error);
       return;
     }
     case "saveFile": {
-      const { name, bytes } = params as MainRequests["saveFile"]["params"];
-      const result = await dialog.showSaveDialog({ defaultPath: name });
+      const result = await dialog.showSaveDialog({ defaultPath: request.name });
       if (result.canceled || !result.filePath) return false;
-      await fs.writeFile(result.filePath, bytes);
+      await fs.writeFile(result.filePath, request.bytes);
       return true;
     }
     case "pickFiles": {
@@ -168,19 +137,18 @@ async function answer(
         })),
       );
     }
+    default:
+      throw new Error(`The desktop app doesn't answer ${request._tag}.`);
   }
 }
 
 const MAX_AWAITING_CLICK = 50;
 const notificationsAwaitingClick = new Set<Notification>();
 
-function carryOut(effect: MainEffect): void {
-  switch (effect.kind) {
-    case "broadcast":
-      broadcast(effect.channel, effect.params);
-      return;
+function carryOut(effect: HostEffect): void {
+  switch (effect._tag) {
     case "notify": {
-      const { kind: _kind, open, code, ...options } = effect;
+      const { _tag: _kind, open, code, ...options } = effect;
       if (!Notification.isSupported()) return;
       const notification = new Notification({
         ...options,
@@ -208,12 +176,12 @@ function carryOut(effect: MainEffect): void {
       notification.show();
       return;
     }
-    case "unread":
+    case "badge":
       unreadCount = effect.count;
       showDockBadge();
       return;
     case "settings":
-      applySettings(effect.settings, effect.patch);
+      applySettings(effect.settings as AppSettings, effect.patch as Partial<AppSettings>);
       return;
     case "log":
       writeLog(effect.level, effect.scope, effect.message, effect.data);
