@@ -17,8 +17,12 @@ import {
 import { CheckIcon } from "lucide-react";
 import { useCapabilities } from "./capabilities";
 import { useLabels } from "./hooks";
-import { buildLabelTree, flattenLabelTree, isAssignableLabel } from "./label-tree";
-import { labelDisplayName } from "./label-names";
+import {
+  buildLabelTree,
+  flattenLabelTree,
+  isAssignableLabel,
+} from "@otter-mail/client-runtime/label-tree";
+import { labelDisplayName } from "@otter-mail/client-runtime/label-names";
 import type { MailLabel } from "./types";
 
 export type LabelOverlayMode = "label" | "move";

@@ -74,7 +74,7 @@ const GMX = `<clientConfig version="1.1">
   </emailProvider>
 </clientConfig>`;
 
-const setKind = (kind: Platform["kind"]) => setPlatform({ kind } as Platform);
+const setCrossOrigin = (crossOriginFetch: boolean) => setPlatform({ crossOriginFetch } as Platform);
 
 function stubFetch(routes: Record<string, string>): string[] {
   const asked: string[] = [];
@@ -138,7 +138,7 @@ describe("parseAutoconfig", () => {
 describe("discoverImap", () => {
   it("knows common providers without asking anyone", async () => {
     const asked = stubFetch({});
-    setKind("web");
+    setCrossOrigin(false);
     expect(await discoverImap("me@icloud.com")).toEqual({
       username: "me@icloud.com",
       imap: { host: "imap.mail.me.com", port: 993, security: "tls" },
@@ -150,27 +150,27 @@ describe("discoverImap", () => {
 
   it("leaves Gmail and Outlook to their own sign-in", async () => {
     stubFetch({});
-    setKind("desktop");
+    setCrossOrigin(true);
     expect(await discoverImap("a@gmail.com")).toBeNull();
     expect(await discoverImap("a@hotmail.com")).toBeNull();
   });
 
   it("asks the ISPDB", async () => {
     const asked = stubFetch({ "https://autoconfig.thunderbird.net/v1.1/gmx.info": GMX });
-    setKind("web");
+    setCrossOrigin(false);
     expect((await discoverImap("jane@gmx.info"))?.imap.host).toBe("imap.gmx.net");
     expect(asked).toEqual(["https://autoconfig.thunderbird.net/v1.1/gmx.info"]);
   });
 
-  it("asks the domain's own autoconfig only outside the browser (no CORS there)", async () => {
+  it("asks the domain's own autoconfig only where fetches cross origins (not the browser's CORS)", async () => {
     const own = "https://autoconfig.example.org/mail/config-v1.1.xml";
     let asked = stubFetch({ [own]: GMX });
-    setKind("desktop");
+    setCrossOrigin(true);
     expect((await discoverImap("jane@example.org"))?.imap.host).toBe("imap.gmx.net");
     expect(asked).toContain(`${own}?emailaddress=jane%40example.org`);
 
     asked = stubFetch({ [own]: GMX });
-    setKind("web");
+    setCrossOrigin(false);
     expect(await discoverImap("jane@example.org")).toBeNull();
     expect(asked.some((url) => url.startsWith(own))).toBe(false);
   });
@@ -184,7 +184,7 @@ describe("discoverImap", () => {
         "10 in1-smtp.messagingengine.com.",
       ),
     });
-    setKind("web");
+    setCrossOrigin(false);
     expect(await discoverImap("me@jane.dev")).toEqual({
       username: "me@jane.dev",
       imap: { host: "imap.fastmail.com", port: 993, security: "tls" },
@@ -202,7 +202,7 @@ describe("discoverImap", () => {
       }),
       "https://autoconfig.thunderbird.net/v1.1/gmx.info": GMX,
     });
-    setKind("web");
+    setCrossOrigin(false);
     expect((await discoverImap("me@jane.dev"))?.imap.host).toBe("imap.gmx.net");
   });
 
@@ -214,7 +214,7 @@ describe("discoverImap", () => {
     });
     const probed: string[] = [];
     setPlatform({
-      kind: "web",
+      crossOriginFetch: false,
       connect: async (host: string) => {
         probed.push(host);
         if (host !== "w020d192.kasserver.com") throw new Error("certificate isn't trusted");

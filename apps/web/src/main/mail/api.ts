@@ -2,6 +2,24 @@ import { ipc, task } from "~/lib/ipc";
 import type { AliasMailbox, ImapSettings } from "@otter-mail/contracts";
 import type { NotificationConnection } from "@otter-mail/contracts/relay";
 export type { ChatChange } from "@otter-mail/contracts";
+export type {
+  ApprovalDecision,
+  ApprovalRequest,
+  ChatAttachment,
+  ChatEvent,
+  ChatQuestion,
+  ChatSession,
+  ChatSessionMessage,
+  Skill,
+  ToolStep,
+} from "@otter-mail/contracts/chats";
+import type {
+  ApprovalDecision,
+  ChatAttachment,
+  ChatSession,
+  ChatSessionMessage,
+  Skill,
+} from "@otter-mail/contracts/chats";
 import type { AgentAccess, AgentTokens, ConnectedAgent } from "@otter-mail/contracts/agent-tokens";
 import type {
   ComposeAttachment,
@@ -116,88 +134,12 @@ export type AgentSettingsView = {
 } & Record<string, unknown>;
 export type RuntimeMode = "approval-required" | "auto-accept-edits" | "full-access";
 
-export type ApprovalDecision = "once" | "session" | "always" | "deny";
-
-export type ApprovalRequest = {
-  id: string;
-  kind: "command" | "fileChange" | "permission" | "tool";
-  title: string;
-  detail?: string;
-  reason?: string;
-  choices: ApprovalDecision[];
-};
 export type ProvidersState = {
   providers: ProviderSnapshot[];
   selected: ProviderKind;
 };
 export type AgentSettingsPatch = { selected?: ProviderKind } & {
   [kind: string]: Record<string, string | boolean> | string | undefined;
-};
-
-export type ToolStep = {
-  kind: "command" | "read" | "edit" | "search" | "web" | "skill" | "tool";
-  title: string;
-  detail?: string;
-  source?: string;
-};
-
-export type ChatQuestion = {
-  id: string;
-  questions: {
-    id: string;
-    header: string;
-    question: string;
-    options: { label: string; description?: string }[];
-    multiSelect: boolean;
-    secret: boolean;
-  }[];
-  /** Epoch ms when it stops waiting. */
-  expiresAt: number;
-};
-
-export type ChatEvent =
-  | { requestId: string; type: "session"; sessionId: string }
-  | { requestId: string; type: "delta"; id?: string; text: string }
-  | { requestId: string; type: "text"; id: string; text: string }
-  | { requestId: string; type: "tool"; id?: string; step: ToolStep }
-  | { requestId: string; type: "toolResult"; id?: string; output: string }
-  | { requestId: string; type: "change"; change: import("@otter-mail/contracts").ChatChange }
-  | { requestId: string; type: "approval"; approval: ApprovalRequest }
-  | { requestId: string; type: "approvalResolved"; approvalId: string }
-  | { requestId: string; type: "question"; question: ChatQuestion }
-  | { requestId: string; type: "questionResolved"; questionId: string }
-  /** The run so far from the provider's record: replaces what follows the turn's message. */
-  | { requestId: string; type: "transcript"; messages: ChatSessionMessage[] }
-  | { requestId: string; type: "steerReturned"; text: string }
-  | { requestId: string; type: "done"; responseId: string | null }
-  | { requestId: string; type: "error"; message: string };
-
-export type ChatAttachment = {
-  id: string;
-  name: string;
-  mime: string;
-  size: number;
-  path: string;
-  kind: "image" | "file";
-};
-
-export type Skill = { name: string; description: string; category: string | null; path?: string };
-
-export type ChatSession = {
-  id: string;
-  title: string | null;
-  source: string;
-  /** Epoch ms. */
-  lastActive: number;
-  messageCount: number;
-  preview: string | null;
-};
-
-export type ChatSessionMessage = {
-  role: "user" | "assistant" | "tool" | "system";
-  text: string;
-  toolName?: string;
-  toolCalls?: ToolStep[];
 };
 
 export type ModifyMessageParams = {

@@ -1,5 +1,5 @@
 import type { MailCapabilities } from "@otter-mail/contracts";
-import type { MailLabel } from "./types";
+import type { MailLabel } from "./mail.ts";
 
 export const ALL_MAIL_LABEL_ID = "ALL_MAIL";
 

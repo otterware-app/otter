@@ -1,6 +1,6 @@
 import { ARCHIVE_LABEL_ID } from "@otter-mail/contracts";
 
-import type { ActionSummary } from "./undo";
+import type { ActionSummary } from "./undo.ts";
 
 export function summarizeLabelChange(
   add: string[],

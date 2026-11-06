@@ -27,13 +27,23 @@ const RESERVED_WORKSPACES = new Set([
   "settings",
 ]);
 
-export const APP_PLATFORMS = ["mac", "linux", "web"] as const;
+export const APP_PLATFORMS = ["mac", "linux", "web", "ios"] as const;
 
 export type AppPlatform = (typeof APP_PLATFORMS)[number];
 
+/** Where a manifest without `platforms` runs: the phone only runs extensions that name it. */
+const DEFAULT_PLATFORMS: readonly AppPlatform[] = ["mac", "linux", "web"];
+
 export function runsOn(manifest: ExtensionManifest, platform: AppPlatform): boolean {
-  return !manifest.platforms || manifest.platforms.includes(platform);
+  return (manifest.platforms ?? DEFAULT_PLATFORMS).includes(platform);
 }
+
+/**
+ * An extension package's halves, by export. `./core` runs in core (every app),
+ * `./ui` in the renderer, `./desktop` in the desktop app's backend in place of
+ * `./core`, and `./mobile` is its screens on the phone (none has one yet).
+ */
+export type ExtensionEntry = "./core" | "./ui" | "./desktop" | "./mobile";
 
 export const EXTENSION_CATEGORIES = {
   mail: "Mail",

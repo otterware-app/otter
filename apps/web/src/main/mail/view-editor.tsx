@@ -17,7 +17,11 @@ import { cn } from "./ui";
 import { ViewIconPicker, ViewMark } from "./view-icon";
 import { useAllAccountLabels, useCombinedCounts } from "./hooks";
 import { getAccountColor, getAccountDisplayName } from "./account-style";
-import { SYSTEM_LABEL_NAMES, SYSTEM_LABEL_ORDER, labelDisplayName } from "./label-names";
+import {
+  SYSTEM_LABEL_NAMES,
+  SYSTEM_LABEL_ORDER,
+  labelDisplayName,
+} from "@otter-mail/client-runtime/label-names";
 import type { MailAccount, MailLabel, MailView, ViewRule } from "./types";
 
 type ViewEditorProps = {

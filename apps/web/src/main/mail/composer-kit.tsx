@@ -6,7 +6,7 @@ import { matchesCommand } from "../keybindings/dispatch";
 import { ShortcutText } from "../keybindings/store";
 import { HintTooltip, IconBtn, cn } from "./ui";
 import type { DraftRemoteState, DraftSaveState } from "./use-draft-autosave";
-import { normalizeAddressList } from "./address";
+import { normalizeAddressList } from "@otter-mail/client-runtime/address";
 import { diffText } from "./text-diff";
 import { htmlToText } from "./text";
 import type { MessageDetail } from "./types";

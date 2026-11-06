@@ -8,13 +8,13 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { getAccountDisplayName } from "./mail/account-style";
-import { senderLabel } from "./mail/address";
+import { senderLabel } from "@otter-mail/client-runtime/address";
 import { workspaceOf } from "./extensions/workspaces";
 import { CALENDAR_SPACE, CHATS_SPACE, isViewSpaceId } from "./mail/spaces";
 import { SEARCH_MAILBOX } from "./mail/gmail-query";
 import { useLabels, useMessage } from "./mail/hooks";
 import { isBlank, useChats } from "./mail/chat-store";
-import { folderName, labelDisplayName } from "./mail/label-names";
+import { folderName, labelDisplayName } from "@otter-mail/client-runtime/label-names";
 import { capabilitiesOf } from "./mail/capabilities";
 import type { AliasMailboxEntry } from "./mail/alias-mailboxes";
 import type { MailAccount, MailView } from "./mail/types";

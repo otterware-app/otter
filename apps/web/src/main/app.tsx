@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
 import { router, queryClient } from "./router";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { AppAtomRegistryProvider } from "./atom-registry";
 import { ToastProvider } from "./mail/toast";
 import { ReportProblemDialog } from "./support/report-problem";
 import { reactErrorHandlers, startErrorReports } from "./error-reports";
@@ -21,12 +22,14 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement, reactErrorHandlers);
 root.render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <RouterProvider router={router} />
-        <ReportProblemDialog />
-      </ToastProvider>
-    </QueryClientProvider>
+    <AppAtomRegistryProvider>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <RouterProvider router={router} />
+          <ReportProblemDialog />
+        </ToastProvider>
+      </QueryClientProvider>
+    </AppAtomRegistryProvider>
   </React.StrictMode>,
 );
 

@@ -1,4 +1,4 @@
-import { ALL_MAIL_LABEL_ID, ARCHIVE_LABEL_ID } from "./label-names";
+import { ALL_MAIL_LABEL_ID, ARCHIVE_LABEL_ID } from "@otter-mail/client-runtime/label-names";
 
 export const THREAD_DRAG_MIME = "application/x-ottermail-threads";
 

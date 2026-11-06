@@ -19,7 +19,7 @@ when a feature lands or goes.
   updates), the preload, and the mail backend: core in a utility process (`src/backend.ts`) with
   the desktop platform (`src/platform.ts`: node:sqlite, and safeStorage, dialogs and
   notifications asked of main). Main forwards the windows' invokes to it (`src/backend-host.ts`,
-  messages in `src/backend-protocol.ts`), so syncing never holds up the app itself.
+  core's RPC protocol below), so syncing never holds up the app itself.
   - `src/os/`: everything that differs between macOS and Linux, behind one interface
     (`types.ts`: `HostOS` for main, `BackendOS` for the backend) that `mac/` and `linux/`
     implement: window frame, menu, badge, login items, secrets, default mail app,
@@ -65,10 +65,10 @@ when a feature lands or goes.
   Settings lists them by manifest `category` in Agents, Connections (services you sign in to,
   beside the mailboxes: Todoist, Otter Drive), Integrations (hidden while empty) and Features, each with a
   page) and
-  `./desktop` (Claude, Codex). A workspace (Otter Drive's Drive) is declared in the manifest's
+  `./desktop` (Claude, Codex), and `./mobile` for the phone's screens (none yet; contracts' `ExtensionEntry`). A workspace (Otter Drive's Drive) is declared in the manifest's
   `contributes.workspaces` (VS Code's view containers: known without running it) and drawn by the
   `./ui` half: a mode beside Mail, Calendar and Agent at `/<id>/<location>/<item>`, with its own
-  sidebar and main area (`extensions/workspaces.ts`). The manifest's `platforms` (mac, linux, web; absent: all) says where one runs, and each
+  sidebar and main area (`extensions/workspaces.ts`). The manifest's `platforms` (mac, linux, web, ios; absent: all but ios, which an extension names to opt in) says where one runs, and each
   app loads the half it can run, as VS Code loads `main` or `browser`: the desktop app `./desktop`
   when there is one, else `./core`; the web app `./core`. Core doesn't import them: the shells pass
   their list to `startCore`
@@ -79,7 +79,15 @@ when a feature lands or goes.
   the strict contribution: core's `ChatProvider` (its settings are its own, under its id) and, in
   the renderer, its icon and settings form; the chat UI is shared.
 - `packages/contracts`: types shared by both sides, including `DesktopBridge`, the
-  `window.desktopBridge` API the preload exposes, and the relay's API (`src/relay.ts`).
+  `window.desktopBridge` API the preload exposes, the relay's API (`src/relay.ts`), and core's
+  protocol with the app hosting it (`src/rpc.ts`, Effect Schema and `effect/rpc`: invokes,
+  broadcasts, the host's requests and effects), over any copying message port (`src/rpc-port.ts`:
+  the utility process, the web Worker, later the phone's runtime). Core serves it (`serveCore`).
+- `packages/client-runtime`: what every client does the same, Otter Code's layout (subpath
+  exports only, no React or DOM): the connection to core (`connection`, `rpc`), state as Effect
+  atoms (`state/chats`, `state/messages`, `state/mailboxes`), mail writes with their overlays and
+  undo (`operations`), and pure helpers. The web app reads its atoms with `@effect/atom-react`
+  (chats and the mailbox lists so far; other data is still TanStack Query).
 - `packages/shared`: what every app shows the same, the iPhone app included: the color themes
   (`./themes`) and the demo mailbox (`./demo-mailboxes`). The web app imports it; the iPhone app
   bundles it as JSON.

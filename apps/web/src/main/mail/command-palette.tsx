@@ -38,7 +38,7 @@ import { AgentIcon } from "./agent-icon";
 import { AccountPicture } from "./account-picture";
 import { useDebouncedValue, useSearchMessages } from "./hooks";
 import { getAccountColor, getAccountDisplayName } from "./account-style";
-import { senderLabel } from "./address";
+import { senderLabel } from "@otter-mail/client-runtime/address";
 import { cn } from "./ui";
 import { changelogUrl } from "@otter-mail/shared/changelog";
 import { openLink } from "../browser/store";

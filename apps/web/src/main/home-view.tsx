@@ -33,7 +33,14 @@ import { ChatWindow } from "./mail/chat-window";
 import { ChatWorkspace, type ChatPanelControl } from "./mail/chat-workspace";
 import { CALENDAR_MODES, CalendarView, calendarAccounts } from "./calendar/calendar-view";
 import type { CalendarMode } from "./calendar/dates";
-import { newChat, showChat, undockChat, useChatEvents, useChats } from "./mail/chat-store";
+import {
+  chatsState,
+  newChat,
+  showChat,
+  undockChat,
+  useChatEvents,
+  useChats,
+} from "./mail/chat-store";
 import { useMailChatContext } from "./mail/chat-context";
 import { useChatProvider } from "./mail/agent-providers";
 import { SEARCH_MAILBOX } from "./mail/gmail-query";
@@ -81,7 +88,7 @@ import {
   takeRedo,
   takeUndo,
   type UndoAction,
-} from "./mail/undo";
+} from "@otter-mail/client-runtime/operations";
 import { getAccountColor, getAccountContrastColor } from "./mail/account-style";
 import { mailApi, type ChatChange, type MailtoTarget, type SettingsPane } from "./mail/api";
 import type { QuoteContext } from "./mail/chat-context";
@@ -92,7 +99,8 @@ import {
   loadLastLocation,
   saveLastLocation,
 } from "./mail/custom-views";
-import { ALL_MAIL_LABEL_ID, ARCHIVE_LABEL_ID } from "./mail/label-names";
+import { ALL_MAIL_LABEL_ID, ARCHIVE_LABEL_ID } from "@otter-mail/client-runtime/label-names";
+import { threadLists } from "./mail/thread-lists";
 import { capabilitiesOf } from "./mail/capabilities";
 import { useMonochromeTheme } from "./theme/apply-theme";
 import { features } from "./features";
@@ -683,7 +691,7 @@ function MailHome() {
   };
   const chatWindowShown = chatWindowOpen && !isChats && !settingsRoute;
   const closeChat = () => {
-    undockChat(useChats.getState().activeId);
+    undockChat(chatsState().activeId);
     setChatWindow(false);
   };
   useLayoutEffect(() => {
@@ -1212,7 +1220,7 @@ function MailHome() {
         if (!message) throw new Error("This conversation is no longer available.");
         messageId = message.id;
       }
-      void queryClient.invalidateQueries({ queryKey: ["gmail:messages", target.accountId] });
+      threadLists.invalidate(target.accountId);
       go({
         mailbox: target.accountId,
         label: target.kind === "draft" ? "DRAFT" : ALL_MAIL_LABEL_ID,
@@ -1226,7 +1234,7 @@ function MailHome() {
   useEffect(
     () =>
       setDraftOpener(({ accountId, messageId }) => {
-        void queryClient.invalidateQueries({ queryKey: ["gmail:messages", accountId] });
+        threadLists.invalidate(accountId);
         void queryClient.invalidateQueries({ queryKey: ["gmail:combinedMessages"] });
         selectMessageRef.current(messageId, accountId);
       }),

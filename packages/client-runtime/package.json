@@ -52,6 +52,10 @@
     "./capabilities": {
       "types": "./src/capabilities.ts",
       "default": "./src/capabilities.ts"
+    },
+    "./mail": {
+      "types": "./src/mail.ts",
+      "default": "./src/mail.ts"
     }
   },
   "scripts": {
@@ -64,6 +68,7 @@
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
     "typescript": "catalog:",
     "vite-plus": "catalog:"
   }

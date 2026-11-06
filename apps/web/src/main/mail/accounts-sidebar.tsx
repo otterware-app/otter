@@ -39,15 +39,19 @@ import {
   useEmptyFolder,
 } from "./hooks";
 import type { MailLabel } from "./types";
-import { ALL_MAIL_LABEL_ID, ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "./label-names";
-import { buildLabelTree, type LabelTreeNode } from "./label-tree";
+import {
+  ALL_MAIL_LABEL_ID,
+  ARCHIVE_LABEL_ID,
+  SNOOZED_LABEL_ID,
+} from "@otter-mail/client-runtime/label-names";
+import { buildLabelTree, type LabelTreeNode } from "@otter-mail/client-runtime/label-tree";
 import {
   isMoveSourceLabel,
   isThreadDrag,
   readThreadDrag,
   type ThreadDragPayload,
 } from "./thread-drag";
-import { beginUndoGroup } from "./undo";
+import { beginUndoGroup } from "@otter-mail/client-runtime/operations";
 import { labelMoveName } from "../keybindings/commands";
 import { renameLabelKeybindings, useKeybindingsState } from "../keybindings/store";
 import { formatShortcut, parseShortcut } from "../keybindings/keys";
