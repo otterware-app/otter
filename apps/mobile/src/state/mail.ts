@@ -7,6 +7,7 @@ import { core } from "./core";
 export type MessageDetail = MessageSummary & {
   bodyText?: string | null;
   bodyHtml?: string | null;
+  bcc?: string;
   attachments?: {
     id: string;
     filename: string;

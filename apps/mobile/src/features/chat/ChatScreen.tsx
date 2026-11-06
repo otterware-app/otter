@@ -20,6 +20,7 @@ import { clientPlatform } from "../../state/client";
 import { useKeyboardInset } from "../keyboard";
 import { palette, type Palette } from "../theme";
 import { GlassPanel } from "../GlassPanel";
+import { contextMeta, handoffText, type ThreadContext } from "./context";
 
 type Props = NativeStackScreenProps<RootStack, "Chat">;
 
@@ -28,7 +29,7 @@ type Props = NativeStackScreenProps<RootStack, "Chat">;
  * core and the relay, on client-runtime's chats store, the web app's. Turns
  * stream in as core's agent events arrive.
  */
-export function ChatScreen({ navigation }: Props) {
+export function ChatScreen({ navigation, route }: Props) {
   const colors = palette(useColorScheme());
   const keyboard = useKeyboardInset();
   const providers = useAgentProviders();
@@ -42,6 +43,15 @@ export function ChatScreen({ navigation }: Props) {
   const running = convo ? Boolean(runs[convo.id]) : false;
   const scroll = useRef<{ scrollToEnd(options: { animated: boolean }): void }>(null);
   const [draft, setDraft] = useState("");
+  /** "Ask the agent" from a conversation: a new chat, about it, until sent or dismissed. */
+  const [about, setAbout] = useState<ThreadContext | null>(route.params?.context ?? null);
+  const startedAbout = useRef(false);
+
+  useEffect(() => {
+    if (!about || startedAbout.current || !provider || !ready) return;
+    startedAbout.current = true;
+    chats.newChat(provider);
+  }, [about, provider, ready]);
 
   useEffect(() => {
     if (convo && !convo.loaded) void chats.loadChat(convo.id);
@@ -79,14 +89,16 @@ export function ChatScreen({ navigation }: Props) {
     if (!question || !provider) return;
     const id = convo?.id ?? chats.newChat(provider);
     setDraft("");
+    setAbout(null);
     chats.sendMessage(
       {
         id: clientPlatform.newId(),
         convoId: id,
         provider,
         question,
-        input: question,
+        input: about ? handoffText(question, about, provider) : question,
         title: clampTitle(question),
+        ...(about ? { context: contextMeta(about) } : {}),
       },
       "queue",
     );
@@ -122,6 +134,21 @@ export function ChatScreen({ navigation }: Props) {
           <Text style={[styles.thinking, { color: colors.secondary }]}>Thinking…</Text>
         ) : null}
       </ScrollView>
+      {about ? (
+        <View style={[styles.about, { backgroundColor: colors.card }]} testID="chat-about">
+          <SymbolView name="envelope" size={13} tintColor={colors.secondary} />
+          <Text style={[styles.aboutText, { color: colors.text }]} numberOfLines={1}>
+            {about.subject}
+          </Text>
+          <Pressable
+            onPress={() => setAbout(null)}
+            hitSlop={8}
+            accessibilityLabel="Remove the conversation"
+          >
+            <SymbolView name="xmark" size={11} tintColor={colors.secondary} />
+          </Pressable>
+        </View>
+      ) : null}
       <GlassPanel style={styles.composer}>
         <TextInput
           value={draft}
@@ -243,6 +270,19 @@ function Markdownish({ text, colors }: { text: string; colors: Palette }) {
 }
 
 const styles = StyleSheet.create({
+  about: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    marginHorizontal: 16,
+    marginBottom: 6,
+    paddingHorizontal: 10,
+    height: 28,
+    borderRadius: 14,
+    maxWidth: "90%",
+  },
+  aboutText: { fontSize: 13, flexShrink: 1 },
   fill: { flex: 1 },
   transcript: { padding: 16, gap: 14, paddingBottom: 24 },
   empty: { textAlign: "center", marginTop: 80, fontSize: 15 },
