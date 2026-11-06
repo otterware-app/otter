@@ -54,21 +54,25 @@ export function GateScreen({ route }: NativeStackScreenProps<RootStack, "Gate">)
     await runProbe("net:start", { base: NET_BASE });
   }, [runProbe]);
 
+  const startScroll = useCallback(async () => {
+    const list = (await runProbe("bench:list")) as { ms: number; rows: ThreadRow[] };
+    setResults((r) => ({ ...r, "bench:list": { ms: list.ms, rows: list.rows.length } }));
+    setBench(list.rows);
+  }, [runProbe]);
+
+  // A deep link runs a probe once per link (`n` tells repeats apart), not when callbacks change.
   const { run, n } = route.params ?? {};
+  const handled = useRef<string | null>(null);
   useEffect(() => {
+    const key = `${run}:${n}`;
+    if (!run || handled.current === key) return;
+    handled.current = key;
     if (run === "all") void runAll();
     else if (run === "scroll") void startScroll();
     else if (run === "net") void runNet();
     else if (run === "net-status") void runProbe("net:status");
-    else if (run) void runProbe(run);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [run, n]);
-
-  const startScroll = async () => {
-    const list = (await runProbe("bench:list")) as { ms: number; rows: ThreadRow[] };
-    setResults((r) => ({ ...r, "bench:list": { ms: list.ms, rows: list.rows.length } }));
-    setBench(list.rows);
-  };
+    else void runProbe(run);
+  }, [run, n, runAll, startScroll, runNet, runProbe]);
 
   if (bench) {
     return (
@@ -183,7 +187,8 @@ function ScrollBench({
       cancelled = true;
       clearTimeout(timer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // One run per mount: the callbacks are the parent's inline props, new every render.
+    // eslint-disable-next-line react/exhaustive-effect-dependencies
   }, []);
   return (
     <LegendList
