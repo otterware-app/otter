@@ -8,6 +8,7 @@ import { translation } from "@otter-mail/mobile-translation";
 import Constants from "expo-constants";
 import { AppState, Linking } from "react-native";
 
+import { startBackgroundRefresh } from "../features/notifications/background-refresh";
 import { deviceEffect, startNotifications } from "../features/notifications/notifications";
 import { startCoreRuntime } from "./core-transport";
 import { startRecoveredDrafts } from "./recovered-drafts";
@@ -81,4 +82,5 @@ export const core: CoreBridge = {
 };
 
 startNotifications(core, connection.ready());
+startBackgroundRefresh(core, connection.ready());
 startRecoveredDrafts(core, connection.ready());

@@ -191,6 +191,9 @@ importers:
       '@otter-mail/extension-translation':
         specifier: workspace:*
         version: link:../../extensions/translation
+      '@otter-mail/mobile-background':
+        specifier: workspace:*
+        version: link:modules/otter-background
       '@otter-mail/mobile-composer':
         specifier: workspace:*
         version: link:modules/otter-composer
