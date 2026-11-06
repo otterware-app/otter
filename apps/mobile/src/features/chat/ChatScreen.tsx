@@ -1,5 +1,5 @@
 import { clampTitle } from "@otter-mail/client-runtime/state/chats";
-import type { ChatContextMeta, ChatTurn, ChatTurnItem } from "@otter-mail/contracts/chats";
+import type { ChatTurn, ChatTurnItem } from "@otter-mail/contracts/chats";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -35,9 +35,7 @@ import { AgentMenu } from "./AgentMenu";
 import { ApprovalCard, QuestionCard } from "./ChatCards";
 import { ChatList } from "./ChatList";
 import { Markdown } from "./Markdown";
-
-/** Mail to ask about (the reader's "Ask the agent"): what the chat shows, and the block sent with the question. */
-export type ChatHandoff = { meta: ChatContextMeta; text: string };
+import { contextMeta, handoffText } from "./context";
 
 type Props = NativeStackScreenProps<RootStack, "Chat">;
 
@@ -137,9 +135,9 @@ export function ChatScreen({ navigation, route }: Props) {
         convoId: id,
         provider: provider.kind,
         question: typed,
-        input: about ? `${typed}\n\n${about.text}` : typed,
+        input: about ? handoffText(typed, about, provider.kind) : typed,
         title: clampTitle(typed),
-        ...(about ? { context: about.meta } : {}),
+        ...(about ? { context: contextMeta(about) } : {}),
       },
       "steer",
     );
@@ -226,7 +224,7 @@ export function ChatScreen({ navigation, route }: Props) {
         <View>
           {context && !started ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
-              {context.meta.subjects.map((subject) => (
+              {contextMeta(context).subjects.map((subject) => (
                 <GlassPanel key={subject} style={styles.chip}>
                   <View style={styles.chipBody}>
                     <SymbolView name="envelope" size={14} tintColor={colors.text} />
@@ -303,7 +301,7 @@ export function ChatScreen({ navigation, route }: Props) {
 const CONNECT =
   "Connect your agent in Settings. Its chats live on the server and follow you to every device.";
 
-/** Why the agent can't chat yet, as apps/ios says it; nothing while it's checking or ready. */
+/** Why the agent can't chat yet, as the Swift app says it; nothing while it's checking or ready. */
 function unavailableOf(
   provider: AgentProvider | undefined,
   count: number,
@@ -403,7 +401,7 @@ function Drawer({
   );
 }
 
-/** Consecutive tool steps fold into one "Used 3 tools" row, as apps/ios shows them. */
+/** Consecutive tool steps fold into one "Used 3 tools" row, as the Swift app shows them. */
 type Part =
   | { kind: "text"; key: string; text: string }
   | { kind: "steps"; key: string; steps: Extract<ChatTurnItem, { kind: "step" }>[] };

@@ -19,7 +19,7 @@ const { Button, LabeledContent, Link, Picker, SecureField, Text, Toggle, useNati
 const { autocorrectionDisabled, disabled, foregroundStyle, tag, textInputAutocapitalization } =
   SwiftUIModifiers;
 
-/** apps/ios's OpenRouter section: the key stays on Otter Mail's server, so it needs the Otter account. */
+/** the Swift app's OpenRouter section: the key stays on Otter Mail's server, so it needs the Otter account. */
 function OpenRouterSettings({ provider, colors, signedIn }: AgentSettingsProps) {
   const [apiKey, setApiKey] = useState("");
   const keyField = useNativeState("");

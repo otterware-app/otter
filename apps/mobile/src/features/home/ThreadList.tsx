@@ -1,22 +1,27 @@
 import { useAtomValue } from "@effect/atom-react";
 import { LegendList } from "@legendapp/list/react-native";
 import type { MessageSummary } from "@otter-mail/client-runtime/mail";
+import { ZoomSource } from "@otter-mail/mobile-transitions";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActionSheetIOS, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { mailboxes, threadLists, type Mailbox } from "../../state/client";
+import { localCopies, useLocalCopies, type LocalCopySummary } from "../../state/local-drafts";
 import { core } from "../../state/core";
 import { flag, uiPreferencesAtom } from "../../state/preferences";
 import { markFirstContent } from "../../state/startup";
 import { dayTitle, usePalette } from "../theme";
 import { placeSymbol, placeTitle } from "./places";
+import { SelectionBar } from "./SelectionBar";
 import { SwipeRow } from "./SwipeRow";
 import { threadActions } from "./threadActions";
 import { ThreadRow } from "./ThreadRow";
 
 type Item =
   | { type: "pills"; unreadOnly: boolean }
+  | { type: "copiesHeader" }
+  | { type: "copy"; copy: LocalCopySummary }
   | {
       type: "day";
       key: string;
@@ -41,12 +46,20 @@ export function ThreadList({
   accountId,
   labelId,
   onOpen,
+  onResume,
   onCollapse,
+  selecting = false,
+  onEndSelection,
 }: {
   mailbox: Mailbox | undefined;
   accountId: string;
   labelId: string;
   onOpen: (row: MessageSummary) => void;
+  /** A copy kept on this iPhone (Drafts' "On this iPhone"), to finish in the composer. */
+  onResume: (copy: LocalCopySummary) => void;
+  /** More › Select messages: rows pick instead of opening, and the selection bar replaces the swipes. */
+  selecting?: boolean;
+  onEndSelection?: () => void;
   /** The places bar minimizes while the list scrolls down, and comes back scrolling up. */
   onCollapse?: (collapsed: boolean) => void;
 }) {
@@ -60,6 +73,8 @@ export function ThreadList({
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const copies = useLocalCopies(accountId, labelId === "DRAFT");
   const lastOffset = useRef(0);
 
   const rows = useMemo(() => {
@@ -69,11 +84,28 @@ export function ThreadList({
 
   useEffect(() => threadLists.show(key), [key]);
   useEffect(() => {
+    if (!selecting) setSelected(new Set());
+  }, [selecting]);
+  // What left the list (archived, or gone in a sync) leaves the selection too.
+  useEffect(() => {
+    setSelected((prev) => {
+      const ids = new Set(rows.map((r) => r.threadId));
+      const next = new Set([...prev].filter((id) => ids.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [rows]);
+  useEffect(() => {
     if (rows.length > 0) markFirstContent(rows.length);
   }, [rows.length]);
 
   const items = useMemo((): Item[] => {
     const out: Item[] = [{ type: "pills", unreadOnly }];
+    if (copies.length && !selecting) {
+      out.push(
+        { type: "copiesHeader" },
+        ...copies.map((copy) => ({ type: "copy" as const, copy })),
+      );
+    }
     if (!byDay) return [...out, ...rows.map((row) => ({ type: "row" as const, row }))];
     let day = null as Extract<Item, { type: "day" }> | null;
     for (const row of rows) {
@@ -95,9 +127,10 @@ export function ThreadList({
       if (!day.collapsed) out.push({ type: "row", row });
     }
     return out;
-  }, [rows, byDay, collapsed, unreadOnly]);
+  }, [rows, byDay, collapsed, unreadOnly, copies, selecting]);
 
   const actions = threadActions(mailbox, labels, labelId);
+  const flags = mailbox?.capabilities ? !mailbox.capabilities.stars : false;
   const trashLike = labelId === "TRASH" || labelId === "SPAM";
 
   const refresh = async () => {
@@ -134,6 +167,46 @@ export function ThreadList({
         </View>
       );
     }
+    if (item.type === "copiesHeader") {
+      return (
+        <Text style={[styles.copiesHeader, { color: colors.secondary }]} accessibilityRole="header">
+          On this iPhone
+        </Text>
+      );
+    }
+    if (item.type === "copy") {
+      const { copy } = item;
+      return (
+        <Pressable
+          onPress={() => onResume(copy)}
+          onLongPress={() =>
+            ActionSheetIOS.showActionSheetWithOptions(
+              {
+                title: copy.subject || "Unfinished message",
+                options: ["Delete local copy", "Cancel"],
+                destructiveButtonIndex: 0,
+                cancelButtonIndex: 1,
+              },
+              (i) => i === 0 && void localCopies.remove(copy.id).catch(() => {}),
+            )
+          }
+          accessibilityRole="button"
+          accessibilityHint="Touch and hold to delete it"
+          style={({ pressed }) => [styles.copy, pressed && { backgroundColor: colors.pressed }]}
+          testID={`copy-${copy.id}`}
+        >
+          <View style={styles.copyTitle}>
+            <SymbolView name="square.and.pencil" size={15} tintColor={colors.text} />
+            <Text style={[styles.copyText, { color: colors.text }]} numberOfLines={1}>
+              {copy.subject || "Unfinished message"}
+            </Text>
+          </View>
+          <Text style={[styles.copyTo, { color: colors.secondary }]} numberOfLines={1}>
+            {copy.to || copy.from}
+          </Text>
+        </Pressable>
+      );
+    }
     if (item.type === "day") {
       return (
         <Pressable
@@ -165,6 +238,26 @@ export function ThreadList({
       );
     }
     const row = item.row;
+    if (selecting) {
+      const on = selected.has(row.threadId);
+      return (
+        <ThreadRow
+          row={row}
+          accountId={accountId}
+          onOpen={() =>
+            setSelected((prev) => {
+              const next = new Set(prev);
+              if (on) next.delete(row.threadId);
+              else next.add(row.threadId);
+              return next;
+            })
+          }
+          fullWidth={fullWidth}
+          flags={flags}
+          selected={on}
+        />
+      );
+    }
     return (
       <SwipeRow
         leading={
@@ -202,13 +295,16 @@ export function ThreadList({
         actions={actions.accessibilityActions(row)}
         square={fullWidth}
       >
-        <ThreadRow
-          row={row}
-          accountId={accountId}
-          onOpen={onOpen}
-          onLongPress={actions.showMenu}
-          fullWidth={fullWidth}
-        />
+        <ZoomSource zoomId={row.threadId}>
+          <ThreadRow
+            row={row}
+            accountId={accountId}
+            onOpen={onOpen}
+            onLongPress={actions.showMenu}
+            fullWidth={fullWidth}
+            flags={flags}
+          />
+        </ZoomSource>
       </SwipeRow>
     );
   };
@@ -216,50 +312,73 @@ export function ThreadList({
   if (view.error && rows.length === 0 && !view.isLoading) {
     return <Text style={[styles.message, { color: colors.secondary }]}>{view.error}</Text>;
   }
-  const place = placeTitle(labelId, labels);
+  const place = placeTitle(labelId, labels, mailbox?.capabilities);
   return (
-    <LegendList
-      data={items}
-      keyExtractor={(item) =>
-        item.type === "row" ? item.row.threadId : item.type === "day" ? `day:${item.key}` : "pills"
-      }
-      getItemType={(item) => item.type}
-      extraData={colors}
-      renderItem={renderItem}
-      estimatedItemSize={64}
-      recycleItems
-      onEndReached={() => void threadLists.fetchNextPage(key)}
-      onEndReachedThreshold={0.5}
-      refreshing={refreshing}
-      onRefresh={() => void refresh()}
-      onScroll={(e) => {
-        const { contentOffset, contentInset } = e.nativeEvent;
-        const y = contentOffset.y + contentInset.top;
-        const moved = y - lastOffset.current;
-        if (Math.abs(moved) < 12) return;
-        lastOffset.current = y;
-        onCollapse?.(moved > 0 && y > 60);
-      }}
-      scrollEventThrottle={32}
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ paddingBottom: 120 }}
-      ListEmptyComponent={null}
-      ListFooterComponent={
-        rows.length === 0 && !view.isLoading ? (
-          <View
-            style={styles.empty}
-            accessible
-            accessibilityLabel={unreadOnly ? "No unread mail" : `Nothing in ${place}`}
-          >
-            <SymbolView name={placeSymbol(labelId)} size={40} tintColor={colors.secondary} />
-            <Text style={[styles.emptyTitle, { color: colors.secondary }]}>
-              {unreadOnly ? "No unread mail" : `Nothing in ${place}`}
-            </Text>
-          </View>
-        ) : null
-      }
-      testID="thread-list"
-    />
+    <>
+      <LegendList
+        data={items}
+        keyExtractor={(item) =>
+          item.type === "row"
+            ? item.row.threadId
+            : item.type === "day"
+              ? `day:${item.key}`
+              : item.type === "copy"
+                ? `copy:${item.copy.id}`
+                : item.type
+        }
+        getItemType={(item) => item.type}
+        extraData={[colors, selecting, selected]}
+        renderItem={renderItem}
+        estimatedItemSize={64}
+        recycleItems
+        onEndReached={() => void threadLists.fetchNextPage(key)}
+        onEndReachedThreshold={0.5}
+        refreshing={refreshing}
+        onRefresh={() => void refresh()}
+        onScroll={(e) => {
+          const { contentOffset, contentInset } = e.nativeEvent;
+          const y = contentOffset.y + contentInset.top;
+          const moved = y - lastOffset.current;
+          if (Math.abs(moved) < 12) return;
+          lastOffset.current = y;
+          onCollapse?.(moved > 0 && y > 60);
+        }}
+        scrollEventThrottle={32}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ paddingBottom: 120 }}
+        ListEmptyComponent={null}
+        ListFooterComponent={
+          rows.length === 0 && !view.isLoading && copies.length === 0 ? (
+            <View
+              style={styles.empty}
+              accessible
+              accessibilityLabel={unreadOnly ? "No unread mail" : `Nothing in ${place}`}
+            >
+              <SymbolView
+                name={placeSymbol(labelId, false, mailbox?.capabilities)}
+                size={40}
+                tintColor={colors.secondary}
+              />
+              <Text style={[styles.emptyTitle, { color: colors.secondary }]}>
+                {unreadOnly ? "No unread mail" : `Nothing in ${place}`}
+              </Text>
+            </View>
+          ) : null
+        }
+        testID="thread-list"
+      />
+      {selecting ? (
+        <SelectionBar
+          rows={rows}
+          selected={selected}
+          labelId={labelId}
+          actions={actions}
+          colors={colors}
+          onSelect={setSelected}
+          onDone={() => onEndSelection?.()}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -274,4 +393,15 @@ const styles = StyleSheet.create({
   dayCount: { fontSize: 13, fontVariant: ["tabular-nums"] },
   empty: { alignItems: "center", gap: 12, paddingTop: 80 },
   emptyTitle: { fontSize: 17, fontWeight: "600" },
+  copiesHeader: {
+    fontSize: 13,
+    fontWeight: "500",
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 6,
+  },
+  copy: { paddingHorizontal: 20, paddingVertical: 8, gap: 4, marginHorizontal: 4, borderRadius: 8 },
+  copyTitle: { flexDirection: "row", alignItems: "center", gap: 8 },
+  copyText: { fontSize: 15, flex: 1 },
+  copyTo: { fontSize: 13, paddingLeft: 23 },
 });

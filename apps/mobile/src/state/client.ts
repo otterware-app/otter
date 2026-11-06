@@ -73,6 +73,9 @@ export type Mailbox = MailboxInfo & {
   customPicture?: string;
   color?: string;
   signedOut?: boolean;
+  signature?: string;
+  sendAs?: string[];
+  aliasMailboxes?: { address: string; signature?: string }[];
 };
 
 export const mailboxes = makeMailboxes<Mailbox>(appAtomRegistry, core);

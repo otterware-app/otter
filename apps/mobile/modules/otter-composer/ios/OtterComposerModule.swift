@@ -19,6 +19,9 @@ public final class OtterComposerModule: Module {
         view.focus(position)
       }
 
+      AsyncFunction("setSignature") { (view: OtterComposerView, html: String?) in
+        view.setSignature(html)
+      }
       AsyncFunction("command") { (view: OtterComposerView, name: String) in
         view.command(name)
       }

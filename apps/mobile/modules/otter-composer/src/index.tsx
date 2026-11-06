@@ -17,6 +17,7 @@ type NativeRef = {
   setContent(html: string): Promise<void>;
   focus(position: "start" | "end"): Promise<void>;
   command(name: string): Promise<void>;
+  setSignature(html: string | null): Promise<void>;
   /** The snapshot as JSON (Swift can't send a dictionary across actors); null before the editor is ready. */
   snapshot(): Promise<string | null>;
 };
@@ -47,6 +48,7 @@ export const ComposerEditor = forwardRef<
     setContent: (html) => native.current?.setContent(html) ?? Promise.resolve(),
     focus: (position) => native.current?.focus(position) ?? Promise.resolve(),
     command: (name) => native.current?.command(name) ?? Promise.resolve(),
+    setSignature: (html) => native.current?.setSignature(html) ?? Promise.resolve(),
     snapshot: async () => {
       const json = await native.current?.snapshot();
       return json ? (JSON.parse(json) as ComposerChange) : null;

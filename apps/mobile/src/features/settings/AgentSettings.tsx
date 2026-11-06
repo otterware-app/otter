@@ -39,6 +39,6 @@ export function AgentSettings({ colors, signedIn }: { colors: Palette; signedIn:
   );
 }
 
-/** apps/ios calls the Otter Mail agent by the service it runs on. */
+/** the Swift app calls the Otter Mail agent by the service it runs on. */
 export const agentName = (p: { kind: string; displayName: string }) =>
   p.kind === "openrouter" ? "OpenRouter" : p.displayName;

@@ -23,7 +23,7 @@ const nameOf = (kind: string) => {
 };
 
 /**
- * apps/ios's ChatHistory, swiped in from the left: the account's chats, and
+ * the Swift app's ChatHistory, swiped in from the left: the account's chats, and
  * the agent's own sessions no chat holds yet.
  */
 export function ChatList({

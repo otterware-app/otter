@@ -241,7 +241,7 @@ export function PlacesBar({
       ]}
     >
       <ZStack modifiers={[frame({ width: 56, height: 56 }), contentShape(shapes.circle())]}>
-        {icon(placeSymbol(labelId, true))}
+        {icon(placeSymbol(labelId, true, current?.capabilities))}
       </ZStack>
     </Button>
   );

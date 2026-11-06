@@ -37,7 +37,7 @@ const {
 
 const host = (url: string) => url.replace(/^[a-z]+:\/\//i, "").replace(/[/:].*$/, "") || url;
 
-/** apps/ios's Hermes section: the server's address and key, then its model, Reasoning and Fast. */
+/** the Swift app's Hermes section: the server's address and key, then its model, Reasoning and Fast. */
 function HermesSettings({ provider, colors }: AgentSettingsProps) {
   const settings = provider.settings as typeof provider.settings & {
     baseUrl: string;

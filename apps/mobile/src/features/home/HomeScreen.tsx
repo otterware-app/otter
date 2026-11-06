@@ -35,9 +35,10 @@ export function HomeScreen({ navigation }: Props) {
     null;
   const mailbox = accounts.value.find((m) => m.id === accountId);
   const labels = useAtomValue(mailboxes.labelsAtom(accountId ?? "")).value;
-  const title = placeTitle(place.labelId, labels);
+  const title = placeTitle(place.labelId, labels, mailbox?.capabilities);
   const [menuOpen, setMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [selecting, setSelecting] = useState(false);
   const windowHeight = useWindowDimensions().height;
   const insets = useSafeAreaInsets();
   const panelHeight = Math.min(560, windowHeight - insets.top - insets.bottom - 176);
@@ -52,6 +53,7 @@ export function HomeScreen({ navigation }: Props) {
     rememberPlace(next);
     setMenuOpen(false);
     setCollapsed(false);
+    setSelecting(false);
   };
 
   const markAllRead = () => {
@@ -88,39 +90,57 @@ export function HomeScreen({ navigation }: Props) {
         },
       ],
       unstable_headerRightItems: () =>
-        accountId
+        selecting
           ? [
               {
                 type: "button",
-                label: "Compose",
-                icon: { type: "sfSymbol", name: "square.and.pencil" },
-                accessibilityLabel: "New message",
-                onPress: () => navigation.navigate("Compose", { accountId }),
-              },
-              {
-                type: "menu",
-                label: "More",
-                icon: { type: "sfSymbol", name: "ellipsis" },
-                accessibilityLabel: "More",
-                menu: {
-                  items: [
-                    {
-                      type: "action",
-                      label: "Mark all as read",
-                      icon: { type: "sfSymbol", name: "envelope.open" },
-                      onPress: markAllRead,
-                    },
-                    {
-                      type: "action",
-                      label: "Settings",
-                      icon: { type: "sfSymbol", name: "gearshape" },
-                      onPress: () => navigation.navigate("Settings"),
-                    },
-                  ],
-                },
+                label: "Done",
+                variant: "prominent",
+                onPress: () => setSelecting(false),
               },
             ]
-          : [],
+          : accountId
+            ? [
+                {
+                  type: "button",
+                  label: "Compose",
+                  icon: { type: "sfSymbol", name: "square.and.pencil" },
+                  accessibilityLabel: "New message",
+                  onPress: () => navigation.navigate("Compose", { accountId }),
+                },
+                {
+                  type: "menu",
+                  label: "More",
+                  icon: { type: "sfSymbol", name: "ellipsis" },
+                  accessibilityLabel: "More",
+                  menu: {
+                    items: [
+                      {
+                        type: "action",
+                        label: "Select messages",
+                        icon: { type: "sfSymbol", name: "checkmark.circle" },
+                        onPress: () => {
+                          setMenuOpen(false);
+                          setSelecting(true);
+                        },
+                      },
+                      {
+                        type: "action",
+                        label: "Mark all as read",
+                        icon: { type: "sfSymbol", name: "envelope.open" },
+                        onPress: markAllRead,
+                      },
+                      {
+                        type: "action",
+                        label: "Settings",
+                        icon: { type: "sfSymbol", name: "gearshape" },
+                        onPress: () => navigation.navigate("Settings"),
+                      },
+                    ],
+                  },
+                },
+              ]
+            : [],
     });
   });
 
@@ -142,13 +162,25 @@ export function HomeScreen({ navigation }: Props) {
           accountId={accountId}
           labelId={place.labelId}
           onCollapse={setCollapsed}
+          selecting={selecting}
+          onEndSelection={() => setSelecting(false)}
+          onResume={(copy) =>
+            navigation.navigate("Compose", { accountId, mode: "copy", copyId: copy.id })
+          }
           onOpen={(row) =>
-            navigation.navigate("Thread", {
-              accountId,
-              threadId: row.threadId,
-              subject: row.subject || "(no subject)",
-              labelId: place.labelId,
-            })
+            // The Swift app: a conversation that's only a draft opens in the composer.
+            (row.threadLabelIds ?? row.labelIds).includes("DRAFT") && (row.threadCount ?? 1) === 1
+              ? navigation.navigate("Compose", {
+                  accountId,
+                  mode: "draft",
+                  messageId: row.id,
+                })
+              : navigation.navigate("Thread", {
+                  accountId,
+                  threadId: row.threadId,
+                  subject: row.subject || "(no subject)",
+                  labelId: place.labelId,
+                })
           }
         />
       ) : (
@@ -157,48 +189,50 @@ export function HomeScreen({ navigation }: Props) {
         </Text>
       )}
       {menuOpen ? null : <UndoToast />}
-      <PlacesBar
-        mailboxes={accounts.value}
-        current={mailbox}
-        labelId={place.labelId}
-        inboxDot={(labels.find((l) => l.id === "INBOX")?.unread ?? 0) > 0}
-        unread={inboxUnread}
-        panel={
-          menuOpen && accountId ? (
-            <PlacesPanel
-              colors={colors}
-              maxHeight={panelHeight}
-              mailbox={mailbox}
-              labels={labels}
-              labelId={place.labelId}
-              onPlace={(labelId) => go({ accountId, labelId })}
-              onSearch={() => {
-                setMenuOpen(false);
-                navigation.navigate("Search", { accountId });
-              }}
-              onSettings={() => {
-                setMenuOpen(false);
-                navigation.navigate("Settings");
-              }}
-            />
-          ) : null
-        }
-        onMailbox={(id) =>
-          go({
-            accountId: id,
-            labelId:
-              place.labelId === "INBOX" || place.labelId === "DRAFT" ? place.labelId : "INBOX",
-          })
-        }
-        onAddMailbox={() => navigation.navigate("Welcome")}
-        onPlace={(labelId) => go({ accountId, labelId })}
-        onSearch={() => accountId && navigation.navigate("Search", { accountId })}
-        collapsed={collapsed}
-        onMenu={() => setMenuOpen((open) => !open)}
-        onClose={() => setMenuOpen(false)}
-        onExpand={() => setCollapsed(false)}
-        onAgent={() => navigation.navigate("Chat")}
-      />
+      {selecting ? null : (
+        <PlacesBar
+          mailboxes={accounts.value}
+          current={mailbox}
+          labelId={place.labelId}
+          inboxDot={(labels.find((l) => l.id === "INBOX")?.unread ?? 0) > 0}
+          unread={inboxUnread}
+          panel={
+            menuOpen && accountId ? (
+              <PlacesPanel
+                colors={colors}
+                maxHeight={panelHeight}
+                mailbox={mailbox}
+                labels={labels}
+                labelId={place.labelId}
+                onPlace={(labelId) => go({ accountId, labelId })}
+                onSearch={() => {
+                  setMenuOpen(false);
+                  navigation.navigate("Search", { accountId });
+                }}
+                onSettings={() => {
+                  setMenuOpen(false);
+                  navigation.navigate("Settings");
+                }}
+              />
+            ) : null
+          }
+          onMailbox={(id) =>
+            go({
+              accountId: id,
+              labelId:
+                place.labelId === "INBOX" || place.labelId === "DRAFT" ? place.labelId : "INBOX",
+            })
+          }
+          onAddMailbox={() => navigation.navigate("Welcome")}
+          onPlace={(labelId) => go({ accountId, labelId })}
+          onSearch={() => accountId && navigation.navigate("Search", { accountId })}
+          collapsed={collapsed}
+          onMenu={() => setMenuOpen((open) => !open)}
+          onClose={() => setMenuOpen(false)}
+          onExpand={() => setCollapsed(false)}
+          onAgent={() => navigation.navigate("Chat")}
+        />
+      )}
     </View>
   );
 }

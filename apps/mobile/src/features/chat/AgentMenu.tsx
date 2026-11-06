@@ -27,7 +27,7 @@ import type { Palette } from "../theme";
 import { fastChoice, shortModelName } from "./chat-logic";
 
 /**
- * The chat's title, apps/ios's model menu: the agent (while the chat is
+ * The chat's title, the Swift app's model menu: the agent (while the chat is
  * new), its models by provider, Reasoning, Fast, and how tools are approved.
  */
 export function AgentMenu({

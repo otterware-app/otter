@@ -6,7 +6,7 @@ import { parseMarkdown, type Align, type Block, type Span } from "./parse-markdo
 
 const HEADING_SIZES = [22, 19, 17, 16, 16, 16];
 
-/** An answer's markdown, as apps/ios and the web show it. */
+/** An answer's markdown, as the Swift app and the web show it. */
 export function Markdown({ text, colors }: { text: string; colors: Palette }) {
   const blocks = useMemo(() => parseMarkdown(text), [text]);
   return (

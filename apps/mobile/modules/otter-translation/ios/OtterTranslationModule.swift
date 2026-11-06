@@ -2,6 +2,8 @@ import ExpoModulesCore
 import NaturalLanguage
 import Translation
 import os
+import SwiftUI
+import UIKit
 
 private let log = Logger(subsystem: "dev.otterware.mail", category: "translation")
 
@@ -26,6 +28,20 @@ public final class OtterTranslationModule: Module {
     AsyncFunction("translate") { (texts: [String], source: String, target: String) async throws -> [String: Any] in
       try await Self.translate(texts: texts, source: source, target: target)
     }
+
+    // the Swift app's per-message Translate: the system's translation sheet, which downloads languages too.
+    AsyncFunction("present") { (text: String) in
+      MainActor.assumeIsolated {
+        let host = UIHostingController(rootView: TranslationSheet(text: text))
+        host.view.backgroundColor = .clear
+        host.modalPresentationStyle = .overCurrentContext
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+          .first { $0.activationState == .foregroundActive }
+        guard var top = scene?.keyWindow?.rootViewController else { return }
+        while let presented = top.presentedViewController, !presented.isBeingDismissed { top = presented }
+        top.present(host, animated: false)
+      }
+    }.runOnQueue(.main)
   }
 
   private static func translate(texts: [String], source: String, target: String) async throws -> [String: Any] {
@@ -56,5 +72,19 @@ public final class OtterTranslationModule: Module {
       }
     }
     return ["status": "unsupported", "texts": []]
+  }
+}
+
+/** A clear stand-in that shows the system's translation sheet, and goes when it does. */
+private struct TranslationSheet: View {
+  let text: String
+  @State private var shown = false
+  @Environment(\.dismiss) private var dismiss
+
+  var body: some View {
+    Color.clear
+      .translationPresentation(isPresented: $shown, text: text)
+      .onAppear { shown = true }
+      .onChange(of: shown) { _, now in if !now { dismiss() } }
   }
 }

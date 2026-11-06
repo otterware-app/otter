@@ -123,7 +123,7 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
-/** An agent's state in Settings, as apps/ios words it. */
+/** An agent's state in Settings, as the Swift app words it. */
 export function agentStatus(p: AgentProvider): { text: string; color: (c: Palette) => string } {
   const muted = (c: Palette) => c.secondary;
   if (!p.enabled) return { text: "Off", color: muted };
@@ -136,7 +136,7 @@ export function agentStatus(p: AgentProvider): { text: string; color: (c: Palett
 
 export const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/** How an agent's tools are approved (core's RuntimeMode), as apps/ios names them. */
+/** How an agent's tools are approved (core's RuntimeMode), as the Swift app names them. */
 export const RUNTIME_MODES = [
   ["approval-required", "Supervised"],
   ["auto-accept-edits", "Auto accept edits"],

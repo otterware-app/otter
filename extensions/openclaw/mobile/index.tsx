@@ -46,7 +46,7 @@ type View = {
   questions: { allowed: boolean | null; request: string | null };
 };
 
-/** apps/ios's OpenClaw section: a setup code (or the gateway's token), approved on the gateway. */
+/** the Swift app's OpenClaw section: a setup code (or the gateway's token), approved on the gateway. */
 function OpenClawSettings({ provider, colors, signedIn }: AgentSettingsProps) {
   const settings = provider.settings as typeof provider.settings & View;
   const [code, setCode] = useState("");

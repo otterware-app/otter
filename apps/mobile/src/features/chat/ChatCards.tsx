@@ -31,7 +31,7 @@ const MORE: Partial<Record<ApprovalDecision, string>> = {
 };
 
 /**
- * An agent asking before it acts, in the composer's place (apps/ios's
+ * An agent asking before it acts, in the composer's place (the Swift app's
  * ApprovalCard): what will happen, Deny or Allow once; for the rest of the
  * chat behind "…".
  */
@@ -108,7 +108,7 @@ export function ApprovalCard({
   );
 }
 
-/** apps/ios's QuestionCard: the agent's questions, picked from or answered in one's own words. */
+/** the Swift app's QuestionCard: the agent's questions, picked from or answered in one's own words. */
 export function QuestionCard({
   agent,
   question,

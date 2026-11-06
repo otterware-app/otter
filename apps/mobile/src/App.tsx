@@ -10,7 +10,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AddImapScreen } from "./features/accounts/AddImapScreen";
 import { WelcomeScreen } from "./features/accounts/WelcomeScreen";
-import { ChatScreen, type ChatHandoff } from "./features/chat/ChatScreen";
+import { ChatScreen } from "./features/chat/ChatScreen";
+import type { ThreadContext } from "./features/chat/context";
 import { ComposeScreen } from "./features/compose/ComposeScreen";
 import { GateScreen } from "./features/gate/GateScreen";
 import { HomeScreen } from "./features/home/HomeScreen";
@@ -28,6 +29,8 @@ const COMPOSE_TITLES = {
   reply: "Reply",
   replyAll: "Reply All",
   forward: "Forward",
+  draft: "Draft",
+  copy: "New message",
 } as const;
 export type RootStack = {
   Home: undefined;
@@ -36,12 +39,15 @@ export type RootStack = {
   Settings: undefined;
   Welcome: undefined;
   AddImap: undefined;
-  Chat: { context?: ChatHandoff } | undefined;
+  Chat: { context?: ThreadContext } | undefined;
   Compose: {
     accountId: string;
-    mode?: "new" | "reply" | "replyAll" | "forward";
+    /** `draft`: a draft in the mailbox (`messageId`); `copy`: one kept on this iPhone (`copyId`). */
+    mode?: "new" | "reply" | "replyAll" | "forward" | "draft" | "copy";
     messageId?: string;
     threadId?: string;
+    copyId?: string;
+    to?: string;
   };
   Gate: { run?: string; n?: string } | undefined;
 };

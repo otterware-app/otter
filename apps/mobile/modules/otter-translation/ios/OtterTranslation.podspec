@@ -9,7 +9,7 @@ Pod::Spec.new do |s|
   s.source         = { :path => '.' }
   s.static_framework = true
   s.dependency 'ExpoModulesCore'
-  s.frameworks     = 'NaturalLanguage', 'Translation'
+  s.frameworks     = 'NaturalLanguage', 'Translation', 'SwiftUI'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'SWIFT_VERSION' => '5.0' }
   s.source_files = '**/*.swift'
 end

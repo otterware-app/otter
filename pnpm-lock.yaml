@@ -203,6 +203,9 @@ importers:
       '@otter-mail/mobile-credentials':
         specifier: workspace:*
         version: link:modules/otter-credentials
+      '@otter-mail/mobile-files':
+        specifier: workspace:*
+        version: link:modules/otter-files
       '@otter-mail/mobile-html-view':
         specifier: workspace:*
         version: link:modules/otter-html-view
@@ -215,6 +218,9 @@ importers:
       '@otter-mail/mobile-sqlite':
         specifier: workspace:*
         version: link:modules/otter-sqlite
+      '@otter-mail/mobile-transitions':
+        specifier: workspace:*
+        version: link:modules/otter-transitions
       '@otter-mail/mobile-translation':
         specifier: workspace:*
         version: link:modules/otter-translation
@@ -344,6 +350,8 @@ importers:
         specifier: 0.37.1
         version: 0.37.1(react-native@0.88.0(@babel/core@8.0.6)(@react-native/metro-config@0.88.0(@babel/core@8.0.6))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
 
+  apps/mobile/modules/otter-files: {}
+
   apps/mobile/modules/otter-html-view: {}
 
   apps/mobile/modules/otter-net:
@@ -384,6 +392,8 @@ importers:
       react-native-nitro-modules:
         specifier: 0.37.1
         version: 0.37.1(react-native@0.88.0(@babel/core@8.0.6)(@react-native/metro-config@0.88.0(@babel/core@8.0.6))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
+
+  apps/mobile/modules/otter-transitions: {}
 
   apps/mobile/modules/otter-translation: {}
 
