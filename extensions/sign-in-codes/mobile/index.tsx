@@ -43,7 +43,7 @@ function SignInCodeCard({ summary, detail, onTrash }: MessageCardProps) {
         style={[styles.button, { backgroundColor: colors.accent }]}
         accessibilityRole="button"
       >
-        <Text style={styles.buttonTitle}>
+        <Text style={[styles.buttonTitle, { color: colors.actionText }]}>
           {copied ? "Copied" : onTrash ? "Copy & Trash" : "Copy"}
         </Text>
       </Pressable>
@@ -62,5 +62,5 @@ const styles = StyleSheet.create({
   label: { fontSize: 13 },
   code: { fontSize: 24, fontWeight: "700", letterSpacing: 2, fontVariant: ["tabular-nums"] },
   button: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 18 },
-  buttonTitle: { color: "#FFFFFF", fontWeight: "600" },
+  buttonTitle: { fontWeight: "600" },
 });
