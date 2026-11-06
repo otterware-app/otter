@@ -35,6 +35,9 @@ const inForeground = createSynchronizable(AppState.currentState === "active", {
   fixedType: true,
 });
 
+/** `pnpm dev:fake`'s agent server, which needs no Otter account. */
+export const agentServerUrl = extra.agentServerUrl;
+
 const listeners = new Map<string, Set<(params: unknown) => void>>();
 
 function onRequest(request: HostRequest): Promise<unknown> {

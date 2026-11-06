@@ -3,7 +3,7 @@ import { disabled, foregroundStyle } from "@expo/ui/swift-ui/modifiers";
 import { useState } from "react";
 
 import { useAgentProviders, type AgentProvider } from "../../state/chats";
-import { core } from "../../state/core";
+import { agentServerUrl, core } from "../../state/core";
 import type { Palette } from "../theme";
 import { Group, SettingsForm } from "./SettingsScreen";
 
@@ -24,6 +24,7 @@ export function AgentSettings({ colors, signedIn }: { colors: Palette; signedIn:
   const providers = useAgentProviders();
   const openrouter = providers.find((p) => p.kind === "openrouter");
   const others = providers.filter((p) => p.kind !== "openrouter");
+  const canConnect = signedIn || Boolean(agentServerUrl);
   const [apiKey, setApiKey] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +50,7 @@ export function AgentSettings({ colors, signedIn }: { colors: Palette; signedIn:
           title="OpenRouter"
           footer={
             <Text>
-              {signedIn
+              {canConnect
                 ? "The API key stays on Otter Mail's server. When you use this agent, your prompts and mail returned by its tools are sent to Otter Mail's server, OpenRouter and the selected model provider. Usage is billed to your OpenRouter account."
                 : "Sign in to your Otter account to connect OpenRouter."}
             </Text>
@@ -70,7 +71,7 @@ export function AgentSettings({ colors, signedIn }: { colors: Palette; signedIn:
               <Button
                 label={connecting ? "Connecting…" : "Connect"}
                 onPress={() => void connect()}
-                modifiers={[disabled(!apiKey || connecting || !signedIn)]}
+                modifiers={[disabled(!apiKey || connecting || !canConnect)]}
               />
             </>
           )}
