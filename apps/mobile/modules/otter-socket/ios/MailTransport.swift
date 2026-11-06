@@ -1,6 +1,7 @@
 import Foundation
 import Network
 import NitroModules
+import Synchronization
 
 /**
  * apps/ios's MailSocket transports. TLS from the start (993, 465) runs over
@@ -30,6 +31,8 @@ private func trustsAnyCertificate(_ host: String) -> Bool {
 final class NWTransport: MailTransport, @unchecked Sendable {
   private let connection: NWConnection
   private let queue = DispatchQueue(label: "dev.otterware.mail.socket")
+  /** Why the state handler cancelled the connection, if the network failed it. */
+  private let failure = Mutex<NWError?>(nil)
 
   init(host: String, port: Int) {
     let tls = NWProtocolTLS.Options()
@@ -55,11 +58,12 @@ final class NWTransport: MailTransport, @unchecked Sendable {
         once.done = true
         if let error { continuation.resume(throwing: error) } else { continuation.resume() }
       }
-      connection.stateUpdateHandler = { [connection] state in
+      connection.stateUpdateHandler = { [connection, weak self] state in
         switch state {
         case .ready: finish(nil)
         // Unreachable, refused or a bad certificate: fail now rather than wait for the network.
         case .waiting(let error), .failed(let error):
+          self?.failure.withLock { $0 = error }
           finish(RuntimeError.error(withMessage: "\(error)"))
           connection.cancel()
         case .cancelled: finish(RuntimeError.error(withMessage: "The connection closed."))
@@ -76,7 +80,7 @@ final class NWTransport: MailTransport, @unchecked Sendable {
         if let data, !data.isEmpty {
           continuation.resume(returning: data)
         } else if let error, !isComplete {
-          continuation.resume(throwing: RuntimeError.error(withMessage: "\(error)"))
+          continuation.resume(throwing: self.lost(error))
         } else {
           continuation.resume(returning: nil)
         }
@@ -87,7 +91,7 @@ final class NWTransport: MailTransport, @unchecked Sendable {
   func send(_ data: Data) async throws {
     try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
       connection.send(content: data, completion: .contentProcessed { error in
-        if let error { continuation.resume(throwing: RuntimeError.error(withMessage: "\(error)")) } else { continuation.resume() }
+        if let error { continuation.resume(throwing: self.lost(error)) } else { continuation.resume() }
       })
     }
   }
@@ -95,6 +99,18 @@ final class NWTransport: MailTransport, @unchecked Sendable {
   func startTLS() async throws { throw RuntimeError.error(withMessage: "Already using TLS.") }
 
   func close() { connection.cancel() }
+
+  /**
+   * apps/ios's NWTransport.lost: a connection the network failed (iOS
+   * aborting a backgrounded app's socket, Wi-Fi handing over) is cancelled
+   * by the state handler, which ends what was waiting on it, and anything
+   * sent after, as ECANCELED. That failure is reported instead, so core
+   * says the connection was lost and why, not "Operation canceled".
+   */
+  private func lost(_ error: NWError) -> Error {
+    let cause = error == .posix(.ECANCELED) ? failure.withLock { $0 } ?? error : error
+    return RuntimeError.error(withMessage: "\(cause)")
+  }
 }
 
 final class StreamTransport: NSObject, MailTransport, URLSessionTaskDelegate, @unchecked Sendable {
