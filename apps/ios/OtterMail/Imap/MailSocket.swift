@@ -138,6 +138,7 @@ nonisolated private func isLocal(_ host: String) -> Bool {
 nonisolated final class NWTransport: MailTransport, @unchecked Sendable {
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "dev.otterware.mail.socket")
+    private let failure = Mutex<NWError?>(nil)
 
     init(host: String, port: Int) {
         let tls = NWProtocolTLS.Options()
@@ -165,11 +166,12 @@ nonisolated final class NWTransport: MailTransport, @unchecked Sendable {
                 once.done = true
                 if let error { continuation.resume(throwing: error) } else { continuation.resume() }
             }
-            connection.stateUpdateHandler = { [connection] state in
+            connection.stateUpdateHandler = { [connection, weak self] state in
                 switch state {
                 case .ready: finish(nil)
                 // Unreachable, refused or a bad certificate: fail now rather than wait for the network.
                 case .waiting(let error), .failed(let error):
+                    self?.failure.withLock { $0 = error }
                     finish(error)
                     connection.cancel()
                 case .cancelled: finish(ImapError.closed)
@@ -186,7 +188,7 @@ nonisolated final class NWTransport: MailTransport, @unchecked Sendable {
                 if let data, !data.isEmpty {
                     continuation.resume(returning: data)
                 } else {
-                    continuation.resume(throwing: error.map(Self.lost) ?? ImapError.closed)
+                    continuation.resume(throwing: error.map { self.lost($0) } ?? ImapError.closed)
                 }
             }
         }
@@ -195,7 +197,7 @@ nonisolated final class NWTransport: MailTransport, @unchecked Sendable {
     func send(_ data: Data) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             connection.send(content: data, completion: .contentProcessed { error in
-                if let error { continuation.resume(throwing: Self.lost(error)) } else { continuation.resume() }
+                if let error { continuation.resume(throwing: self.lost(error)) } else { continuation.resume() }
             })
         }
     }
@@ -204,13 +206,18 @@ nonisolated final class NWTransport: MailTransport, @unchecked Sendable {
 
     func close() { connection.cancel() }
 
+    private func lost(_ error: NWError) -> Error { Self.lost(error, failure: failure.withLock { $0 }) }
+
     /**
      * The network going away under a connection, as URLSession (the STARTTLS
      * transport) reports it. iOS aborts a suspended app's sockets
      * (ECONNABORTED), and Wi-Fi handing over to cellular resets them. Any
-     * other error, ECANCELED included, stays as it is.
+     * other error stays as it is. A connection the network failed is
+     * cancelled (by the state handler), which ends what was waiting on it,
+     * and anything sent on it after, as ECANCELED: that is the `failure`.
      */
-    static func lost(_ error: NWError) -> Error {
+    static func lost(_ error: NWError, failure: NWError? = nil) -> Error {
+        if error == .posix(.ECANCELED), let failure { return lost(failure) }
         guard case .posix(let code) = error else { return error }
         let lost: URLError.Code? = switch code {
         case .ECONNABORTED, .ECONNRESET, .ENETRESET, .ENOTCONN, .EPIPE, .EHOSTDOWN, .EHOSTUNREACH: .networkConnectionLost

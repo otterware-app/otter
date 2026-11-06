@@ -24,6 +24,13 @@ struct ConnectionLossTests {
         #expect(NWTransport.lost(.tls(errSSLBadCert)) as? NWError == .tls(errSSLBadCert))
     }
 
+    @Test func cancelledAfterTheNetworkFailedItIsThatFailure() {
+        #expect((NWTransport.lost(.posix(.ECANCELED), failure: .posix(.ECONNABORTED)) as? URLError)?.code == .networkConnectionLost)
+        #expect((NWTransport.lost(.posix(.ECANCELED), failure: .posix(.ENETDOWN)) as? URLError)?.code == .notConnectedToInternet)
+        #expect(NWTransport.lost(.posix(.ECANCELED), failure: .tls(errSSLBadCert)) as? NWError == .tls(errSSLBadCert))
+        #expect((NWTransport.lost(.posix(.ECONNRESET), failure: .posix(.ENETDOWN)) as? URLError)?.code == .networkConnectionLost)
+    }
+
     @Test func aServerHangingUpIsTheConnectionNotTheSync() {
         #expect(ImapError.closed.isConnectionFailure)
         #expect(ImapError.timedOut.isConnectionFailure)
