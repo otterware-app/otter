@@ -42,6 +42,7 @@ import { flag, setUiPreference, uiPreferencesAtom } from "../../state/preference
 import { availableThemes, themeId, themeSource, usePalette, type Palette } from "../theme";
 import { AgentSettings } from "./AgentSettings";
 import { arrangement, MailboxesSettings, MailboxSettings } from "./MailboxesSettings";
+import { SupportSettings } from "./SupportSettings";
 import { ThemeSettings } from "./ThemeSettings";
 
 type Props = NativeStackScreenProps<RootStack, "Settings">;
@@ -219,6 +220,8 @@ export function SettingsScreen({ navigation }: Props) {
                 </Text>
               </Toggle>
             </Group>
+
+            <SupportSettings colors={colors} />
 
             <Group colors={colors} title="Account">
               {otter?.realtime ? (

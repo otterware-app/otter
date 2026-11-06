@@ -1,4 +1,5 @@
 import { createWorkerHost } from "@otter-mail/mobile-worker";
+import { serializeError } from "@otter-mail/shared/error-reports";
 
 import { installPolyfills } from "./polyfills";
 import { connectUi, workerPort } from "./port";
@@ -53,10 +54,17 @@ export function startHost(deliver: (message: unknown) => void, config: WorkerCon
     registerBackgroundHandlers();
     registerRecoveryHandlers(host, config.demo);
   });
-  ready.catch((error: unknown) =>
+  ready.catch((error: unknown) => {
     host.log(
       "error",
       `Core failed to start: ${error instanceof Error ? error.stack : String(error)}`,
-    ),
-  );
+    );
+    served.effect({
+      _tag: "report",
+      level: "error",
+      scope: "backend",
+      message: "Core failed to start",
+      error: serializeError(error),
+    });
+  });
 }

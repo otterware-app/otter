@@ -13,6 +13,7 @@ import {
   type SqlValue,
 } from "@otter-mail/core";
 import { createCredentials } from "@otter-mail/mobile-credentials";
+import { serializeError, type ReportTags } from "@otter-mail/shared/error-reports";
 import { createMailSocket } from "@otter-mail/mobile-socket";
 import { openSqlite, type SqliteValue } from "@otter-mail/mobile-sqlite";
 import type { WorkerHost } from "@otter-mail/mobile-worker";
@@ -168,8 +169,15 @@ export async function mobilePlatform(options: MobilePlatformOptions): Promise<Pl
   return {
     kind: "ios",
     appVersion: config.appVersion,
-    log: (level, scope, message, data) =>
-      host.log(level, `[${scope}] ${message}${data === undefined ? "" : ` ${describe(data)}`}`),
+    log(level, scope, message, data) {
+      host.log(level, `[${scope}] ${message}${data === undefined ? "" : ` ${describe(data)}`}`);
+      if (level === "debug") return;
+      // For the UI's Sentry, as apps/web's worker reports.
+      const wrapped = data as { error?: unknown; tags?: ReportTags } | null;
+      const error = data instanceof Error ? data : wrapped?.error;
+      const tags = data instanceof Error ? undefined : wrapped?.tags;
+      shell.effect({ _tag: "report", level, scope, message, error: serializeError(error), tags });
+    },
     database: () => database,
     files,
     // Under the names the notification extension reads (`imap-password:<email>`); the demo's apart.

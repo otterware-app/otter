@@ -17,6 +17,7 @@ export const SENTRY_DSN = {
   web: "https://7f770b56a78c138844e07a6977df9b43@o4512364656459776.ingest.de.sentry.io/4512364729270352",
   relay:
     "https://e4aca7bd12ed2618a2512e44546ad947@o4512364656459776.ingest.de.sentry.io/4512364730581072",
+  ios: "https://8ab23b52535e531f2b75f22d02dae47c@o4512364656459776.ingest.de.sentry.io/4512364735496272",
 } as const;
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -147,11 +148,34 @@ export function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
 const reported = new Map<string, number>();
 const REPEAT_MS = 10 * 60_000;
 
-export function reportLog(level: LogLevel, scope: string, message: string, data?: unknown): void {
+/** The SDK's own: React Native's Sentry runs on a @sentry/core of its own. */
+export type ReportSdk = {
+  addBreadcrumb(breadcrumb: { category: string; message: string; level: "warning" | "info" }): void;
+  captureException(
+    error: Error,
+    hint: { tags: ReportTags; contexts: { log: { message: string } } },
+  ): unknown;
+  captureMessage(
+    message: string,
+    context: { level: "error"; tags: ReportTags; fingerprint: string[] },
+  ): unknown;
+};
+
+export function reportLog(
+  level: LogLevel,
+  scope: string,
+  message: string,
+  data?: unknown,
+  sdk: ReportSdk = { addBreadcrumb, captureException, captureMessage },
+): void {
   if (level === "debug") return;
   const text = scrubText(message);
   if (level !== "error") {
-    addBreadcrumb({ category: scope, message: text, level: level === "warn" ? "warning" : "info" });
+    sdk.addBreadcrumb({
+      category: scope,
+      message: text,
+      level: level === "warn" ? "warning" : "info",
+    });
     return;
   }
   const key = `${scope}\n${text}`;
@@ -163,9 +187,9 @@ export function reportLog(level: LogLevel, scope: string, message: string, data?
   const tags = { ...tagsIn(data), scope };
   const error = errorIn(data);
   if (error) {
-    captureException(error, { tags, contexts: { log: { message: text } } });
+    sdk.captureException(error, { tags, contexts: { log: { message: text } } });
   } else {
-    captureMessage(text, { level: "error", tags, fingerprint: [scope, text] });
+    sdk.captureMessage(text, { level: "error", tags, fingerprint: [scope, text] });
   }
 }
 
