@@ -3,10 +3,11 @@ import { LegendList } from "@legendapp/list/react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
 import { GlassView } from "expo-glass-effect";
-import { memo, useEffect, useLayoutEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { decodeEntities } from "../../../../web/src/main/mail/text";
 import type { RootStack } from "../../App";
 import { markFirstContent } from "../../state/startup";
 import { accountsAtom, inboxAtom, type ThreadRow } from "../../state/mail";
@@ -21,16 +22,6 @@ export function InboxScreen({ navigation }: Props) {
   const list = AsyncResult.getOrElse(accounts, () => []);
   const [selected, setSelected] = useState<string | null>(null);
   const accountId = selected ?? list[0]?.id ?? null;
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <Pressable onPress={() => navigation.navigate("Gate")} hitSlop={12} testID="open-gate">
-          <Text style={{ color: colors.accent, fontSize: 17 }}>Gate</Text>
-        </Pressable>
-      ),
-    });
-  }, [navigation, colors.accent]);
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
@@ -110,6 +101,15 @@ function Inbox({ accountId, onOpen }: { accountId: string; onOpen: (row: ThreadR
   );
 }
 
+export function GateButton({ onPress }: { onPress: () => void }) {
+  const colors = palette(useColorScheme());
+  return (
+    <Pressable onPress={onPress} hitSlop={12} testID="open-gate">
+      <Text style={{ color: colors.accent, fontSize: 17 }}>Gate</Text>
+    </Pressable>
+  );
+}
+
 export const Row = memo(function Row({
   row,
   onOpen,
@@ -146,7 +146,7 @@ export const Row = memo(function Row({
         {row.subject || "(no subject)"}
       </Text>
       <Text numberOfLines={1} style={[styles.snippet, { color: colors.secondary }]}>
-        {row.snippet}
+        {decodeEntities(row.snippet)}
       </Text>
     </Pressable>
   );

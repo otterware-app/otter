@@ -1,13 +1,16 @@
 import { RegistryProvider } from "@effect/atom-react";
 import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import Constants from "expo-constants";
+import {
+  createNativeStackNavigator,
+  type NativeStackNavigationOptions,
+  type NativeStackScreenProps,
+} from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { useColorScheme } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { GateScreen } from "./features/gate/GateScreen";
-import { InboxScreen } from "./features/inbox/InboxScreen";
+import { GateButton, InboxScreen } from "./features/inbox/InboxScreen";
 import { ThreadScreen } from "./features/thread/ThreadScreen";
 
 export type RootStack = {
@@ -18,8 +21,17 @@ export type RootStack = {
 
 const Stack = createNativeStackNavigator<RootStack>();
 
+const inboxOptions = ({
+  navigation,
+}: NativeStackScreenProps<RootStack, "Inbox">): NativeStackNavigationOptions => ({
+  title: "Inbox",
+  headerLargeTitle: true,
+  headerTransparent: true,
+  headerRight: () => <GateButton onPress={() => navigation.navigate("Gate")} />,
+});
+
 const linking = {
-  prefixes: [`${String(Constants.expoConfig?.scheme ?? "ottermail")}://`],
+  prefixes: ["ottermail://", "ottermail-dev://", "ottermail-preview://"],
   config: { screens: { Inbox: "", Thread: "thread", Gate: "gate" } },
 };
 
@@ -29,13 +41,9 @@ export default function App() {
     <RegistryProvider>
       <SafeAreaProvider>
         <NavigationContainer theme={dark ? DarkTheme : DefaultTheme} linking={linking}>
-          <StatusBar style="auto" />
+          <StatusBar />
           <Stack.Navigator>
-            <Stack.Screen
-              name="Inbox"
-              component={InboxScreen}
-              options={{ title: "Inbox", headerLargeTitle: true, headerTransparent: true }}
-            />
+            <Stack.Screen name="Inbox" component={InboxScreen} options={inboxOptions} />
             <Stack.Screen
               name="Thread"
               component={ThreadScreen}

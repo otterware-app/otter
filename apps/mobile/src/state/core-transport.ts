@@ -4,6 +4,7 @@ import { createWorkerHost } from "@otter-mail/mobile-worker";
 
 import { receive, startHost } from "../worker/host";
 import type { FromWorker, ToWorker, WorkerConfig } from "../worker/protocol";
+import { mark, markCoreReady } from "./startup";
 
 /**
  * The thin adapter between the UI and core's worker runtime: request/response
@@ -19,6 +20,7 @@ export type CoreTransport = {
 };
 
 export function startWorkletsTransport(config: WorkerConfig): CoreTransport {
+  mark("jsStartMs");
   const runtime = createWorkletRuntime({
     name: "otter-core",
     enableEventLoop: true,
@@ -27,6 +29,7 @@ export function startWorkletsTransport(config: WorkerConfig): CoreTransport {
   // Bundle Mode blocks TurboModules there: Nitro, and through it every
   // otter-* module, gets onto the worker this way.
   createWorkerHost().installNitro(runtime);
+  mark("workerCreatedMs");
 
   let nextId = 1;
   const pending = new Map<
@@ -49,6 +52,7 @@ export function startWorkletsTransport(config: WorkerConfig): CoreTransport {
       if (message.error !== undefined) request?.reject(new Error(message.error));
       else request?.resolve(message.result);
     } else if (message.type === "ready") {
+      markCoreReady();
       settleReady.resolve({ bootMs: message.bootMs });
     } else if (message.type === "failed") {
       settleReady.reject(new Error(message.error));
