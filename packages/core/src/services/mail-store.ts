@@ -40,7 +40,6 @@ function getDb(): SqlDatabase {
       PRIMARY KEY (accountId, id)
     );
     CREATE INDEX IF NOT EXISTS idx_messages_account_date ON messages (accountId, date DESC);
-    CREATE INDEX IF NOT EXISTS idx_messages_account_thread ON messages (accountId, threadId, date);
 
     CREATE TABLE IF NOT EXISTS message_labels (
       accountId TEXT NOT NULL,
@@ -124,6 +123,13 @@ function getDb(): SqlDatabase {
   handle.exec(
     "CREATE INDEX IF NOT EXISTS idx_messages_undownloaded ON messages (accountId, detailFetched, date DESC);",
   );
+  // Covers a thread's rollup in lists (threadPageQuery) without reading rows,
+  // whose bodies sit before messageIdHeader.
+  handle.exec(`
+    CREATE INDEX IF NOT EXISTS idx_messages_thread_rollup
+      ON messages (accountId, threadId, date, unread, starred, messageIdHeader, id);
+    DROP INDEX IF EXISTS idx_messages_account_thread;
+  `);
 
   const ftsExists =
     handle
@@ -707,10 +713,11 @@ export function getThreadsPage(
       threadPageQuery(
         `
         SELECT DISTINCT m.accountId AS accountId, m.threadId AS threadId
-          FROM messages m
-          JOIN message_labels ml
-            ON ml.accountId = m.accountId AND ml.messageId = m.id
-         WHERE m.accountId = ? AND ml.labelId = ? ${exclusion} ${ownSql}
+          FROM message_labels ml
+          -- From the label's index: the account's other messages are never read.
+          CROSS JOIN messages m
+            ON m.accountId = ml.accountId AND m.id = ml.messageId
+         WHERE ml.accountId = ? AND ml.labelId = ? ${exclusion} ${ownSql}
       `,
         labelId === "DRAFT",
       ),
