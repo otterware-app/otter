@@ -45,18 +45,40 @@ thread render from it, and the gate below measures whether the architecture hold
   access group and App Group (`group.<bundle id>.notifications`), so development and preview
   builds never read production's sign-ins.
 
+## Developing
+
+A Debug build loads both runtimes from Metro, so JS changes need no native build:
+
+```bash
+pnpm dev:mobile --fake          # from the repo root: Metro, on the made-up mailbox
+pnpm dev:mobile --build --fake  # the first time, and after native changes: prebuild, build, install
+```
+
+`--relay local` points core at `pnpm dev`'s relay; `--port` and `--device <udid>` pick Metro's
+port and the simulator. The switches are `EXPO_PUBLIC_*` variables Metro inlines (a Debug build's
+`expoConfig` is the one it was built with), so changing them only takes restarting Metro.
+
+- **UI code** (`src/features`, `src/state`, client-runtime) Fast Refreshes in place.
+- **What runs on the worker** (`src/worker`, `src/persistence`, `packages/core`, its extensions)
+  reloads the app instead: the worker evaluates the bundle the app downloaded at launch, so
+  `core-transport.ts` accepts those updates by reloading, which starts the worker on the new
+  bundle (`[Worklets] … Downloaded the bundle` in Metro's log).
+- Logs from both runtimes show in Metro's terminal; core's are `[gmail:…]`, `[core:…]`.
+- Native code (`modules/`, `plugins/`, `app.config.ts`, dependencies) needs `--build`.
+
+`metro.config.js` hashes the worklets' generated files (`react-native-worklets/.worklets/`) from
+disk when Metro's file map hasn't seen them yet: Bundle Mode's Babel plugin writes them while
+Metro transforms, which otherwise fails the first bundle (Debug, or a one-shot Release bundle on
+a fresh checkout) with "Failed to get the SHA-1".
+
 ## Running it
 
 From `apps/mobile`, with a simulator booted:
 
 ```bash
-pnpm ios:release         # prebuild, warm the worklets, a Release build in the simulator
+pnpm ios:release         # prebuild, a Release build in the simulator
 pnpm ios:dev             # a Debug build with Metro
 ```
-
-`pnpm warm-worklets` exists because Bundle Mode's Babel plugin writes each worklet to
-`react-native-worklets/.worklets/` during the transform, after Metro crawled its files: the
-first one-shot Release bundle on a fresh checkout otherwise fails with "Failed to get the SHA-1".
 
 Phase 0 always runs on the made-up mailbox (`apps/web`'s fake Gmail); signing in isn't built.
 

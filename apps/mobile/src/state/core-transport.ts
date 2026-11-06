@@ -1,4 +1,5 @@
 import type { RpcPort } from "@otter-mail/contracts/rpc-port";
+import { DevSettings } from "react-native";
 import { createWorkletRuntime, scheduleOnRuntime } from "react-native-worklets";
 
 import { createWorkerHost } from "@otter-mail/mobile-worker";
@@ -7,6 +8,14 @@ import { startHost } from "../worker/host";
 import { receive } from "../worker/port";
 import type { WorkerConfig } from "../worker/protocol";
 import { mark } from "./startup";
+
+// Fast Refresh patches the UI runtime only; the worker evaluates the bundle the app
+// downloaded at launch. An edit to what runs there (everything the UI reaches through
+// this module: src/worker, core, its extensions) reloads the app instead, which starts
+// the worker on the new bundle. Accepting here keeps the update from re-running core.ts,
+// which would start a second worker on the old one.
+declare const module: { hot?: { accept(callback: () => void): void } };
+module.hot?.accept(() => DevSettings.reload("Core's worker code changed"));
 
 /**
  * Starts core on its own runtime and returns the UI's end of the RpcPort to

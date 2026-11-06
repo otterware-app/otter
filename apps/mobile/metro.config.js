@@ -1,3 +1,5 @@
+const crypto = require("node:crypto");
+const fs = require("node:fs");
 const path = require("node:path");
 const { getDefaultConfig } = require("expo/metro-config");
 const { getBundleModeMetroConfig } = require("react-native-worklets/bundleMode");
@@ -45,6 +47,29 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     }
   }
   return resolve(context, moduleName, platform);
+};
+
+// Bundle Mode's Babel plugin writes each worklet to react-native-worklets/.worklets/<hash>.js
+// while Metro transforms, so the file isn't in Metro's file map yet when Metro asks for its
+// SHA-1 ("Failed to get the SHA-1"): the first bundle of a fresh checkout, and Fast Refresh
+// after editing a worklet. Hash those files from disk until the watcher catches up.
+const expoCli = path.dirname(
+  require.resolve("@expo/cli/package.json", {
+    paths: [path.dirname(require.resolve("expo/package.json"))],
+  }),
+);
+const { default: DependencyGraph } = require(
+  require.resolve("metro/private/node-haste/DependencyGraph", { paths: [expoCli] }),
+);
+const getOrComputeSha1 = DependencyGraph.prototype.getOrComputeSha1;
+DependencyGraph.prototype.getOrComputeSha1 = async function (filePath) {
+  try {
+    return await getOrComputeSha1.call(this, filePath);
+  } catch (error) {
+    if (!/[/\\]\.worklets[/\\]/.test(filePath) || !fs.existsSync(filePath)) throw error;
+    const content = fs.readFileSync(filePath);
+    return { sha1: crypto.createHash("sha1").update(content).digest("hex"), content };
+  }
 };
 
 module.exports = getBundleModeMetroConfig(config);

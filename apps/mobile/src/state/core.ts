@@ -17,7 +17,14 @@ import { markCoreReady } from "./startup";
  */
 
 type Extra = { relayUrl?: string; fakeMailbox?: boolean; agentServerUrl?: string };
-const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
+const built = (Constants.expoConfig?.extra ?? {}) as Extra;
+// A Debug build's expoConfig is the one it was built with; Metro inlines these
+// at bundle time, so `pnpm dev:mobile` switches them without a native build.
+const extra: Extra = {
+  relayUrl: process.env.EXPO_PUBLIC_OTTER_MAIL_RELAY_URL || built.relayUrl,
+  fakeMailbox: process.env.EXPO_PUBLIC_OTTER_MAIL_FAKE_MAILBOX === "1" || built.fakeMailbox,
+  agentServerUrl: process.env.EXPO_PUBLIC_OTTER_MAIL_AGENT_SERVER_URL || built.agentServerUrl,
+};
 
 const listeners = new Map<string, Set<(params: unknown) => void>>();
 
