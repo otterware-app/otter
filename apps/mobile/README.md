@@ -90,7 +90,14 @@ pnpm ios:release         # prebuild, a Release build in the simulator
 pnpm ios:dev             # a Debug build with Metro
 ```
 
-Phase 0 always runs on the made-up mailbox (`apps/web`'s fake Gmail); signing in isn't built.
+Gmail, Outlook and IMAP sign in on the phone. `OTTER_MAIL_FAKE_MAILBOX=1` builds on the made-up
+mailbox (`apps/web`'s fake Gmail) instead, and `OTTER_MAIL_RELAY_URL=http://localhost:8787` on
+`pnpm dev`'s relay.
+
+Core keeps a window of recent mail (`KEEP_RECENT`: 90 days and at least 400 conversations,
+bodies as they're opened) and syncs fully only while the app is in front: the UI keeps whether
+it is in a worklets Synchronizable the worker's `inForeground` reads, and coming back calls
+`core.resume`.
 
 ## The gate
 
