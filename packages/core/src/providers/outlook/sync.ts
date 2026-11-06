@@ -1,6 +1,14 @@
 // A delta removal can mean a move: look up the immutable message id before deleting its cached copy.
 
 import { logger } from "../../logger.js";
+import {
+  BACKGROUND_MAX_MESSAGES,
+  cacheWindow,
+  getCoverage,
+  inBackground,
+  setCoverage,
+  windowStart,
+} from "../../services/coverage.js";
 import * as store from "../../services/mail-store.js";
 import type { MessageSummary } from "../../types.js";
 import { hasPendingLabelWrites } from "../../services/pending-label-writes.js";
@@ -75,8 +83,22 @@ function refuse(accountId: string, folder: Folder, mailbox: Mailbox, err: unknow
   return true;
 }
 
-const firstDelta = (folderId: string) =>
-  `/me/mailFolders/${encodeURIComponent(folderId)}/messages/delta?$select=${SUMMARY_FIELDS}`;
+const firstDelta = (folderId: string, since?: number) =>
+  `/me/mailFolders/${encodeURIComponent(folderId)}/messages/delta?$select=${SUMMARY_FIELDS}` +
+  (since === undefined
+    ? ""
+    : `&$filter=${encodeURIComponent(`receivedDateTime ge ${new Date(since).toISOString()}`)}`);
+
+/** With a window, where its mail starts, kept so every folder's delta asks for the same. */
+function windowSince(accountId: string): number | undefined {
+  const window = cacheWindow();
+  if (!window) return undefined;
+  const coverage = getCoverage(accountId);
+  if (coverage) return coverage.since;
+  const since = windowStart(window);
+  setCoverage(accountId, { since, done: false });
+  return since;
+}
 
 export function forgetOutlookSync(accountId: string): void {
   folderRefresh.delete(accountId);
@@ -178,6 +200,7 @@ async function relabelFolders(accountId: string, mailbox: Mailbox, ctx: SyncCont
 }
 
 export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<void> {
+  if (inBackground()) return followInbox(accountId, ctx);
   ctx.update({ phase: mailboxOf(accountId) ? "incremental" : "labels" });
   const mailbox = await refreshFolders(accountId, false, ctx);
   await relabelFolders(accountId, mailbox, ctx);
@@ -203,17 +226,39 @@ export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<
   await ctx.newMail(added.filter((m) => m.labelIds.includes("INBOX")));
 }
 
+/** Behind the app: only the inbox's delta, and only a page or so of it. */
+async function followInbox(accountId: string, ctx: SyncContext): Promise<void> {
+  const mailbox = mailboxOf(accountId);
+  const inbox = mailbox?.folders.find((f) => f.id === mailbox.wellKnown.inbox);
+  const state = inbox && readDelta(accountId)[inbox.id];
+  if (!mailbox || !inbox || !state?.done) return;
+  ctx.update({ phase: "incremental", synced: 0 });
+  const result = await followDelta(accountId, mailbox, inbox, state.link, ctx, true);
+  if (result.changed) ctx.bumpRevision();
+  await ctx.newMail(result.added.filter((m) => m.labelIds.includes("INBOX")));
+}
+
+/**
+ * The inbox's newest page, before the folders' deltas list everything. With a
+ * window, as many pages as its `minThreads` take, however old they are.
+ */
 async function peekInbox(accountId: string, mailbox: Mailbox, ctx: SyncContext): Promise<void> {
   const inbox = mailbox.wellKnown.inbox!;
-  const page = await graph<Page<ApiMessage>>(
-    accountId,
-    `/me/mailFolders/${encodeURIComponent(inbox)}/messages?$top=50&$orderby=receivedDateTime desc&$select=${SUMMARY_FIELDS}`,
-  );
-  ctx.assertActive();
-  store.upsertMessages(
-    accountId,
-    (page.value ?? []).map((m) => toSummary(accountId, m)),
-  );
+  const window = cacheWindow();
+  let next: string | undefined =
+    `/me/mailFolders/${encodeURIComponent(inbox)}/messages?$top=50&$orderby=receivedDateTime desc&$select=${SUMMARY_FIELDS}`;
+  while (next) {
+    const page: Page<ApiMessage> = await graph<Page<ApiMessage>>(accountId, next);
+    ctx.assertActive();
+    store.upsertMessages(
+      accountId,
+      (page.value ?? []).map((m) => toSummary(accountId, m)),
+    );
+    next =
+      window && store.countThreads(accountId) < window.minThreads
+        ? page["@odata.nextLink"]
+        : undefined;
+  }
   store.recountLabels(accountId, ["INBOX", "UNREAD", "STARRED", "IMPORTANT"]);
   store.setKv(peekedKey(accountId), "1");
   ctx.bumpRevision();
@@ -230,6 +275,7 @@ async function followDelta(
   folder: Folder,
   link: string,
   ctx: SyncContext,
+  bounded = false,
 ): Promise<{ added: MessageSummary[]; changed: boolean }> {
   const present: ApiMessage[] = [];
   const removed: string[] = [];
@@ -246,12 +292,17 @@ async function followDelta(
       }
       next = page["@odata.nextLink"];
       if (page["@odata.deltaLink"]) deltaLink = page["@odata.deltaLink"];
+      // A next link resumes the round where it stopped: the rest waits for the front.
+      if (bounded && next && present.length + removed.length >= BACKGROUND_MAX_MESSAGES) {
+        deltaLink = next;
+        break;
+      }
     }
   } catch (err) {
     if (err instanceof GraphError && (err.status === 410 || /syncState|resync/i.test(err.code))) {
       logger.info("outlook-sync", `delta expired for a folder of ${accountId}; listing it again`);
       setFolderDelta(accountId, folder.id, {
-        link: firstDelta(folder.id),
+        link: firstDelta(folder.id, windowSince(accountId)),
         done: false,
         label: folder.labelId,
         unlisted: folder.labelId ? store.getMessageIdsForLabel(accountId, folder.labelId) : [],
@@ -327,6 +378,7 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
   const mailbox = mailboxOf(accountId);
   if (!mailbox) return;
   const total = mailbox.folders.reduce((sum, f) => sum + f.total, 0);
+  const since = windowSince(accountId);
   let count = store.countAllMessages(accountId);
   ctx.update({ phase: "full", synced: count, total: total || null });
   let skipped = false;
@@ -337,7 +389,7 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
     }
     const state = readDelta(accountId)[folder.id];
     if (state?.done) continue;
-    let next: string | undefined = state?.link ?? firstDelta(folder.id);
+    let next: string | undefined = state?.link ?? firstDelta(folder.id, since);
     while (next) {
       let page: Page<ApiMessage>;
       try {
@@ -381,7 +433,7 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
       }
       setFolderDelta(accountId, folder.id, {
         ...before,
-        link: next ?? page["@odata.deltaLink"] ?? firstDelta(folder.id),
+        link: next ?? page["@odata.deltaLink"] ?? firstDelta(folder.id, since),
         done: !next,
         unlisted,
       });
@@ -396,7 +448,9 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
   );
   store.upsertLabels(accountId, labelsOf(accountId, mailbox));
   // Not done while a folder is skipped: lists keep paging from Outlook, and it's asked again later.
-  if (!skipped) store.setSyncState(accountId, { fullSyncDone: true });
+  // A window filled is never the whole mailbox: lists page past it from Outlook.
+  if (!skipped && since !== undefined) setCoverage(accountId, { since, done: true });
+  else if (!skipped) store.setSyncState(accountId, { fullSyncDone: true });
   ctx.bumpRevision();
   logger.info(
     "outlook-sync",
