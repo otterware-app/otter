@@ -212,7 +212,7 @@ function HomeTitle({
       accessibilityHint="Shows every folder and label"
       testID="home-title"
     >
-      <Text style={styles.header} numberOfLines={1}>
+      <Text style={styles.header} numberOfLines={1} maxFontSizeMultiplier={1.3}>
         <Text style={{ color: colors.text, fontWeight: "600" }}>{title}</Text>
         <Text style={{ color: colors.secondary }}>
           {"  "}
@@ -225,6 +225,6 @@ function HomeTitle({
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  header: { fontSize: 20, paddingHorizontal: 8, maxWidth: 260 },
+  header: { fontSize: 20, paddingHorizontal: 8, maxWidth: 230 },
   message: { padding: 24, paddingTop: 160, fontSize: 15 },
 });
