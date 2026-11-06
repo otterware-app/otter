@@ -10,6 +10,7 @@ import { SymbolView } from "expo-symbols";
 import type { RootStack } from "../../App";
 import { mailboxes, operations, threadLists, type Mailbox } from "../../state/client";
 import { markFirstContent } from "../../state/startup";
+import { useAccountSync } from "../../state/sync";
 import { palette } from "../theme";
 import { PlacesBar } from "./PlacesBar";
 import { placeAtom, placeTitle, rememberPlace, type Place } from "./places";
@@ -32,10 +33,17 @@ export function HomeScreen({ navigation }: Props) {
   useEffect(() => {
     if (accountId) void mailboxes.refreshLabels(accountId);
   }, [accountId]);
+  useAccountSync(accountId);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title });
-  }, [navigation, title]);
+    navigation.setOptions({
+      title,
+      headerRight: () =>
+        accountId ? (
+          <ComposeButton onPress={() => navigation.navigate("Compose", { accountId })} />
+        ) : null,
+    });
+  }, [navigation, title, accountId]);
 
   const go = (next: Place) => {
     setPlace(next);
