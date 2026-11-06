@@ -20,6 +20,7 @@ export function startHost(deliver: (message: unknown) => void, config: WorkerCon
     require("../persistence/platform") as typeof import("../persistence/platform");
   const { registerProbes } = require("./probes") as typeof import("./probes");
   const { registerPushHandlers } = require("./push") as typeof import("./push");
+  const { registerBackgroundHandlers } = require("./background") as typeof import("./background");
   const { registerRecoveryHandlers } =
     require("./recovery-import") as typeof import("./recovery-import");
 
@@ -49,6 +50,7 @@ export function startHost(deliver: (message: unknown) => void, config: WorkerCon
     await core.startCore(platform, mobileExtensions);
     registerProbes();
     registerPushHandlers();
+    registerBackgroundHandlers();
     registerRecoveryHandlers(host, config.demo);
   });
   ready.catch((error: unknown) =>

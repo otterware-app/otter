@@ -35,6 +35,7 @@
     "@otter-mail/extension-openrouter": "workspace:*",
     "@otter-mail/extension-sign-in-codes": "workspace:*",
     "@otter-mail/extension-translation": "workspace:*",
+    "@otter-mail/mobile-background": "workspace:*",
     "@otter-mail/mobile-composer": "workspace:*",
     "@otter-mail/mobile-credentials": "workspace:*",
     "@otter-mail/mobile-html-view": "workspace:*",
