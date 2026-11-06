@@ -1,1 +1,1 @@
-../../../../../ios/NotificationShared/MailServer.swift
+../../../../native/NotificationShared/MailServer.swift

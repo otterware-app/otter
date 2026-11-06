@@ -1,1 +1,1 @@
-../../../../../ios/NotificationShared/PushState.swift
+../../../../native/NotificationShared/PushState.swift

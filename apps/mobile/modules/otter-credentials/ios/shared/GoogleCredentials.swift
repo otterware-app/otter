@@ -1,1 +1,1 @@
-../../../../../ios/NotificationShared/GoogleCredentials.swift
+../../../../native/NotificationShared/GoogleCredentials.swift
