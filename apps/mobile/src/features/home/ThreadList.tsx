@@ -3,7 +3,7 @@ import { LegendList } from "@legendapp/list/react-native";
 import type { MessageSummary } from "@otter-mail/client-runtime/mail";
 import { ZoomSource } from "@otter-mail/mobile-transitions";
 import { SymbolView } from "expo-symbols";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { ActionSheetIOS, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { mailboxes, threadLists, type Mailbox } from "../../state/client";
@@ -50,6 +50,7 @@ export function ThreadList({
   onCollapse,
   selecting = false,
   onEndSelection,
+  header,
 }: {
   mailbox: Mailbox | undefined;
   accountId: string;
@@ -62,6 +63,8 @@ export function ThreadList({
   onEndSelection?: () => void;
   /** The places bar minimizes while the list scrolls down, and comes back scrolling up. */
   onCollapse?: (collapsed: boolean) => void;
+  /** Over the rows: the signed-out banners. */
+  header?: ReactElement;
 }) {
   const colors = usePalette();
   const ui = useAtomValue(uiPreferencesAtom);
@@ -347,6 +350,7 @@ export function ThreadList({
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ paddingBottom: 120 }}
         ListEmptyComponent={null}
+        ListHeaderComponent={header}
         ListFooterComponent={
           rows.length === 0 && !view.isLoading && copies.length === 0 ? (
             <View

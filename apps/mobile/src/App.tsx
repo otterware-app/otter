@@ -1,4 +1,4 @@
-import { RegistryContext } from "@effect/atom-react";
+import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import {
   createNativeStackNavigator,
@@ -9,6 +9,7 @@ import { useEffect, useMemo } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AddImapScreen } from "./features/accounts/AddImapScreen";
+import { AddMailboxScreen } from "./features/accounts/AddMailboxScreen";
 import { WelcomeScreen } from "./features/accounts/WelcomeScreen";
 import { ChatScreen } from "./features/chat/ChatScreen";
 import type { ThreadContext } from "./features/chat/context";
@@ -22,6 +23,7 @@ import { ThreadScreen } from "./features/thread/ThreadScreen";
 import { startAgents } from "./state/chats";
 import { appAtomRegistry, startClientState } from "./state/client";
 import { developmentVariant } from "./state/core";
+import { sessionAtom, startOtterAccount } from "./state/otter";
 import { startUiPreferences } from "./state/preferences";
 
 const COMPOSE_TITLES = {
@@ -38,6 +40,7 @@ export type RootStack = {
   Search: { accountId: string };
   Settings: undefined;
   Welcome: undefined;
+  AddMailbox: undefined;
   AddImap: undefined;
   /** `id`: a chat to show (a delivery or ask notification's tap). */
   Chat: { context?: ThreadContext; id?: string } | undefined;
@@ -76,6 +79,7 @@ export default function App() {
   useEffect(() => {
     startClientState();
     startUiPreferences();
+    startOtterAccount();
     return startAgents();
   }, []);
   return (
@@ -112,11 +116,17 @@ function Navigation() {
       },
     };
   }, [colors]);
+  // The Swift app's Session.state: the welcome until there's an Otter account, or the demo.
+  const welcome = useAtomValue(sessionAtom) === "welcome";
   return (
     <NavigationContainer theme={theme} linking={linking}>
       <StatusBar style={colors.dark ? "light" : "dark"} />
       <Stack.Navigator>
-        <Stack.Screen name="Home" component={HomeScreen} options={homeOptions} />
+        {welcome ? (
+          <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ headerShown: false }} />
+        ) : (
+          <Stack.Screen name="Home" component={HomeScreen} options={homeOptions} />
+        )}
         <Stack.Screen
           name="Thread"
           component={ThreadScreen}
@@ -133,8 +143,8 @@ function Navigation() {
           options={{ presentation: "modal", headerShown: false }}
         />
         <Stack.Screen
-          name="Welcome"
-          component={WelcomeScreen}
+          name="AddMailbox"
+          component={AddMailboxScreen}
           options={{ title: "", presentation: "modal" }}
         />
         <Stack.Screen name="AddImap" component={AddImapScreen} options={{ title: "Other mail" }} />

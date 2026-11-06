@@ -208,12 +208,16 @@ export function registerOtterAccountHandlers(): void {
   // otter:signIn — "Sign in with Google", for the Otter account only (never
   // a mailbox). The desktop opens Google in the browser; the web app answers
   // `{ redirectTo }` for the page to go sign in (back to `callbackURL`). The
-  // renderer gets null when the user cancels.
+  // renderer gets null when the user cancels. With `accountId`, a Gmail
+  // mailbox just added proves who you are (the phone's welcome: one consent
+  // for both); start()'s reconcile then links it.
   handle("otter:signIn", async (params: unknown) => {
-    const p = params as { callbackURL?: unknown } | undefined;
+    const p = params as { callbackURL?: unknown; accountId?: unknown } | undefined;
     const google = platform().google;
     try {
-      if (google.signInForIdToken) {
+      if (typeof p?.accountId === "string") {
+        await signIn(await google.getIdToken(p.accountId));
+      } else if (google.signInForIdToken) {
         await signIn(await google.signInForIdToken());
       } else {
         const callbackURL = typeof p?.callbackURL === "string" ? p.callbackURL : "";

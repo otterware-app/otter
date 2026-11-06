@@ -17,7 +17,8 @@ export type Destination =
   | { chat: string };
 
 const appVariant = (Constants.expoConfig?.extra as { appVariant?: string } | undefined)?.appVariant;
-const scheme = String(Constants.expoConfig?.scheme ?? "ottermail");
+const schemes = Constants.expoConfig?.scheme;
+const scheme = (Array.isArray(schemes) ? schemes[0] : schemes) ?? "ottermail";
 
 function pushConfiguration(): PushConfiguration | null {
   const json = createCredentials().pushConfiguration();

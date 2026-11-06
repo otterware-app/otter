@@ -31,6 +31,7 @@ import type { SFSymbol } from "expo-symbols";
 import { View } from "react-native";
 
 import type { Mailbox } from "../../state/client";
+import { SyncStatusLine } from "../accounts/SyncHealth";
 import type { Palette } from "../theme";
 import { MailboxAvatar } from "./PlacesBar";
 import { folders, ownLabels, placeCount, placeSymbol, placeTitle } from "./places";
@@ -188,6 +189,7 @@ export function PlacesPanel({
           ) : null}
           {row("search", "Search", "magnifyingglass", onSearch)}
           {row("settings", "Settings", "gearshape", onSettings)}
+          <SyncStatusLine colors={colors} mailbox={mailbox} />
         </VStack>
       </ScrollView>
     </VStack>

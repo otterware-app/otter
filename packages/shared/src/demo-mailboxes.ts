@@ -1617,3 +1617,191 @@ export const DEMO_OUTLOOK_ACCOUNT: OutlookSeedAccount = {
     },
   ],
 };
+
+// An iCloud-shaped IMAP mailbox with a domain delivered into it, two of its Send from addresses
+// with alias mailboxes: the iPhone app's demo, on its pretend IMAP server (apps/mobile/src/worker/demo-imap.ts).
+
+export type AliasSeedAccount = SeedAccount & {
+  imap: {
+    username: string;
+    imap: { host: string; port: number; security: "tls" | "starttls" };
+    smtp: { host: string; port: number; security: "tls" | "starttls" };
+  };
+  sendAs: string[];
+  aliasMailboxes: { address: string; name?: string; color?: string; signature?: string }[];
+};
+
+const robinCloud = p("Robin Otter", "robin.otter@icloud.example");
+const robinMe = p("Robin Otter", "me@robinotter.example");
+const robinStudio = p("Robin Otter", "mail@robinotter.example");
+const robinAccounts = p("Robin Otter", "accounts@robinotter.example");
+const ines = p("Inês Duarte", "ines@duarte.example");
+const kai = p("Kai Lindqvist", "kai@lindqvist.example");
+const samRivera = p("Sam Rivera", "sam.rivera@example.net");
+const northwind = p("Northwind Print", "billing@northwind.example");
+const delivered = (to: Person) => ({ "Original-Recipient": `rfc822;${to.email}` });
+
+export const DEMO_ALIAS_ACCOUNT: AliasSeedAccount = {
+  email: robinCloud.email,
+  name: robinCloud.name,
+  displayName: "iCloud",
+  color: "#64748b",
+  signature: "<div>Robin</div>",
+  labels: [{ name: "Receipts" }],
+  imap: {
+    username: robinCloud.email,
+    imap: { host: "imap.icloud.example", port: 993, security: "tls" },
+    smtp: { host: "smtp.icloud.example", port: 587, security: "starttls" },
+  },
+  sendAs: [robinMe.email, robinStudio.email, robinAccounts.email],
+  aliasMailboxes: [
+    { address: robinMe.email },
+    {
+      address: robinStudio.email,
+      name: "Studio",
+      color: "#f97316",
+      signature: "<div>Robin Otter · Otter Studio</div>",
+    },
+  ],
+  threads: () => [
+    {
+      // Sent To mail@ with Bcc me@: a copy delivered to each, alike but for Original-Recipient.
+      subject: "Studio open day: save the date",
+      labels: ["INBOX"],
+      messages: [robinStudio, robinMe].map((to) => ({
+        from: ines,
+        to: [robinStudio],
+        hoursAgo: 1.5,
+        unread: true,
+        text: "Hi Robin,\n\nThe open day is on the 14th, from ten. Could the studio show the new prints?\n\nInês",
+        headers: { "Message-ID": "<open-day-1@duarte.example>", ...delivered(to) },
+      })),
+    },
+    {
+      subject: "Dinner on Saturday?",
+      labels: ["INBOX", "SENT"],
+      messages: [
+        {
+          from: samRivera,
+          to: [robinMe],
+          hoursAgo: 30,
+          text: "Robin! Are you free on Saturday? We're trying the new place by the river.\n\nSam",
+          headers: { "Message-ID": "<dinner-1@example.net>", ...delivered(robinMe) },
+        },
+        {
+          from: robinMe,
+          to: [samRivera],
+          hoursAgo: 29,
+          text: "I'd love to. Eight?\n\nRobin",
+          headers: { "Message-ID": "<dinner-2@robinotter.example>" },
+        },
+        {
+          from: samRivera,
+          to: [robinMe],
+          hoursAgo: 3,
+          unread: true,
+          text: "Eight it is. I'll book a table by the window.\n\nSam",
+          headers: { "Message-ID": "<dinner-3@example.net>", ...delivered(robinMe) },
+        },
+      ],
+    },
+    {
+      // Cached before Original-Recipient was fetched: Cc decides.
+      subject: "Frames for the open day",
+      labels: ["INBOX"],
+      messages: [
+        {
+          from: kai,
+          to: [ines],
+          cc: [robinMe],
+          hoursAgo: 6,
+          unread: true,
+          text: "Inês, Robin,\n\nI can bring twelve oak frames on the 13th. Tell me the sizes and I'll cut them this week.\n\nKai",
+          headers: { "Message-ID": "<frames-1@lindqvist.example>" },
+        },
+      ],
+    },
+    {
+      subject: "Invoice 2041",
+      labels: ["INBOX", "Receipts"],
+      messages: [
+        {
+          from: northwind,
+          to: [robinAccounts],
+          hoursAgo: 20,
+          unread: true,
+          text: "Hello,\n\nInvoice 2041 for 40 A3 prints is attached to your account. It's due in 14 days.\n\nNorthwind Print",
+          headers: {
+            "Message-ID": "<invoice-2041@northwind.example>",
+            ...delivered(robinAccounts),
+          },
+        },
+      ],
+    },
+    {
+      subject: "Photos from the coast",
+      labels: ["INBOX"],
+      messages: [
+        {
+          from: p("Mum", "helen.otter@example.net"),
+          to: [robinCloud],
+          hoursAgo: 50,
+          text: "Here are the ones from Sunday. The lighthouse came out well!\n\nLove, Mum",
+          headers: { "Message-ID": "<coast-1@example.net>", ...delivered(robinCloud) },
+        },
+      ],
+    },
+    {
+      subject: "Otter Studio newsletter: October",
+      labels: ["SENT"],
+      messages: [
+        {
+          from: robinStudio,
+          to: [p("Studio friends", "friends@robinotter.example")],
+          hoursAgo: 72,
+          text: "Hello friends,\n\nNew prints, an open day on the 14th, and frames by Kai. See you there!\n\nRobin Otter · Otter Studio",
+          headers: { "Message-ID": "<newsletter-10@robinotter.example>" },
+        },
+      ],
+    },
+    {
+      subject: "Lighthouse print",
+      labels: ["SENT"],
+      messages: [
+        {
+          from: robinCloud,
+          to: [p("Mum", "helen.otter@example.net")],
+          hoursAgo: 48,
+          text: "I'll print the lighthouse one for you.\n\nRobin",
+          headers: { "Message-ID": "<lighthouse-1@icloud.example>" },
+        },
+      ],
+    },
+    {
+      subject: "Price list for the open day",
+      labels: [],
+      messages: [
+        {
+          from: robinStudio,
+          to: [ines],
+          hoursAgo: 4,
+          draft: true,
+          text: "Inês,\n\nPrints are 40 each, framed 65.\n\nRobin Otter · Otter Studio",
+        },
+      ],
+    },
+    {
+      subject: "Your studio booking",
+      labels: ["ARCHIVE"],
+      messages: [
+        {
+          from: p("Harbour Rooms", "bookings@harbour.example"),
+          to: [robinStudio],
+          hoursAgo: 24 * 9,
+          text: "Your room is booked for the 14th, 9:00 to 18:00.\n\nHarbour Rooms",
+          headers: { "Message-ID": "<booking-77@harbour.example>", ...delivered(robinStudio) },
+        },
+      ],
+    },
+  ],
+};

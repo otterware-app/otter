@@ -9,6 +9,7 @@ import {
   NavigationLink,
   NavigationStack,
   Picker,
+  RNHostView,
   Section,
   Text,
   Toggle,
@@ -28,20 +29,24 @@ import {
   tag,
   toolbarTitleDisplayMode,
 } from "@expo/ui/swift-ui/modifiers";
-import { OTTER_ACCOUNT_STATE_CHANNEL } from "@otter-mail/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Constants from "expo-constants";
 import { useEffect, useState, type ReactNode } from "react";
-import { Alert } from "react-native";
+import { Image } from "react-native";
 
 import type { RootStack } from "../../App";
 import { useAgentProviders } from "../../state/chats";
 import { mailboxes } from "../../state/client";
 import { core, developmentVariant } from "../../state/core";
+import { inDemo, otterUserAtom, realtimeAtom, setDemo } from "../../state/otter";
 import { flag, setUiPreference, uiPreferencesAtom } from "../../state/preferences";
 import { availableThemes, themeId, themeSource, usePalette, type Palette } from "../theme";
+import { AccountSettings } from "./AccountSettings";
 import { AgentSettings } from "./AgentSettings";
-import { arrangement, MailboxesSettings, MailboxSettings } from "./MailboxesSettings";
+import { arrangeScopes, isShown, parseArrangement } from "./arrangement";
+import { languageSummary } from "./languages";
+import { LanguagesSettings, useTranslationSettings } from "./LanguagesSettings";
+import { MailboxesSettings, MailboxSettings } from "./MailboxesSettings";
 import { SupportSettings } from "./SupportSettings";
 import { ThemeSettings } from "./ThemeSettings";
 
@@ -49,10 +54,28 @@ type Props = NativeStackScreenProps<RootStack, "Settings">;
 
 const REALTIME: Record<string, string> = { live: "On", connecting: "Connecting…", off: "Off" };
 
-export type OtterState = {
-  user: { email: string; name: string | null; image?: string | null } | null;
-  realtime?: string;
-};
+type NotificationsMode = "off" | "inbox" | "all";
+
+/** `settings.notificationsMode` (core's settings, synced with the Otter account). */
+function useNotificationsMode(): [NotificationsMode, (mode: NotificationsMode) => void] {
+  const [mode, setMode] = useState<NotificationsMode>("inbox");
+  useEffect(() => {
+    const load = () =>
+      void core.invoke<{ notificationsMode?: NotificationsMode }>("gmail:getSyncSettings").then(
+        (s) => setMode(s.notificationsMode ?? "inbox"),
+        () => {},
+      );
+    load();
+    return core.on("settings:changed", load);
+  }, []);
+  return [
+    mode,
+    (next) => {
+      setMode(next);
+      void core.invoke("gmail:setSyncSettings", { notificationsMode: next }).catch(() => {});
+    },
+  ];
+}
 
 /** The Swift app's SettingsForm: an inset grouped list on the theme's canvas, its rows on cards. */
 export function SettingsForm({
@@ -93,36 +116,22 @@ export function SettingsScreen({ navigation }: Props) {
   const colors = usePalette();
   const ui = useAtomValue(uiPreferencesAtom);
   const accounts = useAtomValue(mailboxes.accountsAtom).value;
+  const user = useAtomValue(otterUserAtom);
+  const realtime = useAtomValue(realtimeAtom);
   const [path, setPath] = useState<string[]>([]);
-  const [otter, setOtter] = useState<OtterState | null>(null);
-  const [busy, setBusy] = useState(false);
   const providers = useAgentProviders();
+  const [notifications, setNotifications] = useNotificationsMode();
+  const [translation, setTranslation] = useTranslationSettings();
 
-  useEffect(() => {
-    void core.invoke<OtterState>("otter:getState").then(setOtter, () => {});
-    return core.on(OTTER_ACCOUNT_STATE_CHANNEL, (state) => setOtter(state as OtterState));
-  }, []);
-
-  const signIn = async () => {
-    setBusy(true);
-    try {
-      const state = await core.invoke<OtterState | null>("otter:signIn");
-      if (state) setOtter(state);
-    } catch (e) {
-      Alert.alert("Couldn't sign in", e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const off = arrangement(ui).off;
-  const on = accounts.filter((m) => !off.includes(m.email)).length;
+  const arrangement = parseArrangement(ui["mail:mailboxes"]);
+  const on = arrangeScopes(accounts, arrangement).filter((s) => isShown(s, arrangement)).length;
   const themes = availableThemes(ui);
   const label = (id: string) => themes.find((t) => t.id === id)?.label ?? id;
   const light = label(themeId(ui, "light"));
   const dark = label(themeId(ui, "dark"));
   const agent = providers.find((p) => p.auth.status === "authenticated");
   const set = (key: string) => (value: boolean | string) => setUiPreference(key, String(value));
+  const picture = user?.picture;
 
   return (
     <Host style={{ flex: 1 }} colorScheme={colors.dark ? "dark" : "light"}>
@@ -130,9 +139,16 @@ export function SettingsScreen({ navigation }: Props) {
         <Toolbar>
           <SettingsForm colors={colors} title="Settings">
             <Section modifiers={[listRowBackground("transparent")]}>
-              <VStack spacing={6} modifiers={[frame({ maxWidth: Infinity })]}>
+              <VStack spacing={8} modifiers={[frame({ maxWidth: Infinity })]}>
+                <RNHostView matchContents>
+                  <Image
+                    source={picture ? { uri: picture } : require("../../../assets/otter-mark.png")}
+                    style={{ width: 64, height: 64, borderRadius: 32 }}
+                    accessibilityIgnoresInvertColors
+                  />
+                </RNHostView>
                 <Text modifiers={[font({ textStyle: "headline" })]}>
-                  {otter?.user ? (otter.user.name ?? otter.user.email) : "Not signed in"}
+                  {user ? (user.name ?? user.email) : "Demo mailbox"}
                 </Text>
                 <Text
                   modifiers={[
@@ -141,19 +157,43 @@ export function SettingsScreen({ navigation }: Props) {
                     multilineTextAlignment("center"),
                   ]}
                 >
-                  {otter?.user
-                    ? otter.user.email
-                    : "Sign in to your Otter account for your mailboxes, preferences and chats on every device."}
+                  {user?.email ?? "Pretend mail, to try Otter Mail. Nothing here reaches Google."}
                 </Text>
               </VStack>
             </Section>
 
-            <Group colors={colors} title="Mail">
+            <Group
+              colors={colors}
+              title="Mail"
+              footer={
+                inDemo ? undefined : (
+                  <Text>
+                    Connect background notifications for each mailbox to receive alerts while the
+                    app is closed. Alerts are sent only for verified new mail; sender and preview
+                    load on this iPhone.
+                  </Text>
+                )
+              }
+            >
               <NavigationLink value="mailboxes">
                 <LabeledContent label={<Label title="Mailboxes" systemImage="tray.2" />}>
                   <Text>{`${on} on`}</Text>
                 </LabeledContent>
               </NavigationLink>
+              <Picker
+                label={<Label title="Notifications" systemImage="bell" />}
+                selection={notifications}
+                onSelectionChange={(mode) => setNotifications(mode as NotificationsMode)}
+              >
+                <Text modifiers={[tag("off")]}>Off</Text>
+                <Text modifiers={[tag("inbox")]}>Inbox only</Text>
+                <Text modifiers={[tag("all")]}>All new mail</Text>
+              </Picker>
+              {inDemo ? null : (
+                <NavigationLink value="mailboxes">
+                  <Text>Background notification setup</Text>
+                </NavigationLink>
+              )}
               <Picker
                 label={<Label title="After archive" systemImage="arrow.turn.down.right" />}
                 selection={ui["gmail:advance-direction"] ?? "next"}
@@ -163,6 +203,30 @@ export function SettingsScreen({ navigation }: Props) {
                 <Text modifiers={[tag("previous")]}>Previous message</Text>
                 <Text modifiers={[tag("none")]}>Back to the list</Text>
               </Picker>
+            </Group>
+
+            <Group
+              colors={colors}
+              title="Translation"
+              footer={
+                <Text>
+                  Mail in other languages is translated on this iPhone, by Apple's Translation.
+                </Text>
+              }
+            >
+              <NavigationLink value="languages">
+                <LabeledContent
+                  label={<Label title="Languages I read" systemImage="character.bubble" />}
+                >
+                  <Text>{languageSummary(translation.readLanguages)}</Text>
+                </LabeledContent>
+              </NavigationLink>
+              <Toggle
+                label="Translate automatically"
+                systemImage="translate"
+                isOn={translation.autoTranslate}
+                onIsOnChange={(autoTranslate) => setTranslation({ autoTranslate })}
+              />
             </Group>
 
             <Group colors={colors}>
@@ -224,27 +288,24 @@ export function SettingsScreen({ navigation }: Props) {
             <SupportSettings colors={colors} />
 
             <Group colors={colors} title="Account">
-              {otter?.realtime ? (
+              {user ? (
+                <NavigationLink value="account">
+                  <Label title="Otter account" systemImage="person.crop.circle" />
+                </NavigationLink>
+              ) : (
+                <Button
+                  label="Sign in with Google"
+                  systemImage="person.crop.circle.badge.plus"
+                  onPress={() => setDemo(false)}
+                />
+              )}
+              {realtime && user ? (
                 <LabeledContent
                   label={<Label title="Live updates" systemImage="dot.radiowaves.left.and.right" />}
                 >
-                  <Text>{REALTIME[otter.realtime] ?? otter.realtime}</Text>
+                  <Text>{REALTIME[realtime] ?? realtime}</Text>
                 </LabeledContent>
               ) : null}
-              {otter?.user ? (
-                <Button
-                  label="Sign out of your Otter account"
-                  systemImage="person.crop.circle.badge.minus"
-                  role="destructive"
-                  onPress={() => void core.invoke<OtterState>("otter:signOut").then(setOtter)}
-                />
-              ) : (
-                <Button
-                  label={busy ? "Signing in…" : "Sign in with Google"}
-                  systemImage="person.crop.circle.badge.plus"
-                  onPress={() => void signIn()}
-                />
-              )}
               <LabeledContent label={<Label title="Version" systemImage="info.circle" />}>
                 <Text>{Constants.expoConfig?.version ?? ""}</Text>
               </LabeledContent>
@@ -270,22 +331,33 @@ export function SettingsScreen({ navigation }: Props) {
         <NavigationDestination value="mailboxes">
           <MailboxesSettings
             colors={colors}
-            onAdd={() => {
+            onAddImap={() => {
               navigation.goBack();
-              navigation.navigate("Welcome");
+              navigation.navigate("AddImap");
             }}
           />
         </NavigationDestination>
         {accounts.map((m) => (
           <NavigationDestination key={m.id} value={`mailbox:${m.id}`}>
-            <MailboxSettings colors={colors} mailbox={m} onRemoved={() => setPath([])} />
+            <MailboxSettings
+              colors={colors}
+              mailbox={m}
+              signedIn={Boolean(user)}
+              onRemoved={() => setPath(["mailboxes"])}
+            />
           </NavigationDestination>
         ))}
+        <NavigationDestination value="languages">
+          <LanguagesSettings colors={colors} />
+        </NavigationDestination>
+        <NavigationDestination value="account">
+          <AccountSettings colors={colors} />
+        </NavigationDestination>
         <NavigationDestination value="theme">
           <ThemeSettings colors={colors} />
         </NavigationDestination>
         <NavigationDestination value="agents">
-          <AgentSettings colors={colors} signedIn={Boolean(otter?.user)} />
+          <AgentSettings colors={colors} signedIn={Boolean(user)} />
         </NavigationDestination>
       </NavigationStack>
     </Host>
