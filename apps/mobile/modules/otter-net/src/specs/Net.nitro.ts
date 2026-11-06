@@ -30,7 +30,7 @@ export interface WebSocketConnection extends HybridObject<{ ios: "swift" }> {
     url: string,
     protocols: string[],
     headers: Record<string, string>,
-    onOpen: (protocol: string) => void,
+    onOpen: (subprotocol: string) => void,
     onText: (text: string) => void,
     onBinary: (data: ArrayBuffer) => void,
     onClose: (code: number, reason: string) => void,

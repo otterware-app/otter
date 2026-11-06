@@ -4,6 +4,7 @@
 #include <NitroModules/InstallNitro.hpp>
 #include <mach/mach.h>
 #include <os/log.h>
+#include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -72,7 +73,11 @@ jsi::Value HybridWorkerHost::installNitro(jsi::Runtime& runtime, const jsi::Valu
   if (count < 1 || !args[0].isObject()) {
     throw jsi::JSError(runtime, "installNitro(workletRuntime) needs the runtime createWorkletRuntime returned.");
   }
-  std::shared_ptr<worklets::WorkletRuntime> worker = worklets::getWorkletRuntimeFromHolder(runtime, args[0].asObject(runtime));
+  jsi::Object object = args[0].asObject(runtime);
+  // createWorkletRuntime hands JS the WorkletRuntime itself (a HostObject); a holder is the stable-API form.
+  std::shared_ptr<worklets::WorkletRuntime> worker = object.isHostObject<worklets::WorkletRuntime>(runtime)
+                                                          ? object.getHostObject<worklets::WorkletRuntime>(runtime)
+                                                          : worklets::getWorkletRuntimeFromHolder(runtime, object);
   auto dispatcher = std::make_shared<WorkletRuntimeDispatcher>(worker);
   worker->runSync([dispatcher](jsi::Runtime& workerRuntime) { margelo::nitro::install(workerRuntime, dispatcher); });
   return jsi::Value::undefined();
@@ -142,10 +147,11 @@ std::vector<FileEntry> HybridWorkerHost::listFiles(const std::string& directory)
   std::error_code error;
   for (const auto& entry : fs::directory_iterator(fs::path(getDataDirectory()) / directory, error)) {
     if (!entry.is_regular_file()) continue;
-    auto modified = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        std::chrono::clock_cast<std::chrono::system_clock>(entry.last_write_time()).time_since_epoch())
-                        .count();
-    entries.emplace_back(entry.path().filename().string(), static_cast<double>(entry.file_size()), static_cast<double>(modified));
+    struct stat info {};
+    double modified = stat(entry.path().c_str(), &info) == 0
+                          ? info.st_mtimespec.tv_sec * 1000.0 + info.st_mtimespec.tv_nsec / 1e6
+                          : 0;
+    entries.emplace_back(entry.path().filename().string(), static_cast<double>(entry.file_size()), modified);
   }
   return entries;
 }

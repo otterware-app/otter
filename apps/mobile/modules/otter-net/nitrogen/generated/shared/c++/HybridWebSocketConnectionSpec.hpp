@@ -52,7 +52,7 @@ namespace margelo::nitro::otternet {
 
     public:
       // Methods
-      virtual void open(const std::string& url, const std::vector<std::string>& protocols, const std::unordered_map<std::string, std::string>& headers, const std::function<void(const std::string& /* protocol */)>& onOpen, const std::function<void(const std::string& /* text */)>& onText, const std::function<void(const std::shared_ptr<ArrayBuffer>& /* data */)>& onBinary, const std::function<void(double /* code */, const std::string& /* reason */)>& onClose, const std::function<void(const std::string& /* message */)>& onError) = 0;
+      virtual void open(const std::string& url, const std::vector<std::string>& protocols, const std::unordered_map<std::string, std::string>& headers, const std::function<void(const std::string& /* subprotocol */)>& onOpen, const std::function<void(const std::string& /* text */)>& onText, const std::function<void(const std::shared_ptr<ArrayBuffer>& /* data */)>& onBinary, const std::function<void(double /* code */, const std::string& /* reason */)>& onClose, const std::function<void(const std::string& /* message */)>& onError) = 0;
       virtual void sendText(const std::string& text) = 0;
       virtual void sendBinary(const std::shared_ptr<ArrayBuffer>& data) = 0;
       virtual void close(double code, const std::string& reason) = 0;

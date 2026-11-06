@@ -8,21 +8,21 @@
 import NitroModules
 
 /**
- * Wraps a Swift `(_ protocol: String) -> Void` as a class.
+ * Wraps a Swift `(_ subprotocol: String) -> Void` as a class.
  * This class can be used from C++, e.g. to wrap the Swift closure as a `std::function`.
  */
 public final class Func_void_std__string {
   public typealias bridge = margelo.nitro.otternet.bridge.swift
 
-  private let closure: (_ protocol: String) -> Void
+  private let closure: (_ subprotocol: String) -> Void
 
-  public init(_ closure: @escaping (_ protocol: String) -> Void) {
+  public init(_ closure: @escaping (_ subprotocol: String) -> Void) {
     self.closure = closure
   }
 
   @inline(__always)
-  public func call(protocol: std.string) -> Void {
-    self.closure(String(protocol))
+  public func call(subprotocol: std.string) -> Void {
+    self.closure(String(subprotocol))
   }
 
   /**
