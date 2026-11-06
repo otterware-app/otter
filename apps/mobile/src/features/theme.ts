@@ -1,5 +1,7 @@
 import type { ColorSchemeName } from "react-native";
 
+export type Palette = ReturnType<typeof palette>;
+
 export function palette(scheme: ColorSchemeName | null | undefined) {
   return scheme === "dark"
     ? {
@@ -9,6 +11,13 @@ export function palette(scheme: ColorSchemeName | null | undefined) {
         accent: "#5AA9FF",
         pressed: "#1C1C1E",
         card: "#1C1C1E",
+        unreadCard: "#15181E",
+        border: "#2C2C2E",
+        archive: "#30D158",
+        trash: "#FF453A",
+        star: "#FFD60A",
+        pill: "#3A3A3C",
+        focus: "#5AA9FF",
       }
     : {
         background: "#FFFFFF",
@@ -17,6 +26,13 @@ export function palette(scheme: ColorSchemeName | null | undefined) {
         accent: "#1F6FEB",
         pressed: "#F2F2F7",
         card: "#F2F2F7",
+        unreadCard: "#F3F6FB",
+        border: "#E5E5EA",
+        archive: "#34C759",
+        trash: "#FF3B30",
+        star: "#FFB800",
+        pill: "#D1D1D6",
+        focus: "#1F6FEB",
       };
 }
 
