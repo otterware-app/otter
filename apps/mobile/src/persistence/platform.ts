@@ -1,5 +1,6 @@
 import {
   accountStore,
+  KEEP_RECENT,
   SignInCancelledError,
   type AsyncContext,
   type ByteStream,
@@ -18,7 +19,6 @@ import type { WorkerHost } from "@otter-mail/mobile-worker";
 
 import * as fakeGmail from "../../../web/src/web/demo/gmail";
 import type { WorkerConfig } from "../worker/protocol";
-import { PHONE_SYNC_POLICY } from "./sync-policy";
 
 /**
  * Core's Platform on the phone, inside the worker runtime: the mail cache in
@@ -166,7 +166,7 @@ export async function mobilePlatform(options: MobilePlatformOptions): Promise<Pl
   if (demo) await demo.installFakeGmail(files);
 
   return {
-    kind: "mobile",
+    kind: "ios",
     appVersion: config.appVersion,
     log: (level, scope, message, data) =>
       host.log(level, `[${scope}] ${message}${data === undefined ? "" : ` ${describe(data)}`}`),
@@ -186,7 +186,8 @@ export async function mobilePlatform(options: MobilePlatformOptions): Promise<Pl
     rawSockets: true,
     crossOriginFetch: true,
     notificationReturn: "native",
-    syncPolicy: PHONE_SYNC_POLICY,
+    syncPolicy: KEEP_RECENT,
+    inForeground: () => config.inForeground.getDirty(),
     relayUrl: demo ? demo.DEMO_RELAY_URL : config.relayUrl,
     relaySession: "bearer",
     agentServerUrl: config.agentServerUrl,

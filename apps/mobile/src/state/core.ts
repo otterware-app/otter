@@ -7,6 +7,7 @@ import type { HostEffect, HostRequest } from "@otter-mail/contracts/rpc";
 import { translation } from "@otter-mail/mobile-translation";
 import Constants from "expo-constants";
 import { AppState, Linking } from "react-native";
+import { createSynchronizable } from "react-native-worklets";
 
 import { startBackgroundRefresh } from "../features/notifications/background-refresh";
 import { deviceEffect, startNotifications } from "../features/notifications/notifications";
@@ -29,6 +30,10 @@ const extra: Extra = {
   fakeMailbox: process.env.EXPO_PUBLIC_OTTER_MAIL_FAKE_MAILBOX === "1" || built.fakeMailbox,
   agentServerUrl: process.env.EXPO_PUBLIC_OTTER_MAIL_AGENT_SERVER_URL || built.agentServerUrl,
 };
+
+const inForeground = createSynchronizable(AppState.currentState === "active", {
+  fixedType: true,
+});
 
 const listeners = new Map<string, Set<(params: unknown) => void>>();
 
@@ -59,6 +64,7 @@ export const connection: CoreHostConnection = connectCore(
       relayUrl: extra.relayUrl ?? "https://relay.mail.otterware.app",
       demo: extra.fakeMailbox === true,
       agentServerUrl: extra.agentServerUrl,
+      inForeground,
     }),
   {
     onEvent(channel, params) {
@@ -73,6 +79,7 @@ export const connection: CoreHostConnection = connectCore(
 void connection.ready().then(markCoreReady, () => {});
 
 AppState.addEventListener("change", (state) => {
+  inForeground.setDirty(state === "active");
   if (state === "active") connection.resume();
 });
 

@@ -118,6 +118,8 @@ export function ComposeScreen({ navigation, route }: Props) {
     const timer = setTimeout(() => {
       setStatus("Saving…");
       core
+        // draft() reads the fields listed below.
+        // eslint-disable-next-line react/exhaustive-effect-dependencies
         .invoke<SaveResult>("gmail:saveDraft", draft())
         .then((result) => {
           setDraftId(result.draftId);
@@ -126,7 +128,6 @@ export function ComposeScreen({ navigation, route }: Props) {
         .catch((e: unknown) => setStatus(`Not saved: ${String(e)}`));
     }, AUTOSAVE_MS);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react/exhaustive-effect-dependencies
   }, [to, cc, subject, body]);
 
   const send = async () => {
