@@ -1,51 +1,223 @@
 import { useAtomValue } from "@effect/atom-react";
+import { HtmlView } from "@otter-mail/mobile-html-view";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
-import { ScrollView, StyleSheet, Text, View, useColorScheme } from "react-native";
+import { GlassView } from "expo-glass-effect";
+import { SymbolView, type SFSymbol } from "expo-symbols";
+import { useEffect, useState } from "react";
+import {
+  ActionSheetIOS,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useColorScheme,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { RootStack } from "../../App";
-import { threadAtom, threadKey } from "../../state/mail";
+import { operations } from "../../state/client";
+import { core } from "../../state/core";
+import { threadAtom, threadKey, type MessageDetail } from "../../state/mail";
 import { palette, relativeDate } from "../theme";
 
 type Props = NativeStackScreenProps<RootStack, "Thread">;
 
-export function ThreadScreen({ route }: Props) {
+const REMOTE_IMAGE = /<img[^>]+src\s*=\s*["']?https?:/i;
+
+/**
+ * A conversation, as apps/ios's ThreadView: each message's HTML in WebKit
+ * (otter-html-view), remote images held back until asked for; compact glass
+ * buttons instead of the bar: Archive and Trash, Reply.
+ */
+export function ThreadScreen({ navigation, route }: Props) {
   const colors = palette(useColorScheme());
-  const result = useAtomValue(threadAtom(threadKey(route.params.accountId, route.params.threadId)));
-  const messages = AsyncResult.getOrElse(result, () => []);
+  const insets = useSafeAreaInsets();
+  const { accountId, threadId, subject, labelId } = route.params;
+  const result = useAtomValue(threadAtom(threadKey(accountId, threadId)));
+  const messages = AsyncResult.getOrElse(result, () => [] as MessageDetail[]);
+  const [showImages, setShowImages] = useState(false);
+  const blocked = !showImages && messages.some((m) => m.bodyHtml && REMOTE_IMAGE.test(m.bodyHtml));
+  const last = messages.at(-1);
+
+  useEffect(() => {
+    if (messages.some((m) => m.unread)) {
+      void operations
+        .modifyThread({ accountId, threadId, removeLabelIds: ["UNREAD"] }, { quiet: true })
+        .catch(() => {});
+    }
+  }, [messages, accountId, threadId]);
+
+  const leave = (run: () => Promise<unknown>) => {
+    navigation.goBack();
+    void run().catch(() => {});
+  };
+
+  const reply = (mode: "reply" | "replyAll" | "forward") =>
+    last && navigation.navigate("Compose", { accountId, mode, messageId: last.id, threadId });
+
+  const replyMenu = () =>
+    ActionSheetIOS.showActionSheetWithOptions(
+      { options: ["Reply", "Reply All", "Forward", "Cancel"], cancelButtonIndex: 3 },
+      (i) => {
+        if (i === 0) reply("reply");
+        if (i === 1) reply("replyAll");
+        if (i === 2) reply("forward");
+      },
+    );
+
+  const button = (
+    symbol: SFSymbol,
+    label: string,
+    onPress: () => void,
+    onLongPress?: () => void,
+  ) => (
+    <GlassView style={styles.round} glassEffectStyle="regular" isInteractive>
+      <Pressable
+        onPress={onPress}
+        onLongPress={onLongPress}
+        style={styles.roundButton}
+        accessibilityLabel={label}
+        accessibilityRole="button"
+        testID={`reader-${label}`}
+      >
+        <SymbolView name={symbol} size={20} tintColor={colors.text} />
+      </Pressable>
+    </GlassView>
+  );
+
   return (
-    <ScrollView
-      style={{ backgroundColor: colors.background }}
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={styles.content}
-      testID="thread"
-    >
-      <Text style={[styles.subject, { color: colors.text }]}>{route.params.subject}</Text>
-      {AsyncResult.isFailure(result) ? (
-        <Text style={{ color: colors.secondary }}>{String(result.cause)}</Text>
-      ) : null}
-      {messages.map((message) => (
-        <View key={message.id} style={[styles.message, { backgroundColor: colors.card }]}>
-          <View style={styles.head}>
-            <Text style={[styles.from, { color: colors.text }]} numberOfLines={1}>
-              {message.fromName || message.fromEmail}
+    <View style={[styles.fill, { backgroundColor: colors.background }]}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.content}
+        testID="thread"
+      >
+        <Text style={[styles.subject, { color: colors.text }]} selectable>
+          {subject}
+        </Text>
+        {blocked ? (
+          <Pressable
+            onPress={() => setShowImages(true)}
+            style={[styles.banner, { backgroundColor: colors.card }]}
+            testID="show-images"
+          >
+            <SymbolView name="photo" size={16} tintColor={colors.secondary} />
+            <Text style={{ color: colors.secondary, flex: 1 }}>
+              Images from the web are hidden.
             </Text>
-            <Text style={{ color: colors.secondary }}>{relativeDate(message.date)}</Text>
-          </View>
-          <Text style={[styles.body, { color: colors.text }]} selectable>
-            {(message.bodyText ?? message.snippet ?? "").trim()}
-          </Text>
+            <Text style={{ color: colors.accent, fontWeight: "600" }}>Show</Text>
+          </Pressable>
+        ) : null}
+        {AsyncResult.isFailure(result) ? (
+          <Text style={{ color: colors.secondary }}>{String(result.cause)}</Text>
+        ) : null}
+        {messages.map((message) => (
+          <Message
+            key={message.id}
+            accountId={accountId}
+            message={message}
+            remoteImages={showImages}
+          />
+        ))}
+      </ScrollView>
+      <View style={[styles.actions, { bottom: insets.bottom + 4 }]} pointerEvents="box-none">
+        <View style={styles.group}>
+          {labelId !== "TRASH"
+            ? button("archivebox", "Archive", () =>
+                leave(() =>
+                  operations.archiveThread(
+                    accountId,
+                    threadId,
+                    labelId && labelId !== "INBOX" ? labelId : "INBOX",
+                  ),
+                ),
+              )
+            : null}
+          {button("trash", "Trash", () => leave(() => operations.trashThread(accountId, threadId)))}
         </View>
-      ))}
-    </ScrollView>
+        {button("arrowshape.turn.up.left", "Reply", () => reply("reply"), replyMenu)}
+      </View>
+    </View>
+  );
+}
+
+function Message({
+  accountId,
+  message,
+  remoteImages,
+}: {
+  accountId: string;
+  message: MessageDetail;
+  remoteImages: boolean;
+}) {
+  const colors = palette(useColorScheme());
+  const byCid = new Map(
+    (message.attachments ?? [])
+      .filter((a) => a.contentId)
+      .map((a) => [a.contentId!.toLowerCase(), a]),
+  );
+  return (
+    <View style={[styles.message, { borderColor: colors.border }]}>
+      <View style={styles.head}>
+        <Text style={[styles.from, { color: colors.text }]} numberOfLines={1}>
+          {message.fromName || message.fromEmail}
+        </Text>
+        <Text style={{ color: colors.secondary }}>{relativeDate(message.date)}</Text>
+      </View>
+      {message.to ? (
+        <Text style={[styles.to, { color: colors.secondary }]} numberOfLines={1}>
+          To {message.to}
+        </Text>
+      ) : null}
+      {message.bodyHtml ? (
+        <View style={styles.html}>
+          <HtmlView
+            html={message.bodyHtml}
+            remoteImages={remoteImages}
+            onLink={(url) => void Linking.openURL(url)}
+            loadImage={async (cid) => {
+              const attachment = byCid.get(cid.toLowerCase());
+              if (!attachment) return null;
+              const data = await core.invoke<{ base64: string }>("gmail:getAttachmentData", {
+                accountId,
+                messageId: message.id,
+                attachmentId: attachment.id,
+              });
+              return { base64: data.base64, mimeType: attachment.mimeType };
+            }}
+          />
+        </View>
+      ) : (
+        <Text style={[styles.body, { color: colors.text }]} selectable dataDetectorType="all">
+          {(message.bodyText ?? message.snippet ?? "").trim()}
+        </Text>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12 },
-  subject: { fontSize: 22, fontWeight: "700", marginBottom: 4 },
-  message: { borderRadius: 16, padding: 14, gap: 8 },
+  fill: { flex: 1 },
+  content: { padding: 16, gap: 14, paddingBottom: 120 },
+  subject: { fontSize: 24, fontWeight: "700", marginBottom: 2 },
+  banner: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 14 },
+  message: { borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: 14, gap: 6 },
   head: { flexDirection: "row", gap: 8, alignItems: "baseline" },
   from: { flex: 1, fontSize: 16, fontWeight: "600" },
-  body: { fontSize: 15, lineHeight: 21 },
+  to: { fontSize: 13 },
+  html: { borderRadius: 14, overflow: "hidden", backgroundColor: "#FFFFFF" },
+  body: { fontSize: 16, lineHeight: 22 },
+  actions: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  group: { flexDirection: "row", gap: 12 },
+  round: { width: 52, height: 52, borderRadius: 26 },
+  roundButton: { flex: 1, alignItems: "center", justifyContent: "center" },
 });
