@@ -674,6 +674,9 @@ importers:
       '@types/react':
         specifier: ^19.1.12
         version: 19.3.0
+      react-native:
+        specifier: 0.88.0
+        version: 0.88.0(@babel/core@8.0.6)(@react-native/metro-config@0.88.0(@babel/core@8.0.6))(@types/react@19.3.0)(react@19.3.0)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -705,6 +708,9 @@ importers:
       '@types/react':
         specifier: ^19.1.12
         version: 19.3.0
+      react-native:
+        specifier: 0.88.0
+        version: 0.88.0(@babel/core@8.0.6)(@react-native/metro-config@0.88.0(@babel/core@8.0.6))(@types/react@19.3.0)(react@19.3.0)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -727,6 +733,9 @@ importers:
       '@types/react':
         specifier: ^19.1.12
         version: 19.3.0
+      react-native:
+        specifier: 0.88.0
+        version: 0.88.0(@babel/core@8.0.6)(@react-native/metro-config@0.88.0(@babel/core@8.0.6))(@types/react@19.3.0)(react@19.3.0)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

@@ -29,7 +29,7 @@ config.resolver = {
 
 const resolveRequest = config.resolver.resolveRequest;
 // Extensions' `./mobile` halves reach the app only through its kit (as the web's alias).
-const extensionKit = path.join(__dirname, "src/extensions/kit.ts");
+const extensionKit = path.join(__dirname, "src/extensions/kit.tsx");
 const appEntry = path.join(__dirname, "index.ts");
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   const resolve = resolveRequest ?? context.resolveRequest;

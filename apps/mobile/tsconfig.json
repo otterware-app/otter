@@ -7,7 +7,7 @@
     "skipLibCheck": true,
     "types": [],
     "paths": {
-      "@otter-mail/mobile/extension-kit": ["./src/extensions/kit.ts"]
+      "@otter-mail/mobile/extension-kit": ["./src/extensions/kit.tsx"]
     }
   },
   "include": ["index.ts", "app.config.ts", "src", "modules/*/src", "../../extensions/*/mobile"]
