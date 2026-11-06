@@ -8,6 +8,15 @@ import {
   type SelectedMailbox,
   type UidRange,
 } from "../../protocols/index.js";
+import type { CoverageWindow } from "../../platform.js";
+import {
+  BACKGROUND_MAX_MESSAGES,
+  cacheWindow,
+  getCoverage,
+  inBackground,
+  setCoverage,
+  windowStart,
+} from "../../services/coverage.js";
 import { hasPendingLabelWrites } from "../../services/pending-label-writes.js";
 import * as store from "../../services/mail-store.js";
 import type { MailLabel, MessageSummary } from "../../types.js";
@@ -34,6 +43,8 @@ interface FolderState {
   /** HIGHESTMODSEQ, as text (a bigint); absent on servers without CONDSTORE. */
   modseq?: string;
   below: number;
+  /** Filled down to `below` as far as the cache's window goes. */
+  covered?: boolean;
   label?: string | null;
   messages?: number | null;
   unseen?: number | null;
@@ -56,6 +67,13 @@ function readState(accountId: string): SyncState {
 const writeState = (accountId: string, state: SyncState) =>
   store.setKv(stateKey(accountId), JSON.stringify(state));
 
+/** Covered counts only while the cache keeps a window: widened, the fill goes on from `below`. */
+const filled = (state: FolderState | undefined, windowed: boolean): state is FolderState =>
+  state !== undefined && (state.below === 0 || (windowed && state.covered === true));
+
+/** A bigger catch-up than a sync behind the app may do; the folder waits for the front. */
+class Deferred extends Error {}
+
 export async function syncImap(accountId: string, ctx: SyncContext): Promise<void> {
   ctx.update({ phase: "labels" });
   const { folders, statuses } = await readFolders(accountId);
@@ -71,7 +89,11 @@ export async function syncImap(accountId: string, ctx: SyncContext): Promise<voi
   }
   writeState(accountId, state);
 
-  const first = !store.getSyncState(accountId).fullSyncDone;
+  const window = cacheWindow();
+  const bounded = inBackground();
+  const first = window
+    ? !getCoverage(accountId)?.done
+    : !store.getSyncState(accountId).fullSyncDone;
   // Every summary of a mailbox new to the cache comes with its delivery headers.
   if (first && store.countAllMessages(accountId) === 0) {
     store.setKv(deliveredToKey(accountId), "1");
@@ -85,13 +107,14 @@ export async function syncImap(accountId: string, ctx: SyncContext): Promise<voi
 
   const newMail: MessageSummary[] = [];
   for (const folder of folders.synced) {
+    if (bounded && (folder.role !== "INBOX" || !filled(state[folder.path], true))) continue;
     if (relabelFolder(accountId, folder, state[folder.path])) ctx.bumpRevision();
-    const run = new FolderSync(accountId, folder, ctx, state[folder.path]);
+    const run = new FolderSync(accountId, folder, ctx, state[folder.path], window, bounded);
     let added: MessageSummary[];
     try {
       added = await run.sync(statuses.get(folder.path));
     } catch (err) {
-      if (!(err instanceof FolderGone)) throw err;
+      if (!(err instanceof FolderGone || err instanceof Deferred)) throw err;
       continue;
     }
     state[folder.path] = run.state!;
@@ -101,7 +124,9 @@ export async function syncImap(accountId: string, ctx: SyncContext): Promise<voi
 
   ctx.assertActive();
   store.recountLabels(accountId, ["STARRED", "UNREAD"]);
-  if (first) store.setSyncState(accountId, { fullSyncDone: true });
+  if (first && window && !bounded) {
+    setCoverage(accountId, { since: windowStart(window), done: true });
+  } else if (first && !window) store.setSyncState(accountId, { fullSyncDone: true });
   await ctx.newMail(newMail);
 }
 
@@ -274,14 +299,17 @@ class FolderSync {
     private readonly folder: Folder,
     private readonly ctx: SyncContext,
     public state: FolderState | undefined,
+    private readonly window: CoverageWindow | null = null,
+    private readonly bounded = false,
   ) {}
 
   async sync(status: MailboxStatus | undefined): Promise<MessageSummary[]> {
     const prev = this.state;
-    if (prev && prev.below === 0 && status && this.unchanged(prev, status)) return [];
+    const windowed = this.window !== null;
+    if (filled(prev, windowed) && status && this.unchanged(prev, status)) return [];
 
     const { path } = this.folder;
-    const complete = prev?.below === 0;
+    const complete = filled(prev, windowed);
     const qresync =
       complete && prev.modseq
         ? { uidValidity: prev.uidValidity, modseq: BigInt(prev.modseq) }
@@ -307,7 +335,7 @@ class FolderSync {
       this.state = undefined;
     }
 
-    if (!this.state || this.state.below > 0) {
+    if (!filled(this.state, windowed)) {
       this.state ??= {
         uidValidity: mailbox.uidValidity,
         uidNext: mailbox.uidNext ?? 1,
@@ -362,7 +390,7 @@ class FolderSync {
   private async firstSync(): Promise<void> {
     const state = this.state!;
     const top = state.below === Number.MAX_SAFE_INTEGER ? "*" : String(state.below - 1);
-    const uids =
+    let uids =
       state.below > 1
         ? (
             await this.run((client) =>
@@ -370,6 +398,7 @@ class FolderSync {
             )
           ).filter((uid) => uid < state.below)
         : [];
+    if (this.window) uids = await this.inWindow(uids, `1:${top}`);
     const synced = { count: store.countAllMessages(this.accountId) };
     for (let end = uids.length; end > 0; end -= PAGE) {
       const page = uids.slice(Math.max(0, end - PAGE), end);
@@ -378,7 +407,25 @@ class FolderSync {
       state.below = page[0]!;
       this.saveCursor();
     }
-    state.below = 0;
+    if (this.window) state.covered = true;
+    else state.below = 0;
+  }
+
+  /**
+   * Of a folder's `uids`, the window's: those since its start, and in the
+   * inbox never fewer than its newest `minThreads` (a message for a thread).
+   */
+  private async inWindow(uids: number[], range: string): Promise<number[]> {
+    const window = this.window!;
+    const since = new Date(windowStart(window));
+    const recent = await this.run((client) =>
+      client.search({ uids: range, deleted: false, since, gmailRaw: this.folder.gmailRaw }),
+    );
+    const cached = cachedUids(this.accountId, this.state!.uidValidity, this.folder.path).size;
+    const floor = this.folder.role === "INBOX" ? Math.max(0, window.minThreads - cached) : 0;
+    const sinceStart = recent[0] ?? Infinity;
+    const newest = floor > 0 ? (uids[Math.max(0, uids.length - floor)] ?? Infinity) : Infinity;
+    return uids.filter((uid) => uid >= Math.min(sinceStart, newest));
   }
 
   private saveCursor(): void {
@@ -400,6 +447,7 @@ class FolderSync {
     const { accountId, folder } = this;
     const since = state.modseq !== undefined ? BigInt(state.modseq) : null;
 
+    const known = cachedUids(accountId, state.uidValidity, folder.path);
     let flags: FetchedMessage[] = [];
     let listing: number[] | null = null;
     if (qresynced) {
@@ -410,12 +458,16 @@ class FolderSync {
           client.fetch("1:*", { flags: true }, { changedSince: since }),
         );
       }
+    } else if (this.window) {
+      // Only what's cached: the folder's older mail was never read.
+      if (known.size > 0 && !hasPendingLabelWrites(accountId)) {
+        flags = await this.run((client) => client.fetch([...known.keys()], { flags: true }));
+      }
     } else if (!hasPendingLabelWrites(accountId)) {
       flags = await this.run((client) => client.fetch("1:*", { flags: true }));
       if (!folder.gmailRaw) listing = flags.filter((m) => !isDeleted(m)).map((m) => m.uid);
     }
     const ops: store.HistoryOp[] = [];
-    const known = cachedUids(accountId, state.uidValidity, folder.path);
     for (const message of flags) {
       const id = known.get(message.uid);
       if (!id || message.uid >= state.uidNext) continue;
@@ -449,6 +501,7 @@ class FolderSync {
         )
       ).filter((uid) => uid >= state.uidNext);
     }
+    if (this.bounded && fresh.length > BACKGROUND_MAX_MESSAGES) throw new Deferred();
 
     const missing: number[] = [];
     const count = await this.run(async (_client, box) => box.exists);
@@ -463,7 +516,8 @@ class FolderSync {
         if (!onServer.has(uid)) ops.push({ kind: "deleted", id });
       }
       const fresher = new Set(fresh);
-      for (const uid of onServer) {
+      // With a window, what isn't cached is older mail left on the server.
+      for (const uid of this.window ? [] : onServer) {
         if (!known.has(uid) && !fresher.has(uid)) missing.push(uid);
       }
     }
