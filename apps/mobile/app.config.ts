@@ -120,6 +120,10 @@ const config: ExpoConfig = {
   ],
   extra: {
     appVariant: APP_VARIANT,
+    // `OTTER_MAIL_RELAY_URL=http://localhost:8787` for `pnpm dev`'s relay; production otherwise.
+    relayUrl: process.env.OTTER_MAIL_RELAY_URL?.trim() || "https://relay.mail.otterware.app",
+    // `OTTER_MAIL_FAKE_MAILBOX=1`: apps/web's made-up mailbox, no account at all.
+    fakeMailbox: process.env.OTTER_MAIL_FAKE_MAILBOX === "1",
   },
 };
 

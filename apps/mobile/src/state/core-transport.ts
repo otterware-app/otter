@@ -1,25 +1,19 @@
+import type { RpcPort } from "@otter-mail/contracts/rpc-port";
 import { createWorkletRuntime, scheduleOnRuntime } from "react-native-worklets";
 
 import { createWorkerHost } from "@otter-mail/mobile-worker";
 
-import { receive, startHost } from "../worker/host";
-import type { FromWorker, ToWorker, WorkerConfig } from "../worker/protocol";
-import { mark, markCoreReady } from "./startup";
+import { startHost } from "../worker/host";
+import { receive } from "../worker/port";
+import type { WorkerConfig } from "../worker/protocol";
+import { mark } from "./startup";
 
 /**
- * The thin adapter between the UI and core's worker runtime: request/response
- * over worklets' scheduling, today's callHandler protocol. The Effect RPC
- * client (packages/client-runtime) takes its place behind CoreHost.
+ * Starts core on its own runtime and returns the UI's end of the RpcPort to
+ * it: the same protocol (`CoreHostRpcs`) the desktop's utility process and
+ * the web's Worker speak, carried by worklets' scheduling.
  */
-export type CoreTransport = {
-  invoke(channel: string, params?: unknown): Promise<unknown>;
-  probe(name: string, args?: unknown): Promise<unknown>;
-  resume(): void;
-  subscribe(listener: (message: FromWorker) => void): () => void;
-  ready: Promise<{ bootMs: number }>;
-};
-
-export function startWorkletsTransport(config: WorkerConfig): CoreTransport {
+export function startCoreRuntime(config: WorkerConfig): RpcPort {
   mark("jsStartMs");
   const runtime = createWorkletRuntime({
     name: "otter-core",
@@ -31,48 +25,16 @@ export function startWorkletsTransport(config: WorkerConfig): CoreTransport {
   createWorkerHost().installNitro(runtime);
   mark("workerCreatedMs");
 
-  let nextId = 1;
-  const pending = new Map<
-    number,
-    { resolve: (value: unknown) => void; reject: (error: Error) => void }
-  >();
-  const listeners = new Set<(message: FromWorker) => void>();
-  let settleReady!: {
-    resolve: (value: { bootMs: number }) => void;
-    reject: (error: Error) => void;
-  };
-  const ready = new Promise<{ bootMs: number }>(
-    (resolve, reject) => (settleReady = { resolve, reject }),
-  );
-
-  const deliver = (message: FromWorker) => {
-    if (message.type === "result") {
-      const request = pending.get(message.id);
-      pending.delete(message.id);
-      if (message.error !== undefined) request?.reject(new Error(message.error));
-      else request?.resolve(message.result);
-    } else if (message.type === "ready") {
-      markCoreReady();
-      settleReady.resolve({ bootMs: message.bootMs });
-    } else if (message.type === "failed") {
-      settleReady.reject(new Error(message.error));
-    }
+  const listeners = new Set<(message: unknown) => void>();
+  const early: unknown[] = [];
+  const deliver = (message: unknown) => {
+    if (listeners.size === 0) early.push(message);
     for (const listener of listeners) listener(message);
   };
 
-  const send = (message: ToWorker) =>
-    scheduleOnRuntime(
-      runtime,
-      (m: ToWorker) => {
-        "worklet";
-        receive(m);
-      },
-      message,
-    );
-
   scheduleOnRuntime(
     runtime,
-    (target: (message: FromWorker) => void, workerConfig: WorkerConfig) => {
+    (target: (message: unknown) => void, workerConfig: WorkerConfig) => {
       "worklet";
       startHost(target, workerConfig);
     },
@@ -80,21 +42,21 @@ export function startWorkletsTransport(config: WorkerConfig): CoreTransport {
     config,
   );
 
-  const request = (message: (id: number) => ToWorker) =>
-    new Promise<unknown>((resolve, reject) => {
-      const id = nextId++;
-      pending.set(id, { resolve, reject });
-      send(message(id));
-    });
-
   return {
-    invoke: (channel, params) => request((id) => ({ type: "invoke", id, channel, params })),
-    probe: (name, args) => request((id) => ({ type: "probe", id, name, args })),
-    resume: () => send({ type: "resume" }),
-    subscribe(listener) {
+    post(message) {
+      scheduleOnRuntime(
+        runtime,
+        (frame: unknown) => {
+          "worklet";
+          receive(frame);
+        },
+        message,
+      );
+    },
+    listen(listener) {
       listeners.add(listener);
+      for (const message of early.splice(0)) listener(message);
       return () => listeners.delete(listener);
     },
-    ready,
   };
 }

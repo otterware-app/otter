@@ -1,11 +1,15 @@
-import type {
-  AsyncContext,
-  ByteStream,
-  GoogleAuth,
-  MicrosoftAuth,
-  Platform,
-  SqlDatabase,
-  SqlValue,
+import {
+  accountStore,
+  SignInCancelledError,
+  type AsyncContext,
+  type ByteStream,
+  type CoreHost,
+  type GoogleAuth,
+  type MailAccount,
+  type MicrosoftAuth,
+  type Platform,
+  type SqlDatabase,
+  type SqlValue,
 } from "@otter-mail/core";
 import { createCredentials } from "@otter-mail/mobile-credentials";
 import { createMailSocket } from "@otter-mail/mobile-socket";
@@ -13,29 +17,28 @@ import { openSqlite, type SqliteValue } from "@otter-mail/mobile-sqlite";
 import type { WorkerHost } from "@otter-mail/mobile-worker";
 
 import * as fakeGmail from "../../../web/src/web/demo/gmail";
+import type { WorkerConfig } from "../worker/protocol";
+import { PHONE_SYNC_POLICY } from "./sync-policy";
 
 /**
  * Core's Platform on the phone, inside the worker runtime: the mail cache in
  * SQLite (otter-sqlite), files in Application Support, mail servers over
  * otter-socket, and sign-ins from the Keychain (otter-credentials), which
- * hands out access tokens and keeps refresh tokens to itself.
+ * signs in natively, hands out access tokens and keeps refresh tokens to
+ * itself. What needs the UI goes to it over core's RPC (`shell`).
  */
 
-export type Shell = {
-  broadcast(channel: string, params?: unknown): void;
-  effect(effect: { kind: "notify" | "badge"; [key: string]: unknown }): void;
+export type Shell = Pick<CoreHost, "broadcast" | "effect" | "request"> & {
   onResume(listener: () => void): () => void;
 };
 
 export type MobilePlatformOptions = {
   host: WorkerHost;
   shell: Shell;
-  appVersion: string;
-  relayUrl: string;
-  demo: boolean;
+  config: WorkerConfig;
 };
 
-const SIGN_IN_LATER = "Signing in on the phone isn't built yet (phase 1).";
+const cancelled = (error: unknown) => error instanceof Error && error.message === "cancelled";
 
 export function openDatabase(path: string): SqlDatabase {
   const db = openSqlite(path);
@@ -76,8 +79,27 @@ function keychainGoogleAuth(): GoogleAuth {
   const credentials = createCredentials();
   return {
     async load() {},
-    addAccount: () => Promise.reject(new Error(SIGN_IN_LATER)),
-    cancelSignIn() {},
+    async addAccount(loginHint) {
+      const profile = await credentials.signInGoogle(loginHint).catch((error: unknown) => {
+        throw cancelled(error) ? new SignInCancelledError() : error;
+      });
+      // Signing in again keeps what the mailbox already had (its name, color, signature).
+      const existing = await accountStore.getAccount(profile.email);
+      const account: MailAccount = {
+        ...(existing && (existing.provider ?? "gmail") === "gmail" ? existing : {}),
+        id: profile.email,
+        email: profile.email,
+        name: profile.name ?? profile.email,
+        picture: profile.picture,
+      };
+      await accountStore.addAccount(account);
+      return account;
+    },
+    signInForIdToken: () =>
+      credentials.googleIdTokenSignIn().catch((error: unknown) => {
+        throw cancelled(error) ? new SignInCancelledError() : error;
+      }),
+    cancelSignIn: () => credentials.cancelSignIn(),
     isSignedIn: (accountId) => credentials.hasGoogle(accountId),
     getAccessToken: async (accountId, opts) =>
       (await credentials.googleAccessToken(accountId, opts?.forceRefresh === true)).accessToken,
@@ -97,8 +119,13 @@ function keychainMicrosoftAuth(): MicrosoftAuth {
   return {
     available: async () => true,
     async load() {},
-    addAccount: () => Promise.reject(new Error(SIGN_IN_LATER)),
-    cancelSignIn() {},
+    async addAccount(loginHint) {
+      const profile = await credentials.signInMicrosoft(loginHint).catch((error: unknown) => {
+        throw cancelled(error) ? new SignInCancelledError() : error;
+      });
+      return { email: profile.email, name: profile.name ?? profile.email };
+    },
+    cancelSignIn: () => credentials.cancelSignIn(),
     isSignedIn: (accountId) => credentials.hasMicrosoft(accountId),
     getAccessToken: async (accountId, opts) =>
       (await credentials.microsoftAccessToken(accountId, opts?.forceRefresh === true)).accessToken,
@@ -116,8 +143,8 @@ function keychainMicrosoftAuth(): MicrosoftAuth {
 const noContext = <T>(): AsyncContext<T> => ({ run: (_value, fn) => fn(), get: () => undefined });
 
 export async function mobilePlatform(options: MobilePlatformOptions): Promise<Platform> {
-  const { host, shell } = options;
-  const root = options.demo ? "demo" : "mail";
+  const { host, shell, config } = options;
+  const root = config.demo ? "demo" : "mail";
   const database = openDatabase(`${host.dataDirectory}/${root}-cache.db`);
   const credentials = createCredentials();
 
@@ -134,12 +161,12 @@ export async function mobilePlatform(options: MobilePlatformOptions): Promise<Pl
     list: async (dir) => host.listFiles(`${root}/${dir}`),
   };
 
-  const demo = options.demo ? fakeGmail : null;
+  const demo = config.demo ? fakeGmail : null;
   if (demo) await demo.installFakeGmail(files);
 
   return {
-    kind: "web",
-    appVersion: options.appVersion,
+    kind: "mobile",
+    appVersion: config.appVersion,
     log: (level, scope, message, data) =>
       host.log(level, `[${scope}] ${message}${data === undefined ? "" : ` ${describe(data)}`}`),
     database: () => database,
@@ -149,25 +176,28 @@ export async function mobilePlatform(options: MobilePlatformOptions): Promise<Pl
       set: async (name, value) => credentials.setSecret(`${root}:${name}`, value),
       delete: async (name) => credentials.deleteSecret(`${root}:${name}`),
     },
-    userFiles: {
-      open: () => Promise.reject(new Error("Opening files isn't built on the phone yet.")),
-      save: async () => false,
-      pick: async () => [],
-    },
     google: demo ? demo.demoGoogleAuth() : keychainGoogleAuth(),
     microsoft: demo ? undefined : keychainMicrosoftAuth(),
     connect: demo
       ? () => Promise.reject(new Error("The demo can't connect to mail servers."))
       : connectMailServer,
-    relayUrl: demo ? demo.DEMO_RELAY_URL : options.relayUrl,
+    rawSockets: true,
+    crossOriginFetch: true,
+    notificationReturn: "native",
+    syncPolicy: PHONE_SYNC_POLICY,
+    relayUrl: demo ? demo.DEMO_RELAY_URL : config.relayUrl,
     relaySession: "bearer",
     deviceName: "iPhone",
     broadcast: shell.broadcast,
-    notify: (notification) => shell.effect({ kind: "notify", ...notification }),
-    setUnreadCount: (count) => shell.effect({ kind: "badge", count }),
+    notify: (notification) => shell.effect({ _tag: "notify", ...notification }),
+    setUnreadCount: (count) => shell.effect({ _tag: "badge", count }),
     onResume: shell.onResume,
     asyncContext: noContext,
-    offlineDownloads: false,
+    userFiles: {
+      open: async (name, bytes) => shell.effect({ _tag: "open", name, bytes }),
+      save: (name, bytes) => shell.request("saveFile", { name, bytes }),
+      pick: () => shell.request("pickFiles", {}),
+    },
   };
 }
 

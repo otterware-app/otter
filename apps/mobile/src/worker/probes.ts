@@ -2,7 +2,7 @@ import { sha256 } from "@noble/hashes/sha2";
 import { createAuthClient } from "better-auth/client";
 import PostalMime from "postal-mime";
 
-import { mailStore, type MessageSummary } from "@otter-mail/core";
+import { handle, mailStore, type MessageSummary } from "@otter-mail/core";
 import { connectImap } from "@otter-mail/core/imap";
 import { createCredentials } from "@otter-mail/mobile-credentials";
 import { openSqlite } from "@otter-mail/mobile-sqlite";
@@ -20,18 +20,21 @@ const now = () => host.now();
 const hex = (bytes: Uint8Array) =>
   Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 
-export async function runProbe(
-  name: string,
-  args: unknown,
-  ready: Promise<void> | null,
-): Promise<unknown> {
+/** `gate:probe`: run one of the phase 0 gate's probes where core runs. */
+export function registerProbes(): void {
+  handle("gate:probe", (params) => {
+    const { name, args } = params as { name: string; args?: unknown };
+    return runProbe(name, args);
+  });
+}
+
+async function runProbe(name: string, args: unknown): Promise<unknown> {
   switch (name) {
     case "boot":
       return boot();
     case "nitro":
       return nitro((args as { count?: number } | undefined)?.count ?? 1000);
     case "sqlite":
-      await ready;
       return sqlite();
     case "charsets":
       return charsets();
@@ -42,10 +45,8 @@ export async function runProbe(
     case "net:status":
       return { ...net, socketState: socket?.readyState ?? -1 };
     case "bench:list":
-      await ready;
       return benchList();
     case "bench:churn":
-      await ready;
       return benchChurn((args as { seconds?: number } | undefined)?.seconds ?? 10);
     case "bench:churnStatus":
       return churn;
