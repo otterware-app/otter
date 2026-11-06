@@ -260,7 +260,7 @@ collapse ID and expiration 0 remain. The phone fetches/enriches directly from it
 A generic fallback is now a confirmed arrival, rather than an arbitrary change. An ordinary
 extension still cannot recall an accepted alert: read/Off/sign-out after submission or phone
 network/credential/timeout failures may leave a generic **new-mail** notification. No restricted
-Apple filtering entitlement is needed. See [phone behavior](../../apps/ios/README.md#verified-background-notifications).
+Apple filtering entitlement is needed. See [phone behavior](../../apps/mobile/README.md#verified-background-notifications).
 
 ### Provider grant configuration
 

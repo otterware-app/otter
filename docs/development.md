@@ -20,8 +20,7 @@
 | `pnpm dev:demo:desktop`  | `pnpm dev:desktop` opening on the demo mailboxes.                                        |
 | `pnpm dev:fake`          | The web app on a made-up mailbox, no accounts (see [Made-up mailbox](#made-up-mailbox)). |
 | `pnpm dev:mail`          | A local IMAP server with a seeded mailbox (see [IMAP locally](#imap-locally)).           |
-| `pnpm dev:ios`           | Builds the iPhone app and runs it in the simulator (see `apps/ios/README.md`).           |
-| `pnpm ios:resources`     | Re-exports the themes and demo mailbox the iPhone app bundles.                           |
+| `pnpm dev:mobile`        | The iPhone app in the simulator, with Metro (see `apps/mobile/README.md`).               |
 | `pnpm start`             | Runs the built app unpackaged (`pnpm build` first).                                      |
 | `pnpm build`             | Builds `apps/web/dist` and `apps/desktop/dist-electron`.                                 |
 | `pnpm build:translator`  | Builds the Swift translator helper.                                                      |

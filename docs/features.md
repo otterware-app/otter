@@ -1,8 +1,8 @@
 # Features
 
 Every user-facing feature and where it works, checked against the code. Mac and Web are the
-same renderer (`apps/web`) over core, so they match unless noted; the iPhone app is its own
-Swift code (`apps/ios`). Gmail, IMAP and Outlook are noted where they differ
+same renderer (`apps/web`) over core, so they match unless noted; the iPhone app (`apps/mobile`)
+runs the same core on the phone under its own React Native screens. Gmail, IMAP and Outlook are noted where they differ
 ([Outlook](outlook.md): Microsoft Graph, on Mac, Linux, web and iPhone).
 The Mac app supports Apple Silicon Macs (arm64).
 The Linux app is the same desktop app; it matches the Mac column except where
@@ -71,7 +71,7 @@ account offers each kind.
 | Sync health at the foot of the sidebar, Sync now                                                            | ✓                  | ✓                                   | ✓ (tap to sync)         |
 | Refused sign-in: toast and card to sign in again                                                            | ✓                  | ✓                                   | ✓ (banner on the list)  |
 | Missing permission (calendar, Gmail signatures): "Needs permission", Settings › Access, an Allow button     | ✓                  | ✓                                   | —                       |
-| Demo mailbox                                                                                                | —                  | `pnpm dev:fake` only                | TestFlight / Xcode only |
+| Demo mailbox                                                                                                | —                  | `pnpm dev:fake` only                | Development builds only |
 
 ## Reading
 
@@ -361,17 +361,17 @@ notification-enrichment proxy is added. Grants permit metadata access (IMAP cred
 permit content); they are not end-to-end encrypted against Otter. Local alerts continue for
 unconnected mailboxes. Watches/subscriptions renew on the server; Off/revocation/unlink stop future
 routing. Apple delivery/enrichment remain best effort, and an already submitted alert cannot be
-recalled. See [behavior and setup](../apps/ios/README.md#verified-background-notifications).
+recalled. See [behavior and setup](../apps/mobile/README.md#verified-background-notifications).
 
 ## Offline & sync
 
-| Feature                               | Mac                                | Web                    | iPhone                               |
-| ------------------------------------- | ---------------------------------- | ---------------------- | ------------------------------------ |
-| Local cache                           | SQLite, whole mailbox              | SQLite WASM on OPFS    | JSON, newest 400 threads per mailbox |
-| Gmail: first sync                     | every row over IMAP, in seconds    | Gmail API, inbox first | newest threads                       |
-| Bodies downloaded for offline         | ✓ (inbox first, then newest first) | — (fetched on open)    | —                                    |
-| New mail during a long sync           | ✓                                  | ✓                      | —                                    |
-| Changes applied at once, synced after | ✓                                  | ✓                      | ✓ (no outbox)                        |
+| Feature                               | Mac                                | Web                    | iPhone                                              |
+| ------------------------------------- | ---------------------------------- | ---------------------- | --------------------------------------------------- |
+| Local cache                           | SQLite, whole mailbox              | SQLite WASM on OPFS    | SQLite, recent mail (90 days, at least 400 threads) |
+| Gmail: first sync                     | every row over IMAP, in seconds    | Gmail API, inbox first | Gmail API, recent mail first                        |
+| Bodies downloaded for offline         | ✓ (inbox first, then newest first) | — (fetched on open)    | —                                                   |
+| New mail during a long sync           | ✓                                  | ✓                      | —                                                   |
+| Changes applied at once, synced after | ✓                                  | ✓                      | ✓ (no outbox)                                       |
 
 On iPhone, a glass bar under the list holds the mailbox's picture (tap to switch mailbox), Inbox, Drafts, Search (a sheet that searches the mailbox shown) and ⌃⌄, which opens every other folder and label, Search and Settings. The Agent (with an agent on, or an Otter account's chats to read) has its own round button beside it and opens as a sheet. The bar steps aside for the reader and selection. Conversations zoom from their list rows (respecting Reduce Motion), the reader's navigation bar minimizes while scrolling, and selection morphs the glass buttons into bulk actions.
 
@@ -381,7 +381,7 @@ On iPhone, a glass bar under the list holds the mailbox's picture (tap to switch
 | ---------------------------------------------------------------------------------------------------------------- | --- | --- | -------------------------------------------------------------------------- |
 | 7 themes, a light and a dark pick; System / Light / Dark                                                         | ✓   | ✓   | ✓                                                                          |
 | Inter, the same typeface in every app                                                                            | ✓   | ✓   | ✓                                                                          |
-| App icon follows the build (stable, nightly or dev; iPhone: stable or dev)                                       | ✓   | ✓   | ✓                                                                          |
+| App icon follows the build (stable, nightly or dev; iPhone: stable or dev, light, dark and tinted)               | ✓   | ✓   | ✓                                                                          |
 | Stable / Nightly update channel, selected in General and remembered on this computer (web: this browser)         | ✓   | ✓   | —                                                                          |
 | Your own themes (Otter Code's editor): duplicate, edit, import/export                                            | ✓   | ✓   | ✓ (worn and picked; made on the Mac or the web)                            |
 | Panel animations                                                                                                 | ✓   | ✓   | —                                                                          |

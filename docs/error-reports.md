@@ -46,16 +46,19 @@ Mail sync logs what the user can see and fix (signed out, offline, rate limited)
 
 ## Where it's wired
 
-| Part    | Sends from                                                                        | Code                                                            |
-| ------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Desktop | main, for every process (Sentry's Electron IPC)                                   | `apps/desktop/src/error-reports.ts`, `backend.ts`, `preload.ts` |
-| Web     | the page; the worker hands it its lines                                           | `apps/web/src/main/error-reports.ts`, `src/web/backend.ts`      |
-| Relay   | the Worker and its Durable Objects                                                | `infra/relay/src/error-reports.ts`                              |
-| iPhone  | the app (crashes as stack traces, hangs from iOS's MetricKit; Settings › Support) | `apps/ios/OtterMail/Reports/` (the same rules, in Swift)        |
+| Part    | Sends from                                                                                                                 | Code                                                            |
+| ------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Desktop | main, for every process (Sentry's Electron IPC)                                                                            | `apps/desktop/src/error-reports.ts`, `backend.ts`, `preload.ts` |
+| Web     | the page; the worker hands it its lines                                                                                    | `apps/web/src/main/error-reports.ts`, `src/web/backend.ts`      |
+| Relay   | the Worker and its Durable Objects                                                                                         | `infra/relay/src/error-reports.ts`                              |
+| iPhone  | the app, core on its worker runtime (its `report` effects), native crashes, hangs from iOS's MetricKit; Settings › Support | `apps/mobile/src/error-reports.ts` (`@sentry/react-native`)     |
 
 A build reports when its app has a DSN (`SENTRY_DSN` in `error-reports.ts`) and it's a
 release; `OTTER_MAIL_ERROR_REPORTS=1` lets a development build (`pnpm dev:fake`,
-`pnpm dev:desktop`) report too. A local relay never does.
+`pnpm dev:desktop`) report too (on the iPhone, `EXPO_PUBLIC_OTTER_MAIL_ERROR_REPORTS=1` for a
+Debug build). The iPhone keeps the choice and the report ID in UserDefaults
+(`otter:errorReports`, `otter:reportID`), where the Swift app kept them; turned off, Sentry
+doesn't start at the next launch, so native crashes aren't sent either. A local relay never does.
 
 ## Setup
 
@@ -67,8 +70,9 @@ release; `OTTER_MAIL_ERROR_REPORTS=1` lets a development build (`pnpm dev:fake`,
    - GitHub: secret `SENTRY_AUTH_TOKEN`, variable `SENTRY_ORG` (the Release workflow).
    - The web app's deploy (`site/scripts/build.ts`, in the Release workflow) uses the same two;
      `scripts/upload-sourcemaps.ts` skips the upload without them.
-   - The iPhone's dSYMs (`otter-mail-ios`): the Release iPhone workflow uploads them with the
-     same secret and variable (`scripts/release-ios.ts`).
+   - The iPhone's dSYMs and Hermes source map (`otter-mail-ios`, under the release and dist the
+     app reports): the Release iPhone workflow uploads them with the same secret and variable
+     (`scripts/release-ios.ts`).
 3. In each project's settings: turn off "Store client IP addresses" and keep the server-side
    data scrubber on, as a second net.
 4. Alerts: the default "new issue" alert is enough to start.
@@ -83,7 +87,8 @@ release; `OTTER_MAIL_ERROR_REPORTS=1` lets a development build (`pnpm dev:fake`,
    Sentry resolves an issue only through a release in the issue's own project, so the iPhone has
    its own: the Release iPhone workflow's `sentry_release` job (`scripts/sentry-release-ios.ts`)
    runs once App Store Connect has the build, and creates `otter-mail-ios@<version>+<build>` in
-   `otter-mail-ios`, the exact name the app reports (`ErrorReports.swift`). It attaches every
+   `otter-mail-ios`, the exact name the app reports (`apps/mobile/src/error-reports.ts`, from the app's
+   CFBundleShortVersionString and CFBundleVersion). It attaches every
    commit from the previous `ios-vX.Y.Z` tag to the released commit, then finalizes the release.
    An iPhone fix says `Fixes OTTER-MAIL-IOS-<n>` and resolves with the next iPhone release. If
    the job fails, the build and tag still go out: rerun the failed job.
