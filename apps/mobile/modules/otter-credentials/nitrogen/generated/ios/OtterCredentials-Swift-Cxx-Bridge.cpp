@@ -14,10 +14,10 @@
 
 namespace margelo::nitro::ottercredentials::bridge::swift {
 
-  // pragma MARK: std::function<void(const AccessToken& /* result */)>
-  Func_void_AccessToken create_Func_void_AccessToken(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = OtterCredentials::Func_void_AccessToken::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const AccessToken& result) mutable -> void {
+  // pragma MARK: std::function<void(const SignedIn& /* result */)>
+  Func_void_SignedIn create_Func_void_SignedIn(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = OtterCredentials::Func_void_SignedIn::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const SignedIn& result) mutable -> void {
       swiftClosure.call(result);
     };
   }
@@ -27,6 +27,22 @@ namespace margelo::nitro::ottercredentials::bridge::swift {
     auto swiftClosure = OtterCredentials::Func_void_std__exception_ptr::fromUnsafe(swiftClosureWrapper);
     return [swiftClosure = std::move(swiftClosure)](const std::exception_ptr& error) mutable -> void {
       swiftClosure.call(error);
+    };
+  }
+  
+  // pragma MARK: std::function<void(const std::string& /* result */)>
+  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = OtterCredentials::Func_void_std__string::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const std::string& result) mutable -> void {
+      swiftClosure.call(result);
+    };
+  }
+  
+  // pragma MARK: std::function<void(const AccessToken& /* result */)>
+  Func_void_AccessToken create_Func_void_AccessToken(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = OtterCredentials::Func_void_AccessToken::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const AccessToken& result) mutable -> void {
+      swiftClosure.call(result);
     };
   }
   

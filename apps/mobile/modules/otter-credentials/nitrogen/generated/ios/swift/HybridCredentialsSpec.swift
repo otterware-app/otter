@@ -16,6 +16,10 @@ public protocol HybridCredentialsSpec_protocol: HybridObject {
   func getSecret(name: String) throws -> String?
   func setSecret(name: String, value: String) throws -> Void
   func deleteSecret(name: String) throws -> Void
+  func signInGoogle(loginHint: String?) throws -> Promise<SignedIn>
+  func googleIdTokenSignIn() throws -> Promise<String>
+  func signInMicrosoft(loginHint: String?) throws -> Promise<SignedIn>
+  func cancelSignIn() throws -> Void
   func hasGoogle(email: String) throws -> Bool
   func googleAccessToken(email: String, force: Bool) throws -> Promise<AccessToken>
   func forgetGoogle(email: String) throws -> Void

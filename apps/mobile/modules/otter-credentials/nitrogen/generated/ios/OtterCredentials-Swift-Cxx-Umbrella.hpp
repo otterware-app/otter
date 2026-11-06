@@ -12,10 +12,13 @@
 namespace margelo::nitro::ottercredentials { struct AccessToken; }
 // Forward declaration of `HybridCredentialsSpec` to properly resolve imports.
 namespace margelo::nitro::ottercredentials { class HybridCredentialsSpec; }
+// Forward declaration of `SignedIn` to properly resolve imports.
+namespace margelo::nitro::ottercredentials { struct SignedIn; }
 
 // Include C++ defined types
 #include "AccessToken.hpp"
 #include "HybridCredentialsSpec.hpp"
+#include "SignedIn.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/Result.hpp>
 #include <exception>

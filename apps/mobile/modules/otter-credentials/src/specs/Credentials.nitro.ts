@@ -1,5 +1,11 @@
 import type { HybridObject } from "react-native-nitro-modules";
 
+export interface SignedIn {
+  email: string;
+  name?: string;
+  picture?: string;
+}
+
 export interface AccessToken {
   accessToken: string;
   idToken?: string;
@@ -15,6 +21,14 @@ export interface Credentials extends HybridObject<{ ios: "swift" }> {
   getSecret(name: string): string | undefined;
   setSecret(name: string, value: string): void;
   deleteSecret(name: string): void;
+
+  /** Google's consent in a browser sheet (PKCE, the iOS client); the refresh token stays here. */
+  signInGoogle(loginHint: string | undefined): Promise<SignedIn>;
+  /** Google's consent for who you are only (the Otter account): an ID token, nothing kept. */
+  googleIdTokenSignIn(): Promise<string>;
+  /** Microsoft's consent (PKCE, msauth.<bundle id>://auth); the refresh token stays here. */
+  signInMicrosoft(loginHint: string | undefined): Promise<SignedIn>;
+  cancelSignIn(): void;
 
   hasGoogle(email: string): boolean;
   googleAccessToken(email: string, force: boolean): Promise<AccessToken>;

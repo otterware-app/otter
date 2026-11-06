@@ -12,13 +12,16 @@
 // Forward declaration of `HybridCredentialsSpec_cxx` to properly resolve imports.
 namespace OtterCredentials { class HybridCredentialsSpec_cxx; }
 
+// Forward declaration of `SignedIn` to properly resolve imports.
+namespace margelo::nitro::ottercredentials { struct SignedIn; }
 // Forward declaration of `AccessToken` to properly resolve imports.
 namespace margelo::nitro::ottercredentials { struct AccessToken; }
 
 #include <string>
 #include <optional>
-#include "AccessToken.hpp"
+#include "SignedIn.hpp"
 #include <NitroModules/Promise.hpp>
+#include "AccessToken.hpp"
 
 #include "OtterCredentials-Swift-Cxx-Umbrella.hpp"
 
@@ -89,6 +92,36 @@ namespace margelo::nitro::ottercredentials {
     }
     inline void deleteSecret(const std::string& name) override {
       auto __result = _swiftPart.deleteSecret(name);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline std::shared_ptr<Promise<SignedIn>> signInGoogle(const std::optional<std::string>& loginHint) override {
+      auto __result = _swiftPart.signInGoogle(loginHint);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<std::string>> googleIdTokenSignIn() override {
+      auto __result = _swiftPart.googleIdTokenSignIn();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<SignedIn>> signInMicrosoft(const std::optional<std::string>& loginHint) override {
+      auto __result = _swiftPart.signInMicrosoft(loginHint);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline void cancelSignIn() override {
+      auto __result = _swiftPart.cancelSignIn();
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }

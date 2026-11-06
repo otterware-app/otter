@@ -17,6 +17,32 @@ final class HybridCredentials: HybridCredentialsSpec, @unchecked Sendable {
 
   func deleteSecret(name: String) throws { Keychain.set(name, nil) }
 
+  private static func signedIn(_ profile: SignIn.Profile) -> SignedIn {
+    SignedIn(email: profile.email, name: profile.name, picture: profile.picture)
+  }
+
+  private static func surfaced<T>(_ run: () async throws -> T) async throws -> T {
+    do { return try await run() } catch let error as SignIn.Failure {
+      throw RuntimeError.error(withMessage: error.errorDescription ?? "Sign-in failed.")
+    }
+  }
+
+  func signInGoogle(loginHint: String?) throws -> Promise<SignedIn> {
+    Promise.async { try await Self.surfaced { Self.signedIn(try await SignIn.google(loginHint: loginHint)) } }
+  }
+
+  func googleIdTokenSignIn() throws -> Promise<String> {
+    Promise.async { try await Self.surfaced { try await SignIn.googleIdToken() } }
+  }
+
+  func signInMicrosoft(loginHint: String?) throws -> Promise<SignedIn> {
+    Promise.async { try await Self.surfaced { Self.signedIn(try await SignIn.microsoft(loginHint: loginHint)) } }
+  }
+
+  func cancelSignIn() throws {
+    Task { @MainActor in SignIn.cancel() }
+  }
+
   func hasGoogle(email: String) throws -> Bool { GoogleCredentials.credential(email) != nil }
 
   func googleAccessToken(email: String, force: Bool) throws -> Promise<AccessToken> {
