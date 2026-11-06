@@ -207,6 +207,17 @@ describe("IMAP sync with a window", () => {
     expect(store.getSyncState(accountId).fullSyncDone).toBe(true);
   });
 
+  it("fills a widened window anew", async () => {
+    platform.syncPolicy = { ...KEEP_RECENT, initialCoverage: { days: 10, minThreads: 15 } };
+    await imapProvider.sync(accountId, ctx);
+    platform.syncPolicy = { ...KEEP_RECENT, initialCoverage: { days: 25, minThreads: 15 } };
+    await imapProvider.sync(accountId, ctx);
+    expect(cached("INBOX")).toBeGreaterThanOrEqual(25);
+    expect(cached("INBOX")).toBeLessThanOrEqual(26);
+    expect(cached("SENT")).toBe(20);
+    expect(getCoverage(accountId)).toMatchObject({ done: true, window: { days: 25 } });
+  });
+
   it("behind the app, catches up the inbox only, and no further than a bounded delta", async () => {
     platform.syncPolicy = { ...KEEP_RECENT, initialCoverage: { days: 10, minThreads: 15 } };
     await imapProvider.sync(accountId, ctx);

@@ -4,6 +4,7 @@ import { logger } from "../../logger.js";
 import {
   BACKGROUND_MAX_MESSAGES,
   cacheWindow,
+  dropStaleCoverage,
   getCoverage,
   inBackground,
   setCoverage,
@@ -98,6 +99,26 @@ function windowSince(accountId: string): number | undefined {
   const since = windowStart(window);
   setCoverage(accountId, { since, done: false });
   return since;
+}
+
+/** A folder listed again from its first delta; what the listing leaves out is looked up after it. */
+const relisting = (accountId: string, folder: Folder, since?: number): FolderDelta => ({
+  link: firstDelta(folder.id, since),
+  done: false,
+  label: folder.labelId,
+  unlisted: folder.labelId ? store.getMessageIdsForLabel(accountId, folder.labelId) : [],
+});
+
+/** Filled under another policy: every folder is listed again, under this one's window (or none). */
+function restartStaleFill(accountId: string): void {
+  if (!dropStaleCoverage(accountId)) return;
+  const since = windowSince(accountId);
+  const delta: DeltaState = {};
+  for (const folder of mailboxOf(accountId)?.folders ?? []) {
+    delta[folder.id] = relisting(accountId, folder, since);
+  }
+  writeDelta(accountId, delta);
+  store.setKv(peekedKey(accountId), "");
 }
 
 export function forgetOutlookSync(accountId: string): void {
@@ -200,6 +221,7 @@ async function relabelFolders(accountId: string, mailbox: Mailbox, ctx: SyncCont
 }
 
 export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<void> {
+  restartStaleFill(accountId);
   if (inBackground()) return followInbox(accountId, ctx);
   ctx.update({ phase: mailboxOf(accountId) ? "incremental" : "labels" });
   const mailbox = await refreshFolders(accountId, false, ctx);
@@ -301,12 +323,7 @@ async function followDelta(
   } catch (err) {
     if (err instanceof GraphError && (err.status === 410 || /syncState|resync/i.test(err.code))) {
       logger.info("outlook-sync", `delta expired for a folder of ${accountId}; listing it again`);
-      setFolderDelta(accountId, folder.id, {
-        link: firstDelta(folder.id, windowSince(accountId)),
-        done: false,
-        label: folder.labelId,
-        unlisted: folder.labelId ? store.getMessageIdsForLabel(accountId, folder.labelId) : [],
-      });
+      setFolderDelta(accountId, folder.id, relisting(accountId, folder, windowSince(accountId)));
       return { added: [], changed: false };
     }
     if (refuse(accountId, folder, mailbox, err)) return { added: [], changed: false };
@@ -377,6 +394,7 @@ export function needsBackfill(accountId: string): boolean {
 export async function backfillOutlook(accountId: string, ctx: SyncContext): Promise<void> {
   const mailbox = mailboxOf(accountId);
   if (!mailbox) return;
+  restartStaleFill(accountId);
   const total = mailbox.folders.reduce((sum, f) => sum + f.total, 0);
   const since = windowSince(accountId);
   let count = store.countAllMessages(accountId);

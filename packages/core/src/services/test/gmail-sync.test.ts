@@ -952,6 +952,31 @@ describe("Gmail sync with a window", { timeout: 15_000 }, () => {
     expect(["d1", "d2", "d3"].map(kept)).toEqual([true, false, true]);
   });
 
+  it("fills a widened window from the newest mail", async () => {
+    mailbox(40);
+    const opts = phone({ days: 10, minThreads: 5 });
+    const { mailSync, mailStore, status } = await boot(undefined, opts);
+    await until(() => mailStore.countAllMessages(account.id) === 10, "the window");
+    opts.policy.initialCoverage = { days: 20, minThreads: 5 };
+    mailSync.syncAccount(account.id, { force: true });
+    // Gmail's quota paces it: a few seconds.
+    await until(() => filled(mailStore) && !status().syncing, "the wider window", 2000);
+    expect(uncached(mailStore, ["d10", "d19"])).toEqual([]);
+    expect(listings.slice(2)).toEqual([null, "10", "20"]);
+  }, 60_000);
+
+  it("fills the whole mailbox once the policy keeps it, the mail evicted below the window too", async () => {
+    mailbox(40);
+    const opts = phone({ days: 10, minThreads: 5 });
+    const { mailSync, mailStore, status } = await boot(undefined, opts);
+    await until(() => mailStore.countAllMessages(account.id) === 10, "the window");
+    Object.assign(opts.policy, KEEP_MAILBOX, { bodyPrefetch: false });
+    mailSync.syncAccount(account.id, { force: true });
+    await until(() => status().fullSyncDone && !status().syncing, "the mailbox", 2000);
+    expect(mailStore.countAllMessages(account.id)).toBe(40);
+    expect(mailStore.getKv(`syncCoverage:${account.id}`)).toBe("");
+  }, 60_000);
+
   it("without a window (desktop, web), keeps no coverage and syncs behind the app too", async () => {
     mailbox(30);
     pageSize = 500;

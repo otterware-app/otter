@@ -12,6 +12,7 @@ import type { CoverageWindow } from "../../platform.js";
 import {
   BACKGROUND_MAX_MESSAGES,
   cacheWindow,
+  dropStaleCoverage,
   getCoverage,
   inBackground,
   setCoverage,
@@ -67,7 +68,7 @@ function readState(accountId: string): SyncState {
 const writeState = (accountId: string, state: SyncState) =>
   store.setKv(stateKey(accountId), JSON.stringify(state));
 
-/** Covered counts only while the cache keeps a window: widened, the fill goes on from `below`. */
+/** Covered counts only while the cache keeps a window. */
 const filled = (state: FolderState | undefined, windowed: boolean): state is FolderState =>
   state !== undefined && (state.below === 0 || (windowed && state.covered === true));
 
@@ -87,10 +88,20 @@ export async function syncImap(accountId: string, ctx: SyncContext): Promise<voi
     delete state[path];
     ctx.bumpRevision();
   }
+  // Filled under another policy: every folder fills again from its newest mail.
+  if (dropStaleCoverage(accountId)) {
+    for (const folderState of Object.values(state)) {
+      delete folderState.covered;
+      folderState.below = folderState.uidNext;
+    }
+  }
   writeState(accountId, state);
 
   const window = cacheWindow();
   const bounded = inBackground();
+  if (window && !getCoverage(accountId)) {
+    setCoverage(accountId, { since: windowStart(window), done: false });
+  }
   const first = window
     ? !getCoverage(accountId)?.done
     : !store.getSyncState(accountId).fullSyncDone;
@@ -390,13 +401,17 @@ class FolderSync {
   private async firstSync(): Promise<void> {
     const state = this.state!;
     const top = state.below === Number.MAX_SAFE_INTEGER ? "*" : String(state.below - 1);
+    // A window's fill started over (dropStaleCoverage) skips what's still cached.
+    const known = this.window
+      ? cachedUids(this.accountId, state.uidValidity, this.folder.path)
+      : null;
     let uids =
       state.below > 1
         ? (
             await this.run((client) =>
               client.search({ uids: `1:${top}`, deleted: false, gmailRaw: this.folder.gmailRaw }),
             )
-          ).filter((uid) => uid < state.below)
+          ).filter((uid) => uid < state.below && !known?.has(uid))
         : [];
     if (this.window) uids = await this.inWindow(uids, `1:${top}`);
     const synced = { count: store.countAllMessages(this.accountId) };

@@ -6,6 +6,7 @@ import {
   BACKGROUND_MAX_MESSAGES,
   BACKGROUND_MAX_PAGES,
   cacheWindow,
+  dropStaleCoverage,
   getCoverage,
   inBackground,
   setCoverage,
@@ -38,6 +39,7 @@ const spamTrashKey = (accountId: string) => `spamTrashBackfilled:${accountId}`;
 
 export async function syncGmail(accountId: string, ctx: SyncContext): Promise<void> {
   ctx.update({ phase: "incremental" });
+  restartStaleFill(accountId);
   let historyId = store.getSyncState(accountId).historyId;
   if (inBackground()) {
     if (historyId)
@@ -73,6 +75,7 @@ export function needsBackfill(accountId: string): boolean {
 export async function backfillGmail(accountId: string, ctx: SyncContext): Promise<void> {
   // The feed starts first (syncGmail), so nothing is missed meanwhile.
   if (!store.getSyncState(accountId).historyId) return;
+  restartStaleFill(accountId);
   const window = cacheWindow();
   if (window) {
     if (store.getKv(refreshKey(accountId)) === "1") await refreshWindow(accountId, window, ctx);
@@ -82,6 +85,14 @@ export async function backfillGmail(accountId: string, ctx: SyncContext): Promis
   if (store.getKv(refreshKey(accountId)) === "1") await refreshMailbox(accountId, ctx);
   else if (!store.getSyncState(accountId).fullSyncDone) await fillMailbox(accountId, ctx);
   if (store.getKv(spamTrashKey(accountId)) !== "1") await backfillSpamTrash(accountId, ctx);
+}
+
+/** Filled under another policy: the fill starts over, and the feed replays from now after it. */
+function restartStaleFill(accountId: string): void {
+  if (!dropStaleCoverage(accountId)) return;
+  store.setKv(cursorKey(accountId), "");
+  const { historyId } = store.getSyncState(accountId);
+  if (historyId && !store.getKv(seedKey(accountId))) store.setKv(seedKey(accountId), historyId);
 }
 
 async function startFeed(accountId: string, ctx: SyncContext): Promise<string> {
@@ -200,8 +211,7 @@ async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
     // keep going without a total
   }
 
-  // A window filled before (a policy widened since) goes on from where it stopped.
-  let pageToken = store.getKv(cursorKey(accountId)) || getCoverage(accountId)?.cursor || undefined;
+  let pageToken = store.getKv(cursorKey(accountId)) || undefined;
   let synced = store.countAllMessages(accountId);
   ctx.update({ phase: "full", synced, total });
   if (pageToken) logger.info("mail-sync", `full sync resuming for ${accountId} at ${synced}`);
@@ -256,8 +266,7 @@ const WINDOW_PAGE = 100;
  * The first sync of a mailbox kept to a window: the newest page of the inbox,
  * then all mail newest first until it's past the window with `minThreads`
  * conversations cached. Resumable like fillMailbox: the page cursor is kept in
- * the coverage, never in the history feed's state, and stays there for a fill
- * of the whole mailbox to go on from.
+ * the coverage, never in the history feed's state.
  */
 async function fillWindow(
   accountId: string,

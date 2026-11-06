@@ -1371,6 +1371,30 @@ describe("Outlook sync with a window", { timeout: 15_000 }, () => {
     expect(mailStore.filterUnknownIds(account.id, ["i-new", "s-new"])).toEqual([]);
   });
 
+  it("lists every folder again once the policy changes: a wider window, then the whole mailbox", async () => {
+    const opts = phone({ days: 10, minThreads: 5 });
+    const { mailStore, status, sync } = await boot(opts);
+    await until(() => coverage(mailStore)?.includes('"done":true') === true, "the window");
+    await until(() => mailStore.countMessagesForLabel(account.id, "SENT") === 10, "the window");
+
+    opts.policy.initialCoverage = { days: 20, minThreads: 5 };
+    await sync();
+    await until(
+      () => mailStore.countMessagesForLabel(account.id, "SENT") === 20,
+      "the wider window",
+    );
+    await until(() => !status().syncing, "the backfill");
+
+    deltaFilters = [];
+    Object.assign(opts.policy, KEEP_MAILBOX, { bodyPrefetch: false });
+    await sync();
+    await until(() => status().fullSyncDone && !status().syncing, "the mailbox");
+    expect(mailStore.countMessagesForLabel(account.id, "SENT")).toBe(30);
+    expect(mailStore.countMessagesForLabel(account.id, "INBOX")).toBe(30);
+    expect(deltaFilters.length).toBeGreaterThan(0);
+    expect(deltaFilters.every((f) => f === null)).toBe(true);
+  });
+
   it("lists everything without a window", async () => {
     const { mailStore, status } = await boot();
     await until(() => status().fullSyncDone && !status().syncing, "the first sync");
