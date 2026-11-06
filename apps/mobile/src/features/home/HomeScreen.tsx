@@ -1,54 +1,115 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { LegendList } from "@legendapp/list/react-native";
-import type { MessageSummary } from "@otter-mail/client-runtime/mail";
-import { archiveFrom } from "@otter-mail/client-runtime/operations";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useEffect, useLayoutEffect, useMemo } from "react";
-import { ActionSheetIOS, Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { RootStack } from "../../App";
-import { mailboxes, operations, threadLists, type Mailbox } from "../../state/client";
-import { markFirstContent } from "../../state/startup";
+import { appAtomRegistry, mailboxes, operations, threadLists } from "../../state/client";
 import { useAccountSync } from "../../state/sync";
-import { palette } from "../theme";
+import { usePalette } from "../theme";
 import { PlacesBar } from "./PlacesBar";
+import { PlacesPanel } from "./PlacesPanel";
 import { placeAtom, placeTitle, rememberPlace, type Place } from "./places";
-import { SwipeRow } from "./SwipeRow";
-import { ThreadRow } from "./ThreadRow";
+import { ThreadList } from "./ThreadList";
 import { UndoToast } from "./UndoToast";
 
 type Props = NativeStackScreenProps<RootStack, "Home">;
 
+/** apps/ios's HomeView: a place's list, the places bar over it, and the places panel out of the bar. */
 export function HomeScreen({ navigation }: Props) {
-  const colors = palette(useColorScheme());
+  const colors = usePalette();
   const accounts = useAtomValue(mailboxes.accountsAtom);
   const place = useAtomValue(placeAtom);
   const setPlace = useAtomSet(placeAtom);
-  const accountId = place.accountId ?? accounts.value[0]?.id ?? null;
+  const accountId =
+    (accounts.value.some((m) => m.id === place.accountId) ? place.accountId : null) ??
+    accounts.value[0]?.id ??
+    null;
   const mailbox = accounts.value.find((m) => m.id === accountId);
   const labels = useAtomValue(mailboxes.labelsAtom(accountId ?? "")).value;
   const title = placeTitle(place.labelId, labels);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (accountId) void mailboxes.refreshLabels(accountId);
-  }, [accountId]);
+    for (const m of accounts.value) void mailboxes.refreshLabels(m.id);
+  }, [accounts.value]);
   useAccountSync(accountId);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title,
-      headerRight: () =>
-        accountId ? (
-          <ComposeButton onPress={() => navigation.navigate("Compose", { accountId })} />
-        ) : null,
-    });
-  }, [navigation, title, accountId]);
 
   const go = (next: Place) => {
     setPlace(next);
     rememberPlace(next);
+    setMenuOpen(false);
   };
+
+  const markAllRead = () => {
+    if (!accountId) return;
+    const view = appAtomRegistry.get(threadLists.listAtom({ accountId, labelId: place.labelId }));
+    for (const row of view.pages.flatMap((p) => p.messages)) {
+      if (row.threadUnread ?? row.unread) {
+        void operations
+          .modifyThread(
+            { accountId, threadId: row.threadId, removeLabelIds: ["UNREAD"] },
+            { quiet: true },
+          )
+          .catch(() => {});
+      }
+    }
+    AccessibilityInfo.announceForAccessibility("Marked all as read");
+  };
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title,
+      headerTitle: "",
+      unstable_headerLeftItems: () => [
+        {
+          type: "custom",
+          hidesSharedBackground: true,
+          element: (
+            <HomeTitle
+              title={title}
+              mailbox={mailbox?.displayName ?? mailbox?.name ?? ""}
+              onPress={() => setMenuOpen(true)}
+            />
+          ),
+        },
+      ],
+      unstable_headerRightItems: () =>
+        accountId
+          ? [
+              {
+                type: "button",
+                label: "Compose",
+                icon: { type: "sfSymbol", name: "square.and.pencil" },
+                accessibilityLabel: "New message",
+                onPress: () => navigation.navigate("Compose", { accountId }),
+              },
+              {
+                type: "menu",
+                label: "More",
+                icon: { type: "sfSymbol", name: "ellipsis" },
+                accessibilityLabel: "More",
+                menu: {
+                  items: [
+                    {
+                      type: "action",
+                      label: "Mark all as read",
+                      icon: { type: "sfSymbol", name: "envelope.open" },
+                      onPress: markAllRead,
+                    },
+                    {
+                      type: "action",
+                      label: "Settings",
+                      icon: { type: "sfSymbol", name: "gearshape" },
+                      onPress: () => navigation.navigate("Settings"),
+                    },
+                  ],
+                },
+              },
+            ]
+          : [],
+    });
+  });
 
   useEffect(() => {
     if (!accounts.loading && accounts.value.length === 0 && !accounts.error) {
@@ -56,10 +117,11 @@ export function HomeScreen({ navigation }: Props) {
     }
   }, [accounts, navigation]);
 
-  const inboxUnread = labels.find((l) => l.id === "INBOX")?.unread ?? 0;
+  const inboxUnread = (id: string) =>
+    appAtomRegistry.get(mailboxes.labelsAtom(id)).value.find((l) => l.id === "INBOX")?.unread ?? 0;
 
   return (
-    <View style={[styles.fill, { backgroundColor: colors.background }]}>
+    <View style={[styles.fill, { backgroundColor: colors.canvas }]}>
       {accountId ? (
         <ThreadList
           key={`${accountId}:${place.labelId}`}
@@ -80,194 +142,89 @@ export function HomeScreen({ navigation }: Props) {
           {accounts.error ?? "Starting…"}
         </Text>
       )}
-      <UndoToast />
+      {menuOpen ? (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => setMenuOpen(false)}
+          accessibilityLabel="Close places"
+          accessibilityRole="button"
+        />
+      ) : (
+        <UndoToast />
+      )}
       <PlacesBar
         mailboxes={accounts.value}
         current={mailbox}
         labelId={place.labelId}
-        inboxDot={inboxUnread > 0}
-        onMailbox={(id) => go({ accountId: id, labelId: "INBOX" })}
+        inboxDot={(labels.find((l) => l.id === "INBOX")?.unread ?? 0) > 0}
+        unread={inboxUnread}
+        panel={
+          menuOpen && accountId ? (
+            <PlacesPanel
+              mailbox={mailbox}
+              labels={labels}
+              labelId={place.labelId}
+              onPlace={(labelId) => go({ accountId, labelId })}
+              onSearch={() => {
+                setMenuOpen(false);
+                navigation.navigate("Search", { accountId });
+              }}
+              onSettings={() => {
+                setMenuOpen(false);
+                navigation.navigate("Settings");
+              }}
+            />
+          ) : null
+        }
+        onMailbox={(id) =>
+          go({
+            accountId: id,
+            labelId:
+              place.labelId === "INBOX" || place.labelId === "DRAFT" ? place.labelId : "INBOX",
+          })
+        }
         onAddMailbox={() => navigation.navigate("Welcome")}
         onPlace={(labelId) => go({ accountId, labelId })}
         onSearch={() => accountId && navigation.navigate("Search", { accountId })}
-        onMenu={() => accountId && navigation.navigate("Places", { accountId })}
+        onMenu={() => setMenuOpen((open) => !open)}
         onAgent={() => navigation.navigate("Chat")}
       />
     </View>
   );
 }
 
-export function ComposeButton({ onPress }: { onPress: () => void }) {
-  const colors = palette(useColorScheme());
-  return (
-    <Pressable onPress={onPress} hitSlop={12} accessibilityLabel="New message" testID="compose">
-      <SymbolView name="square.and.pencil" size={22} tintColor={colors.text} />
-    </Pressable>
-  );
-}
-
-function ThreadList({
+/** apps/ios's Header: the place, then the mailbox, muted; it opens every place. */
+function HomeTitle({
+  title,
   mailbox,
-  accountId,
-  labelId,
-  onOpen,
+  onPress,
 }: {
-  mailbox: Mailbox | undefined;
-  accountId: string;
-  labelId: string;
-  onOpen: (row: MessageSummary) => void;
+  title: string;
+  mailbox: string;
+  onPress: () => void;
 }) {
-  const colors = palette(useColorScheme());
-  const key = useMemo(() => ({ accountId, labelId }), [accountId, labelId]);
-  const view = useAtomValue(threadLists.listAtom(key));
-  const labels = useAtomValue(mailboxes.labelsAtom(accountId)).value;
-  const rows = useMemo(() => view.pages.flatMap((page) => page.messages), [view.pages]);
-
-  useEffect(() => threadLists.show(key), [key]);
-  useEffect(() => {
-    if (rows.length > 0) markFirstContent(rows.length);
-  }, [rows.length]);
-
-  const capabilities = mailbox?.capabilities;
-  const archive = (row: MessageSummary) => {
-    const from = capabilities
-      ? archiveFrom(
-          row.threadLabelIds ?? row.labelIds,
-          labels.find((l) => l.id === labelId),
-          capabilities,
-        )
-      : "INBOX";
-    if (from) void operations.archiveThread(accountId, row.threadId, from).catch(() => {});
-  };
-  const trash = (row: MessageSummary) =>
-    void operations.trashThread(accountId, row.threadId).catch(() => {});
-  // Gmail's untrash leaves the conversation in no folder, so it's put back in Inbox too.
-  const untrash = (row: MessageSummary) =>
-    void operations
-      .untrashThread(accountId, row.threadId)
-      .then(() =>
-        mailbox?.provider === "gmail"
-          ? operations.modifyThread(
-              { accountId, threadId: row.threadId, addLabelIds: ["INBOX"] },
-              { quiet: true },
-            )
-          : undefined,
-      )
-      .catch(() => {});
-  const toggleRead = (row: MessageSummary) => {
-    const unread = row.threadUnread ?? row.unread;
-    void operations
-      .modifyThread(
-        unread
-          ? { accountId, threadId: row.threadId, removeLabelIds: ["UNREAD"] }
-          : { accountId, threadId: row.threadId, addLabelIds: ["UNREAD"] },
-      )
-      .catch(() => {});
-  };
-  const toggleStar = (row: MessageSummary) => {
-    const starred = row.threadStarred ?? row.starred;
-    void operations
-      .modifyThread(
-        starred
-          ? { accountId, threadId: row.threadId, removeLabelIds: ["STARRED"] }
-          : { accountId, threadId: row.threadId, addLabelIds: ["STARRED"] },
-      )
-      .catch(() => {});
-  };
-  const userLabels = labels.filter((l) => l.type === "user");
-  const moreActions = (row: MessageSummary) => {
-    const unread = row.threadUnread ?? row.unread;
-    const starred = row.threadStarred ?? row.starred;
-    const options = [
-      unread ? "Mark as Read" : "Mark as Unread",
-      starred ? "Unstar" : "Star",
-      ...(userLabels.length > 0 ? ["Label…"] : []),
-      ...(labelId === "TRASH" ? ["Move to Inbox"] : ["Archive", "Move to Trash"]),
-      "Cancel",
-    ];
-    ActionSheetIOS.showActionSheetWithOptions(
-      {
-        options,
-        destructiveButtonIndex: labelId === "TRASH" ? undefined : options.length - 2,
-        cancelButtonIndex: options.length - 1,
-      },
-      (index) => {
-        const choice = options[index];
-        if (choice === "Mark as Read" || choice === "Mark as Unread") toggleRead(row);
-        else if (choice === "Star" || choice === "Unstar") toggleStar(row);
-        else if (choice === "Archive") archive(row);
-        else if (choice === "Move to Trash") trash(row);
-        else if (choice === "Move to Inbox") untrash(row);
-        else if (choice === "Label…") {
-          const names = [...userLabels.map((l) => l.name), "Cancel"];
-          ActionSheetIOS.showActionSheetWithOptions(
-            { title: "Label", options: names, cancelButtonIndex: names.length - 1 },
-            (i) => {
-              const label = userLabels[i];
-              if (label) {
-                void operations
-                  .modifyThread({ accountId, threadId: row.threadId, addLabelIds: [label.id] })
-                  .catch(() => {});
-              }
-            },
-          );
-        }
-      },
-    );
-  };
-
-  if (view.error && rows.length === 0) {
-    return <Text style={[styles.message, { color: colors.secondary }]}>{view.error}</Text>;
-  }
+  const colors = usePalette();
   return (
-    <LegendList
-      data={rows}
-      keyExtractor={(row) => row.threadId}
-      renderItem={({ item }) => (
-        <SwipeRow
-          leading={
-            labelId === "TRASH"
-              ? {
-                  title: "Inbox",
-                  symbol: "tray.and.arrow.up.fill",
-                  tint: colors.archive,
-                  perform: () => untrash(item),
-                }
-              : {
-                  title: "Archive",
-                  symbol: "archivebox.fill",
-                  tint: colors.archive,
-                  perform: () => archive(item),
-                }
-          }
-          trailing={{
-            title: "Trash",
-            symbol: "trash.fill",
-            tint: colors.trash,
-            perform: () => trash(item),
-          }}
-        >
-          <ThreadRow row={item} onOpen={onOpen} onLongPress={moreActions} />
-        </SwipeRow>
-      )}
-      estimatedItemSize={80}
-      recycleItems
-      onEndReached={() => void threadLists.fetchNextPage(key)}
-      onEndReachedThreshold={0.5}
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ paddingBottom: 120 }}
-      ListEmptyComponent={
-        view.isLoading ? null : (
-          <Text style={[styles.empty, { color: colors.secondary }]}>Nothing here.</Text>
-        )
-      }
-      testID="thread-list"
-    />
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${mailbox}`}
+      accessibilityHint="Shows every folder and label"
+      testID="home-title"
+    >
+      <Text style={styles.header} numberOfLines={1}>
+        <Text style={{ color: colors.text, fontWeight: "600" }}>{title}</Text>
+        <Text style={{ color: colors.secondary }}>
+          {"  "}
+          {mailbox}
+        </Text>
+      </Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  header: { fontSize: 20, paddingHorizontal: 8, maxWidth: 260 },
   message: { padding: 24, paddingTop: 160, fontSize: 15 },
-  empty: { textAlign: "center", paddingTop: 80, fontSize: 15 },
 });

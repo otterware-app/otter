@@ -2,86 +2,143 @@ import type { MessageSummary } from "@otter-mail/client-runtime/mail";
 import { decodeEntities } from "@otter-mail/client-runtime/text";
 import { SymbolView } from "expo-symbols";
 import { memo } from "react";
-import { Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { palette, relativeDate } from "../theme";
+import { relativeDate, usePalette } from "../theme";
+import { SenderAvatar } from "./SenderAvatar";
+
+const isDraft = (row: MessageSummary) => (row.threadLabelIds ?? row.labelIds).includes("DRAFT");
+
+/** What VoiceOver reads for a row: state first, then who, what and when. */
+export function rowLabel(row: MessageSummary): string {
+  const unread = row.threadUnread ?? row.unread;
+  const starred = row.threadStarred ?? row.starred;
+  return [
+    unread ? "Unread" : null,
+    starred ? "Starred" : null,
+    isDraft(row) ? "Draft" : null,
+    row.fromName || row.fromEmail,
+    row.subject || "No subject",
+    decodeEntities(row.snippet).slice(0, 140),
+    row.hasAttachments ? "Has attachments" : null,
+    row.threadCount && row.threadCount > 1 ? `${row.threadCount} messages` : null,
+    relativeDate(row.date),
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
 
 /**
- * apps/ios's ThreadRow: who and when, the subject, a line of the latest
- * message; unread mail on a soft card, read mail flat.
+ * apps/ios's ThreadRow: the sender's picture (new mail's dot in the gutter
+ * before it), then who and when, the subject, and a line of the latest
+ * message. Unread is the dot, a brighter medium-weight name and a soft card;
+ * read mail recedes to grey.
  */
 export const ThreadRow = memo(function ThreadRow({
   row,
+  accountId,
   onOpen,
   onLongPress,
+  fullWidth = false,
 }: {
   row: MessageSummary;
+  accountId: string;
+  /** The desktop's full-width rows: edge to edge with a hairline between, instead of cards. */
+  fullWidth?: boolean;
   onOpen?: (row: MessageSummary) => void;
   onLongPress?: (row: MessageSummary) => void;
 }) {
-  const colors = palette(useColorScheme());
+  const colors = usePalette();
   const unread = row.threadUnread ?? row.unread;
   const starred = row.threadStarred ?? row.starred;
+  const draft = isDraft(row);
+  const count = row.threadCount ?? 1;
   return (
     <Pressable
       onPress={() => onOpen?.(row)}
       onLongPress={() => onLongPress?.(row)}
       accessibilityRole="button"
-      accessibilityLabel={`${unread ? "Unread, " : ""}${row.fromName || row.fromEmail}, ${row.subject || "no subject"}, ${relativeDate(row.date)}`}
+      accessibilityLabel={rowLabel(row)}
+      accessibilityHint="Opens the conversation"
       style={({ pressed }) => [
         styles.row,
+        fullWidth && [styles.fullWidth, { borderBottomColor: colors.border }],
         {
           backgroundColor: pressed
             ? colors.pressed
-            : unread
+            : unread && !draft
               ? colors.unreadCard
-              : colors.background,
+              : "transparent",
         },
       ]}
+      testID={`thread-${row.threadId}`}
     >
-      <View style={styles.top}>
-        {unread ? <View style={[styles.dot, { backgroundColor: colors.focus }]} /> : null}
+      <View style={styles.avatar}>
+        {unread ? <View style={[styles.dot, { backgroundColor: colors.accent }]} /> : null}
+        <SenderAvatar
+          accountId={row.accountId ?? accountId}
+          email={row.fromEmail}
+          name={row.fromName}
+        />
+      </View>
+      <View style={styles.lines}>
+        <View style={styles.top}>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.text,
+              styles.from,
+              { color: unread ? colors.text : colors.readText, fontWeight: unread ? "500" : "400" },
+            ]}
+          >
+            {row.fromName || row.fromEmail || "Draft"}
+          </Text>
+          {starred ? <SymbolView name="star.fill" size={11} tintColor={colors.star} /> : null}
+          {row.hasAttachments ? (
+            <SymbolView name="paperclip" size={11} tintColor={colors.secondary} />
+          ) : null}
+          {count > 1 ? (
+            <Text style={[styles.meta, { color: colors.secondary }]}>{count}</Text>
+          ) : null}
+          <Text style={[styles.meta, { color: colors.secondary }]}>{relativeDate(row.date)}</Text>
+        </View>
         <Text
           numberOfLines={1}
-          style={[styles.from, { color: colors.text, fontWeight: unread ? "700" : "500" }]}
+          style={[styles.text, { color: unread ? colors.text : colors.readSubject }]}
         >
-          {row.fromName || row.fromEmail}
-          {row.threadCount && row.threadCount > 1 ? (
-            <Text style={{ color: colors.secondary, fontWeight: "400" }}> {row.threadCount}</Text>
-          ) : null}
+          {row.subject || "(no subject)"}
         </Text>
-        {starred ? <SymbolView name="star.fill" size={13} tintColor={colors.star} /> : null}
-        {row.hasAttachments ? (
-          <SymbolView name="paperclip" size={13} tintColor={colors.secondary} />
-        ) : null}
-        <Text style={[styles.date, { color: colors.secondary }]}>{relativeDate(row.date)}</Text>
+        <Text numberOfLines={1} style={[styles.text, { color: colors.snippet }]}>
+          {draft ? `Draft · ${decodeEntities(row.snippet)}` : decodeEntities(row.snippet)}
+        </Text>
       </View>
-      <Text
-        numberOfLines={1}
-        style={[styles.subject, { color: colors.text, fontWeight: unread ? "600" : "400" }]}
-      >
-        {row.subject || "(no subject)"}
-      </Text>
-      <Text numberOfLines={1} style={[styles.snippet, { color: colors.secondary }]}>
-        {decodeEntities(row.snippet)}
-      </Text>
     </Pressable>
   );
 });
 
 const styles = StyleSheet.create({
   row: {
-    marginHorizontal: 12,
-    borderRadius: 20,
-    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    paddingLeft: 20,
+    paddingRight: 12,
     paddingVertical: 10,
-    height: 78,
+    marginHorizontal: 4,
     marginVertical: 1,
+    borderRadius: 8,
   },
+  fullWidth: {
+    marginHorizontal: 0,
+    marginVertical: 0,
+    borderRadius: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  avatar: { paddingTop: 2 },
+  dot: { position: "absolute", left: -13, top: 2 + 15, width: 6, height: 6, borderRadius: 3 },
+  lines: { flex: 1, gap: 2 },
   top: { flexDirection: "row", alignItems: "center", gap: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  from: { flex: 1, fontSize: 16 },
-  date: { fontSize: 13 },
-  subject: { fontSize: 15, marginTop: 1 },
-  snippet: { fontSize: 14, marginTop: 1 },
+  text: { fontSize: 15 },
+  from: { flex: 1, marginRight: 2 },
+  meta: { fontSize: 13, fontVariant: ["tabular-nums"] },
 });

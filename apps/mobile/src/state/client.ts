@@ -1,7 +1,7 @@
 import type { ClientPlatform, KeyValueStorage } from "@otter-mail/client-runtime/platform";
 import { makeMailboxes } from "@otter-mail/client-runtime/state/mailboxes";
 import { makeThreadLists } from "@otter-mail/client-runtime/state/messages";
-import { makeMailOperations } from "@otter-mail/client-runtime/operations";
+import { makeMailOperations, summarizeLabelChange } from "@otter-mail/client-runtime/operations";
 import type { MailboxInfo } from "@otter-mail/client-runtime/mail";
 import { AtomRegistry } from "effect/reactivity";
 import { AppState } from "react-native";
@@ -83,14 +83,27 @@ export const threadLists = makeThreadLists(appAtomRegistry, {
   pageSize: 50,
 });
 
+const archiveFolder = (accountId: string) => {
+  const provider = appAtomRegistry
+    .get(mailboxes.accountsAtom)
+    .value.find((m) => m.id === accountId)?.provider;
+  return provider === "imap" || provider === "outlook";
+};
+
 export const operations = makeMailOperations({
   core,
   threadLists,
-  archiveFolder: (accountId) => {
-    const provider = appAtomRegistry
-      .get(mailboxes.accountsAtom)
-      .value.find((m) => m.id === accountId)?.provider;
-    return provider === "imap" || provider === "outlook";
+  archiveFolder,
+  summarize: ({ accountId, addLabelIds = [], removeLabelIds = [] }, noun) => {
+    const labels = appAtomRegistry.get(mailboxes.labelsAtom(accountId)).value;
+    const nameOf = (id: string) => labels.find((l) => l.id === id && l.type === "user")?.name;
+    return summarizeLabelChange(
+      addLabelIds,
+      removeLabelIds,
+      noun,
+      nameOf,
+      archiveFolder(accountId),
+    );
   },
   onError: (error) => console.log("[mail] write failed", String(error)),
 });

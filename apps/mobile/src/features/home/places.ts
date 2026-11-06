@@ -1,3 +1,4 @@
+import { buildLabelTree, flattenLabelTree } from "@otter-mail/client-runtime/label-tree";
 import type { MailLabel } from "@otter-mail/client-runtime/mail";
 import type { SFSymbol } from "expo-symbols";
 import { Atom } from "effect/reactivity";
@@ -25,6 +26,7 @@ export function rememberPlace(place: Place): void {
   clientPlatform.storage.setItem(PLACE_KEY, JSON.stringify(place));
 }
 
+/** apps/ios's Folder: the system places, in the order its menu lists them. */
 const SYSTEM: Record<string, { title: string; symbol: SFSymbol; order: number }> = {
   INBOX: { title: "Inbox", symbol: "tray", order: 0 },
   STARRED: { title: "Starred", symbol: "star", order: 1 },
@@ -32,29 +34,45 @@ const SYSTEM: Record<string, { title: string; symbol: SFSymbol; order: number }>
   IMPORTANT: { title: "Important", symbol: "bookmark", order: 3 },
   SENT: { title: "Sent", symbol: "paperplane", order: 4 },
   DRAFT: { title: "Drafts", symbol: "doc", order: 5 },
-  ALL_MAIL: { title: "All Mail", symbol: "archivebox", order: 6 },
   ARCHIVE: { title: "Archive", symbol: "archivebox", order: 6 },
-  SPAM: { title: "Junk", symbol: "xmark.bin", order: 7 },
-  TRASH: { title: "Trash", symbol: "trash", order: 8 },
+  ALL_MAIL: { title: "All Mail", symbol: "tray.full", order: 7 },
+  SPAM: { title: "Junk", symbol: "xmark.bin", order: 8 },
+  TRASH: { title: "Trash", symbol: "trash", order: 9 },
 };
 
 export const isSystem = (labelId: string) => labelId in SYSTEM;
 
 export function placeTitle(labelId: string, labels: readonly MailLabel[]): string {
-  return SYSTEM[labelId]?.title ?? labels.find((l) => l.id === labelId)?.name ?? labelId;
+  const name = SYSTEM[labelId]?.title ?? labels.find((l) => l.id === labelId)?.name ?? labelId;
+  return name.split("/").at(-1) ?? name;
 }
 
-export function placeSymbol(labelId: string): SFSymbol {
-  return SYSTEM[labelId]?.symbol ?? "tag";
+export function placeSymbol(labelId: string, selected = false): SFSymbol {
+  const symbol = SYSTEM[labelId]?.symbol ?? "tag";
+  return selected ? (`${symbol}.fill` as SFSymbol) : symbol;
 }
 
-/** The mailbox's places in the order the bar's menu lists them: system ones first, then its own. */
-export function orderedPlaces(labels: readonly MailLabel[]): MailLabel[] {
-  const system = labels
-    .filter((l) => SYSTEM[l.id] && !l.id.startsWith("CATEGORY_"))
+/** The mailbox's system places, in the menu's order. */
+export function folders(labels: readonly MailLabel[]): MailLabel[] {
+  return labels
+    .filter((l) => SYSTEM[l.id])
     .sort((a, b) => SYSTEM[a.id]!.order - SYSTEM[b.id]!.order);
-  const own = labels
-    .filter((l) => l.type === "user" && !SYSTEM[l.id])
-    .sort((a, b) => a.name.localeCompare(b.name));
-  return [...system, ...own];
+}
+
+/** Its own labels (folders, for Outlook and IMAP), nested by "/" as the desktop shows them. */
+export function ownLabels(
+  labels: readonly MailLabel[],
+): { label: MailLabel; name: string; depth: number }[] {
+  const own = labels.filter((l) => l.type === "user" && !SYSTEM[l.id]);
+  return flattenLabelTree(buildLabelTree(own)).flatMap(({ node, depth }) =>
+    node.label ? [{ label: node.label, name: node.segment, depth }] : [],
+  );
+}
+
+/** What the badge counts: unread in the inbox and in labels, everything in Drafts. */
+export function placeCount(label: MailLabel): number {
+  if (label.id === "DRAFT") return label.total ?? 0;
+  if (label.id === "INBOX" || label.id === "SPAM" || label.type === "user")
+    return label.unread ?? 0;
+  return 0;
 }
