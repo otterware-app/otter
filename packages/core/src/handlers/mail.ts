@@ -716,7 +716,7 @@ export function registerMailHandlers(): void {
       }
       const provider = providerFor(accountId);
       // Deleted or moved elsewhere since the list was cached: gone, not a failure.
-      const detail = await provider.getMessage(accountId, messageId).catch((err: unknown) => {
+      const detail = await provider.getMessage(accountId, messageId, true).catch((err: unknown) => {
         if (provider.errorKind(err) !== "notFound") throw err;
         return null;
       });
@@ -1316,7 +1316,7 @@ export function registerMailHandlers(): void {
       const messageId = assertString(p?.messageId, "messageId");
       const attachmentId = assertString(p?.attachmentId, "attachmentId");
       return await runAsTask(asString(p?.taskId), () =>
-        getAttachmentData(accountId, messageId, attachmentId),
+        getAttachmentData(accountId, messageId, attachmentId, true),
       );
     } catch (err) {
       console.log("[gmail:getAttachmentData] error", { error: String(err) });
@@ -1337,7 +1337,7 @@ export function registerMailHandlers(): void {
       const attachmentId = assertString(p?.attachmentId, "attachmentId");
       const filename = assertString(p?.filename, "filename");
       return await runAsTask(asString(p?.taskId), async () => {
-        const bytes = await getAttachmentBytes(accountId, messageId, attachmentId);
+        const bytes = await getAttachmentBytes(accountId, messageId, attachmentId, true);
         await platform().userFiles.open(filename, bytes);
         return { ok: true };
       });

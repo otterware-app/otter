@@ -156,9 +156,15 @@ export interface MailProvider {
 
   listLabels(accountId: string): Promise<MailLabel[]>;
   getSummaries(accountId: string, messageIds: string[]): Promise<MessageSummary[]>;
-  getMessage(accountId: string, messageId: string): Promise<MessageDetail>;
+  /** `urgent`: the user is waiting on it (they opened it), so it goes ahead of sync. */
+  getMessage(accountId: string, messageId: string, urgent?: boolean): Promise<MessageDetail>;
   getThread?(accountId: string, threadId: string): Promise<MessageDetail[]>;
-  fetchAttachment(accountId: string, messageId: string, attachmentId: string): Promise<Uint8Array>;
+  fetchAttachment(
+    accountId: string,
+    messageId: string,
+    attachmentId: string,
+    urgent?: boolean,
+  ): Promise<Uint8Array>;
   getReplyHeaders(
     accountId: string,
     messageId: string,

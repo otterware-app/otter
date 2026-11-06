@@ -75,6 +75,7 @@ export async function getAttachmentBytes(
   accountId: string,
   messageId: string,
   attachmentId: string,
+  urgent = false,
 ): Promise<Uint8Array> {
   const path = await pathFor(accountId, messageId, attachmentId);
   try {
@@ -83,7 +84,12 @@ export async function getAttachmentBytes(
   } catch {
     /* Cache lookup is best-effort. */
   }
-  const bytes = await providerFor(accountId).fetchAttachment(accountId, messageId, attachmentId);
+  const bytes = await providerFor(accountId).fetchAttachment(
+    accountId,
+    messageId,
+    attachmentId,
+    urgent,
+  );
   try {
     await platform().files.write(path, bytes);
   } catch {
@@ -96,8 +102,9 @@ export async function getAttachmentData(
   accountId: string,
   messageId: string,
   attachmentId: string,
+  urgent = false,
 ): Promise<{ base64: string; size: number }> {
-  const bytes = await getAttachmentBytes(accountId, messageId, attachmentId);
+  const bytes = await getAttachmentBytes(accountId, messageId, attachmentId, urgent);
   return { base64: toBase64(bytes), size: bytes.length };
 }
 
