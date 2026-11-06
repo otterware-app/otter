@@ -168,12 +168,19 @@ export function HomeScreen({ navigation }: Props) {
             navigation.navigate("Compose", { accountId, mode: "copy", copyId: copy.id })
           }
           onOpen={(row) =>
-            navigation.navigate("Thread", {
-              accountId,
-              threadId: row.threadId,
-              subject: row.subject || "(no subject)",
-              labelId: place.labelId,
-            })
+            // apps/ios: a conversation that's only a draft opens in the composer.
+            (row.threadLabelIds ?? row.labelIds).includes("DRAFT") && (row.threadCount ?? 1) === 1
+              ? navigation.navigate("Compose", {
+                  accountId,
+                  mode: "draft",
+                  messageId: row.id,
+                })
+              : navigation.navigate("Thread", {
+                  accountId,
+                  threadId: row.threadId,
+                  subject: row.subject || "(no subject)",
+                  labelId: place.labelId,
+                })
           }
         />
       ) : (
