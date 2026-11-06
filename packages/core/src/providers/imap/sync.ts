@@ -413,34 +413,40 @@ class FolderSync {
             )
           ).filter((uid) => uid < state.below && !known?.has(uid))
         : [];
-    if (this.window) uids = await this.inWindow(uids, `1:${top}`);
-    const synced = { count: store.countAllMessages(this.accountId) };
-    for (let end = uids.length; end > 0; end -= PAGE) {
-      const page = uids.slice(Math.max(0, end - PAGE), end);
-      synced.count += (await this.fetchPage(page)).length;
-      this.ctx.update({ synced: synced.count });
-      state.below = page[0]!;
-      this.saveCursor();
+    let older: number[] = [];
+    if (this.window) {
+      const since = new Date(windowStart(this.window));
+      const recent = await this.run((client) =>
+        client.search({ uids: `1:${top}`, deleted: false, since, gmailRaw: this.folder.gmailRaw }),
+      );
+      const start = recent[0] ?? Infinity;
+      older = uids.filter((uid) => uid < start);
+      uids = uids.filter((uid) => uid >= start);
+    }
+    await this.fillDown(uids);
+    // The floor is the inbox's: other folders fill separately, to the window alone.
+    if (this.folder.role === "INBOX" && this.window) {
+      for (;;) {
+        const short = this.window.minThreads - store.countThreadsForLabel(this.accountId, "INBOX");
+        if (short <= 0 || older.length === 0) break;
+        await this.fillDown(older.splice(Math.max(0, older.length - Math.min(short, PAGE))));
+      }
     }
     if (this.window) state.covered = true;
     else state.below = 0;
   }
 
-  /**
-   * Of a folder's `uids`, the window's: those since its start, and in the
-   * inbox never fewer than its newest `minThreads` (a message for a thread).
-   */
-  private async inWindow(uids: number[], range: string): Promise<number[]> {
-    const window = this.window!;
-    const since = new Date(windowStart(window));
-    const recent = await this.run((client) =>
-      client.search({ uids: range, deleted: false, since, gmailRaw: this.folder.gmailRaw }),
-    );
-    const cached = cachedUids(this.accountId, this.state!.uidValidity, this.folder.path).size;
-    const floor = this.folder.role === "INBOX" ? Math.max(0, window.minThreads - cached) : 0;
-    const sinceStart = recent[0] ?? Infinity;
-    const newest = floor > 0 ? (uids[Math.max(0, uids.length - floor)] ?? Infinity) : Infinity;
-    return uids.filter((uid) => uid >= Math.min(sinceStart, newest));
+  /** Caches `uids` newest first, a page at a time, keeping `below` as it goes. */
+  private async fillDown(uids: number[]): Promise<void> {
+    const state = this.state!;
+    let synced = store.countAllMessages(this.accountId);
+    for (let end = uids.length; end > 0; end -= PAGE) {
+      const page = uids.slice(Math.max(0, end - PAGE), end);
+      synced += (await this.fetchPage(page)).length;
+      this.ctx.update({ synced });
+      state.below = page[0]!;
+      this.saveCursor();
+    }
   }
 
   private saveCursor(): void {

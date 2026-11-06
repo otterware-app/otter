@@ -14,7 +14,7 @@ const platform = useNodePlatform();
 const DAY = 86_400_000;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-type Message = { uid: number; date: number };
+type Message = { uid: number; date: number; root?: number };
 type Box = { flags: string; uidValidity: number; uidNext: number; messages: Message[] };
 
 const quoted = (text: string) => `"${text}"`;
@@ -42,9 +42,10 @@ class PretendServer {
     this.boxes.set(path, { flags, uidValidity: ++this.validity, uidNext: 1, messages: [] });
   }
 
-  deliver(path: string, date: number): void {
+  /** With `root`, a reply in the conversation of the message with that UID. */
+  deliver(path: string, date: number, root?: number): void {
     const box = this.boxes.get(path)!;
-    box.messages.push({ uid: box.uidNext++, date });
+    box.messages.push({ uid: box.uidNext++, date, root });
   }
 
   connect = async () =>
@@ -99,11 +100,12 @@ class PretendServer {
             const parts = [`UID ${m.uid}`, "FLAGS (\\Seen)"];
             if (items.includes("INTERNALDATE")) parts.push(`INTERNALDATE "${imapDate(m.date)}"`);
             if (items.includes("ENVELOPE")) {
-              const subject = quoted(`Mail ${m.uid}`);
-              const id = quoted(`<${b.uidValidity}.${m.uid}@example.test>`);
+              const subject = quoted(m.root ? `Re: Mail ${m.root}` : `Mail ${m.uid}`);
+              const idOf = (uid: number) => quoted(`<${b.uidValidity}.${uid}@example.test>`);
+              const inReplyTo = m.root ? idOf(m.root) : "NIL";
               parts.push(
                 `ENVELOPE (${quoted(new Date(m.date).toUTCString())} ${subject} ` +
-                  `((NIL NIL "bob" "example.test")) NIL NIL ((NIL NIL "me" "example.test")) NIL NIL NIL ${id})`,
+                  `((NIL NIL "bob" "example.test")) NIL NIL ((NIL NIL "me" "example.test")) NIL NIL ${inReplyTo} ${idOf(m.uid)})`,
               );
             }
             if (items.includes("BODYSTRUCTURE")) {
@@ -196,6 +198,19 @@ describe("IMAP sync with a window", () => {
     expect(server.commands.filter((c) => c.startsWith("UID FETCH")).join("\n")).not.toMatch(
       /UID FETCH 1[,:]/,
     );
+  });
+
+  it("keeps the inbox's newest `minThreads` conversations, not messages", async () => {
+    server.folder("INBOX");
+    const now = Date.now();
+    // Past the window, two messages a conversation.
+    for (let day = 29; day >= 0; day--) {
+      const replying = day >= 10 && day % 2 === 0;
+      server.deliver("INBOX", now - day * DAY, replying ? 30 - day - 1 : undefined);
+    }
+    platform.syncPolicy = { ...KEEP_RECENT, initialCoverage: { days: 10, minThreads: 15 } };
+    await imapProvider.sync(accountId, ctx);
+    expect(store.countThreadsForLabel(accountId, "INBOX")).toBe(15);
   });
 
   it("goes on below the window once the policy widens", async () => {

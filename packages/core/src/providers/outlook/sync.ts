@@ -262,7 +262,8 @@ async function followInbox(accountId: string, ctx: SyncContext): Promise<void> {
 
 /**
  * The inbox's newest page, before the folders' deltas list everything. With a
- * window, as many pages as its `minThreads` take, however old they are.
+ * window, as many pages as its `minThreads` take, however old they are: the
+ * floor is the inbox's, as the other folders' deltas fill to the window alone.
  */
 async function peekInbox(accountId: string, mailbox: Mailbox, ctx: SyncContext): Promise<void> {
   const inbox = mailbox.wellKnown.inbox!;
@@ -277,7 +278,7 @@ async function peekInbox(accountId: string, mailbox: Mailbox, ctx: SyncContext):
       (page.value ?? []).map((m) => toSummary(accountId, m)),
     );
     next =
-      window && store.countThreads(accountId) < window.minThreads
+      window && store.countThreadsForLabel(accountId, "INBOX") < window.minThreads
         ? page["@odata.nextLink"]
         : undefined;
   }

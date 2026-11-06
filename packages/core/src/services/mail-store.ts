@@ -1167,6 +1167,18 @@ export function countThreads(accountId: string): number {
   return row?.n ?? 0;
 }
 
+/** Conversations with a message under `labelId`. */
+export function countThreadsForLabel(accountId: string, labelId: string): number {
+  const row = getDb()
+    .prepare(
+      `SELECT COUNT(DISTINCT m.threadId) AS n FROM message_labels ml
+         JOIN messages m ON m.accountId = ml.accountId AND m.id = ml.messageId
+        WHERE ml.accountId = ? AND ml.labelId = ?`,
+    )
+    .get(accountId, labelId) as unknown as { n: number };
+  return row?.n ?? 0;
+}
+
 export function threadIdsOf(accountId: string, messageIds: string[]): string[] {
   const read = getDb().prepare("SELECT threadId FROM messages WHERE accountId = ? AND id = ?");
   return messageIds.flatMap((id) => {
