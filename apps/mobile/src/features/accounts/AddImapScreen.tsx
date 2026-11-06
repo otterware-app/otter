@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -17,6 +18,8 @@ import type { ScrollViewInstance } from "react-native";
 import type { RootStack } from "../../App";
 import { mailboxes } from "../../state/client";
 import { core } from "../../state/core";
+import { connectNotifications } from "../../state/notification-connections";
+import { inDemo } from "../../state/otter";
 import { useKeyboardInset } from "../keyboard";
 import { palette } from "../theme";
 
@@ -36,6 +39,7 @@ export function AddImapScreen({ navigation }: Props) {
   const [imap, setImap] = useState<Server>({ host: "", port: "993", security: "tls" });
   const [smtp, setSmtp] = useState<Server>({ host: "", port: "465", security: "tls" });
   const [busy, setBusy] = useState(false);
+  const [backgroundNotifications, setBackgroundNotifications] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const discover = async () => {
@@ -63,7 +67,7 @@ export function AddImapScreen({ navigation }: Props) {
     setBusy(true);
     setError(null);
     try {
-      await core.invoke("gmail:addImapAccount", {
+      const added = await core.invoke<{ id: string }>("gmail:addImapAccount", {
         email,
         password,
         imap: {
@@ -73,6 +77,7 @@ export function AddImapScreen({ navigation }: Props) {
         },
       });
       await mailboxes.refreshAccounts();
+      if (backgroundNotifications) await connectNotifications(added.id);
       navigation.popToTop();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -144,6 +149,26 @@ export function AddImapScreen({ navigation }: Props) {
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
     >
+      {inDemo ? null : (
+        <View style={styles.toggle}>
+          <View style={[styles.field, styles.toggleRow, { borderColor: colors.border }]}>
+            <Text style={[styles.toggleTitle, { color: colors.text }]}>
+              Background notifications
+            </Text>
+            <Switch
+              value={backgroundNotifications}
+              onValueChange={setBackgroundNotifications}
+              trackColor={{ true: colors.accent }}
+              accessibilityLabel="Background notifications"
+            />
+          </View>
+          <Text style={[styles.footer, { color: colors.secondary }]}>
+            When enabled, Otter securely stores the IMAP password to watch for new mail while the
+            app is closed. The watcher reads new-mail metadata; previews load directly on your
+            iPhone.
+          </Text>
+        </View>
+      )}
       {field("Email", email, setEmail, {
         keyboardType: "email-address",
         onBlur: () => void discover(),
@@ -186,6 +211,10 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 60 },
   field: { borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 10 },
   label: { fontSize: 12 },
+  toggle: { marginBottom: 12 },
+  toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  toggleTitle: { fontSize: 17 },
+  footer: { fontSize: 13, marginTop: 6, lineHeight: 18 },
   input: { fontSize: 17, paddingVertical: 4 },
   section: { marginTop: 22, fontSize: 13, fontWeight: "600", textTransform: "uppercase" },
   segments: { flexDirection: "row", gap: 8, marginTop: 10 },

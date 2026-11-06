@@ -3,6 +3,7 @@ import { makeMailboxes } from "@otter-mail/client-runtime/state/mailboxes";
 import { makeThreadLists } from "@otter-mail/client-runtime/state/messages";
 import { makeMailOperations, summarizeLabelChange } from "@otter-mail/client-runtime/operations";
 import type { MailboxInfo } from "@otter-mail/client-runtime/mail";
+import type { AliasMailbox } from "@otter-mail/contracts";
 import { AtomRegistry } from "effect/reactivity";
 import { AppState } from "react-native";
 
@@ -74,8 +75,12 @@ export type Mailbox = MailboxInfo & {
   color?: string;
   signedOut?: boolean;
   signature?: string;
+  /** false: this Gmail sign-in may not save signatures in Gmail, so it's kept with the account. */
+  signatureInGmail?: boolean;
+  /** An IMAP mailbox's other addresses, and those with a mailbox of their own. */
   sendAs?: string[];
-  aliasMailboxes?: { address: string; signature?: string }[];
+  aliasMailboxes?: AliasMailbox[];
+  aliasPictures?: Record<string, string>;
 };
 
 export const mailboxes = makeMailboxes<Mailbox>(appAtomRegistry, core);
