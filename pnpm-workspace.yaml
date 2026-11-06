@@ -27,6 +27,7 @@ catalog:
   vite-plus: 0.3.3
 
 minimumReleaseAgeExclude:
+  - expo-modules-core@58.0.22
   - "@cloudflare/workerd-darwin-64@1.20260925.1"
   - "@cloudflare/workerd-darwin-arm64@1.20260925.1"
   - "@cloudflare/workerd-linux-64@1.20260925.1"
@@ -35,3 +36,10 @@ minimumReleaseAgeExclude:
   - miniflare@5.20260925.0-alpha
   - workerd@1.20260925.1
   - wrangler@4.141.0
+
+overrides:
+  # As Otter Code's apps/mobile: Expo's precompiled ExpoModulesCore newer than
+  # 58.0.22 links React symbols React Native 0.88.0 doesn't have (dyld fails at launch).
+  expo-modules-core: 58.0.22
+  # Move with @react-navigation/native: an older core than it requires crashes native stacks at launch.
+  "@react-navigation/core": 7.24.0
