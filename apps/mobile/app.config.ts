@@ -124,6 +124,8 @@ const config: ExpoConfig = {
     relayUrl: process.env.OTTER_MAIL_RELAY_URL?.trim() || "https://relay.mail.otterware.app",
     // `OTTER_MAIL_FAKE_MAILBOX=1`: apps/web's made-up mailbox, no account at all.
     fakeMailbox: process.env.OTTER_MAIL_FAKE_MAILBOX === "1",
+    // `OTTER_MAIL_AGENT_SERVER_URL=http://localhost:5833/api/agent`: `pnpm dev:fake`'s agent server.
+    agentServerUrl: process.env.OTTER_MAIL_AGENT_SERVER_URL?.trim() || undefined,
   },
 };
 

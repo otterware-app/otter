@@ -42,7 +42,8 @@ export function startHost(deliver: (message: unknown) => void, config: WorkerCon
       },
     },
   }).then(async (platform) => {
-    await core.startCore(platform, []);
+    const { mobileExtensions } = require("./extensions") as typeof import("./extensions");
+    await core.startCore(platform, mobileExtensions);
     registerProbes();
   });
   ready.catch((error: unknown) =>

@@ -31,6 +31,12 @@
     "name": "OpenClaw",
     "description": "Chats with your OpenClaw gateway.",
     "category": "agent",
+    "platforms": [
+      "mac",
+      "linux",
+      "web",
+      "ios"
+    ],
     "dataUse": "Your messages, and the mail and calendar data its tools read, go to your OpenClaw gateway."
   }
 }

@@ -4,4 +4,6 @@ export type WorkerConfig = {
   relayUrl: string;
   /** `pnpm dev:fake`'s made-up mailbox (apps/web's fake Gmail), no account at all. */
   demo: boolean;
+  /** The OpenRouter agent's server when not the relay's (`pnpm dev:fake`'s /api/agent). */
+  agentServerUrl?: string;
 };

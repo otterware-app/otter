@@ -1,0 +1,10 @@
+import hermes from "@otter-mail/extension-hermes/core";
+import openclaw from "@otter-mail/extension-openclaw/core";
+import openrouter from "@otter-mail/extension-openrouter/core";
+import { runsOn } from "@otter-mail/contracts/extensions";
+import type { CoreExtension } from "@otter-mail/core";
+
+/** The extensions core runs on the phone: those whose manifest names ios. */
+export const mobileExtensions: CoreExtension[] = [openrouter, hermes, openclaw].filter((e) =>
+  runsOn(e.manifest, "ios"),
+);

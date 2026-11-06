@@ -16,7 +16,7 @@ import { markCoreReady } from "./startup";
  * its requests and effects for the host are answered here.
  */
 
-type Extra = { relayUrl?: string; fakeMailbox?: boolean };
+type Extra = { relayUrl?: string; fakeMailbox?: boolean; agentServerUrl?: string };
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
 
 const listeners = new Map<string, Set<(params: unknown) => void>>();
@@ -42,6 +42,7 @@ export const connection: CoreHostConnection = connectCore(
       appVersion: Constants.expoConfig?.version ?? "0.0.0",
       relayUrl: extra.relayUrl ?? "https://relay.mail.otterware.app",
       demo: extra.fakeMailbox === true,
+      agentServerUrl: extra.agentServerUrl,
     }),
   {
     onEvent(channel, params) {
