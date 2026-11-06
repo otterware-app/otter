@@ -19,6 +19,7 @@ import { SettingsScreen } from "./features/settings/SettingsScreen";
 import { usePalette, useThemeSource } from "./features/theme";
 import { ThreadScreen } from "./features/thread/ThreadScreen";
 import { appAtomRegistry, startClientState } from "./state/client";
+import { developmentVariant } from "./state/core";
 import { startUiPreferences } from "./state/preferences";
 
 const COMPOSE_TITLES = {
@@ -52,7 +53,14 @@ const homeOptions: NativeStackNavigationOptions = {
 
 const linking = {
   prefixes: ["ottermail://", "ottermail-dev://", "ottermail-preview://"],
-  config: { screens: { Home: "", Thread: "thread", Gate: "gate", Settings: "settings" } },
+  config: {
+    screens: {
+      Home: "",
+      Thread: "thread",
+      Settings: "settings",
+      ...(developmentVariant ? { Gate: "gate" } : {}),
+    },
+  },
 };
 
 export default function App() {
@@ -126,7 +134,9 @@ function Navigation() {
             presentation: "modal",
           })}
         />
-        <Stack.Screen name="Gate" component={GateScreen} options={{ title: "Phase 0 gate" }} />
+        {developmentVariant ? (
+          <Stack.Screen name="Gate" component={GateScreen} options={{ title: "Phase 0 gate" }} />
+        ) : null}
       </Stack.Navigator>
     </NavigationContainer>
   );

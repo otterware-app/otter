@@ -35,6 +35,11 @@ const inForeground = createSynchronizable(AppState.currentState === "active", {
   fixedType: true,
 });
 
+/** The development variant: only it has the gate (its screen, deep link and probes). */
+export const developmentVariant =
+  (Constants.expoConfig?.extra as { appVariant?: string } | undefined)?.appVariant ===
+  "development";
+
 /** `pnpm dev:fake`'s agent server, which needs no Otter account. */
 export const agentServerUrl = extra.agentServerUrl;
 
@@ -68,6 +73,7 @@ export const connection: CoreHostConnection = connectCore(
       demo: extra.fakeMailbox === true,
       agentServerUrl: extra.agentServerUrl,
       inForeground,
+      development: developmentVariant,
     }),
   {
     onEvent(channel, params) {

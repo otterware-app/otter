@@ -48,7 +48,7 @@ export function startHost(deliver: (message: unknown) => void, config: WorkerCon
   }).then(async (platform) => {
     const { mobileExtensions } = require("./extensions") as typeof import("./extensions");
     await core.startCore(platform, mobileExtensions);
-    registerProbes();
+    if (config.development) registerProbes();
     registerPushHandlers();
     registerBackgroundHandlers();
     registerRecoveryHandlers(host, config.demo);

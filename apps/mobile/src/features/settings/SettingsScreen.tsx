@@ -37,7 +37,7 @@ import { Alert } from "react-native";
 import type { RootStack } from "../../App";
 import { useAgentProviders } from "../../state/chats";
 import { mailboxes } from "../../state/client";
-import { core } from "../../state/core";
+import { core, developmentVariant } from "../../state/core";
 import { flag, setUiPreference, uiPreferencesAtom } from "../../state/preferences";
 import { availableThemes, themeId, themeSource, usePalette, type Palette } from "../theme";
 import { AgentSettings } from "./AgentSettings";
@@ -245,14 +245,16 @@ export function SettingsScreen({ navigation }: Props) {
               <LabeledContent label={<Label title="Version" systemImage="info.circle" />}>
                 <Text>{Constants.expoConfig?.version ?? ""}</Text>
               </LabeledContent>
-              <Button
-                label="Phase 0 gate"
-                systemImage="gauge.with.dots.needle.33percent"
-                onPress={() => {
-                  navigation.goBack();
-                  navigation.navigate("Gate");
-                }}
-              />
+              {developmentVariant ? (
+                <Button
+                  label="Phase 0 gate"
+                  systemImage="gauge.with.dots.needle.33percent"
+                  onPress={() => {
+                    navigation.goBack();
+                    navigation.navigate("Gate");
+                  }}
+                />
+              ) : null}
             </Group>
           </SettingsForm>
           <Toolbar.Content>

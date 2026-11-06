@@ -10,4 +10,6 @@ export type WorkerConfig = {
   agentServerUrl?: string;
   /** Whether the app is active, kept by the UI's AppState: the worker has no AppState of its own. */
   inForeground: FixedSynchronizable<boolean>;
+  /** The development variant: the gate's probes are registered only there. */
+  development: boolean;
 };
