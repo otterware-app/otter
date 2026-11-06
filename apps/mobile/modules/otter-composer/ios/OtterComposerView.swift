@@ -86,6 +86,7 @@ public final class OtterComposerView: ExpoView, WKScriptMessageHandler, WKNaviga
   func setPlaceholder(_ text: String) { run("otterComposer.setPlaceholder(\(Self.literal(text)))") }
   func focus(_ position: String) { run("otterComposer.focus(\(Self.literal(position)))") }
   func command(_ name: String) { run("otterComposer.command(\(Self.literal(name)))") }
+  func setSignature(_ html: String?) { run("otterComposer.setSignature(\(html.map(Self.literal) ?? "null"))") }
 
   func snapshot(_ promise: Promise) {
     guard ready else { return promise.resolve(nil) }

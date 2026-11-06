@@ -68,6 +68,36 @@ window.otterComposer = {
   setContent(html: string) {
     editor.commands.setContent(normalizeHtml(html), { emitUpdate: false });
   },
+  /** The From's signature (the web's signature node, at the end): replaced, added, or taken out. */
+  setSignature(html: string | null) {
+    let found: { pos: number; size: number } | null = null;
+    editor.state.doc.forEach((node, pos) => {
+      if (node.type.name === "signature") found = { pos, size: node.nodeSize };
+    });
+    const block = found as { pos: number; size: number } | null;
+    const quietly = () => editor.chain().setMeta("addToHistory", false);
+    if (block && html) {
+      quietly()
+        .command(({ tr }) => {
+          tr.setNodeAttribute(block.pos, "html", normalizeHtml(html));
+          return true;
+        })
+        .run();
+    } else if (block) {
+      quietly()
+        .deleteRange({ from: block.pos, to: block.pos + block.size })
+        .run();
+    } else if (html) {
+      quietly()
+        .insertContentAt(editor.state.doc.content.size, [
+          { type: "paragraph" },
+          { type: "signature", attrs: { html: normalizeHtml(html) } },
+        ])
+        .setTextSelection(1)
+        .run();
+    }
+    post({ type: "change", ...change() });
+  },
   focus(position: "start" | "end" = "start") {
     editor.commands.focus(position);
   },
