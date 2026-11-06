@@ -23,7 +23,7 @@ const loadDevices = (set: (devices: OtterDevice[]) => void) =>
 const active = (ms: number) =>
   Date.now() - ms < 60_000 ? "Active now" : `Active ${namedRelative(ms)}`;
 
-/** apps/ios's AccountSettings: the account's devices (sign one out), signing out, and deleting the account. */
+/** The Swift app's AccountSettings: the account's devices (sign one out), signing out, and deleting the account. */
 export function AccountSettings({ colors }: { colors: Palette }) {
   const [devices, setDevices] = useState<OtterDevice[] | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);

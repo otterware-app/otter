@@ -14,7 +14,7 @@ function storage() {
 }
 
 describe("swiftOpenClaw", () => {
-  it("reads apps/ios's settings and its open run", () => {
+  it("reads the Swift app's settings and its open run", () => {
     expect(swiftOpenClaw({ openclaw: settings, "openclaw-run": run })).toEqual({
       url: "wss://computer.ts.net",
       model: "main",

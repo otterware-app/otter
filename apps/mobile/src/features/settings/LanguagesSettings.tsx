@@ -43,7 +43,7 @@ export function useTranslationSettings(): [
   ];
 }
 
-/** apps/ios's LanguagesSettings: the languages mail isn't translated from (the first is where translations go), reordered, deleted, added. */
+/** The Swift app's LanguagesSettings: the languages mail isn't translated from (the first is where translations go), reordered, deleted, added. */
 export function LanguagesSettings({ colors }: { colors: Palette }) {
   const [{ readLanguages: read }, set] = useTranslationSettings();
   const [editing, setEditing] = useState(false);

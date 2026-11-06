@@ -116,7 +116,7 @@ function Navigation() {
       },
     };
   }, [colors]);
-  // apps/ios's Session.state: the welcome until there's an Otter account, or the demo.
+  // The Swift app's Session.state: the welcome until there's an Otter account, or the demo.
   const welcome = useAtomValue(sessionAtom) === "welcome";
   return (
     <NavigationContainer theme={theme} linking={linking}>

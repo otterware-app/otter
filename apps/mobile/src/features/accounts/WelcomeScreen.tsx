@@ -19,7 +19,7 @@ import { setDemo, signInWithGoogle } from "../../state/otter";
 import { usePalette } from "../theme";
 
 /**
- * apps/ios's WelcomeView: Sign in with Google adds the Gmail mailbox and signs
+ * The Swift app's WelcomeView: Sign in with Google adds the Gmail mailbox and signs
  * in to (or creates) the Otter account with it. Outside the App Store
  * (TestFlight, development builds) the demo mailbox can be tried instead.
  */

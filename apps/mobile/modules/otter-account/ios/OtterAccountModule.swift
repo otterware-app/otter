@@ -3,7 +3,7 @@ import ExpoModulesCore
 import StoreKit
 
 /**
- * apps/ios's WelcomeView's AppTransaction check (the demo is offered outside
+ * The Swift app's WelcomeView's AppTransaction check (the demo is offered outside
  * the App Store) and its NotificationAuthorization: the limited provider
  * consent for background notifications, back on a custom scheme.
  */

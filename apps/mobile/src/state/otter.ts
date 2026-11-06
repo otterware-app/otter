@@ -9,7 +9,7 @@ import { core, fakeMailbox } from "./core";
 import { DEMO_FILE } from "./demo";
 
 /**
- * apps/ios's Session: who you are (the Otter account) or the demo mailbox,
+ * The Swift app's Session: who you are (the Otter account) or the demo mailbox,
  * else the welcome. A copy of the account stays in client storage so a cold
  * start opens on the mail, not on the welcome, while core starts.
  */

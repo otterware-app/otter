@@ -145,7 +145,7 @@ function keychainMicrosoftAuth(): MicrosoftAuth {
 const noContext = <T>(): AsyncContext<T> => ({ run: (_value, fn) => fn(), get: () => undefined });
 
 /**
- * apps/ios's demo: the pretend Gmail accounts, and the iCloud-shaped IMAP
+ * The Swift app's demo: the pretend Gmail accounts, and the iCloud-shaped IMAP
  * mailbox with its alias mailboxes on the pretend IMAP server (demo-imap.ts).
  */
 function demoGoogleAuth(setPassword: (accountId: string) => Promise<void>): GoogleAuth {

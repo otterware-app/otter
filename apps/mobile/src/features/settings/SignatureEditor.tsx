@@ -10,7 +10,7 @@ import { cancelled, signInAgain } from "../../state/mailbox-sign-in";
 import type { Palette } from "../theme";
 
 /**
- * apps/ios's SignatureEditor: the mailbox's signature in the composer's
+ * The Swift app's SignatureEditor: the mailbox's signature in the composer's
  * editor, saved in Gmail (when the sign-in may) or with the Otter account.
  * Compose adds it to new messages, replies and forwards.
  */

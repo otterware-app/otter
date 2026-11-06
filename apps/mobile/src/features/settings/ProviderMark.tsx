@@ -17,7 +17,7 @@ export const providerName = (m: Pick<Mailbox, "provider" | "imap">) =>
         : "IMAP"
       : "Gmail";
 
-/** apps/ios's ProviderMark: Gmail's and Microsoft's marks, iCloud's cloud, a server for other IMAP. */
+/** The Swift app's ProviderMark: Gmail's and Microsoft's marks, iCloud's cloud, a server for other IMAP. */
 export function ProviderMark({
   mailbox,
   size = 14,

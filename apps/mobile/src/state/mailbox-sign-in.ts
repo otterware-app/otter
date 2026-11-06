@@ -8,7 +8,7 @@ export function signedOutTitle(mailbox: Mailbox): string {
 }
 
 /**
- * apps/ios's Session.signIn(mailbox:): Google or Microsoft again, as this
+ * The Swift app's Session.signIn(mailbox:): Google or Microsoft again, as this
  * mailbox (the provider's sheet suggests it). Another account chosen is
  * refused, and dropped if it wasn't here before. False when cancelled.
  */

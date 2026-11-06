@@ -12,7 +12,7 @@ export type SyncHealth = {
   signInNeeded: boolean;
 };
 
-/** apps/ios's `.relative(presentation: .named)`, in English. */
+/** The Swift app's `.relative(presentation: .named)`, in English. */
 export function namedRelative(ms: number, now = Date.now()): string {
   const minutes = Math.floor((now - ms) / 60_000);
   if (minutes < 60) return minutes <= 1 ? "1 minute ago" : `${minutes} minutes ago`;
@@ -44,7 +44,7 @@ export function syncLine(
 }
 
 /**
- * apps/ios's lostSignIn: a mailbox that synced here and then lost its sign-in
+ * The Swift app's lostSignIn: a mailbox that synced here and then lost its sign-in
  * (revoked, or the server refused the password). One added on another device
  * and never signed in here isn't lost; its Settings page asks instead.
  */

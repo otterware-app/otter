@@ -74,7 +74,7 @@ const failed = (title: string) => (e: unknown) => {
   if (!cancelled(e)) Alert.alert(title, e instanceof Error ? e.message : String(e));
 };
 
-/** `mail:mailboxes` and `mail:alias-mail-apart`, as the Mac, the web and apps/ios keep them. */
+/** `mail:mailboxes` and `mail:alias-mail-apart`, as the Mac, the web and the Swift app keep them. */
 function useArrangement(): Arrangement {
   return parseArrangement(useAtomValue(uiPreferencesAtom)["mail:mailboxes"]);
 }
@@ -92,7 +92,7 @@ function Hosted({ children }: { children: ReactNode }) {
 }
 
 /**
- * apps/ios's MailboxesSettings: each mailbox, alias mailboxes under their
+ * The Swift app's MailboxesSettings: each mailbox, alias mailboxes under their
  * parent, turned on or off (on every device); Edit reorders them, an alias
  * mailbox anywhere. Then adding Gmail, Outlook and IMAP.
  */
@@ -272,7 +272,7 @@ const server = (m: Mailbox) =>
       : "Gmail";
 
 /**
- * apps/ios's MailboxSettings: a failing sync and signing in again, background
+ * The Swift app's MailboxSettings: a failing sync and signing in again, background
  * notifications, its name and color (on every device), whether its alias
  * mailboxes' mail shows in it too, its signature, and removing it.
  */

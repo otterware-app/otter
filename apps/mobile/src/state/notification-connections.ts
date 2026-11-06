@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { core } from "./core";
 
 /**
- * Background notifications per mailbox (apps/ios's Session.notificationConnections):
+ * Background notifications per mailbox (the Swift app's Session.notificationConnections):
  * the relay watches a mailbox with a limited grant (Gmail, Outlook) or its
  * IMAP password, and the providers it can watch at all.
  */

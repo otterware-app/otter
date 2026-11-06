@@ -77,7 +77,7 @@ function useNotificationsMode(): [NotificationsMode, (mode: NotificationsMode) =
   ];
 }
 
-/** apps/ios's SettingsForm: an inset grouped list on the theme's canvas, its rows on cards. */
+/** The Swift app's SettingsForm: an inset grouped list on the theme's canvas, its rows on cards. */
 export function SettingsForm({
   colors,
   title,
@@ -108,7 +108,7 @@ export function Group({ colors, ...props }: Parameters<typeof Section>[0] & { co
 }
 
 /**
- * apps/ios's SettingsView, in SwiftUI (@expo/ui): the Otter account, Mail,
+ * The Swift app's SettingsView, in SwiftUI (@expo/ui): the Otter account, Mail,
  * Agents, Appearance, the message list, and the account. Its pages push on a
  * SwiftUI NavigationStack inside the modal.
  */

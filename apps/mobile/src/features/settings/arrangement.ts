@@ -1,7 +1,7 @@
 import { aliasMailboxName, validAliasMailboxes, type AliasMailbox } from "@otter-mail/contracts";
 
 /**
- * `mail:mailboxes`, as the Mac, the web and apps/ios keep it: every mailbox's
+ * `mail:mailboxes`, as the Mac, the web and the Swift app keep it: every mailbox's
  * place, alias mailboxes among the rest (by address, lower-cased), and the
  * ones turned off. `mail:alias-mail-apart`: parents whose list leaves out
  * their alias mailboxes' mail.

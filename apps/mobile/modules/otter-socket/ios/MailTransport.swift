@@ -101,7 +101,7 @@ final class NWTransport: MailTransport, @unchecked Sendable {
   func close() { connection.cancel() }
 
   /**
-   * apps/ios's NWTransport.lost: a connection the network failed (iOS
+   * The Swift app's NWTransport.lost: a connection the network failed (iOS
    * aborting a backgrounded app's socket, Wi-Fi handing over) is cancelled
    * by the state handler, which ends what was waiting on it, and anything
    * sent after, as ECANCELED. That failure is reported instead, so core

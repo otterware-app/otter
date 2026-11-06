@@ -1,4 +1,4 @@
-/** apps/ios's LanguagesSettings.choices, with their names. */
+/** The Swift app's LanguagesSettings.choices, with their names. */
 export const LANGUAGES: Record<string, string> = {
   en: "English",
   fr: "French",

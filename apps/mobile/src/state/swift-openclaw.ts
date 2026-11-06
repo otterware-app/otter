@@ -1,11 +1,11 @@
-/** apps/ios's UserDefaults keys for OpenClaw: its settings, and the run it left open. */
+/** The Swift app's UserDefaults keys for OpenClaw: its settings, and the run it left open. */
 export const SWIFT_OPENCLAW_KEYS = ["openclaw", "openclaw-run"];
 
 const DONE_KEY = "otter:swift-openclaw-imported";
 
 type Storage = { getItem(key: string): string | null; setItem(key: string, value: string): void };
 
-/** What core's `agent:importOpenClaw` takes, from apps/ios's JSON (absent or broken: nothing). */
+/** What core's `agent:importOpenClaw` takes, from the Swift app's JSON (absent or broken: nothing). */
 export function swiftOpenClaw(raw: Record<string, string>): {
   url: string;
   model: string;
@@ -34,7 +34,7 @@ export function swiftOpenClaw(raw: Record<string, string>): {
 }
 
 /**
- * On the Expo app's first launch over apps/ios: its OpenClaw gateway, model
+ * On the Expo app's first launch over the Swift app: its OpenClaw gateway, model
  * and switch go to core (which keeps its own if it has one), then never again.
  */
 export async function importSwiftOpenClaw({
