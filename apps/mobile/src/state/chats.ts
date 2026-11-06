@@ -3,8 +3,11 @@ import { useAtomValue } from "@effect/atom-react";
 import { useSyncExternalStore } from "react";
 import { Alert } from "react-native";
 
+import { legacyDefaults } from "@otter-mail/mobile-background";
+
 import { appAtomRegistry, clientPlatform } from "./client";
 import { core } from "./core";
+import { importSwiftOpenClaw } from "./swift-openclaw";
 
 export type ModelOption = {
   id: "reasoningEffort" | "serviceTier";
@@ -98,6 +101,11 @@ export function startAgents(): () => void {
     chats.start(),
   ];
   void core.invoke<ProvidersState>("agent:providers").then(agents.set, () => {});
+  void importSwiftOpenClaw({
+    storage: clientPlatform.storage,
+    read: legacyDefaults,
+    invoke: (channel, params) => core.invoke(channel, params),
+  }).catch((error: unknown) => console.log(`[agents] Swift import failed: ${String(error)}`));
   let unfollow: (() => void) | undefined;
   let followed: AgentProvider[] = [];
   const follow = () => {
