@@ -1,0 +1,67 @@
+# Otter Mail mobile (Expo)
+
+The iPhone app's successor to `apps/ios`: an Expo app (SDK 58, React Native 0.88) laid out like
+Otter Code's `apps/mobile`, that runs the same TypeScript mail backend as the Mac and web apps,
+`packages/core`, on the phone. Phase 0: core boots and syncs on the device, an inbox and a
+thread render from it, and the gate below measures whether the architecture holds.
+
+## How it works
+
+- **Two runtimes.** The UI runs on React Native's runtime; core runs on its own Hermes runtime,
+  a [react-native-worklets](https://docs.swmansion.com/react-native-worklets) worker runtime in
+  **Bundle Mode** (`createWorkletRuntime` with its event loop): the worker evaluates the same
+  bundle, so core's modules run there as ordinary code (`babel.config.js`, `metro.config.js`).
+  Bundle Mode skips React Native's `InitializeCore` there and blocks TurboModules, so:
+  - `src/worker/polyfills.ts` gives the worker what core expects of a browser: URL, crypto
+    (`@noble/hashes` behind `crypto.subtle.digest`), streams, `structuredClone`, a
+    `TextDecoder` that reads every legacy mail charset through the OS (`src/worker/text.ts`),
+    and fetch and WebSocket over URLSession (`src/worker/net.ts`: streaming `Response.body`,
+    WebSocket request headers).
+  - Every native call core makes is a Nitro HybridObject. `otter-worker`'s C++
+    `installNitro(runtime)` (called from the UI runtime) installs Nitro on the worker with a
+    Dispatcher that schedules on it (`WorkletRuntime::schedule`), so Nitro's Promises and
+    callbacks settle on the worker's thread.
+- **The host.** `src/worker/host.ts` is `apps/web/src/web/worker.ts` for the phone: it starts
+  core with the phone's Platform (`src/persistence/platform.ts`) and answers the UI's invokes
+  through `callHandler`. The UI reaches it only through `CoreHost` (`src/state/core.ts`), an
+  Effect service; `core-transport.ts` underneath (worklets' scheduling) is the piece the Effect
+  RPC client replaces. Atoms in `src/state/mail.ts` (effect/reactivity) feed the screens.
+- **Native modules** (`modules/`, Nitro, generated with `pnpm nitrogen`):
+  - `otter-worker`: Nitro on the worker; randomness, legacy charsets (CoreFoundation),
+    Application Support files, os_log, memory and uptime.
+  - `otter-sqlite`: synchronous SQLite (the `sqlite3` pod with FTS5, WAL); `get`/`all`/`run`
+    are raw JSI methods with a statement cache.
+  - `otter-socket`: core's ByteStream, `apps/ios`'s MailSocket transports (NWConnection for TLS,
+    URLSessionStreamTask for STARTTLS). The development variant trusts localhost certificates
+    (`OtterTrustLocalMailServers`) for `pnpm dev:mail`.
+  - `otter-net`: URLSession data tasks streamed through a delegate, and WebSockets.
+  - `otter-credentials`: `apps/ios/NotificationShared`'s Keychain, Google and Microsoft
+    credentials and PushState (linked, not copied): the one credential authority. Refresh tokens
+    never reach JS.
+- **The notification service extension** is `apps/ios`'s, unchanged: a config plugin
+  (`plugins/withNotificationServiceExtension.cjs`) copies its sources in at prebuild.
+- **Variants** (`APP_VARIANT`): development (`dev.otterware.mail.dev`), preview
+  (`dev.otterware.mail.preview`) and production (`dev.otterware.mail`), each with its own Keychain
+  access group and App Group (`group.<bundle id>.notifications`), so development and preview
+  builds never read production's sign-ins.
+
+## Running it
+
+From `apps/mobile`, with a simulator booted:
+
+```bash
+pnpm ios:release         # prebuild, warm the worklets, a Release build in the simulator
+pnpm ios:dev             # a Debug build with Metro
+```
+
+`pnpm warm-worklets` exists because Bundle Mode's Babel plugin writes each worklet to
+`react-native-worklets/.worklets/` during the transform, after Metro crawled its files: the
+first one-shot Release bundle on a fresh checkout otherwise fails with "Failed to get the SHA-1".
+
+Phase 0 always runs on the made-up mailbox (`apps/web`'s fake Gmail); signing in isn't built.
+
+## The gate
+
+`Inbox → Gate` (or `ottermail-dev://gate?run=all&n=1`) runs each probe on the worker and logs it
+as `[gate] …` (subsystem `dev.otterware.mail`): `run=all`, `scroll` (5,000 threads while the
+worker writes), `net` / `net-status` (with `pnpm gate:server` on the Mac), or a probe's name.
