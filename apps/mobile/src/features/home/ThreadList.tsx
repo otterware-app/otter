@@ -17,7 +17,15 @@ import { ThreadRow } from "./ThreadRow";
 
 type Item =
   | { type: "pills"; unreadOnly: boolean }
-  | { type: "day"; key: string; title: string; count: number; unread: number; collapsed: boolean }
+  | {
+      type: "day";
+      key: string;
+      title: string;
+      count: number;
+      unread: number;
+      collapsed: boolean;
+      first: boolean;
+    }
   | { type: "row"; row: MessageSummary };
 
 const dayKey = (ms: number) => new Date(ms).toDateString();
@@ -74,6 +82,7 @@ export function ThreadList({
           count: 0,
           unread: 0,
           collapsed: collapsed.has(k),
+          first: day === null,
         };
         out.push(day);
       }
@@ -132,7 +141,7 @@ export function ThreadList({
               return next;
             })
           }
-          style={styles.day}
+          style={[styles.day, !item.first && styles.dayGap]}
           accessibilityRole="button"
           accessibilityLabel={`${item.title}, ${item.count} conversations, ${item.unread} unread`}
           accessibilityValue={{ text: item.collapsed ? "Collapsed" : "Expanded" }}
@@ -247,6 +256,7 @@ const styles = StyleSheet.create({
   pill: { paddingHorizontal: 16, minHeight: 36, borderRadius: 18, justifyContent: "center" },
   pillText: { fontSize: 15, fontWeight: "500" },
   day: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingHorizontal: 20 },
+  dayGap: { marginTop: 16 },
   dayTitle: { fontSize: 13, fontWeight: "500", flex: 1 },
   dayCount: { fontSize: 13, fontVariant: ["tabular-nums"] },
   empty: { alignItems: "center", gap: 12, paddingTop: 80 },

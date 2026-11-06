@@ -14,6 +14,8 @@ import {
   VStack,
 } from "@expo/ui/swift-ui";
 import {
+  accessibilityHidden,
+  background,
   disabled,
   font,
   foregroundStyle,
@@ -21,6 +23,8 @@ import {
   labelsHidden,
   multilineTextAlignment,
   onSubmit,
+  shapes,
+  tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { Alert } from "react-native";
 
@@ -75,13 +79,25 @@ export function MailboxesSettings({ colors, onAdd }: { colors: Palette; onAdd: (
             <HStack key={m.id} spacing={12}>
               <NavigationLink value={`mailbox:${m.id}`}>
                 <HStack spacing={12}>
-                  <Image
-                    systemName={providerSymbol(m)}
-                    color={m.color ?? colors.accent}
-                    size={18}
-                  />
+                  <Text
+                    modifiers={[
+                      font({ size: 18, weight: "bold" }),
+                      foregroundStyle("#FFFFFF"),
+                      frame({ width: 30, height: 30 }),
+                      background(
+                        m.color ?? colors.accent,
+                        shapes.roundedRectangle({ cornerRadius: 8.4 }),
+                      ),
+                      accessibilityHidden(true),
+                    ]}
+                  >
+                    {name(m).slice(0, 1).toUpperCase()}
+                  </Text>
                   <VStack alignment="leading" spacing={2}>
-                    <Text>{name(m)}</Text>
+                    <HStack spacing={6}>
+                      <Image systemName={providerSymbol(m)} color={colors.secondary} size={12} />
+                      <Text>{name(m)}</Text>
+                    </HStack>
                     <Text
                       modifiers={[
                         font({ textStyle: "subheadline" }),
@@ -98,7 +114,11 @@ export function MailboxesSettings({ colors, onAdd }: { colors: Palette; onAdd: (
                 label={`Show ${name(m)}`}
                 isOn={on}
                 onIsOnChange={(next) => setOn(m, next)}
-                modifiers={[labelsHidden(), disabled(on && shown.length === 1)]}
+                modifiers={[
+                  labelsHidden(),
+                  tint(colors.accent),
+                  disabled(on && shown.length === 1),
+                ]}
               />
             </HStack>
           );
