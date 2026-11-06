@@ -56,6 +56,10 @@ when a feature lands or goes.
   through the relay (mailboxes, preferences under the same keys, live events). `Resources/` holds
   the themes and demo mailbox, exported from `packages/shared` by `pnpm ios:resources`. See its
   README.
+- `apps/mobile`: the Expo app replacing `apps/ios` (phase 0), laid out like Otter Code's
+  `apps/mobile`: `packages/core` itself runs on the phone, on a worklets worker runtime in Bundle
+  Mode, its I/O through the Nitro modules in `modules/` (SQLite, mail sockets, URLSession,
+  the Keychain); the UI reaches it through the `CoreHost` Effect service. See its README.
 - `extensions/`: the built-in extensions, a package each (VS Code's model; contracts'
   `src/extensions.ts`): Sign-in codes, Calendar invites, Translation, Todoist, Otter Drive, and
   the agents (`openrouter`, the Otter Mail agent; `hermes`, `openclaw`, `claude`, `codex`). Each
