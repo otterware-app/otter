@@ -43,7 +43,7 @@ Mac releases support Apple Silicon Macs (arm64).
 
 ## Install
 
-The native [iPhone app](apps/ios/README.md) supports background notifications after connecting
+The [iPhone app](apps/mobile/README.md) supports background notifications after connecting
 each mailbox in Settings. Gmail and Outlook request separate limited permissions; IMAP asks
 to store its password securely. Message content is fetched directly on the phone for previews.
 

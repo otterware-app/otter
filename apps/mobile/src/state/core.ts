@@ -9,6 +9,7 @@ import Constants from "expo-constants";
 import { AppState, Linking } from "react-native";
 import { createSynchronizable } from "react-native-worklets";
 
+import { reportFromCore } from "../error-reports";
 import { startBackgroundRefresh } from "../features/notifications/background-refresh";
 import { deviceEffect, startNotifications } from "../features/notifications/notifications";
 import { startCoreRuntime } from "./core-transport";
@@ -60,6 +61,7 @@ function onRequest(request: HostRequest): Promise<unknown> {
 
 function onEffect(effect: HostEffect): void {
   if (deviceEffect(core, effect)) return;
+  if (effect._tag === "report") return reportFromCore(effect);
   if (effect._tag === "log" && effect.level !== "debug") {
     console.log(`[core:${effect.scope}] ${effect.message}`);
   }

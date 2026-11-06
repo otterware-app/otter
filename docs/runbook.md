@@ -2,7 +2,7 @@
 
 How each part of Otter Mail gets from `main` to people, what to check, and what to do when it
 breaks. The details behind each step are in `docs/release.md`, `infra/relay/README.md` and
-`apps/ios/README.md`.
+`apps/mobile/README.md`.
 
 | Part            | Ships                            | You do                                 |
 | --------------- | -------------------------------- | -------------------------------------- |
@@ -59,14 +59,16 @@ it, or the Changelog notes workflow once it lands after the release).
 
 ## iPhone app
 
-Released on its own, with its own version (`ios-vX.Y.Z` tags), only when `apps/ios` or what it
-bundles from `packages/shared` has changed. A Mac release doesn't need one.
+Released on its own, with its own version (`ios-vX.Y.Z` tags, `apps/mobile/package.json`), only
+when `apps/mobile` or the core, packages and extensions it bundles have changed. A Mac release
+doesn't need one.
 
 1. Actions → **Release iPhone** → Run workflow → `patch`, `minor` or `major` (or
    `gh workflow run release-ios.yml -f bump=patch`). It builds `main` on GitHub's `xcode-27`
-   runner and uploads it (about 10 min), then tags the commit and bumps the version on `main`.
+   runner (Expo prebuild of the production variant, Xcode archive) and uploads it (about 30
+   min), then tags the commit and bumps `apps/mobile/package.json` on `main`.
    The same from this Mac, if GitHub is down: `pnpm release:ios` (needs Xcode 27 and
-   `~/.otter-mail/signing`).
+   `~/.otter-mail/signing`); `pnpm release:ios --unsigned` checks the build without signing.
 2. Apple processes it (10–30 min). The internal group **Otter team** gets it automatically.
 3. External testers: App Store Connect → Otter Mail: Calm Email → TestFlight → **Testers** →
    Builds → + → pick the build. The first build of a new version goes through Beta App Review
@@ -95,7 +97,7 @@ Worker secrets. Use application topics `dev.otterware.mail.dev` (sandbox) and
 `dev.otterware.mail` (production), with matching signed APS environments. Provision the app and
 its embedded notification extension with App Groups/Keychain Sharing. Release signing also
 needs `IOS_NOTIFICATION_PROVISIONING_PROFILE` and a regenerated main profile; see
-[Apple setup](../apps/ios/README.md#apple-setup-and-verification) and
+[Apple setup](../apps/mobile/README.md#apple-setup-and-verification) and
 [relay APNs configuration](../infra/relay/README.md#verified-iphone-apns).
 
 Check live sandbox arrival on a provisioned iPhone and production in TestFlight, using a test

@@ -68,7 +68,7 @@ jobs:
     # The runner's default Xcode (a release, never a beta: App Store Connect
     # refuses beta builds).
     runs-on: xcode-27
-    timeout-minutes: 45
+    timeout-minutes: 75
     outputs:
       build: ${{ steps.upload.outputs.build }}
     steps:
@@ -77,11 +77,13 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.ref }}
 
-      - name: Setup Node
-        uses: actions/setup-node@v7
+      # apps/mobile and what core needs, for Expo's prebuild and the JS bundle.
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
         with:
           node-version-file: package.json
-          package-manager-cache: false
+          cache: true
+          run-install: true
 
       - name: Install signing
         env:
@@ -203,13 +205,19 @@ jobs:
           git tag "$TAG" "$REF"
           git push origin "$TAG"
 
-          project=apps/ios/OtterMail.xcodeproj/project.pbxproj
-          sed -i -E "s/MARKETING_VERSION = [^;]+;/MARKETING_VERSION = $VERSION;/" "$project"
-          if git diff --quiet -- "$project"; then
-            echo "The Xcode project already says $VERSION."
+          manifest=apps/mobile/package.json
+          node -e '
+            const fs = require("node:fs");
+            const [file, version] = process.argv.slice(1);
+            const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+            manifest.version = version;
+            fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n");
+          ' "$manifest" "$VERSION"
+          if git diff --quiet -- "$manifest"; then
+            echo "apps/mobile/package.json already says $VERSION."
             exit 0
           fi
-          git add "$project"
+          git add "$manifest"
           git commit -m "chore(release): $TAG"
           # The Mac release also pushes a version bump to main; don't collide with it.
           for attempt in 1 2 3; do

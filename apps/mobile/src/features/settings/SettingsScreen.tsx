@@ -42,6 +42,7 @@ import { flag, setUiPreference, uiPreferencesAtom } from "../../state/preference
 import { availableThemes, themeId, themeSource, usePalette, type Palette } from "../theme";
 import { AgentSettings } from "./AgentSettings";
 import { arrangement, MailboxesSettings, MailboxSettings } from "./MailboxesSettings";
+import { SupportSettings } from "./SupportSettings";
 import { ThemeSettings } from "./ThemeSettings";
 
 type Props = NativeStackScreenProps<RootStack, "Settings">;
@@ -53,7 +54,7 @@ export type OtterState = {
   realtime?: string;
 };
 
-/** apps/ios's SettingsForm: an inset grouped list on the theme's canvas, its rows on cards. */
+/** The Swift app's SettingsForm: an inset grouped list on the theme's canvas, its rows on cards. */
 export function SettingsForm({
   colors,
   title,
@@ -84,7 +85,7 @@ export function Group({ colors, ...props }: Parameters<typeof Section>[0] & { co
 }
 
 /**
- * apps/ios's SettingsView, in SwiftUI (@expo/ui): the Otter account, Mail,
+ * The Swift app's SettingsView, in SwiftUI (@expo/ui): the Otter account, Mail,
  * Agents, Appearance, the message list, and the account. Its pages push on a
  * SwiftUI NavigationStack inside the modal.
  */
@@ -219,6 +220,8 @@ export function SettingsScreen({ navigation }: Props) {
                 </Text>
               </Toggle>
             </Group>
+
+            <SupportSettings colors={colors} />
 
             <Group colors={colors} title="Account">
               {otter?.realtime ? (

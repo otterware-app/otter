@@ -11,7 +11,7 @@ import { palette } from "../theme";
 type Props = NativeStackScreenProps<RootStack, "Welcome">;
 
 /**
- * Adding a mailbox, as apps/ios's WelcomeView: Google and Microsoft sign in
+ * Adding a mailbox, as the Swift app's WelcomeView: Google and Microsoft sign in
  * natively (a browser sheet; the refresh token goes straight to the
  * Keychain), any other provider over IMAP with its password.
  */

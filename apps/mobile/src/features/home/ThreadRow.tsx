@@ -29,7 +29,7 @@ export function rowLabel(row: MessageSummary): string {
 }
 
 /**
- * apps/ios's ThreadRow: the sender's picture (new mail's dot in the gutter
+ * The Swift app's ThreadRow: the sender's picture (new mail's dot in the gutter
  * before it), then who and when, the subject, and a line of the latest
  * message. Unread is the dot, a brighter medium-weight name and a soft card;
  * read mail recedes to grey.

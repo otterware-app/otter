@@ -3,7 +3,7 @@ import Network
 import NitroModules
 
 /**
- * apps/ios's MailSocket transports. TLS from the start (993, 465) runs over
+ * The Swift app's MailSocket transports. TLS from the start (993, 465) runs over
  * Network.framework's NWConnection. STARTTLS (143, 587) upgrades a plaintext
  * connection mid-stream, which an NWConnection can't do: its protocol stack is
  * fixed when it starts. URLSessionStreamTask's `startSecureConnection()` begins

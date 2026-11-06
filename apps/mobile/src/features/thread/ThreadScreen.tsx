@@ -48,7 +48,7 @@ type Props = NativeStackScreenProps<RootStack, "Thread">;
 const REMOTE_IMAGE = /<img[^>]+src\s*=\s*["']?https?:/i;
 
 /**
- * A conversation, as apps/ios's ThreadView: each message's HTML in WebKit
+ * A conversation, as the Swift app's ThreadView: each message's HTML in WebKit
  * (otter-html-view), remote images held back until asked for; compact glass
  * buttons instead of the bar, in one glass container: Archive and Trash, Reply
  * (a tap replies; holding it offers Reply All and Forward).

@@ -34,7 +34,7 @@ export function bumpVersion(version: string, bump: Bump): string {
 
 type App = "mac" | "ios";
 
-const APPS: Record<App, { prefix: string; name: string; sourceVersion: () => string }> = {
+export const APPS: Record<App, { prefix: string; name: string; sourceVersion: () => string }> = {
   mac: {
     prefix: "v",
     name: "Otter Mail",
@@ -49,12 +49,11 @@ const APPS: Record<App, { prefix: string; name: string; sourceVersion: () => str
     prefix: "ios-v",
     name: "Otter Mail for iPhone",
     sourceVersion: () =>
-      /MARKETING_VERSION = ([^;]+);/.exec(
-        NodeFS.readFileSync(
-          NodePath.join(repoRoot, "apps/ios/OtterMail.xcodeproj/project.pbxproj"),
-          "utf8",
-        ),
-      )?.[1] ?? "",
+      (
+        JSON.parse(
+          NodeFS.readFileSync(NodePath.join(repoRoot, "apps/mobile/package.json"), "utf8"),
+        ) as { version: string }
+      ).version,
   },
 };
 

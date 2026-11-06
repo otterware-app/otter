@@ -109,18 +109,25 @@ Ubuntu 22.04+ ship (GTK 3, NSS, libnotify, libsecret, xdg-utils).
 
 ## The iPhone app
 
-The iPhone app has its own version (`MARKETING_VERSION` in `apps/ios/OtterMail.xcodeproj`) and
-its own tags (`ios-vX.Y.Z`), apart from the Mac app's: release it when it has changed, not with
-every Mac release. It started from the Mac app's 0.5.6, the last shared version.
+The iPhone app is `apps/mobile`, the Expo app, released as its production variant
+(`dev.otterware.mail`): the same App Store app the Swift app (`apps/ios`, removed after 0.8.8)
+shipped as, so TestFlight and App Store installs upgrade in place. It has its own version (the
+`version` in `apps/mobile/package.json`, which `app.config.ts` reads) and its own tags
+(`ios-vX.Y.Z`), apart from the Mac app's: release it when it has changed, not with every Mac
+release. It started from the Mac app's 0.5.6, the last shared version.
 
 1. Actions → Release iPhone → Run workflow, choose `patch`, `minor` or `major`; or
    `gh workflow run release-ios.yml -f bump=patch` (or `-f version=1.0.0`). The version is the
    latest `ios-vX.Y.Z` tag with that bump (the first release ships the project's version).
 2. The workflow builds `main`'s HEAD on GitHub's `xcode-27` runner with its default (release)
-   Xcode, signs it for the App Store and uploads it to App Store Connect. The build number is the
-   time (YYYYMMDDhhmm).
+   Xcode, without EAS: `expo prebuild --clean` of the production variant (with
+   `OTTER_MAIL_RELEASE_SIGNING=1`, which gives the app's and the extension's Release
+   configurations their App Store profiles, leaving the Pods alone), an `xcodebuild archive` of
+   the generated workspace with the version and build number, then the export's upload to App
+   Store Connect. The build number is the time (YYYYMMDDhhmm), the app's and the extension's.
+   The dSYMs and the Hermes source map go to Sentry's otter-mail-ios.
 3. Only once the upload succeeded does it tag the commit `ios-vX.Y.Z` and commit the version to
-   the Xcode project on `main`, so a failed run leaves nothing behind. It makes no GitHub Release:
+   `apps/mobile/package.json` on `main`, so a failed run leaves nothing behind. It makes no GitHub Release:
    the Mac app updates from the latest one.
    Beside it, the `sentry_release` job makes the build's Sentry release, with its commits since
    the last iPhone tag (docs/error-reports.md).
@@ -132,7 +139,8 @@ Both workflows push a version bump to `main`; each rebases before pushing, so th
 same time.
 
 The workflow and `scripts/release-ios.ts` (`pnpm release:ios [--version x.y.z]`, the same build
-from a Mac with Xcode 27, if GitHub can't) sign with:
+from a Mac with Xcode 27, if GitHub can't; `--unsigned` stops at an unsigned archive, as CI's
+iPhone job does) sign with:
 
 - The "Apple Distribution: Christophe Nicolas Kafrouni (838JVGY7W4)" identity: the
   `IOS_DISTRIBUTION_P12` secret (base64 of `~/.otter-mail/signing/apple-distribution.p12`) and
@@ -152,4 +160,10 @@ from a Mac with Xcode 27, if GitHub can't) sign with:
 The App Store app is "Otter Mail: Calm Email" (ID 6817249947); on the phone it's "Otter Mail".
 Release builds sign in to Google with their own "iOS" OAuth client (for `dev.otterware.mail`);
 development builds use the one for `dev.otterware.mail.dev`. The relay accepts both
-(`GOOGLE_IOS_CLIENT_ID`). The demo mailbox shows only in development and TestFlight builds.
+(`GOOGLE_IOS_CLIENT_ID`). The made-up mailbox is only in development builds
+(`OTTER_MAIL_FAKE_MAILBOX=1`).
+
+Preview builds (`APP_VARIANT=preview`, `dev.otterware.mail.preview`) register for production
+APNs under their own bundle ID, but the relay sends production pushes to one topic,
+`APNS_PRODUCTION_TOPIC` (`dev.otterware.mail`, `infra/relay/wrangler.jsonc`). Their pushes need
+the relay to accept the preview bundle as a topic too, and a relay deploy; not done yet.

@@ -41,7 +41,7 @@ export const useReduceTransparency = () =>
     "reduceTransparencyChanged",
   );
 
-/** apps/ios's menu spring; none with Reduce Motion. */
+/** The Swift app's menu spring; none with Reduce Motion. */
 export const glassSpring = (reduceMotion: boolean) =>
   reduceMotion ? null : Animation.spring({ duration: 0.4, bounce: 0.15 });
 

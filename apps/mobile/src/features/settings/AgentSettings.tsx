@@ -7,7 +7,7 @@ import type { Palette } from "../theme";
 import { Group, SettingsForm } from "./SettingsScreen";
 
 /**
- * apps/ios's AgentSettings: which agent new chats use, and that agent's own
+ * The Swift app's AgentSettings: which agent new chats use, and that agent's own
  * section, from its extension's `./mobile` half.
  */
 export function AgentSettings({ colors, signedIn }: { colors: Palette; signedIn: boolean }) {

@@ -38,7 +38,7 @@ import { folders, ownLabels, placeCount, placeSymbol, placeTitle } from "./place
 const CLEAR = "#00000000";
 
 /**
- * apps/ios's PlacesPanel, in SwiftUI inside the places bar's glass (the bar
+ * The Swift app's PlacesPanel, in SwiftUI inside the places bar's glass (the bar
  * morphs into it): the mailbox, its folders with their counts, its own labels
  * (folders, for Outlook and IMAP), then Search and Settings.
  */

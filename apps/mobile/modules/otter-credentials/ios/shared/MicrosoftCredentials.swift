@@ -1,1 +1,1 @@
-../../../../../ios/NotificationShared/MicrosoftCredentials.swift
+../../../../native/NotificationShared/MicrosoftCredentials.swift

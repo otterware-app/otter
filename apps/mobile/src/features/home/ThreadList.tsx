@@ -32,7 +32,7 @@ const dayKey = (ms: number) => new Date(ms).toDateString();
 const isUnread = (row: MessageSummary) => row.threadUnread ?? row.unread;
 
 /**
- * apps/ios's ThreadListView: All and Unread, the conversations grouped by day
+ * The Swift app's ThreadListView: All and Unread, the conversations grouped by day
  * (a day's heading collapses it), Linear's swipes, pull to refresh, and the
  * next page as the list nears its end.
  */

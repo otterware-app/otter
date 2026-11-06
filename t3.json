@@ -32,7 +32,7 @@
     },
     {
       "name": "Dev (iPhone app)",
-      "command": "pnpm dev:ios",
+      "command": "pnpm dev:mobile",
       "icon": "play"
     }
   ]

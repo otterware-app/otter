@@ -49,17 +49,12 @@ when a feature lands or goes.
   tab for every open tab (`backend.ts`), and the bridge that stands in for the preload. What only the desktop app has is off in `desktopBridge.features`.
   What the computer is called in copy (Mac / computer) is
   `src/main/os-names.ts`; shortcuts in copy go through `shortcutText("mod+k")` (⌘K, Ctrl+K).
-- `apps/ios`: Otter Mail for iPhone, a native SwiftUI app (iOS 27, Liquid Glass): Linear's layout
-  (a glass bar: the mailbox's picture to switch, Inbox, Drafts, Search, ⌃⌄ for every place; the
-  agent on its own button), Otter Code's list rows. Its own Swift code, not the TypeScript core: it signs in to Google itself (the "iOS"
-  OAuth client, PKCE), talks to Gmail directly, caches on disk, and follows the Otter account
-  through the relay (mailboxes, preferences under the same keys, live events). `Resources/` holds
-  the themes and demo mailbox, exported from `packages/shared` by `pnpm ios:resources`. See its
-  README.
-- `apps/mobile`: the Expo app replacing `apps/ios` (phase 0), laid out like Otter Code's
-  `apps/mobile`: `packages/core` itself runs on the phone, on a worklets worker runtime in Bundle
-  Mode, its I/O through the Nitro modules in `modules/` (SQLite, mail sockets, URLSession,
-  the Keychain); the UI reaches it through the `CoreHost` Effect service. See its README.
+- `apps/mobile`: Otter Mail for iPhone, an Expo app (React Native, iOS 26+, Liquid Glass through
+  SwiftUI) laid out like Otter Code's `apps/mobile`, shipped as `dev.otterware.mail`:
+  `packages/core` itself runs on the phone, on a worklets worker runtime in Bundle Mode, its I/O
+  through the Nitro modules in `modules/` (SQLite, mail sockets, URLSession, the Keychain); the UI
+  reaches it through the `CoreHost` Effect service. `native/` is the notification service
+  extension's Swift (a config plugin adds its target at prebuild). See its README.
 - `extensions/`: the built-in extensions, a package each (VS Code's model; contracts'
   `src/extensions.ts`): Sign-in codes, Calendar invites, Translation, Todoist, Otter Drive, and
   the agents (`openrouter`, the Otter Mail agent; `hermes`, `openclaw`, `claude`, `codex`). Each
@@ -93,8 +88,7 @@ when a feature lands or goes.
   undo (`operations`), and pure helpers. The web app reads its atoms with `@effect/atom-react`
   (chats and the mailbox lists so far; other data is still TanStack Query).
 - `packages/shared`: what every app shows the same, the iPhone app included: the color themes
-  (`./themes`) and the demo mailbox (`./demo-mailboxes`). The web app imports it; the iPhone app
-  bundles it as JSON.
+  (`./themes`) and the demo mailbox (`./demo-mailboxes`). The web app and the iPhone app import it.
 - `infra/relay`: https://relay.mail.otterware.app, a Cloudflare Worker (Hono, better-auth,
   Drizzle on D1, a Durable Object per user). Otter accounts, the Gmail accounts linked to them,
   the account's preferences (core's `services/preferences.ts` syncs them), its agent chats (core's
@@ -110,10 +104,10 @@ when a feature lands or goes.
   JSON request on stdin and prints JSON. Building it needs full Xcode (macOS 26 SDK).
 - `scripts/`: dev runner, desktop packaging (`build-desktop-artifact.ts`), release helpers.
 - `assets/`: app icons like Otter Code's: `prod/` for stable, `nightly/` for the night sky, and `dev/`
-  for the blueprint. The iPhone has stable and dev icons. Every icon is drawn from
+  for the blueprint. The iPhone has stable and dev icons, each in light, dark and tinted. Every icon is drawn from
   the one mark, `prod/otter-mail-symbol.svg`: `pnpm icons:export` regenerates them all.
   `agent/` is Otterware's agent (the face): the app draws it with `AgentIcon`
-  (`apps/web/src/main/mail/agent-icon.tsx`), the iPhone with its `OtterAgent` image.
+  (`apps/web/src/main/mail/agent-icon.tsx`), the iPhone with `apps/mobile/assets/agent.png`.
 - `changelog/`: notes on Mac and web releases (`<version>.md`, images in `images/`), shown on
   otterware.app/mail/changelog (the website repository copies them hourly) and on the version's
   GitHub Release (workflows copy it there); the app only links there. A note is marketing, written only when the user asks for one (the
@@ -151,8 +145,8 @@ it; the web app needs it (the relay keeps its Gmail sign-ins alive).
   a browser, e.g. the T3 preview). `pnpm dev:desktop` runs the desktop app (Vite dev server +
   main-process watcher + Electron with reload); `pnpm dev:web` the web app alone. Both apps render
   the same `apps/web`, so UI work is checked in the browser. See docs/development.md.
-- `pnpm dev:ios`: the iPhone app in the simulator (it has the same demo mailbox, from the welcome
-  screen).
+- `pnpm dev:mobile`: the iPhone app in the simulator, with Metro (`--build` the first time and
+  after native changes; `--fake` on the made-up mailbox).
 - `pnpm dev:fake`: the web app on a made-up mailbox (a pretend Gmail, no Google or Otter
   account, no relay). Build and test against it rather than the user's real accounts; see the
   `test-otter-mail` skill (`.agents/skills`).
@@ -187,8 +181,9 @@ The iPhone app releases separately, with its own version:
   `otter-mail-site-nightly` Worker; a stable release, after its GitHub Release, to mail.otterware.app. Both answer at
   mail.otterware.app (one browser cache and sign-in): Settings → General's channel sets a
   cookie the stable Worker routes on (`site/src/worker.ts`); open tabs offer "Reload to update".
-- iPhone: run the Release iPhone workflow from `main` when `apps/ios` (or what it bundles from
-  `packages/shared`) has changed. It uploads to TestFlight and tags `ios-vX.Y.Z`.
+- iPhone: run the Release iPhone workflow from `main` when `apps/mobile` (or the core, packages
+  and extensions it bundles) has changed. It builds the Expo app's production variant, uploads it
+  to TestFlight, tags `ios-vX.Y.Z` and bumps `apps/mobile/package.json`.
 
 `docs/runbook.md` is the short version of shipping each part; details in `docs/release.md`.
 
@@ -201,8 +196,8 @@ Before handing work back, run and fix:
 - `pnpm fmt`
 
 For UI or behavior changes, run the app and check the change in it, at a 1600x1000 viewport.
-For the iPhone app, build it (`pnpm dev:ios`, or `xcodebuild` as its README shows) and check the
-change in the simulator, in light and dark.
+For the iPhone app, run it (`pnpm dev:mobile`, or `pnpm ios:release` in `apps/mobile` as its
+README shows) and check the change in the simulator, in light and dark.
 
 Pull requests follow the `pr` skill (`.agents/skills`): a PR that changes what users see carries
 screenshots or a recording, attached with `gh pr create --attach`.

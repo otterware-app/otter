@@ -45,7 +45,7 @@ const SUGGESTIONS = ["Summarize this conversation", "Draft a reply", "What do I 
 const EDGE = 24;
 
 /**
- * The agent (apps/ios's AgentView): one of the account's chats, synced through
+ * The agent (the Swift app's AgentView): one of the account's chats, synced through
  * core and the relay, on client-runtime's chats store, the web app's. The chat
  * list swipes in from the left.
  */

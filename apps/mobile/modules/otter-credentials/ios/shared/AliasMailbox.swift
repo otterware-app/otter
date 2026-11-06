@@ -1,1 +1,1 @@
-../../../../../ios/NotificationShared/AliasMailbox.swift
+../../../../native/NotificationShared/AliasMailbox.swift

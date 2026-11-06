@@ -2,7 +2,7 @@ import Foundation
 import NitroModules
 
 /**
- * apps/ios's Keychain, Google and Microsoft credentials and PushState (linked
+ * The Swift app's Keychain, Google and Microsoft credentials and PushState (linked
  * from NotificationShared, the notification extension's own copy), as the
  * app's one credential authority. Refresh tokens stay in the Keychain.
  */

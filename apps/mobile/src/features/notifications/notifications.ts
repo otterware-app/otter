@@ -11,7 +11,7 @@ type Core = typeof coreBridge;
 type Settings = { notificationsMode?: "off" | "inbox" | "all" };
 type PushConfiguration = { userId: string; mode: string; mailboxes: string[] };
 
-/** Where a notification opens: apps/ios's Session.NotificationDestination. */
+/** Where a notification opens: the Swift app's Session.NotificationDestination. */
 export type Destination = {
   userId?: string;
   accountId: string;
@@ -72,7 +72,7 @@ export function destination(data: Record<string, unknown>): Destination | null {
   return open?.accountId ? { accountId: open.accountId, messageId: open.messageId } : null;
 }
 
-/** The mailbox, then the thread, as apps/ios's prepareNotification does. */
+/** The mailbox, then the thread, as the Swift app's prepareNotification does. */
 async function openDestination(core: Core, target: Destination): Promise<void> {
   // Another Otter account's push, from before signing out here.
   if (target.userId && pushConfiguration()?.userId !== target.userId) return;
@@ -189,7 +189,7 @@ const REGISTER_ON = new Set([
 ]);
 
 /**
- * Push and local notifications: foreground presentation as apps/ios's
+ * Push and local notifications: foreground presentation as the Swift app's
  * AppDelegate decides it, taps open their thread, and the registration
  * follows the account, its mailboxes and Settings.
  */

@@ -20,7 +20,7 @@ const photoAtom = Atom.family((key: string) => {
   ).pipe(Atom.keepAlive);
 });
 
-/** apps/ios's SenderAvatar: the sender's hue from their address, as the desktop draws it. */
+/** The Swift app's SenderAvatar: the sender's hue from their address, as the desktop draws it. */
 function hue(email: string): number {
   let hash = 0;
   for (const unit of email.trim().toLowerCase())

@@ -13,7 +13,7 @@ import { createCredentials } from "@otter-mail/mobile-credentials";
 
 import { call } from "./call";
 
-/** apps/ios's NotificationShared PushState.Configuration: what the notification extension enriches. */
+/** The Swift app's NotificationShared PushState.Configuration: what the notification extension enriches. */
 export type PushConfiguration = {
   userId: string;
   mode: string;
@@ -32,7 +32,7 @@ export type PushRegistration = {
 };
 
 /**
- * Session.configurePush and updatePushRegistration in apps/ios: the
+ * Session.configurePush and updatePushRegistration in the Swift app: the
  * mailboxes this iPhone can verify (signed in here, their notification
  * connection ready), written to the App Group for the notification extension,
  * then this device's registration on the relay.

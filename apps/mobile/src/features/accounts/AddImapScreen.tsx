@@ -25,7 +25,7 @@ type Props = NativeStackScreenProps<RootStack, "AddImap">;
 type Server = { host: string; port: string; security: "tls" | "starttls" };
 
 /**
- * An IMAP mailbox (apps/ios's AddImapMailbox): the address and password, the
+ * An IMAP mailbox (the Swift app's AddImapMailbox): the address and password, the
  * servers found by core's discovery (`gmail:discoverImap`) or typed.
  */
 export function AddImapScreen({ navigation }: Props) {

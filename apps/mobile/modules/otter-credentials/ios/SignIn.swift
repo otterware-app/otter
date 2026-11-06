@@ -5,7 +5,7 @@ import NitroModules
 import UIKit
 
 /**
- * apps/ios's GoogleAuth and MicrosoftAuth sign-ins: authorization code with
+ * The Swift app's GoogleAuth and MicrosoftAuth sign-ins: authorization code with
  * PKCE in a browser sheet, public clients (no secret). The refresh token is
  * saved to the Keychain here and never returned; callers get the profile.
  */

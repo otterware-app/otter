@@ -19,7 +19,7 @@ env:
   ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
 
 jobs:
-  # The Swift jobs need macOS runners, which the Mac release waits on too: run
+  # The native jobs need macOS runners, which the Mac release waits on too: run
   # them only when what they build changed (or this workflow did), and not again
   # on main, where each merge's release builds the translator and the PR built the app.
   changes:
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      iphone: ${{ steps.filter.outputs.iphone }}
+      mobile: ${{ steps.filter.outputs.mobile }}
       translator: ${{ steps.filter.outputs.translator }}
     steps:
       - name: Checkout
@@ -55,7 +55,7 @@ jobs:
             *) everything ;;
           esac
           {
-            echo "iphone=$(changed '^(apps/ios/|packages/shared/|package\.json$|scripts/export-ios-resources\.ts$|\.github/workflows/ci\.yml$)')"
+            echo "mobile=$(changed '^(apps/mobile/|packages/(core|contracts|shared|client-runtime)/|extensions/|pnpm-lock\.yaml$|package\.json$|\.github/workflows/ci\.yml$)')"
             echo "translator=$(changed '^(native/translator/|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
           } | tee -a "$GITHUB_OUTPUT"
 
@@ -119,36 +119,49 @@ jobs:
       - name: Build translator (Apple Silicon)
         run: swift build -c release --package-path native/translator --arch arm64
 
-  iphone:
-    name: iPhone (Swift)
+  # The iPhone app (apps/mobile): its tests, the development variant's Release build on the
+  # made-up mailbox in a simulator (light and dark screenshots), and the release's unsigned
+  # production archive (scripts/release-ios.ts).
+  mobile:
+    name: iPhone (Expo)
     needs: changes
-    if: needs.changes.outputs.iphone == 'true'
+    if: needs.changes.outputs.mobile == 'true'
     runs-on: xcode-27
-    timeout-minutes: 30
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Node
-        uses: actions/setup-node@v7
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
         with:
           node-version-file: package.json
-          package-manager-cache: false
+          cache: true
+          run-install: true
 
-      - name: Export shared resources
-        run: node scripts/export-ios-resources.ts
+      - name: Mobile tests
+        working-directory: apps/mobile
+        run: vp run test
 
-      # One thing at a time: booting the simulator alongside the build slowed both down.
+      - name: Prebuild (development, made-up mailbox)
+        working-directory: apps/mobile
+        env:
+          APP_VARIANT: development
+          OTTER_MAIL_FAKE_MAILBOX: "1"
+          EXPO_NO_GIT_STATUS: "1"
+        run: npx expo prebuild --clean --platform ios
+
       # Simulators on the runner are Apple silicon: arm64 alone, not the Intel slice too.
-      - name: Build app, extension and tests
+      - name: Build for the simulator (Release)
+        working-directory: apps/mobile/ios
         run: |
           xcodebuild -version
-          xcodebuild -project apps/ios/OtterMail.xcodeproj -scheme OtterMail \
-            -destination "generic/platform=iOS Simulator" \
-            -derivedDataPath "$RUNNER_TEMP/otter-ios-build" \
-            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build-for-testing
+          xcodebuild -workspace OtterMailDev.xcworkspace -scheme OtterMailDev \
+            -configuration Release -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath "$RUNNER_TEMP/mobile-build" \
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet build
 
-      - name: Boot a simulator
+      - name: Boot a simulator, install and launch
         run: |
           set -euo pipefail
           xcrun simctl list devices available --json > "$RUNNER_TEMP/devices.json"
@@ -162,37 +175,30 @@ jobs:
           echo "IPHONE_SIMULATOR=$simulator" >> "$GITHUB_ENV"
           xcrun simctl boot "$simulator" || true
           xcrun simctl bootstatus "$simulator" -b
+          app="$(ls -d "$RUNNER_TEMP"/mobile-build/Build/Products/Release-iphonesimulator/*.app | head -n1)"
+          xcrun simctl install "$simulator" "$app"
+          xcrun simctl ui "$simulator" appearance light
+          xcrun simctl launch "$simulator" dev.otterware.mail.dev
 
-      - name: Run native tests
-        run: |
-          xcodebuild -project apps/ios/OtterMail.xcodeproj -scheme OtterMail \
-            -destination "platform=iOS Simulator,id=$IPHONE_SIMULATOR" \
-            -derivedDataPath "$RUNNER_TEMP/otter-ios-build" \
-            -resultBundlePath "$RUNNER_TEMP/otter-ios-tests.xcresult" \
-            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO test-without-building
-
-      - name: Capture demo in light and dark
+      - name: Capture the made-up mailbox in light and dark
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/otter-ios-preview"
-          xcrun simctl ui "$IPHONE_SIMULATOR" appearance light
-          xcrun simctl launch --terminate-running-process "$IPHONE_SIMULATOR" \
-            dev.otterware.mail.dev -otter:demo YES
-          # The simulator can return from launch before the first SwiftUI frame.
-          # Allow cold-start resource loading before taking the demo screenshots.
-          sleep 15
-          xcrun simctl io "$IPHONE_SIMULATOR" screenshot "$RUNNER_TEMP/otter-ios-preview/light.png"
+          mkdir -p "$RUNNER_TEMP/mobile-preview"
+          # Core starts on its own runtime and syncs the made-up mailbox before the list fills.
+          sleep 20
+          xcrun simctl io "$IPHONE_SIMULATOR" screenshot "$RUNNER_TEMP/mobile-preview/light.png"
           xcrun simctl ui "$IPHONE_SIMULATOR" appearance dark
-          sleep 2
-          xcrun simctl io "$IPHONE_SIMULATOR" screenshot "$RUNNER_TEMP/otter-ios-preview/dark.png"
+          sleep 3
+          xcrun simctl io "$IPHONE_SIMULATOR" screenshot "$RUNNER_TEMP/mobile-preview/dark.png"
 
-      - name: Upload native results
+      - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: iphone-verification
-          path: |
-            ${{ runner.temp }}/otter-ios-tests.xcresult
-            ${{ runner.temp }}/otter-ios-preview
+          path: ${{ runner.temp }}/mobile-preview
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Production archive (unsigned)
+        run: node scripts/release-ios.ts --unsigned

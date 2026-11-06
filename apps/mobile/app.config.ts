@@ -1,5 +1,7 @@
 import type { ExpoConfig } from "expo/config";
 
+import packageJson from "./package.json";
+
 type AppVariant = "development" | "preview" | "production";
 
 const APP_VARIANT = resolveAppVariant(process.env.APP_VARIANT);
@@ -14,6 +16,26 @@ const GOOGLE_IOS_CLIENT_ID = {
   production: "997327858649-vcvktkdnrs6p8c31ucsp1oeia7l8taho.apps.googleusercontent.com",
 } as const;
 
+const PROD_ICON = {
+  light: fromRepoRoot("assets/prod/otter-mail-ios-1024.png"),
+  dark: fromRepoRoot("assets/prod/otter-mail-ios-dark-1024.png"),
+  tinted: fromRepoRoot("assets/prod/otter-mail-ios-tinted-1024.png"),
+};
+
+/** The launch screen: the default theme's canvas (packages/shared's codex), light and dark. */
+const CANVAS = { light: "#ffffff", dark: "#181818" };
+
+/**
+ * The required-reason APIs React Native, Expo and the native modules call
+ * (otter-worker's uptime is SystemBootTime), and the reasons they do.
+ */
+const ACCESSED_APIS = [
+  ["NSPrivacyAccessedAPICategoryUserDefaults", ["CA92.1"]],
+  ["NSPrivacyAccessedAPICategoryFileTimestamp", ["C617.1", "0A2A.1", "3B52.1"]],
+  ["NSPrivacyAccessedAPICategoryDiskSpace", ["E174.1", "85F4.1"]],
+  ["NSPrivacyAccessedAPICategorySystemBootTime", ["35F9.1"]],
+] as const;
+
 /**
  * Each variant is its own app: its bundle ID, Keychain access group and App
  * Group, so a development or preview build never reads production's sign-ins.
@@ -23,7 +45,11 @@ const VARIANT_CONFIG = {
     appName: "Otter Mail Dev",
     scheme: "ottermail-dev",
     iosBundleIdentifier: "dev.otterware.mail.dev",
-    icon: fromRepoRoot("assets/dev/blueprint-ios-1024.png"),
+    icon: {
+      light: fromRepoRoot("assets/dev/blueprint-ios-1024.png"),
+      dark: fromRepoRoot("assets/dev/blueprint-ios-1024.png"),
+      tinted: fromRepoRoot("assets/prod/otter-mail-ios-tinted-1024.png"),
+    },
     googleClientId: GOOGLE_IOS_CLIENT_ID.development,
     apnsEnvironment: "development",
     trustLocalMailServers: true,
@@ -32,7 +58,7 @@ const VARIANT_CONFIG = {
     appName: "Otter Mail Preview",
     scheme: "ottermail-preview",
     iosBundleIdentifier: "dev.otterware.mail.preview",
-    icon: fromRepoRoot("assets/prod/otter-mail-ios-1024.png"),
+    icon: PROD_ICON,
     googleClientId: GOOGLE_IOS_CLIENT_ID.development,
     apnsEnvironment: "production",
     trustLocalMailServers: false,
@@ -41,7 +67,7 @@ const VARIANT_CONFIG = {
     appName: "Otter Mail",
     scheme: "ottermail",
     iosBundleIdentifier: "dev.otterware.mail",
-    icon: fromRepoRoot("assets/prod/otter-mail-ios-1024.png"),
+    icon: PROD_ICON,
     googleClientId: GOOGLE_IOS_CLIENT_ID.production,
     apnsEnvironment: "production",
     trustLocalMailServers: false,
@@ -69,12 +95,13 @@ const config: ExpoConfig = {
   slug: "otter-mail",
   platforms: ["ios"],
   scheme: variant.scheme,
-  version: process.env.OTTER_MAIL_MOBILE_VERSION ?? "0.9.0",
+  // The release sets the version it resolved; package.json has the last one released.
+  version: process.env.OTTER_MAIL_MOBILE_VERSION ?? packageJson.version,
   runtimeVersion: { policy: runtimeVersionPolicy as "appVersion" | "fingerprint" },
   orientation: "portrait",
-  icon: variant.icon,
   userInterfaceStyle: "automatic",
   ios: {
+    icon: variant.icon,
     supportsTablet: false,
     bundleIdentifier: variant.iosBundleIdentifier,
     appleTeamId: "838JVGY7W4",
@@ -92,6 +119,16 @@ const config: ExpoConfig = {
       UIBackgroundModes: ["fetch"],
       BGTaskSchedulerPermittedIdentifiers: ["dev.otterware.mail.refresh"],
       ITSAppUsesNonExemptEncryption: false,
+      LSApplicationCategoryType: "public.app-category.productivity",
+    },
+    privacyManifests: {
+      NSPrivacyTracking: false,
+      NSPrivacyTrackingDomains: [],
+      NSPrivacyCollectedDataTypes: [],
+      NSPrivacyAccessedAPITypes: ACCESSED_APIS.map(([type, reasons]) => ({
+        NSPrivacyAccessedAPIType: type,
+        NSPrivacyAccessedAPITypeReasons: [...reasons],
+      })),
     },
   },
   plugins: [
@@ -109,6 +146,11 @@ const config: ExpoConfig = {
       },
     ],
     ["expo-notifications", { mode: variant.apnsEnvironment }],
+    ["expo-font", { fonts: ["./assets/fonts/InterVariable.ttf"] }],
+    [
+      "expo-splash-screen",
+      { backgroundColor: CANVAS.light, dark: { backgroundColor: CANVAS.dark } },
+    ],
     [
       "./plugins/withNotificationServiceExtension.cjs",
       {
@@ -116,6 +158,14 @@ const config: ExpoConfig = {
         appGroup,
         googleClientId: variant.googleClientId,
         teamId: "838JVGY7W4",
+        // The Release iPhone workflow: manual signing with the App Store profiles.
+        releaseSigning:
+          process.env.OTTER_MAIL_RELEASE_SIGNING === "1"
+            ? {
+                app: "Otter Mail App Store",
+                extension: "Otter Mail Notifications App Store",
+              }
+            : undefined,
       },
     ],
   ],

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { bumpVersion, nightlyReleaseMetadata } from "./resolve-release-version.ts";
+import { APPS, bumpVersion, nightlyReleaseMetadata } from "./resolve-release-version.ts";
 import { createBuildConfig, resolvePublishConfig } from "./build-desktop-artifact.ts";
 import { versionMatchesChannel } from "../packages/shared/src/release-channel.ts";
 import { iosCommitSpec, iosSentryRelease, previousIosTag } from "./sentry-release-ios.ts";
@@ -21,6 +21,12 @@ test("nightlies preview the next stable patch without changing the stable source
   ]) {
     assert.throws(() => nightlyReleaseMetadata("0.13.9", date!, run!, sha!));
   }
+});
+
+test("the iPhone app's version is apps/mobile's, past the Swift app's last (0.8.8)", () => {
+  const [major, minor, patch] = APPS.ios.sourceVersion().split(".").map(Number);
+  assert.ok(major! > 0 || minor! > 8 || (minor === 8 && patch! > 8));
+  assert.equal(APPS.ios.prefix, "ios-v");
 });
 
 test("stable and nightly feeds are separate, while other prereleases have no update feed", () => {

@@ -7,7 +7,7 @@ import { usePalette } from "../theme";
 
 export type SwipeAction = { title: string; symbol: SFSymbol; tint: string; perform: () => void };
 
-/** apps/ios's MailSwipe: how far to pull before letting go runs the action. */
+/** The Swift app's MailSwipe: how far to pull before letting go runs the action. */
 const armed = (offset: number, width: number) =>
   width > 0 && Math.abs(offset) >= Math.min(width * 0.35, 150);
 
@@ -22,7 +22,7 @@ void AccessibilityInfo.isReduceMotionEnabled().then((on) => (reduceMotion = on))
 AccessibilityInfo.addEventListener("reduceMotionChanged", (on) => (reduceMotion = on));
 
 /**
- * apps/ios's MailSwipeActions (Linear's swipe): the row follows the finger
+ * The Swift app's MailSwipeActions (Linear's swipe): the row follows the finger
  * over a grey pill with the action; past the threshold the pill takes the
  * action's color, with a tap of haptics, and letting go runs it; short of it
  * the row springs back. One action a side; both are accessibility actions too.
