@@ -27,17 +27,77 @@ async function setSession(next: typeof session): Promise<void> {
 }
 
 export async function loadOtterAccount(): Promise<void> {
+  let bareToken: string | null = null;
   try {
     if (usesCookie()) {
       const { user } = await request<MeResponse>("GET", "/v1/me");
       session = { token: null, user };
     } else {
       const saved = await platform().secrets.get(SESSION_SECRET);
-      session = saved ? (JSON.parse(saved) as { token: string; user: RelayUser }) : null;
+      if (saved && !saved.startsWith("{")) bareToken = saved;
+      else session = saved ? (JSON.parse(saved) as { token: string; user: RelayUser }) : null;
     }
   } catch {
     session = null;
   }
+  if (bareToken) await adoptBareToken(bareToken);
+  if (!usesCookie()) {
+    void finishPendingSignOuts().catch((err: unknown) => {
+      logger.failure("otter-account", "Couldn't finish pending sign-outs", err);
+    });
+  }
+}
+
+const ADOPT_RETRY_MS = 60_000;
+
+/** The Swift iPhone app saved the session as its bare token; this asks the relay whose it is. */
+async function adoptBareToken(token: string): Promise<void> {
+  try {
+    await signInWithSession(token);
+  } catch (err) {
+    if (err instanceof RelayError && err.status === 401) {
+      await platform()
+        .secrets.delete(SESSION_SECRET)
+        .catch(() => {});
+      return;
+    }
+    logger.warn("otter-account", "Couldn't check the saved session, retrying", {
+      status: err instanceof RelayError ? err.status : null,
+    });
+    setTimeout(async () => {
+      const saved = await platform()
+        .secrets.get(SESSION_SECRET)
+        .catch(() => null);
+      if (saved === token && !session) await adoptBareToken(token);
+    }, ADOPT_RETRY_MS);
+  }
+}
+
+// Sessions the Swift iPhone app signed out of before the relay heard.
+const PENDING_SIGN_OUTS_SECRET = "otter-pending-sign-outs";
+
+async function finishPendingSignOuts(): Promise<void> {
+  const saved = await platform()
+    .secrets.get(PENDING_SIGN_OUTS_SECRET)
+    .catch(() => null);
+  if (!saved) return;
+  let pending: { token: string; origin: string }[] = [];
+  try {
+    pending = JSON.parse(saved) as typeof pending;
+  } catch {}
+  const left: typeof pending = [];
+  for (const entry of pending) {
+    const response = await fetch(`${entry.origin.replace(/\/$/, "")}/v1/auth/sign-out`, {
+      method: "POST",
+      credentials: "omit",
+      headers: { Authorization: `Bearer ${entry.token}`, "Content-Type": "application/json" },
+      body: "{}",
+      signal: AbortSignal.timeout(8_000),
+    }).catch(() => null);
+    if (!response || !(response.ok || response.status === 401)) left.push(entry);
+  }
+  if (left.length) await platform().secrets.set(PENDING_SIGN_OUTS_SECRET, JSON.stringify(left));
+  else await platform().secrets.delete(PENDING_SIGN_OUTS_SECRET);
 }
 
 export function getOtterUser(): RelayUser | null {
