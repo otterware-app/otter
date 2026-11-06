@@ -48,7 +48,7 @@ export function threadActions(
         void operations
           .untrashThread(accountId, row.threadId)
           .then(() =>
-            mailbox?.provider === "gmail"
+            mailbox && (mailbox.provider ?? "gmail") === "gmail"
               ? operations.modifyThread(
                   { accountId, threadId: row.threadId, addLabelIds: ["INBOX"] },
                   { quiet: true },
