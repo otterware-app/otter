@@ -1,6 +1,6 @@
 import type { ImapSettings } from "@otter-mail/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -12,9 +12,12 @@ import {
   useColorScheme,
 } from "react-native";
 
+import type { ScrollViewInstance } from "react-native";
+
 import type { RootStack } from "../../App";
 import { mailboxes } from "../../state/client";
 import { core } from "../../state/core";
+import { useKeyboardInset } from "../keyboard";
 import { palette } from "../theme";
 
 type Props = NativeStackScreenProps<RootStack, "AddImap">;
@@ -78,17 +81,30 @@ export function AddImapScreen({ navigation }: Props) {
     }
   };
 
+  // The sheet's own keyboard inset: UIKit's misjudges it, and a focused field is scrolled to.
+  const keyboard = useKeyboardInset();
+  const scroll = useRef<ScrollViewInstance>(null);
+  const top = useRef(new Map<string, number>()).current;
+
   const field = (
     label: string,
     value: string,
     onChange: (text: string) => void,
     options: Partial<React.ComponentProps<typeof TextInput>> = {},
   ) => (
-    <View style={[styles.field, { borderColor: colors.border }]}>
+    <View
+      style={[styles.field, { borderColor: colors.border }]}
+      onLayout={(e) => top.set(options.testID ?? label, e.nativeEvent.layout.y)}
+    >
       <Text style={[styles.label, { color: colors.secondary }]}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChange}
+        onFocus={() =>
+          scroll.current?.scrollTo({
+            y: Math.max(0, (top.get(options.testID ?? label) ?? 0) - 120),
+          })
+        }
         autoCapitalize="none"
         autoCorrect={false}
         style={[styles.input, { color: colors.text }]}
@@ -120,11 +136,11 @@ export function AddImapScreen({ navigation }: Props) {
 
   return (
     <ScrollView
+      ref={scroll}
       style={{ backgroundColor: colors.background }}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: 60 + keyboard }]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
-      automaticallyAdjustKeyboardInsets
     >
       {field("Email", email, setEmail, {
         keyboardType: "email-address",
