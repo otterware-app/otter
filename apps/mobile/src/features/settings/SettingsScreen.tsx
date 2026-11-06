@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { Button, Form, Host, LabeledContent, Section, Text } from "@expo/ui/swift-ui";
+import { Button, Form, Host, LabeledContent, SecureField, Section, Text } from "@expo/ui/swift-ui";
 import { OTTER_ACCOUNT_STATE_CHANNEL } from "@otter-mail/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Constants from "expo-constants";
@@ -8,6 +8,7 @@ import { Alert, useColorScheme } from "react-native";
 
 import type { RootStack } from "../../App";
 import { mailboxes } from "../../state/client";
+import { useAgentProviders } from "../../state/chats";
 import { core } from "../../state/core";
 import { PHONE_SYNC_POLICY } from "../../persistence/sync-policy";
 
@@ -52,6 +53,18 @@ export function SettingsScreen({ navigation }: Props) {
       },
     ]);
 
+  const providers = useAgentProviders();
+  const openrouter = providers.find((p) => p.kind === "openrouter");
+  const [apiKey, setApiKey] = useState("");
+  const connectOpenRouter = async () => {
+    try {
+      await core.invoke("agent:connectOpenRouter", { apiKey });
+      setApiKey("");
+    } catch (e) {
+      Alert.alert("Couldn't connect OpenRouter", e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const mb = (bytes: number) => `${Math.round(bytes / 1048576)} MB`;
 
   return (
@@ -82,6 +95,31 @@ export function SettingsScreen({ navigation }: Props) {
             />
           )}
         </Section>
+        {openrouter ? (
+          <Section title="Agent" footer={<Text>{openrouter.message ?? ""}</Text>}>
+            <LabeledContent label="OpenRouter">
+              <Text>
+                {openrouter.auth.status === "authenticated" ? "Connected" : "Not connected"}
+              </Text>
+            </LabeledContent>
+            {openrouter.auth.status !== "authenticated" ? (
+              <>
+                <SecureField placeholder="OpenRouter API key" onTextChange={setApiKey} />
+                <Button
+                  label="Connect"
+                  systemImage="link"
+                  onPress={() => void connectOpenRouter()}
+                />
+              </>
+            ) : (
+              <Button
+                label="Disconnect"
+                role="destructive"
+                onPress={() => void core.invoke("agent:disconnectOpenRouter")}
+              />
+            )}
+          </Section>
+        ) : null}
         <Section title="Mailboxes">
           {accounts.map((account) => (
             <Button

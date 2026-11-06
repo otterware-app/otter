@@ -28,6 +28,12 @@
     "name": "Hermes",
     "description": "Chats with your Hermes Agent server.",
     "category": "agent",
+    "platforms": [
+      "mac",
+      "linux",
+      "web",
+      "ios"
+    ],
     "dataUse": "Your messages, and the mail and calendar data its tools read, go to your Hermes server."
   }
 }

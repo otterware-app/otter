@@ -20,8 +20,9 @@ private final class Sessions: NSObject, URLSessionDataDelegate, @unchecked Senda
   private(set) lazy var session: URLSession = {
     let configuration = URLSessionConfiguration.default
     configuration.timeoutIntervalForRequest = 60
-    configuration.httpCookieStorage = nil
-    configuration.httpShouldSetCookies = false
+    // fetch with `credentials: "include"` (the agent server's session cookie) keeps cookies, as a browser does.
+    configuration.httpCookieStorage = .shared
+    configuration.httpShouldSetCookies = true
     configuration.urlCache = nil
     return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
   }()

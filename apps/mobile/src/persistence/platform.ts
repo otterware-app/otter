@@ -187,6 +187,7 @@ export async function mobilePlatform(options: MobilePlatformOptions): Promise<Pl
     syncPolicy: PHONE_SYNC_POLICY,
     relayUrl: demo ? demo.DEMO_RELAY_URL : config.relayUrl,
     relaySession: "bearer",
+    agentServerUrl: config.agentServerUrl,
     deviceName: "iPhone",
     broadcast: shell.broadcast,
     notify: (notification) => shell.effect({ _tag: "notify", ...notification }),
