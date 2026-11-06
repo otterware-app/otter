@@ -22,7 +22,7 @@ type SearchResult = {
 };
 
 /**
- * apps/ios's search: what's on the phone answers at once (`gmail:searchMessages`,
+ * The Swift app's search: what's on the phone answers at once (`gmail:searchMessages`,
  * the local index), then the provider's own search (`gmail:search`: Gmail's and
  * Microsoft's, past what the phone keeps) adds to it. Pages follow as it scrolls.
  */

@@ -94,7 +94,7 @@ export function threadActions(
     },
   ];
 
-  /** apps/ios's ThreadActions, as an action sheet (long press). */
+  /** The Swift app's ThreadActions, as an action sheet (long press). */
   function showMenu(row: MessageSummary): void {
     const unread = row.threadUnread ?? row.unread;
     const starred = row.threadStarred ?? row.starred;

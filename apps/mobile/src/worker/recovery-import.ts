@@ -13,13 +13,13 @@ import type { WorkerHost } from "@otter-mail/mobile-worker";
 import { call } from "./call";
 import { importRecoveredDrafts, recoveryNamespace, type RecoveryIO } from "./recovered-drafts";
 
-/** Where apps/ios kept them: Application Support itself, beside core's data directory. */
+/** Where the Swift app kept them: Application Support itself, beside core's data directory. */
 const SWIFT_SUPPORT = "..";
 const DONE_FILE = "recovered-drafts.json";
 
 /**
- * `drafts:importRecovered`: apps/ios's recovery copies for the Otter account
- * signed in (the demo's in the made-up mailbox, as apps/ios's demo kept its
+ * `drafts:importRecovered`: the Swift app's recovery copies for the Otter account
+ * signed in (the demo's in the made-up mailbox, as the Swift app's demo kept its
  * own), each saved as a draft once.
  */
 export function registerRecoveryHandlers(host: WorkerHost, demo: boolean): void {

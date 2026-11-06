@@ -17,7 +17,7 @@ const status = (p: AgentProvider) =>
         : "Not connected";
 
 /**
- * apps/ios's AgentSettings: the agents core runs on the phone, and
+ * The Swift app's AgentSettings: the agents core runs on the phone, and
  * OpenRouter's key (kept on Otter Mail's server, so it needs the Otter account).
  */
 export function AgentSettings({ colors, signedIn }: { colors: Palette; signedIn: boolean }) {

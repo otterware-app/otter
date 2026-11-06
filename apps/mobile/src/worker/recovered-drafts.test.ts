@@ -10,7 +10,7 @@ import {
 const toBase64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
 const utf8 = (text: string) => new TextEncoder().encode(text);
 
-/** What apps/ios's JSONEncoder writes for a RecoveredDraft (DraftFiles.swift, Draft.swift). */
+/** What the Swift app's JSONEncoder writes for a RecoveredDraft (DraftFiles.swift, Draft.swift). */
 const swiftJson = (draft: Record<string, unknown>, updated = 784_000_000) =>
   JSON.stringify({
     draft: { to: "", cc: "", bcc: "", files: [], subject: "", body: "", ...draft },
@@ -42,7 +42,7 @@ function fakeIO(entries: Record<string, string>, files: Record<string, string> =
 }
 
 describe("recovered drafts", () => {
-  it("reads apps/ios's JSON and ignores what isn't a draft", () => {
+  it("reads the Swift app's JSON and ignores what isn't a draft", () => {
     const entry = parseRecoveredDraft(
       swiftJson({ id: "A", from: "me@example.com", subject: "Hi", address: "Alias@example.com" }),
     );

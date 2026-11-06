@@ -26,7 +26,7 @@ export function rememberPlace(place: Place): void {
   clientPlatform.storage.setItem(PLACE_KEY, JSON.stringify(place));
 }
 
-/** apps/ios's Folder: the system places, in the order its menu lists them. */
+/** The Swift app's Folder: the system places, in the order its menu lists them. */
 const SYSTEM: Record<string, { title: string; symbol: SFSymbol; order: number }> = {
   INBOX: { title: "Inbox", symbol: "tray", order: 0 },
   STARRED: { title: "Starred", symbol: "star", order: 1 },

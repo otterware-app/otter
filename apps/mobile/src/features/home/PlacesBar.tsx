@@ -42,7 +42,7 @@ import { placeSymbol } from "./places";
 
 const mailboxName = (m: Mailbox | undefined) => m?.displayName ?? m?.name ?? m?.email ?? "";
 
-/** apps/ios's MailboxAvatar: its picture, else (or until it loads, or for an SVG) its initial on its color. */
+/** The Swift app's MailboxAvatar: its picture, else (or until it loads, or for an SVG) its initial on its color. */
 export function MailboxAvatar({ mailbox, size }: { mailbox: Mailbox | undefined; size: number }) {
   const picture = mailbox?.customPicture ?? mailbox?.picture;
   const [failed, setFailed] = useState<string | null>(null);
@@ -78,7 +78,7 @@ export function MailboxAvatar({ mailbox, size }: { mailbox: Mailbox | undefined;
 }
 
 /**
- * apps/ios's PlacesBar, in SwiftUI: one glass container holding the bar's
+ * The Swift app's PlacesBar, in SwiftUI: one glass container holding the bar's
  * capsule (the mailbox's menu, Inbox, Drafts, Search and ⌃⌄) and the agent's
  * button. The capsule shares its glass with the places panel, so ⌃⌄ morphs it
  * into the panel and back; the selection slides between tabs; scrolling the

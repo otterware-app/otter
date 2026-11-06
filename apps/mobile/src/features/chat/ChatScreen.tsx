@@ -24,7 +24,7 @@ import { GlassPanel } from "../GlassPanel";
 type Props = NativeStackScreenProps<RootStack, "Chat">;
 
 /**
- * The agent (apps/ios's sheet): one of the account's chats, synced through
+ * The agent (the Swift app's sheet): one of the account's chats, synced through
  * core and the relay, on client-runtime's chats store, the web app's. Turns
  * stream in as core's agent events arrive.
  */

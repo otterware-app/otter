@@ -34,7 +34,7 @@ import { setUiPreference, uiPreferencesAtom } from "../../state/preferences";
 import { availableThemes, paletteOf, themeId, themeModes, type Palette } from "../theme";
 
 /**
- * apps/ios's ThemeSettings: every theme as a card with its light and dark
+ * The Swift app's ThemeSettings: every theme as a card with its light and dark
  * palettes; tapping one wears it in both, its sun or moon in one.
  */
 export function ThemeSettings({ colors }: { colors: Palette }) {

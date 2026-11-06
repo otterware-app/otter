@@ -2,7 +2,7 @@ import ExpoModulesCore
 import WebKit
 
 /**
- * apps/ios's HTMLBody: a message's HTML in WebKit, as tall as its content so
+ * The Swift app's HTMLBody: a message's HTML in WebKit, as tall as its content so
  * it scrolls with the conversation. Its own scripts never run; inline images
  * come over `cid:` from the app (no base64 copies of the document), remote
  * ones only when allowed (a content rule blocks them otherwise), and links

@@ -23,7 +23,7 @@ import { UndoToast } from "./UndoToast";
 
 type Props = NativeStackScreenProps<RootStack, "Home">;
 
-/** apps/ios's HomeView: a place's list, the places bar over it, and the places panel out of the bar. */
+/** The Swift app's HomeView: a place's list, the places bar over it, and the places panel out of the bar. */
 export function HomeScreen({ navigation }: Props) {
   const colors = usePalette();
   const accounts = useAtomValue(mailboxes.accountsAtom);
@@ -203,7 +203,7 @@ export function HomeScreen({ navigation }: Props) {
   );
 }
 
-/** apps/ios's Header: the place, then the mailbox, muted; it opens every place. */
+/** The Swift app's Header: the place, then the mailbox, muted; it opens every place. */
 function HomeTitle({
   title,
   mailbox,

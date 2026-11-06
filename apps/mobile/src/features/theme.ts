@@ -12,7 +12,7 @@ import { Appearance, useColorScheme, type ColorSchemeName } from "react-native";
 import { appAtomRegistry } from "../state/client";
 import { uiPreferencesAtom, type UiPreferences } from "../state/preferences";
 
-/** apps/ios's Preferences.initialTheme: what a new device wears until the account says otherwise. */
+/** The Swift app's Preferences.initialTheme: what a new device wears until the account says otherwise. */
 export const INITIAL_THEME = "codex";
 
 export type ThemeSource = "system" | "light" | "dark";
@@ -86,7 +86,7 @@ function build(theme: ThemeDefinition, appearance: ThemeAppearance) {
     actionText: role("messageActionForeground"),
     error: role("error"),
     warning: role("warning"),
-    /** apps/ios's rows: a hint of the text color over the canvas. */
+    /** The Swift app's rows: a hint of the text color over the canvas. */
     card: alpha(text, 0.07),
     unreadCard: alpha(text, 0.04),
     pressed: alpha(text, 0.08),
@@ -144,7 +144,7 @@ export function useThemeSource(): void {
   );
 }
 
-/** apps/ios's RelativeTime.short: the time today, the weekday this week, the day this year, else the date. */
+/** The Swift app's RelativeTime.short: the time today, the weekday this week, the day this year, else the date. */
 export function relativeDate(ms: number, now = new Date()): string {
   const date = new Date(ms);
   if (date.toDateString() === now.toDateString()) {
@@ -158,7 +158,7 @@ export function relativeDate(ms: number, now = new Date()): string {
   return date.toLocaleDateString(undefined, { day: "numeric", month: "numeric", year: "2-digit" });
 }
 
-/** apps/ios's ThreadDay title: Today, Yesterday, or the day. */
+/** The Swift app's ThreadDay title: Today, Yesterday, or the day. */
 export function dayTitle(ms: number, now = new Date()): string {
   const date = new Date(ms);
   if (date.toDateString() === now.toDateString()) return "Today";

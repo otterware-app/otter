@@ -1,7 +1,7 @@
 import type { ComposeAttachment } from "@otter-mail/core";
 
 /**
- * apps/ios kept each unsent message as a recovery copy: a JSON
+ * The Swift app kept each unsent message as a recovery copy: a JSON
  * `RecoveredDraft` per draft in Application Support/draft-recovery/<namespace>/,
  * its attachments in Application Support/draft-files/<file>/<filename>
  * (DraftFiles.swift). Upgrading to this app, each becomes a draft on its

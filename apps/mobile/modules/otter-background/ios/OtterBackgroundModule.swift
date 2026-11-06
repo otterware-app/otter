@@ -3,7 +3,7 @@ import ExpoModulesCore
 import os
 
 /**
- * apps/ios's `.backgroundTask(.appRefresh(…))`: iOS wakes the app every so
+ * The Swift app's `.backgroundTask(.appRefresh(…))`: iOS wakes the app every so
  * often (it picks the moment) and JS gets `onRefresh` to catch mail up; it
  * calls `complete` when done, or `onExpire` comes first when iOS wants the
  * time back. Registered at launch, as BGTaskScheduler requires.

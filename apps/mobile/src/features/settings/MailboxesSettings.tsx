@@ -51,7 +51,7 @@ const name = (m: Mailbox) => m.displayName ?? m.name ?? m.email;
 const providerSymbol = (m: Mailbox) =>
   m.provider === "imap" ? "server.rack" : m.provider === "outlook" ? "envelope.badge" : "envelope";
 
-/** apps/ios's MailboxesSettings: each mailbox on or off (on every device), its page, and adding one. */
+/** The Swift app's MailboxesSettings: each mailbox on or off (on every device), its page, and adding one. */
 export function MailboxesSettings({ colors, onAdd }: { colors: Palette; onAdd: () => void }) {
   const ui = useAtomValue(uiPreferencesAtom);
   const accounts = useAtomValue(mailboxes.accountsAtom).value;
@@ -129,7 +129,7 @@ export function MailboxesSettings({ colors, onAdd }: { colors: Palette; onAdd: (
   );
 }
 
-/** apps/ios's MailboxSettings: its name and color (on every device), and removing it. */
+/** The Swift app's MailboxSettings: its name and color (on every device), and removing it. */
 export function MailboxSettings({
   colors,
   mailbox,

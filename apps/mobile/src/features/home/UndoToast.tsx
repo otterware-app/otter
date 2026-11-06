@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { operations } from "../../state/client";
 import { usePalette } from "../theme";
 
-/** apps/ios's undo bar: "Archived" and Undo over the places bar, for a few seconds after each undoable action. */
+/** The Swift app's undo bar: "Archived" and Undo over the places bar, for a few seconds after each undoable action. */
 export function UndoToast() {
   const colors = usePalette();
   const insets = useSafeAreaInsets();

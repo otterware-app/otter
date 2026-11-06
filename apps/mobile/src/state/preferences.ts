@@ -5,7 +5,7 @@ import { core } from "./core";
 
 /**
  * The account's `ui` preferences (core's `preferences:getUi`, synced through
- * the Otter account), under the keys the Mac, the web and apps/ios use. A
+ * the Otter account), under the keys the Mac, the web and the Swift app use. A
  * copy stays in client storage so the first frame wears the saved theme.
  */
 export type UiPreferences = Partial<Record<string, string>>;
