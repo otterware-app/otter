@@ -344,8 +344,8 @@ function gmailImap(): FakeStream {
 
 let notified: string[];
 
-async function until(check: () => boolean, what: string): Promise<void> {
-  for (let i = 0; i < 400; i++) {
+async function until(check: () => boolean, what: string, ms = 4_000): Promise<void> {
+  for (let i = 0; i < ms / 10; i++) {
     if (check()) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
@@ -354,7 +354,7 @@ async function until(check: () => boolean, what: string): Promise<void> {
 
 async function boot(
   seed?: (store: typeof import("../mail-store.ts")) => void,
-  opts: { imap?: boolean } = {},
+  opts: { imap?: boolean; syncPolicy?: Platform["syncPolicy"] } = {},
 ) {
   vi.resetModules();
   const { setPlatform } = await import("../../platform.ts");
@@ -420,7 +420,7 @@ async function boot(
     rawSockets: true,
     crossOriginFetch: true,
     notificationReturn: "desktop",
-    syncPolicy: { ...KEEP_MAILBOX, bodyPrefetch: true },
+    syncPolicy: opts.syncPolicy ?? { ...KEEP_MAILBOX, bodyPrefetch: true },
   };
 
   setPlatform(platform);
@@ -462,6 +462,58 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+});
+
+/** The phone's: the newest of the inbox, bodies on open, older mail paged from Gmail. */
+const PHONE: Platform["syncPolicy"] = {
+  initialCoverage: "inbox",
+  automaticBackfill: false,
+  bodyPrefetch: false,
+  retentionBytes: 64 * 1024 * 1024,
+  execution: "foreground",
+};
+
+describe("Gmail sync on a phone", { timeout: 60_000 }, () => {
+  it("starts with the newest page of the inbox, and pages back from Gmail as the list scrolls", async () => {
+    for (let i = 1; i <= 120; i++) deliver(`in${i}`, ["INBOX"], Date.now() - i * 60_000);
+    for (let i = 1; i <= 20; i++) deliver(`sent${i}`, ["SENT"], Date.now() - i * 30_000);
+
+    const { mailStore, status, invoke } = await boot(undefined, { syncPolicy: PHONE });
+    await until(() => mailStore.countAllMessages(account.id) === 50, "the newest page", 20_000);
+    await until(() => !status().syncing, "the first sync to finish");
+    expect(status().fullSyncDone).toBe(false);
+    expect(listings).toEqual([]);
+    expect(fetches.every((f) => f.format !== "full")).toBe(true);
+    expect(mailStore.getMessageIdsForLabel(account.id, "SENT")).toEqual([]);
+
+    const nextPage = () =>
+      invoke("gmail:listMessages", {
+        accountId: account.id,
+        labelIds: ["INBOX"],
+        pageToken: "50",
+        maxResults: 50,
+      }) as Promise<{ messages: { id: string }[]; nextPageToken?: string }>;
+    // Past the cache, the list answers within its budget and Gmail's next page keeps coming.
+    expect((await nextPage()).nextPageToken).toBeDefined();
+    await until(() => mailStore.countAllMessages(account.id) === 100, "Gmail's next page", 20_000);
+    const second = await nextPage();
+    expect(second.messages[0]?.id).toBe("in51");
+    expect(second.nextPageToken).toBe("100");
+    expect(mailStore.getMessageDetail(account.id, "in1")).toBeNull();
+  });
+
+  it("refills the newest inbox page when Gmail's history has expired, rather than the mailbox", async () => {
+    for (let i = 1; i <= 80; i++) deliver(`in${i}`, ["INBOX"], Date.now() - i * 60_000);
+    historyFloor = historyId;
+    const { mailStore, status } = await boot(
+      (store) => store.setSyncState(account.id, { historyId: "50" }),
+      { syncPolicy: PHONE },
+    );
+    await until(() => mailStore.countAllMessages(account.id) === 50, "the newest page", 20_000);
+    await until(() => !status().syncing, "the sync to finish");
+    expect(listings).toEqual([]);
+    expect(mailStore.getKv(`fullSyncRefresh:${account.id}`) ?? "").toBe("");
+  });
 });
 
 // Real background syncs: well under a second alone, seconds on a busy CI runner.

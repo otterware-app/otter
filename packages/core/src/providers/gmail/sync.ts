@@ -35,6 +35,7 @@ export async function syncGmail(accountId: string, ctx: SyncContext): Promise<vo
     ctx.update({ phase: "labels" });
     if (await refreshLabels(accountId, true, ctx)) ctx.bumpRevision();
     historyId = await startFeed(accountId, ctx);
+    if (platform().syncPolicy.initialCoverage === "inbox") await fillNewest(accountId, ctx);
   }
 
   const delta = await incrementalSync(accountId, historyId, ctx);
@@ -44,7 +45,25 @@ export async function syncGmail(accountId: string, ctx: SyncContext): Promise<vo
   await learnDraftIds(accountId, delta.changed, ctx);
 }
 
+/** The newest page of the inbox: all a device keeping only the newest starts with. */
+const NEWEST_PAGE = 50;
+
+async function fillNewest(accountId: string, ctx: SyncContext): Promise<void> {
+  ctx.update({ phase: "full" });
+  const { ids } = await listMessageIdsPage(accountId, {
+    labelIds: ["INBOX"],
+    maxResults: NEWEST_PAGE,
+    spamTrash: false,
+  });
+  const fresh = store.filterUnknownIds(accountId, ids);
+  if (fresh.length > 0) await fetchAndStore(accountId, fresh, ctx);
+  ctx.update({ synced: fresh.length });
+  ctx.bumpRevision();
+}
+
 export function needsBackfill(accountId: string): boolean {
+  // Older mail comes as lists page back (live paging), not all at once.
+  if (!platform().syncPolicy.automaticBackfill) return false;
   return (
     !store.getSyncState(accountId).fullSyncDone ||
     store.getKv(refreshKey(accountId)) === "1" ||
@@ -454,6 +473,12 @@ async function restartFeed(accountId: string, ctx: SyncContext): Promise<void> {
   ctx.assertActive();
   store.setKv(seedKey(accountId), historyId);
   store.setKv(replayKey(accountId), "");
-  store.setKv(refreshKey(accountId), "1");
   store.setSyncState(accountId, { historyId });
+  if (platform().syncPolicy.automaticBackfill) {
+    store.setKv(refreshKey(accountId), "1");
+  } else {
+    // What changed while away is fetched again as it's shown; the newest now.
+    store.setSyncState(accountId, { fullSyncDone: false });
+    await fillNewest(accountId, ctx);
+  }
 }

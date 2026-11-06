@@ -708,6 +708,7 @@ export function registerMailHandlers(): void {
     try {
       const accountId = assertString(p?.accountId, "accountId");
       const messageId = assertString(p?.messageId, "messageId");
+      mailStore.touchMessages(accountId, [messageId]);
       const cached = mailStore.getMessageDetail(accountId, messageId);
       if (cached) return cached;
       const provider = providerFor(accountId);

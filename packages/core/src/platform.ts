@@ -95,6 +95,12 @@ export interface SyncPolicy {
   bodyPrefetch: boolean;
   /** At most this many bytes of downloaded attachments are kept. */
   retentionBytes: number;
+  /**
+   * At most about this many bytes of cached mail are kept (bodies first, then
+   * rows), the least recently opened first; drafts, scheduled and starred mail
+   * always stay. Unset: everything stays.
+   */
+  cacheBytes?: number;
   /** When sync may run: whenever core does, or only while the app is in front. */
   execution: "background" | "foreground";
 }
@@ -104,7 +110,7 @@ export type NotificationReturn = "web" | "desktop" | "native";
 
 export interface Platform {
   /** A label for support reports only: behaviour follows the capabilities below. */
-  kind: "desktop" | "web";
+  kind: "desktop" | "web" | "mobile";
   appVersion: string;
   errorReports?: boolean;
   supportDiagnostics?(): Promise<{ environment: string; errors?: SupportError[] }>;

@@ -121,6 +121,10 @@ function getDb(): SqlDatabase {
   if (!messageCols.has("recipients")) {
     handle.exec("ALTER TABLE messages ADD COLUMN recipients TEXT;");
   }
+  // When the message was last opened here, for evicting the least recent (evictToFit).
+  if (!messageCols.has("accessedAt")) {
+    handle.exec("ALTER TABLE messages ADD COLUMN accessedAt INTEGER NOT NULL DEFAULT 0;");
+  }
   handle.exec(
     "CREATE INDEX IF NOT EXISTS idx_messages_undownloaded ON messages (accountId, detailFetched, date DESC);",
   );
@@ -1695,4 +1699,105 @@ export function removeAccountData(accountId: string): void {
     d.exec("ROLLBACK");
     throw err;
   }
+}
+
+/** Mail a device always keeps, however tight its cache: drafts, what's waiting to send, starred, pinned. */
+export const KEPT_LABELS = ["DRAFT", "SCHEDULED", "OUTBOX", "STARRED", "PINNED"] as const;
+
+/** Marks messages as opened now: the last to go when the cache is evicted. */
+export function touchMessages(accountId: string, ids: readonly string[]): void {
+  if (ids.length === 0) return;
+  const d = getDb();
+  const now = Date.now();
+  const touch = d.prepare("UPDATE messages SET accessedAt = ? WHERE accountId = ? AND id = ?");
+  inTransaction(() => {
+    for (const id of ids) touch.run(now, accountId, id);
+  });
+}
+
+const ROW_BYTES = `(200 + length(subject) + length(snippet) + length(fromName) + length(toField)
+  + coalesce(length(cc), 0) + length(labelIds))`;
+const BODY_BYTES =
+  "(coalesce(length(bodyHtml), 0) + coalesce(length(bodyText), 0) + coalesce(length(attachments), 0))";
+
+/** About how many bytes the cached mail takes (text lengths; SQLite's own overhead aside). */
+export function cachedBytes(): { rows: number; bodies: number } {
+  const row = getDb()
+    .prepare(
+      `SELECT coalesce(sum(${ROW_BYTES}), 0) AS rows, coalesce(sum(${BODY_BYTES}), 0) AS bodies FROM messages`,
+    )
+    .get() as unknown as { rows: number; bodies: number };
+  return { rows: Number(row.rows), bodies: Number(row.bodies) };
+}
+
+const keptClause = `NOT EXISTS (SELECT 1 FROM message_labels l
+  WHERE l.accountId = messages.accountId AND l.messageId = messages.id
+    AND l.labelId IN (${KEPT_LABELS.map((l) => `'${l}'`).join(", ")}))`;
+
+/**
+ * Brings the cache under `budget` bytes, least recently opened (else oldest)
+ * first: bodies go before rows, so a list keeps its rows while its old
+ * messages' bodies are fetched again on open. Kept labels' mail never goes;
+ * neither does each mailbox's newest `newest` rows. Returns what went.
+ */
+export function evictToFit(
+  budget: number,
+  newest = 200,
+): { bodiesDropped: number; rowsDropped: number } {
+  const d = getDb();
+  let { rows, bodies } = cachedBytes();
+  let bodiesDropped = 0;
+  let rowsDropped = 0;
+  if (rows + bodies <= budget) return { bodiesDropped, rowsDropped };
+
+  const withBodies = d
+    .prepare(
+      `SELECT accountId, id, ${BODY_BYTES} AS bytes FROM messages
+        WHERE detailFetched = 1 AND ${keptClause}
+        ORDER BY max(accessedAt, date) ASC LIMIT 500`,
+    )
+    .all() as unknown as { accountId: string; id: string; bytes: number }[];
+  const dropBody = d.prepare(
+    `UPDATE messages SET bodyHtml = NULL, bodyText = NULL, attachments = NULL, detailFetched = 0
+      WHERE accountId = ? AND id = ?`,
+  );
+  inTransaction(() => {
+    for (const m of withBodies) {
+      if (rows + bodies <= budget) break;
+      dropBody.run(m.accountId, m.id);
+      bodies -= Number(m.bytes);
+      bodiesDropped++;
+    }
+  });
+  if (rows + bodies <= budget) return { bodiesDropped, rowsDropped };
+
+  const candidates = d
+    .prepare(
+      `SELECT accountId, id, bytes FROM (
+         SELECT accountId, id, ${ROW_BYTES} AS bytes, accessedAt, date,
+                row_number() OVER (PARTITION BY accountId ORDER BY date DESC) AS position
+           FROM messages WHERE ${keptClause})
+        WHERE position > ?
+        ORDER BY max(accessedAt, date) ASC LIMIT 2000`,
+    )
+    .all(newest) as unknown as { accountId: string; id: string; bytes: number }[];
+  const touched = new Set<string>();
+  const deleteRow = d.prepare("DELETE FROM messages WHERE accountId = ? AND id = ?");
+  const deleteLabels = d.prepare(
+    "DELETE FROM message_labels WHERE accountId = ? AND messageId = ?",
+  );
+  inTransaction(() => {
+    for (const m of candidates) {
+      if (rows + bodies <= budget) break;
+      deleteRow.run(m.accountId, m.id);
+      deleteLabels.run(m.accountId, m.id);
+      touched.add(m.accountId);
+      rows -= Number(m.bytes);
+      rowsDropped++;
+    }
+  });
+  // The mailbox is no longer whole here: lists page from the server again. Its
+  // labels' counts stay the server's; the rows that went are still on it.
+  for (const accountId of touched) setSyncState(accountId, { fullSyncDone: false });
+  return { bodiesDropped, rowsDropped };
 }

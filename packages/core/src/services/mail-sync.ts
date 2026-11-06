@@ -320,11 +320,30 @@ async function runSyncNow(accountId: string, provider: MailProvider): Promise<vo
   }
 
   updateDockBadge();
+  keepWithinCache();
   if (!isSignedIn(accountId)) return;
   if (provider.needsBackfill?.(accountId)) {
     if (synced) startBackfill(accountId, provider);
   } else {
     startDownloads(accountId, provider);
+  }
+}
+
+const EVICT_EVERY_MS = 10 * 60_000;
+let evictedAt = 0;
+
+/** A device that keeps only so much (syncPolicy.cacheBytes) lets the least recently opened mail go. */
+function keepWithinCache(): void {
+  const budget = platform().syncPolicy.cacheBytes;
+  if (budget === undefined || Date.now() - evictedAt < EVICT_EVERY_MS) return;
+  evictedAt = Date.now();
+  try {
+    const { bodiesDropped, rowsDropped } = store.evictToFit(budget);
+    if (bodiesDropped + rowsDropped > 0) {
+      logger.info("mail-sync", "evicted to fit the cache", { bodiesDropped, rowsDropped });
+    }
+  } catch (err) {
+    logger.error("mail-sync", "eviction failed", err);
   }
 }
 
