@@ -1,4 +1,5 @@
 import {
+  clearHermesKey,
   logger,
   preferenceChanged,
   providersState,
@@ -42,6 +43,16 @@ export default {
       void refreshProvider("hermes");
       preferenceChanged("assistant");
       preferenceChanged("hermesKey");
+      return providersState();
+    });
+    // apps/ios's Disconnect: the key leaves this device, and the address every device.
+    handle("agent:disconnectHermes", async () => {
+      await clearHermesKey();
+      await saveAgentSettings("hermes", { baseUrl: "" });
+      logger.info("agent", "hermes disconnected");
+      hermesProvider.shutdown();
+      void refreshProvider("hermes");
+      preferenceChanged("assistant");
       return providersState();
     });
   },

@@ -224,6 +224,17 @@ function OpenClawSettings({ provider, colors, signedIn }: AgentSettingsProps) {
               </>
             )}
             {error ? <Text modifiers={[foregroundStyle(colors.error)]}>{error}</Text> : null}
+            {settings.url ? (
+              <Button
+                label="Disconnect"
+                role="destructive"
+                onPress={() =>
+                  void invokeProviders("agent:disconnectOpenClaw").catch((e: unknown) =>
+                    setError(errorText(e)),
+                  )
+                }
+              />
+            ) : null}
           </>
         ) : null}
       </SettingsGroup>
