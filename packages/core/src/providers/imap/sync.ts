@@ -117,7 +117,9 @@ export async function syncImap(accountId: string, ctx: SyncContext): Promise<voi
   );
 
   const newMail: MessageSummary[] = [];
+  let stopped = false;
   for (const folder of folders.synced) {
+    if (stopped) break;
     if (bounded && (folder.role !== "INBOX" || !filled(state[folder.path], true))) continue;
     if (relabelFolder(accountId, folder, state[folder.path])) ctx.bumpRevision();
     const run = new FolderSync(accountId, folder, ctx, state[folder.path], window, bounded);
@@ -131,11 +133,12 @@ export async function syncImap(accountId: string, ctx: SyncContext): Promise<voi
     state[folder.path] = run.state!;
     writeState(accountId, state);
     if (folder.role === "INBOX") for (const message of added) newMail.push(message);
+    stopped = run.stopped;
   }
 
   ctx.assertActive();
   store.recountLabels(accountId, ["STARRED", "UNREAD"]);
-  if (first && window && !bounded) {
+  if (first && window && !bounded && !stopped) {
     setCoverage(accountId, { since: windowStart(window), done: true });
   } else if (first && !window) store.setSyncState(accountId, { fullSyncDone: true });
   await ctx.newMail(newMail);
@@ -305,6 +308,9 @@ export function renameFolderState(
 }
 
 class FolderSync {
+  /** The app went behind during the first sync: it goes on from `below` in front. */
+  stopped = false;
+
   constructor(
     private readonly accountId: string,
     private readonly folder: Folder,
@@ -424,12 +430,14 @@ class FolderSync {
       uids = uids.filter((uid) => uid >= start);
     }
     await this.fillDown(uids);
+    if (this.stopped) return;
     // The floor is the inbox's: other folders fill separately, to the window alone.
     if (this.folder.role === "INBOX" && this.window) {
       for (;;) {
         const short = this.window.minThreads - store.countThreadsForLabel(this.accountId, "INBOX");
         if (short <= 0 || older.length === 0) break;
         await this.fillDown(older.splice(Math.max(0, older.length - Math.min(short, PAGE))));
+        if (this.stopped) return;
       }
     }
     if (this.window) state.covered = true;
@@ -441,6 +449,10 @@ class FolderSync {
     const state = this.state!;
     let synced = store.countAllMessages(this.accountId);
     for (let end = uids.length; end > 0; end -= PAGE) {
+      if (inBackground()) {
+        this.stopped = true;
+        return;
+      }
       const page = uids.slice(Math.max(0, end - PAGE), end);
       synced += (await this.fetchPage(page)).length;
       this.ctx.update({ synced });

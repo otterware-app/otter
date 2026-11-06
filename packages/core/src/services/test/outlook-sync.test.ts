@@ -64,6 +64,7 @@ let failures: { method: string; suffix: string; status: number; apply?: boolean 
 let created: number;
 let listing: {
   pageSize?: number;
+  pages?: number;
   failAt?: { folder: string; skip: number };
   removedAt?: (folder: string, skip: number) => string[];
 };
@@ -228,6 +229,7 @@ function handle(method: string, url: URL, body: unknown): Response {
       return json({ value: [], "@odata.deltaLink": link(since) });
     if (since < 0 && listing.pageSize) {
       const skip = Number(url.searchParams.get("skip") ?? 0);
+      listing.pages = (listing.pages ?? 0) + 1;
       if (listing.failAt?.folder === folder && listing.failAt.skip === skip) {
         listing.failAt = undefined;
         return json({ error: { code: "ErrorInternalServerError", message: "Test failure." } }, 500);
@@ -1393,6 +1395,27 @@ describe("Outlook sync with a window", { timeout: 15_000 }, () => {
     expect(mailStore.countMessagesForLabel(account.id, "INBOX")).toBe(30);
     expect(deltaFilters.length).toBeGreaterThan(0);
     expect(deltaFilters.every((f) => f === null)).toBe(true);
+  });
+
+  it("stops listing when the app goes behind, and goes on from that page in front", async () => {
+    listing.pageSize = 5;
+    // The first page of the inbox's listing, then the app goes behind.
+    let pagesInFront = 1;
+    const { mailStore, status, sync } = await boot({
+      policy: { ...KEEP_RECENT, initialCoverage: { days: 10, minThreads: 5 } },
+      inForeground: () => (listing.pages ?? 0) < pagesInFront,
+    });
+    await until(() => listing.pages === 1 && !status().syncing, "the first page");
+    expect(mailStore.countMessagesForLabel(account.id, "SENT")).toBe(0);
+    expect(coverage(mailStore)).toContain('"done":false');
+    expect(mailStore.getKv(`outlookDelta:${account.id}`)).toContain("skip=5");
+
+    pagesInFront = Infinity;
+    await sync();
+    await until(() => coverage(mailStore)?.includes('"done":true') === true, "the window");
+    // Each page once (the inbox's and Sent's six, the empty folders' one): the first isn't listed again.
+    expect(listing.pages).toBe(6 + 6 + 5);
+    expect(mailStore.countMessagesForLabel(account.id, "SENT")).toBeGreaterThan(0);
   });
 
   it("lists everything without a window", async () => {

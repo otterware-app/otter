@@ -410,6 +410,8 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
     if (state?.done) continue;
     let next: string | undefined = state?.link ?? firstDelta(folder.id, since);
     while (next) {
+      // Behind the app: each page's link is kept, so the front goes on from here.
+      if (inBackground()) return;
       let page: Page<ApiMessage>;
       try {
         page = await graph<Page<ApiMessage>>(accountId, next, {

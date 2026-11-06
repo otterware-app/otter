@@ -213,6 +213,24 @@ describe("IMAP sync with a window", () => {
     expect(store.countThreadsForLabel(accountId, "INBOX")).toBe(15);
   });
 
+  it("stops filling when the app goes behind, and goes on in front", async () => {
+    platform.syncPolicy = { ...KEEP_RECENT, initialCoverage: { days: 10, minThreads: 15 } };
+    const fetches = () => server.commands.filter((c) => /^UID FETCH .*ENVELOPE/.test(c));
+    // The window's page of the inbox, then the app goes behind.
+    platform.inForeground = () => fetches().length === 0;
+    await imapProvider.sync(accountId, ctx);
+    expect(fetches()).toHaveLength(1);
+    expect(cached("INBOX")).toBeLessThan(15);
+    expect(cached("SENT")).toBe(0);
+    expect(getCoverage(accountId)).toMatchObject({ done: false });
+
+    platform.inForeground = () => true;
+    await imapProvider.sync(accountId, ctx);
+    expect(cached("INBOX")).toBe(15);
+    expect(cached("SENT")).toBeGreaterThanOrEqual(10);
+    expect(getCoverage(accountId)).toMatchObject({ done: true });
+  });
+
   it("goes on below the window once the policy widens", async () => {
     platform.syncPolicy = { ...KEEP_RECENT, initialCoverage: { days: 10, minThreads: 15 } };
     await imapProvider.sync(accountId, ctx);
