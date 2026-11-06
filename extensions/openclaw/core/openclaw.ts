@@ -32,7 +32,7 @@ import type {
 import {
   newOpenClawDeviceKey,
   openClawDeviceIdentity,
-  type OpenClawDeviceKey,
+  savedOpenClawDeviceKey,
 } from "./openclaw-device.js";
 import { OPENCLAW_DEFAULTS, type OpenClawSettings } from "./settings.js";
 import {
@@ -85,11 +85,9 @@ let identity: Promise<GatewayBrowserDeviceIdentity> | null = null;
 
 function deviceIdentity(): Promise<GatewayBrowserDeviceIdentity> {
   identity ??= (async () => {
-    let key = JSON.parse((await getOpenClawDeviceKey()) || "null") as OpenClawDeviceKey | null;
-    if (!key) {
-      key = newOpenClawDeviceKey();
-      await setOpenClawDeviceKey(JSON.stringify(key));
-    }
+    const saved = savedOpenClawDeviceKey((await getOpenClawDeviceKey()) || "");
+    const key = saved?.key ?? newOpenClawDeviceKey();
+    if (!saved || saved.fromSwift) await setOpenClawDeviceKey(JSON.stringify(key));
     return openClawDeviceIdentity(key);
   })();
   return identity;

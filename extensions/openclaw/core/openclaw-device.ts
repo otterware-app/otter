@@ -12,7 +12,10 @@ export type OpenClawDeviceKey = {
 };
 
 export function newOpenClawDeviceKey(): OpenClawDeviceKey {
-  const seed = ed25519.utils.randomPrivateKey();
+  return keyFromSeed(ed25519.utils.randomPrivateKey());
+}
+
+function keyFromSeed(seed: Uint8Array): OpenClawDeviceKey {
   return {
     crv: "Ed25519",
     d: toBase64Url(seed),
@@ -21,6 +24,24 @@ export function newOpenClawDeviceKey(): OpenClawDeviceKey {
     kty: "OKP",
     x: toBase64Url(ed25519.getPublicKey(seed)),
   };
+}
+
+/**
+ * A saved key: the JWK, or the Swift iPhone app's raw 32-byte seed in base64, which `fromSwift`
+ * marks so the caller saves it back as a JWK.
+ */
+export function savedOpenClawDeviceKey(
+  saved: string,
+): { key: OpenClawDeviceKey; fromSwift: boolean } | null {
+  if (saved.startsWith("{"))
+    return { key: JSON.parse(saved) as OpenClawDeviceKey, fromSwift: false };
+  let seed: Uint8Array;
+  try {
+    seed = fromBase64(saved);
+  } catch {
+    return null;
+  }
+  return seed.length === 32 ? { key: keyFromSeed(seed), fromSwift: true } : null;
 }
 
 /** The gateway knows a device by its public key's SHA-256, in hex. */
