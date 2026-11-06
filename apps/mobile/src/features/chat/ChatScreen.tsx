@@ -1,7 +1,6 @@
 import { clampTitle, type Conversation } from "@otter-mail/client-runtime/state/chats";
 import type { ChatTurn, ChatTurnItem } from "@otter-mail/contracts/chats";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { GlassView } from "expo-glass-effect";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -20,6 +19,7 @@ import { chats, isProviderUsable, useAgentProviders, useChats } from "../../stat
 import { clientPlatform } from "../../state/client";
 import { useKeyboardInset } from "../keyboard";
 import { palette, type Palette } from "../theme";
+import { GlassPanel } from "../GlassPanel";
 
 type Props = NativeStackScreenProps<RootStack, "Chat">;
 
@@ -94,7 +94,8 @@ export function ChatScreen({ navigation }: Props) {
 
   return (
     <View
-      style={[styles.fill, { backgroundColor: colors.background }, { paddingBottom: keyboard }]}
+      // Clear, so the form sheet's own glass shows through.
+      style={[styles.fill, { paddingBottom: keyboard }]}
     >
       <ScrollView
         ref={scroll as never}
@@ -121,7 +122,7 @@ export function ChatScreen({ navigation }: Props) {
           <Text style={[styles.thinking, { color: colors.secondary }]}>Thinking…</Text>
         ) : null}
       </ScrollView>
-      <GlassView style={styles.composer} glassEffectStyle="regular" isInteractive>
+      <GlassPanel style={styles.composer}>
         <TextInput
           value={draft}
           onChangeText={setDraft}
@@ -149,7 +150,7 @@ export function ChatScreen({ navigation }: Props) {
             tintColor={draft.trim() || running ? colors.accent : colors.secondary}
           />
         </Pressable>
-      </GlassView>
+      </GlassPanel>
     </View>
   );
 }

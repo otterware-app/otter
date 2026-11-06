@@ -124,7 +124,13 @@ function Navigation() {
         <Stack.Screen
           name="Chat"
           component={ChatScreen}
-          options={{ title: "Agent", presentation: "modal" }}
+          options={{
+            title: "Agent",
+            presentation: "formSheet",
+            sheetAllowedDetents: [0.6, 1],
+            sheetGrabberVisible: true,
+            contentStyle: { backgroundColor: "transparent" },
+          }}
         />
         <Stack.Screen
           name="Compose"
