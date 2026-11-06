@@ -10,7 +10,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AddImapScreen } from "./features/accounts/AddImapScreen";
 import { WelcomeScreen } from "./features/accounts/WelcomeScreen";
-import { ChatScreen } from "./features/chat/ChatScreen";
+import { ChatScreen, type ChatHandoff } from "./features/chat/ChatScreen";
 import { ComposeScreen } from "./features/compose/ComposeScreen";
 import { GateScreen } from "./features/gate/GateScreen";
 import { HomeScreen } from "./features/home/HomeScreen";
@@ -18,6 +18,7 @@ import { SearchScreen } from "./features/search/SearchScreen";
 import { SettingsScreen } from "./features/settings/SettingsScreen";
 import { usePalette, useThemeSource } from "./features/theme";
 import { ThreadScreen } from "./features/thread/ThreadScreen";
+import { startAgents } from "./state/chats";
 import { appAtomRegistry, startClientState } from "./state/client";
 import { developmentVariant } from "./state/core";
 import { startUiPreferences } from "./state/preferences";
@@ -35,7 +36,7 @@ export type RootStack = {
   Settings: undefined;
   Welcome: undefined;
   AddImap: undefined;
-  Chat: undefined;
+  Chat: { context?: ChatHandoff } | undefined;
   Compose: {
     accountId: string;
     mode?: "new" | "reply" | "replyAll" | "forward";
@@ -67,6 +68,7 @@ export default function App() {
   useEffect(() => {
     startClientState();
     startUiPreferences();
+    return startAgents();
   }, []);
   return (
     <RegistryContext.Provider value={appAtomRegistry}>

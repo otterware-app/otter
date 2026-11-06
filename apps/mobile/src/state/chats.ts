@@ -1,24 +1,50 @@
 import { makeChatsStore, type ChatsState } from "@otter-mail/client-runtime/state/chats";
 import { useAtomValue } from "@effect/atom-react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Alert } from "react-native";
 
 import { appAtomRegistry, clientPlatform } from "./client";
 import { core } from "./core";
 
-/** An agent as core lists it (`agent:providers`). */
+export type ModelOption = {
+  id: "reasoningEffort" | "serviceTier";
+  label: string;
+  choices: { id: string; label: string; description?: string; isDefault?: boolean }[];
+};
+
+export type AgentModel = {
+  slug: string;
+  name: string;
+  subProvider?: string;
+  isDefault?: boolean;
+  options?: ModelOption[];
+};
+
+/** An agent as core lists it (`agent:providers`): core's ProviderSnapshot. */
 export type AgentProvider = {
   kind: string;
   displayName: string;
   enabled: boolean;
   installed: boolean;
-  status: string;
+  status: "ready" | "warning" | "error" | "disabled";
   auth: { status: "authenticated" | "unauthenticated" | "unknown" };
   checkedAt: number | null;
   message?: string;
+  models: AgentModel[];
+  model: string | null;
+  sessions: boolean;
+  settings: {
+    enabled: boolean;
+    model: string;
+    reasoningEffort?: string;
+    serviceTier?: string;
+    runtimeMode?: RuntimeMode;
+  } & Record<string, unknown>;
 };
 
-type ProvidersState = { providers: AgentProvider[] };
+export type RuntimeMode = "approval-required" | "auto-accept-edits" | "full-access";
+
+export type ProvidersState = { providers: AgentProvider[]; selected: string };
 
 export const isProviderUsable = (p: AgentProvider | undefined): boolean =>
   Boolean(p && p.enabled && p.status !== "error" && (p.installed || p.checkedAt === null));
@@ -27,7 +53,7 @@ export const isProviderUsable = (p: AgentProvider | undefined): boolean =>
 export const chats = makeChatsStore<AgentProvider>(appAtomRegistry, {
   core,
   platform: clientPlatform,
-  providerName: (kind) => providerNames.get(kind) ?? kind,
+  providerName: (kind) => agents.get().providers.find((p) => p.kind === kind)?.displayName ?? kind,
   isProviderUsable,
   isFileLink: () => false,
   mergeChanges: (changes) => changes,
@@ -36,27 +62,68 @@ export const chats = makeChatsStore<AgentProvider>(appAtomRegistry, {
   log: (event, data) => console.log(`[chats:${event}]`, data ? JSON.stringify(data) : ""),
 });
 
-const providerNames = new Map<string, string>();
-
 export function useChats<T>(select: (state: ChatsState) => T): T {
   return useAtomValue(chats.stateAtom, select);
 }
 
-/** The agents and their state, following `agent:providersChanged`; starts the chats once seen. */
+/** The agents and their state, following `agent:providersChanged`. */
+export const agents = (() => {
+  let state: ProvidersState = { providers: [], selected: "" };
+  const listeners = new Set<() => void>();
+  return {
+    get: () => state,
+    set(next: ProvidersState) {
+      state = next;
+      for (const listener of listeners) listener();
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+  };
+})();
+
+/** Saves agent settings (`{ selected, [kind]: { model, … } }`), as the web's updateSettings. */
+export async function updateAgentSettings(patch: Record<string, unknown>): Promise<void> {
+  agents.set(await core.invoke<ProvidersState>("agent:updateSettings", patch));
+}
+
+/**
+ * From launch: the agents, and the chats following them, so what an agent
+ * delivers becomes its chat and notifies while the app shows mail.
+ */
+export function startAgents(): () => void {
+  const offs = [
+    core.on("agent:providersChanged", (state) => agents.set(state as ProvidersState)),
+    chats.start(),
+  ];
+  void core.invoke<ProvidersState>("agent:providers").then(agents.set, () => {});
+  let unfollow: (() => void) | undefined;
+  let followed: AgentProvider[] = [];
+  const follow = () => {
+    const { providers } = agents.get();
+    if (providers === followed || providers.length === 0) return;
+    followed = providers;
+    unfollow?.();
+    unfollow = chats.followProviders(providers);
+  };
+  offs.push(agents.subscribe(follow));
+  return () => {
+    unfollow?.();
+    for (const off of offs) off();
+  };
+}
+
+export function useAgents(): ProvidersState {
+  return useSyncExternalStore(agents.subscribe, agents.get);
+}
+
 export function useAgentProviders(): AgentProvider[] {
-  const [providers, setProviders] = useState<AgentProvider[]>([]);
-  useEffect(() => {
-    const take = (state: ProvidersState) => {
-      for (const p of state.providers) providerNames.set(p.kind, p.displayName);
-      setProviders(state.providers);
-    };
-    void core.invoke<ProvidersState>("agent:providers").then(take, () => {});
-    return core.on("agent:providersChanged", (state) => take(state as ProvidersState));
-  }, []);
-  useEffect(() => chats.start(), []);
-  useEffect(
-    () => (providers.length > 0 ? chats.followProviders(providers) : undefined),
-    [providers],
-  );
-  return providers;
+  return useAgents().providers;
+}
+
+/** The agent a new chat uses: the one chosen in Settings when it's usable, else the first that is. */
+export function defaultAgent({ providers, selected }: ProvidersState): AgentProvider | undefined {
+  const chosen = providers.find((p) => p.kind === selected);
+  return isProviderUsable(chosen) ? chosen : (providers.find(isProviderUsable) ?? chosen);
 }
