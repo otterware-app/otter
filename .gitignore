@@ -18,5 +18,4 @@ tmp/
 .claude/skills/synced
 .wrangler/
 .dev.vars
-apps/ios/.build/
 infra/relay/.wrangler.local.jsonc
