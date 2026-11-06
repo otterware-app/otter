@@ -10,12 +10,14 @@
     "ios:dev": "APP_VARIANT=development EXPO_NO_GIT_STATUS=1 expo prebuild --clean --platform ios && expo run:ios",
     "ios:preview": "APP_VARIANT=preview EXPO_NO_GIT_STATUS=1 expo prebuild --clean --platform ios && expo run:ios",
     "ios:prod": "APP_VARIANT=production EXPO_NO_GIT_STATUS=1 expo prebuild --clean --platform ios && expo run:ios",
-    "ios:release": "APP_VARIANT=development EXPO_NO_GIT_STATUS=1 expo prebuild --clean --platform ios && expo run:ios --configuration Release --no-bundler",
+    "ios:release": "APP_VARIANT=development EXPO_NO_GIT_STATUS=1 expo prebuild --clean --platform ios && node scripts/warm-worklets.mts && expo run:ios --configuration Release --no-bundler",
     "config:dev": "APP_VARIANT=development expo config",
     "config:preview": "APP_VARIANT=preview expo config",
     "config:prod": "APP_VARIANT=production expo config",
     "nitrogen": "pnpm -r --filter './modules/*' nitrogen",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "gate:server": "node scripts/gate-server.mts",
+    "warm-worklets": "node scripts/warm-worklets.mts"
   },
   "dependencies": {
     "@effect/atom-react": "catalog:",
@@ -61,6 +63,14 @@
     "install": {
       "exclude": [
         "typescript"
+      ]
+    },
+    "autolinking": {
+      "buildFromSource": [
+        "@expo/ui",
+        "expo-ui",
+        "expo-glass-effect",
+        "react-native-screens"
       ]
     }
   }

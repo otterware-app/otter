@@ -100,6 +100,9 @@ const config: ExpoConfig = {
       {
         ios: {
           deploymentTarget: "26.0",
+          // Expo's prebuilt modules drift from expo-modules-core pinned for React Native 0.88.0
+          // (dyld: missing symbols at launch); build them from source.
+          usePrecompiledModules: false,
           // otter-sqlite's Nitro autolinking is Swift; the SQLite pod needs a module map for it.
           extraPods: [{ name: "sqlite3", modular_headers: true }],
         },
