@@ -147,6 +147,7 @@ export async function mobilePlatform(options: MobilePlatformOptions): Promise<Pl
   const root = config.demo ? "demo" : "mail";
   const database = openDatabase(`${host.dataDirectory}/${root}-cache.db`);
   const credentials = createCredentials();
+  const secretName = (name: string) => (config.demo ? `demo:${name}` : name);
 
   const files: Platform["files"] = {
     read: async (path) => {
@@ -171,10 +172,11 @@ export async function mobilePlatform(options: MobilePlatformOptions): Promise<Pl
       host.log(level, `[${scope}] ${message}${data === undefined ? "" : ` ${describe(data)}`}`),
     database: () => database,
     files,
+    // Under the names the notification extension reads (`imap-password:<email>`); the demo's apart.
     secrets: {
-      get: async (name) => credentials.getSecret(`${root}:${name}`) ?? null,
-      set: async (name, value) => credentials.setSecret(`${root}:${name}`, value),
-      delete: async (name) => credentials.deleteSecret(`${root}:${name}`),
+      get: async (name) => credentials.getSecret(secretName(name)) ?? null,
+      set: async (name, value) => credentials.setSecret(secretName(name), value),
+      delete: async (name) => credentials.deleteSecret(secretName(name)),
     },
     google: demo ? demo.demoGoogleAuth() : keychainGoogleAuth(),
     microsoft: demo ? undefined : keychainMicrosoftAuth(),
