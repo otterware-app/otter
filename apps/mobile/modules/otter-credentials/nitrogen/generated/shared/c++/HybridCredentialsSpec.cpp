@@ -18,6 +18,10 @@ namespace margelo::nitro::ottercredentials {
       prototype.registerHybridMethod("getSecret", &HybridCredentialsSpec::getSecret);
       prototype.registerHybridMethod("setSecret", &HybridCredentialsSpec::setSecret);
       prototype.registerHybridMethod("deleteSecret", &HybridCredentialsSpec::deleteSecret);
+      prototype.registerHybridMethod("signInGoogle", &HybridCredentialsSpec::signInGoogle);
+      prototype.registerHybridMethod("googleIdTokenSignIn", &HybridCredentialsSpec::googleIdTokenSignIn);
+      prototype.registerHybridMethod("signInMicrosoft", &HybridCredentialsSpec::signInMicrosoft);
+      prototype.registerHybridMethod("cancelSignIn", &HybridCredentialsSpec::cancelSignIn);
       prototype.registerHybridMethod("hasGoogle", &HybridCredentialsSpec::hasGoogle);
       prototype.registerHybridMethod("googleAccessToken", &HybridCredentialsSpec::googleAccessToken);
       prototype.registerHybridMethod("forgetGoogle", &HybridCredentialsSpec::forgetGoogle);

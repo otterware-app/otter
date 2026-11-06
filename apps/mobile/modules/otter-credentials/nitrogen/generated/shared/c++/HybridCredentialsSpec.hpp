@@ -13,13 +13,16 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
+// Forward declaration of `SignedIn` to properly resolve imports.
+namespace margelo::nitro::ottercredentials { struct SignedIn; }
 // Forward declaration of `AccessToken` to properly resolve imports.
 namespace margelo::nitro::ottercredentials { struct AccessToken; }
 
 #include <string>
 #include <optional>
-#include "AccessToken.hpp"
+#include "SignedIn.hpp"
 #include <NitroModules/Promise.hpp>
+#include "AccessToken.hpp"
 
 namespace margelo::nitro::ottercredentials {
 
@@ -55,6 +58,10 @@ namespace margelo::nitro::ottercredentials {
       virtual std::optional<std::string> getSecret(const std::string& name) = 0;
       virtual void setSecret(const std::string& name, const std::string& value) = 0;
       virtual void deleteSecret(const std::string& name) = 0;
+      virtual std::shared_ptr<Promise<SignedIn>> signInGoogle(const std::optional<std::string>& loginHint) = 0;
+      virtual std::shared_ptr<Promise<std::string>> googleIdTokenSignIn() = 0;
+      virtual std::shared_ptr<Promise<SignedIn>> signInMicrosoft(const std::optional<std::string>& loginHint) = 0;
+      virtual void cancelSignIn() = 0;
       virtual bool hasGoogle(const std::string& email) = 0;
       virtual std::shared_ptr<Promise<AccessToken>> googleAccessToken(const std::string& email, bool force) = 0;
       virtual void forgetGoogle(const std::string& email) = 0;
