@@ -13,7 +13,7 @@ public protocol HybridHttpRequestSpec_protocol: HybridObject {
   
 
   // Methods
-  func start(url: String, method: String, headers: Dictionary<String, String>, body: ArrayBuffer?, followRedirects: Bool, onResponse: @escaping (_ head: HttpResponseHead) -> Void, onData: @escaping (_ chunk: ArrayBuffer) -> Void, onComplete: @escaping (_ error: String?) -> Void) throws -> Void
+  func start(url: String, method: String, headers: Dictionary<String, String>, body: ArrayBuffer?, followRedirects: Bool, cookies: Bool, onResponse: @escaping (_ head: HttpResponseHead) -> Void, onData: @escaping (_ chunk: ArrayBuffer) -> Void, onComplete: @escaping (_ error: String?) -> Void) throws -> Void
   func cancel() throws -> Void
 }
 

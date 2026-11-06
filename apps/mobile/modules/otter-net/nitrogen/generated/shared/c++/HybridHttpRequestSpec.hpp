@@ -54,7 +54,7 @@ namespace margelo::nitro::otternet {
 
     public:
       // Methods
-      virtual void start(const std::string& url, const std::string& method, const std::unordered_map<std::string, std::string>& headers, const std::optional<std::shared_ptr<ArrayBuffer>>& body, bool followRedirects, const std::function<void(const HttpResponseHead& /* head */)>& onResponse, const std::function<void(const std::shared_ptr<ArrayBuffer>& /* chunk */)>& onData, const std::function<void(const std::optional<std::string>& /* error */)>& onComplete) = 0;
+      virtual void start(const std::string& url, const std::string& method, const std::unordered_map<std::string, std::string>& headers, const std::optional<std::shared_ptr<ArrayBuffer>>& body, bool followRedirects, bool cookies, const std::function<void(const HttpResponseHead& /* head */)>& onResponse, const std::function<void(const std::shared_ptr<ArrayBuffer>& /* chunk */)>& onData, const std::function<void(const std::optional<std::string>& /* error */)>& onComplete) = 0;
       virtual void cancel() = 0;
 
     protected:

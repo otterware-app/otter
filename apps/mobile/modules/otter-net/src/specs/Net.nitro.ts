@@ -17,6 +17,8 @@ export interface HttpRequest extends HybridObject<{ ios: "swift" }> {
     headers: Record<string, string>,
     body: ArrayBuffer | undefined,
     followRedirects: boolean,
+    /** fetch's `credentials: "include"`: send and keep cookies (the agent server's session). */
+    cookies: boolean,
     onResponse: (head: HttpResponseHead) => void,
     onData: (chunk: ArrayBuffer) => void,
     onComplete: (error: string | undefined) => void,

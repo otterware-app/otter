@@ -125,7 +125,7 @@ open class HybridHttpRequestSpec_cxx {
 
   // Methods
   @inline(__always)
-  public final func start(url: std.string, method: std.string, headers: bridge.std__unordered_map_std__string__std__string_, body: bridge.std__optional_std__shared_ptr_ArrayBuffer__, followRedirects: Bool, onResponse: bridge.Func_void_HttpResponseHead, onData: bridge.Func_void_std__shared_ptr_ArrayBuffer_, onComplete: bridge.Func_void_std__optional_std__string_) -> bridge.Result_void_ {
+  public final func start(url: std.string, method: std.string, headers: bridge.std__unordered_map_std__string__std__string_, body: bridge.std__optional_std__shared_ptr_ArrayBuffer__, followRedirects: Bool, cookies: Bool, onResponse: bridge.Func_void_HttpResponseHead, onData: bridge.Func_void_std__shared_ptr_ArrayBuffer_, onComplete: bridge.Func_void_std__optional_std__string_) -> bridge.Result_void_ {
     do {
       try self.__implementation.start(url: String(url), method: String(method), headers: { () -> Dictionary<String, String> in
         var __dictionary = Dictionary<String, String>(minimumCapacity: headers.size())
@@ -142,7 +142,7 @@ open class HybridHttpRequestSpec_cxx {
         } else {
           return nil
         }
-      }(), followRedirects: followRedirects, onResponse: { () -> (HttpResponseHead) -> Void in
+      }(), followRedirects: followRedirects, cookies: cookies, onResponse: { () -> (HttpResponseHead) -> Void in
         let __wrappedFunction = bridge.wrap_Func_void_HttpResponseHead(onResponse)
         return { (__head: HttpResponseHead) -> Void in
           __wrappedFunction.call(__head)
