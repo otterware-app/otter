@@ -16,6 +16,8 @@ type Props = NativeStackScreenProps<RootStack, "Settings">;
 
 type OtterState = { user: { email: string; name: string | null } | null; realtime?: string };
 
+const REALTIME: Record<string, string> = { live: "On", connecting: "Connecting…", off: "Off" };
+
 /** Settings, as SwiftUI's grouped Form (@expo/ui): the Otter account, mailboxes, sync. */
 export function SettingsScreen({ navigation }: Props) {
   const scheme = useColorScheme();
@@ -78,7 +80,7 @@ export function SettingsScreen({ navigation }: Props) {
               </LabeledContent>
               {otter.realtime ? (
                 <LabeledContent label="Live updates">
-                  <Text>{otter.realtime}</Text>
+                  <Text>{REALTIME[otter.realtime] ?? otter.realtime}</Text>
                 </LabeledContent>
               ) : null}
               <Button
