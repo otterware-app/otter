@@ -98,8 +98,8 @@ export function PlacesBar({
   return (
     <View style={[styles.row, { bottom: insets.bottom + 4 }]} pointerEvents="box-none">
       <GlassView style={styles.capsule} glassEffectStyle="regular" isInteractive>
-        <Host matchContents style={styles.avatar}>
-          <Menu label={<MailboxAvatarLabel />} systemImage={undefined}>
+        <Host style={styles.avatar}>
+          <Menu label="   ">
             {mailboxes.map((m) => (
               <Button
                 key={m.id}
@@ -139,11 +139,6 @@ export function PlacesBar({
       </GlassView>
     </View>
   );
-}
-
-/** The Menu's own label: invisible; the avatar drawn over it is what shows. */
-function MailboxAvatarLabel() {
-  return <View style={{ width: 44, height: 44 }} />;
 }
 
 const styles = StyleSheet.create({
