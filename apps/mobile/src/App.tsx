@@ -12,6 +12,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AddImapScreen } from "./features/accounts/AddImapScreen";
 import { WelcomeScreen } from "./features/accounts/WelcomeScreen";
 import { ChatScreen } from "./features/chat/ChatScreen";
+import { ComposeScreen } from "./features/compose/ComposeScreen";
 import { GateScreen } from "./features/gate/GateScreen";
 import { HomeScreen } from "./features/home/HomeScreen";
 import { PlacesScreen } from "./features/home/PlacesScreen";
@@ -29,6 +30,12 @@ export type RootStack = {
   Welcome: undefined;
   AddImap: undefined;
   Chat: undefined;
+  Compose: {
+    accountId: string;
+    mode?: "new" | "reply" | "replyAll" | "forward";
+    messageId?: string;
+    threadId?: string;
+  };
   Gate: { run?: string; n?: string } | undefined;
 };
 
@@ -89,6 +96,11 @@ export default function App() {
               name="Chat"
               component={ChatScreen}
               options={{ title: "Agent", presentation: "modal" }}
+            />
+            <Stack.Screen
+              name="Compose"
+              component={ComposeScreen}
+              options={{ title: "New message", presentation: "modal" }}
             />
             <Stack.Screen name="Gate" component={GateScreen} options={{ title: "Phase 0 gate" }} />
           </Stack.Navigator>

@@ -173,9 +173,24 @@ importers:
       '@otter-mail/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@otter-mail/extension-hermes':
+        specifier: workspace:*
+        version: link:../../extensions/hermes
+      '@otter-mail/extension-openclaw':
+        specifier: workspace:*
+        version: link:../../extensions/openclaw
+      '@otter-mail/extension-openrouter':
+        specifier: workspace:*
+        version: link:../../extensions/openrouter
+      '@otter-mail/mobile-composer':
+        specifier: workspace:*
+        version: link:modules/otter-composer
       '@otter-mail/mobile-credentials':
         specifier: workspace:*
         version: link:modules/otter-credentials
+      '@otter-mail/mobile-html-view':
+        specifier: workspace:*
+        version: link:modules/otter-html-view
       '@otter-mail/mobile-net':
         specifier: workspace:*
         version: link:modules/otter-net
@@ -267,9 +282,14 @@ importers:
       babel-preset-expo:
         specifier: ~58.0.17
         version: 58.0.24(@babel/core@7.29.13)(@babel/runtime@7.29.7)(expo@58.0.14)(react-refresh@0.14.2)
+      esbuild:
+        specifier: ^0.25.12
+        version: 0.25.12
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+
+  apps/mobile/modules/otter-composer: {}
 
   apps/mobile/modules/otter-credentials:
     dependencies:
@@ -283,6 +303,8 @@ importers:
       react-native-nitro-modules:
         specifier: 0.37.1
         version: 0.37.1(react-native@0.88.0(@babel/core@8.0.6)(@react-native/metro-config@0.88.0(@babel/core@8.0.6))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
+
+  apps/mobile/modules/otter-html-view: {}
 
   apps/mobile/modules/otter-net:
     dependencies:
