@@ -56,9 +56,14 @@ editor.on("blur", () => post({ type: "focus", focused: false }));
 window.otterComposer = {
   /** What's written now, the debounce's pending change included (Send, Save Draft). */
   snapshot() {
-    if (timer) clearTimeout(timer);
-    timer = null;
-    return change();
+    const now = change();
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+      // Published too, so the app's copy is current even if what asked for it fails.
+      post({ type: "change", ...now });
+    }
+    return now;
   },
   setContent(html: string) {
     editor.commands.setContent(normalizeHtml(html), { emitUpdate: false });
