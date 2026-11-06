@@ -19,6 +19,7 @@ import { openSqlite, type SqliteValue } from "@otter-mail/mobile-sqlite";
 import type { WorkerHost } from "@otter-mail/mobile-worker";
 
 import * as fakeGmail from "../../../web/src/web/demo/gmail";
+import { connectDemoImap, DEMO_IMAP } from "../worker/demo-imap";
 import type { WorkerConfig } from "../worker/protocol";
 
 /**
@@ -143,6 +144,31 @@ function keychainMicrosoftAuth(): MicrosoftAuth {
 
 const noContext = <T>(): AsyncContext<T> => ({ run: (_value, fn) => fn(), get: () => undefined });
 
+/**
+ * apps/ios's demo: the pretend Gmail accounts, and the iCloud-shaped IMAP
+ * mailbox with its alias mailboxes on the pretend IMAP server (demo-imap.ts).
+ */
+function demoGoogleAuth(setPassword: (accountId: string) => Promise<void>): GoogleAuth {
+  const auth = fakeGmail.demoGoogleAuth();
+  return {
+    ...auth,
+    async load() {
+      const fresh = (await accountStore.listAccounts()).length === 0;
+      await auth.load();
+      if (!fresh) return;
+      const { threads: _, labels: __, ...seed } = DEMO_IMAP;
+      await accountStore.addAccount({ ...seed, id: seed.email, provider: "imap" });
+      await setPassword(seed.email);
+    },
+  };
+}
+
+function connectDemo(host: string): Promise<ByteStream> {
+  return host === DEMO_IMAP.imap.imap.host
+    ? Promise.resolve(connectDemoImap())
+    : Promise.reject(new Error("The demo can't connect to mail servers."));
+}
+
 export async function mobilePlatform(options: MobilePlatformOptions): Promise<Platform> {
   const { host, shell, config } = options;
   const root = config.demo ? "demo" : "mail";
@@ -186,11 +212,13 @@ export async function mobilePlatform(options: MobilePlatformOptions): Promise<Pl
       set: async (name, value) => credentials.setSecret(secretName(name), value),
       delete: async (name) => credentials.deleteSecret(secretName(name)),
     },
-    google: demo ? demo.demoGoogleAuth() : keychainGoogleAuth(),
+    google: demo
+      ? demoGoogleAuth(async (id) =>
+          credentials.setSecret(secretName(`imap-password:${id}`), "demo"),
+        )
+      : keychainGoogleAuth(),
     microsoft: demo ? undefined : keychainMicrosoftAuth(),
-    connect: demo
-      ? () => Promise.reject(new Error("The demo can't connect to mail servers."))
-      : connectMailServer,
+    connect: demo ? connectDemo : connectMailServer,
     rawSockets: true,
     crossOriginFetch: true,
     notificationReturn: "native",

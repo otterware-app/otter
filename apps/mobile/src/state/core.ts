@@ -13,6 +13,7 @@ import { reportFromCore } from "../error-reports";
 import { startBackgroundRefresh } from "../features/notifications/background-refresh";
 import { deviceEffect, startNotifications } from "../features/notifications/notifications";
 import { startCoreRuntime } from "./core-transport";
+import { demoChosen } from "./demo";
 import { startRecoveredDrafts } from "./recovered-drafts";
 import { markCoreReady } from "./startup";
 
@@ -40,6 +41,9 @@ const inForeground = createSynchronizable(AppState.currentState === "active", {
 export const developmentVariant =
   (Constants.expoConfig?.extra as { appVariant?: string } | undefined)?.appVariant ===
   "development";
+
+/** Core runs on the made-up mailbox: the build's (`pnpm dev:fake`), or the welcome's demo. */
+export const fakeMailbox = extra.fakeMailbox === true || demoChosen();
 
 /** `pnpm dev:fake`'s agent server, which needs no Otter account. */
 export const agentServerUrl = extra.agentServerUrl;
@@ -72,7 +76,7 @@ export const connection: CoreHostConnection = connectCore(
     startCoreRuntime({
       appVersion: Constants.expoConfig?.version ?? "0.0.0",
       relayUrl: extra.relayUrl ?? "https://relay.mail.otterware.app",
-      demo: extra.fakeMailbox === true,
+      demo: fakeMailbox,
       agentServerUrl: extra.agentServerUrl,
       inForeground,
       development: developmentVariant,
