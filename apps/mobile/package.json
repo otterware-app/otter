@@ -37,6 +37,7 @@
     "@otter-mail/mobile-background": "workspace:*",
     "@otter-mail/mobile-composer": "workspace:*",
     "@otter-mail/mobile-credentials": "workspace:*",
+    "@otter-mail/mobile-files": "workspace:*",
     "@otter-mail/mobile-html-view": "workspace:*",
     "@otter-mail/mobile-net": "workspace:*",
     "@otter-mail/mobile-socket": "workspace:*",

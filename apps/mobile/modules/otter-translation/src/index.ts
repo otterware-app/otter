@@ -8,6 +8,8 @@ type TranslationModule = {
     source: string,
     target: string,
   ): Promise<{ status: "ok" | "notInstalled" | "unsupported" | "unavailable"; texts: string[] }>;
+  /** The system's translation sheet for `text` (it offers downloading the language). */
+  present(text: string): Promise<void>;
 };
 
 /** Apple's on-device language detection and Translation (installed language pairs). */
