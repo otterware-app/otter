@@ -2,13 +2,22 @@ import { sha256 } from "@noble/hashes/sha2";
 import { createAuthClient } from "better-auth/client";
 import PostalMime from "postal-mime";
 
-import { handle, mailStore, type MessageSummary } from "@otter-mail/core";
+import {
+  handle,
+  mailStore,
+  signInWithSession,
+  type MailAccount,
+  type MessageDetail,
+  type MessageSummary,
+} from "@otter-mail/core";
+import { platform } from "@otter-mail/core/extension-kit";
 import { connectImap } from "@otter-mail/core/imap";
 import { createCredentials } from "@otter-mail/mobile-credentials";
 import { openSqlite } from "@otter-mail/mobile-sqlite";
 import { createWorkerHost } from "@otter-mail/mobile-worker";
 
 import { connectMailServer } from "../persistence/platform";
+import { call } from "./call";
 
 /**
  * Phase 0's gate, measured where core runs: each probe returns plain numbers
@@ -52,6 +61,16 @@ async function runProbe(name: string, args: unknown): Promise<unknown> {
       return churn;
     case "memory":
       return { residentMB: Math.round(host.residentMemory() / 1048576) };
+    case "translate":
+      return translateNewest((args as { target?: string } | undefined)?.target ?? "en");
+    case "notify":
+      return notifyNewest();
+    case "background":
+      return call("background:refresh", { budgetMs: 20_000 });
+    case "recovered-drafts":
+      return call("drafts:importRecovered");
+    case "dev-session":
+      return devSession();
     default:
       throw new Error(`No probe ${name}.`);
   }
@@ -393,4 +412,68 @@ async function benchChurn(seconds: number) {
     }
   }, 50);
   return { started: true };
+}
+
+async function newestInbox(): Promise<{ accountId: string; message: MessageDetail }> {
+  const [account] = await call<MailAccount[]>("gmail:listAccounts");
+  if (!account) throw new Error("No mailbox.");
+  const [summary] = mailStore.getThreadsPage(account.id, "INBOX", 0, 1).messages;
+  if (!summary) throw new Error("The inbox is empty.");
+  const message = await call<MessageDetail>("gmail:getMessage", {
+    accountId: account.id,
+    messageId: summary.id,
+  });
+  return { accountId: account.id, message };
+}
+
+/** The newest inbox message in another language, through the Translation extension (Apple's Translation). */
+async function translateNewest(target: string) {
+  const [account] = await call<MailAccount[]>("gmail:listAccounts");
+  if (!account) throw new Error("No mailbox.");
+  for (const summary of mailStore.getThreadsPage(account.id, "INBOX", 0, 20).messages) {
+    const message = await call<MessageDetail>("gmail:getMessage", {
+      accountId: account.id,
+      messageId: summary.id,
+    });
+    const text = (message.bodyText ?? message.snippet).trim().slice(0, 400);
+    const detected = await call<{ language: string | null; confidence: number }>(
+      "translation:detect",
+      { text },
+    );
+    if (!detected.language || detected.language.split("-")[0] === target) continue;
+    const segments = [message.subject, ...text.split(/\n+/).filter(Boolean).slice(0, 3)];
+    const started = now();
+    const result = await call<{ status: string; texts: string[] }>("translation:translate", {
+      segments,
+      source: detected.language,
+      target,
+    });
+    return { segments, detected, target, ms: Math.round(now() - started), ...result };
+  }
+  throw new Error(`Nothing in the inbox to translate to ${target}.`);
+}
+
+/** Core's notify (HostEffect), as a new message in the inbox would raise it. */
+async function notifyNewest() {
+  const { accountId, message } = await newestInbox();
+  platform().notify({
+    title: message.fromName || message.fromEmail,
+    subtitle: accountId,
+    body: message.subject || message.snippet,
+    open: { accountId, messageId: message.id },
+  });
+  return { accountId, messageId: message.id, threadId: message.threadId, subject: message.subject };
+}
+
+/** An Otter account from a `DEV_DEMO` relay's `/v1/dev/session` (`pnpm dev:demo`'s), no Google. */
+async function devSession() {
+  const response = await fetch(`${platform().relayUrl}/v1/dev/session`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "push-check@example.com" }),
+  });
+  const token = /session_token=([^;]+)/.exec(response.headers.get("set-cookie") ?? "")?.[1];
+  if (!response.ok || !token) throw new Error(`No dev session (${response.status}).`);
+  const user = await signInWithSession(decodeURIComponent(token));
+  return { userId: user.id, email: user.email };
 }
