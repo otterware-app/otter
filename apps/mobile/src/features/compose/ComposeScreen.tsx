@@ -150,6 +150,20 @@ export function ComposeScreen({ navigation, route }: Props) {
     }
   };
 
+  /** Closes only once the draft is saved; a failed save keeps the composition open. */
+  const saveAndClose = async () => {
+    setStatus("Saving…");
+    try {
+      const result = await core.invoke<SaveResult>("gmail:saveDraft", await latestDraft());
+      setDraftId(result.draftId);
+      navigation.goBack();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setStatus(`Not saved: ${message}`);
+      Alert.alert("Couldn't save the draft", message);
+    }
+  };
+
   const close = () => {
     if (!edited.current) return navigation.goBack();
     ActionSheetIOS.showActionSheetWithOptions(
@@ -164,10 +178,7 @@ export function ComposeScreen({ navigation, route }: Props) {
             void core.invoke("gmail:deleteDraft", { accountId, draftId }).catch(() => {});
           navigation.goBack();
         } else if (i === 1) {
-          void latestDraft()
-            .then((latest) => core.invoke("gmail:saveDraft", latest))
-            .catch(() => {});
-          navigation.goBack();
+          void saveAndClose();
         }
       },
     );
