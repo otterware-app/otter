@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import { LegendList } from "@legendapp/list/react-native";
 import type { MessageSummary } from "@otter-mail/client-runtime/mail";
+import { ZoomSource } from "@otter-mail/mobile-transitions";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActionSheetIOS, Pressable, StyleSheet, Text, View } from "react-native";
@@ -294,14 +295,16 @@ export function ThreadList({
         actions={actions.accessibilityActions(row)}
         square={fullWidth}
       >
-        <ThreadRow
-          row={row}
-          accountId={accountId}
-          onOpen={onOpen}
-          onLongPress={actions.showMenu}
-          fullWidth={fullWidth}
-          flags={flags}
-        />
+        <ZoomSource zoomId={row.threadId}>
+          <ThreadRow
+            row={row}
+            accountId={accountId}
+            onOpen={onOpen}
+            onLongPress={actions.showMenu}
+            fullWidth={fullWidth}
+            flags={flags}
+          />
+        </ZoomSource>
       </SwipeRow>
     );
   };

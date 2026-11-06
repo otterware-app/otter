@@ -20,6 +20,7 @@ import {
   shapes,
 } from "@expo/ui/swift-ui/modifiers";
 import type { MessageSummary } from "@otter-mail/client-runtime/mail";
+import { ScreenTransition } from "@otter-mail/mobile-transitions";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
 import type { SFSymbol } from "expo-symbols";
@@ -268,6 +269,7 @@ export function ThreadScreen({ navigation, route }: Props) {
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.canvas }]}>
+      <ScreenTransition zoomId={threadId} minimizeBar />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}

@@ -42,6 +42,7 @@
     "@otter-mail/mobile-net": "workspace:*",
     "@otter-mail/mobile-socket": "workspace:*",
     "@otter-mail/mobile-sqlite": "workspace:*",
+    "@otter-mail/mobile-transitions": "workspace:*",
     "@otter-mail/mobile-translation": "workspace:*",
     "@otter-mail/mobile-worker": "workspace:*",
     "@otter-mail/shared": "workspace:*",
