@@ -6,16 +6,17 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View, useColorScheme } 
 import type { RootStack } from "../../App";
 import { mailboxes } from "../../state/client";
 import { core } from "../../state/core";
+import { offerNotifications } from "../../state/notification-connections";
 import { palette } from "../theme";
 
-type Props = NativeStackScreenProps<RootStack, "Welcome">;
+type Props = NativeStackScreenProps<RootStack, "AddMailbox">;
 
 /**
- * Adding a mailbox, as the Swift app's WelcomeView: Google and Microsoft sign in
+ * Adding a mailbox, as the Swift app's MailboxesSettings: Google and Microsoft sign in
  * natively (a browser sheet; the refresh token goes straight to the
  * Keychain), any other provider over IMAP with its password.
  */
-export function WelcomeScreen({ navigation }: Props) {
+export function AddMailboxScreen({ navigation }: Props) {
   const colors = palette(useColorScheme());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -24,10 +25,13 @@ export function WelcomeScreen({ navigation }: Props) {
     setBusy(kind);
     setError(null);
     try {
-      const added = await core.invoke(channel);
+      const added = await core.invoke<{ id: string; email: string; provider?: string } | null>(
+        channel,
+      );
       if (added !== null) {
         await mailboxes.refreshAccounts();
         navigation.goBack();
+        void offerNotifications(added);
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
