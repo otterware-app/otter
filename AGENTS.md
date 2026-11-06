@@ -69,7 +69,7 @@ when a feature lands or goes.
   Settings lists them by manifest `category` in Agents, Connections (services you sign in to,
   beside the mailboxes: Todoist, Otter Drive), Integrations (hidden while empty) and Features, each with a
   page) and
-  `./desktop` (Claude, Codex), and `./mobile` for the phone's screens (none yet; contracts' `ExtensionEntry`). A workspace (Otter Drive's Drive) is declared in the manifest's
+  `./desktop` (Claude, Codex), and `./mobile` for the Expo app (Sign-in codes' and Calendar invites' reader cards, through `@otter-mail/mobile/extension-kit`). A workspace (Otter Drive's Drive) is declared in the manifest's
   `contributes.workspaces` (VS Code's view containers: known without running it) and drawn by the
   `./ui` half: a mode beside Mail, Calendar and Agent at `/<id>/<location>/<item>`, with its own
   sidebar and main area (`extensions/workspaces.ts`). The manifest's `platforms` (mac, linux, web, ios; absent: all but ios, which an extension names to opt in) says where one runs, and each

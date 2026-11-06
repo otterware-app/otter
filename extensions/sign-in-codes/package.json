@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     "./manifest": "./manifest.ts",
-    "./ui": "./ui/index.tsx"
+    "./ui": "./ui/index.tsx",
+    "./mobile": "./mobile/index.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@types/react": "^19.1.12",
+    "react-native": "0.88.0",
     "typescript": "catalog:",
     "vite-plus": "catalog:"
   },
@@ -28,6 +30,12 @@
     "name": "Sign-in codes",
     "description": "Puts the code a verification email carries on a card, with Copy & trash.",
     "category": "mail",
-    "dataUse": "Reads the open message on this device to find its code. Nothing is sent anywhere."
+    "dataUse": "Reads the open message on this device to find its code. Nothing is sent anywhere.",
+    "platforms": [
+      "mac",
+      "linux",
+      "web",
+      "ios"
+    ]
   }
 }

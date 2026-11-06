@@ -26,8 +26,17 @@ config.resolver = {
 };
 
 const resolveRequest = config.resolver.resolveRequest;
+// Extensions' `./mobile` halves reach the app only through its kit (as the web's alias).
+const extensionKit = path.join(__dirname, "src/extensions/kit.ts");
+const appEntry = path.join(__dirname, "index.ts");
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   const resolve = resolveRequest ?? context.resolveRequest;
+  if (moduleName === "@otter-mail/mobile/extension-kit")
+    return resolve(context, extensionKit, platform);
+  // One React Native, the app's, for every importer (extensions declare it for types only).
+  if (moduleName === "react-native" || moduleName.startsWith("react-native/")) {
+    return resolve({ ...context, originModulePath: appEntry }, moduleName, platform);
+  }
   if (moduleName.endsWith(".js") && (moduleName.startsWith(".") || moduleName.startsWith("/"))) {
     try {
       return resolve(context, moduleName.replace(/\.js$/, ".ts"), platform);

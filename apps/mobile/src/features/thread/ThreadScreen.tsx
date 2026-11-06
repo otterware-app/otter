@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { RootStack } from "../../App";
+import { messageCards } from "../../extensions/registry";
 import { operations } from "../../state/client";
 import { core } from "../../state/core";
 import { threadAtom, threadKey, type MessageDetail } from "../../state/mail";
@@ -120,6 +121,7 @@ export function ThreadScreen({ navigation, route }: Props) {
             accountId={accountId}
             message={message}
             remoteImages={showImages}
+            onTrash={() => leave(() => operations.trashMessage(accountId, message.id))}
           />
         ))}
       </ScrollView>
@@ -148,10 +150,12 @@ function Message({
   accountId,
   message,
   remoteImages,
+  onTrash,
 }: {
   accountId: string;
   message: MessageDetail;
   remoteImages: boolean;
+  onTrash: () => void;
 }) {
   const colors = palette(useColorScheme());
   const byCid = new Map(
@@ -172,6 +176,15 @@ function Message({
           To {message.to}
         </Text>
       ) : null}
+      {messageCards.map((Card, i) => (
+        <Card
+          key={i}
+          accountId={accountId}
+          summary={{ id: message.id, threadId: message.threadId, subject: message.subject }}
+          detail={message}
+          onTrash={onTrash}
+        />
+      ))}
       {message.bodyHtml ? (
         <View style={styles.html}>
           <HtmlView

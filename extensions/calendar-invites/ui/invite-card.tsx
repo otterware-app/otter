@@ -10,7 +10,8 @@ import {
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarIcon, CheckIcon, ExternalLinkIcon, MapPinIcon } from "lucide-react";
-import { invitesApi, type CalendarInvite, type RsvpResponse } from "./api";
+import { CHOICES, DONE, formatWhen, type CalendarInvite, type RsvpResponse } from "../invite";
+import { invitesApi } from "./api";
 
 const inviteKey = (accountId: string, messageId: string) => [
   "calendar-invite",
@@ -28,41 +29,6 @@ const listeners = new Set<(messageId: string, response: RsvpResponse) => void>()
 export function requestRsvp(messageId: string, response: RsvpResponse): void {
   for (const l of listeners) l(messageId, response);
 }
-
-function formatWhen(invite: CalendarInvite): string | null {
-  if (!invite.start) return null;
-  const start = new Date(invite.allDay ? `${invite.start}T00:00:00` : invite.start);
-  const end = invite.end ? new Date(invite.allDay ? `${invite.end}T00:00:00` : invite.end) : null;
-  const day = (d: Date) =>
-    d.toLocaleDateString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  const time = (d: Date) => d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-  if (invite.allDay) {
-    // DTEND of an all-day event is exclusive.
-    const last = end ? new Date(end.getTime() - 86_400_000) : start;
-    return last > start ? `${day(start)} – ${day(last)}` : day(start);
-  }
-  if (!end) return `${day(start)}, ${time(start)}`;
-  return start.toDateString() === end.toDateString()
-    ? `${day(start)}, ${time(start)} – ${time(end)}`
-    : `${day(start)}, ${time(start)} – ${day(end)}, ${time(end)}`;
-}
-
-const CHOICES: { value: RsvpResponse; label: string }[] = [
-  { value: "accepted", label: "Yes" },
-  { value: "declined", label: "No" },
-  { value: "tentative", label: "Maybe" },
-];
-
-const DONE: Record<RsvpResponse, string> = {
-  accepted: "You're going",
-  declined: "You declined",
-  tentative: "You might go",
-};
 
 export function InviteCard({ accountId, messageId }: { accountId: string; messageId: string }) {
   const qc = useQueryClient();

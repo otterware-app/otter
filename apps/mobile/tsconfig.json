@@ -5,7 +5,10 @@
     "strict": true,
     "noImplicitOverride": true,
     "skipLibCheck": true,
-    "types": []
+    "types": [],
+    "paths": {
+      "@otter-mail/mobile/extension-kit": ["./src/extensions/kit.ts"]
+    }
   },
-  "include": ["index.ts", "app.config.ts", "src", "modules/*/src"]
+  "include": ["index.ts", "app.config.ts", "src", "modules/*/src", "../../extensions/*/mobile"]
 }

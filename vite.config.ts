@@ -62,9 +62,11 @@ export default defineConfig({
                     "!@otter-mail/web/extension-kit",
                     "@otter-mail/desktop/*",
                     "!@otter-mail/desktop/extension-kit",
+                    "@otter-mail/mobile/*",
+                    "!@otter-mail/mobile/extension-kit",
                   ],
                   message:
-                    "Extensions use the app through @otter-mail/core/extension-kit, @otter-mail/web/extension-kit or @otter-mail/desktop/extension-kit.",
+                    "Extensions use the app through @otter-mail/core/extension-kit, @otter-mail/web/extension-kit, @otter-mail/desktop/extension-kit or @otter-mail/mobile/extension-kit.",
                 },
               ],
             },
