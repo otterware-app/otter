@@ -13,7 +13,7 @@ public protocol HybridWebSocketConnectionSpec_protocol: HybridObject {
   
 
   // Methods
-  func open(url: String, protocols: [String], headers: Dictionary<String, String>, onOpen: @escaping (_ protocol: String) -> Void, onText: @escaping (_ text: String) -> Void, onBinary: @escaping (_ data: ArrayBuffer) -> Void, onClose: @escaping (_ code: Double, _ reason: String) -> Void, onError: @escaping (_ message: String) -> Void) throws -> Void
+  func open(url: String, protocols: [String], headers: Dictionary<String, String>, onOpen: @escaping (_ subprotocol: String) -> Void, onText: @escaping (_ text: String) -> Void, onBinary: @escaping (_ data: ArrayBuffer) -> Void, onClose: @escaping (_ code: Double, _ reason: String) -> Void, onError: @escaping (_ message: String) -> Void) throws -> Void
   func sendText(text: String) throws -> Void
   func sendBinary(data: ArrayBuffer) throws -> Void
   func close(code: Double, reason: String) throws -> Void

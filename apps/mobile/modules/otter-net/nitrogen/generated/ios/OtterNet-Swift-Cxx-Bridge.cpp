@@ -55,11 +55,11 @@ namespace margelo::nitro::otternet::bridge::swift {
     return swiftPart.toUnsafe();
   }
   
-  // pragma MARK: std::function<void(const std::string& /* protocol */)>
+  // pragma MARK: std::function<void(const std::string& /* subprotocol */)>
   Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = OtterNet::Func_void_std__string::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const std::string& protocol) mutable -> void {
-      swiftClosure.call(protocol);
+    return [swiftClosure = std::move(swiftClosure)](const std::string& subprotocol) mutable -> void {
+      swiftClosure.call(subprotocol);
     };
   }
   
