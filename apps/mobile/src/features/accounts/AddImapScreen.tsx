@@ -134,6 +134,8 @@ export function AddImapScreen({ navigation }: Props) {
     </View>
   );
 
+  const ready = Boolean(email && password && imap.host && smtp.host);
+
   return (
     <ScrollView
       ref={scroll}
@@ -166,8 +168,8 @@ export function AddImapScreen({ navigation }: Props) {
       {error ? <Text style={{ color: colors.trash, marginTop: 12 }}>{error}</Text> : null}
       <Pressable
         onPress={() => void add()}
-        disabled={busy || !email || !password || !imap.host || !smtp.host}
-        style={[styles.add, { backgroundColor: colors.accent, opacity: busy ? 0.6 : 1 }]}
+        disabled={busy || !ready}
+        style={[styles.add, { backgroundColor: colors.accent, opacity: busy || !ready ? 0.5 : 1 }]}
         testID="imap-add"
       >
         {busy ? (
