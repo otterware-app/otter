@@ -4,7 +4,11 @@ import { MAY_HAVE_BEEN_SENT, sendWithUndo } from "./undo-send";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "./menu";
 import { ChevronDownIcon, XIcon } from "lucide-react";
 import { useSendMessage } from "./hooks";
-import { normalizeAddressList, parseAddressEntry, splitAddressList } from "./address";
+import {
+  normalizeAddressList,
+  parseAddressEntry,
+  splitAddressList,
+} from "@otter-mail/client-runtime/address";
 import { AccountPicture } from "./account-picture";
 import { IconBtn, HintTooltip } from "./ui";
 import {

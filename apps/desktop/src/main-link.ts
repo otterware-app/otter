@@ -12,8 +12,7 @@ let link: CoreHost | null = null;
 export function serveMain(options: CoreHostOptions): void {
   link = serveCore(
     {
-      // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a process port has none
-      post: (message) => process.parentPort.postMessage(message),
+      post: process.parentPort.postMessage.bind(process.parentPort),
       listen(listener) {
         const onMessage = (event: Electron.MessageEvent) => listener(event.data);
         process.parentPort.on("message", onMessage);

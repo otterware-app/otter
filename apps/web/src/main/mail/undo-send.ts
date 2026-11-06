@@ -1,11 +1,16 @@
+import {
+  MAY_HAVE_BEEN_SENT,
+  sendWithUndo as send,
+  type SavedDraft,
+} from "@otter-mail/client-runtime/operations";
+
 import { toast } from "./toast";
-import { forgetUndo, registerUndo, type UndoAction } from "./undo";
 
-export const UNDO_SEND_MS = 10_000;
-
-export const MAY_HAVE_BEEN_SENT = "May have been sent — check Sent before sending again.";
-
-export type SavedDraft = { accountId: string; messageId: string };
+export {
+  MAY_HAVE_BEEN_SENT,
+  UNDO_SEND_MS,
+  type SavedDraft,
+} from "@otter-mail/client-runtime/operations";
 
 let openDraft: (draft: SavedDraft) => void = () => {};
 
@@ -16,70 +21,42 @@ export function setDraftOpener(open: (draft: SavedDraft) => void): () => void {
   };
 }
 
-export function sendWithUndo({
-  subject,
-  send,
-  onSent,
-  savedDraft,
-}: {
+export function sendWithUndo(options: {
   subject: string;
   send: () => Promise<{ uncertain?: boolean }>;
   onSent?: () => Promise<unknown> | void;
   savedDraft: () => Promise<SavedDraft | null>;
 }): void {
-  let state: "waiting" | "sending" | "cancelled" = "waiting";
-  const description = subject.trim() || "(no subject)";
-
-  const cancel = () => {
-    if (state !== "waiting") return;
-    state = "cancelled";
-    clearTimeout(timer);
-    forgetUndo(undoEntry);
-    toast.close(toastId);
-    console.log("[undoSend:cancelled]", { subject: description });
-    void savedDraft().then((draft) => {
-      if (draft) {
-        openDraft(draft);
-        toast.info("Sending undone", { description: "The message is back in the composer." });
-      } else {
-        toast.info("Sending undone", { description: "The message was kept in Drafts." });
-      }
-    });
-  };
-
-  const undoEntry: UndoAction = { kind: "callback", run: cancel };
-  const toastId = toast.loading("Sending…", {
-    description,
-    action: { label: "Undo", onClick: cancel },
-  });
-  registerUndo(undoEntry);
-
-  const timer = setTimeout(() => {
-    if (state !== "waiting") return;
-    state = "sending";
-    forgetUndo(undoEntry);
-    toast.update(toastId, "loading", "Sending…", { description, timeout: 0 });
-    console.log("[undoSend:sending]", { subject: description });
-    send().then(
-      async (result) => {
-        await onSent?.();
-        if (result.uncertain) {
-          toast.update(toastId, "warning", MAY_HAVE_BEEN_SENT, { description, timeout: 0 });
-        } else {
-          toast.update(toastId, "success", "Sent", { description });
-        }
+  send({
+    ...options,
+    openDraft: (draft) => openDraft(draft),
+    log: (event, data) => console.log(`[undoSend:${event}]`, data),
+    notices: {
+      waiting(description, undo) {
+        const id = toast.loading("Sending…", {
+          description,
+          action: { label: "Undo", onClick: undo },
+        });
+        return {
+          sending: () => toast.update(id, "loading", "Sending…", { description, timeout: 0 }),
+          sent: (uncertain) =>
+            uncertain
+              ? toast.update(id, "warning", MAY_HAVE_BEEN_SENT, { description, timeout: 0 })
+              : toast.update(id, "success", "Sent", { description }),
+          failed: (reopen) =>
+            toast.update(id, "error", `Couldn't send “${description}” — kept in Drafts`, {
+              timeout: 0,
+              action: { label: "Open draft", onClick: reopen },
+            }),
+          close: () => toast.close(id),
+        };
       },
-      () =>
-        toast.update(toastId, "error", `Couldn't send “${description}” — kept in Drafts`, {
-          timeout: 0,
-          action: {
-            label: "Open draft",
-            onClick: () =>
-              void savedDraft().then((draft) => {
-                if (draft) openDraft(draft);
-              }),
-          },
+      undone: (reopened) =>
+        toast.info("Sending undone", {
+          description: reopened
+            ? "The message is back in the composer."
+            : "The message was kept in Drafts.",
         }),
-    );
-  }, UNDO_SEND_MS);
+    },
+  });
 }

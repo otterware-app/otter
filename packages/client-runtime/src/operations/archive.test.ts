@@ -1,10 +1,10 @@
 import { GMAIL_CAPABILITIES, IMAP_CAPABILITIES, OUTLOOK_CAPABILITIES } from "@otter-mail/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import { summarizeLabelChange } from "./action-summary";
-import { archiveFrom } from "./archive";
-import { folderName } from "./label-names";
-import type { MailLabel } from "./types";
+import { folderName } from "../label-names.ts";
+import type { MailLabel } from "../mail.ts";
+import { archiveFrom } from "./archive.ts";
+import { summarizeLabelChange } from "./summary.ts";
 
 const folder = (id: string): MailLabel => ({ id, name: id, type: "user" });
 const system = (id: string): MailLabel => ({ id, name: id, type: "system" });

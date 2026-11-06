@@ -37,6 +37,7 @@ import {
   openChatTab,
   reorderChatTabs,
   showChatTab,
+  chatsState,
   useChats,
   watchChat,
   type ChatTab,
@@ -153,7 +154,7 @@ export function ChatWorkspace({
   const onSelectChatRef = useLatest(onSelectChat);
   useEffect(() => {
     if (!missing) return;
-    const { activeId, conversations } = useChats.getState();
+    const { activeId, conversations } = chatsState();
     const there = activeId !== chatId && conversations.some((c) => c.id === activeId);
     onSelectChatRef.current(there ? activeId : newChat(selectedKind));
   }, [missing, chatId, selectedKind, onSelectChatRef]);

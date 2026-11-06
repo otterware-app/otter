@@ -1,4 +1,4 @@
-import type { MailLabel } from "./types";
+import type { MailLabel } from "./mail.ts";
 
 export type LabelTreeNode = {
   key: string;

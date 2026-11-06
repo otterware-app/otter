@@ -161,3 +161,82 @@ export function chatForSync(chat: Chat): Chat {
 export interface ListChatsResponse {
   chats: ChatSummary[];
 }
+
+/** What the agent handlers (`agent:*`) carry; runs stream as `agent:chatEvent`. */
+
+export type ApprovalDecision = "once" | "session" | "always" | "deny";
+
+export type ApprovalRequest = {
+  id: string;
+  kind: "command" | "fileChange" | "permission" | "tool";
+  title: string;
+  detail?: string;
+  reason?: string;
+  choices: ApprovalDecision[];
+};
+
+export type ToolStep = {
+  kind: "command" | "read" | "edit" | "search" | "web" | "skill" | "tool";
+  title: string;
+  detail?: string;
+  source?: string;
+};
+
+export type ChatQuestion = {
+  id: string;
+  questions: {
+    id: string;
+    header: string;
+    question: string;
+    options: { label: string; description?: string }[];
+    multiSelect: boolean;
+    secret: boolean;
+  }[];
+  /** Epoch ms when it stops waiting. */
+  expiresAt: number;
+};
+
+export type ChatEvent =
+  | { requestId: string; type: "session"; sessionId: string }
+  | { requestId: string; type: "delta"; id?: string; text: string }
+  | { requestId: string; type: "text"; id: string; text: string }
+  | { requestId: string; type: "tool"; id?: string; step: ToolStep }
+  | { requestId: string; type: "toolResult"; id?: string; output: string }
+  | { requestId: string; type: "change"; change: ChatChange }
+  | { requestId: string; type: "approval"; approval: ApprovalRequest }
+  | { requestId: string; type: "approvalResolved"; approvalId: string }
+  | { requestId: string; type: "question"; question: ChatQuestion }
+  | { requestId: string; type: "questionResolved"; questionId: string }
+  /** The run so far from the provider's record: replaces what follows the turn's message. */
+  | { requestId: string; type: "transcript"; messages: ChatSessionMessage[] }
+  | { requestId: string; type: "steerReturned"; text: string }
+  | { requestId: string; type: "done"; responseId: string | null }
+  | { requestId: string; type: "error"; message: string };
+
+export type ChatAttachment = {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+  path: string;
+  kind: "image" | "file";
+};
+
+export type Skill = { name: string; description: string; category: string | null; path?: string };
+
+export type ChatSession = {
+  id: string;
+  title: string | null;
+  source: string;
+  /** Epoch ms. */
+  lastActive: number;
+  messageCount: number;
+  preview: string | null;
+};
+
+export type ChatSessionMessage = {
+  role: "user" | "assistant" | "tool" | "system";
+  text: string;
+  toolName?: string;
+  toolCalls?: ToolStep[];
+};

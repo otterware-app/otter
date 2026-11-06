@@ -8,7 +8,11 @@ import {
 } from "react";
 import { XIcon } from "lucide-react";
 import { useDebouncedValue, useSuggestContacts } from "./hooks";
-import { splitAddressList, parseAddressEntry, formatAddressEntry } from "./address";
+import {
+  splitAddressList,
+  parseAddressEntry,
+  formatAddressEntry,
+} from "@otter-mail/client-runtime/address";
 import { SenderAvatar } from "./sender-avatar";
 import { cn } from "./ui";
 import { toast } from "./toast";

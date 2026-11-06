@@ -67,8 +67,7 @@ export function startBackend(): Promise<void> {
   const open = () => {
     const child = forkBackend();
     return {
-      // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a process has none
-      post: (message: unknown) => child.postMessage(message),
+      post: (message: unknown) => child.postMessage(message, []),
       listen(listener: (message: unknown) => void) {
         child.on("message", listener);
         return () => child.off("message", listener);

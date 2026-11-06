@@ -13,7 +13,11 @@ import { FromPicker } from "./new-message-view";
 import { addressesOf, chosenAddress } from "./send-from";
 import { useDraftAutosave } from "./use-draft-autosave";
 import { IconBtn, HintTooltip } from "./ui";
-import { normalizeAddressList, parseAddressEntry, splitAddressList } from "./address";
+import {
+  normalizeAddressList,
+  parseAddressEntry,
+  splitAddressList,
+} from "@otter-mail/client-runtime/address";
 import {
   CcBccToggles,
   ComposeDocument,

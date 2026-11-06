@@ -102,7 +102,7 @@ export function connectCore(open: () => RpcPort, handlers: CoreHostHandlers): Co
 
   function stop(reason: string): void {
     const current = session;
-    for (const fail of [...current.calls]) fail(new Error(reason));
+    for (const fail of current.calls) fail(new Error(reason));
     Effect.runFork(Fiber.interrupt(current.fiber));
   }
 

@@ -1,7 +1,7 @@
 import { ExternalLinkIcon, FileTextIcon, PenLineIcon, SearchIcon } from "lucide-react";
 import type { MouseEvent } from "react";
 import { getAccountColor, getAccountDisplayName } from "./account-style";
-import { parseAddressEntry, splitAddressList } from "./address";
+import { parseAddressEntry, splitAddressList } from "@otter-mail/client-runtime/address";
 import { useAccounts, useMessage } from "./hooks";
 import { SenderAvatar } from "./sender-avatar";
 import type { MessageDetail, MessageSummary } from "./types";

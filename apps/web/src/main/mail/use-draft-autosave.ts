@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { mailApi } from "./api";
 import type { ComposeAttachment, MessageDetail } from "./types";
+import { threadLists } from "./thread-lists";
 
 export type DraftSaveState = "idle" | "saving" | "saved" | "error";
 
@@ -102,7 +103,7 @@ export function useDraftAutosave({
   }, [enabled, adoptCurrentSoonForEffect, remoteRef]);
 
   const refresh = () => {
-    void qc.invalidateQueries({ queryKey: ["gmail:messages"] });
+    threadLists.invalidate();
     void qc.invalidateQueries({ queryKey: ["gmail:combinedMessages"] });
     void qc.invalidateQueries({ queryKey: ["gmail:combinedCounts"] });
     void qc.invalidateQueries({ queryKey: ["gmail:thread"] });

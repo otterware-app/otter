@@ -89,14 +89,14 @@ import {
 import { decodeEntities, htmlToText } from "./text";
 import { LabelPickerMenu, LabelSubmenu } from "./label-picker-menu";
 import { useCapabilities } from "./capabilities";
-import { archiveFrom } from "./archive";
+import { archiveFrom } from "@otter-mail/client-runtime/operations";
 import {
   formatAddressEntry,
   normalizeAddressList,
   parseAddressEntry,
   senderLabel,
   splitAddressList,
-} from "./address";
+} from "@otter-mail/client-runtime/address";
 import { useCommandHandlers } from "../keybindings/dispatch";
 import { useShortcutLabel } from "../keybindings/store";
 import { IconBtn, HintTooltip, buttonClass, cn } from "./ui";
