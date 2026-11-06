@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react";
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import {
   Button,
   GlassEffectContainer,
@@ -20,11 +20,13 @@ import {
   shapes,
 } from "@expo/ui/swift-ui/modifiers";
 import { HtmlView } from "@otter-mail/mobile-html-view";
+import type { MessageSummary } from "@otter-mail/client-runtime/mail";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { useEffect, useId, useState } from "react";
 import {
+  ActivityIndicator,
   Linking,
   Pressable,
   ScrollView,
@@ -39,7 +41,13 @@ import type { RootStack } from "../../App";
 import { messageCards } from "../../extensions/registry";
 import { operations } from "../../state/client";
 import { core } from "../../state/core";
-import { threadAtom, threadKey, type MessageDetail } from "../../state/mail";
+import {
+  messageAtom,
+  messageKey,
+  threadAtom,
+  threadKey,
+  type MessageDetail,
+} from "../../state/mail";
 import { glassSurface, useReduceTransparency } from "../glass";
 import { palette, relativeDate } from "../theme";
 
@@ -48,8 +56,9 @@ type Props = NativeStackScreenProps<RootStack, "Thread">;
 const REMOTE_IMAGE = /<img[^>]+src\s*=\s*["']?https?:/i;
 
 /**
- * A conversation, as apps/ios's ThreadView: each message's HTML in WebKit
- * (otter-html-view), remote images held back until asked for; compact glass
+ * A conversation, as apps/ios's ThreadView: its messages from the cache at
+ * once, each body filling in as it arrives (in WebKit, otter-html-view),
+ * remote images held back until asked for; compact glass
  * buttons instead of the bar, in one glass container: Archive and Trash, Reply
  * (a tap replies; holding it offers Reply All and Forward).
  */
@@ -58,9 +67,11 @@ export function ThreadScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { accountId, threadId, subject, labelId } = route.params;
   const result = useAtomValue(threadAtom(threadKey(accountId, threadId)));
-  const messages = AsyncResult.getOrElse(result, () => [] as MessageDetail[]);
+  const messages = AsyncResult.getOrElse(result, () => [] as MessageSummary[]);
   const [showImages, setShowImages] = useState(false);
-  const blocked = !showImages && messages.some((m) => m.bodyHtml && REMOTE_IMAGE.test(m.bodyHtml));
+  // The bodies with remote images, as each arrives.
+  const [remote, setRemote] = useState<ReadonlySet<string>>(new Set());
+  const blocked = !showImages && remote.size > 0;
   const last = messages.at(-1);
   const namespace = useId();
   const solid = useReduceTransparency();
@@ -137,8 +148,9 @@ export function ThreadScreen({ navigation, route }: Props) {
           <Message
             key={message.id}
             accountId={accountId}
-            message={message}
+            summary={message}
             remoteImages={showImages}
+            onRemoteImages={() => setRemote((ids) => new Set(ids).add(message.id))}
             onTrash={() => leave(() => operations.trashMessage(accountId, message.id))}
           />
         ))}
@@ -201,6 +213,73 @@ export function ThreadScreen({ navigation, route }: Props) {
 
 function Message({
   accountId,
+  summary,
+  remoteImages,
+  onRemoteImages,
+  onTrash,
+}: {
+  accountId: string;
+  summary: MessageSummary;
+  remoteImages: boolean;
+  onRemoteImages: () => void;
+  onTrash: () => void;
+}) {
+  const colors = palette(useColorScheme());
+  const atom = messageAtom(messageKey(accountId, summary.id));
+  const result = useAtomValue(atom);
+  const retry = useAtomRefresh(atom);
+  // Gone from the server since it was cached: its snippet is all there is.
+  const message: MessageDetail | null = AsyncResult.isSuccess(result)
+    ? (result.value ?? summary)
+    : null;
+  const hasRemote = Boolean(message?.bodyHtml && REMOTE_IMAGE.test(message.bodyHtml));
+  useEffect(() => {
+    if (hasRemote) onRemoteImages();
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- reported once per body
+  }, [hasRemote]);
+  return (
+    <View style={[styles.message, { borderColor: colors.border }]}>
+      <View style={styles.head}>
+        <Text style={[styles.from, { color: colors.text }]} numberOfLines={1}>
+          {summary.fromName || summary.fromEmail}
+        </Text>
+        <Text style={{ color: colors.secondary }}>{relativeDate(summary.date)}</Text>
+      </View>
+      {summary.to ? (
+        <Text style={[styles.to, { color: colors.secondary }]} numberOfLines={1}>
+          To {summary.to}
+        </Text>
+      ) : null}
+      {message ? (
+        <MessageBody
+          accountId={accountId}
+          message={message}
+          remoteImages={remoteImages}
+          onTrash={onTrash}
+        />
+      ) : AsyncResult.isFailure(result) ? (
+        <View style={styles.pending}>
+          <Text style={[styles.snippet, { color: colors.secondary }]}>
+            Couldn't load this message.
+          </Text>
+          <Pressable onPress={retry} hitSlop={10} accessibilityRole="button" testID="message-retry">
+            <Text style={{ color: colors.accent, fontWeight: "600" }}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.pending} accessibilityLabel="Loading the message">
+          <Text style={[styles.snippet, { color: colors.secondary }]} numberOfLines={3}>
+            {summary.snippet}
+          </Text>
+          <ActivityIndicator size="small" color={colors.secondary} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+function MessageBody({
+  accountId,
   message,
   remoteImages,
   onTrash,
@@ -217,18 +296,7 @@ function Message({
       .map((a) => [a.contentId!.toLowerCase(), a]),
   );
   return (
-    <View style={[styles.message, { borderColor: colors.border }]}>
-      <View style={styles.head}>
-        <Text style={[styles.from, { color: colors.text }]} numberOfLines={1}>
-          {message.fromName || message.fromEmail}
-        </Text>
-        <Text style={{ color: colors.secondary }}>{relativeDate(message.date)}</Text>
-      </View>
-      {message.to ? (
-        <Text style={[styles.to, { color: colors.secondary }]} numberOfLines={1}>
-          To {message.to}
-        </Text>
-      ) : null}
+    <>
       {messageCards.map((Card, i) => (
         <Card
           key={i}
@@ -261,7 +329,7 @@ function Message({
           {(message.bodyText ?? message.snippet ?? "").trim()}
         </Text>
       )}
-    </View>
+    </>
   );
 }
 
@@ -276,5 +344,7 @@ const styles = StyleSheet.create({
   to: { fontSize: 13 },
   html: { borderRadius: 14, overflow: "hidden", backgroundColor: "#FFFFFF" },
   body: { fontSize: 16, lineHeight: 22 },
+  pending: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  snippet: { flex: 1, fontSize: 15, lineHeight: 21 },
   actions: { position: "absolute", left: 0, right: 0 },
 });
