@@ -38,6 +38,16 @@ thread render from it, and the gate below measures whether the architecture hold
   - `otter-credentials`: `apps/ios/NotificationShared`'s Keychain, Google and Microsoft
     credentials and PushState (linked, not copied): the one credential authority. Refresh tokens
     never reach JS.
+  - `otter-translation` (Expo module): `native/translator` on iOS, NaturalLanguage detection and
+    Apple's Translation for installed pairs, answering core's `detectLanguage` and `translate`.
+  - `otter-background` (Expo module): the `dev.otterware.mail.refresh` BGAppRefresh task, handed
+    to core's `background:refresh` (incremental sync of mailboxes synced before, within ~25s).
+- **Notifications** (`src/features/notifications`, expo-notifications): the APNs token goes to
+  core's `push:register` (`src/worker/push.ts`), which writes PushState for the extension and
+  registers on the relay as `apps/ios` does; taps open their thread; core's `badge` and `notify`
+  effects set the icon's count and post local notifications.
+- **apps/ios's unsent messages** (its `draft-recovery/` copies) become drafts on first launch
+  (`src/worker/recovered-drafts.ts`, `pnpm test`); the originals stay.
 - **The notification service extension** is `apps/ios`'s, unchanged: a config plugin
   (`plugins/withNotificationServiceExtension.cjs`) copies its sources in at prebuild.
 - **Variants** (`APP_VARIANT`): development (`dev.otterware.mail.dev`), preview
@@ -64,4 +74,11 @@ Phase 0 always runs on the made-up mailbox (`apps/web`'s fake Gmail); signing in
 
 `Inbox → Gate` (or `ottermail-dev://gate?run=all&n=1`) runs each probe on the worker and logs it
 as `[gate] …` (subsystem `dev.otterware.mail`): `run=all`, `scroll` (5,000 threads while the
-worker writes), `net` / `net-status` (with `pnpm gate:server` on the Mac), or a probe's name.
+worker writes), `net` / `net-status` (with `pnpm gate:server` on the Mac), or a probe's name:
+`translate`, `notify`, `background`, `recovered-drafts`, and `dev-session` (an Otter account from
+a `DEV_DEMO` relay, e.g. `OTTER_MAIL_RELAY_URL=http://localhost:8787`, to check push
+registration without Google).
+
+On the simulator, `xcrun simctl push` never runs the notification service extension, BGTaskScheduler
+refuses to schedule (so `_simulateLaunchForTaskWithIdentifier:` finds no request), and Translation
+reports every pair unsupported: those three need a device.
