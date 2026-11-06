@@ -16,6 +16,7 @@ function setup(chats: object[] = []) {
     "agent:resume": () => ({ resumed: true }),
     "agent:watch": () => ({ ok: true }),
     "agent:cancel": () => ({ ok: true }),
+    "agent:notifyAsk": () => ({ ok: true }),
   });
   const registry = AtomRegistry.make();
   const store = makeChatsStore(registry, {
@@ -187,5 +188,54 @@ describe("withTranscript", () => {
     );
     expect(turns.map((t) => t.id)).toEqual(["u-1", "a-1", "a-cont"]);
     expect(turns[2].items).toEqual([{ kind: "text", text: "Back with results" }]);
+  });
+});
+
+describe("notifications", () => {
+  let ctx: ReturnType<typeof setup>;
+  beforeEach(async () => {
+    ctx = setup();
+    ctx.store.start();
+    await settle();
+  });
+
+  const active = () =>
+    ctx.store.get().conversations.find((c) => c.id === ctx.store.get().activeId)!;
+
+  it("names the chat an ask notifies about, so a tap opens it", async () => {
+    const { store, fake } = ctx;
+    const convo = active();
+    store.sendMessage(message(convo.id, "Run it"), "queue");
+    const run = store.get().runs[convo.id].requestId;
+    fake.emit("agent:chatEvent", {
+      requestId: run,
+      type: "approval",
+      approval: { id: "a1", kind: "command", title: "Run date", choices: ["once", "deny"] },
+    });
+    await settle();
+    expect(fake.called("agent:notifyAsk").at(-1)?.params).toMatchObject({ chat: convo.id });
+  });
+
+  it("makes a chat for what an agent delivers, and notifies with it", async () => {
+    const { store, fake } = ctx;
+    fake.emit("agent:runStarted", {
+      provider: "openclaw",
+      sessionId: "agent:main:otter",
+      requestId: "d1",
+      chat: { title: "Main" },
+      deliveredAt: Date.now(),
+    });
+    await settle();
+    const convo = store.get().conversations.find((c) => c.sessionId === "agent:main:otter")!;
+    expect(convo.title).toBe("Main");
+    fake.emit("agent:chatEvent", { requestId: "d1", type: "delta", text: "Report ready" });
+    fake.emit("agent:chatEvent", { requestId: "d1", type: "done", responseId: null });
+    await settle();
+    expect(fake.called("agent:notifyAsk").at(-1)?.params).toMatchObject({
+      title: "Main",
+      subtitle: "Sent you a message",
+      body: "Report ready",
+      chat: convo.id,
+    });
   });
 });

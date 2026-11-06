@@ -51,4 +51,11 @@ describe("what an agent asks of the user", () => {
     await settle();
     expect(notify).toHaveBeenCalledTimes(1);
   });
+
+  it("passes on the chat a tap opens", async () => {
+    vi.useFakeTimers();
+    notifyAsk("openclaw", { key: "k-chat", title: "Main", chat: "c1", focused: false });
+    await settle();
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ chat: "c1" }));
+  });
 });

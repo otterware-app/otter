@@ -77,6 +77,11 @@ export function ChatScreen({ navigation, route }: Props) {
     if (convo && !convo.loaded) void chats.loadChat(convo.id);
   }, [convo]);
 
+  const shownId = route.params?.id;
+  useEffect(() => {
+    if (shownId) chats.showChat(shownId);
+  }, [shownId]);
+
   // A chat from the reader starts fresh, about that mail.
   useEffect(() => {
     if (route.params?.context && provider) chats.newChat(provider.kind);
