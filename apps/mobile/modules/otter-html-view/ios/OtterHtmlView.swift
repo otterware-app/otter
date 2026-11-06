@@ -33,7 +33,7 @@ public final class OtterHtmlView: ExpoView, WKNavigationDelegate, WKScriptMessag
     webView.isOpaque = false
     webView.backgroundColor = .clear
     images.view = self
-    configuration.userContentController.add(self, contentWorld: .defaultClient, name: "messageHeight")
+    configuration.userContentController.add(WeakMessageHandler(self), contentWorld: .defaultClient, name: "messageHeight")
     configuration.userContentController.addUserScript(WKUserScript(
       source: """
         const report = () => window.webkit.messageHandlers.messageHeight.postMessage(document.documentElement.scrollHeight);
@@ -169,5 +169,14 @@ final class InlineImages: NSObject, WKURLSchemeHandler {
     task.didReceive(URLResponse(url: url, mimeType: mimeType, expectedContentLength: data.count, textEncodingName: nil))
     task.didReceive(data)
     task.didFinish()
+  }
+}
+
+/** The content controller keeps its handlers; through this one it doesn't keep the view. */
+private final class WeakMessageHandler: NSObject, WKScriptMessageHandler {
+  weak var target: WKScriptMessageHandler?
+  init(_ target: WKScriptMessageHandler) { self.target = target }
+  func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+    target?.userContentController(controller, didReceive: message)
   }
 }

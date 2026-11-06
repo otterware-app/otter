@@ -22,7 +22,7 @@ public final class OtterComposerView: ExpoView, WKScriptMessageHandler, WKNaviga
     configuration.dataDetectorTypes = []
     webView = WKWebView(frame: .zero, configuration: configuration)
     super.init(appContext: appContext)
-    configuration.userContentController.add(self, name: "composer")
+    configuration.userContentController.add(WeakMessageHandler(self), name: "composer")
     webView.isOpaque = false
     webView.backgroundColor = .clear
     webView.scrollView.backgroundColor = .clear
@@ -121,5 +121,14 @@ public final class OtterComposerView: ExpoView, WKScriptMessageHandler, WKNaviga
   ) {
     // Only the editor itself loads here; a pasted link never navigates it away.
     decisionHandler(action.request.url?.isFileURL == true ? .allow : .cancel)
+  }
+}
+
+/** The content controller keeps its handlers; through this one it doesn't keep the view. */
+private final class WeakMessageHandler: NSObject, WKScriptMessageHandler {
+  weak var target: WKScriptMessageHandler?
+  init(_ target: WKScriptMessageHandler) { self.target = target }
+  func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+    target?.userContentController(controller, didReceive: message)
   }
 }
