@@ -1,16 +1,17 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { LegendList, type LegendListRef } from "@legendapp/list/react-native";
-import * as AsyncResult from "effect/reactivity/AsyncResult";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View, useColorScheme } from "react-native";
 
 import { createWorkerHost } from "@otter-mail/mobile-worker";
 
 import type { RootStack } from "../../App";
-import { coreReadyAtom, probeAtom, type ThreadRow } from "../../state/mail";
+import type { MessageSummary } from "@otter-mail/client-runtime/mail";
+
+import { connection } from "../../state/core";
+import { probe } from "../../state/mail";
 import { startup } from "../../state/startup";
-import { Row } from "../inbox/InboxScreen";
+import { ThreadRow } from "../home/ThreadRow";
 import { palette } from "../theme";
 
 const host = createWorkerHost();
@@ -28,34 +29,29 @@ function log(name: string, value: unknown) {
  */
 export function GateScreen({ route }: NativeStackScreenProps<RootStack, "Gate">) {
   const colors = palette(useColorScheme());
-  const ready = useAtomValue(coreReadyAtom);
   const [results, setResults] = useState<Record<string, unknown>>({});
-  const [bench, setBench] = useState<ThreadRow[] | null>(null);
-  const probe = useAtomSet(probeAtom, { mode: "promiseExit" });
-  const runProbe = useCallback(
-    async (name: string, args?: unknown) => {
-      const exit = await probe({ name, args });
-      const value = exit._tag === "Success" ? exit.value : { error: String(exit.cause) };
-      log(name, value);
-      setResults((r) => ({ ...r, [name]: value }));
-      return value;
-    },
-    [probe],
-  );
+  const [bench, setBench] = useState<MessageSummary[] | null>(null);
+  const runProbe = useCallback(async (name: string, args?: unknown) => {
+    const value = await probe(name, args).catch((error: unknown) => ({ error: String(error) }));
+    log(name, value);
+    setResults((r) => ({ ...r, [name]: value }));
+    return value;
+  }, []);
 
   const runAll = useCallback(async () => {
-    const started = { startup, ready: AsyncResult.getOrElse(ready, () => null) };
+    const channels = await connection.ready().catch(() => []);
+    const started = { startup, channels: channels.length };
     log("startup", started);
     setResults((r) => ({ ...r, startup: started }));
     for (const name of PROBES) await runProbe(name);
-  }, [ready, runProbe]);
+  }, [runProbe]);
 
   const runNet = useCallback(async () => {
     await runProbe("net:start", { base: NET_BASE });
   }, [runProbe]);
 
   const startScroll = useCallback(async () => {
-    const list = (await runProbe("bench:list")) as { ms: number; rows: ThreadRow[] };
+    const list = (await runProbe("bench:list")) as { ms: number; rows: MessageSummary[] };
     setResults((r) => ({ ...r, "bench:list": { ms: list.ms, rows: list.rows.length } }));
     setBench(list.rows);
   }, [runProbe]);
@@ -144,7 +140,7 @@ function ScrollBench({
   startChurn,
   churnStatus,
 }: {
-  rows: ThreadRow[];
+  rows: MessageSummary[];
   onDone: (result: unknown) => void;
   startChurn: () => Promise<unknown>;
   churnStatus: () => Promise<unknown>;
@@ -195,7 +191,7 @@ function ScrollBench({
       ref={ref}
       data={rows}
       keyExtractor={(row) => row.id}
-      renderItem={({ item }) => <Row row={item} />}
+      renderItem={({ item }) => <ThreadRow row={item} />}
       estimatedItemSize={76}
       recycleItems
       testID="bench-list"

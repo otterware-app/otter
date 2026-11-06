@@ -1,103 +1,44 @@
+import type { MessageSummary } from "@otter-mail/client-runtime/mail";
 import * as Effect from "effect/Effect";
-import * as Stream from "effect/Stream";
 import { Atom } from "effect/reactivity";
 
-import { CoreHost, layerWorklets } from "./core";
+import { core } from "./core";
 
-export type MailAccount = {
-  id: string;
-  email: string;
-  name?: string;
-  displayName?: string;
-  color?: string;
-};
-
-export type ThreadRow = {
-  id: string;
-  accountId?: string;
-  threadId: string;
-  fromName: string;
-  fromEmail: string;
-  subject: string;
-  snippet: string;
-  date: number;
-  unread: boolean;
-  threadCount?: number;
-  threadUnread?: boolean;
-};
-
-export type MessageDetail = ThreadRow & {
+export type MessageDetail = MessageSummary & {
   bodyText?: string | null;
   bodyHtml?: string | null;
-  to?: string;
+  attachments?: {
+    id: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+    contentId?: string;
+  }[];
 };
 
-export const coreRuntime = Atom.runtime(layerWorklets);
+export const threadKey = (accountId: string, threadId: string) => `${accountId}\u0000${threadId}`;
 
-export const coreReadyAtom = coreRuntime.atom(
-  Effect.flatMap(Effect.service(CoreHost), (core) => core.ready),
-);
-
-export const probeAtom = coreRuntime.fn((request: { name: string; args?: unknown }) =>
-  Effect.flatMap(Effect.service(CoreHost), (core) => core.probe(request.name, request.args)),
-);
-
-export const accountsAtom = coreRuntime.atom(
-  Effect.gen(function* () {
-    const core = yield* CoreHost;
-    yield* core.ready;
-    return yield* core.invoke<MailAccount[]>("gmail:listAccounts");
-  }),
-);
-
-/** Bumps whenever core says mail changed, so lists read the cache again. */
-export const mailChangesAtom = coreRuntime.atom(
-  Stream.unwrap(
-    Effect.map(Effect.service(CoreHost), (core) =>
-      core.events("gmail:").pipe(
-        Stream.scan(
-          () => 0,
-          (count: number) => count + 1,
-        ),
-      ),
-    ),
-  ),
-  { initialValue: 0 },
-);
-
-const PAGE = 5000;
-
-export const inboxAtom = Atom.family((accountId: string) =>
-  coreRuntime.atom((get) =>
+/** A conversation as the reader shows it: its messages, each with its body (fetched on open). */
+export const threadAtom = Atom.family((key: string) => {
+  const [accountId, threadId] = key.split("\u0000") as [string, string];
+  return Atom.make(
     Effect.gen(function* () {
-      get(mailChangesAtom);
-      const core = yield* CoreHost;
-      const page = yield* core.invoke<{ messages: ThreadRow[] }>("gmail:listMessages", {
-        accountId,
-        labelIds: ["INBOX"],
-        maxResults: PAGE,
-      });
-      return page.messages;
-    }),
-  ),
-);
-
-export const threadAtom = Atom.family((key: string) =>
-  coreRuntime.atom(
-    Effect.gen(function* () {
-      const [accountId, threadId] = key.split("\u0000") as [string, string];
-      const core = yield* CoreHost;
-      const messages = yield* core.invoke<ThreadRow[]>("gmail:getThread", { accountId, threadId });
+      const messages = yield* Effect.promise(() =>
+        core.invoke<MessageSummary[]>("gmail:getThread", { accountId, threadId }),
+      );
       return yield* Effect.forEach(
         messages,
         (message) =>
-          core
-            .invoke<MessageDetail>("gmail:getMessage", { accountId, messageId: message.id })
-            .pipe(Effect.orElseSucceed(() => message as MessageDetail)),
+          Effect.promise(() =>
+            core
+              .invoke<MessageDetail>("gmail:getMessage", { accountId, messageId: message.id })
+              .catch(() => message as MessageDetail),
+          ),
         { concurrency: 4 },
       );
     }),
-  ),
-);
+  );
+});
 
-export const threadKey = (accountId: string, threadId: string) => `${accountId}\u0000${threadId}`;
+/** A gate probe, run where core runs (`gate:probe`). */
+export const probe = (name: string, args?: unknown) => core.invoke("gate:probe", { name, args });

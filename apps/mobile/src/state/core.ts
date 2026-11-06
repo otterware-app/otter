@@ -1,86 +1,72 @@
+import {
+  connectCore,
+  type CoreBridge,
+  type CoreHostConnection,
+} from "@otter-mail/client-runtime/connection";
+import type { HostEffect, HostRequest } from "@otter-mail/contracts/rpc";
 import Constants from "expo-constants";
-import * as Context from "effect/Context";
-import * as Data from "effect/Data";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Queue from "effect/Queue";
-import * as Stream from "effect/Stream";
-import { AppState } from "react-native";
+import { AppState, Linking } from "react-native";
 
-import { startWorkletsTransport, type CoreTransport } from "./core-transport";
-
-export class CoreError extends Data.TaggedError("CoreError")<{
-  readonly channel: string;
-  readonly message: string;
-}> {}
+import { startCoreRuntime } from "./core-transport";
+import { markCoreReady } from "./startup";
 
 /**
- * Core, running on its own runtime: invoke its handlers, follow its
- * broadcasts. The UI only ever sees this service, so the worklets transport
- * underneath can give way to the Effect RPC client unchanged.
+ * The phone's connection to core: client-runtime's `connectCore` over the
+ * worker runtime's port. Core's broadcasts fan out to `core.on` listeners;
+ * its requests and effects for the host are answered here.
  */
-export class CoreHost extends Context.Service<
-  CoreHost,
-  {
-    readonly ready: Effect.Effect<{ readonly bootMs: number }, CoreError>;
-    readonly invoke: <A = unknown>(
-      channel: string,
-      params?: unknown,
-    ) => Effect.Effect<A, CoreError>;
-    readonly probe: <A = unknown>(name: string, args?: unknown) => Effect.Effect<A, CoreError>;
-    readonly events: (
-      prefix: string,
-    ) => Stream.Stream<{ readonly channel: string; readonly params: unknown }>;
-  }
->()("@otter-mail/mobile/CoreHost") {}
 
-const fromTransport = (transport: CoreTransport): CoreHost["Service"] => ({
-  ready: Effect.tryPromise({
-    try: () => transport.ready,
-    catch: (error) => new CoreError({ channel: "ready", message: String(error) }),
-  }),
-  invoke: <A>(channel: string, params?: unknown) =>
-    Effect.tryPromise({
-      try: () => transport.invoke(channel, params) as Promise<A>,
-      catch: (error) =>
-        new CoreError({ channel, message: error instanceof Error ? error.message : String(error) }),
+type Extra = { relayUrl?: string; fakeMailbox?: boolean };
+const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
+
+const listeners = new Map<string, Set<(params: unknown) => void>>();
+
+function onRequest(request: HostRequest): Promise<unknown> {
+  switch (request._tag) {
+    case "openExternal":
+      return Linking.openURL(request.url);
+    default:
+      return Promise.reject(new Error(`The phone can't ${request._tag} yet.`));
+  }
+}
+
+function onEffect(effect: HostEffect): void {
+  if (effect._tag === "log" && effect.level !== "debug") {
+    console.log(`[core:${effect.scope}] ${effect.message}`);
+  }
+}
+
+export const connection: CoreHostConnection = connectCore(
+  () =>
+    startCoreRuntime({
+      appVersion: Constants.expoConfig?.version ?? "0.0.0",
+      relayUrl: extra.relayUrl ?? "https://relay.mail.otterware.app",
+      demo: extra.fakeMailbox === true,
     }),
-  probe: <A>(name: string, args?: unknown) =>
-    Effect.tryPromise({
-      try: () => transport.probe(name, args) as Promise<A>,
-      catch: (error) =>
-        new CoreError({
-          channel: `probe:${name}`,
-          message: error instanceof Error ? error.message : String(error),
-        }),
-    }),
-  events: (prefix) =>
-    Stream.callback<{ channel: string; params: unknown }>((queue) =>
-      Effect.acquireRelease(
-        Effect.sync(() =>
-          transport.subscribe((message) => {
-            if (message.type === "event" && message.channel.startsWith(prefix)) {
-              Queue.offerUnsafe(queue, { channel: message.channel, params: message.params });
-            }
-          }),
-        ),
-        (unsubscribe) => Effect.sync(unsubscribe),
-      ),
-    ),
+  {
+    onEvent(channel, params) {
+      for (const listener of listeners.get(channel) ?? []) listener(params);
+      for (const listener of listeners.get("*") ?? []) listener({ channel, params });
+    },
+    onRequest,
+    onEffect,
+  },
+);
+
+void connection.ready().then(markCoreReady, () => {});
+
+AppState.addEventListener("change", (state) => {
+  if (state === "active") connection.resume();
 });
 
-export const layerWorklets = Layer.effect(
-  CoreHost,
-  Effect.sync(() => {
-    const transport = startWorkletsTransport({
-      appVersion: Constants.expoConfig?.version ?? "0.0.0",
-      relayUrl: "https://relay.mail.otterware.app",
-      // Phase 0 runs on the made-up mailbox (apps/web's fake Gmail), never a real account.
-      demo: true,
-    });
-    AppState.addEventListener("change", (state) => {
-      if (state === "active") transport.resume();
-    });
-    return fromTransport(transport);
-  }),
-);
+/** What client-runtime's stores need of core. `on("*")` hears every broadcast. */
+export const core: CoreBridge = {
+  invoke: <T>(channel: string, params?: unknown) =>
+    connection.invoke(channel, params) as Promise<T>,
+  on(channel, listener) {
+    let set = listeners.get(channel);
+    if (!set) listeners.set(channel, (set = new Set()));
+    set.add(listener);
+    return () => set.delete(listener);
+  },
+};
