@@ -6,7 +6,6 @@ import { chromium } from "playwright-core";
 
 const root = NodePath.resolve(import.meta.dirname, "..");
 const at = (file: string) => NodePath.join(root, file);
-const catalog = "apps/ios/OtterMail/Assets.xcassets";
 
 const IVORY = "#f8f5ec";
 const CHARCOAL = "#2c2f31";
@@ -131,8 +130,6 @@ const write = (file: string, data: string | Buffer) => {
   NodeFS.mkdirSync(NodePath.dirname(at(file)), { recursive: true });
   NodeFS.writeFileSync(at(file), data);
 };
-const json = (file: string, value: unknown) => write(file, `${JSON.stringify(value, null, 2)}\n`);
-const info = { author: "xcode", version: 1 };
 
 const browser = await chromium.launch();
 try {
@@ -149,6 +146,12 @@ try {
   const dev = blueprint();
   write("assets/prod/otter-mail-macos-1024.png", await png(mac(light), 1024));
   write("assets/prod/otter-mail-ios-1024.png", await png(square(light), 1024));
+  // The iPhone's dark and tinted icons (apps/mobile's app.config: ios.icon); dev wears the tinted one too.
+  write("assets/prod/otter-mail-ios-dark-1024.png", await png(square(dark), 1024));
+  write(
+    "assets/prod/otter-mail-ios-tinted-1024.png",
+    await png(square(flat("#000000", "#ffffff")), 1024),
+  );
   write("assets/dev/blueprint-macos-1024.png", await png(mac(dev), 1024));
   write("assets/dev/blueprint-ios-1024.png", await png(square(dev), 1024));
   write("apps/desktop/resources/icon.icns", await icns((size) => png(mac(light), size)));
@@ -185,33 +188,6 @@ try {
   write("apps/web/public/favicon.ico", ico(favicons));
   write("apps/web/public/apple-touch-icon.png", await png(square(light), 180));
   write("apps/web/src/main/assets/otter-mail-icon.png", await png(square(light), 192));
-
-  const appIcon = `${catalog}/AppIcon.appiconset`;
-  write(`${appIcon}/icon-1024.png`, await png(square(light), 1024));
-  write(`${appIcon}/icon-dark-1024.png`, await png(square(dark), 1024));
-  write(`${appIcon}/icon-tinted-1024.png`, await png(square(flat("#000000", "#ffffff")), 1024));
-  json(`${appIcon}/Contents.json`, {
-    images: [
-      ["icon-1024.png"],
-      ["icon-dark-1024.png", "dark"],
-      ["icon-tinted-1024.png", "tinted"],
-    ].map(([filename, luminosity]) => ({
-      ...(luminosity ? { appearances: [{ appearance: "luminosity", value: luminosity }] } : {}),
-      filename,
-      idiom: "universal",
-      platform: "ios",
-      size: "1024x1024",
-    })),
-    info,
-  });
-  write(`${catalog}/OtterMark.imageset/otter-mark.png`, await png(square(light), 512));
-
-  const devIcon = `${catalog}/AppIconDev.appiconset`;
-  write(`${devIcon}/icon-1024.png`, await png(square(dev), 1024));
-  json(`${devIcon}/Contents.json`, {
-    images: [{ filename: "icon-1024.png", idiom: "universal", platform: "ios", size: "1024x1024" }],
-    info,
-  });
 } finally {
   await browser.close();
 }

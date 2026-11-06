@@ -85,6 +85,13 @@ function Navigation() {
     const base = colors.dark ? DarkTheme : DefaultTheme;
     return {
       ...base,
+      // Inter in the headers too (text elsewhere defaults to it: modules/otter-app).
+      fonts: Object.fromEntries(
+        Object.entries(base.fonts).map(([weight, style]) => [
+          weight,
+          { ...style, fontFamily: "Inter Variable" },
+        ]),
+      ) as typeof base.fonts,
       colors: {
         ...base.colors,
         primary: colors.accent,
