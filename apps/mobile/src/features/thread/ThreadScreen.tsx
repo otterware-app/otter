@@ -1,12 +1,30 @@
 import { useAtomValue } from "@effect/atom-react";
+import {
+  Button,
+  GlassEffectContainer,
+  HStack,
+  Host,
+  Image as SwiftImage,
+  Menu,
+  Namespace,
+  Spacer,
+  ZStack,
+} from "@expo/ui/swift-ui";
+import {
+  accessibilityIdentifier,
+  accessibilityLabel,
+  buttonStyle,
+  contentShape,
+  frame,
+  padding,
+  shapes,
+} from "@expo/ui/swift-ui/modifiers";
 import { HtmlView } from "@otter-mail/mobile-html-view";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
-import { GlassView } from "expo-glass-effect";
 import { SymbolView, type SFSymbol } from "expo-symbols";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
-  ActionSheetIOS,
   Linking,
   Pressable,
   ScrollView,
@@ -22,6 +40,7 @@ import { messageCards } from "../../extensions/registry";
 import { operations } from "../../state/client";
 import { core } from "../../state/core";
 import { threadAtom, threadKey, type MessageDetail } from "../../state/mail";
+import { glassSurface, useReduceTransparency } from "../glass";
 import { palette, relativeDate } from "../theme";
 
 type Props = NativeStackScreenProps<RootStack, "Thread">;
@@ -31,7 +50,8 @@ const REMOTE_IMAGE = /<img[^>]+src\s*=\s*["']?https?:/i;
 /**
  * A conversation, as apps/ios's ThreadView: each message's HTML in WebKit
  * (otter-html-view), remote images held back until asked for; compact glass
- * buttons instead of the bar: Archive and Trash, Reply.
+ * buttons instead of the bar, in one glass container: Archive and Trash, Reply
+ * (a tap replies; holding it offers Reply All and Forward).
  */
 export function ThreadScreen({ navigation, route }: Props) {
   const colors = palette(useColorScheme());
@@ -42,6 +62,8 @@ export function ThreadScreen({ navigation, route }: Props) {
   const [showImages, setShowImages] = useState(false);
   const blocked = !showImages && messages.some((m) => m.bodyHtml && REMOTE_IMAGE.test(m.bodyHtml));
   const last = messages.at(-1);
+  const namespace = useId();
+  const solid = useReduceTransparency();
 
   useEffect(() => {
     if (messages.some((m) => m.unread)) {
@@ -59,34 +81,30 @@ export function ThreadScreen({ navigation, route }: Props) {
   const reply = (mode: "reply" | "replyAll" | "forward") =>
     last && navigation.navigate("Compose", { accountId, mode, messageId: last.id, threadId });
 
-  const replyMenu = () =>
-    ActionSheetIOS.showActionSheetWithOptions(
-      { options: ["Reply", "Reply All", "Forward", "Cancel"], cancelButtonIndex: 3 },
-      (i) => {
-        if (i === 0) reply("reply");
-        if (i === 1) reply("replyAll");
-        if (i === 2) reply("forward");
-      },
-    );
-
-  const button = (
-    symbol: SFSymbol,
-    label: string,
-    onPress: () => void,
-    onLongPress?: () => void,
-  ) => (
-    <GlassView style={styles.round} glassEffectStyle="regular" isInteractive>
-      <Pressable
-        onPress={onPress}
-        onLongPress={onLongPress}
-        style={styles.roundButton}
-        accessibilityLabel={label}
-        accessibilityRole="button"
-        testID={`reader-${label}`}
-      >
-        <SymbolView name={symbol} size={20} tintColor={colors.text} />
-      </Pressable>
-    </GlassView>
+  const glass = (label: string) =>
+    glassSurface({ shape: "circle" }, label, namespace, {
+      interactive: true,
+      solid,
+      fill: colors.raised,
+    });
+  const face = (symbol: SFSymbol) => (
+    <ZStack modifiers={[frame({ width: 48, height: 48 }), contentShape(shapes.circle())]}>
+      <SwiftImage systemName={symbol} size={19} color={colors.text} />
+    </ZStack>
+  );
+  const button = (symbol: SFSymbol, label: string, onPress: () => void) => (
+    <Button
+      key={label}
+      onPress={onPress}
+      modifiers={[
+        buttonStyle("plain"),
+        accessibilityLabel(label),
+        accessibilityIdentifier(`reader-${label}`),
+        ...glass(label),
+      ]}
+    >
+      {face(symbol)}
+    </Button>
   );
 
   return (
@@ -125,23 +143,58 @@ export function ThreadScreen({ navigation, route }: Props) {
           />
         ))}
       </ScrollView>
-      <View style={[styles.actions, { bottom: insets.bottom + 4 }]} pointerEvents="box-none">
-        <View style={styles.group}>
-          {labelId !== "TRASH"
-            ? button("archivebox", "Archive", () =>
-                leave(() =>
-                  operations.archiveThread(
-                    accountId,
-                    threadId,
-                    labelId && labelId !== "INBOX" ? labelId : "INBOX",
-                  ),
-                ),
-              )
-            : null}
-          {button("trash", "Trash", () => leave(() => operations.trashThread(accountId, threadId)))}
-        </View>
-        {button("arrowshape.turn.up.left", "Reply", () => reply("reply"), replyMenu)}
-      </View>
+      <Host
+        matchContents={{ vertical: true }}
+        pointerEvents="box-none"
+        style={[styles.actions, { bottom: insets.bottom + 4 }]}
+      >
+        <Namespace id={namespace}>
+          <GlassEffectContainer spacing={10} modifiers={[padding({ horizontal: 20 })]}>
+            <HStack spacing={10}>
+              {labelId !== "TRASH"
+                ? button("archivebox", "Archive", () =>
+                    leave(() =>
+                      operations.archiveThread(
+                        accountId,
+                        threadId,
+                        labelId && labelId !== "INBOX" ? labelId : "INBOX",
+                      ),
+                    ),
+                  )
+                : null}
+              {button("trash", "Trash", () =>
+                leave(() => operations.trashThread(accountId, threadId)),
+              )}
+              <Spacer minLength={0} />
+              <Menu
+                label={face("arrowshape.turn.up.left")}
+                onPrimaryAction={() => reply("reply")}
+                modifiers={[
+                  accessibilityLabel("Reply"),
+                  accessibilityIdentifier("reader-Reply"),
+                  ...glass("Reply"),
+                ]}
+              >
+                <Button
+                  label="Reply"
+                  systemImage="arrowshape.turn.up.left"
+                  onPress={() => reply("reply")}
+                />
+                <Button
+                  label="Reply All"
+                  systemImage="arrowshape.turn.up.left.2"
+                  onPress={() => reply("replyAll")}
+                />
+                <Button
+                  label="Forward"
+                  systemImage="arrowshape.turn.up.right"
+                  onPress={() => reply("forward")}
+                />
+              </Menu>
+            </HStack>
+          </GlassEffectContainer>
+        </Namespace>
+      </Host>
     </View>
   );
 }
@@ -223,14 +276,5 @@ const styles = StyleSheet.create({
   to: { fontSize: 13 },
   html: { borderRadius: 14, overflow: "hidden", backgroundColor: "#FFFFFF" },
   body: { fontSize: 16, lineHeight: 22 },
-  actions: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  group: { flexDirection: "row", gap: 12 },
-  round: { width: 52, height: 52, borderRadius: 26 },
-  roundButton: { flex: 1, alignItems: "center", justifyContent: "center" },
+  actions: { position: "absolute", left: 0, right: 0 },
 });
