@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   newOpenClawDeviceKey,
   openClawDeviceIdentity,
+  savedOpenClawDeviceKey,
   type OpenClawDeviceKey,
 } from "./openclaw-device.js";
 
@@ -81,5 +82,24 @@ describe("OpenClaw device identity", () => {
 
   it("saves new keys as WebCrypto exported them", () => {
     expect(Object.keys(newOpenClawDeviceKey()).sort()).toEqual(Object.keys(RFC_8032_KEY).sort());
+  });
+});
+
+describe("A saved OpenClaw device key", () => {
+  it("reads the Swift app's base64 raw seed as the same key, to save as a JWK", () => {
+    const swift = btoa(String.fromCharCode(...fromBase64url(RFC_8032_KEY.d)));
+    expect(swift).toContain("=");
+    expect(savedOpenClawDeviceKey(swift)).toEqual({ key: RFC_8032_KEY, fromSwift: true });
+  });
+
+  it("keeps a JWK as it is", () => {
+    const saved = { ...RFC_8032_KEY, ext: false };
+    expect(savedOpenClawDeviceKey(JSON.stringify(saved))).toEqual({ key: saved, fromSwift: false });
+  });
+
+  it("has none for nothing or something else", () => {
+    expect(savedOpenClawDeviceKey("")).toBeNull();
+    expect(savedOpenClawDeviceKey(btoa("too short"))).toBeNull();
+    expect(savedOpenClawDeviceKey("a")).toBeNull();
   });
 });
