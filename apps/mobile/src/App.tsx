@@ -21,6 +21,12 @@ import { SettingsScreen } from "./features/settings/SettingsScreen";
 import { ThreadScreen } from "./features/thread/ThreadScreen";
 import { appAtomRegistry, startClientState } from "./state/client";
 
+const COMPOSE_TITLES = {
+  new: "New message",
+  reply: "Reply",
+  replyAll: "Reply All",
+  forward: "Forward",
+} as const;
 export type RootStack = {
   Home: undefined;
   Thread: { accountId: string; threadId: string; subject: string; labelId?: string };
@@ -100,7 +106,10 @@ export default function App() {
             <Stack.Screen
               name="Compose"
               component={ComposeScreen}
-              options={{ title: "New message", presentation: "modal" }}
+              options={({ route }) => ({
+                title: COMPOSE_TITLES[route.params.mode ?? "new"],
+                presentation: "modal",
+              })}
             />
             <Stack.Screen name="Gate" component={GateScreen} options={{ title: "Phase 0 gate" }} />
           </Stack.Navigator>
