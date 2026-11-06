@@ -40,6 +40,8 @@ export const ThreadRow = memo(function ThreadRow({
   onOpen,
   onLongPress,
   fullWidth = false,
+  flags = false,
+  selected,
 }: {
   row: MessageSummary;
   accountId: string;
@@ -47,6 +49,10 @@ export const ThreadRow = memo(function ThreadRow({
   fullWidth?: boolean;
   onOpen?: (row: MessageSummary) => void;
   onLongPress?: (row: MessageSummary) => void;
+  /** Outlook's and IMAP's flags instead of Gmail's stars. */
+  flags?: boolean;
+  /** Selecting (More › Select messages): whether this one is picked. */
+  selected?: boolean;
 }) {
   const colors = usePalette();
   const unread = row.threadUnread ?? row.unread;
@@ -59,7 +65,8 @@ export const ThreadRow = memo(function ThreadRow({
       onLongPress={() => onLongPress?.(row)}
       accessibilityRole="button"
       accessibilityLabel={rowLabel(row)}
-      accessibilityHint="Opens the conversation"
+      accessibilityHint={selected === undefined ? "Opens the conversation" : undefined}
+      accessibilityState={selected === undefined ? undefined : { selected }}
       style={({ pressed }) => [
         styles.row,
         fullWidth && [styles.fullWidth, { borderBottomColor: colors.border }],
@@ -73,6 +80,15 @@ export const ThreadRow = memo(function ThreadRow({
       ]}
       testID={`thread-${row.threadId}`}
     >
+      {selected !== undefined ? (
+        <View style={styles.check}>
+          <SymbolView
+            name={selected ? "checkmark.circle.fill" : "circle"}
+            size={22}
+            tintColor={selected ? colors.accent : colors.secondary}
+          />
+        </View>
+      ) : null}
       <View style={styles.avatar}>
         {unread ? <View style={[styles.dot, { backgroundColor: colors.accent }]} /> : null}
         <SenderAvatar
@@ -93,7 +109,13 @@ export const ThreadRow = memo(function ThreadRow({
           >
             {row.fromName || row.fromEmail || "Draft"}
           </Text>
-          {starred ? <SymbolView name="star.fill" size={11} tintColor={colors.star} /> : null}
+          {starred ? (
+            <SymbolView
+              name={flags ? "flag.fill" : "star.fill"}
+              size={11}
+              tintColor={colors.star}
+            />
+          ) : null}
           {row.hasAttachments ? (
             <SymbolView name="paperclip" size={11} tintColor={colors.secondary} />
           ) : null}
@@ -135,6 +157,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   avatar: { paddingTop: 2 },
+  check: { alignSelf: "center", marginLeft: -4 },
   dot: { position: "absolute", left: -13, top: 2 + 15, width: 6, height: 6, borderRadius: 3 },
   lines: { flex: 1, gap: 2 },
   top: { flexDirection: "row", alignItems: "center", gap: 6 },

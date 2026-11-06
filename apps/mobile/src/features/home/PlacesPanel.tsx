@@ -154,8 +154,8 @@ export function PlacesPanel({
           {folders(labels).map((label) =>
             row(
               label.id,
-              placeTitle(label.id, labels),
-              placeSymbol(label.id),
+              placeTitle(label.id, labels, mailbox?.capabilities),
+              placeSymbol(label.id, false, mailbox?.capabilities),
               () => onPlace(label.id),
               {
                 selected: label.id === labelId,

@@ -1,5 +1,6 @@
 import { buildLabelTree, flattenLabelTree } from "@otter-mail/client-runtime/label-tree";
 import type { MailLabel } from "@otter-mail/client-runtime/mail";
+import type { MailCapabilities } from "@otter-mail/contracts";
 import type { SFSymbol } from "expo-symbols";
 import { Atom } from "effect/reactivity";
 
@@ -42,13 +43,27 @@ const SYSTEM: Record<string, { title: string; symbol: SFSymbol; order: number }>
 
 export const isSystem = (labelId: string) => labelId in SYSTEM;
 
-export function placeTitle(labelId: string, labels: readonly MailLabel[]): string {
+/** Gmail's stars are Outlook's and IMAP's flags (apps/ios's Folder.title(in:)). */
+const flags = (capabilities?: MailCapabilities) =>
+  capabilities !== undefined && !capabilities.stars;
+
+export function placeTitle(
+  labelId: string,
+  labels: readonly MailLabel[],
+  capabilities?: MailCapabilities,
+): string {
+  if (labelId === "STARRED" && flags(capabilities)) return "Flagged";
   const name = SYSTEM[labelId]?.title ?? labels.find((l) => l.id === labelId)?.name ?? labelId;
   return name.split("/").at(-1) ?? name;
 }
 
-export function placeSymbol(labelId: string, selected = false): SFSymbol {
-  const symbol = SYSTEM[labelId]?.symbol ?? "tag";
+export function placeSymbol(
+  labelId: string,
+  selected = false,
+  capabilities?: MailCapabilities,
+): SFSymbol {
+  const symbol =
+    labelId === "STARRED" && flags(capabilities) ? "flag" : (SYSTEM[labelId]?.symbol ?? "tag");
   return selected ? (`${symbol}.fill` as SFSymbol) : symbol;
 }
 
