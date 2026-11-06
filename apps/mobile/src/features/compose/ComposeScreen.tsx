@@ -71,7 +71,7 @@ export function ComposeScreen({ navigation, route }: Props) {
   const edited = useRef(false);
 
   const onReady = async () => {
-    if (mode === "new" || !messageId) return void editor.current?.focus("start");
+    if (mode === "new" || !messageId) return;
     const message = await core.invoke<MessageDetail>("gmail:getMessage", { accountId, messageId });
     replyTo.current = message;
     const date = new Date(message.date).toLocaleString();
@@ -97,8 +97,8 @@ export function ComposeScreen({ navigation, route }: Props) {
         setCc(others.join(", "));
       }
       await editor.current?.setContent(quoted(message, `On ${date}, ${who} wrote:`));
+      await editor.current?.focus("start");
     }
-    await editor.current?.focus("start");
   };
 
   const draft = () => ({
@@ -205,6 +205,7 @@ export function ComposeScreen({ navigation, route }: Props) {
     onChange: (v: string) => void,
     testID: string,
     email = true,
+    autoFocus = false,
   ) => (
     <View style={[styles.field, { borderColor: colors.border }]}>
       <Text style={[styles.label, { color: colors.secondary }]}>{label}</Text>
@@ -215,6 +216,7 @@ export function ComposeScreen({ navigation, route }: Props) {
         autoCapitalize={email ? "none" : "sentences"}
         autoCorrect={!email}
         keyboardType={email ? "email-address" : "default"}
+        autoFocus={autoFocus}
         accessibilityLabel={label}
         testID={testID}
       />
@@ -239,7 +241,7 @@ export function ComposeScreen({ navigation, route }: Props) {
       {account ? (
         <Text style={[styles.from, { color: colors.secondary }]}>From {account.email}</Text>
       ) : null}
-      {field("To", to, setTo, "compose-to")}
+      {field("To", to, setTo, "compose-to", true, mode === "new" || mode === "forward")}
       {field("Cc", cc, setCc, "compose-cc")}
       {field("Subject", subject, setSubject, "compose-subject", false)}
       <ComposerEditor

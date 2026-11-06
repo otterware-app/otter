@@ -37,18 +37,30 @@ public final class OtterComposerView: ExpoView, WKScriptMessageHandler, WKNaviga
   }
 
   /**
-   * WebKit's form bar (previous, next, done) over the keyboard: the screen has
-   * its own formatting bar there. WKWebView has no switch for it, so its content
-   * view gets a subclass whose inputAccessoryView is nil.
+   * WKWebView has no switches for two things the composer needs, so its content
+   * view gets a subclass: no form bar (previous, next, done) over the keyboard,
+   * the screen has its own formatting bar there; and the keyboard comes up when
+   * the app focuses the editor, not only on a tap (as react-native-webview's
+   * keyboardDisplayRequiresUserAction, through the same private selector; left
+   * alone when WebKit no longer has it).
    */
   private static func hideFormAccessory(_ webView: WKWebView) {
     guard let content = webView.scrollView.subviews.first(where: { String(describing: type(of: $0)).hasPrefix("WKContent") }),
           let base = object_getClass(content) else { return }
-    let name = "\(NSStringFromClass(base))_OtterNoAccessory"
+    let name = "\(NSStringFromClass(base))_OtterComposer"
     var subclass: AnyClass? = NSClassFromString(name)
     if subclass == nil, let made = objc_allocateClassPair(base, name, 0) {
       let block: @convention(block) (AnyObject) -> UIView? = { _ in nil }
       class_addMethod(made, #selector(getter: UIResponder.inputAccessoryView), imp_implementationWithBlock(block), "@@:")
+      let focus = NSSelectorFromString("_elementDidFocus:userIsInteracting:blurPreviousNode:activityStateChanges:userObject:")
+      if let method = class_getInstanceMethod(base, focus) {
+        typealias Focus = @convention(c) (AnyObject, Selector, UnsafeRawPointer, Bool, Bool, UInt64, AnyObject?) -> Void
+        let original = unsafeBitCast(method_getImplementation(method), to: Focus.self)
+        let override: @convention(block) (AnyObject, UnsafeRawPointer, Bool, Bool, UInt64, AnyObject?) -> Void = {
+          view, node, _, blur, changes, object in original(view, focus, node, true, blur, changes, object)
+        }
+        class_addMethod(made, focus, imp_implementationWithBlock(override), method_getTypeEncoding(method))
+      }
       objc_registerClassPair(made)
       subclass = made
     }
