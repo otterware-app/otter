@@ -87,17 +87,32 @@ export interface AsyncContext<T> {
  * keeps the most; a phone will keep less and sync only while it's open.
  */
 export interface SyncPolicy {
-  /** What a mailbox's first sync fills: the newest page of its inbox, or all of it. */
-  initialCoverage: "inbox" | "mailbox";
-  /** Older mail fills in by itself after that (else as lists page back). */
+  /**
+   * What a mailbox's first sync fills: all of it, or its newest mail: the
+   * last `days`, and never fewer than its `minThreads` newest conversations.
+   */
+  initialCoverage: "mailbox" | CoverageWindow;
+  /**
+   * Older mail fills in by itself after that. Without it, a window is what
+   * the cache keeps: older mail is read from the server as lists page back,
+   * and leaves the cache again.
+   */
   automaticBackfill: boolean;
   /** Message bodies download ahead of being opened, to read offline. */
   bodyPrefetch: boolean;
-  /** At most this many bytes of downloaded attachments are kept. */
+  /**
+   * At most this many bytes of downloaded attachments are kept; with a window,
+   * of bodies and attachments together, the least recently read going first.
+   */
   retentionBytes: number;
-  /** When sync may run: whenever core does, or only while the app is in front. */
+  /**
+   * When sync may run: whenever core does, or fully only while the app is in
+   * front (`Platform.inForeground`); behind, it only replays a bounded delta.
+   */
   execution: "background" | "foreground";
 }
+
+export type CoverageWindow = { days: number; minThreads: number };
 
 /** Where a notification's "turn on" sign-in returns to. */
 export type NotificationReturn = "web" | "desktop" | "native";
@@ -152,6 +167,8 @@ export interface Platform {
   crossOriginFetch: boolean;
   notificationReturn: NotificationReturn;
   syncPolicy: SyncPolicy;
+  /** Whether the app is in front; absent, it always counts as in front. */
+  inForeground?(): boolean;
   relayUrl: string;
   relaySession: "bearer" | "cookie";
   deviceName?: string;
@@ -178,6 +195,18 @@ export const KEEP_MAILBOX: Omit<SyncPolicy, "bodyPrefetch"> = {
   automaticBackfill: true,
   retentionBytes: 512 * 1024 * 1024,
   execution: "background",
+};
+
+/**
+ * A phone's: the last three months and at least the 400 newest conversations,
+ * bodies as they're read, a full sync only while the app is in front.
+ */
+export const KEEP_RECENT: SyncPolicy = {
+  initialCoverage: { days: 90, minThreads: 400 },
+  automaticBackfill: false,
+  bodyPrefetch: false,
+  retentionBytes: 256 * 1024 * 1024,
+  execution: "foreground",
 };
 
 let current: Platform | null = null;

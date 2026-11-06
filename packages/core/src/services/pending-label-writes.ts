@@ -74,6 +74,13 @@ export function hasPendingLabelWrites(accountId: string): boolean {
   return false;
 }
 
+export function pendingMessageIds(accountId: string): string[] {
+  const prefix = `${accountId}:`;
+  return [...pending.keys()]
+    .filter((key) => key.startsWith(prefix) && live(key).length > 0)
+    .map((key) => key.slice(prefix.length));
+}
+
 export function withPendingLabels<T extends MessageSummary>(accountId: string, messages: T[]): T[] {
   if (pending.size === 0) return messages;
   const now = Date.now();

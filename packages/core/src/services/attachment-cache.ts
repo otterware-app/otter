@@ -12,9 +12,9 @@
 import { sha256Hex, toBase64 } from "../bytes.js";
 import { platform } from "../platform.js";
 import { providerFor } from "../providers/index.js";
-import { getStoredDraftRevision } from "./mail-store.js";
+import { getMessageDetail, getStoredDraftRevision } from "./mail-store.js";
 
-const DIR = "attachment-cache";
+export const ATTACHMENT_DIR = "attachment-cache";
 
 async function pathFor(accountId: string, messageId: string, attachmentId: string) {
   let revision: string | null = null;
@@ -24,7 +24,17 @@ async function pathFor(accountId: string, messageId: string, attachmentId: strin
     /* Cache lookup remains best-effort. */
   }
   const key = `${accountId}:${messageId}:${attachmentId}${revision ? `:${revision}` : ""}`;
-  return `${DIR}/${await sha256Hex(key)}`;
+  return `${ATTACHMENT_DIR}/${await sha256Hex(key)}`;
+}
+
+/** The cache's file names for a downloaded message's attachments. */
+export async function attachmentFiles(accountId: string, messageId: string): Promise<string[]> {
+  const detail = getMessageDetail(accountId, messageId);
+  return Promise.all(
+    (detail?.attachments ?? []).map(async (a) =>
+      (await pathFor(accountId, messageId, a.id)).slice(ATTACHMENT_DIR.length + 1),
+    ),
+  );
 }
 
 export async function getCachedAttachment(
@@ -103,7 +113,7 @@ export async function saveAttachment(
 
 export async function pruneAttachmentCache(): Promise<void> {
   try {
-    const files = await platform().files.list(DIR);
+    const files = await platform().files.list(ATTACHMENT_DIR);
     const keep = platform().syncPolicy.retentionBytes;
     let total = files.reduce((sum, f) => sum + f.size, 0);
     if (total <= keep) return;
@@ -111,7 +121,7 @@ export async function pruneAttachmentCache(): Promise<void> {
     for (const f of files) {
       if (total <= keep) break;
       await platform()
-        .files.remove(`${DIR}/${f.name}`)
+        .files.remove(`${ATTACHMENT_DIR}/${f.name}`)
         .catch(() => {});
       total -= f.size;
     }

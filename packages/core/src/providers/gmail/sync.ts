@@ -1,7 +1,17 @@
 // Replay history from the backfill seed after it finishes so newer changes overwrite older backfill copies.
 
 import { logger } from "../../logger.js";
-import { platform } from "../../platform.js";
+import { platform, type CoverageWindow } from "../../platform.js";
+import {
+  BACKGROUND_MAX_MESSAGES,
+  BACKGROUND_MAX_PAGES,
+  cacheWindow,
+  getCoverage,
+  inBackground,
+  setCoverage,
+  windowReached,
+  windowStart,
+} from "../../services/coverage.js";
 import * as store from "../../services/mail-store.js";
 import type { MessageSummary } from "../../types.js";
 import { SyncCancelled, type SyncContext } from "../provider.js";
@@ -29,6 +39,11 @@ const spamTrashKey = (accountId: string) => `spamTrashBackfilled:${accountId}`;
 export async function syncGmail(accountId: string, ctx: SyncContext): Promise<void> {
   ctx.update({ phase: "incremental" });
   let historyId = store.getSyncState(accountId).historyId;
+  if (inBackground()) {
+    if (historyId)
+      await ctx.newMail((await incrementalSync(accountId, historyId, ctx, true)).added);
+    return;
+  }
   if (!historyId) {
     // A new mailbox. Labels first — the sidebar and message chips depend on
     // them; then the feed starts now, and a backfill lists what came before.
@@ -45,6 +60,9 @@ export async function syncGmail(accountId: string, ctx: SyncContext): Promise<vo
 }
 
 export function needsBackfill(accountId: string): boolean {
+  if (cacheWindow()) {
+    return store.getKv(refreshKey(accountId)) === "1" || !getCoverage(accountId)?.done;
+  }
   return (
     !store.getSyncState(accountId).fullSyncDone ||
     store.getKv(refreshKey(accountId)) === "1" ||
@@ -55,6 +73,12 @@ export function needsBackfill(accountId: string): boolean {
 export async function backfillGmail(accountId: string, ctx: SyncContext): Promise<void> {
   // The feed starts first (syncGmail), so nothing is missed meanwhile.
   if (!store.getSyncState(accountId).historyId) return;
+  const window = cacheWindow();
+  if (window) {
+    if (store.getKv(refreshKey(accountId)) === "1") await refreshWindow(accountId, window, ctx);
+    else if (!getCoverage(accountId)?.done) await fillWindow(accountId, window, ctx);
+    return;
+  }
   if (store.getKv(refreshKey(accountId)) === "1") await refreshMailbox(accountId, ctx);
   else if (!store.getSyncState(accountId).fullSyncDone) await fillMailbox(accountId, ctx);
   if (store.getKv(spamTrashKey(accountId)) !== "1") await backfillSpamTrash(accountId, ctx);
@@ -176,7 +200,8 @@ async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
     // keep going without a total
   }
 
-  let pageToken = store.getKv(cursorKey(accountId)) || undefined;
+  // A window filled before (a policy widened since) goes on from where it stopped.
+  let pageToken = store.getKv(cursorKey(accountId)) || getCoverage(accountId)?.cursor || undefined;
   let synced = store.countAllMessages(accountId);
   ctx.update({ phase: "full", synced, total });
   if (pageToken) logger.info("mail-sync", `full sync resuming for ${accountId} at ${synced}`);
@@ -223,6 +248,102 @@ async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
 
   ctx.assertActive();
   finishBackfill(accountId);
+}
+
+const WINDOW_PAGE = 100;
+
+/**
+ * The first sync of a mailbox kept to a window: the newest page of the inbox,
+ * then all mail newest first until it's past the window with `minThreads`
+ * conversations cached. Resumable like fillMailbox: the page cursor is kept in
+ * the coverage, never in the history feed's state, and stays there for a fill
+ * of the whole mailbox to go on from.
+ */
+async function fillWindow(
+  accountId: string,
+  window: CoverageWindow,
+  ctx: SyncContext,
+): Promise<void> {
+  const since = getCoverage(accountId)?.since ?? windowStart(window);
+  let cursor = getCoverage(accountId)?.cursor;
+  let synced = store.countAllMessages(accountId);
+  ctx.update({ phase: "full", synced, total: null });
+  const cacheUnknown = async (ids: string[]) => {
+    const fresh = store.filterUnknownIds(accountId, ids);
+    for (let i = 0; i < fresh.length; i += META_CHUNK) {
+      synced += (await fetchAndStore(accountId, fresh.slice(i, i + META_CHUNK), ctx, true)).length;
+      ctx.update({ synced });
+      ctx.bumpRevision();
+    }
+  };
+
+  if (!cursor) {
+    const inbox = await listMessageIdsPage(accountId, {
+      labelIds: ["INBOX"],
+      maxResults: WINDOW_PAGE,
+      spamTrash: false,
+    });
+    await cacheUnknown(inbox.ids);
+  }
+  for (;;) {
+    if (inBackground()) return;
+    let page: Awaited<ReturnType<typeof listMessageIdsPage>>;
+    try {
+      page = await listMessageIdsPage(accountId, {
+        pageToken: cursor,
+        maxResults: WINDOW_PAGE,
+        spamTrash: false,
+      });
+    } catch (err) {
+      if (cursor && err instanceof Error && err.message.includes("Gmail API error: 400")) {
+        cursor = undefined;
+        continue;
+      }
+      throw err;
+    }
+    await cacheUnknown(page.ids);
+    const oldest = Math.min(...store.getMessageDates(accountId, page.ids).map((m) => m.date));
+    cursor = page.nextPageToken;
+    ctx.assertActive();
+    setCoverage(accountId, { since, done: false, cursor });
+    if (!cursor || windowReached(accountId, window, since, oldest)) break;
+  }
+
+  ctx.assertActive();
+  setCoverage(accountId, { since, done: true, cursor });
+  const seed = store.getKv(seedKey(accountId));
+  if (seed) store.setKv(replayKey(accountId), seed);
+  store.setKv(seedKey(accountId), "");
+  logger.info("mail-sync", `filled ${accountId}'s window`);
+}
+
+/**
+ * After the history feed expired, with a window: every cached message is
+ * read again (the cache is small; what Gmail no longer has leaves it), then
+ * the window fills anew from the newest mail.
+ */
+async function refreshWindow(
+  accountId: string,
+  window: CoverageWindow,
+  ctx: SyncContext,
+): Promise<void> {
+  logger.info("mail-sync", `reading ${accountId}'s cache again`);
+  ctx.update({ phase: "full", synced: 0, total: null });
+  const cached = [...store.getAllMessageLabels(accountId).keys()];
+  ctx.update({ total: cached.length });
+  for (let i = 0; i < cached.length; i += META_CHUNK) {
+    const chunk = cached.slice(i, i + META_CHUNK);
+    const found = new Set((await fetchAndStore(accountId, chunk, ctx)).map((m) => m.id));
+    store.applyHistoryChanges(
+      accountId,
+      chunk.filter((id) => !found.has(id)).map((id) => ({ kind: "deleted" as const, id })),
+    );
+    ctx.update({ synced: i + chunk.length });
+    ctx.bumpRevision();
+  }
+  setCoverage(accountId, { since: windowStart(window), done: false });
+  await fillWindow(accountId, window, ctx);
+  if (getCoverage(accountId)?.done) store.setKv(refreshKey(accountId), "");
 }
 
 async function fillCategories(accountId: string, ctx: SyncContext): Promise<void> {
@@ -376,6 +497,7 @@ async function incrementalSync(
   accountId: string,
   historyId: string,
   ctx: SyncContext,
+  bounded = false,
 ): Promise<{ added: MessageSummary[]; changed: boolean }> {
   ctx.update({ phase: "incremental", synced: 0 });
 
@@ -385,13 +507,23 @@ async function incrementalSync(
   const ops: store.HistoryOp[] = [];
   let latestHistoryId = startHistoryId;
   let pageToken: string | undefined;
+  // Bounded (behind the app): up to a few pages and messages, ending on a
+  // whole entry, so the feed goes on from that entry's id next time.
+  let pages = 0;
+  let lastEntry: string | null = null;
+  let cut = false;
 
   try {
-    do {
+    feed: do {
       const page = await listHistory(accountId, startHistoryId, pageToken);
       if (page.historyId) latestHistoryId = page.historyId;
+      pages += 1;
 
       for (const entry of page.history ?? []) {
+        if (bounded && addedIds.size >= BACKGROUND_MAX_MESSAGES) {
+          cut = true;
+          break feed;
+        }
         for (const added of entry.messagesAdded ?? []) {
           addedIds.add(added.message.id);
         }
@@ -405,9 +537,14 @@ async function incrementalSync(
         for (const change of entry.labelsRemoved ?? []) {
           ops.push({ kind: "labelsRemoved", id: change.message.id, labelIds: change.labelIds });
         }
+        lastEntry = entry.id;
       }
 
       pageToken = page.nextPageToken;
+      if (bounded && pageToken && pages >= BACKGROUND_MAX_PAGES) {
+        cut = true;
+        break;
+      }
     } while (pageToken);
   } catch (err) {
     // Gmail purges history older than ~1 week: what changed meanwhile can't be
@@ -442,7 +579,9 @@ async function incrementalSync(
 
   const changed = ops.length > 0 || ids.length > 0;
   if (changed) ctx.bumpRevision();
-  store.setSyncState(accountId, { historyId: latestHistoryId });
+  store.setSyncState(accountId, {
+    historyId: cut ? (lastEntry ?? startHistoryId) : latestHistoryId,
+  });
   if (replay && store.getKv(replayKey(accountId)) === replay) store.setKv(replayKey(accountId), "");
   return { added, changed };
 }

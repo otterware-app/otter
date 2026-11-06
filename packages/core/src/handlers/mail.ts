@@ -37,6 +37,7 @@ import * as mailStore from "../services/mail-store.js";
 import { IPC_WRITE_BUDGET_MS, atMost, runAsTask, settleWrite, sleep } from "./ipc-budget.js";
 import { forgetLiveCursors, pageWithLiveFill, reconcileUnread } from "./live-paging.js";
 import { trackLabelWrite } from "../services/pending-label-writes.js";
+import { noteOpened } from "../services/retention.js";
 import {
   draftFingerprint,
   draftSessionId,
@@ -709,7 +710,10 @@ export function registerMailHandlers(): void {
       const accountId = assertString(p?.accountId, "accountId");
       const messageId = assertString(p?.messageId, "messageId");
       const cached = mailStore.getMessageDetail(accountId, messageId);
-      if (cached) return cached;
+      if (cached) {
+        noteOpened(accountId, cached.threadId, [messageId]);
+        return cached;
+      }
       const provider = providerFor(accountId);
       // Deleted or moved elsewhere since the list was cached: gone, not a failure.
       const detail = await provider.getMessage(accountId, messageId).catch((err: unknown) => {
@@ -722,6 +726,7 @@ export function registerMailHandlers(): void {
         return null;
       }
       mailStore.upsertMessageDetail(accountId, detail);
+      noteOpened(accountId, detail.threadId, [messageId]);
       return detail;
     } catch (err) {
       console.log("[gmail:getMessage] error", { error: String(err) });
@@ -791,6 +796,7 @@ export function registerMailHandlers(): void {
       const accountId = assertString(p?.accountId, "accountId");
       const threadId = assertString(p?.threadId, "threadId");
       const alias = asString(p?.alias)?.toLowerCase();
+      noteOpened(accountId, threadId);
       return providerKindOf(accountId) === "imap"
         ? mailStore.getThreadForReading(accountId, threadId, alias)
         : mailStore.getThreadMessages(accountId, threadId);

@@ -120,6 +120,10 @@ function getDb(): SqlDatabase {
   if (!messageCols.has("recipients")) {
     handle.exec("ALTER TABLE messages ADD COLUMN recipients TEXT;");
   }
+  // When it was last opened, for a bounded cache's least-recently-read eviction.
+  if (!messageCols.has("readAt")) {
+    handle.exec("ALTER TABLE messages ADD COLUMN readAt INTEGER NOT NULL DEFAULT 0;");
+  }
   handle.exec(
     "CREATE INDEX IF NOT EXISTS idx_messages_undownloaded ON messages (accountId, detailFetched, date DESC);",
   );
@@ -1153,6 +1157,113 @@ export function countAllMessages(accountId: string): number {
   return row?.n ?? 0;
 }
 
+/** Conversations cached, Spam and Trash aside. */
+export function countThreads(accountId: string): number {
+  const row = getDb()
+    .prepare(
+      `SELECT COUNT(DISTINCT m.threadId) AS n FROM messages m WHERE m.accountId = ? AND ${NOT_SPAM_TRASH}`,
+    )
+    .get(accountId) as unknown as { n: number };
+  return row?.n ?? 0;
+}
+
+export function threadIdsOf(accountId: string, messageIds: string[]): string[] {
+  const read = getDb().prepare("SELECT threadId FROM messages WHERE accountId = ? AND id = ?");
+  return messageIds.flatMap((id) => {
+    const row = read.get(accountId, id) as unknown as { threadId: string } | undefined;
+    return row ? [row.threadId] : [];
+  });
+}
+
+export function markRead(accountId: string, messageIds: string[], at = Date.now()): void {
+  const touch = getDb().prepare("UPDATE messages SET readAt = ? WHERE accountId = ? AND id = ?");
+  for (const id of messageIds) touch.run(at, accountId, id);
+}
+
+const KEPT_THREAD = `EXISTS (SELECT 1 FROM messages k
+    JOIN message_labels kl ON kl.accountId = k.accountId AND kl.messageId = k.id
+   WHERE k.accountId = m.accountId AND k.threadId = m.threadId AND kl.labelId IN ('DRAFT', 'STARRED'))`;
+
+/**
+ * Removes whole conversations whose newest message is older than `before`,
+ * past the `keepNewest` newest ones, never one with a draft or a star or in
+ * `keep`. Label counts stay as they were: the server's, not the cache's.
+ */
+export function evictThreads(
+  accountId: string,
+  before: number,
+  keepNewest: number,
+  keep: ReadonlySet<string>,
+): string[] {
+  const d = getDb();
+  const threads = (
+    d
+      .prepare(`
+        WITH threads AS (
+          SELECT m.threadId AS threadId, MAX(m.date) AS latest
+            FROM messages m WHERE m.accountId = ? GROUP BY m.threadId
+        ), ranked AS (
+          SELECT threadId, latest, ROW_NUMBER() OVER (ORDER BY latest DESC) AS rank FROM threads
+        )
+        SELECT r.threadId FROM ranked r
+         WHERE r.latest < ? AND r.rank > ?
+           AND NOT EXISTS (SELECT 1 FROM messages m
+                            WHERE m.accountId = ? AND m.threadId = r.threadId AND ${KEPT_THREAD})
+      `)
+      .all(accountId, before, keepNewest, accountId) as unknown as { threadId: string }[]
+  )
+    .map((r) => r.threadId)
+    .filter((id) => !keep.has(id));
+  if (threads.length === 0) return [];
+  const ids = d.prepare("SELECT id FROM messages WHERE accountId = ? AND threadId = ?");
+  const drop = d.prepare("DELETE FROM messages WHERE accountId = ? AND id = ?");
+  const dropLabels = d.prepare("DELETE FROM message_labels WHERE accountId = ? AND messageId = ?");
+  inTransaction(() => {
+    for (const threadId of threads) {
+      for (const { id } of ids.all(accountId, threadId) as unknown as { id: string }[]) {
+        drop.run(accountId, id);
+        dropLabels.run(accountId, id);
+      }
+    }
+  });
+  return threads;
+}
+
+export type CachedBody = {
+  accountId: string;
+  id: string;
+  threadId: string;
+  readAt: number;
+  bytes: number;
+  kept: boolean;
+};
+
+/** Every downloaded body, least recently read first; `kept`: a draft's or a starred message's. */
+export function listBodies(): CachedBody[] {
+  return (
+    getDb()
+      .prepare(`
+        SELECT m.accountId, m.id, m.threadId, m.readAt,
+               COALESCE(LENGTH(CAST(m.bodyHtml AS BLOB)), 0) + COALESCE(LENGTH(CAST(m.bodyText AS BLOB)), 0)
+                 + COALESCE(LENGTH(CAST(m.attachments AS BLOB)), 0) AS bytes,
+               ${KEPT_THREAD} AS kept
+          FROM messages m
+         WHERE m.detailFetched = 1
+         ORDER BY m.readAt ASC, m.date ASC
+      `)
+      .all() as unknown as (Omit<CachedBody, "kept"> & { kept: number })[]
+  ).map((row) => ({ ...row, kept: row.kept === 1 }));
+}
+
+/** Forgets a message's body: opening it again downloads it. */
+export function dropBody(accountId: string, messageId: string): void {
+  getDb()
+    .prepare(
+      "UPDATE messages SET bodyHtml = NULL, bodyText = NULL, attachments = NULL, detailFetched = 0 WHERE accountId = ? AND id = ?",
+    )
+    .run(accountId, messageId);
+}
+
 export function getMessageIdsForLabel(accountId: string, labelId: string): string[] {
   const d = getDb();
   const rows = d
@@ -1695,6 +1806,7 @@ export function removeAccountData(accountId: string): void {
       "imapSync",
       "imapTrashedFrom",
       "imapDeliveredTo",
+      "syncCoverage",
     ].map((prefix) => `${prefix}:${accountId}`);
     d.prepare(`DELETE FROM kv WHERE key IN (${kvKeys.map(() => "?").join(", ")})`).run(...kvKeys);
     d.exec("COMMIT");
