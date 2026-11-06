@@ -75,8 +75,8 @@ namespace margelo::nitro::otternet {
 
   public:
     // Methods
-    inline void start(const std::string& url, const std::string& method, const std::unordered_map<std::string, std::string>& headers, const std::optional<std::shared_ptr<ArrayBuffer>>& body, bool followRedirects, const std::function<void(const HttpResponseHead& /* head */)>& onResponse, const std::function<void(const std::shared_ptr<ArrayBuffer>& /* chunk */)>& onData, const std::function<void(const std::optional<std::string>& /* error */)>& onComplete) override {
-      auto __result = _swiftPart.start(url, method, headers, body, std::forward<decltype(followRedirects)>(followRedirects), onResponse, onData, onComplete);
+    inline void start(const std::string& url, const std::string& method, const std::unordered_map<std::string, std::string>& headers, const std::optional<std::shared_ptr<ArrayBuffer>>& body, bool followRedirects, bool cookies, const std::function<void(const HttpResponseHead& /* head */)>& onResponse, const std::function<void(const std::shared_ptr<ArrayBuffer>& /* chunk */)>& onData, const std::function<void(const std::optional<std::string>& /* error */)>& onComplete) override {
+      auto __result = _swiftPart.start(url, method, headers, body, std::forward<decltype(followRedirects)>(followRedirects), std::forward<decltype(cookies)>(cookies), onResponse, onData, onComplete);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }

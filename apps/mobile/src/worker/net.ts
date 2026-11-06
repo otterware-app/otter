@@ -115,6 +115,7 @@ export async function otterFetch(
       headersRecord(headers),
       bytes,
       (init.redirect ?? request?.redirect) !== "manual",
+      (init.credentials ?? request?.credentials) === "include",
       (head) => {
         const nullBody = head.status === 204 || head.status === 304 || method === "HEAD";
         const response = new Response(null, {

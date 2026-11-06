@@ -20,7 +20,7 @@ private final class Sessions: NSObject, URLSessionDataDelegate, @unchecked Senda
   private(set) lazy var session: URLSession = {
     let configuration = URLSessionConfiguration.default
     configuration.timeoutIntervalForRequest = 60
-    // fetch with `credentials: "include"` (the agent server's session cookie) keeps cookies, as a browser does.
+    // Each request says whether it uses them (fetch's `credentials`).
     configuration.httpCookieStorage = .shared
     configuration.httpShouldSetCookies = true
     configuration.urlCache = nil
@@ -70,13 +70,14 @@ final class HybridHttpRequest: HybridHttpRequestSpec, @unchecked Sendable {
   private var task: URLSessionDataTask?
 
   func start(
-    url: String, method: String, headers: [String: String], body: ArrayBuffer?, followRedirects: Bool,
+    url: String, method: String, headers: [String: String], body: ArrayBuffer?, followRedirects: Bool, cookies: Bool,
     onResponse: @escaping (HttpResponseHead) -> Void, onData: @escaping (ArrayBuffer) -> Void,
     onComplete: @escaping (String?) -> Void
   ) throws {
     guard let target = URL(string: url) else { throw RuntimeError.error(withMessage: "Invalid URL: \(url)") }
     var request = URLRequest(url: target)
     request.httpMethod = method
+    request.httpShouldHandleCookies = cookies
     for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
     if let body { request.httpBody = body.toData(copyIfNeeded: true) }
     let task = Sessions.shared.session.dataTask(with: request)
