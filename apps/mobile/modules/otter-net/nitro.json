@@ -1,0 +1,15 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": ["otternet"],
+  "ios": { "iosModuleName": "OtterNet" },
+  "android": { "androidNamespace": ["otternet"], "androidCxxLibName": "OtterNet" },
+  "autolinking": {
+    "HttpRequest": {
+      "ios": { "language": "swift", "implementationClassName": "HybridHttpRequest" }
+    },
+    "WebSocketConnection": {
+      "ios": { "language": "swift", "implementationClassName": "HybridWebSocketConnection" }
+    }
+  },
+  "ignorePaths": ["node_modules"]
+}

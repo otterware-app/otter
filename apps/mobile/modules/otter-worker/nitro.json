@@ -1,0 +1,10 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": ["otterworker"],
+  "ios": { "iosModuleName": "OtterWorker" },
+  "android": { "androidNamespace": ["otterworker"], "androidCxxLibName": "OtterWorker" },
+  "autolinking": {
+    "WorkerHost": { "ios": { "language": "c++", "implementationClassName": "HybridWorkerHost" } }
+  },
+  "ignorePaths": ["node_modules"]
+}
