@@ -188,6 +188,9 @@ importers:
       '@otter-mail/extension-sign-in-codes':
         specifier: workspace:*
         version: link:../../extensions/sign-in-codes
+      '@otter-mail/extension-translation':
+        specifier: workspace:*
+        version: link:../../extensions/translation
       '@otter-mail/mobile-composer':
         specifier: workspace:*
         version: link:modules/otter-composer
@@ -206,6 +209,9 @@ importers:
       '@otter-mail/mobile-sqlite':
         specifier: workspace:*
         version: link:modules/otter-sqlite
+      '@otter-mail/mobile-translation':
+        specifier: workspace:*
+        version: link:modules/otter-translation
       '@otter-mail/mobile-worker':
         specifier: workspace:*
         version: link:modules/otter-worker

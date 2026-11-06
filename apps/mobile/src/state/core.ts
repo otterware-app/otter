@@ -4,6 +4,7 @@ import {
   type CoreHostConnection,
 } from "@otter-mail/client-runtime/connection";
 import type { HostEffect, HostRequest } from "@otter-mail/contracts/rpc";
+import { translation } from "@otter-mail/mobile-translation";
 import Constants from "expo-constants";
 import { AppState, Linking } from "react-native";
 
@@ -26,6 +27,10 @@ function onRequest(request: HostRequest): Promise<unknown> {
   switch (request._tag) {
     case "openExternal":
       return Linking.openURL(request.url);
+    case "detectLanguage":
+      return translation.detect(request.text);
+    case "translate":
+      return translation.translate([...request.texts], request.source, request.target);
     default:
       return Promise.reject(new Error(`The phone can't ${request._tag} yet.`));
   }
