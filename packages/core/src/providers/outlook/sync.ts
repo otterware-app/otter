@@ -270,7 +270,12 @@ async function peekInbox(accountId: string, mailbox: Mailbox, ctx: SyncContext):
   const window = cacheWindow();
   let next: string | undefined =
     `/me/mailFolders/${encodeURIComponent(inbox)}/messages?$top=50&$orderby=receivedDateTime desc&$select=${SUMMARY_FIELDS}`;
+  let finished = true;
   while (next) {
+    if (inBackground()) {
+      finished = false;
+      break;
+    }
     const page: Page<ApiMessage> = await graph<Page<ApiMessage>>(accountId, next);
     ctx.assertActive();
     store.upsertMessages(
@@ -283,7 +288,7 @@ async function peekInbox(accountId: string, mailbox: Mailbox, ctx: SyncContext):
         : undefined;
   }
   store.recountLabels(accountId, ["INBOX", "UNREAD", "STARRED", "IMPORTANT"]);
-  store.setKv(peekedKey(accountId), "1");
+  if (finished) store.setKv(peekedKey(accountId), "1");
   ctx.bumpRevision();
 }
 

@@ -67,6 +67,8 @@ let listing: {
   pages?: number;
   failAt?: { folder: string; skip: number };
   removedAt?: (folder: string, skip: number) => string[];
+  peekPageSize?: number;
+  peeks?: number;
 };
 
 function deliver(id: string, folder: string, patch: Partial<Message> = {}): Message {
@@ -279,12 +281,22 @@ function handle(method: string, url: URL, body: unknown): Response {
   const asListed = (m: Message) =>
     search && restIds ? { ...resource(m), id: restIdOf(m) } : resource(m);
   if (list) {
-    return json({
-      value: [...messages.values()]
-        .filter((m) => m.folder === list[1])
-        .sort((a, b) => b.date - a.date)
-        .map(asListed),
-    });
+    const all = [...messages.values()]
+      .filter((m) => m.folder === list[1])
+      .sort((a, b) => b.date - a.date)
+      .map(asListed);
+    if (!search && listing.peekPageSize) {
+      listing.peeks = (listing.peeks ?? 0) + 1;
+      const skip = Number(url.searchParams.get("$skip") ?? 0);
+      const end = skip + listing.peekPageSize;
+      return json({
+        value: all.slice(skip, end),
+        ...(end < all.length && {
+          "@odata.nextLink": `https://graph.microsoft.com/v1.0${path}?$skip=${end}`,
+        }),
+      });
+    }
+    return json({ value: all });
   }
   if (path === "/me/translateExchangeIds") {
     if (failedTranslations) {
@@ -1416,6 +1428,24 @@ describe("Outlook sync with a window", { timeout: 15_000 }, () => {
     // Each page once (the inbox's and Sent's six, the empty folders' one): the first isn't listed again.
     expect(listing.pages).toBe(6 + 6 + 5);
     expect(mailStore.countMessagesForLabel(account.id, "SENT")).toBeGreaterThan(0);
+  });
+
+  it("stops peeking at the inbox when the app goes behind, and peeks again in front", async () => {
+    listing.peekPageSize = 5;
+    let peeksInFront = 1;
+    const { mailStore, status, sync } = await boot({
+      policy: { ...KEEP_RECENT, initialCoverage: { days: 10, minThreads: 8 } },
+      inForeground: () => (listing.peeks ?? 0) < peeksInFront,
+    });
+    await until(() => listing.peeks === 1 && !status().syncing, "the first page");
+    expect(mailStore.countThreadsForLabel(account.id, "INBOX")).toBe(5);
+    expect(mailStore.getKv(`outlookPeeked:${account.id}`)).toBeNull();
+
+    peeksInFront = Infinity;
+    await sync();
+    await until(() => mailStore.getKv(`outlookPeeked:${account.id}`) === "1", "the peek");
+    expect(listing.peeks).toBe(3);
+    expect(mailStore.countThreadsForLabel(account.id, "INBOX")).toBeGreaterThanOrEqual(8);
   });
 
   it("lists everything without a window", async () => {
