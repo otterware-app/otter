@@ -17,7 +17,8 @@
     "nitrogen": "pnpm -r --filter './modules/*' nitrogen",
     "typecheck": "tsc --noEmit",
     "gate:server": "node scripts/gate-server.mts",
-    "warm-worklets": "node scripts/warm-worklets.mts"
+    "warm-worklets": "node scripts/warm-worklets.mts",
+    "build:composer": "node scripts/build-composer.mts"
   },
   "dependencies": {
     "@effect/atom-react": "catalog:",
@@ -27,7 +28,12 @@
     "@otter-mail/client-runtime": "workspace:*",
     "@otter-mail/contracts": "workspace:*",
     "@otter-mail/core": "workspace:*",
+    "@otter-mail/extension-hermes": "workspace:*",
+    "@otter-mail/extension-openclaw": "workspace:*",
+    "@otter-mail/extension-openrouter": "workspace:*",
+    "@otter-mail/mobile-composer": "workspace:*",
     "@otter-mail/mobile-credentials": "workspace:*",
+    "@otter-mail/mobile-html-view": "workspace:*",
     "@otter-mail/mobile-net": "workspace:*",
     "@otter-mail/mobile-socket": "workspace:*",
     "@otter-mail/mobile-sqlite": "workspace:*",
@@ -60,6 +66,7 @@
     "@babel/core": "^7.29.7",
     "@types/react": "catalog:",
     "babel-preset-expo": "~58.0.17",
+    "esbuild": "^0.25.12",
     "typescript": "catalog:"
   },
   "expo": {
