@@ -13,7 +13,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { RootStack } from "../../App";
 import { appAtomRegistry, mailboxes, operations, threadLists } from "../../state/client";
+import { sessionAtom } from "../../state/otter";
 import { useAccountSync } from "../../state/sync";
+import { SignedOutBanners } from "../accounts/SyncHealth";
 import { usePalette } from "../theme";
 import { PlacesBar } from "./PlacesBar";
 import { PlacesPanel } from "./PlacesPanel";
@@ -144,11 +146,12 @@ export function HomeScreen({ navigation }: Props) {
     });
   });
 
+  const signedIn = useAtomValue(sessionAtom) === "signedIn";
   useEffect(() => {
-    if (!accounts.loading && accounts.value.length === 0 && !accounts.error) {
-      navigation.navigate("Welcome");
+    if (signedIn && !accounts.loading && accounts.value.length === 0 && !accounts.error) {
+      navigation.navigate("AddMailbox");
     }
-  }, [accounts, navigation]);
+  }, [accounts, navigation, signedIn]);
 
   const inboxUnread = (id: string) =>
     appAtomRegistry.get(mailboxes.labelsAtom(id)).value.find((l) => l.id === "INBOX")?.unread ?? 0;
@@ -162,6 +165,7 @@ export function HomeScreen({ navigation }: Props) {
           accountId={accountId}
           labelId={place.labelId}
           onCollapse={setCollapsed}
+          header={<SignedOutBanners colors={colors} />}
           selecting={selecting}
           onEndSelection={() => setSelecting(false)}
           onResume={(copy) =>
@@ -223,7 +227,7 @@ export function HomeScreen({ navigation }: Props) {
                 place.labelId === "INBOX" || place.labelId === "DRAFT" ? place.labelId : "INBOX",
             })
           }
-          onAddMailbox={() => navigation.navigate("Welcome")}
+          onAddMailbox={() => navigation.navigate("AddMailbox")}
           onPlace={(labelId) => go({ accountId, labelId })}
           onSearch={() => accountId && navigation.navigate("Search", { accountId })}
           collapsed={collapsed}
