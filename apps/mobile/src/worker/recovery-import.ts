@@ -53,13 +53,6 @@ export function registerRecoveryHandlers(host: WorkerHost, demo: boolean): void 
           accounts.filter((a) => !a.signedOut).map((a) => [a.email.toLowerCase(), a.id]),
         );
       },
-      async draftFor(accountId, messageId, threadId) {
-        const found = await call<{ draftId: string | null; gone?: true }>(
-          "gmail:getDraftForMessage",
-          { accountId, messageId, threadId },
-        );
-        return found.gone ? "gone" : (found.draftId ?? undefined);
-      },
       saveDraft: (params) => call("gmail:saveDraft", params),
       done: async () => new Set((await readJson<string[]>(DONE_FILE)) ?? []),
       async markDone(ids) {

@@ -31,11 +31,8 @@ function fakeIO(entries: Record<string, string>, files: Record<string, string> =
     originalFile: async (accountId, messageId, attachmentId) =>
       new TextEncoder().encode(`${accountId}:${messageId}:${attachmentId}`),
     signedIn: async () => new Map([["me@example.com", "me@example.com"]]),
-    draftFor: async (_accountId, messageId) => (messageId === "m-gone" ? "gone" : "d-existing"),
     saveDraft: async (params) => {
       saved.push(params);
-      if (params.draftId === "d-existing" && params.expectMessageId === "m-changed")
-        return { conflict: true };
       return { draftId: `d${saved.length}` };
     },
     done: async () => new Set(done),
@@ -123,23 +120,26 @@ describe("recovered drafts", () => {
     expect(io.saved).toHaveLength(1);
   });
 
-  it("updates the draft it was editing, or saves a copy when that changed or went", async () => {
+  it("saves one that was editing a draft as a draft of its own, never over it", async () => {
+    // No revision in the file: a newer edit of that draft (an Outlook draft keeps its id) can't be told apart.
     const io = fakeIO({
-      "a.json": swiftJson({ id: "A", from: "me@example.com", body: "x", messageID: "m-same" }),
-      "b.json": swiftJson({ id: "B", from: "me@example.com", body: "y", messageID: "m-changed" }),
-      "c.json": swiftJson({ id: "C", from: "me@example.com", body: "z", messageID: "m-gone" }),
+      "a.json": swiftJson({
+        id: "A",
+        from: "me@example.com",
+        body: "x",
+        threadID: "t1",
+        messageID: "m-draft",
+      }),
     });
     expect(await importRecoveredDrafts(io, toBase64)).toEqual({
-      imported: ["A", "B", "C"],
+      imported: ["A"],
       waiting: [],
       failed: [],
     });
-    expect(io.saved.map((p) => [p.body, p.draftId, p.expectMessageId])).toEqual([
-      ["x", "d-existing", "m-same"],
-      ["y", "d-existing", "m-changed"],
-      ["y", undefined, undefined],
-      ["z", undefined, undefined],
-    ]);
+    expect(io.saved).toHaveLength(1);
+    expect(io.saved[0]).toMatchObject({ body: "x", threadId: "t1" });
+    expect(io.saved[0]).not.toHaveProperty("draftId");
+    expect(io.saved[0]).not.toHaveProperty("expectMessageId");
   });
 
   it("leaves one whose attachment is missing to try again", async () => {

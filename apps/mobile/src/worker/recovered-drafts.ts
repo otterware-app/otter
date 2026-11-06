@@ -87,15 +87,7 @@ export type RecoveryIO = {
   originalFile(accountId: string, messageId: string, attachmentId: string): Promise<Uint8Array>;
   /** Mailboxes signed in here: their ids by address, lower-cased. */
   signedIn(): Promise<Map<string, string>>;
-  /** The existing draft a recovery was editing: its id, `gone`, or undefined when unknown. */
-  draftFor(
-    accountId: string,
-    messageId: string,
-    threadId?: string,
-  ): Promise<string | "gone" | undefined>;
-  saveDraft(
-    params: Record<string, unknown>,
-  ): Promise<{ draftId?: string; conflict?: true; gone?: true }>;
+  saveDraft(params: Record<string, unknown>): Promise<{ draftId?: string }>;
   done(): Promise<Set<string>>;
   markDone(ids: string[]): Promise<void>;
 };
@@ -138,10 +130,10 @@ export async function saveDraftParams(
 }
 
 /**
- * Saves each recovery not imported yet as a draft. One editing a draft that
- * still exists updates it, unless it changed elsewhere since: then, as when
- * it's gone, the recovery becomes a draft of its own. A mailbox not signed in
- * here waits for a later launch.
+ * Saves each recovery not imported yet as a draft of its own. One that was
+ * editing a draft never replaces it: the file carries no revision, so a
+ * newer edit of that draft elsewhere (an Outlook draft keeps its id) can't be
+ * told apart. A mailbox not signed in here waits for a later launch.
  */
 export async function importRecoveredDrafts(
   io: RecoveryIO,
@@ -167,15 +159,7 @@ export async function importRecoveredDrafts(
       continue;
     }
     try {
-      const params = await saveDraftParams(accountId, draft, io, toBase64);
-      const existing = draft.messageID
-        ? await io.draftFor(accountId, draft.messageID, draft.threadID)
-        : undefined;
-      let saved =
-        existing && existing !== "gone"
-          ? await io.saveDraft({ ...params, draftId: existing, expectMessageId: draft.messageID })
-          : await io.saveDraft(params);
-      if (saved.conflict || saved.gone) saved = await io.saveDraft(params);
+      const saved = await io.saveDraft(await saveDraftParams(accountId, draft, io, toBase64));
       if (!saved.draftId) throw new Error("The draft wasn't saved.");
       result.imported.push(draft.id);
       finished.push(draft.id);
