@@ -191,7 +191,7 @@ function ScrollBench({
       ref={ref}
       data={rows}
       keyExtractor={(row) => row.id}
-      renderItem={({ item }) => <ThreadRow row={item} />}
+      renderItem={({ item }) => <ThreadRow row={item} accountId={item.accountId ?? ""} />}
       estimatedItemSize={76}
       recycleItems
       testID="bench-list"

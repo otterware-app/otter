@@ -1,15 +1,14 @@
 import { onUndoableAction, type UndoAction } from "@otter-mail/client-runtime/operations";
-import { GlassView } from "expo-glass-effect";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, useColorScheme } from "react-native";
+import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { operations } from "../../state/client";
-import { palette } from "../theme";
+import { usePalette } from "../theme";
 
-/** "Archived · Undo", over the places bar, for a few seconds after each undoable action. */
+/** apps/ios's undo bar: "Archived" and Undo over the places bar, for a few seconds after each undoable action. */
 export function UndoToast() {
-  const colors = palette(useColorScheme());
+  const colors = usePalette();
   const insets = useSafeAreaInsets();
   const [toast, setToast] = useState<{ title: string; action: UndoAction } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -18,20 +17,23 @@ export function UndoToast() {
     () =>
       onUndoableAction((title, action) => {
         setToast({ title, action });
+        AccessibilityInfo.announceForAccessibility(`${title}. Undo is available.`);
         if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => setToast(null), 4500);
+        timer.current = setTimeout(() => setToast(null), 6000);
       }),
     [],
   );
 
   if (!toast) return null;
   return (
-    <GlassView
-      style={[styles.toast, { bottom: insets.bottom + 72 }]}
-      glassEffectStyle="regular"
+    <View
+      style={[
+        styles.toast,
+        { bottom: insets.bottom + 72, backgroundColor: colors.raised, borderColor: colors.border },
+      ]}
       testID="undo-toast"
     >
-      <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+      <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
         {toast.title}
       </Text>
       <Pressable
@@ -39,27 +41,28 @@ export function UndoToast() {
           setToast(null);
           void operations.undo(toast.action);
         }}
-        hitSlop={10}
+        hitSlop={12}
         accessibilityRole="button"
+        accessibilityHint="Restores the conversations to their previous folders"
       >
-        <Text style={[styles.undo, { color: colors.accent }]}>Undo</Text>
+        <Text style={[styles.undo, { color: colors.text }]}>Undo</Text>
       </Pressable>
-    </GlassView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   toast: {
     position: "absolute",
-    left: 20,
-    right: 20,
-    height: 48,
-    borderRadius: 24,
-    paddingHorizontal: 18,
+    left: 16,
+    right: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 12,
   },
-  title: { fontSize: 15, fontWeight: "500", flex: 1 },
-  undo: { fontSize: 15, fontWeight: "600", marginLeft: 12 },
+  title: { fontSize: 15, flex: 1 },
+  undo: { fontSize: 17, fontWeight: "600" },
 });
