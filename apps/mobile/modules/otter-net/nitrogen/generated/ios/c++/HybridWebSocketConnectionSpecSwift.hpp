@@ -72,7 +72,7 @@ namespace margelo::nitro::otternet {
 
   public:
     // Methods
-    inline void open(const std::string& url, const std::vector<std::string>& protocols, const std::unordered_map<std::string, std::string>& headers, const std::function<void(const std::string& /* protocol */)>& onOpen, const std::function<void(const std::string& /* text */)>& onText, const std::function<void(const std::shared_ptr<ArrayBuffer>& /* data */)>& onBinary, const std::function<void(double /* code */, const std::string& /* reason */)>& onClose, const std::function<void(const std::string& /* message */)>& onError) override {
+    inline void open(const std::string& url, const std::vector<std::string>& protocols, const std::unordered_map<std::string, std::string>& headers, const std::function<void(const std::string& /* subprotocol */)>& onOpen, const std::function<void(const std::string& /* text */)>& onText, const std::function<void(const std::shared_ptr<ArrayBuffer>& /* data */)>& onBinary, const std::function<void(double /* code */, const std::string& /* reason */)>& onClose, const std::function<void(const std::string& /* message */)>& onError) override {
       auto __result = _swiftPart.open(url, protocols, headers, onOpen, onText, onBinary, onClose, onError);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());

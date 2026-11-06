@@ -197,22 +197,22 @@ namespace margelo::nitro::otternet::bridge::swift {
     return vector;
   }
   
-  // pragma MARK: std::function<void(const std::string& /* protocol */)>
+  // pragma MARK: std::function<void(const std::string& /* subprotocol */)>
   /**
    * Specialized version of `std::function<void(const std::string&)>`.
    */
-  using Func_void_std__string = std::function<void(const std::string& /* protocol */)>;
+  using Func_void_std__string = std::function<void(const std::string& /* subprotocol */)>;
   /**
-   * Wrapper class for a `std::function<void(const std::string& / * protocol * /)>`, this can be used from Swift.
+   * Wrapper class for a `std::function<void(const std::string& / * subprotocol * /)>`, this can be used from Swift.
    */
   class Func_void_std__string_Wrapper final {
   public:
-    explicit Func_void_std__string_Wrapper(std::function<void(const std::string& /* protocol */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* protocol */)>>(std::move(func))) {}
-    inline void call(std::string protocol) const noexcept {
-      _function->operator()(protocol);
+    explicit Func_void_std__string_Wrapper(std::function<void(const std::string& /* subprotocol */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* subprotocol */)>>(std::move(func))) {}
+    inline void call(std::string subprotocol) const noexcept {
+      _function->operator()(subprotocol);
     }
   private:
-    std::unique_ptr<std::function<void(const std::string& /* protocol */)>> _function;
+    std::unique_ptr<std::function<void(const std::string& /* subprotocol */)>> _function;
   } SWIFT_NONCOPYABLE;
   Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept;
   inline Func_void_std__string_Wrapper wrap_Func_void_std__string(Func_void_std__string value) noexcept {

@@ -137,8 +137,8 @@ open class HybridWebSocketConnectionSpec_cxx {
         return __dictionary
       }(), onOpen: { () -> (String) -> Void in
         let __wrappedFunction = bridge.wrap_Func_void_std__string(onOpen)
-        return { (__protocol: String) -> Void in
-          __wrappedFunction.call(std.string(__protocol))
+        return { (__subprotocol: String) -> Void in
+          __wrappedFunction.call(std.string(__subprotocol))
         }
       }(), onText: { () -> (String) -> Void in
         let __wrappedFunction = bridge.wrap_Func_void_std__string(onText)
