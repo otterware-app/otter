@@ -8,6 +8,7 @@ import Constants from "expo-constants";
 import { AppState, Linking } from "react-native";
 
 import { startCoreRuntime } from "./core-transport";
+import { startRecoveredDrafts } from "./recovered-drafts";
 import { markCoreReady } from "./startup";
 
 /**
@@ -71,3 +72,5 @@ export const core: CoreBridge = {
     return () => set.delete(listener);
   },
 };
+
+startRecoveredDrafts(core, connection.ready());

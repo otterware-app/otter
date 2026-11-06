@@ -16,6 +16,7 @@
     "config:prod": "APP_VARIANT=production expo config",
     "nitrogen": "pnpm -r --filter './modules/*' nitrogen",
     "typecheck": "tsc --noEmit",
+    "test": "vp test run",
     "gate:server": "node scripts/gate-server.mts",
     "warm-worklets": "node scripts/warm-worklets.mts",
     "build:composer": "node scripts/build-composer.mts"
@@ -70,7 +71,8 @@
     "@types/react": "catalog:",
     "babel-preset-expo": "~58.0.17",
     "esbuild": "^0.25.12",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
   },
   "expo": {
     "install": {
