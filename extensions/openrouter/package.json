@@ -7,7 +7,8 @@
   "exports": {
     "./manifest": "./manifest.ts",
     "./core": "./core/index.ts",
-    "./ui": "./ui/index.tsx"
+    "./ui": "./ui/index.tsx",
+    "./mobile": "./mobile/index.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@types/react": "^19.1.12",
+    "react-native": "0.88.0",
     "typescript": "catalog:",
     "vite-plus": "catalog:"
   },

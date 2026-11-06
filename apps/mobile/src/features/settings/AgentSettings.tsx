@@ -1,102 +1,44 @@
-import { Button, LabeledContent, Link, SecureField, Text } from "@expo/ui/swift-ui";
-import { disabled, foregroundStyle } from "@expo/ui/swift-ui/modifiers";
-import { useState } from "react";
+import { Picker, Text } from "@expo/ui/swift-ui";
+import { tag } from "@expo/ui/swift-ui/modifiers";
 
-import { useAgentProviders, type AgentProvider } from "../../state/chats";
-import { agentServerUrl, core } from "../../state/core";
+import { agentContribution } from "../../extensions/registry";
+import { updateAgentSettings, useAgents } from "../../state/chats";
 import type { Palette } from "../theme";
 import { Group, SettingsForm } from "./SettingsScreen";
 
-const status = (p: AgentProvider) =>
-  !p.enabled
-    ? "Off"
-    : p.auth.status === "authenticated"
-      ? "Connected"
-      : p.status === "error"
-        ? "Not answering"
-        : "Not connected";
-
 /**
- * apps/ios's AgentSettings: the agents core runs on the phone, and
- * OpenRouter's key (kept on Otter Mail's server, so it needs the Otter account).
+ * apps/ios's AgentSettings: which agent new chats use, and that agent's own
+ * section, from its extension's `./mobile` half.
  */
 export function AgentSettings({ colors, signedIn }: { colors: Palette; signedIn: boolean }) {
-  const providers = useAgentProviders();
-  const openrouter = providers.find((p) => p.kind === "openrouter");
-  const others = providers.filter((p) => p.kind !== "openrouter");
-  const canConnect = signedIn || Boolean(agentServerUrl);
-  const [apiKey, setApiKey] = useState("");
-  const [connecting, setConnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const connect = async () => {
-    setConnecting(true);
-    setError(null);
-    try {
-      await core.invoke("agent:connectOpenRouter", { apiKey });
-      setApiKey("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setConnecting(false);
-    }
-  };
+  const { providers, selected } = useAgents();
+  const provider = providers.find((p) => p.kind === selected) ?? providers[0];
+  const Settings = provider ? agentContribution(provider.kind)?.Settings : undefined;
 
   return (
     <SettingsForm colors={colors} title="Agents">
-      {openrouter ? (
-        <Group
-          colors={colors}
-          title="OpenRouter"
-          footer={
-            <Text>
-              {canConnect
-                ? "The API key stays on Otter Mail's server. When you use this agent, your prompts and mail returned by its tools are sent to Otter Mail's server, OpenRouter and the selected model provider. Usage is billed to your OpenRouter account."
-                : "Sign in to your Otter account to connect OpenRouter."}
-            </Text>
-          }
-        >
-          <LabeledContent label="Status">
-            <Text modifiers={[foregroundStyle(colors.secondary)]}>{status(openrouter)}</Text>
-          </LabeledContent>
-          {openrouter.auth.status === "authenticated" ? (
-            <Button
-              label="Disconnect"
-              role="destructive"
-              onPress={() => void core.invoke("agent:disconnectOpenRouter")}
-            />
-          ) : (
-            <>
-              <SecureField placeholder="OpenRouter API key" onTextChange={setApiKey} />
-              <Button
-                label={connecting ? "Connecting…" : "Connect"}
-                onPress={() => void connect()}
-                modifiers={[disabled(!apiKey || connecting || !canConnect)]}
-              />
-            </>
-          )}
-          {error ? <Text modifiers={[foregroundStyle(colors.error)]}>{error}</Text> : null}
-          <Link label="Get an API key" destination="https://openrouter.ai/settings/keys" />
+      {providers.length > 1 ? (
+        <Group colors={colors}>
+          <Picker
+            label="Agent"
+            selection={provider?.kind ?? ""}
+            onSelectionChange={(kind: string) => void updateAgentSettings({ selected: kind })}
+          >
+            {providers.map((p) => (
+              <Text key={p.kind} modifiers={[tag(p.kind)]}>
+                {agentName(p)}
+              </Text>
+            ))}
+          </Picker>
         </Group>
       ) : null}
-      {others.length > 0 ? (
-        <Group
-          colors={colors}
-          title="Your agents"
-          footer={
-            <Text>
-              Hermes and OpenClaw are set up on the Mac or the web; their chats follow your Otter
-              account here.
-            </Text>
-          }
-        >
-          {others.map((p) => (
-            <LabeledContent key={p.kind} label={p.displayName}>
-              <Text modifiers={[foregroundStyle(colors.secondary)]}>{status(p)}</Text>
-            </LabeledContent>
-          ))}
-        </Group>
+      {provider && Settings ? (
+        <Settings provider={provider} colors={colors} signedIn={signedIn} />
       ) : null}
     </SettingsForm>
   );
 }
+
+/** apps/ios calls the Otter Mail agent by the service it runs on. */
+export const agentName = (p: { kind: string; displayName: string }) =>
+  p.kind === "openrouter" ? "OpenRouter" : p.displayName;
