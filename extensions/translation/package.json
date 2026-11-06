@@ -33,7 +33,8 @@
     "dataUse": "Translates on this device. Nothing is sent anywhere.",
     "platforms": [
       "mac",
-      "web"
+      "web",
+      "ios"
     ]
   }
 }

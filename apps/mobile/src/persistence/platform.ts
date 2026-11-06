@@ -194,6 +194,10 @@ export async function mobilePlatform(options: MobilePlatformOptions): Promise<Pl
     broadcast: shell.broadcast,
     notify: (notification) => shell.effect({ _tag: "notify", ...notification }),
     setUnreadCount: (count) => shell.effect({ _tag: "badge", count }),
+    translator: {
+      detect: (text) => shell.request("detectLanguage", { text }),
+      translate: (texts, source, target) => shell.request("translate", { texts, source, target }),
+    },
     onResume: shell.onResume,
     asyncContext: noContext,
     userFiles: {
