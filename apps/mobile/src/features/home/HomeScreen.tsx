@@ -141,6 +141,19 @@ function ThreadList({
   };
   const trash = (row: MessageSummary) =>
     void operations.trashThread(accountId, row.threadId).catch(() => {});
+  // Gmail's untrash leaves the conversation in no folder, so it's put back in Inbox too.
+  const untrash = (row: MessageSummary) =>
+    void operations
+      .untrashThread(accountId, row.threadId)
+      .then(() =>
+        mailbox?.provider === "gmail"
+          ? operations.modifyThread(
+              { accountId, threadId: row.threadId, addLabelIds: ["INBOX"] },
+              { quiet: true },
+            )
+          : undefined,
+      )
+      .catch(() => {});
   const toggleRead = (row: MessageSummary) => {
     const unread = row.threadUnread ?? row.unread;
     void operations
@@ -169,14 +182,13 @@ function ThreadList({
       unread ? "Mark as Read" : "Mark as Unread",
       starred ? "Unstar" : "Star",
       ...(userLabels.length > 0 ? ["Label…"] : []),
-      "Archive",
-      "Move to Trash",
+      ...(labelId === "TRASH" ? ["Move to Inbox"] : ["Archive", "Move to Trash"]),
       "Cancel",
     ];
     ActionSheetIOS.showActionSheetWithOptions(
       {
         options,
-        destructiveButtonIndex: options.length - 2,
+        destructiveButtonIndex: labelId === "TRASH" ? undefined : options.length - 2,
         cancelButtonIndex: options.length - 1,
       },
       (index) => {
@@ -185,6 +197,7 @@ function ThreadList({
         else if (choice === "Star" || choice === "Unstar") toggleStar(row);
         else if (choice === "Archive") archive(row);
         else if (choice === "Move to Trash") trash(row);
+        else if (choice === "Move to Inbox") untrash(row);
         else if (choice === "Label…") {
           const names = [...userLabels.map((l) => l.name), "Cancel"];
           ActionSheetIOS.showActionSheetWithOptions(
@@ -214,7 +227,12 @@ function ThreadList({
         <SwipeRow
           leading={
             labelId === "TRASH"
-              ? undefined
+              ? {
+                  title: "Inbox",
+                  symbol: "tray.and.arrow.up.fill",
+                  tint: colors.archive,
+                  perform: () => untrash(item),
+                }
               : {
                   title: "Archive",
                   symbol: "archivebox.fill",
