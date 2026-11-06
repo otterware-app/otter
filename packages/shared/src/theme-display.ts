@@ -100,6 +100,12 @@ export function displayedThemeColors(
   return theme.exact || theme.id === "otter" ? colors : softenThemeColors(colors);
 }
 
+/** A theme color as `#rrggbb`, for painters without oklch() (React Native); null if unreadable. */
+export function themeColorHex(css: string): string | null {
+  const oklab = toOklab(css);
+  return oklab ? toHex(oklab) : null;
+}
+
 type Oklab = [number, number, number];
 
 function toOklab(css: string): Oklab | null {
