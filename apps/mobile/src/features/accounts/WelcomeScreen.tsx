@@ -53,7 +53,7 @@ export function WelcomeScreen() {
     <View style={[styles.fill, { backgroundColor: colors.canvas, paddingBottom: insets.bottom }]}>
       <View style={styles.hero}>
         <Image
-          source={require("../../../assets/otter-mail-ios-1024.png")}
+          source={require("../../../assets/otter-mark.png")}
           style={styles.mark}
           accessibilityIgnoresInvertColors
         />

@@ -142,11 +142,7 @@ export function SettingsScreen({ navigation }: Props) {
               <VStack spacing={8} modifiers={[frame({ maxWidth: Infinity })]}>
                 <RNHostView matchContents>
                   <Image
-                    source={
-                      picture
-                        ? { uri: picture }
-                        : require("../../../assets/otter-mail-ios-1024.png")
-                    }
+                    source={picture ? { uri: picture } : require("../../../assets/otter-mark.png")}
                     style={{ width: 64, height: 64, borderRadius: 32 }}
                     accessibilityIgnoresInvertColors
                   />
