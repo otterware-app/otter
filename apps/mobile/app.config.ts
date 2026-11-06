@@ -108,6 +108,7 @@ const config: ExpoConfig = {
         },
       },
     ],
+    ["expo-notifications", { mode: variant.apnsEnvironment }],
     [
       "./plugins/withNotificationServiceExtension.cjs",
       {

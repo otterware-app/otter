@@ -8,6 +8,7 @@ import { translation } from "@otter-mail/mobile-translation";
 import Constants from "expo-constants";
 import { AppState, Linking } from "react-native";
 
+import { deviceEffect, startNotifications } from "../features/notifications/notifications";
 import { startCoreRuntime } from "./core-transport";
 import { startRecoveredDrafts } from "./recovered-drafts";
 import { markCoreReady } from "./startup";
@@ -37,6 +38,7 @@ function onRequest(request: HostRequest): Promise<unknown> {
 }
 
 function onEffect(effect: HostEffect): void {
+  if (deviceEffect(core, effect)) return;
   if (effect._tag === "log" && effect.level !== "debug") {
     console.log(`[core:${effect.scope}] ${effect.message}`);
   }
@@ -78,4 +80,5 @@ export const core: CoreBridge = {
   },
 };
 
+startNotifications(core, connection.ready());
 startRecoveredDrafts(core, connection.ready());
