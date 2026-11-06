@@ -164,6 +164,46 @@ function summaries(start: number, count: number): MessageSummary[] {
   });
 }
 
+/**
+ * 100k messages shaped like a real mailbox, as core's inbox-page test seeds
+ * them: threads of 1–5, 15% of them in the inbox. In `summaries` nearly every
+ * message is, so a page there groups some 30,000 threads whatever the query.
+ */
+function mailboxShaped(count: number): MessageSummary[] {
+  let state = 42;
+  const random = () => (state = (state * 1_103_515_245 + 12_345) % 2 ** 31) / 2 ** 31;
+  const out: MessageSummary[] = [];
+  for (let thread = 1; out.length < count; thread++) {
+    const size = 1 + Math.floor(random() * 5);
+    const inbox = random() < 0.15;
+    for (let i = 0; i < size && out.length < count; i++) {
+      const sent = i > 0 && random() < 0.3;
+      const unread = !sent && random() < 0.2;
+      const labelIds = [
+        ...(sent ? ["SENT"] : inbox ? ["INBOX"] : []),
+        ...(unread ? ["UNREAD"] : []),
+      ];
+      out.push({
+        id: `r${out.length}`,
+        threadId: `rt${thread}`,
+        fromName: "Sender",
+        fromEmail: `sender${thread % 500}@example.com`,
+        to: "me@bench.test",
+        subject: `Thread ${thread}`,
+        snippet: "",
+        date:
+          1_577_836_800_000 + ((thread * 7_919) % 200_000) * 900_000 + i * 3_600_000 + out.length,
+        unread,
+        starred: false,
+        labelIds,
+        hasAttachments: false,
+        messageIdHeader: `<r${out.length}@bench.test>`,
+      });
+    }
+  }
+  return out;
+}
+
 function timed<T>(fn: () => T, runs = 5): { ms: number; result: T } {
   const times: number[] = [];
   let result!: T;
@@ -207,6 +247,13 @@ function sqlite() {
   mailStore.removeAccountData(GATE_ACCOUNT);
   const removeMs = Math.round(now() - t);
 
+  const shaped = mailboxShaped(100_000);
+  for (let start = 0; start < shaped.length; start += 10_000) {
+    mailStore.upsertMessages(GATE_ACCOUNT, shaped.slice(start, start + 10_000));
+  }
+  const shapedPage = timed(() => mailStore.getThreadsPage(GATE_ACCOUNT, "INBOX", 0, 50));
+  mailStore.removeAccountData(GATE_ACCOUNT);
+
   return {
     version,
     fts5: options.includes("ENABLE_FTS5"),
@@ -221,6 +268,7 @@ function sqlite() {
       ftsPrefixSearch: { ms: searchPrefix.ms, rows: searchPrefix.result.messages.length },
       unreadCount: { ms: unread.ms, value: unread.result },
       thread: { ms: thread.ms, rows: thread.result.length },
+      inboxPage50MailboxShaped: { ms: shapedPage.ms, rows: shapedPage.result.messages.length },
     },
     removeAccountMs: removeMs,
   };
