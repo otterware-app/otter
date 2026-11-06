@@ -19,25 +19,28 @@ export type MessageDetail = MessageSummary & {
 
 export const threadKey = (accountId: string, threadId: string) => `${accountId}\u0000${threadId}`;
 
-/** A conversation as the reader shows it: its messages, each with its body (fetched on open). */
+/** A conversation's messages from the cache (sender, date, snippet): the reader shows them at once. */
 export const threadAtom = Atom.family((key: string) => {
   const [accountId, threadId] = key.split("\u0000") as [string, string];
   return Atom.make(
-    Effect.gen(function* () {
-      const messages = yield* Effect.promise(() =>
-        core.invoke<MessageSummary[]>("gmail:getThread", { accountId, threadId }),
-      );
-      return yield* Effect.forEach(
-        messages,
-        (message) =>
-          Effect.promise(() =>
-            core
-              .invoke<MessageDetail>("gmail:getMessage", { accountId, messageId: message.id })
-              .catch(() => message as MessageDetail),
-          ),
-        { concurrency: 4 },
-      );
-    }),
+    Effect.promise(() => core.invoke<MessageSummary[]>("gmail:getThread", { accountId, threadId })),
+  );
+});
+
+export const messageKey = (accountId: string, messageId: string) =>
+  `${accountId}\u0000${messageId}`;
+
+/**
+ * One message whole, body included, as its row in the reader asks for it: from
+ * the cache, else from the server ahead of sync (core marks it urgent). Null
+ * when it's gone from the server.
+ */
+export const messageAtom = Atom.family((key: string) => {
+  const [accountId, messageId] = key.split("\u0000") as [string, string];
+  return Atom.make(
+    Effect.tryPromise(() =>
+      core.invoke<MessageDetail | null>("gmail:getMessage", { accountId, messageId }),
+    ),
   );
 });
 

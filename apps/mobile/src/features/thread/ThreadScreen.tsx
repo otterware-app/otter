@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react";
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import {
   Button,
   GlassEffectContainer,
@@ -31,7 +31,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { RootStack } from "../../App";
 import { appAtomRegistry, mailboxes, operations, threadLists } from "../../state/client";
 import { core } from "../../state/core";
-import { threadAtom, threadKey, type MessageDetail } from "../../state/mail";
+import {
+  messageAtom,
+  messageKey,
+  threadAtom,
+  threadKey,
+  type MessageDetail,
+} from "../../state/mail";
 import { flag, uiPreferencesAtom } from "../../state/preferences";
 import { useTranslationSettings } from "../../state/translation";
 import { glassSurface, useReduceTransparency } from "../glass";
@@ -54,7 +60,8 @@ const listRows = (accountId: string, labelId: string | undefined): MessageSummar
 
 /**
  * A conversation, as the Swift app's ThreadView: its subject and labels, then each
- * message (earlier ones folded, MessageView). Star and More (Reply all,
+ * message from the cache at once (earlier ones folded, MessageView), an open
+ * one's body filling in as it arrives. Star and More (Reply all,
  * Forward, Unsubscribe and the conversation's actions) in the bar, the agent
  * beside them; Archive, Trash and Reply at the bottom in one glass container.
  * Archiving or trashing goes on to the next conversation (Settings › After
@@ -65,7 +72,7 @@ export function ThreadScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { accountId, threadId, subject, labelId } = route.params;
   const result = useAtomValue(threadAtom(threadKey(accountId, threadId)));
-  const messages = AsyncResult.getOrElse(result, () => [] as MessageDetail[]);
+  const messages = AsyncResult.getOrElse(result, () => [] as MessageSummary[]);
   const mailbox = useAtomValue(mailboxes.accountsAtom).value.find((m) => m.id === accountId);
   const labels = useAtomValue(mailboxes.labelsAtom(accountId)).value;
   const ui = useAtomValue(uiPreferencesAtom);
@@ -305,10 +312,10 @@ export function ThreadScreen({ navigation, route }: Props) {
         {messages.map((message) => {
           const open = isOpen(message, last?.id, expanded);
           return (
-            <MessageView
+            <ThreadMessage
               key={message.id}
               accountId={accountId}
-              message={message}
+              summary={message}
               open={open}
               mine={mine}
               colors={colors}
@@ -379,6 +386,37 @@ export function ThreadScreen({ navigation, route }: Props) {
         </Namespace>
       </Host>
     </View>
+  );
+}
+
+/** A message of the conversation; open, its body loads (ahead of sync) and fills in. */
+function ThreadMessage({
+  summary,
+  ...props
+}: Omit<Parameters<typeof MessageView>[0], "message" | "loading"> & { summary: MessageSummary }) {
+  if (!props.open) return <MessageView {...props} message={summary} />;
+  return <OpenMessage {...props} summary={summary} />;
+}
+
+function OpenMessage({
+  summary,
+  ...props
+}: Omit<Parameters<typeof MessageView>[0], "message" | "loading"> & { summary: MessageSummary }) {
+  const atom = messageAtom(messageKey(props.accountId, summary.id));
+  const result = useAtomValue(atom);
+  const retry = useAtomRefresh(atom);
+  // Gone from the server since it was cached: its snippet is all there is.
+  const message: MessageDetail = AsyncResult.isSuccess(result)
+    ? (result.value ?? summary)
+    : summary;
+  return (
+    <MessageView
+      {...props}
+      message={message}
+      loading={
+        AsyncResult.isSuccess(result) ? undefined : { failed: AsyncResult.isFailure(result), retry }
+      }
+    />
   );
 }
 

@@ -27,6 +27,8 @@ type Bucket = {
   budget: number;
   cooldownUntil: number;
   foregroundWaiting: number;
+  /** Reads the user asked for, waiting: everything else stands aside for them. */
+  urgentWaiting: number;
   waiting: Record<Lane, number>;
 };
 
@@ -63,6 +65,7 @@ function bucketFor(accountId: string): Bucket {
       budget: START_BUDGET,
       cooldownUntil: 0,
       foregroundWaiting: 0,
+      urgentWaiting: 0,
       waiting: { sync: 0, backfill: 0, prefetch: 0 },
     };
     buckets.set(accountId, bucket);
@@ -91,25 +94,39 @@ export function isCoolingDown(accountId: string): boolean {
   return Date.now() < bucketFor(accountId).cooldownUntil;
 }
 
-export async function acquireQuota(accountId: string, units: number): Promise<void> {
+/**
+ * Waits for `units` of the account's quota. `urgent` is a read the user is
+ * waiting on (a message they opened, its inline images): it goes ahead of
+ * every other call. Without an async context (the phone, the web) a sync's
+ * fetches carry no tier and would otherwise take the tokens first: they
+ * cost less, so they always fit before an opened message does.
+ */
+export async function acquireQuota(
+  accountId: string,
+  units: number,
+  urgent = false,
+): Promise<void> {
   const current = tier().get();
   if (current === undefined) {
     let bucket = bucketFor(accountId);
-    if (bucket.tokens >= units) {
+    const yields = () => !urgent && bucket.urgentWaiting > 0;
+    if (!yields() && bucket.tokens >= units) {
       bucket.tokens -= units;
       record(accountId, units);
       return;
     }
     bucket.foregroundWaiting += 1;
+    if (urgent) bucket.urgentWaiting += 1;
     try {
-      while (bucket.tokens < units) {
-        await sleep(((units - bucket.tokens) / unitsPerSecond(bucket)) * 1000);
+      while (yields() || bucket.tokens < units) {
+        await sleep(Math.max(50, ((units - bucket.tokens) / unitsPerSecond(bucket)) * 1000));
         bucket = bucketFor(accountId);
       }
       bucket.tokens -= units;
       record(accountId, units);
     } finally {
       bucket.foregroundWaiting -= 1;
+      if (urgent) bucket.urgentWaiting -= 1;
     }
     return;
   }

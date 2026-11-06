@@ -76,10 +76,13 @@ export function MessageView({
   translationSettings,
   onTap,
   onTrash,
+  loading,
 }: {
   accountId: string;
   message: MessageDetail;
   open: boolean;
+  /** Open, but its body hasn't arrived (or failed to). */
+  loading?: { failed: boolean; retry: () => void };
   mine: ReadonlySet<string>;
   colors: Palette;
   fullWidth: boolean;
@@ -96,10 +99,12 @@ export function MessageView({
   const text = message.bodyHtml ? htmlText(message.bodyHtml) : plain;
   const fromMe = mine.has(message.fromEmail.toLowerCase());
   const { autoTranslate, readLanguages } = translationSettings;
+  const pending = Boolean(loading);
 
   // The Swift app translates plain-text messages by themselves; HTML ones on asking (Translate).
   useEffect(() => {
-    if (!open || !autoTranslate || message.bodyHtml || translated || plain.length < 12) return;
+    if (!open || pending || !autoTranslate || message.bodyHtml || translated || plain.length < 12)
+      return;
     let cancelled = false;
     void (async () => {
       const found = await core.invoke<{ language: string | null; confidence: number }>(
@@ -115,7 +120,7 @@ export function MessageView({
     return () => {
       cancelled = true;
     };
-  }, [open, autoTranslate, readLanguages, message, plain, translated]);
+  }, [open, pending, autoTranslate, readLanguages, message, plain, translated]);
 
   const actions = () =>
     ActionSheetIOS.showActionSheetWithOptions(
@@ -180,7 +185,29 @@ export function MessageView({
           </Text>
         </View>
       </Pressable>
-      {open ? (
+      {open && loading ? (
+        <View style={[styles.pending, { marginHorizontal: inset }]}>
+          <Text style={[styles.snippet, { color: colors.secondary }]} numberOfLines={3}>
+            {loading.failed ? "Couldn't load this message." : message.snippet}
+          </Text>
+          {loading.failed ? (
+            <Pressable
+              onPress={loading.retry}
+              hitSlop={10}
+              accessibilityRole="button"
+              testID="message-retry"
+            >
+              <Text style={{ color: colors.accent, fontWeight: "600" }}>Retry</Text>
+            </Pressable>
+          ) : (
+            <ActivityIndicator
+              size="small"
+              color={colors.secondary}
+              accessibilityLabel="Loading the message"
+            />
+          )}
+        </View>
+      ) : open ? (
         <>
           {messageCards.map((Card, i) => (
             <View key={i} style={{ paddingHorizontal: 20 }}>
@@ -351,6 +378,8 @@ export function AttachmentChip({
 }
 
 const styles = StyleSheet.create({
+  pending: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  snippet: { flex: 1, fontSize: 15, lineHeight: 21 },
   message: { gap: 12 },
   header: { flexDirection: "row", gap: 12, paddingHorizontal: 20, alignItems: "flex-start" },
   lines: { flex: 1, gap: 2 },
