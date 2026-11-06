@@ -1,7 +1,15 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useEffect, useLayoutEffect, useState } from "react";
-import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  AccessibilityInfo,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { RootStack } from "../../App";
 import { appAtomRegistry, mailboxes, operations, threadLists } from "../../state/client";
@@ -29,6 +37,10 @@ export function HomeScreen({ navigation }: Props) {
   const labels = useAtomValue(mailboxes.labelsAtom(accountId ?? "")).value;
   const title = placeTitle(place.labelId, labels);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const windowHeight = useWindowDimensions().height;
+  const insets = useSafeAreaInsets();
+  const panelHeight = Math.min(560, windowHeight - insets.top - insets.bottom - 176);
 
   useEffect(() => {
     for (const m of accounts.value) void mailboxes.refreshLabels(m.id);
@@ -39,6 +51,7 @@ export function HomeScreen({ navigation }: Props) {
     setPlace(next);
     rememberPlace(next);
     setMenuOpen(false);
+    setCollapsed(false);
   };
 
   const markAllRead = () => {
@@ -128,6 +141,7 @@ export function HomeScreen({ navigation }: Props) {
           mailbox={mailbox}
           accountId={accountId}
           labelId={place.labelId}
+          onCollapse={setCollapsed}
           onOpen={(row) =>
             navigation.navigate("Thread", {
               accountId,
@@ -142,16 +156,7 @@ export function HomeScreen({ navigation }: Props) {
           {accounts.error ?? "Starting…"}
         </Text>
       )}
-      {menuOpen ? (
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={() => setMenuOpen(false)}
-          accessibilityLabel="Close places"
-          accessibilityRole="button"
-        />
-      ) : (
-        <UndoToast />
-      )}
+      {menuOpen ? null : <UndoToast />}
       <PlacesBar
         mailboxes={accounts.value}
         current={mailbox}
@@ -161,6 +166,8 @@ export function HomeScreen({ navigation }: Props) {
         panel={
           menuOpen && accountId ? (
             <PlacesPanel
+              colors={colors}
+              maxHeight={panelHeight}
               mailbox={mailbox}
               labels={labels}
               labelId={place.labelId}
@@ -186,7 +193,10 @@ export function HomeScreen({ navigation }: Props) {
         onAddMailbox={() => navigation.navigate("Welcome")}
         onPlace={(labelId) => go({ accountId, labelId })}
         onSearch={() => accountId && navigation.navigate("Search", { accountId })}
+        collapsed={collapsed}
         onMenu={() => setMenuOpen((open) => !open)}
+        onClose={() => setMenuOpen(false)}
+        onExpand={() => setCollapsed(false)}
         onAgent={() => navigation.navigate("Chat")}
       />
     </View>

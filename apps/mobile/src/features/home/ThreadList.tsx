@@ -2,7 +2,7 @@ import { useAtomValue } from "@effect/atom-react";
 import { LegendList } from "@legendapp/list/react-native";
 import type { MessageSummary } from "@otter-mail/client-runtime/mail";
 import { SymbolView } from "expo-symbols";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { mailboxes, threadLists, type Mailbox } from "../../state/client";
@@ -41,11 +41,14 @@ export function ThreadList({
   accountId,
   labelId,
   onOpen,
+  onCollapse,
 }: {
   mailbox: Mailbox | undefined;
   accountId: string;
   labelId: string;
   onOpen: (row: MessageSummary) => void;
+  /** The places bar minimizes while the list scrolls down, and comes back scrolling up. */
+  onCollapse?: (collapsed: boolean) => void;
 }) {
   const colors = usePalette();
   const ui = useAtomValue(uiPreferencesAtom);
@@ -57,6 +60,7 @@ export function ThreadList({
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const lastOffset = useRef(0);
 
   const rows = useMemo(() => {
     const all = view.pages.flatMap((page) => page.messages);
@@ -228,6 +232,15 @@ export function ThreadList({
       onEndReachedThreshold={0.5}
       refreshing={refreshing}
       onRefresh={() => void refresh()}
+      onScroll={(e) => {
+        const { contentOffset, contentInset } = e.nativeEvent;
+        const y = contentOffset.y + contentInset.top;
+        const moved = y - lastOffset.current;
+        if (Math.abs(moved) < 12) return;
+        lastOffset.current = y;
+        onCollapse?.(moved > 0 && y > 60);
+      }}
+      scrollEventThrottle={32}
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={{ paddingBottom: 120 }}
       ListEmptyComponent={null}
