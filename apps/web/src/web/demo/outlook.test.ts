@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { Platform, SqlDatabase } from "@otter-mail/core";
+import { KEEP_MAILBOX } from "@otter-mail/core";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 const EMAIL = "jordan.lee@contoso.example";
@@ -274,7 +275,10 @@ async function boot() {
         get: () => current as never,
       };
     },
-    offlineDownloads: false,
+    rawSockets: false,
+    crossOriginFetch: false,
+    notificationReturn: "web",
+    syncPolicy: { ...KEEP_MAILBOX, bodyPrefetch: false },
   };
   vi.spyOn(console, "log").mockImplementation(() => {});
   // After resetModules: the extensions must share this test's fresh core.

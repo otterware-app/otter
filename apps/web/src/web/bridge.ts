@@ -143,7 +143,7 @@ function saveBytes(name: string, bytes: Uint8Array, open: boolean): void {
 let pendingOpenMessage: { accountId: string; messageId: string; mailbox?: string } | null = null;
 
 function applyEffect(effect: PageEffect): void {
-  switch (effect.kind) {
+  switch (effect._tag) {
     case "notify":
       if ("Notification" in window && Notification.permission === "granted") {
         const notification = new Notification(effect.title, {
@@ -164,7 +164,7 @@ function applyEffect(effect: PageEffect): void {
       break;
     case "download":
     case "open":
-      saveBytes(effect.name, effect.bytes, effect.kind === "open");
+      saveBytes(effect.name, effect.bytes, effect._tag === "open");
       break;
   }
 }
@@ -173,7 +173,7 @@ const backend = connectBackend({
   onEvent: emit,
   async onRequest(kind, params) {
     if (kind === "todoistSignIn") {
-      const p = params as PageRequests["todoistSignIn"]["params"];
+      const p = params as unknown as PageRequests["todoistSignIn"]["params"];
       if (p.close) {
         closeTodoistPopup();
         return "" as never;
@@ -181,11 +181,13 @@ const backend = connectBackend({
       return authorizeTodoistPopup(p.url!) as never;
     }
     if (kind === "detectLanguage") {
-      return detectLanguage((params as PageRequests["detectLanguage"]["params"]).text) as never;
+      return detectLanguage(
+        (params as unknown as PageRequests["detectLanguage"]["params"]).text,
+      ) as never;
     }
     if (kind === "translate") {
-      const { texts, source, target } = params as PageRequests["translate"]["params"];
-      return translate(texts, source, target) as never;
+      const { texts, source, target } = params as unknown as PageRequests["translate"]["params"];
+      return translate([...texts], source, target) as never;
     }
     const loginHint = (params as { loginHint?: string } | undefined)?.loginHint;
     const action =

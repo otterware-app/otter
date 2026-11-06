@@ -1,3 +1,4 @@
+import { KEEP_MAILBOX } from "../../platform.ts";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -453,7 +454,10 @@ async function boot() {
         get: () => current as never,
       };
     },
-    offlineDownloads: false,
+    rawSockets: false,
+    crossOriginFetch: false,
+    notificationReturn: "web",
+    syncPolicy: { ...KEEP_MAILBOX, bodyPrefetch: false },
   };
 
   setPlatform(platform);

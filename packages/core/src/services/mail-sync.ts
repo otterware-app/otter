@@ -445,7 +445,7 @@ function startDownloads(accountId: string, provider: MailProvider): void {
 }
 
 async function downloadBodies(accountId: string, provider: MailProvider): Promise<void> {
-  const total = platform().offlineDownloads ? store.countUndownloaded(accountId) : 0;
+  const total = platform().syncPolicy.bodyPrefetch ? store.countUndownloaded(accountId) : 0;
   if (total > 0) {
     let done = 0;
     const attempted = new Set<string>();

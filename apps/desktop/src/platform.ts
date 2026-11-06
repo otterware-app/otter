@@ -7,10 +7,11 @@ import * as path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import type { AsyncContext, Platform, SqlDatabase } from "@otter-mail/core";
+import { KEEP_MAILBOX } from "@otter-mail/core";
 
 import { appInfo } from "./backend-protocol.js";
 import { logger } from "./logger.js";
-import { requestMain, tellMain } from "./main-link.js";
+import { broadcastToMain, requestMain, tellMain } from "./main-link.js";
 import { backendOS } from "./os/backend.js";
 import { googleAuth } from "./services/gmail-oauth.js";
 import { connectMailSocket } from "./services/mail-socket.js";
@@ -116,7 +117,7 @@ export function desktopPlatform(): Platform {
     userFiles: {
       open: (name, bytes) => requestMain("openFile", { name, bytes }),
       save: (name, bytes) => requestMain("saveFile", { name, bytes }),
-      pick: () => requestMain("pickFiles", undefined),
+      pick: () => requestMain("pickFiles", {}),
     },
 
     google: googleAuth,
@@ -126,9 +127,9 @@ export function desktopPlatform(): Platform {
     relaySession: "bearer",
     deviceName: backendOS.deviceName(),
 
-    broadcast: (channel, params) => tellMain({ kind: "broadcast", channel, params }),
-    notify: (notification) => tellMain({ kind: "notify", ...notification }),
-    setUnreadCount: (count) => tellMain({ kind: "unread", count }),
+    broadcast: broadcastToMain,
+    notify: (notification) => tellMain({ _tag: "notify", ...notification }),
+    setUnreadCount: (count) => tellMain({ _tag: "badge", count }),
     onResume(listener) {
       resumeListeners.add(listener);
       return () => resumeListeners.delete(listener);
@@ -137,7 +138,10 @@ export function desktopPlatform(): Platform {
       const storage = new AsyncLocalStorage<T>();
       return { run: (value, fn) => storage.run(value, fn), get: () => storage.getStore() };
     },
-    offlineDownloads: true,
+    rawSockets: true,
+    crossOriginFetch: true,
+    notificationReturn: "desktop",
+    syncPolicy: { ...KEEP_MAILBOX, bodyPrefetch: true },
     translator: backendOS.translator,
   };
 }

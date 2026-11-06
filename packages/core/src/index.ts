@@ -84,7 +84,8 @@ export async function startCore(
 
 export { broadcast, callHandler, handle, registeredHandlers, type Handler } from "./ipc.js";
 export type { CoreExtension, ExtensionContext } from "./extensions.js";
-export { fromBase64, toBase64 } from "./bytes.js";
+export { fromBase64, sha256, toBase64, toBase64Url } from "./bytes.js";
+export * as PlatformServices from "./platform-services.js";
 export {
   GMAIL_ACCESS_MISSING_MESSAGE,
   SIGNED_OUT_MESSAGE,
@@ -95,6 +96,8 @@ export { GRAPH_ME_URL, OUTLOOK_SIGNED_OUT_MESSAGE, signInFromMe } from "./micros
 export { readJson, writeJson } from "./json-file.js";
 export { logger } from "./logger.js";
 export type * from "./platform.js";
+export { KEEP_MAILBOX } from "./platform.js";
+export { serveCore, type CoreHost, type CoreHostOptions } from "./host.js";
 export * as accountStore from "./services/account-store.js";
 export * as mailStore from "./services/mail-store.js";
 export { runAsTask } from "./handlers/ipc-budget.js";

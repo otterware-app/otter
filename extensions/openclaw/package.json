@@ -14,6 +14,8 @@
     "test": "vp test run --passWithNoTests"
   },
   "dependencies": {
+    "@noble/curves": "catalog:",
+    "@noble/hashes": "catalog:",
     "@openclaw/gateway-client": "2026.9.9",
     "@otter-mail/contracts": "workspace:*",
     "@otter-mail/core": "workspace:*",

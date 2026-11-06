@@ -1,3 +1,4 @@
+import { KEEP_MAILBOX } from "../../../platform.ts";
 /**
  * Tests only: core on Node, as far as the IMAP provider needs it: the mail
  * cache in an in-memory node:sqlite database, files and secrets in memory,
@@ -74,7 +75,10 @@ export function useNodePlatform(): Platform {
       return () => resumeListeners.delete(listener);
     },
     asyncContext: () => ({ run: (_value, fn) => fn(), get: () => undefined }),
-    offlineDownloads: false,
+    rawSockets: true,
+    crossOriginFetch: true,
+    notificationReturn: "desktop",
+    syncPolicy: { ...KEEP_MAILBOX, bodyPrefetch: false },
   };
   setPlatform(platform);
   return platform;

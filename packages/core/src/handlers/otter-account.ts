@@ -187,7 +187,7 @@ export function registerOtterAccountHandlers(): void {
     }
     return relayRequest<{ url: string }>("POST", "/v1/notification-connections/authorize", {
       email: account.email,
-      returnTo: platform().kind === "web" ? "web" : "desktop",
+      returnTo: platform().notificationReturn,
     });
   });
   handle("otter:disconnectNotifications", async (params: unknown) => {

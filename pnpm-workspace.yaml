@@ -13,14 +13,22 @@ allowBuilds:
   workerd: true
 
 catalog:
+  "@effect/atom-react": 4.1.2
+  "@effect/vitest": 4.1.2
+  "@noble/curves": 1.9.1
+  "@noble/hashes": 1.8.0
   "@types/node": 24.12.4
   "@tailwindcss/vite": 4.3.3
+  effect: 4.1.2
   tailwindcss: 4.3.3
   typescript: 5.9.3
   vite: npm:@voidzero-dev/vite-plus-core@0.3.3
   vite-plus: 0.3.3
 
 minimumReleaseAgeExclude:
+  - "@effect/atom-react@4.1.2"
+  - "@effect/vitest@4.1.2"
+  - effect@4.1.2
   - "@cloudflare/workerd-darwin-64@1.20260925.1"
   - "@cloudflare/workerd-darwin-arm64@1.20260925.1"
   - "@cloudflare/workerd-linux-64@1.20260925.1"
@@ -29,3 +37,16 @@ minimumReleaseAgeExclude:
   - miniflare@5.20260925.0-alpha
   - workerd@1.20260925.1
   - wrangler@4.141.0
+
+overrides:
+  "@effect/vitest>vitest": "-"
+  effect: "catalog:"
+
+# Our patch makes @effect/vitest import vite-plus/test, as Otter Code's does.
+packageExtensions:
+  "@effect/vitest@*":
+    dependencies:
+      vite-plus: 0.3.3
+
+patchedDependencies:
+  "@effect/vitest@4.1.2": patches/@effect__vitest@4.1.2.patch
