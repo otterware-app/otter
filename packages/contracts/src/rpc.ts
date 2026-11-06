@@ -111,6 +111,7 @@ export const HostEffect = Schema.Union([
     body: Schema.optional(Schema.String),
     open: Schema.optional(OpenTarget),
     code: Schema.optional(Schema.String),
+    chat: Schema.optional(Schema.String),
   }),
   Schema.TaggedStruct("badge", { count: Schema.Number }),
   Schema.TaggedStruct("download", { name: Schema.String, bytes: Bytes }),

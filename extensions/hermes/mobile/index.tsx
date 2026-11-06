@@ -47,11 +47,10 @@ function HermesSettings({ provider, colors }: AgentSettingsProps) {
   const [key, setKey] = useState("");
   const urlField = useNativeState(settings.baseUrl);
   const keyField = useNativeState("");
-  const [changing, setChanging] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const status = agentStatus(provider);
-  const connected = Boolean(settings.baseUrl && settings.hasKey) && !changing;
+  const connected = Boolean(settings.baseUrl && settings.hasKey);
   const model = provider.models.find((m) => m.slug === provider.model);
   const option = (id: "reasoningEffort" | "serviceTier") =>
     model?.options?.find((o) => o.id === id);
@@ -66,7 +65,6 @@ function HermesSettings({ provider, colors }: AgentSettingsProps) {
       await invokeProviders("agent:connectHermes", { baseUrl: url, apiKey: key });
       setKey("");
       keyField.set("");
-      setChanging(false);
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -135,7 +133,15 @@ function HermesSettings({ provider, colors }: AgentSettingsProps) {
               onIsOnChange={(on) => set({ serviceTier: on ? fast.id : "default" })}
             />
           ) : null}
-          <Button label="Change server" onPress={() => setChanging(true)} />
+          <Button
+            label="Disconnect"
+            role="destructive"
+            onPress={() =>
+              void invokeProviders("agent:disconnectHermes").catch((e: unknown) =>
+                setError(errorText(e)),
+              )
+            }
+          />
         </>
       ) : provider.enabled ? (
         <>

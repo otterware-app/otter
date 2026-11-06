@@ -39,7 +39,8 @@ export type RootStack = {
   Settings: undefined;
   Welcome: undefined;
   AddImap: undefined;
-  Chat: { context?: ThreadContext } | undefined;
+  /** `id`: a chat to show (a delivery or ask notification's tap). */
+  Chat: { context?: ThreadContext; id?: string } | undefined;
   Compose: {
     accountId: string;
     /** `draft`: a draft in the mailbox (`messageId`); `copy`: one kept on this iPhone (`copyId`). */
@@ -65,6 +66,7 @@ const linking = {
       Home: "",
       Thread: "thread",
       Settings: "settings",
+      Chat: "chat",
       ...(developmentVariant ? { Gate: "gate" } : {}),
     },
   },

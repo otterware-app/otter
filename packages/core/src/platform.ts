@@ -181,6 +181,8 @@ export interface Platform {
     /** `mailbox`: the alias mailbox to open it in. */
     open?: { accountId: string; messageId: string; mailbox?: string };
     code?: string;
+    /** An agent's chat, which a tap opens. */
+    chat?: string;
   }): void;
   setUnreadCount(count: number): void;
   onResume(listener: () => void): () => void;

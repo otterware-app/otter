@@ -11,13 +11,10 @@ type Core = typeof coreBridge;
 type Settings = { notificationsMode?: "off" | "inbox" | "all" };
 type PushConfiguration = { userId: string; mode: string; mailboxes: string[] };
 
-/** Where a notification opens: the Swift app's Session.NotificationDestination. */
-export type Destination = {
-  userId?: string;
-  accountId: string;
-  messageId?: string;
-  threadId?: string;
-};
+/** Where a notification opens: the Swift app's Session.NotificationDestination, or an agent's chat. */
+export type Destination =
+  | { userId?: string; accountId: string; messageId?: string; threadId?: string }
+  | { chat: string };
 
 const appVariant = (Constants.expoConfig?.extra as { appVariant?: string } | undefined)?.appVariant;
 const scheme = String(Constants.expoConfig?.scheme ?? "ottermail");
@@ -68,12 +65,19 @@ export function destination(data: Record<string, unknown>): Destination | null {
       threadId: data.thread as string | undefined,
     };
   }
+  if (typeof data.chat === "string" && data.chat) return { chat: data.chat };
   const open = data.open as { accountId?: string; messageId?: string } | undefined;
   return open?.accountId ? { accountId: open.accountId, messageId: open.messageId } : null;
 }
 
 /** The mailbox, then the thread, as the Swift app's prepareNotification does. */
 async function openDestination(core: Core, target: Destination): Promise<void> {
+  if ("chat" in target) {
+    await Linking.openURL(
+      `${scheme}://chat?${new URLSearchParams({ id: target.chat }).toString()}`,
+    );
+    return;
+  }
   // Another Otter account's push, from before signing out here.
   if (target.userId && pushConfiguration()?.userId !== target.userId) return;
   let threadId = target.threadId;
@@ -170,6 +174,7 @@ export function deviceEffect(core: Core, effect: HostEffect): boolean {
           data: {
             ...(effect.open ? { open: effect.open } : {}),
             ...(effect.code ? { code: effect.code } : {}),
+            ...(effect.chat ? { chat: effect.chat } : {}),
           },
           ...(effect.open ? { threadIdentifier: effect.open.accountId } : {}),
         },

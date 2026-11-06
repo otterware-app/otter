@@ -343,6 +343,8 @@ export function makeChatsStore<P extends AgentProvider = AgentProvider>(
       title: string;
       subtitle?: string;
       body?: string;
+      /** The chat a tap opens. */
+      chat?: string;
       focused: boolean;
     }) => core.invoke<{ ok: boolean }>("agent:notifyAsk", params),
     watch: (provider: ProviderKind, sessions: { id: string; since: number }[]) =>
@@ -1088,7 +1090,9 @@ export function makeChatsStore<P extends AgentProvider = AgentProvider>(
   function notifyAsk(run: Run, id: string, title: string, body?: string): void {
     const key = `${run.provider}:${run.requestId}:${id}`;
     const focused = platform.focus.isFocused();
-    void agent.notifyAsk({ provider: run.provider, key, title, body, focused }).catch(() => {});
+    void agent
+      .notifyAsk({ provider: run.provider, key, title, body, chat: run.convoId, focused })
+      .catch(() => {});
   }
 
   /** What an agent delivered, once read: notifies like an ask, only when no window has focus. */
@@ -1097,7 +1101,12 @@ export function makeChatsStore<P extends AgentProvider = AgentProvider>(
     if (title === undefined) return;
     deliveries.delete(run.requestId);
     const convo = get().conversations.find((c) => c.id === run.convoId);
-    const text = convo?.turns.find((t) => t.id === `a-${run.requestId}`)?.text.trim();
+    const turn = convo?.turns.find((t) => t.id === `a-${run.requestId}`);
+    // A streamed or read-back turn's words are in its items.
+    const text = (
+      turn?.text ||
+      (turn?.items ?? []).flatMap((item) => (item.kind === "text" ? [item.text] : [])).join("\n\n")
+    ).trim();
     if (!text) return;
     void agent
       .notifyAsk({
@@ -1106,6 +1115,7 @@ export function makeChatsStore<P extends AgentProvider = AgentProvider>(
         title,
         subtitle: "Sent you a message",
         body: text.length > 200 ? `${text.slice(0, 200)}…` : text,
+        chat: run.convoId,
         focused: platform.focus.isFocused(),
       })
       .catch(() => {});

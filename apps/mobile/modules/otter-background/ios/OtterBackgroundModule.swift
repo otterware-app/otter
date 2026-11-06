@@ -110,5 +110,16 @@ public final class OtterBackgroundModule: Module {
     Function("complete") { (success: Bool) in
       BackgroundRefresh.shared.complete(success: success)
     }
+
+    // What apps/ios kept in UserDefaults as JSON data, for the Expo app's first launch.
+    Function("legacyDefaults") { (keys: [String]) -> [String: String] in
+      var found: [String: String] = [:]
+      for key in keys {
+        if let data = UserDefaults.standard.data(forKey: key), let text = String(data: data, encoding: .utf8) {
+          found[key] = text
+        }
+      }
+      return found
+    }
   }
 }

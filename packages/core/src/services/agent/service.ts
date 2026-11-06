@@ -302,7 +302,14 @@ const ASK_SETTLE_MS = 500;
  */
 export function notifyAsk(
   kind: ProviderKind,
-  ask: { key: string; title: string; subtitle?: string; body?: string; focused: boolean },
+  ask: {
+    key: string;
+    title: string;
+    subtitle?: string;
+    body?: string;
+    chat?: string;
+    focused: boolean;
+  },
 ): void {
   const seen = asks.get(ask.key);
   if (seen) {
@@ -319,6 +326,7 @@ export function notifyAsk(
         title: ask.title,
         subtitle: ask.subtitle ?? `${provider(kind).displayName} is waiting for you`,
         body: ask.body,
+        chat: ask.chat,
       });
     });
   }, ASK_SETTLE_MS);

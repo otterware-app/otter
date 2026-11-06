@@ -20,6 +20,7 @@ export {
   updateProviderSettings,
 } from "./services/agent/service.js";
 export {
+  clearHermesKey,
   clearOpenClawToken,
   setHermesKey,
   setOpenClawBootstrapToken,
