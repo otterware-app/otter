@@ -94,7 +94,8 @@ const config: ExpoConfig = {
   name: variant.appName,
   slug: "otter-mail",
   platforms: ["ios"],
-  scheme: variant.scheme,
+  // ottermail-notifications: where the relay's notifications consent comes back to (otter-account).
+  scheme: [variant.scheme, "ottermail-notifications"],
   // The release sets the version it resolved; package.json has the last one released.
   version: process.env.OTTER_MAIL_MOBILE_VERSION ?? packageJson.version,
   runtimeVersion: { policy: runtimeVersionPolicy as "appVersion" | "fingerprint" },
