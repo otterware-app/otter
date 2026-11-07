@@ -6,7 +6,7 @@ export const openClawApi = {
     params: { code: string } | { url: string; token: string },
   ): Promise<ProvidersState> => ipc("agent:connectOpenClaw", params),
 
-  agentAllowOpenClawQuestions: (): Promise<ProvidersState> => ipc("agent:allowOpenClawQuestions"),
+  agentAllowOpenClawFullAccess: (): Promise<ProvidersState> => ipc("agent:allowOpenClawFullAccess"),
 };
 
 export type AgentChannel = {

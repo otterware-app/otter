@@ -46,13 +46,20 @@ import { OpenClawText, openClawMessageText as textOf } from "./openclaw-stream.j
 
 const CONNECT_TIMEOUT_MS = 8_000;
 /**
- * What this device asks for. Answering the agent's questions came later: a
- * device paired without it signs in with the scopes it has, and asks for it
- * separately (`allowOpenClawQuestions`), as the gateway refuses a paired
- * device that just asks for more.
+ * What this device asks for: what OpenClaw's own apps hold. The gateway counts
+ * a chat's turns as the owner's (its `nodes` tool, its own settings) only from a
+ * device with `operator.admin`. A device paired with fewer signs in with the
+ * scopes it has, and asks for the rest separately (`allowOpenClawFullAccess`),
+ * as the gateway refuses a paired device that just asks for more.
  */
-const QUESTIONS = "operator.questions";
-const SCOPES = ["operator.read", "operator.write", "operator.approvals", QUESTIONS];
+const SCOPES = [
+  "operator.read",
+  "operator.write",
+  "operator.approvals",
+  "operator.questions",
+  "operator.admin",
+  "operator.pairing",
+];
 
 export function normalizeOpenClawUrl(raw: string): string {
   const trimmed = raw.trim().replace(/\/+$/, "");
@@ -114,12 +121,14 @@ type Gateway = {
   scopes: string[];
 };
 
-let questionsAllowed: boolean | null = null;
-let questionsRequest: string | null = null;
+let fullAccess: boolean | null = null;
+let fullAccessRequest: string | null = null;
 
-export function openClawQuestions(): { allowed: boolean | null; request: string | null } {
-  return { allowed: questionsAllowed, request: questionsRequest };
+export function openClawFullAccess(): { allowed: boolean | null; request: string | null } {
+  return { allowed: fullAccess, request: fullAccessRequest };
 }
+
+const holdsAll = (scopes: string[]) => SCOPES.every((scope) => scopes.includes(scope));
 
 let current: { url: string; ready: Promise<Gateway> } | null = null;
 const listeners = new Set<(event: EventFrame) => void>();
@@ -209,7 +218,7 @@ function open(url: string, { token, bootstrapToken }: Credentials): Promise<Gate
       onHello: (hello) => {
         pairingRequest = null;
         scopes = hello.auth?.scopes ?? [];
-        questionsAllowed = scopes.includes(QUESTIONS);
+        fullAccess = holdsAll(scopes);
         if (bootstrapToken) void clearOpenClawBootstrapToken();
         settle(null);
       },
@@ -266,8 +275,8 @@ function disconnect(): void {
 export async function resetOpenClawConnection(): Promise<void> {
   disconnect();
   pairingRequest = null;
-  questionsAllowed = null;
-  questionsRequest = null;
+  fullAccess = null;
+  fullAccessRequest = null;
   await clearOpenClawDeviceToken();
 }
 
@@ -278,17 +287,17 @@ async function heldScopes(): Promise<string[] | null> {
   return stored?.scopes?.length ? stored.scopes : null;
 }
 
-export async function allowOpenClawQuestions(
+export async function allowOpenClawFullAccess(
   settings: OpenClawSettings,
   changed: () => void,
 ): Promise<void> {
   const g = await gateway(settings);
-  if (g.scopes.includes(QUESTIONS)) return;
+  if (holdsAll(g.scopes)) return;
   const { requestId } = await g.client.request<{ requestId: string }>(
     "device.scopes.requestUpgrade",
     { scopes: [...new Set([...g.scopes, ...SCOPES])] },
   );
-  questionsRequest = requestId;
+  fullAccessRequest = requestId;
   changed();
   g.client
     .request<{ status: string; deviceToken?: string; scopes?: string[] }>(
@@ -297,7 +306,7 @@ export async function allowOpenClawQuestions(
       { timeoutMs: null },
     )
     .then(async (result) => {
-      logger.info("agent", "openclaw questions upgrade", { status: result.status });
+      logger.info("agent", "openclaw full access upgrade", { status: result.status });
       if (result.status !== "approved" || !result.deviceToken) return;
       await setOpenClawDeviceToken(
         JSON.stringify({ token: result.deviceToken, scopes: result.scopes ?? [] }),
@@ -305,10 +314,10 @@ export async function allowOpenClawQuestions(
       if (current?.url === g.url) disconnect();
     })
     .catch((error: unknown) =>
-      logger.info("agent", "openclaw questions upgrade failed", { error: String(error) }),
+      logger.info("agent", "openclaw full access upgrade failed", { error: String(error) }),
     )
     .finally(() => {
-      if (questionsRequest === requestId) questionsRequest = null;
+      if (fullAccessRequest === requestId) fullAccessRequest = null;
       changed();
     });
 }
@@ -340,7 +349,8 @@ const OWNER_PROFILE_ID = "gateway-owner";
 
 /**
  * Who the gateway takes this device for: a person's profile, or the shared
- * owner profile. Null when the gateway can't say (an older one).
+ * profile. Not whether its turns are the owner's: that's `operator.admin`.
+ * Null when the gateway can't say (an older one).
  */
 async function whoAmI(g: Gateway): Promise<{ label: string } | null> {
   try {
@@ -350,8 +360,8 @@ async function whoAmI(g: Gateway): Promise<{ label: string } | null> {
     if (profile.id === OWNER_PROFILE_ID)
       return {
         label: profile.displayName
-          ? `the shared owner (${profile.displayName})`
-          : "the shared owner",
+          ? `the gateway's shared profile (${profile.displayName})`
+          : "the gateway's shared profile",
       };
     return { label: profile.displayName ?? profile.emails[0] ?? profile.id };
   } catch (error) {
@@ -475,7 +485,7 @@ function transcript(messages: Record<string, unknown>[]): ChatSessionMessage[] {
     const toolCalls = (Array.isArray(m.content) ? (m.content as Record<string, unknown>[]) : [])
       .filter((part) => part.type === "toolCall" && !unshown.has(part.id))
       .map((part) => openClawStep(String(part.name ?? "tool"), part.arguments));
-    const text = textOf(m);
+    const text = isDelivery(m) ? withoutInspectLink(textOf(m)) : textOf(m);
     if (!text && toolCalls.length === 0) return [];
     return [{ role: "assistant", text, ...(toolCalls.length > 0 ? { toolCalls } : {}) }];
   });
@@ -502,6 +512,10 @@ const runOf = (row: Record<string, unknown>) => {
 };
 
 const isDelivery = (row: Record<string, unknown>) => String(runOf(row)).startsWith("delivery:");
+
+/** A cron job's announce ends with a link to the run in the gateway's own UI, which needs its own login. */
+const withoutInspectLink = (text: string) =>
+  text.replace(/\n+Inspect: https?:\/\/\S+\/cron\/\S+\s*$/, "");
 
 /** The session where the Otter channel plugin (extensions/openclaw/gateway) keeps what an agent delivered to Otter. */
 const INBOX = /^agent:([^:]+):otter:inbox$/;
@@ -1221,7 +1235,7 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
     return {
       hasToken: await hasOpenClawCredentials(),
       pairingRequest: openClawPairingRequest(),
-      questions: openClawQuestions(),
+      fullAccess: openClawFullAccess(),
     };
   },
 

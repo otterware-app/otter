@@ -43,7 +43,7 @@ const host = (url: string) => url.replace(/^[a-z]+:\/\//i, "").replace(/[/:].*$/
 type View = {
   url: string;
   pairingRequest: string | null;
-  questions: { allowed: boolean | null; request: string | null };
+  fullAccess: { allowed: boolean | null; request: string | null };
 };
 
 /** the Swift app's OpenClaw section: a setup code (or the gateway's token), approved on the gateway. */
@@ -83,10 +83,10 @@ function OpenClawSettings({ provider, colors, signedIn }: AgentSettingsProps) {
     }
   };
 
-  const allowQuestions = async () => {
+  const allowFullAccess = async () => {
     setError(null);
     try {
-      await invokeProviders("agent:allowOpenClawQuestions");
+      await invokeProviders("agent:allowOpenClawFullAccess");
     } catch (e) {
       setError(errorText(e));
     }
@@ -145,27 +145,25 @@ function OpenClawSettings({ provider, colors, signedIn }: AgentSettingsProps) {
                     ))}
                   </Picker>
                 ) : null}
-                {settings.questions?.allowed === false ? (
-                  settings.questions.request ? (
+                {settings.fullAccess?.allowed === false ? (
+                  settings.fullAccess.request ? (
                     <Command
                       colors={colors}
-                      title="Approve answering its questions on the gateway:"
-                      value={`openclaw devices approve ${settings.questions.request}`}
+                      title="Approve full access on the gateway:"
+                      value={`openclaw devices approve ${settings.fullAccess.request}`}
                     />
                   ) : (
                     <VStack alignment="leading" spacing={4}>
-                      <Button
-                        label="Allow answering its questions"
-                        onPress={() => void allowQuestions()}
-                      />
+                      <Button label="Allow full access" onPress={() => void allowFullAccess()} />
                       <Text
                         modifiers={[
                           font({ textStyle: "footnote" }),
                           foregroundStyle(colors.secondary),
                         ]}
                       >
-                        OpenClaw sometimes stops to ask you something. This iPhone was paired before
-                        it could answer.
+                        This iPhone was paired with less than OpenClaw's own apps have, so the agent
+                        won't use your devices for what you ask here, and its questions may not
+                        reach you.
                       </Text>
                     </VStack>
                   )

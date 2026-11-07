@@ -14,7 +14,7 @@ import {
 
 import { manifest } from "../manifest.ts";
 import {
-  allowOpenClawQuestions,
+  allowOpenClawFullAccess,
   normalizeOpenClawUrl,
   openClawProvider,
   parseOpenClawSetupCode,
@@ -107,8 +107,8 @@ export default {
       return providersState();
     });
     handle("agent:importOpenClaw", (params: unknown) => importSwiftSettings(params));
-    handle("agent:allowOpenClawQuestions", async () => {
-      await allowOpenClawQuestions((await agentSettings("openclaw")) as OpenClawSettings, () => {
+    handle("agent:allowOpenClawFullAccess", async () => {
+      await allowOpenClawFullAccess((await agentSettings("openclaw")) as OpenClawSettings, () => {
         void refreshProvider("openclaw");
       });
       return providersState();
