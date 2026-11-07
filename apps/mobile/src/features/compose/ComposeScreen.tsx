@@ -546,6 +546,7 @@ export function ComposeScreen({ navigation, route }: Props) {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.attachmentRow}
           contentContainerStyle={styles.attachments}
           keyboardShouldPersistTaps="handled"
         >
@@ -603,6 +604,7 @@ const styles = StyleSheet.create({
   subject: { flex: 1, fontSize: 17, fontWeight: "600", paddingVertical: 10 },
   more: { fontSize: 15, paddingHorizontal: 4 },
   editor: { flex: 1 },
+  attachmentRow: { flexGrow: 0 },
   attachments: { gap: 8, paddingHorizontal: 20, paddingVertical: 8 },
   toolbar: {
     flexDirection: "row",
