@@ -716,4 +716,20 @@ describe("what an agent delivers to Otter", () => {
       { requestId: "run:delivery:d-1", type: "done", responseId: null },
     ]);
   });
+
+  it("leaves out the link to the cron run in the gateway's own UI", async () => {
+    const link = "https://gw.example.ts.net:8447/chat/main/cron/job-1/run/run-1";
+    history = () => ({
+      messages: [delivered("d-1", `Hi Chris.\nInspect: ${link}`, 10)],
+      sessionInfo: { activeRunIds: [] },
+    });
+    gateway();
+    const events: ChatEvent[] = [];
+    await openClawProvider.resume!(
+      { requestId: "run:delivery:d-1", sessionId: "agent:main:otter:inbox" },
+      settings,
+      (e) => events.push(e),
+    );
+    expect(events[0]).toMatchObject({ messages: [{ role: "assistant", text: "Hi Chris." }] });
+  });
 });
