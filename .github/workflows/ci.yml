@@ -143,6 +143,10 @@ jobs:
         working-directory: apps/mobile
         run: vp run test
 
+      # The notification extension's Swift (native/), as a package on the Mac.
+      - name: Notification extension tests
+        run: swift test --package-path apps/mobile/native
+
       - name: Prebuild (development, made-up mailbox)
         working-directory: apps/mobile
         env:

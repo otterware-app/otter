@@ -53,7 +53,9 @@ releasing it is in `docs/release.md`.
   (`src/worker/recovered-drafts.ts`, `pnpm test`); the originals stay.
 - **The notification service extension** is Swift, in `native/` (the Swift app's, unchanged): a
   config plugin (`plugins/withNotificationServiceExtension.cjs`) copies its sources in at
-  prebuild and adds its target.
+  prebuild and adds its target. Its tests (labels and modes, routing, previews,
+  the completion race, IMAP parts, connection loss) run on the Mac with
+  `swift test --package-path apps/mobile/native` (`native/Package.swift`).
 - **Error reports** go to Sentry's `otter-mail-ios` (`src/error-reports.ts`,
   docs/error-reports.md).
 - **Variants** (`APP_VARIANT`): development (`dev.otterware.mail.dev`), preview

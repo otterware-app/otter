@@ -19,3 +19,4 @@ tmp/
 .wrangler/
 .dev.vars
 infra/relay/.wrangler.local.jsonc
+apps/mobile/native/.build/
