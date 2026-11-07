@@ -468,7 +468,9 @@ OpenClaw connects to the user's gateway over its WebSocket, as OpenClaw's own ap
 `wss://<computer>.<tailnet>.ts.net`, with Tailscale Serve). Each install is a device with its own
 key: a setup code from `openclaw qr` (or the gateway token) introduces it once, the user
 approves it on the gateway (`openclaw devices approve`), and Settings › Agents walks through
-those steps. Each device pairs on its own; the Hermes connection instead follows the Otter
+those steps. It asks for what OpenClaw's own apps hold, `operator.admin` included,
+so the gateway counts what you send as the owner's: the agent uses your paired devices (its
+`nodes` tool: a Mac's shell, screen and computer use) for what you ask in Otter Mail. Each device pairs on its own; the Hermes connection instead follows the Otter
 account. The web app also
 needs its site in the gateway's `gateway.controlUi.allowedOrigins`. Each chat is a gateway
 session, so the gateway's other conversations can be resumed; the gateway's agents are the models
@@ -480,8 +482,8 @@ on the next launch, showing what it did meanwhile and streaming the rest (the ch
 the gateway is out of reach). The token and device key stay on the device. The iPhone pairs the
 same way (Settings › Agents, a setup code), and picks a reply back up when it comes back to the
 foreground or is opened again. When OpenClaw stops to ask something (its `ask_user`), the
-question takes the composer's place, with its options and room for an answer of your own; a
-device paired before this asks the gateway for that permission from Settings › Agents. A message
+question takes the composer's place, with its options and room for an answer of your own. A
+device paired with fewer permissions asks the gateway for full access from Settings › Agents. A message
 sent while it works steers the run, or, when the runtime can't take it mid-turn, runs right after
 it, and the chat follows that too. When the agent hands off to wait for its subagents
 (`sessions_yield`), the turn waits with it and shows the reply their completion brings, also

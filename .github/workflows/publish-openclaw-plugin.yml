@@ -1,0 +1,56 @@
+name: Publish OpenClaw plugin
+
+# Releases are manual: bump extensions/openclaw/gateway/package.json, merge, then run this
+# workflow from the Actions tab (or `gh workflow run publish-openclaw-plugin.yml`).
+# npm trusts this workflow to publish @otterware/openclaw-otter (no token).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-openclaw-plugin
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: true
+
+      - name: Use an npm CLI with trusted publishing support
+        run: npm install --global npm@latest
+
+      - name: Check whether this version needs publishing
+        id: version
+        run: |
+          name="$(node -p "require('./extensions/openclaw/gateway/package.json').name")"
+          version="$(node -p "require('./extensions/openclaw/gateway/package.json').version")"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "$name@$version is already published."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test
+        if: steps.version.outputs.publish == 'true'
+        working-directory: extensions/openclaw
+        run: vp test run gateway
+
+      - name: Publish
+        if: steps.version.outputs.publish == 'true'
+        working-directory: extensions/openclaw/gateway
+        run: npm publish --access public
