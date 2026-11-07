@@ -1,4 +1,4 @@
-import { KEEP_MAILBOX } from "../../platform.ts";
+import { KEEP_MAILBOX, KEEP_RECENT, type SyncPolicy } from "../../platform.ts";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -64,8 +64,11 @@ let failures: { method: string; suffix: string; status: number; apply?: boolean 
 let created: number;
 let listing: {
   pageSize?: number;
+  pages?: number;
   failAt?: { folder: string; skip: number };
   removedAt?: (folder: string, skip: number) => string[];
+  peekPageSize?: number;
+  peeks?: number;
 };
 
 function deliver(id: string, folder: string, patch: Partial<Message> = {}): Message {
@@ -228,6 +231,7 @@ function handle(method: string, url: URL, body: unknown): Response {
       return json({ value: [], "@odata.deltaLink": link(since) });
     if (since < 0 && listing.pageSize) {
       const skip = Number(url.searchParams.get("skip") ?? 0);
+      listing.pages = (listing.pages ?? 0) + 1;
       if (listing.failAt?.folder === folder && listing.failAt.skip === skip) {
         listing.failAt = undefined;
         return json({ error: { code: "ErrorInternalServerError", message: "Test failure." } }, 500);
@@ -249,8 +253,11 @@ function handle(method: string, url: URL, body: unknown): Response {
           : { "@odata.deltaLink": link(version) }),
       });
     }
+    const from = /receivedDateTime ge (\S+)/.exec(url.searchParams.get("$filter") ?? "")?.[1];
+    if (since < 0) deltaFilters.push(from ?? null);
     const present = [...messages.values()]
       .filter((m) => m.folder === folder && m.version > since)
+      .filter((m) => !from || m.date >= Date.parse(from))
       .map((m) =>
         since >= 0 && sparseDeltas
           ? { id: m.id, parentFolderId: m.folder, isRead: m.isRead }
@@ -274,12 +281,22 @@ function handle(method: string, url: URL, body: unknown): Response {
   const asListed = (m: Message) =>
     search && restIds ? { ...resource(m), id: restIdOf(m) } : resource(m);
   if (list) {
-    return json({
-      value: [...messages.values()]
-        .filter((m) => m.folder === list[1])
-        .sort((a, b) => b.date - a.date)
-        .map(asListed),
-    });
+    const all = [...messages.values()]
+      .filter((m) => m.folder === list[1])
+      .sort((a, b) => b.date - a.date)
+      .map(asListed);
+    if (!search && listing.peekPageSize) {
+      listing.peeks = (listing.peeks ?? 0) + 1;
+      const skip = Number(url.searchParams.get("$skip") ?? 0);
+      const end = skip + listing.peekPageSize;
+      return json({
+        value: all.slice(skip, end),
+        ...(end < all.length && {
+          "@odata.nextLink": `https://graph.microsoft.com/v1.0${path}?$skip=${end}`,
+        }),
+      });
+    }
+    return json({ value: all });
   }
   if (path === "/me/translateExchangeIds") {
     if (failedTranslations) {
@@ -380,7 +397,9 @@ async function until(check: () => boolean, what: string): Promise<void> {
   throw new Error(`Timed out waiting for ${what}`);
 }
 
-async function boot() {
+let deltaFilters: (string | null)[];
+
+async function boot(opts: { policy?: SyncPolicy; inForeground?: () => boolean } = {}) {
   vi.resetModules();
   const { setPlatform } = await import("../../platform.ts");
   const { startCore } = await import("../../index.ts");
@@ -457,7 +476,8 @@ async function boot() {
     rawSockets: false,
     crossOriginFetch: false,
     notificationReturn: "web",
-    syncPolicy: { ...KEEP_MAILBOX, bodyPrefetch: false },
+    syncPolicy: opts.policy ?? { ...KEEP_MAILBOX, bodyPrefetch: false },
+    inForeground: opts.inForeground,
   };
 
   setPlatform(platform);
@@ -494,6 +514,7 @@ beforeEach(() => {
   failedTranslations = false;
   failures = [];
   created = 0;
+  deltaFilters = [];
   vi.stubGlobal("fetch", fakeFetch);
 });
 
@@ -1317,5 +1338,121 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
       );
       expect(drafts()).toEqual([]);
     });
+  });
+});
+
+describe("Outlook sync with a window", { timeout: 15_000 }, () => {
+  const DAY = 86_400_000;
+  let front = true;
+  const phone = (initialCoverage: { days: number; minThreads: number }) => ({
+    policy: { ...KEEP_RECENT, initialCoverage },
+    inForeground: () => front,
+  });
+  const coverage = (mailStore: typeof import("../mail-store.ts")) =>
+    mailStore.getKv(`syncCoverage:${account.id}`);
+
+  beforeEach(() => {
+    front = true;
+    for (let d = 0; d < 30; d++) deliver(`i${d}`, "inbox", { date: Date.now() - d * DAY - 60_000 });
+    for (let d = 0; d < 30; d++) {
+      deliver(`s${d}`, "sentitems", { date: Date.now() - d * DAY - 60_000 });
+    }
+  });
+
+  it("lists each folder's delta since the window's start, and is never fully synced", async () => {
+    const { mailStore, status } = await boot(phone({ days: 10, minThreads: 5 }));
+    await until(() => coverage(mailStore)?.includes('"done":true') === true, "the window");
+    expect(deltaFilters.length).toBeGreaterThan(0);
+    expect(deltaFilters.every((f) => f !== null)).toBe(true);
+    // Each folder's ten days; the inbox's newest page past them leaves again.
+    await until(() => mailStore.countMessagesForLabel(account.id, "INBOX") === 10, "eviction");
+    expect(mailStore.countMessagesForLabel(account.id, "SENT")).toBe(10);
+    expect(status().fullSyncDone).toBe(false);
+  });
+
+  it("behind the app, follows the inbox's delta only", async () => {
+    const { mailStore, status, sync } = await boot(phone({ days: 10, minThreads: 5 }));
+    await until(() => coverage(mailStore)?.includes('"done":true') === true, "the window");
+    await until(() => !status().syncing, "the backfill");
+    front = false;
+    deliver("i-new", "inbox");
+    deliver("s-new", "sentitems");
+    await sync();
+    expect(mailStore.filterUnknownIds(account.id, ["i-new", "s-new"])).toEqual(["s-new"]);
+
+    front = true;
+    await sync();
+    expect(mailStore.filterUnknownIds(account.id, ["i-new", "s-new"])).toEqual([]);
+  });
+
+  it("lists every folder again once the policy changes: a wider window, then the whole mailbox", async () => {
+    const opts = phone({ days: 10, minThreads: 5 });
+    const { mailStore, status, sync } = await boot(opts);
+    await until(() => coverage(mailStore)?.includes('"done":true') === true, "the window");
+    await until(() => mailStore.countMessagesForLabel(account.id, "SENT") === 10, "the window");
+
+    opts.policy.initialCoverage = { days: 20, minThreads: 5 };
+    await sync();
+    await until(
+      () => mailStore.countMessagesForLabel(account.id, "SENT") === 20,
+      "the wider window",
+    );
+    await until(() => !status().syncing, "the backfill");
+
+    deltaFilters = [];
+    Object.assign(opts.policy, KEEP_MAILBOX, { bodyPrefetch: false });
+    await sync();
+    await until(() => status().fullSyncDone && !status().syncing, "the mailbox");
+    expect(mailStore.countMessagesForLabel(account.id, "SENT")).toBe(30);
+    expect(mailStore.countMessagesForLabel(account.id, "INBOX")).toBe(30);
+    expect(deltaFilters.length).toBeGreaterThan(0);
+    expect(deltaFilters.every((f) => f === null)).toBe(true);
+  });
+
+  it("stops listing when the app goes behind, and goes on from that page in front", async () => {
+    listing.pageSize = 5;
+    // The first page of the inbox's listing, then the app goes behind.
+    let pagesInFront = 1;
+    const { mailStore, status, sync } = await boot({
+      policy: { ...KEEP_RECENT, initialCoverage: { days: 10, minThreads: 5 } },
+      inForeground: () => (listing.pages ?? 0) < pagesInFront,
+    });
+    await until(() => listing.pages === 1 && !status().syncing, "the first page");
+    expect(mailStore.countMessagesForLabel(account.id, "SENT")).toBe(0);
+    expect(coverage(mailStore)).toContain('"done":false');
+    expect(mailStore.getKv(`outlookDelta:${account.id}`)).toContain("skip=5");
+
+    pagesInFront = Infinity;
+    await sync();
+    await until(() => coverage(mailStore)?.includes('"done":true') === true, "the window");
+    // Each page once (the inbox's and Sent's six, the empty folders' one): the first isn't listed again.
+    expect(listing.pages).toBe(6 + 6 + 5);
+    expect(mailStore.countMessagesForLabel(account.id, "SENT")).toBeGreaterThan(0);
+  });
+
+  it("stops peeking at the inbox when the app goes behind, and peeks again in front", async () => {
+    listing.peekPageSize = 5;
+    let peeksInFront = 1;
+    const { mailStore, status, sync } = await boot({
+      policy: { ...KEEP_RECENT, initialCoverage: { days: 10, minThreads: 8 } },
+      inForeground: () => (listing.peeks ?? 0) < peeksInFront,
+    });
+    await until(() => listing.peeks === 1 && !status().syncing, "the first page");
+    expect(mailStore.countThreadsForLabel(account.id, "INBOX")).toBe(5);
+    expect(mailStore.getKv(`outlookPeeked:${account.id}`)).toBeNull();
+
+    peeksInFront = Infinity;
+    await sync();
+    await until(() => mailStore.getKv(`outlookPeeked:${account.id}`) === "1", "the peek");
+    expect(listing.peeks).toBe(3);
+    expect(mailStore.countThreadsForLabel(account.id, "INBOX")).toBeGreaterThanOrEqual(8);
+  });
+
+  it("lists everything without a window", async () => {
+    const { mailStore, status } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+    expect(deltaFilters.every((f) => f === null)).toBe(true);
+    expect(mailStore.countMessagesForLabel(account.id, "SENT")).toBe(30);
+    expect(coverage(mailStore)).toBeNull();
   });
 });

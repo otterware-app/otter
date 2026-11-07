@@ -553,6 +553,7 @@ export interface GmailHistoryPage {
   historyId?: string;
   nextPageToken?: string;
   history?: {
+    id: string;
     messagesAdded?: { message: { id: string } }[];
     messagesDeleted?: { message: { id: string } }[];
     labelsAdded?: { message: { id: string }; labelIds: string[] }[];

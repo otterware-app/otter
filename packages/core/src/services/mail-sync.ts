@@ -5,11 +5,14 @@ import { broadcast } from "../ipc.js";
 import { mapPool } from "../pool.js";
 import { findProvider, isSignedIn, providerFor, signedOutMessage } from "../providers/index.js";
 import { SyncCancelled, type MailProvider } from "../providers/provider.js";
+import { forgetLiveCursors } from "../handlers/live-paging.js";
 import { getAttachmentData, hasCachedAttachment } from "./attachment-cache.js";
 import { isAccountId, listAccounts } from "./account-store.js";
+import { cacheWindow, inBackground } from "./coverage.js";
 import { platform } from "../platform.js";
 import * as store from "./mail-store.js";
 import { notifyNewMail, updateDockBadge } from "./notifier.js";
+import { evictBeyondWindow, forgetOpened, keepWithinRetention } from "./retention.js";
 import type { MessageDetail, SyncStatus } from "../types.js";
 
 const statuses = new Map<string, SyncStatus>();
@@ -239,6 +242,8 @@ export function forgetAccount(accountId: string): void {
   failures.delete(accountId);
   backfillFailures.delete(accountId);
   rerun.delete(accountId);
+  tidiedAt.delete(accountId);
+  forgetOpened(accountId);
 }
 
 function describeSyncError(accountId: string, err: unknown): string {
@@ -320,12 +325,27 @@ async function runSyncNow(accountId: string, provider: MailProvider): Promise<vo
   }
 
   updateDockBadge();
-  if (!isSignedIn(accountId)) return;
+  if (!isSignedIn(accountId) || inBackground()) return;
   if (provider.needsBackfill?.(accountId)) {
     if (synced) startBackfill(accountId, provider);
   } else {
     startDownloads(accountId, provider);
+    if (synced) tidy(accountId);
   }
+}
+
+const TIDY_EVERY_MS = 10 * 60_000;
+const tidiedAt = new Map<string, number>();
+
+/** A bounded cache (`cacheWindow`) drops what's past its window and over its bytes, now and then. */
+function tidy(accountId: string): void {
+  if (!cacheWindow() || Date.now() - (tidiedAt.get(accountId) ?? 0) < TIDY_EVERY_MS) return;
+  tidiedAt.set(accountId, Date.now());
+  if (evictBeyondWindow(accountId)) {
+    forgetLiveCursors(accountId);
+    bumpRevision(accountId);
+  }
+  void keepWithinRetention();
 }
 
 // The provider's long work (Gmail: the first sync of the whole mailbox, the

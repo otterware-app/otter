@@ -1,4 +1,4 @@
-import { KEEP_MAILBOX } from "../../platform.ts";
+import { KEEP_MAILBOX, KEEP_RECENT, type SyncPolicy } from "../../platform.ts";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -214,9 +214,11 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
   }
   if (path === "/messages") {
     const labelIds = url.searchParams.getAll("labelIds");
-    if (labelIds.length === 0) listings.push(url.searchParams.get("pageToken"));
+    const search = url.searchParams.get("q");
+    if (labelIds.length === 0 && !search) listings.push(url.searchParams.get("pageToken"));
     const all = [...mail.values()]
       .filter((m) => labelIds.every((l) => m.labelIds.includes(l)))
+      .filter((m) => !search || m.subject.includes(search))
       .sort((a, b) => b.date - a.date);
     const size = Math.min(pageSize, Number(url.searchParams.get("maxResults") ?? 100));
     const offset = Number(url.searchParams.get("pageToken") ?? 0);
@@ -344,8 +346,8 @@ function gmailImap(): FakeStream {
 
 let notified: string[];
 
-async function until(check: () => boolean, what: string): Promise<void> {
-  for (let i = 0; i < 400; i++) {
+async function until(check: () => boolean, what: string, tries = 400): Promise<void> {
+  for (let i = 0; i < tries; i++) {
     if (check()) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
@@ -354,7 +356,7 @@ async function until(check: () => boolean, what: string): Promise<void> {
 
 async function boot(
   seed?: (store: typeof import("../mail-store.ts")) => void,
-  opts: { imap?: boolean } = {},
+  opts: { imap?: boolean; policy?: SyncPolicy; inForeground?: () => boolean } = {},
 ) {
   vi.resetModules();
   const { setPlatform } = await import("../../platform.ts");
@@ -420,7 +422,8 @@ async function boot(
     rawSockets: true,
     crossOriginFetch: true,
     notificationReturn: "desktop",
-    syncPolicy: { ...KEEP_MAILBOX, bodyPrefetch: true },
+    syncPolicy: opts.policy ?? { ...KEEP_MAILBOX, bodyPrefetch: true },
+    inForeground: opts.inForeground,
   };
 
   setPlatform(platform);
@@ -793,5 +796,197 @@ describe("Gmail sync", { timeout: 15_000 }, () => {
       expect([...drafts.keys()]).toEqual([draftId]);
       expect(sent()).toEqual([]);
     });
+  });
+});
+
+describe("Gmail sync with a window", { timeout: 15_000 }, () => {
+  const DAY = 86_400_000;
+  let front = true;
+  const phone = (initialCoverage: { days: number; minThreads: number }, more = {}) => ({
+    policy: { ...KEEP_RECENT, initialCoverage, ...more },
+    inForeground: () => front,
+  });
+  /** A conversation a day, newest first: d0 today, d1 yesterday… */
+  function mailbox(days: number): void {
+    const now = Date.now();
+    for (let d = days - 1; d >= 0; d--) deliver(`d${d}`, ["INBOX"], now - d * DAY - 60_000);
+  }
+  const filled = (mailStore: typeof import("../mail-store.ts")) =>
+    mailStore.getKv(`syncCoverage:${account.id}`)?.includes('"done":true') === true;
+  const uncached = (mailStore: typeof import("../mail-store.ts"), ids: string[]) =>
+    mailStore.filterUnknownIds(account.id, ids);
+
+  beforeEach(() => {
+    front = true;
+    pageSize = 10;
+  });
+
+  it("fills the window's newest pages, reads no bodies, and never counts as fully synced", async () => {
+    mailbox(40);
+    const { mailStore, status } = await boot(undefined, phone({ days: 10, minThreads: 5 }));
+    await until(() => filled(mailStore) && !status().syncing, "the window");
+    expect(listings).toEqual([null, "10"]);
+    expect(fetches.every((f) => f.format === "metadata")).toBe(true);
+    expect(status().fullSyncDone).toBe(false);
+    // The last page's mail past the window leaves again.
+    await until(() => mailStore.countAllMessages(account.id) === 10, "the eviction");
+    expect(uncached(mailStore, ["d9", "d10"])).toEqual(["d10"]);
+  });
+
+  it("never keeps fewer than the newest `minThreads`, however old", async () => {
+    mailbox(40);
+    const { mailStore, status } = await boot(undefined, phone({ days: 2, minThreads: 15 }));
+    await until(() => filled(mailStore) && !status().syncing, "the window");
+    expect(listings).toEqual([null, "10"]);
+    await until(() => mailStore.countAllMessages(account.id) === 15, "the eviction");
+    expect(uncached(mailStore, ["d14", "d15"])).toEqual(["d15"]);
+  });
+
+  it("evicts conversations past the window, but not a starred one or one with a draft", async () => {
+    mailbox(40);
+    relabel("d15", ["STARRED"], []);
+    deliver("draft16", ["DRAFT"], Date.now() - 15.5 * DAY, "d16");
+    drafts.set("r16", "draft16");
+    const { mailStore, status } = await boot(undefined, phone({ days: 10, minThreads: 5 }));
+    await until(() => filled(mailStore) && !status().syncing, "the window");
+    await until(() => uncached(mailStore, ["d17"]).length === 1, "the eviction");
+    expect(uncached(mailStore, ["d9", "d15", "d16", "draft16", "d17", "d10"])).toEqual([
+      "d17",
+      "d10",
+    ]);
+  });
+
+  it("pages lists past the cache from Gmail, and search finds what isn't cached", async () => {
+    mailbox(40);
+    const { mailStore, status, invoke } = await boot(undefined, phone({ days: 10, minThreads: 5 }));
+    await until(() => mailStore.countAllMessages(account.id) === 10, "the window");
+    const older = (await invoke("gmail:listMessages", {
+      accountId: account.id,
+      labelIds: ["INBOX"],
+      pageToken: "10",
+      maxResults: 10,
+    })) as { messages: { id: string }[] };
+    expect(older.messages.map((m) => m.id)).toEqual(
+      Array.from({ length: 10 }, (_, i) => `d${10 + i}`),
+    );
+    expect(status().fullSyncDone).toBe(false);
+
+    const found = (await invoke("gmail:search", {
+      q: "Subject d35",
+      accountIds: [account.id],
+    })) as { messages: { id: string }[]; offline?: boolean };
+    expect(found.messages.map((m) => m.id)).toEqual(["d35"]);
+    expect(found.offline).toBeUndefined();
+  });
+
+  it("behind the app, replays a bounded part of the feed and the rest once in front", async () => {
+    mailbox(10);
+    const { mailSync, mailStore, status } = await boot(
+      undefined,
+      phone({ days: 90, minThreads: 5 }),
+    );
+    await until(() => filled(mailStore) && !status().syncing, "the window");
+    front = false;
+    for (let i = 0; i < 60; i++) deliver(`new${i}`, ["INBOX", "UNREAD"], Date.now() + i);
+    mailSync.syncAccount(account.id, { force: true, trigger: "push" });
+    // Gmail's quota paces it: a few seconds.
+    await until(
+      () => uncached(mailStore, ["new49"]).length === 0 && !status().syncing,
+      "the bounded sync",
+      2000,
+    );
+    expect(mailStore.countAllMessages(account.id)).toBe(60);
+    expect(uncached(mailStore, ["new49", "new50"])).toEqual(["new50"]);
+    expect(notified).toHaveLength(1);
+
+    front = true;
+    mailSync.syncAccount(account.id, { force: true });
+    await until(() => mailStore.countAllMessages(account.id) === 70, "the rest", 2000);
+  }, 60_000);
+
+  it("after the history feed expired, reads the cache again and fills the window anew", async () => {
+    mailbox(40);
+    const { mailSync, mailStore, status, labelsOf } = await boot(
+      undefined,
+      phone({ days: 10, minThreads: 5 }),
+    );
+    await until(() => mailStore.countAllMessages(account.id) === 10, "the window");
+    // Changes the feed can no longer tell.
+    mail.delete("d3");
+    mail.get("d4")!.labelIds.push("STARRED");
+    mail.set("n1", {
+      id: "n1",
+      threadId: "n1",
+      labelIds: ["INBOX"],
+      date: Date.now(),
+      subject: "n1",
+    });
+    historyFloor = historyId + 1;
+    historyId += 1;
+
+    mailSync.syncAccount(account.id, { force: true });
+    await until(() => labelsOf("n1") !== undefined && !status().syncing, "the refresh", 1500);
+    expect(labelsOf("d3")).toBeUndefined();
+    expect(labelsOf("d4")).toContain("STARRED");
+    expect(mailStore.getKv(`fullSyncRefresh:${account.id}`)).toBe("");
+    expect(status().fullSyncDone).toBe(false);
+  });
+
+  it("keeps bodies under the retention bytes, least recently read first, never the open thread's", async () => {
+    mailbox(10);
+    const { mailStore, status, invoke } = await boot(
+      undefined,
+      phone({ days: 90, minThreads: 5 }, { retentionBytes: 30 }),
+    );
+    await until(() => filled(mailStore) && !status().syncing, "the window");
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
+    for (const id of ["d1", "d2", "d3"]) {
+      vi.advanceTimersByTime(1000);
+      await invoke("gmail:getMessage", { accountId: account.id, messageId: id });
+    }
+    vi.advanceTimersByTime(1000);
+    await invoke("gmail:getThread", { accountId: account.id, threadId: "d1" });
+    const { keepWithinRetention } = await import("../retention.ts");
+    await keepWithinRetention();
+    const kept = (id: string) => mailStore.getMessageDetail(account.id, id) !== null;
+    expect(["d1", "d2", "d3"].map(kept)).toEqual([true, false, true]);
+  });
+
+  it("fills a widened window from the newest mail", async () => {
+    mailbox(40);
+    const opts = phone({ days: 10, minThreads: 5 });
+    const { mailSync, mailStore, status } = await boot(undefined, opts);
+    await until(() => mailStore.countAllMessages(account.id) === 10, "the window");
+    opts.policy.initialCoverage = { days: 20, minThreads: 5 };
+    mailSync.syncAccount(account.id, { force: true });
+    // Gmail's quota paces it: a few seconds.
+    await until(() => filled(mailStore) && !status().syncing, "the wider window", 2000);
+    expect(uncached(mailStore, ["d10", "d19"])).toEqual([]);
+    expect(listings.slice(2)).toEqual([null, "10", "20"]);
+  }, 60_000);
+
+  it("fills the whole mailbox once the policy keeps it, the mail evicted below the window too", async () => {
+    mailbox(40);
+    const opts = phone({ days: 10, minThreads: 5 });
+    const { mailSync, mailStore, status } = await boot(undefined, opts);
+    await until(() => mailStore.countAllMessages(account.id) === 10, "the window");
+    Object.assign(opts.policy, KEEP_MAILBOX, { bodyPrefetch: false });
+    mailSync.syncAccount(account.id, { force: true });
+    await until(() => status().fullSyncDone && !status().syncing, "the mailbox", 2000);
+    expect(mailStore.countAllMessages(account.id)).toBe(40);
+    expect(mailStore.getKv(`syncCoverage:${account.id}`)).toBe("");
+  }, 60_000);
+
+  it("without a window (desktop, web), keeps no coverage and syncs behind the app too", async () => {
+    mailbox(30);
+    pageSize = 500;
+    front = false;
+    const { mailStore, status } = await boot(undefined, {
+      policy: { ...KEEP_MAILBOX, bodyPrefetch: false },
+      inForeground: () => front,
+    });
+    await until(() => status().fullSyncDone && !status().syncing, "the fill");
+    expect(mailStore.countAllMessages(account.id)).toBe(30);
+    expect(mailStore.getKv(`syncCoverage:${account.id}`)).toBeNull();
   });
 });

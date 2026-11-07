@@ -14,7 +14,9 @@ import { broadcast, handle } from "./ipc.js";
 import { setPlatform, type Platform } from "./platform.js";
 import { followAliasMailApart } from "./services/alias-mailboxes.js";
 import { pruneAttachmentCache } from "./services/attachment-cache.js";
+import { cacheWindow } from "./services/coverage.js";
 import { loadImapPasswords } from "./services/imap-passwords.js";
+import { keepWithinRetention } from "./services/retention.js";
 import { readKeybindings, writeKeybindings } from "./services/keybindings-store.js";
 import {
   configureAutoSync,
@@ -77,7 +79,11 @@ export async function startCore(
   followAliasMailApart(ui["mail:alias-mail-apart"]);
   void syncAllAccounts({ force: true });
   configureAutoSync((await getSettings()).syncIntervalSeconds);
-  void pruneAttachmentCache();
+  // Behind, sync only replays a bounded delta: back in front, it catches up.
+  if (platform.syncPolicy.execution === "foreground") {
+    platform.onResume(() => void syncAllAccounts({ force: true }));
+  }
+  void (cacheWindow() ? keepWithinRetention() : pruneAttachmentCache());
   void refreshSignatures();
   void refreshProfiles();
 }
@@ -96,7 +102,7 @@ export { GRAPH_ME_URL, OUTLOOK_SIGNED_OUT_MESSAGE, signInFromMe } from "./micros
 export { readJson, writeJson } from "./json-file.js";
 export { logger } from "./logger.js";
 export type * from "./platform.js";
-export { KEEP_MAILBOX } from "./platform.js";
+export { KEEP_MAILBOX, KEEP_RECENT } from "./platform.js";
 export { serveCore, type CoreHost, type CoreHostOptions } from "./host.js";
 export * as accountStore from "./services/account-store.js";
 export * as mailStore from "./services/mail-store.js";
