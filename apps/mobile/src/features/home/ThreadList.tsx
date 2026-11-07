@@ -223,7 +223,7 @@ export function ThreadList({
           }
           style={[styles.day, !item.first && styles.dayGap]}
           accessibilityRole="button"
-          accessibilityLabel={`${item.title}, ${item.count} conversations, ${item.unread} unread`}
+          accessibilityLabel={`${item.title}, ${item.count} ${item.count === 1 ? "conversation" : "conversations"}, ${item.unread} unread`}
           accessibilityValue={{ text: item.collapsed ? "Collapsed" : "Expanded" }}
           accessibilityHint={`Double tap to ${item.collapsed ? "expand" : "collapse"} this day`}
         >
