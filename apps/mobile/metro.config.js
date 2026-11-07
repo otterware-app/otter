@@ -53,13 +53,14 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 // while Metro transforms, so the file isn't in Metro's file map yet when Metro asks for its
 // SHA-1 ("Failed to get the SHA-1"): the first bundle of a fresh checkout, and Fast Refresh
 // after editing a worklet. Hash those files from disk until the watcher catches up.
+// Expo's CLI runs the Metro of `@expo/metro`, which can differ from the one `metro` resolves to.
 const expoCli = path.dirname(
   require.resolve("@expo/cli/package.json", {
     paths: [path.dirname(require.resolve("expo/package.json"))],
   }),
 );
 const { default: DependencyGraph } = require(
-  require.resolve("metro/private/node-haste/DependencyGraph", { paths: [expoCli] }),
+  require.resolve("@expo/metro/metro/node-haste/DependencyGraph", { paths: [expoCli] }),
 );
 const getOrComputeSha1 = DependencyGraph.prototype.getOrComputeSha1;
 DependencyGraph.prototype.getOrComputeSha1 = async function (filePath) {
