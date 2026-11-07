@@ -10,6 +10,7 @@ import {
   deleteConversation,
   isBlank,
   openServerSession,
+  chatsState,
   useChats,
   type Conversation,
 } from "./chat-store";
@@ -139,7 +140,7 @@ export function ChatBar({
           onPickServer={(session) => {
             setHistoryOpen(false);
             openServerSession(session, chat.kind, chat.name);
-            onSelect(useChats.getState().activeId);
+            onSelect(chatsState().activeId);
           }}
           providerName={chat.name}
           providerKind={chat.kind}

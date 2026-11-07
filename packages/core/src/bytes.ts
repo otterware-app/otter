@@ -3,6 +3,8 @@
  * too. Gmail speaks base64url; everything here accepts either alphabet.
  */
 
+import { sha256 as nobleSha256 } from "@noble/hashes/sha2";
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -40,7 +42,10 @@ export function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+export const sha256 = (data: string | Uint8Array): Uint8Array =>
+  nobleSha256(typeof data === "string" ? utf8Encode(data) : data);
+
+/** Async as callers had it with WebCrypto; @noble's runs anywhere, the phone's runtime too. */
 export async function sha256Hex(data: string | Uint8Array): Promise<string> {
-  const bytes = typeof data === "string" ? utf8Encode(data) : data;
-  return toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as BufferSource)));
+  return toHex(sha256(data));
 }

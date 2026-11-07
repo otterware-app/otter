@@ -94,7 +94,7 @@ async function fetchAndStore(
     );
     return fetched.filter((m) => unknown.has(m.id));
   };
-  if (platform().offlineDownloads) {
+  if (platform().syncPolicy.bodyPrefetch) {
     const details = await fetchMessagesForIds(accountId, ids);
     ctx.assertActive();
     store.upsertMessageDetails(accountId, uncached(details));
@@ -145,8 +145,8 @@ async function refreshLabels(
 const META_CHUNK = 100;
 
 /**
- * The first sync of a mailbox. On the Mac, over IMAP (every row in seconds),
- * then the category labels IMAP doesn't carry.
+ * The first sync of a mailbox. With raw sockets (the desktop app), over IMAP
+ * (every row in seconds), then the category labels IMAP doesn't carry.
  *
  * Otherwise through the API: the newest page of the inbox, then the whole
  * mailbox newest first (Spam and Trash after it: backfillSpamTrash), caching
@@ -155,7 +155,7 @@ const META_CHUNK = 100;
  * limits, sleep, quit) continues where it stopped instead of starting over.
  */
 async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
-  if (platform().kind === "desktop") {
+  if (platform().rawSockets) {
     try {
       await fillOverImap(accountId, ctx);
       await fillCategories(accountId, ctx);

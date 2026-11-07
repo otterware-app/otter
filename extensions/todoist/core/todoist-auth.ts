@@ -1,6 +1,6 @@
 /** Public-client OAuth: PKCE verifier and all credentials stay in the backend. */
 
-import { platform } from "@otter-mail/core/extension-kit";
+import { platform, sha256 } from "@otter-mail/core/extension-kit";
 const AUTH = "todoist-oauth";
 const TOKEN = "todoist-token";
 type Session = { clientId: string; accessToken: string; refreshToken?: string; expiresAt: number };
@@ -100,9 +100,7 @@ export async function signInTodoist(): Promise<void> {
   signingIn = true;
   const currentGeneration = generation;
   const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)));
-  const challenge = base64url(
-    new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))),
-  );
+  const challenge = base64url(sha256(verifier));
   const state = base64url(crypto.getRandomValues(new Uint8Array(32)));
   let clientId = "",
     redirectUri = "";

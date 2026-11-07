@@ -1,4 +1,4 @@
-import { parseAddressEntry, splitAddressList } from "./address";
+import { parseAddressEntry, splitAddressList } from "@otter-mail/client-runtime/address";
 import type { MailAccount } from "./types";
 
 export function addressesOf(account: MailAccount): string[] {

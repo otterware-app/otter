@@ -1,6 +1,7 @@
 import type { MailAccount } from "./types.js";
 import type { DemoGmailMailbox, DemoOutlookMailbox } from "@otter-mail/contracts/demo";
 import type { SupportError } from "@otter-mail/shared/support";
+import type { LanguageDetection, PickedFile, TranslationResult } from "@otter-mail/contracts/rpc";
 
 export type SqlValue = string | number | bigint | null | Uint8Array;
 
@@ -17,7 +18,12 @@ export interface SqlDatabase {
 
 export type FileInfo = { name: string; size: number; modifiedAt: number };
 
-export type PickedFile = { name: string; mimeType: string; bytes: Uint8Array };
+export type {
+  LanguageDetection,
+  PickedFile,
+  TranslationResult,
+  TranslationStatus,
+} from "@otter-mail/contracts/rpc";
 
 export interface GoogleAuth {
   /** Reads stored sign-ins; call once at startup so `isSignedIn` answers right away. */
@@ -66,22 +72,6 @@ export interface ByteStream {
   close(): void;
 }
 
-export type LanguageDetection = { language: string | null; confidence: number };
-
-/**
- * `needsDownload`: the browser must download the language pack, which it
- * only does after a click. `notInstalled`: the Mac's languages must be
- * downloaded in System Settings.
- */
-export type TranslationStatus =
-  | "ok"
-  | "notInstalled"
-  | "needsDownload"
-  | "unsupported"
-  | "unavailable";
-
-export type TranslationResult = { status: TranslationStatus; texts: string[] };
-
 export interface Translator {
   detect(text: string): Promise<LanguageDetection>;
   translate(texts: string[], source: string, target: string): Promise<TranslationResult>;
@@ -92,7 +82,28 @@ export interface AsyncContext<T> {
   get(): T | undefined;
 }
 
+/**
+ * How much mail this device keeps and fetches on its own. The desktop app
+ * keeps the most; a phone will keep less and sync only while it's open.
+ */
+export interface SyncPolicy {
+  /** What a mailbox's first sync fills: the newest page of its inbox, or all of it. */
+  initialCoverage: "inbox" | "mailbox";
+  /** Older mail fills in by itself after that (else as lists page back). */
+  automaticBackfill: boolean;
+  /** Message bodies download ahead of being opened, to read offline. */
+  bodyPrefetch: boolean;
+  /** At most this many bytes of downloaded attachments are kept. */
+  retentionBytes: number;
+  /** When sync may run: whenever core does, or only while the app is in front. */
+  execution: "background" | "foreground";
+}
+
+/** Where a notification's "turn on" sign-in returns to. */
+export type NotificationReturn = "web" | "desktop" | "native";
+
 export interface Platform {
+  /** A label for support reports only: behaviour follows the capabilities below. */
   kind: "desktop" | "web";
   appVersion: string;
   errorReports?: boolean;
@@ -132,6 +143,15 @@ export interface Platform {
    * are verified against the system's (or a bundled) root store.
    */
   connect(host: string, port: number, opts: { tls: boolean }): Promise<ByteStream>;
+  /**
+   * `connect` opens real sockets (not the relay's tunnel), so a Gmail
+   * mailbox's first sync can read every row over IMAP.
+   */
+  rawSockets: boolean;
+  /** Fetches may read any origin (no CORS), as a mail domain's own autoconfig file needs. */
+  crossOriginFetch: boolean;
+  notificationReturn: NotificationReturn;
+  syncPolicy: SyncPolicy;
   relayUrl: string;
   relaySession: "bearer" | "cookie";
   deviceName?: string;
@@ -148,10 +168,17 @@ export interface Platform {
   setUnreadCount(count: number): void;
   onResume(listener: () => void): () => void;
   asyncContext<T>(): AsyncContext<T>;
-  offlineDownloads: boolean;
   translator?: Translator;
   agentServerUrl?: string;
 }
+
+/** Today's desktop and web policy: the whole mailbox, filling in by itself. */
+export const KEEP_MAILBOX: Omit<SyncPolicy, "bodyPrefetch"> = {
+  initialCoverage: "mailbox",
+  automaticBackfill: true,
+  retentionBytes: 512 * 1024 * 1024,
+  execution: "background",
+};
 
 let current: Platform | null = null;
 

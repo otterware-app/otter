@@ -266,8 +266,8 @@ async function autoconfig(domain: string, email: string): Promise<ImapSettings |
   );
   const fromIspdb = ispdb && parseAutoconfig(ispdb, email);
   if (fromIspdb) return fromIspdb;
-  // The domain's own file: its host rarely allows CORS, so not from the browser.
-  if (platform().kind === "web") return null;
+  // The domain's own file: its host rarely allows CORS.
+  if (!platform().crossOriginFetch) return null;
   const own = await fetchText(
     `https://autoconfig.${domain}/mail/config-v1.1.xml?emailaddress=${encodeURIComponent(email)}`,
   );

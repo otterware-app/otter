@@ -1,4 +1,4 @@
-import type { ModifyMessageParams, ModifyThreadParams } from "./api";
+import type { ModifyMessageParams, ModifyThreadParams } from "./labels.ts";
 
 // A newer action on the same message retires older undo entries, which would restore obsolete state.
 export type UndoAction =

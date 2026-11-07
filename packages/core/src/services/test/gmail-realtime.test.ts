@@ -1,3 +1,4 @@
+import { KEEP_MAILBOX } from "../../platform.ts";
 import { DatabaseSync } from "node:sqlite";
 
 import type { RelayAccount, RelayEvent } from "@otter-mail/contracts/relay";
@@ -243,7 +244,10 @@ async function boot() {
         get: () => current as never,
       };
     },
-    offlineDownloads: false,
+    rawSockets: true,
+    crossOriginFetch: true,
+    notificationReturn: "desktop",
+    syncPolicy: { ...KEEP_MAILBOX, bodyPrefetch: false },
   };
 
   setPlatform(platform);

@@ -29,6 +29,11 @@ import type {
   ChatSessionMessage,
   Emit,
 } from "@otter-mail/core/extension-kit";
+import {
+  newOpenClawDeviceKey,
+  openClawDeviceIdentity,
+  type OpenClawDeviceKey,
+} from "./openclaw-device.js";
 import { OPENCLAW_DEFAULTS, type OpenClawSettings } from "./settings.js";
 import {
   GatewayBrowserDeviceAuthLifecycle,
@@ -83,38 +88,16 @@ export function parseOpenClawSetupCode(code: string): OpenClawSetupCode | null {
   }
 }
 
-const base64url = (bytes: Uint8Array) =>
-  toBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
 let identity: Promise<GatewayBrowserDeviceIdentity> | null = null;
 
 function deviceIdentity(): Promise<GatewayBrowserDeviceIdentity> {
   identity ??= (async () => {
-    let jwk = JSON.parse((await getOpenClawDeviceKey()) || "null") as JsonWebKey | null;
-    if (!jwk) {
-      const pair = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-        "sign",
-        "verify",
-      ])) as CryptoKeyPair;
-      jwk = await crypto.subtle.exportKey("jwk", pair.privateKey);
-      await setOpenClawDeviceKey(JSON.stringify(jwk));
+    let key = JSON.parse((await getOpenClawDeviceKey()) || "null") as OpenClawDeviceKey | null;
+    if (!key) {
+      key = newOpenClawDeviceKey();
+      await setOpenClawDeviceKey(JSON.stringify(key));
     }
-    const key = await crypto.subtle.importKey("jwk", jwk, { name: "Ed25519" }, false, ["sign"]);
-    const publicKey = jwk.x ?? "";
-    const raw = Uint8Array.from(atob(publicKey.replace(/-/g, "+").replace(/_/g, "/")), (c) =>
-      c.charCodeAt(0),
-    );
-    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", raw));
-    return {
-      deviceId: Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join(""),
-      publicKey,
-      sign: async (payload: string) =>
-        base64url(
-          new Uint8Array(
-            await crypto.subtle.sign({ name: "Ed25519" }, key, new TextEncoder().encode(payload)),
-          ),
-        ),
-    };
+    return openClawDeviceIdentity(key);
   })();
   return identity;
 }

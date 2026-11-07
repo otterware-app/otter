@@ -11,8 +11,12 @@ import {
 } from "./menu";
 import { useCapabilities } from "./capabilities";
 import { useLabels, useModifyThread } from "./hooks";
-import { buildLabelTree, type LabelTreeNode, isAssignableLabel } from "./label-tree";
-import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "./label-names";
+import {
+  buildLabelTree,
+  type LabelTreeNode,
+  isAssignableLabel,
+} from "@otter-mail/client-runtime/label-tree";
+import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "@otter-mail/client-runtime/label-names";
 import type { MailLabel } from "./types";
 
 type LabelChoicesParams = {

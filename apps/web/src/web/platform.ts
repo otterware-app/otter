@@ -7,6 +7,7 @@
 
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import type { AsyncContext, FileInfo, Platform, SqlDatabase, SqlValue } from "@otter-mail/core";
+import { KEEP_MAILBOX } from "@otter-mail/core";
 import { SENTRY_DSN, type LogLevel } from "@otter-mail/shared/error-reports";
 
 import { webGoogleAuth } from "./google";
@@ -141,12 +142,12 @@ export async function webPlatform(page: Page): Promise<Platform> {
     files,
     secrets: webSecrets(files),
     userFiles: {
-      open: async (name, bytes) => page.effect({ kind: "open", name, bytes }),
+      open: async (name, bytes) => page.effect({ _tag: "open", name, bytes }),
       save: async (name, bytes) => {
-        page.effect({ kind: "download", name, bytes });
+        page.effect({ _tag: "download", name, bytes });
         return true;
       },
-      pick: () => page.request("pickFiles", undefined),
+      pick: () => page.request("pickFiles", {}),
     },
 
     todoistSignIn: async (authorize) => {
@@ -166,13 +167,16 @@ export async function webPlatform(page: Page): Promise<Platform> {
     relaySession: "cookie",
 
     broadcast: page.broadcast,
-    notify: (notification) => page.effect({ kind: "notify", ...notification }),
-    setUnreadCount: (count) => page.effect({ kind: "badge", count }),
+    notify: (notification) => page.effect({ _tag: "notify", ...notification }),
+    setUnreadCount: (count) => page.effect({ _tag: "badge", count }),
     onResume: page.onResume,
     // Browsers have no AsyncLocalStorage: all Gmail work shares one quota tier,
     // which is fine without the offline body download.
     asyncContext: noContext,
-    offlineDownloads: false,
+    rawSockets: false,
+    crossOriginFetch: false,
+    notificationReturn: "web",
+    syncPolicy: { ...KEEP_MAILBOX, bodyPrefetch: false },
     translator: {
       detect: (text) => page.request("detectLanguage", { text }),
       translate: (texts, source, target) => page.request("translate", { texts, source, target }),

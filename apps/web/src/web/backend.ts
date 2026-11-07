@@ -11,9 +11,11 @@
  * from the hosting tab; the unread badge shows in every tab.
  */
 
-import { reportLog } from "@otter-mail/shared/error-reports";
+import { connectCore } from "@otter-mail/client-runtime/connection";
+import type { HostRequest } from "@otter-mail/contracts/rpc";
+import { reportLog, type ReportTags, type SerializedError } from "@otter-mail/shared/error-reports";
 
-import type { FromWorker, PageEffect, PageRequests, ToWorker } from "./protocol";
+import type { PageEffect, PageRequests } from "./protocol";
 
 export type PageHandlers = {
   onEvent(channel: string, params: unknown): void;
@@ -40,7 +42,7 @@ type TabMessage =
   | { type: "invoke"; tab: string; id: number; channel: string; params: unknown }
   | { type: "result"; tab: string; id: number; result?: unknown; error?: string }
   | { type: "event"; channel: string; params: unknown }
-  | { type: "request"; tab: string; id: number; kind: keyof PageRequests; params: unknown }
+  | { type: "request"; tab: string; id: number; request: HostRequest }
   | { type: "reply"; id: number; result?: unknown; error?: string }
   | { type: "effect"; tab: string; effect: PageEffect }
   | { type: "failed"; error: string }
@@ -85,9 +87,10 @@ export function connectBackend(page: PageHandlers) {
       case "event":
         page.onEvent(message.channel, message.params);
         break;
-      case "request":
+      case "request": {
         if (message.tab !== tab) return;
-        void page.onRequest(message.kind, message.params as never).then(
+        const { _tag: kind, ...params } = message.request;
+        void page.onRequest(kind as keyof PageRequests, params as never).then(
           (result) => send({ type: "reply", id: message.id, result }),
           (err: unknown) =>
             send({
@@ -97,6 +100,7 @@ export function connectBackend(page: PageHandlers) {
             }),
         );
         break;
+      }
       case "effect":
         if (message.tab === tab || message.tab === ALL_TABS) page.onEffect(message.effect);
         break;
@@ -132,11 +136,12 @@ export function connectBackend(page: PageHandlers) {
 
   function startHosting(): void {
     host = null;
-    const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
-    const post = (message: ToWorker) => worker.postMessage(message, []);
-    const invokes = new Map<number, { tab: string; id: number }>();
     const lastOrigin = new Map<string, string>();
-    let nextWorkerId = 1;
+    const replies = new Map<
+      number,
+      { resolve: (value: unknown) => void; reject: (error: Error) => void }
+    >();
+    let nextRequestId = 1;
 
     function deliver(message: TabMessage & { tab?: string }): void {
       if (message.tab === undefined || message.tab === tab || message.tab === ALL_TABS) {
@@ -148,76 +153,83 @@ export function connectBackend(page: PageHandlers) {
     const originOf = (kind: keyof typeof ORIGIN_CHANNELS) =>
       ORIGIN_CHANNELS[kind].map((c) => lastOrigin.get(c)).find(Boolean) ?? tab;
 
+    const core = connectCore(
+      () => {
+        const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
+        return {
+          post: (message) => worker.postMessage(message, []),
+          listen(listener) {
+            const onMessage = (event: MessageEvent) => listener(event.data);
+            worker.addEventListener("message", onMessage);
+            return () => worker.removeEventListener("message", onMessage);
+          },
+        };
+      },
+      {
+        onEvent: (channel, params) => deliver({ type: "event", channel, params, tab: ALL_TABS }),
+        onRequest: (request) =>
+          new Promise((resolve, reject) => {
+            const id = nextRequestId++;
+            replies.set(id, { resolve, reject });
+            const origin = originOf(request._tag as keyof PageRequests);
+            deliver({ type: "request", tab: origin, id, request });
+          }),
+        onEffect(effect) {
+          if (effect._tag === "report") {
+            const error = effect.error as SerializedError | undefined;
+            const tags = effect.tags as ReportTags | undefined;
+            reportLog(effect.level, effect.scope, effect.message, tags ? { error, tags } : error);
+            return;
+          }
+          const pageEffect = effect as PageEffect;
+          const target =
+            pageEffect._tag === "badge"
+              ? ALL_TABS
+              : pageEffect._tag === "notify"
+                ? tab
+                : originOf(pageEffect._tag);
+          deliver({ type: "effect", tab: target, effect: pageEffect });
+        },
+      },
+    );
+    core.ready().then(
+      () => {
+        toTabs({ type: "host", host: tab });
+        receive({ type: "host", host: tab });
+      },
+      (err: unknown) =>
+        deliver({
+          type: "failed",
+          error: err instanceof Error ? err.message : String(err),
+          tab: ALL_TABS,
+        }),
+    );
+
     hosting = (message) => {
       if (message.type === "invoke") {
-        const workerId = nextWorkerId++;
-        invokes.set(workerId, { tab: message.tab, id: message.id });
-        lastOrigin.set(message.channel, message.tab);
-        post({ type: "invoke", id: workerId, channel: message.channel, params: message.params });
+        const { tab: from, id } = message;
+        lastOrigin.set(message.channel, from);
+        core.invoke(message.channel, message.params).then(
+          (result) => deliver({ type: "result", tab: from, id, result }),
+          (err: unknown) =>
+            deliver({
+              type: "result",
+              tab: from,
+              id,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+        );
       } else if (message.type === "reply") {
-        post({ type: "reply", id: message.id, result: message.result, error: message.error });
+        const reply = replies.get(message.id);
+        replies.delete(message.id);
+        if (message.error !== undefined) reply?.reject(new Error(message.error));
+        else reply?.resolve(message.result);
       } else if (message.type === "resume") {
-        post({ type: "resume" });
+        core.resume();
       } else if (message.type === "hello" && host === tab) {
         toTabs({ type: "host", host: tab });
       }
     };
-
-    worker.addEventListener("message", (event: MessageEvent<FromWorker>) => {
-      const message = event.data;
-      switch (message.type) {
-        case "ready":
-          toTabs({ type: "host", host: tab });
-          receive({ type: "host", host: tab });
-          break;
-        case "failed":
-          deliver({ type: "failed", error: message.error, tab: ALL_TABS });
-          break;
-        case "result": {
-          const origin = invokes.get(message.id);
-          invokes.delete(message.id);
-          if (origin)
-            deliver({ type: "result", ...origin, result: message.result, error: message.error });
-          break;
-        }
-        case "event":
-          deliver({
-            type: "event",
-            channel: message.channel,
-            params: message.params,
-            tab: ALL_TABS,
-          });
-          break;
-        case "request":
-          deliver({
-            type: "request",
-            tab: originOf(message.kind),
-            id: message.id,
-            kind: message.kind,
-            params: message.params,
-          });
-          break;
-        case "effect": {
-          const { type: _type, ...effect } = message;
-          const target =
-            effect.kind === "badge"
-              ? ALL_TABS
-              : effect.kind === "notify"
-                ? tab
-                : originOf(effect.kind);
-          deliver({ type: "effect", tab: target, effect });
-          break;
-        }
-        case "report":
-          reportLog(
-            message.level,
-            message.scope,
-            message.message,
-            message.tags ? { error: message.error, tags: message.tags } : message.error,
-          );
-          break;
-      }
-    });
   }
 
   const resetDemo = __DEMO__ && new URLSearchParams(location.search).has("reset-demo");

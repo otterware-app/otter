@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import type { MailAccount, MessageSummary } from "./types";
 import { capabilitiesOf } from "./capabilities";
-import { senderLabel } from "./address";
+import { senderLabel } from "@otter-mail/client-runtime/address";
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -1,34 +1,36 @@
 /// <reference lib="webworker" />
 
 import { parseDemoMailboxes } from "@otter-mail/contracts/demo";
-import { addDemoMailboxes, callHandler, startCore, type Platform } from "@otter-mail/core";
+import { addDemoMailboxes, serveCore, startCore, type Platform } from "@otter-mail/core";
 import { serializeError, type ReportTags } from "@otter-mail/shared/error-reports";
 
 import { webExtensions } from "./extensions";
 import { webPlatform, type Page } from "./platform";
-import type { FromWorker, PageRequests, ToWorker } from "./protocol";
 
 declare const self: DedicatedWorkerGlobalScope;
 
-const post = (message: FromWorker) => self.postMessage(message, []);
-
-let nextRequestId = 1;
-const pending = new Map<
-  number,
-  { resolve: (value: unknown) => void; reject: (error: Error) => void }
->();
 const resumeListeners = new Set<() => void>();
+const resume = () => {
+  for (const listener of resumeListeners) listener();
+};
+
+let ready: Promise<void> = new Promise(() => {});
+const host = serveCore(
+  {
+    post: (message) => self.postMessage(message, []),
+    listen(listener) {
+      const onMessage = (event: MessageEvent) => listener(event.data);
+      self.addEventListener("message", onMessage);
+      return () => self.removeEventListener("message", onMessage);
+    },
+  },
+  { ready: () => ready, onResume: resume },
+);
 
 const page: Page = {
-  request<K extends keyof PageRequests>(kind: K, params: PageRequests[K]["params"]) {
-    const id = nextRequestId++;
-    post({ type: "request", id, kind, params });
-    return new Promise<PageRequests[K]["result"]>((resolve, reject) => {
-      pending.set(id, { resolve: resolve as (value: unknown) => void, reject });
-    });
-  },
-  effect: (effect) => post({ type: "effect", ...effect }),
-  broadcast: (channel, params) => post({ type: "event", channel, params }),
+  request: (kind, params) => host.request(kind, params),
+  effect: (effect) => host.effect(effect),
+  broadcast: (channel, params) => host.broadcast(channel, params),
   onResume(listener) {
     resumeListeners.add(listener);
     return () => resumeListeners.delete(listener);
@@ -38,7 +40,7 @@ const page: Page = {
     const wrapped = data as { error?: unknown; tags?: ReportTags } | null;
     const error = data instanceof Error ? data : wrapped?.error;
     const tags = data instanceof Error ? undefined : wrapped?.tags;
-    post({ type: "report", level, scope, message, error: serializeError(error), tags });
+    host.effect({ _tag: "report", level, scope, message, error: serializeError(error), tags });
   },
 };
 
@@ -48,10 +50,6 @@ self.addEventListener("error", (event) =>
 self.addEventListener("unhandledrejection", (event) =>
   page.report("error", "backend", "Unhandled rejection", event.reason),
 );
-
-async function invoke(id: number, channel: string, params: unknown): Promise<void> {
-  post({ type: "result", id, ...(await callHandler(channel, params)) });
-}
 
 /**
  * `pnpm dev:demo`: this browser is signed in to the demo's Otter account (its
@@ -76,32 +74,9 @@ async function startDemo(platform: Platform): Promise<void> {
   await addDemoMailboxes(json).catch((err: unknown) => console.error("Demo mailboxes:", err));
 }
 
-const ready = webPlatform(page).then(
+ready = webPlatform(page).then(
   __DEV_DEMO__ ? startDemo : (platform) => startCore(platform, webExtensions),
 );
+ready.catch((err: unknown) => page.report("error", "backend", "Core failed to start", err));
 
-self.addEventListener("message", (event: MessageEvent<ToWorker>) => {
-  const message = event.data;
-  if (message.type === "invoke") {
-    void ready.then(() => invoke(message.id, message.channel, message.params));
-  } else if (message.type === "reply") {
-    const request = pending.get(message.id);
-    pending.delete(message.id);
-    if (message.error !== undefined) request?.reject(new Error(message.error));
-    else request?.resolve(message.result);
-  } else if (message.type === "resume") {
-    for (const listener of resumeListeners) listener();
-  }
-});
-
-self.addEventListener("online", () => {
-  for (const listener of resumeListeners) listener();
-});
-
-ready.then(
-  () => post({ type: "ready" }),
-  (err: unknown) => {
-    page.report("error", "backend", "Core failed to start", err);
-    post({ type: "failed", error: err instanceof Error ? err.message : String(err) });
-  },
-);
+self.addEventListener("online", resume);

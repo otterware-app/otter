@@ -71,19 +71,28 @@ import { SenderAvatar } from "./sender-avatar";
 import { SignedOutMailbox } from "./signed-out-mailbox";
 import { LabelOverlay, type LabelOverlayMode } from "./label-overlay";
 import { useCapabilities } from "./capabilities";
-import { archiveFrom } from "./archive";
+import { archiveFrom } from "@otter-mail/client-runtime/operations";
 import { moveToFolder, renderLabelChoices, useLabelChoices } from "./label-picker-menu";
 import { isTypingTarget } from "./keyboard";
 import { useCommandHandlers } from "../keybindings/dispatch";
 import { SEARCH_HINT, SearchHeader } from "./search-header";
 import { labelSearchToken, viewSearchQuery } from "./gmail-query";
 import { getAccountColor, getAccountDisplayName } from "./account-style";
-import { ALL_MAIL_LABEL_ID, SYSTEM_LABEL_NAMES, folderName, labelDisplayName } from "./label-names";
+import {
+  ALL_MAIL_LABEL_ID,
+  SYSTEM_LABEL_NAMES,
+  folderName,
+  labelDisplayName,
+} from "@otter-mail/client-runtime/label-names";
 import { decodeEntities } from "./text";
-import { parseAddressEntry, senderLabel, splitAddressList } from "./address";
+import {
+  parseAddressEntry,
+  senderLabel,
+  splitAddressList,
+} from "@otter-mail/client-runtime/address";
 import type { MailAccount, MailLabel, MessageSummary, ViewRule } from "./types";
 import { pickAdvanceTarget } from "./advance-direction";
-import { beginUndoGroup, clearUndo } from "./undo";
+import { beginUndoGroup, clearUndo } from "@otter-mail/client-runtime/operations";
 import { isMoveSourceLabel, setThreadDragImage, writeThreadDrag } from "./thread-drag";
 import { isModClick } from "../keybindings/keys";
 

@@ -15,7 +15,6 @@ import { providerFor } from "../providers/index.js";
 import { getStoredDraftRevision } from "./mail-store.js";
 
 const DIR = "attachment-cache";
-const MAX_CACHE_BYTES = 512 * 1024 * 1024;
 
 async function pathFor(accountId: string, messageId: string, attachmentId: string) {
   let revision: string | null = null;
@@ -105,11 +104,12 @@ export async function saveAttachment(
 export async function pruneAttachmentCache(): Promise<void> {
   try {
     const files = await platform().files.list(DIR);
+    const keep = platform().syncPolicy.retentionBytes;
     let total = files.reduce((sum, f) => sum + f.size, 0);
-    if (total <= MAX_CACHE_BYTES) return;
+    if (total <= keep) return;
     files.sort((a, b) => a.modifiedAt - b.modifiedAt);
     for (const f of files) {
-      if (total <= MAX_CACHE_BYTES) break;
+      if (total <= keep) break;
       await platform()
         .files.remove(`${DIR}/${f.name}`)
         .catch(() => {});
