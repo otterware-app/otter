@@ -9,7 +9,7 @@ type NativeProps = {
   placeholder: string;
   style?: StyleProp<ViewStyle>;
   onReady?: () => void;
-  onChange?: (event: { nativeEvent: ComposerChange }) => void;
+  onEdit?: (event: { nativeEvent: ComposerChange }) => void;
   onFocusChange?: (event: { nativeEvent: { focused: boolean } }) => void;
 };
 
@@ -60,7 +60,7 @@ export const ComposerEditor = forwardRef<
       placeholder={placeholder}
       style={style}
       onReady={onReady}
-      onChange={(e) => onChange(e.nativeEvent)}
+      onEdit={(e) => onChange(e.nativeEvent)}
       onFocusChange={(e) => onFocusChange?.(e.nativeEvent.focused)}
     />
   );

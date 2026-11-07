@@ -5,7 +5,7 @@ public final class OtterComposerModule: Module {
     Name("OtterComposer")
 
     View(OtterComposerView.self) {
-      Events("onReady", "onChange", "onFocusChange")
+      Events("onReady", "onEdit", "onFocusChange")
 
       Prop("placeholder") { (view: OtterComposerView, text: String) in
         view.setPlaceholder(text)

@@ -9,7 +9,7 @@ import WebKit
  */
 public final class OtterComposerView: ExpoView, WKScriptMessageHandler, WKNavigationDelegate {
   let onReady = EventDispatcher()
-  let onChange = EventDispatcher()
+  let onEdit = EventDispatcher()
   let onFocusChange = EventDispatcher()
 
   private let webView: WKWebView
@@ -104,7 +104,7 @@ public final class OtterComposerView: ExpoView, WKScriptMessageHandler, WKNaviga
       pending = []
       onReady([:])
     case "change":
-      onChange([
+      onEdit([
         "html": body["html"] as? String ?? "",
         "text": body["text"] as? String ?? "",
         "blank": body["blank"] as? Bool ?? true,
