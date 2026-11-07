@@ -2,11 +2,13 @@ import { OTTER_ACCOUNT_STATE_CHANNEL, type OtterAccountState } from "@otter-mail
 import { Atom } from "effect/reactivity";
 import { DevSettings } from "react-native";
 
+import { legacyDefaults } from "@otter-mail/mobile-background";
 import { createWorkerHost } from "@otter-mail/mobile-worker";
 
 import { appAtomRegistry, clientPlatform, mailboxes } from "./client";
 import { core, fakeMailbox } from "./core";
 import { DEMO_FILE } from "./demo";
+import { importSwiftNotificationsMode } from "./swift-preferences";
 
 /**
  * The Swift app's Session: who you are (the Otter account) or the demo mailbox,
@@ -47,6 +49,16 @@ function take(state: OtterAccountState): void {
   appAtomRegistry.set(otterUserAtom, state.user);
   appAtomRegistry.set(realtimeAtom, state.realtime);
   clientPlatform.storage.setItem(CACHE_KEY, JSON.stringify(state.user));
+  if (state.user) {
+    void importSwiftNotificationsMode({
+      storage: clientPlatform.storage,
+      email: state.user.email,
+      read: legacyDefaults,
+      invoke: (channel, params) => core.invoke(channel, params),
+    }).catch((error: unknown) =>
+      console.log(`[account] Swift notifications mode not kept yet: ${String(error)}`),
+    );
+  }
 }
 
 let started = false;

@@ -33,6 +33,6 @@ export function onBackgroundRefresh(run: (signal: AbortSignal) => Promise<boolea
 
 export const scheduleBackgroundRefresh = () => native.schedule();
 
-/** The Swift app's UserDefaults values stored as JSON data, by key (those present). */
+/** The Swift app's UserDefaults values stored as JSON data or strings, by key (those present). */
 export const legacyDefaults = (keys: string[]): Record<string, string> =>
   native.legacyDefaults(keys);
