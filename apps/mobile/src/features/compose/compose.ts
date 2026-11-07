@@ -1,3 +1,4 @@
+import { decodeEntities } from "@otter-mail/client-runtime/text";
 import type { MessageDetail } from "../../state/mail";
 import { splitAddresses } from "../thread/reader";
 
@@ -16,7 +17,7 @@ export const prefixed = (prefix: string, subject: string) =>
 export function quoted(message: MessageDetail, intro: string): string {
   // Inline images stay with the original; the quote can't show them.
   const html = message.bodyHtml?.replace(/<img[^>]+src\s*=\s*["']?cid:[^>]*>/gi, "");
-  const body = html ?? plainHtml(message.bodyText ?? message.snippet);
+  const body = html ?? plainHtml(message.bodyText ?? decodeEntities(message.snippet));
   return `<p><br></p>${plainHtml(intro)}<blockquote>${body}</blockquote>`;
 }
 

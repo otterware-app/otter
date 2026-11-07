@@ -1,3 +1,4 @@
+import { decodeEntities } from "@otter-mail/client-runtime/text";
 import { HtmlView } from "@otter-mail/mobile-html-view";
 import { files } from "@otter-mail/mobile-files";
 import { translation } from "@otter-mail/mobile-translation";
@@ -95,7 +96,8 @@ export function MessageView({
   const [showOriginal, setShowOriginal] = useState(false);
   const [opening, setOpening] = useState<string | null>(null);
   const draft = message.labelIds.includes("DRAFT");
-  const plain = (message.bodyText ?? message.snippet ?? "").trim();
+  const snippet = decodeEntities(message.snippet ?? "");
+  const plain = (message.bodyText ?? snippet).trim();
   const text = message.bodyHtml ? htmlText(message.bodyHtml) : plain;
   const fromMe = mine.has(message.fromEmail.toLowerCase());
   const { autoTranslate, readLanguages } = translationSettings;
@@ -181,14 +183,14 @@ export function MessageView({
             </Text>
           </View>
           <Text style={[styles.sub, { color: colors.secondary }]} numberOfLines={1}>
-            {open ? recipientsLine(message.to, message.cc, mine) : message.snippet}
+            {open ? recipientsLine(message.to, message.cc, mine) : snippet}
           </Text>
         </View>
       </Pressable>
       {open && loading ? (
         <View style={[styles.pending, { marginHorizontal: inset }]}>
           <Text style={[styles.snippet, { color: colors.secondary }]} numberOfLines={3}>
-            {loading.failed ? "Couldn't load this message." : message.snippet}
+            {loading.failed ? "Couldn't load this message." : snippet}
           </Text>
           {loading.failed ? (
             <Pressable
