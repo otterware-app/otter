@@ -7,15 +7,17 @@ export const ATTACHMENT_LIMIT = 25 * 1024 * 1024;
 export const escapeHtml = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+/** Plain text as the editor's HTML: escaped, its lines kept. */
+export const plainHtml = (text: string) => `<p>${escapeHtml(text).replace(/\n/g, "<br>")}</p>`;
+
 export const prefixed = (prefix: string, subject: string) =>
   new RegExp(`^${prefix}:`, "i").test(subject) ? subject : `${prefix}: ${subject}`;
 
 export function quoted(message: MessageDetail, intro: string): string {
   // Inline images stay with the original; the quote can't show them.
   const html = message.bodyHtml?.replace(/<img[^>]+src\s*=\s*["']?cid:[^>]*>/gi, "");
-  const body =
-    html ?? `<p>${escapeHtml(message.bodyText ?? message.snippet).replace(/\n/g, "<br>")}</p>`;
-  return `<p><br></p><p>${escapeHtml(intro).replace(/\n/g, "<br>")}</p><blockquote>${body}</blockquote>`;
+  const body = html ?? plainHtml(message.bodyText ?? message.snippet);
+  return `<p><br></p>${plainHtml(intro)}<blockquote>${body}</blockquote>`;
 }
 
 export const emailOf = (entry: string) => (/<([^>]+)>/.exec(entry)?.[1] ?? entry).trim();

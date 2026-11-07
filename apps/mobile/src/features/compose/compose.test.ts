@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { prefixed, replyRecipients, senders, signatureFor, validRecipient } from "./compose";
+import {
+  plainHtml,
+  prefixed,
+  replyRecipients,
+  senders,
+  signatureFor,
+  validRecipient,
+} from "./compose";
 
 const message = {
   fromName: "Ana",
@@ -78,5 +85,13 @@ describe("prefixed", () => {
     expect(prefixed("Re", "Lunch")).toBe("Re: Lunch");
     expect(prefixed("Re", "RE: Lunch")).toBe("RE: Lunch");
     expect(prefixed("Fwd", "Lunch")).toBe("Fwd: Lunch");
+  });
+});
+
+describe("plainHtml", () => {
+  it("keeps angle brackets and entities as text, and its lines", () => {
+    expect(plainHtml("Use <customer> here\n&copy; 2026")).toBe(
+      "<p>Use &lt;customer&gt; here<br>&amp;copy; 2026</p>",
+    );
   });
 });
