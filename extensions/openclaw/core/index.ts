@@ -13,7 +13,7 @@ import {
 
 import { manifest } from "../manifest.ts";
 import {
-  allowOpenClawQuestions,
+  allowOpenClawFullAccess,
   normalizeOpenClawUrl,
   openClawProvider,
   parseOpenClawSetupCode,
@@ -65,8 +65,8 @@ export default {
       if (!url || !token) throw new Error("Paste a setup code, or the gateway address and token.");
       return connect({ url, token });
     });
-    handle("agent:allowOpenClawQuestions", async () => {
-      await allowOpenClawQuestions((await agentSettings("openclaw")) as OpenClawSettings, () => {
+    handle("agent:allowOpenClawFullAccess", async () => {
+      await allowOpenClawFullAccess((await agentSettings("openclaw")) as OpenClawSettings, () => {
         void refreshProvider("openclaw");
       });
       return providersState();

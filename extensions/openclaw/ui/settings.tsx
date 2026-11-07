@@ -47,11 +47,11 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
   const {
     url: savedUrl,
     pairingRequest: openclawPairingRequest,
-    questions: openclawQuestions,
+    fullAccess: openclawFullAccess,
   } = provider.settings as ProviderSnapshot["settings"] & {
     url: string;
     pairingRequest: string | null;
-    questions: { allowed: boolean | null; request: string | null };
+    fullAccess: { allowed: boolean | null; request: string | null };
   };
   const [asking, setAsking] = useState(false);
   const connected = provider.status === "ready";
@@ -64,10 +64,10 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
     return () => clearInterval(timer);
   }, [openclawPairingRequest]);
 
-  const allowQuestions = async () => {
+  const allowFullAccess = async () => {
     setAsking(true);
     try {
-      setState(await openClawApi.agentAllowOpenClawQuestions());
+      setState(await openClawApi.agentAllowOpenClawFullAccess());
     } catch (error) {
       toast.error(
         `Could not ask the gateway: ${error instanceof Error ? error.message : String(error)}`,
@@ -220,24 +220,24 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
             <Command value={`openclaw devices approve ${openclawPairingRequest}`} />
           </SettingsRow>
         ) : null}
-        {connected && openclawQuestions.allowed === false ? (
+        {connected && openclawFullAccess.allowed === false ? (
           <SettingsRow
-            title="Answer its questions"
+            title="Full access"
             description={
-              openclawQuestions.request
-                ? "The gateway is waiting for you to approve it. Run this on its computer; its questions show up in the chat once you do."
-                : `OpenClaw sometimes stops to ask you something. This ${device} was paired before it could answer; allowing it asks the gateway for that, and you approve it there.`
+              openclawFullAccess.request
+                ? "The gateway is waiting for you to approve it. Run this on its computer; Otter Mail reconnects with full access once you do."
+                : `This ${device} was paired with less than OpenClaw's own apps have, so the agent won't use your devices (its nodes tool) for what you ask here, and its questions may not reach you. Allowing it asks the gateway for full access, and you approve it there.`
             }
             control={
-              openclawQuestions.request ? null : (
-                <Btn size="sm" disabled={asking} onClick={() => void allowQuestions()}>
+              openclawFullAccess.request ? null : (
+                <Btn size="sm" disabled={asking} onClick={() => void allowFullAccess()}>
                   {asking ? "Asking…" : "Allow"}
                 </Btn>
               )
             }
           >
-            {openclawQuestions.request ? (
-              <Command value={`openclaw devices approve ${openclawQuestions.request}`} />
+            {openclawFullAccess.request ? (
+              <Command value={`openclaw devices approve ${openclawFullAccess.request}`} />
             ) : null}
           </SettingsRow>
         ) : null}

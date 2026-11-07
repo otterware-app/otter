@@ -86,13 +86,15 @@ final class OpenClaw {
     static let scopesName = "openclaw-device-scopes"
 
     /**
-     * What this iPhone asks for. Answering the agent's questions came later:
-     * an iPhone paired without it signs in with the scopes it has and asks for
-     * it separately (`allowQuestions`), as the gateway refuses a paired device
-     * that just asks for more.
+     * What this iPhone asks for: what OpenClaw's own apps hold. The gateway counts
+     * a chat's turns as the owner's (its `nodes` tool, its own settings) only from a
+     * device with `operator.admin`. An iPhone paired with fewer signs in with the
+     * scopes it has and asks for the rest separately (`allowFullAccess`), as the
+     * gateway refuses a paired device that just asks for more.
      */
-    private static let questionsScope = "operator.questions"
-    private static let scopes = ["operator.read", "operator.write", "operator.approvals", questionsScope]
+    private static let scopes = [
+        "operator.read", "operator.write", "operator.approvals", "operator.questions", "operator.admin", "operator.pairing",
+    ]
     private static let connectTimeout: TimeInterval = 8
     /** How long a run may go quiet before asking the gateway whether it's still going. */
     private static let quietSeconds: TimeInterval = 60
@@ -153,7 +155,7 @@ final class OpenClaw {
 
     private(set) var pairingRequest: String?
     private(set) var granted: [String] = []
-    var questionsAllowed: Bool { granted.contains(Self.questionsScope) }
+    var fullAccess: Bool { Self.scopes.allSatisfy(granted.contains) }
     private var steers: [String: Set<String>] = [:]
 
     private var socket: URLSessionWebSocketTask?
@@ -401,9 +403,9 @@ final class OpenClaw {
         try await request("question.resolve", answers.map { ["id": question, "answers": ["answers": $0]] } ?? ["id": question, "cancel": true])
     }
 
-    func allowQuestions(pending: (String) -> Void) async throws -> Bool {
+    func allowFullAccess(pending: (String) -> Void) async throws -> Bool {
         try await connected()
-        if questionsAllowed { return true }
+        if fullAccess { return true }
         let registered = try await request("device.scopes.requestUpgrade", ["scopes": Array(Set(granted + Self.scopes)).sorted()]) as? [String: Any]
         guard let id = registered?["requestId"] as? String else { throw Failure(code: nil, message: "The gateway didn't take the request.") }
         pending(id)

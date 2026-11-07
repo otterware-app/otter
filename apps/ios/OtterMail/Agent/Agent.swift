@@ -345,8 +345,8 @@ final class Agent {
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var gateway: OpenClaw?
     private(set) var openClawPairing: String?
-    private(set) var openClawQuestions: Bool?
-    private(set) var openClawQuestionsRequest: String?
+    private(set) var openClawFullAccess: Bool?
+    private(set) var openClawFullAccessRequest: String?
     @ObservationIgnored private var openRun: OpenRun? {
         didSet {
             guard openRun != oldValue else { return }
@@ -708,8 +708,8 @@ extension Agent {
         gateway?.disconnect()
         gateway = nil
         openClawPairing = nil
-        openClawQuestions = nil
-        openClawQuestionsRequest = nil
+        openClawFullAccess = nil
+        openClawFullAccessRequest = nil
         openRun = nil
         Keychain.set(OpenClaw.deviceTokenName, nil)
         Keychain.set(OpenClaw.scopesName, nil)
@@ -729,7 +729,7 @@ extension Agent {
                 Hermes.Model(slug: $0.id, name: $0.name, isDefault: $0.isDefault, reasoning: false, canDisableReasoning: false, fast: false)
             }
             openClawPairing = nil
-            openClawQuestions = gateway.questionsAllowed
+            openClawFullAccess = gateway.fullAccess
             status = .ready
             await resumeOpenClaw()
         } catch {
@@ -845,14 +845,14 @@ extension Agent {
         }
     }
 
-    func allowOpenClawQuestions() async {
+    func allowOpenClawFullAccess() async {
         guard let gateway = openClawClient else { return }
         do {
-            let allowed = try await gateway.allowQuestions { self.openClawQuestionsRequest = $0 }
-            openClawQuestionsRequest = nil
+            let allowed = try await gateway.allowFullAccess { self.openClawFullAccessRequest = $0 }
+            openClawFullAccessRequest = nil
             if allowed { await check() }
         } catch {
-            openClawQuestionsRequest = nil
+            openClawFullAccessRequest = nil
             status = .failed(Self.openClawProblem(error))
         }
     }

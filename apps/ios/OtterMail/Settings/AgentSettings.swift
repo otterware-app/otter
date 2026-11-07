@@ -156,19 +156,18 @@ struct AgentSettings: View {
                             ForEach(agent.models) { Text($0.name).tag($0.slug) }
                         }
                     }
-                    // Paired before OpenClaw could ask it things: one more permission, approved on the gateway.
-                    if agent.openClawQuestions == false {
-                        if let request = agent.openClawQuestionsRequest {
+                                        if agent.openClawFullAccess == false {
+                        if let request = agent.openClawFullAccessRequest {
                             let command = "openclaw devices approve \(request)"
                             VStack(alignment: .leading, spacing: 6) {
-                                Text("Approve answering its questions on the gateway:")
+                                Text("Approve full access on the gateway:")
                                 Text(command).font(.footnote.monospaced()).foregroundStyle(palette.muted).textSelection(.enabled)
                             }
                             Button("Copy the command") { UIPasteboard.general.string = command }
                         } else {
                             VStack(alignment: .leading, spacing: 4) {
-                                Button("Allow answering its questions") { Task { await agent.allowOpenClawQuestions() } }
-                                Text("OpenClaw sometimes stops to ask you something. This iPhone was paired before it could answer.")
+                                Button("Allow full access") { Task { await agent.allowOpenClawFullAccess() } }
+                                Text("This iPhone was paired with less than OpenClaw's own apps have, so the agent won't use your devices for what you ask here, and its questions may not reach you.")
                                     .font(.inter(.footnote)).foregroundStyle(palette.muted)
                             }
                         }
