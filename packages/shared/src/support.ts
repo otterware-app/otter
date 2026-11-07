@@ -65,7 +65,7 @@ export type SupportDiagnostics = {
   schemaVersion: 1;
   generatedAt: string;
   version: string;
-  platform: "desktop" | "web";
+  platform: "desktop" | "web" | "ios";
   environment: string;
   syncIntervalSeconds: number | null;
   reportId?: string | null;

@@ -150,6 +150,8 @@ type GmailFetchInit = {
   method?: string;
   body?: string;
   headers?: Record<string, string>;
+  /** A read the user is waiting on: it goes ahead in the quota (quota.ts). */
+  urgent?: boolean;
 };
 
 async function gmailFetch(
@@ -159,16 +161,17 @@ async function gmailFetch(
   retryCount = 0,
   attempt: { tokenRefreshed?: boolean; transientRetries?: number } = {},
 ): Promise<unknown> {
-  await acquireQuota(accountId, quotaCost(init.method ?? "GET", path));
+  const { urgent, ...request } = init;
+  await acquireQuota(accountId, quotaCost(request.method ?? "GET", path), urgent);
   const token = await platform().google.getAccessToken(accountId);
   const background = isBackgroundWork();
 
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${path}`, {
-      ...init,
+      ...request,
       headers: {
-        ...init.headers,
+        ...request.headers,
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
@@ -649,9 +652,15 @@ interface RawMessageFull extends RawMessageMetadata {
   };
 }
 
-export async function getMessage(accountId: string, messageId: string): Promise<MessageDetail> {
+export async function getMessage(
+  accountId: string,
+  messageId: string,
+  urgent = false,
+): Promise<MessageDetail> {
   return detailOf(
-    (await gmailFetch(accountId, `/messages/${messageId}?format=full`)) as RawMessageFull,
+    (await gmailFetch(accountId, `/messages/${messageId}?format=full`, {
+      urgent,
+    })) as RawMessageFull,
   );
 }
 
@@ -1002,11 +1011,11 @@ export async function fetchAttachment(
   accountId: string,
   messageId: string,
   attachmentId: string,
+  urgent = false,
 ): Promise<Uint8Array> {
-  const data = (await gmailFetch(
-    accountId,
-    `/messages/${messageId}/attachments/${attachmentId}`,
-  )) as { data?: string; size?: number };
+  const data = (await gmailFetch(accountId, `/messages/${messageId}/attachments/${attachmentId}`, {
+    urgent,
+  })) as { data?: string; size?: number };
 
   if (!data.data) {
     throw new Error(`Attachment ${attachmentId} returned no data.`);

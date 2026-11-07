@@ -41,7 +41,8 @@ export function runsOn(manifest: ExtensionManifest, platform: AppPlatform): bool
 /**
  * An extension package's halves, by export. `./core` runs in core (every app),
  * `./ui` in the renderer, `./desktop` in the desktop app's backend in place of
- * `./core`, and `./mobile` is its screens on the phone (none has one yet).
+ * `./core`, and `./mobile` is what it shows on the phone (the Expo app's
+ * reader cards, through @otter-mail/mobile/extension-kit).
  */
 export type ExtensionEntry = "./core" | "./ui" | "./desktop" | "./mobile";
 

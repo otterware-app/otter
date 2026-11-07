@@ -1,0 +1,12 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": ["ottersqlite"],
+  "ios": { "iosModuleName": "OtterSqlite" },
+  "android": { "androidNamespace": ["ottersqlite"], "androidCxxLibName": "OtterSqlite" },
+  "autolinking": {
+    "SqliteDatabase": {
+      "ios": { "language": "c++", "implementationClassName": "HybridSqliteDatabase" }
+    }
+  },
+  "ignorePaths": ["node_modules"]
+}

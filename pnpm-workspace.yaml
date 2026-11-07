@@ -1,5 +1,6 @@
 packages:
   - apps/*
+  - apps/mobile/modules/*
   - packages/*
   - extensions/*
   - site
@@ -15,9 +16,11 @@ allowBuilds:
 catalog:
   "@effect/atom-react": 4.1.2
   "@effect/vitest": 4.1.2
+  "@legendapp/list": 3.3.5
   "@noble/curves": 1.9.1
   "@noble/hashes": 1.8.0
   "@types/node": 24.12.4
+  "@types/react": ~19.3.0
   "@tailwindcss/vite": 4.3.3
   effect: 4.1.2
   tailwindcss: 4.3.3
@@ -29,6 +32,7 @@ minimumReleaseAgeExclude:
   - "@effect/atom-react@4.1.2"
   - "@effect/vitest@4.1.2"
   - effect@4.1.2
+  - expo-modules-core@58.0.22
   - "@cloudflare/workerd-darwin-64@1.20260925.1"
   - "@cloudflare/workerd-darwin-arm64@1.20260925.1"
   - "@cloudflare/workerd-linux-64@1.20260925.1"
@@ -41,6 +45,11 @@ minimumReleaseAgeExclude:
 overrides:
   "@effect/vitest>vitest": "-"
   effect: "catalog:"
+  # As Otter Code's apps/mobile: Expo's precompiled ExpoModulesCore newer than
+  # 58.0.22 links React symbols React Native 0.88.0 doesn't have (dyld fails at launch).
+  expo-modules-core: 58.0.22
+  # Move with @react-navigation/native: an older core than it requires crashes native stacks at launch.
+  "@react-navigation/core": 7.24.0
 
 # Our patch makes @effect/vitest import vite-plus/test, as Otter Code's does.
 packageExtensions:

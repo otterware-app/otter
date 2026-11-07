@@ -1,0 +1,12 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": ["ottercredentials"],
+  "ios": { "iosModuleName": "OtterCredentials" },
+  "android": { "androidNamespace": ["ottercredentials"], "androidCxxLibName": "OtterCredentials" },
+  "autolinking": {
+    "Credentials": {
+      "ios": { "language": "swift", "implementationClassName": "HybridCredentials" }
+    }
+  },
+  "ignorePaths": ["node_modules"]
+}

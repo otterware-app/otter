@@ -56,6 +56,10 @@ when a feature lands or goes.
   through the relay (mailboxes, preferences under the same keys, live events). `Resources/` holds
   the themes and demo mailbox, exported from `packages/shared` by `pnpm ios:resources`. See its
   README.
+- `apps/mobile`: the Expo app replacing `apps/ios` (phase 0), laid out like Otter Code's
+  `apps/mobile`: `packages/core` itself runs on the phone, on a worklets worker runtime in Bundle
+  Mode, its I/O through the Nitro modules in `modules/` (SQLite, mail sockets, URLSession,
+  the Keychain); the UI reaches it through the `CoreHost` Effect service. See its README.
 - `extensions/`: the built-in extensions, a package each (VS Code's model; contracts'
   `src/extensions.ts`): Sign-in codes, Calendar invites, Translation, Todoist, Otter Drive, and
   the agents (`openrouter`, the Otter Mail agent; `hermes`, `openclaw`, `claude`, `codex`). Each
@@ -65,7 +69,7 @@ when a feature lands or goes.
   Settings lists them by manifest `category` in Agents, Connections (services you sign in to,
   beside the mailboxes: Todoist, Otter Drive), Integrations (hidden while empty) and Features, each with a
   page) and
-  `./desktop` (Claude, Codex), and `./mobile` for the phone's screens (none yet; contracts' `ExtensionEntry`). A workspace (Otter Drive's Drive) is declared in the manifest's
+  `./desktop` (Claude, Codex), and `./mobile` for the Expo app (Sign-in codes' and Calendar invites' reader cards, through `@otter-mail/mobile/extension-kit`). A workspace (Otter Drive's Drive) is declared in the manifest's
   `contributes.workspaces` (VS Code's view containers: known without running it) and drawn by the
   `./ui` half: a mode beside Mail, Calendar and Agent at `/<id>/<location>/<item>`, with its own
   sidebar and main area (`extensions/workspaces.ts`). The manifest's `platforms` (mac, linux, web, ios; absent: all but ios, which an extension names to opt in) says where one runs, and each

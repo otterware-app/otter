@@ -71,4 +71,30 @@ describe("Gmail quota", () => {
     reportQuotaExceeded(account, 0);
     expect(budgetOf(account)).toBe(2700);
   });
+
+  it("serves a user's read ahead of a window fill where nothing marks the fill as background", async () => {
+    // The phone and the web have no async context, so a fill's fetches look like foreground ones.
+    vi.useFakeTimers({ now: new Date("2026-09-29T12:00:00Z") });
+    setPlatform({
+      asyncContext: () => ({
+        run: (_value: unknown, fn: () => unknown) => fn(),
+        get: () => undefined,
+      }),
+    } as unknown as Platform);
+    const account = "fill@gmail.test";
+    await acquireQuota(account, 600);
+    const window = { filling: true };
+    const fill = Array.from({ length: 6 }, async () => {
+      while (window.filling) await acquireQuota(account, 20);
+    });
+    const asked = Date.now();
+    let served = 0;
+    void acquireQuota(account, 50, true).then(() => (served = Date.now()));
+    await vi.advanceTimersByTimeAsync(60_000);
+    window.filling = false;
+    await vi.advanceTimersByTimeAsync(5_000);
+    await Promise.all(fill);
+    expect(served).toBeGreaterThan(0);
+    expect(served - asked).toBeLessThan(1_500);
+  });
 });

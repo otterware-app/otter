@@ -28,6 +28,12 @@
     "name": "Otter Mail agent",
     "description": "Otter Mail's own agent, run for your Otter account through OpenRouter.",
     "category": "agent",
+    "platforms": [
+      "mac",
+      "linux",
+      "web",
+      "ios"
+    ],
     "dataUse": "Your messages, and the mail and calendar data its tools read, go to Otter Mail's server, OpenRouter and the model's provider. Chats are kept with your Otter account."
   }
 }

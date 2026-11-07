@@ -119,7 +119,7 @@ export type NotificationReturn = "web" | "desktop" | "native";
 
 export interface Platform {
   /** A label for support reports only: behaviour follows the capabilities below. */
-  kind: "desktop" | "web";
+  kind: "desktop" | "web" | "ios";
   appVersion: string;
   errorReports?: boolean;
   supportDiagnostics?(): Promise<{ environment: string; errors?: SupportError[] }>;

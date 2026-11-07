@@ -1,0 +1,14 @@
+{
+  "extends": "expo/tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "noImplicitOverride": true,
+    "skipLibCheck": true,
+    "types": [],
+    "paths": {
+      "@otter-mail/mobile/extension-kit": ["./src/extensions/kit.ts"]
+    }
+  },
+  "include": ["index.ts", "app.config.ts", "src", "modules/*/src", "../../extensions/*/mobile"]
+}

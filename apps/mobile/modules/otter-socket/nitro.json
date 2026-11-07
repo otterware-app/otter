@@ -1,0 +1,10 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": ["ottersocket"],
+  "ios": { "iosModuleName": "OtterSocket" },
+  "android": { "androidNamespace": ["ottersocket"], "androidCxxLibName": "OtterSocket" },
+  "autolinking": {
+    "MailSocket": { "ios": { "language": "swift", "implementationClassName": "HybridMailSocket" } }
+  },
+  "ignorePaths": ["node_modules"]
+}

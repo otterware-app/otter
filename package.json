@@ -17,6 +17,7 @@
     "build:translator": "node scripts/build-translator.ts",
     "icons:export": "node scripts/export-brand-icons.ts",
     "dev:ios": "node scripts/dev-ios.ts",
+    "dev:mobile": "node scripts/dev-mobile.ts",
     "ios:resources": "node scripts/export-ios-resources.ts",
     "release:ios": "node scripts/release-ios.ts",
     "typecheck": "vp run -r --parallel --concurrency-limit 4 typecheck",
