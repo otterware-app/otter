@@ -8,6 +8,8 @@ import { platform } from "../platform.js";
 
 const SESSION_SECRET = "otter-session";
 
+export const OTTER_SIGNED_OUT_MESSAGE = "Not signed in to Otter Mail.";
+
 let session: { token: string | null; user: RelayUser } | null = null;
 const listeners = new Set<() => void>();
 
@@ -91,7 +93,7 @@ export async function relayRequest<T = null>(
   body?: unknown,
 ): Promise<T> {
   const current = session;
-  if (!current) throw new RelayError(401, "Not signed in to Otter Mail.");
+  if (!current) throw new RelayError(401, OTTER_SIGNED_OUT_MESSAGE);
   try {
     return await request<T>(method, route, { body, token: current.token });
   } catch (err) {
@@ -137,6 +139,10 @@ async function unwrap<T>(
     throw new RelayError(error.status, error.message || `The relay answered ${error.status}.`);
   }
   return data;
+}
+
+function signedIn(): void {
+  if (!session) throw new RelayError(401, OTTER_SIGNED_OUT_MESSAGE);
 }
 
 export async function signIn(idToken: string): Promise<RelayUser> {
@@ -213,6 +219,7 @@ function deviceName(userAgent: string | null | undefined): string {
 }
 
 export async function listDevices(): Promise<OtterDevice[]> {
+  signedIn();
   const [sessions, current] = await Promise.all([
     unwrap(auth().listSessions()),
     unwrap(auth().getSession()),
@@ -228,10 +235,12 @@ export async function listDevices(): Promise<OtterDevice[]> {
 }
 
 export async function signOutDevice(token: string): Promise<void> {
+  signedIn();
   await unwrap(auth().revokeSession({ token }));
 }
 
 export async function deleteOtterAccount(): Promise<void> {
+  signedIn();
   await unwrap(auth().deleteUser({}));
   await setSession(null);
 }
