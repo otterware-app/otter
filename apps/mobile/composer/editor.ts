@@ -65,8 +65,14 @@ window.otterComposer = {
     }
     return now;
   },
+  /** Published at once, like setSignature: the app counts each command's change as its own. */
   setContent(html: string) {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
     editor.commands.setContent(normalizeHtml(html), { emitUpdate: false });
+    post({ type: "change", ...change() });
   },
   /** The From's signature (the web's signature node, at the end): replaced, added, or taken out. */
   setSignature(html: string | null) {

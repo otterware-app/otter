@@ -24,8 +24,13 @@ import {
   syncAllAccounts,
 } from "./services/mail-sync.js";
 import { loadOtterAccount } from "./services/otter-account.js";
-import { getUiPreferences, preferenceChanged, setUiPreference } from "./services/preferences.js";
-import { getSettings, onSettingsChanged } from "./services/settings-store.js";
+import {
+  getUiPreferences,
+  preferenceChanged,
+  pullPreferences,
+  setUiPreference,
+} from "./services/preferences.js";
+import { getSettings, onSettingsChanged, updateSettings } from "./services/settings-store.js";
 import { refreshProfiles } from "./services/google-profile.js";
 import { startMailSchedule } from "./services/mail-schedule.js";
 import { refreshSignatures } from "./services/signatures.js";
@@ -62,6 +67,15 @@ export async function startCore(
     if (typeof key !== "string" || typeof value !== "string")
       throw new Error("key and value are required.");
     await setUiPreference(key, value);
+  });
+  // The Swift iPhone app's notifications mode that hadn't reached the account:
+  // set after the account's own preferences are in, so they don't overwrite it.
+  handle("preferences:keepNotificationsMode", async (params: unknown) => {
+    const mode = (params as { mode?: unknown } | undefined)?.mode;
+    if (mode !== "off" && mode !== "inbox" && mode !== "all")
+      throw new Error('mode must be "off", "inbox" or "all".');
+    await pullPreferences();
+    await updateSettings({ notificationsMode: mode });
   });
   onSettingsChanged((settings) => {
     preferenceChanged("settings");

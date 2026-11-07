@@ -33,6 +33,7 @@ import {
   ATTACHMENT_LIMIT,
   emailOf,
   prefixed,
+  plainHtml,
   quoted,
   replyRecipients,
   senders as sendersOf,
@@ -51,7 +52,16 @@ type SaveResult =
   | { gone: true; draftId: string };
 
 /** A file on the draft; a forwarded or resumed one fills in its bytes as they arrive. */
-type Attachment = { key: string; name: string; mimeType: string; size: number; base64?: string };
+type Attachment = {
+  key: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  base64?: string;
+  /** A file of another message (a forward, a resumed draft), fetched by id. */
+  source?: { messageId: string; attachmentId: string };
+  failed?: boolean;
+};
 
 const AUTOSAVE_MS = 2000;
 
@@ -119,25 +129,32 @@ export function ComposeScreen({ navigation, route }: Props) {
     await run();
   };
 
+  /**
+   * Fetches a carried file's bytes. One that fails stays, marked, and holds
+   * back saving and sending until it's retried or removed: a draft never loses
+   * a file to a network error.
+   */
+  const fetchAttachment = (key: string, source: NonNullable<Attachment["source"]>) => {
+    const update = (patch: Partial<Attachment>) =>
+      setAttachments((all) => all.map((x) => (x.key === key ? { ...x, ...patch } : x)));
+    update({ failed: false });
+    void core.invoke<{ base64: string }>("gmail:getAttachmentData", { accountId, ...source }).then(
+      ({ base64 }) => update({ base64 }),
+      () => update({ failed: true }),
+    );
+  };
+
   /** The bytes of a message's files, for a forward or a resumed draft. */
   const carry = (message: MessageDetail) => {
-    const list = listedAttachments(message);
-    setAttachments(
-      list.map((a) => ({ key: a.id, name: a.filename, mimeType: a.mimeType, size: a.size })),
-    );
-    for (const a of list) {
-      void core
-        .invoke<{ base64: string }>("gmail:getAttachmentData", {
-          accountId,
-          messageId: message.id,
-          attachmentId: a.id,
-        })
-        .then(
-          ({ base64 }) =>
-            setAttachments((all) => all.map((x) => (x.key === a.id ? { ...x, base64 } : x))),
-          () => setAttachments((all) => all.filter((x) => x.key !== a.id)),
-        );
-    }
+    const list = listedAttachments(message).map((a) => ({
+      key: a.id,
+      name: a.filename,
+      mimeType: a.mimeType,
+      size: a.size,
+      source: { messageId: message.id, attachmentId: a.id },
+    }));
+    setAttachments(list);
+    for (const a of list) fetchAttachment(a.key, a.source);
   };
 
   const onReady = async () => {
@@ -154,9 +171,7 @@ export function ComposeScreen({ navigation, route }: Props) {
       setSubject(copy.subject);
       setThreadId(copy.threadId);
       setAttachments((copy.attachments ?? []).map((a, i) => ({ ...a, key: `copy:${i}` })));
-      await quietly(() =>
-        editor.current?.setContent(copy.bodyHtml ?? `<p>${copy.body.replace(/\n/g, "<br>")}</p>`),
-      );
+      await quietly(() => editor.current?.setContent(copy.bodyHtml ?? plainHtml(copy.body)));
       return;
     }
     if (mode === "new") {
@@ -184,9 +199,7 @@ export function ComposeScreen({ navigation, route }: Props) {
       setSubject(message.subject);
       carry(message);
       await quietly(() =>
-        editor.current?.setContent(
-          message.bodyHtml ?? `<p>${(message.bodyText ?? "").replace(/\n/g, "<br>")}</p>`,
-        ),
+        editor.current?.setContent(message.bodyHtml ?? plainHtml(message.bodyText ?? "")),
       );
       return;
     }
@@ -289,8 +302,19 @@ export function ComposeScreen({ navigation, route }: Props) {
     }
   };
 
+  /** Saving now would leave out a file that hasn't loaded. */
+  const attachmentsPending = () => {
+    if (!loading) return false;
+    Alert.alert(
+      "An attachment hasn't loaded",
+      "Wait for it, tap it to try again, or remove it before saving.",
+    );
+    return true;
+  };
+
   /** Closes only once the draft is saved; a failed save keeps the composition open. */
   const saveAndClose = async () => {
+    if (attachmentsPending()) return;
     setStatus("Saving…");
     try {
       const result = await core.invoke<SaveResult>("gmail:saveDraft", await latestDraft());
@@ -306,6 +330,7 @@ export function ComposeScreen({ navigation, route }: Props) {
 
   /** the Swift app's recovery copy: on this iPhone, out of the mailbox's drafts (unless it was one already). */
   const keepHere = async () => {
+    if (attachmentsPending()) return;
     const written = await latestDraft();
     try {
       await localCopies.keep({
@@ -529,8 +554,15 @@ export function ComposeScreen({ navigation, route }: Props) {
               key={a.key}
               attachment={{ filename: a.name, mimeType: a.mimeType, size: a.size }}
               colors={colors}
-              loading={a.base64 === undefined}
-              onPress={a.base64 ? () => void files.preview(a.name, a.base64!) : undefined}
+              loading={a.base64 === undefined && !a.failed}
+              failed={a.failed}
+              onPress={
+                a.base64
+                  ? () => void files.preview(a.name, a.base64!)
+                  : a.failed && a.source
+                    ? () => fetchAttachment(a.key, a.source!)
+                    : undefined
+              }
               onRemove={() => {
                 edited.current = true;
                 setAttachments((all) => all.filter((x) => x.key !== a.key));

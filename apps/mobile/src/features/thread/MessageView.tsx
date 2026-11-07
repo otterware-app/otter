@@ -326,6 +326,7 @@ export function AttachmentChip({
   attachment,
   colors,
   loading = false,
+  failed = false,
   onPress,
   onLongPress,
   onRemove,
@@ -333,6 +334,8 @@ export function AttachmentChip({
   attachment: { filename: string; mimeType: string; size: number };
   colors: Palette;
   loading?: boolean;
+  /** Its bytes couldn't be fetched: a tap tries again. */
+  failed?: boolean;
   onPress?: () => void;
   onLongPress?: () => void;
   onRemove?: () => void;
@@ -344,12 +347,20 @@ export function AttachmentChip({
       disabled={!onPress && !onLongPress}
       accessibilityRole="button"
       accessibilityLabel={`${attachment.filename}, ${fileSize(attachment.size)}`}
-      accessibilityHint={onLongPress ? "Touch and hold to share or save" : undefined}
+      accessibilityHint={
+        failed
+          ? "Couldn't load. Tap to try again"
+          : onLongPress
+            ? "Touch and hold to share or save"
+            : undefined
+      }
       style={[styles.chip, { borderColor: colors.border }]}
     >
       <View style={[styles.chipIcon, { backgroundColor: colors.surface }]}>
         {loading ? (
           <ActivityIndicator />
+        ) : failed ? (
+          <SymbolView name="arrow.clockwise" size={18} tintColor={colors.error} />
         ) : (
           <SymbolView
             name={symbolFor(attachment.mimeType)}
@@ -362,7 +373,9 @@ export function AttachmentChip({
         <Text style={[styles.chipName, { color: colors.text }]} numberOfLines={1}>
           {attachment.filename}
         </Text>
-        <Text style={{ color: colors.secondary, fontSize: 12 }}>{fileSize(attachment.size)}</Text>
+        <Text style={{ color: failed ? colors.error : colors.secondary, fontSize: 12 }}>
+          {failed ? "Couldn't load · Tap to retry" : fileSize(attachment.size)}
+        </Text>
       </View>
       {onRemove ? (
         <Pressable
