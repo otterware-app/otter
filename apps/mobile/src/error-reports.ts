@@ -29,9 +29,8 @@ export const errorReportsOn = (): boolean => Settings.get(ENABLED_KEY) !== false
 export function reportId(): string {
   const saved: unknown = Settings.get(ID_KEY);
   if (typeof saved === "string" && saved) return saved;
-  const id = Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
+  // The UI runtime has no `crypto`; the ID only tells reports apart, it guards nothing.
+  const id = Array.from({ length: 12 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
   Settings.set({ [ID_KEY]: id });
   return id;
 }
