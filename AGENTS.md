@@ -104,7 +104,7 @@ when a feature lands or goes.
   Otterware's mark, `prod/otterware-symbol.svg`; the iPhone app (still Otter Mail) from
   `prod/otter-mail-symbol.svg`. `pnpm icons:export` regenerates them all.
   `agent/` is Otterware's agent (the Pilot): the app draws it with `AgentIcon`
-  (`apps/web/src/main/mail/agent-icon.tsx`), the iPhone with its `OtterAgent` image.
+  (`apps/web/src/main/mail/agent-icon.tsx`). The iPhone app's `OtterAgent` image is still the Face.
 - `changelog/`: notes on Mac and web releases (`<version>.md`, images in `images/`), shown on
   otterware.app/mail/changelog (the website repository copies them hourly) and on the version's
   GitHub Release (workflows copy it there); the app only links there. A note is marketing, written only when the user asks for one (the
