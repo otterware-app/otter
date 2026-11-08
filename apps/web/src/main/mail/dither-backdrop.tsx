@@ -79,11 +79,14 @@ function paint(
       // Dark: light is drawn as dots. Light: ink and color are, on the white page.
       const level = dark
         ? Math.pow(light, 1.1) * 0.8 + chroma * 0.25
-        : Math.pow(1 - light, 1.1) * 0.75 + chroma * 0.45;
+        : Math.pow(1 - light, 0.9) * 0.82 + chroma * 0.4;
       if (level > threshold) {
         const mean = (r + g + b) / 3;
         const tone = (c: number) =>
-          Math.max(0, Math.min(255, (mean + (c - mean) * (dark ? 1.5 : 1.6)) * (dark ? 0.82 : 1)));
+          Math.max(
+            0,
+            Math.min(255, (mean + (c - mean) * (dark ? 1.5 : 1.6)) * (dark ? 0.82 : 0.78)),
+          );
         put(col, row, tone(r), tone(g), tone(b), dark ? 150 : 200);
         continue;
       }
@@ -140,7 +143,7 @@ export function DitherBackdrop({
       aria-hidden
       onTransitionEnd={onTransitionEnd}
       className={cn(
-        "pointer-events-none absolute inset-0 overflow-hidden rounded-xl not-dark:[mask-image:linear-gradient(to_bottom,transparent_15%,black_75%)]",
+        "pointer-events-none absolute inset-0 overflow-hidden rounded-xl not-dark:[mask-image:linear-gradient(to_bottom,transparent,black_45%)]",
         className,
       )}
     >
