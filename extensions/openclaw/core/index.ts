@@ -17,6 +17,7 @@ import {
   allowOpenClawFullAccess,
   allowOpenClawOwner,
   normalizeOpenClawUrl,
+  openClawBrowserRelay,
   openClawProvider,
   parseOpenClawSetupCode,
   resetOpenClawConnection,
@@ -86,6 +87,9 @@ export default {
       });
       return providersState();
     });
+    handle("agent:openClawBrowserRelay", async () =>
+      openClawBrowserRelay((await agentSettings("openclaw")) as OpenClawSettings),
+    );
     handle("agent:allowOpenClawOwner", async () => {
       await allowOpenClawOwner((await agentSettings("openclaw")) as OpenClawSettings);
       await refreshProvider("openclaw");

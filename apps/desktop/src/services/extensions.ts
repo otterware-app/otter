@@ -52,6 +52,8 @@ const manifestOf = (extension: Extension) => extension.manifest as Manifest;
 const tabs = new Map<number, { contents: WebContents; favicon: string | null }>();
 let activeTabId = -1;
 
+export const activeTab = () => activeTabId;
+
 /** A page can show its address to extensions that may read it (Chrome's rule). */
 function seesPage(extensionId: string | null, tabId: number): boolean {
   if (!extensionId) return true;

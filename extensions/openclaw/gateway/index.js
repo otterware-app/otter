@@ -11,9 +11,11 @@ import { defineStableChannelIngressIdentity } from "openclaw/plugin-sdk/channel-
 import { resolveAgentWorkspaceDir } from "openclaw/plugin-sdk/agent-runtime";
 import { dispatchGatewayMethod } from "openclaw/plugin-sdk/gateway-method-runtime";
 import { resolveAgentIdFromSessionKey } from "openclaw/plugin-sdk/routing";
+import { resolveOAuthDir } from "openclaw/plugin-sdk/state-paths";
 import { createBrowserControl } from "./control.js";
 import { runDetachedWebhookWork } from "openclaw/plugin-sdk/webhook-request-guards";
 import { readWorkspaceFile } from "./files.js";
+import { BROWSER_PROFILE, relayKey, SHARED_TABS_NOTE } from "./relay.js";
 import {
   accountOf,
   chatOf,
@@ -169,7 +171,7 @@ export default defineChannelPluginEntry({
     // message-tool hints out of its instructions, but every harness runs this hook.
     api.on("before_prompt_build", (_event, ctx) =>
       ctx?.channel === "otter" || ctx?.messageProvider === "otter"
-        ? { appendSystemContext: otterTargetsNote(ctx.sessionKey) }
+        ? { appendSystemContext: `${otterTargetsNote(ctx.sessionKey)}\n\n${SHARED_TABS_NOTE}` }
         : undefined,
     );
 
@@ -298,6 +300,13 @@ export default defineChannelPluginEntry({
         await control.upload(targetOf(params), profileOf(params), params?.files);
         return {};
       },
+      { scope: "operator.admin" },
+    );
+    // The tabs you share from Otter's browser: Otter connects to the gateway's extension relay
+    // as OpenClaw's Chrome extension does, with the relay's key from here.
+    api.registerGatewayMethod(
+      "otter.browser.pairing",
+      async () => ({ key: await relayKey(resolveOAuthDir()), profile: BROWSER_PROFILE }),
       { scope: "operator.admin" },
     );
     api.on("before_tool_call", (event) =>

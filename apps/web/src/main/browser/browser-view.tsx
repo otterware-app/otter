@@ -16,6 +16,7 @@ import {
   XIcon,
 } from "lucide-react";
 
+import { ProviderIcon, isProviderUsable, useAgentProviders } from "../agent/agent-providers";
 import { mailApi } from "../mail/api";
 import {
   DropdownMenu,
@@ -174,6 +175,26 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
     return () => offs.forEach((off) => off());
   }, [pageId, tab.id]);
 
+  useEffect(() => {
+    if (pageId === null || !tab.shared) return;
+    const share = (on: boolean) =>
+      window.desktopBridge.invoke("browser:share", { webContentsId: pageId, share: on });
+    let current = true;
+    share(true).catch((error: unknown) => {
+      if (!current) return;
+      updateTab(tab.id, { shared: false });
+      const message = String(error).replace(
+        /^Error invoking remote method '[^']*':\s*(Error:\s*)?/,
+        "",
+      );
+      toast.error(`Couldn't share this tab with OpenClaw: ${message}`);
+    });
+    return () => {
+      current = false;
+      void share(false).catch(() => {});
+    };
+  }, [pageId, tab.shared, tab.id]);
+
   const navigate = (url: string) => {
     updateTab(tab.id, { url });
     if (view) void view.loadURL(url).catch(() => {});
@@ -230,6 +251,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
           onNavigate={navigate}
           onSiteDataCleared={() => view?.reload()}
         />
+        {src && pageId !== null ? <ShareButton tab={tab} /> : null}
         {src ? <ExtensionToolbar /> : null}
         <PageMenu url={tab.url} onDevTools={view ? () => view.openDevTools() : undefined} />
       </div>
@@ -263,6 +285,49 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
         ) : null}
       </div>
     </>
+  );
+}
+
+/** Shares the tab with OpenClaw's agents, who then see and work in it as you watch. */
+function ShareButton({ tab }: { tab: BrowserTab }) {
+  const openClaw = useAgentProviders().data?.providers.find((p) => p.kind === "openclaw");
+  const sharing = useBrowser((s) => s.sharing);
+  if (!tab.shared && (!openClaw?.enabled || !isProviderUsable(openClaw))) return null;
+  if (!tab.shared)
+    return (
+      <HintTooltip label="Share with OpenClaw" side="bottom">
+        <IconBtn
+          label="Share with OpenClaw"
+          className="size-8 shrink-0 rounded-full"
+          onClick={() => updateTab(tab.id, { shared: true })}
+        >
+          <ProviderIcon kind="openclaw" className="grayscale" />
+        </IconBtn>
+      </HintTooltip>
+    );
+  const label =
+    sharing.status === "on"
+      ? "OpenClaw can see and use this tab. Click to stop sharing."
+      : sharing.status === "offline"
+        ? `Reconnecting to OpenClaw… ${sharing.error ?? ""}`.trim()
+        : "Connecting to OpenClaw…";
+  return (
+    <HintTooltip label={label} side="bottom">
+      <Btn
+        size="sm"
+        variant="ghost"
+        aria-label="Stop sharing with OpenClaw"
+        className="shrink-0 gap-1.5 rounded-full bg-[#ff4d4d]/12 text-foreground hover:bg-[#ff4d4d]/20"
+        onClick={() => updateTab(tab.id, { shared: false })}
+      >
+        {sharing.status === "on" ? (
+          <ProviderIcon kind="openclaw" className="size-3.5" />
+        ) : (
+          <LoaderCircleIcon className="size-3.5 animate-spin" />
+        )}
+        Shared
+      </Btn>
+    </HintTooltip>
   );
 }
 

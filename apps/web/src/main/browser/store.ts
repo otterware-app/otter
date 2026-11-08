@@ -10,7 +10,12 @@ export type BrowserTab = {
   favicon: string | null;
   loading: boolean;
   chatId?: string;
+  /** Shared with OpenClaw: its agent sees and works in it. Not kept past a relaunch. */
+  shared?: boolean;
 };
+
+/** Where sharing tabs with OpenClaw stands (`apps/desktop/src/services/tab-sharing.ts`). */
+export type Sharing = { status: "off" | "connecting" | "on" | "offline"; error?: string };
 
 export type OpenLinksIn = "app" | "browser";
 
@@ -22,6 +27,7 @@ type BrowserState = {
   openLinksIn: OpenLinksIn;
   pinned: string[];
   extensionsButton: boolean;
+  sharing: Sharing;
 };
 
 const TABS_KEY = "gmail:browser-tabs";
@@ -80,6 +86,7 @@ export const useBrowser = create<BrowserState>(() => ({
   openLinksIn: localStorage.getItem(LINKS_KEY) === "browser" ? "browser" : "app",
   pinned: savedPinned(),
   extensionsButton: localStorage.getItem(EXTENSIONS_BUTTON_KEY) !== "0",
+  sharing: { status: "off" },
 }));
 
 useBrowser.subscribe((state, prev) => {
@@ -259,6 +266,10 @@ export function useBrowserEvents(): void {
       }),
       window.desktopBridge.on("browser:newTab", newTab),
       window.desktopBridge.on("browser:focusAddress", focusAddress),
+      window.desktopBridge.on("browser:sharing", (params) => {
+        const { status, error } = params as Sharing;
+        set({ sharing: { status, error } });
+      }),
     ];
     return () => {
       window.removeEventListener("error", quietDetachError, true);
