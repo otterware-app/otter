@@ -1,7 +1,7 @@
-import { BrowserWindow, ipcMain } from "electron";
+import { BrowserWindow, ipcMain, webContents } from "electron";
 
 import { logger } from "../logger.js";
-import { clearBrowsingData } from "../services/browser.js";
+import { clearBrowsingData, getBrowserSession } from "../services/browser.js";
 import {
   extensionActions,
   listExtensions,
@@ -11,6 +11,7 @@ import {
   setActiveTab,
   setExtensionEnabled,
 } from "../services/extensions.js";
+import { shareTab, sharingStatus } from "../services/tab-sharing.js";
 
 export function registerBrowserHandlers(): void {
   ipcMain.handle("browser:extensions", () => listExtensions());
@@ -51,6 +52,27 @@ export function registerBrowserHandlers(): void {
   ipcMain.handle("browser:activeTab", (_event, webContentsId: unknown) => {
     if (typeof webContentsId === "number") setActiveTab(webContentsId);
   });
+
+  ipcMain.handle("browser:share", async (event, params: unknown) => {
+    const { webContentsId, share, request } = (params ?? {}) as {
+      webContentsId?: unknown;
+      share?: unknown;
+      request?: unknown;
+    };
+    const page = typeof webContentsId === "number" ? webContents.fromId(webContentsId) : undefined;
+    if (
+      !page ||
+      typeof share !== "boolean" ||
+      page.getType() !== "webview" ||
+      page.session !== getBrowserSession() ||
+      page.hostWebContents !== event.sender
+    ) {
+      throw new Error("Invalid parameters for browser:share.");
+    }
+    await shareTab(page, share, typeof request === "string" ? request : undefined);
+  });
+
+  ipcMain.handle("browser:sharing", () => sharingStatus());
 
   ipcMain.handle("browser:clearData", async (_event, params: unknown) => {
     const origin = (params as { origin?: unknown } | undefined)?.origin;

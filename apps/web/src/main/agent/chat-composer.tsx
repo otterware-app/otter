@@ -15,7 +15,8 @@ import { openClawAgentId, type ChatProvider } from "./agent-providers";
 import { ProviderModelPicker, RuntimeModePicker, TraitsPicker } from "../mail/model-picker";
 import { ApprovalCard } from "./approval-card";
 import { QuestionCard } from "./question-card";
-import { buildHandoffText, type MailChatContext } from "./chat-context";
+import { buildHandoffText, withPage, type MailChatContext } from "./chat-context";
+import { hostOf, shareBrowserTab } from "../browser/store";
 import { withCitations, type Citation } from "./chat-cite";
 import {
   AttachmentChip,
@@ -148,6 +149,14 @@ export function ChatComposer({
     inputRef.current?.focus();
   };
 
+  // Another tab in front re-arms its toggle, as a fresh quote does.
+  const [attachPage, setAttachPage] = useState(true);
+  const [pageShown, setPageShown] = useState(context.page?.tabId);
+  if (pageShown !== context.page?.tabId) {
+    setPageShown(context.page?.tabId);
+    setAttachPage(true);
+  }
+
   // A fresh quote re-arms the attach toggle so it isn't silently dropped.
   const [attachedQuote, setAttachedQuote] = useState(context.quote);
   if (attachedQuote !== context.quote) {
@@ -185,6 +194,7 @@ export function ChatComposer({
     }
     const { staged, sent } = files.take();
     const attached = attach ? context.attached : null;
+    const page = attachPage ? (context.page ?? null) : null;
     const skill = activeSkill ?? undefined;
     const cited = citations;
     const text = withCitations(question, cited);
@@ -198,7 +208,10 @@ export function ChatComposer({
       convoId: convo.id,
       provider: providerKind,
       question,
-      input: attached ? buildHandoffText(text, attached.context, providerKind) : text,
+      input:
+        attached || page
+          ? buildHandoffText(text, attached?.context ?? null, providerKind, page)
+          : text,
       skill,
       title: clampTitle(
         skill
@@ -208,7 +221,7 @@ export function ChatComposer({
       attachments: staged.length > 0 ? staged : undefined,
       sent: sent.length > 0 ? sent : undefined,
       citations: cited.length > 0 ? cited : undefined,
-      context: attached?.meta,
+      context: withPage(attached?.meta, page),
     };
   };
 
@@ -220,7 +233,13 @@ export function ChatComposer({
       return;
     }
     const msg = compose();
-    if (msg) sendMessage(msg, alternate ? alternateAction : followUp);
+    if (!msg) return;
+    const action = alternate ? alternateAction : followUp;
+    const tab = msg.context?.items?.find((item) => item.target.kind === "page")?.target;
+    // OpenClaw works in the tab itself, so it's shared before the agent looks for it.
+    if (tab?.kind === "page" && tab.tab && providerKind === "openclaw")
+      void shareBrowserTab(tab.tab).finally(() => sendMessage(msg, action));
+    else sendMessage(msg, action);
   };
 
   const editQueued = (id: string) => {
@@ -402,6 +421,17 @@ export function ChatComposer({
                   tile={<ContextKindIcon kind={attached.kind} />}
                   off={!attach}
                   onClick={() => setAttach((a) => !a)}
+                />
+              ) : null}
+              {context.page ? (
+                <AttachmentChip
+                  compact={compact}
+                  name={context.page.title}
+                  detail={hostOf(context.page.url)}
+                  title={attachPage ? "This tab goes with your message" : "Not attached"}
+                  tile={<ContextKindIcon kind="page" />}
+                  off={!attachPage}
+                  onClick={() => setAttachPage((a) => !a)}
                 />
               ) : null}
               {citations.map((citation) => (

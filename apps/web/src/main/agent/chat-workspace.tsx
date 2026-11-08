@@ -221,7 +221,11 @@ export function ChatWorkspace({
     else await onNavigate(change);
   };
   useEffect(() => {
-    routeLinks((url) => openChatTab(chatId, { kind: "page", url }, url));
+    routeLinks((url, shareRequest) => {
+      const ref = { kind: "page" as const, url };
+      openChatTab(chatId, ref, url);
+      if (shareRequest) ensureChatPage(chatId, chatTabId(ref), url, url, shareRequest);
+    });
     return () => routeLinks(null);
   }, [chatId]);
   const close = (tab: ChatTab) => {
@@ -320,13 +324,20 @@ export function ChatWorkspace({
   const onPanelOpenRef = useLatest(onPanelOpen);
   useEffect(() => onPanelOpenRef.current(panelOpen), [panelOpen, onPanelOpenRef]);
 
+  const allPages = useBrowser((s) => s.tabs);
+  // A tab sent from the browser panel is that tab itself while it's open, else a page of the chat's.
+  const pageIdOf = (tab: ChatTab) => {
+    const linked = tab.ref.kind === "page" ? tab.ref.tab : undefined;
+    return linked && allPages.some((t) => t.id === linked && !t.chatId)
+      ? linked
+      : chatPageId(chatId, tab.id);
+  };
   const pages = tabs.filter((t) => t.ref.kind === "page");
   useEffect(() => {
     for (const tab of pages)
-      if (tab.ref.kind === "page") ensureChatPage(chatId, tab.id, tab.ref.url, tab.title);
+      if (tab.ref.kind === "page" && pageIdOf(tab) === chatPageId(chatId, tab.id))
+        ensureChatPage(chatId, tab.id, tab.ref.url, tab.title);
   });
-  const allPages = useBrowser((s) => s.tabs);
-  const pageTabs = allPages.filter((t) => t.chatId === chatId);
 
   const blank = !convo || isBlank(convo);
   // Kept after the first send, so the backdrop can fade out under the chat.
@@ -499,7 +510,7 @@ export function ChatWorkspace({
                 <FileTab key={shown.id} chatId={chatId} href={shown.ref.href} />
               ) : null}
               {features.browser && shown?.ref.kind === "page" ? (
-                <PageSlot key={shown.id} tabId={chatPageId(chatId, shown.id)} />
+                <PageSlot key={shown.id} tabId={pageIdOf(shown)} />
               ) : null}
             </div>
             {/* After the tab's page, as the chat's bar is: so it scrolls under the bar without cutting it out. */}
@@ -526,7 +537,7 @@ export function ChatWorkspace({
                   const Icon = TAB_ICONS[tab.ref.kind];
                   const page =
                     tab.ref.kind === "page"
-                      ? pageTabs.find((t) => t.id === chatPageId(chatId, tab.id))
+                      ? allPages.find((t) => t.id === pageIdOf(tab))
                       : undefined;
                   const title = page?.title || tab.title;
                   return (

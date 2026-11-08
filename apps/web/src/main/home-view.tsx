@@ -1418,6 +1418,7 @@ function MailHome() {
     messageId: selectedMessageId,
     selectedRows: chatSelection,
     quote: pendingQuote,
+    browserVisible,
   });
   const locationHref = router.state.location.href;
   const [workspaceTitle, setWorkspaceTitle] = useState<{ href: string; title: string } | null>(

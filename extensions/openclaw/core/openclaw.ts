@@ -485,6 +485,45 @@ export async function allowOpenClawOwner(settings: OpenClawSettings): Promise<vo
   logger.info("agent", "openclaw owner allowed");
 }
 
+const OTTER_BROWSER_PAIRING = "otter.browser.pairing";
+/** The browser profile the tabs you share are to the gateway (the plugin's `BROWSER_PROFILE`). */
+const OTTER_BROWSER_PROFILE = "otter";
+
+/**
+ * Where Otter's browser gives the gateway's agents the tabs you share: OpenClaw's extension
+ * relay, which Otter joins as OpenClaw's own Chrome extension does, as an `extension` browser
+ * profile of its own (added to the gateway's config the first time).
+ */
+export async function openClawBrowserRelay(
+  settings: OpenClawSettings,
+): Promise<{ url: string; key: string }> {
+  const g = await gateway(settings);
+  if (!g.methods.includes(OTTER_BROWSER_PAIRING) || !holdsAll(g.scopes))
+    throw new Error(
+      "To share tabs, update Otter's plugin on your gateway: openclaw plugins update @otterware/openclaw-otter",
+    );
+  const { key, profile } = await g.client.request<{ key: string; profile: string }>(
+    OTTER_BROWSER_PAIRING,
+    {},
+  );
+  const { sourceConfig, hash } = await g.client.request<{
+    sourceConfig?: { browser?: { profiles?: Record<string, { driver?: unknown }> } };
+    hash: string;
+  }>("config.get", {});
+  if (sourceConfig?.browser?.profiles?.[profile]?.driver !== "extension") {
+    await g.client.request("config.patch", {
+      raw: JSON.stringify({ browser: { profiles: { [profile]: { driver: "extension" } } } }),
+      baseHash: hash,
+      note: "Otter: the tabs you share from Otter's browser",
+    });
+    logger.info("agent", "openclaw browser profile added", { profile });
+  }
+  const url = new URL(normalizeOpenClawUrl(settings.url));
+  url.pathname = "/browser/extension";
+  url.search = new URLSearchParams({ profile }).toString();
+  return { url: url.href, key };
+}
+
 type Agent = {
   id: string;
   name?: string;
@@ -2229,6 +2268,8 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
     );
     // Without a tab in its history (runtimes that keep no tool results): the browser's current one.
     const tab = browserTabOf(messages);
+    // A tab you shared is already on your screen, in Otter's own browser.
+    if (tab?.profile === OTTER_BROWSER_PROFILE) return null;
     if (tab && tab.targetId === except) return { targetId: tab.targetId, url: null };
     const view = await g.client
       .request<{ wsPath: string; targetId?: string; url?: string }>("browser.request", {

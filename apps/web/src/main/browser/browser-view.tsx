@@ -16,6 +16,14 @@ import {
   XIcon,
 } from "lucide-react";
 
+import { ProviderIcon } from "../agent/agent-providers";
+import {
+  AgentCursor,
+  type PageField,
+  type PagePointer,
+  type Placer,
+} from "../agent/agent-browser-overlay";
+import { useChats } from "../agent/chat-store";
 import { mailApi } from "../mail/api";
 import {
   DropdownMenu,
@@ -54,6 +62,9 @@ type Webview = HTMLElement & {
 };
 
 const PARTITION = "persist:browser";
+
+/** The page fills its webview at its own size, so a point on it is where it's drawn. */
+const placeOnPage: Placer = (x, y) => ({ left: x, top: y, scale: 1 });
 
 const SUGGESTED = [
   { name: "Google", url: "https://www.google.com/" },
@@ -109,6 +120,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
       "dom-ready": () => {
         ready = true;
         setPageId(view.getWebContentsId());
+        updateTab(tab.id, { pageId: view.getWebContentsId() });
         sync();
       },
       "did-start-loading": () => {
@@ -159,11 +171,28 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
   useEffect(() => {
     if (active && pageId !== null) void window.desktopBridge.invoke("browser:activeTab", pageId);
   }, [active, pageId]);
+  const [agentPointer, setAgentPointer] = useState<PagePointer | null>(null);
+  const [agentField, setAgentField] = useState<PageField | null>(null);
   useEffect(() => {
     if (pageId === null) return;
     const mine = (params: unknown) =>
       (params as { webContentsId?: number }).webContentsId === pageId;
     const offs = [
+      window.desktopBridge.on("browser:agentPointer", (params) => {
+        if (!mine(params)) return;
+        const { x, y, click } = params as { x: number; y: number; click: boolean };
+        setAgentPointer((p) => ({
+          x,
+          y,
+          clicks: (p?.clicks ?? 0) + (click ? 1 : 0),
+          at: Date.now(),
+        }));
+      }),
+      window.desktopBridge.on("browser:agentTyping", (params) => {
+        if (!mine(params)) return;
+        const { x, y, width, height } = params as PageField;
+        setAgentField({ x, y, width, height, at: Date.now() });
+      }),
       window.desktopBridge.on("browser:selectTab", (params) => {
         if (mine(params)) selectTab(tab.id);
       }),
@@ -173,6 +202,36 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
     ];
     return () => offs.forEach((off) => off());
   }, [pageId, tab.id]);
+
+  // An OpenClaw chat's own pages are shared with it unless you stop sharing one.
+  const chatShared = useChats(
+    (s) =>
+      !!tab.chatId && s.conversations.find((c) => c.id === tab.chatId)?.provider === "openclaw",
+  );
+  const shared = tab.shared ?? chatShared;
+  useEffect(() => {
+    if (pageId === null || !shared) return;
+    const share = (on: boolean) =>
+      window.desktopBridge.invoke("browser:share", {
+        webContentsId: pageId,
+        share: on,
+        request: on ? tab.shareRequest : undefined,
+      });
+    let current = true;
+    share(true).catch((error: unknown) => {
+      if (!current) return;
+      updateTab(tab.id, { shared: false });
+      const message = String(error).replace(
+        /^(Error:\s*)?Error invoking remote method '[^']*':\s*(Error:\s*)?/,
+        "",
+      );
+      toast.error(`Couldn't share this tab with OpenClaw: ${message}`);
+    });
+    return () => {
+      current = false;
+      void share(false).catch(() => {});
+    };
+  }, [pageId, shared, tab.id, tab.shareRequest]);
 
   const navigate = (url: string) => {
     updateTab(tab.id, { url });
@@ -230,6 +289,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
           onNavigate={navigate}
           onSiteDataCleared={() => view?.reload()}
         />
+        {shared && pageId !== null ? <SharedBadge tabId={tab.id} /> : null}
         {src ? <ExtensionToolbar /> : null}
         <PageMenu url={tab.url} onDevTools={view ? () => view.openDevTools() : undefined} />
       </div>
@@ -247,6 +307,9 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
         ) : (
           <StartPage onNavigate={navigate} />
         )}
+        {shared ? (
+          <AgentCursor pointer={agentPointer} field={agentField} place={placeOnPage} />
+        ) : null}
         {failure || crashed ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-canvas p-6 text-center">
             <TriangleAlertIcon className="mb-1 size-6 text-muted-foreground" />
@@ -263,6 +326,35 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
         ) : null}
       </div>
     </>
+  );
+}
+
+/** A tab OpenClaw's agent can see and work in, and the way to stop that. */
+function SharedBadge({ tabId }: { tabId: string }) {
+  const sharing = useBrowser((s) => s.sharing);
+  const label =
+    sharing.status === "on"
+      ? "OpenClaw can see and use this tab. Click to stop sharing."
+      : sharing.status === "offline"
+        ? `Reconnecting to OpenClaw… ${sharing.error ?? ""}`.trim()
+        : "Connecting to OpenClaw…";
+  return (
+    <HintTooltip label={label} side="bottom">
+      <Btn
+        size="sm"
+        variant="ghost"
+        aria-label="Stop sharing with OpenClaw"
+        className="shrink-0 gap-1.5 rounded-full bg-[#ff4d4d]/12 text-foreground hover:bg-[#ff4d4d]/20"
+        onClick={() => updateTab(tabId, { shared: false })}
+      >
+        {sharing.status === "on" ? (
+          <ProviderIcon kind="openclaw" className="size-3.5" />
+        ) : (
+          <LoaderCircleIcon className="size-3.5 animate-spin" />
+        )}
+        Shared
+      </Btn>
+    </HintTooltip>
   );
 }
 

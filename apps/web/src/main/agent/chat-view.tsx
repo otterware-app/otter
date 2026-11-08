@@ -10,7 +10,9 @@ import {
   useChatProvider,
   useSetProvidersState,
 } from "./agent-providers";
+import type { ChatContextMeta } from "@otter/contracts/chats";
 import type { MailChatContext } from "./chat-context";
+import { linksRouted, showBrowserPage } from "../browser/store";
 import {
   CitationCommentEditor,
   CiteSelectionButton,
@@ -19,7 +21,7 @@ import {
 } from "./chat-cite";
 import { AttachmentPreview, attachmentPreview, type PreviewFile } from "../mail/attachment-preview";
 import { DropOverlay, useChatAttachments, useFileDrop } from "./chat-attachments";
-import { forkChat, isElsewhere, loadChat, setCitations, useChats } from "./chat-store";
+import { forkChat, isElsewhere, loadChat, openChatTab, setCitations, useChats } from "./chat-store";
 import { ChatTranscript } from "./chat-transcript";
 import { ChatComposer } from "./chat-composer";
 import { isProviderUsable } from "./agent-providers";
@@ -120,12 +122,16 @@ export function ChatView({
         toast.error(error instanceof Error ? error.message : "Couldn't open the file."),
       );
   };
-  const openContextItem = (item: { title: string; target: ChatChange["target"] }) => {
-    onOpenChange({ title: item.title, action: "updated", target: item.target }).catch(
-      (error: unknown) =>
-        toast.error("Couldn't open this item", {
-          description: error instanceof Error ? error.message : String(error),
-        }),
+  const openContextItem = ({ title, target }: NonNullable<ChatContextMeta["items"]>[number]) => {
+    if (target.kind === "page") {
+      if (linksRouted()) openChatTab(chatId, target, title);
+      else showBrowserPage(target);
+      return;
+    }
+    onOpenChange({ title, action: "updated", target }).catch((error: unknown) =>
+      toast.error("Couldn't open this item", {
+        description: error instanceof Error ? error.message : String(error),
+      }),
     );
   };
 
