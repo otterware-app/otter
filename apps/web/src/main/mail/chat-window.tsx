@@ -6,12 +6,14 @@ import {
   type PointerEvent,
   type RefObject,
 } from "react";
-import { Maximize2Icon, MinusIcon, XIcon } from "lucide-react";
+import { AlarmClockIcon, CheckIcon, Maximize2Icon, MinusIcon } from "lucide-react";
 import { AgentAvatar, openClawAgentId } from "./agent-providers";
 
 import type { ChatChange } from "./api";
 import type { MailChatContext } from "./chat-context";
-import { dockChat, isBlank, useChats, watchChat } from "./chat-store";
+import { isBlank, useChats, watchChat } from "./chat-store";
+import { settleChat, SnoozeMenu } from "./chat-shelve-actions";
+import { ChatTitle } from "./chat-title";
 import { ChatView } from "./chat-view";
 import { isOverlayOpen } from "./keyboard";
 import { HintTooltip, IconBtn } from "./ui";
@@ -45,7 +47,7 @@ export function ChatWindow({
   onOpenChange,
   onOpenWorkspace,
   onMinimize,
-  onClose,
+  onShelve,
   inputRef,
 }: {
   context: MailChatContext;
@@ -53,7 +55,7 @@ export function ChatWindow({
   onOpenChange: (change: ChatChange) => Promise<void>;
   onOpenWorkspace: (chatId: string) => void;
   onMinimize: () => void;
-  onClose: () => void;
+  onShelve: () => void;
   inputRef: RefObject<HTMLTextAreaElement | null>;
 }) {
   const activeId = useChats((s) => s.activeId);
@@ -64,9 +66,6 @@ export function ChatWindow({
     watchChat(activeId);
     return () => watchChat(null);
   }, [activeId]);
-  useEffect(() => {
-    if (!blank) dockChat(activeId);
-  }, [activeId, blank]);
   useEffect(() => {
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [inputRef]);
@@ -191,9 +190,13 @@ export function ChatWindow({
         ) : (
           <AgentAvatar />
         )}
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-          {active && !blank ? active.title : "New chat"}
-        </span>
+        {active && !blank ? (
+          <ChatTitle chat={active} className="text-sm font-medium text-foreground" />
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+            New chat
+          </span>
+        )}
         <HintTooltip label="Minimize" shortcut="agent.toggle" side="bottom">
           <IconBtn label="Minimize" className="size-7" onClick={onMinimize}>
             <MinusIcon className="size-4" />
@@ -208,11 +211,27 @@ export function ChatWindow({
             <Maximize2Icon className="size-4" />
           </IconBtn>
         </HintTooltip>
-        <HintTooltip label="Close" side="bottom">
-          <IconBtn label="Close" className="size-7" onClick={onClose}>
-            <XIcon className="size-4" />
-          </IconBtn>
-        </HintTooltip>
+        {active && !blank ? (
+          <>
+            <SnoozeMenu chatId={activeId} side="bottom" onDone={onShelve}>
+              <IconBtn label="Snooze" className="size-7">
+                <AlarmClockIcon className="size-4" />
+              </IconBtn>
+            </SnoozeMenu>
+            <HintTooltip label="Settle" side="bottom">
+              <IconBtn
+                label="Settle"
+                className="size-7"
+                onClick={() => {
+                  settleChat(activeId);
+                  onShelve();
+                }}
+              >
+                <CheckIcon className="size-4" />
+              </IconBtn>
+            </HintTooltip>
+          </>
+        ) : null}
       </div>
       {activeId ? (
         <ChatView

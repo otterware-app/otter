@@ -73,7 +73,6 @@ type ChatsState = {
   ready: boolean;
   device: Device | null;
   activeId: string;
-  docked: string[];
   activeTabs: Record<string, string>;
   watched: string | null;
   runs: Record<string, Run>;
@@ -89,8 +88,6 @@ type ChatsState = {
 
 const ACTIVE_KEY = "gmail:chat-active";
 const ACTIVE_TABS_KEY = "gmail:chat-active-tabs";
-const DOCKED_KEY = "gmail:chat-docked";
-const MAX_DOCKED = 5;
 const OPEN_REQUESTS_KEY = "gmail:chat-open-requests";
 const DRAFTS_KEY = "gmail:chat-drafts";
 /** New chats with a draft in them: they aren't saved anywhere else until their first message. */
@@ -256,7 +253,6 @@ export const useChats = create<ChatsState>(() => ({
   ready: false,
   device: null,
   activeId: localStorage.getItem(ACTIVE_KEY) ?? "",
-  docked: readJson<string[]>(DOCKED_KEY, []),
   activeTabs: readJson<Record<string, string>>(ACTIVE_TABS_KEY, {}),
   watched: null,
   runs: {},
@@ -312,7 +308,6 @@ function scheduleSave(id: string): void {
 
 useChats.subscribe((state, prev) => {
   if (state.activeId !== prev.activeId) localStorage.setItem(ACTIVE_KEY, state.activeId);
-  if (state.docked !== prev.docked) localStorage.setItem(DOCKED_KEY, JSON.stringify(state.docked));
   if (state.activeTabs !== prev.activeTabs)
     localStorage.setItem(ACTIVE_TABS_KEY, JSON.stringify(state.activeTabs));
   if (state.drafts !== prev.drafts || state.conversations !== prev.conversations) saveDrafts();
@@ -767,14 +762,6 @@ export function showChat(id: string): void {
   });
 }
 
-export function dockChat(id: string): void {
-  set((s) => (s.docked.includes(id) ? s : { docked: [...s.docked, id].slice(-MAX_DOCKED) }));
-}
-
-export function undockChat(id: string): void {
-  set((s) => (s.docked.includes(id) ? { docked: s.docked.filter((d) => d !== id) } : s));
-}
-
 export function watchChat(id: string | null): void {
   set((s) => {
     if (!id || !s.unseen.has(id)) return s.watched === id ? s : { watched: id };
@@ -883,7 +870,6 @@ export function deleteConversation(id: string, provider: ProviderKind): void {
     const unseen = new Set(s.unseen);
     unseen.delete(id);
     const left = {
-      docked: s.docked.filter((d) => d !== id),
       approvals: s.approvals.filter((a) => a.requestId !== request),
       questions: s.questions.filter((q) => q.requestId !== request),
       unseen,

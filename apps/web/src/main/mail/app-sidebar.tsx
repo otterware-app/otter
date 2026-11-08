@@ -12,11 +12,9 @@ import { UpdateCard } from "../updates";
 import { AccountPicture } from "./account-picture";
 import { MailboxFolders, SearchRow, type SidebarSearch } from "./accounts-sidebar";
 import { AddMailboxMenu } from "./add-mailbox";
-import { AgentIcon } from "./agent-icon";
 import { type NavGlyphProps, OtterCalendarIcon, OtterMailIcon } from "./app-icons";
 import { AgentSidebar } from "./agent-sidebar";
 import type { SettingsPane } from "./api";
-import { useChats } from "./chat-store";
 import { useAddAccount, useViewUnreadCounts } from "./hooks";
 import { ScheduledMailButton } from "./mail-schedule";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "./menu";
@@ -178,7 +176,6 @@ function ModeSwitcher({
   onMode: (mode: AppMode) => void;
 }) {
   const unread = Object.values(useInboxUnread(accounts)).some((n) => n > 0);
-  const agentDot = useChats((s) => s.unseen.size > 0);
   const workspaces = useWorkspaces();
   const modes: {
     mode: AppMode;
@@ -211,13 +208,6 @@ function ModeSwitcher({
       Icon: w.Icon,
       dot: false,
     })),
-    {
-      mode: "agent",
-      label: "Agent",
-      Icon: AgentIcon,
-      shortcut: "mode.agent",
-      dot: agentDot,
-    },
   ];
   return (
     <div role="tablist" aria-label="Mode" className="flex items-center gap-0.5" data-tour="modes">

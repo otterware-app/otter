@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Chat, ChatTab } from "@otter-mail/contracts/chats";
 
 export type ChatShelf = "pinned" | "active" | "snoozed" | "settled";
@@ -22,6 +23,38 @@ export function chatShelf(
   if (pinned) return "pinned";
   if (!working && now - chat.updatedAt > SETTLE_AFTER_MS) return "settled";
   return "active";
+}
+
+type Shelvable = Pick<
+  Chat,
+  "id" | "updatedAt" | "returnedAt" | "snoozedUntil" | "settledAt" | "pinnedAt"
+>;
+
+/** The chats on each shelf, in the order the sidebar and the bottom bar show them. */
+export function shelveChats<T extends Shelvable>(
+  chats: T[],
+  { working, needsYou, now }: { working: Set<string>; needsYou: Set<string>; now: number },
+): Record<ChatShelf, T[]> {
+  const shelves: Record<ChatShelf, T[]> = { pinned: [], active: [], snoozed: [], settled: [] };
+  for (const c of chats) {
+    shelves[chatShelf(c, { working: working.has(c.id), needsYou: needsYou.has(c.id), now })].push(
+      c,
+    );
+  }
+  shelves.pinned.sort((a, b) => (a.pinnedAt ?? 0) - (b.pinnedAt ?? 0));
+  shelves.active.sort((a, b) => chatReturnedAt(b, now) - chatReturnedAt(a, now));
+  shelves.snoozed.sort((a, b) => (a.snoozedUntil ?? 0) - (b.snoozedUntil ?? 0));
+  shelves.settled.sort((a, b) => (b.settledAt ?? b.updatedAt) - (a.settledAt ?? a.updatedAt));
+  return shelves;
+}
+
+export function useNow(ms: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(timer);
+  }, [ms]);
+  return now;
 }
 
 /**

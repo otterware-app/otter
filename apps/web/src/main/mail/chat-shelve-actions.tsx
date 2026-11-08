@@ -1,85 +1,44 @@
-import { useState } from "react";
-import { AlarmClockIcon, CheckIcon, PinIcon, PinOffIcon, UndoIcon } from "lucide-react";
-import { pinChat, shelveChat, type Conversation } from "./chat-store";
+import { useState, type ReactNode } from "react";
+import { shelveChat } from "./chat-store";
 import { snoozePresets } from "./chat-shelves";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./menu";
-import { cn } from "./ui";
+import { HintTooltip } from "./ui";
 
-const ACTION =
-  "flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 text-xs text-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=open]:bg-foreground/[0.08] data-[state=open]:text-foreground";
+export function settleChat(id: string) {
+  void shelveChat(id, { snoozedUntil: null, settledAt: Date.now() });
+}
 
-export function ShelveActions({
-  chat,
-  settled,
-  compact = false,
+export function SnoozeMenu({
+  chatId,
+  side,
   onDone,
+  children,
 }: {
-  chat: Conversation;
-  settled: boolean;
-  compact?: boolean;
+  chatId: string;
+  side: "top" | "bottom";
   onDone?: () => void;
+  children: ReactNode;
 }) {
-  const action = cn(ACTION, compact && "h-5 px-1");
-  const pinned = chat.pinnedAt != null;
   const [openedAt, setOpenedAt] = useState(0);
-  if (settled)
-    return (
-      <button
-        type="button"
-        aria-label="Unsettle"
-        title={compact ? "Unsettle" : undefined}
-        className={action}
-        onClick={() => void shelveChat(chat.id, { snoozedUntil: null, settledAt: null })}
-      >
-        <UndoIcon className="size-3.5" />
-        {compact ? null : "Unsettle"}
-      </button>
-    );
   return (
-    <div className="flex shrink-0 items-center gap-0.5">
-      <button
-        type="button"
-        aria-label={pinned ? "Unpin" : "Pin"}
-        title={pinned ? "Unpin" : "Pin"}
-        className={action}
-        onClick={() => void pinChat(chat.id, !pinned)}
-      >
-        {pinned ? <PinOffIcon className="size-3.5" /> : <PinIcon className="size-3.5" />}
-      </button>
-      <DropdownMenu onOpenChange={(open) => open && setOpenedAt(Date.now())}>
-        <DropdownMenuTrigger asChild>
-          <button type="button" aria-label="Snooze" title="Snooze" className={action}>
-            <AlarmClockIcon className="size-3.5" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {snoozePresets(new Date(openedAt)).map((p) => (
-            <DropdownMenuItem
-              key={p.id}
-              accelerator={p.when}
-              onSelect={() => {
-                void shelveChat(chat.id, { snoozedUntil: p.until, settledAt: null });
-                onDone?.();
-              }}
-            >
-              {p.label}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <button
-        type="button"
-        aria-label="Settle"
-        title={compact ? "Settle" : undefined}
-        className={action}
-        onClick={() => {
-          void shelveChat(chat.id, { snoozedUntil: null, settledAt: Date.now() });
-          onDone?.();
-        }}
-      >
-        <CheckIcon className="size-3.5" />
-        {compact ? null : "Settle"}
-      </button>
-    </div>
+    <DropdownMenu onOpenChange={(open) => open && setOpenedAt(Date.now())}>
+      <HintTooltip label="Snooze" side={side}>
+        <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+      </HintTooltip>
+      <DropdownMenuContent align="end">
+        {snoozePresets(new Date(openedAt)).map((p) => (
+          <DropdownMenuItem
+            key={p.id}
+            accelerator={p.when}
+            onSelect={() => {
+              void shelveChat(chatId, { snoozedUntil: p.until, settledAt: null });
+              onDone?.();
+            }}
+          >
+            {p.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { HistoryIcon, LoaderCircleIcon, XIcon } from "lucide-react";
+import { CheckIcon, HistoryIcon, LoaderCircleIcon, PlusIcon } from "lucide-react";
 
 import { AgentAvatar, openClawAgentId, useChatProvider } from "./agent-providers";
 import { AgentIcon } from "./agent-icon";
@@ -13,7 +13,8 @@ import {
   useChats,
   type Conversation,
 } from "./chat-store";
-import { ShelveActions } from "./chat-shelve-actions";
+import { settleChat } from "./chat-shelve-actions";
+import { shelveChats, useNow } from "./chat-shelves";
 import { HintTooltip, cn } from "./ui";
 
 type Status = "waiting" | "working" | "finished" | null;
@@ -34,26 +35,35 @@ const BAR_BUTTON =
 export function ChatBar({
   shownId,
   onSelect,
-  onCloseTab,
+  onShelve,
   onNewChat,
+  onOpenAgents,
 }: {
   shownId: string | null;
   onSelect: (id: string) => void;
-  onCloseTab: (id: string) => void;
+  onShelve: (id: string) => void;
   onNewChat: () => void;
+  onOpenAgents: () => void;
 }) {
   const conversations = useChats((s) => s.conversations);
-  const docked = useChats((s) => s.docked);
-  const tabs = docked.flatMap((id) => conversations.find((c) => c.id === id) ?? []);
-  const shown = conversations.find((c) => c.id === shownId);
-  const elsewhere = useChats((s) =>
-    s.conversations.some((c) => {
-      if (s.docked.includes(c.id)) return false;
-      const run = s.runs[c.id];
-      const asks = (r: { requestId: string }) => r.requestId === run?.requestId;
-      return s.unseen.has(c.id) || (run && (s.approvals.some(asks) || s.questions.some(asks)));
-    }),
+  const runs = useChats((s) => s.runs);
+  const approvals = useChats((s) => s.approvals);
+  const questions = useChats((s) => s.questions);
+  const unseen = useChats((s) => s.unseen);
+  const now = useNow(30_000);
+  const asked = new Set([...approvals, ...questions].map((r) => r.requestId));
+  const needsYou = new Set(
+    Object.values(runs).flatMap((r) => (asked.has(r.requestId) ? r.convoId : [])),
   );
+  const shelves = shelveChats(
+    conversations.filter((c) => !isBlank(c)),
+    { working: new Set(Object.keys(runs)), needsYou, now },
+  );
+  const pinned = shelves.pinned;
+  // The most recent sits by the pinned ones; the oldest are clipped off the left.
+  const active = shelves.active.toReversed();
+  const shown = conversations.find((c) => c.id === shownId);
+  const elsewhere = [...shelves.snoozed, ...shelves.settled].some((c) => unseen.has(c.id));
 
   const chat = useChatProvider(undefined);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -73,27 +83,45 @@ export function ChatBar({
       className="flex h-8 shrink-0 items-center justify-end gap-1 ps-2 pe-2"
     >
       <div className="flex min-w-0 items-center justify-end gap-1 overflow-hidden">
-        {tabs.map((c) => (
+        {active.map((c) => (
           <ChatBarTab
             key={c.id}
             convo={c}
             shown={c.id === shownId}
             onSelect={() => onSelect(c.id)}
-            onClose={() => onCloseTab(c.id)}
+            onSettle={() => onShelve(c.id)}
           />
         ))}
       </div>
+      {pinned.length > 0 ? (
+        <div
+          role="group"
+          aria-label="Pinned"
+          className="flex min-w-0 shrink items-center gap-0.5 rounded-lg bg-foreground/[0.04] p-0.5"
+        >
+          {pinned.map((c) => (
+            <ChatBarTab
+              key={c.id}
+              convo={c}
+              shown={c.id === shownId}
+              onSelect={() => onSelect(c.id)}
+              onSettle={() => onShelve(c.id)}
+            />
+          ))}
+        </div>
+      ) : null}
       <HintTooltip label="New chat" shortcut="agent.newChat" side="top">
         <button
           type="button"
+          aria-label="New chat"
           onClick={onNewChat}
           className={cn(
             BAR_BUTTON,
+            "w-7 justify-center px-0",
             shown && isBlank(shown) && "bg-foreground/[0.06] text-foreground",
           )}
         >
-          <AgentIcon className="size-3.5" />
-          Agent
+          <PlusIcon className="size-3.5" />
         </button>
       </HintTooltip>
       <HintTooltip label="Chat history" side="top">
@@ -112,6 +140,18 @@ export function ChatBar({
             <span
               aria-hidden
               className="absolute right-1 top-0.5 size-1.5 rounded-full bg-primary"
+            />
+          ) : null}
+        </button>
+      </HintTooltip>
+      <HintTooltip label="Agents" shortcut="mode.agent" side="top">
+        <button type="button" onClick={onOpenAgents} className={cn(BAR_BUTTON, "relative")}>
+          <AgentIcon className="size-3.5" />
+          Agents
+          {unseen.size > 0 ? (
+            <span
+              aria-hidden
+              className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-primary"
             />
           ) : null}
         </button>
@@ -153,16 +193,16 @@ function ChatBarTab({
   convo,
   shown,
   onSelect,
-  onClose,
+  onSettle,
 }: {
   convo: Conversation;
   shown: boolean;
   onSelect: () => void;
-  onClose: () => void;
+  onSettle: () => void;
 }) {
   const status = useStatus(convo.id);
   return (
-    <div className="group/tab relative min-w-0 max-w-56">
+    <div className="group/tab relative min-w-24 max-w-56">
       <button
         type="button"
         onClick={onSelect}
@@ -192,22 +232,24 @@ function ChatBarTab({
           />
         ) : null}
         {/* Its actions show over its end on hover, the title fading under them. */}
-        <span className="min-w-0 truncate group-hover/tab:mask-[linear-gradient(to_left,transparent_4rem,black_5rem)] group-has-focus-visible/tab:mask-[linear-gradient(to_left,transparent_4rem,black_5rem)] group-has-[[data-state=open]]/tab:mask-[linear-gradient(to_left,transparent_4rem,black_5rem)]">
+        <span className="min-w-0 truncate group-hover/tab:mask-[linear-gradient(to_left,transparent_1.5rem,black_2.5rem)] group-has-focus-visible/tab:mask-[linear-gradient(to_left,transparent_1.5rem,black_2.5rem)]">
           {convo.title}
         </span>
       </button>
-      <div className="absolute inset-y-0 right-0.5 flex items-center gap-0.5 opacity-0 has-focus-visible:opacity-100 group-hover/tab:opacity-100 group-has-[[data-state=open]]/tab:opacity-100">
-        {/* Snoozing or settling it puts it away, so its tab goes too. */}
-        <ShelveActions chat={convo} settled={convo.settledAt != null} compact onDone={onClose} />
-        {/* Takes the tab out of the bar; the chat stays in history. */}
-        <button
-          type="button"
-          aria-label="Close tab"
-          onClick={onClose}
-          className="flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-        >
-          <XIcon className="size-3" />
-        </button>
+      <div className="absolute inset-y-0 right-0.5 flex items-center gap-0.5 opacity-0 has-focus-visible:opacity-100 group-hover/tab:opacity-100">
+        <HintTooltip label="Settle" side="top">
+          <button
+            type="button"
+            aria-label="Settle"
+            onClick={() => {
+              settleChat(convo.id);
+              onSettle();
+            }}
+            className="flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <CheckIcon className="size-3.5" />
+          </button>
+        </HintTooltip>
       </div>
     </div>
   );

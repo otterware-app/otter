@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   AlarmClockIcon,
   CheckIcon,
@@ -33,10 +33,11 @@ import {
 } from "./chat-store";
 import {
   chatReturnedAt,
-  chatShelf,
+  shelveChats,
   shortAgo,
   snoozePresets,
   tabsSummary,
+  useNow,
   wakesIn,
   type ChatShelf,
 } from "./chat-shelves";
@@ -54,6 +55,7 @@ import {
   DropdownMenuTrigger,
 } from "./menu";
 import { SidebarBody } from "./sidebar-ui";
+import { TitleInput } from "./chat-title";
 import { toast } from "./toast";
 import { HintTooltip, cn } from "./ui";
 
@@ -78,15 +80,6 @@ const AGENT_FILTER_KEY = "gmail:chat-agent-filter";
 function agentOf(c: Conversation): { key: string; kind: string; agent: string | null } {
   const agent = openClawAgentId(c.sessionId);
   return { key: agent ? `${c.provider}:${agent}` : c.provider, kind: c.provider, agent };
-}
-
-function useNow(ms: number): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), ms);
-    return () => clearInterval(timer);
-  }, [ms]);
-  return now;
 }
 
 export function AgentSidebar({
@@ -156,27 +149,17 @@ export function AgentSidebar({
   const approving = askedIn(approvals);
   const asking = askedIn(questions);
   const waiting = new Set([...approving, ...asking]);
-  const shelves: Record<ChatShelf, Conversation[]> = {
-    pinned: [],
-    active: [],
-    snoozed: [],
-    settled: [],
-  };
   const shown = conversations.filter(
     (c) =>
       !isBlank(c) &&
       (!filter || agentOf(c).key === filter) &&
       (!needle || c.title.toLowerCase().includes(needle)),
   );
-  for (const c of shown) {
-    shelves[chatShelf(c, { working: Boolean(runs[c.id]), needsYou: waiting.has(c.id), now })].push(
-      c,
-    );
-  }
-  shelves.pinned.sort((a, b) => (a.pinnedAt ?? 0) - (b.pinnedAt ?? 0));
-  shelves.active.sort((a, b) => chatReturnedAt(b, now) - chatReturnedAt(a, now));
-  shelves.snoozed.sort((a, b) => (a.snoozedUntil ?? 0) - (b.snoozedUntil ?? 0));
-  shelves.settled.sort((a, b) => (b.settledAt ?? b.updatedAt) - (a.settledAt ?? a.updatedAt));
+  const shelves = shelveChats(shown, {
+    working: new Set(Object.keys(runs)),
+    needsYou: waiting,
+    now,
+  });
   const settled = shelves.settled.filter((c, i) => i < settledShown || c.id === chatId);
   const hiddenSettled = shelves.settled.length - settled.length;
   const current = conversations.find((c) => c.id === chatId);
@@ -604,40 +587,6 @@ function Shelf({ title, count, children }: { title: string; count: number; child
       </button>
       {open ? children : null}
     </div>
-  );
-}
-
-/** Mounted only while renaming; Enter and Escape unmount it, and that blur mustn't save again. */
-function TitleInput({ title, onDone }: { title: string; onDone: (title: string | null) => void }) {
-  const [value, setValue] = useState(title);
-  const done = useRef(false);
-  const finish = (title: string | null) => {
-    if (done.current) return;
-    done.current = true;
-    onDone(title);
-  };
-  return (
-    <input
-      autoFocus
-      value={value}
-      dir="auto"
-      aria-label="Chat title"
-      onChange={(e) => setValue(e.target.value)}
-      onFocus={(e) => e.currentTarget.select()}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-        if (e.nativeEvent.isComposing) return;
-        if (e.key === "Enter") {
-          e.preventDefault();
-          finish(value);
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          finish(null);
-        }
-      }}
-      onBlur={() => finish(value)}
-      className="-my-px min-w-0 flex-1 rounded-sm border border-input bg-card px-1 text-sm text-card-foreground outline-none focus:border-foreground"
-    />
   );
 }
 

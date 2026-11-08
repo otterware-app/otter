@@ -44,6 +44,7 @@ import {
   type ChatTab,
 } from "./chat-store";
 import { AgentBrowser, AgentBrowserTabIcon } from "./agent-browser";
+import { ChatTitle } from "./chat-title";
 import { ChatView } from "./chat-view";
 import { DitherBackdrop } from "./dither-backdrop";
 import { FilePreview } from "./attachment-preview";
@@ -350,9 +351,7 @@ export function ChatWorkspace({
           ) : (
             <>
               <AgentAvatar kind={convo.provider} agent={openClawAgentId(convo.sessionId)} />
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                {convo.title}
-              </span>
+              <ChatTitle chat={convo} className="text-sm font-medium text-foreground" />
             </>
           )}
           {panelOpen ? null : titleTrailing}

@@ -33,7 +33,7 @@ import { ChatWindow } from "./mail/chat-window";
 import { ChatWorkspace, type ChatPanelControl } from "./mail/chat-workspace";
 import { CALENDAR_MODES, CalendarView, calendarAccounts } from "./calendar/calendar-view";
 import type { CalendarMode } from "./calendar/dates";
-import { newChat, showChat, undockChat, useChatEvents, useChats } from "./mail/chat-store";
+import { newChat, showChat, useChatEvents, useChats } from "./mail/chat-store";
 import { useMailChatContext } from "./mail/chat-context";
 import { useChatProvider } from "./mail/agent-providers";
 import { SEARCH_MAILBOX } from "./mail/gmail-query";
@@ -707,10 +707,8 @@ function MailHome() {
     setChatWindow(true);
   };
   const chatWindowShown = chatWindowOpen && !isChats && !settingsRoute;
-  const closeChat = () => {
-    undockChat(useChats.getState().activeId);
-    setChatWindow(false);
-  };
+  const chatBarShown = !isChats || settingsRoute;
+  const closeChat = () => setChatWindow(false);
   useLayoutEffect(() => {
     closeChatWindowRef.current = () => {
       if (!chatWindowShown) return false;
@@ -734,9 +732,8 @@ function MailHome() {
       openChat();
     }
   };
-  const closeChatTab = (id: string) => {
+  const chatShelved = (id: string) => {
     if (chatWindowShown && activeChatId === id) closeChat();
-    else undockChat(id);
   };
 
   const mailBeforeChats = useRef<MailLoc | null>(null);
@@ -1624,7 +1621,12 @@ function MailHome() {
         <div className="flex min-h-0 flex-1">
           {/* The frame's width round the cards (the right edge is the last
               card's own gap), so they float with every corner rounded. */}
-          <div className="relative isolate flex min-w-0 flex-1 pb-8 pl-1">
+          <div
+            className={cn(
+              "relative isolate flex min-w-0 flex-1 pl-1",
+              chatBarShown ? "pb-8" : "pb-(--workspace-frame-inset)",
+            )}
+          >
             <div data-mail-workspace="" className="relative flex min-h-0 min-w-0 flex-1">
               {peeking ? (
                 <SidebarPeekCard width={sidebarWidth} onHover={sidebarPeek.hover}>
@@ -1648,7 +1650,7 @@ function MailHome() {
                     style={{ width: sidebarOpen ? sidebarWidth : 0 }}
                     className={cn(
                       PANE_FRAME,
-                      "-mb-8",
+                      chatBarShown ? "-mb-8" : "-mb-(--workspace-frame-inset)",
                       sidebarOpen && "[[data-panel-animations=true]_&]:starting:w-0!",
                       !sidebarOpen && "pointer-events-none",
                     )}
@@ -1846,32 +1848,30 @@ function MailHome() {
                 onOpenChange={openChatChange}
                 onOpenWorkspace={openWorkspace}
                 onMinimize={() => setChatWindow(false)}
-                onClose={closeChat}
+                onShelve={closeChat}
                 inputRef={chatInputRef}
               />
             ) : null}
-            {/* The bottom bar: under the cards, right of the sidebar, which runs on down beside it. */}
-            <div
-              className="absolute bottom-0 right-0 z-40"
-              style={{
-                left: sidebarOpen
-                  ? "calc(var(--workspace-sidebar-width) + var(--workspace-frame-inset))"
-                  : 0,
-              }}
-            >
-              <ChatBar
-                shownId={
-                  isChats && !settingsRoute
-                    ? selectedLabelId
-                    : chatWindowShown
-                      ? activeChatId
-                      : null
-                }
-                onSelect={selectChat}
-                onCloseTab={closeChatTab}
-                onNewChat={startNewChat}
-              />
-            </div>
+            {/* The bottom bar: under the cards, right of the sidebar, which runs on down beside it.
+                The Agent space has none: its sidebar is the list of chats. */}
+            {chatBarShown ? (
+              <div
+                className="absolute bottom-0 right-0 z-40"
+                style={{
+                  left: sidebarOpen
+                    ? "calc(var(--workspace-sidebar-width) + var(--workspace-frame-inset))"
+                    : 0,
+                }}
+              >
+                <ChatBar
+                  shownId={chatWindowShown ? activeChatId : null}
+                  onSelect={selectChat}
+                  onShelve={chatShelved}
+                  onNewChat={startNewChat}
+                  onOpenAgents={() => switchMode("agent")}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
