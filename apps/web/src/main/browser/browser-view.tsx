@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { ProviderIcon, isProviderUsable, useAgentProviders } from "../agent/agent-providers";
+import { useChats } from "../agent/chat-store";
 import { mailApi } from "../mail/api";
 import {
   DropdownMenu,
@@ -175,8 +176,14 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
     return () => offs.forEach((off) => off());
   }, [pageId, tab.id]);
 
+  // An OpenClaw chat's own pages are shared with it unless you stop sharing one.
+  const chatShared = useChats(
+    (s) =>
+      !!tab.chatId && s.conversations.find((c) => c.id === tab.chatId)?.provider === "openclaw",
+  );
+  const shared = tab.shared ?? chatShared;
   useEffect(() => {
-    if (pageId === null || !tab.shared) return;
+    if (pageId === null || !shared) return;
     const share = (on: boolean) =>
       window.desktopBridge.invoke("browser:share", { webContentsId: pageId, share: on });
     let current = true;
@@ -184,7 +191,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
       if (!current) return;
       updateTab(tab.id, { shared: false });
       const message = String(error).replace(
-        /^Error invoking remote method '[^']*':\s*(Error:\s*)?/,
+        /^(Error:\s*)?Error invoking remote method '[^']*':\s*(Error:\s*)?/,
         "",
       );
       toast.error(`Couldn't share this tab with OpenClaw: ${message}`);
@@ -193,7 +200,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
       current = false;
       void share(false).catch(() => {});
     };
-  }, [pageId, tab.shared, tab.id]);
+  }, [pageId, shared, tab.id]);
 
   const navigate = (url: string) => {
     updateTab(tab.id, { url });
@@ -251,7 +258,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
           onNavigate={navigate}
           onSiteDataCleared={() => view?.reload()}
         />
-        {src && pageId !== null ? <ShareButton tab={tab} /> : null}
+        {src && pageId !== null ? <ShareButton tabId={tab.id} shared={shared} /> : null}
         {src ? <ExtensionToolbar /> : null}
         <PageMenu url={tab.url} onDevTools={view ? () => view.openDevTools() : undefined} />
       </div>
@@ -289,17 +296,17 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
 }
 
 /** Shares the tab with OpenClaw's agents, who then see and work in it as you watch. */
-function ShareButton({ tab }: { tab: BrowserTab }) {
+function ShareButton({ tabId, shared }: { tabId: string; shared: boolean }) {
   const openClaw = useAgentProviders().data?.providers.find((p) => p.kind === "openclaw");
   const sharing = useBrowser((s) => s.sharing);
-  if (!tab.shared && (!openClaw?.enabled || !isProviderUsable(openClaw))) return null;
-  if (!tab.shared)
+  if (!shared && (!openClaw?.enabled || !isProviderUsable(openClaw))) return null;
+  if (!shared)
     return (
       <HintTooltip label="Share with OpenClaw" side="bottom">
         <IconBtn
           label="Share with OpenClaw"
           className="size-8 shrink-0 rounded-full"
-          onClick={() => updateTab(tab.id, { shared: true })}
+          onClick={() => updateTab(tabId, { shared: true })}
         >
           <ProviderIcon kind="openclaw" className="grayscale" />
         </IconBtn>
@@ -318,7 +325,7 @@ function ShareButton({ tab }: { tab: BrowserTab }) {
         variant="ghost"
         aria-label="Stop sharing with OpenClaw"
         className="shrink-0 gap-1.5 rounded-full bg-[#ff4d4d]/12 text-foreground hover:bg-[#ff4d4d]/20"
-        onClick={() => updateTab(tab.id, { shared: false })}
+        onClick={() => updateTab(tabId, { shared: false })}
       >
         {sharing.status === "on" ? (
           <ProviderIcon kind="openclaw" className="size-3.5" />
