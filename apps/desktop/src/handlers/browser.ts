@@ -54,7 +54,11 @@ export function registerBrowserHandlers(): void {
   });
 
   ipcMain.handle("browser:share", async (event, params: unknown) => {
-    const { webContentsId, share } = (params ?? {}) as { webContentsId?: unknown; share?: unknown };
+    const { webContentsId, share, request } = (params ?? {}) as {
+      webContentsId?: unknown;
+      share?: unknown;
+      request?: unknown;
+    };
     const page = typeof webContentsId === "number" ? webContents.fromId(webContentsId) : undefined;
     if (
       !page ||
@@ -65,7 +69,7 @@ export function registerBrowserHandlers(): void {
     ) {
       throw new Error("Invalid parameters for browser:share.");
     }
-    await shareTab(page, share);
+    await shareTab(page, share, typeof request === "string" ? request : undefined);
   });
 
   ipcMain.handle("browser:sharing", () => sharingStatus());

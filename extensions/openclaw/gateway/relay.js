@@ -40,8 +40,8 @@ export async function relayKey(credentialsDir) {
   throw new Error("The gateway's browser relay key isn't readable yet.");
 }
 
-/** What an agent in an Otter chat is told about the tabs you share with it. */
+/** What an agent in an Otter chat is told about Otter's browser. */
 export const SHARED_TABS_NOTE = [
-  `Tabs the user shares from Otter's browser are browser profile "${BROWSER_PROFILE}": pass \`profile: "${BROWSER_PROFILE}"\` to the browser tool to see and work in them (tabs, snapshot, act, navigate).`,
-  'They are the user\'s own pages, signed in as the user, and the user sees what you do as you do it. When the user says "this tab", "the page I\'m on" or "my browser", it is one of these.',
+  `Otter's browser is browser profile "${BROWSER_PROFILE}": the user's own tabs in Otter, signed in as the user, which they watch as you work. When a message comes with a browser tab, or the user means "this tab", "this page" or "my browser", pass \`profile: "${BROWSER_PROFILE}"\` to the browser tool and work there (tabs, snapshot, act, navigate). A tab you open there opens in the user's Otter.`,
+  `If "${BROWSER_PROFILE}" has no tabs or isn't connected, Otter isn't open on the user's computer: say so, or use your own browser when the task doesn't need the user's sessions.`,
 ].join("\n");

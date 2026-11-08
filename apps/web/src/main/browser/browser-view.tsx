@@ -16,7 +16,13 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { ProviderIcon, isProviderUsable, useAgentProviders } from "../agent/agent-providers";
+import { ProviderIcon } from "../agent/agent-providers";
+import {
+  AgentCursor,
+  type PageField,
+  type PagePointer,
+  type Placer,
+} from "../agent/agent-browser-overlay";
 import { useChats } from "../agent/chat-store";
 import { mailApi } from "../mail/api";
 import {
@@ -56,6 +62,9 @@ type Webview = HTMLElement & {
 };
 
 const PARTITION = "persist:browser";
+
+/** The page fills its webview at its own size, so a point on it is where it's drawn. */
+const placeOnPage: Placer = (x, y) => ({ left: x, top: y, scale: 1 });
 
 const SUGGESTED = [
   { name: "Google", url: "https://www.google.com/" },
@@ -111,6 +120,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
       "dom-ready": () => {
         ready = true;
         setPageId(view.getWebContentsId());
+        updateTab(tab.id, { pageId: view.getWebContentsId() });
         sync();
       },
       "did-start-loading": () => {
@@ -161,11 +171,28 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
   useEffect(() => {
     if (active && pageId !== null) void window.desktopBridge.invoke("browser:activeTab", pageId);
   }, [active, pageId]);
+  const [agentPointer, setAgentPointer] = useState<PagePointer | null>(null);
+  const [agentField, setAgentField] = useState<PageField | null>(null);
   useEffect(() => {
     if (pageId === null) return;
     const mine = (params: unknown) =>
       (params as { webContentsId?: number }).webContentsId === pageId;
     const offs = [
+      window.desktopBridge.on("browser:agentPointer", (params) => {
+        if (!mine(params)) return;
+        const { x, y, click } = params as { x: number; y: number; click: boolean };
+        setAgentPointer((p) => ({
+          x,
+          y,
+          clicks: (p?.clicks ?? 0) + (click ? 1 : 0),
+          at: Date.now(),
+        }));
+      }),
+      window.desktopBridge.on("browser:agentTyping", (params) => {
+        if (!mine(params)) return;
+        const { x, y, width, height } = params as PageField;
+        setAgentField({ x, y, width, height, at: Date.now() });
+      }),
       window.desktopBridge.on("browser:selectTab", (params) => {
         if (mine(params)) selectTab(tab.id);
       }),
@@ -185,7 +212,11 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
   useEffect(() => {
     if (pageId === null || !shared) return;
     const share = (on: boolean) =>
-      window.desktopBridge.invoke("browser:share", { webContentsId: pageId, share: on });
+      window.desktopBridge.invoke("browser:share", {
+        webContentsId: pageId,
+        share: on,
+        request: on ? tab.shareRequest : undefined,
+      });
     let current = true;
     share(true).catch((error: unknown) => {
       if (!current) return;
@@ -200,7 +231,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
       current = false;
       void share(false).catch(() => {});
     };
-  }, [pageId, shared, tab.id]);
+  }, [pageId, shared, tab.id, tab.shareRequest]);
 
   const navigate = (url: string) => {
     updateTab(tab.id, { url });
@@ -258,7 +289,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
           onNavigate={navigate}
           onSiteDataCleared={() => view?.reload()}
         />
-        {src && pageId !== null ? <ShareButton tabId={tab.id} shared={shared} /> : null}
+        {shared && pageId !== null ? <SharedBadge tabId={tab.id} /> : null}
         {src ? <ExtensionToolbar /> : null}
         <PageMenu url={tab.url} onDevTools={view ? () => view.openDevTools() : undefined} />
       </div>
@@ -276,6 +307,9 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
         ) : (
           <StartPage onNavigate={navigate} />
         )}
+        {shared ? (
+          <AgentCursor pointer={agentPointer} field={agentField} place={placeOnPage} />
+        ) : null}
         {failure || crashed ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-canvas p-6 text-center">
             <TriangleAlertIcon className="mb-1 size-6 text-muted-foreground" />
@@ -295,23 +329,9 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
   );
 }
 
-/** Shares the tab with OpenClaw's agents, who then see and work in it as you watch. */
-function ShareButton({ tabId, shared }: { tabId: string; shared: boolean }) {
-  const openClaw = useAgentProviders().data?.providers.find((p) => p.kind === "openclaw");
+/** A tab OpenClaw's agent can see and work in, and the way to stop that. */
+function SharedBadge({ tabId }: { tabId: string }) {
   const sharing = useBrowser((s) => s.sharing);
-  if (!shared && (!openClaw?.enabled || !isProviderUsable(openClaw))) return null;
-  if (!shared)
-    return (
-      <HintTooltip label="Share with OpenClaw" side="bottom">
-        <IconBtn
-          label="Share with OpenClaw"
-          className="size-8 shrink-0 rounded-full"
-          onClick={() => updateTab(tabId, { shared: true })}
-        >
-          <ProviderIcon kind="openclaw" className="grayscale" />
-        </IconBtn>
-      </HintTooltip>
-    );
   const label =
     sharing.status === "on"
       ? "OpenClaw can see and use this tab. Click to stop sharing."

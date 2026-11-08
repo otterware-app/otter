@@ -157,7 +157,9 @@ export function focusedBrowserPage(): WebContents | null {
 /** Lets `win` host browser tabs: only in the browser's session, with nothing of the app's in them. */
 export function attachBrowser(win: BrowserWindow): void {
   win.webContents.on("will-attach-webview", (event, prefs, params) => {
-    if (params.partition !== BROWSER_PARTITION || !isPageUrl(params.src ?? "")) {
+    // about:blank is where a tab the agent opens starts (tab-sharing.ts).
+    const src = params.src ?? "";
+    if (params.partition !== BROWSER_PARTITION || !(isPageUrl(src) || src === "about:blank")) {
       event.preventDefault();
       return;
     }

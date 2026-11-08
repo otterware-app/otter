@@ -15,13 +15,16 @@ export type ChatTurnItem =
   | { kind: "text"; id?: string; text: string }
   | { kind: "step"; id?: string; step: ChatStep; output?: string };
 
-export type ChatContextKind = "draft" | "sent" | "mail" | "mixed" | "quote";
+export type ChatContextKind = "draft" | "sent" | "mail" | "mixed" | "quote" | "page";
+
+/** A browser tab sent with a message: `tab` is that tab on the device that sent it. */
+export type ChatPageTarget = { kind: "page"; url: string; tab?: string };
 
 export interface ChatContextMeta {
   subjects: string[];
   count: number;
   kind: ChatContextKind;
-  items?: { title: string; target: ChatChange["target"] }[];
+  items?: { title: string; target: ChatChange["target"] | ChatPageTarget }[];
 }
 
 export interface ChatSentAttachment {
@@ -61,7 +64,7 @@ export interface ChatTurn {
 export type ChatTabRef =
   | { kind: "thread"; accountId: string; id: string }
   | { kind: "draft"; accountId: string; id: string }
-  | { kind: "page"; url: string }
+  | ChatPageTarget
   | { kind: "file"; href: string };
 
 export interface ChatTab {
@@ -115,7 +118,7 @@ export function chatTabId(ref: ChatTabRef): string {
     case "draft":
       return `${ref.kind}:${ref.accountId}:${ref.id}`;
     case "page":
-      return `page:${ref.url}`;
+      return ref.tab ? `page:tab:${ref.tab}` : `page:${ref.url}`;
     case "file":
       return `file:${ref.href}`;
   }

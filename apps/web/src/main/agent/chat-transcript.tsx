@@ -9,6 +9,7 @@ import {
   CopyIcon,
   FilePenLineIcon,
   GitForkIcon,
+  GlobeIcon,
   LayersIcon,
   MailIcon,
   RotateCcwIcon,
@@ -36,17 +37,21 @@ import {
 } from "../mail/menu";
 import { toast } from "../mail/toast";
 
+type ContextItem = NonNullable<ContextMeta["items"]>[number];
+
 export function ContextKindIcon({ kind, className }: { kind: ContextKind; className?: string }) {
   const Icon =
-    kind === "quote"
-      ? TextQuoteIcon
-      : kind === "draft"
-        ? FilePenLineIcon
-        : kind === "sent"
-          ? SendIcon
-          : kind === "mixed"
-            ? LayersIcon
-            : MailIcon;
+    kind === "page"
+      ? GlobeIcon
+      : kind === "quote"
+        ? TextQuoteIcon
+        : kind === "draft"
+          ? FilePenLineIcon
+          : kind === "sent"
+            ? SendIcon
+            : kind === "mixed"
+              ? LayersIcon
+              : MailIcon;
   return <Icon className={className} />;
 }
 
@@ -87,11 +92,13 @@ function ContextRecap({
   onOpen,
 }: {
   context: ContextMeta;
-  onOpen: (item: { title: string; target: ChatChange["target"] }) => void;
+  onOpen: (item: ContextItem) => void;
 }) {
   const label =
     context.count > 1
-      ? `${context.count} conversations`
+      ? context.items?.some((item) => item.target.kind === "page")
+        ? `${context.count} items`
+        : `${context.count} conversations`
       : (context.subjects[0] ?? "1 conversation");
   const items = context.items ?? [];
   const chipClass =
@@ -343,7 +350,7 @@ export function ChatTranscript({
   providerName: string;
   onOpenFile: (href: string) => void;
   loadImage: (href: string) => Promise<string>;
-  onOpenContext: (item: { title: string; target: ChatChange["target"] }) => void;
+  onOpenContext: (item: ContextItem) => void;
   onOpenChange: (change: ChatChange) => Promise<void>;
   /** Forks the chat after this reply; absent when the agent can't. */
   onFork?: (turnId: string) => void;

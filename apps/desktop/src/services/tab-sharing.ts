@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { app, type WebContents } from "electron";
 
 import { invokeBackend } from "../backend-host.js";
@@ -159,6 +159,72 @@ function detach(page: WebContents): void {
   attached.delete(page.id);
 }
 
+/** Where the field being typed in is, in the page's CSS px. */
+const FOCUSED_FIELD = `(() => {
+  let el = document.activeElement;
+  while (el?.shadowRoot?.activeElement) el = el.shadowRoot.activeElement;
+  if (!el || el === document.body || el === document.documentElement) return null;
+  const r = el.getBoundingClientRect();
+  return { x: r.x, y: r.y, width: r.width, height: r.height };
+})()`;
+/** A world of its own, where the page can't see or stop it. */
+const OVERLAY_WORLD = 1_000;
+const lastTyped = new WeakMap<WebContents, number>();
+
+/** Tells the tab's window what the agent's doing, so it draws the agent's pointer over the page. */
+function showAgentInput(page: WebContents, method: unknown, params: unknown): void {
+  const host = page.hostWebContents;
+  if (!host || host.isDestroyed()) return;
+  const p = (params ?? {}) as { type?: string; x?: number; y?: number };
+  if (method === "Input.dispatchMouseEvent" && typeof p.x === "number" && typeof p.y === "number") {
+    if (p.type === "mouseReleased") return;
+    host.send("browser:agentPointer", {
+      webContentsId: page.id,
+      x: p.x,
+      y: p.y,
+      click: p.type === "mousePressed",
+    });
+  } else if (method === "Input.insertText" || method === "Input.dispatchKeyEvent") {
+    const now = Date.now();
+    if (now - (lastTyped.get(page) ?? 0) < 150) return;
+    lastTyped.set(page, now);
+    void page
+      .executeJavaScriptInIsolatedWorld(OVERLAY_WORLD, [{ code: FOCUSED_FIELD }])
+      .then((field: unknown) => {
+        if (field && !host.isDestroyed())
+          host.send("browser:agentTyping", { webContentsId: page.id, ...(field as object) });
+      })
+      .catch(() => {});
+  }
+}
+
+/**
+ * Electron's debugger can't return a deeply nested value (its CBOR to JSON conversion has a stack
+ * limit): a large page's accessibility snapshot never comes back. A call that wants its result by
+ * value returns it as a JSON string instead, parsed back here.
+ */
+export function flattened(
+  method: string,
+  params: Record<string, unknown>,
+): Record<string, unknown> | null {
+  if (method !== "Runtime.callFunctionOn" || params.returnByValue !== true || !params.awaitPromise)
+    return null;
+  return {
+    ...params,
+    functionDeclaration: `async function (...args) { return JSON.stringify(await (${String(params.functionDeclaration)}).apply(this, args)); }`,
+  };
+}
+
+export function unflattened(response: { result?: { type?: string; value?: unknown } } | undefined) {
+  const result = response?.result;
+  if (result?.type !== "string" || typeof result.value !== "string") return response ?? {};
+  const value: unknown = JSON.parse(result.value);
+  const type = value === null || Array.isArray(value) ? "object" : typeof value;
+  const subtype =
+    value === null ? { subtype: "null" } : Array.isArray(value) ? { subtype: "array" } : {};
+  return { ...response, result: { type, ...subtype, value } };
+}
+
 async function command(message: Record<string, unknown>): Promise<unknown> {
   switch (message.type) {
     case "attach":
@@ -168,12 +234,15 @@ async function command(message: Record<string, unknown>): Promise<unknown> {
       return {};
     case "cdp": {
       const page = pageOf(message.tabId);
-      const result = await page.debugger.sendCommand(
+      if (message.sessionId === undefined) showAgentInput(page, message.method, message.params);
+      const params = (message.params as Record<string, unknown> | undefined) ?? {};
+      const flat = flattened(String(message.method), params);
+      const result = (await page.debugger.sendCommand(
         String(message.method),
-        (message.params as object | undefined) ?? {},
+        flat ?? params,
         typeof message.sessionId === "string" ? message.sessionId : undefined,
-      );
-      return result ?? {};
+      )) as { result?: { type?: string; value?: unknown } } | undefined;
+      return flat ? unflattened(result) : (result ?? {});
     }
     case "activateTab":
     case "closeTab": {
@@ -182,13 +251,34 @@ async function command(message: Record<string, unknown>): Promise<unknown> {
       page.hostWebContents?.send(channel, { webContentsId: page.id });
       return {};
     }
-    case "createTab":
-      throw new Error(
-        "Otter only gives you the tabs the user shares. Work in one of those: navigate it instead of opening a new tab.",
-      );
+    case "createTab": {
+      const page = await openTab(typeof message.url === "string" ? message.url : "about:blank");
+      return { tabId: page.id, targetId: await attach(page) };
+    }
     default:
       throw new Error(`Otter doesn't know the relay command ${String(message.type)}.`);
   }
+}
+
+const opening = new Map<string, (page: WebContents) => void>();
+const OPEN_TIMEOUT_MS = 20_000;
+
+/** A tab the agent opens: in Otter's browser beside the tabs it was given, shared as they are. */
+function openTab(url: string): Promise<WebContents> {
+  const host = [...shared.values()].find((page) => !page.isDestroyed())?.hostWebContents;
+  if (!host) return Promise.reject(new Error("Otter has no window to open the tab in."));
+  const request = randomUUID();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      opening.delete(request);
+      reject(new Error("Otter didn't open the tab in time."));
+    }, OPEN_TIMEOUT_MS);
+    opening.set(request, (page) => {
+      clearTimeout(timer);
+      resolve(page);
+    });
+    host.send("browser:openTab", { url, share: request });
+  });
 }
 
 function onCommand(message: Record<string, unknown>): void {
@@ -306,10 +396,11 @@ function stop(): void {
  * Relay Authentication v2), with `webContents.debugger` for `chrome.debugger`, so the agent's
  * own browser tool works in the tab.
  */
-export async function shareTab(page: WebContents, share: boolean): Promise<void> {
+export async function shareTab(page: WebContents, share: boolean, request?: string): Promise<void> {
   if (!share) {
     if (!shared.delete(page.id)) return;
     detach(page);
+    if (!page.isDestroyed()) page.setBackgroundThrottling(true);
     if (shared.size === 0) stop();
     else {
       syncTabs();
@@ -318,6 +409,8 @@ export async function shareTab(page: WebContents, share: boolean): Promise<void>
     return;
   }
   shared.set(page.id, page);
+  // The agent works in it while it's off screen too: a throttled page stalls its every read.
+  page.setBackgroundThrottling(false);
   if (!watched.has(page)) {
     watched.add(page);
     page.on("did-navigate", syncTabs);
@@ -333,14 +426,18 @@ export async function shareTab(page: WebContents, share: boolean): Promise<void>
   if (authenticated) {
     syncTabs();
     setStatus("on");
-    return;
+  } else {
+    try {
+      await connect();
+    } catch (error) {
+      shared.delete(page.id);
+      if (shared.size === 0) stop();
+      throw error;
+    }
   }
-  try {
-    await connect();
-  } catch (error) {
-    shared.delete(page.id);
-    if (shared.size === 0) stop();
-    throw error;
+  if (request) {
+    opening.get(request)?.(page);
+    opening.delete(request);
   }
 }
 

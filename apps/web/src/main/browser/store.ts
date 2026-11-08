@@ -12,6 +12,10 @@ export type BrowserTab = {
   chatId?: string;
   /** Shared with OpenClaw: its agent sees and works in it. Not kept past a relaunch. */
   shared?: boolean;
+  /** Its page's webContents, once it has one. */
+  pageId?: number;
+  /** A tab OpenClaw's agent opened: the request its page answers once shared. */
+  shareRequest?: string;
 };
 
 /** Where sharing tabs with OpenClaw stands (`apps/desktop/src/services/tab-sharing.ts`). */
@@ -130,10 +134,17 @@ export const panelTabs = (tabs: BrowserTab[]) => tabs.filter((tab) => !tab.chatI
 
 export const chatPageId = (chatId: string, tabId: string) => `${chatId}|${tabId}`;
 
-export function ensureChatPage(chatId: string, tabId: string, url: string, title: string): void {
+export function ensureChatPage(
+  chatId: string,
+  tabId: string,
+  url: string,
+  title: string,
+  shareRequest?: string,
+): void {
   const id = chatPageId(chatId, tabId);
   if (get().tabs.some((tab) => tab.id === id)) return;
-  set((s) => ({ tabs: [...s.tabs, { ...blankTab(url), id, title, chatId }] }));
+  const shared = shareRequest ? { shared: true, shareRequest } : {};
+  set((s) => ({ tabs: [...s.tabs, { ...blankTab(url), id, title, chatId, ...shared }] }));
 }
 
 export function closeChatPage(chatId: string, tabId: string): void {
@@ -145,8 +156,11 @@ export function closeChatPages(chatId: string): void {
   set((s) => ({ tabs: s.tabs.filter((tab) => tab.chatId !== chatId) }));
 }
 
-export function openTab(url: string, { background = false } = {}): void {
-  const tab = blankTab(url);
+export function openTab(
+  url: string,
+  { background = false, shareRequest }: { background?: boolean; shareRequest?: string } = {},
+): void {
+  const tab = { ...blankTab(url), ...(shareRequest && { shared: true, shareRequest }) };
   set((s) => {
     const at = s.tabs.findIndex((t) => t.id === s.activeId);
     const tabs = at < 0 ? [...s.tabs, tab] : s.tabs.toSpliced(at + 1, 0, tab);
@@ -201,6 +215,20 @@ export function updateTab(id: string, patch: Partial<Omit<BrowserTab, "id">>): v
   set((s) => ({ tabs: s.tabs.map((tab) => (tab.id === id ? { ...tab, ...patch } : tab)) }));
 }
 
+/** Shares a tab with OpenClaw now, as its page shows it; false when that didn't work. */
+export async function shareBrowserTab(id: string): Promise<boolean> {
+  const tab = get().tabs.find((t) => t.id === id);
+  if (!tab) return false;
+  updateTab(id, { shared: true });
+  if (tab.pageId === undefined) return false;
+  return window.desktopBridge
+    .invoke("browser:share", { webContentsId: tab.pageId, share: true })
+    .then(
+      () => true,
+      () => false,
+    );
+}
+
 export function setPinned(id: string, pinned: boolean): void {
   set((s) => {
     const next = pinned
@@ -222,11 +250,23 @@ export function setOpenLinksIn(value: OpenLinksIn): void {
 }
 
 /** Where in-app links go instead of the panel while the AI workspace shows: the chat's tabs. */
-let linkHandler: ((url: string) => void) | null = null;
+/** `shareRequest`: a tab OpenClaw's agent opened, shared with it once it loads. */
+type LinkHandler = (url: string, shareRequest?: string) => void;
+let linkHandler: LinkHandler | null = null;
 
-export function routeLinks(handler: ((url: string) => void) | null): void {
+export function routeLinks(handler: LinkHandler | null): void {
   linkHandler = handler;
 }
+
+/** Shows a tab a chat was sent: your tab itself while it's open, else its page. */
+export function showBrowserPage(target: { url: string; tab?: string }): void {
+  const tab = target.tab ? get().tabs.find((t) => t.id === target.tab && !t.chatId) : undefined;
+  if (tab && !linkHandler) set((s) => ({ activeId: tab.id, revealed: s.revealed + 1 }));
+  else openLink(target.url);
+}
+
+/** Whether links go to the AI workspace's chat instead of the browser panel. */
+export const linksRouted = () => linkHandler !== null;
 
 /**
  * A link from mail or chat: a tab in the browser panel (Mac), or in the AI
@@ -260,9 +300,13 @@ export function useBrowserEvents(): void {
     window.addEventListener("error", quietDetachError, true);
     const offs = [
       window.desktopBridge.on("browser:openTab", (params) => {
-        const { url, background } = params as { url: string; background?: boolean };
-        if (linkHandler) linkHandler(url);
-        else openTab(url, { background });
+        const { url, background, share } = params as {
+          url: string;
+          background?: boolean;
+          share?: string;
+        };
+        if (linkHandler) linkHandler(url, share);
+        else openTab(url, { background: background && !share, shareRequest: share });
       }),
       window.desktopBridge.on("browser:newTab", newTab),
       window.desktopBridge.on("browser:focusAddress", focusAddress),

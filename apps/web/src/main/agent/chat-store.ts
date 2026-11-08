@@ -518,6 +518,7 @@ function appendExchange(
       openChatTab(convoId, { kind: "thread", accountId: target.accountId, id: target.id }, title, {
         show: false,
       });
+    else if (target.kind === "page") openChatTab(convoId, target, title, { show: false });
   }
 }
 
