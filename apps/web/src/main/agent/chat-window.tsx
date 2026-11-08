@@ -211,7 +211,7 @@ export function ChatWindow({
                 window.open(tab.ref.url, "_blank", "noopener");
                 return;
               }
-              openChatTab(activeId, tab.ref, tab.title);
+              openChatTab(activeId, tab.ref, tab.title, { id: tab.id });
               onOpenWorkspace(activeId);
             }}
           />

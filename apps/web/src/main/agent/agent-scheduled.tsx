@@ -250,7 +250,7 @@ export function ScheduledTasksView({
             />
           )
         ) : (
-          <div className="mx-auto flex max-w-5xl flex-col gap-6 px-8 pt-4 pb-12">
+          <div className="mx-auto flex w-full max-w-[47rem] flex-col gap-8 px-6 pt-14 pb-20">
             <div className="flex items-center gap-3">
               <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight text-foreground">
                 Scheduled tasks
@@ -523,7 +523,7 @@ function Section({
           {heading}
         </h2>
       )}
-      {open ? <div className="grid gap-3 lg:grid-cols-2">{children}</div> : null}
+      {open ? <div className="flex flex-col gap-2">{children}</div> : null}
     </section>
   );
 }
@@ -712,7 +712,7 @@ function TaskPage({
       ? `Next run: ${dayTimeText(task.nextRunAt, now)}`
       : null;
   return (
-    <div className="mx-auto flex max-w-5xl flex-col px-8 pt-4 pb-12">
+    <div className="mx-auto flex w-full max-w-5xl flex-col px-6 pt-14 pb-20">
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">{task.name}</h1>

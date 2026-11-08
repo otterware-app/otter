@@ -1,5 +1,5 @@
 import { useState, type ComponentType } from "react";
-import { ChevronsUpDownIcon, PlusIcon, SettingsIcon, SquarePenIcon } from "lucide-react";
+import { PlusIcon, SettingsIcon, SquarePenIcon } from "lucide-react";
 
 import { CalendarSidebar } from "../calendar/calendar-sidebar";
 import type { WorkspaceProps } from "../extensions/types";
@@ -24,10 +24,6 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
 } from "./menu";
 import {
   NewRow,
@@ -36,6 +32,7 @@ import {
   SectionAddButton,
   SidebarBody,
   SidebarPicker,
+  SidebarSwitcher,
   SkRow,
 } from "./sidebar-ui";
 import { VIEW_LIST, type AppMode } from "./spaces";
@@ -159,8 +156,6 @@ export function AppSidebar({
       <SignInCards accountIds={healthIds} />
       <UpdateCard />
       <div className="flex shrink-0 items-center gap-0.5 px-(--sidebar-content-inset) pb-(--sidebar-content-inset)">
-        <span className="min-w-0 flex-1" />
-        {mode === "mail" ? <SyncButton accountIds={healthIds} /> : null}
         <HintTooltip label="Settings" hint={shortcutText("mod+,")}>
           <IconBtn
             label="Settings"
@@ -171,6 +166,7 @@ export function AppSidebar({
             <SettingsIcon />
           </IconBtn>
         </HintTooltip>
+        {mode === "mail" ? <SyncButton accountIds={healthIds} /> : null}
       </div>
     </div>
   );
@@ -208,6 +204,7 @@ function ModePicker({
       mode: `workspace:${w.id}` as const,
       label: w.title,
       Icon: w.Icon,
+      shortcut: w.id === "drive" ? ("mode.drive" as const) : undefined,
       dot: false,
     })),
     { mode: "agent", label: "Agent", Icon: AgentIcon, shortcut: "mode.agent", dot: agentDot },
@@ -281,54 +278,20 @@ function MailboxSwitcher({
     tabs.flatMap((tab) => (tab.alias ? [] : [tab.account])),
     tabs.flatMap((tab) => (tab.alias ? [tab.alias] : [])),
   );
-  const selected = options.find((option) => option.id === selectedId) ?? options[0]!;
-  const elsewhere = options.some((o) => o.id !== selected.id && (unread[o.id] ?? 0) > 0);
-  const picture = (option: MailboxOption) => (
-    <AccountPicture account={option.account} className="size-5 rounded-md text-[10px]" />
-  );
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          data-tour="mailbox"
-          className={`${SIDEBAR_ROW} h-8 px-1.5 text-sidebar-foreground hover:bg-sidebar-row-hover data-[state=open]:bg-sidebar-row-hover`}
-        >
-          {picture(selected)}
-          <span className="min-w-0 truncate">{selected.name}</span>
-          {elsewhere ? (
-            <span
-              aria-label="Unread in another mailbox"
-              className="size-1.5 shrink-0 rounded-full bg-sidebar-foreground"
-            />
-          ) : null}
-          <ChevronsUpDownIcon className="ms-auto size-3.5 shrink-0 text-sidebar-muted-foreground" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="min-w-(--radix-dropdown-menu-trigger-width)">
-        {options.map((option) => (
-          <DropdownMenuItem
-            key={option.id}
-            icon={picture(option)}
-            accelerator={option.shortcut}
-            onSelect={() => onSelect(option.id)}
-          >
-            <span className={option.id === selected.id ? "font-medium" : undefined}>
-              {option.name}
-            </span>
-            {option.detail ? (
-              <span className="ms-1.5 text-muted-foreground">{option.detail}</span>
-            ) : null}
-            {(unread[option.id] ?? 0) > 0 ? (
-              <span
-                aria-label="Unread"
-                className="ms-1.5 inline-block size-1.5 rounded-full bg-foreground align-middle"
-              />
-            ) : null}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <SidebarSwitcher
+      tour="mailbox"
+      selectedId={selectedId}
+      onSelect={onSelect}
+      items={options.map((option) => ({
+        id: option.id,
+        label: option.name,
+        icon: <AccountPicture account={option.account} className="size-5 rounded-md text-[10px]" />,
+        detail: option.detail,
+        accelerator: option.shortcut,
+        dot: (unread[option.id] ?? 0) > 0,
+      }))}
+    />
   );
 }
 

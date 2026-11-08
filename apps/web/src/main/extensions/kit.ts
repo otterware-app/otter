@@ -7,6 +7,7 @@ export {
   Section as SidebarSection,
   SidebarBody,
   SidebarPicker,
+  SidebarSwitcher,
   SkRow as SidebarRow,
 } from "../mail/sidebar-ui";
 export { useCommandHandlers } from "../keybindings/dispatch";

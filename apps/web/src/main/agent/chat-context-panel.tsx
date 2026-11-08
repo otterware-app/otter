@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import {
   ClockIcon,
   CopyIcon,
@@ -69,8 +69,15 @@ export function ChatContextButton({
   docked,
   shown,
   onToggle,
+  anchor,
   ...props
-}: DetailsProps & { docked?: boolean; shown?: boolean; onToggle?: () => void }) {
+}: DetailsProps & {
+  docked?: boolean;
+  shown?: boolean;
+  onToggle?: () => void;
+  /** The bar the popover hangs from, in its corner where the docked details sit. */
+  anchor?: RefObject<HTMLElement | null>;
+}) {
   const [open, setOpen] = useState(false);
   if (docked)
     return (
@@ -101,7 +108,13 @@ export function ChatContextButton({
           }
         />
       </HintTooltip>
-      <PopoverPopup align="end" padding="compact" width="md">
+      <PopoverPopup
+        align="end"
+        width="md"
+        anchor={anchor}
+        sideOffset={anchor ? 12 : undefined}
+        alignOffset={anchor ? 12 : undefined}
+      >
         <ChatDetails
           {...props}
           onOpen={(tab) => {
@@ -123,7 +136,7 @@ export function ChatDetailsDock(props: DetailsProps) {
   return (
     <aside
       aria-label="Chat details"
-      className="dropdown-glass min-h-0 overflow-y-auto rounded-lg p-3 text-popover-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
+      className="dropdown-glass min-h-0 overflow-y-auto rounded-lg p-4 text-popover-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
     >
       <ChatDetails {...props} />
     </aside>
@@ -137,47 +150,35 @@ function ChatDetails({ convo, onOpen, onOpenTask }: DetailsProps) {
   const agentName =
     (agent ? (chatAgent.provider?.models.find((m) => m.slug === agent)?.name ?? agent) : null) ??
     chatAgent.name;
-  // A local agent runs on the device that has the chat; a gateway, where it answers.
-  const where =
-    convo.device?.name ??
-    (chatAgent.provider?.status === "ready" ? chatAgent.provider.message : null);
-  const about = [agent ? chatAgent.name : null, where].filter(Boolean).join(" · ");
+  const about = [agent ? chatAgent.name : null, convo.device?.name].filter(Boolean).join(" · ");
   const outputs = convo.tabs.filter(isOutput).toReversed();
   const sources = convo.tabs.filter((t) => !isOutput(t)).toReversed();
   return (
-    <div className="flex flex-col gap-3 text-sm">
-      <div className="flex items-center gap-2.5 px-1">
-        <AgentAvatar kind={convo.provider} agent={agent} />
-        <div className="flex min-w-0 flex-col">
+    <div className="flex flex-col gap-4 text-sm">
+      <div className="flex items-center gap-2">
+        <AgentAvatar kind={convo.provider} agent={agent} className="size-5" />
+        <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-medium text-foreground">{agentName}</span>
-          {about ? (
-            <span className="truncate text-xs text-muted-foreground" title={about}>
-              {about}
-            </span>
-          ) : null}
+          {about ? <span className="truncate text-xs text-muted-foreground">{about}</span> : null}
         </div>
+        {convo.sessionId ? (
+          <HintTooltip label="Copy session ID" side="bottom">
+            <button
+              type="button"
+              aria-label="Copy session ID"
+              className="-mr-1.5 flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+              onClick={() =>
+                void navigator.clipboard.writeText(convo.sessionId ?? "").then(
+                  () => toast.success("Session ID copied"),
+                  () => toast.error("Couldn't copy the session ID"),
+                )
+              }
+            >
+              <CopyIcon className="size-4" />
+            </button>
+          </HintTooltip>
+        ) : null}
       </div>
-      {convo.sessionId ? (
-        <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
-          <span className="shrink-0">Session</span>
-          <span className="min-w-0 flex-1 truncate font-mono" title={convo.sessionId}>
-            {convo.sessionId}
-          </span>
-          <button
-            type="button"
-            aria-label="Copy session"
-            className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md hover:bg-foreground/[0.06] hover:text-foreground"
-            onClick={() =>
-              void navigator.clipboard.writeText(convo.sessionId ?? "").then(
-                () => toast.success("Session copied"),
-                () => toast.error("Couldn't copy the session"),
-              )
-            }
-          >
-            <CopyIcon className="size-3.5" />
-          </button>
-        </div>
-      ) : null}
       {convo.sessionId ? (
         <ScheduledSection sessionId={convo.sessionId} onOpen={onOpenTask} />
       ) : null}
@@ -186,6 +187,12 @@ function ChatDetails({ convo, onOpen, onOpenTask }: DetailsProps) {
     </div>
   );
 }
+
+const sectionClass = "flex flex-col gap-0.5 border-t pt-3";
+const headingClass = "pb-1.5 text-sm font-medium text-muted-foreground";
+/** Lined up with the headings; the hover reaches out past them. */
+const rowClass =
+  "-mx-2 flex min-w-0 cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-left outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-focus-ring";
 
 /** A page's title, or where it is when it has none of its own: its site and path. */
 function tabTitle(tab: ChatTab): string {
@@ -210,9 +217,9 @@ function TabSection({
   const [all, setAll] = useState(false);
   const shown = all ? tabs : tabs.slice(0, SHOWN);
   return (
-    <section className="flex flex-col gap-0.5 border-t pt-2">
-      <h3 className="px-1 pb-1 text-xs font-medium text-muted-foreground">{title}</h3>
-      {tabs.length === 0 ? <p className="px-1 text-xs text-muted-foreground/70">{empty}</p> : null}
+    <section className={sectionClass}>
+      <h3 className={headingClass}>{title}</h3>
+      {tabs.length === 0 ? <p className="text-muted-foreground/70">{empty}</p> : null}
       {shown.map((tab) => {
         const Icon = TAB_ICONS[tab.ref.kind];
         const detail = tab.ref.kind === "page" ? tab.ref.url : undefined;
@@ -222,12 +229,9 @@ function TabSection({
             type="button"
             title={detail ? `${tab.title}\n${detail}` : tab.title}
             onClick={() => onOpen(tab)}
-            className={cn(
-              "flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-left outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-focus-ring",
-              isOpenTab(tab) ? "text-foreground" : "text-muted-foreground",
-            )}
+            className={cn(rowClass, isOpenTab(tab) ? "text-foreground" : "text-muted-foreground")}
           >
-            <Icon className="size-3.5 shrink-0" />
+            <Icon className="size-4 shrink-0" />
             <span className="min-w-0 truncate">{tabTitle(tab)}</span>
           </button>
         );
@@ -236,7 +240,7 @@ function TabSection({
         <button
           type="button"
           onClick={() => setAll(!all)}
-          className="cursor-pointer self-start rounded-md px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
+          className={cn(rowClass, "text-muted-foreground hover:text-foreground")}
         >
           {all ? "Show fewer" : `View all ${tabs.length}`}
         </button>
@@ -260,16 +264,16 @@ function ScheduledSection({
   if (tasks.length === 0) return null;
   const now = Date.now();
   return (
-    <section className="flex flex-col gap-0.5 border-t pt-2">
-      <h3 className="px-1 pb-1 text-xs font-medium text-muted-foreground">Scheduled</h3>
+    <section className={sectionClass}>
+      <h3 className={headingClass}>Scheduled</h3>
       {tasks.map((task) => (
         <button
           key={keyOf(task)}
           type="button"
           onClick={() => onOpen(keyOf(task))}
-          className="flex min-w-0 cursor-pointer items-start gap-2 rounded-md px-1 py-1 text-left outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-focus-ring"
+          className={cn(rowClass, "items-start")}
         >
-          <ClockIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+          <ClockIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-foreground">{task.name}</span>
             <span className="truncate text-xs text-muted-foreground">{taskLine(task, now)}</span>

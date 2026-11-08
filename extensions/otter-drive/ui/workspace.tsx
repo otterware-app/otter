@@ -14,7 +14,7 @@ import {
   Input,
   SidebarAction,
   SidebarBody,
-  SidebarPicker,
+  SidebarSwitcher,
   cn,
   toast,
   type WorkspaceMainProps,
@@ -358,7 +358,7 @@ export function DriveSidebar({ location, item, go }: WorkspaceProps) {
         ) : null}
       </div>
       <div className="flex shrink-0 flex-col gap-2.5 px-(--sidebar-content-inset) pt-3">
-        <SidebarPicker
+        <SidebarSwitcher
           selectedId={place.sharedWithMe ? SHARED : (place.drive?.id ?? null)}
           onSelect={(id) => go({ location: id })}
           items={[
@@ -794,7 +794,7 @@ function Overview({
           </Btn>
         ) : null}
       </TitleBar>
-      <div key={where} className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
+      <div key={where} className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-6">
         {place.error ? (
           <Empty title="Couldn't load your documents" detail={errorText(place.error)} />
         ) : place.loading ? (
@@ -840,9 +840,7 @@ function Overview({
 
 function Grid({ children }: { children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-4 pt-1">
-      {children}
-    </div>
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-4">{children}</div>
   );
 }
 

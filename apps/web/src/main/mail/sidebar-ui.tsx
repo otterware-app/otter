@@ -4,11 +4,12 @@ import {
   type DragEvent as ReactDragEvent,
   type ReactNode,
 } from "react";
-import { ChevronDownIcon, PlusIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronsUpDownIcon, PlusIcon } from "lucide-react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 
 import type { KeybindingCommand } from "../keybindings/commands";
 
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./menu";
 import { HintTooltip, UnreadPill, cn } from "./ui";
 import { PLACE } from "../place-menu";
 
@@ -245,6 +246,79 @@ export function SectionAddButton({ label, onClick }: { label: string; onClick: (
   );
 }
 
+export type SidebarSwitcherItem = {
+  id: string;
+  label: string;
+  /** A picture or mark, `size-5 rounded-md`. */
+  icon: ReactNode;
+  /** After the name in the menu, muted: an alias's address. */
+  detail?: string;
+  accelerator?: string;
+  /** Something new there: a dot in the menu, and on the button when it isn't the one shown. */
+  dot?: boolean;
+};
+
+/** The sidebar's switcher between mailboxes, drives…: the one shown, and a menu of the rest. */
+export function SidebarSwitcher({
+  items,
+  selectedId,
+  onSelect,
+  tour,
+}: {
+  items: SidebarSwitcherItem[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  tour?: string;
+}) {
+  const selected = items.find((item) => item.id === selectedId) ?? items[0];
+  if (!selected) return null;
+  const elsewhere = items.some((item) => item.id !== selected.id && item.dot);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          data-tour={tour}
+          className={`${SIDEBAR_ROW} h-8 px-1.5 text-sidebar-foreground hover:bg-sidebar-row-hover data-[state=open]:bg-sidebar-row-hover`}
+        >
+          {selected.icon}
+          <span className="min-w-0 truncate">{selected.label}</span>
+          {elsewhere ? (
+            <span
+              aria-label="New elsewhere"
+              className="size-1.5 shrink-0 rounded-full bg-sidebar-foreground"
+            />
+          ) : null}
+          <ChevronsUpDownIcon className="ms-auto size-3.5 shrink-0 text-sidebar-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="min-w-(--radix-dropdown-menu-trigger-width)">
+        {items.map((item) => (
+          <DropdownMenuItem
+            key={item.id}
+            icon={item.icon}
+            accelerator={item.accelerator}
+            onSelect={() => onSelect(item.id)}
+          >
+            <span className={item.id === selected.id ? "font-medium" : undefined}>
+              {item.label}
+            </span>
+            {item.detail ? (
+              <span className="ms-1.5 text-muted-foreground">{item.detail}</span>
+            ) : null}
+            {item.dot ? (
+              <span
+                aria-label="New"
+                className="ms-1.5 inline-block size-1.5 rounded-full bg-foreground align-middle"
+              />
+            ) : null}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export type SidebarPickerItem = {
   id: string;
   label: string;
@@ -288,6 +362,8 @@ export function SidebarPicker({
             hint={hint}
             shortcut={shortcut}
             disabled={selected || dragged !== null}
+            // Above it are the title bar and the window's buttons.
+            side="bottom"
           >
             <button
               type="button"

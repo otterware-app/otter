@@ -43,10 +43,10 @@ import { TeamPicker } from "./team-picker";
 import { MonthGrid } from "./month-grid";
 import { TimeGrid } from "./time-grid";
 
-export const CALENDAR_MODES: { mode: CalendarMode; label: string; key: string }[] = [
-  { mode: "day", label: "Day", key: "D" },
-  { mode: "week", label: "Week", key: "W" },
-  { mode: "month", label: "Month", key: "M" },
+export const CALENDAR_MODES: { mode: CalendarMode; label: string }[] = [
+  { mode: "day", label: "Day" },
+  { mode: "week", label: "Week" },
+  { mode: "month", label: "Month" },
 ];
 
 function CalendarTitle({
@@ -274,7 +274,7 @@ export function CalendarView({
   }, [target, glide]);
   const goToday = () => useCalendar.getState().goTo(new Date());
 
-  const keys = useLatest({ go, onMode, goToday, selected, actions, select });
+  const keys = useLatest({ go, selected, actions, select });
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (isModClick(e) && !e.altKey && e.key.toLowerCase() === "p") {
@@ -301,12 +301,9 @@ export function CalendarView({
         e.preventDefault();
         fn();
       };
-      if (key === "t") run(() => k.goToday());
-      else if (key === "d") run(() => k.onMode("day"));
-      else if (key === "w") run(() => k.onMode("week"));
-      else if (key === "m") run(() => k.onMode("month"));
-      else if (key === "j" || key === "arrowright") run(() => k.go(1));
-      else if (key === "k" || key === "arrowleft") run(() => k.go(-1));
+      // No single letters: they'd catch the app's own (G then D).
+      if (key === "arrowright") run(() => k.go(1));
+      else if (key === "arrowleft") run(() => k.go(-1));
       else if ((key === "backspace" || key === "delete") && k.selected && !k.selected.readOnly) {
         const event = k.selected;
         const mine =
@@ -382,7 +379,6 @@ export function CalendarView({
               {CALENDAR_MODES.map((m) => (
                 <DropdownMenuItem
                   key={m.mode}
-                  accelerator={m.key}
                   icon={m.mode === mode ? <CheckIcon /> : <span className="size-4" />}
                   onSelect={() => onMode(m.mode)}
                 >
@@ -391,7 +387,7 @@ export function CalendarView({
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <HintTooltip label="Today" hint="T">
+          <HintTooltip label="Today">
             <button
               type="button"
               onClick={() => {
@@ -403,12 +399,12 @@ export function CalendarView({
             </button>
           </HintTooltip>
           <div className="no-drag flex items-center">
-            <HintTooltip label="Previous" hint="K">
+            <HintTooltip label="Previous" hint="←">
               <IconBtn label="Previous" onClick={() => go(-1)}>
                 <ChevronLeftIcon />
               </IconBtn>
             </HintTooltip>
-            <HintTooltip label="Next" hint="J">
+            <HintTooltip label="Next" hint="→">
               <IconBtn label="Next" onClick={() => go(1)}>
                 <ChevronRightIcon />
               </IconBtn>

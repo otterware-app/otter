@@ -121,6 +121,12 @@ function createAppWindow(
   attachBrowser(win);
   followHistoryButtons(win, focusedBrowserPage);
 
+  // Full screen hides the window's buttons, so the page drops the room it keeps for them.
+  const sendFullScreen = () => win.webContents.send("window:fullScreen", win.isFullScreen());
+  win.on("enter-full-screen", sendFullScreen);
+  win.on("leave-full-screen", sendFullScreen);
+  win.webContents.on("did-finish-load", sendFullScreen);
+
   win.once("ready-to-show", () => {
     if (!win.isVisible()) win.show();
   });

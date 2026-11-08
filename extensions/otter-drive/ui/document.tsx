@@ -87,7 +87,10 @@ export function TitleBar({
   children: ReactNode;
 }) {
   return (
-    <div className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-2 px-4">
+    <div
+      data-toolbar=""
+      className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-2 px-4"
+    >
       {leading}
       {children}
       {trailing}
@@ -344,7 +347,7 @@ export function DocumentView({
           </>
         ) : null}
       </TitleBar>
-      <div className="flex min-h-0 flex-1 flex-col px-1 pb-1">
+      <div className="flex min-h-0 flex-1 flex-col p-1">
         {artifact.isError || preview.isError ? (
           <Empty
             title="Couldn't open this document"
@@ -352,7 +355,7 @@ export function DocumentView({
             action={<Btn onClick={back}>Back to documents</Btn>}
           />
         ) : !shown ? (
-          <div className="flex-1 animate-pulse rounded-xl bg-muted/50" />
+          <div className="flex-1 animate-pulse rounded-lg bg-muted/50" />
         ) : editing ? (
           <Editor
             initial={editing.edit}
@@ -451,12 +454,12 @@ function Preview({ preview }: { preview: DrivePreview }) {
         // oxlint-disable-next-line react/iframe-missing-sandbox -- its origin isn't the app's.
         sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads allow-modals"
         referrerPolicy="no-referrer"
-        className="min-h-0 flex-1 rounded-xl border border-border bg-white [color-scheme:light]"
+        className="min-h-0 flex-1 rounded-lg border border-border bg-white [color-scheme:light]"
       />
     );
   if (preview.kind === "video")
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-xl bg-black">
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg bg-black">
         <video
           src={preview.url}
           aria-label="Video"
@@ -469,7 +472,7 @@ function Preview({ preview }: { preview: DrivePreview }) {
     );
   if (preview.kind === "image")
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-xl border border-border bg-muted/30 p-6">
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg border border-border bg-muted/30 p-6">
         <img
           src={preview.url}
           alt=""
@@ -482,7 +485,7 @@ function Preview({ preview }: { preview: DrivePreview }) {
     return <Workbook sheets={preview.sheets} truncated={preview.truncated} />;
   if (preview.kind === "table")
     return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
         <DelimitedTable
           text={preview.text}
           delimiter={preview.delimiter ?? ","}
@@ -491,7 +494,7 @@ function Preview({ preview }: { preview: DrivePreview }) {
       </div>
     );
   return (
-    <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+    <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card">
       {preview.kind === "markdown" ? (
         <div className="mx-auto max-w-3xl px-8 py-8">
           <Markdown text={preview.text} />
@@ -524,7 +527,7 @@ function Workbook({
   const [open, setOpen] = useState(0);
   const sheet = sheets[open] ?? sheets[0];
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
       <Table key={open} rows={sheet?.rows ?? []} footer={truncated ? <Truncated /> : null} />
       {sheets.length > 1 ? (
         <div className="flex shrink-0 gap-1 overflow-x-auto border-t border-border px-2 py-1.5">

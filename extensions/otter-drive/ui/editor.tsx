@@ -76,12 +76,12 @@ function TextEditor({
   );
   if (!markdown)
     return (
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card">
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-card">
         {area}
       </div>
     );
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-2 overflow-hidden rounded-xl border border-border bg-card">
+    <div className="grid min-h-0 flex-1 grid-cols-2 overflow-hidden rounded-lg border border-border bg-card">
       <div className="flex min-h-0 flex-col border-r border-border">{area}</div>
       <div className="min-h-0 overflow-auto px-8 py-6">
         <Markdown text={text} />
@@ -160,7 +160,7 @@ function SheetEditor({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
       <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
         <table className="w-max min-w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-card">

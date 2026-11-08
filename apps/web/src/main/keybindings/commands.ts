@@ -30,6 +30,7 @@ export const KEYBINDING_COMMANDS = [
   "agent.newChat",
   "mode.mail",
   "mode.calendar",
+  "mode.drive",
   "mode.agent",
   "browser.toggle",
   "browser.newTab",
@@ -130,6 +131,7 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+shift+o", command: "agent.newChat", when: "!dialogOpen" },
   { key: "g m", command: "mode.mail", when: OUTSIDE_FIELDS },
   { key: "g c", command: "mode.calendar", when: OUTSIDE_FIELDS },
+  { key: "g d", command: "mode.drive", when: OUTSIDE_FIELDS },
   { key: "g a", command: "mode.agent", when: OUTSIDE_FIELDS },
   { key: "mod+shift+b", command: "browser.toggle", when: "!dialogOpen" },
   { key: "mod+t", command: "browser.newTab", when: "!dialogOpen" },
@@ -171,7 +173,6 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "g i", command: "go.inbox", when: IN_MAIL },
   { key: "g t", command: "go.sent", when: IN_MAIL },
   { key: "g s", command: "go.starred", when: IN_MAIL },
-  { key: "g d", command: "go.drafts", when: IN_MAIL },
   ...MAILBOX_JUMP_COMMANDS.map((command, i): KeybindingRule => ({
     key: `mod+${i + 1}`,
     command,

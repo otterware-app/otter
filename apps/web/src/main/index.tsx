@@ -27,5 +27,8 @@ if (!window.desktopBridge) {
 
 document.documentElement.dataset.windowControls =
   window.desktopBridge.features.windowControls ?? "none";
+window.desktopBridge.on("window:fullScreen", (fullScreen: unknown) => {
+  document.documentElement.toggleAttribute("data-full-screen", fullScreen === true);
+});
 
 await import("./app");

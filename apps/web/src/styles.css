@@ -124,6 +124,9 @@ html[data-window-controls="right"] {
   --workspace-controls-right: calc(var(--workspace-window-controls-width) + 0.5rem);
   --workspace-controls-left: calc(var(--workspace-frame-inset) + 0.75rem);
 }
+html[data-window-controls="left"][data-full-screen] {
+  --workspace-controls-left: calc(var(--workspace-frame-inset) + 0.75rem);
+}
 html[data-window-controls="none"] {
   --workspace-topbar-height: 52px;
   --workspace-controls-left: calc(var(--workspace-frame-inset) + 0.75rem);

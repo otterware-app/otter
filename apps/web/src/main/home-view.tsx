@@ -509,7 +509,7 @@ function MailHome() {
   const isCalendar = space?.kind === "calendar";
   const workspace = space?.kind === "workspace" ? workspaceOf(space.id) : undefined;
   // Turning one off re-reads where we are (spaceOf drops it).
-  useWorkspaces();
+  const workspaces = useWorkspaces();
   const ownsMain = isChats || isCalendar || workspace !== undefined;
   const mailLayoutSetting = useMailLayout();
   const viewSpace = space?.kind === "view" ? space.view : null;
@@ -966,6 +966,10 @@ function MailHome() {
     "agent.newChat": () => startNewChat(),
     "mode.mail": () => switchMode("mail"),
     "mode.calendar": () => switchMode("calendar"),
+    "mode.drive": () => {
+      if (!workspaces.some((w) => w.id === "drive")) return false;
+      switchMode("workspace:drive");
+    },
     "mode.agent": () => switchMode("agent"),
     "browser.toggle": () => toggleBrowser(),
     "browser.newTab": () => {

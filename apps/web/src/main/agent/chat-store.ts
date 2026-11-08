@@ -720,9 +720,17 @@ export function openChatTab(
   convoId: string,
   ref: ChatTabRef,
   title: string,
-  { show = true, made }: { show?: boolean; made?: boolean } = {},
+  {
+    show = true,
+    made,
+    id = chatTabId(ref),
+  }: {
+    show?: boolean;
+    made?: boolean;
+    /** A tab of its own, not the one showing `ref`. */
+    id?: string;
+  } = {},
 ): void {
-  const id = chatTabId(ref);
   set((s) => {
     const convo = s.conversations.find((c) => c.id === convoId);
     if (!convo) return s;

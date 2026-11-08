@@ -57,6 +57,7 @@ import { mostRecentTab } from "../mail/panel-tabs";
 import { AgentAvatar, openClawAgentId, useChatProvider } from "./agent-providers";
 import { usePanelTabDrag } from "../mail/use-panel-tab-drag";
 import { HintTooltip, cn } from "../mail/ui";
+import { usePanelAnimationSettings, usePanelPresence } from "../panel-animations";
 
 export type ChatPanelControl = { toggle: () => void; newPage: () => void };
 
@@ -281,6 +282,12 @@ export function ChatWorkspace({
 
   const [panelHidden, setPanelHidden] = useState(false);
   const panelOpen = (tabs.length > 0 || liveSession !== null) && !panelHidden;
+  const { active: animated, durationMs } = usePanelAnimationSettings(`chat:${chatId}`);
+  const panelPresent = usePanelPresence(panelOpen, animated, durationMs);
+  // The chat and its panel trade the room: one's grow rises as the other's falls, so they always fill it.
+  const sliding =
+    animated &&
+    "transition-[flex-grow,min-width] [transition-duration:var(--panel-animation-duration)] ease-out";
   // The agent starts browsing in a turn you're watching: show it, once a turn.
   const seenSteps = useRef({ chatId, browserSteps, shownFor: "" });
   useEffect(() => {
@@ -295,7 +302,9 @@ export function ChatWorkspace({
   }, [chatId, browserSteps, run]);
   const newPage = () => {
     if (!features.browser) return;
-    openChatTab(chatId, { kind: "page", url: "" }, "New tab");
+    openChatTab(chatId, { kind: "page", url: "" }, "New tab", {
+      id: `page:new:${crypto.randomUUID()}`,
+    });
     setPanelHidden(false);
   };
   useEffect(() => {
@@ -332,13 +341,14 @@ export function ChatWorkspace({
       window.open(tab.ref.url, "_blank", "noopener");
       return;
     }
-    openChatTab(chatId, tab.ref, tab.title);
+    openChatTab(chatId, tab.ref, tab.title, { id: tab.id });
     setPanelHidden(false);
   };
   const roomy = useWideEnough(columnRef, DOCK_WIDTH);
   const [detailsShown, setDetailsShown] = useState(readDetailsDocked);
   const docked = roomy && !blank;
   const transcriptRef = useRef<HTMLElement | null>(null);
+  const barRef = useRef<HTMLDivElement | null>(null);
   const [find, setFind] = useState<number | null>(null);
   // ⌘F in the chat finds in it; elsewhere it's the app's search.
   const findInChat = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -365,10 +375,12 @@ export function ChatWorkspace({
         ref={columnRef}
         tabIndex={-1}
         onKeyDown={findInChat}
-        style={panelOpen ? { flexBasis: width } : undefined}
+        style={panelPresent ? { flexBasis: width } : undefined}
         className={cn(
           "relative flex min-h-0 flex-col outline-none",
-          panelOpen ? "min-w-[300px] shrink" : "min-w-0 flex-1",
+          panelPresent
+            ? cn("shrink", sliding, panelOpen ? "min-w-[300px] grow-0" : "min-w-0 grow")
+            : "min-w-0 flex-1",
           blank &&
             "[--chat-composer-blur:var(--glass-blur)] [--chat-composer-surface:color-mix(in_srgb,var(--canvas)_62%,transparent)]",
         )}
@@ -391,6 +403,7 @@ export function ChatWorkspace({
             transcript in the page (first on screen): Electron's drag regions go in page order,
             and the transcript's, scrolled up under the bar, would otherwise cut it out. */}
         <div
+          ref={barRef}
           data-toolbar=""
           className={cn(
             "drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-2 px-4",
@@ -410,6 +423,7 @@ export function ChatWorkspace({
                 onOpenTask={onOpenTask}
                 onOpen={openDetail}
                 docked={docked}
+                anchor={barRef}
                 shown={detailsShown}
                 onToggle={() => {
                   saveDetailsDocked(!detailsShown);
@@ -421,7 +435,7 @@ export function ChatWorkspace({
           {panelOpen ? null : titleTrailing}
         </div>
         {find !== null || (docked && detailsShown && convo) ? (
-          <div className="pointer-events-none absolute top-(--workspace-topbar-height) right-3 bottom-4 z-20 flex w-80 flex-col gap-2 *:pointer-events-auto">
+          <div className="pointer-events-none absolute top-[calc(var(--workspace-topbar-height)+0.75rem)] right-3 bottom-4 z-20 flex w-80 flex-col gap-2 *:pointer-events-auto">
             {find !== null ? (
               <ChatFind
                 transcript={transcriptRef}
@@ -438,9 +452,9 @@ export function ChatWorkspace({
           </div>
         ) : null}
       </div>
-      {panelOpen ? (
+      {panelPresent ? (
         <>
-          <div className="relative z-20 w-0 shrink-0" aria-hidden>
+          <div className={cn("relative z-20 w-0 shrink-0", !panelOpen && "hidden")} aria-hidden>
             <div
               onPointerDown={start}
               className="no-drag group absolute inset-y-0 -left-[3px] flex w-1.5 cursor-col-resize justify-center"
@@ -448,7 +462,15 @@ export function ChatWorkspace({
               <div className="w-px bg-border/70 group-hover:bg-input" />
             </div>
           </div>
-          <div className="flex min-h-0 min-w-[360px] flex-[1_1_0] flex-col">
+          <div
+            className={cn(
+              "flex min-h-0 basis-0 flex-col overflow-hidden",
+              sliding,
+              panelOpen
+                ? cn("min-w-[360px] grow", animated && "starting:min-w-0 starting:grow-0")
+                : "pointer-events-none min-w-0 grow-0",
+            )}
+          >
             <div className="relative flex min-h-0 flex-1 flex-col">
               {liveShown && convo ? (
                 <AgentBrowser
