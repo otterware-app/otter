@@ -486,6 +486,8 @@ export async function allowOpenClawOwner(settings: OpenClawSettings): Promise<vo
 }
 
 const OTTER_BROWSER_PAIRING = "otter.browser.pairing";
+/** The browser profile the tabs you share are to the gateway (the plugin's `BROWSER_PROFILE`). */
+const OTTER_BROWSER_PROFILE = "otter";
 
 /**
  * Where Otter's browser gives the gateway's agents the tabs you share: OpenClaw's extension
@@ -2266,6 +2268,8 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
     );
     // Without a tab in its history (runtimes that keep no tool results): the browser's current one.
     const tab = browserTabOf(messages);
+    // A tab you shared is already on your screen, in Otter's own browser.
+    if (tab?.profile === OTTER_BROWSER_PROFILE) return null;
     if (tab && tab.targetId === except) return { targetId: tab.targetId, url: null };
     const view = await g.client
       .request<{ wsPath: string; targetId?: string; url?: string }>("browser.request", {
