@@ -60,6 +60,8 @@ final class Relay {
         case accounts
         case preferences
         case chats
+        /** An agent has something for the user, in its own session (a varys thread): the device reads it there. */
+        case agent(agentId: String, sessionKey: String?)
     }
 
     struct Failure: LocalizedError {
@@ -248,6 +250,18 @@ final class Relay {
 
     func deleteChat(_ id: String) async throws { _ = try await send("DELETE", "/v1/chats/" + Self.segment(id)) }
 
+    /** A channel an agent tells the account's devices through (`/channel/v1/pointers`), with its token, shown only now. */
+    func makeAgentChannel(_ label: String) async throws -> (id: String, token: String) {
+        let (data, _) = try await send("POST", "/v1/agent-channels", data: try JSONSerialization.data(withJSONObject: ["label": label]))
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard let id = (object?["channel"] as? [String: Any])?["id"] as? String, let token = object?["token"] as? String else {
+            throw Failure(status: 0, message: "The relay didn't make the channel.")
+        }
+        return (id, token)
+    }
+
+    func deleteAgentChannel(_ id: String) async throws { _ = try await send("DELETE", "/v1/agent-channels/" + Self.segment(id)) }
+
     private var socket: URLSessionWebSocketTask?
     private var listening: Task<Void, Never>?
 
@@ -310,6 +324,9 @@ final class Relay {
         case "accounts": return .accounts
         case "preferences": return .preferences
         case "chats": return .chats
+        case "agent":
+            guard let pointer = object["pointer"] as? [String: Any], let agentId = pointer["agentId"] as? String else { return nil }
+            return .agent(agentId: agentId, sessionKey: pointer["sessionKey"] as? String)
         default: return nil
         }
     }
