@@ -81,7 +81,9 @@ export function buildHandoffText(
   lines.push(
     provider === "hermes" || provider === "openclaw"
       ? "Fetch full content with gog if needed."
-      : "Read them with the otter tools (get_thread) if needed.",
+      : provider === "varys"
+        ? "Fetch full content with your mail connection if needed."
+        : "Read them with the otter tools (get_thread) if needed.",
   );
   return lines.join("\n");
 }
