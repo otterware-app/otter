@@ -2,11 +2,12 @@ import Foundation
 
 /**
  * Google Calendar: the account's calendars and the events in a window, mapped
- * as core maps them (packages/core/src/providers/gmail/calendar.ts). A sign-in
- * from before the app asked for calendar access is refused with 403, which is
- * `NoAccess`: the screen then offers signing in again.
+ * as core maps them (packages/core/src/providers/gmail/calendar.ts), and an
+ * event made, changed or deleted as core's createEvent, updateEvent and
+ * deleteEvent do. A sign-in from before the app asked for calendar access is
+ * refused with 403, which is `NoAccess`: the screen then offers signing in again.
  */
-nonisolated struct GoogleCalendarAPI {
+nonisolated struct GoogleCalendarAPI: EventWriter {
     let email: String
     let token: @Sendable (_ force: Bool) async throws -> String
 
@@ -56,6 +57,39 @@ nonisolated struct GoogleCalendarAPI {
             pageToken = page.next
         } while pageToken != nil
         return found
+    }
+
+    /** core's createEvent: POSTed to the calendar, sendUpdates all when there are guests to tell. */
+    func create(_ input: EventInput, on calendar: EventCalendar, notify: Bool) async throws -> CalendarEvent {
+        let body = try JSONSerialization.data(withJSONObject: EventBody.json(input))
+        let data = try await request(
+            "calendars/\(encoded(calendar.id))/events", query: [Self.updates(notify)], method: "POST", body: body
+        )
+        return try GoogleEvents.event(data, on: calendar, me: email, times: EventTimes())
+    }
+
+    /** core's updateEvent: only what changed, PATCHed. */
+    func update(_ event: CalendarEvent, with patch: EventInput, notify: Bool) async throws -> CalendarEvent {
+        let body = try JSONSerialization.data(withJSONObject: EventBody.json(patch, wasAllDay: event.allDay))
+        let data = try await request(
+            "calendars/\(encoded(event.calendar.id))/events/\(encoded(event.eventId))",
+            query: [Self.updates(notify)], method: "PATCH", body: body
+        )
+        return try GoogleEvents.event(data, on: event.calendar, me: email, times: EventTimes())
+    }
+
+    /** core's deleteEvent; one Google no longer has (404, 410 Gone) is deleted already. */
+    func delete(_ event: CalendarEvent, notify: Bool) async throws {
+        do {
+            _ = try await request(
+                "calendars/\(encoded(event.calendar.id))/events/\(encoded(event.eventId))",
+                query: [Self.updates(notify)], method: "DELETE"
+            )
+        } catch let failure as Failure where failure.status == 404 || failure.status == 410 {}
+    }
+
+    private static func updates(_ notify: Bool) -> URLQueryItem {
+        .init(name: "sendUpdates", value: notify ? "all" : "none")
     }
 
     /** As core's calendarFetch reads a refusal: the grant doesn't cover the calendar. */
@@ -162,6 +196,14 @@ nonisolated enum GoogleEvents {
         let page = try JSONDecoder().decode(ApiEvents.self, from: data)
         let events = (page.items ?? []).compactMap { event($0, on: calendar, me: me, times: times) }
         return (events, page.nextPageToken)
+    }
+
+    /** One event, as Google answers a create or a change. */
+    static func event(_ data: Data, on calendar: EventCalendar, me: String, times: EventTimes) throws -> CalendarEvent {
+        guard let found = event(try JSONDecoder().decode(ApiEvent.self, from: data), on: calendar, me: me, times: times) else {
+            throw GoogleCalendarAPI.Failure(status: 0, message: "Google Calendar answered without the event's times.")
+        }
+        return found
     }
 
     private static func event(_ api: ApiEvent, on calendar: EventCalendar, me: String, times: EventTimes) -> CalendarEvent? {

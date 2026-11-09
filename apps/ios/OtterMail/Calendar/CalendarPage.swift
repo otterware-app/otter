@@ -6,6 +6,12 @@ import SwiftUI
  * page shows, so a turn settling, the month's pick or another page's window
  * landing leaves the others undrawn (CalendarView applies `.equatable()`).
  */
+/** A row to scroll to (an event just saved), once per save: saving the same one again asks again. */
+nonisolated struct Reveal: Equatable {
+    let id: String
+    var at = Date.now
+}
+
 struct CalendarPage: View, Equatable {
     @Environment(Preferences.self) private var preferences
     @Environment(\.palette) private var palette
@@ -22,6 +28,8 @@ struct CalendarPage: View, Equatable {
     let picked: Date?
     let now: Date
     let shown: [String: Bool]
+    /** An event just saved, scrolled to in the agenda: a list keeps its place when a row is put in above it. */
+    var reveal: Reveal? = nil
     var onStep: (Int) -> Void = { _ in }
     var onToday: () -> Void = {}
     var onPick: (Date) -> Void = { _ in }
@@ -30,7 +38,7 @@ struct CalendarPage: View, Equatable {
 
     static func == (a: Self, b: Self) -> Bool {
         a.mode == b.mode && looks(a.mailboxes) == looks(b.mailboxes) && looks(a.denied) == looks(b.denied)
-            && a.found == b.found && a.state == b.state && a.now == b.now && a.shown == b.shown
+            && a.found == b.found && a.state == b.state && a.now == b.now && a.shown == b.shown && a.reveal == b.reveal
             // The agenda runs from today whatever the chevrons did; only the month lists a picked day.
             && (a.mode == .agenda || a.anchor == b.anchor)
             && (a.mode != .month || a.picked == b.picked)
@@ -48,22 +56,30 @@ struct CalendarPage: View, Equatable {
     }
 
     private var list: some View {
-        List {
-            if mode == .month { monthGrid }
-            switch state {
-            case .noAccess: noAccess
-            case .failed(let message) where found == nil: failed(message)
-            default:
-                ForEach(denied) { signInRow($0) }
-                listed
+        ScrollViewReader { proxy in
+            List {
+                if mode == .month { monthGrid }
+                switch state {
+                case .noAccess: noAccess
+                case .failed(let message) where found == nil: failed(message)
+                default:
+                    ForEach(denied) { signInRow($0) }
+                    listed
+                }
+            }
+            .listStyle(.plain)
+            .listSectionSeparator(.hidden, edges: .top)
+            .scrollContentBackground(.hidden)
+            .background(palette.canvas)
+            .contentMargins(.bottom, 24, for: .scrollContent)
+            .refreshable { await onRefresh() }
+            .task(id: reveal) {
+                guard mode == .agenda, let reveal else { return }
+                // Once the editor has gone back, so the scroll is seen.
+                try? await Task.sleep(for: .milliseconds(350))
+                withAnimation(.smooth(duration: 0.3)) { proxy.scrollTo(reveal.id, anchor: .center) }
             }
         }
-        .listStyle(.plain)
-        .listSectionSeparator(.hidden, edges: .top)
-        .scrollContentBackground(.hidden)
-        .background(palette.canvas)
-        .contentMargins(.bottom, 24, for: .scrollContent)
-        .refreshable { await onRefresh() }
     }
 
     private func days(_ mode: CalendarMode) -> [Date] {
@@ -305,6 +321,8 @@ struct CalendarPage: View, Equatable {
         .listRowBackground(palette.canvas)
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets())
+        // The agenda lists an event once, so its id finds the row.
+        .id(mode == .agenda ? event.id : "\(day.timeIntervalSince1970)/\(event.id)")
     }
 
     /** The events of the calendars shown (`CalendarShown`) that the account's `calendar:show-declined` allows, as calendar-view.tsx filters them. */

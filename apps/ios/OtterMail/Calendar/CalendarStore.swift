@@ -42,6 +42,8 @@ final class CalendarStore {
     /** Mailboxes whose calendar list is asked for again on their next fetch. */
     @ObservationIgnored private var stale: Set<String> = []
     @ObservationIgnored private var generation = 0
+    /** The demo's events made, changed and deleted, as its pretend events are made again on every load. */
+    @ObservationIgnored private var demoEdits = DemoEdits()
 
     /** The mailboxes the calendar is read from: calendar-view.tsx's calendarAccounts. */
     nonisolated static func sources(_ mailboxes: [Mailbox]) -> [Mailbox] {
@@ -58,6 +60,74 @@ final class CalendarStore {
         _ sources: [Mailbox], lists: [String: [EventCalendar]]
     ) -> [(mailbox: Mailbox, calendars: [EventCalendar])] {
         sources.map { ($0, lists[$0.email] ?? []) }
+    }
+
+    /** Where an event's changes go: the demo's stand-in, or the mailbox's Google Calendar. */
+    func writer(for account: String, demo: Bool, google: GoogleAuth) -> EventWriter {
+        if demo { return DemoEventWriter() }
+        return GoogleCalendarAPI(email: account) { [google] refresh in
+            try await google.accessToken(account, force: refresh)
+        }
+    }
+
+    /**
+     * api.ts's create: made on the calendar picked, then in every window it falls
+     * in at once; the windows are fetched again on their next load. Guests are
+     * told only when there are some (none are added here).
+     */
+    @discardableResult
+    func create(_ draft: EventDraft, with writer: EventWriter, demo: Bool = false, dates: CalendarDates = CalendarDates()) async throws -> CalendarEvent {
+        if let problem = draft.problem { throw EventProblem(message: problem) }
+        let made = try await writer.create(draft.input(dates: dates), on: draft.calendar, notify: false)
+        if demo { demoEdits.made.append(made) }
+        let account = made.calendar.account
+        for (window, byAccount) in parts where made.end > window.from && made.start < window.to {
+            parts[window]?[account] = (byAccount[account] ?? []) + [made]
+        }
+        settle()
+        return made
+    }
+
+    /** api.ts's update: only what changed, and the guests told when there are any. */
+    @discardableResult
+    func update(
+        _ event: CalendarEvent, to draft: EventDraft, with writer: EventWriter, demo: Bool = false, dates: CalendarDates = CalendarDates()
+    ) async throws -> CalendarEvent {
+        if let problem = draft.problem { throw EventProblem(message: problem) }
+        let patch = draft.patch(from: EventDraft(editing: event), dates: dates)
+        guard !patch.isEmpty else { return event }
+        let saved = try await writer.update(event, with: patch, notify: event.hasGuests)
+        if demo { demoEdits.changed[event.id] = saved }
+        replace(event, with: saved)
+        return saved
+    }
+
+    /** api.ts's remove: guests told when it's yours and has some. */
+    func delete(_ event: CalendarEvent, with writer: EventWriter, demo: Bool = false) async throws {
+        try await writer.delete(event, notify: event.hasGuests && event.isMine)
+        if demo { demoEdits.deleted.insert(event.id) }
+        replace(event, with: nil)
+    }
+
+    /** An event's copy in every window, changed or gone, as api.ts's replace patches the cache. */
+    private func replace(_ event: CalendarEvent, with next: CalendarEvent?) {
+        let account = event.calendar.account
+        for (window, byAccount) in parts {
+            guard let mine = byAccount[account], mine.contains(where: { $0.id == event.id }) else { continue }
+            var kept = mine.filter { $0.id != event.id }
+            if let next, next.end > window.from, next.start < window.to { kept.append(next) }
+            parts[window]?[account] = kept
+        }
+        settle()
+    }
+
+    /** api.ts's settle: what the cache shows now, and every window asked again on its next load. */
+    private func settle() {
+        for (window, byAccount) in parts {
+            let merged = Self.merged(byAccount, accounts: accounts)
+            if cache[window] != merged { cache[window] = merged }
+        }
+        loadedAt.removeAll()
     }
 
     func load(
@@ -161,12 +231,13 @@ final class CalendarStore {
     private func demoEvents(_ window: EventWindow, account: String, first: Bool, dates: CalendarDates) -> [CalendarEvent] {
         let calendars = (first ? DemoCalendar.calendars : DemoCalendar.acmeCalendars).map { $0.of(account) }
         if lists[account] != calendars { lists[account] = calendars }
-        return (first ? DemoCalendar.events(in: window, dates: dates) : DemoCalendar.acmeEvents(in: window, dates: dates))
+        let pretend = (first ? DemoCalendar.events(in: window, dates: dates) : DemoCalendar.acmeEvents(in: window, dates: dates))
             .map { event in
                 var event = event
                 event.calendar = event.calendar.of(account)
                 return event
             }
+        return demoEdits.applied(to: pretend, in: window, account: account)
     }
 
     private func fetch(_ window: EventWindow, from mailbox: Mailbox, google: GoogleAuth) async throws -> [CalendarEvent] {
@@ -239,4 +310,50 @@ final class CalendarStore {
 
     /** A window's events, nil until they have been fetched. */
     func events(in window: EventWindow) -> [CalendarEvent]? { cache[window] }
+
+    /** An event as the cache has it now, after a change saved since it was opened. */
+    func current(_ event: CalendarEvent) -> CalendarEvent? {
+        for events in cache.values {
+            if let found = events.first(where: { $0.id == event.id }) { return found }
+        }
+        return nil
+    }
+}
+
+/** Why an event can't be saved, said before asking Google. */
+nonisolated struct EventProblem: LocalizedError {
+    var message: String
+    var errorDescription: String? { message }
+}
+
+/** The demo's changes, laid over its pretend events each time they're made again. */
+nonisolated struct DemoEdits {
+    var made: [CalendarEvent] = []
+    var changed: [String: CalendarEvent] = [:]
+    var deleted: Set<String> = []
+
+    func applied(to events: [CalendarEvent], in window: EventWindow, account: String) -> [CalendarEvent] {
+        let mine = made.filter { $0.calendar.account == account }
+        let all = (events + mine)
+            .filter { !deleted.contains($0.id) }
+            .map { changed[$0.id] ?? $0 }
+            .filter { $0.end > window.from && $0.start < window.to }
+        return EventDays.sorted(all)
+    }
+}
+
+/** The demo's stand-in for Google: the event as Google would hand it back, nothing sent anywhere. */
+nonisolated struct DemoEventWriter: EventWriter {
+    var dates = CalendarDates()
+
+    func create(_ input: EventInput, on calendar: EventCalendar, notify: Bool) async throws -> CalendarEvent {
+        let blank = CalendarEvent(eventId: "demo-\(UUID().uuidString.lowercased())", calendar: calendar, title: "", start: .now, end: .now)
+        return input.applied(to: blank, dates: dates)
+    }
+
+    func update(_ event: CalendarEvent, with patch: EventInput, notify: Bool) async throws -> CalendarEvent {
+        patch.applied(to: event, dates: dates)
+    }
+
+    func delete(_ event: CalendarEvent, notify: Bool) async throws {}
 }

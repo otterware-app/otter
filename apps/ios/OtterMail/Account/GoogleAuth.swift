@@ -7,15 +7,17 @@ import Foundation
 final class GoogleAuth {
     static let clientID = Bundle.main.object(forInfoDictionaryKey: "GoogleClientID") as? String ?? ""
     /**
-     * Gmail, its settings (saving a signature), the calendar to read, and who
-     * you are; no contacts, which the iPhone app doesn't use. A sign-in from
-     * before a scope was asked for keeps working without what it covers (no
-     * saved signatures, no calendar) until that mailbox signs in again.
+     * Gmail, its settings (saving a signature), the calendar to read, your own
+     * events to change (core's `calendar.events.owned`), and who you are; no
+     * contacts, which the iPhone app doesn't use. A sign-in from before a scope
+     * was asked for keeps working without what it covers (no saved signatures,
+     * no calendar, no changing events) until that mailbox signs in again.
      */
     static let scopes = [
         "https://mail.google.com/",
         "https://www.googleapis.com/auth/gmail.settings.basic",
         "https://www.googleapis.com/auth/calendar.readonly",
+        "https://www.googleapis.com/auth/calendar.events.owned",
         "openid", "email", "profile",
     ]
 

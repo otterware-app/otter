@@ -9,6 +9,8 @@ struct EventView: View {
     let event: CalendarEvent
     var dates: CalendarDates = CalendarDates()
     var color: Color
+    /** One of yours, on a calendar that takes changes. */
+    var onEdit: (() -> Void)? = nil
 
     var body: some View {
         ScrollView {
@@ -29,6 +31,13 @@ struct EventView: View {
         .background(palette.canvas)
         .navigationTitle("Event")
         .toolbarTitleDisplayMode(.inline)
+        .toolbar {
+            if let onEdit {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Edit", action: onEdit)
+                }
+            }
+        }
     }
 
     /** What it is, when, how to join and where, before anything else. */

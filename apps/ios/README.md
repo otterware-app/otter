@@ -84,7 +84,7 @@ add limited server grants (or an encrypted IMAP password), while mail content st
   `/v1/chats`, every device's and agent's): one this iPhone's agent can run continues here,
   the others are read, and each finished turn is written back after the chat's other turns,
   keeping what other devices wrote (it stays the relay's JSON).
-- `Calendar/`: the Calendar module, read-only, for Gmail mailboxes (`MailCapabilities.calendar`).
+- `Calendar/`: the Calendar module, for Gmail mailboxes (`MailCapabilities.calendar`).
   It is the Mac and web apps' calendar (`apps/web/src/main/calendar`) ported to Swift: the pure
   parts file for file, the screens the phone's own. Where a phone wants more than the Mac's
   calendar says, it follows Otterware's mobile calendar (the `otter-calendar` repository). The
@@ -107,7 +107,13 @@ add limited server grants (or an encrypted IMAP password), while mail content st
     in before that shows Sign in again where its events would be (core's `NoCalendarAccess`).
   - `CalendarView.swift`, `CalendarPage.swift`: the module: the agenda, the day, and the month's
     grid listing the day picked, paged sideways; `EventRow.swift` a row; `EventView.swift` one
-    event, its Join, time and place first. `DemoCalendar.swift` is the demo's events.
+    event, its Join, time and place first, with Edit for one of yours.
+  - `EventEditing.swift` ← `event-panel.tsx` and `api.ts`: a draft's times, only what changed
+    (`patch`), Google's request body as core's `apiBody` builds it, and which events are yours to
+    change. `EventEditor.swift` makes and changes one, pushed over the calendar; Back with changes
+    and Delete ask first. Saving needs `calendar.events.owned`: a sign-in from before says so, with
+    Sign in again. `DemoCalendar.swift` is the demo's events; its changes stay in memory
+    (`DemoEventWriter`).
 - `Mail/`: the model and `MailStore`, which screens render from. `DemoMail.swift` loads the demo.
 - Alias mailboxes (`NotificationShared/AliasMailbox.swift`, `MailStore.aliases`): an IMAP
   mailbox's address with a mailbox of its own, made on the Mac and the web (the account's

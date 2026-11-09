@@ -5,7 +5,7 @@ import Foundation
  * placed around today, so every view has something in it. The week's rhythm
  * repeats through the window; the rest is anchored to today. Nothing here
  * reaches Google. Acme's team calendar is read-only, as a calendar shared
- * with you is.
+ * with you is; the others take new events and changes (`DemoEventWriter`).
  */
 nonisolated enum DemoCalendar {
     static let personal = EventCalendar(id: "demo-personal", name: "Robin Otter", color: "#0ea5e9", primary: true, writable: true)

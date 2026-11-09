@@ -28,10 +28,29 @@ struct CalendarView: View {
     @State private var anchor = Date.now
     @State private var picked: Date?
     @State private var now = Date.now
+    @State private var reveal: Reveal?
 
     private var dates: CalendarDates { CalendarDates(preferences: preferences.calendar) }
 
     private var calendars: [EventCalendar] { sources.flatMap { events.lists[$0.email] ?? [] } }
+
+    /** The calendars a new event can go on: the shown ones that take events, as calendar-view.tsx's `visible`. */
+    private var writable: [EventCalendar] {
+        let shown = visibility.scoped(calendars)
+        let open = calendars.filter { $0.writable && CalendarShown.isShown(shown, $0) }
+        return open.isEmpty ? calendars.filter(\.writable) : open
+    }
+
+    /** A new event on the day in front: the Day page's, the day picked in Month, else today. */
+    private var newEvent: EventDraft? {
+        guard let calendar = defaultCalendar(of: writable, chosen: preferences.calendar.defaultCalendar) else { return nil }
+        let day = switch mode {
+        case .day: anchor
+        case .month: picked ?? anchor
+        default: now
+        }
+        return EventDraft.new(on: calendar, day: day, now: .now, dates: dates)
+    }
 
     /** The mailbox scoped to, else every calendar unless some are turned off: then how many of them show. */
     private var shownTitle: String {
@@ -67,6 +86,11 @@ struct CalendarView: View {
                     .accessibilityHint("Lists the calendars")
                 }
                 .sharedBackgroundVisibility(.hidden)
+                if let newEvent {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("New event", systemImage: "plus") { path.append(newEvent) }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu("More", systemImage: "ellipsis") {
                         if !sources.isEmpty {
@@ -82,8 +106,22 @@ struct CalendarView: View {
                     }
                 }
             }
-            .navigationDestination(for: CalendarEvent.self) { event in
-                EventView(event: event, dates: dates, color: color(event.calendar))
+            .navigationDestination(for: CalendarEvent.self) { tapped in
+                // The cache's copy, so a change saved since shows.
+                let event = events.current(tapped) ?? tapped
+                EventView(
+                    event: event, dates: dates, color: color(event.calendar),
+                    onEdit: event.isEditable ? { path.append(EditedEvent(event: event)) } : nil
+                )
+            }
+            .navigationDestination(for: EditedEvent.self) { edited in
+                EventEditor(
+                    events: events, draft: EventDraft(editing: edited.event), event: edited.event, calendars: writable,
+                    dates: dates, color: color, onSaved: show, onDeleted: { path = NavigationPath() }
+                )
+            }
+            .navigationDestination(for: EventDraft.self) { draft in
+                EventEditor(events: events, draft: draft, calendars: writable, dates: dates, color: color, onSaved: show)
             }
     }
 
@@ -167,6 +205,7 @@ struct CalendarView: View {
             picked: picked,
             now: now,
             shown: visibility.scoped(calendars),
+            reveal: mode == .agenda ? reveal : nil,
             onStep: { by in
                 anchor = dates.step(mode, anchor, by: by)
                 picked = nil
@@ -179,6 +218,17 @@ struct CalendarView: View {
             onRetry: { Task { await load(force: true) } },
             onRefresh: { await load(force: true) }
         )
+    }
+
+    /** An event saved lands where it can be seen: its day in Day and Month, its row scrolled to in the agenda. */
+    private func show(_ saved: CalendarEvent) {
+        if mode == .agenda {
+            reveal = Reveal(id: saved.id)
+        } else {
+            anchor = saved.start
+            picked = mode == .month ? dates.startOfDay(saved.start) : nil
+        }
+        Task { await load() }
     }
 
     /** The picker scrolls the pager, animating only the scroll; `mode` follows once it lands. */
@@ -220,6 +270,11 @@ struct CalendarView: View {
         }
         await events.prefetch(others + neighbours, sources: sources, demo: store.isDemo, google: session.google, dates: dates)
     }
+}
+
+/** One of yours, opened to be changed from its page's Edit. */
+struct EditedEvent: Hashable {
+    let event: CalendarEvent
 }
 
 /** Agenda, Day, Month: the pager's own position lit, so it follows the finger without redrawing the screen. */
