@@ -112,8 +112,9 @@ export function scheduledTaskInputOf(raw: unknown, editing = false): ScheduledTa
 export function registerAgentHandlers(): void {
   handle("agent:providers", async () => agent.providersState());
 
-  handle("agent:refreshProviders", async () => {
-    void agent.refreshProviders();
+  handle("agent:refreshProviders", async (params: unknown) => {
+    const p = params as Params;
+    void agent.refreshProviders(p?.provider ? [providerOf(p)] : undefined);
     return { ok: true };
   });
 

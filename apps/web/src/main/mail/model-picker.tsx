@@ -10,12 +10,13 @@ import {
   StarIcon,
   ZapIcon,
 } from "lucide-react";
-import type {
-  ProviderKind,
-  ProviderModel,
-  ProviderModelOption,
-  ProviderSnapshot,
-  RuntimeMode,
+import {
+  mailApi,
+  type ProviderKind,
+  type ProviderModel,
+  type ProviderModelOption,
+  type ProviderSnapshot,
+  type RuntimeMode,
 } from "./api";
 import { AgentAvatar, ProviderIcon, isProviderUsable } from "../agent/agent-providers";
 import { modelKey, toggleFavorite, useModelPrefs } from "./model-prefs";
@@ -505,6 +506,10 @@ export function ProviderModelPicker({
 }) {
   const [open, setOpen] = useState(false);
   useCommandHandlers({ "modelPicker.toggle": () => setOpen((o) => !o) });
+  // An agent's models change as its logins do (varys): listed again each time the picker opens.
+  useEffect(() => {
+    if (open) void mailApi.refreshAgentProviders(activeKind).catch(() => {});
+  }, [open, activeKind]);
   const active = providers.find((p) => p.kind === activeKind);
   const slug = lockedModel ?? active?.model;
   const model = active?.models.find((m) => m.slug === slug);

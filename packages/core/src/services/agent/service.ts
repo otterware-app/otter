@@ -164,8 +164,10 @@ function check(kind: ProviderKind): Promise<void> {
   return run;
 }
 
-export async function refreshProviders(): Promise<void> {
-  await Promise.all([...registeredAgents().keys()].map(check));
+export async function refreshProviders(
+  kinds: ProviderKind[] = [...registeredAgents().keys()],
+): Promise<void> {
+  await Promise.all(kinds.map(check));
 }
 
 export async function refreshProvider(kind: ProviderKind): Promise<void> {
