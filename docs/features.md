@@ -424,7 +424,7 @@ optional fix PRs. See [support.md](support.md); error reports, [error-reports.md
 
 | Feature                                                                                                                                                                                                                                                                  | Mac                                                                     | Web                                           | iPhone                                              |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------- |
-| Providers                                                                                                                                                                                                                                                                | OpenRouter, Claude, Codex, Hermes, OpenClaw, varys                      | OpenRouter, Hermes, OpenClaw, varys           | OpenRouter, Hermes, OpenClaw                        |
+| Providers                                                                                                                                                                                                                                                                | OpenRouter, Claude, Codex, Hermes, OpenClaw, varys                      | OpenRouter, Hermes, OpenClaw, varys           | OpenRouter, Hermes, OpenClaw, varys                 |
 | Chat, models, steer / stop, tool approval, history                                                                                                                                                                                                                       | ✓                                                                       | ✓                                             | ✓                                                   |
 | Select and copy chat text                                                                                                                                                                                                                                                | ✓                                                                       | ✓                                             | —                                                   |
 | Cite part of a reply or of a file it made (PDFs too), with a comment                                                                                                                                                                                                     | ✓                                                                       | ✓                                             | —                                                   |
@@ -585,6 +585,17 @@ Otter's relay itself when it connects (an agent channel of the account's, which 
 on disconnecting), so varys tells the account's devices which thread to read, never what's in it,
 and they catch up. Forking a chat isn't there yet, and deleting a chat leaves its thread in varys,
 where deleting is for your own devices.
+
+On iPhone, varys pairs the same way (Settings › Agents, with the pairing link or the address and
+code), as "Otter Mail on iPhone", its token in the Keychain. Its chats stream over Live, with
+steering, stop, approvals and questions; a turn that stops to ask waits for the answer and goes on
+in the same turn. A conversation it's asked about goes as pointers, as for the other agents
+(account, thread, subject, sender, message ids), and varys reads the mail through its own mail
+connection. A turn the app left, in the background or by quitting, is picked up when it comes back,
+and what varys wrote in the open chat meanwhile is caught up on, at once when Otter's relay says so
+while the app is open. varys's threads are listed in Chats (a routine's as "Scheduled ·
+<routine>"). Disconnecting revokes the iPhone's grant in varys. Routines and skills aren't on
+iPhone.
 
 Other agents on the Mac (Claude Code or Codex in a terminal, Cursor, …) get the same tools from
 that server while the app is open, with a token made in Settings › Agents (its address stays the
