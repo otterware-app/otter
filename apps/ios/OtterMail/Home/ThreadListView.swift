@@ -15,6 +15,7 @@ struct ThreadListView: View {
     let onTitle: () -> Void
     let onCompose: () -> Void
     let onSettings: () -> Void
+    var onSearch: () -> Void = {}
     let onResume: (Draft) -> Void
 
     @State private var collapsedDays: Set<Date> = []
@@ -142,7 +143,7 @@ struct ThreadListView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button(action: onTitle) {
-                    Header(title: searching || searchTab ? "Search" : place.folder.title(in: mailbox), scope: scopeName)
+                    PlaceTitle(title: searching || searchTab ? "Search" : place.folder.title(in: mailbox), scope: scopeName)
                 }
                 .buttonStyle(.plain)
                 .disabled(searchTab)
@@ -158,14 +159,18 @@ struct ThreadListView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if !selecting && !searchTab {
-                    Menu("More", systemImage: "ellipsis") {
-                        Button("Select messages", systemImage: "checkmark.circle") { withAnimation(actionAnimation) { selecting = true } }
-                            .disabled(threads.isEmpty)
-                        Button("Mark all as read", systemImage: "envelope.open") {
-                            for thread in threads where thread.unread { store.setRead(true, thread.id) }
+                    // Beside More, so the trailing bar stays two pieces of glass: Compose, and Search with More.
+                    HStack(spacing: 16) {
+                        Button("Search", systemImage: "magnifyingglass", action: onSearch)
+                        Menu("More", systemImage: "ellipsis") {
+                            Button("Select messages", systemImage: "checkmark.circle") { withAnimation(actionAnimation) { selecting = true } }
+                                .disabled(threads.isEmpty)
+                            Button("Mark all as read", systemImage: "envelope.open") {
+                                for thread in threads where thread.unread { store.setRead(true, thread.id) }
+                            }
+                            .disabled(!threads.contains(where: \.unread))
+                            Button("Settings", systemImage: "gearshape", action: onSettings)
                         }
-                        .disabled(!threads.contains(where: \.unread))
-                        Button("Settings", systemImage: "gearshape", action: onSettings)
                     }
                 }
             }
@@ -419,20 +424,21 @@ struct ThreadListView: View {
             withAnimation(actionAnimation) { store.trash(thread.id) }
         }
     }
+}
 
-    private struct Header: View {
-        @Environment(\.palette) private var palette
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-        let title: String
-        let scope: String
+/** A module's title, top left: the place in semibold, then what it's scoped to, muted. */
+struct PlaceTitle: View {
+    @Environment(\.palette) private var palette
+    let title: String
+    var scope = ""
 
-        var body: some View {
-            Text("\(Text(title).fontWeight(.semibold).foregroundStyle(palette.text)) \(Text(scope).foregroundStyle(palette.muted))")
-                .font(.inter(.title3))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .fixedSize()
-        }
+    var body: some View {
+        let name = Text(title).fontWeight(.semibold).foregroundStyle(palette.text)
+        (scope.isEmpty ? name : Text("\(name) \(Text(scope).foregroundStyle(palette.muted))"))
+            .font(.inter(.title3))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .fixedSize()
     }
 }
 

@@ -81,6 +81,8 @@ final class Preferences {
     }
     /** Themes made on the Mac or the web (`CustomThemes`): worn and picked here, never written (so not in `uiSection`). */
     private(set) var customThemes: [Theme]
+    /** Settings › Calendar, made on the Mac or the web and followed here; only a calendar's color is written (`setCalendarColor`). */
+    private(set) var calendar: CalendarPreferences
     var notifications: Notifications { didSet { setting("notificationsMode", notifications.rawValue) } }
     /** BCP-47 codes, first = where translations go; empty = the system's languages. */
     var readLanguages: [String] { didSet { setting("readLanguages", readLanguages) } }
@@ -91,9 +93,25 @@ final class Preferences {
         if !applying { onChange("ui") }
     }
 
+    /** calendar-sidebar.tsx's color pick: a color by calendarKey, or nil for its own again, under the synced `calendar:colors`. */
+    func setCalendarColor(_ hex: String?, for key: String) {
+        var colors = calendar.colors
+        colors[key] = hex
+        guard colors != calendar.colors,
+              let data = try? JSONSerialization.data(withJSONObject: colors, options: [.sortedKeys]) else { return }
+        calendar.colors = colors
+        ui("calendar:colors", String(decoding: data, as: UTF8.self))
+    }
+
     private func setting(_ key: String, _ value: Any) {
         defaults.set(value, forKey: "settings.\(key)")
         if !applying { onChange("settings") }
+    }
+
+    private static func calendarSection(_ defaults: UserDefaults) -> CalendarPreferences {
+        CalendarPreferences(ui: Dictionary(uniqueKeysWithValues: CalendarPreferences.keys.compactMap { key in
+            defaults.string(forKey: key).map { (key, $0) }
+        }))
     }
 
     private static func json(_ value: some Encodable) -> String {
@@ -101,7 +119,7 @@ final class Preferences {
     }
 
     var uiSection: [String: String] {
-        [
+        var section = [
             "otter:theme-source": scheme.rawValue,
             "otter:theme:light": lightTheme,
             "otter:theme:dark": darkTheme,
@@ -112,6 +130,9 @@ final class Preferences {
             "mail:mailboxes": Self.json(arrangement),
             "mail:alias-mail-apart": Self.json(aliasMailApart),
         ]
+        // Only once there is one here (pulled, or picked): an empty record would write over the other devices' colors.
+        if let colors = defaults.string(forKey: "calendar:colors") { section["calendar:colors"] = colors }
+        return section
     }
 
     var settingsSection: [String: Any] {
@@ -144,6 +165,13 @@ final class Preferences {
            let decoded = try? JSONDecoder().decode([String].self, from: value), decoded != aliasMailApart {
             aliasMailApart = decoded
         }
+        for key in CalendarPreferences.keys {
+            if let value = ui[key] as? String, value != defaults.string(forKey: key) {
+                defaults.set(value, forKey: key)
+            }
+        }
+        let chosen = Self.calendarSection(defaults)
+        if chosen != calendar { calendar = chosen }
         if let value = (settings["notificationsMode"] as? String).flatMap(Notifications.init), value != notifications {
             notifications = value
         }
@@ -165,6 +193,7 @@ final class Preferences {
         aliasMailApart = defaults.string(forKey: "mail:alias-mail-apart")?.data(using: .utf8)
             .flatMap { try? JSONDecoder().decode([String].self, from: $0) } ?? []
         customThemes = CustomThemes.themes(defaults.string(forKey: "otter:themes:v1"))
+        calendar = Self.calendarSection(defaults)
         notifications = defaults.string(forKey: "settings.notificationsMode").flatMap(Notifications.init) ?? .inbox
         readLanguages = defaults.stringArray(forKey: "settings.readLanguages") ?? []
         autoTranslate = defaults.bool(forKey: "settings.autoTranslate")

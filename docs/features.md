@@ -315,23 +315,32 @@ of every Gmail and Outlook mailbox side by side (its own, shared and followed: b
 holidays), grouped by mailbox as Notion Calendar does. The default calendar wears its mailbox's
 color, the others their color in Google or Outlook. IMAP mailboxes have none.
 
-| Feature                                                                                                                                                                           | Mac | Web | iPhone |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --- | ------ |
-| Day, week and month views; mini month and calendars in sidebar                                                                                                                    | ✓   | ✓   | —      |
-| Show or hide each calendar with its eye (Google's unchecked ones start hidden); click one for its coming events in a drawer; right-click: color, make default, show only this one | ✓   | ✓   | —      |
-| Followed and read-only calendars: looked at, not changed (no drag, read-only card)                                                                                                | ✓   | ✓   | —      |
-| New events on any calendar that takes them (picked in the card; the default first: click a calendar's square to make it the default)                                              | ✓   | ✓   | —      |
-| Event panel: title, time, place, notes edit in place; guests                                                                                                                      | ✓   | ✓   | —      |
-| Yes / No / Maybe on invitations, with a note; repeating ones ask: this event or all events                                                                                        | ✓   | ✓   | —      |
-| Online meetings: Google Meet, Teams, Zoom, Webex shown with Join and copy link (also links found in an invitation's text)                                                         | ✓   | ✓   | —      |
-| Add a meeting to an event or new event: Gmail Google Meet, Outlook Teams (work and school); Meet comes off                                                                        | ✓   | ✓   | —      |
-| Draw or double-click a slot to create; drag to move; drag edge to resize                                                                                                          | ✓   | ✓   | —      |
-| New events repeat: every day, every weekday, weekly, monthly, yearly (from their start, no end)                                                                                   | ✓   | ✓   | —      |
-| Delete an event (Delete key or the panel)                                                                                                                                         | ✓   | ✓   | —      |
-| Scroll sideways day by day; ‹ › and Today glide; any day can lead the week                                                                                                        | ✓   | ✓   | —      |
-| Teammates' calendars over yours (⌘P to add, Esc to clear): Outlook with titles they share, Gmail busy times                                                                       | ✓   | ✓   | —      |
-| Keys: ← → to step                                                                                                                                                                 | ✓   | ✓   | —      |
-| Settings → Calendar (follows your Otter account): start of week, weekends, declined events, 12 / 24-hour, a meeting on new events by mailbox                                      | ✓   | ✓   | —      |
+On the iPhone, Calendar is a module beside Mail in the bar, Gmail mailboxes only. It reads every
+Google calendar of every Gmail mailbox in one: an agenda (today first, what's over dimmed), a
+day's hours (events side by side where they overlap, a line at now) and a month's grid that lists
+the day picked, with ‹ › and Today. The bar's ⌃⌄ opens its calendars: All calendars, one
+mailbox's, each one to show or hide, and holding one for Show only this calendar and its color
+(synced with the Mac and web). An event's page puts its meeting's Join, its time and its place
+first. A mailbox signed in before the iPhone asked for calendar access says so where its events
+would be, with Sign in again.
+
+| Feature                                                                                                                                                                           | Mac | Web | iPhone                                   |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --- | ---------------------------------------- |
+| Day, week and month views; mini month and calendars in sidebar                                                                                                                    | ✓   | ✓   | Day, month and an agenda (no week)       |
+| Show or hide each calendar with its eye (Google's unchecked ones start hidden); click one for its coming events in a drawer; right-click: color, make default, show only this one | ✓   | ✓   | ⌃⌄ panel: show or hide, show only, color |
+| Followed and read-only calendars: looked at, not changed (no drag, read-only card)                                                                                                | ✓   | ✓   | ✓ (read-only)                            |
+| New events on any calendar that takes them (picked in the card; the default first: click a calendar's square to make it the default)                                              | ✓   | ✓   | —                                        |
+| Event panel: title, time, place, notes edit in place; guests                                                                                                                      | ✓   | ✓   | —                                        |
+| Yes / No / Maybe on invitations, with a note; repeating ones ask: this event or all events                                                                                        | ✓   | ✓   | —                                        |
+| Online meetings: Google Meet, Teams, Zoom, Webex shown with Join and copy link (also links found in an invitation's text)                                                         | ✓   | ✓   | Join (no copy link)                      |
+| Add a meeting to an event or new event: Gmail Google Meet, Outlook Teams (work and school); Meet comes off                                                                        | ✓   | ✓   | —                                        |
+| Draw or double-click a slot to create; drag to move; drag edge to resize                                                                                                          | ✓   | ✓   | —                                        |
+| New events repeat: every day, every weekday, weekly, monthly, yearly (from their start, no end)                                                                                   | ✓   | ✓   | —                                        |
+| Delete an event (Delete key or the panel)                                                                                                                                         | ✓   | ✓   | —                                        |
+| Scroll sideways day by day; ‹ › and Today glide; any day can lead the week                                                                                                        | ✓   | ✓   | —                                        |
+| Teammates' calendars over yours (⌘P to add, Esc to clear): Outlook with titles they share, Gmail busy times                                                                       | ✓   | ✓   | —                                        |
+| Keys: ← → to step                                                                                                                                                                 | ✓   | ✓   | —                                        |
+| Settings → Calendar (follows your Otter account): start of week, weekends, declined events, 12 / 24-hour, a meeting on new events by mailbox                                      | ✓   | ✓   | Followed (no page of its own)            |
 
 ## Contacts & avatars
 
@@ -374,7 +383,7 @@ recalled. See [behavior and setup](../apps/ios/README.md#verified-background-not
 | New mail during a long sync           | ✓                                  | ✓                      | —                                    |
 | Changes applied at once, synced after | ✓                                  | ✓                      | ✓ (no outbox)                        |
 
-On iPhone, a glass bar under the list holds the mailbox's picture (tap to switch mailbox), Inbox, Drafts, Search (a sheet that searches the mailbox shown) and ⌃⌄, which opens every other folder and label, Search and Settings. The Agent (with an agent on, or an Otter account's chats to read) has its own round button beside it and opens as a sheet. The bar steps aside for the reader and selection. Conversations zoom from their list rows (respecting Reduce Motion), the reader's navigation bar minimizes while scrolling, and selection morphs the glass buttons into bulk actions.
+On iPhone, a glass bar under a module's first page holds Mail and Calendar (when a Gmail mailbox has one), each labeled, and ⌃⌄, which opens what the one in front is scoped by: in Mail every mailbox (the one switcher), folder and label; in Calendar its calendars. Search and Settings are in the mail list's toolbar. The Agent (with an agent on, or an Otter account's chats to read) has its own round button beside it and opens as a sheet. The bar steps aside for pages pushed over it (a conversation, an event) and for selection. Conversations zoom from their list rows (respecting Reduce Motion), the reader's navigation bar minimizes while scrolling, and selection morphs the glass buttons into bulk actions.
 
 ## Settings & customization
 
@@ -631,21 +640,22 @@ clients receive a link to that page instead of deleting a shared identity withou
 What each scope in `GMAIL_SCOPES` (`packages/contracts/src/google.ts`) is for:
 
 - `https://mail.google.com/`: every Gmail mail feature (reading, search, sending, drafts,
-  labels, delete forever, push). The iPhone app asks for this one only (plus `openid email
-profile`).
+  labels, delete forever, push). The iPhone app asks for this one, `gmail.settings.basic` and
+  `calendar.readonly` (plus `openid email profile`).
 - `gmail.settings.basic`: saving signatures in Gmail (reading them needs only the mail scope).
 - `calendar.events.owned`: answering invitations in Google Calendar, replacing the broader
   `calendar.events` the Mac and web apps ask for today. Without it, RSVPs go by email reply.
 - `calendar.readonly`: every calendar on the account's list (shared, followed: birthdays,
   holidays) and teammates' busy times (⌘P). Older sign-ins see the primary calendar only; the
-  calendar and Settings › Connections › Access say so, with Allow calendar access (signs in again). Outlook needs nothing new for its own calendars (`Calendars.ReadWrite`);
+  calendar and Settings › Connections › Access say so, with Allow calendar access (signs in again).
+  The iPhone's calendar shows nothing for those, and offers signing in again. Outlook needs nothing new for its own calendars (`Calendars.ReadWrite`);
   calendars shared with an Outlook mailbox are listed but can't be read without
   `Calendars.Read.Shared`, which isn't asked for (a refresh asking for an ungranted scope fails).
 - `contacts.readonly` + `contacts.other.readonly`: contact photos for sender avatars.
 
 ## Gaps worth closing
 
-- iPhone: calendar invitations (card and RSVP).
+- iPhone: calendar invitations (card and RSVP); making and changing events; Outlook calendars.
 - iPhone: rich text in the composer.
 - iPhone: forward with the original HTML.
 - iPhone: synced draft autosave and undo send.

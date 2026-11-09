@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct Place: Hashable {
     var scope = ""
@@ -21,6 +22,10 @@ struct HomeView: View {
     @State private var settingsOpen = false
     @State private var agentOpen = false
     @State private var searchOpen = false
+    @State private var module: HomeModule = .mail
+    @State private var calendar = CalendarStore()
+    @State private var calendarShown = CalendarShown()
+    @State private var calendarPath = NavigationPath()
     @State private var query = ""
     @State private var searchPath: [String] = []
 
@@ -29,9 +34,12 @@ struct HomeView: View {
     private var menuAnimation: Animation? { reduceMotion ? nil : .spring(duration: 0.4, bounce: 0.15) }
 
     var body: some View {
-        mail
+        content
             .onChange(of: store.shownScopes.map(\.email), initial: true) { _, shown in
                 if !shown.contains(place.scope) { place = Place(scope: shown.first ?? "") }
+            }
+            .onChange(of: CalendarStore.sources(store.shownMailboxes).isEmpty) { _, none in
+                if none, module == .calendar { module = .mail }
             }
             .onChange(of: session.opening, initial: true) { _, _ in openNotification() }
             .onChange(of: store.sync?.loadingCache) { _, loading in
@@ -51,17 +59,42 @@ struct HomeView: View {
             .sheet(isPresented: $searchOpen) { search }
     }
 
-    private var mail: some View {
-        NavigationStack(path: $path) {
-            ThreadListView(
-                place: place,
-                messageTransition: messageTransition,
-                selecting: $selecting,
-                onTitle: { setMenu(open: true) },
-                onCompose: { compose() },
-                onSettings: { settingsOpen = true },
-                onResume: { draft = $0 }
-            )
+    @ViewBuilder private var content: some View {
+        switch module {
+        case .mail:
+            NavigationStack(path: $path) {
+                withPlaces(ThreadListView(
+                    place: place,
+                    messageTransition: messageTransition,
+                    selecting: $selecting,
+                    onTitle: { setMenu(open: true) },
+                    onCompose: { compose() },
+                    onSettings: openSettings,
+                    onSearch: { setMenu(open: false); searchOpen = true },
+                    onResume: { draft = $0 }
+                ))
+                .navigationDestination(for: String.self) { id in
+                    let reader = ThreadView(threadID: id, place: place, path: $path, draft: $draft)
+                    if reduceMotion {
+                        reader
+                    } else {
+                        reader.navigationTransition(.zoom(sourceID: id, in: messageTransition))
+                    }
+                }
+            }
+        case .calendar:
+            NavigationStack(path: $calendarPath) {
+                withPlaces(CalendarView(
+                    events: calendar, visibility: calendarShown, path: $calendarPath,
+                    onTitle: { setMenu(open: true) }, onSettings: openSettings
+                ))
+            }
+        }
+    }
+
+    /** The bar, on a module's first page only: a page pushed over it (a conversation, an event) has none. */
+    private func withPlaces(_ view: some View) -> some View {
+        view
             .overlay {
                 if menuOpen {
                     Color.clear
@@ -70,7 +103,6 @@ struct HomeView: View {
                         .onTapGesture { setMenu(open: false) }
                 }
             }
-            // On the list, so it goes with it when a conversation opens.
             .safeAreaInset(edge: .bottom, spacing: 8) {
                 VStack(spacing: 12) {
                     if let action = store.undoAction {
@@ -90,28 +122,21 @@ struct HomeView: View {
                     if !selecting {
                         PlacesBar(
                             place: place,
+                            module: module,
                             menuOpen: menuOpen,
+                            calendar: calendar,
+                            calendarShown: calendarShown,
                             showsAgent: showsAgent,
-                            onSelect: { select(Place(scope: place.scope, folder: $0)) },
                             onPlace: { select($0) },
                             onMailbox: { switchMailbox($0) },
-                            onSearch: { setMenu(open: false); searchOpen = true },
-                            onSettings: { setMenu(open: false); settingsOpen = true },
+                            onModule: { show($0) },
                             onMenu: { setMenu(open: !menuOpen) },
+                            onDone: { setMenu(open: false) },
                             onAgent: { agentOpen = true }
                         )
                     }
                 }
             }
-            .navigationDestination(for: String.self) { id in
-                let reader = ThreadView(threadID: id, place: place, path: $path, draft: $draft)
-                if reduceMotion {
-                    reader
-                } else {
-                    reader.navigationTransition(.zoom(sourceID: id, in: messageTransition))
-                }
-            }
-        }
     }
 
     private var search: some View {
@@ -144,10 +169,27 @@ struct HomeView: View {
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
     }
 
+    private func openSettings() {
+        setMenu(open: false)
+        settingsOpen = true
+    }
+
     private func select(_ next: Place) {
         place = next
         path = []
+        module = .mail
         setMenu(open: false)
+    }
+
+    /** Mail again from another module comes back where it was; Mail in Mail is the inbox. */
+    private func show(_ next: HomeModule) {
+        if next == .mail, module == .mail {
+            select(Place(scope: place.scope, folder: .inbox))
+            return
+        }
+        setMenu(open: false)
+        selecting = false
+        module = next
     }
 
     private func switchMailbox(_ mailbox: Mailbox) {
@@ -177,6 +219,7 @@ struct HomeView: View {
             setMenu(open: false)
             agentOpen = false
             searchOpen = false
+            module = .mail
             if let thread = destination.thread, let loaded = store.thread(thread),
                destination.email == nil || loaded.mailbox.lowercased() == (mailbox?.source ?? destination.email)?.lowercased() {
                 path = [thread]

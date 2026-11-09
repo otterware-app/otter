@@ -7,10 +7,13 @@ their code.
 ## Design
 
 - **Linear's frame.** The mail list is the page, with All and Unread pills under its title and
-  Compose and More at the top right. Under it, a glass bar (`Home/PlacesBar.swift`): the mailbox's
-  picture (tap to switch mailbox, the one switcher), Inbox, Drafts, Search, and ⌃⌄ for every other
-  place (the mailbox's folders and labels, Search, Settings; the title opens it too). The agent has
-  its own round button beside the bar and opens as a sheet; so does Search. Settings is ChatGPT's grouped sheet.
+  Compose, Search and More at the top right. Under a module's first page, a glass bar
+  (`Home/PlacesBar.swift`): Mail and Calendar (when a Gmail mailbox has one), labeled, and ⌃⌄ for
+  what the one in front is scoped by: in Mail the mailboxes (the one switcher), the mailbox's
+  folders and labels (the title opens it too); in Calendar its calendars to show or hide. Each
+  module has its own navigation stack with the bar on its first page only, so a pushed page (a
+  conversation, an event) never has the bar over it. The agent has its own round button beside
+  the bar and opens as a sheet; so does Search. Settings is ChatGPT's grouped sheet.
   Gmail's folders include All Mail and Important; Outlook's and IMAP's an Archive of their own,
   and their Starred is Flagged (a flag, not a star).
 - **The desktop's rows.** The sender's picture, who and when, the subject, a line of the latest
@@ -81,6 +84,30 @@ add limited server grants (or an encrypted IMAP password), while mail content st
   `/v1/chats`, every device's and agent's): one this iPhone's agent can run continues here,
   the others are read, and each finished turn is written back after the chat's other turns,
   keeping what other devices wrote (it stays the relay's JSON).
+- `Calendar/`: the Calendar module, read-only, for Gmail mailboxes (`MailCapabilities.calendar`).
+  It is the Mac and web apps' calendar (`apps/web/src/main/calendar`) ported to Swift: the pure
+  parts file for file, the screens the phone's own. Where a phone wants more than the Mac's
+  calendar says, it follows Otterware's mobile calendar (the `otter-calendar` repository). The
+  test cases of both are vectors in `OtterMailTests/CalendarTests.swift` and `TimeGridTests.swift`.
+  - `CalendarDates.swift` ← `dates.ts`: the modes (Day and Month, with the phone's Agenda; Week
+    stays the Mac's), the week's start, stepping, a day's and a time's labels.
+  - `CalendarPreferences.swift` ← `preferences.ts`: Settings › Calendar from the account's `ui`
+    section (`calendar:week-start`, `show-weekends`, `show-declined`, `time-format`, `colors`),
+    followed here; only a calendar's color is written back.
+  - `CalendarShown.swift` ← `calendar-store.ts`: calendars shown or hidden on this device, and the
+    one mailbox the bar's ⌃⌄ scopes to.
+  - `EventStyle.swift` ← `event-style.ts`: an event's color and tone (filled, dashed while an
+    invitation waits, struck through when declined).
+  - `Events.swift` ← `month-grid.tsx`, `time-grid.tsx`, `agenda.tsx`: a day's events, the agenda
+    (from the start of today, so what's over today stays, dimmed), and how a row states its time.
+  - `TimeGrid.swift`, `DayGrid.swift` ← `time-grid.tsx`: the Day page's hours, overlaps side by side.
+  - `GoogleCalendarAPI.swift` reads the calendars and a window of events as core maps them
+    (`packages/core/src/providers/gmail/calendar.ts`); `CalendarStore.swift` keeps a window at a
+    time, as `useCalendarEvents` does. The sign-in asks for `calendar.readonly`, so a mailbox signed
+    in before that shows Sign in again where its events would be (core's `NoCalendarAccess`).
+  - `CalendarView.swift`, `CalendarPage.swift`: the module: the agenda, the day, and the month's
+    grid listing the day picked, paged sideways; `EventRow.swift` a row; `EventView.swift` one
+    event, its Join, time and place first. `DemoCalendar.swift` is the demo's events.
 - `Mail/`: the model and `MailStore`, which screens render from. `DemoMail.swift` loads the demo.
 - Alias mailboxes (`NotificationShared/AliasMailbox.swift`, `MailStore.aliases`): an IMAP
   mailbox's address with a mailbox of its own, made on the Mac and the web (the account's
