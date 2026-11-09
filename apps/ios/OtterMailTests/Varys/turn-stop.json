@@ -1,0 +1,336 @@
+{
+  "description": "A slow answer stopped by the owner while it streams.",
+  "requestId": "7905c77c-5192-4ff6-8ad6-6faf745c35ae",
+  "end": {
+    "type": "stopped"
+  },
+  "steps": [
+    {
+      "view": "thread",
+      "snapshot": {
+        "id": "ebfa6c94-62cf-4a6a-b7c4-b6c8a27c5c86",
+        "title": "/slow",
+        "routine": null,
+        "pinned": false,
+        "settled": false,
+        "preview": {
+          "text": "/slow",
+          "origin": {
+            "author": "owner",
+            "sources": []
+          }
+        },
+        "status": "running",
+        "provider": "rehearsal",
+        "completedAt": null,
+        "createdAt": "2026-11-09T13:12:32.527Z",
+        "updatedAt": "2026-11-09T13:12:32.527Z",
+        "queueHeld": false,
+        "mode": "full_access",
+        "model": {
+          "model": {
+            "provider": "rehearsal",
+            "model": "rehearsal-quick"
+          },
+          "reasoning": "off",
+          "fast": false
+        },
+        "conversation": {
+          "loaded": true,
+          "items": [
+            {
+              "type": "message",
+              "id": "147",
+              "text": "/slow",
+              "at": "2026-11-09T13:12:32.541Z",
+              "stopped": false,
+              "requestId": "7905c77c-5192-4ff6-8ad6-6faf745c35ae"
+            }
+          ],
+          "earlier": false,
+          "running": {
+            "since": "2026-11-09T13:12:32.541Z",
+            "answer": "",
+            "steps": []
+          },
+          "queued": [],
+          "waiting": false,
+          "failure": null
+        },
+        "attachments": []
+      }
+    },
+    {
+      "view": "threadInbox",
+      "snapshot": {
+        "items": [],
+        "total": 0
+      }
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "1. This is a long re"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "hearsal answer, written slowly so it"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " can be stopped half way. \n2. This i"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["s", ["queueHeld"], true]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        [
+          "p",
+          ["conversation", "items"],
+          1,
+          0,
+          [
+            {
+              "type": "answer",
+              "id": "154",
+              "text": "1. This is a long rehearsal answer, written slowly so it can be stopped half way. \n2. This i",
+              "at": "2026-11-09T13:12:32.552Z",
+              "model": {
+                "provider": "rehearsal",
+                "id": "rehearsal-quick",
+                "name": "Rehearsal Quick",
+                "reasoning": null
+              },
+              "origin": null,
+              "calls": []
+            }
+          ]
+        ],
+        ["s", ["conversation", "running"], null],
+        [
+          "s",
+          ["conversation", "failure"],
+          {
+            "reason": "aborted",
+            "message": "Stopped."
+          }
+        ]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["s", ["preview"], null],
+        ["s", ["status"], "idle"],
+        ["s", ["completedAt"], "2026-11-09T13:12:32.552Z"],
+        ["s", ["updatedAt"], "2026-11-09T13:12:32.552Z"]
+      ]
+    }
+  ]
+}

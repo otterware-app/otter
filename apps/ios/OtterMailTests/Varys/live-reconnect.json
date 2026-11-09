@@ -1,0 +1,242 @@
+{
+  "description": "A dropped connection. Views stay readable as stale. On the next connection the client says hello and subscribes again, and gets fresh snapshots; nothing is replayed. A ping without a pong is how the host notices a dead socket.",
+  "server": {
+    "agentId": "agent-1",
+    "incarnation": "inc-1"
+  },
+  "steps": [
+    {
+      "source": {
+        "view": "thread",
+        "params": {
+          "id": "t1"
+        },
+        "rev": 3,
+        "value": {
+          "title": "Plan the week's meals",
+          "text": "Monday: soup"
+        }
+      }
+    },
+    {
+      "app": {
+        "subscribe": {
+          "id": "s1",
+          "view": "thread",
+          "params": {
+            "id": "t1"
+          }
+        }
+      }
+    },
+    {
+      "connect": {
+        "ticket": "ticket-1"
+      }
+    },
+    {
+      "client": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "ticket": "ticket-1"
+      }
+    },
+    {
+      "server": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "server": {
+          "agentId": "agent-1",
+          "incarnation": "inc-1"
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "sub",
+        "id": "s1",
+        "view": "thread",
+        "params": {
+          "id": "t1"
+        }
+      }
+    },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 3,
+        "value": {
+          "title": "Plan the week's meals",
+          "text": "Monday: soup"
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "ack",
+        "id": "s1",
+        "rev": 3
+      }
+    },
+    {
+      "app": {
+        "ping": {}
+      }
+    },
+    {
+      "client": {
+        "type": "ping"
+      }
+    },
+    {
+      "expect": {
+        "awaitingPong": true
+      }
+    },
+    {
+      "server": {
+        "type": "pong"
+      }
+    },
+    {
+      "expect": {
+        "awaitingPong": false
+      }
+    },
+    {
+      "source": {
+        "view": "thread",
+        "params": {
+          "id": "t1"
+        },
+        "rev": 4,
+        "value": {
+          "title": "Plan the week's meals",
+          "text": "Monday: soup, Tuesday: pasta"
+        }
+      }
+    },
+    {
+      "note": "sent, but the connection drops before it arrives",
+      "disconnect": {}
+    },
+    {
+      "expect": {
+        "connection": "closed",
+        "views": {
+          "s1": {
+            "status": "stale",
+            "rev": 3,
+            "value": {
+              "title": "Plan the week's meals",
+              "text": "Monday: soup"
+            }
+          }
+        }
+      }
+    },
+    {
+      "source": {
+        "view": "thread",
+        "params": {
+          "id": "t1"
+        },
+        "rev": 5,
+        "value": {
+          "title": "Plan the week's meals",
+          "text": "Monday: soup, Tuesday: pasta, Wednesday: rice"
+        }
+      },
+      "note": "changes while the client is away"
+    },
+    {
+      "connect": {
+        "ticket": "ticket-2"
+      }
+    },
+    {
+      "client": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "ticket": "ticket-2"
+      }
+    },
+    {
+      "expect": {
+        "connection": "connecting",
+        "views": {
+          "s1": {
+            "status": "stale",
+            "rev": 3
+          }
+        }
+      }
+    },
+    {
+      "server": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "server": {
+          "agentId": "agent-1",
+          "incarnation": "inc-1"
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "sub",
+        "id": "s1",
+        "view": "thread",
+        "params": {
+          "id": "t1"
+        }
+      }
+    },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 5,
+        "value": {
+          "title": "Plan the week's meals",
+          "text": "Monday: soup, Tuesday: pasta, Wednesday: rice"
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "ack",
+        "id": "s1",
+        "rev": 5
+      }
+    },
+    {
+      "expect": {
+        "connection": "open",
+        "views": {
+          "s1": {
+            "status": "fresh",
+            "rev": 5,
+            "value": {
+              "title": "Plan the week's meals",
+              "text": "Monday: soup, Tuesday: pasta, Wednesday: rice"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

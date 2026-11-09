@@ -1,0 +1,148 @@
+{
+  "description": "A deleted thread invalidates its cached transcript on every client.",
+  "server": {
+    "agentId": "agent-1",
+    "incarnation": "inc-1"
+  },
+  "steps": [
+    {
+      "source": {
+        "view": "thread",
+        "params": {
+          "id": "t1"
+        },
+        "rev": 1,
+        "value": {
+          "title": "Dinner",
+          "messages": [
+            {
+              "id": "m1",
+              "role": "user",
+              "text": "What should I cook?"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "app": {
+        "subscribe": {
+          "id": "s1",
+          "view": "thread",
+          "params": {
+            "id": "t1"
+          }
+        }
+      }
+    },
+    {
+      "expect": {
+        "connection": "closed",
+        "views": {
+          "s1": {
+            "status": "loading"
+          }
+        }
+      }
+    },
+    {
+      "connect": {
+        "ticket": "ticket-1"
+      }
+    },
+    {
+      "client": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "ticket": "ticket-1"
+      }
+    },
+    {
+      "expect": {
+        "connection": "connecting"
+      }
+    },
+    {
+      "server": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "server": {
+          "agentId": "agent-1",
+          "incarnation": "inc-1"
+        }
+      }
+    },
+    {
+      "note": "subscriptions are sent after the server's hello",
+      "client": {
+        "type": "sub",
+        "id": "s1",
+        "view": "thread",
+        "params": {
+          "id": "t1"
+        }
+      }
+    },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 1,
+        "value": {
+          "title": "Dinner",
+          "messages": [
+            {
+              "id": "m1",
+              "role": "user",
+              "text": "What should I cook?"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "ack",
+        "id": "s1",
+        "rev": 1
+      }
+    },
+    {
+      "expect": {
+        "connection": "open",
+        "views": {
+          "s1": {
+            "status": "fresh",
+            "rev": 1
+          }
+        }
+      }
+    },
+    {
+      "inject": {
+        "type": "error",
+        "id": "s1",
+        "error": {
+          "code": "BAD_PARAMS",
+          "message": "There's no such thread."
+        }
+      }
+    },
+    {
+      "expect": {
+        "views": {
+          "s1": {
+            "status": "error",
+            "cleared": true
+          }
+        }
+      }
+    }
+  ]
+}

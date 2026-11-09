@@ -1,0 +1,170 @@
+{
+  "description": "A thread started with a question, answered in streamed tokens.",
+  "requestId": "cf6cf5ef-872a-4b2a-8880-408203568672",
+  "end": {
+    "type": "done"
+  },
+  "steps": [
+    {
+      "view": "thread",
+      "snapshot": {
+        "id": "afdf95f4-0219-49cc-8f47-a66f96c7e567",
+        "title": "What should I cook tonight?",
+        "routine": null,
+        "pinned": false,
+        "settled": false,
+        "preview": {
+          "text": "What should I cook tonight?",
+          "origin": {
+            "author": "owner",
+            "sources": []
+          }
+        },
+        "status": "running",
+        "provider": "rehearsal",
+        "completedAt": null,
+        "createdAt": "2026-11-09T13:12:29.349Z",
+        "updatedAt": "2026-11-09T13:12:29.349Z",
+        "queueHeld": false,
+        "mode": "full_access",
+        "model": {
+          "model": {
+            "provider": "rehearsal",
+            "model": "rehearsal-quick"
+          },
+          "reasoning": "off",
+          "fast": false
+        },
+        "conversation": {
+          "loaded": true,
+          "items": [
+            {
+              "type": "message",
+              "id": "106",
+              "text": "What should I cook tonight?",
+              "at": "2026-11-09T13:12:29.361Z",
+              "stopped": false,
+              "requestId": "cf6cf5ef-872a-4b2a-8880-408203568672"
+            }
+          ],
+          "earlier": false,
+          "running": {
+            "since": "2026-11-09T13:12:29.361Z",
+            "answer": "",
+            "steps": []
+          },
+          "queued": [],
+          "waiting": false,
+          "failure": null
+        },
+        "attachments": []
+      }
+    },
+    {
+      "view": "threadInbox",
+      "snapshot": {
+        "items": [],
+        "total": 0
+      }
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "You said: **"]]
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "What should I cook tonight?*"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "*\n\nThis is the *rehearsal* provi"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "der, for development. It can:\n\n-"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " answer slowly with `/sl"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ow`;\n- ask you something with `/ask "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "<question>`;\n- call a tool with `/ca"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["a", ["conversation", "running", "answer"], "ll <tool> <JSON>`.\n\n| Command | What"]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " it shows |\n| --- | --- |\n| "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "`/slow` | streaming and stop |\n| `/a"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "sk` | a question in the Inbo"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "x |\n| `/call` | a tool step, or an a"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        [
+          "s",
+          ["preview", "text"],
+          "You said: What should I cook tonight? This is the rehearsal provider, for development. It can: answer slowly with /slow; ask you something with /ask ; call a tool with /call . | Command | What it shows | | --- | --- | | /slow | streaming and stop | | /ask | a question in the Inbox | | /call | a tool step, or an approval |"
+        ],
+        ["s", ["preview", "origin", "author"], "varys"],
+        ["s", ["status"], "done"],
+        ["s", ["completedAt"], "2026-11-09T13:12:30.949Z"],
+        ["s", ["updatedAt"], "2026-11-09T13:12:30.949Z"],
+        [
+          "p",
+          ["conversation", "items"],
+          1,
+          0,
+          [
+            {
+              "type": "answer",
+              "id": "111",
+              "text": "You said: **What should I cook tonight?**\n\nThis is the *rehearsal* provider, for development. It can:\n\n- answer slowly with `/slow`;\n- ask you something with `/ask <question>`;\n- call a tool with `/call <tool> <JSON>`.\n\n| Command | What it shows |\n| --- | --- |\n| `/slow` | streaming and stop |\n| `/ask` | a question in the Inbox |\n| `/call` | a tool step, or an approval |",
+              "at": "2026-11-09T13:12:29.367Z",
+              "durationMs": 1582,
+              "model": {
+                "provider": "rehearsal",
+                "id": "rehearsal-quick",
+                "name": "Rehearsal Quick",
+                "reasoning": "off"
+              },
+              "origin": {
+                "author": "varys",
+                "sources": []
+              },
+              "calls": []
+            }
+          ]
+        ],
+        ["s", ["conversation", "running"], null]
+      ]
+    }
+  ]
+}

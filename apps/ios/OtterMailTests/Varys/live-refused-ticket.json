@@ -1,0 +1,124 @@
+{
+  "description": "A ticket the server doesn't take, such as an expired one. The server refuses the hello and closes; the client gets a new ticket over HTTP and connects again.",
+  "server": {
+    "agentId": "agent-1",
+    "incarnation": "inc-1"
+  },
+  "steps": [
+    {
+      "source": {
+        "view": "inbox",
+        "params": {},
+        "rev": 1,
+        "value": {
+          "items": []
+        }
+      }
+    },
+    {
+      "app": {
+        "subscribe": {
+          "id": "s1",
+          "view": "inbox",
+          "params": {}
+        }
+      }
+    },
+    {
+      "connect": {
+        "ticket": "expired-ticket"
+      }
+    },
+    {
+      "client": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "ticket": "expired-ticket"
+      }
+    },
+    {
+      "server": {
+        "type": "error",
+        "error": {
+          "code": "UNAUTHORIZED",
+          "message": "The ticket isn't valid. Get a new one."
+        }
+      }
+    },
+    {
+      "expect": {
+        "connection": "refused"
+      }
+    },
+    {
+      "disconnect": {}
+    },
+    {
+      "connect": {
+        "ticket": "ticket-2"
+      }
+    },
+    {
+      "client": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "ticket": "ticket-2"
+      }
+    },
+    {
+      "server": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "server": {
+          "agentId": "agent-1",
+          "incarnation": "inc-1"
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "sub",
+        "id": "s1",
+        "view": "inbox",
+        "params": {}
+      }
+    },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 1,
+        "value": {
+          "items": []
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "ack",
+        "id": "s1",
+        "rev": 1
+      }
+    },
+    {
+      "expect": {
+        "connection": "open",
+        "views": {
+          "s1": {
+            "status": "fresh",
+            "rev": 1
+          }
+        }
+      }
+    }
+  ]
+}
