@@ -2,17 +2,18 @@ import SwiftUI
 
 /** What the home screen shows above the bar: the modules, in the bar's order. */
 enum HomeModule: Hashable {
-    case mail, calendar
+    case mail, calendar, tasks
 }
 
 /**
- * The bar under every module's first page: Mail and Calendar (when a mailbox
- * has one), each labeled, and ⌃⌄ for what the one in front is scoped by (the
- * mail's mailboxes, folders and labels; the calendars to show). The agent has
- * its own round button beside it.
+ * The bar under every module's first page: Mail, Calendar (when a mailbox has
+ * one) and Tasks, each labeled, and ⌃⌄ for what the one in front is scoped by
+ * (the mail's mailboxes, folders and labels; the calendars to show; the task
+ * lists). The agent has its own round button beside it.
  */
 struct PlacesBar: View {
     @Environment(MailStore.self) private var store
+    @Environment(Session.self) private var session
     @Environment(\.palette) private var palette
     @Namespace private var glass
 
@@ -42,6 +43,8 @@ struct PlacesBar: View {
                                 PlacesPanel(place: place, module: module, onSelect: onPlace, onMailbox: onMailbox)
                             case .calendar:
                                 CalendarScopePanel(events: calendar, visibility: calendarShown, onDone: onDone)
+                            case .tasks:
+                                TaskListsPanel(onDone: onDone)
                             }
                         }
                         .frame(maxHeight: 560)
@@ -86,6 +89,9 @@ struct PlacesBar: View {
             if !CalendarStore.sources(store.shownMailboxes).isEmpty {
                 tab("Calendar", symbol: "calendar", module: .calendar)
             }
+            let open = session.tasks.tasks.count(where: { !$0.done })
+            tab("Tasks", symbol: "checklist", module: .tasks, badge: open)
+                .accessibilityValue(open > 0 ? "\(open) open" : "")
             // ⌃⌄ opens what the one in front is scoped by, in the same panel for each.
             Button(action: onMenu) {
                 Image(systemName: "chevron.up.chevron.down")
@@ -96,21 +102,30 @@ struct PlacesBar: View {
                     .contentShape(.capsule)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(module == .calendar ? "Calendars" : "All places")
+            .accessibilityLabel(scopeLabel)
             .accessibilityIdentifier("places-scope")
         }
         .padding(4)
     }
 
-    /** Lit for a mail place other than the inbox, or a calendar scoped to one mailbox. */
+    /** Lit for a mail place other than the inbox, a calendar scoped to one mailbox, or a task list picked. */
     private var scopeLit: Bool {
         switch module {
         case .mail: place.folder != .inbox
         case .calendar: calendarShown.account != nil
+        case .tasks: session.tasks.selected != nil
         }
     }
 
-    private func tab(_ title: String, symbol: String, module: HomeModule, dot: Bool = false) -> some View {
+    private var scopeLabel: String {
+        switch module {
+        case .mail: "All places"
+        case .calendar: "Calendars"
+        case .tasks: "Task lists"
+        }
+    }
+
+    private func tab(_ title: String, symbol: String, module: HomeModule, dot: Bool = false, badge: Int = 0) -> some View {
         let selected = self.module == module
         return Button { onModule(module) } label: {
             VStack(spacing: 2) {
@@ -118,7 +133,16 @@ struct PlacesBar: View {
                     .font(.system(size: 17, weight: .medium))
                     .symbolVariant(selected ? .fill : .none)
                     .overlay(alignment: .topTrailing) {
-                        if dot {
+                        if badge > 0 {
+                            Text("\(min(badge, 99))")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+                                .frame(minWidth: 16, minHeight: 16)
+                                .background(.red, in: .capsule)
+                                .offset(x: 10, y: -6)
+                                .accessibilityHidden(true)
+                        } else if dot {
                             Circle().fill(palette.focus).frame(width: 8, height: 8).offset(x: 5, y: -3)
                         }
                     }
@@ -127,7 +151,7 @@ struct PlacesBar: View {
                     .lineLimit(1)
             }
             .foregroundStyle(palette.text)
-            .frame(width: 72, height: 48)
+            .frame(width: 68, height: 48)
             .background(selected ? palette.text.opacity(0.1) : .clear, in: .capsule)
             .contentShape(.capsule)
         }

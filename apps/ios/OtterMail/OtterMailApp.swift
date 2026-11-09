@@ -37,6 +37,8 @@ struct OtterMailApp: App {
             case .active:
                 Task { await session.relay.retrySignOuts(); await session.refreshAccount() }
                 Task { await session.agent.resumeOpenClaw() }
+                // Reminders are kept to the nearest few, so the next ones are scheduled as time passes.
+                session.tasks.reschedule()
             case .background:
                 session.disconnect()
                 session.agent.suspendOpenClaw()
@@ -69,10 +71,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     var session: Session? {
         didSet {
             if let tapped { session?.opening = tapped; self.tapped = nil }
+            if let tappedTask { session?.openingTask = tappedTask; self.tappedTask = nil }
             if let token { session?.registeredForPush(token) }
         }
     }
     private var tapped: Session.NotificationDestination?
+    private var tappedTask: TaskDestination?
     private var token: String?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
@@ -88,6 +92,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         let info = response.notification.request.content.userInfo
+        if let task = TaskReminders.destination(info) {
+            if let session { session.openingTask = task } else { tappedTask = task }
+            completionHandler()
+            return
+        }
         let metadata = info["otter"] as? [String: Any]
         let destination = Session.NotificationDestination(userId: metadata?["userId"] as? String,
             email: (info["mailbox"] as? String) ?? (metadata?["email"] as? String), thread: info["thread"] as? String, message: info["message"] as? String)
@@ -97,6 +106,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         let info = notification.request.content.userInfo
+        // A reminder the user asked for shows whatever the mail notifications setting says.
+        if TaskReminders.destination(info) != nil {
+            completionHandler([.banner, .sound])
+            return
+        }
         if let metadata = info["otter"] as? [String: Any] {
             let userId = metadata["userId"] as? String
             let email = metadata["email"] as? String ?? ""

@@ -343,6 +343,27 @@ would be, with Sign in again.
 | Keys: ← → to step                                                                                                                                                                 | ✓   | ✓   | —                                                              |
 | Settings → Calendar (follows your Otter account): start of week, weekends, declined events, 12 / 24-hour, a meeting on new events by mailbox                                      | ✓   | ✓   | Followed (no page of its own)                                  |
 
+## Tasks (iPhone)
+
+A to-do list of the iPhone's own, the bar's Tasks, kept on that iPhone: it syncs nowhere (not to
+the relay, not to Todoist, not to Google), and the list says so where it starts. The Mac and web
+apps' tasks are the Todoist integration above. Tasks are in lists: the bar's ⌃⌄ opens All, the
+Inbox (every task without a list) and the lists made there (New list; hold one to rename it),
+shaped as Todoist's projects. What's open is sorted by when it's due (overdue, today, upcoming, no
+date); what's done is under a heading that folds away. Swipe right to finish, left to delete; tap
+for the task, with Edit. A due date can have a time, and a time can remind: a local notification
+at that time, which opens the task. Notifications are asked for the moment a reminder is turned
+on. Leaving the editor with changes, and deleting a task, ask first. Tasks belong to the
+signed-in Otter account (the demo has its own).
+
+| Feature                                                           | Mac | Web | iPhone                 |
+| ----------------------------------------------------------------- | --- | --- | ---------------------- |
+| Local tasks: add, edit, delete, done / not done                   | —   | —   | ✓                      |
+| Sorted by due: overdue, today, upcoming, no date; done folds away | —   | —   | ✓                      |
+| Optional due date, a time, and a reminder at that time            | —   | —   | ✓ (local notification) |
+| Task lists: All, Inbox, new and renamed lists; a task's list      | —   | —   | ✓                      |
+| Kept on the device, per Otter account (demo apart); no sync       | —   | —   | ✓                      |
+
 ## Contacts & avatars
 
 | Feature       | Mac                                                                               | Web | iPhone        |
@@ -384,7 +405,7 @@ recalled. See [behavior and setup](../apps/ios/README.md#verified-background-not
 | New mail during a long sync           | ✓                                  | ✓                      | —                                    |
 | Changes applied at once, synced after | ✓                                  | ✓                      | ✓ (no outbox)                        |
 
-On iPhone, a glass bar under a module's first page holds Mail and Calendar (when a Gmail mailbox has one), each labeled, and ⌃⌄, which opens what the one in front is scoped by: in Mail every mailbox (the one switcher), folder and label; in Calendar its calendars. Search and Settings are in the mail list's toolbar. An inbox with unread mail or invitations waiting on an answer has a Catch up pill beside All and Unread: Catch up goes through them one card at a time (Accept, Decline, Maybe for an invitation; Skip, Archive, Unsubscribe, Mark as Read for mail; swipe right to read, left to skip), the pill counting the same cards. Unsubscribe in the reader and in Catch up sends the list's mailto request itself rather than opening a draft. The Agent (with an agent on, or an Otter account's chats to read) has its own round button beside it and opens as a sheet. The bar steps aside for pages pushed over it (a conversation, an event) and for selection. Conversations zoom from their list rows (respecting Reduce Motion), the reader's navigation bar minimizes while scrolling, and selection morphs the glass buttons into bulk actions.
+On iPhone, a glass bar under a module's first page holds Mail, Calendar (when a Gmail mailbox has one) and Tasks, each labeled, and ⌃⌄, which opens what the one in front is scoped by: in Mail every mailbox (the one switcher), folder and label; in Calendar its calendars; in Tasks its lists. Search and Settings are in the mail list's toolbar. An inbox with unread mail or invitations waiting on an answer has a Catch up pill beside All and Unread: Catch up goes through them one card at a time (Accept, Decline, Maybe for an invitation; Skip, Archive, Unsubscribe, Mark as Read for mail; swipe right to read, left to skip), the pill counting the same cards. Unsubscribe in the reader and in Catch up sends the list's mailto request itself rather than opening a draft. The Agent (with an agent on, or an Otter account's chats to read) has its own round button beside it and opens as a sheet. The bar steps aside for pages pushed over it (a conversation, an event, a task) and for selection. Conversations zoom from their list rows (respecting Reduce Motion), the reader's navigation bar minimizes while scrolling, and selection morphs the glass buttons into bulk actions.
 
 ## Settings & customization
 

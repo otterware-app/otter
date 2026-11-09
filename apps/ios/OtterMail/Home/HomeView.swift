@@ -28,6 +28,9 @@ struct HomeView: View {
     @State private var calendarPath = NavigationPath()
     @State private var catchUp = CatchUpState()
     @State private var catchingUp = false
+    @State private var tasksPath = NavigationPath()
+    /** A task whose reminder was tapped, opened over Tasks. */
+    @State private var openingTask: UUID?
     @State private var query = ""
     @State private var searchPath: [String] = []
 
@@ -46,6 +49,7 @@ struct HomeView: View {
                 if none, module == .calendar { module = .mail }
             }
             .onChange(of: session.opening, initial: true) { _, _ in openNotification() }
+            .onChange(of: session.openingTask, initial: true) { _, _ in openTaskReminder() }
             .onChange(of: store.sync?.loadingCache) { _, loading in
                 if loading == false { openNotification() }
             }
@@ -105,6 +109,10 @@ struct HomeView: View {
                     events: calendar, visibility: calendarShown, path: $calendarPath,
                     onTitle: { setMenu(open: true) }, onSettings: openSettings
                 ))
+            }
+        case .tasks:
+            NavigationStack(path: $tasksPath) {
+                withPlaces(TasksView(opening: openingTask, onTitle: { setMenu(open: true) }, onSettings: openSettings))
             }
         }
     }
@@ -219,6 +227,18 @@ struct HomeView: View {
         guard let mailbox else { return }
         setMenu(open: false)
         draft = .new(from: mailbox, to: to)
+    }
+
+    /** A task reminder opens Tasks with that task over it, wherever the app was. */
+    private func openTaskReminder() {
+        guard let destination = session.openingTask else { return }
+        session.openingTask = nil
+        guard destination.scope == session.tasks.scope, session.tasks.contains(destination.id) else { return }
+        agentOpen = false
+        searchOpen = false
+        settingsOpen = false
+        openingTask = destination.id
+        show(.tasks)
     }
 
     private func openNotification() {

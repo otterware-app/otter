@@ -18,6 +18,8 @@ final class Session {
     private(set) var notificationProviders: Set<String> = []
     @ObservationIgnored private let notificationAuthorization = NotificationAuthorization()
     var opening: NotificationDestination?
+    /** A tapped task reminder, which HomeView opens on the task itself. */
+    var openingTask: TaskDestination?
 
     struct NotificationDestination: Equatable {
         var userId: String?
@@ -28,6 +30,8 @@ final class Session {
 
     let preferences: Preferences
     let agent = Agent()
+    /** This iPhone's own tasks, per account (and the demo's): local, never synced. */
+    let tasks = TaskStore()
     @ObservationIgnored let relay = Relay()
     @ObservationIgnored let google = GoogleAuth()
     @ObservationIgnored let microsoft = MicrosoftAuth()
@@ -65,6 +69,19 @@ final class Session {
         agent.mailStore = { [weak self] in self?.store }
         Task { [agent] in await agent.check() }
         if case .signedIn = state { startLive() } else { PushState.configure(nil) }
+        openTasks()
+    }
+
+    /** The tasks of whoever is signed in, with their reminders scheduled again from disk. */
+    private func openTasks() {
+        switch state {
+        case .welcome:
+            tasks.close()
+        case .demo:
+            tasks.open(TaskStore.scope(user: nil), seed: DemoTasks.seed(), seedProjects: DemoTasks.projects)
+        case .signedIn(let user):
+            tasks.open(TaskStore.scope(user: user.id))
+        }
     }
 
     var user: Relay.User? {
@@ -76,6 +93,7 @@ final class Session {
         UserDefaults.standard.set(true, forKey: Self.demoKey)
         store = .demo(preferences: preferences)
         state = .demo
+        openTasks()
     }
 
     func signIn() async throws {
@@ -88,6 +106,7 @@ final class Session {
         UserDefaults.standard.set(false, forKey: Self.demoKey)
         store = MailStore(preferences: preferences)
         state = .signedIn(user)
+        openTasks()
         startLive()
         try await link(profile, idToken: idToken)
         busy = "Loading your mail…"
@@ -509,6 +528,9 @@ final class Session {
 
     private func endSession() {
         opening = nil
+        openingTask = nil
+        // The account's tasks stay on this iPhone; their reminders come down with it.
+        tasks.close()
         notificationConnections = [:]
         notificationProviders = []
         let previousUser = user
@@ -551,6 +573,8 @@ final class Session {
     func leaveDemo() {
         store.commitPendingAction()
         store.clearRecovery()
+        openingTask = nil
+        tasks.close()
         UserDefaults.standard.set(false, forKey: Self.demoKey)
         store = MailStore(preferences: preferences)
         state = .welcome

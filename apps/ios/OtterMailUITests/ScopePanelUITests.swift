@@ -65,6 +65,88 @@ final class ScopePanelUITests: XCTestCase {
         }
     }
 
+    func testTaskListsCreateRenameAndFilter() {
+        let app = XCUIApplication()
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Tasks")).firstMatch.tap()
+        XCTAssertTrue(app.buttons["Add task"].waitForExistence(timeout: 5))
+        openScope(app)
+
+        XCTAssertTrue(app.buttons["New list"].waitForExistence(timeout: 5), "the panel didn't open")
+        for row in ["All", "Inbox", "Home", "Work"] {
+            XCTAssertTrue(app.buttons[row].exists, "\(row) missing from the panel")
+        }
+        attach(app, "tasks-scope")
+
+        // A list picked is the title.
+        app.buttons["Work"].tap()
+        XCTAssertTrue(app.buttons["Tasks Work"].waitForExistence(timeout: 5), "the title doesn't name the list")
+
+        // A new list, picked once it's made, with nothing on it yet.
+        let suffix = Int.random(in: 100...999)
+        let name = "Errands \(suffix)"
+        openScope(app)
+        app.buttons["New list"].tap()
+        let field = app.alerts.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText(name)
+        app.alerts.buttons["Create"].tap()
+        XCTAssertTrue(app.buttons["Tasks \(name)"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["No tasks"].waitForExistence(timeout: 5))
+
+        // A task added there is on that list, and not in the Inbox.
+        let content = "Post the letter \(suffix)"
+        app.buttons["Add task"].tap()
+        let task = app.textFields["Task"].exists ? app.textFields["Task"] : app.textViews["Task"]
+        XCTAssertTrue(task.waitForExistence(timeout: 5))
+        task.tap()
+        task.typeText(content)
+        app.buttons["Save"].tap()
+        XCTAssertTrue(labelled(app, content).waitForExistence(timeout: 5))
+        openScope(app)
+        app.buttons["Inbox"].tap()
+        XCTAssertTrue(app.buttons["Tasks Inbox"].waitForExistence(timeout: 5))
+        XCTAssertFalse(labelled(app, content).exists, "the Inbox shows another list's task")
+        openScope(app)
+        app.buttons[name].tap()
+
+        // Renamed from holding its row.
+        openScope(app)
+        app.buttons[name].press(forDuration: 1.2)
+        app.buttons["Rename"].tap()
+        let rename = app.alerts.textFields.firstMatch
+        XCTAssertTrue(rename.waitForExistence(timeout: 5))
+        rename.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: name.count) + "Town \(suffix)")
+        app.alerts.buttons["Rename"].tap()
+        XCTAssertTrue(app.buttons["Town \(suffix)"].waitForExistence(timeout: 5), "the list wasn't renamed")
+        attach(app, "tasks-scope-lists")
+
+        // All again, every list's tasks in it.
+        app.buttons["All"].tap()
+        XCTAssertTrue(app.buttons["Tasks"].waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollToTask(app, content), "the new task isn't under All")
+    }
+
+    /**
+     * All lists every task the simulator has kept from earlier runs, so the one
+     * added here can sit below what the lazy list has drawn: swipes the list up
+     * a bounded number of times, asking only `exists`, until its row is made.
+     */
+    private func scrollToTask(_ app: XCUIApplication, _ content: String) -> Bool {
+        let row = labelled(app, content)
+        if row.waitForExistence(timeout: 3) { return true }
+        let list = app.collectionViews.firstMatch
+        for _ in 0..<15 {
+            (list.exists ? list : app).swipeUp()
+            if row.waitForExistence(timeout: 1) { return true }
+        }
+        return false
+    }
+
+    /** A task's row reads as one element, its title first. */
+    private func labelled(_ app: XCUIApplication, _ text: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+    }
+
     private func openScope(_ app: XCUIApplication) {
         let scope = app.buttons["places-scope"]
         XCTAssertTrue(scope.waitForExistence(timeout: 5), "⌃⌄ missing")
