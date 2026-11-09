@@ -906,4 +906,61 @@ struct CalendarTests {
         #expect(groups[0].calendars.isEmpty)
         #expect(groups[1].calendars.map(\.key) == ["work@otter.example|primary"])
     }
+
+    @Test func findsTheInvitationsWaitingOnAnAnswer() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let hour: TimeInterval = 3600
+        var hidden = EventCalendar(id: "team", name: "Team", account: me)
+        hidden.shown = false
+        var other = EventCalendar(id: "shared", name: "Shared", account: me)
+        other.primary = false
+        var cancelled = timed("cancelled", now + hour, now + 2 * hour, response: .needsAction)
+        cancelled.status = .cancelled
+        var weekly1 = timed("weekly_1", now + 5 * hour, now + 6 * hour, response: .needsAction)
+        weekly1.seriesId = "weekly"
+        var weekly2 = timed("weekly_2", now + 50 * hour, now + 51 * hour, response: .needsAction)
+        weekly2.seriesId = "weekly"
+        var onHidden = timed("hidden", now + hour, now + 2 * hour, response: .needsAction)
+        onHidden.calendar = hidden
+        var copy = timed("lunch", now + 3 * hour, now + 4 * hour, response: .needsAction)
+        copy.calendar = other
+        let events = [
+            timed("past", now - 2 * hour, now - hour, response: .needsAction),
+            timed("answered", now + hour, now + 2 * hour, response: .accepted),
+            timed("mine", now + hour, now + 2 * hour),
+            cancelled, weekly2, weekly1, onHidden, copy,
+            timed("lunch", now + 3 * hour, now + 4 * hour, response: .needsAction),
+        ]
+        let invites = CalendarStore.invites(events, shown: [:], now: now)
+        #expect(invites.map(\.eventId) == ["lunch", "weekly_1"])
+        #expect(invites.first?.calendar.primary == true)
+        #expect(CalendarStore.invites(events, shown: [hidden.key: true], now: now).map(\.eventId) == ["hidden", "lunch", "weekly_1"])
+    }
+
+    @Test func answersForTheSeriesAnOccurrenceIsOf() {
+        var occurrence = timed("weekly_20261106", .now, .now, response: .needsAction)
+        #expect(CalendarStore.answerKey(occurrence) == "\(me)/weekly_20261106")
+        occurrence.seriesId = "weekly"
+        #expect(CalendarStore.answerKey(occurrence) == "\(me)/weekly")
+        occurrence.attendees = [.init(person: Person(name: "", email: "Robin@Otter.example")), .init(person: Person(name: "", email: "ann@example.com"))]
+        let answered = CalendarStore.answered(occurrence, .tentative)
+        #expect(answered.response == .tentative)
+        #expect(answered.attendees.map(\.response) == [.tentative, .needsAction])
+    }
+
+    /** core's setResponse: the mailbox's own attendee gets the answer, the rest stay, and it's added when missing. */
+    @Test func answersAsCoreDoes() {
+        let attendees: [[String: Any]] = [
+            ["email": "ann@example.com", "responseStatus": "accepted"],
+            ["email": "Robin@Otter.example", "responseStatus": "needsAction", "displayName": "Robin"],
+        ]
+        let answered = GoogleEvents.answered(attendees, me: me, response: .declined)
+        #expect(answered.map { $0["responseStatus"] as? String } == ["accepted", "declined"])
+        #expect(answered[1]["displayName"] as? String == "Robin")
+        let bySelf = GoogleEvents.answered([["email": "alias@otter.example", "self": true]], me: me, response: .accepted)
+        #expect(bySelf.count == 1 && bySelf[0]["responseStatus"] as? String == "accepted")
+        let added = GoogleEvents.answered([["email": "ann@example.com"]], me: me, response: .tentative)
+        #expect(added.count == 2)
+        #expect(added[1]["email"] as? String == me && added[1]["self"] as? Bool == true && added[1]["responseStatus"] as? String == "tentative")
+    }
 }

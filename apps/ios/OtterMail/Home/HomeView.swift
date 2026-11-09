@@ -26,10 +26,14 @@ struct HomeView: View {
     @State private var calendar = CalendarStore()
     @State private var calendarShown = CalendarShown()
     @State private var calendarPath = NavigationPath()
+    @State private var catchUp = CatchUpState()
+    @State private var catchingUp = false
     @State private var query = ""
     @State private var searchPath: [String] = []
 
     private var showsAgent: Bool { session.agent.isOn || session.user != nil }
+
+    private var dates: CalendarDates { CalendarDates(preferences: session.preferences.calendar) }
 
     private var menuAnimation: Animation? { reduceMotion ? nil : .spring(duration: 0.4, bounce: 0.15) }
 
@@ -71,8 +75,21 @@ struct HomeView: View {
                     onCompose: { compose() },
                     onSettings: openSettings,
                     onSearch: { setMenu(open: false); searchOpen = true },
+                    onCatchUp: { setMenu(open: false); catchingUp = true },
+                    catchUpCount: catchUp.items(
+                        scope: place.scope, store: store, calendar: calendar, shown: calendarShown.shown, dates: dates
+                    ).count,
                     onResume: { draft = $0 }
                 ))
+                .navigationDestination(isPresented: $catchingUp) {
+                    CatchUpView(scope: place.scope, calendar: calendar, shown: calendarShown, state: catchUp, draft: $draft)
+                }
+                // Invitations for the pill's count, read with every calendar so the calendar's own windows stay.
+                .task(id: CalendarStore.sources(store.shownMailboxes).map(\.email)) {
+                    let sources = CalendarStore.sources(store.shownMailboxes)
+                    guard !sources.isEmpty else { return }
+                    await calendar.load(CatchUp.window(dates), sources: sources, demo: store.isDemo, google: session.google, dates: dates)
+                }
                 .navigationDestination(for: String.self) { id in
                     let reader = ThreadView(threadID: id, place: place, path: $path, draft: $draft)
                     if reduceMotion {
@@ -177,6 +194,7 @@ struct HomeView: View {
     private func select(_ next: Place) {
         place = next
         path = []
+        catchingUp = false
         module = .mail
         setMenu(open: false)
     }
@@ -219,6 +237,7 @@ struct HomeView: View {
             setMenu(open: false)
             agentOpen = false
             searchOpen = false
+            catchingUp = false
             module = .mail
             if let thread = destination.thread, let loaded = store.thread(thread),
                destination.email == nil || loaded.mailbox.lowercased() == (mailbox?.source ?? destination.email)?.lowercased() {

@@ -339,12 +339,18 @@ final class MailSync {
         let email = thread.mailbox
         Task {
             do {
-                try await run(email) { provider, state, known in
-                    try await provider.apply(change, to: known.first(where: { $0.id == thread.id }) ?? thread, &state)
-                }
+                try await write(change, to: thread)
             } catch {
                 _ = try? await run(email) { provider, state, known in try await provider.refresh(thread, &state, known: known) }
             }
+        }
+    }
+
+    /** Writes a change the store already shows, throwing if the server refuses it. */
+    func write(_ change: MailStore.Change, to thread: MailThread) async throws {
+        guard store.mailbox(thread.mailbox)?.signedOut == false else { throw Draft.Failure.mailboxUnavailable }
+        try await run(thread.mailbox) { provider, state, known in
+            try await provider.apply(change, to: known.first(where: { $0.id == thread.id }) ?? thread, &state)
         }
     }
 

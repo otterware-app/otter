@@ -4,7 +4,8 @@ import Foundation
  * Google Calendar: the account's calendars and the events in a window, mapped
  * as core maps them (packages/core/src/providers/gmail/calendar.ts), and an
  * event made, changed or deleted as core's createEvent, updateEvent and
- * deleteEvent do. A sign-in from before the app asked for calendar access is
+ * deleteEvent do, and the answer to an invitation as core's respondToEvent
+ * gives it. A sign-in from before the app asked for calendar access is
  * refused with 403, which is `NoAccess`: the screen then offers signing in again.
  */
 nonisolated struct GoogleCalendarAPI: EventWriter {
@@ -57,6 +58,20 @@ nonisolated struct GoogleCalendarAPI: EventWriter {
             pageToken = page.next
         } while pageToken != nil
         return found
+    }
+
+    /**
+     * Answers an invitation as core's setResponse does: the event's attendees
+     * with this mailbox's answer in them, PATCHed back with sendUpdates=all, so
+     * the organizer hears of it. The whole list goes back, so it's read first.
+     */
+    @concurrent
+    func respond(_ response: CalendarEvent.Response, to eventId: String, on calendarId: String) async throws {
+        let path = "calendars/\(encoded(calendarId))/events/\(encoded(eventId))"
+        let event = (try JSONSerialization.jsonObject(with: try await request(path, query: [])) as? [String: Any]) ?? [:]
+        let attendees = GoogleEvents.answered(event["attendees"] as? [[String: Any]] ?? [], me: email, response: response)
+        let body = try JSONSerialization.data(withJSONObject: ["attendees": attendees])
+        _ = try await request(path, query: [.init(name: "sendUpdates", value: "all")], method: "PATCH", body: body)
     }
 
     /** core's createEvent: POSTed to the calendar, sendUpdates all when there are guests to tell. */
@@ -185,6 +200,22 @@ nonisolated enum GoogleEvents {
                 )
             }
         return (calendars, page.nextPageToken)
+    }
+
+    /** core's setResponse: this mailbox's answer on its own attendee, added when it isn't one yet; the rest as they were. */
+    static func answered(_ attendees: [[String: Any]], me: String, response: CalendarEvent.Response) -> [[String: Any]] {
+        let email = me.lowercased()
+        let isMe = { (who: [String: Any]) in who["self"] as? Bool == true || (who["email"] as? String)?.lowercased() == email }
+        var answered = attendees.map { who in
+            guard isMe(who) else { return who }
+            var who = who
+            who["responseStatus"] = response.rawValue
+            return who
+        }
+        if !attendees.contains(where: isMe) {
+            answered.append(["email": email, "self": true, "responseStatus": response.rawValue])
+        }
+        return answered
     }
 
     /** How the account's calendars are listed: the primary one first, then by name. */

@@ -541,6 +541,37 @@ final class MailStore {
         }
     }
 
+    /**
+     * Archived and read at once, waiting on the server: an unsubscribed list's
+     * mail, so it doesn't come back. If the server refuses, the thread goes back
+     * as Undo would put it, unread again, and the error is thrown.
+     */
+    func archiveRead(_ id: String) async throws {
+        commitPendingAction()
+        guard let i = threads.firstIndex(where: { $0.id == id }) else { return }
+        let original = threads[i]
+        let folders = archiveFolder(original)
+        let archived = original.archivable(archiveFolder: folders)
+        let unread = Set(original.messages.filter(\.unread).map(\.id))
+        threads[i].land(add: [], remove: Array(archived), archiveFolder: folders)
+        for m in threads[i].messages.indices { threads[i].messages[m].unread = false }
+        let changed = threads[i]
+        guard let sync else { return }
+        do {
+            try await sync.write(.modify(add: [], remove: archived.sorted() + ["UNREAD"]), to: changed)
+        } catch {
+            if let i = threads.firstIndex(where: { $0.id == id }) {
+                let affected = archived.union(["ARCHIVE"])
+                threads[i].labels.subtract(affected)
+                threads[i].labels.formUnion(original.labels.intersection(affected))
+                for m in threads[i].messages.indices where unread.contains(threads[i].messages[m].id) {
+                    threads[i].messages[m].unread = true
+                }
+            }
+            throw error
+        }
+    }
+
     func commitPendingAction() {
         undoTask?.cancel()
         guard let action = undoAction else { return }

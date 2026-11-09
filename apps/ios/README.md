@@ -114,6 +114,14 @@ add limited server grants (or an encrypted IMAP password), while mail content st
     and Delete ask first. Saving needs `calendar.events.owned`: a sign-in from before says so, with
     Sign in again. `DemoCalendar.swift` is the demo's events; its changes stay in memory
     (`DemoEventWriter`).
+- `Home/CatchUpView.swift`: Catch up, pushed over an inbox from its pill: that mailbox's
+  invitations still waiting on an answer (on its shown calendars, a series answered as a whole:
+  `GoogleCalendarAPI.respond`, core's setResponse), then its unread mail as the list orders it,
+  one card at a time. `CatchUpState.items` is what the pill counts and Catch up shows, so they
+  agree; what was skipped stays skipped while the app is open. Unsubscribing there archives and
+  reads the conversation once the server has it (`MailStore.archiveRead`). `Reader/Unsubscribe.swift`
+  is core's unsubscribe.ts: one click, else the mailto request sent from the mailbox, else the
+  sender's page.
 - `Mail/`: the model and `MailStore`, which screens render from. `DemoMail.swift` loads the demo.
 - Alias mailboxes (`NotificationShared/AliasMailbox.swift`, `MailStore.aliases`): an IMAP
   mailbox's address with a mailbox of its own, made on the Mac and the web (the account's

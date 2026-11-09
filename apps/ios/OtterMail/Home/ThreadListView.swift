@@ -16,6 +16,9 @@ struct ThreadListView: View {
     let onCompose: () -> Void
     let onSettings: () -> Void
     var onSearch: () -> Void = {}
+    /** The inbox's Catch up, and how many cards it holds (`CatchUpState.items`). */
+    var onCatchUp: (() -> Void)? = nil
+    var catchUpCount = 0
     let onResume: (Draft) -> Void
 
     @State private var collapsedDays: Set<Date> = []
@@ -279,6 +282,20 @@ struct ThreadListView: View {
             pill("All", selected: !unreadOnly) { unreadOnly = false }
             pill("Unread", selected: unreadOnly) { unreadOnly = true }
             Spacer()
+            if let onCatchUp, place.folder == .inbox, !selecting, catchUpCount > 0 {
+                Button(action: onCatchUp) {
+                    Label("Catch up · \(catchUpCount)", systemImage: "rectangle.stack")
+                        .font(.inter(.subheadline).weight(.medium))
+                        .monospacedDigit()
+                        .foregroundStyle(palette.text)
+                        .padding(.horizontal, 14)
+                        .frame(height: 36)
+                        .background(palette.text.opacity(0.08), in: .capsule)
+                        .contentShape(.capsule)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Goes through unread mail and invitations one at a time")
+            }
         }
         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
         .listRowSeparator(.hidden)
