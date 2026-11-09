@@ -7,6 +7,8 @@ struct AgentView: View {
 
     /** Conversations to ask about (from the reader); removable before sending. */
     @State var context: [MailContext] = []
+    /** An event or a task given to the agent, shown with what's sent; removable before sending. */
+    @State var items: [ItemContext] = []
     /** Shown as a sheet (from a conversation) rather than in the frame. */
     var sheet = false
     var onSettings: () -> Void = {}
@@ -131,9 +133,9 @@ struct AgentView: View {
             Text("What can I help with?")
                 .font(.inter(.title2).weight(.semibold))
                 .foregroundStyle(palette.text)
-            if !context.isEmpty {
+            if !context.isEmpty || !items.isEmpty {
                 VStack(spacing: 8) {
-                    ForEach(["Summarize this conversation", "Draft a reply", "What do I need to do?"], id: \.self) { suggestion in
+                    ForEach(suggestions, id: \.self) { suggestion in
                         Button(suggestion) { send(suggestion) }
                             .font(.inter(.subheadline))
                             .foregroundStyle(palette.text)
@@ -148,8 +150,19 @@ struct AgentView: View {
         .padding(.horizontal, 28)
     }
 
+    private var suggestions: [String] {
+        switch items.first?.kind {
+        case .event: ["Help me prepare for this", "Draft a note to the guests"]
+        case .task: ["Help me get this done", "What's the first step?"]
+        case nil: ["Summarize this conversation", "Draft a reply", "What do I need to do?"]
+        }
+    }
+
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
+            ForEach(items, id: \.self) { item in
+                ItemContextCard(item: item) { items.removeAll { $0 == item } }
+            }
             if !context.isEmpty {
                 ScrollView(.horizontal) {
                     HStack(spacing: 6) {
@@ -210,8 +223,11 @@ struct AgentView: View {
     private func send(_ text: String) {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !(agent.running && agent.selected == "openrouter") else { return }
-        agent.send(text, context: agent.turns.isEmpty ? context : [])
-        if agent.turns.count <= 2 { context = [] }
+        agent.send(text, context: agent.turns.isEmpty ? context : [], items: agent.turns.isEmpty ? items : [])
+        if agent.turns.count <= 2 {
+            context = []
+            items = []
+        }
         draft = ""
     }
 
@@ -617,4 +633,63 @@ struct ChatHistory: View {
         }
     }
 
+}
+
+/**
+ * An event or a task about to be given to the agent: what it is in a few
+ * lines, and the text the agent receives, folded away until asked for.
+ */
+private struct ItemContextCard: View {
+    @Environment(\.palette) private var palette
+    let item: ItemContext
+    let onRemove: () -> Void
+
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: item.kind.symbol)
+                    .foregroundStyle(palette.muted)
+                    .frame(width: 20)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                        .font(.inter(.subheadline).weight(.medium))
+                        .foregroundStyle(palette.text)
+                        .lineLimit(2)
+                    if !item.summary.isEmpty {
+                        Text(item.summary.joined(separator: " · "))
+                            .font(.inter(.footnote))
+                            .foregroundStyle(palette.muted)
+                            .lineLimit(2)
+                    }
+                }
+                Spacer(minLength: 8)
+                Button("Remove", systemImage: "xmark", action: onRemove)
+                    .labelStyle(.iconOnly)
+                    .font(.inter(.caption).weight(.bold))
+                    .foregroundStyle(palette.muted)
+                    .frame(width: 32, height: 32)
+                    .contentShape(.rect)
+                    .buttonStyle(.plain)
+            }
+            DisclosureGroup("What the agent receives", isExpanded: $expanded) {
+                ScrollView {
+                    Text(item.text)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(palette.text)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 180)
+            }
+            .font(.inter(.footnote))
+            .foregroundStyle(palette.muted)
+            .tint(palette.muted)
+        }
+        .padding(12)
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("agent-item-context")
+    }
 }

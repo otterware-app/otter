@@ -362,15 +362,16 @@ has Add task (its subject or title, already linked) and Link to a task; once one
 short Tasks list sits on it. A link whose conversation or event is gone reads Not available and
 stays until it's unlinked. Nothing is changed in the mail or the calendar.
 
-| Feature                                                           | Mac | Web | iPhone                 |
-| ----------------------------------------------------------------- | --- | --- | ---------------------- |
-| Local tasks: add, edit, delete, done / not done                   | —   | —   | ✓                      |
-| Sorted by due: overdue, today, upcoming, no date; done folds away | —   | —   | ✓                      |
-| Optional due date, a time, and a reminder at that time            | —   | —   | ✓ (local notification) |
-| Task lists: All, Inbox, new and renamed lists; a task's list      | —   | —   | ✓                      |
-| Add a task from a conversation or event, linked back to it        | —   | —   | ✓                      |
-| Link a task to many conversations and events (occurrence/series)  | —   | —   | ✓                      |
-| Kept on the device, per Otter account (demo apart); no sync       | —   | —   | ✓                      |
+| Feature                                                           | Mac | Web | iPhone                   |
+| ----------------------------------------------------------------- | --- | --- | ------------------------ |
+| Local tasks: add, edit, delete, done / not done                   | —   | —   | ✓                        |
+| Sorted by due: overdue, today, upcoming, no date; done folds away | —   | —   | ✓                        |
+| Optional due date, a time, and a reminder at that time            | —   | —   | ✓ (local notification)   |
+| Task lists: All, Inbox, new and renamed lists; a task's list      | —   | —   | ✓                        |
+| Add a task from a conversation or event, linked back to it        | —   | —   | ✓                        |
+| Link a task to many conversations and events (occurrence/series)  | —   | —   | ✓                        |
+| Give a task, conversation or event to the agent (a new chat)      | —   | —   | ✓ (with an agent set up) |
+| Kept on the device, per Otter account (demo apart); no sync       | —   | —   | ✓                        |
 
 ## Contacts & avatars
 
@@ -413,7 +414,7 @@ recalled. See [behavior and setup](../apps/ios/README.md#verified-background-not
 | New mail during a long sync           | ✓                                  | ✓                      | —                                    |
 | Changes applied at once, synced after | ✓                                  | ✓                      | ✓ (no outbox)                        |
 
-On iPhone, a glass bar under a module's first page holds Mail, Calendar (when a Gmail mailbox has one) and Tasks, each labeled, and ⌃⌄, which opens what the one in front is scoped by: in Mail every mailbox (the one switcher), folder and label; in Calendar its calendars; in Tasks its lists. Search and Settings are in the mail list's toolbar. An inbox with unread mail or invitations waiting on an answer has a Catch up pill beside All and Unread: Catch up goes through them one card at a time (Accept, Decline, Maybe for an invitation; Skip, Archive, Unsubscribe, Mark as Read for mail; swipe right to read, left to skip), the pill counting the same cards. Unsubscribe in the reader and in Catch up sends the list's mailto request itself rather than opening a draft. The Agent (with an agent on, or an Otter account's chats to read) has its own round button beside it and opens as a sheet. The bar steps aside for pages pushed over it (a conversation, an event, a task) and for selection. Conversations zoom from their list rows (respecting Reduce Motion), the reader's navigation bar minimizes while scrolling, and selection morphs the glass buttons into bulk actions.
+On iPhone, a glass bar under a module's first page holds Mail, Calendar (when a Gmail mailbox has one) and Tasks, each labeled, and ⌃⌄, which opens what the one in front is scoped by: in Mail every mailbox (the one switcher), folder and label; in Calendar its calendars; in Tasks its lists. Search and Settings are in the mail list's toolbar. An inbox with unread mail or invitations waiting on an answer has a Catch up pill beside All and Unread: Catch up goes through them one card at a time (Accept, Decline, Maybe for an invitation; Skip, Archive, Unsubscribe, Mark as Read for mail; swipe right to read, left to skip), the pill counting the same cards. Unsubscribe in the reader and in Catch up sends the list's mailto request itself rather than opening a draft. The Agent (with an agent on, or an Otter account's chats to read) has its own round button beside it and opens as a sheet. With an agent set up (OpenRouter, Hermes or OpenClaw), Give to agent on a conversation, an event or a task opens it as a new chat with that item attached: a conversation by its ids, for the agent to read, and an event or a task as text, summed up in the composer with what's sent a tap away. The bar steps aside for pages pushed over it (a conversation, an event, a task) and for selection. Conversations zoom from their list rows (respecting Reduce Motion), the reader's navigation bar minimizes while scrolling, and selection morphs the glass buttons into bulk actions.
 
 ## Settings & customization
 

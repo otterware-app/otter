@@ -51,6 +51,7 @@ struct TaskDetail: View {
     let onOpen: (TaskTarget) -> Void
 
     @State private var editing = false
+    @State private var giving = false
 
     private var tasks: TaskStore { session.tasks }
     /** The task as saved now, so a change in the editor or a tap on its circle shows here. */
@@ -84,6 +85,17 @@ struct TaskDetail: View {
                 Button("Edit") { editing = true }
                     .accessibilityIdentifier("task-detail-edit")
             }
+            if session.agent.isSetUp {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { giving = true } label: { Label("Give to agent", image: "OtterAgent") }
+                }
+            }
+        }
+        .sheet(isPresented: $giving) {
+            NavigationStack {
+                AgentView(items: [ItemContext.task(current, lists: tasks.projects, dates: dates)], sheet: true)
+            }
+            .onAppear { session.agent.newChat() }
         }
         .navigationDestination(isPresented: $editing) {
             TaskEditor(task: current, onEmail: { onOpen(.email($0)) })

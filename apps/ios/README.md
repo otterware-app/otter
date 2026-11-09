@@ -85,6 +85,10 @@ add limited server grants (or an encrypted IMAP password), while mail content st
   `/v1/chats`, every device's and agent's): one this iPhone's agent can run continues here,
   the others are read, and each finished turn is written back after the chat's other turns,
   keeping what other devices wrote (it stays the relay's JSON).
+  Give to agent (the reader's agent button, an event's More menu, a task's toolbar; only with an
+  agent on) opens the agent as a new chat with the item attached: a conversation as
+  `MailContext`, its ids for the agent to fetch; an event or a task as `ItemContext`, readable
+  text in the handoff's context block, its summary and that text shown in the composer.
 - `Calendar/`: the Calendar module, for Gmail mailboxes (`MailCapabilities.calendar`).
   It is the Mac and web apps' calendar (`apps/web/src/main/calendar`) ported to Swift: the pure
   parts file for file, the screens the phone's own. Where a phone wants more than the Mac's

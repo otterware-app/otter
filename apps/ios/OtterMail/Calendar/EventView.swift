@@ -18,6 +18,7 @@ struct EventView: View {
 
     @State private var newTask: MailTask?
     @State private var linking = false
+    @State private var giving = false
 
     var body: some View {
         ScrollView {
@@ -60,6 +61,9 @@ struct EventView: View {
                         if !session.tasks.tasks.isEmpty {
                             Button("Link to a task", systemImage: "link") { linking = true }
                         }
+                        if session.agent.isSetUp {
+                            Button { giving = true } label: { Label("Give to agent", image: "OtterAgent") }
+                        }
                     }
                 }
             }
@@ -78,6 +82,12 @@ struct EventView: View {
             }
         }
         .sheet(isPresented: $linking) { LinkToTaskSheet(source: .event(event)) }
+        .sheet(isPresented: $giving) {
+            NavigationStack {
+                AgentView(items: [ItemContext.event(event, dates: dates)], sheet: true)
+            }
+            .onAppear { session.agent.newChat() }
+        }
     }
 
     /** What it is, when, how to join and where, before anything else. */

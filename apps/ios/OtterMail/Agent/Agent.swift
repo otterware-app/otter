@@ -223,6 +223,9 @@ final class Agent {
         default: hermes.enabled
         }
     }
+    /** On and pointed somewhere: what offers Give to agent. Every agent starts on, with nothing to reach. */
+    var isSetUp: Bool { isOn && status != .notConfigured }
+
     var providerName: String {
         switch selected {
         case "openrouter": "OpenRouter"
@@ -366,19 +369,19 @@ final class Agent {
         readOnly = nil
     }
 
-    func send(_ text: String, context: [MailContext] = []) {
-        if selected == "openrouter" { sendOpenRouter(text, context: context); return }
-        if selected == "openclaw" { sendOpenClaw(text, context: context); return }
+    func send(_ text: String, context: [MailContext] = [], items: [ItemContext] = []) {
+        if selected == "openrouter" { sendOpenRouter(text, context: context, items: items); return }
+        if selected == "openclaw" { sendOpenClaw(text, context: context, items: items); return }
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let client, !question.isEmpty || !context.isEmpty else { return }
+        guard let client, !question.isEmpty || !context.isEmpty || !items.isEmpty else { return }
         if running, let run {
             Task { if await client.steer(run: run, question) { self.turns.append(Turn(role: .user, text: question)) } }
             return
         }
-        turns.append(Turn(role: .user, text: question, context: context.map(\.subject)))
+        turns.append(Turn(role: .user, text: question, context: context.map(\.subject) + items.map(\.title)))
         turns.append(Turn(role: .agent, text: ""))
         running = true
-        let message = MailContext.handoff(question, context)
+        let message = MailContext.handoff(question, context, items: items)
         let fields = modelFields
         let generation = self.generation
         streaming = Task {
@@ -406,17 +409,17 @@ final class Agent {
         }
     }
 
-    private func sendOpenRouter(_ text: String, context: [MailContext]) {
+    private func sendOpenRouter(_ text: String, context: [MailContext], items: [ItemContext]) {
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !running, openrouter.enabled, let client = routerClient, let model, let store = mailStore(),
-              !question.isEmpty || !context.isEmpty else { return }
-        turns.append(Turn(role: .user, text: question, context: context.map(\.subject)))
+              !question.isEmpty || !context.isEmpty || !items.isEmpty else { return }
+        turns.append(Turn(role: .user, text: question, context: context.map(\.subject) + items.map(\.title)))
         turns.append(Turn(role: .agent, text: ""))
         let requestID = UUID().uuidString
         run = requestID
         running = true
         openRouterRunClient = client
-        var body: [String: Any] = ["requestId": requestID, "input": MailContext.handoff(question, context, reader: "get_thread"),
+        var body: [String: Any] = ["requestId": requestID, "input": MailContext.handoff(question, context, items: items, reader: "get_thread"),
                                    "title": String(question.prefix(60)), "model": model.slug, "tools": AgentMailTools.definitions]
         if let session { body["sessionId"] = session }
         streaming = Task { [self] in
@@ -752,19 +755,19 @@ extension Agent {
         }
     }
 
-    func sendOpenClaw(_ text: String, context: [MailContext]) {
+    func sendOpenClaw(_ text: String, context: [MailContext], items: [ItemContext] = []) {
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let gateway = openClawClient, !question.isEmpty || !context.isEmpty else { return }
+        guard let gateway = openClawClient, !question.isEmpty || !context.isEmpty || !items.isEmpty else { return }
         if running, let session, let run {
             Task { if await gateway.steer(session: session, run: run, question) { self.turns.append(Turn(role: .user, text: question)) } }
             return
         }
-        turns.append(Turn(role: .user, text: question, context: context.map(\.subject)))
+        turns.append(Turn(role: .user, text: question, context: context.map(\.subject) + items.map(\.title)))
         turns.append(Turn(role: .agent, text: ""))
         let chat = session ?? "agent:\(model?.slug ?? "main"):otter-mail:\(UUID().uuidString.lowercased())"
         session = chat
         let run = UUID().uuidString.lowercased()
-        follow(gateway.send(MailContext.handoff(question, context), session: chat, run: run), session: chat, run: run)
+        follow(gateway.send(MailContext.handoff(question, context, items: items), session: chat, run: run), session: chat, run: run)
     }
 
     func resumeOpenClaw() async {
@@ -880,13 +883,18 @@ struct MailContext: Hashable {
         messageIDs = [thread.latest.id]
     }
 
-    static func handoff(_ question: String, _ context: [MailContext], reader: String = "gog") -> String {
-        guard !context.isEmpty else { return question }
+    /** The question with what it's about: conversations by id, for the agent to fetch; events and tasks as their text. */
+    static func handoff(_ question: String, _ context: [MailContext], items: [ItemContext] = [], reader: String = "gog") -> String {
+        guard !context.isEmpty || !items.isEmpty else { return question }
         var lines = [question, "", "— context from Otter Mail —"]
         for c in context {
             lines.append("• [\(c.account)] \"\(c.subject)\" — from \(c.from) (threadId \(c.threadID), message \(c.messageIDs.joined(separator: ", ")))")
         }
-        lines.append("Fetch full content with \(reader) if needed.")
+        if !context.isEmpty { lines.append("Fetch full content with \(reader) if needed.") }
+        for item in items {
+            lines.append("• \(item.kind.name):")
+            lines.append(item.text)
+        }
         return lines.joined(separator: "\n")
     }
 }
