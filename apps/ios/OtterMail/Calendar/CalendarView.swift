@@ -19,6 +19,8 @@ struct CalendarView: View {
     let events: CalendarStore
     let visibility: CalendarShown
     @Binding var path: NavigationPath
+    /** A task's event to open over the pages (HomeView's `openTaskTarget`); taken as soon as it's set. */
+    @Binding var opening: TaskEvent?
     var onTitle: () -> Void = {}
     var onSettings: () -> Void = {}
 
@@ -123,6 +125,14 @@ struct CalendarView: View {
             .navigationDestination(for: EventDraft.self) { draft in
                 EventEditor(events: events, draft: draft, calendars: writable, dates: dates, color: color, onSaved: show)
             }
+            .navigationDestination(for: LinkedEvent.self) { linked in
+                EventView(event: linked.event, dates: dates, color: color(linked.event.calendar), notice: linked.notice)
+            }
+            .onChange(of: opening, initial: true) { _, link in
+                guard let link else { return }
+                opening = nil
+                Task { await open(link) }
+            }
     }
 
     @ViewBuilder private var content: some View {
@@ -220,6 +230,26 @@ struct CalendarView: View {
         )
     }
 
+    /**
+     * A task's event: the one the calendar has, else what the task kept of it,
+     * read-only and saying why. The task and its link stay as they are either way.
+     */
+    private func open(_ link: TaskEvent) async {
+        let reach = await events.resolve(link, sources: sources, demo: store.isDemo, google: session.google, dates: dates)
+        let kept = { (notice: String) in
+            LinkedEvent(event: link.snapshot(calendar: calendars.first { $0.id == link.calendarId && $0.account.lowercased() == link.account }), notice: notice)
+        }
+        path = NavigationPath()
+        switch reach {
+        case .found(let event):
+            path.append(event)
+        case .gone:
+            path.append(kept("This event is no longer in the calendar. The task keeps its link and what the event said."))
+        case .unavailable:
+            path.append(kept("This calendar can't be reached right now. This is what the task kept of the event."))
+        }
+    }
+
     /** An event saved lands where it can be seen: its day in Day and Month, its row scrolled to in the agenda. */
     private func show(_ saved: CalendarEvent) {
         if mode == .agenda {
@@ -270,6 +300,12 @@ struct CalendarView: View {
         }
         await events.prefetch(others + neighbours, sources: sources, demo: store.isDemo, google: session.google, dates: dates)
     }
+}
+
+/** A task's event the calendar couldn't find, as the task kept it, with why. */
+struct LinkedEvent: Hashable {
+    let event: CalendarEvent
+    let notice: String
 }
 
 /** One of yours, opened to be changed from its page's Edit. */

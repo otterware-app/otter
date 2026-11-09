@@ -29,6 +29,8 @@ protocol MailProvider: AnyObject {
 nonisolated struct MailDelta {
     var threads: [MailThread] = []
     var removed: Set<String> = []
+    /** Cached conversations to forget without their being gone: Gmail's history ran out and the cache starts over. */
+    var dropped: Set<String> = []
 }
 
 /** A message to send or keep in Drafts, as RFC 5322 (MIME.message) with its envelope. */

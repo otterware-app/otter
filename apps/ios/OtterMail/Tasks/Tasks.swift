@@ -4,8 +4,8 @@ import Foundation
  * A task on this iPhone. New logic, local only: nothing here syncs, and there
  * is no task backend in the other apps. Its shape follows the Todoist
  * extension's (packages/contracts/src/todoist.ts: `content`, `description`, a
- * due date, `projectId`), so a later sync, to Todoist or to the Otter
- * account, has somewhere to go.
+ * due date, and the email a task came from), so a later sync, to Todoist or
+ * to the Otter account, has somewhere to go.
  */
 nonisolated struct MailTask: Identifiable, Hashable, Codable, Sendable {
     var id = UUID()
@@ -20,8 +20,15 @@ nonisolated struct MailTask: Identifiable, Hashable, Codable, Sendable {
     var done = false
     var completed: Date? = nil
     var created = Date.now
-    /** The list it's on (Todoist's `projectId`); nil is the Inbox. */
+    /** The conversations it's linked to, the one it came from first (Todoist's `email`, as many as it needs). */
+    var emails: [TaskEmail] = []
+    /** The calendar events it's linked to: an occurrence, or a whole series. */
+    var events: [TaskEvent] = []
+    /** The list it's on (Todoist's `projectId`); nil is the Inbox, as every task was before lists. */
     var projectId: String? = nil
+
+    /** The conversation it came from, which is what a file from before several links held. */
+    var email: TaskEmail? { emails.first }
 
     /** When a local notification is due: a time, still to come, on a task that isn't finished. */
     var reminderAt: Date? {
@@ -32,16 +39,19 @@ nonisolated struct MailTask: Identifiable, Hashable, Codable, Sendable {
     /** What its reminder says under the task itself. */
     var reminderBody: String {
         let line = notes.split(separator: "\n").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
-        return line.isEmpty ? "Task reminder" : line
+        if !line.isEmpty { return line }
+        if let email { return "From: \(email.subject)" }
+        return events.first.map { "For: \($0.title)" } ?? "Task reminder"
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, content, notes, due, hasTime, reminder, done, completed, created, projectId
+        case id, content, notes, due, hasTime, reminder, done, completed, created, email, emails, events, projectId
     }
 
     init(
         id: UUID = UUID(), content: String = "", notes: String = "", due: Date? = nil, hasTime: Bool = false,
-        reminder: Bool = false, done: Bool = false, completed: Date? = nil, created: Date = .now, projectId: String? = nil
+        reminder: Bool = false, done: Bool = false, completed: Date? = nil, created: Date = .now, email: TaskEmail? = nil,
+        emails: [TaskEmail] = [], events: [TaskEvent] = [], projectId: String? = nil
     ) {
         self.id = id
         self.content = content
@@ -52,7 +62,22 @@ nonisolated struct MailTask: Identifiable, Hashable, Codable, Sendable {
         self.done = done
         self.completed = completed
         self.created = created
+        self.emails = TaskLinks.unique((email.map { [$0] } ?? []) + emails)
+        self.events = TaskLinks.unique(events)
         self.projectId = projectId
+    }
+
+    /** "Add task" in the reader: the subject, linked back to the conversation. */
+    init(from thread: MailThread, mailbox: String) {
+        let subject = thread.subject.trimmingCharacters(in: .whitespacesAndNewlines)
+        content = subject.isEmpty ? "Reply to \(thread.latest.from.label)" : subject
+        emails = [TaskEmail(thread, mailbox: mailbox)]
+    }
+
+    /** "Add task" on an event: its title, linked to the occurrence or to its whole series, as picked. */
+    init(from event: CalendarEvent, scope: TaskEvent.Scope) {
+        content = event.title
+        events = [TaskEvent(event, scope: scope)]
     }
 
     /** A file written by an older or newer build keeps what it can. */
@@ -67,7 +92,31 @@ nonisolated struct MailTask: Identifiable, Hashable, Codable, Sendable {
         done = try container.decodeIfPresent(Bool.self, forKey: .done) ?? false
         completed = try container.decodeIfPresent(Date.self, forKey: .completed)
         created = try container.decodeIfPresent(Date.self, forKey: .created) ?? .now
+        // A file from before several links has the one `email`; a link this build can't read is left out, not the task.
+        let single = (try? container.decodeIfPresent(TaskEmail.self, forKey: .email)) ?? nil
+        let many = (try? container.decodeIfPresent([Lossy<TaskEmail>].self, forKey: .emails))?.compactMap(\.value)
+        emails = TaskLinks.unique(many ?? single.map { [$0] } ?? [])
+        let linked = (try? container.decodeIfPresent([Lossy<TaskEvent>].self, forKey: .events))?.compactMap(\.value)
+        events = TaskLinks.unique(linked ?? [])
         projectId = try container.decodeIfPresent(String.self, forKey: .projectId)
+    }
+
+    /** `email` is written too, the first link, so a build from before several links still reads where a task came from. */
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(content, forKey: .content)
+        try container.encode(notes, forKey: .notes)
+        try container.encodeIfPresent(due, forKey: .due)
+        try container.encode(hasTime, forKey: .hasTime)
+        try container.encode(reminder, forKey: .reminder)
+        try container.encode(done, forKey: .done)
+        try container.encodeIfPresent(completed, forKey: .completed)
+        try container.encode(created, forKey: .created)
+        try container.encodeIfPresent(email, forKey: .email)
+        try container.encode(emails, forKey: .emails)
+        try container.encode(events, forKey: .events)
+        try container.encodeIfPresent(projectId, forKey: .projectId)
     }
 }
 

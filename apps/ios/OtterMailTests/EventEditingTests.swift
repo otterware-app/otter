@@ -27,6 +27,14 @@ struct EventEditingTests {
 
     private var dates: CalendarDates { CalendarDates(calendar: calendar) }
 
+    /** The store keeps the links it knows are gone; each test keeps its own, not the app's. */
+    private func isolated() -> UserDefaults {
+        let suite = "EventEditingTests.\(UUID())"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return defaults
+    }
+
     private func at(_ day: Int, _ hour: Int, _ minute: Int = 0) -> Date {
         calendar.date(from: DateComponents(year: 2026, month: 11, day: day, hour: hour, minute: minute))!
     }
@@ -194,7 +202,7 @@ struct EventEditingTests {
     // MARK: The store, against a stand-in for Google
 
     @MainActor @Test func theStoreCreatesChangesAndDeletesThroughTheWriter() async throws {
-        let store = CalendarStore()
+        let store = CalendarStore(defaults: isolated())
         let mailbox = Mailbox(email: robin, name: "Robin", displayName: "Robin", color: "#336699", signature: "", labels: [])
         let window = dates.window(.day, anchor: at(9, 0))
         await store.load(window, sources: [mailbox], demo: true, google: GoogleAuth(), dates: dates)
@@ -224,7 +232,7 @@ struct EventEditingTests {
     }
 
     @MainActor @Test func anUnchangedEventIsntSentAndAnInvalidOneIsRefused() async throws {
-        let store = CalendarStore()
+        let store = CalendarStore(defaults: isolated())
         let writer = RecordingWriter(dates: dates)
         let event = CalendarEvent(eventId: "e", calendar: mine, title: "Lunch", start: at(9, 12), end: at(9, 13))
         _ = try await store.update(event, to: EventDraft(editing: event), with: writer, dates: dates)
@@ -240,7 +248,7 @@ struct EventEditingTests {
     }
 
     @MainActor @Test func guestsAreToldOfChangesToEventsWithThem() async throws {
-        let store = CalendarStore()
+        let store = CalendarStore(defaults: isolated())
         let writer = RecordingWriter(dates: dates)
         let guest = CalendarEvent.Attendee(person: Person(name: "Maya", email: "maya@example.com"))
         let event = CalendarEvent(eventId: "e", calendar: mine, title: "Review", start: at(9, 12), end: at(9, 13), attendees: [guest])
@@ -252,7 +260,7 @@ struct EventEditingTests {
     }
 
     @MainActor @Test func theDemosChangesOutliveItsEventsBeingMadeAgain() async throws {
-        let store = CalendarStore()
+        let store = CalendarStore(defaults: isolated())
         let mailbox = Mailbox(email: robin, name: "Robin", displayName: "Robin", color: "#336699", signature: "", labels: [])
         let window = dates.window(.day, anchor: .now)
         await store.load(window, sources: [mailbox], demo: true, google: GoogleAuth(), dates: dates)
@@ -271,6 +279,74 @@ struct EventEditingTests {
         try await store.delete(made, with: writer, demo: true)
         await store.load(window, sources: [mailbox], demo: true, google: GoogleAuth(), dates: dates, force: true)
         #expect(found(made, in: window, of: store) == nil)
+    }
+
+    /** A task's event deleted is gone once its day is loaded without it, not merely out of reach. */
+    @MainActor @Test func aTasksDeletedEventIsGone() async throws {
+        let store = CalendarStore(defaults: isolated())
+        let mailbox = Mailbox(email: robin, name: "Robin", displayName: "Robin", color: "#336699", signature: "", labels: [])
+        let window = dates.window(.day, anchor: .now)
+        await store.load(window, sources: [mailbox], demo: true, google: GoogleAuth(), dates: dates)
+        let calendar = try #require((store.lists[robin] ?? []).first { $0.writable })
+        let writer = store.writer(for: robin, demo: true, google: GoogleAuth())
+        let start = dates.calendar.date(bySettingHour: 18, minute: 0, second: 0, of: .now)!
+        let made = try await store.create(
+            EventDraft(calendar: calendar, title: "Demo dinner", start: start, end: start.addingTimeInterval(3600)),
+            with: writer, demo: true, dates: dates
+        )
+        let link = TaskEvent(made, scope: .occurrence)
+        let elsewhere = TaskEvent(
+            CalendarEvent(eventId: "later", calendar: calendar, title: "Later", start: dates.addDays(start, 30), end: dates.addDays(start, 30)),
+            scope: .occurrence
+        )
+        #expect(!store.isGone(link))
+
+        try await store.delete(made, with: writer, demo: true)
+        #expect(store.isGone(link))
+        #expect(!store.isGone(elsewhere))
+    }
+
+    /** A task's event deleted is still gone after a restart, its mailbox still there and nothing loaded. */
+    @MainActor @Test func aTasksDeletedEventStaysGoneAfterARestart() async throws {
+        let suite = "EventEditingTests.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let event = CalendarEvent(eventId: "e", calendar: mine, title: "Lunch", start: at(9, 12), end: at(9, 13))
+        let link = TaskEvent(event, scope: .occurrence)
+        try await CalendarStore(defaults: defaults).delete(event, with: RecordingWriter(dates: dates))
+
+        #expect(CalendarStore(defaults: defaults).isGone(link))
+    }
+
+    /** Google may answer for a deleted event with `cancelled` and no times: gone, not a failure. */
+    @Test func aCancelledEventWithoutTimesIsGone() throws {
+        let cancelled = #"{"id":"abc","status":"cancelled"}"#
+        #expect(try GoogleEvents.unlessCancelled(Data(cancelled.utf8), on: mine, me: robin, times: EventTimes(calendar: calendar)) == nil)
+        let live = #"{"id":"abc","start":{"dateTime":"2026-11-09T12:00:00+01:00"}}"#
+        #expect(try GoogleEvents.unlessCancelled(Data(live.utf8), on: mine, me: robin, times: EventTimes(calendar: calendar))?.eventId == "abc")
+    }
+
+    /** A task's event moved to a day not loaded is missing from its old day, and still not gone: it keeps its id. */
+    @MainActor @Test func aTasksMovedEventIsntGone() async throws {
+        let store = CalendarStore(defaults: isolated())
+        let mailbox = Mailbox(email: robin, name: "Robin", displayName: "Robin", color: "#336699", signature: "", labels: [])
+        let window = dates.window(.day, anchor: .now)
+        await store.load(window, sources: [mailbox], demo: true, google: GoogleAuth(), dates: dates)
+        let calendar = try #require((store.lists[robin] ?? []).first { $0.writable })
+        let writer = RecordingWriter(dates: dates)
+        let start = dates.calendar.date(bySettingHour: 18, minute: 0, second: 0, of: .now)!
+        let made = try await store.create(
+            EventDraft(calendar: calendar, title: "Demo dinner", start: start, end: start.addingTimeInterval(3600)),
+            with: writer, dates: dates
+        )
+        let link = TaskEvent(made, scope: .occurrence)
+
+        var moved = EventDraft(editing: made)
+        moved.move(to: dates.addDays(start, 30))
+        try await store.update(made, to: moved, with: writer, dates: dates)
+
+        #expect(store.find(link) == nil)
+        #expect(!store.isGone(link))
     }
 
     /** The window's copy of an event, looked up outside the macros so they wrap no closure. */

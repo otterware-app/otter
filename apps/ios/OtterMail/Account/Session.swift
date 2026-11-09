@@ -674,8 +674,12 @@ final class Session {
         case .gmail:
             guard let thread = destination.thread else { return }
             let api = GmailAPI(email: mailbox.email) { [google] force in try await google.accessToken(mailbox.email, force: force) }
-            if let loaded = try? await api.thread(thread), loaded.mailbox == mailbox.email,
-               user?.id == originalUser, store.mailbox(mailbox.email) != nil { store.upsert(threads: [loaded]) }
+            let loaded: MailThread?
+            do { loaded = try await api.thread(thread) } catch { return }
+            guard user?.id == originalUser, store.mailbox(mailbox.email) != nil else { return }
+            // Gmail answering with nothing means the conversation is gone.
+            guard let loaded else { return store.remove(threadIDs: [thread]) }
+            if loaded.mailbox == mailbox.email { store.upsert(threads: [loaded]) }
         case .outlook:
             guard let thread = destination.thread else { return }
             await sync?.loadNotificationThread(thread, email: mailbox.email)

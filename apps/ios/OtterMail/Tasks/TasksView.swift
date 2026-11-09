@@ -13,9 +13,11 @@ struct TasksView: View {
     @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openTaskTarget) private var openTarget
 
     /** A task whose reminder was tapped: it opens on top of the list. */
     var opening: UUID?
+    let onEmail: (TaskEmail) -> Void
     var onTitle: () -> Void = {}
     var onSettings: () -> Void = {}
 
@@ -89,10 +91,10 @@ struct TasksView: View {
             }
         }
         .navigationDestination(item: $editing) { task in
-            TaskEditor(task: task) { saved in reveal = Reveal(id: saved.id.uuidString) }
+            TaskEditor(task: task, onEmail: open) { saved in reveal = Reveal(id: saved.id.uuidString) }
         }
         .navigationDestination(item: $viewing) { task in
-            TaskDetail(task: task)
+            TaskDetail(task: task, onOpen: open)
         }
         .task {
             now = .now
@@ -174,7 +176,7 @@ struct TasksView: View {
         ContentUnavailableView(
             "No tasks",
             systemImage: "checklist",
-            description: Text("Add one with +.")
+            description: Text("Add one with +, from a conversation's More menu, or from an event.")
         )
         .foregroundStyle(palette.muted)
         .listRowSeparator(.hidden)
@@ -188,7 +190,9 @@ struct TasksView: View {
             due: TaskList.dueLabel(task, now: now, dates: dates),
             overdue: TaskList.group(of: task, now: now, dates: dates) == .overdue,
             onToggle: { toggle(task) },
-            onOpen: { viewing = task }
+            onOpen: { viewing = task },
+            onEmail: open,
+            onEvent: open
         )
         .padding(.leading, 20)
         .padding(.trailing, 16)
@@ -198,6 +202,12 @@ struct TasksView: View {
             Button(task.done ? "Mark as not done" : "Mark as done",
                    systemImage: task.done ? "circle" : "checkmark.circle") { toggle(task) }
             Button("Edit", systemImage: "pencil") { editing = task }
+            if let email = task.email {
+                Button("Open the conversation", systemImage: "envelope") { open(email) }
+            }
+            if let event = task.events.first {
+                Button("Open the event", systemImage: "calendar") { open(event) }
+            }
             Divider()
             Button("Delete", systemImage: "trash", role: .destructive) {
                 withAnimation(animation) { tasks.delete(task) }
@@ -225,17 +235,42 @@ struct TasksView: View {
     private func toggle(_ task: MailTask) {
         withAnimation(animation) { tasks.setDone(!task.done, task) }
     }
+
+    private func open(_ email: TaskEmail) { open(.email(email)) }
+
+    private func open(_ event: TaskEvent) { open(.event(event)) }
+
+    private func open(_ target: TaskTarget) {
+        editing = nil
+        viewing = nil
+        Self.route(target, onEmail: onEmail, openTarget: openTarget)
+    }
+
+    /** A conversation goes back to Mail as the list's do (`onEmail`), an event to the calendar (`openTaskTarget`). */
+    static func route(_ target: TaskTarget, onEmail: (TaskEmail) -> Void, openTarget: (TaskTarget) -> Void) {
+        switch target {
+        case .email(let email): onEmail(email)
+        case .event: openTarget(target)
+        }
+    }
 }
 
-/** One task, laid out like the mail rows (`ThreadRow`): a circle to finish it in the gutter, then what it is and when it's due. */
+/**
+ * One task, laid out like the mail rows (`ThreadRow`): a circle to finish it
+ * in the gutter, then what it is, when it's due, and what it's linked to.
+ */
 struct TaskRow: View {
     @Environment(\.palette) private var palette
 
     let task: MailTask
     var due: String?
     var overdue = false
+    /** Off where the row is shown on the very thing it links to. */
+    var showsLinks = true
     let onToggle: () -> Void
     let onOpen: () -> Void
+    var onEmail: (TaskEmail) -> Void = { _ in }
+    var onEvent: (TaskEvent) -> Void = { _ in }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -249,9 +284,14 @@ struct TaskRow: View {
             .buttonStyle(.plain)
             .accessibilityLabel(task.done ? "Mark as not done" : "Mark as done")
 
-            Button(action: onOpen) { lines }
-                .buttonStyle(.plain)
-                .accessibilityElement(children: .combine)
+            VStack(alignment: .leading, spacing: 4) {
+                Button(action: onOpen) { lines }
+                    .buttonStyle(.plain)
+                    .accessibilityElement(children: .combine)
+                if showsLinks, !task.emails.isEmpty || !task.events.isEmpty {
+                    TaskLinkChips(task: task, onEmail: onEmail, onEvent: onEvent)
+                }
+            }
         }
         .contentShape(.rect)
     }

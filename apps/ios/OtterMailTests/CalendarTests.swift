@@ -580,8 +580,16 @@ struct CalendarTests {
         #expect(GoogleEvents.sorted(page.calendars).map(\.id) == ["primary", "birthdays", "work@otter.example"])
     }
 
-    /** Hidden calendars kept under the primary calendar's address before it was `primary` still find it. */
+    /** Links and hidden calendars kept under the primary calendar's address before it was `primary` still find it. */
     @Test func readsThePrimaryCalendarsOlderAddressAsPrimary() throws {
+        let link = try JSONDecoder().decode(TaskEvent.self, from: Data(#"""
+        {"account":"Robin@otter.example","calendarId":"robin@otter.example","eventId":"evt-1","title":"Standup","start":0}
+        """#.utf8))
+        #expect(link.calendarId == "primary")
+        #expect(link.matches(CalendarEvent(eventId: "evt-1", calendar: mine, title: "Standup", start: .now, end: .now)))
+        let other = TaskEvent(account: me, calendarId: "work@otter.example", eventId: "e", title: "T", start: .now)
+        #expect(other.calendarId == "work@otter.example")
+
         let shown = CalendarShown.read(#"{"robin@otter.example|robin@otter.example": false, "robin@otter.example|work": true}"#)
         #expect(shown == ["robin@otter.example|primary": false, "robin@otter.example|work": true])
     }

@@ -356,12 +356,20 @@ at that time, which opens the task. Notifications are asked for the moment a rem
 on. Leaving the editor with changes, and deleting a task, ask first. Tasks belong to the
 signed-in Otter account (the demo has its own).
 
+A task links any number of conversations and calendar events (for an event of a series, that
+occurrence or the whole series), shown as chips under it. A conversation's or event's More menu
+has Add task (its subject or title, already linked) and Link to a task; once one is linked, a
+short Tasks list sits on it. A link whose conversation or event is gone reads Not available and
+stays until it's unlinked. Nothing is changed in the mail or the calendar.
+
 | Feature                                                           | Mac | Web | iPhone                 |
 | ----------------------------------------------------------------- | --- | --- | ---------------------- |
 | Local tasks: add, edit, delete, done / not done                   | —   | —   | ✓                      |
 | Sorted by due: overdue, today, upcoming, no date; done folds away | —   | —   | ✓                      |
 | Optional due date, a time, and a reminder at that time            | —   | —   | ✓ (local notification) |
 | Task lists: All, Inbox, new and renamed lists; a task's list      | —   | —   | ✓                      |
+| Add a task from a conversation or event, linked back to it        | —   | —   | ✓                      |
+| Link a task to many conversations and events (occurrence/series)  | —   | —   | ✓                      |
 | Kept on the device, per Otter account (demo apart); no sync       | —   | —   | ✓                      |
 
 ## Contacts & avatars

@@ -25,6 +25,12 @@ final class MailStore {
     }
     let preferences: Preferences
     private(set) var recoveredDrafts: [RecoveredDraft] = []
+    /** Conversations deleted, or reported gone by their provider, kept across restarts: a task's link to one is out of reach. */
+    private(set) var removedThreads: Set<String> {
+        didSet { if removedThreads != oldValue { removedDefaults.set(removedThreads.sorted(), forKey: Self.removedKey) } }
+    }
+    @ObservationIgnored private let removedDefaults: UserDefaults
+    private static let removedKey = "mail.removedThreads"
     @ObservationIgnored private var recoveryDirectory: URL?
     private(set) var undoAction: PendingAction?
     @ObservationIgnored private var undoTask: Task<Void, Never>?
@@ -37,10 +43,12 @@ final class MailStore {
     }
     @ObservationIgnored var sync: MailSync?
 
-    init(preferences: Preferences, mailboxes: [Mailbox] = [], threads: [MailThread] = []) {
+    init(preferences: Preferences, mailboxes: [Mailbox] = [], threads: [MailThread] = [], defaults: UserDefaults = .standard) {
         self.preferences = preferences
         self.mailboxes = mailboxes
         self.threads = threads
+        removedDefaults = defaults
+        removedThreads = Set(defaults.stringArray(forKey: Self.removedKey) ?? [])
     }
 
     static func demo(preferences: Preferences) -> MailStore {
@@ -435,6 +443,7 @@ final class MailStore {
             if let pending = undoAction, pending.threads.contains(where: { $0.id == thread.id }) {
                 stage(&thread, trash: pending.trash)
             }
+            if removedThreads.contains(thread.id) { removedThreads.remove(thread.id) }
             if let i = index[thread.id] {
                 if updated[i] != thread { updated[i] = thread; changed = true }
             } else {
@@ -446,9 +455,11 @@ final class MailStore {
         if changed { threads = updated }
     }
 
-    func remove(threadIDs: Set<String>) {
+    /** `gone`: the provider said they are deleted, not only out of the cache. */
+    func remove(threadIDs: Set<String>, gone: Bool = true) {
         guard !threadIDs.isEmpty else { return }
         threads.removeAll { threadIDs.contains($0.id) }
+        if gone { removedThreads.formUnion(threadIDs) }
     }
 
     /** Drops a message shown before Gmail had it, and its thread if nothing else is left in it. */
@@ -605,6 +616,7 @@ final class MailStore {
         commitPendingAction()
         guard let thread = thread(id) else { return }
         threads.removeAll { $0.id == id }
+        removedThreads.insert(id)
         sync?.apply(.delete, to: thread)
     }
 

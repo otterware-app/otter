@@ -6,6 +6,7 @@ struct ThreadView: View {
     @Environment(Session.self) private var session
     @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openTaskTarget) private var openTarget
 
     let threadID: String
     let place: Place
@@ -15,6 +16,8 @@ struct ThreadView: View {
     @State private var siblings: [String] = []
     @State private var expanded: Set<String> = []
     @State private var asking: [MailContext]?
+    @State private var newTask: MailTask?
+    @State private var linking = false
     @State private var unsubscribed = false
     @State private var unsubscribing = false
     @State private var notice: Notice?
@@ -44,6 +47,10 @@ struct ThreadView: View {
 
                 labels(thread, mailbox)
                     .padding(.bottom, 20)
+                    .padding(.horizontal, MessageView.inset)
+
+                LinkedTasks(source: .thread(thread, mailbox: shown(mailbox).email))
+                    .padding(.bottom, 16)
                     .padding(.horizontal, MessageView.inset)
 
                 let messages = thread.distinctMessages(preferring: store.alias(place.scope)?.email)
@@ -97,6 +104,12 @@ struct ThreadView: View {
                     Button("Forward", systemImage: "arrowshape.turn.up.right") {
                         draft = store.forward(thread, in: place.scope)
                     }
+                    Button("Add task", systemImage: "checklist") {
+                        newTask = MailTask(from: thread, mailbox: shown(mailbox).email)
+                    }
+                    if !session.tasks.tasks.isEmpty {
+                        Button("Link to a task", systemImage: "link") { linking = true }
+                    }
                     if !unsubscribed, let unsubscribe = Unsubscribe(thread.sent.last?.headers ?? [:]) {
                         Button(unsubscribing ? "Unsubscribing…" : "Unsubscribe", systemImage: "hand.raised") {
                             guard !unsubscribing else { return }
@@ -130,6 +143,20 @@ struct ThreadView: View {
             notice = nil
         }
         .toolbarVisibility(.hidden, for: .tabBar)
+        .sheet(item: $newTask) { task in
+            NavigationStack {
+                TaskEditor(task: task, onEmail: { email in
+                    newTask = nil
+                    if !TaskSource.thread(thread, mailbox: shown(mailbox).email).isHere(email) { openTarget(.email(email)) }
+                })
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close", systemImage: "xmark") { newTask = nil }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $linking) { LinkToTaskSheet(source: .thread(thread, mailbox: shown(mailbox).email)) }
         .sheet(isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } })) {
             NavigationStack {
                 AgentView(context: asking ?? [], sheet: true)

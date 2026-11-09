@@ -97,7 +97,9 @@ final class MailSync {
         try Task.checkCancellation()
         guard !stopped, store.mailbox(email) != nil else { throw CancellationError() }
         states[email] = state
-        store.remove(threadIDs: delta.removed.subtracting(delta.threads.map(\.id)))
+        let fresh = Set(delta.threads.map(\.id))
+        store.remove(threadIDs: delta.removed.subtracting(fresh))
+        store.remove(threadIDs: delta.dropped.subtracting(fresh), gone: false)
         store.upsert(threads: delta.threads)
         scheduleSave()
         return delta

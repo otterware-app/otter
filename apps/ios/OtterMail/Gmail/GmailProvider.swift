@@ -26,7 +26,7 @@ final class GmailProvider: MailProvider {
                 state.historyID = cursor
             } catch is GmailAPI.HistoryExpired {
                 state = MailboxState(watchedAt: state.watchedAt, watchExpiresAt: state.watchExpiresAt)
-                delta.removed = Set(known.map(\.id))
+                delta.dropped = Set(known.map(\.id))
             }
         }
         if state.historyID == nil {

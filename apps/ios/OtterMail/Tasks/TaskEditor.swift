@@ -11,7 +11,9 @@ struct TaskEditor: View {
     @Environment(Session.self) private var session
     @Environment(\.palette) private var palette
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openTaskTarget) private var openTarget
 
+    let onEmail: (TaskEmail) -> Void
     let onSaved: (MailTask) -> Void
     private let initial: MailTask
 
@@ -22,10 +24,11 @@ struct TaskEditor: View {
     @State private var confirmingDiscard = false
     @State private var confirmingDelete = false
 
-    init(task: MailTask, onSaved: @escaping (MailTask) -> Void = { _ in }) {
+    init(task: MailTask, onEmail: @escaping (TaskEmail) -> Void, onSaved: @escaping (MailTask) -> Void = { _ in }) {
         _task = State(initialValue: task)
         _fallback = State(initialValue: task.due ?? Self.nextHour())
         initial = task
+        self.onEmail = onEmail
         self.onSaved = onSaved
     }
 
@@ -82,6 +85,11 @@ struct TaskEditor: View {
                 Text("When").sectionHeader()
             } footer: {
                 Text(whenFooter).sectionFooter()
+            }
+
+            TaskEditorLinks(task: $task, onEmail: onEmail) { link in
+                dismiss()
+                openTarget(.event(link))
             }
 
             if existing {

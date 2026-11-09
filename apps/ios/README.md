@@ -142,6 +142,17 @@ add limited server grants (or an encrypted IMAP password), while mail content st
     ask before throwing anything away. `DemoTasks.swift` is the demo's tasks.
   - Their cases are `OtterMailTests/TaskTests.swift` and `ScopeTests.swift`, with a stand-in for
     iOS's notification center.
+  - Links (`TaskLinks.swift`): a task links conversations (`TaskEmail`: the mailbox, thread and
+    message, the Todoist extension's `email`, which is written too as the first link) and events
+    (`TaskEvent`: account, calendar, event, and for an event of a series that occurrence or the
+    whole series, with its title and time kept). A link a build can't read is left out, never the
+    task. `LinkedTasks.swift` is the short list on a conversation or event (only when something
+    is linked) and the Link to a task sheet; `TaskEditorLinks.swift` the editor's Linked section,
+    which finds mail and events to link and switches a series' link; `TaskLinkRow.swift` and
+    `TaskLinkChips.swift` how links read. A conversation deleted (`MailStore.removedThreads`, kept
+    across restarts) or an event gone (`CalendarStore.resolve`) reads Not available and stays until
+    it's unlinked; an event no longer in the calendar opens as the task kept it, with a notice.
+    `OtterMailTests/TaskLinkTests.swift`.
 - `Mail/`: the model and `MailStore`, which screens render from. `DemoMail.swift` loads the demo.
 - Alias mailboxes (`NotificationShared/AliasMailbox.swift`, `MailStore.aliases`): an IMAP
   mailbox's address with a mailbox of its own, made on the Mac and the web (the account's

@@ -31,6 +31,8 @@ struct HomeView: View {
     @State private var tasksPath = NavigationPath()
     /** A task whose reminder was tapped, opened over Tasks. */
     @State private var openingTask: UUID?
+    /** A task's event, opened in the calendar over its pages. */
+    @State private var openingEvent: TaskEvent?
     @State private var query = ""
     @State private var searchPath: [String] = []
 
@@ -42,6 +44,8 @@ struct HomeView: View {
 
     var body: some View {
         content
+            .environment(calendar)
+            .environment(\.openTaskTarget, openTaskTarget)
             .onChange(of: store.shownScopes.map(\.email), initial: true) { _, shown in
                 if !shown.contains(place.scope) { place = Place(scope: shown.first ?? "") }
             }
@@ -106,13 +110,15 @@ struct HomeView: View {
         case .calendar:
             NavigationStack(path: $calendarPath) {
                 withPlaces(CalendarView(
-                    events: calendar, visibility: calendarShown, path: $calendarPath,
+                    events: calendar, visibility: calendarShown, path: $calendarPath, opening: $openingEvent,
                     onTitle: { setMenu(open: true) }, onSettings: openSettings
                 ))
             }
         case .tasks:
             NavigationStack(path: $tasksPath) {
-                withPlaces(TasksView(opening: openingTask, onTitle: { setMenu(open: true) }, onSettings: openSettings))
+                withPlaces(TasksView(
+                    opening: openingTask, onEmail: openTaskEmail, onTitle: { setMenu(open: true) }, onSettings: openSettings
+                ))
             }
         }
     }
@@ -239,6 +245,37 @@ struct HomeView: View {
         settingsOpen = false
         openingTask = destination.id
         show(.tasks)
+    }
+
+    /** A task's link, wherever it was tapped: the conversation in Mail, the event in the calendar. */
+    private func openTaskTarget(_ target: TaskTarget) {
+        agentOpen = false
+        searchOpen = false
+        settingsOpen = false
+        switch target {
+        case .email(let email):
+            openTaskEmail(email)
+        case .event(let link):
+            openingEvent = link
+            show(.calendar)
+        }
+    }
+
+    /** The conversation a task links to, opened as a notification's is. */
+    private func openTaskEmail(_ email: TaskEmail) {
+        module = .mail
+        catchingUp = false
+        if let thread = store.thread(email.thread) {
+            let scope = store.shownScopes.first { $0.email.lowercased() == email.mailbox.lowercased() }?.email ?? thread.mailbox
+            place = Place(scope: scope)
+            path = [thread.id]
+            return
+        }
+        // Not cached (or no longer there): the notification path fetches it, or lands on the mailbox.
+        guard !store.isDemo else { return }
+        session.opening = Session.NotificationDestination(
+            userId: session.user?.id, email: email.mailbox, thread: email.thread, message: email.message
+        )
     }
 
     private func openNotification() {

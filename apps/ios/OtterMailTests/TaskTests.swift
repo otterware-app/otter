@@ -445,6 +445,77 @@ struct TaskTests {
         #expect(try files.loadProjects("a")?.map(\.name) == ["Chores"])
     }
 
+    @Test func keepsBothOfTwoQuickLinks() async throws {
+        let folder = folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let files = TaskFiles(folder: folder)
+        let store = TaskStore(files: files, reminders: Reminders())
+        let reply = task("Reply to Robin")
+        store.open("demo", seed: [reply])
+        await store.settled()
+
+        let one = TaskEmail(mailbox: "robin@otter.example", thread: "t1", subject: "One")
+        let two = TaskEmail(mailbox: "robin@otter.example", thread: "t2", subject: "Two")
+        // The second is asked for while the first is still being written.
+        let first = Task { try await store.update(reply.id) { TaskLinks.linking($0, email: one) } }
+        let second = Task { try await store.update(reply.id) { TaskLinks.linking($0, email: two) } }
+        try await first.value
+        try await second.value
+
+        #expect(store.task(reply.id)?.emails.map(\.thread) == ["t1", "t2"])
+        #expect(try files.load("demo")?.first?.emails.map(\.thread) == ["t1", "t2"])
+    }
+
+    /** A change that would come out differently asked twice (the scope picker moved during the write) is asked once. */
+    @Test func showsTheLinkItWrote() async throws {
+        let folder = folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let files = TaskFiles(folder: folder)
+        let store = TaskStore(files: files, reminders: Reminders())
+        let reply = task("Reply to Robin")
+        store.open("demo", seed: [reply])
+        await store.settled()
+
+        var asked = 0
+        try await store.update(reply.id) { task in
+            asked += 1
+            return TaskLinks.linking(task, email: TaskEmail(mailbox: "robin@otter.example", thread: "t\(asked)", subject: "One"))
+        }
+
+        #expect(asked == 1)
+        #expect(store.task(reply.id)?.emails.map(\.thread) == ["t1"])
+        #expect(try files.load("demo")?.first?.emails.map(\.thread) == ["t1"])
+    }
+
+    @Test func takesItsContentAndLinkFromTheConversation() {
+        let thread = MailThread(
+            id: "t1",
+            mailbox: "robin@otter.example",
+            subject: "Dinner Saturday? 🍝",
+            labels: ["INBOX"],
+            messages: [Message(
+                id: "m1",
+                from: Person(name: "Maya Chen", email: "maya.chen@example.com"),
+                to: [Person(name: "Robin", email: "robin@otter.example")],
+                cc: [],
+                date: Date(timeIntervalSince1970: 1_700_000_000),
+                text: "Pasta?",
+                html: nil,
+                attachments: [],
+                unread: true,
+                starred: false,
+                draft: false,
+                headers: [:]
+            )]
+        )
+        let task = MailTask(from: thread, mailbox: "robin@otter.example")
+        #expect(task.content == "Dinner Saturday? 🍝")
+        #expect(task.email?.mailbox == "robin@otter.example")
+        #expect(task.email?.thread == "t1")
+        #expect(task.email?.message == "m1")
+        // Without notes, a reminder says which conversation it came from.
+        #expect(task.reminderBody == "From: Dinner Saturday? 🍝")
+    }
     @Test func readsAFileMissingTheFieldsItDoesntHaveYet() throws {
         let id = UUID()
         let json = Data(#"[{"id":"\#(id.uuidString)","content":"Older build"}]"#.utf8)

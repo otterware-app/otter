@@ -5,17 +5,33 @@ import SwiftUI
  * it's on, what it says, and who's coming with their answers.
  */
 struct EventView: View {
+    @Environment(Session.self) private var session
     @Environment(\.palette) private var palette
+    @Environment(\.openTaskTarget) private var openTarget
     let event: CalendarEvent
     var dates: CalendarDates = CalendarDates()
     var color: Color
     /** One of yours, on a calendar that takes changes. */
     var onEdit: (() -> Void)? = nil
+    /** Why this is what a task kept of the event, rather than the event itself. */
+    var notice: String? = nil
+
+    @State private var newTask: MailTask?
+    @State private var linking = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                if let notice {
+                    Label(notice, systemImage: "calendar.badge.exclamationmark")
+                        .font(.inter(.subheadline))
+                        .foregroundStyle(palette.muted)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(palette.warning.opacity(0.12), in: .rect(cornerRadius: 14))
+                }
                 head
+                LinkedTasks(source: .event(event))
                 facts
                 if let details {
                     Text(details)
@@ -37,7 +53,31 @@ struct EventView: View {
                     Button("Edit", action: onEdit)
                 }
             }
+            if notice == nil {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu("More", systemImage: "ellipsis") {
+                        Button("Add task", systemImage: "checklist") { newTask = TaskSource.event(event).newTask }
+                        if !session.tasks.tasks.isEmpty {
+                            Button("Link to a task", systemImage: "link") { linking = true }
+                        }
+                    }
+                }
+            }
         }
+        .sheet(item: $newTask) { task in
+            NavigationStack {
+                TaskEditor(task: task, onEmail: { email in
+                    newTask = nil
+                    openTarget(.email(email))
+                })
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close", systemImage: "xmark") { newTask = nil }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $linking) { LinkToTaskSheet(source: .event(event)) }
     }
 
     /** What it is, when, how to join and where, before anything else. */

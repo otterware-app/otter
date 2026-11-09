@@ -46,6 +46,18 @@ final class CalendarStore {
     @ObservationIgnored private var demoEdits = DemoEdits()
     /** The demo's answers, for the same reason. */
     @ObservationIgnored private var demoAnswers: [String: CalendarEvent.Response] = [:]
+    /** Task links Google answered for with nothing, or whose event was deleted here, by `TaskEvent.key`; kept across restarts. */
+    private var gone: Set<String> {
+        didSet { if gone != oldValue { goneDefaults.set(gone.sorted(), forKey: Self.goneKey) } }
+    }
+    @ObservationIgnored private let goneDefaults: UserDefaults
+    private static let goneKey = "calendar.goneLinks"
+
+    init(defaults: UserDefaults = .standard) {
+        goneDefaults = defaults
+        gone = Set(defaults.stringArray(forKey: Self.goneKey) ?? [])
+    }
+
 
     /** The mailboxes the calendar is read from: calendar-view.tsx's calendarAccounts. */
     nonisolated static func sources(_ mailboxes: [Mailbox]) -> [Mailbox] {
@@ -145,6 +157,7 @@ final class CalendarStore {
     func delete(_ event: CalendarEvent, with writer: EventWriter, demo: Bool = false) async throws {
         try await writer.delete(event, notify: event.hasGuests && event.isMine)
         if demo { demoEdits.deleted.insert(event.id) }
+        gone.insert(TaskEvent(event, scope: .occurrence).key)
         replace(event, with: nil)
     }
 
@@ -368,6 +381,76 @@ final class CalendarStore {
             if let found = events.first(where: { $0.id == event.id }) { return found }
         }
         return nil
+    }
+
+    /** What a task's link reaches: the event, gone from the calendar, or out of reach (signed out, offline). */
+    enum Reach: Equatable {
+        case found(CalendarEvent)
+        case gone
+        case unavailable
+    }
+
+    /** The event a task's link reaches among those loaded: the occurrence, or the series' next one. */
+    func find(_ link: TaskEvent, now: Date = .now) -> CalendarEvent? {
+        Self.nearest(cache.values.flatMap { $0.filter(link.matches) }, now: now)
+    }
+
+    /**
+     * Whether a task's link is known to be gone, by its event's id: deleted here, or Google said so
+     * when it was opened. Missing from the day it was on proves nothing: it may have moved.
+     */
+    func isGone(_ link: TaskEvent, now: Date = .now) -> Bool {
+        find(link, now: now) == nil && gone.contains(link.key)
+    }
+
+    /** The first not over yet, else the last there was. */
+    nonisolated static func nearest(_ events: [CalendarEvent], now: Date) -> CalendarEvent? {
+        events.filter { $0.end > now }.min { $0.start < $1.start } ?? events.max { $0.start < $1.start }
+    }
+
+    /**
+     * A task's link outside the windows loaded, asked of Google by the
+     * occurrence's id (the demo makes its events again around the link's day).
+     * A series whose linked occurrence is gone is found by the series' own id,
+     * and shown read-only: changing it there would change every occurrence.
+     * Nothing is written, and the task keeps its link whatever the answer.
+     */
+    func resolve(_ link: TaskEvent, sources: [Mailbox], demo: Bool, google: GoogleAuth, dates: CalendarDates) async -> Reach {
+        let reach = await reach(link, sources: sources, demo: demo, google: google, dates: dates)
+        switch reach {
+        case .found: gone.remove(link.key)
+        case .gone: gone.insert(link.key)
+        case .unavailable: break
+        }
+        return reach
+    }
+
+    private func reach(_ link: TaskEvent, sources: [Mailbox], demo: Bool, google: GoogleAuth, dates: CalendarDates) async -> Reach {
+        if let found = find(link) { return .found(found) }
+        guard link.provider == "google", let mailbox = sources.first(where: { $0.email.lowercased() == link.account }) else {
+            return .unavailable
+        }
+        let calendar = lists[mailbox.email]?.first { $0.id == link.calendarId }
+            ?? EventCalendar(id: link.calendarId, name: link.calendarId, account: mailbox.email)
+        if demo {
+            let day = dates.startOfDay(link.originalStart ?? link.start)
+            let around = EventWindow(from: dates.addDays(day, -1), to: dates.addDays(day, 2))
+            let found = demoEvents(around, account: mailbox.email, first: sources.first?.email == mailbox.email, dates: dates)
+            return Self.nearest(found.filter(link.matches), now: .now).map(Reach.found) ?? .gone
+        }
+        let api = GoogleCalendarAPI(email: mailbox.email) { [google] refresh in
+            try await google.accessToken(mailbox.email, force: refresh)
+        }
+        do {
+            if let occurrence = try await api.event(link.eventId, on: calendar) { return .found(occurrence) }
+            guard link.scope == .series, let seriesId = link.seriesId, var series = try await api.event(seriesId, on: calendar) else {
+                return .gone
+            }
+            series.calendar.writable = false
+            return .found(series)
+        } catch {
+            return .unavailable
+        }
     }
 }
 

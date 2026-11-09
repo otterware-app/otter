@@ -60,6 +60,17 @@ nonisolated struct GoogleCalendarAPI: EventWriter {
         return found
     }
 
+    /** One event by its id, for a task's link outside the windows loaded: nil when Google no longer has it. */
+    @concurrent
+    func event(_ eventId: String, on calendar: EventCalendar) async throws -> CalendarEvent? {
+        do {
+            let data = try await request("calendars/\(encoded(calendar.id))/events/\(encoded(eventId))", query: [])
+            return try GoogleEvents.unlessCancelled(data, on: calendar, me: email, times: EventTimes())
+        } catch let failure as Failure where failure.status == 404 || failure.status == 410 {
+            return nil
+        }
+    }
+
     /**
      * Answers an invitation as core's setResponse does: the event's attendees
      * with this mailbox's answer in them, PATCHed back with sendUpdates=all, so
@@ -232,6 +243,16 @@ nonisolated enum GoogleEvents {
     /** One event, as Google answers a create or a change. */
     static func event(_ data: Data, on calendar: EventCalendar, me: String, times: EventTimes) throws -> CalendarEvent {
         guard let found = event(try JSONDecoder().decode(ApiEvent.self, from: data), on: calendar, me: me, times: times) else {
+            throw GoogleCalendarAPI.Failure(status: 0, message: "Google Calendar answered without the event's times.")
+        }
+        return found
+    }
+
+    /** One event as Google answers for it by id, nil when cancelled: a deleted one may come back without its times. */
+    static func unlessCancelled(_ data: Data, on calendar: EventCalendar, me: String, times: EventTimes) throws -> CalendarEvent? {
+        let api = try JSONDecoder().decode(ApiEvent.self, from: data)
+        if api.status == "cancelled" { return nil }
+        guard let found = event(api, on: calendar, me: me, times: times) else {
             throw GoogleCalendarAPI.Failure(status: 0, message: "Google Calendar answered without the event's times.")
         }
         return found
