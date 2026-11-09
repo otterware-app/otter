@@ -25,6 +25,7 @@
     "@otter/extension-otter-drive": "workspace:*",
     "@otter/extension-todoist": "workspace:*",
     "@otter/extension-translation": "workspace:*",
+    "@otter/extension-varys": "workspace:*",
     "@otter/shared": "workspace:*",
     "@sentry/electron": "8.3.0",
     "better-auth": "^1.7.6",

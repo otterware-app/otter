@@ -288,7 +288,7 @@ export function ScheduledTasksView({
             ) : agents.length === 0 ? (
               <Empty
                 title="No agent here runs tasks on a schedule"
-                body="Connect OpenClaw or Hermes in Settings, and the tasks they run on their own show up here."
+                body="Connect OpenClaw, Hermes or varys in Settings, and the tasks they run on their own show up here."
               />
             ) : tasks.length === 0 && agents.every((a) => !a.error) ? (
               <Empty

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { claudeStep, codexStep, hermesStep, openClawStep } from "./steps.ts";
+import { claudeStep, codexStep, hermesStep, openClawStep, varysStep } from "./steps.ts";
 
 describe("tool steps", () => {
   it("names Otter's tools by their titles, whichever agent calls them", () => {
@@ -85,5 +85,17 @@ describe("openClawStep", () => {
       detail: "Watch CI",
     });
     expect(openClawStep("sessions_spawn", { task: "Watch CI" }).title).toBe("Started a subagent");
+  });
+
+  it("titles varys's steps with its own summary", () => {
+    expect(
+      varysStep({ tool: "bash", summary: "Lists the invoices", detail: "ls invoices" }),
+    ).toEqual({
+      kind: "command",
+      title: "Lists the invoices",
+      detail: "ls invoices",
+    });
+    expect(varysStep({ tool: "mail_search" })).toEqual({ kind: "search", title: "Mail search" });
+    expect(varysStep({ tool: "web_search", summary: "Searches the web" }).kind).toBe("web");
   });
 });

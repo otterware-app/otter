@@ -24,6 +24,7 @@
     "@otter/extension-sign-in-codes": "workspace:*",
     "@otter/extension-todoist": "workspace:*",
     "@otter/extension-translation": "workspace:*",
+    "@otter/extension-varys": "workspace:*",
     "@otter/shared": "workspace:*",
     "@radix-ui/colors": "^3.0.0",
     "@sentry/browser": "11.8.0",

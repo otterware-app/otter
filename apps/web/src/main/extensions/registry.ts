@@ -8,6 +8,7 @@ import otterDrive from "@otter/extension-otter-drive/ui";
 import signInCodes from "@otter/extension-sign-in-codes/ui";
 import todoist from "@otter/extension-todoist/ui";
 import translation from "@otter/extension-translation/ui";
+import varys from "@otter/extension-varys/ui";
 import { useMemo, useSyncExternalStore } from "react";
 
 import { runsOn, type AppPlatform, type ExtensionCategory } from "@otter/contracts/extensions";
@@ -25,6 +26,7 @@ export const EXTENSIONS: readonly UiExtension[] = [
   openrouter,
   hermes,
   openclaw,
+  varys,
   codex,
   claude,
 ];

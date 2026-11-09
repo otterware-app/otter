@@ -369,7 +369,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "New chats start with",
     pane: "agents",
     searchTerms: [
-      "agents openrouter api key server model claude codex hermes openclaw enable turn on off default new chats",
+      "agents openrouter api key server model claude codex hermes openclaw varys enable turn on off default new chats",
     ],
   },
   {
@@ -422,6 +422,20 @@ export const SETTINGS_SEARCH_ITEMS = [
     pane: "agents",
     item: "openclaw",
     searchTerms: ["openclaw channel cron scheduled job deliver announce notify approval inbox"],
+  },
+  {
+    id: "varys-connection",
+    title: "Connection",
+    pane: "agents",
+    item: "varys",
+    searchTerms: ["varys pair pairing link app code connect grant tailscale"],
+  },
+  {
+    id: "varys-deliveries",
+    title: "Messages from varys",
+    pane: "agents",
+    item: "varys",
+    searchTerms: ["varys relay push routine notify approval question"],
   },
   {
     id: "follow-up-behavior",
