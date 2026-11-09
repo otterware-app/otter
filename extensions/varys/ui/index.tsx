@@ -11,6 +11,5 @@ export default {
     Settings: VarysSettings,
     missing: { headline: "Not connected" },
     serverApprovals: true,
-    ownModelSettings: true,
   },
 } satisfies UiExtension;

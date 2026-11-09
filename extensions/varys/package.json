@@ -14,7 +14,7 @@
     "test": "vp test run --passWithNoTests"
   },
   "dependencies": {
-    "@generalpursuit/varys": "0.3.0",
+    "@generalpursuit/varys": "0.4.0",
     "@otter/contracts": "workspace:*",
     "@otter/core": "workspace:*",
     "neverthrow": "8.2.0",

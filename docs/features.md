@@ -558,28 +558,32 @@ SDK (`@generalpursuit/varys`), with an app grant that works as you. An app code 
 (Settings → Sharing & access → Connect an app: Works as you, the Chat client preset) pairs each
 device on its own, so each has a grant of its own, listed in varys; disconnecting ends it there (or
 says to remove it in varys, when varys can't be reached). The token stays on the device, and
-Settings › Agents walks through the steps. Each chat is a varys thread, and each message goes with
-the chat's request id (sent twice, it's taken once); its turn is followed over varys's Live socket,
-which picks it up again after a dropped connection, and from its start on the next launch when the
-app quit during it. Replies, tool steps (titled with varys's own summaries), steering, stopping,
-approvals (once, or for the rest of the thread where varys offers that) and questions (answered in
-words) come through, also when answered elsewhere; a run that stops to ask waits for your answer,
-and the work it goes on with is the same turn, also in a run varys started itself. varys's skills
-are offered in the composer, and a picked one is named in the message ("Use the skill
-`invoices`."), as varys reads it. The mail a message is about goes as it does to every agent:
-pointers in the message (account, subject, sender, thread and message ids), never the mail itself;
-varys reads it through its own mail connection, as Hermes and OpenClaw do with gog. A run varys
-starts in a chat (a routine reporting into it, with the routine's "Scheduled" header) shows up
-there as a turn of its own, and what it wrote while no device was looking is caught up on; a
-routine's run in a thread of its own is a new chat ("Invoices · Mon, Nov 9"), with the "Scheduled"
-header, also when the relay is the first to say so, and varys's threads list a routine's as
-"Scheduled · Invoices". Its routines are on the Scheduled page: create and edit (on a cron schedule
-in a time zone, or every so often; one started by new mail shows, and is edited in varys), pause,
-run now and past runs, with results to Otter or left in varys (Otter's own setting), and delete (a
-built-in one is paused instead). With the Otter account, each device's grant names Otter's relay
-itself when it connects (an agent channel of the account's, which goes with the grant on
-disconnecting), so varys tells the account's devices which thread to read, never what's in it, and
-they catch up. Forking a chat isn't there yet, and deleting a chat leaves its thread in varys,
+Settings › Agents walks through the steps. The composer's model picker lists the models the owner's
+logins in varys can use (with their reasoning levels and fast mode), marked with the owner's
+default; a pick is that chat's thread's model, set when it starts and again when you pick another,
+and never changes the owner's default. A grant paired before the Chat client preset could read
+settings shows varys alone, and pairing again unlocks the picker. Each chat is a varys thread, and
+each message goes with the chat's request id (sent twice, it's taken once); its turn is followed
+over varys's Live socket, which picks it up again after a dropped connection, and from its start on
+the next launch when the app quit during it. Replies, tool steps (titled with varys's own
+summaries), steering, stopping, approvals (once, or for the rest of the thread where varys offers
+that) and questions (answered in words) come through, also when answered elsewhere; a run that
+stops to ask waits for your answer, and the work it goes on with is the same turn, also in a run
+varys started itself. varys's skills are offered in the composer, and a picked one is named in the
+message ("Use the skill `invoices`."), as varys reads it. The mail a message is about goes as it
+does to every agent: pointers in the message (account, subject, sender, thread and message ids),
+never the mail itself; varys reads it through its own mail connection, as Hermes and OpenClaw do
+with gog. A run varys starts in a chat (a routine reporting into it, with the routine's "Scheduled"
+header) shows up there as a turn of its own, and what it wrote while no device was looking is
+caught up on; a routine's run in a thread of its own is a new chat ("Invoices · Mon, Nov 9"), with
+the "Scheduled" header, also when the relay is the first to say so, and varys's threads list a
+routine's as "Scheduled · Invoices". Its routines are on the Scheduled page: create and edit (on a
+cron schedule in a time zone, or every so often; one started by new mail shows, and is edited in
+varys), pause, run now and past runs, with results to Otter or left in varys (Otter's own setting),
+and delete (a built-in one is paused instead). With the Otter account, each device's grant names
+Otter's relay itself when it connects (an agent channel of the account's, which goes with the grant
+on disconnecting), so varys tells the account's devices which thread to read, never what's in it,
+and they catch up. Forking a chat isn't there yet, and deleting a chat leaves its thread in varys,
 where deleting is for your own devices.
 
 Other agents on the Mac (Claude Code or Codex in a terminal, Cursor, …) get the same tools from

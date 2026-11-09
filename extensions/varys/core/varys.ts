@@ -29,6 +29,7 @@ import {
   stopWatching,
   watchDeliveries,
 } from "./deliveries.js";
+import { choiceOf, forgetModels, listModels, sameChoice } from "./models.js";
 import { varysSchedules } from "./schedules.js";
 import { VARYS_DEFAULTS, type VarysSettings } from "./settings.js";
 import { DETACHED, asks, following, followTurn, messagesOf, newTurn } from "./turns.js";
@@ -90,7 +91,9 @@ export const varysProvider: ChatProvider<VarysSettings> = {
   kind: "varys",
   displayName: "varys",
   defaults: VARYS_DEFAULTS,
-  fields: { enabled: "boolean" },
+  fields: { enabled: "boolean", model: "string", reasoningEffort: "string", serviceTier: "string" },
+  // A model the owner's logins can't use now falls back to varys's default.
+  strictModels: true,
   // Each device pairs on its own, with a grant of its own.
   deviceFields: ["address", "agentId", "installation", "relayChannel"],
   async settingsView(settings) {
@@ -137,12 +140,18 @@ export const varysProvider: ChatProvider<VarysSettings> = {
         auth: { status: "authenticated", label: me.value.name },
         message: `${host}: this app code doesn't work as you with chats and approvals. Make one with the Chat client preset, and pair again.`,
       };
+    const listed = await listModels(varys);
+    const models = "models" in listed && listed.models.length > 0 ? listed.models : base.models;
     return {
       ...base,
       installed: true,
       status: "ready",
       auth: { status: "authenticated", label: me.value.name },
-      message: host,
+      models,
+      message:
+        "refused" in listed && listed.refused === "FORBIDDEN"
+          ? `${host} · Pair again to pick varys's models here.`
+          : host,
     };
   },
 
@@ -154,14 +163,21 @@ export const varysProvider: ChatProvider<VarysSettings> = {
     const threadId = turn.sessionId ?? crypto.randomUUID();
     let sent;
     try {
-      const attachments = await upload(varys, threadId, first, turn.attachments ?? []);
+      const [attachments, choice] = await Promise.all([
+        upload(varys, threadId, first, turn.attachments ?? []),
+        choiceOf(varys, settings),
+      ]);
       const message = {
         requestId,
         text: withSkill(turn),
         ...(attachments.length > 0 && { attachments }),
       };
+      if (!first && choice) {
+        const { model } = await answered(varys.threads.read(threadId));
+        if (!sameChoice(model, choice)) await answered(varys.threads.setModel(threadId, choice));
+      }
       sent = first
-        ? await varys.threads.start({ id: threadId, ...message })
+        ? await varys.threads.start({ id: threadId, ...message, ...(choice && { model: choice }) })
         : await varys.threads.send(threadId, message);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -330,6 +346,7 @@ export const varysProvider: ChatProvider<VarysSettings> = {
     for (const { turn, end } of following.values())
       end({ requestId: turn.requestId, type: "error", message: DETACHED });
     stopWatching();
+    forgetModels();
     closeVarys();
   },
 };

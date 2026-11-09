@@ -4,12 +4,15 @@ import type {
   Question,
   RoutineList,
   ThreadList,
+  Model,
+  ModelCatalog,
+  ReasoningLevel,
   ThreadView,
   TranscriptItem,
   TurnEvent,
 } from "@generalpursuit/varys";
 import type { AgentRun, ChatEvent } from "@otter/core/extension-kit";
-import { errAsync, ok, okAsync, err } from "neverthrow";
+import { errAsync, ok, okAsync, err, type ResultAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { VarysSettings } from "./settings.js";
@@ -76,6 +79,9 @@ function fakeVarys() {
       send: vi.fn((id: string, input: { requestId?: string }) => receipt(id)(input)),
       steer: vi.fn((id: string, input: { requestId?: string }) => receipt(id)(input)),
       stop: vi.fn((id: string) => receipt(id)({})),
+      setModel: vi.fn(
+        (id: string) => receipt(id)({}) as ResultAsync<unknown, { code: string; message: string }>,
+      ),
       rename: vi.fn((id: string) => receipt(id)({})),
       upload: vi.fn(() => okAsync({ attachmentId: "file-1" })),
       read: vi.fn((id: string) =>
@@ -117,6 +123,12 @@ function fakeVarys() {
         return () => {};
       },
     },
+    models: {
+      list: vi.fn(
+        () => okAsync(catalog) as ResultAsync<unknown, { code: string; message: string }>,
+      ),
+      watchSettings: () => () => {},
+    },
     skills: {
       list: () => okAsync([{ name: "invoices", description: "Files invoices in Drive." }]),
     },
@@ -150,6 +162,26 @@ function fakeVarys() {
 }
 
 const model = { provider: "rehearsal", id: "rehearsal", name: "Rehearsal", reasoning: null };
+const modelOf = (id: string, reasoningLevels: ReasoningLevel[], fastMode: boolean) =>
+  ({
+    provider: "rehearsal",
+    providerName: "Rehearsal",
+    id,
+    name: id,
+    reasoningLevels,
+    fastMode,
+  }) as Model;
+const catalog: ModelCatalog = {
+  models: [
+    modelOf("rehearsal-quick", ["off"], false),
+    modelOf("rehearsal-deep", ["off", "low", "high"], true),
+  ],
+  default: {
+    model: { provider: "rehearsal", model: "rehearsal-quick" },
+    reasoning: "off",
+    fast: false,
+  },
+};
 const answer = (id: string, text: string, calls: Answer["calls"] = []): Answer => ({
   type: "answer",
   id,
@@ -242,11 +274,11 @@ beforeEach(() => {
 });
 afterEach(() => varysProvider.shutdown());
 
-function send(input: { requestId?: string; sessionId?: string } = {}) {
+function send(input: { requestId?: string; sessionId?: string } = {}, picked = settings) {
   const events: ChatEvent[] = [];
   const sending = varysProvider.sendTurn(
     { requestId: "req-1", input: "Draft a friendly yes", sessionId: "t1", ...input } as never,
-    settings,
+    picked,
     (event) => events.push(event),
   );
   return { events, sending };
@@ -474,6 +506,124 @@ describe("varys turns", () => {
       events.push(e),
     );
     expect(events).toEqual([{ requestId: "lost", type: "error", message: "not_received" }]);
+  });
+});
+
+describe("varys's models", () => {
+  const deep = { ...settings, model: "rehearsal::rehearsal-deep", reasoningEffort: "high" };
+
+  it("lists the models the owner's logins can use, with what each can do", async () => {
+    const status = await varysProvider.checkStatus(settings);
+    expect(status.models).toEqual([
+      {
+        slug: "rehearsal::rehearsal-quick",
+        name: "rehearsal-quick",
+        subProvider: "Rehearsal",
+        isDefault: true,
+        options: [],
+      },
+      {
+        slug: "rehearsal::rehearsal-deep",
+        name: "rehearsal-deep",
+        subProvider: "Rehearsal",
+        options: [
+          {
+            id: "reasoningEffort",
+            label: "Reasoning",
+            choices: [
+              expect.objectContaining({ id: "", label: "Default", isDefault: true }),
+              { id: "off", label: "Off" },
+              { id: "low", label: "Low" },
+              { id: "high", label: "High" },
+            ],
+          },
+          {
+            id: "serviceTier",
+            label: "Speed",
+            choices: [
+              { id: "default", label: "Standard", isDefault: true },
+              expect.objectContaining({ id: "fast", label: "Fast" }),
+            ],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("says pairing again unlocks the picker for a grant that can't list them", async () => {
+    fake.varys.models.list.mockReturnValueOnce(
+      errAsync({ code: "FORBIDDEN", message: "This grant can't read settings." }),
+    );
+    const status = await varysProvider.checkStatus(settings);
+    expect(status.models).toEqual([{ slug: "", name: "varys", isDefault: true }]);
+    expect(status.message).toMatch(/Pair again to pick varys's models here/);
+  });
+
+  it("starts a new chat's thread with the model you picked", async () => {
+    fake.varys.threads.start.mockImplementationOnce((input) => {
+      fake.views.set(input.id, view(input.id, []));
+      return okAsync({ requestId: input.requestId!, result: { threadId: input.id } });
+    });
+    const { sending } = send({ sessionId: undefined }, deep);
+    await fake.play("req-1", [{ type: "done" }]);
+    await sending;
+    expect(fake.varys.threads.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: {
+          model: { provider: "rehearsal", model: "rehearsal-deep" },
+          reasoning: "high",
+          fast: false,
+        },
+      }),
+    );
+  });
+
+  it("changes a chat's model only when you picked another", async () => {
+    fake.views.set("t1", view("t1", []));
+    const first = send({}, deep);
+    await fake.play("req-1", [{ type: "done" }]);
+    await first.sending;
+    expect(fake.varys.threads.setModel).toHaveBeenCalledWith("t1", {
+      model: { provider: "rehearsal", model: "rehearsal-deep" },
+      reasoning: "high",
+      fast: false,
+    });
+
+    const set = view("t1", []);
+    set.model = {
+      model: { provider: "rehearsal", model: "rehearsal-deep" },
+      reasoning: "high",
+      fast: false,
+    };
+    fake.views.set("t1", set);
+    fake.varys.threads.setModel.mockClear();
+    const again = send({ requestId: "req-2" }, deep);
+    await fake.play("req-2", [{ type: "done" }]);
+    await again.sending;
+    expect(fake.varys.threads.setModel).not.toHaveBeenCalled();
+  });
+
+  it("leaves a chat to varys's default when nothing is picked", async () => {
+    const { sending } = send();
+    await fake.play("req-1", [{ type: "done" }]);
+    await sending;
+    expect(fake.varys.threads.setModel).not.toHaveBeenCalled();
+  });
+
+  it("shows varys's reason when the model can't answer", async () => {
+    fake.views.set("t1", view("t1", []));
+    fake.varys.threads.setModel.mockReturnValueOnce(
+      errAsync({ code: "MODEL_NOT_READY", message: "Sign in to Rehearsal on your Mac first." }),
+    );
+    const { events, sending } = send({}, deep);
+    await sending;
+    expect(events).toEqual([
+      {
+        requestId: "req-1",
+        type: "error",
+        message: "agent_error: Sign in to Rehearsal on your Mac first.",
+      },
+    ]);
   });
 });
 

@@ -29,4 +29,4 @@ minimumReleaseAgeExclude:
   - miniflare@5.20260925.0-alpha
   - workerd@1.20260925.1
   - wrangler@4.141.0
-  - "@generalpursuit/varys@0.3.0"
+  - "@generalpursuit/varys@0.4.0"

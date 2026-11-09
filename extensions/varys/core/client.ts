@@ -4,7 +4,7 @@
  */
 
 import { connect, type Varys } from "@generalpursuit/varys";
-import { getVarysToken, logger } from "@otter/core/extension-kit";
+import { getVarysToken, logger, refreshProvider } from "@otter/core/extension-kit";
 import type { ResultAsync } from "neverthrow";
 
 import type { VarysSettings } from "./settings.js";
@@ -26,7 +26,19 @@ export async function varysClient(settings: VarysSettings): Promise<Varys | null
   });
   if (made.isErr()) throw new Error(made.error.message);
   current = { key, varys: made.value };
+  followDefault(made.value);
   return made.value;
+}
+
+/** The owner's default model moves on their own devices: the picker's mark moves with it. */
+function followDefault(varys: Varys): void {
+  let shown: string | undefined;
+  varys.models.watchSettings((view) => {
+    if (view.status !== "fresh") return;
+    const now = JSON.stringify(view.value.defaults ?? null);
+    if (shown !== undefined && shown !== now) void refreshProvider("varys");
+    shown = now;
+  });
 }
 
 export function closeVarys(): void {

@@ -55,7 +55,7 @@ const routines = vi.hoisted(() => ({
   delete: vi.fn(),
 }));
 vi.mock("@generalpursuit/varys", () => ({
-  connect: () => ok({ routines, close: async () => {} }),
+  connect: () => ok({ routines, models: { watchSettings: () => () => {} }, close: async () => {} }),
 }));
 
 const { routineTask, varysSchedules } = await import("./schedules.js");
