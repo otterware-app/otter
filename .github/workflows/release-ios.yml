@@ -1,6 +1,15 @@
 name: Release iPhone
 
 on:
+  # A merge that changes the app, or what it bundles from packages/shared, ships a patch.
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/ios/**"
+      - "packages/shared/**"
+      - "scripts/export-ios-resources.ts"
+      - "scripts/release-ios.ts"
   workflow_dispatch:
     inputs:
       bump:

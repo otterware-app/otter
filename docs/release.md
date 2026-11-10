@@ -22,8 +22,11 @@ favicon follows its build too; the hosted web app still deploys from main. iPhon
 ## Release cycle
 
 1. Land changes on `main` through pull requests (CI must pass).
-2. **Nightly:** the Release workflow publishes on every push to `main`, including every merged PR.
-   Each run builds that push's exact commit; there is no time gate or scheduled polling.
+2. **Nightly:** the Release workflow publishes on each push to `main`, so each merged PR, unless
+   the push only touches `apps/ios` or `docs`. Each run builds that push's exact commit; there
+   is no time gate or scheduled polling. A newer nightly cancels the checks and builds of an
+   older one still running, which then publishes nothing: pushes in quick succession end in one
+   nightly, of the last. Publishing itself is never cancelled, and runs in turn.
    For an immediate build, run Actions → Release → `channel=nightly`, or
    `gh workflow run release.yml -f channel=nightly`.
 3. A nightly previews the next patch version after the latest stable tag, for example
@@ -40,8 +43,8 @@ favicon follows its build too; the hosted web app still deploys from main. iPhon
    GitHub's latest release with only `latest-*` feeds, includes an existing changelog note if
    there is one, and records the released version in `apps/*/package.json` on main.
 
-Each train queues its releases without canceling publishers, so consecutive merges each get
-their own nightly. Version-bump commits pushed by the workflows' `GITHUB_TOKEN` do not trigger
+Stable releases queue, whole, one after another. A nightly superseded while checking or building
+is cancelled; one that reached publishing finishes, and publishers take turns. Version-bump commits pushed by the workflows' `GITHUB_TOKEN` do not trigger
 another workflow run. Manual runs must select the default branch;
 release commits must belong to it. Nightly tags are excluded from the tag trigger. Returning
 from nightly to stable allows the version downgrade until the stable build is installed; automatic
@@ -110,11 +113,14 @@ Ubuntu 22.04+ ship (GTK 3, NSS, libnotify, libsecret, xdg-utils).
 ## The iPhone app
 
 The iPhone app has its own version (`MARKETING_VERSION` in `apps/ios/OtterMail.xcodeproj`) and
-its own tags (`ios-vX.Y.Z`), apart from the Mac app's: release it when it has changed, not with
-every Mac release. It started from the Mac app's 0.5.6, the last shared version.
+its own tags (`ios-vX.Y.Z`), apart from the Mac app's: it is released when it has changed, not
+with every Mac release. It started from the Mac app's 0.5.6, the last shared version.
 
-1. Actions → Release iPhone → Run workflow, choose `patch`, `minor` or `major`; or
-   `gh workflow run release-ios.yml -f bump=patch` (or `-f version=1.0.0`). The version is the
+1. The Release iPhone workflow runs on each push to `main` that touches `apps/ios`,
+   `packages/shared`, `scripts/export-ios-resources.ts` or `scripts/release-ios.ts`, as a patch.
+   Runs go one at a time; while one runs, only the newest push waits. For a minor or major
+   version: Actions → Release iPhone → Run workflow, choose `patch`, `minor` or `major`; or
+   `gh workflow run release-ios.yml -f bump=minor` (or `-f version=1.0.0`). The version is the
    latest `ios-vX.Y.Z` tag with that bump (the first release ships the project's version).
 2. The workflow builds `main`'s HEAD on GitHub's `xcode-27` runner with its default (release)
    Xcode, signs it for the App Store and uploads it to App Store Connect. The build number is the

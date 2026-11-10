@@ -185,8 +185,9 @@ it; the web app needs it (the relay keeps its Gmail sign-ins alive).
 The desktop app (Mac and Linux) and the web app have stable and nightly channels.
 The iPhone app releases separately, with its own version:
 
-- Mac and Linux: the Release workflow publishes a nightly on every push to main (each merge).
-  Run it with `channel=nightly` for an immediate nightly, or `channel=stable` to promote the latest published
+- Mac and Linux: the Release workflow publishes a nightly on each merge to main, unless it
+  only touches `apps/ios` or `docs`. Merges in quick succession share one: a newer nightly
+  cancels an older one still building. Run it with `channel=nightly` for an immediate nightly, or `channel=stable` to promote the latest published
   nightly commit (an optional stable version overrides its previewed version). A `vX.Y.Z` tag
   releases that exact commit. Each release builds the DMG and .debs (x64, arm64). Settings → General
   selects Stable or Nightly on this computer; updates offer "Restart to update" in the sidebar.
@@ -196,8 +197,9 @@ The iPhone app releases separately, with its own version:
   `otter-mail-site-nightly` Worker; a stable release, after its GitHub Release, to otter.otterware.app. Both answer at
   otter.otterware.app (one browser cache and sign-in): Settings → General's channel sets a
   cookie the stable Worker routes on (`site/src/worker.ts`); open tabs offer "Reload to update".
-- iPhone: run the Release iPhone workflow from `main` when `apps/ios` (or what it bundles from
-  `packages/shared`) has changed. It uploads to TestFlight and tags `ios-vX.Y.Z`.
+- iPhone: the Release iPhone workflow runs on each merge to main that touches `apps/ios` (or
+  what it bundles from `packages/shared`), as a patch. Run it by hand for a minor or major
+  version. It uploads to TestFlight and tags `ios-vX.Y.Z`.
 
 `docs/runbook.md` is the short version of shipping each part; details in `docs/release.md`.
 
