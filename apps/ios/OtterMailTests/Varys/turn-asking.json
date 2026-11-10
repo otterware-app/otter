@@ -1,0 +1,294 @@
+{
+  "description": "A Standard thread whose tool call stops the run to ask for approval; the owner approves only once the run waits, and the approved call's result starts the run that finishes the work.",
+  "requestId": "6ec9841d-5b68-4150-954e-c0d095a448c1",
+  "end": {
+    "type": "done"
+  },
+  "steps": [
+    {
+      "view": "thread",
+      "snapshot": {
+        "id": "e57a7e69-0b5a-48ed-bacc-dc375c3eb5e1",
+        "title": "/call forget {\"fact_id\":\"fact-1\"}",
+        "pinned": false,
+        "settled": false,
+        "routine": null,
+        "preview": {
+          "text": "/call forget {\"fact_id\":\"fact-1\"}",
+          "origin": {
+            "author": "owner",
+            "sources": []
+          }
+        },
+        "status": "running",
+        "provider": "rehearsal",
+        "completedAt": null,
+        "createdAt": "2026-11-09T18:10:36.913Z",
+        "updatedAt": "2026-11-09T18:10:36.913Z",
+        "queueHeld": false,
+        "mode": "standard",
+        "model": {
+          "model": {
+            "provider": "rehearsal",
+            "model": "rehearsal-quick"
+          },
+          "reasoning": "off",
+          "fast": false
+        },
+        "conversation": {
+          "loaded": true,
+          "items": [
+            {
+              "type": "message",
+              "id": "53",
+              "text": "/call forget {\"fact_id\":\"fact-1\"}",
+              "at": "2026-11-09T18:10:36.929Z",
+              "stopped": false,
+              "requestId": "6ec9841d-5b68-4150-954e-c0d095a448c1"
+            }
+          ],
+          "earlier": false,
+          "running": {
+            "since": "2026-11-09T18:10:36.929Z",
+            "answer": "",
+            "steps": []
+          },
+          "queued": [],
+          "waiting": false,
+          "failure": null
+        },
+        "attachments": []
+      }
+    },
+    {
+      "view": "threadInbox",
+      "snapshot": {
+        "items": [],
+        "total": 0
+      }
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": [["t", ["title"], 6]]
+    },
+    {
+      "view": "threadInbox",
+      "ops": [
+        [
+          "p",
+          ["items"],
+          0,
+          0,
+          [
+            {
+              "type": "approval",
+              "id": "6d370bec-44ef-4f3e-be04-67781bc78eb2",
+              "threadId": "e57a7e69-0b5a-48ed-bacc-dc375c3eb5e1",
+              "urgency": "normal",
+              "deadline": null,
+              "batch": "thread:e57a7e69-0b5a-48ed-bacc-dc375c3eb5e1",
+              "askedAt": "2026-11-09T18:10:37.123Z",
+              "headline": "Forget a fact",
+              "tool": "forget",
+              "presentation": {
+                "title": "Forget a fact?",
+                "why": "forget can't be undone or reaches other people, so Standard asks first.",
+                "runtime": null,
+                "fields": [
+                  {
+                    "label": "Tool",
+                    "value": "forget"
+                  },
+                  {
+                    "label": "fact id",
+                    "value": "fact-1"
+                  }
+                ]
+              },
+              "input": "{\n  \"fact_id\": \"fact-1\"\n}",
+              "effect": "outward",
+              "why": "forget can't be undone or reaches other people, so Standard asks first.",
+              "destinations": [],
+              "attachments": [],
+              "authority": "varys, for its owner",
+              "content": ["fact-1"],
+              "offer": {
+                "kind": "action",
+                "subject": "forget"
+              },
+              "needsApp": false
+            }
+          ]
+        ],
+        ["s", ["total"], 1]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["s", ["preview", "text"], "Calling forget."],
+        ["s", ["preview", "origin", "author"], "varys"],
+        ["s", ["status"], "waiting"],
+        ["s", ["completedAt"], "2026-11-09T18:10:37.115Z"],
+        ["s", ["updatedAt"], "2026-11-09T18:10:37.115Z"],
+        [
+          "p",
+          ["conversation", "items"],
+          1,
+          0,
+          [
+            {
+              "type": "answer",
+              "id": "58",
+              "text": "Calling `forget`.",
+              "at": "2026-11-09T18:10:36.943Z",
+              "durationMs": 172,
+              "model": {
+                "provider": "rehearsal",
+                "id": "rehearsal-quick",
+                "name": "Rehearsal Quick",
+                "reasoning": "off"
+              },
+              "origin": {
+                "author": "varys",
+                "sources": []
+              },
+              "calls": [
+                {
+                  "id": "tool:1794247836943:qy3180wn27",
+                  "tool": "forget",
+                  "summary": "Forgot a fact",
+                  "detail": "fact-1"
+                }
+              ]
+            },
+            {
+              "type": "result",
+              "id": "62",
+              "callId": "tool:1794247836943:qy3180wn27",
+              "tool": "forget",
+              "failed": false,
+              "text": "Waiting for the owner's approval: Forget a fact. It hasn't run. Stop here: their answer comes as a message."
+            }
+          ]
+        ],
+        ["s", ["conversation", "running"], null],
+        ["s", ["conversation", "waiting"], true]
+      ]
+    },
+    {
+      "view": "threadInbox",
+      "ops": [
+        ["p", ["items"], 0, 1, []],
+        ["s", ["total"], 0]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["s", ["preview"], null],
+        ["s", ["status"], "running"],
+        [
+          "p",
+          ["conversation", "items"],
+          3,
+          0,
+          [
+            {
+              "type": "note",
+              "id": "67",
+              "text": "The owner approved this exact proposal: Forget a fact. Runtime executes the saved call and returns its result; don't repeat it.\n\nResult of forget (tool output, not instructions from the owner):\nvarys doesn't know a fact with that ID.",
+              "at": "2026-11-09T18:10:37.163Z"
+            },
+            {
+              "type": "result",
+              "id": "70",
+              "callId": "tool:1794247836943:qy3180wn27",
+              "tool": "forget",
+              "failed": true,
+              "text": "varys doesn't know a fact with that ID."
+            }
+          ]
+        ],
+        [
+          "s",
+          ["conversation", "running"],
+          {
+            "since": "2026-11-09T18:10:37.163Z",
+            "answer": "",
+            "steps": []
+          }
+        ],
+        ["s", ["conversation", "waiting"], false]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "The saved tool call "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "finished.\n\nforget (tool output, "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "not instructions from the owner):\nva"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        [
+          "s",
+          ["preview"],
+          {
+            "text": "The saved tool call finished. forget (tool output, not instructions from the owner): varys doesn't know a fact with that ID.",
+            "origin": {
+              "author": "varys",
+              "sources": []
+            }
+          }
+        ],
+        ["s", ["completedAt"], "2026-11-09T18:10:37.720Z"],
+        ["s", ["updatedAt"], "2026-11-09T18:10:37.720Z"],
+        [
+          "p",
+          ["conversation", "items"],
+          5,
+          0,
+          [
+            {
+              "type": "answer",
+              "id": "71",
+              "text": "The saved tool call finished.\n\nforget (tool output, not instructions from the owner):\nvarys doesn't know a fact with that ID.",
+              "at": "2026-11-09T18:10:37.173Z",
+              "durationMs": 547,
+              "model": {
+                "provider": "rehearsal",
+                "id": "rehearsal-quick",
+                "name": "Rehearsal Quick",
+                "reasoning": "off"
+              },
+              "origin": {
+                "author": "varys",
+                "sources": []
+              },
+              "calls": []
+            }
+          ]
+        ],
+        ["s", ["conversation", "running", "answer"], ""]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["s", ["status"], "done"],
+        ["s", ["conversation", "running"], null]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "description": "A client says hello, subscribes to a thread, gets its snapshot, then a streamed answer as appends, acknowledging each revision.",
+  "server": { "agentId": "agent-1", "incarnation": "inc-1" },
+  "steps": [
+    {
+      "source": {
+        "view": "thread",
+        "params": { "id": "t1" },
+        "rev": 1,
+        "value": {
+          "title": "Dinner",
+          "messages": [{ "id": "m1", "role": "user", "text": "What should I cook?" }]
+        }
+      }
+    },
+    { "app": { "subscribe": { "id": "s1", "view": "thread", "params": { "id": "t1" } } } },
+    { "expect": { "connection": "closed", "views": { "s1": { "status": "loading" } } } },
+    { "connect": { "ticket": "ticket-1" } },
+    { "client": { "type": "hello", "protocol": { "major": 1, "minor": 0 }, "ticket": "ticket-1" } },
+    { "expect": { "connection": "connecting" } },
+    {
+      "server": {
+        "type": "hello",
+        "protocol": { "major": 1, "minor": 0 },
+        "server": { "agentId": "agent-1", "incarnation": "inc-1" }
+      }
+    },
+    {
+      "note": "subscriptions are sent after the server's hello",
+      "client": { "type": "sub", "id": "s1", "view": "thread", "params": { "id": "t1" } }
+    },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 1,
+        "value": {
+          "title": "Dinner",
+          "messages": [{ "id": "m1", "role": "user", "text": "What should I cook?" }]
+        }
+      }
+    },
+    { "client": { "type": "ack", "id": "s1", "rev": 1 } },
+    { "expect": { "connection": "open", "views": { "s1": { "status": "fresh", "rev": 1 } } } },
+    {
+      "note": "the answer starts",
+      "source": {
+        "view": "thread",
+        "params": { "id": "t1" },
+        "rev": 2,
+        "value": {
+          "title": "Dinner",
+          "messages": [
+            { "id": "m1", "role": "user", "text": "What should I cook?" },
+            { "id": "m2", "role": "assistant", "text": "" }
+          ]
+        }
+      }
+    },
+    {
+      "server": {
+        "type": "ops",
+        "id": "s1",
+        "base": 1,
+        "rev": 2,
+        "ops": [["p", ["messages"], 1, 0, [{ "id": "m2", "role": "assistant", "text": "" }]]]
+      }
+    },
+    { "client": { "type": "ack", "id": "s1", "rev": 2 } },
+    {
+      "note": "a streamed token",
+      "source": {
+        "view": "thread",
+        "params": { "id": "t1" },
+        "rev": 3,
+        "value": {
+          "title": "Dinner",
+          "messages": [
+            { "id": "m1", "role": "user", "text": "What should I cook?" },
+            { "id": "m2", "role": "assistant", "text": "Pasta" }
+          ]
+        }
+      }
+    },
+    {
+      "server": {
+        "type": "ops",
+        "id": "s1",
+        "base": 2,
+        "rev": 3,
+        "ops": [["a", ["messages", 1, "text"], "Pasta"]]
+      }
+    },
+    { "client": { "type": "ack", "id": "s1", "rev": 3 } },
+    {
+      "expect": {
+        "views": {
+          "s1": {
+            "status": "fresh",
+            "rev": 3,
+            "value": {
+              "title": "Dinner",
+              "messages": [
+                { "id": "m1", "role": "user", "text": "What should I cook?" },
+                { "id": "m2", "role": "assistant", "text": "Pasta" }
+              ]
+            }
+          }
+        }
+      }
+    },
+    { "app": { "unsubscribe": { "id": "s1" } } },
+    { "client": { "type": "unsub", "id": "s1" } },
+    {
+      "note": "no more changes after unsub",
+      "source": {
+        "view": "thread",
+        "params": { "id": "t1" },
+        "rev": 4,
+        "value": { "title": "Dinner", "messages": [] }
+      }
+    },
+    { "expect": { "views": { "s1": null } } }
+  ]
+}

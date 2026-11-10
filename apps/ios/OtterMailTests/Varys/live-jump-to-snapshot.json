@@ -1,0 +1,197 @@
+{
+  "description": "A jump: when sending the value whole is no larger than the changes, the server sends a snapshot instead of ops. Its revision may skip ahead; that's the only way a revision jumps.",
+  "server": {
+    "agentId": "agent-1",
+    "incarnation": "inc-1"
+  },
+  "steps": [
+    {
+      "source": {
+        "view": "routines",
+        "params": {},
+        "rev": 10,
+        "value": {
+          "routines": [
+            {
+              "id": "r0",
+              "name": "Morning brief",
+              "enabled": true
+            },
+            {
+              "id": "r1",
+              "name": "PR digest",
+              "enabled": true
+            },
+            {
+              "id": "r2",
+              "name": "Weekly review",
+              "enabled": true
+            },
+            {
+              "id": "r3",
+              "name": "Pay the rent",
+              "enabled": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "app": {
+        "subscribe": {
+          "id": "s1",
+          "view": "routines",
+          "params": {}
+        }
+      }
+    },
+    {
+      "connect": {
+        "ticket": "ticket-1"
+      }
+    },
+    {
+      "client": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "ticket": "ticket-1"
+      }
+    },
+    {
+      "server": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "server": {
+          "agentId": "agent-1",
+          "incarnation": "inc-1"
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "sub",
+        "id": "s1",
+        "view": "routines",
+        "params": {}
+      }
+    },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 10,
+        "value": {
+          "routines": [
+            {
+              "id": "r0",
+              "name": "Morning brief",
+              "enabled": true
+            },
+            {
+              "id": "r1",
+              "name": "PR digest",
+              "enabled": true
+            },
+            {
+              "id": "r2",
+              "name": "Weekly review",
+              "enabled": true
+            },
+            {
+              "id": "r3",
+              "name": "Pay the rent",
+              "enabled": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "ack",
+        "id": "s1",
+        "rev": 10
+      }
+    },
+    {
+      "source": {
+        "view": "routines",
+        "params": {},
+        "rev": 14,
+        "value": {
+          "routines": [
+            {
+              "id": "r0",
+              "name": "Evening walk",
+              "enabled": true
+            },
+            {
+              "id": "r1",
+              "name": "Inbox zero",
+              "enabled": true
+            }
+          ]
+        }
+      },
+      "note": "almost everything changed at once"
+    },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 14,
+        "value": {
+          "routines": [
+            {
+              "id": "r0",
+              "name": "Evening walk",
+              "enabled": true
+            },
+            {
+              "id": "r1",
+              "name": "Inbox zero",
+              "enabled": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "ack",
+        "id": "s1",
+        "rev": 14
+      }
+    },
+    {
+      "expect": {
+        "views": {
+          "s1": {
+            "status": "fresh",
+            "rev": 14,
+            "value": {
+              "routines": [
+                {
+                  "id": "r0",
+                  "name": "Evening walk",
+                  "enabled": true
+                },
+                {
+                  "id": "r1",
+                  "name": "Inbox zero",
+                  "enabled": true
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

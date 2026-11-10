@@ -1,0 +1,72 @@
+{
+  "description": "Versions that can't talk: the app speaks major 1, the server major 2. The server refuses the hello with which side has to update, and closes. Subscriptions aren't sent.",
+  "server": {
+    "agentId": "agent-1",
+    "incarnation": "inc-1"
+  },
+  "protocol": {
+    "client": {
+      "major": 1,
+      "minor": 4
+    },
+    "server": {
+      "major": 2,
+      "minor": 0
+    }
+  },
+  "steps": [
+    {
+      "app": {
+        "subscribe": {
+          "id": "s1",
+          "view": "inbox",
+          "params": {}
+        }
+      }
+    },
+    {
+      "connect": {
+        "ticket": "ticket-1"
+      }
+    },
+    {
+      "client": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 4
+        },
+        "ticket": "ticket-1"
+      }
+    },
+    {
+      "server": {
+        "type": "error",
+        "error": {
+          "code": "PROTOCOL_MISMATCH",
+          "message": "The app has to update to talk to this server.",
+          "update": "app"
+        }
+      }
+    },
+    {
+      "expect": {
+        "connection": "refused",
+        "views": {
+          "s1": {
+            "status": "loading"
+          }
+        }
+      }
+    },
+    {
+      "disconnect": {}
+    },
+    {
+      "note": "the refusal stays until the next connection",
+      "expect": {
+        "connection": "refused"
+      }
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "description": "Backpressure for views: one snapshot or ops in flight per subscription. Changes that happen before the client acknowledges are merged into the next ops, computed from the acknowledged revision.",
+  "server": { "agentId": "agent-1", "incarnation": "inc-1" },
+  "steps": [
+    {
+      "source": {
+        "view": "thread",
+        "params": { "id": "t1" },
+        "rev": 1,
+        "value": { "title": "Plan the week's meals", "text": "" }
+      }
+    },
+    { "app": { "subscribe": { "id": "s1", "view": "thread", "params": { "id": "t1" } } } },
+    { "connect": { "ticket": "ticket-1" } },
+    { "client": { "type": "hello", "protocol": { "major": 1, "minor": 0 }, "ticket": "ticket-1" } },
+    {
+      "server": {
+        "type": "hello",
+        "protocol": { "major": 1, "minor": 0 },
+        "server": { "agentId": "agent-1", "incarnation": "inc-1" }
+      }
+    },
+    { "client": { "type": "sub", "id": "s1", "view": "thread", "params": { "id": "t1" } } },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 1,
+        "value": { "title": "Plan the week's meals", "text": "" }
+      }
+    },
+    { "client": { "type": "ack", "id": "s1", "rev": 1 } },
+    {
+      "source": {
+        "view": "thread",
+        "params": { "id": "t1" },
+        "rev": 2,
+        "value": { "title": "Plan the week's meals", "text": "One" }
+      }
+    },
+    {
+      "server": { "type": "ops", "id": "s1", "base": 1, "rev": 2, "ops": [["a", ["text"], "One"]] }
+    },
+    {
+      "note": "the client applied rev 2; its ack is still on the way",
+      "source": {
+        "view": "thread",
+        "params": { "id": "t1" },
+        "rev": 3,
+        "value": { "title": "Plan the week's meals", "text": "One, two" }
+      }
+    },
+    {
+      "source": {
+        "view": "thread",
+        "params": { "id": "t1" },
+        "rev": 3,
+        "value": { "title": "Plan the week's meals", "text": "One, two" }
+      },
+      "note": "these pile up while rev 2 isn't acknowledged"
+    },
+    {
+      "source": {
+        "view": "thread",
+        "params": { "id": "t1" },
+        "rev": 4,
+        "value": { "title": "Plan the week's meals", "text": "One, two, three" }
+      }
+    },
+    {
+      "expect": {
+        "views": {
+          "s1": {
+            "status": "fresh",
+            "rev": 2,
+            "value": { "title": "Plan the week's meals", "text": "One" }
+          }
+        }
+      }
+    },
+    { "client": { "type": "ack", "id": "s1", "rev": 2 } },
+    {
+      "note": "one batch from the acknowledged revision to the newest",
+      "server": {
+        "type": "ops",
+        "id": "s1",
+        "base": 2,
+        "rev": 4,
+        "ops": [["a", ["text"], ", two, three"]]
+      }
+    },
+    { "client": { "type": "ack", "id": "s1", "rev": 4 } },
+    {
+      "expect": {
+        "views": {
+          "s1": {
+            "status": "fresh",
+            "rev": 4,
+            "value": { "title": "Plan the week's meals", "text": "One, two, three" }
+          }
+        }
+      }
+    }
+  ]
+}

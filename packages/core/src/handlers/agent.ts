@@ -1,11 +1,9 @@
-import type { AgentChannel } from "@otter/contracts/relay";
 import type { ResultsTo, ScheduledTaskInput } from "@otter/contracts/scheduled";
 import { handle } from "../ipc.js";
-import { platform } from "../platform.js";
-import { relayRequest } from "../services/otter-account.js";
 import { runAsTask } from "./ipc-budget.js";
 import { ATTACHMENTS_DIR, stageAttachment } from "../services/agent/attachments.js";
 import * as agent from "../services/agent/service.js";
+import { agentChannels, deleteAgentChannel, makeAgentChannel } from "../services/agent/channels.js";
 import { preferenceChanged } from "../services/preferences.js";
 import { registeredAgents } from "../extensions.js";
 import type { ApprovalDecision, ProviderKind, ChatAttachment } from "../services/agent/types.js";
@@ -114,8 +112,9 @@ export function scheduledTaskInputOf(raw: unknown, editing = false): ScheduledTa
 export function registerAgentHandlers(): void {
   handle("agent:providers", async () => agent.providersState());
 
-  handle("agent:refreshProviders", async () => {
-    void agent.refreshProviders();
+  handle("agent:refreshProviders", async (params: unknown) => {
+    const p = params as Params;
+    void agent.refreshProviders(p?.provider ? [providerOf(p)] : undefined);
     return { ok: true };
   });
 
@@ -169,27 +168,16 @@ export function registerAgentHandlers(): void {
   });
 
   // An agent's gateway allowed to tell this account's devices it delivered something (relay's agent-channels.ts).
-  handle("agent:channels", async () => {
-    const { channels } = await relayRequest<{ channels: AgentChannel[] }>(
-      "GET",
-      "/v1/agent-channels",
-    );
-    return { channels, relayUrl: platform().relayUrl };
-  });
+  handle("agent:channels", () => agentChannels());
   handle("agent:makeChannel", async (params: unknown) => {
     const label = str((params as Params)?.label);
     if (!label) throw new Error("A label is required.");
-    const made = await relayRequest<{ channel: AgentChannel; token: string }>(
-      "POST",
-      "/v1/agent-channels",
-      { label },
-    );
-    return { ...made, relayUrl: platform().relayUrl };
+    return makeAgentChannel(label);
   });
   handle("agent:deleteChannel", async (params: unknown) => {
     const id = str((params as Params)?.id);
     if (!id) throw new Error("A channel is required.");
-    await relayRequest("DELETE", `/v1/agent-channels/${encodeURIComponent(id)}`);
+    await deleteAgentChannel(id);
     return { ok: true };
   });
 

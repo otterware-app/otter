@@ -1,0 +1,146 @@
+{
+  "description": "A gap: ops whose base isn't the client's revision, as a lost or mangled message would cause. The client ignores them, asks for a fresh snapshot, and ignores ops until it comes.",
+  "server": { "agentId": "agent-1", "incarnation": "inc-1" },
+  "steps": [
+    {
+      "source": {
+        "view": "inbox",
+        "params": {},
+        "rev": 5,
+        "value": { "items": [{ "title": "Approve the payment to the landlord" }] }
+      }
+    },
+    { "app": { "subscribe": { "id": "s1", "view": "inbox", "params": {} } } },
+    { "connect": { "ticket": "ticket-1" } },
+    { "client": { "type": "hello", "protocol": { "major": 1, "minor": 0 }, "ticket": "ticket-1" } },
+    {
+      "server": {
+        "type": "hello",
+        "protocol": { "major": 1, "minor": 0 },
+        "server": { "agentId": "agent-1", "incarnation": "inc-1" }
+      }
+    },
+    { "client": { "type": "sub", "id": "s1", "view": "inbox", "params": {} } },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 5,
+        "value": { "items": [{ "title": "Approve the payment to the landlord" }] }
+      }
+    },
+    { "client": { "type": "ack", "id": "s1", "rev": 5 } },
+    {
+      "note": "a fault: ops from a revision the client never had",
+      "inject": {
+        "type": "ops",
+        "id": "s1",
+        "base": 6,
+        "rev": 7,
+        "ops": [["p", ["items"], 1, 0, [{ "title": "Sign in to the bank again" }]]]
+      }
+    },
+    { "client": { "type": "resync", "id": "s1" } },
+    {
+      "expect": {
+        "views": {
+          "s1": {
+            "status": "stale",
+            "rev": 5,
+            "value": { "items": [{ "title": "Approve the payment to the landlord" }] }
+          }
+        }
+      }
+    },
+    {
+      "note": "ops that would fit are ignored too while the snapshot is on its way",
+      "inject": {
+        "type": "ops",
+        "id": "s1",
+        "base": 5,
+        "rev": 6,
+        "ops": [["p", ["items"], 1, 0, [{ "title": "Answer the plumber about Thursday" }]]]
+      }
+    },
+    { "expect": { "views": { "s1": { "status": "stale", "rev": 5 } } } },
+    {
+      "note": "a fault: ops that don't fit the value, here a path that isn't there",
+      "inject": {
+        "type": "ops",
+        "id": "s1",
+        "base": 5,
+        "rev": 6,
+        "ops": [["a", ["missing", 3], "x"]]
+      }
+    },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 5,
+        "value": { "items": [{ "title": "Approve the payment to the landlord" }] }
+      }
+    },
+    { "client": { "type": "ack", "id": "s1", "rev": 5 } },
+    { "expect": { "views": { "s1": { "status": "fresh", "rev": 5 } } } },
+    {
+      "note": "ops that don't fit the value are a gap as well",
+      "inject": {
+        "type": "ops",
+        "id": "s1",
+        "base": 5,
+        "rev": 6,
+        "ops": [["a", ["missing", 3], "x"]]
+      }
+    },
+    { "client": { "type": "resync", "id": "s1" } },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 5,
+        "value": { "items": [{ "title": "Approve the payment to the landlord" }] }
+      }
+    },
+    { "client": { "type": "ack", "id": "s1", "rev": 5 } },
+    {
+      "source": {
+        "view": "inbox",
+        "params": {},
+        "rev": 6,
+        "value": {
+          "items": [
+            { "title": "Approve the payment to the landlord" },
+            { "title": "Answer the plumber about Thursday" }
+          ]
+        }
+      }
+    },
+    {
+      "server": {
+        "type": "ops",
+        "id": "s1",
+        "base": 5,
+        "rev": 6,
+        "ops": [["p", ["items"], 1, 0, [{ "title": "Answer the plumber about Thursday" }]]]
+      }
+    },
+    { "client": { "type": "ack", "id": "s1", "rev": 6 } },
+    {
+      "expect": {
+        "views": {
+          "s1": {
+            "status": "fresh",
+            "rev": 6,
+            "value": {
+              "items": [
+                { "title": "Approve the payment to the landlord" },
+                { "title": "Answer the plumber about Thursday" }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -37,9 +37,11 @@ struct OtterMailApp: App {
             case .active:
                 Task { await session.relay.retrySignOuts(); await session.refreshAccount() }
                 Task { await session.agent.resumeOpenClaw() }
+                Task { await session.agent.resumeVarys() }
             case .background:
                 session.disconnect()
                 session.agent.suspendOpenClaw()
+                session.agent.suspendVarys()
                 Task { await Self.scheduleRefresh() }
             default: break
             }

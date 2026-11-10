@@ -1,0 +1,760 @@
+{
+  "description": "A long answer streamed at a readable pace, for picking up mid-answer and after a drop.",
+  "requestId": "9e8321f4-de8e-40f2-af5d-502369085855",
+  "end": {
+    "type": "done"
+  },
+  "steps": [
+    {
+      "view": "thread",
+      "snapshot": {
+        "id": "2a869fa3-03ac-4047-91da-0f3e5614ae79",
+        "title": "/slow",
+        "routine": null,
+        "pinned": false,
+        "settled": false,
+        "preview": {
+          "text": "/slow",
+          "origin": {
+            "author": "owner",
+            "sources": []
+          }
+        },
+        "status": "running",
+        "provider": "rehearsal",
+        "completedAt": null,
+        "createdAt": "2026-11-09T13:12:40.138Z",
+        "updatedAt": "2026-11-09T13:12:40.138Z",
+        "queueHeld": false,
+        "mode": "full_access",
+        "model": {
+          "model": {
+            "provider": "rehearsal",
+            "model": "rehearsal-quick"
+          },
+          "reasoning": "off",
+          "fast": false
+        },
+        "conversation": {
+          "loaded": true,
+          "items": [
+            {
+              "type": "message",
+              "id": "163",
+              "text": "/slow",
+              "at": "2026-11-09T13:12:40.153Z",
+              "stopped": false,
+              "requestId": "9e8321f4-de8e-40f2-af5d-502369085855"
+            }
+          ],
+          "earlier": false,
+          "running": {
+            "since": "2026-11-09T13:12:40.153Z",
+            "answer": "",
+            "steps": []
+          },
+          "queued": [],
+          "waiting": false,
+          "failure": null
+        },
+        "attachments": []
+      }
+    },
+    {
+      "view": "threadInbox",
+      "snapshot": {
+        "items": [],
+        "total": 0
+      }
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": []
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "1. This is a"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " long rehearsal answer, written slow"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ly so it can be stopped half way. \n2"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["a", ["conversation", "running", "answer"], ". This is a long rehearsal answer, writt"]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "en slowly so it can be stopp"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ed half way. \n3. This is a l"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ong rehearsal answer, writte"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "n slowly so it can be stopped ha"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "lf way. \n4. This is a long rehea"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "rsal answer, written slowly "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "so it can be stopped half way. \n"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "5. This is a long rehearsal answ"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["a", ["conversation", "running", "answer"], "er, written slowly so it can be stopped "]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "half way. \n6. This is a long reh"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "earsal answer, written slowl"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "y so it can be stopped half "]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["a", ["conversation", "running", "answer"], "way. \n7. This is a long rehearsal answer"]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], ", written slowly so it can be st"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "opped half way. \n8. This is "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "a long rehearsal answer, written slo"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "wly so it can be stopped half wa"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["a", ["conversation", "running", "answer"], "y. \n9. This is a long rehearsal answer, "]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "written slowly so it can be "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "stopped half way. \n10. T"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "his is a long rehearsal answ"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "er, written slowly so it can be stop"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ped half way. \n11. This is a lon"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "g rehearsal answer, writ"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ten slowly so it can be stopped "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "half way. \n12. This is a long re"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "hearsal answer, written slowly s"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "o it can be stopped half"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " way. \n13. This is a long rehearsal "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "answer, written slowly so it can be "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "stopped half way. \n14. This is a lon"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "g rehearsal answer, written slow"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ly so it can be stopped half"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " way. \n15. This is a long rehear"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["a", ["conversation", "running", "answer"], "sal answer, written slowly so it can be "]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "stopped half way. \n16. This "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "is a long rehearsal answer, writ"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ten slowly so it can be stopped half"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " way. \n17. This is a lon"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "g rehearsal answer, written slow"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ly so it can be stopped half way"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["a", ["conversation", "running", "answer"], ". \n18. This is a long rehearsal answer, "]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "written slowly so it can be "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "stopped half way. \n19. This "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "is a long rehearsal answer, written "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "slowly so it can be stop"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ped half way. \n20. This is a"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " long rehearsal answer, written slow"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ly so it can be stopped half"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " way. \n21. This is a long rehear"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["a", ["conversation", "running", "answer"], "sal answer, written slowly so it can be "]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "stopped half way. \n22. This is a"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " long rehearsal answer, written "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "slowly so it can be stop"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ped half way. \n23. This is a lon"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "g rehearsal answer, written slowly s"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "o it can be stopped half way. \n2"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "4. This is a long rehear"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "sal answer, written slowly so it"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " can be stopped half way. \n25. This "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "is a long rehearsal answer, writ"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ten slowly so it can be stopped half"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["a", ["conversation", "running", "answer"], " way. \n26. This is a long rehearsal answ"]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "er, written slowly so it can"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["a", ["conversation", "running", "answer"], " be stopped half way. \n27. This is a lon"]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "g rehearsal answer, written "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "slowly so it can be stopped half way"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], ". \n28. This is a long rehearsal answ"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "er, written slowly so it can be stop"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ped half way. \n29. This "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "is a long rehearsal answer, written "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "slowly so it can be stopped half"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " way. \n30. This is a long rehear"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "sal answer, written slowly so it can"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " be stopped half way. \n3"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        ["a", ["conversation", "running", "answer"], "1. This is a long rehearsal answer, writ"]
+      ]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ten slowly so it can be stop"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ped half way. \n32. This is a lon"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "g rehearsal answer, written "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "slowly so it can be stopped half"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " way. \n33. This is a long rehearsal "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "answer, written slowly so it can"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " be stopped half way. \n34. T"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "his is a long rehearsal answ"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "er, written slowly so it can be stop"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ped half way. \n35. This is a lon"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "g rehearsal answer, writ"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ten slowly so it can be stop"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ped half way. \n36. This "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "is a long rehearsal answer, writ"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ten slowly so it can be stopped half"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " way. \n37. This is a long re"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "hearsal answer, written slowly so it"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " can be stopped half way. \n38. This "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "is a long rehearsal answ"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "er, written slowly so it can"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], " be stopped half way. \n39. This "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "is a long rehearsal answer, writ"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "ten slowly so it can be "]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "stopped half way. \n40. T"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "his is a long rehearsal answ"]]
+    },
+    {
+      "view": "thread",
+      "ops": [["a", ["conversation", "running", "answer"], "er, written slowly so it can"]]
+    },
+    {
+      "view": "thread",
+      "ops": [
+        [
+          "s",
+          ["preview", "text"],
+          "This is a long rehearsal answer, written slowly so it can be stopped half way. This is a long rehearsal answer, written slowly so it can be stopped half way. This is a long rehearsal answer, written slowly so it can be stopped half way. This is a long rehearsal answer, written slowly so it can be stopped half way. This is a long rehearsal answer, written slowly so it can be stopped half way. This is a long rehearsal answer, written slowly so it can be stopped half way. This is a long rehearsal answer, writt"
+        ],
+        ["s", ["preview", "origin", "author"], "varys"],
+        ["s", ["status"], "done"],
+        ["s", ["completedAt"], "2026-11-09T13:13:01.105Z"],
+        ["s", ["updatedAt"], "2026-11-09T13:13:01.105Z"],
+        [
+          "p",
+          ["conversation", "items"],
+          1,
+          0,
+          [
+            {
+              "type": "answer",
+              "id": "168",
+              "text": "1. This is a long rehearsal answer, written slowly so it can be stopped half way. \n2. This is a long rehearsal answer, written slowly so it can be stopped half way. \n3. This is a long rehearsal answer, written slowly so it can be stopped half way. \n4. This is a long rehearsal answer, written slowly so it can be stopped half way. \n5. This is a long rehearsal answer, written slowly so it can be stopped half way. \n6. This is a long rehearsal answer, written slowly so it can be stopped half way. \n7. This is a long rehearsal answer, written slowly so it can be stopped half way. \n8. This is a long rehearsal answer, written slowly so it can be stopped half way. \n9. This is a long rehearsal answer, written slowly so it can be stopped half way. \n10. This is a long rehearsal answer, written slowly so it can be stopped half way. \n11. This is a long rehearsal answer, written slowly so it can be stopped half way. \n12. This is a long rehearsal answer, written slowly so it can be stopped half way. \n13. This is a long rehearsal answer, written slowly so it can be stopped half way. \n14. This is a long rehearsal answer, written slowly so it can be stopped half way. \n15. This is a long rehearsal answer, written slowly so it can be stopped half way. \n16. This is a long rehearsal answer, written slowly so it can be stopped half way. \n17. This is a long rehearsal answer, written slowly so it can be stopped half way. \n18. This is a long rehearsal answer, written slowly so it can be stopped half way. \n19. This is a long rehearsal answer, written slowly so it can be stopped half way. \n20. This is a long rehearsal answer, written slowly so it can be stopped half way. \n21. This is a long rehearsal answer, written slowly so it can be stopped half way. \n22. This is a long rehearsal answer, written slowly so it can be stopped half way. \n23. This is a long rehearsal answer, written slowly so it can be stopped half way. \n24. This is a long rehearsal answer, written slowly so it can be stopped half way. \n25. This is a long rehearsal answer, written slowly so it can be stopped half way. \n26. This is a long rehearsal answer, written slowly so it can be stopped half way. \n27. This is a long rehearsal answer, written slowly so it can be stopped half way. \n28. This is a long rehearsal answer, written slowly so it can be stopped half way. \n29. This is a long rehearsal answer, written slowly so it can be stopped half way. \n30. This is a long rehearsal answer, written slowly so it can be stopped half way. \n31. This is a long rehearsal answer, written slowly so it can be stopped half way. \n32. This is a long rehearsal answer, written slowly so it can be stopped half way. \n33. This is a long rehearsal answer, written slowly so it can be stopped half way. \n34. This is a long rehearsal answer, written slowly so it can be stopped half way. \n35. This is a long rehearsal answer, written slowly so it can be stopped half way. \n36. This is a long rehearsal answer, written slowly so it can be stopped half way. \n37. This is a long rehearsal answer, written slowly so it can be stopped half way. \n38. This is a long rehearsal answer, written slowly so it can be stopped half way. \n39. This is a long rehearsal answer, written slowly so it can be stopped half way. \n40. This is a long rehearsal answer, written slowly so it can be stopped half way. ",
+              "at": "2026-11-09T13:12:40.168Z",
+              "durationMs": 20937,
+              "model": {
+                "provider": "rehearsal",
+                "id": "rehearsal-quick",
+                "name": "Rehearsal Quick",
+                "reasoning": "off"
+              },
+              "origin": {
+                "author": "varys",
+                "sources": []
+              },
+              "calls": []
+            }
+          ]
+        ],
+        ["s", ["conversation", "running"], null]
+      ]
+    }
+  ]
+}

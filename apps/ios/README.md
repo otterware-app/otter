@@ -76,7 +76,14 @@ add limited server grants (or an encrypted IMAP password), while mail content st
   WebSocket as the Mac does: this iPhone is a paired device with its own Ed25519 key (a setup
   code from `openclaw qr`, then `openclaw devices approve`); its gateway and tokens stay here. A
   run is sent with the turn's id as its idempotency key, so one the app left in the background
-  (or quit during) is picked up again from the gateway's transcript. The Mac's local Codex and
+  (or quit during) is picked up again from the gateway's transcript. varys (`Varys.swift`) is
+  reached with a grant of this iPhone's own (a pairing link from varys's Connect an app), its
+  token in the Keychain: commands over HTTP to the address it paired with, the threads and their
+  inbox over varys's Live socket (`VarysLive.swift`), and a turn read from them as varys's SDK
+  reads it (`VarysTurns.swift`). `OtterMailTests/Varys` holds varys's protocol and turn
+  fixtures, which the tests replay. A turn is followed by its request id, so one the app left is
+  picked up again; with the Otter account the grant names the relay, whose pointers catch up the
+  open chat. Disconnecting revokes the grant. The Mac's local Codex and
   Claude providers are omitted. `AgentChats.swift` reads the account's chats (the relay's
   `/v1/chats`, every device's and agent's): one this iPhone's agent can run continues here,
   the others are read, and each finished turn is written back after the chat's other turns,

@@ -576,7 +576,9 @@ export const mailApi = {
 
   agentProviders: (): Promise<ProvidersState> => ipc("agent:providers"),
 
-  refreshAgentProviders: (): Promise<{ ok: boolean }> => ipc("agent:refreshProviders"),
+  /** Checks the agents again (one, given its kind): their status and the models they offer. */
+  refreshAgentProviders: (kind?: ProviderKind): Promise<{ ok: boolean }> =>
+    ipc("agent:refreshProviders", kind ? { provider: kind } : undefined),
 
   updateAgentSettings: (patch: AgentSettingsPatch): Promise<ProvidersState> =>
     ipc("agent:updateSettings", patch),

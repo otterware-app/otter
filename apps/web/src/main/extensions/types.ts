@@ -137,6 +137,8 @@ export type AgentContribution = {
   needsSignIn?: boolean;
   serverApprovals?: boolean;
   ownModelSettings?: boolean;
+  /** What the agent reads mail with, named in the line under the mail a message points to; Otter's tools when absent. */
+  mailReader?: string;
 };
 
 export type AgentSettingsProps = {

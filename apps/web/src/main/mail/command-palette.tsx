@@ -337,7 +337,7 @@ export function CommandPalette({
         id: "chat",
         icon: <AgentIcon className={ICON} />,
         title: "Ask the agent",
-        keywords: "chat agent assistant ai claude codex hermes openclaw",
+        keywords: "chat agent assistant ai claude codex hermes openclaw varys",
         shortcut: sc("agent.toggle"),
         run: onToggleChat,
       },

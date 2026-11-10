@@ -54,6 +54,27 @@ final class Agent {
         }
     }
 
+    /** This iPhone's pairing with varys: its own grant, so it stays here, with the token in the Keychain. */
+    struct VarysSettings: Codable, Equatable {
+        var enabled = true
+        var address = ""
+        var agentId = ""
+        /** Otter Mail on this iPhone, the same each time it pairs: pairing again replaces its grant. */
+        var installation = ""
+        /** The account's agent channel this iPhone's grant tells. */
+        var relayChannel = ""
+
+        init() {}
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+            address = try c.decodeIfPresent(String.self, forKey: .address) ?? ""
+            agentId = try c.decodeIfPresent(String.self, forKey: .agentId) ?? ""
+            installation = try c.decodeIfPresent(String.self, forKey: .installation) ?? ""
+            relayChannel = try c.decodeIfPresent(String.self, forKey: .relayChannel) ?? ""
+        }
+    }
+
     enum Status: Equatable {
         case notConfigured
         case checking
@@ -67,7 +88,7 @@ final class Agent {
         var output: String?
     }
 
-    /** An agent asking before it does something: Hermes running a command. */
+    /** An agent asking before it does something: Hermes running a command, varys using a tool. */
     struct Approval: Equatable {
         var id: String
         var question: String
@@ -98,6 +119,12 @@ final class Agent {
             if !isOn && running { stop() }
         }
     }
+    var varys: VarysSettings {
+        didSet {
+            UserDefaults.standard.set(try? JSONEncoder().encode(varys), forKey: Self.varysKey)
+            if !isOn && running { stop() }
+        }
+    }
     var selected: String {
         didSet {
             guard oldValue != selected else { return }
@@ -123,7 +150,9 @@ final class Agent {
     private static let keychainKey = "hermes-key"
     private static let openClawKey = "openclaw"
     private static let openRunKey = "openclaw-run"
-    private static let providers = ["openrouter", "hermes", "openclaw"]
+    private static let varysKey = "varys"
+    private static let varysRunKey = "varys-run"
+    private static let providers = ["openrouter", "hermes", "openclaw", "varys"]
 
     init() {
         let data = UserDefaults.standard.data(forKey: Self.settingsKey) ?? Data()
@@ -134,10 +163,13 @@ final class Agent {
         openrouter = Self.decode(savedSection["openrouter"]) ?? OpenRouterSettings()
         openclaw = UserDefaults.standard.data(forKey: Self.openClawKey)
             .flatMap { try? JSONDecoder().decode(OpenClawSettings.self, from: $0) } ?? OpenClawSettings()
+        varys = UserDefaults.standard.data(forKey: Self.varysKey)
+            .flatMap { try? JSONDecoder().decode(VarysSettings.self, from: $0) } ?? VarysSettings()
         let saved = savedSection["selected"] as? String ?? ""
         selected = Self.providers.contains(saved) ? saved : (hermesSettings.baseUrl.isEmpty ? "openrouter" : "hermes")
         hasKey = Keychain.get(Self.keychainKey) != nil
         openRun = UserDefaults.standard.data(forKey: Self.openRunKey).flatMap { try? JSONDecoder().decode(OpenRun.self, from: $0) }
+        varysRun = UserDefaults.standard.data(forKey: Self.varysRunKey).flatMap { try? JSONDecoder().decode(OpenRun.self, from: $0) }
     }
 
     private static func decode<T: Decodable>(_ value: Any?) -> T? {
@@ -220,6 +252,7 @@ final class Agent {
         switch selected {
         case "openrouter": openrouter.enabled
         case "openclaw": openclaw.enabled
+        case "varys": varys.enabled
         default: hermes.enabled
         }
     }
@@ -227,6 +260,7 @@ final class Agent {
         switch selected {
         case "openrouter": "OpenRouter"
         case "openclaw": "OpenClaw"
+        case "varys": "varys"
         default: "Hermes"
         }
     }
@@ -235,6 +269,7 @@ final class Agent {
             switch selected {
             case "openrouter": openrouter.model
             case "openclaw": openclaw.model
+            case "varys": ""
             default: hermes.model
             }
         }
@@ -242,6 +277,7 @@ final class Agent {
             switch selected {
             case "openrouter": openrouter.model = newValue
             case "openclaw": openclaw.model = newValue
+            case "varys": break
             default: hermes.model = newValue
             }
         }
@@ -276,6 +312,7 @@ final class Agent {
 
     func check() async {
         if selected == "openclaw" { return await checkOpenClaw() }
+        if selected == "varys" { return await checkVarys() }
         if selected == "openrouter" {
             guard let client = routerClient, openrouter.enabled else { status = .notConfigured; return }
             status = .checking
@@ -348,11 +385,19 @@ final class Agent {
     private(set) var openClawFullAccess: Bool?
     private(set) var openClawFullAccessRequest: String?
     @ObservationIgnored private var openRun: OpenRun? {
-        didSet {
-            guard openRun != oldValue else { return }
-            if let openRun { UserDefaults.standard.set(try? JSONEncoder().encode(openRun), forKey: Self.openRunKey) }
-            else { UserDefaults.standard.removeObject(forKey: Self.openRunKey) }
-        }
+        didSet { if openRun != oldValue { Self.keep(openRun, Self.openRunKey) } }
+    }
+    @ObservationIgnored private var varysRun: OpenRun? {
+        didSet { if varysRun != oldValue { Self.keep(varysRun, Self.varysRunKey) } }
+    }
+    @ObservationIgnored private var varysConnection: (key: String, client: Varys)?
+    @ObservationIgnored private var varysResuming: Task<Void, Never>?
+    /** The last item of the open varys chat's thread that it shows: what varys writes after it is caught up on. */
+    @ObservationIgnored private var varysSeen: Int?
+
+    private static func keep(_ run: OpenRun?, _ key: String) {
+        if let run { UserDefaults.standard.set(try? JSONEncoder().encode(run), forKey: key) }
+        else { UserDefaults.standard.removeObject(forKey: key) }
     }
 
     func newChat() {
@@ -364,11 +409,13 @@ final class Agent {
         chatBase = nil
         baseTurns = 0
         readOnly = nil
+        varysSeen = nil
     }
 
     func send(_ text: String, context: [MailContext] = []) {
         if selected == "openrouter" { sendOpenRouter(text, context: context); return }
         if selected == "openclaw" { sendOpenClaw(text, context: context); return }
+        if selected == "varys" { sendVarys(text, context: context); return }
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let client, !question.isEmpty || !context.isEmpty else { return }
         if running, let run {
@@ -485,7 +532,10 @@ final class Agent {
 
     func stop() {
         generation = UUID()
-        if let run, selected == "openclaw", let session, let gateway = openClawClient {
+        if run != nil, selected == "varys", let session, let client = varysClient {
+            varysRun = nil
+            Task { try? await client.stop(thread: session) }
+        } else if let run, selected == "openclaw", let session, let gateway = openClawClient {
             openRun = nil
             Task { await gateway.abort(session: session, run: run) }
         } else if let run, let client = openRouterRunClient { Task { await client.stop(run) } }
@@ -508,6 +558,7 @@ final class Agent {
             answer.resume(returning: ["once", "session"].contains(choice))
             return
         }
+        if selected == "varys" { return answerVarys(approval, choice) }
         if selected == "openclaw", let gateway = openClawClient {
             Task {
                 try? await gateway.approve(approval.id, choice: choice)
@@ -525,6 +576,14 @@ final class Agent {
     private(set) var history: [Hermes.Session] = []
 
     func loadHistory() async {
+        if selected == "varys" {
+            guard let client = varysClient, let threads = try? await client.threads(), selected == "varys" else { return }
+            history = threads.map { thread in
+                Hermes.Session(id: thread.id, title: thread.title, preview: thread.routine.map { "Scheduled · \($0)" } ?? thread.preview,
+                               lastActive: thread.updatedAt, messageCount: thread.preview == nil ? 0 : 1)
+            }
+            return
+        }
         if selected == "openclaw" {
             guard let gateway = openClawClient, let chats = try? await gateway.chats() else { return }
             if selected == "openclaw" {
@@ -553,6 +612,11 @@ final class Agent {
         if selected == "openrouter", let client = routerClient { messages = (try? await client.messages(of: chat.id)) ?? [] }
         else if selected == "openclaw", let gateway = openClawClient {
             messages = ((try? await gateway.messages(of: chat.id)) ?? []).map { Hermes.Message(role: $0.role, text: $0.text, tools: $0.steps.map(\.name)) }
+        }
+        else if selected == "varys", let client = varysClient {
+            let items = (try? await client.items(of: chat.id)) ?? []
+            messages = Varys.messages(items)
+            if self.generation == generation { varysSeen = Self.lastPlaced(items) }
         }
         else if let client { messages = (try? await client.messages(of: chat.id)) ?? [] }
         else { return }
@@ -639,7 +703,9 @@ final class Agent {
     }
 
     func delete(_ chat: Hermes.Session) async {
-        if selected == "openrouter", let client = routerClient { try? await client.delete(session: chat.id) }
+        // Deleting a varys thread is for the user's own devices, in varys: the chat goes, the thread stays.
+        if selected == "varys" {}
+        else if selected == "openrouter", let client = routerClient { try? await client.delete(session: chat.id) }
         else if selected == "openclaw", let gateway = openClawClient { try? await gateway.delete(session: chat.id) }
         else if let client { try? await client.delete(session: chat.id) }
         else { return }
@@ -834,6 +900,7 @@ extension Agent {
     }
 
     func answer(_ question: OpenClaw.Question, _ answers: [String: [String]]?) {
+        if selected == "varys" { return answerVarys(question, answers) }
         guard let gateway = openClawClient else { return }
         Task {
             do {
@@ -858,10 +925,287 @@ extension Agent {
     }
 }
 
+extension Agent {
+    var varysClient: Varys? {
+        guard varys.enabled, !varys.address.isEmpty, !varys.agentId.isEmpty,
+              let token = Keychain.get(Varys.tokenName), !token.isEmpty else { return nil }
+        let key = [varys.address, varys.agentId, token].joined(separator: "\n")
+        if varysConnection?.key != key {
+            varysConnection?.client.disconnect()
+            varysConnection = (key, Varys(address: varys.address, agentId: varys.agentId, token: token))
+        }
+        return varysConnection?.client
+    }
+
+    /** How the grant is listed in varys's Settings → Sharing & access. */
+    private static let varysAppName = "Otter Mail on iPhone"
+
+    func connectVarys(link: String) async throws {
+        guard let target = Varys.pairingLink(link) else {
+            throw Varys.Failure(code: "invalid_pairing_link", message: "That isn't a varys pairing link. Copy the whole link from Settings → Sharing & access.")
+        }
+        try await pairVarys(address: target.address, code: target.code, agentId: target.agentId)
+    }
+
+    func connectVarys(address: String, code: String) async throws {
+        guard let origin = Varys.origin(address) else {
+            throw Varys.Failure(code: "invalid_address", message: "That isn't varys's address. Give its HTTPS address alone, such as https://mac.tail.ts.net.")
+        }
+        try await pairVarys(address: origin, code: code.trimmingCharacters(in: .whitespacesAndNewlines), agentId: nil)
+    }
+
+    /** Pairing again (a new code) replaces the grant this iPhone had, as it pairs as the same installation. */
+    private func pairVarys(address: String, code: String, agentId: String?) async throws {
+        let installation = varys.installation.isEmpty ? UUID().uuidString.lowercased() : varys.installation
+        let paired = try await Varys.pair(address: address, code: code, agentId: agentId, name: Self.varysAppName, installation: installation)
+        // The grant it replaces took its relay with it; the channel goes too.
+        await removeVarysRelay(from: nil)
+        forgetVarysConnection()
+        Keychain.set(Varys.tokenName, paired.token, thisDeviceOnly: true)
+        varys.address = paired.address
+        varys.agentId = paired.agentId
+        varys.installation = installation
+        varys.enabled = true
+        if selected == "varys" { await check() } else { selected = "varys" }
+    }
+
+    /** Revokes this iPhone's grant in varys (its relay goes with it), and the account's channel for it goes too. */
+    func disconnectVarys() async {
+        try? await varysClient?.revoke()
+        await removeVarysRelay(from: nil)
+        forgetVarysConnection()
+        Keychain.set(Varys.tokenName, nil)
+        varys.address = ""
+        varys.agentId = ""
+        status = .notConfigured
+    }
+
+    private func forgetVarysConnection() {
+        if selected == "varys", running { stop() }
+        varysConnection?.client.disconnect()
+        varysConnection = nil
+        varysRun = nil
+    }
+
+    func checkVarys() async {
+        guard let client = varysClient else {
+            status = .notConfigured
+            return
+        }
+        status = .checking
+        do {
+            let me = try await client.me()
+            guard selected == "varys", varysClient === client else { return }
+            if me.actsAs != "client" || !Varys.scopes.allSatisfy(me.scopes.contains) {
+                let host = URL(string: client.address)?.host() ?? client.address
+                status = .failed("\(host): this app code doesn't work as you with chats and approvals. Make one with the Chat client preset, and pair again.")
+                return
+            }
+            status = .ready
+            await syncVarysRelay()
+            await resumeVarys()
+        } catch {
+            if selected == "varys" { status = .failed(error.localizedDescription) }
+        }
+    }
+
+    /**
+     * With the Otter account, this iPhone's grant names Otter's relay (an agent channel of the
+     * account's), so varys tells the account's devices which thread to read; without it, nothing.
+     */
+    private func syncVarysRelay() async {
+        guard let client = varysClient, let relay else { return }
+        if relay.token != nil, varys.relayChannel.isEmpty {
+            guard let channel = try? await relay.makeAgentChannel("varys · \(Self.varysAppName)") else { return }
+            do {
+                try await client.setRelay(address: relay.baseURL.absoluteString, token: channel.token)
+                varys.relayChannel = channel.id
+            } catch {
+                try? await relay.deleteAgentChannel(channel.id)
+            }
+        } else if relay.token == nil, !varys.relayChannel.isEmpty {
+            await removeVarysRelay(from: client)
+        }
+    }
+
+    /** Each done as far as it can be. */
+    private func removeVarysRelay(from client: Varys?) async {
+        try? await client?.removeRelay()
+        guard !varys.relayChannel.isEmpty else { return }
+        try? await relay?.deleteAgentChannel(varys.relayChannel)
+        varys.relayChannel = ""
+    }
+
+    func sendVarys(_ text: String, context: [MailContext]) {
+        let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let client = varysClient, !question.isEmpty || !context.isEmpty else { return }
+        if running, let session {
+            Task { if await client.steer(question, thread: session) { self.turns.append(Turn(role: .user, text: question)) } }
+            return
+        }
+        turns.append(Turn(role: .user, text: question, context: context.map(\.subject)))
+        turns.append(Turn(role: .agent, text: ""))
+        let first = session == nil
+        let thread = session ?? UUID().uuidString.lowercased()
+        session = thread
+        let run = UUID().uuidString.lowercased()
+        // varys reads the mail itself, through its own mail connection, as the other agents do with theirs.
+        let message = MailContext.handoff(question, context, reader: "your mail connection")
+        followVarys(session: thread, run: run) { client.send(message, thread: thread, requestId: run, first: first) }
+    }
+
+    /**
+     * The turn the app left, picked up again; with none, what varys wrote in the open chat
+     * meanwhile. Once at a time: the app coming back and its check of varys both ask.
+     */
+    func resumeVarys() async {
+        if let varysResuming { return await varysResuming.value }
+        let resuming = Task { await pickUpVarys() }
+        varysResuming = resuming
+        await resuming.value
+        varysResuming = nil
+    }
+
+    private func pickUpVarys() async {
+        guard selected == "varys", !running, let client = varysClient else { return }
+        guard let pending = varysRun else { return await catchUpVarys() }
+        if session != pending.session {
+            await open(Hermes.Session(id: pending.session, title: nil, preview: nil, lastActive: .now, messageCount: 0))
+            guard selected == "varys", session == pending.session, !running, varysRun == pending else { return }
+            if turns.last?.role != .agent { turns.append(Turn(role: .agent, text: "")) }
+        }
+        updateLast { $0.note = nil; $0.error = nil }
+        followVarys(session: pending.session, run: pending.run) { client.resume(thread: pending.session, requestId: pending.run) }
+    }
+
+    /** In the background, the turn stops being followed here; varys goes on, and it's picked up on return. */
+    func suspendVarys() {
+        guard selected == "varys" else { return }
+        if running {
+            generation = UUID()
+            streaming?.cancel()
+            streaming = nil
+            running = false
+            run = nil
+        }
+        varysConnection?.client.disconnect()
+    }
+
+    /** varys told Otter's relay it has something: for the chat open here, it shows; anything else shows in Chats. */
+    func delivered(agentId: String, sessionKey: String?) async {
+        guard selected == "varys", agentId == varys.agentId else { return }
+        if let sessionKey, sessionKey == session { await catchUpVarys() }
+        await loadHistory()
+    }
+
+    /** What varys wrote in the open chat's thread since the chat last read it, when no message of the user's led to it. */
+    private func catchUpVarys() async {
+        guard selected == "varys", !running, readOnly == nil, let thread = session, let client = varysClient else { return }
+        let generation = self.generation
+        guard let items = try? await client.items(of: thread), self.generation == generation, session == thread, !running else { return }
+        let seen = varysSeen
+        varysSeen = Self.lastPlaced(items)
+        guard let seen else { return }
+        let added = items.filter { ($0["id"]?.string).flatMap { Int($0) }.map { $0 > seen } == true }
+        // A message of the user's (from varys's own app) is a turn there, not a delivery.
+        guard !added.contains(where: { $0["type"]?.string == "message" }) else { return }
+        let said = Varys.messages(added)
+        guard said.contains(where: { !$0.text.isEmpty }) else { return }
+        turns.append(Turn(role: .agent, text: said.map(\.text).filter { !$0.isEmpty }.joined(separator: "\n\n"),
+                          tools: said.flatMap(\.tools).map { Tool(name: $0) }))
+        await saveChat()
+    }
+
+    fileprivate static func lastPlaced(_ items: [Varys.JSON]) -> Int? {
+        items.compactMap { ($0["id"]?.string).flatMap { Int($0) } }.last
+    }
+
+    private func followVarys(session: String, run: String, _ events: @escaping () async -> AsyncStream<Varys.Event>) {
+        self.run = run
+        running = true
+        varysRun = OpenRun(session: session, run: run)
+        let generation = self.generation
+        streaming = Task {
+            for await event in await events() {
+                guard self.generation == generation else { return }
+                switch event {
+                case .reply(let reply):
+                    updateLast {
+                        $0.text = reply.text
+                        $0.tools = reply.steps.map { Tool(name: $0.name, output: $0.output) }
+                    }
+                case .approval(let approval):
+                    updateLast {
+                        $0.approval = Approval(id: approval.id, question: approval.title, detail: approval.detail, isCommand: approval.detail != nil,
+                                               reason: approval.why, choices: approval.inThread ? ["once", "session", "deny"] : ["once", "deny"])
+                    }
+                case .question(let question):
+                    updateLast {
+                        $0.question = OpenClaw.Question(
+                            id: question.id,
+                            items: [.init(id: question.id, header: "", question: question.text, options: [], multiSelect: false, secret: false)],
+                            expires: question.deadline ?? .distantFuture)
+                    }
+                case .resolved(let id):
+                    updateLast {
+                        if $0.approval?.id == id { $0.approval = nil }
+                        if $0.question?.id == id { $0.question = nil }
+                    }
+                case .done:
+                    varysRun = nil
+                case .stopped:
+                    varysRun = nil
+                    updateLast { $0.error = "Stopped." }
+                case .failed(let message):
+                    varysRun = nil
+                    updateLast { $0.error = message }
+                case .detached:
+                    updateLast { $0.note = "Lost varys mid-reply. The rest shows here once it's back." }
+                }
+            }
+            guard self.generation == generation else { return }
+            running = false
+            self.run = nil
+            updateLast { $0.approval = nil; $0.question = nil }
+            if let client = varysClient, let items = try? await client.items(of: session), self.session == session {
+                varysSeen = Self.lastPlaced(items)
+            }
+            await loadHistory()
+            await saveChat()
+        }
+    }
+
+    private func answerVarys(_ approval: Approval, _ choice: String) {
+        guard let client = varysClient else { return }
+        Task {
+            do {
+                try await client.decide(approval.id, approve: choice != "deny", inThread: choice == "session")
+                updateLast { if $0.approval?.id == approval.id { $0.approval = nil } }
+            } catch {
+                updateLast { $0.error = "Couldn't send the answer: \(error.localizedDescription)" }
+            }
+        }
+    }
+
+    /** A varys question is answered in words; skipped, it stays in varys's inbox, to answer there. */
+    private func answerVarys(_ question: OpenClaw.Question, _ answers: [String: [String]]?) {
+        guard let client = varysClient else { return }
+        let text = answers?[question.id]?.joined(separator: ", ").trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        Task {
+            do {
+                if !text.isEmpty { try await client.answer(question.id, text) }
+                updateLast { if $0.question?.id == question.id { $0.question = nil } }
+            } catch {
+                updateLast { $0.error = "Couldn't send the answer: \(error.localizedDescription)" }
+            }
+        }
+    }
+}
+
 /**
  * A conversation handed to the agent as a pointer (apps/web's
- * chat-context.ts): the agent reads mail itself, with gog, so only ids and a
- * subject leave the app.
+ * chat-context.ts): the agent reads mail itself (with gog, Otter's tools, or
+ * varys's own mail connection), so only ids and a subject leave the app.
  */
 struct MailContext: Hashable {
     var account: String

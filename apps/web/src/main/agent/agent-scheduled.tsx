@@ -193,6 +193,7 @@ export function ScheduledTasksView({
   const active = own.filter((t) => t.enabled).sort(byNext);
   const paused = own.filter((t) => !t.enabled).sort((a, b) => a.name.localeCompare(b.name));
   const managed = shown.filter((t) => t.managedBy).sort(byNext);
+  const keepers = [...new Set(managed.map((t) => agentName(t.provider)))];
   const card = (task: ScheduledTask) => (
     <TaskCard key={keyOf(task)} task={task} now={now} onOpen={() => onOpenTask(keyOf(task))} />
   );
@@ -287,7 +288,7 @@ export function ScheduledTasksView({
             ) : agents.length === 0 ? (
               <Empty
                 title="No agent here runs tasks on a schedule"
-                body="Connect OpenClaw or Hermes in Settings, and the tasks they run on their own show up here."
+                body="Connect OpenClaw, Hermes or varys in Settings, and the tasks they run on their own show up here."
               />
             ) : tasks.length === 0 && agents.every((a) => !a.error) ? (
               <Empty
@@ -326,7 +327,7 @@ export function ScheduledTasksView({
                 ) : null}
                 {managed.length > 0 ? (
                   <Section
-                    title="Kept by OpenClaw"
+                    title={`Kept by ${keepers.length === 1 ? keepers[0] : "your agents"}`}
                     count={managed.length}
                     open={showManaged}
                     onToggle={() => setShowManaged((o) => !o)}

@@ -302,9 +302,8 @@ function friendlyError(code: string, provider: ProviderKind): string {
     case "unreachable":
       if (provider === "openrouter") return "Can't reach OpenRouter. Try again in a moment.";
       if (provider === "openclaw") return "Can't reach the OpenClaw gateway.";
-      return provider === "codex"
-        ? "Lost the connection to Codex."
-        : "Can't reach Hermes. Are you on Tailscale?";
+      if (provider === "codex") return "Lost the connection to Codex.";
+      return `Can't reach ${name}. Are you on Tailscale?`;
     case "timeout":
       return `${name} went quiet for too long, so the run was stopped.`;
     case "cancelled":

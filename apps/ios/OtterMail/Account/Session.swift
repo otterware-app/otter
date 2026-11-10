@@ -148,6 +148,7 @@ final class Session {
                 case .accounts: await self.pullAccounts()
                 case .preferences: await self.pullPreferences()
                 case .chats: await self.agent.loadSynced()
+                case .agent(let agentId, let sessionKey): await self.agent.delivered(agentId: agentId, sessionKey: sessionKey)
                 }
             }
         }

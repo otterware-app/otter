@@ -9,7 +9,7 @@ ships through GitHub Releases with auto-update.
 In product copy (the app, the README, otterware.app) the words are: **modules** (Mail,
 Calendar, Drive, Tasks; Code soon), **plugins** (what `extensions/` are: features, UI and agent
 tools for a module, bringing its connectors), **connectors** (Gmail, Outlook, IMAP, Google
-Calendar, Todoist, Otter Drive, an OpenClaw gateway, Hermes), the user's **agents** over all of
+Calendar, Todoist, Otter Drive, an OpenClaw gateway, Hermes, varys), the user's **agents** over all of
 it, and **Scheduled** for what agents run on a schedule. Never "Otter Mail" for this app (the
 iPhone app keeps that name), "products", or "automations".
 
@@ -67,7 +67,7 @@ when a feature lands or goes.
   README.
 - `extensions/`: the built-in extensions, a package each (VS Code's model; contracts'
   `src/extensions.ts`): Sign-in codes, Calendar invites, Translation, Todoist, Otter Drive, and
-  the agents (`openrouter`, the Otter agent; `hermes`, `openclaw`, `claude`, `codex`). Each
+  the agents (`openrouter`, the Otter agent; `hermes`, `openclaw`, `varys`, `claude`, `codex`). Each
   `package.json` carries its manifest (`otter`); its halves are `./core` (`activate(context)`:
   handlers, an agent; core's `src/extensions.ts`), `./ui` (what it contributes to the screens'
   slots: cards, actions, commands, settings, an agent's form, a workspace; `apps/web/src/main/extensions`;

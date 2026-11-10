@@ -1,6 +1,5 @@
 import type { ChatContextKind, ChatContextMeta } from "@otter/contracts/chats";
 
-import type { ProviderKind } from "../mail/api";
 import { clampTitle } from "./chat-store";
 import { useAccounts, useMessage } from "../mail/hooks";
 import type { MessageSummary } from "../mail/types";
@@ -63,7 +62,7 @@ export function contextFromQuote(q: QuoteContext): AgentContext {
 export function buildHandoffText(
   question: string,
   context: AgentContext,
-  provider: ProviderKind,
+  mailReader: string | undefined,
 ): string {
   // A marker, not a name: chats sync to older apps (and the iPhone's Otter Mail), which strip it.
   const lines: string[] = [question.trim(), "", "— context from Otter Mail —"];
@@ -79,8 +78,8 @@ export function buildHandoffText(
     }
   }
   lines.push(
-    provider === "hermes" || provider === "openclaw"
-      ? "Fetch full content with gog if needed."
+    mailReader
+      ? `Fetch full content with ${mailReader} if needed.`
       : "Read them with the otter tools (get_thread) if needed.",
   );
   return lines.join("\n");

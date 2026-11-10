@@ -1,0 +1,208 @@
+{
+  "description": "A server of a newer minor version: its hello says minor 3, and it sends a message type and a field the client doesn't know, which the client ignores. A subscription to a view the server doesn't have is refused with an error that ends it; it isn't sent again on the next connection.",
+  "server": {
+    "agentId": "agent-1",
+    "incarnation": "inc-1"
+  },
+  "protocol": {
+    "server": {
+      "major": 1,
+      "minor": 3
+    }
+  },
+  "steps": [
+    {
+      "source": {
+        "view": "inbox",
+        "params": {},
+        "rev": 1,
+        "value": {
+          "items": []
+        }
+      }
+    },
+    {
+      "app": {
+        "subscribe": {
+          "id": "s1",
+          "view": "inbox",
+          "params": {}
+        }
+      }
+    },
+    {
+      "app": {
+        "subscribe": {
+          "id": "s2",
+          "view": "weather",
+          "params": {}
+        }
+      }
+    },
+    {
+      "connect": {
+        "ticket": "ticket-1"
+      }
+    },
+    {
+      "client": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "ticket": "ticket-1"
+      }
+    },
+    {
+      "server": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 3
+        },
+        "server": {
+          "agentId": "agent-1",
+          "incarnation": "inc-1"
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "sub",
+        "id": "s1",
+        "view": "inbox",
+        "params": {}
+      }
+    },
+    {
+      "client": {
+        "type": "sub",
+        "id": "s2",
+        "view": "weather",
+        "params": {}
+      }
+    },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 1,
+        "value": {
+          "items": []
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "ack",
+        "id": "s1",
+        "rev": 1
+      }
+    },
+    {
+      "server": {
+        "type": "error",
+        "id": "s2",
+        "error": {
+          "code": "UNKNOWN_VIEW",
+          "message": "There is no weather."
+        }
+      }
+    },
+    {
+      "expect": {
+        "views": {
+          "s1": {
+            "status": "fresh",
+            "rev": 1
+          },
+          "s2": {
+            "status": "error"
+          }
+        }
+      }
+    },
+    {
+      "note": "a message type from minor 3",
+      "inject": {
+        "type": "presence",
+        "devices": 2
+      }
+    },
+    {
+      "note": "a field from minor 3",
+      "inject": {
+        "type": "pong",
+        "at": "2026-11-05T09:00:00.000Z"
+      }
+    },
+    {
+      "expect": {
+        "connection": "open",
+        "views": {
+          "s1": {
+            "status": "fresh",
+            "rev": 1
+          }
+        }
+      }
+    },
+    {
+      "disconnect": {}
+    },
+    {
+      "connect": {
+        "ticket": "ticket-2"
+      }
+    },
+    {
+      "client": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 0
+        },
+        "ticket": "ticket-2"
+      }
+    },
+    {
+      "server": {
+        "type": "hello",
+        "protocol": {
+          "major": 1,
+          "minor": 3
+        },
+        "server": {
+          "agentId": "agent-1",
+          "incarnation": "inc-1"
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "sub",
+        "id": "s1",
+        "view": "inbox",
+        "params": {}
+      }
+    },
+    {
+      "server": {
+        "type": "snapshot",
+        "id": "s1",
+        "rev": 1,
+        "value": {
+          "items": []
+        }
+      }
+    },
+    {
+      "client": {
+        "type": "ack",
+        "id": "s1",
+        "rev": 1
+      }
+    }
+  ]
+}

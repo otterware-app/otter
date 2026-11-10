@@ -192,7 +192,9 @@ export function ChatComposer({
       convoId: convo.id,
       provider: providerKind,
       question,
-      input: attached ? buildHandoffText(text, attached.context, providerKind) : text,
+      input: attached
+        ? buildHandoffText(text, attached.context, agentContribution(providerKind)?.mailReader)
+        : text,
       skill,
       title: clampTitle(
         skill

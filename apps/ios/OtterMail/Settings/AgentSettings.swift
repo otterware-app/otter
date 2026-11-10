@@ -11,6 +11,9 @@ struct AgentSettings: View {
     @State private var setupCode = ""
     @State private var gatewayURL = ""
     @State private var gatewayToken = ""
+    @State private var varysLink = ""
+    @State private var varysAddress = ""
+    @State private var varysCode = ""
     @State private var error: String?
 
     var body: some View {
@@ -21,6 +24,7 @@ struct AgentSettings: View {
                     Text("OpenRouter").tag("openrouter")
                     Text("Hermes").tag("hermes")
                     Text("OpenClaw").tag("openclaw")
+                    Text("varys").tag("varys")
                 }
             }
             if agent.selected == "openrouter" {
@@ -65,6 +69,8 @@ struct AgentSettings: View {
                 }
             } else if agent.selected == "openclaw" {
                 openClaw
+            } else if agent.selected == "varys" {
+                varys
             } else {
                 Section {
                     Toggle(isOn: $agent.hermes.enabled) {
@@ -220,6 +226,76 @@ struct AgentSettings: View {
             }
         } footer: {
             Text("Your OpenClaw gateway, usually over Tailscale. Make a setup code on it with openclaw qr --setup-code-only and paste it here, then approve this iPhone there. Chats live on the gateway, so they're the same everywhere; this iPhone's key and tokens stay on it.").sectionFooter()
+        }
+    }
+
+    @ViewBuilder
+    private var varys: some View {
+        @Bindable var agent = session.agent
+        Section {
+            Toggle(isOn: $agent.varys.enabled) {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("varys")
+                        Text(statusText).font(.inter(.subheadline)).foregroundStyle(statusColor)
+                    }
+                } icon: {
+                    Image(decorative: "OtterAgent")
+                }
+            }
+            if agent.varys.enabled {
+                if !agent.varys.address.isEmpty {
+                    LabeledContent("Address") {
+                        Text(URL(string: agent.varys.address)?.host() ?? agent.varys.address).foregroundStyle(palette.muted)
+                    }
+                }
+                if agent.varys.address.isEmpty || agent.status != .ready {
+                    SecureField("Pairing link", text: $varysLink)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Button(connecting ? "Connecting…" : agent.varys.address.isEmpty ? "Connect" : "Pair again") {
+                        pairVarys { try await agent.connectVarys(link: varysLink) }
+                    }
+                    .disabled(varysLink.isEmpty || connecting)
+                    DisclosureGroup("Type the address and code instead") {
+                        TextField("https://computer.tailnet.ts.net", text: $varysAddress)
+                            .keyboardType(.URL)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        SecureField("Code", text: $varysCode)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                        Button("Connect with the code") {
+                            pairVarys { try await agent.connectVarys(address: varysAddress, code: varysCode) }
+                        }
+                        .disabled(varysAddress.isEmpty || varysCode.isEmpty || connecting)
+                    }
+                    if let error { Text(error).foregroundStyle(palette.error) }
+                    if case .failed(let message) = agent.status { Text(message).foregroundStyle(palette.error) }
+                }
+                if !agent.varys.address.isEmpty {
+                    Button("Disconnect", role: .destructive) { Task { await agent.disconnectVarys() } }
+                }
+            }
+        } footer: {
+            Text(session.agent.varys.address.isEmpty
+                ? "Your varys agent, usually served on your tailnet with Tailscale Serve, so this iPhone needs Tailscale too. In varys, open Settings → Sharing & access → Connect an app. Choose Works as you and the Chat client preset, then paste the pairing link here. It works once."
+                : "This iPhone has access of its own, listed in varys. Disconnecting revokes it there and forgets varys here.").sectionFooter()
+        }
+    }
+
+    private func pairVarys(_ pair: @escaping () async throws -> Void) {
+        connecting = true
+        error = nil
+        Task {
+            do {
+                try await pair()
+                varysLink = ""
+                varysCode = ""
+            } catch {
+                self.error = error.localizedDescription
+            }
+            connecting = false
         }
     }
 

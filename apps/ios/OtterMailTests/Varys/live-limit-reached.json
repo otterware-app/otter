@@ -1,0 +1,66 @@
+{
+  "description": "Limits per connection. A server holds a bounded amount for each client: here at most two subscriptions. A third is refused with LIMIT_REACHED, which ends only that subscription; the others go on. A refused subscription isn't sent again on the next connection.",
+  "server": {
+    "agentId": "agent-1",
+    "incarnation": "inc-1"
+  },
+  "limits": {
+    "subscriptions": 2
+  },
+  "steps": [
+    {
+      "source": { "view": "threads", "params": {}, "rev": 1, "value": { "threads": [] } }
+    },
+    {
+      "source": { "view": "inbox", "params": {}, "rev": 4, "value": { "items": [] } }
+    },
+    {
+      "source": { "view": "routines", "params": {}, "rev": 2, "value": { "routines": [] } }
+    },
+    { "app": { "subscribe": { "id": "s1", "view": "threads", "params": {} } } },
+    { "app": { "subscribe": { "id": "s2", "view": "inbox", "params": {} } } },
+    { "app": { "subscribe": { "id": "s3", "view": "routines", "params": {} } } },
+    { "connect": { "ticket": "ticket-1" } },
+    {
+      "client": {
+        "type": "hello",
+        "protocol": { "major": 1, "minor": 0 },
+        "ticket": "ticket-1"
+      }
+    },
+    {
+      "server": {
+        "type": "hello",
+        "protocol": { "major": 1, "minor": 0 },
+        "server": { "agentId": "agent-1", "incarnation": "inc-1" }
+      }
+    },
+    { "client": { "type": "sub", "id": "s1", "view": "threads", "params": {} } },
+    { "client": { "type": "sub", "id": "s2", "view": "inbox", "params": {} } },
+    { "client": { "type": "sub", "id": "s3", "view": "routines", "params": {} } },
+    { "server": { "type": "snapshot", "id": "s1", "rev": 1, "value": { "threads": [] } } },
+    { "client": { "type": "ack", "id": "s1", "rev": 1 } },
+    { "server": { "type": "snapshot", "id": "s2", "rev": 4, "value": { "items": [] } } },
+    { "client": { "type": "ack", "id": "s2", "rev": 4 } },
+    {
+      "server": {
+        "type": "error",
+        "id": "s3",
+        "error": {
+          "code": "LIMIT_REACHED",
+          "message": "This connection reached its limit of 2 subscriptions. Close a view, then subscribe again."
+        }
+      }
+    },
+    {
+      "expect": {
+        "connection": "open",
+        "views": {
+          "s1": { "status": "fresh", "rev": 1 },
+          "s2": { "status": "fresh", "rev": 4 },
+          "s3": { "status": "error" }
+        }
+      }
+    }
+  ]
+}
