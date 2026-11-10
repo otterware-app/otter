@@ -14,6 +14,8 @@ export type CalendarInvite = {
   sequence: number;
   response: RsvpResponse | "needsAction";
   calendarAccess: boolean;
+  inCalendar: boolean;
+  added: boolean;
   htmlLink: string | null;
   cancelled: boolean;
 };
@@ -27,4 +29,16 @@ export const invitesApi = {
     messageId: string,
     response: RsvpResponse,
   ): Promise<CalendarInvite | null> => task("calendar:respond", { accountId, messageId, response }),
+
+  addInvite: (
+    accountId: string,
+    messageId: string,
+    target: { accountId: string; calendarId: string },
+  ): Promise<CalendarInvite | null> =>
+    task("calendar:addInvite", {
+      accountId,
+      messageId,
+      targetAccountId: target.accountId,
+      calendarId: target.calendarId,
+    }),
 };

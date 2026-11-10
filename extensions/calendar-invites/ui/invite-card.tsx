@@ -1,6 +1,8 @@
 import {
   toast,
   useCapabilities,
+  useDefaultCalendar,
+  Btn,
   HintTooltip,
   IconBtn,
   cn,
@@ -9,7 +11,13 @@ import {
 } from "@otter/web/extension-kit";
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarIcon, CheckIcon, ExternalLinkIcon, MapPinIcon } from "lucide-react";
+import {
+  CalendarIcon,
+  CalendarPlusIcon,
+  CheckIcon,
+  ExternalLinkIcon,
+  MapPinIcon,
+} from "lucide-react";
 import { invitesApi, type CalendarInvite, type RsvpResponse } from "./api";
 
 const inviteKey = (accountId: string, messageId: string) => [
@@ -67,6 +75,7 @@ const DONE: Record<RsvpResponse, string> = {
 export function InviteCard({ accountId, messageId }: { accountId: string; messageId: string }) {
   const qc = useQueryClient();
   const { calendar } = useCapabilities(accountId);
+  const target = useDefaultCalendar();
   const query = useQuery({
     queryKey: inviteKey(accountId, messageId),
     queryFn: () => invitesApi.getCalendarInvite(accountId, messageId),
@@ -85,11 +94,7 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
     },
     onSuccess: (next, response) => {
       if (next) qc.setQueryData(inviteKey(accountId, messageId), next);
-      toast.success(
-        next?.calendarAccess === false
-          ? `${DONE[response]}, reply sent to the organizer`
-          : `${DONE[response]}`,
-      );
+      toast.success(DONE[response]);
     },
     onError: (error, _response, context) => {
       if (context?.previous) qc.setQueryData(inviteKey(accountId, messageId), context.previous);
@@ -99,15 +104,29 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
     },
   });
 
+  const add = useMutation({
+    mutationFn: () => invitesApi.addInvite(accountId, messageId, target!),
+    onSuccess: (next) => {
+      if (next) qc.setQueryData(inviteKey(accountId, messageId), next);
+      toast.success("Added to your calendar");
+    },
+    onError: (error) =>
+      toast.error(
+        `Couldn't add it to your calendar: ${error instanceof Error ? error.message : String(error)}`,
+      ),
+  });
+
   useEffect(() => {
     const onRequest = (id: string, response: RsvpResponse) => {
-      if (id === messageId && !respond.isPending) respond.mutate(response);
+      if (id !== messageId || respond.isPending) return;
+      if (invite?.inCalendar) respond.mutate(response);
+      else toast.error("This invitation isn't in your calendar.");
     };
     listeners.add(onRequest);
     return () => {
       listeners.delete(onRequest);
     };
-  }, [messageId, respond]);
+  }, [messageId, respond, invite?.inCalendar]);
 
   if (!invite || invite.method === "REPLY") return null;
   const when = formatWhen(invite);
@@ -142,9 +161,9 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
           ) : null}
         </div>
         {invite.htmlLink ? (
-          <HintTooltip label="Open in Google Calendar">
+          <HintTooltip label="Open in calendar">
             <IconBtn
-              label="Open in Google Calendar"
+              label="Open in calendar"
               onClick={(e) => openLink(invite.htmlLink!, { flip: isModClick(e) })}
             >
               <ExternalLinkIcon className="size-4" />
@@ -154,7 +173,7 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
       </div>
       {invite.cancelled ? (
         <div className="pl-13 text-sm text-muted-foreground">This event was cancelled.</div>
-      ) : (
+      ) : invite.inCalendar ? (
         <div className="flex flex-wrap items-center gap-2 pl-13">
           <span className="text-sm text-muted-foreground">
             {answered ? DONE[answered] : "Going?"}
@@ -183,15 +202,29 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
               );
             })}
           </div>
-          {!invite.calendarAccess ? (
-            <span className="text-xs text-muted-foreground">
-              {calendar
-                ? "Answers are emailed to the organizer. Re-add this account to update your calendar too."
-                : "Answers are emailed to the organizer."}
-            </span>
-          ) : null}
         </div>
-      )}
+      ) : invite.added ? (
+        <div className="flex items-center gap-1.5 pl-13 text-sm text-muted-foreground">
+          <CheckIcon className="size-3.5" aria-hidden />
+          In your calendar
+        </div>
+      ) : calendar && !invite.calendarAccess ? (
+        <div className="pl-13 text-xs text-muted-foreground">
+          Re-add this account to answer from here.
+        </div>
+      ) : target && invite.start ? (
+        <div className="pl-13">
+          <Btn
+            size="sm"
+            className="rounded-full"
+            disabled={add.isPending}
+            onClick={() => add.mutate()}
+          >
+            <CalendarPlusIcon aria-hidden />
+            Add to calendar
+          </Btn>
+        </div>
+      ) : null}
     </div>
   );
 }

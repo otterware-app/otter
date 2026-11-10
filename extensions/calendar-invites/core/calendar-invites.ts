@@ -1,23 +1,16 @@
 /**
- * Calendar invitations in the reader: read the invite's .ics, show your
- * current answer, and RSVP in place — the way Gmail's Yes / No / Maybe do.
- *
- * RSVP goes through the account's calendar when its provider has one
- * (Google Calendar: your calendar updates and the organizer is notified).
- * Otherwise, and for Gmail accounts connected before the app asked for
- * calendar access, it's a standard iMIP REPLY email to the organizer (what
- * Apple Mail / Outlook send), which the organizer's calendar applies.
+ * Calendar invitations in the reader. An invitation already in the account's
+ * calendar is answered there (Google Calendar or Outlook notify the organizer).
+ * Anything else can only be added to a calendar: answering by email went to
+ * no-reply senders of bookings and tickets.
  */
 
 import {
   logger,
   fromBase64,
-  toBase64,
   utf8Decode,
-  utf8Encode,
   providerFor,
   NoCalendarAccess,
-  getAccount,
   getAttachmentData,
   mailStore as store,
 } from "@otter/core/extension-kit";
@@ -37,9 +30,15 @@ export type CalendarInvite = {
   sequence: number;
   response: RsvpResponse | "needsAction";
   calendarAccess: boolean;
+  /** In the account's calendar, where Yes / No / Maybe answer it. */
+  inCalendar: boolean;
+  /** Added to a calendar from here. */
+  added: boolean;
   htmlLink: string | null;
   cancelled: boolean;
 };
+
+type Added = { accountId: string; calendarId?: string; eventId: string; htmlLink: string | null };
 
 type Prop = { name: string; params: Record<string, string>; value: string };
 
@@ -74,7 +73,36 @@ function toIso(prop: Prop | undefined): { iso: string | null; allDay: boolean } 
   const dt = v.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/);
   if (!dt) return { iso: null, allDay: false };
   const [, y, m, d, hh, mm, ss, z] = dt;
-  return { iso: `${y}-${m}-${d}T${hh}:${mm}:${ss}${z ? "Z" : ""}`, allDay: false };
+  const local = `${y}-${m}-${d}T${hh}:${mm}:${ss}`;
+  if (z) return { iso: `${local}Z`, allDay: false };
+  const zoned = prop.params.TZID ? inZone(local, prop.params.TZID) : null;
+  return { iso: zoned ?? local, allDay: false };
+}
+
+/** A wall-clock time in an IANA zone as an instant; null for zones Intl doesn't know (Windows names). */
+function inZone(local: string, zone: string): string | null {
+  let format: Intl.DateTimeFormat;
+  try {
+    format = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  } catch {
+    return null;
+  }
+  const wall = Date.parse(`${local}Z`);
+  const offset = (ms: number) => {
+    const p = Object.fromEntries(format.formatToParts(ms).map((x) => [x.type, x.value]));
+    return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - ms;
+  };
+  const guess = wall - offset(wall);
+  return new Date(wall - offset(guess)).toISOString();
 }
 
 type ParsedIcs = {
@@ -130,7 +158,7 @@ async function inviteIcs(accountId: string, messageId: string): Promise<ParsedIc
   return parsed;
 }
 
-const kvKey = (accountId: string, uid: string) => `rsvp:${accountId}:${uid}`;
+const addedKey = (accountId: string, uid: string) => `invite-added:${accountId}:${uid}`;
 
 export async function getInvite(
   accountId: string,
@@ -147,19 +175,21 @@ export async function getInvite(
   const organizerProp = get(event, "ORGANIZER");
   const mine = event.find((p) => p.name === "ATTENDEE" && mailto(p.value) === email);
   const icsStatus = mine?.params.PARTSTAT?.toLowerCase();
-  const stored = store.getKv(kvKey(accountId, uid)) as RsvpResponse | null;
+  const saved = store.getKv(addedKey(accountId, uid));
+  const added = saved ? (JSON.parse(saved) as Added) : null;
 
   let response: CalendarInvite["response"] =
-    stored ??
-    (icsStatus === "accepted" || icsStatus === "declined" || icsStatus === "tentative"
+    icsStatus === "accepted" || icsStatus === "declined" || icsStatus === "tentative"
       ? icsStatus
-      : "needsAction");
+      : "needsAction";
   const calendar = providerFor(accountId).calendar;
   let calendarAccess = Boolean(calendar);
-  let htmlLink: string | null = null;
+  let inCalendar = false;
+  let htmlLink = added?.htmlLink ?? null;
   try {
     const found = await calendar?.findEvent(accountId, uid);
     if (found) {
+      inCalendar = true;
       response = found.response;
       htmlLink = found.htmlLink;
     }
@@ -182,90 +212,11 @@ export async function getInvite(
     sequence: Number(get(event, "SEQUENCE")?.value ?? 0) || 0,
     response,
     calendarAccess,
+    inCalendar,
+    added: Boolean(added),
     htmlLink,
     cancelled: method === "CANCEL" || get(event, "STATUS")?.value.toUpperCase() === "CANCELLED",
   };
-}
-
-const PARTSTAT: Record<RsvpResponse, string> = {
-  accepted: "ACCEPTED",
-  declined: "DECLINED",
-  tentative: "TENTATIVE",
-};
-
-const SUBJECT_PREFIX: Record<RsvpResponse, string> = {
-  accepted: "Accepted",
-  declined: "Declined",
-  tentative: "Tentatively accepted",
-};
-
-function icsStamp(date: Date): string {
-  return date
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace(/\.\d{3}/, "");
-}
-
-async function sendImipReply(
-  accountId: string,
-  messageId: string,
-  ics: ParsedIcs,
-  response: RsvpResponse,
-): Promise<void> {
-  const { event } = ics;
-  const organizer = get(event, "ORGANIZER");
-  if (!organizer) throw new Error("This invitation has no organizer to reply to.");
-  const account = await getAccount(accountId);
-  const me = account?.email ?? accountId;
-  const name = account?.name ?? "";
-  const summary = unescapeText(get(event, "SUMMARY")?.value ?? "");
-  const keep = new Set(["UID", "SEQUENCE", "DTSTART", "DTEND", "RECURRENCE-ID", "SUMMARY"]);
-  const lines = [
-    "BEGIN:VCALENDAR",
-    "PRODID:-//Otter//EN",
-    "VERSION:2.0",
-    "CALSCALE:GREGORIAN",
-    "METHOD:REPLY",
-    "BEGIN:VEVENT",
-    ...event
-      .filter((p) => keep.has(p.name))
-      .map(
-        (p) =>
-          `${p.name}${Object.entries(p.params)
-            .map(([k, v]) => `;${k}=${v}`)
-            .join("")}:${p.value}`,
-      ),
-    `DTSTAMP:${icsStamp(new Date())}`,
-    `ORGANIZER${organizer.params.CN ? `;CN="${organizer.params.CN}"` : ""}:${organizer.value}`,
-    `ATTENDEE;PARTSTAT=${PARTSTAT[response]}${name ? `;CN="${name}"` : ""}:mailto:${me}`,
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ];
-  const calendar = lines.join("\r\n");
-  const boundary = `otter-${Date.now().toString(36)}`;
-  const subject = `${SUBJECT_PREFIX[response]}: ${summary}`;
-  const text = `${name || me} has ${SUBJECT_PREFIX[response].toLowerCase()} this invitation.`;
-  const raw = [
-    `From: ${name ? `"${name}" <${me}>` : me}`,
-    `To: ${mailto(organizer.value)}`,
-    `Subject: =?UTF-8?B?${toBase64(utf8Encode(subject))}?=`,
-    "MIME-Version: 1.0",
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
-    "",
-    `--${boundary}`,
-    "Content-Type: text/plain; charset=UTF-8",
-    "",
-    text,
-    `--${boundary}`,
-    "Content-Type: text/calendar; charset=UTF-8; method=REPLY",
-    "Content-Transfer-Encoding: base64",
-    "",
-    toBase64(utf8Encode(calendar)).replace(/.{76}/g, "$&\r\n"),
-    `--${boundary}--`,
-    "",
-  ].join("\r\n");
-  const detail = store.getMessageDetail(accountId, messageId);
-  await providerFor(accountId).sendRaw(accountId, raw, detail?.threadId);
 }
 
 export async function respondToInvite(
@@ -276,17 +227,45 @@ export async function respondToInvite(
   const ics = await inviteIcs(accountId, messageId);
   const uid = ics && get(ics.event, "UID")?.value;
   if (!ics || !uid) throw new Error("This message has no calendar invitation.");
+  const answered = await providerFor(accountId).calendar?.respond(accountId, uid, response);
+  if (!answered) throw new Error("This invitation isn't in your calendar.");
+  logger.info("calendar", "rsvp", { response });
+  return getInvite(accountId, messageId);
+}
 
-  let viaCalendar = false;
-  try {
-    viaCalendar =
-      (await providerFor(accountId).calendar?.respond(accountId, uid, response)) ?? false;
-  } catch (error) {
-    if (!(error instanceof NoCalendarAccess)) throw error;
-  }
-  if (!viaCalendar) await sendImipReply(accountId, messageId, ics, response);
-
-  store.setKv(kvKey(accountId, uid), response);
-  logger.info("calendar", "rsvp", { response, via: viaCalendar ? "calendar" : "email" });
+export async function addInviteToCalendar(
+  accountId: string,
+  messageId: string,
+  target: { accountId: string; calendarId?: string },
+): Promise<CalendarInvite | null> {
+  const ics = await inviteIcs(accountId, messageId);
+  const uid = ics && get(ics.event, "UID")?.value;
+  if (!ics || !uid) throw new Error("This message has no calendar invitation.");
+  const calendar = providerFor(target.accountId).calendar;
+  if (!calendar) throw new Error("This mailbox has no calendar.");
+  const { event } = ics;
+  const start = toIso(get(event, "DTSTART"));
+  const end = toIso(get(event, "DTEND"));
+  if (!start.iso) throw new Error("This invitation has no start time.");
+  const text = (name: string) => {
+    const value = get(event, name)?.value;
+    return value ? unescapeText(value) : undefined;
+  };
+  const created = await calendar.createEvent(
+    target.accountId,
+    {
+      title: text("SUMMARY") ?? "(no title)",
+      start: start.allDay ? start.iso : new Date(start.iso).toISOString(),
+      ...(end.iso ? { end: end.allDay ? end.iso : new Date(end.iso).toISOString() } : {}),
+      allDay: start.allDay,
+      location: text("LOCATION"),
+      description: text("DESCRIPTION"),
+    },
+    false,
+    target.calendarId,
+  );
+  const added: Added = { ...target, eventId: created.id, htmlLink: created.htmlLink };
+  store.setKv(addedKey(accountId, uid), JSON.stringify(added));
+  logger.info("calendar", "invite added");
   return getInvite(accountId, messageId);
 }
