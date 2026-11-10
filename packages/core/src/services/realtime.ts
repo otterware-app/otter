@@ -1,4 +1,4 @@
-import type { RelayEvent } from "@otter/contracts/relay";
+import type { RelayEvent, WatchingMessage } from "@otter/contracts/relay";
 
 import { logger } from "../logger.js";
 import { platform } from "../platform.js";
@@ -30,6 +30,27 @@ let attempt = 0;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let pingTimer: ReturnType<typeof setInterval> | null = null;
 let pongTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** The agent session each of this device's windows has on screen, while that window is in front. */
+const watching = new Map<string, string>();
+
+function sayWatching(): void {
+  if (socket?.readyState !== WebSocket.OPEN) return;
+  const [session = null] = watching.values();
+  socket.send(JSON.stringify({ type: "watching", session } satisfies WatchingMessage));
+}
+
+/**
+ * A window shows an agent's chat and has focus, or no longer does: the relay doesn't push to the
+ * account's iPhones about a chat someone is looking at.
+ */
+export function setWatching(window: string, session: string | null): void {
+  const [before = null] = watching.values();
+  if (session) watching.set(window, session);
+  else watching.delete(window);
+  const [now = null] = watching.values();
+  if (now !== before) sayWatching();
+}
 
 function setState(next: RealtimeState): void {
   if (next === state) return;
@@ -84,8 +105,11 @@ function connect(): void {
     opened = true;
     attempt = 0;
     setState("live");
+    sayWatching();
     pingTimer = setInterval(() => {
       ws.send("ping");
+      // Said again while it's true: the relay forgets a device that stops saying it.
+      if (watching.size > 0) sayWatching();
       pongTimer ??= setTimeout(() => {
         logger.info("realtime", "No pong; reconnecting");
         dropSocket();

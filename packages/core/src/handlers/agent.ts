@@ -5,6 +5,7 @@ import { ATTACHMENTS_DIR, stageAttachment } from "../services/agent/attachments.
 import * as agent from "../services/agent/service.js";
 import { agentChannels, deleteAgentChannel, makeAgentChannel } from "../services/agent/channels.js";
 import { preferenceChanged } from "../services/preferences.js";
+import { setWatching } from "../services/realtime.js";
 import { registeredAgents } from "../extensions.js";
 import type { ApprovalDecision, ProviderKind, ChatAttachment } from "../services/agent/types.js";
 
@@ -193,6 +194,14 @@ export function registerAgentHandlers(): void {
       body: str(p?.body) || undefined,
       focused: p?.focused === true,
     });
+    return { ok: true };
+  });
+
+  handle("agent:watching", async (params: unknown) => {
+    const p = params as Params;
+    const window = str(p?.window);
+    if (!window) throw new Error("A window is required.");
+    setWatching(window, str(p?.session) || null);
     return { ok: true };
   });
 

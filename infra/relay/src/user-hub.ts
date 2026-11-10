@@ -6,7 +6,7 @@
  */
 
 import { DurableObject } from "cloudflare:workers";
-import type { RelayEvent } from "@otter/contracts/relay";
+import { type RelayEvent, WATCHING_FOR_MS } from "@otter/contracts/relay";
 import * as apns from "./apns.ts";
 import * as push from "./push.ts";
 import { connection, NotificationFailure } from "./notification-connections.ts";
@@ -31,6 +31,9 @@ type PendingPush = {
 };
 
 export const SESSION_HEADER = "x-otter-session";
+
+/** Kept with a device's socket: the agent session it says it has on screen, and when it said so. */
+type Attachment = { session?: string; at?: number };
 
 export class UserHub extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
@@ -224,8 +227,27 @@ export class UserHub extends DurableObject<Env> {
     }
   }
 
-  override webSocketMessage(): void {
-    // Clients only send `ping`, which the auto-response answers.
+  /** A device of the account has this agent session on screen, with its window in front. */
+  watching(session: string): boolean {
+    const since = Date.now() - WATCHING_FOR_MS;
+    return this.ctx.getWebSockets().some((socket) => {
+      const said = socket.deserializeAttachment() as Attachment | null;
+      return said?.session === session && (said.at ?? 0) > since;
+    });
+  }
+
+  /** Besides `ping` (answered without waking up), a device says which agent session it's looking at. */
+  override webSocketMessage(socket: WebSocket, message: string | ArrayBuffer): void {
+    if (typeof message !== "string" || message.length > 600) return;
+    let said: { type?: unknown; session?: unknown };
+    try {
+      said = JSON.parse(message) as typeof said;
+    } catch {
+      return;
+    }
+    if (said.type !== "watching") return;
+    const session = typeof said.session === "string" && said.session ? said.session : undefined;
+    socket.serializeAttachment({ session, at: Date.now() } satisfies Attachment);
   }
 
   override webSocketClose(socket: WebSocket, code: number, reason: string): void {

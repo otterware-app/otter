@@ -9,6 +9,7 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import {
+  type AgentPointer,
   GMAIL_SIGN_IN_CANCELLED,
   isAliasPictures,
   isMailboxPicture,
@@ -90,6 +91,9 @@ export interface Env {
   APNS_PRIVATE_KEY?: string;
   APNS_SANDBOX_TOPIC?: string;
   APNS_PRODUCTION_TOPIC?: string;
+  /** Otter Agents (apps/ios-agents): its devices hear what agents ask and send, never mail. */
+  APNS_AGENTS_SANDBOX_TOPIC?: string;
+  APNS_AGENTS_PRODUCTION_TOPIC?: string;
   APNS_TEST_ORIGIN?: string;
   BETTER_AUTH_URL: string;
   BETTER_AUTH_SECRET: string;
@@ -769,10 +773,26 @@ authed.get(
 app.route("/v1", authed);
 app.route(
   "/",
-  agentChannels.gatewayRoutes((env, userId, pointer) =>
-    hub(env, userId).publish({ type: "agent", email: "", pointer }),
+  agentChannels.gatewayRoutes(
+    (env, userId, pointer) => hub(env, userId).publish({ type: "agent", email: "", pointer }),
+    notifyAgentDevices,
   ),
 );
+
+/** Tells the account's Otter Agents iPhones too, for when the app isn't open to hear the event. */
+async function notifyAgentDevices(env: Env, userId: string, pointer: AgentPointer): Promise<void> {
+  // An approval answered elsewhere is nothing to come back for.
+  if (pointer.resolved || !apns.configured(env)) return;
+  // Someone is looking at this chat on one of the account's devices: it tells them itself.
+  if (pointer.sessionKey && (await hub(env, userId).watching(pointer.sessionKey))) return;
+  const devices = await push.agentDevices(env, userId);
+  await Promise.all(
+    devices.map(async (device) => {
+      const result = await apns.sendAgent(env, device, userId, pointer);
+      if (result === "invalid") await push.invalidate(env, device);
+    }),
+  );
+}
 
 const gmailNotification = z.object({
   emailAddress: mailbox,

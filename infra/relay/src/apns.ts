@@ -1,5 +1,10 @@
 import { importPKCS8, SignJWT } from "jose";
-import type { MailPushMetadata, NewMailPushMetadata } from "@otter/contracts/relay";
+import type {
+  AgentPointer,
+  AgentPushMetadata,
+  MailPushMetadata,
+  NewMailPushMetadata,
+} from "@otter/contracts/relay";
 import type { Env } from "./worker.ts";
 import type { PushDevice } from "./push.ts";
 
@@ -64,19 +69,68 @@ export function payload(metadata: MailPushMetadata | NewMailPushMetadata) {
 export type Result = "sent" | "invalid" | "retry" | "rejected" | { retryAfterMs: number };
 
 /** Fetch uses the Workers outbound HTTPS transport; live APNs HTTP/2 delivery must be verified when configuring keys. */
-export async function send(
+export function send(
   env: Env,
   device: PushDevice,
   metadata: MailPushMetadata | NewMailPushMetadata,
   transport: typeof fetch = fetch,
 ): Promise<Result> {
+  return post(env, device, `${metadata.userId}:${metadata.email}`, payload(metadata), transport);
+}
+
+/** Explicit allowlist, as for mail: where to read what the agent has, never what it says. */
+export function agentPayload(userId: string, pointer: AgentPointer) {
+  const body = {
+    approval: "An agent is waiting for your approval.",
+    question: "An agent has a question for you.",
+    message: "An agent sent you a message.",
+  }[pointer.kind];
+  return {
+    aps: {
+      alert: { title: "Otter Agents", body },
+      sound: "default",
+      ...(pointer.sessionKey ? { "thread-id": pointer.sessionKey } : {}),
+    },
+    otter: {
+      version: 1,
+      kind: "agent",
+      userId,
+      pointer: {
+        kind: pointer.kind,
+        agentId: pointer.agentId,
+        sessionKey: pointer.sessionKey,
+        ...(pointer.approvalId ? { approvalId: pointer.approvalId } : {}),
+        ...(pointer.approvalKind ? { approvalKind: pointer.approvalKind } : {}),
+        ...(pointer.questionId ? { questionId: pointer.questionId } : {}),
+        at: pointer.at,
+      },
+    } satisfies AgentPushMetadata,
+  };
+}
+
+/** One alert a chat and kind: a second approval in the same chat takes the first one's place. */
+export function sendAgent(
+  env: Env,
+  device: PushDevice,
+  userId: string,
+  pointer: AgentPointer,
+  transport: typeof fetch = fetch,
+): Promise<Result> {
+  const collapse = `${userId}:${pointer.sessionKey ?? pointer.agentId}:${pointer.kind}`;
+  return post(env, device, collapse, agentPayload(userId, pointer), transport);
+}
+
+async function post(
+  env: Env,
+  device: PushDevice,
+  collapseKey: string,
+  body: unknown,
+  transport: typeof fetch,
+): Promise<Result> {
   const host =
     device.environment === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
   const origin = env.APNS_TEST_ORIGIN ?? `https://${host}`;
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(`${metadata.userId}:${metadata.email}`),
-  );
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(collapseKey));
   const collapse = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join(
     "",
   );
@@ -94,7 +148,7 @@ export async function send(
         "apns-collapse-id": collapse,
         "content-type": "application/json",
       },
-      body: JSON.stringify(payload(metadata)),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(8000),
     });
     if (response.status === 200) return "sent";

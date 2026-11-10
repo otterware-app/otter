@@ -605,6 +605,10 @@ export const mailApi = {
     sessionId: string;
   }): Promise<{ resumed: boolean }> => ipc("agent:resume", params),
 
+  /** The agent session this window has on screen while it's in front, or null: its iPhones aren't told of that chat. */
+  agentWatching: (params: { window: string; session: string | null }): Promise<{ ok: boolean }> =>
+    ipc("agent:watching", params),
+
   /** Notifies that an agent is waiting on the user (an approval, a question). */
   agentNotifyAsk: (params: {
     provider: ProviderKind;

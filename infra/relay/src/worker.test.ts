@@ -350,6 +350,8 @@ beforeAll(async () => {
       APNS_PRIVATE_KEY: { type: "plain_text", value: appleKey },
       APNS_SANDBOX_TOPIC: { type: "plain_text", value: "dev.otterware.mail.dev" },
       APNS_PRODUCTION_TOPIC: { type: "plain_text", value: "dev.otterware.mail" },
+      APNS_AGENTS_SANDBOX_TOPIC: { type: "plain_text", value: "dev.otterware.agents.dev" },
+      APNS_AGENTS_PRODUCTION_TOPIC: { type: "plain_text", value: "dev.otterware.agents" },
       APNS_TEST_ORIGIN: {
         type: "plain_text",
         value: `http://127.0.0.1:${(apnsMock.address() as net.AddressInfo).port}`,
@@ -1444,6 +1446,130 @@ describe("agent channels", () => {
     ]);
     expect(listed.channels[0].lastUsedAt).toBeGreaterThan(0);
     expect(JSON.stringify(listed)).not.toContain(made.token);
+  });
+
+  const agentsDevice = (token: string, mode = "all") => ({
+    token,
+    mailboxes: [],
+    topic: "dev.otterware.agents.dev",
+    environment: "sandbox",
+    mode,
+  });
+
+  it("pushes to the account's Otter Agents iPhones: where to read it, never what it says", async () => {
+    const owner = await signIn("agents-push@example.com", "agents-push-sub");
+    const made = await channel(owner.token);
+    const phone = "a1".repeat(32);
+    expect((await call("PUT", "/v1/push/device", owner.token, agentsDevice(phone))).status).toBe(
+      204,
+    );
+    const approval = { ...pointer, kind: "approval", approvalId: "ap-1", approvalKind: "exec" };
+    expect((await send(made.token, approval)).status).toBe(202);
+    await until(() => notifications.some((n) => n.token === phone), "the agent push");
+    const sent = notifications.find((n) => n.token === phone)!;
+    expect(sent.headers["apns-topic"]).toBe("dev.otterware.agents.dev");
+    expect(sent.body).toEqual({
+      aps: {
+        alert: { title: "Otter Agents", body: "An agent is waiting for your approval." },
+        sound: "default",
+        "thread-id": pointer.sessionKey,
+      },
+      otter: { version: 1, kind: "agent", userId: owner.user.id, pointer: approval },
+    });
+  });
+
+  it("stays quiet for an approval answered elsewhere, a phone with notifications off, and Otter Mail", async () => {
+    const owner = await signIn("agents-quiet@example.com", "agents-quiet-sub");
+    const mail = await signIn("agents-quiet@example.com", "agents-quiet-sub");
+    const made = await channel(owner.token);
+    const phone = "b2".repeat(32);
+    const mailPhone = "c3".repeat(32);
+    await link(mail.token, "agents-quiet@example.com");
+    expect(
+      (
+        await call(
+          "PUT",
+          "/v1/push/device",
+          mail.token,
+          pushRegistration(mailPhone, ["agents-quiet@example.com"]),
+        )
+      ).status,
+    ).toBe(204);
+    expect(
+      (await call("PUT", "/v1/push/device", owner.token, agentsDevice(phone, "off"))).status,
+    ).toBe(204);
+    expect((await send(made.token, pointer)).status).toBe(202);
+    expect((await call("PUT", "/v1/push/device", owner.token, agentsDevice(phone))).status).toBe(
+      204,
+    );
+    const resolved = { ...pointer, kind: "approval", approvalId: "ap-2", resolved: true };
+    expect((await send(made.token, resolved)).status).toBe(202);
+    // The one that does arrive comes after the two that mustn't.
+    expect(
+      (await send(made.token, { ...pointer, kind: "question", questionId: "q-1" })).status,
+    ).toBe(202);
+    await until(() => notifications.some((n) => n.token === phone), "the agent push");
+    const got = notifications.filter((n) => n.token === phone || n.token === mailPhone);
+    expect(
+      got.map((n) => [n.token, (n.body.aps as { alert: { body: string } }).alert.body]),
+    ).toEqual([[phone, "An agent has a question for you."]]);
+  });
+
+  it("stays quiet for a chat one of the account's devices has on screen", async () => {
+    const owner = await signIn("agents-watching@example.com", "agents-watching-sub");
+    const made = await channel(owner.token);
+    const phone = "e5".repeat(32);
+    expect((await call("PUT", "/v1/push/device", owner.token, agentsDevice(phone))).status).toBe(
+      204,
+    );
+    const mac = await connect(owner.token);
+    const heard = () => new Promise((resolve) => setTimeout(resolve, 500));
+    mac.socket.send(JSON.stringify({ type: "watching", session: pointer.sessionKey }));
+    await heard();
+    expect((await send(made.token, pointer)).status).toBe(202);
+    // Another chat isn't on screen: that one is told, and it arrives after the one that mustn't.
+    const other = { ...pointer, sessionKey: "agent:main:otter:other" };
+    expect((await send(made.token, other)).status).toBe(202);
+    await until(() => notifications.some((n) => n.token === phone), "the agent push");
+    mac.socket.send(JSON.stringify({ type: "watching", session: null }));
+    await heard();
+    expect(
+      (await send(made.token, { ...pointer, kind: "question", questionId: "q-9" })).status,
+    ).toBe(202);
+    await until(
+      () => notifications.filter((n) => n.token === phone).length > 1,
+      "the push once nobody looks",
+    );
+    mac.socket.close();
+    const sessions = notifications
+      .filter((n) => n.token === phone)
+      .map((n) => (n.body.otter as { pointer: { sessionKey: string; kind: string } }).pointer);
+    expect(sessions.map((p) => [p.sessionKey, p.kind])).toEqual([
+      [other.sessionKey, "message"],
+      [pointer.sessionKey, "question"],
+    ]);
+  });
+
+  it("takes no mailboxes for Otter Agents, and no topic it wasn't given", async () => {
+    const owner = await signIn("agents-topic@example.com", "agents-topic-sub");
+    await link(owner.token, "agents-topic@example.com");
+    const body = agentsDevice("d4".repeat(32));
+    expect(
+      (
+        await call("PUT", "/v1/push/device", owner.token, {
+          ...body,
+          mailboxes: ["agents-topic@example.com"],
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (await call("PUT", "/v1/push/device", owner.token, { ...body, environment: "production" }))
+        .status,
+    ).toBe(400);
+    expect(
+      (await call("PUT", "/v1/push/device", owner.token, { ...body, topic: "dev.otterware.other" }))
+        .status,
+    ).toBe(400);
   });
 
   it("refuses text, unknown tokens and deleted channels", async () => {
