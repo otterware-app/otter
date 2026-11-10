@@ -21,3 +21,4 @@ tmp/
 .dev.vars
 apps/ios/.build/
 infra/relay/.wrangler.local.jsonc
+/apps/ios-agents/.build/

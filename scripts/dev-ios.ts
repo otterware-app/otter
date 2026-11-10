@@ -1,16 +1,33 @@
 #!/usr/bin/env node
-// Builds the iPhone app (apps/ios) for the simulator and runs it in the booted
-// one (booting an iPhone first if none is). Use `--relay local` to point it at
-// `pnpm dev`'s relay on :8787 instead of production.
+// Builds an iPhone app for the simulator and runs it in the booted one (booting an iPhone first
+// if none is): Otter Mail (apps/ios), or Otter Agents (apps/ios-agents) with `--app agents`.
+// Use `--relay local` to point it at `pnpm dev`'s relay on :8787 instead of production.
 //
 //   pnpm dev:ios [--relay local]
+//   pnpm dev:ios:agents [--relay local]
 
 import * as NodeChildProcess from "node:child_process";
 import * as NodePath from "node:path";
 
 const root = NodePath.resolve(import.meta.dirname, "..");
-const derived = NodePath.join(root, "apps/ios/.build");
-const app = NodePath.join(derived, "Build/Products/Debug-iphonesimulator/Otter Mail.app");
+const agents = process.argv.includes("agents");
+const target = agents
+  ? {
+      folder: "apps/ios-agents",
+      project: "OtterAgents.xcodeproj",
+      scheme: "OtterAgents",
+      product: "Otter Agents.app",
+      bundle: "dev.otterware.agents.dev",
+    }
+  : {
+      folder: "apps/ios",
+      project: "OtterMail.xcodeproj",
+      scheme: "OtterMail",
+      product: "Otter Mail.app",
+      bundle: "dev.otterware.mail.dev",
+    };
+const derived = NodePath.join(root, target.folder, ".build");
+const app = NodePath.join(derived, "Build/Products/Debug-iphonesimulator", target.product);
 const local = process.argv.includes("local");
 
 const run = (command: string, args: string[], env?: NodeJS.ProcessEnv) =>
@@ -41,9 +58,9 @@ try {
 
 run("xcodebuild", [
   "-project",
-  NodePath.join(root, "apps/ios/OtterMail.xcodeproj"),
+  NodePath.join(root, target.folder, target.project),
   "-scheme",
-  "OtterMail",
+  target.scheme,
   "-destination",
   `platform=iOS Simulator,id=${device.udid}`,
   "-derivedDataPath",
@@ -54,6 +71,6 @@ run("xcodebuild", [
 run("xcrun", ["simctl", "install", device.udid, app]);
 run(
   "xcrun",
-  ["simctl", "launch", "--terminate-running-process", device.udid, "dev.otterware.mail.dev"],
+  ["simctl", "launch", "--terminate-running-process", device.udid, target.bundle],
   local ? { SIMCTL_CHILD_OTTER_RELAY_URL: "http://localhost:8787" } : {},
 );

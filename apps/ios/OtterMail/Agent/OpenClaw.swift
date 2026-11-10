@@ -19,6 +19,9 @@ final class OpenClaw {
         var id: String
         var name: String
         var isDefault: Bool
+        var emoji: String?
+        /** Its picture: an https address, or the picture itself as a data URL. */
+        var avatar: String?
     }
 
     nonisolated struct Chat: Equatable {
@@ -349,7 +352,11 @@ final class OpenClaw {
         return (result["agents"] as? [[String: Any]] ?? []).compactMap { agent in
             guard let id = agent["id"] as? String else { return nil }
             let name = (agent["identity"] as? [String: Any])?["name"] as? String ?? agent["name"] as? String ?? id
-            return GatewayAgent(id: id, name: name, isDefault: id == defaultID)
+            let identity = agent["identity"] as? [String: Any]
+            let avatar = (identity?["avatarUrl"] as? String).flatMap { url in
+                url.count <= 512_000 && (url.lowercased().hasPrefix("https:") || url.lowercased().hasPrefix("data:image/")) ? url : nil
+            }
+            return GatewayAgent(id: id, name: name, isDefault: id == defaultID, emoji: identity?["emoji"] as? String, avatar: avatar)
         }
     }
 
@@ -521,9 +528,11 @@ final class OpenClaw {
     }
 
     /** Sends a message and follows its run. `run` is the idempotency key, and so the run's id. */
-    func send(_ message: String, session: String, run: String) -> AsyncStream<Event> {
+    func send(_ message: String, session: String, run: String, attachments: [[String: Any]] = []) -> AsyncStream<Event> {
         follow(session: session, run: run) { [self] in
-            try await request("chat.send", ["sessionKey": session, "message": message, "idempotencyKey": run])
+            var send: [String: Any] = ["sessionKey": session, "message": message, "idempotencyKey": run]
+            if !attachments.isEmpty { send["attachments"] = attachments }
+            try await request("chat.send", send, timeout: attachments.isEmpty ? 30 : 120)
         }
     }
 
@@ -727,6 +736,22 @@ final class OpenClaw {
             }
             continuation.onTermination = { _ in work.cancel() }
         }
+    }
+
+    /** What a session waits on you for, whoever started the run that asks (a scheduled task's, another device's). */
+    func pending(session: String) async -> [Event] {
+        var asks: [Event] = []
+        let approvals = (try? await request("exec.approval.list", [:])) as? [[String: Any]] ?? []
+        for approval in approvals {
+            let request = approval["request"] as? [String: Any] ?? [:]
+            guard request["sessionKey"] as? String == session, let id = approval["id"] as? String else { continue }
+            asks.append(.approval(Approval(id: id, command: request["command"] as? String ?? request["commandPreview"] as? String)))
+        }
+        let questions = ((try? await request("question.list", [:])) as? [String: Any])?["questions"] as? [[String: Any]] ?? []
+        for record in questions where record["sessionKey"] as? String == session {
+            if let question = Self.question(record) { asks.append(.question(question)) }
+        }
+        return asks
     }
 
     private func askPending(session: String, run: String, _ ask: (Event) -> Void) async {

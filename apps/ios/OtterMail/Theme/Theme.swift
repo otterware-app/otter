@@ -74,11 +74,6 @@ struct Palette {
         warning = role("warning").color
         self.monochrome = monochrome
     }
-
-    func action(for mailbox: Mailbox?) -> Color {
-        guard !monochrome, let mailbox else { return action }
-        return Color(hex: mailbox.color)
-    }
 }
 
 extension EnvironmentValues {

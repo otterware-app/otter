@@ -11,6 +11,7 @@ on:
     # branch pushes only, so a tag always releases.
     paths-ignore:
       - "apps/ios/**"
+      - "apps/ios-agents/**"
       - "docs/**"
   workflow_dispatch:
     inputs:

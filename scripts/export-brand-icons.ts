@@ -7,14 +7,16 @@ import { chromium } from "playwright-core";
 const root = NodePath.resolve(import.meta.dirname, "..");
 const at = (file: string) => NodePath.join(root, file);
 const catalog = "apps/ios/OtterMail/Assets.xcassets";
+const agentsCatalog = "apps/ios-agents/OtterAgents/Assets.xcassets";
 
 const IVORY = "#f8f5ec";
 const CHARCOAL = "#2c2f31";
 const pathOf = (file: string) =>
   /<path[^>]* d="([^"]+)"/.exec(NodeFS.readFileSync(at(file), "utf8"))![1]!;
-/** The desktop and web app's mark; the iPhone app is still Otter Mail and keeps its own. */
+/** The desktop and web app's mark; the iPhone apps keep their own: Otter Mail's, and the agent's for Otter Agents. */
 const OTTERWARE = pathOf("assets/prod/otterware-symbol.svg");
 const MAIL = pathOf("assets/prod/otter-mail-symbol.svg");
+const AGENT = pathOf("assets/agent/otter-agent-symbol.svg");
 
 type Art = { background: string; color: string; defs?: string; mark?: string };
 
@@ -189,38 +191,46 @@ try {
   write("apps/web/public/apple-touch-icon.png", await png(square(light), 180));
   write("apps/web/src/main/assets/otter-icon.png", await png(square(light), 192));
 
-  const appIcon = `${catalog}/AppIcon.appiconset`;
-  write(`${appIcon}/icon-1024.png`, await png(square(iphone(light)), 1024));
-  write(`${appIcon}/icon-dark-1024.png`, await png(square(iphone(flat(CHARCOAL, IVORY))), 1024));
-  write(
-    `${appIcon}/icon-tinted-1024.png`,
-    await png(square(iphone(flat("#000000", "#ffffff"))), 1024),
-  );
-  json(`${appIcon}/Contents.json`, {
-    images: [
-      ["icon-1024.png"],
-      ["icon-dark-1024.png", "dark"],
-      ["icon-tinted-1024.png", "tinted"],
-    ].map(([filename, luminosity]) => ({
-      ...(luminosity ? { appearances: [{ appearance: "luminosity", value: luminosity }] } : {}),
-      filename,
-      idiom: "universal",
-      platform: "ios",
-      size: "1024x1024",
-    })),
-    info,
-  });
-  write(`${catalog}/OtterMark.imageset/otter-mark.png`, await png(square(iphone(light)), 512));
+  /** An iPhone app's icons: releases wear its mark on ivory (dark and tinted too), Debug builds the blueprint. */
+  async function iphoneIcons(catalog: string, mark: string, welcome: string) {
+    const wearing = (a: Art): Art => ({ ...a, mark });
+    const appIcon = `${catalog}/AppIcon.appiconset`;
+    write(`${appIcon}/icon-1024.png`, await png(square(wearing(light)), 1024));
+    write(`${appIcon}/icon-dark-1024.png`, await png(square(wearing(flat(CHARCOAL, IVORY))), 1024));
+    write(
+      `${appIcon}/icon-tinted-1024.png`,
+      await png(square(wearing(flat("#000000", "#ffffff"))), 1024),
+    );
+    json(`${appIcon}/Contents.json`, {
+      images: [
+        ["icon-1024.png"],
+        ["icon-dark-1024.png", "dark"],
+        ["icon-tinted-1024.png", "tinted"],
+      ].map(([filename, luminosity]) => ({
+        ...(luminosity ? { appearances: [{ appearance: "luminosity", value: luminosity }] } : {}),
+        filename,
+        idiom: "universal",
+        platform: "ios",
+        size: "1024x1024",
+      })),
+      info,
+    });
+    write(welcome, await png(square(wearing(light)), 512));
 
-  const devIcon = `${catalog}/AppIconDev.appiconset`;
-  write(`${devIcon}/icon-1024.png`, await png(square(iphone(dev)), 1024));
-  json(`${devIcon}/Contents.json`, {
-    images: [{ filename: "icon-1024.png", idiom: "universal", platform: "ios", size: "1024x1024" }],
-    info,
-  });
+    const devIcon = `${catalog}/AppIconDev.appiconset`;
+    write(`${devIcon}/icon-1024.png`, await png(square(wearing(dev)), 1024));
+    json(`${devIcon}/Contents.json`, {
+      images: [
+        { filename: "icon-1024.png", idiom: "universal", platform: "ios", size: "1024x1024" },
+      ],
+      info,
+    });
+  }
+  await iphoneIcons(catalog, MAIL, `${catalog}/OtterMark.imageset/otter-mark.png`);
+  await iphoneIcons(agentsCatalog, AGENT, `${agentsCatalog}/OtterMark.imageset/otter-mark.png`);
 } finally {
   await browser.close();
 }
 console.log(
-  "Icons exported: the desktop and web app from assets/prod/otterware-symbol.svg, the iPhone from otter-mail-symbol.svg.",
+  "Icons exported: the desktop and web app from assets/prod/otterware-symbol.svg, Otter Mail for iPhone from otter-mail-symbol.svg, Otter Agents from assets/agent/otter-agent-symbol.svg.",
 );
