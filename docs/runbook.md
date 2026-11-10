@@ -4,11 +4,11 @@ How each part of Otter gets from `main` to people, what to check, and what to do
 breaks. The details behind each step are in `docs/release.md`, `infra/relay/README.md` and
 `apps/ios/README.md`.
 
-| Part            | Ships                            | You do                                 |
-| --------------- | -------------------------------- | -------------------------------------- |
-| Relay           | on merge to `main`               | nothing                                |
-| Mac, Linux, web | nightly on merge / manual stable | promote a nightly                      |
-| iPhone app      | when you run Release iPhone      | one click, then TestFlight / App Store |
+| Part            | Ships                            | You do                 |
+| --------------- | -------------------------------- | ---------------------- |
+| Relay           | on merge to `main`               | nothing                |
+| Mac, Linux, web | nightly on merge / manual stable | promote a nightly      |
+| iPhone app      | on merge, when it changed        | TestFlight / App Store |
 
 ## Relay
 
@@ -27,7 +27,9 @@ the Google and GitHub settings that go with these URLs. D1 migrations run before
 
 ## Mac, Linux and web app
 
-1. Every push to main, including each merged PR, publishes a nightly automatically. For an
+1. Each merge to main publishes a nightly automatically, unless it only touches `apps/ios` or
+   `docs`. A newer nightly cancels an older one still checking or building, so merges in quick
+   succession publish one nightly, with all of them; one already publishing finishes. For an
    immediate nightly: Actions → **Release** → `channel=nightly` (`gh workflow run release.yml -f channel=nightly`).
 2. For stable: run **Release** with `channel=stable`
    (`gh workflow run release.yml -f channel=stable`). It promotes the latest published nightly
@@ -62,8 +64,11 @@ it, or the Changelog notes workflow once it lands after the release).
 Released on its own, with its own version (`ios-vX.Y.Z` tags), only when `apps/ios` or what it
 bundles from `packages/shared` has changed. A Mac release doesn't need one.
 
-1. Actions → **Release iPhone** → Run workflow → `patch`, `minor` or `major` (or
-   `gh workflow run release-ios.yml -f bump=patch`). It builds `main` on GitHub's `xcode-27`
+1. Each merge to main that touches `apps/ios`, `packages/shared` or the release scripts runs
+   **Release iPhone** as a patch; one waits while another runs, and a newer merge replaces the
+   one waiting. For a minor or major version, or to run it yourself: Actions → **Release
+   iPhone** → Run workflow → `patch`, `minor` or `major` (or
+   `gh workflow run release-ios.yml -f bump=minor`). It builds `main` on GitHub's `xcode-27`
    runner and uploads it (about 10 min), then tags the commit and bumps the version on `main`.
    The same from this Mac, if GitHub is down: `pnpm release:ios` (needs Xcode 27 and
    `~/.otter/signing`).

@@ -3,9 +3,6 @@ name: CI
 on:
   workflow_dispatch:
   pull_request:
-  push:
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -20,11 +17,9 @@ env:
 
 jobs:
   # The Swift jobs need macOS runners, which the Mac release waits on too: run
-  # them only when what they build changed (or this workflow did), and not again
-  # on main, where each merge's release builds the translator and the PR built the app.
+  # them only when what they build changed (or this workflow did).
   changes:
     name: Changes
-    if: github.event_name != 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:

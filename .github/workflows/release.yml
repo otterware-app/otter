@@ -7,6 +7,11 @@ on:
     tags:
       - "v*.*.*"
       - "!v*-*"
+    # What the desktop and web apps don't ship. GitHub applies path filters to
+    # branch pushes only, so a tag always releases.
+    paths-ignore:
+      - "apps/ios/**"
+      - "docs/**"
   workflow_dispatch:
     inputs:
       channel:
@@ -22,9 +27,10 @@ on:
         required: false
         type: string
 
-# Serialize each train; never cancel a run that may be publishing.
+# A stable release waits, whole, for the one before it. Nightlies start at once
+# and take turns job by job, below.
 concurrency:
-  group: release-${{ ((github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')) || inputs.channel == 'nightly') && 'nightly' || 'stable' }}
+  group: release-${{ ((github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')) || inputs.channel == 'nightly') && github.run_id || 'stable' }}
   queue: max
   cancel-in-progress: false
 
@@ -83,6 +89,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       ref: ${{ needs.resolve_commit.outputs.ref }}
+      channel: ${{ needs.resolve_commit.outputs.channel }}
       version: ${{ steps.meta.outputs.version }}
       tag: ${{ steps.meta.outputs.tag }}
       name: ${{ steps.meta.outputs.name }}
@@ -122,11 +129,16 @@ jobs:
           fi
           node scripts/resolve-release-version.ts "${args[@]}"
 
+  # A newer nightly takes over from one still checking or building: its jobs cancel
+  # these, so the older run publishes nothing.
   quality:
     name: Release quality checks
     needs: [preflight]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    concurrency:
+      group: release-${{ needs.preflight.outputs.channel }}-quality
+      cancel-in-progress: ${{ needs.preflight.outputs.channel == 'nightly' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -154,6 +166,9 @@ jobs:
     # Needs Xcode 26+ for the translator; see .github/actions/select-xcode.
     runs-on: macos-15
     timeout-minutes: 60
+    concurrency:
+      group: release-${{ needs.preflight.outputs.channel }}-mac
+      cancel-in-progress: ${{ needs.preflight.outputs.channel == 'nightly' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -228,6 +243,9 @@ jobs:
     # architectures (electron-builder fetches each one's Electron).
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    concurrency:
+      group: release-${{ needs.preflight.outputs.channel }}-linux
+      cancel-in-progress: ${{ needs.preflight.outputs.channel == 'nightly' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -276,6 +294,11 @@ jobs:
     needs: [preflight, quality, build_mac, build_linux]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    # In turn within a channel, and never cancelled: it may be publishing.
+    concurrency:
+      group: release-${{ needs.preflight.outputs.channel }}-publish
+      queue: max
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
