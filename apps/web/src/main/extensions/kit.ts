@@ -25,6 +25,7 @@ export { useSetProvidersState } from "../agent/agent-providers";
 export { mailApi } from "../mail/api";
 export type { ProviderSnapshot } from "../mail/api";
 export { useCapabilities } from "../mail/capabilities";
+export { useDefaultCalendar } from "../calendar/calendar-view";
 export {
   ContextMenu,
   ContextMenuContent,

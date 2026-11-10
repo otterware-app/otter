@@ -666,4 +666,57 @@ describe("core's Outlook provider on the demo mailbox", { timeout: 20_000 }, () 
       core.mailStore.getThreadMessages(EMAIL, row.threadId).map((m) => m.labelIds.sort()),
     ).toEqual(expect.arrayContaining([["SENT"], ["INBOX", "UNREAD"]]));
   });
+
+  it("adds an invitation that isn't in the calendar, and never answers it by email", async () => {
+    const { core, invoke } = await boot();
+    await until(async () => {
+      const status = await invoke<{ fullSyncDone: boolean; syncing: boolean }>(
+        "gmail:getSyncStatus",
+        { accountId: EMAIL },
+      );
+      return status.fullSyncDone && !status.syncing;
+    }, "a sync");
+    const { messages } = await invoke<{ messages: Row[] }>("gmail:listMessages", {
+      accountId: EMAIL,
+      labelIds: ["INBOX"],
+      maxResults: 50,
+    });
+    const invite = messages
+      .flatMap((r) => core.mailStore.getThreadMessages(EMAIL, r.threadId))
+      .find((m) => m.subject.startsWith("Sprint review"))!;
+    const uid = "sprint-review-demo@acme.example";
+    const filter = `$filter=${encodeURIComponent(`iCalUId eq '${uid}'`)}`;
+    const [event] = (await graph(`/me/events?${filter}`)).value;
+    await graph(`/me/events/${event!.id}`, { method: "DELETE" });
+    const sent = async () =>
+      (await graph(`/me/mailFolders/sentitems/messages?$select=id&$top=100`)).value.length;
+    const sentBefore = await sent();
+
+    type Invite = { inCalendar: boolean; added: boolean; start: string };
+    const before = await invoke<Invite>("calendar:getInvite", {
+      accountId: EMAIL,
+      messageId: invite.id,
+    });
+    expect(before).toMatchObject({ inCalendar: false, added: false });
+    await expect(
+      invoke("calendar:respond", { accountId: EMAIL, messageId: invite.id, response: "accepted" }),
+    ).rejects.toThrow("isn't in your calendar");
+    expect(await sent()).toBe(sentBefore);
+
+    expect(
+      await invoke<Invite>("calendar:addInvite", {
+        accountId: EMAIL,
+        messageId: invite.id,
+        targetAccountId: EMAIL,
+      }),
+    ).toMatchObject({ inCalendar: false, added: true });
+    const created = (await graph(`/me/events`)).value.find(
+      (e) => e.subject === "Sprint review: reader redesign",
+    ) as { start: { dateTime: string }; isOrganizer: boolean } | undefined;
+    expect(created).toBeDefined();
+    expect(new Date(`${created!.start.dateTime.replace(/\.\d+$/, "")}Z`).toISOString()).toBe(
+      new Date(before.start).toISOString(),
+    );
+    expect(await sent()).toBe(sentBefore);
+  });
 });

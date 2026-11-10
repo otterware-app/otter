@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "../mail/menu";
 import type { MailAccount } from "../mail/types";
+import { useAccounts } from "../mail/hooks";
 import { HintTooltip, IconBtn, buttonClass } from "../mail/ui";
 import {
   calendarKey,
@@ -82,6 +83,19 @@ export function defaultCalendarOf(
   return (
     writable.find((c) => c.key === chosen) ?? writable.find((c) => c.info.primary) ?? writable[0]
   );
+}
+
+/** Where new events go, among the calendars the Calendar shows. */
+export function useDefaultCalendar(): { accountId: string; calendarId: string } | null {
+  const accounts = calendarAccounts(useAccounts().data ?? []);
+  const { defaultCalendar, colors } = useCalendarPreferences();
+  const shown = useCalendar((s) => s.shown);
+  const lists = useCalendarLists(accounts.map((a) => a.id)).data;
+  const visible = listedCalendars(accounts, lists, colors).filter((c) =>
+    isShown(shown, c.key, c.info.hiddenByDefault),
+  );
+  const target = defaultCalendarOf(visible, defaultCalendar);
+  return target ? { accountId: target.account.id, calendarId: target.info.id } : null;
 }
 
 /** A near-black calendar color (a mailbox colored black) lifted toward the text, so it reads on a dark canvas. */

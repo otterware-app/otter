@@ -302,11 +302,12 @@ These are Otter actions, separate from Gmail's own scheduled and snoozed folders
 
 ## Calendar invitations
 
-| Feature                             | Mac                                                                               | Web | iPhone |
-| ----------------------------------- | --------------------------------------------------------------------------------- | --- | ------ |
-| Invitation card (what, when, where) | ✓                                                                                 | ✓   | —      |
-| Yes / No / Maybe                    | Gmail: Google Calendar; Outlook: Outlook calendar; IMAP: email reply to organizer | ✓   | —      |
-| Google's RSVP links in the body     | ✓ (answered in place)                                                             | ✓   | —      |
+| Feature                             | Mac                                                                                                             | Web | iPhone |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------- | --- | ------ |
+| Invitation card (what, when, where) | ✓                                                                                                               | ✓   | —      |
+| Yes / No / Maybe                    | When it's in the mailbox's Google or Outlook calendar (they tell the organizer)                                 | ✓   | —      |
+| Add to calendar                     | Anything else (bookings, tickets, invitations not in a calendar), to the default calendar; never an email reply | ✓   | —      |
+| Google's RSVP links in the body     | ✓ (answered in place)                                                                                           | ✓   | —      |
 
 ## Calendar
 
@@ -635,7 +636,7 @@ What each scope in `GMAIL_SCOPES` (`packages/contracts/src/google.ts`) is for:
 profile`).
 - `gmail.settings.basic`: saving signatures in Gmail (reading them needs only the mail scope).
 - `calendar.events.owned`: answering invitations in Google Calendar, replacing the broader
-  `calendar.events` the Mac and web apps ask for today. Without it, RSVPs go by email reply.
+  `calendar.events` the Mac and web apps ask for today. Without it, invitations can't be answered from the card.
 - `calendar.readonly`: every calendar on the account's list (shared, followed: birthdays,
   holidays) and teammates' busy times (⌘P). Older sign-ins see the primary calendar only; the
   calendar and Settings › Connections › Access say so, with Allow calendar access (signs in again). Outlook needs nothing new for its own calendars (`Calendars.ReadWrite`);
