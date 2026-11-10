@@ -15,6 +15,6 @@ export function varysStep(call: { tool: string; summary?: string; detail?: strin
   return {
     kind: varysKind(call.tool),
     title: call.summary || sentence(call.tool),
-    ...(call.detail ? { detail: call.detail.slice(0, 2_000) } : {}),
+    ...(call.detail ? { detail: call.detail } : {}),
   };
 }
