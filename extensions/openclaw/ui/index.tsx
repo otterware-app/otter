@@ -12,6 +12,7 @@ export default {
     missing: { headline: "Not connected" },
     connectedAs: true,
     serverApprovals: true,
+    mailReader: "gog",
     ownModelSettings: true,
   },
 } satisfies UiExtension;

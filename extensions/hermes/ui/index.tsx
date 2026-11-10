@@ -12,5 +12,6 @@ export default {
     Connect: HermesConnect,
     missing: { headline: "Not connected" },
     serverApprovals: true,
+    mailReader: "gog",
   },
 } satisfies UiExtension;

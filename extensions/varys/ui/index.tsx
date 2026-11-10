@@ -11,5 +11,6 @@ export default {
     Settings: VarysSettings,
     missing: { headline: "Not connected" },
     serverApprovals: true,
+    mailReader: "your mail connection",
   },
 } satisfies UiExtension;
