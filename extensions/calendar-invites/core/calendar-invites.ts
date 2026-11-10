@@ -105,6 +105,21 @@ function inZone(local: string, zone: string): string | null {
   return new Date(wall - offset(guess)).toISOString();
 }
 
+function endOf(event: Prop[], start: { iso: string | null; allDay: boolean }) {
+  const end = toIso(get(event, "DTEND"));
+  const duration = get(event, "DURATION")?.value.match(
+    /^P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/,
+  );
+  if (end.iso || !start.iso || !duration) return end;
+  const [w, d, h, m, sec] = duration.slice(1).map((n) => Number(n ?? 0));
+  const ms = ((((w * 7 + d) * 24 + h) * 60 + m) * 60 + sec) * 1000;
+  if (!start.allDay)
+    return { iso: new Date(new Date(start.iso).getTime() + ms).toISOString(), allDay: false };
+  const day = new Date(`${start.iso}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() + Math.max(1, Math.round(ms / 86_400_000)));
+  return { iso: day.toISOString().slice(0, 10), allDay: true };
+}
+
 type ParsedIcs = {
   method: string;
   event: Prop[];
@@ -171,7 +186,7 @@ export async function getInvite(
   if (!uid) return null;
   const email = accountId.toLowerCase();
   const start = toIso(get(event, "DTSTART"));
-  const end = toIso(get(event, "DTEND"));
+  const end = endOf(event, start);
   const organizerProp = get(event, "ORGANIZER");
   const mine = event.find((p) => p.name === "ATTENDEE" && mailto(p.value) === email);
   const icsStatus = mine?.params.PARTSTAT?.toLowerCase();
@@ -245,7 +260,7 @@ export async function addInviteToCalendar(
   if (!calendar) throw new Error("This mailbox has no calendar.");
   const { event } = ics;
   const start = toIso(get(event, "DTSTART"));
-  const end = toIso(get(event, "DTEND"));
+  const end = endOf(event, start);
   if (!start.iso) throw new Error("This invitation has no start time.");
   const text = (name: string) => {
     const value = get(event, name)?.value;
