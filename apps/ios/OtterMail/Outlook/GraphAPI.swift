@@ -16,6 +16,7 @@ nonisolated struct GraphAPI {
     let gate = GraphGate()
 
     static let root = "https://graph.microsoft.com/v1.0"
+    static let beta = "https://graph.microsoft.com/beta"
 
     struct Failure: LocalizedError {
         var status: Int

@@ -471,7 +471,8 @@ struct ThreadActions: View {
         if thread.labels.contains("SPAM") || thread.labels.contains("TRASH") || !thread.labels.contains("INBOX") {
             Button("Move to Inbox", systemImage: "tray.and.arrow.down") { store.moveToInbox(thread.id); onGone() }
         }
-        if !thread.labels.contains("SPAM") {
+        // A junked sender writing again leaves the conversation in both Junk and the Inbox.
+        if !thread.labels.contains("SPAM") || thread.labels.contains("INBOX") {
             Button("Report junk", systemImage: "xmark.bin") { store.markSpam(thread.id); onGone() }
         }
         if thread.labels.contains("TRASH") {

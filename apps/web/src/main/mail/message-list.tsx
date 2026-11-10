@@ -145,6 +145,11 @@ function rowLabels(message: MessageSummary): string[] {
   return message.threadLabelIds ?? message.labelIds;
 }
 
+/** A conversation with mail in both Junk and the Inbox (a junked sender wrote again) is junk only in the Junk view. */
+function isJunk(labels: string[], inJunkView: boolean): boolean {
+  return labels.includes("SPAM") && (inJunkView || !labels.includes("INBOX"));
+}
+
 function ruleMailboxName(rule: ViewRule, resolveLabel: ResolveLabel): string | null {
   if (rule.allOf.length === 0) return null;
   return rule.allOf
@@ -393,7 +398,7 @@ function MessageRow({
     }
   };
 
-  const junk = labelIds.includes("SPAM");
+  const junk = isJunk(labelIds, viewLabelIds.has("SPAM"));
 
   const handleJunk = () => {
     console.log("[MessageList:junkToggle]", { threadId, junk });
@@ -1340,7 +1345,7 @@ export function MessageList({
   const allJunk =
     !allTrashed &&
     checkedRows.length > 0 &&
-    checkedRows.every((m) => rowLabels(m).includes("SPAM"));
+    checkedRows.every((m) => isJunk(rowLabels(m), labelId === "SPAM"));
 
   const trashCheckedRef = useLatest(allTrashed ? bulkUntrash : bulkTrash);
 
@@ -1651,7 +1656,7 @@ export function MessageList({
       if (checkedRef.current.size > 0) return allJunk ? bulkNotJunk() : bulkJunk();
       if (!row) return false;
       if (focus) {
-        const focusJunk = focus.labelIds.includes("SPAM");
+        const focusJunk = isJunk(focus.labelIds, labelId === "SPAM");
         advanceFocus();
         void listModifyMessage.mutateAsync({
           accountId: owner,
@@ -1661,7 +1666,7 @@ export function MessageList({
         });
         return;
       }
-      const rowJunk = rowLabels(row).includes("SPAM");
+      const rowJunk = isJunk(rowLabels(row), labelId === "SPAM");
       advance();
       void listModifyThread.mutateAsync({
         accountId: owner,

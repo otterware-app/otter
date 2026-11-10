@@ -1110,6 +1110,12 @@ function messages(box: Mailbox, req: Req, rest: string[]): Answer {
       addMessage(box, copy);
       return ok(messageResource(box, copy), 201);
     }
+    case "markAsJunk":
+      if (fields(req).moveToJunk === true) moveTo(box, m, wellKnown(box, "junkemail"));
+      return ok(messageResource(box, m));
+    case "markAsNotJunk":
+      if (fields(req).moveToInbox === true) moveTo(box, m, wellKnown(box, "inbox"));
+      return ok(messageResource(box, m));
     case "permanentDelete":
       deleteMessage(box, m);
       return ok(undefined, 204);
@@ -1474,7 +1480,7 @@ function route(box: Mailbox, req: Req): Answer {
 
 const segments = (url: URL) =>
   url.pathname
-    .replace(/^\/v1\.0\/?/, "")
+    .replace(/^\/(v1\.0|beta)\/?/, "")
     .split("/")
     .filter(Boolean)
     .map(decodeURIComponent);

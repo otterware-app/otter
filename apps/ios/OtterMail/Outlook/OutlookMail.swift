@@ -178,10 +178,15 @@ nonisolated enum OutlookMail {
         return patch.isEmpty ? nil : patch
     }
 
+    static func isOwn(_ message: GraphMessage, mailbox: String, folders: OutlookFolders) -> Bool {
+        let current = folders.label(ofFolder: message.parentFolderId)
+        return current == "SENT" || current == "DRAFT" || message.isDraft == true
+            || message.from?.emailAddress?.address?.lowercased() == mailbox.lowercased()
+    }
+
     static func destination(_ message: GraphMessage, add: [String], remove: [String], wholeThread: Bool, mailbox: String, folders: OutlookFolders) -> String? {
         let current = folders.label(ofFolder: message.parentFolderId)
-        let own = current == "SENT" || current == "DRAFT" || message.isDraft == true
-            || message.from?.emailAddress?.address?.lowercased() == mailbox.lowercased()
+        let own = isOwn(message, mailbox: mailbox, folders: folders)
         let target = add.first { $0 == "TRASH" } ?? add.first { $0 == "SPAM" }
             ?? add.first { $0.hasPrefix(OutlookFolders.folderPrefix) } ?? add.first { $0 == "ARCHIVE" } ?? add.first { $0 == "INBOX" }
         if let target {
@@ -192,6 +197,18 @@ nonisolated enum OutlookMail {
         guard let current, remove.contains(current) else { return nil }
         if current == "SPAM" || current == "TRASH" || current == "ARCHIVE" { return folders.id(own ? "sentitems" : "inbox") }
         if current == "INBOX" || current.hasPrefix(OutlookFolders.folderPrefix) { return folders.id("archive") }
+        return nil
+    }
+
+    /**
+     Junk and Not junk on someone else's mail as Outlook's Junk button does them: the sender joins
+     (or leaves) Blocked senders, so their next mail goes to Junk too, which a move alone doesn't do.
+     nil: a plain move.
+     */
+    static func junkAction(_ message: GraphMessage, to: String, mailbox: String, folders: OutlookFolders) -> String? {
+        if isOwn(message, mailbox: mailbox, folders: folders) { return nil }
+        if to == folders.id("junkemail") { return "markAsJunk" }
+        if folders.label(ofFolder: message.parentFolderId) == "SPAM", to == folders.id("inbox") { return "markAsNotJunk" }
         return nil
     }
 

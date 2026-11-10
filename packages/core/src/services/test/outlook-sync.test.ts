@@ -140,7 +140,7 @@ const resource = (m: Message) => ({
 });
 
 function handle(method: string, url: URL, body: unknown): Response {
-  const path = url.pathname.replace(/^\/v1\.0/, "");
+  const path = url.pathname.replace(/^\/(v1\.0|beta)/, "");
   const failure = failures.findIndex((f) => f.method === method && path.endsWith(f.suffix));
   if (failure >= 0) {
     const [f] = failures.splice(failure, 1);
@@ -307,6 +307,14 @@ function handle(method: string, url: URL, body: unknown): Response {
     if (!messages.has(id)) return notFound();
     remove(id);
     return json({});
+  }
+
+  const junk = /^\/me\/messages\/([^/]+)\/(markAsJunk|markAsNotJunk)$/.exec(path);
+  if (junk && url.pathname.startsWith("/beta/")) {
+    const m = messages.get(decodeURIComponent(junk[1]!));
+    if (!m) return notFound();
+    move(m.id, junk[2] === "markAsJunk" ? "junkemail" : "inbox");
+    return json(resource(m));
   }
 
   const one = /^\/me\/messages\/([^/]+)(\/move)?$/.exec(path);
@@ -1060,6 +1068,38 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
     await provider.untrashThread(account.id, "t");
     expect(messages.get("in")?.folder).toBe("inbox");
     expect(messages.get("sent")?.folder).toBe("sentitems");
+  });
+
+  it("junks the way Outlook does, blocking the sender, and moves when Graph refuses", async () => {
+    deliver("in", "inbox", { conversationId: "t" });
+    deliver("sent", "sentitems", { conversationId: "t", isRead: true });
+    const { status, provider } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+    writes = [];
+
+    await provider.modifyThread(account.id, "t", {
+      addLabelIds: ["SPAM"],
+      removeLabelIds: ["INBOX"],
+    });
+    expect(writes).toEqual([
+      { method: "POST", path: "/me/messages/in/markAsJunk", body: { moveToJunk: true } },
+    ]);
+    expect(messages.get("in")?.folder).toBe("junkemail");
+    expect(messages.get("sent")?.folder).toBe("sentitems");
+
+    writes = [];
+    await provider.modifyThread(account.id, "t", {
+      addLabelIds: ["INBOX"],
+      removeLabelIds: ["SPAM"],
+    });
+    expect(writes).toEqual([
+      { method: "POST", path: "/me/messages/in/markAsNotJunk", body: { moveToInbox: true } },
+    ]);
+    expect(messages.get("in")?.folder).toBe("inbox");
+
+    failures.push({ method: "POST", suffix: "/markAsJunk", status: 404 });
+    await provider.modifyMessage(account.id, "in", { addLabelIds: ["SPAM"] });
+    expect(messages.get("in")?.folder).toBe("junkemail");
   });
 
   it("archives from the app: the inbox's mail lands in the Archive at once, and undo brings it back", async () => {

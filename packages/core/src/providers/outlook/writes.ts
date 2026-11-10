@@ -1,5 +1,6 @@
 import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "@otter/contracts";
 
+import { logger } from "../../logger.js";
 import * as store from "../../services/mail-store.js";
 import { renamePendingLabel } from "../../services/pending-label-writes.js";
 import type { MailLabel, MessageSummary } from "../../types.js";
@@ -17,7 +18,15 @@ import {
   readMailbox,
   wellKnownId,
 } from "./folders.js";
-import { batchError, graph, graphAll, graphBatch, ok, type BatchRequest } from "./graph.js";
+import {
+  batchError,
+  graph,
+  graphAll,
+  graphBatch,
+  GRAPH_BETA,
+  ok,
+  type BatchRequest,
+} from "./graph.js";
 import { getApiMessages, messagePath, toSummary, type ApiMessage } from "./messages.js";
 
 const STATE_FIELDS = "id,parentFolderId,categories,isRead,flag,importance,isDraft,from";
@@ -26,6 +35,16 @@ async function run(accountId: string, requests: BatchRequest[]): Promise<void> {
   for (const answer of await graphBatch(accountId, requests)) {
     if (answer && !ok(answer) && answer.status !== 404) throw batchError(answer);
   }
+}
+
+function isOwnMail(accountId: string, message: ApiMessage): boolean {
+  const current = folderLabel(accountId, message.parentFolderId);
+  return (
+    current === "SENT" ||
+    current === "DRAFT" ||
+    message.isDraft === true ||
+    message.from?.emailAddress?.address?.toLowerCase() === accountId
+  );
 }
 
 async function destination(
@@ -37,11 +56,7 @@ async function destination(
   const add = change.addLabelIds ?? [];
   const remove = change.removeLabelIds ?? [];
   const current = folderLabel(accountId, message.parentFolderId);
-  const ownMail =
-    current === "SENT" ||
-    current === "DRAFT" ||
-    message.isDraft === true ||
-    message.from?.emailAddress?.address?.toLowerCase() === accountId;
+  const ownMail = isOwnMail(accountId, message);
   const target =
     add.find((l) => l === "TRASH") ??
     add.find((l) => l === "SPAM") ??
@@ -93,6 +108,41 @@ function patchFor(message: ApiMessage, change: LabelChange): Record<string, unkn
   return Object.keys(patch).length > 0 ? patch : null;
 }
 
+/** True: a stranger's message going to Junk; false: one leaving it for the Inbox. */
+async function junkMove(
+  accountId: string,
+  message: ApiMessage,
+  to: string,
+): Promise<boolean | null> {
+  if (isOwnMail(accountId, message)) return null;
+  if (to === (await wellKnownId(accountId, "junkemail"))) return true;
+  const fromJunk = folderLabel(accountId, message.parentFolderId) === "SPAM";
+  if (fromJunk && to === (await wellKnownId(accountId, "inbox"))) return false;
+  return null;
+}
+
+/**
+ * Junk and Not junk the way Outlook's own buttons do: the sender joins (or leaves) the
+ * mailbox's Blocked senders, so what they send next lands in Junk too, which a move
+ * alone doesn't do. Graph has this only in beta (deprecated, with no replacement that
+ * blocks), so a refusal falls back to the plain move.
+ */
+async function markJunk(accountId: string, message: ApiMessage, junk: boolean): Promise<boolean> {
+  const action = junk ? "markAsJunk" : "markAsNotJunk";
+  try {
+    await graph(accountId, `${GRAPH_BETA}${messagePath(message.id)}/${action}`, {
+      method: "POST",
+      body: junk ? { moveToJunk: true } : { moveToInbox: true },
+    });
+    return true;
+  } catch (err) {
+    logger.warn("outlook-writes", `${action} failed for ${accountId}; moving instead`, {
+      error: (err as Error).message,
+    });
+    return false;
+  }
+}
+
 async function apply(
   accountId: string,
   messages: ApiMessage[],
@@ -102,11 +152,14 @@ async function apply(
   // Properties first: a move answers before Graph has finished with the message.
   const patches: BatchRequest[] = [];
   const moves: BatchRequest[] = [];
+  const junkMarks: { message: ApiMessage; junk: boolean }[] = [];
   for (const message of messages) {
     const patch = patchFor(message, change);
     if (patch) patches.push({ method: "PATCH", url: messagePath(message.id), body: patch });
     const to = await destination(accountId, message, change, wholeThread);
-    if (to) {
+    const junk = to ? await junkMove(accountId, message, to) : null;
+    if (junk !== null) junkMarks.push({ message, junk });
+    else if (to) {
       moves.push({
         method: "POST",
         url: `${messagePath(message.id)}/move`,
@@ -115,6 +168,17 @@ async function apply(
     }
   }
   await run(accountId, patches);
+  await Promise.all(
+    junkMarks.map(async ({ message, junk }) => {
+      if (await markJunk(accountId, message, junk)) return;
+      const to = await wellKnownId(accountId, junk ? "junkemail" : "inbox");
+      moves.push({
+        method: "POST",
+        url: `${messagePath(message.id)}/move`,
+        body: { destinationId: to },
+      });
+    }),
+  );
   await run(accountId, moves);
 }
 
