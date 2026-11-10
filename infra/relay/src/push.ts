@@ -16,8 +16,15 @@ export async function register(
 ): Promise<void> {
   const topic =
     input.environment === "sandbox" ? env.APNS_SANDBOX_TOPIC : env.APNS_PRODUCTION_TOPIC;
-  if (!topic || input.topic !== topic)
+  const agents =
+    input.environment === "sandbox"
+      ? env.APNS_AGENTS_SANDBOX_TOPIC
+      : env.APNS_AGENTS_PRODUCTION_TOPIC;
+  const forAgents = Boolean(agents) && input.topic === agents;
+  if (!forAgents && (!topic || input.topic !== topic))
     throw new HTTPException(400, { message: "Unsupported push topic/environment." });
+  if (forAgents && input.mailboxes.length > 0)
+    throw new HTTPException(400, { message: "Otter Agents has no mailboxes to push for." });
   const userId = session.user.id;
   const mailboxes = [...new Set(input.mailboxes)];
   for (const email of mailboxes) {
@@ -112,6 +119,24 @@ export async function devices(env: Env, userId: string, email: string): Promise<
     WHERE d.user_id=? AND m.email=? AND d.mode!='off'
     AND COALESCE(json_extract(p.data, '$.settings.notificationsMode'), d.mode) != 'off'`)
     .bind(userId, email)
+    .all<PushDevice>();
+  return results;
+}
+
+/** The account's Otter Agents iPhones with notifications on: they hear what agents ask and send. */
+export async function agentDevices(env: Env, userId: string): Promise<PushDevice[]> {
+  const topics = [env.APNS_AGENTS_SANDBOX_TOPIC, env.APNS_AGENTS_PRODUCTION_TOPIC].filter(
+    (topic): topic is string => Boolean(topic),
+  );
+  if (topics.length === 0) return [];
+  await env.DB.prepare("DELETE FROM push_devices WHERE user_id=? AND expires_at <= ?")
+    .bind(userId, Date.now())
+    .run();
+  const { results } = await env.DB.prepare(
+    `SELECT d.*, 'all' AS notification_mode FROM push_devices d
+    WHERE d.user_id=? AND d.mode!='off' AND d.topic IN (${topics.map(() => "?").join(",")})`,
+  )
+    .bind(userId, ...topics)
     .all<PushDevice>();
   return results;
 }

@@ -141,7 +141,8 @@ nonisolated struct Hermes {
         return id
     }
 
-    func turn(session: String, message: String, model: [String: Any]) -> AsyncThrowingStream<Event, Error> {
+    /** `message` is the text, or the content parts it's sent with (an image, as the Responses API takes one). */
+    func turn(session: String, message: Any, model: [String: Any]) -> AsyncThrowingStream<Event, Error> {
         var request = URLRequest(url: URL(string: "\(root)/api/sessions/\(session)/chat/stream")!)
         request.httpMethod = "POST"
         request.timeoutInterval = 180

@@ -1,0 +1,578 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0D0000000000000000000101 /* Hermes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000100 /* Hermes.swift */; };
+		0D0000000000000000000103 /* OpenRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000102 /* OpenRouter.swift */; };
+		0D0000000000000000000105 /* OpenClaw.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000104 /* OpenClaw.swift */; };
+		0D0000000000000000000107 /* Varys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000106 /* Varys.swift */; };
+		0D0000000000000000000109 /* VarysLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000108 /* VarysLive.swift */; };
+		0D000000000000000000010B /* VarysTurns.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D000000000000000000010A /* VarysTurns.swift */; };
+		0D000000000000000000010D /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D000000000000000000010C /* Theme.swift */; };
+		0D000000000000000000010F /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D000000000000000000010E /* Typography.swift */; };
+		0D0000000000000000000111 /* CustomThemes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000110 /* CustomThemes.swift */; };
+		0D0000000000000000000113 /* Themes.json in Resources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000112 /* Themes.json */; };
+		0D0000000000000000000115 /* InterVariable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000114 /* InterVariable.ttf */; };
+		0D00000000000000000001F1 /* ThemeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D00000000000000000001F0 /* ThemeSettings.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0D0000000000000000000018 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0D0000000000000000000009 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0D0000000000000000000006;
+			remoteInfo = OtterAgents;
+		};
+		0D0000000000000000000028 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0D0000000000000000000009 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0D0000000000000000000006;
+			remoteInfo = OtterAgents;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0D0000000000000000000001 /* Otter Agents.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Otter Agents.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		0D0000000000000000000011 /* OtterAgentsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OtterAgentsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0D0000000000000000000021 /* OtterAgentsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OtterAgentsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0D0000000000000000000100 /* Hermes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Hermes.swift; path = ../ios/OtterMail/Agent/Hermes.swift; sourceTree = SOURCE_ROOT; };
+		0D0000000000000000000102 /* OpenRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OpenRouter.swift; path = ../ios/OtterMail/Agent/OpenRouter.swift; sourceTree = SOURCE_ROOT; };
+		0D0000000000000000000104 /* OpenClaw.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OpenClaw.swift; path = ../ios/OtterMail/Agent/OpenClaw.swift; sourceTree = SOURCE_ROOT; };
+		0D0000000000000000000106 /* Varys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Varys.swift; path = ../ios/OtterMail/Agent/Varys.swift; sourceTree = SOURCE_ROOT; };
+		0D0000000000000000000108 /* VarysLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VarysLive.swift; path = ../ios/OtterMail/Agent/VarysLive.swift; sourceTree = SOURCE_ROOT; };
+		0D000000000000000000010A /* VarysTurns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VarysTurns.swift; path = ../ios/OtterMail/Agent/VarysTurns.swift; sourceTree = SOURCE_ROOT; };
+		0D000000000000000000010C /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Theme.swift; path = ../ios/OtterMail/Theme/Theme.swift; sourceTree = SOURCE_ROOT; };
+		0D000000000000000000010E /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Typography.swift; path = ../ios/OtterMail/Theme/Typography.swift; sourceTree = SOURCE_ROOT; };
+		0D0000000000000000000110 /* CustomThemes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CustomThemes.swift; path = ../ios/OtterMail/Theme/CustomThemes.swift; sourceTree = SOURCE_ROOT; };
+		0D0000000000000000000112 /* Themes.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = Themes.json; path = ../ios/OtterMail/Resources/Themes.json; sourceTree = SOURCE_ROOT; };
+		0D0000000000000000000114 /* InterVariable.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = InterVariable.ttf; path = ../ios/OtterMail/Resources/Fonts/InterVariable.ttf; sourceTree = SOURCE_ROOT; };
+		0D00000000000000000001F0 /* ThemeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ThemeSettings.swift; path = ../ios/OtterMail/Settings/ThemeSettings.swift; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0D0000000000000000000010 /* Exceptions for "OtterAgents" folder in "OtterAgents" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				OtterAgents.entitlements,
+			);
+			target = 0D0000000000000000000006 /* OtterAgents */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		0D0000000000000000000002 /* OtterAgents */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0D0000000000000000000010 /* Exceptions for "OtterAgents" folder in "OtterAgents" target */,
+			);
+			path = OtterAgents;
+			sourceTree = "<group>";
+		};
+		0D0000000000000000000012 /* OtterAgentsTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = OtterAgentsTests;
+			sourceTree = "<group>";
+		};
+		0D0000000000000000000022 /* OtterAgentsUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = OtterAgentsUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0D0000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0D0000000000000000000013 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0D0000000000000000000023 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0D0000000000000000000004 = {
+			isa = PBXGroup;
+			children = (
+				0D0000000000000000000002 /* OtterAgents */,
+				0D0000000000000000000012 /* OtterAgentsTests */,
+				0D0000000000000000000022 /* OtterAgentsUITests */,
+				0D0000000000000000000020 /* Shared with Otter Mail */,
+				0D0000000000000000000005 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		0D0000000000000000000005 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0D0000000000000000000001 /* Otter Agents.app */,
+				0D0000000000000000000011 /* OtterAgentsTests.xctest */,
+				0D0000000000000000000021 /* OtterAgentsUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0D0000000000000000000020 /* Shared with Otter Mail */ = {
+			isa = PBXGroup;
+			children = (
+				0D0000000000000000000100 /* Hermes.swift */,
+				0D0000000000000000000102 /* OpenRouter.swift */,
+				0D0000000000000000000104 /* OpenClaw.swift */,
+				0D0000000000000000000106 /* Varys.swift */,
+				0D0000000000000000000108 /* VarysLive.swift */,
+				0D000000000000000000010A /* VarysTurns.swift */,
+				0D000000000000000000010C /* Theme.swift */,
+				0D000000000000000000010E /* Typography.swift */,
+				0D0000000000000000000110 /* CustomThemes.swift */,
+				0D00000000000000000001F0 /* ThemeSettings.swift */,
+				0D0000000000000000000112 /* Themes.json */,
+				0D0000000000000000000114 /* InterVariable.ttf */,
+			);
+			name = "Shared with Otter Mail";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0D0000000000000000000006 /* OtterAgents */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0D000000000000000000000B /* Build configuration list for PBXNativeTarget "OtterAgents" */;
+			buildPhases = (
+				0D0000000000000000000007 /* Sources */,
+				0D0000000000000000000003 /* Frameworks */,
+				0D0000000000000000000008 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				0D0000000000000000000002 /* OtterAgents */,
+			);
+			name = OtterAgents;
+			productName = OtterAgents;
+			productReference = 0D0000000000000000000001 /* Otter Agents.app */;
+			productType = "com.apple.product-type.application";
+		};
+		0D0000000000000000000016 /* OtterAgentsTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0D000000000000000000001B /* Build configuration list for PBXNativeTarget "OtterAgentsTests" */;
+			buildPhases = (
+				0D0000000000000000000015 /* Sources */,
+				0D0000000000000000000013 /* Frameworks */,
+				0D0000000000000000000014 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0D0000000000000000000017 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				0D0000000000000000000012 /* OtterAgentsTests */,
+			);
+			name = OtterAgentsTests;
+			productName = OtterAgentsTests;
+			productReference = 0D0000000000000000000011 /* OtterAgentsTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		0D0000000000000000000026 /* OtterAgentsUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0D000000000000000000002B /* Build configuration list for PBXNativeTarget "OtterAgentsUITests" */;
+			buildPhases = (
+				0D0000000000000000000025 /* Sources */,
+				0D0000000000000000000023 /* Frameworks */,
+				0D0000000000000000000024 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0D0000000000000000000027 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				0D0000000000000000000022 /* OtterAgentsUITests */,
+			);
+			name = OtterAgentsUITests;
+			productName = OtterAgentsUITests;
+			productReference = 0D0000000000000000000021 /* OtterAgentsUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0D0000000000000000000009 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					0D0000000000000000000006 = {
+						CreatedOnToolsVersion = 27.0;
+						SystemCapabilities = {com.apple.Push = {enabled = 1; }; };
+					};
+					0D0000000000000000000016 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = 0D0000000000000000000006;
+					};
+					0D0000000000000000000026 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = 0D0000000000000000000006;
+					};
+				};
+			};
+			buildConfigurationList = 0D000000000000000000000A /* Build configuration list for PBXProject "OtterAgents" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 0D0000000000000000000004;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 0D0000000000000000000005 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0D0000000000000000000006 /* OtterAgents */,
+				0D0000000000000000000016 /* OtterAgentsTests */,
+				0D0000000000000000000026 /* OtterAgentsUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		0D0000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0D0000000000000000000113 /* Themes.json in Resources */,
+				0D0000000000000000000115 /* InterVariable.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0D0000000000000000000014 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0D0000000000000000000024 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0D0000000000000000000007 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0D0000000000000000000101 /* Hermes.swift in Sources */,
+				0D0000000000000000000103 /* OpenRouter.swift in Sources */,
+				0D0000000000000000000105 /* OpenClaw.swift in Sources */,
+				0D0000000000000000000107 /* Varys.swift in Sources */,
+				0D0000000000000000000109 /* VarysLive.swift in Sources */,
+				0D000000000000000000010B /* VarysTurns.swift in Sources */,
+				0D000000000000000000010D /* Theme.swift in Sources */,
+				0D000000000000000000010F /* Typography.swift in Sources */,
+				0D0000000000000000000111 /* CustomThemes.swift in Sources */,
+				0D00000000000000000001F1 /* ThemeSettings.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0D0000000000000000000015 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0D0000000000000000000025 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0D0000000000000000000017 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0D0000000000000000000006 /* OtterAgents */;
+			targetProxy = 0D0000000000000000000018 /* PBXContainerItemProxy */;
+		};
+		0D0000000000000000000027 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0D0000000000000000000006 /* OtterAgents */;
+			targetProxy = 0D0000000000000000000028 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0D000000000000000000000C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		0D000000000000000000000D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		0D000000000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconDev;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 838JVGY7W4;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				GOOGLE_IOS_CLIENT_ID = 997327858649-0dfa4knnv1ur7021dn1ojuovoj1i3ed8.apps.googleusercontent.com;
+				INFOPLIST_FILE = OtterAgents/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Otter Agents";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				APNS_ENVIRONMENT = development;
+				CODE_SIGN_ENTITLEMENTS = OtterAgents/OtterAgents.entitlements;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.dev;
+				PRODUCT_NAME = "Otter Agents";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		0D000000000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 838JVGY7W4;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				GOOGLE_IOS_CLIENT_ID = 997327858649-vcvktkdnrs6p8c31ucsp1oeia7l8taho.apps.googleusercontent.com;
+				INFOPLIST_FILE = OtterAgents/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Otter Agents";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				APNS_ENVIRONMENT = production;
+				CODE_SIGN_ENTITLEMENTS = OtterAgents/OtterAgents.entitlements;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents;
+				PRODUCT_NAME = "Otter Agents";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		0D0000000000000000000019 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 838JVGY7W4;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Otter Agents.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Otter Agents";
+			};
+			name = Debug;
+		};
+		0D000000000000000000001A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 838JVGY7W4;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Otter Agents.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Otter Agents";
+			};
+			name = Release;
+		};
+		0D0000000000000000000029 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 838JVGY7W4;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = OtterAgents;
+			};
+			name = Debug;
+		};
+		0D000000000000000000002A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 838JVGY7W4;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = OtterAgents;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0D000000000000000000000A /* Build configuration list for PBXProject "OtterAgents" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0D000000000000000000000C /* Debug */,
+				0D000000000000000000000D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0D000000000000000000000B /* Build configuration list for PBXNativeTarget "OtterAgents" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0D000000000000000000000E /* Debug */,
+				0D000000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0D000000000000000000001B /* Build configuration list for PBXNativeTarget "OtterAgentsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0D0000000000000000000019 /* Debug */,
+				0D000000000000000000001A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0D000000000000000000002B /* Build configuration list for PBXNativeTarget "OtterAgentsUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0D0000000000000000000029 /* Debug */,
+				0D000000000000000000002A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0D0000000000000000000009 /* Project object */;
+}

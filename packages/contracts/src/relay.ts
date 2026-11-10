@@ -213,6 +213,30 @@ export interface AgentPointer {
   at: number;
 }
 
+/**
+ * What a push to Otter Agents carries beside its words, which say only that an agent asks or
+ * sent something: where the iPhone reads it, from the gateway itself.
+ */
+export interface AgentPushMetadata {
+  version: 1;
+  kind: "agent";
+  userId: string;
+  pointer: Omit<AgentPointer, "channel">;
+}
+
+/**
+ * What a device tells the relay over its events socket: the agent session on screen while its
+ * window has focus, null once it isn't. Said again every `WATCHING_EVERY_MS`: a device that
+ * stops saying it (asleep, gone) isn't looking after `WATCHING_FOR_MS`. A chat someone is looking
+ * at isn't pushed to the account's iPhones.
+ */
+export interface WatchingMessage {
+  type: "watching";
+  session: string | null;
+}
+export const WATCHING_EVERY_MS = 30_000;
+export const WATCHING_FOR_MS = 90_000;
+
 /** A gateway allowed to send the account's devices pointers, with a token shown once. */
 export interface AgentChannel {
   id: string;

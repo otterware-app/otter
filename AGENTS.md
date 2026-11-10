@@ -65,6 +65,12 @@ when a feature lands or goes.
   through the relay (mailboxes, preferences under the same keys, live events). `Resources/` holds
   the themes and demo mailbox, exported from `packages/shared` by `pnpm ios:resources`. See its
   README.
+- `apps/ios-agents`: Otter Agents for iPhone, the agents on their own (a second app, as the phone
+  gets an app per job): the account's chats and what agents run on a schedule, laid out like
+  Otter Code's phone app. Its own project (`OtterAgents.xcodeproj`); it compiles `apps/ios`'s
+  agent clients and themes (listed in its project under "Shared with Otter Mail"), so a change to
+  those builds in both. The chat's logic is `apps/web/src/main/agent` ported (`Chats/`,
+  `Scheduled/`): change both together. See its README.
 - `extensions/`: the built-in extensions, a package each (VS Code's model; contracts'
   `src/extensions.ts`): Sign-in codes, Calendar invites, Translation, Todoist, Otter Drive, and
   the agents (`openrouter`, the Otter agent; `hermes`, `openclaw`, `varys`, `claude`, `codex`). Each
@@ -170,7 +176,8 @@ it; the web app needs it (the relay keeps its Gmail sign-ins alive).
     for that action. Don't screenshot or quote their mail beyond what the task needs. See
     [Your own data](docs/development.md#your-own-data).
 - `pnpm dev:ios`: the iPhone app in the simulator (it has the same demo mailbox, from the welcome
-  screen).
+  screen). `pnpm dev:ios:agents`: Otter Agents (its demo, from its welcome screen, is a pretend
+  agent and made-up chats).
 - `pnpm start` runs the built app unpackaged; `pnpm dist:desktop:dmg` builds a DMG in `release/`
   (on a Mac), `pnpm dist:desktop:deb` a .deb (on Linux).
 - Data homes (`apps/desktop/src/paths.ts`, as in T3 Code): the installed app uses
@@ -199,7 +206,8 @@ The iPhone app releases separately, with its own version:
   cookie the stable Worker routes on (`site/src/worker.ts`); open tabs offer "Reload to update".
 - iPhone: the Release iPhone workflow runs on each merge to main that touches `apps/ios` (or
   what it bundles from `packages/shared`), as a patch. Run it by hand for a minor or major
-  version. It uploads to TestFlight and tags `ios-vX.Y.Z`.
+  version. It uploads to TestFlight and tags `ios-vX.Y.Z`. Otter Agents (`apps/ios-agents`) has
+  no release yet: it's built and installed from Xcode.
 
 `docs/runbook.md` is the short version of shipping each part; details in `docs/release.md`.
 
@@ -212,8 +220,8 @@ Before handing work back, run and fix:
 - `pnpm fmt`
 
 For UI or behavior changes, run the app and check the change in it, at a 1600x1000 viewport.
-For the iPhone app, build it (`pnpm dev:ios`, or `xcodebuild` as its README shows) and check the
-change in the simulator, in light and dark.
+For an iPhone app, build it (`pnpm dev:ios`, `pnpm dev:ios:agents`, or `xcodebuild` as its README
+shows) and check the change in the simulator, in light and dark.
 
 Pull requests follow the `pr` skill (`.agents/skills`): a PR that changes what users see carries
 screenshots or a recording, attached with `gh pr create --attach`.

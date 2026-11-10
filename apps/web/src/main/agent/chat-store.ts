@@ -909,6 +909,30 @@ export function watchChat(id: string | null): void {
   });
 }
 
+const WINDOW_ID = crypto.randomUUID();
+let toldWatching: string | null = null;
+
+/** Tells the account which agent session this window shows while it's in front, so its iPhones stay quiet about it. */
+function tellWatching(): void {
+  const { watched, conversations } = get();
+  const session =
+    watched && document.hasFocus()
+      ? (conversations.find((c) => c.id === watched)?.sessionId ?? null)
+      : null;
+  if (session === toldWatching) return;
+  toldWatching = session;
+  void mailApi.agentWatching({ window: WINDOW_ID, session }).catch(() => {});
+}
+
+useChats.subscribe(tellWatching);
+window.addEventListener("focus", tellWatching);
+window.addEventListener("blur", tellWatching);
+window.addEventListener("pagehide", () => {
+  if (toldWatching === null) return;
+  toldWatching = null;
+  void mailApi.agentWatching({ window: WINDOW_ID, session: null }).catch(() => {});
+});
+
 /** Snoozing or settling a pinned chat unpins it; bringing one back puts it at the top. */
 export async function shelveChat(
   id: string,

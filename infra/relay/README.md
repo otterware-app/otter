@@ -318,7 +318,14 @@ Use an Apple APNs ES256 signing key for team `838JVGY7W4` authorized for both al
 (or separate configured deployments/keys for a restricted topic key). `APNS_PRIVATE_KEY` is the
 PKCS#8 `.p8` contents; this is **not** the App Store Connect upload key. Keep key ID/team ID in
 Worker secrets too. Allowed topics are `APNS_SANDBOX_TOPIC=dev.otterware.mail.dev` and
-`APNS_PRODUCTION_TOPIC=dev.otterware.mail` in `wrangler.jsonc`. Do not substitute the extension
+`APNS_PRODUCTION_TOPIC=dev.otterware.mail` in `wrangler.jsonc`, and for Otter Agents
+(`apps/ios-agents`) `APNS_AGENTS_SANDBOX_TOPIC=dev.otterware.agents.dev` and
+`APNS_AGENTS_PRODUCTION_TOPIC=dev.otterware.agents`: the key must be authorized for those too.
+An Otter Agents device registers with no mailboxes and gets no mail pushes; it's pushed to when
+an agent's gateway posts a pointer (`/channel/v1/pointers`: an approval, a question, a message),
+with words that say which and metadata that says where to read it (`apns.agentPayload`). No push
+goes out for a session one of the account's devices says it has on screen (a `watching` message
+on its events socket, kept with the socket for 90 seconds; `UserHub.watching`). Do not substitute the extension
 bundle ID. Local optional variables are listed in `.dev.vars.example`; missing signing
 credentials return 503 on registration, leaving the phone's local notification behavior.
 

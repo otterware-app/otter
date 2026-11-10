@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       iphone: ${{ steps.filter.outputs.iphone }}
+      agents: ${{ steps.filter.outputs.agents }}
       translator: ${{ steps.filter.outputs.translator }}
       hermes: ${{ steps.filter.outputs.hermes }}
     steps:
@@ -52,6 +53,8 @@ jobs:
           esac
           {
             echo "iphone=$(changed '^(apps/ios/|packages/shared/|package\.json$|scripts/export-ios-resources\.ts$|\.github/workflows/ci\.yml$)')"
+            # Otter Agents compiles Otter Mail's agent clients and themes.
+            echo "agents=$(changed '^(apps/ios-agents/|apps/ios/OtterMail/(Agent|Theme|Resources)/|apps/ios/OtterMail/Settings/ThemeSettings\.swift$|\.github/workflows/ci\.yml$)')"
             echo "translator=$(changed '^(native/translator/|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
             echo "hermes=$(changed '^(extensions/hermes/gateway/|\.github/workflows/ci\.yml$)')"
           } | tee -a "$GITHUB_OUTPUT"
@@ -213,5 +216,55 @@ jobs:
           path: |
             ${{ runner.temp }}/otter-ios-tests.xcresult
             ${{ runner.temp }}/otter-ios-preview
+          if-no-files-found: ignore
+          retention-days: 7
+
+  agents:
+    name: iPhone, Otter Agents (Swift)
+    needs: changes
+    if: needs.changes.outputs.agents == 'true'
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build app and tests
+        run: |
+          xcodebuild -version
+          xcodebuild -project apps/ios-agents/OtterAgents.xcodeproj -scheme OtterAgents \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath "$RUNNER_TEMP/otter-agents-build" \
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build-for-testing
+
+      - name: Boot a simulator
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/devices.json"
+          simulator="$(node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const devices = JSON.parse(readFileSync(process.argv[1], "utf8"));
+            const device = Object.values(devices.devices).flat().find(d => d.name.startsWith("iPhone"));
+            if (!device) throw new Error("No available iPhone simulator on the Xcode runner.");
+            console.log(device.udid);
+          ' "$RUNNER_TEMP/devices.json")"
+          echo "IPHONE_SIMULATOR=$simulator" >> "$GITHUB_ENV"
+          xcrun simctl boot "$simulator" || true
+          xcrun simctl bootstatus "$simulator" -b
+
+      - name: Run native tests
+        run: |
+          xcodebuild -project apps/ios-agents/OtterAgents.xcodeproj -scheme OtterAgents \
+            -destination "platform=iOS Simulator,id=$IPHONE_SIMULATOR" \
+            -derivedDataPath "$RUNNER_TEMP/otter-agents-build" \
+            -resultBundlePath "$RUNNER_TEMP/otter-agents-tests.xcresult" \
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO test-without-building
+
+      - name: Upload native results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: agents-verification
+          path: ${{ runner.temp }}/otter-agents-tests.xcresult
           if-no-files-found: ignore
           retention-days: 7

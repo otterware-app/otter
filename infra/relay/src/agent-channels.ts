@@ -99,6 +99,8 @@ export function routes(): Hono<App> {
 /** Where gateways send pointers, with their channel's token instead of a session. */
 export function gatewayRoutes(
   publish: (env: App["Bindings"], userId: string, pointer: AgentPointer) => Promise<unknown>,
+  /** Told after the gateway has its answer: a slow push doesn't hold up the agent's delivery. */
+  notify: (env: App["Bindings"], userId: string, pointer: AgentPointer) => Promise<unknown>,
 ): Hono<App> {
   const app = new Hono<App>();
   app.post(
@@ -129,7 +131,9 @@ export function gatewayRoutes(
           .update(agentChannels)
           .set({ lastUsedAt: new Date(now) })
           .where(eq(agentChannels.id, channel.id));
-      await publish(c.env, channel.userId, { ...c.req.valid("json"), channel: channel.id });
+      const told = { ...c.req.valid("json"), channel: channel.id };
+      await publish(c.env, channel.userId, told);
+      c.executionCtx.waitUntil(notify(c.env, channel.userId, told).catch(() => {}));
       return c.body(null, 202);
     },
   );

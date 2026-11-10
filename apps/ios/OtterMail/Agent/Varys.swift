@@ -284,6 +284,18 @@ final class Varys {
         try await command("POST", "/threads/\(Self.segment(thread))/stop", [:])
     }
 
+    func rename(thread: String, to title: String) async throws {
+        try await command("PATCH", "/threads/\(Self.segment(thread))", ["title": .string(title)])
+    }
+
+    /** What else varys's API has (its routines, its skills): read, or sent as a command is. */
+    func get(_ path: String) async throws -> JSON { try await query("GET", path) }
+
+    @discardableResult
+    func send(_ method: String, _ path: String, _ fields: [String: JSON] = [:]) async throws -> JSON {
+        try await command(method, path, fields)
+    }
+
     /** Approves or declines what an approval proposes; one answered already (elsewhere too) is no failure. */
     func decide(_ approval: String, approve: Bool, inThread: Bool) async throws {
         var fields: [String: JSON] = ["approve": .bool(approve)]
