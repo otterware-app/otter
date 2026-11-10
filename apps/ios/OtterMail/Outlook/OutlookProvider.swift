@@ -221,16 +221,29 @@ final class OutlookProvider: MailProvider {
     private func write(_ messages: [GraphMessage], add: [String], remove: [String], _ box: OutlookFolders, wholeThread: Bool = true) async throws {
         var patches: [GraphAPI.BatchRequest] = []
         var moves: [GraphAPI.BatchRequest] = []
+        var junkMarks: [(path: String, action: String, to: String)] = []
         for message in messages {
             let path = GraphAPI.messagePath(message.id)
             if let patch = OutlookMail.patch(message, add: add, remove: remove) {
                 patches.append(.init(method: "PATCH", url: path, body: try JSONSerialization.data(withJSONObject: patch)))
             }
             if let to = OutlookMail.destination(message, add: add, remove: remove, wholeThread: wholeThread, mailbox: email, folders: box) {
-                moves.append(.init(method: "POST", url: path + "/move", body: try JSONSerialization.data(withJSONObject: ["destinationId": to])))
+                if let action = OutlookMail.junkAction(message, to: to, mailbox: email, folders: box) {
+                    junkMarks.append((path, action, to))
+                } else {
+                    moves.append(.init(method: "POST", url: path + "/move", body: try JSONSerialization.data(withJSONObject: ["destinationId": to])))
+                }
             }
         }
         try await api.run(patches)
+        // Graph has these only in beta (deprecated, with nothing else that blocks), so a refusal falls back to the move.
+        for (path, action, to) in junkMarks {
+            do {
+                try await api.send("POST", GraphAPI.beta + path + "/" + action, [action == "markAsJunk" ? "moveToJunk" : "moveToInbox": true])
+            } catch {
+                moves.append(.init(method: "POST", url: path + "/move", body: try JSONSerialization.data(withJSONObject: ["destinationId": to])))
+            }
+        }
         try await api.run(moves)
     }
 

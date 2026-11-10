@@ -17,6 +17,7 @@ import { platform, type AsyncContext } from "../../platform.js";
 import type { ErrorKind, Lane } from "../provider.js";
 
 export const GRAPH = "https://graph.microsoft.com/v1.0";
+export const GRAPH_BETA = "https://graph.microsoft.com/beta";
 
 const MAX_IN_FLIGHT = 4;
 const REQUEST_TIMEOUT_MS = 90_000;

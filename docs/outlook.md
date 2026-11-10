@@ -58,7 +58,9 @@ MailProvider               packages/core/src/providers/provider.ts
   message; adding a folder label (ARCHIVE included) moves the message there; removing its
   folder's label moves it to Archive (`POST /me/messages/{id}/move`, `destinationId: "archive"`),
   as Outlook's Archive button does (out of Junk, Deleted Items or the Archive: back to Inbox, or
-  Sent Items for your own mail). On a thread, sent mail and drafts stay put unless the thread is
+  Sent Items for your own mail). Junk and Not junk on someone else's mail use beta's
+  `markAsJunk` / `markAsNotJunk`, as Outlook's Junk button does: the sender joins (or leaves)
+  Blocked senders, so their next mail goes to Junk too; if Graph refuses, a plain move. On a thread, sent mail and drafts stay put unless the thread is
   trashed; the cache shows the move at once (contracts' `landLabelChange`). The app's Archive
   (button, `e`, bulk) archives from any of your folders, as Outlook's does: in a folder's list it
   takes that folder away (`apps/web/src/main/mail/archive.ts`). Deleting a folder label
