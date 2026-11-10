@@ -293,8 +293,20 @@ async function deleteComposerDraft(
   const draftId = askedDraft ?? sessionDraft;
   if (!draftId) return;
   forgetSaved(draftId);
-  const res = await providerFor(accountId).deleteDraft(accountId, draftId);
+  const provider = providerFor(accountId);
+  const res = await provider.deleteDraft(accountId, draftId).catch((err: unknown) => {
+    if (provider.errorKind(err) !== "notFound") throw err;
+    console.log("[gmail:deleteDraft] already gone", { draftId });
+    return { messageId: undefined };
+  });
   if (res.messageId) mailStore.deleteMessage(accountId, res.messageId);
+}
+
+// Deleted elsewhere: drop the stale row, as sync would, instead of failing the write.
+function forgetIfGone(accountId: string, messageId: string, err: unknown): void {
+  if (providerFor(accountId).errorKind(err) !== "notFound") throw err;
+  console.log("[mail] gone", { accountId, messageId });
+  mailSync.forgetMessage(accountId, messageId);
 }
 
 const logDraftLeft = (err: unknown) =>
@@ -753,10 +765,9 @@ export function registerMailHandlers(): void {
         () =>
           Promise.all(
             ids.map((id) =>
-              providerFor(accountId).modifyMessage(accountId, id, {
-                addLabelIds,
-                removeLabelIds,
-              }),
+              providerFor(accountId)
+                .modifyMessage(accountId, id, { addLabelIds, removeLabelIds })
+                .catch((err: unknown) => forgetIfGone(accountId, id, err)),
             ),
           ),
       );
