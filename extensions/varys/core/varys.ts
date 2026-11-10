@@ -8,7 +8,6 @@
 import type { Varys } from "@generalpursuit/varys";
 import {
   getOtterUser,
-  getVarysToken,
   logger,
   readAttachment,
   type ChatAttachment,
@@ -19,6 +18,7 @@ import {
 } from "@otter/core/extension-kit";
 
 import { answered, closeVarys, failed, varysClient } from "./client.js";
+import { getVarysToken } from "./token.js";
 import {
   AGENT_RUN,
   DELIVERED,

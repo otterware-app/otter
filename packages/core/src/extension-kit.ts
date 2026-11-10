@@ -21,11 +21,9 @@ export {
 } from "./services/agent/service.js";
 export {
   clearOpenClawToken,
-  clearVarysToken,
   setHermesKey,
   setOpenClawBootstrapToken,
   setOpenClawToken,
-  setVarysToken,
 } from "./services/agent/settings.js";
 export { onOtterAccountChange } from "./services/otter-account.js";
 export { deleteAgentChannel, makeAgentChannel } from "./services/agent/channels.js";
@@ -57,7 +55,6 @@ export {
   getOpenClawDeviceKey,
   getOpenClawDeviceToken,
   getOpenClawToken,
-  getVarysToken,
   setOpenClawDeviceKey,
   setOpenClawDeviceToken,
 } from "./services/agent/settings.js";
@@ -67,7 +64,7 @@ export {
   codexStep,
   hermesStep,
   openClawStep,
-  varysStep,
+  sentence,
 } from "./services/agent/steps.js";
 export { TextStream } from "./services/agent/text-stream.js";
 export { agentTools, cancelToolApprovals, runAgentTool } from "./services/agent/tools/index.js";

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { VarysSettings } from "./settings.js";
 
-vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
+vi.mock("./token.js", () => ({
   getVarysToken: async () => "varys-token",
 }));
 const saved = vi.hoisted(() => [] as unknown[]);

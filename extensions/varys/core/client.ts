@@ -4,10 +4,11 @@
  */
 
 import { connect, type Varys } from "@generalpursuit/varys";
-import { getVarysToken, logger, refreshProvider } from "@otter/core/extension-kit";
+import { logger, refreshProvider } from "@otter/core/extension-kit";
 import type { ResultAsync } from "neverthrow";
 
 import type { VarysSettings } from "./settings.js";
+import { getVarysToken } from "./token.js";
 
 let current: { key: string; varys: Varys } | null = null;
 

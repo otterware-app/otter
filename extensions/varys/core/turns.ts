@@ -18,7 +18,6 @@ import {
   TextStream,
   TOOL_OUTPUT_CHARS,
   logger,
-  varysStep,
   type ApprovalRequest,
   type ChatEvent,
   type ChatQuestion,
@@ -27,6 +26,7 @@ import {
 } from "@otter/core/extension-kit";
 
 import { failed } from "./client.js";
+import { varysStep } from "./steps.js";
 
 export type Turn = {
   requestId: string;

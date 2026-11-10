@@ -1,7 +1,6 @@
 import { pair } from "@generalpursuit/varys";
 import {
   agentSettings,
-  clearVarysToken,
   getOtterUser,
   logger,
   onOtterAccountChange,
@@ -9,7 +8,6 @@ import {
   providersState,
   refreshProvider,
   saveAgentSettings,
-  setVarysToken,
   type CoreExtension,
 } from "@otter/core/extension-kit";
 
@@ -17,6 +15,7 @@ import { manifest } from "../manifest.ts";
 import { varysClient } from "./client.js";
 import { registerRelay, removeRelay, revokeGrant } from "./relay.js";
 import type { VarysSettings } from "./settings.js";
+import { clearVarysToken, setVarysToken } from "./token.js";
 import { varysProvider } from "./varys.js";
 
 const str = (value: unknown): string => (typeof value === "string" ? value.trim() : "");

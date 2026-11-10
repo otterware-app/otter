@@ -20,7 +20,7 @@ import type { VarysSettings } from "./settings.js";
 vi.mock("../../../packages/core/src/platform.js", () => ({
   platform: () => ({ kind: "desktop", appVersion: "test", log: () => {} }),
 }));
-vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
+vi.mock("./token.js", () => ({
   getVarysToken: async () => "varys-token",
 }));
 /** A varys agent as the SDK shows it, played by the test. */
