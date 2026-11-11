@@ -228,6 +228,11 @@ Before handing work back, run and fix:
 For UI or behavior changes, run the app and check the change in it, at a 1600x1000 viewport.
 For an iPhone app, build it (`pnpm dev:ios`, `pnpm dev:ios:agents`, or `xcodebuild` as its README
 shows) and check the change in the simulator, in light and dark.
+For a gateway plugin (`extensions/*/gateway`) or an agent's client, run it on the real gateways
+(`pnpm agents-server`) and drive the path you changed: a turn in an Otter chat, a delivery, an
+approval, what the plugin tells the relay ([Agent gateways](docs/development.md#agent-gateways)).
+Unit tests and loading the plugin don't count. Nothing is published, and no gateway someone uses
+is updated, before this.
 
 Pull requests follow the `pr` skill (`.agents/skills`): a PR that changes what users see carries
 screenshots or a recording, attached with `gh pr create --attach`.

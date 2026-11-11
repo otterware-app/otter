@@ -10,6 +10,8 @@ description: Open or update an Otter pull request the house way - a branch off m
 - Branch off `origin/main`, never commit to `main`. A stack goes through `gh stack`.
 - Before pushing, run and fix `pnpm typecheck`, `pnpm lint` and `pnpm fmt`, and the tests of the
   packages you touched.
+- A gateway plugin or agent client change: driven on `pnpm agents-server` first (AGENTS.md,
+  Verifying), and the PR says which paths.
 - A fix for a Sentry issue says `Fixes <SHORT-ID>` in its commit or PR.
 
 ## The description
