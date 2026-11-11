@@ -47,7 +47,7 @@ struct ChatMenu: View {
         }
         Divider()
         Button("Rename", systemImage: "pencil") { dialog = .rename(chat) }
-        if let kind = AgentKind(rawValue: chat.provider), kind.titles, chat.sessionId != nil, store.agents.isUsable(kind) {
+        if let kind = AgentKind(rawValue: chat.provider), chat.sessionId != nil, store.agents.isUsable(kind) {
             Button("Regenerate title", systemImage: "sparkles") { Task { await store.regenerateTitle(chat.id) } }
         }
         if let session = chat.sessionId {

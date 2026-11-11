@@ -1,7 +1,7 @@
 # Otter relay
 
 https://relay.otterware.app (and, for clients built before the rename, https://relay.mail.otterware.app),
-a Cloudflare Worker. It gives Otter eight things (the Mac app works without it; the web app needs it):
+a Cloudflare Worker. It gives Otter seven things (the Mac app works without it; the web app needs it):
 
 - **Otter accounts.** Sign in with Google once per Mac, and the mailboxes you use come along to
   every Mac. The relay keeps the list of linked addresses (Gmail, Outlook, or IMAP with its server
@@ -14,16 +14,8 @@ a Cloudflare Worker. It gives Otter eight things (the Mac app works without it; 
   UI choices like the theme, as sections of JSON per Otter account, plus the Hermes API key,
   sealed with a key derived from the auth secret. A change is pushed to the account's other
   devices over the same WebSocket as mail. See `src/preferences.ts`.
-- **The OpenRouter agent.** `/v1/agent/*` serves the AI SDK tool loop, connection, chat history,
-  streaming turns, tool results and cancellation. One `AgentHub` Durable Object per Otter
-  account keeps the OpenRouter key sealed using the auth secret and histories in chunked
-  storage. Mac, web and iPhone send only the tools they can execute, and answer tool requests
-  on the initiating device with local approvals. Tool results can contain mail; Gmail tokens
-  and IMAP passwords remain on the device. Signing out stops that device's turns; deleting
-  the Otter account deletes the agent's key and history. Deploy the `AgentHub` binding and
-  `v2` migration in `wrangler.jsonc` together with this API and the updated clients.
-- **Agent chats.** Every chat the account's devices have, whatever agent ran it (OpenRouter,
-  Claude, Codex, Hermes, OpenClaw), with its transcript as the apps show it and the tabs it
+- **Agent chats.** Every chat the account's devices have, whatever agent ran it (Claude,
+  Codex, Hermes, OpenClaw, varys), with its transcript as the apps show it and the tabs it
   opened in the AI workspace (`packages/contracts/src/chats.ts`), so a chat reads the same on
   every device. One row per chat, written whole; the device's `updatedAt` decides, so a stale
   write is refused (409) and that device pulls instead. Transcripts carry what the agent read

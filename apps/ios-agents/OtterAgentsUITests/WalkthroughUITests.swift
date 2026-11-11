@@ -220,7 +220,6 @@ final class WalkthroughUITests: XCTestCase {
         app.buttons["New chat"].tap()
         XCTAssertTrue(app.buttons["Agent and model"].waitForExistence(timeout: 5))
         shot("06-new-chat")
-        // An agent that takes a steer: the Otter agent doesn't.
         app.buttons["Agent and model"].tap()
         app.buttons.containing(NSPredicate(format: "label BEGINSWITH 'claude-opus-5.5'")).firstMatch.tap()
         app.buttons["Done"].tap()

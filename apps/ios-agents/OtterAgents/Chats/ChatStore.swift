@@ -111,7 +111,7 @@ final class ChatStore {
         // A chat not sent yet lives here alone, with what's written in it.
         for saved in defaults.array(forKey: Self.newDraftsKey) as? [[String: Any]] ?? [] {
             guard let id = saved["id"] as? String, hasDraft(id) else { continue }
-            var chat = Chat(provider: saved["provider"] as? String ?? "openrouter", now: saved["createdAt"] as? Int ?? .now)
+            var chat = Chat(provider: saved["provider"] as? String ?? "hermes", now: saved["createdAt"] as? Int ?? .now)
             chat.id = id
             chats.append(chat)
         }
@@ -258,7 +258,7 @@ final class ChatStore {
             $0.title = name
             $0.updatedAt = .now
         }
-        if let kind = AgentKind(rawValue: chat.provider), kind.titles, let session = chat.sessionId {
+        if let kind = AgentKind(rawValue: chat.provider), let session = chat.sessionId {
             await runner.rename(kind, session: session, to: name)
         }
     }
@@ -805,7 +805,7 @@ final class ChatStore {
     func catchUp(_ chatId: String) async {
         await sync?.load(chatId)
         guard let chat = chat(chatId), chat.loaded, runs[chatId] == nil, openRequests[chatId] == nil, !agents.demo,
-              let kind = AgentKind(rawValue: chat.provider), kind != .openrouter, agents.isUsable(kind), let session = chat.sessionId else { return }
+              let kind = AgentKind(rawValue: chat.provider), agents.isUsable(kind), let session = chat.sessionId else { return }
         if let messages = try? await runner.messages(of: kind, session: session), runs[chatId] == nil {
             let added = Self.added(to: chat.turns, by: Self.turns(from: messages))
             if !added.isEmpty {

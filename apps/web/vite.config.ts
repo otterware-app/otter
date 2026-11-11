@@ -5,8 +5,6 @@ import * as NodeURL from "node:url";
 import "vite-plus/test/config";
 import { defineConfig, type Plugin } from "vite-plus";
 
-import { demoAgentServer } from "./dev-agent-server";
-
 import pkg from "./package.json" with { type: "json" };
 import { releaseChannel } from "../../packages/shared/src/release-channel";
 
@@ -50,7 +48,6 @@ export default defineConfig(({ command }) => ({
             );
       },
     },
-    demoAgentServer(),
     demoMailboxes(),
     react(),
     babel({ presets: [reactCompilerPreset()] }),

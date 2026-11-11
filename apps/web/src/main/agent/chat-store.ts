@@ -18,6 +18,7 @@ import { EXTENSIONS } from "../extensions/registry";
 import { closeChatPages } from "../browser/store";
 import { isProviderUsable, useAgentProviders } from "./agent-providers";
 import {
+  DEFAULT_AGENT,
   mailApi,
   type ApprovalDecision,
   type ApprovalRequest,
@@ -118,7 +119,7 @@ export function clampTitle(text: string): string {
   return t.length > 56 ? `${t.slice(0, 56)}…` : t;
 }
 
-function newConversation(provider: ProviderKind = "openrouter"): Conversation {
+function newConversation(provider: ProviderKind = DEFAULT_AGENT): Conversation {
   const now = Date.now();
   return {
     id: crypto.randomUUID(),
@@ -300,7 +301,6 @@ function friendlyError(code: string, provider: ProviderKind): string {
         ? "The OpenClaw gateway refused this device. Reconnect it in Settings → OpenClaw."
         : "The API key was rejected. Update it in Settings.";
     case "unreachable":
-      if (provider === "openrouter") return "Can't reach OpenRouter. Try again in a moment.";
       if (provider === "openclaw") return "Can't reach the OpenClaw gateway.";
       if (provider === "codex") return "Lost the connection to Codex.";
       return `Can't reach ${name}. Are you on Tailscale?`;

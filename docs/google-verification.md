@@ -6,7 +6,7 @@ published for external users; Google's branding and data-access verification are
 from deployment. Until data access is verified, Gmail/Calendar sign-in shows the unverified
 app warning and has Google's 100-user cap. The new [Mail Web demo](https://youtu.be/SLIFzRJg594)
 shows the Otterware Web client, expanded consent permissions, both Contacts sources, Gmail
-signature and deletion, invitation RSVP, and supervised OpenRouter calendar tools. Its link
+signature and deletion, invitation RSVP, and supervised agent calendar tools. Its link
 and scope explanations are saved in the project's Data access form. Google's form requires
 footage for every assigned OAuth client: native Mail consent flows and the actual Calendar
 application's additional scopes/client still need demonstrations before submitting.
@@ -39,9 +39,8 @@ does the job; justifications below.
 > names and profile photos of the people the user corresponds with next to their messages, and
 > suggests recipients while the user types an address. Both are read-only; we never modify
 > contacts. Calendar/Contacts are fetched directly by the device. When the user invokes an agent,
-> relevant tool results are sent to their configured provider. With OpenRouter, our Cloudflare
-> server processes and stores chat history/tool results and sends the conversation to OpenRouter
-> and the selected model provider. History remains until the chat or Otter account is deleted.
+> relevant tool results are sent to their configured agent and model provider. Chats and tool
+> results sync through the user's Otter account until the chat or account is deleted.
 > We do not sell Google data, use it for advertising or train AI models on it.
 
 ### Restricted scope (gmail.settings.basic)
@@ -73,10 +72,9 @@ Features: **Email client**.
 > notifications (users.watch, delivered through Google Cloud Pub/Sub) reach our relay: they carry
 > only the mailbox address and a history id, which the relay forwards to the user's devices so
 > they sync at once. Separately, users can invoke optional agents to work with mail and calendar
-> through tools. For OpenRouter, our Cloudflare server receives prompts and relevant tool results,
-> including mail content/attachments, stores chat history until the chat or Otter account is deleted,
-> and sends the conversation to OpenRouter and the selected model provider. Google tokens are not
-> sent to the agent server. Local agents use the user's configured provider directly. Write tools
+> through tools. Agents use the user's configured model provider directly. Chats and tool results,
+> including mail content, sync through the user's Otter account until the chat or account is deleted.
+> Google tokens stay on the device for desktop agents. Write tools
 > request approval in the default supervised mode. We do not sell data, use it for ads, or train AI
 > models on it. Our use and transfer of Google data follows the Google API Services User Data Policy,
 > including the Limited Use requirements.
@@ -94,7 +92,7 @@ Record the installed app, signed in with a test account, narrating or captioning
 4. Calendar: open an invitation email and click Accept; show the event updated in Google Calendar.
 5. Contacts: a sender's photo next to their message, and recipient suggestions while composing.
 6. Settings: change the demo mailbox's signature and show the same signature in Gmail.
-7. Agent: show the data-sharing notice and supervised approvals, ask the OpenRouter agent to
+7. Agent: show the data-sharing notice and supervised approvals, ask Claude or Codex to
    summarize a demo message and create/update/delete a primary-calendar event, and verify the
    changes in Google Calendar. Use only synthetic reviewer-account content.
 

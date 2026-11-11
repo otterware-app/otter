@@ -12,13 +12,12 @@ final class Schedules {
 
     /** Nil for an agent that isn't connected here, or runs nothing on a schedule. */
     func list(_ kind: AgentKind) async -> AgentTasks? {
-        guard kind.schedules, agents.isUsable(kind) else { return nil }
+        guard agents.isUsable(kind) else { return nil }
         do {
             switch kind {
             case .hermes: return try await hermesList()
             case .openclaw: return try await openClawList()
             case .varys: return try await varysList()
-            case .openrouter: return nil
             }
         } catch {
             return AgentTasks(provider: kind.rawValue, error: error.localizedDescription)
@@ -32,7 +31,6 @@ final class Schedules {
         case .hermes: try await hermesSave(id, input)
         case .openclaw: try await openClawSave(id, input)
         case .varys: try await varysSave(id, input)
-        case .openrouter: throw ScheduleFailure(message: "This agent runs nothing on a schedule.")
         }
     }
 

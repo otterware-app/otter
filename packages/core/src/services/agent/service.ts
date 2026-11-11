@@ -1,7 +1,7 @@
 /**
  * The agents' registry and routing layer (T3 Code's ProviderService in
  * miniature). The agents are extensions' (`context.registerAgent`): the
- * Otter agent, Hermes and OpenClaw everywhere, Codex and Claude from the
+ * Hermes, OpenClaw and varys everywhere, Codex and Claude from the
  * desktop backend. Only what this backend runs is listed: the web app doesn't
  * show the Mac's agents.
  *

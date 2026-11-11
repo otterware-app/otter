@@ -19,7 +19,6 @@
     "@otter/extension-codex": "workspace:*",
     "@otter/extension-hermes": "workspace:*",
     "@otter/extension-openclaw": "workspace:*",
-    "@otter/extension-openrouter": "workspace:*",
     "@otter/extension-otter-drive": "workspace:*",
     "@otter/extension-sign-in-codes": "workspace:*",
     "@otter/extension-todoist": "workspace:*",

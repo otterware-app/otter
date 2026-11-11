@@ -62,7 +62,7 @@ const chats = await import("./chats.ts");
 const chat = (id: string, patch: Partial<Chat> = {}): Chat => ({
   id,
   title: "Plan the offsite",
-  provider: "openrouter",
+  provider: "hermes",
   sessionId: null,
   sessionOwned: false,
   lastResponseId: null,

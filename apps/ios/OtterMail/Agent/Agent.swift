@@ -26,20 +26,6 @@ final class Agent {
         }
     }
 
-    struct OpenRouterSettings: Codable, Equatable {
-        var enabled = true
-        var model = ""
-        var runtimeMode = "approval-required"
-
-        init() {}
-        init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
-            model = try c.decodeIfPresent(String.self, forKey: .model) ?? ""
-            runtimeMode = try c.decodeIfPresent(String.self, forKey: .runtimeMode) ?? "approval-required"
-        }
-    }
-
     struct OpenClawSettings: Codable, Equatable {
         var enabled = true
         var url = ""
@@ -112,7 +98,6 @@ final class Agent {
     }
 
     var hermes: HermesSettings { didSet { settingsChanged() } }
-    var openrouter: OpenRouterSettings { didSet { settingsChanged() } }
     var openclaw: OpenClawSettings {
         didSet {
             UserDefaults.standard.set(try? JSONEncoder().encode(openclaw), forKey: Self.openClawKey)
@@ -137,9 +122,7 @@ final class Agent {
         }
     }
     private(set) var hasKey: Bool
-    private(set) var hasOpenRouterKey = false
     @ObservationIgnored var relay: Relay?
-    @ObservationIgnored var mailStore: () -> MailStore? = { nil }
     @ObservationIgnored var onChange: (String) -> Void = { _ in }
     /** The account's whole `assistant` section, kept so writes don't drop the Mac's Codex and Claude settings. */
     @ObservationIgnored private var section: [String: Any]
@@ -152,7 +135,7 @@ final class Agent {
     private static let openRunKey = "openclaw-run"
     private static let varysKey = "varys"
     private static let varysRunKey = "varys-run"
-    private static let providers = ["openrouter", "hermes", "openclaw", "varys"]
+    private static let providers = ["hermes", "openclaw", "varys"]
 
     init() {
         let data = UserDefaults.standard.data(forKey: Self.settingsKey) ?? Data()
@@ -160,13 +143,12 @@ final class Agent {
         section = savedSection
         let hermesSettings = Self.decode(savedSection["hermes"]) ?? HermesSettings()
         hermes = hermesSettings
-        openrouter = Self.decode(savedSection["openrouter"]) ?? OpenRouterSettings()
         openclaw = UserDefaults.standard.data(forKey: Self.openClawKey)
             .flatMap { try? JSONDecoder().decode(OpenClawSettings.self, from: $0) } ?? OpenClawSettings()
         varys = UserDefaults.standard.data(forKey: Self.varysKey)
             .flatMap { try? JSONDecoder().decode(VarysSettings.self, from: $0) } ?? VarysSettings()
         let saved = savedSection["selected"] as? String ?? ""
-        selected = Self.providers.contains(saved) ? saved : (hermesSettings.baseUrl.isEmpty ? "openrouter" : "hermes")
+        selected = Self.providers.contains(saved) ? saved : "hermes"
         hasKey = Keychain.get(Self.keychainKey) != nil
         openRun = UserDefaults.standard.data(forKey: Self.openRunKey).flatMap { try? JSONDecoder().decode(OpenRun.self, from: $0) }
         varysRun = UserDefaults.standard.data(forKey: Self.varysRunKey).flatMap { try? JSONDecoder().decode(OpenRun.self, from: $0) }
@@ -182,9 +164,7 @@ final class Agent {
         var section = section
         let own = ((try? JSONSerialization.jsonObject(with: JSONEncoder().encode(hermes))) as? [String: Any]) ?? [:]
         section["hermes"] = ((section["hermes"] as? [String: Any]) ?? [:]).merging(own) { _, mine in mine }
-        let router = ((try? JSONSerialization.jsonObject(with: JSONEncoder().encode(openrouter))) as? [String: Any]) ?? [:]
-        section["openrouter"] = ((section["openrouter"] as? [String: Any]) ?? [:]).merging(router) { _, mine in mine }
-        if Self.providers.contains(section["selected"] as? String ?? "") || section["selected"] == nil {
+        if !["claude", "codex"].contains(section["selected"] as? String ?? "") {
             section["selected"] = selected
         }
         return section
@@ -204,8 +184,6 @@ final class Agent {
             section = remote
             let next = Self.decode(remote["hermes"]) ?? HermesSettings()
             if next != hermes { hermes = next }
-            let router = Self.decode(remote["openrouter"]) ?? OpenRouterSettings()
-            if router != openrouter { openrouter = router }
             if let provider = remote["selected"] as? String, Self.providers.contains(provider) { selected = provider }
         }
         if let key, key != Keychain.get(Self.keychainKey) {
@@ -239,7 +217,6 @@ final class Agent {
         newChat()
         models = []
         history = []
-        hasOpenRouterKey = false
         Keychain.set(Self.keychainKey, nil)
         hasKey = false
         status = .notConfigured
@@ -250,7 +227,6 @@ final class Agent {
 
     var isOn: Bool {
         switch selected {
-        case "openrouter": openrouter.enabled
         case "openclaw": openclaw.enabled
         case "varys": varys.enabled
         default: hermes.enabled
@@ -258,7 +234,6 @@ final class Agent {
     }
     var providerName: String {
         switch selected {
-        case "openrouter": "OpenRouter"
         case "openclaw": "OpenClaw"
         case "varys": "varys"
         default: "Hermes"
@@ -267,7 +242,6 @@ final class Agent {
     var chosenModel: String {
         get {
             switch selected {
-            case "openrouter": openrouter.model
             case "openclaw": openclaw.model
             case "varys": ""
             default: hermes.model
@@ -275,36 +249,12 @@ final class Agent {
         }
         set {
             switch selected {
-            case "openrouter": openrouter.model = newValue
             case "openclaw": openclaw.model = newValue
             case "varys": break
             default: hermes.model = newValue
             }
         }
     }
-    private var routerClient: OpenRouter? { relay.flatMap { try? OpenRouter(relay: $0) } }
-
-    func connectOpenRouter(key: String) async throws {
-        guard let client = routerClient else { throw Hermes.Failure(message: "Sign in to your Otter account first.") }
-        let connection = try await client.connection(key: key.trimmingCharacters(in: .whitespacesAndNewlines))
-        guard relay?.token == client.token else { return }
-        section["selected"] = "openrouter"
-        selected = "openrouter"
-        openrouter.enabled = true
-        models = connection.models
-        hasOpenRouterKey = connection.connected
-        status = connection.connected ? .ready : .notConfigured
-    }
-
-    func disconnectOpenRouter() async throws {
-        guard let client = routerClient else { return }
-        try await client.disconnect()
-        newChat()
-        hasOpenRouterKey = false
-        models = []
-        status = .notConfigured
-    }
-
     private var client: Hermes? {
         guard hermes.enabled, !hermes.baseUrl.isEmpty, let key else { return nil }
         return Hermes(baseURL: Hermes.normalized(hermes.baseUrl), key: key)
@@ -313,18 +263,6 @@ final class Agent {
     func check() async {
         if selected == "openclaw" { return await checkOpenClaw() }
         if selected == "varys" { return await checkVarys() }
-        if selected == "openrouter" {
-            guard let client = routerClient, openrouter.enabled else { status = .notConfigured; return }
-            status = .checking
-            do {
-                let connection = try await client.connection()
-                guard selected == "openrouter", relay?.token == client.token else { return }
-                hasOpenRouterKey = connection.connected
-                models = connection.models
-                status = connection.connected ? .ready : .notConfigured
-            } catch { if selected == "openrouter", relay?.token == client.token { status = .failed(error.localizedDescription) } }
-            return
-        }
         guard let client else { status = .notConfigured; return }
         status = .checking
         do {
@@ -375,10 +313,6 @@ final class Agent {
     var readOnly: String?
     @ObservationIgnored private var run: String?
     @ObservationIgnored private var streaming: Task<Void, Never>?
-    @ObservationIgnored private var openRouterRunClient: OpenRouter?
-    @ObservationIgnored private var approvalAnswer: CheckedContinuation<Bool, Never>?
-    @ObservationIgnored private var allowedTools: Set<String> = []
-    @ObservationIgnored private var approvalTool: String?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var gateway: OpenClaw?
     private(set) var openClawPairing: String?
@@ -404,7 +338,6 @@ final class Agent {
         stop()
         turns = []
         session = nil
-        allowedTools = []
         chatID = nil
         chatBase = nil
         baseTurns = 0
@@ -413,7 +346,6 @@ final class Agent {
     }
 
     func send(_ text: String, context: [MailContext] = []) {
-        if selected == "openrouter" { sendOpenRouter(text, context: context); return }
         if selected == "openclaw" { sendOpenClaw(text, context: context); return }
         if selected == "varys" { sendVarys(text, context: context); return }
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -453,59 +385,6 @@ final class Agent {
         }
     }
 
-    private func sendOpenRouter(_ text: String, context: [MailContext]) {
-        let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !running, openrouter.enabled, let client = routerClient, let model, let store = mailStore(),
-              !question.isEmpty || !context.isEmpty else { return }
-        turns.append(Turn(role: .user, text: question, context: context.map(\.subject)))
-        turns.append(Turn(role: .agent, text: ""))
-        let requestID = UUID().uuidString
-        run = requestID
-        running = true
-        openRouterRunClient = client
-        var body: [String: Any] = ["requestId": requestID, "input": MailContext.handoff(question, context, reader: "get_thread"),
-                                   "title": String(question.prefix(60)), "model": model.slug, "tools": AgentMailTools.definitions]
-        if let session { body["sessionId"] = session }
-        streaming = Task { [self] in
-            let tools = AgentMailTools(store: store, confirm: { [weak self] name, detail in
-                guard let self, self.run == requestID, !Task.isCancelled else { return false }
-                if self.openrouter.runtimeMode == "full-access" || self.allowedTools.contains(name) { return true }
-                self.approvalTool = name
-                let approved = await withCheckedContinuation { continuation in
-                    self.approvalAnswer = continuation
-                    self.updateLast { $0.approval = Approval(id: UUID().uuidString, question: "Allow OpenRouter to use \(name.replacingOccurrences(of: "_", with: " "))?", detail: detail, choices: ["once", "session", "deny"]) }
-                }
-                self.approvalTool = nil
-                return approved && !Task.isCancelled && self.run == requestID
-            })
-            do {
-                try await client.turn(body, event: { [weak self] value in
-                    guard let self, self.run == requestID else { return }
-                    switch value["type"] as? String {
-                    case "session": self.session = value["sessionId"] as? String
-                    case "delta": self.updateLast { $0.text += value["text"] as? String ?? "" }
-                    case "tool": self.updateLast { $0.tools.append(Tool(name: (value["step"] as? [String: Any])?["title"] as? String ?? "Tool")) }
-                    case "toolResult": self.handle(.toolResult(value["output"] as? String ?? ""))
-                    case "error":
-                        let message = (value["message"] as? String) ?? "The agent could not finish."
-                        if message != "cancelled" { self.updateLast { $0.error = message.replacingOccurrences(of: "agent_error: ", with: "") } }
-                    default: break
-                    }
-                }, tool: { name, input in await tools.run(name, input) })
-            } catch is CancellationError {
-            } catch {
-                await client.stop(requestID)
-                if run == requestID { updateLast { $0.error = error.localizedDescription } }
-            }
-            guard run == requestID else { return }
-            running = false
-            run = nil
-            openRouterRunClient = nil
-            await loadHistory()
-            await saveChat()
-        }
-    }
-
     private func handle(_ event: Hermes.Event) {
         switch event {
         case .run(let id): run = id
@@ -538,26 +417,15 @@ final class Agent {
         } else if let run, selected == "openclaw", let session, let gateway = openClawClient {
             openRun = nil
             Task { await gateway.abort(session: session, run: run) }
-        } else if let run, let client = openRouterRunClient { Task { await client.stop(run) } }
-        else if let run, let client { Task { await client.stop(run: run) } }
-        approvalAnswer?.resume(returning: false)
-        approvalAnswer = nil
+        } else if let run, let client { Task { await client.stop(run: run) } }
         updateLast { $0.approval = nil; $0.question = nil }
         streaming?.cancel()
         streaming = nil
         running = false
         run = nil
-        openRouterRunClient = nil
     }
 
     func answer(_ approval: Approval, _ choice: String) {
-        if let answer = approvalAnswer, pendingApproval?.id == approval.id {
-            if choice == "session", let tool = approvalTool { allowedTools.insert(tool) }
-            approvalAnswer = nil
-            updateLast { $0.approval = nil }
-            answer.resume(returning: ["once", "session"].contains(choice))
-            return
-        }
         if selected == "varys" { return answerVarys(approval, choice) }
         if selected == "openclaw", let gateway = openClawClient {
             Task {
@@ -591,12 +459,6 @@ final class Agent {
             }
             return
         }
-        if selected == "openrouter" {
-            guard let client = routerClient else { return }
-            let chats = try? await client.sessions()
-            if selected == "openrouter", relay?.token == client.token, let chats { history = chats }
-            return
-        }
         guard let client else { return }
         history = (try? await client.sessions()) ?? history
     }
@@ -609,8 +471,7 @@ final class Agent {
         session = chat.id
         chatID = synced.first { $0.provider == provider && $0.sessionId == chat.id }?.id
         let messages: [Hermes.Message]
-        if selected == "openrouter", let client = routerClient { messages = (try? await client.messages(of: chat.id)) ?? [] }
-        else if selected == "openclaw", let gateway = openClawClient {
+        if selected == "openclaw", let gateway = openClawClient {
             messages = ((try? await gateway.messages(of: chat.id)) ?? []).map { Hermes.Message(role: $0.role, text: $0.text, tools: $0.steps.map(\.name)) }
         }
         else if selected == "varys", let client = varysClient {
@@ -705,7 +566,6 @@ final class Agent {
     func delete(_ chat: Hermes.Session) async {
         // Deleting a varys thread is for the user's own devices, in varys: the chat goes, the thread stays.
         if selected == "varys" {}
-        else if selected == "openrouter", let client = routerClient { try? await client.delete(session: chat.id) }
         else if selected == "openclaw", let gateway = openClawClient { try? await gateway.delete(session: chat.id) }
         else if let client { try? await client.delete(session: chat.id) }
         else { return }

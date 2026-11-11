@@ -176,7 +176,7 @@ enum DemoChats {
                 $0.pinnedAt = now - 8 * day
                 $0.sessionId = "agent:main:otter-mail:demo-offsite"
             },
-            chat("Reply to Lena about the Q4 budget", "openrouter", ago: 12 * minute, [
+            chat("Reply to Lena about the Q4 budget", "openclaw", ago: 12 * minute, [
                 user("2", "What did Lena decide about the Q4 budget, and what do I owe her?", at: now - 14 * minute),
                 agent("2", at: now - 14 * minute, took: 48_000, [
                     step("search", "Searched mail for “Q4 budget”", "{\"threads\": 3}", "Otter"),
@@ -208,7 +208,7 @@ enum DemoChats {
                     .text(id: nil, "The notarization step times out since Apple's service moved regions. I raised the wait from 10 to 30 minutes in `scripts/notarize-mac.ts` and re-ran the workflow: it's green."),
                 ]),
             ]) { $0.device = Chat.Device(id: "mac", name: "Chris's MacBook Pro") },
-            chat("Summarize the board deck", "openrouter", ago: 2 * day, [
+            chat("Summarize the board deck", "openclaw", ago: 2 * day, [
                 user("6", "Summarize this for me in five bullets.", at: now - 2 * day) {
                     $0.attachments = [ChatSentAttachment(name: "Board deck Q3.pdf", isImage: false, size: 2_480_000)]
                 },
@@ -227,7 +227,7 @@ enum DemoChats {
                 user("8", "Draft a short release note for 0.14.", at: now - 11 * day),
                 agent("8", at: now - 11 * day, took: 28_000, [.text(id: nil, "**Otter 0.14** brings Outlook folders, faster search and a calmer sidebar.")]),
             ]) { $0.settledAt = now - 10 * day },
-            chat("Unsubscribe from the newsletters I never open", "openrouter", ago: 13 * day, [
+            chat("Unsubscribe from the newsletters I never open", "openclaw", ago: 13 * day, [
                 user("9", "Unsubscribe me from newsletters I haven't opened in three months.", at: now - 13 * day),
                 agent("9", at: now - 13 * day, took: 151_000, [
                     step("search", "Searched mail for list-unsubscribe", "38 senders", "Otter"),

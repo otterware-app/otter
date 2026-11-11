@@ -3,7 +3,6 @@ import SwiftUI
 /** One agent: whether it's on, how this iPhone reaches it, and what it runs chats with. */
 struct AgentSettings: View {
     @Environment(\.palette) private var palette
-    @Environment(\.openURL) private var openURL
     @Environment(Account.self) private var account
     let kind: AgentKind
 
@@ -35,7 +34,6 @@ struct AgentSettings: View {
             }
             if agents.isEnabled(kind) {
                 switch kind {
-                case .openrouter: openRouter
                 case .hermes: hermes
                 case .openclaw: openClaw
                 case .varys: varys
@@ -86,34 +84,6 @@ struct AgentSettings: View {
                 .labelsHidden()
                 .tint(palette.muted)
             }
-        }
-    }
-
-    // MARK: Otter's agent
-
-    @ViewBuilder
-    private var openRouter: some View {
-        let signedIn = account.relay.isSignedIn
-        SettingsSection(footer: signedIn
-            ? "Otter's own agent, run for your Otter account through OpenRouter. The API key stays on Otter's server. Your prompts go to Otter's server, OpenRouter and the model's provider; chats stay until you delete them or your Otter account. Usage is billed to your OpenRouter account."
-            : "Sign in to your Otter account to connect OpenRouter.") {
-            SettingsField(placeholder: "OpenRouter API key", text: $key, secret: true)
-            SettingsDivider()
-            SettingsButton(title: connecting ? "Connecting…" : agents.hasOpenRouterKey ? "Update key" : "Connect") {
-                run { try await agents.connectOpenRouter(key: key) }
-            }
-            .disabled(key.isEmpty || connecting || !signedIn)
-        }
-        if agents.hasOpenRouterKey {
-            SettingsSection {
-                modelPicker("Model", default: "Server default")
-                SettingsDivider()
-                SettingsButton(title: "Disconnect", destructive: true) { run { try await agents.disconnectOpenRouter() } }
-            }
-        }
-        SettingsSection {
-            Button { openURL(URL(string: "https://openrouter.ai/settings/keys")!) } label: { SettingsRow("Get an API key", symbol: "key") }.buttonStyle(.plain)
-            Button { openURL(URL(string: "https://openrouter.ai/activity")!) } label: { SettingsRow("Usage and credits", symbol: "chart.bar") }.buttonStyle(.plain)
         }
     }
 

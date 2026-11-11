@@ -15,8 +15,6 @@ function sourceLabel(source: string): string {
       return "CLI";
     case "codex":
       return "Codex";
-    case "openrouter":
-      return "OpenRouter";
     default:
       return source.charAt(0).toUpperCase() + source.slice(1);
   }

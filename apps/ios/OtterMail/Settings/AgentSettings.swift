@@ -7,7 +7,6 @@ struct AgentSettings: View {
     @State private var url = ""
     @State private var key = ""
     @State private var connecting = false
-    @State private var routerKey = ""
     @State private var setupCode = ""
     @State private var gatewayURL = ""
     @State private var gatewayToken = ""
@@ -21,53 +20,12 @@ struct AgentSettings: View {
         SettingsForm {
             Section {
                 Picker("Agent", selection: $agent.selected) {
-                    Text("OpenRouter").tag("openrouter")
                     Text("Hermes").tag("hermes")
                     Text("OpenClaw").tag("openclaw")
                     Text("varys").tag("varys")
                 }
             }
-            if agent.selected == "openrouter" {
-                Section {
-                    Toggle("OpenRouter", isOn: $agent.openrouter.enabled)
-                    if agent.openrouter.enabled {
-                        LabeledContent("Status", value: statusText)
-                        SecureField("OpenRouter API key", text: $routerKey)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                        Button(connecting ? "Connecting…" : agent.hasOpenRouterKey ? "Update key" : "Connect") {
-                            connecting = true
-                            error = nil
-                            Task {
-                                do { try await agent.connectOpenRouter(key: routerKey); routerKey = "" }
-                                catch { self.error = error.localizedDescription }
-                                connecting = false
-                            }
-                        }
-                        .disabled(routerKey.isEmpty || connecting || !session.relay.isSignedIn)
-                        if agent.hasOpenRouterKey {
-                            Picker("Model", selection: $agent.openrouter.model) {
-                                Text("Server default").tag("")
-                                ForEach(agent.models) { Text($0.name).tag($0.slug) }
-                            }
-                            Picker("Tool approval", selection: $agent.openrouter.runtimeMode) {
-                                Text("Supervised").tag("approval-required")
-                                Text("Auto accept edits").tag("auto-accept-edits")
-                                Text("Full access").tag("full-access")
-                            }
-                            Button("Disconnect", role: .destructive) {
-                                Task { do { try await agent.disconnectOpenRouter() } catch { self.error = error.localizedDescription } }
-                            }
-                        }
-                        if let error { Text(error).foregroundStyle(palette.error) }
-                        if case .failed(let message) = agent.status { Text(message).foregroundStyle(palette.error) }
-                        Link("Get an API key", destination: URL(string: "https://openrouter.ai/settings/keys")!)
-                        Link("Usage and credits", destination: URL(string: "https://openrouter.ai/activity")!)
-                    }
-                } footer: {
-                    Text(session.relay.isSignedIn ? "The API key stays on Otter Mail's server. When you use this agent, your prompts and mail returned by its tools are sent to Otter Mail's server, OpenRouter and the selected model provider. Chat history stays until you delete the chat or your Otter account. Usage is billed to your OpenRouter account." : "Sign in to your Otter account to connect OpenRouter.").sectionFooter()
-                }
-            } else if agent.selected == "openclaw" {
+            if agent.selected == "openclaw" {
                 openClaw
             } else if agent.selected == "varys" {
                 varys

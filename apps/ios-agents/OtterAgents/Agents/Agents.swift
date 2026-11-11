@@ -2,8 +2,8 @@ import Foundation
 import Observation
 
 /**
- * The agents and how this iPhone reaches each: the Otter agent through the relay, Hermes on your
- * server (its settings and sealed key follow the Otter account, in the `assistant` section the
+ * The agents and how this iPhone reaches each: Hermes on your server (its settings and sealed
+ * key follow the Otter account, in the `assistant` section the
  * Mac and the web keep too), OpenClaw and varys as a device of their own (paired here, kept here).
  * Every connected agent is ready at once: a chat runs on the one it started with.
  */
@@ -28,18 +28,6 @@ final class Agents {
             reasoningEffort = try c.decodeIfPresent(String.self, forKey: .reasoningEffort) ?? ""
             serviceTier = try c.decodeIfPresent(String.self, forKey: .serviceTier) ?? ""
             sessions = try c.decodeIfPresent(Bool.self, forKey: .sessions)
-        }
-    }
-
-    struct OpenRouterSettings: Codable, Equatable {
-        var enabled = true
-        var model = ""
-
-        init() {}
-        init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
-            model = try c.decodeIfPresent(String.self, forKey: .model) ?? ""
         }
     }
 
@@ -92,7 +80,6 @@ final class Agents {
     }
 
     var hermes: HermesSettings { didSet { if hermes != oldValue { assistantChanged() } } }
-    var openrouter: OpenRouterSettings { didSet { if openrouter != oldValue { assistantChanged() } } }
     var openclaw: OpenClawSettings {
         didSet { UserDefaults.standard.set(try? JSONEncoder().encode(openclaw), forKey: Self.openClawKey) }
     }
@@ -115,7 +102,6 @@ final class Agents {
     private(set) var status: [AgentKind: Status] = [:]
     private(set) var models: [AgentKind: [Hermes.Model]] = [:]
     private(set) var hasHermesKey: Bool
-    private(set) var hasOpenRouterKey = false
     /** OpenClaw's agents as they show themselves: a picture or an emoji, by agent. */
     private(set) var openClawFaces: [String: (avatar: String?, emoji: String?)] = [:]
     private(set) var openClawPairing: String?
@@ -153,11 +139,10 @@ final class Agents {
         section = saved
         let hermesSettings: HermesSettings = Self.decode(saved["hermes"]) ?? HermesSettings()
         hermes = hermesSettings
-        openrouter = Self.decode(saved["openrouter"]) ?? OpenRouterSettings()
         openclaw = defaults.data(forKey: Self.openClawKey).flatMap { try? JSONDecoder().decode(OpenClawSettings.self, from: $0) } ?? OpenClawSettings()
         varys = defaults.data(forKey: Self.varysKey).flatMap { try? JSONDecoder().decode(VarysSettings.self, from: $0) } ?? VarysSettings()
         let chosen = saved["selected"] as? String ?? ""
-        selected = AgentKind(rawValue: chosen) != nil ? chosen : (hermesSettings.baseUrl.isEmpty ? "openrouter" : "hermes")
+        selected = AgentKind(rawValue: chosen) != nil ? chosen : "hermes"
         followUp = defaults.string(forKey: Self.followUpKey).flatMap(FollowUp.init) ?? .queue
         favorites = Self.strings(defaults.string(forKey: Self.favoritesKey))
         hasHermesKey = Keychain.get(Self.hermesKeyName) != nil
@@ -179,12 +164,10 @@ final class Agents {
     /** The section as this device would write it. */
     var syncedSection: [String: Any] {
         var section = section
-        for (key, value) in [("hermes", try? JSONEncoder().encode(hermes)), ("openrouter", try? JSONEncoder().encode(openrouter))] {
-            let own = (value.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]) ?? [:]
-            section[key] = ((section[key] as? [String: Any]) ?? [:]).merging(own) { _, mine in mine }
-        }
+        let own = ((try? JSONSerialization.jsonObject(with: JSONEncoder().encode(hermes))) as? [String: Any]) ?? [:]
+        section["hermes"] = ((section["hermes"] as? [String: Any]) ?? [:]).merging(own) { _, mine in mine }
         // An agent only the Mac runs stays the account's choice.
-        if AgentKind(rawValue: section["selected"] as? String ?? "") != nil || section["selected"] == nil {
+        if !["claude", "codex"].contains(section["selected"] as? String ?? "") {
             section["selected"] = selected
         }
         return section
@@ -212,7 +195,6 @@ final class Agents {
         if let remote {
             section = remote
             hermes = Self.decode(remote["hermes"]) ?? HermesSettings()
-            openrouter = Self.decode(remote["openrouter"]) ?? OpenRouterSettings()
             if let provider = remote["selected"] as? String, AgentKind(rawValue: provider) != nil { selected = provider }
         }
         if let value = (ui[Self.followUpKey] as? String).flatMap(FollowUp.init) { followUp = value }
@@ -230,27 +212,17 @@ final class Agents {
         defer { applying = false }
         Keychain.set(Self.hermesKeyName, nil)
         hasHermesKey = false
-        hasOpenRouterKey = false
         section = [:]
         hermes = HermesSettings()
-        openrouter = OpenRouterSettings()
         status[.hermes] = .notConfigured
-        status[.openrouter] = .notConfigured
         models[.hermes] = []
-        models[.openrouter] = []
     }
 
     func startDemo() {
         demo = true
         openClawFaces = ["research": (nil, "🔭")]
-        status = [.openrouter: .ready, .hermes: .ready, .openclaw: .ready, .varys: .ready]
+        status = [.hermes: .ready, .openclaw: .ready, .varys: .ready]
         models = [
-            .openrouter: [
-                Hermes.Model(slug: "anthropic/claude-sonnet-5.5", name: "Claude Sonnet 5.5", subProvider: "Anthropic", isDefault: true, reasoning: false, canDisableReasoning: false, fast: false),
-                Hermes.Model(slug: "anthropic/claude-opus-5.5", name: "Claude Opus 5.5", subProvider: "Anthropic", isDefault: false, reasoning: false, canDisableReasoning: false, fast: false),
-                Hermes.Model(slug: "openai/gpt-5.5", name: "GPT-5.5", subProvider: "OpenAI", isDefault: false, reasoning: false, canDisableReasoning: false, fast: false),
-                Hermes.Model(slug: "google/gemini-3-pro", name: "Gemini 3 Pro", subProvider: "Google", isDefault: false, reasoning: false, canDisableReasoning: false, fast: false),
-            ],
             .hermes: [
                 Hermes.Model(slug: "anthropic::claude-opus-5.5", name: "claude-opus-5.5", subProvider: "Anthropic", isDefault: true, reasoning: true, canDisableReasoning: true, fast: true),
                 Hermes.Model(slug: "openai::gpt-5.5", name: "gpt-5.5", subProvider: "OpenAI", isDefault: false, reasoning: true, canDisableReasoning: false, fast: true),
@@ -274,7 +246,6 @@ final class Agents {
 
     func isEnabled(_ kind: AgentKind) -> Bool {
         switch kind {
-        case .openrouter: openrouter.enabled
         case .hermes: hermes.enabled
         case .openclaw: openclaw.enabled
         case .varys: varys.enabled
@@ -283,7 +254,6 @@ final class Agents {
 
     func setEnabled(_ kind: AgentKind, _ enabled: Bool) {
         switch kind {
-        case .openrouter: openrouter.enabled = enabled
         case .hermes: hermes.enabled = enabled
         case .openclaw: openclaw.enabled = enabled
         case .varys: varys.enabled = enabled
@@ -301,7 +271,7 @@ final class Agents {
     /** Where a new chat starts: the account's choice while it works here, else the first that does. */
     var starting: AgentKind {
         if let chosen = AgentKind(rawValue: selected), isUsable(chosen) { return chosen }
-        return usable.first ?? AgentKind(rawValue: selected) ?? .openrouter
+        return usable.first ?? AgentKind(rawValue: selected) ?? .hermes
     }
 
     func statusText(_ kind: AgentKind) -> String {
@@ -331,7 +301,6 @@ final class Agents {
 
     func chosenModel(_ kind: AgentKind) -> String {
         switch kind {
-        case .openrouter: openrouter.model
         case .hermes: hermes.model
         case .openclaw: openclaw.model
         case .varys: ""
@@ -340,7 +309,6 @@ final class Agents {
 
     func choose(model slug: String, for kind: AgentKind) {
         switch kind {
-        case .openrouter: openrouter.model = slug
         case .hermes: hermes.model = slug
         case .openclaw: openclaw.model = slug
         case .varys: break
@@ -401,11 +369,6 @@ final class Agents {
         return Hermes(baseURL: Hermes.normalized(hermes.baseUrl), key: key)
     }
 
-    var routerClient: OpenRouter? {
-        guard openrouter.enabled else { return nil }
-        return relay.flatMap { try? OpenRouter(relay: $0) }
-    }
-
     private static let openClawSecrets = OpenClaw.Secrets(get: { Keychain.get($0) }, set: { Keychain.set($0, $1, thisDeviceOnly: true) })
 
     var openClawClient: OpenClaw? {
@@ -438,24 +401,9 @@ final class Agents {
     func check(_ kind: AgentKind) async {
         guard !demo else { return }
         switch kind {
-        case .openrouter: await checkOpenRouter()
         case .hermes: await checkHermes()
         case .openclaw: await checkOpenClaw()
         case .varys: await checkVarys()
-        }
-    }
-
-    private func checkOpenRouter() async {
-        guard let client = routerClient else { status[.openrouter] = .notConfigured; return }
-        if status[.openrouter] != .ready { status[.openrouter] = .checking }
-        do {
-            let connection = try await client.connection()
-            guard relay?.token == client.token else { return }
-            hasOpenRouterKey = connection.connected
-            models[.openrouter] = connection.models
-            status[.openrouter] = connection.connected ? .ready : .notConfigured
-        } catch {
-            if relay?.token == client.token { status[.openrouter] = .failed(error.localizedDescription) }
         }
     }
 
@@ -565,25 +513,6 @@ final class Agents {
         status[.hermes] = .notConfigured
         models[.hermes] = []
         onChange("hermesKey")
-    }
-
-    func connectOpenRouter(key: String) async throws {
-        guard let relay, let client = try? OpenRouter(relay: relay) else { throw Hermes.Failure(message: "Sign in to your Otter account first.") }
-        let connection = try await client.connection(key: key.trimmingCharacters(in: .whitespacesAndNewlines))
-        guard relay.token == client.token else { return }
-        openrouter.enabled = true
-        models[.openrouter] = connection.models
-        hasOpenRouterKey = connection.connected
-        status[.openrouter] = connection.connected ? .ready : .notConfigured
-        if connection.connected, !isUsable(selected) { selected = "openrouter" }
-    }
-
-    func disconnectOpenRouter() async throws {
-        guard let client = routerClient else { return }
-        try await client.disconnect()
-        hasOpenRouterKey = false
-        models[.openrouter] = []
-        status[.openrouter] = .notConfigured
     }
 
     func connectOpenClaw(code: String) async throws {

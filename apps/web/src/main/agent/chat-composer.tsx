@@ -582,20 +582,6 @@ export function ChatComposer({
                 )}
               </div>
             </div>
-            {providerKind === "openrouter" && usable ? (
-              <div className="flex items-center justify-between gap-2 px-4 pb-3 text-xs text-muted-foreground">
-                <span>OpenRouter</span>
-                <button
-                  type="button"
-                  className="cursor-pointer hover:text-foreground"
-                  onClick={() =>
-                    void window.desktopBridge.openExternal("https://openrouter.ai/activity")
-                  }
-                >
-                  Manage usage
-                </button>
-              </div>
-            ) : null}
           </div>
         )}
       </div>

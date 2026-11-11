@@ -173,14 +173,13 @@ struct AgentView: View {
                 .scrollIndicators(.hidden)
             }
             HStack(alignment: .bottom, spacing: 10) {
-                TextField(agent.running ? (agent.selected == "openrouter" ? "Agent is working…" : "Steer \(agent.providerName)…") : "Ask \(agent.providerName)", text: $draft, axis: .vertical)
+                TextField(agent.running ? "Steer \(agent.providerName)…" : "Ask \(agent.providerName)", text: $draft, axis: .vertical)
                     .lineLimit(1...6)
                     .focused($focused)
-                    .disabled(agent.running && agent.selected == "openrouter")
                     .foregroundStyle(palette.text)
                     .padding(.vertical, 8)
                     .onSubmit { send(draft) }
-                if agent.running && (draft.isEmpty || agent.selected == "openrouter") {
+                if agent.running && draft.isEmpty {
                     Button("Stop", systemImage: "stop.fill") { agent.stop() }
                         .labelStyle(.iconOnly)
                         .font(.system(size: 13))
@@ -209,7 +208,6 @@ struct AgentView: View {
 
     private func send(_ text: String) {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !(agent.running && agent.selected == "openrouter") else { return }
         agent.send(text, context: agent.turns.isEmpty ? context : [])
         if agent.turns.count <= 2 { context = [] }
         draft = ""

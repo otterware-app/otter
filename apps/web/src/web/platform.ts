@@ -171,6 +171,5 @@ export async function webPlatform(page: Page): Promise<Platform> {
   const { withFakeServices } = await import("@otter/core/fake");
   return {
     ...(await withFakeServices(platform)),
-    agentServerUrl: `${self.location.origin}/api/agent`,
   };
 }

@@ -341,7 +341,7 @@ struct QueueSheet: View {
 
     var body: some View {
         let queued = store.queued(in: chat.id)
-        let canSendNow = store.runs[chat.id] != nil && !store.isCompacting(chat.id) && AgentKind(rawValue: chat.provider)?.steers == true
+        let canSendNow = store.runs[chat.id] != nil && !store.isCompacting(chat.id) && AgentKind(rawValue: chat.provider) != nil
         NavigationStack {
             List {
                 ForEach(queued) { message in

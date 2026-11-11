@@ -369,7 +369,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "New chats start with",
     pane: "agents",
     searchTerms: [
-      "agents openrouter api key server model claude codex hermes openclaw varys enable turn on off default new chats",
+      "agents api key server model claude codex hermes openclaw varys enable turn on off default new chats",
     ],
   },
   {
@@ -392,7 +392,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "agent-models",
     title: "Models",
     pane: "agents",
-    item: "openrouter",
+    item: "hermes",
     searchTerms: ["agents favorites hidden default model"],
   },
   {
