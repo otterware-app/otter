@@ -234,6 +234,9 @@ screenshots or a recording, attached with `gh pr create --attach`.
 
 ## Taste
 
+- Otter is alpha software: nobody depends on what came before. Ideally never keep legacy: when
+  something is replaced or unused, delete all of it (its code, its data, the infrastructure that
+  served it), with no compatibility paths, fallbacks or stubs kept for later.
 - Small, obvious code. Don't add machinery a change doesn't need.
 - Match the surrounding code: its naming and idioms.
 - Be aggressive about removing useless code comments, and avoid adding them. Skip narration,
