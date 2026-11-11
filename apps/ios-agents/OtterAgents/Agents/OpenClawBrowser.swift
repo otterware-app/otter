@@ -66,6 +66,8 @@ nonisolated struct BrowserEvents: Sendable {
     var run: String
     var seq: Int
     var dialog: BrowserDialog?
+    /** What has focus in the page takes text. */
+    var field = false
     var events: [BrowserEvent]
 }
 
@@ -259,7 +261,7 @@ extension OpenClaw {
         if let run { params["run"] = run }
         let result = try await plugin("otter.browser.events", params, timeout: TimeInterval(waitMs) / 1000 + 15) as? [String: Any] ?? [:]
         return BrowserEvents(run: result["run"] as? String ?? "", seq: result["seq"] as? Int ?? 0, dialog: BrowserDialog(result["dialog"] as? [String: Any]),
-                             events: (result["events"] as? [[String: Any]] ?? []).compactMap(BrowserEvent.init))
+                             field: result["field"] as? Bool ?? false, events: (result["events"] as? [[String: Any]] ?? []).compactMap(BrowserEvent.init))
     }
 
     /** The files picked for the page's own picker: none cancels it. */

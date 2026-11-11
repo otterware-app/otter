@@ -136,7 +136,13 @@ describe("taking control of the agent's browser", () => {
   it("tells whoever watches where the pointer went and what popped up, waiting until it does", async () => {
     const { control, saw, emit } = await fixture();
     const start = await control.events("tab", undefined, undefined, 0);
-    expect(start).toEqual({ run: expect.any(String), seq: 0, dialog: null, events: [] });
+    expect(start).toEqual({
+      run: expect.any(String),
+      seq: 0,
+      dialog: null,
+      field: false,
+      events: [],
+    });
     // From an earlier run of the plugin: its numbers mean nothing now, so just the state.
     expect((await control.events("tab", undefined, 5, 0, "old")).events).toEqual([]);
     const waiting = control.events("tab", undefined, 0, 20_000, start.run);
@@ -147,6 +153,11 @@ describe("taking control of the agent's browser", () => {
     emit("Page.javascriptDialogOpening", { type: "confirm", message: "Leave?" });
     const after = await control.events("tab", undefined, 1, 0, start.run);
     expect(after.dialog).toMatchObject({ dialogType: "confirm", message: "Leave?" });
+    // A field that has focus is told to whoever starts watching after it got it.
+    saw({ type: "field", editable: true });
+    await vi.waitFor(async () =>
+      expect((await control.events("tab", undefined, undefined, 0)).field).toBe(true),
+    );
   });
 
   it("says when what has focus in the page takes text, for a phone's keyboard", async () => {

@@ -326,6 +326,8 @@ export function createBrowserControl({
     }
   };
   const tell = (tab, event) => {
+    // Kept for whoever starts watching later: a field the agent left focused is where they'll type.
+    if (event.type === "field") tab.field = event.editable === true;
     tab.seq += 1;
     tab.events.push({ ...event, seq: tab.seq });
     if (tab.events.length > EVENTS_KEPT) tab.events.shift();
@@ -500,6 +502,7 @@ export function createBrowserControl({
         run,
         seq: tab.seq,
         dialog: tab.dialog ?? null,
+        field: tab.field === true,
         events: Number.isInteger(since) ? tab.events.filter((e) => e.seq > since) : [],
       });
       if (!Number.isInteger(since) || since < tab.seq || !(waitMs > 0)) return state();

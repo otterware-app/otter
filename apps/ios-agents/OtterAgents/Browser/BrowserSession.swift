@@ -257,7 +257,10 @@ final class BrowserSession {
                 let result = try await gateway.browserEvents(tab, since: since, run: run, waitMs: since == nil ? 0 : Self.eventsWaitMs)
                 guard !Task.isCancelled else { return }
                 // A first answer, or the plugin started over: take its state as it is.
-                if since == nil || result.run != run { dialog = result.dialog }
+                if since == nil || result.run != run {
+                    dialog = result.dialog
+                    field = result.field
+                }
                 run = result.run
                 result.events.forEach(handle)
                 since = result.seq
