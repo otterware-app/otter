@@ -110,13 +110,13 @@ describe("terminals", () => {
 });
 
 describe("autostart", () => {
-  it("writes an XDG autostart entry with the executable quoted, and removes it", async () => {
+  it("writes an XDG autostart entry that starts hidden, with the executable quoted, and removes it", async () => {
     const file = autostartFile({ XDG_CONFIG_HOME: root });
     expect(file).toBe(path.join(root, "autostart", "otter-mail.desktop"));
     setAutostart(true, '/opt/otter-mail/otter "mail"', file);
     const text = await fs.readFile(file, "utf8");
     expect(text).toBe(autostartEntry('/opt/otter-mail/otter "mail"'));
-    expect(text).toContain('Exec="/opt/otter-mail/otter \\"mail\\""');
+    expect(text).toContain('Exec="/opt/otter-mail/otter \\"mail\\"" --hidden');
     setAutostart(false, "", file);
     await expect(fs.stat(file)).rejects.toThrow();
   });

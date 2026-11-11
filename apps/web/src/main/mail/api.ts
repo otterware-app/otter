@@ -616,6 +616,7 @@ export const mailApi = {
     title: string;
     subtitle?: string;
     body?: string;
+    chat?: string;
     focused: boolean;
   }): Promise<{ ok: boolean }> => ipc("agent:notifyAsk", params),
 

@@ -180,7 +180,7 @@ function carryOut(effect: MainEffect): void {
       broadcast(effect.channel, effect.params);
       return;
     case "notify": {
-      const { kind: _kind, open, code, ...options } = effect;
+      const { kind: _kind, open, chat, code, ...options } = effect;
       if (!Notification.isSupported()) return;
       const notification = new Notification({
         ...options,
@@ -193,7 +193,10 @@ function carryOut(effect: MainEffect): void {
       notification.on("click", () => {
         notificationsAwaitingClick.delete(notification);
         if (open) setPendingOpenMessage(open);
-        void focusMainWindow().then((win) => open && win.webContents.send("mail:open"));
+        void focusMainWindow().then((win) => {
+          if (open) win.webContents.send("mail:open");
+          if (chat) win.webContents.send("agent:openChat", chat);
+        });
       });
       notification.on("action", () => {
         notificationsAwaitingClick.delete(notification);

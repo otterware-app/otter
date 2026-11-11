@@ -20,6 +20,7 @@ export type MainEffect =
       subtitle?: string;
       body?: string;
       open?: { accountId: string; messageId: string; mailbox?: string };
+      chat?: string;
       code?: string;
     }
   | { kind: "unread"; count: number }

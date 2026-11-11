@@ -152,6 +152,7 @@ function applyEffect(effect: PageEffect): void {
         notification.addEventListener("click", () => {
           window.focus();
           notification.close();
+          if (effect.chat) emit("agent:openChat", effect.chat);
           if (!effect.open) return;
           pendingOpenMessage = effect.open;
           emit("mail:open");

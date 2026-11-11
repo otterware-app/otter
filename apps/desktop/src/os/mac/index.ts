@@ -62,7 +62,8 @@ export const macOS: HostOS = {
     { role: "help", submenu: items.help },
   ],
 
-  runsWithoutWindows: true,
+  launchedAtLogin: () => app.getLoginItemSettings().wasOpenedAtLogin,
+  showInTray: () => {},
 
   installsUpdatesOnQuit: true,
 

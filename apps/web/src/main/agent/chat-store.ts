@@ -1311,25 +1311,33 @@ function notifyAsk(run: Run, id: string, title: string, body?: string): void {
   const key = `${run.provider}:${run.requestId}:${id}`;
   const focused = document.hasFocus();
   void mailApi
-    .agentNotifyAsk({ provider: run.provider, key, title, body, focused })
+    .agentNotifyAsk({ provider: run.provider, key, title, body, chat: run.convoId, focused })
     .catch(() => {});
 }
 
-/** What an agent delivered, once read: notifies like an ask, only when no window has focus. */
-function notifyDelivered(run: Run): void {
+/**
+ * An answer to the user's message, or what an agent delivered, once it's all
+ * here: notifies like an ask, only when no window has focus.
+ */
+function notifyFinished(run: Run): void {
   const delivered = deliveries.get(run.requestId);
-  if (delivered === undefined) return;
   deliveries.delete(run.requestId);
   const convo = get().conversations.find((c) => c.id === run.convoId);
-  const text = convo?.turns.find((t) => t.id === `a-${run.requestId}`)?.text.trim();
+  if (!convo) return;
+  if (!delivered && !convo.turns.some((t) => t.id === `u-${run.requestId}`)) return;
+  const text = convo.turns
+    .find((t) => t.id === `a-${run.requestId}`)
+    ?.items?.findLast((item) => item.kind === "text")
+    ?.text.trim();
   if (!text) return;
   const key = `${run.provider}:${run.requestId}`;
   void mailApi
     .agentNotifyAsk({
       provider: run.provider,
       key,
-      title: delivered.title,
-      subtitle: delivered.subtitle,
+      title: delivered?.title ?? convo.title,
+      subtitle: delivered?.subtitle ?? "Finished",
+      chat: run.convoId,
       body: text.length > 200 ? `${text.slice(0, 200)}…` : text,
       focused: document.hasFocus(),
     })
@@ -1412,7 +1420,7 @@ function onChatEvent(raw: unknown): void {
     }));
     return;
   }
-  if (event.type === "done") notifyDelivered(s);
+  if (event.type === "done") notifyFinished(s);
   if (event.type === "done" && isSilentAgentTurn(s.convoId, event.requestId)) {
     patchConversation(s.convoId, (c) => ({
       ...c,

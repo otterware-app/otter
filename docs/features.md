@@ -348,6 +348,9 @@ color, the others their color in Google or Outlook. IMAP mailboxes have none.
 | Mail for an alias mailbox: named after it, opens there         | ✓ (copies of one message: once)             | ✓                       | ✓ (copies of one message: once)                                      |
 | Sign-in codes in notifications                                 | ✓ (Copy & trash button; Linux: in the text) | in the text             | —                                                                    |
 | An agent waiting on you (approval, question), app not in front | ✓                                           | ✓ (browser)             | —                                                                    |
+| An agent's answer finished, app not in front; click opens it   | ✓                                           | ✓ (browser)             | —                                                                    |
+| Runs in the background with its window closed                  | ✓ (the Dock; Linux: a tray icon)            | —                       | —                                                                    |
+| A launch at login starts in the background                     | ✓                                           | —                       | —                                                                    |
 | Gmail push via relay                                           | ✓ (with an Otter account)                   | ✓                       | ✓ (WebSocket + verified APNs)                                        |
 | Outlook push via relay (Graph subscription)                    | ✓ (with an Otter account)                   | ✓                       | ✓ (WebSocket + verified APNs)                                        |
 | IMAP IDLE                                                      | ✓ (while running)                           | ✓ (while a tab is open) | while open; server watcher for connected APNs                        |

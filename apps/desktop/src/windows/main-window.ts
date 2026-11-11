@@ -26,6 +26,7 @@ const keys = new Map<BrowserWindow, number>();
 let lastKey = 0;
 let launched = false;
 let updating = false;
+let quitting = false;
 
 /** Before the updater closes the windows, which it does before "before-quit". */
 export function rememberWindowsForUpdate(): void {
@@ -33,6 +34,7 @@ export function rememberWindowsForUpdate(): void {
   saveOpenWindows(windows.flatMap((win) => keys.get(win) ?? []));
 }
 app.on("before-quit", () => {
+  quitting = true;
   if (!updating) saveOpenWindows([lastKey]);
 });
 
@@ -93,6 +95,7 @@ function createAppWindow(
   key: number,
   bounds: { width: number; height: number; x?: number; y?: number },
   hash = "",
+  hidden = false,
 ): { win: BrowserWindow; loaded: Promise<void> } {
   const chrome = hostOS.mainWindowOptions();
   const win = new BrowserWindow({
@@ -128,7 +131,16 @@ function createAppWindow(
   win.webContents.on("did-finish-load", sendFullScreen);
 
   win.once("ready-to-show", () => {
-    if (!win.isVisible()) win.show();
+    if (!hidden && !win.isVisible()) win.show();
+  });
+  // The last window hides instead of closing: its page follows the agents' chats,
+  // which is what notifies about them while the app runs in the background.
+  win.on("close", (event) => {
+    if (quitting || updating || windows.length > 1) return;
+    event.preventDefault();
+    if (!win.isFullScreen()) return win.hide();
+    win.once("leave-full-screen", () => win.hide());
+    win.setFullScreen(false);
   });
   win.on("focus", () => {
     windows.splice(windows.indexOf(win), 1);
@@ -147,7 +159,8 @@ function createAppWindow(
   return { win, loaded: win.loadURL(url) };
 }
 
-export async function createMainWindow(): Promise<BrowserWindow> {
+/** `hidden`: a launch at login, which waits in the background until asked for. */
+export async function createMainWindow(hidden = false): Promise<BrowserWindow> {
   const existing = getMainWindow();
   if (existing) return existing;
   if (creating) return creating;
@@ -160,17 +173,22 @@ export async function createMainWindow(): Promise<BrowserWindow> {
     saveOpenWindows([lastKey]);
     const opened = restoring.map((key) => {
       const frame = savedFrame(frameKey(key));
-      const { win, loaded } = createAppWindow(key, {
-        width: frame?.width ?? 1180,
-        height: frame?.height ?? 780,
-        ...(frame ? { x: frame.x, y: frame.y } : {}),
-      });
-      if (frame?.maximized) win.maximize();
+      const { win, loaded } = createAppWindow(
+        key,
+        {
+          width: frame?.width ?? 1180,
+          height: frame?.height ?? 780,
+          ...(frame ? { x: frame.x, y: frame.y } : {}),
+        },
+        "",
+        hidden,
+      );
+      if (frame?.maximized && !hidden) win.maximize();
       return { win, loaded };
     });
     await Promise.all(opened.map(({ loaded }) => loaded));
     const front = opened[0]!.win;
-    if (!front.isDestroyed()) front.focus();
+    if (!hidden && !front.isDestroyed()) front.focus();
     return front;
   })().finally(() => {
     creating = null;

@@ -143,6 +143,8 @@ export interface Platform {
     body?: string;
     /** `mailbox`: the alias mailbox to open it in. */
     open?: { accountId: string; messageId: string; mailbox?: string };
+    /** The agent chat to open. */
+    chat?: string;
     code?: string;
   }): void;
   setUnreadCount(count: number): void;

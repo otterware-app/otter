@@ -1,9 +1,9 @@
-import { app, nativeTheme, safeStorage } from "electron";
+import { app, Menu, nativeTheme, safeStorage, Tray } from "electron";
 
 import { logger } from "../../logger.js";
 import { appIconImage } from "../../resources.js";
 import type { HostOS } from "../types.js";
-import { setAutostart } from "./autostart.js";
+import { HIDDEN_FLAG, setAutostart } from "./autostart.js";
 import { listMailApps, setDefaultMailApp } from "./mail-apps.js";
 import { linuxTerminals } from "./terminals.js";
 import { nativeMessagingDirectories } from "./native-messaging.js";
@@ -12,6 +12,9 @@ const TOPBAR_HEIGHT = 42;
 
 const background = () => (nativeTheme.shouldUseDarkColors ? "#0c0c0e" : "#ededf0");
 const symbolColor = () => (nativeTheme.shouldUseDarkColors ? "#d4d4d4" : "#525252");
+
+// Held here: a tray icon that is garbage collected disappears.
+let tray: Tray | null = null;
 
 export const linuxOS: HostOS = {
   nativeMessagingDirectories,
@@ -53,8 +56,19 @@ export const linuxOS: HostOS = {
     },
   ],
 
-  // Without a Dock to bring the window back, closing the last window quits.
-  runsWithoutWindows: false,
+  launchedAtLogin: () => process.argv.includes(HIDDEN_FLAG),
+  showInTray(open) {
+    tray = new Tray(appIconImage().resize({ width: 24, height: 24 }));
+    tray.setToolTip(app.getName());
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        { label: `Open ${app.getName()}`, click: open },
+        { type: "separator" },
+        { role: "quit" },
+      ]),
+    );
+    tray.on("click", open);
+  },
 
   // dpkg needs the admin password (pkexec): ask when the user restarts to update.
   installsUpdatesOnQuit: false,

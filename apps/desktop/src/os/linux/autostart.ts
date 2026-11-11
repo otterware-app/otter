@@ -7,6 +7,8 @@ export function autostartFile(env: NodeJS.ProcessEnv = process.env): string {
   return path.join(configHome, "autostart", "otter-mail.desktop");
 }
 
+export const HIDDEN_FLAG = "--hidden";
+
 function quoteExec(value: string): string {
   return `"${value.replace(/["`$\\]/g, (c) => `\\${c}`)}"`;
 }
@@ -16,7 +18,7 @@ export function autostartEntry(executable: string): string {
     "[Desktop Entry]",
     "Type=Application",
     "Name=Otter",
-    `Exec=${quoteExec(executable)}`,
+    `Exec=${quoteExec(executable)} ${HIDDEN_FLAG}`,
     "Icon=otter-mail",
     "X-GNOME-Autostart-enabled=true",
     "",
