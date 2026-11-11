@@ -11,6 +11,16 @@ final class ChatStore {
     struct Run: Equatable {
         var requestId: String
         var provider: String
+        /** Handed off to background work: the subagents it waits on, each by its name when it has one. Nil while it works. */
+        var waiting: [String?]?
+
+        /** What a waiting run says it waits on, as Otter Code's phone app words it. */
+        var waitingLabel: String? {
+            guard let waiting else { return nil }
+            if waiting.count > 1 { return "Waiting on \(waiting.count) subagents" }
+            guard let subagent = waiting.first else { return "Waiting" }
+            return subagent.map { "Waiting · \($0)" } ?? "Waiting on a subagent"
+        }
     }
 
     /** A message written, on its way or waiting its turn. */
@@ -532,6 +542,12 @@ final class ChatStore {
             return
         case .questionResolved(let id):
             questions.removeAll { $0.question.id == id }
+            return
+        case .waiting(let subagents):
+            runs[chatId]?.waiting = subagents
+            return
+        case .working:
+            runs[chatId]?.waiting = nil
             return
         case .steerReturned(let text):
             queue.insert(Outgoing(chatId: chatId, provider: run.provider, question: text, input: text, title: ChatText.clampTitle(text)), at: 0)

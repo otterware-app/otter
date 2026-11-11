@@ -13,7 +13,8 @@ Otter Code's phone app (`apps/mobile` in otter-code), in Otter's face and themes
   holds the tabs (Chats, Scheduled, Settings), with the compose button beside it; both leave
   while a chat is open (`Home/RootView.swift`).
 - **Chats** (`Home/ChatsScreen.swift`). Flat rows, a hairline between them: the agent's mark, the
-  title, then what the chat is doing (Approval, Input, Working with its clock, Failed, Done) or
+  title, then what the chat is doing (Approval, Input, Working with its clock, Waiting, Failed,
+  Done) or
   how long ago you were in it; under it what it used and made ("1 draft · 3 emails"). Shelves as
   on the Mac and the web (`Chats/ChatShelves.swift`, apps/web's chat-shelves.ts): unsent drafts,
   pinned, active, then Snoozed and Settled behind their headings. Swipe left to settle (with
@@ -38,6 +39,13 @@ Everything the Mac and web apps' chat does that a phone without the mail can
 - **Any number of chats run at once**, each on the agent it started with (`Chats/ChatStore.swift`,
   apps/web's chat-store.ts): send, queue or steer (Settings › Chat; touch and hold Send for the
   other), stop, retry a failed message, edit or send now what's queued.
+- **A turn that hands off stays open** (`apps/ios`'s `OpenClaw.swift`, as
+  extensions/openclaw/core/openclaw.ts): when an OpenClaw agent yields to wait for its subagents
+  or background commands (`sessions_yield`), the turn waits with it, and the reply their
+  completion brings is part of it, also when the app left meanwhile. The capsule and the chat's
+  row say Waiting, with the subagent's name when it has one ("Waiting · Research pricing"), as
+  Otter Code's phone app does; Stop ends the wait, and so does a message sent meanwhile, which
+  is a turn of its own.
 - **What the agent asks** takes the composer's place (`Chat/AskCards.swift`): approvals (once,
   for this chat, always, deny) and questions (options, your own words, skip).
 - **The transcript** (`Chat/Transcript.swift`, `Chat/MarkdownView.swift`): Markdown with tables,
@@ -86,7 +94,8 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   emit. OpenClaw and varys go on without the app: a turn the app left is picked up on return.
 - `Demo/`: the demo's pretend agent and chats, offered on the welcome screen of builds that
   aren't the App Store's. It asks for an approval when a message says "send", a question when
-  it says "plan", fails on "fail", and works longer on "take your time".
+  it says "plan", fails on "fail", works longer on "take your time", and hands off to a
+  subagent and waits for it on "background".
 
 What it leaves to the other apps: the mail itself (a conversation or draft a chat used opens the
 chat in Otter on the web), Otter's own mail tools for the Otter agent (they run where the mail

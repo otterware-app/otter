@@ -881,6 +881,9 @@ extension Agent {
                     updateLast { $0.question = question }
                 case .questionResolved(let id):
                     updateLast { if $0.question?.id == id { $0.question = nil } }
+                // The turn stays running while it waits on a yield; this app doesn't say so.
+                case .waiting, .working:
+                    break
                 case .done:
                     openRun = nil
                 case .failed(let message):

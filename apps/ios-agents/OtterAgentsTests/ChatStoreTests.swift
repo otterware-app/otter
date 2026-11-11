@@ -163,6 +163,60 @@ struct ChatStoreTests {
         #expect(store.isDetached(made))
     }
 
+    @Test func aTurnThatHandedOffStaysOpenAndShowsTheReplyItsSubagentsBring() {
+        let store = store()
+        let (chat, request) = running(store)
+        let apply = { store.apply($0, requestId: request, chatId: chat) }
+        let spawn = ChatStep(kind: "tool", title: "Started Research pricing")
+        apply(.reply(text: "On it.", steps: [("s1", spawn, "accepted")]))
+        apply(.waiting(["Research pricing"]))
+        #expect(store.runs[chat]?.waitingLabel == "Waiting · Research pricing")
+        #expect(store.chat(chat)!.turns[1].finishedAt == nil)
+        #expect(store.openRequests[chat] == request)
+        #expect(store.unseen.isEmpty)
+
+        apply(.working)
+        #expect(store.runs[chat] == ChatStore.Run(requestId: request, provider: "openrouter"))
+        apply(.reply(text: "On it.\n\nAlfama is the cheapest.", steps: [("s1", spawn, "accepted")]))
+        apply(.done)
+        let turns = store.chat(chat)!.turns
+        #expect(turns.count == 2)
+        #expect(turns[1].items == [.step(id: "s1", spawn, output: "accepted"), .text(id: nil, "On it.\n\nAlfama is the cheapest.")])
+        #expect(turns[1].finishedAt != nil)
+        #expect(store.runs.isEmpty && store.openRequests[chat] == nil)
+    }
+
+    @Test func stoppingAWaitingTurnEndsIt() {
+        let store = store()
+        let (chat, request) = running(store)
+        store.apply(.waiting([]), requestId: request, chatId: chat)
+        #expect(store.runs[chat]?.waitingLabel == "Waiting")
+        store.apply(.error("cancelled"), requestId: request, chatId: chat)
+        #expect(store.chat(chat)!.turns[1].error == "Stopped.")
+        #expect(store.chat(chat)!.turns[1].finishedAt != nil)
+        #expect(store.runs.isEmpty && store.openRequests[chat] == nil)
+    }
+
+    @Test func aWaitingTurnTheAppLeftIsPickedUpAgain() {
+        let store = store()
+        let (chat, request) = running(store)
+        store.apply(.waiting([nil]), requestId: request, chatId: chat)
+        store.apply(.error(AgentError.detached), requestId: request, chatId: chat)
+        let made = store.chat(chat)!
+        #expect(made.turns[1].finishedAt == nil && made.turns[1].error == nil)
+        #expect(store.isDetached(made))
+        #expect(store.openRequests[chat] == request)
+    }
+
+    @Test func whatARunWaitsOnIsWordedAsOtterCodeWordsIt() {
+        let label = { ChatStore.Run(requestId: "r", provider: "openclaw", waiting: $0).waitingLabel }
+        #expect(label(nil) == nil)
+        #expect(label([]) == "Waiting")
+        #expect(label(["Research pricing"]) == "Waiting · Research pricing")
+        #expect(label([nil]) == "Waiting on a subagent")
+        #expect(label(["Research pricing", nil]) == "Waiting on 2 subagents")
+    }
+
     @Test func whatTheSessionHoldsReplacesWhatTheChatShowed() {
         var user = ChatTurn(id: "u-r", role: .user, text: "Do it", now: 10)
         user.skill = "plan"

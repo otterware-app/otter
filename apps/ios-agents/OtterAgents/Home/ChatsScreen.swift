@@ -421,17 +421,19 @@ struct ChatRow: View {
     var excerpt: String?
 
     private enum State {
-        case approval, question, working, failed, unseen
+        case approval, question, working, waiting, failed, unseen
     }
 
     private var state: State? {
         if !store.approvals(in: chat.id).isEmpty { return .approval }
         if !store.questions(in: chat.id).isEmpty { return .question }
-        if store.runs[chat.id] != nil { return .working }
+        if let run = store.runs[chat.id] { return run.waiting == nil ? .working : .waiting }
         if chat.loaded, let last = chat.turns.last, last.error != nil, last.error != "Stopped." { return .failed }
         if store.unseen.contains(chat.id) { return .unseen }
         return nil
     }
+
+    private var running: Bool { state == .working || state == .waiting }
 
     /** What the chat used and made, else who runs it and where. */
     private var detail: String {
@@ -446,7 +448,7 @@ struct ChatRow: View {
             HStack(alignment: .top, spacing: 8) {
                 AgentAvatar(provider: chat.provider, agent: chat.openClawAgent, size: 20).padding(.top, 1.5)
                 Text(chat.title)
-                    .font(.ui(16, state == .working ? .regular : .medium))
+                    .font(.ui(16, running ? .regular : .medium))
                     .foregroundStyle(palette.text)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -460,7 +462,7 @@ struct ChatRow: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 10)
-        .opacity(state == .working ? 0.62 : 1)
+        .opacity(running ? 0.62 : 1)
         .contentShape(.rect)
         .overlay(alignment: .bottom) { Rectangle().fill(palette.hairline).frame(height: 1).padding(.leading, 18) }
     }
@@ -476,6 +478,7 @@ struct ChatRow: View {
                 let elapsed = started.map { " \(ChatText.duration(max(0, Int(context.date.timeIntervalSince1970 * 1000) - $0)))" } ?? ""
                 status("Working\(elapsed)", "circle.dashed", Status.working)
             }
+        case .waiting: status("Waiting", "circle.dashed.inset.filled", palette.muted)
         case .failed: status("Failed", "exclamationmark.circle", palette.error)
         case .unseen: status("Done", "checkmark.circle", Status.done)
         case nil:
