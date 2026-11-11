@@ -6,7 +6,8 @@ Mac releases are GitHub Releases of this repository, built by `.github/workflows
 New releases support Apple Silicon Macs only (arm64). Intel Macs can keep using older releases,
 but no longer receive compatible updates.
 The iPhone app ships separately, with its own version, through `.github/workflows/release-ios.yml`
-([The iPhone app](#the-iphone-app)).
+([The iPhone app](#the-iphone-app)); Otter Agents, the second iPhone app, likewise through
+`release-ios-agents.yml` ([Otter Agents](#otter-agents)).
 The Mac and Linux app follow [Otter Code's stable and nightly release trains](https://github.com/otterware-app/otter-code/blob/main/.github/workflows/release.yml). Settings → General
 chooses the update channel on this computer. Both channels use the same installed app, mailbox
 cache and account data; switching installs the selected channel's build and icon. The default
@@ -159,3 +160,26 @@ The App Store app is "Otter Mail: Calm Email" (ID 6817249947); on the phone it's
 Release builds sign in to Google with their own "iOS" OAuth client (for `dev.otterware.mail`);
 development builds use the one for `dev.otterware.mail.dev`. The relay accepts both
 (`GOOGLE_IOS_CLIENT_ID`). The demo mailbox shows only in development and TestFlight builds.
+
+## Otter Agents
+
+Otter Agents for iPhone (`apps/ios-agents`) is released like the iPhone app, apart from it: its
+own version (`MARKETING_VERSION` in `apps/ios-agents/OtterAgents.xcodeproj`, from 0.1.0) and its
+own tags (`ios-agents-vX.Y.Z`).
+
+The Release Otter Agents workflow (`release-ios-agents.yml`) runs on each push to `main` that
+touches `apps/ios-agents`, what the app compiles and bundles from Otter Mail
+(`apps/ios/OtterMail/Agent`, `Theme`, `Resources`, `Settings/ThemeSettings.swift`), the themes
+(`packages/shared/src/theme-palettes.ts`) or the release scripts, as a patch; by hand,
+`gh workflow run release-ios-agents.yml -f bump=minor` (or `-f version=1.0.0`). It builds, signs
+and uploads with the same script (`scripts/release-ios.ts --app agents`; from a Mac,
+`pnpm release:ios:agents`), then tags the commit and commits the version to the Xcode project.
+It has no Sentry release: the app doesn't report errors.
+
+It signs with the iPhone app's Apple Distribution identity and App Store Connect API key (the
+same secrets) and its own profile, "Otter Agents App Store" for `dev.otterware.agents` (Push
+Notifications): the `IOS_AGENTS_PROVISIONING_PROFILE` secret (base64 of the `.mobileprovision`).
+
+The App Store Connect app is "Otter Agents" (ID 6833242723). Builds go to its internal TestFlight
+group, Nightly (Internal), automatically. Release builds sign in to Google with the iPhone app's
+"iOS" OAuth clients.

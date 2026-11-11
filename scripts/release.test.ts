@@ -14,6 +14,7 @@ test("nightlies preview the next stable patch without changing the stable source
     name: `Otter Nightly ${nightly} (abcdef123456)`,
   });
   assert.equal(bumpVersion("ios-v0.8.9", "minor"), "0.9.0");
+  assert.equal(bumpVersion("ios-agents-v0.1.0", "patch"), "0.1.1");
   for (const [date, run, sha] of [
     ["2026-10-13", "123", "abcdef123"],
     ["20261013", "0", "abcdef123"],

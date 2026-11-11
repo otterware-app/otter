@@ -207,7 +207,8 @@ The iPhone app releases separately, with its own version:
 - iPhone: the Release iPhone workflow runs on each merge to main that touches `apps/ios` (or
   what it bundles from `packages/shared`), as a patch. Run it by hand for a minor or major
   version. It uploads to TestFlight and tags `ios-vX.Y.Z`. Otter Agents (`apps/ios-agents`) has
-  no release yet: it's built and installed from Xcode.
+  the same in the Release Otter Agents workflow, with its own version and `ios-agents-vX.Y.Z`
+  tags: it runs when `apps/ios-agents` or what it compiles from `apps/ios` changes.
 
 `docs/runbook.md` is the short version of shipping each part; details in `docs/release.md`.
 
