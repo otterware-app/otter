@@ -136,7 +136,6 @@ final class BrowserSession {
     var keyboard: Bool { controlling && field }
     var problem: Problem?
 
-    private var size = (width: 1280, height: 800)
     private var stream: Task<Void, Never>?
     private var watching: Task<Void, Never>?
     private var holding: Task<Void, Never>?
@@ -152,10 +151,8 @@ final class BrowserSession {
 
     // MARK: The stream
 
-    /** Frames come at most `width` by `height` px. */
-    func start(width: Int, height: Int) {
+    func start() {
         stop()
-        size = (width, height)
         stream = Task { await run() }
     }
 
@@ -170,11 +167,11 @@ final class BrowserSession {
     /** The agent browsed again: a new stream only when it's on another tab, or the view had closed. */
     func browsedAgain() {
         guard stream != nil, case .gateway(let gateway, let session) = source else { return }
-        guard let current = tab?.targetId else { return start(width: size.width, height: size.height) }
+        guard let current = tab?.targetId else { return start() }
         Task {
             do {
                 let view = try await gateway.browserView(session: session, width: 320, height: 320, except: current)
-                if view?.tab.targetId != current, tab?.targetId == current, stream != nil { start(width: size.width, height: size.height) }
+                if view?.tab.targetId != current, tab?.targetId == current, stream != nil { start() }
             } catch {}
         }
     }
@@ -186,7 +183,7 @@ final class BrowserSession {
             status = .connecting
             let view: BrowserView?
             do {
-                view = try await gateway.browserView(session: session, width: size.width, height: size.height)
+                view = try await gateway.browserView(session: session, width: 2000, height: 2000)
             } catch {
                 if !Task.isCancelled { status = .failed(error.localizedDescription) }
                 return
