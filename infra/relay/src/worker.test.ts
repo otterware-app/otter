@@ -1515,6 +1515,31 @@ describe("agent channels", () => {
     ).toEqual([[phone, "An agent has a question for you."]]);
   });
 
+  it("pushes a finished run to the iPhones, and tells no open app", async () => {
+    const owner = await signIn("agents-finished@example.com", "agents-finished-sub");
+    const made = await channel(owner.token);
+    const phone = "f6".repeat(32);
+    expect((await call("PUT", "/v1/push/device", owner.token, agentsDevice(phone))).status).toBe(
+      204,
+    );
+    const mac = await connect(owner.token);
+    const finished = { ...pointer, kind: "finished" };
+    expect((await send(made.token, finished)).status).toBe(202);
+    await until(() => notifications.some((n) => n.token === phone), "the finished push");
+    const sent = notifications.find((n) => n.token === phone)!;
+    expect(sent.body).toMatchObject({
+      aps: { alert: { body: "An agent finished working." }, "thread-id": pointer.sessionKey },
+      otter: { pointer: finished },
+    });
+    // The event that is passed on arrives alone: the finished run came before it.
+    expect((await send(made.token, pointer)).status).toBe(202);
+    await until(() => mac.events.length > 0, "the agent event");
+    expect(mac.events).toEqual([
+      { type: "agent", email: "", pointer: { ...pointer, channel: made.channel.id } },
+    ]);
+    mac.socket.close();
+  });
+
   it("stays quiet for a chat one of the account's devices has on screen", async () => {
     const owner = await signIn("agents-watching@example.com", "agents-watching-sub");
     const made = await channel(owner.token);

@@ -4,6 +4,7 @@ import {
   chatOf,
   chatTarget,
   deliver,
+  finishedOf,
   isNewChat,
   isOwnerConfigured,
   messageOf,
@@ -155,6 +156,31 @@ describe("the Otter channel plugin", () => {
     });
     expect(await tell(accountOf({ channels: { otter: {} } }), pointer, { fetch })).toBe(false);
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("tells the relay a run finished in one of Otter's chats, and of no other run", () => {
+    const chat = "agent:main:otter-mail:c-1";
+    const finished = { kind: "finished", agentId: "main", sessionKey: chat, at: 5 };
+    expect(finishedOf({ sessionKey: chat, trigger: "user" }, 5)).toEqual(finished);
+    // A session of the agent's own that you wrote to from Otter.
+    expect(finishedOf({ sessionKey: "agent:rowan:main", channel: "otter" }, 5)).toEqual({
+      ...finished,
+      agentId: "rowan",
+      sessionKey: "agent:rowan:main",
+    });
+    for (const other of [
+      { sessionKey: "agent:main:main", channel: "telegram", trigger: "user" },
+      { sessionKey: "agent:main:subagent:s-1", channel: "otter" },
+      // What a schedule ran tells Otter with its delivery.
+      { sessionKey: chat, jobId: "job-1" },
+      { sessionKey: chat, trigger: "cron" },
+      { sessionKey: chat, trigger: "heartbeat" },
+      { sessionKey: chat, trigger: "memory" },
+      { sessionKey: "not-a-session", channel: "otter" },
+      {},
+      undefined,
+    ])
+      expect(finishedOf(other)).toBeUndefined();
   });
 
   it("delivers even when the relay can't be told", async () => {

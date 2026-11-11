@@ -84,6 +84,7 @@ export function agentPayload(userId: string, pointer: AgentPointer) {
     approval: "An agent is waiting for your approval.",
     question: "An agent has a question for you.",
     message: "An agent sent you a message.",
+    finished: "An agent finished working.",
   }[pointer.kind];
   return {
     aps: {

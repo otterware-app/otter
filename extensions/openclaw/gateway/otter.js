@@ -85,6 +85,24 @@ export function pointerOf({ sessionKey, to, payload, at = Date.now() }) {
   };
 }
 
+/** What a run is for when it isn't an answer to you: a schedule's delivery tells Otter itself. */
+const QUIET_TRIGGERS = new Set(["cron", "heartbeat", "memory", "overflow"]);
+
+/**
+ * What the relay is told when a run ends in one of Otter's chats (one it started, or one you
+ * wrote to from Otter), so a phone that isn't looking hears of it. Nothing for any other run.
+ */
+export function finishedOf(ctx, at = Date.now()) {
+  const sessionKey = ctx?.sessionKey;
+  const agentId = agentOf(sessionKey);
+  if (!agentId || ctx.jobId || QUIET_TRIGGERS.has(ctx.trigger)) return undefined;
+  const kind = sessionKey.split(":")[2];
+  const fromOtter = ctx.channel === "otter" || ctx.messageProvider === "otter";
+  if (kind !== "otter-mail" && (!fromOtter || kind === "subagent" || kind === "cron"))
+    return undefined;
+  return { kind: "finished", agentId, sessionKey, at };
+}
+
 export function accountOf(cfg) {
   const section = cfg?.channels?.otter ?? {};
   return {

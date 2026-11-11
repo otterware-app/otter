@@ -199,11 +199,13 @@ export type RelayEvent =
  * What an agent's gateway tells the relay when it delivers something to Otter
  * (a message, a question, an approval): never its text, only where to read it.
  * The relay passes it on to the account's devices and keeps nothing.
+ * `finished`, a run that ended in one of Otter's chats, is only pushed to the iPhones: an app
+ * that's open reads the run itself.
  */
 export interface AgentPointer {
   /** The gateway's channel, one of the account's (`AgentChannel`). */
   channel: string;
-  kind: "message" | "question" | "approval";
+  kind: "message" | "question" | "approval" | "finished";
   agentId: string;
   sessionKey: string | null;
   approvalId?: string;
