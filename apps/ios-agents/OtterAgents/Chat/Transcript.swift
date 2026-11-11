@@ -130,7 +130,6 @@ struct CopyButton: View {
     }
 }
 
-/** One reply: the work it took, folded once it's done, then what the agent said. */
 struct AssistantTurnView: View {
     @Environment(\.palette) private var palette
     @Environment(ChatStore.self) private var store
@@ -158,12 +157,8 @@ struct AssistantTurnView: View {
         VStack(alignment: .leading, spacing: 10) {
             if let delivered = turn.delivered { delivery(delivered) }
             if !work.isEmpty {
-                if live {
-                    WorkLog(items: work, live: true)
-                } else {
-                    fold
-                    if open || store.found?.turnId == turn.id { WorkLog(items: work, live: false).transition(.opacity) }
-                }
+                fold
+                if open || store.found?.turnId == turn.id { WorkLog(items: work, live: live).transition(.opacity) }
             }
             ForEach(Array(answer.enumerated()), id: \.offset) { _, item in
                 if let text = item.text, !text.isEmpty { MarkdownView(source: text) }
@@ -236,9 +231,11 @@ struct AssistantTurnView: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .accessibilityValue(open ? "Expanded" : "Collapsed")
     }
 
     private var summary: String {
+        if live { return store.runs[chat.id]?.waiting == nil ? "Working…" : "Waiting…" }
         guard let started = turn.startedAt, let finished = turn.finishedAt, finished > started else {
             let steps = work.count { $0.step != nil }
             return "Took \(steps) step\(steps == 1 ? "" : "s")"

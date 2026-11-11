@@ -20,7 +20,8 @@ Otter Code's phone app (`apps/mobile` in otter-code), in Otter's face and themes
   pinned, active, then Snoozed and Settled behind their headings. Swipe left to settle (with
   Undo) or snooze, right to pin; touch and hold for the rest.
 - **A chat** (`Chat/ChatScreen.swift`). Your messages in bubbles on the right; the agent's answer
-  plain, its work folded into "Worked for 2m 3s" once it's done. The composer is a glass pill
+  plain, its work collapsed by default while running and once done; tap "Working…" or
+  "Worked for 2m 3s" to see the steps. The composer is a glass pill
   over the end of the conversation, with a capsule above it for the run's clock, what's queued
   and the way back down.
 - **Type and color.** Inter at Otter Code's sizes (`Theme/Design.swift`), the account's themes

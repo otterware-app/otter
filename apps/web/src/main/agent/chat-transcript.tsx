@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { MessageScroller, useMessageScroller } from "@shadcn/react/message-scroller";
 import {
   ChevronDownIcon,
@@ -220,7 +220,7 @@ function WorkFoldRow({
   expanded,
   onToggle,
 }: {
-  label: string;
+  label: ReactNode;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -470,34 +470,44 @@ export function ChatTranscript({
     // A compaction never folds away: it stays between the fold and the answer.
     const foldable = work.some((item) => !isCompaction(item));
     const expanded = expandedFolds.has(turn.id);
-    const folded = foldable && !live;
-    const showWork = work.length > 0 && (live || !foldable || expanded);
+    const showWork = work.length > 0 && (!foldable || expanded);
     const keptCompactions =
-      folded && !expanded
+      foldable && !expanded
         ? work.filter((item, i) => isCompaction(item) && !isCompaction(work[i + 1]))
         : [];
     const continued = isSteer(turns[index - 1]);
-    const foldLabel =
-      turn.startedAt && turn.finishedAt
-        ? `${continued ? "Continued" : "Worked"} for ${formatDuration(turn.finishedAt - turn.startedAt)}`
-        : continued
-          ? "Continued"
-          : `Took ${steps} step${steps === 1 ? "" : "s"}`;
+    const foldLabel = live ? (
+      <span className="text-shimmer">
+        {runStartedAt ? (
+          <>
+            Working for <WorkingTimer startedAt={runStartedAt} />
+          </>
+        ) : (
+          "Working…"
+        )}
+      </span>
+    ) : turn.startedAt && turn.finishedAt ? (
+      `${continued ? "Continued" : "Worked"} for ${formatDuration(turn.finishedAt - turn.startedAt)}`
+    ) : continued ? (
+      "Continued"
+    ) : (
+      `Took ${steps} step${steps === 1 ? "" : "s"}`
+    );
     return (
       <MessageScroller.Item key={turn.id} messageId={turn.id}>
         <div className="flex flex-col">
           <DeliveryRow turn={turn} />
-          {live && isLast && !compactingMidway && !compactingFirst ? (
+          {live && isLast && !foldable && !compactingMidway && !compactingFirst ? (
             <WorkingRow startedAt={runStartedAt} compacting={false} />
           ) : null}
-          {folded ? (
+          {foldable ? (
             <WorkFoldRow
               label={foldLabel}
               expanded={expanded}
               onToggle={() => toggleFold(turn.id)}
             />
           ) : null}
-          {keptCompactions.length > 0 ? <WorkLog items={keptCompactions} /> : null}
+          {keptCompactions.length > 0 ? <WorkLog items={keptCompactions} live={live} /> : null}
           {showWork ? (
             <WorkLog items={work} live={live} onOpenFile={onOpenFile} loadImage={loadImage} />
           ) : null}
