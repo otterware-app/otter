@@ -113,6 +113,25 @@ export function accountOf(cfg) {
   };
 }
 
+const clamp = (value, limit) => {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+};
+
+/**
+ * The pointer with what an iPhone's alert says, as in T3 Code: the chat's title and the agent's
+ * name, which `look` reads on the gateway; never what was said. It goes without them if that fails.
+ */
+export async function titled(pointer, look) {
+  let found;
+  try {
+    found = await look?.(pointer);
+  } catch {}
+  const title = clamp(found?.title, 200);
+  const agentName = clamp(found?.agentName, 100);
+  return { ...pointer, ...(title && { title }), ...(agentName && { agentName }) };
+}
+
 /** Tells Otter's devices; the delivery itself is already kept on the gateway. */
 export async function tell(account, pointer, { fetch = globalThis.fetch, signal } = {}) {
   if (!account.relayUrl || !account.token) return false;
@@ -127,8 +146,11 @@ export async function tell(account, pointer, { fetch = globalThis.fetch, signal 
 }
 
 /** A delivery to Otter: kept on the gateway even when the relay can't be told of it. */
-export async function deliver(ctx, payload, { warn, fetch } = {}) {
-  const pointer = pointerOf({ sessionKey: ctx.sessionKey, to: ctx.to, payload });
+export async function deliver(ctx, payload, { warn, fetch, look } = {}) {
+  const pointer = await titled(
+    pointerOf({ sessionKey: ctx.sessionKey, to: ctx.to, payload }),
+    look,
+  );
   try {
     await tell(accountOf(ctx.cfg), pointer, { fetch, signal: ctx.signal });
   } catch (error) {

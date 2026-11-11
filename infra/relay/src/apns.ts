@@ -78,18 +78,21 @@ export function send(
   return post(env, device, `${metadata.userId}:${metadata.email}`, payload(metadata), transport);
 }
 
-/** Explicit allowlist, as for mail: where to read what the agent has, never what it says. */
+const AGENT_STATUS = {
+  approval: "Approval needed",
+  question: "Question",
+  message: "New message",
+  finished: "Finished",
+};
+
+/** As T3 Code's alerts: the chat's title and what happened, by which agent; never what was said. */
 export function agentPayload(userId: string, pointer: AgentPointer) {
-  const body = {
-    approval: "An agent is waiting for your approval.",
-    question: "An agent has a question for you.",
-    message: "An agent sent you a message.",
-    finished: "An agent finished working.",
-  }[pointer.kind];
+  const status = AGENT_STATUS[pointer.kind];
+  const title = pointer.title || pointer.agentName || "Otter Agents";
+  const body = pointer.title && pointer.agentName ? `${status}: ${pointer.agentName}` : status;
   return {
     aps: {
-      alert: { title: "Otter Agents", body },
-      "mutable-content": 1,
+      alert: { title, body },
       sound: "default",
       ...(pointer.sessionKey ? { "thread-id": pointer.sessionKey } : {}),
     },

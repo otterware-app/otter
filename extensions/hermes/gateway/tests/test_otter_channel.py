@@ -30,8 +30,10 @@ def test_pointer():
         "kind": "message",
         "agentId": "hermes",
         "sessionKey": "api_1_2",
+        "agentName": "Hermes",
         "at": 1234,
     }
+    assert pointer_of("api_1_2", "Morning brief", at=1)["title"] == "Morning brief"
     assert isinstance(pointer_of("s")["at"], int)
 
 

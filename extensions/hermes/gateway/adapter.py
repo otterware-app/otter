@@ -87,18 +87,21 @@ def _open_db():
         return SessionDB(get_hermes_home() / "state.db"), new_id, lambda db: db.close()
 
 
-def _keep(chat_id: str, text: str, title: str) -> str:
+def _keep(chat_id: str, text: str, title: str) -> tuple[str, Optional[str]]:
+    """The session `text` is kept in, and the chat's title."""
     db, new_session_id, release_or_close = _open_db()
     try:
         if chat_id == NEW_CHAT:
             session_id = db.create_session(new_session_id(), SOURCE)
-            db.set_session_title(session_id, db.get_next_title_in_lineage(title))
+            title = db.get_next_title_in_lineage(title)
+            db.set_session_title(session_id, title)
         elif db.get_session(chat_id) is None:
             raise LookupError(f"no Hermes session {chat_id}")
         else:
             session_id = db.get_compression_tip(chat_id)
+            title = db.get_session_title(chat_id)
         db.append_message(session_id, "assistant", text)
-        return session_id
+        return session_id, title
     finally:
         release_or_close(db)
 
@@ -111,13 +114,13 @@ async def deliver(extra: Optional[dict], chat_id: str, content: str, job_id: Any
     name, text = unwrap_cron(content)
     title = name or _job_name(job_id) or DEFAULT_TITLE
     try:
-        session_id = await asyncio.to_thread(_keep, target, text, title)
+        session_id, title = await asyncio.to_thread(_keep, target, text, title)
     except LookupError as e:
         return {"error": str(e)}
     chat = session_id if target == NEW_CHAT else target
     relay_url, token = _relay(extra)
     try:
-        await post_pointer(relay_url, token, pointer_of(chat))
+        await post_pointer(relay_url, token, pointer_of(chat, title))
     except Exception as e:
         # The message is kept on Hermes; Otter reads it the next time it looks.
         logger.warning("Otter: telling the relay about %s failed: %s", chat, redact(str(e), token))

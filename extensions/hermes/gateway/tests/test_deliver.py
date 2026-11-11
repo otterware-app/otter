@@ -66,6 +66,26 @@ def test_existing_chat_and_missing_one(plugin):
     assert "error" in asyncio.run(plugin.deliver(extra, "not a chat", "x"))
 
 
+def test_tells_the_relay_the_chats_title(plugin, monkeypatch):
+    told = []
+
+    async def post(url, token, pointer):
+        told.append(pointer)
+
+    monkeypatch.setattr(plugin, "post_pointer", post)
+    extra = {"relay_url": "http://relay.test", "token": "otter_ch_t"}
+    new = asyncio.run(plugin.deliver(extra, "new", "Hi"))
+    db = _db()
+    db.create_session("api_1794185043_cc249f69", "api_server")
+    db.set_session_title("api_1794185043_cc249f69", "Trip to Lisbon")
+    asyncio.run(plugin.deliver(extra, "api_1794185043_cc249f69", "Booked."))
+    assert [(p["sessionKey"], p.get("title"), p["agentName"]) for p in told] == [
+        (new["message_id"], "Hermes", "Hermes"),
+        ("api_1794185043_cc249f69", "Trip to Lisbon", "Hermes"),
+    ]
+    assert all("Booked." not in str(p) for p in told)
+
+
 def test_plain_send_is_titled_hermes(plugin):
     result = asyncio.run(plugin.deliver({"relay_url": "http://127.0.0.1:1", "token": "t"}, "new", "Hi"))
     assert _db().get_session_title(result["message_id"]) == "Hermes"

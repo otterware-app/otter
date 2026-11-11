@@ -21,7 +21,6 @@ const APPS = {
     scheme: "OtterAgents",
     profiles: {
       "dev.otterware.agents": "Otter Agents App Store",
-      "dev.otterware.agents.notifications": "Otter Agents Notifications App Store",
     },
     // It doesn't report errors.
     sentryProject: undefined,

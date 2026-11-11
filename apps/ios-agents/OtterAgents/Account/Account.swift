@@ -155,7 +155,6 @@ final class Account {
 
     /** Asks once to show notifications, when they're on. */
     func requestNotifications() async {
-        configureNotifications()
         guard notifications, state != .welcome else { return }
         guard (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])) == true else { return }
         UIApplication.shared.registerForRemoteNotifications()
@@ -168,7 +167,6 @@ final class Account {
     }
 
     private func registerPush() async {
-        configureNotifications()
         guard let user, let pushToken else { return }
         // Told once, and again only when something about it changes: iOS hands the token over at every launch.
         let state = "\(user.id):\(pushToken):\(notifications)"
@@ -178,7 +176,6 @@ final class Account {
 
     /** Away: the socket closes, and the agents' turns go on without the app. */
     func pause() {
-        configureNotifications()
         relay.watching = nil
         relay.disconnect()
         chats.suspend()
@@ -227,7 +224,6 @@ final class Account {
     }
 
     private func endSession() {
-        AgentNotificationState.configure(nil)
         pushingUI?.cancel()
         remoteUI = nil
         relay.disconnect()
@@ -237,23 +233,6 @@ final class Account {
         agents.forgetAccount()
         UserDefaults.standard.removeObject(forKey: Self.userKey)
         state = .welcome
-    }
-
-    private func configureNotifications() {
-        guard notifications, let user else { AgentNotificationState.configure(nil); return }
-        let titles = chats.chats.sorted { $0.updatedAt > $1.updatedAt }.prefix(100).compactMap { chat -> (String, String)? in
-            guard let session = chat.sessionId, !chat.title.isEmpty else { return nil }
-            return (session, chat.title)
-        }
-        AgentNotificationState.configure(.init(
-            userId: user.id,
-            hermesURL: agents.hermes.enabled ? agents.hermes.baseUrl : nil,
-            openClawURL: agents.openclaw.enabled ? agents.openclaw.url : nil,
-            varysAddress: agents.varys.enabled ? agents.varys.address : nil,
-            varysAgentId: agents.varys.enabled ? agents.varys.agentId : nil,
-            titles: Dictionary(titles, uniquingKeysWith: { first, _ in first }),
-            agentNames: Dictionary(agents.models(of: .openclaw).map { ($0.slug, $0.name) }, uniquingKeysWith: { first, _ in first })
-        ))
     }
 
     // MARK: The demo
