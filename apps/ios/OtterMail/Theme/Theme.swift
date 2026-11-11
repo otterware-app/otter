@@ -39,6 +39,8 @@ struct Palette {
     let raised: Color
     let card: Color
     let text: Color
+    /** The text's channels, for mixing a color toward it (`EventStyle.legible`). */
+    let textRGB: RGB
     let muted: Color
     let border: Color
     let input: Color
@@ -62,8 +64,9 @@ struct Palette {
         sidebarSelected = soften("sidebarRowActive", "sidebar", 0.5)
         surface = soften("surface", "canvas", 0.6)
         raised = soften("surfaceRaised", "canvas", 0.45)
-        text = role("text").color
-        card = role("text").mixed(toward: role("canvas"), keep: 0.07).color
+        textRGB = role("text")
+        text = textRGB.color
+        card = textRGB.mixed(toward: role("canvas"), keep: 0.07).color
         muted = role("mutedForeground").color
         border = soften("border", "canvas", 0.35)
         input = soften("input", "canvas", 0.5)
