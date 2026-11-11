@@ -1,0 +1,194 @@
+name: Release Otter Agents
+
+on:
+  # A merge that changes the app, or what it compiles and bundles from Otter Mail and
+  # packages/shared, ships a patch.
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/ios-agents/**"
+      - "apps/ios/OtterMail/Agent/**"
+      - "apps/ios/OtterMail/Theme/**"
+      - "apps/ios/OtterMail/Resources/**"
+      - "apps/ios/OtterMail/Settings/ThemeSettings.swift"
+      - "packages/shared/src/theme-palettes.ts"
+      - "scripts/export-ios-resources.ts"
+      - "scripts/release-ios.ts"
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump from the latest Otter Agents release
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      version:
+        description: Exact version instead (e.g. 1.0.0); overrides bump
+        required: false
+        type: string
+
+concurrency:
+  group: release-ios-agents
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      ref: ${{ github.sha }}
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - name: Only from the default branch
+        if: github.ref != format('refs/heads/{0}', github.event.repository.default_branch)
+        run: |
+          echo "::error::Releases are dispatched from ${{ github.event.repository.default_branch }}, not ${{ github.ref }}."
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          package-manager-cache: false
+
+      - id: meta
+        name: Resolve release version
+        env:
+          BUMP: ${{ inputs.bump }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          args=(--app agents --github-output)
+          if [[ -n "$VERSION" ]]; then args+=(--version "$VERSION");
+          else args+=(--bump "${BUMP:-patch}"); fi
+          node scripts/resolve-release-version.ts "${args[@]}"
+
+  build:
+    name: Build and upload to App Store Connect
+    needs: [preflight]
+    # The runner's default Xcode (a release, never a beta: App Store Connect
+    # refuses beta builds).
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.preflight.outputs.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          package-manager-cache: false
+
+      - name: Install signing
+        env:
+          DISTRIBUTION_P12: ${{ secrets.IOS_DISTRIBUTION_P12 }}
+          DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
+          PROVISIONING_PROFILE: ${{ secrets.IOS_AGENTS_PROVISIONING_PROFILE }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          for name in DISTRIBUTION_P12 DISTRIBUTION_P12_PASSWORD PROVISIONING_PROFILE APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing $name. Set the IOS_DISTRIBUTION_P12, IOS_DISTRIBUTION_P12_PASSWORD, IOS_AGENTS_PROVISIONING_PROFILE and APPLE_API_KEY* secrets (docs/release.md)."
+              exit 1
+            fi
+          done
+          xcodebuild -version
+
+          # The Apple Distribution identity, in a keychain of its own for this run.
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password="$(openssl rand -hex 24)"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          printf '%s' "$DISTRIBUTION_P12" | base64 --decode > "$RUNNER_TEMP/distribution.p12"
+          security import "$RUNNER_TEMP/distribution.p12" -k "$keychain" -P "$DISTRIBUTION_P12_PASSWORD" -f pkcs12 -A
+          security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/distribution.p12"
+
+          # The "Otter Agents App Store" profile, where Xcode looks for profiles.
+          printf '%s' "$PROVISIONING_PROFILE" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          uuid="$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" | plutil -extract UUID raw -)"
+          profiles="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$profiles"
+          mv "$RUNNER_TEMP/profile.mobileprovision" "$profiles/$uuid.mobileprovision"
+
+          # The App Store Connect API key the upload signs in with.
+          key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s' "$APPLE_API_KEY" > "$key_path"
+          {
+            echo "OTTER_ASC_KEY=$key_path"
+            echo "OTTER_ASC_KEY_ID=$APPLE_API_KEY_ID"
+            echo "OTTER_ASC_ISSUER=$APPLE_API_ISSUER"
+          } >> "$GITHUB_ENV"
+
+      - name: Build and upload
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: node scripts/release-ios.ts --app agents --version "$VERSION"
+
+      - name: Remove signing
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+
+  finalize:
+    name: Tag and bump the version on main
+    needs: [preflight, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Tag, bump and push
+        env:
+          REF: ${{ needs.preflight.outputs.ref }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG" "$REF"
+          git push origin "$TAG"
+
+          project=apps/ios-agents/OtterAgents.xcodeproj/project.pbxproj
+          sed -i -E "s/MARKETING_VERSION = [^;]+;/MARKETING_VERSION = $VERSION;/" "$project"
+          if git diff --quiet -- "$project"; then
+            echo "The Xcode project already says $VERSION."
+            exit 0
+          fi
+          git add "$project"
+          git commit -m "chore(release): $TAG"
+          # The other releases also push a version bump to main; don't collide with them.
+          for attempt in 1 2 3; do
+            git pull --rebase origin "${{ github.event.repository.default_branch }}"
+            if git push origin HEAD; then exit 0; fi
+            sleep 5
+          done
+          echo "::error::Couldn't push the version bump to main."
+          exit 1

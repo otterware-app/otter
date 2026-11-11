@@ -6,8 +6,34 @@ import * as NodeOS from "node:os";
 import { otterHome } from "../apps/desktop/scripts/dev-home.mjs";
 import * as NodePath from "node:path";
 
+const APPS = {
+  mail: {
+    project: "apps/ios/OtterMail.xcodeproj",
+    scheme: "OtterMail",
+    profiles: {
+      "dev.otterware.mail": "Otter Mail App Store",
+      "dev.otterware.mail.notifications": "Otter Mail Notifications App Store",
+    },
+    sentryProject: "otter-mail-ios",
+  },
+  agents: {
+    project: "apps/ios-agents/OtterAgents.xcodeproj",
+    scheme: "OtterAgents",
+    profiles: { "dev.otterware.agents": "Otter Agents App Store" },
+    // It doesn't report errors.
+    sentryProject: undefined,
+  },
+};
+
 const root = NodePath.resolve(import.meta.dirname, "..");
-const project = NodePath.join(root, "apps/ios/OtterMail.xcodeproj");
+const appFlag = process.argv.indexOf("--app");
+const appName = appFlag > 0 ? process.argv[appFlag + 1]! : "mail";
+const app = APPS[appName as keyof typeof APPS];
+if (!app) {
+  console.error(`[release-ios] Unknown app: ${appName} (mail, agents).`);
+  process.exit(1);
+}
+const project = NodePath.join(root, app.project);
 const work = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otter-ios-"));
 
 function fail(message: string): never {
@@ -50,12 +76,12 @@ const auth = [
 
 run("node", [NodePath.join(root, "scripts/export-ios-resources.ts")]);
 
-const archive = NodePath.join(work, "OtterMail.xcarchive");
+const archive = NodePath.join(work, `${app.scheme}.xcarchive`);
 run("xcodebuild", [
   "-project",
   project,
   "-scheme",
-  "OtterMail",
+  app.scheme,
   "-configuration",
   "Release",
   "-destination",
@@ -82,8 +108,9 @@ NodeFS.writeFileSync(
   <key>signingCertificate</key><string>Apple Distribution</string>
   <key>provisioningProfiles</key>
   <dict>
-    <key>dev.otterware.mail</key><string>Otter Mail App Store</string>
-    <key>dev.otterware.mail.notifications</key><string>Otter Mail Notifications App Store</string>
+${Object.entries(app.profiles)
+  .map(([id, profile]) => `    <key>${id}</key><string>${profile}</string>`)
+  .join("\n")}
   </dict>
   <key>manageAppVersionAndBuildNumber</key><false/>
 </dict>
@@ -102,7 +129,7 @@ run("xcodebuild", [
 ]);
 
 const { SENTRY_AUTH_TOKEN: sentryToken, SENTRY_ORG: sentryOrg } = process.env;
-if (sentryToken && sentryOrg) {
+if (app.sentryProject && sentryToken && sentryOrg) {
   try {
     run("npx", [
       "--yes",
@@ -112,13 +139,13 @@ if (sentryToken && sentryOrg) {
       "--org",
       sentryOrg,
       "--project",
-      "otter-mail-ios",
+      app.sentryProject,
       NodePath.join(archive, "dSYMs"),
     ]);
   } catch {
     console.warn("[release-ios] Couldn't upload the dSYMs to Sentry.");
   }
-} else {
+} else if (app.sentryProject) {
   console.log("[release-ios] No SENTRY_AUTH_TOKEN and SENTRY_ORG, not uploading dSYMs.");
 }
 

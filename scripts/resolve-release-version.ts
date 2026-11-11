@@ -7,7 +7,7 @@ import { parseArgs } from "node:util";
 import { isNightlyVersion } from "../packages/shared/src/release-channel.ts";
 
 const repoRoot = NodePath.resolve(import.meta.dirname, "..");
-const STABLE = /^(?:ios-)?v?(\d+)\.(\d+)\.(\d+)$/;
+const STABLE = /^(?:ios-(?:agents-)?)?v?(\d+)\.(\d+)\.(\d+)$/;
 
 type Bump = "patch" | "minor" | "major";
 
@@ -32,7 +32,15 @@ export function bumpVersion(version: string, bump: Bump): string {
   return `${major}.${minor}.${patch + 1}`;
 }
 
-type App = "mac" | "ios";
+type App = "mac" | "ios" | "agents";
+
+function xcodeVersion(project: string): string {
+  return (
+    /MARKETING_VERSION = ([^;]+);/.exec(
+      NodeFS.readFileSync(NodePath.join(repoRoot, project, "project.pbxproj"), "utf8"),
+    )?.[1] ?? ""
+  );
+}
 
 const APPS: Record<App, { prefix: string; name: string; sourceVersion: () => string }> = {
   mac: {
@@ -48,13 +56,12 @@ const APPS: Record<App, { prefix: string; name: string; sourceVersion: () => str
   ios: {
     prefix: "ios-v",
     name: "Otter Mail for iPhone",
-    sourceVersion: () =>
-      /MARKETING_VERSION = ([^;]+);/.exec(
-        NodeFS.readFileSync(
-          NodePath.join(repoRoot, "apps/ios/OtterMail.xcodeproj/project.pbxproj"),
-          "utf8",
-        ),
-      )?.[1] ?? "",
+    sourceVersion: () => xcodeVersion("apps/ios/OtterMail.xcodeproj"),
+  },
+  agents: {
+    prefix: "ios-agents-v",
+    name: "Otter Agents for iPhone",
+    sourceVersion: () => xcodeVersion("apps/ios-agents/OtterAgents.xcodeproj"),
   },
 };
 

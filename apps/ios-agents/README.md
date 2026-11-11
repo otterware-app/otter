@@ -121,3 +121,10 @@ TEST_RUNNER_OTTER_SHOTS=/tmp/shots xcodebuild -project apps/ios-agents/OtterAgen
 
 Its icons come from the agent's mark (`assets/agent/otter-agent-symbol.svg`) with
 `pnpm icons:export`.
+
+## Releasing
+
+A merge to main that changes the app, or what it shares with Otter Mail, uploads a build to
+TestFlight (the Release Otter Agents workflow; `pnpm release:ios:agents` from a Mac) and tags it
+`ios-agents-vX.Y.Z`. Release builds use manual signing: the Apple Distribution identity and the
+"Otter Agents App Store" profile. See [docs/release.md](../../docs/release.md#otter-agents).

@@ -9,6 +9,7 @@ breaks. The details behind each step are in `docs/release.md`, `infra/relay/READ
 | Relay           | on merge to `main`               | nothing                |
 | Mac, Linux, web | nightly on merge / manual stable | promote a nightly      |
 | iPhone app      | on merge, when it changed        | TestFlight / App Store |
+| Otter Agents    | on merge, when it changed        | TestFlight             |
 
 ## Relay
 
@@ -92,6 +93,21 @@ bundles from `packages/shared` has changed. A Mac release doesn't need one.
   `IOS_DISTRIBUTION_P12`, `IOS_DISTRIBUTION_P12_PASSWORD` and `IOS_PROVISIONING_PROFILE` secrets
   (and this Mac's keychain, for `pnpm release:ios`).
 - TestFlight builds expire after 90 days.
+
+## Otter Agents (iPhone)
+
+The second iPhone app, released the same way with its own version (`ios-agents-vX.Y.Z` tags).
+
+1. Each merge to main that touches `apps/ios-agents`, or what it compiles and bundles from
+   `apps/ios` (the agent clients, the themes), runs **Release Otter Agents** as a patch. By hand:
+   `gh workflow run release-ios-agents.yml -f bump=minor`. From this Mac:
+   `pnpm release:ios:agents`.
+2. Apple processes it (10–30 min). The internal group **Nightly (Internal)** gets it
+   automatically. It is in TestFlight only: App Store Connect → Otter Agents (ID 6833242723).
+
+- **Upload refused, signing:** its profile is "Otter Agents App Store", the
+  `IOS_AGENTS_PROVISIONING_PROFILE` secret. It uses Otter Mail's Apple Distribution certificate
+  and expires with it (2027-09-29): regenerate both profiles together.
 
 ## iPhone APNs signing and transport
 
