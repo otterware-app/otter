@@ -270,7 +270,7 @@ nonisolated struct ChatSentAttachment: Equatable {
     var name: String
     var isImage: Bool
     var size: Int
-    /** A small picture of it, kept on the device that sent it. */
+    /** A small picture of it (a JPEG data URL), which every device shows. */
     var thumb: String?
 
     init(name: String, isImage: Bool, size: Int, thumb: String? = nil) {
@@ -288,9 +288,10 @@ nonisolated struct ChatSentAttachment: Equatable {
         thumb = json["thumb"]?.string
     }
 
-    /** As it's synced: without the picture. */
     var json: JSON {
-        .object(["name": .string(name), "kind": .string(isImage ? "image" : "file"), "size": .number(Double(size))])
+        var object: [String: JSON] = ["name": .string(name), "kind": .string(isImage ? "image" : "file"), "size": .number(Double(size))]
+        if let thumb { object["thumb"] = .string(thumb) }
+        return .object(object)
     }
 }
 

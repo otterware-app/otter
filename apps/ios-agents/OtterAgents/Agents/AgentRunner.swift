@@ -313,6 +313,8 @@ final class AgentRunner {
                     case .approvalResolved(let id): continuation.yield(.approvalResolved(id))
                     case .question(let question): continuation.yield(.question(question))
                     case .questionResolved(let id): continuation.yield(.questionResolved(id))
+                    case .waiting(let subagents): continuation.yield(.waiting(subagents))
+                    case .working: continuation.yield(.working)
                     case .done: continuation.yield(.done)
                     case .failed(let message): continuation.yield(.error(message == "Stopped." ? "cancelled" : "agent_error: \(message)"))
                     case .detached: continuation.yield(.error(AgentError.detached))
@@ -413,6 +415,13 @@ final class AgentRunner {
             guard let client = agents.varysClient else { return [] }
             return Varys.messages(try await client.items(of: session)).map { SessionMessage(role: $0.role, text: $0.text, steps: named($0.tools)) }
         }
+    }
+
+    /** A file the agent linked, read from where it runs: OpenClaw's gateway serves its agents' workspaces. */
+    func file(of kind: AgentKind, session: String, href: String) async throws -> ChatFile {
+        if agents.demo { return try DemoAgent.file(href) }
+        guard kind == .openclaw, let gateway = agents.openClawClient else { throw OpenClaw.Failure(message: "This file is where \(kind.name) runs.") }
+        return try await gateway.file(session: session, href: href)
     }
 
     func deleteSession(of kind: AgentKind, _ session: String) async {

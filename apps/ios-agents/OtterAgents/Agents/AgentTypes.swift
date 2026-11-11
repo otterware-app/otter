@@ -119,6 +119,10 @@ nonisolated enum ChatEvent {
     case approvalResolved(String)
     case question(Question)
     case questionResolved(String)
+    /** The run handed off to background work (OpenClaw's yield): the turn stays open, waiting on the subagents it started, each by its name when it has one. */
+    case waiting([String?])
+    /** The run that work's completion started is going. */
+    case working
     /** How far the agent's run got, for a turn picked up again: it replaces what's shown after the message. */
     case transcript([SessionMessage])
     /** The agent finished before taking a steer. */

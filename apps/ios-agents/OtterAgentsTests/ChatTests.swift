@@ -52,6 +52,42 @@ struct ChatTests {
         #expect(synced.data.count <= 500_000)
     }
 
+    @Test func aSyncedChatKeepsItsPicturesUntilItIsTooBig() {
+        let thumb = "data:image/jpeg;base64," + String(repeating: "A", count: 9000)
+        var chat = Chat(provider: "openclaw", now: 1)
+        var sent = ChatTurn(id: "u-1", role: .user, text: "look", now: 1)
+        sent.attachments = [ChatSentAttachment(name: "a.png", isImage: true, size: 10, thumb: thumb),
+                            ChatSentAttachment(name: "huge.png", isImage: true, size: 10, thumb: String(repeating: "A", count: 50_000))]
+        chat.turns = [sent]
+        let files = chat.forSync["turns"]?.array?[0]["attachments"]?.array
+        #expect(files?[0]["thumb"]?.string == thumb)
+        #expect(files?[1]["thumb"] == nil)
+
+        for index in 0..<70 {
+            var turn = ChatTurn(id: "u-\(index + 2)", role: .user, text: "more", now: index + 2)
+            turn.attachments = [ChatSentAttachment(name: "b.png", isImage: true, size: 10, thumb: thumb)]
+            chat.turns.append(turn)
+        }
+        let big = chat.forSync
+        #expect(big["turns"]?.array?.count == 71)
+        #expect(big["turns"]?.array?[0]["attachments"]?.array?[0]["thumb"] == nil)
+        #expect(big.data.count <= 500_000)
+    }
+
+    @Test func aFileLinkNamesItsPathAndLine() throws {
+        #expect(try ChatFile.path("file:///home/rowan/notes/plan%20a.md:12") == "/home/rowan/notes/plan a.md")
+        #expect(try ChatFile.path("sandbox:/workspace/report.pdf") == "/workspace/report.pdf")
+        #expect(try ChatFile.path("docs/readme.md:3-9") == "docs/readme.md")
+        #expect(throws: (any Error).self) { try ChatFile.path("file://other-mac/Users/x/a.md") }
+        let link = FileLink(chatId: "c", href: "notes/plan.md:12")
+        #expect(link.name == "plan.md")
+        #expect(link.line == 12)
+        #expect(FileLink(chatId: "c", href: "notes/plan.md").line == nil)
+        #expect(try ChatFile(name: "a.json", data: Data("{}".utf8), mimeType: "application/json").text == "{}")
+        #expect(try ChatFile(name: "a.pdf", data: Data("%PDF".utf8), mimeType: "application/octet-stream").text == nil)
+        #expect(try ChatFile(name: "a.md", data: Data("# a".utf8), mimeType: nil).isMarkdown)
+    }
+
     @Test func aLateDeliveryGoesWhereItHappened() {
         var chat = Chat(provider: "varys", now: 0)
         chat.turns = [ChatTurn(id: "u-1", role: .user, text: "a", now: 100), ChatTurn(id: "a-1", role: .assistant, now: 100),

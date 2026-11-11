@@ -1,6 +1,7 @@
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { CONTROL_TTL_MS, cdpInput, createBrowserControl } from "./control.js";
 
@@ -135,7 +136,13 @@ describe("taking control of the agent's browser", () => {
   it("tells whoever watches where the pointer went and what popped up, waiting until it does", async () => {
     const { control, saw, emit } = await fixture();
     const start = await control.events("tab", undefined, undefined, 0);
-    expect(start).toEqual({ run: expect.any(String), seq: 0, dialog: null, events: [] });
+    expect(start).toEqual({
+      run: expect.any(String),
+      seq: 0,
+      dialog: null,
+      field: false,
+      events: [],
+    });
     // From an earlier run of the plugin: its numbers mean nothing now, so just the state.
     expect((await control.events("tab", undefined, 5, 0, "old")).events).toEqual([]);
     const waiting = control.events("tab", undefined, 0, 20_000, start.run);
@@ -146,6 +153,56 @@ describe("taking control of the agent's browser", () => {
     emit("Page.javascriptDialogOpening", { type: "confirm", message: "Leave?" });
     const after = await control.events("tab", undefined, 1, 0, start.run);
     expect(after.dialog).toMatchObject({ dialogType: "confirm", message: "Leave?" });
+    // A field that has focus is told to whoever starts watching after it got it.
+    saw({ type: "field", editable: true });
+    await vi.waitFor(async () =>
+      expect((await control.events("tab", undefined, undefined, 0)).field).toBe(true),
+    );
+  });
+
+  it("says when what has focus in the page takes text, for a phone's keyboard", async () => {
+    const { control, calls } = await fixture();
+    await control.events("tab", undefined, undefined, 0);
+    const { source } = calls.find(
+      ([method]) => method === "Page.addScriptToEvaluateOnNewDocument",
+    )[1];
+    function HTMLInputElement() {}
+    function HTMLTextAreaElement() {}
+    const listeners = {};
+    const said = [];
+    const page = {
+      HTMLInputElement,
+      HTMLTextAreaElement,
+      document: { activeElement: null },
+      addEventListener: (type, listener) => (listeners[type] ??= []).push(listener),
+      setTimeout: (run) => run(),
+      __otterSaw: (payload) => said.push(JSON.parse(payload)),
+    };
+    page.window = page.top = page;
+    runInNewContext(source, page);
+    expect(said).toEqual([{ type: "field", editable: false }]);
+    const focus = (element, type = "focusin") => {
+      page.document.activeElement = element;
+      for (const listener of listeners[type]) listener({});
+      return said.at(-1);
+    };
+    const input = (type) => Object.assign(new HTMLInputElement(), { type });
+    expect(focus(input("email"))).toEqual({ type: "field", editable: true });
+    expect(focus(input("checkbox"))).toEqual({ type: "field", editable: false });
+    expect(focus(new HTMLTextAreaElement())).toEqual({ type: "field", editable: true });
+    expect(focus({ isContentEditable: true })).toEqual({ type: "field", editable: true });
+    // Inside a component: the field its shadow root has focused.
+    expect(focus({ shadowRoot: { activeElement: input("search") } })).toEqual({
+      type: "field",
+      editable: true,
+    });
+    expect(focus(null, "focusout")).toEqual({ type: "field", editable: false });
+    // Connected to the same page again: it says the field it has, and listens once.
+    focus(input("text"));
+    const heard = said.length;
+    runInNewContext(source, page);
+    expect(said.slice(heard)).toEqual([{ type: "field", editable: true }]);
+    expect(listeners.focusin).toHaveLength(1);
   });
 
   it("hands the page's file picker the files you chose", async () => {

@@ -31,10 +31,13 @@ const WORLD = "otter-watch";
 const BINDING = "__otterSaw";
 /**
  * Runs in a world of its own, where the page can't see or stop it: where clicks land, the field
- * being typed in, and what you copy (Chromium's clipboard isn't yours, so the copy is read here).
+ * being typed in, whether what has focus takes text (a phone shows its keyboard for it), and what
+ * you copy (Chromium's clipboard isn't yours, so the copy is read here).
  */
 const WATCH_SCRIPT = `(() => {
-  if (globalThis.${BINDING}Ready || window !== top) return;
+  if (window !== top) return;
+  // Already watching (the plugin connected to this page again): what it kept of the page is gone, so say the field again.
+  if (globalThis.${BINDING}Ready) return globalThis.${BINDING}Field();
   globalThis.${BINDING}Ready = true;
   const say = (event) => { try { ${BINDING}(JSON.stringify(event)); } catch {} };
   let move = null;
@@ -51,6 +54,18 @@ const WATCH_SCRIPT = `(() => {
     while (found?.shadowRoot?.activeElement) found = found.shadowRoot.activeElement;
     return found;
   };
+  const editable = () => {
+    const found = field();
+    return !!found && (found.isContentEditable || found instanceof HTMLTextAreaElement ||
+      (found instanceof HTMLInputElement && /^(?:text|search|url|tel|email|password|number)$/.test(found.type)));
+  };
+  // After the event: moving between two fields is one field losing focus and the next gaining it.
+  const sayField = () => setTimeout(() => say({ type: "field", editable: editable() }));
+  // A new page starts with nothing focused, and the one before it never said it lost its field.
+  sayField();
+  globalThis.${BINDING}Field = sayField;
+  addEventListener("focusin", sayField, true);
+  addEventListener("focusout", sayField, true);
   let copying = false;
   addEventListener("keydown", (event) => {
     if (!event.isTrusted) return;
@@ -314,6 +329,8 @@ export function createBrowserControl({
     }
   };
   const tell = (tab, event) => {
+    // Kept for whoever starts watching later: a field the agent left focused is where they'll type.
+    if (event.type === "field") tab.field = event.editable === true;
     tab.seq += 1;
     tab.events.push({ ...event, seq: tab.seq });
     if (tab.events.length > EVENTS_KEPT) tab.events.shift();
@@ -488,6 +505,7 @@ export function createBrowserControl({
         run,
         seq: tab.seq,
         dialog: tab.dialog ?? null,
+        field: tab.field === true,
         events: Number.isInteger(since) ? tab.events.filter((e) => e.seq > since) : [],
       });
       if (!Number.isInteger(since) || since < tab.seq || !(waitMs > 0)) return state();

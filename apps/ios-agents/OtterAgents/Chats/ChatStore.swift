@@ -11,6 +11,16 @@ final class ChatStore {
     struct Run: Equatable {
         var requestId: String
         var provider: String
+        /** Handed off to background work: the subagents it waits on, each by its name when it has one. Nil while it works. */
+        var waiting: [String?]?
+
+        /** What a waiting run says it waits on, as Otter Code's phone app words it. */
+        var waitingLabel: String? {
+            guard let waiting else { return nil }
+            if waiting.count > 1 { return "Waiting on \(waiting.count) subagents" }
+            guard let subagent = waiting.first else { return "Waiting" }
+            return subagent.map { "Waiting · \($0)" } ?? "Waiting on a subagent"
+        }
     }
 
     /** A message written, on its way or waiting its turn. */
@@ -533,6 +543,12 @@ final class ChatStore {
         case .questionResolved(let id):
             questions.removeAll { $0.question.id == id }
             return
+        case .waiting(let subagents):
+            runs[chatId]?.waiting = subagents
+            return
+        case .working:
+            runs[chatId]?.waiting = nil
+            return
         case .steerReturned(let text):
             queue.insert(Outgoing(chatId: chatId, provider: run.provider, question: text, input: text, title: ChatText.clampTitle(text)), at: 0)
             return
@@ -750,6 +766,18 @@ final class ChatStore {
      * this iPhone last looked shows. Nil when the agent isn't reachable here.
      */
     @discardableResult
+    /** Whether a file a chat links can be read here: from OpenClaw's gateway, for a chat that ran there. */
+    func readsFiles(_ chat: Chat) -> Bool {
+        chat.device == nil && chat.sessionId != nil && (chat.provider == "openclaw" || agents.demo)
+    }
+
+    func file(_ href: String, in chat: Chat) async throws -> ChatFile {
+        guard readsFiles(chat), let kind = AgentKind(rawValue: chat.provider), let session = chat.sessionId else {
+            throw OpenClaw.Failure(message: "This file is where \(AgentKind.name(of: chat.provider)) runs\(chat.device.map { ", on \($0.name)" } ?? "").")
+        }
+        return try await runner.file(of: kind, session: session, href: href)
+    }
+
     func delivered(provider: String, session: String) async -> String? {
         guard let kind = AgentKind(rawValue: provider), agents.isUsable(kind) else { return nil }
         if let known = chats.first(where: { $0.provider == provider && $0.sessionId == session }) {
