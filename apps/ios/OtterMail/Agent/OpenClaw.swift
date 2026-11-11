@@ -193,6 +193,8 @@ final class OpenClaw {
 
     private func open() async throws {
         let socket = URLSession.shared.webSocketTask(with: url)
+        // A file the gateway sends whole (10 MB, in base64) and a long history are over the default 1 MB.
+        socket.maximumMessageSize = 32 * 1024 * 1024
         self.socket = socket
         socket.resume()
         Task { await receive(socket) }

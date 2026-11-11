@@ -130,8 +130,10 @@ final class BrowserSession {
     private(set) var dialog: BrowserDialog?
     /** The page asks for files while you hold it: whether it takes several. */
     private(set) var chooser: Bool?
-    /** What has focus in the page takes text. */
-    private(set) var keyboard = false
+    /** What has focus in the page takes text: known while watching too, so taking control finds the field the agent left. */
+    private var field = false
+    /** The iPhone keyboard is for the page's field while you hold the tab. */
+    var keyboard: Bool { controlling && field }
     var problem: Problem?
 
     private var size = (width: 1280, height: 800)
@@ -277,7 +279,7 @@ final class BrowserSession {
         case .dialogClosed: dialog = nil
         case .clipboard(let text): if controlling { UIPasteboard.general.string = text }
         case .fileChooser(let multiple): if controlling { chooser = multiple }
-        case .field(let editable): if controlling { keyboard = editable }
+        case .field(let editable): field = editable
         }
     }
 
@@ -305,7 +307,6 @@ final class BrowserSession {
         guard controlling, let tab else { return }
         flush()
         controlling = false
-        keyboard = false
         chooser = nil
         holding?.cancel()
         holding = nil
@@ -342,7 +343,7 @@ final class BrowserSession {
 
     /** Going elsewhere: the field that had focus goes with the page. */
     func go(_ input: BrowserInput) {
-        keyboard = false
+        field = false
         send([input])
     }
 
