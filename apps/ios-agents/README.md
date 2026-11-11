@@ -72,8 +72,11 @@ Everything the Mac and web apps' chat does that a phone without the mail can
 - **Notifications** (`Account.swift`, `OtterAgentsApp.swift`'s `AppDelegate`): an agent's gateway
   tells the relay it has an approval, a question or a message, or that a run in one of Otter's
   chats finished (a pointer: the agent and its session, never the text), and the relay pushes to the account's Otter Agents iPhones
-  (`infra/relay`'s `apns.sendAgent`). The words are generic; a tap opens the chat, read from the
-  gateway. Nothing is pushed for a chat one of the account's devices has on screen and in front:
+  (`infra/relay`'s `apns.sendAgent`). A notification service extension reads the reply, question
+  or approval directly from the agent using this iPhone's Keychain credentials, then shows the
+  chat title, agent and status, and a plain-text preview. If the agent is unreachable, the
+  cached chat title and status still show. Sign-out or turning notifications off clears the
+  extension's configuration. A tap opens the chat, read from the gateway. Nothing is pushed for a chat one of the account's devices has on screen and in front:
   every app tells the relay which chat that is over its events socket (`Relay.watching` here,
   core's `setWatching` on the Mac and the web), again every 30 seconds, and the relay forgets a
   device that stops saying it. On in Settings; it needs the gateway's Otter
@@ -148,4 +151,4 @@ Its icons come from the agent's mark (`assets/agent/otter-agent-symbol.svg`) wit
 A merge to main that changes the app, or what it shares with Otter Mail, uploads a build to
 TestFlight (the Release Otter Agents workflow; `pnpm release:ios:agents` from a Mac) and tags it
 `ios-agents-vX.Y.Z`. Release builds use manual signing: the Apple Distribution identity and the
-"Otter Agents App Store" profile. See [docs/release.md](../../docs/release.md#otter-agents).
+"Otter Agents App Store" and "Otter Agents Notifications App Store" profiles. See [docs/release.md](../../docs/release.md#otter-agents).

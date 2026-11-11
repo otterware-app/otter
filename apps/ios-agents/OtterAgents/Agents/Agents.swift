@@ -726,12 +726,6 @@ nonisolated extension Hermes {
         guard (200..<300).contains(status) else { throw Failure(message: "Hermes answered \(status).") }
     }
 
-    /** Hermes's own name for the session. */
-    func title(of session: String) async -> String? {
-        guard let (data, status) = try? await call("GET", "\(api)/sessions/\(session)"), status == 200 else { return nil }
-        let title = ((try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["session"] as? [String: Any])?["title"] as? String
-        return title?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-    }
 }
 
 nonisolated extension String {

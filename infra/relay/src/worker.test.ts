@@ -1438,6 +1438,7 @@ describe("agent channels", () => {
     expect(sent.body).toEqual({
       aps: {
         alert: { title: "Otter Agents", body: "An agent is waiting for your approval." },
+        "mutable-content": 1,
         sound: "default",
         "thread-id": pointer.sessionKey,
       },
@@ -1495,7 +1496,11 @@ describe("agent channels", () => {
     await until(() => notifications.some((n) => n.token === phone), "the finished push");
     const sent = notifications.find((n) => n.token === phone)!;
     expect(sent.body).toMatchObject({
-      aps: { alert: { body: "An agent finished working." }, "thread-id": pointer.sessionKey },
+      aps: {
+        alert: { body: "An agent finished working." },
+        "mutable-content": 1,
+        "thread-id": pointer.sessionKey,
+      },
       otter: { pointer: finished },
     });
     // The event that is passed on arrives alone: the finished run came before it.

@@ -118,6 +118,14 @@ nonisolated struct Hermes {
         }
     }
 
+    func title(of session: String) async -> String? {
+        let id = session.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+        guard let (data, response) = try? await send("GET", "\(root)/api/sessions/\(id)"), response.statusCode == 200 else { return nil }
+        let title = ((try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["session"] as? [String: Any])?["title"] as? String
+        let trimmed = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
+    }
+
     func delete(session: String) async throws {
         let (data, response) = try await send("DELETE", "\(root)/api/sessions/\(session)")
         guard response.statusCode == 200 || response.statusCode == 204 || response.statusCode == 404 else {
