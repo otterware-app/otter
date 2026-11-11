@@ -11,6 +11,10 @@ struct ChatScreen: View {
 
     @State private var position = ScrollPosition(edge: .bottom)
     @State private var following = true
+    /** The conversation is moving under a finger, or on its way somewhere. */
+    @State private var moving = false
+    /** How many of the chat's first turns aren't drawn: a long chat opens on its latest, and the rest come as you read back up. */
+    @State private var earlier: Int?
     @FocusState private var focused: Bool
     @State private var showQueue = false
     @State private var showDetails = false
@@ -34,11 +38,26 @@ struct ChatScreen: View {
         }
     }
 
+    /** How many turns a chat opens with, and how many more each step back up brings: drawing a turn costs, and a chat can have hundreds. */
+    private static let page = 10
+
+    private func skipped(_ chat: Chat) -> Int {
+        if let earlier, earlier < chat.turns.count { return earlier }
+        return max(0, chat.turns.count - Self.page)
+    }
+
+    /** Draws the chat from this turn on, to go to it. */
+    private func reveal(_ turnId: String, in chat: Chat) {
+        guard let index = chat.turns.firstIndex(where: { $0.id == turnId }), index < skipped(chat) else { return }
+        earlier = index
+    }
+
     private func content(_ chat: Chat) -> some View {
-        ScrollView {
+        let skipped = skipped(chat)
+        return ScrollView {
             // As wide as the screen with nothing in it yet too: a stack is only as wide as what it holds.
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(chat.turns.enumerated()), id: \.element.id) { index, turn in
+                ForEach(Array(chat.turns.enumerated().dropFirst(skipped)), id: \.element.id) { index, turn in
                     Group {
                         switch turn.role {
                         case .user: UserTurnView(turn: turn)
@@ -62,13 +81,27 @@ struct ChatScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom)
-        // The keyboard leaves as soon as you scroll or tap the conversation: dragging it down with the
-        // scroll moved the composer under the finger, and the two fought.
-        .scrollDismissesKeyboard(.immediately)
+        .scrollDismissesKeyboard(.interactively)
         .simultaneousGesture(TapGesture().onEnded { if focused { focused = false } })
+        .onScrollPhaseChange { _, phase in moving = phase != .idle }
+        // The end is where the bars under the conversation begin: `visibleRect` runs on under them.
         .onScrollGeometryChange(for: Bool.self) { geometry in
-            geometry.contentOffset.y + geometry.containerSize.height - geometry.contentInsets.bottom >= geometry.contentSize.height - 48
-        } action: { _, atEnd in following = atEnd }
+            geometry.visibleRect.maxY - geometry.contentInsets.bottom >= geometry.contentSize.height - 48
+        } action: { _, atEnd in
+            if atEnd {
+                following = true
+            } else if moving {
+                following = false
+            } else if following {
+                // Left behind by the bars or the keyboard settling, not by a scroll: a long chat opens before they do.
+                position.scrollTo(edge: .bottom)
+            }
+        }
+        .onScrollGeometryChange(for: Int.self) { geometry in
+            geometry.visibleRect.minY + geometry.contentInsets.top < 1500 ? skipped : -1
+        } action: { _, near in
+            if near > 0 { earlier = max(0, near - Self.page) }
+        }
         .onChange(of: chat.turns.last?.items) { if following { position.scrollTo(edge: .bottom) } }
         .background(palette.canvas)
         .overlay { placeholder(chat) }
@@ -117,7 +150,9 @@ struct ChatScreen: View {
             await store.sync?.load(id)
             // What the agent wrote or asks in this chat's session without this iPhone: a scheduled run, another device's turn.
             Task { await store.catchUp(id) }
-            if let found = store.found, found.chatId == id {
+            if let found = store.found, found.chatId == id, let chat = store.chat(id) {
+                following = false
+                reveal(found.turnId, in: chat)
                 try? await Task.sleep(for: .milliseconds(250))
                 withAnimation { position.scrollTo(id: found.turnId, anchor: .center) }
             }
@@ -266,13 +301,20 @@ struct ChatScreen: View {
         }.map(\.id)
     }
 
+    private func show(_ turnId: String, in chat: Chat, animated: Bool) {
+        store.found = ChatStore.Found(chatId: chat.id, turnId: turnId)
+        following = false
+        reveal(turnId, in: chat)
+        // After the turn is drawn, when it wasn't yet.
+        Task { withAnimation(animated ? .default : nil) { position.scrollTo(id: turnId, anchor: .center) } }
+    }
+
     private func findBar(_ chat: Chat) -> some View {
         let found = matches(chat)
         let go = { (step: Int) in
             guard !found.isEmpty else { return }
             findAt = (findAt + step + found.count) % found.count
-            store.found = ChatStore.Found(chatId: chat.id, turnId: found[findAt])
-            withAnimation { position.scrollTo(id: found[findAt], anchor: .center) }
+            show(found[findAt], in: chat, animated: true)
         }
         return HStack(spacing: 4) {
             Image(systemName: "magnifyingglass").font(.system(size: 14)).foregroundStyle(palette.muted)
@@ -312,8 +354,7 @@ struct ChatScreen: View {
         .onChange(of: find) {
             findAt = 0
             let found = matches(chat)
-            store.found = found.first.map { ChatStore.Found(chatId: chat.id, turnId: $0) }
-            if let first = found.first { position.scrollTo(id: first, anchor: .center) }
+            if let first = found.first { show(first, in: chat, animated: false) } else { store.found = nil }
         }
     }
 }
