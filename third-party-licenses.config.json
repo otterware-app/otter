@@ -123,6 +123,16 @@
         "licenseId": "MIT",
         "copyrights": ["Copyright (c) Vladimir Krivosheev"]
       }
+    },
+    {
+      "name": "@rollup/rollup-linux-x64-gnu",
+      "sourceUrl": "https://github.com/rollup/rollup",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": [
+          "Copyright (c) 2017 Rollup contributors (https://github.com/rollup/rollup/graphs/contributors)"
+        ]
+      }
     }
   ]
 }
