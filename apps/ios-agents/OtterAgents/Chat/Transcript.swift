@@ -1,10 +1,22 @@
 import SwiftUI
 
-/** One message of yours: what it carried, the words in their bubble, and when. */
+/** One message of yours, in WhatsApp's bubble on the right: what it carried, the words, when, and whether the agent has it. */
 struct UserTurnView: View {
     @Environment(\.palette) private var palette
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.chatText) private var actions
     let turn: ChatTurn
-    @State private var copied = false
+    /** 0: sent; 1: the agent is on it; 2: it answered. */
+    var answered = 0
+    /** Your messages just before and after it: the corners where they meet are tight. */
+    var joinsAbove = false
+    var joinsBelow = false
+
+    private var hasWords: Bool { !turn.text.isEmpty || turn.skill != nil || !turn.citations.isEmpty }
+    private var stamp: String {
+        let steer = turn.intent == "steer" || turn.intent == "promoted" ? "↻ Steer " : ""
+        return steer + (turn.startedAt.map(ChatText.clock) ?? "") + "  ✓✓"
+    }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
@@ -16,51 +28,51 @@ struct UserTurnView: View {
                     .lineLimit(1)
             }
             if !turn.attachments.isEmpty { attachments }
-            VStack(alignment: .leading, spacing: 8) {
-                if let skill = turn.skill {
-                    Text("/\(skill)")
-                        .font(.mono(13, .medium))
-                        .foregroundStyle(palette.muted)
-                }
-                ForEach(turn.citations) { citation in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(alignment: .top, spacing: 8) {
-                            RoundedRectangle(cornerRadius: 1).fill(palette.border).frame(width: 2)
-                            Text(citation.text).font(.ui(14)).foregroundStyle(palette.muted).lineLimit(3)
-                        }
-                        .fixedSize(horizontal: false, vertical: true)
+            if hasWords {
+                VStack(alignment: .leading, spacing: 6) {
+                    if let skill = turn.skill {
+                        Text("/\(skill)").font(.mono(13, .medium)).foregroundStyle(palette.muted)
+                    }
+                    ForEach(turn.citations) { citation in
+                        QuotedReply(text: citation.text, from: citation.from)
                         if let comment = citation.comment, !comment.isEmpty {
-                            Text(comment).font(.ui(14)).foregroundStyle(palette.text)
+                            Text(comment).font(.ui(16)).foregroundStyle(palette.text)
                         }
                     }
+                    if !turn.text.isEmpty {
+                        MarkdownText(blocks: [.paragraph(turn.text)], reserve: stamp)
+                    } else {
+                        Color.clear.frame(width: 70, height: 12)
+                    }
                 }
-                if !turn.text.isEmpty {
-                    MarkdownText(blocks: [.paragraph(turn.text)])
-                }
+                .padding(.horizontal, 11)
+                .padding(.top, 6)
+                .padding(.bottom, 7)
+                .overlay(alignment: .bottomTrailing) { time.padding(.trailing, 9).padding(.bottom, 5) }
+                .background(palette.outgoing(scheme), in: bubbleShape(.trailing, joinsAbove: joinsAbove, joinsBelow: joinsBelow))
+                .environment(\.quoteFrom, "You")
+                .swipeToReply(actions.quote.flatMap { quote in turn.text.isEmpty ? nil : { quote(turn.text, "You") } })
+            } else {
+                time.padding(.trailing, 4)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(palette.card, in: .rect(cornerRadius: 20))
-            .opacity(turn.text.isEmpty && turn.skill == nil && turn.citations.isEmpty ? 0 : 1)
-            .frame(height: turn.text.isEmpty && turn.skill == nil && turn.citations.isEmpty ? 0 : nil)
-            HStack(spacing: 6) {
-                if turn.intent == "steer" || turn.intent == "promoted" {
-                    Label("Steer", systemImage: "arrow.uturn.forward")
-                        .font(.ui(12, .medium))
-                        .foregroundStyle(palette.muted)
-                        .accessibilityHint(turn.intent == "promoted" ? "Originally queued, then promoted to steer the active turn" : "Steered the active turn")
-                }
-                if let at = turn.startedAt {
-                    Text(ChatText.messageTime(at)).font(.ui(13, .medium)).monospacedDigit().foregroundStyle(palette.tertiary)
-                }
-                CopyButton(text: turn.text, label: "Copy message")
-            }
-            .padding(.trailing, 2)
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.leading, 52)
+        .padding(.leading, 56)
     }
 
+    private var time: some View {
+        HStack(spacing: 3) {
+            if turn.intent == "steer" || turn.intent == "promoted" {
+                Label("Steer", systemImage: "arrow.uturn.forward")
+                    .labelStyle(.titleAndIcon)
+                    .font(.ui(11, .medium))
+                    .accessibilityHint(turn.intent == "promoted" ? "Queued, then steered the active turn" : "Steered the active turn")
+            }
+            if let at = turn.startedAt { Text(ChatText.clock(at)).font(.ui(11)).monospacedDigit() }
+            Ticks(count: answered == 0 ? 1 : 2, read: answered == 2)
+        }
+        .foregroundStyle(palette.muted)
+    }
     private var attachments: some View {
         VStack(alignment: .trailing, spacing: 6) {
             let images = turn.attachments.filter(\.isImage)
@@ -132,6 +144,8 @@ struct CopyButton: View {
 
 struct AssistantTurnView: View {
     @Environment(\.palette) private var palette
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.chatText) private var actions
     @Environment(ChatStore.self) private var store
     let turn: ChatTurn
     let chat: Chat
@@ -141,6 +155,7 @@ struct AssistantTurnView: View {
     @State private var open = false
 
     private var live: Bool { turn.finishedAt == nil && turn.error == nil && store.runs[chat.id] != nil }
+    private var name: String { store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat)) }
 
     /** What it took to get to the answer: everything up to the last step. */
     private var work: [ChatItem] {
@@ -153,42 +168,36 @@ struct AssistantTurnView: View {
         return Array(turn.items[(last + 1)...])
     }
 
+    /** The answer, a bubble a paragraph. */
+    private var bubbles: [[Markdown.Block]] {
+        answer.compactMap(\.text).flatMap(Markdown.bubbles)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if let delivered = turn.delivered { delivery(delivered) }
+        let bubbles = bubbles
+        VStack(alignment: .leading, spacing: 3) {
+            if let delivered = turn.delivered { delivery(delivered).padding(.bottom, 3) }
             if !work.isEmpty {
-                fold
-                if open || store.found?.turnId == turn.id { WorkLog(items: work, live: live).transition(.opacity) }
-            }
-            ForEach(Array(answer.enumerated()), id: \.offset) { _, item in
-                if let text = item.text, !text.isEmpty { MarkdownView(source: text) }
-            }
-            if live, turn.items.isEmpty {
-                HStack(spacing: 6) {
-                    Image(systemName: "circle.dashed").font(.system(size: 14, weight: .medium))
-                    Text(store.runs[chat.id]?.waiting == nil ? "Working" : "Waiting").font(.ui(14))
+                fold.padding(.bottom, 3)
+                if open || store.found?.turnId == turn.id {
+                    WorkLog(items: work, live: live)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(palette.incoming(scheme), in: .rect(cornerRadius: 18))
+                        .padding(.bottom, 3)
+                        .transition(.opacity)
                 }
-                .foregroundStyle(palette.muted)
-                .shimmer()
-                .frame(minHeight: 28)
             }
+            ForEach(Array(bubbles.enumerated()), id: \.offset) { index, blocks in
+                bubble(blocks, first: index == 0, last: index == bubbles.count - 1)
+            }
+            if live, bubbles.isEmpty { TypingBubble() }
             if let error = turn.error { failure(error) }
-            if !turn.changes.isEmpty, !live { ChangesList(changes: turn.changes) }
+            if !turn.changes.isEmpty, !live { ChangesList(changes: turn.changes).padding(.top, 3) }
             if isLast, store.isDetached(chat), turn.finishedAt == nil, turn.error == nil {
                 Text("Lost \(AgentKind.name(of: chat.provider)) mid-reply. The rest shows here once it's back.")
                     .font(.ui(14))
                     .foregroundStyle(palette.muted)
-            }
-            if !live, turn.finishedAt != nil, !turn.answer.isEmpty {
-                HStack(spacing: 2) {
-                    CopyButton(text: turn.answer, label: "Copy message")
-                    if let at = turn.finishedAt {
-                        Text(ChatText.messageTime(at)).font(.ui(13, .medium)).monospacedDigit().foregroundStyle(palette.tertiary)
-                            .padding(.leading, 4)
-                    }
-                }
-                .padding(.leading, -7)
-                .padding(.top, -4)
             }
             if turn.forked {
                 HStack(spacing: 10) {
@@ -196,10 +205,37 @@ struct AssistantTurnView: View {
                     Label("Forked from conversation", systemImage: "arrow.triangle.branch").font(.ui(13)).foregroundStyle(palette.muted).fixedSize()
                     Rectangle().fill(palette.hairline).frame(height: 1)
                 }
+                .padding(.top, 8)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 4)
+        .environment(\.quoteFrom, name)
+    }
+
+    private func bubble(_ blocks: [Markdown.Block], first: Bool, last: Bool) -> some View {
+        let time = last && !live ? turn.finishedAt.map(ChatText.clock) : nil
+        let endsInText = blocks.last?.isText == true
+        return HStack(alignment: .bottom, spacing: 8) {
+            VStack(alignment: .trailing, spacing: 2) {
+                MarkdownView(blocks: blocks, reserve: endsInText ? time : nil)
+                if let time, !endsInText { Text(time).font(.ui(11)).monospacedDigit().foregroundStyle(palette.muted) }
+            }
+            .padding(.horizontal, 11)
+            .padding(.top, 6)
+            .padding(.bottom, 7)
+            .overlay(alignment: .bottomTrailing) {
+                if let time, endsInText {
+                    Text(time).font(.ui(11)).monospacedDigit().foregroundStyle(palette.muted).padding(.trailing, 9).padding(.bottom, 5)
+                }
+            }
+            .background(palette.incoming(scheme), in: bubbleShape(.leading, joinsAbove: !first, joinsBelow: !last))
+            .swipeToReply(actions.quote.map { quote in { quote(Markdown.plain(blocks), name) } })
+            if last, time != nil, !turn.answer.isEmpty {
+                CopyButton(text: turn.answer, label: "Copy message")
+                    .background(palette.incoming(scheme).opacity(0.85), in: .circle)
+            }
+        }
+        .padding(.trailing, last ? 8 : 44)
     }
 
     private func delivery(_ delivered: ChatDelivery) -> some View {
@@ -209,8 +245,11 @@ struct AssistantTurnView: View {
         case .message(let from): ("paperplane", "\(from.map { "Sent by \($0)" } ?? "Sent to you")\(time)")
         }
         return Label(text, systemImage: symbol)
-            .font(.ui(13, .medium))
+            .font(.ui(12, .medium))
             .foregroundStyle(palette.muted)
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .background(palette.incoming(scheme), in: .capsule)
     }
 
     private var fold: some View {
@@ -219,23 +258,26 @@ struct AssistantTurnView: View {
             withAnimation(.easeOut(duration: 0.18)) { open.toggle() }
         } label: {
             HStack(spacing: 6) {
-                Text(summary).font(.ui(14, .medium)).foregroundStyle(palette.muted)
+                Image(systemName: live ? "circle.dashed" : "gearshape.2").font(.system(size: 12, weight: .medium))
+                Text(summary).font(.ui(13, .medium))
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(palette.muted.opacity(0.7))
+                    .font(.system(size: 10, weight: .semibold))
+                    .opacity(0.7)
                     .rotationEffect(.degrees(open ? 90 : 0))
-                Spacer()
             }
-            .frame(height: 42)
-            .overlay(alignment: .bottom) { Rectangle().fill(palette.hairline).frame(height: 1) }
-            .contentShape(.rect)
+            .foregroundStyle(palette.muted)
+            .shimmer(live)
+            .padding(.horizontal, 11)
+            .frame(height: 28)
+            .background(palette.incoming(scheme), in: .capsule)
+            .contentShape(.capsule)
         }
         .buttonStyle(.plain)
         .accessibilityValue(open ? "Expanded" : "Collapsed")
     }
 
     private var summary: String {
-        if live { return store.runs[chat.id]?.waiting == nil ? "Working…" : "Waiting…" }
+        if live { return store.isCompacting(chat.id) ? "Compacting…" : store.runs[chat.id]?.waiting == nil ? "Working…" : "Waiting…" }
         guard let started = turn.startedAt, let finished = turn.finishedAt, finished > started else {
             let steps = work.count { $0.step != nil }
             return "Took \(steps) step\(steps == 1 ? "" : "s")"
@@ -254,6 +296,9 @@ struct AssistantTurnView: View {
                 Image(systemName: "exclamationmark.circle")
             }
             .foregroundStyle(error == "Stopped." ? palette.muted : palette.error)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(palette.incoming(scheme), in: .rect(cornerRadius: 18))
             if isLast, store.retries[turn.id] != nil, store.runs[chat.id] == nil {
                 Button("Retry", systemImage: "arrow.clockwise") { store.retry(turn.id) }
                     .font(.ui(14, .medium))
@@ -408,6 +453,7 @@ private struct StepRow: View {
 /** What the agent changed in Otter, on a device that has Otter's tools: listed, to know it happened. */
 private struct ChangesList: View {
     @Environment(\.palette) private var palette
+    @Environment(\.colorScheme) private var scheme
     let changes: [ChatChange]
 
     var body: some View {
@@ -428,6 +474,68 @@ private struct ChangesList: View {
                 .overlay(alignment: .top) { if index > 0 { Rectangle().fill(palette.hairline).frame(height: 1) } }
             }
         }
-        .background(palette.card, in: .rect(cornerRadius: 14))
+        .background(palette.incoming(scheme), in: .rect(cornerRadius: 18))
+        .padding(.trailing, 44)
+    }
+}
+
+/** A message quoted in a reply: the accent's bar, who said it, and the start of it. */
+struct QuotedReply: View {
+    @Environment(\.palette) private var palette
+    let text: String
+    let from: String?
+    var lines = 3
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let from { Text(from).font(.ui(13, .semibold)).foregroundStyle(palette.action) }
+            Text(text.replacingOccurrences(of: "\n", with: " ")).font(.ui(14)).foregroundStyle(palette.muted).lineLimit(lines)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 10)
+        .padding(.trailing, 8)
+        .padding(.vertical, 6)
+        .background(palette.text.opacity(0.06))
+        .overlay(alignment: .leading) { palette.action.frame(width: 4) }
+        .clipShape(.rect(cornerRadius: 8))
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/** WhatsApp's ticks: one when sent, two when the agent has it, in the accent once it answered. */
+struct Ticks: View {
+    @Environment(\.palette) private var palette
+    let count: Int
+    let read: Bool
+
+    var body: some View {
+        HStack(spacing: -6) {
+            ForEach(0..<count, id: \.self) { _ in Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)) }
+        }
+        .foregroundStyle(read ? palette.focus : palette.muted)
+        .accessibilityLabel(read ? "Answered" : count == 2 ? "Received" : "Sent")
+    }
+}
+
+/** The agent writing: three dots in its bubble. */
+private struct TypingBubble: View {
+    @Environment(\.palette) private var palette
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 30)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 5) {
+                ForEach(0..<3) { dot in
+                    Circle().fill(palette.muted)
+                        .frame(width: 7, height: 7)
+                        .opacity(0.35 + 0.65 * max(0, sin((t * 2 * .pi / 1.2) - Double(dot) * 0.7)))
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 36)
+        .background(palette.incoming(scheme), in: .rect(cornerRadius: 18))
+        .accessibilityLabel("Writing")
     }
 }

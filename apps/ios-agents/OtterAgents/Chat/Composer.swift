@@ -3,27 +3,31 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /**
- * Where you write: T3 Code's glass pill, one row until the text wraps, then the text above
- * its controls. What a message carries (files, quotes, a skill) rides above the text.
+ * Where you write, laid out as WhatsApp's: ＋ for what a message can carry (its panel takes the
+ * keyboard's place), the text in its pill with the agent beside it, and Send. What you reply to
+ * rides above, in a bar of its own.
  */
 struct Composer: View {
     @Environment(\.palette) private var palette
+    @Environment(\.colorScheme) private var scheme
     @Environment(ChatStore.self) private var store
     let chat: Chat
     var focused: FocusState<Bool>.Binding
+    /** The panel under ＋ is open: the chat lets the keyboard pass over it, so nothing moves while they swap. */
+    @Binding var panel: Bool
     var onSent: () -> Void = {}
 
     @State private var skill: Skill?
     @State private var skills: [Skill] = []
     @State private var attachments: [Attachment] = []
-    @State private var expanded = false
+    @State private var keyboardUp = false
     @State private var showModels = false
     @State private var pickingPhotos = false
     @State private var photos: [PhotosPickerItem] = []
     @State private var pickingFiles = false
     @State private var takingPhoto = false
-    @State private var commenting: ChatCitation?
-    @State private var comment = ""
+    /** The keyboard's height when it was last up: the panel under ＋ takes its place, as tall. */
+    @AppStorage("keyboard-height") private var keyboardHeight = 336.0
 
     private var agents: Agents { store.agents }
     private var kind: AgentKind? { AgentKind(rawValue: chat.provider) }
@@ -49,17 +53,36 @@ struct Composer: View {
     var body: some View {
         VStack(spacing: 7) {
             if !matching.isEmpty { skillMenu }
-            VStack(alignment: .leading, spacing: 0) {
-                if carries { carried }
+            if carries { carried }
+            HStack(alignment: .bottom, spacing: 8) {
+                plusButton
                 editor
+                sendButton
             }
-            .glassEffect(.regular, in: .rect(cornerRadius: 27))
+            if panel { attachPanel }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.top, 6)
         .padding(.bottom, 6)
-        .animation(.easeOut(duration: 0.22), value: expanded)
         .animation(.easeOut(duration: 0.18), value: carries)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { note in
+            keyboardUp = true
+            // A hardware keyboard shows only its thin bar: keep the on-screen one's height.
+            if let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect, frame.height > 200 { keyboardHeight = frame.height }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboardUp = false }
+        // The keyboard is all the way up over the panel: the panel can go without the composer moving.
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+            if panel { withTransaction(Transaction(animation: nil)) { panel = false } }
+        }
+        .onChange(of: focused.wrappedValue) { _, now in
+            guard now, panel else { return }
+            // No keyboard comes (a hardware one): the panel goes anyway.
+            Task {
+                try? await Task.sleep(for: .milliseconds(600))
+                if focused.wrappedValue, panel, !keyboardUp { withAnimation(.easeOut(duration: 0.22)) { panel = false } }
+            }
+        }
         .sheet(isPresented: $showModels) { ModelSheet(chat: chat) }
         .photosPicker(isPresented: $pickingPhotos, selection: $photos, maxSelectionCount: Attachment.maxCount, matching: .images)
         .onChange(of: photos) { _, items in
@@ -76,20 +99,6 @@ struct Composer: View {
             }
             .ignoresSafeArea()
         }
-        .alert("Comment on the quote", isPresented: .constant(commenting != nil)) {
-            TextField("Add an optional comment…", text: $comment)
-            Button("Cancel", role: .cancel) { commenting = nil }
-            Button("Save") {
-                if let commenting {
-                    store.citations[chat.id] = citations.map { quote in
-                        var quote = quote
-                        if quote.id == commenting.id { quote.comment = comment.trimmingCharacters(in: .whitespaces).nilIfEmpty }
-                        return quote
-                    }
-                }
-                commenting = nil
-            }
-        }
         .task(id: chat.provider) {
             skills = await kind.asyncMap { await agents.skills(of: $0) } ?? []
         }
@@ -99,83 +108,86 @@ struct Composer: View {
                 skill = named
                 store.drafts[chat.id] = nil
             }
-            if text.isEmpty { expanded = false }
         }
     }
 
-    // MARK: The text and its controls
+    // MARK: The row
+
+    private var plusButton: some View {
+        Button {
+            Haptics.tap()
+            if panel {
+                // The keyboard comes up over the panel; the panel leaves once it's there.
+                focused.wrappedValue = true
+            } else if keyboardUp {
+                // The panel is there before the keyboard leaves, under it, as tall: nothing jumps.
+                withTransaction(Transaction(animation: nil)) { panel = true }
+                focused.wrappedValue = false
+            } else {
+                withAnimation(.easeOut(duration: 0.25)) { panel = true }
+            }
+        } label: {
+            Image(systemName: panel ? "keyboard" : "plus")
+                .font(.system(size: panel ? 17 : 20))
+                .foregroundStyle(palette.text)
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: 46, height: 46)
+                .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .accessibilityLabel(panel ? "Show keyboard" : "Attach and more")
+    }
 
     private var editor: some View {
         @Bindable var store = store
-        let placeholder = skills.isEmpty ? "Ask anything" : "Ask anything, / for skills"
-        return TextField(placeholder, text: Binding(get: { store.drafts[chat.id] ?? "" }, set: { store.drafts[chat.id] = $0.isEmpty ? nil : $0 }), axis: .vertical)
-            .font(.ui(16))
-            .lineSpacing(3)
-            .lineLimit(1...4)
-            .focused(focused)
-            .foregroundStyle(palette.text)
-            .tint(palette.focus)
-            .onGeometryChange(for: Bool.self) { $0.size.height > 30 } action: { tall in if tall { expanded = true } }
-            .padding(.leading, expanded ? 14 : (canAttach ? 46 : 18))
-            .padding(.trailing, expanded ? 14 : 96)
-            .padding(.top, expanded ? 12 : 0)
-            .padding(.bottom, expanded ? 52 : 0)
-            .frame(minHeight: 50)
-            .overlay(alignment: .bottomLeading) { if canAttach { attachButton } }
-            .overlay(alignment: .bottomTrailing) {
-                HStack(spacing: 0) {
-                    modelControl
-                    sendButton
-                }
-                .padding(.trailing, 3)
-            }
+        return HStack(alignment: .bottom, spacing: 0) {
+            TextField("Message", text: Binding(get: { store.drafts[chat.id] ?? "" }, set: { store.drafts[chat.id] = $0.isEmpty ? nil : $0 }), axis: .vertical)
+                .font(.ui(16))
+                .lineSpacing(3)
+                .lineLimit(1...6)
+                .focused(focused)
+                .foregroundStyle(palette.text)
+                .tint(palette.focus)
+                .padding(.leading, 16)
+                .padding(.vertical, 12)
+            modelControl
+        }
+        .frame(minHeight: 46)
+        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 23))
     }
 
     private var canAttach: Bool { kind?.attachments == true }
 
-    private var attachButton: some View {
-        Menu {
-            Button("Photo Library", systemImage: "photo") { pickingPhotos = true }
-            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                Button("Take Photo", systemImage: "camera") { takingPhoto = true }
-            }
-            Button("Choose Files", systemImage: "folder") { pickingFiles = true }
-            if UIPasteboard.general.hasImages {
-                Button("Paste", systemImage: "doc.on.clipboard") {
-                    for image in UIPasteboard.general.images ?? [] {
-                        if let data = image.pngData() { add(name: "Pasted image.png", mime: "image/png", data: data) }
-                    }
-                }
-            }
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 19))
-                .foregroundStyle(palette.text)
-                .frame(width: 44, height: 50)
-                .contentShape(.rect)
-        }
-        .accessibilityLabel("Attach files")
+    /**
+     * A chat not started yet can go to any agent; one under way stays on its agent (two OpenClaw
+     * agents aren't interchangeable), and only its model and effort can change, where it has a choice.
+     */
+    private var choosesModel: Bool {
+        guard let kind else { return false }
+        if chat.isBlank { return true }
+        return kind != .openclaw && (agents.models(of: kind).count > 1 || agents.traits(of: kind) != nil)
     }
 
+    @ViewBuilder
     private var modelControl: some View {
-        Button { showModels = true } label: {
-            HStack(spacing: 5) {
-                AgentAvatar(provider: chat.provider, agent: agents.agent(of: chat), size: 18)
-                if expanded, let kind {
-                    Text(kind == .openclaw ? agents.name(of: chat.provider, agent: agents.agent(of: chat)) : agents.model(of: kind)?.shortName ?? kind.name).font(.ui(14, .medium)).foregroundStyle(palette.text).lineLimit(1)
-                    if let traits = agents.traits(of: kind) {
-                        Text("· \(traits)").font(.ui(13)).foregroundStyle(palette.muted).lineLimit(1)
-                    }
+        if choosesModel {
+            Button { showModels = true } label: {
+                HStack(spacing: 4) {
+                    // The agent's mark: which model and effort it runs are a tap away.
+                    AgentAvatar(provider: chat.provider, agent: agents.agent(of: chat), size: 18)
+                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(palette.muted)
                 }
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(palette.muted)
+                .padding(.leading, 6)
+                .padding(.trailing, 12)
+                .frame(maxWidth: 140, minHeight: 46, alignment: .trailing)
+                .contentShape(.rect)
             }
-            .padding(.horizontal, 8)
-            .frame(height: 50)
-            .frame(maxWidth: expanded ? 230 : nil, alignment: .trailing)
-            .contentShape(.rect)
+            .buttonStyle(.plain)
+            .accessibilityLabel(chat.isBlank ? "Agent and model" : "Model")
+        } else {
+            Color.clear.frame(width: 12, height: 46)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Agent and model")
     }
 
     @ViewBuilder
@@ -183,24 +195,23 @@ struct Composer: View {
         if running, !hasContent {
             Button { store.stop(chat.id) } label: {
                 Image(systemName: "stop.fill")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(palette.error)
-                    .frame(width: 30, height: 30)
+                    .frame(width: 46, height: 46)
                     .background(palette.dangerFill, in: .circle)
-                    .frame(width: 44, height: 50)
-                    .contentShape(.rect)
+                    .contentShape(.circle)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Stop agent")
         } else {
             let symbol = editing ? "checkmark" : running ? (wantsSteer ? "arrow.turn.left.up" : "list.number") : "arrow.up"
             let label = Image(systemName: symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(hasContent ? palette.actionText : palette.text.opacity(0.38))
-                .frame(width: 30, height: 30)
-                .background(hasContent ? palette.action : palette.text.opacity(0.12), in: .circle)
-                .frame(width: 44, height: 50)
-                .contentShape(.rect)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(palette.actionText)
+                .frame(width: 46, height: 46)
+                .background(palette.action, in: .circle)
+                .opacity(hasContent ? 1 : 0.45)
+                .contentShape(.circle)
             Group {
                 if running, !editing, steers {
                     // A menu of the button's own: it opens from where it is, and the keyboard stays.
@@ -224,8 +235,71 @@ struct Composer: View {
         store.send(draft, in: chat.id, skill: skill, attachments: attachments, opposite: opposite)
         skill = nil
         attachments = []
-        expanded = false
+        panel = false
         onSent()
+    }
+
+    // MARK: The panel under ＋
+
+    private var attachPanel: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 18) {
+            if canAttach {
+                tile("Photos", "photo.on.rectangle.angled", Color(UIColor.systemBlue)) { pickingPhotos = true }
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    tile("Camera", "camera.fill", palette.text) { takingPhoto = true }
+                }
+                tile("Document", "doc.fill", Color(UIColor.systemTeal)) { pickingFiles = true }
+                if UIPasteboard.general.hasImages {
+                    tile("Paste", "doc.on.clipboard.fill", Color(UIColor.systemPurple)) {
+                        for image in UIPasteboard.general.images ?? [] {
+                            if let data = image.pngData() { add(name: "Pasted image.png", mime: "image/png", data: data) }
+                        }
+                    }
+                }
+            }
+            if !skills.isEmpty, draft.isEmpty {
+                tile("Skills", "wand.and.sparkles", Color(UIColor.systemOrange)) {
+                    store.drafts[chat.id] = "/"
+                    focused.wrappedValue = true
+                }
+            }
+            if choosesModel {
+                tile(chat.isBlank ? "Agent" : "Model", chat.isBlank ? "person.crop.circle.fill" : "cpu", palette.action) { showModels = true }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 18)
+        .frame(height: keyboardHeight - Self.bottomInset - 7, alignment: .top)
+        .background(alignment: .top) {
+            // Down past the home indicator, as the keyboard goes.
+            Color.clear
+                .glassEffect(.regular, in: .rect(cornerRadius: 32))
+                .frame(height: keyboardHeight - 1)
+                .padding(.horizontal, -4)
+        }
+    }
+
+    private static var bottomInset: CGFloat {
+        (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom ?? 34
+    }
+
+    private func tile(_ title: String, _ symbol: String, _ color: Color, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
+            VStack(spacing: 7) {
+                Image(systemName: symbol)
+                    .font(.system(size: 24))
+                    .foregroundStyle(color)
+                    .frame(width: 60, height: 60)
+                    .background(palette.incoming(scheme), in: .circle)
+                    .overlay { Circle().strokeBorder(palette.hairline, lineWidth: 0.5) }
+                Text(title).font(.ui(13)).foregroundStyle(palette.text)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: What the message carries
@@ -239,6 +313,19 @@ struct Composer: View {
                     Button("Cancel") { store.cancelQueuedEdit() }.font(.ui(13, .semibold)).foregroundStyle(palette.text)
                 }
             }
+            ForEach(citations) { quote in
+                HStack(alignment: .center, spacing: 6) {
+                    QuotedReply(text: quote.text, from: quote.from ?? store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat)), lines: 2)
+                    Button("Remove reply", systemImage: "xmark") {
+                        withAnimation(.easeOut(duration: 0.18)) { store.citations[chat.id] = citations.filter { $0.id != quote.id } }
+                    }
+                    .labelStyle(.iconOnly)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(palette.muted)
+                    .frame(width: 32, height: 32)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
             if !attachments.isEmpty {
                 ScrollView(.horizontal) {
                     HStack(spacing: 9) {
@@ -248,7 +335,7 @@ struct Composer: View {
                 .scrollIndicators(.hidden)
                 .scrollClipDisabled()
             }
-            if skill != nil || !citations.isEmpty || !mail.isEmpty {
+            if skill != nil || !mail.isEmpty {
                 ScrollView(.horizontal) {
                     HStack(spacing: 6) {
                         ForEach(mail, id: \.self) { about in
@@ -259,24 +346,13 @@ struct Composer: View {
                         if let skill {
                             chip(symbol: "wrench.and.screwdriver", text: "/\(skill.name)", mono: true) { self.skill = nil }
                         }
-                        ForEach(citations) { quote in
-                            Button {
-                                comment = quote.comment ?? ""
-                                commenting = quote
-                            } label: {
-                                chip(symbol: "text.quote", text: quote.comment.map { "\($0): \(quote.text)" } ?? quote.text, mono: false) {
-                                    store.citations[chat.id] = citations.filter { $0.id != quote.id }
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
                     }
                 }
                 .scrollIndicators(.hidden)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 12)
+        .padding(10)
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
     }
 
     private func chip(symbol: String, text: String, mono: Bool, remove: @escaping () -> Void) -> some View {

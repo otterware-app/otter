@@ -58,6 +58,7 @@ struct ChatMenu: View {
         }
         Divider()
         Button("Delete", systemImage: "trash", role: .destructive) { dialog = .delete(chat) }
+            .tint(.red)
     }
 }
 

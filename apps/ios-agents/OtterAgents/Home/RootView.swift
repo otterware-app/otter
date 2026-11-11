@@ -11,65 +11,46 @@ enum Route: Hashable {
 }
 
 /**
- * The app's frame, as T3 Code's: one stack whose root is the chosen tab, a floating glass bar
- * of tabs at the bottom with the compose button beside it, both gone while a chat is open.
+ * The app's frame, as T3 Code's phone app: the system's tab bar (Liquid Glass, as iOS draws
+ * it), each tab its own stack, and compose as the prominent tab, its own circle at the bottom
+ * right. The bar leaves while a chat is open or chats are being selected.
  */
 struct RootView: View {
-    enum Tab: String, CaseIterable {
-        case chats, scheduled, settings
-
-        var symbol: String {
-            switch self {
-            case .chats: "text.bubble"
-            case .scheduled: "clock"
-            case .settings: "gearshape"
-            }
-        }
-
-        var label: String { rawValue.capitalized }
+    enum Place: Hashable {
+        case chats, scheduled, settings, compose
     }
 
     @Environment(\.palette) private var palette
     @Environment(ChatStore.self) private var store
     @Environment(ScheduledStore.self) private var scheduled
     @Environment(Account.self) private var account
-    @State private var tab = Tab.chats
-    @State private var path: [Route] = []
+    @State private var place = Place.chats
+    @State private var paths: [Place: [Route]] = [:]
     @State private var newTask = false
+    @State private var selecting = false
+
+    private var makesTask: Bool { place == .scheduled && !scheduled.creators.isEmpty }
 
     var body: some View {
-        NavigationStack(path: $path) {
-            Group {
-                switch tab {
-                case .chats: ChatsScreen(open: { path.append(.chat($0)) }, openSettings: { tab = .settings })
-                case .scheduled: ScheduledScreen(open: { path.append(.task($0)) }, openSettings: { tab = .settings })
-                case .settings: SettingsScreen(path: $path)
+        // Compose is a tab only to sit apart as iOS draws a prominent one: choosing it acts and stays where you were.
+        TabView(selection: Binding(get: { place }, set: { picked in if picked == .compose { compose() } else { place = picked } })) {
+            Tab(value: Place.chats) {
+                stack(.chats) {
+                    ChatsScreen(open: { open(.chat($0), in: .chats) }, openSettings: { place = .settings }, selecting: $selecting)
+                        .toolbarVisibility(selecting ? .hidden : .automatic, for: .tabBar)
                 }
-            }
-            .navigationDestination(for: Route.self) { route in
-                switch route {
-                case .chat(let id): ChatScreen(id: id) {
-                    path = []
-                    tab = .settings
-                }
-                case .agent(let kind): AgentSettings(kind: kind)
-                case .appearance: AppearanceSettings()
-                case .account: AccountSettings()
-                case .chatSettings: ChatSettings()
-                case .licenses: LicensesView()
-                case .task(let id): TaskScreen(id: id) { path.append(.chat($0)) }
-                }
-            }
+            } label: { icon("Chats", "text.bubble") }
+            .badge(store.unseen.union(store.needsYou).count)
+            Tab(value: Place.scheduled) {
+                stack(.scheduled) { ScheduledScreen(open: { open(.task($0), in: .scheduled) }, openSettings: { place = .settings }) }
+            } label: { icon("Scheduled", "clock") }
+            .badge(scheduled.failing ? Text("!") : nil)
+            Tab(value: Place.settings) {
+                stack(.settings) { SettingsScreen(path: path(.settings)) }
+            } label: { icon("Settings", "gearshape") }
+            Tab(value: Place.compose, role: .prominent) { Color.clear } label: { composeIcon }
         }
-        .overlay(alignment: .bottom) {
-            if path.isEmpty {
-                bar
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 4)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
-        .animation(.easeOut(duration: 0.2), value: path.isEmpty)
+        .tint(palette.text)
         .overlay(alignment: .top) {
             if let notice = store.notice {
                 Toast(text: notice, symbol: "info.circle")
@@ -83,63 +64,61 @@ struct RootView: View {
             }
         }
         .animation(.easeOut(duration: 0.2), value: store.notice)
-        .sheet(isPresented: $newTask) { TaskEditor { path.append(.task($0)) } }
+        .sheet(isPresented: $newTask) { TaskEditor { open(.task($0), in: .scheduled) } }
         .onChange(of: account.opening, initial: true) { _, chat in
             guard let chat else { return }
             account.opening = nil
-            tab = .chats
-            path = [.chat(chat)]
+            place = .chats
+            paths[.chats] = [.chat(chat)]
         }
     }
 
-    private var bar: some View {
-        GlassEffectContainer(spacing: 16) {
-            HStack(spacing: 16) {
-                HStack(spacing: 0) {
-                    ForEach(Tab.allCases, id: \.self) { item in
-                        let unseen = item == .chats && tab != .chats && !store.unseen.isEmpty
-                        Button {
-                            Haptics.tap()
-                            tab = item
-                        } label: {
-                            let attention = item == .scheduled && scheduled.failing
-                            Image(systemName: tab == item ? "\(item.symbol).fill" : item.symbol)
-                                .font(.system(size: 21))
-                                .foregroundStyle(tab == item ? palette.text : palette.muted)
-                                .frame(width: 58, height: 46)
-                                .overlay(alignment: .topTrailing) {
-                                    if unseen || attention { Circle().fill(unseen ? Status.done : palette.warning).frame(width: 8, height: 8).offset(x: -14, y: 9) }
-                                }
-                                .contentShape(.rect)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(item.label)
-                        .accessibilityValue(item == .scheduled && scheduled.failing ? "One isn't working" : "")
-                        .accessibilityAddTraits(tab == item ? .isSelected : [])
-                    }
-                }
-                .padding(.horizontal, 4)
-                .frame(height: 54)
-                .glassEffect(.regular.interactive(), in: .capsule)
-                Spacer()
-                if tab == .chats || (tab == .scheduled && !scheduled.creators.isEmpty) {
-                    Button {
-                        Haptics.tap()
-                        if tab == .chats { path.append(.chat(store.newChat())) } else { newTask = true }
-                    } label: {
-                        Image(systemName: tab == .chats ? "square.and.pencil" : "plus")
-                            .font(.system(size: 21))
-                            .foregroundStyle(palette.text)
-                            .frame(width: 62, height: 54)
-                            .contentShape(.rect)
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: .capsule)
-                    .accessibilityLabel(tab == .chats ? "New chat" : "New task")
-                    .transition(.scale(scale: 0.8).combined(with: .opacity))
-                }
+    /** T3 Code's tabs: the symbol alone, its name for VoiceOver. */
+    private func icon(_ name: String, _ symbol: String) -> some View {
+        Label(name, systemImage: symbol).labelStyle(.iconOnly)
+    }
+
+    private var composeIcon: some View {
+        icon(makesTask ? "New task" : "New chat", makesTask ? "plus" : "square.and.pencil")
+    }
+
+    private func path(_ place: Place) -> Binding<[Route]> {
+        Binding(get: { paths[place] ?? [] }, set: { paths[place] = $0 })
+    }
+
+    private func open(_ route: Route, in place: Place) { paths[place, default: []].append(route) }
+
+    private func compose() {
+        Haptics.tap()
+        if makesTask {
+            newTask = true
+        } else {
+            place = .chats
+            paths[.chats] = [.chat(store.newChat())]
+        }
+    }
+
+    private func stack(_ place: Place, @ViewBuilder root: () -> some View) -> some View {
+        NavigationStack(path: path(place)) {
+            root().navigationDestination(for: Route.self) { route in
+                destination(route, in: place).toolbarVisibility(.hidden, for: .tabBar)
             }
         }
-        .animation(.easeOut(duration: 0.2), value: tab)
+    }
+
+    @ViewBuilder
+    private func destination(_ route: Route, in place: Place) -> some View {
+        switch route {
+        case .chat(let id): ChatScreen(id: id) {
+            paths[place] = []
+            self.place = .settings
+        }
+        case .agent(let kind): AgentSettings(kind: kind)
+        case .appearance: AppearanceSettings()
+        case .account: AccountSettings()
+        case .chatSettings: ChatSettings()
+        case .licenses: LicensesView()
+        case .task(let id): TaskScreen(id: id) { open(.chat($0), in: place) }
+        }
     }
 }

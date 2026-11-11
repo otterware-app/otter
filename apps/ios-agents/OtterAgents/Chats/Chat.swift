@@ -310,6 +310,8 @@ nonisolated struct ChatCitation: Equatable, Identifiable {
     var id = UUID()
     var text: String
     var comment: String?
+    /** Who said it, for the reply bar: kept on this iPhone only. */
+    var from: String?
 
     static func == (a: ChatCitation, b: ChatCitation) -> Bool { a.text == b.text && a.comment == b.comment }
 }

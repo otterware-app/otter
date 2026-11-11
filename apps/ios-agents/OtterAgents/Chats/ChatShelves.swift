@@ -120,6 +120,20 @@ nonisolated enum ChatText {
         return "\(day), \(time)"
     }
 
+    /** A message's time in its bubble: the day is in the pill above it. */
+    static func clock(_ at: Int) -> String { Date(ms: at).formatted(date: .omitted, time: .shortened) }
+
+    /** The day pill between messages, and a chat's time in the list, as WhatsApp says them: Today, Yesterday, Friday, 3 Nov. */
+    static func day(_ at: Int, now: Date = .now, calendar: Calendar = .current, today: String? = "Today") -> String {
+        let date = Date(ms: at)
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day ?? 0
+        if days <= 0 { return today ?? date.formatted(date: .omitted, time: .shortened) }
+        if days == 1 { return "Yesterday" }
+        if days < 7 { return date.formatted(.dateTime.weekday(.wide)) }
+        let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: now)
+        return date.formatted(sameYear ? .dateTime.day().month(.abbreviated) : .dateTime.day().month(.abbreviated).year())
+    }
+
     /** "1m 5s", as the work log counts a turn. */
     static func duration(_ ms: Int) -> String {
         let seconds = max(0, ms / 1000)

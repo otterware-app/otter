@@ -80,7 +80,6 @@ struct ScheduledScreen: View {
             }
             .padding(.top, 4)
         }
-        .contentMargins(.bottom, 96, for: .scrollContent)
         .background(palette.canvas)
         .overlay { empty(shown: !active.isEmpty || !paused.isEmpty) }
         .navigationTitle("Scheduled")

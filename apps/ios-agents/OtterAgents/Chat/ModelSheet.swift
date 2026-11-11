@@ -58,7 +58,11 @@ struct ModelSheet: View {
                                     let ordered = groups.keys.sorted()
                                     ForEach(ordered, id: \.self) { name in
                                         if ordered.count > 1 {
-                                            Text(name).font(.ui(12, .medium)).foregroundStyle(palette.muted).padding(.horizontal, 32).padding(.top, 8).padding(.bottom, 4)
+                                            HStack(spacing: 6) {
+                                                if let mark = Self.mark(of: name) { AgentAvatar(provider: mark, size: 14) }
+                                                Text(name)
+                                            }
+                                            .font(.ui(12, .medium)).foregroundStyle(palette.muted).padding(.horizontal, 32).padding(.top, 8).padding(.bottom, 4)
                                         }
                                         let rows = groups[name] ?? []
                                         ForEach(Array(rows.enumerated()), id: \.element.id) { index, model in
@@ -90,6 +94,15 @@ struct ModelSheet: View {
             .refreshable { await agents.checkAll() }
         }
         .presentationDragIndicator(.visible)
+    }
+
+    /** The maker's mark for a group of models, where the app has it: Anthropic's Claude, OpenAI's. */
+    private static func mark(of maker: String) -> String? {
+        switch maker.lowercased() {
+        case "anthropic": "claude"
+        case "openai": "codex"
+        default: nil
+        }
     }
 
     private func group(@ViewBuilder header: () -> some View, @ViewBuilder content: () -> some View) -> some View {
