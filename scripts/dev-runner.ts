@@ -275,7 +275,6 @@ async function main(): Promise<void> {
     agents,
     portOffset: offset,
   });
-  process.off("SIGINT", stopStartingAgents);
   if (desktop) {
     ensureTranslator();
     // A stale bundle would let Electron start before the first fresh build.
@@ -355,6 +354,7 @@ async function main(): Promise<void> {
 
   recordGroups([...children.values()].flatMap((child) => (child.pid ? [child.pid] : [])));
 
+  process.off("SIGINT", stopStartingAgents);
   process.once("SIGINT", () => void shutdown(130));
   process.once("SIGTERM", () => void shutdown(143));
   process.once("SIGHUP", () => void shutdown(129));

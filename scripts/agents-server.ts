@@ -26,13 +26,15 @@ const MODEL = "gpt-6.1-sol";
 function gatewayKey(): string {
   const file = NodePath.join(otterHome(), "dev-agents-key");
   try {
-    return NodeFS.readFileSync(file, "utf8").trim();
-  } catch {
-    const key = NodeCrypto.randomBytes(24).toString("hex");
     NodeFS.mkdirSync(NodePath.dirname(file), { recursive: true });
-    NodeFS.writeFileSync(file, key, { mode: 0o600 });
-    return key;
+    NodeFS.writeFileSync(file, NodeCrypto.randomBytes(24).toString("hex"), {
+      mode: 0o600,
+      flag: "wx",
+    });
+  } catch {
+    // Already made.
   }
+  return NodeFS.readFileSync(file, "utf8").trim();
 }
 
 // Clear of the dev runner's ports, whose offsets reach 3000 above 5833 and 8787.
@@ -115,6 +117,8 @@ if [ ! -f ~/.openclaw/.otter-dev ]; then
   node openclaw.mjs plugins install /otter-plugin --link --force --accept-capabilities
   node openclaw.mjs config set plugins.entries.otter.hooks.allowConversationAccess true
   touch ~/.openclaw/.otter-dev
+else
+  node openclaw.mjs config set gateway.auth.token ${key}
 fi
 umask 077
 mkdir -p "$CODEX_HOME"
@@ -126,10 +130,10 @@ cat > "$CODEX_HOME/auth.json"`,
 if [ ! -f /opt/data/.otter-dev ]; then
   hermes config set model.provider openai-codex
   hermes config set model.default ${MODEL}
-  hermes config set API_SERVER_KEY ${key}
   hermes plugins enable otter
   touch /opt/data/.otter-dev
 fi
+hermes config set API_SERVER_KEY ${key}
 umask 077
 cat > /opt/data/auth.json`,
       input: JSON.stringify({
@@ -229,7 +233,12 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "approve") {
-    const approved = approveDevices(offset);
+    let approved: number;
+    try {
+      approved = approveDevices(offset);
+    } catch {
+      throw new Error("OpenClaw isn't running: start it with `pnpm agents-server openclaw`.");
+    }
     console.log(approved ? `Approved ${approved}.` : "No device is waiting to pair.");
     return;
   }
