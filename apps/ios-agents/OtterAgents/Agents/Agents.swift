@@ -133,6 +133,8 @@ final class Agents {
     @ObservationIgnored private var section: [String: Any]
     @ObservationIgnored private var applying = false
     @ObservationIgnored private var gateway: OpenClaw?
+    /** OpenClaw's agents as the gateway last listed them, kept on this iPhone: their names and pictures are there before it answers. */
+    @ObservationIgnored private var openClawAgents: [OpenClaw.GatewayAgent] = []
     @ObservationIgnored private var varysConnection: (key: String, client: Varys)?
     @ObservationIgnored private var skillsCache: [AgentKind: (at: Date, skills: [Skill])] = [:]
 
@@ -143,6 +145,7 @@ final class Agents {
     private static let followUpKey = "assistant:follow-up-behavior"
     private static let favoritesKey = "assistant:favorite-models"
     private static let appName = "Otter Agents on iPhone"
+    static let openClawAgentsFile = URL.cachesDirectory.appending(path: "openclaw-agents.json")
 
     init() {
         let defaults = UserDefaults.standard
@@ -158,6 +161,8 @@ final class Agents {
         followUp = defaults.string(forKey: Self.followUpKey).flatMap(FollowUp.init) ?? .queue
         favorites = Self.strings(defaults.string(forKey: Self.favoritesKey))
         hasHermesKey = Keychain.get(Self.hermesKeyName) != nil
+        openClawAgents = (try? JSONDecoder().decode([OpenClaw.GatewayAgent].self, from: Data(contentsOf: Self.openClawAgentsFile))) ?? []
+        showOpenClawAgents()
     }
 
     private static func decode<T: Decodable>(_ value: Any?) -> T? {
@@ -259,10 +264,10 @@ final class Agents {
     }
 
     func endDemo() {
-        openClawFaces = [:]
         demo = false
         status = [:]
         models = [:]
+        showOpenClawAgents()
     }
 
     // MARK: What each agent is
@@ -480,11 +485,7 @@ final class Agents {
         }
         if status[.openclaw] != .ready { status[.openclaw] = .checking }
         do {
-            let agents = try await gateway.agents()
-            models[.openclaw] = agents.map {
-                Hermes.Model(slug: $0.id, name: $0.name, isDefault: $0.isDefault, reasoning: false, canDisableReasoning: false, fast: false)
-            }
-            openClawFaces = Dictionary(agents.map { ($0.id, ($0.avatar, $0.emoji)) }) { first, _ in first }
+            keep(openClawAgents: try await gateway.agents())
             openClawPairing = nil
             openClawFullAccess = gateway.fullAccess
             status[.openclaw] = .ready
@@ -493,6 +494,25 @@ final class Agents {
             openClawPairing = gateway.pairingRequest
             status[.openclaw] = .failed(Self.openClawProblem(error))
         }
+    }
+
+    private func keep(openClawAgents agents: [OpenClaw.GatewayAgent]) {
+        let changed = agents != openClawAgents
+        openClawAgents = agents
+        showOpenClawAgents()
+        guard changed else { return }
+        if agents.isEmpty {
+            try? FileManager.default.removeItem(at: Self.openClawAgentsFile)
+        } else {
+            try? JSONEncoder().encode(agents).write(to: Self.openClawAgentsFile, options: .atomic)
+        }
+    }
+
+    private func showOpenClawAgents() {
+        models[.openclaw] = openClawAgents.map {
+            Hermes.Model(slug: $0.id, name: $0.name, isDefault: $0.isDefault, reasoning: false, canDisableReasoning: false, fast: false)
+        }
+        openClawFaces = Dictionary(openClawAgents.map { ($0.id, ($0.avatar, $0.emoji)) }) { first, _ in first }
     }
 
     private static func openClawProblem(_ error: Error) -> String {
@@ -592,7 +612,6 @@ final class Agents {
         Keychain.set(OpenClaw.bootstrapName, nil)
         openclaw.url = ""
         status[.openclaw] = .notConfigured
-        models[.openclaw] = []
     }
 
     private func useOpenClaw(url: String) async {
@@ -610,6 +629,7 @@ final class Agents {
         openClawFullAccessRequest = nil
         Keychain.set(OpenClaw.deviceTokenName, nil)
         Keychain.set(OpenClaw.scopesName, nil)
+        keep(openClawAgents: [])
     }
 
     func allowOpenClawFullAccess() async {

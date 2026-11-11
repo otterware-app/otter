@@ -15,7 +15,7 @@ final class OpenClaw {
         var set: (String, String?) -> Void
     }
 
-    nonisolated struct GatewayAgent: Equatable {
+    nonisolated struct GatewayAgent: Equatable, Codable {
         var id: String
         var name: String
         var isDefault: Bool
