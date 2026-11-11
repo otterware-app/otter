@@ -3,10 +3,12 @@
 // plugins from this checkout's extensions/ (docs/development.md#agent-gateways).
 
 import * as NodeChildProcess from "node:child_process";
+import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 
+import { otterHome } from "../apps/desktop/scripts/dev-home.mjs";
 import type { DemoAgents } from "../packages/contracts/src/demo.ts";
 import { resolvePortOffset } from "./port-offset.ts";
 
@@ -16,9 +18,23 @@ export const AGENTS = ["openclaw", "hermes"] as const;
 export type Agent = (typeof AGENTS)[number];
 
 const MODEL = "gpt-6.1-sol";
-const OPENCLAW_TOKEN = "otter-dev";
-/** Hermes starts its API server only with a key of 16 characters or more. */
-const HERMES_KEY = "otter-dev-gateway-key";
+
+/**
+ * The gateways' key, made once for this computer: a web page can reach a port on localhost,
+ * so a key written in this repository would let any page run them.
+ */
+function gatewayKey(): string {
+  const file = NodePath.join(otterHome(), "dev-agents-key");
+  try {
+    return NodeFS.readFileSync(file, "utf8").trim();
+  } catch {
+    const key = NodeCrypto.randomBytes(24).toString("hex");
+    NodeFS.mkdirSync(NodePath.dirname(file), { recursive: true });
+    NodeFS.writeFileSync(file, key, { mode: 0o600 });
+    return key;
+  }
+}
+
 // Clear of the dev runner's ports, whose offsets reach 3000 above 5833 and 8787.
 const OPENCLAW_PORT = 41000;
 const HERMES_PORT = 45000;
@@ -47,13 +63,14 @@ function docker(offset: number, command: string[], input?: string): string {
     input,
     encoding: "utf8",
     env,
-    stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+    stdio: [input === undefined ? "ignore" : "pipe", "pipe", "inherit"],
   });
 }
 
 type CodexLogin = {
-  tokens: { access_token: string; refresh_token?: string };
+  auth_mode?: string;
   last_refresh?: string;
+  tokens: { access_token: string; id_token?: string; account_id?: string; refresh_token: "" };
 };
 
 /**
@@ -63,30 +80,34 @@ type CodexLogin = {
  */
 function codexLogin(): CodexLogin {
   const home = process.env.CODEX_HOME?.trim() || NodePath.join(NodeOS.homedir(), ".codex");
-  let login: CodexLogin;
+  let login: Partial<CodexLogin>;
+  let expires: number;
   try {
-    login = JSON.parse(NodeFS.readFileSync(NodePath.join(home, "auth.json"), "utf8")) as CodexLogin;
+    login = JSON.parse(NodeFS.readFileSync(NodePath.join(home, "auth.json"), "utf8"));
+    const claims = Buffer.from(login.tokens!.access_token.split(".")[1]!, "base64url");
+    expires = (JSON.parse(claims.toString()) as { exp: number }).exp * 1000;
   } catch {
     throw new Error("the gateways run on your Codex sign-in: run `codex login` first.");
   }
-  const token = login.tokens?.access_token;
-  if (!token) throw new Error("Codex isn't signed in with ChatGPT: run `codex login`.");
-  const claims = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString()) as {
-    exp?: number;
-  };
-  if ((claims.exp ?? 0) * 1000 < Date.now() + 60_000) {
+  if (!(expires > Date.now() + 60_000)) {
     throw new Error("your Codex sign-in has run out: start `codex` once to renew it.");
   }
-  return { ...login, tokens: { ...login.tokens, refresh_token: "" } };
+  const { access_token, id_token, account_id } = login.tokens!;
+  return {
+    auth_mode: login.auth_mode,
+    last_refresh: login.last_refresh,
+    tokens: { access_token, id_token, account_id, refresh_token: "" },
+  };
 }
 
-const SETUP: Record<Agent, (login: CodexLogin) => { script: string; input: string }> = {
-  openclaw: (login) => ({
-    script: `set -e
+const SETUP: Record<Agent, (login: CodexLogin, key: string) => { script: string; input: string }> =
+  {
+    openclaw: (login, key) => ({
+      script: `set -e
 cd /app
 if [ ! -f ~/.openclaw/.otter-dev ]; then
   node openclaw.mjs onboard --non-interactive --accept-risk --skip-health --mode local \\
-    --auth-choice skip --gateway-auth token --gateway-token ${OPENCLAW_TOKEN} \\
+    --auth-choice skip --gateway-auth token --gateway-token ${key} \\
     --gateway-bind loopback --skip-channels --no-install-daemon
   node openclaw.mjs config set plugins.entries.codex.enabled true
   node openclaw.mjs config set plugins.entries.codex.config.appServer.homeScope user
@@ -98,32 +119,32 @@ fi
 umask 077
 mkdir -p "$CODEX_HOME"
 cat > "$CODEX_HOME/auth.json"`,
-    input: JSON.stringify(login),
-  }),
-  hermes: (login) => ({
-    script: `set -e
+      input: JSON.stringify(login),
+    }),
+    hermes: (login, key) => ({
+      script: `set -e
 if [ ! -f /opt/data/.otter-dev ]; then
   hermes config set model.provider openai-codex
   hermes config set model.default ${MODEL}
-  hermes config set API_SERVER_KEY ${HERMES_KEY}
+  hermes config set API_SERVER_KEY ${key}
   hermes plugins enable otter
   touch /opt/data/.otter-dev
 fi
 umask 077
 cat > /opt/data/auth.json`,
-    input: JSON.stringify({
-      version: 1,
-      providers: {
-        "openai-codex": {
-          tokens: { access_token: login.tokens.access_token, refresh_token: "" },
-          last_refresh: login.last_refresh,
-          auth_mode: "chatgpt",
+      input: JSON.stringify({
+        version: 1,
+        providers: {
+          "openai-codex": {
+            tokens: { access_token: login.tokens.access_token, refresh_token: "" },
+            last_refresh: login.last_refresh,
+            auth_mode: "chatgpt",
+          },
         },
-      },
-      active_provider: "openai-codex",
+        active_provider: "openai-codex",
+      }),
     }),
-  }),
-};
+  };
 
 const SERVICES: Record<Agent, string[]> = {
   openclaw: ["openclaw", "openclaw-loopback"],
@@ -148,8 +169,9 @@ async function waitFor(name: string, url: string): Promise<void> {
  */
 export async function startAgents(agents: readonly Agent[], offset: number): Promise<DemoAgents> {
   const login = codexLogin();
+  const key = gatewayKey();
   for (const agent of agents) {
-    const { script, input } = SETUP[agent](login);
+    const { script, input } = SETUP[agent](login, key);
     // OpenClaw's image starts its commands through an entrypoint of its own; Hermes's sets up
     // its data and user first.
     const shell = agent === "openclaw" ? ["--entrypoint", "sh", agent, "-c"] : [agent, "sh", "-c"];
@@ -164,10 +186,8 @@ export async function startAgents(agents: readonly Agent[], offset: number): Pro
     agents.includes("hermes") && waitFor("Hermes", `${hermes}/health`),
   ]);
   return {
-    ...(agents.includes("openclaw")
-      ? { openclaw: { url: `ws://${openclaw}`, token: OPENCLAW_TOKEN } }
-      : {}),
-    ...(agents.includes("hermes") ? { hermes: { baseUrl: hermes, apiKey: HERMES_KEY } } : {}),
+    ...(agents.includes("openclaw") ? { openclaw: { url: `ws://${openclaw}`, token: key } } : {}),
+    ...(agents.includes("hermes") ? { hermes: { baseUrl: hermes, apiKey: key } } : {}),
   };
 }
 
@@ -175,6 +195,21 @@ export async function startAgents(agents: readonly Agent[], offset: number): Pro
 export function stopAgents(offset: number): void {
   const { args, env } = compose(offset, ["stop", "--timeout", "2"]);
   NodeChildProcess.spawn("docker", args, { env, detached: true, stdio: "ignore" }).unref();
+}
+
+/**
+ * Approves the devices waiting to pair with the checkout's OpenClaw. The desktop app pairs by
+ * itself; the gateway never does that for a browser, so the web app waits for this once.
+ */
+function approveDevices(offset: number): number {
+  const openclaw = (...args: string[]) =>
+    docker(offset, ["exec", "-T", "openclaw", "node", "openclaw.mjs", "devices", ...args]);
+  const list = openclaw("list", "--json");
+  const { pending } = JSON.parse(list.slice(list.indexOf("{"))) as {
+    pending: { requestId: string }[];
+  };
+  for (const { requestId } of pending) openclaw("approve", requestId);
+  return pending.length;
 }
 
 export function parseAgents(list: string): Agent[] {
@@ -193,6 +228,11 @@ async function main(): Promise<void> {
     docker(offset, ["down", ...rest]);
     return;
   }
+  if (command === "approve") {
+    const approved = approveDevices(offset);
+    console.log(approved ? `Approved ${approved}.` : "No device is waiting to pair.");
+    return;
+  }
   const agents = command ? parseAgents([command, ...rest].join(",")) : [...AGENTS];
   const started = await startAgents(agents, offset);
   console.log(`Up, on your Codex sign-in, with the Otter plugins from this checkout's extensions/.
@@ -204,6 +244,7 @@ ${[
   .filter(Boolean)
   .join("\n")}
 
+The web app's first connection to OpenClaw waits for \`pnpm agents-server approve\`.
 Run it again after changing a plugin. Stop them with \`pnpm agents-server down\`
 (\`down --volumes\` also forgets their chats and settings).`);
 }

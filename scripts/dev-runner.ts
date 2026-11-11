@@ -262,6 +262,12 @@ async function main(): Promise<void> {
     NodeFS.writeFileSync(relayConfig, localConfig());
     prepareRelay(wrangler);
   }
+  // The gateways start before the tasks whose shutdown stops them.
+  const stopStartingAgents = () => {
+    stopAgents(offset);
+    process.exit(130);
+  };
+  if (agents.length > 0) process.once("SIGINT", stopStartingAgents);
   const dataEnv = await prepareData(app, data, {
     home: values.home,
     reset: values.reset,
@@ -269,6 +275,7 @@ async function main(): Promise<void> {
     agents,
     portOffset: offset,
   });
+  process.off("SIGINT", stopStartingAgents);
   if (desktop) {
     ensureTranslator();
     // A stale bundle would let Electron start before the first fresh build.

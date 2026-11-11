@@ -213,12 +213,18 @@ running the Otter plugin from this checkout (`extensions/openclaw/gateway`,
 gateway someone uses. Name one to start only that: `pnpm agents-server openclaw`.
 
 `pnpm dev:demo --agents openclaw,hermes` (or `dev:desktop:demo`) starts the ones it names and
-opens the app already connected to them, then stops them when the run ends. Without `--agents`
-a demo run starts none: OpenClaw takes over a gigabyte of memory and about twenty seconds.
+opens the app already connected to them, then stops the checkout's gateways when the run ends.
+Without `--agents` a demo run starts none: OpenClaw takes over a gigabyte of memory and about
+half a minute to start (a few minutes the first time).
 
 - **A pair per checkout.** Each checkout has its own containers, data and ports (OpenClaw on
   41000 and Hermes on 45000, plus the checkout's port offset), so two worktrees test two versions
-  of a plugin at the same time. Both listen on 127.0.0.1 only, with fixed development keys.
+  of a plugin at the same time. Both listen on 127.0.0.1 only, behind a key made once for this
+  computer (`dev-agents-key` in `~/.otter`), as a web page can reach a port on localhost.
+  A checkout's dev runs share its pair: ending one stops the gateways for the others.
+- **The web app pairs with OpenClaw once.** The desktop app connects by itself. OpenClaw never
+  pairs a browser without asking, so the web app's first connection waits: run
+  `pnpm agents-server approve` and reload the page.
 - **A plugin change needs a restart.** Run the command, or the dev run, again: it restarts the
   gateways, which load the plugins as they are now. The gateways' own versions are pinned in
   `scripts/agents-server/compose.yaml`; raise them with the plugins.

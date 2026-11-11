@@ -108,7 +108,7 @@ async function demoAgents(options: DataOptions): Promise<Record<string, string>>
     return { [DEMO_AGENTS_ENV]: JSON.stringify(agents) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.warn(`[dev] Skipping the agents (is Docker running?): ${message}`);
+    console.warn(`[dev] Skipping the agents: ${message}`);
     return {};
   }
 }
