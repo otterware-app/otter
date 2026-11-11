@@ -132,6 +132,30 @@ final class WalkthroughUITests: XCTestCase {
         shot("08-answered")
     }
 
+    func testLiveWorkStartsCollapsed() {
+        app.buttons["New chat"].tap()
+        let field = app.textFields.firstMatch.exists ? app.textFields.firstMatch : app.textViews.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("Compare the venues, take your time")
+        app.buttons["Send message"].tap()
+        let fold = app.buttons["Working…"]
+        let step = app.buttons["Read Re: Q4 planning"]
+        XCTAssertTrue(fold.waitForExistence(timeout: 5))
+        XCTAssertEqual(fold.value as? String, "Collapsed")
+        XCTAssertFalse(step.exists)
+        shot("27-work-collapsed")
+        fold.tap()
+        XCTAssertTrue(step.waitForExistence(timeout: 5))
+        XCTAssertEqual(fold.value as? String, "Expanded")
+        shot("28-work-expanded")
+        fold.tap()
+        XCTAssertFalse(step.exists)
+        XCTAssertEqual(fold.value as? String, "Collapsed")
+        XCTAssertTrue(app.buttons["Send message"].waitForExistence(timeout: 30))
+        XCTAssertFalse(step.exists)
+    }
+
     func testApprovalAndQueue() {
         app.buttons["New chat"].tap()
         let field = app.textFields.firstMatch.exists ? app.textFields.firstMatch : app.textViews.firstMatch
