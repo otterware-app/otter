@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import Testing
+import UIKit
 @testable import Otter_Agents
 
 @MainActor
@@ -58,6 +59,33 @@ struct BrowserTests {
         #expect(OpenClaw.browserTab(of: rows) == BrowserTab(targetId: "B"))
         #expect(OpenClaw.browserTab(of: Array(rows.prefix(2))) == BrowserTab(targetId: "A", profile: "work", url: "https://a.example"))
         #expect(OpenClaw.browserTab(of: [["role": "user"]]) == nil)
+    }
+
+    @Test func zoomAndPanKeepTouchesOnThePageAndSurviveNewFrames() throws {
+        let controller = BrowserPageController()
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 1600, height: 1000)).image { _ in }
+        controller.update(image: image, css: image.size, controlling: false, pointer: nil, typing: nil)
+        controller.view.frame = CGRect(x: 0, y: 0, width: 400, height: 800)
+        controller.view.layoutIfNeeded()
+        #expect(controller.pagePoint(CGPoint(x: 200, y: 125)) == CGPoint(x: 800, y: 500))
+        #expect(controller.pagePoint(CGPoint(x: 200, y: 300)) == nil)
+
+        controller.scroll.setZoomScale(3, animated: false)
+        controller.scroll.contentOffset = CGPoint(x: 200, y: 0)
+        let at = try #require(controller.pagePoint(CGPoint(x: 400, y: 375)))
+        #expect(abs(at.x - 1600 / 3) < 0.01)
+        #expect(at.y == 500)
+
+        controller.update(image: image, css: image.size, controlling: true, pointer: nil, typing: nil)
+        controller.view.layoutIfNeeded()
+        #expect(controller.scroll.zoomScale == 3)
+        #expect(controller.scroll.contentOffset.x == 200)
+        #expect(controller.scroll.panGestureRecognizer.minimumNumberOfTouches == 2)
+
+        controller.view.frame.size = CGSize(width: 800, height: 400)
+        controller.view.layoutIfNeeded()
+        #expect(controller.scroll.zoomScale == 3)
+        #expect(controller.pagePoint(CGPoint(x: -100, y: -100), clamped: true) == .zero)
     }
 
     @Test func anAddressIsAnHttpPage() {

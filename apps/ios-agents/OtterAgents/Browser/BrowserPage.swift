@@ -1,29 +1,15 @@
 import SwiftUI
 import UIKit
 
-/** The page's frames, fitted against the top, and what you do on them while you hold the tab. */
 struct BrowserPage: View {
     let session: BrowserSession
     /** The iPhone keyboard may come up for the page's field: not while the address has it. */
     let typing: Bool
     var touched: () -> Void
-    /** Where the finger last was, once it has gone far enough to be scrolling. */
-    @State private var panned: CGPoint?
-    @State private var lastTap: (at: CGPoint, time: Date, count: Int)?
-
     var body: some View {
-        GeometryReader { proxy in
-            let fit = session.frame.flatMap { BrowserFit(view: proxy.size, image: $0.size, css: session.cssSize ?? $0.size) }
-            ZStack(alignment: .top) {
-                if let image = session.frame, let fit {
-                    Image(uiImage: image)
-                        .resizable()
-                        .frame(width: fit.rect.width, height: fit.rect.height)
-                        .accessibilityLabel("Browser page")
-                }
-                if let fit, !session.controlling {
-                    AgentCursor(pointer: session.pointer, typing: session.typing, fit: fit)
-                }
+        BrowserCanvas(image: session.frame, css: session.cssSize, controlling: session.controlling,
+                      pointer: session.pointer, typing: session.typing, input: session.send, touched: touched)
+            .overlay {
                 PageKeyboard(shown: session.keyboard && typing) { text in
                     session.send(text.count == 1 ? BrowserInput.press(text) : [.text(text)])
                 } delete: {
@@ -32,32 +18,141 @@ struct BrowserPage: View {
                 .frame(width: 0, height: 0)
                 .accessibilityHidden(true)
             }
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
-            .contentShape(.rect)
-            .gesture(touches(fit), isEnabled: session.controlling)
+    }
+}
+
+private struct BrowserCanvas: UIViewControllerRepresentable {
+    var image: UIImage?
+    var css: CGSize?
+    var controlling: Bool
+    var pointer: BrowserSession.Pointer?
+    var typing: BrowserSession.Typing?
+    var input: ([BrowserInput]) -> Void
+    var touched: () -> Void
+
+    func makeUIViewController(context: Context) -> BrowserPageController { BrowserPageController() }
+
+    func updateUIViewController(_ controller: BrowserPageController, context: Context) {
+        controller.input = input
+        controller.touched = touched
+        controller.update(image: image, css: css, controlling: controlling, pointer: pointer, typing: typing)
+    }
+}
+
+final class BrowserPageController: UIViewController, UIScrollViewDelegate, UIGestureRecognizerDelegate {
+    let scroll = UIScrollView()
+    private let picture = UIHostingController(rootView: BrowserPicture())
+    private var imageSize = CGSize.zero
+    private var cssSize = CGSize.zero
+    private var viewport = CGSize.zero
+    private var lastTap: (at: CGPoint, time: TimeInterval, count: Int)?
+    private var tap: UITapGestureRecognizer!
+    private var wheel: UIPanGestureRecognizer!
+    var input: ([BrowserInput]) -> Void = { _ in }
+    var touched: () -> Void = {}
+
+    override func loadView() { view = scroll }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        scroll.delegate = self
+        scroll.maximumZoomScale = 4
+        scroll.contentInsetAdjustmentBehavior = .never
+        scroll.accessibilityLabel = "Browser page"
+        scroll.backgroundColor = .clear
+        addChild(picture)
+        picture.view.backgroundColor = .clear
+        scroll.addSubview(picture.view)
+        picture.didMove(toParent: self)
+        tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
+        wheel = UIPanGestureRecognizer(target: self, action: #selector(scrolled))
+        wheel.maximumNumberOfTouches = 1
+        wheel.delegate = self
+        tap.require(toFail: wheel)
+        if let pinch = scroll.pinchGestureRecognizer {
+            tap.require(toFail: pinch)
         }
+        scroll.addGestureRecognizer(tap)
+        scroll.addGestureRecognizer(wheel)
     }
 
-    /** A tap clicks; a drag past a tap's slop turns the wheel, so the page follows the finger. */
-    private func touches(_ fit: BrowserFit?) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                guard let fit else { return }
-                if panned == nil, hypot(value.translation.width, value.translation.height) < 8 { return }
-                let last = panned ?? value.startLocation
-                panned = value.location
-                guard let at = fit.page(value.location, clamped: true) else { return }
-                session.send([.wheel(at: at, deltaX: (last.x - value.location.x) / fit.scale, deltaY: (last.y - value.location.y) / fit.scale)])
+    func update(image: UIImage?, css: CGSize?, controlling: Bool, pointer: BrowserSession.Pointer?, typing: BrowserSession.Typing?) {
+        loadViewIfNeeded()
+        imageSize = image?.size ?? .zero
+        cssSize = css ?? imageSize
+        picture.rootView = BrowserPicture(image: image, css: cssSize, pointer: controlling ? nil : pointer, typing: controlling ? nil : typing)
+        tap.isEnabled = controlling
+        wheel.isEnabled = controlling
+        scroll.panGestureRecognizer.minimumNumberOfTouches = controlling ? 2 : 1
+        scroll.accessibilityHint = controlling ? "Pinch to zoom. Pan with two fingers; scroll the page with one." : "Pinch to zoom and drag to pan."
+        view.setNeedsLayout()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard let fit = BrowserFit(view: scroll.bounds.size, image: imageSize, css: cssSize) else { return }
+        let size = fit.rect.size
+        guard viewport != scroll.bounds.size || picture.view.bounds.size != size else { return }
+        viewport = scroll.bounds.size
+        let zoom = scroll.zoomScale
+        scroll.setZoomScale(1, animated: false)
+        picture.view.frame = CGRect(origin: .zero, size: size)
+        scroll.contentSize = size
+        scroll.setZoomScale(zoom, animated: false)
+        scrollViewDidZoom(scroll)
+    }
+
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? { picture.view }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        otherGestureRecognizer == scroll.pinchGestureRecognizer
+    }
+
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+        scroll.contentInset = UIEdgeInsets(top: 0, left: max(0, (scroll.bounds.width - picture.view.frame.width) / 2), bottom: 0, right: 0)
+        scroll.accessibilityValue = "\(Int((scroll.zoomScale * 100).rounded()))%"
+    }
+
+    func pagePoint(_ point: CGPoint, clamped: Bool = false) -> CGPoint? {
+        BrowserFit(view: picture.view.bounds.size, image: imageSize, css: cssSize)?.page(scroll.convert(point, to: picture.view), clamped: clamped)
+    }
+
+    @objc private func tapped(_ gesture: UITapGestureRecognizer) {
+        touched()
+        guard let at = pagePoint(gesture.location(in: scroll)) else { return }
+        let time = ProcessInfo.processInfo.systemUptime
+        let again = lastTap.map { time - $0.time < 0.5 && hypot(at.x - $0.at.x, at.y - $0.at.y) < 16 } ?? false
+        let count = again ? (lastTap?.count ?? 0) + 1 : 1
+        lastTap = (at, time, count)
+        input(BrowserInput.tap(at: at, clickCount: count))
+    }
+
+    @objc private func scrolled(_ gesture: UIPanGestureRecognizer) {
+        if gesture.state == .began { touched() }
+        guard gesture.state == .changed, let at = pagePoint(gesture.location(in: scroll), clamped: true) else { return }
+        let delta = gesture.translation(in: picture.view)
+        gesture.setTranslation(.zero, in: picture.view)
+        let scale = picture.view.bounds.width / cssSize.width
+        input([.wheel(at: at, deltaX: -delta.x / scale, deltaY: -delta.y / scale)])
+    }
+}
+
+private struct BrowserPicture: View {
+    var image: UIImage?
+    var css = CGSize.zero
+    var pointer: BrowserSession.Pointer?
+    var typing: BrowserSession.Typing?
+
+    var body: some View {
+        GeometryReader { proxy in
+            if let image {
+                Image(uiImage: image).resizable().frame(width: proxy.size.width, height: proxy.size.height)
+                if let fit = BrowserFit(view: proxy.size, image: image.size, css: css) {
+                    AgentCursor(pointer: pointer, typing: typing, fit: fit)
+                }
             }
-            .onEnded { value in
-                defer { panned = nil }
-                touched()
-                guard panned == nil, let at = fit?.page(value.location) else { return }
-                let again = lastTap.map { value.time.timeIntervalSince($0.time) < 0.5 && hypot(value.location.x - $0.at.x, value.location.y - $0.at.y) < 4 } ?? false
-                let count = again ? (lastTap?.count ?? 0) + 1 : 1
-                lastTap = (value.location, value.time, count)
-                session.send(BrowserInput.tap(at: at, clickCount: count))
-            }
+        }
+        .accessibilityHidden(true)
     }
 }
 

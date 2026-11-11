@@ -114,7 +114,8 @@ Everything the Mac and web apps' chat does that a phone without the mail can
 
 What it leaves to the other apps: the mail itself (a conversation or draft a chat used opens the
 chat in Otter on the web), and Claude and Codex (they run on a Mac: their chats read here). The live browser shows one
-tab, at the size the agent's browser has: no list of tabs, no zoom.
+tab, at the size the agent's browser has. Pinch to zoom; drag to pan while watching, or use two
+fingers to pan while controlling (one finger scrolls the page). There is no list of tabs.
 
 ## Running
 

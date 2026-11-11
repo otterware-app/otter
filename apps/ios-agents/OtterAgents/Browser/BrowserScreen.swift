@@ -10,15 +10,12 @@ struct BrowserScreen: View {
     @Environment(\.palette) private var palette
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.displayScale) private var displayScale
     let agent: String
     /** The agent is at work in this chat. */
     let working: Bool
     /** Changes when the agent browses again. */
     let activity: Int
     @State private var session: BrowserSession
-    /** How much room the page has, which is how large its frames are asked for. */
-    @State private var viewport: CGSize?
     @State private var draft: String?
     @State private var selection: TextSelection?
     @FocusState private var addressFocused: Bool
@@ -32,7 +29,7 @@ struct BrowserScreen: View {
         _session = State(initialValue: BrowserSession(source: source))
     }
 
-    private var live: Bool { scenePhase != .background && viewport != nil }
+    private var live: Bool { scenePhase != .background }
     /** Frames show and the tab is yours: what you do reaches the page. */
     private var ready: Bool { session.status == .live && session.controlling }
 
@@ -52,9 +49,6 @@ struct BrowserScreen: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
-                if viewport == nil, size.width > 0, size.height > 0 { viewport = size }
-            }
             .background(palette.canvas)
             .navigationTitle(BrowserAddress.host(session.page) ?? "Browser")
             .toolbarTitleDisplayMode(.inline)
@@ -81,9 +75,8 @@ struct BrowserScreen: View {
     }
 
     private func start() {
-        guard live, let viewport else { return session.stop() }
-        let scale = min(displayScale, 2)
-        session.start(width: Int(viewport.width * scale), height: Int(viewport.height * scale))
+        guard live else { return session.stop() }
+        session.start()
     }
 
     // MARK: Address

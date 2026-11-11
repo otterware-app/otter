@@ -75,6 +75,32 @@ final class WalkthroughUITests: XCTestCase {
         shot("23-file")
     }
 
+    func testTheBrowserZoomsWhileWatchingAndControlling() throws {
+        row("Plan the Lisbon offsite").tap()
+        XCTAssertTrue(app.buttons["View browser"].waitForExistence(timeout: 8))
+        app.buttons["View browser"].tap()
+        let page = app.scrollViews["Browser page"]
+        XCTAssertTrue(page.waitForExistence(timeout: 8))
+        let fitted = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "100%"), object: page)
+        XCTAssertEqual(XCTWaiter.wait(for: [fitted], timeout: 5), .completed)
+        shot("27-browser-fit")
+        page.pinch(withScale: 2, velocity: 1)
+        XCTAssertNotEqual(page.value as? String, "100%")
+        let zoom = try XCTUnwrap(page.value as? String)
+        page.swipeLeft()
+        XCTAssertEqual(page.value as? String, zoom)
+        shot("28-browser-zoom")
+        app.buttons["Take control"].tap()
+        XCTAssertTrue(app.buttons["Release control"].waitForExistence(timeout: 5))
+        XCTAssertEqual(page.value as? String, zoom)
+        page.pinch(withScale: 1.5, velocity: 1)
+        XCTAssertNotEqual(page.value as? String, zoom)
+        shot("29-browser-control-zoom")
+        page.pinch(withScale: 0.25, velocity: -1)
+        XCTAssertEqual(page.value as? String, "100%")
+        app.buttons["Close browser"].tap()
+    }
+
     func testATurnWaitsOnBackgroundWork() {
         app.buttons["New chat"].tap()
         let field = app.textFields.firstMatch.exists ? app.textFields.firstMatch : app.textViews.firstMatch

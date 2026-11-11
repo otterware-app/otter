@@ -222,7 +222,7 @@ extension OpenClaw {
         // Without a tab in its history (runtimes that keep no tool results): the browser's current one.
         let tab = Self.browserTab(of: history?["messages"] as? [[String: Any]] ?? [])
         if let tab, tab.targetId == except { return BrowserView(tab: tab) }
-        var body: [String: Any] = ["maxWidth": width, "maxHeight": height, "quality": 70]
+        var body: [String: Any] = ["maxWidth": width, "maxHeight": height, "quality": 90]
         if let tab { body["targetId"] = tab.targetId }
         var params: [String: Any] = ["method": "POST", "path": "/screencast", "body": body]
         if let profile = tab?.profile { params["query"] = ["profile": profile] }
