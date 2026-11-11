@@ -313,6 +313,8 @@ final class AgentRunner {
                     case .approvalResolved(let id): continuation.yield(.approvalResolved(id))
                     case .question(let question): continuation.yield(.question(question))
                     case .questionResolved(let id): continuation.yield(.questionResolved(id))
+                    case .waiting(let subagents): continuation.yield(.waiting(subagents))
+                    case .working: continuation.yield(.working)
                     case .done: continuation.yield(.done)
                     case .failed(let message): continuation.yield(.error(message == "Stopped." ? "cancelled" : "agent_error: \(message)"))
                     case .detached: continuation.yield(.error(AgentError.detached))

@@ -73,6 +73,10 @@ final class OpenClaw {
 
     nonisolated enum Event {
         case reply(Reply)
+        /** The run handed off (`sessions_yield`): the turn waits on the subagents it started, each by its label when it has one. */
+        case waiting([String?])
+        /** The run their completion started is going: the turn goes on. */
+        case working
         case approval(Approval)
         case approvalResolved(String)
         case question(Question)
@@ -160,6 +164,8 @@ final class OpenClaw {
     private(set) var granted: [String] = []
     var fullAccess: Bool { Self.scopes.allSatisfy(granted.contains) }
     private var steers: [String: Set<String>] = [:]
+    /** Turns waiting on a yield, by run: how each ends, as no run of theirs is going to say so. */
+    private var waits: [String: (Event) -> Void] = [:]
 
     private var socket: URLSessionWebSocketTask?
     private var ready: Task<Void, Error>?
@@ -384,8 +390,10 @@ final class OpenClaw {
     }
 
     func abort(session: String, run: String) async {
-        let all = steers[run]?.isEmpty == false
+        let all = waits[run] != nil || steers[run]?.isEmpty == false
         _ = try? await request("chat.abort", all ? ["sessionKey": session] : ["sessionKey": session, "runId": run])
+        // Waiting on a yield, no run is going to report it stopped, or continue it.
+        waits[run]?(.failed("Stopped."))
     }
 
     /**
@@ -394,9 +402,21 @@ final class OpenClaw {
      * id, which the turn follows too.
      */
     func steer(session: String, run: String, _ message: String) async -> Bool {
+        // A message sent after a hand-off starts a turn of its own; the continuation, when it comes, is a run the agent started.
+        if let end = waits[run] {
+            end(.done)
+            return false
+        }
+        // The gateway runs a send under its key: the turn owns it before its message
+        // row can arrive, which would otherwise read as one sent from elsewhere.
+        let key = UUID().uuidString
+        steers[run, default: []].insert(key)
         guard let sent = try? await request("chat.send", [
-            "sessionKey": session, "message": message, "idempotencyKey": UUID().uuidString, "queueMode": "steer",
-        ]) as? [String: Any] else { return false }
+            "sessionKey": session, "message": message, "idempotencyKey": key, "queueMode": "steer",
+        ]) as? [String: Any] else {
+            steers[run]?.remove(key)
+            return false
+        }
         if let id = sent["runId"] as? String { steers[run, default: []].insert(id) }
         return true
     }
@@ -447,10 +467,16 @@ final class OpenClaw {
     }
 
     nonisolated static func transcript(_ rows: [[String: Any]]) -> [Message] {
-        let mirrored = Set(rows.compactMap { row -> String? in
+        // A yield is the turn waiting, not something it did.
+        let unshown = Set(rows.flatMap { row -> [String] in
             let meta = (row["__openclaw"] as? [String: Any])?["toolOutput"] as? [String: Any]
-            guard row["role"] as? String == "toolResult", meta?["source"] as? String == "provider-response" else { return nil }
-            return row["toolCallId"] as? String
+            if row["role"] as? String == "toolResult", meta?["source"] as? String == "provider-response" {
+                return [row["toolCallId"] as? String].compactMap(\.self)
+            }
+            guard row["role"] as? String == "assistant" else { return [] }
+            return (row["content"] as? [[String: Any]] ?? [])
+                .filter { $0["type"] as? String == "toolCall" && $0["name"] as? String == "sessions_yield" }
+                .compactMap { $0["id"] as? String }
         })
         var messages: [Message] = []
         for row in rows {
@@ -461,13 +487,13 @@ final class OpenClaw {
                 let parts = row["content"] as? [[String: Any]] ?? []
                 let steps = parts.filter { $0["type"] as? String == "toolCall" }.compactMap { part -> Step? in
                     let id = part["id"] as? String
-                    if let id, mirrored.contains(id) { return nil }
+                    if let id, unshown.contains(id) { return nil }
                     return Step(id: id, name: stepName(part["name"] as? String ?? "tool", part["arguments"]))
                 }
                 let said = text(row["content"])
                 if !said.isEmpty || !steps.isEmpty { messages.append(Message(role: "assistant", text: said, steps: steps)) }
             case "toolResult":
-                guard let id = row["toolCallId"] as? String, !mirrored.contains(id),
+                guard let id = row["toolCallId"] as? String, !unshown.contains(id),
                       let m = messages.lastIndex(where: { $0.steps.contains { $0.id == id } }),
                       let s = messages[m].steps.firstIndex(where: { $0.id == id })
                 else { break }
@@ -495,8 +521,16 @@ final class OpenClaw {
         if ["exec", "bash", "shell"].contains(name), let command = (args as? [String: Any])?["command"] as? String {
             return "Ran \(command.components(separatedBy: "\n").first ?? command)"
         }
+        if let label = spawned(name, args).first { return label.map { "Started \($0)" } ?? "Started a subagent" }
         let words = name.replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: "-", with: " ")
         return words.prefix(1).uppercased() + words.dropFirst()
+    }
+
+    /** The subagent a tool call started (`sessions_spawn`), by its label when it has one; nothing for any other call. */
+    nonisolated static func spawned(_ name: String, _ args: Any?) -> [String?] {
+        guard name == "sessions_spawn" else { return [] }
+        let label = (args as? [String: Any])?["label"] as? String
+        return [label?.isEmpty == false ? label : nil]
     }
 
     private nonisolated static func sendKey(_ row: [String: Any]) -> String? {
@@ -505,26 +539,105 @@ final class OpenClaw {
         return key.hasSuffix(":user") ? String(key.dropLast(5)) : key
     }
 
+    // MARK: A turn in the session's rows (extensions/openclaw/core/openclaw.ts: change both together)
+
+    /** A row's run; a delivery (a cron job's announce, the message tool), which no run wrote, is a run of its own. */
+    private nonisolated static func runOf(_ row: [String: Any]) -> String? {
+        let meta = row["__openclaw"] as? [String: Any]
+        if let run = meta?["runId"] as? String { return run }
+        guard row["role"] as? String == "assistant", ["delivery-mirror", "automation-result"].contains(row["model"] as? String ?? ""),
+              let id = meta?["id"] else { return nil }
+        return "delivery:\(id)"
+    }
+
+    private nonisolated static func isDelivery(_ row: [String: Any]) -> Bool { runOf(row)?.hasPrefix("delivery:") == true }
+
+    /** Whether the rows end with an accepted `sessions_yield`: the run's continuation hasn't come yet. */
+    nonisolated static func waitingOnYield(_ rows: [[String: Any]]) -> Bool {
+        guard let at = rows.lastIndex(where: {
+            $0["role"] as? String == "toolResult" && $0["toolName"] as? String == "sessions_yield" && text($0["content"]).contains("\"yielded\"")
+        }) else { return false }
+        let run = runOf(rows[at])
+        return rows[(at + 1)...].allSatisfy { $0["role"] as? String == "assistant" && runOf($0) == run && text($0["content"]).isEmpty }
+    }
+
+    /**
+     * Rows grouped by run into what each turn showed: a run that starts after one that yielded is
+     * its continuation, one after a message sent mid-turn (a steer) that message's run; any other
+     * is a turn of its own. A message sent after a yield starts a turn of its own, as it does in
+     * the chat.
+     */
+    nonisolated static func runChains(_ rows: [[String: Any]]) -> [[[String: Any]]] {
+        var chains: [[[String: Any]]] = []
+        var run: String?
+        var steered = false
+        var last: Int?
+        for row in rows {
+            // A delivery is a turn of its own that leaves the runs around it as they were.
+            if isDelivery(row) {
+                chains.append([row])
+                continue
+            }
+            let id = runOf(row) ?? run
+            let sent = row["role"] as? String == "user"
+            if let last, !(sent && waitingOnYield(chains[last])), id == run || steered || waitingOnYield(chains[last]) {
+                chains[last].append(row)
+            } else {
+                chains.append([row])
+                last = chains.count - 1
+            }
+            if sent { steered = true } else if id != run { steered = false }
+            run = id
+        }
+        return chains
+    }
+
+    /**
+     * A turn's rows: from its message, its chain. It waits while that ends with a yield nothing has
+     * come after: a continuation joins the chain, a message sent since ends the wait. Nil when the
+     * session doesn't have the message.
+     */
+    nonisolated static func turn(in rows: [[String: Any]], run: String) -> (rows: [[String: Any]], waiting: Bool)? {
+        guard let sent = rows.lastIndex(where: { $0["role"] as? String == "user" && sendKey($0) == run }) else { return nil }
+        let after = Array(rows[(sent + 1)...])
+        let chain = runChains(after).first ?? []
+        return (chain, waitingOnYield(chain) && after.count { !isDelivery($0) } == chain.count)
+    }
+
+    /** The subagents the last run in the rows started: what a turn that yielded there waits on. */
+    nonisolated static func spawned(in rows: [[String: Any]]) -> [String?] {
+        let run = rows.last.flatMap(runOf)
+        return rows.filter { $0["role"] as? String == "assistant" && runOf($0) == run }
+            .flatMap { $0["content"] as? [[String: Any]] ?? [] }
+            .filter { $0["type"] as? String == "toolCall" }
+            .flatMap { spawned($0["name"] as? String ?? "", $0["arguments"]) }
+    }
+
     private struct RunState {
         var found: Bool
         var reply: Reply
-        var active: Bool
+        /** Runs going in the session: the turn's, or (while it waits on a yield) its continuation. */
+        var active: [String]
+        var waiting: Bool
+        var spawned: [String?]
     }
 
     private func state(session: String, run: String) async throws -> RunState {
         let result = try await request("chat.history", ["sessionKey": session, "limit": 200]) as? [String: Any] ?? [:]
-        let rows = result["messages"] as? [[String: Any]] ?? []
         let info = result["sessionInfo"] as? [String: Any] ?? [:]
-        let start = rows.lastIndex { $0["role"] as? String == "user" && Self.sendKey($0) == run }
+        let turn = Self.turn(in: result["messages"] as? [[String: Any]] ?? [], run: run)
+        let rows = turn?.rows ?? []
         var reply = Reply()
-        if let start {
-            for message in Self.transcript(Array(rows[(start + 1)...])) where message.role == "assistant" {
-                if !message.text.isEmpty { reply.text += (reply.text.isEmpty ? "" : "\n\n") + message.text }
-                reply.steps += message.steps
-            }
+        for message in Self.transcript(rows) where message.role == "assistant" {
+            if !message.text.isEmpty { reply.text += (reply.text.isEmpty ? "" : "\n\n") + message.text }
+            reply.steps += message.steps
         }
-        let active = (info["activeRunIds"] as? [String]).map { $0.contains { owns(run, $0) } } ?? (info["hasActiveRun"] as? Bool ?? false)
-        return RunState(found: start != nil, reply: reply, active: active)
+        let waiting = turn?.waiting == true
+        let chain = Set(rows.compactMap(Self.runOf))
+        let going = info["activeRunIds"] as? [String] ?? (info["hasActiveRun"] as? Bool == true ? [run] : [])
+        // While it waits on a yield, the run that starts is its continuation.
+        return RunState(found: turn != nil, reply: reply, active: going.filter { owns(run, $0) || chain.contains($0) || waiting },
+                        waiting: waiting, spawned: Self.spawned(in: rows))
     }
 
     /** Sends a message and follows its run. `run` is the idempotency key, and so the run's id. */
@@ -545,7 +658,9 @@ final class OpenClaw {
      * sends every connection its sessions' events, so when the socket drops
      * the run is picked up on the next one, and what went unseen is read from
      * the transcript. A run that goes quiet (a long command) is asked after,
-     * not given up on.
+     * not given up on. One that hands off with `sessions_yield` isn't over:
+     * the turn waits for the run its subagents' or background commands'
+     * completion starts, which joins it.
      */
     private func follow(session: String, run: String, picking: Bool = false,
                         start: (() async throws -> Void)?) -> AsyncStream<Event> {
@@ -556,11 +671,15 @@ final class OpenClaw {
                 var liveSteps: [Step] = []
                 var seen = Set<String>()
                 var finals = Set<String>()
+                /** Runs of messages sent to the session meanwhile, from any device: none is the turn's continuation. */
+                var sent = Set<String>()
+                var spawned: [String?] = []
                 var lastShown = Reply()
                 var activity = Date()
                 var ended = false
                 var dropped = false
                 var resynced = picking
+                var watching = false
 
                 func show() {
                     var reply = base
@@ -576,6 +695,7 @@ final class OpenClaw {
                     base = state.reply
                     live = []
                     liveSteps = []
+                    spawned = state.spawned
                     show()
                 }
                 func finish(_ event: Event) {
@@ -586,6 +706,8 @@ final class OpenClaw {
                 func startStep(_ id: String?, _ name: String, _ args: Any?) {
                     if id?.hasPrefix("tool_call:") == true { return }
                     if let id { guard seen.insert("\(id):start").inserted else { return } }
+                    if name == "sessions_yield" { return }
+                    spawned += Self.spawned(name, args)
                     liveSteps.append(Step(id: id, name: Self.stepName(name, args)))
                     show()
                 }
@@ -596,16 +718,44 @@ final class OpenClaw {
                     liveSteps[i].output = failed ? "(failed)" : "(done)"
                     show()
                 }
+                @MainActor func wait() {
+                    guard waits[run] == nil else { return }
+                    waits[run] = { finish($0) }
+                    continuation.yield(.waiting(spawned))
+                }
+                @MainActor func work() {
+                    guard waits.removeValue(forKey: run) != nil else { return }
+                    continuation.yield(.working)
+                }
+                /** A run that continues the turn (after a yield) writes after what's there. */
+                @MainActor func adopt(_ id: String) {
+                    guard !owns(run, id), !sent.contains(id) else { return }
+                    // The runs before it yielded: they're over.
+                    finals.formUnion([run] + (steers[run] ?? []))
+                    steers[run, default: []].insert(id)
+                    work()
+                    base = lastShown
+                    live = []
+                    liveSteps = []
+                    spawned = []
+                }
+                /** Takes the turn to where the gateway says it is: waiting on a yield, or going on in a run that continues it. False when it's over. */
+                @MainActor func follows(_ state: RunState) -> Bool {
+                    if state.waiting { wait() } else { work() }
+                    for id in state.active { adopt(id) }
+                    return state.waiting || !state.active.isEmpty
+                }
                 func settle() async {
                     if let state = try? await state(session: session, run: run), !ended { catchUp(state) }
                     finish(.done)
                 }
-                func settleIfOver() async {
-                    guard let state = try? await state(session: session, run: run), !ended, !state.active else { return }
+                @MainActor func settleIfOver() async {
+                    guard let state = try? await state(session: session, run: run), !ended, !follows(state) else { return }
                     catchUp(state)
                     finish(.done)
                 }
                 func watchTranscript() {
+                    watching = true
                     Task { @MainActor in _ = try? await request("sessions.messages.subscribe", ["key": session]) }
                 }
 
@@ -637,8 +787,14 @@ final class OpenClaw {
                     // A steer's run may end before its id is back from `chat.send`.
                     if name == "chat", payload["state"] as? String == "final", let id = payload["runId"] as? String { finals.insert(id) }
                     if name == "session.message" {
-                        guard resynced else { return }
                         let row = payload["message"] as? [String: Any] ?? [:]
+                        if row["role"] as? String == "user", let key = Self.sendKey(row), !self.owns(run, key) {
+                            sent.insert(key)
+                            // A message sent from elsewhere after a yield ends the turn waiting on it, as one sent here does.
+                            if self.waits[run] != nil { finish(.done) }
+                            return
+                        }
+                        guard resynced else { return }
                         let meta = row["__openclaw"] as? [String: Any] ?? [:]
                         if let id = meta["runId"] as? String, !self.owns(run, id) { return }
                         if meta["mirrorOrigin"] != nil { return }
@@ -650,9 +806,11 @@ final class OpenClaw {
                         }
                         return
                     }
+                    let data = payload["data"] as? [String: Any] ?? [:]
+                    if self.waits[run] != nil, name == "agent", payload["stream"] as? String == "lifecycle", data["phase"] as? String == "start",
+                       let id = payload["runId"] as? String { adopt(id) }
                     if let id = payload["runId"] as? String, !self.owns(run, id) { return }
                     activity = Date()
-                    let data = payload["data"] as? [String: Any] ?? [:]
                     switch (name, payload["stream"] as? String, payload["state"] as? String) {
                     case ("agent", "assistant", _):
                         let item = data["itemId"] as? String ?? "text"
@@ -670,8 +828,14 @@ final class OpenClaw {
                             endStep(data["toolCallId"] as? String, failed: data["status"] as? String == "failed")
                         }
                     case ("chat", _, "final"):
-                        let over = ([run] + (self.steers[run] ?? [])).allSatisfy(finals.contains)
-                        Task { over ? await settle() : await settleIfOver() }
+                        if payload["yielded"] as? Bool == true {
+                            wait()
+                            // A message sent meanwhile ends the wait: the session's rows tell of it.
+                            if !watching { watchTranscript() }
+                        } else {
+                            let over = ([run] + (self.steers[run] ?? [])).allSatisfy(finals.contains)
+                            Task { over ? await settle() : await settleIfOver() }
+                        }
                     case ("chat", _, "aborted"):
                         finish(.failed("Stopped."))
                     case ("chat", _, "error"):
@@ -686,7 +850,8 @@ final class OpenClaw {
                     listeners[listener] = nil
                     closeListeners[closer] = nil
                     steers[run] = nil
-                    if resynced { Task { @MainActor in _ = try? await request("sessions.messages.unsubscribe", ["key": session]) } }
+                    waits[run] = nil
+                    if watching { Task { @MainActor in _ = try? await request("sessions.messages.unsubscribe", ["key": session]) } }
                     continuation.finish()
                 }
 
@@ -698,7 +863,7 @@ final class OpenClaw {
                         let state = try await state(session: session, run: run)
                         guard state.found else { return finish(.failed("OpenClaw never got this message; send it again.")) }
                         catchUp(state)
-                        guard state.active else { return finish(.done) }
+                        guard follows(state) else { return finish(.done) }
                         watchTranscript()
                         await askPending(session: session, run: run) { continuation.yield($0) }
                     }
@@ -719,7 +884,7 @@ final class OpenClaw {
                             guard let state = try? await state(session: session, run: run) else { continue }
                             resynced = true
                             catchUp(state)
-                            if state.active {
+                            if follows(state) {
                                 watchTranscript()
                                 await askPending(session: session, run: run) { continuation.yield($0) }
                             } else { finish(.done) }

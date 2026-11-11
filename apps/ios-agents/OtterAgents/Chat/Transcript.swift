@@ -171,7 +171,7 @@ struct AssistantTurnView: View {
             if live, turn.items.isEmpty {
                 HStack(spacing: 6) {
                     Image(systemName: "circle.dashed").font(.system(size: 14, weight: .medium))
-                    Text("Working").font(.ui(14))
+                    Text(store.runs[chat.id]?.waiting == nil ? "Working" : "Waiting").font(.ui(14))
                 }
                 .foregroundStyle(palette.muted)
                 .shimmer()

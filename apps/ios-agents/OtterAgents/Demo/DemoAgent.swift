@@ -94,6 +94,15 @@ enum DemoAgent {
         }
         guard await step("s3", ChatStep(kind: "web", title: "Opened otterware.app/changelog", detail: "https://otterware.app/mail/changelog"), "200 OK", 700, emit)
         else { return false }
+        if input.contains("background") {
+            guard await step("s4", ChatStep(kind: "tool", title: "Started Research pricing", detail: "Compare the three venues' day rates"), "accepted", 400, emit),
+                  await say("A subagent is comparing the venues' rates. I'll pick this up when it's back.", emit)
+            else { return false }
+            emit(.waiting(["Research pricing"]))
+            guard await pause(6000) else { return false }
+            emit(.working)
+            return await say("\n\nIt's back: **Alfama** is the cheapest at €1,150 a day, and it has the dates free.", emit)
+        }
         // Long enough to queue or steer something meanwhile.
         if input.contains("take your time") {
             guard await step("s4", ChatStep(kind: "command", title: "Ran gog search --since yesterday"), "14 threads", 12_000, emit) else { return false }
