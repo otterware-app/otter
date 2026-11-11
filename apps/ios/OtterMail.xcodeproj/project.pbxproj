@@ -396,7 +396,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.8.19;
+				MARKETING_VERSION = 0.8.20;
 				GOOGLE_IOS_CLIENT_ID = 997327858649-0dfa4knnv1ur7021dn1ojuovoj1i3ed8.apps.googleusercontent.com;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.mail.dev;
                 CODE_SIGN_ENTITLEMENTS = OtterMail/OtterMail.entitlements;
@@ -436,7 +436,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.8.19;
+				MARKETING_VERSION = 0.8.20;
 				GOOGLE_IOS_CLIENT_ID = 997327858649-vcvktkdnrs6p8c31ucsp1oeia7l8taho.apps.googleusercontent.com;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.mail;
                 CODE_SIGN_ENTITLEMENTS = OtterMail/OtterMail.entitlements;
@@ -461,7 +461,7 @@
 				DEVELOPMENT_TEAM = 838JVGY7W4;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.8.19;
+				MARKETING_VERSION = 0.8.20;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.mail.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -482,7 +482,7 @@
 				DEVELOPMENT_TEAM = 838JVGY7W4;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.8.19;
+				MARKETING_VERSION = 0.8.20;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.mail.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -502,7 +502,7 @@
 				DEVELOPMENT_TEAM = 838JVGY7W4;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.8.19;
+				MARKETING_VERSION = 0.8.20;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.mail.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -519,7 +519,7 @@
 				DEVELOPMENT_TEAM = 838JVGY7W4;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.8.19;
+				MARKETING_VERSION = 0.8.20;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.mail.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -537,7 +537,7 @@
                 CODE_SIGN_STYLE = Automatic;
                 DEVELOPMENT_TEAM = 838JVGY7W4;
                 CURRENT_PROJECT_VERSION = 1;
-                MARKETING_VERSION = 0.8.19;
+                MARKETING_VERSION = 0.8.20;
                 GENERATE_INFOPLIST_FILE = YES;
                 INFOPLIST_FILE = OtterMailNotificationService/Info.plist;
                 GOOGLE_IOS_CLIENT_ID = 997327858649-0dfa4knnv1ur7021dn1ojuovoj1i3ed8.apps.googleusercontent.com;
@@ -560,7 +560,7 @@
                 CODE_SIGN_STYLE = Manual; CODE_SIGN_IDENTITY = "Apple Distribution"; PROVISIONING_PROFILE_SPECIFIER = "Otter Mail Notifications App Store";
                 DEVELOPMENT_TEAM = 838JVGY7W4;
                 CURRENT_PROJECT_VERSION = 1;
-                MARKETING_VERSION = 0.8.19;
+                MARKETING_VERSION = 0.8.20;
                 GENERATE_INFOPLIST_FILE = YES;
                 INFOPLIST_FILE = OtterMailNotificationService/Info.plist;
                 GOOGLE_IOS_CLIENT_ID = 997327858649-vcvktkdnrs6p8c31ucsp1oeia7l8taho.apps.googleusercontent.com;
