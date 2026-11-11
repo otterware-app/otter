@@ -82,6 +82,14 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   0.2.7): Hermes and varys tell the relay of what they deliver or ask, not of a reply to you.
 - **The agents' own sessions** ("On your agents" on the list): chats started in an agent's own
   app open here and go on.
+- **OpenClaw's live browser** (`Browser/`, `Agents/OpenClawBrowser.swift`; apps/web's
+  agent-browser.tsx, laid out as Otter Code's phone browser preview): a globe in the capsule above
+  the composer, once the chat's agent has a tab, opens the tab it's driving: the gateway's
+  screencast, with the agent's pointer over it. **Take control** sends your taps, scrolling and
+  typing to the page (the gateway's Otter plugin replays them) and gives you the address, Back,
+  Forward, Reload, Paste, the page's pop-ups and its file picker; the agent's browser waits until
+  you release it or leave. The keyboard comes up for a field of the page with the plugin from
+  0.2.8, which says when one has focus. Nothing streams while the app is in the background.
 
 ## How it works
 
@@ -99,11 +107,12 @@ Everything the Mac and web apps' chat does that a phone without the mail can
 - `Demo/`: the demo's pretend agent and chats, offered on the welcome screen of builds that
   aren't the App Store's. It asks for an approval when a message says "send", a question when
   it says "plan", fails on "fail", works longer on "take your time", and hands off to a
-  subagent and waits for it on "background".
+  subagent and waits for it on "background". Its browser is one drawn page (`DemoBrowser.swift`).
 
 What it leaves to the other apps: the mail itself (a conversation or draft a chat used opens the
 chat in Otter on the web), Otter's own mail tools for the Otter agent (they run where the mail
-is), Claude and Codex (they run on a Mac: their chats read here), and OpenClaw's live browser.
+is), and Claude and Codex (they run on a Mac: their chats read here). The live browser shows one
+tab, at the size the agent's browser has: no list of tabs, no zoom.
 
 ## Running
 

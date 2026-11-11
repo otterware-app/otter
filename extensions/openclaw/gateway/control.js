@@ -31,7 +31,8 @@ const WORLD = "otter-watch";
 const BINDING = "__otterSaw";
 /**
  * Runs in a world of its own, where the page can't see or stop it: where clicks land, the field
- * being typed in, and what you copy (Chromium's clipboard isn't yours, so the copy is read here).
+ * being typed in, whether what has focus takes text (a phone shows its keyboard for it), and what
+ * you copy (Chromium's clipboard isn't yours, so the copy is read here).
  */
 const WATCH_SCRIPT = `(() => {
   if (globalThis.${BINDING}Ready || window !== top) return;
@@ -51,6 +52,17 @@ const WATCH_SCRIPT = `(() => {
     while (found?.shadowRoot?.activeElement) found = found.shadowRoot.activeElement;
     return found;
   };
+  const editable = () => {
+    const found = field();
+    return !!found && (found.isContentEditable || found instanceof HTMLTextAreaElement ||
+      (found instanceof HTMLInputElement && /^(?:text|search|url|tel|email|password|number)$/.test(found.type)));
+  };
+  // After the event: moving between two fields is one field losing focus and the next gaining it.
+  const sayField = () => setTimeout(() => say({ type: "field", editable: editable() }));
+  // A new page starts with nothing focused, and the one before it never said it lost its field.
+  sayField();
+  addEventListener("focusin", sayField, true);
+  addEventListener("focusout", sayField, true);
   let copying = false;
   addEventListener("keydown", (event) => {
     if (!event.isTrusted) return;
