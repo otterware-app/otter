@@ -249,16 +249,19 @@ struct WorkingControl: View {
     @Environment(ChatStore.self) private var store
     let chat: Chat
     let following: Bool
+    /** Opens the agent's live browser, when it has a tab to watch. */
+    var browser: (() -> Void)?
     var toEnd: () -> Void
     var showQueue: () -> Void
 
     private var running: Bool { store.runs[chat.id] != nil }
     private var queued: Int { store.queued(in: chat.id).count }
+    private var divider: some View { Rectangle().fill(palette.border).frame(width: 1, height: 16) }
 
     var body: some View {
         GlassEffectContainer(spacing: 12) {
             HStack(spacing: 8) {
-                if running || queued > 0 {
+                if running || queued > 0 || browser != nil {
                     HStack(spacing: 0) {
                         if running {
                             TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -269,7 +272,25 @@ struct WorkingControl: View {
                                     .padding(.horizontal, 14)
                             }
                         }
-                        if running, queued > 0 { Rectangle().fill(palette.border).frame(width: 1, height: 16) }
+                        if let browser {
+                            if running { divider }
+                            Button(action: browser) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "globe").font(.system(size: 20))
+                                    // Alone in the pill, it says what it is.
+                                    if !running, queued == 0 { Text("One tab open").font(.ui(13, .medium)) }
+                                }
+                                .foregroundStyle(palette.text)
+                                .padding(.horizontal, running || queued > 0 ? 0 : 16)
+                                .frame(minWidth: 44)
+                                .frame(height: 38)
+                                .contentShape(.rect)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("View browser")
+                            .accessibilityHint("Watch and control the browser tab open in this chat")
+                        }
+                        if queued > 0, running || browser != nil { divider }
                         if queued > 0 {
                             Button(action: showQueue) {
                                 Label("\(queued) queued", systemImage: "list.number")
@@ -299,6 +320,7 @@ struct WorkingControl: View {
         .animation(.easeOut(duration: 0.24), value: following)
         .animation(.easeOut(duration: 0.2), value: running)
         .animation(.easeOut(duration: 0.2), value: queued)
+        .animation(.easeOut(duration: 0.2), value: browser != nil)
     }
 
     private func label(at now: Date) -> String {

@@ -17,6 +17,9 @@ struct ChatScreen: View {
     @State private var showModels = false
     @State private var dialog: ChatDialog?
     @State private var page: WebPage?
+    /** The chat's agent has a browser tab to watch. */
+    @State private var hasBrowser = false
+    @State private var showBrowser = false
     @State private var finding = false
     @State private var find = ""
     @State private var findAt = 0
@@ -98,6 +101,12 @@ struct ChatScreen: View {
         .sheet(isPresented: $showDetails) { ChatDetails(chat: chat) { open($0, in: chat) } }
         .sheet(isPresented: $showModels) { ModelSheet(chat: chat) }
         .sheet(item: $page) { SafariView(url: $0.url).ignoresSafeArea() }
+        .fullScreenCover(isPresented: $showBrowser) {
+            if let source = BrowserSource(chat, agents: store.agents) {
+                BrowserScreen(source: source, agent: store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat)),
+                              working: store.runs[chat.id] != nil, activity: BrowserSource.activity(in: chat))
+            }
+        }
         .environment(\.chatText, ChatTextActions(open: { open($0, in: chat) }, quote: canWrite(chat) ? { quote($0) } : nil))
         .environment(\.chatFind, finding ? find : "")
         .task(id: id) {
@@ -109,6 +118,11 @@ struct ChatScreen: View {
                 try? await Task.sleep(for: .milliseconds(250))
                 withAnimation { position.scrollTo(id: found.turnId, anchor: .center) }
             }
+        }
+        // When the chat opens, and when its agent browses again: not on a timer.
+        .task(id: "\(id) \(BrowserSource.activity(in: chat))") {
+            guard let source = BrowserSource(chat, agents: store.agents) else { return hasBrowser = false }
+            do { hasBrowser = try await source.hasTab() } catch {}
         }
         .onDisappear {
             if store.watched == id { store.watched = nil }
@@ -165,7 +179,7 @@ struct ChatScreen: View {
         let approvals = store.approvals(in: chat.id)
         let questions = store.questions(in: chat.id)
         return VStack(spacing: 0) {
-            WorkingControl(chat: chat, following: following || chat.turns.isEmpty) {
+            WorkingControl(chat: chat, following: following || chat.turns.isEmpty, browser: hasBrowser ? { showBrowser = true } : nil) {
                 Haptics.tap()
                 withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) }
             } showQueue: { showQueue = true }
