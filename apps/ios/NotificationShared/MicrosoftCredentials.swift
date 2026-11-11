@@ -42,7 +42,7 @@ nonisolated enum MicrosoftCredentials {
         request.timeoutInterval = 8
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = GoogleCredentials.form(params.merging(["client_id": clientID, "scope": scopes.joined(separator: " ")]) { value, _ in value })
-        let (data, http) = try await URLSession.shared.data(for: request)
+        let (data, http) = try await URLSession.shared.dataRetrying(for: request)
         let response = try JSONDecoder().decode(Response.self, from: data)
         if ["invalid_grant", "interaction_required", "consent_required", "login_required"].contains(response.error ?? "") { throw Failure.revoked }
         guard (http as? HTTPURLResponse)?.statusCode == 200, response.access_token != nil else { throw Failure.unavailable }

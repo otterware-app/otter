@@ -45,13 +45,28 @@ nonisolated struct GmailNotification {
                 request.timeoutInterval = 8
                 let token = try await GoogleCredentials.refresh(email, force: attempt > 0)
                 request.setValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await URLSession.shared.dataRetrying(for: request)
                 let status = (response as? HTTPURLResponse)?.statusCode ?? 0
                 if status == 200 { return data }
                 if status == 401 && attempt == 0 { continue }
                 throw Failure(status: status)
             }
             throw Failure(status: 401)
+        }
+    }
+}
+
+extension URLSession {
+    /**
+     * Tries once more when a poor network drops the connection. iOS retries no POST itself, and a
+     * notification has one chance: a token refresh lost on mobile data left the generic alert.
+     */
+    nonisolated func dataRetrying(for request: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await data(for: request)
+        } catch let error as URLError where [.networkConnectionLost, .timedOut, .cannotConnectToHost].contains(error.code) {
+            try Task.checkCancellation()
+            return try await data(for: request)
         }
     }
 }

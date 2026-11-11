@@ -57,7 +57,7 @@ nonisolated enum VerifiedNotification {
                 request.timeoutInterval = 8
                 request.setValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
                 request.setValue("IdType=\"ImmutableId\"", forHTTPHeaderField: "Prefer")
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await URLSession.shared.dataRetrying(for: request)
                 let status = (response as? HTTPURLResponse)?.statusCode ?? 0
                 if status == 200 { return data }
                 if status == 401 && attempt == 0 { continue }
