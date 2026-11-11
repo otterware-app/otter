@@ -26,17 +26,21 @@ final class WalkthroughUITests: XCTestCase {
     }
 
     func testChatsListAndItsShelves() {
-        // A shelf left open by an earlier run starts closed.
-        for shelf in ["Snoozed", "Settled"] where app.buttons[shelf].exists { app.buttons[shelf].tap() }
+        // A shelf left chosen by an earlier run goes back to Active.
+        let active = app.buttons.containing(NSPredicate(format: "label BEGINSWITH 'Active'")).firstMatch
+        if active.waitForExistence(timeout: 5) { active.tap() }
         XCTAssertTrue(row("Plan the Lisbon offsite").exists, "the pinned chat isn't listed")
         XCTAssertTrue(row("Reply to Lena about the Q4 budget").exists)
-        XCTAssertFalse(row("Find the invoice from Hetzner").exists, "a snoozed chat shows before its shelf opens")
+        XCTAssertFalse(row("Find the invoice from Hetzner").exists, "a snoozed chat shows among the active ones")
         shot("01-chats")
         app.buttons["Snoozed (1)"].tap()
-        app.buttons["Settled (2)"].tap()
         XCTAssertTrue(row("Find the invoice from Hetzner").waitForExistence(timeout: 3))
-        XCTAssertTrue(row("Draft the release note").exists)
-        shot("02-shelves")
+        XCTAssertFalse(row("Plan the Lisbon offsite").exists, "an active chat shows among the snoozed ones")
+        shot("02-snoozed")
+        app.buttons["Settled (2)"].tap()
+        XCTAssertTrue(row("Draft the release note").waitForExistence(timeout: 3))
+        shot("02-settled")
+        active.tap()
     }
 
     func testOpenAChatAndReadIt() {

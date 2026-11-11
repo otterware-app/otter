@@ -292,6 +292,10 @@ final class ChatStore {
         }
     }
 
+    func markSeen(_ ids: some Sequence<String>) { unseen.subtract(ids) }
+
+    func markUnseen(_ id: String) { unseen.insert(id) }
+
     func delete(_ id: String) {
         if let run = runs[id] {
             runner.cancel(run.requestId)

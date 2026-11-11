@@ -26,9 +26,11 @@ nonisolated enum Markdown {
     }
 
     /** Runs of text blocks, and each other block on its own. */
-    static func segments(_ source: String) -> [[Block]] {
+    static func segments(_ source: String) -> [[Block]] { group(parse(source)) }
+
+    static func group(_ blocks: [Block]) -> [[Block]] {
         var segments: [[Block]] = []
-        for block in parse(source) {
+        for block in blocks {
             if block.isText, let last = segments.last, last.first?.isText == true {
                 segments[segments.count - 1].append(block)
             } else {
@@ -36,6 +38,44 @@ nonisolated enum Markdown {
             }
         }
         return segments
+    }
+
+    /**
+     * A reply as WhatsApp would show it, a bubble each: a paragraph, a list, a heading with what
+     * follows it; code, a table, a quote or an image alone. Rules part bubbles and aren't drawn.
+     */
+    static func bubbles(_ source: String) -> [[Block]] {
+        var bubbles: [[Block]] = []
+        var heading: Block?
+        for block in parse(source) {
+            switch block {
+            case .rule: continue
+            case .heading:
+                if let heading { bubbles.append([heading]) }
+                heading = block
+            case .item where heading == nil && { if case .item? = bubbles.last?.last { true } else { false } }():
+                bubbles[bubbles.count - 1].append(block)
+            default:
+                bubbles.append((heading.map { [$0] } ?? []) + [block])
+                heading = nil
+            }
+        }
+        if let heading { bubbles.append([heading]) }
+        return bubbles
+    }
+
+    /** What a bubble says, to quote it. */
+    static func plain(_ blocks: [Block]) -> String {
+        blocks.map { block in
+            switch block {
+            case .heading(_, let text), .paragraph(let text), .quote(let text): text
+            case .item(let marker, let depth, _, let text): String(repeating: "  ", count: depth) + "\(marker) \(text)"
+            case .code(_, let code): code
+            case .table(let header, let rows): ([header] + rows).map { $0.joined(separator: " | ") }.joined(separator: "\n")
+            case .rule: ""
+            case .image(let alt, let url): alt.isEmpty ? url : alt
+            }
+        }.joined(separator: "\n")
     }
 
     static func parse(_ source: String) -> [Block] {

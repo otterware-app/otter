@@ -1,31 +1,44 @@
 # Otter Agents for iPhone
 
 Your agents, on their own: the chats of the Mac and web apps' Agent mode, and what the agents run
-on a schedule, without the mail. A native SwiftUI app (Liquid Glass), the sibling of Otter Mail
+on a schedule, without the mail. A native SwiftUI app for iOS 27 (Liquid Glass), the sibling of Otter Mail
 for iPhone (`apps/ios`): the phone gets an app per job. It shares that app's
 themes, and the Otter account's chats with every other app.
 
 ## Design
 
-T3 Code's phone app (`apps/mobile` in t3code), in Otter's face and themes:
+WhatsApp's iPhone app, in Otter's face and themes (the theme's accent where WhatsApp has its
+green), since a chat with an agent is a chat:
 
-- **The frame.** One stack whose root is the chosen tab. A floating glass bar at the bottom left
-  holds the tabs (Chats, Scheduled, Settings), with the compose button beside it; both leave
-  while a chat is open (`Home/RootView.swift`).
-- **Chats** (`Home/ChatsScreen.swift`). Flat rows, a hairline between them: the agent's mark, the
-  title, then what the chat is doing (Approval, Input, Working with its clock, Waiting, Failed,
-  Done) or
-  how long ago you were in it; under it what it used and made ("1 draft · 3 emails"). Shelves as
-  on the Mac and the web (`Chats/ChatShelves.swift`, apps/web's chat-shelves.ts): unsent drafts,
-  pinned, active, then Snoozed and Settled behind their headings. Swipe left to settle (with
-  Undo) or snooze, right to pin; touch and hold for the rest.
-- **A chat** (`Chat/ChatScreen.swift`). Your messages in bubbles on the right; the agent's answer
-  plain, its work collapsed by default while running and once done; tap "Working…" or
-  "Worked for 2m 3s" to see the steps. The composer is a glass pill
-  over the end of the conversation, with a capsule above it for the run's clock, what's queued
-  and the way back down.
-- **Type and color.** Inter at T3 Code's sizes (`Theme/Design.swift`), the account's themes
-  for its colors (`apps/ios`'s `Theme.swift`, shared).
+- **The frame.** T3 Code's: the system's tab bar, Liquid Glass as iOS 27 draws it, its tabs
+  icons only (Chats, with how many are unread; Scheduled; Settings), and compose (a new chat, or
+  a task on Scheduled) as the prominent tab, its own circle at the bottom right. Each tab is its
+  own stack; the bar leaves while a chat is open or chats are being selected (`Home/RootView.swift`).
+- **Chats** (`Home/ChatsScreen.swift`). T3 Code's header: "Otter Agents" small, search and ⋯
+  (Select chats, Read all, the agent to show, On your agents). The shelves as chips: Active
+  (unsent drafts and pinned on top; with how many want you), Snoozed, Settled
+  (`Chats/ChatShelves.swift`, apps/web's chat-shelves.ts). A row a chat, as T3 Code's: the title
+  and one quiet line under it. You talk to one or two agents across many chats, so the agent's
+  mark is small beside the time, and only when there are several. The line says what
+  the chat is doing, the most pressing first: an approval or a question (in the warning color,
+  with a badge), a failure, a reply lost mid-way, compacting, waiting on subagents or working (in
+  the accent, as WhatsApp's "typing…", with how long and what's queued), a draft, then the last
+  message: yours with its ticks, the agent's (a dot and a bolder title while unread), a scheduled
+  run's or one the agent sent on its own, or that you stopped it. Pinned, snoozed (when it wakes)
+  and "on a Mac" sit beside any of these. Swipe left to settle (with Undo) or snooze, or to wake
+  or unsettle; right to mark read or pin; touch and hold for a preview and the rest; select
+  several to settle, read or delete them.
+- **A chat** (`Chat/ChatScreen.swift`). The agent's picture, the chat's name and its status
+  under it in the header; a wallpaper of the app's own symbols; a pill for each day. Your
+  messages in the accent's bubbles on the right, with their time and ticks (one sent, two
+  received, colored once answered); the agent's answer on the left, a bubble a paragraph (a list,
+  code, a table each one), its work in a pill above ("Worked for 2m 3s", tap for the steps).
+  **Swipe any bubble right to reply to it**: just that paragraph is quoted in a bar over the
+  composer, with who said it. The composer is WhatsApp's: ＋ (photos, camera, documents, skills,
+  the agent, in a panel where the keyboard was), the text in a pill with the agent's picture to
+  change it, and Send.
+- **Type and color.** Inter (`Theme/Design.swift`), the account's themes for its colors
+  (`apps/ios`'s `Theme.swift`, shared); the bubbles and wallpaper are mixed from them.
 
 ## What it does
 
@@ -52,7 +65,7 @@ Everything the Mac and web apps' chat does that a phone without the mail can
 - **The transcript** (`Chat/Transcript.swift`, `Chat/MarkdownView.swift`): Markdown with tables,
   code blocks and images; steps by kind with their output, grouped by integration; what Otter's
   tools changed; scheduled results and messages the agent sent on its own. Text is selectable
-  across paragraphs, and **Quote** on a selection cites it in your next message, with a comment.
+  within a bubble, and **Reply** on a selection, or swiping the bubble, cites it in your next message.
 - **The composer** (`Chat/Composer.swift`): photos, the camera and files (10 a message; images
   to 10 MB, files to 50 MB), `/` for the agent's skills, the agent and model picker with
   favorites (`Chat/ModelSheet.swift`), drafts kept per chat.

@@ -161,3 +161,147 @@ enum Haptics {
     static func done() { UINotificationFeedbackGenerator().notificationOccurred(.success) }
     static func impact() { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
 }
+
+/** WhatsApp's chat colors, in the theme's: a tinted wallpaper, the agent's bubbles a step off it, yours in the accent. */
+extension Palette {
+    func wallpaper(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? canvas.mix(with: action, by: 0.03) : canvas.mix(with: action, by: 0.05).mix(with: text, by: 0.03)
+    }
+
+    func incoming(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? canvas.mix(with: text, by: 0.1) : canvas
+    }
+
+    func outgoing(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? canvas.mix(with: action, by: 0.38) : canvas.mix(with: action, by: 0.16)
+    }
+}
+
+/** A message's bubble: round, but tight on its side where it meets the one above or below, as T3 Code groups them. */
+func bubbleShape(_ side: HorizontalEdge, joinsAbove: Bool = false, joinsBelow: Bool = false) -> UnevenRoundedRectangle {
+    let (round, tight): (CGFloat, CGFloat) = (18, 5)
+    let top = joinsAbove ? tight : round, bottom = joinsBelow ? tight : round
+    return side == .leading
+        ? UnevenRoundedRectangle(topLeadingRadius: top, bottomLeadingRadius: bottom, bottomTrailingRadius: round, topTrailingRadius: round, style: .continuous)
+        : UnevenRoundedRectangle(topLeadingRadius: round, bottomLeadingRadius: round, bottomTrailingRadius: bottom, topTrailingRadius: top, style: .continuous)
+}
+
+/** Behind a chat: the theme's tint, and a faint pattern of the app's own symbols. */
+struct Wallpaper: View {
+    @Environment(\.palette) private var palette
+    @Environment(\.colorScheme) private var scheme
+    private static let symbols = ["bubble.left", "sparkles", "clock", "paperplane", "envelope", "calendar", "doc.text", "checkmark.circle",
+                                  "folder", "lightbulb", "magnifyingglass", "pencil", "terminal", "globe", "list.bullet", "star"]
+
+    var body: some View {
+        palette.wallpaper(scheme)
+            .overlay {
+                Canvas { context, size in
+                    let step: CGFloat = 54
+                    var index = 0
+                    for row in 0...Int(size.height / step) + 1 {
+                        for column in 0...Int(size.width / step) + 1 {
+                            index += 7
+                            let name = Self.symbols[(index + row * 3) % Self.symbols.count]
+                            guard let symbol = context.resolveSymbol(id: name) else { continue }
+                            let shift = row.isMultiple(of: 2) ? 0 : step / 2
+                            var copy = context
+                            copy.translateBy(x: CGFloat(column) * step + shift, y: CGFloat(row) * step)
+                            copy.rotate(by: .degrees(Double((index * 37) % 50) - 25))
+                            copy.draw(symbol, at: .zero)
+                        }
+                    }
+                } symbols: {
+                    ForEach(Self.symbols, id: \.self) { name in
+                        Image(systemName: name).font(.system(size: 17, weight: .light)).foregroundStyle(palette.text).tag(name)
+                    }
+                }
+                .opacity(scheme == .dark ? 0.05 : 0.06)
+            }
+            .ignoresSafeArea()
+            .accessibilityHidden(true)
+    }
+}
+
+/**
+ * Drag a message to the right to reply to it, as in WhatsApp: it follows the finger, an arrow
+ * comes in behind it, and letting go past the arrow quotes it in your next message.
+ */
+struct SwipeToReply: ViewModifier {
+    @Environment(\.palette) private var palette
+    let reply: (() -> Void)?
+    @State private var offset: CGFloat = 0
+    @State private var armed = false
+    private static let threshold: CGFloat = 60
+
+    func body(content: Content) -> some View {
+        if let reply {
+            content
+                .offset(x: offset)
+                .background(alignment: .leading) {
+                    Image(systemName: "arrowshape.turn.up.left.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(palette.text)
+                        .frame(width: 30, height: 30)
+                        .background(palette.text.opacity(0.12), in: .circle)
+                        .scaleEffect(armed ? 1.1 : 0.4 + 0.6 * min(1, offset / Self.threshold))
+                        .opacity(min(1, offset / Self.threshold))
+                        .offset(x: min(offset, Self.threshold) - 38)
+                        .allowsHitTesting(false)
+                }
+                .gesture(ReplyPan { x in
+                    offset = x <= 0 ? 0 : x < 80 ? x : 80 + (x - 80) * 0.2
+                    if (x >= Self.threshold) != armed {
+                        armed = x >= Self.threshold
+                        if armed { Haptics.impact() }
+                    }
+                } ended: {
+                    if armed { reply() }
+                    armed = false
+                    withAnimation(.spring(duration: 0.3, bounce: 0.2)) { offset = 0 }
+                })
+                .accessibilityAction(named: "Reply", reply)
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    func swipeToReply(_ reply: (() -> Void)?) -> some View { modifier(SwipeToReply(reply: reply)) }
+}
+
+/** A pan that only starts rightward, so the conversation still scrolls and text still selects. */
+private struct ReplyPan: UIGestureRecognizerRepresentable {
+    var changed: (CGFloat) -> Void
+    var ended: () -> Void
+
+    func makeUIGestureRecognizer(context: Context) -> RightwardPan { RightwardPan() }
+
+    func handleUIGestureRecognizerAction(_ recognizer: RightwardPan, context: Context) {
+        switch recognizer.state {
+        case .began, .changed: changed(recognizer.translation(in: recognizer.view).x)
+        default: ended()
+        }
+    }
+}
+
+private final class RightwardPan: UIPanGestureRecognizer {
+    private var start: CGPoint?
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        super.touchesBegan(touches, with: event)
+        start = touches.first?.location(in: view)
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        if state == .possible, let start, let point = touches.first?.location(in: view) {
+            let dx = point.x - start.x, dy = abs(point.y - start.y)
+            if dx < -4 || (dy > 4 && dy > dx * 0.7) {
+                state = .failed
+                return
+            }
+        }
+        super.touchesMoved(touches, with: event)
+    }
+}

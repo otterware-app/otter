@@ -4,8 +4,8 @@ import UIKit
 /** What a tap on a link in a chat does, and what "Quote" on a selection does. */
 struct ChatTextActions {
     var open: (URL) -> Void = { _ in }
-    /** Nil where nothing can be quoted (a chat that only reads here). */
-    var quote: ((String) -> Void)?
+    /** Nil where nothing can be quoted (a chat that only reads here). Who said it comes second. */
+    var quote: ((String, String?) -> Void)?
     /** Reads an image the agent linked from where it runs; nil where this iPhone can't. */
     var image: ((String) async -> UIImage?)?
 }
@@ -14,16 +14,30 @@ extension EnvironmentValues {
     @Entry var chatText = ChatTextActions()
     /** What "Find in chat" looks for, to mark where it is. */
     @Entry var chatFind = ""
+    /** Who said the text around: "You", or the agent's name, for a quote's reply bar. */
+    @Entry var quoteFrom: String?
 }
 
 struct MarkdownView: View {
     @Environment(\.palette) private var palette
-    let source: String
+    let segments: [[Markdown.Block]]
     var muted = false
+    /** Room kept at the end of the last line for the time over it. */
+    var reserve: String?
+
+    init(source: String, muted: Bool = false) {
+        segments = Markdown.segments(source)
+        self.muted = muted
+    }
+
+    init(blocks: [Markdown.Block], reserve: String? = nil) {
+        segments = Markdown.group(blocks)
+        self.reserve = reserve
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ForEach(Array(Markdown.segments(source).enumerated()), id: \.offset) { _, segment in
+            ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
                 switch segment[0] {
                 case .code(let language, let code): CodeBlock(language: language, code: code)
                 case .table(let header, let rows): TableBlock(header: header, rows: rows)
@@ -34,7 +48,7 @@ struct MarkdownView: View {
                         RoundedRectangle(cornerRadius: 1).fill(palette.border).frame(width: 2)
                         MarkdownText(blocks: [.paragraph(text)], muted: true)
                     }
-                default: MarkdownText(blocks: segment, muted: muted)
+                default: MarkdownText(blocks: segment, muted: muted, reserve: index == segments.count - 1 ? reserve : nil)
                 }
             }
         }
@@ -49,13 +63,14 @@ struct MarkdownText: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     let blocks: [Markdown.Block]
     var muted = false
+    var reserve: String?
 
     var body: some View {
-        SelectableText(text: Self.attributed(blocks, palette: palette, muted: muted, find: find))
+        SelectableText(text: Self.attributed(blocks, palette: palette, muted: muted, find: find, reserve: reserve))
             .id(typeSize)
     }
 
-    static func attributed(_ blocks: [Markdown.Block], palette: Palette, muted: Bool, find: String) -> NSAttributedString {
+    static func attributed(_ blocks: [Markdown.Block], palette: Palette, muted: Bool, find: String, reserve: String? = nil) -> NSAttributedString {
         let out = NSMutableAttributedString()
         let color = UIColor(muted ? palette.muted : palette.text)
         for (index, block) in blocks.enumerated() {
@@ -96,6 +111,10 @@ struct MarkdownText: View {
             piece.addAttributes([.paragraphStyle: style, .baselineOffset: (line - font.lineHeight) / 4], range: NSRange(location: 0, length: piece.length))
             out.append(piece)
             if !last { out.append(NSAttributedString(string: "\n", attributes: [.font: font, .paragraphStyle: style])) }
+        }
+        if let reserve {
+            // WhatsApp's way of fitting the time in: clear text as wide as it, on the last line when there's room.
+            out.append(NSAttributedString(string: "\u{2002}" + reserve.replacingOccurrences(of: " ", with: "\u{00A0}"), attributes: [.font: UIFont.ui(12), .foregroundColor: UIColor.clear]))
         }
         mark(find, in: out, palette: palette)
         return out
@@ -150,6 +169,7 @@ struct MarkdownText: View {
  */
 struct SelectableText: UIViewRepresentable {
     @Environment(\.chatText) private var actions
+    @Environment(\.quoteFrom) private var from
     let text: NSAttributedString
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -171,6 +191,7 @@ struct SelectableText: UIViewRepresentable {
 
     func updateUIView(_ view: UITextView, context: Context) {
         context.coordinator.actions = actions
+        context.coordinator.from = from
         if view.attributedText != text { view.attributedText = text }
     }
 
@@ -182,6 +203,7 @@ struct SelectableText: UIViewRepresentable {
 
     final class Coordinator: NSObject, UITextViewDelegate {
         var actions = ChatTextActions()
+        var from: String?
 
         func textView(_ textView: UITextView, primaryActionFor textItem: UITextItem, defaultAction: UIAction) -> UIAction? {
             guard case .link(let url) = textItem.content else { return defaultAction }
@@ -191,8 +213,8 @@ struct SelectableText: UIViewRepresentable {
         func textView(_ textView: UITextView, editMenuForTextIn range: NSRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
             guard let quote = actions.quote, range.length > 0 else { return nil }
             let selected = (textView.text as NSString).substring(with: range)
-            let action = UIAction(title: "Quote", image: UIImage(systemName: "text.quote")) { _ in
-                quote(selected)
+            let action = UIAction(title: "Reply", image: UIImage(systemName: "arrowshape.turn.up.left")) { [from] _ in
+                quote(selected, from)
                 textView.selectedRange = NSRange(location: range.upperBound, length: 0)
             }
             return UIMenu(children: [action] + suggestedActions)
@@ -200,7 +222,7 @@ struct SelectableText: UIViewRepresentable {
     }
 }
 
-private struct CodeBlock: View {
+struct CodeBlock: View {
     @Environment(\.palette) private var palette
     let language: String?
     let code: String
@@ -244,7 +266,7 @@ private struct CodeBlock: View {
     }
 }
 
-private struct TableBlock: View {
+struct TableBlock: View {
     @Environment(\.palette) private var palette
     let header: [String]
     let rows: [[String]]
