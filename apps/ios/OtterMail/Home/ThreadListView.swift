@@ -178,6 +178,11 @@ struct ThreadListView: View {
                     }
                 }
                 ToolbarSpacer(.flexible, placement: .bottomBar)
+                if MailContext.agentsInstalled {
+                    ToolbarItem(id: "agent-action", placement: .bottomBar) {
+                        SendToAgent(mail: threads.filter { selected.contains($0.id) }.map { MailContext($0) }, sent: endSelection)
+                    }
+                }
                 ToolbarItem(id: "secondary-action", placement: .bottomBar) {
                     if [.trash, .junk, .archive].contains(place.folder) {
                         Button("Move to Inbox", systemImage: "tray.and.arrow.down") {
@@ -341,7 +346,10 @@ struct ThreadListView: View {
         .padding(.vertical, 10)
         .background(rowBackground(unread: thread.unread && !thread.isDraft))
         .contextMenu {
-            if !selecting { ThreadActions(thread: thread) }
+            if !selecting {
+                SendToAgent(mail: [MailContext(thread)])
+                ThreadActions(thread: thread)
+            }
         }
         .modifier(MailSwipeActions(
             leading: selecting ? nil : leadingAction(thread),

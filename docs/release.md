@@ -169,7 +169,7 @@ own tags (`ios-agents-vX.Y.Z`).
 
 The Release Otter Agents workflow (`release-ios-agents.yml`) runs on each push to `main` that
 touches `apps/ios-agents`, what the app compiles and bundles from Otter Mail
-(`apps/ios/OtterMail/Agent`, `Theme`, `Resources`, `Settings/ThemeSettings.swift`), the themes
+(`apps/ios/OtterMail/Agent`, which is `MailContext`, `Theme`, `Resources`, `Settings/ThemeSettings.swift`), the themes
 (`packages/shared/src/theme-palettes.ts`) or the release scripts, as a patch; by hand,
 `gh workflow run release-ios-agents.yml -f bump=minor` (or `-f version=1.0.0`). It builds, signs
 and uploads with the same script (`scripts/release-ios.ts --app agents`; from a Mac,

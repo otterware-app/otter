@@ -6,6 +6,7 @@ struct HTMLBody: View {
     let html: String
     var inline: [Attachment] = []
     var cornerRadius: CGFloat = 14
+    var onSelect: (String) -> Void = { _ in }
     var load: @MainActor @Sendable (Attachment) async -> Data? = { _ in nil }
 
     @State private var page: WebPage?
@@ -29,7 +30,9 @@ struct HTMLBody: View {
             configuration.userContentController.add(HeightObserver { value in
                 if abs(binding.wrappedValue - value) >= 1 { binding.wrappedValue = value }
             }, name: "messageHeight")
+            configuration.userContentController.add(SelectionObserver(update: onSelect), name: "selection")
             configuration.userContentController.addUserScript(WKUserScript(source: """
+                document.addEventListener("selectionchange", () => window.webkit.messageHandlers.selection.postMessage(String(getSelection())));
                 const report = () => window.webkit.messageHandlers.messageHeight.postMessage(document.documentElement.scrollHeight);
                 new ResizeObserver(report).observe(document.body);
                 report();
@@ -63,6 +66,14 @@ struct HTMLBody: View {
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             guard let value = message.body as? Double, value.isFinite, value > 0 else { return }
             update(ceil(value))
+        }
+    }
+
+    private final class SelectionObserver: NSObject, WKScriptMessageHandler {
+        let update: (String) -> Void
+        init(update: @escaping (String) -> Void) { self.update = update }
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            update(message.body as? String ?? "")
         }
     }
 

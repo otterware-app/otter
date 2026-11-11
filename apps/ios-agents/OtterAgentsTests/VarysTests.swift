@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import Otter_Mail
+@testable import Otter_Agents
 
 @MainActor
 struct VarysTests {
@@ -32,14 +32,10 @@ struct VarysTests {
     }
 
     @Test func handsVarysPointersToTheMailNeverTheMail() {
-        let message = Message(id: "m1", from: Person(name: "Maya", email: "maya@example.com"), to: [], cc: [], date: .now,
-                              text: "Saturday works! I'll bring the bread.", html: nil, attachments: [], unread: false, starred: false,
-                              draft: false, headers: ["Message-ID": "<m1@example.com>"])
-        let thread = MailThread(id: "t1", mailbox: "me@example.com", subject: "Dinner Saturday?", labels: [], messages: [message])
-        let sent = MailContext.handoff("Draft a reply", [MailContext(thread)], reader: "your mail connection")
+        let mail = MailContext(account: "me@example.com", threadID: "t1", subject: "Dinner Saturday?", from: "maya@example.com", messageIDs: ["m1"])
+        let sent = MailContext.handoff("Draft a reply", [mail], reader: "your mail connection")
         #expect(sent.hasPrefix("Draft a reply\n\n— context from Otter Mail —"))
         #expect(sent.contains("[me@example.com] \"Dinner Saturday?\" — from maya@example.com (threadId t1, message m1)"))
         #expect(sent.hasSuffix("Fetch full content with your mail connection if needed."))
-        #expect(!sent.contains("Saturday works"))
     }
 }

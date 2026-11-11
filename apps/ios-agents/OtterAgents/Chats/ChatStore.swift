@@ -36,6 +36,7 @@ final class ChatStore {
         var title: String
         var attachments: [Attachment] = []
         var citations: [ChatCitation] = []
+        var mail: [MailContext] = []
     }
 
     struct PendingApproval: Equatable {
@@ -76,6 +77,8 @@ final class ChatStore {
     private(set) var openRequests: [String: String]
     var drafts: [String: String] { didSet { saveDrafts() } }
     var citations: [String: [ChatCitation]] = [:]
+    /** Mail a chat's next message is about, by chat: what Otter Mail sent here. */
+    var mail: [String: [MailContext]] = [:]
     /** The chat on screen: what finishes in it is seen. */
     var watched: String? {
         didSet {
@@ -121,7 +124,9 @@ final class ChatStore {
 
     func chat(_ id: String) -> Chat? { chats.first { $0.id == id } }
 
-    func hasDraft(_ id: String) -> Bool { drafts[id]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
+    func hasDraft(_ id: String) -> Bool {
+        drafts[id]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false || mail[id]?.isEmpty == false
+    }
 
     var working: Set<String> { Set(runs.keys) }
 
@@ -201,6 +206,13 @@ final class ChatStore {
         return chat.id
     }
 
+    /** Otter Mail's Send to agent: a new chat with the mail attached, for you to say what to do with it. */
+    func newChat(about context: [MailContext]) -> String {
+        let id = newChat()
+        mail[id] = context
+        return id
+    }
+
     func setProvider(_ kind: AgentKind, of chatId: String) {
         guard chat(chatId)?.isBlank == true else { return }
         update(chatId, save: false) { $0.provider = kind.rawValue }
@@ -210,6 +222,7 @@ final class ChatStore {
     func discardDraft(_ id: String) {
         drafts[id] = nil
         citations[id] = nil
+        mail[id] = nil
         if chat(id)?.isBlank == true { remove(id) }
     }
 
@@ -324,17 +337,22 @@ final class ChatStore {
         guard let chat = chat(chatId) else { return }
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let cited = citations[chatId] ?? []
-        guard !question.isEmpty || skill != nil || !attachments.isEmpty || !cited.isEmpty else { return }
+        let about = mail[chatId] ?? []
+        guard !question.isEmpty || skill != nil || !attachments.isEmpty || !cited.isEmpty || !about.isEmpty else { return }
         let title = ChatText.clampTitle(!question.isEmpty ? (skill.map { "/\($0.name) \(question)" } ?? question)
-            : skill.map { "/\($0.name)" } ?? cited.first?.text ?? attachments.first?.name ?? "Attachment")
-        let message = Outgoing(chatId: chatId, provider: chat.provider, question: question, input: Self.withCitations(question, cited),
-                               skill: skill, title: title, attachments: attachments, citations: cited)
+            : skill.map { "/\($0.name)" } ?? cited.first?.text ?? about.first?.subject ?? attachments.first?.name ?? "Attachment")
+        let input = { (mail: [MailContext]) in
+            MailContext.handoff(Self.withCitations(question, cited), mail, reader: chat.provider == AgentKind.varys.rawValue ? "your mail connection" : "gog")
+        }
+        let message = Outgoing(chatId: chatId, provider: chat.provider, question: question, input: input(about),
+                               skill: skill, title: title, attachments: attachments, citations: cited, mail: about)
         citations[chatId] = nil
+        mail[chatId] = nil
         drafts[chatId] = nil
         if let editing = editingQueued, editing.chatId == chatId {
             // The composer held a queued message: this is its new text.
-            queue = queue.map { $0.id == editing.id ? Outgoing(id: $0.id, chatId: chatId, provider: $0.provider, question: question, input: message.input,
-                                                                  skill: $0.skill, title: title, attachments: $0.attachments, citations: $0.citations) : $0 }
+            queue = queue.map { $0.id == editing.id ? Outgoing(id: $0.id, chatId: chatId, provider: $0.provider, question: question, input: input($0.mail),
+                                                                  skill: $0.skill, title: title, attachments: $0.attachments, citations: $0.citations, mail: $0.mail) : $0 }
             editingQueued = nil
             drafts[chatId] = editing.savedDraft.isEmpty ? nil : editing.savedDraft
             return startQueued()
@@ -373,6 +391,7 @@ final class ChatStore {
             user.skill = message.skill?.name
             user.attachments = message.attachments.map(\.sent)
             user.citations = message.citations
+            user.context = ChatContext(message.mail)
             user.intent = intent
             chat.turns.append(user)
             chat.turns.append(ChatTurn(id: "a-\(key)", role: .assistant, now: now))

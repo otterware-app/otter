@@ -3,7 +3,6 @@ import SwiftUI
 struct ThreadView: View {
     @Environment(MailStore.self) private var store
     @Environment(Preferences.self) private var preferences
-    @Environment(Session.self) private var session
     @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -14,7 +13,8 @@ struct ThreadView: View {
 
     @State private var siblings: [String] = []
     @State private var expanded: Set<String> = []
-    @State private var asking: [MailContext]?
+    /** What's selected in a message, for Send to agent. */
+    @State private var quote: MailContext?
 
     var body: some View {
         if let thread = store.thread(threadID), let mailbox = store.mailbox(thread.mailbox) {
@@ -51,7 +51,7 @@ struct ThreadView: View {
                             .padding(.horizontal, MessageView.inset)
                     }
                     let open = message.id == messages.last?.id || message.unread || expanded.contains(message.id)
-                    MessageView(message: message, mailbox: mailbox, open: open) {
+                    MessageView(message: message, mailbox: mailbox, open: open, context: MailContext(thread, message: message), quote: $quote) {
                         if message.draft {
                             draft = .resume(message, in: thread)
                         } else if !open {
@@ -70,12 +70,6 @@ struct ThreadView: View {
         .background(palette.canvas)
         .contentMargins(.bottom, 24, for: .scrollContent)
         .toolbar {
-            if session.agent.isOn {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { asking = [MailContext(thread)] } label: { Label("Ask the agent", image: "OtterAgent") }
-                }
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(thread.starred ? "Un\(mailbox.mark)" : mailbox.mark.capitalized, systemImage: thread.starred ? "\(mailbox.mark).fill" : mailbox.mark) {
                     store.toggleStar(thread.id)
@@ -103,12 +97,6 @@ struct ThreadView: View {
             replyBar(thread, mailbox)
         }
         .toolbarVisibility(.hidden, for: .tabBar)
-        .sheet(isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } })) {
-            NavigationStack {
-                AgentView(context: asking ?? [], sheet: true)
-            }
-            .onAppear { session.agent.newChat() }
-        }
         .toolbarTitleDisplayMode(.inline)
         .onAppear {
             if siblings.isEmpty { siblings = store.threads(in: place.folder, scope: place.scope).map(\.id) }
@@ -168,6 +156,13 @@ struct ThreadView: View {
             }
 
             Spacer()
+
+            SendToAgent(mail: [quote ?? MailContext(thread)])
+                .labelStyle(.iconOnly)
+                .font(.system(size: 19))
+                .foregroundStyle(palette.text)
+                .frame(width: 44, height: 44)
+                .glassEffect(.regular.interactive(), in: .circle)
 
             Button("Reply to \(replyName(thread, mailbox))", systemImage: "arrowshape.turn.up.left") {
                 draft = store.reply(to: thread, in: place.scope, all: false)

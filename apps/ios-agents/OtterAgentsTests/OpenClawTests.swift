@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import Otter_Mail
+@testable import Otter_Agents
 
 struct OpenClawTests {
     @Test func reachesTheGatewayOverItsWebSocketWhateverAddressIsPasted() {

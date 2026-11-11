@@ -4,6 +4,8 @@
 <dict>
 	<key>AgentKeychainGroup</key>
 	<string>$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleURLTypes</key>
+	<array><dict><key>CFBundleURLSchemes</key><array><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string></array></dict></array>
 	<key>APNsEnvironment</key>
 	<string>$(APNS_ENVIRONMENT)</string>
 	<key>GoogleClientID</key>

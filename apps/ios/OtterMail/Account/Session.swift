@@ -27,7 +27,6 @@ final class Session {
     }
 
     let preferences: Preferences
-    let agent = Agent()
     @ObservationIgnored let relay = Relay()
     @ObservationIgnored let google = GoogleAuth()
     @ObservationIgnored let microsoft = MicrosoftAuth()
@@ -60,9 +59,6 @@ final class Session {
         }
         relay.onSignedOut = { [weak self] in self?.endSession() }
         preferences.onChange = { [weak self] section in self?.preferenceChanged(section) }
-        agent.onChange = { [weak self] section in self?.preferenceChanged(section) }
-        agent.relay = relay
-        Task { [agent] in await agent.check() }
         if case .signedIn = state { startLive() } else { PushState.configure(nil) }
     }
 
@@ -146,8 +142,6 @@ final class Session {
                     }
                 case .accounts: await self.pullAccounts()
                 case .preferences: await self.pullPreferences()
-                case .chats: await self.agent.loadSynced()
-                case .agent(let agentId, let sessionKey): await self.agent.delivered(agentId: agentId, sessionKey: sessionKey)
                 }
             }
         }
@@ -399,7 +393,7 @@ final class Session {
 
     private func pullPreferences() async {
         guard let userId = user?.id else { return }
-        guard let (sections, hermesKey) = try? await relay.preferences() else { return }
+        guard let sections = try? await relay.preferences() else { return }
         guard user?.id == userId else { return }
         let ui = sections["ui"] as? [String: Any]
         let settings = sections["settings"] as? [String: Any]
@@ -417,7 +411,6 @@ final class Session {
                 UserDefaults.standard.removeObject(forKey: "push:pending-mode:" + userId)
             } else { preferenceChanged("settings") }
         }
-        agent.apply(section: sections["assistant"] as? [String: Any], key: hermesKey)
         let signatures = sections["signatures"] as? [String: String]
         remoteSections["signatures"] = signatures ?? [:]
         applySignatures()
@@ -463,15 +456,6 @@ final class Session {
         }
         configurePush()
         if preferences.notifications == .off { Task { try? await UNUserNotificationCenter.current().setBadgeCount(0) } }
-        if section == "hermesKey" {
-            let key = agent.key
-            Task { try? await relay.putPreferences(["assistant": agent.syncedSection], hermesKey: .some(key)) }
-            return
-        }
-        if section == "assistant" {
-            Task { try? await relay.putPreferences(["assistant": agent.syncedSection]) }
-            return
-        }
         // Not pulled yet: writing now would drop the other devices' signatures.
         if section == "signatures", remoteSections["signatures"] == nil { return }
         let ours: [String: Any] = switch section {
@@ -542,9 +526,6 @@ final class Session {
         UserDefaults.standard.set(false, forKey: Self.demoKey)
         store = MailStore(preferences: preferences)
         state = .welcome
-        agent.newChat()
-        agent.synced = []
-        agent.forgetKey()
         Task { try? await UNUserNotificationCenter.current().setBadgeCount(0) }
     }
 

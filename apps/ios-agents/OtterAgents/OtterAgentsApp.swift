@@ -31,6 +31,7 @@ struct OtterAgentsApp: App {
             .environment(account.chats)
             .environment(scheduled)
             .onAppear { delegate.account = account }
+            .onOpenURL { account.open($0) }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {

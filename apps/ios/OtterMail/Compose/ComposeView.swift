@@ -81,6 +81,10 @@ struct ComposeView: View {
                         }
                     }
                 }
+                if MailContext.agentsInstalled, let context = MailContext(draft) {
+                    ToolbarItem(placement: .topBarTrailing) { SendToAgent(mail: [context]) }
+                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { send() } label: {
                         if sending { ProgressView() }

@@ -30,13 +30,14 @@ struct Composer: View {
     private var running: Bool { store.runs[chat.id] != nil }
     private var editing: Bool { store.editingQueued?.chatId == chat.id }
     private var citations: [ChatCitation] { store.citations[chat.id] ?? [] }
+    private var mail: [MailContext] { store.mail[chat.id] ?? [] }
     private var draft: String { store.drafts[chat.id] ?? "" }
     private var hasContent: Bool {
-        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || skill != nil || !attachments.isEmpty || !citations.isEmpty
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || skill != nil || !attachments.isEmpty || !citations.isEmpty || !mail.isEmpty
     }
     private var steers: Bool { kind != nil && attachments.isEmpty && !store.isCompacting(chat.id) }
     private var wantsSteer: Bool { store.agents.followUp == .steer && steers }
-    private var carries: Bool { skill != nil || !attachments.isEmpty || !citations.isEmpty || editing }
+    private var carries: Bool { skill != nil || !attachments.isEmpty || !citations.isEmpty || !mail.isEmpty || editing }
 
     /** The skills a `/` at the start is choosing among. */
     private var matching: [Skill] {
@@ -247,9 +248,14 @@ struct Composer: View {
                 .scrollIndicators(.hidden)
                 .scrollClipDisabled()
             }
-            if skill != nil || !citations.isEmpty {
+            if skill != nil || !citations.isEmpty || !mail.isEmpty {
                 ScrollView(.horizontal) {
                     HStack(spacing: 6) {
+                        ForEach(mail, id: \.self) { about in
+                            chip(symbol: about.quote != nil ? "text.quote" : about.kind == "draft" ? "square.and.pencil" : "envelope", text: about.quote ?? about.subject, mono: false) {
+                                store.mail[chat.id] = mail.filter { $0 != about }
+                            }
+                        }
                         if let skill {
                             chip(symbol: "wrench.and.screwdriver", text: "/\(skill.name)", mono: true) { self.skill = nil }
                         }

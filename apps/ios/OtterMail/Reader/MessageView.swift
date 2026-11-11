@@ -20,6 +20,9 @@ struct MessageView: View {
     let message: Message
     let mailbox: Mailbox
     let open: Bool
+    var context: MailContext?
+    /** The words selected in this message, as mail for an agent. */
+    var quote: Binding<MailContext?> = .constant(nil)
     let onTap: () -> Void
 
     @State private var showTranslation = false
@@ -42,20 +45,21 @@ struct MessageView: View {
                 .contextMenu {
                     Button("Translate", systemImage: "translate") { showTranslation = true }
                     Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.text }
+                    SendToAgent(mail: context.map { [$0] } ?? [])
                 }
 
             if open {
                 if let translated, !showOriginal {
-                    SelectableText(text: translated)
+                    SelectableText(text: translated, onSelect: select)
                         .padding(.horizontal, fullWidth ? 0 : Self.inset)
                 } else if let html = message.html {
-                    HTMLBody(html: html, inline: message.inline ?? [], cornerRadius: fullWidth ? 0 : 14) { image in
+                    HTMLBody(html: html, inline: message.inline ?? [], cornerRadius: fullWidth ? 0 : 14, onSelect: select) { image in
                         await store.sync?.inlineImage(image, of: message, in: mailbox.email)
                     }
                     .padding(.horizontal, fullWidth ? 0 : Self.inset)
                 } else {
                     let (body, quote) = Quote.split(message.text)
-                    SelectableText(text: showQuote ? message.text : body)
+                    SelectableText(text: showQuote ? message.text : body, onSelect: select)
                         .padding(.horizontal, fullWidth ? 0 : Self.inset)
                     if quote != nil && !showQuote {
                         Button("Show quoted text", systemImage: "ellipsis") { showQuote = true }
@@ -128,6 +132,12 @@ struct MessageView: View {
             } catch { attachmentError = error.localizedDescription }
             opening = nil
         }
+    }
+
+    private func select(_ text: String) {
+        if let quoted = context?.quoting(text) { quote.wrappedValue = quoted }
+        // Another message's selection isn't this one's to clear.
+        else if quote.wrappedValue?.messageIDs == context?.messageIDs { quote.wrappedValue = nil }
     }
 
     private var header: some View {
@@ -211,9 +221,11 @@ private struct SelectableText: UIViewRepresentable {
     @Environment(\.palette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let text: String
+    var onSelect: (String) -> Void = { _ in }
 
     func makeUIView(context: Context) -> UITextView {
         let view = UITextView()
+        view.delegate = context.coordinator
         view.isEditable = false
         view.isScrollEnabled = false
         view.backgroundColor = .clear
@@ -224,6 +236,7 @@ private struct SelectableText: UIViewRepresentable {
     }
 
     func updateUIView(_ view: UITextView, context: Context) {
+        context.coordinator.onSelect = onSelect
         // Setting the text again would drop the user's selection.
         let shown = Shown(text: text, color: palette.text, size: dynamicTypeSize)
         guard context.coordinator.shown != shown else { return }
@@ -244,8 +257,13 @@ private struct SelectableText: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    final class Coordinator {
+    final class Coordinator: NSObject, UITextViewDelegate {
         var shown: Shown?
+        var onSelect: (String) -> Void = { _ in }
+
+        func textViewDidChangeSelection(_ view: UITextView) {
+            onSelect(view.selectedTextRange.flatMap(view.text(in:)) ?? "")
+        }
     }
 
     nonisolated struct Shown: Equatable {
