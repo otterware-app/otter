@@ -238,7 +238,7 @@ final class Relay {
 
 /** What an agent's gateway tells the account when it has something for you: where to read it, never what it says. */
 nonisolated struct AgentPointer: Equatable {
-    /** message, question or approval. */
+    /** message, question, approval or finished. */
     var kind: String
     var agentId: String
     var sessionKey: String?

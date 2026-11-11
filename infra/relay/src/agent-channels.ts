@@ -24,7 +24,7 @@ const LAST_USED_EVERY_MS = 60 * 60 * 1000;
 
 const id = z.string().max(200);
 const pointer = z.strictObject({
-  kind: z.enum(["message", "question", "approval"]),
+  kind: z.enum(["message", "question", "approval", "finished"]),
   agentId: z.string().min(1).max(100),
   sessionKey: z.string().max(300).nullable(),
   approvalId: id.optional(),
@@ -132,7 +132,9 @@ export function gatewayRoutes(
           .set({ lastUsedAt: new Date(now) })
           .where(eq(agentChannels.id, channel.id));
       const told = { ...c.req.valid("json"), channel: channel.id };
-      await publish(c.env, channel.userId, told);
+      // A finished run is for the phones alone: an open app follows the run itself, and builds
+      // from before this kind would take it for something the agent sent.
+      if (told.kind !== "finished") await publish(c.env, channel.userId, told);
       c.executionCtx.waitUntil(notify(c.env, channel.userId, told).catch(() => {}));
       return c.body(null, 202);
     },

@@ -58,16 +58,16 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   it started none of them. A delivery to a chat that isn't one here yet makes it, under the id
   every device gives it.
 - **Notifications** (`Account.swift`, `OtterAgentsApp.swift`'s `AppDelegate`): an agent's gateway
-  tells the relay it has an approval, a question or a message (a pointer: the agent and its
-  session, never the text), and the relay pushes to the account's Otter Agents iPhones
+  tells the relay it has an approval, a question or a message, or that a run in one of Otter's
+  chats finished (a pointer: the agent and its session, never the text), and the relay pushes to the account's Otter Agents iPhones
   (`infra/relay`'s `apns.sendAgent`). The words are generic; a tap opens the chat, read from the
   gateway. Nothing is pushed for a chat one of the account's devices has on screen and in front:
   every app tells the relay which chat that is over its events socket (`Relay.watching` here,
   core's `setWatching` on the Mac and the web), again every 30 seconds, and the relay forgets a
   device that stops saying it. On in Settings; it needs the gateway's Otter
   channel (set up on the Mac: Settings › OpenClaw › Messages from your agents) or, for varys,
-  the pairing this app makes itself. A reply to a message you sent yourself doesn't notify:
-  gateways only tell the relay of what they deliver or ask.
+  the pairing this app makes itself. A finished run notifies on OpenClaw only (its plugin, from
+  0.2.7): Hermes and varys tell the relay of what they deliver or ask, not of a reply to you.
 - **The agents' own sessions** ("On your agents" on the list): chats started in an agent's own
   app open here and go on.
 

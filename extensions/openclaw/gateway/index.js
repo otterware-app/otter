@@ -19,6 +19,7 @@ import {
   chatOf,
   chatTarget,
   deliver,
+  finishedOf,
   isNewChat,
   isOwnerConfigured,
   messageOf,
@@ -28,6 +29,7 @@ import {
   startDetached,
   targetOf,
   TARGETS_HINT,
+  tell,
 } from "./otter.js";
 
 const owner = defineStableChannelIngressIdentity({
@@ -186,6 +188,19 @@ export default defineChannelPluginEntry({
     };
     api.on("before_compaction", compaction("start"));
     api.on("after_compaction", compaction("end"));
+
+    // A run in an Otter chat ended: the relay tells the phones no one has that chat open on.
+    api.on("agent_end", async (_event, ctx) => {
+      const pointer = finishedOf(ctx);
+      if (!pointer) return;
+      try {
+        await tell(accountOf(api.runtime?.config?.current?.() ?? api.config), pointer, {
+          signal: AbortSignal.timeout(10_000),
+        });
+      } catch (error) {
+        warn(`otter: couldn't tell Otter's devices a run finished: ${String(error)}`);
+      }
+    });
 
     // What you send in an Otter chat, as the gateway's owner: `chat.send`'s run, with the authority
     // a configured channel owner has (an automation another chat made, for one).
