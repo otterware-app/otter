@@ -316,12 +316,11 @@ Worker secrets too. Allowed topics are `APNS_SANDBOX_TOPIC=dev.otterware.mail.de
 An Otter Agents device registers with no mailboxes and gets no mail pushes; it's pushed to when
 an agent's gateway posts a pointer (`/channel/v1/pointers`: an approval, a question, a message,
 or `finished` for a run that ended in one of Otter's chats, which is pushed but not passed on to
-the events sockets), with words that say which and metadata that says where to read it
-(`apns.agentPayload`). The payload enables the iPhone's notification service extension, which
-reads a preview directly from the agent; chat titles and message text stay out of APNs. No push
+the events sockets). As in T3 Code, the relay writes the alert from what the gateway sent: the
+chat's title, and what happened by which agent ("Approval needed: Rowan"), with metadata that
+says which chat a tap opens (`apns.agentPayload`). What was said stays out of APNs. No push
 goes out for a session one of the account's devices says it has on screen (a `watching` message
-on its events socket, kept with the socket for 90 seconds; `UserHub.watching`). Do not substitute the extension
-bundle ID. Local optional variables are listed in `.dev.vars.example`; missing signing
+on its events socket, kept with the socket for 90 seconds; `UserHub.watching`). Local optional variables are listed in `.dev.vars.example`; missing signing
 credentials return 503 on registration, leaving the phone's local notification behavior.
 
 Provider JWTs are reused for 50 minutes. APNs 410/BadDeviceToken/DeviceTokenNotForTopic removes

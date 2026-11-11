@@ -16,7 +16,6 @@
 		0D00000000000000000001F7 /* MailContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D00000000000000000001F6 /* MailContext.swift */; };
 		0D0000000000000000000115 /* InterVariable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000114 /* InterVariable.ttf */; };
 		0D00000000000000000001F1 /* ThemeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D00000000000000000001F0 /* ThemeSettings.swift */; };
-		0E000000000000000000000A = {isa = PBXBuildFile; fileRef = 0E0000000000000000000001; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,12 +33,7 @@
 			remoteGlobalIDString = 0D0000000000000000000006;
 			remoteInfo = OtterAgents;
 		};
-		0E000000000000000000000B = {isa = PBXContainerItemProxy; containerPortal = 0D0000000000000000000009; proxyType = 1; remoteGlobalIDString = 0E0000000000000000000005; remoteInfo = OtterAgentsNotificationService; };
 /* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		0E000000000000000000000C = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (0E000000000000000000000A, ); name = "Embed App Extensions"; runOnlyForDeploymentPostprocessing = 0; };
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0D0000000000000000000001 /* Otter Agents.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Otter Agents.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -54,7 +48,6 @@
 		0D00000000000000000001F6 /* MailContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MailContext.swift; path = ../ios/OtterMail/Agent/MailContext.swift; sourceTree = SOURCE_ROOT; };
 		0D0000000000000000000114 /* InterVariable.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = InterVariable.ttf; path = ../ios/OtterMail/Resources/Fonts/InterVariable.ttf; sourceTree = SOURCE_ROOT; };
 		0D00000000000000000001F0 /* ThemeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ThemeSettings.swift; path = ../ios/OtterMail/Settings/ThemeSettings.swift; sourceTree = SOURCE_ROOT; };
-		0E0000000000000000000001 = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OtterAgentsNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -66,7 +59,6 @@
 			);
 			target = 0D0000000000000000000006 /* OtterAgents */;
 		};
-		0E0000000000000000000006 = {isa = PBXFileSystemSynchronizedBuildFileExceptionSet; membershipExceptions = (Info.plist, NotificationService.entitlements, ); target = 0E0000000000000000000005; };
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -88,9 +80,7 @@
 			path = OtterAgentsUITests;
 			sourceTree = "<group>";
 		};
-		0E0000000000000000000002 = {isa = PBXFileSystemSynchronizedRootGroup; path = NotificationShared; sourceTree = "<group>"; };
 		0E0000000000000000000200 = {isa = PBXFileSystemSynchronizedRootGroup; path = Clients; sourceTree = "<group>"; };
-		0E0000000000000000000003 = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (0E0000000000000000000006, ); path = OtterAgentsNotificationService; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,7 +105,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0E0000000000000000000007 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -126,9 +115,7 @@
 				0D0000000000000000000012 /* OtterAgentsTests */,
 				0D0000000000000000000022 /* OtterAgentsUITests */,
 				0D0000000000000000000020 /* Shared with Otter Mail */,
-				0E0000000000000000000002 /* NotificationShared */,
 				0E0000000000000000000200 /* Clients */,
-				0E0000000000000000000003 /* OtterAgentsNotificationService */,
 				0D0000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -139,7 +126,6 @@
 				0D0000000000000000000001 /* Otter Agents.app */,
 				0D0000000000000000000011 /* OtterAgentsTests.xctest */,
 				0D0000000000000000000021 /* OtterAgentsUITests.xctest */,
-				0E0000000000000000000001 /* OtterAgentsNotificationService.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -170,16 +156,13 @@
 				0D0000000000000000000007 /* Sources */,
 				0D0000000000000000000003 /* Frameworks */,
 				0D0000000000000000000008 /* Resources */,
-				0E000000000000000000000C /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				0E000000000000000000000D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				0D0000000000000000000002 /* OtterAgents */,
-				0E0000000000000000000002 /* NotificationShared */,
 				0E0000000000000000000200 /* Clients */,
 			);
 			name = OtterAgents;
@@ -229,16 +212,6 @@
 			productReference = 0D0000000000000000000021 /* OtterAgentsUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
-		0E0000000000000000000005 /* OtterAgentsNotificationService */ = {
-            isa = PBXNativeTarget;
-            buildConfigurationList = 0E000000000000000000000F;
-            buildPhases = (0E0000000000000000000008, 0E0000000000000000000007, 0E0000000000000000000009, );
-            buildRules = (); dependencies = ();
-            fileSystemSynchronizedGroups = (0E0000000000000000000002, 0E0000000000000000000003, 0E0000000000000000000200, );
-            name = OtterAgentsNotificationService; productName = OtterAgentsNotificationService;
-            productReference = 0E0000000000000000000001;
-            productType = "com.apple.product-type.app-extension";
-        };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -280,7 +253,6 @@
 				0D0000000000000000000006 /* OtterAgents */,
 				0D0000000000000000000016 /* OtterAgentsTests */,
 				0D0000000000000000000026 /* OtterAgentsUITests */,
-				0E0000000000000000000005 /* OtterAgentsNotificationService */,
 			);
 		};
 /* End PBXProject section */
@@ -310,7 +282,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0E0000000000000000000009 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -341,7 +312,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0E0000000000000000000008 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -355,7 +325,6 @@
 			target = 0D0000000000000000000006 /* OtterAgents */;
 			targetProxy = 0D0000000000000000000028 /* PBXContainerItemProxy */;
 		};
-		0E000000000000000000000D = {isa = PBXTargetDependency; target = 0E0000000000000000000005; targetProxy = 0E000000000000000000000B; };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -557,54 +526,6 @@
 			};
 			name = Release;
 		};
-        0E0000000000000000000030 /* Debug */ = {
-            isa = XCBuildConfiguration;
-            buildSettings = {
-                APPLICATION_EXTENSION_API_ONLY = YES;
-                CODE_SIGN_ENTITLEMENTS = OtterAgentsNotificationService/NotificationService.entitlements;
-                CODE_SIGN_STYLE = Automatic;
-                CURRENT_PROJECT_VERSION = 1;
-                DEVELOPMENT_TEAM = 838JVGY7W4;
-                GENERATE_INFOPLIST_FILE = YES;
-                INFOPLIST_FILE = OtterAgentsNotificationService/Info.plist;
-                IPHONEOS_DEPLOYMENT_TARGET = 27.0;
-                LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
-                MARKETING_VERSION = 0.1.11;
-                AGENTS_BUNDLE_IDENTIFIER = dev.otterware.agents.dev;
-                PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.dev.notifications;
-                PRODUCT_NAME = "$(TARGET_NAME)";
-                SKIP_INSTALL = YES;
-                SWIFT_APPROACHABLE_CONCURRENCY = YES;
-                SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-                SWIFT_VERSION = 6.0;
-                TARGETED_DEVICE_FAMILY = 1;
-            };
-            name = Debug;
-        };
-        0E0000000000000000000040 /* Release */ = {
-            isa = XCBuildConfiguration;
-            buildSettings = {
-                APPLICATION_EXTENSION_API_ONLY = YES;
-                CODE_SIGN_ENTITLEMENTS = OtterAgentsNotificationService/NotificationService.entitlements;
-                CODE_SIGN_STYLE = Manual; CODE_SIGN_IDENTITY = "Apple Distribution"; PROVISIONING_PROFILE_SPECIFIER = "Otter Agents Notifications App Store";
-                CURRENT_PROJECT_VERSION = 1;
-                DEVELOPMENT_TEAM = 838JVGY7W4;
-                GENERATE_INFOPLIST_FILE = YES;
-                INFOPLIST_FILE = OtterAgentsNotificationService/Info.plist;
-                IPHONEOS_DEPLOYMENT_TARGET = 27.0;
-                LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
-                MARKETING_VERSION = 0.1.11;
-                AGENTS_BUNDLE_IDENTIFIER = dev.otterware.agents;
-                PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.notifications;
-                PRODUCT_NAME = "$(TARGET_NAME)";
-                SKIP_INSTALL = YES;
-                SWIFT_APPROACHABLE_CONCURRENCY = YES;
-                SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-                SWIFT_VERSION = 6.0;
-                TARGETED_DEVICE_FAMILY = 1;
-            };
-            name = Release;
-        };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -644,7 +565,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		0E000000000000000000000F = {isa = XCConfigurationList; buildConfigurations = (0E0000000000000000000030, 0E0000000000000000000040, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
 	rootObject = 0D0000000000000000000009 /* Project object */;

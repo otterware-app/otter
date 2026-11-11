@@ -1,8 +1,8 @@
 /**
  * Agent channels: an agent's gateway (an OpenClaw or Hermes plugin) tells the
  * account's devices it has delivered something for the user. It sends a
- * pointer, never the text; the devices read it from the gateway themselves.
- * The relay passes pointers on and keeps none.
+ * pointer, with the chat's title and the agent's name for an iPhone's alert, never the text;
+ * the devices read that from the gateway themselves. The relay passes pointers on and keeps none.
  */
 
 import { zValidator } from "@hono/zod-validator";
@@ -23,6 +23,12 @@ const MAX_CHANNELS = 20;
 const LAST_USED_EVERY_MS = 60 * 60 * 1000;
 
 const id = z.string().max(200);
+/** Words for an alert, cut to fit rather than turned away: a long title shouldn't cost the push. */
+const shown = (limit: number) =>
+  z
+    .string()
+    .trim()
+    .transform((text) => Array.from(text).slice(0, limit).join(""));
 const pointer = z.strictObject({
   kind: z.enum(["message", "question", "approval", "finished"]),
   agentId: z.string().min(1).max(100),
@@ -31,6 +37,8 @@ const pointer = z.strictObject({
   approvalKind: z.enum(["exec", "plugin"]).optional(),
   resolved: z.boolean().optional(),
   questionId: id.optional(),
+  title: shown(200).optional(),
+  agentName: shown(100).optional(),
   at: z.number().int().nonnegative(),
 });
 

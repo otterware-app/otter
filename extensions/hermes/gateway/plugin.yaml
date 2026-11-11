@@ -1,7 +1,7 @@
 name: otter
 label: Otter
 kind: platform
-version: 1.0.0
+version: 1.1.0
 description: >
   Otter as a delivery channel: scheduled results and messages become chats in Otter.
   Each delivery is kept on Hermes as a session; the relay only tells Otter's apps which one to read.

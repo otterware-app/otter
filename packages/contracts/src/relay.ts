@@ -197,7 +197,8 @@ export type RelayEvent =
 
 /**
  * What an agent's gateway tells the relay when it delivers something to Otter
- * (a message, a question, an approval): never its text, only where to read it.
+ * (a message, a question, an approval): where to read it and, for an iPhone's alert as in
+ * T3 Code, the chat's title and the agent's name; never what was said.
  * The relay passes it on to the account's devices and keeps nothing.
  * `finished`, a run that ended in one of Otter's chats, is only pushed to the iPhones: an app
  * that's open reads the run itself.
@@ -212,18 +213,17 @@ export interface AgentPointer {
   approvalKind?: "exec" | "plugin";
   resolved?: boolean;
   questionId?: string;
+  title?: string;
+  agentName?: string;
   at: number;
 }
 
-/**
- * What a push to Otter Agents carries beside its words, which say only that an agent asks or
- * sent something: where the iPhone reads it, from the gateway itself.
- */
+/** What a push to Otter Agents carries beside its alert: the chat a tap opens. */
 export interface AgentPushMetadata {
   version: 1;
   kind: "agent";
   userId: string;
-  pointer: Omit<AgentPointer, "channel">;
+  pointer: Omit<AgentPointer, "channel" | "title" | "agentName">;
 }
 
 /**

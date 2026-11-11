@@ -491,8 +491,9 @@ Otter is also an OpenClaw channel, `otter` (the gateway plugin in `extensions/op
 set up from Settings › Agents › OpenClaw on Mac and web). What an agent delivers to it (a
 scheduled job's `--announce --channel otter --to chat:new`, the message tool, a forwarded
 approval) is kept on the gateway, in the chat it names, and notifies when no window is in front. The plugin sends the relay only a pointer (which agent, which
-session, an approval's or question's id), never the text, with a token made in Settings; the
-relay passes it to the account's open devices, which read the delivery from the gateway.
+session, an approval's or question's id) and, for the iPhone's alert, the chat's title and the
+agent's name, never the text, with a token made in Settings; the relay passes it to the
+account's open devices, which read the delivery from the gateway.
 When a run ends in one of Otter's chats, the plugin (0.2.7) tells the relay that too, which only
 pushes it to Otter Agents on the iPhone.
 Like Slack's threads and channel posts, a delivery either goes to one of Otter's chats
@@ -636,7 +637,7 @@ other app's. What the Mac and web apps' chat does, and whether Otter Agents does
 | Fork a conversation                                                                                             | —                                                                                                                                                                |
 | OpenClaw's live browser: watch the agent's tab, its pointer, take control                                       | ✓ (a globe above the composer; taps, scrolling, typing, address, pop-ups, file picker; one tab, pinch to zoom and pan)                                           |
 | Claude and Codex                                                                                                | their chats, read                                                                                                                                                |
-| Notifications when an agent asks, delivers or finishes                                                          | ✓ push, app closed too: chat, agent, status and on-device preview; quiet for chats open on another device. A finished answer: OpenClaw only                      |
+| Notifications when an agent asks, delivers or finishes                                                          | ✓ push, app closed too: the chat's title, the agent and what happened, as T3 Code's; quiet for chats open on another device. A finished answer: OpenClaw only    |
 | Scheduled: list by Active, Paused, Kept by the agent; filters; what isn't working                               | ✓                                                                                                                                                                |
 | A task: run now, pause, edit, delete, history with each run's transcript, results in Otter                      | ✓                                                                                                                                                                |
 | New and edited tasks: agent, what, when (daily to cron, time zone), where results go                            | ✓ (recipients typed, not suggested)                                                                                                                              |

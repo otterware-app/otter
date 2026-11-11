@@ -1423,7 +1423,7 @@ describe("agent channels", () => {
     mode,
   });
 
-  it("pushes to the account's Otter Agents iPhones: where to read it, never what it says", async () => {
+  it("pushes to the account's Otter Agents iPhones: the chat and what happened, never what was said", async () => {
     const owner = await signIn("agents-push@example.com", "agents-push-sub");
     const made = await channel(owner.token);
     const phone = "a1".repeat(32);
@@ -1431,19 +1431,34 @@ describe("agent channels", () => {
       204,
     );
     const approval = { ...pointer, kind: "approval", approvalId: "ap-1", approvalKind: "exec" };
-    expect((await send(made.token, approval)).status).toBe(202);
+    const titled = { ...approval, title: "Deploy the site", agentName: "Rowan" };
+    expect((await send(made.token, titled)).status).toBe(202);
     await until(() => notifications.some((n) => n.token === phone), "the agent push");
     const sent = notifications.find((n) => n.token === phone)!;
     expect(sent.headers["apns-topic"]).toBe("dev.otterware.agents.dev");
     expect(sent.body).toEqual({
       aps: {
-        alert: { title: "Otter Agents", body: "An agent is waiting for your approval." },
-        "mutable-content": 1,
+        alert: { title: "Deploy the site", body: "Approval needed: Rowan" },
         sound: "default",
         "thread-id": pointer.sessionKey,
       },
       otter: { version: 1, kind: "agent", userId: owner.user.id, pointer: approval },
     });
+  });
+
+  it("cuts a long chat title to fit rather than dropping the push", async () => {
+    const owner = await signIn("agents-long@example.com", "agents-long-sub");
+    const made = await channel(owner.token);
+    const phone = "d4".repeat(32);
+    expect((await call("PUT", "/v1/push/device", owner.token, agentsDevice(phone))).status).toBe(
+      204,
+    );
+    expect((await send(made.token, { ...pointer, title: ` ${"é".repeat(300)} ` })).status).toBe(
+      202,
+    );
+    await until(() => notifications.some((n) => n.token === phone), "the agent push");
+    const sent = notifications.find((n) => n.token === phone)!;
+    expect((sent.body.aps as { alert: { title: string } }).alert.title).toBe("é".repeat(200));
   });
 
   it("stays quiet for an approval answered elsewhere, a phone with notifications off, and Otter Mail", async () => {
@@ -1480,7 +1495,7 @@ describe("agent channels", () => {
     const got = notifications.filter((n) => n.token === phone || n.token === mailPhone);
     expect(
       got.map((n) => [n.token, (n.body.aps as { alert: { body: string } }).alert.body]),
-    ).toEqual([[phone, "An agent has a question for you."]]);
+    ).toEqual([[phone, "Question"]]);
   });
 
   it("pushes a finished run to the iPhones, and tells no open app", async () => {
@@ -1492,13 +1507,12 @@ describe("agent channels", () => {
     );
     const mac = await connect(owner.token);
     const finished = { ...pointer, kind: "finished" };
-    expect((await send(made.token, finished)).status).toBe(202);
+    expect((await send(made.token, { ...finished, agentName: "Rowan" })).status).toBe(202);
     await until(() => notifications.some((n) => n.token === phone), "the finished push");
     const sent = notifications.find((n) => n.token === phone)!;
     expect(sent.body).toMatchObject({
       aps: {
-        alert: { body: "An agent finished working." },
-        "mutable-content": 1,
+        alert: { title: "Rowan", body: "Finished" },
         "thread-id": pointer.sessionKey,
       },
       otter: { pointer: finished },

@@ -178,13 +178,7 @@ It has no Sentry release: the app doesn't report errors.
 
 It signs with the iPhone app's Apple Distribution identity and App Store Connect API key (the
 same secrets) and its own profile, "Otter Agents App Store" for `dev.otterware.agents` (Push
-Notifications and Keychain Sharing): the `IOS_AGENTS_PROVISIONING_PROFILE` secret (base64 of the
-`.mobileprovision`). The notification service extension uses "Otter Agents Notifications App
-Store" for `dev.otterware.agents.notifications`:
-`IOS_AGENTS_NOTIFICATION_PROVISIONING_PROFILE` (base64). Both profiles must permit the shared
-`838JVGY7W4.dev.otterware.agents` keychain access group (the existing main profile permits it
-through its team wildcard). The debug app and extension share
-`838JVGY7W4.dev.otterware.agents.dev` instead.
+Notifications): the `IOS_AGENTS_PROVISIONING_PROFILE` secret (base64 of the `.mobileprovision`).
 
 The App Store Connect app is "Otter Agents" (ID 6833242723). Builds go to its internal TestFlight
 group, Nightly (Internal), automatically. Release builds sign in to Google with the iPhone app's

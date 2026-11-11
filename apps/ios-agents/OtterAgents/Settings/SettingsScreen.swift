@@ -63,7 +63,7 @@ struct SettingsScreen: View {
 extension SettingsScreen {
     private var notifications: some View {
         @Bindable var account = account
-        return SettingsSection(footer: "When an agent finishes, needs your approval, has a question, or sends you a message. Notifications show the chat and a preview, read directly from your agent on this iPhone.") {
+        return SettingsSection(footer: "When an agent finishes, needs your approval, has a question, or sends you a message. Notifications name the chat and the agent, never what was said.") {
             SettingsCell {
                 SettingsSymbol(name: "bell.badge").frame(width: 24)
                 Toggle("Notifications", isOn: $account.notifications).font(.ui(16)).foregroundStyle(palette.text)

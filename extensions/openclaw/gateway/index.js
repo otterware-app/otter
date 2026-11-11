@@ -8,9 +8,14 @@ import { toInboundMediaFacts } from "openclaw/plugin-sdk/channel-inbound";
 import { waitUntilAbort } from "openclaw/plugin-sdk/channel-outbound";
 import { runInDetachedAsyncContext } from "openclaw/plugin-sdk/concurrency-runtime";
 import { defineStableChannelIngressIdentity } from "openclaw/plugin-sdk/channel-ingress-runtime";
-import { resolveAgentWorkspaceDir } from "openclaw/plugin-sdk/agent-runtime";
+import {
+  resolveAgentConfig,
+  resolveAgentIdentity,
+  resolveAgentWorkspaceDir,
+} from "openclaw/plugin-sdk/agent-runtime";
 import { dispatchGatewayMethod } from "openclaw/plugin-sdk/gateway-method-runtime";
 import { resolveAgentIdFromSessionKey } from "openclaw/plugin-sdk/routing";
+import { getSessionEntryAsync } from "openclaw/plugin-sdk/session-store-runtime";
 import { createBrowserControl } from "./control.js";
 import { runDetachedWebhookWork } from "openclaw/plugin-sdk/webhook-request-guards";
 import { readWorkspaceFile } from "./files.js";
@@ -30,6 +35,7 @@ import {
   targetOf,
   TARGETS_HINT,
   tell,
+  titled,
 } from "./otter.js";
 
 const owner = defineStableChannelIngressIdentity({
@@ -40,6 +46,14 @@ const owner = defineStableChannelIngressIdentity({
 
 let logger;
 const warn = (message) => logger?.warn?.(message);
+
+/** The chat's title, which Otter keeps as its session's label, and the agent's name. */
+const lookIn =
+  (cfg) =>
+  async ({ agentId, sessionKey }) => ({
+    title: sessionKey ? (await getSessionEntryAsync({ sessionKey, agentId }))?.label : undefined,
+    agentName: resolveAgentIdentity(cfg, agentId)?.name ?? resolveAgentConfig(cfg, agentId)?.name,
+  });
 
 export const otterChannel = createChatChannelPlugin({
   base: {
@@ -94,8 +108,8 @@ export const otterChannel = createChatChannelPlugin({
         ? { ok: true, to }
         : { ok: false, error: new Error(`Otter's targets are ${TARGETS_HINT}.`) };
     },
-    sendText: (ctx) => deliver(ctx, undefined, { warn }),
-    sendPayload: (ctx) => deliver(ctx, ctx.payload, { warn }),
+    sendText: (ctx) => deliver(ctx, undefined, { warn, look: lookIn(ctx.cfg) }),
+    sendPayload: (ctx) => deliver(ctx, ctx.payload, { warn, look: lookIn(ctx.cfg) }),
   },
 });
 
@@ -193,8 +207,9 @@ export default defineChannelPluginEntry({
     api.on("agent_end", async (_event, ctx) => {
       const pointer = finishedOf(ctx);
       if (!pointer) return;
+      const cfg = api.runtime?.config?.current?.() ?? api.config;
       try {
-        await tell(accountOf(api.runtime?.config?.current?.() ?? api.config), pointer, {
+        await tell(accountOf(cfg), await titled(pointer, lookIn(cfg)), {
           signal: AbortSignal.timeout(10_000),
         });
       } catch (error) {

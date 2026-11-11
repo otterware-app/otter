@@ -14,6 +14,7 @@ import {
   startDetached,
   targetOf,
   tell,
+  titled,
 } from "./otter.js";
 
 describe("the Otter channel plugin", () => {
@@ -181,6 +182,31 @@ describe("the Otter channel plugin", () => {
       undefined,
     ])
       expect(finishedOf(other)).toBeUndefined();
+  });
+
+  it("names the chat and the agent for an iPhone's alert, and goes without them if it can't", async () => {
+    const pointer = finishedOf({ sessionKey: "agent:rowan:otter-mail:c-1", channel: "otter" }, 7);
+    const look = vi.fn(async () => ({ title: "  Deploy the site ", agentName: "Rowan" }));
+    expect(await titled(pointer, look)).toEqual({
+      ...pointer,
+      title: "Deploy the site",
+      agentName: "Rowan",
+    });
+    expect(look).toHaveBeenCalledWith(pointer);
+    const long = await titled(pointer, () => ({ title: "x".repeat(300), agentName: "" }));
+    expect(long.title).toHaveLength(200);
+    expect(long).not.toHaveProperty("agentName");
+    for (const broken of [
+      () => {
+        throw new Error("no store");
+      },
+      async () => {
+        throw new Error("no store");
+      },
+      () => undefined,
+      undefined,
+    ])
+      expect(await titled(pointer, broken)).toEqual(pointer);
   });
 
   it("delivers even when the relay can't be told", async () => {
