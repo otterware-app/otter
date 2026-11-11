@@ -66,14 +66,14 @@ it("waits for a new browser's account appearance before returning it", async () 
   await Promise.resolve();
   expect(ready).toBe(false);
   resolve({
-    preferences: { ui: { "otter:theme-source": "dark", "otter:theme:dark": "t3-chat" } },
+    preferences: { ui: { "otter:theme-source": "dark", "otter:theme:dark": "grove" } },
   });
-  expect(await loading).toEqual({ "otter:theme-source": "dark", "otter:theme:dark": "t3-chat" });
+  expect(await loading).toEqual({ "otter:theme-source": "dark", "otter:theme:dark": "grove" });
 });
 
 it("uses cached appearance without waiting for the network", async () => {
-  files.set("ui-preferences.json", { "otter:theme:dark": "codex" });
-  expect(await getUiPreferences(true)).toEqual({ "otter:theme:dark": "codex" });
+  files.set("ui-preferences.json", { "otter:theme:dark": "ocean" });
+  expect(await getUiPreferences(true)).toEqual({ "otter:theme:dark": "ocean" });
   expect(relay).not.toHaveBeenCalled();
 });
 

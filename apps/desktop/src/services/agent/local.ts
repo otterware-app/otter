@@ -64,7 +64,7 @@ export const deviceFiles: ToolFiles = {
 };
 
 /**
- * Otter Code's attachment context, appended to the prompt for every
+ * T3 Code's attachment context, appended to the prompt for every
  * attachment (images too: tools can't read inlined pixels, but can read paths).
  */
 export function withAttachmentPaths(text: string, attachments: ChatAttachment[]): string {

@@ -21,6 +21,7 @@
     "dev:ios": "node scripts/dev-ios.ts",
     "dev:ios:agents": "node scripts/dev-ios.ts --app agents",
     "ios:resources": "node scripts/export-ios-resources.ts",
+    "licenses:sync": "node scripts/sync-third-party-license-notices.ts",
     "release:ios": "node scripts/release-ios.ts",
     "release:ios:agents": "node scripts/release-ios.ts --app agents",
     "typecheck": "vp run -r --parallel --concurrency-limit 4 typecheck",

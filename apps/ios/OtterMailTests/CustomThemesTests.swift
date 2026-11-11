@@ -31,7 +31,7 @@ struct CustomThemesTests {
     @Test func dropsWhatDoesntHoldUp() {
         #expect(CustomThemes.themes(nil).isEmpty)
         #expect(CustomThemes.themes("nope").isEmpty)
-        let raw = #"[{"id":"codex","label":"Taken","appearance":"dark","colors":{}},{"id":"x","label":"","appearance":"dark","colors":{}},{"id":"y","label":"Y","appearance":"dim","colors":{}},null]"#
+        let raw = #"[{"id":"grove","label":"Taken","appearance":"dark","colors":{}},{"id":"x","label":"","appearance":"dark","colors":{}},{"id":"y","label":"Y","appearance":"dim","colors":{}},null]"#
         #expect(CustomThemes.themes(raw).isEmpty)
     }
 }

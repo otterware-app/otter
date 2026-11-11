@@ -7,6 +7,7 @@ import { defineConfig, type Plugin } from "vite-plus";
 
 import pkg from "./package.json" with { type: "json" };
 import { releaseChannel } from "../../packages/shared/src/release-channel";
+import { thirdPartyLicensesPlugin } from "../../scripts/lib/third-party-licenses";
 
 const port = Number(process.env.PORT ?? 5833);
 
@@ -53,6 +54,14 @@ export default defineConfig(({ command }) => ({
       },
     },
     demoMailboxes(),
+    thirdPartyLicensesPlugin({
+      bundleName: "web",
+      configFile: new URL("../../third-party-licenses.config.json", import.meta.url),
+      packageManifests: [
+        { bundle: "web", path: new URL("./package.json", import.meta.url) },
+        { bundle: "desktop", path: new URL("../desktop/package.json", import.meta.url) },
+      ],
+    }),
     react(),
     babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),

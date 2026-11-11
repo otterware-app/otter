@@ -73,6 +73,8 @@ test("packaged icons follow the build, with no user icon collection or cross-cha
       assert.equal((config.linux as { icon: string }).icon, `${icon}.png`);
       assert.deepEqual(config.extraResources, [
         { from: `resources/${icon}.png`, to: `${icon}.png` },
+        { from: "LICENSE", to: "LICENSE" },
+        { from: "THIRD_PARTY_NOTICES.md", to: "THIRD_PARTY_NOTICES.md" },
       ]);
       assert.equal(config.generateUpdatesFilesForAllChannels, false);
       assert.equal(config.appId, "dev.otterware.mail");

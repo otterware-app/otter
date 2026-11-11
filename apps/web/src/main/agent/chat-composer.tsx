@@ -525,7 +525,7 @@ export function ChatComposer({
               </div>
               <div className="flex shrink-0 items-center">
                 {/* Running + empty composer → Stop; with a draft the button
-                    queues or steers it (Otter Code's primary actions). */}
+                    queues or steers it (T3 Code's primary actions). */}
                 {busy && !hasDraft && !editing ? (
                   <HintTooltip label="Interrupt">
                     <button

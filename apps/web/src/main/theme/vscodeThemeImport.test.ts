@@ -1,3 +1,4 @@
+/** From T3 Code (github.com/pingdotgg/t3code, apps/web/src/vscodeThemeImport.test.ts; MIT, see THIRD_PARTY_NOTICES.md). */
 import { describe, expect, it } from "vite-plus/test";
 
 import { getThemeColorsForMode, themeColorToHex, THEME_FILE_VERSION } from "./themePalette";

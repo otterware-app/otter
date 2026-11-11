@@ -6,11 +6,12 @@ enum Route: Hashable {
     case appearance
     case account
     case chatSettings
+    case licenses
     case task(String)
 }
 
 /**
- * The app's frame, as Otter Code's: one stack whose root is the chosen tab, a floating glass bar
+ * The app's frame, as T3 Code's: one stack whose root is the chosen tab, a floating glass bar
  * of tabs at the bottom with the compose button beside it, both gone while a chat is open.
  */
 struct RootView: View {
@@ -55,6 +56,7 @@ struct RootView: View {
                 case .appearance: AppearanceSettings()
                 case .account: AccountSettings()
                 case .chatSettings: ChatSettings()
+                case .licenses: LicensesView()
                 case .task(let id): TaskScreen(id: id) { path.append(.chat($0)) }
                 }
             }

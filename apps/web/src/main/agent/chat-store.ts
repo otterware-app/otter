@@ -654,7 +654,7 @@ function steer(msg: Outgoing, intent: "steer" | "promoted" = "steer"): void {
 
 export function sendMessage(msg: Outgoing, followUp: FollowUpBehavior): void {
   if (!get().runs[msg.convoId]) return startTurn(msg);
-  // As in Otter Code, a message waits in the queue while the run compacts.
+  // As in T3 Code, a message waits in the queue while the run compacts.
   if (followUp === "queue" || msg.attachments || compactingIn(msg.convoId))
     set((s) => ({ queue: [...s.queue, msg] }));
   else steer(msg);

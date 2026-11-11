@@ -308,7 +308,7 @@ function CopyMessageButton({ text }: { text: string }) {
   );
 }
 
-/** Marks the query's words in a message, as Otter Code's find does for a search result. */
+/** Marks the query's words in a message, as T3 Code's find does for a search result. */
 function highlightFound(turnId: string, query: string): (() => void) | undefined {
   const message = document.querySelector(`[data-message-id="${CSS.escape(turnId)}"]`);
   if (!message || !("highlights" in CSS)) return;
@@ -398,7 +398,7 @@ export function ChatTranscript({
   const runStartedAt = turns.find((turn) => runReplies.has(turn.id))?.startedAt;
   return turns.map((turn, index) => {
     if (turn.role === "user") {
-      // A compaction before the run comes before the message, as in Otter Code: while it runs,
+      // A compaction before the run comes before the message, as in T3 Code: while it runs,
       // the message waits under it, dashed, not read yet; once done, its divider stays above.
       const reply = turns[index + 1];
       const replyItems = reply?.role === "assistant" ? shownItems(reply) : [];

@@ -33,7 +33,7 @@ export function useFollowUpBehavior(): FollowUpBehavior {
 const QUEUE_VISIBLE_ROWS = 3;
 
 /**
- * The chat's queued messages at the end of its transcript, as Otter Code shows them: each in
+ * The chat's queued messages at the end of its transcript, as T3 Code shows them: each in
  * full, dashed and unfilled until it's sent, with Send now, Edit and Remove under it.
  */
 export function QueuedMessages({

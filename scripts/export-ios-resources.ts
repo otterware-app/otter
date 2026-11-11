@@ -10,6 +10,8 @@ import {
   getThemeColorsForAppearance,
 } from "../packages/shared/src/theme-palettes.ts";
 
+import { generateThirdPartyLicenseManifest } from "./lib/third-party-licenses.ts";
+
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "apps/ios/OtterMail/Resources");
 mkdirSync(out, { recursive: true });
@@ -53,3 +55,18 @@ const write = (name: string, value: unknown) => {
 };
 write("Themes.json", themes);
 write("DemoMailboxes.json", demo);
+
+const licenses = await generateThirdPartyLicenseManifest({
+  bundleName: "ios",
+  configFile: join(root, "third-party-licenses.config.json"),
+  packageManifests: [],
+});
+write(
+  "Licenses.json",
+  licenses.entries.map(({ name, license, noticeText, sourceUrl }) => ({
+    name,
+    license,
+    noticeText,
+    sourceUrl,
+  })),
+);

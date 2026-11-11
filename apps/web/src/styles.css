@@ -220,7 +220,7 @@ html[data-window-controls="none"] {
   --sidebar-line: var(--border);
 }
 
-/* Contrast (Otter Code's): the text and border roles the utilities paint,
+/* Contrast (T3 Code's): the text and border roles the utilities paint,
    derived from the raw ones above (or a theme's). Surfaces keep their color.
    The sidebar declares them again so they come from its own palette. */
 :root,
@@ -619,7 +619,7 @@ html[data-window-controls="none"] {
   }
 }
 
-/* A light sweeping across text while it's under way (Otter Code's live-tool-shine). */
+/* A light sweeping across text while it's under way (T3 Code's live-tool-shine). */
 @keyframes text-shimmer {
   from {
     background-position:
@@ -835,7 +835,7 @@ html[data-theme-switching] *::after {
     background: transparent;
   }
 
-  /* Borders default to the hairline role, as in Otter Code (Tailwind v4
+  /* Borders default to the hairline role, as in T3 Code (Tailwind v4
      would otherwise paint a bare `border` in the text color). */
   *,
   ::before,
@@ -854,7 +854,7 @@ html[data-theme-switching] *::after {
 }
 
 /*
- * Otter Code's borderless top bar: scrolled content fades out beneath it
+ * T3 Code's borderless top bar: scrolled content fades out beneath it
  * instead of meeting a hairline. The overlay scrollbar sits outside the mask.
  */
 @utility topbar-scroll-fade {
@@ -978,7 +978,7 @@ html[data-theme-switching] *::after {
 }
 
 /* Settings search: the result's row, card or section pulses once it's scrolled
-   to (Otter Code's). A row's ring is inset, so it stays inside its card. */
+   to (T3 Code's). A row's ring is inset, so it stays inside its card. */
 @keyframes settings-search-target-pulse {
   0%,
   100% {

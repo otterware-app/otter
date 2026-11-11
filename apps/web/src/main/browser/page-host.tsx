@@ -71,7 +71,7 @@ export function PageSlot({ tabId, className }: { tabId: string; className?: stri
 }
 
 /**
- * Every page that's been shown, mounted once for the app's life (Otter Code's
+ * Every page that's been shown, mounted once for the app's life (T3 Code's
  * ElectronBrowserHost). Their order is the tabs' ids, never the strip's: Electron reloads a
  * webview moved in the document.
  */

@@ -118,6 +118,18 @@ See [docs/development.md](docs/development.md) for the full setup and
 [docs/release.md](docs/release.md) for how releases are cut. Contributions are welcome;
 start with [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Acknowledgements
+
+Otter's agents owe the most to [T3 Code](https://github.com/pingdotgg/t3code), by the T3 team
+(T3 Tools Inc.). Otter's Agents, with Otter Agents on the iPhone, are modelled closely on it: T3 Code for the agents that do the rest of your work. The
+chats, their queue, search and layout are our code written after theirs; the color themes and
+their editor are ported from it. We'd rather follow what they got right than invent something
+worse. Otter is not affiliated with or endorsed by T3 Tools.
+
+What Otter includes from T3 Code and others, with their licenses, is in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Code from other projects keeps its own license:
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

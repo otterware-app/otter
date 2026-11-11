@@ -756,7 +756,7 @@ export const claudeProvider: ChatProvider<ClaudeSettings> = {
     const text = turn.skill
       ? `/${turn.skill.name}${turn.input ? ` ${turn.input}` : ""}`
       : turn.input;
-    // Otter Code: images as base64 blocks, then the text with every
+    // T3 Code: images as base64 blocks, then the text with every
     // attachment's path (Claude reads documents itself). Text last so a
     // /skill command still expands.
     const attached = turn.attachments ?? [];

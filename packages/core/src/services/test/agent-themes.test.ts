@@ -28,14 +28,14 @@ function tool(name: string) {
 const stored = () => JSON.parse(ui.values["otter:themes:v1"] ?? "[]");
 
 beforeEach(() => {
-  ui.values = { "otter:theme:light": "codex", "otter:theme:dark": "ocean" };
+  ui.values = { "otter:theme:light": "grove", "otter:theme:dark": "ocean" };
   confirmed.length = 0;
 });
 
 describe("theme tools", () => {
   it("lists the themes and what's worn", async () => {
     const list = await tool("list_themes")();
-    expect(list.wearing).toEqual({ light: "codex", dark: "ocean" });
+    expect(list.wearing).toEqual({ light: "grove", dark: "ocean" });
     expect(list.themes.find((t: { id: string }) => t.id === "ocean")).toMatchObject({
       builtIn: true,
       appearances: ["light", "dark"],
@@ -57,7 +57,7 @@ describe("theme tools", () => {
     });
     expect(saved).toMatchObject({ id: "ocean-copy", name: "Ocean copy" });
     expect(ui.values["otter:theme:dark"]).toBe("ocean-copy");
-    expect(ui.values["otter:theme:light"]).toBe("codex");
+    expect(ui.values["otter:theme:light"]).toBe("grove");
     const [copy] = stored();
     const dark = copy.appearance === "dark" ? copy.colors : copy.variants.dark;
     expect(dark).toMatchObject({ canvas: "#1a1b26", messageAction: "#f97316" });

@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /**
- * Where you write: Otter Code's glass pill, one row until the text wraps, then the text above
+ * Where you write: T3 Code's glass pill, one row until the text wraps, then the text above
  * its controls. What a message carries (files, quotes, a skill) rides above the text.
  */
 struct Composer: View {

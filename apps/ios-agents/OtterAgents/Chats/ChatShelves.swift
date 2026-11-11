@@ -108,7 +108,7 @@ nonisolated enum ChatText {
         return trimmed.count > 56 ? "\(trimmed.prefix(56))…" : trimmed
     }
 
-    /** When a message was sent, as Otter Code shows it: the time today, else the day too. */
+    /** When a message was sent, as T3 Code shows it: the time today, else the day too. */
     static func messageTime(_ at: Int, now: Date = .now, calendar: Calendar = .current) -> String {
         let date = Date(ms: at)
         let time = date.formatted(date: .omitted, time: .shortened)

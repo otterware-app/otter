@@ -1,5 +1,6 @@
 /**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
+ * Ported from T3 Code (github.com/pingdotgg/t3code at a107f8a07; MIT, see
+ * THIRD_PARTY_NOTICES.md):
  * apps/web/src/components/settings/ThemeEditorHost.tsx. Departures are marked
  * "Mail:": Mail wears a theme per appearance (apply-theme.ts) where upstream
  * has a base theme and halves, and has its own toasts.

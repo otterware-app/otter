@@ -16,6 +16,8 @@
 		0D000000000000000000010F /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D000000000000000000010E /* Typography.swift */; };
 		0D0000000000000000000111 /* CustomThemes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000110 /* CustomThemes.swift */; };
 		0D0000000000000000000113 /* Themes.json in Resources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000112 /* Themes.json */; };
+		0D00000000000000000001F3 /* Licenses.json in Resources */ = {isa = PBXBuildFile; fileRef = 0D00000000000000000001F2 /* Licenses.json */; };
+		0D00000000000000000001F5 /* Licenses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D00000000000000000001F4 /* Licenses.swift */; };
 		0D0000000000000000000115 /* InterVariable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000114 /* InterVariable.ttf */; };
 		0D00000000000000000001F1 /* ThemeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D00000000000000000001F0 /* ThemeSettings.swift */; };
 		0E0000000000000000000100 /* Hermes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000100 /* Hermes.swift */; };
@@ -61,6 +63,8 @@
 		0D000000000000000000010E /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Typography.swift; path = ../ios/OtterMail/Theme/Typography.swift; sourceTree = SOURCE_ROOT; };
 		0D0000000000000000000110 /* CustomThemes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CustomThemes.swift; path = ../ios/OtterMail/Theme/CustomThemes.swift; sourceTree = SOURCE_ROOT; };
 		0D0000000000000000000112 /* Themes.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = Themes.json; path = ../ios/OtterMail/Resources/Themes.json; sourceTree = SOURCE_ROOT; };
+		0D00000000000000000001F2 /* Licenses.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = Licenses.json; path = ../ios/OtterMail/Resources/Licenses.json; sourceTree = SOURCE_ROOT; };
+		0D00000000000000000001F4 /* Licenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Licenses.swift; path = ../ios/OtterMail/Settings/Licenses.swift; sourceTree = SOURCE_ROOT; };
 		0D0000000000000000000114 /* InterVariable.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = InterVariable.ttf; path = ../ios/OtterMail/Resources/Fonts/InterVariable.ttf; sourceTree = SOURCE_ROOT; };
 		0D00000000000000000001F0 /* ThemeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ThemeSettings.swift; path = ../ios/OtterMail/Settings/ThemeSettings.swift; sourceTree = SOURCE_ROOT; };
 		0E0000000000000000000001 = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OtterAgentsNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -164,6 +168,8 @@
 				0D0000000000000000000110 /* CustomThemes.swift */,
 				0D00000000000000000001F0 /* ThemeSettings.swift */,
 				0D0000000000000000000112 /* Themes.json */,
+				0D00000000000000000001F2 /* Licenses.json */,
+				0D00000000000000000001F4 /* Licenses.swift */,
 				0D0000000000000000000114 /* InterVariable.ttf */,
 			);
 			name = "Shared with Otter Mail";
@@ -299,6 +305,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0D0000000000000000000113 /* Themes.json in Resources */,
+				0D00000000000000000001F3 /* Licenses.json in Resources */,
 				0D0000000000000000000115 /* InterVariable.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -334,6 +341,7 @@
 				0D000000000000000000010F /* Typography.swift in Sources */,
 				0D0000000000000000000111 /* CustomThemes.swift in Sources */,
 				0D00000000000000000001F1 /* ThemeSettings.swift in Sources */,
+				0D00000000000000000001F5 /* Licenses.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

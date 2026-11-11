@@ -1,4 +1,4 @@
-/** When a message was sent, as Otter Code shows it: the time today, else the day too. */
+/** When a message was sent, as T3 Code shows it: the time today, else the day too. */
 export function messageTime(at: number, now = Date.now()): string {
   const date = new Date(at);
   const today = new Date(now);

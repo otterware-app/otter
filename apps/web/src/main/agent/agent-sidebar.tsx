@@ -81,7 +81,7 @@ const HEADER_BUTTON =
 const ROW_BODY =
   "flex min-w-0 flex-1 gap-2.5 py-1.5 ps-(--sidebar-row-content-inset) pe-(--sidebar-row-content-inset) text-left outline-none";
 
-/** The row's time or pin, which its settle button takes the place of on hover (Otter Code's). */
+/** The row's time or pin, which its settle button takes the place of on hover (T3 Code's). */
 const ROW_END_HIDES = "group-hover/row:invisible group-has-focus-visible/row:invisible";
 const ROW_ACTION_SHOWS = "group-hover/row:flex group-has-focus-visible/row:flex";
 
@@ -183,7 +183,7 @@ export function AgentSidebar({
   const hiddenSettled = shelves.settled.length - settled.length;
   const current = conversations.find((c) => c.id === chatId);
 
-  // A new chat you're writing joins the drafts once you leave it, not as you type (Otter Code's).
+  // A new chat you're writing joins the drafts once you leave it, not as you type (T3 Code's).
   const [opened, setOpened] = useState({ chatId: "", hadDraft: false });
   if (opened.chatId !== chatId) setOpened({ chatId, hadDraft: hasDraft(drafts, chatId) });
   const newDrafts = conversations
@@ -197,7 +197,7 @@ export function AgentSidebar({
     .sort((a, b) => b.createdAt - a.createdAt);
   const onNewChatPage = current !== undefined && isBlank(current) && !newDrafts.includes(current);
 
-  // Otter Code's sidebar search: titles ranked first, then chats listed for a message.
+  // T3 Code's sidebar search: titles ranked first, then chats listed for a message.
   const titleResults = searching ? rankChatTitles(shown, query, now) : [];
   const titled = new Set(titleResults.map((r) => r.chat.id));
   const shownById = new Map(shown.map((c) => [c.id, c]));
@@ -553,7 +553,7 @@ export function AgentSidebar({
           selected={chatId === SCHEDULED_TASKS}
           onSelect={() => onSelect(SCHEDULED_TASKS)}
         />
-        {/* Otter Code's thread search and project filter: a search of the chats, and which agent's. */}
+        {/* T3 Code's thread search and project filter: a search of the chats, and which agent's. */}
         <div className="flex items-center gap-1 px-(--sidebar-content-inset) pt-3 pb-1">
           <div className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg px-(--sidebar-row-content-inset) text-sidebar-muted-foreground focus-within:bg-sidebar-row-hover focus-within:text-sidebar-foreground focus-within:ring-1 focus-within:ring-focus-ring focus-within:ring-inset hover:bg-sidebar-row-hover hover:text-sidebar-foreground">
             <SearchIcon aria-hidden className="size-4 shrink-0" />
@@ -662,7 +662,7 @@ export function AgentSidebar({
             {shelves.pinned.map((c) => row(c, "pinned"))}
             {shelves.pinned.length > 0 && shelves.active.length > 0 ? divider : null}
             {shelves.active.map((c) => row(c, "active"))}
-            {/* The shelves sit at the bottom, under the chats you're on (Otter Code's). */}
+            {/* The shelves sit at the bottom, under the chats you're on (T3 Code's). */}
             <div className="mt-auto pt-4">
               {shelves.snoozed.length > 0 ? (
                 <Shelf title="Snoozed" count={shelves.snoozed.length}>

@@ -1,6 +1,7 @@
 import { useLatest } from "../use-latest";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { toast } from "../mail/toast";
+import { openLink } from "../browser/store";
 import type { NativeThemeInfo } from "@otter/contracts";
 import {
   CopyIcon,
@@ -851,7 +852,7 @@ export function AppearancePane() {
 
   return (
     <SettingsPageContainer title="Appearance">
-      {/* The scheme and the themes it wears, together (Otter Code's). */}
+      {/* The scheme and the themes it wears, together (T3 Code's). */}
       <div className="space-y-6">
         <SettingsSection
           {...searchableSetting("color-scheme")}
@@ -1024,6 +1025,19 @@ export function AppearancePane() {
           }
         />
       </SettingsSection>
+      <p className="px-4 text-xs text-muted-foreground">
+        The sea otter behind a new chat is{" "}
+        <button
+          type="button"
+          className="cursor-pointer underline underline-offset-2 outline-none hover:text-foreground focus-visible:text-foreground"
+          onClick={() =>
+            openLink("https://www.usgs.gov/media/images/a-sea-otter-shows-its-grizzle")
+          }
+        >
+          A sea otter shows its grizzle
+        </button>{" "}
+        by Joseph Tomoleoni, U.S. Geological Survey. Public domain.
+      </p>
     </SettingsPageContainer>
   );
 }

@@ -1,3 +1,4 @@
+/** From T3 Code (github.com/pingdotgg/t3code, apps/web/src/vscodeThemeImport.ts; MIT, see THIRD_PARTY_NOTICES.md). */
 import {
   createVividThemeColors,
   getThemeModes,

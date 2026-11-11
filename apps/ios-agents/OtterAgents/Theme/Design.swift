@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /**
- * Otter Code's phone layout (apps/mobile in otter-code) in Otter's own face and themes: its
+ * T3 Code's phone layout (apps/mobile in t3code) in Otter's own face and themes: its
  * type sizes and spacing, Inter for DM Sans, and the account's palette for its colors.
  */
 extension Font {

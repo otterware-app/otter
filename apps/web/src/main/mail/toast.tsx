@@ -1,3 +1,4 @@
+/** Adapted from T3 Code (github.com/pingdotgg/t3code, apps/web/src/components/ui/toast.tsx; MIT, see THIRD_PARTY_NOTICES.md). */
 import { Toast } from "@base-ui/react/toast";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import {

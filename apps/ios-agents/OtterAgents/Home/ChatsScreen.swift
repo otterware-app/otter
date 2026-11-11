@@ -1,7 +1,7 @@
 import SwiftUI
 
 /**
- * Every chat, as Otter Code lists threads: yours to pick up first (drafts, pinned, active), then
+ * Every chat, as T3 Code lists threads: yours to pick up first (drafts, pinned, active), then
  * what's put away (snoozed, settled) behind its heading. Shelves and their order are the Mac's
  * and the web's (`ChatShelf`).
  */

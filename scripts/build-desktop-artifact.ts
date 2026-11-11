@@ -21,6 +21,7 @@ const desktopDir = NodePath.join(repoRoot, "apps", "desktop");
 const webDir = NodePath.join(repoRoot, "apps", "web");
 const vpBin = NodePath.join(repoRoot, "node_modules", ".bin", "vp");
 const electronBuilderBin = NodePath.join(desktopDir, "node_modules", ".bin", "electron-builder");
+const NOTICES = ["LICENSE", "THIRD_PARTY_NOTICES.md"];
 const NOTARIZE_HOOK = NodePath.join(repoRoot, "scripts", "notarize-mac.ts");
 
 const HELP = `Usage: node scripts/build-desktop-artifact.ts [options]
@@ -205,7 +206,10 @@ export function createBuildConfig(options: {
     nodeGypRebuild: false,
     files: ["package.json", "dist-electron/**/*", "renderer/**/*", "!**/*.map"],
     directories: { buildResources: "resources", output: "dist" },
-    extraResources: [{ from: `resources/${icon}.png`, to: `${icon}.png` }],
+    extraResources: [
+      { from: `resources/${icon}.png`, to: `${icon}.png` },
+      ...NOTICES.map((name) => ({ from: name, to: name })),
+    ],
     generateUpdatesFilesForAllChannels: false,
     protocols: [
       { name: "Email", schemes: ["mailto"] },
@@ -414,6 +418,9 @@ function main(): void {
   );
   copyDir(NodePath.join(webDir, "dist"), NodePath.join(stageDir, "renderer"), notMap);
   copyDir(NodePath.join(desktopDir, "resources"), NodePath.join(stageDir, "resources"));
+  for (const name of NOTICES) {
+    NodeFS.copyFileSync(NodePath.join(repoRoot, name), NodePath.join(stageDir, name));
+  }
   if (translatorBinary) {
     NodeFS.mkdirSync(NodePath.join(stageDir, "bin"));
     NodeFS.copyFileSync(translatorBinary, NodePath.join(stageDir, "bin", "translator"));

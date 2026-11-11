@@ -1,5 +1,6 @@
 /**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
+ * Ported from T3 Code (github.com/pingdotgg/t3code at a107f8a07; MIT, see
+ * THIRD_PARTY_NOTICES.md):
  * apps/web/src/themePalette.ts, the custom theme library, the palette engine
  * and theme files. Kept as close to upstream as possible so its changes can be
  * mirrored by diffing; every departure is marked "Mail:". Painting a theme on
@@ -11,10 +12,11 @@ import { converter, parse } from "culori/fn";
 import {
   APP_THEMES,
   EMBER_THEME,
+  FALLBACK_DARK_THEME_COLORS,
+  FALLBACK_LIGHT_THEME_COLORS,
   GROVE_THEME,
   IRIS_THEME,
   OCEAN_THEME,
-  T3_CHAT_THEME,
   OTTER_LIGHT_THEME_COLORS as T3_CODE_LIGHT_THEME_COLORS,
   OTTER_DARK_THEME_COLORS as T3_CODE_DARK_THEME_COLORS,
   THEME_COLOR_ROLES,
@@ -27,7 +29,7 @@ import {
 import { softenThemeColors } from "@otter/shared/theme-display";
 import { setSyncedPreference } from "../synced-preferences";
 
-// Mail: every built-in (Otter Code's stock palette is Mail's "otter" theme, and
+// Mail: every built-in (T3 Code's stock palette is Mail's "otter" theme, and
 // Mail adds Codex) is a library theme, so each can be duplicated.
 const BUILT_IN_THEMES: ReadonlyArray<ThemeDefinition> = APP_THEMES;
 
@@ -39,7 +41,7 @@ const RESERVED_THEME_IDS: ReadonlySet<string> = new Set([
   ...APP_THEMES.map((theme) => theme.id),
 ]);
 
-export { EMBER_THEME, GROVE_THEME, IRIS_THEME, OCEAN_THEME, T3_CHAT_THEME, THEME_COLOR_ROLES };
+export { EMBER_THEME, GROVE_THEME, IRIS_THEME, OCEAN_THEME, THEME_COLOR_ROLES };
 export type { ThemeAppearance, ThemeColorRole, ThemeColors, ThemeDefinition, ThemeVariants };
 
 export const THEME_FILE_VERSION = 1 as const;
@@ -773,7 +775,7 @@ function standardMutedThemeText(
 }
 
 export function getDefaultThemeColors(appearance: ThemeAppearance): ThemeColors {
-  return appearance === "dark" ? T3_CHAT_THEME.variants!.dark! : T3_CHAT_THEME.colors;
+  return appearance === "dark" ? FALLBACK_DARK_THEME_COLORS : FALLBACK_LIGHT_THEME_COLORS;
 }
 
 /**

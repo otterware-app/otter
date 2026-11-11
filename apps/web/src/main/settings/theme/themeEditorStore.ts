@@ -1,5 +1,6 @@
 /**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
+ * Ported from T3 Code (github.com/pingdotgg/t3code at a107f8a07; MIT, see
+ * THIRD_PARTY_NOTICES.md):
  * apps/web/src/components/settings/themeEditorStore.ts. Mail: without
  * toggleThemeEditorForTheme (upstream's command-palette toggle).
  */

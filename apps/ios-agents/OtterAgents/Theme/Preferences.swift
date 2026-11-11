@@ -22,7 +22,7 @@ final class Preferences {
         }
     }
 
-    static let initialTheme = "codex"
+    static let initialTheme = "otter"
 
     private let defaults: UserDefaults
     @ObservationIgnored var onChange: () -> Void = {}

@@ -276,7 +276,7 @@ export function WindowTitle({ className }: { className?: string }) {
         className,
       )}
     >
-      {/* Wordmark in Otter Code's style: brand word, then the product muted. */}
+      {/* Wordmark in T3 Code's style: brand word, then the product muted. */}
       <span className="inline-flex min-w-0 select-none items-baseline gap-1 whitespace-nowrap text-sm font-medium tracking-tight">
         <span className="text-foreground">Otter</span>
         <span className="truncate text-muted-foreground">Mail</span>

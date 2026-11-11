@@ -1,5 +1,6 @@
 /**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
+ * Ported from T3 Code (github.com/pingdotgg/t3code at a107f8a07; MIT, see
+ * THIRD_PARTY_NOTICES.md):
  * apps/web/src/components/settings/themeInspector.ts. Mail uses its spotlight
  * (a color picked in the editor dims everything that doesn't paint with it);
  * the element picking (Inspect) is here but unused. Mail: a role's probe

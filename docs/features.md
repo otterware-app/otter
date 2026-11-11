@@ -239,7 +239,7 @@ chats read the same everywhere and continue on that Mac.
 | Bottom bar: minimized chats as tabs (working, waiting, finished), Agent                         | ✓                   | ✓                    | —                                          |
 | Chat history from the bottom bar                                                                | ✓                   | ✓                    | the Agent tab (chats: swipe from the left) |
 | AI workspace (Agent in the sidebar): recent chats, the chat, its tabs                           | ✓                   | ✓                    | the Agent tab                              |
-| Chats sorted like Otter Code's: Snoozed, Settled (synced)                                       | ✓                   | ✓                    | —                                          |
+| Chats sorted like T3 Code's: Snoozed, Settled (synced)                                          | ✓                   | ✓                    | —                                          |
 | Open the small window's chat in the workspace (⌘⇧F, and back)                                   | ✓                   | ✓                    | —                                          |
 | Tabs: conversations and drafts it was given, read or made; files                                | ✓                   | ✓                    | —                                          |
 | Tabs: pages it read, events it made, links clicked in it                                        | ✓                   | — (links: a new tab) | —                                          |
@@ -381,11 +381,11 @@ On iPhone, a glass bar under the list holds the mailbox's picture (tap to switch
 
 | Feature                                                                                                          | Mac | Web | iPhone                                                                     |
 | ---------------------------------------------------------------------------------------------------------------- | --- | --- | -------------------------------------------------------------------------- |
-| 7 themes, a light and a dark pick; System / Light / Dark                                                         | ✓   | ✓   | ✓                                                                          |
+| 5 themes, a light and a dark pick; System / Light / Dark                                                         | ✓   | ✓   | ✓                                                                          |
 | Inter, the same typeface in every app                                                                            | ✓   | ✓   | ✓                                                                          |
 | App icon follows the build (stable, nightly or dev; iPhone: stable or dev)                                       | ✓   | ✓   | ✓                                                                          |
 | Stable / Nightly update channel, selected in General and remembered on this computer (web: this browser)         | ✓   | ✓   | —                                                                          |
-| Your own themes (Otter Code's editor): duplicate, edit, import/export                                            | ✓   | ✓   | ✓ (worn and picked; made on the Mac or the web)                            |
+| Your own themes (T3 Code's editor): duplicate, edit, import/export                                               | ✓   | ✓   | ✓ (worn and picked; made on the Mac or the web)                            |
 | Panel animations                                                                                                 | ✓   | ✓   | —                                                                          |
 | Contrast, glass opacity, font size, reading width                                                                | ✓   | ✓   | —                                                                          |
 | Full-width messages: content edge to edge, without the side inset (off by default)                               | —   | —   | ✓                                                                          |
@@ -416,6 +416,7 @@ On iPhone, a glass bar under the list holds the mailbox's picture (tap to switch
 | Return local-agent drafts and findings to the report preview                 | ✓   | —   | —      |
 | Download diagnostics as a file and import an agent's Markdown draft          | ✓   | ✓   | —      |
 | Scrubbed error reports (Sentry), off in Settings → General                   | ✓   | ✓   | ✓      |
+| Open-source licenses (Settings → General, About; Settings on the iPhone)     | ✓   | ✓   | ✓      |
 
 The support playbook covers diagnosis, duplicate detection, issue review, and
 optional fix PRs. See [support.md](support.md); error reports, [error-reports.md](error-reports.md).
@@ -592,7 +593,7 @@ claude.ai connectors) can't reach a server on the Mac.
 
 ## Otter Agents (iPhone)
 
-A second iPhone app (`apps/ios-agents`): the Agent mode on its own, laid out like Otter Code's
+A second iPhone app (`apps/ios-agents`): the Agent mode on its own, laid out like T3 Code's
 phone app. It has no mail; its chats and settings are the Otter account's, the same as every
 other app's. What the Mac and web apps' chat does, and whether Otter Agents does it:
 

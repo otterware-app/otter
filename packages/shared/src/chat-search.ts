@@ -1,4 +1,4 @@
-/** Searching agent chats as Otter Code's sidebar searches threads: titles ranked, then messages. */
+/** Searching agent chats as T3 Code's sidebar searches threads: titles ranked, then messages. */
 
 export interface SearchRange {
   readonly start: number;

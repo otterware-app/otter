@@ -216,7 +216,7 @@ export function DropOverlay() {
   );
 }
 
-/** Otter Code's paste rule: images (or files without text) attach; text pastes. */
+/** T3 Code's paste rule: images (or files without text) attach; text pastes. */
 export function filesFromPaste(data: DataTransfer): File[] {
   const files = Array.from(data.files);
   if (files.length === 0) return [];

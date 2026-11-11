@@ -34,6 +34,7 @@ import { Btn } from "../mail/ui";
 import { requestTour, startSetup } from "../onboarding/onboarding";
 import { requestProblemReport } from "../support/report-problem";
 import { errorReportsAvailable } from "../error-reports";
+import { OpenSourceLicensesButton } from "./open-source-licenses";
 
 export type SettingsRoute = {
   pane: SettingsPane;
@@ -386,6 +387,13 @@ function GeneralPane() {
             }
           />
         ) : null}
+      </SettingsSection>
+      <SettingsSection title="About">
+        <SettingsRow
+          {...searchableSetting("open-source-licenses")}
+          description="What Otter is built on, and the licenses it comes under."
+          control={<OpenSourceLicensesButton />}
+        />
       </SettingsSection>
     </SettingsPageContainer>
   );

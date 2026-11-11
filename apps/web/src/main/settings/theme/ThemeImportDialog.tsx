@@ -1,8 +1,9 @@
 /**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
+ * Ported from T3 Code (github.com/pingdotgg/t3code at a107f8a07; MIT, see
+ * THIRD_PARTY_NOTICES.md):
  * apps/web/src/components/settings/ThemeImportDialog.tsx. Departures are
  * marked "Mail:": Mail's dialog, no Open VSX search (ThemeSearchSection needs
- * Otter Code's server), the browser's file picker on the Mac too, and
+ * T3 Code's server), the browser's file picker on the Mac too, and
  * `accent-surface` for upstream's `accent` (Mail's --accent is the primary).
  */
 import { DownloadIcon, PlusIcon } from "lucide-react";
@@ -481,7 +482,7 @@ export function ThemeImportDialog({
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Theme file</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {fileName ?? "Drop Otter, Otter Code or VS Code .json files"}
+                    {fileName ?? "Drop Otter, T3 Code or VS Code .json files"}
                   </p>
                 </div>
                 {chooseButton()}
