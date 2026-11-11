@@ -1,7 +1,13 @@
 /// <reference lib="webworker" />
 
 import { parseDemoMailboxes } from "@otter/contracts/demo";
-import { addDemoMailboxes, callHandler, startCore, type Platform } from "@otter/core";
+import {
+  addDemoAgents,
+  addDemoMailboxes,
+  callHandler,
+  startCore,
+  type Platform,
+} from "@otter/core";
 import { serializeError, type ReportTags } from "@otter/shared/error-reports";
 
 import { webExtensions } from "./extensions";
@@ -74,6 +80,8 @@ async function startDemo(platform: Platform): Promise<void> {
   }
   await startCore(platform, webExtensions);
   await addDemoMailboxes(json).catch((err: unknown) => console.error("Demo mailboxes:", err));
+  const agents = await (await fetch("/__dev/demo-agents")).text();
+  void addDemoAgents(agents).catch((err: unknown) => console.error("Demo agents:", err));
 }
 
 const ready = webPlatform(page).then(

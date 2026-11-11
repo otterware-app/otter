@@ -1,8 +1,9 @@
 import * as Sentry from "@sentry/electron/utility";
 
-import { DEMO_MAILBOXES_ENV } from "@otter/contracts/demo";
+import { DEMO_AGENTS_ENV, DEMO_MAILBOXES_ENV } from "@otter/contracts/demo";
 import { devDataFrom } from "@otter/contracts/dev-data";
 import {
+  addDemoAgents,
   addDemoMailboxes,
   callHandler,
   onSettingsChanged,
@@ -42,6 +43,12 @@ async function start(): Promise<void> {
   if (demo && !appInfo().packaged) {
     await addDemoMailboxes(demo).catch((error: unknown) =>
       logger.error("backend", "Couldn't add the demo mailboxes", error),
+    );
+  }
+  const agents = process.env[DEMO_AGENTS_ENV];
+  if (agents && !appInfo().packaged) {
+    void addDemoAgents(agents).catch((error: unknown) =>
+      logger.error("backend", "Couldn't connect the demo agents", error),
     );
   }
   postToMain({ type: "ready", channels: [...registeredHandlers().keys()] });

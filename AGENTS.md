@@ -174,6 +174,11 @@ it; the web app needs it (the relay keeps its Gmail sign-ins alive).
     unsubscribe, RSVP, change settings on a server or anything else lasting unless they say so
     for that action. Don't screenshot or quote their mail beyond what the task needs. See
     [Your own data](docs/development.md#your-own-data).
+- `pnpm agents-server`: real OpenClaw and Hermes gateways in Docker, a pair per checkout, running
+  the Otter plugins from this checkout's `extensions/`, on your Codex sign-in.
+  `pnpm dev:demo --agents openclaw,hermes` (or `dev:desktop:demo`) starts them and opens the app
+  connected. Test a change to a gateway plugin or an agent's client against them. See
+  [Agent gateways](docs/development.md#agent-gateways).
 - `pnpm dev:ios`: the iPhone app in the simulator (it has the same demo mailbox, from the welcome
   screen). `pnpm dev:ios:agents`: Otter Agents (its demo, from its welcome screen, is a pretend
   agent and made-up chats).
