@@ -52,6 +52,44 @@ final class WalkthroughUITests: XCTestCase {
         shot("05-details")
     }
 
+    func testTheAgentsBrowserAndItsFiles() {
+        row("Plan the Lisbon offsite").tap()
+        XCTAssertTrue(app.buttons["View browser"].waitForExistence(timeout: 8), "no globe for a chat whose agent browsed")
+        shot("20-globe")
+        app.buttons["View browser"].tap()
+        XCTAssertTrue(app.buttons["Take control"].waitForExistence(timeout: 8), "the browser didn't open")
+        sleep(1)
+        shot("21-browser")
+        app.buttons["Take control"].tap()
+        XCTAssertTrue(app.buttons["Release control"].waitForExistence(timeout: 5), "control wasn't taken")
+        shot("22-browser-control")
+        app.buttons["Close browser"].tap()
+
+        XCTAssertTrue(app.buttons["Chat details"].waitForExistence(timeout: 5), "the browser didn't close")
+        app.buttons["Chat details"].tap()
+        let file = row("offsite-plan.md")
+        XCTAssertTrue(file.waitForExistence(timeout: 3), "the chat's file isn't listed")
+        file.tap()
+        XCTAssertTrue(app.buttons["File actions"].waitForExistence(timeout: 8), "the file didn't open")
+        sleep(1)
+        shot("23-file")
+    }
+
+    func testATurnWaitsOnBackgroundWork() {
+        app.buttons["New chat"].tap()
+        let field = app.textFields.firstMatch.exists ? app.textFields.firstMatch : app.textViews.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("Compare the venues in the background, and tell me which one to book once you know more about each")
+        shot("24-composer-lines")
+        app.buttons["Send message"].tap()
+        let waiting = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Waiting'")).firstMatch
+        XCTAssertTrue(waiting.waitForExistence(timeout: 20), "the turn never said it was waiting")
+        shot("25-waiting")
+        XCTAssertTrue(app.buttons["Send message"].waitForExistence(timeout: 40), "the turn never finished after the wait")
+        shot("26-waited")
+    }
+
     func testSendAMessageAndWatchItAnswer() {
         app.buttons["New chat"].tap()
         let field = app.textFields.firstMatch.exists ? app.textFields.firstMatch : app.textViews.firstMatch

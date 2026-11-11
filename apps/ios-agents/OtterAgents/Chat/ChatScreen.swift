@@ -106,7 +106,7 @@ struct ChatScreen: View {
         .fullScreenCover(isPresented: $showBrowser) {
             if let source = BrowserSource(chat, agents: store.agents) {
                 BrowserScreen(source: source, agent: store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat)),
-                              working: store.runs[chat.id] != nil, activity: BrowserSource.activity(in: chat))
+                              working: store.runs[chat.id] != nil, activity: BrowserSource.activity(in: chat, demo: store.agents.demo))
             }
         }
         .environment(\.chatText, ChatTextActions(open: { open($0, in: chat) }, quote: canWrite(chat) ? { quote($0) } : nil,
@@ -123,7 +123,7 @@ struct ChatScreen: View {
             }
         }
         // When the chat opens, and when its agent browses again: not on a timer.
-        .task(id: "\(id) \(BrowserSource.activity(in: chat))") {
+        .task(id: "\(id) \(BrowserSource.activity(in: chat, demo: store.agents.demo))") {
             guard let source = BrowserSource(chat, agents: store.agents) else { return hasBrowser = false }
             do { hasBrowser = try await source.hasTab() } catch {}
         }

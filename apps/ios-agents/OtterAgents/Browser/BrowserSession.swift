@@ -8,7 +8,7 @@ enum BrowserSource {
 
     /** None for a chat whose agent never browsed, or isn't OpenClaw's. */
     init?(_ chat: Chat, agents: Agents) {
-        guard chat.provider == "openclaw", Self.activity(in: chat) > 0 else { return nil }
+        guard chat.provider == "openclaw", Self.activity(in: chat, demo: agents.demo) > 0 else { return nil }
         if agents.demo {
             self = .demo
         } else if let session = chat.sessionId, agents.isUsable(.openclaw), let gateway = agents.openClawClient {
@@ -18,10 +18,16 @@ enum BrowserSource {
         }
     }
 
-    /** Changes when the agent browses again, and when that step ends: it may be on another tab by then. */
-    static func activity(in chat: Chat) -> Int {
+    /**
+     * Changes when the agent browses again, and when that step ends: it may be on another tab by then.
+     * Its browser tool's steps are titled "Browser", as the Mac and web apps tell them (chat-workspace.tsx).
+     */
+    static func activity(in chat: Chat, demo: Bool) -> Int {
         chat.turns.reduce(0) { count, turn in
-            count + turn.items.reduce(0) { $0 + ($1.step?.kind == "web" ? ($1.isRunning ? 1 : 2) : 0) }
+            count + turn.items.reduce(0) { sum, item in
+                guard let step = item.step, demo ? step.kind == "web" : step.title == "Browser" else { return sum }
+                return sum + (item.isRunning ? 1 : 2)
+            }
         }
     }
 
