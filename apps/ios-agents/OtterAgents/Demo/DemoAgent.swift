@@ -38,6 +38,12 @@ enum DemoAgent {
         return true
     }
 
+    /** A file the pretend agent linked. */
+    static func file(_ href: String) throws -> ChatFile {
+        let name = (((try? ChatFile.path(href)) ?? href) as NSString).lastPathComponent
+        return try ChatFile(name: name, data: Data("# \(name)\n\nThis is the demo. A real agent's file opens here, read from where the agent runs.\n".utf8), mimeType: "text/markdown")
+    }
+
     static func run(_ turn: OutgoingTurn, emit: AgentRunner.Emit) async {
         if turn.sessionId == nil { emit(.session("demo-\(turn.requestId.prefix(8))")) }
         let finished = await script(turn, emit)

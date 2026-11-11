@@ -8,6 +8,7 @@ struct ChatDetails: View {
     @Environment(ChatStore.self) private var store
     let chat: Chat
     var open: (URL) -> Void
+    var openFile: (String) -> Void
     @State private var allOutputs = false
     @State private var allSources = false
 
@@ -119,6 +120,10 @@ struct ChatDetails: View {
             dismiss()
             open(url)
         case .file(let href):
+            if store.readsFiles(chat) {
+                dismiss()
+                return openFile(href)
+            }
             UIPasteboard.general.string = href
             store.notice = "This file is where \(AgentKind.name(of: chat.provider)) runs\(chat.device.map { ", on \($0.name)" } ?? ""). Its path is copied."
         case .thread, .draft:

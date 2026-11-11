@@ -151,7 +151,7 @@ nonisolated enum ChatText {
 }
 
 nonisolated extension Chat {
-    private static let limits = (turns: 80, tabs: 50, title: 300, output: 4000, address: 2048, bytes: 500_000)
+    private static let limits = (turns: 80, tabs: 50, title: 300, output: 4000, address: 2048, thumb: 40_000, bytes: 500_000)
 
     /** The chat as the relay takes it (contracts' `chatForSync`): its last turns, long outputs clipped, within its size. */
     var forSync: JSON {
@@ -178,8 +178,23 @@ nonisolated extension Chat {
             tab.title = clip(tab.title, Self.limits.title)
             return tab
         }
-        synced.turns = turns.suffix(Self.limits.turns).map { outputs($0, Self.limits.output) }
+        func thumbs(_ turn: ChatTurn, _ max: Int) -> ChatTurn {
+            guard turn.attachments.contains(where: { ($0.thumb?.count ?? 0) > max }) else { return turn }
+            var turn = turn
+            turn.attachments = turn.attachments.map { file in
+                var file = file
+                if (file.thumb?.count ?? 0) > max { file.thumb = nil }
+                return file
+            }
+            return turn
+        }
+        synced.turns = turns.suffix(Self.limits.turns).map { thumbs(outputs($0, Self.limits.output), Self.limits.thumb) }
         var json = synced.json
+        // A chat too big for the relay gives up its pictures before any of its turns.
+        if json.data.count > Self.limits.bytes {
+            synced.turns = synced.turns.map { thumbs($0, 0) }
+            json = synced.json
+        }
         while synced.turns.count > 1, json.data.count > Self.limits.bytes {
             synced.turns = Array(synced.turns.dropFirst((synced.turns.count + 3) / 4))
             json = synced.json

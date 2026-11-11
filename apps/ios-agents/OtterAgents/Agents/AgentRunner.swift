@@ -415,6 +415,13 @@ final class AgentRunner {
         }
     }
 
+    /** A file the agent linked, read from where it runs: OpenClaw's gateway serves its agents' workspaces. */
+    func file(of kind: AgentKind, session: String, href: String) async throws -> ChatFile {
+        if agents.demo { return try DemoAgent.file(href) }
+        guard kind == .openclaw, let gateway = agents.openClawClient else { throw OpenClaw.Failure(message: "This file is where \(kind.name) runs.") }
+        return try await gateway.file(session: session, href: href)
+    }
+
     func deleteSession(of kind: AgentKind, _ session: String) async {
         switch kind {
         case .openrouter: try? await agents.routerClient?.delete(session: session)

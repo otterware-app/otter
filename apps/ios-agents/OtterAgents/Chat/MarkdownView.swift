@@ -6,6 +6,8 @@ struct ChatTextActions {
     var open: (URL) -> Void = { _ in }
     /** Nil where nothing can be quoted (a chat that only reads here). */
     var quote: ((String) -> Void)?
+    /** Reads an image the agent linked from where it runs; nil where this iPhone can't. */
+    var image: ((String) async -> UIImage?)?
 }
 
 extension EnvironmentValues {
@@ -281,8 +283,10 @@ private struct TableBlock: View {
 /** An image an answer shows: one on the web, or one written into the answer. */
 private struct ChatImage: View {
     @Environment(\.palette) private var palette
+    @Environment(\.chatText) private var actions
     let alt: String
     let url: String
+    @State private var read: UIImage?
 
     var body: some View {
         if url.hasPrefix("data:image/"), let comma = url.firstIndex(of: ","), let data = Data(base64Encoded: String(url[url.index(after: comma)...])),
@@ -299,9 +303,13 @@ private struct ChatImage: View {
             }
             .frame(maxHeight: 320)
             .accessibilityLabel(alt)
+        } else if let read {
+            Image(uiImage: read).resizable().scaledToFit().clipShape(.rect(cornerRadius: 14)).frame(maxHeight: 320)
+                .accessibilityLabel(alt)
         } else {
-            // A file where the agent runs: this iPhone can't read it.
+            // A file where the agent runs: read from there when this iPhone can.
             label(alt.isEmpty ? (url as NSString).lastPathComponent : alt)
+                .task(id: url) { read = await actions.image?(url) }
         }
     }
 

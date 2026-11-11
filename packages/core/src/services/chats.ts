@@ -234,7 +234,7 @@ function schedulePull(): void {
 /**
  * The relay's copy over this device's, keeping what the relay leaves out
  * (`chatForSync`): the older turns before its first, steps' whole outputs,
- * and the thumbnails of this device's images.
+ * and the thumbnails it dropped from a chat too big for it.
  */
 function merged(remote: Chat, local: Chat | undefined): Chat {
   if (!local) return remote;

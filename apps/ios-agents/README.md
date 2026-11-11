@@ -47,6 +47,10 @@ Everything the Mac and web apps' chat does that a phone without the mail can
 - **The composer** (`Chat/Composer.swift`): photos, the camera and files (10 a message; images
   to 10 MB, files to 50 MB), `/` for the agent's skills, the agent and model picker with
   favorites (`Chat/ModelSheet.swift`), drafts kept per chat.
+- **Files where the agent runs** (`Chat/FileScreen.swift`, `Agents/OpenClawFiles.swift`): a file an
+  OpenClaw agent links, or lists in a chat's details, is read from its gateway (the Mac and web
+  apps' `readFile`) and opens here: text with line numbers, Markdown as it reads, anything else
+  in Quick Look, with copy and share. Images it links show in the answer.
 - **Per chat**: rename, regenerate the title, pin, snooze, settle, delete, copy the session ID,
   find in chat, and details (the agent, where it ran, what it made and read).
 - **Scheduled** (`Scheduled/`): Hermes's cron jobs, OpenClaw's automations and varys's routines

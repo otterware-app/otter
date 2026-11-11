@@ -251,4 +251,37 @@ describe("chatForSync", () => {
     );
     expect(synced.turns).toHaveLength(1);
   });
+
+  it("keeps an image's thumbnail, until the chat is too big for the relay", () => {
+    const thumb = `data:image/jpeg;base64,${"A".repeat(9000)}`;
+    const sent = (id: string) => ({
+      id,
+      role: "user" as const,
+      text: "look",
+      attachments: [{ name: "a.png", kind: "image" as const, size: 10, thumb }],
+    });
+    const small = chatForSync(
+      chat("c11", {
+        turns: [
+          {
+            ...sent("u1"),
+            attachments: [
+              { name: "a.png", kind: "image", size: 10, thumb },
+              { name: "huge.png", kind: "image", size: 10, thumb: "A".repeat(50_000) },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(small.turns[0]!.attachments).toEqual([
+      { name: "a.png", kind: "image", size: 10, thumb },
+      { name: "huge.png", kind: "image", size: 10 },
+    ]);
+
+    const big = chatForSync(
+      chat("c12", { turns: Array.from({ length: 70 }, (_, i) => sent(`u${i}`)) }),
+    );
+    expect(big.turns).toHaveLength(70);
+    expect(big.turns[0]!.attachments).toEqual([{ name: "a.png", kind: "image", size: 10 }]);
+  });
 });

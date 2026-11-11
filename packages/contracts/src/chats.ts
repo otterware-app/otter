@@ -30,6 +30,7 @@ export interface ChatSentAttachment {
   name: string;
   kind: "image" | "file";
   size: number;
+  /** A small picture of an image (a JPEG data URL), so every device shows what was sent. */
   thumb?: string;
 }
 
@@ -130,6 +131,7 @@ export const CHAT_LIMITS = {
   title: 300,
   output: 4000,
   address: 2048,
+  thumb: 40_000,
   bytes: 500_000,
 } as const;
 
@@ -153,11 +155,20 @@ const withOutputs = (turn: ChatTurn, max: number): ChatTurn => ({
   ),
 });
 
+const withThumbs = (turn: ChatTurn, max: number): ChatTurn =>
+  turn.attachments?.some((a) => (a.thumb?.length ?? 0) > max)
+    ? {
+        ...turn,
+        attachments: turn.attachments.map(({ thumb, ...rest }) =>
+          thumb && thumb.length <= max ? { ...rest, thumb } : rest,
+        ),
+      }
+    : turn;
+
 export function chatForSync(chat: Chat): Chat {
-  const turns = chat.turns.slice(-CHAT_LIMITS.turns).map((turn): ChatTurn => ({
-    ...withOutputs(turn, CHAT_LIMITS.output),
-    attachments: turn.attachments?.map(({ thumb: _thumb, ...rest }) => rest),
-  }));
+  const turns = chat.turns
+    .slice(-CHAT_LIMITS.turns)
+    .map((turn) => withThumbs(withOutputs(turn, CHAT_LIMITS.output), CHAT_LIMITS.thumb));
   const synced: Chat = {
     ...chat,
     title: clip(chat.title, CHAT_LIMITS.title),
@@ -167,6 +178,8 @@ export function chatForSync(chat: Chat): Chat {
       .map((tab) => ({ ...tab, title: clip(tab.title, CHAT_LIMITS.title) })),
     turns,
   };
+  // A chat too big for the relay gives up its pictures before any of its turns.
+  if (bytes(synced) > CHAT_LIMITS.bytes) synced.turns = synced.turns.map((t) => withThumbs(t, 0));
   while (synced.turns.length > 1 && bytes(synced) > CHAT_LIMITS.bytes) {
     synced.turns = synced.turns.slice(Math.ceil(synced.turns.length / 4));
   }

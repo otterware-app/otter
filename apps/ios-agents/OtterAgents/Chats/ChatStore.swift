@@ -750,6 +750,18 @@ final class ChatStore {
      * this iPhone last looked shows. Nil when the agent isn't reachable here.
      */
     @discardableResult
+    /** Whether a file a chat links can be read here: from OpenClaw's gateway, for a chat that ran there. */
+    func readsFiles(_ chat: Chat) -> Bool {
+        chat.device == nil && chat.sessionId != nil && (chat.provider == "openclaw" || agents.demo)
+    }
+
+    func file(_ href: String, in chat: Chat) async throws -> ChatFile {
+        guard readsFiles(chat), let kind = AgentKind(rawValue: chat.provider), let session = chat.sessionId else {
+            throw OpenClaw.Failure(message: "This file is where \(AgentKind.name(of: chat.provider)) runs\(chat.device.map { ", on \($0.name)" } ?? "").")
+        }
+        return try await runner.file(of: kind, session: session, href: href)
+    }
+
     func delivered(provider: String, session: String) async -> String? {
         guard let kind = AgentKind(rawValue: provider), agents.isUsable(kind) else { return nil }
         if let known = chats.first(where: { $0.provider == provider && $0.sessionId == session }) {
