@@ -109,15 +109,16 @@ struct Composer: View {
         let placeholder = skills.isEmpty ? "Ask anything" : "Ask anything, / for skills"
         return TextField(placeholder, text: Binding(get: { store.drafts[chat.id] ?? "" }, set: { store.drafts[chat.id] = $0.isEmpty ? nil : $0 }), axis: .vertical)
             .font(.ui(16))
-            .lineLimit(1...(expanded ? 6 : 4))
+            .lineSpacing(3)
+            .lineLimit(1...4)
             .focused(focused)
             .foregroundStyle(palette.text)
             .tint(palette.focus)
             .onGeometryChange(for: Bool.self) { $0.size.height > 30 } action: { tall in if tall { expanded = true } }
-            .padding(.leading, expanded ? 16 : (canAttach ? 46 : 18))
-            .padding(.trailing, expanded ? 16 : 96)
+            .padding(.leading, expanded ? 14 : (canAttach ? 46 : 18))
+            .padding(.trailing, expanded ? 14 : 96)
             .padding(.top, expanded ? 12 : 0)
-            .padding(.bottom, expanded ? 50 : 0)
+            .padding(.bottom, expanded ? 52 : 0)
             .frame(minHeight: 50)
             .overlay(alignment: .bottomLeading) { if canAttach { attachButton } }
             .overlay(alignment: .bottomTrailing) {
@@ -169,7 +170,7 @@ struct Composer: View {
             }
             .padding(.horizontal, 8)
             .frame(height: 50)
-            .frame(maxWidth: expanded ? 230 : nil)
+            .frame(maxWidth: expanded ? 230 : nil, alignment: .trailing)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
