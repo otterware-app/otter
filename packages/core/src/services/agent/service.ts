@@ -313,13 +313,20 @@ const asks = new Map<string, { focused: boolean }>();
 const ASK_SETTLE_MS = 500;
 
 /**
- * What an agent asks of the user (an approval, a question) notifies once, when
- * no window that showed it had focus: every window reports it, a turn picked up
- * again reports it again.
+ * What an agent asks of the user (an approval, a question), delivers or
+ * finishes notifies once, when no window that showed it had focus: every window
+ * reports it, a turn picked up again reports it again.
  */
 export function notifyAsk(
   kind: ProviderKind,
-  ask: { key: string; title: string; subtitle?: string; body?: string; focused: boolean },
+  ask: {
+    key: string;
+    title: string;
+    subtitle?: string;
+    body?: string;
+    chat?: string;
+    focused: boolean;
+  },
 ): void {
   const seen = asks.get(ask.key);
   if (seen) {
@@ -336,6 +343,7 @@ export function notifyAsk(
         title: ask.title,
         subtitle: ask.subtitle ?? `${provider(kind).displayName} is waiting for you`,
         body: ask.body,
+        chat: ask.chat,
       });
     });
   }, ASK_SETTLE_MS);

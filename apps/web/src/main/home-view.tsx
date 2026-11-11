@@ -745,6 +745,14 @@ function MailHome() {
     showChat(chatId);
     go({ mailbox: CHATS_SPACE, label: chatId, messageId: null, account: null, focusId: null });
   };
+  const openWorkspaceRef = useLatest(openWorkspace);
+  useEffect(
+    () =>
+      window.desktopBridge.on("agent:openChat", (id: unknown) => {
+        if (typeof id === "string") openWorkspaceRef.current(id);
+      }),
+    [openWorkspaceRef],
+  );
   const leaveWorkspace = () => {
     const back = mailBeforeChats.current;
     if (back && modeOf(back.mailbox) === "mail") go({ ...back, messageId: null });

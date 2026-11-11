@@ -192,6 +192,7 @@ export function registerAgentHandlers(): void {
       title,
       subtitle: str(p?.subtitle) || undefined,
       body: str(p?.body) || undefined,
+      chat: str(p?.chat) || undefined,
       focused: p?.focused === true,
     });
     return { ok: true };

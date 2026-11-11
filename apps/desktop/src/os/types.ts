@@ -32,7 +32,10 @@ export interface HostOS {
   windowFollowsTheme(win: BrowserWindow): void;
   applicationMenu(items: AppMenuItems): MenuItemConstructorOptions[];
 
-  runsWithoutWindows: boolean;
+  /** Whether this launch was the login item's: the app then starts in the background. */
+  launchedAtLogin(): boolean;
+  /** What brings the window back once it is closed, where the OS has no Dock for that. */
+  showInTray(open: () => void): void;
 
   /**
    * Whether a downloaded update installs whenever the app quits, or only on

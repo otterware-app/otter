@@ -44,6 +44,23 @@ describe("what an agent asks of the user", () => {
     expect(notify).not.toHaveBeenCalled();
   });
 
+  it("names the chat to open", async () => {
+    vi.useFakeTimers();
+    notifyAsk("openclaw", {
+      key: "openclaw:req-5",
+      title: "Morning brief",
+      subtitle: "Finished",
+      chat: "chat-1",
+      focused: false,
+    });
+    await settle();
+    expect(notify).toHaveBeenCalledWith({
+      title: "Morning brief",
+      subtitle: "Finished",
+      chat: "chat-1",
+    });
+  });
+
   it("keeps the same id in another turn apart", async () => {
     vi.useFakeTimers();
     ask("openclaw:req-3:approval:1", true);

@@ -295,9 +295,8 @@ function setupApplicationMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(hostOS.applicationMenu(items)));
 }
 
-app.on("window-all-closed", () => {
-  if (!hostOS.runsWithoutWindows) app.quit();
-});
+// Without a listener Electron quits here; the app stays, in the Dock or the tray.
+app.on("window-all-closed", () => {});
 
 app.on("activate", (_event, hasVisibleWindows) => {
   if (!hasVisibleWindows) void focusMainWindow();
@@ -342,8 +341,9 @@ void app.whenReady().then(async () => {
     setErrorReportsAllowed(reports.enabled);
   });
 
+  hostOS.showInTray(() => void focusMainWindow());
   try {
-    await createMainWindow();
+    await createMainWindow(app.isPackaged && hostOS.launchedAtLogin());
   } catch (error) {
     logger.error("main", "Failed to create main window", error);
   }
