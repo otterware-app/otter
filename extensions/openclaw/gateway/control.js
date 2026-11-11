@@ -35,7 +35,9 @@ const BINDING = "__otterSaw";
  * you copy (Chromium's clipboard isn't yours, so the copy is read here).
  */
 const WATCH_SCRIPT = `(() => {
-  if (globalThis.${BINDING}Ready || window !== top) return;
+  if (window !== top) return;
+  // Already watching (the plugin connected to this page again): what it kept of the page is gone, so say the field again.
+  if (globalThis.${BINDING}Ready) return globalThis.${BINDING}Field();
   globalThis.${BINDING}Ready = true;
   const say = (event) => { try { ${BINDING}(JSON.stringify(event)); } catch {} };
   let move = null;
@@ -61,6 +63,7 @@ const WATCH_SCRIPT = `(() => {
   const sayField = () => setTimeout(() => say({ type: "field", editable: editable() }));
   // A new page starts with nothing focused, and the one before it never said it lost its field.
   sayField();
+  globalThis.${BINDING}Field = sayField;
   addEventListener("focusin", sayField, true);
   addEventListener("focusout", sayField, true);
   let copying = false;

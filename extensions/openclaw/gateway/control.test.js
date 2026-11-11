@@ -197,6 +197,12 @@ describe("taking control of the agent's browser", () => {
       editable: true,
     });
     expect(focus(null, "focusout")).toEqual({ type: "field", editable: false });
+    // Connected to the same page again: it says the field it has, and listens once.
+    focus(input("text"));
+    const heard = said.length;
+    runInNewContext(source, page);
+    expect(said.slice(heard)).toEqual([{ type: "field", editable: true }]);
+    expect(listeners.focusin).toHaveLength(1);
   });
 
   it("hands the page's file picker the files you chose", async () => {
