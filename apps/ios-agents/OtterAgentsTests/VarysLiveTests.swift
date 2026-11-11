@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import Otter_Mail
+@testable import Otter_Agents
 
 // `Varys/` is recorded by varys: its Live protocol's fixtures (`live-*.json`) and its SDK's recorded turns (`turn-*.json`).
 

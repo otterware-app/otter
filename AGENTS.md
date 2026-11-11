@@ -68,8 +68,9 @@ when a feature lands or goes.
 - `apps/ios-agents`: Otter Agents for iPhone, the agents on their own (a second app, as the phone
   gets an app per job): the account's chats and what agents run on a schedule, laid out like
   T3 Code's phone app. Its own project (`OtterAgents.xcodeproj`); it compiles `apps/ios`'s
-  agent clients and themes (listed in its project under "Shared with Otter Mail"), so a change to
-  those builds in both. The chat's logic is `apps/web/src/main/agent` ported (`Chats/`,
+  themes and `MailContext` (listed in its project under "Shared with Otter Mail"), so a change to
+  those builds in both. Otter Mail has no agent of its own: its Send to agent opens a new chat
+  about a conversation, a message or a draft in Otter Agents. The chat's logic is `apps/web/src/main/agent` ported (`Chats/`,
   `Scheduled/`): change both together. See its README.
 - `extensions/`: the built-in extensions, a package each (VS Code's model; contracts'
   `src/extensions.ts`): Sign-in codes, Calendar invites, Translation, Todoist, Otter Drive, and

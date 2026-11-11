@@ -2,7 +2,7 @@
 
 Your agents, on their own: the chats of the Mac and web apps' Agent mode, and what the agents run
 on a schedule, without the mail. A native SwiftUI app (Liquid Glass), the sibling of Otter Mail
-for iPhone (`apps/ios`): the phone gets an app per job. It shares that app's agent clients and
+for iPhone (`apps/ios`): the phone gets an app per job. It shares that app's
 themes, and the Otter account's chats with every other app.
 
 ## Design
@@ -60,6 +60,11 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   OpenClaw agent links, or lists in a chat's details, is read from its gateway (the Mac and web
   apps' `readFile`) and opens here: text with line numbers, Markdown as it reads, anything else
   in Quick Look, with copy and share. Images it links show in the answer.
+- **Mail from Otter Mail** (`Account.open`, `apps/ios`'s `MailContext.swift`): its Send to agent
+  opens this app with a link (the scheme is this app's bundle id) naming conversations, a message,
+  a draft or the words selected in one. A new chat opens with them attached, as chips in the composer; the message sent
+  carries the pointer (account, thread, subject, sender, message ids) and the agent reads the
+  mail itself, as from the Mac and the web.
 - **Per chat**: rename, regenerate the title, pin, snooze, settle, delete, copy the session ID,
   find in chat, and details (the agent, where it ran, what it made and read).
 - **Scheduled** (`Scheduled/`): Hermes's cron jobs, OpenClaw's automations and varys's routines
@@ -103,9 +108,8 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   `assistant` section and the `ui` keys the other apps use) and chats in step, both ways.
 - `Agents/Agents.swift`: how this iPhone reaches each agent. Hermes's settings and sealed key
   follow the account; OpenClaw and varys
-  pair with this iPhone as a device of its own, kept in its Keychain. Their clients are Otter
-  Mail's (`apps/ios/OtterMail/Agent`: `Hermes`, `OpenClaw`, `Varys*`), compiled into
-  both apps.
+  pair with this iPhone as a device of its own, kept in its Keychain. Their clients are `Clients/` (`Hermes`, `OpenClaw`, `Varys*`), compiled into
+  the app and its notification extension.
 - `Agents/AgentRunner.swift`: a turn on each agent, told as the `ChatEvent`s core's providers
   emit. OpenClaw and varys go on without the app: a turn the app left is picked up on return.
 - `Demo/`: the demo's pretend agent and chats, offered on the welcome screen of builds that

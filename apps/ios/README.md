@@ -9,8 +9,8 @@ their code.
 - **Linear's frame.** The mail list is the page, with All and Unread pills under its title and
   Compose and More at the top right. Under it, a glass bar (`Home/PlacesBar.swift`): the mailbox's
   picture (tap to switch mailbox, the one switcher), Inbox, Drafts, Search, and ⌃⌄ for every other
-  place (the mailbox's folders and labels, Search, Settings; the title opens it too). The agent has
-  its own round button beside the bar and opens as a sheet; so does Search. Settings is ChatGPT's grouped sheet.
+  place (the mailbox's folders and labels, Search, Settings; the title opens it too). Search opens
+  as a sheet. Settings is ChatGPT's grouped sheet.
   Gmail's folders include All Mail and Important; Outlook's and IMAP's an Archive of their own,
   and their Starred is Flagged (a flag, not a star).
 - **The desktop's rows.** The sender's picture, who and when, the subject, a line of the latest
@@ -68,24 +68,15 @@ add limited server grants (or an encrypted IMAP password), while mail content st
   providers, then Thunderbird's autoconfig, then the domain's MX host). The password stays in the Keychain; the settings
   follow the Otter account. Debug builds trust any certificate from localhost, to test against
   GreenMail or Dovecot in Docker.
-- `Agent/`: Hermes (`Hermes.swift`) connects to the user's agent server; its settings and
-  sealed key follow the Otter account through the `assistant` settings section shared with
-  Mac/web. OpenClaw (`OpenClaw.swift`) connects to the user's gateway over its
-  WebSocket as the Mac does: this iPhone is a paired device with its own Ed25519 key (a setup
-  code from `openclaw qr`, then `openclaw devices approve`); its gateway and tokens stay here. A
-  run is sent with the turn's id as its idempotency key, so one the app left in the background
-  (or quit during) is picked up again from the gateway's transcript. varys (`Varys.swift`) is
-  reached with a grant of this iPhone's own (a pairing link from varys's Connect an app), its
-  token in the Keychain: commands over HTTP to the address it paired with, the threads and their
-  inbox over varys's Live socket (`VarysLive.swift`), and a turn read from them as varys's SDK
-  reads it (`VarysTurns.swift`). `OtterMailTests/Varys` holds varys's protocol and turn
-  fixtures, which the tests replay. A turn is followed by its request id, so one the app left is
-  picked up again; with the Otter account the grant names the relay, whose pointers catch up the
-  open chat. Disconnecting revokes the grant. The Mac's local Codex and
-  Claude providers are omitted. `AgentChats.swift` reads the account's chats (the relay's
-  `/v1/chats`, every device's and agent's): one this iPhone's agent can run continues here,
-  the others are read, and each finished turn is written back after the chat's other turns,
-  keeping what other devices wrote (it stays the relay's JSON).
+- `Agent/`: the agents are Otter Agents' (`apps/ios-agents`), not this app's. **Send to agent**
+  (`SendToAgent.swift`: beside Reply in the reader, a message's and a list row's menu, the
+  selection's bar, the composer of a draft the mailbox has) opens a new chat there about a
+  conversation, several selected, a message or a draft. What goes is a pointer each
+  (`MailContext.swift`, compiled into both apps: account, thread, subject, sender, message ids),
+  and the words selected in a message when there are some (then the reader's button sends
+  those), as JSON in a link to Otter Agents' scheme, which is its bundle id (so a debug
+  build opens the debug build); the agent reads the mail itself. The button is absent when
+  Otter Agents isn't installed.
 - `Mail/`: the model and `MailStore`, which screens render from. `DemoMail.swift` loads the demo.
 - Alias mailboxes (`NotificationShared/AliasMailbox.swift`, `MailStore.aliases`): an IMAP
   mailbox's address with a mailbox of its own, made on the Mac and the web (the account's

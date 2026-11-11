@@ -99,7 +99,7 @@ bundles from `packages/shared` has changed. A Mac release doesn't need one.
 The second iPhone app, released the same way with its own version (`ios-agents-vX.Y.Z` tags).
 
 1. Each merge to main that touches `apps/ios-agents`, or what it compiles and bundles from
-   `apps/ios` (the agent clients, the themes), runs **Release Otter Agents** as a patch. By hand:
+   `apps/ios` (the themes, `MailContext`), runs **Release Otter Agents** as a patch. By hand:
    `gh workflow run release-ios-agents.yml -f bump=minor`. From this Mac:
    `pnpm release:ios:agents`.
 2. Apple processes it (10–30 min). The internal group **Nightly (Internal)** gets it

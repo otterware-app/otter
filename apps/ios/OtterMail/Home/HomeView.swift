@@ -19,12 +19,9 @@ struct HomeView: View {
     @State private var selecting = false
     @State private var draft: Draft?
     @State private var settingsOpen = false
-    @State private var agentOpen = false
     @State private var searchOpen = false
     @State private var query = ""
     @State private var searchPath: [String] = []
-
-    private var showsAgent: Bool { session.agent.isOn || session.user != nil }
 
     private var menuAnimation: Animation? { reduceMotion ? nil : .spring(duration: 0.4, bounce: 0.15) }
 
@@ -42,11 +39,6 @@ struct HomeView: View {
             }
             .sheet(isPresented: $settingsOpen) {
                 SettingsView()
-            }
-            .sheet(isPresented: $agentOpen) {
-                NavigationStack {
-                    AgentView(sheet: true, onSettings: { agentOpen = false; settingsOpen = true })
-                }
             }
             .sheet(isPresented: $searchOpen) { search }
     }
@@ -91,14 +83,12 @@ struct HomeView: View {
                         PlacesBar(
                             place: place,
                             menuOpen: menuOpen,
-                            showsAgent: showsAgent,
                             onSelect: { select(Place(scope: place.scope, folder: $0)) },
                             onPlace: { select($0) },
                             onMailbox: { switchMailbox($0) },
                             onSearch: { setMenu(open: false); searchOpen = true },
                             onSettings: { setMenu(open: false); settingsOpen = true },
-                            onMenu: { setMenu(open: !menuOpen) },
-                            onAgent: { agentOpen = true }
+                            onMenu: { setMenu(open: !menuOpen) }
                         )
                     }
                 }
@@ -175,7 +165,6 @@ struct HomeView: View {
             }
             if let mailbox { place = Place(scope: mailbox.email) }
             setMenu(open: false)
-            agentOpen = false
             searchOpen = false
             if let thread = destination.thread, let loaded = store.thread(thread),
                destination.email == nil || loaded.mailbox.lowercased() == (mailbox?.source ?? destination.email)?.lowercased() {

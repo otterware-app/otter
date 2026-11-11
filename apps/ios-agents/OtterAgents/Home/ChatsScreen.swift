@@ -246,7 +246,7 @@ struct ChatsScreen: View {
         Button { open(chat.id) } label: {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 AgentAvatar(provider: chat.provider, agent: store.agents.agent(of: chat), size: 20).alignmentGuide(.firstTextBaseline) { $0[.bottom] - 4 }
-                Text(store.drafts[chat.id] ?? "").font(.ui(16, .medium)).foregroundStyle(palette.text).lineLimit(2)
+                Text(store.drafts[chat.id] ?? store.mail[chat.id]?.first?.subject ?? "").font(.ui(16, .medium)).foregroundStyle(palette.text).lineLimit(2)
                 Spacer(minLength: 8)
                 Label("Draft", systemImage: "square.and.pencil").font(.ui(13, .bold)).foregroundStyle(palette.warning)
             }
@@ -257,7 +257,7 @@ struct ChatsScreen: View {
         }
         .buttonStyle(.plain)
         .plainRow(palette)
-        .accessibilityLabel("Unsent draft: \(store.drafts[chat.id] ?? "")")
+        .accessibilityLabel("Unsent draft: \(store.drafts[chat.id] ?? store.mail[chat.id]?.first?.subject ?? "")")
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button("Discard", systemImage: "trash", role: .destructive) { store.discardDraft(chat.id) }
         }

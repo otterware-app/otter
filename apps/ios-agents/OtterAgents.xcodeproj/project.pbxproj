@@ -7,24 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0D0000000000000000000101 /* Hermes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000100 /* Hermes.swift */; };
-		0D0000000000000000000105 /* OpenClaw.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000104 /* OpenClaw.swift */; };
-		0D0000000000000000000107 /* Varys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000106 /* Varys.swift */; };
-		0D0000000000000000000109 /* VarysLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000108 /* VarysLive.swift */; };
-		0D000000000000000000010B /* VarysTurns.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D000000000000000000010A /* VarysTurns.swift */; };
 		0D000000000000000000010D /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D000000000000000000010C /* Theme.swift */; };
 		0D000000000000000000010F /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D000000000000000000010E /* Typography.swift */; };
 		0D0000000000000000000111 /* CustomThemes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000110 /* CustomThemes.swift */; };
 		0D0000000000000000000113 /* Themes.json in Resources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000112 /* Themes.json */; };
 		0D00000000000000000001F3 /* Licenses.json in Resources */ = {isa = PBXBuildFile; fileRef = 0D00000000000000000001F2 /* Licenses.json */; };
 		0D00000000000000000001F5 /* Licenses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D00000000000000000001F4 /* Licenses.swift */; };
+		0D00000000000000000001F7 /* MailContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D00000000000000000001F6 /* MailContext.swift */; };
 		0D0000000000000000000115 /* InterVariable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000114 /* InterVariable.ttf */; };
 		0D00000000000000000001F1 /* ThemeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D00000000000000000001F0 /* ThemeSettings.swift */; };
-		0E0000000000000000000100 /* Hermes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000100 /* Hermes.swift */; };
-		0E0000000000000000000101 /* OpenClaw.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000104 /* OpenClaw.swift */; };
-		0E0000000000000000000102 /* Varys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000106 /* Varys.swift */; };
-		0E0000000000000000000103 /* VarysLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000108 /* VarysLive.swift */; };
-		0E0000000000000000000104 /* VarysTurns.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D000000000000000000010A /* VarysTurns.swift */; };
 		0E000000000000000000000A = {isa = PBXBuildFile; fileRef = 0E0000000000000000000001; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -54,17 +45,13 @@
 		0D0000000000000000000001 /* Otter Agents.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Otter Agents.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D0000000000000000000011 /* OtterAgentsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OtterAgentsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D0000000000000000000021 /* OtterAgentsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OtterAgentsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		0D0000000000000000000100 /* Hermes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Hermes.swift; path = ../ios/OtterMail/Agent/Hermes.swift; sourceTree = SOURCE_ROOT; };
-		0D0000000000000000000104 /* OpenClaw.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OpenClaw.swift; path = ../ios/OtterMail/Agent/OpenClaw.swift; sourceTree = SOURCE_ROOT; };
-		0D0000000000000000000106 /* Varys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Varys.swift; path = ../ios/OtterMail/Agent/Varys.swift; sourceTree = SOURCE_ROOT; };
-		0D0000000000000000000108 /* VarysLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VarysLive.swift; path = ../ios/OtterMail/Agent/VarysLive.swift; sourceTree = SOURCE_ROOT; };
-		0D000000000000000000010A /* VarysTurns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VarysTurns.swift; path = ../ios/OtterMail/Agent/VarysTurns.swift; sourceTree = SOURCE_ROOT; };
 		0D000000000000000000010C /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Theme.swift; path = ../ios/OtterMail/Theme/Theme.swift; sourceTree = SOURCE_ROOT; };
 		0D000000000000000000010E /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Typography.swift; path = ../ios/OtterMail/Theme/Typography.swift; sourceTree = SOURCE_ROOT; };
 		0D0000000000000000000110 /* CustomThemes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CustomThemes.swift; path = ../ios/OtterMail/Theme/CustomThemes.swift; sourceTree = SOURCE_ROOT; };
 		0D0000000000000000000112 /* Themes.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = Themes.json; path = ../ios/OtterMail/Resources/Themes.json; sourceTree = SOURCE_ROOT; };
 		0D00000000000000000001F2 /* Licenses.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = Licenses.json; path = ../ios/OtterMail/Resources/Licenses.json; sourceTree = SOURCE_ROOT; };
 		0D00000000000000000001F4 /* Licenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Licenses.swift; path = ../ios/OtterMail/Settings/Licenses.swift; sourceTree = SOURCE_ROOT; };
+		0D00000000000000000001F6 /* MailContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MailContext.swift; path = ../ios/OtterMail/Agent/MailContext.swift; sourceTree = SOURCE_ROOT; };
 		0D0000000000000000000114 /* InterVariable.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = InterVariable.ttf; path = ../ios/OtterMail/Resources/Fonts/InterVariable.ttf; sourceTree = SOURCE_ROOT; };
 		0D00000000000000000001F0 /* ThemeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ThemeSettings.swift; path = ../ios/OtterMail/Settings/ThemeSettings.swift; sourceTree = SOURCE_ROOT; };
 		0E0000000000000000000001 = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OtterAgentsNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -102,6 +89,7 @@
 			sourceTree = "<group>";
 		};
 		0E0000000000000000000002 = {isa = PBXFileSystemSynchronizedRootGroup; path = NotificationShared; sourceTree = "<group>"; };
+		0E0000000000000000000200 = {isa = PBXFileSystemSynchronizedRootGroup; path = Clients; sourceTree = "<group>"; };
 		0E0000000000000000000003 = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (0E0000000000000000000006, ); path = OtterAgentsNotificationService; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
@@ -139,6 +127,7 @@
 				0D0000000000000000000022 /* OtterAgentsUITests */,
 				0D0000000000000000000020 /* Shared with Otter Mail */,
 				0E0000000000000000000002 /* NotificationShared */,
+				0E0000000000000000000200 /* Clients */,
 				0E0000000000000000000003 /* OtterAgentsNotificationService */,
 				0D0000000000000000000005 /* Products */,
 			);
@@ -158,11 +147,6 @@
 		0D0000000000000000000020 /* Shared with Otter Mail */ = {
 			isa = PBXGroup;
 			children = (
-				0D0000000000000000000100 /* Hermes.swift */,
-				0D0000000000000000000104 /* OpenClaw.swift */,
-				0D0000000000000000000106 /* Varys.swift */,
-				0D0000000000000000000108 /* VarysLive.swift */,
-				0D000000000000000000010A /* VarysTurns.swift */,
 				0D000000000000000000010C /* Theme.swift */,
 				0D000000000000000000010E /* Typography.swift */,
 				0D0000000000000000000110 /* CustomThemes.swift */,
@@ -170,6 +154,7 @@
 				0D0000000000000000000112 /* Themes.json */,
 				0D00000000000000000001F2 /* Licenses.json */,
 				0D00000000000000000001F4 /* Licenses.swift */,
+				0D00000000000000000001F6 /* MailContext.swift */,
 				0D0000000000000000000114 /* InterVariable.ttf */,
 			);
 			name = "Shared with Otter Mail";
@@ -195,6 +180,7 @@
 			fileSystemSynchronizedGroups = (
 				0D0000000000000000000002 /* OtterAgents */,
 				0E0000000000000000000002 /* NotificationShared */,
+				0E0000000000000000000200 /* Clients */,
 			);
 			name = OtterAgents;
 			productName = OtterAgents;
@@ -248,7 +234,7 @@
             buildConfigurationList = 0E000000000000000000000F;
             buildPhases = (0E0000000000000000000008, 0E0000000000000000000007, 0E0000000000000000000009, );
             buildRules = (); dependencies = ();
-            fileSystemSynchronizedGroups = (0E0000000000000000000002, 0E0000000000000000000003, );
+            fileSystemSynchronizedGroups = (0E0000000000000000000002, 0E0000000000000000000003, 0E0000000000000000000200, );
             name = OtterAgentsNotificationService; productName = OtterAgentsNotificationService;
             productReference = 0E0000000000000000000001;
             productType = "com.apple.product-type.app-extension";
@@ -332,16 +318,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0D0000000000000000000101 /* Hermes.swift in Sources */,
-				0D0000000000000000000105 /* OpenClaw.swift in Sources */,
-				0D0000000000000000000107 /* Varys.swift in Sources */,
-				0D0000000000000000000109 /* VarysLive.swift in Sources */,
-				0D000000000000000000010B /* VarysTurns.swift in Sources */,
 				0D000000000000000000010D /* Theme.swift in Sources */,
 				0D000000000000000000010F /* Typography.swift in Sources */,
 				0D0000000000000000000111 /* CustomThemes.swift in Sources */,
 				0D00000000000000000001F1 /* ThemeSettings.swift in Sources */,
 				0D00000000000000000001F5 /* Licenses.swift in Sources */,
+				0D00000000000000000001F7 /* MailContext.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -359,7 +341,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0E0000000000000000000008 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (0E0000000000000000000100, 0E0000000000000000000101, 0E0000000000000000000102, 0E0000000000000000000103, 0E0000000000000000000104, ); runOnlyForDeploymentPostprocessing = 0; };
+		0E0000000000000000000008 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */

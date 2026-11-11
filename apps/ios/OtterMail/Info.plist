@@ -4,6 +4,11 @@
 <dict>
 	<key>CFBundleURLTypes</key>
 	<array><dict><key>CFBundleURLSchemes</key><array><string>ottermail-notifications</string></array></dict></array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>dev.otterware.agents</string>
+		<string>dev.otterware.agents.dev</string>
+	</array>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>dev.otterware.mail.refresh</string>

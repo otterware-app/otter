@@ -59,9 +59,6 @@ final class Relay {
         case mail(email: String)
         case accounts
         case preferences
-        case chats
-        /** An agent has something for the user, in its own session (a varys thread): the device reads it there. */
-        case agent(agentId: String, sessionKey: String?)
     }
 
     struct Failure: LocalizedError {
@@ -215,52 +212,15 @@ final class Relay {
             environment: environment == "development" ? "sandbox" : "production", mode: mode, mailboxes: mailboxes))
     }
 
-    func preferences() async throws -> (sections: [String: Any], hermesKey: String?) {
+    func preferences() async throws -> [String: Any] {
         let (data, _) = try await send("GET", "/v1/preferences")
         let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        return (object?["preferences"] as? [String: Any] ?? [:], object?["hermesKey"] as? String)
+        return object?["preferences"] as? [String: Any] ?? [:]
     }
 
-    func putPreferences(_ sections: [String: Any], hermesKey: String?? = nil) async throws {
-        var body: [String: Any] = ["preferences": sections]
-        if let hermesKey { body["hermesKey"] = hermesKey ?? NSNull() }
-        _ = try await send("PUT", "/v1/preferences", data: try JSONSerialization.data(withJSONObject: body))
+    func putPreferences(_ sections: [String: Any]) async throws {
+        _ = try await send("PUT", "/v1/preferences", data: try JSONSerialization.data(withJSONObject: ["preferences": sections]))
     }
-
-    /** The account's chats, without their turns (deleted ones too, with `deletedAt`). */
-    func chats() async throws -> [[String: Any]] {
-        let (data, _) = try await send("GET", "/v1/chats")
-        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        return object?["chats"] as? [[String: Any]] ?? []
-    }
-
-    func chat(_ id: String) async throws -> [String: Any]? {
-        do {
-            let (data, _) = try await send("GET", "/v1/chats/" + Self.segment(id))
-            return (try JSONSerialization.jsonObject(with: data) as? [String: Any])?["chat"] as? [String: Any]
-        } catch let failure as Failure where failure.status == 404 {
-            return nil
-        }
-    }
-
-    func putChat(_ chat: [String: Any]) async throws {
-        let id = chat["id"] as? String ?? ""
-        _ = try await send("PUT", "/v1/chats/" + Self.segment(id), data: try JSONSerialization.data(withJSONObject: chat))
-    }
-
-    func deleteChat(_ id: String) async throws { _ = try await send("DELETE", "/v1/chats/" + Self.segment(id)) }
-
-    /** A channel an agent tells the account's devices through (`/channel/v1/pointers`), with its token, shown only now. */
-    func makeAgentChannel(_ label: String) async throws -> (id: String, token: String) {
-        let (data, _) = try await send("POST", "/v1/agent-channels", data: try JSONSerialization.data(withJSONObject: ["label": label]))
-        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        guard let id = (object?["channel"] as? [String: Any])?["id"] as? String, let token = object?["token"] as? String else {
-            throw Failure(status: 0, message: "The relay didn't make the channel.")
-        }
-        return (id, token)
-    }
-
-    func deleteAgentChannel(_ id: String) async throws { _ = try await send("DELETE", "/v1/agent-channels/" + Self.segment(id)) }
 
     private var socket: URLSessionWebSocketTask?
     private var listening: Task<Void, Never>?
@@ -323,17 +283,8 @@ final class Relay {
         case "mail": return (object["email"] as? String).map { .mail(email: $0) }
         case "accounts": return .accounts
         case "preferences": return .preferences
-        case "chats": return .chats
-        case "agent":
-            guard let pointer = object["pointer"] as? [String: Any], let agentId = pointer["agentId"] as? String else { return nil }
-            return .agent(agentId: agentId, sessionKey: pointer["sessionKey"] as? String)
         default: return nil
         }
-    }
-
-    /** An id as one path segment, as it is (unlike `path`, which lowercases an address). */
-    private static func segment(_ id: String) -> String {
-        id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed.subtracting(["/"])) ?? id
     }
 
     private static func path(_ email: String) -> String {

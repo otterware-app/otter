@@ -53,7 +53,7 @@ jobs:
           esac
           {
             echo "iphone=$(changed '^(apps/ios/|packages/shared/|package\.json$|scripts/export-ios-resources\.ts$|\.github/workflows/ci\.yml$)')"
-            # Otter Agents compiles Otter Mail's agent clients and themes.
+            # Otter Agents compiles Otter Mail's themes and MailContext.
             echo "agents=$(changed '^(apps/ios-agents/|apps/ios/OtterMail/(Agent|Theme|Resources)/|apps/ios/OtterMail/Settings/(ThemeSettings|Licenses)\.swift$|\.github/workflows/ci\.yml$)')"
             echo "translator=$(changed '^(native/translator/|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
             echo "hermes=$(changed '^(extensions/hermes/gateway/|\.github/workflows/ci\.yml$)')"

@@ -7,14 +7,12 @@ struct PlacesBar: View {
 
     let place: Place
     let menuOpen: Bool
-    let showsAgent: Bool
     let onSelect: (Folder) -> Void
     let onPlace: (Place) -> Void
     let onMailbox: (Mailbox) -> Void
     let onSearch: () -> Void
     let onSettings: () -> Void
     let onMenu: () -> Void
-    let onAgent: () -> Void
 
     static let pinned: [Folder] = [.inbox, .drafts]
 
@@ -39,20 +37,6 @@ struct PlacesBar: View {
                 .frame(height: 56, alignment: .bottomLeading)
 
                 Spacer(minLength: 0)
-
-                if showsAgent {
-                    Button(action: onAgent) {
-                        Image("OtterAgent")
-                            .resizable().scaledToFit()
-                            .frame(width: 24, height: 24)
-                            .foregroundStyle(palette.text)
-                            .frame(width: 56, height: 56)
-                            .contentShape(.circle)
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: .circle)
-                    .accessibilityLabel("Agent")
-                }
             }
         }
         .padding(.horizontal, 20)

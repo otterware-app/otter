@@ -81,18 +81,6 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    NavigationLink {
-                        AgentSettings()
-                    } label: {
-                        LabeledContent {
-                            Text(session.agent.isOn && session.agent.status == .ready ? session.agent.providerName : "Off")
-                        } label: {
-                            Label("Agents", image: "OtterAgent")
-                        }
-                    }
-                }
-
-                Section {
                     Picker(selection: $preferences.scheme) {
                         ForEach(Preferences.Scheme.allCases) { Text($0.title).tag($0) }
                     } label: {

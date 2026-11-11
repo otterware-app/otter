@@ -112,6 +112,19 @@ struct ChatStoreTests {
         #expect(store.chat(chat)!.turns.last { $0.role == .user }?.text == "first, reworded")
     }
 
+    @Test func aQueuedMessageKeepsItsMailWhenEdited() {
+        let store = store()
+        let (chat, _) = running(store)
+        store.mail[chat] = [MailContext(account: "me@example.com", threadID: "t1", subject: "Dinner", from: "maya@example.com", messageIDs: ["m1"])]
+        store.send("first", in: chat)
+        store.editQueued(store.queued(in: chat)[0].id)
+        store.send("first, reworded", in: chat)
+        let queued = store.queued(in: chat)[0]
+        #expect(queued.input.hasPrefix("first, reworded\n\n— context from Otter Mail —"))
+        #expect(queued.input.contains("threadId t1"))
+        #expect(queued.mail.map(\.subject) == ["Dinner"])
+    }
+
     @Test func aSteerJoinsTheRunAndAWholeReplyStartsAfterIt() async {
         let store = store(followUp: .steer)
         let chat = store.newChat()
@@ -284,5 +297,33 @@ struct ChatStoreTests {
         #expect(input.hasPrefix("Shorten it\n\nThe user quotes your earlier replies"))
         #expect(input.hasSuffix("> line one\n> line two\nComment: too long"))
         #expect(ChatStore.withCitations("Just this", []) == "Just this")
+    }
+}
+
+struct MailContextTests {
+    @Test func aLinkFromOtterMailCarriesThePointers() throws {
+        let draft = MailContext(kind: "draft", account: "me@example.com", threadID: "t 1", subject: "Re: Q3 & plans?", from: "me@example.com", messageIDs: ["m1", "m2"])
+        var quoted = MailContext(account: "me@example.com", threadID: "t2", subject: "Dinner", from: "maya@example.com", messageIDs: ["m3"])
+        quoted.quote = "See you at 7!\n“Bring bread” & wine"
+        let link = try #require(MailContext.link([draft, quoted], scheme: "dev.otterware.agents"))
+        #expect(link.scheme == "dev.otterware.agents")
+        #expect(MailContext.read(link: link) == [draft, quoted])
+        #expect(MailContext.link([]) == nil)
+        #expect(MailContext.read(link: URL(string: "dev.otterware.agents://new?mail=%7B%7D")!).isEmpty)
+        #expect(MailContext.read(link: URL(string: link.absoluteString.replacingOccurrences(of: "://new", with: "://chat"))!).isEmpty)
+        #expect(MailContext.scheme(mail: "dev.otterware.mail.dev") == "dev.otterware.agents.dev")
+        #expect(MailContext.scheme(mail: "dev.otterware.mail") == "dev.otterware.agents")
+        #expect(MailContext.handoff("Why 7?", [quoted]).contains("• Quoted from \"Dinner\" [me@example.com] (threadId t2):\n  “See you at 7!"))
+        #expect(ChatContext([quoted])?.kind == "quote")
+    }
+
+    @Test func aTurnSaysWhatMailItWasAbout() throws {
+        let mail = MailContext(kind: "draft", account: "me@example.com", threadID: "", subject: "Offer", from: "me@example.com", messageIDs: ["m1"])
+        #expect(MailContext.handoff("Tighten it", [mail]).contains("• Draft [me@example.com] \"Offer\" — from me@example.com (message m1)"))
+        var turn = ChatTurn(id: "u-1", role: .user, text: "Tighten it")
+        turn.context = ChatContext([mail])
+        let read = try #require(ChatTurn(turn.json))
+        #expect(read.context?.subjects == ["Offer"])
+        #expect(read.context?.kind == "draft")
     }
 }

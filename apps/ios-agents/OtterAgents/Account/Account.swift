@@ -135,6 +135,13 @@ final class Account {
         if let chat = await delivered(pointer) { opening = chat }
     }
 
+    /** Otter Mail's Send to agent: a new chat about that mail opens. */
+    func open(_ link: URL) {
+        let mail = MailContext.read(link: link)
+        guard state != .welcome, !mail.isEmpty else { return }
+        opening = chats.newChat(about: mail)
+    }
+
     /** Whether a notification should show: not for the chat already on screen. */
     func shows(_ pointer: AgentPointer) -> Bool {
         guard notifications, let session = pointer.sessionKey, let watched = chats.watched else { return notifications }

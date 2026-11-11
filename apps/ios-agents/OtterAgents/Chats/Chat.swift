@@ -264,6 +264,17 @@ nonisolated struct ChatContext: Equatable {
         count = json["count"]?.count ?? subjects.count
         kind = json["kind"]?.string ?? "mail"
     }
+
+    init?(_ mail: [MailContext]) {
+        guard let first = mail.first else { return nil }
+        subjects = mail.map(\.subject)
+        count = mail.count
+        kind = first.quote != nil ? "quote" : mail.allSatisfy { $0.kind == first.kind } ? first.kind : "mixed"
+    }
+
+    var json: JSON {
+        .object(["subjects": .array(subjects.map(JSON.string)), "count": .number(Double(count)), "kind": .string(kind)])
+    }
 }
 
 nonisolated struct ChatSentAttachment: Equatable {
@@ -341,7 +352,7 @@ nonisolated struct ChatTurn: Identifiable, Equatable {
     var items: [ChatItem] = []
     /** Read only here: what Otter's own tools changed, on a device that has them. */
     private(set) var changes: [ChatChange] = []
-    private(set) var context: ChatContext?
+    var context: ChatContext?
     var skill: String?
     /** queued, steer or promoted. */
     var intent: String?
@@ -399,6 +410,8 @@ nonisolated struct ChatTurn: Identifiable, Equatable {
             if let comment = citation.comment { item["comment"] = .string(comment) }
             return .object(item)
         })
+        // One read from the account keeps what it came with (its items, which this app doesn't read).
+        if base["context"] == nil { object["context"] = context?.json }
         object["error"] = error.map(JSON.string)
         object["forked"] = forked ? true : nil
         object["delivered"] = delivered?.json
