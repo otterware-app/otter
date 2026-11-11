@@ -234,9 +234,28 @@ half a minute to start (a few minutes the first time).
   rotate it and sign the other out. The token lasts some days; when a gateway says it has run
   out, start `codex` once and run the command again. What the gateways do counts against your
   ChatGPT plan.
-- **Not wired yet:** the plugins' channel to the relay (what an agent sends on its own, a
-  scheduled job's result). Chats from the app work; deliveries need a channel token from
-  Settings and the relay's address, set by hand.
+- **What a plugin tells the relay.** The gateways start without a relay, so a delivery or a
+  finished run tells no one. To see what a plugin sends, run a recorder on this computer:
+
+  ```sh
+  node -e 'require("http").createServer((q,s)=>{let b="";q.on("data",c=>b+=c).on("end",()=>{console.log(q.url,b);s.writeHead(202).end()})}).listen(48787)'
+  ```
+
+  Then point the channels at it, with any token that starts with `otter_ch_`. For OpenClaw, run
+  `docker exec <checkout's openclaw container> sh -c 'cd /app && node openclaw.mjs config set
+channels.otter.relayUrl http://host.docker.internal:48787 && node openclaw.mjs config set
+channels.otter.token otter_ch_dev'` (`docker ps` names the container). For Hermes, add
+  `OTTER_RELAY_URL=http://host.docker.internal:48787` and `OTTER_CHANNEL_TOKEN=otter_ch_dev` to
+  `/opt/data/.env` in its container. Drive them from inside the containers:
+
+  - OpenClaw: `node openclaw.mjs agent --session-key agent:main:otter-mail:<id> --message …`
+    ends a run in an Otter chat. `node openclaw.mjs gateway call sessions.patch --params
+'{"key":…,"label":…}'` titles the chat the way Otter does. `node openclaw.mjs message send
+--channel otter --target chat:new --message …` is a delivery.
+  - Hermes: `hermes send -t otter:new …` is a delivery.
+
+  Remove the settings afterwards (`config unset`, and delete the lines from the `.env`). Otherwise
+  the gateways keep posting to a recorder that's gone.
 
 `pnpm agents-server down` removes the checkout's containers; `down --volumes` also forgets their
 chats and settings, which is how to clean up before deleting a worktree.
