@@ -13,6 +13,7 @@
     "dev:desktop:demo": "node scripts/dev-runner.ts dev:desktop:demo",
     "dev:desktop:real": "node scripts/dev-runner.ts dev:desktop:real",
     "imap-server": "node scripts/imap-server.ts",
+    "agents-server": "node scripts/agents-server.ts",
     "start": "vp run --filter @otter/desktop start",
     "build": "vp run --filter './apps/*' build",
     "build:translator": "node scripts/build-translator.ts",

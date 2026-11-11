@@ -115,6 +115,7 @@ export {
 } from "./services/agent/tools/index.js";
 export * from "./services/agent/types.js";
 export { getAttachmentBytes } from "./services/attachment-cache.js";
+export { addDemoAgents } from "./services/demo-agents.js";
 export { addDemoMailboxes } from "./services/demo-mailboxes.js";
 export { errorReportsConfig, type ErrorReportsConfig } from "./services/error-reports.js";
 export { KEYBINDINGS_FILE } from "./services/keybindings-store.js";

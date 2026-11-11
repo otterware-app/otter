@@ -1,24 +1,20 @@
 #!/usr/bin/env node
-// Worktrees use a stable port offset so dev runs can coexist; PORT and OTTER_PORT_OFFSET override it.
-
 import * as NodeChildProcess from "node:child_process";
-import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
 import * as NodeNet from "node:net";
 import * as NodePath from "node:path";
 import * as NodeReadline from "node:readline";
 import { parseArgs, parseEnv } from "node:util";
 
-import { resolveLinkedWorktree } from "../apps/desktop/scripts/dev-home.mjs";
 import type { DevData } from "../packages/contracts/src/dev-data.ts";
 import { localConfig } from "../infra/relay/scripts/local-config.ts";
 import { buildTranslator, findTranslatorBinary, repoRoot } from "./build-translator.ts";
 import { desktopDataHome, desktopStateDir, prepareData, type DevApp } from "./dev-data.ts";
+import { parseAgents, stopAgents } from "./agents-server.ts";
 import { imapServerCa } from "./imap-server.ts";
+import { BASE_WEB_PORT, resolvePortOffset } from "./port-offset.ts";
 
-const BASE_WEB_PORT = 5833;
 const BASE_RELAY_PORT = 8787;
-const MAX_HASH_OFFSET = 3000;
 const SHUTDOWN_GRACE_MS = 3_000;
 
 /** Each command is an app and what it opens on (scripts/dev-data.ts). */
@@ -58,6 +54,9 @@ Options:
   --reset         Desktop: start its data over (for :real, a fresh copy).
   --login         :demo: sign the demo Gmail mailboxes in to Google (Outlook ones to
                   Microsoft) first, once per machine, saving the sign-ins in .env.local.
+  --agents <list> :demo: start local agent gateways and connect the app to them:
+                  openclaw, hermes or both (\`pnpm agents-server\`). They run the Otter
+                  plugins from this checkout and stop with the run.
   --dry-run       Print the resolved ports and commands, then exit.
   -h, --help      Show this help.
 
@@ -73,27 +72,6 @@ Environment:
                           worktrees, 0 otherwise). Google sign-in through the
                           local relay only works on ${BASE_RELAY_PORT}.
 `;
-
-export function hashOffset(seed: string): number {
-  const digest = NodeCrypto.createHash("sha256").update(seed).digest();
-  return (digest.readUInt32BE(0) % MAX_HASH_OFFSET) + 1;
-}
-
-export function resolvePortOffset(
-  env: NodeJS.ProcessEnv,
-  root: string,
-): { offset: number; source: string } {
-  const raw = env.OTTER_PORT_OFFSET?.trim();
-  if (raw) {
-    const offset = Number(raw);
-    if (!Number.isInteger(offset) || offset < 0 || BASE_WEB_PORT + offset > 65535) {
-      throw new Error(`OTTER_PORT_OFFSET must be a non-negative integer; received "${raw}".`);
-    }
-    return { offset, source: `OTTER_PORT_OFFSET=${offset}` };
-  }
-  if (resolveLinkedWorktree(root)) return { offset: hashOffset(root), source: `worktree ${root}` };
-  return { offset: 0, source: "default port" };
-}
 
 function portIsFree(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -164,6 +142,7 @@ async function main(): Promise<void> {
     options: {
       home: { type: "string" },
       login: { type: "boolean", default: false },
+      agents: { type: "string" },
       reset: { type: "boolean", default: false },
       "dry-run": { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
@@ -177,6 +156,8 @@ async function main(): Promise<void> {
   if (!(mode in MODES)) throw new Error(`Unknown mode "${mode}".\n\n${HELP}`);
   const { app, data } = MODES[mode];
   const desktop = app === "desktop";
+  const agents = values.agents ? parseAgents(values.agents) : [];
+  if (agents.length > 0 && data !== "demo") throw new Error("--agents goes with a :demo run.");
   // The web app signs in through a relay; the made-up mailbox needs none.
   const relay = app === "web" && data !== "fake";
 
@@ -285,6 +266,8 @@ async function main(): Promise<void> {
     home: values.home,
     reset: values.reset,
     login: values.login,
+    agents,
+    portOffset: offset,
   });
   if (desktop) {
     ensureTranslator();
@@ -330,6 +313,7 @@ async function main(): Promise<void> {
       const timeout = new Promise<void>((resolve) => setTimeout(resolve, SHUTDOWN_GRACE_MS));
       await Promise.race([Promise.all(exited), timeout]);
       for (const child of children.values()) signalGroup(child, "SIGKILL");
+      if (agents.length > 0) stopAgents(offset);
     }
     process.exit(exitCode);
   };

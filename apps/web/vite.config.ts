@@ -14,7 +14,7 @@ const devDemo = Boolean(
   process.env.OTTER_DEMO_MAILBOXES && process.env.VITE_RELAY_URL?.startsWith("http://localhost:"),
 );
 
-/** The demo's mailboxes, for the backend to add: from the dev server only, never in a build. */
+/** The demo's mailboxes and agents, for the backend to add: from the dev server only, never in a build. */
 function demoMailboxes(): Plugin {
   return {
     name: "otter-demo-mailboxes",
@@ -24,6 +24,10 @@ function demoMailboxes(): Plugin {
       server.middlewares.use("/__dev/demo-mailboxes", (_req, res) => {
         res.setHeader("Content-Type", "application/json");
         res.end(process.env.OTTER_DEMO_MAILBOXES);
+      });
+      server.middlewares.use("/__dev/demo-agents", (_req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        res.end(process.env.OTTER_DEMO_AGENTS ?? "{}");
       });
     },
   };

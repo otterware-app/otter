@@ -66,3 +66,16 @@ export function parseDemoMailboxes(json: string): DemoMailbox[] {
   }
   return result.data;
 }
+
+/**
+ * The local gateways a demo run started with `--agents` (`pnpm agents-server`): the dev runner
+ * hands the app where they are, and it connects to them. Development runs only, like the mailboxes.
+ */
+export const DEMO_AGENTS_ENV = "OTTER_DEMO_AGENTS";
+
+export const demoAgents = z.object({
+  openclaw: z.object({ url: z.string().min(1), token: z.string().min(1) }).optional(),
+  hermes: z.object({ baseUrl: z.string().min(1), apiKey: z.string().min(1) }).optional(),
+});
+
+export type DemoAgents = z.infer<typeof demoAgents>;

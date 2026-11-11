@@ -9,11 +9,13 @@ import { parseEnv } from "node:util";
 
 import { otterHome, resolveDevHome } from "../apps/desktop/scripts/dev-home.mjs";
 import {
+  DEMO_AGENTS_ENV,
   DEMO_MAILBOXES_ENV,
   parseDemoMailboxes,
   type DemoMailbox,
 } from "../packages/contracts/src/demo.ts";
 import { DEV_DATA_ENV, type DevData } from "../packages/contracts/src/dev-data.ts";
+import { startAgents, type Agent } from "./agents-server.ts";
 import { repoRoot } from "./build-translator.ts";
 import { login } from "./demo-login.ts";
 import { imapServerMailbox, startImapServer } from "./imap-server.ts";
@@ -28,6 +30,10 @@ export type DataOptions = {
   reset: boolean;
   /** `--login`: sign the demo mailboxes in first. */
   login: boolean;
+  /** `--agents`: the local gateways a demo run starts and connects to. */
+  agents: readonly Agent[];
+  /** The checkout's port offset, which its gateways' ports follow. */
+  portOffset: number;
 };
 
 /** The web demo's sign-ins come back to the relay's base port, the one its OAuth clients allow. */
@@ -61,8 +67,12 @@ export async function prepareData(
 ): Promise<Record<string, string>> {
   if (app === "web") {
     if (data === "fake") return { VITE_DEMO: "1" };
-    if (data === "demo")
-      return { [DEMO_MAILBOXES_ENV]: JSON.stringify(await demoMailboxes(app, options)) };
+    if (data === "demo") {
+      return {
+        [DEMO_MAILBOXES_ENV]: JSON.stringify(await demoMailboxes(app, options)),
+        ...(await demoAgents(options)),
+      };
+    }
     return {};
   }
 
@@ -83,8 +93,24 @@ export async function prepareData(
     return { ...env, ...installedOAuthClients() };
   }
   if (options.reset) NodeFS.rmSync(stateDir, { recursive: true, force: true });
-  if (data === "demo") env[DEMO_MAILBOXES_ENV] = JSON.stringify(await demoMailboxes(app, options));
+  if (data === "demo") {
+    env[DEMO_MAILBOXES_ENV] = JSON.stringify(await demoMailboxes(app, options));
+    Object.assign(env, await demoAgents(options));
+  }
   return env;
+}
+
+/** The gateways `--agents` names (`pnpm agents-server`), started for the app to connect to. */
+async function demoAgents(options: DataOptions): Promise<Record<string, string>> {
+  if (options.agents.length === 0) return {};
+  try {
+    const agents = await startAgents(options.agents, options.portOffset);
+    return { [DEMO_AGENTS_ENV]: JSON.stringify(agents) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[dev] Skipping the agents (is Docker running?): ${message}`);
+    return {};
+  }
 }
 
 /**

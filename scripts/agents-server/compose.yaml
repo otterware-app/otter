@@ -1,0 +1,40 @@
+services:
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:2026.11.2
+    environment:
+      CODEX_HOME: /home/node/.openclaw/codex
+    ports:
+      - "127.0.0.1:${OTTER_DEV_OPENCLAW_PORT:?run pnpm agents-server}:18790"
+    volumes:
+      - openclaw:/home/node/.openclaw
+      - ../../extensions/openclaw/gateway:/otter-plugin:ro
+  # The gateway pairs a device without asking only when it connects from loopback, which a
+  # published port isn't: this forwards the port from inside the gateway's own network.
+  openclaw-loopback:
+    image: ghcr.io/openclaw/openclaw:2026.11.2
+    network_mode: service:openclaw
+    entrypoint:
+      - node
+      - -e
+      - |
+        const net = require("node:net");
+        net.createServer((client) => {
+          const gateway = net.connect(18789, "127.0.0.1");
+          client.pipe(gateway).pipe(client);
+          client.on("error", () => gateway.destroy());
+          gateway.on("error", () => client.destroy());
+        }).listen(18790, "0.0.0.0");
+  hermes:
+    image: nousresearch/hermes-agent:v0.23.1
+    command: gateway run
+    environment:
+      API_SERVER_HOST: 0.0.0.0
+      API_SERVER_CORS_ORIGINS: "*" # the web app calls it from the browser
+    ports:
+      - "127.0.0.1:${OTTER_DEV_HERMES_PORT:?run pnpm agents-server}:8642"
+    volumes:
+      - hermes:/opt/data
+      - ../../extensions/hermes/gateway:/opt/data/plugins/otter:ro
+volumes:
+  openclaw:
+  hermes:
