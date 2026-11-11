@@ -2,7 +2,7 @@ import SwiftUI
 
 /**
  * Themes of your own, made on the Mac or the web (the theme editor ported from
- * Otter Code, apps/web's theme/themePalette.ts) and synced as the account's
+ * T3 Code, apps/web's theme/themePalette.ts) and synced as the account's
  * "otter:themes:v1" ui preference: a list of {id, label, appearance, colors,
  * variants?}, every role an "oklch(…)" color. The phone wears them and lets you
  * pick them, but doesn't edit them. A theme may have one appearance only; the

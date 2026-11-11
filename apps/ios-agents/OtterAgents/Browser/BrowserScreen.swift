@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /**
- * The agent's browser tab, to watch and to take over: T3 Code's phone browser preview (otter-code's
+ * The agent's browser tab, to watch and to take over: T3 Code's phone browser preview (its
  * BrowserPreviewRouteScreen and PreviewStreamWebView), over OpenClaw's screencast. It streams
  * while it's on screen and the app is open.
  */

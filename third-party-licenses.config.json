@@ -1,0 +1,128 @@
+{
+  "customNotices": [
+    {
+      "name": "T3 Code",
+      "bundles": ["desktop", "ios", "web"],
+      "license": "MIT",
+      "sourceUrl": "https://github.com/pingdotgg/t3code",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2026 T3 Tools Inc."],
+          "preamble": [
+            "Otter's agents are modelled on T3 Code. Its color themes and their editor, some UI primitives, its toasts, panel animations and this list of licenses are ported or adapted from T3 Code's source."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "shadcn/ui",
+      "bundles": ["desktop", "web"],
+      "license": "MIT",
+      "sourceUrl": "https://github.com/shadcn-ui/ui",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2023 shadcn"],
+          "preamble": ["Otter's UI primitives follow shadcn/ui's components."]
+        }
+      ]
+    },
+    {
+      "name": "A sea otter shows its grizzle",
+      "bundles": ["desktop", "web"],
+      "license": "Public domain",
+      "sourceUrl": "https://www.usgs.gov/media/images/a-sea-otter-shows-its-grizzle",
+      "noticeFile": "apps/web/src/main/assets/agent-otter.txt"
+    },
+    {
+      "name": "Inter",
+      "bundles": ["ios"],
+      "license": "OFL-1.1",
+      "sourceUrl": "https://github.com/rsms/inter",
+      "noticeFile": "apps/ios/OtterMail/Resources/Fonts/Inter-LICENSE.txt"
+    },
+    {
+      "name": "Sentry",
+      "bundles": ["ios"],
+      "license": "MIT",
+      "sourceUrl": "https://github.com/getsentry/sentry-cocoa",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2015 Sentry"]
+        }
+      ]
+    }
+  ],
+  "packageOverrides": [
+    {
+      "name": "@better-auth/utils",
+      "sourceUrl": "https://github.com/better-auth/utils",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Bereket Engida"]
+      }
+    },
+    {
+      "name": "@earendil-works/chord",
+      "sourceUrl": "https://github.com/earendil-works/pi",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Earendil Works"]
+      }
+    },
+    {
+      "name": "@earendil-works/pi-schema",
+      "sourceUrl": "https://github.com/earendil-works/pi",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Earendil Works"]
+      }
+    },
+    {
+      "name": "@earendil-works/pi-telemetry",
+      "sourceUrl": "https://github.com/earendil-works/pi",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Mario Zechner"]
+      }
+    },
+    {
+      "name": "@sqlite.org/sqlite-wasm",
+      "sourceUrl": "https://github.com/sqlite/sqlite-wasm",
+      "generatedNotice": {
+        "licenseId": "Apache-2.0"
+      }
+    },
+    {
+      "name": "react-remove-scroll-bar",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Anton Korzunov <thekashey@gmail.com>"]
+      }
+    },
+    {
+      "name": "@electron-internal/extract-zip",
+      "generatedNotice": {
+        "licenseId": "BSD-2-Clause",
+        "copyrights": ["Copyright (c) 2026 Samuel Attard and Electron contributors"]
+      }
+    },
+    {
+      "name": "electron-chrome-web-store",
+      "sourceUrl": "https://github.com/samuelmaddock/electron-browser-shell",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Samuel Maddock <sam@samuelmaddock.com>"]
+      }
+    },
+    {
+      "name": "lazy-val",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Vladimir Krivosheev"]
+      }
+    }
+  ]
+}

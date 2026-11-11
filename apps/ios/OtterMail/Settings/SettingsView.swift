@@ -165,6 +165,11 @@ struct SettingsView: View {
                     } label: {
                         Label("Version", systemImage: "info.circle")
                     }
+                    NavigationLink {
+                        LicensesView()
+                    } label: {
+                        Label("Open-source licenses", systemImage: "doc.text")
+                    }
                 } header: {
                     Text("Account").sectionHeader()
                 }

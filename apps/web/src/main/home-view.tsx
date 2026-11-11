@@ -1824,7 +1824,7 @@ function MailHome() {
         </div>
       </div>
 
-      {/* Pinned titlebar toggles (Otter Code): same window spot whatever the panes do. */}
+      {/* Pinned titlebar toggles (T3 Code): same window spot whatever the panes do. */}
       <SidebarControl
         sidebarOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}

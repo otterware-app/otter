@@ -14,7 +14,7 @@ final class ChatStore {
         /** Handed off to background work: the subagents it waits on, each by its name when it has one. Nil while it works. */
         var waiting: [String?]?
 
-        /** What a waiting run says it waits on, as Otter Code's phone app words it. */
+        /** What a waiting run says it waits on, as T3 Code's phone app words it. */
         var waitingLabel: String? {
             guard let waiting else { return nil }
             if waiting.count > 1 { return "Waiting on \(waiting.count) subagents" }
@@ -342,7 +342,7 @@ final class ChatStore {
         guard runs[chatId] != nil else { return startTurn(message) }
         var steers = agents.followUp == .steer
         if opposite { steers.toggle() }
-        // As in Otter Code, a message waits in the queue while the run compacts.
+        // As in T3 Code, a message waits in the queue while the run compacts.
         if !steers || !attachments.isEmpty || isCompacting(chatId) { queue.append(message) } else { steer(message) }
     }
 

@@ -163,7 +163,10 @@ the Xcode project, apart from the Mac app's.
 
 `Resources/Themes.json` and `Resources/DemoMailboxes.json` are exported from `packages/shared` by
 `pnpm ios:resources` (`dev:ios` and releases run it); rerun it after changing the palettes or the
-demo mailbox.
+demo mailbox. It also writes `Resources/Licenses.json`, what Settings → Open-source licenses shows
+in both iPhone apps: the `ios` notices of `third-party-licenses.config.json`
+([Open-source licenses](../../docs/development.md#open-source-licenses)). Add a Swift package or
+a bundled font, image or sound there.
 
 ## Verified background notifications
 

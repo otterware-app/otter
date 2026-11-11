@@ -1,3 +1,4 @@
+/** Adapted from T3 Code (github.com/pingdotgg/t3code, apps/web/src/components/ui/toast.logic.ts; MIT, see THIRD_PARTY_NOTICES.md). */
 /**
  * Base UI toast updates omit `undefined` fields, so callers that need to remove
  * an action must pass a defined `actionProps` whose `children` are empty.

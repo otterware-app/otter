@@ -7,7 +7,7 @@ themes, and the Otter account's chats with every other app.
 
 ## Design
 
-Otter Code's phone app (`apps/mobile` in otter-code), in Otter's face and themes:
+T3 Code's phone app (`apps/mobile` in t3code), in Otter's face and themes:
 
 - **The frame.** One stack whose root is the chosen tab. A floating glass bar at the bottom left
   holds the tabs (Chats, Scheduled, Settings), with the compose button beside it; both leave
@@ -24,7 +24,7 @@ Otter Code's phone app (`apps/mobile` in otter-code), in Otter's face and themes
   "Worked for 2m 3s" to see the steps. The composer is a glass pill
   over the end of the conversation, with a capsule above it for the run's clock, what's queued
   and the way back down.
-- **Type and color.** Inter at Otter Code's sizes (`Theme/Design.swift`), the account's themes
+- **Type and color.** Inter at T3 Code's sizes (`Theme/Design.swift`), the account's themes
   for its colors (`apps/ios`'s `Theme.swift`, shared).
 
 ## What it does
@@ -45,7 +45,7 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   or background commands (`sessions_yield`), the turn waits with it, and the reply their
   completion brings is part of it, also when the app left meanwhile. The capsule and the chat's
   row say Waiting, with the subagent's name when it has one ("Waiting · Research pricing"), as
-  Otter Code's phone app does; Stop ends the wait, and so does a message sent meanwhile, which
+  T3 Code's phone app does; Stop ends the wait, and so does a message sent meanwhile, which
   is a turn of its own.
 - **What the agent asks** takes the composer's place (`Chat/AskCards.swift`): approvals (once,
   for this chat, always, deny) and questions (options, your own words, skip).
@@ -87,7 +87,7 @@ Everything the Mac and web apps' chat does that a phone without the mail can
 - **The agents' own sessions** ("On your agents" on the list): chats started in an agent's own
   app open here and go on.
 - **OpenClaw's live browser** (`Browser/`, `Agents/OpenClawBrowser.swift`; apps/web's
-  agent-browser.tsx, laid out as Otter Code's phone browser preview): a globe in the capsule above
+  agent-browser.tsx, laid out as T3 Code's phone browser preview): a globe in the capsule above
   the composer, once the chat's agent has a tab, opens the tab it's driving: the gateway's
   screencast, with the agent's pointer over it. **Take control** sends your taps, scrolling and
   typing to the page (the gateway's Otter plugin replays them) and gives you the address, Back,

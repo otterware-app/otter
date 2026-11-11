@@ -48,10 +48,10 @@ it("waits for saved appearance before returning startup and reuses that snapshot
   });
   await Promise.resolve();
   expect(ready).toBe(false);
-  resolve({ "otter:theme-source": "dark", "otter:theme:dark": "t3-chat" });
+  resolve({ "otter:theme-source": "dark", "otter:theme:dark": "grove" });
   await loading;
   expect(storage.get("otter:theme-source")).toBe("dark");
-  expect(storage.get("otter:theme:dark")).toBe("t3-chat");
+  expect(storage.get("otter:theme:dark")).toBe("grove");
   expect(setThemeSource).toHaveBeenCalledWith("dark");
   startSyncedPreferences();
   expect(invoke).toHaveBeenCalledExactlyOnceWith("preferences:getUi", { initialize: true });
@@ -67,8 +67,8 @@ it("does not overwrite a choice made while the initial snapshot is loading", asy
   invoke.mockReturnValue(saved.promise);
   const { loadSyncedPreferences, setSyncedPreference } = await import("./synced-preferences");
   const loading = loadSyncedPreferences();
-  setSyncedPreference("otter:theme:dark", "codex");
-  resolve({ "otter:theme:dark": "t3-chat" });
+  setSyncedPreference("otter:theme:dark", "ocean");
+  resolve({ "otter:theme:dark": "grove" });
   await loading;
-  expect(storage.get("otter:theme:dark")).toBe("codex");
+  expect(storage.get("otter:theme:dark")).toBe("ocean");
 });

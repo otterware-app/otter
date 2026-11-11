@@ -12,6 +12,7 @@ on:
       - "apps/ios/OtterMail/Theme/**"
       - "apps/ios/OtterMail/Resources/**"
       - "apps/ios/OtterMail/Settings/ThemeSettings.swift"
+      - "apps/ios/OtterMail/Settings/Licenses.swift"
       - "packages/shared/src/theme-palettes.ts"
       - "scripts/export-ios-resources.ts"
       - "scripts/release-ios.ts"

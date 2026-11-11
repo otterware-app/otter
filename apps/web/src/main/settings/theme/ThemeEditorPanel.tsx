@@ -1,6 +1,7 @@
 import { useLatest } from "../../use-latest";
 /**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
+ * Ported from T3 Code (github.com/pingdotgg/t3code at a107f8a07; MIT, see
+ * THIRD_PARTY_NOTICES.md):
  * apps/web/src/components/settings/ThemeEditorPanel.tsx. Kept as close to
  * upstream as possible so its changes can be mirrored by diffing; departures
  * are marked "Mail:". Mail leaves out Inspect (picking a color from the app);

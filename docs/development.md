@@ -284,3 +284,27 @@ because you asked: it reads and changes your real mail.
 
 `pnpm --filter @otter/site build` assembles the deployable site (the web app) in
 `site/dist`.
+
+## Open-source licenses
+
+What Otter is built on is listed in the app with its licenses (Settings → General → About; Settings
+on the iPhone), and credited in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md). The list is
+generated (`scripts/lib/third-party-licenses.ts`, T3 Code's):
+
+- The web build writes `third-party-licenses.json` beside `index.html`, for the web and the
+  desktop app: every installed production dependency of `apps/web` and `apps/desktop`, through
+  the workspace packages they use, with the license text its package ships. The dev server
+  answers the same path.
+- `pnpm ios:resources` writes the iPhone apps' `Licenses.json`.
+
+`third-party-licenses.config.json` holds what a package can't say for itself:
+
+- `customNotices`: what didn't come from npm, such as code ported from another project, a font,
+  an image, a Swift package. `bundles` says which apps list it (`web`, `desktop`, `ios`). Give it
+  `generatedNotices` (an SPDX license id, with `copyrights` and a `preamble`) or a `noticeFile`.
+- `packageOverrides`: a package whose archive has no license file. The build fails on one and
+  names it; add its license and copyright line here.
+
+License texts come from the SPDX templates in `third-party-licenses/spdx/`, committed so a build
+never fetches them. After naming a license that has no template yet, run `pnpm licenses:sync`
+and commit the file it downloads.

@@ -60,14 +60,14 @@ when a feature lands or goes.
   `src/main/os-names.ts`; shortcuts in copy go through `shortcutText("mod+k")` (⌘K, Ctrl+K).
 - `apps/ios`: Otter Mail for iPhone (the iPhone app keeps that name: the phone gets an app per job), a native SwiftUI app (iOS 27, Liquid Glass): Linear's layout
   (a glass bar: the mailbox's picture to switch, Inbox, Drafts, Search, ⌃⌄ for every place; the
-  agent on its own button), Otter Code's list rows. Its own Swift code, not the TypeScript core: it signs in to Google itself (the "iOS"
+  agent on its own button), T3 Code's list rows. Its own Swift code, not the TypeScript core: it signs in to Google itself (the "iOS"
   OAuth client, PKCE), talks to Gmail directly, caches on disk, and follows the Otter account
   through the relay (mailboxes, preferences under the same keys, live events). `Resources/` holds
   the themes and demo mailbox, exported from `packages/shared` by `pnpm ios:resources`. See its
   README.
 - `apps/ios-agents`: Otter Agents for iPhone, the agents on their own (a second app, as the phone
   gets an app per job): the account's chats and what agents run on a schedule, laid out like
-  Otter Code's phone app. Its own project (`OtterAgents.xcodeproj`); it compiles `apps/ios`'s
+  T3 Code's phone app. Its own project (`OtterAgents.xcodeproj`); it compiles `apps/ios`'s
   agent clients and themes (listed in its project under "Shared with Otter Mail"), so a change to
   those builds in both. The chat's logic is `apps/web/src/main/agent` ported (`Chats/`,
   `Scheduled/`): change both together. See its README.
@@ -112,7 +112,7 @@ when a feature lands or goes.
 - `native/translator`: a Swift command-line helper for Apple's on-device Translation. It reads a
   JSON request on stdin and prints JSON. Building it needs full Xcode (macOS 26 SDK).
 - `scripts/`: dev runner, desktop packaging (`build-desktop-artifact.ts`), release helpers.
-- `assets/`: app icons like Otter Code's: `prod/` for stable, `nightly/` for the night sky, and `dev/`
+- `assets/`: app icons like T3 Code's: `prod/` for stable, `nightly/` for the night sky, and `dev/`
   for the blueprint. The iPhone has stable and dev icons. The desktop and web app are drawn from
   Otterware's mark, `prod/otterware-symbol.svg`; the iPhone app (still Otter Mail) from
   `prod/otter-mail-symbol.svg`. `pnpm icons:export` regenerates them all.
@@ -239,6 +239,13 @@ screenshots or a recording, attached with `gh pr create --attach`.
   file introductions, section dividers, and comments that repeat names or nearby code. Keep
   tooling directives, required attribution, and explanations of non-obvious constraints,
   invariants or workarounds.
+- Credit what you copy. Code ported or adapted from another project (T3 Code above all, a
+  component registry, a library's source) is checked for a license that allows it, then gets a
+  one-line header naming the project, its file and its license, and an entry in
+  `THIRD_PARTY_NOTICES.md` and in `third-party-licenses.config.json`, which the apps' list of
+  licenses is made from (docs/development.md#open-source-licenses). The same goes for fonts,
+  images and sounds: none without a known source and a license that allows it. Following another
+  app's design in our own code needs no notice; say whose it is in the PR.
 - The mail cache is local-first: the UI renders from SQLite and sync catches up. Keep IPC
   payloads small and never block the renderer on Gmail.
 - The desktop app targets macOS (Apple Translation, the Dock badge) and Linux (Debian first:

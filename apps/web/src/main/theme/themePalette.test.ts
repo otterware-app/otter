@@ -1,5 +1,6 @@
 /**
- * Ported from Otter Code (github.com/otterware-app/otter-code) at a944cac52:
+ * Ported from T3 Code (github.com/pingdotgg/t3code at a107f8a07; MIT, see
+ * THIRD_PARTY_NOTICES.md):
  * apps/web/src/themePalette.test.ts. Mail: without the tests of what Mail's
  * port leaves out (painting, preference resolution and halves, sidebar
  * artwork), of built-ins stored as OKLCH (Mail's are hex) or resolved as
@@ -26,7 +27,7 @@ import {
   replaceCustomThemeCollection,
   serializeThemeFile,
   subscribeToCustomThemes,
-  T3_CHAT_THEME,
+  GROVE_THEME,
   updateCustomTheme,
   CUSTOM_THEMES_STORAGE_KEY,
   createVividThemeColors,
@@ -276,13 +277,13 @@ describe("theme files", () => {
 
   it("canonicalizes the explicitly exported theme", () => {
     const serialized = serializeThemeFile({
-      ...T3_CHAT_THEME,
-      colors: { ...T3_CHAT_THEME.colors, accent: "hsl(263 70% 58%)" },
+      ...GROVE_THEME,
+      colors: { ...GROVE_THEME.colors, accent: "hsl(263 70% 58%)" },
     });
     expect(JSON.parse(serialized)).toMatchObject({
       version: THEME_FILE_VERSION,
-      id: T3_CHAT_THEME.id,
-      name: T3_CHAT_THEME.label,
+      id: GROVE_THEME.id,
+      name: GROVE_THEME.label,
       appearance: "light",
       colors: { accent: canonical("hsl(263 70% 58%)") },
     });
@@ -308,50 +309,6 @@ describe("theme files", () => {
       collection: theme.collection,
     });
     expect(parseThemeFile(JSON.parse(serialized)).collection).toEqual(theme.collection);
-  });
-
-  it("keeps the T3 Chat palette faithful and readable", () => {
-    expectThemeColors(T3_CHAT_THEME.colors, {
-      canvas: "#fdf7fd",
-      chrome: "#fdf7fd",
-      toolbarBorder: "#efbdeb",
-      toolbarControl: "#f3e6f5",
-      toolbarControlHover: "#eccfe3",
-      surfaceRaised: "#fdfafd",
-      input: "#e7c1dc",
-      focus: "#db2777",
-      messageSurface: "#f7def2",
-      codeBackground: "#f5ecf9",
-      codeForeground: "#673c8b",
-      accentSurface: "#f3e6f5",
-      sidebar: "#f2e1f4",
-    });
-    expectThemeColors(T3_CHAT_THEME.variants!.dark!, {
-      canvas: "#1f1a24",
-      chrome: "#1f1a24",
-      surface: "#29232d",
-      surfaceRaised: "#2c2631",
-      input: "#302029",
-      focus: "#db2777",
-      messageSurface: "#2b2431",
-      codeBackground: "#1f1a24",
-      sidebar: "#171018",
-      sidebarBorder: "#322028",
-    });
-
-    for (const mode of ["light", "dark"] as const) {
-      const colors = getThemeColorsForMode(T3_CHAT_THEME, mode)!;
-      expect(contrastRatio(colors.text, colors.canvas)).toBeGreaterThanOrEqual(7);
-      expect(contrastRatio(colors.textMuted, colors.canvas)).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(colors.messageForeground, colors.messageSurface)).toBeGreaterThanOrEqual(
-        4.5,
-      );
-      expect(contrastRatio(colors.secondaryForeground, colors.secondary)).toBeGreaterThanOrEqual(
-        4.5,
-      );
-      expect(contrastRatio(colors.sidebarForeground, colors.sidebar)).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(colors.accentForeground, colors.accent)).toBeGreaterThanOrEqual(4.5);
-    }
   });
 
   it("rejects a variant that repeats the base appearance", () => {
@@ -889,8 +846,8 @@ describe("stored theme preferences", () => {
 
 describe("singleAppearanceOf", () => {
   it("reports the only half a theme can claim, and null for a pair", () => {
-    const { variants: _pair, ...base } = T3_CHAT_THEME;
+    const { variants: _pair, ...base } = GROVE_THEME;
     expect(singleAppearanceOf({ ...base, id: "x", appearance: "dark" })).toBe("dark");
-    expect(singleAppearanceOf(T3_CHAT_THEME)).toBe(null);
+    expect(singleAppearanceOf(GROVE_THEME)).toBe(null);
   });
 });

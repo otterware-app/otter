@@ -191,6 +191,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["crash diagnostics sentry privacy telemetry bug"],
   },
   {
+    id: "open-source-licenses",
+    title: "Open-source licenses",
+    pane: "general",
+    searchTerms: ["third party notices credits acknowledgements attribution legal about"],
+  },
+  {
     id: "otter-account",
     title: "Otter account",
     pane: "otter",

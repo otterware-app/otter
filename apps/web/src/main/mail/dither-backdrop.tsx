@@ -23,7 +23,7 @@ function hash(x: number, y: number) {
   return n - Math.floor(n);
 }
 
-/** A sea otter in kelp, as an ordered-dither dot screen. */
+/** A sea otter (assets/agent-otter.txt), as an ordered-dither dot screen. */
 function paint(
   frame: HTMLElement,
   canvas: HTMLCanvasElement,

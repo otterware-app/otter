@@ -41,7 +41,7 @@ const rootRoute = createRootRouteWithContext<{
 /**
  * Mail and Settings share one layout (HomeView), which reads where it is from
  * the route below it; those routes render nothing themselves, so moving
- * between them never remounts the list or the reader (Otter Code's `_chat`).
+ * between them never remounts the list or the reader (T3 Code's `_chat`).
  */
 const mailRoute = createRoute({
   getParentRoute: () => rootRoute,

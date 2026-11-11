@@ -53,6 +53,7 @@ struct SettingsScreen: View {
                 SettingsRow("Version", symbol: "info.circle", value: Bundle.main.version, chevron: false)
                 Button { openURL(URL(string: "https://otterware.app/mail/privacy")!) } label: { SettingsRow("Privacy policy", symbol: "hand.raised") }.buttonStyle(.plain)
                 Button { openURL(URL(string: "https://otterware.app/mail/terms")!) } label: { SettingsRow("Terms", symbol: "doc.text") }.buttonStyle(.plain)
+                Button { path.append(.licenses) } label: { SettingsRow("Open-source licenses", symbol: "doc.plaintext") }.buttonStyle(.plain)
             }
         }
         .navigationTitle("Settings")

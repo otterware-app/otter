@@ -1,6 +1,6 @@
 import SwiftUI
 
-/** Otter Code's settings look: titled groups on soft cards, rows of a symbol, a name and a value. */
+/** T3 Code's settings look: titled groups on soft cards, rows of a symbol, a name and a value. */
 struct SettingsPage<Content: View>: View {
     @Environment(\.palette) private var palette
     @ViewBuilder var content: Content
