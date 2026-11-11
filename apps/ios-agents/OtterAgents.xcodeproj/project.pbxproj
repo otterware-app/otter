@@ -427,7 +427,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.10;
 				APNS_ENVIRONMENT = development;
 				CODE_SIGN_ENTITLEMENTS = OtterAgents/OtterAgents.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.dev;
@@ -466,7 +466,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.10;
 				APNS_ENVIRONMENT = production;
 				CODE_SIGN_ENTITLEMENTS = OtterAgents/OtterAgents.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents;
@@ -489,7 +489,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 838JVGY7W4;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.10;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -510,7 +510,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 838JVGY7W4;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.10;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -530,7 +530,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 838JVGY7W4;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.10;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -547,7 +547,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 838JVGY7W4;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.10;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -569,7 +569,7 @@
                 INFOPLIST_FILE = OtterAgentsNotificationService/Info.plist;
                 IPHONEOS_DEPLOYMENT_TARGET = 26.0;
                 LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
-                MARKETING_VERSION = 0.1.9;
+                MARKETING_VERSION = 0.1.10;
                 AGENTS_BUNDLE_IDENTIFIER = dev.otterware.agents.dev;
                 PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.dev.notifications;
                 PRODUCT_NAME = "$(TARGET_NAME)";
@@ -593,7 +593,7 @@
                 INFOPLIST_FILE = OtterAgentsNotificationService/Info.plist;
                 IPHONEOS_DEPLOYMENT_TARGET = 26.0;
                 LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
-                MARKETING_VERSION = 0.1.9;
+                MARKETING_VERSION = 0.1.10;
                 AGENTS_BUNDLE_IDENTIFIER = dev.otterware.agents;
                 PRODUCT_BUNDLE_IDENTIFIER = dev.otterware.agents.notifications;
                 PRODUCT_NAME = "$(TARGET_NAME)";
