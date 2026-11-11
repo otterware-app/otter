@@ -236,21 +236,6 @@ final class Relay {
     }
 }
 
-/** What an agent's gateway tells the account when it has something for you: where to read it, never what it says. */
-nonisolated struct AgentPointer: Equatable {
-    /** message, question, approval or finished. */
-    var kind: String
-    var agentId: String
-    var sessionKey: String?
-
-    init?(_ object: [String: Any]) {
-        guard let agentId = object["agentId"] as? String else { return nil }
-        kind = object["kind"] as? String ?? "message"
-        self.agentId = agentId
-        sessionKey = object["sessionKey"] as? String
-    }
-}
-
 extension Bundle {
     var version: String { object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0" }
 }

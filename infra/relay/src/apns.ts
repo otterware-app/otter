@@ -89,6 +89,7 @@ export function agentPayload(userId: string, pointer: AgentPointer) {
   return {
     aps: {
       alert: { title: "Otter Agents", body },
+      "mutable-content": 1,
       sound: "default",
       ...(pointer.sessionKey ? { "thread-id": pointer.sessionKey } : {}),
     },

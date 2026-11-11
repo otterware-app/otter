@@ -31,10 +31,14 @@ nonisolated enum Keychain {
     }
 
     private static func query(_ key: String) -> [String: Any] {
-        [
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
         ]
+        if let group = Bundle.main.object(forInfoDictionaryKey: "AgentKeychainGroup") as? String, !group.isEmpty {
+            query[kSecAttrAccessGroup as String] = group
+        }
+        return query
     }
 }
