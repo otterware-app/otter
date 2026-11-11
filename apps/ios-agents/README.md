@@ -97,10 +97,10 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   client (`GoogleSignIn.swift`: no mail scope, nothing kept but the relay's session). `Relay.swift`
   is the relay as far as the agents need it; `Account.swift` keeps the account's settings (the
   `assistant` section and the `ui` keys the other apps use) and chats in step, both ways.
-- `Agents/Agents.swift`: how this iPhone reaches each agent. The Otter agent runs on the relay
-  (its key stays there); Hermes's settings and sealed key follow the account; OpenClaw and varys
+- `Agents/Agents.swift`: how this iPhone reaches each agent. Hermes's settings and sealed key
+  follow the account; OpenClaw and varys
   pair with this iPhone as a device of its own, kept in its Keychain. Their clients are Otter
-  Mail's (`apps/ios/OtterMail/Agent`: `Hermes`, `OpenRouter`, `OpenClaw`, `Varys*`), compiled into
+  Mail's (`apps/ios/OtterMail/Agent`: `Hermes`, `OpenClaw`, `Varys*`), compiled into
   both apps.
 - `Agents/AgentRunner.swift`: a turn on each agent, told as the `ChatEvent`s core's providers
   emit. OpenClaw and varys go on without the app: a turn the app left is picked up on return.
@@ -110,8 +110,7 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   subagent and waits for it on "background". Its browser is one drawn page (`DemoBrowser.swift`).
 
 What it leaves to the other apps: the mail itself (a conversation or draft a chat used opens the
-chat in Otter on the web), Otter's own mail tools for the Otter agent (they run where the mail
-is), and Claude and Codex (they run on a Mac: their chats read here). The live browser shows one
+chat in Otter on the web), and Claude and Codex (they run on a Mac: their chats read here). The live browser shows one
 tab, at the size the agent's browser has: no list of tabs, no zoom.
 
 ## Running

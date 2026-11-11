@@ -10,7 +10,7 @@ struct AgentChatsTests {
         #expect(chat?.title == "Plan the offsite")
         #expect(chat?.device == "Robin's Mac")
         #expect(chat?.isLocalToMac == true)
-        #expect(SyncedChat(["id": "c2", "title": "", "provider": "openrouter", "updatedAt": 2_000, "deletedAt": 3_000]) == nil)
+        #expect(SyncedChat(["id": "c2", "title": "", "provider": "hermes", "updatedAt": 2_000, "deletedAt": 3_000]) == nil)
     }
 
     @Test func showsAnAgentTurnsTextAndStepsAndWritesItsOwnBack() {

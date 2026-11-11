@@ -7,7 +7,6 @@ import SwiftUI
 struct ModelSheet: View {
     @Environment(\.palette) private var palette
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
     @Environment(ChatStore.self) private var store
     let chat: Chat
     @State private var query = ""
@@ -77,10 +76,6 @@ struct ModelSheet: View {
                     if !chat.isBlank, let current {
                         Text("This chat runs on \(current.name). Start a new chat to switch agents.")
                             .font(.ui(13)).foregroundStyle(palette.muted).padding(.horizontal, 32)
-                    }
-                    if current == .openrouter {
-                        Button("Manage usage on OpenRouter", systemImage: "arrow.up.right") { openURL(URL(string: "https://openrouter.ai/activity")!) }
-                            .font(.ui(14)).foregroundStyle(palette.muted).padding(.horizontal, 32)
                     }
                 }
                 .padding(.vertical, 12)

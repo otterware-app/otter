@@ -6,7 +6,6 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./agent-server": "./src/services/agent/server.ts",
     "./agent-instructions": "./src/services/agent/instructions.ts",
     "./imap": "./src/protocols/imap/client.ts",
     "./extension-kit": "./src/extension-kit.ts",
@@ -17,10 +16,8 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p src/protocols/test && tsc --noEmit -p src/providers/imap/test && tsc --noEmit -p src/services/test"
   },
   "dependencies": {
-    "@openrouter/ai-sdk-provider": "3.1.0",
     "@otter/contracts": "workspace:*",
     "@otter/shared": "workspace:*",
-    "ai": "7.0.127",
     "better-auth": "^1.7.6",
     "postal-mime": "^4.0.0"
   },

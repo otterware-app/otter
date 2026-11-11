@@ -22,7 +22,6 @@
   "durable_objects": {
     "bindings": [
       { "name": "USER_HUB", "class_name": "UserHub" },
-      { "name": "AGENT_HUB", "class_name": "AgentHub" },
       { "name": "NOTIFICATION_MAILBOX", "class_name": "NotificationMailbox" },
     ],
   },
@@ -33,6 +32,7 @@
     { "tag": "v1", "new_sqlite_classes": ["UserHub"] },
     { "tag": "v2", "new_sqlite_classes": ["AgentHub"] },
     { "tag": "v3", "new_sqlite_classes": ["NotificationMailbox"] },
+    { "tag": "v4", "deleted_classes": ["AgentHub"] },
   ],
   // Limits apply per Cloudflare location, not globally.
   "ratelimits": [

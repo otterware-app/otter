@@ -3,7 +3,6 @@ import claude from "@otter/extension-claude/ui";
 import codex from "@otter/extension-codex/ui";
 import hermes from "@otter/extension-hermes/ui";
 import openclaw from "@otter/extension-openclaw/ui";
-import openrouter from "@otter/extension-openrouter/ui";
 import otterDrive from "@otter/extension-otter-drive/ui";
 import signInCodes from "@otter/extension-sign-in-codes/ui";
 import todoist from "@otter/extension-todoist/ui";
@@ -23,7 +22,6 @@ export const EXTENSIONS: readonly UiExtension[] = [
   translation,
   todoist,
   otterDrive,
-  openrouter,
   hermes,
   openclaw,
   varys,

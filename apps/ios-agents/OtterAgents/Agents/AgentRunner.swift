@@ -37,7 +37,6 @@ final class AgentRunner {
         let task = Task { [self] in
             if agents.demo { await DemoAgent.run(turn, emit: emit) } else {
                 switch turn.provider {
-                case "openrouter": await sendOpenRouter(turn, emit)
                 case "hermes": await sendHermes(turn, emit)
                 case "openclaw": await sendOpenClaw(turn, emit)
                 case "varys": await sendVarys(turn, emit)
@@ -80,9 +79,6 @@ final class AgentRunner {
             return
         }
         switch run.provider {
-        case "openrouter":
-            if let client = agents.routerClient { Task { await client.stop(requestId) } }
-            run.task?.cancel()
         case "hermes":
             if let id = run.hermesRun, let client = agents.hermesClient { Task { await client.stop(run: id) } }
             else { run.task?.cancel() }
@@ -107,7 +103,7 @@ final class AgentRunner {
     /** A message for the turn in flight. False when the agent can't take it now. */
     func steer(_ requestId: String, _ text: String) async -> Bool {
         guard let run = runs[requestId] else { return false }
-        if agents.demo { return run.provider != "openrouter" }
+        if agents.demo { return true }
         switch run.provider {
         case "hermes":
             guard let id = run.hermesRun, let client = agents.hermesClient else { return false }
@@ -178,42 +174,6 @@ final class AgentRunner {
     }
 
     // MARK: Each agent
-
-    private func sendOpenRouter(_ turn: OutgoingTurn, _ emit: @escaping Emit) async {
-        guard let client = agents.routerClient, let model = agents.model(of: .openrouter) else { return emit(.error("not_configured")) }
-        var body: [String: Any] = ["requestId": turn.requestId, "input": turn.input, "model": model.slug, "tools": [Any]()]
-        if let title = turn.title { body["title"] = title }
-        if let session = turn.sessionId { body["sessionId"] = session }
-        if !turn.attachments.isEmpty {
-            body["attachments"] = turn.attachments.map { ["name": $0.name, "mime": $0.mime, "data": $0.data.base64EncodedString()] }
-        }
-        var ended = false
-        do {
-            try await client.turn(body, event: { value in
-                switch value["type"] as? String {
-                case "session": if let id = value["sessionId"] as? String { emit(.session(id)) }
-                case "delta": emit(.delta(value["text"] as? String ?? ""))
-                case "tool":
-                    let step = value["step"] as? [String: Any] ?? [:]
-                    emit(.tool(id: value["id"] as? String, ChatStep(kind: "tool", title: step["title"] as? String ?? "Tool",
-                                                                   detail: step["detail"] as? String, source: step["source"] as? String)))
-                case "toolResult": emit(.toolResult(id: value["id"] as? String, value["output"] as? String ?? ""))
-                case "done":
-                    ended = true
-                    emit(.done)
-                case "error":
-                    ended = true
-                    emit(.error(value["message"] as? String ?? "agent_error: The agent could not finish."))
-                default: break
-                }
-            }, tool: { _, _ in ["text": "This tool isn't available in Otter Agents.", "isError": true] })
-        } catch is CancellationError {
-            if !ended { emit(.error("cancelled")) }
-        } catch {
-            await client.stop(turn.requestId)
-            if !ended { emit(.error(Task.isCancelled ? "cancelled" : (error is URLError ? "unreachable" : "agent_error: \(error.localizedDescription)"))) }
-        }
-    }
 
     private static let hermesTextTypes = try! NSRegularExpression(pattern: "^(text/|application/(json|xml)|message/rfc822)")
 
@@ -386,7 +346,6 @@ final class AgentRunner {
 
     func sessions(of kind: AgentKind, limit: Int = 40) async throws -> [Hermes.Session] {
         switch kind {
-        case .openrouter: return try await agents.routerClient?.sessions() ?? []
         case .hermes: return try await agents.hermesClient?.sessions(limit: limit) ?? []
         case .openclaw:
             return try await agents.openClawClient?.chats(limit: limit).map {
@@ -403,8 +362,6 @@ final class AgentRunner {
     func messages(of kind: AgentKind, session: String) async throws -> [SessionMessage] {
         let named = { (tools: [String]) in tools.map { (id: String?.none, step: Self.step(named: $0), output: String?.some("")) } }
         switch kind {
-        case .openrouter:
-            return try await agents.routerClient?.messages(of: session).map { SessionMessage(role: $0.role, text: $0.text, steps: named($0.tools)) } ?? []
         case .hermes:
             return try await agents.hermesClient?.messages(of: session).map { SessionMessage(role: $0.role, text: $0.text, steps: named($0.tools)) } ?? []
         case .openclaw:
@@ -426,7 +383,6 @@ final class AgentRunner {
 
     func deleteSession(of kind: AgentKind, _ session: String) async {
         switch kind {
-        case .openrouter: try? await agents.routerClient?.delete(session: session)
         case .hermes: try? await agents.hermesClient?.delete(session: session)
         case .openclaw: try? await agents.openClawClient?.delete(session: session)
         // Deleting a thread is for your own devices in varys: the chat goes, the thread stays.
@@ -440,7 +396,6 @@ final class AgentRunner {
         case .hermes: try? await agents.hermesClient?.rename(session: session, to: title)
         case .openclaw: _ = try? await agents.openClawClient?.request("sessions.patch", ["key": session, "label": title])
         case .varys: try? await agents.varysClient?.rename(thread: session, to: title)
-        case .openrouter: break
         }
     }
 
@@ -455,7 +410,6 @@ final class AgentRunner {
             _ = try? await gateway.request("sessions.patch", ["key": session, "label": title])
             return title
         case .varys: return try? await agents.varysClient?.threads().first { $0.id == session }?.title.nilIfEmpty
-        case .openrouter: return nil
         }
     }
 }

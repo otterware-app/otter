@@ -150,7 +150,6 @@ export interface Platform {
   asyncContext<T>(): AsyncContext<T>;
   offlineDownloads: boolean;
   translator?: Translator;
-  agentServerUrl?: string;
 }
 
 let current: Platform | null = null;

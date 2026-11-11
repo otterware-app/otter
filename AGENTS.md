@@ -73,7 +73,7 @@ when a feature lands or goes.
   `Scheduled/`): change both together. See its README.
 - `extensions/`: the built-in extensions, a package each (VS Code's model; contracts'
   `src/extensions.ts`): Sign-in codes, Calendar invites, Translation, Todoist, Otter Drive, and
-  the agents (`openrouter`, the Otter agent; `hermes`, `openclaw`, `varys`, `claude`, `codex`). Each
+  the agents (`hermes`, `openclaw`, `varys`, `claude`, `codex`). Each
   `package.json` carries its manifest (`otter`); its halves are `./core` (`activate(context)`:
   handlers, an agent; core's `src/extensions.ts`), `./ui` (what it contributes to the screens'
   slots: cards, actions, commands, settings, an agent's form, a workspace; `apps/web/src/main/extensions`;
@@ -106,8 +106,7 @@ when a feature lands or goes.
   mail: Gmail → Pub/Sub → relay → WebSocket to each signed-in device. Opt-in background
   notifications use encrypted limited Gmail/Outlook grants (or an IMAP password) to verify
   unread arrivals and renew watches; APNs carries routing IDs and generic text, and the iPhone
-  enriches directly from the provider. The optional OpenRouter agent processes and stores chats
-  and mail/calendar tool results on the relay. The web app's Gmail tokens pass through it (never
+  enriches directly from the provider. The web app's Gmail tokens pass through it (never
   stored), the desktop app's never do. See its
   README.
 - `native/translator`: a Swift command-line helper for Apple's on-device Translation. It reads a

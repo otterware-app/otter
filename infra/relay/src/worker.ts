@@ -38,14 +38,12 @@ import * as store from "./store.ts";
 import * as push from "./push.ts";
 import * as notificationConnections from "./notification-connections.ts";
 import { errorReports } from "./error-reports.ts";
-import { AgentHub as AgentHubObject } from "./agent-hub.ts";
 import { NotificationMailbox as NotificationMailboxObject } from "./notification-mailbox.ts";
 import * as apns from "./apns.ts";
 import * as tunnel from "./tunnel.ts";
 import { forHost } from "./hosts.ts";
 import { SESSION_HEADER, UserHub as UserHubObject } from "./user-hub.ts";
 
-export const AgentHub = Sentry.instrumentDurableObjectWithSentry(errorReports, AgentHubObject);
 export const UserHub = Sentry.instrumentDurableObjectWithSentry(errorReports, UserHubObject);
 export const NotificationMailbox = Sentry.instrumentDurableObjectWithSentry(
   errorReports,
@@ -72,7 +70,6 @@ export interface Env {
   IDENTITY_MODE?: "legacy" | "paused" | "accounts";
   ACCOUNTS_ORIGIN?: string;
   USER_HUB: DurableObjectNamespace<UserHubObject>;
-  AGENT_HUB?: DurableObjectNamespace<AgentHubObject>;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_IOS_CLIENT_ID?: string;
   GOOGLE_GMAIL_CLIENT_ID: string;
@@ -312,18 +309,6 @@ authed.use(async (c, next) => {
 
 authed.route("/", notificationConnections.routes());
 authed.route("/", agentChannels.routes());
-authed.all("/agent/*", async (c) => {
-  if (c.req.header("origin") && c.req.header("origin") !== c.env.APP_ORIGIN)
-    throw new HTTPException(403, { message: "Not from the web app." });
-  if (!c.env.AGENT_HUB)
-    throw new HTTPException(503, { message: "The agent server is not configured." });
-  const headers = new Headers(c.req.raw.headers);
-  headers.set(SESSION_HEADER, c.var.session.id);
-  return c.env.AGENT_HUB.get(c.env.AGENT_HUB.idFromName(c.var.session.user.id)).fetch(
-    new Request(c.req.raw, { headers }),
-  );
-});
-
 authed.get("/gmail/authorize", (c) =>
   gmail
     .authorizeUrl(c.env, c.var.session.user.id, c.req.query("login_hint"))
@@ -896,7 +881,6 @@ export class IdentityLifecycle extends WorkerEntrypoint<Env> {
   async disconnect(userId: string, sessionId?: string): Promise<void> {
     await push.remove(this.env, userId, sessionId, true);
     await hub(this.env, userId).disconnect(sessionId);
-    await this.env.AGENT_HUB?.get(this.env.AGENT_HUB.idFromName(userId)).disconnect(sessionId);
   }
   async deleteUser(userId: string): Promise<void> {
     await this.env.DB.batch([
@@ -906,7 +890,6 @@ export class IdentityLifecycle extends WorkerEntrypoint<Env> {
       this.env.DB.prepare("DELETE FROM user WHERE id = ?").bind(userId),
     ]);
     await this.disconnect(userId);
-    await this.env.AGENT_HUB?.get(this.env.AGENT_HUB.idFromName(userId)).deleteUser();
   }
 }
 

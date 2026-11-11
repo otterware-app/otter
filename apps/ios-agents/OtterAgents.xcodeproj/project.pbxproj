@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		0D0000000000000000000101 /* Hermes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000100 /* Hermes.swift */; };
-		0D0000000000000000000103 /* OpenRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000102 /* OpenRouter.swift */; };
 		0D0000000000000000000105 /* OpenClaw.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000104 /* OpenClaw.swift */; };
 		0D0000000000000000000107 /* Varys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000106 /* Varys.swift */; };
 		0D0000000000000000000109 /* VarysLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0000000000000000000108 /* VarysLive.swift */; };
@@ -43,7 +42,6 @@
 		0D0000000000000000000011 /* OtterAgentsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OtterAgentsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D0000000000000000000021 /* OtterAgentsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OtterAgentsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D0000000000000000000100 /* Hermes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Hermes.swift; path = ../ios/OtterMail/Agent/Hermes.swift; sourceTree = SOURCE_ROOT; };
-		0D0000000000000000000102 /* OpenRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OpenRouter.swift; path = ../ios/OtterMail/Agent/OpenRouter.swift; sourceTree = SOURCE_ROOT; };
 		0D0000000000000000000104 /* OpenClaw.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OpenClaw.swift; path = ../ios/OtterMail/Agent/OpenClaw.swift; sourceTree = SOURCE_ROOT; };
 		0D0000000000000000000106 /* Varys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Varys.swift; path = ../ios/OtterMail/Agent/Varys.swift; sourceTree = SOURCE_ROOT; };
 		0D0000000000000000000108 /* VarysLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VarysLive.swift; path = ../ios/OtterMail/Agent/VarysLive.swift; sourceTree = SOURCE_ROOT; };
@@ -138,7 +136,6 @@
 			isa = PBXGroup;
 			children = (
 				0D0000000000000000000100 /* Hermes.swift */,
-				0D0000000000000000000102 /* OpenRouter.swift */,
 				0D0000000000000000000104 /* OpenClaw.swift */,
 				0D0000000000000000000106 /* Varys.swift */,
 				0D0000000000000000000108 /* VarysLive.swift */,
@@ -295,7 +292,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				0D0000000000000000000101 /* Hermes.swift in Sources */,
-				0D0000000000000000000103 /* OpenRouter.swift in Sources */,
 				0D0000000000000000000105 /* OpenClaw.swift in Sources */,
 				0D0000000000000000000107 /* Varys.swift in Sources */,
 				0D0000000000000000000109 /* VarysLive.swift in Sources */,

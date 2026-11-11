@@ -22,7 +22,7 @@ struct SyncedChat: Identifiable, Equatable {
     var providerName: String { Self.providerNames[provider] ?? provider.capitalized }
 
     static let providerNames = [
-        "openrouter": "OpenRouter", "hermes": "Hermes", "openclaw": "OpenClaw", "varys": "varys", "claude": "Claude", "codex": "Codex",
+        "hermes": "Hermes", "openclaw": "OpenClaw", "varys": "varys", "claude": "Claude", "codex": "Codex",
     ]
 
     var isLocalToMac: Bool { provider == "claude" || provider == "codex" }

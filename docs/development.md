@@ -58,17 +58,6 @@ Mac. Without a keyring the desktop knows (GNOME Keyring, KWallet), secrets are s
 app key: run under GNOME or KDE, or set `XDG_CURRENT_DESKTOP=GNOME` with gnome-keyring running,
 to exercise the keyring.
 
-## Agent development
-
-For local developer tests, keep `OPENROUTER_API_KEY` in the repository's ignored `.env` or
-`.env.local`. The app never uses that key as a default for visitors. Connect the demo through
-Settings › Agents; each private browser session supplies and stores its own key on the server.
-Production connections use each Otter account's own key stored on the relay.
-
-The demo's default model is `openrouter/free`; override it with `OPENROUTER_MODEL` in the
-repository's env files. Linked worktrees also read the main checkout's model setting, with
-worktree values and environment variables taking precedence. No env value enters the browser.
-
 ## Data homes
 
 Like T3 Code, data lives under a home, `~/.otter` (or `OTTER_HOME`), with one state
@@ -233,7 +222,6 @@ and trash, and plenty of non-ASCII names. Use it to build and test without your 
   channel `otter-mail-demo`), apart from real mail on the same origin; add `?reset-demo` to the
   address to start over (close other tabs of it first). The desktop app keeps it in its `fake/`
   home; `--reset` starts it over.
-- The OpenRouter agent works on the web one only (its Vite dev server hosts it).
 - Real builds leave all of it out: `__DEMO__` is `false` unless `VITE_DEMO=1`, and a packaged
   desktop app ignores `OTTER_DEV_DATA`.
 

@@ -3,14 +3,13 @@ import UniformTypeIdentifiers
 
 /** The agents this iPhone can run a chat on. Claude and Codex run on a Mac: their chats read here. */
 nonisolated enum AgentKind: String, CaseIterable, Identifiable {
-    case openrouter, hermes, openclaw, varys
+    case hermes, openclaw, varys
 
     var id: String { rawValue }
     var name: String { Self.name(of: rawValue) }
 
     static func name(of provider: String) -> String {
         switch provider {
-        case "openrouter": "Otter agent"
         case "hermes": "Hermes"
         case "openclaw": "OpenClaw"
         case "varys": "varys"
@@ -20,15 +19,10 @@ nonisolated enum AgentKind: String, CaseIterable, Identifiable {
         }
     }
 
-    /** What the agent can do from here; what it can't isn't shown. */
-    var steers: Bool { self != .openrouter }
     /** A turn the app left is picked up again. */
     var resumes: Bool { self == .openclaw || self == .varys }
-    /** The agent keeps the chat's name too. */
-    var titles: Bool { self != .openrouter }
     var skills: Bool { self == .hermes || self == .varys }
     var attachments: Bool { self != .varys }
-    var schedules: Bool { self != .openrouter }
 }
 
 /** An agent asking before it does something. */
@@ -146,7 +140,6 @@ nonisolated enum AgentError {
         case "unauthorized":
             return provider == "openclaw" ? "The OpenClaw gateway refused this iPhone. Reconnect it in Settings." : "The API key was rejected. Update it in Settings."
         case "unreachable":
-            if provider == "openrouter" { return "Can't reach OpenRouter. Try again in a moment." }
             if provider == "openclaw" { return "Can't reach the OpenClaw gateway." }
             return "Can't reach \(name). Are you on Tailscale?"
         case "timeout": return "\(name) went quiet for too long, so the run was stopped."

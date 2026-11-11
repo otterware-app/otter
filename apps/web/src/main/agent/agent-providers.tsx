@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  DEFAULT_AGENT,
   mailApi,
   type ProviderKind,
   type ProviderSnapshot,
@@ -30,7 +31,7 @@ export function useAgentProviders() {
 
 export function useChatProvider(chat: { provider: ProviderKind; turns: unknown[] } | undefined) {
   const state = useAgentProviders().data;
-  const selectedKind = state?.selected ?? "openrouter";
+  const selectedKind = state?.selected ?? DEFAULT_AGENT;
   const kind: ProviderKind = chat && chat.turns.length > 0 ? chat.provider : selectedKind;
   const provider = state?.providers.find((p) => p.kind === kind);
   const name =
@@ -68,7 +69,7 @@ export function AgentAvatar({
     queryFn: () => mailApi.agentProviders(),
     staleTime: 30_000,
   }).data;
-  const shown = kind ?? state?.selected ?? "openrouter";
+  const shown = kind ?? state?.selected ?? DEFAULT_AGENT;
   const provider = state?.providers.find((p) => p.kind === shown);
   const model = provider?.models.find((m) => m.slug === (agent ?? provider.model));
   const label = model?.avatar || model?.emoji ? model.name : provider?.displayName;
@@ -154,7 +155,5 @@ export function providerSummary(p: ProviderSnapshot | undefined): {
 }
 
 export function isProviderUsable(p: ProviderSnapshot | undefined): boolean {
-  if (p && agentContribution(p.kind)?.needsSignIn && p.auth.status !== "authenticated")
-    return false;
   return Boolean(p && p.enabled && p.status !== "error" && (p.installed || p.checkedAt === null));
 }

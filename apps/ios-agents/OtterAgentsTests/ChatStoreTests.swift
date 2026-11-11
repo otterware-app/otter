@@ -8,8 +8,7 @@ struct ChatStoreTests {
     private func store(followUp: Agents.FollowUp = .queue) -> ChatStore {
         let agents = Agents()
         agents.startDemo()
-        // Whatever this simulator's app last chose, a new chat here starts on the Otter agent.
-        agents.selected = "openrouter"
+        agents.selected = "hermes"
         agents.followUp = followUp
         let store = ChatStore(agents: agents)
         store.replace(chats: [])
@@ -70,7 +69,7 @@ struct ChatStoreTests {
         let store = store()
         var (chat, request) = running(store)
         store.apply(.error("unreachable"), requestId: request, chatId: chat)
-        #expect(store.chat(chat)!.turns[1].error == "Can't reach OpenRouter. Try again in a moment.")
+        #expect(store.chat(chat)!.turns[1].error == "Can't reach Hermes. Are you on Tailscale?")
         #expect(store.retries["a-\(request)"]?.question == "Hello there")
 
         store.retry("a-\(request)")
@@ -176,7 +175,7 @@ struct ChatStoreTests {
         #expect(store.unseen.isEmpty)
 
         apply(.working)
-        #expect(store.runs[chat] == ChatStore.Run(requestId: request, provider: "openrouter"))
+        #expect(store.runs[chat] == ChatStore.Run(requestId: request, provider: "hermes"))
         apply(.reply(text: "On it.\n\nAlfama is the cheapest.", steps: [("s1", spawn, "accepted")]))
         apply(.done)
         let turns = store.chat(chat)!.turns

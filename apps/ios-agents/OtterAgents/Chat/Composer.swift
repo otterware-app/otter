@@ -34,7 +34,7 @@ struct Composer: View {
     private var hasContent: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || skill != nil || !attachments.isEmpty || !citations.isEmpty
     }
-    private var steers: Bool { kind?.steers == true && attachments.isEmpty && !store.isCompacting(chat.id) }
+    private var steers: Bool { kind != nil && attachments.isEmpty && !store.isCompacting(chat.id) }
     private var wantsSteer: Bool { store.agents.followUp == .steer && steers }
     private var carries: Bool { skill != nil || !attachments.isEmpty || !citations.isEmpty || editing }
 

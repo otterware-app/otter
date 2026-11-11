@@ -68,11 +68,9 @@ add limited server grants (or an encrypted IMAP password), while mail content st
   providers, then Thunderbird's autoconfig, then the domain's MX host). The password stays in the Keychain; the settings
   follow the Otter account. Debug builds trust any certificate from localhost, to test against
   GreenMail or Dovecot in Docker.
-- `Agent/`: OpenRouter (`OpenRouter.swift`) connects to the relay's AI SDK agent; its key and
-  chats stay on the server. `AgentMailTools.swift` executes mail tools through `MailStore`,
-  with approvals in the chat. Hermes (`Hermes.swift`) connects to the user's agent server;
-  its settings and sealed key follow the Otter account. Both share the `assistant` settings
-  section with Mac/web. OpenClaw (`OpenClaw.swift`) connects to the user's gateway over its
+- `Agent/`: Hermes (`Hermes.swift`) connects to the user's agent server; its settings and
+  sealed key follow the Otter account through the `assistant` settings section shared with
+  Mac/web. OpenClaw (`OpenClaw.swift`) connects to the user's gateway over its
   WebSocket as the Mac does: this iPhone is a paired device with its own Ed25519 key (a setup
   code from `openclaw qr`, then `openclaw devices approve`); its gateway and tokens stay here. A
   run is sent with the turn's id as its idempotency key, so one the app left in the background

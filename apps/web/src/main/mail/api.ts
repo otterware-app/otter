@@ -69,7 +69,7 @@ export type MailAppsResult = { apps: MailApp[]; defaultId: string | null };
 
 export type ProviderKind = string;
 
-export const DEFAULT_AGENT = "openrouter";
+export const DEFAULT_AGENT = "hermes";
 export type ProviderState = "ready" | "warning" | "error" | "disabled";
 export type ProviderOptionChoice = {
   id: string;
@@ -85,7 +85,7 @@ export type ProviderModelOption = {
 export type ProviderModel = {
   slug: string;
   name: string;
-  /** Upstream provider behind an aggregating agent (Hermes: "OpenRouter"). */
+  /** Upstream provider behind an aggregating agent (Hermes: "Anthropic"). */
   subProvider?: string;
   isDefault?: boolean;
   options?: ProviderModelOption[];
