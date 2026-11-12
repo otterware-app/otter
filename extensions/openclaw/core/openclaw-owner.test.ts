@@ -16,7 +16,12 @@ const fixture = vi.hoisted(() => ({
   hello: {} as object,
 }));
 vi.mock("../../../packages/core/src/platform.js", () => ({
-  platform: () => ({ kind: "desktop", appVersion: "test", log: () => {} }),
+  platform: () => ({
+    kind: "desktop",
+    appVersion: "test",
+    log: () => {},
+    onResume: () => () => {},
+  }),
 }));
 vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
   clearOpenClawBootstrapToken: vi.fn(),

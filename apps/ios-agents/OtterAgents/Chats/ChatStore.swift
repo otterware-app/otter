@@ -736,11 +736,12 @@ final class ChatStore {
     // MARK: Turns the app left
 
     /** Picks up the turns in flight when the app left, on the agents that can; the rest are over. */
-    func resumeRuns() {
+    /** `beforePull`: the account isn't read yet, so a chat not here may still be on its way. */
+    func resumeRuns(beforePull: Bool = false) {
         for (chatId, requestId) in openRequests where runs[chatId] == nil {
             guard let chat = chat(chatId) else {
                 // Not listed yet: it may still be on its way from the account.
-                if ready, sync?.isPulling != true { openRequests[chatId] = nil }
+                if ready, !beforePull, sync?.isPulling != true { openRequests[chatId] = nil }
                 continue
             }
             guard let session = chat.sessionId, let kind = AgentKind(rawValue: chat.provider), kind.resumes else {

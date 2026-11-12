@@ -230,7 +230,9 @@ cookies).
 Agent chats follow the Otter account: every chat, whatever agent ran it, reads the same on
 every device, with the conversations, drafts, pages and files it used and made. The relay keeps
 them, transcripts included (step outputs clipped; an image you sent as a small thumbnail, the
-image itself only with the agent); without an Otter account they stay on the device. Claude and Codex run on one Mac: their
+image itself only with the agent); without an Otter account they stay on the device. The Mac,
+Linux and web apps keep them in SQLite, a row per message, and a reply that streams writes only
+itself, however long the chat. Claude and Codex run on one Mac: their
 chats read the same everywhere and continue on that Mac. On iPhone the chats are in
 [Otter Agents](#otter-agents-iphone); Otter Mail has none, and sends mail there.
 
@@ -473,11 +475,14 @@ session, so the gateway's other conversations can be resumed; the gateway's agen
 to pick, each with its picture (or emoji) from the gateway, which also marks its chats (title,
 tabs, history; other providers' chats show the provider's mark) on Mac and web. Replies, tool steps, steering and command approvals come through; it works on mail with
 its own skills. A run belongs to the gateway, not the app: when the connection drops it's
-followed again on the next one, and a chat whose reply was cut off by quitting picks the run up
+followed again on the next one (on waking, one that went quiet while the Mac slept is replaced
+at once), and a chat whose reply was cut off by quitting picks the run up
 on the next launch, showing what it did meanwhile and streaming the rest (the chat says so while
 the gateway is out of reach). The token and device key stay on the device. The iPhone pairs the
 same way (Settings › Agents, a setup code), and picks a reply back up when it comes back to the
-foreground or is opened again. When OpenClaw stops to ask something (its `ask_user`), the
+foreground or is opened again. A look at another app keeps the connection, and the reply
+streaming, for 25 seconds; a connection that stops answering (the network changed, the phone
+slept) is found by a ping within seconds and replaced. When OpenClaw stops to ask something (its `ask_user`), the
 question takes the composer's place, with its options and room for an answer of your own. A
 device paired with fewer permissions asks the gateway for full access from Settings › Agents. A message
 sent while it works steers the run, or, when the runtime can't take it mid-turn, runs right after

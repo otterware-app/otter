@@ -124,6 +124,8 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   the app and its notification extension.
 - `Agents/AgentRunner.swift`: a turn on each agent, told as the `ChatEvent`s core's providers
   emit. OpenClaw and varys go on without the app: a turn the app left is picked up on return.
+  The sockets stay 25 seconds in the background (`Account.leave`), and a quiet OpenClaw socket is
+  pinged, on a new network and on return too, and replaced when it doesn't answer.
 - `Demo/`: the demo's pretend agent and chats, offered on the welcome screen of builds that
   aren't the App Store's. It asks for an approval when a message says "send", a question when
   it says "plan", fails on "fail", works longer on "take your time", and hands off to a

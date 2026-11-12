@@ -3,7 +3,7 @@ import type { OpenClawSettings } from "./settings.js";
 
 const fixture = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock("../../../packages/core/src/platform.js", () => ({
-  platform: () => ({ kind: "desktop", appVersion: "test" }),
+  platform: () => ({ kind: "desktop", appVersion: "test", onResume: () => () => {} }),
 }));
 vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
   clearOpenClawBootstrapToken: vi.fn(),
