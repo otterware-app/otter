@@ -72,6 +72,8 @@ export async function startCall(
   const output = new AudioContext();
   let stream: MediaStream | null = null;
   let talkId: string | null = null;
+  // Kept here until the call is still this one: hanging up meanwhile can't reach them.
+  let opened: Microphone | null = null;
   try {
     stream = await navigator.mediaDevices
       .getUserMedia({
@@ -89,21 +91,25 @@ export async function startCall(
     talkId = started.talkId;
     if (!isCurrent(call.id)) throw new Cancelled();
     setChatSession(chatId, provider, started.sessionId);
-    speaker = openSpeaker(output, started.outputRate);
     const id = talkId;
-    mic = await openMicrophone(input, stream, started.inputRate, (pcm, level) =>
+    opened = await openMicrophone(input, stream, started.inputRate, (pcm, level) =>
       send(provider, id, pcm, level),
     );
-    if (!isCurrent(call.id)) throw new Cancelled();
-    set({ call: { ...call, talkId } });
+    const now = get().call;
+    if (now?.id !== call.id) throw new Cancelled();
+    mic = opened;
+    mic.mute(now.muted);
+    speaker = openSpeaker(output, started.outputRate);
+    set({ call: { ...now, talkId } });
     for (const event of early.splice(0)) onTalkEvent(event);
   } catch (error) {
     if (talkId) void mailApi.agentTalkEnd(provider, talkId).catch(() => {});
-    if (!mic) {
+    if (opened) opened.stop();
+    else {
       for (const track of stream?.getTracks() ?? []) track.stop();
       void input.close();
     }
-    if (!speaker) void output.close();
+    void output.close();
     if (!isCurrent(call.id)) return;
     hangUp();
     if (!(error instanceof Cancelled))

@@ -57,6 +57,8 @@ final class TalkCall {
             audio = try TalkAudio(inputRate: call.inputRate, outputRate: call.outputRate,
                                   send: { [weak self] in self?.send($0) },
                                   interrupted: { [weak self] in self?.end() })
+            // Muted while it connected.
+            if muted { audio?.mute(true) }
         } catch {
             hangUp()
             phase = .ended(error.localizedDescription)
