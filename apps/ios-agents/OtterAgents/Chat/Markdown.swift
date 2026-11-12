@@ -64,6 +64,18 @@ nonisolated enum Markdown {
         return bubbles
     }
 
+    /**
+     * The bubbles of a reply still being written: the ones it has finished, so each comes in whole
+     * and stays. The last waits for the next to start. A line being written that is still only a
+     * list's marker or a rule's first marks isn't read: as a paragraph it would end the bubble
+     * before it, and the item or rule it becomes take that bubble back.
+     */
+    static func written(_ source: String) -> [[Block]] {
+        let line = source.split(separator: "\n", omittingEmptySubsequences: false).last ?? ""
+        let unsure = line.trimmingCharacters(in: .whitespaces).wholeMatch(of: /[-*_ ]+|\+|\d{1,9}[.)]?/) != nil
+        return Array(bubbles(unsure ? String(source.dropLast(line.count)) : source).dropLast())
+    }
+
     /** What a bubble says, to quote it. */
     static func plain(_ blocks: [Block]) -> String {
         blocks.map { block in

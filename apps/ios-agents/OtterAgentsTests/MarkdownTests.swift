@@ -45,6 +45,17 @@ struct MarkdownTests {
         #expect(Markdown.parse("It was 2026. A year, not a list") == [.paragraph("It was 2026. A year, not a list")])
     }
 
+    @Test func aReplyBeingWrittenShowsWholeBubblesThatStay() {
+        let reply = "Here's where things stand.\n\n## Decided\n\n- One\n- Two\n  more\n1. Three\n\n---\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n```sh\ngog draft\n\nmore\n```\n\nSay *send it*.\n\n___\n\nBye."
+        var shown: [[Markdown.Block]] = []
+        for end in reply.indices {
+            let now = Markdown.written(String(reply[...end]))
+            #expect(Array(now.prefix(shown.count)) == shown, "a bubble shown went away or changed at \(reply[...end].count) characters")
+            shown = now
+        }
+        #expect(shown == Array(Markdown.bubbles(reply).dropLast()))
+    }
+
     @Test func textRunsJoinSoASelectionCanCrossThem() {
         let segments = Markdown.segments("# A\n\nb\n\n- c\n\n```\nd\n```\n\ne")
         #expect(segments.map(\.count) == [3, 1, 1])

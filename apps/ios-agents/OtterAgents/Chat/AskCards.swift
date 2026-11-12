@@ -243,15 +243,13 @@ struct QuestionCard: View {
     }
 }
 
-/** What's going on in the chat, floating over the composer: the run's clock, what's queued, and the way back down. */
+/** What's going on in the chat, floating over the composer: the run's clock, what's queued, and its browser. */
 struct WorkingControl: View {
     @Environment(\.palette) private var palette
     @Environment(ChatStore.self) private var store
     let chat: Chat
-    let following: Bool
     /** Opens the agent's live browser, when it has a tab to watch. */
     var browser: (() -> Void)?
-    var toEnd: () -> Void
     var showQueue: () -> Void
 
     private var running: Bool { store.runs[chat.id] != nil }
@@ -306,18 +304,8 @@ struct WorkingControl: View {
                     .frame(height: 38)
                     .glassEffect(.regular, in: .capsule)
                 }
-                if !following {
-                    Button("Jump to latest", systemImage: "chevron.down", action: toEnd)
-                        .labelStyle(.iconOnly)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(palette.text)
-                        .frame(width: 38, height: 38)
-                        .glassEffect(.regular.interactive(), in: .circle)
-                        .transition(.scale(scale: 0.6).combined(with: .opacity))
-                }
             }
         }
-        .animation(.easeOut(duration: 0.24), value: following)
         .animation(.easeOut(duration: 0.2), value: running)
         .animation(.easeOut(duration: 0.2), value: queued)
         .animation(.easeOut(duration: 0.2), value: browser != nil)

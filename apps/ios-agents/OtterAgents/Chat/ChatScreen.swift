@@ -37,38 +37,29 @@ struct ChatScreen: View {
         }
     }
 
+    /** How many of the last turns are drawn at once, past the lazy stack: see `content`. */
+    private static let drawn = 4
+
     private func content(_ chat: Chat) -> some View {
         let name = store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat))
+        let turns = Array(chat.turns.enumerated())
+        let lazy = max(0, turns.count - Self.drawn)
         return ScrollView {
-            // Lazy: a turn is drawn as it scrolls in, so a chat of hundreds opens and reads back up
-            // as quickly as a short one.
-            LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(chat.turns.enumerated()), id: \.element.id) { index, turn in
-                    let isLast = index == chat.turns.count - 1
-                    Group {
-                        if let day = newDay(chat, index) { DayPill(text: day).padding(.bottom, 10) }
-                        // The turn alone takes its id: a lazy stack tells its views apart by them.
-                        switch turn.role {
-                        case .user: UserTurnView(turn: turn, answered: answered(chat, index), joinsAbove: index > 0 && chat.turns[index - 1].role == .user,
-                                                joinsBelow: chat.turns[safe: index + 1]?.role == .user)
-                            .id(turn.id)
-                        case .assistant:
-                            AssistantTurnView(turn: turn, chatId: chat.id, provider: chat.provider, name: name, isLast: isLast,
-                                              detached: isLast && store.isDetached(chat),
-                                              continued: index > 0 && ["steer", "promoted"].contains(chat.turns[index - 1].intent ?? ""))
-                            .id(turn.id)
-                        }
-                    }
-                    .padding(.bottom, chat.turns[safe: index + 1]?.role == turn.role ? 4 : 12)
-                    .background {
-                        if store.found?.turnId == turn.id { palette.focus.opacity(0.07).padding(.horizontal, -8).padding(.bottom, 10).clipShape(.rect(cornerRadius: 12)) }
-                    }
-                    // On each turn: a lazy stack is as wide as the scroll view whatever it's given,
-                    // and padding around it would leave the conversation wider than the screen.
-                    .padding(.horizontal, 12)
+            VStack(spacing: 0) {
+                // Lazy: a turn is drawn as it scrolls in, so a chat of hundreds opens and reads back
+                // up as quickly as a short one.
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(turns.prefix(lazy), id: \.element.id) { index, turn in row(chat, index, turn, name: name) }
                 }
+                .scrollTargetLayout()
+                // The last turns drawn at once: a lazy stack only estimates the height of what it
+                // hasn't drawn, and the end of the conversation, where it opens and what it
+                // follows, would be off by as much, past the last message or short of it.
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(turns.suffix(from: lazy), id: \.element.id) { index, turn in row(chat, index, turn, name: name) }
+                }
+                .scrollTargetLayout()
             }
-            .scrollTargetLayout()
         }
         .contentMargins(.top, 12, for: .scrollContent)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -90,8 +81,8 @@ struct ChatScreen: View {
                 position.scrollTo(edge: .bottom)
             }
         }
-        // A lazy stack opens at its estimated end: once the last turns are measured, the real end
-        // can be above it, and the conversation would rest on empty space under its last message.
+        // Turns that arrive are measured after the scroll that follows them: it can leave the
+        // conversation past its end, on empty space under its last message.
         .onScrollGeometryChange(for: Bool.self) { geometry in
             geometry.visibleRect.maxY - geometry.contentInsets.bottom > geometry.contentSize.height + 1
         } action: { _, past in
@@ -100,6 +91,25 @@ struct ChatScreen: View {
         .onChange(of: chat.turns.last?.items) { if following { position.scrollTo(edge: .bottom) } }
         .background { Wallpaper() }
         .overlay { placeholder(chat) }
+        // Over the conversation, not in the bar under it: the bar would grow as you scroll up, and its blur with it.
+        .overlay(alignment: .bottom) {
+            ZStack {
+                if !following, !chat.turns.isEmpty {
+                    Button("Jump to latest", systemImage: "chevron.down") {
+                        Haptics.tap()
+                        withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) }
+                    }
+                    .labelStyle(.iconOnly)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(palette.text)
+                    .frame(width: 38, height: 38)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .padding(.bottom, 8)
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+                }
+            }
+            .animation(.easeOut(duration: 0.24), value: following)
+        }
         .safeAreaBar(edge: .bottom) {
             bottom(chat).onGeometryChange(for: CGFloat.self) { $0.size.height } action: { _ in
                 // What the agent asks takes the composer's place, taller: the end stays in view.
@@ -207,6 +217,31 @@ struct ChatScreen: View {
         return (parts.joined(separator: " · "), false)
     }
 
+    private func row(_ chat: Chat, _ index: Int, _ turn: ChatTurn, name: String) -> some View {
+        let isLast = index == chat.turns.count - 1
+        return Group {
+            if let day = newDay(chat, index) { DayPill(text: day).padding(.bottom, 10) }
+            // The turn alone takes its id: a lazy stack tells its views apart by them.
+            switch turn.role {
+            case .user: UserTurnView(turn: turn, answered: answered(chat, index), joinsAbove: index > 0 && chat.turns[index - 1].role == .user,
+                                    joinsBelow: chat.turns[safe: index + 1]?.role == .user)
+                .id(turn.id)
+            case .assistant:
+                AssistantTurnView(turn: turn, chatId: chat.id, provider: chat.provider, name: name, isLast: isLast,
+                                  detached: isLast && store.isDetached(chat),
+                                  continued: index > 0 && ["steer", "promoted"].contains(chat.turns[index - 1].intent ?? ""))
+                .id(turn.id)
+            }
+        }
+        .padding(.bottom, chat.turns[safe: index + 1]?.role == turn.role ? 4 : 12)
+        .background {
+            if store.found?.turnId == turn.id { palette.focus.opacity(0.07).padding(.horizontal, -8).padding(.bottom, 10).clipShape(.rect(cornerRadius: 12)) }
+        }
+        // On each turn: a lazy stack is as wide as the scroll view whatever it's given, and padding
+        // around it would leave the conversation wider than the screen.
+        .padding(.horizontal, 12)
+    }
+
     /** The day a turn starts, when the one before was on another. */
     private func newDay(_ chat: Chat, _ index: Int) -> String? {
         guard let at = chat.turns[index].startedAt ?? chat.turns[index].finishedAt else { return nil }
@@ -261,10 +296,7 @@ struct ChatScreen: View {
         let approvals = store.approvals(in: chat.id)
         let questions = store.questions(in: chat.id)
         return VStack(spacing: 0) {
-            WorkingControl(chat: chat, following: following || chat.turns.isEmpty, browser: hasBrowser ? { showBrowser = true } : nil) {
-                Haptics.tap()
-                withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) }
-            } showQueue: { showQueue = true }
+            WorkingControl(chat: chat, browser: hasBrowser ? { showBrowser = true } : nil) { showQueue = true }
             .padding(.bottom, 4)
             if let approval = approvals.first {
                 ApprovalCard(chat: chat, approval: approval, count: (1, approvals.count))

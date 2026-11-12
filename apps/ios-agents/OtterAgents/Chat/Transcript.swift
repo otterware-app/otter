@@ -176,15 +176,22 @@ struct AssistantTurnView: View {
     /** Answers already parsed, by their text: a turn scrolled back to doesn't parse again. */
     private static var parsed: [String: [[Markdown.Block]]] = [:]
 
-    /** The answer, a bubble a paragraph. */
+    /**
+     * The answer, a bubble a paragraph. While the agent writes, the text it's on shows the bubbles
+     * it has finished: each comes in whole, as a message does, not a word at a time.
+     */
     private var bubbles: [[Markdown.Block]] {
-        answer.compactMap(\.text).flatMap { text in
-            if let bubbles = Self.parsed[text] { return bubbles }
-            let bubbles = Markdown.bubbles(text)
-            if Self.parsed.count > 500 { Self.parsed.removeAll() }
-            Self.parsed[text] = bubbles
-            return bubbles
-        }
+        let texts = answer.compactMap(\.text)
+        guard live, let writing = texts.last else { return texts.flatMap(Self.bubbles) }
+        return texts.dropLast().flatMap(Self.bubbles) + Markdown.written(writing)
+    }
+
+    private static func bubbles(_ text: String) -> [[Markdown.Block]] {
+        if let bubbles = parsed[text] { return bubbles }
+        let bubbles = Markdown.bubbles(text)
+        if parsed.count > 500 { parsed.removeAll() }
+        parsed[text] = bubbles
+        return bubbles
     }
 
     var body: some View {
@@ -205,7 +212,7 @@ struct AssistantTurnView: View {
             ForEach(Array(bubbles.enumerated()), id: \.offset) { index, blocks in
                 bubble(blocks, first: index == 0, last: index == bubbles.count - 1)
             }
-            if live, bubbles.isEmpty { TypingBubble() }
+            if live { TypingBubble() }
             if let error = turn.error { failure(error) }
             if !turn.changes.isEmpty, !live { ChangesList(changes: turn.changes).padding(.top, 3) }
             if detached, turn.finishedAt == nil, turn.error == nil {

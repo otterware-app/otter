@@ -294,6 +294,8 @@ private final class RightwardPan: UIPanGestureRecognizer {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
         super.touchesBegan(touches, with: event)
         start = touches.first?.location(in: view)
+        // From the screen's edge, a swipe goes back: it would quote the message it passes instead.
+        if let window = view?.window, let x = touches.first?.location(in: window).x, x < 24 { state = .failed }
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
