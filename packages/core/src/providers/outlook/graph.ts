@@ -79,6 +79,8 @@ export const isAccessDenied = (err: unknown): boolean =>
 
 export function errorKind(err: unknown): ErrorKind | null {
   if (err instanceof GraphError && (err.throttled || err.status === 503)) return "rateLimit";
+  // A gateway between us and the mailbox timed out or failed (Outlook's own retries spent).
+  if (err instanceof GraphError && (err.status === 502 || err.status === 504)) return "network";
   if (isNetworkError(err)) return "network";
   if (isNotFound(err)) return "notFound";
   if (err instanceof GraphError && (err.status === 401 || err.status === 403)) return "auth";

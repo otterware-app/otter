@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { setPlatform, type Platform } from "../../platform.ts";
-import { forgetGraph, graph, tier } from "./graph.ts";
+import { errorKind, forgetGraph, graph, GraphError, tier } from "./graph.ts";
 
 const ME = "me@contoso.test";
 let lane: unknown;
@@ -67,5 +67,18 @@ describe("Graph's requests in flight", () => {
     await settle();
     expect(pending).toHaveLength(4);
     for (const p of pending) p.answer();
+  });
+});
+
+describe("errorKind", () => {
+  it("retries a gateway's failure later, as it does a throttle", () => {
+    expect(errorKind(new GraphError(504, "UnknownError", ""))).toBe("network");
+    expect(errorKind(new GraphError(502, "", ""))).toBe("network");
+    expect(errorKind(new GraphError(503, "", ""))).toBe("rateLimit");
+  });
+
+  it("leaves Outlook's own errors to be reported", () => {
+    expect(errorKind(new GraphError(500, "ErrorInternalServerError", ""))).toBeNull();
+    expect(errorKind(new GraphError(400, "ErrorInvalidRequest", ""))).toBeNull();
   });
 });
