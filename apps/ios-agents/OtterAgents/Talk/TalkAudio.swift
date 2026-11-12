@@ -13,11 +13,11 @@ final class TalkAudio {
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private let outputFormat: AVAudioFormat
-    private let capture: Capture
+    private let wire: AVAudioFormat
     private let send: (Data) -> Void
     private let interrupted: () -> Void
     private var queued: AVAudioFramePosition = 0
-    private var observer: NSObjectProtocol?
+    private var observers: [NSObjectProtocol] = []
 
     /** Sends what the microphone hears, as 16-bit PCM at `inputRate` in 40 ms chunks. */
     init(inputRate: Double, outputRate: Double, send: @escaping (Data) -> Void, interrupted: @escaping () -> Void) throws {
@@ -30,20 +30,36 @@ final class TalkAudio {
               let wire = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: inputRate, channels: 1, interleaved: true)
         else { throw OpenClaw.Failure(message: "Couldn't set up the call's audio.") }
         outputFormat = output
+        self.wire = wire
         self.send = send
         self.interrupted = interrupted
         engine.attach(player)
-        engine.connect(player, to: engine.mainMixerNode, format: output)
-
-        let input = engine.inputNode.outputFormat(forBus: 0)
-        capture = try Capture(from: input, to: wire)
-        capture.owner = self
-        engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: input, block: Self.tap(capture))
+        try run()
         // A phone call, say, takes the audio: the call ends.
-        observer = NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: session, queue: .main) { [weak self] note in
+        observers.append(NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: session, queue: .main) { [weak self] note in
             guard (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt).flatMap(AVAudioSession.InterruptionType.init) == .began else { return }
             MainActor.assumeIsolated { self?.interrupted() }
-        }
+        })
+        // The route changed (voice processing coming on, a headset switching to its call mode): the
+        // engine stops itself, and starts again on what's there now.
+        observers.append(NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                do { try self.run() } catch { self.interrupted() }
+            }
+        })
+    }
+
+    /** Listens to the microphone as it is now, and plays. */
+    private func run() throws {
+        engine.inputNode.removeTap(onBus: 0)
+        let input = engine.inputNode.outputFormat(forBus: 0)
+        let capture = try Capture(from: input, to: wire)
+        capture.owner = self
+        engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: input, block: Self.tap(capture))
+        engine.connect(player, to: engine.mainMixerNode, format: outputFormat)
+        queued = 0
+        played = 0
         try engine.start()
         player.play()
     }
@@ -101,8 +117,8 @@ final class TalkAudio {
     func mute(_ muted: Bool) { engine.inputNode.isVoiceProcessingInputMuted = muted }
 
     func stop() {
-        if let observer { NotificationCenter.default.removeObserver(observer) }
-        observer = nil
+        for observer in observers { NotificationCenter.default.removeObserver(observer) }
+        observers = []
         engine.inputNode.removeTap(onBus: 0)
         player.stop()
         engine.stop()
