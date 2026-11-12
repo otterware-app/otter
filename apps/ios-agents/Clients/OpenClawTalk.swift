@@ -32,8 +32,12 @@ final class OpenClawCall {
     private var error: String?
     /** The agent's runs in the call's session that are going (what the voice asked of it). */
     private(set) var working: Set<String> = []
+    /** When the agent started on it: the first of those runs. */
+    private(set) var workingSince: Int?
     /** The runs that started during the call, until each has its answer. */
     private var asked: Set<String> = []
+    /** What the call asked of the agent is still going, or its answer hasn't come yet. */
+    var unfinished: Bool { !working.isEmpty || !asked.isEmpty }
     private var idle: [CheckedContinuation<Void, Never>] = []
     /** The answer a run of the call ended with: during the call, or after it. */
     var answered: (_ run: String, _ text: String) -> Void = { _, _ in }
@@ -94,14 +98,14 @@ final class OpenClawCall {
         guard listener != nil, !ended else { return }
         ended = true
         for end in consults.values { end() }
-        if working.isEmpty { unlisten() }
+        if !unfinished { unlisten() }
         let detach = gateway.capabilities.contains("talk-session-close-disposition")
         Task { _ = try? await gateway.request("talk.session.close", ["sessionId": id].merging(detach ? ["disposition": "detach"] : [:]) { $1 }) }
     }
 
     /** Once what the call asked of the agent is done, or can't be followed any more. */
     func finished() async {
-        guard listener != nil, !working.isEmpty else { return }
+        guard listener != nil, unfinished else { return }
         await withCheckedContinuation { idle.append($0) }
     }
 
@@ -110,6 +114,11 @@ final class OpenClawCall {
         for run in working {
             Task { _ = try? await gateway.request("chat.abort", ["sessionKey": session, "runId": run]) }
         }
+    }
+
+    /** Hung up, once nothing the call asked of the agent is left to hear. */
+    private func settle() {
+        if ended, !unfinished { unlisten() }
     }
 
     private func unlisten() {
@@ -125,7 +134,7 @@ final class OpenClawCall {
         let hungUp = ended
         ended = true
         for end in consults.values { end() }
-        if connection || working.isEmpty { unlisten() }
+        if connection || !unfinished { unlisten() }
         if !hungUp { events(.closed(error)) }
     }
 
@@ -135,25 +144,39 @@ final class OpenClawCall {
             switch (payload["data"] as? [String: Any])?["phase"] as? String {
             case "start":
                 guard !ended else { return }
+                if working.isEmpty { workingSince = .now }
                 working.insert(run)
                 asked.insert(run)
             case "end", "error":
                 guard working.remove(run) != nil else { return }
+                // Its last words can come after its end: they're waited for a moment.
+                Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(3))
+                    self?.asked.remove(run)
+                    self?.settle()
+                }
             default:
                 return
             }
             if !ended { events(.working(!working.isEmpty)) }
-            if ended, working.isEmpty { unlisten() }
+            settle()
             return
         }
         if name == "chat" {
             guard let run = payload["runId"] as? String else { return }
             runs[run]?(payload)
-            // A run's end can come before its last words.
-            if payload["state"] as? String == "final", asked.remove(run) != nil {
+            guard asked.contains(run) else { return }
+            switch payload["state"] as? String {
+            case "final":
+                asked.remove(run)
                 let text = OpenClaw.text((payload["message"] as? [String: Any])?["content"]).trimmingCharacters(in: .whitespacesAndNewlines)
                 if !text.isEmpty { answered(run, text) }
+            case "error", "aborted":
+                asked.remove(run)
+            default:
+                return
             }
+            settle()
             return
         }
         guard !ended, name == "talk.event", payload["relaySessionId"] as? String == id else { return }

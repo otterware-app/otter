@@ -99,8 +99,8 @@ struct ChatStoreTests {
         store.apply(.done, requestId: request, chatId: chat)
         var done: CheckedContinuation<Void, Never>?
         var stopped = false
-        store.waitForAgent(in: chat, finished: { await withCheckedContinuation { done = $0 } }, stop: { stopped = true })
-        #expect(store.runs[chat] != nil)
+        store.waitForAgent(in: chat, since: 1_000, finished: { await withCheckedContinuation { done = $0 } }, stop: { stopped = true })
+        #expect(store.runs[chat]?.since == 1_000 && store.holdsForCall(chat))
         store.send("Yo", in: chat)
         #expect(store.queued(in: chat).map(\.question) == ["Yo"])
         store.stop(chat)

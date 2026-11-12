@@ -99,8 +99,8 @@ final class TalkCall {
 
     /** What the call asked of the agent and is still going hands over to the chat, which works until it's done. */
     private func hangUp() {
-        if let call, !call.working.isEmpty {
-            store.waitForAgent(in: chatId, finished: { await call.finished() }, stop: { call.stopWork() })
+        if let call, call.unfinished {
+            store.waitForAgent(in: chatId, since: call.workingSince, finished: { await call.finished() }, stop: { call.stopWork() })
         }
         call?.end()
         call = nil

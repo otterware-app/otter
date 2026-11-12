@@ -11,6 +11,8 @@ final class ChatStore {
     struct Run: Equatable {
         var requestId: String
         var provider: String
+        /** When it started, where no turn of the chat says: the work a call left going. */
+        var since: Int?
         /** Handed off to background work: the subagents it waits on, each by its name when it has one. Nil while it works. */
         var waiting: [String?]?
 
@@ -254,6 +256,9 @@ final class ChatStore {
     /** How to stop the work a call left going, by the run that stands for it. */
     @ObservationIgnored private var callWork: [String: () -> Void] = [:]
 
+    /** What runs in the chat is the work a call left going, which takes no steer. */
+    func holdsForCall(_ chatId: String) -> Bool { runs[chatId].map { callWork[$0.requestId] != nil } ?? false }
+
     /** The call ended: what was being said when it did is all of it. */
     func endSpoken(in chatId: String) {
         for role in ["user", "assistant"] {
@@ -281,10 +286,10 @@ final class ChatStore {
      * The agent goes on with what a call asked of it after the call: the chat works until it's
      * done, and what you write meanwhile waits, as the gateway takes nothing into its session then.
      */
-    func waitForAgent(in chatId: String, finished: @escaping () async -> Void, stop: @escaping () -> Void) {
+    func waitForAgent(in chatId: String, since: Int?, finished: @escaping () async -> Void, stop: @escaping () -> Void) {
         guard runs[chatId] == nil, let chat = chat(chatId) else { return }
         let requestId = "call:\(UUID().uuidString)"
-        runs[chatId] = Run(requestId: requestId, provider: chat.provider)
+        runs[chatId] = Run(requestId: requestId, provider: chat.provider, since: since)
         callWork[requestId] = stop
         Task {
             await finished()

@@ -61,7 +61,7 @@ struct TalkScreen: View {
                 Text(caption.text.trimmingCharacters(in: .whitespaces))
                     .foregroundStyle(caption.user ? palette.muted : palette.text)
             } else {
-                Text(call?.phase == .live ? "Listening" : "Connecting…").foregroundStyle(palette.muted)
+                TimelineView(.periodic(from: .now, by: 0.25)) { _ in Text(statusText).foregroundStyle(palette.muted) }
             }
         }
         .font(.ui(17))

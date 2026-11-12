@@ -314,7 +314,7 @@ struct WorkingControl: View {
     private func label(at now: Date) -> String {
         if store.isCompacting(chat.id) { return "Compacting…" }
         if let waiting = store.runs[chat.id]?.waitingLabel { return waiting }
-        let started = chat.turns.last { $0.role == .user }?.startedAt ?? chat.turns.last?.startedAt
+        let started = store.runs[chat.id]?.since ?? chat.turns.last { $0.role == .user }?.startedAt ?? chat.turns.last?.startedAt
         guard let started else { return "Working" }
         return "Working \(ChatText.duration(max(0, Int(now.timeIntervalSince1970 * 1000) - started)))"
     }
