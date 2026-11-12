@@ -462,19 +462,23 @@ export function ChatTranscript({
       items.some((item) => isCompaction(item) && item.kind === "step" && item.output === undefined);
     const lastStep = items.findLastIndex((item) => item.kind === "step");
     const work = items.slice(0, lastStep + 1);
-    const answer = items
-      .slice(lastStep + 1)
-      .map((item) => (item.kind === "text" ? item.text.trim() : ""))
-      .join("\n\n");
+    // While it runs, what the agent writes stays in place with only its steps folded: which text
+    // is the answer is known once it's done.
+    const answer = live
+      ? ""
+      : items
+          .slice(lastStep + 1)
+          .map((item) => (item.kind === "text" ? item.text.trim() : ""))
+          .join("\n\n");
     const steps = work.filter((item) => item.kind === "step").length;
     // A compaction never folds away: it stays between the fold and the answer.
     const foldable = work.some((item) => !isCompaction(item));
     const expanded = expandedFolds.has(turn.id);
-    const showWork = work.length > 0 && (!foldable || expanded);
-    const keptCompactions =
-      foldable && !expanded
-        ? work.filter((item, i) => isCompaction(item) && !isCompaction(work[i + 1]))
-        : [];
+    const shown = live
+      ? items.filter((item) => expanded || item.kind === "text" || isCompaction(item))
+      : !foldable || expanded
+        ? work
+        : work.filter((item, i) => isCompaction(item) && !isCompaction(work[i + 1]));
     const continued = isSteer(turns[index - 1]);
     const foldLabel = live ? (
       <span className="text-shimmer">
@@ -507,32 +511,29 @@ export function ChatTranscript({
               onToggle={() => toggleFold(turn.id)}
             />
           ) : null}
-          {keptCompactions.length > 0 ? <WorkLog items={keptCompactions} live={live} /> : null}
-          {showWork ? (
-            <WorkLog items={work} live={live} onOpenFile={onOpenFile} loadImage={loadImage} />
+          {shown.length > 0 ? (
+            <WorkLog items={shown} live={live} onOpenFile={onOpenFile} loadImage={loadImage} />
           ) : null}
           {answer ? (
             <div className="group min-w-0 px-1 py-2">
               <div data-cite-source>
                 <ChatMarkdown text={answer} onOpenFile={onOpenFile} loadImage={loadImage} />
               </div>
-              {!live ? (
-                <div className="mt-1 flex items-center">
-                  <MessageTime at={turn.finishedAt ?? turn.startedAt} />
-                  <CopyMessageButton text={answer} />
-                  {onFork && !streaming ? (
-                    <HintTooltip label="Fork conversation">
-                      <IconBtn
-                        label="Fork conversation"
-                        className="size-6 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                        onClick={() => onFork(turn.id)}
-                      >
-                        <GitForkIcon className="size-3.5" />
-                      </IconBtn>
-                    </HintTooltip>
-                  ) : null}
-                </div>
-              ) : null}
+              <div className="mt-1 flex items-center">
+                <MessageTime at={turn.finishedAt ?? turn.startedAt} />
+                <CopyMessageButton text={answer} />
+                {onFork && !streaming ? (
+                  <HintTooltip label="Fork conversation">
+                    <IconBtn
+                      label="Fork conversation"
+                      className="size-6 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                      onClick={() => onFork(turn.id)}
+                    >
+                      <GitForkIcon className="size-3.5" />
+                    </IconBtn>
+                  </HintTooltip>
+                ) : null}
+              </div>
             </div>
           ) : null}
           {isLast && !streaming && detached ? <DetachedRow providerName={providerName} /> : null}

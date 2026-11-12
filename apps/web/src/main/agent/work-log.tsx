@@ -76,7 +76,7 @@ export function WorkLog({
     <div className="flex flex-col py-1">
       {blocksOf(items).map((block, i) =>
         block.kind === "text" ? (
-          <div key={i} className="min-w-0 px-1 py-2">
+          <div key={i} data-cite-source className="min-w-0 px-1 py-2">
             <ChatMarkdown text={block.text} onOpenFile={onOpenFile} loadImage={loadImage} />
           </div>
         ) : block.kind === "group" ? (
