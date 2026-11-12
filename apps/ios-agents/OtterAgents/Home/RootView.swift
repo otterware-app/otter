@@ -101,7 +101,7 @@ struct RootView: View {
     private func stack(_ place: Place, @ViewBuilder root: () -> some View) -> some View {
         NavigationStack(path: path(place)) {
             root().navigationDestination(for: Route.self) { route in
-                destination(route, in: place).toolbarVisibility(.hidden, for: .tabBar)
+                destination(route, in: place).toolbarVisibility(.hidden, for: .tabBar).background(ShowsTabBarOnBack())
             }
         }
     }
@@ -119,6 +119,31 @@ struct RootView: View {
         case .chatSettings: ChatSettings()
         case .licenses: LicensesView()
         case .task(let id): TaskScreen(id: id) { open(.chat($0), in: place) }
+        }
+    }
+}
+
+/**
+ * Brings the tab bar back as a back swipe to a tab's first screen starts, in step with it, as
+ * UIKit's own hiding does: SwiftUI's `toolbarVisibility(.hidden, for: .tabBar)` brings it back
+ * only once the swipe is over. A swipe let go of hides it again.
+ */
+private struct ShowsTabBarOnBack: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> Marker { Marker() }
+    func updateUIViewController(_ marker: Marker, context: Context) {}
+
+    final class Marker: UIViewController {
+        override func viewWillDisappear(_ animated: Bool) {
+            super.viewWillDisappear(animated)
+            // The pushed screen this is in.
+            var screen: UIViewController? = self
+            while let current = screen, !(current.parent is UINavigationController) { screen = current.parent }
+            // Leaving its stack for the tab's first screen (SwiftUI's screens don't say `isMovingFromParent`).
+            guard let screen, let stack = screen.navigationController?.viewControllers, stack.count == 1, !stack.contains(screen),
+                  let tabs = screen.tabBarController, let coordinator = screen.transitionCoordinator else { return }
+            coordinator.animate { _ in tabs.setTabBarHidden(false, animated: false) } completion: { context in
+                if context.isCancelled { tabs.setTabBarHidden(true, animated: false) }
+            }
         }
     }
 }
