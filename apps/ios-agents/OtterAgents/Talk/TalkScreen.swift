@@ -112,7 +112,7 @@ struct TalkScreen: View {
 
     private var statusText: String {
         switch call?.phase {
-        case .live?: call?.speaking == true ? "Speaking" : call?.muted == true ? "Muted" : "Listening"
+        case .live?: call?.speaking == true ? "Speaking" : call?.working == true ? "Working…" : call?.muted == true ? "Muted" : "Listening"
         case .ended?: "Ended"
         default: "Connecting…"
         }
@@ -152,12 +152,19 @@ private struct TalkOrb: View {
             .clipShape(.circle)
             .overlay(Circle().strokeBorder(palette.text.opacity(0.08), lineWidth: 1))
             .shadow(color: palette.action.opacity(speaking ? 0.35 : 0.15), radius: 30)
-            .scaleEffect(live ? 1 + CGFloat(level) * 0.18 + 0.015 * sin(t * 1.7) : 0.92 + 0.03 * sin(t * 2.4))
+            .scaleEffect(scale(level: level, speaking: speaking, live: live, t: t))
             .saturation(call.muted ? 0 : 1)
         }
         .frame(width: 236, height: 236)
         .animation(.easeOut(duration: 0.3), value: call.phase)
         .accessibilityHidden(true)
+    }
+
+    /** Swells with the voice; breathes slowly while the agent works, and quickly while it connects. */
+    private func scale(level: Float, speaking: Bool, live: Bool, t: Double) -> CGFloat {
+        guard live else { return 0.92 + 0.03 * sin(t * 2.4) }
+        let voice = 1 + CGFloat(level) * 0.18 + 0.015 * sin(t * 1.7)
+        return call.working && !speaking ? voice + 0.04 * sin(t * 2.2) : voice
     }
 
     private func colors(speaking: Bool, live: Bool) -> [Color] {

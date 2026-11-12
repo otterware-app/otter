@@ -78,6 +78,40 @@ struct ChatStoreTests {
         #expect(turns[3].spoken && turns[3].items == [.text(id: nil, "Still on it.")])
     }
 
+    @Test func aCallLeavesWhatWasSaidFinishedAndTheAgentsAnswerOnce() {
+        let store = store()
+        let chat = store.newChat()
+        store.hearSpoken("So any", by: .user, final: false, in: chat)
+        store.endSpoken(in: chat)
+        store.hearSpoken("Next call", by: .user, final: false, in: chat)
+        let said = store.chat(chat)!.turns
+        #expect(said.map(\.text) == ["So any", "Next call"])
+        #expect(said[0].finishedAt != nil)
+        store.agentAnswered(run: "consult-1", "It's Thursday.", in: chat)
+        store.agentAnswered(run: "consult-1", "It's Thursday.", in: chat)
+        let turns = store.chat(chat)!.turns
+        #expect(turns.count == 3 && turns[2].id == "a-run:consult-1" && turns[2].answer == "It's Thursday.")
+    }
+
+    @Test func whatYouWriteWhileACallsWorkGoesOnWaitsForIt() async {
+        let store = store(followUp: .steer)
+        let (chat, request) = running(store)
+        store.apply(.done, requestId: request, chatId: chat)
+        var done: CheckedContinuation<Void, Never>?
+        var stopped = false
+        store.waitForAgent(in: chat, finished: { await withCheckedContinuation { done = $0 } }, stop: { stopped = true })
+        #expect(store.runs[chat] != nil)
+        store.send("Yo", in: chat)
+        #expect(store.queued(in: chat).map(\.question) == ["Yo"])
+        store.stop(chat)
+        #expect(stopped)
+        await Task.yield()
+        done?.resume()
+        for _ in 0..<20 where store.queued(in: chat).count == 1 { await Task.yield() }
+        #expect(store.queued(in: chat).isEmpty)
+        #expect(store.chat(chat)!.turns.contains { $0.role == .user && $0.text == "Yo" })
+    }
+
     @Test func aRunsRecordKeepsWhatWasSaidMeanwhile() {
         var said = ChatTurn(id: "v-1", role: .user, text: "Still there?")
         said.spoken = true

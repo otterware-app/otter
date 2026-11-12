@@ -15,6 +15,8 @@ final class OpenClawCall {
         /** Played once what came before it has: `played`. */
         case mark(String)
         case transcript(user: Bool, text: String, final: Bool)
+        /** The agent is working on what the call asked of it. */
+        case working(Bool)
         case closed(String?)
     }
 
@@ -25,7 +27,16 @@ final class OpenClawCall {
     private let gateway: OpenClaw
     private let events: (Event) -> Void
     private var listener: UUID?
+    /** Hung up: what it asked of the agent may still be going. */
+    private var ended = false
     private var error: String?
+    /** The agent's runs in the call's session that are going (what the voice asked of it). */
+    private(set) var working: Set<String> = []
+    /** The runs that started during the call, until each has its answer. */
+    private var asked: Set<String> = []
+    private var idle: [CheckedContinuation<Void, Never>] = []
+    /** The answer a run of the call ended with: during the call, or after it. */
+    var answered: (_ run: String, _ text: String) -> Void = { _, _ in }
     /** Consults the agent is answering for the voice, by call: each one's end. */
     private var consults: [String: () -> Void] = [:]
     private var runs: [String: ([String: Any]) -> Void] = [:]
@@ -63,7 +74,7 @@ final class OpenClawCall {
             outputRate: (audio["outputSampleRateHz"] as? NSNumber)?.doubleValue ?? 24_000,
             gateway: gateway, events: events)
         call.listener = gateway.listen({ [weak call] name, payload in call?.heard(name, payload) },
-                                       closed: { [weak call] in call?.closed("Lost the connection to your gateway.") })
+                                       closed: { [weak call] in call?.closed("Lost the connection to your gateway.", connection: true) })
         return call
     }
 
@@ -75,33 +86,77 @@ final class OpenClawCall {
         Task { _ = try? await gateway.request("talk.session.acknowledgeMark", ["sessionId": id, "markName": mark]) }
     }
 
-    /** Ending a call leaves what the agent was asked going: its answer still comes to the chat. */
+    /**
+     * Ending a call leaves what the agent was asked going: its answer still comes to the chat, and
+     * the call listens for it until then (`finished`).
+     */
     func end() {
-        guard stop() else { return }
+        guard listener != nil, !ended else { return }
+        ended = true
+        for end in consults.values { end() }
+        if working.isEmpty { unlisten() }
         let detach = gateway.capabilities.contains("talk-session-close-disposition")
         Task { _ = try? await gateway.request("talk.session.close", ["sessionId": id].merging(detach ? ["disposition": "detach"] : [:]) { $1 }) }
     }
 
-    @discardableResult
-    private func stop() -> Bool {
-        guard let listener else { return false }
-        gateway.unlisten(listener)
-        self.listener = nil
-        for end in consults.values { end() }
-        return true
+    /** Once what the call asked of the agent is done, or can't be followed any more. */
+    func finished() async {
+        guard listener != nil, !working.isEmpty else { return }
+        await withCheckedContinuation { idle.append($0) }
     }
 
-    private func closed(_ error: String?) {
-        guard stop() else { return }
-        events(.closed(error))
+    /** Stops what the call asked of the agent. */
+    func stopWork() {
+        for run in working {
+            Task { _ = try? await gateway.request("chat.abort", ["sessionKey": session, "runId": run]) }
+        }
+    }
+
+    private func unlisten() {
+        if let listener { gateway.unlisten(listener) }
+        listener = nil
+        for waiting in idle { waiting.resume() }
+        idle = []
+    }
+
+    /** The voice stopped (`connection`: the gateway went, and the agent's work can't be followed either). */
+    private func closed(_ error: String?, connection: Bool = false) {
+        guard listener != nil, !ended || connection else { return }
+        let hungUp = ended
+        ended = true
+        for end in consults.values { end() }
+        if connection || working.isEmpty { unlisten() }
+        if !hungUp { events(.closed(error)) }
     }
 
     private func heard(_ name: String, _ payload: [String: Any]) {
-        if name == "chat" {
-            if let run = payload["runId"] as? String { runs[run]?(payload) }
+        if name == "agent", payload["sessionKey"] as? String == session, payload["stream"] as? String == "lifecycle",
+           let run = payload["runId"] as? String {
+            switch (payload["data"] as? [String: Any])?["phase"] as? String {
+            case "start":
+                guard !ended else { return }
+                working.insert(run)
+                asked.insert(run)
+            case "end", "error":
+                guard working.remove(run) != nil else { return }
+            default:
+                return
+            }
+            if !ended { events(.working(!working.isEmpty)) }
+            if ended, working.isEmpty { unlisten() }
             return
         }
-        guard name == "talk.event", payload["relaySessionId"] as? String == id else { return }
+        if name == "chat" {
+            guard let run = payload["runId"] as? String else { return }
+            runs[run]?(payload)
+            // A run's end can come before its last words.
+            if payload["state"] as? String == "final", asked.remove(run) != nil {
+                let text = OpenClaw.text((payload["message"] as? [String: Any])?["content"]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !text.isEmpty { answered(run, text) }
+            }
+            return
+        }
+        guard !ended, name == "talk.event", payload["relaySessionId"] as? String == id else { return }
         switch payload["type"] as? String {
         case "ready":
             events(.ready)
@@ -182,11 +237,11 @@ final class OpenClawCall {
                         settle(.failure(OpenClaw.Failure(message: "OpenClaw took too long.")))
                     }
                 }
-                if listener != nil { submit(["result": answer]) }
+                if !ended { submit(["result": answer]) }
             } catch is CancellationError {
             } catch {
                 if let run { runs[run] = nil }
-                if listener != nil { submit(["error": Self.plain(error)]) }
+                if !ended { submit(["error": Self.plain(error)]) }
             }
         }
     }

@@ -50,6 +50,7 @@ import {
   startTalk,
   talkAudio,
   talkPlayed,
+  isCallWork,
   talkReady,
   talksLost,
   type TalkGateway,
@@ -2109,6 +2110,8 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
   async steer(requestId, input) {
     const turn = turns.get(requestId);
     if (!turn) return false;
+    // What a call asked of the agent takes nothing once the call is over: the message waits for it.
+    if (isCallWork(turn.runId)) return false;
     // A message sent after a hand-off starts a turn of its own; the
     // continuation, when it comes, is a run the agent started.
     if (turn.yielded) {

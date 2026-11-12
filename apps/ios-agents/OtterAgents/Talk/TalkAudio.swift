@@ -12,6 +12,8 @@ final class TalkAudio {
 
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
+    /** The soft cue while the agent works: its own node, so it's never taken for the agent speaking. */
+    private let cuePlayer = AVAudioPlayerNode()
     private let outputFormat: AVAudioFormat
     private let wire: AVAudioFormat
     private let send: (Data) -> Void
@@ -34,6 +36,7 @@ final class TalkAudio {
         self.send = send
         self.interrupted = interrupted
         engine.attach(player)
+        engine.attach(cuePlayer)
         try run()
         // A phone call, say, takes the audio: the call ends.
         observers.append(NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: session, queue: .main) { [weak self] note in
@@ -58,10 +61,33 @@ final class TalkAudio {
         capture.owner = self
         engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: input, block: Self.tap(capture))
         engine.connect(player, to: engine.mainMixerNode, format: outputFormat)
+        engine.connect(cuePlayer, to: engine.mainMixerNode, format: outputFormat)
         queued = 0
         played = 0
         try engine.start()
         player.play()
+        cuePlayer.play()
+    }
+
+    /** Two soft notes, rising. */
+    func cue() {
+        let rate = outputFormat.sampleRate
+        let notes: [(hz: Double, from: Double, length: Double)] = [(587.33, 0, 0.09), (783.99, 0.13, 0.12)]
+        let frames = AVAudioFrameCount(rate * 0.27)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: frames),
+              let samples = buffer.floatChannelData?[0] else { return }
+        buffer.frameLength = frames
+        for index in 0..<Int(frames) {
+            let t = Double(index) / rate
+            samples[index] = notes.reduce(0) { sum, note in
+                let at = t - note.from
+                guard at >= 0, at < note.length else { return sum }
+                // A short rise and a long fall, so it's a soft tap, not a beep.
+                let envelope = min(at / 0.01, 1) * exp(-at * 18)
+                return sum + Float(sin(2 * .pi * note.hz * at) * envelope * 0.05)
+            }
+        }
+        cuePlayer.scheduleBuffer(buffer)
     }
 
     func play(_ pcm: Data) {
@@ -121,6 +147,7 @@ final class TalkAudio {
         observers = []
         engine.inputNode.removeTap(onBus: 0)
         player.stop()
+        cuePlayer.stop()
         engine.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }

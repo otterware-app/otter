@@ -10,8 +10,16 @@ vi.mock("../../../packages/core/src/platform.js", () => ({
   }),
 }));
 
-const { endAllTalks, endTalk, onTalkFrame, startTalk, talkAudio, talkReady, talksLost } =
-  await import("./openclaw-talk.js");
+const {
+  endAllTalks,
+  endTalk,
+  isCallWork,
+  onTalkFrame,
+  startTalk,
+  talkAudio,
+  talkReady,
+  talksLost,
+} = await import("./openclaw-talk.js");
 
 const created = {
   sessionId: "talk-1",
@@ -128,6 +136,19 @@ describe("a call with OpenClaw", () => {
       callId: "call-2",
       result: { error: "Otter's calls don't have describe_view." },
     });
+  });
+
+  it("knows what the agent does for it until that's done, after the call too", async () => {
+    await startTalk(gateway(), "agent:main:otter-mail:1", () => {});
+    const lifecycle = (sessionKey: string, runId: string, phase: string) =>
+      onTalkFrame("agent", { sessionKey, runId, stream: "lifecycle", data: { phase } });
+    lifecycle("agent:main:otter-mail:1", "consult-1", "start");
+    lifecycle("agent:main:otter-mail:2", "elsewhere", "start");
+    await endTalk("talk-1");
+    expect(isCallWork("consult-1")).toBe(true);
+    expect(isCallWork("elsewhere")).toBe(false);
+    lifecycle("agent:main:otter-mail:1", "consult-1", "end");
+    expect(isCallWork("consult-1")).toBe(false);
   });
 
   it("ends with its connection, and hanging up leaves the agent's work going", async () => {

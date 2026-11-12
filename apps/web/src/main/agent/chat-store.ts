@@ -1047,6 +1047,20 @@ export function hearSpoken(id: string, role: ChatTurn["role"], text: string, fin
   if (first) void regenerateTitle(id).catch(() => {});
 }
 
+/** The call ended: what was being said when it did is all of it. */
+export function endSpoken(id: string): void {
+  for (const role of ["user", "assistant"]) {
+    const turnId = saying.get(`${id}:${role}`);
+    if (!turnId) continue;
+    saying.delete(`${id}:${role}`);
+    const now = Date.now();
+    patchConversation(id, (c) => ({
+      ...c,
+      turns: c.turns.map((t) => (t.id === turnId ? { ...t, finishedAt: t.finishedAt ?? now } : t)),
+    }));
+  }
+}
+
 const spokenText = (turn: ChatTurn | undefined) =>
   turn?.items?.map((item) => (item.kind === "text" ? item.text : "")).join("");
 

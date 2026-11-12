@@ -249,6 +249,49 @@ final class ChatStore {
 
     /** The turn being said in a call, by chat and who's saying it. */
     @ObservationIgnored private var saying: [String: String] = [:]
+    /** On a call: the app keeps its connections in the background. */
+    @ObservationIgnored var calling = false
+    /** How to stop the work a call left going, by the run that stands for it. */
+    @ObservationIgnored private var callWork: [String: () -> Void] = [:]
+
+    /** The call ended: what was being said when it did is all of it. */
+    func endSpoken(in chatId: String) {
+        for role in ["user", "assistant"] {
+            guard let id = saying.removeValue(forKey: "\(chatId):\(role)") else { continue }
+            update(chatId) { chat in
+                if let index = chat.turns.firstIndex(where: { $0.id == id }) { chat.turns[index].finishedAt = .now }
+            }
+        }
+    }
+
+    /** What the agent answered for a call: its run's reply, under the id the Mac gives that run, so the chat has it once. */
+    func agentAnswered(run: String, _ text: String, in chatId: String) {
+        let id = "a-run:\(run)"
+        update(chatId) { chat in
+            guard !chat.turns.contains(where: { $0.id == id }) else { return }
+            var turn = ChatTurn(id: id, role: .assistant)
+            turn.items = [.text(id: nil, text)]
+            turn.finishedAt = .now
+            chat.turns.append(turn)
+            chat.updatedAt = .now
+        }
+    }
+
+    /**
+     * The agent goes on with what a call asked of it after the call: the chat works until it's
+     * done, and what you write meanwhile waits, as the gateway takes nothing into its session then.
+     */
+    func waitForAgent(in chatId: String, finished: @escaping () async -> Void, stop: @escaping () -> Void) {
+        guard runs[chatId] == nil, let chat = chat(chatId) else { return }
+        let requestId = "call:\(UUID().uuidString)"
+        runs[chatId] = Run(requestId: requestId, provider: chat.provider)
+        callWork[requestId] = stop
+        Task {
+            await finished()
+            callWork[requestId] = nil
+            endRun(requestId)
+        }
+    }
 
     /** What's said in a call, as it's heard: a turn for each thing said, done once it's final. */
     func hearSpoken(_ text: String, by role: ChatTurn.Role, final: Bool, in chatId: String) {
@@ -404,11 +447,11 @@ final class ChatStore {
             drafts[chatId] = editing.savedDraft.isEmpty ? nil : editing.savedDraft
             return startQueued()
         }
-        guard runs[chatId] != nil else { return startTurn(message) }
+        guard let run = runs[chatId] else { return startTurn(message) }
         var steers = agents.followUp == .steer
         if opposite { steers.toggle() }
-        // As in T3 Code, a message waits in the queue while the run compacts.
-        if !steers || !attachments.isEmpty || isCompacting(chatId) { queue.append(message) } else { steer(message) }
+        // As in T3 Code, a message waits in the queue while the run compacts; the work a call left can't be steered.
+        if !steers || !attachments.isEmpty || isCompacting(chatId) || callWork[run.requestId] != nil { queue.append(message) } else { steer(message) }
     }
 
     static func withCitations(_ question: String, _ citations: [ChatCitation]) -> String {
@@ -497,7 +540,8 @@ final class ChatStore {
     }
 
     func stop(_ chatId: String) {
-        if let run = runs[chatId] { runner.cancel(run.requestId) }
+        guard let run = runs[chatId] else { return }
+        if let stopWork = callWork[run.requestId] { stopWork() } else { runner.cancel(run.requestId) }
     }
 
     // MARK: The queue

@@ -6,7 +6,7 @@ import { mailApi, type ProviderKind, type TalkEvent } from "../mail/api";
 import { COMPOSER_SURFACE } from "../mail/composer-kit";
 import { toast } from "../mail/toast";
 import { HintTooltip, IconBtn, cn } from "../mail/ui";
-import { hearSpoken, setChatSession } from "./chat-store";
+import { endSpoken, hearSpoken, setChatSession, useChats } from "./chat-store";
 import {
   base64ToPcm,
   openMicrophone,
@@ -35,6 +35,8 @@ const CHUNK_MS = 40;
 const MAX_UNSENT_MS = 3000;
 /** The agent counts as speaking this long after it last made a sound, between words. */
 const SPEAKING_HOLD_MS = 600;
+/** While the agent works and the voice is quiet, a soft cue this often: the call isn't stuck. */
+const CUE_EVERY_MS = 2200;
 
 let mic: Microphone | null = null;
 let speaker: Speaker | null = null;
@@ -128,6 +130,8 @@ export function endCall(): void {
 }
 
 function hangUp(): void {
+  const chatId = get().call?.chatId;
+  if (chatId) endSpoken(chatId);
   mic?.stop();
   speaker?.close();
   mic = null;
@@ -165,9 +169,10 @@ function onTalkEvent(event: TalkEvent): void {
     return;
   }
   if (event.talkId !== call.talkId) return;
+  // The voice is there once it says anything: its "ready" can come before the call is known.
+  if (!call.liveAt && event.type !== "closed") set({ call: { ...call, liveAt: Date.now() } });
   switch (event.type) {
     case "ready":
-      if (!call.liveAt) set({ call: { ...call, liveAt: Date.now() } });
       return;
     case "audio":
       speaker?.play(base64ToPcm(event.audio));
@@ -278,13 +283,24 @@ function CallTime({ since }: { since: number }) {
 /** In the composer's place while you're on a call in its chat. */
 export function TalkBar({ call, name, compact }: { call: Call; name: string; compact: boolean }) {
   const [speaking, setSpeaking] = useState(false);
+  const working = useChats((s) => Boolean(s.runs[call.chatId]));
+  const live = call.liveAt !== null;
+  useEffect(() => {
+    if (!working || !live) return;
+    const timer = setInterval(() => {
+      if (performance.now() - spokeAt >= SPEAKING_HOLD_MS) speaker?.cue();
+    }, CUE_EVERY_MS);
+    return () => clearInterval(timer);
+  }, [working, live]);
   const status = !call.liveAt
     ? "Connecting…"
     : speaking
       ? `${name} is speaking`
-      : call.muted
-        ? "Muted"
-        : "Listening";
+      : working
+        ? `${name} is working…`
+        : call.muted
+          ? "Muted"
+          : "Listening";
   return (
     <div
       className={cn(

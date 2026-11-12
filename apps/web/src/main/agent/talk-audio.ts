@@ -72,6 +72,24 @@ export function openSpeaker(context: AudioContext, rate: number) {
       levels.length = 0;
       queuedUntil = 0;
     },
+    /** Two soft notes, rising: the agent is working, the call isn't stuck. */
+    cue() {
+      const at = context.currentTime + 0.02;
+      for (const [hz, from, length] of [
+        [587.33, 0, 0.09],
+        [783.99, 0.13, 0.12],
+      ]) {
+        const tone = context.createOscillator();
+        const gain = context.createGain();
+        tone.frequency.value = hz;
+        gain.gain.setValueAtTime(0, at + from);
+        gain.gain.linearRampToValueAtTime(0.05, at + from + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + from + length);
+        tone.connect(gain).connect(context.destination);
+        tone.start(at + from);
+        tone.stop(at + from + length + 0.02);
+      }
+    },
     /** Until what's queued has played. */
     pendingMs: () => Math.max(0, (queuedUntil - context.currentTime) * 1000),
     /** How loud what's playing now is (0–1). */

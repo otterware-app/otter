@@ -50,6 +50,13 @@ const CONSULT_TIMEOUT_MS = 120_000;
 const SILENT_MS = 15_000;
 
 const talks = new Map<string, Talk>();
+/**
+ * Runs the agent started in a session while a call was on it (what the voice asked of it), until
+ * they end: the gateway takes nothing into them once the call is over, so they're never steered.
+ */
+const callWork = new Set<string>();
+
+export const isCallWork = (runId: string) => callWork.has(runId);
 const runs = new Map<string, (frame: ChatFrame) => void>();
 let watchdog: ReturnType<typeof setInterval> | undefined;
 
@@ -198,6 +205,19 @@ export function endAllTalks(): void {
 }
 
 export function onTalkFrame(event: string, payload: unknown): void {
+  if (event === "agent") {
+    const p = payload as {
+      sessionKey?: string;
+      runId?: string;
+      stream?: string;
+      data?: { phase?: string };
+    };
+    if (p?.stream !== "lifecycle" || !p.runId) return;
+    if (p.data?.phase === "start" && [...talks.values()].some((t) => t.sessionKey === p.sessionKey))
+      callWork.add(p.runId);
+    else if (p.data?.phase === "end" || p.data?.phase === "error") callWork.delete(p.runId);
+    return;
+  }
   if (event === "chat") {
     const frame = payload as ChatFrame;
     if (frame?.runId) runs.get(frame.runId)?.(frame);
