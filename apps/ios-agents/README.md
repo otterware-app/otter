@@ -33,6 +33,7 @@ green), since a chat with an agent is a chat:
   messages in the accent's bubbles on the right, with their time and ticks (one sent, two
   received, colored once answered); the agent's answer on the left, a bubble a paragraph (a list,
   code, a table each one), its work in a pill above ("Worked for 2m 3s", tap for the steps).
+  While it works, what it writes along the way shows too; once done, that folds into the pill.
   **Swipe any bubble right to reply to it**: just that paragraph is quoted in a bar over the
   composer, with who said it. The composer is WhatsApp's: ＋ (photos, camera, documents, skills,
   the agent, in a panel where the keyboard was), the text in a pill with the agent's picture to

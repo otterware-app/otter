@@ -181,10 +181,14 @@ struct AssistantTurnView: View {
      * it has finished: each comes in whole, as a message does, not a word at a time.
      */
     private var bubbles: [[Markdown.Block]] {
-        let texts = answer.compactMap(\.text)
-        guard live, let writing = texts.last else { return texts.flatMap(Self.bubbles) }
-        return texts.dropLast().flatMap(Self.bubbles) + Markdown.written(writing)
+        // While it runs, what the agent writes stays in place with only its steps folded: which
+        // text is the answer is known once it's done.
+        let said = live && !showsWork ? turn.items : answer
+        guard live, let writing = said.last?.text else { return said.compactMap(\.text).flatMap(Self.bubbles) }
+        return said.dropLast().compactMap(\.text).flatMap(Self.bubbles) + Markdown.written(writing)
     }
+
+    private var showsWork: Bool { open || store.found?.turnId == turn.id }
 
     private static func bubbles(_ text: String) -> [[Markdown.Block]] {
         if let bubbles = parsed[text] { return bubbles }
@@ -200,7 +204,7 @@ struct AssistantTurnView: View {
             if let delivered = turn.delivered { delivery(delivered).padding(.bottom, 3) }
             if !work.isEmpty {
                 fold.padding(.bottom, 3)
-                if open || store.found?.turnId == turn.id {
+                if showsWork {
                     WorkLog(items: work, live: live)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
