@@ -112,6 +112,18 @@ export interface ChatMessageMatch {
 
 export type ChatSummary = Omit<Chat, "turns"> & { deletedAt: number | null };
 
+/**
+ * `chats:save`: a chat without its turns, its turns' ids in order, and only the turns that
+ * changed since the window last saved it, so a long chat that streams sends one turn.
+ * `settled`: no turn runs in it, so other devices can have it now (else in a while).
+ */
+export interface ChatSave {
+  chat: Omit<Chat, "turns">;
+  turnIds: string[];
+  turns: ChatTurn[];
+  settled: boolean;
+}
+
 export function chatTabId(ref: ChatTabRef): string {
   switch (ref.kind) {
     case "thread":

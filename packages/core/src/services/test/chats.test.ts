@@ -1,5 +1,12 @@
+import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { CHAT_LIMITS, chatForSync, type Chat, type ChatSummary } from "@otter/contracts/chats";
+import {
+  CHAT_LIMITS,
+  chatForSync,
+  type Chat,
+  type ChatSummary,
+  type ChatTurn,
+} from "@otter/contracts/chats";
 
 const relay = {
   chats: new Map<string, Chat & { deletedAt: number | null }>(),
@@ -16,7 +23,7 @@ class RelayError extends Error {
   }
 }
 
-vi.mock("./otter-account.js", () => ({
+vi.mock("../otter-account.js", () => ({
   RelayError,
   getOtterUser: () => ({ id: "u1", email: "me@example.com", name: null, picture: null }),
   async relayRequest(method: string, route: string, body?: Chat) {
@@ -43,21 +50,34 @@ vi.mock("./otter-account.js", () => ({
   },
 }));
 
-const files = new Map<string, string>();
 const broadcasts: unknown[] = [];
-const { setPlatform } = await import("../platform.ts");
-setPlatform({
-  broadcast: (channel: string, params: unknown) => broadcasts.push([channel, params]),
-  log: () => {},
-  deviceName: "Robin's Mac",
-  files: {
-    read: async (name: string) =>
-      files.has(name) ? new TextEncoder().encode(files.get(name)) : null,
-    write: async (name: string, data: Uint8Array | string) => void files.set(name, String(data)),
-  },
-} as never);
 
-const chats = await import("./chats.ts");
+/** The store on a platform of its own: a new database, and these files. */
+async function store(files = new Map<string, string>()) {
+  vi.resetModules();
+  const { setPlatform } = await import("../../platform.ts");
+  const database = new DatabaseSync(":memory:");
+  setPlatform({
+    broadcast: (channel: string, params: unknown) => broadcasts.push([channel, params]),
+    log: () => {},
+    deviceName: "Robin's Mac",
+    database: () => database,
+    files: {
+      read: async (name: string) =>
+        files.has(name) ? new TextEncoder().encode(files.get(name)) : null,
+      write: async (name: string, data: Uint8Array | string) => void files.set(name, String(data)),
+      remove: async (name: string) => void files.delete(name),
+    },
+  } as never);
+  return { chats: await import("../chats.ts"), database };
+}
+
+const { chats, database } = await store();
+
+function save(c: Chat, settled = true, turns: ChatTurn[] = c.turns) {
+  const { turns: all, ...row } = c;
+  return chats.saveChat({ chat: row, turnIds: all.map((t) => t.id), turns, settled });
+}
 
 const chat = (id: string, patch: Partial<Chat> = {}): Chat => ({
   id,
@@ -88,7 +108,7 @@ beforeEach(() => {
 
 describe("chats", () => {
   it("writes a saved chat to the relay, whole, and tells the windows", async () => {
-    await chats.saveChat(chat("c1"));
+    await save(chat("c1"));
     await settle();
 
     expect(relay.calls).toEqual(["PUT /v1/chats/c1"]);
@@ -102,7 +122,7 @@ describe("chats", () => {
   });
 
   it("marks a Claude or Codex chat as this device's", async () => {
-    await chats.saveChat(chat("c2", { provider: "claude" }));
+    await save(chat("c2", { provider: "claude" }));
     await settle();
 
     const { device } = await chats.listChats();
@@ -113,7 +133,7 @@ describe("chats", () => {
 
   it("keeps changes made offline and writes them once the relay is back", async () => {
     relay.down = true;
-    await chats.saveChat(chat("c3", { updatedAt: 20 }));
+    await save(chat("c3", { updatedAt: 20 }));
     await settle();
     expect(relay.chats.has("c3")).toBe(false);
 
@@ -128,7 +148,7 @@ describe("chats", () => {
       ...chat("c4", { title: "From the iPhone", updatedAt: 50 }),
       deletedAt: null,
     });
-    await chats.saveChat(chat("c5"));
+    await save(chat("c5"));
     await settle();
     relay.chats.set("c5", { ...chat("c5"), turns: [], deletedAt: 60 });
     broadcasts.length = 0;
@@ -141,7 +161,7 @@ describe("chats", () => {
   });
 
   it("keeps this device's change over the relay's older copy until it's written", async () => {
-    await chats.saveChat(chat("c6", { title: "Mine", updatedAt: 100 }));
+    await save(chat("c6", { title: "Mine", updatedAt: 100 }));
     relay.chats.set("c6", { ...chat("c6", { title: "Theirs", updatedAt: 90 }), deletedAt: null });
 
     await chats.pullChats();
@@ -161,7 +181,7 @@ describe("chats", () => {
         { kind: "step" as const, step: { kind: "tool" as const, title: "Read" }, output: long },
       ],
     }));
-    await chats.saveChat(chat("c8", { turns, updatedAt: 100 }));
+    await save(chat("c8", { turns, updatedAt: 100 }));
     await settle();
     const synced = relay.chats.get("c8")!;
     expect(synced.turns).toHaveLength(80);
@@ -180,7 +200,7 @@ describe("chats", () => {
   });
 
   it("keeps where this device has read the chat's session when another device writes", async () => {
-    await chats.saveChat(chat("c9", { cursor: "t-1:42", updatedAt: 100 }));
+    await save(chat("c9", { cursor: "t-1:42", updatedAt: 100 }));
     await settle();
     const synced = relay.chats.get("c9")!;
     const { cursor: _cursor, ...elsewhere } = synced;
@@ -193,9 +213,96 @@ describe("chats", () => {
     expect(here.cursor).toBe("t-1:42");
   });
 
+  it("writes only the turns it's sent, keeping the others as they were", async () => {
+    const asked: ChatTurn = { id: "u-1", role: "user", text: "Find a venue" };
+    const reply = (text: string): ChatTurn => ({
+      id: "a-1",
+      role: "assistant",
+      text: "",
+      items: [{ kind: "text", text }],
+    });
+    await save(chat("s1", { turns: [asked, reply("Look")] }));
+    const write = vi.spyOn(database, "prepare");
+
+    await save(chat("s1", { turns: [{ ...asked, text: "never sent" }, reply("Looking")] }), false, [
+      reply("Looking"),
+    ]);
+
+    const turnWrites = write.mock.calls.filter(([sql]) => sql.includes("INSERT INTO chat_turns"));
+    expect(turnWrites).toHaveLength(1);
+    write.mockRestore();
+    const here = (await chats.getChat("s1"))!;
+    expect(here.turns).toEqual([asked, reply("Looking")]);
+    // A streaming chat reaches the relay in a while.
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(relay.chats.get("s1")?.turns).toEqual([asked, reply("Looking")]);
+  });
+
+  it("keeps a chat's turns in the order it's sent, without the ones it no longer has", async () => {
+    const turn = (id: string): ChatTurn => ({ id, role: "user", text: id });
+    await save(chat("s2", { turns: [turn("a"), turn("b"), turn("c")] }));
+
+    await save(chat("s2", { turns: [turn("c"), turn("a"), turn("d")] }), true, [turn("d")]);
+
+    expect((await chats.getChat("s2"))!.turns.map((t) => t.id)).toEqual(["c", "a", "d"]);
+    await settle();
+  });
+
+  it("finds a message in a turn written on its own", async () => {
+    await save(chat("s3", { title: "Venues" }));
+    await save(
+      chat("s3", {
+        turns: [
+          { id: "u-1", role: "user", text: "Find a venue" },
+          {
+            id: "a-1",
+            role: "assistant",
+            text: "",
+            items: [{ kind: "text", text: "The boathouse" }],
+          },
+        ],
+      }),
+      true,
+      [
+        {
+          id: "a-1",
+          role: "assistant",
+          text: "",
+          items: [{ kind: "text", text: "The boathouse" }],
+        },
+      ],
+    );
+
+    const found = await chats.searchChats("boathouse");
+    expect(found).toEqual([
+      { id: "s3", turnId: "a-1", role: "assistant", snippet: expect.stringContaining("boathouse") },
+    ]);
+    await settle();
+  });
+
+  it("moves the chats kept in chats.json into the database once, and removes the file", async () => {
+    const files = new Map([
+      [
+        "chats.json",
+        JSON.stringify({
+          chats: [chat("old", { title: "Kept before" })],
+          pending: ["old"],
+          device: { id: "device-1", name: "Robin's Mac" },
+        }),
+      ],
+    ]);
+    const before = await store(files);
+
+    const { chats: listed, device } = await before.chats.listChats();
+    expect(listed.map((c) => c.title)).toEqual(["Kept before"]);
+    expect(device.id).toBe("device-1");
+    expect((await before.chats.getChat("old"))?.turns).toEqual(chat("old").turns);
+    expect(files.has("chats.json")).toBe(false);
+  });
+
   it("lets the oldest chats go everywhere past the limit", async () => {
-    for (let i = 0; i < 500; i++) await chats.saveChat(chat(`old${i}`, { updatedAt: 1000 + i }));
-    await chats.saveChat(chat("newest", { updatedAt: 5000 }));
+    for (let i = 0; i < 500; i++) await save(chat(`old${i}`, { updatedAt: 1000 + i }));
+    await save(chat("newest", { updatedAt: 5000 }));
     await settle();
 
     expect(await chats.getChat("old0")).toBeNull();
@@ -204,7 +311,7 @@ describe("chats", () => {
   });
 
   it("deletes on the relay what's deleted here", async () => {
-    await chats.saveChat(chat("c7"));
+    await save(chat("c7"));
     await settle();
     await chats.deleteChat("c7");
     await settle();

@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import Observation
 
 /**
@@ -123,6 +124,7 @@ final class Agents {
     @ObservationIgnored private var openClawAgents: [OpenClaw.GatewayAgent] = []
     @ObservationIgnored private var varysConnection: (key: String, client: Varys)?
     @ObservationIgnored private var skillsCache: [AgentKind: (at: Date, skills: [Skill])] = [:]
+    @ObservationIgnored private let network = NWPathMonitor()
 
     private static let settingsKey = "assistant"
     private static let hermesKeyName = "hermes-key"
@@ -148,6 +150,11 @@ final class Agents {
         hasHermesKey = Keychain.get(Self.hermesKeyName) != nil
         openClawAgents = (try? JSONDecoder().decode([OpenClaw.GatewayAgent].self, from: Data(contentsOf: Self.openClawAgentsFile))) ?? []
         showOpenClawAgents()
+        // A new network (Wi-Fi to cellular, the VPN coming up) can leave the gateway's socket open and dead.
+        network.pathUpdateHandler = { [weak self] _ in
+            Task { @MainActor in await self?.probe() }
+        }
+        network.start(queue: .main)
     }
 
     private static func decode<T: Decodable>(_ value: Any?) -> T? {
@@ -647,6 +654,17 @@ final class Agents {
     func suspend() {
         gateway?.disconnect()
         varysConnection?.client.disconnect()
+    }
+
+    /** The gateway's socket, if there is one, is asked whether it's still there. */
+    func probe() async {
+        await gateway?.probe()
+    }
+
+    /** Back in front: the gateway's socket opens now, so what's sent next doesn't wait for it. */
+    func reconnect() {
+        guard !demo, isUsable(.openclaw), let gateway = openClawClient else { return }
+        Task { try? await gateway.connected() }
     }
 
     // MARK: Results kept away

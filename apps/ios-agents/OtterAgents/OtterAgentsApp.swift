@@ -35,8 +35,8 @@ struct OtterAgentsApp: App {
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
-            case .active: Task { await account.refresh() }
-            case .background: account.pause()
+            case .active: Task { await account.returned() }
+            case .background: account.leave()
             default: break
             }
         }

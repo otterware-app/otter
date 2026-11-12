@@ -4,6 +4,7 @@ import {
   LOCAL_CHAT_PROVIDERS,
   chatTabId,
   type Chat,
+  type ChatSave,
   type ChatContextMeta,
   type ChatTab,
   type ChatTabRef,
@@ -349,8 +350,7 @@ const chatsApi = {
   list: () => ipc<{ chats: Omit<Chat, "turns">[]; device: Device }>("chats:list"),
   get: (id: string) => ipc<Chat | null>("chats:get", { id }),
   search: (query: string) => ipc<ChatMessageMatch[]>("chats:search", { query }),
-  /** `settled`: no turn runs in it, so other devices can have it now (else in a while). */
-  save: (chat: Chat, settled: boolean) => ipc<void>("chats:save", { chat, settled }),
+  save: (save: ChatSave) => ipc<void>("chats:save", save),
   delete: (id: string) => ipc<void>("chats:delete", { id }),
 };
 
@@ -364,9 +364,13 @@ const savedOpenRequests = readJson<Record<string, string>>(OPEN_REQUESTS_KEY, {}
 const coreIds = new Set<string>();
 
 const fromCore = new WeakSet<Conversation>();
-const asLoaded = (c: Conversation) => (fromCore.add(c), c);
-
-const toChat = ({ openRequest: _open, loaded: _loaded, ...chat }: Conversation): Chat => chat;
+/** Turns as core has them, by chat (a fork shares its source's turns): a save sends the others. */
+const stored = new WeakMap<ChatTurn, string>();
+const asLoaded = (c: Conversation) => {
+  fromCore.add(c);
+  if (c.loaded) for (const turn of c.turns) stored.set(turn, c.id);
+  return c;
+};
 
 const saving = new Set<string>();
 const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -379,9 +383,12 @@ function scheduleSave(id: string): void {
       saveTimers.delete(id);
       const convo = get().conversations.find((c) => c.id === id);
       if (!convo || !convo.loaded || convo.turns.length === 0) return;
+      const { openRequest: _open, loaded: _loaded, turns, ...chat } = convo;
+      const changed = turns.filter((turn) => stored.get(turn) !== id);
       saving.add(id);
       chatsApi
-        .save(toChat(convo), !get().runs[id])
+        .save({ chat, turnIds: turns.map((t) => t.id), turns: changed, settled: !get().runs[id] })
+        .then(() => changed.forEach((turn) => stored.set(turn, id)))
         .catch((error: unknown) => console.log("[AgentChat:save] failed", { error: String(error) }))
         .finally(() => saving.delete(id));
     }, 1500),
@@ -1620,6 +1627,10 @@ export function useChatEvents(): void {
       window.desktopBridge.on("chats:changed", (params: unknown) => {
         const ids = (params as { ids?: string[] } | undefined)?.ids ?? [];
         if (ids.length > 0 && ids.every((id) => saving.has(id))) return;
+        // Written elsewhere (the relay, another tab): what this window keeps of them goes whole next time.
+        for (const c of get().conversations)
+          if (ids.includes(c.id) && !saving.has(c.id))
+            for (const turn of c.turns) stored.delete(turn);
         reloadTimer ??= setTimeout(() => {
           reloadTimer = null;
           void loadChats().catch(() => {});

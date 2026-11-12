@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import Synchronization
 
 // Gateway runs outlive the app. Use the turn id as the idempotency key to recover them after reconnecting.
 final class OpenClaw {
@@ -106,6 +107,8 @@ final class OpenClaw {
     /** How long a run may go quiet before asking the gateway whether it's still going. */
     private static let quietSeconds: TimeInterval = 60
     private static let reconnectDelays: [TimeInterval] = [1, 2, 5, 10, 20, 30]
+    /** How long a socket may go without a word before it's pinged, and has to answer one. */
+    private static let heartbeat: TimeInterval = 10
 
     let url: URL
     private let secrets: Secrets
@@ -168,6 +171,7 @@ final class OpenClaw {
     private var waits: [String: (Event) -> Void] = [:]
 
     private var socket: URLSessionWebSocketTask?
+    private var lastHeard = Date.distantPast
     private var ready: Task<Void, Error>?
     private var challenge: CheckedContinuation<(nonce: String, ts: Int), Error>?
     private var pending: [String: CheckedContinuation<Data, Error>] = [:]
@@ -250,6 +254,42 @@ final class OpenClaw {
             secrets.set(Self.scopesName, granted.joined(separator: ","))
             if bootstrap != nil { secrets.set(Self.bootstrapName, nil) }
         }
+        keepAlive(socket)
+    }
+
+    /**
+     * As T3 Code's apps do: a socket that has said nothing for a while is pinged, and one that
+     * doesn't answer is dropped, so a dead one (the network changed, the phone slept) is found in
+     * seconds, not when a request times out. A turn on it picks up on the next.
+     */
+    private func keepAlive(_ socket: URLSessionWebSocketTask) {
+        Task { [weak self] in
+            while true {
+                try? await Task.sleep(for: .seconds(Self.heartbeat))
+                guard let self, self.socket === socket else { return }
+                if Date().timeIntervalSince(lastHeard) >= Self.heartbeat { await probe(socket, within: Self.heartbeat) }
+            }
+        }
+    }
+
+    /** Asks the socket whether it's still there (the network changed, the app came back), and drops it when it doesn't answer in time. */
+    func probe(within seconds: TimeInterval = 3) async {
+        guard let socket else { return }
+        await probe(socket, within: seconds)
+    }
+
+    private func probe(_ socket: URLSessionWebSocketTask, within seconds: TimeInterval) async {
+        let answered = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            let answer = Answer(continuation)
+            socket.sendPing { error in answer.resume(error == nil) }
+            Task {
+                try? await Task.sleep(for: .seconds(seconds))
+                answer.resume(false)
+            }
+        }
+        guard self.socket === socket else { return }
+        if answered { lastHeard = Date(); return }
+        disconnect()
     }
 
     private func receive(_ socket: URLSessionWebSocketTask) async {
@@ -261,6 +301,7 @@ final class OpenClaw {
                 return
             }
             guard self.socket === socket else { return }
+            lastHeard = Date()
             let text: String
             switch message {
             case .string(let string): text = string
@@ -934,5 +975,22 @@ final class OpenClaw {
             if record["runId"] != nil, !owns(run, record["runId"] as? String) { continue }
             if let question = Self.question(record) { ask(.question(question)) }
         }
+    }
+}
+
+/** A ping's answer, or its time running out: whichever comes first is told once. */
+nonisolated private final class Answer: Sendable {
+    private let continuation: Mutex<CheckedContinuation<Bool, Never>?>
+
+    init(_ continuation: CheckedContinuation<Bool, Never>) {
+        self.continuation = Mutex(continuation)
+    }
+
+    func resume(_ answered: Bool) {
+        let waiting = continuation.withLock { waiting in
+            defer { waiting = nil }
+            return waiting
+        }
+        waiting?.resume(returning: answered)
     }
 }

@@ -39,6 +39,11 @@ final class Account {
 
     @ObservationIgnored private var pushToken = UserDefaults.standard.string(forKey: "apns:token")
     @ObservationIgnored private var registered: String?
+    /** In the background, before the sockets close: the pause to come, and the time iOS gave for it. */
+    @ObservationIgnored private var away: (pause: Task<Void, Never>, time: UIBackgroundTaskIdentifier)?
+
+    /** How long the sockets stay once the app is in the background: a look at another app keeps them, and the turn streaming in them. */
+    private static let grace: Duration = .seconds(25)
 
     private static let userKey = "otter:user"
     private static let demoKey = "otter:demo"
@@ -97,6 +102,9 @@ final class Account {
     /** Catches up with the account, and listens for what changes on other devices. */
     func refresh() async {
         guard user != nil else { return }
+        // The agents first: a turn left in the background picks up without waiting on the account.
+        agents.reconnect()
+        chats.resumeRuns(beforePull: true)
         async let preferences: Void = pullPreferences()
         async let pulled: Void = chats.sync?.pull() ?? ()
         _ = await (preferences, pulled)
@@ -174,11 +182,38 @@ final class Account {
         if (try? await relay.registerPush(token: pushToken, on: notifications)) != nil { registered = state }
     }
 
-    /** Away: the socket closes, and the agents' turns go on without the app. */
-    func pause() {
+    /** Away: the sockets stay a while (`grace`), then close, and the agents' turns go on without the app. */
+    func leave() {
+        guard away == nil else { return }
+        let time = UIApplication.shared.beginBackgroundTask(withName: "Agents") { [weak self] in self?.pause() }
+        let pause = Task { [weak self] in
+            try? await Task.sleep(for: Self.grace)
+            if !Task.isCancelled { self?.pause() }
+        }
+        away = (pause, time)
+    }
+
+    /** Back: still connected after a short while away, the sockets are asked whether they still are; else all picks up again. */
+    func returned() async {
+        if endAway() { return await agents.probe() }
+        await refresh()
+    }
+
+    private func pause() {
+        endAway()
         relay.watching = nil
         relay.disconnect()
         chats.suspend()
+    }
+
+    /** Whether the app was still connected, away for less than `grace`. */
+    @discardableResult
+    private func endAway() -> Bool {
+        guard let away else { return false }
+        self.away = nil
+        away.pause.cancel()
+        UIApplication.shared.endBackgroundTask(away.time)
+        return true
     }
 
     private func pullPreferences() async {

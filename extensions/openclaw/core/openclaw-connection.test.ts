@@ -21,9 +21,18 @@ const fixture = vi.hoisted(() => ({
   clients: [] as { options: Options; connected: boolean }[],
   urls: [] as string[],
   onEvent: (_event: { event: string; payload: unknown }) => {},
+  wake: () => {},
 }));
 vi.mock("../../../packages/core/src/platform.js", () => ({
-  platform: () => ({ kind: "desktop", appVersion: "test", log: () => {} }),
+  platform: () => ({
+    kind: "desktop",
+    appVersion: "test",
+    log: () => {},
+    onResume: (listener: () => void) => {
+      fixture.wake = listener;
+      return () => {};
+    },
+  }),
 }));
 vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
   clearOpenClawBootstrapToken: vi.fn(),
@@ -147,6 +156,35 @@ describe("an OpenClaw connection", () => {
     expect(fixture.clients[0].connected).toBe(false);
     await flush(1_000);
     expect(fixture.clients).toHaveLength(2);
+  });
+
+  it("drops a socket that went quiet while the Mac slept, at once on waking", async () => {
+    fixture.hello = { policy: { tickIntervalMs: 30_000 } };
+    history = () => running;
+    gateway();
+    resume();
+    await flush();
+    // Asleep, the clock moves on but no timer runs.
+    vi.setSystemTime(Date.now() + 10 * 60_000);
+    fixture.wake();
+    await flush();
+    expect(fixture.clients[0].connected).toBe(false);
+    await flush(1_000);
+    expect(fixture.clients).toHaveLength(2);
+    expect(fixture.clients[1].connected).toBe(true);
+  });
+
+  it("keeps a socket that heard the gateway lately on waking", async () => {
+    fixture.hello = { policy: { tickIntervalMs: 30_000 } };
+    history = () => running;
+    gateway();
+    resume();
+    await flush(20_000);
+    fixture.clients[0].options.onActivity();
+    fixture.wake();
+    await flush(1_000);
+    expect(fixture.clients).toHaveLength(1);
+    expect(fixture.clients[0].connected).toBe(true);
   });
 
   it("keeps trying to pick a turn up while the gateway is away", async () => {

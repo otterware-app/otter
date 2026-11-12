@@ -1,4 +1,4 @@
-import type { Chat } from "@otter/contracts/chats";
+import type { ChatSave } from "@otter/contracts/chats";
 
 import { handle } from "../ipc.js";
 import * as chats from "../services/chats.js";
@@ -10,11 +10,15 @@ function str(value: unknown, name: string): string {
   return value;
 }
 
-function chat(value: unknown): Chat {
-  const c = value as Partial<Chat> | null;
-  if (!c || typeof c.id !== "string" || !Array.isArray(c.turns) || !Array.isArray(c.tabs))
+function save(value: unknown): ChatSave {
+  const p = value as Partial<ChatSave> | null;
+  const c = p?.chat;
+  if (!c || typeof c.id !== "string" || !Array.isArray(c.tabs))
     throw new Error('Invalid parameter: "chat".');
-  return c as Chat;
+  if (!Array.isArray(p.turnIds) || !p.turnIds.every((id) => typeof id === "string"))
+    throw new Error('Invalid parameter: "turnIds".');
+  if (!Array.isArray(p.turns)) throw new Error('Invalid parameter: "turns".');
+  return { chat: c, turnIds: p.turnIds, turns: p.turns, settled: p.settled !== false };
 }
 
 export function registerChatHandlers(): void {
@@ -24,9 +28,6 @@ export function registerChatHandlers(): void {
     const query = (params as Params)?.query;
     return chats.searchChats(typeof query === "string" ? query : "");
   });
-  handle("chats:save", (params: unknown) => {
-    const p = params as Params;
-    return chats.saveChat(chat(p?.chat), p?.settled !== false);
-  });
+  handle("chats:save", (params: unknown) => chats.saveChat(save(params)));
   handle("chats:delete", (params: unknown) => chats.deleteChat(str((params as Params)?.id, "id")));
 }

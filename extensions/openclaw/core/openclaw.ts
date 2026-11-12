@@ -161,6 +161,7 @@ type Gateway = {
   scopes: string[];
   /** What the gateway says it answers, its plugins' methods included. */
   methods: string[];
+  woke: () => void;
 };
 
 /** The Otter plugin's: a message sent as the channel's owner (`extensions/openclaw/gateway`). */
@@ -179,6 +180,7 @@ export function openClawFullAccess(): { allowed: boolean | null; request: string
 const holdsAll = (scopes: string[]) => SCOPES.every((scope) => scopes.includes(scope));
 
 let current: { url: string; ready: Promise<Gateway> } | null = null;
+let stopWakeWatch: (() => void) | null = null;
 /** Connections reset for new credentials: what was retrying for the old ones stops. */
 let resets = 0;
 const listeners = new Set<(event: EventFrame) => void>();
@@ -210,6 +212,7 @@ function open(url: string, { token, bootstrapToken }: Credentials): Promise<Gate
     let scopes: string[] = [];
     let methods: string[] = [];
     let lastActivity = Date.now();
+    let tickMs = 30_000;
     let tickWatch: ReturnType<typeof setInterval> | undefined;
     const dropped = () => {
       clearInterval(tickWatch);
@@ -223,6 +226,7 @@ function open(url: string, { token, bootstrapToken }: Credentials): Promise<Gate
     // dropped at once, as OpenClaw's own clients do.
     const watchTicks = (intervalMs: number) => {
       clearInterval(tickWatch);
+      tickMs = intervalMs;
       lastActivity = Date.now();
       tickWatch = setInterval(() => {
         if (!client.connected) return clearInterval(tickWatch);
@@ -239,7 +243,17 @@ function open(url: string, { token, bootstrapToken }: Credentials): Promise<Gate
       if (error) {
         client.stop();
         reject(error);
-      } else resolve({ url, client, scopes, methods });
+      } else resolve({ url, client, scopes, methods, woke });
+    };
+    // Asleep, the Mac misses the gateway's ticks without the socket closing, and the tick
+    // watch's timer stands still: a socket quiet for more than a tick on waking is dropped at
+    // once, so what's sent next goes on a new one. A tab of the web app coming back (also a
+    // wake) heard its ticks all along, and keeps its socket.
+    const woke = () => {
+      if (!client.connected || Date.now() - lastActivity <= tickMs) return;
+      logger.info("agent", "openclaw gateway went quiet while asleep", { url });
+      client.stop();
+      dropped();
     };
     const timer = setTimeout(
       () => settle(new Error("The gateway didn't answer.")),
@@ -332,6 +346,9 @@ async function gateway(settings: OpenClawSettings): Promise<Gateway> {
   const { url } = settings;
   const creds = await credentials();
   if (!url || !creds) throw new Error("not_configured");
+  stopWakeWatch ??= platform().onResume(() => {
+    void current?.ready.then((g) => g.woke()).catch(() => {});
+  });
   if (current?.url !== url) {
     disconnect();
     const ready = open(url, creds);
