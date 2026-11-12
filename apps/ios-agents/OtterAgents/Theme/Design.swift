@@ -128,32 +128,31 @@ struct Toast: View {
 
 /** A sweep of light over work in progress. */
 struct Shimmer: ViewModifier {
-    var active: Bool
     @State private var phase: CGFloat = -1
 
     func body(content: Content) -> some View {
         content
             .overlay {
-                if active {
-                    GeometryReader { proxy in
-                        LinearGradient(colors: [.clear, .white.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing)
-                            .frame(width: 72)
-                            .offset(x: phase * (proxy.size.width + 72))
-                            .blendMode(.sourceAtop)
-                    }
-                    .allowsHitTesting(false)
+                GeometryReader { proxy in
+                    LinearGradient(colors: [.clear, .white.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing)
+                        .frame(width: 72)
+                        .offset(x: phase * (proxy.size.width + 72))
+                        .blendMode(.sourceAtop)
                 }
+                .allowsHitTesting(false)
             }
             .compositingGroup()
             .onAppear {
-                guard active else { return }
                 withAnimation(.linear(duration: 1.35).delay(0.6).repeatForever(autoreverses: false)) { phase = 1 }
             }
     }
 }
 
 extension View {
-    func shimmer(_ active: Bool = true) -> some View { modifier(Shimmer(active: active)) }
+    /** Only while active: its group is drawn apart from the rest, and every reply's pill and step has one. */
+    @ViewBuilder func shimmer(_ active: Bool = true) -> some View {
+        if active { modifier(Shimmer()) } else { self }
+    }
 }
 
 enum Haptics {
@@ -239,15 +238,18 @@ struct SwipeToReply: ViewModifier {
             content
                 .offset(x: offset)
                 .background(alignment: .leading) {
-                    Image(systemName: "arrowshape.turn.up.left.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(palette.text)
-                        .frame(width: 30, height: 30)
-                        .background(palette.text.opacity(0.12), in: .circle)
-                        .scaleEffect(armed ? 1.1 : 0.4 + 0.6 * min(1, offset / Self.threshold))
-                        .opacity(min(1, offset / Self.threshold))
-                        .offset(x: min(offset, Self.threshold) - 38)
-                        .allowsHitTesting(false)
+                    // Only while dragged: every bubble has one, and a chat has hundreds.
+                    if offset > 0 {
+                        Image(systemName: "arrowshape.turn.up.left.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(palette.text)
+                            .frame(width: 30, height: 30)
+                            .background(palette.text.opacity(0.12), in: .circle)
+                            .scaleEffect(armed ? 1.1 : 0.4 + 0.6 * min(1, offset / Self.threshold))
+                            .opacity(min(1, offset / Self.threshold))
+                            .offset(x: min(offset, Self.threshold) - 38)
+                            .allowsHitTesting(false)
+                    }
                 }
                 .gesture(ReplyPan { x in
                     offset = x <= 0 ? 0 : x < 80 ? x : 80 + (x - 80) * 0.2
