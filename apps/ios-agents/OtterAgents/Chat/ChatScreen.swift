@@ -26,6 +26,7 @@ struct ChatScreen: View {
     /** The chat's agent has a browser tab to watch. */
     @State private var hasBrowser = false
     @State private var showBrowser = false
+    @State private var talking = false
     @State private var finding = false
     @State private var find = ""
     @State private var findAt = 0
@@ -169,6 +170,7 @@ struct ChatScreen: View {
         .navigationDestination(item: $file) { FileScreen(link: $0) }
         .sheet(isPresented: $showModels) { ModelSheet(chat: chat) }
         .sheet(item: $page) { SafariView(url: $0.url).ignoresSafeArea() }
+        .fullScreenCover(isPresented: $talking) { TalkScreen(chatId: chat.id) }
         .fullScreenCover(isPresented: $showBrowser) {
             if let source = BrowserSource(chat, agents: store.agents) {
                 BrowserScreen(source: source, agent: store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat)),
@@ -326,16 +328,21 @@ struct ChatScreen: View {
             } else if let question = questions.first {
                 QuestionCard(chat: chat, question: question, count: (1, questions.count)).id(question.id)
             } else if canWrite(chat) {
-                Composer(chat: chat, focused: $focused, panel: $panel) {
+                Composer(chat: chat, focused: $focused, panel: $panel, onSent: {
                     // Sent: the keyboard gives the screen back to the answer.
                     focused = false
                     following = true
                     position.scrollTo(edge: .bottom)
-                }
+                }, onTalk: talks(chat) ? { talking = true } : nil)
             } else {
                 readOnly(chat)
             }
         }
+    }
+
+    /** OpenClaw's gateway has a voice to talk with it. */
+    private func talks(_ chat: Chat) -> Bool {
+        chat.provider == AgentKind.openclaw.rawValue && store.agents.isUsable(.openclaw) && store.agents.openClawTalks
     }
 
     /** Why this chat only reads here, and where it goes on. */

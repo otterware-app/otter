@@ -9,6 +9,16 @@ struct OpenClawTests {
         #expect(OpenClaw.normalized("ws://127.0.0.1:18789") == "ws://127.0.0.1:18789")
     }
 
+    @Test func leavesWhatWasSaidInACallOutOfTheRuns() {
+        let said = { (role: String, n: Int) -> [String: Any] in
+            ["role": role, "content": [["type": "text", "text": "Said \(n)"]], "__openclaw": ["id": "voice:call-1:\(n)"]]
+        }
+        let reply: [String: Any] = ["role": "assistant", "content": [["type": "text", "text": "Watching."]], "__openclaw": ["runId": "req-1"]]
+        let consult: [String: Any] = ["role": "assistant", "content": [["type": "text", "text": "It's Thursday."]], "__openclaw": ["runId": "consult-1"]]
+        let chains = OpenClaw.runChains([reply, said("user", 1), said("assistant", 2), consult, said("assistant", 3)])
+        #expect(chains.map { $0.map { ($0["__openclaw"] as? [String: Any])?["runId"] as? String } } == [["req-1"], ["consult-1"]])
+    }
+
     @Test func readsTheAddressAndOneTimeTokenFromASetupCode() throws {
         let json = #"{"url":"wss://gw.tail1234.ts.net","bootstrapToken":"bt-1","expiresAtMs":1000}"#
         let code = Data(json.utf8).base64EncodedString()

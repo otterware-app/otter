@@ -364,6 +364,8 @@ nonisolated struct ChatTurn: Identifiable, Equatable {
     /** The chat was forked from another after this turn. */
     var forked = false
     var delivered: ChatDelivery?
+    /** Said in a call with the agent, not written. */
+    var spoken = false
     var startedAt: Int?
     var finishedAt: Int?
     /** The turn as it came, so what this app doesn't read is written back with it. */
@@ -393,6 +395,7 @@ nonisolated struct ChatTurn: Identifiable, Equatable {
         error = json["error"]?.string
         forked = json["forked"]?.bool ?? false
         delivered = json["delivered"].flatMap(ChatDelivery.init)
+        spoken = json["spoken"]?.bool ?? false
         startedAt = json["startedAt"]?.count
         finishedAt = json["finishedAt"]?.count
         base = json.object ?? [:]
@@ -417,6 +420,7 @@ nonisolated struct ChatTurn: Identifiable, Equatable {
         object["error"] = error.map(JSON.string)
         object["forked"] = forked ? true : nil
         object["delivered"] = delivered?.json
+        object["spoken"] = spoken ? true : nil
         object["startedAt"] = startedAt.map { .number(Double($0)) }
         object["finishedAt"] = finishedAt.map { .number(Double($0)) }
         return .object(object)
@@ -428,7 +432,7 @@ nonisolated struct ChatTurn: Identifiable, Equatable {
         return items[(last + 1)...].compactMap(\.text).joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    var isLive: Bool { role == .assistant && finishedAt == nil && error == nil }
+    var isLive: Bool { role == .assistant && !spoken && finishedAt == nil && error == nil }
 }
 
 extension JSON: ExpressibleByStringLiteral, ExpressibleByBooleanLiteral {

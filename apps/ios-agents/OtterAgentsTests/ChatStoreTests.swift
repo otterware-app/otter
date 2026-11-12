@@ -57,6 +57,36 @@ struct ChatStoreTests {
         #expect(store.unseen == [chat])
     }
 
+    @Test func whatsSaidInACallIsATurnOfItsOwnAndARunStaysInItsReply() {
+        let store = store()
+        let (chat, request) = running(store)
+        let apply = { store.apply($0, requestId: request, chatId: chat) }
+        apply(.delta("Working on it."))
+        store.hearSpoken("How's it", by: .user, final: false, in: chat)
+        store.hearSpoken(" going?", by: .user, final: false, in: chat)
+        #expect(store.chat(chat)!.turns.last?.text == "How's it going?")
+        store.hearSpoken(" How's it going? ", by: .user, final: true, in: chat)
+        store.hearSpoken("Still on it.", by: .assistant, final: true, in: chat)
+        #expect(ChatStore.runReplyIds(store.chat(chat)!.turns) == ["a-\(request)"])
+        apply(.delta(" Done."))
+        apply(.done)
+        let turns = store.chat(chat)!.turns
+        #expect(turns.map(\.role) == [.user, .assistant, .user, .assistant])
+        #expect(turns[1].items == [.text(id: nil, "Working on it. Done.")])
+        #expect(turns[1].finishedAt != nil)
+        #expect(turns[2].spoken && turns[2].text == "How's it going?" && turns[2].finishedAt != nil)
+        #expect(turns[3].spoken && turns[3].items == [.text(id: nil, "Still on it.")])
+    }
+
+    @Test func aRunsRecordKeepsWhatWasSaidMeanwhile() {
+        var said = ChatTurn(id: "v-1", role: .user, text: "Still there?")
+        said.spoken = true
+        let turns = [ChatTurn(id: "u-r", role: .user, text: "Hi"), ChatTurn(id: "a-r", role: .assistant), said]
+        let next = ChatStore.withTranscript(turns, requestId: "r", [SessionMessage(role: "assistant", text: "Hello.")])
+        #expect(next.map(\.id) == ["u-r", "a-r", "v-1"])
+        #expect(next[1].items == [.text(id: nil, "Hello.")])
+    }
+
     @Test func aFinishedTurnInTheChatOnScreenIsSeen() {
         let store = store()
         let (chat, request) = running(store)

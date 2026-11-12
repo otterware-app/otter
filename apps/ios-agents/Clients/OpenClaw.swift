@@ -165,6 +165,8 @@ final class OpenClaw {
 
     private(set) var pairingRequest: String?
     private(set) var granted: [String] = []
+    /** What the gateway says it can do beyond its methods (`talk-session-close-disposition`). */
+    private(set) var capabilities: [String] = []
     var fullAccess: Bool { Self.scopes.allSatisfy(granted.contains) }
     private var steers: [String: Set<String>] = [:]
     /** Turns waiting on a yield, by run: how each ends, as no run of theirs is going to say so. */
@@ -249,6 +251,7 @@ final class OpenClaw {
         pairingRequest = nil
         let accepted = hello["auth"] as? [String: Any] ?? [:]
         granted = accepted["scopes"] as? [String] ?? []
+        capabilities = (hello["features"] as? [String: Any])?["capabilities"] as? [String] ?? []
         if let issued = accepted["deviceToken"] as? String, !issued.isEmpty {
             secrets.set(Self.deviceTokenName, issued)
             secrets.set(Self.scopesName, granted.joined(separator: ","))
@@ -358,6 +361,19 @@ final class OpenClaw {
             continuation.resume(throwing: Failure(code: "unreachable", message: "Lost the gateway."))
         }
         for listener in closeListeners.values { listener() }
+    }
+
+    /** The gateway's events, and its connection going, until `unlisten`. */
+    func listen(_ listener: @escaping (String, [String: Any]) -> Void, closed: @escaping () -> Void) -> UUID {
+        let id = UUID()
+        listeners[id] = listener
+        closeListeners[id] = closed
+        return id
+    }
+
+    func unlisten(_ id: UUID) {
+        listeners[id] = nil
+        closeListeners[id] = nil
     }
 
     @discardableResult
@@ -595,6 +611,11 @@ final class OpenClaw {
 
     private nonisolated static func isDelivery(_ row: [String: Any]) -> Bool { runOf(row)?.hasPrefix("delivery:") == true }
 
+    /** What was said in a call, which no run wrote: the chat has it from the call itself. */
+    private nonisolated static func isSpoken(_ row: [String: Any]) -> Bool {
+        ((row["__openclaw"] as? [String: Any])?["id"] as? String)?.hasPrefix("voice:") == true
+    }
+
     /** Whether the rows end with an accepted `sessions_yield`: the run's continuation hasn't come yet. */
     nonisolated static func waitingOnYield(_ rows: [[String: Any]]) -> Bool {
         guard let at = rows.lastIndex(where: {
@@ -615,7 +636,7 @@ final class OpenClaw {
         var run: String?
         var steered = false
         var last: Int?
-        for row in rows {
+        for row in rows where !isSpoken(row) {
             // A delivery is a turn of its own that leaves the runs around it as they were.
             if isDelivery(row) {
                 chains.append([row])

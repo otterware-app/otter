@@ -69,7 +69,11 @@ struct UserTurnView: View {
                     .accessibilityHint(turn.intent == "promoted" ? "Queued, then steered the active turn" : "Steered the active turn")
             }
             if let at = turn.startedAt { Text(ChatText.clock(at)).font(.ui(11)).monospacedDigit() }
-            Ticks(count: answered == 0 ? 1 : 2, read: answered == 2)
+            if turn.spoken {
+                Image(systemName: "waveform").font(.system(size: 10, weight: .semibold)).accessibilityLabel("Said in a call")
+            } else {
+                Ticks(count: answered == 0 ? 1 : 2, read: answered == 2)
+            }
         }
         .foregroundStyle(palette.muted)
     }
