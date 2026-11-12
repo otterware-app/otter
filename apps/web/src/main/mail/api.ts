@@ -113,6 +113,8 @@ export type ProviderSnapshot = {
   forks: boolean;
   titles: boolean;
   liveBrowser: boolean;
+  /** Whether you can talk with it in a chat now. */
+  talk?: boolean;
   /** The agent's settings, plus what it adds for its settings form (never its secrets). */
   settings: AgentSettingsView;
 };
@@ -182,6 +184,14 @@ export type ChatEvent =
   | { requestId: string; type: "steerReturned"; text: string }
   | { requestId: string; type: "done"; responseId: string | null }
   | { requestId: string; type: "error"; message: string };
+
+export type TalkEvent =
+  | { talkId: string; type: "ready" }
+  | { talkId: string; type: "audio"; audio: string }
+  | { talkId: string; type: "clear" }
+  | { talkId: string; type: "mark"; name: string }
+  | { talkId: string; type: "transcript"; role: "user" | "assistant"; text: string; final: boolean }
+  | { talkId: string; type: "closed"; error?: string };
 
 export type ChatAttachment = {
   id: string;
@@ -686,6 +696,29 @@ export const mailApi = {
     sessionId: string,
     name: { title: string } | { message: string },
   ): Promise<string | null> => ipc("agent:retitle", { provider, sessionId, ...name }),
+
+  /** A call in the chat's session (a new one without): its events come as `agent:talkEvent`. */
+  agentTalkStart: (
+    provider: ProviderKind,
+    sessionId: string | null,
+  ): Promise<{ talkId: string; sessionId: string; inputRate: number; outputRate: number }> =>
+    ipc("agent:talkStart", { provider, sessionId }),
+
+  /** What the microphone heard: mono 16-bit PCM at the call's input rate, base64. */
+  agentTalkAudio: (
+    provider: ProviderKind,
+    talkId: string,
+    audio: string,
+  ): Promise<{ ok: boolean }> => ipc("agent:talkAudio", { provider, talkId, audio }),
+
+  agentTalkPlayed: (
+    provider: ProviderKind,
+    talkId: string,
+    mark: string,
+  ): Promise<{ ok: boolean }> => ipc("agent:talkPlayed", { provider, talkId, mark }),
+
+  agentTalkEnd: (provider: ProviderKind, talkId: string): Promise<{ ok: boolean }> =>
+    ipc("agent:talkEnd", { provider, talkId }),
 
   agentBrowserView: (
     provider: ProviderKind,

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { MessageScroller, useMessageScroller } from "@shadcn/react/message-scroller";
 import {
+  AudioLinesIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   CircleAlertIcon,
@@ -394,7 +395,8 @@ export function ChatTranscript({
       return next;
     });
   const runReplies = streaming ? runReplyIds(turns) : new Set<string>();
-  const isLive = (turn: ChatTurn) => runReplies.has(turn.id) && !turn.finishedAt && !turn.error;
+  const isLive = (turn: ChatTurn) =>
+    !turn.spoken && runReplies.has(turn.id) && !turn.finishedAt && !turn.error;
   const runStartedAt = turns.find((turn) => runReplies.has(turn.id))?.startedAt;
   return turns.map((turn, index) => {
     if (turn.role === "user") {
@@ -440,6 +442,14 @@ export function ChatTranscript({
               {turn.text}
             </div>
             <div className="flex items-center">
+              {turn.spoken ? (
+                <HintTooltip label="Said in a call">
+                  <AudioLinesIcon
+                    aria-label="Said in a call"
+                    className="mx-1 size-3.5 text-muted-foreground"
+                  />
+                </HintTooltip>
+              ) : null}
               <MessageTime at={turn.startedAt} />
               {turn.text ? <CopyMessageButton text={turn.text} /> : null}
             </div>
@@ -447,7 +457,8 @@ export function ChatTranscript({
         </MessageScroller.Item>
       );
     }
-    const isLast = turn.id === turns[turns.length - 1]?.id;
+    // What's said in a call after a reply doesn't make it any less the latest.
+    const isLast = turn.id === turns.findLast((t) => !t.spoken)?.id;
     const live = isLive(turn);
     const all = shownItems(turn);
     const opening = turns[index - 1]?.role === "user" ? openingCompactions(all) : 0;

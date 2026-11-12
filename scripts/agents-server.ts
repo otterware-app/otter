@@ -122,7 +122,10 @@ else
 fi
 umask 077
 mkdir -p "$CODEX_HOME"
-cat > "$CODEX_HOME/auth.json"`,
+cat > "$CODEX_HOME/auth.json"
+# Talk's voice (GPT-Live) signs in with an OpenAI profile, not Codex's own file.
+node -e 'process.stdout.write(require(process.env.CODEX_HOME + "/auth.json").tokens.access_token)' |
+  node openclaw.mjs models auth paste-token --provider openai --profile-id openai:codex-dev >/dev/null`,
       input: JSON.stringify(login),
     }),
     hermes: (login, key) => ({
@@ -174,6 +177,8 @@ async function waitFor(name: string, url: string): Promise<void> {
 export async function startAgents(agents: readonly Agent[], offset: number): Promise<DemoAgents> {
   const login = codexLogin();
   const key = gatewayKey();
+  // OpenClaw changes its settings only while its gateway is stopped.
+  docker(offset, ["stop", ...agents.flatMap((agent) => SERVICES[agent])]);
   for (const agent of agents) {
     const { script, input } = SETUP[agent](login, key);
     // OpenClaw's image starts its commands through an entrypoint of its own; Hermes's sets up

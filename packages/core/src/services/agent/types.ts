@@ -61,6 +61,8 @@ export type ProviderSnapshot = {
   titles: boolean;
   /** Whether a chat's browser can be watched live (`ChatProvider.browserView`). */
   liveBrowser: boolean;
+  /** Whether you can talk with it in a chat now (`ChatProvider.talk`), as its last check found. */
+  talk?: boolean;
   /** The agent's settings, plus what its `settingsView` adds (never its secrets). */
   settings: AgentSettingsView;
 };
@@ -262,6 +264,36 @@ export type BrowserEvents = {
 
 export type BrowserViewRequest = { width: number; height: number; except?: string };
 
+/** A call started in a chat's session (a new one when it had none): audio is mono 16-bit PCM, base64. */
+export type TalkStart = {
+  talkId: string;
+  sessionId: string;
+  inputRate: number;
+  outputRate: number;
+};
+
+export type TalkEvent =
+  | { talkId: string; type: "ready" }
+  | { talkId: string; type: "audio"; audio: string }
+  /** You spoke over it: what's queued to play stops. */
+  | { talkId: string; type: "clear" }
+  /** Played once what came before it has: `ChatProvider.talk.played`. */
+  | { talkId: string; type: "mark"; name: string }
+  | { talkId: string; type: "transcript"; role: "user" | "assistant"; text: string; final: boolean }
+  | { talkId: string; type: "closed"; error?: string };
+
+/** Talking with the agent in a chat: what you say streams to it, what it says streams back. */
+export interface TalkSupport<S> {
+  start(
+    settings: S,
+    sessionId: string | undefined,
+    emit: (event: TalkEvent) => void,
+  ): Promise<TalkStart>;
+  audio(talkId: string, audio: string): Promise<void>;
+  played(talkId: string, mark: string): Promise<void>;
+  end(talkId: string): Promise<void>;
+}
+
 /** The tasks an agent runs on its own schedule (OpenClaw's automations, Hermes's jobs). */
 export interface ScheduleSupport<S> {
   /** Null when the agent isn't set up on this device: it isn't listed. */
@@ -372,6 +404,7 @@ export interface ChatProvider<S extends AgentSettings = AgentSettings> {
   ): Promise<void>;
   deleteSession(settings: S, sessionId: string): Promise<void>;
   readonly schedules?: ScheduleSupport<S>;
+  readonly talk?: TalkSupport<S>;
   shutdown(): void;
 }
 

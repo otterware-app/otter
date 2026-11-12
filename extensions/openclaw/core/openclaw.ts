@@ -44,6 +44,17 @@ import {
 } from "@openclaw/gateway-client/browser";
 import { OpenClawText, openClawMessageText as textOf } from "./openclaw-stream.js";
 import {
+  endAllTalks,
+  endTalk,
+  onTalkFrame,
+  startTalk,
+  talkAudio,
+  talkPlayed,
+  talkReady,
+  talksLost,
+  type TalkGateway,
+} from "./openclaw-talk.js";
+import {
   channelTargets,
   listTasks,
   removeTask,
@@ -161,6 +172,7 @@ type Gateway = {
   scopes: string[];
   /** What the gateway says it answers, its plugins' methods included. */
   methods: string[];
+  capabilities: string[];
   woke: () => void;
 };
 
@@ -183,8 +195,10 @@ let current: { url: string; ready: Promise<Gateway> } | null = null;
 let stopWakeWatch: (() => void) | null = null;
 /** Connections reset for new credentials: what was retrying for the old ones stops. */
 let resets = 0;
-const listeners = new Set<(event: EventFrame) => void>();
-const closeListeners = new Set<(client: Gateway["client"]) => void>();
+const listeners = new Set<(event: EventFrame) => void>([
+  ({ event, payload }) => onTalkFrame(event, payload),
+]);
+const closeListeners = new Set<(client: Gateway["client"]) => void>([talksLost]);
 
 function gatewayCode(error: unknown): string {
   return (error as { details?: { code?: string } })?.details?.code ?? "";
@@ -211,6 +225,7 @@ function open(url: string, { token, bootstrapToken }: Credentials): Promise<Gate
     let settled = false;
     let scopes: string[] = [];
     let methods: string[] = [];
+    let capabilities: string[] = [];
     let lastActivity = Date.now();
     let tickMs = 30_000;
     let tickWatch: ReturnType<typeof setInterval> | undefined;
@@ -243,7 +258,7 @@ function open(url: string, { token, bootstrapToken }: Credentials): Promise<Gate
       if (error) {
         client.stop();
         reject(error);
-      } else resolve({ url, client, scopes, methods, woke });
+      } else resolve({ url, client, scopes, methods, capabilities, woke });
     };
     // Asleep, the Mac misses the gateway's ticks without the socket closing, and the tick
     // watch's timer stands still: a socket quiet for more than a tick on waking is dropped at
@@ -306,7 +321,10 @@ function open(url: string, { token, bootstrapToken }: Credentials): Promise<Gate
       onHello: (hello) => {
         pairingRequest = null;
         scopes = hello.auth?.scopes ?? [];
-        methods = (hello as { features?: { methods?: string[] } }).features?.methods ?? [];
+        const features = (hello as { features?: { methods?: string[]; capabilities?: string[] } })
+          .features;
+        methods = features?.methods ?? [];
+        capabilities = features?.capabilities ?? [];
         fullAccess = holdsAll(scopes);
         watchTicks(hello.policy?.tickIntervalMs ?? 30_000);
         if (bootstrapToken) void clearOpenClawBootstrapToken();
@@ -746,6 +764,10 @@ const runOf = (row: Record<string, unknown>) => {
 
 const isDelivery = (row: Record<string, unknown>) => String(runOf(row)).startsWith("delivery:");
 
+/** What was said in a call, which no run wrote: the chat has it from the call itself. */
+const isSpoken = (row: Record<string, unknown>) =>
+  String((row.__openclaw as { id?: unknown } | undefined)?.id).startsWith("voice:");
+
 /** A cron job's announce ends with a link to the run in the gateway's own UI, which needs its own login. */
 const withoutInspectLink = (text: string) =>
   text.replace(/\n+Inspect: https?:\/\/\S+\/cron\/\S+\s*$/, "");
@@ -787,6 +809,7 @@ export function runChains(rows: Record<string, unknown>[]): Record<string, unkno
   let steered = false;
   let last: Record<string, unknown>[] | undefined;
   for (const row of rows) {
+    if (isSpoken(row)) continue;
     // A delivery is a turn of its own that leaves the runs around it as they were.
     if (isDelivery(row)) {
       chains.push([row]);
@@ -1810,6 +1833,12 @@ const CONNECT_PROBLEMS: Record<string, string> = {
   unreachable: "Can't reach your gateway.",
 };
 
+const talkGateway = (g: Gateway): TalkGateway => ({
+  connection: g.client,
+  request: (method, params, options) => g.client.request(method, params, options),
+  detaches: g.capabilities.includes("talk-session-close-disposition"),
+});
+
 async function cronGateway(settings: OpenClawSettings): Promise<CronGateway> {
   const g = await gateway(settings).catch((error: unknown) => {
     throw new Error(CONNECT_PROBLEMS[connectError(error)] ?? CONNECT_PROBLEMS.unreachable);
@@ -1858,12 +1887,17 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
     try {
       const g = await gateway(settings);
       connected = true;
-      const [{ defaultId, agents }, me] = await Promise.all([listAgents(g), whoAmI(g)]);
+      const [{ defaultId, agents }, me, talk] = await Promise.all([
+        listAgents(g),
+        whoAmI(g),
+        talkReady(talkGateway(g)),
+      ]);
       return {
         ...base,
         installed: true,
         status: "ready",
         auth: { status: "authenticated", ...me },
+        talk,
         models: agents.map((agent) => ({
           slug: agent.id,
           name: agent.identity?.name ?? agent.name ?? agent.id,
@@ -2372,6 +2406,21 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
       channelTargets(await cronGateway(settings), agent, channel),
   },
 
+  talk: {
+    async start(settings, sessionId, emit) {
+      const g = await gateway(settings).catch((error: unknown) => {
+        throw new Error(CONNECT_PROBLEMS[connectError(error)] ?? CONNECT_PROBLEMS.unreachable);
+      });
+      const sessionKey =
+        sessionId ||
+        `agent:${settings.model || (await listAgents(g)).defaultId}:otter-mail:${crypto.randomUUID()}`;
+      return startTalk(talkGateway(g), sessionKey, emit);
+    },
+    audio: talkAudio,
+    played: talkPlayed,
+    end: endTalk,
+  },
+
   watch(settings, sessions, started, read) {
     const next = new Map(sessions.map((s) => [s.id, s.since]));
     const cursors = new Map(sessions.flatMap((s) => (s.cursor ? [[s.id, s.cursor] as const] : [])));
@@ -2403,6 +2452,7 @@ export const openClawProvider: ChatProvider<OpenClawSettings> = {
   },
 
   shutdown() {
+    endAllTalks();
     watching = null;
     fresh.clear();
     pointed.clear();

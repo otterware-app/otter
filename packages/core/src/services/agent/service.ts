@@ -453,6 +453,27 @@ export async function browserUpload(
   await found.browserUpload(await agentSettings(kind), upload);
 }
 
+function talker(kind: ProviderKind) {
+  const found = provider(kind);
+  if (!found.talk) throw new Error(`You can't talk with ${found.displayName}.`);
+  return found.talk;
+}
+
+/** Its events go to every window as `agent:talkEvent`; the one that started it plays them. */
+export async function talkStart(kind: ProviderKind, sessionId: string | undefined) {
+  return talker(kind).start(await agentSettings(kind), sessionId, (event) =>
+    broadcast("agent:talkEvent", event),
+  );
+}
+
+export const talkAudio = (kind: ProviderKind, talkId: string, audio: string) =>
+  talker(kind).audio(talkId, audio);
+
+export const talkPlayed = (kind: ProviderKind, talkId: string, mark: string) =>
+  talker(kind).played(talkId, mark);
+
+export const talkEnd = (kind: ProviderKind, talkId: string) => talker(kind).end(talkId);
+
 export async function readFile(kind: ProviderKind, sessionId: string, href: string) {
   const found = provider(kind);
   if (!found.readFile)

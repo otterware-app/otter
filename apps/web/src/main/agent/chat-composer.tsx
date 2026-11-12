@@ -42,6 +42,7 @@ import {
   type Outgoing,
 } from "./chat-store";
 import { ContextKindIcon, SkillBadge } from "./chat-transcript";
+import { TalkBar, TalkButton, useTalk } from "./chat-talk";
 import { toast } from "../mail/toast";
 import { useCommandHandlers } from "../keybindings/dispatch";
 import { modKeyName, shortcutText } from "../keybindings/keys";
@@ -307,6 +308,7 @@ export function ChatComposer({
 
   const busy = run != null;
   const attached = context.attached;
+  const call = useTalk((s) => (s.call?.chatId === chatId ? s.call : null));
 
   return (
     <div className={cn("relative shrink-0 pt-1", compact ? "px-2 pb-2" : "px-3 pb-3")}>
@@ -356,6 +358,8 @@ export function ChatComposer({
             responding={answeringQuestion === pendingQuestion.question.id}
             onAnswer={(answers) => answer(pendingQuestion.question.id, answers)}
           />
+        ) : call ? (
+          <TalkBar call={call} name={providerName} compact={compact} />
         ) : (
           <div className={cn("relative", COMPOSER_SURFACE, compact && "rounded-lg")}>
             <ComposerAttachments items={files.items} onRemove={files.remove} compact={compact}>
@@ -523,7 +527,16 @@ export function ChatComposer({
                   />
                 ) : null}
               </div>
-              <div className="flex shrink-0 items-center">
+              <div className="flex shrink-0 items-center gap-1">
+                {provider?.talk && usable && !hasDraft ? (
+                  <TalkButton
+                    chatId={chatId}
+                    provider={providerKind}
+                    sessionId={convo?.sessionId ?? null}
+                    name={providerName}
+                    compact={compact}
+                  />
+                ) : null}
                 {/* Running + empty composer → Stop; with a draft the button
                     queues or steers it (T3 Code's primary actions). */}
                 {busy && !hasDraft && !editing ? (

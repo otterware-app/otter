@@ -90,6 +90,9 @@ export type {
   ProviderSettings,
   ScheduleSupport,
   Skill,
+  TalkEvent,
+  TalkStart,
+  TalkSupport,
   WatchedSession,
 } from "./services/agent/types.js";
 export { getAttachmentData } from "./services/attachment-cache.js";

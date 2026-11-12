@@ -553,6 +553,26 @@ describe("runs the agent starts on its own", () => {
     expect(events).toEqual([{ requestId: "run:quiet", type: "done", responseId: null }]);
   });
 
+  it("are caught up on past what was said in a call, which isn't any run's", () => {
+    const at = (ms: number) => ({ recordTimestampMs: ms });
+    const said = (role: string, text: string, n: number) => ({
+      role,
+      content: [{ type: "text", text }],
+      __openclaw: { id: `voice:call-1:${n}`, ...at(1_000 + n) },
+    });
+    const consult = row("talk-consult-1", [{ type: "text", text: "It's Thursday." }], at(1_005));
+    const rows = [
+      sent,
+      row("req-1", [{ type: "text", text: "Watching." }], at(500)),
+      said("user", "What day is it?", 1),
+      said("assistant", "Let me check.", 2),
+      consult,
+      said("assistant", "It's Thursday.", 3),
+    ];
+    expect(agentRunsSince(rows, 0)).toEqual(["talk-consult-1"]);
+    expect(turnRows(rows, "run:talk-consult-1", "talk-consult-1")).toEqual([consult]);
+  });
+
   it("are caught up on: the runs after the last message, but not its own or what continued it", () => {
     const at = (ms: number) => ({ recordTimestampMs: ms });
     const rows = [

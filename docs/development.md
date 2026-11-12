@@ -233,7 +233,8 @@ half a minute to start (a few minutes the first time).
   stays the only one that renews the sign-in, as a second holder of the refresh token would
   rotate it and sign the other out. The token lasts some days; when a gateway says it has run
   out, start `codex` once and run the command again. What the gateways do counts against your
-  ChatGPT plan.
+  ChatGPT plan. OpenClaw's calls (Talk with OpenClaw in a chat) use the same sign-in, with
+  OpenAI's GPT-Live voice.
 - **What a plugin tells the relay.** The gateways start without a relay, so a delivery or a
   finished run tells no one. To see what a plugin sends, run a recorder on this computer:
 
