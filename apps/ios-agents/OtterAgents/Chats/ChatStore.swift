@@ -11,6 +11,8 @@ final class ChatStore {
     struct Run: Equatable {
         var requestId: String
         var provider: String
+        /** When it started, where no turn of the chat says: the work a call left going. */
+        var since: Int?
         /** Handed off to background work: the subagents it waits on, each by its name when it has one. Nil while it works. */
         var waiting: [String?]?
 
@@ -163,10 +165,17 @@ final class ChatStore {
         }
     }
 
-    /** The replies of the run in flight: the last one, and those before the steers that joined it. */
+    /**
+     * The replies of the run in flight: the last one, and those before the steers that joined it.
+     * What's said in a call is no run's, and comes after the reply of a run going meanwhile.
+     */
     static func runReplyIds(_ turns: [ChatTurn]) -> Set<String> {
         var ids: Set<String> = []
         for turn in turns.reversed() {
+            if turn.spoken {
+                if turn.role == .user, !ids.isEmpty { break }
+                continue
+            }
             if turn.role == .assistant { ids.insert(turn.id) }
             else if turn.intent != "steer" && turn.intent != "promoted" { break }
         }
@@ -231,6 +240,88 @@ final class ChatStore {
         defaults.set(drafts.filter { !$0.value.isEmpty }, forKey: Self.draftsKey)
         defaults.set(chats.filter { $0.isBlank && hasDraft($0.id) }.map { ["id": $0.id, "provider": $0.provider, "createdAt": $0.createdAt] as [String: Any] },
                      forKey: Self.newDraftsKey)
+    }
+
+    /** A call started in a chat without a session: the session it started is the chat's. */
+    func setSession(_ session: String, of chatId: String) {
+        update(chatId, save: false) { chat in
+            if chat.sessionId == nil { chat.sessionId = session }
+        }
+    }
+
+    /** The turn being said in a call, by chat and who's saying it. */
+    @ObservationIgnored private var saying: [String: String] = [:]
+    /** On a call: the app keeps its connections in the background. */
+    @ObservationIgnored var calling = false
+    /** How to stop the work a call left going, by the run that stands for it. */
+    @ObservationIgnored private var callWork: [String: () -> Void] = [:]
+
+    /** What runs in the chat is the work a call left going, which takes no steer. */
+    func holdsForCall(_ chatId: String) -> Bool { runs[chatId].map { callWork[$0.requestId] != nil } ?? false }
+
+    /** The call ended: what was being said when it did is all of it. */
+    func endSpoken(in chatId: String) {
+        for role in ["user", "assistant"] {
+            guard let id = saying.removeValue(forKey: "\(chatId):\(role)") else { continue }
+            update(chatId) { chat in
+                if let index = chat.turns.firstIndex(where: { $0.id == id }) { chat.turns[index].finishedAt = .now }
+            }
+        }
+    }
+
+    /** What the agent answered for a call: its run's reply, under the id the Mac gives that run, so the chat has it once. */
+    func agentAnswered(run: String, _ text: String, in chatId: String) {
+        let id = "a-run:\(run)"
+        update(chatId) { chat in
+            guard !chat.turns.contains(where: { $0.id == id }) else { return }
+            var turn = ChatTurn(id: id, role: .assistant)
+            turn.items = [.text(id: nil, text)]
+            turn.finishedAt = .now
+            chat.turns.append(turn)
+            chat.updatedAt = .now
+        }
+    }
+
+    /**
+     * The agent goes on with what a call asked of it after the call: the chat works until it's
+     * done, and what you write meanwhile waits, as the gateway takes nothing into its session then.
+     */
+    func waitForAgent(in chatId: String, since: Int?, finished: @escaping () async -> Void, stop: @escaping () -> Void) {
+        guard runs[chatId] == nil, let chat = chat(chatId) else { return }
+        let requestId = "call:\(UUID().uuidString)"
+        runs[chatId] = Run(requestId: requestId, provider: chat.provider, since: since)
+        callWork[requestId] = stop
+        Task {
+            await finished()
+            callWork[requestId] = nil
+            endRun(requestId)
+        }
+    }
+
+    /** What's said in a call, as it's heard: a turn for each thing said, done once it's final. */
+    func hearSpoken(_ text: String, by role: ChatTurn.Role, final: Bool, in chatId: String) {
+        let key = "\(chatId):\(role.rawValue)"
+        let id = saying[key] ?? "v-\(UUID().uuidString.lowercased())"
+        saying[key] = final ? nil : id
+        var first = false
+        update(chatId) { chat in
+            let now = Int.now
+            let index = chat.turns.firstIndex { $0.id == id }
+            var turn = index.map { chat.turns[$0] } ?? ChatTurn(id: id, role: role, now: now)
+            let before = role == .user ? turn.text : turn.items.compactMap(\.text).joined()
+            let said = (final ? text : before + text).trimmingCharacters(in: .whitespacesAndNewlines)
+            if role == .user { turn.text = said } else { turn.items = [.text(id: nil, said)] }
+            turn.spoken = true
+            if final { turn.finishedAt = now }
+            if let index { chat.turns[index] = turn } else { chat.turns.append(turn) }
+            first = final && role == .user && !chat.turns.contains { $0.role == .user && $0.id != id }
+            if first { chat.title = ChatText.clampTitle(said) }
+            chat.updatedAt = now
+            chat.returnedAt = now
+            chat.snoozedUntil = nil
+            chat.settledAt = nil
+        }
+        if first { Task { await regenerateTitle(chatId) } }
     }
 
     /** Snoozing or settling a pinned chat unpins it; bringing one back puts it at the top. */
@@ -361,11 +452,11 @@ final class ChatStore {
             drafts[chatId] = editing.savedDraft.isEmpty ? nil : editing.savedDraft
             return startQueued()
         }
-        guard runs[chatId] != nil else { return startTurn(message) }
+        guard let run = runs[chatId] else { return startTurn(message) }
         var steers = agents.followUp == .steer
         if opposite { steers.toggle() }
-        // As in T3 Code, a message waits in the queue while the run compacts.
-        if !steers || !attachments.isEmpty || isCompacting(chatId) { queue.append(message) } else { steer(message) }
+        // As in T3 Code, a message waits in the queue while the run compacts; the work a call left can't be steered.
+        if !steers || !attachments.isEmpty || isCompacting(chatId) || callWork[run.requestId] != nil { queue.append(message) } else { steer(message) }
     }
 
     static func withCitations(_ question: String, _ citations: [ChatCitation]) -> String {
@@ -454,7 +545,8 @@ final class ChatStore {
     }
 
     func stop(_ chatId: String) {
-        if let run = runs[chatId] { runner.cancel(run.requestId) }
+        guard let run = runs[chatId] else { return }
+        if let stopWork = callWork[run.requestId] { stopWork() } else { runner.cancel(run.requestId) }
     }
 
     // MARK: The queue
@@ -598,7 +690,8 @@ final class ChatStore {
         var ended = false
         var retry: (turnId: String, message: Outgoing)?
         update(chatId) { chat in
-            guard let last = chat.turns.indices.last, chat.turns[last].role == .assistant else { return }
+            // What's said in a call meanwhile comes after the run's reply, and isn't part of it.
+            guard let last = chat.turns.lastIndex(where: { !$0.spoken }), chat.turns[last].role == .assistant else { return }
             var turn = chat.turns[last]
             switch event {
             case .delta(let text):
@@ -614,8 +707,8 @@ final class ChatStore {
                 }
                 if let index = turn.items.lastIndex(where: mine), case .step(let stepId, let step, _) = turn.items[index] {
                     turn.items[index] = .step(id: stepId, step, output: output)
-                } else if let earlier = chat.turns.indices.dropLast().last(where: {
-                    chat.turns[$0].role == .assistant && chat.turns[$0].finishedAt == nil && chat.turns[$0].items.contains(where: mine)
+                } else if let earlier = chat.turns.indices.last(where: {
+                    $0 != last && chat.turns[$0].role == .assistant && chat.turns[$0].finishedAt == nil && chat.turns[$0].items.contains(where: mine)
                 }), let index = chat.turns[earlier].items.firstIndex(where: mine), case .step(let stepId, let step, _) = chat.turns[earlier].items[index] {
                     // A step from before a steer finishes in the reply it started in.
                     chat.turns[earlier].items[index] = .step(id: stepId, step, output: output)
@@ -650,7 +743,7 @@ final class ChatStore {
                 }
                 turn.items = closed(turn.items)
                 let run = Self.runReplyIds(chat.turns)
-                for index in chat.turns.indices.dropLast() where run.contains(chat.turns[index].id) && chat.turns[index].finishedAt == nil {
+                for index in chat.turns.indices where index != last && run.contains(chat.turns[index].id) && chat.turns[index].finishedAt == nil {
                     chat.turns[index].finishedAt = now
                     chat.turns[index].items = closed(chat.turns[index].items)
                 }
@@ -707,7 +800,9 @@ final class ChatStore {
     static func withTranscript(_ turns: [ChatTurn], requestId: String, _ messages: [SessionMessage]) -> [ChatTurn] {
         let own = turns.firstIndex { $0.id == "a-\(requestId)" }
         let at = turns.firstIndex { $0.id == "u-\(requestId)" } ?? own.map { $0 - 1 } ?? turns.lastIndex { $0.role == .user } ?? -1
-        let local = Array(turns[(at + 1)...])
+        // What's said in a call meanwhile isn't in the run's record: it stays, after the run.
+        let spoken = turns[(at + 1)...].filter(\.spoken)
+        let local = turns[(at + 1)...].filter { !$0.spoken }
         let recorded = Self.turns(from: messages)
         let startedAt = local.first { $0.role == .assistant }?.startedAt
         var next: [ChatTurn]
@@ -730,7 +825,7 @@ final class ChatStore {
         if next.last?.role != .assistant {
             next.append(ChatTurn(id: next.isEmpty ? "a-\(requestId)" : "a-\(requestId)-rest", role: .assistant, now: startedAt))
         }
-        return Array(turns[...at]) + next
+        return Array(turns[...at]) + next + spoken
     }
 
     // MARK: Turns the app left

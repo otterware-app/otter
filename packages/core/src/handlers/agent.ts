@@ -306,6 +306,30 @@ export function registerAgentHandlers(): void {
     return agent.retitleSession(providerOf(p), sessionIdOf(p), title ? { title } : { message });
   });
 
+  handle("agent:talkStart", async (params: unknown) => {
+    const p = params as Params;
+    return agent.talkStart(providerOf(p), str(p?.sessionId) || undefined);
+  });
+
+  handle("agent:talkAudio", async (params: unknown) => {
+    const p = params as Params;
+    const audio = str(p?.audio);
+    if (audio) await agent.talkAudio(providerOf(p), str(p?.talkId), audio);
+    return { ok: true };
+  });
+
+  handle("agent:talkPlayed", async (params: unknown) => {
+    const p = params as Params;
+    await agent.talkPlayed(providerOf(p), str(p?.talkId), str(p?.mark));
+    return { ok: true };
+  });
+
+  handle("agent:talkEnd", async (params: unknown) => {
+    const p = params as Params;
+    await agent.talkEnd(providerOf(p), str(p?.talkId));
+    return { ok: true };
+  });
+
   handle("agent:browserView", async (params: unknown) => {
     const p = params as Params;
     const size = (key: string) =>

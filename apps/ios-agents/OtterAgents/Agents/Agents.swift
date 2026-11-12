@@ -106,6 +106,8 @@ final class Agents {
     /** OpenClaw's agents as they show themselves: a picture or an emoji, by agent. */
     private(set) var openClawFaces: [String: (avatar: String?, emoji: String?)] = [:]
     private(set) var openClawPairing: String?
+    /** Whether you can talk with OpenClaw in a chat: its gateway has a realtime voice set up. */
+    private(set) var openClawTalks = false
     private(set) var openClawFullAccess: Bool?
     private(set) var openClawFullAccessRequest: String?
     /** The demo's pretend agent stands in for all of them. */
@@ -441,6 +443,7 @@ final class Agents {
         if status[.openclaw] != .ready { status[.openclaw] = .checking }
         do {
             keep(openClawAgents: try await gateway.agents())
+            openClawTalks = await OpenClawCall.available(on: gateway)
             openClawPairing = nil
             openClawFullAccess = gateway.fullAccess
             status[.openclaw] = .ready

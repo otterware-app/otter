@@ -16,6 +16,8 @@ struct Composer: View {
     /** The panel under ＋ is open: the chat lets the keyboard pass over it, so nothing moves while they swap. */
     @Binding var panel: Bool
     var onSent: () -> Void = {}
+    /** Starts a call with the chat's agent, where it can talk: the button takes Send's place while there's nothing to send. */
+    var onTalk: (() -> Void)?
 
     @State private var skill: Skill?
     @State private var skills: [Skill] = []
@@ -39,7 +41,7 @@ struct Composer: View {
     private var hasContent: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || skill != nil || !attachments.isEmpty || !citations.isEmpty || !mail.isEmpty
     }
-    private var steers: Bool { kind != nil && attachments.isEmpty && !store.isCompacting(chat.id) }
+    private var steers: Bool { kind != nil && attachments.isEmpty && !store.isCompacting(chat.id) && !store.holdsForCall(chat.id) }
     private var wantsSteer: Bool { store.agents.followUp == .steer && steers }
     private var carries: Bool { skill != nil || !attachments.isEmpty || !citations.isEmpty || !mail.isEmpty || editing }
 
@@ -192,7 +194,22 @@ struct Composer: View {
 
     @ViewBuilder
     private var sendButton: some View {
-        if running, !hasContent {
+        if let onTalk, !running, !hasContent, !editing {
+            Button {
+                Haptics.tap()
+                focused.wrappedValue = false
+                onTalk()
+            } label: {
+                Image(systemName: "waveform")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(palette.actionText)
+                    .frame(width: 46, height: 46)
+                    .background(palette.action, in: .circle)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Talk with \(AgentKind.name(of: chat.provider))")
+        } else if running, !hasContent {
             Button { store.stop(chat.id) } label: {
                 Image(systemName: "stop.fill")
                     .font(.system(size: 14, weight: .semibold))

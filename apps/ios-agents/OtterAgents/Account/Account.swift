@@ -182,9 +182,9 @@ final class Account {
         if (try? await relay.registerPush(token: pushToken, on: notifications)) != nil { registered = state }
     }
 
-    /** Away: the sockets stay a while (`grace`), then close, and the agents' turns go on without the app. */
+    /** Away: the sockets stay a while (`grace`), then close, and the agents' turns go on without the app; a call keeps them. */
     func leave() {
-        guard away == nil else { return }
+        guard away == nil, !chats.calling else { return }
         let time = UIApplication.shared.beginBackgroundTask(withName: "Agents") { [weak self] in self?.pause() }
         let pause = Task { [weak self] in
             try? await Task.sleep(for: Self.grace)

@@ -173,6 +173,8 @@ const ENTITLEMENTS = `<?xml version="1.0" encoding="UTF-8"?>
   <true/>
   <key>com.apple.security.network.client</key>
   <true/>
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
 </dict>
 </plist>
 `;
@@ -237,6 +239,7 @@ export function createBuildConfig(options: {
         NSUserNotificationAlertStyle: "banner",
         CFBundleDisplayName: MAC_BUNDLE_NAME,
         LSHasLocalizedDisplayName: true,
+        NSMicrophoneUsageDescription: "Otter listens while you're on a call with your agent.",
       },
       ...(options.signed
         ? {

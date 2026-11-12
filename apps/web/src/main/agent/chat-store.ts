@@ -142,10 +142,17 @@ function newConversation(provider: ProviderKind = DEFAULT_AGENT): Conversation {
 const isSteer = (t: ChatTurn) =>
   t.role === "user" && (t.intent === "steer" || t.intent === "promoted");
 
-/** The replies of the latest run: the last one, and those before it that a steer continued. */
+/**
+ * The replies of the latest run: the last one, and those before it that a steer continued. What's
+ * said in a call is no run's, and comes after the reply of a run going meanwhile.
+ */
 export function runReplyIds(turns: ChatTurn[]): Set<string> {
   const ids = new Set<string>();
   for (let i = turns.length - 1; i >= 0; i -= 1) {
+    if (turns[i].spoken) {
+      if (turns[i].role === "user" && ids.size > 0) break;
+      continue;
+    }
     if (turns[i].role === "assistant") ids.add(turns[i].id);
     else if (!isSteer(turns[i])) break;
   }
@@ -221,7 +228,9 @@ function withTranscript(
   const own = turns.findIndex((t) => t.id === `a-${requestId}`);
   let at = turns.findIndex((t) => t.id === `u-${requestId}`);
   if (at < 0) at = own >= 0 ? own - 1 : turns.findLastIndex((t) => t.role === "user");
-  const local = turns.slice(at + 1);
+  // What's said in a call meanwhile isn't in the run's record: it stays, after the run.
+  const spoken = turns.slice(at + 1).filter((t) => t.spoken);
+  const local = turns.slice(at + 1).filter((t) => !t.spoken);
   const recorded = turnsFromMessages(messages);
   const startedAt = local.find((t) => t.role === "assistant")?.startedAt;
   let next: ChatTurn[];
@@ -247,7 +256,7 @@ function withTranscript(
       items: [],
       startedAt,
     });
-  return [...turns.slice(0, at + 1), ...next];
+  return [...turns.slice(0, at + 1), ...next, ...spoken];
 }
 
 /** Errors sending the message again won't fix: they need Settings, or were asked for. */
@@ -995,6 +1004,66 @@ export async function renameChat(id: string, title: string, onAgent: boolean): P
     void mailApi.agentRetitle(convo.provider, convo.sessionId, { title: name }).catch(() => {});
 }
 
+/** A call started in a chat without a session: the session it started is the chat's. */
+export function setChatSession(id: string, provider: ProviderKind, sessionId: string): void {
+  patchConversation(id, (c) => (c.sessionId ? c : { ...c, provider, sessionId }));
+}
+
+/** The turn being said in a call, by chat and who's saying it. */
+const saying = new Map<string, string>();
+
+/** What's said in a call, as it's heard: a turn for each thing said, done once it's final. */
+export function hearSpoken(id: string, role: ChatTurn["role"], text: string, final: boolean): void {
+  const key = `${id}:${role}`;
+  const turnId = saying.get(key) ?? `v-${crypto.randomUUID()}`;
+  if (final) saying.delete(key);
+  else saying.set(key, turnId);
+  const now = Date.now();
+  let first = false;
+  patchConversation(id, (c) => {
+    const was = c.turns.find((t) => t.id === turnId);
+    const said = (
+      final ? text : `${(was?.role === "user" ? was.text : spokenText(was)) ?? ""}${text}`
+    ).trimStart();
+    const turn: ChatTurn = {
+      id: turnId,
+      role,
+      ...(role === "user" ? { text: said } : { text: "", items: [{ kind: "text", text: said }] }),
+      spoken: true,
+      startedAt: was?.startedAt ?? now,
+      ...(final && { finishedAt: now }),
+    };
+    first = final && role === "user" && !c.turns.some((t) => t.role === "user" && t.id !== turnId);
+    return {
+      ...c,
+      title: first ? clampTitle(text) : c.title,
+      updatedAt: now,
+      returnedAt: now,
+      snoozedUntil: null,
+      settledAt: null,
+      turns: was ? c.turns.map((t) => (t.id === turnId ? turn : t)) : [...c.turns, turn],
+    };
+  });
+  if (first) void regenerateTitle(id).catch(() => {});
+}
+
+/** The call ended: what was being said when it did is all of it. */
+export function endSpoken(id: string): void {
+  for (const role of ["user", "assistant"]) {
+    const turnId = saying.get(`${id}:${role}`);
+    if (!turnId) continue;
+    saying.delete(`${id}:${role}`);
+    const now = Date.now();
+    patchConversation(id, (c) => ({
+      ...c,
+      turns: c.turns.map((t) => (t.id === turnId ? { ...t, finishedAt: t.finishedAt ?? now } : t)),
+    }));
+  }
+}
+
+const spokenText = (turn: ChatTurn | undefined) =>
+  turn?.items?.map((item) => (item.kind === "text" ? item.text : "")).join("");
+
 /** Asks the chat's agent to title it again from its first message. */
 export async function regenerateTitle(id: string): Promise<void> {
   if (!get().conversations.find((c) => c.id === id)?.loaded) await loadChat(id);
@@ -1440,7 +1509,9 @@ function onChatEvent(raw: unknown): void {
   patchConversation(s.convoId, (c) => {
     if (event.type === "session") return { ...c, sessionId: event.sessionId, sessionOwned: true };
     const nextTurns = [...c.turns];
-    const turn = nextTurns[nextTurns.length - 1];
+    // What's said in a call meanwhile comes after the run's reply, and isn't part of it.
+    const at = nextTurns.findLastIndex((t) => !t.spoken);
+    const turn = nextTurns[at];
     if (!turn || turn.role !== "assistant") return c;
     const items = [...(turn.items ?? [])];
     const updated: ChatTurn = { ...turn, items };
@@ -1535,7 +1606,7 @@ function onChatEvent(raw: unknown): void {
             opens.files.push({ title: basename(path), href: path });
       }
     }
-    nextTurns[nextTurns.length - 1] = updated;
+    nextTurns[at] = updated;
     if (event.type === "done" && updated.delivered) placeDelivered(nextTurns);
     const lastResponseId =
       event.type === "done" && event.responseId ? event.responseId : c.lastResponseId;

@@ -57,6 +57,8 @@ export interface ChatTurn {
   /** The chat was forked from another after this turn. */
   forked?: boolean;
   delivered?: ChatDelivery;
+  /** Said in a call with the agent, not written. */
+  spoken?: true;
   startedAt?: number;
   finishedAt?: number;
 }
