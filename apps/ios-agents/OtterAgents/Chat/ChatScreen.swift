@@ -10,6 +10,8 @@ struct ChatScreen: View {
     var openSettings: () -> Void = {}
 
     @State private var position = ScrollPosition(edge: .bottom)
+    /** The first turn drawn, once reading back up or going to a turn drew more than the last `opening`. */
+    @State private var from: Int?
     @State private var following = true
     /** The conversation is moving under a finger, or on its way somewhere. */
     @State private var moving = false
@@ -37,31 +39,51 @@ struct ChatScreen: View {
         }
     }
 
-    /** How many of the last turns are drawn at once, past the lazy stack: see `content`. */
-    private static let drawn = 4
+    /**
+     * How many of the last turns a chat opens with: about a screen, as a turn can be long and each
+     * takes time to draw. Every turn drawn is measured, so the conversation has no gaps and ends
+     * where it ends; the ones before come as you read back up, before you get there (`DrawsAhead`).
+     */
+    private static let opening = 3
+
+    private func first(_ chat: Chat) -> Int {
+        if let from, from < chat.turns.count { return from }
+        return max(0, chat.turns.count - Self.opening)
+    }
+
+    /**
+     * Draws the turns before the first drawn, about a screen of text, if there are any: several
+     * short ones at once, as each draw also moves all those below, and a long one alone.
+     */
+    private func drawEarlier() -> Bool {
+        guard let chat = store.chat(id), first(chat) > 0 else { return false }
+        var index = first(chat), text = 0
+        repeat {
+            index -= 1
+            text += chat.turns[index].text.count + chat.turns[index].items.reduce(0) { $0 + ($1.text?.count ?? 60) }
+        } while index > 0 && text < 1500
+        from = index
+        return true
+    }
+
+    /** Draws the chat from this turn on, to go to it. */
+    private func reveal(_ turnId: String, in chat: Chat) {
+        guard let index = chat.turns.firstIndex(where: { $0.id == turnId }), index < first(chat) else { return }
+        from = index
+    }
 
     private func content(_ chat: Chat) -> some View {
         let name = store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat))
-        let turns = Array(chat.turns.enumerated())
-        let lazy = max(0, turns.count - Self.drawn)
+        let first = first(chat)
         return ScrollView {
-            VStack(spacing: 0) {
-                // Lazy: a turn is drawn as it scrolls in, so a chat of hundreds opens and reads back
-                // up as quickly as a short one.
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(turns.prefix(lazy), id: \.element.id) { index, turn in row(chat, index, turn, name: name) }
-                }
-                .scrollTargetLayout()
-                // The last turns drawn at once: a lazy stack only estimates the height of what it
-                // hasn't drawn, and the end of the conversation, where it opens and what it
-                // follows, would be off by as much, past the last message or short of it.
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(turns.suffix(from: lazy), id: \.element.id) { index, turn in row(chat, index, turn, name: name) }
-                }
-                .scrollTargetLayout()
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(chat.turns.enumerated().dropFirst(first)), id: \.element.id) { index, turn in row(chat, index, turn, name: name) }
             }
+            .scrollTargetLayout()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.top, 12)
         }
-        .contentMargins(.top, 12, for: .scrollContent)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom)
@@ -81,6 +103,7 @@ struct ChatScreen: View {
                 position.scrollTo(edge: .bottom)
             }
         }
+        .modifier(DrawsAhead(turns: chat.turns.count, position: $position, draw: drawEarlier))
         // Turns that arrive are measured after the scroll that follows them: it can leave the
         // conversation past its end, on empty space under its last message.
         .onScrollGeometryChange(for: Bool.self) { geometry in
@@ -167,6 +190,7 @@ struct ChatScreen: View {
             // What the agent wrote or asks in this chat's session without this iPhone: a scheduled run, another device's turn.
             Task { await store.catchUp(id) }
             if let found = store.found, found.chatId == id {
+                reveal(found.turnId, in: chat)
                 following = false
                 try? await Task.sleep(for: .milliseconds(250))
                 withAnimation { position.scrollTo(id: found.turnId, anchor: .center) }
@@ -219,27 +243,26 @@ struct ChatScreen: View {
 
     private func row(_ chat: Chat, _ index: Int, _ turn: ChatTurn, name: String) -> some View {
         let isLast = index == chat.turns.count - 1
-        return Group {
-            if let day = newDay(chat, index) { DayPill(text: day).padding(.bottom, 10) }
-            // The turn alone takes its id: a lazy stack tells its views apart by them.
+        let gap: CGFloat = chat.turns[safe: index + 1]?.role == turn.role ? 4 : 12
+        // One view a turn, its day with it: what `scrollTo(id:)` finds, and what moves as one below.
+        return VStack(alignment: .leading, spacing: 0) {
+            if let day = newDay(chat, index) { DayPill(text: day).padding(.bottom, 10 + gap) }
             switch turn.role {
             case .user: UserTurnView(turn: turn, answered: answered(chat, index), joinsAbove: index > 0 && chat.turns[index - 1].role == .user,
                                     joinsBelow: chat.turns[safe: index + 1]?.role == .user)
-                .id(turn.id)
             case .assistant:
                 AssistantTurnView(turn: turn, chatId: chat.id, provider: chat.provider, name: name, isLast: isLast,
                                   detached: isLast && store.isDetached(chat),
                                   continued: index > 0 && ["steer", "promoted"].contains(chat.turns[index - 1].intent ?? ""))
-                .id(turn.id)
             }
         }
-        .padding(.bottom, chat.turns[safe: index + 1]?.role == turn.role ? 4 : 12)
+        .padding(.bottom, gap)
+        .id(turn.id)
         .background {
             if store.found?.turnId == turn.id { palette.focus.opacity(0.07).padding(.horizontal, -8).padding(.bottom, 10).clipShape(.rect(cornerRadius: 12)) }
         }
-        // On each turn: a lazy stack is as wide as the scroll view whatever it's given, and padding
-        // around it would leave the conversation wider than the screen.
-        .padding(.horizontal, 12)
+        // Moves as one when a turn is drawn above it, not each of its text views.
+        .geometryGroup()
     }
 
     /** The day a turn starts, when the one before was on another. */
@@ -379,6 +402,7 @@ struct ChatScreen: View {
 
     private func show(_ turnId: String, in chat: Chat, animated: Bool) {
         store.found = ChatStore.Found(chatId: chat.id, turnId: turnId)
+        reveal(turnId, in: chat)
         following = false
         withAnimation(animated ? .default : nil) { position.scrollTo(id: turnId, anchor: .center) }
     }
@@ -430,6 +454,58 @@ struct ChatScreen: View {
             let found = matches(chat)
             if let first = found.first { show(first, in: chat, animated: false) } else { store.found = nil }
         }
+    }
+}
+
+/**
+ * Draws the turns before the first drawn, a step a frame so no frame takes long, until `ahead`
+ * screens of them are above what's in view. Turns drawn above push what's in view down by their
+ * height, which the scroll view doesn't make up for: this scrolls it back, and so draws only while
+ * the conversation is still, not to pull it from under a finger.
+ * Its own view, so what it follows as you scroll doesn't redraw the conversation.
+ */
+private struct DrawsAhead: ViewModifier {
+    private static let ahead = 3
+    /** Again when turns arrive: a chat opens before they do. */
+    let turns: Int
+    @Binding var position: ScrollPosition
+    let draw: () -> Bool
+    @State private var above = 0
+    @State private var moving = false
+    @State private var at = At()
+
+    /** Where the conversation is, and was when turns were last drawn above: not state, as it changes every frame. */
+    final class At {
+        var now: ScrollGeometry?
+        var drawing: ScrollGeometry?
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .onScrollPhaseChange { _, phase in moving = phase != .idle }
+            .onScrollGeometryChange(for: Int.self, of: Self.screens) { _, screens in above = screens }
+            .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { _, now in keep(now) }
+            // A loop, not an action on each scroll change: those come more than once a frame, and
+            // SwiftUI stops calling an action that keeps changing what it watches.
+            .task(id: [above, moving ? 1 : 0, turns]) {
+                while !Task.isCancelled, !moving, above < Self.ahead {
+                    at.drawing = at.now
+                    guard draw() else { return at.drawing = nil }
+                    try? await Task.sleep(for: .milliseconds(16))
+                }
+            }
+    }
+
+    private func keep(_ now: ScrollGeometry) {
+        defer { at.now = now }
+        guard let before = at.drawing, now.contentSize.height != before.contentSize.height else { return }
+        at.drawing = nil
+        let kept = before.contentOffset.y + now.contentSize.height - before.contentSize.height
+        if abs(now.contentOffset.y - kept) > 0.5 { position.scrollTo(y: kept) }
+    }
+
+    private static func screens(_ geometry: ScrollGeometry) -> Int {
+        min(ahead, Int((geometry.visibleRect.minY + geometry.contentInsets.top) / max(geometry.containerSize.height, 1)))
     }
 }
 
