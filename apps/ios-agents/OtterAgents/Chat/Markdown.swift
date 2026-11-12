@@ -6,7 +6,7 @@ import Foundation
  * into one piece, so a selection can cross paragraphs; what isn't text stands apart.
  */
 nonisolated enum Markdown {
-    enum Block: Equatable {
+    enum Block: Hashable {
         case heading(Int, String)
         case paragraph(String)
         /** `marker`: "•" or "1.", `depth` from 0; `task`: a checkbox, ticked or not. */

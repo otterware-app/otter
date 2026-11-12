@@ -13,8 +13,6 @@ struct ChatScreen: View {
     @State private var following = true
     /** The conversation is moving under a finger, or on its way somewhere. */
     @State private var moving = false
-    /** How many of the chat's first turns aren't drawn: a long chat opens on its latest, and the rest come as you read back up. */
-    @State private var earlier: Int?
     @FocusState private var focused: Bool
     @State private var showQueue = false
     @State private var panel = false
@@ -39,48 +37,40 @@ struct ChatScreen: View {
         }
     }
 
-    /** How many turns a chat opens with, and how many more each step back up brings: drawing a turn costs, and a chat can have hundreds. */
-    private static let page = 10
-
-    private func skipped(_ chat: Chat) -> Int {
-        if let earlier, earlier < chat.turns.count { return earlier }
-        return max(0, chat.turns.count - Self.page)
-    }
-
-    /** Draws the chat from this turn on, to go to it. */
-    private func reveal(_ turnId: String, in chat: Chat) {
-        guard let index = chat.turns.firstIndex(where: { $0.id == turnId }), index < skipped(chat) else { return }
-        earlier = index
-    }
-
     private func content(_ chat: Chat) -> some View {
-        let skipped = skipped(chat)
+        let name = store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat))
         return ScrollView {
-            // As wide as the screen with nothing in it yet too: a stack is only as wide as what it holds.
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(chat.turns.enumerated().dropFirst(skipped)), id: \.element.id) { index, turn in
+            // Lazy: a turn is drawn as it scrolls in, so a chat of hundreds opens and reads back up
+            // as quickly as a short one.
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(chat.turns.enumerated()), id: \.element.id) { index, turn in
+                    let isLast = index == chat.turns.count - 1
                     Group {
                         if let day = newDay(chat, index) { DayPill(text: day).padding(.bottom, 10) }
+                        // The turn alone takes its id: a lazy stack tells its views apart by them.
                         switch turn.role {
                         case .user: UserTurnView(turn: turn, answered: answered(chat, index), joinsAbove: index > 0 && chat.turns[index - 1].role == .user,
                                                 joinsBelow: chat.turns[safe: index + 1]?.role == .user)
+                            .id(turn.id)
                         case .assistant:
-                            AssistantTurnView(turn: turn, chat: chat, isLast: index == chat.turns.count - 1,
+                            AssistantTurnView(turn: turn, chatId: chat.id, provider: chat.provider, name: name, isLast: isLast,
+                                              detached: isLast && store.isDetached(chat),
                                               continued: index > 0 && ["steer", "promoted"].contains(chat.turns[index - 1].intent ?? ""))
+                            .id(turn.id)
                         }
                     }
                     .padding(.bottom, chat.turns[safe: index + 1]?.role == turn.role ? 4 : 12)
                     .background {
                         if store.found?.turnId == turn.id { palette.focus.opacity(0.07).padding(.horizontal, -8).padding(.bottom, 10).clipShape(.rect(cornerRadius: 12)) }
                     }
-                    .id(turn.id)
+                    // On each turn: a lazy stack is as wide as the scroll view whatever it's given,
+                    // and padding around it would leave the conversation wider than the screen.
+                    .padding(.horizontal, 12)
                 }
             }
             .scrollTargetLayout()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 12)
-            .padding(.top, 12)
         }
+        .contentMargins(.top, 12, for: .scrollContent)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom)
@@ -100,10 +90,12 @@ struct ChatScreen: View {
                 position.scrollTo(edge: .bottom)
             }
         }
-        .onScrollGeometryChange(for: Int.self) { geometry in
-            geometry.visibleRect.minY + geometry.contentInsets.top < 1500 ? skipped : -1
-        } action: { _, near in
-            if near > 0 { earlier = max(0, near - Self.page) }
+        // A lazy stack opens at its estimated end: once the last turns are measured, the real end
+        // can be above it, and the conversation would rest on empty space under its last message.
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.visibleRect.maxY - geometry.contentInsets.bottom > geometry.contentSize.height + 1
+        } action: { _, past in
+            if past, !moving { position.scrollTo(edge: .bottom) }
         }
         .onChange(of: chat.turns.last?.items) { if following { position.scrollTo(edge: .bottom) } }
         .background { Wallpaper() }
@@ -150,17 +142,22 @@ struct ChatScreen: View {
                               working: store.runs[chat.id] != nil, activity: BrowserSource.activity(in: chat, demo: store.agents.demo))
             }
         }
-        .environment(\.chatText, ChatTextActions(open: { open($0, in: chat) }, quote: canWrite(chat) ? { quote($0, from: $1) } : nil,
-                                                  image: store.readsFiles(chat) ? { href in (try? await store.file(href, in: chat)).flatMap { UIImage(data: $0.data) } } : nil))
+        .environment(\.chatText, ChatTextActions(
+            chatId: id,
+            open: { url in if let chat = store.chat(id) { open(url, in: chat) } },
+            quote: canWrite(chat) ? { quote($0, from: $1) } : nil,
+            image: store.readsFiles(chat) ? { href in
+                guard let chat = store.chat(id) else { return nil }
+                return (try? await store.file(href, in: chat)).flatMap { UIImage(data: $0.data) }
+            } : nil))
         .environment(\.chatFind, finding ? find : "")
         .task(id: id) {
             store.watched = id
             await store.sync?.load(id)
             // What the agent wrote or asks in this chat's session without this iPhone: a scheduled run, another device's turn.
             Task { await store.catchUp(id) }
-            if let found = store.found, found.chatId == id, let chat = store.chat(id) {
+            if let found = store.found, found.chatId == id {
                 following = false
-                reveal(found.turnId, in: chat)
                 try? await Task.sleep(for: .milliseconds(250))
                 withAnimation { position.scrollTo(id: found.turnId, anchor: .center) }
             }
@@ -351,9 +348,7 @@ struct ChatScreen: View {
     private func show(_ turnId: String, in chat: Chat, animated: Bool) {
         store.found = ChatStore.Found(chatId: chat.id, turnId: turnId)
         following = false
-        reveal(turnId, in: chat)
-        // After the turn is drawn, when it wasn't yet.
-        Task { withAnimation(animated ? .default : nil) { position.scrollTo(id: turnId, anchor: .center) } }
+        withAnimation(animated ? .default : nil) { position.scrollTo(id: turnId, anchor: .center) }
     }
 
     private func findBar(_ chat: Chat) -> some View {

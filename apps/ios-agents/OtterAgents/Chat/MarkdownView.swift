@@ -1,13 +1,22 @@
 import SwiftUI
 import UIKit
 
-/** What a tap on a link in a chat does, and what "Quote" on a selection does. */
-struct ChatTextActions {
+/**
+ * What a tap on a link in a chat does, and what "Quote" on a selection does. Equal for the same
+ * chat with the same abilities: closures never compare equal, and a new set each time the screen
+ * redraws would redraw every bubble that reads them. The actions look the chat up when they run.
+ */
+struct ChatTextActions: Equatable {
+    var chatId = ""
     var open: (URL) -> Void = { _ in }
     /** Nil where nothing can be quoted (a chat that only reads here). Who said it comes second. */
     var quote: ((String, String?) -> Void)?
     /** Reads an image the agent linked from where it runs; nil where this iPhone can't. */
     var image: ((String) async -> UIImage?)?
+
+    static func == (a: Self, b: Self) -> Bool {
+        a.chatId == b.chatId && (a.quote == nil) == (b.quote == nil) && (a.image == nil) == (b.image == nil)
+    }
 }
 
 extension EnvironmentValues {
@@ -66,8 +75,31 @@ struct MarkdownText: View {
     var reserve: String?
 
     var body: some View {
-        SelectableText(text: Self.attributed(blocks, palette: palette, muted: muted, find: find, reserve: reserve))
+        SelectableText(text: Self.cached(blocks, palette: palette, muted: muted, find: find, reserve: reserve, typeSize: typeSize))
             .id(typeSize)
+    }
+
+    private struct Key: Hashable {
+        let blocks: [Markdown.Block]
+        let muted: Bool
+        let find: String
+        let reserve: String?
+        let typeSize: DynamicTypeSize
+        let colors: [Color]
+    }
+
+    /** Text already styled: a bubble drawn again (scrolled back to) doesn't parse its Markdown again. */
+    private static var styled: [Key: NSAttributedString] = [:]
+
+    private static func cached(_ blocks: [Markdown.Block], palette: Palette, muted: Bool, find: String, reserve: String?,
+                               typeSize: DynamicTypeSize) -> NSAttributedString {
+        let key = Key(blocks: blocks, muted: muted, find: find, reserve: reserve, typeSize: typeSize,
+                      colors: [palette.text, palette.muted, palette.focus, palette.warning])
+        if let text = styled[key] { return text }
+        let text = attributed(blocks, palette: palette, muted: muted, find: find, reserve: reserve)
+        if styled.count > 1000 { styled.removeAll() }
+        styled[key] = text
+        return text
     }
 
     static func attributed(_ blocks: [Markdown.Block], palette: Palette, muted: Bool, find: String, reserve: String? = nil) -> NSAttributedString {
@@ -190,20 +222,32 @@ struct SelectableText: UIViewRepresentable {
     }
 
     func updateUIView(_ view: UITextView, context: Context) {
-        context.coordinator.actions = actions
-        context.coordinator.from = from
-        if view.attributedText != text { view.attributedText = text }
+        let coordinator = context.coordinator
+        coordinator.actions = actions
+        coordinator.from = from
+        // Against what was set, not `view.attributedText`: TextKit adds its own attributes (fonts
+        // for what Inter lacks), so that never equals the text, and each set lays it out again.
+        guard coordinator.text != text else { return }
+        view.attributedText = text
+        coordinator.text = text
+        coordinator.measured = nil
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
         guard let width = proposal.width, width.isFinite, width > 0 else { return nil }
+        if let measured = context.coordinator.measured, measured.width == width { return measured.size }
         let fitted = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-        return CGSize(width: min(width, fitted.width.rounded(.up)), height: fitted.height.rounded(.up))
+        let size = CGSize(width: min(width, fitted.width.rounded(.up)), height: fitted.height.rounded(.up))
+        context.coordinator.measured = (width, size)
+        return size
     }
 
     final class Coordinator: NSObject, UITextViewDelegate {
         var actions = ChatTextActions()
         var from: String?
+        var text: NSAttributedString?
+        /** The size at the last width asked: measuring lays the whole text out, and a layout pass asks more than once. */
+        var measured: (width: CGFloat, size: CGSize)?
 
         func textView(_ textView: UITextView, primaryActionFor textItem: UITextItem, defaultAction: UIAction) -> UIAction? {
             guard case .link(let url) = textItem.content else { return defaultAction }
@@ -268,6 +312,7 @@ struct CodeBlock: View {
 
 struct TableBlock: View {
     @Environment(\.palette) private var palette
+    @Environment(\.dynamicTypeSize) private var typeSize
     let header: [String]
     let rows: [[String]]
 
@@ -292,8 +337,27 @@ struct TableBlock: View {
         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
     }
 
+    private struct Key: Hashable {
+        let text: String
+        let bold: Bool
+        let typeSize: DynamicTypeSize
+        let colors: [Color]
+    }
+
+    /** Cells already styled: parsing a cell's Markdown and converting it for `Text` is slow, and a table has many. */
+    private static var styled: [Key: AttributedString] = [:]
+
+    private func styled(_ text: String, bold: Bool) -> AttributedString {
+        let key = Key(text: text, bold: bold, typeSize: typeSize, colors: [palette.text, palette.muted, palette.focus])
+        if let cell = Self.styled[key] { return cell }
+        let cell = AttributedString(MarkdownText.inline(text, font: .ui(14, bold ? .semibold : .regular), color: UIColor(palette.text), palette: palette))
+        if Self.styled.count > 2000 { Self.styled.removeAll() }
+        Self.styled[key] = cell
+        return cell
+    }
+
     private func cell(_ text: String, bold: Bool) -> some View {
-        Text(AttributedString(MarkdownText.inline(text, font: .ui(14, bold ? .semibold : .regular), color: UIColor(palette.text), palette: palette)))
+        Text(styled(text, bold: bold))
             .font(.ui(14, bold ? .semibold : .regular))
             .foregroundStyle(palette.text)
             .padding(.horizontal, 12)

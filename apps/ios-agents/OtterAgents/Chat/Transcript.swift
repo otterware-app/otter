@@ -148,14 +148,19 @@ struct AssistantTurnView: View {
     @Environment(\.chatText) private var actions
     @Environment(ChatStore.self) private var store
     let turn: ChatTurn
-    let chat: Chat
+    /** Of its chat, only what it shows: the whole chat changes with every word streamed into it, and would redraw every turn. */
+    let chatId: String
+    let provider: String
+    /** The agent's name, for a quote of what it said. */
+    let name: String
     let isLast: Bool
+    /** The last turn's agent was lost mid-reply. */
+    var detached = false
     /** The turn before it was a steer: its work continued the run. */
     var continued = false
     @State private var open = false
 
-    private var live: Bool { turn.finishedAt == nil && turn.error == nil && store.runs[chat.id] != nil }
-    private var name: String { store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat)) }
+    private var live: Bool { turn.finishedAt == nil && turn.error == nil && store.runs[chatId] != nil }
 
     /** What it took to get to the answer: everything up to the last step. */
     private var work: [ChatItem] {
@@ -168,9 +173,18 @@ struct AssistantTurnView: View {
         return Array(turn.items[(last + 1)...])
     }
 
+    /** Answers already parsed, by their text: a turn scrolled back to doesn't parse again. */
+    private static var parsed: [String: [[Markdown.Block]]] = [:]
+
     /** The answer, a bubble a paragraph. */
     private var bubbles: [[Markdown.Block]] {
-        answer.compactMap(\.text).flatMap(Markdown.bubbles)
+        answer.compactMap(\.text).flatMap { text in
+            if let bubbles = Self.parsed[text] { return bubbles }
+            let bubbles = Markdown.bubbles(text)
+            if Self.parsed.count > 500 { Self.parsed.removeAll() }
+            Self.parsed[text] = bubbles
+            return bubbles
+        }
     }
 
     var body: some View {
@@ -194,8 +208,8 @@ struct AssistantTurnView: View {
             if live, bubbles.isEmpty { TypingBubble() }
             if let error = turn.error { failure(error) }
             if !turn.changes.isEmpty, !live { ChangesList(changes: turn.changes).padding(.top, 3) }
-            if isLast, store.isDetached(chat), turn.finishedAt == nil, turn.error == nil {
-                Text("Lost \(AgentKind.name(of: chat.provider)) mid-reply. The rest shows here once it's back.")
+            if detached, turn.finishedAt == nil, turn.error == nil {
+                Text("Lost \(AgentKind.name(of: provider)) mid-reply. The rest shows here once it's back.")
                     .font(.ui(14))
                     .foregroundStyle(palette.muted)
             }
@@ -277,7 +291,7 @@ struct AssistantTurnView: View {
     }
 
     private var summary: String {
-        if live { return store.isCompacting(chat.id) ? "Compacting…" : store.runs[chat.id]?.waiting == nil ? "Working…" : "Waiting…" }
+        if live { return store.isCompacting(chatId) ? "Compacting…" : store.runs[chatId]?.waiting == nil ? "Working…" : "Waiting…" }
         guard let started = turn.startedAt, let finished = turn.finishedAt, finished > started else {
             let steps = work.count { $0.step != nil }
             return "Took \(steps) step\(steps == 1 ? "" : "s")"
@@ -289,7 +303,7 @@ struct AssistantTurnView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(AgentKind.name(of: chat.provider)) error").font(.ui(14, .semibold))
+                    Text("\(AgentKind.name(of: provider)) error").font(.ui(14, .semibold))
                     Text(error).font(.ui(14))
                 }
             } icon: {
@@ -299,7 +313,7 @@ struct AssistantTurnView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
             .background(palette.incoming(scheme), in: .rect(cornerRadius: 18))
-            if isLast, store.retries[turn.id] != nil, store.runs[chat.id] == nil {
+            if isLast, store.retries[turn.id] != nil, store.runs[chatId] == nil {
                 Button("Retry", systemImage: "arrow.clockwise") { store.retry(turn.id) }
                     .font(.ui(14, .medium))
                     .buttonStyle(.bordered)
