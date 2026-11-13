@@ -28,20 +28,20 @@ struct ChatsScreen: View {
 
     private struct Agent: Identifiable, Equatable {
         var id: String
+        /** The agent's id. */
         var provider: String
+        var gatewayAgent: String?
         var name: String
         var count: Int
     }
 
-    /** OpenClaw's agents are each their own: a chat's is read from its session. */
-    private func agentId(_ chat: Chat) -> String { chat.openClawAgent.map { "openclaw:\($0)" } ?? chat.provider }
+    /** An OpenClaw gateway's agents are each their own: a chat's is read from its session. */
+    private func agentId(_ chat: Chat) -> String { chat.openClawAgent.map { "\(chat.provider):\($0)" } ?? chat.provider }
 
     private var agents: [Agent] {
         let listed = store.chats.filter { !$0.isBlank }
         return Dictionary(grouping: listed, by: agentId).map { id, chats in
-            let agent = chats[0].openClawAgent
-            let name = agent.flatMap { slug in store.agents.models(of: .openclaw).first { $0.slug == slug }?.name } ?? AgentKind.name(of: chats[0].provider)
-            return Agent(id: id, provider: chats[0].provider, name: name, count: chats.count)
+            Agent(id: id, provider: chats[0].provider, gatewayAgent: chats[0].openClawAgent, name: store.agents.name(of: chats[0]), count: chats.count)
         }.sorted { ($0.count, $1.name) > ($1.count, $0.name) }
     }
 
@@ -201,8 +201,7 @@ struct ChatsScreen: View {
                 FilterChip(text: "Snoozed", count: shelves[.snoozed]?.count ?? 0, selected: shelf == "snoozed") { shelf = "snoozed" }
                 FilterChip(text: "Settled", count: shelves[.settled]?.count ?? 0, selected: shelf == "settled") { shelf = "settled" }
                 if let agent = agents.first(where: { $0.id == filter }) {
-                    FilterChip(text: agent.name, selected: true, avatar: agent.provider,
-                               agent: agent.id.hasPrefix("openclaw:") ? String(agent.id.dropFirst(9)) : nil, removable: true) { filter = "" }
+                    FilterChip(text: agent.name, selected: true, agent: agent.provider, gatewayAgent: agent.gatewayAgent, removable: true) { filter = "" }
                 }
             }
             .padding(.horizontal, 16)
@@ -224,8 +223,8 @@ struct ChatsScreen: View {
                 Text("No active chats").font(.ui(21, .semibold)).foregroundStyle(palette.text)
                 Button("Show all agents") { filter = "" }.font(.ui(16)).foregroundStyle(palette.muted)
             } else if store.agents.usable.isEmpty, !store.agents.demo {
-                Text("Connect an agent").font(.ui(21, .semibold)).foregroundStyle(palette.text)
-                Text("Chats run on your agents: Otter's own, Hermes, OpenClaw or varys.")
+                Text(store.agents.runnable.isEmpty ? "Add an agent" : "Connect an agent").font(.ui(21, .semibold)).foregroundStyle(palette.text)
+                Text("Chats run on your agents: Hermes, OpenClaw or varys, as many as you like. Add them in Settings › Agents.")
                     .font(.ui(16)).foregroundStyle(palette.muted).multilineTextAlignment(.center)
                 Button("Open Settings", action: openSettings)
                     .font(.ui(15, .semibold))
@@ -462,8 +461,9 @@ private struct FilterChip: View {
     let text: String
     var count = 0
     let selected: Bool
-    var avatar: String?
+    /** The agent's id, for its picture. */
     var agent: String?
+    var gatewayAgent: String?
     var removable = false
     let action: () -> Void
 
@@ -473,7 +473,7 @@ private struct FilterChip: View {
             action()
         } label: {
             HStack(spacing: 5) {
-                if let avatar { AgentAvatar(provider: avatar, agent: agent, size: 14) }
+                if let agent { AgentAvatar(agent: agent, gatewayAgent: gatewayAgent, size: 14) }
                 Text(text).font(.ui(14, .medium)).lineLimit(1)
                 if count > 0 { Text("\(count)").font(.ui(14)).monospacedDigit().opacity(0.6) }
                 if removable { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).opacity(0.6) }
@@ -556,7 +556,7 @@ struct ChatRow: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(chat.title).font(.ui(17, unread ? .semibold : .regular)).foregroundStyle(palette.text).lineLimit(1)
                 Spacer(minLength: 8)
-                if showAgent { AgentAvatar(provider: chat.provider, agent: chat.openClawAgent, size: 14) }
+                if showAgent { AgentAvatar(agent: chat.provider, gatewayAgent: chat.openClawAgent, size: 14) }
                 time(state)
             }
             preview(state).font(.ui(14)).lineLimit(1).padding(.trailing, 30).frame(maxWidth: .infinity, alignment: .leading)
@@ -607,7 +607,7 @@ struct ChatRow: View {
             case .failed(let error):
                 Text("\(Image(systemName: "exclamationmark.circle.fill")) \(error)").foregroundStyle(palette.error)
             case .lost:
-                Text("\(Image(systemName: "bolt.horizontal")) Lost \(AgentKind.name(of: chat.provider)) mid-reply").foregroundStyle(palette.muted)
+                Text("\(Image(systemName: "bolt.horizontal")) Lost \(store.agents.name(of: chat.provider)) mid-reply").foregroundStyle(palette.muted)
             case .compacting(let queued):
                 running("compacting context…", queued: queued)
             case .waiting(let label, let queued):
@@ -711,7 +711,7 @@ struct ChatRow: View {
     /** What the chat used and made, else who runs it and where. */
     private var detail: String {
         let summary = ChatShelf.tabsSummary(chat.tabs)
-        let agent = chat.openClawAgent.flatMap { slug in store.agents.models(of: .openclaw).first { $0.slug == slug }?.name } ?? AgentKind.name(of: chat.provider)
+        let agent = store.agents.name(of: chat)
         let place = chat.device.map { "On \($0.name)" }
         return [summary.isEmpty ? agent : summary, place].compactMap(\.self).joined(separator: " · ")
     }
@@ -788,13 +788,14 @@ struct Chip: View {
     @Environment(\.palette) private var palette
     let text: String
     var selected = false
-    var avatar: String?
+    /** The agent's id, for its picture. */
     var agent: String?
+    var gatewayAgent: String?
     var chevron = true
 
     var body: some View {
         HStack(spacing: 6) {
-            if let avatar { AgentAvatar(provider: avatar, agent: agent, size: 14) }
+            if let agent { AgentAvatar(agent: agent, gatewayAgent: gatewayAgent, size: 14) }
             Text(text).font(.ui(14, .medium)).lineLimit(1)
             if chevron { Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)) }
         }
@@ -812,23 +813,25 @@ struct SessionsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(ChatStore.self) private var store
     var open: (String) -> Void
-    @State private var sessions: [AgentKind: [Hermes.Session]] = [:]
+    @State private var sessions: [String: [Hermes.Session]] = [:]
     @State private var loading = true
     @State private var query = ""
+    /** A Hermes server's sessions from elsewhere too (a teammate's Slack DMs on a team server), not only Otter's own. */
+    @State private var everywhere = false
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(store.agents.usable) { kind in
-                    let known = Set(store.chats.filter { $0.provider == kind.rawValue }.compactMap(\.sessionId))
-                    let rows = (sessions[kind] ?? []).filter { session in
+                ForEach(store.agents.usable) { agent in
+                    let known = Set(store.chats.filter { $0.provider == agent.id }.compactMap(\.sessionId))
+                    let rows = (sessions[agent.id] ?? []).filter { session in
                         !known.contains(session.id) && (query.isEmpty || (session.title ?? session.preview ?? "").localizedCaseInsensitiveContains(query))
                     }
                     if !rows.isEmpty {
                         Section {
                             ForEach(rows) { session in
                                 Button {
-                                    let id = store.open(session: session, of: kind)
+                                    let id = store.open(session: session, of: agent)
                                     dismiss()
                                     open(id)
                                 } label: {
@@ -847,7 +850,7 @@ struct SessionsSheet: View {
                                 .listRowBackground(Color.clear)
                             }
                         } header: {
-                            Label { Text("On \(kind.name)") } icon: { AgentAvatar(provider: kind.rawValue, size: 15) }
+                            Label { Text("On \(agent.name)") } icon: { AgentAvatar(agent: agent.id, size: 15) }
                                 .font(.ui(14, .medium))
                         }
                     }
@@ -865,10 +868,17 @@ struct SessionsSheet: View {
             .searchable(text: $query, prompt: "Search sessions")
             .navigationTitle("On your agents")
             .toolbarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close", systemImage: "xmark") { dismiss() } } }
-            .task {
-                for kind in store.agents.usable {
-                    sessions[kind] = (try? await store.runner.sessions(of: kind)) ?? []
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close", systemImage: "xmark") { dismiss() } }
+                if store.agents.usable.contains(where: { $0.kind == .hermes }) {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Toggle("Show all", isOn: $everywhere).toggleStyle(.button)
+                    }
+                }
+            }
+            .task(id: everywhere) {
+                for agent in store.agents.usable {
+                    sessions[agent.id] = (try? await store.runner.sessions(of: agent, everywhere: everywhere)) ?? []
                 }
                 loading = false
             }

@@ -71,7 +71,8 @@ struct ScheduleTests {
 
     @Test func aHermesJobIsATask() {
         let agents = Agents()
-        let schedules = Schedules(agents: agents)
+        agents.startDemo()
+        let schedules = Schedules(agent: agents.agent(DemoAgent.brokk)!, agents: agents)
         let task = schedules.hermesTask([
             "id": "brief", "name": "Morning brief", "prompt": "Tell me what's new", "schedule": ["kind": "cron", "expr": "0 8 * * 1-5"],
             "enabled": true, "state": "scheduled", "next_run_at": "2026-11-11T08:00:00Z", "last_run_at": "2026-11-10T08:00:00Z",

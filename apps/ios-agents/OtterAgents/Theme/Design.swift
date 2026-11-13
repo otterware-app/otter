@@ -51,13 +51,20 @@ extension Palette {
     var dangerFill: Color { error.opacity(0.14) }
 }
 
-/** An agent's picture: its own (an OpenClaw agent's picture or emoji), its maker's mark, or Otter's for the agent Otter runs. */
+/**
+ * An agent's picture: the face of the gateway's agent a chat runs on (an OpenClaw agent's picture
+ * or emoji), else the picture you gave the agent, else its kind's mark (Claude's for a Mac's
+ * Claude agent too), else Otter's.
+ */
 struct AgentAvatar: View {
     @Environment(\.palette) private var palette
     @Environment(ChatStore.self) private var store: ChatStore?
-    let provider: String
-    /** Which of OpenClaw's agents. */
+    /** The agent's id. */
     var agent: String?
+    /** Which of an OpenClaw gateway's agents. */
+    var gatewayAgent: String?
+    /** A kind's mark, for no agent in particular. */
+    var kind: String?
     var size: CGFloat = 20
 
     private static let pictures = NSCache<NSString, UIImage>()
@@ -71,22 +78,23 @@ struct AgentAvatar: View {
     }
 
     var body: some View {
-        let face = provider == "openclaw" ? agent.flatMap { store?.agents.openClawFaces[$0] } : nil
-        if let avatar = face?.avatar, let image = Self.picture(avatar) {
+        let found = store?.agents.agent(agent)
+        let face = gatewayAgent.flatMap { found?.faces[$0] }
+        if let avatar = face?.avatar ?? (face?.emoji == nil ? found?.avatar : nil), let image = Self.picture(avatar) {
             Image(uiImage: image).resizable().scaledToFill().frame(width: size, height: size).clipShape(.circle).accessibilityHidden(true)
         } else if let avatar = face?.avatar, let url = URL(string: avatar), url.scheme == "https" {
-            AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { mark }
+            AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { mark(found?.entry.kind) }
                 .frame(width: size, height: size).clipShape(.circle).accessibilityHidden(true)
         } else if let emoji = face?.emoji, !emoji.isEmpty {
             Text(emoji).font(.system(size: size * 0.82)).frame(width: size, height: size).accessibilityHidden(true)
         } else {
-            mark
+            mark(kind ?? found?.entry.kind)
         }
     }
 
-    private var mark: some View {
+    private func mark(_ kind: String?) -> some View {
         Group {
-            switch provider {
+            switch kind {
             case "hermes": Image("AgentHermes").resizable().clipShape(.rect(cornerRadius: size * 0.25))
             case "openclaw": Image("AgentOpenClaw").resizable().padding(size * 0.06)
             case "varys": Image("AgentVarys").resizable().padding(size * 0.12).foregroundStyle(palette.text)

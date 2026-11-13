@@ -193,13 +193,23 @@ final class WalkthroughUITests: XCTestCase {
         shot("12-answered")
     }
 
-    func testModelPickerAndSettings() {
+    func testAgentPickerAndSettings() {
         app.buttons["New chat"].tap()
         XCTAssertTrue(app.buttons["Agent and model"].waitForExistence(timeout: 5))
         app.buttons["Agent and model"].tap()
         XCTAssertTrue(app.staticTexts["Agent and model"].waitForExistence(timeout: 5))
-        shot("13-models")
+        for agent in ["brokk", "rata", "Molty", "Scout", "varys"] {
+            XCTAssertTrue(row(agent).exists, "\(agent) isn't offered")
+        }
+        XCTAssertTrue(row("claude-opus-5.5").exists, "the chosen agent's models aren't under it")
+        shot("13-agents")
+        row("Scout").tap()
+        XCTAssertFalse(row("claude-opus-5.5").exists, "a gateway's agent has no models to pick")
+        shot("13-agent-scout")
+        row("rata").tap()
         app.buttons["Done"].tap()
+        XCTAssertTrue(row("with rata").waitForExistence(timeout: 3), "the new chat isn't with the agent picked")
+        shot("13-new-chat-rata")
         app.navigationBars.buttons.firstMatch.tap()
         app.buttons["Settings"].tap()
         XCTAssertTrue(app.staticTexts["About"].waitForExistence(timeout: 5))
@@ -207,6 +217,36 @@ final class WalkthroughUITests: XCTestCase {
         app.buttons.containing(NSPredicate(format: "label CONTAINS 'Appearance'")).firstMatch.tap()
         XCTAssertTrue(app.buttons["Use in dark mode"].firstMatch.waitForExistence(timeout: 5), "Appearance didn't open")
         shot("15-appearance")
+    }
+
+    func testYourAgentsInSettings() {
+        app.buttons["Settings"].tap()
+        for agent in ["brokk", "rata", "Studio", "varys"] {
+            XCTAssertTrue(row(agent).waitForExistence(timeout: 5), "\(agent) isn't among your agents")
+        }
+        XCTAssertFalse(row("Codex").exists, "an agent only a Mac runs is listed")
+        row("brokk").tap()
+        XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 5), "the agent's page didn't open")
+        XCTAssertEqual(app.textFields["Name"].value as? String, "brokk")
+        XCTAssertTrue(row("claude-opus-5.5").exists || app.staticTexts["Model"].exists, "brokk's model isn't on its page")
+        shot("31-agent-page")
+        app.navigationBars.buttons.firstMatch.tap()
+        row("Add agent").tap()
+        XCTAssertTrue(app.buttons["OpenClaw"].waitForExistence(timeout: 3), "Add agent offers no kinds")
+        shot("32-add-agent")
+        app.buttons["Hermes"].tap()
+        XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 5), "the new agent's page didn't open")
+        XCTAssertEqual(app.textFields["Name"].value as? String, "Hermes")
+        XCTAssertTrue(app.secureTextFields["API key"].exists, "a new Hermes agent isn't asked to connect")
+        shot("33-new-agent")
+        app.swipeUp()
+        app.buttons["Remove agent"].tap()
+        XCTAssertTrue(app.staticTexts["Remove Hermes?"].waitForExistence(timeout: 3), "removing asks nothing")
+        let confirm = app.buttons.matching(NSPredicate(format: "label == 'Remove agent'")).allElementsBoundByIndex.last!
+        shot("34-remove-agent")
+        confirm.tap()
+        XCTAssertTrue(row("Add agent").waitForExistence(timeout: 5), "removing didn't go back to the agents")
+        XCTAssertFalse(app.buttons.containing(NSPredicate(format: "label BEGINSWITH 'Hermes'")).firstMatch.exists, "the removed agent is still listed")
     }
 
     func testScheduledTasks() {

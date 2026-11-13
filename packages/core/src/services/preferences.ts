@@ -261,13 +261,18 @@ const setAgentKeysOwner = (userId: string) => platform().secrets.set(AGENT_KEYS_
 
 export async function pullPreferences(): Promise<void> {
   if (!getOtterUser()) return;
+  const settled = new Map(confirmed);
   const remote = await relayRequest<PreferencesResponse>("GET", "/v1/preferences");
+  // A change here the relay hadn't taken when this pull began is newer than its copy: the push sends it.
+  const changedMeanwhile = (name: SectionName | "agentKeys") =>
+    (editedAt.get(name) ?? 0) > (settled.get(name) ?? 0);
   for (const name of SECTION_NAMES) {
     const value = remote.preferences[name];
     if (value === undefined) {
       preferenceChanged(name);
       continue;
     }
+    if (changedMeanwhile(name)) continue;
     const json = JSON.stringify(value);
     synced.set(name, json);
     if (JSON.stringify(await SECTIONS[name].read()) === json) continue;
@@ -279,7 +284,7 @@ export async function pullPreferences(): Promise<void> {
   }
   const userId = getOtterUser()?.id;
   if (!userId) return;
-  if (remote.agentKeys && Object.keys(remote.agentKeys).length) {
+  if (remote.agentKeys && Object.keys(remote.agentKeys).length && !changedMeanwhile("agentKeys")) {
     synced.set("agentKeys", JSON.stringify(remote.agentKeys));
     await applySyncedAgentKeys(remote.agentKeys);
     await setAgentKeysOwner(userId);
@@ -289,9 +294,14 @@ export async function pullPreferences(): Promise<void> {
 
 const pending = new Set<SectionName | "agentKeys">();
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
+/** Changes made here, counted: each section's last, and the last the relay has. */
+let edits = 0;
+const editedAt = new Map<SectionName | "agentKeys", number>();
+const confirmed = new Map<SectionName | "agentKeys", number>();
 
 export function preferenceChanged(name: SectionName | "agentKeys"): void {
   if (!getOtterUser()) return;
+  editedAt.set(name, ++edits);
   pending.add(name);
   pushTimer ??= setTimeout(() => void push(), 500);
 }
@@ -307,19 +317,27 @@ async function push(): Promise<void> {
   const sending = new Map<SectionName | "agentKeys", string>();
   const preferences: Record<string, unknown> = {};
   let agentKeys: Record<string, string> | undefined;
+  const sentEdits = new Map<SectionName | "agentKeys", number>();
   for (const name of names) {
+    const edit = editedAt.get(name) ?? 0;
     const value = name === "agentKeys" ? await syncedAgentKeys() : await SECTIONS[name].read();
-    if (value === undefined) continue;
     const json = JSON.stringify(value);
-    if (synced.get(name) === json) continue;
+    if (value === undefined || synced.get(name) === json) {
+      confirmed.set(name, edit);
+      continue;
+    }
     sending.set(name, json);
+    sentEdits.set(name, edit);
     if (name === "agentKeys") agentKeys = value as Record<string, string>;
     else preferences[name] = value;
   }
   if (sending.size === 0) return;
   try {
     await relayRequest("PUT", "/v1/preferences", { preferences, agentKeys });
-    for (const [name, json] of sending) synced.set(name, json);
+    for (const [name, json] of sending) {
+      synced.set(name, json);
+      confirmed.set(name, sentEdits.get(name) ?? 0);
+    }
     if (agentKeys !== undefined) await setAgentKeysOwner(userId);
   } catch (err) {
     logger.failure("preferences", "Couldn't save preferences, retrying", err);
@@ -331,6 +349,8 @@ async function push(): Promise<void> {
 export async function forgetSyncedPreferences(): Promise<void> {
   synced.clear();
   pending.clear();
+  editedAt.clear();
+  confirmed.clear();
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = null;
   if (await agentKeysOwner()) {

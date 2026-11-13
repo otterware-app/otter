@@ -94,7 +94,7 @@ final class Varys {
 
     /** What Otter needs its grant to do: chats, and what they ask of you. */
     static let scopes = ["threads:read", "threads:write", "inbox"]
-    static let tokenName = "varys-token"
+    static let tokenName = "token"
     private static let readItems = 500
     private static let pingSeconds: Double = 15
     private static let pongSeconds: Double = 5

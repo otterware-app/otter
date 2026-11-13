@@ -1,10 +1,58 @@
 import Foundation
+import UIKit
 
 /**
- * The demo's pretend agent: it answers from a script, with the steps, approvals and questions a
+ * The demo's pretend agents: they answer from a script, with the steps, approvals and questions a
  * real one has, so every part of a chat can be tried without an account or an agent.
  */
 enum DemoAgent {
+    static let brokk = "demo-brokk"
+    static let rata = "demo-rata"
+    static let openClaw = "demo-openclaw"
+    static let varys = "demo-varys"
+    static let codex = "demo-codex"
+
+    /** Two Hermes servers (a team's brokk and rata), an OpenClaw gateway with two agents of its own, varys, and a Mac's Codex. */
+    static func agents() -> [Agent] {
+        func agent(_ id: String, _ kind: AgentKind?, _ name: String, avatar: String? = nil, settings: [String: JSON] = [:], models: [Hermes.Model]) -> Agent {
+            let agent = Agent(AgentList.Entry(id: id, kind: kind?.rawValue ?? "codex", name: name, avatar: avatar, settings: settings))
+            agent.status = .ready
+            agent.models = models
+            return agent
+        }
+        let model = { (slug: String, name: String, maker: String?, isDefault: Bool) in
+            Hermes.Model(slug: slug, name: name, subProvider: maker, isDefault: isDefault, reasoning: maker != nil, canDisableReasoning: maker == "Anthropic", fast: maker != nil)
+        }
+        let gateway = agent(openClaw, .openclaw, "Studio", settings: ["url": .string("wss://studio.tail.ts.net")],
+                            models: [model("main", "Molty", nil, true), model("research", "Scout", nil, false)])
+        gateway.faces = ["research": (nil, "🔭")]
+        return [
+            agent(brokk, .hermes, "brokk", avatar: picture("🦉", UIColor(rgb: 0x2F5D50)), settings: ["baseUrl": .string("https://brokk.tail.ts.net/v1")],
+                  models: [model("anthropic::claude-opus-5.5", "claude-opus-5.5", "Anthropic", true), model("openai::gpt-5.5", "gpt-5.5", "OpenAI", false)]),
+            agent(rata, .hermes, "rata", avatar: picture("🐀", UIColor(rgb: 0x6B4E8E)), settings: ["baseUrl": .string("https://rata.tail.ts.net/v1")],
+                  models: [model("", "hermes-agent", nil, true)]),
+            gateway,
+            agent(varys, .varys, "varys", settings: ["address": .string("https://studio.tail.ts.net"), "agentId": .string("varys")],
+                  models: [model("", "varys", nil, true)]),
+            agent(codex, nil, "Codex", models: []),
+        ]
+    }
+
+    /** A picture as you'd give an agent one: an emoji on a color. */
+    private static func picture(_ emoji: String, _ color: UIColor) -> String? {
+        let side: CGFloat = 96
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format).image { context in
+            color.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: side, height: side))
+            let text = emoji as NSString, attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 56)]
+            let size = text.size(withAttributes: attributes)
+            text.draw(at: CGPoint(x: (side - size.width) / 2, y: (side - size.height) / 2), withAttributes: attributes)
+        }
+        return image.jpegData(compressionQuality: 0.85).map { "data:image/jpeg;base64,\($0.base64EncodedString())" }
+    }
+
     private static var waiting: [String: CheckedContinuation<String, Never>] = [:]
 
     static func answer(_ id: String, _ answer: String) {
@@ -164,7 +212,7 @@ enum DemoChats {
         }
 
         return [
-            chat("Plan the Lisbon offsite", "openclaw", ago: 9 * day, [
+            chat("Plan the Lisbon offsite", DemoAgent.openClaw, ago: 9 * day, [
                 user("1", "Plan a three-day offsite in Lisbon for twelve people in January.", at: now - 9 * day),
                 agent("1", at: now - 9 * day, took: 95_000, [
                     step("search", "Searched flights LIS, 14–17 Jan", "{\"cheapest\": 148, \"currency\": \"EUR\", \"carrier\": \"TAP\"}", nil),
@@ -176,7 +224,7 @@ enum DemoChats {
                 $0.pinnedAt = now - 8 * day
                 $0.sessionId = "agent:main:otter-mail:demo-offsite"
             },
-            chat("Reply to Lena about the Q4 budget", "openclaw", ago: 12 * minute, [
+            chat("Reply to Lena about the Q4 budget", DemoAgent.openClaw, ago: 12 * minute, [
                 user("2", "What did Lena decide about the Q4 budget, and what do I owe her?", at: now - 14 * minute),
                 agent("2", at: now - 14 * minute, took: 48_000, [
                     step("search", "Searched mail for “Q4 budget”", "{\"threads\": 3}", "Otter"),
@@ -192,14 +240,14 @@ enum DemoChats {
                 ]),
             ], tabs: [ChatTab(ref: .thread(accountId: "you@otterware.app", id: "t1"), title: "Re: Q4 planning", now: now - 14 * minute),
                       ChatTab(ref: .draft(accountId: "you@otterware.app", id: "d1"), title: "Re: Q4 planning", made: true, now: now - 13 * minute)]),
-            chat("Morning brief", "hermes", ago: 3 * hour, [
+            chat("Morning brief", DemoAgent.brokk, ago: 3 * hour, [
                 agent("4", at: now - 3 * hour, took: 64_000, [
                     step("tool", "Read today's calendar", "3 events", nil),
                     step("search", "Searched mail since yesterday", "{\"unread\": 14, \"needs_reply\": 3}", nil),
                     .text(id: nil, "Good morning. Three things need you today:\n\n1. **10:00** design review, the deck is attached to the invite\n2. Marc is waiting on the contract redlines\n3. Your flight check-in opens at 16:20\n\nEverything else can wait until tomorrow."),
                 ]) { $0.delivered = .automation(jobId: "brief", name: "Morning brief", schedule: "Weekdays at 8:00") },
             ]),
-            chat("Why is the nightly build red?", "codex", ago: 26 * hour, [
+            chat("Why is the nightly build red?", DemoAgent.codex, ago: 26 * hour, [
                 user("5", "The nightly build has been red since Monday. Find out why.", at: now - 26 * hour),
                 agent("5", at: now - 26 * hour, took: 212_000, [
                     step("command", "Ran gh run list --workflow release.yml --limit 5", "completed  failure  Release  main  2026-11-09", nil),
@@ -208,7 +256,7 @@ enum DemoChats {
                     .text(id: nil, "The notarization step times out since Apple's service moved regions. I raised the wait from 10 to 30 minutes in `scripts/notarize-mac.ts` and re-ran the workflow: it's green."),
                 ]),
             ]) { $0.device = Chat.Device(id: "mac", name: "Chris's MacBook Pro") },
-            chat("Summarize the board deck", "openclaw", ago: 2 * day, [
+            chat("Summarize the board deck", DemoAgent.rata, ago: 2 * day, [
                 user("6", "Summarize this for me in five bullets.", at: now - 2 * day) {
                     $0.attachments = [ChatSentAttachment(name: "Board deck Q3.pdf", isImage: false, size: 2_480_000)]
                 },
@@ -216,18 +264,18 @@ enum DemoChats {
                     .text(id: nil, "- Revenue is up 18% quarter over quarter\n- Churn fell to 2.1%, the lowest yet\n- Hiring is two engineers behind plan\n- The Linux app shipped and is 9% of new installs\n- Runway is 22 months at current burn"),
                 ]),
             ]),
-            chat("Find the invoice from Hetzner", "varys", ago: 5 * hour, [
+            chat("Find the invoice from Hetzner", DemoAgent.varys, ago: 5 * hour, [
                 user("7", "Find last month's Hetzner invoice and tell me the total.", at: now - 5 * hour),
                 agent("7", at: now - 5 * hour, took: 19_000, [
                     step("search", "Searched mail from hetzner.com", "1 match", nil),
                     .text(id: nil, "Invoice R0012345678 from 1 October: **€86.42**, paid by direct debit on the 5th."),
                 ]),
             ]) { $0.snoozedUntil = now + 20 * hour },
-            chat("Draft the release note", "hermes", ago: 11 * day, [
+            chat("Draft the release note", DemoAgent.rata, ago: 11 * day, [
                 user("8", "Draft a short release note for 0.14.", at: now - 11 * day),
                 agent("8", at: now - 11 * day, took: 28_000, [.text(id: nil, "**Otter 0.14** brings Outlook folders, faster search and a calmer sidebar.")]),
             ]) { $0.settledAt = now - 10 * day },
-            chat("Unsubscribe from the newsletters I never open", "openclaw", ago: 13 * day, [
+            chat("Unsubscribe from the newsletters I never open", DemoAgent.brokk, ago: 13 * day, [
                 user("9", "Unsubscribe me from newsletters I haven't opened in three months.", at: now - 13 * day),
                 agent("9", at: now - 13 * day, took: 151_000, [
                     step("search", "Searched mail for list-unsubscribe", "38 senders", "Otter"),

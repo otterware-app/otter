@@ -6,12 +6,13 @@ enum BrowserSource {
     case gateway(OpenClaw, session: String)
     case demo
 
-    /** None for a chat whose agent never browsed, or isn't OpenClaw's. */
+    /** None for a chat whose agent never browsed, or isn't an OpenClaw gateway. */
     init?(_ chat: Chat, agents: Agents) {
-        guard chat.provider == "openclaw", Self.activity(in: chat, demo: agents.demo) > 0 else { return nil }
+        let agent = agents.agent(chat.provider)
+        guard agent?.kind == .openclaw, Self.activity(in: chat, demo: agents.demo) > 0 else { return nil }
         if agents.demo {
             self = .demo
-        } else if let session = chat.sessionId, agents.isUsable(.openclaw), let gateway = agents.openClawClient {
+        } else if let session = chat.sessionId, let agent, agent.isUsable, let gateway = agent.openClaw {
             self = .gateway(gateway, session: session)
         } else {
             return nil

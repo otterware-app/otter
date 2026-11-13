@@ -1,21 +1,21 @@
 import Foundation
 import UniformTypeIdentifiers
 
-/** The agents this iPhone can run a chat on. Claude and Codex run on a Mac: their chats read here. */
+/** The kinds of agent this iPhone runs. Claude and Codex run on a Mac: their chats read here. */
 nonisolated enum AgentKind: String, CaseIterable, Identifiable {
     case hermes, openclaw, varys
 
     var id: String { rawValue }
     var name: String { Self.name(of: rawValue) }
 
-    static func name(of provider: String) -> String {
-        switch provider {
+    static func name(of kind: String) -> String {
+        switch kind {
         case "hermes": "Hermes"
         case "openclaw": "OpenClaw"
         case "varys": "varys"
         case "claude": "Claude"
         case "codex": "Codex"
-        default: provider.capitalized
+        default: kind.capitalized
         }
     }
 
@@ -23,6 +23,24 @@ nonisolated enum AgentKind: String, CaseIterable, Identifiable {
     var resumes: Bool { self == .openclaw || self == .varys }
     var skills: Bool { self == .hermes || self == .varys }
     var attachments: Bool { self != .varys }
+
+    /** A setting kept on each device, not the account's: all of OpenClaw's (each device pairs on its own), varys's pairing. */
+    func isDeviceField(_ key: String) -> Bool {
+        switch self {
+        case .hermes: false
+        case .openclaw: true
+        case .varys: ["address", "agentId", "installation", "relayChannel"].contains(key)
+        }
+    }
+
+    /** What an agent of this kind keeps in the Keychain, under its id (core's `AgentType.secrets`). */
+    @MainActor var secrets: [String] {
+        switch self {
+        case .hermes: ["key"]
+        case .openclaw: [OpenClaw.tokenName, OpenClaw.bootstrapName, OpenClaw.keyName, OpenClaw.deviceTokenName, OpenClaw.scopesName]
+        case .varys: [Varys.tokenName]
+        }
+    }
 }
 
 /** An agent asking before it does something. */
@@ -132,19 +150,19 @@ nonisolated enum AgentError {
     /** The turn couldn't be followed now: it's picked up again later, not over. */
     static let detached = "detached"
 
-    static func friendly(_ code: String, provider: String) -> String {
-        let name = AgentKind.name(of: provider)
+    /** `kind` is the agent's, when this iPhone knows it. */
+    static func friendly(_ code: String, agent name: String, kind: AgentKind?) -> String {
         switch code {
-        case "not_configured": return "\(name) isn't set up. Connect it in Settings."
-        case "provider_disabled": return "\(name) is turned off in Settings."
+        case "not_configured": return "\(name) isn't set up. Connect it in Settings › Agents."
+        case "provider_disabled": return "\(name) is turned off in Settings › Agents."
         case "unauthorized":
-            return provider == "openclaw" ? "The OpenClaw gateway refused this iPhone. Reconnect it in Settings." : "The API key was rejected. Update it in Settings."
+            return kind == .openclaw ? "\(name)'s gateway refused this iPhone. Reconnect it in Settings › Agents." : "\(name) rejected its API key. Update it in Settings › Agents."
         case "unreachable":
-            if provider == "openclaw" { return "Can't reach the OpenClaw gateway." }
+            if kind == .openclaw { return "Can't reach \(name)'s gateway." }
             return "Can't reach \(name). Are you on Tailscale?"
         case "timeout": return "\(name) went quiet for too long, so the run was stopped."
         case "cancelled": return "Stopped."
-        case "pairing_required": return "Approve this iPhone on the OpenClaw gateway. The command is in Settings."
+        case "pairing_required": return "Approve this iPhone on \(name)'s gateway. The command is in Settings › Agents."
         case "session_not_found": return "This chat's \(name) session no longer exists. Send again to start a new one."
         case "not_received": return "\(name) never got this message. Send it again."
         default:

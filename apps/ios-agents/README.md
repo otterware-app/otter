@@ -38,6 +38,10 @@ green), since a chat with an agent is a chat:
   composer, with who said it. The composer is WhatsApp's: ＋ (photos, camera, documents, skills,
   the agent, in a panel where the keyboard was), the text in a pill with the agent's picture to
   change it, and Send.
+- **Your agents** (`Settings/`): Settings › Agents lists them, each with its picture, name and
+  status, none at first; Add agent picks a kind (Hermes, OpenClaw, varys) and opens the new
+  agent's page: its name, its picture (a photo, cropped square), its switch, its connection, and
+  Remove.
 - **Type and color.** Inter (`Theme/Design.swift`), the account's themes for its colors
   (`apps/ios`'s `Theme.swift`, shared); the bubbles and wallpaper are mixed from them.
 
@@ -68,8 +72,9 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   tools changed; scheduled results and messages the agent sent on its own. Text is selectable
   within a bubble, and **Reply** on a selection, or swiping the bubble, cites it in your next message.
 - **The composer** (`Chat/Composer.swift`): photos, the camera and files (10 a message; images
-  to 10 MB, files to 50 MB), `/` for the agent's skills, the agent and model picker with
-  favorites (`Chat/ModelSheet.swift`), drafts kept per chat.
+  to 10 MB, files to 50 MB), `/` for the agent's skills, the agent picker (`Chat/ModelSheet.swift`:
+  each of your agents by its picture and name, an OpenClaw gateway's agents each their own, then
+  the model and effort for one with several, with favorites), drafts kept per chat.
 - **Files where the agent runs** (`Chat/FileScreen.swift`, `Agents/OpenClawFiles.swift`): a file an
   OpenClaw agent links, or lists in a chat's details, is read from its gateway (the Mac and web
   apps' `readFile`) and opens here: text with line numbers, Markdown as it reads, anything else
@@ -99,11 +104,12 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   every app tells the relay which chat that is over its events socket (`Relay.watching` here,
   core's `setWatching` on the Mac and the web), again every 30 seconds, and the relay forgets a
   device that stops saying it. On in Settings; it needs the gateway's Otter
-  channel (set up on the Mac: Settings › OpenClaw › Messages from your agents) or, for varys,
+  channel (set up on the Mac: the OpenClaw agent's page in Settings › Agents, Messages from your agents) or, for varys,
   the pairing this app makes itself. A finished run notifies on OpenClaw only (its plugin, from
   0.2.7): Hermes and varys tell the relay of what they deliver or ask, not of a reply to you.
 - **The agents' own sessions** ("On your agents" on the list): chats started in an agent's own
-  app open here and go on.
+  app open here and go on. A Hermes server lists Otter's own sessions, and the rest (a team
+  server's Slack DMs) only with Show all.
 - **OpenClaw's live browser** (`Browser/`, `Agents/OpenClawBrowser.swift`; apps/web's
   agent-browser.tsx, laid out as T3 Code's phone browser preview): a globe in the capsule above
   the composer, once the chat's agent has a tab, opens the tab it's driving: the gateway's
@@ -119,16 +125,21 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   client (`GoogleSignIn.swift`: no mail scope, nothing kept but the relay's session). `Relay.swift`
   is the relay as far as the agents need it; `Account.swift` keeps the account's settings (the
   `assistant` section and the `ui` keys the other apps use) and chats in step, both ways.
-- `Agents/Agents.swift`: how this iPhone reaches each agent. Hermes's settings and sealed key
-  follow the account; OpenClaw and varys
-  pair with this iPhone as a device of its own, kept in its Keychain. Their clients are `Clients/` (`Hermes`, `OpenClaw`, `Varys*`), compiled into
-  the app and its notification extension.
+- `Agents/`: the agents you added, as many of each kind as you like (`Agents.swift`). Each has
+  an id, which chats, tasks and every call name it by, a kind, a name, a picture and its settings
+  (`AgentList.swift`: the account's `assistant` section, as core's `agents.json`; a removal is
+  kept as the agent's id, so no device brings it back). Each reaches its agent on its own
+  (`Agent.swift`): a Hermes agent's settings and sealed key follow the account (the relay's
+  `agentKeys`, by agent); OpenClaw and varys pair with this iPhone as a device of its own, each
+  agent separately, kept in its Keychain under the agent's id. Claude and Codex agents stay in the
+  list as the account has them. Their clients are `Clients/` (`Hermes`, `OpenClaw`, `Varys*`).
 - `Agents/AgentRunner.swift`: a turn on each agent, told as the `ChatEvent`s core's providers
   emit. OpenClaw and varys go on without the app: a turn the app left is picked up on return.
   The sockets stay 25 seconds in the background (`Account.leave`), and a quiet OpenClaw socket is
   pinged, on a new network and on return too, and replaced when it doesn't answer.
-- `Demo/`: the demo's pretend agent and chats, offered on the welcome screen of builds that
-  aren't the App Store's. It asks for an approval when a message says "send", a question when
+- `Demo/`: the demo's pretend agents (two Hermes servers, brokk and rata, an OpenClaw gateway
+  with two agents of its own, varys, and a Mac's Codex) and chats on them, offered on the welcome
+  screen of builds that aren't the App Store's. Each asks for an approval when a message says "send", a question when
   it says "plan", fails on "fail", works longer on "take your time", and hands off to a
   subagent and waits for it on "background". Its browser is one drawn page (`DemoBrowser.swift`).
 
@@ -141,7 +152,8 @@ fingers to pan while controlling (one finger scrolls the page). There is no list
 
 ```sh
 pnpm dev:ios:agents               # build, then run in the simulator (production relay)
-pnpm dev:ios:agents --relay local # against `pnpm dev`'s relay on :8787
+pnpm dev:ios:agents --relay local # against this checkout's `pnpm dev` relay
+pnpm dev:ios:agents --relay local --as otterware.demo@gmail.com # `pnpm dev:demo`'s, signed in as that account
 ```
 
 Or open `OtterAgents.xcodeproj` in Xcode (27 or later). Debug builds are

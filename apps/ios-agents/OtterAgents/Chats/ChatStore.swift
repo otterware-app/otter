@@ -10,6 +10,7 @@ import Observation
 final class ChatStore {
     struct Run: Equatable {
         var requestId: String
+        /** The agent's id. */
         var provider: String
         /** When it started, where no message of the chat says: a run a call started. */
         var since: Int?
@@ -116,7 +117,7 @@ final class ChatStore {
         // A chat not sent yet lives here alone, with what's written in it.
         for saved in defaults.array(forKey: Self.newDraftsKey) as? [[String: Any]] ?? [] {
             guard let id = saved["id"] as? String, hasDraft(id) else { continue }
-            var chat = Chat(provider: saved["provider"] as? String ?? "hermes", now: saved["createdAt"] as? Int ?? .now)
+            var chat = Chat(provider: saved["provider"] as? String ?? "", now: saved["createdAt"] as? Int ?? .now)
             chat.id = id
             chats.append(chat)
         }
@@ -205,7 +206,7 @@ final class ChatStore {
     /** A chat to write in: one not sent in yet, when there is one without a draft. */
     @discardableResult
     func newChat() -> String {
-        let provider = agents.starting.rawValue
+        let provider = agents.starting?.id ?? ""
         if let blank = chats.first(where: { $0.isBlank && !hasDraft($0.id) }) {
             if blank.provider != provider { update(blank.id, save: false) { $0.provider = provider } }
             return blank.id
@@ -222,9 +223,9 @@ final class ChatStore {
         return id
     }
 
-    func setProvider(_ kind: AgentKind, of chatId: String) {
+    func setAgent(_ id: String, of chatId: String) {
         guard chat(chatId)?.isBlank == true else { return }
-        update(chatId, save: false) { $0.provider = kind.rawValue }
+        update(chatId, save: false) { $0.provider = id }
         saveDrafts()
     }
 
@@ -365,18 +366,18 @@ final class ChatStore {
             $0.title = name
             $0.updatedAt = .now
         }
-        if let kind = AgentKind(rawValue: chat.provider), let session = chat.sessionId {
-            await runner.rename(kind, session: session, to: name)
+        if let agent = agents.agent(chat.provider), let session = chat.sessionId {
+            await runner.rename(agent, session: session, to: name)
         }
     }
 
     /** Asks the chat's agent to title it again from its first message. */
     func regenerateTitle(_ id: String) async {
         await sync?.load(id)
-        guard let chat = chat(id), let kind = AgentKind(rawValue: chat.provider), let session = chat.sessionId,
+        guard let chat = chat(id), let agent = agents.agent(chat.provider), let session = chat.sessionId,
               let message = chat.turns.first(where: { $0.role == .user })?.text.trimmingCharacters(in: .whitespacesAndNewlines), !message.isEmpty
         else { return }
-        guard let title = await runner.regenerateTitle(kind, session: session, message: message) else {
+        guard let title = await runner.regenerateTitle(agent, session: session, message: message) else {
             notice = "Couldn't regenerate the title"
             return
         }
@@ -396,8 +397,8 @@ final class ChatStore {
             endRun(run.requestId)
         }
         guard let chat = chat(id) else { return }
-        if let session = chat.sessionId, chat.sessionOwned, let kind = AgentKind(rawValue: chat.provider) {
-            Task { await runner.deleteSession(of: kind, session) }
+        if let session = chat.sessionId, chat.sessionOwned, let agent = agents.agent(chat.provider) {
+            Task { await runner.deleteSession(of: agent, session) }
         }
         drafts[id] = nil
         citations[id] = nil
@@ -439,9 +440,8 @@ final class ChatStore {
         guard !question.isEmpty || skill != nil || !attachments.isEmpty || !cited.isEmpty || !about.isEmpty else { return }
         let title = ChatText.clampTitle(!question.isEmpty ? (skill.map { "/\($0.name) \(question)" } ?? question)
             : skill.map { "/\($0.name)" } ?? cited.first?.text ?? about.first?.subject ?? attachments.first?.name ?? "Attachment")
-        let input = { (mail: [MailContext]) in
-            MailContext.handoff(Self.withCitations(question, cited), mail, reader: chat.provider == AgentKind.varys.rawValue ? "your mail connection" : "gog")
-        }
+        let reader = agents.agent(chat.provider)?.kind == .varys ? "your mail connection" : "gog"
+        let input = { (mail: [MailContext]) in MailContext.handoff(Self.withCitations(question, cited), mail, reader: reader) }
         let message = Outgoing(chatId: chatId, provider: chat.provider, question: question, input: input(about),
                                skill: skill, title: title, attachments: attachments, citations: cited, mail: about)
         citations[chatId] = nil
@@ -600,7 +600,7 @@ final class ChatStore {
         Task {
             do {
                 if pending.requestId.hasPrefix("asked:"), let chat = chat(String(pending.requestId.dropFirst(6))) {
-                    try await runner.respond(approval, decision, provider: chat.provider)
+                    try await runner.respond(approval, decision, agent: chat.provider)
                 } else {
                     try await runner.respond(approval, decision, requestId: pending.requestId)
                 }
@@ -616,7 +616,7 @@ final class ChatStore {
         Task {
             do {
                 if pending.requestId.hasPrefix("asked:"), let chat = chat(String(pending.requestId.dropFirst(6))) {
-                    try await runner.answer(question, answers, provider: chat.provider)
+                    try await runner.answer(question, answers, agent: chat.provider)
                 } else {
                     try await runner.answer(question, answers, requestId: pending.requestId)
                 }
@@ -737,7 +737,7 @@ final class ChatStore {
                 turn.items = items
             case .error(let code):
                 ended = true
-                turn.error = AgentError.friendly(code, provider: run.provider)
+                turn.error = AgentError.friendly(code, agent: agents.name(of: run.provider), kind: agents.agent(run.provider)?.kind)
                 if turn.id == "a-\(requestId)", !AgentError.final.contains(code), let message = sent[requestId] ?? Self.resendable(chat, requestId: requestId) {
                     retry = (turn.id, message)
                 }
@@ -854,14 +854,14 @@ final class ChatStore {
                 if ready, !beforePull, sync?.isPulling != true { openRequests[chatId] = nil }
                 continue
             }
-            guard let session = chat.sessionId, let kind = AgentKind(rawValue: chat.provider), kind.resumes else {
+            guard let session = chat.sessionId, let agent = agents.agent(chat.provider), agent.kind?.resumes == true else {
                 openRequests[chatId] = nil
                 finishAbandoned(chatId, requestId: requestId)
                 continue
             }
-            guard agents.isUsable(kind) else { continue }
+            guard agent.isUsable else { continue }
             runs[chatId] = Run(requestId: requestId, provider: chat.provider)
-            let resumed = runner.resume(provider: chat.provider, requestId: requestId, sessionId: session) { [weak self] event in
+            let resumed = runner.resume(agent: chat.provider, requestId: requestId, sessionId: session) { [weak self] event in
                 self?.apply(event, requestId: requestId, chatId: chatId)
             }
             if !resumed { runs[chatId] = nil }
@@ -875,7 +875,7 @@ final class ChatStore {
             for index in chat.turns.indices where chat.turns[index].role == .assistant && chat.turns[index].finishedAt == nil {
                 chat.turns[index].finishedAt = .now
                 if chat.turns[index].id == "a-\(requestId)", chat.turns[index].items.isEmpty {
-                    chat.turns[index].error = "The app closed before \(AgentKind.name(of: chat.provider)) answered."
+                    chat.turns[index].error = "The app closed before \(agents.name(of: chat.provider)) answered."
                 }
                 chat.turns[index].items = chat.turns[index].items.map { item in
                     if case .step(let id, let step, nil) = item { .step(id: id, step, output: "") } else { item }
@@ -894,53 +894,62 @@ final class ChatStore {
 
     // MARK: What the agent did on its own
 
-    /**
-     * The chat an agent's pointer names, read up to date: a delivery to a chat that has no chat
-     * here yet makes one (the same one every device makes), and what the agent wrote or asks since
-     * this iPhone last looked shows. Nil when the agent isn't reachable here.
-     */
-    @discardableResult
-    /** Whether a file a chat links can be read here: from OpenClaw's gateway, for a chat that ran there. */
+    /** Whether a file a chat links can be read here: from an OpenClaw gateway, for a chat that ran there. */
     func readsFiles(_ chat: Chat) -> Bool {
-        chat.device == nil && chat.sessionId != nil && (chat.provider == "openclaw" || agents.demo)
+        chat.device == nil && chat.sessionId != nil && (agents.agent(chat.provider)?.kind == .openclaw || agents.demo)
     }
 
     func file(_ href: String, in chat: Chat) async throws -> ChatFile {
-        guard readsFiles(chat), let kind = AgentKind(rawValue: chat.provider), let session = chat.sessionId else {
-            throw OpenClaw.Failure(message: "This file is where \(AgentKind.name(of: chat.provider)) runs\(chat.device.map { ", on \($0.name)" } ?? "").")
+        guard readsFiles(chat), let agent = agents.agent(chat.provider), let session = chat.sessionId else {
+            throw OpenClaw.Failure(message: "This file is where \(agents.name(of: chat.provider)) runs\(chat.device.map { ", on \($0.name)" } ?? "").")
         }
-        return try await runner.file(of: kind, session: session, href: href)
+        return try await runner.file(of: agent, session: session, href: href)
     }
 
-    func delivered(provider: String, session: String) async -> String? {
-        guard let kind = AgentKind(rawValue: provider), agents.isUsable(kind) else { return nil }
-        if let known = chats.first(where: { $0.provider == provider && $0.sessionId == session }) {
+    /**
+     * The chat an agent's pointer names, read up to date, from the first of `candidates` that has
+     * its session: a delivery to a chat that has no chat here yet makes one (the same one every
+     * device makes), and what the agent wrote or asks since this iPhone last looked shows. Nil
+     * when none of them is reachable here, or has it.
+     */
+    @discardableResult
+    func delivered(to candidates: [Agent], session: String) async -> String? {
+        let reachable = candidates.filter(\.isUsable)
+        if let known = chats.first(where: { chat in chat.sessionId == session && reachable.contains { $0.id == chat.provider } }) {
             await catchUp(known.id)
             return known.id
         }
-        guard let messages = try? await runner.messages(of: kind, session: session), !messages.isEmpty else { return nil }
-        if let known = chats.first(where: { $0.provider == provider && $0.sessionId == session }) { return known.id }
-        var chat = Chat(provider: provider)
-        chat.id = String("\(provider)-\(session)".map { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "-" }.prefix(64))
-        if chats.contains(where: { $0.id == chat.id }) { return chat.id }
-        chat.sessionId = session
-        chat.turns = Self.turns(from: messages)
-        let said = chat.turns.first { $0.role == .user }?.text ?? chat.turns.first?.answer ?? ""
-        chat.title = ChatText.clampTitle(said.components(separatedBy: "\n").first ?? "")
-        if chat.turns.first?.role == .assistant { chat.turns[0].delivered = .message(from: nil) }
-        insert(chat)
-        unseen.insert(chat.id)
-        sync?.changed(chat.id, settled: true)
-        await checkAsks(chat.id)
-        return chat.id
+        for agent in reachable {
+            guard let messages = try? await runner.messages(of: agent, session: session), !messages.isEmpty else { continue }
+            if let known = chats.first(where: { $0.provider == agent.id && $0.sessionId == session }) { return known.id }
+            var chat = Chat(provider: agent.id)
+            chat.id = Self.deliveredId(agent: agent.id, session: session)
+            if chats.contains(where: { $0.id == chat.id }) { return chat.id }
+            chat.sessionId = session
+            chat.turns = Self.turns(from: messages)
+            let said = chat.turns.first { $0.role == .user }?.text ?? chat.turns.first?.answer ?? ""
+            chat.title = ChatText.clampTitle(said.components(separatedBy: "\n").first ?? "")
+            if chat.turns.first?.role == .assistant { chat.turns[0].delivered = .message(from: nil) }
+            insert(chat)
+            unseen.insert(chat.id)
+            sync?.changed(chat.id, settled: true)
+            await checkAsks(chat.id)
+            return chat.id
+        }
+        return nil
+    }
+
+    /** The id every device gives the chat an agent delivers to (apps/web's chat-store.ts). */
+    static func deliveredId(agent: String, session: String) -> String {
+        String("\(agent)-\(session)".map { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "-" }.prefix(64))
     }
 
     /** What the agent wrote in a chat's session since the chat last showed it, and what it waits on you for. */
     func catchUp(_ chatId: String) async {
         await sync?.load(chatId)
         guard let chat = chat(chatId), chat.loaded, runs[chatId] == nil, openRequests[chatId] == nil, !agents.demo,
-              let kind = AgentKind(rawValue: chat.provider), agents.isUsable(kind), let session = chat.sessionId else { return }
-        if let messages = try? await runner.messages(of: kind, session: session), runs[chatId] == nil {
+              let agent = agents.agent(chat.provider), agent.isUsable, let session = chat.sessionId else { return }
+        if let messages = try? await runner.messages(of: agent, session: session), runs[chatId] == nil {
             let added = Self.added(to: chat.turns, by: Self.turns(from: messages))
             if !added.isEmpty {
                 let now = Int.now
@@ -1002,7 +1011,7 @@ final class ChatStore {
     /** Approvals and questions a chat's session waits on, when no turn here follows them. */
     func checkAsks(_ chatId: String) async {
         guard let chat = chat(chatId), runs[chatId] == nil, let session = chat.sessionId else { return }
-        let pending = await runner.pending(provider: chat.provider, session: session)
+        let pending = await runner.pending(agent: chat.provider, session: session)
         guard runs[chatId] == nil else { return }
         let key = Self.asked(chatId)
         approvals.removeAll { $0.requestId == key }
@@ -1014,17 +1023,17 @@ final class ChatStore {
     // MARK: The agents' own sessions
 
     /** Opens a session the agent keeps as a chat, read from the agent. */
-    func open(session: Hermes.Session, of kind: AgentKind) -> String {
-        if let existing = chats.first(where: { $0.sessionId == session.id && $0.provider == kind.rawValue }) { return existing.id }
-        var chat = Chat(provider: kind.rawValue)
-        chat.title = ChatText.clampTitle(session.title ?? session.preview ?? "\(kind.name) session")
+    func open(session: Hermes.Session, of agent: Agent) -> String {
+        if let existing = chats.first(where: { $0.sessionId == session.id && $0.provider == agent.id }) { return existing.id }
+        var chat = Chat(provider: agent.id)
+        chat.title = ChatText.clampTitle(session.title ?? session.preview ?? "\(agent.name) session")
         chat.sessionId = session.id
         chat.updatedAt = Int((session.lastActive.timeIntervalSince1970 * 1000).rounded())
         insert(chat)
         hydrating = chat.id
         let id = chat.id
         Task {
-            if let messages = try? await runner.messages(of: kind, session: session.id) {
+            if let messages = try? await runner.messages(of: agent, session: session.id) {
                 let turns = Self.turns(from: messages)
                 update(id) { chat in
                     guard chat.turns.isEmpty else { return }

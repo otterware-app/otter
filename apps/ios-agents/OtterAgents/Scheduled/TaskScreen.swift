@@ -36,7 +36,7 @@ struct TaskScreen: View {
         return SettingsPage {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 10) {
-                    AgentAvatar(provider: task.provider, agent: task.agent, size: 26)
+                    AgentAvatar(agent: task.provider, gatewayAgent: task.agent, size: 26)
                     Text(task.name).font(.ui(24, .semibold)).tracking(-0.3).foregroundStyle(palette.text)
                 }
                 TimelineView(.periodic(from: .now, by: 30)) { _ in

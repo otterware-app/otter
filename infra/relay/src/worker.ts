@@ -274,7 +274,8 @@ app.post(
       sameSite: "Lax",
       maxAge: cookie.attributes.maxAge,
     });
-    return c.json({ email });
+    // The iPhone apps sign in with a bearer token, not the cookie.
+    return c.json({ email, token: session.token });
   },
 );
 app.get("/.well-known/*", (c) => c.var.auth.handler(c.req.raw));

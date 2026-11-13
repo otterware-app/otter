@@ -2,7 +2,8 @@ import SwiftUI
 
 enum Route: Hashable {
     case chat(String)
-    case agent(AgentKind)
+    /** An agent's page, by its id. */
+    case agent(String)
     case appearance
     case account
     case chatSettings
@@ -113,7 +114,7 @@ struct RootView: View {
             paths[place] = []
             self.place = .settings
         }
-        case .agent(let kind): AgentSettings(kind: kind)
+        case .agent(let id): AgentSettings(id: id)
         case .appearance: AppearanceSettings()
         case .account: AccountSettings()
         case .chatSettings: ChatSettings()

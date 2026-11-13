@@ -50,10 +50,10 @@ final class TalkCall {
         guard await AVAudioApplication.requestRecordPermission() else {
             return phase = .ended("Otter Agents isn't allowed to use the microphone. Allow it in Settings › Otter Agents.")
         }
-        guard let gateway = store.agents.openClawClient, let chat = store.chat(chatId) else {
-            return phase = .ended("Connect OpenClaw in Settings to talk with it.")
+        guard let chat = store.chat(chatId), let agent = store.agents.agent(chat.provider), let gateway = agent.openClaw else {
+            return phase = .ended("Connect this chat's agent in Settings › Agents to talk with it.")
         }
-        let session = chat.sessionId ?? "agent:\(store.agents.model(of: .openclaw)?.slug ?? "main"):otter-mail:\(UUID().uuidString.lowercased())"
+        let session = chat.sessionId ?? "agent:\(agent.model?.slug ?? "main"):otter-mail:\(UUID().uuidString.lowercased())"
         store.calling = true
         do {
             let call = try await OpenClawCall.start(on: gateway, session: session) { [weak self] in self?.heard($0) }

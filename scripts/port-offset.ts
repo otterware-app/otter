@@ -5,6 +5,7 @@ import * as NodeCrypto from "node:crypto";
 import { resolveLinkedWorktree } from "../apps/desktop/scripts/dev-home.mjs";
 
 export const BASE_WEB_PORT = 5833;
+export const BASE_RELAY_PORT = 8787;
 const MAX_HASH_OFFSET = 3000;
 
 export function hashOffset(seed: string): number {

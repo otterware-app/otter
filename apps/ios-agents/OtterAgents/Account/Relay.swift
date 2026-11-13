@@ -47,6 +47,18 @@ final class Relay {
         return try JSONDecoder().decode(Response.self, from: data).user
     }
 
+    #if DEBUG
+    /** `pnpm dev:demo`'s relay: a session for this address without Google (`pnpm dev:ios:agents --relay local --as`). */
+    func devSignIn(email: String) async throws -> User {
+        struct Session: Decodable { var token: String }
+        struct Me: Decodable { var user: User }
+        let (data, _) = try await send("POST", "/v1/dev/session", data: try JSONEncoder().encode(["email": email]), authorized: false)
+        token = try JSONDecoder().decode(Session.self, from: data).token
+        Keychain.set(Self.sessionKey, token)
+        return try JSONDecoder().decode(Me.self, from: try await send("GET", "/v1/me").0).user
+    }
+    #endif
+
     func signOut() async {
         guard token != nil else { return }
         _ = try? await send("POST", "/v1/auth/sign-out", data: Data("{}".utf8))
@@ -64,15 +76,17 @@ final class Relay {
         disconnect()
     }
 
-    func preferences() async throws -> (sections: [String: Any], hermesKey: String?) {
+    /** `agentKeys`: each agent's key that follows the account (a Hermes server's), by the agent's id. */
+    func preferences() async throws -> (sections: [String: Any], agentKeys: [String: String]?) {
         let (data, _) = try await send("GET", "/v1/preferences")
         let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        return (object?["preferences"] as? [String: Any] ?? [:], object?["hermesKey"] as? String)
+        return (object?["preferences"] as? [String: Any] ?? [:], object?["agentKeys"] as? [String: String])
     }
 
-    func putPreferences(_ sections: [String: Any], hermesKey: String?? = nil) async throws {
+    /** `agentKeys` is the whole map: `[:]` clears it. */
+    func putPreferences(_ sections: [String: Any], agentKeys: [String: String]? = nil) async throws {
         var body: [String: Any] = ["preferences": sections]
-        if let hermesKey { body["hermesKey"] = hermesKey ?? NSNull() }
+        if let agentKeys { body["agentKeys"] = agentKeys }
         try await send("PUT", "/v1/preferences", data: try JSONSerialization.data(withJSONObject: body))
     }
 

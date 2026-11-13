@@ -87,11 +87,11 @@ final class OpenClaw {
         case detached
     }
 
-    static let keyName = "openclaw-device-key"
-    static let deviceTokenName = "openclaw-device-token"
-    static let tokenName = "openclaw-token"
-    static let bootstrapName = "openclaw-bootstrap-token"
-    static let scopesName = "openclaw-device-scopes"
+    static let keyName = "device-key"
+    static let deviceTokenName = "device-token"
+    static let tokenName = "token"
+    static let bootstrapName = "bootstrap-token"
+    static let scopesName = "device-scopes"
 
     /**
      * What this iPhone asks for: what OpenClaw's own apps hold. The gateway counts

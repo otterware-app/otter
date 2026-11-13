@@ -8,7 +8,6 @@ struct ChatStoreTests {
     private func store(followUp: Agents.FollowUp = .queue) -> ChatStore {
         let agents = Agents()
         agents.startDemo()
-        agents.selected = "hermes"
         agents.followUp = followUp
         let store = ChatStore(agents: agents)
         store.replace(chats: [])
@@ -121,7 +120,7 @@ struct ChatStoreTests {
         let store = store()
         var (chat, request) = running(store)
         store.apply(.error("unreachable"), requestId: request, chatId: chat)
-        #expect(store.chat(chat)!.turns[1].error == "Can't reach Hermes. Are you on Tailscale?")
+        #expect(store.chat(chat)!.turns[1].error == "Can't reach brokk. Are you on Tailscale?")
         #expect(store.retries["a-\(request)"]?.question == "Hello there")
 
         store.retry("a-\(request)")
@@ -180,7 +179,7 @@ struct ChatStoreTests {
     @Test func aSteerJoinsTheRunAndAWholeReplyStartsAfterIt() async {
         let store = store(followUp: .steer)
         let chat = store.newChat()
-        store.setProvider(.hermes, of: chat)
+        store.setAgent(DemoAgent.brokk, of: chat)
         store.send("Start", in: chat)
         let request = store.runs[chat]!.requestId
         let apply = { store.apply($0, requestId: request, chatId: chat) }
@@ -240,7 +239,7 @@ struct ChatStoreTests {
         #expect(store.unseen.isEmpty)
 
         apply(.working)
-        #expect(store.runs[chat] == ChatStore.Run(requestId: request, provider: "hermes"))
+        #expect(store.runs[chat] == ChatStore.Run(requestId: request, provider: DemoAgent.brokk))
         apply(.reply(text: "On it.\n\nAlfama is the cheapest.", steps: [("s1", spawn, "accepted")]))
         apply(.done)
         let turns = store.chat(chat)!.turns
@@ -273,7 +272,7 @@ struct ChatStoreTests {
     }
 
     @Test func whatARunWaitsOnIsWordedAsOtterCodeWordsIt() {
-        let label = { ChatStore.Run(requestId: "r", provider: "openclaw", waiting: $0).waitingLabel }
+        let label = { ChatStore.Run(requestId: "r", provider: DemoAgent.openClaw, waiting: $0).waitingLabel }
         #expect(label(nil) == nil)
         #expect(label([]) == "Waiting")
         #expect(label(["Research pricing"]) == "Waiting · Research pricing")
