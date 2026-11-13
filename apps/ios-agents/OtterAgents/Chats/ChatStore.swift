@@ -11,7 +11,7 @@ final class ChatStore {
     struct Run: Equatable {
         var requestId: String
         var provider: String
-        /** When it started, where no turn of the chat says: the work a call left going. */
+        /** When it started, where no message of the chat says: a run a call started. */
         var since: Int?
         /** Handed off to background work: the subagents it waits on, each by its name when it has one. Nil while it works. */
         var waiting: [String?]?
@@ -253,11 +253,11 @@ final class ChatStore {
     @ObservationIgnored private var saying: [String: String] = [:]
     /** On a call: the app keeps its connections in the background. */
     @ObservationIgnored var calling = false
-    /** How to stop the work a call left going, by the run that stands for it. */
-    @ObservationIgnored private var callWork: [String: () -> Void] = [:]
+    /** Runs a call started while another ran in their chat, by chat: each is followed once that one ends. */
+    @ObservationIgnored private var callRuns: [String: [String]] = [:]
 
-    /** What runs in the chat is the work a call left going, which takes no steer. */
-    func holdsForCall(_ chatId: String) -> Bool { runs[chatId].map { callWork[$0.requestId] != nil } ?? false }
+    /** What runs in the chat is what a call asked of the agent, which takes no steer. */
+    func holdsForCall(_ chatId: String) -> Bool { runs[chatId]?.requestId.hasPrefix(OpenClaw.agentRun) == true }
 
     /** The call ended: what was being said when it did is all of it. */
     func endSpoken(in chatId: String) {
@@ -269,33 +269,36 @@ final class ChatStore {
         }
     }
 
-    /** What the agent answered for a call: its run's reply, under the id the Mac gives that run, so the chat has it once. */
-    func agentAnswered(run: String, _ text: String, in chatId: String) {
-        let id = "a-run:\(run)"
-        update(chatId) { chat in
-            guard !chat.turns.contains(where: { $0.id == id }) else { return }
-            var turn = ChatTurn(id: id, role: .assistant)
-            turn.items = [.text(id: nil, text)]
-            turn.finishedAt = .now
-            chat.turns.append(turn)
-            chat.updatedAt = .now
-        }
-    }
-
     /**
-     * The agent goes on with what a call asked of it after the call: the chat works until it's
-     * done, and what you write meanwhile waits, as the gateway takes nothing into its session then.
+     * A run a call started in the chat's session (what the voice asked the agent): a turn of its
+     * own, followed as any is, during the call and after it, under the id the Mac gives it so the
+     * chat has it once (apps/web's `followAgentRun`). What you write meanwhile waits, as the
+     * gateway takes nothing into the session then.
      */
-    func waitForAgent(in chatId: String, since: Int?, finished: @escaping () async -> Void, stop: @escaping () -> Void) {
-        guard runs[chatId] == nil, let chat = chat(chatId) else { return }
-        let requestId = "call:\(UUID().uuidString)"
-        runs[chatId] = Run(requestId: requestId, provider: chat.provider, since: since)
-        callWork[requestId] = stop
-        Task {
-            await finished()
-            callWork[requestId] = nil
-            endRun(requestId)
+    func followCallRun(_ runId: String, in chatId: String) {
+        let requestId = OpenClaw.agentRun + runId
+        guard let chat = chat(chatId), let session = chat.sessionId, !chat.turns.contains(where: { $0.id == "a-\(requestId)" }) else { return }
+        if let run = runs[chatId] {
+            if run.requestId != requestId, !runner.owns(run.requestId, run: runId), callRuns[chatId]?.contains(runId) != true {
+                callRuns[chatId, default: []].append(runId)
+            }
+            return
         }
+        let now = Int.now
+        runs[chatId] = Run(requestId: requestId, provider: chat.provider, since: now)
+        update(chatId) { chat in
+            chat.turns.append(ChatTurn(id: "a-\(requestId)", role: .assistant, now: now))
+            chat.updatedAt = now
+        }
+        let followed = runner.resume(provider: chat.provider, requestId: requestId, sessionId: session) { [weak self] event in
+            self?.apply(event, requestId: requestId, chatId: chatId)
+        }
+        guard followed else {
+            update(chatId) { $0.turns.removeAll { $0.id == "a-\(requestId)" } }
+            return endRun(requestId)
+        }
+        openRequests[chatId] = requestId
+        saveOpenRequests()
     }
 
     /** What's said in a call, as it's heard: a turn for each thing said, done once it's final. */
@@ -456,7 +459,7 @@ final class ChatStore {
         var steers = agents.followUp == .steer
         if opposite { steers.toggle() }
         // As in T3 Code, a message waits in the queue while the run compacts; the work a call left can't be steered.
-        if !steers || !attachments.isEmpty || isCompacting(chatId) || callWork[run.requestId] != nil { queue.append(message) } else { steer(message) }
+        if !steers || !attachments.isEmpty || isCompacting(chatId) || holdsForCall(chatId) { queue.append(message) } else { steer(message) }
     }
 
     static func withCitations(_ question: String, _ citations: [ChatCitation]) -> String {
@@ -546,7 +549,7 @@ final class ChatStore {
 
     func stop(_ chatId: String) {
         guard let run = runs[chatId] else { return }
-        if let stopWork = callWork[run.requestId] { stopWork() } else { runner.cancel(run.requestId) }
+        runner.cancel(run.requestId)
     }
 
     // MARK: The queue
@@ -563,7 +566,8 @@ final class ChatStore {
     }
 
     func sendNow(_ id: String) {
-        guard let message = queue.first(where: { $0.id == id }), runs[message.chatId] != nil, !isCompacting(message.chatId) else { return }
+        guard let message = queue.first(where: { $0.id == id }), runs[message.chatId] != nil, !isCompacting(message.chatId),
+              !holdsForCall(message.chatId) else { return }
         if editingQueued?.id == id { cancelQueuedEdit() }
         queue.removeAll { $0.id == id }
         steer(message, intent: "promoted")
@@ -631,6 +635,7 @@ final class ChatStore {
         lastReply[requestId] = nil
         guard let chatId = runs.first(where: { $0.value.requestId == requestId })?.key else { return }
         runs[chatId] = nil
+        for run in callRuns.removeValue(forKey: chatId) ?? [] { followCallRun(run, in: chatId) }
         startQueued()
     }
 
@@ -644,6 +649,16 @@ final class ChatStore {
             }
         }
         guard let run = runs[chatId], run.requestId == requestId else { return }
+        // A run a call started that wrote nothing (it had nothing to say) leaves no turn.
+        if case .done = event, requestId.hasPrefix(OpenClaw.agentRun),
+           chat(chatId)?.turns.first(where: { $0.id == "a-\(requestId)" })?.items.isEmpty == true {
+            update(chatId) { $0.turns.removeAll { $0.id == "a-\(requestId)" } }
+            if openRequests[chatId] == requestId {
+                openRequests[chatId] = nil
+                saveOpenRequests()
+            }
+            return endRun(requestId)
+        }
         switch event {
         case .approval(let approval):
             approvals.append(PendingApproval(requestId: requestId, approval: approval))

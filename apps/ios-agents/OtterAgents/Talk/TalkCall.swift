@@ -59,9 +59,9 @@ final class TalkCall {
             let call = try await OpenClawCall.start(on: gateway, session: session) { [weak self] in self?.heard($0) }
             guard phase == .connecting else { return call.end() }
             let (store, chatId) = (store, chatId)
-            call.answered = { run, text in store.agentAnswered(run: run, text, in: chatId) }
-            self.call = call
             store.setSession(session, of: chatId)
+            call.started = { run in store.followCallRun(run, in: chatId) }
+            self.call = call
             audio = try TalkAudio(inputRate: call.inputRate, outputRate: call.outputRate,
                                   send: { [weak self] in self?.send($0) },
                                   interrupted: { [weak self] in self?.end() })
@@ -97,11 +97,8 @@ final class TalkCall {
         return (smoothed, speaking)
     }
 
-    /** What the call asked of the agent and is still going hands over to the chat, which works until it's done. */
+    /** What the call asked of the agent goes on: the chat follows it. */
     private func hangUp() {
-        if let call, call.unfinished {
-            store.waitForAgent(in: chatId, since: call.workingSince, finished: { await call.finished() }, stop: { call.stopWork() })
-        }
         call?.end()
         call = nil
         audio?.stop()

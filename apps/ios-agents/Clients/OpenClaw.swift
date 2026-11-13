@@ -171,6 +171,8 @@ final class OpenClaw {
     private var steers: [String: Set<String>] = [:]
     /** Turns waiting on a yield, by run: how each ends, as no run of theirs is going to say so. */
     private var waits: [String: (Event) -> Void] = [:]
+    /** Runs followed from a session's rows, by session: one ending doesn't unsubscribe the next. */
+    private var transcriptWatchers: [String: Int] = [:]
 
     private var socket: URLSessionWebSocketTask?
     private var lastHeard = Date.distantPast
@@ -450,7 +452,7 @@ final class OpenClaw {
 
     func abort(session: String, run: String) async {
         let all = waits[run] != nil || steers[run]?.isEmpty == false
-        _ = try? await request("chat.abort", all ? ["sessionKey": session] : ["sessionKey": session, "runId": run])
+        _ = try? await request("chat.abort", all ? ["sessionKey": session] : ["sessionKey": session, "runId": Self.runId(run)])
         // Waiting on a yield, no run is going to report it stopped, or continue it.
         waits[run]?(.failed("Stopped."))
     }
@@ -480,9 +482,21 @@ final class OpenClaw {
         return true
     }
 
-    private func owns(_ run: String, _ id: String?) -> Bool {
+    /** Whether a run of the gateway's is the turn's: its own, or one its steers started. */
+    func owns(_ run: String, _ id: String?) -> Bool {
         guard let id else { return false }
-        return id == run || steers[run]?.contains(id) == true
+        return id == Self.runId(run) || steers[run]?.contains(id) == true
+    }
+
+    /**
+     * A run no message here started (what a call asked of the agent) is followed as `run:<id>`, as
+     * core follows a run the agent started on its own (extensions/openclaw/core/openclaw.ts).
+     */
+    nonisolated static let agentRun = "run:"
+
+    /** The gateway's id for the run a turn follows. */
+    nonisolated static func runId(_ run: String) -> String {
+        run.hasPrefix(agentRun) ? String(run.dropFirst(agentRun.count)) : run
     }
 
     func answer(_ question: String, _ answers: [String: [String]]?) async throws {
@@ -657,15 +671,18 @@ final class OpenClaw {
     }
 
     /**
-     * A turn's rows: from its message, its chain. It waits while that ends with a yield nothing has
-     * come after: a continuation joins the chain, a message sent since ends the wait. Nil when the
-     * session doesn't have the message.
+     * A turn's rows: from its message (or a run no message started, its first row), its chain. It
+     * waits while that ends with a yield nothing has come after: a continuation joins the chain, a
+     * message sent since ends the wait. Nil when the session doesn't have the message, or the run.
      */
     nonisolated static func turn(in rows: [[String: Any]], run: String) -> (rows: [[String: Any]], waiting: Bool)? {
-        guard let sent = rows.lastIndex(where: { $0["role"] as? String == "user" && sendKey($0) == run }) else { return nil }
-        let after = Array(rows[(sent + 1)...])
+        let start = run.hasPrefix(agentRun)
+            ? rows.firstIndex { runOf($0) == runId(run) }
+            : rows.lastIndex { $0["role"] as? String == "user" && sendKey($0) == run }.map { $0 + 1 }
+        guard let start else { return nil }
+        let after = Array(rows[start...])
         let chain = runChains(after).first ?? []
-        return (chain, waitingOnYield(chain) && after.count { !isDelivery($0) } == chain.count)
+        return (chain, waitingOnYield(chain) && after.count { !isDelivery($0) && !isSpoken($0) } == chain.count)
     }
 
     /** The subagents the last run in the rows started: what a turn that yielded there waits on. */
@@ -679,6 +696,7 @@ final class OpenClaw {
 
     private struct RunState {
         var found: Bool
+        var rows: [[String: Any]]
         var reply: Reply
         /** Runs going in the session: the turn's, or (while it waits on a yield) its continuation. */
         var active: [String]
@@ -691,17 +709,24 @@ final class OpenClaw {
         let info = result["sessionInfo"] as? [String: Any] ?? [:]
         let turn = Self.turn(in: result["messages"] as? [[String: Any]] ?? [], run: run)
         let rows = turn?.rows ?? []
+        let waiting = turn?.waiting == true
+        let chain = Set(rows.compactMap(Self.runOf))
+        let going = info["activeRunIds"] as? [String] ?? (info["hasActiveRun"] as? Bool == true ? [Self.runId(run)] : [])
+        // A run no message started may not have written anything yet.
+        let found = turn != nil || (run.hasPrefix(Self.agentRun) && going.contains(Self.runId(run)))
+        // While it waits on a yield, the run that starts is its continuation.
+        return RunState(found: found, rows: rows, reply: Self.reply(rows), active: going.filter { owns(run, $0) || chain.contains($0) || waiting },
+                        waiting: waiting, spawned: Self.spawned(in: rows))
+    }
+
+    /** What a turn's rows show of it. */
+    private nonisolated static func reply(_ rows: [[String: Any]]) -> Reply {
         var reply = Reply()
-        for message in Self.transcript(rows) where message.role == "assistant" {
+        for message in transcript(rows) where message.role == "assistant" {
             if !message.text.isEmpty { reply.text += (reply.text.isEmpty ? "" : "\n\n") + message.text }
             reply.steps += message.steps
         }
-        let waiting = turn?.waiting == true
-        let chain = Set(rows.compactMap(Self.runOf))
-        let going = info["activeRunIds"] as? [String] ?? (info["hasActiveRun"] as? Bool == true ? [run] : [])
-        // While it waits on a yield, the run that starts is its continuation.
-        return RunState(found: turn != nil, reply: reply, active: going.filter { owns(run, $0) || chain.contains($0) || waiting },
-                        waiting: waiting, spawned: Self.spawned(in: rows))
+        return reply
     }
 
     /** Sends a message and follows its run. `run` is the idempotency key, and so the run's id. */
@@ -730,6 +755,12 @@ final class OpenClaw {
                         start: (() async throws -> Void)?) -> AsyncStream<Event> {
         AsyncStream { continuation in
             let work = Task { @MainActor [self] in
+                /**
+                 * A run no message here started (a call's) streams its tools to no connection of
+                 * this app's: it's shown from its rows in the session as they're written.
+                 */
+                let agentRun = run.hasPrefix(Self.agentRun)
+                var rows: [[String: Any]] = []
                 var base = Reply()
                 var live: [(id: String, text: String)] = []
                 var liveSteps: [Step] = []
@@ -755,7 +786,8 @@ final class OpenClaw {
                     lastShown = reply
                     continuation.yield(.reply(reply))
                 }
-                func catchUp(_ state: RunState) {
+                @MainActor func catchUp(_ state: RunState) {
+                    rows = state.rows
                     base = state.reply
                     live = []
                     liveSteps = []
@@ -795,7 +827,7 @@ final class OpenClaw {
                 @MainActor func adopt(_ id: String) {
                     guard !owns(run, id), !sent.contains(id) else { return }
                     // The runs before it yielded: they're over.
-                    finals.formUnion([run] + (steers[run] ?? []))
+                    finals.formUnion([Self.runId(run)] + (steers[run] ?? []))
                     steers[run, default: []].insert(id)
                     work()
                     base = lastShown
@@ -809,7 +841,7 @@ final class OpenClaw {
                     for id in state.active { adopt(id) }
                     return state.waiting || !state.active.isEmpty
                 }
-                func settle() async {
+                @MainActor func settle() async {
                     if let state = try? await state(session: session, run: run), !ended { catchUp(state) }
                     finish(.done)
                 }
@@ -818,9 +850,10 @@ final class OpenClaw {
                     catchUp(state)
                     finish(.done)
                 }
-                func watchTranscript() {
+                @discardableResult @MainActor func watchTranscript() -> Task<Void, Never> {
+                    if !watching { transcriptWatchers[session, default: 0] += 1 }
                     watching = true
-                    Task { @MainActor in _ = try? await request("sessions.messages.subscribe", ["key": session]) }
+                    return Task { @MainActor in _ = try? await request("sessions.messages.subscribe", ["key": session]) }
                 }
 
                 let listener = UUID()
@@ -861,6 +894,14 @@ final class OpenClaw {
                         guard resynced else { return }
                         let meta = row["__openclaw"] as? [String: Any] ?? [:]
                         if let id = meta["runId"] as? String, !self.owns(run, id) { return }
+                        if agentRun {
+                            let id = meta["id"] as? String
+                            guard meta["runId"] != nil, id == nil || !rows.contains(where: { ($0["__openclaw"] as? [String: Any])?["id"] as? String == id }) else { return }
+                            activity = Date()
+                            rows.append(row)
+                            base = Self.reply(rows)
+                            return show()
+                        }
                         if meta["mirrorOrigin"] != nil { return }
                         activity = Date()
                         if row["role"] as? String == "assistant" {
@@ -877,6 +918,7 @@ final class OpenClaw {
                     activity = Date()
                     switch (name, payload["stream"] as? String, payload["state"] as? String) {
                     case ("agent", "assistant", _):
+                        if agentRun { return }
                         let item = data["itemId"] as? String ?? "text"
                         let index = live.firstIndex { $0.id == item } ?? { live.append((item, "")); return live.count - 1 }()
                         if let text = data["text"] as? String { live[index].text = text }
@@ -897,7 +939,7 @@ final class OpenClaw {
                             // A message sent meanwhile ends the wait: the session's rows tell of it.
                             if !watching { watchTranscript() }
                         } else {
-                            let over = ([run] + (self.steers[run] ?? [])).allSatisfy(finals.contains)
+                            let over = ([Self.runId(run)] + (self.steers[run] ?? [])).allSatisfy(finals.contains)
                             Task { over ? await settle() : await settleIfOver() }
                         }
                     case ("chat", _, "aborted"):
@@ -915,7 +957,13 @@ final class OpenClaw {
                     closeListeners[closer] = nil
                     steers[run] = nil
                     waits[run] = nil
-                    if watching { Task { @MainActor in _ = try? await request("sessions.messages.unsubscribe", ["key": session]) } }
+                    if watching {
+                        transcriptWatchers[session, default: 1] -= 1
+                        if transcriptWatchers[session] == 0 {
+                            transcriptWatchers[session] = nil
+                            Task { @MainActor in _ = try? await request("sessions.messages.unsubscribe", ["key": session]) }
+                        }
+                    }
                     continuation.finish()
                 }
 
@@ -924,11 +972,15 @@ final class OpenClaw {
                     if let start {
                         try await start()
                     } else {
+                        // Its rows are all it shows: none is missed between the read and the watch.
+                        if agentRun { await watchTranscript().value }
                         let state = try await state(session: session, run: run)
-                        guard state.found else { return finish(.failed("OpenClaw never got this message; send it again.")) }
+                        guard state.found else {
+                            return finish(agentRun ? .done : .failed("OpenClaw never got this message; send it again."))
+                        }
                         catchUp(state)
                         guard follows(state) else { return finish(.done) }
-                        watchTranscript()
+                        if !watching { watchTranscript() }
                         await askPending(session: session, run: run) { continuation.yield($0) }
                     }
                 } catch let failure as Failure where failure.code == "unreachable" || failure.code == "timeout" {

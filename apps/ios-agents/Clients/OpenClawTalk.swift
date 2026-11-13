@@ -27,20 +27,12 @@ final class OpenClawCall {
     private let gateway: OpenClaw
     private let events: (Event) -> Void
     private var listener: UUID?
-    /** Hung up: what it asked of the agent may still be going. */
     private var ended = false
     private var error: String?
     /** The agent's runs in the call's session that are going (what the voice asked of it). */
-    private(set) var working: Set<String> = []
-    /** When the agent started on it: the first of those runs. */
-    private(set) var workingSince: Int?
-    /** The runs that started during the call, until each has its answer. */
-    private var asked: Set<String> = []
-    /** What the call asked of the agent is still going, or its answer hasn't come yet. */
-    var unfinished: Bool { !working.isEmpty || !asked.isEmpty }
-    private var idle: [CheckedContinuation<Void, Never>] = []
-    /** The answer a run of the call ended with: during the call, or after it. */
-    var answered: (_ run: String, _ text: String) -> Void = { _, _ in }
+    private var working: Set<String> = []
+    /** A run that started in the call's session: the chat follows it, during the call and after. */
+    var started: (_ run: String) -> Void = { _ in }
     /** Consults the agent is answering for the voice, by call: each one's end. */
     private var consults: [String: () -> Void] = [:]
     private var runs: [String: ([String: Any]) -> Void] = [:]
@@ -78,7 +70,7 @@ final class OpenClawCall {
             outputRate: (audio["outputSampleRateHz"] as? NSNumber)?.doubleValue ?? 24_000,
             gateway: gateway, events: events)
         call.listener = gateway.listen({ [weak call] name, payload in call?.heard(name, payload) },
-                                       closed: { [weak call] in call?.closed("Lost the connection to your gateway.", connection: true) })
+                                       closed: { [weak call] in call?.closed("Lost the connection to your gateway.") })
         return call
     }
 
@@ -90,96 +82,51 @@ final class OpenClawCall {
         Task { _ = try? await gateway.request("talk.session.acknowledgeMark", ["sessionId": id, "markName": mark]) }
     }
 
-    /**
-     * Ending a call leaves what the agent was asked going: its answer still comes to the chat, and
-     * the call listens for it until then (`finished`).
-     */
+    /** Ending a call leaves what the agent was asked going: the chat follows it to its answer. */
     func end() {
         guard listener != nil, !ended else { return }
         ended = true
         for end in consults.values { end() }
-        if !unfinished { unlisten() }
+        unlisten()
         let detach = gateway.capabilities.contains("talk-session-close-disposition")
         Task { _ = try? await gateway.request("talk.session.close", ["sessionId": id].merging(detach ? ["disposition": "detach"] : [:]) { $1 }) }
-    }
-
-    /** Once what the call asked of the agent is done, or can't be followed any more. */
-    func finished() async {
-        guard listener != nil, unfinished else { return }
-        await withCheckedContinuation { idle.append($0) }
-    }
-
-    /** Stops what the call asked of the agent. */
-    func stopWork() {
-        for run in working {
-            Task { _ = try? await gateway.request("chat.abort", ["sessionKey": session, "runId": run]) }
-        }
-    }
-
-    /** Hung up, once nothing the call asked of the agent is left to hear. */
-    private func settle() {
-        if ended, !unfinished { unlisten() }
     }
 
     private func unlisten() {
         if let listener { gateway.unlisten(listener) }
         listener = nil
-        for waiting in idle { waiting.resume() }
-        idle = []
     }
 
-    /** The voice stopped (`connection`: the gateway went, and the agent's work can't be followed either). */
-    private func closed(_ error: String?, connection: Bool = false) {
-        guard listener != nil, !ended || connection else { return }
-        let hungUp = ended
+    /** The voice stopped. */
+    private func closed(_ error: String?) {
+        guard listener != nil, !ended else { return }
         ended = true
         for end in consults.values { end() }
-        if connection || !unfinished { unlisten() }
-        if !hungUp { events(.closed(error)) }
+        unlisten()
+        events(.closed(error))
     }
 
     private func heard(_ name: String, _ payload: [String: Any]) {
+        guard !ended else { return }
         if name == "agent", payload["sessionKey"] as? String == session, payload["stream"] as? String == "lifecycle",
            let run = payload["runId"] as? String {
             switch (payload["data"] as? [String: Any])?["phase"] as? String {
             case "start":
-                guard !ended else { return }
-                if working.isEmpty { workingSince = .now }
                 working.insert(run)
-                asked.insert(run)
+                started(run)
             case "end", "error":
                 guard working.remove(run) != nil else { return }
-                // Its last words can come after its end: they're waited for a moment.
-                Task { [weak self] in
-                    try? await Task.sleep(for: .seconds(3))
-                    self?.asked.remove(run)
-                    self?.settle()
-                }
             default:
                 return
             }
-            if !ended { events(.working(!working.isEmpty)) }
-            settle()
+            events(.working(!working.isEmpty))
             return
         }
         if name == "chat" {
-            guard let run = payload["runId"] as? String else { return }
-            runs[run]?(payload)
-            guard asked.contains(run) else { return }
-            switch payload["state"] as? String {
-            case "final":
-                asked.remove(run)
-                let text = OpenClaw.text((payload["message"] as? [String: Any])?["content"]).trimmingCharacters(in: .whitespacesAndNewlines)
-                if !text.isEmpty { answered(run, text) }
-            case "error", "aborted":
-                asked.remove(run)
-            default:
-                return
-            }
-            settle()
+            if let run = payload["runId"] as? String { runs[run]?(payload) }
             return
         }
-        guard !ended, name == "talk.event", payload["relaySessionId"] as? String == id else { return }
+        guard name == "talk.event", payload["relaySessionId"] as? String == id else { return }
         switch payload["type"] as? String {
         case "ready":
             events(.ready)
@@ -235,6 +182,8 @@ final class OpenClawCall {
                 ]) as? [String: Any] ?? [:]
                 guard let runId = ack["runId"] as? String else { throw OpenClaw.Failure(message: "OpenClaw didn't start the agent.") }
                 run = runId
+                // Its start can come before this answer, or (hung up meanwhile) not reach the call.
+                started(runId)
                 let waiting = Waiting()
                 let answer = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
                     waiting.continuation = continuation
