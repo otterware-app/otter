@@ -77,7 +77,8 @@ final class AgentRunner {
 
     /** Whether one of the agent's runs is the turn's already: its own, or one its steers started. */
     func owns(_ requestId: String, run: String) -> Bool {
-        runs[requestId]?.provider == "openclaw" && agents.openClawClient?.owns(requestId, run) == true
+        guard let agent = runs[requestId].flatMap({ agents.agent($0.agent) }), agent.kind == .openclaw else { return false }
+        return agent.openClaw?.owns(requestId, run) == true
     }
 
     func cancel(_ requestId: String) {

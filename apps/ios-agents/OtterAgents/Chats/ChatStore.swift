@@ -291,7 +291,7 @@ final class ChatStore {
             chat.turns.append(ChatTurn(id: "a-\(requestId)", role: .assistant, now: now))
             chat.updatedAt = now
         }
-        let followed = runner.resume(provider: chat.provider, requestId: requestId, sessionId: session) { [weak self] event in
+        let followed = runner.resume(agent: chat.provider, requestId: requestId, sessionId: session) { [weak self] event in
             self?.apply(event, requestId: requestId, chatId: chatId)
         }
         guard followed else {
