@@ -28,6 +28,7 @@ import { CHAT_LIMITS, type Chat, type ListChatsResponse } from "@otter/contracts
 import { createAuth, googleClientIds, googleKeys, type Auth } from "./auth.ts";
 import * as agentChannels from "./agent-channels.ts";
 import * as chats from "./chats.ts";
+import { retryingReset } from "./durable-objects.ts";
 import * as gmail from "./gmail.ts";
 import { InvalidTokenError, remoteKeys, verifyGoogleJwt } from "./google-jwt.ts";
 import identity from "./identity.ts";
@@ -828,11 +829,15 @@ app.post(
     const event: RelayEvent = { type: "mail", email, historyId: parsed.data.historyId };
     const users = await store.usersWithMailbox(c.var.db, email, "gmail");
     await Promise.all(
-      users.map(async (userId) => {
-        const target = hub(c.env, userId);
-        await target.publish(event);
-        await target.queuePush(userId, email, parsed.data.historyId);
-      }),
+      users.map((userId) =>
+        retryingReset(
+          () => hub(c.env, userId),
+          async (target) => {
+            await target.publish(event);
+            await target.queuePush(userId, email, parsed.data.historyId);
+          },
+        ),
+      ),
     );
     return c.body(null, 204);
   },
