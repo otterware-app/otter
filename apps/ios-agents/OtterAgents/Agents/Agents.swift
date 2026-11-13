@@ -378,9 +378,12 @@ final class Agents {
         if agent.isUsable, !isUsable(selected ?? "") { select(agent) }
     }
 
-    func connectHermes(_ agent: Agent, url: String, key: String) async {
-        agent.setSecret("key", key.trimmingCharacters(in: .whitespacesAndNewlines))
-        set(agent, "baseUrl", .string(Hermes.normalized(url)))
+    /** Checked before it's kept: a server or key that doesn't answer leaves the agent as it was. */
+    func connectHermes(_ agent: Agent, url: String, key: String) async throws {
+        let base = Hermes.normalized(url), key = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        _ = try await Hermes(baseURL: base, key: key).check()
+        agent.setSecret("key", key)
+        set(agent, "baseUrl", .string(base))
         onChange("agentKeys")
         await connected(agent)
     }

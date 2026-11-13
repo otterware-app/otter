@@ -189,7 +189,7 @@ struct AgentSettings: View {
                 SettingsDivider()
                 SettingsField(placeholder: "API key", text: $key, secret: true)
                 SettingsDivider()
-                SettingsButton(title: connecting ? "Connecting…" : "Connect") { run { await agents.connectHermes(agent, url: url, key: key) } }
+                SettingsButton(title: connecting ? "Connecting…" : "Connect") { run { try await agents.connectHermes(agent, url: url, key: key) } }
                     .disabled(url.isEmpty || key.isEmpty || connecting)
             }
         }
