@@ -3,7 +3,8 @@
 import { logger } from "../../logger.js";
 import { platform } from "../../platform.js";
 import type { IdleSession, ImapClient } from "../../protocols/index.js";
-import { isSignInFailure, openImap } from "./connection.js";
+import { openImap } from "./connection.js";
+import { isSignInFailure } from "./sign-in-failure.js";
 
 const RENEW_MS = 25 * 60_000;
 const DEBOUNCE_MS = 1_000;
