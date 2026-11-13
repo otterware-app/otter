@@ -16,10 +16,10 @@ description: Open or update an Otter pull request the house way - a branch off m
 
 ## The title
 
-The title is what users read in the update card's What's new (the PRs merged since their
-version): the change they'll notice, led by its area, as in `Calendar: opens instantly on what it
-last saw`. A PR the Mac and web app don't ship leads with `iPhone:`, `Otter Agents:`,
-`AGENTS.md:`, `Docs:`, `Changelog:` or `CI:`, which What's new leaves out
+The title is what users read when they hover the sidebar's update capsule (the PRs merged
+since their version): the change they'll notice, led by its area, as in `Calendar: opens
+instantly on what it last saw`. A PR the Mac and web app don't ship leads with `iPhone:`,
+`Otter Agents:`, `AGENTS.md:`, `Docs:`, `Changelog:` or `CI:`, which that list leaves out
 (`apps/web/src/main/release-changes.ts`).
 
 ## The description

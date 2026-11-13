@@ -10,7 +10,7 @@ as a record. Notes live in `changelog/<version>.md` at the repository root.
 The website shows them at https://otterware.app/mail/changelog, all on one page,
 newest first, with the versions down the side (each note's anchor is its
 version: /mail/changelog/#0.5.17); the app only links there ("Changelog" in ⌘K, in the ?
-menu at the bottom of Settings, and on the update card). The format lives in `packages/shared/src/changelog.ts`.
+menu at the bottom of Settings). The format lives in `packages/shared/src/changelog.ts`.
 
 The iPhone app releases on its own (TestFlight) and isn't in this changelog.
 

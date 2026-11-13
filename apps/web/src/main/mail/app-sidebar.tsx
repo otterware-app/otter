@@ -7,7 +7,7 @@ import { useWorkspaces, type Workspace } from "../extensions/workspaces";
 import type { CalendarMode } from "../calendar/dates";
 import type { KeybindingCommand } from "../keybindings/commands";
 import { shortcutText } from "../keybindings/keys";
-import { UpdateCard } from "../updates";
+import { UpdateButton } from "../updates";
 import { AccountPicture } from "./account-picture";
 import { MailboxFolders, SearchRow, type SidebarSearch } from "./accounts-sidebar";
 import { AddMailboxMenu } from "./add-mailbox";
@@ -154,7 +154,6 @@ export function AppSidebar({
         </>
       )}
       <SignInCards accountIds={healthIds} />
-      <UpdateCard />
       <div className="flex shrink-0 items-center gap-0.5 px-(--sidebar-content-inset) pb-(--sidebar-content-inset)">
         <HintTooltip label="Settings" hint={shortcutText("mod+,")}>
           <IconBtn
@@ -167,6 +166,7 @@ export function AppSidebar({
           </IconBtn>
         </HintTooltip>
         {mode === "mail" ? <SyncButton accountIds={healthIds} /> : null}
+        <UpdateButton />
       </div>
     </div>
   );
