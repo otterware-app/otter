@@ -87,7 +87,7 @@ struct MailSwipeActions: ViewModifier {
         .font(.inter(.body).weight(.medium))
         .lineLimit(1)
         .fixedSize()
-        .foregroundStyle(armed ? .white : palette.muted)
+        .foregroundStyle(armed ? action.tint.contrastingText : palette.muted)
         .padding(.horizontal, 22)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: fromLeading ? .leading : .trailing)
         .background(armed ? action.tint : palette.text.opacity(0.08))

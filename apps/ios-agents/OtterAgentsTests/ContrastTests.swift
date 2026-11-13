@@ -22,6 +22,11 @@ struct ContrastTests {
                     #expect(contrast(foreground, surface, scheme) >= 4.5, "Low contrast in \(scheme): \(foreground) on \(surface)")
                 }
             }
+            for fill in [palette.error, palette.warning, palette.focus, Color.red, Color.indigo] {
+                UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light).performAsCurrent {
+                    #expect(contrast(fill.contrastingText, fill, scheme) >= 4.5, "Low glyph contrast in \(scheme) on \(fill)")
+                }
+            }
             #expect(contrast(palette.actionText, palette.action, scheme) >= 4.5)
         }
     }

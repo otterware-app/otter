@@ -171,6 +171,11 @@ final class WalkthroughUITests: XCTestCase {
         let said = app.textViews.matching(NSPredicate(format: "value CONTAINS %@", "One step needs your say-so")).firstMatch
         XCTAssertTrue(said.exists, "what the agent said before its step folded away while it works")
         shot("09-approval")
+        app.buttons["Chats"].tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Needs you'")).firstMatch.waitForExistence(timeout: 5))
+        shot("09-needs-you-badge")
+        row("Send Lena the new kickoff time").tap()
+        XCTAssertTrue(app.buttons["Allow once"].waitForExistence(timeout: 5))
         app.buttons["Allow once"].tap()
         XCTAssertTrue(app.buttons["Send message"].waitForExistence(timeout: 20), "the turn never finished after the approval")
         XCTAssertFalse(said.exists, "what the agent said along the way didn't fold once it was done")

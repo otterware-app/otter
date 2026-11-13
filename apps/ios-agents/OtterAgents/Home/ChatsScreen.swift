@@ -677,7 +677,7 @@ struct ChatRow: View {
     private func badge(_ symbol: String, _ color: Color) -> some View {
         Image(systemName: symbol)
             .font(.system(size: 11, weight: .heavy))
-            .foregroundStyle(.white)
+            .foregroundStyle(color.contrastingText)
             .frame(width: 20, height: 20)
             .background(color, in: .circle)
     }
