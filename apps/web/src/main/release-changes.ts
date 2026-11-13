@@ -10,6 +10,8 @@ export type ReleaseChanges = {
   titles: string[];
   /** GitHub sends the newest 250 commits of a range; older changes are only on the compare page. */
   more: boolean;
+  /** When the update's last change landed, which is about when it was released. */
+  landedAt: number | null;
 };
 
 export function releaseCompareUrl(from: string, to: string): string {
@@ -38,11 +40,13 @@ async function fetchReleaseChanges(from: string, to: string): Promise<ReleaseCha
   if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
   const { total_commits, commits } = (await response.json()) as {
     total_commits: number;
-    commits: { commit: { message: string } }[];
+    commits: { commit: { message: string; committer: { date: string } | null } }[];
   };
+  const landed = commits.at(-1)?.commit.committer?.date;
   return {
     titles: pullRequestTitles(commits.map((c) => c.commit.message)),
     more: total_commits > commits.length,
+    landedAt: landed ? Date.parse(landed) : null,
   };
 }
 

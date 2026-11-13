@@ -1,14 +1,20 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { UpdateState, UpdateChannel } from "@otter/contracts";
 import { openLink } from "./browser/store";
 
-import { ArrowDownCircleIcon, ArrowUpRightIcon, SparklesIcon, XIcon } from "lucide-react";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ArrowUpRightIcon,
+  ExternalLinkIcon,
+  RotateCwIcon,
+} from "lucide-react";
 
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
 import { releaseCompareUrl, useReleaseChanges } from "./release-changes";
-import { Btn } from "./mail/ui";
+import { Btn, cn } from "./mail/ui";
 import { toast } from "./mail/toast";
-import { RowSelect, SettingsRow, SettingsSection } from "./settings/settings-ui";
+import { RowSelect, SettingsRow, SettingsSection, timeAgo } from "./settings/settings-ui";
 import { searchableSetting } from "./settings/settings-search";
 
 const restart = () => (window.desktopBridge.platform === "web" ? "Reload" : "Restart");
@@ -117,97 +123,126 @@ export function updateNow(): void {
   });
 }
 
-export function UpdateCard() {
+export function UpdateButton() {
   const state = useUpdateState();
-  const [dismissed, setDismissed] = useState<string | null>(null);
-  const card = useRef<HTMLDivElement>(null);
-  if (!state?.availableVersion || dismissed === state.availableVersion) return null;
-  const failed = state.status === "error";
-  if (state.status !== "downloading" && state.status !== "downloaded" && !failed) return null;
+  const version = state?.availableVersion;
+  if (!state || !version) return null;
+  const { status } = state;
+  if (status !== "downloading" && status !== "downloaded" && status !== "error") return null;
 
-  const version = state.availableVersion;
+  const updates = window.desktopBridge.updates;
   const manualUrl = state.manualDownloadUrl;
-  const percent = Math.min(100, Math.max(0, state.downloadPercent ?? 0));
+  const percent = Math.min(100, Math.max(0, Math.floor(state.downloadPercent ?? 0)));
+  const step: { label: string; title: string; note?: string; act: (() => void) | null } = manualUrl
+    ? {
+        label: "Download update",
+        title: "Couldn't install the update",
+        note: "Download it from GitHub and install it by hand.",
+        act: () => void window.desktopBridge.openExternal(manualUrl),
+      }
+    : status === "downloaded"
+      ? {
+          label: `${restart()} to update`,
+          title: "Update ready",
+          act: () => void updates.install(),
+        }
+      : status === "error"
+        ? {
+            label: "Couldn't update",
+            title: "Couldn't update",
+            note: "It will try again later. Click to try now.",
+            act: () => void updates.download(),
+          }
+        : { label: "Downloading", title: "Downloading update", act: null };
+
   return (
-    <div
-      ref={card}
-      className="mx-(--sidebar-content-inset) mb-1 rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 shadow-xs/5"
+    <Popover
+      onOpenChange={(open, details) => {
+        // A click runs the step, or keeps open what hovering opened.
+        if (details.reason === "trigger-press" && (step.act || !open)) details.cancel();
+      }}
     >
-      <div className="flex items-start gap-2">
-        {state.status === "downloaded" ? (
-          <SparklesIcon className="mt-0.5 size-3.5 shrink-0 text-primary" />
-        ) : (
-          <ArrowDownCircleIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium text-foreground">
-            {state.status === "downloaded"
-              ? `Otter ${version} is ready`
-              : failed
-                ? `Couldn't update to ${version}`
-                : `Downloading Otter ${version}`}
-          </p>
-          <p className="text-2xs text-muted-foreground">
-            {state.status === "downloaded"
-              ? `${restart()} to finish updating.`
-              : manualUrl
-                ? "Install this version by hand."
-                : failed
-                  ? "It will try again later."
-                  : `${percent}%`}
-          </p>
-          {state.status === "downloading" || state.status === "downloaded" ? (
-            <WhatsNew from={state.currentVersion} to={version} anchor={card} />
+      <PopoverTrigger
+        openOnHover
+        delay={200}
+        closeDelay={150}
+        aria-label={status === "error" && !manualUrl ? "Retry the update" : undefined}
+        onClick={step.act ?? undefined}
+        className="relative ml-1 flex h-8 min-w-0 flex-1 cursor-pointer items-center rounded-full bg-sidebar-control-surface pl-3 text-xs text-sidebar-foreground outline-none transition-[opacity,translate] duration-300 ease-out before:absolute before:inset-0 before:rounded-full before:transition-colors hover:before:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring starting:translate-y-1 starting:opacity-0 motion-reduce:transition-none"
+      >
+        <span
+          className={cn(
+            "relative min-w-0 flex-1 truncate text-left",
+            status === "error" && !manualUrl && "text-destructive",
+          )}
+        >
+          {step.label}
+          {status === "downloading" ? (
+            <span className="text-muted-foreground tabular-nums"> {percent}%</span>
           ) : null}
-        </div>
-        {state.status === "downloaded" ? (
-          <button
-            type="button"
-            aria-label="Hide until next launch"
-            onClick={() => setDismissed(version)}
-            className="-mr-1 -mt-0.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground outline-none hover:bg-accent-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-          >
-            <XIcon className="size-3" />
-          </button>
-        ) : null}
-      </div>
-      {state.status === "downloading" ? (
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-foreground/10">
-          <div
-            className="h-full rounded-full bg-primary transition-[width] duration-300"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-      ) : null}
-      {state.status === "downloaded" ? (
-        <Btn
-          size="xs"
-          variant="primary"
-          className="mt-2 w-full"
-          onClick={() => void window.desktopBridge.updates.install()}
-        >
-          {restart()} to update
-        </Btn>
-      ) : null}
-      {manualUrl ? (
-        <Btn
-          size="xs"
-          variant="primary"
-          className="mt-2 w-full"
-          onClick={() => void window.desktopBridge.openExternal(manualUrl)}
-        >
-          Download {version}
-        </Btn>
-      ) : failed ? (
-        <Btn
-          size="xs"
-          className="mt-2 w-full"
-          onClick={() => void window.desktopBridge.updates.download()}
-        >
-          Retry
-        </Btn>
-      ) : null}
-    </div>
+        </span>
+        <span className="relative grid size-8 shrink-0 place-items-center">
+          <UpdateGlyph status={manualUrl ? "manual" : status} percent={percent} />
+        </span>
+      </PopoverTrigger>
+      <PopoverPopup
+        side="top"
+        align="start"
+        sideOffset={8}
+        collisionAvoidance={{ fallbackAxisSide: "none" }}
+        width="md"
+        padding="none"
+      >
+        <UpdateNotes from={state.currentVersion} to={version} title={step.title} note={step.note} />
+      </PopoverPopup>
+    </Popover>
+  );
+}
+
+const RING = 2 * Math.PI * 13;
+
+function UpdateGlyph({
+  status,
+  percent,
+}: {
+  status: "downloading" | "downloaded" | "error" | "manual";
+  percent: number;
+}) {
+  if (status === "downloaded") {
+    return (
+      <span className="grid size-5 place-items-center rounded-full bg-primary text-primary-foreground transition-[scale,opacity] duration-300 ease-out starting:scale-50 starting:opacity-0 motion-reduce:transition-none">
+        <ArrowUpIcon className="size-3" strokeWidth={2.75} />
+      </span>
+    );
+  }
+  if (status === "error") return <RotateCwIcon className="size-3.5 text-destructive" />;
+  if (status === "manual") return <ArrowUpRightIcon className="size-3.5" />;
+  return (
+    <>
+      <svg aria-hidden className="absolute inset-0 size-full -rotate-90" viewBox="0 0 32 32">
+        <circle
+          cx="16"
+          cy="16"
+          r="13"
+          fill="none"
+          strokeWidth="1.5"
+          className="stroke-current/15"
+        />
+        <circle
+          cx="16"
+          cy="16"
+          r="13"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeDasharray={RING}
+          strokeDashoffset={RING * (1 - percent / 100)}
+          className="transition-[stroke-dashoffset] duration-500 ease-out motion-reduce:transition-none"
+        />
+      </svg>
+      <ArrowDownIcon className="size-3.5" />
+    </>
   );
 }
 
@@ -222,75 +257,60 @@ function byArea(titles: string[]): [string, string[]][] {
   return [...areas].filter(([, changes]) => changes.length > 0);
 }
 
-function WhatsNew({
+function UpdateNotes({
   from,
   to,
-  anchor,
+  title,
+  note,
 }: {
   from: string;
   to: string;
-  anchor: RefObject<HTMLDivElement | null>;
+  title: string;
+  note?: string;
 }) {
   const changes = useReleaseChanges(from, to);
-  if (!changes?.titles.length) return null;
   return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <button
-            type="button"
-            className="cursor-pointer text-2xs text-foreground/80 underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:underline"
-          >
-            What's new
-          </button>
-        }
-      />
-      <PopoverPopup
-        side="right"
-        align="end"
-        sideOffset={12}
-        anchor={anchor}
-        width="md"
-        padding="none"
-      >
-        <div className="flex max-h-[min(34rem,var(--available-height))] flex-col">
-          <div className="shrink-0 px-4 pt-4 pb-3">
-            <PopoverTitle>What's new</PopoverTitle>
-            <p className="mt-1.5 truncate text-xs text-muted-foreground">
-              {changes.titles.length} {changes.titles.length === 1 ? "change" : "changes"} since{" "}
-              {from}
-            </p>
-          </div>
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-4">
-            {byArea(changes.titles).map(([area, items]) => (
-              <section key={area}>
-                {area ? (
-                  <h3 className="mb-1 text-2xs font-medium text-muted-foreground">{area}</h3>
-                ) : null}
-                <ul className="space-y-1.5">
-                  {items.map((item) => (
-                    <li
-                      key={item}
-                      className="relative pl-3 text-xs leading-5 text-foreground before:absolute before:top-2 before:left-0 before:size-1 before:rounded-full before:bg-muted-foreground/60"
-                    >
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => openLink(releaseCompareUrl(from, to))}
-            className="flex shrink-0 cursor-pointer items-center gap-1 border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground"
-          >
-            {changes.more ? "Earlier changes on GitHub" : "All changes on GitHub"}
-            <ArrowUpRightIcon className="size-3" />
-          </button>
+    <div className="flex max-h-[min(32rem,var(--available-height))] flex-col">
+      <div className="shrink-0 px-4 pt-3.5">
+        <PopoverTitle className="font-medium leading-5">{title}</PopoverTitle>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground tabular-nums">
+          {to}
+          {changes?.landedAt ? ` · ${timeAgo(changes.landedAt)}` : ""}
+        </p>
+        {note ? <p className="mt-2 text-xs leading-5 text-popover-foreground/90">{note}</p> : null}
+      </div>
+      {changes?.titles.length ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-3.5 pb-4 [mask-image:linear-gradient(to_bottom,black_calc(100%-1.25rem),transparent)] [scrollbar-width:thin]">
+          <h3 className="text-xs font-semibold">What's changed since your version</h3>
+          {byArea(changes.titles).map(([area, items]) => (
+            <section key={area} className="mt-2.5">
+              {area ? <h4 className="text-xs text-muted-foreground">{area}</h4> : null}
+              <ul className="mt-1 space-y-1 text-xs leading-5 text-popover-foreground/90">
+                {items.map((item) => (
+                  <li
+                    key={item}
+                    className="relative pl-3.5 before:absolute before:top-2 before:left-0.5 before:size-1 before:rounded-full before:bg-current before:opacity-50"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
         </div>
-      </PopoverPopup>
-    </Popover>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => openLink(releaseCompareUrl(from, to))}
+        className={cn(
+          "flex shrink-0 cursor-pointer items-center gap-1 self-start px-4 pb-3.5 text-xs text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline",
+          changes?.titles.length ? "pt-1" : "pt-3",
+        )}
+      >
+        {changes?.more ? "Earlier changes on GitHub" : "View on GitHub"}
+        <ExternalLinkIcon className="size-3" />
+      </button>
+    </div>
   );
 }
 
