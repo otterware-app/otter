@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { UpdateState, UpdateChannel } from "@otter/contracts";
-import { changelogUrl } from "@otter/shared/changelog";
 import { openLink } from "./browser/store";
 
-import { ArrowDownCircleIcon, SparklesIcon, XIcon } from "lucide-react";
+import { ArrowDownCircleIcon, ArrowUpRightIcon, SparklesIcon, XIcon } from "lucide-react";
 
+import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
+import { releaseCompareUrl, useReleaseChanges } from "./release-changes";
 import { Btn } from "./mail/ui";
 import { toast } from "./mail/toast";
 import { RowSelect, SettingsRow, SettingsSection } from "./settings/settings-ui";
@@ -119,6 +120,7 @@ export function updateNow(): void {
 export function UpdateCard() {
   const state = useUpdateState();
   const [dismissed, setDismissed] = useState<string | null>(null);
+  const card = useRef<HTMLDivElement>(null);
   if (!state?.availableVersion || dismissed === state.availableVersion) return null;
   const failed = state.status === "error";
   if (state.status !== "downloading" && state.status !== "downloaded" && !failed) return null;
@@ -127,7 +129,10 @@ export function UpdateCard() {
   const manualUrl = state.manualDownloadUrl;
   const percent = Math.min(100, Math.max(0, state.downloadPercent ?? 0));
   return (
-    <div className="mx-(--sidebar-content-inset) mb-1 rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 shadow-xs/5">
+    <div
+      ref={card}
+      className="mx-(--sidebar-content-inset) mb-1 rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 shadow-xs/5"
+    >
       <div className="flex items-start gap-2">
         {state.status === "downloaded" ? (
           <SparklesIcon className="mt-0.5 size-3.5 shrink-0 text-primary" />
@@ -151,16 +156,8 @@ export function UpdateCard() {
                   ? "It will try again later."
                   : `${percent}%`}
           </p>
-          {/* The site's changelog: not every release has a note, so the index rather
-              than the version's page. */}
           {state.status === "downloading" || state.status === "downloaded" ? (
-            <button
-              type="button"
-              onClick={() => openLink(changelogUrl())}
-              className="cursor-pointer text-2xs text-foreground/80 underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:underline"
-            >
-              Changelog →
-            </button>
+            <WhatsNew from={state.currentVersion} to={version} anchor={card} />
           ) : null}
         </div>
         {state.status === "downloaded" ? (
@@ -211,6 +208,89 @@ export function UpdateCard() {
         </Btn>
       ) : null}
     </div>
+  );
+}
+
+/** Titles read "Area: change"; changes to one area sit under its name. */
+function byArea(titles: string[]): [string, string[]][] {
+  const areas = new Map<string, string[]>([["", []]]);
+  for (const title of titles) {
+    const match = /^([^:]{1,40}): (.+)$/.exec(title);
+    const [area, change] = match ? [match[1]!, match[2]!] : ["", title];
+    areas.set(area, [...(areas.get(area) ?? []), change[0]!.toUpperCase() + change.slice(1)]);
+  }
+  return [...areas].filter(([, changes]) => changes.length > 0);
+}
+
+function WhatsNew({
+  from,
+  to,
+  anchor,
+}: {
+  from: string;
+  to: string;
+  anchor: RefObject<HTMLDivElement | null>;
+}) {
+  const changes = useReleaseChanges(from, to);
+  if (!changes?.titles.length) return null;
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="cursor-pointer text-2xs text-foreground/80 underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:underline"
+          >
+            What's new
+          </button>
+        }
+      />
+      <PopoverPopup
+        side="right"
+        align="end"
+        sideOffset={12}
+        anchor={anchor}
+        width="md"
+        padding="none"
+      >
+        <div className="flex max-h-[min(34rem,var(--available-height))] flex-col">
+          <div className="shrink-0 px-4 pt-4 pb-3">
+            <PopoverTitle>What's new</PopoverTitle>
+            <p className="mt-1.5 truncate text-xs text-muted-foreground">
+              {changes.titles.length} {changes.titles.length === 1 ? "change" : "changes"} since{" "}
+              {from}
+            </p>
+          </div>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-4">
+            {byArea(changes.titles).map(([area, items]) => (
+              <section key={area}>
+                {area ? (
+                  <h3 className="mb-1 text-2xs font-medium text-muted-foreground">{area}</h3>
+                ) : null}
+                <ul className="space-y-1.5">
+                  {items.map((item) => (
+                    <li
+                      key={item}
+                      className="relative pl-3 text-xs leading-5 text-foreground before:absolute before:top-2 before:left-0 before:size-1 before:rounded-full before:bg-muted-foreground/60"
+                    >
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => openLink(releaseCompareUrl(from, to))}
+            className="flex shrink-0 cursor-pointer items-center gap-1 border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground"
+          >
+            {changes.more ? "Earlier changes on GitHub" : "All changes on GitHub"}
+            <ArrowUpRightIcon className="size-3" />
+          </button>
+        </div>
+      </PopoverPopup>
+    </Popover>
   );
 }
 

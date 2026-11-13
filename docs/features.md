@@ -697,7 +697,9 @@ notifications are refused to pages.
 - Menus: Sync Now, Back / Forward (⌘[ ⌘]).
 - Auto-update from GitHub Releases ("Restart to update"), or all at once from ⌘K ("Update Otter
   Mail": check, download, restart). The web app follows its channel's latest release: open tabs
-  offer "Reload to update"; the iPhone app updates through TestFlight.
+  offer "Reload to update"; the iPhone app updates through TestFlight. The update card's
+  What's new lists the pull requests merged since your version (GitHub's compare of the two
+  tags, without the iPhone's, docs and CI).
 
 ## Otter account & devices
 

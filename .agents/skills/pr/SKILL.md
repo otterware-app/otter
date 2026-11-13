@@ -14,6 +14,14 @@ description: Open or update an Otter pull request the house way - a branch off m
   Verifying), and the PR says which paths.
 - A fix for a Sentry issue says `Fixes <SHORT-ID>` in its commit or PR.
 
+## The title
+
+The title is what users read in the update card's What's new (the PRs merged since their
+version): the change they'll notice, led by its area, as in `Calendar: opens instantly on what it
+last saw`. A PR the Mac and web app don't ship leads with `iPhone:`, `Otter Agents:`,
+`AGENTS.md:`, `Docs:`, `Changelog:` or `CI:`, which What's new leaves out
+(`apps/web/src/main/release-changes.ts`).
+
 ## The description
 
 Fill in `.github/pull_request_template.md`: What changed, Why, UI changes, Checklist. Say what
