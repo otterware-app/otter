@@ -17,6 +17,8 @@ vi.mock("./services/account-store.js", () => {
 
 import { SignInCancelledError, SignInTimedOutError } from "./google.js";
 import { callHandler, handle } from "./ipc.js";
+import { ImapError } from "./protocols/imap/client.js";
+import { NeedsPassword } from "./providers/imap/sign-in-failure.js";
 
 describe("a handler that fails", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -68,5 +70,38 @@ describe("a handler that fails", () => {
     });
     expect(logger.failure).not.toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledOnce();
+  });
+
+  // OTTER-MAIL-DESKTOP-X and -Y: the mailbox asks for its password, and adding one says why.
+  it("doesn't report an IMAP password that's missing or refused, and keeps its message", async () => {
+    handle("test:noPassword", () => {
+      throw new NeedsPassword("me@icloud.com");
+    });
+    handle("test:refused", () => {
+      throw new Error(
+        "imap.mail.me.com didn't accept the password for me. It needs an app password.",
+        {
+          cause: new ImapError("AUTHENTICATE failed: Authentication failed.", "auth"),
+        },
+      );
+    });
+    expect(await callHandler("test:noPassword", undefined)).toEqual({
+      error: "Enter the password for me@icloud.com to sync it.",
+    });
+    expect(await callHandler("test:refused", undefined)).toEqual({
+      error: "imap.mail.me.com didn't accept the password for me. It needs an app password.",
+    });
+    expect(logger.failure).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledTimes(2);
+  });
+
+  it("still reports an IMAP server that fails for its own reasons", async () => {
+    handle("test:unwell", () => {
+      throw new Error("imap.example.com (port 993): LOGIN failed", {
+        cause: new ImapError("LOGIN failed: [UNAVAILABLE] Try later", "server"),
+      });
+    });
+    await callHandler("test:unwell", undefined);
+    expect(logger.failure).toHaveBeenCalledOnce();
   });
 });

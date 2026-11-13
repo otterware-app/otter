@@ -22,6 +22,7 @@ import {
 import { getAccount } from "../../services/account-store.js";
 import { getImapPassword, setAsideImapPassword } from "../../services/imap-passwords.js";
 import type { Lane } from "../provider.js";
+import { NeedsPassword } from "./sign-in-failure.js";
 
 const IDLE_CLOSE_MS = 2 * 60_000;
 
@@ -41,15 +42,6 @@ type Connection = {
 const connections = new Map<string, Connection>();
 
 export const failedServer = new WeakMap<object, { host: string; user: string }>();
-
-export class NeedsPassword extends Error {
-  constructor(email: string) {
-    super(`Enter the password for ${email} to sync it.`);
-  }
-}
-
-export const isSignInFailure = (err: unknown): boolean =>
-  err instanceof NeedsPassword || (err instanceof MailProtocolError && err.kind === "auth");
 
 export function noteSignInFailure(accountId: string, access: ImapAccess, err: unknown): void {
   if (err instanceof MailProtocolError && err.kind === "auth") {

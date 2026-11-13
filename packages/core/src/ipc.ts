@@ -3,6 +3,7 @@ import type { ReportTags } from "@otter/shared/error-reports";
 import { SignInCancelledError, SignInTimedOutError } from "./google.js";
 import { logger } from "./logger.js";
 import { platform } from "./platform.js";
+import { isSignInFailure } from "./providers/imap/sign-in-failure.js";
 import { imapHostOf, isAccountId, providerKindOf } from "./services/account-store.js";
 import { knownImapServer } from "./services/imap-discovery.js";
 
@@ -36,12 +37,17 @@ export async function callHandler(
     return { result: await handler(params) };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (err instanceof SignInTimedOutError) logger.info("handlers", `${channel}: ${message}`);
+    if (err instanceof SignInTimedOutError || needsSignIn(err))
+      logger.info("handlers", `${channel}: ${message}`);
     else if (!(err instanceof SignInCancelledError))
       logger.failure("handlers", `${channel} failed`, err, reportTags(params));
     return { error: message };
   }
 }
+
+/** A missing or refused IMAP password: the mailbox asks for it, and adding one says why. */
+const needsSignIn = (err: unknown): boolean =>
+  isSignInFailure(err) || (err instanceof Error && isSignInFailure(err.cause));
 
 function reportTags(params: unknown): ReportTags | undefined {
   const accountId = (params as { accountId?: unknown } | null)?.accountId;
