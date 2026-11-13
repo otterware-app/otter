@@ -23,8 +23,8 @@ final class ScheduledStore {
     /** The agents a new task can go to, by id: each of an OpenClaw gateway's agents on its own. */
     var creators: [(agent: String, gatewayAgent: String?, name: String)] {
         agents.filter { $0.can.create && $0.error == nil }.flatMap { listed -> [(String, String?, String)] in
-            guard let agent = all.agent(listed.provider) else { return [] }
-            if agent.kind == .openclaw, agent.models.count > 1 { return agent.models.map { (agent.id, $0.slug, $0.name) } }
+            guard let agent = all.agent(listed.provider), agent.enabled, agent.canStartChat else { return [] }
+            if agent.kind == .openclaw, !agent.enabledModels.isEmpty { return agent.enabledModels.map { (agent.id, $0.slug, $0.name) } }
             return [(agent.id, nil, agent.name)]
         }
     }

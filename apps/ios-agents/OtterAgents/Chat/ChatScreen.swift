@@ -20,6 +20,7 @@ struct ChatScreen: View {
     @State private var panel = false
     @State private var showDetails = false
     @State private var showModels = false
+    @State private var reconnecting = false
     @State private var dialog: ChatDialog?
     @State private var page: WebPage?
     @State private var file: FileLink?
@@ -169,6 +170,7 @@ struct ChatScreen: View {
         .sheet(isPresented: $showDetails) { ChatDetails(chat: chat, open: { open($0, in: chat) }, openFile: { file = FileLink(chatId: chat.id, href: $0) }) }
         .navigationDestination(item: $file) { FileScreen(link: $0) }
         .sheet(isPresented: $showModels) { ModelSheet(chat: chat, openSettings: openSettings) }
+        .sheet(isPresented: $reconnecting) { ReconnectAgentSheet(chat: chat, openSettings: openSettings) }
         .sheet(item: $page) { SafariView(url: $0.url).ignoresSafeArea() }
         .fullScreenCover(isPresented: $talking) { TalkScreen(chatId: chat.id) }
         .fullScreenCover(isPresented: $showBrowser) {
@@ -284,7 +286,7 @@ struct ChatScreen: View {
 
     /** This iPhone can go on with the chat: it isn't a Mac's own, and its agent is connected here. */
     private func canWrite(_ chat: Chat) -> Bool {
-        !chat.isElsewhere && store.agents.isUsable(chat.provider)
+        !chat.isElsewhere && store.agents.isUsable(chat)
     }
 
     // MARK: Around the conversation
@@ -363,7 +365,8 @@ struct ChatScreen: View {
                     .buttonBorderShape(.capsule)
                     .tint(palette.text)
             } else if let agent, agent.kind != nil {
-                Text(agent.enabled ? "\(name) isn't connected on this iPhone." : "\(name) is turned off on this iPhone.")
+                let enabled = agent.enabled && (chat.openClawAgent.map(agent.isGatewayAgentEnabled) ?? agent.canStartChat)
+                Text(enabled ? "\(name) isn't connected on this iPhone." : "\(name) is turned off on this iPhone.")
                 Button("Open Settings", action: openSettings)
                     .font(.ui(14, .semibold))
                     .buttonStyle(.bordered)
@@ -371,6 +374,13 @@ struct ChatScreen: View {
                     .tint(palette.text)
             } else if agent == nil {
                 Text("This chat's agent was removed.")
+                if store.canReconnect(chat) {
+                    Button("Reconnect agent") { reconnecting = true }
+                        .font(.ui(14, .semibold))
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.capsule)
+                        .tint(palette.text)
+                }
             } else {
                 Text("This chat runs on \(name), which this iPhone can't reach.")
             }

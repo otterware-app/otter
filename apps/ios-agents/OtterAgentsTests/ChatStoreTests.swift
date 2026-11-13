@@ -5,6 +5,65 @@ import Testing
 /** A turn's events, as the store makes a chat of them. The demo's agent stands in for a real one. */
 @MainActor
 struct ChatStoreTests {
+    @Test func reconnectingARemovedGatewayPreservesTheChatAndItsSession() async throws {
+        let store = store()
+        var chat = Chat(provider: "removed-gateway", now: 100)
+        chat.sessionId = "agent:research:otter-mail:existing"
+        chat.sessionOwned = true
+        chat.title = "Existing conversation"
+        chat.turns = [ChatTurn(id: "u-1", role: .user, text: "Keep this history", now: 100)]
+        store.insert(chat)
+        let replacement = try #require(store.agents.agent(DemoAgent.openClaw))
+        #expect(store.canReconnect(chat))
+        try await store.reconnect(chat.id, to: replacement)
+        let reconnected = try #require(store.chat(chat.id))
+        #expect(reconnected.provider == replacement.id)
+        #expect(reconnected.id == chat.id && reconnected.title == chat.title)
+        #expect(reconnected.sessionId == chat.sessionId && reconnected.sessionOwned)
+        #expect(reconnected.turns == chat.turns)
+        #expect(reconnected.updatedAt > chat.updatedAt)
+        #expect(!store.canReconnect(reconnected))
+    }
+
+    @Test func reconnectingDoesNotMoveAWorkingChatOrUseAnotherKindOfAgent() async throws {
+        let store = store()
+        var chat = Chat(provider: DemoAgent.openClaw)
+        chat.sessionId = "agent:main:otter-mail:existing"
+        store.insert(chat)
+        #expect(!store.canReconnect(chat))
+        let gateway = try #require(store.agents.agent(DemoAgent.openClaw))
+        await #expect(throws: OpenClaw.Failure.self) { try await store.reconnect(chat.id, to: gateway) }
+
+        store.update(chat.id) { $0.provider = "removed-gateway" }
+        let hermes = try #require(store.agents.agent(DemoAgent.brokk))
+        await #expect(throws: OpenClaw.Failure.self) { try await store.reconnect(chat.id, to: hermes) }
+        store.agents.setGatewayAgentEnabled(gateway, "main", false)
+        await #expect(throws: OpenClaw.Failure.self) { try await store.reconnect(chat.id, to: gateway) }
+        #expect(store.chat(chat.id)?.provider == "removed-gateway")
+    }
+
+    @Test func aDisabledGatewayAgentHoldsItsQueuedMessagesUntilEnabled() throws {
+        let store = store()
+        let gateway = try #require(store.agents.agent(DemoAgent.openClaw))
+        let chat = store.newChat()
+        store.setAgent(gateway.id, of: chat)
+        store.update(chat) { $0.sessionId = "agent:main:otter-mail:existing" }
+        store.send("First", in: chat)
+        let request = try #require(store.runs[chat]?.requestId)
+        store.send("Queued", in: chat)
+        store.agents.setGatewayAgentEnabled(gateway, "main", false)
+        store.apply(.done, requestId: request, chatId: chat)
+        #expect(store.runs[chat] == nil)
+        #expect(store.queued(in: chat).map(\.question) == ["Queued"])
+        store.send("While disabled", in: chat)
+        #expect(store.chat(chat)?.turns.count == 2)
+
+        store.agents.onReady = { _ in store.startQueued() }
+        store.agents.setGatewayAgentEnabled(gateway, "main", true)
+        #expect(store.queue.isEmpty)
+        #expect(store.chat(chat)?.turns.map(\.text) == ["First", "", "Queued", ""])
+    }
+
     private func store(followUp: Agents.FollowUp = .queue) -> ChatStore {
         let agents = Agents()
         agents.startDemo()

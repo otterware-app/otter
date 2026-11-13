@@ -16,7 +16,7 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Take a photo to send to your agent.</string>
+	<string>Scan a QR code to connect your agent, or take a photo to send to it.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Talk with your agent: it hears you while you're on a call.</string>
 	<key>UIBackgroundModes</key>

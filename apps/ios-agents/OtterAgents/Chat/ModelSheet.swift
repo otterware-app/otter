@@ -20,14 +20,14 @@ struct ModelSheet: View {
 
     /** The agents offered: every one that's on for a new chat, its own for one under way. */
     private var offered: [Agent] {
-        chat.isBlank ? agents.runnable.filter(\.enabled) : current.map { [$0] } ?? []
+        chat.isBlank ? agents.runnable.filter { $0.enabled && $0.canStartChat } : current.map { [$0] } ?? []
     }
 
     /** A row each, a gateway's agents each their own: a started chat runs in its gateway agent's session, which can't change under it. */
     private var choices: [(agent: Agent, gatewayAgent: Hermes.Model?)] {
         offered.flatMap { agent -> [(agent: Agent, gatewayAgent: Hermes.Model?)] in
             guard agent.kind == .openclaw else { return [(agent, nil)] }
-            let own = chat.isBlank ? agent.models : agent.models.filter { $0.slug == chat.openClawAgent }
+            let own = chat.isBlank ? agent.enabledModels : agent.models.filter { $0.slug == chat.openClawAgent }
             return own.isEmpty ? [(agent, nil)] : own.map { (agent, $0) }
         }.filter { needle.isEmpty || "\($0.gatewayAgent?.name ?? "") \($0.agent.name)".lowercased().contains(needle) }
     }
