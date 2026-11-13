@@ -79,6 +79,33 @@ struct OpenClawTurnTests {
         #expect(OpenClaw.turn(in: [sent, yieldCall, yieldResult, delivery], run: "req-1")?.waiting == true)
     }
 
+    @Test func aRunACallStartedIsItsRowsWithoutWhatWasSaid() {
+        let voice = { (role: String, n: Int) -> [String: Any] in
+            ["role": role, "content": [["type": "text", "text": "Said \(n)"]], "__openclaw": ["id": "voice:call-1:\(n)"]]
+        }
+        let check: [String: Any] = [
+            "role": "assistant", "content": [["type": "toolCall", "id": "t-1", "name": "exec", "arguments": ["command": "gog calendar list"]]],
+            "__openclaw": ["runId": "consult-1"],
+        ]
+        let rows = [voice("user", 1), said("consult-1", "I'll check your calendar."), voice("assistant", 2), check,
+                    said("consult-1", "Nothing tomorrow."), voice("user", 3), said("consult-2", "Done.")]
+        let turn = OpenClaw.turn(in: rows, run: "run:consult-1")
+        #expect(same(turn?.rows, [said("consult-1", "I'll check your calendar."), check, said("consult-1", "Nothing tomorrow.")]))
+        #expect(turn?.waiting == false)
+        #expect(OpenClaw.turn(in: rows, run: "run:consult-3") == nil)
+        #expect(OpenClaw.runId("run:consult-1") == "consult-1" && OpenClaw.runId("req-1") == "req-1")
+    }
+
+    @Test func aRunACallStartedThatYieldedWaitsWhateverIsSaidMeanwhile() {
+        let call = { (row: [String: Any]) -> [String: Any] in
+            var row = row
+            row["__openclaw"] = ["runId": "consult-1"]
+            return row
+        }
+        let said: [String: Any] = ["role": "user", "content": "Still there?", "__openclaw": ["id": "voice:call-1:4"]]
+        #expect(OpenClaw.turn(in: [call(yieldCall), call(yieldResult), said], run: "run:consult-1")?.waiting == true)
+    }
+
     @Test func itWaitsOnTheSubagentsTheRunThatYieldedStarted() {
         let first = [sent, spawn("req-1", ["label": "Research pricing", "task": "Compare the venues"]), yieldCall, yieldResult]
         #expect(OpenClaw.spawned(in: first) == ["Research pricing"])

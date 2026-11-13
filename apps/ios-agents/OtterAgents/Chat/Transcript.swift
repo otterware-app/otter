@@ -164,7 +164,8 @@ struct AssistantTurnView: View {
     var continued = false
     @State private var open = false
 
-    private var live: Bool { turn.finishedAt == nil && turn.error == nil && store.runs[chatId] != nil }
+    /** Being written: what's said in a call shows as it's said, without the dots. */
+    private var live: Bool { turn.isLive && store.runs[chatId] != nil }
 
     /** What it took to get to the answer: everything up to the last step. */
     private var work: [ChatItem] {
@@ -220,10 +221,11 @@ struct AssistantTurnView: View {
             ForEach(Array(bubbles.enumerated()), id: \.offset) { index, blocks in
                 bubble(blocks, first: index == 0, last: index == bubbles.count - 1)
             }
-            if live { TypingBubble() }
+            // Once it has steps, the fold says it's working, as on the Mac.
+            if live, work.isEmpty { TypingBubble() }
             if let error = turn.error { failure(error) }
             if !turn.changes.isEmpty, !live { ChangesList(changes: turn.changes).padding(.top, 3) }
-            if detached, turn.finishedAt == nil, turn.error == nil {
+            if detached, turn.isLive {
                 Text("Lost \(AgentKind.name(of: provider)) mid-reply. The rest shows here once it's back.")
                     .font(.ui(14))
                     .foregroundStyle(palette.muted)
