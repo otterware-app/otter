@@ -482,7 +482,7 @@ followed again on the next one (on waking, one that went quiet while the Mac sle
 at once), and a chat whose reply was cut off by quitting picks the run up
 on the next launch, showing what it did meanwhile and streaming the rest (the chat says so while
 the gateway is out of reach). The token and device key stay on the device. The iPhone pairs the
-same way (Settings › Agents, a setup code), and picks a reply back up when it comes back to the
+same way (Settings › Agents, scanning the gateway's pairing QR code or pasting a setup code). Its resolved gateway agents are nested there, with individual switches on this iPhone; turning one off removes it from new-chat and scheduled-task choices and pauses writing in its existing chats. A chat whose OpenClaw connection was removed can use Reconnect agent to choose its replacement: the session must exist on that gateway, and its messages and session stay. The iPhone picks a reply back up when it comes back to the
 foreground or is opened again. A look at another app keeps the connection, and the reply
 streaming, for 25 seconds; a connection that stops answering (the network changed, the phone
 slept) is found by a ping within seconds and replaced. When OpenClaw stops to ask something (its `ask_user`), the

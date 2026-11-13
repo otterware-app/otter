@@ -41,7 +41,10 @@ green), since a chat with an agent is a chat:
 - **Your agents** (`Settings/`): Settings › Agents lists them, each with its picture, name and
   status, none at first; Add agent picks a kind (Hermes, OpenClaw, varys) and opens the new
   agent's page: its name, its picture (a photo, cropped square), its switch, its connection, and
-  Remove.
+  Remove. OpenClaw connects by scanning the gateway's pairing QR code or pasting its setup
+  code. Its resolved agents sit under the gateway in Settings with individual switches for this
+  iPhone. A chat left behind by a removed OpenClaw connection offers Reconnect agent: choose the
+  replacement gateway, which must still have its session; the chat's history and session stay.
 - **Type and color.** Inter (`Theme/Design.swift`), the account's themes for its colors
   (`apps/ios`'s `Theme.swift`, shared); the bubbles and wallpaper are mixed from them.
 

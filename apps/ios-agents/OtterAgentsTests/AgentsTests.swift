@@ -6,6 +6,32 @@ import Testing
 /** The agents you added, as the account and this iPhone keep them (core's service.ts tests, for the phone's port). */
 @MainActor
 struct AgentsTests {
+    @Test func disabledGatewayAgentsStayResolvedButCannotRunChats() throws {
+        let agents = Agents()
+        agents.startDemo()
+        let gateway = try #require(agents.agent(DemoAgent.openClaw))
+        agents.select(gateway)
+        agents.set(gateway, "model", .string("research"))
+        var existing = Chat(provider: gateway.id)
+        existing.sessionId = "agent:research:otter-mail:existing"
+        #expect(agents.isUsable(existing))
+
+        agents.setGatewayAgentEnabled(gateway, "research", false)
+        #expect(gateway.models.map(\.slug) == ["main", "research"])
+        #expect(gateway.enabledModels.map(\.slug) == ["main"])
+        #expect(gateway.model?.slug == "main")
+        #expect(!agents.isUsable(existing))
+        #expect(!Agent(gateway.entry).isGatewayAgentEnabled("research"))
+        #expect(gateway.entry.synced.settings.isEmpty)
+
+        agents.setGatewayAgentEnabled(gateway, "main", false)
+        #expect(!gateway.canStartChat)
+        #expect(agents.starting?.id != gateway.id)
+        agents.setGatewayAgentEnabled(gateway, "research", true)
+        #expect(gateway.canStartChat && agents.isUsable(existing))
+        #expect(gateway.model?.slug == "research")
+    }
+
     private func entry(_ id: String, _ kind: String, _ name: String, avatar: String? = nil, _ settings: [String: JSON] = [:]) -> AgentList.Entry {
         AgentList.Entry(id: id, kind: kind, name: name, avatar: avatar, settings: settings)
     }

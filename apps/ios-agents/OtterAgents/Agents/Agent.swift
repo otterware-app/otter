@@ -59,7 +59,14 @@ final class Agent: Identifiable {
     /** The model a turn runs on (an OpenClaw gateway's agent): the one chosen, else the agent's default. */
     var model: Hermes.Model? {
         let chosen = string("model")
-        return models.first { $0.slug == chosen && !chosen.isEmpty } ?? models.first(where: \.isDefault) ?? models.first
+        return enabledModels.first { $0.slug == chosen && !chosen.isEmpty } ?? enabledModels.first(where: \.isDefault) ?? enabledModels.first
+    }
+
+    var enabledModels: [Hermes.Model] { kind == .openclaw ? models.filter { isGatewayAgentEnabled($0.slug) } : models }
+    var canStartChat: Bool { kind != .openclaw || (models.isEmpty ? isGatewayAgentEnabled("main") : !enabledModels.isEmpty) }
+
+    func isGatewayAgentEnabled(_ id: String) -> Bool {
+        !(entry.settings["disabledAgents"]?.array?.compactMap(\.string) ?? []).contains(id)
     }
 
     /** What the picker shows beside the model: "High · Fast". */

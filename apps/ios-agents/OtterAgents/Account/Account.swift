@@ -68,6 +68,7 @@ final class Account {
         chats.onWatch = { [weak self] in self?.tellWatching() }
         agents.onReady = { [weak self] _ in
             self?.chats.resumeRuns()
+            self?.chats.startQueued()
             // An agent is reachable: now there's something to be told about.
             Task { await self?.requestNotifications() }
         }

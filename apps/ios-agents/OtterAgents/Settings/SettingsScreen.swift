@@ -35,6 +35,20 @@ struct SettingsScreen: View {
                         SettingsRow(title: agent.name, value: agent.statusText) { AgentAvatar(agent: agent.id, size: 22) }
                     }
                     .buttonStyle(.plain)
+                    if agent.kind == .openclaw {
+                        ForEach(agent.models) { resolved in
+                            SettingsDivider()
+                            SettingsCell {
+                                AgentAvatar(agent: agent.id, gatewayAgent: resolved.slug, size: 22)
+                                Toggle(resolved.name, isOn: Binding(
+                                    get: { agent.isGatewayAgentEnabled(resolved.slug) },
+                                    set: { agents.setGatewayAgentEnabled(agent, resolved.slug, $0) }))
+                                    .font(.ui(15)).foregroundStyle(palette.text)
+                            }
+                            .padding(.leading, 35)
+                            .disabled(!agent.enabled)
+                        }
+                    }
                     SettingsDivider()
                 }
                 Menu {

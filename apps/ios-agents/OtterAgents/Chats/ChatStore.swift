@@ -229,6 +229,37 @@ final class ChatStore {
         saveDrafts()
     }
 
+    func canReconnect(_ chat: Chat) -> Bool {
+        !chat.isElsewhere && chat.openClawAgent != nil && agents.agent(chat.provider) == nil && runs[chat.id] == nil
+    }
+
+    func reconnect(_ chatId: String, to agent: Agent) async throws {
+        await sync?.load(chatId)
+        guard let chat = chat(chatId), chat.loaded, canReconnect(chat),
+              agent.kind == .openclaw, agent.isUsable, let session = chat.sessionId, let gatewayAgent = chat.openClawAgent else {
+            throw OpenClaw.Failure(message: "Choose a connected OpenClaw gateway for this chat.")
+        }
+        guard agent.isGatewayAgentEnabled(gatewayAgent) else {
+            throw OpenClaw.Failure(message: "This chat's agent is turned off. Enable it in Settings › Agents first.")
+        }
+        if !agents.demo {
+            let messages = try await runner.messages(of: agent, session: session)
+            guard !messages.isEmpty else {
+                throw OpenClaw.Failure(message: "This chat's session wasn't found on that gateway. Choose the gateway it ran on.")
+            }
+        }
+        guard self.chat(chatId)?.provider == chat.provider, canReconnect(chat), agents.agent(agent.id) === agent, agent.isUsable else {
+            throw OpenClaw.Failure(message: "The chat or agent changed while reconnecting. Try again.")
+        }
+        update(chatId) {
+            $0.provider = agent.id
+            $0.updatedAt = .now
+        }
+        onWatch()
+        resumeRuns()
+        await catchUp(chatId)
+    }
+
     func discardDraft(_ id: String) {
         drafts[id] = nil
         citations[id] = nil
@@ -433,7 +464,7 @@ final class ChatStore {
      * as Settings says; `opposite` does the other, for this message.
      */
     func send(_ text: String, in chatId: String, skill: Skill? = nil, attachments: [Attachment] = [], opposite: Bool = false) {
-        guard let chat = chat(chatId) else { return }
+        guard let chat = chat(chatId), agents.isUsable(chat) else { return }
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let cited = citations[chatId] ?? []
         let about = mail[chatId] ?? []
@@ -497,7 +528,7 @@ final class ChatStore {
     }
 
     private func startTurn(_ message: Outgoing, intent: String? = nil) {
-        guard let chat = chat(message.chatId) else { return }
+        guard let chat = chat(message.chatId), agents.isUsable(chat) else { return }
         let requestId = UUID().uuidString.lowercased()
         let first = chat.turns.isEmpty
         let provider = first ? message.provider : chat.provider
@@ -541,7 +572,7 @@ final class ChatStore {
 
     /** Sends a failed message again, in place of the failed exchange. */
     func retry(_ turnId: String) {
-        guard let message = retries[turnId], runs[message.chatId] == nil else { return }
+        guard let message = retries[turnId], runs[message.chatId] == nil, chat(message.chatId).map(agents.isUsable) == true else { return }
         let key = String(turnId.dropFirst(2))
         update(message.chatId) { $0.turns.removeAll { $0.id == turnId || $0.id == "u-\(key)" } }
         startTurn(message)
@@ -558,8 +589,8 @@ final class ChatStore {
      * A chat's queued message starts once no turn is running in it (after completion, an error,
      * or Stop), never at a tool boundary; that's what Steer is for. Each chat drains its own queue.
      */
-    private func startQueued() {
-        while let next = queue.first(where: { runs[$0.chatId] == nil && $0.id != editingQueued?.id }) {
+    func startQueued() {
+        while let next = queue.first(where: { runs[$0.chatId] == nil && $0.id != editingQueued?.id && chat($0.chatId).map(agents.isUsable) == true }) {
             queue.removeAll { $0.id == next.id }
             startTurn(next)
         }
@@ -567,7 +598,7 @@ final class ChatStore {
 
     func sendNow(_ id: String) {
         guard let message = queue.first(where: { $0.id == id }), runs[message.chatId] != nil, !isCompacting(message.chatId),
-              !holdsForCall(message.chatId) else { return }
+              !holdsForCall(message.chatId), chat(message.chatId).map(agents.isUsable) == true else { return }
         if editingQueued?.id == id { cancelQueuedEdit() }
         queue.removeAll { $0.id == id }
         steer(message, intent: "promoted")

@@ -21,6 +21,7 @@ struct AgentSettings: View {
     @State private var choosingPicture = false
     @State private var picture: PhotosPickerItem?
     @State private var removing = false
+    @State private var scanning = false
 
     private var agents: Agents { account.agents }
 
@@ -84,6 +85,12 @@ struct AgentSettings: View {
         .onDisappear { agents.rename(agent, to: name) }
         .task(id: agent.enabled) { await agents.check(agent) }
         .photosPicker(isPresented: $choosingPicture, selection: $picture, matching: .images)
+        .fullScreenCover(isPresented: $scanning) {
+            OpenClawScanner { scanned in
+                scanning = false
+                run { try await agents.connectOpenClaw(agent, code: scanned) }
+            }
+        }
         .onChange(of: picture) { _, item in
             guard let item else { return }
             picture = nil
@@ -131,7 +138,7 @@ struct AgentSettings: View {
 
     @ViewBuilder
     private func modelPicker(_ agent: Agent, _ title: String, default label: String, labelled: @escaping (Hermes.Model) -> String = { $0.name }) -> some View {
-        let models = agent.models.filter { !$0.slug.isEmpty }
+        let models = agent.enabledModels.filter { !$0.slug.isEmpty }
         if !models.isEmpty {
             SettingsCell {
                 Text(title).font(.ui(16)).foregroundStyle(palette.text)
@@ -199,7 +206,7 @@ struct AgentSettings: View {
 
     @ViewBuilder
     private func openClaw(_ agent: Agent) -> some View {
-        let footer = "\(agent.name)'s gateway, usually over Tailscale. Make a setup code on it with openclaw qr --setup-code-only and paste it here, then approve this iPhone there. Chats live on the gateway, so they're the same everywhere; this iPhone's key and tokens stay on it."
+        let footer = "\(agent.name)'s gateway, usually over Tailscale. Scan the QR code in its Pair a device screen or from openclaw qr, or paste a setup code from openclaw qr --setup-code-only. Then approve this iPhone on the gateway. Chats live there, so they're the same everywhere; this iPhone's key and tokens stay on it."
         let address = agent.string("url")
         if agent.status == .ready {
             SettingsSection(footer: footer) {
@@ -226,6 +233,12 @@ struct AgentSettings: View {
             }
         } else {
             SettingsSection(footer: footer) {
+                Button { scanning = true } label: {
+                    SettingsRow("Scan QR code", symbol: "qrcode.viewfinder", chevron: false)
+                }
+                .buttonStyle(.plain)
+                .disabled(connecting)
+                SettingsDivider()
                 SettingsField(placeholder: "Setup code", text: $code, secret: true)
                 SettingsDivider()
                 SettingsButton(title: connecting ? "Connecting…" : "Connect") { run { try await agents.connectOpenClaw(agent, code: code) } }

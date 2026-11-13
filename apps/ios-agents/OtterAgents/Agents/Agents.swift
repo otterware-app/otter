@@ -82,11 +82,17 @@ final class Agents {
 
     func isUsable(_ id: String) -> Bool { agent(id)?.isUsable ?? false }
 
+    func isUsable(_ chat: Chat) -> Bool {
+        guard let agent = agent(chat.provider), agent.isUsable else { return false }
+        guard agent.kind == .openclaw else { return true }
+        return chat.openClawAgent.map(agent.isGatewayAgentEnabled) ?? agent.canStartChat
+    }
+
     /** Where a new chat starts: the chosen agent while it works here, else the first that does. */
     var starting: Agent? {
         let chosen = agent(selected).flatMap { $0.kind == nil ? nil : $0 }
-        if let chosen, chosen.isUsable { return chosen }
-        return usable.first ?? chosen ?? runnable.first
+        if let chosen, chosen.isUsable, chosen.canStartChat { return chosen }
+        return usable.first(where: \.canStartChat) ?? chosen ?? runnable.first
     }
 
     /** A new agent of this kind, named for it ("Hermes 2" when that's taken): its page connects it. */
@@ -140,6 +146,13 @@ final class Agents {
         set(agent, "enabled", .bool(enabled))
         if !enabled { agent.close() }
         Task { await check(agent) }
+    }
+
+    func setGatewayAgentEnabled(_ agent: Agent, _ id: String, _ enabled: Bool) {
+        var disabled = Set(agent.entry.settings["disabledAgents"]?.array?.compactMap(\.string) ?? [])
+        if enabled { disabled.remove(id) } else { disabled.insert(id) }
+        set(agent, "disabledAgents", .array(disabled.sorted().map(JSON.string)))
+        if enabled, agent.isUsable { onReady(agent) }
     }
 
     private func saved(push: Bool = true) {
