@@ -38,7 +38,7 @@ struct TalkScreen: View {
 
     private var title: String {
         guard let chat = store.chat(chatId) else { return "" }
-        return chat.isBlank || chat.turns.isEmpty ? store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat)) : chat.title
+        return chat.isBlank || chat.turns.isEmpty ? store.agents.name(of: chat) : chat.title
     }
 
     private var header: some View {

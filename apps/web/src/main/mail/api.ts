@@ -67,9 +67,10 @@ export type MailtoTarget = { to: string; cc: string; subject: string; body: stri
 export type MailApp = { id: string; name: string; path: string };
 export type MailAppsResult = { apps: MailApp[]; defaultId: string | null };
 
+/** A kind of agent, its extension's id: hermes, openclaw, claude… */
 export type ProviderKind = string;
-
-export const DEFAULT_AGENT = "hermes";
+/** One agent you added: what chats, tasks and every agent call name (as `provider`). */
+export type AgentId = string;
 export type ProviderState = "ready" | "warning" | "error" | "disabled";
 export type ProviderOptionChoice = {
   id: string;
@@ -93,8 +94,12 @@ export type ProviderModel = {
   emoji?: string;
 };
 export type ProviderSnapshot = {
+  id: AgentId;
   kind: ProviderKind;
-  displayName: string;
+  /** The name you gave it. */
+  name: string;
+  /** The picture you gave it (a data URL). */
+  avatar: string | null;
   enabled: boolean;
   installed: boolean;
   version: string | null;
@@ -115,6 +120,8 @@ export type ProviderSnapshot = {
   liveBrowser: boolean;
   /** Whether you can talk with it in a chat now. */
   talk?: boolean;
+  /** Its sessions list only Otter's own unless asked for every one. */
+  otherSessions: boolean;
   /** The agent's settings, plus what it adds for its settings form (never its secrets). */
   settings: AgentSettingsView;
 };
@@ -139,10 +146,14 @@ export type ApprovalRequest = {
 };
 export type ProvidersState = {
   providers: ProviderSnapshot[];
-  selected: ProviderKind;
+  /** The agent new chats start with; null when none is added. */
+  selected: AgentId | null;
+  /** The kinds this device can add. */
+  kinds: { kind: ProviderKind; name: string }[];
 };
-export type AgentSettingsPatch = { selected?: ProviderKind } & {
-  [kind: string]: Record<string, string | boolean> | string | undefined;
+/** `{ selected?, [agent id]: its settings, name, avatar }`. */
+export type AgentSettingsPatch = { selected?: AgentId } & {
+  [id: string]: Record<string, string | boolean> | string | undefined;
 };
 
 export type ToolStep = {
@@ -586,12 +597,18 @@ export const mailApi = {
 
   agentProviders: (): Promise<ProvidersState> => ipc("agent:providers"),
 
-  /** Checks the agents again (one, given its kind): their status and the models they offer. */
-  refreshAgentProviders: (kind?: ProviderKind): Promise<{ ok: boolean }> =>
-    ipc("agent:refreshProviders", kind ? { provider: kind } : undefined),
+  /** Checks the agents again (one, given its id): their status and the models they offer. */
+  refreshAgentProviders: (id?: AgentId): Promise<{ ok: boolean }> =>
+    ipc("agent:refreshProviders", id ? { provider: id } : undefined),
 
   updateAgentSettings: (patch: AgentSettingsPatch): Promise<ProvidersState> =>
     ipc("agent:updateSettings", patch),
+
+  /** Adds an agent of this kind, to set up on its page. */
+  addAgent: (kind: ProviderKind): Promise<{ id: AgentId; state: ProvidersState }> =>
+    ipc("agent:add", { kind }),
+
+  removeAgent: (id: AgentId): Promise<ProvidersState> => ipc("agent:remove", { provider: id }),
 
   /**
    * Starts a turn and returns at once; it streams as `agent:chatEvent`.
@@ -666,8 +683,9 @@ export const mailApi = {
 
   agentSkills: (provider: ProviderKind): Promise<Skill[]> => ipc("agent:skills", { provider }),
 
-  agentSessions: (provider: ProviderKind, limit = 40): Promise<ChatSession[]> =>
-    ipc("agent:sessions", { provider, limit }),
+  /** Otter's own sessions, or with `everywhere` every one the agent has (`otherSessions`). */
+  agentSessions: (provider: AgentId, limit = 40, everywhere = false): Promise<ChatSession[]> =>
+    ipc("agent:sessions", { provider, limit, everywhere }),
 
   agentSessionMessages: (
     provider: ProviderKind,

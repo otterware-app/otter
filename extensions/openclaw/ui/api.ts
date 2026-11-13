@@ -3,12 +3,15 @@ import type { ProvidersState } from "@otter/web/extension-kit";
 
 export const openClawApi = {
   connectOpenClaw: (
+    agent: string,
     params: { code: string } | { url: string; token: string },
-  ): Promise<ProvidersState> => ipc("agent:connectOpenClaw", params),
+  ): Promise<ProvidersState> => ipc("agent:connectOpenClaw", { ...params, agent }),
 
-  agentAllowOpenClawFullAccess: (): Promise<ProvidersState> => ipc("agent:allowOpenClawFullAccess"),
+  agentAllowOpenClawFullAccess: (agent: string): Promise<ProvidersState> =>
+    ipc("agent:allowOpenClawFullAccess", { agent }),
 
-  agentAllowOpenClawOwner: (): Promise<ProvidersState> => ipc("agent:allowOpenClawOwner"),
+  agentAllowOpenClawOwner: (agent: string): Promise<ProvidersState> =>
+    ipc("agent:allowOpenClawOwner", { agent }),
 };
 
 export type AgentChannel = {

@@ -95,7 +95,7 @@ struct ApprovalCard: View {
     let approval: Approval
     let count: (Int, Int)
 
-    private var agent: String { AgentKind.name(of: chat.provider) }
+    private var agent: String { store.agents.name(of: chat) }
 
     private var title: String {
         switch approval.kind {
@@ -152,7 +152,7 @@ struct QuestionCard: View {
     @State private var chosen: [String: [String]] = [:]
     @State private var own: [String: String] = [:]
 
-    private var agent: String { AgentKind.name(of: chat.provider) }
+    private var agent: String { store.agents.name(of: chat) }
     private var secret: Bool { question.items.contains(where: \.secret) }
     /** One question with one answer is answered by the tap. */
     private var quick: Bool { question.items.count == 1 && !question.items[0].multiSelect && !secret }
@@ -330,7 +330,7 @@ struct QueueSheet: View {
     var body: some View {
         let queued = store.queued(in: chat.id)
         let canSendNow = store.runs[chat.id] != nil && !store.isCompacting(chat.id) && !store.holdsForCall(chat.id)
-            && AgentKind(rawValue: chat.provider) != nil
+            && store.agents.agent(chat.provider)?.kind != nil
         NavigationStack {
             List {
                 ForEach(queued) { message in

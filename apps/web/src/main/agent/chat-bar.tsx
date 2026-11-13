@@ -67,10 +67,11 @@ export function ChatBar({
 
   const chat = useChatProvider(undefined);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [everywhere, setEverywhere] = useState(false);
   const sessionsAvailable = Boolean(chat.provider?.sessions && chat.usable);
   const serverSessions = useQuery<ChatSession[]>({
-    queryKey: ["agent-sessions", chat.kind],
-    queryFn: () => mailApi.agentSessions(chat.kind, 40),
+    queryKey: ["agent-sessions", chat.id, everywhere],
+    queryFn: () => mailApi.agentSessions(chat.id ?? "", 40, everywhere),
     enabled: historyOpen && sessionsAvailable,
     staleTime: 15_000,
   });
@@ -166,7 +167,7 @@ export function ChatBar({
             setHistoryOpen(false);
             onSelect(id);
           }}
-          onDelete={(id) => deleteConversation(id, chat.selectedKind)}
+          onDelete={(id) => deleteConversation(id, chat.selectedId ?? "")}
           onClose={() => setHistoryOpen(false)}
           serverSessions={
             sessionsAvailable && serverSessions.data
@@ -178,11 +179,12 @@ export function ChatBar({
           serverLoading={sessionsAvailable && serverSessions.isPending}
           onPickServer={(session) => {
             setHistoryOpen(false);
-            openServerSession(session, chat.kind, chat.name);
+            openServerSession(session, chat.id ?? "", chat.name);
             onSelect(useChats.getState().activeId);
           }}
-          providerName={chat.name}
-          providerKind={chat.kind}
+          provider={chat.provider}
+          everywhere={everywhere}
+          onEverywhere={setEverywhere}
         />
       ) : null}
     </div>
@@ -217,7 +219,7 @@ function ChatBarTab({
           <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin" />
         ) : (
           <AgentAvatar
-            kind={convo.provider}
+            id={convo.provider}
             agent={openClawAgentId(convo.sessionId)}
             className="size-3.5"
           />

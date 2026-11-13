@@ -12,9 +12,8 @@ import { buildTranslator, findTranslatorBinary, repoRoot } from "./build-transla
 import { desktopDataHome, desktopStateDir, prepareData, type DevApp } from "./dev-data.ts";
 import { parseAgents, stopAgents } from "./agents-server.ts";
 import { imapServerCa } from "./imap-server.ts";
-import { BASE_WEB_PORT, resolvePortOffset } from "./port-offset.ts";
+import { BASE_RELAY_PORT, BASE_WEB_PORT, resolvePortOffset } from "./port-offset.ts";
 
-const BASE_RELAY_PORT = 8787;
 const SHUTDOWN_GRACE_MS = 3_000;
 
 /** Each command is an app and what it opens on (scripts/dev-data.ts). */

@@ -36,6 +36,7 @@ import {
 } from "../mail/advance-direction";
 import {
   PROVIDER_STATUS_DOT,
+  AgentFace,
   ProviderIcon,
   isProviderUsable,
   providerSummary,
@@ -716,21 +717,32 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
   const setState = useSetProvidersState();
   const state = query.data;
   const [connecting, setConnecting] = useState<string | null>(null);
-  const pick = (kind: NonNullable<typeof state>["selected"]) => {
-    console.log("[Setup:selectAgent]", { kind });
+  const pick = (id: string) => {
+    console.log("[Setup:selectAgent]", { id });
     mailApi
-      .updateAgentSettings({ selected: kind })
+      .updateAgentSettings({ selected: id })
       .then(setState, (error: unknown) => toast.error(`Could not save: ${String(error)}`));
   };
-  // First run: the default (Hermes) can't answer yet but another can, so
+  const add = (kind: string) => {
+    console.log("[Setup:addAgent]", { kind });
+    mailApi.addAgent(kind).then(
+      ({ id, state: next }) => {
+        setState(next);
+        if (agentContribution(kind)?.Connect) setConnecting(id);
+        else pick(id);
+      },
+      (error: unknown) => toast.error(`Could not add it: ${String(error)}`),
+    );
+  };
+  // First run: the agent new chats start with can't answer yet but another can, so
   // that one, once every check is in. Run again, a choice stays as it was.
   const pickForEffect = useLatest(pick);
   useEffect(() => {
     if (!firstRun) return;
     if (!state || state.providers.some((p) => p.checkedAt === null)) return;
-    const current = state.providers.find((p) => p.kind === state.selected);
+    const current = state.providers.find((p) => p.id === state.selected);
     const ready = state.providers.find(isProviderUsable);
-    if (ready && !(current && isProviderUsable(current))) pickForEffect.current(ready.kind);
+    if (ready && !(current && isProviderUsable(current))) pickForEffect.current(ready.id);
   }, [state, firstRun, pickForEffect]);
 
   return (
@@ -779,11 +791,11 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
                 const usable = isProviderUsable(p);
                 const Connect = usable ? undefined : agentContribution(p.kind)?.Connect;
                 const connectable = Boolean(Connect);
-                const selected = usable && state.selected === p.kind;
-                const open = connectable && connecting === p.kind;
+                const selected = usable && state.selected === p.id;
+                const open = connectable && connecting === p.id;
                 return (
                   <div
-                    key={p.kind}
+                    key={p.id}
                     className={cn(
                       "rounded-xl border bg-card",
                       selected
@@ -798,16 +810,14 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
                       aria-pressed={usable ? selected : undefined}
                       aria-expanded={connectable ? open : undefined}
                       disabled={!usable && !connectable}
-                      onClick={() =>
-                        connectable ? setConnecting(open ? null : p.kind) : pick(p.kind)
-                      }
+                      onClick={() => (connectable ? setConnecting(open ? null : p.id) : pick(p.id))}
                       className="flex w-full cursor-pointer items-start gap-3 rounded-xl px-3.5 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-default"
                     >
                       <span className="flex h-5 shrink-0 items-center">
-                        <ProviderIcon kind={p.kind} className="size-4" />
+                        <AgentFace provider={p} className="size-4" />
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="text-sm text-foreground">{p.displayName}</span>
+                        <span className="text-sm text-foreground">{p.name}</span>
                         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <span
                             aria-hidden
@@ -833,13 +843,26 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
                         provider={p}
                         onConnected={() => {
                           setConnecting(null);
-                          pick(p.kind);
+                          pick(p.id);
                         }}
                       />
                     ) : null}
                   </div>
                 );
               })}
+              {state.kinds.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5 px-1 pt-1">
+                  <span className="text-[13px] text-muted-foreground">
+                    {state.providers.length > 0 ? "Add another:" : "Add one:"}
+                  </span>
+                  {state.kinds.map((k) => (
+                    <Btn key={k.kind} size="sm" onClick={() => add(k.kind)}>
+                      <ProviderIcon kind={k.kind} className="size-3.5" />
+                      {k.name}
+                    </Btn>
+                  ))}
+                </div>
+              ) : null}
             </div>
           )}
           <p className="mt-4 flex items-center gap-2 px-1 text-[13px] text-muted-foreground">
@@ -847,7 +870,7 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
             opens it from anywhere.
           </p>
           <p className="mt-1.5 px-1 text-[13px] text-muted-foreground">
-            Set agents up in Settings → Agents.
+            Add as many as you work with, and set them up, in Settings → Agents.
           </p>
         </div>
       </div>

@@ -1,11 +1,11 @@
 import type { CoreExtension } from "@otter/core/extension-kit";
 
 import { manifest } from "../manifest.ts";
-import { claudeProvider } from "./claude.js";
+import { claudeAgent } from "./claude.js";
 
 export default {
   manifest,
   activate({ registerAgent }) {
-    registerAgent(claudeProvider);
+    registerAgent(claudeAgent);
   },
 } satisfies CoreExtension;

@@ -7,13 +7,13 @@ import { readJson, writeJson } from "../json-file.js";
 import { logger } from "../logger.js";
 import { platform } from "../platform.js";
 import {
-  applySyncedHermesKey,
-  forgetHermesKey,
+  applySyncedAgentKeys,
   applySyncedProviderSettings,
+  forgetAgentKeys,
+  syncedAgentKeys,
   syncedProviderSettings,
   type SyncedProviderSettings,
 } from "./agent/service.js";
-import { getHermesKey } from "./agent/settings.js";
 import { readKeybindings, writeKeybindings } from "./keybindings-store.js";
 import { configureAutoSync, followMailboxArrangement } from "./mail-sync.js";
 import { getOtterUser, relayRequest } from "./otter-account.js";
@@ -117,7 +117,12 @@ const SECTIONS = {
   },
   assistant: {
     read: () => syncedProviderSettings(),
-    apply: (value) => applySyncedProviderSettings(value as Partial<SyncedProviderSettings>),
+    async apply(value) {
+      await applySyncedProviderSettings(value as Partial<SyncedProviderSettings>);
+      // What this device has that the account hasn't (an agent added before it synced) goes to it.
+      if (JSON.stringify(await syncedProviderSettings()) !== JSON.stringify(value))
+        preferenceChanged("assistant");
+    },
   },
   ui: {
     read: () => getUiPreferences(),
@@ -204,7 +209,7 @@ const SECTIONS = {
 export type SectionName = keyof typeof SECTIONS;
 const SECTION_NAMES = Object.keys(SECTIONS) as SectionName[];
 
-const synced = new Map<SectionName | "hermesKey", string>();
+const synced = new Map<SectionName | "agentKeys", string>();
 
 function syncedSignatures(): Record<string, string> {
   try {
@@ -244,25 +249,30 @@ export function syncedAliasMailboxes(email: string): AliasMailbox[] | undefined 
   return aliases.length > 0 ? aliases : undefined;
 }
 
-// The Hermes key is full control of someone's agent, and a device can be shared: this remembers
-// which Otter account a key synced with, so it never reaches another account, and it leaves the
-// device with its account. A key set while signed out has no owner until an account adopts it.
-const HERMES_KEY_OWNER = "assistant-hermes-key-owner";
-const hermesKeyOwner = () =>
+// An agent's key (Hermes's) is full control of it, and a device can be shared: this remembers
+// which Otter account the keys synced with, so they never reach another account, and they leave
+// the device with its account. Keys set while signed out have no owner until an account adopts them.
+const AGENT_KEYS_OWNER = "agent-keys-owner";
+const agentKeysOwner = () =>
   platform()
-    .secrets.get(HERMES_KEY_OWNER)
+    .secrets.get(AGENT_KEYS_OWNER)
     .catch(() => null);
-const setHermesKeyOwner = (userId: string) => platform().secrets.set(HERMES_KEY_OWNER, userId);
+const setAgentKeysOwner = (userId: string) => platform().secrets.set(AGENT_KEYS_OWNER, userId);
 
 export async function pullPreferences(): Promise<void> {
   if (!getOtterUser()) return;
+  const settled = new Map(confirmed);
   const remote = await relayRequest<PreferencesResponse>("GET", "/v1/preferences");
+  // A change here the relay hadn't taken when this pull began is newer than its copy: the push sends it.
+  const changedMeanwhile = (name: SectionName | "agentKeys") =>
+    (editedAt.get(name) ?? 0) > (settled.get(name) ?? 0);
   for (const name of SECTION_NAMES) {
     const value = remote.preferences[name];
     if (value === undefined) {
       preferenceChanged(name);
       continue;
     }
+    if (changedMeanwhile(name)) continue;
     const json = JSON.stringify(value);
     synced.set(name, json);
     if (JSON.stringify(await SECTIONS[name].read()) === json) continue;
@@ -274,20 +284,24 @@ export async function pullPreferences(): Promise<void> {
   }
   const userId = getOtterUser()?.id;
   if (!userId) return;
-  if (remote.hermesKey) {
-    synced.set("hermesKey", JSON.stringify(remote.hermesKey));
-    await applySyncedHermesKey(remote.hermesKey);
-    await setHermesKeyOwner(userId);
-  } else if (((await hermesKeyOwner()) ?? userId) === userId) {
-    preferenceChanged("hermesKey");
+  if (remote.agentKeys && Object.keys(remote.agentKeys).length && !changedMeanwhile("agentKeys")) {
+    synced.set("agentKeys", JSON.stringify(remote.agentKeys));
+    await applySyncedAgentKeys(remote.agentKeys);
+    await setAgentKeysOwner(userId);
   }
+  if (((await agentKeysOwner()) ?? userId) === userId) preferenceChanged("agentKeys");
 }
 
-const pending = new Set<SectionName | "hermesKey">();
+const pending = new Set<SectionName | "agentKeys">();
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
+/** Changes made here, counted: each section's last, and the last the relay has. */
+let edits = 0;
+const editedAt = new Map<SectionName | "agentKeys", number>();
+const confirmed = new Map<SectionName | "agentKeys", number>();
 
-export function preferenceChanged(name: SectionName | "hermesKey"): void {
+export function preferenceChanged(name: SectionName | "agentKeys"): void {
   if (!getOtterUser()) return;
+  editedAt.set(name, ++edits);
   pending.add(name);
   pushTimer ??= setTimeout(() => void push(), 500);
 }
@@ -300,23 +314,31 @@ async function push(): Promise<void> {
   if (!userId) return;
   const names = [...pending];
   pending.clear();
-  const sending = new Map<SectionName | "hermesKey", string>();
+  const sending = new Map<SectionName | "agentKeys", string>();
   const preferences: Record<string, unknown> = {};
-  let hermesKey: string | undefined;
+  let agentKeys: Record<string, string> | undefined;
+  const sentEdits = new Map<SectionName | "agentKeys", number>();
   for (const name of names) {
-    const value = name === "hermesKey" ? await getHermesKey() : await SECTIONS[name].read();
-    if (value === undefined || value === "") continue;
+    const edit = editedAt.get(name) ?? 0;
+    const value = name === "agentKeys" ? await syncedAgentKeys() : await SECTIONS[name].read();
     const json = JSON.stringify(value);
-    if (synced.get(name) === json) continue;
+    if (value === undefined || synced.get(name) === json) {
+      confirmed.set(name, edit);
+      continue;
+    }
     sending.set(name, json);
-    if (name === "hermesKey") hermesKey = value as string;
+    sentEdits.set(name, edit);
+    if (name === "agentKeys") agentKeys = value as Record<string, string>;
     else preferences[name] = value;
   }
   if (sending.size === 0) return;
   try {
-    await relayRequest("PUT", "/v1/preferences", { preferences, hermesKey });
-    for (const [name, json] of sending) synced.set(name, json);
-    if (hermesKey !== undefined) await setHermesKeyOwner(userId);
+    await relayRequest("PUT", "/v1/preferences", { preferences, agentKeys });
+    for (const [name, json] of sending) {
+      synced.set(name, json);
+      confirmed.set(name, sentEdits.get(name) ?? 0);
+    }
+    if (agentKeys !== undefined) await setAgentKeysOwner(userId);
   } catch (err) {
     logger.failure("preferences", "Couldn't save preferences, retrying", err);
     for (const name of sending.keys()) pending.add(name);
@@ -327,10 +349,12 @@ async function push(): Promise<void> {
 export async function forgetSyncedPreferences(): Promise<void> {
   synced.clear();
   pending.clear();
+  editedAt.clear();
+  confirmed.clear();
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = null;
-  if (await hermesKeyOwner()) {
-    await forgetHermesKey();
-    await platform().secrets.delete(HERMES_KEY_OWNER);
+  if (await agentKeysOwner()) {
+    await forgetAgentKeys();
+    await platform().secrets.delete(AGENT_KEYS_OWNER);
   }
 }

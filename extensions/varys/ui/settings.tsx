@@ -32,7 +32,7 @@ export function VarysSettings({ provider }: AgentSettingsProps) {
   const disconnect = async () => {
     setSaving(true);
     try {
-      const { state, notice } = await varysApi.disconnectVarys();
+      const { state, notice } = await varysApi.disconnectVarys(provider.id);
       setState(state);
       if (notice) toast.warning(notice);
     } catch (error) {
@@ -56,6 +56,7 @@ export function VarysSettings({ provider }: AgentSettingsProps) {
     try {
       setState(
         await varysApi.connectVarys(
+          provider.id,
           useCode ? { address: address.trim(), code: code.trim() } : { link: link.trim() },
         ),
       );
@@ -171,7 +172,7 @@ export function VarysSettings({ provider }: AgentSettingsProps) {
           />
         ) : null}
       </SettingsSection>
-      {connected ? <VarysDeliveries relay={relay} /> : null}
+      {connected ? <VarysDeliveries agent={provider.id} relay={relay} /> : null}
     </>
   );
 }

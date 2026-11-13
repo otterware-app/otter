@@ -44,7 +44,7 @@ struct ScheduledScreen: View {
                 ForEach(store.agents.filter { $0.error != nil }, id: \.provider) { agent in
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "exclamationmark.triangle").foregroundStyle(palette.warning)
-                        Text("\(AgentKind.name(of: agent.provider)): \(agent.error ?? "")").font(.ui(14)).foregroundStyle(palette.text)
+                        Text("\(store.name(ofAgent: agent.provider)): \(agent.error ?? "")").font(.ui(14)).foregroundStyle(palette.text)
                         Spacer(minLength: 0)
                         Button("Retry") { Task { await store.refresh() } }.font(.ui(14, .semibold)).foregroundStyle(palette.text)
                     }
@@ -64,7 +64,7 @@ struct ScheduledScreen: View {
                                 withAnimation(.easeOut(duration: 0.18)) { if shown { showKept.remove(agent.provider) } else { showKept.insert(agent.provider) } }
                             } label: {
                                 HStack(spacing: 9) {
-                                    Text("Kept by \(AgentKind.name(of: agent.provider))\(shown ? "" : " (\(kept.count))")").font(.ui(13, .medium)).foregroundStyle(palette.tertiary)
+                                    Text("Kept by \(store.name(ofAgent: agent.provider))\(shown ? "" : " (\(kept.count))")").font(.ui(13, .medium)).foregroundStyle(palette.tertiary)
                                     Rectangle().fill(palette.hairline).frame(height: 1)
                                     Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(palette.tertiary)
                                         .rotationEffect(.degrees(shown ? 180 : 0))
@@ -95,7 +95,7 @@ struct ScheduledScreen: View {
     }
 
     private var filters: some View {
-        let agents = Dictionary(grouping: store.tasks) { $0.provider == "openclaw" ? "openclaw:\($0.agent ?? "")" : $0.provider }
+        let agents = Dictionary(grouping: store.tasks) { task in task.agent.map { "\(task.provider):\($0)" } ?? task.provider }
         return ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 Menu {
@@ -107,7 +107,7 @@ struct ScheduledScreen: View {
                     }
                 } label: {
                     let chosen = agents[agentFilter]?.first
-                    Chip(text: chosen.map(store.name) ?? "All agents", selected: chosen != nil, avatar: chosen?.provider, agent: chosen?.agent)
+                    Chip(text: chosen.map(store.name) ?? "All agents", selected: chosen != nil, agent: chosen?.provider, gatewayAgent: chosen?.agent)
                 }
                 Menu {
                     Picker("Status", selection: $status) {
@@ -146,7 +146,7 @@ struct ScheduledScreen: View {
         Button { open(task.id) } label: {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    AgentAvatar(provider: task.provider, agent: task.agent, size: 18)
+                    AgentAvatar(agent: task.provider, gatewayAgent: task.agent, size: 18)
                     Text(task.name).font(.ui(16, .medium)).foregroundStyle(task.enabled ? palette.text : palette.muted).lineLimit(1)
                     Spacer(minLength: 4)
                     if task.lastRun?.status == .error || task.autoPaused != nil || task.deliveryProblem != nil {
@@ -185,7 +185,7 @@ struct ScheduledScreen: View {
                     ProgressView()
                 } else if store.agents.isEmpty {
                     Text("No agent here runs tasks on a schedule").font(.ui(21, .semibold)).foregroundStyle(palette.text).multilineTextAlignment(.center)
-                    Text("Connect OpenClaw, Hermes or varys, and what they run on their own shows up here.")
+                    Text("Add OpenClaw, Hermes or varys in Settings › Agents, and what they run on their own shows up here.")
                         .font(.ui(16)).foregroundStyle(palette.muted).multilineTextAlignment(.center)
                     Button("Open Settings", action: openSettings)
                         .font(.ui(15, .semibold)).foregroundStyle(palette.actionText)

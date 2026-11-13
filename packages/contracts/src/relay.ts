@@ -155,14 +155,17 @@ export interface PutAccountRequest {
 
 export type Preferences = Record<string, unknown>;
 
+/** Each agent's key that follows the account (a Hermes server's API key), by the agent's id. */
+export type AgentKeys = Record<string, string>;
+
 export interface PreferencesResponse {
   preferences: Preferences;
-  hermesKey: string | null;
+  agentKeys: AgentKeys | null;
 }
 
 export interface PutPreferencesRequest {
   preferences?: Preferences;
-  hermesKey?: string | null;
+  agentKeys?: AgentKeys | null;
 }
 
 /**

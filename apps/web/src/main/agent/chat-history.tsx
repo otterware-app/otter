@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CheckIcon, HistoryIcon, SearchIcon, Trash2Icon } from "lucide-react";
 import { AgentAvatar, openClawAgentId } from "./agent-providers";
-import type { ChatSession, ProviderKind } from "../mail/api";
+import type { ChatSession, ProviderSnapshot } from "../mail/api";
 import { cn } from "../mail/ui";
 import { isBlank, type Conversation } from "./chat-store";
 
@@ -38,13 +38,17 @@ export function HistoryList({
   serverSessions,
   serverLoading,
   onPickServer,
-  providerName,
-  providerKind,
+  provider,
+  everywhere,
+  onEverywhere,
   className,
   backdropClassName,
 }: {
-  providerName: string;
-  providerKind: ProviderKind;
+  /** The agent whose sessions are listed beside the chats. */
+  provider: ProviderSnapshot | undefined;
+  /** Its sessions from elsewhere too (a shared agent's Slack DMs), on agents that leave them out. */
+  everywhere: boolean;
+  onEverywhere: (everywhere: boolean) => void;
   className?: string;
   backdropClassName?: string;
   conversations: Conversation[];
@@ -72,9 +76,14 @@ export function HistoryList({
   const matches = (text: string) => !q || text.toLowerCase().includes(q);
   const all = conversations.filter((c) => !isBlank(c));
   const items = all.filter((c) => matches(c.title));
-  const showServer = (serverSessions?.length ?? 0) > 0 || serverLoading;
+  const providerName = provider?.name ?? "the agent";
+  // Its other sessions can be asked for even when it lists none of Otter's.
+  const offersAll =
+    Boolean(provider?.otherSessions) && (serverSessions !== undefined || serverLoading);
+  const showServer = (serverSessions?.length ?? 0) > 0 || serverLoading || offersAll;
   const server = (serverSessions ?? []).filter((s) => matches(s.title || s.preview || s.id));
-  const nothingYet = all.length === 0 && (serverSessions?.length ?? 0) === 0 && !serverLoading;
+  const nothingYet =
+    all.length === 0 && (serverSessions?.length ?? 0) === 0 && !serverLoading && !offersAll;
   const labelled = showServer && all.length > 0;
 
   const row =
@@ -122,7 +131,7 @@ export function HistoryList({
                 <div key={c.id} className="group/row relative">
                   <button type="button" onClick={() => onPick(c.id)} className={row}>
                     <AgentAvatar
-                      kind={c.provider}
+                      id={c.provider}
                       agent={openClawAgentId(c.sessionId)}
                       className="size-3.5"
                     />
@@ -149,9 +158,24 @@ export function HistoryList({
               ))}
               {showServer ? (
                 <>
-                  {labelled ? (
-                    <div className="px-2 pb-1 pt-2.5 text-[13px] text-muted-foreground">
-                      On {providerName}
+                  {labelled || provider?.otherSessions ? (
+                    <div className="flex items-center gap-2 px-2 pb-1 pt-2.5 text-[13px] text-muted-foreground">
+                      <span className="min-w-0 flex-1 truncate">On {providerName}</span>
+                      {provider?.otherSessions ? (
+                        <button
+                          type="button"
+                          aria-pressed={everywhere}
+                          onClick={() => onEverywhere(!everywhere)}
+                          title={
+                            everywhere
+                              ? "Show only the sessions started from Otter"
+                              : "Show its sessions from Slack, Telegram and elsewhere too"
+                          }
+                          className="shrink-0 cursor-pointer rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
+                        >
+                          {everywhere ? "Only Otter's" : "Show all"}
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                   {server.map((sess) => (
@@ -163,8 +187,8 @@ export function HistoryList({
                       className={row}
                     >
                       <AgentAvatar
-                        kind={providerKind}
-                        agent={providerKind === "openclaw" ? sess.source : null}
+                        id={provider?.id}
+                        agent={provider?.kind === "openclaw" ? sess.source : null}
                         className="size-3.5"
                       />
                       <span className="min-w-0 flex-1 truncate">
@@ -178,6 +202,12 @@ export function HistoryList({
                   {serverLoading && server.length === 0 ? (
                     <div className="px-2 py-2 text-[13px] text-muted-foreground">
                       Loading {providerName} sessions…
+                    </div>
+                  ) : !q && server.length === 0 ? (
+                    <div className="px-2 py-2 text-[13px] text-muted-foreground">
+                      {everywhere
+                        ? `Nothing else on ${providerName}.`
+                        : "Its sessions from Otter are all among your chats."}
                     </div>
                   ) : null}
                 </>

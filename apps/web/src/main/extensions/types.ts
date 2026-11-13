@@ -136,6 +136,8 @@ export type AgentContribution = {
   connectedAs?: boolean;
   serverApprovals?: boolean;
   ownModelSettings?: boolean;
+  /** Its models are the agents it runs (an OpenClaw gateway's): the agent picker lists each. */
+  subAgents?: boolean;
   /** What the agent reads mail with, named in the line under the mail a message points to; Otter's tools when absent. */
   mailReader?: string;
 };

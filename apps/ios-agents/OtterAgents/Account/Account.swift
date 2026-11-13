@@ -76,6 +76,11 @@ final class Account {
         case .demo: startDemo()
         case .welcome: break
         }
+        #if DEBUG
+        if state == .welcome, let email = ProcessInfo.processInfo.environment["OTTER_DEV_EMAIL"] {
+            Task { try? await signIn { try await self.relay.devSignIn(email: email) } }
+        }
+        #endif
     }
 
     var user: Relay.User? {
@@ -85,9 +90,13 @@ final class Account {
     var isDemo: Bool { state == .demo }
 
     func signIn() async throws {
+        try await signIn { try await self.relay.signIn(idToken: try await self.google.idToken()) }
+    }
+
+    private func signIn(_ session: () async throws -> Relay.User) async throws {
         busy = "Signing in…"
         defer { busy = nil }
-        let user = try await relay.signIn(idToken: try await google.idToken())
+        let user = try await session()
         UserDefaults.standard.set(try? JSONEncoder().encode(user), forKey: Self.userKey)
         if isDemo { leaveDemo() }
         state = .signedIn(user)
@@ -124,18 +133,22 @@ final class Account {
 
     // MARK: What agents ask and send
 
-    /** The agent a pointer is from: OpenClaw's sessions say so, varys is known by its id, else Hermes. */
-    private func provider(of pointer: AgentPointer) -> String {
-        if pointer.sessionKey?.hasPrefix("agent:") == true { return "openclaw" }
-        return pointer.agentId == agents.varys.agentId && !agents.varys.agentId.isEmpty ? "varys" : "hermes"
+    /**
+     * The agents a pointer may be from: OpenClaw's sessions say so, varys is known by its id, else
+     * Hermes. Of several, the one with the session is (core tells each agent of the account).
+     */
+    private func candidates(for pointer: AgentPointer) -> [Agent] {
+        if pointer.sessionKey?.hasPrefix("agent:") == true { return agents.runnable.filter { $0.kind == .openclaw } }
+        let varys = agents.runnable.filter { $0.kind == .varys && $0.string("agentId") == pointer.agentId }
+        return varys.isEmpty ? agents.runnable.filter { $0.kind == .hermes } : varys
     }
 
     /** Reads what the pointer points at into its chat; the chat's id, when this iPhone can reach the agent. */
     @discardableResult
     func delivered(_ pointer: AgentPointer) async -> String? {
         guard state != .welcome, let session = pointer.sessionKey else { return nil }
-        if !agents.isUsable(provider(of: pointer)) { await agents.checkAll() }
-        return await chats.delivered(provider: provider(of: pointer), session: session)
+        if !candidates(for: pointer).contains(where: \.isUsable) { await agents.checkAll() }
+        return await chats.delivered(to: candidates(for: pointer), session: session)
     }
 
     /** A notification was tapped: its chat opens, read up to date. */
@@ -217,21 +230,21 @@ final class Account {
     }
 
     private func pullPreferences() async {
-        guard let userId = user?.id, let (sections, hermesKey) = try? await relay.preferences(), user?.id == userId else {
+        guard let userId = user?.id, let (sections, agentKeys) = try? await relay.preferences(), user?.id == userId else {
             return await agents.checkAll()
         }
         let ui = sections["ui"] as? [String: Any]
         remoteUI = ui ?? [:]
         preferences.apply(ui: ui ?? [:])
-        agents.apply(assistant: sections["assistant"] as? [String: Any], ui: ui ?? [:], hermesKey: hermesKey)
+        agents.apply(assistant: sections["assistant"].map(JSON.init(any:)), ui: ui ?? [:], agentKeys: agentKeys)
     }
 
     private func changed(_ section: String) {
         guard let userId = user?.id else { return }
         switch section {
-        case "hermesKey":
-            let key = agents.hermesKey
-            Task { try? await relay.putPreferences(["assistant": agents.syncedSection], hermesKey: .some(key)) }
+        case "agentKeys":
+            let keys = agents.agentKeys
+            Task { try? await relay.putPreferences(["assistant": agents.syncedSection], agentKeys: keys) }
         case "assistant":
             Task { try? await relay.putPreferences(["assistant": agents.syncedSection]) }
         default:

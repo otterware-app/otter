@@ -1,18 +1,16 @@
 import type { Routine } from "@generalpursuit/varys";
-import { errAsync, ok, okAsync } from "neverthrow";
+import { errAsync, okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import type { VarysConnection } from "./client.js";
 import type { VarysSettings } from "./settings.js";
 
-vi.mock("./token.js", () => ({
-  getVarysToken: async () => "varys-token",
-}));
 const saved = vi.hoisted(() => [] as unknown[]);
 vi.mock("../../../packages/core/src/services/preferences.js", () => ({
   preferenceChanged: () => {},
 }));
 vi.mock("../../../packages/core/src/services/agent/service.js", () => ({
-  saveAgentSettings: async (_kind: string, change: unknown) => void saved.push(change),
+  saveAgentSettings: async (agent: string, change: unknown) => void saved.push({ agent, change }),
 }));
 
 // As varys's routine list view has it.
@@ -54,11 +52,11 @@ const routines = vi.hoisted(() => ({
   edit: vi.fn(),
   delete: vi.fn(),
 }));
-vi.mock("@generalpursuit/varys", () => ({
-  connect: () => ok({ routines, models: { watchSettings: () => () => {} }, close: async () => {} }),
-}));
-
 const { routineTask, varysSchedules } = await import("./schedules.js");
+const schedules = varysSchedules("agent-a", {
+  client: async () => ({ routines }),
+  close: () => {},
+} as unknown as VarysConnection);
 const settings = {
   enabled: true,
   model: "",
@@ -69,8 +67,8 @@ const settings = {
 
 describe("routineTask", () => {
   it("reads a varys routine", () => {
-    expect(routineTask(routine)).toEqual({
-      provider: "varys",
+    expect(routineTask("agent-a", routine)).toEqual({
+      provider: "agent-a",
       id: "r1",
       name: "Invoices",
       prompt: "File new invoices in Drive",
@@ -90,6 +88,7 @@ describe("routineTask", () => {
 
   it("shows what Otter can't edit as varys says it", () => {
     const task = routineTask(
+      "agent-a",
       {
         ...routine,
         builtIn: true,
@@ -105,7 +104,9 @@ describe("routineTask", () => {
       delivery: { kind: "otter", chat: "one" },
       chats: ["t3"],
     });
-    expect(routineTask(routine, { mutedRoutines: "r1" }).delivery).toEqual({ kind: "none" });
+    expect(routineTask("agent-a", routine, { mutedRoutines: "r1" }).delivery).toEqual({
+      kind: "none",
+    });
   });
 });
 
@@ -114,7 +115,7 @@ describe("saving a routine", () => {
 
   it("sets one up on a schedule in your time zone, its runs each a new chat", async () => {
     routines.create.mockReturnValueOnce(okAsync({ ...receipt, result: { routineId: "r2" } }));
-    const id = await varysSchedules.save({ ...settings }, null, {
+    const id = await schedules.save({ ...settings }, null, {
       name: "Morning brief",
       prompt: "Summarise my inbox",
       schedule: { kind: "cron", expr: "0 8 * * 1-5", tz: "Europe/Berlin" },
@@ -136,7 +137,7 @@ describe("saving a routine", () => {
     routines.read.mockReturnValueOnce(okAsync({ routine, runs: [] }));
     routines.edit.mockReturnValueOnce(okAsync(receipt));
     saved.length = 0;
-    await varysSchedules.save({ ...settings }, "r1", {
+    await schedules.save({ ...settings }, "r1", {
       name: "Invoices",
       prompt: "File new invoices in Drive",
       schedule: { kind: "every", everyMs: 3_600_000 },
@@ -150,12 +151,12 @@ describe("saving a routine", () => {
         schedule: { type: "interval", everyMs: 3_600_000, anchor: "2026-11-09T08:00:00.000Z" },
       },
     });
-    expect(saved).toEqual([{ mutedRoutines: "r1" }]);
+    expect(saved).toEqual([{ agent: "agent-a", change: { mutedRoutines: "r1" } }]);
   });
 
   it("refuses a schedule that runs once", async () => {
     await expect(
-      varysSchedules.save({ ...settings }, null, {
+      schedules.save({ ...settings }, null, {
         name: "Once",
         schedule: { kind: "at", at: "2026-11-10T08:00:00.000Z" },
       }),
@@ -166,7 +167,7 @@ describe("saving a routine", () => {
 describe("deleting a routine", () => {
   it("deletes it in varys", async () => {
     routines.delete.mockReturnValueOnce(okAsync({ requestId: "x", result: { routineId: "r1" } }));
-    await varysSchedules.remove({ ...settings }, "r1");
+    await schedules.remove({ ...settings }, "r1");
     expect(routines.delete).toHaveBeenCalledWith("r1");
   });
 
@@ -174,7 +175,7 @@ describe("deleting a routine", () => {
     routines.delete.mockReturnValueOnce(
       errAsync({ code: "ROUTINE_BUILT_IN", message: "Dream is built in: pause it instead." }),
     );
-    await expect(varysSchedules.remove({ ...settings }, "dream")).rejects.toThrow(
+    await expect(schedules.remove({ ...settings }, "dream")).rejects.toThrow(
       "Dream is built in: pause it instead.",
     );
   });

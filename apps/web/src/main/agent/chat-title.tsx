@@ -9,7 +9,7 @@ import { cn } from "../mail/ui";
 /** A chat's title in a header: double-click to rename, right-click to rename or regenerate it. */
 export function ChatTitle({ chat, className }: { chat: Conversation; className?: string }) {
   const providers = useAgentProviders().data?.providers ?? [];
-  const titles = Boolean(providers.find((p) => p.kind === chat.provider)?.titles);
+  const titles = Boolean(providers.find((p) => p.id === chat.provider)?.titles);
   const [renaming, setRenaming] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   if (renaming)

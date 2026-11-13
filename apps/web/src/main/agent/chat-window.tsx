@@ -190,7 +190,7 @@ export function ChatWindow({
       />
       <div className="relative flex h-11 shrink-0 items-center gap-1 border-b border-border/60 ps-3.5 pe-1.5">
         {active && !blank ? (
-          <AgentAvatar kind={active.provider} agent={openClawAgentId(active.sessionId)} />
+          <AgentAvatar id={active.provider} agent={openClawAgentId(active.sessionId)} />
         ) : (
           <AgentAvatar />
         )}

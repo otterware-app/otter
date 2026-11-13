@@ -3,6 +3,7 @@ import Foundation
 /** A message on its way to an agent. */
 struct OutgoingTurn {
     var requestId: String
+    /** The agent's id. */
     var provider: String
     var input: String
     var sessionId: String?
@@ -18,7 +19,7 @@ struct OutgoingTurn {
  */
 final class AgentRunner {
     private struct Run {
-        var provider: String
+        var agent: String
         var sessionId: String?
         /** Hermes's own id for the run, which stopping, steering and approving name. */
         var hermesRun: String?
@@ -33,14 +34,15 @@ final class AgentRunner {
     typealias Emit = (ChatEvent) -> Void
 
     func send(_ turn: OutgoingTurn, emit: @escaping Emit) {
-        runs[turn.requestId] = Run(provider: turn.provider, sessionId: turn.sessionId)
+        runs[turn.requestId] = Run(agent: turn.provider, sessionId: turn.sessionId)
         let task = Task { [self] in
+            let agent = agents.agent(turn.provider)
             if agents.demo { await DemoAgent.run(turn, emit: emit) } else {
-                switch turn.provider {
-                case "hermes": await sendHermes(turn, emit)
-                case "openclaw": await sendOpenClaw(turn, emit)
-                case "varys": await sendVarys(turn, emit)
-                default: emit(.error("not_configured"))
+                switch agent?.kind {
+                case .hermes: await sendHermes(agent!, turn, emit)
+                case .openclaw: await sendOpenClaw(agent!, turn, emit)
+                case .varys: await sendVarys(agent!, turn, emit)
+                case nil: emit(.error("not_configured"))
                 }
             }
             runs[turn.requestId] = nil
@@ -49,20 +51,21 @@ final class AgentRunner {
     }
 
     /** Picks up a turn the app left. False when the agent can't, or isn't reachable now. */
-    func resume(provider: String, requestId: String, sessionId: String, emit: @escaping Emit) -> Bool {
+    func resume(agent id: String, requestId: String, sessionId: String, emit: @escaping Emit) -> Bool {
         guard runs[requestId] == nil else { return true }
+        guard let agent = agents.agent(id), agent.isUsable else { return false }
         let events: AsyncStream<ChatEvent>
-        switch provider {
-        case "openclaw":
-            guard let gateway = agents.openClawClient, agents.isUsable(.openclaw) else { return false }
+        switch agent.kind {
+        case .openclaw:
+            guard let gateway = agent.openClaw else { return false }
             events = Self.openClaw(gateway.resume(session: sessionId, run: requestId))
-        case "varys":
-            guard let client = agents.varysClient, agents.isUsable(.varys) else { return false }
+        case .varys:
+            guard let client = agent.varys else { return false }
             events = Self.varys(client.resume(thread: sessionId, requestId: requestId))
         default:
             return false
         }
-        runs[requestId] = Run(provider: provider, sessionId: sessionId)
+        runs[requestId] = Run(agent: id, sessionId: sessionId)
         runs[requestId]?.task = Task { [self] in
             for await event in events { emit(event) }
             runs[requestId] = nil
@@ -74,31 +77,33 @@ final class AgentRunner {
 
     /** Whether one of the agent's runs is the turn's already: its own, or one its steers started. */
     func owns(_ requestId: String, run: String) -> Bool {
-        runs[requestId]?.provider == "openclaw" && agents.openClawClient?.owns(requestId, run) == true
+        guard let agent = runs[requestId].flatMap({ agents.agent($0.agent) }), agent.kind == .openclaw else { return false }
+        return agent.openClaw?.owns(requestId, run) == true
     }
 
     func cancel(_ requestId: String) {
         guard let run = runs[requestId] else { return }
+        let agent = agents.agent(run.agent)
         if agents.demo {
             run.task?.cancel()
             return
         }
-        switch run.provider {
-        case "hermes":
-            if let id = run.hermesRun, let client = agents.hermesClient { Task { await client.stop(run: id) } }
+        switch agent?.kind {
+        case .hermes:
+            if let id = run.hermesRun, let client = agent?.hermes { Task { await client.stop(run: id) } }
             else { run.task?.cancel() }
-        case "openclaw":
-            if let session = run.sessionId, let gateway = agents.openClawClient { Task { await gateway.abort(session: session, run: requestId) } }
-        case "varys":
-            if let session = run.sessionId, let client = agents.varysClient { Task { try? await client.stop(thread: session) } }
-        default:
+        case .openclaw:
+            if let session = run.sessionId, let gateway = agent?.openClaw { Task { await gateway.abort(session: session, run: requestId) } }
+        case .varys:
+            if let session = run.sessionId, let client = agent?.varys { Task { try? await client.stop(thread: session) } }
+        case nil:
             run.task?.cancel()
         }
     }
 
     /** Leaves every turn where it is, without stopping the agents: the app is going to the background. */
     func detachAll(emit: (String, ChatEvent) -> Void) {
-        for (requestId, run) in runs where AgentKind(rawValue: run.provider)?.resumes == true {
+        for (requestId, run) in runs where agents.agent(run.agent)?.kind?.resumes == true {
             run.task?.cancel()
             runs[requestId] = nil
             emit(requestId, .error(AgentError.detached))
@@ -109,42 +114,42 @@ final class AgentRunner {
     func steer(_ requestId: String, _ text: String) async -> Bool {
         guard let run = runs[requestId] else { return false }
         if agents.demo { return true }
-        switch run.provider {
-        case "hermes":
-            guard let id = run.hermesRun, let client = agents.hermesClient else { return false }
+        let agent = agents.agent(run.agent)
+        switch agent?.kind {
+        case .hermes:
+            guard let id = run.hermesRun, let client = agent?.hermes else { return false }
             return await client.steer(run: id, text)
-        case "openclaw":
-            guard let session = run.sessionId, let gateway = agents.openClawClient else { return false }
+        case .openclaw:
+            guard let session = run.sessionId, let gateway = agent?.openClaw else { return false }
             return await gateway.steer(session: session, run: requestId, text)
-        case "varys":
-            guard let session = run.sessionId, let client = agents.varysClient else { return false }
+        case .varys:
+            guard let session = run.sessionId, let client = agent?.varys else { return false }
             return await client.steer(text, thread: session)
-        default: return false
+        case nil: return false
         }
     }
 
     func respond(_ approval: Approval, _ decision: String, requestId: String) async throws {
         guard let run = runs[requestId] else { return }
         if agents.demo { return DemoAgent.answer(approval.id, decision) }
-        switch run.provider {
-        case "hermes":
-            guard let id = run.hermesRun, let client = agents.hermesClient else { return }
+        if agents.agent(run.agent)?.kind == .hermes {
+            guard let id = run.hermesRun, let client = agents.agent(run.agent)?.hermes else { return }
             try await client.approve(run: id, request: approval.id, choice: decision)
-        case "openclaw": try await agents.openClawClient?.approve(approval.id, choice: decision)
-        case "varys": try await agents.varysClient?.decide(approval.id, approve: decision != "deny", inThread: decision == "session")
-        default: break
+        } else {
+            try await respond(approval, decision, agent: run.agent)
         }
     }
 
     func answer(_ question: Question, _ answers: [String: [String]]?, requestId: String) async throws {
         guard let run = runs[requestId] else { return }
         if agents.demo { return DemoAgent.answer(question.id, answers?.values.flatMap(\.self).joined(separator: ", ") ?? "") }
-        switch run.provider {
-        case "openclaw": try await agents.openClawClient?.answer(question.id, answers)
-        case "varys":
+        let agent = agents.agent(run.agent)
+        switch agent?.kind {
+        case .openclaw: try await agent?.openClaw?.answer(question.id, answers)
+        case .varys:
             // A varys question is answered in words; skipped, it stays in varys's inbox, to answer there.
             let text = answers?[question.id]?.joined(separator: ", ").trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if !text.isEmpty { try await agents.varysClient?.answer(question.id, text) }
+            if !text.isEmpty { try await agent?.varys?.answer(question.id, text) }
         default: break
         }
     }
@@ -152,8 +157,8 @@ final class AgentRunner {
     // MARK: What an agent asks outside a turn followed here
 
     /** What a chat's session waits on you for, whoever's run asks: a scheduled task's, another device's. */
-    func pending(provider: String, session: String) async -> (approvals: [Approval], questions: [Question]) {
-        guard provider == "openclaw", agents.isUsable(.openclaw), let gateway = agents.openClawClient else { return ([], []) }
+    func pending(agent id: String, session: String) async -> (approvals: [Approval], questions: [Question]) {
+        guard let agent = agents.agent(id), agent.kind == .openclaw, agent.isUsable, let gateway = agent.openClaw else { return ([], []) }
         var approvals: [Approval] = [], questions: [Question] = []
         for event in await gateway.pending(session: session) {
             switch event {
@@ -166,16 +171,17 @@ final class AgentRunner {
         return (approvals, questions)
     }
 
-    func respond(_ approval: Approval, _ decision: String, provider: String) async throws {
-        switch provider {
-        case "openclaw": try await agents.openClawClient?.approve(approval.id, choice: decision)
-        case "varys": try await agents.varysClient?.decide(approval.id, approve: decision != "deny", inThread: decision == "session")
+    func respond(_ approval: Approval, _ decision: String, agent id: String) async throws {
+        let agent = agents.agent(id)
+        switch agent?.kind {
+        case .openclaw: try await agent?.openClaw?.approve(approval.id, choice: decision)
+        case .varys: try await agent?.varys?.decide(approval.id, approve: decision != "deny", inThread: decision == "session")
         default: break
         }
     }
 
-    func answer(_ question: Question, _ answers: [String: [String]]?, provider: String) async throws {
-        if provider == "openclaw" { try await agents.openClawClient?.answer(question.id, answers) }
+    func answer(_ question: Question, _ answers: [String: [String]]?, agent id: String) async throws {
+        if let agent = agents.agent(id), agent.kind == .openclaw { try await agent.openClaw?.answer(question.id, answers) }
     }
 
     // MARK: Each agent
@@ -203,8 +209,8 @@ final class AgentRunner {
             + images.map { ["type": "image_url", "image_url": ["url": "data:\($0.mime);base64,\($0.data.base64EncodedString())"]] as [String: Any] }
     }
 
-    private func sendHermes(_ turn: OutgoingTurn, _ emit: @escaping Emit) async {
-        guard let client = agents.hermesClient else { return emit(.error("not_configured")) }
+    private func sendHermes(_ agent: Agent, _ turn: OutgoingTurn, _ emit: @escaping Emit) async {
+        guard let client = agent.hermes else { return emit(.error("not_configured")) }
         let input = turn.skill.map { skill in
             "[IMPORTANT: The user invoked the \"\(skill.name)\" skill. Load it with skill_view and follow its instructions.]" + (turn.input.isEmpty ? "" : "\n\n\(turn.input)")
         } ?? turn.input
@@ -218,7 +224,7 @@ final class AgentRunner {
                 runs[turn.requestId]?.sessionId = session
                 emit(.session(session))
             }
-            for try await event in client.turn(session: session, message: message, model: agents.hermesModelFields) {
+            for try await event in client.turn(session: session, message: message, model: agent.hermesModelFields) {
                 switch event {
                 case .run(let id): runs[turn.requestId]?.hermesRun = id
                 case .delta(let text): emit(.delta(text))
@@ -236,7 +242,7 @@ final class AgentRunner {
                     emit(.error(message == "Stopped." ? "cancelled" : "agent_error: \(message)"))
                 }
             }
-            if !ended { emit(.error("agent_error: Hermes dropped the connection.")) }
+            if !ended { emit(.error("agent_error: \(agent.name) dropped the connection.")) }
         } catch is CancellationError {
             if !ended { emit(.error("cancelled")) }
         } catch {
@@ -244,10 +250,10 @@ final class AgentRunner {
         }
     }
 
-    private func sendOpenClaw(_ turn: OutgoingTurn, _ emit: @escaping Emit) async {
-        guard let gateway = agents.openClawClient else { return emit(.error("not_configured")) }
+    private func sendOpenClaw(_ agent: Agent, _ turn: OutgoingTurn, _ emit: @escaping Emit) async {
+        guard let gateway = agent.openClaw else { return emit(.error("not_configured")) }
         let first = turn.sessionId == nil
-        let session = turn.sessionId ?? "agent:\(agents.model(of: .openclaw)?.slug ?? "main"):otter-mail:\(UUID().uuidString.lowercased())"
+        let session = turn.sessionId ?? "agent:\(agent.model?.slug ?? "main"):otter-mail:\(UUID().uuidString.lowercased())"
         if first {
             runs[turn.requestId]?.sessionId = session
             emit(.session(session))
@@ -291,8 +297,8 @@ final class AgentRunner {
         }
     }
 
-    private func sendVarys(_ turn: OutgoingTurn, _ emit: @escaping Emit) async {
-        guard let client = agents.varysClient else { return emit(.error("not_configured")) }
+    private func sendVarys(_ agent: Agent, _ turn: OutgoingTurn, _ emit: @escaping Emit) async {
+        guard let client = agent.varys else { return emit(.error("not_configured")) }
         let first = turn.sessionId == nil
         let thread = turn.sessionId ?? UUID().uuidString.lowercased()
         if first {
@@ -349,72 +355,77 @@ final class AgentRunner {
 
     // MARK: The agents' own sessions
 
-    func sessions(of kind: AgentKind, limit: Int = 40) async throws -> [Hermes.Session] {
-        switch kind {
-        case .hermes: return try await agents.hermesClient?.sessions(limit: limit) ?? []
+    /** A Hermes server's are Otter's own unless `everywhere` (a team server keeps teammates' Slack DMs too). */
+    func sessions(of agent: Agent, everywhere: Bool = false, limit: Int = 40) async throws -> [Hermes.Session] {
+        switch agent.kind {
+        case .hermes: return try await agent.hermes?.sessions(limit: limit, everywhere: everywhere) ?? []
         case .openclaw:
-            return try await agents.openClawClient?.chats(limit: limit).map {
+            return try await agent.openClaw?.chats(limit: limit).map {
                 Hermes.Session(id: $0.id, title: $0.title, preview: $0.preview, lastActive: $0.lastActive, messageCount: $0.preview == nil ? 0 : 1)
             } ?? []
         case .varys:
-            return try await agents.varysClient?.threads().map { thread in
+            return try await agent.varys?.threads().map { thread in
                 Hermes.Session(id: thread.id, title: thread.title, preview: thread.routine.map { "Scheduled · \($0)" } ?? thread.preview,
                                lastActive: thread.updatedAt, messageCount: thread.preview == nil ? 0 : 1)
             } ?? []
+        case nil: return []
         }
     }
 
-    func messages(of kind: AgentKind, session: String) async throws -> [SessionMessage] {
+    func messages(of agent: Agent, session: String) async throws -> [SessionMessage] {
         let named = { (tools: [String]) in tools.map { (id: String?.none, step: Self.step(named: $0), output: String?.some("")) } }
-        switch kind {
+        switch agent.kind {
         case .hermes:
-            return try await agents.hermesClient?.messages(of: session).map { SessionMessage(role: $0.role, text: $0.text, steps: named($0.tools)) } ?? []
+            return try await agent.hermes?.messages(of: session).map { SessionMessage(role: $0.role, text: $0.text, steps: named($0.tools)) } ?? []
         case .openclaw:
-            return try await agents.openClawClient?.messages(of: session).map { message in
+            return try await agent.openClaw?.messages(of: session).map { message in
                 SessionMessage(role: message.role, text: message.text, steps: message.steps.map { ($0.id, Self.step(named: $0.name), $0.output ?? "") })
             } ?? []
         case .varys:
-            guard let client = agents.varysClient else { return [] }
+            guard let client = agent.varys else { return [] }
             return Varys.messages(try await client.items(of: session)).map { SessionMessage(role: $0.role, text: $0.text, steps: named($0.tools)) }
+        case nil: return []
         }
     }
 
     /** A file the agent linked, read from where it runs: OpenClaw's gateway serves its agents' workspaces. */
-    func file(of kind: AgentKind, session: String, href: String) async throws -> ChatFile {
+    func file(of agent: Agent, session: String, href: String) async throws -> ChatFile {
         if agents.demo { return try DemoAgent.file(href) }
-        guard kind == .openclaw, let gateway = agents.openClawClient else { throw OpenClaw.Failure(message: "This file is where \(kind.name) runs.") }
+        guard agent.kind == .openclaw, let gateway = agent.openClaw else { throw OpenClaw.Failure(message: "This file is where \(agent.name) runs.") }
         return try await gateway.file(session: session, href: href)
     }
 
-    func deleteSession(of kind: AgentKind, _ session: String) async {
-        switch kind {
-        case .hermes: try? await agents.hermesClient?.delete(session: session)
-        case .openclaw: try? await agents.openClawClient?.delete(session: session)
+    func deleteSession(of agent: Agent, _ session: String) async {
+        switch agent.kind {
+        case .hermes: try? await agent.hermes?.delete(session: session)
+        case .openclaw: try? await agent.openClaw?.delete(session: session)
         // Deleting a thread is for your own devices in varys: the chat goes, the thread stays.
-        case .varys: break
+        case .varys, nil: break
         }
     }
 
     /** The agent keeps the chat's name too. */
-    func rename(_ kind: AgentKind, session: String, to title: String) async {
-        switch kind {
-        case .hermes: try? await agents.hermesClient?.rename(session: session, to: title)
-        case .openclaw: _ = try? await agents.openClawClient?.request("sessions.patch", ["key": session, "label": title])
-        case .varys: try? await agents.varysClient?.rename(thread: session, to: title)
+    func rename(_ agent: Agent, session: String, to title: String) async {
+        switch agent.kind {
+        case .hermes: try? await agent.hermes?.rename(session: session, to: title)
+        case .openclaw: _ = try? await agent.openClaw?.request("sessions.patch", ["key": session, "label": title])
+        case .varys: try? await agent.varys?.rename(thread: session, to: title)
+        case nil: break
         }
     }
 
     /** The agent's own name for the chat, written again from its first message where the agent writes names. */
-    func regenerateTitle(_ kind: AgentKind, session: String, message: String) async -> String? {
-        switch kind {
-        case .hermes: return await agents.hermesClient?.title(of: session)
+    func regenerateTitle(_ agent: Agent, session: String, message: String) async -> String? {
+        switch agent.kind {
+        case .hermes: return await agent.hermes?.title(of: session)
         case .openclaw:
-            guard let gateway = agents.openClawClient, let agent = session.split(separator: ":").dropFirst().first,
-                  let made = try? await gateway.request("sessions.title.prepare", ["agentId": String(agent), "message": String(message.prefix(1000))], timeout: 90) as? [String: Any],
+            guard let gateway = agent.openClaw, let name = session.split(separator: ":").dropFirst().first,
+                  let made = try? await gateway.request("sessions.title.prepare", ["agentId": String(name), "message": String(message.prefix(1000))], timeout: 90) as? [String: Any],
                   let title = made["title"] as? String, !title.isEmpty else { return nil }
             _ = try? await gateway.request("sessions.patch", ["key": session, "label": title])
             return title
-        case .varys: return try? await agents.varysClient?.threads().first { $0.id == session }?.title.nilIfEmpty
+        case .varys: return try? await agent.varys?.threads().first { $0.id == session }?.title.nilIfEmpty
+        case nil: return nil
         }
     }
 }

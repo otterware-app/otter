@@ -1,6 +1,7 @@
 import type { AgentRun, ChatEvent } from "@otter/core/extension-kit";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { OpenClawSettings } from "./settings.js";
+import { testAgent } from "./test-agent.js";
 
 const fixture = vi.hoisted(() => ({
   request: vi.fn(),
@@ -13,16 +14,6 @@ vi.mock("../../../packages/core/src/platform.js", () => ({
     log: () => {},
     onResume: () => () => {},
   }),
-}));
-vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
-  clearOpenClawBootstrapToken: vi.fn(),
-  clearOpenClawDeviceToken: vi.fn(),
-  getOpenClawBootstrapToken: async () => "",
-  getOpenClawDeviceKey: async () => "",
-  getOpenClawDeviceToken: async () => "",
-  getOpenClawToken: async () => "test-token",
-  setOpenClawDeviceKey: vi.fn(),
-  setOpenClawDeviceToken: vi.fn(),
 }));
 vi.mock("@openclaw/gateway-client/browser", () => ({
   GatewayBrowserDeviceAuthLifecycle: class {
@@ -41,11 +32,13 @@ vi.mock("@openclaw/gateway-client/browser", () => ({
     request = fixture.request;
   },
 }));
-const { openClawProvider, agentRunsSince, scheduleText, turnRows, waitingOnYield } =
+const { createOpenClaw, agentRunsSince, scheduleText, turnRows, waitingOnYield } =
   await import("./openclaw.js");
 const settings = { url: "wss://gateway.test" } as OpenClawSettings;
+let openclaw = createOpenClaw(testAgent());
 afterEach(() => {
-  openClawProvider.shutdown();
+  openclaw.shutdown();
+  openclaw = createOpenClaw(testAgent());
   fixture.request.mockReset();
 });
 
@@ -91,7 +84,7 @@ const say = (runId: string, itemId: string, text: string) =>
 
 function send() {
   const events: ChatEvent[] = [];
-  const ended = openClawProvider.sendTurn(
+  const ended = openclaw.sendTurn(
     { requestId: "req-1", input: "Watch the checks", sessionId: "s" },
     settings,
     (e) => events.push(e),
@@ -151,7 +144,7 @@ describe("an OpenClaw turn that hands off with sessions_yield", () => {
 
   it("doesn't take a message sent meanwhile from another device for its continuation", async () => {
     gateway((method) => (method === "sessions.list" ? { sessions: [] } : undefined));
-    openClawProvider.watch!(settings, [{ id: "s", since: 0 }], () => {});
+    openclaw.watch!(settings, [{ id: "s", since: 0 }], () => {});
     const { events, ended } = send();
     await vi.waitFor(() =>
       expect(fixture.request).toHaveBeenCalledWith(
@@ -203,7 +196,7 @@ describe("an OpenClaw turn that hands off with sessions_yield", () => {
       ),
     );
     event("chat", { runId: "req-1", state: "final", yielded: true });
-    expect(await openClawProvider.steer("req-1", "and the docs?")).toBe(false);
+    expect(await openclaw.steer("req-1", "and the docs?")).toBe(false);
     await ended;
     expect(events.at(-1)).toEqual({ requestId: "req-1", type: "done", responseId: null });
   });
@@ -218,7 +211,7 @@ describe("an OpenClaw turn that hands off with sessions_yield", () => {
       steerKey = p.idempotencyKey ?? "";
       return new Promise((resolve) => (answer = resolve));
     });
-    openClawProvider.watch!(settings, [{ id: "s", since: 0 }], () => {});
+    openclaw.watch!(settings, [{ id: "s", since: 0 }], () => {});
     const { events, ended } = send();
     await vi.waitFor(() =>
       expect(fixture.request).toHaveBeenCalledWith(
@@ -227,7 +220,7 @@ describe("an OpenClaw turn that hands off with sessions_yield", () => {
         expect.anything(),
       ),
     );
-    const steered = openClawProvider.steer("req-1", "and the docs?");
+    const steered = openclaw.steer("req-1", "and the docs?");
     await vi.waitFor(() => expect(steerKey).not.toBe(""));
     event("chat", { runId: "req-1", state: "final", yielded: true });
     event("session.message", {
@@ -249,7 +242,7 @@ describe("an OpenClaw turn that hands off with sessions_yield", () => {
   it("ends when a message is sent from another device while it waits", async () => {
     gateway((method) => (method === "sessions.list" ? { sessions: [] } : undefined));
     const started: AgentRun[] = [];
-    openClawProvider.watch!(settings, [{ id: "s", since: 0 }], (run) => started.push(run));
+    openclaw.watch!(settings, [{ id: "s", since: 0 }], (run) => started.push(run));
     const { events, ended } = send();
     await vi.waitFor(() =>
       expect(fixture.request).toHaveBeenCalledWith(
@@ -280,7 +273,7 @@ describe("an OpenClaw turn that hands off with sessions_yield", () => {
       ),
     );
     event("chat", { runId: "req-1", state: "final", yielded: true });
-    openClawProvider.cancel("req-1");
+    openclaw.cancel("req-1");
     await ended;
     expect(fixture.request).toHaveBeenCalledWith("chat.abort", { sessionKey: "s" });
     expect(events.at(-1)).toEqual({ requestId: "req-1", type: "error", message: "cancelled" });
@@ -293,7 +286,7 @@ describe("an OpenClaw turn that hands off with sessions_yield", () => {
     });
     gateway();
     const events: ChatEvent[] = [];
-    const ended = openClawProvider.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) =>
+    const ended = openclaw.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) =>
       events.push(e),
     );
     await vi.waitFor(() => expect(events.map((e) => e.type)).toEqual(["transcript"]));
@@ -330,7 +323,7 @@ describe("a turn picked up again", () => {
     });
     gateway();
     const events: ChatEvent[] = [];
-    const ended = openClawProvider.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) =>
+    const ended = openclaw.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) =>
       events.push(e),
     );
     await vi.waitFor(() => expect(events.map((e) => e.type)).toEqual(["transcript"]));
@@ -366,9 +359,7 @@ describe("a turn picked up again", () => {
     });
     gateway();
     const events: ChatEvent[] = [];
-    await openClawProvider.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) =>
-      events.push(e),
-    );
+    await openclaw.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) => events.push(e));
     expect(events.at(-1)).toEqual({ requestId: "req-1", type: "done", responseId: null });
   });
 
@@ -467,7 +458,7 @@ describe("runs the agent starts on its own", () => {
   it("are reported for watched chats with no turn going, once each", async () => {
     gateway((method) => (method === "sessions.list" ? { sessions: [] } : undefined));
     const started: AgentRun[] = [];
-    openClawProvider.watch!(settings, [{ id: "s", since: 0 }], (run) => started.push(run));
+    openclaw.watch!(settings, [{ id: "s", since: 0 }], (run) => started.push(run));
     await vi.waitFor(() => expect(fixture.request).toHaveBeenCalledWith("sessions.subscribe", {}));
     lifecycleStart("wake-1");
     lifecycleStart("wake-1");
@@ -511,7 +502,7 @@ describe("runs the agent starts on its own", () => {
       method === "sessions.list" ? { sessions: [{ key: "s", lastActivityAt: 5 }] } : undefined,
     );
     const started: AgentRun[] = [];
-    openClawProvider.watch!(settings, [{ id: "s", since: Number.MAX_SAFE_INTEGER }], (run) =>
+    openclaw.watch!(settings, [{ id: "s", since: Number.MAX_SAFE_INTEGER }], (run) =>
       started.push(run),
     );
     await vi.waitFor(() =>
@@ -520,7 +511,7 @@ describe("runs the agent starts on its own", () => {
     await tick();
     expect(started).toEqual([]);
     // The resumed turn ended now, long after the wake.
-    openClawProvider.watch!(settings, [{ id: "s", since: Date.now() }], (run) => started.push(run));
+    openclaw.watch!(settings, [{ id: "s", since: Date.now() }], (run) => started.push(run));
     await vi.waitFor(() => expect(started).toEqual([{ sessionId: "s", requestId: "run:wake-7" }]));
   });
 
@@ -535,7 +526,7 @@ describe("runs the agent starts on its own", () => {
     });
     gateway();
     const events: ChatEvent[] = [];
-    await openClawProvider.resume!({ requestId: "run:wake-1", sessionId: "s" }, settings, (e) =>
+    await openclaw.resume!({ requestId: "run:wake-1", sessionId: "s" }, settings, (e) =>
       events.push(e),
     );
     expect(events).toEqual([
@@ -547,7 +538,7 @@ describe("runs the agent starts on its own", () => {
       { requestId: "run:wake-1", type: "done", responseId: null },
     ]);
     events.length = 0;
-    await openClawProvider.resume!({ requestId: "run:quiet", sessionId: "s" }, settings, (e) =>
+    await openclaw.resume!({ requestId: "run:quiet", sessionId: "s" }, settings, (e) =>
       events.push(e),
     );
     expect(events).toEqual([{ requestId: "run:quiet", type: "done", responseId: null }]);
@@ -632,7 +623,7 @@ describe("runs the agent starts on its own", () => {
     });
     gateway();
     const events: ChatEvent[] = [];
-    await openClawProvider.resume!({ requestId: "run:wake-1", sessionId: "s" }, settings, (e) =>
+    await openclaw.resume!({ requestId: "run:wake-1", sessionId: "s" }, settings, (e) =>
       events.push(e),
     );
     expect(events[0]).toEqual({
@@ -713,7 +704,7 @@ describe("what an agent delivers to Otter", () => {
       return undefined;
     });
     const started: AgentRun[] = [];
-    openClawProvider.watch!(settings, [], (run) => started.push(run));
+    openclaw.watch!(settings, [], (run) => started.push(run));
     await vi.waitFor(() =>
       expect(fixture.request).toHaveBeenCalledWith("sessions.list", { limit: 200 }),
     );
@@ -721,7 +712,7 @@ describe("what an agent delivers to Otter", () => {
     expect(started).toEqual([]);
 
     messages = [...messages, delivered("d-new", "Waiting on your approval.", now)];
-    openClawProvider.delivered!(settings, "agent:main:otter-mail:n-1");
+    openclaw.delivered!(settings, "agent:main:otter-mail:n-1");
     await vi.waitFor(() =>
       expect(started).toEqual([
         {
@@ -739,11 +730,11 @@ describe("what an agent delivers to Otter", () => {
     });
 
     // Once the chat exists it's watched like any other, from its last turn.
-    openClawProvider.watch!(settings, [{ id: "agent:main:otter-mail:n-1", since: now }], (run) =>
+    openclaw.watch!(settings, [{ id: "agent:main:otter-mail:n-1", since: now }], (run) =>
       started.push(run),
     );
     messages = [...messages, delivered("d-next", "Done.", now + 1)];
-    openClawProvider.delivered!(settings);
+    openclaw.delivered!(settings);
     await vi.waitFor(() =>
       expect(started.at(-1)).toEqual({
         sessionId: "agent:main:otter-mail:n-1",
@@ -779,7 +770,7 @@ describe("what an agent delivers to Otter", () => {
       return undefined;
     });
     const started: AgentRun[] = [];
-    openClawProvider.watch!(
+    openclaw.watch!(
       settings,
       [{ id: "s", since: now, cursor: "t-1:5" }],
       (run) => started.push(run),
@@ -815,7 +806,7 @@ describe("what an agent delivers to Otter", () => {
       return undefined;
     });
     const started: AgentRun[] = [];
-    openClawProvider.watch!(
+    openclaw.watch!(
       settings,
       [{ id: "s", since: now - 60_000, cursor: "t-1:40" }],
       (run) => started.push(run),
@@ -845,7 +836,7 @@ describe("what an agent delivers to Otter", () => {
       return undefined;
     });
     const started: AgentRun[] = [];
-    openClawProvider.watch!(
+    openclaw.watch!(
       settings,
       [{ id: "s", since: now - 1000 }],
       (run) => started.push(run),
@@ -880,7 +871,7 @@ describe("what an agent delivers to Otter", () => {
       ),
     );
     const started: AgentRun[] = [];
-    openClawProvider.watch!(settings, [{ id: "s", since: now, cursor: "t-1:0" }], (run) =>
+    openclaw.watch!(settings, [{ id: "s", since: now, cursor: "t-1:0" }], (run) =>
       started.push(run),
     );
     await vi.waitFor(() =>
@@ -904,7 +895,7 @@ describe("what an agent delivers to Otter", () => {
       return undefined;
     });
     const started: AgentRun[] = [];
-    openClawProvider.watch!(
+    openclaw.watch!(
       settings,
       [{ id: "s", since: now - 60_000, cursor: "t-1:8" }],
       (run) => started.push(run),
@@ -932,7 +923,7 @@ describe("what an agent delivers to Otter", () => {
       return undefined;
     });
     const started: AgentRun[] = [];
-    openClawProvider.watch!(settings, [{ id: "s", since: now - 1 }], (run) => started.push(run));
+    openclaw.watch!(settings, [{ id: "s", since: now - 1 }], (run) => started.push(run));
     await vi.waitFor(() =>
       expect(fixture.request).toHaveBeenCalledWith("sessions.list", { limit: 200 }),
     );
@@ -980,14 +971,14 @@ describe("what an agent delivers to Otter", () => {
       return undefined;
     });
     const started: AgentRun[] = [];
-    openClawProvider.watch!(settings, [], (run) => started.push(run));
+    openclaw.watch!(settings, [], (run) => started.push(run));
     await vi.waitFor(() =>
       expect(fixture.request).toHaveBeenCalledWith("sessions.list", { limit: 200 }),
     );
     await tick();
     expect(started).toEqual([]);
 
-    openClawProvider.delivered!(settings, key);
+    openclaw.delivered!(settings, key);
     await vi.waitFor(() =>
       expect(started).toEqual([
         {
@@ -1019,7 +1010,7 @@ describe("what an agent delivers to Otter", () => {
       return undefined;
     });
     const started: AgentRun[] = [];
-    openClawProvider.watch!(settings, [{ id: "s", since: now - 1 }], (run) => started.push(run));
+    openclaw.watch!(settings, [{ id: "s", since: now - 1 }], (run) => started.push(run));
     await vi.waitFor(() =>
       expect(started).toEqual([
         {
@@ -1055,7 +1046,7 @@ describe("what an agent delivers to Otter", () => {
       return undefined;
     });
     const started: AgentRun[] = [];
-    openClawProvider.watch!(settings, [{ id: "s", since: now - 1 }], (run) => started.push(run));
+    openclaw.watch!(settings, [{ id: "s", since: now - 1 }], (run) => started.push(run));
     await vi.waitFor(() =>
       expect(started).toEqual([
         { sessionId: "s", requestId: "run:delivery:d-reply", deliveredAt: now },
@@ -1079,7 +1070,7 @@ describe("what an agent delivers to Otter", () => {
     });
     gateway();
     const events: ChatEvent[] = [];
-    await openClawProvider.resume!(
+    await openclaw.resume!(
       { requestId: "run:delivery:d-1", sessionId: "agent:main:otter-mail:n-1" },
       settings,
       (e) => events.push(e),
@@ -1102,7 +1093,7 @@ describe("what an agent delivers to Otter", () => {
     });
     gateway();
     const events: ChatEvent[] = [];
-    await openClawProvider.resume!(
+    await openclaw.resume!(
       { requestId: "run:delivery:d-1", sessionId: "agent:main:otter-mail:n-1" },
       settings,
       (e) => events.push(e),
@@ -1227,9 +1218,7 @@ describe("compaction in an OpenClaw turn", () => {
     });
     gateway();
     const events: ChatEvent[] = [];
-    await openClawProvider.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) =>
-      events.push(e),
-    );
+    await openclaw.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) => events.push(e));
     expect(events.find((e) => e.type === "transcript")).toMatchObject({
       messages: [
         { role: "assistant", text: "Looking." },

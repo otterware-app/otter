@@ -13,8 +13,11 @@ import { channelApi, type AgentChannel } from "./api";
 export const PLUGIN_INSTALL =
   "hermes plugins install otterware-app/otter/extensions/hermes/gateway --enable --yes-deps";
 
-/** Lets Hermes send to Otter, as one of its platforms (extensions/hermes/gateway). */
-export function HermesDeliveries() {
+/**
+ * Lets this Hermes send to Otter, as one of its platforms (extensions/hermes/gateway), with a
+ * channel named for it.
+ */
+export function HermesDeliveries({ name }: { name: string }) {
   const [channels, setChannels] = useState<AgentChannel[] | null>(null);
   const [made, setMade] = useState<{ token: string; relayUrl: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -23,17 +26,17 @@ export function HermesDeliveries() {
   const load = useCallback(
     () =>
       channelApi.list().then(
-        ({ channels }) => setChannels(channels.filter((c) => c.label === "Hermes")),
+        ({ channels }) => setChannels(channels.filter((c) => c.label === name)),
         () => setSignedOut(true),
       ),
-    [],
+    [name],
   );
   useEffect(() => void load(), [load]);
 
   const make = async () => {
     setBusy(true);
     try {
-      setMade(await channelApi.make("Hermes"));
+      setMade(await channelApi.make(name));
       await load();
     } catch (error) {
       toast.error(`Could not set it up: ${error instanceof Error ? error.message : String(error)}`);
@@ -54,7 +57,7 @@ export function HermesDeliveries() {
   return (
     <SettingsSection
       {...searchableSetting("hermes-deliveries")}
-      title="Messages from Hermes"
+      title={`Messages from ${name}`}
       description="With Otter's plugin, Otter is one of Hermes's platforms: what it sends here (a scheduled task's result, a message from its send_message tool) shows up at once as a chat, and notifies you. It stays on Hermes: Otter's relay only tells your devices there's something new."
     >
       {signedOut ? (

@@ -4,7 +4,7 @@ vi.mock("./logger.js", () => ({ logger: { error: () => {}, info: () => {} } }));
 
 import { activateExtensions, registeredAgents } from "./extensions.js";
 import { handle, registeredHandlers } from "./ipc.js";
-import type { ChatProvider } from "./services/agent/types.js";
+import type { AgentType } from "./services/agent/types.js";
 
 const manifest = (id: string) => ({
   id,
@@ -21,7 +21,7 @@ describe("activating extensions", () => {
         manifest: manifest("broken"),
         activate({ handle: serve, registerAgent }) {
           serve("broken:one", () => 1);
-          registerAgent({ kind: "broken" } as ChatProvider);
+          registerAgent({ kind: "broken" } as AgentType);
           throw new Error("boom");
         },
       },

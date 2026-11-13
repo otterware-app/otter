@@ -2,12 +2,12 @@ import type { ExtensionManifest } from "@otter/contracts/extensions";
 
 import { handle, registeredHandlers, unhandle, type Handler } from "./ipc.js";
 import { logger } from "./logger.js";
-import type { AgentSettings, ChatProvider } from "./services/agent/types.js";
+import type { AgentSettings, AgentType } from "./services/agent/types.js";
 
 export type ExtensionContext = {
   readonly manifest: ExtensionManifest;
   handle(channel: string, handler: Handler): void;
-  registerAgent<S extends AgentSettings>(agent: ChatProvider<S>): void;
+  registerAgent<S extends AgentSettings>(agent: AgentType<S>): void;
 };
 
 export type CoreExtension = {
@@ -15,7 +15,7 @@ export type CoreExtension = {
   activate(context: ExtensionContext): void | Promise<void>;
 };
 
-const agents = new Map<string, ChatProvider>();
+const agents = new Map<string, AgentType>();
 
 /**
  * Activates each extension in order. One that fails is left out: what it
@@ -34,13 +34,13 @@ export async function activateExtensions(extensions: readonly CoreExtension[]): 
         handle(channel, handler);
         channels.push(channel);
       },
-      registerAgent(provider) {
-        if (provider.kind !== manifest.id)
+      registerAgent(type) {
+        if (type.kind !== manifest.id)
           throw new Error(`${manifest.id} can only contribute the agent "${manifest.id}".`);
-        if (agents.has(provider.kind))
-          throw new Error(`${manifest.id}: the agent ${provider.kind} is already registered.`);
-        agents.set(provider.kind, provider as unknown as ChatProvider);
-        agent = provider.kind;
+        if (agents.has(type.kind))
+          throw new Error(`${manifest.id}: the agent ${type.kind} is already registered.`);
+        agents.set(type.kind, type as unknown as AgentType);
+        agent = type.kind;
       },
     };
     try {
@@ -53,6 +53,7 @@ export async function activateExtensions(extensions: readonly CoreExtension[]): 
   }
 }
 
-export function registeredAgents(): ReadonlyMap<string, ChatProvider> {
+/** The kinds of agent this backend runs, by kind. */
+export function registeredAgents(): ReadonlyMap<string, AgentType> {
   return agents;
 }

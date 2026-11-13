@@ -41,7 +41,7 @@ export function ModelsSection({
 }) {
   const { favorites, hidden } = useModelPrefs();
   const [filter, setFilter] = useState("");
-  const key = (slug: string) => modelKey(provider.kind, slug);
+  const key = (slug: string) => modelKey(provider.id, slug);
   const favoriteSet = new Set(favorites);
   const hiddenSet = new Set(hidden);
   const groupOf = (m: ProviderModel) =>
@@ -74,13 +74,13 @@ export function ModelsSection({
       {...searchableSetting("agent-models")}
       headerAction={
         selectedModel ||
-        favorites.some((key) => key.startsWith(`${provider.kind}:`)) ||
-        hidden.some((key) => key.startsWith(`${provider.kind}:`)) ? (
+        favorites.some((key) => key.startsWith(`${provider.id}:`)) ||
+        hidden.some((key) => key.startsWith(`${provider.id}:`)) ? (
           <SettingResetButton
-            label={`${provider.displayName} models`}
+            label={`${provider.name} models`}
             onClick={() => {
               onPick?.("");
-              resetModelPrefs(provider.kind);
+              resetModelPrefs(provider.id);
             }}
           />
         ) : null
@@ -167,7 +167,7 @@ export function ModelsSection({
                   >
                     {m.avatar || m.emoji ? (
                       <AgentAvatar
-                        kind={provider.kind}
+                        id={provider.id}
                         agent={m.slug}
                         className="size-3.5 self-center"
                       />
@@ -250,10 +250,9 @@ export function LocalAgentSettings({
   provider,
   update,
 }: AgentSettingsProps & { runtime: LocalAgentRuntime }) {
-  const kind = provider.kind;
   const settings = provider.settings as AgentSettingsProps["provider"]["settings"] &
     LocalAgentSettingsValues;
-  const set = (patch: Record<string, string>) => update({ [kind]: patch });
+  const set = (patch: Record<string, string>) => update({ [provider.id]: patch });
   return (
     <>
       <SettingsSection title="Runtime">

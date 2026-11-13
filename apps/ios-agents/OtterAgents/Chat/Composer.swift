@@ -32,7 +32,8 @@ struct Composer: View {
     @AppStorage("keyboard-height") private var keyboardHeight = 336.0
 
     private var agents: Agents { store.agents }
-    private var kind: AgentKind? { AgentKind(rawValue: chat.provider) }
+    private var agent: Agent? { agents.agent(chat.provider) }
+    private var kind: AgentKind? { agent?.kind }
     private var running: Bool { store.runs[chat.id] != nil }
     private var editing: Bool { store.editingQueued?.chatId == chat.id }
     private var citations: [ChatCitation] { store.citations[chat.id] ?? [] }
@@ -102,7 +103,7 @@ struct Composer: View {
             .ignoresSafeArea()
         }
         .task(id: chat.provider) {
-            skills = await kind.asyncMap { await agents.skills(of: $0) } ?? []
+            skills = await agent.asyncMap { await agents.skills(of: $0) } ?? []
         }
         .onChange(of: draft) { _, text in
             // "/name " picks the skill, as picking it from the list does.
@@ -166,9 +167,9 @@ struct Composer: View {
      * agents aren't interchangeable), and only its model and effort can change, where it has a choice.
      */
     private var choosesModel: Bool {
-        guard let kind else { return false }
         if chat.isBlank { return true }
-        return kind != .openclaw && (agents.models(of: kind).count > 1 || agents.traits(of: kind) != nil)
+        guard let agent, agent.kind != .openclaw else { return false }
+        return agent.models.count > 1 || agent.traits != nil
     }
 
     @ViewBuilder
@@ -177,7 +178,7 @@ struct Composer: View {
             Button { showModels = true } label: {
                 HStack(spacing: 4) {
                     // The agent's mark: which model and effort it runs are a tap away.
-                    AgentAvatar(provider: chat.provider, agent: agents.agent(of: chat), size: 18)
+                    AgentAvatar(agent: chat.provider, gatewayAgent: agents.gatewayAgent(of: chat), size: 18)
                     Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(palette.muted)
                 }
                 .padding(.leading, 6)
@@ -208,7 +209,7 @@ struct Composer: View {
                     .contentShape(.circle)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Talk with \(AgentKind.name(of: chat.provider))")
+            .accessibilityLabel("Talk with \(agents.name(of: chat))")
         } else if running, !hasContent {
             Button { store.stop(chat.id) } label: {
                 Image(systemName: "stop.fill")
@@ -332,7 +333,7 @@ struct Composer: View {
             }
             ForEach(citations) { quote in
                 HStack(alignment: .center, spacing: 6) {
-                    QuotedReply(text: quote.text, from: quote.from ?? store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat)), lines: 2)
+                    QuotedReply(text: quote.text, from: quote.from ?? store.agents.name(of: chat), lines: 2)
                     Button("Remove reply", systemImage: "xmark") {
                         withAnimation(.easeOut(duration: 0.18)) { store.citations[chat.id] = citations.filter { $0.id != quote.id } }
                     }

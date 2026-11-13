@@ -1,5 +1,5 @@
-import { getHermesKey, hermesStep } from "@otter/core/extension-kit";
-import type { ChatSession, ChatSessionMessage } from "@otter/core/extension-kit";
+import { hermesStep } from "@otter/core/extension-kit";
+import type { AgentSecrets, ChatSession, ChatSessionMessage } from "@otter/core/extension-kit";
 
 import type { HermesSettings } from "./settings.js";
 
@@ -23,8 +23,11 @@ export function authHeaders(key: string, json = false): Record<string, string> {
 
 export type Ready = { baseUrl: string; root: string; key: string; agentModel: string };
 
-export async function requireReady(settings: HermesSettings): Promise<Ready> {
-  const key = await getHermesKey();
+export async function requireReady(
+  settings: HermesSettings,
+  secrets: AgentSecrets,
+): Promise<Ready> {
+  const key = await secrets.get("key");
   const { baseUrl, agentModel } = settings;
   if (!baseUrl || !key) throw new Error("not_configured");
   return { baseUrl, root: apiRoot(baseUrl), key, agentModel };

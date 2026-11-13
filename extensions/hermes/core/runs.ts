@@ -14,6 +14,7 @@ import {
   writeJson,
 } from "@otter/core/extension-kit";
 import type {
+  AgentId,
   ApprovalDecision,
   ApprovalRequest,
   ChatEvent,
@@ -52,17 +53,26 @@ export type Run = {
 /** How a run ended, as its last event. */
 type End = Extract<ChatEvent, { type: "done" | "error" }>;
 
-export const following = new Map<string, Run>();
+/** One agent's runs: those this device follows, and the approvals they wait on. */
+export type Runs = {
+  agent: AgentId;
+  following: Map<string, Run>;
+  pendingApprovals: Map<
+    string,
+    { requestId: string; runId: string; ready: Ready; emit: Emit; approval: ApprovalRequest }
+  >;
+};
 
-export const pendingApprovals = new Map<
-  string,
-  { requestId: string; runId: string; ready: Ready; emit: Emit; approval: ApprovalRequest }
->();
+export const newRuns = (agent: AgentId): Runs => ({
+  agent,
+  following: new Map(),
+  pendingApprovals: new Map(),
+});
 
-export function dropApprovals(requestId: string): void {
-  for (const [approvalId, pending] of pendingApprovals) {
+export function dropApprovals(runs: Runs, requestId: string): void {
+  for (const [approvalId, pending] of runs.pendingApprovals) {
     if (pending.requestId !== requestId) continue;
-    pendingApprovals.delete(approvalId);
+    runs.pendingApprovals.delete(approvalId);
     pending.emit({ requestId, type: "approvalResolved", approvalId });
   }
 }
@@ -71,37 +81,43 @@ const RUNS_FILE = "hermes-runs.json";
 /** The gateway keeps a run's record for a day. */
 const KEPT_MS = 24 * 60 * 60 * 1000;
 type Kept = { runId: string; sessionId: string; at: number };
-/** One change to the file at a time, so none is lost. */
+/** Each agent's runs, by request id. */
+type KeptRuns = Record<AgentId, Record<string, Kept>>;
+/** One change to the file at a time, so none is lost: every Hermes agent keeps its runs in it. */
 let saving: Promise<void> = Promise.resolve();
 
-const keptRuns = async () => (await readJson<Record<string, Kept>>(RUNS_FILE)) ?? {};
+const keptRuns = async () => (await readJson<KeptRuns>(RUNS_FILE)) ?? {};
 
-function saveKept(change: (runs: Record<string, Kept>) => void): Promise<void> {
+function saveKept(agent: AgentId, change: (runs: Record<string, Kept>) => void): Promise<void> {
   saving = saving.then(async () => {
-    const runs = await keptRuns();
-    change(runs);
+    const all = await keptRuns();
+    change((all[agent] ??= {}));
     const now = Date.now();
-    for (const [id, run] of Object.entries(runs)) if (now - run.at > KEPT_MS) delete runs[id];
-    await writeJson(RUNS_FILE, runs).catch((error: unknown) =>
+    for (const [id, runs] of Object.entries(all)) {
+      for (const [requestId, run] of Object.entries(runs))
+        if (!(run.at > now - KEPT_MS)) delete runs[requestId];
+      if (Object.keys(runs).length === 0) delete all[id];
+    }
+    await writeJson(RUNS_FILE, all).catch((error: unknown) =>
       logger.info("agent", "hermes runs not saved", { error: String(error) }),
     );
   });
   return saving;
 }
 
-export const keepRun = (requestId: string, run: Kept) =>
-  saveKept((runs) => {
+export const keepRun = (agent: AgentId, requestId: string, run: Kept) =>
+  saveKept(agent, (runs) => {
     runs[requestId] = run;
   });
 
-export const forgetRun = (requestId: string) =>
-  saveKept((runs) => {
+export const forgetRun = (agent: AgentId, requestId: string) =>
+  saveKept(agent, (runs) => {
     delete runs[requestId];
   });
 
-export async function keptRun(requestId: string): Promise<Kept | undefined> {
+export async function keptRun(agent: AgentId, requestId: string): Promise<Kept | undefined> {
   await saving;
-  return (await keptRuns())[requestId];
+  return (await keptRuns())[agent]?.[requestId];
 }
 
 /**
@@ -115,7 +131,7 @@ const RESTARTED = "agent_error: Hermes restarted before it finished this reply."
 const APPROVAL_CHOICES: ApprovalDecision[] = ["once", "session", "always", "deny"];
 
 /** One of the run's events; how the run ended, once it says (for the caller to emit). */
-export function onRunEvent(run: Run, p: Record<string, unknown>): End | undefined {
+export function onRunEvent(runs: Runs, run: Run, p: Record<string, unknown>): End | undefined {
   const { requestId, emit, text } = run;
   const event = String(p.event ?? "");
   switch (event) {
@@ -163,7 +179,7 @@ export function onRunEvent(run: Run, p: Record<string, unknown>): End | undefine
         reason: p.description ? String(p.description) : undefined,
         choices,
       };
-      pendingApprovals.set(approvalId, {
+      runs.pendingApprovals.set(approvalId, {
         requestId,
         runId: run.runId,
         ready: run.ready,
@@ -176,9 +192,9 @@ export function onRunEvent(run: Run, p: Record<string, unknown>): End | undefine
     case "approval.responded": {
       // Answered here, on another device, or in Hermes itself.
       const approvalId = p.request_id ? String(p.request_id) : undefined;
-      for (const [id, pending] of pendingApprovals)
+      for (const [id, pending] of runs.pendingApprovals)
         if (pending.requestId === requestId && (!approvalId || id === approvalId)) {
-          pendingApprovals.delete(id);
+          runs.pendingApprovals.delete(id);
           emit({ requestId, type: "approvalResolved", approvalId: id });
         }
       return undefined;
@@ -209,7 +225,7 @@ export function onRunEvent(run: Run, p: Record<string, unknown>): End | undefine
  * The run as the gateway records it, once its stream is gone: how it ended, or nothing while it
  * goes on. A reply first read now (a run picked up again) comes from the session, tool steps and all.
  */
-async function settle(run: Run): Promise<End | undefined> {
+async function settle(runs: Runs, run: Run): Promise<End | undefined> {
   const { requestId, ready, emit } = run;
   const response = await fetch(`${ready.root}/v1/runs/${encodeURIComponent(run.runId)}`, {
     headers: authHeaders(ready.key),
@@ -220,8 +236,9 @@ async function settle(run: Run): Promise<End | undefined> {
     response.status === 404 ? null : ((await response.json()) as Record<string, unknown>);
   const state = String(status?.status ?? "");
   if (state === "queued" || state === "running" || state.startsWith("waiting")) return undefined;
-  if (status && state !== "completed") return onRunEvent(run, { ...status, event: `run.${state}` });
-  if (status && run.seq >= 0) return onRunEvent(run, { ...status, event: "run.completed" });
+  if (status && state !== "completed")
+    return onRunEvent(runs, run, { ...status, event: `run.${state}` });
+  if (status && run.seq >= 0) return onRunEvent(runs, run, { ...status, event: "run.completed" });
   // Forgotten by a gateway that restarted since, or never streamed here.
   const reply = lastReply(await sessionMessages(ready, run.sessionId));
   if (!reply.some((m) => m.role === "assistant" && m.text.trim()))
@@ -240,9 +257,9 @@ const pause = (ms: number, signal: AbortSignal) =>
   });
 
 /** Follows the run to its end, through dropped connections; `detached` when the gateway stays out of reach. */
-export async function follow(run: Run): Promise<void> {
+export async function follow(runs: Runs, run: Run): Promise<void> {
   const { requestId, emit } = run;
-  following.set(requestId, run);
+  runs.following.set(requestId, run);
   const detached = { requestId, type: "error", message: "detached" } as const;
   let failures = 0;
   try {
@@ -266,7 +283,7 @@ export async function follow(run: Run): Promise<void> {
           },
         );
         if (response.status === 401) end = { requestId, type: "error", message: "unauthorized" };
-        else if (response.status === 404) end = await settle(run);
+        else if (response.status === 404) end = await settle(runs, run);
         else if (!response.ok || !response.body) throw new Error(`http_${response.status}`);
         else {
           await readSse(
@@ -276,12 +293,12 @@ export async function follow(run: Run): Promise<void> {
               if (!p) return;
               failures = 0;
               if (typeof p.seq === "number") run.seq = p.seq;
-              end = onRunEvent(run, p);
+              end = onRunEvent(runs, run, p);
             },
             alive,
           );
           // Closed without saying how the run ended.
-          end ??= await settle(run);
+          end ??= await settle(runs, run);
         }
       } catch (error) {
         if (run.stop.signal.reason === LET_GO) return emit(detached);
@@ -294,7 +311,7 @@ export async function follow(run: Run): Promise<void> {
       if (end) {
         if (end.type === "done") await run.finishing?.().catch(() => {});
         emit(end);
-        await forgetRun(requestId);
+        await forgetRun(runs.agent, requestId);
         return;
       }
       if (failures >= RECONNECT_MS.length) return emit(detached);
@@ -303,8 +320,8 @@ export async function follow(run: Run): Promise<void> {
       if (run.stop.signal.aborted) return emit({ requestId, type: "error", message: "cancelled" });
     }
   } finally {
-    following.delete(requestId);
-    dropApprovals(requestId);
+    runs.following.delete(requestId);
+    dropApprovals(runs, requestId);
   }
 }
 

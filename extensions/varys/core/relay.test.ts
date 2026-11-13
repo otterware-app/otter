@@ -28,7 +28,7 @@ vi.mock("../../../packages/core/src/services/agent/channels.js", () => ({
 }));
 const saved = vi.hoisted(() => [] as unknown[]);
 vi.mock("../../../packages/core/src/services/agent/service.js", () => ({
-  saveAgentSettings: async (_kind: string, change: unknown) => void saved.push(change),
+  saveAgentSettings: async (agent: string, change: unknown) => void saved.push({ agent, change }),
 }));
 
 const { registerRelay, removeRelay, revokeGrant } = await import("./relay.js");
@@ -58,20 +58,20 @@ describe("varys's relay", () => {
         waiting: 0,
       }),
     );
-    await registerRelay(varys, "Otter on the web");
+    await registerRelay("agent-a", varys, "Otter on the web");
     expect(channels.made).toEqual(["varys · Otter on the web"]);
     expect(relay.set).toHaveBeenCalledWith({
       address: "https://relay.otterware.app",
       token: "otter_ch_secret",
     });
-    expect(saved).toEqual([{ relayChannel: "ch-1" }]);
+    expect(saved).toEqual([{ agent: "agent-a", change: { relayChannel: "ch-1" } }]);
   });
 
   it("deletes the channel when varys doesn't take it, and says why", async () => {
     relay.set.mockReturnValue(
       errAsync({ code: "RELAY_REFUSED", message: "That relay isn't one varys can reach." }),
     );
-    await expect(registerRelay(varys, "Otter on the web")).rejects.toThrow(
+    await expect(registerRelay("agent-a", varys, "Otter on the web")).rejects.toThrow(
       "That relay isn't one varys can reach.",
     );
     expect(channels.deleted).toEqual(["ch-1"]);
@@ -80,23 +80,23 @@ describe("varys's relay", () => {
 
   it("needs the Otter account", async () => {
     account.user = null;
-    await registerRelay(varys, "Otter on the web");
+    await registerRelay("agent-a", varys, "Otter on the web");
     expect(channels.made).toEqual([]);
   });
 
   it("stops varys telling the relay and deletes the channel when the account signs out", async () => {
     relay.remove.mockReturnValue(okAsync(undefined));
-    await removeRelay(varys, { ...settings });
+    await removeRelay("agent-a", varys, { ...settings });
     expect(relay.remove).toHaveBeenCalled();
     expect(channels.deleted).toEqual(["ch-1"]);
-    expect(saved).toEqual([{ relayChannel: "" }]);
+    expect(saved).toEqual([{ agent: "agent-a", change: { relayChannel: "" } }]);
   });
 });
 
 describe("disconnecting", () => {
   it("ends this device's grant in varys, and deletes the channel", async () => {
     revoke.mockReturnValue(okAsync(undefined));
-    expect(await revokeGrant(varys, { ...settings })).toBe(true);
+    expect(await revokeGrant("agent-a", varys, { ...settings })).toBe(true);
     expect(revoke).toHaveBeenCalled();
     expect(relay.remove).not.toHaveBeenCalled();
     expect(channels.deleted).toEqual(["ch-1"]);
@@ -104,12 +104,12 @@ describe("disconnecting", () => {
 
   it("is done when the grant is gone already", async () => {
     revoke.mockReturnValue(errAsync({ code: "UNAUTHORIZED", message: "Sign in again." }));
-    expect(await revokeGrant(varys, { ...settings })).toBe(true);
+    expect(await revokeGrant("agent-a", varys, { ...settings })).toBe(true);
   });
 
   it("deletes the channel even when varys can't be reached, and says so", async () => {
     revoke.mockReturnValue(errAsync({ code: "unreachable", message: "varys doesn't answer." }));
-    expect(await revokeGrant(varys, { ...settings })).toBe(false);
+    expect(await revokeGrant("agent-a", varys, { ...settings })).toBe(false);
     expect(channels.deleted).toEqual(["ch-1"]);
   });
 });

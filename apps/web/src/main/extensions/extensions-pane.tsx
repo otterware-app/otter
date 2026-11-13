@@ -5,16 +5,7 @@ import { ArrowLeftIcon, ChevronRightIcon, PuzzleIcon, ShieldIcon } from "lucide-
 import type { ReactNode } from "react";
 import { Switch } from "~/components/ui/switch";
 
-import {
-  PROVIDER_STATUS_DOT,
-  providerSummary,
-  useAgentProviders,
-  useSetProvidersState,
-} from "../agent/agent-providers";
-import { mailApi, type AgentSettingsPatch, type ProviderSnapshot } from "../mail/api";
-import { toast } from "../mail/toast";
 import { Btn, cn } from "../mail/ui";
-import { AgentStatusSection } from "../settings/providers-pane";
 import { SETTINGS_SECTION_LABELS } from "../settings/settings-search";
 import { SettingsPageContainer, SettingsSection } from "../settings/settings-ui";
 import {
@@ -25,34 +16,26 @@ import {
 } from "./registry";
 import type { UiExtension } from "./types";
 
-type Entry = { extension: UiExtension; enabled: boolean; agent?: ProviderSnapshot };
+type Entry = { extension: UiExtension; enabled: boolean };
 
-const hasPage = ({ extension }: Entry) => Boolean(extension.Settings || extension.agent);
+const hasPage = ({ extension }: Entry) => Boolean(extension.Settings);
 
+/** The extensions besides the agents' (each agent you add has its own page in Agents). */
 function useEntries(): { entries: Entry[]; setEnabled: (entry: Entry, on: boolean) => void } {
   const disabled = useDisabledExtensions();
-  const agents = useAgentProviders().data;
-  const setAgents = useSetProvidersState();
-  const entries = availableExtensions().flatMap((extension): Entry[] => {
-    if (!extension.agent) return [{ extension, enabled: !disabled.has(extension.manifest.id) }];
-    const agent = agents?.providers.find((p) => p.kind === extension.manifest.id);
-    return agent ? [{ extension, enabled: agent.enabled, agent }] : [];
-  });
+  const entries = availableExtensions()
+    .filter((extension) => !extension.agent)
+    .map((extension) => ({ extension, enabled: !disabled.has(extension.manifest.id) }));
   const setEnabled = (entry: Entry, on: boolean) => {
     const { id } = entry.extension.manifest;
     console.log("[Settings:setExtensionEnabled]", { id, on });
-    if (!entry.agent) return setExtensionEnabled(id, on);
-    mailApi
-      .updateAgentSettings({ [id]: { enabled: on } })
-      .then(setAgents, (error: unknown) =>
-        toast.error(`Could not save: ${error instanceof Error ? error.message : String(error)}`),
-      );
+    setExtensionEnabled(id, on);
   };
   return { entries, setEnabled };
 }
 
 function ExtensionIcon({ extension, size }: { extension: UiExtension; size: "sm" | "lg" }) {
-  const Icon = extension.Icon ?? extension.agent?.Icon ?? PuzzleIcon;
+  const Icon = extension.Icon ?? PuzzleIcon;
   return (
     <span
       className={cn(
@@ -121,7 +104,6 @@ function ExtensionListSection({
   setEnabled: (entry: Entry, on: boolean) => void;
 }) {
   const navigate = useNavigate();
-  const state = useAgentProviders().data;
   return (
     <SettingsSection title="Built-in">
       {entries.map((e) => {
@@ -130,7 +112,6 @@ function ExtensionListSection({
           <ExtensionListRow
             key={id}
             entry={e}
-            isDefault={state?.selected === id}
             setEnabled={setEnabled}
             onOpen={
               hasPage(e)
@@ -150,19 +131,14 @@ function ExtensionListSection({
 
 function ExtensionListRow({
   entry,
-  isDefault,
   setEnabled,
   onOpen,
 }: {
   entry: Entry;
-  isDefault: boolean;
   setEnabled: (entry: Entry, on: boolean) => void;
   onOpen?: () => void;
 }) {
   const { manifest } = entry.extension;
-  const { agent } = entry;
-  const status = agent ? providerSummary(agent).headline : null;
-  const needsAttention = agent && (agent.status === "warning" || agent.status === "error");
   return (
     <div
       data-slot="settings-row"
@@ -189,20 +165,9 @@ function ExtensionListRow({
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm text-foreground">{manifest.name}</span>
-            {agent && isDefault ? (
-              <span className="shrink-0 rounded bg-muted/60 px-1 py-0.5 text-3xs leading-none text-muted-foreground">
-                Default
-              </span>
-            ) : null}
           </span>
           <span className="mt-0.5 flex items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
-            {needsAttention ? (
-              <span
-                aria-hidden
-                className={cn("size-1.5 shrink-0 rounded-full", PROVIDER_STATUS_DOT[agent.status])}
-              />
-            ) : null}
-            <span className="line-clamp-1">{status ?? manifest.description}</span>
+            <span className="line-clamp-1">{manifest.description}</span>
           </span>
         </span>
       </span>
@@ -264,31 +229,7 @@ function ExtensionPage({
 }
 
 function ExtensionSettings({ entry }: { entry: Entry }) {
-  const { extension, agent } = entry;
-  const state = useAgentProviders().data;
-  const setState = useSetProvidersState();
-  if (extension.agent && agent && state) {
-    const AgentSettings = extension.agent.Settings;
-    const update = (patch: AgentSettingsPatch) => {
-      console.log("[Settings:updateAgent]", patch);
-      mailApi
-        .updateAgentSettings(patch)
-        .then(setState, (error: unknown) =>
-          toast.error(`Could not save: ${error instanceof Error ? error.message : String(error)}`),
-        );
-    };
-    return (
-      <>
-        <AgentStatusSection
-          provider={agent}
-          isDefault={agent.kind === state.selected}
-          onMakeDefault={() => update({ selected: agent.kind })}
-        />
-        <AgentSettings state={state} provider={agent} update={update} />
-      </>
-    );
-  }
-  const Settings = extension.Settings;
+  const Settings = entry.extension.Settings;
   return Settings ? <Settings /> : null;
 }
 

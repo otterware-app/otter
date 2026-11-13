@@ -47,7 +47,7 @@ struct ChatMenu: View {
         }
         Divider()
         Button("Rename", systemImage: "pencil") { dialog = .rename(chat) }
-        if let kind = AgentKind(rawValue: chat.provider), chat.sessionId != nil, store.agents.isUsable(kind) {
+        if chat.sessionId != nil, store.agents.isUsable(chat.provider) {
             Button("Regenerate title", systemImage: "sparkles") { Task { await store.regenerateTitle(chat.id) } }
         }
         if let session = chat.sessionId {
@@ -90,8 +90,8 @@ private struct ChatDialogs: ViewModifier {
                 }
                 Button("Cancel", role: .cancel) { dialog = nil }
             } message: { chat in
-                Text(chat.sessionOwned && chat.provider != "varys"
-                    ? "“\(chat.title)” goes from every device, and its session from \(AgentKind.name(of: chat.provider))."
+                Text(chat.sessionOwned && store.agents.agent(chat.provider)?.kind != .varys
+                    ? "“\(chat.title)” goes from every device, and its session from \(store.agents.name(of: chat.provider))."
                     : "“\(chat.title)” goes from every device.")
             }
     }

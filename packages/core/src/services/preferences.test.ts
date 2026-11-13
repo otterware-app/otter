@@ -16,13 +16,14 @@ vi.mock("./otter-account.js", () => ({
   getOtterUser: () => ({ id: "test-user" }),
   relayRequest: (...args: unknown[]) => relay(...args),
 }));
+const applyAgents = vi.fn();
 vi.mock("./agent/service.js", () => ({
-  applySyncedHermesKey: vi.fn(),
-  forgetHermesKey: vi.fn(),
-  applySyncedProviderSettings: vi.fn(),
-  syncedProviderSettings: () => ({}),
+  applySyncedAgentKeys: vi.fn(),
+  forgetAgentKeys: vi.fn(),
+  applySyncedProviderSettings: (value: unknown) => applyAgents(value),
+  syncedAgentKeys: async () => ({}),
+  syncedProviderSettings: () => ({ agents: ["mine"] }),
 }));
-vi.mock("./agent/settings.js", () => ({ getHermesKey: () => null }));
 vi.mock("./keybindings-store.js", () => ({
   readKeybindings: async () => ({}),
   writeKeybindings: vi.fn(),
@@ -48,7 +49,8 @@ afterEach(() => {
   vi.clearAllTimers();
   vi.useRealTimers();
 });
-const { getUiPreferences } = await import("./preferences");
+const { forgetSyncedPreferences, getUiPreferences, preferenceChanged, pullPreferences } =
+  await import("./preferences");
 
 it("waits for a new browser's account appearance before returning it", async () => {
   let resolve!: (value: unknown) => void;
@@ -86,4 +88,38 @@ it("keeps native startup local", async () => {
 it("falls back to local defaults if the relay is unavailable", async () => {
   relay.mockRejectedValue(new Error("offline"));
   expect(await getUiPreferences(true)).toEqual({});
+});
+
+it("keeps a change made here until the relay has it", async () => {
+  await forgetSyncedPreferences();
+  preferenceChanged("assistant");
+  relay.mockResolvedValueOnce({
+    preferences: { assistant: { agents: ["older"] } },
+    agentKeys: null,
+  });
+  await pullPreferences();
+
+  let resolve!: (value: unknown) => void;
+  relay.mockReturnValueOnce(new Promise((done) => (resolve = done)));
+  const pulling = pullPreferences();
+  preferenceChanged("assistant");
+  resolve({ preferences: { assistant: { agents: ["older"] } }, agentKeys: null });
+  await pulling;
+  expect(applyAgents).not.toHaveBeenCalled();
+
+  relay.mockResolvedValue(undefined);
+  await vi.advanceTimersByTimeAsync(600);
+  expect(relay).toHaveBeenLastCalledWith(
+    "PUT",
+    "/v1/preferences",
+    expect.objectContaining({
+      preferences: expect.objectContaining({ assistant: { agents: ["mine"] } }),
+    }),
+  );
+  relay.mockResolvedValueOnce({
+    preferences: { assistant: { agents: ["theirs"] } },
+    agentKeys: null,
+  });
+  await pullPreferences();
+  expect(applyAgents).toHaveBeenCalledWith({ agents: ["theirs"] });
 });

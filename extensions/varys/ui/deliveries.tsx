@@ -16,14 +16,14 @@ export type RelayState = "on" | "off" | "signedOut";
  * Whether varys can tell your devices there's something new while Otter is closed: this
  * device's grant names Otter's relay, which hears which thread to read, never what's in it.
  */
-export function VarysDeliveries({ relay }: { relay: RelayState }) {
+export function VarysDeliveries({ agent, relay }: { agent: string; relay: RelayState }) {
   const setState = useSetProvidersState();
   const [busy, setBusy] = useState(false);
 
   const turnOn = async () => {
     setBusy(true);
     try {
-      setState(await varysApi.varysRelay());
+      setState(await varysApi.varysRelay(agent));
     } catch (error) {
       toast.error(
         `Could not turn it on: ${error instanceof Error ? error.message : String(error)}`,

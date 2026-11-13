@@ -1189,7 +1189,7 @@ describe("preferences", () => {
 
   it("starts empty, replaces the sections given, and keeps the rest", async () => {
     const { token } = await signIn("prefs@example.com");
-    expect(await preferences(token)).toEqual({ preferences: {}, hermesKey: null });
+    expect(await preferences(token)).toEqual({ preferences: {}, agentKeys: null });
 
     const put = (body: unknown) => call("PUT", "/v1/preferences", token, body);
     expect((await put({ preferences: { views: [1], ui: { a: "1" } } })).status).toBe(204);
@@ -1197,10 +1197,11 @@ describe("preferences", () => {
     expect((await preferences(token)).preferences).toEqual({ views: [1], ui: { b: "2" } });
   });
 
-  it("keeps the Hermes key sealed, and gives it back only to its owner", async () => {
+  it("keeps the agents' keys sealed, and gives them back only to their owner", async () => {
     const { token } = await signIn("hermes@example.com");
-    await call("PUT", "/v1/preferences", token, { hermesKey: "sk-secret" });
-    expect((await preferences(token)).hermesKey).toBe("sk-secret");
+    const keys = { "brokk-id": "sk-secret", "rata-id": "sk-other" };
+    await call("PUT", "/v1/preferences", token, { agentKeys: keys });
+    expect((await preferences(token)).agentKeys).toEqual(keys);
 
     const stored = execFileSync(
       "pnpm",
@@ -1215,20 +1216,20 @@ describe("preferences", () => {
         persistDir,
         "--json",
         "--command",
-        "SELECT hermes_key FROM preferences WHERE hermes_key IS NOT NULL",
+        "SELECT agent_keys FROM preferences WHERE agent_keys IS NOT NULL",
       ],
       { cwd: root, encoding: "utf8", env: { ...process.env, CI: "1" } },
     );
-    expect(stored).toContain("hermes_key");
+    expect(stored).toContain("agent_keys");
     expect(stored).not.toContain("sk-secret");
 
     await call("PUT", "/v1/preferences", token, { preferences: { ui: {} } });
-    expect((await preferences(token)).hermesKey).toBe("sk-secret");
-    await call("PUT", "/v1/preferences", token, { hermesKey: null });
-    expect((await preferences(token)).hermesKey).toBeNull();
+    expect((await preferences(token)).agentKeys).toEqual(keys);
+    await call("PUT", "/v1/preferences", token, { agentKeys: {} });
+    expect((await preferences(token)).agentKeys).toBeNull();
 
     const { token: other } = await signIn("someone-else@example.com");
-    expect(await preferences(other)).toEqual({ preferences: {}, hermesKey: null });
+    expect(await preferences(other)).toEqual({ preferences: {}, agentKeys: null });
     // Inspecting D1 starts a second Wrangler runtime; allow its cold start in CI.
   }, 30_000);
 

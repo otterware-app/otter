@@ -1,19 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { OpenClawSettings } from "./settings.js";
+import { testAgent } from "./test-agent.js";
 
 const fixture = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock("../../../packages/core/src/platform.js", () => ({
   platform: () => ({ kind: "desktop", appVersion: "test", onResume: () => () => {} }),
-}));
-vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
-  clearOpenClawBootstrapToken: vi.fn(),
-  clearOpenClawDeviceToken: vi.fn(),
-  getOpenClawBootstrapToken: async () => "",
-  getOpenClawDeviceKey: async () => "",
-  getOpenClawDeviceToken: async () => "",
-  getOpenClawToken: async () => "test-token",
-  setOpenClawDeviceKey: vi.fn(),
-  setOpenClawDeviceToken: vi.fn(),
 }));
 vi.mock("@openclaw/gateway-client/browser", () => ({
   GatewayBrowserDeviceAuthLifecycle: class {
@@ -29,10 +20,12 @@ vi.mock("@openclaw/gateway-client/browser", () => ({
     request = fixture.request;
   },
 }));
-const { openClawProvider } = await import("./openclaw.js");
+const { createOpenClaw } = await import("./openclaw.js");
 const settings = { url: "wss://gateway.test/openclaw" } as OpenClawSettings;
+let openclaw = createOpenClaw(testAgent());
 afterEach(() => {
-  openClawProvider.shutdown();
+  openclaw.shutdown();
+  openclaw = createOpenClaw(testAgent());
   fixture.request.mockReset();
   vi.unstubAllGlobals();
 });
@@ -42,7 +35,7 @@ describe("OpenClaw image previews", () => {
     fixture.request.mockResolvedValue({
       assets: [{ content: btoa("pixels"), mimeType: "image/png" }],
     });
-    const file = await openClawProvider.readFile!(
+    const file = await openclaw.readFile!(
       settings,
       "session",
       "file:///home/agent/test%20image.png",
@@ -66,7 +59,7 @@ describe("OpenClaw image previews", () => {
       encoding: "base64",
       data: btoa("pixels"),
     });
-    const file = await openClawProvider.readFile!(
+    const file = await openclaw.readFile!(
       settings,
       "session",
       "otter-artifact:managed%3Aimage%3A123",
@@ -91,7 +84,7 @@ describe("OpenClaw image previews", () => {
       async () => new Response("pixels", { headers: { "Content-Type": "image/png" } }),
     );
     vi.stubGlobal("fetch", fetch);
-    const file = await openClawProvider.readFile!(
+    const file = await openclaw.readFile!(
       settings,
       "session",
       "otter-artifact:managed%3Aimage%3A123",
@@ -110,7 +103,7 @@ describe("OpenClaw image previews", () => {
         ? { file: { name: "lease.pdf", previewKind: "unsupported", mimeType: "application/pdf" } }
         : { file: { name: "lease.pdf", content: btoa("%PDF") } },
     );
-    const file = await openClawProvider.readFile!(settings, "session", "artifacts/lease.pdf");
+    const file = await openclaw.readFile!(settings, "session", "artifacts/lease.pdf");
     expect(fixture.request).toHaveBeenLastCalledWith(
       "otter.files.get",
       {
@@ -129,15 +122,15 @@ describe("OpenClaw image previews", () => {
       if (method === "sessions.files.get") return { file: { name: "lease.pdf" } };
       throw new Error("unknown method: otter.files.get");
     });
-    await expect(
-      openClawProvider.readFile!(settings, "session", "artifacts/lease.pdf"),
-    ).rejects.toThrow("update the Otter plugin");
+    await expect(openclaw.readFile!(settings, "session", "artifacts/lease.pdf")).rejects.toThrow(
+      "update the Otter plugin",
+    );
   });
 
   it("reports denied or unavailable media without treating a remote path as a local file", async () => {
     fixture.request.mockResolvedValue({ assets: [{ error: "outside_session_boundary" }] });
-    await expect(
-      openClawProvider.readFile!(settings, "session", "/home/agent/image.png"),
-    ).rejects.toThrow("couldn't read this image");
+    await expect(openclaw.readFile!(settings, "session", "/home/agent/image.png")).rejects.toThrow(
+      "couldn't read this image",
+    );
   });
 });

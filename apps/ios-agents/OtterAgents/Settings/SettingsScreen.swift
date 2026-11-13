@@ -29,15 +29,22 @@ struct SettingsScreen: View {
                 }
                 .buttonStyle(.plain)
             }
-            if !account.isDemo {
-                SettingsSection(title: "Agents") {
-                    ForEach(AgentKind.allCases) { kind in
-                        Button { path.append(.agent(kind)) } label: {
-                            SettingsRow(title: kind.name, value: agents.statusText(kind)) { AgentAvatar(provider: kind.rawValue, size: 22) }
-                        }
-                        .buttonStyle(.plain)
+            SettingsSection(title: "Agents") {
+                ForEach(agents.runnable) { agent in
+                    Button { path.append(.agent(agent.id)) } label: {
+                        SettingsRow(title: agent.name, value: agent.statusText) { AgentAvatar(agent: agent.id, size: 22) }
                     }
+                    .buttonStyle(.plain)
+                    SettingsDivider()
                 }
+                Menu {
+                    ForEach(AgentKind.allCases) { kind in
+                        Button(kind.name) { path.append(.agent(agents.add(kind).id)) }
+                    }
+                } label: {
+                    SettingsRow("Add agent", symbol: "plus", chevron: false)
+                }
+                .buttonStyle(.plain)
             }
             SettingsSection {
                 if !account.isDemo {
@@ -78,16 +85,19 @@ struct ChatSettings: View {
 
     var body: some View {
         @Bindable var agents = account.agents
+        let choices = agents.runnable.filter(\.enabled)
         SettingsPage {
-            SettingsSection(footer: "The agent a new chat runs on. You can switch in the chat's model picker.") {
-                SettingsCell {
-                    Text("New chats start with").font(.ui(16)).foregroundStyle(palette.text)
-                    Spacer()
-                    Picker("New chats start with", selection: $agents.selected) {
-                        ForEach(AgentKind.allCases.filter(agents.isEnabled)) { Text($0.name).tag($0.rawValue) }
+            if !choices.isEmpty {
+                SettingsSection(footer: "The agent a new chat runs on. You can switch in the chat's agent picker.") {
+                    SettingsCell {
+                        Text("New chats start with").font(.ui(16)).foregroundStyle(palette.text)
+                        Spacer()
+                        Picker("New chats start with", selection: Binding(get: { agents.selected ?? "" }, set: { id in agents.agent(id).map(agents.select) })) {
+                            ForEach(choices) { Text($0.name).tag($0.id) }
+                        }
+                        .labelsHidden()
+                        .tint(palette.muted)
                     }
-                    .labelsHidden()
-                    .tint(palette.muted)
                 }
             }
             SettingsSection(footer: "Queue follow-ups while the agent runs or steer the current run. Touch and hold Send to do the opposite for one message.") {

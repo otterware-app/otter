@@ -1,29 +1,33 @@
 import {
+  agentProvider,
   agentSettings,
-  clearOpenClawBootstrapToken,
-  clearOpenClawToken,
   logger,
   platform,
   providersState,
   refreshProvider,
   saveAgentSettings,
-  setOpenClawBootstrapToken,
-  setOpenClawToken,
+  type AgentId,
   type CoreExtension,
 } from "@otter/core/extension-kit";
 
 import { manifest } from "../manifest.ts";
 import {
-  allowOpenClawFullAccess,
-  allowOpenClawOwner,
   normalizeOpenClawUrl,
-  openClawProvider,
+  openClawAgent,
   parseOpenClawSetupCode,
-  resetOpenClawConnection,
+  type OpenClawProvider,
 } from "./openclaw.js";
 import type { OpenClawSettings } from "./settings.js";
 
 const str = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
+
+function agentOf(params: unknown): AgentId {
+  const id = str((params as Record<string, unknown> | undefined)?.agent);
+  if (!id) throw new Error("Choose an agent.");
+  return id;
+}
+
+const providerOf = async (id: AgentId) => (await agentProvider(id)) as OpenClawProvider;
 
 /** A secure page (and its worker) can't open a plain `ws://` socket, except to this machine. */
 function reachable(url: string): string {
@@ -38,7 +42,8 @@ function reachable(url: string): string {
   return url;
 }
 
-async function connect(input: { code: string } | { url: string; token: string }) {
+async function connect(id: AgentId, input: { code: string } | { url: string; token: string }) {
+  const provider = await providerOf(id);
   let url: string;
   if ("code" in input) {
     const code = parseOpenClawSetupCode(input.code);
@@ -49,46 +54,47 @@ async function connect(input: { code: string } | { url: string; token: string })
         "That setup code has expired. Make a new one with openclaw qr --setup-code-only.",
       );
     url = reachable(normalizeOpenClawUrl(code.url));
-    await resetOpenClawConnection(url);
-    await clearOpenClawToken();
-    await setOpenClawBootstrapToken(code.bootstrapToken);
+    await provider.connect(url, { bootstrapToken: code.bootstrapToken });
   } else {
     url = reachable(normalizeOpenClawUrl(input.url));
-    await resetOpenClawConnection(url);
-    await clearOpenClawBootstrapToken();
-    await setOpenClawToken(input.token);
+    await provider.connect(url, { token: input.token });
   }
-  await saveAgentSettings("openclaw", { url });
+  await saveAgentSettings(id, { url });
   logger.info("agent", "openclaw connecting", {
     url,
     with: "code" in input ? "setup code" : "token",
   });
-  void refreshProvider("openclaw");
+  void refreshProvider(id);
   return providersState();
 }
 
 export default {
   manifest,
   activate({ handle, registerAgent }) {
-    registerAgent(openClawProvider);
+    registerAgent(openClawAgent);
     handle("agent:connectOpenClaw", async (params: unknown) => {
-      const p = params as Record<string, unknown> | undefined;
-      const code = str(p?.code);
-      if (code) return connect({ code });
-      const url = str(p?.url);
-      const token = str(p?.token);
+      const id = agentOf(params);
+      const p = params as Record<string, unknown>;
+      const code = str(p.code);
+      if (code) return connect(id, { code });
+      const url = str(p.url);
+      const token = str(p.token);
       if (!url || !token) throw new Error("Paste a setup code, or the gateway address and token.");
-      return connect({ url, token });
+      return connect(id, { url, token });
     });
-    handle("agent:allowOpenClawFullAccess", async () => {
-      await allowOpenClawFullAccess((await agentSettings("openclaw")) as OpenClawSettings, () => {
-        void refreshProvider("openclaw");
+    handle("agent:allowOpenClawFullAccess", async (params: unknown) => {
+      const id = agentOf(params);
+      const provider = await providerOf(id);
+      await provider.allowFullAccess((await agentSettings(id)) as OpenClawSettings, () => {
+        void refreshProvider(id);
       });
       return providersState();
     });
-    handle("agent:allowOpenClawOwner", async () => {
-      await allowOpenClawOwner((await agentSettings("openclaw")) as OpenClawSettings);
-      await refreshProvider("openclaw");
+    handle("agent:allowOpenClawOwner", async (params: unknown) => {
+      const id = agentOf(params);
+      const provider = await providerOf(id);
+      await provider.allowOwner((await agentSettings(id)) as OpenClawSettings);
+      await refreshProvider(id);
       return providersState();
     });
   },

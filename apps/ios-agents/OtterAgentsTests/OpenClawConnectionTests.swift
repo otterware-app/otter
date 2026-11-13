@@ -10,7 +10,7 @@ struct OpenClawConnectionTests {
     @Test func dropsASocketThatNoLongerAnswersAndConnectsAgain() async throws {
         let gateway = try await FakeGateway.start()
         defer { gateway.stop() }
-        let client = OpenClaw(url: gateway.url, secrets: .memory(["openclaw-token": "token"]), appVersion: "test")
+        let client = OpenClaw(url: gateway.url, secrets: .memory([OpenClaw.tokenName: "token"]), appVersion: "test")
 
         try await client.connected()
         await client.probe(within: 2)

@@ -17,7 +17,7 @@ struct ChatDetails: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     HStack(spacing: 12) {
-                        AgentAvatar(provider: chat.provider, agent: chat.openClawAgent, size: 36)
+                        AgentAvatar(agent: chat.provider, gatewayAgent: chat.openClawAgent, size: 36)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(agentName).font(.ui(18, .semibold)).foregroundStyle(palette.text)
                             if let where_ { Text(where_).font(.ui(14)).foregroundStyle(palette.muted) }
@@ -61,14 +61,12 @@ struct ChatDetails: View {
         .presentationDragIndicator(.visible)
     }
 
-    private var agentName: String {
-        store.agents.name(of: chat.provider, agent: chat.openClawAgent)
-    }
+    private var agentName: String { store.agents.name(of: chat) }
 
     /** Whose agent it is and where it ran, when the name alone doesn't say. */
     private var where_: String? {
-        let provider = AgentKind.name(of: chat.provider)
-        let parts = [agentName == provider ? nil : provider, chat.device?.name].compactMap(\.self)
+        let agent = store.agents.name(of: chat.provider)
+        let parts = [agentName == agent ? nil : agent, chat.device?.name].compactMap(\.self)
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
@@ -125,7 +123,7 @@ struct ChatDetails: View {
                 return openFile(href)
             }
             UIPasteboard.general.string = href
-            store.notice = "This file is where \(AgentKind.name(of: chat.provider)) runs\(chat.device.map { ", on \($0.name)" } ?? ""). Its path is copied."
+            store.notice = "This file is where \(store.agents.name(of: chat.provider)) runs\(chat.device.map { ", on \($0.name)" } ?? ""). Its path is copied."
         case .thread, .draft:
             openURL(URL(string: "https://otter.otterware.app/agents/\(chat.id)")!)
         }

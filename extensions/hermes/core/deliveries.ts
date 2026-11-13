@@ -7,7 +7,12 @@
  */
 
 import { agentSettings, logger } from "@otter/core/extension-kit";
-import type { AgentRun, ChatSessionMessage, WatchedSession } from "@otter/core/extension-kit";
+import type {
+  AgentContext,
+  AgentRun,
+  ChatSessionMessage,
+  WatchedSession,
+} from "@otter/core/extension-kit";
 import type { ChatDelivery } from "@otter/contracts/chats";
 
 import {
@@ -20,7 +25,7 @@ import {
   type RawSession,
   type Ready,
 } from "./http.js";
-import { following } from "./runs.js";
+import type { Runs } from "./runs.js";
 import {
   SILENT,
   finalReply,
@@ -49,15 +54,35 @@ type Watching = {
   started: (run: AgentRun) => void;
   read?: (sessionId: string, cursor: string) => void;
 };
-let watching: Watching | null = null;
-let poll: ReturnType<typeof setInterval> | undefined;
-let checking: Promise<void> | null = null;
-let again = false;
-let checkedAt = 0;
-/** Sessions already shown, or with nothing to show. */
-const seen = new Set<string>();
-/** Each watched session's `last_active` when it was last read, so an unchanged one isn't read again. */
-const readAt = new Map<string, number>();
+
+/** One agent's watch over its server. */
+export type Deliveries = {
+  agent: AgentContext;
+  runs: Runs;
+  watching: Watching | null;
+  poll?: ReturnType<typeof setInterval>;
+  checking: Promise<void> | null;
+  again: boolean;
+  checkedAt: number;
+  /** Sessions already shown, or with nothing to show. */
+  seen: Set<string>;
+  /** Each watched session's `last_active` when it was last read, so an unchanged one isn't read again. */
+  readAt: Map<string, number>;
+  /** Where each chat's own turns ended in its session (the last message id), as this device saw them end. */
+  ownTo: Map<string, number>;
+};
+
+export const newDeliveries = (agent: AgentContext, runs: Runs): Deliveries => ({
+  agent,
+  runs,
+  watching: null,
+  checking: null,
+  again: false,
+  checkedAt: 0,
+  seen: new Set(),
+  readAt: new Map(),
+  ownTo: new Map(),
+});
 
 /** Hermes numbers titles it has used before: "Morning brief #2". */
 const untitled = (title: string) => title.replace(/ #\d+$/, "");
@@ -79,6 +104,7 @@ function automation(job: HermesJob): ChatDelivery {
 
 /** A session no chat has (a job's run, a delivery): it starts one. */
 async function newChats(
+  d: Deliveries,
   w: Watching,
   ready: Ready,
   sessions: RawSession[],
@@ -90,18 +116,18 @@ async function newChats(
     // A job's run is shown once it has finished.
     if (session.source === "cron" && !session.ended_at) continue;
     const at = toMillis(session.ended_at) || toMillis(session.last_active);
-    if (!id || seen.has(id) || w.sessions.has(id) || !at) continue;
+    if (!id || d.seen.has(id) || w.sessions.has(id) || !at) continue;
     if (at < since) {
-      seen.add(id);
+      d.seen.add(id);
       continue;
     }
     const delivery = deliveryOf(session);
     if (!delivery) continue;
     const reply = runReply(await sessionMessages(ready, id));
     // The chats watched change as they're made: the session is shown if none has it yet.
-    const now = watching;
+    const now = d.watching;
     if (!now) return;
-    seen.add(id);
+    d.seen.add(id);
     if (!said(reply) || now.sessions.has(id)) continue;
     const title =
       delivery.kind === "automation"
@@ -118,32 +144,34 @@ async function newChats(
   }
 }
 
-/** Where each chat's own turns ended in its session (the last message id), as this device saw them end. */
-const ownTo = new Map<string, number>();
-
 /** A turn of yours ended at message `last`: what follows it is Hermes's own. */
-export function ranTo(sessionId: string, last: number): void {
-  ownTo.set(sessionId, Math.max(last, ownTo.get(sessionId) ?? -1));
-  const chat = watching?.sessions.get(sessionId);
+export function ranTo(d: Deliveries, sessionId: string, last: number): void {
+  d.ownTo.set(sessionId, Math.max(last, d.ownTo.get(sessionId) ?? -1));
+  const chat = d.watching?.sessions.get(sessionId);
   if (!chat || Number(chat.cursor ?? -1) >= last) return;
   chat.cursor = String(last);
-  watching?.read?.(sessionId, chat.cursor);
+  d.watching?.read?.(sessionId, chat.cursor);
 }
 
 /** What Hermes wrote into a chat since it was last read, when no message of yours led to it. */
-async function inChats(w: Watching, ready: Ready, recent: RawSession[]): Promise<void> {
+async function inChats(
+  d: Deliveries,
+  w: Watching,
+  ready: Ready,
+  recent: RawSession[],
+): Promise<void> {
   const active = new Map(recent.map((s) => [String(s.id), toMillis(s.last_active)]));
   for (const [id, chat] of w.sessions) {
     const lastActive = active.get(id);
     // A turn going in the chat follows all it leads to.
     if (lastActive === undefined || chat.since === Number.MAX_SAFE_INTEGER) continue;
-    if ([...following.values()].some((run) => run.sessionId === id)) continue;
-    if (readAt.get(id) === lastActive) continue;
+    if ([...d.runs.following.values()].some((run) => run.sessionId === id)) continue;
+    if (d.readAt.get(id) === lastActive) continue;
     const rows = await rawMessages(ready, id, 50);
-    readAt.set(id, lastActive);
+    d.readAt.set(id, lastActive);
     const last = rows.at(-1)?.id;
     if (last === undefined) continue;
-    const from = Math.max(Number(chat.cursor ?? -1) || -1, ownTo.get(id) ?? -1);
+    const from = Math.max(Number(chat.cursor ?? -1) || -1, d.ownTo.get(id) ?? -1);
     if (from >= last) continue;
     // A chat not read yet: what followed your last message (unless that came since, from
     // another of Hermes's apps), after the chat last ended.
@@ -169,69 +197,70 @@ async function inChats(w: Watching, ready: Ready, recent: RawSession[]): Promise
   }
 }
 
-async function checkDeliveries(): Promise<void> {
-  const w = watching;
+async function checkDeliveries(d: Deliveries): Promise<void> {
+  const w = d.watching;
   if (!w) return;
   // As they are now: a task turned off, here or on another device, stays off.
-  const settings = (await agentSettings("hermes")) as HermesSettings;
-  const ready = await requireReady(settings).catch(() => null);
+  const settings = (await agentSettings(d.agent.id)) as HermesSettings;
+  const ready = await requireReady(settings, d.agent.secrets).catch(() => null);
   if (!ready) return;
   const [cron, sent, recent, { jobs }] = await Promise.all([
     listSessions(ready, 100, "cron"),
     listSessions(ready, 50, "otter"),
     listSessions(ready, 200),
-    jobsRequest<{ jobs: HermesJob[] }>(settings, "?include_disabled=true"),
+    jobsRequest<{ jobs: HermesJob[] }>(ready, "?include_disabled=true"),
   ]);
-  await newChats(w, ready, sent, (session) => {
+  await newChats(d, w, ready, sent, (session) => {
     const name = untitled(session.title ?? "");
     const job = jobs.find((j) => j.name && j.name === name);
     return job ? automation(job) : { kind: "message", from: "Hermes" };
   });
-  await newChats(w, ready, cron, (session) => {
+  await newChats(d, w, ready, cron, (session) => {
     const job = jobOf(session, jobs);
     return job && toOtter(job, settings) ? automation(job) : null;
   });
-  if (watching) await inChats(watching, ready, recent);
+  if (d.watching) await inChats(d, d.watching, ready, recent);
 }
 
-function check(): void {
-  checkedAt = Date.now();
-  if (checking) {
-    again = true;
+function check(d: Deliveries): void {
+  d.checkedAt = Date.now();
+  if (d.checking) {
+    d.again = true;
     return;
   }
-  checking = checkDeliveries()
+  d.checking = checkDeliveries(d)
     .catch((error: unknown) =>
       logger.info("agent", "hermes deliveries unavailable", { error: String(error) }),
     )
     .finally(() => {
-      checking = null;
-      if (!again) return;
-      again = false;
-      check();
+      d.checking = null;
+      if (!d.again) return;
+      d.again = false;
+      check(d);
     });
 }
 
 export function watchDeliveries(
+  d: Deliveries,
   sessions: WatchedSession[],
   started: (run: AgentRun) => void,
   read?: (sessionId: string, cursor: string) => void,
 ): void {
-  watching = { sessions: new Map(sessions.map((s) => [s.id, { ...s }])), started, read };
-  poll ??= setInterval(check, POLL_MS);
-  if (Date.now() - checkedAt > RECHECK_MS) check();
+  d.watching = { sessions: new Map(sessions.map((s) => [s.id, { ...s }])), started, read };
+  d.poll ??= setInterval(() => check(d), POLL_MS);
+  if (Date.now() - d.checkedAt > RECHECK_MS) check(d);
 }
 
 /** Otter's relay says Hermes delivered something: look now. */
-export function deliveredNow(): void {
-  if (watching) check();
+export function deliveredNow(d: Deliveries): void {
+  if (d.watching) check(d);
 }
 
-export function stopWatching(): void {
-  watching = null;
-  checkedAt = 0;
-  clearInterval(poll);
-  poll = undefined;
+export function stopWatching(d: Deliveries): void {
+  d.watching = null;
+  d.checkedAt = 0;
+  clearInterval(d.poll);
+  d.poll = undefined;
 }
 
 /** A delivery, as its chat's turn: the session's replies, or what follows a message in it. */

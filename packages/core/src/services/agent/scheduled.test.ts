@@ -11,45 +11,50 @@ const task = {
 };
 const can = { create: true, deliverToOtter: true, history: true, timeZones: true };
 const save = vi.fn(async () => "brief");
-const agents = new Map<string, unknown>([
+const kind = (name: string, provider: object, enabled = true) => ({
+  kind: name,
+  displayName: name,
+  defaults: { enabled, model: "" },
+  create: () => provider,
+});
+const types = new Map<string, unknown>([
   [
     "openclaw",
-    {
-      kind: "openclaw",
-      displayName: "OpenClaw",
-      defaults: { enabled: true, model: "" },
-      schedules: { list: async () => ({ tasks: [task], can }), save },
-    },
+    kind("openclaw", { schedules: { list: async () => ({ tasks: [task], can }), save } }),
   ],
   [
     "hermes",
-    {
-      kind: "hermes",
-      displayName: "Hermes",
-      defaults: { enabled: true, model: "" },
+    kind("hermes", {
       schedules: {
         list: async () => {
           throw new Error("Can't reach Hermes.");
         },
       },
-    },
+    }),
   ],
-  [
-    "unset",
-    {
-      kind: "unset",
-      defaults: { enabled: true, model: "" },
-      schedules: { list: async () => null },
-    },
-  ],
-  ["off", { kind: "off", defaults: { enabled: false, model: "" }, schedules: { list: vi.fn() } }],
-  ["claude", { kind: "claude", displayName: "Claude", defaults: { enabled: true, model: "" } }],
+  ["unset", kind("unset", { schedules: { list: async () => null } })],
+  ["off", kind("off", { schedules: { list: vi.fn() } }, false)],
+  ["claude", kind("claude", {})],
 ]);
-vi.mock("../../extensions.js", () => ({ registeredAgents: () => agents }));
+const entry = (id: string, kindName: string, name: string) => ({
+  id,
+  kind: kindName,
+  name,
+  settings: {},
+});
+vi.mock("../../extensions.js", () => ({ registeredAgents: () => types }));
 vi.mock("./settings.js", () => ({
-  getProviderSettings: async (defaults: () => Record<string, unknown>) => ({
-    selected: "openclaw",
-    agents: defaults(),
+  agentSecrets: () => ({}),
+  getProviderSettings: async () => ({
+    selected: "home",
+    agents: [
+      entry("home", "openclaw", "Home"),
+      entry("brokk", "hermes", "brokk"),
+      entry("u", "unset", "Unset"),
+      entry("o", "off", "Off"),
+      entry("cc", "claude", "Claude Code"),
+      entry("gone", "uninstalled", "Elsewhere"),
+    ],
   }),
 }));
 
@@ -59,9 +64,9 @@ const { scheduledTaskInputOf } = await import("../../handlers/agent.js");
 describe("scheduled tasks across agents", () => {
   it("lists each enabled, set-up agent that schedules, and says which couldn't be read", async () => {
     expect(await listScheduledTasks()).toEqual([
-      { provider: "openclaw", tasks: [task], can },
+      { provider: "home", tasks: [{ ...task, provider: "home" }], can },
       {
-        provider: "hermes",
+        provider: "brokk",
         tasks: [],
         error: "Can't reach Hermes.",
         channels: [],
@@ -78,11 +83,12 @@ describe("scheduled tasks across agents", () => {
 
   it("routes a change to its agent", async () => {
     const input = { name: "Brief", prompt: "Go", schedule: { kind: "every", everyMs: 60_000 } };
-    await saveScheduledTask("openclaw", "brief", input as never);
+    await saveScheduledTask("home", "brief", input as never);
     expect(save).toHaveBeenCalledWith({ enabled: true, model: "" }, "brief", input);
-    await expect(runScheduledTask("claude", "x")).rejects.toThrow(
-      "Claude doesn't run scheduled tasks.",
+    await expect(runScheduledTask("cc", "x")).rejects.toThrow(
+      "Claude Code doesn't run scheduled tasks.",
     );
+    await expect(runScheduledTask("gone", "x")).rejects.toThrow("isn't on this device");
   });
 });
 

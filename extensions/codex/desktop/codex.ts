@@ -16,6 +16,7 @@ import {
   type ToolAccess,
 } from "@otter/desktop/extension-kit";
 import type {
+  AgentType,
   ChatProvider,
   ChatSession,
   ChatSessionMessage,
@@ -115,18 +116,19 @@ type Session = {
   tools: ToolAccess;
 };
 
-const sessions = new Map<string, Session>();
+/** One agent's open sessions, by thread id. */
+type Sessions = Map<string, Session>;
 
-function stopSession(session: Session): void {
+function stopSession(sessions: Sessions, session: Session): void {
   if (session.idleTimer) clearTimeout(session.idleTimer);
   sessions.delete(session.threadId);
   session.server.kill();
 }
 
-function armIdle(session: Session): void {
+function armIdle(sessions: Sessions, session: Session): void {
   if (session.idleTimer) clearTimeout(session.idleTimer);
   session.idleTimer = setTimeout(() => {
-    if (!session.turn) stopSession(session);
+    if (!session.turn) stopSession(sessions, session);
   }, SESSION_IDLE_MS);
 }
 
@@ -328,6 +330,7 @@ function isMissingThread(error: unknown): boolean {
 }
 
 async function openSession(
+  sessions: Sessions,
   settings: CodexSettings,
   sessionId: string | undefined,
 ): Promise<Session> {
@@ -421,37 +424,53 @@ async function openSession(
   return session;
 }
 
-let utility: {
-  server: Promise<CodexAppServer>;
-  timer: ReturnType<typeof setTimeout> | null;
-} | null = null;
+/** One agent's app-server for what isn't a turn (its skills and sessions), kept a minute after use. */
+function utilityServer() {
+  let utility: {
+    server: Promise<CodexAppServer>;
+    timer: ReturnType<typeof setTimeout> | null;
+  } | null = null;
 
-async function withUtility<T>(
-  settings: CodexSettings,
-  fn: (server: CodexAppServer) => Promise<T>,
-): Promise<T> {
-  if (!utility) {
-    const server = agentWorkspace().then((cwd) => CodexAppServer.start(settings, cwd));
-    utility = { server, timer: null };
-    server.catch(() => {
+  async function use<T>(
+    settings: CodexSettings,
+    fn: (server: CodexAppServer) => Promise<T>,
+  ): Promise<T> {
+    if (!utility) {
+      const server = agentWorkspace().then((cwd) => CodexAppServer.start(settings, cwd));
+      utility = { server, timer: null };
+      server.catch(() => {
+        utility = null;
+      });
+    }
+    const current = utility;
+    if (current.timer) clearTimeout(current.timer);
+    const server = await current.server;
+    if (!server.alive) {
       utility = null;
-    });
+      return use(settings, fn);
+    }
+    try {
+      return await fn(server);
+    } finally {
+      current.timer = setTimeout(() => {
+        server.kill();
+        if (utility === current) utility = null;
+      }, UTILITY_IDLE_MS);
+    }
   }
-  const current = utility;
-  if (current.timer) clearTimeout(current.timer);
-  const server = await current.server;
-  if (!server.alive) {
+
+  function stop(): void {
+    const current = utility;
     utility = null;
-    return withUtility(settings, fn);
+    if (!current) return;
+    if (current.timer) clearTimeout(current.timer);
+    void current.server.then(
+      (server) => server.kill(),
+      () => {},
+    );
   }
-  try {
-    return await fn(server);
-  } finally {
-    current.timer = setTimeout(() => {
-      server.kill();
-      if (utility === current) utility = null;
-    }, UTILITY_IDLE_MS);
-  }
+
+  return { use, stop };
 }
 
 const REASONING_EFFORT_LABELS: Record<string, string> = {
@@ -529,8 +548,6 @@ function modelOptions(m: RawModel): ProviderModelOption[] {
   return options;
 }
 
-let knownModels: ProviderModel[] = [];
-
 async function listModels(server: CodexAppServer): Promise<ProviderModel[]> {
   const models: ProviderModel[] = [];
   let cursor: string | null = null;
@@ -551,7 +568,6 @@ async function listModels(server: CodexAppServer): Promise<ProviderModel[]> {
     }
     cursor = page.nextCursor;
   } while (cursor);
-  knownModels = models;
   return models;
 }
 
@@ -591,9 +607,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   });
 }
 
-const turnsByRequest = new Map<string, Session>();
-
-export const codexProvider: ChatProvider<CodexSettings> = {
+export const codexAgent: AgentType<CodexSettings> = {
   kind: "codex",
   displayName: "Codex",
   defaults: CODEX_DEFAULTS,
@@ -609,324 +623,328 @@ export const codexProvider: ChatProvider<CodexSettings> = {
   },
   deviceFields: ["binaryPath", "homePath", "launchArgs"],
   restartFields: ["binaryPath", "homePath", "launchArgs"],
+  create: createCodex,
+};
 
-  async checkStatus(settings) {
-    const base = {
-      kind: "codex" as const,
-      displayName: "Codex",
-      models: [] as ProviderModel[],
-      model: settings.model || null,
-      sessions: true,
-    };
-    let server: CodexAppServer | null = null;
-    try {
-      return await withTimeout(
-        (async () => {
-          server = await CodexAppServer.start(settings, await agentWorkspace());
-          const account = await server.request<{
-            account: {
-              type: string;
-              email?: string | null;
-              planType?: string;
-            } | null;
-            requiresOpenaiAuth: boolean;
-          }>("account/read", {}, PROBE_TIMEOUT_MS);
-          const version = server.version;
-          if (!account.account && account.requiresOpenaiAuth) {
+/** One Codex agent: its own app-servers, as it may run another binary or account (`homePath`). */
+export function createCodex(): ChatProvider<CodexSettings> {
+  const sessions: Sessions = new Map();
+  const turnsByRequest = new Map<string, Session>();
+  const utility = utilityServer();
+  let knownModels: ProviderModel[] = [];
+
+  const provider: ChatProvider<CodexSettings> = {
+    async checkStatus(settings) {
+      const base = {
+        models: [] as ProviderModel[],
+        model: settings.model || null,
+        sessions: true,
+      };
+      let server: CodexAppServer | null = null;
+      try {
+        return await withTimeout(
+          (async () => {
+            server = await CodexAppServer.start(settings, await agentWorkspace());
+            const account = await server.request<{
+              account: {
+                type: string;
+                email?: string | null;
+                planType?: string;
+              } | null;
+              requiresOpenaiAuth: boolean;
+            }>("account/read", {}, PROBE_TIMEOUT_MS);
+            const version = server.version;
+            if (!account.account && account.requiresOpenaiAuth) {
+              return {
+                ...base,
+                installed: true,
+                version,
+                status: "error" as const,
+                auth: { status: "unauthenticated" as const },
+                message: "Codex CLI is not authenticated. Run `codex login` and try again.",
+              };
+            }
+            const models = await listModels(server);
+            knownModels = models;
+            const acct = account.account;
+            const fallbackModel = models.find((m) => m.isDefault)?.slug ?? models[0]?.slug ?? null;
             return {
               ...base,
               installed: true,
               version,
-              status: "error" as const,
-              auth: { status: "unauthenticated" as const },
-              message: "Codex CLI is not authenticated. Run `codex login` and try again.",
+              status: "ready" as const,
+              models,
+              model: settings.model || fallbackModel,
+              auth: acct
+                ? {
+                    status: "authenticated" as const,
+                    label:
+                      acct.type === "chatgpt"
+                        ? planLabel(acct.planType)
+                        : acct.type === "apiKey"
+                          ? "API key"
+                          : acct.type,
+                    ...(acct.email ? { email: acct.email } : {}),
+                  }
+                : { status: "unknown" as const },
             };
-          }
-          const models = await listModels(server);
-          const acct = account.account;
-          const fallbackModel = models.find((m) => m.isDefault)?.slug ?? models[0]?.slug ?? null;
-          return {
-            ...base,
-            installed: true,
-            version,
-            status: "ready" as const,
-            models,
-            model: settings.model || fallbackModel,
-            auth: acct
-              ? {
-                  status: "authenticated" as const,
-                  label:
-                    acct.type === "chatgpt"
-                      ? planLabel(acct.planType)
-                      : acct.type === "apiKey"
-                        ? "API key"
-                        : acct.type,
-                  ...(acct.email ? { email: acct.email } : {}),
-                }
-              : { status: "unknown" as const },
-          };
-        })(),
-        PROBE_TIMEOUT_MS,
-        "Timed out while checking Codex.",
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const missing = error instanceof CodexSpawnError;
-      return {
-        ...base,
-        installed: !missing,
-        version: null,
-        status: "error",
-        auth: { status: "unknown" },
-        message: missing
-          ? `${message}. Install it with \`npm i -g @openai/codex\` or set the binary path.`
-          : `Codex app-server probe failed: ${message}`,
-      };
-    } finally {
-      (server as CodexAppServer | null)?.kill();
-    }
-  },
-
-  async sendTurn(turn: SendTurnInput, settings: CodexSettings, emit: Emit) {
-    const { requestId } = turn;
-    let session: Session;
-    try {
-      session = await openSession(settings, turn.sessionId);
-    } catch (error) {
-      logger.info("agent", "codex session failed", {
-        error: String(error),
-      });
-      const message =
-        error instanceof CodexSpawnError
-          ? "not_installed"
-          : `agent_error: ${String(error instanceof Error ? error.message : error)}`;
-      return emit({ requestId, type: "error", message });
-    }
-    if (session.threadId !== turn.sessionId)
-      emit({ requestId, type: "session", sessionId: session.threadId });
-    if (session.idleTimer) clearTimeout(session.idleTimer);
-    session.mode = settings.runtimeMode;
-
-    const finished = new Promise<void>((resolve) => {
-      session.turn = {
-        requestId,
-        emit,
-        turnId: null,
-        cancelRequested: false,
-        text: new TextStream(requestId, emit),
-        error: null,
-        approvals: new Map(),
-        finish: resolve,
-      };
-    });
-    turnsByRequest.set(requestId, session);
-    const input: unknown[] = [];
-    if (turn.skill?.path)
-      input.push({
-        type: "skill",
-        name: turn.skill.name,
-        path: turn.skill.path,
-      });
-    const attached = turn.attachments ?? [];
-    const base = turn.input || (attached.length ? "" : `Use the ${turn.skill?.name ?? ""} skill.`);
-    input.push({ type: "text", text: withAttachmentPaths(base, attached), text_elements: [] });
-    for (const image of attached.filter((a) => a.kind === "image"))
-      input.push({ type: "image", url: await dataUrl(image) });
-    try {
-      const started = await session.server.request<{ turn: { id: string } }>(
-        "turn/start",
-        {
-          threadId: session.threadId,
-          input,
-          ...(settings.model ? { model: settings.model } : {}),
-          ...turnOptions(settings, knownModels),
-          ...turnPolicy(settings),
-        },
-        REQUEST_TIMEOUT_MS,
-      );
-      const active = session.turn as ActiveTurn | null;
-      if (active?.requestId === requestId) {
-        active.turnId ??= started.turn.id;
-        if (active.cancelRequested) codexProvider.cancel(requestId);
+          })(),
+          PROBE_TIMEOUT_MS,
+          "Timed out while checking Codex.",
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const missing = error instanceof CodexSpawnError;
+        return {
+          ...base,
+          installed: !missing,
+          version: null,
+          status: "error",
+          auth: { status: "unknown" },
+          message: missing
+            ? `${message}. Install it with \`npm i -g @openai/codex\` or set the binary path.`
+            : `Codex app-server probe failed: ${message}`,
+        };
+      } finally {
+        (server as CodexAppServer | null)?.kill();
       }
-      await finished;
-    } catch (error) {
-      emit({
-        requestId,
-        type: "error",
-        message: `agent_error: ${String(error instanceof Error ? error.message : error)}`,
-      });
-    } finally {
-      turnsByRequest.delete(requestId);
-      if (session.turn?.requestId === requestId) session.turn = null;
-      armIdle(session);
-    }
-  },
+    },
 
-  async steer(requestId, input) {
-    const session = turnsByRequest.get(requestId);
-    const turn = session?.turn;
-    if (!session || !turn?.turnId || turn.requestId !== requestId) return false;
-    try {
-      await session.server.request(
-        "turn/steer",
-        {
-          threadId: session.threadId,
-          expectedTurnId: turn.turnId,
-          input: [{ type: "text", text: input, text_elements: [] }],
-        },
-        REQUEST_TIMEOUT_MS,
-      );
-      return true;
-    } catch (error) {
-      logger.info("agent", "codex steer failed", { error: String(error) });
-      return false;
-    }
-  },
-
-  cancel(requestId) {
-    const session = turnsByRequest.get(requestId);
-    const turn = session?.turn;
-    if (!session || !turn || turn.requestId !== requestId) return;
-    if (!turn.turnId) {
-      turn.cancelRequested = true;
-      return;
-    }
-    // An open approval blocks Codex's loop: settle it before interrupting.
-    settleApprovals(session, turn, "cancel");
-    session.tools.cancelApprovals();
-    void session.server
-      .request(
-        "turn/interrupt",
-        { threadId: session.threadId, turnId: turn.turnId },
-        REQUEST_TIMEOUT_MS,
-      )
-      .catch((error: unknown) => {
-        logger.info("agent", "codex interrupt failed", {
+    async sendTurn(turn: SendTurnInput, settings: CodexSettings, emit: Emit) {
+      const { requestId } = turn;
+      let session: Session;
+      try {
+        session = await openSession(sessions, settings, turn.sessionId);
+      } catch (error) {
+        logger.info("agent", "codex session failed", {
           error: String(error),
         });
-        session.server.kill();
+        const message =
+          error instanceof CodexSpawnError
+            ? "not_installed"
+            : `agent_error: ${String(error instanceof Error ? error.message : error)}`;
+        return emit({ requestId, type: "error", message });
+      }
+      if (session.threadId !== turn.sessionId)
+        emit({ requestId, type: "session", sessionId: session.threadId });
+      if (session.idleTimer) clearTimeout(session.idleTimer);
+      session.mode = settings.runtimeMode;
+
+      const finished = new Promise<void>((resolve) => {
+        session.turn = {
+          requestId,
+          emit,
+          turnId: null,
+          cancelRequested: false,
+          text: new TextStream(requestId, emit),
+          error: null,
+          approvals: new Map(),
+          finish: resolve,
+        };
       });
-  },
+      turnsByRequest.set(requestId, session);
+      const input: unknown[] = [];
+      if (turn.skill?.path)
+        input.push({
+          type: "skill",
+          name: turn.skill.name,
+          path: turn.skill.path,
+        });
+      const attached = turn.attachments ?? [];
+      const base =
+        turn.input || (attached.length ? "" : `Use the ${turn.skill?.name ?? ""} skill.`);
+      input.push({ type: "text", text: withAttachmentPaths(base, attached), text_elements: [] });
+      for (const image of attached.filter((a) => a.kind === "image"))
+        input.push({ type: "image", url: await dataUrl(image) });
+      try {
+        const started = await session.server.request<{ turn: { id: string } }>(
+          "turn/start",
+          {
+            threadId: session.threadId,
+            input,
+            ...(settings.model ? { model: settings.model } : {}),
+            ...turnOptions(settings, knownModels),
+            ...turnPolicy(settings),
+          },
+          REQUEST_TIMEOUT_MS,
+        );
+        const active = session.turn as ActiveTurn | null;
+        if (active?.requestId === requestId) {
+          active.turnId ??= started.turn.id;
+          if (active.cancelRequested) provider.cancel(requestId);
+        }
+        await finished;
+      } catch (error) {
+        emit({
+          requestId,
+          type: "error",
+          message: `agent_error: ${String(error instanceof Error ? error.message : error)}`,
+        });
+      } finally {
+        turnsByRequest.delete(requestId);
+        if (session.turn?.requestId === requestId) session.turn = null;
+        armIdle(sessions, session);
+      }
+    },
 
-  async respondApproval(requestId, approvalId, decision) {
-    const session = turnsByRequest.get(requestId);
-    const turn = session?.turn;
-    const request = turn?.approvals.get(approvalId);
-    if (!session || !turn || !request) return;
-    turn.approvals.delete(approvalId);
-    session.server.respond(request.id, approvalResponse(request, decision));
-    turn.emit({ requestId, type: "approvalResolved", approvalId });
-  },
+    async steer(requestId, input) {
+      const session = turnsByRequest.get(requestId);
+      const turn = session?.turn;
+      if (!session || !turn?.turnId || turn.requestId !== requestId) return false;
+      try {
+        await session.server.request(
+          "turn/steer",
+          {
+            threadId: session.threadId,
+            expectedTurnId: turn.turnId,
+            input: [{ type: "text", text: input, text_elements: [] }],
+          },
+          REQUEST_TIMEOUT_MS,
+        );
+        return true;
+      } catch (error) {
+        logger.info("agent", "codex steer failed", { error: String(error) });
+        return false;
+      }
+    },
 
-  async listSkills(settings): Promise<Skill[]> {
-    try {
+    cancel(requestId) {
+      const session = turnsByRequest.get(requestId);
+      const turn = session?.turn;
+      if (!session || !turn || turn.requestId !== requestId) return;
+      if (!turn.turnId) {
+        turn.cancelRequested = true;
+        return;
+      }
+      // An open approval blocks Codex's loop: settle it before interrupting.
+      settleApprovals(session, turn, "cancel");
+      session.tools.cancelApprovals();
+      void session.server
+        .request(
+          "turn/interrupt",
+          { threadId: session.threadId, turnId: turn.turnId },
+          REQUEST_TIMEOUT_MS,
+        )
+        .catch((error: unknown) => {
+          logger.info("agent", "codex interrupt failed", {
+            error: String(error),
+          });
+          session.server.kill();
+        });
+    },
+
+    async respondApproval(requestId, approvalId, decision) {
+      const session = turnsByRequest.get(requestId);
+      const turn = session?.turn;
+      const request = turn?.approvals.get(approvalId);
+      if (!session || !turn || !request) return;
+      turn.approvals.delete(approvalId);
+      session.server.respond(request.id, approvalResponse(request, decision));
+      turn.emit({ requestId, type: "approvalResolved", approvalId });
+    },
+
+    async listSkills(settings): Promise<Skill[]> {
+      try {
+        const cwd = await agentWorkspace();
+        const response = await utility.use(settings, (server) =>
+          server.request<{
+            data: {
+              skills: {
+                name: string;
+                description: string;
+                shortDescription?: string;
+                path: string;
+                enabled: boolean;
+              }[];
+            }[];
+          }>("skills/list", { cwds: [cwd] }, PROBE_TIMEOUT_MS),
+        );
+        const seen = new Set<string>();
+        return response.data
+          .flatMap((entry) => entry.skills)
+          .filter((s) => s.enabled && !seen.has(s.name) && seen.add(s.name))
+          .map((s) => ({
+            name: s.name,
+            description: s.shortDescription || s.description,
+            category: null,
+            path: s.path,
+          }));
+      } catch (error) {
+        logger.info("agent", "codex skills failed", { error: String(error) });
+        return [];
+      }
+    },
+
+    async listSessions(settings, limit): Promise<ChatSession[]> {
       const cwd = await agentWorkspace();
-      const response = await withUtility(settings, (server) =>
+      const response = await utility.use(settings, (server) =>
         server.request<{
           data: {
-            skills: {
-              name: string;
-              description: string;
-              shortDescription?: string;
-              path: string;
-              enabled: boolean;
-            }[];
+            id: string;
+            name?: string | null;
+            preview?: string;
+            updatedAt?: number;
+            source?: string;
           }[];
-        }>("skills/list", { cwds: [cwd] }, PROBE_TIMEOUT_MS),
+        }>(
+          "thread/list",
+          { cwd, limit, sortKey: "updated_at", useStateDbOnly: true },
+          PROBE_TIMEOUT_MS,
+        ),
       );
-      const seen = new Set<string>();
-      return response.data
-        .flatMap((entry) => entry.skills)
-        .filter((s) => s.enabled && !seen.has(s.name) && seen.add(s.name))
-        .map((s) => ({
-          name: s.name,
-          description: s.shortDescription || s.description,
-          category: null,
-          path: s.path,
-        }));
-    } catch (error) {
-      logger.info("agent", "codex skills failed", { error: String(error) });
-      return [];
-    }
-  },
+      return response.data.map((t) => ({
+        id: t.id,
+        title: t.name ?? null,
+        source: "codex",
+        lastActive: (t.updatedAt ?? 0) * 1000,
+        messageCount: t.preview ? 1 : 0,
+        preview: t.preview ?? null,
+      }));
+    },
 
-  async listSessions(settings, limit): Promise<ChatSession[]> {
-    const cwd = await agentWorkspace();
-    const response = await withUtility(settings, (server) =>
-      server.request<{
-        data: {
-          id: string;
-          name?: string | null;
-          preview?: string;
-          updatedAt?: number;
-          source?: string;
-        }[];
-      }>(
-        "thread/list",
-        { cwd, limit, sortKey: "updated_at", useStateDbOnly: true },
-        PROBE_TIMEOUT_MS,
-      ),
-    );
-    return response.data.map((t) => ({
-      id: t.id,
-      title: t.name ?? null,
-      source: "codex",
-      lastActive: (t.updatedAt ?? 0) * 1000,
-      messageCount: t.preview ? 1 : 0,
-      preview: t.preview ?? null,
-    }));
-  },
-
-  async readSession(settings, sessionId): Promise<ChatSessionMessage[]> {
-    const response = await withUtility(settings, (server) =>
-      server.request<{ data: { items: Item[] }[] }>(
-        "thread/turns/list",
-        {
-          threadId: sessionId,
-          itemsView: "full",
-          sortDirection: "asc",
-          limit: 100,
-        },
-        PROBE_TIMEOUT_MS,
-      ),
-    );
-    const messages: ChatSessionMessage[] = [];
-    for (const turn of response.data) {
-      for (const item of turn.items) {
-        const step = codexStep(item);
-        if (item.type === "userMessage") messages.push({ role: "user", text: userText(item) });
-        else if (item.type === "agentMessage")
-          messages.push({ role: "assistant", text: String(item.text ?? "") });
-        else if (step) {
-          messages.push({ role: "assistant", text: "", toolCalls: [step] });
-          messages.push({ role: "tool", text: toolOutput(item) });
+    async readSession(settings, sessionId): Promise<ChatSessionMessage[]> {
+      const response = await utility.use(settings, (server) =>
+        server.request<{ data: { items: Item[] }[] }>(
+          "thread/turns/list",
+          {
+            threadId: sessionId,
+            itemsView: "full",
+            sortDirection: "asc",
+            limit: 100,
+          },
+          PROBE_TIMEOUT_MS,
+        ),
+      );
+      const messages: ChatSessionMessage[] = [];
+      for (const turn of response.data) {
+        for (const item of turn.items) {
+          const step = codexStep(item);
+          if (item.type === "userMessage") messages.push({ role: "user", text: userText(item) });
+          else if (item.type === "agentMessage")
+            messages.push({ role: "assistant", text: String(item.text ?? "") });
+          else if (step) {
+            messages.push({ role: "assistant", text: "", toolCalls: [step] });
+            messages.push({ role: "tool", text: toolOutput(item) });
+          }
         }
       }
-    }
-    return messages;
-  },
+      return messages;
+    },
 
-  readFile: (_settings, _sessionId, href) => readAgentFile(href),
+    readFile: (_settings, _sessionId, href) => readAgentFile(href),
 
-  async deleteSession(settings, sessionId) {
-    const live = sessions.get(sessionId);
-    if (live) stopSession(live);
-    await withUtility(settings, (server) =>
-      server.request("thread/archive", { threadId: sessionId }, PROBE_TIMEOUT_MS),
-    );
-  },
-
-  shutdown() {
-    for (const session of sessions.values()) stopSession(session);
-    const current = utility;
-    utility = null;
-    if (current) {
-      if (current.timer) clearTimeout(current.timer);
-      void current.server.then(
-        (server) => server.kill(),
-        () => {},
+    async deleteSession(settings, sessionId) {
+      const live = sessions.get(sessionId);
+      if (live) stopSession(sessions, live);
+      await utility.use(settings, (server) =>
+        server.request("thread/archive", { threadId: sessionId }, PROBE_TIMEOUT_MS),
       );
-    }
-  },
-};
+    },
+
+    shutdown() {
+      for (const session of sessions.values()) stopSession(sessions, session);
+      utility.stop();
+    },
+  };
+  return provider;
+}

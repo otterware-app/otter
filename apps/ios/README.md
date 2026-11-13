@@ -114,7 +114,7 @@ in place of its preview line, only for half an hour after the mail arrived, sinc
 
 ```sh
 pnpm dev:ios               # build, then run in the simulator (production relay)
-pnpm dev:ios --relay local # against `pnpm dev`'s relay on :8787
+pnpm dev:ios --relay local # against this checkout's `pnpm dev` relay
 ```
 
 Or open `OtterMail.xcodeproj` in Xcode (27 or later). The welcome screen offers the demo mailbox,

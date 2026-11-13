@@ -2,9 +2,14 @@ export type { CoreExtension, ExtensionContext } from "./extensions.js";
 export { extensionManifest, type ExtensionManifest } from "@otter/contracts/extensions";
 
 export type {
+  AgentContext,
+  AgentId,
+  AgentSecrets,
   AgentSettings,
   AgentSettingsView,
+  AgentType,
   ChatFile,
+  CheckedStatus,
   ProvidersState,
   ProviderSnapshot,
   ResumeTurnInput,
@@ -13,18 +18,13 @@ export type {
   ToolStep,
 } from "./services/agent/types.js";
 export {
+  agentProvider,
   agentSettings,
   providersState,
   refreshProvider,
   saveAgentSettings,
   updateProviderSettings,
 } from "./services/agent/service.js";
-export {
-  clearOpenClawToken,
-  setHermesKey,
-  setOpenClawBootstrapToken,
-  setOpenClawToken,
-} from "./services/agent/settings.js";
 export { onOtterAccountChange } from "./services/otter-account.js";
 export { deleteAgentChannel, makeAgentChannel } from "./services/agent/channels.js";
 export { preferenceChanged } from "./services/preferences.js";
@@ -47,17 +47,6 @@ export {
   stageAttachment,
 } from "./services/agent/attachments.js";
 export { chatFile, chatFilePath, downloadChatFile } from "./services/agent/files.js";
-export {
-  clearOpenClawBootstrapToken,
-  clearOpenClawDeviceToken,
-  getHermesKey,
-  getOpenClawBootstrapToken,
-  getOpenClawDeviceKey,
-  getOpenClawDeviceToken,
-  getOpenClawToken,
-  setOpenClawDeviceKey,
-  setOpenClawDeviceToken,
-} from "./services/agent/settings.js";
 export {
   TOOL_OUTPUT_CHARS,
   claudeStep,

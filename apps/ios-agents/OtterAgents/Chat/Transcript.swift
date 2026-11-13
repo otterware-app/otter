@@ -154,6 +154,7 @@ struct AssistantTurnView: View {
     let turn: ChatTurn
     /** Of its chat, only what it shows: the whole chat changes with every word streamed into it, and would redraw every turn. */
     let chatId: String
+    /** The agent's id. */
     let provider: String
     /** The agent's name, for a quote of what it said. */
     let name: String
@@ -226,7 +227,7 @@ struct AssistantTurnView: View {
             if let error = turn.error { failure(error) }
             if !turn.changes.isEmpty, !live { ChangesList(changes: turn.changes).padding(.top, 3) }
             if detached, turn.isLive {
-                Text("Lost \(AgentKind.name(of: provider)) mid-reply. The rest shows here once it's back.")
+                Text("Lost \(store.agents.name(of: provider)) mid-reply. The rest shows here once it's back.")
                     .font(.ui(14))
                     .foregroundStyle(palette.muted)
             }
@@ -320,7 +321,7 @@ struct AssistantTurnView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(AgentKind.name(of: provider)) error").font(.ui(14, .semibold))
+                    Text("\(store.agents.name(of: provider)) error").font(.ui(14, .semibold))
                     Text(error).font(.ui(14))
                 }
             } icon: {

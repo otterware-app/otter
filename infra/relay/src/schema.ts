@@ -206,7 +206,7 @@ export const preferences = sqliteTable("preferences", {
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   data: text().notNull(),
-  hermesKey: text(),
+  agentKeys: text(),
   updatedAt: updatedAt(),
 });
 

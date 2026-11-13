@@ -30,9 +30,10 @@ nonisolated struct ScheduledTask: Identifiable, Equatable {
         var durationMs: Int?
     }
 
+    /** The agent's id. */
     var provider: String
     var taskId: String
-    /** Which of the provider's agents runs it (an OpenClaw agent). */
+    /** Which of the gateway's agents runs it (an OpenClaw agent). */
     var agent: String?
     var name: String
     var description: String?
@@ -108,6 +109,7 @@ nonisolated struct AgentTasks: Equatable {
         var timeZones = false
     }
 
+    /** The agent's id. */
     var provider: String
     var tasks: [ScheduledTask] = []
     var error: String?

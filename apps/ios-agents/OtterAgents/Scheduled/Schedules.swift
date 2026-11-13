@@ -6,86 +6,93 @@ import Foundation
  * on its own, whether or not any Otter app is open; this lists and changes them.
  */
 final class Schedules {
+    let agent: Agent
     private let agents: Agents
 
-    init(agents: Agents) { self.agents = agents }
+    /** One agent's: its tasks are named by its id, as every call is. */
+    init(agent: Agent, agents: Agents) {
+        self.agent = agent
+        self.agents = agents
+    }
 
     /** Nil for an agent that isn't connected here, or runs nothing on a schedule. */
-    func list(_ kind: AgentKind) async -> AgentTasks? {
-        guard agents.isUsable(kind) else { return nil }
+    func list() async -> AgentTasks? {
+        guard agent.isUsable else { return nil }
         do {
-            switch kind {
+            switch agent.kind {
             case .hermes: return try await hermesList()
             case .openclaw: return try await openClawList()
             case .varys: return try await varysList()
+            case nil: return nil
             }
         } catch {
-            return AgentTasks(provider: kind.rawValue, error: error.localizedDescription)
+            return AgentTasks(provider: agent.id, error: error.localizedDescription)
         }
     }
 
     /** Saves the task; its id. */
     @discardableResult
-    func save(_ kind: AgentKind, id: String?, _ input: TaskInput) async throws -> String {
-        switch kind {
+    func save(id: String?, _ input: TaskInput) async throws -> String {
+        switch agent.kind {
         case .hermes: try await hermesSave(id, input)
         case .openclaw: try await openClawSave(id, input)
         case .varys: try await varysSave(id, input)
+        case nil: throw ScheduleFailure(message: "\(agent.name) runs on a Mac.")
         }
     }
 
     func setEnabled(_ task: ScheduledTask, _ enabled: Bool) async throws {
-        switch task.provider {
-        case "hermes": _ = try await jobs("/\(Self.segment(task.taskId))/\(enabled ? "resume" : "pause")", method: "POST")
-        case "openclaw": try await cron("cron.update", ["id": task.taskId, "patch": ["enabled": enabled]])
-        case "varys": try await varys().send("POST", "/routines/\(Self.segment(task.taskId))/pause", ["id": .string(task.taskId), "paused": .bool(!enabled)])
-        default: break
+        switch agent.kind {
+        case .hermes: _ = try await jobs("/\(Self.segment(task.taskId))/\(enabled ? "resume" : "pause")", method: "POST")
+        case .openclaw: try await cron("cron.update", ["id": task.taskId, "patch": ["enabled": enabled]])
+        case .varys: try await varys().send("POST", "/routines/\(Self.segment(task.taskId))/pause", ["id": .string(task.taskId), "paused": .bool(!enabled)])
+        case nil: break
         }
     }
 
     func runNow(_ task: ScheduledTask) async throws {
-        switch task.provider {
-        case "hermes": _ = try await jobs("/\(Self.segment(task.taskId))/run", method: "POST")
-        case "openclaw": try await cron("cron.run", ["id": task.taskId, "mode": "force"])
-        case "varys": try await varys().send("POST", "/routines/\(Self.segment(task.taskId))/runs", ["id": .string(task.taskId)])
-        default: break
+        switch agent.kind {
+        case .hermes: _ = try await jobs("/\(Self.segment(task.taskId))/run", method: "POST")
+        case .openclaw: try await cron("cron.run", ["id": task.taskId, "mode": "force"])
+        case .varys: try await varys().send("POST", "/routines/\(Self.segment(task.taskId))/runs", ["id": .string(task.taskId)])
+        case nil: break
         }
     }
 
     func remove(_ task: ScheduledTask) async throws {
-        switch task.provider {
-        case "hermes":
+        switch agent.kind {
+        case .hermes:
             _ = try await jobs("/\(Self.segment(task.taskId))", method: "DELETE")
-            agents.setMuted(.hermes, task.taskId, false)
-        case "openclaw":
+            agents.setMuted(agent, task.taskId, false)
+        case .openclaw:
             let job = try await cron("cron.get", ["id": task.taskId]) as? [String: Any] ?? [:]
-            if job["declarationKey"] as? String != nil { throw ScheduleFailure(message: "OpenClaw keeps this one itself: pause it instead of deleting it.") }
+            if job["declarationKey"] as? String != nil { throw ScheduleFailure(message: "\(agent.name) keeps this one itself: pause it instead of deleting it.") }
             try await cron("cron.remove", ["id": task.taskId])
-        case "varys": try await varys().send("DELETE", "/routines/\(Self.segment(task.taskId))", ["id": .string(task.taskId)])
-        default: break
+        case .varys: try await varys().send("DELETE", "/routines/\(Self.segment(task.taskId))", ["id": .string(task.taskId)])
+        case nil: break
         }
     }
 
     func runs(_ task: ScheduledTask, limit: Int = 20) async throws -> [TaskRun] {
-        switch task.provider {
-        case "hermes": try await hermesRuns(task.taskId, limit)
-        case "openclaw": try await openClawRuns(task.taskId, limit)
-        case "varys": try await varysRuns(task.taskId, limit)
-        default: []
+        switch agent.kind {
+        case .hermes: try await hermesRuns(task.taskId, limit)
+        case .openclaw: try await openClawRuns(task.taskId, limit)
+        case .varys: try await varysRuns(task.taskId, limit)
+        case nil: []
         }
     }
 
     /** What a run wrote, for its row in the history. */
     func transcript(_ task: ScheduledTask, run: String) async throws -> [SessionMessage] {
-        switch task.provider {
-        case "hermes":
-            guard let client = agents.hermesClient else { return [] }
+        switch agent.kind {
+        case .hermes:
+            guard let client = agent.hermes else { return [] }
             return try await client.messages(of: run).filter { $0.role == "assistant" }.map { message in
                 SessionMessage(role: message.role, text: message.text, steps: message.tools.map { (nil, AgentRunner.step(named: $0), "") })
             }
-        case "openclaw": return try await openClawTranscript(task.taskId, run)
-        case "varys": return try await varysTranscript(task.taskId, run)
-        default: return []
+        case .openclaw: return try await openClawTranscript(task.taskId, run)
+        case .varys: return try await varysTranscript(task.taskId, run)
+        case nil: return []
         }
     }
 
@@ -105,7 +112,7 @@ final class Schedules {
     // MARK: Hermes
 
     private func jobs(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> [String: Any] {
-        guard let client = agents.hermesClient else { throw ScheduleFailure(message: "Connect Hermes in Settings.") }
+        guard let client = agent.hermes else { throw ScheduleFailure(message: "Connect \(agent.name) in Settings › Agents.") }
         let (data, status) = try await client.call(method, "\(client.origin)/api/jobs\(path)", json: body)
         let object = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
         guard (200..<300).contains(status) else {
@@ -119,7 +126,7 @@ final class Schedules {
 
     /** The gateway's platforms (Otter's plugin, Telegram…), by name. */
     private func hermesPlatforms() async -> [String] {
-        guard let client = agents.hermesClient, let (data, status) = try? await client.call("GET", "\(client.origin)/health/detailed"), status == 200,
+        guard let client = agent.hermes, let (data, status) = try? await client.call("GET", "\(client.origin)/health/detailed"), status == 200,
               let platforms = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["platforms"] as? [String: [String: Any]] else { return [] }
         return platforms.filter { $0.value["state"] as? String == "connected" }.map(\.key)
     }
@@ -140,7 +147,7 @@ final class Schedules {
         let failed = ["error", "failed"].contains(job["last_status"] as? String ?? "")
         let deliver = job["deliver"] as? String ?? "local"
         let delivery: ScheduledTask.Delivery
-        if deliver == "local" { delivery = agents.muted(.hermes).contains(id) ? .none : .otter(newChat: true) }
+        if deliver == "local" { delivery = agent.muted.contains(id) ? .none : .otter(newChat: true) }
         else if deliver == "otter" { delivery = .otter(newChat: true) }
         else if deliver.hasPrefix("otter:") { delivery = .otter(newChat: false) }
         else if let colon = deliver.firstIndex(of: ":"), !deliver.contains(",") {
@@ -149,7 +156,7 @@ final class Schedules {
         } else {
             delivery = .elsewhere(label: deliver == "origin" ? "where it was set up" : deliver.split(separator: ",").map { Self.label(String($0)) }.joined(separator: ", "))
         }
-        var task = ScheduledTask(provider: "hermes", taskId: id, name: (job["name"] as? String).flatMap(\.nilIfEmpty) ?? id, schedule: schedule, enabled: enabled, delivery: delivery)
+        var task = ScheduledTask(provider: agent.id, taskId: id, name: (job["name"] as? String).flatMap(\.nilIfEmpty) ?? id, schedule: schedule, enabled: enabled, delivery: delivery)
         if let prompt = job["prompt"] as? String, !prompt.isEmpty, job["no_agent"] as? Bool != true { task.prompt = prompt }
         task.running = job["state"] as? String == "running"
         if enabled { task.nextRunAt = Self.ms(job["next_run_at"]) }
@@ -162,7 +169,7 @@ final class Schedules {
     private func hermesList() async throws -> AgentTasks {
         let tasks = (try await jobs("?include_disabled=true")["jobs"] as? [[String: Any]] ?? []).compactMap(hermesTask)
         let channels = await hermesPlatforms().filter { $0 != "api_server" && $0 != "otter" }.map { DeliveryChannel(id: $0, label: Self.label($0)) }
-        return AgentTasks(provider: "hermes", tasks: tasks, channels: channels, can: .init(create: true, deliverToOtter: true, webhooks: false, history: true, timeZones: false))
+        return AgentTasks(provider: agent.id, tasks: tasks, channels: channels, can: .init(create: true, deliverToOtter: true, webhooks: false, history: true, timeZones: false))
     }
 
     /** A schedule in words Hermes parses: a cron expression, `every 90m`, an ISO time. */
@@ -199,13 +206,13 @@ final class Schedules {
             body["deliver"] = deliver ?? "local"
             saved = (try await jobs("", method: "POST", body: body)["job"] as? [String: Any])?["id"] as? String ?? ""
         }
-        if !saved.isEmpty, let to = input.resultsTo { agents.setMuted(.hermes, saved, to == .off) }
+        if !saved.isEmpty, let to = input.resultsTo { agents.setMuted(agent, saved, to == .off) }
         return saved
     }
 
     /** Each run is a session of its own (source "cron"), named after its job. */
     private func hermesRuns(_ id: String, _ limit: Int) async throws -> [TaskRun] {
-        guard let client = agents.hermesClient else { return [] }
+        guard let client = agent.hermes else { return [] }
         let job = try await jobs("/\(Self.segment(id))")["job"] as? [String: Any] ?? [:]
         let name = (job["name"] as? String ?? "").split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(60).trimmingCharacters(in: .whitespaces)
         let (data, status) = try await client.call("GET", "\(client.origin)/api/sessions?source=cron&limit=200")
@@ -231,7 +238,7 @@ final class Schedules {
 
     @discardableResult
     private func cron(_ method: String, _ params: [String: Any]) async throws -> Any? {
-        guard let gateway = agents.openClawClient else { throw ScheduleFailure(message: "Connect OpenClaw in Settings.") }
+        guard let gateway = agent.openClaw else { throw ScheduleFailure(message: "Connect \(agent.name) in Settings › Agents.") }
         do { return try await gateway.request(method, params) } catch {
             let message = error.localizedDescription
             let code = (error as? OpenClaw.Failure)?.code
@@ -325,8 +332,8 @@ final class Schedules {
                 problem = first.hasSuffix(".") ? first : "\(first)."
             }
         }
-        let agent = job["agentId"] as? String ?? (job["sessionKey"] as? String)?.split(separator: ":").dropFirst().first.map(String.init) ?? defaultAgent
-        var task = ScheduledTask(provider: "openclaw", taskId: id, agent: agent,
+        let gatewayAgent = job["agentId"] as? String ?? (job["sessionKey"] as? String)?.split(separator: ":").dropFirst().first.map(String.init) ?? defaultAgent
+        var task = ScheduledTask(provider: agent.id, taskId: id, agent: gatewayAgent,
                                  name: (job["displayName"] as? String).flatMap(\.nilIfEmpty) ?? job["name"] as? String ?? id,
                                  schedule: Self.openClawSchedule(job["schedule"] as? [String: Any] ?? [:]), enabled: enabled, delivery: where_)
         task.description = (job["description"] as? String)?.replacingOccurrences(of: "^\\[managed-by=[^\\]]*\\]\\s*", with: "", options: .regularExpression)
@@ -358,7 +365,7 @@ final class Schedules {
     }
 
     private func openClawChannels() async -> (channels: [DeliveryChannel], labels: [String: String], otter: Bool) {
-        let status = (try? await agents.openClawClient?.request("channels.status", [:]) as? [String: Any]) ?? [:]
+        let status = (try? await agent.openClaw?.request("channels.status", [:]) as? [String: Any]) ?? [:]
         var labels = status["channelLabels"] as? [String: String] ?? [:]
         let meta = status["channelMeta"] as? [[String: Any]] ?? []
         for entry in meta { if let id = entry["id"] as? String, let label = entry["label"] as? String { labels[id] = label } }
@@ -384,11 +391,11 @@ final class Schedules {
             guard page["hasMore"] as? Bool == true, let next = page["nextOffset"] as? Int, next > offset else { break }
             offset = next
         }
-        let admin = agents.openClawFullAccess == true
+        let admin = agent.fullAccess == true
         let (channels, labels, otter) = await openClawChannels()
-        let defaultAgent = agents.models(of: .openclaw).first(where: \.isDefault)?.slug ?? "main"
+        let defaultAgent = agent.models.first(where: \.isDefault)?.slug ?? "main"
         let tasks = jobs.compactMap { job in openClawTask(job, defaultAgent: defaultAgent, preview: (job["id"] as? String).flatMap { previews[$0] }, labels: labels) }
-        return AgentTasks(provider: "openclaw", tasks: tasks, readOnly: admin ? nil : Self.readOnly, channels: channels,
+        return AgentTasks(provider: agent.id, tasks: tasks, readOnly: admin ? nil : Self.readOnly, channels: channels,
                           can: .init(create: admin, deliverToOtter: otter, webhooks: true, history: true, timeZones: true))
     }
 
@@ -496,7 +503,7 @@ final class Schedules {
     private func openClawTranscript(_ id: String, _ run: String) async throws -> [SessionMessage] {
         var params: [String: Any] = ["id": id, "limit": 200]
         if run.hasPrefix("at:"), let at = Int(run.dropFirst(3)) { params["runAtMs"] = at } else { params["runId"] = run }
-        guard let gateway = agents.openClawClient else { return [] }
+        guard let gateway = agent.openClaw else { return [] }
         // A run the gateway kept no transcript for (a heartbeat, a pruned session): its summary stands in for it.
         guard let result = try? await gateway.request("cron.history", params) as? [String: Any] else { return [] }
         return OpenClaw.transcript(result["messages"] as? [[String: Any]] ?? []).filter { $0.role == "assistant" }.map { message in
@@ -507,7 +514,7 @@ final class Schedules {
     // MARK: varys
 
     private func varys() throws -> Varys {
-        guard let client = agents.varysClient else { throw ScheduleFailure(message: "Connect varys in Settings first.") }
+        guard let client = agent.varys else { throw ScheduleFailure(message: "Connect \(agent.name) in Settings › Agents.") }
         return client
     }
 
@@ -530,8 +537,8 @@ final class Schedules {
         else { schedule = .every(ms: trigger["schedule"]?["everyMs"]?.count ?? 3_600_000) }
         let run = routine["lastRun"]
         let intoThread = routine["delivery"]?.string == "into_thread"
-        var task = ScheduledTask(provider: "varys", taskId: id, name: routine["title"]?.string ?? id, schedule: schedule, enabled: routine["paused"]?.bool != true,
-                                 delivery: agents.muted(.varys).contains(id) ? .none : .otter(newChat: !intoThread))
+        var task = ScheduledTask(provider: agent.id, taskId: id, name: routine["title"]?.string ?? id, schedule: schedule, enabled: routine["paused"]?.bool != true,
+                                 delivery: agent.muted.contains(id) ? .none : .otter(newChat: !intoThread))
         task.prompt = routine["instructions"]?.string
         task.running = run.map { !$0.isNull && $0["state"]?.string != "ended" } ?? false
         task.nextRunAt = Self.ms(routine["nextRunAt"]?.string)
@@ -539,14 +546,14 @@ final class Schedules {
             task.lastRun = .init(at: ended.at, status: ended.status, error: ended.error, durationMs: ended.durationMs)
         }
         // A built-in routine keeps its name, and is paused rather than deleted.
-        if routine["builtIn"]?.bool == true { task.managedBy = "varys" }
+        if routine["builtIn"]?.bool == true { task.managedBy = agent.name }
         if intoThread, let thread = routine["threadId"]?.string ?? run?["threadId"]?.string { task.chats = [thread] }
         return task
     }
 
     private func varysList() async throws -> AgentTasks {
         let list = try await varys().read("routines", .object([:]))
-        return AgentTasks(provider: "varys", tasks: (list["routines"]?.array ?? []).compactMap(varysTask),
+        return AgentTasks(provider: agent.id, tasks: (list["routines"]?.array ?? []).compactMap(varysTask),
                           can: .init(create: true, deliverToOtter: true, webhooks: false, history: true, timeZones: true))
     }
 
@@ -580,7 +587,7 @@ final class Schedules {
             receipt = try await client.send("POST", "/routines", fields)
         }
         let saved = receipt["result"]?["routineId"]?.string ?? id ?? ""
-        if !saved.isEmpty, let to = input.resultsTo { agents.setMuted(.varys, saved, to == .off) }
+        if !saved.isEmpty, let to = input.resultsTo { agents.setMuted(agent, saved, to == .off) }
         return saved
     }
 

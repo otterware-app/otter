@@ -74,7 +74,7 @@ struct ChatScreen: View {
     }
 
     private func content(_ chat: Chat) -> some View {
-        let name = store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat))
+        let name = store.agents.name(of: chat)
         let first = first(chat)
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -168,12 +168,12 @@ struct ChatScreen: View {
         .sheet(isPresented: $showQueue) { QueueSheet(chat: chat) }
         .sheet(isPresented: $showDetails) { ChatDetails(chat: chat, open: { open($0, in: chat) }, openFile: { file = FileLink(chatId: chat.id, href: $0) }) }
         .navigationDestination(item: $file) { FileScreen(link: $0) }
-        .sheet(isPresented: $showModels) { ModelSheet(chat: chat) }
+        .sheet(isPresented: $showModels) { ModelSheet(chat: chat, openSettings: openSettings) }
         .sheet(item: $page) { SafariView(url: $0.url).ignoresSafeArea() }
         .fullScreenCover(isPresented: $talking) { TalkScreen(chatId: chat.id) }
         .fullScreenCover(isPresented: $showBrowser) {
             if let source = BrowserSource(chat, agents: store.agents) {
-                BrowserScreen(source: source, agent: store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat)),
+                BrowserScreen(source: source, agent: store.agents.name(of: chat),
                               working: store.runs[chat.id] != nil, activity: BrowserSource.activity(in: chat, demo: store.agents.demo))
             }
         }
@@ -213,13 +213,16 @@ struct ChatScreen: View {
     private func header(_ chat: Chat) -> some View {
         let (status, busy) = status(chat)
         return Button { if !chat.isBlank { showDetails = true } } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(chat.isBlank ? "New chat" : chat.title).font(.ui(16, .semibold)).foregroundStyle(palette.text).lineLimit(1)
-                Text(status).font(.ui(12)).foregroundStyle(busy ? palette.action : palette.muted).lineLimit(1)
-                    .contentTransition(.opacity)
+            HStack(spacing: 8) {
+                AgentAvatar(agent: chat.provider, gatewayAgent: store.agents.gatewayAgent(of: chat), size: 30)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(chat.isBlank ? "New chat" : chat.title).font(.ui(16, .semibold)).foregroundStyle(palette.text).lineLimit(1)
+                    Text(status).font(.ui(12)).foregroundStyle(busy ? palette.action : palette.muted).lineLimit(1)
+                        .contentTransition(.opacity)
+                }
             }
             .padding(.leading, 4)
-            .frame(width: 210, alignment: .leading)
+            .frame(width: 240, alignment: .leading)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -236,9 +239,8 @@ struct ChatScreen: View {
             if let waiting = run.waitingLabel { return (waiting.prefix(1).lowercased() + waiting.dropFirst(), true) }
             return ("working…", true)
         }
-        var parts = [AgentKind.name(of: chat.provider)]
-        let name = store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat))
-        if name != parts[0] { parts.insert(name, at: 0) }
+        var parts = [store.agents.name(of: chat)]
+        if let agent = store.agents.agent(chat.provider), agent.name != parts[0] { parts.append(agent.name) }
         if let device = chat.device?.name, !device.isEmpty { parts.append(device) }
         return (parts.joined(separator: " · "), false)
     }
@@ -293,7 +295,7 @@ struct ChatScreen: View {
             VStack(spacing: 10) {
                 ProgressView()
                 if store.hydrating == chat.id {
-                    Text("Loading this session from \(AgentKind.name(of: chat.provider))…").font(.ui(14)).foregroundStyle(palette.muted)
+                    Text("Loading this session from \(store.agents.name(of: chat.provider))…").font(.ui(14)).foregroundStyle(palette.muted)
                 }
             }
         } else if chat.isBlank {
@@ -304,8 +306,8 @@ struct ChatScreen: View {
                     .foregroundStyle(palette.text)
                 Button { showModels = true } label: {
                     HStack(spacing: 6) {
-                        AgentAvatar(provider: chat.provider, agent: store.agents.agent(of: chat), size: 18)
-                        Text("with \(store.agents.name(of: chat.provider, agent: store.agents.agent(of: chat)))").font(.ui(14))
+                        AgentAvatar(agent: chat.provider, gatewayAgent: store.agents.gatewayAgent(of: chat), size: 18)
+                        Text(store.agents.agent(chat.provider) == nil ? "Add an agent in Settings › Agents" : "with \(store.agents.name(of: chat))").font(.ui(14))
                         Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
                     }
                     .foregroundStyle(palette.muted)
@@ -340,24 +342,35 @@ struct ChatScreen: View {
         }
     }
 
-    /** OpenClaw's gateway has a voice to talk with it. */
+    /** An OpenClaw gateway has a voice to talk with it. */
     private func talks(_ chat: Chat) -> Bool {
-        chat.provider == AgentKind.openclaw.rawValue && store.agents.isUsable(.openclaw) && store.agents.openClawTalks
+        guard let agent = store.agents.agent(chat.provider) else { return false }
+        return agent.kind == .openclaw && agent.isUsable && agent.talks
     }
 
     /** Why this chat only reads here, and where it goes on. */
     private func readOnly(_ chat: Chat) -> some View {
-        let name = AgentKind.name(of: chat.provider)
+        let agent = store.agents.agent(chat.provider)
+        let name = agent?.name ?? "its agent"
         return VStack(spacing: 10) {
             if chat.isElsewhere {
                 Text("This chat ran in \(name) on \(chat.device?.name ?? "a Mac"). Continue it there.")
-            } else if let kind = AgentKind(rawValue: chat.provider) {
-                Text(store.agents.isEnabled(kind) ? "\(name) isn't connected on this iPhone." : "\(name) is turned off on this iPhone.")
+            } else if chat.isBlank, agent == nil {
+                Text("Chats run on your agents. Add one in Settings › Agents.")
                 Button("Open Settings", action: openSettings)
                     .font(.ui(14, .semibold))
                     .buttonStyle(.bordered)
                     .buttonBorderShape(.capsule)
                     .tint(palette.text)
+            } else if let agent, agent.kind != nil {
+                Text(agent.enabled ? "\(name) isn't connected on this iPhone." : "\(name) is turned off on this iPhone.")
+                Button("Open Settings", action: openSettings)
+                    .font(.ui(14, .semibold))
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+                    .tint(palette.text)
+            } else if agent == nil {
+                Text("This chat's agent was removed.")
             } else {
                 Text("This chat runs on \(name), which this iPhone can't reach.")
             }
@@ -382,7 +395,7 @@ struct ChatScreen: View {
                 store.openTab(.file(href: href), title: (href as NSString).lastPathComponent, in: chat.id)
                 file = FileLink(chatId: chat.id, href: href)
             } else {
-                store.notice = "This file is where \(AgentKind.name(of: chat.provider)) runs\(chat.device.map { ", on \($0.name)" } ?? "")."
+                store.notice = "This file is where \(store.agents.name(of: chat.provider)) runs\(chat.device.map { ", on \($0.name)" } ?? "")."
             }
         } else {
             openURL(url)

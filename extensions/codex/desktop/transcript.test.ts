@@ -43,9 +43,10 @@ vi.mock("./codex-app-server.js", () => ({
   },
 }));
 
-const { codexProvider } = await import("./codex.js");
+const { createCodex } = await import("./codex.js");
 const { CODEX_DEFAULTS } = await import("./settings.js");
 const settings = CODEX_DEFAULTS;
+const codexProvider = createCodex();
 afterEach(() => codexProvider.shutdown());
 
 function text(events: ChatEvent[]): string[] {

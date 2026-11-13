@@ -1,6 +1,7 @@
 import type { ChatEvent } from "@otter/core/extension-kit";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { OpenClawSettings } from "./settings.js";
+import { testAgent } from "./test-agent.js";
 
 const ALL_SCOPES = [
   "operator.read",
@@ -23,16 +24,6 @@ vi.mock("../../../packages/core/src/platform.js", () => ({
     onResume: () => () => {},
   }),
 }));
-vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
-  clearOpenClawBootstrapToken: vi.fn(),
-  clearOpenClawDeviceToken: vi.fn(),
-  getOpenClawBootstrapToken: async () => "",
-  getOpenClawDeviceKey: async () => "",
-  getOpenClawDeviceToken: async () => "",
-  getOpenClawToken: async () => "test-token",
-  setOpenClawDeviceKey: vi.fn(),
-  setOpenClawDeviceToken: vi.fn(),
-}));
 vi.mock("@openclaw/gateway-client/browser", () => ({
   GatewayBrowserDeviceAuthLifecycle: class {
     buildPlan = vi.fn();
@@ -47,11 +38,13 @@ vi.mock("@openclaw/gateway-client/browser", () => ({
     request = fixture.request;
   },
 }));
-const { openClawProvider, agentRunsSince, allowOpenClawOwner, openClawOwner } =
-  await import("./openclaw.js");
+const { createOpenClaw, agentRunsSince } = await import("./openclaw.js");
 const settings = { url: "wss://gateway.test" } as OpenClawSettings;
+let openclaw = createOpenClaw(testAgent());
+const owner = async () => (await openclaw.settingsView!(settings)).owner;
 function reset() {
-  openClawProvider.shutdown();
+  openclaw.shutdown();
+  openclaw = createOpenClaw(testAgent());
   fixture.request.mockReset();
   // What a turn still asks after it ends.
   fixture.request.mockImplementation(async () => ({}));
@@ -76,7 +69,7 @@ function answer(extra: (method: string, params: unknown) => unknown = () => unde
 
 function send() {
   const events: ChatEvent[] = [];
-  void openClawProvider.sendTurn(
+  void openclaw.sendTurn(
     { requestId: "req-1", input: "Get my check-ins automation", sessionId: "s" },
     settings,
     (e) => events.push(e),
@@ -179,17 +172,17 @@ describe("listing Otter as the gateway's owner", () => {
       }
       return undefined;
     });
-    await openClawProvider.checkStatus(settings);
-    expect(await openClawOwner()).toBe(false);
+    await openclaw.checkStatus(settings);
+    expect(await owner()).toBe(false);
 
-    await allowOpenClawOwner(settings);
+    await openclaw.allowOwner(settings);
     expect(fixture.request).toHaveBeenCalledWith(
       "config.patch",
       expect.objectContaining({ baseHash: "h-1", replacePaths: ["commands.ownerAllowFrom"] }),
     );
     expect(owners).toEqual(["telegram:111", "otter:owner"]);
     expect(briefed).toBe(true);
-    expect(await openClawOwner()).toBe(true);
+    expect(await owner()).toBe(true);
   });
 
   it("asks again when Otter is an owner but its plugin may not brief the agent yet", async () => {
@@ -213,9 +206,9 @@ describe("listing Otter as the gateway's owner", () => {
       }
       return undefined;
     });
-    await openClawProvider.checkStatus(settings);
-    expect(await openClawOwner()).toBe(false);
-    await allowOpenClawOwner(settings);
+    await openclaw.checkStatus(settings);
+    expect(await owner()).toBe(false);
+    await openclaw.allowOwner(settings);
     expect(owners).toEqual(["otter:owner"]);
     expect(briefed).toBe(true);
   });
@@ -223,8 +216,8 @@ describe("listing Otter as the gateway's owner", () => {
   it("isn't asked about without the plugin", async () => {
     connect(["chat.send"]);
     answer();
-    await openClawProvider.checkStatus(settings);
-    expect(await openClawOwner()).toBe(null);
+    await openclaw.checkStatus(settings);
+    expect(await owner()).toBe(null);
     expect(fixture.request).not.toHaveBeenCalledWith("config.get", expect.anything());
   });
 });

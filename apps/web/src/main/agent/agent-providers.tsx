@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  DEFAULT_AGENT,
   mailApi,
+  type AgentId,
   type ProviderKind,
   type ProviderSnapshot,
   type ProvidersState,
@@ -29,14 +29,14 @@ export function useAgentProviders() {
   });
 }
 
-export function useChatProvider(chat: { provider: ProviderKind; turns: unknown[] } | undefined) {
+/** The agent a chat runs on: its own once it has started, else the one new chats start with. */
+export function useChatProvider(chat: { provider: AgentId; turns: unknown[] } | undefined) {
   const state = useAgentProviders().data;
-  const selectedKind = state?.selected ?? DEFAULT_AGENT;
-  const kind: ProviderKind = chat && chat.turns.length > 0 ? chat.provider : selectedKind;
-  const provider = state?.providers.find((p) => p.kind === kind);
-  const name =
-    provider?.displayName ?? EXTENSIONS.find((e) => e.manifest.id === kind)?.manifest.name ?? kind;
-  return { state, selectedKind, kind, provider, name, usable: isProviderUsable(provider) };
+  const selectedId = state?.selected ?? null;
+  const id: AgentId | null = chat && chat.turns.length > 0 ? chat.provider : selectedId;
+  const provider = state?.providers.find((p) => p.id === id);
+  const name = provider?.name ?? "Agent";
+  return { state, selectedId, id, provider, name, usable: isProviderUsable(provider) };
 }
 
 export type ChatProvider = ReturnType<typeof useChatProvider>;
@@ -46,21 +46,30 @@ export function useSetProvidersState() {
   return (state: ProvidersState) => qc.setQueryData(PROVIDERS_KEY, state);
 }
 
+/** A kind of agent's mark (Hermes's, OpenClaw's…). */
 export function ProviderIcon({ kind, className }: { kind: ProviderKind; className?: string }) {
   const Icon = agentContribution(kind)?.Icon ?? BotIcon;
   return <Icon className={cn("size-4", className)} />;
 }
 
+export const kindName = (kind: ProviderKind) =>
+  EXTENSIONS.find((e) => e.manifest.id === kind)?.manifest.name ?? kind;
+
 export function openClawAgentId(sessionKey: string | null): string | null {
   return sessionKey?.match(/^agent:([^:]+):/)?.[1] ?? null;
 }
 
+/**
+ * An agent as it shows itself: one of an OpenClaw gateway's agents (`agent`, else its default)
+ * with its own picture or emoji, else the picture you gave the agent, else its kind's mark. `id` is the agent's; absent,
+ * the one new chats start with.
+ */
 export function AgentAvatar({
-  kind,
+  id,
   agent,
   className,
 }: {
-  kind?: ProviderKind;
+  id?: AgentId | null;
   agent?: string | null;
   className?: string;
 }) {
@@ -69,21 +78,34 @@ export function AgentAvatar({
     queryFn: () => mailApi.agentProviders(),
     staleTime: 30_000,
   }).data;
-  const shown = kind ?? state?.selected ?? DEFAULT_AGENT;
-  const provider = state?.providers.find((p) => p.kind === shown);
+  const provider = state?.providers.find((p) => p.id === (id ?? state.selected));
+  return <AgentFace provider={provider} agent={agent} className={className} />;
+}
+
+export function AgentFace({
+  provider,
+  agent,
+  className,
+}: {
+  provider: ProviderSnapshot | undefined;
+  agent?: string | null;
+  className?: string;
+}) {
   const model = provider?.models.find((m) => m.slug === (agent ?? provider.model));
-  const label = model?.avatar || model?.emoji ? model.name : provider?.displayName;
+  const own = model?.avatar || model?.emoji ? model : undefined;
+  const label = own?.name ?? (agent ? model?.name : undefined) ?? provider?.name ?? "Agent";
   const size = cn("size-4 shrink-0", className);
-  if (model?.avatar)
+  const picture = own?.avatar ?? (own?.emoji ? null : provider?.avatar);
+  if (picture)
     return (
       <img
-        src={model.avatar}
+        src={picture}
         alt={label}
         title={label}
         className={cn(size, "rounded-full object-cover")}
       />
     );
-  if (model?.emoji)
+  if (own?.emoji)
     return (
       <span
         role="img"
@@ -91,12 +113,12 @@ export function AgentAvatar({
         title={label}
         className={cn(size, "flex items-center justify-center leading-none")}
       >
-        {model.emoji}
+        {own.emoji}
       </span>
     );
   return (
     <span role="img" aria-label={label} title={label} className="inline-flex shrink-0 opacity-80">
-      <ProviderIcon kind={shown} className={className} />
+      <ProviderIcon kind={provider?.kind ?? ""} className={className} />
     </span>
   );
 }
@@ -125,7 +147,7 @@ export function providerSummary(p: ProviderSnapshot | undefined): {
   if (!p.enabled || p.status === "disabled")
     return {
       headline: "Disabled",
-      detail: `${p.displayName} is turned off for new chats.`,
+      detail: `${p.name} is turned off for new chats.`,
     };
   if (!p.installed)
     return {

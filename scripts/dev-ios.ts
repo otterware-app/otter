@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 // Builds an iPhone app for the simulator and runs it in the booted one (booting an iPhone first
 // if none is): Otter Mail (apps/ios), or Otter Agents (apps/ios-agents) with `--app agents`.
-// Use `--relay local` to point it at `pnpm dev`'s relay on :8787 instead of production.
+// Use `--relay local` to point it at this checkout's `pnpm dev` relay instead of production, and
+// `--as <email>` with `pnpm dev:demo`'s relay to sign in as that Otter account without Google.
 //
 //   pnpm dev:ios [--relay local]
-//   pnpm dev:ios:agents [--relay local]
+//   pnpm dev:ios:agents [--relay local [--as <email>]]
 
 import * as NodeChildProcess from "node:child_process";
 import * as NodePath from "node:path";
+
+import { BASE_RELAY_PORT, resolvePortOffset } from "./port-offset.ts";
 
 const root = NodePath.resolve(import.meta.dirname, "..");
 const agents = process.argv.includes("agents");
@@ -29,6 +32,10 @@ const target = agents
 const derived = NodePath.join(root, target.folder, ".build");
 const app = NodePath.join(derived, "Build/Products/Debug-iphonesimulator", target.product);
 const local = process.argv.includes("local");
+const as = process.argv.includes("--as")
+  ? process.argv[process.argv.indexOf("--as") + 1]
+  : undefined;
+const relayPort = BASE_RELAY_PORT + resolvePortOffset(process.env, root).offset;
 
 const run = (command: string, args: string[], env?: NodeJS.ProcessEnv) =>
   NodeChildProcess.execFileSync(command, args, {
@@ -72,5 +79,10 @@ run("xcrun", ["simctl", "install", device.udid, app]);
 run(
   "xcrun",
   ["simctl", "launch", "--terminate-running-process", device.udid, target.bundle],
-  local ? { SIMCTL_CHILD_OTTER_RELAY_URL: "http://localhost:8787" } : {},
+  local
+    ? {
+        SIMCTL_CHILD_OTTER_RELAY_URL: `http://localhost:${relayPort}`,
+        ...(as ? { SIMCTL_CHILD_OTTER_DEV_EMAIL: as } : {}),
+      }
+    : {},
 );

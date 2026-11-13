@@ -14,6 +14,7 @@ nonisolated struct Chat: Identifiable, Equatable {
 
     var id: String
     var title = "New chat"
+    /** The agent's id. */
     var provider: String
     var sessionId: String?
     var sessionOwned = false
@@ -29,8 +30,6 @@ nonisolated struct Chat: Identifiable, Equatable {
     var turns: [ChatTurn] = []
     /** Its turns are here: the list comes without them. */
     var loaded = false
-
-    static let localProviders: Set<String> = ["claude", "codex"]
 
     init(provider: String, now: Int = .now) {
         id = UUID().uuidString.lowercased()
@@ -88,12 +87,12 @@ nonisolated struct Chat: Identifiable, Equatable {
 
     var isBlank: Bool { loaded && turns.isEmpty }
 
-    /** It ran in Claude or Codex on a Mac, which is where it continues. */
-    var isElsewhere: Bool { Self.localProviders.contains(provider) }
+    /** It runs on the Mac that started it (Claude, Codex), which is where it continues. */
+    var isElsewhere: Bool { device != nil }
 
-    /** OpenClaw's agent, from the session it runs in (`agent:<id>:…`). */
+    /** The OpenClaw gateway's agent, from the session it runs in (`agent:<id>:…`). */
     var openClawAgent: String? {
-        guard provider == "openclaw", let parts = sessionId?.split(separator: ":"), parts.count > 2, parts[0] == "agent" else { return nil }
+        guard let parts = sessionId?.split(separator: ":"), parts.count > 2, parts[0] == "agent" else { return nil }
         return String(parts[1])
     }
 }

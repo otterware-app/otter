@@ -26,9 +26,6 @@ const LEVELS: Record<ReasoningLevel, string> = {
   max: "Max",
 };
 
-/** The catalog as the last check listed it: what a message picks from. */
-let listed: ModelCatalog | null = null;
-
 function optionsOf(model: Model): ProviderModelOption[] {
   const options: ProviderModelOption[] = [];
   if (model.reasoningLevels.some((level) => level !== "off"))
@@ -64,38 +61,49 @@ export function modelsOf(catalog: ModelCatalog): ProviderModel[] {
   }));
 }
 
-/** varys's models, or why there are none to pick: a grant paired before it could list them. */
-export async function listModels(
-  varys: Varys,
-): Promise<{ models: ProviderModel[] } | { refused: string }> {
-  const catalog = await varys.models.list();
-  if (catalog.isErr()) {
-    logger.info("agent", "varys models not listed", { code: catalog.error.code });
-    return { refused: catalog.error.code };
-  }
-  listed = catalog.value;
-  return { models: modelsOf(catalog.value) };
-}
+/** One agent's models, as its last check listed them: what a message picks from. */
+export function varysModels() {
+  let listed: ModelCatalog | null = null;
 
-/**
- * The model you picked, as varys takes it; null leaves the thread to varys (nothing picked, or a
- * model the owner's logins can't use now). "Default" reasoning is the owner's default level.
- */
-export async function choiceOf(varys: Varys, settings: VarysSettings): Promise<ModelChoice | null> {
-  const split = settings.model.indexOf("::");
-  if (split < 0) return null;
-  if (!listed) await listModels(varys);
-  const provider = settings.model.slice(0, split);
-  const id = settings.model.slice(split + 2);
-  const model = listed?.models.find((m) => m.provider === provider && m.id === id);
-  if (!model) return null;
-  const level = settings.reasoningEffort as ReasoningLevel;
+  /** varys's models, or why there are none to pick: a grant paired before it could list them. */
+  async function list(varys: Varys): Promise<{ models: ProviderModel[] } | { refused: string }> {
+    const catalog = await varys.models.list();
+    if (catalog.isErr()) {
+      logger.info("agent", "varys models not listed", { code: catalog.error.code });
+      return { refused: catalog.error.code };
+    }
+    listed = catalog.value;
+    return { models: modelsOf(catalog.value) };
+  }
+
+  /**
+   * The model you picked, as varys takes it; null leaves the thread to varys (nothing picked, or
+   * a model the owner's logins can't use now). "Default" reasoning is the owner's default level.
+   */
+  async function choiceOf(varys: Varys, settings: VarysSettings): Promise<ModelChoice | null> {
+    const split = settings.model.indexOf("::");
+    if (split < 0) return null;
+    if (!listed) await list(varys);
+    const provider = settings.model.slice(0, split);
+    const id = settings.model.slice(split + 2);
+    const model = listed?.models.find((m) => m.provider === provider && m.id === id);
+    if (!model) return null;
+    const level = settings.reasoningEffort as ReasoningLevel;
+    return {
+      model: { provider, model: id },
+      reasoning: model.reasoningLevels.includes(level)
+        ? level
+        : (listed?.default?.reasoning ?? "medium"),
+      fast: model.fastMode && settings.serviceTier === "fast",
+    };
+  }
+
   return {
-    model: { provider, model: id },
-    reasoning: model.reasoningLevels.includes(level)
-      ? level
-      : (listed?.default?.reasoning ?? "medium"),
-    fast: model.fastMode && settings.serviceTier === "fast",
+    list,
+    choiceOf,
+    forget() {
+      listed = null;
+    },
   };
 }
 
@@ -105,7 +113,3 @@ export const sameChoice = (a: ModelChoice | null, b: ModelChoice) =>
   a.model.model === b.model.model &&
   a.reasoning === b.reasoning &&
   a.fast === b.fast;
-
-export function forgetModels(): void {
-  listed = null;
-}

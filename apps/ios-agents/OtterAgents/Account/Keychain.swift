@@ -3,8 +3,11 @@ import Security
 
 nonisolated enum Keychain {
     private static let service = "dev.otterware.agents"
+    /** Kept here instead, in tests: a test build made without signing (CI's) has no Keychain. */
+    nonisolated(unsafe) static var memory: [String: String]?
 
     static func get(_ key: String) -> String? {
+        if let memory { return memory[key] }
         var result: AnyObject?
         var query = query(key)
         query[kSecReturnData as String] = true
@@ -16,6 +19,10 @@ nonisolated enum Keychain {
 
     @discardableResult
     static func set(_ key: String, _ value: String?, thisDeviceOnly: Bool = false) -> Bool {
+        if memory != nil {
+            memory?[key] = value
+            return true
+        }
         let query = query(key)
         guard let value else {
             let status = SecItemDelete(query as CFDictionary)

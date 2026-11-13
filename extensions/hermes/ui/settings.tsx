@@ -44,10 +44,12 @@ export function useConnectHermes(provider: ProviderSnapshot) {
     setSaving(true);
     console.log("[Settings:connectHermes]");
     try {
-      setState(await hermesApi.connectHermes({ baseUrl: url, apiKey: apiKey.trim() }));
+      setState(
+        await hermesApi.connectHermes({ agent: provider.id, baseUrl: url, apiKey: apiKey.trim() }),
+      );
       setBaseUrl("");
       setApiKey("");
-      toast.success("Hermes connected");
+      toast.success(`${provider.name} connected`);
       return true;
     } catch (error) {
       toast.error(`Could not connect: ${error instanceof Error ? error.message : String(error)}`);
@@ -86,10 +88,7 @@ export function HermesSettings({ provider, update }: AgentSettingsProps) {
           >
             <Command value="tailscale serve --bg --https=8642 http://127.0.0.1:8642" />
           </SettingsRow>
-          <SettingsRow
-            title="3. Copy the API key"
-            description="Paste it below with the address. It stays on this device."
-          >
+          <SettingsRow title="3. Copy the API key" description="Paste it below with the address.">
             <Command value={`sed -n 's/^API_SERVER_KEY=//p' "$(hermes config env-path)"`} />
           </SettingsRow>
           {SITE_ORIGIN ? (
@@ -119,7 +118,7 @@ export function HermesSettings({ provider, update }: AgentSettingsProps) {
         />
         <SettingsRow
           title="API key"
-          description="The server's API_SERVER_KEY. Kept on this device only."
+          description="The server's API_SERVER_KEY. It follows your Otter account to your other devices."
           control={
             <TextInput
               type="password"
@@ -141,11 +140,11 @@ export function HermesSettings({ provider, update }: AgentSettingsProps) {
           }
         />
       </SettingsSection>
-      {connected && provider.status === "ready" ? <HermesDeliveries /> : null}
+      {connected && provider.status === "ready" ? <HermesDeliveries name={provider.name} /> : null}
       <ModelsSection
         provider={provider}
         selectedModel={settings.model}
-        onPick={(model) => update({ hermes: { model } })}
+        onPick={(model) => update({ [provider.id]: { model } })}
       />
     </>
   );

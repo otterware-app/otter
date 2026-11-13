@@ -110,7 +110,7 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
       });
     }
     if (route === "GET /v1/accounts") return json({ accounts: relayAccounts });
-    if (route === "GET /v1/preferences") return json({ preferences: {}, hermesKey: null });
+    if (route === "GET /v1/preferences") return json({ preferences: {}, agentKeys: null });
     if (method === "PUT" || method === "DELETE") return new Response(null, { status: 204 });
     return json({ error: "not found" }, 404);
   }

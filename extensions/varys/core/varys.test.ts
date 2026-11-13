@@ -11,7 +11,7 @@ import type {
   TranscriptItem,
   TurnEvent,
 } from "@generalpursuit/varys";
-import type { AgentRun, ChatEvent } from "@otter/core/extension-kit";
+import type { AgentContext, AgentRun, ChatEvent } from "@otter/core/extension-kit";
 import { errAsync, ok, okAsync, err, type ResultAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -20,14 +20,16 @@ import type { VarysSettings } from "./settings.js";
 vi.mock("../../../packages/core/src/platform.js", () => ({
   platform: () => ({ kind: "desktop", appVersion: "test", log: () => {} }),
 }));
-vi.mock("./token.js", () => ({
-  getVarysToken: async () => "varys-token",
-}));
 /** A varys agent as the SDK shows it, played by the test. */
 const agent = vi.hoisted(() => ({ fake: null as unknown as ReturnType<typeof fakeVarys> }));
 vi.mock("@generalpursuit/varys", () => ({ connect: () => ok(agent.fake.varys) }));
 
-const { varysProvider } = await import("./varys.js");
+const { varysAgent } = await import("./varys.js");
+
+const paired = (id: string): AgentContext => ({
+  id,
+  secrets: { get: async () => "varys-token", set: async () => {}, delete: async () => {} },
+});
 
 const settings = {
   enabled: true,
@@ -269,8 +271,10 @@ function replies(events: ChatEvent[]): string[] {
 }
 
 let fake: ReturnType<typeof fakeVarys>;
+let varysProvider: ReturnType<typeof varysAgent.create>;
 beforeEach(() => {
   fake = agent.fake = fakeVarys();
+  varysProvider = varysAgent.create(paired("agent-a"));
 });
 afterEach(() => varysProvider.shutdown());
 
@@ -480,6 +484,23 @@ describe("varys turns", () => {
     await resuming;
     expect(resumed[0]).toEqual({ requestId: "req-1", type: "transcript", messages: [] });
     expect(replies(resumed)).toEqual(["Back again."]);
+  });
+
+  it("keeps each agent's turns its own", async () => {
+    const other = varysAgent.create(paired("agent-b"));
+    const { events, sending } = send();
+    await fake.play("req-1", [
+      { type: "started", since: null },
+      { type: "approval", approval },
+    ]);
+    await other.respondApproval("req-1", "a1", "once");
+    expect(fake.varys.inbox.decide).not.toHaveBeenCalled();
+    expect(await other.steer("req-1", "Make it shorter")).toBe(false);
+    other.shutdown();
+    await fake.play("req-1", [{ type: "text", delta: "Still here." }, { type: "done" }]);
+    await sending;
+    expect(replies(events)).toEqual(["Still here."]);
+    expect(events.at(-1)).toEqual({ requestId: "req-1", type: "done", responseId: null });
   });
 
   it("lists varys's threads, a routine's labeled as Scheduled", async () => {

@@ -28,8 +28,10 @@ struct TaskEditor: View {
     /** Nothing changed about when it runs: it's saved back exactly as it was. */
     @State private var originalWhen: WhenForm?
 
-    private var kind: AgentKind? { task.flatMap { AgentKind(rawValue: $0.provider) } ?? store.creators[safe: creator]?.kind }
-    private var listed: AgentTasks? { store.agents.first { $0.provider == kind?.rawValue } }
+    /** The agent's id. */
+    private var agent: String? { task?.provider ?? store.creators[safe: creator]?.agent }
+    private var kind: AgentKind? { chats.agents.agent(agent)?.kind }
+    private var listed: AgentTasks? { store.agents.first { $0.provider == agent } }
 
     private var problem: String? {
         if name.trimmingCharacters(in: .whitespaces).isEmpty { return "Give it a name." }
@@ -225,7 +227,7 @@ struct TaskEditor: View {
 
     private func save() {
         if let problem { return error = problem }
-        guard let kind else { return }
+        guard let agent else { return }
         let resultsTo: ResultsTo? = switch results {
         case .keep: nil
         case .newChat: .newChat
@@ -237,15 +239,15 @@ struct TaskEditor: View {
         let schedule = when == originalWhen ? task?.schedule ?? when.schedule : when.schedule
         let input = TaskInput(name: name.trimmingCharacters(in: .whitespaces),
                               prompt: task == nil || task?.prompt != nil ? prompt.trimmingCharacters(in: .whitespacesAndNewlines) : nil,
-                              schedule: schedule, agent: task?.agent ?? store.creators[safe: creator]?.agent, resultsTo: resultsTo, revision: task?.revision)
+                              schedule: schedule, agent: task?.agent ?? store.creators[safe: creator]?.gatewayAgent, resultsTo: resultsTo, revision: task?.revision)
         saving = true
         error = nil
         Task {
             do {
-                let id = try await store.save(kind, id: task?.taskId, input)
+                let id = try await store.save(agent, id: task?.taskId, input)
                 chats.notice = task == nil ? "\(input.name) is scheduled" : "Saved"
                 dismiss()
-                saved("\(kind.rawValue):\(id)")
+                saved("\(agent):\(id)")
             } catch {
                 self.error = error.localizedDescription
             }

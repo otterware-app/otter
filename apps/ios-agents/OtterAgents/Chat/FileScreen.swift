@@ -109,7 +109,7 @@ struct FileScreen: View {
 
     private var subtitle: String {
         let folder = (link.path as NSString).deletingLastPathComponent
-        let agent = chat.map { store.agents.name(of: $0.provider, agent: store.agents.agent(of: $0)) } ?? ""
+        let agent = chat.map { store.agents.name(of: $0) } ?? ""
         return [agent, (folder as NSString).lastPathComponent].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 

@@ -42,20 +42,20 @@ async function launchAgents() {
   ]);
   const agents = await Promise.all(
     (["claude", "codex"] as const).map(async (id) => {
-      const agent = state.providers.find((p) => p.kind === id);
-      if (!agent) return null;
-      const settings = agent.settings as typeof agent.settings & {
-        binaryPath: string;
-        homePath: string;
+      // The first one added, else the CLI on PATH as it comes.
+      const settings = (state.providers.find((p) => p.kind === id)?.settings ?? {}) as {
+        binaryPath?: string;
+        homePath?: string;
+        model?: string;
       };
-      const binary = await supportBinary(settings.binaryPath, id);
+      const binary = await supportBinary(settings.binaryPath ?? "", id);
       return binary
         ? {
             id,
             label: id === "claude" ? "Claude Code" : "Codex",
             binary,
-            homePath: settings.homePath,
-            model: settings.model,
+            homePath: settings.homePath ?? "",
+            model: settings.model ?? "",
           }
         : null;
     }),

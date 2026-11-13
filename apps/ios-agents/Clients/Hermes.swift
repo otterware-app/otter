@@ -99,8 +99,20 @@ nonisolated struct Hermes {
         return models
     }
 
-    func sessions(limit: Int = 50) async throws -> [Session] {
-        let (data, response) = try await send("GET", "\(root)/api/sessions?limit=\(limit)")
+    /** The sessions Otter started (`api_server`) or its plugin delivered to (`otter`), newest first; `everywhere`, all of them (a teammate's Slack DMs too). */
+    func sessions(limit: Int = 50, everywhere: Bool = false) async throws -> [Session] {
+        if everywhere { return try await sessions(limit: limit, source: nil) }
+        async let started = sessions(limit: limit, source: "api_server")
+        async let delivered = sessions(limit: limit, source: "otter")
+        return Self.newestFirst([try await started, try await delivered], limit: limit)
+    }
+
+    static func newestFirst(_ lists: [[Session]], limit: Int) -> [Session] {
+        Array(lists.flatMap(\.self).sorted { $0.lastActive > $1.lastActive }.prefix(limit))
+    }
+
+    private func sessions(limit: Int, source: String?) async throws -> [Session] {
+        let (data, response) = try await send("GET", "\(root)/api/sessions?\(source.map { "source=\($0)&" } ?? "")limit=\(limit)")
         guard response.statusCode == 200 else { throw Failure(message: Self.error(data, response)) }
         let rows = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["data"] as? [[String: Any]] ?? []
         return rows.compactMap(Self.session)

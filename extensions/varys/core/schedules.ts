@@ -17,10 +17,11 @@ import type {
 import {
   preferenceChanged,
   saveAgentSettings,
+  type AgentId,
   type ScheduleSupport,
 } from "@otter/core/extension-kit";
 
-import { answered, varysClient } from "./client.js";
+import { answered, type VarysConnection } from "./client.js";
 import type { VarysSettings } from "./settings.js";
 import { messagesOf } from "./turns.js";
 
@@ -79,6 +80,7 @@ export function taskRun(run: Run): TaskRun {
 }
 
 export function routineTask(
+  agent: AgentId,
   routine: Routine,
   settings: Pick<VarysSettings, "mutedRoutines"> = {},
 ): ScheduledTask {
@@ -87,7 +89,7 @@ export function routineTask(
   const intoThread = routine.delivery === "into_thread";
   const thread = routine.threadId ?? run?.threadId;
   return {
-    provider: "varys",
+    provider: agent,
     id: routine.id,
     name: routine.title,
     prompt: routine.instructions,
@@ -135,92 +137,107 @@ function triggerOf(input: ScheduledTaskInput, current?: Routine): Trigger {
   throw new Error("varys's routines repeat: choose a schedule that does.");
 }
 
-async function client(settings: VarysSettings) {
-  const varys = await varysClient(settings);
-  if (!varys) throw new Error("Connect varys in Settings first.");
-  return varys;
-}
-
-async function setMuted(settings: VarysSettings, id: string, off: boolean): Promise<void> {
+async function setMuted(
+  agent: AgentId,
+  settings: VarysSettings,
+  id: string,
+  off: boolean,
+): Promise<void> {
   const ids = muted(settings);
   if (off === ids.has(id)) return;
   if (off) ids.add(id);
   else ids.delete(id);
   settings.mutedRoutines = [...ids].join(",");
-  await saveAgentSettings("varys", { mutedRoutines: settings.mutedRoutines });
+  await saveAgentSettings(agent, { mutedRoutines: settings.mutedRoutines });
   preferenceChanged("assistant");
 }
 
-export const varysSchedules: ScheduleSupport<VarysSettings> = {
-  async list(settings) {
-    const varys = await varysClient(settings);
-    if (!varys) return null;
-    const { routines } = await answered(varys.routines.list());
-    return {
-      tasks: routines.map((routine) => routineTask(routine, settings)),
-      channels: [],
-      can: {
-        create: true,
-        deliverToOtter: true,
-        webhooks: false,
-        history: true,
-        timeZones: true,
-      },
-    };
-  },
+export function varysSchedules(
+  agent: AgentId,
+  connection: VarysConnection,
+): ScheduleSupport<VarysSettings> {
+  async function client(settings: VarysSettings) {
+    const varys = await connection.client(settings);
+    if (!varys) throw new Error("Connect varys in Settings first.");
+    return varys;
+  }
 
-  async save(settings, id, input) {
-    const varys = await client(settings);
-    const current = id ? (await answered(varys.routines.read(id))).routine : undefined;
-    const trigger = triggerOf(input, current);
-    const instructions = input.prompt?.trim() || input.name;
-    const to = input.resultsTo?.kind;
-    // A new chat each time: a routine that writes into one thread of its own stops doing that.
-    const delivery =
-      to === "new-chat" && (!current || current.delivery === "into_thread")
-        ? ("each_run" as const)
-        : undefined;
-    const receipt = current
-      ? await answered(
-          varys.routines.edit(current.id, {
-            title: input.name,
-            instructions,
-            trigger,
-            ...(delivery && { delivery }),
-          }),
-        )
-      : await answered(
-          varys.routines.create({ title: input.name, instructions, trigger, delivery: "each_run" }),
-        );
-    const saved = receipt.result.routineId;
-    if (to) await setMuted(settings, saved, to === "off");
-    return saved;
-  },
+  return {
+    async list(settings) {
+      const varys = await connection.client(settings);
+      if (!varys) return null;
+      const { routines } = await answered(varys.routines.list());
+      return {
+        tasks: routines.map((routine) => routineTask(agent, routine, settings)),
+        channels: [],
+        can: {
+          create: true,
+          deliverToOtter: true,
+          webhooks: false,
+          history: true,
+          timeZones: true,
+        },
+      };
+    },
 
-  async setEnabled(settings, id, enabled) {
-    await answered((await client(settings)).routines.pause(id, !enabled));
-  },
+    async save(settings, id, input) {
+      const varys = await client(settings);
+      const current = id ? (await answered(varys.routines.read(id))).routine : undefined;
+      const trigger = triggerOf(input, current);
+      const instructions = input.prompt?.trim() || input.name;
+      const to = input.resultsTo?.kind;
+      // A new chat each time: a routine that writes into one thread of its own stops doing that.
+      const delivery =
+        to === "new-chat" && (!current || current.delivery === "into_thread")
+          ? ("each_run" as const)
+          : undefined;
+      const receipt = current
+        ? await answered(
+            varys.routines.edit(current.id, {
+              title: input.name,
+              instructions,
+              trigger,
+              ...(delivery && { delivery }),
+            }),
+          )
+        : await answered(
+            varys.routines.create({
+              title: input.name,
+              instructions,
+              trigger,
+              delivery: "each_run",
+            }),
+          );
+      const saved = receipt.result.routineId;
+      if (to) await setMuted(agent, settings, saved, to === "off");
+      return saved;
+    },
 
-  async runNow(settings, id) {
-    await answered((await client(settings)).routines.runNow(id));
-  },
+    async setEnabled(settings, id, enabled) {
+      await answered((await client(settings)).routines.pause(id, !enabled));
+    },
 
-  async remove(settings, id) {
-    await answered((await client(settings)).routines.delete(id));
-  },
+    async runNow(settings, id) {
+      await answered((await client(settings)).routines.runNow(id));
+    },
 
-  async runs(settings, id, limit) {
-    const page = await answered((await client(settings)).routines.runs(id, { limit }));
-    return page.runs.filter((run) => run.state === "ended").map(taskRun);
-  },
+    async remove(settings, id) {
+      await answered((await client(settings)).routines.delete(id));
+    },
 
-  async runTranscript(settings, id, runId) {
-    const varys = await client(settings);
-    const { runs } = await answered(varys.routines.read(id));
-    const run =
-      runs.find((r) => r.id === runId) ??
-      (await answered(varys.routines.runs(id, { limit: 100 }))).runs.find((r) => r.id === runId);
-    if (!run?.threadId) return [];
-    return messagesOf((await answered(varys.threads.read(run.threadId))).conversation.items);
-  },
-};
+    async runs(settings, id, limit) {
+      const page = await answered((await client(settings)).routines.runs(id, { limit }));
+      return page.runs.filter((run) => run.state === "ended").map(taskRun);
+    },
+
+    async runTranscript(settings, id, runId) {
+      const varys = await client(settings);
+      const { runs } = await answered(varys.routines.read(id));
+      const run =
+        runs.find((r) => r.id === runId) ??
+        (await answered(varys.routines.runs(id, { limit: 100 }))).runs.find((r) => r.id === runId);
+      if (!run?.threadId) return [];
+      return messagesOf((await answered(varys.threads.read(run.threadId))).conversation.items);
+    },
+  };
+}
