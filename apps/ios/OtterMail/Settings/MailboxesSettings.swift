@@ -167,7 +167,7 @@ struct MailboxSettings: View {
             }
             if mailbox.signedOut, let imap = mailbox.imap {
                 Section {
-                    SecureField("Password", text: $password)
+                    SecureField("Password", text: $password, prompt: Text("Password").foregroundStyle(palette.muted))
                         .textContentType(.password)
                         .onSubmit(signInImap)
                     Button(action: signInImap) {
@@ -209,7 +209,7 @@ struct MailboxSettings: View {
 
             Section {
                 LabeledContent("Display name") {
-                    TextField("Name", text: $name)
+                    TextField("Name", text: $name, prompt: Text("Name").foregroundStyle(palette.muted))
                         .multilineTextAlignment(.trailing)
                         .onSubmit { rename(mailbox) }
                 }

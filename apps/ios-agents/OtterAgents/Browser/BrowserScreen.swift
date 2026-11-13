@@ -85,7 +85,8 @@ struct BrowserScreen: View {
         HStack(spacing: 4) {
             round("Back", "chevron.left") { session.go(.history(delta: -1)) }
             round("Forward", "chevron.right") { session.go(.history(delta: 1)) }
-            TextField("Enter a URL", text: Binding { draft ?? session.page ?? "" } set: { if addressFocused { draft = $0 } }, selection: $selection)
+            TextField("Enter a URL", text: Binding { draft ?? session.page ?? "" } set: { if addressFocused { draft = $0 } }, selection: $selection,
+                      prompt: Text("Enter a URL").foregroundStyle(palette.muted))
                 .font(.ui(14))
                 .foregroundStyle(palette.text)
                 .keyboardType(.URL)

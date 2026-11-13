@@ -49,7 +49,8 @@ struct AgentSettings: View {
                     }
                     .accessibilityLabel("Picture")
                     VStack(alignment: .leading, spacing: 1) {
-                        TextField(agent.kind?.name ?? "Name", text: $name)
+                        TextField(agent.kind?.name ?? "Name", text: $name,
+                                  prompt: Text(agent.kind?.name ?? "Name").foregroundStyle(palette.muted))
                             .font(.ui(16, .medium)).foregroundStyle(palette.text)
                             .submitLabel(.done)
                             .onSubmit { agents.rename(agent, to: name) }

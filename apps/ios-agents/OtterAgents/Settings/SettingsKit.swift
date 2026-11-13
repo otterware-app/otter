@@ -60,7 +60,7 @@ struct SettingsRow<Icon: View>: View {
             Text(title).font(.ui(16)).foregroundStyle(tone ?? palette.text).lineLimit(1)
             Spacer(minLength: 8)
             if let value { Text(value).font(.ui(14)).foregroundStyle(palette.muted).lineLimit(1) }
-            if chevron { Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(palette.muted.opacity(0.45)) }
+            if chevron { Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(palette.tertiary) }
         }
     }
 }
@@ -96,7 +96,11 @@ struct SettingsField: View {
     var body: some View {
         SettingsCell {
             Group {
-                if secret { SecureField(placeholder, text: $text) } else { TextField(placeholder, text: $text) }
+                if secret {
+                    SecureField(placeholder, text: $text, prompt: Text(placeholder).foregroundStyle(palette.muted))
+                } else {
+                    TextField(placeholder, text: $text, prompt: Text(placeholder).foregroundStyle(palette.muted))
+                }
             }
             .font(.ui(16))
             .foregroundStyle(palette.text)

@@ -119,20 +119,16 @@ struct Themed<Content: View>: View {
     }
 
     private struct ThemedContent: View {
-        @Environment(Preferences.self) private var preferences
         @Environment(\.colorScheme) private var colorScheme
         let content: Content
 
         var body: some View {
-            let id = colorScheme == .dark ? preferences.darkTheme : preferences.lightTheme
-            let palette = (preferences.theme(id) ?? Theme.named(Preferences.initialTheme))?.palette(colorScheme)
+            let palette = Palette(colorScheme)
             content
-                .environment(\.palette, palette ?? EnvironmentValues().palette)
-                // Inter wherever a view doesn't pick its own text style (Typography.swift).
+                .environment(\.palette, palette)
                 .font(.inter(.body))
-                .tint(palette?.action)
-                // Switches wear the focus color, as on the desktop (a monochrome action would vanish).
-                .toggleStyle(SwitchToggleStyle(tint: palette?.focus ?? .blue))
+                .tint(palette.action)
+                .toggleStyle(SwitchToggleStyle(tint: palette.focus))
         }
     }
 }

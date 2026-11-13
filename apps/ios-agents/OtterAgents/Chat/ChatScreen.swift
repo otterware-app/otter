@@ -114,7 +114,7 @@ struct ChatScreen: View {
             if past, !moving { position.scrollTo(edge: .bottom) }
         }
         .onChange(of: chat.turns.last?.items) { if following { position.scrollTo(edge: .bottom) } }
-        .background { Wallpaper() }
+        .background(palette.canvas.ignoresSafeArea())
         .overlay { placeholder(chat) }
         // Over the conversation, not in the bar under it: the bar would grow as you scroll up, and its blur with it.
         .overlay(alignment: .bottom) {
@@ -446,7 +446,7 @@ struct ChatScreen: View {
         }
         return HStack(spacing: 4) {
             Image(systemName: "magnifyingglass").font(.system(size: 14)).foregroundStyle(palette.muted)
-            TextField("Find in chat", text: $find)
+            TextField("Find in chat", text: $find, prompt: Text("Find in chat").foregroundStyle(palette.muted))
                 .font(.ui(15))
                 .focused($findFocused)
                 .submitLabel(.search)

@@ -8,6 +8,7 @@ struct SettingsScreen: View {
     @Binding var path: [Route]
 
     var body: some View {
+        @Bindable var preferences = preferences
         let agents = account.agents
         SettingsPage {
             SettingsSection {
@@ -23,7 +24,7 @@ struct SettingsScreen: View {
                             Text(account.isDemo ? "Pretend chats, on this iPhone only" : account.user?.email ?? "").font(.ui(14)).foregroundStyle(palette.muted).lineLimit(1)
                         }
                         Spacer()
-                        Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(palette.muted.opacity(0.45))
+                        Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(palette.tertiary)
                     }
                     .padding(.vertical, 8)
                 }
@@ -64,10 +65,16 @@ struct SettingsScreen: View {
                 if !account.isDemo {
                     Button { path.append(.chatSettings) } label: { SettingsRow("Chat", symbol: "bubble.left.and.bubble.right") }.buttonStyle(.plain)
                 }
-                Button { path.append(.appearance) } label: {
-                    SettingsRow("Appearance", symbol: "paintbrush", value: preferences.scheme.title)
+                SettingsCell {
+                    SettingsSymbol(name: "circle.lefthalf.filled").frame(width: 24)
+                    Text("Color scheme").font(.ui(16)).foregroundStyle(palette.text)
+                    Spacer()
+                    Picker("Color scheme", selection: $preferences.scheme) {
+                        ForEach(Preferences.Scheme.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    .tint(palette.muted)
                 }
-                .buttonStyle(.plain)
             }
             notifications
             SettingsSection(title: "About") {
@@ -130,27 +137,6 @@ struct ChatSettings: View {
     }
 }
 
-struct AppearanceSettings: View {
-    @Environment(\.palette) private var palette
-    @Environment(Preferences.self) private var preferences
-
-    var body: some View {
-        @Bindable var preferences = preferences
-        VStack(spacing: 0) {
-            Picker("Appearance", selection: $preferences.scheme) {
-                ForEach(Preferences.Scheme.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            ThemeSettings()
-        }
-        .background(palette.canvas)
-        .navigationTitle("Appearance")
-        .toolbarTitleDisplayMode(.inline)
-    }
-}
-
 struct AccountSettings: View {
     @Environment(\.palette) private var palette
     @Environment(Account.self) private var account
@@ -164,7 +150,7 @@ struct AccountSettings: View {
                     SettingsButton(title: "Leave the demo") { account.leaveDemo() }
                 }
             } else if let user = account.user {
-                SettingsSection(footer: "Your chats, agents and themes follow your Otter account to the Mac, the web and Otter Mail.") {
+                SettingsSection(footer: "Your chats, agents and settings follow your Otter account to the Mac, the web and Otter Mail.") {
                     SettingsRow("Signed in as", symbol: "person.crop.circle", value: user.email, chevron: false)
                 }
                 SettingsSection {

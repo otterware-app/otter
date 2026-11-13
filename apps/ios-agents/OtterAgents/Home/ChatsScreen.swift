@@ -261,7 +261,7 @@ struct ChatsScreen: View {
                 if selecting {
                     Image(systemName: picked ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 24))
-                        .foregroundStyle(picked ? palette.action : palette.muted.opacity(0.6))
+                        .foregroundStyle(picked ? palette.action : palette.tertiary)
                         .frame(width: 40, alignment: .leading)
                         .padding(.leading, 16)
                         .transition(.move(edge: .leading).combined(with: .opacity))
@@ -475,8 +475,8 @@ private struct FilterChip: View {
             HStack(spacing: 5) {
                 if let agent { AgentAvatar(agent: agent, gatewayAgent: gatewayAgent, size: 14) }
                 Text(text).font(.ui(14, .medium)).lineLimit(1)
-                if count > 0 { Text("\(count)").font(.ui(14)).monospacedDigit().opacity(0.6) }
-                if removable { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).opacity(0.6) }
+                if count > 0 { Text("\(count)").font(.ui(14)).monospacedDigit().foregroundStyle(palette.tertiary) }
+                if removable { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(palette.tertiary) }
             }
             .foregroundStyle(selected ? palette.text : palette.muted)
             .padding(.horizontal, 12)
@@ -654,11 +654,11 @@ struct ChatRow: View {
     private func badges(_ state: RowState) -> some View {
         HStack(spacing: 6) {
             if chat.isElsewhere {
-                Image(systemName: "laptopcomputer").font(.system(size: 11)).foregroundStyle(palette.muted.opacity(0.7))
+                Image(systemName: "laptopcomputer").font(.system(size: 11)).foregroundStyle(palette.tertiary)
                     .accessibilityLabel("On \(chat.device?.name ?? "a Mac")")
             }
             if chat.pinnedAt != nil {
-                Image(systemName: "pin.fill").font(.system(size: 11)).rotationEffect(.degrees(45)).foregroundStyle(palette.muted.opacity(0.7))
+                Image(systemName: "pin.fill").font(.system(size: 11)).rotationEffect(.degrees(45)).foregroundStyle(palette.tertiary)
                     .accessibilityLabel("Pinned")
             }
             switch state {
@@ -717,7 +717,7 @@ struct ChatRow: View {
     }
 }
 
-/** What touch and hold shows over the list: the chat's last messages on its wallpaper, as WhatsApp's preview does. */
+/** What touch and hold shows over the list: the chat's last messages, as WhatsApp's preview does. */
 struct ChatPreview: View {
     @Environment(\.palette) private var palette
     @Environment(\.colorScheme) private var scheme
@@ -752,7 +752,7 @@ struct ChatPreview: View {
             }
             .padding(12)
             .frame(maxHeight: .infinity)
-            .background { Wallpaper() }
+            .background(palette.canvas.ignoresSafeArea())
             .clipped()
         }
         .frame(width: 320, height: 380)
@@ -769,7 +769,7 @@ struct SearchField: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .medium)).foregroundStyle(palette.muted)
-            TextField(prompt, text: $text)
+            TextField(prompt, text: $text, prompt: Text(prompt).foregroundStyle(palette.muted))
                 .font(.ui(16))
                 .foregroundStyle(palette.text)
                 .focused($focused)
@@ -866,6 +866,7 @@ struct SessionsSheet: View {
                 }
             }
             .searchable(text: $query, prompt: "Search sessions")
+            .background(SearchFieldColors(color: palette.muted))
             .navigationTitle("On your agents")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {

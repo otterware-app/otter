@@ -3,12 +3,11 @@
 Your agents, on their own: the chats of the Mac and web apps' Agent mode, and what the agents run
 on a schedule, without the mail. A native SwiftUI app for iOS 27 (Liquid Glass), the sibling of Otter Mail
 for iPhone (`apps/ios`): the phone gets an app per job. It shares that app's
-themes, and the Otter account's chats with every other app.
+light and dark palette, and the Otter account's chats with every other app.
 
 ## Design
 
-WhatsApp's iPhone app, in Otter's face and themes (the theme's accent where WhatsApp has its
-green), since a chat with an agent is a chat:
+WhatsApp's iPhone app, in Otter's face and colors, since a chat with an agent is a chat:
 
 - **The frame.** T3 Code's: the system's tab bar, Liquid Glass as iOS 27 draws it, its tabs
   icons only (Chats, with how many are unread; Scheduled; Settings), and compose (a new chat, or
@@ -29,7 +28,7 @@ green), since a chat with an agent is a chat:
   or unsettle; right to mark read or pin; touch and hold for a preview and the rest; select
   several to settle, read or delete them.
 - **A chat** (`Chat/ChatScreen.swift`). The agent's picture, the chat's name and its status
-  under it in the header; a wallpaper of the app's own symbols; a pill for each day. Your
+  under it in the header; a plain white or black background; a pill for each day. Your
   messages in the accent's bubbles on the right, with their time and ticks (one sent, two
   received, colored once answered); the agent's answer on the left, a bubble a paragraph (a list,
   code, a table each one), its work in a pill above ("Worked for 2m 3s", tap for the steps).
@@ -45,8 +44,9 @@ green), since a chat with an agent is a chat:
   code. Its resolved agents sit under the gateway in Settings with individual switches for this
   iPhone. A chat left behind by a removed OpenClaw connection offers Reconnect agent: choose the
   replacement gateway, which must still have its session; the chat's history and session stay.
-- **Type and color.** Inter (`Theme/Design.swift`), the account's themes for its colors
-  (`apps/ios`'s `Theme.swift`, shared); the bubbles and wallpaper are mixed from them.
+- **Type and color.** Inter (`Theme/Design.swift`) and Otter Mail's light and dark palette
+  (`apps/ios`'s `Theme/Palette.swift`, shared): a white or pitch-black canvas, with System / Light / Dark
+  in Settings. Desktop themes stay on the desktop and web.
 
 ## What it does
 

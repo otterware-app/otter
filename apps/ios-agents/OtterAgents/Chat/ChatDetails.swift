@@ -82,8 +82,8 @@ struct ChatDetails: View {
                 ForEach(all.wrappedValue ? tabs : Array(tabs.prefix(5))) { tab in
                     Button { tap(tab) } label: {
                         row(symbol: ["thread": "envelope", "draft": "square.and.pencil", "page": "globe", "file": "doc"][tab.ref.kind] ?? "doc",
-                            title: tab.title.isEmpty ? tab.ref.kind.capitalized : tab.title, value: nil, chevron: tab.ref.kind == "page")
-                            .opacity(tab.closedAt == nil ? 1 : 0.55)
+                            title: tab.title.isEmpty ? tab.ref.kind.capitalized : tab.title, value: nil,
+                            chevron: tab.ref.kind == "page", inactive: tab.closedAt != nil)
                     }
                     .buttonStyle(.plain)
                 }
@@ -98,13 +98,13 @@ struct ChatDetails: View {
         }
     }
 
-    private func row(symbol: String, title: String, value: String?, chevron: Bool) -> some View {
+    private func row(symbol: String, title: String, value: String?, chevron: Bool, inactive: Bool = false) -> some View {
         HStack(spacing: 12) {
             Image(systemName: symbol).font(.system(size: 17)).foregroundStyle(palette.muted).frame(width: 22)
-            Text(title).font(.ui(16)).foregroundStyle(palette.text).lineLimit(1)
+            Text(title).font(.ui(16)).foregroundStyle(inactive ? palette.muted : palette.text).lineLimit(1)
             Spacer(minLength: 8)
             if let value { Text(value).font(.ui(14)).foregroundStyle(palette.muted) }
-            if chevron { Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(palette.muted.opacity(0.5)) }
+            if chevron { Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(palette.tertiary) }
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 48)

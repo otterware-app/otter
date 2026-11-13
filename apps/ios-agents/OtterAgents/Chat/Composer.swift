@@ -145,7 +145,7 @@ struct Composer: View {
     private var editor: some View {
         @Bindable var store = store
         return HStack(alignment: .bottom, spacing: 0) {
-            TextField("Message", text: Binding(get: { store.drafts[chat.id] ?? "" }, set: { store.drafts[chat.id] = $0.isEmpty ? nil : $0 }), axis: .vertical)
+            TextField("Message", text: Binding(get: { store.drafts[chat.id] ?? "" }, set: { store.drafts[chat.id] = $0.isEmpty ? nil : $0 }), prompt: Text("Message").foregroundStyle(palette.muted), axis: .vertical)
                 .font(.ui(16))
                 .lineSpacing(3)
                 .lineLimit(1...6)

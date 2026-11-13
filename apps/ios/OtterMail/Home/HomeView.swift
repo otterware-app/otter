@@ -132,6 +132,7 @@ struct HomeView: View {
             }
         }
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+        .background(SearchFieldColors(color: palette.muted))
     }
 
     private func select(_ next: Place) {

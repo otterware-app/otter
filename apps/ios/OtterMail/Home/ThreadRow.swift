@@ -82,7 +82,7 @@ struct ThreadRow: View {
             if preview {
                 Text(thread.isDraft ? "Draft · \(latest.snippet)" : latest.snippet)
                     .font(.inter(.subheadline))
-                    .foregroundStyle(palette.muted.opacity(0.8))
+                    .foregroundStyle(palette.muted)
                     .lineLimit(1)
             }
         }
@@ -117,7 +117,7 @@ struct MailboxMark: View {
         } else {
             Text(mailbox.displayName.prefix(1).uppercased())
                 .font(.inter(size: size * 0.6, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color(hex: mailbox.color).contrastingText)
                 .frame(width: size, height: size)
                 .background(Color(hex: mailbox.color), in: .rect(cornerRadius: size * 0.28))
                 .accessibilityLabel(mailbox.displayName)
@@ -157,7 +157,7 @@ struct SenderAvatar: View {
             } else {
                 Text(person.label.prefix(1).uppercased())
                     .font(.inter(size: size * 0.42, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(color.contrastingText)
                     .frame(width: size, height: size)
                     .background(color)
             }

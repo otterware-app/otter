@@ -58,7 +58,7 @@ struct WelcomeView: View {
                     .disabled(session.busy != nil)
                 }
 
-                Text("Your mail goes straight between this iPhone and Gmail. Your mailboxes, themes and settings follow your Otter account to the Mac and the web.")
+                Text("Your mail goes straight between this iPhone and Gmail. Your mailboxes and settings follow your Otter account to the Mac and the web.")
                     .font(.inter(.footnote))
                     .foregroundStyle(palette.muted)
                     .multilineTextAlignment(.center)

@@ -38,12 +38,12 @@ struct AddImapMailbox: View {
                 Text("When enabled, Otter securely stores the IMAP password to watch for new mail while the app is closed. The watcher reads new-mail metadata; previews load directly on your iPhone.").sectionFooter()
             }
             Section {
-                TextField("Email", text: $email)
+                TextField("Email", text: $email, prompt: Text("Email").foregroundStyle(palette.muted))
                     .keyboardType(.emailAddress)
                     .textContentType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                SecureField("Password", text: $password)
+                SecureField("Password", text: $password, prompt: Text("Password").foregroundStyle(palette.muted))
                     .textContentType(.password)
             } footer: {
                 Group {
@@ -59,7 +59,8 @@ struct AddImapMailbox: View {
             Section {
                 DisclosureGroup("Server settings", isExpanded: $showsServers) {
                     LabeledContent("Username") {
-                        TextField(email.isEmpty ? "Usually the address" : email, text: $username)
+                        TextField(email.isEmpty ? "Usually the address" : email, text: $username,
+                                  prompt: Text(email.isEmpty ? "Usually the address" : email).foregroundStyle(palette.muted))
                             .multilineTextAlignment(.trailing)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
@@ -135,20 +136,22 @@ struct AddImapMailbox: View {
 
 /** A server's host, port and security; switching security switches between its usual ports. */
 private struct ServerFields: View {
+    @Environment(\.palette) private var palette
     let title: String
     @Binding var server: MailServer
     let ports: (tls: Int, starttls: Int)
 
     var body: some View {
         LabeledContent("\(title) server") {
-            TextField("\(title.lowercased()).example.com", text: $server.host)
+            TextField("\(title.lowercased()).example.com", text: $server.host,
+                      prompt: Text("\(title.lowercased()).example.com").foregroundStyle(palette.muted))
                 .multilineTextAlignment(.trailing)
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
         }
         LabeledContent("Port") {
-            TextField("Port", value: $server.port, format: .number.grouping(.never))
+            TextField("Port", value: $server.port, format: .number.grouping(.never), prompt: Text("Port").foregroundStyle(palette.muted))
                 .multilineTextAlignment(.trailing)
                 .keyboardType(.numberPad)
         }

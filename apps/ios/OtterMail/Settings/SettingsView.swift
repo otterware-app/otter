@@ -86,15 +86,6 @@ struct SettingsView: View {
                     } label: {
                         Label("Color scheme", systemImage: "circle.lefthalf.filled")
                     }
-                    NavigationLink {
-                        ThemeSettings()
-                    } label: {
-                        LabeledContent {
-                            Text(themeSummary)
-                        } label: {
-                            Label("Theme", systemImage: "paintpalette")
-                        }
-                    }
                     Toggle(isOn: $preferences.fullWidthMessages) {
                         Label("Full-width messages", systemImage: "arrow.left.and.right")
                     }
@@ -179,14 +170,6 @@ struct SettingsView: View {
     private var languageSummary: String {
         let names = preferences.effectiveReadLanguages.compactMap { Locale.current.localizedString(forLanguageCode: $0) }
         return names.count > 2 ? "\(names[0]) +\(names.count - 1)" : names.joined(separator: ", ")
-    }
-
-    private var themeSummary: String {
-        // A theme this app doesn't have (made elsewhere, not synced yet) is worn as the initial one.
-        let label = { (id: String) in (preferences.theme(id) ?? Theme.named(Preferences.initialTheme))?.label ?? "" }
-        let light = label(preferences.lightTheme)
-        let dark = label(preferences.darkTheme)
-        return light == dark ? light : "\(light), \(dark)"
     }
 }
 

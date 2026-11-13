@@ -133,7 +133,7 @@ struct TalkScreen: View {
     }
 }
 
-/** The call's orb: clouds of the theme's accent that drift, and swell with the voice. */
+/** The call's orb: clouds of the accent that drift, and swell with the voice. */
 private struct TalkOrb: View {
     @Environment(\.palette) private var palette
     let call: TalkCall

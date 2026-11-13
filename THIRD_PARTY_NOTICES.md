@@ -15,8 +15,7 @@ after theirs. These files are ported or adapted from T3 Code's source:
 - The color themes and their editor: `packages/shared/src/theme-palettes.ts`,
   `apps/web/src/main/theme/themePalette.ts`, `vscodeThemeImport.ts` and their tests,
   `apps/web/src/main/settings/theme/` (`ThemeEditorHost.tsx`, `ThemeEditorPanel.tsx`,
-  `ThemeImportDialog.tsx`, `ThemeColorPicker.tsx`, `themeEditorStore.ts`, `themeInspector.ts`),
-  and the themes exported from them for the iPhone apps (`apps/ios/OtterMail/Resources/Themes.json`)
+  `ThemeImportDialog.tsx`, `ThemeColorPicker.tsx`, `themeEditorStore.ts`, `themeInspector.ts`)
 - UI primitives in `apps/web/src/components/ui/`: `alert.tsx`, `color-picker.tsx`,
   `popover.tsx`, `toggle.tsx`, `toggle-group.tsx`, `tooltip.tsx` (after shadcn/ui and coss ui,
   below)

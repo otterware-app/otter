@@ -197,7 +197,7 @@ struct TaskScreen: View {
                                     .font(.ui(13)).foregroundStyle(palette.muted)
                             }
                             Spacer()
-                            Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold)).foregroundStyle(palette.muted.opacity(0.6))
+                            Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold)).foregroundStyle(palette.tertiary)
                                 .rotationEffect(.degrees(open == run.id ? 180 : 0))
                         }
                     }

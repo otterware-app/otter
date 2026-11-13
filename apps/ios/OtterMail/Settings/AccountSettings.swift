@@ -64,7 +64,7 @@ struct AccountSettings: View {
                         Text("Signs out every device and forgets your mailboxes and preferences. Your mail stays on its servers.")
                     }
             } footer: {
-                Text("Your Otter account carries your mailboxes, themes and settings to the Mac and the web.").sectionFooter()
+                Text("Your Otter account carries your mailboxes and settings to the Mac and the web.").sectionFooter()
             }
         }
         .navigationTitle("Otter account")

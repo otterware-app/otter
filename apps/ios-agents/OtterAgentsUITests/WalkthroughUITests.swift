@@ -10,7 +10,7 @@ final class WalkthroughUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-otter:demo", "YES", "-chat-drafts", "<dict/>", "-chat-new-drafts", "<array/>", "-chat-open-requests", "<dict/>"]
+        app.launchArguments = ["-otter:theme-source", "system", "-otter:demo", "YES", "-chat-drafts", "<dict/>", "-chat-new-drafts", "<array/>", "-chat-open-requests", "<dict/>"]
         app.launch()
         XCTAssertTrue(app.buttons["New chat"].waitForExistence(timeout: 10), "the chats didn't open")
     }
@@ -214,9 +214,12 @@ final class WalkthroughUITests: XCTestCase {
         app.buttons["Settings"].tap()
         XCTAssertTrue(app.staticTexts["About"].waitForExistence(timeout: 5))
         shot("14-settings")
-        app.buttons.containing(NSPredicate(format: "label CONTAINS 'Appearance'")).firstMatch.tap()
-        XCTAssertTrue(app.buttons["Use in dark mode"].firstMatch.waitForExistence(timeout: 5), "Appearance didn't open")
-        shot("15-appearance")
+        app.buttons["Color scheme, System"].tap()
+        for mode in ["System", "Light", "Dark"] {
+            XCTAssertTrue(app.buttons[mode].firstMatch.waitForExistence(timeout: 5))
+        }
+        XCTAssertFalse(app.buttons["Use in dark mode"].exists)
+        shot("15-color-scheme")
     }
 
     func testYourAgentsInSettings() {
@@ -381,5 +384,17 @@ final class WalkthroughUITests: XCTestCase {
         shot("18-settled")
         app.buttons["Undo"].tap()
         XCTAssertTrue(row("Morning brief").waitForExistence(timeout: 3), "Undo didn't bring the chat back")
+    }
+
+    func testAccountAndWelcome() {
+        app.buttons["Settings"].tap()
+        row("Pretend chats, on this iPhone only").tap()
+        XCTAssertTrue(app.buttons["Leave the demo"].waitForExistence(timeout: 5))
+        shot("35-account")
+        app.terminate()
+        app.launchArguments = ["-otter:theme-source", "system", "-otter:demo", "NO"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Try the demo"].waitForExistence(timeout: 5))
+        shot("36-welcome")
     }
 }
