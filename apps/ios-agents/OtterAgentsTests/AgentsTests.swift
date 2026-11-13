@@ -108,7 +108,11 @@ struct AgentsTests {
 
     @Test func agentKeysComeInByAgentAndGoOutForTheHermesAgentsHere() throws {
         let saved = UserDefaults.standard.data(forKey: "agents")
-        defer { UserDefaults.standard.set(saved, forKey: "agents") }
+        Keychain.memory = [:]
+        defer {
+            UserDefaults.standard.set(saved, forKey: "agents")
+            Keychain.memory = nil
+        }
         UserDefaults.standard.removeObject(forKey: "agents")
         let agents = Agents()
         var told: [String] = []
