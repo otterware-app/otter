@@ -238,9 +238,6 @@ async function saveEntries(
   return next;
 }
 
-/** How many removals the account remembers. */
-const REMOVED_KEPT = 100;
-
 export async function saveAgentSettings(
   id: AgentId,
   patch: Partial<AgentSettings> & Record<string, unknown>,
@@ -306,7 +303,7 @@ export async function removeAgent(id: AgentId): Promise<ProvidersState> {
   await saveProviderSettings({
     selected: current.selected === id ? null : current.selected,
     agents: current.agents.filter((a) => a.id !== id),
-    removed: [...current.removed.filter((r) => r !== id), id].slice(-REMOVED_KEPT),
+    removed: [...current.removed.filter((r) => r !== id), id],
   });
   logger.info("agent", "removed", { kind: entry.kind, id });
   const state = await providersState();
@@ -767,7 +764,7 @@ export async function applySyncedProviderSettings(
         ? remote.removed.filter((id): id is string => typeof id === "string")
         : []),
     ]),
-  ].slice(-REMOVED_KEPT);
+  ];
   const theirs = (remote.agents as (Partial<AgentEntry> | null)[])
     .filter(isEntry)
     .filter((a) => !removed.includes(a.id));

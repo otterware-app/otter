@@ -124,7 +124,7 @@ export type AgentEntry = {
 export type ProviderSettings = {
   selected: AgentId | null;
   agents: AgentEntry[];
-  /** Agents removed lately, so the account's devices remove them too and none brings one back. */
+  /** Agents removed, so the account's devices remove them too and none brings one back. */
   removed: AgentId[];
 };
 
