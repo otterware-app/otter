@@ -1,9 +1,10 @@
 /**
- * The agents' registry and routing layer (T3 Code's ProviderService in
- * miniature). The agents are extensions' (`context.registerAgent`): the
- * Hermes, OpenClaw and varys everywhere, Codex and Claude from the
- * desktop backend. Only what this backend runs is listed: the web app doesn't
- * show the Mac's agents.
+ * The agents you added and the routing layer (T3 Code's ProviderService in
+ * miniature). Their kinds are extensions' (`context.registerAgent`): Hermes,
+ * OpenClaw and varys everywhere, Codex and Claude from the desktop backend.
+ * You add any number of each, each its own `ChatProvider` with its own
+ * connections; chats, tasks and every call name one by its id. Only the kinds
+ * this backend runs are listed: the web app doesn't show the Mac's agents.
  *
  * Health snapshots are managed like T3's: served from cache at once,
  * re-checked in the background when stale or when settings change, and
@@ -11,6 +12,7 @@
  * fire-and-forget; their events stream as `agent:chatEvent`.
  */
 
+import { isMailboxPicture } from "@otter/contracts/relay";
 import type {
   AgentScheduledTasks,
   ChannelTarget,
@@ -23,17 +25,13 @@ import { logger } from "../../logger.js";
 import { platform } from "../../platform.js";
 import { getSettings } from "../settings-store.js";
 import { answerToolApproval } from "./tools/index.js";
+import { agentSecrets, getProviderSettings, saveProviderSettings } from "./settings.js";
 import {
-  clearHermesKey,
-  getHermesKey,
-  getProviderSettings,
-  saveProviderSettings,
-  setHermesKey,
-} from "./settings.js";
-import {
-  DEFAULT_AGENT,
   RUNTIME_MODES,
+  type AgentEntry,
+  type AgentId,
   type AgentSettings,
+  type AgentType,
   type ApprovalDecision,
   type ChatEvent,
   type ChatProvider,
@@ -41,6 +39,7 @@ import {
   type BrowserInput,
   type BrowserViewRequest,
   type ChatSessionMessage,
+  type CheckedStatus,
   type ForkPoint,
   type ProviderKind,
   type ProviderSettings,
@@ -52,41 +51,77 @@ import {
   type Skill,
 } from "./types.js";
 
-function provider(kind: ProviderKind): ChatProvider {
-  const found = registeredAgents().get(kind);
-  if (!found) throw new Error("This agent isn't on this device.");
+type Agent = {
+  entry: AgentEntry;
+  type: AgentType;
+  provider: ChatProvider;
+  settings: AgentSettings;
+};
+
+const running = new Map<AgentId, ChatProvider>();
+
+const settingsOf = (type: AgentType, entry: AgentEntry): AgentSettings => ({
+  ...type.defaults,
+  ...entry.settings,
+});
+
+function instance(entry: AgentEntry, type: AgentType): ChatProvider {
+  let found = running.get(entry.id);
+  if (!found) {
+    found = type.create({ id: entry.id, secrets: agentSecrets(entry.id) });
+    running.set(entry.id, found);
+  }
   return found;
 }
 
-function allSettings(): Promise<ProviderSettings> {
-  return getProviderSettings(() =>
-    Object.fromEntries([...registeredAgents()].map(([kind, agent]) => [kind, agent.defaults])),
-  );
+/** The agents this device runs, as you ordered them. */
+async function runnable(): Promise<{ entry: AgentEntry; type: AgentType }[]> {
+  const { agents } = await getProviderSettings();
+  return agents.flatMap((entry) => {
+    const type = registeredAgents().get(entry.kind);
+    return type ? [{ entry, type }] : [];
+  });
 }
 
-export async function agentSettings(kind: ProviderKind): Promise<AgentSettings> {
-  return (await allSettings()).agents[kind] ?? provider(kind).defaults;
+async function agentOf(id: AgentId): Promise<Agent> {
+  const entry = (await getProviderSettings()).agents.find((a) => a.id === id);
+  const type = entry && registeredAgents().get(entry.kind);
+  if (!entry || !type) throw new Error("This agent isn't on this device.");
+  return { entry, type, provider: instance(entry, type), settings: settingsOf(type, entry) };
 }
 
-function selectedOf(settings: ProviderSettings): ProviderKind {
-  const agents = registeredAgents();
-  if (agents.has(settings.selected)) return settings.selected;
-  return agents.has(DEFAULT_AGENT) ? DEFAULT_AGENT : ([...agents.keys()][0] ?? DEFAULT_AGENT);
+/** An agent's own provider, for its extension's handlers (connecting it, pairing it). */
+export async function agentProvider(id: AgentId): Promise<ChatProvider> {
+  return (await agentOf(id)).provider;
+}
+
+export async function agentSettings(id: AgentId): Promise<AgentSettings> {
+  return (await agentOf(id)).settings;
+}
+
+export async function hasAgent(id: AgentId): Promise<boolean> {
+  return (await runnable()).some(({ entry }) => entry.id === id);
+}
+
+function selectedOf(
+  settings: ProviderSettings,
+  shown: { entry: AgentEntry; type: AgentType }[],
+): AgentId | null {
+  const usable = shown.filter(({ entry, type }) => settingsOf(type, entry).enabled);
+  if (usable.some(({ entry }) => entry.id === settings.selected)) return settings.selected;
+  return usable[0]?.entry.id ?? null;
 }
 
 const STALE_AFTER_MS = 5 * 60_000;
 
-type Checked = Omit<ProviderSnapshot, "settings" | "forks" | "titles" | "liveBrowser">;
-const checked = new Map<ProviderKind, Checked>();
-const checking = new Map<ProviderKind, Promise<void>>();
+type Checked = CheckedStatus & { checkedAt: number | null };
+const checked = new Map<AgentId, Checked>();
+const checking = new Map<AgentId, Promise<void>>();
 /** Bumped when a check's answer may be stale before it lands (the Otter account changed). */
-const generations = new Map<ProviderKind, number>();
+const generations = new Map<AgentId, number>();
 
-function pendingSnapshot(agent: ChatProvider, settings: AgentSettings): Checked {
+function pendingSnapshot(settings: AgentSettings): Checked {
   return {
-    kind: agent.kind,
-    displayName: agent.displayName,
-    enabled: settings.enabled,
     installed: false,
     version: null,
     status: settings.enabled ? "warning" : "disabled",
@@ -98,101 +133,192 @@ function pendingSnapshot(agent: ChatProvider, settings: AgentSettings): Checked 
   };
 }
 
+async function snapshotOf(entry: AgentEntry, type: AgentType): Promise<ProviderSnapshot> {
+  const settings = settingsOf(type, entry);
+  const provider = instance(entry, type);
+  const snapshot = checked.get(entry.id) ?? pendingSnapshot(settings);
+  const fallback = snapshot.models.find((m) => m.isDefault)?.slug ?? snapshot.models[0]?.slug;
+  const chosen =
+    settings.model && (!type.strictModels || snapshot.models.some((m) => m.slug === settings.model))
+      ? settings.model
+      : null;
+  return {
+    ...snapshot,
+    id: entry.id,
+    kind: entry.kind,
+    name: entry.name,
+    avatar: entry.avatar ?? null,
+    enabled: settings.enabled,
+    status: settings.enabled ? snapshot.status : "disabled",
+    model: chosen || fallback || null,
+    forks: Boolean(provider.fork),
+    titles: Boolean(provider.retitle),
+    liveBrowser: Boolean(provider.browserView),
+    otherSessions: Boolean(provider.otherSessions),
+    settings: { ...settings, ...(await provider.settingsView?.(settings)) },
+  };
+}
+
 export async function providersState(): Promise<ProvidersState> {
-  const all = await allSettings();
-  const providers = await Promise.all(
-    [...registeredAgents().values()].map(async (agent) => {
-      const settings = all.agents[agent.kind] ?? agent.defaults;
-      const snapshot = checked.get(agent.kind) ?? pendingSnapshot(agent, settings);
-      const fallback = snapshot.models.find((m) => m.isDefault)?.slug ?? snapshot.models[0]?.slug;
-      const chosen =
-        settings.model &&
-        (!agent.strictModels || snapshot.models.some((m) => m.slug === settings.model))
-          ? settings.model
-          : null;
-      return {
-        ...snapshot,
-        enabled: settings.enabled,
-        status: settings.enabled ? snapshot.status : "disabled",
-        model: chosen || fallback || null,
-        forks: Boolean(agent.fork),
-        titles: Boolean(agent.retitle),
-        liveBrowser: Boolean(agent.browserView),
-        settings: { ...settings, ...(await agent.settingsView?.(settings)) },
-      } satisfies ProviderSnapshot;
-    }),
-  );
+  const all = await getProviderSettings();
+  const shown = await runnable();
+  const providers = await Promise.all(shown.map(({ entry, type }) => snapshotOf(entry, type)));
   for (const p of providers) {
-    if (p.enabled && (!p.checkedAt || Date.now() - p.checkedAt > STALE_AFTER_MS))
-      void check(p.kind);
+    if (p.enabled && (!p.checkedAt || Date.now() - p.checkedAt > STALE_AFTER_MS)) void check(p.id);
   }
-  return { providers, selected: selectedOf(all) };
+  return {
+    providers,
+    selected: selectedOf(all, shown),
+    kinds: [...registeredAgents().values()].map((type) => ({
+      kind: type.kind,
+      name: type.displayName,
+    })),
+  };
 }
 
 async function broadcastState(): Promise<void> {
   broadcast("agent:providersChanged", await providersState());
 }
 
-function check(kind: ProviderKind): Promise<void> {
-  const inFlight = checking.get(kind);
+function check(id: AgentId): Promise<void> {
+  const inFlight = checking.get(id);
   if (inFlight) return inFlight;
-  const generation = generations.get(kind) ?? 0;
+  const generation = generations.get(id) ?? 0;
   const run = (async () => {
-    const agent = registeredAgents().get(kind);
-    const settings = await agentSettings(kind);
-    if (!agent || !settings.enabled) return;
-    const result = await agent.checkStatus(settings);
-    if (generation !== (generations.get(kind) ?? 0)) return;
-    checked.set(kind, { ...result, enabled: true, checkedAt: Date.now() });
+    if (!(await hasAgent(id))) return;
+    const { provider, settings, entry } = await agentOf(id);
+    if (!settings.enabled) return;
+    const result = await provider.checkStatus(settings);
+    if (generation !== (generations.get(id) ?? 0)) return;
+    checked.set(id, { ...result, checkedAt: Date.now() });
     logger.info("agent", "provider checked", {
-      kind,
+      kind: entry.kind,
+      id,
       status: result.status,
       version: result.version,
     });
   })()
     .catch((error: unknown) =>
       logger.info("agent", "provider check failed", {
-        kind,
+        id,
         error: String(error),
       }),
     )
     .finally(() => {
-      checking.delete(kind);
+      checking.delete(id);
       void broadcastState();
     });
-  checking.set(kind, run);
+  checking.set(id, run);
   return run;
 }
 
-export async function refreshProviders(
-  kinds: ProviderKind[] = [...registeredAgents().keys()],
-): Promise<void> {
-  await Promise.all(kinds.map(check));
+export async function refreshProviders(ids?: AgentId[]): Promise<void> {
+  const all = ids ?? (await runnable()).map(({ entry }) => entry.id);
+  await Promise.all(all.map(check));
 }
 
-export async function refreshProvider(kind: ProviderKind): Promise<void> {
-  generations.set(kind, (generations.get(kind) ?? 0) + 1);
-  await checking.get(kind);
-  checked.delete(kind);
-  await check(kind);
+export async function refreshProvider(id: AgentId): Promise<void> {
+  generations.set(id, (generations.get(id) ?? 0) + 1);
+  await checking.get(id);
+  checked.delete(id);
+  await check(id);
 }
+
+async function saveEntries(
+  update: (agents: AgentEntry[]) => AgentEntry[],
+  selected?: AgentId | null,
+): Promise<ProviderSettings> {
+  const current = await getProviderSettings();
+  const next = {
+    ...current,
+    selected: selected === undefined ? current.selected : selected,
+    agents: update(current.agents),
+  };
+  await saveProviderSettings(next);
+  return next;
+}
+
+/** How many removals the account remembers. */
+const REMOVED_KEPT = 100;
 
 export async function saveAgentSettings(
-  kind: ProviderKind,
+  id: AgentId,
   patch: Partial<AgentSettings> & Record<string, unknown>,
 ): Promise<void> {
-  const current = await allSettings();
-  await saveProviderSettings({
-    ...current,
-    agents: { ...current.agents, [kind]: { ...(await agentSettings(kind)), ...patch } },
-  });
+  await saveEntries((agents) =>
+    agents.map((a) => (a.id === id ? { ...a, settings: { ...a.settings, ...patch } } : a)),
+  );
 }
 
-function checkedPatch(agent: ChatProvider, raw: unknown): Partial<AgentSettings> {
+const MAX_NAME = 60;
+
+function nameFor(type: AgentType, taken: AgentEntry[]): string {
+  const names = new Set(taken.map((a) => a.name));
+  if (!names.has(type.displayName)) return type.displayName;
+  for (let n = 2; ; n++)
+    if (!names.has(`${type.displayName} ${n}`)) return `${type.displayName} ${n}`;
+}
+
+/** Adds an agent of this kind, as it comes, named for its kind: its form connects it. */
+export async function addAgent(
+  kind: ProviderKind,
+): Promise<{ id: AgentId; state: ProvidersState }> {
+  const type = registeredAgents().get(kind);
+  if (!type) throw new Error("This kind of agent isn't on this device.");
+  const id = crypto.randomUUID();
+  const current = await getProviderSettings();
+  await saveEntries(
+    (agents) => [
+      ...agents,
+      { id, kind, name: nameFor(type, agents), settings: {} as AgentSettings },
+    ],
+    current.selected ?? id,
+  );
+  logger.info("agent", "added", { kind, id });
+  const state = await providersState();
+  broadcast("agent:providersChanged", state);
+  return { id, state };
+}
+
+async function forget(entry: AgentEntry): Promise<void> {
+  const type = registeredAgents().get(entry.kind);
+  const provider = type && instance(entry, type);
+  if (type && provider?.remove)
+    await provider
+      .remove(settingsOf(type, entry))
+      .catch((error: unknown) =>
+        logger.info("agent", "not removed elsewhere", { id: entry.id, error: String(error) }),
+      );
+  provider?.shutdown();
+  running.delete(entry.id);
+  checked.delete(entry.id);
+  generations.set(entry.id, (generations.get(entry.id) ?? 0) + 1);
+  const secrets = agentSecrets(entry.id);
+  await Promise.all((type?.secrets ?? []).map((name) => secrets.delete(name).catch(() => {})));
+}
+
+/** Removes the agent, its settings and its secrets; its chats stay, with no agent to run on. */
+export async function removeAgent(id: AgentId): Promise<ProvidersState> {
+  const current = await getProviderSettings();
+  const entry = current.agents.find((a) => a.id === id);
+  if (!entry) return providersState();
+  await forget(entry);
+  await saveProviderSettings({
+    selected: current.selected === id ? null : current.selected,
+    agents: current.agents.filter((a) => a.id !== id),
+    removed: [...current.removed.filter((r) => r !== id), id].slice(-REMOVED_KEPT),
+  });
+  logger.info("agent", "removed", { kind: entry.kind, id });
+  const state = await providersState();
+  broadcast("agent:providersChanged", state);
+  return state;
+}
+
+function checkedPatch(type: AgentType, raw: unknown): Partial<AgentSettings> {
   if (!raw || typeof raw !== "object") return {};
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(raw)) {
-    const field = (agent.fields as Record<string, string | undefined>)[key];
+    const field = (type.fields as Record<string, string | undefined>)[key];
     if (field === "boolean" && typeof value === "boolean") out[key] = value;
     else if (field === "string" && typeof value === "string") out[key] = value.trim();
     else if (field === "runtimeMode" && RUNTIME_MODES.includes(value as never)) out[key] = value;
@@ -200,41 +326,57 @@ function checkedPatch(agent: ChatProvider, raw: unknown): Partial<AgentSettings>
   return out as Partial<AgentSettings>;
 }
 
+function identityPatch(raw: unknown): Partial<Pick<AgentEntry, "name" | "avatar">> {
+  const p = raw as Record<string, unknown> | null;
+  const out: Partial<Pick<AgentEntry, "name" | "avatar">> = {};
+  if (typeof p?.name === "string" && p.name.trim()) out.name = p.name.trim().slice(0, MAX_NAME);
+  if (p?.avatar === "" || isMailboxPicture(p?.avatar))
+    out.avatar = (p?.avatar as string) || undefined;
+  return out;
+}
+
+/** `{ selected?, [id]: settings, name, avatar }`: what the windows change. */
 export async function updateProviderSettings(
   patch: Record<string, unknown>,
 ): Promise<ProvidersState> {
-  const current = await allSettings();
-  const agents = { ...current.agents };
-  const changes = new Map<ProviderKind, Partial<AgentSettings>>();
-  for (const [kind, agent] of registeredAgents()) {
-    const change = checkedPatch(agent, patch[kind]);
-    if (Object.keys(change).length === 0) continue;
-    agents[kind] = { ...(agents[kind] ?? agent.defaults), ...change };
-    changes.set(kind, change);
-  }
+  const current = await getProviderSettings();
+  const changes: [AgentEntry, AgentType, Partial<AgentSettings>][] = [];
+  const agents = current.agents.map((entry) => {
+    const type = registeredAgents().get(entry.kind);
+    if (!type || !(entry.id in patch)) return entry;
+    const change = checkedPatch(type, patch[entry.id]);
+    const next = {
+      ...entry,
+      ...identityPatch(patch[entry.id]),
+      settings: { ...entry.settings, ...change },
+    };
+    if (Object.keys(change).length) changes.push([next, type, change]);
+    return next;
+  });
   const selected =
-    typeof patch.selected === "string" && registeredAgents().has(patch.selected)
+    typeof patch.selected === "string" && agents.some((a) => a.id === patch.selected)
       ? patch.selected
       : current.selected;
-  await saveProviderSettings({ selected, agents });
-  for (const [kind, change] of changes) restartIfNeeded(provider(kind), change, agents[kind]);
+  await saveProviderSettings({ ...current, selected, agents });
+  for (const [entry, type, change] of changes) restartIfNeeded(entry, type, change);
   const state = await providersState();
   broadcast("agent:providersChanged", state);
   return state;
 }
 
 function restartIfNeeded(
-  agent: ChatProvider,
+  entry: AgentEntry,
+  type: AgentType,
   change: Record<string, unknown>,
-  next: AgentSettings,
 ): void {
-  if ((agent.restartFields ?? []).some((key) => key in change)) {
-    agent.shutdown();
-    checked.delete(agent.kind);
-    void check(agent.kind);
+  const provider = running.get(entry.id);
+  if ((type.restartFields ?? []).some((key) => key in change)) {
+    provider?.shutdown();
+    checked.delete(entry.id);
+    void check(entry.id);
   } else if ("enabled" in change) {
-    if (next.enabled) void check(agent.kind);
-    else agent.shutdown();
+    if (settingsOf(type, entry).enabled) void check(entry.id);
+    else provider?.shutdown();
   }
 }
 
@@ -242,10 +384,11 @@ function emit(event: ChatEvent): void {
   broadcast("agent:chatEvent", event);
 }
 
-export async function sendTurn(kind: ProviderKind, turn: SendTurnInput): Promise<void> {
-  const settings = await agentSettings(kind);
+export async function sendTurn(id: AgentId, turn: SendTurnInput): Promise<void> {
+  const { provider, settings, entry } = await agentOf(id);
   logger.info("agent", "send", {
-    provider: kind,
+    kind: entry.kind,
+    id,
     requestId: turn.requestId,
     chars: turn.input.length,
     session: turn.sessionId ? "existing" : "new",
@@ -259,51 +402,48 @@ export async function sendTurn(kind: ProviderKind, turn: SendTurnInput): Promise
     });
     return;
   }
-  void provider(kind)
-    .sendTurn(turn, settings, emit)
-    .catch((error: unknown) => {
-      logger.info("agent", "turn crashed", {
-        provider: kind,
-        error: String(error),
-      });
-      emit({
-        requestId: turn.requestId,
-        type: "error",
-        message: "unreachable",
-      });
+  void provider.sendTurn(turn, settings, emit).catch((error: unknown) => {
+    logger.info("agent", "turn crashed", {
+      kind: entry.kind,
+      id,
+      error: String(error),
     });
+    emit({
+      requestId: turn.requestId,
+      type: "error",
+      message: "unreachable",
+    });
+  });
 }
 
-export async function resumeTurn(kind: ProviderKind, turn: ResumeTurnInput): Promise<boolean> {
-  const found = provider(kind);
-  const settings = await agentSettings(kind);
-  if (!found.resume || !settings.enabled) return false;
-  logger.info("agent", "resume", { provider: kind, requestId: turn.requestId });
-  void found.resume(turn, settings, emit).catch((error: unknown) => {
-    logger.info("agent", "resume crashed", { provider: kind, error: String(error) });
+export async function resumeTurn(id: AgentId, turn: ResumeTurnInput): Promise<boolean> {
+  const { provider, settings } = await agentOf(id);
+  if (!provider.resume || !settings.enabled) return false;
+  logger.info("agent", "resume", { id, requestId: turn.requestId });
+  void provider.resume(turn, settings, emit).catch((error: unknown) => {
+    logger.info("agent", "resume crashed", { id, error: String(error) });
     emit({ requestId: turn.requestId, type: "error", message: "detached" });
   });
   return true;
 }
 
-export async function watchSessions(kind: ProviderKind, sessions: WatchedSession[]): Promise<void> {
-  const found = provider(kind);
-  const settings = await agentSettings(kind);
-  if (!found.watch || !settings.enabled) return;
-  found.watch(
+export async function watchSessions(id: AgentId, sessions: WatchedSession[]): Promise<void> {
+  const { provider, settings } = await agentOf(id);
+  if (!provider.watch || !settings.enabled) return;
+  provider.watch(
     settings,
     sessions,
-    (run) => broadcast("agent:runStarted", { provider: kind, ...run }),
-    (sessionId, cursor) => broadcast("agent:sessionRead", { provider: kind, sessionId, cursor }),
+    (run) => broadcast("agent:runStarted", { provider: id, ...run }),
+    (sessionId, cursor) => broadcast("agent:sessionRead", { provider: id, sessionId, cursor }),
   );
 }
 
-/** An agent's gateway delivered something to Otter: the providers that watch catch up on it. */
+/** An agent's gateway delivered something to Otter: the agents that watch catch up on it. */
 export async function agentDelivered(sessionKey?: string): Promise<void> {
-  for (const found of registeredAgents().values()) {
-    if (!found.delivered) continue;
-    const settings = await agentSettings(found.kind);
-    if (settings.enabled) found.delivered(settings, sessionKey);
+  for (const { entry, type } of await runnable()) {
+    const provider = instance(entry, type);
+    const settings = settingsOf(type, entry);
+    if (provider.delivered && settings.enabled) provider.delivered(settings, sessionKey);
   }
 }
 
@@ -318,7 +458,7 @@ const ASK_SETTLE_MS = 500;
  * reports it, a turn picked up again reports it again.
  */
 export function notifyAsk(
-  kind: ProviderKind,
+  id: AgentId,
   ask: {
     key: string;
     title: string;
@@ -337,11 +477,12 @@ export function notifyAsk(
   asks.set(ask.key, entry);
   setTimeout(() => {
     if (entry.focused) return;
-    void getSettings().then((settings) => {
+    void Promise.all([getSettings(), getProviderSettings()]).then(([settings, { agents }]) => {
       if (settings.notificationsMode === "off") return;
+      const name = agents.find((a) => a.id === id)?.name ?? "Your agent";
       platform().notify({
         title: ask.title,
-        subtitle: ask.subtitle ?? `${provider(kind).displayName} is waiting for you`,
+        subtitle: ask.subtitle ?? `${name} is waiting for you`,
         body: ask.body,
         chat: ask.chat,
       });
@@ -350,160 +491,161 @@ export function notifyAsk(
 }
 
 export async function answerQuestion(
-  kind: ProviderKind,
+  id: AgentId,
   requestId: string,
   questionId: string,
   answers: Record<string, string[]> | null,
 ): Promise<void> {
-  logger.info("agent", "question", { provider: kind, requestId, skipped: answers === null });
-  await provider(kind).answerQuestion?.(requestId, questionId, answers);
+  logger.info("agent", "question", { id, requestId, skipped: answers === null });
+  await (await agentOf(id)).provider.answerQuestion?.(requestId, questionId, answers);
 }
 
 export async function respondApproval(
-  kind: ProviderKind,
+  id: AgentId,
   requestId: string,
   approvalId: string,
   decision: ApprovalDecision,
 ): Promise<void> {
-  logger.info("agent", "approval", { provider: kind, requestId, decision });
+  logger.info("agent", "approval", { id, requestId, decision });
   if (answerToolApproval(approvalId, decision)) return;
-  await provider(kind).respondApproval(requestId, approvalId, decision);
+  await (await agentOf(id)).provider.respondApproval(requestId, approvalId, decision);
 }
 
-export async function steerTurn(
-  kind: ProviderKind,
-  requestId: string,
-  input: string,
-): Promise<boolean> {
-  const accepted = await provider(kind).steer(requestId, input);
-  logger.info("agent", "steer", { provider: kind, requestId, accepted });
+export async function steerTurn(id: AgentId, requestId: string, input: string): Promise<boolean> {
+  const accepted = await (await agentOf(id)).provider.steer(requestId, input);
+  logger.info("agent", "steer", { id, requestId, accepted });
   return accepted;
 }
 
-export function cancelTurn(kind: ProviderKind, requestId: string): void {
-  provider(kind).cancel(requestId);
+export async function cancelTurn(id: AgentId, requestId: string): Promise<void> {
+  (await agentOf(id)).provider.cancel(requestId);
 }
 
-export async function listSkills(kind: ProviderKind): Promise<Skill[]> {
-  return provider(kind).listSkills(await agentSettings(kind));
+export async function listSkills(id: AgentId): Promise<Skill[]> {
+  const { provider, settings } = await agentOf(id);
+  return provider.listSkills(settings);
 }
 
-export async function listSessions(kind: ProviderKind, limit: number): Promise<ChatSession[]> {
-  return provider(kind).listSessions(await agentSettings(kind), Math.min(Math.max(limit, 1), 200));
+export async function listSessions(
+  id: AgentId,
+  limit: number,
+  everywhere = false,
+): Promise<ChatSession[]> {
+  const { provider, settings } = await agentOf(id);
+  return provider.listSessions(settings, Math.min(Math.max(limit, 1), 200), everywhere);
 }
 
-export async function readSession(
-  kind: ProviderKind,
-  sessionId: string,
-): Promise<ChatSessionMessage[]> {
-  return provider(kind).readSession(await agentSettings(kind), sessionId);
+export async function readSession(id: AgentId, sessionId: string): Promise<ChatSessionMessage[]> {
+  const { provider, settings } = await agentOf(id);
+  return provider.readSession(settings, sessionId);
 }
 
-export async function deleteSession(kind: ProviderKind, sessionId: string): Promise<void> {
-  await provider(kind).deleteSession(await agentSettings(kind), sessionId);
+export async function deleteSession(id: AgentId, sessionId: string): Promise<void> {
+  const { provider, settings } = await agentOf(id);
+  await provider.deleteSession(settings, sessionId);
 }
 
-export async function forkSession(kind: ProviderKind, sessionId: string, before?: ForkPoint) {
-  const found = provider(kind);
-  if (!found.fork) throw new Error(`${found.displayName} chats can't be forked.`);
-  return found.fork(await agentSettings(kind), sessionId, before);
+export async function forkSession(id: AgentId, sessionId: string, before?: ForkPoint) {
+  const { provider, settings, entry } = await agentOf(id);
+  if (!provider.fork) throw new Error(`${entry.name} chats can't be forked.`);
+  return provider.fork(settings, sessionId, before);
 }
 
 export async function retitleSession(
-  kind: ProviderKind,
+  id: AgentId,
   sessionId: string,
   name: { title: string } | { message: string },
 ): Promise<string | null> {
-  const found = provider(kind);
-  if (!found.retitle) throw new Error(`${found.displayName} chats can't be retitled.`);
-  return found.retitle(await agentSettings(kind), sessionId, name);
+  const { provider, settings, entry } = await agentOf(id);
+  if (!provider.retitle) throw new Error(`${entry.name} chats can't be retitled.`);
+  return provider.retitle(settings, sessionId, name);
 }
 
-export async function browserView(
-  kind: ProviderKind,
-  sessionId: string,
-  request: BrowserViewRequest,
-) {
-  const found = provider(kind);
-  if (!found.browserView) return null;
-  return found.browserView(await agentSettings(kind), sessionId, request);
+export async function browserView(id: AgentId, sessionId: string, request: BrowserViewRequest) {
+  const { provider, settings } = await agentOf(id);
+  if (!provider.browserView) return null;
+  return provider.browserView(settings, sessionId, request);
 }
 
-export async function browserInput(kind: ProviderKind, input: BrowserInput) {
-  const found = provider(kind);
-  if (!found.browserInput) throw new Error(`${found.displayName}'s browser can't be controlled.`);
-  await found.browserInput(await agentSettings(kind), input);
+export async function browserInput(id: AgentId, input: BrowserInput) {
+  const { provider, settings, entry } = await agentOf(id);
+  if (!provider.browserInput) throw new Error(`${entry.name}'s browser can't be controlled.`);
+  await provider.browserInput(settings, input);
 }
 
 export async function browserEvents(
-  kind: ProviderKind,
+  id: AgentId,
   request: { targetId: string; profile?: string; since?: number; run?: string; waitMs: number },
 ) {
-  const found = provider(kind);
-  if (!found.browserEvents) return null;
-  return found.browserEvents(await agentSettings(kind), request);
+  const { provider, settings } = await agentOf(id);
+  if (!provider.browserEvents) return null;
+  return provider.browserEvents(settings, request);
 }
 
 export async function browserUpload(
-  kind: ProviderKind,
+  id: AgentId,
   upload: { targetId: string; profile?: string; files: { name: string; data: string }[] },
 ) {
-  const found = provider(kind);
-  if (!found.browserUpload) throw new Error(`${found.displayName}'s browser can't take files.`);
-  await found.browserUpload(await agentSettings(kind), upload);
+  const { provider, settings, entry } = await agentOf(id);
+  if (!provider.browserUpload) throw new Error(`${entry.name}'s browser can't take files.`);
+  await provider.browserUpload(settings, upload);
 }
 
-function talker(kind: ProviderKind) {
-  const found = provider(kind);
-  if (!found.talk) throw new Error(`You can't talk with ${found.displayName}.`);
-  return found.talk;
+async function talker(id: AgentId) {
+  const { provider, settings, entry } = await agentOf(id);
+  if (!provider.talk) throw new Error(`You can't talk with ${entry.name}.`);
+  return { talk: provider.talk, settings };
 }
 
 /** Its events go to every window as `agent:talkEvent`; the one that started it plays them. */
-export async function talkStart(kind: ProviderKind, sessionId: string | undefined) {
-  return talker(kind).start(await agentSettings(kind), sessionId, (event) =>
-    broadcast("agent:talkEvent", event),
-  );
+export async function talkStart(id: AgentId, sessionId: string | undefined) {
+  const { talk, settings } = await talker(id);
+  return talk.start(settings, sessionId, (event) => broadcast("agent:talkEvent", event));
 }
 
-export const talkAudio = (kind: ProviderKind, talkId: string, audio: string) =>
-  talker(kind).audio(talkId, audio);
+export const talkAudio = async (id: AgentId, talkId: string, audio: string) =>
+  (await talker(id)).talk.audio(talkId, audio);
 
-export const talkPlayed = (kind: ProviderKind, talkId: string, mark: string) =>
-  talker(kind).played(talkId, mark);
+export const talkPlayed = async (id: AgentId, talkId: string, mark: string) =>
+  (await talker(id)).talk.played(talkId, mark);
 
-export const talkEnd = (kind: ProviderKind, talkId: string) => talker(kind).end(talkId);
+export const talkEnd = async (id: AgentId, talkId: string) => (await talker(id)).talk.end(talkId);
 
-export async function readFile(kind: ProviderKind, sessionId: string, href: string) {
-  const found = provider(kind);
-  if (!found.readFile)
+export async function readFile(id: AgentId, sessionId: string, href: string) {
+  const { provider, settings, entry } = await agentOf(id);
+  if (!provider.readFile)
     throw new Error(
-      `${found.displayName} hasn't made this file available. Ask it to attach the image directly.`,
+      `${entry.name} hasn't made this file available. Ask it to attach the image directly.`,
     );
-  return found.readFile(await agentSettings(kind), sessionId, href);
+  return provider.readFile(settings, sessionId, href);
 }
 
-function scheduler(kind: ProviderKind) {
-  const found = provider(kind);
-  if (!found.schedules) throw new Error(`${found.displayName} doesn't run scheduled tasks.`);
-  return found.schedules;
+async function scheduler(id: AgentId) {
+  const { provider, settings, entry } = await agentOf(id);
+  if (!provider.schedules) throw new Error(`${entry.name} doesn't run scheduled tasks.`);
+  return { schedules: provider.schedules, settings };
 }
 
 /** Every enabled agent's scheduled tasks; one that can't be reached says so without hiding the rest. */
 export async function listScheduledTasks(): Promise<AgentScheduledTasks[]> {
-  const all = await allSettings();
-  const agents = [...registeredAgents().values()].filter(
-    (agent) => agent.schedules && (all.agents[agent.kind] ?? agent.defaults).enabled,
+  const agents = (await runnable()).filter(
+    ({ entry, type }) => settingsOf(type, entry).enabled && instance(entry, type).schedules,
   );
   const listed = await Promise.all(
-    agents.map(async (agent): Promise<AgentScheduledTasks | null> => {
-      const settings = all.agents[agent.kind] ?? agent.defaults;
+    agents.map(async ({ entry, type }): Promise<AgentScheduledTasks | null> => {
+      const settings = settingsOf(type, entry);
       try {
-        const found = await agent.schedules!.list(settings);
-        return found && { provider: agent.kind, ...found };
+        const found = await instance(entry, type).schedules!.list(settings);
+        return (
+          found && {
+            ...found,
+            provider: entry.id,
+            tasks: found.tasks.map((task) => ({ ...task, provider: entry.id })),
+          }
+        );
       } catch (error) {
         return {
-          provider: agent.kind,
+          provider: entry.id,
           tasks: [],
           error: error instanceof Error ? error.message : String(error),
           channels: [],
@@ -522,117 +664,180 @@ export async function listScheduledTasks(): Promise<AgentScheduledTasks[]> {
 }
 
 export async function saveScheduledTask(
-  kind: ProviderKind,
+  agent: AgentId,
   id: string | null,
   input: ScheduledTaskInput,
 ): Promise<string> {
-  return scheduler(kind).save(await agentSettings(kind), id, input);
+  const { schedules, settings } = await scheduler(agent);
+  return schedules.save(settings, id, input);
 }
 
-export async function setScheduledTaskEnabled(kind: ProviderKind, id: string, enabled: boolean) {
-  await scheduler(kind).setEnabled(await agentSettings(kind), id, enabled);
+export async function setScheduledTaskEnabled(agent: AgentId, id: string, enabled: boolean) {
+  const { schedules, settings } = await scheduler(agent);
+  await schedules.setEnabled(settings, id, enabled);
 }
 
-export async function runScheduledTask(kind: ProviderKind, id: string): Promise<void> {
-  await scheduler(kind).runNow(await agentSettings(kind), id);
+export async function runScheduledTask(agent: AgentId, id: string): Promise<void> {
+  const { schedules, settings } = await scheduler(agent);
+  await schedules.runNow(settings, id);
 }
 
-export async function deleteScheduledTask(kind: ProviderKind, id: string): Promise<void> {
-  await scheduler(kind).remove(await agentSettings(kind), id);
+export async function deleteScheduledTask(agent: AgentId, id: string): Promise<void> {
+  const { schedules, settings } = await scheduler(agent);
+  await schedules.remove(settings, id);
 }
 
 export async function scheduledTaskRuns(
-  kind: ProviderKind,
+  agent: AgentId,
   id: string,
   limit: number,
 ): Promise<TaskRun[]> {
-  const found = scheduler(kind);
-  return found.runs ? found.runs(await agentSettings(kind), id, limit) : [];
+  const { schedules, settings } = await scheduler(agent);
+  return schedules.runs ? schedules.runs(settings, id, limit) : [];
 }
 
 export async function scheduledTargets(
-  kind: ProviderKind,
-  agent: string,
+  agent: AgentId,
+  ownAgent: string,
   channel: string,
 ): Promise<ChannelTarget[]> {
-  const found = scheduler(kind);
-  return found.targets ? found.targets(await agentSettings(kind), agent, channel) : [];
+  const { schedules, settings } = await scheduler(agent);
+  return schedules.targets ? schedules.targets(settings, ownAgent, channel) : [];
 }
 
 export async function scheduledRunTranscript(
-  kind: ProviderKind,
+  agent: AgentId,
   id: string,
   runId: string,
 ): Promise<ChatSessionMessage[]> {
-  const found = scheduler(kind);
-  return found.runTranscript ? found.runTranscript(await agentSettings(kind), id, runId) : [];
+  const { schedules, settings } = await scheduler(agent);
+  return schedules.runTranscript ? schedules.runTranscript(settings, id, runId) : [];
 }
 
 export function shutdownProviders(): void {
-  for (const found of registeredAgents().values()) found.shutdown();
+  for (const provider of running.values()) provider.shutdown();
 }
 
 /**
- * Each agent's settings follow the account, except its device fields (where
- * a CLI lives) and agents that are this device's alone (OpenClaw's pairing).
- * Agents this device doesn't run keep the account's as they were.
+ * The agents follow the account: which you added, their names and pictures, and their settings
+ * except their device fields (where a CLI lives) and those of kinds that are this device's alone
+ * (OpenClaw's pairing). Agents of kinds this device doesn't run stay as the account has them.
+ * A removal travels as its id in `removed`, so an agent this device added before it heard of the
+ * account's list stays, and goes to the account.
  */
-export type SyncedProviderSettings = { selected: ProviderKind } & Record<string, unknown>;
+export type SyncedProviderSettings = ProviderSettings;
 
-const synced = (agent: ChatProvider | undefined, settings: Record<string, unknown>) =>
-  Object.fromEntries(
-    Object.entries(settings).filter(
-      ([key]) => !(agent?.deviceFields as readonly string[] | undefined)?.includes(key),
-    ),
-  );
+const synced = (type: AgentType | undefined, settings: Record<string, unknown>) =>
+  type?.localOnly
+    ? {}
+    : Object.fromEntries(
+        Object.entries(settings).filter(
+          ([key]) => !(type?.deviceFields as readonly string[] | undefined)?.includes(key),
+        ),
+      );
 
 export async function syncedProviderSettings(): Promise<SyncedProviderSettings> {
-  const { selected, agents } = await allSettings();
-  const out: SyncedProviderSettings = { selected };
-  for (const [kind, settings] of Object.entries(agents)) {
-    const agent = registeredAgents().get(kind);
-    if (agent?.localOnly) continue;
-    out[kind] = synced(agent, settings);
-  }
-  return out;
+  const { selected, agents, removed } = await getProviderSettings();
+  return {
+    selected,
+    agents: agents.map((entry) => ({
+      ...entry,
+      settings: synced(registeredAgents().get(entry.kind), entry.settings) as AgentSettings,
+    })),
+    removed,
+  };
 }
+
+const isEntry = (a: Partial<AgentEntry> | null): a is AgentEntry =>
+  typeof a?.id === "string" &&
+  typeof a.kind === "string" &&
+  typeof a.name === "string" &&
+  typeof a.settings === "object" &&
+  a.settings !== null;
 
 export async function applySyncedProviderSettings(
   remote: Partial<SyncedProviderSettings>,
 ): Promise<void> {
-  const current = await allSettings();
-  const agents = { ...current.agents };
-  const changed: [ChatProvider, Record<string, unknown>][] = [];
-  for (const [kind, agent] of registeredAgents()) {
-    const theirs = remote[kind];
-    if (agent.localOnly || !theirs || typeof theirs !== "object") continue;
-    const before = agents[kind] ?? agent.defaults;
-    const next = {
+  if (!Array.isArray(remote.agents)) return;
+  const current = await getProviderSettings();
+  const removed = [
+    ...new Set([
+      ...current.removed,
+      ...(Array.isArray(remote.removed)
+        ? remote.removed.filter((id): id is string => typeof id === "string")
+        : []),
+    ]),
+  ].slice(-REMOVED_KEPT);
+  const theirs = (remote.agents as (Partial<AgentEntry> | null)[])
+    .filter(isEntry)
+    .filter((a) => !removed.includes(a.id));
+  const changed: [AgentEntry, AgentType, Record<string, unknown>][] = [];
+  const agents = theirs.map((remoteEntry): AgentEntry => {
+    const type = registeredAgents().get(remoteEntry.kind);
+    const mine = current.agents.find((a) => a.id === remoteEntry.id);
+    const before = mine?.settings ?? ({} as AgentSettings);
+    const settings = {
       ...before,
-      ...synced(agent, theirs as Record<string, unknown>),
+      ...synced(type, remoteEntry.settings),
     } as AgentSettings;
-    agents[kind] = next;
+    const next: AgentEntry = {
+      id: remoteEntry.id,
+      kind: remoteEntry.kind,
+      name: remoteEntry.name.slice(0, MAX_NAME),
+      ...(isMailboxPicture(remoteEntry.avatar) ? { avatar: remoteEntry.avatar } : {}),
+      settings,
+    };
     const diff = Object.fromEntries(
-      Object.entries(next).filter(([key, value]) => before[key as keyof AgentSettings] !== value),
+      Object.entries(settings).filter(
+        ([key, value]) => before[key as keyof AgentSettings] !== value,
+      ),
     );
-    if (Object.keys(diff).length) changed.push([agent, diff]);
-  }
+    if (type && mine && Object.keys(diff).length) changed.push([next, type, diff]);
+    return next;
+  });
+  const gone = current.agents.filter((a) => removed.includes(a.id));
+  const kept = current.agents.filter(
+    (a) => !removed.includes(a.id) && !agents.some((b) => b.id === a.id),
+  );
+  for (const entry of gone) await forget(entry);
+  const all = [...agents, ...kept];
   const selected =
-    typeof remote.selected === "string" && registeredAgents().has(remote.selected)
+    typeof remote.selected === "string" && all.some((a) => a.id === remote.selected)
       ? remote.selected
-      : current.selected;
-  await saveProviderSettings({ selected, agents });
-  for (const [agent, diff] of changed) restartIfNeeded(agent, diff, agents[agent.kind]);
+      : current.selected && all.some((a) => a.id === current.selected)
+        ? current.selected
+        : null;
+  await saveProviderSettings({ selected, agents: all, removed });
+  for (const [entry, type, diff] of changed) restartIfNeeded(entry, type, diff);
   await broadcastState();
 }
 
-export async function forgetHermesKey(): Promise<void> {
-  await clearHermesKey();
-  if (registeredAgents().has("hermes")) await refreshProvider("hermes");
+/** The secrets that follow the account (Hermes's API keys), by agent. */
+export async function syncedAgentKeys(): Promise<Record<AgentId, string>> {
+  const keys: Record<AgentId, string> = {};
+  for (const { entry, type } of await runnable()) {
+    if (!type.syncedSecret) continue;
+    const key = await agentSecrets(entry.id).get(type.syncedSecret);
+    if (key) keys[entry.id] = key;
+  }
+  return keys;
 }
 
-export async function applySyncedHermesKey(key: string): Promise<void> {
-  if (key === (await getHermesKey())) return;
-  await setHermesKey(key);
-  if (registeredAgents().has("hermes")) void refreshProvider("hermes");
+export async function applySyncedAgentKeys(keys: Record<AgentId, string>): Promise<void> {
+  for (const { entry, type } of await runnable()) {
+    const key = keys[entry.id];
+    if (!type.syncedSecret || typeof key !== "string" || !key) continue;
+    const secrets = agentSecrets(entry.id);
+    if (key === (await secrets.get(type.syncedSecret))) continue;
+    await secrets.set(type.syncedSecret, key);
+    void refreshProvider(entry.id);
+  }
+}
+
+export async function forgetAgentKeys(): Promise<void> {
+  for (const { entry, type } of await runnable()) {
+    if (!type.syncedSecret) continue;
+    await agentSecrets(entry.id).delete(type.syncedSecret);
+    await refreshProvider(entry.id);
+  }
 }

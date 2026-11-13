@@ -34,12 +34,12 @@ import { scheduleText } from "./schedules.js";
 import type { VarysSettings } from "./settings.js";
 import {
   endTurn,
-  following,
   messagesOf,
   newTurn,
   onTurnEvent,
   placed,
   type Turn,
+  type Turns,
 } from "./turns.js";
 
 /** A run the agent started in a chat: `agent:<thread>:<uuid>`. */
@@ -72,12 +72,22 @@ type Watching = {
   stop: (() => void)[];
 };
 
-let watching: Watching | null = null;
-/** Routine runs already shown, or not to show. */
-const seenRuns = new Set<string>();
+/** One agent's: what it watches, and the runs it started. */
+export type Deliveries = {
+  turns: Turns;
+  watching: Watching | null;
+  /** Routine runs already shown, or not to show. */
+  seenRuns: Set<string>;
+  /** Runs the agent started, kept until their chat follows them, then followed. */
+  agentRuns: Map<string, { turn: Turn; held: ChatEvent[]; ended: boolean }>;
+};
 
-/** Runs the agent started, kept until their chat follows them, then followed. */
-const agentRuns = new Map<string, { turn: Turn; held: ChatEvent[]; ended: boolean }>();
+export const newDeliveries = (turns: Turns): Deliveries => ({
+  turns,
+  watching: null,
+  seenRuns: new Set(),
+  agentRuns: new Map(),
+});
 
 const shortDate = (at: number) =>
   new Date(at).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
@@ -127,11 +137,11 @@ function readTo(w: Watching, threadId: string, cursor: string): void {
 }
 
 /** A run the agent started: held until the chat follows it with `resume`. */
-function agentRun(w: Watching, threadId: string, routine?: ThreadRoutine): Turn {
+function agentRun(d: Deliveries, w: Watching, threadId: string, routine?: ThreadRoutine): Turn {
   const requestId = `${AGENT_RUN}${threadId}:${crypto.randomUUID()}`;
   const held: ChatEvent[] = [];
-  const turn = newTurn(requestId, threadId, w.varys, (event) => held.push(event));
-  agentRuns.set(requestId, { turn, held, ended: false });
+  const turn = newTurn(d.turns, requestId, threadId, w.varys, (event) => held.push(event));
+  d.agentRuns.set(requestId, { turn, held, ended: false });
   logger.info("agent", "varys run of its own", { requestId });
   w.started({
     sessionId: threadId,
@@ -146,7 +156,7 @@ function agentRun(w: Watching, threadId: string, routine?: ThreadRoutine): Turn 
  * A chat's thread while a run goes on in it, or waits for your answer, until it ends. One a
  * message started (yours, from anywhere) isn't the agent's: that message's own turn shows it.
  */
-function followThread(w: Watching, threadId: string): Follow {
+function followThread(d: Deliveries, w: Watching, threadId: string): Follow {
   let run: Turn | null = null;
   let starting = false;
   let routine: ThreadRoutine | undefined;
@@ -162,11 +172,11 @@ function followThread(w: Watching, threadId: string): Follow {
     }
     if (starting) {
       starting = false;
-      if (event.type !== "message") run = agentRun(w, threadId, routine);
+      if (event.type !== "message") run = agentRun(d, w, threadId, routine);
     }
     const end = run ? onTurnEvent(run, event) : undefined;
     if (run && end) {
-      const kept = agentRuns.get(run.requestId);
+      const kept = d.agentRuns.get(run.requestId);
       if (kept) kept.ended = true;
       endTurn(run, end);
     }
@@ -185,15 +195,15 @@ function followThread(w: Watching, threadId: string): Follow {
  * A turn going in the chat, followed here or about to be picked up again (`resume`): it shows all
  * it leads to, waiting for your answer included.
  */
-const turnIn = (chat: WatchedSession) =>
+const turnIn = (d: Deliveries, chat: WatchedSession) =>
   chat.since === Number.MAX_SAFE_INTEGER ||
-  [...following.values()].some(({ turn }) => turn.threadId === chat.id);
+  [...d.turns.following.values()].some(({ turn }) => turn.threadId === chat.id);
 
 /** What the agent wrote into a chat since it was read, when no message led to it. */
-async function catchUp(w: Watching, chat: WatchedSession): Promise<void> {
-  if (turnIn(chat)) return;
+async function catchUp(d: Deliveries, w: Watching, chat: WatchedSession): Promise<void> {
+  if (turnIn(d, chat)) return;
   const view = await answered(w.varys.threads.read(chat.id));
-  if (view.conversation.running || watching !== w || w.follows.has(chat.id)) return;
+  if (view.conversation.running || d.watching !== w || w.follows.has(chat.id)) return;
   const items = view.conversation.items;
   const from = chat.cursor
     ? items.findIndex((i) => placed(i) && Number(i.id) > Number(chat.cursor))
@@ -221,7 +231,7 @@ const failedTo = (what: string) => (error: unknown) =>
  * The chats' threads as the list shows them: one that runs is followed (unless it's a message
  * of yours from this device), one that changed while idle is caught up on.
  */
-function onThreads(w: Watching): void {
+function onThreads(d: Deliveries, w: Watching): void {
   for (const thread of w.threads?.threads ?? []) {
     const chat = w.sessions.get(thread.id);
     if (!chat) continue;
@@ -229,7 +239,7 @@ function onThreads(w: Watching): void {
     w.updated.set(thread.id, thread.updatedAt);
     const follow = w.follows.get(thread.id);
     if (thread.status === "running" || thread.status === "waiting") {
-      if (!follow && !turnIn(chat)) w.follows.set(thread.id, followThread(w, thread.id));
+      if (!follow && !turnIn(d, chat)) w.follows.set(thread.id, followThread(d, w, thread.id));
       continue;
     }
     // A run's end comes through its follow; one that never showed it ended before it began.
@@ -237,16 +247,16 @@ function onThreads(w: Watching): void {
     follow?.close();
     const changed =
       seen === undefined ? Date.parse(thread.updatedAt) > chat.since : seen !== thread.updatedAt;
-    if (changed || follow) void catchUp(w, chat).catch(failedTo("catch-up"));
+    if (changed || follow) void catchUp(d, w, chat).catch(failedTo("catch-up"));
   }
 }
 
 /** A routine's latest run: a new chat once it has ended, or what it wrote into a chat's thread. */
-function onRoutines(w: Watching, list: RoutineList): void {
+function onRoutines(d: Deliveries, w: Watching, list: RoutineList): void {
   for (const routine of list.routines) {
     const run = routine.lastRun;
-    if (!run || run.state !== "ended" || seenRuns.has(run.id)) continue;
-    seenRuns.add(run.id);
+    if (!run || run.state !== "ended" || d.seenRuns.has(run.id)) continue;
+    d.seenRuns.add(run.id);
     // A routine that reports into a thread of its own names it once it has reported there.
     const threadId = (routine.delivery === "into_thread" && routine.threadId) || run.threadId;
     const at = Date.parse(run.endedAt ?? run.startedAt);
@@ -276,10 +286,10 @@ function onRoutines(w: Watching, list: RoutineList): void {
 }
 
 /** A thread no chat has yet, named by Otter's relay: a chat, when the agent started it on its own. */
-async function newThread(w: Watching, threadId: string): Promise<void> {
+async function newThread(d: Deliveries, w: Watching, threadId: string): Promise<void> {
   const view = await answered(w.varys.threads.read(threadId));
   const { items, running } = view.conversation;
-  if (running || watching !== w || w.sessions.has(threadId)) return;
+  if (running || d.watching !== w || w.sessions.has(threadId)) return;
   if (items.some((i) => i.type === "message") || !says(items)) return;
   const at = saidAt(items);
   w.started({
@@ -292,19 +302,21 @@ async function newThread(w: Watching, threadId: string): Promise<void> {
 }
 
 export function watchDeliveries(
+  d: Deliveries,
   varys: Varys,
   settings: VarysSettings,
   sessions: WatchedSession[],
   started: (run: AgentRun) => void,
   read?: (sessionId: string, cursor: string) => void,
 ): void {
-  if (watching && watching.varys !== varys) stopWatching();
+  if (d.watching && d.watching.varys !== varys) stopWatching(d);
   const muted = new Set((settings.mutedRoutines ?? "").split(",").filter(Boolean));
   const chats = new Map(sessions.map((s) => [s.id, { ...s }]));
+  const { watching } = d;
   if (watching) {
     Object.assign(watching, { sessions: chats, started, read, muted });
     for (const id of watching.updated.keys()) if (!chats.has(id)) watching.updated.delete(id);
-    onThreads(watching);
+    onThreads(d, watching);
     return;
   }
   const w: Watching = {
@@ -319,28 +331,28 @@ export function watchDeliveries(
     follows: new Map(),
     stop: [],
   };
-  watching = w;
+  d.watching = w;
   w.stop.push(
     varys.threads.watchList((list) => {
-      if (list.status !== "fresh" || watching !== w) return;
+      if (list.status !== "fresh" || d.watching !== w) return;
       w.threads = list.value;
-      onThreads(w);
+      onThreads(d, w);
     }),
     varys.routines.watchList((list) => {
-      if (list.status === "fresh" && watching === w) onRoutines(w, list.value);
+      if (list.status === "fresh" && d.watching === w) onRoutines(d, w, list.value);
     }),
   );
 }
 
 /** Otter's relay says varys has something new in this thread: look now. */
-export function deliveredNow(threadId?: string): void {
-  const w = watching;
+export function deliveredNow(d: Deliveries, threadId?: string): void {
+  const w = d.watching;
   if (!w || !threadId) return;
   const chat = w.sessions.get(threadId);
-  void (chat ? catchUp(w, chat) : newThread(w, threadId)).catch(failedTo("delivery"));
+  void (chat ? catchUp(d, w, chat) : newThread(d, w, threadId)).catch(failedTo("delivery"));
 }
 
-export const agentRunTurn = (requestId: string) => agentRuns.get(requestId)?.turn;
+export const agentRunTurn = (d: Deliveries, requestId: string) => d.agentRuns.get(requestId)?.turn;
 
 /**
  * A run the agent started, as its chat follows it: what it held so far, then the rest. One from
@@ -348,11 +360,13 @@ export const agentRunTurn = (requestId: string) => agentRuns.get(requestId)?.tur
  * it ended.
  */
 export async function resumeAgentRun(
+  d: Deliveries,
   varys: Varys,
   requestId: string,
   threadId: string,
   emit: Emit,
 ): Promise<void> {
+  const { agentRuns } = d;
   const kept = agentRuns.get(requestId);
   if (kept) {
     emit({ requestId, type: "transcript", messages: [] });
@@ -373,7 +387,7 @@ export async function resumeAgentRun(
     return emit({ requestId, type: "done", responseId: null });
   }
   emit({ requestId, type: "transcript", messages: [] });
-  const turn = newTurn(requestId, threadId, varys, emit);
+  const turn = newTurn(d.turns, requestId, threadId, varys, emit);
   // Answered from the chat, its approvals and questions find it here.
   agentRuns.set(requestId, { turn, held: [], ended: false });
   await new Promise<void>((resolve) => {
@@ -400,10 +414,10 @@ export async function deliveredReply(varys: Varys, requestId: string) {
   return messagesOf(yours < 0 ? added : added.slice(0, yours));
 }
 
-export function stopWatching(): void {
-  if (!watching) return;
-  for (const follow of watching.follows.values()) follow.close();
-  for (const stop of watching.stop) stop();
-  watching = null;
-  agentRuns.clear();
+export function stopWatching(d: Deliveries): void {
+  if (!d.watching) return;
+  for (const follow of d.watching.follows.values()) follow.close();
+  for (const stop of d.watching.stop) stop();
+  d.watching = null;
+  d.agentRuns.clear();
 }

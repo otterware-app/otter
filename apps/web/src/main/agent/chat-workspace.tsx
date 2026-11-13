@@ -158,7 +158,7 @@ export function ChatWorkspace({
 }) {
   const convo = useChats((s) => s.conversations.find((c) => c.id === chatId));
   const activeTab = useChats((s) => s.activeTabs[chatId]);
-  const { selectedKind } = useChatProvider(undefined);
+  const selectedKind = useChatProvider(undefined).selectedId ?? "";
   const tabs = (convo?.tabs ?? []).filter(
     (t) => isOpenTab(t) && (features.browser || t.ref.kind !== "page"),
   );
@@ -425,7 +425,7 @@ export function ChatWorkspace({
             <span className="flex-1" />
           ) : (
             <>
-              <AgentAvatar kind={convo.provider} agent={openClawAgentId(convo.sessionId)} />
+              <AgentAvatar id={convo.provider} agent={openClawAgentId(convo.sessionId)} />
               <ChatTitle chat={convo} className="text-sm font-medium text-foreground" />
               <span className="flex-1" />
               <ChatContextButton

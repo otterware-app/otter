@@ -30,6 +30,7 @@ import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
 import { mailApi, type ProviderSnapshot } from "../mail/api";
 import { AgentAvatar, useAgentProviders } from "./agent-providers";
+import { agentContribution } from "../extensions/registry";
 import { readableError } from "../mail/add-mailbox";
 import { ChatMarkdown } from "./chat-markdown";
 import { useNow } from "./chat-shelves";
@@ -92,9 +93,9 @@ export const keyOf = (task: Pick<ScheduledTask, "provider" | "id">) =>
 function useAgentName() {
   const providers = useAgentProviders().data?.providers ?? [];
   return (provider: string, agent?: string) => {
-    const snapshot = providers.find((p) => p.kind === provider);
+    const snapshot = providers.find((p) => p.id === provider);
     const model = agent ? snapshot?.models.find((m) => m.slug === agent) : undefined;
-    return model?.name ?? snapshot?.displayName ?? provider;
+    return model?.name ?? snapshot?.name ?? "Removed agent";
   };
 }
 
@@ -413,7 +414,7 @@ function TaskFilterMenu({
               onCheckedChange={() => onChange({ ...value, agent: key })}
             >
               <span className="flex min-w-0 items-center gap-2">
-                <AgentAvatar kind={task.provider} agent={task.agent} className="size-4" />
+                <AgentAvatar id={task.provider} agent={task.agent} className="size-4" />
                 <span className="min-w-0 flex-1 truncate">
                   {agentName(task.provider, task.agent)}
                 </span>
@@ -465,7 +466,7 @@ function AgentProblem({
       className="flex items-start gap-3 rounded-xl border border-border/70 bg-surface-raised/50 px-3.5 py-3"
     >
       {provider ? (
-        <AgentAvatar kind={provider} className="mt-0.5 size-4" />
+        <AgentAvatar id={provider} className="mt-0.5 size-4" />
       ) : (
         <CircleAlertIcon aria-hidden className="mt-0.5 size-4 text-warning-foreground" />
       )}
@@ -545,7 +546,7 @@ function TaskCard({ task, now, onOpen }: { task: ScheduledTask; now: number; onO
       className="flex min-w-0 cursor-pointer flex-col gap-1.5 rounded-xl border border-border/60 bg-surface-raised/40 px-4 py-3.5 text-left outline-none hover:border-border hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-focus-ring"
     >
       <span className="flex min-w-0 items-center gap-2">
-        <AgentAvatar kind={task.provider} agent={task.agent} className="size-4" />
+        <AgentAvatar id={task.provider} agent={task.agent} className="size-4" />
         <span
           className={cn(
             "min-w-0 flex-1 truncate text-sm font-medium",
@@ -842,7 +843,7 @@ function TaskPage({
           </Detail>
           <Detail label="Agent">
             <span className="flex items-center gap-2">
-              <AgentAvatar kind={task.provider} agent={task.agent} className="size-4" />
+              <AgentAvatar id={task.provider} agent={task.agent} className="size-4" />
               {agentName(task.provider, task.agent)}
             </span>
           </Detail>
@@ -1219,9 +1220,9 @@ function owners(agents: AgentScheduledTasks[], providers: ProviderSnapshot[]): O
   return agents
     .filter((a) => a.can.create && !a.readOnly)
     .flatMap((a) => {
-      const snapshot = providers.find((p) => p.kind === a.provider);
-      const name = snapshot?.displayName ?? a.provider;
-      if (a.provider !== "openclaw" || !snapshot?.models.length)
+      const snapshot = providers.find((p) => p.id === a.provider);
+      const name = snapshot?.name ?? a.provider;
+      if (!snapshot || !agentContribution(snapshot.kind)?.subAgents || !snapshot.models.length)
         return [{ provider: a.provider, label: name }];
       return snapshot.models.map((m) => ({
         provider: a.provider,
@@ -1281,6 +1282,9 @@ function TaskEditor({
   );
   const provider = task?.provider ?? owner.split("|")[0];
   const agentTasks = agents.find((a) => a.provider === provider);
+  const ownerSnapshot = providers.find((p) => p.id === provider);
+  const ownerKind = ownerSnapshot?.kind;
+  const ownerName = ownerSnapshot?.name ?? "the agent";
   const can = agentTasks?.can;
   const [name, setName] = useState(task?.name ?? "");
   const [prompt, setPrompt] = useState(task?.prompt ?? "");
@@ -1506,9 +1510,9 @@ function TaskEditor({
             }}
           />
         ) : null}
-        {provider === "openclaw" && !can?.deliverToOtter && !task?.undeliverable ? (
+        {ownerKind === "openclaw" && !can?.deliverToOtter && !task?.undeliverable ? (
           <p className="text-xs text-muted-foreground">
-            To get results in Otter, set up Messages from your agents in Settings → OpenClaw.
+            To get results in Otter, set up Messages from your agents in {ownerName}'s settings.
           </p>
         ) : null}
         {error ? (

@@ -10,16 +10,16 @@ export const MAILBOX_JUMP_COMMANDS = [
   "mailbox.jump.9",
 ] as const;
 
-export const MODEL_PICKER_JUMP_COMMANDS = [
-  "modelPicker.jump.1",
-  "modelPicker.jump.2",
-  "modelPicker.jump.3",
-  "modelPicker.jump.4",
-  "modelPicker.jump.5",
-  "modelPicker.jump.6",
-  "modelPicker.jump.7",
-  "modelPicker.jump.8",
-  "modelPicker.jump.9",
+export const AGENT_PICKER_JUMP_COMMANDS = [
+  "agentPicker.jump.1",
+  "agentPicker.jump.2",
+  "agentPicker.jump.3",
+  "agentPicker.jump.4",
+  "agentPicker.jump.5",
+  "agentPicker.jump.6",
+  "agentPicker.jump.7",
+  "agentPicker.jump.8",
+  "agentPicker.jump.9",
 ] as const;
 
 export const KEYBINDING_COMMANDS = [
@@ -35,13 +35,11 @@ export const KEYBINDING_COMMANDS = [
   "browser.toggle",
   "browser.newTab",
   "tab.previous",
-  "modelPicker.toggle",
+  "agentPicker.toggle",
   "composer.mode",
   "agent.sendQueuedNow",
   "agent.editQueued",
-  "modelPicker.previousProvider",
-  "modelPicker.nextProvider",
-  ...MODEL_PICKER_JUMP_COMMANDS,
+  ...AGENT_PICKER_JUMP_COMMANDS,
   "search.focus",
   "compose.new",
   "composer.send",
@@ -113,7 +111,7 @@ export const WHEN_VARIABLES = [
   "workspaceOpen",
   "messageOpen",
   "agentOpen",
-  "modelPickerOpen",
+  "agentPickerOpen",
   "true",
   "false",
 ] as const;
@@ -136,7 +134,7 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+shift+b", command: "browser.toggle", when: "!dialogOpen" },
   { key: "mod+t", command: "browser.newTab", when: "!dialogOpen" },
   { key: "ctrl+tab", command: "tab.previous", when: "!dialogOpen" },
-  { key: "mod+shift+m", command: "modelPicker.toggle", when: "agentOpen" },
+  { key: "mod+shift+m", command: "agentPicker.toggle", when: "agentOpen" },
   { key: "mod+shift+a", command: "composer.mode", when: "agentOpen" },
   {
     key: "mod+shift+enter",
@@ -148,20 +146,10 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
     command: "agent.editQueued",
     when: "agentOpen && editableFocus",
   },
-  {
-    key: "mod+shift+arrowup",
-    command: "modelPicker.previousProvider",
-    when: "modelPickerOpen",
-  },
-  {
-    key: "mod+shift+arrowdown",
-    command: "modelPicker.nextProvider",
-    when: "modelPickerOpen",
-  },
-  ...MODEL_PICKER_JUMP_COMMANDS.map((command, i): KeybindingRule => ({
+  ...AGENT_PICKER_JUMP_COMMANDS.map((command, i): KeybindingRule => ({
     key: `mod+${i + 1}`,
     command,
-    when: "modelPickerOpen",
+    when: "agentPickerOpen",
   })),
   { key: "/", command: "search.focus", when: OUTSIDE_FIELDS },
   { key: "mod+f", command: "search.focus", when: "!dialogOpen" },

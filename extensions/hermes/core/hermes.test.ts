@@ -15,15 +15,15 @@ vi.mock("../../../packages/core/src/platform.js", () => ({
     },
   }),
 }));
-vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
-  getHermesKey: async () => "test-key",
-}));
 const current = vi.hoisted(() => ({ settings: {} as Record<string, unknown> }));
 vi.mock("../../../packages/core/src/services/agent/service.js", () => ({
   saveAgentSettings: vi.fn(async () => {}),
   agentSettings: async () => current.settings,
 }));
-const { hermesProvider } = await import("./hermes.js");
+const { hermesAgent } = await import("./hermes.js");
+const secrets = { get: async () => "test-key", set: async () => {}, delete: async () => {} };
+const create = (id = "hermes-1") => hermesAgent.create({ id, secrets });
+let hermes = create();
 const settings = {
   baseUrl: "https://hermes.test/v1",
   agentModel: "hermes",
@@ -58,9 +58,12 @@ function serve(routes: Record<string, Route>) {
   );
 }
 
-beforeEach(() => files.clear());
+beforeEach(() => {
+  files.clear();
+  hermes = create();
+});
 afterEach(() => {
-  hermesProvider.shutdown();
+  hermes.shutdown();
   vi.unstubAllGlobals();
 });
 
@@ -77,7 +80,7 @@ async function send(
   input: { requestId?: string; sessionId?: string; previousResponseId?: string } = {},
 ) {
   const events: ChatEvent[] = [];
-  await hermesProvider.sendTurn(
+  await hermes.sendTurn(
     { requestId: "req-1", input: "Check", sessionId: "session-1", ...input },
     settings,
     (event) => events.push(event),
@@ -114,7 +117,7 @@ describe("Hermes replies", () => {
       ...started,
       "GET /v1/runs/run-1/events": () => sse([{ event: "run.completed", output: "Done." }]),
     });
-    expect((await hermesProvider.checkStatus(settings)).status).toBe("ready");
+    expect((await hermes.checkStatus(settings)).status).toBe("ready");
     await send();
     const body = JSON.parse(String(calls.find((c) => c.url.pathname === "/v1/runs")!.init.body));
     expect(body.instructions).toContain('"otter:session-1": this chat.');
@@ -267,7 +270,7 @@ describe("Hermes replies", () => {
 describe("A run picked up again", () => {
   async function resume(requestId: string) {
     const events: ChatEvent[] = [];
-    await hermesProvider.resume!({ requestId, sessionId: "session-1" }, settings, (event) =>
+    await hermes.resume!({ requestId, sessionId: "session-1" }, settings, (event) =>
       events.push(event),
     );
     return events;
@@ -276,7 +279,9 @@ describe("A run picked up again", () => {
   it("replays the run this device started, from its first event", async () => {
     files.set(
       "hermes-runs.json",
-      JSON.stringify({ "req-7": { runId: "run-7", sessionId: "session-1", at: Date.now() } }),
+      JSON.stringify({
+        "hermes-1": { "req-7": { runId: "run-7", sessionId: "session-1", at: Date.now() } },
+      }),
     );
     serve({
       "GET /v1/runs/run-7/events": () =>
@@ -297,7 +302,9 @@ describe("A run picked up again", () => {
   it("reads the session when the gateway has forgotten the run", async () => {
     files.set(
       "hermes-runs.json",
-      JSON.stringify({ "req-7": { runId: "run-7", sessionId: "session-1", at: Date.now() } }),
+      JSON.stringify({
+        "hermes-1": { "req-7": { runId: "run-7", sessionId: "session-1", at: Date.now() } },
+      }),
     );
     serve({
       "GET /api/sessions/session-1/messages": () =>
@@ -315,6 +322,26 @@ describe("A run picked up again", () => {
     const transcript = events[1] as Extract<ChatEvent, { type: "transcript" }>;
     expect(transcript.messages.map((m) => m.role)).toEqual(["assistant", "tool", "assistant"]);
     expect(events.at(-1)?.type).toBe("done");
+  });
+
+  it("is another agent's run to pick up, not this one's", async () => {
+    files.set(
+      "hermes-runs.json",
+      JSON.stringify({
+        "hermes-1": { "req-7": { runId: "run-7", sessionId: "session-1", at: Date.now() } },
+      }),
+    );
+    serve({
+      "GET /api/sessions/session-1/messages": () =>
+        Response.json({ data: [{ role: "user", content: "Build it" }] }),
+    });
+    const other = create("hermes-2");
+    const events: ChatEvent[] = [];
+    await other.resume!({ requestId: "req-7", sessionId: "session-1" }, settings, (event) =>
+      events.push(event),
+    );
+    expect(calls.map((c) => c.url.pathname)).toEqual(["/api/sessions/session-1/messages"]);
+    expect(events.at(-1)).toMatchObject({ message: "detached" });
   });
 
   it("shows what another device's run wrote, or waits for it", async () => {
@@ -348,12 +375,12 @@ describe("A run picked up again", () => {
     });
     const sending = send();
     await vi.waitFor(() => expect(calls).toHaveLength(2));
-    hermesProvider.shutdown();
+    hermes.shutdown();
     const events = await sending;
     expect(events.at(-1)).toMatchObject({ type: "error", message: "detached" });
     expect(calls.some((c) => c.url.pathname.endsWith("/stop"))).toBe(false);
     expect(JSON.parse(files.get("hermes-runs.json")!)).toMatchObject({
-      "req-1": { runId: "run-1" },
+      "hermes-1": { "req-1": { runId: "run-1" } },
     });
   });
 });
@@ -401,7 +428,7 @@ describe("Scheduled runs that come to Otter", () => {
     });
     const runs: AgentRun[] = [];
     current.settings = { ...settings, ...options };
-    hermesProvider.watch!(
+    hermes.watch!(
       { ...settings, ...options },
       watched.map((id) => ({ id, since: 0 })),
       (r) => runs.push(r),
@@ -456,7 +483,7 @@ describe("Scheduled runs that come to Otter", () => {
         }),
     });
     const events: ChatEvent[] = [];
-    await hermesProvider.resume!(
+    await hermes.resume!(
       { requestId: "delivered:local-abc", sessionId: "local-abc" },
       settings,
       (e) => events.push(e),
@@ -498,7 +525,7 @@ describe("What Hermes sends to Otter", () => {
     });
     current.settings = settings;
     const runs: AgentRun[] = [];
-    hermesProvider.watch!(settings, [], (r) => runs.push(r));
+    hermes.watch!(settings, [], (r) => runs.push(r));
     await vi.waitFor(() => expect(runs).toHaveLength(2));
     expect(runs[0]).toMatchObject({
       sessionId: "otter-1",
@@ -530,7 +557,7 @@ describe("What Hermes sends to Otter", () => {
     const runs: AgentRun[] = [];
     const reads: string[] = [];
     const watch = (cursor?: string) =>
-      hermesProvider.watch!(
+      hermes.watch!(
         settings,
         [{ id: "chat-1", since: 0, ...(cursor && { cursor }) }],
         (r) => runs.push(r),
@@ -542,7 +569,7 @@ describe("What Hermes sends to Otter", () => {
 
     rows = [...rows, { id: 9, role: "assistant", content: "The build passed." }];
     active += 60;
-    hermesProvider.delivered!(settings);
+    hermes.delivered!(settings);
     await vi.waitFor(() => expect(runs).toHaveLength(1));
     expect(runs[0]).toMatchObject({
       sessionId: "chat-1",
@@ -557,15 +584,13 @@ describe("What Hermes sends to Otter", () => {
       { id: 11, role: "assistant", content: "Any time." },
     ];
     active += 60;
-    hermesProvider.delivered!(settings);
+    hermes.delivered!(settings);
     await vi.waitFor(() => expect(reads).toEqual(["8", "9", "11"]));
     expect(runs).toHaveLength(1);
 
     const events: ChatEvent[] = [];
-    await hermesProvider.resume!(
-      { requestId: "delivered:chat-1@8", sessionId: "chat-1" },
-      settings,
-      (e) => events.push(e),
+    await hermes.resume!({ requestId: "delivered:chat-1@8", sessionId: "chat-1" }, settings, (e) =>
+      events.push(e),
     );
     expect(events[0]).toMatchObject({
       type: "transcript",
@@ -595,7 +620,7 @@ describe("What Hermes sends to Otter", () => {
     current.settings = settings;
     const runs: AgentRun[] = [];
     const reads: string[] = [];
-    hermesProvider.watch!(
+    hermes.watch!(
       settings,
       [{ id: "session-1", since: Number.MAX_SAFE_INTEGER }],
       (r) => runs.push(r),
@@ -603,13 +628,13 @@ describe("What Hermes sends to Otter", () => {
     );
     await send();
     active += 60;
-    hermesProvider.watch!(
+    hermes.watch!(
       settings,
       [{ id: "session-1", since: Date.now(), cursor: "9" }],
       (r) => runs.push(r),
       (_id, at) => reads.push(at),
     );
-    hermesProvider.delivered!(settings);
+    hermes.delivered!(settings);
     await vi.waitFor(() => expect(runs).toHaveLength(1));
     expect(runs[0].requestId).toBe("delivered:session-1@11");
   });
@@ -633,7 +658,7 @@ describe("What Hermes sends to Otter", () => {
     });
     current.settings = settings;
     const runs: AgentRun[] = [];
-    hermesProvider.watch!(settings, [{ id: "chat-2", since }], (r) => runs.push(r));
+    hermes.watch!(settings, [{ id: "chat-2", since }], (r) => runs.push(r));
     await vi.waitFor(() => expect(runs).toHaveLength(1));
     expect(runs[0].requestId).toBe("delivered:chat-2@4");
   });
@@ -657,7 +682,7 @@ describe("What Hermes sends to Otter", () => {
     current.settings = settings;
     const runs: AgentRun[] = [];
     const reads: string[] = [];
-    hermesProvider.watch!(
+    hermes.watch!(
       settings,
       [{ id: "chat-3", since }],
       (r) => runs.push(r),
@@ -665,5 +690,62 @@ describe("What Hermes sends to Otter", () => {
     );
     await vi.waitFor(() => expect(reads).toEqual(["4"]));
     expect(runs).toEqual([]);
+  });
+});
+
+describe("The sessions listed", () => {
+  const row = (id: string, source: string, lastActive: number) => ({
+    id,
+    source,
+    title: id,
+    last_active: lastActive,
+  });
+  const sessions = [
+    row("chat-old", "api_server", 100),
+    row("slack-dm", "slack", 400),
+    row("delivered", "otter", 300),
+    row("chat-new", "api_server", 500),
+    row("cron-run", "cron", 600),
+  ];
+  beforeEach(() =>
+    serve({
+      "GET /api/sessions": (url) => {
+        const source = url.searchParams.get("source");
+        return Response.json({
+          data: sessions
+            .filter((s) => !source || s.source === source)
+            .sort((a, b) => b.last_active - a.last_active)
+            .slice(0, Number(url.searchParams.get("limit"))),
+        });
+      },
+    }),
+  );
+
+  it("are Otter's own, newest first: the chats started here and what Hermes sent", async () => {
+    expect(hermes.otherSessions).toBe(true);
+    expect((await hermes.listSessions(settings, 2)).map((s) => s.id)).toEqual([
+      "chat-new",
+      "delivered",
+    ]);
+    expect(calls.map((c) => c.url.search).sort()).toEqual([
+      "?source=api_server&limit=2",
+      "?source=otter&limit=2",
+    ]);
+    expect((await hermes.listSessions(settings, 10)).map((s) => s.id)).toEqual([
+      "chat-new",
+      "delivered",
+      "chat-old",
+    ]);
+  });
+
+  it("are every one when asked for those from elsewhere", async () => {
+    expect((await hermes.listSessions(settings, 10, true)).map((s) => s.id)).toEqual([
+      "cron-run",
+      "chat-new",
+      "slack-dm",
+      "delivered",
+      "chat-old",
+    ]);
+    expect(calls.map((c) => c.url.search)).toEqual(["?limit=10"]);
   });
 });

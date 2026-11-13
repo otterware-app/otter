@@ -141,24 +141,24 @@ export async function usersWithMailbox(
 export async function getPreferences(
   db: Db,
   userId: string,
-): Promise<{ data: Preferences; hermesKey: string | null }> {
+): Promise<{ data: Preferences; agentKeys: string | null }> {
   const row = await db.query.preferences.findFirst({ where: eq(preferences.userId, userId) });
   return {
     data: row ? (JSON.parse(row.data) as Preferences) : {},
-    hermesKey: row?.hermesKey ?? null,
+    agentKeys: row?.agentKeys ?? null,
   };
 }
 
 /**
  * Replaces the given sections (the others stay) and, when given, the sealed
- * Hermes key, in one statement: devices writing at once can't lose each
+ * agents' keys, in one statement: devices writing at once can't lose each
  * other's sections. False (nothing written) when the result would exceed
  * `maxBytes`.
  */
 export async function putPreferences(
   db: Db,
   userId: string,
-  change: { sections: Preferences; hermesKey?: string | null },
+  change: { sections: Preferences; agentKeys?: string | null },
   maxBytes: number,
 ): Promise<boolean> {
   const fresh = JSON.stringify(change.sections);
@@ -168,13 +168,13 @@ export async function putPreferences(
       sql`json_set(${data}, ${`$."${name}"`}, json(${JSON.stringify(value)}))`,
     sql`${preferences.data}`,
   );
-  const hermesKey = change.hermesKey === undefined ? {} : { hermesKey: change.hermesKey };
+  const agentKeys = change.agentKeys === undefined ? {} : { agentKeys: change.agentKeys };
   const result = await db
     .insert(preferences)
-    .values({ userId, data: fresh, ...hermesKey })
+    .values({ userId, data: fresh, ...agentKeys })
     .onConflictDoUpdate({
       target: preferences.userId,
-      set: { data: merged, ...hermesKey, updatedAt: new Date() },
+      set: { data: merged, ...agentKeys, updatedAt: new Date() },
       setWhere: sql`length(${merged}) <= ${maxBytes}`,
     })
     .run();

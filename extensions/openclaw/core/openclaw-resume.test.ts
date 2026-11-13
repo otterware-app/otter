@@ -1,6 +1,7 @@
 import type { ChatEvent } from "@otter/core/extension-kit";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { OpenClawSettings } from "./settings.js";
+import { testAgent } from "./test-agent.js";
 
 const fixture = vi.hoisted(() => ({
   request: vi.fn(),
@@ -13,16 +14,6 @@ vi.mock("../../../packages/core/src/platform.js", () => ({
     log: () => {},
     onResume: () => () => {},
   }),
-}));
-vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
-  clearOpenClawBootstrapToken: vi.fn(),
-  clearOpenClawDeviceToken: vi.fn(),
-  getOpenClawBootstrapToken: async () => "",
-  getOpenClawDeviceKey: async () => "",
-  getOpenClawDeviceToken: async () => "",
-  getOpenClawToken: async () => "test-token",
-  setOpenClawDeviceKey: vi.fn(),
-  setOpenClawDeviceToken: vi.fn(),
 }));
 vi.mock("@openclaw/gateway-client/browser", () => ({
   GatewayBrowserDeviceAuthLifecycle: class {
@@ -41,10 +32,12 @@ vi.mock("@openclaw/gateway-client/browser", () => ({
     request = fixture.request;
   },
 }));
-const { openClawProvider } = await import("./openclaw.js");
+const { createOpenClaw } = await import("./openclaw.js");
 const settings = { url: "wss://gateway.test" } as OpenClawSettings;
+let openclaw = createOpenClaw(testAgent());
 afterEach(() => {
-  openClawProvider.shutdown();
+  openclaw.shutdown();
+  openclaw = createOpenClaw(testAgent());
   fixture.request.mockReset();
 });
 
@@ -74,7 +67,7 @@ function gateway(history: () => unknown, pending: unknown[] = []) {
 
 async function resume(requestId: string) {
   const events: ChatEvent[] = [];
-  const ended = openClawProvider.resume!({ requestId, sessionId: "s" }, settings, (event) =>
+  const ended = openclaw.resume!({ requestId, sessionId: "s" }, settings, (event) =>
     events.push(event),
   );
   return { events, ended };
@@ -196,7 +189,7 @@ describe("OpenClaw runs picked up again", () => {
         },
       },
     ]);
-    await openClawProvider.answerQuestion!("req-1", "ask_1", { target: ["Production"] });
+    await openclaw.answerQuestion!("req-1", "ask_1", { target: ["Production"] });
     expect(resolved).toHaveBeenCalledWith({
       id: "ask_1",
       answers: { answers: { target: ["Production"] } },
@@ -281,7 +274,7 @@ describe("OpenClaw runs picked up again", () => {
     });
     expect(events.at(-1)).not.toHaveProperty("approval.reason");
 
-    await openClawProvider.respondApproval!("req-1", "ap-1", "once");
+    await openclaw.respondApproval!("req-1", "ap-1", "once");
     expect(resolved).toHaveBeenCalledWith({ id: "ap-1", kind: "exec", decision: "allow-once" });
     fixture.onEvent({
       event: "session.approval",

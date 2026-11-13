@@ -35,9 +35,10 @@ vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
     close: () => {},
   }),
 }));
-const { claudeProvider } = await import("./claude.js");
+const { createClaude } = await import("./claude.js");
 const { CLAUDE_DEFAULTS } = await import("./settings.js");
 const settings = CLAUDE_DEFAULTS;
+const claudeProvider = createClaude();
 afterEach(() => claudeProvider.shutdown());
 
 function text(events: ChatEvent[]): string[] {

@@ -32,6 +32,8 @@ export type Turn = {
   requestId: string;
   threadId: string;
   varys: Varys;
+  /** Its agent's turns, where it's followed and what it asks waits. */
+  turns: Turns;
   /** Where its events go; a run the agent started holds them until the chat follows it. */
   emit: Emit;
   text: TextStream;
@@ -40,14 +42,18 @@ export type Turn = {
 /** How a turn ended, as its last event. */
 export type End = Extract<ChatEvent, { type: "done" | "error" }>;
 
-/** The turns of your messages this device follows, by request id. */
-export const following = new Map<string, { turn: Turn; end: (end: End) => void }>();
+/** One agent's turns. */
+export type Turns = {
+  /** The turns of your messages this device follows, by request id. */
+  following: Map<string, { turn: Turn; end: (end: End) => void }>;
+  /** Approvals and questions waiting in a turn, by their inbox ids. */
+  asks: Map<
+    string,
+    { requestId: string; ask: { approval: ApprovalRequest } | { question: ChatQuestion } }
+  >;
+};
 
-/** Approvals and questions waiting in a turn, by their inbox ids. */
-export const asks = new Map<
-  string,
-  { requestId: string; ask: { approval: ApprovalRequest } | { question: ChatQuestion } }
->();
+export const newTurns = (): Turns => ({ following: new Map(), asks: new Map() });
 
 /** Why the app stops following a turn that goes on (it quits): the chat picks it up again. */
 export const DETACHED = "detached";
@@ -55,11 +61,18 @@ export const DETACHED = "detached";
 /** An item with its place in the transcript (an owner's message has none until it's admitted). */
 export const placed = (item: TranscriptItem) => /^\d+$/.test(item.id);
 
-export function newTurn(requestId: string, threadId: string, varys: Varys, emit: Emit): Turn {
+export function newTurn(
+  turns: Turns,
+  requestId: string,
+  threadId: string,
+  varys: Varys,
+  emit: Emit,
+): Turn {
   const turn: Turn = {
     requestId,
     threadId,
     varys,
+    turns,
     emit,
     text: new TextStream(requestId, (event) => turn.emit(event)),
   };
@@ -102,6 +115,7 @@ const output = (text: string, failed: boolean) =>
 
 function ask(turn: Turn, item: Approval | Question): void {
   const { requestId } = turn;
+  const { asks } = turn.turns;
   if (item.type === "approval") {
     const approval = approvalOf(item);
     asks.set(approval.id, { requestId, ask: { approval } });
@@ -115,6 +129,7 @@ function ask(turn: Turn, item: Approval | Question): void {
 
 /** What a turn asked no longer waits: answered here or elsewhere, or withdrawn. */
 export function resolved(turn: Turn, id: string): void {
+  const { asks } = turn.turns;
   const waiting = asks.get(id);
   if (!waiting) return;
   asks.delete(id);
@@ -190,7 +205,8 @@ export function onTurnEvent(turn: Turn, event: TurnEvent): End | undefined {
 
 /** Ends a turn here: what it asked of you no longer waits, then how it ended. */
 export function endTurn(turn: Turn, end: End): void {
-  for (const [id, { requestId }] of asks) if (requestId === turn.requestId) resolved(turn, id);
+  for (const [id, { requestId }] of turn.turns.asks)
+    if (requestId === turn.requestId) resolved(turn, id);
   turn.emit(end);
 }
 
@@ -218,6 +234,7 @@ function closing(turn: Turn, followed: Following<unknown>, done: (end: End) => v
  */
 export async function followTurn(turn: Turn): Promise<void> {
   const { requestId, threadId, varys } = turn;
+  const { following } = turn.turns;
   const end = await new Promise<End>((resolve) => {
     let over = false;
     let close: (() => void) | undefined;

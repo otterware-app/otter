@@ -8,11 +8,11 @@ import {
   mailApi,
   type AgentSettingsPatch,
   type ApprovalDecision,
-  type ProviderKind,
+  type AgentId,
   type Skill,
 } from "../mail/api";
 import { openClawAgentId, type ChatProvider } from "./agent-providers";
-import { ProviderModelPicker, RuntimeModePicker, TraitsPicker } from "../mail/model-picker";
+import { AgentPicker, ModelPicker, RuntimeModePicker, TraitsPicker } from "../mail/model-picker";
 import { ApprovalCard } from "./approval-card";
 import { QuestionCard } from "./question-card";
 import { buildHandoffText, type MailChatContext } from "./chat-context";
@@ -74,7 +74,8 @@ export function ChatComposer({
   updateSettings: (patch: AgentSettingsPatch) => void;
   compact?: boolean;
 }) {
-  const { kind: providerKind, provider, name: providerName, usable } = chat;
+  const { provider, name: providerName, usable } = chat;
+  const agentId = chat.id ?? "";
   const draft = useChats((s) => s.drafts[chatId] ?? "");
   const citations = useChats((s) => s.citations[chatId]) ?? NO_CITATIONS;
   const run = useChats((s) => s.runs[chatId]) ?? null;
@@ -101,8 +102,8 @@ export function ChatComposer({
   const [answeringQuestion, setAnsweringQuestion] = useState<string | null>(null);
 
   const skillsQuery = useQuery<Skill[]>({
-    queryKey: ["agent-skills", providerKind],
-    queryFn: () => mailApi.agentSkills(providerKind),
+    queryKey: ["agent-skills", agentId],
+    queryFn: () => mailApi.agentSkills(agentId),
     enabled: usable,
     staleTime: 5 * 60_000,
   });
@@ -191,10 +192,14 @@ export function ChatComposer({
     return {
       id: crypto.randomUUID(),
       convoId: convo.id,
-      provider: providerKind,
+      provider: agentId,
       question,
       input: attached
-        ? buildHandoffText(text, attached.context, agentContribution(providerKind)?.mailReader)
+        ? buildHandoffText(
+            text,
+            attached.context,
+            agentContribution(provider?.kind ?? "")?.mailReader,
+          )
         : text,
       skill,
       title: clampTitle(
@@ -267,16 +272,18 @@ export function ChatComposer({
 
   const focusComposer = () => inputRef.current?.focus();
 
-  const pickModel = (kind: ProviderKind, slug: string) => {
-    updateSettings({ selected: kind, [kind]: { model: slug } });
-  };
+  const pickAgent = (id: AgentId, gatewayAgent: string | null) =>
+    updateSettings(
+      gatewayAgent ? { selected: id, [id]: { model: gatewayAgent } } : { selected: id },
+    );
 
-  const agent = agentContribution(providerKind);
+  const agent = agentContribution(provider?.kind ?? "");
   const runtimeMode = agent?.serverApprovals ? null : (provider?.settings.runtimeMode ?? null);
   const pendingApproval = activeApprovals[0];
   const pendingQuestion = activeQuestions[0];
 
   const currentModel = provider?.models.find((m) => m.slug === provider.model);
+  const pickModels = Boolean(provider && !agent?.subAgents && provider.models.length > 1);
   const traitOptions = currentModel?.options ?? [];
   const traitSettings = agent?.ownModelSettings ? undefined : provider?.settings;
   const traitValues = {
@@ -484,13 +491,21 @@ export function ChatComposer({
                 }}
               />
               <div className="flex min-w-0 shrink items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <AgentPicker
+                  providers={chat.state?.providers ?? []}
+                  active={provider}
+                  agent={convo && convo.turns.length > 0 ? openClawAgentId(convo.sessionId) : null}
+                  locked={Boolean(convo && convo.turns.length > 0)}
+                  onPick={pickAgent}
+                  returnFocus={focusComposer}
+                />
                 {runtimeMode ? (
                   <RuntimeModePicker
                     returnFocus={focusComposer}
                     value={runtimeMode}
                     onChange={(mode) => {
                       updateSettings({
-                        [providerKind]: { runtimeMode: mode },
+                        [agentId]: { runtimeMode: mode },
                       });
                     }}
                   />
@@ -499,39 +514,40 @@ export function ChatComposer({
               {/* Codex's "Model Effort ⌄": the model reads as plain text,
                   the traits follow it muted and carry the chevron, and
                   one pill wraps both, as a single control. */}
-              <div className="ms-auto flex min-w-0 shrink items-center rounded-full hover:bg-accent-surface has-[[data-state=open]]:bg-accent-surface">
-                <ProviderModelPicker
-                  providers={chat.state?.providers ?? []}
-                  activeKind={providerKind}
-                  lockedKind={convo && convo.turns.length > 0 ? convo.provider : null}
-                  lockedModel={
-                    convo && convo.turns.length > 0 ? openClawAgentId(convo.sessionId) : null
-                  }
-                  onPick={pickModel}
-                  returnFocus={focusComposer}
-                  chevron={traitOptions.length === 0}
-                  className={cn(
-                    "hover:bg-transparent data-[state=open]:bg-transparent",
-                    traitOptions.length > 0 && "pe-1",
-                  )}
-                />
-                {traitOptions.length > 0 ? (
-                  <TraitsPicker
-                    returnFocus={focusComposer}
-                    options={traitOptions}
-                    values={traitValues}
-                    className="shrink-0 ps-1 hover:bg-transparent data-[state=open]:bg-transparent"
-                    onChange={(id, value) => {
-                      updateSettings({ [providerKind]: { [id]: value } });
-                    }}
-                  />
-                ) : null}
-              </div>
+              {provider && (pickModels || traitOptions.length > 0) ? (
+                <div className="ms-auto flex min-w-0 shrink items-center rounded-full hover:bg-accent-surface has-[[data-state=open]]:bg-accent-surface">
+                  {pickModels ? (
+                    <ModelPicker
+                      provider={provider}
+                      onPick={(model) => updateSettings({ [agentId]: { model } })}
+                      returnFocus={focusComposer}
+                      chevron={traitOptions.length === 0}
+                      className={cn(
+                        "hover:bg-transparent data-[state=open]:bg-transparent",
+                        traitOptions.length > 0 && "pe-1",
+                      )}
+                    />
+                  ) : null}
+                  {traitOptions.length > 0 ? (
+                    <TraitsPicker
+                      returnFocus={focusComposer}
+                      options={traitOptions}
+                      values={traitValues}
+                      className="shrink-0 ps-1 hover:bg-transparent data-[state=open]:bg-transparent"
+                      onChange={(id, value) => {
+                        updateSettings({ [agentId]: { [id]: value } });
+                      }}
+                    />
+                  ) : null}
+                </div>
+              ) : (
+                <span className="ms-auto" />
+              )}
               <div className="flex shrink-0 items-center gap-1">
                 {provider?.talk && usable && !hasDraft ? (
                   <TalkButton
                     chatId={chatId}
-                    provider={providerKind}
+                    provider={agentId}
                     sessionId={convo?.sessionId ?? null}
                     name={providerName}
                     compact={compact}

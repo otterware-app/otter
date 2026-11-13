@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import {
-  LOCAL_CHAT_PROVIDERS,
+  LOCAL_AGENT_KINDS,
   chatTabId,
   type Chat,
   type ChatSave,
@@ -15,11 +15,9 @@ import {
 } from "@otter/contracts/chats";
 
 import { ipc } from "~/lib/ipc";
-import { EXTENSIONS } from "../extensions/registry";
 import { closeChatPages } from "../browser/store";
 import { isProviderUsable, useAgentProviders } from "./agent-providers";
 import {
-  DEFAULT_AGENT,
   mailApi,
   type ApprovalDecision,
   type ApprovalRequest,
@@ -29,7 +27,7 @@ import {
   type ChatQuestion,
   type ChatSession,
   type ChatSessionMessage,
-  type ProviderKind,
+  type AgentId,
   type ProviderSnapshot,
   type Skill,
 } from "../mail/api";
@@ -53,12 +51,12 @@ export type Conversation = Chat & {
   loaded: boolean;
 };
 
-export type Run = { requestId: string; convoId: string; provider: ProviderKind };
+export type Run = { requestId: string; convoId: string; provider: AgentId };
 
 export type Outgoing = {
   id: string;
   convoId: string;
-  provider: ProviderKind;
+  provider: AgentId;
   question: string;
   input: string;
   skill?: Skill;
@@ -120,7 +118,12 @@ export function clampTitle(text: string): string {
   return t.length > 56 ? `${t.slice(0, 56)}…` : t;
 }
 
-function newConversation(provider: ProviderKind = DEFAULT_AGENT): Conversation {
+/** The agents as last listed: what a chat's errors and first turn need to know of its agent. */
+let knownAgents: ProviderSnapshot[] = [];
+const knownAgent = (id: AgentId) => knownAgents.find((p) => p.id === id);
+
+/** Its agent is set when it starts: until then it shows the one new chats start with. */
+function newConversation(provider: AgentId = ""): Conversation {
   const now = Date.now();
   return {
     id: crypto.randomUUID(),
@@ -185,8 +188,9 @@ function restoreNewDrafts(drafts: Record<string, string>): Conversation[] {
     .map((d) => ({ ...newConversation(d.provider), ...d, updatedAt: d.createdAt }));
 }
 
+/** Only a chat that runs on the device that started it (Claude's, Codex's) has a device. */
 export const isElsewhere = (c: Conversation, device: Device | null) =>
-  LOCAL_CHAT_PROVIDERS.includes(c.provider) && c.device !== null && c.device.id !== device?.id;
+  c.device !== null && c.device.id !== device?.id;
 
 /** Hydrated user turns show the question, not the context block sent with it. */
 function stripHandoff(text: string): string {
@@ -297,8 +301,9 @@ function resendable(c: Conversation, requestId: string): Outgoing | null {
   };
 }
 
-function friendlyError(code: string, provider: ProviderKind): string {
-  const name = EXTENSIONS.find((e) => e.manifest.id === provider)?.manifest.name ?? provider;
+function friendlyError(code: string, provider: AgentId): string {
+  const agent = knownAgent(provider);
+  const name = agent?.name ?? "The agent";
   switch (code) {
     case "not_configured":
       return `${name} isn't set up. Connect it in Settings → Agents.`;
@@ -307,12 +312,12 @@ function friendlyError(code: string, provider: ProviderKind): string {
     case "provider_disabled":
       return `${name} is turned off in Settings → Agents.`;
     case "unauthorized":
-      return provider === "openclaw"
-        ? "The OpenClaw gateway refused this device. Reconnect it in Settings → OpenClaw."
-        : "The API key was rejected. Update it in Settings.";
+      return agent?.kind === "openclaw"
+        ? `${name}'s gateway refused this device. Reconnect it in Settings → Agents.`
+        : `${name} rejected its API key. Update it in Settings → Agents.`;
     case "unreachable":
-      if (provider === "openclaw") return "Can't reach the OpenClaw gateway.";
-      if (provider === "codex") return "Lost the connection to Codex.";
+      if (agent?.kind === "openclaw") return `Can't reach ${name}'s gateway.`;
+      if (agent?.kind === "codex") return `Lost the connection to ${name}.`;
       return `Can't reach ${name}. Are you on Tailscale?`;
     case "timeout":
       return `${name} went quiet for too long, so the run was stopped.`;
@@ -598,33 +603,36 @@ function startTurn(msg: Outgoing, intent?: ChatTurn["intent"]): void {
   if (!convo) return;
   const requestId = crypto.randomUUID();
   const firstTurn = convo.turns.length === 0;
-  const kind = firstTurn ? msg.provider : convo.provider;
+  const agent = firstTurn ? msg.provider : convo.provider;
   console.log("[AgentChat:send]", {
     requestId,
-    provider: kind,
+    provider: agent,
     attached: Boolean(msg.context),
     skill: msg.skill?.name,
     session: convo.sessionId ?? "new",
   });
   sent.set(requestId, msg);
   set((s) => ({
-    runs: { ...s.runs, [msg.convoId]: { requestId, convoId: msg.convoId, provider: kind } },
+    runs: { ...s.runs, [msg.convoId]: { requestId, convoId: msg.convoId, provider: agent } },
     retries: Object.fromEntries(
       Object.entries(s.retries).filter(([, m]) => m.convoId !== msg.convoId),
     ),
   }));
   patchConversation(msg.convoId, (c) => ({
     ...c,
-    provider: firstTurn ? kind : c.provider,
+    provider: firstTurn ? agent : c.provider,
     title: firstTurn ? msg.title : c.title,
-    device:
-      firstTurn && LOCAL_CHAT_PROVIDERS.includes(kind) ? get().device : firstTurn ? null : c.device,
+    device: !firstTurn
+      ? c.device
+      : LOCAL_AGENT_KINDS.includes(knownAgent(agent)?.kind ?? "")
+        ? get().device
+        : null,
     openRequest: requestId,
   }));
   appendExchange(msg.convoId, msg, requestId, intent);
   mailApi
     .agentSend({
-      provider: kind,
+      provider: agent,
       requestId,
       input: msg.input,
       sessionId: convo.sessionId ?? undefined,
@@ -639,7 +647,7 @@ function startTurn(msg: Outgoing, intent?: ChatTurn["intent"]): void {
         ...c,
         turns: c.turns.map((t) =>
           t.id === `a-${requestId}`
-            ? { ...t, error: friendlyError("unreachable", kind), finishedAt: Date.now() }
+            ? { ...t, error: friendlyError("unreachable", agent), finishedAt: Date.now() }
             : t,
         ),
         openRequest: null,
@@ -754,10 +762,10 @@ export async function respondApproval(
   const pending = approvals.find((a) => a.approval.id === approvalId);
   const owner = pending && Object.values(runs).find((r) => r.requestId === pending.requestId);
   if (!owner) return;
-  const { provider: kind, requestId } = owner;
-  console.log("[AgentChat:approval]", { kind, decision });
+  const { provider, requestId } = owner;
+  console.log("[AgentChat:approval]", { provider, decision });
   try {
-    await mailApi.agentRespondApproval({ provider: kind, requestId, approvalId, decision });
+    await mailApi.agentRespondApproval({ provider, requestId, approvalId, decision });
     set((s) => ({ approvals: s.approvals.filter((a) => a.approval.id !== approvalId) }));
   } catch (error) {
     console.log("[AgentChat:approval] failed", { error: String(error) });
@@ -772,7 +780,7 @@ export async function answerQuestion(
   const pending = questions.find((q) => q.question.id === questionId);
   const owner = pending && Object.values(runs).find((r) => r.requestId === pending.requestId);
   if (!owner) return;
-  console.log("[AgentChat:question]", { kind: owner.provider, skipped: answers === null });
+  console.log("[AgentChat:question]", { provider: owner.provider, skipped: answers === null });
   try {
     await mailApi.agentAnswerQuestion({
       provider: owner.provider,
@@ -1005,7 +1013,7 @@ export async function renameChat(id: string, title: string, onAgent: boolean): P
 }
 
 /** A call started in a chat without a session: the session it started is the chat's. */
-export function setChatSession(id: string, provider: ProviderKind, sessionId: string): void {
+export function setChatSession(id: string, provider: AgentId, sessionId: string): void {
   patchConversation(id, (c) => (c.sessionId ? c : { ...c, provider, sessionId }));
 }
 
@@ -1075,7 +1083,7 @@ export async function regenerateTitle(id: string): Promise<void> {
     patchConversation(id, (c) => ({ ...c, title: clampTitle(title), updatedAt: Date.now() }));
 }
 
-export function newChat(provider: ProviderKind): string {
+export function newChat(provider: AgentId): string {
   const { conversations, drafts } = get();
   const blank = conversations.find((c) => isBlank(c) && !hasDraft(drafts, c.id));
   if (blank) {
@@ -1089,7 +1097,7 @@ export function newChat(provider: ProviderKind): string {
   return fresh.id;
 }
 
-export function deleteConversation(id: string, provider: ProviderKind): void {
+export function deleteConversation(id: string, provider: AgentId): void {
   const running = get().runs[id];
   if (running) {
     void mailApi.agentCancel(running.provider, running.requestId);
@@ -1151,7 +1159,7 @@ export async function forkChat(convoId: string, turnId: string): Promise<string 
 
 export function openServerSession(
   session: ChatSession,
-  provider: ProviderKind,
+  provider: AgentId,
   providerName: string,
 ): void {
   const existing = get().conversations.find(
@@ -1206,7 +1214,7 @@ const resumeTried = new Map<string, ProviderSnapshot>();
 export function resumeRuns(providers: ProviderSnapshot[]): void {
   for (const c of get().conversations) {
     const requestId = c.openRequest;
-    const host = providers.find((p) => p.kind === c.provider);
+    const host = providers.find((p) => p.id === c.provider);
     if (!requestId || !c.sessionId || get().runs[c.id] || !host || !isProviderUsable(host))
       continue;
     if (resumeTried.get(requestId) === host) continue;
@@ -1241,7 +1249,7 @@ export function resumeRuns(providers: ProviderSnapshot[]): void {
   }
 }
 
-const watchedSessions = new Map<ProviderKind, string>();
+const watchedSessions = new Map<AgentId, string>();
 
 /** This device's chats with a session, so the provider can show runs the agent starts itself. */
 function watchSessions(providers: ProviderSnapshot[]): void {
@@ -1249,11 +1257,11 @@ function watchSessions(providers: ProviderSnapshot[]): void {
   for (const host of providers) {
     if (!isProviderUsable(host)) {
       // Turned off, it stopped watching: watched again once it's back.
-      watchedSessions.delete(host.kind);
+      watchedSessions.delete(host.id);
       continue;
     }
     const sessions = conversations
-      .filter((c) => c.provider === host.kind && c.sessionId && !isElsewhere(c, device))
+      .filter((c) => c.provider === host.id && c.sessionId && !isElsewhere(c, device))
       .map((c) => ({
         id: c.sessionId!,
         // A turn in flight is picked up again with all it led to: nothing to catch up on.
@@ -1264,14 +1272,14 @@ function watchSessions(providers: ProviderSnapshot[]): void {
       }));
     // Watched again once it's connected: an agent's sessions with no chat yet are found then too.
     const key = JSON.stringify([host.installed, host.status, sessions]);
-    if (watchedSessions.get(host.kind) === key) continue;
-    watchedSessions.set(host.kind, key);
-    void mailApi.agentWatch(host.kind, sessions).catch(() => watchedSessions.delete(host.kind));
+    if (watchedSessions.get(host.id) === key) continue;
+    watchedSessions.set(host.id, key);
+    void mailApi.agentWatch(host.id, sessions).catch(() => watchedSessions.delete(host.id));
   }
 }
 
 type AgentRun = {
-  provider: ProviderKind;
+  provider: AgentId;
   sessionId: string;
   requestId: string;
   chat?: { title: string };
@@ -1668,6 +1676,7 @@ export function useChatEvents(): void {
   const providers = useAgentProviders().data?.providers;
   useEffect(() => {
     if (!providers) return;
+    knownAgents = providers;
     resumeRuns(providers);
     if (get().ready) watchSessions(providers);
     return useChats.subscribe((s, prev) => {
@@ -1686,7 +1695,7 @@ export function useChatEvents(): void {
         if (run?.provider && run.sessionId && run.requestId) void followAgentRun(run);
       }),
       window.desktopBridge.on("agent:sessionRead", (params: unknown) => {
-        const read = params as { provider?: ProviderKind; sessionId?: string; cursor?: string };
+        const read = params as { provider?: AgentId; sessionId?: string; cursor?: string };
         const convo = get().conversations.find(
           (c) => c.provider === read?.provider && c.sessionId === read.sessionId,
         );

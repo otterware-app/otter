@@ -10,7 +10,7 @@
 
 import {
   CHAT_LIMITS,
-  LOCAL_CHAT_PROVIDERS,
+  LOCAL_AGENT_KINDS,
   chatForSync,
   type Chat,
   type ChatMessageMatch,
@@ -25,6 +25,7 @@ import { broadcast } from "../ipc.js";
 import { readJson } from "../json-file.js";
 import { logger } from "../logger.js";
 import { platform, type SqlDatabase } from "../platform.js";
+import { getProviderSettings } from "./agent/settings.js";
 import { getOtterUser, relayRequest, RelayError } from "./otter-account.js";
 
 export const CHATS_CHANGED = "chats:changed";
@@ -240,12 +241,13 @@ export async function searchChats(query: string): Promise<ChatMessageMatch[]> {
     .map(({ quality: _quality, offset: _offset, ...match }) => match);
 }
 
-/** A Claude or Codex chat is this device's. Past the limit, the oldest chats go (everywhere). */
+/** A Claude or Codex chat is the device's that started it. Past the limit, the oldest chats go (everywhere). */
 export async function saveChat({ chat, turnIds, turns, settled }: ChatSave): Promise<void> {
   const db = await database();
+  const kind = (await getProviderSettings()).agents.find((a) => a.id === chat.provider)?.kind;
+  const local = kind !== undefined && LOCAL_AGENT_KINDS.includes(kind);
   transaction(db, () => {
-    const local = LOCAL_CHAT_PROVIDERS.includes(chat.provider);
-    putRow(db, { ...chat, device: local ? (chat.device ?? device(db)) : null });
+    putRow(db, { ...chat, device: chat.device ?? (local ? device(db) : null) });
     putTurns(db, chat.id, turnIds, turns);
     const over = db
       .prepare("SELECT id FROM chats ORDER BY updatedAt DESC LIMIT -1 OFFSET ?")

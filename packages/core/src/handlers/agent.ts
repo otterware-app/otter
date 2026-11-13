@@ -6,17 +6,17 @@ import * as agent from "../services/agent/service.js";
 import { agentChannels, deleteAgentChannel, makeAgentChannel } from "../services/agent/channels.js";
 import { preferenceChanged } from "../services/preferences.js";
 import { setWatching } from "../services/realtime.js";
-import { registeredAgents } from "../extensions.js";
-import type { ApprovalDecision, ProviderKind, ChatAttachment } from "../services/agent/types.js";
+import type { AgentId, ApprovalDecision, ChatAttachment } from "../services/agent/types.js";
 
 type Params = Record<string, unknown> | undefined;
 
 const str = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
 
-function providerOf(p: Params): ProviderKind {
-  const kind = p?.provider;
-  if (typeof kind === "string" && registeredAgents().has(kind)) return kind;
-  throw new Error("Unknown agent provider.");
+/** The agent a call is for (`provider`: chats name their agent so), by its id. */
+function providerOf(p: Params): AgentId {
+  const id = str(p?.provider);
+  if (!id) throw new Error("Choose an agent.");
+  return id;
 }
 
 function sessionIdOf(p: Params): string {
@@ -122,6 +122,21 @@ export function registerAgentHandlers(): void {
   handle("agent:updateSettings", async (params: unknown) => {
     const state = await agent.updateProviderSettings((params ?? {}) as Record<string, unknown>);
     preferenceChanged("assistant");
+    return state;
+  });
+
+  handle("agent:add", async (params: unknown) => {
+    const kind = str((params as Params)?.kind);
+    if (!kind) throw new Error("Choose a kind of agent.");
+    const added = await agent.addAgent(kind);
+    preferenceChanged("assistant");
+    return added;
+  });
+
+  handle("agent:remove", async (params: unknown) => {
+    const state = await agent.removeAgent(providerOf(params as Params));
+    preferenceChanged("assistant");
+    preferenceChanged("agentKeys");
     return state;
   });
 
@@ -260,7 +275,7 @@ export function registerAgentHandlers(): void {
 
   handle("agent:cancel", async (params: unknown) => {
     const p = params as Params;
-    agent.cancelTurn(providerOf(p), str(p?.requestId));
+    await agent.cancelTurn(providerOf(p), str(p?.requestId));
     return { ok: true };
   });
 
@@ -269,7 +284,7 @@ export function registerAgentHandlers(): void {
   handle("agent:sessions", async (params: unknown) => {
     const p = params as Params;
     const limit = typeof p?.limit === "number" && Number.isFinite(p.limit) ? p.limit : 40;
-    return agent.listSessions(providerOf(p), limit);
+    return agent.listSessions(providerOf(p), limit, p?.everywhere === true);
   });
 
   handle("agent:sessionMessages", async (params: unknown) => {

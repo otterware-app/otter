@@ -53,7 +53,17 @@ vi.mock("../otter-account.js", () => ({
 const broadcasts: unknown[] = [];
 
 /** The store on a platform of its own: a new database, and these files. */
-async function store(files = new Map<string, string>()) {
+async function store(
+  files = new Map([
+    [
+      "agents.json",
+      JSON.stringify({
+        selected: null,
+        agents: [{ id: "my-claude", kind: "claude", name: "Claude", settings: {} }],
+      }),
+    ],
+  ]),
+) {
   vi.resetModules();
   const { setPlatform } = await import("../../platform.ts");
   const database = new DatabaseSync(":memory:");
@@ -122,7 +132,7 @@ describe("chats", () => {
   });
 
   it("marks a Claude or Codex chat as this device's", async () => {
-    await save(chat("c2", { provider: "claude" }));
+    await save(chat("c2", { provider: "my-claude" }));
     await settle();
 
     const { device } = await chats.listChats();

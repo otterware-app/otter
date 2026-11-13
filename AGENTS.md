@@ -92,8 +92,10 @@ when a feature lands or goes.
   `./ui` halves (`extensions/registry.ts`). Extensions reach the app only through the kits
   (`@otter/core/extension-kit`, `@otter/web/extension-kit`,
   `@otter/desktop/extension-kit`; the last two are aliases), which lint enforces. An agent is
-  the strict contribution: core's `ChatProvider` (its settings are its own, under its id) and, in
-  the renderer, its icon and settings form; the chat UI is shared.
+  the strict contribution: core's `AgentType`, a kind of agent whose `create` makes a
+  `ChatProvider` for each agent the user adds (as many of a kind as they like: its settings and
+  secrets are its own, under the agent's id, which chats and tasks name), and, in the renderer,
+  its icon and settings form; the chat UI is shared.
 - `packages/contracts`: types shared by both sides, including `DesktopBridge`, the
   `window.desktopBridge` API the preload exposes, and the relay's API (`src/relay.ts`).
 - `packages/shared`: what every app shows the same, the iPhone app included: the color themes

@@ -10,16 +10,8 @@ vi.mock("../../../packages/core/src/platform.js", () => ({
   }),
 }));
 
-const {
-  endAllTalks,
-  endTalk,
-  isCallWork,
-  onTalkFrame,
-  startTalk,
-  talkAudio,
-  talkReady,
-  talksLost,
-} = await import("./openclaw-talk.js");
+const { createTalks, talkReady } = await import("./openclaw-talk.js");
+let talks = createTalks();
 
 const created = {
   sessionId: "talk-1",
@@ -42,10 +34,13 @@ function gateway(
 }
 
 const relay = (payload: object) =>
-  onTalkFrame("talk.event", { relaySessionId: "talk-1", ...payload });
+  talks.onTalkFrame("talk.event", { relaySessionId: "talk-1", ...payload });
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-afterEach(() => endAllTalks());
+afterEach(() => {
+  talks.endAllTalks();
+  talks = createTalks();
+});
 
 describe("a call with OpenClaw", () => {
   it("is offered only when the gateway has a realtime voice that streams through it", async () => {
@@ -65,7 +60,7 @@ describe("a call with OpenClaw", () => {
   it("starts in the chat's session and passes on what the gateway says, its own echo aside", async () => {
     const g = gateway();
     const events: TalkEvent[] = [];
-    const start = await startTalk(g, "agent:main:otter-mail:1", (e) => events.push(e));
+    const start = await talks.startTalk(g, "agent:main:otter-mail:1", (e) => events.push(e));
     expect(start).toEqual({
       talkId: "talk-1",
       sessionId: "agent:main:otter-mail:1",
@@ -85,14 +80,14 @@ describe("a call with OpenClaw", () => {
     relay({ type: "audio", audioBase64: "AAA=" });
     relay({ type: "transcript", role: "user", text: "Hello", final: false });
     relay({ type: "mark", markName: "m1" });
-    onTalkFrame("talk.event", { relaySessionId: "another", type: "ready" });
+    talks.onTalkFrame("talk.event", { relaySessionId: "another", type: "ready" });
     expect(events).toEqual([
       { talkId: "talk-1", type: "ready" },
       { talkId: "talk-1", type: "audio", audio: "AAA=" },
       { talkId: "talk-1", type: "transcript", role: "user", text: "Hello", final: false },
       { talkId: "talk-1", type: "mark", name: "m1" },
     ]);
-    await talkAudio("talk-1", "BBB=");
+    await talks.talkAudio("talk-1", "BBB=");
     expect(g.calls).toHaveBeenCalledWith(
       "talk.session.appendAudio",
       { sessionId: "talk-1", audioBase64: "BBB=" },
@@ -102,7 +97,7 @@ describe("a call with OpenClaw", () => {
 
   it("asks the agent for a voice that can't, and gives the voice the agent's answer", async () => {
     const g = gateway((method) => (method === "talk.client.toolCall" ? { runId: "run-9" } : {}));
-    await startTalk(g, "agent:main:otter-mail:1", () => {});
+    await talks.startTalk(g, "agent:main:otter-mail:1", () => {});
     relay({
       type: "toolCall",
       callId: "call-1",
@@ -117,7 +112,7 @@ describe("a call with OpenClaw", () => {
       args: { question: "Date?" },
       relaySessionId: "talk-1",
     });
-    onTalkFrame("chat", {
+    talks.onTalkFrame("chat", {
       runId: "run-9",
       state: "final",
       message: { content: [{ type: "text", text: "Thursday." }] },
@@ -139,30 +134,30 @@ describe("a call with OpenClaw", () => {
   });
 
   it("knows what the agent does for it until that's done, after the call too", async () => {
-    await startTalk(gateway(), "agent:main:otter-mail:1", () => {});
+    await talks.startTalk(gateway(), "agent:main:otter-mail:1", () => {});
     const lifecycle = (sessionKey: string, runId: string, phase: string) =>
-      onTalkFrame("agent", { sessionKey, runId, stream: "lifecycle", data: { phase } });
+      talks.onTalkFrame("agent", { sessionKey, runId, stream: "lifecycle", data: { phase } });
     lifecycle("agent:main:otter-mail:1", "consult-1", "start");
     lifecycle("agent:main:otter-mail:2", "elsewhere", "start");
-    await endTalk("talk-1");
-    expect(isCallWork("consult-1")).toBe(true);
-    expect(isCallWork("elsewhere")).toBe(false);
+    await talks.endTalk("talk-1");
+    expect(talks.isCallWork("consult-1")).toBe(true);
+    expect(talks.isCallWork("elsewhere")).toBe(false);
     lifecycle("agent:main:otter-mail:1", "consult-1", "end");
-    expect(isCallWork("consult-1")).toBe(false);
+    expect(talks.isCallWork("consult-1")).toBe(false);
   });
 
   it("ends with its connection, and hanging up leaves the agent's work going", async () => {
     const events: TalkEvent[] = [];
     const g = gateway();
-    await startTalk(g, "s", (e) => events.push(e));
-    talksLost(g.connection);
+    await talks.startTalk(g, "s", (e) => events.push(e));
+    talks.talksLost(g.connection);
     expect(events).toEqual([
       { talkId: "talk-1", type: "closed", error: "Lost the connection to your gateway." },
     ]);
 
     const h = gateway();
-    await startTalk(h, "s", () => {});
-    await endTalk("talk-1");
+    await talks.startTalk(h, "s", () => {});
+    await talks.endTalk("talk-1");
     expect(h.calls).toHaveBeenCalledWith("talk.session.close", {
       sessionId: "talk-1",
       disposition: "detach",

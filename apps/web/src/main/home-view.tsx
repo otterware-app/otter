@@ -703,7 +703,7 @@ function MailHome() {
     else openChat();
   };
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
-  const { selectedKind } = useChatProvider(undefined);
+  const selectedKind = useChatProvider(undefined).selectedId ?? "";
   const activeChatId = useChats((s) => s.activeId);
   const selectChat = (id: string) => {
     if (isChats && !settingsRoute) go({ label: id }, true);

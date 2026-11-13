@@ -156,7 +156,7 @@ function ChatDetails({ convo, onOpen, onOpenTask }: DetailsProps) {
   return (
     <div className="flex flex-col gap-4 text-sm">
       <div className="flex items-center gap-2">
-        <AgentAvatar kind={convo.provider} agent={agent} className="size-5" />
+        <AgentAvatar id={convo.provider} agent={agent} className="size-5" />
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-medium text-foreground">{agentName}</span>
           {about ? <span className="truncate text-xs text-muted-foreground">{about}</span> : null}

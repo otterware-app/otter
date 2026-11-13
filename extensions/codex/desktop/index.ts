@@ -1,11 +1,11 @@
 import type { CoreExtension } from "@otter/core/extension-kit";
 
 import { manifest } from "../manifest.ts";
-import { codexProvider } from "./codex.js";
+import { codexAgent } from "./codex.js";
 
 export default {
   manifest,
   activate({ registerAgent }) {
-    registerAgent(codexProvider);
+    registerAgent(codexAgent);
   },
 } satisfies CoreExtension;

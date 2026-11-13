@@ -120,17 +120,18 @@ its folder. Deleting an Outlook folder moves it and its mail to Deleted Items.
 
 ## Extensions
 
-Sign-in codes, Calendar invites, Translation, Todoist, Otter Drive and the agents (Hermes,
+Sign-in codes, Calendar invites, Translation, Todoist, Otter Drive and the kinds of agent (Hermes,
 OpenClaw, varys, Claude, Codex) are built-in extensions (`extensions/`). Settings lists them by kind,
-under "Extensions": Agents (with chat's own settings above them), Integrations (hidden while it has
+under "Extensions": Agents (the agents you added, with chat's own settings below them), Integrations (hidden while it has
 none) and Features, each row with its switch; a service you sign in to (Todoist, Otter Drive) is a connection,
 listed in Connections beside the mailboxes. One with something to set up opens to its page: its switch, where its data
 goes, and its settings. Turning a feature off hides it everywhere (the choice follows the Otter
 account); turning an agent off stops chats on it.
 
-| Feature                                                                                    | Mac | Web                    | iPhone |
-| ------------------------------------------------------------------------------------------ | --- | ---------------------- | ------ |
-| Settings: Agents, Integrations, Features; a switch on each, a page for those with settings | ✓   | ✓ (no Claude or Codex) | —      |
+| Feature                                                                                                                                                                                             | Mac | Web                         | iPhone |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --------------------------- | ------ |
+| Settings: Agents, Integrations, Features; a switch on each, a page for those with settings                                                                                                          | ✓   | ✓ (no Claude or Codex)      | —      |
+| Agents: none at first; + adds one of any kind, as many of each as you like (several Hermes servers, OpenClaw gateways, Claude or Codex setups), each with its own name, picture, connection and key | ✓   | ✓ (Hermes, OpenClaw, varys) | —      |
 
 ## Todoist
 
@@ -433,6 +434,8 @@ optional fix PRs. See [support.md](support.md); error reports, [error-reports.md
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Providers                                                                                                                                                                                                                                                                | Claude, Codex, Hermes, OpenClaw, varys                                  | Hermes, OpenClaw, varys                       | —                                                                                                                       |
 | Chat, models, steer / stop, tool approval, history                                                                                                                                                                                                                       | ✓                                                                       | ✓                                             | —                                                                                                                       |
+| The agent picker: who a chat talks to, each agent with its name and picture (an OpenClaw gateway's agents each on their own), then the model for an agent with several                                                                                                   | ✓                                                                       | ✓                                             | —                                                                                                                       |
+| History lists a Hermes server's own Otter sessions, and its others (Slack, Telegram…) only when asked                                                                                                                                                                    | ✓                                                                       | ✓                                             | —                                                                                                                       |
 | Select and copy chat text                                                                                                                                                                                                                                                | ✓                                                                       | ✓                                             | —                                                                                                                       |
 | Cite part of a reply or of a file it made (PDFs too), with a comment                                                                                                                                                                                                     | ✓                                                                       | ✓                                             | —                                                                                                                       |
 | Changes after each agent turn, linking to results                                                                                                                                                                                                                        | ✓ (Otter tools)                                                         | —                                             | —                                                                                                                       |
@@ -464,13 +467,12 @@ also make a theme or change one of the user's own, and wear a theme; a built-in 
 (changing one makes a copy, worn in its place).
 
 OpenClaw connects to the user's gateway over its WebSocket, as OpenClaw's own apps do (usually
-`wss://<computer>.<tailnet>.ts.net`, with Tailscale Serve). Each install is a device with its own
+`wss://<computer>.<tailnet>.ts.net`, with Tailscale Serve). Each OpenClaw agent you add, on each install, is a device with its own
 key: a setup code from `openclaw qr` (or the gateway token) introduces it once, the user
 approves it on the gateway (`openclaw devices approve`), and Settings › Agents walks through
 those steps. It asks for what OpenClaw's own apps hold, `operator.admin` included,
 so the gateway counts what you send as the owner's: the agent uses your paired devices (its
-`nodes` tool: a Mac's shell, screen and computer use) for what you ask in Otter. Each device pairs on its own; the Hermes connection instead follows the Otter
-account. The web app also
+`nodes` tool: a Mac's shell, screen and computer use) for what you ask in Otter. Each device pairs on its own (the agent itself, its name and picture, follows the Otter account); a Hermes agent's connection, its key included, follows the account whole. The web app also
 needs its site in the gateway's `gateway.controlUi.allowedOrigins`. Each chat is a gateway
 session, so the gateway's other conversations can be resumed; the gateway's agents are the models
 to pick, each with its picture (or emoji) from the gateway, which also marks its chats (title,

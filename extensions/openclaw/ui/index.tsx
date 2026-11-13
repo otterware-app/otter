@@ -14,5 +14,6 @@ export default {
     serverApprovals: true,
     mailReader: "gog",
     ownModelSettings: true,
+    subAgents: true,
   },
 } satisfies UiExtension;

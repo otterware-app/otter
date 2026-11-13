@@ -6,19 +6,21 @@ import {
   LockIcon,
   LockOpenIcon,
   PenLineIcon,
+  PlusIcon,
   SearchIcon,
   StarIcon,
   ZapIcon,
 } from "lucide-react";
 import {
   mailApi,
-  type ProviderKind,
+  type AgentId,
   type ProviderModel,
   type ProviderModelOption,
   type ProviderSnapshot,
   type RuntimeMode,
 } from "./api";
-import { AgentAvatar, ProviderIcon, isProviderUsable } from "../agent/agent-providers";
+import { AgentFace, isProviderUsable, kindName } from "../agent/agent-providers";
+import { agentContribution } from "../extensions/registry";
 import { modelKey, toggleFavorite, useModelPrefs } from "./model-prefs";
 import {
   DropdownMenu,
@@ -28,7 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "./menu";
 import { HintTooltip, Kbd, cn, restoreFocusForKeyboardOnly } from "./ui";
-import { MODEL_PICKER_JUMP_COMMANDS } from "../keybindings/commands";
+import { AGENT_PICKER_JUMP_COMMANDS } from "../keybindings/commands";
 import { matchesCommand, useCommandHandlers, useKeybindingContext } from "../keybindings/dispatch";
 import { shortcutLabelFor, useKeybindingsState } from "../keybindings/store";
 
@@ -52,16 +54,6 @@ function closeFocus(event: Event, returnFocus?: () => void): void {
   returnFocus();
 }
 
-type PickerItem = {
-  key: string;
-  kind: ProviderKind;
-  slug: string;
-  name: string;
-  providerName: string;
-  group: string | null;
-  pictured: boolean;
-};
-
 export function modelLabel(name: string): string {
   if (!/^[a-z0-9.-]+$/.test(name)) return name;
   const parts = name.split("-").filter((part) => !/^\d{8}$/.test(part));
@@ -78,14 +70,14 @@ export function modelLabel(name: string): string {
   return words.join(" ");
 }
 
-function searchScore(item: PickerItem, query: string, favorite: boolean): number | null {
+/** Where `query`'s words fall in these fields (earlier fields, starts of words: better); null when one doesn't. */
+function searchScore(fields: string[], query: string): number | null {
   const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return 0;
-  const fields = [item.name, item.slug, item.kind, item.providerName].map((f) => f.toLowerCase());
+  const lower = fields.map((f) => f.toLowerCase());
   let score = 0;
   for (const token of tokens) {
     let best: number | null = null;
-    fields.forEach((field, i) => {
+    lower.forEach((field, i) => {
       const at = field.indexOf(token);
       if (at === -1) return;
       const s =
@@ -96,145 +88,96 @@ function searchScore(item: PickerItem, query: string, favorite: boolean): number
     if (best === null) return null;
     score += best;
   }
-  return favorite ? score - 24 : score;
+  return score;
 }
 
-const RAIL_BUTTON =
-  "relative isolate flex aspect-square w-full cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground focus-visible:bg-foreground/10 focus-visible:outline-none aria-pressed:bg-foreground/10 aria-pressed:text-foreground";
-
-function describeProvider(p: ProviderSnapshot): string {
-  if (isProviderUsable(p)) return p.displayName;
-  const kind =
-    p.status === "error" ? "Unavailable" : p.status === "warning" ? "Limited" : "Not ready";
-  return p.message ? `${p.displayName}: ${kind}. ${p.message}` : `${p.displayName}: ${kind}.`;
+function statusText(p: ProviderSnapshot): string | null {
+  if (isProviderUsable(p)) return null;
+  if (!p.enabled) return "Turned off";
+  return p.status === "error" ? "Unavailable" : "Not ready";
 }
 
-function ModelPickerRail({
-  providers,
-  selected,
-  lockedKind,
-  onSelect,
-}: {
-  providers: ProviderSnapshot[];
-  selected: ProviderKind | "favorites";
-  lockedKind: ProviderKind | null;
-  onSelect: (value: ProviderKind | "favorites") => void;
-}) {
-  return (
-    <div
-      className="w-12 shrink-0 overflow-hidden border-e border-foreground/10"
-      data-model-picker-sidebar
-      aria-label="Providers"
-    >
-      <div className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex min-h-full flex-col gap-1 p-1.5">
-          <div className="relative w-full" data-model-picker-provider="favorites">
-            <HintTooltip label="Favorites">
-              <button
-                type="button"
-                className={RAIL_BUTTON}
-                onClick={() => onSelect("favorites")}
-                aria-label="Favorites"
-                aria-pressed={selected === "favorites"}
-              >
-                <StarIcon className="size-4 shrink-0" aria-hidden />
-              </button>
-            </HintTooltip>
-          </div>
-          <div className="mx-1.5 my-0.5 border-b border-foreground/10" aria-hidden />
-          {providers.map((p) => {
-            const locked = lockedKind !== null && lockedKind !== p.kind;
-            const disabled = !isProviderUsable(p) || locked;
-            const tooltip = locked
-              ? `${p.displayName} is unavailable in this chat. Start a new chat to switch providers.`
-              : describeProvider(p);
-            return (
-              <div key={p.kind} className="relative w-full" data-model-picker-provider={p.kind}>
-                <HintTooltip label={tooltip}>
-                  <button
-                    type="button"
-                    className={cn(
-                      RAIL_BUTTON,
-                      disabled && "cursor-not-allowed opacity-50 hover:bg-transparent",
-                    )}
-                    onClick={() => !disabled && onSelect(p.kind)}
-                    aria-disabled={disabled}
-                    aria-pressed={selected === p.kind}
-                    aria-label={tooltip}
-                  >
-                    <ProviderIcon kind={p.kind} className="size-4.5" />
-                  </button>
-                </HintTooltip>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
+/** One row of the agent picker: an agent, or one of the agents an OpenClaw gateway runs. */
+type AgentItem = {
+  key: string;
+  provider: ProviderSnapshot;
+  /** The gateway's agent (`ProviderModel.slug`), for a kind whose models are agents. */
+  agent: string | null;
+  name: string;
+  detail: string;
+  status: string | null;
+};
+
+function agentItems(providers: ProviderSnapshot[]): AgentItem[] {
+  return providers.flatMap((p): AgentItem[] => {
+    const status = statusText(p);
+    if (agentContribution(p.kind)?.subAgents && p.models.length > 0)
+      return p.models.map((m) => ({
+        key: `${p.id}:${m.slug}`,
+        provider: p,
+        agent: m.slug,
+        name: m.name,
+        detail: p.name,
+        status,
+      }));
+    const model = p.models.find((m) => m.slug === p.model);
+    return [
+      {
+        key: p.id,
+        provider: p,
+        agent: null,
+        name: p.name,
+        detail: model && p.models.length > 1 ? modelLabel(model.name) : kindName(p.kind),
+        status,
+      },
+    ];
+  });
 }
 
-function ModelListRow({
+function AgentRow({
   item,
   highlighted,
   selected,
-  favorite,
-  showProvider,
   jumpLabel,
   onHover,
   onPick,
-  onToggleFavorite,
 }: {
-  item: PickerItem;
+  item: AgentItem;
   highlighted: boolean;
   selected: boolean;
-  favorite: boolean;
-  showProvider: boolean;
   jumpLabel: string | null;
   onHover: () => void;
   onPick: () => void;
-  onToggleFavorite: () => void;
 }) {
+  const disabled = item.status !== null;
   return (
     <div
       role="option"
       aria-selected={selected}
+      aria-disabled={disabled}
       data-highlighted={highlighted || undefined}
       onMouseMove={onHover}
-      onClick={onPick}
+      onClick={disabled ? undefined : onPick}
       className={cn(
-        "group relative flex h-8 w-full min-w-0 shrink-0 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm outline-none",
+        "group relative flex h-11 w-full min-w-0 shrink-0 cursor-pointer items-center gap-2.5 rounded-lg px-2 text-sm outline-none",
         highlighted && "bg-foreground/[0.06]",
+        disabled && "cursor-default",
       )}
     >
-      {showProvider || item.pictured ? (
-        <AgentAvatar kind={item.kind} agent={item.slug} className="size-3.5" />
-      ) : null}
-      <span className="min-w-0 truncate text-foreground">{modelLabel(item.name)}</span>
-      {showProvider ? (
-        <span className="min-w-0 truncate text-[13px] text-muted-foreground">
-          {item.providerName}
+      <span
+        className={cn("flex size-7 shrink-0 items-center justify-center", disabled && "opacity-50")}
+      >
+        <AgentFace provider={item.provider} agent={item.agent} className="size-6" />
+      </span>
+      <span className={cn("flex min-w-0 flex-1 flex-col", disabled && "opacity-60")}>
+        <span className="truncate leading-5 text-foreground">{item.name}</span>
+        <span className="truncate text-xs leading-4 text-muted-foreground">
+          {item.status ? `${item.detail} · ${item.status}` : item.detail}
         </span>
-      ) : null}
-      <span className="flex-1" />
+      </span>
       {jumpLabel ? (
         <Kbd className="hidden group-data-[highlighted]:inline-flex">{jumpLabel}</Kbd>
       ) : null}
-      <button
-        type="button"
-        className={cn(
-          "inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
-          !favorite && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-        )}
-        onClick={(event) => {
-          event.stopPropagation();
-          onToggleFavorite();
-        }}
-        aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
-        title={favorite ? "Remove from favorites" : "Add to favorites"}
-      >
-        <StarIcon className={cn("size-3.5", favorite && "fill-current text-yellow-500")} />
-      </button>
       <CheckIcon
         aria-hidden
         className={cn("size-4 shrink-0 text-foreground", !selected && "invisible")}
@@ -243,94 +186,38 @@ function ModelListRow({
   );
 }
 
-function ModelPickerContent({
+function AgentPickerContent({
   providers,
-  activeKind,
-  lockedKind,
-  lockedModel = null,
+  activeKey,
   onPick,
+  onAdd,
   onClose,
 }: {
   providers: ProviderSnapshot[];
-  activeKind: ProviderKind;
-  lockedKind: ProviderKind | null;
-  /** The model a started chat is bound to (an OpenClaw agent): the only one it offers. */
-  lockedModel?: string | null;
-  onPick: (kind: ProviderKind, slug: string) => void;
+  activeKey: string | null;
+  onPick: (item: AgentItem) => void;
+  onAdd: () => void;
   onClose: () => void;
 }) {
-  useKeybindingContext("modelPickerOpen", true);
+  useKeybindingContext("agentPickerOpen", true);
   const { resolved } = useKeybindingsState();
-  const { favorites, hidden } = useModelPrefs();
-  const hiddenSet = useMemo(() => new Set(hidden), [hidden]);
-  const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
   const [query, setQuery] = useState("");
-  const [rail, setRail] = useState<ProviderKind | "favorites">(() =>
-    lockedKind === null && favorites.length > 0 ? "favorites" : activeKind,
-  );
   const [highlight, setHighlight] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-
-  const active = providers.find((p) => p.kind === activeKind);
-  const activeModel = lockedModel ?? active?.model;
-  const activeKey = activeModel ? modelKey(activeKind, activeModel) : null;
-  const railProviders = providers.filter((p) => p.enabled);
-
-  const allItems = useMemo(
-    () =>
-      railProviders
-        .filter((p) => isProviderUsable(p))
-        .flatMap((p) =>
-          p.models
-            .filter(
-              (m) =>
-                !hiddenSet.has(modelKey(p.kind, m.slug)) ||
-                (p.kind === activeKind && m.slug === activeModel),
-            )
-            .map((m: ProviderModel) => ({
-              key: modelKey(p.kind, m.slug),
-              kind: p.kind,
-              slug: m.slug,
-              name: m.name,
-              providerName: m.subProvider ? `${p.displayName} · ${m.subProvider}` : p.displayName,
-              group: m.subProvider ?? null,
-              pictured: Boolean(m.avatar || m.emoji),
-            })),
-        ),
-    [railProviders, hiddenSet, activeKind, activeModel],
-  );
-
+  const all = useMemo(() => agentItems(providers), [providers]);
   const items = useMemo(() => {
-    const allowed = allItems.filter(
-      (i) =>
-        (lockedKind === null || i.kind === lockedKind) &&
-        (lockedModel === null || i.slug === lockedModel),
-    );
-    if (query.trim()) {
-      return allowed
-        .map((item) => ({
-          item,
-          score: searchScore(item, query, favoriteSet.has(item.key)),
-        }))
-        .filter((r): r is { item: PickerItem; score: number } => r.score !== null)
-        .sort((a, b) => a.score - b.score || a.item.name.localeCompare(b.item.name))
-        .map((r) => r.item);
-    }
-    const inRail =
-      rail === "favorites"
-        ? allowed.filter((i) => favoriteSet.has(i.key))
-        : allowed.filter((i) => i.kind === rail);
-    if (rail === "favorites") return inRail;
-    const groups = [...new Set(inRail.map((i) => i.group))];
-    return groups.flatMap((group) => {
-      const inGroup = inRail.filter((i) => i.group === group);
-      return [
-        ...inGroup.filter((i) => favoriteSet.has(i.key)),
-        ...inGroup.filter((i) => !favoriteSet.has(i.key)),
-      ];
-    });
-  }, [allItems, favoriteSet, lockedKind, lockedModel, query, rail]);
+    if (!query.trim()) return all;
+    return all
+      .map((item) => ({
+        item,
+        score: searchScore([item.name, item.detail, item.provider.name, item.provider.kind], query),
+      }))
+      .filter((r): r is { item: AgentItem; score: number } => r.score !== null)
+      .sort((a, b) => a.score - b.score)
+      .map((r) => r.item);
+  }, [all, query]);
+  const rows = items.length + 1;
 
   const highlightKey = `${activeKey}:${items.map((item) => item.key).join(",")}`;
   const [highlightFor, setHighlightFor] = useState(highlightKey);
@@ -347,223 +234,403 @@ function ModelPickerContent({
   }, [highlight]);
   useLayoutEffect(() => {
     searchRef.current?.focus({ preventScroll: true });
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Re-run this DOM/reset lifecycle when its explicit trigger changes, even when the callback reads refs.
-  }, [rail]);
+  }, []);
 
-  const pick = (item: PickerItem | undefined) => {
-    if (item) onPick(item.kind, item.slug);
-  };
-  const switchRail = (direction: 1 | -1) => {
-    const order: Array<ProviderKind | "favorites"> = [
-      "favorites",
-      ...railProviders
-        .filter((p) => isProviderUsable(p) && (lockedKind === null || p.kind === lockedKind))
-        .map((p) => p.kind),
-    ];
-    const index = order.indexOf(rail);
-    setQuery("");
-    setRail(order[(index + direction + order.length) % order.length]);
+  const pick = (index: number) => {
+    if (index === items.length) return onAdd();
+    const item = items[index];
+    if (item && item.status === null) onPick(item);
   };
 
-  const showRail = !query.trim() && railProviders.length > 0;
-  const mixed = rail === "favorites" || query.trim() !== "";
   return (
     <div
-      className="relative flex h-screen max-h-86.5 w-screen max-w-90 flex-row overflow-hidden"
-      data-model-picker-content
+      className="flex max-h-96 w-screen max-w-80 flex-col overflow-hidden"
+      data-agent-picker-content
     >
-      {showRail ? (
-        <ModelPickerRail
-          providers={railProviders}
-          selected={rail}
-          lockedKind={lockedKind}
-          onSelect={(value) => {
-            setRail(value);
-            searchRef.current?.focus({ preventScroll: true });
-          }}
-        />
-      ) : null}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="min-w-0 shrink-0 border-b border-foreground/10 px-3 py-2">
-          <div className="relative">
-            <SearchIcon
-              aria-hidden
-              className="pointer-events-none absolute left-0 top-1.5 size-4 shrink-0 text-muted-foreground"
-            />
-            <input
-              ref={searchRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search models..."
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              aria-label="Search models"
-              className="h-7 w-full bg-transparent ps-6 font-sans text-sm leading-7 text-foreground outline-none placeholder:text-muted-foreground"
-              onKeyDown={(e) => {
-                const native = e.nativeEvent;
-                const jump = MODEL_PICKER_JUMP_COMMANDS.findIndex((c) => matchesCommand(native, c));
-                if (jump >= 0) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  pick(items[jump]);
-                  return;
-                }
-                if (
-                  matchesCommand(native, "modelPicker.nextProvider") ||
-                  matchesCommand(native, "modelPicker.previousProvider")
-                ) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  switchRail(matchesCommand(native, "modelPicker.nextProvider") ? 1 : -1);
-                  return;
-                }
-                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                  e.preventDefault();
-                  const delta = e.key === "ArrowDown" ? 1 : -1;
-                  setHighlight((h) =>
-                    items.length ? (h + delta + items.length) % items.length : 0,
-                  );
-                  return;
-                }
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  pick(items[highlight]);
-                  return;
-                }
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onClose();
-                  return;
-                }
+      <div className="min-w-0 shrink-0 border-b border-foreground/10 px-3 py-2">
+        <div className="relative">
+          <SearchIcon
+            aria-hidden
+            className="pointer-events-none absolute left-0 top-1.5 size-4 shrink-0 text-muted-foreground"
+          />
+          <input
+            ref={searchRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search agents..."
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            aria-label="Search agents"
+            className="h-7 w-full bg-transparent ps-6 font-sans text-sm leading-7 text-foreground outline-none placeholder:text-muted-foreground"
+            onKeyDown={(e) => {
+              const native = e.nativeEvent;
+              const jump = AGENT_PICKER_JUMP_COMMANDS.findIndex((c) => matchesCommand(native, c));
+              if (jump >= 0 && jump < items.length) {
+                e.preventDefault();
                 e.stopPropagation();
-              }}
-            />
-          </div>
+                pick(jump);
+                return;
+              }
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault();
+                const delta = e.key === "ArrowDown" ? 1 : -1;
+                setHighlight((h) => (h + delta + rows) % rows);
+                return;
+              }
+              if (e.key === "Enter") {
+                e.preventDefault();
+                pick(highlight);
+                return;
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+                return;
+              }
+              e.stopPropagation();
+            }}
+          />
         </div>
+      </div>
+      <div
+        ref={listRef}
+        role="listbox"
+        aria-label="Agents"
+        className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-1.5"
+      >
+        {items.map((item, index) => (
+          <AgentRow
+            key={item.key}
+            item={item}
+            highlighted={index === highlight}
+            selected={item.key === activeKey}
+            jumpLabel={
+              index < AGENT_PICKER_JUMP_COMMANDS.length
+                ? shortcutLabelFor(resolved, AGENT_PICKER_JUMP_COMMANDS[index])
+                : null
+            }
+            onHover={() => setHighlight(index)}
+            onPick={() => onPick(item)}
+          />
+        ))}
+        {items.length === 0 && query.trim() ? (
+          <div className="px-2 py-4 text-center text-sm text-muted-foreground">No agents found</div>
+        ) : null}
         <div
-          ref={listRef}
-          role="listbox"
-          className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-1.5"
+          role="option"
+          aria-selected={false}
+          data-highlighted={highlight === items.length || undefined}
+          onMouseMove={() => setHighlight(items.length)}
+          onClick={onAdd}
+          className={cn(
+            "flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 text-sm text-muted-foreground outline-none",
+            highlight === items.length && "bg-foreground/[0.06] text-foreground",
+          )}
         >
-          <div className="flex flex-col">
-            {items.map((item, index) => (
-              <Fragment key={item.key}>
-                {/* A provider's own list sits under its sub-provider headings. */}
-                {!mixed && item.group && item.group !== items[index - 1]?.group ? (
-                  <div className="px-2 pb-1 pt-2 text-[13px] text-muted-foreground first:pt-1">
-                    {item.group}
-                  </div>
-                ) : null}
-                <ModelListRow
-                  item={item}
-                  showProvider={mixed}
-                  highlighted={index === highlight}
-                  selected={item.key === activeKey}
-                  favorite={favoriteSet.has(item.key)}
-                  jumpLabel={
-                    index < MODEL_PICKER_JUMP_COMMANDS.length
-                      ? shortcutLabelFor(resolved, MODEL_PICKER_JUMP_COMMANDS[index])
-                      : null
-                  }
-                  onHover={() => setHighlight(index)}
-                  onPick={() => pick(item)}
-                  onToggleFavorite={() => toggleFavorite(item.key)}
-                />
-              </Fragment>
-            ))}
-          </div>
-          {items.length === 0 ? (
-            <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-              {rail === "favorites" && !query.trim() ? "No favorite models yet" : "No models found"}
-            </div>
-          ) : null}
+          <span className="flex size-7 shrink-0 items-center justify-center">
+            <PlusIcon className="size-4" />
+          </span>
+          Add agent
         </div>
       </div>
     </div>
   );
 }
 
-export function ProviderModelPicker({
+/**
+ * Who a chat talks to: the agents you added, each as it shows itself (an OpenClaw gateway's own
+ * agents among them). A started chat stays with its agent.
+ */
+export function AgentPicker({
   providers,
-  activeKind,
-  lockedKind,
-  lockedModel = null,
+  active,
+  agent = null,
+  locked,
   onPick,
   returnFocus,
-  chevron = true,
   className,
 }: {
   providers: ProviderSnapshot[];
-  activeKind: ProviderKind;
-  lockedKind: ProviderKind | null;
-  lockedModel?: string | null;
-  onPick: (kind: ProviderKind, slug: string) => void;
+  active: ProviderSnapshot | undefined;
+  /** The gateway's agent a started chat is bound to (OpenClaw). */
+  agent?: string | null;
+  locked: boolean;
+  onPick: (id: AgentId, agent: string | null) => void;
   returnFocus?: () => void;
-  chevron?: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  useCommandHandlers({ "modelPicker.toggle": () => setOpen((o) => !o) });
+  useCommandHandlers({ "agentPicker.toggle": () => (locked ? false : setOpen((o) => !o)) });
   // An agent's models change as its logins do (varys): listed again each time the picker opens.
   useEffect(() => {
-    if (open) void mailApi.refreshAgentProviders(activeKind).catch(() => {});
-  }, [open, activeKind]);
-  const active = providers.find((p) => p.kind === activeKind);
-  const slug = lockedModel ?? active?.model;
-  const model = active?.models.find((m) => m.slug === slug);
-  const label =
-    (model?.name ?? slug)
-      ? modelLabel(model?.name ?? slug ?? "")
-      : (active?.displayName ?? "Choose model");
+    if (open) void mailApi.refreshAgentProviders().catch(() => {});
+  }, [open]);
+  const gateway = active && agentContribution(active.kind)?.subAgents;
+  const slug = gateway ? (agent ?? active.model) : null;
+  const shownAgent = slug ? active?.models.find((m) => m.slug === slug) : undefined;
+  const label = shownAgent?.name ?? active?.name ?? "Choose agent";
+  const activeKey = active ? (slug ? `${active.id}:${slug}` : active.id) : null;
+  const face = (
+    <span className="flex min-w-0 flex-1 items-center gap-1.5">
+      <AgentFace provider={active} agent={slug} className="size-4" />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+    </span>
+  );
+
+  if (locked)
+    return (
+      <HintTooltip label={`This chat is with ${label}. Start a new chat to talk to another agent.`}>
+        <span
+          data-chat-agent-picker
+          className={cn(
+            COMPOSER_CONTROL,
+            "min-w-0 max-w-48 shrink cursor-default text-foreground/90 hover:bg-transparent",
+            className,
+          )}
+        >
+          {face}
+        </span>
+      </HintTooltip>
+    );
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <HintTooltip label={label} shortcut="modelPicker.toggle">
+      <HintTooltip label="Choose agent" shortcut="agentPicker.toggle">
         <Popover.Trigger asChild>
           <button
             type="button"
-            aria-label={label}
-            data-chat-provider-model-picker
+            aria-label={`Agent: ${label}`}
+            data-chat-agent-picker
             className={cn(
               COMPOSER_CONTROL,
               "min-w-0 max-w-48 shrink justify-between text-foreground/90 sm:max-w-56",
               className,
             )}
           >
-            <span className="flex min-w-0 flex-1 items-center gap-1.5">
-              <AgentAvatar kind={activeKind} agent={lockedModel} className="size-3.5" />
-              <span className="min-w-0 flex-1 truncate">{label}</span>
-            </span>
-            {chevron ? (
-              <span aria-hidden className="flex items-center">
-                <ComposerControlChevron />
-              </span>
-            ) : null}
+            {face}
+            <ComposerControlChevron />
           </button>
         </Popover.Trigger>
       </HintTooltip>
       <Popover.Portal>
         <Popover.Content
-          side="bottom"
+          side="top"
           align="start"
-          sideOffset={4}
+          sideOffset={6}
           collisionPadding={8}
           onCloseAutoFocus={(event) => closeFocus(event, returnFocus)}
           className="dropdown-glass z-[130] overflow-hidden rounded-lg text-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] outline-none dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
         >
-          <ModelPickerContent
-            providers={providers}
-            activeKind={activeKind}
-            lockedKind={lockedKind}
-            lockedModel={lockedModel}
+          <AgentPickerContent
+            providers={providers.filter((p) => p.enabled || p.id === active?.id)}
+            activeKey={activeKey}
             onClose={() => setOpen(false)}
-            onPick={(kind, slug) => {
-              onPick(kind, slug);
+            onAdd={() => {
+              setOpen(false);
+              void mailApi.openSettings({ pane: "agents" });
+            }}
+            onPick={(item) => {
+              onPick(item.provider.id, item.agent);
               setOpen(false);
             }}
           />
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+/** The model an agent runs (Claude's, Codex's, a Hermes server's), when it offers more than one. */
+export function ModelPicker({
+  provider,
+  onPick,
+  returnFocus,
+  chevron = true,
+  className,
+}: {
+  provider: ProviderSnapshot;
+  onPick: (slug: string) => void;
+  returnFocus?: () => void;
+  chevron?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const { favorites, hidden } = useModelPrefs();
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const listRef = useRef<HTMLDivElement>(null);
+  const model = provider.models.find((m) => m.slug === provider.model);
+  const label = modelLabel(model?.name ?? provider.model ?? "Model");
+  const key = (slug: string) => modelKey(provider.id, slug);
+  const models = useMemo(() => {
+    const shown = provider.models.filter(
+      (m) => !hidden.includes(modelKey(provider.id, m.slug)) || m.slug === provider.model,
+    );
+    if (query.trim())
+      return shown
+        .map((m) => ({ m, score: searchScore([m.name, m.slug, m.subProvider ?? ""], query) }))
+        .filter((r): r is { m: ProviderModel; score: number } => r.score !== null)
+        .sort((a, b) => a.score - b.score)
+        .map((r) => r.m);
+    const groups = [...new Set(shown.map((m) => m.subProvider ?? null))];
+    return groups.flatMap((group) => {
+      const inGroup = shown.filter((m) => (m.subProvider ?? null) === group);
+      const starred = (m: ProviderModel) => favorites.includes(modelKey(provider.id, m.slug));
+      return [...inGroup.filter(starred), ...inGroup.filter((m) => !starred(m))];
+    });
+  }, [provider, hidden, favorites, query]);
+  const openPicker = (next: boolean) => {
+    if (next) {
+      setQuery("");
+      setHighlight(
+        Math.max(
+          0,
+          models.findIndex((m) => m.slug === provider.model),
+        ),
+      );
+    }
+    setOpen(next);
+  };
+  useEffect(() => {
+    listRef.current
+      ?.querySelector<HTMLElement>("[data-highlighted]")
+      ?.scrollIntoView({ block: "nearest" });
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Re-run this DOM/reset lifecycle when its explicit trigger changes, even when the callback reads refs.
+  }, [highlight]);
+  const pick = (m: ProviderModel | undefined) => {
+    if (!m) return;
+    onPick(m.slug);
+    setOpen(false);
+  };
+  const grouped = !query.trim();
+
+  return (
+    <Popover.Root open={open} onOpenChange={openPicker}>
+      <HintTooltip label={`${provider.name}'s model`}>
+        <Popover.Trigger asChild>
+          <button
+            type="button"
+            aria-label={`Model: ${label}`}
+            data-chat-model-picker
+            className={cn(COMPOSER_CONTROL, "min-w-0 max-w-44 shrink justify-between", className)}
+          >
+            <span className="min-w-0 flex-1 truncate">{label}</span>
+            {chevron ? <ComposerControlChevron /> : null}
+          </button>
+        </Popover.Trigger>
+      </HintTooltip>
+      <Popover.Portal>
+        <Popover.Content
+          side="top"
+          align="end"
+          sideOffset={6}
+          collisionPadding={8}
+          onCloseAutoFocus={(event) => closeFocus(event, returnFocus)}
+          className="dropdown-glass z-[130] overflow-hidden rounded-lg text-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] outline-none dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
+        >
+          <div className="flex max-h-86.5 w-screen max-w-72 flex-col overflow-hidden">
+            {provider.models.length > 8 ? (
+              <div className="min-w-0 shrink-0 border-b border-foreground/10 px-3 py-2">
+                <div className="relative">
+                  <SearchIcon
+                    aria-hidden
+                    className="pointer-events-none absolute left-0 top-1.5 size-4 shrink-0 text-muted-foreground"
+                  />
+                  <input
+                    autoFocus
+                    value={query}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      setHighlight(0);
+                    }}
+                    placeholder="Search models..."
+                    spellCheck={false}
+                    aria-label="Search models"
+                    className="h-7 w-full bg-transparent ps-6 font-sans text-sm leading-7 text-foreground outline-none placeholder:text-muted-foreground"
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                        e.preventDefault();
+                        const delta = e.key === "ArrowDown" ? 1 : -1;
+                        setHighlight((h) =>
+                          models.length ? (h + delta + models.length) % models.length : 0,
+                        );
+                      } else if (e.key === "Enter") {
+                        e.preventDefault();
+                        pick(models[highlight]);
+                      } else if (e.key !== "Escape") e.stopPropagation();
+                    }}
+                  />
+                </div>
+              </div>
+            ) : null}
+            <div
+              ref={listRef}
+              role="listbox"
+              aria-label="Models"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-1.5"
+            >
+              {models.map((m, index) => {
+                const favorite = favorites.includes(key(m.slug));
+                const group = m.subProvider ?? null;
+                return (
+                  <Fragment key={m.slug}>
+                    {grouped && group && group !== (models[index - 1]?.subProvider ?? null) ? (
+                      <div className="px-2 pb-1 pt-2 text-[13px] text-muted-foreground first:pt-1">
+                        {group}
+                      </div>
+                    ) : null}
+                    <div
+                      role="option"
+                      aria-selected={m.slug === provider.model}
+                      data-highlighted={index === highlight || undefined}
+                      onMouseMove={() => setHighlight(index)}
+                      onClick={() => pick(m)}
+                      className={cn(
+                        "group relative flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm outline-none",
+                        index === highlight && "bg-foreground/[0.06]",
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-foreground">
+                        {modelLabel(m.name)}
+                      </span>
+                      <button
+                        type="button"
+                        className={cn(
+                          "inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
+                          !favorite &&
+                            "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+                        )}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleFavorite(key(m.slug));
+                        }}
+                        aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+                        title={favorite ? "Remove from favorites" : "Add to favorites"}
+                      >
+                        <StarIcon
+                          className={cn("size-3.5", favorite && "fill-current text-yellow-500")}
+                        />
+                      </button>
+                      <CheckIcon
+                        aria-hidden
+                        className={cn(
+                          "size-4 shrink-0 text-foreground",
+                          m.slug !== provider.model && "invisible",
+                        )}
+                      />
+                    </div>
+                  </Fragment>
+                );
+              })}
+              {models.length === 0 ? (
+                <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                  No models found
+                </div>
+              ) : null}
+            </div>
+          </div>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

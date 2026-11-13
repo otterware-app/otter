@@ -1,8 +1,10 @@
 import type { ChatChange } from "./index.js";
 
+/** The agent a chat runs on: its id, one of the agents you added. */
 export type ChatProvider = string;
 
-export const LOCAL_CHAT_PROVIDERS: readonly ChatProvider[] = ["claude", "codex"];
+/** Kinds of agent whose chats run on the device that started them. */
+export const LOCAL_AGENT_KINDS: readonly string[] = ["claude", "codex"];
 
 export interface ChatStep {
   kind: "command" | "read" | "edit" | "search" | "web" | "skill" | "tool";

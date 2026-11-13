@@ -87,7 +87,7 @@ function otterTarget(to: unknown): { chat: string } | "new" | undefined {
 const NO_OTTER_CHAT = "It names no Otter chat to send to: choose where its results go.";
 
 export const READ_ONLY =
-  "Otter can see these but not change them: allow it full access to the gateway in Settings → OpenClaw.";
+  "Otter can see these but not change them: allow it full access to the gateway in Settings → Agents.";
 
 /** OpenClaw's own jobs (`heartbeat:main`, `memory-core:…`): kept from its config, so not Otter's to edit. */
 function managedBy(job: Job): string | undefined {
@@ -306,7 +306,7 @@ export function cronError(error: unknown): Error {
   if (code === "CRON_JOB_CHANGED") return new Error(CHANGED);
   if (/not a known channel: otter/.test(message))
     return new Error(
-      "The gateway can't send to Otter yet: set up Messages from your agents in Settings → OpenClaw.",
+      "The gateway can't send to Otter yet: set up Messages from your agents in Settings → Agents.",
     );
   return new Error(message.replace(/^invalid cron\.\w+ params: /, ""));
 }

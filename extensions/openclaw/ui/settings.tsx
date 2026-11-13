@@ -62,14 +62,17 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
 
   useEffect(() => {
     if (!openclawPairingRequest) return;
-    const timer = setInterval(() => void mailApi.refreshAgentProviders().catch(() => {}), 4000);
+    const timer = setInterval(
+      () => void mailApi.refreshAgentProviders(provider.id).catch(() => {}),
+      4000,
+    );
     return () => clearInterval(timer);
-  }, [openclawPairingRequest]);
+  }, [openclawPairingRequest, provider.id]);
 
   const allowFullAccess = async () => {
     setAsking(true);
     try {
-      setState(await openClawApi.agentAllowOpenClawFullAccess());
+      setState(await openClawApi.agentAllowOpenClawFullAccess(provider.id));
     } catch (error) {
       toast.error(
         `Could not ask the gateway: ${error instanceof Error ? error.message : String(error)}`,
@@ -82,7 +85,7 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
   const allowOwner = async () => {
     setAsking(true);
     try {
-      setState(await openClawApi.agentAllowOpenClawOwner());
+      setState(await openClawApi.agentAllowOpenClawOwner(provider.id));
     } catch (error) {
       toast.error(
         `Could not change the gateway's settings: ${error instanceof Error ? error.message : String(error)}`,
@@ -103,6 +106,7 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
     try {
       setState(
         await openClawApi.connectOpenClaw(
+          provider.id,
           useToken ? { url: address, token: token.trim() } : { code: code.trim() },
         ),
       );
@@ -273,7 +277,7 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
         <ModelsSection
           provider={provider}
           selectedModel={provider.settings.model}
-          onPick={(model) => update({ openclaw: { model } })}
+          onPick={(model) => update({ [provider.id]: { model } })}
         />
       ) : null}
     </>

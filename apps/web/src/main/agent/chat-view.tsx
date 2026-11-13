@@ -3,9 +3,10 @@ import { MessageScroller } from "@shadcn/react/message-scroller";
 import { ArrowDownIcon, MailIcon } from "lucide-react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { buttonClass, cn } from "../mail/ui";
-import { mailApi, type AgentSettingsPatch, type ChatChange, type ProviderKind } from "../mail/api";
+import { mailApi, type AgentId, type AgentSettingsPatch, type ChatChange } from "../mail/api";
 import {
-  ProviderIcon,
+  AgentFace,
+  isProviderUsable,
   providerSummary,
   useChatProvider,
   useSetProvidersState,
@@ -29,12 +30,19 @@ import {
 import { QueuedMessages } from "./chat-queue";
 import { ChatTranscript } from "./chat-transcript";
 import { ChatComposer } from "./chat-composer";
-import { isProviderUsable } from "./agent-providers";
+import { AgentIcon } from "./agent-icon";
 import { toast } from "../mail/toast";
 
 const NO_QUEUE: QueuedMessage[] = [];
 
-function useChatImageLoader(provider?: ProviderKind, sessionId?: string | null) {
+function kindList(kinds: { name: string }[]): string {
+  const names = kinds.map((k) => k.name);
+  return names.length > 1
+    ? `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`
+    : (names[0] ?? "an agent");
+}
+
+function useChatImageLoader(provider?: AgentId, sessionId?: string | null) {
   return useCallback(
     async (href: string) => {
       if (!provider) throw new Error("Open the image from its chat.");
@@ -139,7 +147,7 @@ export function ChatView({
   const elsewhere = convo && isElsewhere(convo, device) ? convo.device : null;
   const setupSummary = providerSummary(chat.provider);
   const fallback = chat.state?.providers.find(
-    (p) => p.kind !== chat.kind && isProviderUsable(p) && p.checkedAt !== null,
+    (p) => p.id !== chat.id && isProviderUsable(p) && p.checkedAt !== null,
   );
   const hero = turns.length === 0 && !hydrating && !unloaded;
   const composer = elsewhere ? (
@@ -170,28 +178,41 @@ export function ChatView({
       {drop.active ? <DropOverlay /> : null}
       {needsSetup ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-          <ProviderIcon kind={chat.kind} className="mb-1 size-6" />
-          <span className="text-sm font-medium text-foreground">
-            {chat.name}: {setupSummary.headline}
-          </span>
-          {setupSummary.detail ? (
-            <span className="text-sm text-muted-foreground">{setupSummary.detail}</span>
-          ) : null}
+          {chat.provider ? (
+            <>
+              <AgentFace provider={chat.provider} className="mb-1 size-6" />
+              <span className="text-sm font-medium text-foreground">
+                {chat.name}: {setupSummary.headline}
+              </span>
+              {setupSummary.detail ? (
+                <span className="text-sm text-muted-foreground">{setupSummary.detail}</span>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <AgentIcon className="mb-1 size-6 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Add an agent to chat with</span>
+              <span className="max-w-80 text-sm text-pretty text-muted-foreground">
+                Connect {kindList(chat.state?.kinds ?? [])} in Settings → Agents. Add as many as you
+                work with.
+              </span>
+            </>
+          )}
           <div className="mt-1 flex items-center gap-2">
             <button
               type="button"
-              onClick={() => void mailApi.openSettings({ pane: "agents", item: chat.kind })}
+              onClick={() => void mailApi.openSettings({ pane: "agents", item: chat.provider?.id })}
               className={buttonClass("outline", "sm")}
             >
-              Open Settings
+              {chat.provider ? "Open Settings" : "Add agent"}
             </button>
             {fallback ? (
               <button
                 type="button"
-                onClick={() => updateSettings({ selected: fallback.kind })}
+                onClick={() => updateSettings({ selected: fallback.id })}
                 className={buttonClass("ghost", "sm")}
               >
-                Use {fallback.displayName}
+                Use {fallback.name}
               </button>
             ) : null}
           </div>

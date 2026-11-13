@@ -2,20 +2,18 @@ import type { ScheduledTaskInput } from "@otter/contracts/scheduled";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { HermesSettings } from "./settings.js";
 
-vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
-  getHermesKey: async () => "test-key",
-}));
 const saved = vi.hoisted(() => [] as unknown[]);
 const synced = vi.hoisted(() => [] as string[]);
 vi.mock("../../../packages/core/src/services/preferences.js", () => ({
   preferenceChanged: (key: string) => void synced.push(key),
 }));
 vi.mock("../../../packages/core/src/services/agent/service.js", () => ({
-  saveAgentSettings: async (_kind: string, change: unknown) => void saved.push(change),
+  saveAgentSettings: async (agent: string, change: unknown) => void saved.push([agent, change]),
 }));
-const { hermesProvider, hermesSchedule, hermesTask } = await import("./hermes.js");
+const { hermesAgent, hermesSchedule, hermesTask } = await import("./hermes.js");
 const settings = { baseUrl: "https://hermes.test/v1", enabled: true } as HermesSettings;
-const schedules = hermesProvider.schedules!;
+const secrets = { get: async () => "test-key", set: async () => {}, delete: async () => {} };
+const schedules = hermesAgent.create({ id: "hermes-1", secrets }).schedules!;
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -50,8 +48,8 @@ function serve(answer: (url: URL, init: RequestInit) => Response) {
 
 describe("hermesTask", () => {
   it("reads a Hermes job", () => {
-    expect(hermesTask(job)).toEqual({
-      provider: "hermes",
+    expect(hermesTask(job, "hermes-1")).toEqual({
+      provider: "hermes-1",
       id: "a1b2c3",
       name: "Morning brief",
       prompt: "Summarise my inbox",
@@ -66,24 +64,31 @@ describe("hermesTask", () => {
       },
       delivery: { kind: "otter", chat: "new" },
     });
-    expect(hermesTask(job, { mutedJobs: "x,a1b2c3" }).delivery).toEqual({ kind: "none" });
+    expect(hermesTask(job, "hermes-1", { mutedJobs: "x,a1b2c3" }).delivery).toEqual({
+      kind: "none",
+    });
   });
 
   it("reads intervals, one-offs, pauses and deliveries", () => {
     expect(
-      hermesTask({ ...job, schedule: { kind: "interval", minutes: 90 }, deliver: "telegram" }),
+      hermesTask(
+        { ...job, schedule: { kind: "interval", minutes: 90 }, deliver: "telegram" },
+        "hermes-1",
+      ),
     ).toMatchObject({
       schedule: { kind: "every", everyMs: 5_400_000 },
       delivery: { kind: "elsewhere", label: "Telegram" },
     });
     expect(
-      hermesTask({ ...job, schedule: { kind: "once", run_at: "2026-12-01T10:00:00+00:00" } })
-        .schedule,
+      hermesTask(
+        { ...job, schedule: { kind: "once", run_at: "2026-12-01T10:00:00+00:00" } },
+        "hermes-1",
+      ).schedule,
     ).toEqual({ kind: "at", at: "2026-12-01T10:00:00+00:00" });
-    const paused = hermesTask({ ...job, enabled: false, state: "paused" });
+    const paused = hermesTask({ ...job, enabled: false, state: "paused" }, "hermes-1");
     expect(paused.enabled).toBe(false);
     expect(paused.nextRunAt).toBeUndefined();
-    expect(hermesTask({ ...job, state: "running" }).running).toBe(true);
+    expect(hermesTask({ ...job, state: "running" }, "hermes-1").running).toBe(true);
   });
 });
 
@@ -212,14 +217,17 @@ describe("Hermes's jobs API", () => {
       resultsTo: { kind: "off" },
     });
     expect(JSON.parse(String(calls[1].init.body))).toMatchObject({ deliver: "local" });
-    expect(saved).toEqual([{ mutedJobs: "a1b2c3" }]);
+    expect(saved).toEqual([["hermes-1", { mutedJobs: "a1b2c3" }]]);
     expect(synced).toEqual(["assistant"]);
     await schedules.save(mine, "a1b2c3", {
       name: "Morning brief",
       schedule: { kind: "cron", expr: "0 9 * * 1-5" },
       resultsTo: { kind: "new-chat" },
     });
-    expect(saved).toEqual([{ mutedJobs: "a1b2c3" }, { mutedJobs: "" }]);
+    expect(saved).toEqual([
+      ["hermes-1", { mutedJobs: "a1b2c3" }],
+      ["hermes-1", { mutedJobs: "" }],
+    ]);
   });
 
   it("sends results straight to Otter through its plugin, or to another channel", async () => {
@@ -240,11 +248,11 @@ describe("Hermes's jobs API", () => {
     expect(sent()).toMatchObject({ deliver: "otter" });
     await edit({ kind: "channel", channel: "telegram", to: "-100123" });
     expect(sent()).toMatchObject({ deliver: "telegram:-100123" });
-    expect(hermesTask({ ...job, deliver: "otter" }).delivery).toEqual({
+    expect(hermesTask({ ...job, deliver: "otter" }, "hermes-1").delivery).toEqual({
       kind: "otter",
       chat: "new",
     });
-    expect(hermesTask({ ...job, deliver: "telegram:-100123" }).delivery).toEqual({
+    expect(hermesTask({ ...job, deliver: "telegram:-100123" }, "hermes-1").delivery).toEqual({
       kind: "channel",
       channel: "telegram",
       label: "Telegram",

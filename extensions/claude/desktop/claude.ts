@@ -33,6 +33,7 @@ import {
 } from "@otter/desktop/extension-kit";
 import { TOOL_OUTPUT_CHARS, claudeStep, TextStream } from "@otter/core/extension-kit";
 import type {
+  AgentType,
   ApprovalDecision,
   ApprovalRequest,
   ChatProvider,
@@ -211,10 +212,14 @@ type Session = {
   hiddenTools: Set<string>;
 };
 
-const sessions = new Map<string, Session>();
-const turnsByRequest = new Map<string, Session>();
+/** One agent's open sessions, by id. */
+type Sessions = Map<string, Session>;
 
-function closeSession(session: Session, reason: "cancelled" | "unreachable" = "cancelled"): void {
+function closeSession(
+  sessions: Sessions,
+  session: Session,
+  reason: "cancelled" | "unreachable" = "cancelled",
+): void {
   if (session.closed) return;
   session.closed = true;
   if (session.idleTimer) clearTimeout(session.idleTimer);
@@ -234,10 +239,10 @@ function closeSession(session: Session, reason: "cancelled" | "unreachable" = "c
   }
 }
 
-function armIdle(session: Session): void {
+function armIdle(sessions: Sessions, session: Session): void {
   if (session.idleTimer) clearTimeout(session.idleTimer);
   session.idleTimer = setTimeout(() => {
-    if (!session.turn) closeSession(session);
+    if (!session.turn) closeSession(sessions, session);
   }, SESSION_IDLE_MS);
 }
 
@@ -377,6 +382,7 @@ function handleMessage(session: Session, message: SDKMessage): void {
 }
 
 async function openSession(
+  sessions: Sessions,
   settings: ClaudeSettings,
   sessionId: string | undefined,
 ): Promise<Session> {
@@ -388,7 +394,7 @@ async function openSession(
   ]);
   const existing = sessionId ? sessions.get(sessionId) : undefined;
   if (existing && !existing.closed && existing.launchKey === launchKey) return existing;
-  if (existing) closeSession(existing);
+  if (existing) closeSession(sessions, existing);
 
   await ensureShellPath();
   const cwd = await agentWorkspace();
@@ -492,13 +498,13 @@ async function openSession(
   void (async () => {
     try {
       for await (const message of session.query) handleMessage(session, message);
-      if (!session.closed) closeSession(session, "unreachable");
+      if (!session.closed) closeSession(sessions, session, "unreachable");
     } catch (error) {
       if (!session.closed) {
         logger.info("agent", "claude session ended", {
           error: String(error),
         });
-        closeSession(session, "unreachable");
+        closeSession(sessions, session, "unreachable");
       }
     }
   })();
@@ -646,9 +652,7 @@ async function probe(settings: ClaudeSettings): Promise<ProbeResult> {
   }
 }
 
-let knownSkills: Skill[] = [];
-
-export const claudeProvider: ChatProvider<ClaudeSettings> = {
+export const claudeAgent: AgentType<ClaudeSettings> = {
   kind: "claude",
   displayName: "Claude",
   defaults: CLAUDE_DEFAULTS,
@@ -663,224 +667,232 @@ export const claudeProvider: ChatProvider<ClaudeSettings> = {
   },
   deviceFields: ["binaryPath", "homePath"],
   restartFields: ["binaryPath", "homePath"],
+  create: createClaude,
+};
 
-  async checkStatus(settings) {
-    const base = {
-      kind: "claude" as const,
-      displayName: "Claude",
-      models: [] as ProviderModel[],
-      model: settings.model || null,
-      sessions: true,
-    };
-    await ensureShellPath();
-    let version: string;
-    try {
-      version = await claudeVersion(settings);
-    } catch (error) {
-      const missing = (error as NodeJS.ErrnoException).code === "ENOENT";
-      return {
-        ...base,
-        installed: !missing,
-        version: null,
-        status: "error",
-        auth: { status: "unknown" },
-        message: missing
-          ? `Claude Code CLI (\`${claudeBinary(settings)}\`) was not found. Install it or set the binary path.`
-          : "Claude Code CLI is installed but failed to run.",
-      };
-    }
-    try {
-      const result = await probe(settings);
-      knownSkills = result.skills;
-      return {
-        ...base,
-        installed: true,
-        version: version || null,
-        status: "ready",
-        models: result.models,
-        auth: {
-          status: "authenticated",
-          ...(result.auth ? { label: result.auth } : {}),
-          ...(result.email ? { email: result.email } : {}),
-        },
-      };
-    } catch (error) {
-      logger.info("agent", "claude probe failed", { error: String(error) });
-      return {
-        ...base,
-        installed: true,
-        version: version || null,
-        status: "warning",
-        auth: { status: "unknown" },
-        message: "Could not verify Claude authentication. Run `claude` and log in.",
-      };
-    }
-  },
+/** One Claude agent: its own sessions, as it may run another binary or account (`homePath`). */
+export function createClaude(): ChatProvider<ClaudeSettings> {
+  const sessions: Sessions = new Map();
+  const turnsByRequest = new Map<string, Session>();
+  let knownSkills: Skill[] = [];
 
-  async sendTurn(turn, settings, emit) {
-    const { requestId } = turn;
-    let session: Session;
-    try {
-      session = await openSession(settings, turn.sessionId);
-    } catch (error) {
-      logger.info("agent", "claude session failed", {
-        error: String(error),
-      });
-      return emit({ requestId, type: "error", message: "not_installed" });
-    }
-    if (session.sessionId !== turn.sessionId)
-      emit({ requestId, type: "session", sessionId: session.sessionId });
-    if (session.idleTimer) clearTimeout(session.idleTimer);
-
-    if (session.mode !== settings.runtimeMode) {
-      session.mode = settings.runtimeMode;
-      await session.query.setPermissionMode(permissionMode(session.mode)).catch(() => {});
-    }
-    if (session.model !== settings.model) {
-      session.model = settings.model;
-      await session.query.setModel(session.model || undefined).catch(() => {});
-    }
-
-    const finished = new Promise<void>((resolve) => {
-      session.turn = {
-        requestId,
-        emit,
-        text: new TextStream(requestId, emit),
-        approvals: new Map(),
-        steers: 0,
-        settle: null,
-        finish: resolve,
+  return {
+    async checkStatus(settings) {
+      const base = {
+        models: [] as ProviderModel[],
+        model: settings.model || null,
+        sessions: true,
       };
-    });
-    turnsByRequest.set(requestId, session);
-    const text = turn.skill
-      ? `/${turn.skill.name}${turn.input ? ` ${turn.input}` : ""}`
-      : turn.input;
-    // T3 Code: images as base64 blocks, then the text with every
-    // attachment's path (Claude reads documents itself). Text last so a
-    // /skill command still expands.
-    const attached = turn.attachments ?? [];
-    const images = await Promise.all(
-      attached
-        .filter((a) => a.kind === "image" && CLAUDE_IMAGE_TYPES.has(a.mime))
-        .map(async (a) => ({
-          type: "image" as const,
-          source: {
-            type: "base64" as const,
-            media_type: a.mime,
-            data: (await fs.readFile(attachmentPath(a))).toString("base64"),
+      await ensureShellPath();
+      let version: string;
+      try {
+        version = await claudeVersion(settings);
+      } catch (error) {
+        const missing = (error as NodeJS.ErrnoException).code === "ENOENT";
+        return {
+          ...base,
+          installed: !missing,
+          version: null,
+          status: "error",
+          auth: { status: "unknown" },
+          message: missing
+            ? `Claude Code CLI (\`${claudeBinary(settings)}\`) was not found. Install it or set the binary path.`
+            : "Claude Code CLI is installed but failed to run.",
+        };
+      }
+      try {
+        const result = await probe(settings);
+        knownSkills = result.skills;
+        return {
+          ...base,
+          installed: true,
+          version: version || null,
+          status: "ready",
+          models: result.models,
+          auth: {
+            status: "authenticated",
+            ...(result.auth ? { label: result.auth } : {}),
+            ...(result.email ? { email: result.email } : {}),
           },
-        })),
-    );
+        };
+      } catch (error) {
+        logger.info("agent", "claude probe failed", { error: String(error) });
+        return {
+          ...base,
+          installed: true,
+          version: version || null,
+          status: "warning",
+          auth: { status: "unknown" },
+          message: "Could not verify Claude authentication. Run `claude` and log in.",
+        };
+      }
+    },
 
-    session.prompts.push({
-      type: "user",
-      parent_tool_use_id: null,
-      message: {
-        role: "user",
-        content: [...images, { type: "text", text: withAttachmentPaths(text, attached) }],
-      },
-    } as SDKUserMessage);
-    try {
-      await finished;
-    } finally {
-      turnsByRequest.delete(requestId);
-      if (session.turn?.requestId === requestId) session.turn = null;
-      if (!session.closed) armIdle(session);
-    }
-  },
+    async sendTurn(turn, settings, emit) {
+      const { requestId } = turn;
+      let session: Session;
+      try {
+        session = await openSession(sessions, settings, turn.sessionId);
+      } catch (error) {
+        logger.info("agent", "claude session failed", {
+          error: String(error),
+        });
+        return emit({ requestId, type: "error", message: "not_installed" });
+      }
+      if (session.sessionId !== turn.sessionId)
+        emit({ requestId, type: "session", sessionId: session.sessionId });
+      if (session.idleTimer) clearTimeout(session.idleTimer);
 
-  async steer(requestId, input) {
-    const session = turnsByRequest.get(requestId);
-    if (!session || session.closed || session.turn?.requestId !== requestId) return false;
-    session.turn.steers += 1;
-    session.prompts.push({
-      type: "user",
-      priority: "now",
-      parent_tool_use_id: null,
-      message: { role: "user", content: [{ type: "text", text: input }] },
-    } as SDKUserMessage);
-    return true;
-  },
+      if (session.mode !== settings.runtimeMode) {
+        session.mode = settings.runtimeMode;
+        await session.query.setPermissionMode(permissionMode(session.mode)).catch(() => {});
+      }
+      if (session.model !== settings.model) {
+        session.model = settings.model;
+        await session.query.setModel(session.model || undefined).catch(() => {});
+      }
 
-  cancel(requestId) {
-    const session = turnsByRequest.get(requestId);
-    if (session) closeSession(session);
-  },
+      const finished = new Promise<void>((resolve) => {
+        session.turn = {
+          requestId,
+          emit,
+          text: new TextStream(requestId, emit),
+          approvals: new Map(),
+          steers: 0,
+          settle: null,
+          finish: resolve,
+        };
+      });
+      turnsByRequest.set(requestId, session);
+      const text = turn.skill
+        ? `/${turn.skill.name}${turn.input ? ` ${turn.input}` : ""}`
+        : turn.input;
+      // T3 Code: images as base64 blocks, then the text with every
+      // attachment's path (Claude reads documents itself). Text last so a
+      // /skill command still expands.
+      const attached = turn.attachments ?? [];
+      const images = await Promise.all(
+        attached
+          .filter((a) => a.kind === "image" && CLAUDE_IMAGE_TYPES.has(a.mime))
+          .map(async (a) => ({
+            type: "image" as const,
+            source: {
+              type: "base64" as const,
+              media_type: a.mime,
+              data: (await fs.readFile(attachmentPath(a))).toString("base64"),
+            },
+          })),
+      );
 
-  async respondApproval(requestId, approvalId, decision) {
-    turnsByRequest.get(requestId)?.turn?.approvals.get(approvalId)?.resolve(decision);
-  },
+      session.prompts.push({
+        type: "user",
+        parent_tool_use_id: null,
+        message: {
+          role: "user",
+          content: [...images, { type: "text", text: withAttachmentPaths(text, attached) }],
+        },
+      } as SDKUserMessage);
+      try {
+        await finished;
+      } finally {
+        turnsByRequest.delete(requestId);
+        if (session.turn?.requestId === requestId) session.turn = null;
+        if (!session.closed) armIdle(sessions, session);
+      }
+    },
 
-  async listSkills() {
-    return knownSkills;
-  },
+    async steer(requestId, input) {
+      const session = turnsByRequest.get(requestId);
+      if (!session || session.closed || session.turn?.requestId !== requestId) return false;
+      session.turn.steers += 1;
+      session.prompts.push({
+        type: "user",
+        priority: "now",
+        parent_tool_use_id: null,
+        message: { role: "user", content: [{ type: "text", text: input }] },
+      } as SDKUserMessage);
+      return true;
+    },
 
-  async listSessions(_settings, limit): Promise<ChatSession[]> {
-    const sessionsInfo = await sdkListSessions({
-      dir: await agentWorkspace(),
-      limit,
-    });
-    return sessionsInfo.map((s) => ({
-      id: s.sessionId,
-      title: s.customTitle ?? (s.summary || null),
-      source: "claude",
-      lastActive: s.lastModified,
-      messageCount: 1,
-      preview: s.firstPrompt ?? null,
-    }));
-  },
+    cancel(requestId) {
+      const session = turnsByRequest.get(requestId);
+      if (session) closeSession(sessions, session);
+    },
 
-  async readSession(_settings, sessionId): Promise<ChatSessionMessage[]> {
-    const messages = await getSessionMessages(sessionId, {
-      dir: await agentWorkspace(),
-    });
-    const out: ChatSessionMessage[] = [];
-    const hidden = new Set<string>();
-    for (const m of messages) {
-      if (m.parent_tool_use_id) continue;
-      const content = (m.message as { content?: unknown })?.content;
-      const blocks =
-        typeof content === "string"
-          ? [{ type: "text", text: content }]
-          : Array.isArray(content)
-            ? content
-            : [];
-      for (const block of blocks as {
-        type?: string;
-        id?: string;
-        tool_use_id?: string;
-        text?: string;
-        name?: string;
-        input?: Record<string, unknown>;
-        content?: unknown;
-      }[]) {
-        if (m.type === "user" && block.type === "text" && block.text)
-          out.push({ role: "user", text: block.text });
-        else if (m.type === "user" && block.type === "tool_result") {
-          if (block.tool_use_id && hidden.has(block.tool_use_id)) continue;
-          out.push({ role: "tool", text: resultText(block.content).slice(0, TOOL_OUTPUT_CHARS) });
-        } else if (m.type === "assistant" && block.type === "text" && block.text)
-          out.push({ role: "assistant", text: block.text });
-        else if (m.type === "assistant" && block.type === "tool_use" && block.name) {
-          const step = claudeStep(block.name, block.input ?? {});
-          if (step) out.push({ role: "assistant", text: "", toolCalls: [step] });
-          else if (block.id) hidden.add(block.id);
+    async respondApproval(requestId, approvalId, decision) {
+      turnsByRequest.get(requestId)?.turn?.approvals.get(approvalId)?.resolve(decision);
+    },
+
+    async listSkills() {
+      return knownSkills;
+    },
+
+    async listSessions(_settings, limit): Promise<ChatSession[]> {
+      const sessionsInfo = await sdkListSessions({
+        dir: await agentWorkspace(),
+        limit,
+      });
+      return sessionsInfo.map((s) => ({
+        id: s.sessionId,
+        title: s.customTitle ?? (s.summary || null),
+        source: "claude",
+        lastActive: s.lastModified,
+        messageCount: 1,
+        preview: s.firstPrompt ?? null,
+      }));
+    },
+
+    async readSession(_settings, sessionId): Promise<ChatSessionMessage[]> {
+      const messages = await getSessionMessages(sessionId, {
+        dir: await agentWorkspace(),
+      });
+      const out: ChatSessionMessage[] = [];
+      const hidden = new Set<string>();
+      for (const m of messages) {
+        if (m.parent_tool_use_id) continue;
+        const content = (m.message as { content?: unknown })?.content;
+        const blocks =
+          typeof content === "string"
+            ? [{ type: "text", text: content }]
+            : Array.isArray(content)
+              ? content
+              : [];
+        for (const block of blocks as {
+          type?: string;
+          id?: string;
+          tool_use_id?: string;
+          text?: string;
+          name?: string;
+          input?: Record<string, unknown>;
+          content?: unknown;
+        }[]) {
+          if (m.type === "user" && block.type === "text" && block.text)
+            out.push({ role: "user", text: block.text });
+          else if (m.type === "user" && block.type === "tool_result") {
+            if (block.tool_use_id && hidden.has(block.tool_use_id)) continue;
+            out.push({ role: "tool", text: resultText(block.content).slice(0, TOOL_OUTPUT_CHARS) });
+          } else if (m.type === "assistant" && block.type === "text" && block.text)
+            out.push({ role: "assistant", text: block.text });
+          else if (m.type === "assistant" && block.type === "tool_use" && block.name) {
+            const step = claudeStep(block.name, block.input ?? {});
+            if (step) out.push({ role: "assistant", text: "", toolCalls: [step] });
+            else if (block.id) hidden.add(block.id);
+          }
         }
       }
-    }
-    return out;
-  },
+      return out;
+    },
 
-  readFile: (_settings, _sessionId, href) => readAgentFile(href),
+    readFile: (_settings, _sessionId, href) => readAgentFile(href),
 
-  async deleteSession(_settings, sessionId) {
-    const live = sessions.get(sessionId);
-    if (live) closeSession(live);
-    await sdkDeleteSession(sessionId, { dir: await agentWorkspace() });
-  },
+    async deleteSession(_settings, sessionId) {
+      const live = sessions.get(sessionId);
+      if (live) closeSession(sessions, live);
+      await sdkDeleteSession(sessionId, { dir: await agentWorkspace() });
+    },
 
-  shutdown() {
-    for (const session of sessions.values()) closeSession(session);
-  },
-};
+    shutdown() {
+      for (const session of sessions.values()) closeSession(sessions, session);
+    },
+  };
+}

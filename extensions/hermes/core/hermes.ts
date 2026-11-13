@@ -11,11 +11,12 @@ import {
   dataUrl,
   readAttachment,
   TextStream,
-  getHermesKey,
   hermesStep,
   TOOL_OUTPUT_CHARS,
 } from "@otter/core/extension-kit";
 import type {
+  AgentContext,
+  AgentType,
   ChatAttachment,
   ChatProvider,
   ProviderModel,
@@ -30,6 +31,7 @@ import {
   rawMessages,
   authHeaders,
   contentText,
+  listSessions as rawSessions,
   parseJson,
   readError,
   readSse,
@@ -43,11 +45,10 @@ import {
 import {
   LET_GO,
   follow,
-  following,
   keepRun,
   keptRun,
   newRun,
-  pendingApprovals,
+  newRuns,
   replyOf,
   startRun,
   type Run,
@@ -56,15 +57,20 @@ import {
   DELIVERED,
   deliveredNow,
   deliveredReply,
+  newDeliveries,
   ranTo,
   stopWatching,
   watchDeliveries,
+  type Deliveries,
 } from "./deliveries.js";
 import { hermesSchedules } from "./schedules.js";
 import { HERMES_DEFAULTS, type HermesSettings } from "./settings.js";
 
 export { normalizeHermesBaseUrl } from "./http.js";
 export { hermesSchedule, hermesTask } from "./schedules.js";
+
+/** Sessions of Otter's own: those started through the API, and those its plugin delivered. */
+const OWN_SOURCES = ["api_server", "otter"];
 
 /** The Responses API streams only while the app holds it: a stream this quiet is a dead one. */
 const IDLE_TIMEOUT_MS = 180_000;
@@ -343,10 +349,6 @@ async function streamResponsesTurn(ctx: ResponsesTurn): Promise<void> {
   emit({ requestId, type: "done", responseId });
 }
 
-let skillsCache: { at: number; baseUrl: string; data: Skill[] } | null = null;
-/** Hermes has Otter's plugin: its agent can send to Otter's chats. */
-let otterPlatform = false;
-
 /** What an agent in an Otter chat is told about sending to Otter (send_message, a scheduled task's deliver). */
 export const otterTargetsNote = (sessionId: string) =>
   [
@@ -354,8 +356,6 @@ export const otterTargetsNote = (sessionId: string) =>
     `- "otter:${sessionId}": this chat.`,
     '- "otter:new" (or "otter"): a new Otter chat for each delivery, for a scheduled task that should post a fresh chat every run (a morning brief, an alert).',
   ].join("\n");
-/** Turns over the Responses API, which end when the app lets go of them. */
-const responding = new Map<string, AbortController>();
 
 async function patchSession(ready: Ready, sessionId: string, patch: Record<string, unknown>) {
   const response = await fetch(`${ready.root}/api/sessions/${encodeURIComponent(sessionId)}`, {
@@ -372,7 +372,7 @@ async function patchSession(ready: Ready, sessionId: string, patch: Record<strin
  * message of yours), so what Hermes writes after it is told apart, and, after a new chat's first
  * turn, the name Hermes gave the session.
  */
-function ownRun(run: Run, first: boolean): Run {
+function ownRun(deliveries: Deliveries, run: Run, first: boolean): Run {
   const { ready, sessionId, requestId, emit } = run;
   run.finishing = async () => {
     const [rows, session] = await Promise.all([
@@ -384,347 +384,378 @@ function ownRun(run: Run, first: boolean): Run {
     const end = after.find(
       (m) => m.role === "assistant" && contentText(m.content).trim() === reply,
     );
-    if (reply && end?.id !== undefined) ranTo(sessionId, end.id);
+    if (reply && end?.id !== undefined) ranTo(deliveries, sessionId, end.id);
     const title = session?.title?.trim();
     if (title) emit({ requestId, type: "title", title });
   };
   return run;
 }
 
-export const hermesProvider: ChatProvider<HermesSettings> = {
+export type HermesProvider = ChatProvider<HermesSettings> & {
+  saveKey(key: string): Promise<void>;
+};
+
+function createHermes(agent: AgentContext): HermesProvider {
+  const { id, secrets } = agent;
+  const runs = newRuns(id);
+  const deliveries = newDeliveries(agent, runs);
+  let skillsCache: { at: number; baseUrl: string; data: Skill[] } | null = null;
+  /** Hermes has Otter's plugin: its agent can send to Otter's chats. */
+  let otterPlatform = false;
+  /** Turns over the Responses API, which end when the app lets go of them. */
+  const responding = new Map<string, AbortController>();
+
+  return {
+    otherSessions: true,
+    saveKey: (key) => secrets.set("key", key),
+    async settingsView() {
+      return { hasKey: (await secrets.get("key")).length > 0 };
+    },
+
+    async checkStatus(settings) {
+      const base = {
+        version: null,
+        models: [],
+        model: null,
+        sessions: false,
+      };
+      const key = await secrets.get("key");
+      if (!settings.baseUrl || !key) {
+        return {
+          ...base,
+          installed: false,
+          status: "warning",
+          auth: { status: "unknown" },
+          message: "Add the API server URL and key to connect.",
+        };
+      }
+      try {
+        const ready = {
+          baseUrl: settings.baseUrl,
+          root: apiRoot(settings.baseUrl),
+          key,
+          agentModel: "",
+        };
+        const [agentModels, sessions, catalog, platforms] = await Promise.all([
+          fetchHermesModels(settings.baseUrl, key),
+          probeHermesSessions(settings.baseUrl, key),
+          fetchHermesCatalog(settings.baseUrl, key),
+          connectedPlatforms(ready).catch((): string[] => []),
+        ]);
+        otterPlatform = platforms.includes("otter");
+        const models: ProviderModel[] =
+          catalog.length > 0
+            ? catalog
+            : agentModels.map((slug) => ({
+                slug: "",
+                name: slug,
+                isDefault: true,
+              }));
+        return {
+          ...base,
+          installed: true,
+          status: "ready",
+          auth: { status: "authenticated" },
+          models,
+          sessions,
+          message: `${new URL(settings.baseUrl).host} · ${
+            sessions ? "chats persist on Hermes" : "no Sessions API, chats chain by response id"
+          }`,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const rejected = message.includes("401");
+        return {
+          ...base,
+          installed: rejected,
+          status: "error",
+          auth: { status: rejected ? "unauthenticated" : "unknown" },
+          message: rejected ? message : `Can't reach Hermes. Are you on Tailscale? (${message})`,
+        };
+      }
+    },
+
+    async sendTurn(turn, settings, emit) {
+      const { requestId } = turn;
+      const ready = await requireReady(settings, secrets).catch(() => null);
+      if (!ready) return emit({ requestId, type: "error", message: "not_configured" });
+
+      const input = turn.skill
+        ? `[IMPORTANT: The user invoked the "${turn.skill.name}" skill. Load it with skill_view and follow its instructions.]${
+            turn.input ? `\n\n${turn.input}` : ""
+          }`
+        : turn.input;
+
+      // Attachments ride as content parts: images inline, text documents as text. Hermes' API
+      // refuses other documents (PDF, Office).
+      let message: string | unknown[] = input;
+      if (turn.attachments?.length) {
+        try {
+          message = await hermesContent(input, turn.attachments);
+        } catch (error) {
+          return emit({
+            requestId,
+            type: "error",
+            message: `agent_error: ${error instanceof Error ? error.message : String(error)}`,
+          });
+        }
+      }
+      const modelFields = turnModelFields(settings);
+
+      let sessionId = turn.sessionId;
+      const first = !sessionId;
+      if (!sessionId && !turn.previousResponseId && settings.sessions) {
+        try {
+          sessionId = await createSession(ready);
+          emit({ requestId, type: "session", sessionId });
+        } catch (error) {
+          logger.info("agent", "hermes session create failed, chaining", {
+            error: String(error),
+          });
+        }
+      }
+
+      if (sessionId) {
+        let started: Awaited<ReturnType<typeof startRun>>;
+        try {
+          started = await startRun(
+            ready,
+            requestId,
+            sessionId,
+            message,
+            modelFields,
+            otterPlatform ? otterTargetsNote(sessionId) : undefined,
+          );
+        } catch (error) {
+          logger.info("agent", "hermes run not started", { requestId, error: String(error) });
+          return emit({ requestId, type: "error", message: "unreachable" });
+        }
+        if ("error" in started) return emit({ requestId, type: "error", message: started.error });
+        await keepRun(id, requestId, { runId: started.runId, sessionId, at: Date.now() });
+        return follow(
+          runs,
+          ownRun(deliveries, newRun(requestId, started.runId, sessionId, ready, emit), first),
+        );
+      }
+
+      const controller = new AbortController();
+      responding.set(requestId, controller);
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      const resetIdle = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => controller.abort(new Error("idle_timeout")), IDLE_TIMEOUT_MS);
+      };
+      try {
+        resetIdle();
+        await streamResponsesTurn({
+          requestId,
+          input,
+          previousResponseId: turn.previousResponseId,
+          modelFields,
+          ready,
+          signal: controller.signal,
+          resetIdle,
+          emit,
+        });
+      } catch (err) {
+        const reason = controller.signal.reason;
+        const message = controller.signal.aborted
+          ? reason instanceof Error && reason.message === "idle_timeout"
+            ? "timeout"
+            : "cancelled"
+          : "unreachable";
+        logger.info("agent", "hermes turn failed", {
+          requestId,
+          message,
+          error: String(err),
+        });
+        emit({ requestId, type: "error", message });
+      } finally {
+        if (idleTimer) clearTimeout(idleTimer);
+        responding.delete(requestId);
+      }
+    },
+
+    /**
+     * A run this device started and lost (the app quit, the connection stayed down) is followed
+     * again from its first event; one started elsewhere, or no longer on the gateway, shows what
+     * its session holds. A scheduled run that came to Otter is its session's reply.
+     */
+    async resume({ requestId, sessionId }, settings, emit) {
+      const current = runs.following.get(requestId);
+      if (current) {
+        for (const pending of runs.pendingApprovals.values())
+          if (pending.requestId === requestId)
+            emit({ requestId, type: "approval", approval: pending.approval });
+        return;
+      }
+      const ready = await requireReady(settings, secrets).catch(() => null);
+      if (!ready) return emit({ requestId, type: "error", message: "detached" });
+      try {
+        if (requestId.startsWith(DELIVERED)) {
+          emit({ requestId, type: "transcript", messages: await deliveredReply(ready, requestId) });
+          return emit({ requestId, type: "done", responseId: null });
+        }
+        const kept = await keptRun(id, requestId);
+        if (kept) {
+          logger.info("agent", "hermes resume", { requestId, runId: kept.runId });
+          emit({ requestId, type: "transcript", messages: [] });
+          return await follow(
+            runs,
+            ownRun(deliveries, newRun(requestId, kept.runId, sessionId, ready, emit), false),
+          );
+        }
+        const reply = await replyOf(ready, sessionId);
+        if (!reply.some((m) => m.role === "assistant" && m.text.trim()))
+          return emit({ requestId, type: "error", message: "detached" });
+        emit({ requestId, type: "transcript", messages: reply });
+        emit({ requestId, type: "done", responseId: null });
+      } catch (error) {
+        logger.info("agent", "hermes resume failed", { requestId, error: String(error) });
+        emit({ requestId, type: "error", message: "detached" });
+      }
+    },
+
+    watch(settings, sessions, started, read) {
+      if (settings.sessions) watchDeliveries(deliveries, sessions, started, read);
+    },
+
+    delivered() {
+      deliveredNow(deliveries);
+    },
+
+    async respondApproval(requestId, approvalId, decision) {
+      const pending = runs.pendingApprovals.get(approvalId);
+      if (!pending || pending.requestId !== requestId) return;
+      const { ready, runId, emit } = pending;
+      const response = await fetch(`${ready.root}/v1/runs/${encodeURIComponent(runId)}/approval`, {
+        method: "POST",
+        headers: authHeaders(ready.key, true),
+        body: JSON.stringify({ choice: decision, request_id: approvalId }),
+      });
+      if (!response.ok && response.status !== 409) throw new Error(await readError(response));
+      runs.pendingApprovals.delete(approvalId);
+      emit({ requestId, type: "approvalResolved", approvalId });
+    },
+
+    cancel(requestId) {
+      const run = runs.following.get(requestId);
+      if (run) {
+        void fetch(`${run.ready.root}/v1/runs/${encodeURIComponent(run.runId)}/stop`, {
+          method: "POST",
+          headers: authHeaders(run.ready.key),
+        }).catch(() => {});
+        run.stop.abort();
+      }
+      responding.get(requestId)?.abort();
+    },
+
+    /**
+     * POST /v1/runs/{id}/steer — lands after the current batch of tool calls.
+     * Right after the run starts the agent may not accept steers yet: retry briefly.
+     */
+    async steer(requestId, input) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const run = runs.following.get(requestId);
+        if (!run) return false;
+        const response = await fetch(
+          `${run.ready.root}/v1/runs/${encodeURIComponent(run.runId)}/steer`,
+          {
+            method: "POST",
+            headers: authHeaders(run.ready.key, true),
+            body: JSON.stringify({ message: input }),
+            signal: AbortSignal.timeout(1_200),
+          },
+        ).catch(() => null);
+        if (response?.ok) return true;
+        if (response?.status !== 409) return false;
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+      return false;
+    },
+
+    async listSkills(settings) {
+      const ready = await requireReady(settings, secrets).catch(() => null);
+      if (!ready) return [];
+      if (
+        skillsCache &&
+        skillsCache.baseUrl === ready.baseUrl &&
+        Date.now() - skillsCache.at < 300_000
+      )
+        return skillsCache.data;
+      try {
+        const response = await fetch(`${ready.baseUrl}/skills`, {
+          headers: authHeaders(ready.key),
+        });
+        if (!response.ok) return skillsCache?.data ?? [];
+        const body = (await response.json()) as { data?: Skill[] } | Skill[];
+        const raw = Array.isArray(body) ? body : (body.data ?? []);
+        const skills = raw.map((s) => ({
+          name: String(s.name ?? ""),
+          description: String(s.description ?? ""),
+          category: s.category ?? null,
+        }));
+        skillsCache = { at: Date.now(), baseUrl: ready.baseUrl, data: skills };
+        return skills;
+      } catch {
+        return skillsCache?.data ?? [];
+      }
+    },
+
+    async listSessions(settings, limit, everywhere) {
+      const ready = await requireReady(settings, secrets);
+      const sessions = everywhere
+        ? await rawSessions(ready, limit)
+        : (
+            await Promise.all(OWN_SOURCES.map((source) => rawSessions(ready, limit, source)))
+          ).flat();
+      return sessions
+        .map(toSession)
+        .filter((s) => s.id)
+        .sort((a, b) => b.lastActive - a.lastActive)
+        .slice(0, limit);
+    },
+
+    async readSession(settings, sessionId) {
+      return sessionMessages(await requireReady(settings, secrets), sessionId);
+    },
+
+    /** A name you give the chat is the session's on Hermes too; asked again, Hermes's own name for it. */
+    async retitle(settings, sessionId, name) {
+      const ready = await requireReady(settings, secrets);
+      if ("title" in name) {
+        await patchSession(ready, sessionId, { title: name.title });
+        return name.title;
+      }
+      return (await sessionOf(ready, sessionId))?.title?.trim() || null;
+    },
+
+    schedules: hermesSchedules(agent),
+
+    async deleteSession(settings, sessionId) {
+      const ready = await requireReady(settings, secrets);
+      const response = await fetch(`${ready.root}/api/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "DELETE",
+        headers: authHeaders(ready.key),
+      });
+      if (!response.ok && response.status !== 404) throw new Error(await readError(response));
+    },
+
+    shutdown() {
+      stopWatching(deliveries);
+      for (const run of runs.following.values()) run.stop.abort(LET_GO);
+      for (const controller of responding.values()) controller.abort();
+    },
+  };
+}
+
+export const hermesAgent: AgentType<HermesSettings> = {
   kind: "hermes",
   displayName: "Hermes",
   defaults: HERMES_DEFAULTS,
   fields: { enabled: "boolean", model: "string", reasoningEffort: "string", serviceTier: "string" },
   restartFields: ["baseUrl"],
-  async settingsView() {
-    return { hasKey: (await getHermesKey()).length > 0 };
-  },
-
-  async checkStatus(settings) {
-    const base = {
-      kind: "hermes" as const,
-      displayName: "Hermes",
-      version: null,
-      models: [],
-      model: null,
-      sessions: false,
-    };
-    const key = await getHermesKey();
-    if (!settings.baseUrl || !key) {
-      return {
-        ...base,
-        installed: false,
-        status: "warning",
-        auth: { status: "unknown" },
-        message: "Add the API server URL and key to connect.",
-      };
-    }
-    try {
-      const ready = {
-        baseUrl: settings.baseUrl,
-        root: apiRoot(settings.baseUrl),
-        key,
-        agentModel: "",
-      };
-      const [agentModels, sessions, catalog, platforms] = await Promise.all([
-        fetchHermesModels(settings.baseUrl, key),
-        probeHermesSessions(settings.baseUrl, key),
-        fetchHermesCatalog(settings.baseUrl, key),
-        connectedPlatforms(ready).catch((): string[] => []),
-      ]);
-      otterPlatform = platforms.includes("otter");
-      const models: ProviderModel[] =
-        catalog.length > 0
-          ? catalog
-          : agentModels.map((slug) => ({
-              slug: "",
-              name: slug,
-              isDefault: true,
-            }));
-      return {
-        ...base,
-        installed: true,
-        status: "ready",
-        auth: { status: "authenticated" },
-        models,
-        sessions,
-        message: `${new URL(settings.baseUrl).host} · ${
-          sessions ? "chats persist on Hermes" : "no Sessions API, chats chain by response id"
-        }`,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const rejected = message.includes("401");
-      return {
-        ...base,
-        installed: rejected,
-        status: "error",
-        auth: { status: rejected ? "unauthenticated" : "unknown" },
-        message: rejected ? message : `Can't reach Hermes. Are you on Tailscale? (${message})`,
-      };
-    }
-  },
-
-  async sendTurn(turn, settings, emit) {
-    const { requestId } = turn;
-    const ready = await requireReady(settings).catch(() => null);
-    if (!ready) return emit({ requestId, type: "error", message: "not_configured" });
-
-    const input = turn.skill
-      ? `[IMPORTANT: The user invoked the "${turn.skill.name}" skill. Load it with skill_view and follow its instructions.]${
-          turn.input ? `\n\n${turn.input}` : ""
-        }`
-      : turn.input;
-
-    // Attachments ride as content parts: images inline, text documents as text. Hermes' API
-    // refuses other documents (PDF, Office).
-    let message: string | unknown[] = input;
-    if (turn.attachments?.length) {
-      try {
-        message = await hermesContent(input, turn.attachments);
-      } catch (error) {
-        return emit({
-          requestId,
-          type: "error",
-          message: `agent_error: ${error instanceof Error ? error.message : String(error)}`,
-        });
-      }
-    }
-    const modelFields = turnModelFields(settings);
-
-    let sessionId = turn.sessionId;
-    const first = !sessionId;
-    if (!sessionId && !turn.previousResponseId && settings.sessions) {
-      try {
-        sessionId = await createSession(ready);
-        emit({ requestId, type: "session", sessionId });
-      } catch (error) {
-        logger.info("agent", "hermes session create failed, chaining", {
-          error: String(error),
-        });
-      }
-    }
-
-    if (sessionId) {
-      let started: Awaited<ReturnType<typeof startRun>>;
-      try {
-        started = await startRun(
-          ready,
-          requestId,
-          sessionId,
-          message,
-          modelFields,
-          otterPlatform ? otterTargetsNote(sessionId) : undefined,
-        );
-      } catch (error) {
-        logger.info("agent", "hermes run not started", { requestId, error: String(error) });
-        return emit({ requestId, type: "error", message: "unreachable" });
-      }
-      if ("error" in started) return emit({ requestId, type: "error", message: started.error });
-      await keepRun(requestId, { runId: started.runId, sessionId, at: Date.now() });
-      return follow(ownRun(newRun(requestId, started.runId, sessionId, ready, emit), first));
-    }
-
-    const controller = new AbortController();
-    responding.set(requestId, controller);
-    let idleTimer: ReturnType<typeof setTimeout> | null = null;
-    const resetIdle = () => {
-      if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => controller.abort(new Error("idle_timeout")), IDLE_TIMEOUT_MS);
-    };
-    try {
-      resetIdle();
-      await streamResponsesTurn({
-        requestId,
-        input,
-        previousResponseId: turn.previousResponseId,
-        modelFields,
-        ready,
-        signal: controller.signal,
-        resetIdle,
-        emit,
-      });
-    } catch (err) {
-      const reason = controller.signal.reason;
-      const message = controller.signal.aborted
-        ? reason instanceof Error && reason.message === "idle_timeout"
-          ? "timeout"
-          : "cancelled"
-        : "unreachable";
-      logger.info("agent", "hermes turn failed", {
-        requestId,
-        message,
-        error: String(err),
-      });
-      emit({ requestId, type: "error", message });
-    } finally {
-      if (idleTimer) clearTimeout(idleTimer);
-      responding.delete(requestId);
-    }
-  },
-
-  /**
-   * A run this device started and lost (the app quit, the connection stayed down) is followed
-   * again from its first event; one started elsewhere, or no longer on the gateway, shows what
-   * its session holds. A scheduled run that came to Otter is its session's reply.
-   */
-  async resume({ requestId, sessionId }, settings, emit) {
-    const current = following.get(requestId);
-    if (current) {
-      for (const pending of pendingApprovals.values())
-        if (pending.requestId === requestId)
-          emit({ requestId, type: "approval", approval: pending.approval });
-      return;
-    }
-    const ready = await requireReady(settings).catch(() => null);
-    if (!ready) return emit({ requestId, type: "error", message: "detached" });
-    try {
-      if (requestId.startsWith(DELIVERED)) {
-        emit({ requestId, type: "transcript", messages: await deliveredReply(ready, requestId) });
-        return emit({ requestId, type: "done", responseId: null });
-      }
-      const kept = await keptRun(requestId);
-      if (kept) {
-        logger.info("agent", "hermes resume", { requestId, runId: kept.runId });
-        emit({ requestId, type: "transcript", messages: [] });
-        return await follow(ownRun(newRun(requestId, kept.runId, sessionId, ready, emit), false));
-      }
-      const reply = await replyOf(ready, sessionId);
-      if (!reply.some((m) => m.role === "assistant" && m.text.trim()))
-        return emit({ requestId, type: "error", message: "detached" });
-      emit({ requestId, type: "transcript", messages: reply });
-      emit({ requestId, type: "done", responseId: null });
-    } catch (error) {
-      logger.info("agent", "hermes resume failed", { requestId, error: String(error) });
-      emit({ requestId, type: "error", message: "detached" });
-    }
-  },
-
-  watch(settings, sessions, started, read) {
-    if (settings.sessions) watchDeliveries(sessions, started, read);
-  },
-
-  delivered() {
-    deliveredNow();
-  },
-
-  async respondApproval(requestId, approvalId, decision) {
-    const pending = pendingApprovals.get(approvalId);
-    if (!pending || pending.requestId !== requestId) return;
-    const { ready, runId, emit } = pending;
-    const response = await fetch(`${ready.root}/v1/runs/${encodeURIComponent(runId)}/approval`, {
-      method: "POST",
-      headers: authHeaders(ready.key, true),
-      body: JSON.stringify({ choice: decision, request_id: approvalId }),
-    });
-    if (!response.ok && response.status !== 409) throw new Error(await readError(response));
-    pendingApprovals.delete(approvalId);
-    emit({ requestId, type: "approvalResolved", approvalId });
-  },
-
-  cancel(requestId) {
-    const run = following.get(requestId);
-    if (run) {
-      void fetch(`${run.ready.root}/v1/runs/${encodeURIComponent(run.runId)}/stop`, {
-        method: "POST",
-        headers: authHeaders(run.ready.key),
-      }).catch(() => {});
-      run.stop.abort();
-    }
-    responding.get(requestId)?.abort();
-  },
-
-  /**
-   * POST /v1/runs/{id}/steer — lands after the current batch of tool calls.
-   * Right after the run starts the agent may not accept steers yet: retry briefly.
-   */
-  async steer(requestId, input) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const run = following.get(requestId);
-      if (!run) return false;
-      const response = await fetch(
-        `${run.ready.root}/v1/runs/${encodeURIComponent(run.runId)}/steer`,
-        {
-          method: "POST",
-          headers: authHeaders(run.ready.key, true),
-          body: JSON.stringify({ message: input }),
-          signal: AbortSignal.timeout(1_200),
-        },
-      ).catch(() => null);
-      if (response?.ok) return true;
-      if (response?.status !== 409) return false;
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-    return false;
-  },
-
-  async listSkills(settings) {
-    const ready = await requireReady(settings).catch(() => null);
-    if (!ready) return [];
-    if (
-      skillsCache &&
-      skillsCache.baseUrl === ready.baseUrl &&
-      Date.now() - skillsCache.at < 300_000
-    )
-      return skillsCache.data;
-    try {
-      const response = await fetch(`${ready.baseUrl}/skills`, {
-        headers: authHeaders(ready.key),
-      });
-      if (!response.ok) return skillsCache?.data ?? [];
-      const body = (await response.json()) as { data?: Skill[] } | Skill[];
-      const raw = Array.isArray(body) ? body : (body.data ?? []);
-      const skills = raw.map((s) => ({
-        name: String(s.name ?? ""),
-        description: String(s.description ?? ""),
-        category: s.category ?? null,
-      }));
-      skillsCache = { at: Date.now(), baseUrl: ready.baseUrl, data: skills };
-      return skills;
-    } catch {
-      return skillsCache?.data ?? [];
-    }
-  },
-
-  async listSessions(settings, limit) {
-    const ready = await requireReady(settings);
-    const response = await fetch(`${ready.root}/api/sessions?limit=${limit}`, {
-      headers: authHeaders(ready.key),
-    });
-    if (!response.ok) throw new Error(await readError(response));
-    const body = (await response.json()) as { data?: RawSession[] };
-    return (body.data ?? []).map(toSession).filter((s) => s.id);
-  },
-
-  async readSession(settings, sessionId) {
-    return sessionMessages(await requireReady(settings), sessionId);
-  },
-
-  /** A name you give the chat is the session's on Hermes too; asked again, Hermes's own name for it. */
-  async retitle(settings, sessionId, name) {
-    const ready = await requireReady(settings);
-    if ("title" in name) {
-      await patchSession(ready, sessionId, { title: name.title });
-      return name.title;
-    }
-    return (await sessionOf(ready, sessionId))?.title?.trim() || null;
-  },
-
-  schedules: hermesSchedules,
-
-  async deleteSession(settings, sessionId) {
-    const ready = await requireReady(settings);
-    const response = await fetch(`${ready.root}/api/sessions/${encodeURIComponent(sessionId)}`, {
-      method: "DELETE",
-      headers: authHeaders(ready.key),
-    });
-    if (!response.ok && response.status !== 404) throw new Error(await readError(response));
-  },
-
-  shutdown() {
-    stopWatching();
-    for (const run of following.values()) run.stop.abort(LET_GO);
-    for (const controller of responding.values()) controller.abort();
-  },
+  secrets: ["key"],
+  syncedSecret: "key",
+  create: createHermes,
 };

@@ -371,6 +371,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["delete mailbox sign out"],
   },
   {
+    id: "add-agent",
+    title: "Add agent",
+    pane: "agents",
+    searchTerms: [
+      "agents new another add server gateway team claude codex hermes openclaw varys connect",
+    ],
+  },
+  {
     id: "agent-providers",
     title: "New chats start with",
     pane: "agents",
@@ -382,7 +390,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "agent-binary-path",
     title: "Binary path",
     pane: "agents",
-    item: "claude",
     available: features.localAgents,
     searchTerms: ["agents cli claude codex runtime home config directory launch arguments"],
   },
@@ -390,7 +397,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "agent-access",
     title: "Access",
     pane: "agents",
-    item: "claude",
     available: features.localAgents,
     searchTerms: ["agents permissions runtime mode full access supervised approvals"],
   },
@@ -398,49 +404,42 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "agent-models",
     title: "Models",
     pane: "agents",
-    item: "hermes",
     searchTerms: ["agents favorites hidden default model"],
   },
   {
     id: "hermes-connection",
     title: "Connection",
     pane: "agents",
-    item: "hermes",
     searchTerms: ["hermes base url api key server connect"],
   },
   {
     id: "hermes-deliveries",
     title: "Messages from Hermes",
     pane: "agents",
-    item: "hermes",
     searchTerms: ["hermes plugin platform channel cron scheduled deliver send_message notify"],
   },
   {
     id: "openclaw-connection",
     title: "Connection",
     pane: "agents",
-    item: "openclaw",
     searchTerms: ["openclaw gateway address token connect pair approve device tailscale"],
   },
   {
     id: "openclaw-deliveries",
     title: "Messages from your agents",
     pane: "agents",
-    item: "openclaw",
     searchTerms: ["openclaw channel cron scheduled job deliver announce notify approval inbox"],
   },
   {
     id: "varys-connection",
     title: "Connection",
     pane: "agents",
-    item: "varys",
     searchTerms: ["varys pair pairing link app code connect grant tailscale"],
   },
   {
     id: "varys-deliveries",
     title: "Messages from varys",
     pane: "agents",
-    item: "varys",
     searchTerms: ["varys relay push routine notify approval question"],
   },
   {
@@ -511,7 +510,8 @@ function extensionSearchItems(): SettingsSearchItem[] {
     id: `extension-${manifest.id}`,
     title: manifest.name,
     pane: CATEGORY_PANE[manifest.category],
-    item: manifest.id,
+    // An agent's page is each agent's you add, not its kind's.
+    ...(manifest.category === "agent" ? {} : { item: manifest.id }),
     searchTerms: [`${manifest.description} extension`],
   }));
 }

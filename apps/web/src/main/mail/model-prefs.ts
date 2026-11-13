@@ -1,6 +1,6 @@
 import { setSyncedPreference, type SyncedKey } from "../synced-preferences";
 import { useSyncExternalStore } from "react";
-import type { ProviderKind } from "./api";
+import type { AgentId } from "./api";
 
 type Prefs = { favorites: string[]; hidden: string[] };
 
@@ -34,7 +34,7 @@ window.addEventListener("storage", (event) => {
   for (const listener of listeners) listener();
 });
 
-export const modelKey = (kind: ProviderKind, slug: string) => `${kind}:${slug}`;
+export const modelKey = (agent: AgentId, slug: string) => `${agent}:${slug}`;
 
 export function useModelPrefs(): Prefs {
   return useSyncExternalStore(
@@ -69,8 +69,8 @@ export function toggleAllHidden(keys: string[]): void {
   );
 }
 
-export function resetModelPrefs(kind: ProviderKind): void {
-  const prefix = `${kind}:`;
+export function resetModelPrefs(agent: AgentId): void {
+  const prefix = `${agent}:`;
   write(
     "favorites",
     snapshot.favorites.filter((key) => !key.startsWith(prefix)),

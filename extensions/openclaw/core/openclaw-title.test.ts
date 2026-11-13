@@ -1,6 +1,7 @@
 import type { ChatEvent } from "@otter/core/extension-kit";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { OpenClawSettings } from "./settings.js";
+import { testAgent } from "./test-agent.js";
 
 const fixture = vi.hoisted(() => ({
   request: vi.fn(),
@@ -13,16 +14,6 @@ vi.mock("../../../packages/core/src/platform.js", () => ({
     log: () => {},
     onResume: () => () => {},
   }),
-}));
-vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
-  clearOpenClawBootstrapToken: vi.fn(),
-  clearOpenClawDeviceToken: vi.fn(),
-  getOpenClawBootstrapToken: async () => "",
-  getOpenClawDeviceKey: async () => "",
-  getOpenClawDeviceToken: async () => "",
-  getOpenClawToken: async () => "test-token",
-  setOpenClawDeviceKey: vi.fn(),
-  setOpenClawDeviceToken: vi.fn(),
 }));
 vi.mock("@openclaw/gateway-client/browser", () => ({
   GatewayBrowserDeviceAuthLifecycle: class {
@@ -41,10 +32,12 @@ vi.mock("@openclaw/gateway-client/browser", () => ({
     request = fixture.request;
   },
 }));
-const { openClawProvider } = await import("./openclaw.js");
+const { createOpenClaw } = await import("./openclaw.js");
 const settings = { url: "wss://gateway.test", model: "main" } as OpenClawSettings;
+let openclaw = createOpenClaw(testAgent());
 afterEach(() => {
-  openClawProvider.shutdown();
+  openclaw.shutdown();
+  openclaw = createOpenClaw(testAgent());
   fixture.request.mockReset();
 });
 
@@ -58,7 +51,7 @@ function start(answer: (method: string, params: Record<string, unknown>) => unkn
     return {};
   });
   const events: ChatEvent[] = [];
-  const ended = openClawProvider.sendTurn(
+  const ended = openclaw.sendTurn(
     { requestId: "req-1", input: "Should I split my work into separate inboxes?" },
     settings,
     (e) => events.push(e),
@@ -137,7 +130,7 @@ describe("retitling an OpenClaw chat", () => {
   it("keeps a name given by hand as the session's label", async () => {
     fixture.request.mockResolvedValue({});
     await expect(
-      openClawProvider.retitle!(settings, "agent:main:otter-mail:c-1", { title: "Inbox plan" }),
+      openclaw.retitle!(settings, "agent:main:otter-mail:c-1", { title: "Inbox plan" }),
     ).resolves.toBe("Inbox plan");
     expect(fixture.request).toHaveBeenCalledWith("sessions.patch", {
       key: "agent:main:otter-mail:c-1",
@@ -155,7 +148,7 @@ describe("retitling an OpenClaw chat", () => {
       method === "sessions.title.prepare" ? { title: "Separate work inboxes" } : {},
     );
     await expect(
-      openClawProvider.retitle!(settings, "agent:rowan:otter-mail:c-1", {
+      openclaw.retitle!(settings, "agent:rowan:otter-mail:c-1", {
         message: "Should I split my work into separate inboxes?",
       }),
     ).resolves.toBe("Separate work inboxes");

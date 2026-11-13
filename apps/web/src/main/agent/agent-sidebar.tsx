@@ -93,9 +93,9 @@ const AGENT_FILTER_KEY = "gmail:chat-agent-filter";
 const resultId = (index: number) => `agent-search-result-${index}`;
 const scrollIntoView = (el: HTMLElement | null) => el?.scrollIntoView({ block: "nearest" });
 
-function agentOf(c: Conversation): { key: string; kind: string; agent: string | null } {
+function agentOf(c: Conversation): { key: string; id: string; agent: string | null } {
   const agent = openClawAgentId(c.sessionId);
-  return { key: agent ? `${c.provider}:${agent}` : c.provider, kind: c.provider, agent };
+  return { key: agent ? `${c.provider}:${agent}` : c.provider, id: c.provider, agent };
 }
 
 export function AgentSidebar({
@@ -139,19 +139,19 @@ export function AgentSidebar({
     }
   };
 
-  const agents = new Map<string, { kind: string; agent: string | null; count: number }>();
+  const agents = new Map<string, { id: string; agent: string | null; count: number }>();
   for (const c of conversations) {
     if (isBlank(c)) continue;
-    const { key, kind, agent } = agentOf(c);
+    const { key, id, agent } = agentOf(c);
     const seen = agents.get(key);
-    agents.set(key, { kind, agent, count: (seen?.count ?? 0) + 1 });
+    agents.set(key, { id, agent, count: (seen?.count ?? 0) + 1 });
   }
-  const agentName = (kind: string, agent: string | null) => {
-    const provider = providers.find((p) => p.kind === kind);
+  const agentName = (id: string, agent: string | null) => {
+    const provider = providers.find((p) => p.id === id);
     return (
       (agent ? (provider?.models.find((m) => m.slug === agent)?.name ?? agent) : null) ??
-      provider?.displayName ??
-      kind
+      provider?.name ??
+      "Removed agent"
     );
   };
   const filter = agentFilter && agents.has(agentFilter) ? agentFilter : null;
@@ -284,7 +284,7 @@ export function AgentSidebar({
         >
           <span className="flex h-5 min-w-0 items-center gap-1.5 pe-5">
             <SquarePenIcon aria-hidden className={DRAFT_PEN} />
-            <AgentAvatar kind={c.provider} agent={agent} className="size-3.5 shrink-0" />
+            <AgentAvatar id={c.provider} agent={agent} className="size-3.5 shrink-0" />
             <span className="truncate text-xs font-medium text-sidebar-muted-foreground">
               {agentName(c.provider, agent)}
             </span>
@@ -306,7 +306,7 @@ export function AgentSidebar({
 
   const row = (c: Conversation, shelf: ChatShelf) => {
     const selected = c.id === chatId;
-    const titles = Boolean(providers.find((p) => p.kind === c.provider)?.titles);
+    const titles = Boolean(providers.find((p) => p.id === c.provider)?.titles);
     const fresh = (unseen.has(c.id) || waiting.has(c.id)) && !selected;
     const drafted = !selected && hasDraft(drafts, c.id);
     const oneLine = shelf === "snoozed" || shelf === "settled";
@@ -330,7 +330,7 @@ export function AgentSidebar({
     const body = (title: ReactNode) => (
       <>
         <AgentAvatar
-          kind={c.provider}
+          id={c.provider}
           agent={openClawAgentId(c.sessionId)}
           className={cn("size-3.5 shrink-0", !oneLine && "mt-[3px]")}
         />
@@ -495,7 +495,7 @@ export function AgentSidebar({
           )}
         >
           <AgentAvatar
-            kind={c.provider}
+            id={c.provider}
             agent={openClawAgentId(c.sessionId)}
             className={cn(
               "size-3.5 shrink-0",
@@ -593,7 +593,7 @@ export function AgentSidebar({
             <HintTooltip
               label={
                 filter
-                  ? `Showing ${agentName(agents.get(filter)!.kind, agents.get(filter)!.agent)}'s chats`
+                  ? `Showing ${agentName(agents.get(filter)!.id, agents.get(filter)!.agent)}'s chats`
                   : "Filter chats by agent"
               }
               side="bottom"
@@ -606,7 +606,7 @@ export function AgentSidebar({
                 >
                   {filter ? (
                     <AgentAvatar
-                      kind={agents.get(filter)!.kind}
+                      id={agents.get(filter)!.id}
                       agent={agents.get(filter)!.agent}
                       className="size-4"
                     />
@@ -621,14 +621,14 @@ export function AgentSidebar({
               {agents.size > 0 ? <DropdownMenuSeparator /> : null}
               {[...agents]
                 .sort((a, b) => b[1].count - a[1].count)
-                .map(([key, { kind, agent, count }]) => (
+                .map(([key, { id, agent, count }]) => (
                   <DropdownMenuItem
                     key={key}
-                    icon={<AgentAvatar kind={kind} agent={agent} className="size-4" />}
+                    icon={<AgentAvatar id={id} agent={agent} className="size-4" />}
                     accelerator={String(count)}
                     onSelect={() => pickAgent(key)}
                   >
-                    {agentName(kind, agent)}
+                    {agentName(id, agent)}
                   </DropdownMenuItem>
                 ))}
             </DropdownMenuContent>

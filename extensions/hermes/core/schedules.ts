@@ -7,7 +7,12 @@
  */
 
 import { preferenceChanged, saveAgentSettings } from "@otter/core/extension-kit";
-import type { ChatSessionMessage, ScheduleSupport } from "@otter/core/extension-kit";
+import type {
+  AgentContext,
+  AgentId,
+  ChatSessionMessage,
+  ScheduleSupport,
+} from "@otter/core/extension-kit";
 import type {
   DeliveryChannel,
   ScheduledTask,
@@ -23,6 +28,7 @@ import {
   sessionMessages,
   toMillis,
   type RawSession,
+  type Ready,
 } from "./http.js";
 import type { HermesSettings } from "./settings.js";
 
@@ -59,9 +65,10 @@ const keepsResults = (job: HermesJob) => (job.deliver ?? "local") === "local";
 export const toOtter = (job: HermesJob, settings: Pick<HermesSettings, "mutedJobs">) =>
   keepsResults(job) && !muted(settings).has(job.id);
 
-/** A Hermes cron job (GET /api/jobs) as a scheduled task. */
+/** A Hermes cron job (GET /api/jobs) as a scheduled task of the agent `agent`. */
 export function hermesTask(
   job: HermesJob,
+  agent: AgentId,
   settings: Pick<HermesSettings, "mutedJobs"> = {},
 ): ScheduledTask {
   const s = job.schedule ?? {};
@@ -78,7 +85,7 @@ export function hermesTask(
   const lastAt = time(job.last_run_at);
   const failed = job.last_status === "error" || job.last_status === "failed";
   return {
-    provider: "hermes",
+    provider: agent,
     id: job.id,
     name: job.name || job.id,
     ...(job.prompt && !job.no_agent ? { prompt: job.prompt } : {}),
@@ -141,13 +148,10 @@ export function hermesSchedule(schedule: ScheduledTaskInput["schedule"]): string
 const JOBS_TIMEOUT_MS = 10_000;
 
 export async function jobsRequest<T>(
-  settings: HermesSettings,
+  ready: Ready,
   path: string,
   init: { method?: string; body?: unknown } = {},
 ): Promise<T> {
-  const ready = await requireReady(settings).catch(() => {
-    throw new Error("Connect Hermes in Settings → Hermes.");
-  });
   const response = await fetch(`${ready.root}/api/jobs${path}`, {
     signal: AbortSignal.timeout(JOBS_TIMEOUT_MS),
     method: init.method ?? "GET",
@@ -170,13 +174,18 @@ export async function jobsRequest<T>(
 
 const jobPath = (id: string) => `/${encodeURIComponent(id)}`;
 
-async function setMuted(settings: HermesSettings, id: string, on: boolean): Promise<void> {
+async function setMuted(
+  agent: AgentId,
+  settings: HermesSettings,
+  id: string,
+  on: boolean,
+): Promise<void> {
   const ids = muted(settings);
   if (ids.has(id) === on) return;
   if (on) ids.add(id);
   else ids.delete(id);
   settings.mutedJobs = [...ids].join(",");
-  await saveAgentSettings("hermes", { mutedJobs: settings.mutedJobs });
+  await saveAgentSettings(agent, { mutedJobs: settings.mutedJobs });
   preferenceChanged("assistant");
 }
 
@@ -227,80 +236,92 @@ function taskRun(session: RawSession): TaskRun {
   };
 }
 
-export const hermesSchedules: ScheduleSupport<HermesSettings> = {
-  async list(settings) {
-    const ready = await requireReady(settings).catch(() => null);
-    if (!ready) return null;
-    const [{ jobs }, platforms] = await Promise.all([
-      jobsRequest<{ jobs: HermesJob[] }>(settings, "?include_disabled=true"),
-      connectedPlatforms(ready),
-    ]);
-    return {
-      tasks: jobs.map((job) => hermesTask(job, settings)),
-      channels: channelsOf(platforms),
-      can: {
-        create: true,
-        deliverToOtter: true,
-        webhooks: false,
-        history: true,
-        timeZones: false,
-      },
-    };
-  },
-  async save(settings, id, input) {
-    const platforms =
-      input.resultsTo?.kind === "new-chat"
-        ? await connectedPlatforms(await requireReady(settings))
-        : [];
-    const deliver = deliverFor(input, platforms);
-    const body = {
-      name: input.name,
-      schedule: hermesSchedule(input.schedule),
-      ...(input.prompt !== undefined ? { prompt: input.prompt } : {}),
-      ...(deliver ? { deliver } : {}),
-    };
-    let saved = id;
-    if (id) {
-      // Hermes works out the next run again whenever it's sent a schedule: only a new one.
-      const { job } = await jobsRequest<{ job: HermesJob }>(settings, jobPath(id));
-      const current = hermesTask(job).schedule;
-      const same = current.kind !== "other" && hermesSchedule(current) === body.schedule;
-      const { schedule: _schedule, ...rest } = body;
-      await jobsRequest(settings, jobPath(id), { method: "PATCH", body: same ? rest : body });
-    } else {
-      const made = await jobsRequest<{ job?: { id?: string } }>(settings, "", {
-        method: "POST",
-        body: { ...body, deliver: deliver ?? "local" },
-      });
-      saved = made.job?.id ?? "";
-    }
-    if (saved && input.resultsTo) await setMuted(settings, saved, input.resultsTo.kind === "off");
-    return saved ?? "";
-  },
-  async setEnabled(settings, id, enabled) {
-    await jobsRequest(settings, `${jobPath(id)}/${enabled ? "resume" : "pause"}`, {
-      method: "POST",
+export function hermesSchedules({
+  id: agent,
+  secrets,
+}: AgentContext): ScheduleSupport<HermesSettings> {
+  const connected = (settings: HermesSettings) =>
+    requireReady(settings, secrets).catch(() => {
+      throw new Error("Connect it in Settings → Agents.");
     });
-  },
-  async runNow(settings, id) {
-    await jobsRequest(settings, `${jobPath(id)}/run`, { method: "POST" });
-  },
-  async remove(settings, id) {
-    await jobsRequest(settings, jobPath(id), { method: "DELETE" });
-    await setMuted(settings, id, false);
-  },
-  async runs(settings, id, limit) {
-    const ready = await requireReady(settings);
-    const [sessions, { job }] = await Promise.all([
-      listSessions(ready, 200, "cron"),
-      jobsRequest<{ job: HermesJob }>(settings, jobPath(id)),
-    ]);
-    return sessions
-      .filter((s) => s.ended_at && jobOf(s, [job]))
-      .slice(0, limit)
-      .map(taskRun);
-  },
-  async runTranscript(settings, _id, runId) {
-    return runReply(await sessionMessages(await requireReady(settings), runId));
-  },
-};
+  return {
+    async list(settings) {
+      const ready = await requireReady(settings, secrets).catch(() => null);
+      if (!ready) return null;
+      const [{ jobs }, platforms] = await Promise.all([
+        jobsRequest<{ jobs: HermesJob[] }>(ready, "?include_disabled=true"),
+        connectedPlatforms(ready),
+      ]);
+      return {
+        tasks: jobs.map((job) => hermesTask(job, agent, settings)),
+        channels: channelsOf(platforms),
+        can: {
+          create: true,
+          deliverToOtter: true,
+          webhooks: false,
+          history: true,
+          timeZones: false,
+        },
+      };
+    },
+    async save(settings, id, input) {
+      const ready = await connected(settings);
+      const platforms = input.resultsTo?.kind === "new-chat" ? await connectedPlatforms(ready) : [];
+      const deliver = deliverFor(input, platforms);
+      const body = {
+        name: input.name,
+        schedule: hermesSchedule(input.schedule),
+        ...(input.prompt !== undefined ? { prompt: input.prompt } : {}),
+        ...(deliver ? { deliver } : {}),
+      };
+      let saved = id;
+      if (id) {
+        // Hermes works out the next run again whenever it's sent a schedule: only a new one.
+        const { job } = await jobsRequest<{ job: HermesJob }>(ready, jobPath(id));
+        const current = hermesTask(job, agent).schedule;
+        const same = current.kind !== "other" && hermesSchedule(current) === body.schedule;
+        const { schedule: _schedule, ...rest } = body;
+        await jobsRequest(ready, jobPath(id), { method: "PATCH", body: same ? rest : body });
+      } else {
+        const made = await jobsRequest<{ job?: { id?: string } }>(ready, "", {
+          method: "POST",
+          body: { ...body, deliver: deliver ?? "local" },
+        });
+        saved = made.job?.id ?? "";
+      }
+      if (saved && input.resultsTo)
+        await setMuted(agent, settings, saved, input.resultsTo.kind === "off");
+      return saved ?? "";
+    },
+    async setEnabled(settings, id, enabled) {
+      await jobsRequest(
+        await connected(settings),
+        `${jobPath(id)}/${enabled ? "resume" : "pause"}`,
+        {
+          method: "POST",
+        },
+      );
+    },
+    async runNow(settings, id) {
+      await jobsRequest(await connected(settings), `${jobPath(id)}/run`, { method: "POST" });
+    },
+    async remove(settings, id) {
+      await jobsRequest(await connected(settings), jobPath(id), { method: "DELETE" });
+      await setMuted(agent, settings, id, false);
+    },
+    async runs(settings, id, limit) {
+      const ready = await requireReady(settings, secrets);
+      const [sessions, { job }] = await Promise.all([
+        listSessions(ready, 200, "cron"),
+        jobsRequest<{ job: HermesJob }>(ready, jobPath(id)),
+      ]);
+      return sessions
+        .filter((s) => s.ended_at && jobOf(s, [job]))
+        .slice(0, limit)
+        .map(taskRun);
+    },
+    async runTranscript(settings, _id, runId) {
+      return runReply(await sessionMessages(await requireReady(settings, secrets), runId));
+    },
+  };
+}

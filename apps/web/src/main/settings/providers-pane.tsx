@@ -1,27 +1,42 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AgentAccess, ConnectedAgent } from "@otter/contracts/agent-tokens";
 import { Field } from "~/components/ui/field";
+import { Dialog } from "~/components/ui/dialog";
+import { Switch } from "~/components/ui/switch";
 import { Text } from "~/components/ui/text";
 import { Toggle, ToggleGroup } from "~/components/ui/toggle-group";
 import { toast } from "../mail/toast";
-import { RotateCwIcon } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { ArrowLeftIcon, ChevronRightIcon, PlusIcon, RotateCwIcon, ShieldIcon } from "lucide-react";
 import {
-  DEFAULT_AGENT,
   mailApi,
   type AgentSettingsPatch,
   type ProviderSnapshot,
+  type ProvidersState,
 } from "../mail/api";
 import {
   PROVIDER_STATUS_DOT,
+  ProviderIcon,
+  kindName,
   providerSummary,
   providerVersionLabel,
   useAgentProviders,
   useSetProvidersState,
 } from "../agent/agent-providers";
+import { AgentIcon } from "../agent/agent-icon";
+import { EXTENSIONS } from "../extensions/registry";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../mail/menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../mail/select";
 import { Btn, cn } from "../mail/ui";
+import { PictureError, mailboxPicture } from "./mailbox-picture-image";
 import {
+  DraftInput,
   RowSelect,
   SettingResetButton,
   SettingsPageContainer,
@@ -30,7 +45,6 @@ import {
 } from "./settings-ui";
 import { searchableSetting } from "./settings-search";
 import { AgentTokensSection } from "./agent-tokens-section";
-import { ExtensionCategoryPane } from "../extensions/extensions-pane";
 import { features } from "../features";
 import {
   setFollowUpBehavior,
@@ -123,14 +137,9 @@ export function AgentStatusSection({
   );
 }
 
-export function ProvidersPane({ item }: { item?: string }) {
-  const query = useAgentProviders();
+function useUpdateAgents() {
   const setState = useSetProvidersState();
-  const state = query.data;
-  const [refreshing, setRefreshing] = useState(false);
-  const now = useNow(1000);
-
-  const update = (patch: AgentSettingsPatch) => {
+  return (patch: AgentSettingsPatch) => {
     console.log("[Settings:updateAgent]", patch);
     mailApi
       .updateAgentSettings(patch)
@@ -138,6 +147,58 @@ export function ProvidersPane({ item }: { item?: string }) {
         toast.error(`Could not save: ${error instanceof Error ? error.message : String(error)}`),
       );
   };
+}
+
+/** The kinds this device can add, as a menu: the new agent's page opens to set it up. */
+function AddAgentMenu({
+  kinds,
+  label = "Add agent",
+}: {
+  kinds: ProvidersState["kinds"];
+  label?: string;
+}) {
+  const navigate = useNavigate();
+  const setState = useSetProvidersState();
+  const add = (kind: string) => {
+    console.log("[Settings:addAgent]", { kind });
+    mailApi.addAgent(kind).then(
+      ({ id, state }) => {
+        setState(state);
+        void navigate({ to: "/settings/$pane/$item", params: { pane: "agents", item: id } });
+      },
+      (error: unknown) =>
+        toast.error(`Could not add it: ${error instanceof Error ? error.message : String(error)}`),
+    );
+  };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Btn size="sm" {...searchableSetting("add-agent")} title={undefined}>
+          <PlusIcon />
+          {label}
+        </Btn>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-52">
+        {kinds.map((k) => (
+          <DropdownMenuItem
+            key={k.kind}
+            icon={<ProviderIcon kind={k.kind} className="size-4" />}
+            onSelect={() => add(k.kind)}
+          >
+            {k.name}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export function ProvidersPane({ item }: { item?: string }) {
+  const query = useAgentProviders();
+  const update = useUpdateAgents();
+  const state = query.data;
+  const [refreshing, setRefreshing] = useState(false);
+  const now = useNow(1000);
 
   const refresh = () => {
     if (refreshing) return;
@@ -157,65 +218,347 @@ export function ProvidersPane({ item }: { item?: string }) {
   }
 
   const providers = state.providers;
+  const shown = item ? providers.find((p) => p.id === item) : undefined;
+  if (shown) return <AgentPage key={shown.id} state={state} provider={shown} update={update} />;
+
   const lastChecked = Math.max(0, ...providers.map((p) => p.checkedAt ?? 0));
-  const choices = providers.filter((p) => p.enabled || p.kind === state.selected);
+  const choices = providers.filter((p) => p.enabled || p.id === state.selected);
 
   return (
-    <ExtensionCategoryPane
-      category="agent"
-      item={item}
+    <SettingsPageContainer
       title="Agents"
-      description="The agents behind chat. A turned-off agent isn't offered for chats."
+      description="The agents behind chat. Add as many as you work with: several Hermes servers, OpenClaw gateways, Claude or Codex setups."
       action={
-        <Btn
-          size="sm"
-          variant="ghost-muted"
-          disabled={refreshing}
-          aria-busy={refreshing}
-          onClick={refresh}
-          title="Refresh agent status"
-        >
-          <RotateCwIcon className={cn("size-3.5", refreshing && "animate-spin")} />
-          <span className="sr-only">Refresh agent status</span>
-          <span className="hidden min-w-0 truncate sm:inline">
-            {refreshing ? (
-              "Refreshing agents"
-            ) : lastChecked ? (
-              <>
-                Checked{" "}
-                <span className="font-mono tabular-nums">{formatAgo(now - lastChecked)}</span>
-              </>
-            ) : (
-              "Checking…"
-            )}
-          </span>
-        </Btn>
+        <>
+          {providers.length > 0 ? (
+            <Btn
+              size="sm"
+              variant="ghost-muted"
+              disabled={refreshing}
+              aria-busy={refreshing}
+              onClick={refresh}
+              title="Refresh agent status"
+            >
+              <RotateCwIcon className={cn("size-3.5", refreshing && "animate-spin")} />
+              <span className="sr-only">Refresh agent status</span>
+              <span className="hidden min-w-0 truncate sm:inline">
+                {refreshing ? (
+                  "Refreshing agents"
+                ) : lastChecked ? (
+                  <>
+                    Checked{" "}
+                    <span className="font-mono tabular-nums">{formatAgo(now - lastChecked)}</span>
+                  </>
+                ) : (
+                  "Checking…"
+                )}
+              </span>
+            </Btn>
+          ) : null}
+          {state.kinds.length > 0 ? <AddAgentMenu kinds={state.kinds} /> : null}
+        </>
       }
     >
-      <ChatSection>
-        <SettingsRow
-          {...searchableSetting("agent-providers")}
-          description="The agent a new chat runs on. You can switch in the chat's model picker."
-          resetAction={
-            state.selected !== DEFAULT_AGENT ? (
-              <SettingResetButton
-                label="default agent"
-                onClick={() => update({ selected: DEFAULT_AGENT })}
-              />
-            ) : null
-          }
-          control={
-            <RowSelect
-              value={state.selected}
-              onValueChange={(selected) => update({ selected })}
-              options={choices.map((p) => ({ value: p.kind, label: p.displayName }))}
-              ariaLabel="New chats start with"
+      {providers.length > 0 ? (
+        <SettingsSection title="Your agents">
+          {providers.map((p) => (
+            <AgentListRow
+              key={p.id}
+              provider={p}
+              isDefault={p.id === state.selected}
+              onEnabled={(enabled) => update({ [p.id]: { enabled } })}
             />
-          }
-        />
+          ))}
+        </SettingsSection>
+      ) : (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-10 text-center">
+          <AgentIcon className="size-7 text-muted-foreground" />
+          <div className="space-y-1">
+            <p className="text-sm text-foreground">No agents yet</p>
+            <p className="max-w-80 text-[13px] text-pretty text-muted-foreground">
+              Add the agents you work with, then chat with any of them beside your mail.
+            </p>
+          </div>
+          {state.kinds.length > 0 ? (
+            <AddAgentMenu kinds={state.kinds} label="Add an agent" />
+          ) : null}
+        </div>
+      )}
+      <ChatSection>
+        {providers.length > 0 ? (
+          <SettingsRow
+            {...searchableSetting("agent-providers")}
+            description="The agent a new chat runs on. You can switch in the chat's agent picker."
+            control={
+              <RowSelect
+                value={state.selected ?? ""}
+                onValueChange={(selected) => update({ selected })}
+                options={choices.map((p) => ({ value: p.id, label: p.name }))}
+                ariaLabel="New chats start with"
+              />
+            }
+          />
+        ) : null}
       </ChatSection>
       {features.localAgents ? <ConnectedAgentsSection /> : null}
-    </ExtensionCategoryPane>
+    </SettingsPageContainer>
+  );
+}
+
+function AgentListRow({
+  provider,
+  isDefault,
+  onEnabled,
+}: {
+  provider: ProviderSnapshot;
+  isDefault: boolean;
+  onEnabled: (enabled: boolean) => void;
+}) {
+  const navigate = useNavigate();
+  const needsAttention = provider.status === "warning" || provider.status === "error";
+  return (
+    <div
+      data-slot="settings-row"
+      className="group relative flex items-center gap-3 px-4 py-3 hover:bg-foreground/[0.03]"
+    >
+      <button
+        type="button"
+        onClick={() =>
+          void navigate({
+            to: "/settings/$pane/$item",
+            params: { pane: "agents", item: provider.id },
+          })
+        }
+        aria-label={`Set up ${provider.name}`}
+        className="absolute inset-0 cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-inset"
+      />
+      <span
+        className={cn(
+          "pointer-events-none flex min-w-0 flex-1 items-center gap-3",
+          !provider.enabled && "opacity-60",
+        )}
+      >
+        <AgentPicture provider={provider} size="sm" />
+        <span className="min-w-0 flex-1">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-sm text-foreground">{provider.name}</span>
+            {isDefault ? (
+              <span className="shrink-0 rounded bg-muted/60 px-1 py-0.5 text-3xs leading-none text-muted-foreground">
+                Default
+              </span>
+            ) : null}
+          </span>
+          <span className="mt-0.5 flex items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
+            {needsAttention ? <StatusDot status={provider.status} /> : null}
+            <span className="line-clamp-1">
+              {kindName(provider.kind)} · {providerSummary(provider).headline}
+            </span>
+          </span>
+        </span>
+      </span>
+      <span className="relative flex shrink-0 items-center gap-3">
+        <Switch
+          checked={provider.enabled}
+          onCheckedChange={(checked: boolean) => onEnabled(Boolean(checked))}
+          aria-label={`${provider.enabled ? "Turn off" : "Turn on"} ${provider.name}`}
+        />
+        <ChevronRightIcon className="pointer-events-none size-4 text-muted-foreground" />
+      </span>
+    </div>
+  );
+}
+
+/** The picture you gave the agent, else its kind's mark on a tile. */
+function AgentPicture({ provider, size }: { provider: ProviderSnapshot; size: "sm" | "lg" }) {
+  const box = size === "lg" ? "size-12 rounded-[14px]" : "size-9 rounded-[10px]";
+  if (provider.avatar)
+    return <img src={provider.avatar} alt="" className={cn(box, "shrink-0 object-cover")} />;
+  return (
+    <span
+      className={cn(
+        box,
+        "flex shrink-0 items-center justify-center bg-foreground/[0.06] text-foreground",
+      )}
+    >
+      <ProviderIcon kind={provider.kind} className={size === "lg" ? "size-6" : "size-[18px]"} />
+    </span>
+  );
+}
+
+const hasFiles = (event: DragEvent) => event.dataTransfer.types.includes("Files");
+
+/** One agent's page: its name and picture, its status, its kind's settings, and removing it. */
+function AgentPage({
+  state,
+  provider,
+  update,
+}: {
+  state: ProvidersState;
+  provider: ProviderSnapshot;
+  update: (patch: AgentSettingsPatch) => void;
+}) {
+  const navigate = useNavigate();
+  const setState = useSetProvidersState();
+  const extension = EXTENSIONS.find((e) => e.manifest.id === provider.kind);
+  const Settings = extension?.agent?.Settings;
+  const input = useRef<HTMLInputElement>(null);
+  const [dropping, setDropping] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const back = () => void navigate({ to: "/settings/$pane", params: { pane: "agents" } });
+
+  const usePicture = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      update({ [provider.id]: { avatar: await mailboxPicture(file) } });
+    } catch (err) {
+      toast.error("Couldn't use that picture", {
+        description:
+          err instanceof PictureError
+            ? err.message
+            : "Couldn't read it. Choose a PNG, JPEG or WebP.",
+      });
+    }
+  };
+
+  const remove = () => {
+    setRemoving(true);
+    console.log("[Settings:removeAgent]", { id: provider.id });
+    mailApi.removeAgent(provider.id).then(
+      (next) => {
+        setState(next);
+        setConfirmRemove(false);
+        back();
+      },
+      (error: unknown) => {
+        setRemoving(false);
+        toast.error(
+          `Could not remove it: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      },
+    );
+  };
+
+  return (
+    <SettingsPageContainer className="space-y-8">
+      <div className="space-y-5 px-[17px]">
+        <Btn size="sm" variant="ghost-muted" className="-ml-2.5" onClick={back}>
+          <ArrowLeftIcon />
+          Agents
+        </Btn>
+        <header
+          className={cn(
+            "-mx-2 flex items-center gap-4 rounded-xl p-2 transition-colors",
+            dropping && "bg-accent-surface",
+          )}
+          onDragOver={(event) => {
+            if (!hasFiles(event)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            setDropping(true);
+          }}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+              setDropping(false);
+          }}
+          onDrop={(event) => {
+            if (!hasFiles(event)) return;
+            event.preventDefault();
+            setDropping(false);
+            void usePicture(event.dataTransfer.files[0]);
+          }}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={`Picture for ${provider.name}`}
+                className="cursor-pointer rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+              >
+                <AgentPicture provider={provider} size="lg" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={() => input.current?.click()}>
+                {provider.avatar ? "Change picture…" : "Choose picture…"}
+              </DropdownMenuItem>
+              {provider.avatar ? (
+                <DropdownMenuItem onSelect={() => update({ [provider.id]: { avatar: "" } })}>
+                  Remove picture
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <input
+            ref={input}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(event) => {
+              void usePicture(event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
+          <div className="min-w-0 flex-1">
+            <DraftInput
+              aria-label="Name"
+              value={provider.name}
+              maxLength={60}
+              onCommit={(name) => {
+                if (name) update({ [provider.id]: { name } });
+              }}
+              className="h-9 border-transparent bg-transparent px-1.5 text-[22px] font-medium tracking-[-0.01em] hover:border-border/70 focus-visible:bg-canvas"
+            />
+            <p className="mt-0.5 px-1.5 text-sm text-muted-foreground">
+              {extension ? `${extension.manifest.name} · ${extension.manifest.description}` : null}
+            </p>
+          </div>
+          <Switch
+            checked={provider.enabled}
+            onCheckedChange={(checked: boolean) =>
+              update({ [provider.id]: { enabled: Boolean(checked) } })
+            }
+            aria-label={`${provider.enabled ? "Turn off" : "Turn on"} ${provider.name}`}
+          />
+        </header>
+        {extension?.manifest.dataUse ? (
+          <p className="flex items-start gap-2 text-[13px] leading-[18px] text-muted-foreground">
+            <ShieldIcon className="mt-px size-3.5 shrink-0" />
+            {extension.manifest.dataUse}
+          </p>
+        ) : null}
+      </div>
+      <AgentStatusSection
+        provider={provider}
+        isDefault={provider.id === state.selected}
+        onMakeDefault={() => update({ selected: provider.id })}
+      />
+      {Settings ? <Settings state={state} provider={provider} update={update} /> : null}
+      <SettingsSection title="Remove">
+        <SettingsRow
+          title="Remove agent"
+          description="Its settings and keys leave every device. Its chats stay, with nothing to run on."
+          control={
+            <Btn size="sm" variant="destructive" onClick={() => setConfirmRemove(true)}>
+              Remove…
+            </Btn>
+          }
+        />
+      </SettingsSection>
+      <Dialog
+        open={confirmRemove}
+        onOpenChange={setConfirmRemove}
+        title={`Remove ${provider.name}?`}
+        confirmLabel={removing ? "Removing…" : "Remove agent"}
+        confirmVariant="accent"
+        onConfirm={remove}
+      >
+        <Text variant="small">
+          Otter forgets {provider.name} and its key on all your devices. Nothing changes on the
+          agent itself. You can add it again any time.
+        </Text>
+      </Dialog>
+    </SettingsPageContainer>
   );
 }
 

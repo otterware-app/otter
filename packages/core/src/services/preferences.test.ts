@@ -17,12 +17,12 @@ vi.mock("./otter-account.js", () => ({
   relayRequest: (...args: unknown[]) => relay(...args),
 }));
 vi.mock("./agent/service.js", () => ({
-  applySyncedHermesKey: vi.fn(),
-  forgetHermesKey: vi.fn(),
+  applySyncedAgentKeys: vi.fn(),
+  forgetAgentKeys: vi.fn(),
   applySyncedProviderSettings: vi.fn(),
+  syncedAgentKeys: async () => ({}),
   syncedProviderSettings: () => ({}),
 }));
-vi.mock("./agent/settings.js", () => ({ getHermesKey: () => null }));
 vi.mock("./keybindings-store.js", () => ({
   readKeybindings: async () => ({}),
   writeKeybindings: vi.fn(),

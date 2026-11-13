@@ -5,14 +5,17 @@ vi.mock("../../platform.js", () => ({ platform: () => ({ notify }) }));
 vi.mock("../settings-store.js", () => ({
   getSettings: async () => ({ notificationsMode: "inbox" }),
 }));
-vi.mock("../../extensions.js", () => ({
-  registeredAgents: () => new Map([["openclaw", { kind: "openclaw", displayName: "OpenClaw" }]]),
+vi.mock("./settings.js", () => ({
+  getProviderSettings: async () => ({
+    selected: "home",
+    agents: [{ id: "home", kind: "openclaw", name: "Home", settings: {} }],
+  }),
 }));
 
 const { notifyAsk } = await import("./service.js");
 
 const ask = (key: string, focused: boolean) =>
-  notifyAsk("openclaw", { key, title: "Command approval", body: "date", focused });
+  notifyAsk("home", { key, title: "Command approval", body: "date", focused });
 const settle = () => vi.advanceTimersByTimeAsync(600);
 
 afterEach(() => {
@@ -31,7 +34,7 @@ describe("what an agent asks of the user", () => {
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith({
       title: "Command approval",
-      subtitle: "OpenClaw is waiting for you",
+      subtitle: "Home is waiting for you",
       body: "date",
     });
   });
@@ -46,7 +49,7 @@ describe("what an agent asks of the user", () => {
 
   it("names the chat to open", async () => {
     vi.useFakeTimers();
-    notifyAsk("openclaw", {
+    notifyAsk("home", {
       key: "openclaw:req-5",
       title: "Morning brief",
       subtitle: "Finished",

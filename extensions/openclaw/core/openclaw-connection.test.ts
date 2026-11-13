@@ -1,7 +1,9 @@
 import type { ChatEvent } from "@otter/core/extension-kit";
 import { GatewayProtocolRequestError } from "@openclaw/gateway-client/browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import type { OpenClawProvider } from "./openclaw.js";
 import type { OpenClawSettings } from "./settings.js";
+import { testAgent } from "./test-agent.js";
 
 type Options = {
   createSocket: (on: Record<string, () => void>) => unknown;
@@ -15,7 +17,6 @@ type Options = {
 
 const fixture = vi.hoisted(() => ({
   request: vi.fn(),
-  token: "test-token",
   hello: {} as object,
   fail: null as null | { failure?: Error; error?: Error },
   clients: [] as { options: Options; connected: boolean }[],
@@ -33,16 +34,6 @@ vi.mock("../../../packages/core/src/platform.js", () => ({
       return () => {};
     },
   }),
-}));
-vi.mock("../../../packages/core/src/services/agent/settings.js", () => ({
-  clearOpenClawBootstrapToken: vi.fn(),
-  clearOpenClawDeviceToken: vi.fn(),
-  getOpenClawBootstrapToken: async () => "",
-  getOpenClawDeviceKey: async () => "",
-  getOpenClawDeviceToken: async () => "",
-  getOpenClawToken: async () => fixture.token,
-  setOpenClawDeviceKey: vi.fn(),
-  setOpenClawDeviceToken: vi.fn(),
 }));
 vi.mock("@openclaw/gateway-client/browser", () => ({
   GatewayBrowserDeviceAuthLifecycle: class {
@@ -82,20 +73,23 @@ vi.stubGlobal(
     addEventListener() {}
   },
 );
-const { openClawPairingRequest, openClawProvider, resetOpenClawConnection } =
-  await import("./openclaw.js");
+const { createOpenClaw } = await import("./openclaw.js");
 const settings = { url: "wss://gateway.test" } as OpenClawSettings;
+let agent: ReturnType<typeof testAgent>;
+let openclaw: OpenClawProvider;
+const pairingRequest = async () => (await openclaw.settingsView!(settings)).pairingRequest;
 
 beforeEach(() => {
   vi.useFakeTimers();
-  fixture.token = "test-token";
+  agent = testAgent();
+  openclaw = createOpenClaw(agent);
   fixture.hello = {};
   fixture.fail = null;
   fixture.clients = [];
   fixture.urls = [];
 });
 afterEach(() => {
-  openClawProvider.shutdown();
+  openclaw.shutdown();
   fixture.request.mockReset();
   fixture.request.mockImplementation(async () => ({}));
   vi.useRealTimers();
@@ -124,17 +118,15 @@ const final = () =>
 
 function send(input = "Hi") {
   const events: ChatEvent[] = [];
-  const ended = openClawProvider.sendTurn(
-    { requestId: "req-1", input, sessionId: "s" },
-    settings,
-    (e) => events.push(e),
+  const ended = openclaw.sendTurn({ requestId: "req-1", input, sessionId: "s" }, settings, (e) =>
+    events.push(e),
   );
   return { events, ended };
 }
 
 function resume() {
   const events: ChatEvent[] = [];
-  const ended = openClawProvider.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) =>
+  const ended = openclaw.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) =>
     events.push(e),
   );
   return { events, ended };
@@ -197,7 +189,7 @@ describe("an OpenClaw connection", () => {
     expect(fixture.clients.length).toBeGreaterThan(8);
     expect(events.some((e) => e.type === "error")).toBe(false);
 
-    fixture.token = "";
+    agent.stored.delete("token");
     await flush(30_000);
     expect(events.at(-1)).toEqual({ requestId: "req-1", type: "error", message: "detached" });
   });
@@ -206,17 +198,17 @@ describe("an OpenClaw connection", () => {
     const failure = (code: string) =>
       Object.assign(new Error(code), { details: { code, requestId: "pair-1" } });
     fixture.fail = { failure: failure("PAIRING_REQUIRED") };
-    await openClawProvider.checkStatus(settings);
-    expect(openClawPairingRequest()).toBe("pair-1");
+    await openclaw.checkStatus(settings);
+    expect(await pairingRequest()).toBe("pair-1");
     fixture.fail = { failure: failure("AUTH_TOKEN_MISMATCH") };
-    await openClawProvider.checkStatus(settings);
-    expect(openClawPairingRequest()).toBeNull();
+    await openclaw.checkStatus(settings);
+    expect(await pairingRequest()).toBeNull();
 
     fixture.fail = { failure: failure("PAIRING_REQUIRED") };
-    await openClawProvider.checkStatus(settings);
+    await openclaw.checkStatus(settings);
     fixture.fail = { error: new Error("Can't reach the gateway.") };
-    await openClawProvider.checkStatus(settings);
-    expect(openClawPairingRequest()).toBeNull();
+    await openclaw.checkStatus(settings);
+    expect(await pairingRequest()).toBeNull();
   });
 
   it("says what the gateway answered when it's reached but refuses", async () => {
@@ -224,7 +216,7 @@ describe("an OpenClaw connection", () => {
       if (method === "agents.list")
         throw new GatewayProtocolRequestError({ message: "gateway restarting" });
     });
-    expect(await openClawProvider.checkStatus(settings)).toMatchObject({
+    expect(await openclaw.checkStatus(settings)).toMatchObject({
       status: "error",
       message: "The gateway answered: gateway restarting",
     });
@@ -232,15 +224,37 @@ describe("an OpenClaw connection", () => {
 
   it("detaches running turns on a reset, and watches the new gateway", async () => {
     gateway();
-    openClawProvider.watch!(settings, [{ id: "s", since: 0 }], () => {});
+    openclaw.watch!(settings, [{ id: "s", since: 0 }], () => {});
     const { events, ended } = send();
     await flush();
     expect(fixture.urls).toEqual(["wss://gateway.test"]);
-    await resetOpenClawConnection("wss://new.test");
+    await openclaw.connect("wss://new.test", { token: "new-token" });
     await ended;
     expect(events.at(-1)).toEqual({ requestId: "req-1", type: "error", message: "detached" });
     await flush(1_000);
     expect(fixture.urls).toEqual(["wss://gateway.test", "wss://new.test"]);
+  });
+
+  it("is each agent's own: its pairing, its gateway and its turns", async () => {
+    gateway();
+    const theirs = testAgent({ token: "their-token" }, "openclaw-2");
+    const other = createOpenClaw(theirs);
+    const { events } = send();
+    const otherEvents: ChatEvent[] = [];
+    void other.sendTurn(
+      { requestId: "req-2", input: "Hi", sessionId: "s" },
+      { url: "wss://other.test" } as OpenClawSettings,
+      (e) => otherEvents.push(e),
+    );
+    await flush();
+    expect(fixture.urls).toEqual(["wss://gateway.test", "wss://other.test"]);
+
+    await openclaw.connect("wss://new.test", { bootstrapToken: "setup-code" });
+    expect(events.at(-1)).toEqual({ requestId: "req-1", type: "error", message: "detached" });
+    expect(otherEvents.some((e) => e.type === "error")).toBe(false);
+    expect(Object.fromEntries(agent.stored)).toEqual({ "bootstrap-token": "setup-code" });
+    expect(Object.fromEntries(theirs.stored)).toEqual({ token: "their-token" });
+    other.shutdown();
   });
 });
 
@@ -319,7 +333,7 @@ describe("an OpenClaw turn whose connection drops", () => {
     });
     send();
     await flush();
-    openClawProvider.cancel("req-1");
+    openclaw.cancel("req-1");
     await flush(1_000);
     expect(calls("chat.abort")).toHaveLength(2);
   });
@@ -331,7 +345,7 @@ describe("an OpenClaw turn whose connection drops", () => {
     });
     const { events } = send();
     await flush();
-    openClawProvider.cancel("req-1");
+    openclaw.cancel("req-1");
     await flush();
     expect(events.at(-1)).toEqual({ requestId: "req-1", type: "error", message: "cancelled" });
     await flush(1_000 + 2_000 + 5_000);
@@ -363,7 +377,7 @@ describe("an OpenClaw turn whose connection drops", () => {
   it("doesn't send again for a turn that ended while it looked", async () => {
     let first = true;
     history = () => {
-      void resetOpenClawConnection("wss://gateway.test");
+      void openclaw.connect("wss://gateway.test", { token: "test-token" });
       return missing;
     };
     gateway((method) => {
@@ -381,13 +395,13 @@ describe("an OpenClaw turn whose connection drops", () => {
   it("stops asking to stop once the connection is reset for a new gateway", async () => {
     gateway((method) => {
       if (method === "chat.abort") {
-        void resetOpenClawConnection("wss://new.test");
+        void openclaw.connect("wss://new.test", { token: "new-token" });
         throw new Error("gateway client stopped");
       }
     });
     send();
     await flush();
-    openClawProvider.cancel("req-1");
+    openclaw.cancel("req-1");
     await flush(10_000);
     expect(calls("chat.abort")).toHaveLength(1);
   });
@@ -435,9 +449,7 @@ describe("an OpenClaw turn whose message isn't in the history read", () => {
     gateway();
     const { events, ended } = send();
     await flush();
-    await openClawProvider.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) =>
-      events.push(e),
-    );
+    await openclaw.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) => events.push(e));
     expect(events.some((e) => e.type === "transcript")).toBe(false);
     final();
     await ended;

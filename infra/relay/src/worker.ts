@@ -594,7 +594,11 @@ authed.put(
       preferences: z
         .record(z.string().regex(/^[a-zA-Z][a-zA-Z0-9]{0,63}$/), z.unknown())
         .optional(),
-      hermesKey: z.string().max(4096).nullable().optional(),
+      agentKeys: z
+        .record(z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/), z.string().min(1).max(4096))
+        .refine((keys) => Object.keys(keys).length <= 32)
+        .nullable()
+        .optional(),
     }),
     rejectInvalid,
   ),

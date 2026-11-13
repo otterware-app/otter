@@ -5,9 +5,10 @@ import type {
   ScheduledTaskInput,
   TaskRun,
 } from "@otter/contracts/scheduled";
+/** What an extension contributes: hermes, openclaw, claude… */
 export type ProviderKind = string;
-
-export const DEFAULT_AGENT = "hermes";
+/** One agent the user added, of a kind: what chats, tasks and every call name. */
+export type AgentId = string;
 
 export type ProviderState = "ready" | "warning" | "error" | "disabled";
 
@@ -42,8 +43,12 @@ export type ProviderModel = {
 };
 
 export type ProviderSnapshot = {
+  id: AgentId;
   kind: ProviderKind;
-  displayName: string;
+  /** The name you gave it. */
+  name: string;
+  /** The picture you gave it (a data URL). */
+  avatar: string | null;
   enabled: boolean;
   installed: boolean;
   version: string | null;
@@ -63,13 +68,18 @@ export type ProviderSnapshot = {
   liveBrowser: boolean;
   /** Whether you can talk with it in a chat now (`ChatProvider.talk`), as its last check found. */
   talk?: boolean;
+  /** Its sessions list only Otter's own unless asked for every one (`listSessions`'s `everywhere`). */
+  otherSessions: boolean;
   /** The agent's settings, plus what its `settingsView` adds (never its secrets). */
   settings: AgentSettingsView;
 };
 
 export type ProvidersState = {
   providers: ProviderSnapshot[];
-  selected: ProviderKind;
+  /** The agent new chats start with; null when none is added. */
+  selected: AgentId | null;
+  /** The kinds this device can add. */
+  kinds: { kind: ProviderKind; name: string }[];
 };
 
 export type RuntimeMode = "approval-required" | "auto-accept-edits" | "full-access";
@@ -103,9 +113,19 @@ export type AgentSettingsView = AgentSettings & Record<string, unknown>;
 
 export type AgentSettingField = "string" | "boolean" | "runtimeMode";
 
+export type AgentEntry = {
+  id: AgentId;
+  kind: ProviderKind;
+  name: string;
+  avatar?: string;
+  settings: AgentSettings;
+};
+
 export type ProviderSettings = {
-  selected: ProviderKind;
-  agents: Record<ProviderKind, AgentSettings>;
+  selected: AgentId | null;
+  agents: AgentEntry[];
+  /** Agents removed lately, so the account's devices remove them too and none brings one back. */
+  removed: AgentId[];
 };
 
 export type ToolStep = {
@@ -309,7 +329,24 @@ export interface ScheduleSupport<S> {
   targets?(settings: S, agent: string, channel: string): Promise<ChannelTarget[]>;
 }
 
-export interface ChatProvider<S extends AgentSettings = AgentSettings> {
+/** One agent's secrets (its key, its pairing), in the platform's: never sent to the renderer, never logged. */
+export type AgentSecrets = {
+  get(name: string): Promise<string>;
+  set(name: string, value: string): Promise<void>;
+  delete(name: string): Promise<void>;
+};
+
+/** What a kind's `create` is given: the agent it runs. */
+export type AgentContext = {
+  readonly id: AgentId;
+  readonly secrets: AgentSecrets;
+};
+
+/**
+ * A kind of agent, from its extension: the user adds any number of them, each its own
+ * `ChatProvider` from `create`, with its own connections and runs.
+ */
+export interface AgentType<S extends AgentSettings = AgentSettings> {
   readonly kind: ProviderKind;
   readonly displayName: string;
   readonly defaults: S;
@@ -319,16 +356,17 @@ export interface ChatProvider<S extends AgentSettings = AgentSettings> {
   readonly strictModels?: boolean;
   /** Settings that never follow the account (OpenClaw's pairing is this device's). */
   readonly localOnly?: boolean;
+  /** The secrets it keeps in `AgentContext.secrets`: forgotten when it's removed. */
+  readonly secrets?: readonly string[];
+  /** The one of them that follows the account, sealed by the relay (Hermes's API key). */
+  readonly syncedSecret?: string;
+  create(agent: AgentContext): ChatProvider<S>;
+}
+
+export interface ChatProvider<S extends AgentSettings = AgentSettings> {
   /** What the settings form needs beyond the settings: whether a key is saved, a pairing request. */
   settingsView?(settings: S): Promise<Record<string, unknown>>;
-  checkStatus(
-    settings: S,
-  ): Promise<
-    Omit<
-      ProviderSnapshot,
-      "checkedAt" | "enabled" | "settings" | "forks" | "titles" | "liveBrowser"
-    >
-  >;
+  checkStatus(settings: S): Promise<CheckedStatus>;
   sendTurn(input: SendTurnInput, settings: S, emit: Emit): Promise<void>;
   /**
    * Picks up a run sent earlier with this request id, which the panel lost
@@ -366,7 +404,10 @@ export interface ChatProvider<S extends AgentSettings = AgentSettings> {
     answers: Record<string, string[]> | null,
   ): Promise<void>;
   listSkills(settings: S): Promise<Skill[]>;
-  listSessions(settings: S, limit: number): Promise<ChatSession[]>;
+  /** Otter's own sessions, or with `everywhere` every one (others' Slack DMs on a shared agent): see `otherSessions`. */
+  listSessions(settings: S, limit: number, everywhere?: boolean): Promise<ChatSession[]>;
+  /** Whether `listSessions` leaves out sessions from elsewhere unless asked. */
+  readonly otherSessions?: boolean;
   readSession(settings: S, sessionId: string): Promise<ChatSessionMessage[]>;
   readFile?(settings: S, sessionId: string, href: string): Promise<ChatFile>;
   /**
@@ -405,7 +446,14 @@ export interface ChatProvider<S extends AgentSettings = AgentSettings> {
   deleteSession(settings: S, sessionId: string): Promise<void>;
   readonly schedules?: ScheduleSupport<S>;
   readonly talk?: TalkSupport<S>;
+  /** It's being removed from this device: ends what it holds elsewhere (varys's grant), as far as it can. */
+  remove?(settings: S): Promise<void>;
   shutdown(): void;
 }
+
+export type CheckedStatus = Pick<
+  ProviderSnapshot,
+  "installed" | "version" | "status" | "auth" | "message" | "models" | "model" | "sessions" | "talk"
+>;
 
 export type ChatFile = { name: string; mimeType: string; data: string; size: number };
