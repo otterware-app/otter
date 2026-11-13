@@ -203,7 +203,7 @@ struct QuestionCard: View {
                                         own[item.id] = value
                                         if !item.multiSelect, !value.isEmpty { chosen[item.id] = [] }
                                     }
-                                ), axis: .vertical)
+                                ), prompt: Text("Or answer in your own words").foregroundStyle(palette.muted), axis: .vertical)
                                 .font(.ui(15))
                                 .lineLimit(1...3)
                                 .padding(.horizontal, 14)

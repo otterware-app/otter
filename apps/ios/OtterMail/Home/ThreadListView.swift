@@ -390,7 +390,7 @@ struct ThreadListView: View {
 
     /** The desktop's rows (styles.css): unread mail on a raised card, or edge to edge with a hairline between. */
     private func rowBackground(unread: Bool) -> some View {
-        let fill = palette.text.opacity(unread ? 0.04 : 0)
+        let fill = palette.text.opacity(unread ? 0.1 : 0)
         return palette.canvas.overlay {
             if preferences.fullWidthRows {
                 Rectangle().fill(fill)

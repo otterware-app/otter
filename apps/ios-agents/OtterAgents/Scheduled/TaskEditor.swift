@@ -60,11 +60,11 @@ struct TaskEditor: View {
                 }
                 SettingsSection {
                     SettingsCell {
-                        TextField("Name", text: $name).font(.ui(16)).foregroundStyle(palette.text)
+                        TextField("Name", text: $name, prompt: Text("Name").foregroundStyle(palette.muted)).font(.ui(16)).foregroundStyle(palette.text)
                     }
                     if task == nil || task?.prompt != nil {
                         SettingsDivider()
-                        TextField("What should it do?", text: $prompt, axis: .vertical)
+                        TextField("What should it do?", text: $prompt, prompt: Text("What should it do?").foregroundStyle(palette.muted), axis: .vertical)
                             .font(.ui(16)).foregroundStyle(palette.text).lineLimit(3...10).padding(16)
                     }
                 }
@@ -150,7 +150,7 @@ struct TaskEditor: View {
             }
         case .cron:
             SettingsCell {
-                TextField("minute hour day month weekday", text: $when.cron)
+                TextField("minute hour day month weekday", text: $when.cron, prompt: Text("minute hour day month weekday").foregroundStyle(palette.muted))
                     .font(.mono(15)).foregroundStyle(palette.text).textInputAutocapitalization(.never).autocorrectionDisabled()
             }
         }

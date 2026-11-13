@@ -1,7 +1,7 @@
 # Otter Mail for iPhone
 
 A native SwiftUI app (iOS 27, Liquid Glass), the sibling of the Mac and web apps (`apps/desktop` and
-`apps/web`, one TypeScript app). It shares their Otter account, mailboxes, themes and settings, not
+`apps/web`, one TypeScript app). It shares their Otter account, mailboxes and settings, not
 their code.
 
 ## Design
@@ -22,8 +22,8 @@ their code.
   Tap Reply for the sender, or hold it for Reply, Reply all and Forward.
 - **The desktop's type.** Inter (`Resources/Fonts`, SIL OFL), the Mac and web apps' face, at
   iOS's text styles so Dynamic Type still scales it (`Theme/Typography.swift`). Code stays in SF Mono.
-- **Every theme.** The themes are the desktop's (`Resources/Themes.json`), light and dark, blended
-  the same way (`Theme/Theme.swift`).
+- **Light and dark.** A white canvas in light mode and a pitch-black canvas in dark mode
+  (`Theme/Palette.swift`), with System / Light / Dark in Settings. Desktop themes stay on the desktop and web.
 - **App icons.** Releases (TestFlight and App Store) use the default icon, with light, dark and
   tinted appearances. Debug builds use the blue blueprint icon. `pnpm icons:export` draws both
   from the same envelope mark as the Mac and web icons. The icon follows the build.
@@ -152,9 +152,8 @@ Shipping: the Release iPhone workflow builds and uploads to TestFlight (`pnpm re
 the same from a Mac); see `docs/release.md`. The app has its own version, `MARKETING_VERSION` in
 the Xcode project, apart from the Mac app's.
 
-`Resources/Themes.json` and `Resources/DemoMailboxes.json` are exported from `packages/shared` by
-`pnpm ios:resources` (`dev:ios` and releases run it); rerun it after changing the palettes or the
-demo mailbox. It also writes `Resources/Licenses.json`, what Settings → Open-source licenses shows
+`Resources/DemoMailboxes.json` is exported from `packages/shared` by
+`pnpm ios:resources` (`dev:ios` and releases run it); rerun it after changing the demo mailbox. It also writes `Resources/Licenses.json`, what Settings → Open-source licenses shows
 in both iPhone apps: the `ios` notices of `third-party-licenses.config.json`
 ([Open-source licenses](../../docs/development.md#open-source-licenses)). Add a Swift package or
 a bundled font, image or sound there.

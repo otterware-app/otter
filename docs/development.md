@@ -18,7 +18,7 @@
 | `pnpm imap-server [down]`               | A local IMAP server with a seeded mailbox (see [IMAP locally](#imap-locally)).           |
 | `pnpm agents-server [down]`             | Local OpenClaw and Hermes gateways (see [Agent gateways](#agent-gateways)).              |
 | `pnpm dev:ios`                          | Builds the iPhone app and runs it in the simulator (see `apps/ios/README.md`).           |
-| `pnpm ios:resources`                    | Re-exports the themes and demo mailbox the iPhone app bundles.                           |
+| `pnpm ios:resources`                    | Re-exports the demo mailbox and licenses the iPhone apps bundle.                         |
 | `pnpm start`                            | Runs the built app unpackaged (`pnpm build` first).                                      |
 | `pnpm build`                            | Builds `apps/web/dist` and `apps/desktop/dist-electron`.                                 |
 | `pnpm build:translator`                 | Builds the Swift translator helper.                                                      |

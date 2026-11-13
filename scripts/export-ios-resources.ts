@@ -3,27 +3,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { DEMO_ACCOUNTS, DEMO_ALIAS_ACCOUNT } from "../packages/shared/src/demo-mailboxes.ts";
-import {
-  APP_THEMES,
-  OTTER_DARK_THEME_COLORS,
-  OTTER_LIGHT_THEME_COLORS,
-  getThemeColorsForAppearance,
-} from "../packages/shared/src/theme-palettes.ts";
 
 import { generateThirdPartyLicenseManifest } from "./lib/third-party-licenses.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "apps/ios/OtterMail/Resources");
 mkdirSync(out, { recursive: true });
-
-const themes = APP_THEMES.map((theme) => ({
-  id: theme.id,
-  label: theme.label,
-  exact: theme.exact ?? false,
-  monochrome: theme.monochrome ?? false,
-  light: getThemeColorsForAppearance(theme, "light") ?? OTTER_LIGHT_THEME_COLORS,
-  dark: getThemeColorsForAppearance(theme, "dark") ?? OTTER_DARK_THEME_COLORS,
-}));
 
 const seededAt = Date.now();
 const demo = [...DEMO_ACCOUNTS, DEMO_ALIAS_ACCOUNT].map(({ threads, ...account }) => ({
@@ -53,7 +38,6 @@ const write = (name: string, value: unknown) => {
   writeFileSync(join(out, name), `${JSON.stringify(value, null, 2)}\n`);
   console.log(`Wrote apps/ios/OtterMail/Resources/${name}`);
 };
-write("Themes.json", themes);
 write("DemoMailboxes.json", demo);
 
 const licenses = await generateThirdPartyLicenseManifest({

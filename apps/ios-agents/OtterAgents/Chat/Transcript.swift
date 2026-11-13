@@ -294,7 +294,7 @@ struct AssistantTurnView: View {
                 Text(summary).font(.ui(13, .medium))
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .semibold))
-                    .opacity(0.7)
+                    .foregroundStyle(palette.tertiary)
                     .rotationEffect(.degrees(open ? 90 : 0))
             }
             .foregroundStyle(palette.muted)

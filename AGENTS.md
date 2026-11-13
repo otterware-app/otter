@@ -63,12 +63,13 @@ when a feature lands or goes.
   agent on its own button), T3 Code's list rows. Its own Swift code, not the TypeScript core: it signs in to Google itself (the "iOS"
   OAuth client, PKCE), talks to Gmail directly, caches on disk, and follows the Otter account
   through the relay (mailboxes, preferences under the same keys, live events). `Resources/` holds
-  the themes and demo mailbox, exported from `packages/shared` by `pnpm ios:resources`. See its
+  the demo mailbox, exported from `packages/shared` by `pnpm ios:resources`. Light and dark use a fixed
+  white and black palette. See its
   README.
 - `apps/ios-agents`: Otter Agents for iPhone, the agents on their own (a second app, as the phone
   gets an app per job): the account's chats and what agents run on a schedule, laid out like
   T3 Code's phone app. Its own project (`OtterAgents.xcodeproj`); it compiles `apps/ios`'s
-  themes and `MailContext` (listed in its project under "Shared with Otter Mail"), so a change to
+  palette and `MailContext` (listed in its project under "Shared with Otter Mail"), so a change to
   those builds in both. Otter Mail has no agent of its own: its Send to agent opens a new chat
   about a conversation, a message or a draft in Otter Agents. The chat's logic is `apps/web/src/main/agent` ported (`Chats/`,
   `Scheduled/`): change both together. See its README.
@@ -98,9 +99,8 @@ when a feature lands or goes.
   its icon and settings form; the chat UI is shared.
 - `packages/contracts`: types shared by both sides, including `DesktopBridge`, the
   `window.desktopBridge` API the preload exposes, and the relay's API (`src/relay.ts`).
-- `packages/shared`: what every app shows the same, the iPhone app included: the color themes
-  (`./themes`) and the demo mailbox (`./demo-mailboxes`). The web app imports it; the iPhone app
-  bundles it as JSON.
+- `packages/shared`: the desktop and web color themes (`./themes`) and every app's demo mailbox
+  (`./demo-mailboxes`). The web app imports it; the iPhone app bundles the demo as JSON.
 - `infra/relay`: https://relay.otterware.app (and https://relay.mail.otterware.app, for clients from
   before the rename; `src/hosts.ts`), a Cloudflare Worker (Hono, better-auth,
   Drizzle on D1, a Durable Object per user). Otter accounts, the Gmail accounts linked to them,

@@ -39,11 +39,11 @@ struct ComposeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     fields
-                    TextField("Subject", text: $draft.subject, axis: .vertical)
+                    TextField("Subject", text: $draft.subject, prompt: Text("Subject").foregroundStyle(palette.muted), axis: .vertical)
                         .font(.inter(.title2).weight(.semibold))
                         .foregroundStyle(palette.text)
                         .padding(.top, 20).padding(.bottom, 10)
-                    TextField("Message", text: $draft.body, selection: $selection, axis: .vertical)
+                    TextField("Message", text: $draft.body, selection: $selection, prompt: Text("Message").foregroundStyle(palette.muted), axis: .vertical)
                         .focused($bodyFocused)
                         .font(.inter(.body)).foregroundStyle(palette.text).lineSpacing(3)
                         .frame(maxWidth: .infinity, minHeight: 220, alignment: .topLeading)

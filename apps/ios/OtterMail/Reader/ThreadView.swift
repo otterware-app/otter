@@ -141,7 +141,7 @@ struct ThreadView: View {
             .font(.system(size: 19))
             .foregroundStyle(palette.text)
             .frame(width: 44, height: 44)
-            .glassEffect(.regular.interactive(), in: .circle)
+            .glassEffect(.regular.tint(palette.canvas.opacity(0.75)).interactive(), in: .circle)
 
             if archives || unarchives {
                 Button("Trash", systemImage: "trash") {
@@ -152,7 +152,7 @@ struct ThreadView: View {
                 .font(.system(size: 19))
                 .foregroundStyle(palette.text)
                 .frame(width: 44, height: 44)
-                .glassEffect(.regular.interactive(), in: .circle)
+                .glassEffect(.regular.tint(palette.canvas.opacity(0.75)).interactive(), in: .circle)
             }
 
             Spacer()
@@ -162,7 +162,7 @@ struct ThreadView: View {
                 .font(.system(size: 19))
                 .foregroundStyle(palette.text)
                 .frame(width: 44, height: 44)
-                .glassEffect(.regular.interactive(), in: .circle)
+                .glassEffect(.regular.tint(palette.canvas.opacity(0.75)).interactive(), in: .circle)
 
             Button("Reply to \(replyName(thread, mailbox))", systemImage: "arrowshape.turn.up.left") {
                 draft = store.reply(to: thread, in: place.scope, all: false)
@@ -171,7 +171,7 @@ struct ThreadView: View {
             .font(.system(size: 19))
             .foregroundStyle(palette.text)
             .frame(width: 44, height: 44)
-            .glassEffect(.regular.interactive(), in: .circle)
+            .glassEffect(.regular.tint(palette.canvas.opacity(0.75)).interactive(), in: .circle)
             .contextMenu {
                 Button("Reply", systemImage: "arrowshape.turn.up.left") {
                     draft = store.reply(to: thread, in: place.scope, all: false)

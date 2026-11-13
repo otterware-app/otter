@@ -44,7 +44,7 @@ struct RecipientField: View {
                             }
                         }
                     }
-                    TextField("Add recipient", text: $entry)
+                    TextField("Add recipient", text: $entry, prompt: Text("Add recipient").foregroundStyle(palette.muted))
                         .accessibilityLabel(title)
                         .keyboardType(.emailAddress)
                         .textContentType(.emailAddress)

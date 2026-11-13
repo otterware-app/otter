@@ -10,7 +10,7 @@ final class WalkthroughUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-otter:demo", "YES", "-chat-drafts", "<dict/>", "-chat-new-drafts", "<array/>", "-chat-open-requests", "<dict/>"]
+        app.launchArguments = ["-otter:theme-source", "system", "-otter:demo", "YES", "-chat-drafts", "<dict/>", "-chat-new-drafts", "<array/>", "-chat-open-requests", "<dict/>"]
         app.launch()
         XCTAssertTrue(app.buttons["New chat"].waitForExistence(timeout: 10), "the chats didn't open")
     }
@@ -171,6 +171,11 @@ final class WalkthroughUITests: XCTestCase {
         let said = app.textViews.matching(NSPredicate(format: "value CONTAINS %@", "One step needs your say-so")).firstMatch
         XCTAssertTrue(said.exists, "what the agent said before its step folded away while it works")
         shot("09-approval")
+        app.buttons["Chats"].tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Needs you'")).firstMatch.waitForExistence(timeout: 5))
+        shot("09-needs-you-badge")
+        row("Send Lena the new kickoff time").tap()
+        XCTAssertTrue(app.buttons["Allow once"].waitForExistence(timeout: 5))
         app.buttons["Allow once"].tap()
         XCTAssertTrue(app.buttons["Send message"].waitForExistence(timeout: 20), "the turn never finished after the approval")
         XCTAssertFalse(said.exists, "what the agent said along the way didn't fold once it was done")
@@ -214,9 +219,12 @@ final class WalkthroughUITests: XCTestCase {
         app.buttons["Settings"].tap()
         XCTAssertTrue(app.staticTexts["About"].waitForExistence(timeout: 5))
         shot("14-settings")
-        app.buttons.containing(NSPredicate(format: "label CONTAINS 'Appearance'")).firstMatch.tap()
-        XCTAssertTrue(app.buttons["Use in dark mode"].firstMatch.waitForExistence(timeout: 5), "Appearance didn't open")
-        shot("15-appearance")
+        app.buttons["Color scheme, System"].tap()
+        for mode in ["System", "Light", "Dark"] {
+            XCTAssertTrue(app.buttons[mode].firstMatch.waitForExistence(timeout: 5))
+        }
+        XCTAssertFalse(app.buttons["Use in dark mode"].exists)
+        shot("15-color-scheme")
     }
 
     func testYourAgentsInSettings() {
@@ -381,5 +389,17 @@ final class WalkthroughUITests: XCTestCase {
         shot("18-settled")
         app.buttons["Undo"].tap()
         XCTAssertTrue(row("Morning brief").waitForExistence(timeout: 3), "Undo didn't bring the chat back")
+    }
+
+    func testAccountAndWelcome() {
+        app.buttons["Settings"].tap()
+        row("Pretend chats, on this iPhone only").tap()
+        XCTAssertTrue(app.buttons["Leave the demo"].waitForExistence(timeout: 5))
+        shot("35-account")
+        app.terminate()
+        app.launchArguments = ["-otter:theme-source", "system", "-otter:demo", "NO"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Try the demo"].waitForExistence(timeout: 5))
+        shot("36-welcome")
     }
 }

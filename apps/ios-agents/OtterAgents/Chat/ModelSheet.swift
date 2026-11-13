@@ -91,6 +91,7 @@ struct ModelSheet: View {
             }
             .background(palette.canvas)
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Find an agent or model")
+            .background(SearchFieldColors(color: palette.muted))
             .navigationTitle(chat.isBlank ? "Agent and model" : "Model")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
@@ -202,7 +203,7 @@ struct ModelSheet: View {
             }
             .labelStyle(.iconOnly)
             .font(.system(size: 16))
-            .foregroundStyle(starred ? palette.warning : palette.muted.opacity(0.6))
+            .foregroundStyle(starred ? palette.warning : palette.tertiary)
             .frame(width: 32, height: 44)
         }
         .padding(.leading, 16)

@@ -63,7 +63,55 @@ private extension Font.TextStyle {
 
 extension View {
     /** A Form section's heading in Inter, as bold as iOS's own (the app's Inter default would flatten it). */
-    func sectionHeader() -> some View { font(.inter(.headline)) }
+    func sectionHeader() -> some View { modifier(SectionText(heading: true)) }
 
-    func sectionFooter() -> some View { font(.inter(.footnote)) }
+    func sectionFooter() -> some View { modifier(SectionText(heading: false)) }
+}
+
+private struct SectionText: ViewModifier {
+    @Environment(\.palette) private var palette
+    let heading: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .font(.inter(heading ? .headline : .footnote))
+            .foregroundStyle(heading ? palette.text : palette.muted)
+    }
+}
+
+struct SearchFieldColors: UIViewRepresentable {
+    let color: Color
+
+    func makeUIView(context: Context) -> Probe {
+        let view = Probe()
+        view.isUserInteractionEnabled = false
+        return view
+    }
+
+    func updateUIView(_ view: Probe, context: Context) {
+        view.color = UIColor(color)
+        view.setNeedsLayout()
+    }
+
+    final class Probe: UIView {
+        var color = UIColor.secondaryLabel
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            if let window { apply(to: window) }
+        }
+
+        private func apply(to view: UIView) {
+            if let field = view as? UISearchTextField, let placeholder = field.placeholder, !placeholder.isEmpty {
+                let current = field.attributedPlaceholder
+                let oldColor = current?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
+                if oldColor?.isEqual(color) != true {
+                    let text = current.map(NSMutableAttributedString.init(attributedString:)) ?? NSMutableAttributedString(string: placeholder)
+                    text.addAttribute(.foregroundColor, value: color, range: NSRange(location: 0, length: text.length))
+                    field.attributedPlaceholder = text
+                }
+            }
+            for child in view.subviews { apply(to: child) }
+        }
+    }
 }

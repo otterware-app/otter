@@ -4,7 +4,6 @@ enum Route: Hashable {
     case chat(String)
     /** An agent's page, by its id. */
     case agent(String)
-    case appearance
     case account
     case chatSettings
     case licenses
@@ -115,7 +114,6 @@ struct RootView: View {
             self.place = .settings
         }
         case .agent(let id): AgentSettings(id: id)
-        case .appearance: AppearanceSettings()
         case .account: AccountSettings()
         case .chatSettings: ChatSettings()
         case .licenses: LicensesView()

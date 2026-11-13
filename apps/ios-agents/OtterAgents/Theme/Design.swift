@@ -2,8 +2,8 @@ import SwiftUI
 import UIKit
 
 /**
- * T3 Code's phone layout (apps/mobile in t3code) in Otter's own face and themes: its
- * type sizes and spacing, Inter for DM Sans, and the account's palette for its colors.
+ * T3 Code's phone layout (apps/mobile in t3code) in Otter's own face: its
+ * type sizes and spacing, and Inter for DM Sans.
  */
 extension Font {
     /** Inter at one of the layout's sizes, scaling with Dynamic Type. */
@@ -32,8 +32,8 @@ enum Status {
         Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(rgb: dark) : UIColor(rgb: light) })
     }
 
-    static let working = color(0x0284c7, 0x38bdf8)
-    static let done = color(0x047857, 0x6ee7b7)
+    static let working = color(0x0369a1, 0x38bdf8)
+    static let done = color(0x04633f, 0x6ee7b7)
     static let input = color(0x4f46e5, 0xa5b4fc)
 }
 
@@ -46,8 +46,6 @@ extension UIColor {
 extension Palette {
     /** The hairline between rows. */
     var hairline: Color { border.opacity(0.7) }
-    /** A third voice under the muted one: times and counts. */
-    var tertiary: Color { muted.opacity(0.85) }
     var dangerFill: Color { error.opacity(0.14) }
 }
 
@@ -169,14 +167,9 @@ enum Haptics {
     static func impact() { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
 }
 
-/** WhatsApp's chat colors, in the theme's: a tinted wallpaper, the agent's bubbles a step off it, yours in the accent. */
 extension Palette {
-    func wallpaper(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? canvas.mix(with: action, by: 0.03) : canvas.mix(with: action, by: 0.05).mix(with: text, by: 0.03)
-    }
-
     func incoming(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? canvas.mix(with: text, by: 0.1) : canvas
+        Color(hex: scheme == .dark ? "#242426" : "#e6e6e6")
     }
 
     func outgoing(_ scheme: ColorScheme) -> Color {
@@ -191,43 +184,6 @@ func bubbleShape(_ side: HorizontalEdge, joinsAbove: Bool = false, joinsBelow: B
     return side == .leading
         ? UnevenRoundedRectangle(topLeadingRadius: top, bottomLeadingRadius: bottom, bottomTrailingRadius: round, topTrailingRadius: round, style: .continuous)
         : UnevenRoundedRectangle(topLeadingRadius: round, bottomLeadingRadius: round, bottomTrailingRadius: bottom, topTrailingRadius: top, style: .continuous)
-}
-
-/** Behind a chat: the theme's tint, and a faint pattern of the app's own symbols. */
-struct Wallpaper: View {
-    @Environment(\.palette) private var palette
-    @Environment(\.colorScheme) private var scheme
-    private static let symbols = ["bubble.left", "sparkles", "clock", "paperplane", "envelope", "calendar", "doc.text", "checkmark.circle",
-                                  "folder", "lightbulb", "magnifyingglass", "pencil", "terminal", "globe", "list.bullet", "star"]
-
-    var body: some View {
-        palette.wallpaper(scheme)
-            .overlay {
-                Canvas { context, size in
-                    let step: CGFloat = 54
-                    var index = 0
-                    for row in 0...Int(size.height / step) + 1 {
-                        for column in 0...Int(size.width / step) + 1 {
-                            index += 7
-                            let name = Self.symbols[(index + row * 3) % Self.symbols.count]
-                            guard let symbol = context.resolveSymbol(id: name) else { continue }
-                            let shift = row.isMultiple(of: 2) ? 0 : step / 2
-                            var copy = context
-                            copy.translateBy(x: CGFloat(column) * step + shift, y: CGFloat(row) * step)
-                            copy.rotate(by: .degrees(Double((index * 37) % 50) - 25))
-                            copy.draw(symbol, at: .zero)
-                        }
-                    }
-                } symbols: {
-                    ForEach(Self.symbols, id: \.self) { name in
-                        Image(systemName: name).font(.system(size: 17, weight: .light)).foregroundStyle(palette.text).tag(name)
-                    }
-                }
-                .opacity(scheme == .dark ? 0.05 : 0.06)
-            }
-            .ignoresSafeArea()
-            .accessibilityHidden(true)
-    }
 }
 
 /**

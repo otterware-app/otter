@@ -136,7 +136,7 @@ struct FileScreen: View {
                     Text("\((file.name as NSString).pathExtension.uppercased()) · \(ChatText.size(file.data.count))").font(.ui(13)).foregroundStyle(palette.muted)
                 }
                 Spacer(minLength: 8)
-                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(palette.muted.opacity(0.5))
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(palette.tertiary)
             }
             .padding(12)
             .frame(width: 280)
@@ -180,7 +180,7 @@ private struct SourceText: View {
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
                             Text("\(index + 1)")
                                 .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(palette.muted.opacity(0.7))
+                                .foregroundStyle(palette.tertiary)
                                 .frame(width: gutter, alignment: .trailing)
                             Text(content.isEmpty ? " " : String(content))
                                 .font(.system(size: 12, design: .monospaced))

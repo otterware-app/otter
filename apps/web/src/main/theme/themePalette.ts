@@ -45,8 +45,6 @@ export { EMBER_THEME, GROVE_THEME, IRIS_THEME, OCEAN_THEME, THEME_COLOR_ROLES };
 export type { ThemeAppearance, ThemeColorRole, ThemeColors, ThemeDefinition, ThemeVariants };
 
 export const THEME_FILE_VERSION = 1 as const;
-// Mail: synced with the Otter account (synced-preferences.ts), so the iPhone
-// app wears these too (apps/ios's Theme/CustomThemes.swift).
 export const CUSTOM_THEMES_STORAGE_KEY = "otter:themes:v1";
 
 // Mail: upstream's is an Effect schema.

@@ -99,7 +99,7 @@ struct SyncStatusLine: View {
                     Text(text).lineLimit(1)
                 }
                 .font(.inter(.footnote))
-                .foregroundStyle(warning ? palette.sidebarText : palette.sidebarMuted)
+                .foregroundStyle(warning ? palette.text : palette.muted)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(.rect)
             }
