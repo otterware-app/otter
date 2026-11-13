@@ -385,14 +385,6 @@ final class Agents {
         await connected(agent)
     }
 
-    func disconnectHermes(_ agent: Agent) {
-        agent.setSecret("key", nil)
-        set(agent, "baseUrl", .string(""))
-        agent.status = .notConfigured
-        agent.models = []
-        onChange("agentKeys")
-    }
-
     func connectOpenClaw(_ agent: Agent, code: String) async throws {
         guard let setup = OpenClaw.setupCode(code) else {
             throw Hermes.Failure(message: "That isn't a setup code. Copy what openclaw qr --setup-code-only prints.")

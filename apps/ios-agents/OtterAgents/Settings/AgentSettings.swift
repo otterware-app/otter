@@ -14,6 +14,8 @@ struct AgentSettings: View {
     @State private var code = ""
     @State private var token = ""
     @State private var alternate = false
+    /** A connected Hermes agent's form, open to change its server or key: the old key stays until the new one connects. */
+    @State private var changing = false
     @State private var connecting = false
     @State private var error: String?
     @State private var choosingPicture = false
@@ -119,6 +121,7 @@ struct AgentSettings: View {
                 key = ""
                 code = ""
                 token = ""
+                changing = false
             } catch {
                 self.error = error.localizedDescription
             }
@@ -153,7 +156,7 @@ struct AgentSettings: View {
     private func hermes(_ agent: Agent) -> some View {
         let footer = "\(agent.name)'s server, reached from every device. Chats live on it, so they're the same here, on the Mac and on the web. The key follows your Otter account, sealed."
         let address = agent.string("baseUrl")
-        if agents.demo || agent.secret("key") != nil, !address.isEmpty {
+        if agents.demo || agent.secret("key") != nil, !address.isEmpty, !changing {
             SettingsSection(footer: footer) {
                 SettingsRow("Server", symbol: "server.rack", value: URL(string: address)?.host() ?? address, chevron: false)
                 modelPicker(agent, "Model", default: "Default") { model in model.subProvider.map { "\(model.name) · \($0)" } ?? model.name }
@@ -175,7 +178,10 @@ struct AgentSettings: View {
                     }
                 }
                 SettingsDivider()
-                SettingsButton(title: "Disconnect", destructive: true) { agents.disconnectHermes(agent) }
+                SettingsButton(title: "Change server or key") {
+                    url = address
+                    changing = true
+                }
             }
         } else {
             SettingsSection(footer: footer) {
