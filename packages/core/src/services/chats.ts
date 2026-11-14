@@ -15,8 +15,9 @@ import {
 import { matchMessage, messageSnippet, messageTokens } from "@otter/shared/chat-search";
 
 import { platform } from "../platform.js";
-import { agentDb, deviceId, entry, mutate } from "./agent-sync.js";
+import { agentDb, deviceId, entry, mutate, onSynced } from "./agent-sync.js";
 import { getProviderSettings } from "./agent/settings.js";
+import { logger } from "../logger.js";
 import { getOtterUser } from "./otter-account.js";
 
 export { CHATS_CHANGED } from "./agent-sync.js";
@@ -137,3 +138,25 @@ export async function deleteChat(id: string): Promise<void> {
   if (!getOtterUser()) return;
   await mutate([{ op: "chat.delete", id }], 0);
 }
+
+/** Chats from before agents had ids name their kind ("openclaw"): they run on the account's agent of that kind. */
+export async function relinkChats(): Promise<void> {
+  if (!getOtterUser()) return;
+  const { agents } = await getProviderSettings();
+  const ofKind = new Map<string, string>();
+  for (const agent of agents) if (!ofKind.has(agent.kind)) ofKind.set(agent.kind, agent.id);
+  const { chats } = await listChats();
+  await mutate(
+    chats.flatMap((chat) => {
+      const provider = ofKind.get(chat.provider);
+      return provider ? [{ op: "chat.set" as const, chat: { id: chat.id, provider } }] : [];
+    }),
+  );
+}
+
+onSynced(
+  () =>
+    void relinkChats().catch((err: unknown) =>
+      logger.failure("chats", "Couldn't move old chats to their agent", err),
+    ),
+);

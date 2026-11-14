@@ -184,6 +184,13 @@ export function onAgentsChanged(listener: Listener): void {
   agentListeners.add(listener);
 }
 
+const syncedListeners = new Set<() => void>();
+
+/** The copy caught up with the relay, its outbox sent. */
+export function onSynced(listener: () => void): void {
+  syncedListeners.add(listener);
+}
+
 /** Tells what really changed (an entry written and written back is the same): the windows, the agents. */
 async function settle(db: SqlDatabase, touched: Touched, remote: boolean): Promise<void> {
   const chats = new Set<string>();
@@ -402,6 +409,7 @@ export function syncAgentData(): Promise<void> {
         await exchange();
       } while (again);
       failures = 0;
+      for (const listener of syncedListeners) listener();
     } catch (err) {
       const delay = RETRY_MS[Math.min(failures, RETRY_MS.length - 1)]!;
       failures += 1;
