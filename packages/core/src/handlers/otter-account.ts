@@ -29,7 +29,7 @@ import {
   signOutDevice,
 } from "../services/otter-account.js";
 import { forgetSyncedPreferences, pullPreferences } from "../services/preferences.js";
-import { pullChats } from "../services/chats.js";
+import { forgetAgentData, syncAgentData } from "../services/agent-sync.js";
 import { getRealtimeState, startRealtime, stopRealtime } from "../services/realtime.js";
 import { removeLocalAccount } from "./mail.js";
 
@@ -97,15 +97,9 @@ async function syncPreferences(): Promise<void> {
   );
 }
 
-async function syncChats(): Promise<void> {
-  await pullChats().catch((err: unknown) =>
-    logger.failure("otter-account", "Chats sync failed", err),
-  );
-}
-
 async function onEvent(event: RelayEvent): Promise<void> {
-  if (event.type === "chats") {
-    await syncChats();
+  if (event.type === "agent-sync") {
+    await syncAgentData();
     return;
   }
   if (event.type === "accounts") {
@@ -137,7 +131,7 @@ function start(): void {
     onConnected: () => {
       void refresh();
       void syncPreferences();
-      void syncChats();
+      void syncAgentData();
       void syncAllAccounts({ force: true, trigger: "push" });
     },
     onEvent: (event) => void onEvent(event),
@@ -158,7 +152,7 @@ function stop(): void {
   refreshTimer = null;
   setPushedAccounts([]);
   clearLinkedSnapshot();
-  void forgetSyncedPreferences();
+  forgetSyncedPreferences();
 }
 
 export function registerOtterAccountHandlers(): void {
@@ -235,6 +229,7 @@ export function registerOtterAccountHandlers(): void {
 
   handle("otter:signOut", async () => {
     await signOut();
+    await forgetAgentData();
     return otterState();
   });
 

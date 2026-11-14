@@ -155,17 +155,12 @@ export interface PutAccountRequest {
 
 export type Preferences = Record<string, unknown>;
 
-/** Each agent's key that follows the account (a Hermes server's API key), by the agent's id. */
-export type AgentKeys = Record<string, string>;
-
 export interface PreferencesResponse {
   preferences: Preferences;
-  agentKeys: AgentKeys | null;
 }
 
 export interface PutPreferencesRequest {
   preferences?: Preferences;
-  agentKeys?: AgentKeys | null;
 }
 
 /**
@@ -190,11 +185,10 @@ export type RelayEvent =
   | { type: "accounts" }
   | { type: "preferences" }
   /**
-   * Agent chats changed on another device (or this one): see chats.ts. `email`
-   * is empty for builds before chats, which take an event they don't know for
-   * a mailbox's: they find none and go on.
+   * The account's agents or chats changed on another device: see agent-sync.ts. `email` is
+   * empty for builds that take an event they don't know for a mailbox's: they find none.
    */
-  | { type: "chats"; email: "" }
+  | { type: "agent-sync"; email: "" }
   /** An agent's gateway has something for the user: the device reads it from the gateway itself. */
   | { type: "agent"; email: ""; pointer: AgentPointer };
 

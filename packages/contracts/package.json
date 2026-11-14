@@ -13,7 +13,8 @@
     "./mail": "./src/mail.ts",
     "./todoist": "./src/todoist.ts",
     "./extensions": "./src/extensions.ts",
-    "./dev-data": "./src/dev-data.ts"
+    "./dev-data": "./src/dev-data.ts",
+    "./agent-sync": "./src/agent-sync.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

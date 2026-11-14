@@ -6,7 +6,7 @@
  * them there (`mutedJobs`, Otter's own setting: Hermes has no "nowhere").
  */
 
-import { preferenceChanged, saveAgentSettings } from "@otter/core/extension-kit";
+import { saveAgentSettings } from "@otter/core/extension-kit";
 import type {
   AgentContext,
   AgentId,
@@ -186,7 +186,6 @@ async function setMuted(
   else ids.delete(id);
   settings.mutedJobs = [...ids].join(",");
   await saveAgentSettings(agent, { mutedJobs: settings.mutedJobs });
-  preferenceChanged("assistant");
 }
 
 /** Where results go, as Hermes takes it (straight to Otter when it has Otter's plugin); undefined leaves it. */

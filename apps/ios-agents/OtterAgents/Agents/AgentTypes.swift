@@ -24,12 +24,20 @@ nonisolated enum AgentKind: String, CaseIterable, Identifiable {
     var skills: Bool { self == .hermes || self == .varys }
     var attachments: Bool { self != .varys }
 
-    /** A setting kept on each device, not the account's: all of OpenClaw's (each device pairs on its own), varys's pairing. */
-    func isDeviceField(_ key: String) -> Bool {
+    /** Settings kept on each device, not the account's (core's `AgentType.deviceFields`): varys's pairing. */
+    var deviceFields: [String] {
+        self == .varys ? ["address", "agentId", "installation", "relayChannel"] : []
+    }
+
+    /**
+     * Secrets that pair this iPhone alone (core's `AgentType.deviceSecrets`): never sent to the
+     * account. varys's token is its grant for this iPhone, as its address and agent are.
+     */
+    var deviceSecrets: [String] {
         switch self {
-        case .hermes: false
-        case .openclaw: true
-        case .varys: ["address", "agentId", "installation", "relayChannel"].contains(key)
+        case .hermes: []
+        case .openclaw: ["bootstrap-token", "device-key", "device-token", "device-scopes"]
+        case .varys: ["token"]
         }
     }
 

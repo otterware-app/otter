@@ -756,6 +756,5 @@ export const hermesAgent: AgentType<HermesSettings> = {
   fields: { enabled: "boolean", model: "string", reasoningEffort: "string", serviceTier: "string" },
   restartFields: ["baseUrl"],
   secrets: ["key"],
-  syncedSecret: "key",
   create: createHermes,
 };

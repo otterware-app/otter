@@ -23,11 +23,14 @@ import {
   TUNNEL_CLOSE,
 } from "@otter/contracts/relay";
 import type { MailProviderKind } from "@otter/contracts/mail";
-import { CHAT_LIMITS, type Chat, type ListChatsResponse } from "@otter/contracts/chats";
+import {
+  AGENT_SYNC_BATCH,
+  type AgentMutation,
+  type AgentSyncResponse,
+} from "@otter/contracts/agent-sync";
 
 import { createAuth, googleClientIds, googleKeys, type Auth } from "./auth.ts";
 import * as agentChannels from "./agent-channels.ts";
-import * as chats from "./chats.ts";
 import { retryingReset } from "./durable-objects.ts";
 import * as gmail from "./gmail.ts";
 import { InvalidTokenError, remoteKeys, verifyGoogleJwt } from "./google-jwt.ts";
@@ -579,13 +582,7 @@ authed.delete(
 );
 
 authed.get("/preferences", async (c) =>
-  c.json(
-    (await preferences.read(
-      c.var.db,
-      c.env.BETTER_AUTH_SECRET,
-      c.var.session.user.id,
-    )) satisfies PreferencesResponse,
-  ),
+  c.json((await preferences.read(c.var.db, c.var.session.user.id)) satisfies PreferencesResponse),
 );
 
 authed.put(
@@ -596,19 +593,12 @@ authed.put(
       preferences: z
         .record(z.string().regex(/^[a-zA-Z][a-zA-Z0-9]{0,63}$/), z.unknown())
         .optional(),
-      agentKeys: z
-        .record(z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/), z.string().min(1).max(4096))
-        .refine((keys) => Object.keys(keys).length <= 32)
-        .nullable()
-        .optional(),
     }),
     rejectInvalid,
   ),
   async (c) => {
     const userId = c.var.session.user.id;
-    if (
-      !(await preferences.write(c.var.db, c.env.BETTER_AUTH_SECRET, userId, c.req.valid("json")))
-    ) {
+    if (!(await preferences.write(c.var.db, userId, c.req.valid("json")))) {
       throw new HTTPException(413, { message: "Preferences too large." });
     }
     await hub(c.env, userId).publish({ type: "preferences" });
@@ -616,100 +606,124 @@ authed.put(
   },
 );
 
-async function chatsChanged(env: Env, userId: string): Promise<void> {
-  await hub(env, userId).publish({ type: "chats", email: "" });
-}
-
-const chatId = z.object({ id: z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/) });
+const id = z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/);
 const timestamp = z.number().int().nonnegative();
+const settings = z.record(z.string().max(64), z.unknown());
 const tabRef = z.discriminatedUnion("kind", [
   z.object({
     kind: z.enum(["thread", "draft"]),
     accountId: z.string().max(320),
     id: z.string().max(512),
   }),
-  z.object({ kind: z.literal("page"), url: z.string().max(2048) }),
-  z.object({ kind: z.literal("file"), href: z.string().max(2048) }),
+  z.object({ kind: z.literal("page"), url: z.string().max(8192) }),
+  z.object({ kind: z.literal("file"), href: z.string().max(8192) }),
 ]);
-const chatBody = z.object({
-  id: z.string(),
-  title: z.string().max(CHAT_LIMITS.title + 1),
-  provider: z.string().regex(/^[a-z0-9-]{1,40}$/),
-  sessionId: z.string().max(256).nullable(),
-  sessionOwned: z.boolean(),
-  lastResponseId: z.string().max(256).nullable(),
-  device: z.object({ id: z.string().max(64), name: z.string().max(200) }).nullable(),
-  createdAt: timestamp,
-  updatedAt: timestamp,
+const chatRecord = z.object({
+  id,
+  title: z.string().max(2000).optional(),
+  provider: z
+    .string()
+    .regex(/^[a-z0-9-]{1,40}$/)
+    .optional(),
+  sessionId: z.string().max(256).nullable().optional(),
+  sessionOwned: z.boolean().optional(),
+  lastResponseId: z.string().max(256).nullable().optional(),
+  device: z
+    .object({ id: z.string().max(64), name: z.string().max(200) })
+    .nullable()
+    .optional(),
+  createdAt: timestamp.optional(),
+  updatedAt: timestamp.optional(),
   snoozedUntil: timestamp.nullish(),
   settledAt: timestamp.nullish(),
   pinnedAt: timestamp.nullish(),
   returnedAt: timestamp.nullish(),
+  cursor: z.string().max(256).nullish(),
   tabs: z
     .array(
       z.object({
-        id: z.string().max(2600),
-        title: z.string().max(CHAT_LIMITS.title + 1),
+        id: z.string().max(8300),
+        title: z.string().max(2000),
         ref: tabRef,
         addedAt: timestamp,
         made: z.boolean().optional(),
         closedAt: timestamp.nullish(),
       }),
     )
-    .max(CHAT_LIMITS.tabs),
-  turns: z
-    .array(
-      z.looseObject({
-        id: z.string().max(200),
-        role: z.enum(["user", "assistant"]),
-        text: z.string(),
-      }),
-    )
-    .max(CHAT_LIMITS.turns),
+    .max(500)
+    .optional(),
 });
-
-authed.get("/chats", async (c) =>
-  c.json({
-    chats: await chats.list(c.var.db, c.var.session.user.id),
-  } satisfies ListChatsResponse),
-);
-
-authed.get("/chats/:id", zValidator("param", chatId, rejectInvalid), async (c) => {
-  const chat = await chats.get(c.var.db, c.var.session.user.id, c.req.valid("param").id);
-  if (!chat) throw new HTTPException(404, { message: "No such chat." });
-  return c.json({ chat });
+const turn = z.looseObject({
+  id: z.string().max(200),
+  role: z.enum(["user", "assistant"]),
+  text: z.string(),
 });
+const mutation = z.discriminatedUnion("op", [
+  z.object({
+    op: z.literal("agent.set"),
+    id,
+    kind: z.string().regex(/^[a-z0-9-]{1,40}$/),
+    name: z.string().min(1).max(60).optional(),
+    avatar: z
+      .string()
+      .refine((v) => v === "" || isMailboxPicture(v))
+      .nullable()
+      .optional(),
+    settings: settings.optional(),
+    addedAt: timestamp.optional(),
+  }),
+  z.object({ op: z.literal("agent.device"), id, device: id, settings }),
+  z.object({ op: z.literal("agent.remove"), id }),
+  z.object({
+    op: z.literal("secret.set"),
+    agent: id,
+    name: z.string().regex(/^[a-z0-9-]{1,40}$/),
+    value: z.string().min(1).max(16_384).nullable(),
+  }),
+  z.object({ op: z.literal("select"), id: id.nullable() }),
+  z.object({ op: z.literal("chat.set"), chat: chatRecord, ifNewer: z.literal(true).optional() }),
+  z.object({ op: z.literal("chat.delete"), id }),
+  z.object({
+    op: z.literal("turns"),
+    chat: id,
+    put: z.array(turn).max(5000),
+    order: z.array(z.string().max(200)).max(20_000),
+    removed: z.array(z.string().max(200)).max(20_000).optional(),
+    imported: z.literal(true).optional(),
+  }),
+]);
 
-authed.put(
-  "/chats/:id",
+authed.post(
+  "/agent-sync",
   bodyLimit({
-    maxSize: CHAT_LIMITS.bytes + 64 * 1024,
+    maxSize: AGENT_SYNC_BATCH.bytes + 512 * 1024,
     onError: () => {
-      throw new HTTPException(413, { message: "This chat is too long to keep." });
+      throw new HTTPException(413, { message: "Too much at once." });
     },
   }),
-  zValidator("param", chatId, rejectInvalid),
-  zValidator("json", chatBody, rejectInvalid),
+  zValidator(
+    "json",
+    z.object({
+      client: id,
+      since: z.number().int().nonnegative(),
+      mutations: z
+        .array(z.object({ id: z.number().int().positive(), mutation }))
+        .max(AGENT_SYNC_BATCH.mutations),
+    }),
+    rejectInvalid,
+  ),
   async (c) => {
-    const userId = c.var.session.user.id;
-    const chat = c.req.valid("json") as Chat;
-    if (chat.id !== c.req.valid("param").id)
-      throw new HTTPException(400, { message: "Invalid request." });
-    const refusal = await chats.put(c.var.db, userId, chat);
-    if (refusal === "stale") throw new HTTPException(409, { message: "This chat changed since." });
-    if (refusal === "full") throw new HTTPException(413, { message: "Too many chats." });
-    await chatsChanged(c.env, userId);
-    return c.body(null, 204);
+    const { id: sessionId, user } = c.var.session;
+    const userId = user.id;
+    const request = c.req.valid("json");
+    return c.json(
+      (await hub(c.env, userId).agentSync(userId, sessionId, {
+        ...request,
+        mutations: request.mutations as { id: number; mutation: AgentMutation }[],
+      })) satisfies AgentSyncResponse,
+    );
   },
 );
-
-authed.delete("/chats/:id", zValidator("param", chatId, rejectInvalid), async (c) => {
-  const userId = c.var.session.user.id;
-  if (await chats.remove(c.var.db, userId, c.req.valid("param").id)) {
-    await chatsChanged(c.env, userId);
-  }
-  return c.body(null, 204);
-});
 
 authed.get("/events", async (c) => {
   if (c.req.header("upgrade")?.toLowerCase() !== "websocket") {

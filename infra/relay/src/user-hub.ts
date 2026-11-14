@@ -6,7 +6,11 @@
  */
 
 import { DurableObject } from "cloudflare:workers";
+import type { AgentSyncRequest, AgentSyncResponse } from "@otter/contracts/agent-sync";
+import type { Chat } from "@otter/contracts/chats";
 import { type RelayEvent, WATCHING_FOR_MS } from "@otter/contracts/relay";
+import { AgentData } from "./agent-sync.ts";
+import { openOldAgentKeys } from "./preferences.ts";
 import * as apns from "./apns.ts";
 import * as push from "./push.ts";
 import { connection, NotificationFailure } from "./notification-connections.ts";
@@ -36,9 +40,80 @@ export const SESSION_HEADER = "x-otter-session";
 type Attachment = { session?: string; at?: number };
 
 export class UserHub extends DurableObject<Env> {
+  private agentData: AgentData | null = null;
+
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+  }
+
+  private agents(): AgentData {
+    this.agentData ??= new AgentData(this.ctx.storage, this.env.BETTER_AUTH_SECRET);
+    return this.agentData;
+  }
+
+  /** A device's agent mutations and what changed since it last asked; the account's other devices hear of it. */
+  async agentSync(
+    userId: string,
+    sessionId: string,
+    request: AgentSyncRequest,
+  ): Promise<AgentSyncResponse> {
+    const agents = this.agents();
+    if (!agents.imported()) await agents.import(userId, await this.oldAgentData(userId));
+    const before = agents.head();
+    const response = await agents.sync(userId, request);
+    if (agents.head() !== before) {
+      const message = JSON.stringify({ type: "agent-sync", email: "" } satisfies RelayEvent);
+      for (const socket of this.ctx.getWebSockets()) {
+        if (this.ctx.getTags(socket).includes(sessionId)) continue;
+        try {
+          socket.send(message);
+        } catch {
+          // Already closing; its device reconnects and catches up.
+        }
+      }
+    }
+    return response;
+  }
+
+  /** Where the relay kept chats and agents before this store: read once, into it. */
+  private async oldAgentData(userId: string) {
+    const [chats, preferences] = await Promise.all([
+      this.env.DB.prepare("SELECT * FROM chats WHERE user_id = ?").bind(userId).all(),
+      this.env.DB.prepare("SELECT data, agent_keys FROM preferences WHERE user_id = ?")
+        .bind(userId)
+        .first<{ data: string; agent_keys: string | null }>(),
+    ]);
+    const assistant = preferences
+      ? (JSON.parse(preferences.data) as Record<string, unknown>).assistant
+      : null;
+    const agentKeys = preferences?.agent_keys
+      ? await openOldAgentKeys(this.env.BETTER_AUTH_SECRET, userId, preferences.agent_keys)
+      : {};
+    const json = <T>(value: unknown, fallback: T): T =>
+      typeof value === "string" ? (JSON.parse(value) as T) : fallback;
+    return {
+      assistant,
+      agentKeys,
+      chats: chats.results.map((row) => ({
+        id: String(row.id),
+        title: String(row.title),
+        provider: String(row.provider),
+        sessionId: (row.session_id as string | null) ?? null,
+        sessionOwned: Boolean(row.session_owned),
+        lastResponseId: (row.last_response_id as string | null) ?? null,
+        device: json<Chat["device"]>(row.device, null),
+        tabs: json<Chat["tabs"]>(row.tabs, []),
+        turns: json<Chat["turns"]>(row.turns, []),
+        createdAt: Number(row.created_at),
+        updatedAt: Number(row.updated_at),
+        snoozedUntil: (row.snoozed_until as number | null) ?? null,
+        settledAt: (row.settled_at as number | null) ?? null,
+        pinnedAt: (row.pinned_at as number | null) ?? null,
+        returnedAt: (row.returned_at as number | null) ?? null,
+        deletedAt: (row.deleted_at as number | null) ?? null,
+      })),
+    };
   }
 
   override async fetch(request: Request): Promise<Response> {

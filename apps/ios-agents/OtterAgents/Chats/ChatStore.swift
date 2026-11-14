@@ -234,7 +234,7 @@ final class ChatStore {
     }
 
     func reconnect(_ chatId: String, to agent: Agent) async throws {
-        await sync?.load(chatId)
+        sync?.load(chatId)
         guard let chat = chat(chatId), chat.loaded, canReconnect(chat),
               agent.kind == .openclaw, agent.isUsable, let session = chat.sessionId, let gatewayAgent = chat.openClawAgent else {
             throw OpenClaw.Failure(message: "Choose a connected OpenClaw gateway for this chat.")
@@ -361,7 +361,7 @@ final class ChatStore {
 
     /** Snoozing or settling a pinned chat unpins it; bringing one back puts it at the top. */
     func shelve(_ id: String, snoozedUntil: Int? = nil, settledAt: Int? = nil) async {
-        await sync?.load(id)
+        sync?.load(id)
         let now = Int.now
         update(id) { chat in
             let away = chat.settledAt != nil || (chat.snoozedUntil ?? 0) > now
@@ -374,7 +374,7 @@ final class ChatStore {
     }
 
     func pin(_ id: String, _ pinned: Bool) async {
-        await sync?.load(id)
+        sync?.load(id)
         let now = Int.now
         update(id) { chat in
             chat.pinnedAt = pinned ? now : nil
@@ -390,7 +390,7 @@ final class ChatStore {
 
     func rename(_ id: String, to title: String) async {
         let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        await sync?.load(id)
+        sync?.load(id)
         guard let chat = chat(id), name != chat.title else { return }
         guard !name.isEmpty else { notice = "A chat's title can't be empty"; return }
         update(id) {
@@ -404,7 +404,7 @@ final class ChatStore {
 
     /** Asks the chat's agent to title it again from its first message. */
     func regenerateTitle(_ id: String) async {
-        await sync?.load(id)
+        sync?.load(id)
         guard let chat = chat(id), let agent = agents.agent(chat.provider), let session = chat.sessionId,
               let message = chat.turns.first(where: { $0.role == .user })?.text.trimmingCharacters(in: .whitespacesAndNewlines), !message.isEmpty
         else { return }
@@ -882,7 +882,7 @@ final class ChatStore {
         for (chatId, requestId) in openRequests where runs[chatId] == nil {
             guard let chat = chat(chatId) else {
                 // Not listed yet: it may still be on its way from the account.
-                if ready, !beforePull, sync?.isPulling != true { openRequests[chatId] = nil }
+                if ready, !beforePull, sync?.isSyncing != true { openRequests[chatId] = nil }
                 continue
             }
             guard let session = chat.sessionId, let agent = agents.agent(chat.provider), agent.kind?.resumes == true else {
@@ -977,7 +977,7 @@ final class ChatStore {
 
     /** What the agent wrote in a chat's session since the chat last showed it, and what it waits on you for. */
     func catchUp(_ chatId: String) async {
-        await sync?.load(chatId)
+        sync?.load(chatId)
         guard let chat = chat(chatId), chat.loaded, runs[chatId] == nil, openRequests[chatId] == nil, !agents.demo,
               let agent = agents.agent(chat.provider), agent.isUsable, let session = chat.sessionId else { return }
         if let messages = try? await runner.messages(of: agent, session: session), runs[chatId] == nil {

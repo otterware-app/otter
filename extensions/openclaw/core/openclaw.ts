@@ -2496,7 +2496,7 @@ export const openClawAgent: AgentType<OpenClawSettings> = {
   displayName: "OpenClaw",
   defaults: OPENCLAW_DEFAULTS,
   fields: { enabled: "boolean", model: "string" },
-  localOnly: true,
   secrets: ["token", "bootstrap-token", "device-key", "device-token"],
+  deviceSecrets: ["bootstrap-token", "device-key", "device-token"],
   create: createOpenClaw,
 };

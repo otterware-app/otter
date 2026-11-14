@@ -14,12 +14,7 @@ import type {
   TaskRunStatus,
   TaskSchedule,
 } from "@otter/contracts/scheduled";
-import {
-  preferenceChanged,
-  saveAgentSettings,
-  type AgentId,
-  type ScheduleSupport,
-} from "@otter/core/extension-kit";
+import { saveAgentSettings, type AgentId, type ScheduleSupport } from "@otter/core/extension-kit";
 
 import { answered, type VarysConnection } from "./client.js";
 import type { VarysSettings } from "./settings.js";
@@ -149,7 +144,6 @@ async function setMuted(
   else ids.delete(id);
   settings.mutedRoutines = [...ids].join(",");
   await saveAgentSettings(agent, { mutedRoutines: settings.mutedRoutines });
-  preferenceChanged("assistant");
 }
 
 export function varysSchedules(

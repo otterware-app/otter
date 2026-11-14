@@ -104,8 +104,9 @@ when a feature lands or goes.
 - `infra/relay`: https://relay.otterware.app (and https://relay.mail.otterware.app, for clients from
   before the rename; `src/hosts.ts`), a Cloudflare Worker (Hono, better-auth,
   Drizzle on D1, a Durable Object per user). Otter accounts, the Gmail accounts linked to them,
-  the account's preferences (core's `services/preferences.ts` syncs them), its agent chats (core's
-  `services/chats.ts`, transcripts included, so every device reads every chat), and realtime
+  the account's preferences (core's `services/preferences.ts` syncs them), its agents and chats
+  (kept by the relay, whole, with a copy on each device that the app reads from: contracts'
+  `agent-sync.ts`, core's `services/agent-sync.ts`; agents need an Otter account), and realtime
   mail: Gmail → Pub/Sub → relay → WebSocket to each signed-in device. Opt-in background
   notifications use encrypted limited Gmail/Outlook grants (or an IMAP password) to verify
   unread arrivals and renew watches; APNs carries routing IDs and generic text, and the iPhone

@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import * as http from "node:http";
 import * as fs from "node:fs";
 import * as net from "node:net";
@@ -19,7 +19,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { unstable_startWorker } from "wrangler";
 import { derivedKey } from "./keys.ts";
 import { localConfig } from "../scripts/local-config.ts";
-import type { Chat, ListChatsResponse } from "@otter/contracts/chats";
+import type {
+  AgentMutation,
+  AgentSyncRequest,
+  AgentSyncResponse,
+} from "@otter/contracts/agent-sync";
+import type { Chat } from "@otter/contracts/chats";
 import type {
   ListAccountsResponse,
   MeResponse,
@@ -1180,6 +1185,26 @@ describe("Outlook mailboxes", () => {
   });
 });
 
+function d1(command: string) {
+  return execFileSync(
+    "pnpm",
+    [
+      "exec",
+      "wrangler",
+      "d1",
+      "execute",
+      "otter-mail-relay",
+      "--local",
+      "--persist-to",
+      persistDir,
+      "--json",
+      "--command",
+      command,
+    ],
+    { cwd: root, encoding: "utf8", env: { ...process.env, CI: "1" } },
+  );
+}
+
 describe("preferences", () => {
   async function preferences(token: string) {
     const response = await call("GET", "/v1/preferences", token);
@@ -1189,49 +1214,13 @@ describe("preferences", () => {
 
   it("starts empty, replaces the sections given, and keeps the rest", async () => {
     const { token } = await signIn("prefs@example.com");
-    expect(await preferences(token)).toEqual({ preferences: {}, agentKeys: null });
+    expect(await preferences(token)).toEqual({ preferences: {} });
 
     const put = (body: unknown) => call("PUT", "/v1/preferences", token, body);
     expect((await put({ preferences: { views: [1], ui: { a: "1" } } })).status).toBe(204);
     expect((await put({ preferences: { ui: { b: "2" } } })).status).toBe(204);
     expect((await preferences(token)).preferences).toEqual({ views: [1], ui: { b: "2" } });
   });
-
-  it("keeps the agents' keys sealed, and gives them back only to their owner", async () => {
-    const { token } = await signIn("hermes@example.com");
-    const keys = { "brokk-id": "sk-secret", "rata-id": "sk-other" };
-    await call("PUT", "/v1/preferences", token, { agentKeys: keys });
-    expect((await preferences(token)).agentKeys).toEqual(keys);
-
-    const stored = execFileSync(
-      "pnpm",
-      [
-        "exec",
-        "wrangler",
-        "d1",
-        "execute",
-        "otter-mail-relay",
-        "--local",
-        "--persist-to",
-        persistDir,
-        "--json",
-        "--command",
-        "SELECT agent_keys FROM preferences WHERE agent_keys IS NOT NULL",
-      ],
-      { cwd: root, encoding: "utf8", env: { ...process.env, CI: "1" } },
-    );
-    expect(stored).toContain("agent_keys");
-    expect(stored).not.toContain("sk-secret");
-
-    await call("PUT", "/v1/preferences", token, { preferences: { ui: {} } });
-    expect((await preferences(token)).agentKeys).toEqual(keys);
-    await call("PUT", "/v1/preferences", token, { agentKeys: {} });
-    expect((await preferences(token)).agentKeys).toBeNull();
-
-    const { token: other } = await signIn("someone-else@example.com");
-    expect(await preferences(other)).toEqual({ preferences: {}, agentKeys: null });
-    // Inspecting D1 starts a second Wrangler runtime; allow its cold start in CI.
-  }, 30_000);
 
   it("keeps every section when devices write at the same time", async () => {
     const { token } = await signIn("prefs-race@example.com");
@@ -1261,26 +1250,47 @@ describe("preferences", () => {
   });
 });
 
-describe("chats", () => {
-  async function chats(token: string) {
-    const response = await call("GET", "/v1/chats", token);
+describe("agent sync", () => {
+  let next = 0;
+  async function sync(
+    token: string,
+    mutations: AgentMutation[] = [],
+    {
+      client = "device-a",
+      since = 0,
+      ids,
+    }: { client?: string; since?: number; ids?: number[] } = {},
+  ) {
+    const response = await call("POST", "/v1/agent-sync", token, {
+      client,
+      since,
+      mutations: mutations.map((mutation, i) => ({ id: ids?.[i] ?? ++next, mutation })),
+    } satisfies AgentSyncRequest);
     expect(response.status).toBe(200);
-    return ((await response.json()) as ListChatsResponse).chats;
+    return (await response.json()) as AgentSyncResponse;
   }
-  const chat: Chat = {
+  /** Every entry as a device that read them all would have them. */
+  async function entries(token: string) {
+    const all: Record<string, unknown> = {};
+    let since = 0;
+    for (;;) {
+      const page = await sync(token, [], { client: "reader", since });
+      for (const { key, value } of page.changes) all[key] = value;
+      since = page.version;
+      if (!page.more) return all;
+    }
+  }
+  const chat: Omit<Chat, "turns"> = {
     id: "c_1",
     title: "Plan the offsite",
-    provider: "hermes",
+    provider: "hermes-1",
     sessionId: "6f1c2a52-6a5b-4a62-9a8c-3d0e5f0c7b11",
     sessionOwned: true,
     lastResponseId: null,
     device: null,
     createdAt: 1_000,
     updatedAt: 2_000,
-    snoozedUntil: 5_000,
-    settledAt: null,
     pinnedAt: 3_000,
-    returnedAt: 2_500,
     tabs: [
       {
         id: "thread:me@example.com:t1",
@@ -1288,89 +1298,188 @@ describe("chats", () => {
         ref: { kind: "thread", accountId: "me@example.com", id: "t1" },
         addedAt: 1_500,
       },
-      {
-        id: "file:/tmp/venues.md",
-        title: "venues.md",
-        ref: { kind: "file", href: "/tmp/venues.md" },
-        addedAt: 1_600,
-        made: true,
-        closedAt: 1_700,
-      },
-    ],
-    turns: [
-      { id: "u-1", role: "user", text: "Find a venue" },
-      {
-        id: "a-1",
-        role: "assistant",
-        text: "",
-        items: [{ kind: "text", text: "Cedar Hall is free." }],
-        finishedAt: 1_900,
-      },
     ],
   };
+  const agent: AgentMutation = {
+    op: "agent.set",
+    id: "hermes-1",
+    kind: "hermes",
+    name: "Brokk",
+    settings: { baseUrl: "https://brokk.example", enabled: true },
+    addedAt: 1,
+  };
 
-  it("keeps a chat whole, lists it without its turns, and forgets it on delete", async () => {
-    const { token } = await signIn("chats@example.com");
-    expect(await chats(token)).toEqual([]);
+  it("keeps every turn of a chat, whole, and lets a deleted chat go for good", async () => {
+    const { token } = await signIn("agent-sync-chats@example.com");
+    const turns = Array.from({ length: 120 }, (_, i) => ({
+      id: `t-${i}`,
+      role: i % 2 ? ("assistant" as const) : ("user" as const),
+      text: "",
+      items: [
+        {
+          kind: "step" as const,
+          step: { kind: "command" as const, title: "ls" },
+          output: "x".repeat(10_000),
+        },
+      ],
+    }));
+    await sync(token, [
+      { op: "chat.set", chat },
+      { op: "turns", chat: "c_1", put: turns, order: turns.map((t) => t.id) },
+    ]);
+    const all = await entries(token);
+    expect(all["chat/c_1"]).toEqual(chat);
+    expect(all["turn/c_1/t-119"]).toEqual({ position: 119, turn: turns[119] });
+    expect(Object.keys(all).filter((k) => k.startsWith("turn/c_1/"))).toHaveLength(120);
 
-    expect((await call("PUT", "/v1/chats/c_1", token, chat)).status).toBe(204);
-    const [listed] = await chats(token);
-    expect(listed).toEqual({ ...chat, turns: undefined, deletedAt: null });
-    expect(listed).not.toHaveProperty("turns");
-    const response = await call("GET", "/v1/chats/c_1", token);
-    expect(((await response.json()) as { chat: Chat }).chat).toEqual(chat);
+    // A field changed on one device leaves the rest as they were.
+    await sync(token, [{ op: "chat.set", chat: { id: "c_1", title: "Offsite" } }]);
+    expect((await entries(token))["chat/c_1"]).toEqual({ ...chat, title: "Offsite" });
 
-    expect((await call("DELETE", "/v1/chats/c_1", token)).status).toBe(204);
-    const [deleted] = await chats(token);
-    expect(deleted).toMatchObject({
-      id: "c_1",
-      title: "",
-      sessionId: null,
-      lastResponseId: null,
-      device: null,
-      tabs: [],
-    });
-    expect(deleted.deletedAt).toBeGreaterThan(0);
-    expect((await call("GET", "/v1/chats/c_1", token)).status).toBe(404);
-    const later = { ...chat, updatedAt: 9_000 };
-    expect((await call("PUT", "/v1/chats/c_1", token, later)).status).toBe(409);
+    await sync(token, [{ op: "chat.delete", id: "c_1" }]);
+    await sync(token, [
+      { op: "chat.set", chat: { ...chat, updatedAt: 9_000 } },
+      { op: "turns", chat: "c_1", put: [turns[0]!], order: ["t-0"] },
+    ]);
+    const after = await entries(token);
+    expect(after["chat/c_1"]).toBeNull();
+    expect(Object.keys(after).filter((k) => k.startsWith("turn/"))).toEqual([]);
   });
 
-  it("keeps the later of two writes", async () => {
-    const { token } = await signIn("chats-later@example.com");
-    await call("PUT", "/v1/chats/c_1", token, { ...chat, title: "Newer", updatedAt: 5_000 });
-    const stale = await call("PUT", "/v1/chats/c_1", token, { ...chat, title: "Older" });
-    expect(stale.status).toBe(409);
-    expect((await chats(token))[0].title).toBe("Newer");
+  it("keeps the turns two devices write at once, in order", async () => {
+    const { token } = await signIn("agent-sync-order@example.com");
+    const turn = (id: string) => ({ id, role: "user" as const, text: id });
+    await sync(token, [
+      { op: "chat.set", chat },
+      { op: "turns", chat: "c_1", put: [turn("a"), turn("b")], order: ["a", "b"] },
+    ]);
+    await sync(token, [{ op: "turns", chat: "c_1", put: [turn("c")], order: ["a", "b", "c"] }], {
+      client: "phone",
+    });
+    await sync(token, [{ op: "turns", chat: "c_1", put: [turn("d")], order: ["a", "b", "d"] }]);
+    const all = await entries(token);
+    const order = Object.entries(all)
+      .filter(([key]) => key.startsWith("turn/c_1/"))
+      .sort(
+        ([, a], [, b]) =>
+          (a as { position: number }).position - (b as { position: number }).position,
+      )
+      .map(([key]) => key.split("/").at(-1));
+    expect(order).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("applies each mutation once, and answers what changed since", async () => {
+    const { token } = await signIn("agent-sync-once@example.com");
+    const first = await sync(token, [agent], { ids: [1] });
+    expect(first.lastMutationId).toBe(1);
+    const again = await sync(
+      token,
+      [agent, { op: "agent.set", id: "hermes-1", kind: "hermes", name: "Brokk II" }],
+      { ids: [1, 2], since: first.version },
+    );
+    expect(again.lastMutationId).toBe(2);
+    expect(again.changes).toEqual(
+      [{ key: "agent/hermes-1", value: { ...agent, op: undefined, name: "Brokk II" } }].map(
+        ({ key, value }) => ({ key, value: JSON.parse(JSON.stringify(value)) }),
+      ),
+    );
+    expect((await sync(token, [], { since: again.version })).changes).toEqual([]);
+  });
+
+  it("seals agents' secrets, gives them to the account's devices, and forgets them with the agent", async () => {
+    const { token } = await signIn("agent-sync-secrets@example.com");
+    await sync(token, [
+      agent,
+      { op: "agent.device", id: "hermes-1", device: "mac-1", settings: { binaryPath: "/bin/x" } },
+      { op: "secret.set", agent: "hermes-1", name: "key", value: "sk-very-secret" },
+      { op: "select", id: "hermes-1" },
+      // Not for an agent the account doesn't have.
+      { op: "secret.set", agent: "nobody", name: "key", value: "sk-stray" },
+    ]);
+    const all = await entries(token);
+    expect(all["secret/hermes-1/key"]).toBe("sk-very-secret");
+    expect(all["agent-device/hermes-1/mac-1"]).toEqual({ binaryPath: "/bin/x" });
+    expect(all["selected"]).toBe("hermes-1");
+    expect(all).not.toHaveProperty("secret/nobody/key");
+    // Sealed in storage: no file the relay keeps has it.
+    expect(spawnSync("grep", ["-rl", "sk-very-secret", persistDir]).status).toBe(1);
+
+    await sync(token, [{ op: "agent.remove", id: "hermes-1" }, agent]);
+    const after = await entries(token);
+    expect(after["agent/hermes-1"]).toBeNull();
+    expect(after["secret/hermes-1/key"]).toBeNull();
+    expect(after["agent-device/hermes-1/mac-1"]).toBeNull();
+    expect(after["selected"]).toBeNull();
+
+    const { token: other } = await signIn("agent-sync-other@example.com");
+    expect(await entries(other)).toEqual({});
   });
 
   it("refuses bad input", async () => {
-    const { token } = await signIn("chats-bad@example.com");
-    expect((await call("PUT", "/v1/chats/c_2", token, chat)).status).toBe(400);
-    expect((await call("PUT", "/v1/chats/a%20b", token, { ...chat, id: "a b" })).status).toBe(400);
-    const odd = { ...chat, provider: "Not an id!" };
-    expect((await call("PUT", "/v1/chats/c_1", token, odd)).status).toBe(400);
-    const huge = { ...chat, turns: [{ id: "u-1", role: "user", text: "x".repeat(700_000) }] };
-    expect((await call("PUT", "/v1/chats/c_1", token, huge)).status).toBe(413);
+    const { token } = await signIn("agent-sync-bad@example.com");
+    const post = (mutation: unknown) =>
+      call("POST", "/v1/agent-sync", token, {
+        client: "device-a",
+        since: 0,
+        mutations: [{ id: 1, mutation }],
+      });
+    expect((await post({ op: "nope" })).status).toBe(400);
+    expect((await post({ op: "chat.delete", id: "a b" })).status).toBe(400);
+    expect((await post({ ...agent, kind: "Not a kind!" })).status).toBe(400);
   });
 
-  it("shows each account only its own chats", async () => {
-    const { token } = await signIn("chats-a@example.com");
-    const { token: other } = await signIn("chats-b@example.com");
-    await call("PUT", "/v1/chats/c_1", token, chat);
-    expect(await chats(other)).toEqual([]);
-    expect((await call("GET", "/v1/chats/c_1", other)).status).toBe(404);
+  it("tells the account's other devices, not the one that wrote", async () => {
+    const { token } = await signIn("agent-sync-multi@example.com", "agent-sync-multi-sub");
+    const other = await signIn("agent-sync-multi@example.com", "agent-sync-multi-sub");
+    const [mine, theirs] = await Promise.all([connect(token), connect(other.token)]);
+    await sync(token, [agent]);
+    await until(() => theirs.events.length > 0, "the agent-sync event");
+    expect(theirs.events).toEqual([{ type: "agent-sync", email: "" }]);
+    await sync(token);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(theirs.events).toHaveLength(1);
+    expect(mine.events).toEqual([]);
+    mine.socket.close();
+    theirs.socket.close();
   });
 
-  it("tells every device when a chat changes", async () => {
-    const { token } = await signIn("chats-multi@example.com", "chats-multi-sub");
-    const other = await signIn("chats-multi@example.com", "chats-multi-sub");
-    const device = await connect(other.token);
-    await call("PUT", "/v1/chats/c_1", token, chat);
-    await until(() => device.events.length > 0, "the chats event");
-    expect(device.events).toEqual([{ type: "chats", email: "" }]);
-    device.socket.close();
-  });
+  it("takes in what the relay kept before, once", async () => {
+    const { token, user } = await signIn("agent-sync-import@example.com");
+    const sealed = await new EncryptJWT({ agentKeys: { "hermes-1": "sk-old" } })
+      .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
+      .setSubject(user.id)
+      .encrypt(
+        await derivedKey(
+          "test-secret-that-is-long-enough-for-better-auth",
+          "otter-mail preferences seal",
+        ),
+      );
+    const assistant = {
+      selected: "hermes-1",
+      agents: [{ id: "hermes-1", kind: "hermes", name: "Brokk", settings: { enabled: true } }],
+      removed: ["gone-1"],
+    };
+    const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
+    d1(
+      `INSERT INTO preferences (user_id, data, agent_keys, updated_at) VALUES (${quote(user.id)}, ${quote(JSON.stringify({ assistant }))}, ${quote(sealed)}, 0);
+       INSERT INTO chats (user_id, id, title, provider, session_owned, tabs, turns, created_at, updated_at) VALUES (${quote(user.id)}, 'c_old', 'Old', 'hermes-1', 0, '[]', ${quote(JSON.stringify([{ id: "u-1", role: "user", text: "Hi" }]))}, 1000, 2000);
+       INSERT INTO chats (user_id, id, title, provider, session_owned, tabs, turns, created_at, updated_at, deleted_at) VALUES (${quote(user.id)}, 'c_gone', '', 'hermes-1', 0, '[]', '[]', 1000, 2000, 3000);`,
+    );
+    const all = await entries(token);
+    expect(all["agent/hermes-1"]).toMatchObject({ kind: "hermes", name: "Brokk" });
+    expect(all["secret/hermes-1/key"]).toBe("sk-old");
+    expect(all["selected"]).toBe("hermes-1");
+    expect(all["agent/gone-1"]).toBeNull();
+    expect(all["chat/c_old"]).toMatchObject({ title: "Old", createdAt: 1000, updatedAt: 2000 });
+    expect(all["turn/c_old/u-1"]).toEqual({
+      position: 0,
+      turn: { id: "u-1", role: "user", text: "Hi" },
+    });
+    expect(all["chat/c_gone"]).toBeNull();
+    // A device that had the chat it deleted can't bring it back.
+    await sync(token, [{ op: "chat.set", chat: { ...chat, id: "c_gone" } }]);
+    expect((await entries(token))["chat/c_gone"]).toBeNull();
+  }, 30_000);
 });
 
 describe("agent channels", () => {

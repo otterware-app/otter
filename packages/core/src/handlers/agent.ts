@@ -4,7 +4,6 @@ import { runAsTask } from "./ipc-budget.js";
 import { ATTACHMENTS_DIR, stageAttachment } from "../services/agent/attachments.js";
 import * as agent from "../services/agent/service.js";
 import { agentChannels, deleteAgentChannel, makeAgentChannel } from "../services/agent/channels.js";
-import { preferenceChanged } from "../services/preferences.js";
 import { setWatching } from "../services/realtime.js";
 import type { AgentId, ApprovalDecision, ChatAttachment } from "../services/agent/types.js";
 
@@ -120,24 +119,17 @@ export function registerAgentHandlers(): void {
   });
 
   handle("agent:updateSettings", async (params: unknown) => {
-    const state = await agent.updateProviderSettings((params ?? {}) as Record<string, unknown>);
-    preferenceChanged("assistant");
-    return state;
+    return agent.updateProviderSettings((params ?? {}) as Record<string, unknown>);
   });
 
   handle("agent:add", async (params: unknown) => {
     const kind = str((params as Params)?.kind);
     if (!kind) throw new Error("Choose a kind of agent.");
-    const added = await agent.addAgent(kind);
-    preferenceChanged("assistant");
-    return added;
+    return agent.addAgent(kind);
   });
 
   handle("agent:remove", async (params: unknown) => {
-    const state = await agent.removeAgent(providerOf(params as Params));
-    preferenceChanged("assistant");
-    preferenceChanged("agentKeys");
-    return state;
+    return agent.removeAgent(providerOf(params as Params));
   });
 
   handle("agent:send", async (params: unknown) => {

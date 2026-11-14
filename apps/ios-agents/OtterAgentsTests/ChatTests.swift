@@ -29,49 +29,11 @@ struct ChatTests {
         #expect(written["tabs"]?.array?.first?["made"]?.bool == true)
     }
 
-    @Test func theListComesWithoutTurnsAndADeletedChatIsNone() {
-        let listed = Chat(json(#"{"id":"c","title":"T","provider":"openclaw","sessionId":"agent:scout:otter-mail:1","createdAt":1,"updatedAt":2,"tabs":[],"deletedAt":null}"#))
+    @Test func aChatsEntryComesWithoutItsTurns() {
+        let listed = Chat(json(#"{"id":"c","title":"T","provider":"openclaw","sessionId":"agent:scout:otter-mail:1","createdAt":1,"updatedAt":2,"tabs":[]}"#))
         #expect(listed?.loaded == false)
         #expect(listed?.openClawAgent == "scout")
-        #expect(Chat(json(#"{"id":"c","title":"","provider":"hermes","createdAt":1,"updatedAt":2,"tabs":[],"deletedAt":3}"#)) == nil)
-    }
-
-    @Test func aChatForTheRelayIsWithinItsLimits() {
-        var chat = Chat(provider: "hermes", now: 1)
-        chat.title = String(repeating: "t", count: 400)
-        for index in 0..<120 {
-            var turn = ChatTurn(id: "a-\(index)", role: .assistant, now: index)
-            turn.items = [.step(id: nil, ChatStep(title: "Ran"), output: String(repeating: "o", count: 6000))]
-            chat.turns.append(turn)
-        }
-        let synced = chat.forSync
-        #expect(synced["turns"]?.array?.count == 80)
-        #expect(synced["turns"]?.array?.last?["id"]?.string == "a-119")
-        #expect(synced["title"]?.string?.count == 301)
-        #expect(synced["turns"]?.array?[0]["items"]?.array?[0]["output"]?.string?.count == 4001)
-        #expect(synced.data.count <= 500_000)
-    }
-
-    @Test func aSyncedChatKeepsItsPicturesUntilItIsTooBig() {
-        let thumb = "data:image/jpeg;base64," + String(repeating: "A", count: 9000)
-        var chat = Chat(provider: "openclaw", now: 1)
-        var sent = ChatTurn(id: "u-1", role: .user, text: "look", now: 1)
-        sent.attachments = [ChatSentAttachment(name: "a.png", isImage: true, size: 10, thumb: thumb),
-                            ChatSentAttachment(name: "huge.png", isImage: true, size: 10, thumb: String(repeating: "A", count: 50_000))]
-        chat.turns = [sent]
-        let files = chat.forSync["turns"]?.array?[0]["attachments"]?.array
-        #expect(files?[0]["thumb"]?.string == thumb)
-        #expect(files?[1]["thumb"] == nil)
-
-        for index in 0..<70 {
-            var turn = ChatTurn(id: "u-\(index + 2)", role: .user, text: "more", now: index + 2)
-            turn.attachments = [ChatSentAttachment(name: "b.png", isImage: true, size: 10, thumb: thumb)]
-            chat.turns.append(turn)
-        }
-        let big = chat.forSync
-        #expect(big["turns"]?.array?.count == 71)
-        #expect(big["turns"]?.array?[0]["attachments"]?.array?[0]["thumb"] == nil)
-        #expect(big.data.count <= 500_000)
+        #expect(Chat(.null) == nil, "a chat gone")
     }
 
     @Test func aFileLinkNamesItsPathAndLine() throws {
@@ -149,17 +111,5 @@ struct ChatTests {
         #expect(!ChatText.isFileLink("https://otterware.app/a.png"))
         #expect(ChatShelf.tabsSummary([ChatTab(ref: .draft(accountId: "a", id: "1"), title: ""), ChatTab(ref: .thread(accountId: "a", id: "2"), title: ""),
                                        ChatTab(ref: .thread(accountId: "a", id: "3"), title: "")]) == "1 draft · 2 emails")
-    }
-
-    @Test func theAccountsCopyWinsButOlderTurnsHereStay() {
-        var local = Chat(provider: "hermes", now: 1)
-        local.turns = (0..<5).map { (index: Int) in ChatTurn(id: "t\(index)", role: .user, text: "local \(index)", now: index) }
-        var remote = local
-        remote.title = "Renamed elsewhere"
-        remote.turns = [ChatTurn(id: "t3", role: .user, text: "remote 3", now: 3), ChatTurn(id: "t4", role: .user, text: "remote 4", now: 4),
-                        ChatTurn(id: "t5", role: .user, text: "remote 5", now: 5)]
-        let merged = ChatSync.merged(remote, local)
-        #expect(merged.title == "Renamed elsewhere")
-        #expect(merged.turns.map(\.text) == ["local 0", "local 1", "local 2", "remote 3", "remote 4", "remote 5"])
     }
 }

@@ -23,7 +23,7 @@ enum AgentPicture {
         let opaque = image.cgImage.map { [CGImageAlphaInfo.none, .noneSkipFirst, .noneSkipLast].contains($0.alphaInfo) } ?? false
         for side in sides {
             let square = square(image, side: side, opaque: opaque)
-            if let url = encoded(square, opaque: opaque), AgentList.Entry.isPicture(url) { return url }
+            if let url = encoded(square, opaque: opaque), AgentEntry.isPicture(url) { return url }
         }
         throw Failure(message: "Couldn't make that image small enough. Choose another.")
     }

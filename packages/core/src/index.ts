@@ -11,6 +11,7 @@ import { registerUnsubscribeHandlers } from "./handlers/unsubscribe.js";
 import { registerSupportHandlers } from "./handlers/support.js";
 import { activateExtensions, type CoreExtension } from "./extensions.js";
 import { broadcast, handle } from "./ipc.js";
+import { logger } from "./logger.js";
 import { setPlatform, type Platform } from "./platform.js";
 import { followAliasMailApart } from "./services/alias-mailboxes.js";
 import { pruneAttachmentCache } from "./services/attachment-cache.js";
@@ -22,6 +23,7 @@ import {
   syncAllAccounts,
 } from "./services/mail-sync.js";
 import { loadOtterAccount } from "./services/otter-account.js";
+import { importLocalAgentData } from "./services/agent/local-import.js";
 import { getUiPreferences, preferenceChanged, setUiPreference } from "./services/preferences.js";
 import { getSettings, onSettingsChanged } from "./services/settings-store.js";
 import { refreshProfiles } from "./services/google-profile.js";
@@ -51,6 +53,13 @@ export async function startCore(
   registerConnectionHandlers();
   registerSupportHandlers();
   await activateExtensions(extensions);
+  void importLocalAgentData().catch((err: unknown) =>
+    logger.failure(
+      "agent-sync",
+      "Couldn't send this device's agents and chats to the account",
+      err,
+    ),
+  );
   handle("keybindings:read", async () => readKeybindings());
   handle("preferences:getUi", async (params: unknown) =>
     getUiPreferences((params as { initialize?: unknown } | undefined)?.initialize === true),

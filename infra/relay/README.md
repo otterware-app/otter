@@ -10,18 +10,21 @@ a Cloudflare Worker. It gives Otter seven things (the Mac app works without it; 
   a Google ID token for it, an Outlook one a Microsoft ID token (`src/microsoft-jwt.ts`); an IMAP
   link proves nothing, so it never receives Gmail or Outlook pushes, and a mailbox can't switch
   providers without being unlinked first (409).
-- **Preferences that follow you.** Settings, views, keybindings, the agent's settings and
-  UI choices like the theme, as sections of JSON per Otter account, plus the Hermes API key,
-  sealed with a key derived from the auth secret. A change is pushed to the account's other
-  devices over the same WebSocket as mail. See `src/preferences.ts`.
-- **Agent chats.** Every chat the account's devices have, whatever agent ran it (Claude,
-  Codex, Hermes, OpenClaw, varys), with its transcript as the apps show it and the tabs it
-  opened in the AI workspace (`packages/contracts/src/chats.ts`), so a chat reads the same on
-  every device. One row per chat, written whole; the device's `updatedAt` decides, so a stale
-  write is refused (409) and that device pulls instead. Transcripts carry what the agent read
-  and wrote, mail included (step outputs clipped, image thumbnails left on their device). A
-  deleted chat keeps its id and time so other devices let it go. Every write sends the `chats`
-  event. See `src/chats.ts`.
+- **Preferences that follow you.** Settings, views, keybindings and UI choices like the theme,
+  as sections of JSON per Otter account. A change is pushed to the account's other devices over
+  the same WebSocket as mail. See `src/preferences.ts`.
+- **Agents and chats.** The account's agents (their settings, each device's own fields, their
+  keys and tokens) and every chat, whatever agent ran it, whole: each turn as the apps show it
+  and the tabs it opened (`packages/contracts/src/agent-sync.ts`). The relay is where they are;
+  each device keeps a copy it reads from. They live in the account's UserHub (its SQLite), an
+  entry per key, each numbered by the write that last changed it. A device sends mutations
+  (`POST /v1/agent-sync`), applied in one order with the same merge every device runs
+  (`applyMutation`), each once, and takes the entries written since its last number; the
+  account's other devices hear `agent-sync`. Agents' secrets are sealed with a key derived from
+  the auth secret (OpenClaw's device pairing stays on its device). A deleted chat or agent
+  keeps its key, so no device brings it back. What the relay kept before (D1's `chats`, the
+  `assistant` preferences section and its sealed `agent_keys`) is read in once per account.
+  See `src/agent-sync.ts`.
 - **Gmail sign-in for the web app.** A browser can't keep a Google refresh token by itself, so
   the relay does the OAuth exchange with the web client and seals the refresh token (only the
   relay can open it, and only for the Otter user it was issued to). The browser keeps the sealed
@@ -78,7 +81,7 @@ Mac ◀──── WebSocket /v1/events ◀── UserHub (Durable Object, one 
 ## Code map
 
 - `src/worker.ts`: routes (Hono). `/v1/auth/*` is better-auth; `/v1/me`, `/v1/accounts`,
-  `/v1/preferences`, `/v1/chats`, `/v1/events` and `/v1/tunnel` need a session; `/push/gmail`
+  `/v1/preferences`, `/v1/agent-sync`, `/v1/events` and `/v1/tunnel` need a session; `/push/gmail`
   takes Pub/Sub pushes, `/push/outlook/:email` Graph's.
 - `src/tunnel.ts`: the web app's TCP tunnel (`cloudflare:sockets`), and which hosts and ports
   it may reach.
@@ -90,12 +93,13 @@ Mac ◀──── WebSocket /v1/events ◀── UserHub (Durable Object, one 
   an OIDC provider with PKCE; see [shared identity](../../docs/shared-identity.md).
 - `src/gmail.ts`: the web app's Gmail sign-in popup, and token refreshes.
 - `src/outlook.ts`: the same for Outlook, and Graph subscriptions' `clientState`.
-- `src/preferences.ts`: merging preference sections, sealing the Hermes key.
-- `src/chats.ts`: agent chats, a row each.
+- `src/preferences.ts`: merging preference sections.
+- `src/agent-sync.ts`: the account's agents and chats, in its UserHub.
 - `src/keys.ts`: keys derived from the auth secret, one per purpose.
 - `src/google-jwt.ts`: verifies Google-signed JWTs (jose): ID tokens, and Pub/Sub's push tokens.
 - `src/microsoft-jwt.ts`: verifies Microsoft ID tokens, and which address one proves.
-- `src/user-hub.ts`: the Durable Object holding each user's sockets (hibernating).
+- `src/user-hub.ts`: the Durable Object for each user: their sockets (hibernating), and their
+  agents and chats.
 - `src/schema.ts`, `src/store.ts`: the D1 schema (Drizzle) and the queries (linked accounts,
   preferences).
 - `migrations/`: generated with `pnpm db:generate` from `src/schema.ts`.

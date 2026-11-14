@@ -27,7 +27,6 @@ export {
 } from "./services/agent/service.js";
 export { onOtterAccountChange } from "./services/otter-account.js";
 export { deleteAgentChannel, makeAgentChannel } from "./services/agent/channels.js";
-export { preferenceChanged } from "./services/preferences.js";
 
 export { fromBase64, sha256Hex, toBase64, utf8Decode, utf8Encode } from "./bytes.js";
 export { readJson, writeJson } from "./json-file.js";

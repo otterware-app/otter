@@ -53,11 +53,11 @@ WhatsApp's iPhone app, in Otter's face and colors, since a chat with an agent is
 Everything the Mac and web apps' chat does that a phone without the mail can
 (`docs/features.md` has the table):
 
-- **Chats follow the account** (`Chats/ChatSync.swift`, core's services/chats.ts): the list from
-  the relay's `/v1/chats`, a chat's turns when it's opened, kept on disk from then on. A change
-  here is written at once and pushed soon after (a streaming turn every 15 seconds); a write the
-  relay refuses as stale gives way to the account's copy. A turn keeps the fields this app
-  doesn't read (`Chats/Chat.swift`), so writing a chat the Mac made loses nothing of it.
+- **Chats follow the account** (`Chats/ChatSync.swift`, core's services/chats.ts): read from this
+  iPhone's copy of the account's agents and chats (`Account/AgentSync.swift`, below), a chat's
+  turns when it's opened. A change here is saved as the fields and turns that changed (a
+  streaming turn as its latest, every 300 ms), and every turn whole. A turn keeps the fields this
+  app doesn't read (`Chats/Chat.swift`), so writing a chat the Mac made loses nothing of it.
 - **Any number of chats run at once**, each on the agent it started with (`Chats/ChatStore.swift`,
   apps/web's chat-store.ts): send, queue or steer (Settings › Chat; touch and hold Send for the
   other), stop, retry a failed message, edit or send now what's queued.
@@ -126,16 +126,26 @@ Everything the Mac and web apps' chat does that a phone without the mail can
 
 - `Account/`: the Otter account. Signing in is Google's ID token, with Otter Mail's "iOS" OAuth
   client (`GoogleSignIn.swift`: no mail scope, nothing kept but the relay's session). `Relay.swift`
-  is the relay as far as the agents need it; `Account.swift` keeps the account's settings (the
-  `assistant` section and the `ui` keys the other apps use) and chats in step, both ways.
+  is the relay as far as the agents need it; `Account.swift` keeps the account's look (the `ui`
+  keys the other apps use), agents and chats in step, both ways.
+- `Account/AgentSync.swift` and `AgentEntries.swift`: the account's agents and chats as entries
+  (packages/contracts' agent-sync.ts; core's services/agent-sync.ts is the same on the Mac and
+  the web). This iPhone keeps a copy on disk, which the app opens on; a change is a mutation,
+  applied to the copy at once and kept in an outbox until the relay has it. Each exchange
+  (`POST /v1/agent-sync`, and again on the relay's `agent-sync` event) sends the outbox, takes
+  what changed since, writes that over the copy and applies again what the relay hasn't had yet.
+  `AgentEntries.apply` is the port of contracts' `applyMutation`, which the relay and every device
+  run alike: change both together. `LocalImport.swift` sends what an earlier version kept on
+  this iPhone (its agents list and chats cache) to the account once, then deletes it (core's
+  local-import.ts).
 - `Agents/`: the agents you added, as many of each kind as you like (`Agents.swift`). Each has
   an id, which chats, tasks and every call name it by, a kind, a name, a picture and its settings
-  (`AgentList.swift`: the account's `assistant` section, as core's `agents.json`; a removal is
-  kept as the agent's id, so no device brings it back). Each reaches its agent on its own
-  (`Agent.swift`): a Hermes agent's settings and sealed key follow the account (the relay's
-  `agentKeys`, by agent); OpenClaw and varys pair with this iPhone as a device of its own, each
-  agent separately, kept in its Keychain under the agent's id. Claude and Codex agents stay in the
-  list as the account has them. Their clients are `Clients/` (`Hermes`, `OpenClaw`, `Varys*`).
+  (`AgentEntry.swift`), listed in the order they were added. Each reaches its agent on its own
+  (`Agent.swift`): its settings and keys (a Hermes key, an OpenClaw token) are the account's,
+  in the Keychain under the agent's id; what pairs this iPhone alone (varys's address and grant,
+  an OpenClaw device key) stays on it (`AgentKind.deviceFields`, `deviceSecrets`). Claude and
+  Codex agents stay in the list as the account has them. Their clients are `Clients/` (`Hermes`,
+  `OpenClaw`, `Varys*`).
 - `Agents/AgentRunner.swift`: a turn on each agent, told as the `ChatEvent`s core's providers
   emit. OpenClaw and varys go on without the app: a turn the app left is picked up on return.
   The sockets stay 25 seconds in the background (`Account.leave`), and a quiet OpenClaw socket is
