@@ -703,6 +703,16 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
         for (const messageId of (body.ids as string[]) ?? []) deleteMessage(box, messageId);
         return json({}, 204);
       }
+      if (id === "batchModify" && method === "POST") {
+        const add = (body.addLabelIds as string[]) ?? [];
+        const invalid = checkLabels(box, add);
+        if (invalid) return badRequest(invalid);
+        for (const messageId of (body.ids as string[]) ?? []) {
+          const m = box.messages[messageId];
+          if (m) modify(box, m, add, (body.removeLabelIds as string[]) ?? []);
+        }
+        return json({}, 204);
+      }
       const m = box.messages[id];
       if (!m) return notFound();
       if (action === "attachments") {

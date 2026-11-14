@@ -467,6 +467,8 @@ export const mailApi = {
 
   deleteThreadsForever: (accountId: string, threadIds: string[]): Promise<{ ok: boolean }> =>
     ipc("gmail:deleteThreadsForever", { accountId, threadIds }),
+  markLabelRead: (accountId: string, labelId: string): Promise<{ count: number }> =>
+    ipc("gmail:markLabelRead", { accountId, labelId }),
   emptyFolder: (accountId: string, labelId: "SPAM" | "TRASH"): Promise<{ deleted: number }> =>
     task("gmail:emptyFolder", { accountId, labelId }),
 

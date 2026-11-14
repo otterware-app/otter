@@ -46,6 +46,7 @@ import {
   CircleChevronDownIcon,
   ChevronDownIcon,
   PaperclipIcon,
+  ListChecksIcon,
 } from "lucide-react";
 import { AgentIcon } from "../agent/agent-icon";
 import { IconBtn, HintTooltip, cn } from "./ui";
@@ -322,6 +323,7 @@ type MessageRowProps = {
   viewLabelIds: ReadonlySet<string>;
   onDeleteForever: () => void;
   onChatAgent: () => void;
+  onSelectAll: () => void;
   /** Closes the reader — used after marking the open row unread, so the
       reader's auto mark-read doesn't immediately undo it (Gmail does this too). */
   onDeselect: () => void;
@@ -347,6 +349,7 @@ function MessageRow({
   viewLabelIds,
   onDeleteForever,
   onChatAgent,
+  onSelectAll,
   onDeselect,
   expanded,
   onToggleExpanded,
@@ -732,6 +735,7 @@ function MessageRow({
             <ContextMenuItem onSelect={() => inNewWindow(onOpen)}>
               Open in New Window
             </ContextMenuItem>
+            <ContextMenuItem onSelect={onSelectAll}>Select all</ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
               icon={unread ? "envelope.open" : "envelope.badge"}
@@ -1161,6 +1165,8 @@ export function MessageList({
     extentRef.current = null;
   };
 
+  const selectAll = () => setChecked(new Set(visibleMessages.map((m) => m.id)));
+
   const rangeSelect = (id: string) => {
     const ids = visibleMessages.map((m) => m.id);
     const from = anchorRef.current ?? selectedMessageId ?? id;
@@ -1365,6 +1371,9 @@ export function MessageList({
   const selectionMenu = (
     <>
       <ContextMenuLabel>{checked.size} selected</ContextMenuLabel>
+      {checked.size < visibleMessages.length ? (
+        <ContextMenuItem onSelect={selectAll}>Select all</ContextMenuItem>
+      ) : null}
       <ContextMenuSeparator />
       <ContextMenuItem icon="envelope.open" onSelect={bulkMarkRead}>
         Mark as read
@@ -1858,6 +1867,7 @@ export function MessageList({
           openMessage(message);
           onOpenChat?.();
         }}
+        onSelectAll={selectAll}
       />
       {threadMessagesOf(message).length > 0 ? (
         <div className="message-list-thread-messages flex flex-col px-2 pb-1">
@@ -2042,6 +2052,13 @@ export function MessageList({
               {checked.size}
             </span>
             <span className="pr-1 text-sm text-muted-foreground">selected</span>
+            {checked.size < visibleMessages.length ? (
+              <HintTooltip label="Select all">
+                <IconBtn label="Select all" className="size-7" onClick={selectAll}>
+                  <ListChecksIcon className="size-3.5" />
+                </IconBtn>
+              </HintTooltip>
+            ) : null}
             <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
             {allTrashed ? (
               <>

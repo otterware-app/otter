@@ -769,6 +769,15 @@ export async function untrashThread(
   return ids.length > 0 ? fetchMetadataForIds(accountId, ids) : [];
 }
 
+export async function batchMarkRead(accountId: string, messageIds: string[]): Promise<void> {
+  for (let i = 0; i < messageIds.length; i += 1000) {
+    await gmailFetch(accountId, "/messages/batchModify", {
+      method: "POST",
+      body: JSON.stringify({ ids: messageIds.slice(i, i + 1000), removeLabelIds: ["UNREAD"] }),
+    });
+  }
+}
+
 /** PERMANENT bulk delete — one messages.batchDelete per 1000 ids. Gmail has
     no threads.batchDelete, so callers resolve threads to message ids first. */
 export async function batchDeleteMessages(accountId: string, messageIds: string[]): Promise<void> {

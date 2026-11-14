@@ -1146,6 +1146,18 @@ export function countAllMessages(accountId: string): number {
   return row?.n ?? 0;
 }
 
+export function getUnreadIdsForLabel(accountId: string, labelId: string): string[] {
+  const rows = getDb()
+    .prepare(`
+      SELECT m.id FROM messages m
+      JOIN message_labels ml
+        ON ml.accountId = m.accountId AND ml.messageId = m.id AND ml.labelId = ?
+     WHERE m.accountId = ? AND m.unread = 1
+    `)
+    .all(labelId, accountId) as unknown as { id: string }[];
+  return rows.map((r) => r.id);
+}
+
 export function getMessageIdsForLabel(accountId: string, labelId: string): string[] {
   const d = getDb();
   const rows = d

@@ -189,6 +189,7 @@ export interface MailProvider {
   trashThread(accountId: string, threadId: string): Promise<void>;
   untrashMessage(accountId: string, messageId: string): Promise<MessageSummary[]>;
   untrashThread(accountId: string, threadId: string): Promise<MessageSummary[]>;
+  markRead(accountId: string, messageIds: string[]): Promise<void>;
   deleteForever(accountId: string, messageIds: string[]): Promise<void>;
   emptyFolder(accountId: string, labelId: "SPAM" | "TRASH", cachedIds: string[]): Promise<string[]>;
 

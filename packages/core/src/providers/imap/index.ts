@@ -79,6 +79,7 @@ export const imapProvider: MailProvider = {
   trashThread: writes.trashThread,
   untrashMessage: writes.untrashMessage,
   untrashThread: writes.untrashThread,
+  markRead: writes.markRead,
   deleteForever: writes.deleteForever,
   emptyFolder: writes.emptyFolder,
 

@@ -11,6 +11,11 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "./menu";
 import {
   ArchiveIcon,
@@ -25,6 +30,8 @@ import {
   XIcon,
   Trash2Icon,
   ClockIcon,
+  EllipsisIcon,
+  SquarePenIcon,
   PlusIcon,
   ChevronDownIcon,
   TagIcon,
@@ -38,6 +45,7 @@ import {
   useDeleteLabel,
   useModifyThread,
   useEmptyFolder,
+  useMarkLabelRead,
 } from "./hooks";
 import type { MailLabel } from "./types";
 import { ALL_MAIL_LABEL_ID, ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "./label-names";
@@ -53,8 +61,10 @@ import { labelMoveName } from "../keybindings/commands";
 import { renameLabelKeybindings, useKeybindingsState } from "../keybindings/store";
 import { formatShortcut, parseShortcut } from "../keybindings/keys";
 import { LabelShortcutDialog } from "../settings/keybindings-pane";
-import { Section, SectionAddButton, SkRow, type RowDragProps } from "./sidebar-ui";
+import { SIDEBAR_ROW, Section, SectionAddButton, SkRow, type RowDragProps } from "./sidebar-ui";
 import { useCapabilities } from "./capabilities";
+import { arrangeFolders, badgeProps, useSidebarLayout, visibilityOf } from "./sidebar-layout";
+import { CustomizeSidebarDialog, type SidebarFolder } from "./customize-sidebar";
 
 const LABEL_DRAG_MIME = "application/x-gmail-label";
 
@@ -114,6 +124,49 @@ const SYSTEM_LABEL_MAP: Record<string, { name: string; icon: ReactNode }> = {
 };
 
 const FLAGGED = { name: "Flagged", icon: <FlagIcon className="size-4" /> };
+
+function MoreFolders({
+  folders,
+  depth,
+  onSelect,
+  onCustomize,
+}: {
+  folders: (SidebarFolder & { count: number })[];
+  depth: number;
+  onSelect: (id: string) => void;
+  onCustomize: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          style={{ paddingLeft: 10 + depth * 16 }}
+          className={`${SIDEBAR_ROW} pr-(--sidebar-row-content-inset) text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground data-[state=open]:bg-sidebar-row-hover data-[state=open]:text-sidebar-foreground`}
+        >
+          <EllipsisIcon className="size-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">More</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="min-w-48">
+        {folders.map((folder) => (
+          <DropdownMenuItem
+            key={folder.id}
+            icon={folder.icon}
+            accelerator={folder.count > 0 ? String(folder.count) : undefined}
+            onSelect={() => onSelect(folder.id)}
+          >
+            {folder.name}
+          </DropdownMenuItem>
+        ))}
+        {folders.length > 0 ? <DropdownMenuSeparator /> : null}
+        <DropdownMenuItem icon={<SquarePenIcon className="size-4" />} onSelect={onCustomize}>
+          Customize Sidebar…
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export type SidebarSearch = { id: string; parent: string; title: string; selected: boolean };
 
@@ -178,6 +231,7 @@ type LabelActions = {
   onMove: (source: LabelDragPayload, targetParentName: string | null) => void;
   onDropThreads: (payload: ThreadDragPayload, label: MailLabel, keep: boolean) => void;
   onEditShortcut: (label: MailLabel) => void;
+  onMarkRead: (labelId: string) => void;
   shortcutFor: (label: MailLabel) => string | undefined;
 };
 
@@ -196,6 +250,7 @@ function LabelNode({
 }): ReactNode {
   const [open, setOpen] = useState(true);
   const [dropActive, setDropActive] = useState(false);
+  const badgeStyle = useSidebarLayout().badge;
   const { label, children } = node;
   const unread = label?.unread && label.unread > 0 ? label.unread : 0;
   const hasChildren = children.length > 0;
@@ -269,7 +324,7 @@ function LabelNode({
       title={node.segment}
       depth={depth}
       selected={label ? selectedLabelId === label.id : false}
-      badge={unread}
+      {...badgeProps(unread, badgeStyle)}
       place={!!label}
       dragProps={dragProps}
       dropActive={dropActive}
@@ -292,6 +347,9 @@ function LabelNode({
           <ContextMenuContent>
             <ContextMenuItem onSelect={() => inNewWindow(() => onSelectLabel(label.id))}>
               Open in New Window
+            </ContextMenuItem>
+            <ContextMenuItem icon="envelope.open" onSelect={() => actions.onMarkRead(label.id)}>
+              Mark All as Read
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem icon="pencil" onSelect={() => actions.onRename(label)}>
@@ -371,10 +429,13 @@ export function MailboxFolders({
   const [shortcutTarget, setShortcutTarget] = useState<string | null>(null);
   const [emptyTarget, setEmptyTarget] = useState<"SPAM" | "TRASH" | null>(null);
   const emptyFolder = useEmptyFolder();
+  const markLabelRead = useMarkLabelRead();
   const modifyThread = useModifyThread();
   const { rules: keybindingRules } = useKeybindingsState();
 
   const labels: MailLabel[] = labelsQuery.data ?? [];
+  const layout = useSidebarLayout();
+  const [customizeOpen, setCustomizeOpen] = useState(false);
 
   // All Mail isn't a Gmail label (archived mail just lacks INBOX), so it's
   // listed without one — and, like Gmail, without an unread badge. Where the
@@ -383,13 +444,23 @@ export function MailboxFolders({
   const shown = (id: string) =>
     (id !== "IMPORTANT" || capabilities.categories) &&
     id !== (capabilities.archiveFolder ? ALL_MAIL_LABEL_ID : ARCHIVE_LABEL_ID);
-  const systemLabels = SIDEBAR_SYSTEM_ORDER.filter(shown).flatMap((id): MailLabel[] => {
-    const label = labels.find((l) => l.id === id);
-    if (label) return [label];
-    return id === ALL_MAIL_LABEL_ID || id === ARCHIVE_LABEL_ID
-      ? [{ id, name: id, type: "system" }]
-      : [];
-  });
+  // Until labels load, every folder the mailbox can have; then only those it has (All Mail and
+  // Archive are places, not labels).
+  const folders = arrangeFolders(SIDEBAR_SYSTEM_ORDER, layout.order)
+    .filter(shown)
+    .flatMap((id) => {
+      const meta = id === "STARRED" && !capabilities.stars ? FLAGGED : SYSTEM_LABEL_MAP[id];
+      const label = labels.find((l) => l.id === id);
+      if (!meta) return [];
+      if (labels.length > 0 && !label && id !== ALL_MAIL_LABEL_ID && id !== ARCHIVE_LABEL_ID) {
+        return [];
+      }
+      const count = (id === "DRAFT" ? label?.total : label?.unread) ?? 0;
+      const visibility = visibilityOf(layout, id);
+      const visible =
+        selectedLabelId === id || visibility === "always" || (visibility === "badged" && count > 0);
+      return [{ id, ...meta, count, visible }];
+    });
   const userLabels = labels.filter((l) => l.type === "user");
   const labelSections = alias
     ? []
@@ -519,6 +590,7 @@ export function MailboxFolders({
     onMove: handleMoveLabel,
     onDropThreads: handleDropThreads,
     onEditShortcut: (label) => setShortcutTarget(label.name),
+    onMarkRead: (labelId) => markLabelRead.mutate({ accountId: mailboxId, labelId }),
     shortcutFor: (label) => {
       const rule = keybindingRules.find((r) => labelMoveName(r.command) === label.name);
       const shortcut = rule ? parseShortcut(rule.key) : null;
@@ -533,7 +605,17 @@ export function MailboxFolders({
         <ContextMenuItem onSelect={() => inNewWindow(() => onSelectLabel(labelId))}>
           Open in New Window
         </ContextMenuItem>
+        {/* An alias mailbox shows part of the account's folder; marking it would take the rest too. */}
+        {labelId !== "DRAFT" && labelId !== ALL_MAIL_LABEL_ID && !alias ? (
+          <ContextMenuItem icon="envelope.open" onSelect={() => labelActions.onMarkRead(labelId)}>
+            Mark All as Read
+          </ContextMenuItem>
+        ) : null}
         {/* Emptying the account's Junk or Trash takes every alias mailbox's with it. */}
+        <ContextMenuSeparator />
+        <ContextMenuItem onSelect={() => setCustomizeOpen(true)}>
+          Customize Sidebar…
+        </ContextMenuItem>
         {(labelId === "SPAM" || labelId === "TRASH") && !alias ? (
           <>
             <ContextMenuSeparator />
@@ -548,26 +630,17 @@ export function MailboxFolders({
   return (
     <SearchRowsContext.Provider value={searchRows ?? noSearchRows}>
       <>
-        {(labels.length > 0
-          ? systemLabels.map((l) => ({
-              id: l.id,
-              unread: l.unread ?? 0,
-              total: l.total ?? 0,
-            }))
-          : SIDEBAR_SYSTEM_ORDER.filter(shown).map((id) => ({ id, unread: 0, total: 0 }))
-        ).map(({ id, unread, total }) => {
-          const meta = id === "STARRED" && !capabilities.stars ? FLAGGED : SYSTEM_LABEL_MAP[id];
-          if (!meta) return null;
-          const isDrafts = id === "DRAFT";
-          return (
+        {folders
+          .filter((folder) => folder.visible)
+          .map(({ id, name, icon, count }) => (
             <Fragment key={id}>
               {withMenu(
                 <SkRow
-                  icon={meta.icon}
-                  title={meta.name}
+                  icon={icon}
+                  title={name}
                   depth={depth}
                   selected={selectedLabelId === id}
-                  badge={isDrafts ? total : unread}
+                  {...badgeProps(count, layout.badge)}
                   place
                   onClick={() => {
                     console.log("[AccountsSidebar:selectLabel]", { labelId: id });
@@ -578,8 +651,13 @@ export function MailboxFolders({
               )}
               <SearchRows parent={id} depth={depth} />
             </Fragment>
-          );
-        })}
+          ))}
+        <MoreFolders
+          folders={folders.filter((folder) => !folder.visible)}
+          depth={depth}
+          onSelect={onSelectLabel}
+          onCustomize={() => setCustomizeOpen(true)}
+        />
 
         {labelSections.map((section) =>
           section.labels.length === 0 ? (
@@ -741,6 +819,13 @@ export function MailboxFolders({
       </Dialog>
 
       <LabelShortcutDialog labelName={shortcutTarget} onClose={() => setShortcutTarget(null)} />
+
+      <CustomizeSidebarDialog
+        open={customizeOpen}
+        onOpenChange={setCustomizeOpen}
+        folders={folders}
+        defaultOrder={SIDEBAR_SYSTEM_ORDER}
+      />
 
       <Dialog
         open={emptyTarget != null}

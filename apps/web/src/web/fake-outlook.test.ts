@@ -495,6 +495,20 @@ describe("core's Outlook provider on the demo mailbox", { timeout: 20_000 }, () 
     expect(core.mailStore.getMessageIdsForLabel(EMAIL, "INBOX")).toContain(refused);
   });
 
+  it("marks every unread message in a folder read", async () => {
+    const { core, invoke } = await boot();
+    await until(() => core.mailStore.countAllMessages(EMAIL) === 25, "initial mailbox");
+    const unread = () => core.mailStore.getUnreadIdsForLabel(EMAIL, "INBOX");
+    const ids = unread();
+    expect(ids.length).toBeGreaterThan(0);
+
+    await invoke("gmail:markLabelRead", { accountId: EMAIL, labelId: "INBOX" });
+    expect(unread()).toEqual([]);
+    for (const id of ids) {
+      expect(await graph<Item>(`/me/messages/${id}`)).toMatchObject({ isRead: true });
+    }
+  });
+
   it("category edits keep messages in their folder, while folder moves keep categories", async () => {
     const { core, invoke } = await boot();
     await until(() => core.mailStore.countAllMessages(EMAIL) === 25, "initial mailbox");
