@@ -229,6 +229,13 @@ export async function untrashThread(accountId: string, threadId: string) {
   return untrash(accountId, await threadMessages(accountId, threadId));
 }
 
+export async function markRead(accountId: string, messageIds: string[]): Promise<void> {
+  await run(
+    accountId,
+    messageIds.map((id) => ({ method: "PATCH", url: messagePath(id), body: { isRead: true } })),
+  );
+}
+
 export async function deleteForever(accountId: string, messageIds: string[]): Promise<void> {
   await run(
     accountId,

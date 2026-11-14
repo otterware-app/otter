@@ -54,6 +54,7 @@ export const gmailProvider: MailProvider = {
   },
   untrashMessage: api.untrashMessage,
   untrashThread: api.untrashThread,
+  markRead: api.batchMarkRead,
   deleteForever: api.batchDeleteMessages,
   async emptyFolder(accountId, labelId) {
     // Only what Gmail lists: cached mail may have been restored elsewhere since.

@@ -317,6 +317,11 @@ export const untrashMessage = (accountId: string, id: string) =>
 export const untrashThread = (accountId: string, threadId: string) =>
   untrash(accountId, threadRows(accountId, threadId));
 
+export async function markRead(accountId: string, ids: string[]) {
+  const rows = ids.map((id) => rowOf(accountId, id));
+  await changeLabels(accountId, rows, { removeLabelIds: ["UNREAD"] }, false);
+}
+
 export async function deleteForever(accountId: string, ids: string[]): Promise<void> {
   await withImap(accountId, async (client) => {
     for (const [path, refs] of byFolder(ids.map(currentId))) {

@@ -934,6 +934,35 @@ export function registerMailHandlers(): void {
     }
   });
 
+  handle("gmail:markLabelRead", async (params: unknown) => {
+    const p = params as Record<string, unknown>;
+    console.log("[gmail:markLabelRead]", { accountId: p?.accountId, labelId: p?.labelId });
+    try {
+      const accountId = assertString(p?.accountId, "accountId");
+      const labelId = assertString(p?.labelId, "labelId");
+      const ids = [
+        ...new Set(
+          mailStore
+            .getUnreadIdsForLabel(accountId, labelId)
+            .flatMap((id) => copiesOf(accountId, id, false)),
+        ),
+      ];
+      if (ids.length === 0) return { ok: true as const, count: 0 };
+      const result = await settleLabelWrite(
+        "gmail:markLabelRead",
+        accountId,
+        ids,
+        [],
+        ["UNREAD"],
+        () => providerFor(accountId).markRead(accountId, ids),
+      );
+      return { ...result, count: ids.length };
+    } catch (err) {
+      console.log("[gmail:markLabelRead] error", { error: String(err) });
+      throw err;
+    }
+  });
+
   // Empty Junk / Empty Trash deletes what the server lists there, never cached
   // ids alone: mail restored elsewhere may not have synced yet. Big folders
   // outlast the IPC timeout, so it reports back as a task.

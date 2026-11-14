@@ -1750,6 +1750,21 @@ export function useDeleteThreadsForever() {
   });
 }
 
+export function useMarkLabelRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ accountId, labelId }: { accountId: string; labelId: string }) => {
+      console.log("[hooks:useMarkLabelRead]", { accountId, labelId });
+      return (await mailApi.markLabelRead(accountId, labelId)).count;
+    },
+    onSuccess: (count) => {
+      if (count === 0) toast.success("Everything here is already read");
+    },
+    onSettled: () => invalidateMailCaches(qc),
+    onError: (err) => toast.error(`Couldn't mark it read: ${describeWriteError(err)}`),
+  });
+}
+
 export function useEmptyFolder() {
   const qc = useQueryClient();
   return useMutation({

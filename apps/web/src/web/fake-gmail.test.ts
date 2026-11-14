@@ -111,6 +111,18 @@ describe("core's Gmail provider on the made-up mailbox", { timeout: 20_000 }, ()
     ).rejects.toThrow(/400/);
   });
 
+  it("marks every unread message in a label read, on Gmail too", async () => {
+    const { core, invoke, gmail } = await boot();
+    const unread = () => core.mailStore.getUnreadIdsForLabel(EMAIL, "INBOX");
+    await until(() => unread().length > 0, "unread mail");
+    const ids = unread();
+
+    await invoke("gmail:markLabelRead", { accountId: EMAIL, labelId: "INBOX" });
+    expect(unread()).toEqual([]);
+    const labels = (await (await gmail(`/messages/${ids[0]}`)).json()) as { labelIds: string[] };
+    expect(labels.labelIds).not.toContain("UNREAD");
+  });
+
   it("deleting a draft already deleted elsewhere succeeds", async () => {
     const { invoke, gmail } = await boot();
     const draft = await invoke<{ draftId: string }>("gmail:saveDraft", {
