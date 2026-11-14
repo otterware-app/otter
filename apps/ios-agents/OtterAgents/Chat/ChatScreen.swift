@@ -190,7 +190,7 @@ struct ChatScreen: View {
         .environment(\.chatFind, finding ? find : "")
         .task(id: id) {
             store.watched = id
-            await store.sync?.load(id)
+            store.sync?.load(id)
             // What the agent wrote or asks in this chat's session without this iPhone: a scheduled run, another device's turn.
             Task { await store.catchUp(id) }
             if let found = store.found, found.chatId == id {

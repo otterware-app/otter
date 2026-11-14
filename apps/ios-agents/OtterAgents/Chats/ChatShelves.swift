@@ -165,61 +165,6 @@ nonisolated enum ChatText {
 }
 
 nonisolated extension Chat {
-    private static let limits = (turns: 80, tabs: 50, title: 300, output: 4000, address: 2048, thumb: 40_000, bytes: 500_000)
-
-    /** The chat as the relay takes it (contracts' `chatForSync`): its last turns, long outputs clipped, within its size. */
-    var forSync: JSON {
-        let clip = { (text: String, max: Int) in text.count > max ? "\(text.prefix(max))…" : text }
-        func outputs(_ turn: ChatTurn, _ max: Int) -> ChatTurn {
-            guard turn.items.contains(where: { if case .step(_, _, let output?) = $0 { output.count > max } else { false } }) else { return turn }
-            var turn = turn
-            turn.items = turn.items.map { item in
-                guard case .step(let id, let step, let output?) = item else { return item }
-                return .step(id: id, step, output: max > 0 ? clip(output, max) : nil)
-            }
-            return turn
-        }
-        var synced = self
-        synced.title = clip(title, Self.limits.title)
-        synced.tabs = tabs.filter { tab in
-            switch tab.ref {
-            case .page(let url): url.count <= Self.limits.address
-            case .file(let href): href.count <= Self.limits.address
-            case .thread(let account, let id), .draft(let account, let id): account.count <= 320 && id.count <= 512
-            }
-        }.suffix(Self.limits.tabs).map { tab in
-            var tab = tab
-            tab.title = clip(tab.title, Self.limits.title)
-            return tab
-        }
-        func thumbs(_ turn: ChatTurn, _ max: Int) -> ChatTurn {
-            guard turn.attachments.contains(where: { ($0.thumb?.count ?? 0) > max }) else { return turn }
-            var turn = turn
-            turn.attachments = turn.attachments.map { file in
-                var file = file
-                if (file.thumb?.count ?? 0) > max { file.thumb = nil }
-                return file
-            }
-            return turn
-        }
-        synced.turns = turns.suffix(Self.limits.turns).map { thumbs(outputs($0, Self.limits.output), Self.limits.thumb) }
-        var json = synced.json
-        // A chat too big for the relay gives up its pictures before any of its turns.
-        if json.data.count > Self.limits.bytes {
-            synced.turns = synced.turns.map { thumbs($0, 0) }
-            json = synced.json
-        }
-        while synced.turns.count > 1, json.data.count > Self.limits.bytes {
-            synced.turns = Array(synced.turns.dropFirst((synced.turns.count + 3) / 4))
-            json = synced.json
-        }
-        for max in [500, 0] where json.data.count > Self.limits.bytes {
-            synced.turns = synced.turns.map { outputs($0, max) }
-            json = synced.json
-        }
-        return json
-    }
-
     /**
      * Puts a delivery that just finished (the last turn) where it happened among the chat's
      * turns: one caught up on late, after messages sent since, goes before them.

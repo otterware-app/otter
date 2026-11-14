@@ -1,13 +1,11 @@
+import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-const files = new Map<string, unknown>();
 const secrets = new Map<string, string>();
-vi.mock("../../json-file.js", () => ({
-  readJson: async (name: string) => files.get(name),
-  writeJson: async (name: string, value: unknown) => void files.set(name, value),
-}));
+const database = new DatabaseSync(":memory:");
 vi.mock("../../platform.js", () => ({
   platform: () => ({
+    database: () => database,
     secrets: {
       get: async (name: string) => secrets.get(name) ?? null,
       set: async (name: string, value: string) => void secrets.set(name, value),
@@ -15,8 +13,14 @@ vi.mock("../../platform.js", () => ({
     },
   }),
 }));
+vi.mock("../otter-account.js", () => ({
+  RelayError: Error,
+  getOtterUser: () => ({ id: "u1" }),
+  onOtterAccountChange: () => {},
+  relayRequest: () => new Promise(() => {}),
+}));
 vi.mock("../../ipc.js", () => ({ broadcast: vi.fn() }));
-vi.mock("../../logger.js", () => ({ logger: { info: vi.fn() } }));
+vi.mock("../../logger.js", () => ({ logger: { info: vi.fn(), failure: vi.fn() } }));
 
 const made: { id: string; shutdown: ReturnType<typeof vi.fn> }[] = [];
 const ready = async () => ({
@@ -34,7 +38,6 @@ const hermes = {
   defaults: { enabled: true, model: "", baseUrl: "" },
   fields: { enabled: "boolean", model: "string", baseUrl: "string" },
   secrets: ["key"],
-  syncedSecret: "key",
   create({ id }: { id: string }) {
     const provider = {
       id,
@@ -62,14 +65,14 @@ vi.mock("../../extensions.js", () => ({
     ]),
 }));
 
-const service = await import("./service.js");
-const { getProviderSettings, saveProviderSettings } = await import("./settings.js");
+const service = await import("../agent/service.js");
+const { getProviderSettings } = await import("../agent/settings.js");
+const { agentDb } = await import("../agent-sync.js");
 
 beforeEach(async () => {
-  files.clear();
   secrets.clear();
   made.length = 0;
-  await saveProviderSettings({ selected: null, agents: [], removed: [] });
+  agentDb().exec("DELETE FROM agent_entries; DELETE FROM agent_outbox;");
 });
 
 describe("the agents you add", () => {
@@ -119,67 +122,36 @@ describe("the agents you add", () => {
 });
 
 describe("following the account", () => {
-  it("sends the agents without what's this device's, and their keys apart", async () => {
-    const brokk = (await service.addAgent("hermes")).id;
+  it("shares the agents, and keeps each device's own fields to that device", async () => {
     const cc = (await service.addAgent("claude")).id;
-    await service.updateProviderSettings({ [cc]: { binaryPath: "/opt/claude" } });
-    secrets.set(`agent:${brokk}:key`, "sk-brokk");
+    await service.updateProviderSettings({ [cc]: { model: "opus", binaryPath: "/opt/claude" } });
 
-    const synced = await service.syncedProviderSettings();
-    expect(synced.agents.find((a) => a.id === cc)?.settings).toEqual({});
-    expect(await service.syncedAgentKeys()).toEqual({ [brokk]: "sk-brokk" });
-  });
-
-  it("takes another device's list: adds, renames and removes, keeping device fields", async () => {
-    const cc = (await service.addAgent("claude")).id;
-    const old = (await service.addAgent("hermes")).id;
-    await service.updateProviderSettings({ [cc]: { binaryPath: "/opt/claude" } });
-    secrets.set(`agent:${old}:key`, "sk-old");
-
-    await service.applySyncedProviderSettings({
-      selected: "rata",
-      agents: [
-        { id: cc, kind: "claude", name: "Work Claude", settings: { enabled: true, model: "opus" } },
-        { id: "rata", kind: "hermes", name: "rata", settings: { baseUrl: "https://rata.example" } },
-        { id: "far", kind: "varys", name: "Elsewhere", settings: { address: "x" } },
-      ] as never,
-      removed: [old],
-    });
-    await service.applySyncedAgentKeys({ rata: "sk-rata" });
-
-    const { agents, selected, removed } = await getProviderSettings();
-    expect(agents.map((a) => [a.id, a.name])).toEqual([
-      [cc, "Work Claude"],
-      ["rata", "rata"],
-      ["far", "Elsewhere"],
+    const { entries } = await import("../agent-sync.js");
+    expect(entries("agent/").map(({ value }) => value)).toMatchObject([
+      { id: cc, kind: "claude", settings: { model: "opus" } },
     ]);
-    expect(selected).toBe("rata");
-    expect(removed).toEqual([old]);
-    expect(await service.agentSettings(cc)).toMatchObject({
+    expect(entries("agent-device/").map(({ value }) => value)).toEqual([
+      { binaryPath: "/opt/claude" },
+    ]);
+    expect((await getProviderSettings()).agents[0]?.settings).toEqual({
       model: "opus",
       binaryPath: "/opt/claude",
     });
-    expect(secrets.has(`agent:${old}:key`)).toBe(false);
-    expect(secrets.get("agent:rata:key")).toBe("sk-rata");
-    expect((await service.providersState()).providers.map((p) => p.id)).toEqual([cc, "rata"]);
   });
 
-  it("keeps an agent added here the account hasn't heard of, and never brings back a removed one", async () => {
-    const mine = (await service.addAgent("hermes")).id;
-    const gone = (await service.addAgent("hermes")).id;
-    await service.removeAgent(gone);
+  it("sends a key as the account's, and the agent's removal with it", async () => {
+    const brokk = (await service.addAgent("hermes")).id;
+    await (await import("../agent/settings.js")).agentSecrets(brokk).set("key", "sk-brokk");
+    expect(secrets.get(`agent:${brokk}:key`)).toBe("sk-brokk");
+    const queued = () =>
+      database
+        .prepare("SELECT mutation FROM agent_outbox ORDER BY id")
+        .all()
+        .map((row) => JSON.parse(String(row.mutation)).op);
+    expect(queued()).toEqual(["agent.set", "select", "secret.set"]);
 
-    await service.applySyncedProviderSettings({
-      selected: null,
-      agents: [
-        { id: "rata", kind: "hermes", name: "rata", settings: {} },
-        { id: gone, kind: "hermes", name: "Back again?", settings: {} },
-      ] as never,
-      removed: [],
-    });
-
-    const synced = await service.syncedProviderSettings();
-    expect(synced.agents.map((a) => a.id)).toEqual(["rata", mine]);
-    expect(synced.removed).toEqual([gone]);
+    await service.removeAgent(brokk);
+    expect(secrets.has(`agent:${brokk}:key`)).toBe(false);
+    expect(queued()).toContain("agent.remove");
   });
 });

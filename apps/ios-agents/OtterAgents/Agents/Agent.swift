@@ -8,7 +8,7 @@ import Observation
  */
 @Observable
 final class Agent: Identifiable {
-    var entry: AgentList.Entry
+    var entry: AgentEntry
     var status: Agents.Status = .notConfigured
     var models: [Hermes.Model] = []
     /** An OpenClaw gateway's agents as they show themselves: a picture or an emoji, by agent. */
@@ -25,7 +25,7 @@ final class Agent: Identifiable {
     @ObservationIgnored private var gateway: OpenClaw?
     @ObservationIgnored private var varysConnection: (key: String, client: Varys)?
 
-    init(_ entry: AgentList.Entry) {
+    init(_ entry: AgentEntry) {
         self.entry = entry
         if kind == .openclaw {
             gatewayAgents = (try? JSONDecoder().decode([OpenClaw.GatewayAgent].self, from: Data(contentsOf: gatewayAgentsFile))) ?? []
@@ -113,7 +113,7 @@ final class Agent: Identifiable {
 
     // MARK: Secrets
 
-    /** Kept under the agent's id, as core keeps them (`agent:<id>:<name>`). */
+    /** Kept under the agent's id, as core keeps them (`agent:<id>:<name>`): the account's come from `AgentSync`, through `Agents.setSecret`. */
     private func secretName(_ name: String) -> String { "agent:\(id):\(name)" }
 
     func secret(_ name: String) -> String? { Keychain.get(secretName(name)).flatMap(\.nilIfEmpty) }

@@ -16,14 +16,6 @@ vi.mock("./otter-account.js", () => ({
   getOtterUser: () => ({ id: "test-user" }),
   relayRequest: (...args: unknown[]) => relay(...args),
 }));
-const applyAgents = vi.fn();
-vi.mock("./agent/service.js", () => ({
-  applySyncedAgentKeys: vi.fn(),
-  forgetAgentKeys: vi.fn(),
-  applySyncedProviderSettings: (value: unknown) => applyAgents(value),
-  syncedAgentKeys: async () => ({}),
-  syncedProviderSettings: () => ({ agents: ["mine"] }),
-}));
 vi.mock("./keybindings-store.js", () => ({
   readKeybindings: async () => ({}),
   writeKeybindings: vi.fn(),
@@ -37,7 +29,11 @@ vi.mock("./settings-store.js", () => ({
   getSettings: async () => ({}),
   updateSettings: async () => ({}),
 }));
-vi.mock("./views-store.js", () => ({ listViews: async () => [], writeViews: vi.fn() }));
+const writeViews = vi.fn();
+vi.mock("./views-store.js", () => ({
+  listViews: async () => [{ id: "mine" }],
+  writeViews: (value: unknown) => writeViews(value),
+}));
 
 beforeEach(() => {
   files.clear();
@@ -91,21 +87,18 @@ it("falls back to local defaults if the relay is unavailable", async () => {
 });
 
 it("keeps a change made here until the relay has it", async () => {
-  await forgetSyncedPreferences();
-  preferenceChanged("assistant");
-  relay.mockResolvedValueOnce({
-    preferences: { assistant: { agents: ["older"] } },
-    agentKeys: null,
-  });
+  forgetSyncedPreferences();
+  preferenceChanged("views");
+  relay.mockResolvedValueOnce({ preferences: { views: [{ id: "older" }] } });
   await pullPreferences();
 
   let resolve!: (value: unknown) => void;
   relay.mockReturnValueOnce(new Promise((done) => (resolve = done)));
   const pulling = pullPreferences();
-  preferenceChanged("assistant");
-  resolve({ preferences: { assistant: { agents: ["older"] } }, agentKeys: null });
+  preferenceChanged("views");
+  resolve({ preferences: { views: [{ id: "older" }] } });
   await pulling;
-  expect(applyAgents).not.toHaveBeenCalled();
+  expect(writeViews).not.toHaveBeenCalled();
 
   relay.mockResolvedValue(undefined);
   await vi.advanceTimersByTimeAsync(600);
@@ -113,13 +106,10 @@ it("keeps a change made here until the relay has it", async () => {
     "PUT",
     "/v1/preferences",
     expect.objectContaining({
-      preferences: expect.objectContaining({ assistant: { agents: ["mine"] } }),
+      preferences: expect.objectContaining({ views: [{ id: "mine" }] }),
     }),
   );
-  relay.mockResolvedValueOnce({
-    preferences: { assistant: { agents: ["theirs"] } },
-    agentKeys: null,
-  });
+  relay.mockResolvedValueOnce({ preferences: { views: [{ id: "theirs" }] } });
   await pullPreferences();
-  expect(applyAgents).toHaveBeenCalledWith({ agents: ["theirs"] });
+  expect(writeViews).toHaveBeenCalledWith([{ id: "theirs" }]);
 });

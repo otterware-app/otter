@@ -15,7 +15,7 @@ enum DemoAgent {
     /** Two Hermes servers (a team's brokk and rata), an OpenClaw gateway with two agents of its own, varys, and a Mac's Codex. */
     static func agents() -> [Agent] {
         func agent(_ id: String, _ kind: AgentKind?, _ name: String, avatar: String? = nil, settings: [String: JSON] = [:], models: [Hermes.Model]) -> Agent {
-            let agent = Agent(AgentList.Entry(id: id, kind: kind?.rawValue ?? "codex", name: name, avatar: avatar, settings: settings))
+            let agent = Agent(AgentEntry(id: id, kind: kind?.rawValue ?? "codex", name: name, avatar: avatar, settings: settings))
             agent.status = .ready
             agent.models = models
             return agent

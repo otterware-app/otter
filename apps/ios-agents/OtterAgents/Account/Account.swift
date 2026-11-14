@@ -5,7 +5,7 @@ import UserNotifications
 
 /**
  * Who's using the app: nobody yet, the demo, or an Otter account. Signed in, it keeps the
- * account's settings (the look, the agents) and its chats in step with the relay, both ways.
+ * account's look, agents and chats in step with the relay, both ways.
  */
 @Observable
 final class Account {
@@ -63,8 +63,8 @@ final class Account {
             state = .welcome
         }
         relay.onSignedOut = { [weak self] in self?.endSession() }
-        preferences.onChange = { [weak self] in self?.changed("ui") }
-        agents.onChange = { [weak self] section in self?.changed(section) }
+        preferences.onChange = { [weak self] in self?.uiChanged() }
+        agents.onChange = { [weak self] in self?.uiChanged() }
         chats.onWatch = { [weak self] in self?.tellWatching() }
         agents.onReady = { [weak self] _ in
             self?.chats.resumeRuns()
@@ -105,7 +105,14 @@ final class Account {
     }
 
     private func start(_ user: Relay.User) {
-        chats.sync = ChatSync(store: chats, relay: relay, userId: user.id)
+        let sync = AgentSync(user: user.id, relay: relay)
+        sync.importLocalData(user: user.id)
+        sync.onChange = { [weak self] keys in
+            self?.agents.heard(keys)
+            self?.chats.sync?.heard(keys)
+        }
+        agents.use(sync)
+        chats.sync = ChatSync(store: chats, sync: sync)
         Task { await refresh() }
     }
 
@@ -115,9 +122,10 @@ final class Account {
         // The agents first: a turn left in the background picks up without waiting on the account.
         agents.reconnect()
         chats.resumeRuns(beforePull: true)
+        Task { await agents.checkAll() }
         async let preferences: Void = pullPreferences()
-        async let pulled: Void = chats.sync?.pull() ?? ()
-        _ = await (preferences, pulled)
+        async let synced: Void = agents.sync.sync()
+        _ = await (preferences, synced)
         chats.resumeRuns()
         tellWatching()
         relay.connect { [weak self] event in
@@ -125,7 +133,7 @@ final class Account {
             Task {
                 switch event {
                 case .preferences: await self.pullPreferences()
-                case .chats: await self.chats.sync?.pull()
+                case .agentSync: await self.agents.sync.sync()
                 case .agent(let pointer): await self.delivered(pointer)
                 }
             }
@@ -218,6 +226,7 @@ final class Account {
         relay.watching = nil
         relay.disconnect()
         chats.suspend()
+        agents.sync.saveNow()
     }
 
     /** Whether the app was still connected, away for less than `grace`. */
@@ -231,34 +240,23 @@ final class Account {
     }
 
     private func pullPreferences() async {
-        guard let userId = user?.id, let (sections, agentKeys) = try? await relay.preferences(), user?.id == userId else {
-            return await agents.checkAll()
-        }
-        let ui = sections["ui"] as? [String: Any]
-        remoteUI = ui ?? [:]
-        preferences.apply(ui: ui ?? [:])
-        agents.apply(assistant: sections["assistant"].map(JSON.init(any:)), ui: ui ?? [:], agentKeys: agentKeys)
+        guard let userId = user?.id, let sections = try? await relay.preferences(), user?.id == userId else { return }
+        let ui = sections["ui"] as? [String: Any] ?? [:]
+        remoteUI = ui
+        preferences.apply(ui: ui)
+        agents.apply(ui: ui)
     }
 
-    private func changed(_ section: String) {
-        guard let userId = user?.id else { return }
-        switch section {
-        case "agentKeys":
-            let keys = agents.agentKeys
-            Task { try? await relay.putPreferences(["assistant": agents.syncedSection], agentKeys: keys) }
-        case "assistant":
-            Task { try? await relay.putPreferences(["assistant": agents.syncedSection]) }
-        default:
-            // Not pulled yet: writing now would drop what the other apps keep there.
-            guard let remote = remoteUI else { return }
-            let merged = remote.merging(preferences.uiSection) { _, mine in mine }.merging(agents.uiSection) { _, mine in mine }
-            remoteUI = merged
-            pushingUI?.cancel()
-            pushingUI = Task {
-                try? await Task.sleep(for: .milliseconds(400))
-                guard !Task.isCancelled, user?.id == userId else { return }
-                try? await relay.putPreferences(["ui": merged])
-            }
+    private func uiChanged() {
+        // Not pulled yet: writing now would drop what the other apps keep there.
+        guard let userId = user?.id, let remote = remoteUI else { return }
+        let merged = remote.merging(preferences.uiSection) { _, mine in mine }.merging(agents.uiSection) { _, mine in mine }
+        remoteUI = merged
+        pushingUI?.cancel()
+        pushingUI = Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled, user?.id == userId else { return }
+            try? await relay.putPreferences(["ui": merged])
         }
     }
 
@@ -279,7 +277,8 @@ final class Account {
         chats.sync?.forget()
         chats.sync = nil
         chats.reset()
-        agents.forgetAccount()
+        agents.sync.forget()
+        agents.use(AgentSync())
         UserDefaults.standard.removeObject(forKey: Self.userKey)
         state = .welcome
     }

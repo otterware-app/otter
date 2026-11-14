@@ -31,6 +31,7 @@ import { QueuedMessages } from "./chat-queue";
 import { ChatTranscript } from "./chat-transcript";
 import { ChatComposer } from "./chat-composer";
 import { AgentIcon } from "./agent-icon";
+import { useOtterAccount } from "../otter-account";
 import { toast } from "../mail/toast";
 
 const NO_QUEUE: QueuedMessage[] = [];
@@ -103,6 +104,7 @@ export function ChatView({
   const hydrating = useChats((s) => s.hydrating === chatId);
   const turns = convo?.turns ?? [];
   const chat = useChatProvider(convo);
+  const otter = useOtterAccount();
   const setProvidersState = useSetProvidersState();
   const updateSettings = (patch: AgentSettingsPatch) => {
     console.log("[AgentChat:updateSettings]", patch);
@@ -144,6 +146,7 @@ export function ChatView({
 
   const openChatFile = onOpenFile ?? previewChatFile;
   const needsSetup = Boolean(chat.state) && !chat.usable && turns.length === 0;
+  const signedOut = otter !== null && !otter.user;
   const elsewhere = convo && isElsewhere(convo, device) ? convo.device : null;
   const setupSummary = providerSummary(chat.provider);
   const fallback = chat.state?.providers.find(
@@ -188,6 +191,16 @@ export function ChatView({
                 <span className="text-sm text-muted-foreground">{setupSummary.detail}</span>
               ) : null}
             </>
+          ) : signedOut ? (
+            <>
+              <AgentIcon className="mb-1 size-6 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">
+                Sign in to chat with your agents
+              </span>
+              <span className="max-w-80 text-sm text-pretty text-muted-foreground">
+                Your agents and chats are in your Otter account, the same on every device.
+              </span>
+            </>
           ) : (
             <>
               <AgentIcon className="mb-1 size-6 text-muted-foreground" />
@@ -201,10 +214,16 @@ export function ChatView({
           <div className="mt-1 flex items-center gap-2">
             <button
               type="button"
-              onClick={() => void mailApi.openSettings({ pane: "agents", item: chat.provider?.id })}
+              onClick={() =>
+                void mailApi.openSettings(
+                  signedOut && !chat.provider
+                    ? { pane: "otter" }
+                    : { pane: "agents", item: chat.provider?.id },
+                )
+              }
               className={buttonClass("outline", "sm")}
             >
-              {chat.provider ? "Open Settings" : "Add agent"}
+              {chat.provider ? "Open Settings" : signedOut ? "Sign in" : "Add agent"}
             </button>
             {fallback ? (
               <button

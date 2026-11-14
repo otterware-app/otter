@@ -1,219 +1,111 @@
 import Foundation
 
 /**
- * Keeps the store's chats on disk and in step with the account (core's services/chats.ts): a
- * change is written here at once and to the relay soon after; what other devices wrote is
- * pulled on connecting and on the relay's `chats` event. The list comes without turns, so a
- * chat's turns are read when it's opened and kept from then on.
+ * The store's chats as the account keeps them (core's services/chats.ts): read from this iPhone's
+ * copy (`AgentSync`), a chat and each of its turns an entry. A change here is saved as the fields
+ * and turns that changed, so a long chat that streams writes one turn, not itself whole; what
+ * other devices wrote comes in with each exchange. A chat's turns are read when it's opened.
  */
 final class ChatSync {
     private let store: ChatStore
-    private let relay: Relay
-    private let directory: URL
-    /** Chats changed here that the relay doesn't have yet. */
-    private var pending: Set<String>
-    private var deleted: Set<String>
+    private let sync: AgentSync
     private var saving: [String: Task<Void, Never>] = [:]
-    private var pushing: Task<Void, Never>?
-    private var loading: [String: Task<Void, Never>] = [:]
-    private var lastPush: [String: Date] = [:]
-    private(set) var isPulling = false
 
-    private static let streamingPush: TimeInterval = 15
-    private var pendingKey: String { "chat-pending:" + directory.lastPathComponent }
-    private var deletedKey: String { "chat-deleted:" + directory.lastPathComponent }
-
-    init(store: ChatStore, relay: Relay, userId: String) {
+    init(store: ChatStore, sync: AgentSync) {
         self.store = store
-        self.relay = relay
-        let name = Data(userId.utf8).base64EncodedString().replacingOccurrences(of: "/", with: "_")
-        directory = URL.applicationSupportDirectory.appending(path: "Chats/\(name)", directoryHint: .isDirectory)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        pending = Set(UserDefaults.standard.stringArray(forKey: "chat-pending:" + name) ?? [])
-        deleted = Set(UserDefaults.standard.stringArray(forKey: "chat-deleted:" + name) ?? [])
-        let cached = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
-        let list = (try? JSON(parsing: Data(contentsOf: directory.appending(path: "list.json"))))?.array ?? []
-        let full = Set(cached.map { $0.deletingPathExtension().lastPathComponent })
-        var chats = store.chats.filter(\.isBlank)
-        for summary in list {
-            guard let listed = Chat(summary) else { continue }
-            // One opened before is read whole, so it shows at once.
-            chats.append(full.contains(listed.id) ? read(listed.id) ?? listed : listed)
-        }
-        store.replace(chats: chats)
+        self.sync = sync
+        let chats = sync.copy.entries("chat/").compactMap { Chat($0.value) }.sorted { $0.updatedAt > $1.updatedAt }
+        store.replace(chats: store.chats.filter(\.isBlank) + chats)
     }
 
-    private func file(_ id: String) -> URL { directory.appending(path: "\(id).json") }
-
-    private func read(_ id: String) -> Chat? {
-        (try? JSON(parsing: Data(contentsOf: file(id)))).flatMap(Chat.init)
-    }
-
-    private func writeList() {
-        let summaries = store.chats.filter { !$0.isBlank }.map { chat -> JSON in
-            guard case .object(var object) = chat.json else { return .null }
-            object["turns"] = nil
-            return .object(object)
-        }
-        try? JSON.array(summaries).data.write(to: directory.appending(path: "list.json"), options: .atomic)
-    }
-
-    private func keepPending() {
-        UserDefaults.standard.set(Array(pending), forKey: pendingKey)
-        UserDefaults.standard.set(Array(deleted), forKey: deletedKey)
-    }
+    /** An exchange is on its way: a chat not here yet may still come with it. */
+    var isSyncing: Bool { sync.isSyncing }
 
     // MARK: Changes made here
 
-    /** A chat changed here. `settled`: no turn runs in it, so other devices can have it now (else in a while). */
-    func changed(_ id: String, settled: Bool? = nil) {
+    /** A chat changed here. `settled`: no turn runs in it, so other devices can have it now (else in a moment). */
+    func changed(_ id: String, settled: Bool = false) {
         guard let chat = store.chat(id), !chat.isBlank, chat.loaded else { return }
-        pending.insert(id)
-        keepPending()
-        saving[id]?.cancel()
-        saving[id] = Task {
-            try? await Task.sleep(for: .milliseconds(settled == true ? 50 : 600))
-            guard !Task.isCancelled, let chat = store.chat(id) else { return }
-            try? chat.json.data.write(to: file(id), options: .atomic)
-            writeList()
+        if settled {
+            saving[id]?.cancel()
             saving[id] = nil
-            push()
         }
+        guard saving[id] == nil else { return }
+        saving[id] = Task {
+            try? await Task.sleep(for: .milliseconds(settled ? 50 : 300))
+            guard !Task.isCancelled else { return }
+            saving[id] = nil
+            save(id, settled: settled)
+        }
+    }
+
+    private func save(_ id: String, settled: Bool) {
+        guard let chat = store.chat(id), !chat.isBlank, chat.loaded, case .object(var record) = chat.json else { return }
+        let before = sync.copy.get(AgentEntries.chatKey(id))
+        if before == .null { return }
+        record["turns"] = nil
+        var fields = before?.object.map { stored in record.filter { (stored[$0.key] ?? .null) != $0.value } } ?? record
+        let stored = before == nil ? [] : sync.copy.turns(of: id)
+        let storedIds = stored.compactMap { $0["id"]?.string }
+        let storedTurns = Dictionary(stored.compactMap { turn in turn["id"]?.string.map { ($0, turn) } }) { first, _ in first }
+        let ids = chat.turns.map(\.id)
+        let put = chat.turns.map(\.json).filter { turn in turn["id"]?.string.flatMap { storedTurns[$0] } != turn }
+        var mutations: [JSON] = []
+        if !fields.isEmpty {
+            fields["id"] = .string(id)
+            mutations.append(AgentMutation.setChat(fields))
+        }
+        if !put.isEmpty || storedIds != ids {
+            mutations.append(AgentMutation.turns(id, put: put, order: ids, removed: storedIds.filter { !Set(ids).contains($0) }))
+        }
+        sync.mutate(mutations, delay: .milliseconds(settled ? 100 : 300))
     }
 
     func deleted(_ id: String) {
-        pending.remove(id)
-        deleted.insert(id)
-        keepPending()
-        try? FileManager.default.removeItem(at: file(id))
-        writeList()
-        push()
-    }
-
-    private func push() {
-        guard pushing == nil else { return }
-        pushing = Task {
-            defer { pushing = nil }
-            for id in deleted {
-                guard (try? await relay.deleteChat(id)) != nil else { continue }
-                deleted.remove(id)
-            }
-            for id in pending {
-                guard let chat = store.chat(id) else { pending.remove(id); continue }
-                // A turn streaming is told to the other devices every so often, not at each word.
-                if store.runs[id] != nil, let last = lastPush[id], Date.now.timeIntervalSince(last) < Self.streamingPush { continue }
-                do {
-                    try await relay.putChat(chat.forSync.anyObject)
-                    lastPush[id] = .now
-                    if store.chat(id)?.updatedAt == chat.updatedAt { pending.remove(id) }
-                } catch let failure as Relay.Failure where failure.status == 409 {
-                    // Another device wrote it since: its copy stands, unless a turn runs in it here.
-                    pending.remove(id)
-                    if store.runs[id] == nil { await fetch(id, replacing: true) }
-                } catch let failure as Relay.Failure where [400, 404, 413].contains(failure.status) {
-                    pending.remove(id)
-                } catch {
-                    break
-                }
-            }
-            keepPending()
-            if store.runs.keys.contains(where: pending.contains) {
-                Task {
-                    try? await Task.sleep(for: .seconds(Self.streamingPush))
-                    push()
-                }
-            }
-        }
+        saving.removeValue(forKey: id)?.cancel()
+        sync.mutate([AgentMutation.deleteChat(id)], delay: .zero)
     }
 
     // MARK: What the account has
 
-    func pull() async {
-        guard !isPulling, let listed = try? await relay.chats() else { return }
-        isPulling = true
-        defer { isPulling = false }
-        var remote: [String: Chat] = [:]
-        var gone: Set<String> = []
-        for object in listed {
-            let json = JSON(any: object)
-            if let chat = Chat(json) { remote[chat.id] = chat } else if let id = json["id"]?.string { gone.insert(id) }
+    /** Reads a chat's turns from the copy, once. */
+    func load(_ id: String) {
+        guard let chat = store.chat(id), !chat.loaded else { return }
+        let turns = sync.copy.turns(of: id).compactMap(ChatTurn.init)
+        store.update(id, save: false) {
+            $0.turns = turns
+            $0.loaded = true
         }
-        for id in gone where store.chat(id) != nil && store.runs[id] == nil {
-            pending.remove(id)
-            store.remove(id)
-            try? FileManager.default.removeItem(at: file(id))
-        }
-        var refresh: [String] = []
-        for (id, listed) in remote where !pending.contains(id) && store.runs[id] == nil {
-            guard let local = store.chat(id) else {
-                store.insert(listed)
+    }
+
+    /** Another device changed these entries (by key): the chats they're of are read again, but those running or saving here. */
+    func heard(_ keys: Set<String>) {
+        let ids = Set(keys.compactMap { key -> String? in
+            let parts = AgentEntries.segments(key)
+            return (parts[0] == "chat" || parts[0] == "turn") && parts.count > 1 ? parts[1] : nil
+        })
+        for id in ids where store.runs[id] == nil {
+            guard var chat = sync.copy.get(AgentEntries.chatKey(id)).flatMap(Chat.init) else {
+                saving.removeValue(forKey: id)?.cancel()
+                store.remove(id)
                 continue
             }
-            guard listed.updatedAt > local.updatedAt else { continue }
-            if local.loaded { refresh.append(id) } else { store.update(id, save: false) { $0 = listed } }
+            guard saving[id] == nil else { continue }
+            guard let local = store.chat(id) else {
+                store.insert(chat)
+                continue
+            }
+            if local.loaded {
+                chat.turns = sync.copy.turns(of: id).compactMap(ChatTurn.init)
+                chat.loaded = true
+            }
+            store.update(id, save: false) { $0 = chat }
         }
-        // A chat here that the account never had is one it should get.
-        for chat in store.chats where !chat.isBlank && chat.loaded && remote[chat.id] == nil && !gone.contains(chat.id) {
-            pending.insert(chat.id)
-        }
-        keepPending()
-        writeList()
-        store.replace(chats: store.chats)
-        for id in refresh { await fetch(id, replacing: true) }
-        if !pending.isEmpty || !deleted.isEmpty { push() }
     }
 
-    /** Reads a chat's turns, once: from this iPhone when it has them, else from the account. */
-    func load(_ id: String) async {
-        guard let chat = store.chat(id), !chat.loaded else { return }
-        if let task = loading[id] { return await task.value }
-        let task = Task { await fetch(id, replacing: false) }
-        loading[id] = task
-        await task.value
-        loading[id] = nil
-    }
-
-    private func fetch(_ id: String, replacing: Bool) async {
-        guard let object = try? await relay.chat(id), let remote = Chat(JSON(any: object)) else { return }
-        guard let local = store.chat(id), store.runs[id] == nil, replacing || !local.loaded else { return }
-        let merged = Self.merged(remote, local)
-        store.update(id, save: false) { $0 = merged }
-        try? merged.json.data.write(to: file(id), options: .atomic)
-        writeList()
-    }
-
-    /** The account's copy wins, with what the relay drops of this iPhone's: its turns from before the ones kept. */
-    static func merged(_ remote: Chat, _ local: Chat) -> Chat {
-        guard local.loaded, let first = remote.turns.first, let at = local.turns.firstIndex(where: { $0.id == first.id }), at > 0 else { return remote }
-        var merged = remote
-        merged.turns = Array(local.turns[..<at]) + remote.turns
-        return merged
-    }
-
-    /** Signed out: nothing of the account stays on this iPhone. */
+    /** Signed out: what's still to save stays unsaved. */
     func forget() {
         saving.values.forEach { $0.cancel() }
-        pushing?.cancel()
-        try? FileManager.default.removeItem(at: directory)
-        UserDefaults.standard.removeObject(forKey: pendingKey)
-        UserDefaults.standard.removeObject(forKey: deletedKey)
-    }
-}
-
-extension JSON {
-    /** From what `JSONSerialization` reads. */
-    nonisolated init(any value: Any) {
-        switch value {
-        case let value as String: self = .string(value)
-        case let value as NSNumber:
-            self = CFGetTypeID(value) == CFBooleanGetTypeID() ? .bool(value.boolValue) : .number(value.doubleValue)
-        case let value as [Any]: self = .array(value.map(JSON.init(any:)))
-        case let value as [String: Any]: self = .object(value.mapValues(JSON.init(any:)))
-        default: self = .null
-        }
-    }
-
-    nonisolated var anyObject: [String: Any] {
-        (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+        saving = [:]
     }
 }

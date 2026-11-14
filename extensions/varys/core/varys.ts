@@ -105,6 +105,7 @@ export const varysAgent: AgentType<VarysSettings> = {
   // Each device pairs on its own, with a grant of its own.
   deviceFields: ["address", "agentId", "installation", "relayChannel"],
   secrets: [TOKEN],
+  deviceSecrets: [TOKEN],
   create: createVarys,
 };
 

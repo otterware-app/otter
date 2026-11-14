@@ -1,9 +1,9 @@
 import Foundation
 
 /**
- * The Otter relay (packages/contracts' relay.ts and chats.ts), as far as the agents need it:
- * the account, its preferences (the `assistant` section and the look), its chats, and the
- * events that say one of them changed on another device.
+ * The Otter relay (packages/contracts' relay.ts and agent-sync.ts), as far as the agents need
+ * it: the account, its preferences (the look), its agents and chats, and the events that say one
+ * of them changed on another device.
  */
 @MainActor
 final class Relay {
@@ -16,7 +16,8 @@ final class Relay {
 
     enum Event {
         case preferences
-        case chats
+        /** The account's agents or chats changed on another device. */
+        case agentSync
         /** An agent has something for the user, in its own session: the device reads it there. */
         case agent(AgentPointer)
     }
@@ -76,43 +77,36 @@ final class Relay {
         disconnect()
     }
 
-    /** `agentKeys`: each agent's key that follows the account (a Hermes server's), by the agent's id. */
-    func preferences() async throws -> (sections: [String: Any], agentKeys: [String: String]?) {
+    func preferences() async throws -> [String: Any] {
         let (data, _) = try await send("GET", "/v1/preferences")
-        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        return (object?["preferences"] as? [String: Any] ?? [:], object?["agentKeys"] as? [String: String])
+        return (try JSONSerialization.jsonObject(with: data) as? [String: Any])?["preferences"] as? [String: Any] ?? [:]
     }
 
-    /** `agentKeys` is the whole map: `[:]` clears it. */
-    func putPreferences(_ sections: [String: Any], agentKeys: [String: String]? = nil) async throws {
-        var body: [String: Any] = ["preferences": sections]
-        if let agentKeys { body["agentKeys"] = agentKeys }
-        try await send("PUT", "/v1/preferences", data: try JSONSerialization.data(withJSONObject: body))
+    func putPreferences(_ sections: [String: Any]) async throws {
+        try await send("PUT", "/v1/preferences", data: try JSONSerialization.data(withJSONObject: ["preferences": sections]))
     }
 
-    /** The account's chats, without their turns (deleted ones too, with `deletedAt`). */
-    func chats() async throws -> [[String: Any]] {
-        let (data, _) = try await send("GET", "/v1/chats")
-        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        return object?["chats"] as? [[String: Any]] ?? []
+    struct AgentSyncResponse {
+        var version: Int
+        var lastMutationId: Int
+        var changes: [(key: String, value: JSON)]
+        var more: Bool
     }
 
-    func chat(_ id: String) async throws -> [String: Any]? {
-        do {
-            let (data, _) = try await send("GET", "/v1/chats/" + Self.segment(id))
-            return (try JSONSerialization.jsonObject(with: data) as? [String: Any])?["chat"] as? [String: Any]
-        } catch let failure as Failure where failure.status == 404 {
-            return nil
-        }
+    /** Sends this device's mutations (`client` numbers them) and takes the entries written after `since`, a page at a time (`more`). */
+    func agentSync(client: String, since: Int, mutations: [(id: Int, mutation: JSON)]) async throws -> AgentSyncResponse {
+        let body: JSON = .object([
+            "client": .string(client),
+            "since": .number(Double(since)),
+            "mutations": .array(mutations.map { .object(["id": .number(Double($0.id)), "mutation": $0.mutation]) }),
+        ])
+        let response = try JSON(parsing: try await send("POST", "/v1/agent-sync", data: body.data).0)
+        return AgentSyncResponse(
+            version: response["version"]?.count ?? since,
+            lastMutationId: response["lastMutationId"]?.count ?? 0,
+            changes: (response["changes"]?.array ?? []).compactMap { change in change["key"]?.string.map { ($0, change["value"] ?? .null) } },
+            more: response["more"]?.bool ?? false)
     }
-
-    /** Refused with 409 when the relay has a later write: pull it, lay this device's change over it, write again. */
-    func putChat(_ chat: [String: Any]) async throws {
-        let id = chat["id"] as? String ?? ""
-        try await send("PUT", "/v1/chats/" + Self.segment(id), data: try JSONSerialization.data(withJSONObject: chat))
-    }
-
-    func deleteChat(_ id: String) async throws { try await send("DELETE", "/v1/chats/" + Self.segment(id)) }
 
     /** A channel an agent tells the account's devices through (`/channel/v1/pointers`), with its token, shown only now. */
     func makeAgentChannel(_ label: String) async throws -> (id: String, token: String) {
@@ -210,7 +204,7 @@ final class Relay {
         else { return nil }
         switch object["type"] as? String {
         case "preferences": return .preferences
-        case "chats": return .chats
+        case "agent-sync": return .agentSync
         case "agent": return (object["pointer"] as? [String: Any]).flatMap(AgentPointer.init).map(Event.agent)
         default: return nil
         }

@@ -229,12 +229,12 @@ cookies).
 
 ## Chats
 
-Agent chats follow the Otter account: every chat, whatever agent ran it, reads the same on
-every device, with the conversations, drafts, pages and files it used and made. The relay keeps
-them, transcripts included (step outputs clipped; an image you sent as a small thumbnail, the
-image itself only with the agent); without an Otter account they stay on the device. The Mac,
-Linux and web apps keep them in SQLite, a row per message, and a reply that streams writes only
-itself, however long the chat. Claude and Codex run on one Mac: their
+Agents and their chats are the Otter account's: every chat, whatever agent ran it, reads the
+same on every device, with the conversations, drafts, pages and files it used and made. The
+relay keeps every turn (an image you sent as a small thumbnail, the image itself only with the
+agent; a turn over a megabyte gives up its steps' long outputs), and each device keeps a copy it reads from, so nothing waits on the network; a
+reply that streams reaches the other devices as it's written. Without an Otter account there are
+no agents. Claude and Codex run on one Mac: their
 chats read the same everywhere and continue on that Mac. On iPhone the chats are in
 [Otter Agents](#otter-agents-iphone); Otter Mail has none, and sends mail there.
 
@@ -252,7 +252,7 @@ chats read the same everywhere and continue on that Mac. On iPhone the chats are
 | Tabs: reorder by dragging, Control + Tab for the last one, × closes                             | ✓                   | ✓                    | —      |
 | Chat details (also in the small window): agent, session, Scheduled tasks, what it made and read | ✓                   | ✓                    | —      |
 | Chat details beside the chat when there's room, else a popover; ⌘F finds in the chat            | ✓                   | ✓                    | —      |
-| Synced through the Otter account: chats, transcripts, tabs                                      | ✓ (offline: queued) | ✓                    | —      |
+| Kept by the Otter account: chats, every turn, tabs; replies stream to every device              | ✓ (offline: queued) | ✓                    | —      |
 | Claude and Codex chats: read everywhere, continued on their Mac                                 | ✓                   | ✓ (read)             | —      |
 | Another agent's chat (Hermes, OpenClaw, varys): continued                                       | ✓                   | ✓                    | —      |
 | ⌘K: go to a chat, new chat; Recently viewed                                                     | ✓                   | ✓                    | —      |
@@ -474,7 +474,7 @@ key: a setup code from `openclaw qr` (or the gateway token) introduces it once, 
 approves it on the gateway (`openclaw devices approve`), and Settings › Agents walks through
 those steps. It asks for what OpenClaw's own apps hold, `operator.admin` included,
 so the gateway counts what you send as the owner's: the agent uses your paired devices (its
-`nodes` tool: a Mac's shell, screen and computer use) for what you ask in Otter. Each device pairs on its own (the agent itself, its name and picture, follows the Otter account); a Hermes agent's connection, its key included, follows the account whole. The web app also
+`nodes` tool: a Mac's shell, screen and computer use) for what you ask in Otter. Each device pairs on its own (the agent itself, its gateway, its token and its name and picture follow the Otter account; the device's key and pairing stay on the device); a Hermes agent's connection, its key included, follows the account whole. The web app also
 needs its site in the gateway's `gateway.controlUi.allowedOrigins`. Each chat is a gateway
 session, so the gateway's other conversations can be resumed; the gateway's agents are the models
 to pick, each with its picture (or emoji) from the gateway, which also marks its chats (title,

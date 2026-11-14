@@ -6,9 +6,6 @@ import type { VarysConnection } from "./client.js";
 import type { VarysSettings } from "./settings.js";
 
 const saved = vi.hoisted(() => [] as unknown[]);
-vi.mock("../../../packages/core/src/services/preferences.js", () => ({
-  preferenceChanged: () => {},
-}));
 vi.mock("../../../packages/core/src/services/agent/service.js", () => ({
   saveAgentSettings: async (agent: string, change: unknown) => void saved.push({ agent, change }),
 }));

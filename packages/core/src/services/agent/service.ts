@@ -25,7 +25,14 @@ import { logger } from "../../logger.js";
 import { platform } from "../../platform.js";
 import { getSettings } from "../settings-store.js";
 import { answerToolApproval } from "./tools/index.js";
-import { agentSecrets, getProviderSettings, saveProviderSettings } from "./settings.js";
+import { onAgentsChanged } from "../agent-sync.js";
+import { getOtterUser, onOtterAccountChange } from "../otter-account.js";
+import {
+  agentExists,
+  agentSecrets,
+  getProviderSettings,
+  saveProviderSettings,
+} from "./settings.js";
 import {
   RUNTIME_MODES,
   type AgentEntry,
@@ -68,7 +75,7 @@ const settingsOf = (type: AgentType, entry: AgentEntry): AgentSettings => ({
 function instance(entry: AgentEntry, type: AgentType): ChatProvider {
   let found = running.get(entry.id);
   if (!found) {
-    found = type.create({ id: entry.id, secrets: agentSecrets(entry.id) });
+    found = type.create({ id: entry.id, secrets: agentSecrets(entry.id, type.deviceSecrets) });
     running.set(entry.id, found);
   }
   return found;
@@ -159,8 +166,17 @@ async function snapshotOf(entry: AgentEntry, type: AgentType): Promise<ProviderS
   };
 }
 
+/** What each agent was when this device last ran it: another device's change restarts what it must. */
+const known = new Map<AgentId, AgentEntry>();
+
+async function remember(): Promise<void> {
+  known.clear();
+  for (const entry of (await getProviderSettings()).agents) known.set(entry.id, entry);
+}
+
 export async function providersState(): Promise<ProvidersState> {
   const all = await getProviderSettings();
+  if (known.size === 0) for (const entry of all.agents) known.set(entry.id, entry);
   const shown = await runnable();
   const providers = await Promise.all(shown.map(({ entry, type }) => snapshotOf(entry, type)));
   for (const p of providers) {
@@ -235,6 +251,7 @@ async function saveEntries(
     agents: update(current.agents),
   };
   await saveProviderSettings(next);
+  await remember();
   return next;
 }
 
@@ -262,6 +279,7 @@ export async function addAgent(
 ): Promise<{ id: AgentId; state: ProvidersState }> {
   const type = registeredAgents().get(kind);
   if (!type) throw new Error("This kind of agent isn't on this device.");
+  if (!getOtterUser()) throw new Error("Sign in to your Otter account to add agents.");
   const id = crypto.randomUUID();
   const current = await getProviderSettings();
   await saveEntries(
@@ -290,9 +308,48 @@ async function forget(entry: AgentEntry): Promise<void> {
   running.delete(entry.id);
   checked.delete(entry.id);
   generations.set(entry.id, (generations.get(entry.id) ?? 0) + 1);
-  const secrets = agentSecrets(entry.id);
+  const secrets = agentSecrets(entry.id, type?.secrets);
   await Promise.all((type?.secrets ?? []).map((name) => secrets.delete(name).catch(() => {})));
 }
+
+onAgentsChanged(({ agents }) => {
+  void (async () => {
+    const current = new Map((await getProviderSettings()).agents.map((a) => [a.id, a]));
+    for (const [id, before] of known)
+      if (!current.has(id) && !agentExists(id)) await forget(before);
+    for (const id of agents) {
+      const entry = current.get(id);
+      const type = entry && registeredAgents().get(entry.kind);
+      const before = known.get(id);
+      if (!entry || !type) continue;
+      if (!before) continue;
+      const diff = Object.fromEntries(
+        Object.entries(entry.settings).filter(
+          ([key, value]) => before.settings[key as keyof AgentSettings] !== value,
+        ),
+      );
+      if (Object.keys(diff).length > 0) restartIfNeeded(entry, type, diff);
+      else void refreshProvider(id);
+    }
+    await remember();
+    await broadcastState();
+  })().catch((err: unknown) => logger.failure("agent", "Couldn't follow the agents' change", err));
+});
+
+/** Signed out, the agents are the account's and go with it; signed in again, they come back. */
+onOtterAccountChange(() => {
+  void (async () => {
+    const listed = new Set((await getProviderSettings()).agents.map((a) => a.id));
+    for (const [id, provider] of running) {
+      if (listed.has(id)) continue;
+      provider.shutdown();
+      running.delete(id);
+      checked.delete(id);
+    }
+    await remember();
+    await broadcastState();
+  })().catch((err: unknown) => logger.failure("agent", "Couldn't follow the account", err));
+});
 
 /** Removes the agent, its settings and its secrets; its chats stay, with no agent to run on. */
 export async function removeAgent(id: AgentId): Promise<ProvidersState> {
@@ -303,8 +360,8 @@ export async function removeAgent(id: AgentId): Promise<ProvidersState> {
   await saveProviderSettings({
     selected: current.selected === id ? null : current.selected,
     agents: current.agents.filter((a) => a.id !== id),
-    removed: [...current.removed.filter((r) => r !== id), id],
   });
+  known.delete(id);
   logger.info("agent", "removed", { kind: entry.kind, id });
   const state = await providersState();
   broadcast("agent:providersChanged", state);
@@ -355,6 +412,7 @@ export async function updateProviderSettings(
       ? patch.selected
       : current.selected;
   await saveProviderSettings({ ...current, selected, agents });
+  await remember();
   for (const [entry, type, change] of changes) restartIfNeeded(entry, type, change);
   const state = await providersState();
   broadcast("agent:providersChanged", state);
@@ -713,128 +771,4 @@ export async function scheduledRunTranscript(
 
 export function shutdownProviders(): void {
   for (const provider of running.values()) provider.shutdown();
-}
-
-/**
- * The agents follow the account: which you added, their names and pictures, and their settings
- * except their device fields (where a CLI lives) and those of kinds that are this device's alone
- * (OpenClaw's pairing). Agents of kinds this device doesn't run stay as the account has them.
- * A removal travels as its id in `removed`, so an agent this device added before it heard of the
- * account's list stays, and goes to the account.
- */
-export type SyncedProviderSettings = ProviderSettings;
-
-const synced = (type: AgentType | undefined, settings: Record<string, unknown>) =>
-  type?.localOnly
-    ? {}
-    : Object.fromEntries(
-        Object.entries(settings).filter(
-          ([key]) => !(type?.deviceFields as readonly string[] | undefined)?.includes(key),
-        ),
-      );
-
-export async function syncedProviderSettings(): Promise<SyncedProviderSettings> {
-  const { selected, agents, removed } = await getProviderSettings();
-  return {
-    selected,
-    agents: agents.map((entry) => ({
-      ...entry,
-      settings: synced(registeredAgents().get(entry.kind), entry.settings) as AgentSettings,
-    })),
-    removed,
-  };
-}
-
-const isEntry = (a: Partial<AgentEntry> | null): a is AgentEntry =>
-  typeof a?.id === "string" &&
-  typeof a.kind === "string" &&
-  typeof a.name === "string" &&
-  typeof a.settings === "object" &&
-  a.settings !== null;
-
-export async function applySyncedProviderSettings(
-  remote: Partial<SyncedProviderSettings>,
-): Promise<void> {
-  if (!Array.isArray(remote.agents)) return;
-  const current = await getProviderSettings();
-  const removed = [
-    ...new Set([
-      ...current.removed,
-      ...(Array.isArray(remote.removed)
-        ? remote.removed.filter((id): id is string => typeof id === "string")
-        : []),
-    ]),
-  ];
-  const theirs = (remote.agents as (Partial<AgentEntry> | null)[])
-    .filter(isEntry)
-    .filter((a) => !removed.includes(a.id));
-  const changed: [AgentEntry, AgentType, Record<string, unknown>][] = [];
-  const agents = theirs.map((remoteEntry): AgentEntry => {
-    const type = registeredAgents().get(remoteEntry.kind);
-    const mine = current.agents.find((a) => a.id === remoteEntry.id);
-    const before = mine?.settings ?? ({} as AgentSettings);
-    const settings = {
-      ...before,
-      ...synced(type, remoteEntry.settings),
-    } as AgentSettings;
-    const next: AgentEntry = {
-      id: remoteEntry.id,
-      kind: remoteEntry.kind,
-      name: remoteEntry.name.slice(0, MAX_NAME),
-      ...(isMailboxPicture(remoteEntry.avatar) ? { avatar: remoteEntry.avatar } : {}),
-      settings,
-    };
-    const diff = Object.fromEntries(
-      Object.entries(settings).filter(
-        ([key, value]) => before[key as keyof AgentSettings] !== value,
-      ),
-    );
-    if (type && mine && Object.keys(diff).length) changed.push([next, type, diff]);
-    return next;
-  });
-  const gone = current.agents.filter((a) => removed.includes(a.id));
-  const kept = current.agents.filter(
-    (a) => !removed.includes(a.id) && !agents.some((b) => b.id === a.id),
-  );
-  for (const entry of gone) await forget(entry);
-  const all = [...agents, ...kept];
-  const selected =
-    typeof remote.selected === "string" && all.some((a) => a.id === remote.selected)
-      ? remote.selected
-      : current.selected && all.some((a) => a.id === current.selected)
-        ? current.selected
-        : null;
-  await saveProviderSettings({ selected, agents: all, removed });
-  for (const [entry, type, diff] of changed) restartIfNeeded(entry, type, diff);
-  await broadcastState();
-}
-
-/** The secrets that follow the account (Hermes's API keys), by agent. */
-export async function syncedAgentKeys(): Promise<Record<AgentId, string>> {
-  const keys: Record<AgentId, string> = {};
-  for (const { entry, type } of await runnable()) {
-    if (!type.syncedSecret) continue;
-    const key = await agentSecrets(entry.id).get(type.syncedSecret);
-    if (key) keys[entry.id] = key;
-  }
-  return keys;
-}
-
-export async function applySyncedAgentKeys(keys: Record<AgentId, string>): Promise<void> {
-  for (const { entry, type } of await runnable()) {
-    const key = keys[entry.id];
-    if (!type.syncedSecret || typeof key !== "string" || !key) continue;
-    const secrets = agentSecrets(entry.id);
-    if (key === (await secrets.get(type.syncedSecret))) continue;
-    await secrets.set(type.syncedSecret, key);
-    void refreshProvider(entry.id);
-  }
-}
-
-export async function forgetAgentKeys(): Promise<void> {
-  for (const { entry, type } of await runnable()) {
-    if (!type.syncedSecret) continue;
-    await agentSecrets(entry.id).delete(type.syncedSecret);
-    await refreshProvider(entry.id);
-  }
 }

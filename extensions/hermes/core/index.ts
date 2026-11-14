@@ -1,7 +1,6 @@
 import {
   agentProvider,
   logger,
-  preferenceChanged,
   providersState,
   refreshProvider,
   saveAgentSettings,
@@ -44,8 +43,6 @@ export default {
       });
       logger.info("agent", "hermes connected", { agent, baseUrl: base, sessions });
       void refreshProvider(agent);
-      preferenceChanged("assistant");
-      preferenceChanged("agentKeys");
       return providersState();
     });
   },

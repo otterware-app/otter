@@ -124,8 +124,6 @@ export type AgentEntry = {
 export type ProviderSettings = {
   selected: AgentId | null;
   agents: AgentEntry[];
-  /** Agents removed, so the account's devices remove them too and none brings one back. */
-  removed: AgentId[];
 };
 
 export type ToolStep = {
@@ -351,15 +349,14 @@ export interface AgentType<S extends AgentSettings = AgentSettings> {
   readonly displayName: string;
   readonly defaults: S;
   readonly fields: { [K in keyof S]?: AgentSettingField };
+  /** Settings that are each device's own (where a CLI lives): the others follow the account. */
   readonly deviceFields?: readonly (keyof S)[];
   readonly restartFields?: readonly (keyof S)[];
   readonly strictModels?: boolean;
-  /** Settings that never follow the account (OpenClaw's pairing is this device's). */
-  readonly localOnly?: boolean;
   /** The secrets it keeps in `AgentContext.secrets`: forgotten when it's removed. */
   readonly secrets?: readonly string[];
-  /** The one of them that follows the account, sealed by the relay (Hermes's API key). */
-  readonly syncedSecret?: string;
+  /** Those of them that pair this device alone (OpenClaw's device key): the others follow the account. */
+  readonly deviceSecrets?: readonly string[];
   create(agent: AgentContext): ChatProvider<S>;
 }
 

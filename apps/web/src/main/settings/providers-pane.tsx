@@ -25,6 +25,8 @@ import {
   useSetProvidersState,
 } from "../agent/agent-providers";
 import { AgentIcon } from "../agent/agent-icon";
+import { useOtterAccount } from "../otter-account";
+import { SignInControl } from "./otter-account-pane";
 import { EXTENSIONS } from "../extensions/registry";
 import {
   DropdownMenu,
@@ -194,6 +196,7 @@ function AddAgentMenu({
 }
 
 export function ProvidersPane({ item }: { item?: string }) {
+  const otter = useOtterAccount();
   const query = useAgentProviders();
   const update = useUpdateAgents();
   const state = query.data;
@@ -213,6 +216,24 @@ export function ProvidersPane({ item }: { item?: string }) {
         <p className="text-sm text-muted-foreground">
           {query.isError ? "Agent settings are unavailable." : "Loading agents…"}
         </p>
+      </SettingsPageContainer>
+    );
+  }
+
+  if (otter && !otter.user) {
+    return (
+      <SettingsPageContainer title="Agents">
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-10 text-center">
+          <AgentIcon className="size-7 text-muted-foreground" />
+          <div className="space-y-1">
+            <p className="text-sm text-foreground">Your agents are in your Otter account</p>
+            <p className="max-w-80 text-[13px] text-pretty text-muted-foreground">
+              Sign in to add agents and chat with them, with the same agents and chats on every
+              device.
+            </p>
+          </div>
+          <SignInControl />
+        </div>
       </SettingsPageContainer>
     );
   }

@@ -3,10 +3,10 @@ import Network
 import Observation
 
 /**
- * The agents you added and how this iPhone reaches each. Which agents, their names, pictures and
- * settings follow the Otter account (its `assistant` section, which the Mac and the web keep
- * too); OpenClaw and varys pair with this iPhone as a device of their own, kept here. Every
- * connected agent is ready at once: a chat runs on the one it started with, named by its id.
+ * The agents you added and how this iPhone reaches each. Which agents, their names, pictures,
+ * settings and keys are the Otter account's (`AgentSync`, as the Mac and the web keep them); what
+ * pairs this iPhone alone (varys's grant, an OpenClaw device key) stays here. Every connected
+ * agent is ready at once: a chat runs on the one it started with, named by its id.
  */
 @Observable
 final class Agents {
@@ -23,10 +23,8 @@ final class Agents {
         var title: String { rawValue.capitalized }
     }
 
-    /** As you ordered them; those only a Mac runs (Claude, Codex) too, kept as the account has them. */
+    /** In the order they were added; those only a Mac runs (Claude, Codex) too, kept as the account has them. */
     private(set) var all: [Agent] = []
-    /** Agents removed anywhere, by id, kept for good so no device brings one back. */
-    private(set) var removed: [String] = []
     /** The agent a new chat starts on. */
     private(set) var selected: String?
     /** What a message sent while the agent runs does: waits its turn, or joins the run. */
@@ -37,14 +35,15 @@ final class Agents {
     private(set) var demo = false
 
     @ObservationIgnored var relay: Relay?
-    /** `assistant`, `agentKeys` or `ui`: what to write to the account. */
-    @ObservationIgnored var onChange: (String) -> Void = { _ in }
+    /** Where the agents are read and written: the account's copy, the demo's, or none (in memory). */
+    @ObservationIgnored private(set) var sync = AgentSync()
+    /** The `ui` keys changed: what to write to the account. */
+    @ObservationIgnored var onChange: () -> Void = {}
     /** An agent was just reached: turns it was left with are picked up, and what it wrote meanwhile read. */
     @ObservationIgnored var onReady: (Agent) -> Void = { _ in }
     @ObservationIgnored private var applying = false
     @ObservationIgnored private let network = NWPathMonitor()
 
-    private static let listKey = "agents"
     private static let followUpKey = "assistant:follow-up-behavior"
     private static let favoritesKey = "assistant:favorite-models"
     private static let appName = "Otter Agents on iPhone"
@@ -53,7 +52,6 @@ final class Agents {
         let defaults = UserDefaults.standard
         followUp = defaults.string(forKey: Self.followUpKey).flatMap(FollowUp.init) ?? .queue
         favorites = Self.strings(defaults.string(forKey: Self.favoritesKey))
-        show(Self.saved)
         // A new network (Wi-Fi to cellular, the VPN coming up) can leave a gateway's socket open and dead.
         network.pathUpdateHandler = { [weak self] _ in
             Task { @MainActor in await self?.probe() }
@@ -61,17 +59,11 @@ final class Agents {
         network.start(queue: .main)
     }
 
-    private static var saved: AgentList {
-        AgentList(try? JSON(parsing: UserDefaults.standard.data(forKey: listKey) ?? Data())) ?? AgentList()
-    }
-
     private static func strings(_ json: String?) -> [String] {
         (try? JSONDecoder().decode([String].self, from: Data((json ?? "[]").utf8))) ?? []
     }
 
     // MARK: Which agents
-
-    var list: AgentList { AgentList(selected: selected, agents: all.map(\.entry), removed: removed) }
 
     /** The agents this iPhone runs. */
     var runnable: [Agent] { all.filter { $0.kind != nil } }
@@ -99,47 +91,51 @@ final class Agents {
     func add(_ kind: AgentKind) -> Agent {
         let names = Set(all.map(\.name))
         let name = names.contains(kind.name) ? (2...).lazy.map { "\(kind.name) \($0)" }.first { !names.contains($0) }! : kind.name
-        let agent = Agent(AgentList.Entry(id: UUID().uuidString.lowercased(), kind: kind.rawValue, name: name))
-        all.append(agent)
-        if selected == nil { selected = agent.id }
-        saved()
-        return agent
+        let id = UUID().uuidString.lowercased()
+        let addedAt = Int(sync.copy.entries("agent/").compactMap { $0.value["addedAt"]?.number }.max() ?? 0) + 1
+        mutate([AgentMutation.setAgent(id, kind: kind.rawValue, name: name, settings: [:], addedAt: addedAt)]
+            + (selected == nil ? [AgentMutation.select(id)] : []))
+        return agent(id)!
     }
 
-    /** It goes from every device, with its secrets here; its chats stay, with no agent to run on. */
+    /** It goes from every device, with its secrets; its chats stay, with no agent to run on. */
     func remove(_ agent: Agent) {
-        forget(agent)
-        all.removeAll { $0.id == agent.id }
-        if !removed.contains(agent.id) { removed.append(agent.id) }
-        if selected == agent.id { selected = nil }
-        saved()
-        if agent.kind == .hermes { onChange("agentKeys") }
+        mutate([AgentMutation.removeAgent(agent.id)])
     }
 
     func select(_ agent: Agent) {
         guard selected != agent.id else { return }
-        selected = agent.id
-        saved()
+        mutate([AgentMutation.select(agent.id)])
     }
 
     func rename(_ agent: Agent, to name: String) {
-        let name = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(AgentList.Entry.maxName))
+        let name = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(AgentEntry.maxName))
         guard !name.isEmpty, name != agent.name else { return }
-        agent.entry.name = name
-        saved()
+        mutate([AgentMutation.setAgent(agent.id, kind: agent.entry.kind, name: name)])
     }
 
     func setAvatar(_ agent: Agent, _ picture: String?) {
-        guard picture.map(AgentList.Entry.isPicture) != false, picture != agent.avatar else { return }
-        agent.entry.avatar = picture
-        saved()
+        guard picture.map(AgentEntry.isPicture) != false, picture != agent.avatar else { return }
+        mutate([AgentMutation.setAgent(agent.id, kind: agent.entry.kind, avatar: picture.map(JSON.string) ?? .null)])
     }
 
-    /** Changes one of its settings; what follows the account goes to it. */
+    /** Changes one of its settings: the account's, or this iPhone's own (`AgentKind.deviceFields`). */
     func set(_ agent: Agent, _ key: String, _ value: JSON) {
         guard agent.entry.settings[key] != value else { return }
-        agent.entry.settings[key] = value
-        saved(push: agent.kind?.isDeviceField(key) != true)
+        mutate([agent.kind?.deviceFields.contains(key) == true
+            ? AgentMutation.device(agent.id, device: sync.device, settings: [key: value])
+            : AgentMutation.setAgent(agent.id, kind: agent.entry.kind, settings: [key: value])])
+    }
+
+    /** Keeps one of its secrets: the account's, or in this iPhone's Keychain alone (`AgentKind.deviceSecrets`). */
+    func setSecret(_ agent: Agent, _ name: String, _ value: String?) {
+        let value = value?.nilIfEmpty
+        let own = agent.kind?.deviceSecrets.contains(name) == true
+        if own || (value == nil && (sync.copy.get(AgentEntries.secretKey(agent.id, name)) ?? .null) == .null) {
+            agent.setSecret(name, value, thisDeviceOnly: own)
+        } else {
+            mutate([AgentMutation.secret(agent.id, name, value)])
+        }
     }
 
     func setEnabled(_ agent: Agent, _ enabled: Bool) {
@@ -155,10 +151,9 @@ final class Agents {
         if enabled, agent.isUsable { onReady(agent) }
     }
 
-    private func saved(push: Bool = true) {
-        guard !demo else { return }
-        UserDefaults.standard.set(list.json.data, forKey: Self.listKey)
-        if push, !applying { onChange("assistant") }
+    private func mutate(_ mutations: [JSON]) {
+        sync.mutate(mutations)
+        show()
     }
 
     /** Its secrets go, and, for varys, its grant there and the account's channel for it. */
@@ -173,28 +168,43 @@ final class Agents {
         }
     }
 
-    /** The list as it is: the agents already here keep their connections, unless they're turned off. */
-    private func show(_ list: AgentList) {
-        all = list.agents.map { entry in
+    /**
+     * The agents as the copy has them: those already here keep their connections, unless they're
+     * turned off; those removed (here or on another device) are forgotten.
+     */
+    private func show() {
+        let device = sync.device
+        let entries = sync.copy.entries("agent/").compactMap { record in
+            AgentEntry(record.value, device: sync.copy.get(AgentEntries.agentDeviceKey(record.value["id"]?.string ?? "", device)))
+        }.sorted { ($0.addedAt, $0.id) < ($1.addedAt, $1.id) }
+        for agent in all where sync.copy.get(AgentEntries.agentKey(agent.id)) == .null { forget(agent) }
+        all = entries.map { entry in
             guard let agent = agent(entry.id) else { return Agent(entry) }
-            agent.entry = entry
+            if agent.entry != entry { agent.entry = entry }
             if !agent.enabled { agent.close() }
             return agent
         }
-        removed = list.removed
-        selected = list.selected
+        let chosen = sync.copy.get(AgentEntries.selectedKey)?.string
+        if selected != chosen { selected = chosen }
     }
 
-    // MARK: The account's settings
-
-    /** The section as this iPhone writes it. */
-    var syncedSection: [String: Any] { list.synced.json.anyObject }
-
-    /** The keys that follow the account (Hermes's), by agent: those this iPhone holds. */
-    var agentKeys: [String: String] {
-        Dictionary(uniqueKeysWithValues: runnable.compactMap { agent in
-            agent.kind == .hermes ? agent.secret("key").map { (agent.id, $0) } : nil
+    /** Another device changed these (by key): the agents follow, and those changed are checked again. */
+    func heard(_ keys: Set<String>) {
+        let ids = Set(keys.compactMap { key -> String? in
+            let parts = AgentEntries.segments(key)
+            return ["agent", "agent-device", "secret"].contains(parts[0]) && parts.count > 1 ? parts[1] : nil
         })
+        guard !ids.isEmpty || keys.contains(AgentEntries.selectedKey) else { return }
+        show()
+        for agent in runnable where ids.contains(agent.id) { Task { await check(agent) } }
+    }
+
+    /** Signed in, signed out, or the demo: the agents are another copy's. */
+    func use(_ sync: AgentSync) {
+        for agent in all { agent.close() }
+        all = []
+        self.sync = sync
+        show()
     }
 
     var uiSection: [String: String] {
@@ -204,58 +214,36 @@ final class Agents {
 
     private func uiChanged() {
         for (key, value) in uiSection { UserDefaults.standard.set(value, forKey: key) }
-        if !applying { onChange("ui") }
+        if !applying { onChange() }
     }
 
-    /**
-     * What the account says, laid over this iPhone's (`AgentList.merged`): agents removed elsewhere
-     * are forgotten here, and what this iPhone has that the account hasn't goes to it.
-     */
-    func apply(assistant remote: JSON?, ui: [String: Any], agentKeys keys: [String: String]?) {
+    /** The account's `ui` keys for agents. */
+    func apply(ui: [String: Any]) {
         applying = true
-        let account = AgentList(remote)
-        let merged = list.merged(with: account ?? AgentList())
-        for agent in all where merged.removed.contains(agent.id) { forget(agent) }
-        show(merged)
-        saved(push: false)
         if let value = (ui[Self.followUpKey] as? String).flatMap(FollowUp.init) { followUp = value }
         if let value = ui[Self.favoritesKey] as? String { favorites = Self.strings(value) }
-        for agent in runnable where agent.kind == .hermes {
-            guard let key = keys?[agent.id], !key.isEmpty, key != agent.secret("key") else { continue }
-            agent.setSecret("key", key)
-        }
         applying = false
-        if merged.synced != account { onChange("assistant") }
-        if agentKeys != keys ?? [:] { onChange("agentKeys") }
-        Task { await checkAll() }
-    }
-
-    /** Signed out: what followed the account goes, what was paired here (OpenClaw, varys) stays. */
-    func forgetAccount() {
-        applying = true
-        defer { applying = false }
-        for agent in all where agent.kind != .openclaw && agent.kind != .varys {
-            agent.forgetSecrets()
-            agent.close()
-        }
-        let kept = all.filter { $0.kind == .openclaw || $0.kind == .varys }.map(\.entry)
-        show(AgentList(selected: kept.contains { $0.id == selected } ? selected : nil, agents: kept))
-        saved(push: false)
     }
 
     // MARK: The demo
 
+    /** The demo's agents, in a copy of their own: changed as yours are, never sent. */
     func startDemo() {
         demo = true
-        all = DemoAgent.agents()
-        removed = []
-        selected = all.first?.id
+        let agents = DemoAgent.agents()
+        let sync = AgentSync()
+        sync.mutate(agents.enumerated().map { index, agent in
+            AgentMutation.setAgent(agent.id, kind: agent.entry.kind, name: agent.name, avatar: agent.avatar.map(JSON.string),
+                                   settings: agent.entry.settings, addedAt: index + 1)
+        } + [AgentMutation.select(agents.first?.id)])
+        self.sync = sync
+        all = agents
+        show()
     }
 
     func endDemo() {
         demo = false
-        all = []
-        show(Self.saved)
+        use(AgentSync())
     }
 
     // MARK: Models
@@ -318,12 +306,8 @@ final class Agents {
         guard let client = agent.hermes else { agent.status = .notConfigured; return }
         if agent.status != .ready { agent.status = .checking }
         do {
-            let (models, sessions) = try await client.check()
+            let (models, _) = try await client.check()
             agent.models = models
-            if agent.entry.settings["sessions"]?.bool != sessions {
-                agent.entry.settings["sessions"] = .bool(sessions)
-                saved(push: false)
-            }
             agent.status = .ready
             onReady(agent)
         } catch {
@@ -395,9 +379,8 @@ final class Agents {
     func connectHermes(_ agent: Agent, url: String, key: String) async throws {
         let base = Hermes.normalized(url), key = key.trimmingCharacters(in: .whitespacesAndNewlines)
         _ = try await Hermes(baseURL: base, key: key).check()
-        agent.setSecret("key", key)
+        setSecret(agent, "key", key)
         set(agent, "baseUrl", .string(base))
-        onChange("agentKeys")
         await connected(agent)
     }
 
@@ -409,22 +392,22 @@ final class Agents {
             throw Hermes.Failure(message: "That setup code has expired. Make a new one with openclaw qr --setup-code-only.")
         }
         forgetOpenClawDevice(agent)
-        agent.setSecret(OpenClaw.tokenName, nil)
-        agent.setSecret(OpenClaw.bootstrapName, setup.bootstrapToken, thisDeviceOnly: true)
+        setSecret(agent, OpenClaw.tokenName, nil)
+        setSecret(agent, OpenClaw.bootstrapName, setup.bootstrapToken)
         await useOpenClaw(agent, url: setup.url)
     }
 
     func connectOpenClaw(_ agent: Agent, url: String, token: String) async {
         forgetOpenClawDevice(agent)
-        agent.setSecret(OpenClaw.bootstrapName, nil)
-        agent.setSecret(OpenClaw.tokenName, token.trimmingCharacters(in: .whitespacesAndNewlines), thisDeviceOnly: true)
+        setSecret(agent, OpenClaw.bootstrapName, nil)
+        setSecret(agent, OpenClaw.tokenName, token.trimmingCharacters(in: .whitespacesAndNewlines))
         await useOpenClaw(agent, url: url)
     }
 
     func disconnectOpenClaw(_ agent: Agent) {
         forgetOpenClawDevice(agent)
-        agent.setSecret(OpenClaw.tokenName, nil)
-        agent.setSecret(OpenClaw.bootstrapName, nil)
+        setSecret(agent, OpenClaw.tokenName, nil)
+        setSecret(agent, OpenClaw.bootstrapName, nil)
         set(agent, "url", .string(""))
         agent.status = .notConfigured
     }
@@ -439,8 +422,8 @@ final class Agents {
         agent.pairing = nil
         agent.fullAccess = nil
         agent.fullAccessRequest = nil
-        agent.setSecret(OpenClaw.deviceTokenName, nil)
-        agent.setSecret(OpenClaw.scopesName, nil)
+        setSecret(agent, OpenClaw.deviceTokenName, nil)
+        setSecret(agent, OpenClaw.scopesName, nil)
         agent.keep(gatewayAgents: [])
     }
 
@@ -477,7 +460,7 @@ final class Agents {
         // The grant it replaces took its relay with it; the channel goes too.
         await removeVarysRelay(agent, from: nil)
         agent.close()
-        agent.setSecret(Varys.tokenName, paired.token, thisDeviceOnly: true)
+        setSecret(agent, Varys.tokenName, paired.token)
         set(agent, "address", .string(paired.address))
         set(agent, "agentId", .string(paired.agentId))
         set(agent, "installation", .string(installation))
@@ -489,7 +472,7 @@ final class Agents {
         try? await agent.varys?.revoke()
         await removeVarysRelay(agent, from: nil)
         agent.close()
-        agent.setSecret(Varys.tokenName, nil)
+        setSecret(agent, Varys.tokenName, nil)
         set(agent, "address", .string(""))
         set(agent, "agentId", .string(""))
         agent.status = .notConfigured

@@ -6,14 +6,6 @@ import { broadcast } from "../ipc.js";
 import { readJson, writeJson } from "../json-file.js";
 import { logger } from "../logger.js";
 import { platform } from "../platform.js";
-import {
-  applySyncedAgentKeys,
-  applySyncedProviderSettings,
-  forgetAgentKeys,
-  syncedAgentKeys,
-  syncedProviderSettings,
-  type SyncedProviderSettings,
-} from "./agent/service.js";
 import { readKeybindings, writeKeybindings } from "./keybindings-store.js";
 import { configureAutoSync, followMailboxArrangement } from "./mail-sync.js";
 import { getOtterUser, relayRequest } from "./otter-account.js";
@@ -115,15 +107,6 @@ const SECTIONS = {
       broadcast("keybindings:updated");
     },
   },
-  assistant: {
-    read: () => syncedProviderSettings(),
-    async apply(value) {
-      await applySyncedProviderSettings(value as Partial<SyncedProviderSettings>);
-      // What this device has that the account hasn't (an agent added before it synced) goes to it.
-      if (JSON.stringify(await syncedProviderSettings()) !== JSON.stringify(value))
-        preferenceChanged("assistant");
-    },
-  },
   ui: {
     read: () => getUiPreferences(),
     async apply(value) {
@@ -209,7 +192,7 @@ const SECTIONS = {
 export type SectionName = keyof typeof SECTIONS;
 const SECTION_NAMES = Object.keys(SECTIONS) as SectionName[];
 
-const synced = new Map<SectionName | "agentKeys", string>();
+const synced = new Map<SectionName, string>();
 
 function syncedSignatures(): Record<string, string> {
   try {
@@ -249,22 +232,12 @@ export function syncedAliasMailboxes(email: string): AliasMailbox[] | undefined 
   return aliases.length > 0 ? aliases : undefined;
 }
 
-// An agent's key (Hermes's) is full control of it, and a device can be shared: this remembers
-// which Otter account the keys synced with, so they never reach another account, and they leave
-// the device with its account. Keys set while signed out have no owner until an account adopts them.
-const AGENT_KEYS_OWNER = "agent-keys-owner";
-const agentKeysOwner = () =>
-  platform()
-    .secrets.get(AGENT_KEYS_OWNER)
-    .catch(() => null);
-const setAgentKeysOwner = (userId: string) => platform().secrets.set(AGENT_KEYS_OWNER, userId);
-
 export async function pullPreferences(): Promise<void> {
   if (!getOtterUser()) return;
   const settled = new Map(confirmed);
   const remote = await relayRequest<PreferencesResponse>("GET", "/v1/preferences");
   // A change here the relay hadn't taken when this pull began is newer than its copy: the push sends it.
-  const changedMeanwhile = (name: SectionName | "agentKeys") =>
+  const changedMeanwhile = (name: SectionName) =>
     (editedAt.get(name) ?? 0) > (settled.get(name) ?? 0);
   for (const name of SECTION_NAMES) {
     const value = remote.preferences[name];
@@ -282,24 +255,16 @@ export async function pullPreferences(): Promise<void> {
       logger.failure("preferences", `Couldn't apply ${name}`, err);
     }
   }
-  const userId = getOtterUser()?.id;
-  if (!userId) return;
-  if (remote.agentKeys && Object.keys(remote.agentKeys).length && !changedMeanwhile("agentKeys")) {
-    synced.set("agentKeys", JSON.stringify(remote.agentKeys));
-    await applySyncedAgentKeys(remote.agentKeys);
-    await setAgentKeysOwner(userId);
-  }
-  if (((await agentKeysOwner()) ?? userId) === userId) preferenceChanged("agentKeys");
 }
 
-const pending = new Set<SectionName | "agentKeys">();
+const pending = new Set<SectionName>();
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 /** Changes made here, counted: each section's last, and the last the relay has. */
 let edits = 0;
-const editedAt = new Map<SectionName | "agentKeys", number>();
-const confirmed = new Map<SectionName | "agentKeys", number>();
+const editedAt = new Map<SectionName, number>();
+const confirmed = new Map<SectionName, number>();
 
-export function preferenceChanged(name: SectionName | "agentKeys"): void {
+export function preferenceChanged(name: SectionName): void {
   if (!getOtterUser()) return;
   editedAt.set(name, ++edits);
   pending.add(name);
@@ -310,17 +275,15 @@ const RETRY_MS = 30_000;
 
 async function push(): Promise<void> {
   pushTimer = null;
-  const userId = getOtterUser()?.id;
-  if (!userId) return;
+  if (!getOtterUser()) return;
   const names = [...pending];
   pending.clear();
-  const sending = new Map<SectionName | "agentKeys", string>();
+  const sending = new Map<SectionName, string>();
   const preferences: Record<string, unknown> = {};
-  let agentKeys: Record<string, string> | undefined;
-  const sentEdits = new Map<SectionName | "agentKeys", number>();
+  const sentEdits = new Map<SectionName, number>();
   for (const name of names) {
     const edit = editedAt.get(name) ?? 0;
-    const value = name === "agentKeys" ? await syncedAgentKeys() : await SECTIONS[name].read();
+    const value = await SECTIONS[name].read();
     const json = JSON.stringify(value);
     if (value === undefined || synced.get(name) === json) {
       confirmed.set(name, edit);
@@ -328,17 +291,15 @@ async function push(): Promise<void> {
     }
     sending.set(name, json);
     sentEdits.set(name, edit);
-    if (name === "agentKeys") agentKeys = value as Record<string, string>;
-    else preferences[name] = value;
+    preferences[name] = value;
   }
   if (sending.size === 0) return;
   try {
-    await relayRequest("PUT", "/v1/preferences", { preferences, agentKeys });
+    await relayRequest("PUT", "/v1/preferences", { preferences });
     for (const [name, json] of sending) {
       synced.set(name, json);
       confirmed.set(name, sentEdits.get(name) ?? 0);
     }
-    if (agentKeys !== undefined) await setAgentKeysOwner(userId);
   } catch (err) {
     logger.failure("preferences", "Couldn't save preferences, retrying", err);
     for (const name of sending.keys()) pending.add(name);
@@ -346,15 +307,11 @@ async function push(): Promise<void> {
   }
 }
 
-export async function forgetSyncedPreferences(): Promise<void> {
+export function forgetSyncedPreferences(): void {
   synced.clear();
   pending.clear();
   editedAt.clear();
   confirmed.clear();
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = null;
-  if (await agentKeysOwner()) {
-    await forgetAgentKeys();
-    await platform().secrets.delete(AGENT_KEYS_OWNER);
-  }
 }

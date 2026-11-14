@@ -64,7 +64,7 @@ function useOtterSignIn() {
   return { pending, signIn, cancel };
 }
 
-function SignInControl() {
+export function SignInControl() {
   const { pending, signIn, cancel } = useOtterSignIn();
   return pending ? (
     <Btn size="sm" onClick={cancel}>
@@ -216,7 +216,7 @@ export function OtterAccountPane() {
   return (
     <SettingsPageContainer
       title="Account"
-      description="Your Otter account brings your mailboxes to every device, with new mail pushed as it arrives."
+      description="Your Otter account brings your mailboxes, agents and chats to every device, with new mail pushed as it arrives."
     >
       {!state ? null : state.user ? (
         <SignedInPane state={state} />
@@ -225,7 +225,7 @@ export function OtterAccountPane() {
           <SettingsRow
             id={searchableSetting("otter-account").id}
             title="Sign in to Otter"
-            description="Your mailboxes on every device you use, and new mail the moment it arrives. Otter's servers only learn your addresses, never your mail."
+            description="Your mailboxes, agents and chats on every device you use, and new mail the moment it arrives. Otter keeps your agents and chats; your mail stays between you and your mail provider."
             control={<SignInControl />}
           />
         </SettingsGroup>

@@ -3,8 +3,8 @@ import Foundation
 typealias JSON = Varys.JSON
 
 /**
- * The account's chats as every app keeps them (packages/contracts' chats.ts): the relay holds
- * one row a chat, and a write replaces it whole, so a turn keeps what this app doesn't read.
+ * The account's chats as every app keeps them (packages/contracts' chats.ts): a chat and each of
+ * its turns an entry (`AgentEntries`), and a turn written back keeps what this app doesn't read.
  */
 nonisolated struct Chat: Identifiable, Equatable {
     struct Device: Equatable {
@@ -28,7 +28,7 @@ nonisolated struct Chat: Identifiable, Equatable {
     var returnedAt: Int?
     var tabs: [ChatTab] = []
     var turns: [ChatTurn] = []
-    /** Its turns are here: the list comes without them. */
+    /** Its turns are here: the list is read without them. */
     var loaded = false
 
     init(provider: String, now: Int = .now) {
@@ -40,9 +40,9 @@ nonisolated struct Chat: Identifiable, Equatable {
         loaded = true
     }
 
-    /** Nil for what isn't a chat, or is one deleted. */
+    /** Nil for what isn't a chat. */
     init?(_ json: JSON) {
-        guard let id = json["id"]?.string, json["deletedAt"]?.count == nil else { return nil }
+        guard let id = json["id"]?.string else { return nil }
         self.id = id
         title = json["title"]?.string ?? "New chat"
         provider = json["provider"]?.string ?? ""

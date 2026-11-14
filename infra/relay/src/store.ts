@@ -138,43 +138,34 @@ export async function usersWithMailbox(
   return rows.map((row) => row.userId);
 }
 
-export async function getPreferences(
-  db: Db,
-  userId: string,
-): Promise<{ data: Preferences; agentKeys: string | null }> {
+export async function getPreferences(db: Db, userId: string): Promise<{ data: Preferences }> {
   const row = await db.query.preferences.findFirst({ where: eq(preferences.userId, userId) });
-  return {
-    data: row ? (JSON.parse(row.data) as Preferences) : {},
-    agentKeys: row?.agentKeys ?? null,
-  };
+  return { data: row ? (JSON.parse(row.data) as Preferences) : {} };
 }
 
 /**
- * Replaces the given sections (the others stay) and, when given, the sealed
- * agents' keys, in one statement: devices writing at once can't lose each
- * other's sections. False (nothing written) when the result would exceed
- * `maxBytes`.
+ * Replaces the given sections (the others stay) in one statement: devices writing at once can't
+ * lose each other's sections. False (nothing written) when the result would exceed `maxBytes`.
  */
 export async function putPreferences(
   db: Db,
   userId: string,
-  change: { sections: Preferences; agentKeys?: string | null },
+  sections: Preferences,
   maxBytes: number,
 ): Promise<boolean> {
-  const fresh = JSON.stringify(change.sections);
+  const fresh = JSON.stringify(sections);
   if (fresh.length > maxBytes) return false;
-  const merged = Object.entries(change.sections).reduce(
+  const merged = Object.entries(sections).reduce(
     (data, [name, value]) =>
       sql`json_set(${data}, ${`$."${name}"`}, json(${JSON.stringify(value)}))`,
     sql`${preferences.data}`,
   );
-  const agentKeys = change.agentKeys === undefined ? {} : { agentKeys: change.agentKeys };
   const result = await db
     .insert(preferences)
-    .values({ userId, data: fresh, ...agentKeys })
+    .values({ userId, data: fresh })
     .onConflictDoUpdate({
       target: preferences.userId,
-      set: { data: merged, ...agentKeys, updatedAt: new Date() },
+      set: { data: merged, updatedAt: new Date() },
       setWhere: sql`length(${merged}) <= ${maxBytes}`,
     })
     .run();
