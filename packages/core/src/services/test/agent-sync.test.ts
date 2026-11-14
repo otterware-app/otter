@@ -496,4 +496,22 @@ describe("agent sync", () => {
       items: [{ kind: "step", step: { kind: "command", title: "ls" }, output: "abcdef" }],
     });
   });
+
+  it("moves a chat that names its kind, from before agents had ids, to the account's agent of that kind", async () => {
+    const mac = await device();
+    const web = await device();
+    await save(mac, chat("old", { provider: "openclaw" }));
+    await save(mac, chat("gone", { provider: "codex" }));
+    await mac.settings.saveProviderSettings({
+      selected: null,
+      agents: [{ id: "oc", kind: "openclaw", name: "Claw", settings: {} as never }],
+    });
+    await mac.sync.syncAgentData();
+    await vi.advanceTimersByTimeAsync(400);
+    await web.sync.syncAgentData();
+
+    expect((await web.chats.getChat("old"))?.provider).toBe("oc");
+    // No agent of that kind: it waits for one.
+    expect((await web.chats.getChat("gone"))?.provider).toBe("codex");
+  });
 });
