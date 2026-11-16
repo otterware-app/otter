@@ -92,6 +92,9 @@ has:nouserlabels"`), so nothing is cached twice; `[Gmail]/Important` (`\Importan
   Summaries come from ENVELOPE (Cc included), FLAGS, BODYSTRUCTURE, the reply headers and the
   delivery headers (alias mailboxes, below); bodies are
   fetched on open (`BODY.PEEK[]`, parsed with postal-mime).
+- Folder counts: the cache's, once the folder is all cached, so a badge agrees with its list;
+  STATUS (`UNSEEN`, `MESSAGES`) while it's still filling. STATUS counts mail marked `\Deleted`,
+  which isn't cached.
 - Sending: SMTP, then APPEND to Sent unless the server files sent mail itself. Drafts: APPEND
   to Drafts, deleting the previous version.
 - Search runs on the local cache (FTS); signatures are stored on the device (synced as a
@@ -125,8 +128,8 @@ mail in … too** switch (under the Send from addresses) is off. IMAP only for n
   (addresses, lower-cased) whose switch is off, and core follows it (`followAliasMailApart`). Their
   tab then lists what none of their alias mailboxes that are turned on has (`RestScope`,
   `services/mail-store.ts`; a turned-off one's mail stays, or it would be nowhere), and its folder
-  counts are the server's less theirs (`withoutAliasMail`), since the server counts mail not cached
-  yet. Searching the parent still finds all of its mail.
+  counts are the folder's less theirs (`withoutAliasMail`), since a folder still filling counts
+  mail not cached yet. Searching the parent still finds all of its mail.
 - Which mail is its own (`aliasWhere`, `services/mail-store.ts`). Each copy keeps every
   address it was delivered to: the topmost `Original-Recipient` (`rfc822;` stripped; iCloud
   stamps it on every delivered copy), `Delivered-To` and `X-Original-To` (Postfix with virtual
