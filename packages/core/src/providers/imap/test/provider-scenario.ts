@@ -221,6 +221,30 @@ export function providerScenario(
     expect(await sync(accountId)).toEqual([]);
   });
 
+  it("counts a folder by the mail it shows, not mail marked deleted elsewhere", async () => {
+    const inbox = (labels: { id: string }[]) => labels.find((l) => l.id === "INBOX");
+    const marked = mail({ subject: "Deleted elsewhere" });
+    await seed.append("INBOX", marked.raw, { flags: ["\\Deleted"] });
+    expect((await seed.status("INBOX")).unseen).toBe(2);
+
+    await sync(accountId);
+    expect(cachedByHeader(accountId, marked.id)).toBeNull();
+    expect(inbox(store.getLabels(accountId))).toMatchObject({ total: 2, unread: 1 });
+    expect(inbox(await provider.listLabels(accountId))).toMatchObject({ total: 2, unread: 1 });
+
+    await seed.select("INBOX");
+    const [uid] = await seed.search({ messageId: c.id });
+    await seed.store([uid!], { add: ["\\Seen"] });
+    expect((await seed.status("INBOX")).unseen).toBe(1);
+    await sync(accountId);
+    expect(inbox(store.getLabels(accountId))).toMatchObject({ total: 2, unread: 0 });
+
+    await seed.store([uid!], { remove: ["\\Seen"] });
+    await seed.expunge();
+    await sync(accountId);
+    expect(inbox(store.getLabels(accountId))).toMatchObject({ total: 2, unread: 1 });
+  });
+
   it("keeps a stranger naming the conversation out of it, and junks only what's shown", async () => {
     const stranger = mail({ subject: "You won!", from: "Spam <spam@x.com>", inReplyTo: a.id });
     const lookalike = mail({ subject: "RE: lunch?", from: "Spam <spam@x.com>", inReplyTo: a.id });

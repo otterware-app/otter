@@ -60,7 +60,7 @@ export async function syncImap(accountId: string, ctx: SyncContext): Promise<voi
   ctx.update({ phase: "labels" });
   const { folders, statuses } = await readFolders(accountId);
   ctx.assertActive();
-  if (writeLabels(accountId, labelsOf(folders, statuses))) ctx.bumpRevision();
+  if (writeLabels(accountId, labelsOf(accountId, folders, statuses))) ctx.bumpRevision();
 
   const state = readState(accountId);
   for (const [path, folderState] of Object.entries(state)) {
@@ -100,7 +100,11 @@ export async function syncImap(accountId: string, ctx: SyncContext): Promise<voi
   }
 
   ctx.assertActive();
-  store.recountLabels(accountId, ["STARRED", "UNREAD"]);
+  store.recountLabels(accountId, [
+    ...folders.synced.flatMap((f) => (f.labelId && allCached(state[f.path]) ? [f.labelId] : [])),
+    "STARRED",
+    "UNREAD",
+  ]);
   if (first) store.setSyncState(accountId, { fullSyncDone: true });
   await ctx.newMail(newMail);
 }
@@ -144,17 +148,33 @@ export async function backfillDeliveredTo(accountId: string, ctx: SyncContext): 
   logger.info("imap-sync", "read the delivery headers of the mail cached before");
 }
 
-function labelsOf(folders: Folders, statuses: Map<string, MailboxStatus>): MailLabel[] {
+const allCached = (state: FolderState | undefined) => state?.below === 0;
+
+/**
+ * A folder that's all cached counts its cache, as its list does: STATUS also counts mail marked
+ * \Deleted, which sync leaves out, and would hold a badge over a list with nothing unread.
+ */
+function labelsOf(
+  accountId: string,
+  folders: Folders,
+  statuses: Map<string, MailboxStatus>,
+): MailLabel[] {
+  const state = readState(accountId);
   const labels: MailLabel[] = [];
   for (const folder of folders.synced) {
     if (!folder.labelId) continue;
     const status = statuses.get(folder.path);
+    const cached = allCached(state[folder.path]);
     labels.push({
       id: folder.labelId,
       name: folder.role ? folder.labelId : folder.name,
       type: folder.role ? "system" : "user",
-      unread: status?.unseen ?? undefined,
-      total: status?.messages ?? undefined,
+      unread: cached
+        ? store.countUnreadForLabel(accountId, folder.labelId)
+        : (status?.unseen ?? undefined),
+      total: cached
+        ? store.countMessagesForLabel(accountId, folder.labelId)
+        : (status?.messages ?? undefined),
     });
   }
   labels.push({ id: "STARRED", name: "STARRED", type: "system" });
@@ -190,7 +210,7 @@ function readFolders(accountId: string) {
 
 export async function readLabels(accountId: string): Promise<MailLabel[]> {
   const { folders, statuses } = await readFolders(accountId);
-  return labelsOf(folders, statuses);
+  return labelsOf(accountId, folders, statuses);
 }
 
 const isDeleted = (message: FetchedMessage) =>
