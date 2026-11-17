@@ -367,6 +367,7 @@ export function labelsFor(
   accountId: string,
   message: {
     parentFolderId?: string;
+    isDraft?: boolean;
     isRead?: boolean;
     flag?: { flagStatus?: string } | null;
     importance?: string;
@@ -376,6 +377,8 @@ export function labelsFor(
   const labels: string[] = [];
   const folder = folderLabel(accountId, message.parentFolderId);
   if (folder) labels.push(folder);
+  // A draft moved out of Drafts (to Deleted Items, say) is still unsent, as in Gmail.
+  if (message.isDraft && folder !== "DRAFT") labels.push("DRAFT");
   if (message.isRead === false) labels.push("UNREAD");
   if (message.flag?.flagStatus === "flagged") labels.push("STARRED");
   if (message.importance === "high") labels.push("IMPORTANT");

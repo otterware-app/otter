@@ -459,6 +459,9 @@ export const mailApi = {
   trashThread: (accountId: string, threadId: string): Promise<{ ok: boolean }> =>
     ipc("gmail:trashThread", { accountId, threadId }),
 
+  discardThreadDrafts: (accountId: string, threadId: string): Promise<{ ok: boolean }> =>
+    ipc("gmail:discardThreadDrafts", { accountId, threadId }),
+
   untrashThread: (accountId: string, threadId: string): Promise<{ ok: boolean }> =>
     ipc("gmail:untrashThread", { accountId, threadId }),
 

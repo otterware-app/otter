@@ -856,6 +856,31 @@ export function registerMailHandlers(): void {
     }
   });
 
+  // Delete in Drafts discards the conversation's drafts; the mail they answer stays.
+  handle("gmail:discardThreadDrafts", async (params: unknown) => {
+    const p = params as Record<string, unknown>;
+    console.log("[gmail:discardThreadDrafts]", { accountId: p?.accountId, threadId: p?.threadId });
+    try {
+      const accountId = assertString(p?.accountId, "accountId");
+      const threadId = assertString(p?.threadId, "threadId");
+      const drafts = mailStore
+        .getThreadMessages(accountId, threadId)
+        .filter((m) => m.labelIds.includes("DRAFT") && !m.labelIds.includes("TRASH"));
+      for (const m of drafts) {
+        const draftId =
+          mailStore.getDraftId(accountId, m.id) ??
+          (await providerFor(accountId).findDraftId(accountId, m.id, threadId));
+        if (!draftId) continue;
+        await deleteComposerDraft(accountId, "", draftId);
+        mailStore.deleteMessage(accountId, m.id);
+      }
+      return { ok: true as const };
+    } catch (err) {
+      console.log("[gmail:discardThreadDrafts] error", { error: String(err) });
+      throw err;
+    }
+  });
+
   handle("gmail:untrashThread", async (params: unknown) => {
     const p = params as Record<string, unknown>;
     console.log("[gmail:untrashThread]", { accountId: p?.accountId, threadId: p?.threadId });
