@@ -1750,6 +1750,28 @@ export function useDeleteThreadsForever() {
   });
 }
 
+/** Delete in Drafts: the conversation's drafts go, and the mail they answer stays. */
+export function useDiscardThreadDrafts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ accountId, threadId }: { accountId: string; threadId: string }) => {
+      console.log("[hooks:useDiscardThreadDrafts]", { accountId, threadId });
+      return mailApi.discardThreadDrafts(accountId, threadId);
+    },
+    onMutate: ({ accountId, threadId }) => {
+      const inThread = (m: MessageSummary) =>
+        (m.threadId || m.id) === threadId && (m.accountId ?? accountId) === accountId;
+      qc.setQueriesData(
+        { queryKey: queryKeys.messages(accountId, "DRAFT") },
+        (old: InfiniteData<ListMessagesResult> | undefined) =>
+          removeMessagesFromInfiniteData(old, inThread),
+      );
+    },
+    onError: (err) => toast.error(describeWriteError(err)),
+    onSettled: () => invalidateMailCaches(qc),
+  });
+}
+
 export function useMarkLabelRead() {
   const qc = useQueryClient();
   return useMutation({

@@ -1328,6 +1328,12 @@ export function DayDivider({ timestamp }: { timestamp: number }) {
   );
 }
 
+const isDraft = (m: MessageSummary) => m.labelIds.includes("DRAFT");
+
+function DraftTag() {
+  return <span className="shrink-0 text-sm font-medium text-destructive-foreground">Draft</span>;
+}
+
 export function CollapsedRow({
   accountId,
   summary,
@@ -1354,13 +1360,16 @@ export function CollapsedRow({
         />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex items-baseline justify-between gap-3">
-            <span
-              className={cn(
-                "truncate text-sm",
-                summary.unread ? "font-medium text-foreground" : "text-foreground",
-              )}
-            >
-              {senderLabel(summary.fromName, summary.fromEmail, accountId)}
+            <span className="flex min-w-0 items-baseline gap-1.5">
+              {isDraft(summary) ? <DraftTag /> : null}
+              <span
+                className={cn(
+                  "truncate text-sm",
+                  summary.unread ? "font-medium text-foreground" : "text-foreground",
+                )}
+              >
+                {senderLabel(summary.fromName, summary.fromEmail, accountId)}
+              </span>
             </span>
             <span
               className="shrink-0 text-xs tabular-nums text-muted-foreground"
@@ -1477,17 +1486,20 @@ export function ExpandedRow({
               className="flex w-full items-baseline justify-between gap-3 text-left"
               aria-label={onCollapse ? "Collapse message" : undefined}
             >
-              <SenderHoverCard
-                name={summary.fromName}
-                email={summary.fromEmail}
-                accountId={accountId}
-                onCompose={onComposeTo}
-                onSearch={onSearchSender}
-              >
-                <span className="select-text truncate text-sm font-semibold leading-snug text-foreground">
-                  {senderLabel(summary.fromName, summary.fromEmail, accountId)}
-                </span>
-              </SenderHoverCard>
+              <span className="flex min-w-0 items-baseline gap-1.5">
+                {isDraft(summary) ? <DraftTag /> : null}
+                <SenderHoverCard
+                  name={summary.fromName}
+                  email={summary.fromEmail}
+                  accountId={accountId}
+                  onCompose={onComposeTo}
+                  onSearch={onSearchSender}
+                >
+                  <span className="select-text truncate text-sm font-semibold leading-snug text-foreground">
+                    {senderLabel(summary.fromName, summary.fromEmail, accountId)}
+                  </span>
+                </SenderHoverCard>
+              </span>
               <span
                 className="shrink-0 text-xs tabular-nums text-muted-foreground"
                 title={formatFullDate(summary.date)}
@@ -2344,8 +2356,10 @@ export function MessageReader({
     );
   }
 
-  const rows: MessageSummary[] = !single && threadMessages.length > 0 ? threadMessages : [message];
-  const sentRows = rows.filter((m) => !m.labelIds.includes("DRAFT"));
+  // A draft in Trash was discarded: it isn't part of the conversation.
+  const shown = threadMessages.filter((m) => !(isDraft(m) && m.labelIds.includes("TRASH")));
+  const rows: MessageSummary[] = !single && shown.length > 0 ? shown : [message];
+  const sentRows = rows.filter((m) => !isDraft(m));
   const lastRow = sentRows[sentRows.length - 1] ?? rows[rows.length - 1];
   const conversationLabelIds = [...new Set(rows.flatMap((m) => m.labelIds))];
   const conversationId = threadId ?? message.threadId ?? message.id;

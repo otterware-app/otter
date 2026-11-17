@@ -1200,6 +1200,27 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
     expect(messages.get("mine")!.folder).toBe("sentitems");
   });
 
+  it("keeps a draft in Deleted Items a draft, so it never reads as sent", async () => {
+    deliver("draft", "deleteditems", { draft: true, fromMe: true });
+    const { status, labelsOf } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+    expect(labelsOf("draft")).toEqual(expect.arrayContaining(["TRASH", "DRAFT"]));
+  });
+
+  it("discards a conversation's drafts, leaving the mail they answer where it is", async () => {
+    deliver("asked", "inbox", { conversationId: "conv-d" });
+    deliver("draft", "drafts", { conversationId: "conv-d", draft: true, fromMe: true });
+    const { status, labelsOf, invoke } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+    await invoke("gmail:discardThreadDrafts", { accountId: account.id, threadId: "conv-d" });
+    expect(messages.has("draft")).toBe(false);
+    expect(labelsOf("draft")).toBeUndefined();
+    expect(messages.get("asked")!.folder).toBe("inbox");
+    expect(labelsOf("asked")).toContain("INBOX");
+  });
+
   it("empties Deleted Items of what Outlook lists there, never mail restored elsewhere", async () => {
     deliver("trashed", "deleteditems");
     deliver("restored", "deleteditems");

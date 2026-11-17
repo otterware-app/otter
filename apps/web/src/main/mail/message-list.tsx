@@ -59,6 +59,7 @@ import {
   useModifyThread,
   useTrashMessage,
   useTrashThread,
+  useDiscardThreadDrafts,
   useUntrashMessage,
   useUntrashThread,
   useThreads,
@@ -358,6 +359,7 @@ function MessageRow({
   const modifyMessage = useModifyMessage();
   const modifyThread = useModifyThread();
   const trashThread = useTrashThread();
+  const discardDrafts = useDiscardThreadDrafts();
   const untrashThread = useUntrashThread();
 
   const [snoozeOpen, setSnoozeOpen] = useState(false);
@@ -449,12 +451,18 @@ function MessageRow({
   };
 
   const trashed = labelIds.includes("TRASH");
+  const discards = viewLabelIds.has("DRAFT") && !trashed;
+  const trashLabel = trashed ? "Restore from trash" : discards ? "Discard draft" : "Move to trash";
 
   const handleTrash = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     console.log("[MessageList:trashToggle]", { threadId, trashed });
     if (trashed) {
       void untrashThread.mutateAsync({ accountId: ownerAccountId, threadId });
+      return;
+    }
+    if (discards) {
+      void discardDrafts.mutateAsync({ accountId: ownerAccountId, threadId });
       return;
     }
     void trashThread.mutateAsync({ accountId: ownerAccountId, threadId });
@@ -713,12 +721,8 @@ function MessageRow({
                 </IconBtn>
               </HintTooltip>
             ) : null}
-            <HintTooltip label={trashed ? "Restore from trash" : "Move to trash"}>
-              <IconBtn
-                label={trashed ? "Restore from trash" : "Move to trash"}
-                className="size-7"
-                onClick={handleTrash}
-              >
+            <HintTooltip label={trashLabel}>
+              <IconBtn label={trashLabel} className="size-7" onClick={handleTrash}>
                 {trashed ? (
                   <RotateCcwIcon className="size-3.5" />
                 ) : (
@@ -792,7 +796,7 @@ function MessageRow({
               </ContextMenuItem>
             ) : (
               <ContextMenuItem icon="trash" color="red" onSelect={() => handleTrash()}>
-                Move to trash
+                {trashLabel}
               </ContextMenuItem>
             )}
             {trashed || junk ? (
@@ -1023,7 +1027,17 @@ export function MessageList({
 
   const listModifyMessage = useModifyMessage();
   const listModifyThread = useModifyThread();
+  const EMPTY_LABELS: ReadonlySet<string> = new Set();
+  const viewLabelIdsFor = (ownerId: string): ReadonlySet<string> => {
+    if (globalSearching) return EMPTY_LABELS;
+    if (combined) {
+      return new Set(combined.rules.filter((r) => r.accountId === ownerId).flatMap((r) => r.allOf));
+    }
+    return new Set([labelId]);
+  };
+
   const listTrashThread = useTrashThread();
+  const listDiscardDrafts = useDiscardThreadDrafts();
   const listUntrashThread = useUntrashThread();
   const listTrashMessage = useTrashMessage();
   const listUntrashMessage = useUntrashMessage();
@@ -1272,15 +1286,18 @@ export function MessageList({
           removeLabelIds: [archiveSourceOf(rowLabels(m)) ?? "INBOX"],
         }),
     );
+  const inDrafts = (owner: string) => viewLabelIdsFor(owner).has("DRAFT");
+  // In Drafts, Delete discards the conversation's drafts, not the conversation.
+  const trashRow = (owner: string, threadId: string) =>
+    void (inDrafts(owner) ? listDiscardDrafts : listTrashThread).mutateAsync({
+      accountId: owner,
+      threadId,
+    });
+  const bulkDiscards = checkedRows.some((m) => inDrafts(m.accountId ?? accountId));
   const bulkTrash = () =>
-    bulk(
-      "trash",
-      (m) =>
-        void listTrashThread.mutateAsync({
-          accountId: m.accountId ?? accountId,
-          threadId: m.threadId || m.id,
-        }),
-    );
+    bulk("trash", (m) => trashRow(m.accountId ?? accountId, m.threadId || m.id), {
+      undoable: !bulkDiscards,
+    });
   const bulkJunk = () =>
     bulk(
       "junk",
@@ -1408,7 +1425,7 @@ export function MessageList({
             Move to junk
           </ContextMenuItem>
           <ContextMenuItem icon="trash" color="red" onSelect={bulkTrash}>
-            Move to trash
+            {bulkDiscards ? "Discard drafts" : "Move to trash"}
           </ContextMenuItem>
         </>
       )}
@@ -1657,7 +1674,7 @@ export function MessageList({
         void listUntrashThread.mutateAsync({ accountId: owner, threadId });
       } else {
         advance();
-        void listTrashThread.mutateAsync({ accountId: owner, threadId });
+        trashRow(owner, threadId);
       }
     }),
     // oxlint-disable-next-line react/refs -- rowCommand builds an event handler; its ref reads happen when the command runs.
@@ -1809,15 +1826,6 @@ export function MessageList({
   // say so. The view filter stays inside the current view, so its rows carry
   // the view's labels by construction — no chip needed there.
   const inInboxContext = !globalSearching && !isCombined && labelId === "INBOX";
-
-  const EMPTY_LABELS: ReadonlySet<string> = new Set();
-  const viewLabelIdsFor = (ownerId: string): ReadonlySet<string> => {
-    if (globalSearching) return EMPTY_LABELS;
-    if (combined) {
-      return new Set(combined.rules.filter((r) => r.accountId === ownerId).flatMap((r) => r.allOf));
-    }
-    return new Set([labelId]);
-  };
 
   const firstSearchPage = globalSearching ? gmailSearch.data?.pages[0] : undefined;
   const handleRowDragStart = (e: React.DragEvent, message: MessageSummary) => {
@@ -2106,8 +2114,12 @@ export function MessageList({
                     <ArchiveIcon className="size-3.5" />
                   </IconBtn>
                 </HintTooltip>
-                <HintTooltip label="Move to Trash">
-                  <IconBtn label="Move to Trash" className="size-7" onClick={bulkTrash}>
+                <HintTooltip label={bulkDiscards ? "Discard Drafts" : "Move to Trash"}>
+                  <IconBtn
+                    label={bulkDiscards ? "Discard Drafts" : "Move to Trash"}
+                    className="size-7"
+                    onClick={bulkTrash}
+                  >
                     <Trash2Icon className="size-3.5" />
                   </IconBtn>
                 </HintTooltip>
