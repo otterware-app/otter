@@ -33,7 +33,8 @@ if (appInfo().errorReports) {
 }
 
 async function start(): Promise<void> {
-  await startCore(await platform(), desktopExtensions);
+  const { platform, extensions } = await services();
+  await startCore(platform, extensions);
   registerBackendHandlers();
   serverUrl().catch((error: unknown) =>
     logger.error("backend", "MCP server failed to start", error),
@@ -54,11 +55,16 @@ async function start(): Promise<void> {
   postToMain({ type: "ready", channels: [...registeredHandlers().keys()] });
 }
 
-/** `pnpm dev:desktop:fake` signs in to made-up services instead of Google's and Microsoft's. */
-async function platform() {
-  if (appInfo().packaged || devDataFrom(process.env) !== "fake") return desktopPlatform();
-  const { withFakeServices } = await import("@otter/core/fake");
-  return withFakeServices(desktopPlatform());
+/** `pnpm dev:desktop:fake` signs in to made-up services instead of Google's and Microsoft's, and its agents are scripted. */
+async function services() {
+  if (appInfo().packaged || devDataFrom(process.env) !== "fake") {
+    return { platform: desktopPlatform(), extensions: desktopExtensions };
+  }
+  const { withFakeAgents, withFakeServices } = await import("@otter/core/fake");
+  return {
+    platform: await withFakeServices(desktopPlatform()),
+    extensions: withFakeAgents(desktopExtensions),
+  };
 }
 
 async function invoke(id: number, channel: string, params: unknown): Promise<void> {

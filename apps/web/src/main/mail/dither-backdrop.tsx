@@ -85,13 +85,13 @@ function paint(
         const tone = (c: number) =>
           Math.max(
             0,
-            Math.min(255, (mean + (c - mean) * (dark ? 1.5 : 1.6)) * (dark ? 0.82 : 0.78)),
+            Math.min(255, (mean + (c - mean) * (dark ? 1.2 : 1.25)) * (dark ? 0.82 : 0.78)),
           );
-        put(col, row, tone(r), tone(g), tone(b), dark ? 150 : 200);
+        put(col, row, tone(r), tone(g), tone(b), dark ? 72 : 105);
         continue;
       }
       const noise = hash(col, row);
-      if (noise < (dark ? 0.2 : 0.12)) {
+      if (noise < (dark ? 0.12 : 0.08)) {
         const pick = Math.floor(hash(row, col) * 3);
         const tint = dark ? 70 : 170;
         put(
@@ -100,7 +100,7 @@ function paint(
           pick === 0 ? tint + 30 : tint,
           pick === 1 ? tint + 20 : tint,
           pick === 2 ? tint + 30 : tint,
-          dark ? 90 : 60,
+          dark ? 45 : 35,
         );
       }
     }

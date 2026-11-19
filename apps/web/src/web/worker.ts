@@ -84,8 +84,18 @@ async function startDemo(platform: Platform): Promise<void> {
   void addDemoAgents(agents).catch((err: unknown) => console.error("Demo agents:", err));
 }
 
+/** `pnpm dev:fake`: the made-up services' agents are scripted. */
+async function startFake(platform: Platform): Promise<void> {
+  const { withFakeAgents } = await import("@otter/core/fake");
+  await startCore(platform, withFakeAgents(webExtensions));
+}
+
 const ready = webPlatform(page).then(
-  __DEV_DEMO__ ? startDemo : (platform) => startCore(platform, webExtensions),
+  __DEV_DEMO__
+    ? startDemo
+    : __DEMO__
+      ? startFake
+      : (platform) => startCore(platform, webExtensions),
 );
 
 self.addEventListener("message", (event: MessageEvent<ToWorker>) => {

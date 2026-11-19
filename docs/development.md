@@ -266,15 +266,21 @@ chats and settings, which is how to clean up before deleting a worktree.
 `pnpm dev:fake` (the web app, alone, with `VITE_DEMO=1`) and `pnpm dev:desktop:fake` open on
 made-up mail: no relay, no Google, Microsoft or Otter account. The backend (the web app's Worker,
 the desktop app's backend process) puts pretend services in front of `fetch` (`packages/core/src/fake`:
-Gmail with its Calendar, Outlook and Todoist), seeded with two Gmail mailboxes, "Personal" (`demo@otter.example`) and "Work" (`sam@acme.example`): a few weeks
+Gmail with its Calendar, Outlook, Todoist and the relay), seeded with two Gmail mailboxes, "Personal" (`demo@otter.example`) and "Work" (`sam@acme.example`): a few weeks
 of threads, newsletters with unsubscribe links, attachments, calendar invitations, drafts, spam
 and trash, and plenty of non-ASCII names. Use it to build and test without your own accounts.
 
 - Archiving, labels, stars, trash, sending and drafts change the pretend mailbox and go into its
   history feed, so sync behaves as it does against Gmail. Search knows the common operators
   (`in:`, `is:`, `label:`, `category:`, `from:`, `has:attachment`, …) plus free text.
-- Calendar RSVPs go out as email replies (no calendar); avatars fall back to initials; the Otter
-  account (signing in, devices, synced preferences) is unavailable.
+- A pretend relay signs it in to a made-up Otter account (Robin, `demo@otter.example`) with four
+  agents and ten chats (`fake/chats.ts`, the iPhone Agents demo's): steps, a table and code, a
+  failed turn, a snoozed and a settled chat. Every kind of agent answers from a script
+  (`fake/agent.ts`): "ask" or "plan" asks questions, "send", "run" or "approve" asks before a step,
+  "fail" fails. Their scheduled tasks (`fake/schedules.ts`) have a history and include failing,
+  paused and built-in ones; they start over with the app.
+- Calendar RSVPs go out as email replies (no calendar); avatars fall back to initials; signing in
+  to a real Otter account and devices are unavailable.
 - On the web it keeps its own storage (OPFS `.otter-mail-demo` and `demo-files/`, lock and
   channel `otter-mail-demo`), apart from real mail on the same origin; add `?reset-demo` to the
   address to start over (close other tabs of it first). The desktop app keeps it in its `fake/`

@@ -1,6 +1,6 @@
 ---
 name: test-otter
-description: Test Otter's UI and behavior in T3's built-in Browser panel against the seeded made-up mailbox (`pnpm dev:fake`), with no Google, Gmail or Otter account. Use for browser verification of any change to the renderer (apps/web) or the mail backend (packages/core).
+description: Test Otter's UI and behavior in T3's built-in Browser panel against the seeded made-up mailbox (`pnpm dev:fake`), with no Google, Gmail or Otter account of your own. Use for browser verification of any change to the renderer (apps/web) or the mail backend (packages/core).
 ---
 
 # Test Otter on the made-up mailbox
@@ -35,9 +35,12 @@ mail it doesn't have.
 A pretend Gmail (`apps/web/src/web/demo/gmail.ts`) answers the backend: archive,
 labels, stars, trash, send and drafts change it and its history feed, so sync
 behaves as with Gmail. Search supports the common operators and free text.
-Not available: the Otter account (sign-in, devices, synced preferences), Google
-Calendar (RSVPs go out as email replies), contact photos, new mail arriving on
-its own, and Mac-only features (`features` in the web bridge).
+It's signed in to a made-up Otter account with scripted agents, ten chats and
+scheduled tasks (`packages/core/src/fake`: `chats.ts`, `agent.ts`,
+`schedules.ts`); a message with "ask", "send" or "fail" in it tries questions,
+approvals and failures. Not available: a real Otter account (sign-in, devices),
+Google Calendar (RSVPs go out as email replies), contact photos, new mail
+arriving on its own, and Mac-only features (`features` in the web bridge).
 
 ## Use the Browser panel
 

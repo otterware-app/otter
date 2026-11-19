@@ -23,22 +23,20 @@ function EmptyState({
     <div
       data-slot="empty-state"
       className={cn(
-        "flex min-w-0 flex-col items-center justify-center gap-4 p-6 text-center text-balance",
+        "flex min-w-0 flex-col items-center justify-center gap-3 p-6 text-center text-balance",
         className,
       )}
       {...props}
     >
       {media ? <div className="flex items-center justify-center">{media}</div> : null}
-      {Icon ? <Icon className="size-10 text-icon-muted" strokeWidth={1.5} aria-hidden /> : null}
+      {Icon ? <Icon className="size-7 text-icon-muted" strokeWidth={1.5} aria-hidden /> : null}
       {title || description ? (
-        <div className="flex max-w-md flex-col items-center gap-2">
+        <div className="flex max-w-xs flex-col items-center gap-1">
           {title ? (
-            <h1 className="text-2xl leading-[30px] font-normal tracking-[-0.01em] text-foreground">
-              {title}
-            </h1>
+            <h1 className="text-[15px] leading-5 font-medium text-foreground">{title}</h1>
           ) : null}
           {description ? (
-            <p className="text-sm leading-5 text-muted-foreground">{description}</p>
+            <p className="text-[13px] leading-[18px] text-muted-foreground">{description}</p>
           ) : null}
         </div>
       ) : null}

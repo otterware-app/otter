@@ -10,7 +10,7 @@ import { nativeMessagingDirectories } from "./native-messaging.js";
 
 const TOPBAR_HEIGHT = 42;
 
-const background = () => (nativeTheme.shouldUseDarkColors ? "#0c0c0e" : "#ededf0");
+const background = () => (nativeTheme.shouldUseDarkColors ? "#0a0a0b" : "#ededf0");
 const symbolColor = () => (nativeTheme.shouldUseDarkColors ? "#d4d4d4" : "#525252");
 
 // Held here: a tray icon that is garbage collected disappears.
