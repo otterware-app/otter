@@ -85,6 +85,7 @@ import { getAccountColor, getAccountDisplayName } from "./account-style";
 import { ALL_MAIL_LABEL_ID, SYSTEM_LABEL_NAMES, folderName, labelDisplayName } from "./label-names";
 import { decodeEntities } from "./text";
 import { parseAddressEntry, senderFirstName, senderLabel, splitAddressList } from "./address";
+import { addressesOf } from "./send-from";
 import type { MailAccount, MailLabel, MessageSummary, ViewRule } from "./types";
 import { pickAdvanceTarget } from "./advance-direction";
 import { beginUndoGroup, clearUndo } from "./undo";
@@ -317,6 +318,8 @@ type MessageRowProps = {
   /** Where the row goes: its conversation. */
   onOpen: () => void;
   accountId: string;
+  /** The owning mailbox's addresses, its send-as ones too: "me" among the senders. */
+  ownAddresses: string[];
   resolveLabel: ResolveLabel;
   combinedMeta: CombinedMeta | null;
   showInboxChip: boolean;
@@ -343,6 +346,7 @@ function MessageRow({
   onRowClick,
   onOpen,
   accountId,
+  ownAddresses,
   resolveLabel,
   combinedMeta,
   showInboxChip,
@@ -489,7 +493,7 @@ function MessageRow({
     .map(({ name, email }) => name || email.split("@")[0])
     .filter(Boolean)
     .join(", ");
-  const isMe = (email: string) => email.toLowerCase() === ownerAccountId.toLowerCase();
+  const isMe = (email: string) => ownAddresses.some((a) => a.toLowerCase() === email.toLowerCase());
   const writersText =
     writers.length === 1
       ? senderLabel(writers[0].name, writers[0].email, ownerAccountId)
@@ -1869,6 +1873,15 @@ export function MessageList({
   const inInboxContext = !globalSearching && !isCombined && labelId === "INBOX";
 
   const firstSearchPage = globalSearching ? gmailSearch.data?.pages[0] : undefined;
+  const searchFailed = [
+    ...new Set(
+      globalSearching ? (gmailSearch.data?.pages.flatMap((p) => p.failed ?? []) ?? []) : [],
+    ),
+  ];
+  const ownAddressesOf = (owner: string) => {
+    const account = accounts.find((a) => a.id === owner);
+    return account ? addressesOf(account) : [owner];
+  };
   const handleRowDragStart = (e: React.DragEvent, message: MessageSummary) => {
     const rows = checked.has(message.id) ? checkedRows : [message];
     console.log("[MessageList:dragStart]", { count: rows.length });
@@ -1906,6 +1919,7 @@ export function MessageList({
         onRowClick={(e) => handleRowClick(e, message)}
         onOpen={() => onSelectMessage(message.id, message.accountId ?? accountId)}
         accountId={accountId}
+        ownAddresses={ownAddressesOf(message.accountId ?? accountId)}
         resolveLabel={resolveLabel}
         combinedMeta={resolveCombinedMeta(message, combined, accounts, resolveLabel)}
         showInboxChip={!inInboxContext}
@@ -1953,7 +1967,7 @@ export function MessageList({
           onScope={search.onScope}
           estimate={firstSearchPage ? firstSearchPage.estimate : null}
           offline={Boolean(firstSearchPage?.offline)}
-          failed={firstSearchPage?.failed ?? []}
+          failed={searchFailed}
           loading={gmailSearch.isFetching && !gmailSearch.isFetchingNextPage}
           focusRef={search.focusRef}
           draft={search.draft}
