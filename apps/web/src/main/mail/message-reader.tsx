@@ -581,7 +581,21 @@ function HtmlBody({
     const mountedAt = performance.now();
     let sized = false;
     const fit = () => {
-      const h = iframe.contentDocument?.documentElement?.scrollHeight ?? 0;
+      const doc = iframe.contentDocument;
+      const body = doc?.body;
+      if (!doc || !body) return;
+      // Not the document's scrollHeight: that's never less than the frame, so the frame could
+      // grow (laid out narrower, quoted text shown) but never shrink back. The root's box holds
+      // the margins; the body's scrollHeight what overflows it (a template's `height: 100%`).
+      const h = Math.ceil(
+        Math.max(
+          doc.documentElement.getBoundingClientRect().height,
+          body.getBoundingClientRect().top +
+            (doc.defaultView?.scrollY ?? 0) +
+            body.scrollHeight +
+            parseFloat(getComputedStyle(body).marginBottom),
+        ),
+      );
       if (h <= 0) return;
       iframe.style.height = h + "px";
       if (!sized) {
