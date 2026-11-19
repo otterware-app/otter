@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { MessageScroller, useMessageScroller } from "@shadcn/react/message-scroller";
 import {
   AudioLinesIcon,
+  BrainIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   CircleAlertIcon,
@@ -19,11 +20,19 @@ import {
   XIcon,
 } from "lucide-react";
 import { IconBtn, HintTooltip, cn } from "../mail/ui";
-import { CompactionRow, WorkLog, isCompaction, type TurnItem } from "./work-log";
+import { CompactionRow, WorkLog, type TurnItem } from "./work-log";
 import type { ChatChange } from "../mail/api";
 import type { ContextKind, ContextMeta } from "./chat-context";
 import { findTokenRanges, messageTokens } from "@otter/shared/chat-search";
-import { retryTurn, runReplyIds, useChats, type ChatTurn } from "./chat-store";
+import { retryTurn, useChats, type ChatTurn } from "./chat-store";
+import {
+  continuesSteer,
+  formatDuration,
+  isCompaction,
+  layoutReplies,
+  shownItems,
+  splitAnswer,
+} from "./chat-runs";
 import { Button } from "~/components/ui/button";
 import { ChatMarkdown } from "./chat-markdown";
 import { messageTime } from "./chat-time";
@@ -168,14 +177,6 @@ function DeliveryRow({ turn }: { turn: ChatTurn }) {
   );
 }
 
-function formatDuration(ms: number): string {
-  const total = Math.max(0, Math.round(ms / 1000));
-  if (total < 60) return `${total}s`;
-  const mins = Math.floor(total / 60);
-  if (mins < 60) return `${mins}m ${total % 60}s`;
-  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-}
-
 function WorkingTimer({ startedAt }: { startedAt: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -185,13 +186,21 @@ function WorkingTimer({ startedAt }: { startedAt: number }) {
   return <>{formatDuration(now - startedAt)}</>;
 }
 
-/** `compacting`: the agent compacts its context before it starts on your message. */
+/**
+ * The run's working row, under the message that started it, as T3 Code draws it: still, unless
+ * `compacting` (the agent compacts its context before it starts on your message).
+ */
 function WorkingRow({ startedAt, compacting }: { startedAt?: number; compacting: boolean }) {
   const verb = compacting ? "Compacting" : "Working";
   return (
     <div className="border-b border-border/40 pb-2 pt-1">
       <div className="flex h-6 min-w-0 items-baseline gap-2 px-1 text-sm leading-relaxed text-muted-foreground tabular-nums">
-        <span className="relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-shimmer">
+        <span
+          className={cn(
+            "relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap",
+            compacting && "text-shimmer",
+          )}
+        >
           {compacting ? <Minimize2Icon aria-hidden className="size-3 shrink-0" /> : null}
           {startedAt ? (
             <span>
@@ -216,18 +225,32 @@ function DetachedRow({ providerName }: { providerName: string }) {
   );
 }
 
+/** The end of the run in flight while no step runs. */
+function ThinkingRow() {
+  return (
+    <div className="flex min-w-0 items-center gap-1.5 px-0.5 pb-1 pt-0.5">
+      <span className="flex size-6 shrink-0 items-center justify-center text-icon-muted">
+        <BrainIcon className="block size-4 shrink-0 stroke-2" aria-hidden />
+      </span>
+      <span className="text-sm leading-relaxed text-secondary-label text-shimmer">Thinking</span>
+    </div>
+  );
+}
+
 function WorkFoldRow({
   label,
+  at,
   expanded,
   onToggle,
 }: {
   label: ReactNode;
+  at?: number;
   expanded: boolean;
   onToggle: () => void;
 }) {
   const Icon = expanded ? ChevronDownIcon : ChevronRightIcon;
   return (
-    <div className="relative flex items-center gap-1 border-b border-border/40 pb-2 pe-0.5 pt-1">
+    <div className="group relative flex items-center gap-1 border-b border-border/40 pb-2 pe-0.5 pt-1">
       <button
         type="button"
         aria-expanded={expanded}
@@ -237,6 +260,9 @@ function WorkFoldRow({
         <span>{label}</span>
         <Icon className="size-3.5 opacity-70" />
       </button>
+      <span className="ms-auto">
+        <MessageTime at={at} />
+      </span>
     </div>
   );
 }
@@ -331,12 +357,6 @@ function highlightFound(turnId: string, query: string): (() => void) | undefined
   };
 }
 
-const shownItems = (turn: ChatTurn | undefined): TurnItem[] =>
-  (turn?.items ?? []).filter((item) => item.kind === "step" || item.text.trim());
-
-const isSteer = (turn: ChatTurn | undefined) =>
-  turn?.role === "user" && (turn.intent === "steer" || turn.intent === "promoted");
-
 /** How many compactions a reply opens with: those ran before the agent read your message. */
 function openingCompactions(items: TurnItem[]): number {
   const at = items.findIndex((item) => !isCompaction(item));
@@ -346,6 +366,7 @@ function openingCompactions(items: TurnItem[]): number {
 export function ChatTranscript({
   turns,
   streaming,
+  asking,
   detached,
   providerName,
   onOpenFile,
@@ -356,6 +377,8 @@ export function ChatTranscript({
 }: {
   turns: ChatTurn[];
   streaming: boolean;
+  /** The run in flight waits on an approval or an answer from you. */
+  asking: boolean;
   detached: boolean;
   providerName: string;
   onOpenFile: (href: string) => void;
@@ -369,12 +392,14 @@ export function ChatTranscript({
   const { scrollToEnd, scrollToMessage } = useMessageScroller();
   const found = useChats((s) => s.found);
   const retryable = useChats((s) => s.retries[turns[turns.length - 1]?.id ?? ""] !== undefined);
+  const layouts = layoutReplies(turns, { streaming, asking });
   const foundHere = found && turns.some((turn) => turn.id === found.turnId) ? found : null;
-  // A match can be in the work a reply folds away: open it before the jump below.
+  // A match can be in the work a run folds away: open it before the jump below.
   const [unfoldedFor, setUnfoldedFor] = useState<typeof foundHere>(null);
   if (foundHere && unfoldedFor !== foundHere) {
     setUnfoldedFor(foundHere);
-    setExpandedFolds((prev) => new Set(prev).add(foundHere.turnId));
+    const fold = layouts.get(foundHere.turnId)?.foldedUnder;
+    if (fold) setExpandedFolds((prev) => new Set(prev).add(fold));
   }
   const sent = turns.filter((turn) => turn.role === "user").length;
   useEffect(() => {
@@ -394,10 +419,8 @@ export function ChatTranscript({
       else next.add(id);
       return next;
     });
-  const runReplies = streaming ? runReplyIds(turns) : new Set<string>();
-  const isLive = (turn: ChatTurn) =>
-    !turn.spoken && runReplies.has(turn.id) && !turn.finishedAt && !turn.error;
-  const runStartedAt = turns.find((turn) => runReplies.has(turn.id))?.startedAt;
+  const isLive = (turn: ChatTurn | undefined) => Boolean(turn && layouts.get(turn.id)?.live);
+  const runStartedAt = turns.find((turn) => layouts.get(turn.id)?.working)?.startedAt;
   return turns.map((turn, index) => {
     if (turn.role === "user") {
       // A compaction before the run comes before the message, as in T3 Code: while it runs,
@@ -412,7 +435,8 @@ export function ChatTranscript({
           {compaction ? <CompactionRow output={compaction.output} live={false} /> : null}
           {waiting ? <WorkingRow startedAt={runStartedAt} compacting /> : null}
           <div className="group flex flex-col items-end gap-1 py-3">
-            {turn.intent === "steer" || turn.intent === "promoted" ? (
+            {(turn.intent === "steer" || turn.intent === "promoted") &&
+            !continuesSteer(turns, index) ? (
               <IntentMarker intent={turn.intent} />
             ) : null}
             {turn.context ? <ContextRecap context={turn.context} onOpen={onOpenContext} /> : null}
@@ -459,7 +483,8 @@ export function ChatTranscript({
     }
     // What's said in a call after a reply doesn't make it any less the latest.
     const isLast = turn.id === turns.findLast((t) => !t.spoken)?.id;
-    const live = isLive(turn);
+    const layout = layouts.get(turn.id);
+    const live = Boolean(layout?.live);
     const all = shownItems(turn);
     const opening = turns[index - 1]?.role === "user" ? openingCompactions(all) : 0;
     const items = all.slice(opening);
@@ -467,66 +492,42 @@ export function ChatTranscript({
     const compactingFirst =
       live &&
       all.slice(0, opening).some((item) => item.kind === "step" && item.output === undefined);
-    // A compaction mid-turn shows as its own live divider, in place of the working row.
-    const compactingMidway =
-      live &&
-      items.some((item) => isCompaction(item) && item.kind === "step" && item.output === undefined);
-    const lastStep = items.findLastIndex((item) => item.kind === "step");
-    const work = items.slice(0, lastStep + 1);
-    // While it runs, what the agent writes stays in place with only its steps folded: which text
-    // is the answer is known once it's done.
-    const answer = live
-      ? ""
-      : items
-          .slice(lastStep + 1)
-          .map((item) => (item.kind === "text" ? item.text.trim() : ""))
-          .join("\n\n");
-    const steps = work.filter((item) => item.kind === "step").length;
-    // A compaction never folds away: it stays between the fold and the answer.
-    const foldable = work.some((item) => !isCompaction(item));
-    const expanded = expandedFolds.has(turn.id);
-    const shown = live
-      ? items.filter((item) => expanded || item.kind === "text" || isCompaction(item))
-      : !foldable || expanded
-        ? work
-        : work.filter((item, i) => isCompaction(item) && !isCompaction(work[i + 1]));
-    const continued = isSteer(turns[index - 1]);
-    // As in T3 Code, a run says it's working once, at its top; a reply after a steer reads "Continued".
-    const foldLabel =
-      live && !continued ? (
-        <span className="text-shimmer">
-          {runStartedAt ? (
-            <>
-              Working for <WorkingTimer startedAt={runStartedAt} />
-            </>
-          ) : (
-            "Working…"
-          )}
-        </span>
-      ) : turn.startedAt && turn.finishedAt ? (
-        `${continued ? "Continued" : "Worked"} for ${formatDuration(turn.finishedAt - turn.startedAt)}`
-      ) : continued ? (
-        "Continued"
-      ) : (
-        `Took ${steps} step${steps === 1 ? "" : "s"}`
-      );
+    const { work, answer: final } = splitAnswer(items);
+    // While it runs, everything shows where it was written: which text is the answer is known
+    // once it's done, and only the run's last answer stays out of its folds.
+    const answer = !live && layout?.answers ? final : "";
+    const body = answer ? work : items;
+    const fold = layout?.fold;
+    const folded = Boolean(layout?.foldedUnder && !expandedFolds.has(layout.foldedUnder));
+    // A compaction never folds away: it stays between the fold and what follows.
+    const shown = folded
+      ? body.filter((item, i) => isCompaction(item) && !isCompaction(body[i + 1]))
+      : body;
     return (
       <MessageScroller.Item key={turn.id} messageId={turn.id}>
         <div className="flex flex-col">
           <DeliveryRow turn={turn} />
-          {live && !continued && !foldable && !compactingMidway && !compactingFirst ? (
-            <WorkingRow startedAt={runStartedAt} compacting={false} />
+          {layout?.working && !compactingFirst ? (
+            <WorkingRow startedAt={turn.startedAt} compacting={false} />
           ) : null}
-          {foldable ? (
+          {fold ? (
             <WorkFoldRow
-              label={foldLabel}
-              expanded={expanded}
-              onToggle={() => toggleFold(turn.id)}
+              label={fold.label}
+              at={fold.at}
+              expanded={expandedFolds.has(fold.id)}
+              onToggle={() => toggleFold(fold.id)}
             />
           ) : null}
           {shown.length > 0 ? (
-            <WorkLog items={shown} live={live} onOpenFile={onOpenFile} loadImage={loadImage} />
+            <WorkLog
+              items={shown}
+              live={live}
+              stepping={layout?.stepping}
+              onOpenFile={onOpenFile}
+              loadImage={loadImage}
+            />
           ) : null}
+          {layout?.thinking ? <ThinkingRow /> : null}
           {answer ? (
             <div className="group min-w-0 px-1 py-2">
               <div data-cite-source>

@@ -63,37 +63,42 @@ function blocksOf(items: TurnItem[]): Block[] {
 export function WorkLog({
   items,
   live = false,
+  stepping = false,
   onOpenFile,
   loadImage,
 }: {
   items: TurnItem[];
   /** The turn is still going: a step without a result is running (else it never reported one). */
   live?: boolean;
+  /**
+   * The last step is still what the run is doing: it stays lit until the next thing happens, as
+   * T3 Code keeps its latest tool.
+   */
+  stepping?: boolean;
   onOpenFile?: (href: string) => void;
   loadImage?: (href: string) => Promise<string>;
 }) {
+  const blocks = blocksOf(items);
   return (
     <div className="flex flex-col py-1">
-      {blocksOf(items).map((block, i) =>
-        block.kind === "text" ? (
+      {blocks.map((block, i) => {
+        const lit = stepping && i === blocks.length - 1;
+        return block.kind === "text" ? (
           <div key={i} data-cite-source className="min-w-0 px-1 py-2">
             <ChatMarkdown text={block.text} onOpenFile={onOpenFile} loadImage={loadImage} />
           </div>
         ) : block.kind === "group" ? (
-          <StepGroup key={i} source={block.source} items={block.items} live={live} />
+          <StepGroup key={i} source={block.source} items={block.items} live={live} lit={lit} />
         ) : block.item.step.compaction ? (
           <CompactionRow key={i} output={block.item.output} live={live} />
         ) : (
-          <StepRow key={i} item={block.item} live={live} />
-        ),
-      )}
+          <StepRow key={i} item={block.item} live={live} lit={lit} />
+        );
+      })}
     </div>
   );
 }
 /* oxlint-enable react/no-array-index-key */
-
-export const isCompaction = (item: TurnItem | undefined) =>
-  item?.kind === "step" && Boolean(item.step.compaction);
 
 export function CompactionRow({ output, live }: { output?: string; live: boolean }) {
   const running = live && output === undefined;
@@ -177,7 +182,17 @@ function RowHead({
 }
 
 /* oxlint-disable react/no-array-index-key -- Transcript blocks append and update in place; position preserves streaming row state. */
-function StepGroup({ source, items, live }: { source: string; items: Step[]; live: boolean }) {
+function StepGroup({
+  source,
+  items,
+  live,
+  lit,
+}: {
+  source: string;
+  items: Step[];
+  live: boolean;
+  lit: boolean;
+}) {
   const [open, setOpen] = useState(true);
   return (
     <div className="flex flex-col">
@@ -186,17 +201,19 @@ function StepGroup({ source, items, live }: { source: string; items: Step[]; liv
         title={`Used ${source} integration`}
         open={open}
         expandable
-        pending={live && items.some((i) => i.output === undefined)}
+        pending={lit || (live && items.some((i) => i.output === undefined))}
         onToggle={() => setOpen((o) => !o)}
       />
 
-      {open ? items.map((item, i) => <StepRow key={i} item={item} live={live} />) : null}
+      {open
+        ? items.map((item, i) => <StepRow key={i} item={item} live={live} lit={false} />)
+        : null}
     </div>
   );
 }
 /* oxlint-enable react/no-array-index-key */
 
-function StepRow({ item, live }: { item: Step; live: boolean }) {
+function StepRow({ item, live, lit }: { item: Step; live: boolean; lit: boolean }) {
   const [open, setOpen] = useState(false);
   const expandable = Boolean(item.output || item.step.detail);
   return (
@@ -206,7 +223,7 @@ function StepRow({ item, live }: { item: Step; live: boolean }) {
         title={item.step.title}
         open={open}
         expandable={expandable}
-        pending={live && item.output === undefined}
+        pending={lit || (live && item.output === undefined)}
         onToggle={() => setOpen((o) => !o)}
       />
       {open ? <StepResult step={item.step} output={item.output} live={live} /> : null}
