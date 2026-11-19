@@ -598,7 +598,14 @@ function TaskRow({
   const agentName = useAgentName();
   const ref = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (selected) ref.current?.scrollIntoView({ block: "nearest" });
+    if (!selected || !ref.current) return;
+    ref.current.scrollIntoView({ block: "nearest" });
+    // Arrowed to from another row: focus follows, so Enter opens this one.
+    if (
+      document.activeElement instanceof HTMLElement &&
+      "taskRow" in document.activeElement.dataset
+    )
+      ref.current.focus({ preventScroll: true });
   }, [selected]);
   const failed = task.lastRun?.status === "error";
   const when = task.running ? (
@@ -619,6 +626,7 @@ function TaskRow({
     <button
       ref={ref}
       type="button"
+      data-task-row=""
       onClick={onOpen}
       aria-current={selected ? "true" : undefined}
       className={cn(
