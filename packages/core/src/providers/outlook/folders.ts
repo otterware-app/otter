@@ -266,6 +266,13 @@ export function inMailbox(accountId: string, folderId: string | undefined): bool
   return role !== undefined && !RECOVERABLE.includes(role);
 }
 
+/** inMailbox, listing the folders again first for one made since the last listing. */
+export async function stillInMailbox(accountId: string, folderId: string | undefined) {
+  if (inMailbox(accountId, folderId)) return true;
+  await readMailbox(accountId);
+  return inMailbox(accountId, folderId);
+}
+
 export async function folderOfLabel(accountId: string, labelId: string): Promise<string | null> {
   if (labelId.startsWith(FOLDER_PREFIX)) return labelId.slice(FOLDER_PREFIX.length);
   const role = (Object.entries(SYSTEM_LABEL) as [WellKnown, string][]).find(
