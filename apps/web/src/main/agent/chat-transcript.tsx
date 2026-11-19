@@ -491,23 +491,25 @@ export function ChatTranscript({
         ? work
         : work.filter((item, i) => isCompaction(item) && !isCompaction(work[i + 1]));
     const continued = isSteer(turns[index - 1]);
-    const foldLabel = live ? (
-      <span className="text-shimmer">
-        {runStartedAt ? (
-          <>
-            Working for <WorkingTimer startedAt={runStartedAt} />
-          </>
-        ) : (
-          "Working…"
-        )}
-      </span>
-    ) : turn.startedAt && turn.finishedAt ? (
-      `${continued ? "Continued" : "Worked"} for ${formatDuration(turn.finishedAt - turn.startedAt)}`
-    ) : continued ? (
-      "Continued"
-    ) : (
-      `Took ${steps} step${steps === 1 ? "" : "s"}`
-    );
+    // The reply a steer continued runs on until the run ends, but only the latest says it's working.
+    const foldLabel =
+      live && isLast ? (
+        <span className="text-shimmer">
+          {runStartedAt ? (
+            <>
+              Working for <WorkingTimer startedAt={runStartedAt} />
+            </>
+          ) : (
+            "Working…"
+          )}
+        </span>
+      ) : turn.startedAt && turn.finishedAt ? (
+        `${continued ? "Continued" : "Worked"} for ${formatDuration(turn.finishedAt - turn.startedAt)}`
+      ) : continued ? (
+        "Continued"
+      ) : (
+        `Took ${steps} step${steps === 1 ? "" : "s"}`
+      );
     return (
       <MessageScroller.Item key={turn.id} messageId={turn.id}>
         <div className="flex flex-col">
