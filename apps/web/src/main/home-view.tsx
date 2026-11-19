@@ -141,6 +141,7 @@ const READER_MIN_WIDTH = 360;
 const AUTO_SPLIT_READER_WIDTH = 560;
 const BROWSER_OPEN_WIDTH = 720;
 const FRAME_INSET = 4;
+const IN_EVERY_MAILBOX = new Set(["INBOX", "SENT", "DRAFT", "STARRED", "UNREAD", "SPAM", "TRASH"]);
 
 type MailLoc = {
   mailbox: string;
@@ -1260,12 +1261,16 @@ function MailHome() {
     : null;
   const patchSearch = (id: string, patch: Partial<SearchTab>) =>
     setSearchTabs((tabs) => tabs.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-  const defaultScope = (): string[] =>
-    spansMailboxes || !effectiveAccountId
-      ? combined && selectedLabelId !== SEARCH_MAILBOX
+  // Search looks in every mailbox. From a view, in the mailboxes it shows: a label, folder or
+  // category is one mailbox's, while every mailbox has an Inbox or Sent.
+  const defaultScope = (fromView: boolean): string[] =>
+    !fromView
+      ? accountIds
+      : combined && selectedLabelId !== SEARCH_MAILBOX
         ? [...new Set(combined.rules.map((r) => r.accountId))]
-        : accountIds
-      : [aliasSpace?.id ?? effectiveAccountId];
+        : spansMailboxes || !effectiveAccountId || IN_EVERY_MAILBOX.has(selectedLabelId)
+          ? accountIds
+          : [aliasSpace?.id ?? effectiveAccountId];
   const focusSearchEnd = () =>
     setTimeout(() => {
       const input = searchRef.current;
@@ -1298,7 +1303,7 @@ function MailHome() {
           base: "",
           query: q ?? "",
           draft: q ?? "",
-          scope: defaultScope(),
+          scope: defaultScope(false),
         },
       ];
     });
@@ -1327,7 +1332,7 @@ function MailHome() {
               base,
               query: "",
               draft: `${base} `,
-              scope: defaultScope(),
+              scope: defaultScope(true),
             },
           ],
     );

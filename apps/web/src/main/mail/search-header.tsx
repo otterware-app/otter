@@ -10,6 +10,7 @@ import {
   XIcon,
 } from "lucide-react";
 import type { MailAccount, MessageSummary } from "./types";
+import { getAccountDisplayName } from "./account-style";
 import { capabilitiesOf } from "./capabilities";
 import { senderLabel } from "./address";
 import {
@@ -577,6 +578,7 @@ export function SearchHeader({
   onScope,
   estimate,
   offline,
+  failed,
   loading,
   focusRef,
   draft: keptDraft,
@@ -596,6 +598,7 @@ export function SearchHeader({
   onScope: (accountIds: string[]) => void;
   estimate: number | null;
   offline: boolean;
+  failed: string[];
   loading: boolean;
   focusRef: RefObject<HTMLInputElement | null>;
   draft: string;
@@ -829,12 +832,23 @@ export function SearchHeader({
           {offline ? (
             <span className="text-warning">Offline: showing matches saved on this device</span>
           ) : loading ? (
-            <span>Searching Gmail…</span>
+            <span>Searching…</span>
           ) : estimate !== null ? (
             <span>
               {estimate === 0
                 ? "No results"
                 : `About ${estimate.toLocaleString()} result${estimate === 1 ? "" : "s"}`}
+            </span>
+          ) : null}
+          {!offline && !loading && failed.length > 0 ? (
+            <span className="min-w-0 truncate text-warning">
+              Couldn't search{" "}
+              {failed
+                .map((id) => {
+                  const account = accounts.find((a) => a.id === id);
+                  return account ? getAccountDisplayName(account) : id;
+                })
+                .join(", ")}
             </span>
           ) : null}
         </div>
@@ -843,5 +857,4 @@ export function SearchHeader({
   );
 }
 
-export const SEARCH_HINT =
-  "Searches all of Gmail. Try from:, to:, subject:, has:attachment, older_than:1y, is:unread…";
+export const SEARCH_HINT = "Try from:, to:, subject:, has:attachment, older_than:1y, is:unread…";

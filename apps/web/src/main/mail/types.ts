@@ -60,6 +60,8 @@ export type MessageSummary = {
   threadUnread?: boolean;
   threadStarred?: boolean;
   threadLabelIds?: string[];
+  /** Who wrote the conversation: each sender once, the latest last; its drafts left out. */
+  threadSenders?: { name: string; email: string }[];
   /** RFC 2822 reply headers — captured on Gmail fetches and persisted, never returned by store reads. */
   messageIdHeader?: string;
   referencesHeader?: string;

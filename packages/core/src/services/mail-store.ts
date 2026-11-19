@@ -235,6 +235,7 @@ interface ThreadRow extends MessageRow {
   threadUnread: number;
   threadStarred: number;
   threadLabels: string | null;
+  threadSenders: string;
 }
 
 function rowToThreadSummary(row: ThreadRow): MessageSummary {
@@ -245,6 +246,7 @@ function rowToThreadSummary(row: ThreadRow): MessageSummary {
     threadUnread: row.threadUnread === 1,
     threadStarred: row.threadStarred === 1,
     threadLabelIds: row.threadLabels ? row.threadLabels.split(",") : [],
+    threadSenders: JSON.parse(row.threadSenders) as { name: string; email: string }[],
   };
 }
 
@@ -621,7 +623,17 @@ function threadPageQuery(matchedSql: string, draftsView = false, listed = false)
            (SELECT GROUP_CONCAT(DISTINCT tl.labelId)
               FROM messages tm
               CROSS JOIN message_labels tl ON tl.accountId = tm.accountId AND tl.messageId = tm.id
-             WHERE tm.accountId = agg.accountId AND tm.threadId = agg.threadId ${kept("tm")}) AS threadLabels
+             WHERE tm.accountId = agg.accountId AND tm.threadId = agg.threadId ${kept("tm")}) AS threadLabels,
+           -- Each sender once, by their latest message (its name, as SQLite takes bare columns
+           -- from MAX's row); drafts aren't from anyone yet.
+           (SELECT json_group_array(json_object('name', p.name, 'email', p.email) ORDER BY p.last)
+              FROM (SELECT MAX(ts.date) AS last, ts.fromName AS name, ts.fromEmail AS email
+                      FROM messages ts
+                     WHERE ts.accountId = agg.accountId AND ts.threadId = agg.threadId ${kept("ts")}
+                       AND NOT EXISTS (SELECT 1 FROM message_labels tsd
+                                        WHERE tsd.accountId = ts.accountId AND tsd.messageId = ts.id
+                                          AND tsd.labelId = 'DRAFT')
+                     GROUP BY lower(ts.fromEmail)) p) AS threadSenders
       FROM agg
       JOIN messages m
         ON m.accountId = agg.accountId AND m.threadId = agg.threadId AND m.date = agg.repDate

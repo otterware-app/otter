@@ -84,7 +84,8 @@ import { labelSearchToken, viewSearchQuery } from "./gmail-query";
 import { getAccountColor, getAccountDisplayName } from "./account-style";
 import { ALL_MAIL_LABEL_ID, SYSTEM_LABEL_NAMES, folderName, labelDisplayName } from "./label-names";
 import { decodeEntities } from "./text";
-import { parseAddressEntry, senderLabel, splitAddressList } from "./address";
+import { parseAddressEntry, senderFirstName, senderLabel, splitAddressList } from "./address";
+import { addressesOf } from "./send-from";
 import type { MailAccount, MailLabel, MessageSummary, ViewRule } from "./types";
 import { pickAdvanceTarget } from "./advance-direction";
 import { beginUndoGroup, clearUndo } from "./undo";
@@ -317,6 +318,8 @@ type MessageRowProps = {
   /** Where the row goes: its conversation. */
   onOpen: () => void;
   accountId: string;
+  /** The owning mailbox's addresses, its send-as ones too: "me" among the senders. */
+  ownAddresses: string[];
   resolveLabel: ResolveLabel;
   combinedMeta: CombinedMeta | null;
   showInboxChip: boolean;
@@ -343,6 +346,7 @@ function MessageRow({
   onRowClick,
   onOpen,
   accountId,
+  ownAddresses,
   resolveLabel,
   combinedMeta,
   showInboxChip,
@@ -480,14 +484,28 @@ function MessageRow({
 
   const unread = message.threadUnread ?? message.unread;
   const isDraft = message.labelIds.includes("DRAFT");
-  const draftRecipients = isDraft ? splitAddressList(message.to).map(parseAddressEntry) : [];
+  // A conversation is named by everyone who wrote in it, as in Gmail, with its draft after them;
+  // a draft is named by whom it's to in Drafts, or while no one has written yet.
+  const writers = message.threadSenders ?? [];
+  const draftRow = isDraft && (writers.length === 0 || viewLabelIds.has("DRAFT"));
+  const draftRecipients = draftRow ? splitAddressList(message.to).map(parseAddressEntry) : [];
   const draftTo = draftRecipients
     .map(({ name, email }) => name || email.split("@")[0])
     .filter(Boolean)
     .join(", ");
+  const isMe = (email: string) => ownAddresses.some((a) => a.toLowerCase() === email.toLowerCase());
+  const writersText =
+    writers.length === 1
+      ? senderLabel(writers[0].name, writers[0].email, ownerAccountId)
+      : (writers.length > 3 ? [writers[0], null, ...writers.slice(-2)] : writers)
+          .map((w) => (!w ? "…" : isMe(w.email) ? "me" : senderFirstName(w.name, w.email)))
+          .join(", ");
   const person = draftRecipients[0]?.email
     ? draftRecipients[0]
-    : { name: message.fromName, email: message.fromEmail };
+    : (writers.findLast((w) => !isMe(w.email)) ?? {
+        name: message.fromName,
+        email: message.fromEmail,
+      });
 
   return (
     <div className="group/row relative">
@@ -577,7 +595,7 @@ function MessageRow({
             <div className="message-list-row-content flex min-w-0 flex-1 flex-col">
               <div className="message-list-row-header flex items-center justify-between gap-2">
                 <span className="message-list-sender flex min-w-0 flex-1 items-center gap-1.5">
-                  {isDraft ? (
+                  {draftRow ? (
                     <span className="shrink-0 text-[13px] font-medium leading-snug text-destructive-foreground">
                       Draft
                     </span>
@@ -585,19 +603,25 @@ function MessageRow({
                   <span
                     className={[
                       "message-list-sender-name min-w-0 truncate text-[13px] leading-snug",
-                      isDraft
+                      draftRow
                         ? "text-muted-foreground"
                         : unread
                           ? "font-medium text-foreground"
                           : "font-normal text-foreground/70",
                     ].join(" ")}
                   >
-                    {isDraft
+                    {draftRow
                       ? draftTo
                         ? `to ${draftTo}`
                         : ""
-                      : senderLabel(message.fromName, message.fromEmail, ownerAccountId)}
+                      : writersText ||
+                        senderLabel(message.fromName, message.fromEmail, ownerAccountId)}
                   </span>
+                  {!draftRow && labelIds.includes("DRAFT") ? (
+                    <span className="shrink-0 text-[13px] font-medium leading-snug text-destructive-foreground">
+                      Draft
+                    </span>
+                  ) : null}
                   {/* After the name, so every sender starts at the same place. */}
                   {labelIds.includes("IMPORTANT") ? <ImportantMarker muted /> : null}
                 </span>
@@ -1849,6 +1873,15 @@ export function MessageList({
   const inInboxContext = !globalSearching && !isCombined && labelId === "INBOX";
 
   const firstSearchPage = globalSearching ? gmailSearch.data?.pages[0] : undefined;
+  const searchFailed = [
+    ...new Set(
+      globalSearching ? (gmailSearch.data?.pages.flatMap((p) => p.failed ?? []) ?? []) : [],
+    ),
+  ];
+  const ownAddressesOf = (owner: string) => {
+    const account = accounts.find((a) => a.id === owner);
+    return account ? addressesOf(account) : [owner];
+  };
   const handleRowDragStart = (e: React.DragEvent, message: MessageSummary) => {
     const rows = checked.has(message.id) ? checkedRows : [message];
     console.log("[MessageList:dragStart]", { count: rows.length });
@@ -1886,6 +1919,7 @@ export function MessageList({
         onRowClick={(e) => handleRowClick(e, message)}
         onOpen={() => onSelectMessage(message.id, message.accountId ?? accountId)}
         accountId={accountId}
+        ownAddresses={ownAddressesOf(message.accountId ?? accountId)}
         resolveLabel={resolveLabel}
         combinedMeta={resolveCombinedMeta(message, combined, accounts, resolveLabel)}
         showInboxChip={!inInboxContext}
@@ -1933,6 +1967,7 @@ export function MessageList({
           onScope={search.onScope}
           estimate={firstSearchPage ? firstSearchPage.estimate : null}
           offline={Boolean(firstSearchPage?.offline)}
+          failed={searchFailed}
           loading={gmailSearch.isFetching && !gmailSearch.isFetchingNextPage}
           focusRef={search.focusRef}
           draft={search.draft}
