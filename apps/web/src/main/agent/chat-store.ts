@@ -967,17 +967,14 @@ export async function shelveChat(
 ): Promise<void> {
   if (!get().conversations.find((c) => c.id === id)?.loaded) await loadChat(id);
   const now = Date.now();
-  patchConversation(id, (c) => {
-    const away = c.settledAt != null || (c.snoozedUntil ?? 0) > now;
-    const back = away && change.snoozedUntil == null && change.settledAt == null;
-    return {
-      ...c,
-      ...change,
-      ...(change.snoozedUntil != null || change.settledAt != null ? { pinnedAt: null } : {}),
-      ...(back ? { returnedAt: now } : {}),
-      updatedAt: now,
-    };
-  });
+  // Waking or unsettling it, one that settled on its own included.
+  const back = change.snoozedUntil == null && change.settledAt == null;
+  patchConversation(id, (c) => ({
+    ...c,
+    ...change,
+    ...(back ? { returnedAt: now } : { pinnedAt: null }),
+    updatedAt: now,
+  }));
 }
 
 export async function pinChat(id: string, pinned: boolean): Promise<void> {

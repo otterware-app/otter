@@ -15,6 +15,7 @@ import {
 } from "./chat-store";
 import { settleChat } from "./chat-shelve-actions";
 import { shelveChats, useNow } from "./chat-shelves";
+import { useAutoSettleDays } from "./auto-settle";
 import { HintTooltip, cn } from "../mail/ui";
 
 type Status = "waiting" | "working" | "finished" | null;
@@ -51,13 +52,14 @@ export function ChatBar({
   const questions = useChats((s) => s.questions);
   const unseen = useChats((s) => s.unseen);
   const now = useNow(30_000);
+  const autoSettleDays = useAutoSettleDays();
   const asked = new Set([...approvals, ...questions].map((r) => r.requestId));
   const needsYou = new Set(
     Object.values(runs).flatMap((r) => (asked.has(r.requestId) ? r.convoId : [])),
   );
   const shelves = shelveChats(
     conversations.filter((c) => !isBlank(c)),
-    { working: new Set(Object.keys(runs)), needsYou, now },
+    { working: new Set(Object.keys(runs)), needsYou, now, autoSettleDays },
   );
   const pinned = shelves.pinned;
   // The most recent sits by the pinned ones; the oldest are clipped off the left.

@@ -5,46 +5,60 @@ export type ChatShelf = "pinned" | "active" | "snoozed" | "settled";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-export const SETTLE_AFTER_MS = 7 * DAY_MS;
+
+type Shelvable = Pick<
+  Chat,
+  "id" | "updatedAt" | "returnedAt" | "snoozedUntil" | "settledAt" | "pinnedAt" | "turns"
+> & { loaded: boolean; lastMessageAt?: number };
 
 /**
  * `working`: a turn runs in it here, so it doesn't settle for being idle.
  * `needsYou`: the agent asks for an approval or an answer, which outranks a
- * snooze or settling. A pinned chat never settles on its own.
+ * snooze or settling. `autoSettleDays`: quiet that long, it settles on its own
+ * (null: never). A pinned chat never settles on its own.
  */
 export function chatShelf(
-  chat: Pick<Chat, "updatedAt" | "snoozedUntil" | "settledAt" | "pinnedAt">,
-  { working, needsYou, now }: { working: boolean; needsYou: boolean; now: number },
+  chat: Omit<Shelvable, "id">,
+  {
+    working,
+    needsYou,
+    now,
+    autoSettleDays,
+  }: { working: boolean; needsYou: boolean; now: number; autoSettleDays: number | null },
 ): ChatShelf {
   const pinned = chat.pinnedAt != null;
   if (needsYou) return pinned ? "pinned" : "active";
   if (chat.snoozedUntil != null && chat.snoozedUntil > now) return "snoozed";
   if (chat.settledAt != null) return "settled";
   if (pinned) return "pinned";
-  if (!working && now - chat.updatedAt > SETTLE_AFTER_MS) return "settled";
+  if (
+    !working &&
+    autoSettleDays !== null &&
+    now - chatQuietSince(chat, now) > autoSettleDays * DAY_MS
+  )
+    return "settled";
   return "active";
 }
-
-type Shelvable = Pick<
-  Chat,
-  "id" | "updatedAt" | "returnedAt" | "snoozedUntil" | "settledAt" | "pinnedAt"
->;
 
 /** The chats on each shelf, in the order the sidebar and the bottom bar show them. */
 export function shelveChats<T extends Shelvable>(
   chats: T[],
-  { working, needsYou, now }: { working: Set<string>; needsYou: Set<string>; now: number },
+  {
+    working,
+    needsYou,
+    now,
+    autoSettleDays,
+  }: { working: Set<string>; needsYou: Set<string>; now: number; autoSettleDays: number | null },
 ): Record<ChatShelf, T[]> {
   const shelves: Record<ChatShelf, T[]> = { pinned: [], active: [], snoozed: [], settled: [] };
   for (const c of chats) {
-    shelves[chatShelf(c, { working: working.has(c.id), needsYou: needsYou.has(c.id), now })].push(
-      c,
-    );
+    const state = { working: working.has(c.id), needsYou: needsYou.has(c.id), now, autoSettleDays };
+    shelves[chatShelf(c, state)].push(c);
   }
   shelves.pinned.sort((a, b) => (a.pinnedAt ?? 0) - (b.pinnedAt ?? 0));
   shelves.active.sort((a, b) => chatReturnedAt(b, now) - chatReturnedAt(a, now));
   shelves.snoozed.sort((a, b) => (a.snoozedUntil ?? 0) - (b.snoozedUntil ?? 0));
-  shelves.settled.sort((a, b) => (b.settledAt ?? b.updatedAt) - (a.settledAt ?? a.updatedAt));
+  shelves.settled.sort((a, b) => chatSettledAt(b, now) - chatSettledAt(a, now));
   return shelves;
 }
 
@@ -75,6 +89,16 @@ export function chatLastMessageAt(
 ): number {
   const last = chat.loaded ? chat.turns.at(-1) : undefined;
   return last?.finishedAt ?? last?.startedAt ?? chat.lastMessageAt ?? chat.updatedAt;
+}
+
+/** When it went quiet: its last message, or when you last wrote in it or brought it back. */
+export function chatQuietSince(chat: Omit<Shelvable, "id">, now: number): number {
+  return Math.max(chatLastMessageAt(chat), chatReturnedAt(chat, now));
+}
+
+/** When you settled it, or, for one that settled on its own, when it went quiet. */
+export function chatSettledAt(chat: Omit<Shelvable, "id">, now: number): number {
+  return chat.settledAt ?? chatQuietSince(chat, now);
 }
 
 export type SnoozePreset = { id: string; label: string; when: string; until: number };

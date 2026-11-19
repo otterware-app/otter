@@ -22,6 +22,7 @@ const SYNCED_KEYS = [
   "assistant:favorite-models",
   "assistant:hidden-models",
   "assistant:follow-up-behavior",
+  "assistant:auto-settle-days",
   "mail:mailboxes",
   "mail:alias-mail-apart",
   "mail:sidebar",

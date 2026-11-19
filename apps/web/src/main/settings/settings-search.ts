@@ -449,6 +449,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["chat queue steer running agent"],
   },
   {
+    id: "auto-settle",
+    title: "Auto-settle inactive chats",
+    pane: "agents",
+    searchTerms: ["settle settled inactive idle quiet days chats sidebar"],
+  },
+  {
     id: "connected-agents",
     title: `Agents on this ${osNames.computer}`,
     pane: "agents",

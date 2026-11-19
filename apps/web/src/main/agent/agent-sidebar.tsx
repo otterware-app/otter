@@ -26,6 +26,7 @@ import {
   type SearchRange,
 } from "@otter/shared/chat-search";
 import { SCHEDULED_TASKS, useScheduledTasks } from "./agent-scheduled";
+import { useAutoSettleDays } from "./auto-settle";
 import { AgentAvatar, openClawAgentId, useAgentProviders } from "./agent-providers";
 import { readableError } from "../mail/add-mailbox";
 import {
@@ -44,6 +45,7 @@ import {
 } from "./chat-store";
 import {
   chatLastMessageAt,
+  chatSettledAt,
   shelveChats,
   shortAgo,
   snoozePresets,
@@ -115,6 +117,7 @@ export function AgentSidebar({
   const drafts = useChats((s) => s.drafts);
   const device = useChats((s) => s.device);
   const now = useNow(30_000);
+  const autoSettleDays = useAutoSettleDays();
   const [settledShown, setSettledShown] = useState(SETTLED_FIRST);
   const providers = useAgentProviders().data?.providers ?? [];
   const [agentFilter, setAgentFilter] = useState<string | null>(() => {
@@ -178,6 +181,7 @@ export function AgentSidebar({
     working: new Set(Object.keys(runs)),
     needsYou: waiting,
     now,
+    autoSettleDays,
   });
   const settled = shelves.settled.filter((c, i) => i < settledShown || c.id === chatId);
   const hiddenSettled = shelves.settled.length - settled.length;
@@ -319,11 +323,7 @@ export function AgentSidebar({
           {wakesIn(c.snoozedUntil ?? now, now)}
         </span>
       );
-    else
-      end = shortAgo(
-        shelf === "settled" ? (c.settledAt ?? c.updatedAt) : chatLastMessageAt(c),
-        now,
-      );
+    else end = shortAgo(shelf === "settled" ? chatSettledAt(c, now) : chatLastMessageAt(c), now);
     const renaming = editing === c.id;
     const busy = regenerating.has(c.id);
     const startRename = () => setEditing(c.id);
