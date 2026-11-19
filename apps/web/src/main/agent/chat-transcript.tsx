@@ -491,9 +491,9 @@ export function ChatTranscript({
         ? work
         : work.filter((item, i) => isCompaction(item) && !isCompaction(work[i + 1]));
     const continued = isSteer(turns[index - 1]);
-    // The reply a steer continued runs on until the run ends, but only the latest says it's working.
+    // As in T3 Code, a run says it's working once, at its top; a reply after a steer reads "Continued".
     const foldLabel =
-      live && isLast ? (
+      live && !continued ? (
         <span className="text-shimmer">
           {runStartedAt ? (
             <>
@@ -514,7 +514,7 @@ export function ChatTranscript({
       <MessageScroller.Item key={turn.id} messageId={turn.id}>
         <div className="flex flex-col">
           <DeliveryRow turn={turn} />
-          {live && isLast && !foldable && !compactingMidway && !compactingFirst ? (
+          {live && !continued && !foldable && !compactingMidway && !compactingFirst ? (
             <WorkingRow startedAt={runStartedAt} compacting={false} />
           ) : null}
           {foldable ? (
