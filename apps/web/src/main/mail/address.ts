@@ -40,3 +40,10 @@ export function senderLabel(fromName: string, fromEmail: string, accountId?: str
   if (fromName && fromName !== fromEmail) return fromName;
   return accountId && fromEmail.toLowerCase() === accountId.toLowerCase() ? "Me" : fromEmail;
 }
+
+/** One sender among several, as Gmail lists them: the first name ("Rose, Julian"'s too). */
+export function senderFirstName(fromName: string, fromEmail: string): string {
+  if (!fromName || fromName === fromEmail) return fromEmail.split("@")[0] || fromEmail;
+  const given = fromName.includes(",") ? fromName.slice(fromName.indexOf(",") + 1) : fromName;
+  return given.trim().split(/\s+/)[0] || fromName;
+}

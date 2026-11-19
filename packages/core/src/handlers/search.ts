@@ -26,6 +26,8 @@ type SearchResult = {
   cursors?: Cursors;
   estimate: number;
   offline?: boolean;
+  /** Mailboxes whose search failed, left out of the results. */
+  failed?: string[];
 };
 
 async function searchAccount(
@@ -202,6 +204,7 @@ export async function searchMail(
   const next: Cursors = { ...cursors };
   let estimate = 0;
   const rows: MessageSummary[] = [];
+  const failed: string[] = [];
   settled.forEach((s, i) => {
     const accountId = active[i];
     if (s.status === "fulfilled") {
@@ -211,12 +214,18 @@ export async function searchMail(
     } else {
       logger.info("search", "account search failed", { accountId, error: String(s.reason) });
       next[accountId] = null;
+      failed.push(accountId);
     }
   });
   for (const id of accountIds) if (!(id in next)) next[id] = null;
   rows.sort((a, b) => b.date - a.date);
   const more = Object.values(next).some((c) => c !== null);
-  return { messages: rows, cursors: more ? next : undefined, estimate };
+  return {
+    messages: rows,
+    cursors: more ? next : undefined,
+    estimate,
+    ...(failed.length > 0 ? { failed } : {}),
+  };
 }
 
 export function registerSearchHandlers(): void {

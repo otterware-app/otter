@@ -61,6 +61,8 @@ export type MailSearchResult = {
   cursors?: Record<string, string | null>;
   estimate: number;
   offline?: boolean;
+  /** Mailboxes whose search failed, left out of the results. */
+  failed?: string[];
 };
 
 export type MailtoTarget = { to: string; cc: string; subject: string; body: string };
