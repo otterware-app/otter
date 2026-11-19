@@ -22,11 +22,11 @@ const FOLDERS = [
   "scheduled",
 ];
 
-const RECOVERABLE = [
+const RECOVERABLE = new Set([
   "recoverableitemsdeletions",
   "recoverableitemspurges",
   "recoverableitemsversions",
-];
+]);
 
 type Message = {
   id: string;
@@ -182,7 +182,7 @@ function handle(method: string, url: URL, body: unknown): Response {
   const wellKnown = /^\/me\/mailFolders\/([a-z]+)$/.exec(path);
   if (wellKnown && FOLDERS.includes(wellKnown[1]!)) return json({ id: wellKnown[1] });
   if (wellKnown && wellKnown[1] === "outbox") return json({ id: "outbox" });
-  if (wellKnown && recoverableKnown && RECOVERABLE.includes(wellKnown[1]!)) {
+  if (wellKnown && recoverableKnown && RECOVERABLE.has(wellKnown[1]!)) {
     return json({ id: wellKnown[1] });
   }
   if (wellKnown) return notFound();
@@ -305,6 +305,12 @@ function handle(method: string, url: URL, body: unknown): Response {
   if (purge) {
     const id = decodeURIComponent(purge[1]!);
     if (!messages.has(id)) return notFound();
+    if (RECOVERABLE.has(messages.get(id)!.folder)) {
+      return json(
+        { error: { code: "ErrorCannotDeleteObject", message: "Object cannot be deleted." } },
+        403,
+      );
+    }
     remove(id);
     return json({});
   }
@@ -973,6 +979,42 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
       expect(mailStore.getLabels(account.id).map((l) => l.id)).not.toContain(
         "folder:recoverableitemspurges",
       );
+    });
+
+    it("discards a draft deleted elsewhere, which Graph still reads but won't delete again", async () => {
+      deliver("draft", "drafts", { conversationId: "conv-x", draft: true, fromMe: true });
+      const { status, labelsOf, invoke } = await boot();
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      messages.get("draft")!.folder = "recoverableitemsdeletions";
+      await invoke("gmail:discardThreadDrafts", { accountId: account.id, threadId: "conv-x" });
+      expect(labelsOf("draft")).toBeUndefined();
+      expect(writes.filter((w) => w.path.startsWith("/me/messages/draft"))).toEqual([]);
+    });
+
+    it("discards a deleted draft left in Drafts when Outlook won't name Recoverable Items", async () => {
+      recoverableKnown = false;
+      deliver("draft", "drafts", { conversationId: "conv-x", draft: true, fromMe: true });
+      const { status, sync, labelsOf, invoke } = await boot();
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      move("draft", "recoverableitemspurges");
+      await sync();
+      expect(labelsOf("draft")).toContain("DRAFT");
+      await invoke("gmail:discardThreadDrafts", { accountId: account.id, threadId: "conv-x" });
+      expect(labelsOf("draft")).toBeUndefined();
+      expect(writes.filter((w) => w.path.startsWith("/me/messages/draft"))).toEqual([]);
+    });
+
+    it("still discards a live draft moved into a folder made since the last listing", async () => {
+      deliver("draft", "drafts", { conversationId: "conv-x", draft: true, fromMe: true });
+      const { status, invoke } = await boot();
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      subfolders = { inbox: ["newfolder"] };
+      messages.get("draft")!.folder = "newfolder";
+      await invoke("gmail:discardThreadDrafts", { accountId: account.id, threadId: "conv-x" });
+      expect(messages.get("draft")?.folder).toBe("deleteditems");
     });
   });
 
