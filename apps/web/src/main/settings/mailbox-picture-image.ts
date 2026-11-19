@@ -1,6 +1,9 @@
 import { MAILBOX_PICTURE_MAX_LENGTH } from "@otter/contracts/relay";
 
-const SIDES = [128, 96, 64];
+/** The sides to try, largest first, and the longest data URL that fits. */
+export type PictureSize = { sides: number[]; maxLength: number };
+
+const MAILBOX: PictureSize = { sides: [128, 96, 64], maxLength: MAILBOX_PICTURE_MAX_LENGTH };
 const QUALITY = 0.85;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
@@ -26,13 +29,13 @@ export type DrawPicture = (side: number) => {
 };
 
 // Where a browser can't write WebP, canvas returns PNG: then JPEG, or PNG to keep transparency.
-export function encodePicture(draw: DrawPicture): string {
-  for (const side of SIDES) {
+export function encodePicture(draw: DrawPicture, size: PictureSize = MAILBOX): string {
+  for (const side of size.sides) {
     const { opaque, encode } = draw(side);
     let url = encode("image/webp", QUALITY);
     if (!url.startsWith("data:image/webp;"))
       url = encode(opaque ? "image/jpeg" : "image/png", QUALITY);
-    if (url.length <= MAILBOX_PICTURE_MAX_LENGTH) return url;
+    if (url.length <= size.maxLength) return url;
   }
   throw new PictureError("Couldn't make that image small enough. Choose another.");
 }
@@ -52,7 +55,7 @@ function canvasDraw(image: HTMLImageElement): DrawPicture {
   };
 }
 
-export async function mailboxPicture(file: File): Promise<string> {
+export async function mailboxPicture(file: File, size?: PictureSize): Promise<string> {
   const problem = pictureFileProblem(file);
   if (problem) throw new PictureError(problem);
   const url = URL.createObjectURL(file);
@@ -66,7 +69,7 @@ export async function mailboxPicture(file: File): Promise<string> {
     if (!image.naturalWidth || !image.naturalHeight) {
       throw new PictureError("That image has no size. Choose a PNG, JPEG or WebP.");
     }
-    return encodePicture(canvasDraw(image));
+    return encodePicture(canvasDraw(image), size);
   } finally {
     URL.revokeObjectURL(url);
   }

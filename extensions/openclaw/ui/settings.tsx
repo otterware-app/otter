@@ -17,7 +17,7 @@ import { useEffect, useState } from "react";
 
 import { openClawApi } from "./api";
 import { OpenClawDeliveries } from "./deliveries";
-import { OpenClawModelsSection } from "./models";
+import { OpenClawAgents } from "./models";
 
 const SITE_ORIGIN = window.desktopBridge.platform === "web" ? location.origin : null;
 
@@ -275,10 +275,7 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
       </SettingsSection>
       {connected ? <OpenClawDeliveries /> : null}
       {connected ? (
-        <OpenClawModelsSection
-          key={openclawFullAccess.allowed ? "full" : "limited"}
-          agent={provider.id}
-        />
+        <OpenClawAgents key={openclawFullAccess.allowed ? "full" : "limited"} agent={provider.id} />
       ) : null}
       {connected ? (
         <ModelsSection

@@ -38,7 +38,15 @@ import {
 } from "@openclaw/gateway-client/browser";
 import { OpenClawText, openClawMessageText as textOf } from "./openclaw-stream.js";
 import { createTalks, talkReady, type TalkGateway } from "./openclaw-talk.js";
-import { openClawModels, setOpenClawModel, type OpenClawModels, type Request } from "./models.js";
+import {
+  agentAvatar,
+  changeOpenClaw,
+  openClawModels,
+  type GatewayAgent,
+  type OpenClawChange,
+  type OpenClawModels,
+  type Request,
+} from "./models.js";
 import {
   channelTargets,
   listTasks,
@@ -152,22 +160,8 @@ async function ownerConfig(g: Gateway): Promise<OwnerConfig> {
   };
 }
 
-type Agent = {
-  id: string;
-  name?: string;
-  identity?: { name?: string; emoji?: string; avatarUrl?: string };
-};
-
-const MAX_AVATAR_LENGTH = 512_000;
-
-function agentAvatar(agent: Agent): string | undefined {
-  const url = agent.identity?.avatarUrl;
-  if (!url || url.length > MAX_AVATAR_LENGTH) return undefined;
-  return /^(https:|data:image\/)/i.test(url) ? url : undefined;
-}
-
-async function listAgents(g: Gateway): Promise<{ defaultId: string; agents: Agent[] }> {
-  const result = await g.client.request<{ defaultId?: string; agents?: Agent[] }>(
+async function listAgents(g: Gateway): Promise<{ defaultId: string; agents: GatewayAgent[] }> {
+  const result = await g.client.request<{ defaultId?: string; agents?: GatewayAgent[] }>(
     "agents.list",
     {},
   );
@@ -772,7 +766,8 @@ export type OpenClawProvider = ChatProvider<OpenClawSettings> & {
   allowOwner(settings: OpenClawSettings): Promise<void>;
   /** Null without full access, which changing them needs. */
   models(settings: OpenClawSettings): Promise<OpenClawModels | null>;
-  setModel(settings: OpenClawSettings, agentId: string | null, model: string | null): Promise<void>;
+  /** Changes the gateway's defaults (agentId null), or one of its agents. */
+  change(settings: OpenClawSettings, agentId: string | null, change: OpenClawChange): Promise<void>;
 };
 
 /**
@@ -1875,6 +1870,10 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
     (method, params) =>
       g.client.request(method, params);
 
+  // One at a time: each patch names the config it read, and the gateway refuses it once another
+  // has landed since.
+  let configWrite: Promise<unknown> = Promise.resolve();
+
   return {
     connect,
     allowFullAccess,
@@ -1885,8 +1884,12 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
       return holdsAll(g.scopes) ? openClawModels(request(g)) : null;
     },
 
-    async setModel(settings, agentId, model) {
-      await setOpenClawModel(request(await gateway(settings)), agentId, model);
+    change(settings, agentId, change) {
+      const write = configWrite.then(async () =>
+        changeOpenClaw(request(await gateway(settings)), agentId, change),
+      );
+      configWrite = write.catch(() => {});
+      return write;
     },
 
     async settingsView() {

@@ -1,7 +1,7 @@
 import { ipc } from "@otter/web/extension-kit";
 import type { ProvidersState } from "@otter/web/extension-kit";
 
-import type { OpenClawModels } from "../core/models";
+import type { OpenClawChange, OpenClawModels } from "../core/models";
 
 export const openClawApi = {
   connectOpenClaw: (
@@ -17,13 +17,9 @@ export const openClawApi = {
 
   models: (agent: string): Promise<OpenClawModels | null> => ipc("agent:openClawModels", { agent }),
 
-  /** The gateway's default model, or its agent `gatewayAgent`'s own (null: back on the default). */
-  setModel: (
-    agent: string,
-    gatewayAgent: string | null,
-    model: string | null,
-  ): Promise<OpenClawModels | null> =>
-    ipc("agent:setOpenClawModel", { agent, gatewayAgent, model }),
+  /** The gateway's defaults (`gatewayAgent` null), or its agent `gatewayAgent`. */
+  change: (agent: string, gatewayAgent: string | null, change: OpenClawChange): Promise<void> =>
+    ipc("agent:changeOpenClaw", { agent, gatewayAgent, change }),
 };
 
 export type AgentChannel = {

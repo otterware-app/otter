@@ -47,11 +47,13 @@ export type { MessageDetail } from "../mail/types";
 export { Btn, HintTooltip, IconBtn, buttonClass, cn } from "../mail/ui";
 export { searchableSetting } from "../settings/settings-search";
 export {
+  DraftInput,
   SettingResetButton,
   SettingsRow,
   SettingsSection,
   TextInput,
 } from "../settings/settings-ui";
+export { PictureError, mailboxPicture } from "../settings/mailbox-picture-image";
 
 export type { ProvidersState, RuntimeMode } from "../mail/api";
 export { RUNTIME_MODE_OPTIONS } from "../mail/model-picker";
