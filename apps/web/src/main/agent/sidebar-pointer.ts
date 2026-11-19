@@ -1,0 +1,140 @@
+/**
+ * Ported from T3 Code (github.com/pingdotgg/t3code at a1e7ac2b2; MIT, see THIRD_PARTY_NOTICES.md):
+ * apps/web/src/components/Sidebar.pointer.ts, without dragging chats out of the list.
+ */
+import { type PointerEvent as ReactPointerEvent } from "react";
+import { type SensorProps } from "@dnd-kit/core";
+import { getOwnerDocument, getWindow } from "@dnd-kit/utilities";
+
+type Options = {
+  distance: number;
+  onAttach: (sensor: SidebarPointerSensor) => void;
+  onFinish: (started: boolean) => void;
+};
+
+/** dnd-kit's pointer sensor, made to let a press be a click and Escape cancel the drag. */
+export class SidebarPointerSensor {
+  static activators = [
+    {
+      eventName: "onPointerDown" as const,
+      handler: ({ nativeEvent }: ReactPointerEvent) =>
+        nativeEvent.isPrimary && nativeEvent.button === 0,
+    },
+  ];
+  autoScrollEnabled = true;
+  private phase: "pending" | "dragging" | "finished" = "pending";
+  private readonly pointer: PointerEvent;
+  private readonly document: Document;
+  private readonly window: Window;
+
+  constructor(private readonly props: Omit<SensorProps<Options>, "activeNode" | "context">) {
+    this.pointer = props.event as PointerEvent;
+    this.document = getOwnerDocument(this.pointer.target);
+    this.window = getWindow(this.pointer.target);
+    this.document.addEventListener("pointermove", this.move, { passive: false, capture: true });
+    this.document.addEventListener("pointerup", this.end, { capture: true });
+    this.document.addEventListener("pointercancel", this.pointerCancel, { capture: true });
+    this.document.addEventListener("keydown", this.keydown, { capture: true });
+    this.document.addEventListener("visibilitychange", this.visibilityChange);
+    this.window.addEventListener("blur", this.cancel);
+    this.window.addEventListener("pagehide", this.cancel);
+    this.window.addEventListener("resize", this.cancel);
+    this.document.addEventListener("dragstart", this.preventDefault);
+    this.document.addEventListener("contextmenu", this.preventDefault);
+    props.options.onAttach(this);
+    props.onPending(props.active, { distance: props.options.distance }, this.coordinates());
+  }
+
+  private coordinates = () => ({ x: this.pointer.clientX, y: this.pointer.clientY });
+  private preventDefault = (event: Event) => event.preventDefault();
+  private clearClickSuppression = () => {
+    this.document.removeEventListener("click", this.suppressClick, { capture: true });
+    this.document.removeEventListener("pointerdown", this.clearClickSuppression, { capture: true });
+  };
+  private suppressClick = (event: Event) => {
+    event.stopPropagation();
+    this.clearClickSuppression();
+  };
+  private clearSelection = () => this.document.getSelection()?.removeAllRanges();
+
+  private move = (event: PointerEvent) => {
+    if (this.phase === "finished" || event.pointerId !== this.pointer.pointerId) return;
+    // The desktop app may report buttons=0 before pointerup: a pending press is released like
+    // pointerup so its click lands; a drag is cancelled.
+    if ((event.buttons & 1) === 0) {
+      if (this.phase === "pending") return this.finish(false);
+      return this.cancel();
+    }
+    if (this.phase === "pending") {
+      const offset = {
+        x: event.clientX - this.pointer.clientX,
+        y: event.clientY - this.pointer.clientY,
+      };
+      if (Math.hypot(offset.x, offset.y) <= this.props.options.distance) {
+        this.props.onPending(
+          this.props.active,
+          { distance: this.props.options.distance },
+          this.coordinates(),
+          offset,
+        );
+        return;
+      }
+      this.phase = "dragging";
+      this.document.addEventListener("click", this.suppressClick, { capture: true });
+      this.document.addEventListener("selectionchange", this.clearSelection);
+      this.clearSelection();
+      this.props.onStart(this.coordinates());
+    }
+    if (this.phase === "dragging") {
+      if (event.cancelable) event.preventDefault();
+      this.props.onMove({ x: event.clientX, y: event.clientY });
+    }
+  };
+
+  private end = (event: PointerEvent) => {
+    if (event.pointerId !== this.pointer.pointerId) return;
+    this.finish(false);
+  };
+  private pointerCancel = (event: PointerEvent) => {
+    if (event.pointerId === this.pointer.pointerId) this.cancel();
+  };
+  private keydown = (event: KeyboardEvent) => {
+    if (event.code === "Escape") this.cancel();
+  };
+  private visibilityChange = () => {
+    if (this.document.hidden) this.cancel();
+  };
+  cancel = () => this.finish(true);
+
+  private finish(cancelled: boolean) {
+    if (this.phase === "finished") return;
+    const aborted = this.phase === "pending";
+    this.phase = "finished";
+    this.document.removeEventListener("pointermove", this.move, { capture: true });
+    this.document.removeEventListener("pointerup", this.end, { capture: true });
+    this.document.removeEventListener("pointercancel", this.pointerCancel, { capture: true });
+    this.document.removeEventListener("keydown", this.keydown, { capture: true });
+    this.document.removeEventListener("visibilitychange", this.visibilityChange);
+    this.window.removeEventListener("blur", this.cancel);
+    this.window.removeEventListener("pagehide", this.cancel);
+    this.window.removeEventListener("resize", this.cancel);
+    this.document.removeEventListener("dragstart", this.preventDefault);
+    this.document.removeEventListener("contextmenu", this.preventDefault);
+    this.document.removeEventListener("selectionchange", this.clearSelection);
+    // Suppress the click that follows a drag; a fresh pointerdown clears it after a release
+    // outside the document.
+    if (!aborted || cancelled) {
+      this.document.addEventListener("click", this.suppressClick, { capture: true });
+      this.document.addEventListener("pointerdown", this.clearClickSuppression, { capture: true });
+    }
+    try {
+      // Release the rows before dnd-kit clears transforms; end and cancel events may be omitted
+      // before the first layout.
+      this.props.options.onFinish(!aborted);
+    } finally {
+      if (aborted) this.props.onAbort(this.props.active);
+      if (cancelled) this.props.onCancel();
+      else this.props.onEnd();
+    }
+  }
+}

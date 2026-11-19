@@ -242,7 +242,7 @@ export function ChatWindow({
                 label="Settle"
                 className="size-7"
                 onClick={() => {
-                  settleChat(activeId);
+                  void settleChat(activeId);
                   onShelve();
                 }}
               >
