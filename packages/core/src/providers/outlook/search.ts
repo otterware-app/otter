@@ -2,7 +2,7 @@
  * Listing and searching on the server: pages of message ids for a label
  * (lists page past the cache while the backfill fills it), and search with
  * Outlook's own engine (KQL), Gmail's common operators translated:
- * `from:`, `to:`, `cc:`, `subject:`, `has:attachment`, `after:`/`before:`,
+ * `from:`, `to:`, `cc:` (`me` too), `subject:`, `has:attachment`, `after:`/`before:`,
  * `newer_than:`/`older_than:`, `in:` a folder. What KQL can't say (`is:unread`,
  * `is:starred`, a category) is checked on each result.
  */
@@ -100,13 +100,14 @@ function parse(q: string): { ops: Operator[]; text: string } {
   return { ops, text };
 }
 
-function kql(op: Operator): string | null {
+function kql(accountId: string, op: Operator): string | null {
   const value = op.value;
   switch (op.key) {
     case "from":
     case "to":
     case "cc":
     case "bcc":
+      return `${op.key}:${term(value.toLowerCase() === "me" ? accountId : value)}`;
     case "subject":
       return `${op.key}:${term(value)}`;
     case "has":
@@ -165,7 +166,7 @@ export async function search(
     const terms = [
       ...text.split(" ").filter(Boolean).map(term),
       ...ops.flatMap((op) => {
-        const t = kql(op);
+        const t = kql(accountId, op);
         return t ? [op.negated ? `NOT ${t}` : t] : [];
       }),
     ];

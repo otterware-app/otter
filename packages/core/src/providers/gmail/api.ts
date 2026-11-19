@@ -709,6 +709,7 @@ function detailOf(msg: RawMessageFull): MessageDetail {
     ...summary,
     cc: getHeaderValue(headers, "Cc") || undefined,
     bcc: getHeaderValue(headers, "Bcc") || undefined,
+    replyTo: getHeaderValue(headers, "Reply-To") || undefined,
     bodyHtml: bodyResult.bodyHtml,
     bodyText: bodyResult.bodyText,
     hasAttachments: bodyResult.attachments.length > 0,

@@ -21,9 +21,10 @@ const row = (id: string, threadId: string, date: number, labels: string[]): Mess
   hasAttachments: false,
 });
 
-beforeEach(async () => {
+async function open(prepare?: (db: DatabaseSync) => void) {
   vi.resetModules();
   database = new DatabaseSync(":memory:");
+  prepare?.(database);
   const { setPlatform } = await import("../../platform.js");
   setPlatform({
     database: () => database as unknown as SqlDatabase,
@@ -32,6 +33,10 @@ beforeEach(async () => {
     log: () => {},
   } as unknown as Platform);
   store = await import("../mail-store.js");
+}
+
+beforeEach(async () => {
+  await open();
   store.upsertMessages("me", [
     row("old", "replied", 100, ["INBOX"]),
     row("draft", "replied", 300, ["DRAFT"]),
@@ -55,4 +60,35 @@ it("the Drafts view sorts by the drafts themselves", () => {
     ["new", 400],
     ["replied", 300],
   ]);
+});
+
+it("keeps a message's Reply-To with its detail", () => {
+  const detail = { ...row("asked", "ticket", 500, ["INBOX"]), bodyHtml: null, bodyText: "Hi" };
+  store.upsertMessageDetail("me", {
+    ...detail,
+    replyTo: "Support <help@example.com>",
+    attachments: [],
+  });
+  expect(store.getMessageDetail("me", "asked")?.replyTo).toBe("Support <help@example.com>");
+  store.upsertMessageDetail("me", { ...detail, attachments: [] });
+  expect(store.getMessageDetail("me", "asked")?.replyTo).toBeUndefined();
+});
+
+it("reads details cached before Reply-To was kept again", async () => {
+  database.close();
+  await open((db) => {
+    db.exec(`CREATE TABLE messages (
+    accountId TEXT NOT NULL, id TEXT NOT NULL, threadId TEXT NOT NULL,
+    fromName TEXT NOT NULL DEFAULT '', fromEmail TEXT NOT NULL DEFAULT '',
+    toField TEXT NOT NULL DEFAULT '', subject TEXT NOT NULL DEFAULT '',
+    snippet TEXT NOT NULL DEFAULT '', date INTEGER NOT NULL DEFAULT 0,
+    unread INTEGER NOT NULL DEFAULT 0, starred INTEGER NOT NULL DEFAULT 0,
+    hasAttachments INTEGER NOT NULL DEFAULT 0, labelIds TEXT NOT NULL DEFAULT '[]',
+    cc TEXT, bodyHtml TEXT, bodyText TEXT, attachments TEXT,
+    detailFetched INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (accountId, id))`);
+    db.exec(`INSERT INTO messages (accountId, id, threadId, bodyText, attachments, detailFetched)
+      VALUES ('me', 'cached', 'cached', 'Hi', '[]', 1)`);
+  });
+  expect(store.getMessageDetail("me", "cached")).toBeNull();
+  expect(store.getUndownloadedMessages("me", 10).map((m) => m.id)).toEqual(["cached"]);
 });

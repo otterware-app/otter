@@ -348,7 +348,7 @@ function handle(method: string, url: URL, body: unknown): Response {
       m.version = ++version;
     }
     if (method === "DELETE") {
-      move(m.id, "deleteditems");
+      remove(m.id);
       return new Response(null, { status: 204 });
     }
     return json(resource(m));
@@ -371,7 +371,8 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
           new URL(`https://graph.microsoft.com/v1.0${r.url}`),
           r.body,
         );
-        return { id: r.id, status: answer.status, body: await answer.json() };
+        const text = await answer.text();
+        return { id: r.id, status: answer.status, body: text ? JSON.parse(text) : undefined };
       }),
     );
     return json({ responses });
@@ -1229,9 +1230,11 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
 
     messages.get("restored")!.folder = "inbox";
     await invoke("gmail:emptyFolder", { accountId: account.id, labelId: "TRASH" });
-    expect(writes.filter((w) => w.path.endsWith("/permanentDelete")).map((w) => w.path)).toEqual([
-      "/me/messages/trashed/permanentDelete",
+    // A plain DELETE, as Outlook empties it: recoverable there, never purged.
+    expect(writes.filter((w) => w.method === "DELETE").map((w) => w.path)).toEqual([
+      "/me/messages/trashed",
     ]);
+    expect(writes.some((w) => w.path.endsWith("/permanentDelete"))).toBe(false);
     expect(messages.has("restored")).toBe(true);
     expect(labelsOf("trashed")).toBeUndefined();
   });
@@ -1252,6 +1255,19 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
       { path: "/me/mailFolders/inbox/messages", search: '"invoice from:bob hasattachments:true"' },
     ]);
     expect(page.refs.map((r) => r.id)).toEqual(["unread"]);
+  });
+
+  it("searches for your own mail with from:me, to:me and cc:me", async () => {
+    const { status, provider } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+    await provider.search!(account.id, "from:me to:Me -cc:me", undefined, 50);
+    expect(searches).toEqual([
+      {
+        path: "/me/messages",
+        search: `"from:${account.id} to:${account.id} NOT cc:${account.id}"`,
+      },
+    ]);
   });
 
   describe("sending", () => {

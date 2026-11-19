@@ -65,7 +65,9 @@ MailProvider               packages/core/src/providers/provider.ts
   (button, `e`, bulk) archives from any of your folders, as Outlook's does: in a folder's list it
   takes that folder away (`apps/web/src/main/mail/archive.ts`). Deleting a folder label
   deletes the folder (it goes to Deleted Items with its mail, as in Outlook); deleting a category
-  takes it off every message.
+  takes it off every message. Delete forever and Empty Trash / Junk are Graph's plain `DELETE`, as
+  Outlook deletes from Deleted Items: the mail leaves every folder but stays in Outlook's Recover
+  deleted items (never `permanentDelete`, which purges it).
 - Scheduled sends (`outlook/send.ts`): the draft gets PidTagDeferredSendTime (MAPI `0x3FEF`;
   Graph has no field for it), moves to the Outbox and is sent. Exchange holds it there, locked
   against edits and moves, and sends it at that time to Sent Items, keeping its id. The Outbox
@@ -107,7 +109,7 @@ MailProvider               packages/core/src/providers/provider.ts
   in place, so a draft's id never changes. Ready-made MIME (unsubscribe mail, invitation replies)
   goes through `/sendMail` as MIME.
 - Search is Outlook's (`$search`, KQL), with Gmail's common operators translated: `from:`, `to:`,
-  `cc:`, `subject:`, `has:attachment`, `after:`/`before:`, `newer_than:`/`older_than:`, and `in:` a
+  `cc:` (`me` is the mailbox's address), `subject:`, `has:attachment`, `after:`/`before:`, `newer_than:`/`older_than:`, and `in:` a
   folder; `is:unread`, `is:starred`, `is:important` and categories are checked on each result.
 - Signatures stay on the device and sync as a preference, as IMAP's do: Graph doesn't expose
   Outlook's.

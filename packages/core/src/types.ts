@@ -77,6 +77,8 @@ export interface MessageDetail extends MessageSummary {
   bodyHtml: string | null;
   bodyText: string | null;
   bcc?: string;
+  /** Reply-To: where the sender asked replies to go, instead of From. */
+  replyTo?: string;
   attachments: {
     id: string;
     filename: string;
