@@ -116,6 +116,7 @@ import { useSignInAlerts } from "./mail/sync-health";
 import { useRecordRecentlyViewed } from "./recently-viewed";
 import { takeNewWindowClick, watchNewWindowClicks } from "./new-window-click";
 import { PlaceMenu } from "./place-menu";
+import { HistorySwipeNavigation } from "./history-swipe";
 import { SetupFlow } from "./onboarding/setup";
 import {
   newTab,
@@ -1044,9 +1045,9 @@ function MailHome() {
   }, [initialized, selectedAccountId, selectedLabelId]);
 
   // ⌘[ / ⌘] (the menu accelerators, main.ts "Go"; a DOM keydown never
-  // arrives for them because the webview consumes it) and the mouse's
-  // back/forward buttons (main's history-buttons.ts, which sees them in a
-  // message's iframe too) move through the window's history. A browser does
+  // arrives for them because the webview consumes it) and a Mac's swipes
+  // (main's history-buttons.ts) move through the window's history. Chromium
+  // moves it on the mouse's back/forward buttons itself, and a browser does
   // all of this itself.
   useEffect(() => {
     const back = () => {
@@ -1566,6 +1567,7 @@ function MailHome() {
   return (
     <>
       <PlaceMenu />
+      {features.swipeNavigation ? <HistorySwipeNavigation /> : null}
       <div
         className="surface-grain flex h-full flex-col bg-sidebar-surface text-foreground"
         data-panel-animations={panelAnimationsActive ? "true" : "false"}
@@ -1639,7 +1641,7 @@ function MailHome() {
                   {sidebarOpen ? <PaneResizer onPointerDown={sidebarStart} /> : null}
                 </>
               ) : null}
-              <div className="relative flex min-h-0 min-w-0 flex-1">
+              <div data-main-pane="" className="relative flex min-h-0 min-w-0 flex-1">
                 {hasListTarget && !settingsRoute ? (
                   <>
                     {/* Keep the list mounted while reading in Full inbox: its

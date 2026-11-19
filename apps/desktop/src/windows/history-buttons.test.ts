@@ -27,15 +27,10 @@ function fakeWindow() {
 }
 
 describe("followHistoryButtons", () => {
-  it("steps the app's history on the mouse's back and forward buttons", () => {
+  it("leaves the mouse's back and forward buttons to Chromium, which moves the window's history once", () => {
     const { win, contents } = fakeWindow();
     followHistoryButtons(win as unknown as BrowserWindow, () => null);
-    const mouse = contents.listeners.get("before-mouse-event")!;
-    mouse({}, { type: "mouseUp", button: "back" });
-    mouse({}, { type: "mouseUp", button: "forward" });
-    mouse({}, { type: "mouseDown", button: "back" });
-    mouse({}, { type: "mouseUp", button: "left" });
-    expect(contents.send.mock.calls).toEqual([["nav:back"], ["nav:forward"]]);
+    expect(contents.listeners.has("before-mouse-event")).toBe(false);
   });
 
   it("reads Logi Options+'s swipes as Chrome does: left is back", () => {
@@ -56,16 +51,35 @@ describe("followHistoryButtons", () => {
     expect(page.navigationHistory.goBack).toHaveBeenCalledOnce();
     expect(contents.send).not.toHaveBeenCalled();
   });
+
+  it("tells the app where a trackpad scroll begins and ends", () => {
+    const { win, contents } = fakeWindow();
+    followHistoryButtons(win as unknown as BrowserWindow, () => null);
+    const input = contents.listeners.get("input-event")!;
+    input({}, { type: "gestureScrollBegin" });
+    input({}, { type: "gestureScrollUpdate" });
+    input({}, { type: "gestureScrollEnd" });
+    expect(contents.send.mock.calls).toEqual([["trackpad:scroll-begin"], ["trackpad:scroll-end"]]);
+  });
 });
 
 describe("followPageHistoryButtons", () => {
-  it("steps a browser tab's own history", () => {
+  it("steps a browser tab's own history, and keeps the press from moving the app's", () => {
     const page = fakeContents();
     followPageHistoryButtons(page as unknown as WebContents);
     const mouse = page.listeners.get("before-mouse-event")!;
-    mouse({}, { type: "mouseUp", button: "back" });
-    mouse({}, { type: "mouseUp", button: "forward" });
+    const events = [
+      { type: "mouseDown", button: "back" },
+      { type: "mouseUp", button: "back" },
+      { type: "mouseUp", button: "forward" },
+      { type: "mouseUp", button: "left" },
+    ].map((input) => {
+      const event = { preventDefault: vi.fn() };
+      mouse(event, input);
+      return event;
+    });
     expect(page.navigationHistory.goBack).toHaveBeenCalledOnce();
     expect(page.navigationHistory.goForward).toHaveBeenCalledOnce();
+    expect(events.map((event) => event.preventDefault.mock.calls.length)).toEqual([1, 1, 1, 0]);
   });
 });

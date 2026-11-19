@@ -15,6 +15,7 @@ const mac: BridgeFeatures = {
   ...everywhere,
   windowControls: "left",
   dockBadge: true,
+  swipeNavigation: true,
   translation: true,
   phoneCalls: true,
 };
@@ -23,6 +24,7 @@ const linux: BridgeFeatures = {
   ...everywhere,
   windowControls: "right",
   dockBadge: false,
+  swipeNavigation: false,
   translation: false,
   phoneCalls: false,
 };

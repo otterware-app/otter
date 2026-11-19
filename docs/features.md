@@ -31,6 +31,7 @@ from GitHub Releases. Everything in the Mac column works the same, except:
 | Saved passwords and tokens | the desktop's keyring (GNOME Keyring, KWallet); elsewhere sealed with an app key, as Chrome |
 | Updates                    | the .deb; "Restart to update" asks for the admin password (not installed on quit)           |
 | Feedback to a local agent  | ✓ (x-terminal-emulator, or a chosen terminal)                                               |
+| Back / Forward             | Ctrl+[ Ctrl+] and the mouse's buttons; no trackpad swipes (a tilt wheel scrolls the same)   |
 
 ## Getting started
 
@@ -78,7 +79,7 @@ account offers each kind.
 | Feature                                                                                | Mac                                                                      | Web                                                                 | iPhone                                                              |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | Conversations, earlier messages collapsed                                              | ✓                                                                        | ✓                                                                   | ✓                                                                   |
-| A link for each mailbox, conversation and Settings page; Back / Forward                | ✓ (⌘[ ⌘], mouse buttons, Logi Options+'s swipes)                         | ✓ (the browser's; a reload keeps your place)                        | —                                                                   |
+| A link for each mailbox, conversation and Settings page; Back / Forward                | ✓ (⌘[ ⌘], mouse buttons, Logi Options+'s or trackpad swipes)             | ✓ (the browser's; a reload keeps your place)                        | —                                                                   |
 | HTML mail, inline (cid) images                                                         | ✓                                                                        | ✓                                                                   | ✓                                                                   |
 | Remote images                                                                          | load; broken ones proxied by backend                                     | load; proxy only where CORS lets                                    | load                                                                |
 | Remote-image blocking                                                                  | —                                                                        | —                                                                   | —                                                                   |
