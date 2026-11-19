@@ -74,6 +74,14 @@ describe("encodePicture", () => {
     expect(drawn).toEqual([128, 96, 64]);
   });
 
+  it("makes the size it's asked for", () => {
+    const { draw, drawn } = fakeCanvas({ bytes: (side) => side * 50 });
+    expect(encodePicture(draw, { sides: [64, 48, 32], maxLength: 2_500 }).length).toBeLessThan(
+      2_500,
+    );
+    expect(drawn).toEqual([64, 48]);
+  });
+
   it("gives up on an image that never fits", () => {
     const { draw } = fakeCanvas({ bytes: () => MAILBOX_PICTURE_MAX_LENGTH });
     expect(() => encodePicture(draw)).toThrow(PictureError);

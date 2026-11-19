@@ -11,6 +11,7 @@ import {
 } from "@otter/core/extension-kit";
 
 import { manifest } from "../manifest.ts";
+import type { OpenClawChange } from "./models.js";
 import {
   normalizeOpenClawUrl,
   openClawAgent,
@@ -95,16 +96,18 @@ export default {
       const provider = await providerOf(id);
       return provider.models((await agentSettings(id)) as OpenClawSettings);
     });
-    handle("agent:setOpenClawModel", async (params: unknown) => {
+    handle("agent:changeOpenClaw", async (params: unknown) => {
       const id = agentOf(params);
-      const p = params as Record<string, unknown>;
+      const p = params as { gatewayAgent?: unknown; change?: OpenClawChange };
+      const change = p.change ?? {};
       const provider = await providerOf(id);
-      await provider.setModel(
+      await provider.change(
         (await agentSettings(id)) as OpenClawSettings,
         str(p.gatewayAgent) || null,
-        str(p.model) || null,
+        change,
       );
-      return provider.models((await agentSettings(id)) as OpenClawSettings);
+      // The chat's agent picker shows each agent's name and picture.
+      if ("name" in change || "avatar" in change) void refreshProvider(id);
     });
     handle("agent:allowOpenClawOwner", async (params: unknown) => {
       const id = agentOf(params);

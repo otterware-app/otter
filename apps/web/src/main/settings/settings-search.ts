@@ -428,7 +428,9 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "openclaw-models",
     title: "Which models it uses",
     pane: "agents",
-    searchTerms: ["openclaw model llm default agent primary gateway gpt claude"],
+    searchTerms: [
+      "openclaw model llm default agent primary gateway gpt claude fallback thinking reasoning effort fast mode utility name picture avatar rename",
+    ],
   },
   {
     id: "openclaw-deliveries",

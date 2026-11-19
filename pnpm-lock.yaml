@@ -416,6 +416,9 @@ importers:
       '@otter/core':
         specifier: workspace:*
         version: link:../../packages/core
+      lucide-react:
+        specifier: ^0.542.0
+        version: 0.542.0(react@19.3.0)
       react:
         specifier: ^19.1.1
         version: 19.3.0
