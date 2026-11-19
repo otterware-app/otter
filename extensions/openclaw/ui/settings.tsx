@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 
 import { openClawApi } from "./api";
 import { OpenClawDeliveries } from "./deliveries";
+import { OpenClawModelsSection } from "./models";
 
 const SITE_ORIGIN = window.desktopBridge.platform === "web" ? location.origin : null;
 
@@ -245,7 +246,7 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
             description={
               openclawFullAccess.request
                 ? "The gateway is waiting for you to approve it. Run this on its computer; Otter reconnects with full access once you do."
-                : `This ${device} was paired with less than OpenClaw's own apps have, so the agent won't use your devices (its nodes tool) for what you ask here, and its questions may not reach you. Allowing it asks the gateway for full access, and you approve it there.`
+                : `This ${device} was paired with less than OpenClaw's own apps have, so the agent won't use your devices (its nodes tool) for what you ask here, its questions may not reach you, and Otter can't change which models it uses. Allowing it asks the gateway for full access, and you approve it there.`
             }
             control={
               openclawFullAccess.request ? null : (
@@ -273,6 +274,12 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
         ) : null}
       </SettingsSection>
       {connected ? <OpenClawDeliveries /> : null}
+      {connected ? (
+        <OpenClawModelsSection
+          key={openclawFullAccess.allowed ? "full" : "limited"}
+          agent={provider.id}
+        />
+      ) : null}
       {connected ? (
         <ModelsSection
           provider={provider}

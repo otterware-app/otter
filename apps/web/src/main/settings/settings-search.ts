@@ -425,6 +425,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["openclaw gateway address token connect pair approve device tailscale"],
   },
   {
+    id: "openclaw-models",
+    title: "Which models it uses",
+    pane: "agents",
+    searchTerms: ["openclaw model llm default agent primary gateway gpt claude"],
+  },
+  {
     id: "openclaw-deliveries",
     title: "Messages from your agents",
     pane: "agents",

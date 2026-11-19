@@ -8,6 +8,7 @@ import {
   removeTask,
   runRows,
   saveTask,
+  taskModels,
   taskOf,
   taskRuns,
   type CronGateway,
@@ -109,6 +110,12 @@ describe("taskOf", () => {
       delivery: { kind: "otter", chat: "new" },
       revision: "sha256:rev",
     });
+  });
+
+  it("says the model a job runs on when it has one of its own", () => {
+    const own = { ...brief, payload: { ...brief.payload, model: "openai/gpt-6.2-sol" } };
+    expect(taskOf(own as never, "main").model).toBe("openai/gpt-6.2-sol");
+    expect(taskOf(brief as never, "main")).not.toHaveProperty("model");
   });
 
   it("marks OpenClaw's own jobs, and hides their internal messages", () => {
@@ -629,6 +636,36 @@ describe("saveTask", () => {
     });
   });
 
+  it("gives a new job a model of its own", async () => {
+    const { g, calls } = fakeGateway(() => ({ id: "new" }));
+    await saveTask(g, null, {
+      name: "Brief",
+      prompt: "Summarise",
+      schedule: { kind: "every", everyMs: 3_600_000 },
+      model: "openai/gpt-6.2-sol",
+    });
+    expect(calls[0].params.payload).toEqual({
+      kind: "agentTurn",
+      message: "Summarise",
+      model: "openai/gpt-6.2-sol",
+    });
+  });
+
+  it("changes a job's model, or puts it back on its agent's", async () => {
+    const own = { ...brief, payload: { ...brief.payload, model: "openai/gpt-6.2-sol" } };
+    const edit = { name: "Morning brief", schedule: brief.schedule as never };
+    let job: object = brief;
+    const { g, calls } = fakeGateway((method) => (method === "cron.get" ? job : {}));
+    await saveTask(g, "brief", { ...edit, model: "openai/gpt-6.2-sol" });
+    expect(calls[1].params.patch).toEqual({ payload: own.payload });
+    job = own;
+    await saveTask(g, "brief", { ...edit, model: null });
+    expect(calls[3].params.patch).toEqual({ payload: { ...own.payload, model: null } });
+    await saveTask(g, "brief", { ...edit, model: "openai/gpt-6.2-sol" });
+    await saveTask(g, "brief", edit);
+    expect(calls.slice(4).map((c) => c.method)).toEqual(["cron.get", "cron.get"]);
+  });
+
   it("won't change or delete OpenClaw's own jobs", async () => {
     const { g, calls } = fakeGateway(() => heartbeat);
     await expect(
@@ -806,6 +843,34 @@ describe("channels", () => {
       method: "conversations.list",
       params: { agentId: "rowan", channel: "slack", limit: 100 },
     });
+  });
+});
+
+describe("taskModels", () => {
+  it("offers the models the gateway has for the agent, and says which it runs on", async () => {
+    const { g, calls } = fakeGateway((method) =>
+      method === "models.list"
+        ? {
+            models: [
+              { id: "gpt-6.1-sol", name: "GPT-6.1-Sol", provider: "openai" },
+              { id: "kimi-k2", name: "Kimi K2", provider: "openrouter", available: true },
+              { id: "opus", name: "Opus", provider: "anthropic", available: false },
+            ],
+          }
+        : { agents: [{ id: "main", model: { primary: "openai/gpt-6.1-sol" } }, { id: "rowan" }] },
+    );
+    expect(await taskModels(g, "main")).toEqual({
+      agentModel: "openai/gpt-6.1-sol",
+      models: [
+        { id: "openai/gpt-6.1-sol", name: "GPT-6.1-Sol" },
+        { id: "openrouter/kimi-k2", name: "Kimi K2" },
+      ],
+    });
+    expect(calls[0]).toEqual({
+      method: "models.list",
+      params: { agentId: "main", view: "default" },
+    });
+    expect(await taskModels(g, "rowan")).not.toHaveProperty("agentModel");
   });
 });
 

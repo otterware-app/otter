@@ -90,6 +90,22 @@ export default {
       });
       return providersState();
     });
+    handle("agent:openClawModels", async (params: unknown) => {
+      const id = agentOf(params);
+      const provider = await providerOf(id);
+      return provider.models((await agentSettings(id)) as OpenClawSettings);
+    });
+    handle("agent:setOpenClawModel", async (params: unknown) => {
+      const id = agentOf(params);
+      const p = params as Record<string, unknown>;
+      const provider = await providerOf(id);
+      await provider.setModel(
+        (await agentSettings(id)) as OpenClawSettings,
+        str(p.gatewayAgent) || null,
+        str(p.model) || null,
+      );
+      return provider.models((await agentSettings(id)) as OpenClawSettings);
+    });
     handle("agent:allowOpenClawOwner", async (params: unknown) => {
       const id = agentOf(params);
       const provider = await providerOf(id);

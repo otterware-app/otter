@@ -105,6 +105,7 @@ export function scheduledTaskInputOf(raw: unknown, editing = false): ScheduledTa
     schedule,
     ...(str(p?.agent) ? { agent: str(p?.agent) } : {}),
     ...(p?.resultsTo !== undefined ? { resultsTo: resultsToOf(p.resultsTo) } : {}),
+    ...(p?.model === null || str(p?.model) ? { model: str(p?.model) || null } : {}),
     ...(str(p?.revision) ? { revision: str(p?.revision) } : {}),
   };
 }
@@ -434,6 +435,11 @@ export function registerAgentHandlers(): void {
     const channel = str(p?.channel);
     if (!channel) return [];
     return agent.scheduledTargets(providerOf(p), str(p?.agent), channel);
+  });
+
+  handle("agent:scheduledModels", async (params: unknown) => {
+    const p = params as Params;
+    return agent.scheduledModels(providerOf(p), str(p?.agent));
   });
 
   handle("agent:scheduledRunTranscript", async (params: unknown) => {

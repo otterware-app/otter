@@ -22,6 +22,7 @@ import type {
   ResultsTo,
   ScheduledTask,
   TaskDelivery,
+  TaskModels,
   TaskRun,
 } from "@otter/contracts/scheduled";
 import { Dialog } from "~/components/ui/dialog";
@@ -103,6 +104,19 @@ function useAgentName() {
 }
 
 const hostOf = (url: string) => (URL.canParse(url) ? new URL(url).host : url);
+
+/** What one agent's tasks can run on; none for an agent that doesn't say. */
+function useTaskModels(provider: string, agent: string, enabled = true) {
+  return useQuery({
+    queryKey: ["agent-scheduled-models", provider, agent],
+    queryFn: () => mailApi.scheduledModels(provider, agent),
+    enabled: enabled && Boolean(provider),
+    staleTime: 60_000,
+  });
+}
+
+const modelName = (models: TaskModels | undefined, id: string) =>
+  models?.models.find((m) => m.id === id)?.name ?? id;
 
 function deliveryText(delivery: TaskDelivery): string {
   if (delivery.kind === "otter")
@@ -781,6 +795,7 @@ function TaskPage({
 }) {
   const agentName = useAgentName();
   const action = useTaskAction();
+  const models = useTaskModels(task.provider, task.agent ?? "", Boolean(task.model));
   const conversations = useChats((s) => s.conversations);
   const results = conversations
     .filter(
@@ -934,6 +949,7 @@ function TaskPage({
               {agentName(task.provider, task.agent)}
             </span>
           </Detail>
+          {task.model ? <Detail label="Model">{modelName(models.data, task.model)}</Detail> : null}
           <Detail label="Results">
             {deliveryText(task.delivery)}
             {task.deliveryProblem ? (
@@ -1299,6 +1315,8 @@ function ResultsField({
 
 /** The select's value for a schedule with no zone of its own: the agent's. */
 const AGENT_ZONE = "agent";
+/** The select's value for a task with no model of its own: the agent's. */
+const AGENT_MODEL = "agent";
 const TIMED = new Set<Repeat>(["daily", "weekdays", "weekly", "monthly"]);
 
 type Owner = { provider: string; agent?: string; label: string };
@@ -1379,6 +1397,7 @@ function TaskEditor({
     () => (task && whenFormOf(task.schedule)) || newWhenForm(),
   );
   const [destination, setDestination] = useState(() => destinationOf(task, agentTasks));
+  const [model, setModel] = useState(task?.model ?? "");
   const routes = Boolean(can?.deliverToOtter || can?.webhooks || agentTasks?.channels.length);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1390,6 +1409,10 @@ function TaskEditor({
     setWhen((w) => ({ ...w, ...patch }));
   };
   const asksPrompt = !task || task.prompt !== undefined;
+  // Only an agent turn in a session of its own runs on a model of its own (OpenClaw).
+  const ownModel = asksPrompt && !task?.undeliverable;
+  const agentId = task?.agent ?? owner.split("|")[1] ?? "";
+  const models = useTaskModels(provider, agentId, ownModel).data;
   const zoned = Boolean(can?.timeZones) && (TIMED.has(when.repeat) || when.repeat === "cron");
   // An untouched "when" goes back exactly as it was, whatever the fields can't show.
   const kept = task && !whenChanged && task.schedule.kind !== "other" ? task.schedule : null;
@@ -1417,6 +1440,7 @@ function TaskEditor({
         schedule: schedule(),
         ...(!task && agent ? { agent } : {}),
         ...(results && !("problem" in results) ? { resultsTo: results } : {}),
+        ...(model !== (task?.model ?? "") ? { model: model || null } : {}),
         ...(task?.revision ? { revision: task.revision } : {}),
       });
       await qc.invalidateQueries({ queryKey: TASKS_KEY });
@@ -1451,6 +1475,7 @@ function TaskEditor({
               value={owner}
               onChange={(value) => {
                 setOwner(value);
+                setModel("");
                 setDestination(
                   destinationOf(
                     null,
@@ -1485,6 +1510,27 @@ function TaskEditor({
                 setPrompt(e.target.value);
               }}
               className="min-h-24 w-full resize-y rounded-lg border border-border/70 bg-surface-raised/60 px-2.5 py-2 text-sm text-foreground outline-none placeholder:text-placeholder focus-visible:border-focus-ring/60 focus-visible:bg-canvas focus-visible:ring-[3px] focus-visible:ring-focus-ring/16"
+            />
+          </Field>
+        ) : null}
+        {ownModel && (models?.models.length || task?.model) ? (
+          <Field label="Model">
+            <SelectField
+              label="Model"
+              value={model || AGENT_MODEL}
+              onChange={(value) => setModel(value === AGENT_MODEL ? "" : value)}
+              options={[
+                {
+                  value: AGENT_MODEL,
+                  label: models?.agentModel
+                    ? `The agent's (${modelName(models, models.agentModel)})`
+                    : "The agent's",
+                },
+                ...(model && !models?.models.some((m) => m.id === model)
+                  ? [{ value: model, label: model }]
+                  : []),
+                ...(models?.models ?? []).map((m) => ({ value: m.id, label: m.name })),
+              ]}
             />
           </Field>
         ) : null}
@@ -1589,7 +1635,7 @@ function TaskEditor({
           <ResultsField
             task={task}
             agent={agentTasks}
-            agentId={task?.agent ?? owner.split("|")[1] ?? ""}
+            agentId={agentId}
             value={destination}
             onChange={(next) => {
               setError(null);

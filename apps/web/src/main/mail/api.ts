@@ -7,6 +7,7 @@ import type {
   AgentScheduledTasks,
   ChannelTarget,
   ScheduledTaskInput,
+  TaskModels,
   TaskRun,
 } from "@otter/contracts/scheduled";
 import type {
@@ -801,6 +802,8 @@ export const mailApi = {
     agent: string,
     channel: string,
   ): Promise<ChannelTarget[]> => ipc("agent:scheduledTargets", { provider, agent, channel }),
+  scheduledModels: (provider: ProviderKind, agent: string): Promise<TaskModels> =>
+    ipc("agent:scheduledModels", { provider, agent }),
   scheduledRunTranscript: (
     provider: ProviderKind,
     id: string,

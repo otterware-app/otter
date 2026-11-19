@@ -3,6 +3,7 @@ import type {
   AgentScheduledTasks,
   ChannelTarget,
   ScheduledTaskInput,
+  TaskModels,
   TaskRun,
 } from "@otter/contracts/scheduled";
 /** What an extension contributes: hermes, openclaw, claude… */
@@ -325,6 +326,8 @@ export interface ScheduleSupport<S> {
   runTranscript?(settings: S, id: string, runId: string): Promise<ChatSessionMessage[]>;
   /** Who results could go to on one of its channels, for its agent `agent`. */
   targets?(settings: S, agent: string, channel: string): Promise<ChannelTarget[]>;
+  /** What its agent `agent`'s tasks can run on. */
+  models?(settings: S, agent: string): Promise<TaskModels>;
 }
 
 /** One agent's secrets (its key, its pairing), in the platform's: never sent to the renderer, never logged. */

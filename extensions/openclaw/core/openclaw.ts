@@ -38,6 +38,7 @@ import {
 } from "@openclaw/gateway-client/browser";
 import { OpenClawText, openClawMessageText as textOf } from "./openclaw-stream.js";
 import { createTalks, talkReady, type TalkGateway } from "./openclaw-talk.js";
+import { openClawModels, setOpenClawModel, type OpenClawModels, type Request } from "./models.js";
 import {
   channelTargets,
   listTasks,
@@ -46,6 +47,7 @@ import {
   runTask,
   saveTask,
   setTaskEnabled,
+  taskModels,
   taskRuns,
   type CronGateway,
 } from "./schedules.js";
@@ -768,6 +770,9 @@ export type OpenClawProvider = ChatProvider<OpenClawSettings> & {
   connect(url: string, auth: { token: string } | { bootstrapToken: string }): Promise<void>;
   allowFullAccess(settings: OpenClawSettings, changed: () => void): Promise<void>;
   allowOwner(settings: OpenClawSettings): Promise<void>;
+  /** Null without full access, which changing them needs. */
+  models(settings: OpenClawSettings): Promise<OpenClawModels | null>;
+  setModel(settings: OpenClawSettings, agentId: string | null, model: string | null): Promise<void>;
 };
 
 /**
@@ -1865,10 +1870,24 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
     };
   }
 
+  const request =
+    (g: Gateway): Request =>
+    (method, params) =>
+      g.client.request(method, params);
+
   return {
     connect,
     allowFullAccess,
     allowOwner,
+
+    async models(settings) {
+      const g = await gateway(settings);
+      return holdsAll(g.scopes) ? openClawModels(request(g)) : null;
+    },
+
+    async setModel(settings, agentId, model) {
+      await setOpenClawModel(request(await gateway(settings)), agentId, model);
+    },
 
     async settingsView() {
       return {
@@ -2422,6 +2441,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
         transcript(await runRows(await cronGateway(settings), id, runId)),
       targets: async (settings, agent, channel) =>
         channelTargets(await cronGateway(settings), agent, channel),
+      models: async (settings, agent) => taskModels(await cronGateway(settings), agent),
     },
 
     talk: {

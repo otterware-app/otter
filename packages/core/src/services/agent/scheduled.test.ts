@@ -152,6 +152,15 @@ describe("a task as the app sends it", () => {
     expect(() => scheduledTaskInputOf({ ...base, resultsTo: "off" })).toThrow(/where its results/);
   });
 
+  it("gives it a model of its own, takes it back, or leaves it", () => {
+    const base = { name: "x", schedule: { kind: "every", everyMs: 60_000 } };
+    expect(scheduledTaskInputOf({ ...base, model: " openai/gpt-6.2-sol " }).model).toBe(
+      "openai/gpt-6.2-sol",
+    );
+    expect(scheduledTaskInputOf({ ...base, model: null }).model).toBeNull();
+    expect(scheduledTaskInputOf(base)).not.toHaveProperty("model");
+  });
+
   it("is refused when it can't run", () => {
     const at =
       (schedule: unknown, extra: Record<string, unknown> = {}) =>
