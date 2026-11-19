@@ -323,6 +323,13 @@ function handle(method: string, url: URL, body: unknown): Response {
     return json(resource(m));
   }
 
+  const source = /^\/me\/messages\/([^/]+)\/\$value$/.exec(path);
+  if (source) {
+    const m = messages.get(decodeURIComponent(source[1]!));
+    if (!m) return notFound();
+    return new Response(`Subject: ${m.subject}\r\nContent-Type: text/plain\r\n\r\nBody.\r\n`);
+  }
+
   const one = /^\/me\/messages\/([^/]+)(\/move)?$/.exec(path);
   if (one) {
     const asked = decodeURIComponent(one[1]!);
@@ -990,6 +997,19 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
       await invoke("gmail:discardThreadDrafts", { accountId: account.id, threadId: "conv-x" });
       expect(labelsOf("draft")).toBeUndefined();
       expect(writes.filter((w) => w.path.startsWith("/me/messages/draft"))).toEqual([]);
+    });
+
+    it("doesn't bring a discarded draft back when it's opened again", async () => {
+      deliver("draft", "drafts", { conversationId: "conv-x", draft: true, fromMe: true });
+      const { status, labelsOf, invoke } = await boot();
+      await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+      messages.get("draft")!.folder = "recoverableitemsdeletions";
+      await invoke("gmail:discardThreadDrafts", { accountId: account.id, threadId: "conv-x" });
+      expect(
+        await invoke("gmail:getMessage", { accountId: account.id, messageId: "draft" }),
+      ).toBeNull();
+      expect(labelsOf("draft")).toBeUndefined();
     });
 
     it("discards a deleted draft left in Drafts when Outlook won't name Recoverable Items", async () => {

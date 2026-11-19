@@ -2,12 +2,13 @@ import { parseMessage } from "../../protocols/index.js";
 import { getMessageLabelIds } from "../../services/mail-store.js";
 import type { MessageDetail, MessageSummary } from "../../types.js";
 import { formatAddresses, snippetOf } from "../imap/messages.js";
-import { labelsFor } from "./folders.js";
+import { labelsFor, stillInMailbox } from "./folders.js";
 import {
   batchError,
   graph,
   graphBatch,
   graphBytes,
+  GraphError,
   isAccessDenied,
   isNotFound,
   ok,
@@ -189,6 +190,10 @@ export async function getMessage(accountId: string, id: string): Promise<Message
     graph<ApiMessage>(accountId, path),
     knownDraft ? Promise.resolve(null) : source(accountId, id),
   ]);
+  // Graph still reads deleted mail by its immutable id, from Recoverable Items: it's gone.
+  if (!(await stillInMailbox(accountId, message.parentFolderId))) {
+    throw new GraphError(404, "ErrorItemNotFound", "Deleted, in Recoverable Items");
+  }
   if (message.isDraft && message.changeKey) {
     // Pair the body/files with their revision. Another client may edit a
     // draft between the metadata and MIME reads; never claim the newer key

@@ -20,7 +20,7 @@ import {
   type OutgoingMail,
   type ScheduleOutcome,
 } from "../provider.js";
-import { folderLabel, inMailbox, isSyncedFolder, readMailbox, wellKnownId } from "./folders.js";
+import { folderLabel, isSyncedFolder, stillInMailbox, wellKnownId } from "./folders.js";
 import { graph, graphAll, isNetworkError, isNotFound, GraphError } from "./graph.js";
 import { messagePath, type ApiMessage } from "./messages.js";
 
@@ -298,11 +298,7 @@ async function isLiveDraft(accountId: string, message: ApiMessage): Promise<bool
   if (message.isDraft !== true) return false;
   if (folderLabel(accountId, folder) === "TRASH" || !isSyncedFolder(accountId, folder))
     return false;
-  if (inMailbox(accountId, folder)) return true;
-  // Graph still reads deleted mail, from Recoverable Items folders Outlook may not name, and a
-  // folder made since the last listing holds live mail: list them again to tell.
-  await readMailbox(accountId);
-  return inMailbox(accountId, folder) && folderLabel(accountId, folder) !== "TRASH";
+  return (await stillInMailbox(accountId, folder)) && folderLabel(accountId, folder) !== "TRASH";
 }
 
 export async function saveDraft(
