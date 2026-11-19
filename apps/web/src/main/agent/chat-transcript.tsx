@@ -491,28 +491,30 @@ export function ChatTranscript({
         ? work
         : work.filter((item, i) => isCompaction(item) && !isCompaction(work[i + 1]));
     const continued = isSteer(turns[index - 1]);
-    const foldLabel = live ? (
-      <span className="text-shimmer">
-        {runStartedAt ? (
-          <>
-            Working for <WorkingTimer startedAt={runStartedAt} />
-          </>
-        ) : (
-          "Working…"
-        )}
-      </span>
-    ) : turn.startedAt && turn.finishedAt ? (
-      `${continued ? "Continued" : "Worked"} for ${formatDuration(turn.finishedAt - turn.startedAt)}`
-    ) : continued ? (
-      "Continued"
-    ) : (
-      `Took ${steps} step${steps === 1 ? "" : "s"}`
-    );
+    // As in T3 Code, a run says it's working once, at its top; a reply after a steer reads "Continued".
+    const foldLabel =
+      live && !continued ? (
+        <span className="text-shimmer">
+          {runStartedAt ? (
+            <>
+              Working for <WorkingTimer startedAt={runStartedAt} />
+            </>
+          ) : (
+            "Working…"
+          )}
+        </span>
+      ) : turn.startedAt && turn.finishedAt ? (
+        `${continued ? "Continued" : "Worked"} for ${formatDuration(turn.finishedAt - turn.startedAt)}`
+      ) : continued ? (
+        "Continued"
+      ) : (
+        `Took ${steps} step${steps === 1 ? "" : "s"}`
+      );
     return (
       <MessageScroller.Item key={turn.id} messageId={turn.id}>
         <div className="flex flex-col">
           <DeliveryRow turn={turn} />
-          {live && isLast && !foldable && !compactingMidway && !compactingFirst ? (
+          {live && !continued && !foldable && !compactingMidway && !compactingFirst ? (
             <WorkingRow startedAt={runStartedAt} compacting={false} />
           ) : null}
           {foldable ? (
