@@ -75,7 +75,7 @@ import { SenderAvatar } from "./sender-avatar";
 import { SignedOutMailbox } from "./signed-out-mailbox";
 import { LabelOverlay, type LabelOverlayMode } from "./label-overlay";
 import { useCapabilities } from "./capabilities";
-import { archiveFrom } from "./archive";
+import { actedFrom, archiveFrom } from "./archive";
 import { moveToFolder, renderLabelChoices, useLabelChoices } from "./label-picker-menu";
 import { isTypingTarget } from "./keyboard";
 import { useCommandHandlers } from "../keybindings/dispatch";
@@ -368,6 +368,9 @@ function MessageRow({
   const threadCount = message.threadCount ?? 1;
 
   const labelIds = rowLabels(message);
+  const from = actedFrom(viewLabelIds);
+  // Flagged while any of its messages is, as Outlook and Gmail show a conversation.
+  const flagged = message.threadStarred ?? message.starred;
   const messageLabels = labelIds
     .filter((id) => !viewLabelIds.has(id))
     .map((id) => resolveLabel(ownerAccountId, id))
@@ -382,6 +385,7 @@ function MessageRow({
     threadId,
     labelIds,
     folders: true,
+    from,
   });
 
   const handleToggleRead = () => {
@@ -412,19 +416,17 @@ function MessageRow({
       threadId,
       addLabelIds: junk ? ["INBOX"] : ["SPAM"],
       removeLabelIds: junk ? ["SPAM"] : ["INBOX"],
+      from,
     });
   };
 
   const handleStarToggle = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    console.log("[MessageList:starToggle]", {
-      messageId: message.id,
-      starred: message.starred,
-    });
-    if (message.starred) {
-      void modifyMessage.mutateAsync({
+    console.log("[MessageList:starToggle]", { messageId: message.id, flagged });
+    if (flagged) {
+      void modifyThread.mutateAsync({
         accountId: ownerAccountId,
-        messageId: message.id,
+        threadId,
         removeLabelIds: ["STARRED"],
       });
     } else {
@@ -447,6 +449,7 @@ function MessageRow({
       threadId,
       addLabelIds: archiveSource ? undefined : ["INBOX"],
       removeLabelIds: archiveSource ? [archiveSource] : undefined,
+      from,
     });
   };
 
@@ -465,7 +468,7 @@ function MessageRow({
       void discardDrafts.mutateAsync({ accountId: ownerAccountId, threadId });
       return;
     }
-    void trashThread.mutateAsync({ accountId: ownerAccountId, threadId });
+    void trashThread.mutateAsync({ accountId: ownerAccountId, threadId, from });
   };
 
   const rowRef = useRef<HTMLButtonElement>(null);
@@ -497,7 +500,7 @@ function MessageRow({
             data-message-id={message.id}
             {...PLACE}
             data-draft={isDraft || undefined}
-            data-flagged={message.starred || undefined}
+            data-flagged={flagged || undefined}
             data-unread={unread || undefined}
             data-read={!unread || undefined}
             data-selected={selected || undefined}
@@ -654,7 +657,7 @@ function MessageRow({
             </div>
           </button>
         </ContextMenuTrigger>
-        {message.starred ? (
+        {flagged ? (
           <button
             type="button"
             onClick={handleStarToggle}
@@ -696,15 +699,13 @@ function MessageRow({
                 {unread ? <MailOpenIcon className="size-3.5" /> : <MailIcon className="size-3.5" />}
               </IconBtn>
             </HintTooltip>
-            <HintTooltip label={message.starred ? "Unflag" : "Flag"}>
+            <HintTooltip label={flagged ? "Unflag" : "Flag"}>
               <IconBtn
-                label={message.starred ? "Unflag" : "Flag"}
+                label={flagged ? "Unflag" : "Flag"}
                 className="size-7"
                 onClick={handleStarToggle}
               >
-                <FlagIcon
-                  className={cn("size-3.5", message.starred && "fill-current text-(--red)")}
-                />
+                <FlagIcon className={cn("size-3.5", flagged && "fill-current text-(--red)")} />
               </IconBtn>
             </HintTooltip>
             {inInbox && !trashed && !junk ? (
@@ -748,10 +749,10 @@ function MessageRow({
               {unread ? "Mark as read" : "Mark as unread"}
             </ContextMenuItem>
             <ContextMenuItem
-              icon={message.starred ? "flag.slash" : "flag"}
+              icon={flagged ? "flag.slash" : "flag"}
               onSelect={() => handleStarToggle()}
             >
-              {message.starred ? "Unflag" : "Flag"}
+              {flagged ? "Unflag" : "Flag"}
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem icon="cursorarrow" onSelect={onChatAgent}>
@@ -1035,6 +1036,7 @@ export function MessageList({
     }
     return new Set([labelId]);
   };
+  const fromFor = (ownerId: string) => actedFrom(viewLabelIdsFor(ownerId));
 
   const listTrashThread = useTrashThread();
   const listDiscardDrafts = useDiscardThreadDrafts();
@@ -1284,15 +1286,15 @@ export function MessageList({
           accountId: m.accountId ?? accountId,
           threadId: m.threadId || m.id,
           removeLabelIds: [archiveSourceOf(rowLabels(m)) ?? "INBOX"],
+          from: fromFor(m.accountId ?? accountId),
         }),
     );
   const inDrafts = (owner: string) => viewLabelIdsFor(owner).has("DRAFT");
   // In Drafts, Delete discards the conversation's drafts, not the conversation.
   const trashRow = (owner: string, threadId: string) =>
-    void (inDrafts(owner) ? listDiscardDrafts : listTrashThread).mutateAsync({
-      accountId: owner,
-      threadId,
-    });
+    void (inDrafts(owner)
+      ? listDiscardDrafts.mutateAsync({ accountId: owner, threadId })
+      : listTrashThread.mutateAsync({ accountId: owner, threadId, from: fromFor(owner) }));
   const bulkDiscards = checkedRows.some((m) => inDrafts(m.accountId ?? accountId));
   const bulkTrash = () =>
     bulk("trash", (m) => trashRow(m.accountId ?? accountId, m.threadId || m.id), {
@@ -1307,6 +1309,7 @@ export function MessageList({
           threadId: m.threadId || m.id,
           addLabelIds: ["SPAM"],
           removeLabelIds: ["INBOX"],
+          from: fromFor(m.accountId ?? accountId),
         }),
     );
   const bulkMarkRead = () =>
@@ -1359,6 +1362,7 @@ export function MessageList({
           threadId: m.threadId || m.id,
           addLabelIds: ["INBOX"],
           removeLabelIds: ["SPAM"],
+          from: fromFor(m.accountId ?? accountId),
         }),
     );
   // Trash/spam rows only surface in their own views, so a uniform selection
@@ -1475,7 +1479,12 @@ export function MessageList({
       if (moveContextLabelId && move.removeLabelIds.includes(moveContextLabelId)) {
         advanceFrom(row.id);
       }
-      void listModifyThread.mutateAsync({ accountId: owner, threadId: rowThreadId, ...move });
+      void listModifyThread.mutateAsync({
+        accountId: owner,
+        threadId: rowThreadId,
+        ...move,
+        from: fromFor(owner),
+      });
       return;
     }
     if (labelOverlay === "label") {
@@ -1498,6 +1507,7 @@ export function MessageList({
       threadId: rowThreadId,
       addLabelIds: pickedId === moveContextLabelId ? undefined : [pickedId],
       removeLabelIds: removable ? [moveContextLabelId] : undefined,
+      from: fromFor(owner),
     });
   };
 
@@ -1652,6 +1662,7 @@ export function MessageList({
         threadId,
         addLabelIds: from ? undefined : ["INBOX"],
         removeLabelIds: from ? [from] : undefined,
+        from: fromFor(owner),
       });
     }),
     // oxlint-disable-next-line react/refs -- rowCommand builds an event handler; its ref reads happen when the command runs.
@@ -1699,10 +1710,19 @@ export function MessageList({
         threadId,
         addLabelIds: rowJunk ? ["INBOX"] : ["SPAM"],
         removeLabelIds: rowJunk ? ["SPAM"] : ["INBOX"],
+        from: fromFor(owner),
       });
     }),
-    "message.star": rowCommand(({ row, owner, focus }) => {
+    "message.star": rowCommand(({ row, owner, threadId, focus }) => {
       if (!row) return false;
+      if (!focus && (row.threadStarred ?? row.starred)) {
+        void listModifyThread.mutateAsync({
+          accountId: owner,
+          threadId,
+          removeLabelIds: ["STARRED"],
+        });
+        return;
+      }
       const target = focus ?? row;
       void listModifyMessage.mutateAsync({
         accountId: owner,
@@ -1800,6 +1820,7 @@ export function MessageList({
           threadId: m.threadId || m.id,
           addLabelIds: [targetId],
           removeLabelIds: remove.length > 0 ? remove : undefined,
+          from: fromFor(owner),
         });
       }
       if (multi) clearChecked();

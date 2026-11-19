@@ -1140,6 +1140,101 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
     expect(listed("ARCHIVE")).toEqual([]);
   });
 
+  describe("a conversation spread over folders, acted on as Outlook does", () => {
+    async function spread() {
+      deliver("asked", "inbox", { conversationId: "s" });
+      deliver("filed", "archive", { conversationId: "s" });
+      deliver("binned", "deleteditems", { conversationId: "s", draft: true, fromMe: true });
+      deliver("reply", "sentitems", { conversationId: "s", fromMe: true, isRead: true });
+      const booted = await boot();
+      await until(() => booted.status().fullSyncDone && !booted.status().syncing, "the sync");
+      writes = [];
+      const folders = () =>
+        Object.fromEntries(
+          ["asked", "filed", "binned", "reply"].map((id) => [id, messages.get(id)?.folder]),
+        );
+      return { ...booted, folders };
+    }
+
+    it("deletes from the Inbox only what's in the Inbox", async () => {
+      const { invoke, folders, labelsOf } = await spread();
+      await invoke("gmail:trashThread", { accountId: account.id, threadId: "s", from: "INBOX" });
+      expect(folders()).toEqual({
+        asked: "deleteditems",
+        filed: "archive",
+        binned: "deleteditems",
+        reply: "sentitems",
+      });
+      expect(labelsOf("filed")).toContain("ARCHIVE");
+      expect(labelsOf("reply")).toContain("SENT");
+    });
+
+    it("moves to the Inbox only what's in the folder it was moved from", async () => {
+      const { invoke, folders, labelsOf } = await spread();
+      await invoke("gmail:modifyThread", {
+        accountId: account.id,
+        threadId: "s",
+        addLabelIds: ["INBOX"],
+        removeLabelIds: ["ARCHIVE"],
+        from: "ARCHIVE",
+      });
+      expect(folders()).toEqual({
+        asked: "inbox",
+        filed: "inbox",
+        binned: "deleteditems",
+        reply: "sentitems",
+      });
+      expect(labelsOf("binned")).toContain("TRASH");
+    });
+
+    it("junks from the Inbox only the Inbox's senders", async () => {
+      const { invoke } = await spread();
+      await invoke("gmail:modifyThread", {
+        accountId: account.id,
+        threadId: "s",
+        addLabelIds: ["SPAM"],
+        removeLabelIds: ["INBOX"],
+        from: "INBOX",
+      });
+      expect(writes.map((w) => w.path)).toEqual(["/me/messages/asked/markAsJunk"]);
+    });
+
+    it("from elsewhere (Flagged, an agent), leaves Deleted Items alone", async () => {
+      const { invoke, folders } = await spread();
+      await invoke("gmail:modifyThread", {
+        accountId: account.id,
+        threadId: "s",
+        addLabelIds: ["INBOX"],
+        from: "STARRED",
+      });
+      expect(folders()).toEqual({
+        asked: "inbox",
+        filed: "inbox",
+        binned: "deleteditems",
+        reply: "sentitems",
+      });
+    });
+
+    it("restores what was deleted, leaving the discarded draft in Deleted Items", async () => {
+      const { invoke, folders } = await spread();
+      await invoke("gmail:trashThread", { accountId: account.id, threadId: "s", from: "INBOX" });
+      await invoke("gmail:untrashThread", { accountId: account.id, threadId: "s" });
+      expect(folders()).toEqual({
+        asked: "inbox",
+        filed: "archive",
+        binned: "deleteditems",
+        reply: "sentitems",
+      });
+    });
+
+    it("lists the conversation in the Inbox without what's in Deleted Items", async () => {
+      const { mailStore } = await spread();
+      const [row] = mailStore.getThreadsPage(account.id, "INBOX", 0, 1).messages;
+      expect(row.threadLabelIds).not.toContain("TRASH");
+      expect(row.threadCount).toBe(3);
+    });
+  });
+
   it("takes mail out of the Archive, and lists and searches it from Outlook", async () => {
     deliver("old", "archive", { conversationId: "o", subject: "Lunch" });
     const { status, labelsOf, provider } = await boot();
@@ -1209,14 +1304,15 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
     expect(labelsOf("draft")).toEqual(expect.arrayContaining(["TRASH", "DRAFT"]));
   });
 
-  it("discards a conversation's drafts, leaving the mail they answer where it is", async () => {
+  it("discards a conversation's drafts to Deleted Items, leaving the mail they answer where it is", async () => {
     deliver("asked", "inbox", { conversationId: "conv-d" });
     deliver("draft", "drafts", { conversationId: "conv-d", draft: true, fromMe: true });
     const { status, labelsOf, invoke } = await boot();
     await until(() => status().fullSyncDone && !status().syncing, "the first sync");
 
     await invoke("gmail:discardThreadDrafts", { accountId: account.id, threadId: "conv-d" });
-    expect(messages.has("draft")).toBe(false);
+    expect(messages.get("draft")!.folder).toBe("deleteditems");
+    expect(writes.some((w) => w.path.endsWith("/permanentDelete"))).toBe(false);
     expect(labelsOf("draft")).toBeUndefined();
     expect(messages.get("asked")!.folder).toBe("inbox");
     expect(labelsOf("asked")).toContain("INBOX");

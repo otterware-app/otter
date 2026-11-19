@@ -245,6 +245,8 @@ export type ModifyThreadParams = {
   threadId: string;
   addLabelIds?: string[];
   removeLabelIds?: string[];
+  /** The folder the list it was moved from shows (`actedFrom`). */
+  from?: string;
 };
 
 export type SendMessageParams = {
@@ -457,8 +459,8 @@ export const mailApi = {
   modifyThread: (params: ModifyThreadParams): Promise<{ ok: boolean }> =>
     ipc("gmail:modifyThread", params),
 
-  trashThread: (accountId: string, threadId: string): Promise<{ ok: boolean }> =>
-    ipc("gmail:trashThread", { accountId, threadId }),
+  trashThread: (accountId: string, threadId: string, from?: string): Promise<{ ok: boolean }> =>
+    ipc("gmail:trashThread", { accountId, threadId, from }),
 
   discardThreadDrafts: (accountId: string, threadId: string): Promise<{ ok: boolean }> =>
     ipc("gmail:discardThreadDrafts", { accountId, threadId }),

@@ -92,3 +92,17 @@ it("reads details cached before Reply-To was kept again", async () => {
   expect(store.getMessageDetail("me", "cached")).toBeNull();
   expect(store.getUndownloadedMessages("me", 10).map((m) => m.id)).toEqual(["cached"]);
 });
+
+it("rolls a conversation up from what's outside Trash and Junk, except in those views", () => {
+  store.upsertMessages("me", [
+    { ...row("asked", "mixed", 500, ["INBOX", "STARRED"]), starred: true },
+    row("reply", "mixed", 600, ["SENT"]),
+    row("discarded", "mixed", 700, ["TRASH", "DRAFT"]),
+  ]);
+  const [inbox] = store.getThreadsPage("me", "INBOX", 0, 1).messages;
+  expect(inbox).toMatchObject({ id: "reply", threadCount: 2, threadStarred: true });
+  expect(inbox.threadLabelIds).not.toContain("TRASH");
+  const [trash] = store.getThreadsPage("me", "TRASH", 0, 1).messages;
+  expect(trash).toMatchObject({ id: "discarded", threadCount: 3 });
+  expect(trash.threadLabelIds).toContain("TRASH");
+});

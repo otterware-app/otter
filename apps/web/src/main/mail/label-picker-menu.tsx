@@ -21,6 +21,8 @@ type LabelChoicesParams = {
   labelIds: string[];
   /** Outlook: its folders ("Move to folder") rather than its categories. */
   folders?: boolean;
+  /** The folder the list it's moved from shows (`actedFrom`). */
+  from?: string;
 };
 
 type LabelPickerMenuProps = LabelChoicesParams & {
@@ -98,6 +100,7 @@ export function useLabelChoices({
   threadId,
   labelIds,
   folders: outlookFolders = false,
+  from,
 }: LabelChoicesParams) {
   const labelsQuery = useLabels(accountId);
   const modifyThread = useModifyThread();
@@ -117,6 +120,7 @@ export function useLabelChoices({
           accountId,
           threadId,
           ...moveToFolder(labelIds, labelId, choices),
+          from,
         });
       }
       return;

@@ -20,7 +20,7 @@ import {
   type OutgoingMail,
   type ScheduleOutcome,
 } from "../provider.js";
-import { wellKnownId } from "./folders.js";
+import { folderLabel, isSyncedFolder, wellKnownId } from "./folders.js";
 import { graph, graphAll, isNetworkError, isNotFound, GraphError } from "./graph.js";
 import { messagePath, type ApiMessage } from "./messages.js";
 
@@ -292,6 +292,15 @@ export async function sendRaw(accountId: string, raw: string): Promise<void> {
   });
 }
 
+/** A draft still being written: not discarded to Deleted Items, nor deleted from there. */
+function isLiveDraft(accountId: string, message: ApiMessage): boolean {
+  return (
+    message.isDraft === true &&
+    folderLabel(accountId, message.parentFolderId) !== "TRASH" &&
+    isSyncedFolder(accountId, message.parentFolderId)
+  );
+}
+
 export async function saveDraft(
   accountId: string,
   draft: DraftSave,
@@ -306,11 +315,12 @@ export async function saveDraft(
     try {
       const current = await graph<ApiMessage>(
         accountId,
-        `${messagePath(draft.draftId)}?$select=id,isDraft,changeKey`,
+        `${messagePath(draft.draftId)}?$select=id,isDraft,changeKey,parentFolderId`,
       );
-      beforeRevision = current.isDraft ? (current.changeKey ?? current.id) : null;
+      const live = isLiveDraft(accountId, current);
+      beforeRevision = live ? (current.changeKey ?? current.id) : null;
       if (draft.expectRevision && draft.expectRevision !== beforeRevision) throw new DraftChanged();
-      if (current.isDraft) {
+      if (live) {
         saved = await graph<ApiMessage>(accountId, messagePath(draft.draftId), {
           method: "PATCH",
           body: fields(draft),
@@ -366,8 +376,12 @@ export async function deleteDraft(
   draftId: string,
 ): Promise<{ messageId?: string }> {
   if ((await getDraftVersion(accountId, draftId)) === null) return {};
+  // As Outlook's Discard: to Deleted Items, where it can be restored.
   try {
-    await graph(accountId, `${messagePath(draftId)}/permanentDelete`, { method: "POST" });
+    await graph(accountId, `${messagePath(draftId)}/move`, {
+      method: "POST",
+      body: { destinationId: await wellKnownId(accountId, "deleteditems") },
+    });
   } catch (err) {
     if (!isNotFound(err)) throw err;
   }
@@ -378,9 +392,9 @@ export async function getDraftVersion(accountId: string, draftId: string): Promi
   try {
     const message = await graph<ApiMessage>(
       accountId,
-      `${messagePath(draftId)}?$select=id,isDraft`,
+      `${messagePath(draftId)}?$select=id,isDraft,parentFolderId`,
     );
-    return message.isDraft ? message.id : null;
+    return isLiveDraft(accountId, message) ? message.id : null;
   } catch (err) {
     if (isNotFound(err)) return null;
     throw err;
@@ -391,9 +405,9 @@ export async function getDraftRevision(accountId: string, draftId: string): Prom
   try {
     const message = await graph<ApiMessage>(
       accountId,
-      `${messagePath(draftId)}?$select=id,isDraft,changeKey`,
+      `${messagePath(draftId)}?$select=id,isDraft,changeKey,parentFolderId`,
     );
-    return message.isDraft ? (message.changeKey ?? message.id) : null;
+    return isLiveDraft(accountId, message) ? (message.changeKey ?? message.id) : null;
   } catch (err) {
     if (isNotFound(err)) return null;
     throw err;

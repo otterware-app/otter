@@ -7,7 +7,7 @@ import {
   useQueryClient,
   type InfiniteData,
 } from "@tanstack/react-query";
-import { landLabelChange } from "@otter/contracts";
+import { inThreadChange, isFolderLabel, landLabelChange } from "@otter/contracts";
 import { toast } from "./toast";
 import {
   mailApi,
@@ -728,6 +728,13 @@ function applyLabelPatch<T extends MessageSummary>(
   };
 }
 
+/** Where a conversation's mail moved from `from` lands: its undo moves it back from there. */
+function landedIn(from: string | undefined, add: string[], remove: string[]): string | undefined {
+  if (!from) return undefined;
+  const landed = landLabelChange([from], add, remove, { archiveFolder: true });
+  return [...landed.add, from].filter((id) => !landed.remove.includes(id)).find(isFolderLabel);
+}
+
 function archiveFolderOf(
   qc: ReturnType<typeof useQueryClient>,
   accountId: string,
@@ -1101,7 +1108,7 @@ export function useModifyThread() {
       return mailApi.modifyThread(params);
     },
     onMutate: async (params) => {
-      const { accountId, threadId, addLabelIds = [], removeLabelIds = [] } = params;
+      const { accountId, threadId, addLabelIds = [], removeLabelIds = [], from } = params;
       if (!isQuiet(params) && !isPureMarkRead(params.addLabelIds, params.removeLabelIds)) {
         registerUndo(
           {
@@ -1111,6 +1118,7 @@ export function useModifyThread() {
               threadId,
               addLabelIds: removeLabelIds,
               removeLabelIds: addLabelIds,
+              from: landedIn(from, addLabelIds, removeLabelIds),
             },
           },
           labelChangeSummary(qc, params, "conversation"),
@@ -1153,9 +1161,11 @@ export function useModifyThread() {
       const archiveFolder = archiveFolderOf(qc, accountId);
       const applyPatch = (m: MessageSummary) =>
         applyLabelPatch(m, addLabelIds, removeLabelIds, "thread", archiveFolder);
+      const takes = (m: MessageSummary) =>
+        !archiveFolder || inThreadChange(m.labelIds, addLabelIds, removeLabelIds, from);
 
       for (const [key, message] of prevMessageQueries) {
-        if (message) qc.setQueryData(key, applyPatch(message));
+        if (message && takes(message)) qc.setQueryData(key, applyPatch(message));
       }
 
       qc.setQueriesData(
@@ -1178,7 +1188,9 @@ export function useModifyThread() {
         (old: InfiniteData<ListMessagesResult> | undefined) =>
           patchMessagesInInfiniteData(old, inThread, applyPatch),
       );
-      qc.setQueriesData<MessageSummary[]>({ queryKey: threadKey }, (old) => old?.map(applyPatch));
+      qc.setQueriesData<MessageSummary[]>({ queryKey: threadKey }, (old) =>
+        old?.map((m) => (takes(m) ? applyPatch(m) : m)),
+      );
 
       // Thread-scoped removals also drop the row from lists the thread can no
       // longer match, so archive/move/junk clear the view instantly like trash.
@@ -1223,9 +1235,10 @@ export function useModifyThread() {
       if (prevThread) {
         const merged = new Map<string, LabelCountDelta>();
         for (const msg of prevThread) {
+          if (!takes(msg)) continue;
           const landed = landLabelChange(msg.labelIds, addLabelIds, removeLabelIds, {
             archiveFolder,
-            thread: true,
+            thread: !from,
           });
           for (const [lid, d] of computeLabelCountDeltas(msg.labelIds, landed.add, landed.remove)) {
             const cur = merged.get(lid) ?? { total: 0, unread: 0 };
@@ -1280,9 +1293,18 @@ export function useModifyThread() {
 export function useTrashThread() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ accountId, threadId }: { accountId: string; threadId: string }) => {
-      console.log("[hooks:useTrashThread] trashing thread", { accountId, threadId });
-      return mailApi.trashThread(accountId, threadId);
+    mutationFn: ({
+      accountId,
+      threadId,
+      from,
+    }: {
+      accountId: string;
+      threadId: string;
+      /** The folder the list it was deleted from shows (`actedFrom`). */
+      from?: string;
+    }) => {
+      console.log("[hooks:useTrashThread] trashing thread", { accountId, threadId, from });
+      return mailApi.trashThread(accountId, threadId, from);
     },
     onMutate: async (params) => {
       const { accountId, threadId } = params;
@@ -1320,8 +1342,11 @@ export function useTrashThread() {
       const prevDetailQueries = qc.getQueriesData<MessageDetail>({
         queryKey: ["gmail:message", accountId],
       });
+      const archiveFolder = archiveFolderOf(qc, accountId);
       const threadTrashPatch = <T extends MessageSummary>(m: T): T =>
-        applyLabelPatch(m, ["TRASH"], ["INBOX"], "thread") as T;
+        !archiveFolder || inThreadChange(m.labelIds, ["TRASH"], [], params.from)
+          ? (applyLabelPatch(m, ["TRASH"], ["INBOX"], "thread") as T)
+          : m;
       qc.setQueryData(threadKey, (old: MessageSummary[] | undefined) => old?.map(threadTrashPatch));
       for (const [key, detail] of prevDetailQueries) {
         if (detail && (detail.threadId || detail.id) === threadId) {

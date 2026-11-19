@@ -89,7 +89,7 @@ import {
 import { decodeEntities, htmlToText } from "./text";
 import { LabelPickerMenu, LabelSubmenu } from "./label-picker-menu";
 import { useCapabilities } from "./capabilities";
-import { archiveFrom } from "./archive";
+import { actedFrom, archiveFrom } from "./archive";
 import {
   formatAddressEntry,
   normalizeAddressList,
@@ -2402,23 +2402,24 @@ export function MessageReader({
     labelsQuery.data?.find((l) => l.id === listLabelId),
     capabilities,
   );
-  const handleArchive = (from = archiveSource ?? "INBOX") => {
-    console.log("[MessageReader:archive]", { messageId, isThread, from });
+  const from = actedFrom(listLabelId ? [listLabelId] : []);
+  const handleArchive = (source = archiveSource ?? "INBOX") => {
+    console.log("[MessageReader:archive]", { messageId, isThread, source });
     if (isThread && threadId) {
-      void modifyThread.mutateAsync({ accountId, threadId, removeLabelIds: [from] });
+      void modifyThread.mutateAsync({ accountId, threadId, removeLabelIds: [source], from });
       return;
     }
     void modifyMessage.mutateAsync({
       accountId,
       messageId,
-      removeLabelIds: [from],
+      removeLabelIds: [source],
     });
   };
 
   const handleUnarchive = () => {
     console.log("[MessageReader:unarchive]", { messageId, isThread });
     if (isThread && threadId) {
-      void modifyThread.mutateAsync({ accountId, threadId, addLabelIds: ["INBOX"] });
+      void modifyThread.mutateAsync({ accountId, threadId, addLabelIds: ["INBOX"], from });
       return;
     }
     void modifyMessage.mutateAsync({
@@ -2431,7 +2432,7 @@ export function MessageReader({
   const handleTrash = () => {
     console.log("[MessageReader:trash]", { messageId, isThread });
     if (isThread && threadId) {
-      void trashThread.mutateAsync({ accountId, threadId });
+      void trashThread.mutateAsync({ accountId, threadId, from });
       return;
     }
     void trashMessage.mutateAsync({ accountId, messageId });
@@ -2514,11 +2515,16 @@ export function MessageReader({
   });
 
   const extensionTarget = { accountId, messageId: message.id, subject: message.subject };
-  const isFlagged = message.labelIds.includes("STARRED");
+  // A conversation is flagged while any of its messages is.
+  const isFlagged = (isThread ? rows : [message]).some((m) => m.labelIds.includes("STARRED"));
   const isTrashed = message.labelIds.includes("TRASH");
 
   const handleToggleFlag = () => {
     console.log("[MessageReader:toggleFlag]", { messageId, isFlagged });
+    if (isFlagged && isThread && threadId) {
+      void modifyThread.mutateAsync({ accountId, threadId, removeLabelIds: ["STARRED"] });
+      return;
+    }
     void modifyMessage.mutateAsync({
       accountId,
       messageId: message.id,
@@ -2533,7 +2539,7 @@ export function MessageReader({
     const addLabelIds = isJunk ? ["INBOX"] : ["SPAM"];
     const removeLabelIds = isJunk ? ["SPAM"] : ["INBOX"];
     if (isThread && threadId) {
-      void modifyThread.mutateAsync({ accountId, threadId, addLabelIds, removeLabelIds });
+      void modifyThread.mutateAsync({ accountId, threadId, addLabelIds, removeLabelIds, from });
       return;
     }
     void modifyMessage.mutateAsync({
@@ -2707,6 +2713,7 @@ export function MessageReader({
                   accountId={accountId}
                   threadId={conversationId}
                   labelIds={conversationLabelIds}
+                  from={from}
                 >
                   <IconBtn
                     label={
@@ -2770,6 +2777,7 @@ export function MessageReader({
                         threadId={conversationId}
                         labelIds={conversationLabelIds}
                         folders
+                        from={from}
                       />
                     ) : null}
                     <DropdownMenuItem

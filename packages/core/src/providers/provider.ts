@@ -184,9 +184,18 @@ export interface MailProvider {
   }>;
 
   modifyMessage(accountId: string, messageId: string, change: LabelChange): Promise<void>;
-  modifyThread(accountId: string, threadId: string, change: LabelChange): Promise<void>;
+  /**
+   * `from`: the folder the conversation was acted on from, where Archive is a folder;
+   * which of its messages the change takes is contracts' `inThreadChange`.
+   */
+  modifyThread(
+    accountId: string,
+    threadId: string,
+    change: LabelChange,
+    from?: string,
+  ): Promise<void>;
   trashMessage(accountId: string, messageId: string): Promise<void>;
-  trashThread(accountId: string, threadId: string): Promise<void>;
+  trashThread(accountId: string, threadId: string, from?: string): Promise<void>;
   untrashMessage(accountId: string, messageId: string): Promise<MessageSummary[]>;
   untrashThread(accountId: string, threadId: string): Promise<MessageSummary[]>;
   markRead(accountId: string, messageIds: string[]): Promise<void>;
