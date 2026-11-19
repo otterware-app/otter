@@ -44,6 +44,7 @@ import {
   SettingsPageContainer,
   SettingsRow,
   SettingsSection,
+  TextInput,
 } from "./settings-ui";
 import { searchableSetting } from "./settings-search";
 import { AgentTokensSection } from "./agent-tokens-section";
@@ -654,24 +655,36 @@ function AutoSettleSection() {
         <SettingsRow
           title="Days before auto-settle"
           description="Any new message brings a chat back."
-          control={
-            <DraftInput
-              type="number"
-              min={1}
-              max={AUTO_SETTLE_MAX_DAYS}
-              value={String(days)}
-              onCommit={(value) => {
-                const next = Math.round(Number(value));
-                if (value && Number.isFinite(next))
-                  setAutoSettleDays(Math.min(AUTO_SETTLE_MAX_DAYS, Math.max(1, next)));
-              }}
-              aria-label="Days of inactivity before auto-settle"
-              className="w-20"
-            />
-          }
+          control={<AutoSettleDaysInput days={days} />}
         />
       ) : null}
     </SettingsSection>
+  );
+}
+
+/** Shows the saved days again once you're done: what you typed, clamped, or nothing kept. */
+function AutoSettleDaysInput({ days }: { days: number }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    const next = Math.round(Number(draft));
+    if (draft?.trim() && Number.isFinite(next))
+      setAutoSettleDays(Math.min(AUTO_SETTLE_MAX_DAYS, Math.max(1, next)));
+    setDraft(null);
+  };
+  return (
+    <TextInput
+      type="number"
+      min={1}
+      max={AUTO_SETTLE_MAX_DAYS}
+      value={draft ?? String(days)}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit();
+      }}
+      aria-label="Days of inactivity before auto-settle"
+      className="w-20"
+    />
   );
 }
 
