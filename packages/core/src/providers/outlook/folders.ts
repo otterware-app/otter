@@ -251,6 +251,21 @@ export function isSyncedFolder(accountId: string, folderId: string | undefined):
   return !SKIPPED.some((name) => mailbox.wellKnown[name] === folderId);
 }
 
+/**
+ * Whether mail in this folder is still in the mailbox. Graph reads deleted mail by
+ * its immutable id too, from Recoverable Items: folders outside the mailbox's own,
+ * some of which Outlook won't name.
+ */
+export function inMailbox(accountId: string, folderId: string | undefined): boolean {
+  const mailbox = mailboxOf(accountId);
+  if (!folderId || !mailbox) return true;
+  if (mailbox.folders.some((f) => f.id === folderId)) return true;
+  const role = (Object.keys(mailbox.wellKnown) as WellKnown[]).find(
+    (name) => mailbox.wellKnown[name] === folderId,
+  );
+  return role !== undefined && !RECOVERABLE.includes(role);
+}
+
 export async function folderOfLabel(accountId: string, labelId: string): Promise<string | null> {
   if (labelId.startsWith(FOLDER_PREFIX)) return labelId.slice(FOLDER_PREFIX.length);
   const role = (Object.entries(SYSTEM_LABEL) as [WellKnown, string][]).find(

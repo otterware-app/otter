@@ -20,7 +20,7 @@ import {
   type OutgoingMail,
   type ScheduleOutcome,
 } from "../provider.js";
-import { folderLabel, isSyncedFolder, wellKnownId } from "./folders.js";
+import { folderLabel, inMailbox, isSyncedFolder, readMailbox, wellKnownId } from "./folders.js";
 import { graph, graphAll, isNetworkError, isNotFound, GraphError } from "./graph.js";
 import { messagePath, type ApiMessage } from "./messages.js";
 
@@ -293,12 +293,16 @@ export async function sendRaw(accountId: string, raw: string): Promise<void> {
 }
 
 /** A draft still being written: not discarded to Deleted Items, nor deleted from there. */
-function isLiveDraft(accountId: string, message: ApiMessage): boolean {
-  return (
-    message.isDraft === true &&
-    folderLabel(accountId, message.parentFolderId) !== "TRASH" &&
-    isSyncedFolder(accountId, message.parentFolderId)
-  );
+async function isLiveDraft(accountId: string, message: ApiMessage): Promise<boolean> {
+  const folder = message.parentFolderId;
+  if (message.isDraft !== true) return false;
+  if (folderLabel(accountId, folder) === "TRASH" || !isSyncedFolder(accountId, folder))
+    return false;
+  if (inMailbox(accountId, folder)) return true;
+  // Graph still reads deleted mail, from Recoverable Items folders Outlook may not name, and a
+  // folder made since the last listing holds live mail: list them again to tell.
+  await readMailbox(accountId);
+  return inMailbox(accountId, folder) && folderLabel(accountId, folder) !== "TRASH";
 }
 
 export async function saveDraft(
@@ -317,7 +321,7 @@ export async function saveDraft(
         accountId,
         `${messagePath(draft.draftId)}?$select=id,isDraft,changeKey,parentFolderId`,
       );
-      const live = isLiveDraft(accountId, current);
+      const live = await isLiveDraft(accountId, current);
       beforeRevision = live ? (current.changeKey ?? current.id) : null;
       if (draft.expectRevision && draft.expectRevision !== beforeRevision) throw new DraftChanged();
       if (live) {
@@ -394,7 +398,7 @@ export async function getDraftVersion(accountId: string, draftId: string): Promi
       accountId,
       `${messagePath(draftId)}?$select=id,isDraft,parentFolderId`,
     );
-    return isLiveDraft(accountId, message) ? message.id : null;
+    return (await isLiveDraft(accountId, message)) ? message.id : null;
   } catch (err) {
     if (isNotFound(err)) return null;
     throw err;
@@ -407,7 +411,7 @@ export async function getDraftRevision(accountId: string, draftId: string): Prom
       accountId,
       `${messagePath(draftId)}?$select=id,isDraft,changeKey,parentFolderId`,
     );
-    return isLiveDraft(accountId, message) ? (message.changeKey ?? message.id) : null;
+    return (await isLiveDraft(accountId, message)) ? (message.changeKey ?? message.id) : null;
   } catch (err) {
     if (isNotFound(err)) return null;
     throw err;
