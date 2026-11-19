@@ -44,6 +44,7 @@ import {
   SettingsPageContainer,
   SettingsRow,
   SettingsSection,
+  TextInput,
 } from "./settings-ui";
 import { searchableSetting } from "./settings-search";
 import { AgentTokensSection } from "./agent-tokens-section";
@@ -54,6 +55,12 @@ import {
   type FollowUpBehavior,
 } from "../agent/chat-queue";
 import { shortcutText } from "../keybindings/keys";
+import {
+  AUTO_SETTLE_DEFAULT_DAYS,
+  AUTO_SETTLE_MAX_DAYS,
+  setAutoSettleDays,
+  useAutoSettleDays,
+} from "../agent/auto-settle";
 
 function useNow(intervalMs: number): number {
   const [now, setNow] = useState(() => Date.now());
@@ -321,6 +328,7 @@ export function ProvidersPane({ item }: { item?: string }) {
           />
         ) : null}
       </ChatSection>
+      <AutoSettleSection />
       {features.localAgents ? <ConnectedAgentsSection /> : null}
     </SettingsPageContainer>
   );
@@ -615,6 +623,68 @@ function ChatSection({ children }: { children: ReactNode }) {
         }
       />
     </SettingsSection>
+  );
+}
+
+function AutoSettleSection() {
+  const days = useAutoSettleDays();
+  return (
+    <SettingsSection title="Auto-settle">
+      <SettingsRow
+        {...searchableSetting("auto-settle")}
+        description="Chats with no new messages for a while settle on their own."
+        resetAction={
+          days !== AUTO_SETTLE_DEFAULT_DAYS ? (
+            <SettingResetButton
+              label="auto-settle"
+              onClick={() => setAutoSettleDays(AUTO_SETTLE_DEFAULT_DAYS)}
+            />
+          ) : null
+        }
+        control={
+          <Switch
+            checked={days !== null}
+            onCheckedChange={(on: boolean) =>
+              setAutoSettleDays(on ? AUTO_SETTLE_DEFAULT_DAYS : null)
+            }
+            aria-label="Auto-settle inactive chats"
+          />
+        }
+      />
+      {days !== null ? (
+        <SettingsRow
+          title="Days before auto-settle"
+          description="Any new message brings a chat back."
+          control={<AutoSettleDaysInput days={days} />}
+        />
+      ) : null}
+    </SettingsSection>
+  );
+}
+
+/** Shows the saved days again once you're done: what you typed, clamped, or nothing kept. */
+function AutoSettleDaysInput({ days }: { days: number }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    const next = Math.round(Number(draft));
+    if (draft?.trim() && Number.isFinite(next))
+      setAutoSettleDays(Math.min(AUTO_SETTLE_MAX_DAYS, Math.max(1, next)));
+    setDraft(null);
+  };
+  return (
+    <TextInput
+      type="number"
+      min={1}
+      max={AUTO_SETTLE_MAX_DAYS}
+      value={draft ?? String(days)}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit();
+      }}
+      aria-label="Days of inactivity before auto-settle"
+      className="w-20"
+    />
   );
 }
 
