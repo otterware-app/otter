@@ -7,6 +7,7 @@ import type {
   ScheduledTask,
   ScheduledTaskInput,
   TaskDelivery,
+  TaskModels,
   TaskRun,
 } from "@otter/contracts/scheduled";
 
@@ -84,6 +85,7 @@ function seed(agent: string, now: number): Task[] {
           nextRunAt: now + 4 * DAY,
           lastRun: ok(3 * DAY, 182_000),
           delivery: slack("#product"),
+          model: "anthropic/claude-sonnet-5.5",
         },
         {
           id: "flight-checkin",
@@ -207,6 +209,16 @@ function seed(agent: string, now: number): Task[] {
   }
 }
 
+/** What the studio's (OpenClaw's) tasks can run on, as its gateway would say. */
+const STUDIO_MODELS: TaskModels = {
+  agentModel: "anthropic/claude-opus-5.5",
+  models: [
+    { id: "anthropic/claude-opus-5.5", name: "Claude Opus 5.5" },
+    { id: "anthropic/claude-sonnet-5.5", name: "Claude Sonnet 5.5" },
+    { id: "openai/gpt-6.2-sol", name: "GPT-6.2 Sol" },
+  ],
+};
+
 const nextOf = (schedule: ScheduledTaskInput["schedule"], now: number) =>
   schedule.kind === "every"
     ? now + schedule.everyMs
@@ -268,6 +280,7 @@ export function scriptedSchedules(agent: string): ScheduleSupport<AgentSettings>
           schedule: input.schedule,
           nextRunAt: nextOf(input.schedule, now),
           ...(input.resultsTo ? { delivery } : {}),
+          ...(input.model !== undefined ? { model: input.model ?? undefined } : {}),
         });
         return id;
       }
@@ -281,6 +294,7 @@ export function scriptedSchedules(agent: string): ScheduleSupport<AgentSettings>
         running: false,
         nextRunAt: nextOf(input.schedule, now),
         delivery,
+        ...(input.model ? { model: input.model } : {}),
       };
       tasks.push(task);
       return task.id;
@@ -315,6 +329,7 @@ export function scriptedSchedules(agent: string): ScheduleSupport<AgentSettings>
         },
       ];
     },
+    ...(agent === DEMO_AGENTS.studio ? { models: async () => STUDIO_MODELS } : {}),
     targets: async () => [
       { target: "#product", label: "#product" },
       { target: "#general", label: "#general" },

@@ -17,6 +17,7 @@ import type {
   AgentScheduledTasks,
   ChannelTarget,
   ScheduledTaskInput,
+  TaskModels,
   TaskRun,
 } from "@otter/contracts/scheduled";
 import { registeredAgents } from "../../extensions.js";
@@ -758,6 +759,11 @@ export async function scheduledTargets(
 ): Promise<ChannelTarget[]> {
   const { schedules, settings } = await scheduler(agent);
   return schedules.targets ? schedules.targets(settings, ownAgent, channel) : [];
+}
+
+export async function scheduledModels(agent: AgentId, ownAgent: string): Promise<TaskModels> {
+  const { schedules, settings } = await scheduler(agent);
+  return schedules.models ? schedules.models(settings, ownAgent) : { models: [] };
 }
 
 export async function scheduledRunTranscript(

@@ -72,6 +72,8 @@ export interface ScheduledTask {
   revision?: string;
   /** Its results can't go to a chat (OpenClaw: only an agent turn in a session of its own can). */
   undeliverable?: true;
+  /** The model it runs on, when it has one of its own rather than its agent's. */
+  model?: string;
   /** The chats it belongs to (their sessions): the one it was made in, the one its results go to. */
   chats?: string[];
 }
@@ -113,8 +115,23 @@ export interface ScheduledTaskInput {
   agent?: string;
   /** Unset leaves them where they go (this chat, wherever they went). */
   resultsTo?: ResultsTo;
+  /** A model of its own; null runs it on its agent's. Unset leaves it as it is. */
+  model?: string | null;
   /** The version edited (`ScheduledTask.revision`). */
   revision?: string;
+}
+
+/** A model a task can run on. */
+export interface TaskModel {
+  id: string;
+  name: string;
+}
+
+/** What an agent's tasks can run on: its own model, or one of these. */
+export interface TaskModels {
+  /** The agent's own model, which a task without one of its own runs on. */
+  agentModel?: string;
+  models: TaskModel[];
 }
 
 export interface TaskRun {

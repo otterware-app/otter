@@ -6,9 +6,12 @@ import type {
   ScheduledTask,
   ScheduledTaskInput,
   TaskDelivery,
+  TaskModels,
   TaskRun,
   TaskSchedule,
 } from "@otter/contracts/scheduled";
+
+import { gatewayModels } from "./models.js";
 
 /** The gateway as the scheduler sees it: what it answers, what this device may do, its agents. */
 export type CronGateway = {
@@ -212,6 +215,12 @@ function failureAlertsOf(job: Job, labels: ChannelLabels): string | undefined {
   return `${routeText(route, labels)}${after ? `, after ${after} failed runs in a row` : ""}`;
 }
 
+/** The model an agent turn runs on when it has one of its own. */
+function modelOf(job: Job): string | undefined {
+  const model = job.payload.kind === "agentTurn" ? job.payload.model : undefined;
+  return typeof model === "string" && model ? model : undefined;
+}
+
 /** What a job runs when it isn't a message to its agent. */
 function runsOf(job: Job): string | undefined {
   const payload = job.payload;
@@ -255,6 +264,7 @@ export function taskOf(
   const paused = autoPaused(job);
   const nextRunAt = job.enabled ? (state.nextRunAtMs ?? job.nextRunAtMs) : undefined;
   const chats = chatsOf(job);
+  const model = modelOf(job);
   return {
     provider: "openclaw",
     id: job.id,
@@ -287,6 +297,7 @@ export function taskOf(
     ...(paused ? { autoPaused: paused } : {}),
     ...(job.configRevision ? { revision: job.configRevision } : {}),
     ...(chats.length > 0 ? { chats } : {}),
+    ...(model ? { model } : {}),
     // Only an agent turn in a session of its own reports to a chat.
     ...(job.sessionTarget === "main" || job.payload.kind !== "agentTurn"
       ? { undeliverable: true as const }
@@ -502,7 +513,11 @@ export async function saveTask(
       wakeMode: "now",
       schedule,
       ...(input.schedule.kind === "at" ? { deleteAfterRun: true } : {}),
-      payload: { kind: "agentTurn", message: input.prompt },
+      payload: {
+        kind: "agentTurn",
+        message: input.prompt,
+        ...(input.model ? { model: input.model } : {}),
+      },
       delivery: deliveryFor(input.resultsTo ?? { kind: "off" }),
     });
     return added.id ?? added.job?.id ?? "";
@@ -529,12 +544,17 @@ export async function saveTask(
     if ((schedule.kind === "at") !== (job.schedule.kind === "at"))
       patch.deleteAfterRun = schedule.kind === "at";
   }
+  const payload: Record<string, unknown> = {};
   const prompt = promptOf(job);
   if (input.prompt !== undefined && prompt !== undefined && input.prompt !== prompt)
-    patch.payload =
-      job.payload.kind === "agentTurn"
-        ? { ...job.payload, message: input.prompt }
-        : { ...job.payload, text: input.prompt };
+    payload[job.payload.kind === "agentTurn" ? "message" : "text"] = input.prompt;
+  if (
+    job.payload.kind === "agentTurn" &&
+    input.model !== undefined &&
+    (input.model ?? undefined) !== modelOf(job)
+  )
+    payload.model = input.model;
+  if (Object.keys(payload).length > 0) patch.payload = { ...job.payload, ...payload };
   if (input.agent && input.agent !== job.agentId && !job.sessionKey) patch.agentId = input.agent;
   const delivery = input.resultsTo && deliveryPatch(job.delivery, input.resultsTo);
   if (delivery) patch.delivery = delivery;
@@ -603,6 +623,16 @@ export async function taskRuns(g: CronGateway, id: string, limit: number): Promi
           ? { delivered: entry.delivery.resolved.ok }
           : {}),
   }));
+}
+
+/** What the agent `agentId`'s tasks can run on: the models the gateway offers it, and its own. */
+export async function taskModels(g: CronGateway, agentId: string): Promise<TaskModels> {
+  const [models, { agents }] = await Promise.all([
+    gatewayModels(g.request, agentId),
+    g.request<{ agents?: { id: string; model?: { primary?: string } }[] }>("agents.list", {}),
+  ]);
+  const agentModel = agents?.find((agent) => agent.id === agentId)?.model?.primary;
+  return { ...(agentModel ? { agentModel } : {}), models };
 }
 
 const transcriptGone = (error: unknown) =>
