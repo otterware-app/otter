@@ -804,8 +804,8 @@ export async function answerQuestion(
 export const isOpenTab = (tab: ChatTab) => !tab.closedAt;
 
 /**
- * Opens a tab in the chat's panel, or brings back one closed there. What the agent opens on its
- * own (`show: false`) leaves a tab you closed closed.
+ * Opens a tab in the chat's panel, or brings back one closed there. `show: false` leaves a tab
+ * you closed closed, and the panel on the tab it shows.
  */
 export function openChatTab(
   convoId: string,
@@ -814,10 +814,13 @@ export function openChatTab(
   {
     show = true,
     made,
+    closed = false,
     id = chatTabId(ref),
   }: {
     show?: boolean;
     made?: boolean;
+    /** Only kept in the chat's details, unopened: it opens when you click it. */
+    closed?: boolean;
     /** A tab of its own, not the one showing `ref`. */
     id?: string;
   } = {},
@@ -827,22 +830,34 @@ export function openChatTab(
     if (!convo) return s;
     const existing = convo.tabs.find((t) => t.id === id);
     if (existing?.closedAt && !show) return s;
+    const now = Date.now();
     const tabs = existing
-      ? existing.closedAt || (made && !existing.made)
+      ? (existing.closedAt && !closed) || (made && !existing.made)
         ? convo.tabs.map((t) =>
-            t === existing ? { ...t, closedAt: null, ...(made && { made: true }) } : t,
+            t === existing
+              ? { ...t, ...(!closed && { closedAt: null }), ...(made && { made: true }) }
+              : t,
           )
         : convo.tabs
       : [
           ...convo.tabs,
-          { id, title: clampTitle(title), ref, addedAt: Date.now(), ...(made && { made: true }) },
+          {
+            id,
+            title: clampTitle(title),
+            ref,
+            addedAt: now,
+            ...(made && { made: true }),
+            ...(closed && { closedAt: now }),
+          },
         ];
     const conversations =
       tabs === convo.tabs
         ? s.conversations
-        : s.conversations.map((c) => (c === convo ? { ...c, tabs, updatedAt: Date.now() } : c));
+        : s.conversations.map((c) => (c === convo ? { ...c, tabs, updatedAt: now } : c));
     const activeTabs =
-      show || !s.activeTabs[convoId] ? { ...s.activeTabs, [convoId]: id } : s.activeTabs;
+      !closed && (show || !s.activeTabs[convoId])
+        ? { ...s.activeTabs, [convoId]: id }
+        : s.activeTabs;
     return { conversations, activeTabs };
   });
 }
@@ -1630,14 +1645,18 @@ function onChatEvent(raw: unknown): void {
       updatedAt: Date.now(),
     };
   });
+  // What a run made, visited or linked goes in the chat's details, opened only when clicked.
   if (opens.result)
-    openChatTab(s.convoId, opens.result.ref, opens.result.title, { made: opens.result.made });
+    openChatTab(s.convoId, opens.result.ref, opens.result.title, {
+      made: opens.result.made,
+      closed: true,
+    });
   for (const url of opens.pages)
-    openChatTab(s.convoId, { kind: "page", url }, hostOf(url), { show: false });
+    openChatTab(s.convoId, { kind: "page", url }, hostOf(url), { closed: true });
   for (const file of opens.files)
     openChatTab(s.convoId, { kind: "file", href: file.href }, file.title, {
-      show: false,
       made: true,
+      closed: true,
     });
   if (opens.retry) {
     const { turnId, msg } = opens.retry;

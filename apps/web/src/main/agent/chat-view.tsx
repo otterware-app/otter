@@ -101,6 +101,14 @@ export function ChatView({
       !isCompacting(s.conversations.find((c) => c.id === chatId)?.turns ?? [])
     );
   });
+  const asking = useChats((s) => {
+    const run = s.runs[chatId];
+    return (
+      Boolean(run) &&
+      (s.approvals.some((a) => a.requestId === run.requestId) ||
+        s.questions.some((q) => q.requestId === run.requestId))
+    );
+  });
   const hydrating = useChats((s) => s.hydrating === chatId);
   const turns = convo?.turns ?? [];
   const chat = useChatProvider(convo);
@@ -260,6 +268,7 @@ export function ChatView({
                 <ChatTranscript
                   turns={turns}
                   streaming={streaming}
+                  asking={asking}
                   detached={Boolean(convo?.openRequest)}
                   providerName={chat.name}
                   onOpenFile={openChatFile}

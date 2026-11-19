@@ -2,7 +2,8 @@
  * The made-up agents (the iPhone Agents app's DemoAgent.swift): every kind keeps its own settings
  * and face, but answers from a script with the steps, approvals and questions a real one has, so
  * every part of a chat can be tried without an agent. "ask" or "plan" asks questions first; "send",
- * "run" or "approve" asks before a step; "fail" fails; "take your time" takes its time.
+ * "run" or "approve" asks before a step; "fail" fails; "take your time" takes its time. A steer is
+ * read after the step running when it's sent; one still unread when the run ends comes back.
  */
 import type { CoreExtension } from "../extensions.js";
 import { chatFile } from "../services/agent/files.js";
@@ -57,6 +58,8 @@ const FINAL = `Here's where things stand.
 | Hiring plan | You | Wed |
 | Agenda | Priya | Thu |
 
+Source: [the draft agenda](notes/q4-agenda.md).
+
 If you want, I can draft the note to the team:
 
 \`\`\`sh
@@ -67,6 +70,7 @@ Say *send it* and I'll ask before it goes out.`;
 
 function scriptedAgent(id: string): ChatProvider<AgentSettings> {
   const runs = new Map<string, AbortController>();
+  const steers = new Map<string, string[]>();
   const waiting = new Map<string, (answer: string) => void>();
 
   const asked = (key: string, signal: AbortSignal) =>
@@ -91,10 +95,25 @@ function scriptedAgent(id: string): ChatProvider<AgentSettings> {
       }
       return true;
     };
-    const step = async (stepId: string, toolStep: ToolStep, output: string, ms: number) => {
+    const look = async (stepId: string, toolStep: ToolStep, output: string, ms: number) => {
       emit({ requestId, type: "tool", id: stepId, step: toolStep });
       if (!(await pause(ms))) return false;
       emit({ requestId, type: "toolResult", id: stepId, output });
+      return true;
+    };
+    const step = async (stepId: string, toolStep: ToolStep, output: string, ms: number) => {
+      if (!(await look(stepId, toolStep, output, ms))) return false;
+      for (const [i, steer] of (steers.get(requestId)?.splice(0) ?? []).entries()) {
+        const search = {
+          kind: "search" as const,
+          title: `Searched mail for “${steer.slice(0, 28)}”`,
+        };
+        if (
+          !(await say(`Noted: “${steer.slice(0, 60)}”. Let me check that first.`)) ||
+          !(await look(`${stepId}-steer-${i}`, search, '{"threads": 2}', 900))
+        )
+          return false;
+      }
       return true;
     };
 
@@ -257,16 +276,23 @@ function scriptedAgent(id: string): ChatProvider<AgentSettings> {
       runs.set(input.requestId, controller);
       try {
         if (await run(input, emit, controller.signal)) {
+          for (const text of steers.get(input.requestId) ?? [])
+            emit({ requestId: input.requestId, type: "steerReturned", text });
           emit({ requestId: input.requestId, type: "done", responseId: null });
         } else if (controller.signal.aborted) {
           emit({ requestId: input.requestId, type: "error", message: "cancelled" });
         }
       } finally {
         runs.delete(input.requestId);
+        steers.delete(input.requestId);
       }
     },
     cancel: (requestId) => runs.get(requestId)?.abort(),
-    steer: async () => false,
+    async steer(requestId, input) {
+      if (!runs.has(requestId)) return false;
+      steers.set(requestId, [...(steers.get(requestId) ?? []), input]);
+      return true;
+    },
     async respondApproval(_requestId, approvalId, decision: ApprovalDecision) {
       waiting.get(approvalId)?.(decision);
       waiting.delete(approvalId);
