@@ -205,8 +205,11 @@ export function dayKey(timestamp: number): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
+// The frame is sized to its content, so a template's `html { height: 100% }` (sizing the content
+// to the frame) would keep the frame from ever shrinking.
 const messageBodyPrelude = (fontSize: number) => `<style>
 :root { color-scheme: light; }
+html:root { height: auto !important; }
 body {
   margin: 10px;
   background: #ffffff;
@@ -224,6 +227,7 @@ blockquote { border-left: 3px solid #d6d6d6; padding-left: 12px; margin: 4px 0; 
 
 const messageBodyPreludeDark = (fontSize: number) => `<style>
 :root { color-scheme: dark; }
+html:root { height: auto !important; }
 html, body { background: transparent; }
 body {
   margin: 0;
