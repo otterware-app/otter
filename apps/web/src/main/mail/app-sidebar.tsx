@@ -481,13 +481,11 @@ function MailboxGroups({
     // Closed, its row stands for the place shown inside it.
     const selected = !open && tab.id === spaceId;
     const dropHere = drop?.id === tab.id ? drop : null;
-    // Apart from the one before when either is open.
-    const spaced = i > 0 && (open || !closed.includes(tabs[i - 1]!.id));
     return (
       // The whole mailbox, folders too, takes a mailbox dropped on it.
       <div
         key={tab.id}
-        className={cn("relative", spaced && "mt-3")}
+        className={cn("relative", i > 0 && "mt-3")}
         onDragOver={(e) => {
           if (!dragged) return;
           e.preventDefault();
@@ -526,7 +524,11 @@ function MailboxGroups({
           <button
             type="button"
             aria-expanded={open}
-            onClick={() => toggle(tab.id)}
+            onClick={(e) => {
+              toggle(tab.id);
+              // A click leaves the keys to the mail: kept, the next shortcut would ring this row.
+              if (e.detail > 0) e.currentTarget.blur();
+            }}
             draggable
             onDragStart={(e) => {
               e.dataTransfer.effectAllowed = "move";
@@ -536,7 +538,8 @@ function MailboxGroups({
             onDragEnd={endDrag}
             className={cn(
               SIDEBAR_ROW,
-              "px-(--sidebar-row-content-inset)",
+              // Inside the row, where the next mailbox's cover can't hide it.
+              "px-(--sidebar-row-content-inset) focus-visible:ring-inset",
               selected
                 ? "bg-sidebar-row-selected text-sidebar-foreground"
                 : "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
