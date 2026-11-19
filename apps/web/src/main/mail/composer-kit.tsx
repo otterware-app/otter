@@ -101,7 +101,17 @@ export function SubjectInput({
     <textarea
       rows={1}
       value={value}
-      onChange={(e) => onChange(e.target.value.replace(/[\r\n]+/g, " "))}
+      onChange={(e) => {
+        const field = e.target;
+        // A pasted line break becomes a space. Written to the field before React
+        // renders the value, the caret stays where the paste ended.
+        if (/[\r\n]/.test(field.value)) {
+          const caret = field.value.slice(0, field.selectionStart).replace(/[\r\n]+/g, " ");
+          field.value = field.value.replace(/[\r\n]+/g, " ");
+          field.setSelectionRange(caret.length, caret.length);
+        }
+        onChange(field.value);
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" && !e.nativeEvent.isComposing) e.preventDefault();
       }}
