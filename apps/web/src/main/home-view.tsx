@@ -348,7 +348,7 @@ function PaneResizer({
 }
 
 const PANE = "min-h-0 overflow-hidden";
-const CARD = `${PANE} relative pr-1 before:pointer-events-none before:absolute before:left-0 before:right-1 before:bottom-0 before:top-(--workspace-card-top) before:-z-10 before:rounded-xl after:pointer-events-none after:absolute after:left-0 after:right-1 after:bottom-0 after:top-(--workspace-card-top) after:z-30 after:rounded-xl after:border after:border-(--panel-edge)`;
+const CARD = `${PANE} relative pr-1 before:pointer-events-none before:absolute before:left-0 before:right-1 before:bottom-0 before:top-(--workspace-card-top) before:-z-10 before:rounded-xl after:pointer-events-none after:absolute after:left-0 after:right-1 after:bottom-0 after:top-(--workspace-card-top) after:z-30 after:rounded-xl after:border after:border-(--panel-edge) dark:after:border-[0.5px]`;
 const PANE_SIDEBAR = `${PANE} relative text-sidebar-foreground`;
 const PANE_LIST = `${CARD} before:bg-canvas`;
 const PANE_MAIN = PANE_LIST;
@@ -356,7 +356,8 @@ const PANE_BROWSER = PANE_LIST;
 // The list and the reader side by side are one panel (Linear's): the list's edge is the
 // line between them. The browser stays a card of its own.
 const JOINED_LIST = "pr-0 before:right-0 after:right-0 before:rounded-r-none after:rounded-r-none";
-const JOINED_MAIN = "before:rounded-l-none after:rounded-l-none after:border-l-0";
+const JOINED_MAIN =
+  "before:rounded-l-none after:rounded-l-none after:border-l-0 dark:after:border-l-0";
 const PANE_FRAME =
   "flex min-h-0 shrink-0 overflow-hidden [[data-panel-animations=true]_&]:transition-[width] [[data-panel-animations=true]_&]:[transition-duration:var(--panel-animation-duration)] [[data-panel-animations=true]_&]:ease-out";
 
@@ -1569,7 +1570,7 @@ function MailHome() {
       <PlaceMenu />
       {features.swipeNavigation ? <HistorySwipeNavigation /> : null}
       <div
-        className="surface-grain flex h-full flex-col bg-sidebar-surface text-foreground"
+        className="flex h-full flex-col bg-sidebar-surface text-foreground"
         data-panel-animations={panelAnimationsActive ? "true" : "false"}
         data-mail-layout={ownsMain ? "split" : mailLayout}
         style={{ "--panel-animation-duration": `${panelAnimationDurationMs}ms` } as CSSProperties}

@@ -129,7 +129,7 @@ export function SetupFlow() {
   const canContinue = step !== "mailbox" || accounts.length > 0;
 
   return (
-    <div className="surface-grain flex h-full flex-col bg-sidebar-surface text-foreground">
+    <div className="flex h-full flex-col bg-sidebar-surface text-foreground">
       <div className="flex shrink-0">
         <WindowTitle className="flex-1" />
       </div>
