@@ -335,11 +335,9 @@ export function DraftEditor({
           <RecipientInput value={bcc} onChange={setBcc} ariaLabel="Bcc" />
         </ComposerField>
       ) : null}
-      {inThread ? (
-        <ComposerField label="Subject">
-          <SubjectInput value={subject} onChange={setSubject} />
-        </ComposerField>
-      ) : null}
+      <ComposerField label="Subject">
+        <SubjectInput value={subject} onChange={setSubject} />
+      </ComposerField>
     </>
   );
   const banner = (
@@ -468,7 +466,6 @@ export function DraftEditor({
                 {fields}
               </>
             }
-            subject={<SubjectInput title value={subject} onChange={setSubject} />}
             editor={editor}
             attachments={attachmentChips}
             footer={footer}

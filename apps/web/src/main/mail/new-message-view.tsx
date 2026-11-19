@@ -327,9 +327,11 @@ export function NewMessageView({
                   <RecipientInput value={bcc} onChange={setBcc} ariaLabel="Bcc" />
                 </ComposerField>
               ) : null}
+              <ComposerField label="Subject">
+                <SubjectInput value={subject} onChange={setSubject} />
+              </ComposerField>
             </>
           }
-          subject={<SubjectInput title value={subject} onChange={setSubject} />}
           editor={
             <RichTextArea
               ref={editorRef}

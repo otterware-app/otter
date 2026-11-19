@@ -51,10 +51,12 @@ export function ComposerField({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-10 items-center gap-3 border-b border-border/40 px-5 py-1 text-sm">
-      <span className="w-14 shrink-0 text-sm text-muted-foreground">{label}</span>
-      <div className="flex min-w-0 flex-1 items-center">{children}</div>
-      {trailing ? <div className="flex shrink-0 items-center gap-2">{trailing}</div> : null}
+    <div className="flex min-h-10 items-start gap-3 border-b border-border/40 px-5 py-1 text-sm">
+      <span className="flex h-8 w-14 shrink-0 items-center text-sm text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex min-h-8 min-w-0 flex-1 items-center">{children}</div>
+      {trailing ? <div className="flex h-8 shrink-0 items-center gap-2">{trailing}</div> : null}
     </div>
   );
 }
@@ -91,24 +93,30 @@ export function CcBccToggles({
 export function SubjectInput({
   value,
   onChange,
-  placeholder = "Subject",
-  title,
 }: {
   value: string;
   onChange: (value: string) => void;
-  placeholder?: string;
-  title?: boolean;
 }) {
   return (
-    <input
+    <textarea
+      rows={1}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
+      onChange={(e) => {
+        const field = e.target;
+        // A pasted line break becomes a space. Written to the field before React
+        // renders the value, the caret stays where the paste ended.
+        if (/[\r\n]/.test(field.value)) {
+          const caret = field.value.slice(0, field.selectionStart).replace(/[\r\n]+/g, " ");
+          field.value = field.value.replace(/[\r\n]+/g, " ");
+          field.setSelectionRange(caret.length, caret.length);
+        }
+        onChange(field.value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.nativeEvent.isComposing) e.preventDefault();
+      }}
       aria-label="Subject"
-      className={cn(
-        "min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:font-normal placeholder:text-placeholder",
-        title ? "w-full text-xl font-medium leading-8 tracking-tight" : "text-sm font-medium",
-      )}
+      className="field-sizing-content min-w-0 flex-1 resize-none bg-transparent py-1.5 text-sm font-medium leading-5 text-foreground outline-none"
     />
   );
 }
@@ -352,13 +360,11 @@ export function ComposerFooter({
 
 export function ComposeDocument({
   fields,
-  subject,
   editor,
   attachments,
   footer,
 }: {
   fields: ReactNode;
-  subject?: ReactNode;
   editor: ReactNode;
   attachments?: ReactNode;
   footer: ReactNode;
@@ -368,7 +374,6 @@ export function ComposeDocument({
       <div className="te-scroll min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-2 pt-2">
           {fields}
-          {subject ? <div className="px-5 pb-1 pt-6">{subject}</div> : null}
           <div className="flex min-h-0 flex-1 flex-col">{editor}</div>
           {attachments}
         </div>
