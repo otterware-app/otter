@@ -892,8 +892,14 @@ app.post(
     const users = await store.usersWithMailbox(c.var.db, email, "outlook");
     await Promise.all(
       users.map(async (userId) => {
-        await hub(c.env, userId).publish(event);
-        await notificationConnections.watcher(c.env, userId, email).changed();
+        await retryingReset(
+          () => hub(c.env, userId),
+          (target) => target.publish(event),
+        );
+        await retryingReset(
+          () => notificationConnections.watcher(c.env, userId, email),
+          (watcher) => watcher.changed(),
+        );
       }),
     );
     return c.body(null, 202);
