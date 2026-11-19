@@ -236,10 +236,11 @@ export async function markRead(accountId: string, messageIds: string[]): Promise
   );
 }
 
+/** As Outlook deletes from Deleted Items: gone from every folder, still in its Recover deleted items. */
 export async function deleteForever(accountId: string, messageIds: string[]): Promise<void> {
   await run(
     accountId,
-    messageIds.map((id) => ({ method: "POST", url: `${messagePath(id)}/permanentDelete` })),
+    messageIds.map((id) => ({ method: "DELETE", url: messagePath(id) })),
   );
 }
 
@@ -260,10 +261,7 @@ export async function emptyFolder(accountId: string, labelId: "SPAM" | "TRASH"):
     accountId,
     folders
       .filter((f) => f.parentId === root)
-      .map((f) => ({
-        method: "POST",
-        url: `/me/mailFolders/${encodeURIComponent(f.id)}/permanentDelete`,
-      })),
+      .map((f) => ({ method: "DELETE", url: `/me/mailFolders/${encodeURIComponent(f.id)}` })),
   );
   return [...ids];
 }

@@ -155,13 +155,19 @@ const emailOf = (entry: string) => (entry.match(/<([^>]+)>/)?.[1] ?? entry).trim
 function replyRecipients(source: MessageDetail, ownEmail: string, all: boolean) {
   const own = ownEmail.toLowerCase();
   const sender = address(source.fromName, source.fromEmail);
+  const target = source.replyTo || sender;
   const fromSelf = source.fromEmail.toLowerCase() === own;
-  if (!all) return { to: fromSelf ? source.to : sender, cc: undefined };
+  if (!all) return { to: fromSelf ? source.to : target, cc: undefined };
   const seen = new Set([own]);
   const to: string[] = [];
   const cc: string[] = [];
   if (!fromSelf) {
-    to.push(sender);
+    for (const entry of splitAddressList(target)) {
+      const email = emailOf(entry);
+      if (!email || seen.has(email)) continue;
+      seen.add(email);
+      to.push(entry);
+    }
     seen.add(source.fromEmail.toLowerCase());
   }
   for (const [list, into] of [
@@ -522,8 +528,12 @@ export const mailTools: AgentTool[] = [
         );
       const quoted = optBool(args, "includeQuoted") ?? false;
       const labels = await labelsOf(account);
+      // A draft in Trash was discarded: it isn't part of the conversation (as in the reader).
+      const kept = summaries.filter(
+        (m) => !(m.labelIds.includes("DRAFT") && m.labelIds.includes("TRASH")),
+      );
       const details = await Promise.all(
-        summaries.map((m) =>
+        kept.map((m) =>
           invoke<MessageDetail | null>("gmail:getMessage", {
             accountId: account.id,
             messageId: m.id,

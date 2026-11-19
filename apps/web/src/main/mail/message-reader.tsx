@@ -1597,7 +1597,7 @@ function RecipientList({
 }
 
 function computeReplyAll(
-  last: MessageSummary & { cc?: string },
+  last: MessageSummary & { cc?: string; replyTo?: string },
   ownAddresses: string[],
 ): { to: string; cc: string | undefined } {
   const own = ownAddresses.map((a) => a.toLowerCase());
@@ -1606,7 +1606,12 @@ function computeReplyAll(
   const to: string[] = [];
   const cc: string[] = [];
   if (!fromSelf) {
-    to.push(senderAddress(last));
+    for (const entry of splitAddressList(replyTarget(last))) {
+      const email = parseAddressEntry(entry).email.toLowerCase();
+      if (!email || seen.has(email)) continue;
+      seen.add(email);
+      to.push(entry);
+    }
     seen.add(last.fromEmail.toLowerCase());
   }
   for (const entry of splitAddressList(last.to)) {
@@ -1637,13 +1642,18 @@ function senderAddress(m: MessageSummary): string {
   return formatAddressEntry(m.fromName, m.fromEmail);
 }
 
+/** Where a reply goes: Reply-To when the sender set one, else From. */
+function replyTarget(m: MessageSummary & { replyTo?: string }): string {
+  return m.replyTo || senderAddress(m);
+}
+
 function computeReply(
-  last: MessageSummary,
+  last: MessageSummary & { replyTo?: string },
   ownAddresses: string[],
 ): { to: string; cc: string | undefined } {
   const fromSelf = ownAddresses.some((a) => a.toLowerCase() === last.fromEmail.toLowerCase());
   // Replying to your own message targets its recipients instead of yourself.
-  return { to: fromSelf ? last.to : senderAddress(last), cc: undefined };
+  return { to: fromSelf ? last.to : replyTarget(last), cc: undefined };
 }
 
 function prefixSubject(prefix: "Re" | "Fwd", subject: string): string {

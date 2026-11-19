@@ -184,6 +184,7 @@ export async function toDetail(
     ...summary,
     snippet: snippetOf(parsed) || summary.snippet,
     bcc: formatAddresses(message.envelope?.bcc ?? []) || undefined,
+    replyTo: formatAddresses(message.envelope?.replyTo ?? []) || undefined,
     bodyHtml: parsed.html,
     bodyText: parsed.text,
     hasAttachments: attachments.length > 0,

@@ -744,7 +744,14 @@ function mailFolders(box: Mailbox, req: Req, rest: string[]): Answer {
       } else if (req.method === "DELETE") {
         if (folder.wellKnown || folder.id === box.rootId)
           return badRequest("Can't delete this folder.");
-        folder.parentFolderId = wellKnown(box, "deleteditems");
+        const trash = wellKnown(box, "deleteditems");
+        if (subtree(box, trash).includes(folder.id)) {
+          // Already in Deleted Items: off to Recoverable Items, with what it holds.
+          const gone = new Set(subtree(box, folder.id));
+          for (const m of Object.values(box.messages))
+            if (gone.has(m.folderId)) deleteMessage(box, m);
+          box.folders = box.folders.filter((f) => !gone.has(f.id));
+        } else folder.parentFolderId = trash;
         save();
         return ok(undefined, 204);
       }
@@ -1092,7 +1099,8 @@ function messages(box: Mailbox, req: Req, rest: string[]): Answer {
         applyFields(m, fields(req));
         touch(box, m);
       } else if (req.method === "DELETE") {
-        moveTo(box, m, wellKnown(box, "deleteditems"));
+        // Graph's DELETE: off to Recoverable Items, which no client lists.
+        deleteMessage(box, m);
         return ok(undefined, 204);
       }
       return ok(pick(messageResource(box, m), select(req)));

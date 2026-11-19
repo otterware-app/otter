@@ -121,6 +121,11 @@ function getDb(): SqlDatabase {
   if (!messageCols.has("recipients")) {
     handle.exec("ALTER TABLE messages ADD COLUMN recipients TEXT;");
   }
+  if (!messageCols.has("replyTo")) {
+    handle.exec("ALTER TABLE messages ADD COLUMN replyTo TEXT;");
+    // Cached details never kept Reply-To: read them again, so replies go where senders asked.
+    handle.exec("UPDATE messages SET detailFetched = 0;");
+  }
   handle.exec(
     "CREATE INDEX IF NOT EXISTS idx_messages_undownloaded ON messages (accountId, detailFetched, date DESC);",
   );
@@ -185,6 +190,7 @@ interface MessageRow {
   labelIds: string;
   cc: string | null;
   bcc: string | null;
+  replyTo: string | null;
   bodyHtml: string | null;
   bodyText: string | null;
   attachments: string | null;
@@ -254,6 +260,7 @@ function rowToDetail(row: MessageRow): MessageDetail {
   return {
     ...rowToSummary(row),
     bcc: row.bcc ?? undefined,
+    replyTo: row.replyTo ?? undefined,
     draftRevision: row.draftRevision ?? undefined,
     bodyHtml: row.bodyHtml,
     bodyText: row.bodyText,
@@ -356,7 +363,7 @@ export function upsertMessageDetails(accountId: string, details: MessageDetail[]
   if (details.length === 0) return;
   const setBody = getDb().prepare(`
     UPDATE messages
-       SET cc = ?, recipients = ?, bcc = ?, bodyHtml = ?, bodyText = ?, attachments = ?, hasAttachments = ?, draftRevision = ?, detailFetched = 1
+       SET cc = ?, recipients = ?, bcc = ?, replyTo = ?, bodyHtml = ?, bodyText = ?, attachments = ?, hasAttachments = ?, draftRevision = ?, detailFetched = 1
      WHERE accountId = ? AND id = ?
   `);
   inTransaction(() => {
@@ -366,6 +373,7 @@ export function upsertMessageDetails(accountId: string, details: MessageDetail[]
         detail.cc ?? null,
         recipientsOf(detail.to, detail.cc),
         detail.bcc ?? null,
+        detail.replyTo ?? null,
         detail.bodyHtml,
         detail.bodyText,
         JSON.stringify(detail.attachments),

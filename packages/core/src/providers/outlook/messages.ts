@@ -47,6 +47,7 @@ export type ApiMessage = {
   toRecipients?: Recipient[];
   ccRecipients?: Recipient[];
   bccRecipients?: Recipient[];
+  replyTo?: Recipient[];
   receivedDateTime?: string;
   sentDateTime?: string | null;
   isRead?: boolean;
@@ -182,7 +183,7 @@ async function source(accountId: string, id: string) {
 }
 
 export async function getMessage(accountId: string, id: string): Promise<MessageDetail> {
-  const path = `${messagePath(id)}?$select=${SUMMARY_FIELDS},ccRecipients,bccRecipients,changeKey`;
+  const path = `${messagePath(id)}?$select=${SUMMARY_FIELDS},ccRecipients,bccRecipients,replyTo,changeKey`;
   const knownDraft = getMessageLabelIds(accountId, id)?.includes("DRAFT");
   let [message, parsed] = await Promise.all([
     graph<ApiMessage>(accountId, path),
@@ -218,6 +219,7 @@ export async function getMessage(accountId: string, id: string): Promise<Message
     snippet: summary.snippet || snippetOf(parsed),
     cc: addresses(message.ccRecipients) || undefined,
     bcc: addresses(message.bccRecipients) || undefined,
+    replyTo: addresses(message.replyTo) || undefined,
     bodyHtml: parsed.html,
     bodyText: parsed.text,
     hasAttachments: summary.hasAttachments,
