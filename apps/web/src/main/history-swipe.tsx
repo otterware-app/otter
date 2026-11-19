@@ -2,8 +2,8 @@
  * Ported from T3 Code (github.com/pingdotgg/t3code at 470ca6349; MIT, see
  * THIRD_PARTY_NOTICES.md): apps/web/src/components/HistorySwipeNavigation.tsx.
  * Departures: it steps the router's history, sizes the indicator to the main pane,
- * takes the wheel events of a message's frame too, and the app mounts it only where
- * `features.swipeNavigation` (a Mac).
+ * takes the wheel events of a message's frame too, leaves alone wheel events something
+ * else took, and the app mounts it only where `features.swipeNavigation` (a Mac).
  */
 import { useRouter } from "@tanstack/react-router";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
@@ -58,14 +58,25 @@ function isElement(target: EventTarget): target is Element {
   return (target as Node).nodeType === Node.ELEMENT_NODE;
 }
 
+// A frame's page scrolls sideways with `visible` too, unless its root or body clips: their
+// overflow is the page's.
+function pageScrollsSideways(doc: Document): boolean {
+  const root = getComputedStyle(doc.documentElement).overflowX;
+  const page = root === "visible" && doc.body ? getComputedStyle(doc.body).overflowX : root;
+  return page !== "hidden" && page !== "clip";
+}
+
 // `event.target` stops at a shadow host; the composed path also reaches scrollers inside it.
 function canScrollHorizontally(path: readonly EventTarget[], deltaX: number): boolean {
   for (const element of path) {
     if (!isElement(element) || element.scrollWidth <= element.clientWidth) continue;
     const { overflowX } = getComputedStyle(element);
-    // A frame's page scrolls sideways while its overflow is still `visible`.
-    const page = element === element.ownerDocument.scrollingElement;
-    if (overflowX !== "auto" && overflowX !== "scroll" && !page) continue;
+    const scrolls =
+      overflowX === "auto" ||
+      overflowX === "scroll" ||
+      (element === element.ownerDocument.scrollingElement &&
+        pageScrollsSideways(element.ownerDocument));
+    if (!scrolls) continue;
     const canScroll =
       deltaX < 0
         ? element.scrollLeft > 0
@@ -166,6 +177,8 @@ export function HistorySwipeNavigation() {
       gesture = null;
     });
     const onWheel = (event: WheelEvent, frame?: HTMLIFrameElement) => {
+      // Taken by what's under it (the agent's live browser), which Chromium then doesn't scroll.
+      if (event.defaultPrevented) return;
       const path = () =>
         frame ? [...event.composedPath(), ...framePath(frame)] : event.composedPath();
       if (gesture === null) {
@@ -205,12 +218,12 @@ export function HistorySwipeNavigation() {
     };
     const onWindowWheel = (event: WheelEvent) => onWheel(event);
     frameWheel = onWheel;
-    window.addEventListener("wheel", onWindowWheel, { capture: true, passive: true });
+    window.addEventListener("wheel", onWindowWheel, { passive: true });
     return () => {
       frameWheel = null;
       unsubscribeScrollBegin();
       unsubscribeScrollEnd();
-      window.removeEventListener("wheel", onWindowWheel, { capture: true });
+      window.removeEventListener("wheel", onWindowWheel);
     };
   }, [history]);
 
