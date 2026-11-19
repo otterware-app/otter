@@ -43,7 +43,7 @@ import {
   type Conversation,
 } from "./chat-store";
 import {
-  chatReturnedAt,
+  chatLastMessageAt,
   shelveChats,
   shortAgo,
   snoozePresets,
@@ -321,7 +321,7 @@ export function AgentSidebar({
       );
     else
       end = shortAgo(
-        shelf === "settled" ? (c.settledAt ?? c.updatedAt) : chatReturnedAt(c, now),
+        shelf === "settled" ? (c.settledAt ?? c.updatedAt) : chatLastMessageAt(c),
         now,
       );
     const renaming = editing === c.id;
@@ -513,7 +513,7 @@ export function AgentSidebar({
                 <Highlighted text={c.title} ranges={ranges} />
               </span>
               <span className="shrink-0 ps-1 text-[11px] tabular-nums text-sidebar-muted-foreground/70">
-                {shortAgo(c.updatedAt, now)}
+                {shortAgo(chatLastMessageAt(c), now)}
               </span>
             </span>
             {match ? (

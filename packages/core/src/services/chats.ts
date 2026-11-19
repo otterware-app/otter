@@ -8,6 +8,7 @@ import { chatKey, type ChatRecord, type TurnRecord } from "@otter/contracts/agen
 import {
   LOCAL_AGENT_KINDS,
   type Chat,
+  type ChatListing,
   type ChatMessageMatch,
   type ChatSave,
   type ChatTurn,
@@ -41,14 +42,24 @@ function turnsOf(chat: string): ChatTurn[] {
     .map((row) => (JSON.parse(String(row.value)) as TurnRecord).turn);
 }
 
-export async function listChats(): Promise<{ chats: ChatRecord[]; device: Device }> {
+/** Each with when its last message came, read in SQL: a turn can be large, and only its time is needed. */
+export async function listChats(): Promise<{ chats: ChatListing[]; device: Device }> {
   if (!getOtterUser()) return { chats: [], device: device() };
   const chats = agentDb()
     .prepare(
-      "SELECT value FROM agent_entries WHERE key >= 'chat/' AND key < 'chat0' AND value IS NOT NULL ORDER BY updated DESC",
+      `SELECT c.value, (
+         SELECT coalesce(json_extract(t.value, '$.turn.finishedAt'), json_extract(t.value, '$.turn.startedAt'))
+         FROM agent_entries t WHERE t.chat = substr(c.key, 6) AND t.value IS NOT NULL
+         ORDER BY t.position DESC LIMIT 1
+       ) AS last
+       FROM agent_entries c
+       WHERE c.key >= 'chat/' AND c.key < 'chat0' AND c.value IS NOT NULL ORDER BY c.updated DESC`,
     )
     .all()
-    .map((row) => JSON.parse(String(row.value)) as ChatRecord);
+    .map((row) => ({
+      ...(JSON.parse(String(row.value)) as ChatRecord),
+      ...(row.last != null && { lastMessageAt: Number(row.last) }),
+    }));
   return { chats, device: device() };
 }
 

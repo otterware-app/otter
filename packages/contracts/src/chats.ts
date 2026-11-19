@@ -106,6 +106,11 @@ export interface Chat {
   cursor?: string | null;
 }
 
+/** A chat as `chats:list` has it: without its turns, with when the last of them came. */
+export interface ChatListing extends Omit<Chat, "turns"> {
+  lastMessageAt?: number;
+}
+
 /** A chat listed for one of its messages: `chats:search`. */
 export interface ChatMessageMatch {
   id: string;
