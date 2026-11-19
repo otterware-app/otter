@@ -141,12 +141,12 @@ html[data-window-controls="none"] {
   --glass-saturation: 1.08;
   --appearance-contrast-target: white;
 
-  --canvas: #141415;
+  --canvas: #121213;
   --surface-raised: color-mix(in srgb, var(--canvas) 96%, #ffffff);
   --foreground: #f2f2f3;
   --card: color-mix(in srgb, var(--canvas) 96%, #ffffff);
   --card-foreground: #f2f2f3;
-  --popover: color-mix(in srgb, var(--canvas) 96%, #ffffff);
+  --popover: color-mix(in srgb, var(--canvas) 93%, #ffffff);
   --popover-foreground: #f2f2f3;
   --primary: oklch(0.62 0.19 260);
   --secondary: rgb(255 255 255 / 4%);
@@ -166,14 +166,14 @@ html[data-window-controls="none"] {
   --warning-surface: color-mix(in srgb, var(--warning) 16%, transparent);
   /* The frame: the sidebar's (its [data-app-sidebar] scope), so the window
      around the content panel is one color, below the mail. */
-  --sidebar-surface: #0a0a0b;
+  --sidebar-surface: #09090a;
   --sidebar-control-surface: var(--muted);
   --sidebar-row-hover: color-mix(in srgb, var(--foreground) 5%, transparent);
   --sidebar-row-active: color-mix(in srgb, var(--foreground) 9%, transparent);
   --sidebar-row-selected: color-mix(in srgb, var(--foreground) 7%, transparent);
   /* In the dark the cards are the lighter surface: their edge is a lift of
      their own tone, so it shows against the frame and the Mac's glass alike. */
-  --panel-edge: color-mix(in srgb, var(--foreground) 6%, var(--canvas));
+  --panel-edge: color-mix(in srgb, var(--foreground) 7%, var(--canvas));
   --chat-composer-surface: var(--surface-raised);
   --chat-composer-outline: rgb(255 255 255 / 5%);
   --chat-composer-highlight: rgb(255 255 255 / 3%);
@@ -200,9 +200,9 @@ html[data-window-controls="none"] {
   --sidebar-line: #e3e3e7;
 }
 .dark [data-app-sidebar] {
-  --canvas: #0a0a0b;
+  --canvas: #09090a;
   --foreground: #f2f2f3;
-  --card: #0a0a0b;
+  --card: #09090a;
   --card-foreground: var(--foreground);
   --accent-surface: #1c1c1d;
   --accent-surface-foreground: #f7f7f8;
@@ -215,8 +215,8 @@ html[data-window-controls="none"] {
   --sidebar-muted-foreground: var(--muted-foreground);
   --sidebar-control-surface: var(--muted);
   --sidebar-row-hover: color-mix(in srgb, var(--foreground) 8%, transparent);
-  --sidebar-row-active: color-mix(in srgb, var(--foreground) 11%, transparent);
-  --sidebar-row-selected: color-mix(in srgb, var(--foreground) 7%, transparent);
+  --sidebar-row-active: color-mix(in srgb, var(--foreground) 14%, transparent);
+  --sidebar-row-selected: color-mix(in srgb, var(--foreground) 11%, transparent);
   --sidebar-line: var(--border);
 }
 
@@ -696,12 +696,6 @@ html[data-window-controls="none"] {
     transform: translateX(-50%);
   }
 }
-@utility surface-grain {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 256px 256px;
-}
-
 html[data-theme-switching] *,
 html[data-theme-switching] *::before,
 html[data-theme-switching] *::after {

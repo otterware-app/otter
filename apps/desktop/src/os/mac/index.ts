@@ -8,7 +8,7 @@ import { nativeMessagingDirectories } from "./native-messaging.js";
 const TOPBAR_HEIGHT = 42;
 const WINDOW_BUTTON_RADIUS = 7;
 
-const background = () => (nativeTheme.shouldUseDarkColors ? "#0a0a0b" : "#ededf0");
+const background = () => (nativeTheme.shouldUseDarkColors ? "#09090a" : "#ededf0");
 
 export const macOS: HostOS = {
   nativeMessagingDirectories,
