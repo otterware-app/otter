@@ -8,7 +8,13 @@ import {
   futureTime,
 } from "../services/mail-schedule.js";
 
-import { GMAIL_CAPABILITIES, landLabelChange, type Landing } from "@otter/contracts";
+import {
+  GMAIL_CAPABILITIES,
+  inThreadChange,
+  isFolderLabel,
+  landLabelChange,
+  type Landing,
+} from "@otter/contracts";
 import { ALIAS_PICTURES_MAX, isMailboxPicture } from "@otter/contracts/relay";
 
 import { fromBase64 } from "../bytes.js";
@@ -193,6 +199,28 @@ function settleLabelWrite(
   const running = afterEarlierWrites(accountId, messageIds, write);
   running.then(tracked.settled, tracked.dropped);
   return settleWrite(channel, running, revert);
+}
+
+/** The folder a conversation was acted on from, where Archive is a folder: one it has. */
+function actedFrom(accountId: string, from: string | undefined): string | undefined {
+  if (!from || !capabilitiesOf(accountId)?.archiveFolder) return undefined;
+  if (from === ALL_MAIL_LABEL_ID || !isFolderLabel(from)) return undefined;
+  return mailStore.getLabels(accountId).some((l) => l.id === from) ? from : undefined;
+}
+
+/** The cached messages of a conversation a change on it takes (contracts' `inThreadChange`). */
+function threadMessageIds(
+  accountId: string,
+  threadId: string,
+  add: string[],
+  remove: string[],
+  from: string | undefined,
+): string[] {
+  const scoped = !!capabilitiesOf(accountId)?.archiveFolder;
+  return mailStore
+    .getThreadMessages(accountId, threadId)
+    .filter((m) => !scoped || inThreadChange(m.labelIds, add, remove, from))
+    .map((m) => m.id);
 }
 
 function parseRules(raw: unknown): ViewRule[] {
@@ -819,18 +847,21 @@ export function registerMailHandlers(): void {
       const threadId = assertString(p?.threadId, "threadId");
       const addLabelIds = asStringArray(p?.addLabelIds);
       const removeLabelIds = asStringArray(p?.removeLabelIds);
+      const from = actedFrom(accountId, asString(p?.from));
       return await settleLabelWrite(
         "gmail:modifyThread",
         accountId,
-        mailStore.getThreadMessages(accountId, threadId).map((m) => m.id),
+        threadMessageIds(accountId, threadId, addLabelIds ?? [], removeLabelIds ?? [], from),
         addLabelIds ?? [],
         removeLabelIds ?? [],
         () =>
-          providerFor(accountId).modifyThread(accountId, threadId, {
-            addLabelIds,
-            removeLabelIds,
-          }),
-        { thread: true },
+          providerFor(accountId).modifyThread(
+            accountId,
+            threadId,
+            { addLabelIds, removeLabelIds },
+            from,
+          ),
+        { thread: !from },
       );
     } catch (err) {
       console.log("[gmail:modifyThread] error", { error: String(err) });
@@ -844,10 +875,11 @@ export function registerMailHandlers(): void {
     try {
       const accountId = assertString(p?.accountId, "accountId");
       const threadId = assertString(p?.threadId, "threadId");
-      const ids = mailStore.getThreadMessages(accountId, threadId).map((m) => m.id);
+      const from = actedFrom(accountId, asString(p?.from));
+      const ids = threadMessageIds(accountId, threadId, ["TRASH"], [], from);
       return await settleLabelWrite("gmail:trashThread", accountId, ids, ["TRASH"], [], () =>
         providerFor(accountId)
-          .trashThread(accountId, threadId)
+          .trashThread(accountId, threadId, from)
           .then(() => refreshMetadata(accountId, ids)),
       );
     } catch (err) {
@@ -887,7 +919,7 @@ export function registerMailHandlers(): void {
     try {
       const accountId = assertString(p?.accountId, "accountId");
       const threadId = assertString(p?.threadId, "threadId");
-      const ids = mailStore.getThreadMessages(accountId, threadId).map((m) => m.id);
+      const ids = threadMessageIds(accountId, threadId, [], ["TRASH"], undefined);
       return await settleLabelWrite("gmail:untrashThread", accountId, ids, [], ["TRASH"], () =>
         providerFor(accountId)
           .untrashThread(accountId, threadId)

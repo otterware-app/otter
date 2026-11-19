@@ -127,10 +127,9 @@ export async function snoozeThread(
     throw new Error("This conversation is already snoozed. Manage it in Scheduled & snoozed.");
   }
   const rows = store.getThreadMessages(accountId, threadId);
-  if (
-    !rows.some((m) => m.labelIds.includes("INBOX")) ||
-    rows.some((m) => m.labelIds.some((l) => l === "TRASH" || l === "SPAM"))
-  ) {
+  // What's in Trash or Junk isn't part of the conversation the inbox lists.
+  const listed = rows.filter((m) => !m.labelIds.some((l) => l === "TRASH" || l === "SPAM"));
+  if (!listed.some((m) => m.labelIds.includes("INBOX"))) {
     throw new Error("Only conversations in the inbox can be snoozed.");
   }
   const id = crypto.randomUUID();

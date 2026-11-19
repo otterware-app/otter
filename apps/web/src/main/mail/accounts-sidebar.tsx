@@ -5,6 +5,7 @@ import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { inNewWindow } from "../new-window-click";
 import { toast } from "./toast";
+import { actedFrom } from "./archive";
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -575,6 +576,7 @@ export function MailboxFolders({
         threadId: t.threadId,
         addLabelIds: [label.id],
         removeLabelIds: removeId ? [removeId] : undefined,
+        from: actedFrom(payload.fromLabelId ? [payload.fromLabelId] : []),
       });
     }
   };

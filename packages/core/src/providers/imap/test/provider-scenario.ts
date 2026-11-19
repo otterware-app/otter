@@ -344,6 +344,15 @@ export function providerScenario(
     expect(pathOf(cachedByHeader(accountId, b.id)!.id)).toBe("Sent");
   });
 
+  it("deletes from the Inbox only what's in it, leaving your reply in Sent", async () => {
+    const threadId = lunch;
+    await provider.trashThread(accountId, threadId, "INBOX");
+    expect(cachedByHeader(accountId, a.id)!.labels).toContain("TRASH");
+    expect(pathOf(cachedByHeader(accountId, b.id)!.id)).toBe("Sent");
+    await provider.untrashThread(accountId, threadId);
+    expect(pathOf(cachedByHeader(accountId, a.id)!.id)).toBe("INBOX");
+  });
+
   it("remembers where trashed mail came from across restarts", async () => {
     await provider.trashMessage(accountId, cachedByHeader(accountId, w1.id)!.id);
     const trashed = cachedByHeader(accountId, w1.id)!.id;

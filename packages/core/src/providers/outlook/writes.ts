@@ -1,4 +1,4 @@
-import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "@otter/contracts";
+import { ARCHIVE_LABEL_ID, inThreadChange, SNOOZED_LABEL_ID } from "@otter/contracts";
 
 import { logger } from "../../logger.js";
 import * as store from "../../services/mail-store.js";
@@ -13,6 +13,7 @@ import {
   folderOfLabel,
   FOLDER_PREFIX,
   isSyncedFolder,
+  labelsFor,
   nearestPreset,
   presetColor,
   readMailbox,
@@ -204,15 +205,21 @@ export async function modifyThread(
   accountId: string,
   threadId: string,
   change: LabelChange,
+  from?: string,
 ): Promise<void> {
-  await apply(accountId, await threadMessages(accountId, threadId), change, true);
+  const add = change.addLabelIds ?? [];
+  const remove = change.removeLabelIds ?? [];
+  const messages = (await threadMessages(accountId, threadId)).filter((m) =>
+    inThreadChange(labelsFor(accountId, m), add, remove, from),
+  );
+  await apply(accountId, messages, change, !from);
 }
 
 export const trashMessage = (accountId: string, messageId: string) =>
   modifyMessage(accountId, messageId, { addLabelIds: ["TRASH"] });
 
-export const trashThread = (accountId: string, threadId: string) =>
-  modifyThread(accountId, threadId, { addLabelIds: ["TRASH"] });
+export const trashThread = (accountId: string, threadId: string, from?: string) =>
+  modifyThread(accountId, threadId, { addLabelIds: ["TRASH"] }, from);
 
 async function untrash(accountId: string, messages: ApiMessage[]): Promise<MessageSummary[]> {
   const trashed = messages.filter((m) => folderLabel(accountId, m.parentFolderId) === "TRASH");
@@ -226,7 +233,11 @@ export async function untrashMessage(accountId: string, messageId: string) {
 }
 
 export async function untrashThread(accountId: string, threadId: string) {
-  return untrash(accountId, await threadMessages(accountId, threadId));
+  const messages = await threadMessages(accountId, threadId);
+  return untrash(
+    accountId,
+    messages.filter((m) => inThreadChange(labelsFor(accountId, m), [], ["TRASH"])),
+  );
 }
 
 export async function markRead(accountId: string, messageIds: string[]): Promise<void> {

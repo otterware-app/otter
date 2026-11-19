@@ -60,8 +60,16 @@ MailProvider               packages/core/src/providers/provider.ts
   as Outlook's Archive button does (out of Junk, Deleted Items or the Archive: back to Inbox, or
   Sent Items for your own mail). Junk and Not junk on someone else's mail use beta's
   `markAsJunk` / `markAsNotJunk`, as Outlook's Junk button does: the sender joins (or leaves)
-  Blocked senders, so their next mail goes to Junk too; if Graph refuses, a plain move. On a thread, sent mail and drafts stay put unless the thread is
-  trashed; the cache shows the move at once (contracts' `landLabelChange`). The app's Archive
+  Blocked senders, so their next mail goes to Junk too; if Graph refuses, a plain move. A
+  conversation moved from a folder's list (archive, delete, junk, move, back to the Inbox) moves
+  only what's in that folder, as Outlook's own conversation actions do: your replies stay in Sent
+  Items, mail in Deleted Items stays there (contracts' `inThreadChange`; the lists and the reader
+  pass the folder as `from`). From elsewhere (Flagged, a category, search, an agent) it takes
+  the conversation as listed, without Deleted Items and Junk, and sent mail and drafts stay put
+  unless it's deleted. The cache shows the move at once (contracts' `landLabelChange`). Lists
+  outside Deleted Items and Junk roll a conversation up from the rest of it, so a discarded
+  draft doesn't make an Inbox conversation look deleted. Discarding a draft moves it to Deleted
+  Items, as Outlook's Discard does. The app's Archive
   (button, `e`, bulk) archives from any of your folders, as Outlook's does: in a folder's list it
   takes that folder away (`apps/web/src/main/mail/archive.ts`). Deleting a folder label
   deletes the folder (it goes to Deleted Items with its mail, as in Outlook); deleting a category

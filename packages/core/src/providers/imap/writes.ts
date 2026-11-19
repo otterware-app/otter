@@ -10,7 +10,7 @@
  * takes the received mail, trashing takes everything.
  */
 
-import { ARCHIVE_LABEL_ID } from "@otter/contracts";
+import { ARCHIVE_LABEL_ID, inThreadChange } from "@otter/contracts";
 
 import { getAccount } from "../../services/account-store.js";
 import * as store from "../../services/mail-store.js";
@@ -59,8 +59,17 @@ const rowOf = (accountId: string, id: string): Row => {
   return { id: current, labelIds: store.getMessageLabelIds(accountId, current) ?? [] };
 };
 
-const threadRows = (accountId: string, threadId: string): Row[] =>
-  store.getThreadMessages(accountId, threadId);
+const threadRows = (
+  accountId: string,
+  threadId: string,
+  change: LabelChange,
+  from: string | undefined,
+): Row[] =>
+  store
+    .getThreadMessages(accountId, threadId)
+    .filter((r) =>
+      inThreadChange(r.labelIds, change.addLabelIds ?? [], change.removeLabelIds ?? [], from),
+    );
 
 /** Removes \Deleted messages: only `uids` (UID EXPUNGE); without UIDPLUS, only when nothing else is marked. */
 export async function expungeOnly(client: ImapClient, uids: number[]): Promise<void> {
@@ -294,16 +303,22 @@ export async function modifyMessage(accountId: string, id: string, change: Label
   await changeLabels(accountId, [rowOf(accountId, id)], change, false);
 }
 
-export async function modifyThread(accountId: string, threadId: string, change: LabelChange) {
-  await changeLabels(accountId, threadRows(accountId, threadId), change, true);
+export async function modifyThread(
+  accountId: string,
+  threadId: string,
+  change: LabelChange,
+  from?: string,
+) {
+  await changeLabels(accountId, threadRows(accountId, threadId, change, from), change, !from);
 }
 
 export async function trashMessage(accountId: string, id: string) {
   await changeLabels(accountId, [rowOf(accountId, id)], { addLabelIds: ["TRASH"] }, false);
 }
 
-export async function trashThread(accountId: string, threadId: string) {
-  await changeLabels(accountId, threadRows(accountId, threadId), { addLabelIds: ["TRASH"] }, true);
+export async function trashThread(accountId: string, threadId: string, from?: string) {
+  const change = { addLabelIds: ["TRASH"] };
+  await changeLabels(accountId, threadRows(accountId, threadId, change, from), change, !from);
 }
 
 async function untrash(accountId: string, rows: Row[]): Promise<MessageSummary[]> {
@@ -315,7 +330,7 @@ export const untrashMessage = (accountId: string, id: string) =>
   untrash(accountId, [rowOf(accountId, id)]);
 
 export const untrashThread = (accountId: string, threadId: string) =>
-  untrash(accountId, threadRows(accountId, threadId));
+  untrash(accountId, threadRows(accountId, threadId, { removeLabelIds: ["TRASH"] }, undefined));
 
 export async function markRead(accountId: string, ids: string[]) {
   const rows = ids.map((id) => rowOf(accountId, id));

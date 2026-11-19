@@ -118,7 +118,7 @@ export const ARCHIVE_LABEL_ID = "ARCHIVE";
 export const SNOOZED_LABEL_ID = "SNOOZED";
 
 /** Labels that say how a message is rather than where it is: flags, and Outlook's categories. */
-const isFolderLabel = (id: string) =>
+export const isFolderLabel = (id: string) =>
   !["UNREAD", "STARRED", "IMPORTANT"].includes(id) && !id.startsWith("category:");
 
 /** Folders mail leaves for the Archive: the inbox and the user's own (not Sent, Junk, …). */
@@ -165,6 +165,25 @@ export function landLabelChange(
     change.add.push(ARCHIVE_LABEL_ID);
   }
   return change;
+}
+
+/**
+ * Whether a change made on a whole conversation takes one of its messages (carrying
+ * `labelIds`) where Archive is a folder (Outlook, IMAP). As in Outlook, a move made from a
+ * folder (`from`) takes only what's in that folder. Otherwise (read, flags and categories,
+ * or a move from Flagged, a category, search or an agent) it takes the conversation as it's
+ * listed: all but what's in Trash or Junk, unless it takes it out of there. A draft in Trash
+ * was discarded: restoring its conversation leaves it there.
+ */
+export function inThreadChange(
+  labelIds: readonly string[],
+  add: readonly string[],
+  remove: readonly string[],
+  from?: string,
+): boolean {
+  if (from && [...add, ...remove].some(isFolderLabel)) return labelIds.includes(from);
+  const bin = labelIds.find((id) => id === "TRASH" || id === "SPAM");
+  return !bin || (remove.includes(bin) && !labelIds.includes("DRAFT"));
 }
 
 export type MailSchedule = {

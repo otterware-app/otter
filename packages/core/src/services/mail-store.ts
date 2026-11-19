@@ -581,13 +581,16 @@ export function applyLabelChange(
 
 /**
  * One row per thread: `matchedSql` selects the (accountId, threadId) pairs the
- * view includes; rollups (count/unread/starred) and the representative row (the
- * thread's latest message) are computed over EVERY locally-cached message of
- * the thread, so e.g. an Inbox thread counts your sent replies like Gmail does.
+ * view includes; rollups (count/unread/starred/labels) and the representative row
+ * (the thread's latest message) are computed over every locally-cached message of
+ * the thread, so e.g. an Inbox thread counts your sent replies like Gmail does;
+ * with `listed`, only those outside Trash and Junk, which views other than those
+ * leave out (as Gmail's and Outlook's own conversations do).
  * Outside the Drafts view a draft doesn't move its thread: the thread sorts and
  * dates by its latest other message, as in Gmail.
  */
-function threadPageQuery(matchedSql: string, draftsView = false): string {
+function threadPageQuery(matchedSql: string, draftsView = false, listed = false): string {
+  const kept = (alias: string) => (listed ? `AND ${notInBins(alias)}` : "");
   const sortDate = draftsView
     ? "MAX(t.date)"
     : `COALESCE(MAX(CASE WHEN NOT EXISTS (SELECT 1 FROM message_labels td
@@ -605,6 +608,7 @@ function threadPageQuery(matchedSql: string, draftsView = false): string {
              ${sortDate} AS sortDate
         FROM messages t
         JOIN matched mt ON mt.accountId = t.accountId AND mt.threadId = t.threadId
+       WHERE 1 ${kept("t")}
        GROUP BY t.accountId, t.threadId
        ORDER BY sortDate DESC
        LIMIT ? OFFSET ?
@@ -617,17 +621,20 @@ function threadPageQuery(matchedSql: string, draftsView = false): string {
            (SELECT GROUP_CONCAT(DISTINCT tl.labelId)
               FROM messages tm
               CROSS JOIN message_labels tl ON tl.accountId = tm.accountId AND tl.messageId = tm.id
-             WHERE tm.accountId = agg.accountId AND tm.threadId = agg.threadId) AS threadLabels
+             WHERE tm.accountId = agg.accountId AND tm.threadId = agg.threadId ${kept("tm")}) AS threadLabels
       FROM agg
       JOIN messages m
         ON m.accountId = agg.accountId AND m.threadId = agg.threadId AND m.date = agg.repDate
+       ${kept("m")}
      GROUP BY agg.accountId, agg.threadId
      ORDER BY agg.sortDate DESC
   `;
 }
 
-const NOT_SPAM_TRASH =
-  "NOT EXISTS (SELECT 1 FROM message_labels mlx WHERE mlx.accountId = m.accountId AND mlx.messageId = m.id AND mlx.labelId IN ('SPAM', 'TRASH'))";
+const notInBins = (alias: string) =>
+  `NOT EXISTS (SELECT 1 FROM message_labels mlx WHERE mlx.accountId = ${alias}.accountId AND mlx.messageId = ${alias}.id AND mlx.labelId IN ('SPAM', 'TRASH'))`;
+
+const NOT_SPAM_TRASH = notInBins("m");
 
 /** Lower-cased; `sendAs` is the parent's whole Send from list. */
 export type AliasScope = { address: string; sendAs: string[] };
@@ -700,11 +707,15 @@ export function getThreadsPage(
   if (labelId === ALL_MAIL_LABEL_ID) {
     const rows = d
       .prepare(
-        threadPageQuery(`
+        threadPageQuery(
+          `
           SELECT DISTINCT m.accountId AS accountId, m.threadId AS threadId
             FROM messages m
            WHERE m.accountId = ? AND ${NOT_SPAM_TRASH} ${ownSql}
-        `),
+        `,
+          false,
+          true,
+        ),
       )
       .all(accountId, ...ownParams, limit + 1, offset) as unknown as ThreadRow[];
     return { messages: rows.slice(0, limit).map(rowToThreadSummary), hasMore: rows.length > limit };
@@ -721,6 +732,7 @@ export function getThreadsPage(
          WHERE m.accountId = ? AND ml.labelId = ? ${exclusion} ${ownSql}
       `,
         labelId === "DRAFT",
+        exclusion !== "",
       ),
     )
     .all(accountId, labelId, ...ownParams, limit + 1, offset) as unknown as ThreadRow[];
@@ -1274,6 +1286,7 @@ export function getCombinedThreadsByRules(
          WHERE ${clause}
       `,
         rules.every((r) => r.allOf.includes("DRAFT")),
+        !rules.some((r) => r.allOf.includes("SPAM") || r.allOf.includes("TRASH")),
       ),
     )
     .all(...params, limit + 1, offset) as unknown as ThreadRow[];
