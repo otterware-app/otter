@@ -1034,7 +1034,7 @@ function ConnectionsHub() {
     <SettingsPageContainer
       searchId={searchableSetting("mailboxes").id}
       title="Connections"
-      description="The accounts you've connected and what each gives Otter. Mailboxes turn on or off on every device; drag the tabs in the sidebar to order them."
+      description="The accounts you've connected and what each gives Otter. Mailboxes turn on or off on every device; with all of them in the sidebar (Appearance), drag them there to order them."
       action={
         <SignInButton
           label="Add account"

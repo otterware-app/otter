@@ -3,10 +3,13 @@ import { setSyncedPreference } from "../synced-preferences";
 
 export type FolderVisibility = "always" | "badged" | "never";
 export type BadgeStyle = "count" | "dot";
+/** With several mailboxes: one at a time and a switcher, or each with its folders, one under another. */
+export type MailboxesShown = "all" | "one";
 
 /** The mail sidebar's folders, Linear's "Customize sidebar": every mailbox's, by folder id. */
 export type SidebarLayout = {
   badge: BadgeStyle;
+  mailboxes: MailboxesShown;
   /** Folder ids moved from the default order; one not in it follows the one before it there. */
   order: string[];
   visibility: Partial<Record<string, FolderVisibility>>;
@@ -46,6 +49,7 @@ function read(): SidebarLayout {
       : {};
   const layout: SidebarLayout = {
     badge: value.badge === "dot" ? "dot" : "count",
+    mailboxes: value.mailboxes === "all" ? "all" : "one",
     order: Array.isArray(value.order)
       ? value.order.filter((id): id is string => typeof id === "string")
       : [],

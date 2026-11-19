@@ -69,7 +69,7 @@ import { CustomizeSidebarDialog, type SidebarFolder } from "./customize-sidebar"
 
 const LABEL_DRAG_MIME = "application/x-gmail-label";
 
-type LabelDragPayload = { id: string; name: string };
+type LabelDragPayload = { mailboxId: string; id: string; name: string };
 
 const GMAIL_LABEL_COLORS: { backgroundColor: string; textColor: string }[] = [
   { backgroundColor: "#fb4c2f", textColor: "#ffffff" },
@@ -225,6 +225,7 @@ function labelIcon(label?: MailLabel): ReactNode {
 }
 
 type LabelActions = {
+  mailboxId: string;
   noun: string;
   onRename: (label: MailLabel) => void;
   onRecolor?: (label: MailLabel) => void;
@@ -266,7 +267,11 @@ function LabelNode({
         onDragStart: (e) => {
           e.dataTransfer.setData(
             LABEL_DRAG_MIME,
-            JSON.stringify({ id: label.id, name: label.name } satisfies LabelDragPayload),
+            JSON.stringify({
+              mailboxId: actions.mailboxId,
+              id: label.id,
+              name: label.name,
+            } satisfies LabelDragPayload),
           );
           e.dataTransfer.effectAllowed = "move";
         },
@@ -496,6 +501,11 @@ export function MailboxFolders({
 
   const handleMoveLabel = (source: LabelDragPayload, targetParentName: string | null) => {
     if (!mailboxId || source.id.startsWith("category:")) return;
+    // With every mailbox in the sidebar, a label can be dropped among another mailbox's.
+    if (source.mailboxId !== mailboxId) {
+      toast.error("That label belongs to another mailbox");
+      return;
+    }
     if (
       targetParentName &&
       (targetParentName === source.name || targetParentName.startsWith(`${source.name}/`))
@@ -582,6 +592,7 @@ export function MailboxFolders({
   };
 
   const labelActions: LabelActions = {
+    mailboxId,
     noun: labelNoun.toLowerCase(),
     onRename: (label) => {
       setRenameValue(label.name);

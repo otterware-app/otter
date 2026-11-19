@@ -1,5 +1,5 @@
-import { useState, type ComponentType } from "react";
-import { PlusIcon, SettingsIcon, SquarePenIcon } from "lucide-react";
+import { useState, type ComponentType, type ReactNode } from "react";
+import { ChevronDownIcon, PlusIcon, SettingsIcon, SquarePenIcon } from "lucide-react";
 
 import { CalendarSidebar } from "../calendar/calendar-sidebar";
 import type { WorkspaceProps } from "../extensions/types";
@@ -25,7 +25,9 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "./menu";
+import { useSidebarLayout } from "./sidebar-layout";
 import {
+  Collapse,
   NewRow,
   SIDEBAR_ROW,
   Section,
@@ -41,7 +43,7 @@ import { toast } from "./toast";
 import { useInboxUnread, useMailboxOptions, type MailboxOption } from "./top-bar";
 import type { MailAccount, MailView } from "./types";
 import type { MailboxTab } from "../mailboxes";
-import { HintTooltip, IconBtn } from "./ui";
+import { HintTooltip, IconBtn, UnreadPill, cn } from "./ui";
 import { ViewMark } from "./view-icon";
 import { inNewWindow } from "../new-window-click";
 import { PLACE } from "../place-menu";
@@ -58,6 +60,7 @@ export function AppSidebar({
   composing,
   onMode,
   onGo,
+  onMoveMailbox,
   onSelectChat,
   onNewChat,
   onCompose,
@@ -79,6 +82,8 @@ export function AppSidebar({
   composing: boolean;
   onMode: (mode: AppMode) => void;
   onGo: (spaceId: string, labelId?: string) => void;
+  /** Puts mailbox `id` before or after `target`. */
+  onMoveMailbox: (id: string, target: string, after: boolean) => void;
   onSelectChat: (chatId: string) => void;
   onNewChat: () => void;
   onCompose: () => void;
@@ -90,6 +95,7 @@ export function AppSidebar({
   onCloseSearch: (id: string) => void;
 }) {
   const options = useMailboxOptions(tabs);
+  const all = useSidebarLayout().mailboxes === "all" && options.length > 1;
   const isMailbox = (id: string | null) => options.some((option) => option.id === id);
   const [lastMailbox, setLastMailbox] = useState<string | null>(null);
   if (isMailbox(spaceId) && spaceId !== lastMailbox) setLastMailbox(spaceId);
@@ -128,7 +134,7 @@ export function AppSidebar({
             />
             <ScheduledMailButton />
           </div>
-          {options.length > 0 ? (
+          {options.length > 0 && !all ? (
             <div className="flex shrink-0 flex-col px-(--sidebar-content-inset) pt-3">
               <MailboxSwitcher
                 options={options}
@@ -141,7 +147,10 @@ export function AppSidebar({
           <MailPage
             accounts={accounts}
             views={views}
-            mailbox={tabs.find((tab) => tab.id === mailbox) ?? null}
+            options={options}
+            tabs={all ? tabs : tabs.filter((tab) => tab.id === mailbox)}
+            all={all}
+            onMoveMailbox={onMoveMailbox}
             spaceId={composing ? null : spaceId}
             labelId={labelId}
             onGo={onGo}
@@ -245,23 +254,28 @@ function ModePicker({
 
 /** This computer's order of the mode switcher; not synced. */
 const MODE_ORDER_KEY = "otter:mode-order";
+/** Mailboxes closed in the sidebar on this computer; not synced. */
+const CLOSED_MAILBOXES_KEY = "otter:closed-mailboxes";
 
-function loadModeOrder(): string[] {
+function loadList(key: string): string[] {
   try {
-    const saved: unknown = JSON.parse(localStorage.getItem(MODE_ORDER_KEY) ?? "[]");
+    const saved: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
     return Array.isArray(saved) ? saved.filter((id) => typeof id === "string") : [];
   } catch {
     return [];
   }
 }
 
-function saveModeOrder(order: string[]): void {
+function saveList(key: string, list: string[]): void {
   try {
-    localStorage.setItem(MODE_ORDER_KEY, JSON.stringify(order));
+    localStorage.setItem(key, JSON.stringify(list));
   } catch {
-    // Unsaved, the order lasts until reload.
+    // Unsaved, it lasts until reload.
   }
 }
+
+const loadModeOrder = () => loadList(MODE_ORDER_KEY);
+const saveModeOrder = (order: string[]) => saveList(MODE_ORDER_KEY, order);
 
 function MailboxSwitcher({
   options,
@@ -298,10 +312,13 @@ function MailboxSwitcher({
 function MailPage({
   accounts,
   views,
-  mailbox,
+  options,
+  tabs,
+  all,
   spaceId,
   labelId,
   onGo,
+  onMoveMailbox,
   onNewView,
   onEditView,
   searches,
@@ -310,10 +327,14 @@ function MailPage({
 }: {
   accounts: MailAccount[];
   views: MailView[];
-  mailbox: MailboxTab | null;
+  options: MailboxOption[];
+  /** The mailboxes shown: every one, or the one picked. */
+  tabs: MailboxTab[];
+  all: boolean;
   spaceId: string | null;
   labelId: string;
   onGo: (spaceId: string, labelId?: string) => void;
+  onMoveMailbox: (id: string, target: string, after: boolean) => void;
   onNewView: () => void;
   onEditView: (viewId: string) => void;
   searches: SidebarSearch[];
@@ -322,7 +343,6 @@ function MailPage({
 }) {
   const viewUnread = useViewUnreadCounts(views, accounts);
   const addAccount = useAddAccount();
-  const showing = mailbox != null && mailbox.id === spaceId;
 
   const addGmail = async () => {
     console.log("[AppSidebar:addAccount]");
@@ -348,18 +368,32 @@ function MailPage({
         />
       ));
 
+  const folders = (tab: MailboxTab, depth?: number) => {
+    const showing = tab.id === spaceId;
+    return (
+      <MailboxFolders
+        key={tab.id}
+        mailboxId={tab.account.id}
+        alias={tab.alias?.id}
+        selectedLabelId={showing ? labelId : ""}
+        onSelectLabel={(label) => onGo(tab.id, label)}
+        searchRows={showing ? searchRows : undefined}
+        depth={depth}
+      />
+    );
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <SidebarBody>
-        {mailbox ? (
-          <MailboxFolders
-            key={mailbox.id}
-            mailboxId={mailbox.account.id}
-            alias={mailbox.alias?.id}
-            selectedLabelId={showing ? labelId : ""}
-            onSelectLabel={(label) => onGo(mailbox.id, label)}
-            searchRows={showing ? searchRows : undefined}
-          />
+        {all ? (
+          <div data-tour="mailbox">
+            <MailboxGroups options={options} tabs={tabs} spaceId={spaceId} onMove={onMoveMailbox}>
+              {(tab) => folders(tab, 1)}
+            </MailboxGroups>
+          </div>
+        ) : tabs[0] ? (
+          folders(tabs[0])
         ) : (
           <AddMailboxMenu onGmail={() => void addGmail()} onAdded={(a) => onGo(a.id)}>
             <button
@@ -403,4 +437,128 @@ function MailPage({
       </SidebarBody>
     </div>
   );
+}
+
+/**
+ * Every mailbox with its folders, one under another, each closing to its row and dragged by it
+ * into order (Linear's teams).
+ */
+function MailboxGroups({
+  options,
+  tabs,
+  spaceId,
+  onMove,
+  children,
+}: {
+  options: MailboxOption[];
+  tabs: MailboxTab[];
+  spaceId: string | null;
+  onMove: (id: string, target: string, after: boolean) => void;
+  children: (tab: MailboxTab) => ReactNode;
+}) {
+  const badgeStyle = useSidebarLayout().badge;
+  const unread = useInboxUnread(
+    tabs.flatMap((tab) => (tab.alias ? [] : [tab.account])),
+    tabs.flatMap((tab) => (tab.alias ? [tab.alias] : [])),
+  );
+  const [closed, setClosed] = useState(() => loadList(CLOSED_MAILBOXES_KEY));
+  const toggle = (id: string) => {
+    const next = closed.includes(id) ? closed.filter((c) => c !== id) : [...closed, id];
+    setClosed(next);
+    saveList(CLOSED_MAILBOXES_KEY, next);
+  };
+  const [dragged, setDragged] = useState<string | null>(null);
+  const [drop, setDrop] = useState<{ id: string; after: boolean } | null>(null);
+  const endDrag = () => {
+    setDragged(null);
+    setDrop(null);
+  };
+  return tabs.map((tab, i) => {
+    const option = options.find((o) => o.id === tab.id);
+    if (!option) return null;
+    const open = !closed.includes(tab.id);
+    const count = unread[tab.id] ?? 0;
+    // Closed, its row stands for the place shown inside it.
+    const selected = !open && tab.id === spaceId;
+    const dropHere = drop?.id === tab.id ? drop : null;
+    // Apart from the one before when either is open.
+    const spaced = i > 0 && (open || !closed.includes(tabs[i - 1]!.id));
+    return (
+      // The whole mailbox, folders too, takes a mailbox dropped on it.
+      <div
+        key={tab.id}
+        className={cn("relative", spaced && "mt-3")}
+        onDragOver={(e) => {
+          if (!dragged) return;
+          e.preventDefault();
+          if (dragged === tab.id) {
+            setDrop(null);
+            return;
+          }
+          const box = e.currentTarget.getBoundingClientRect();
+          setDrop({ id: tab.id, after: e.clientY > box.top + box.height / 2 });
+        }}
+        onDrop={(e) => {
+          if (!dragged) return;
+          e.preventDefault();
+          if (drop) onMove(dragged, drop.id, drop.after);
+          endDrag();
+        }}
+      >
+        {dropHere ? (
+          <span
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute inset-x-2 z-20 h-0.5 rounded-full bg-primary",
+              dropHere.after ? "-bottom-px" : "-top-px",
+            )}
+          />
+        ) : null}
+        {/* Open, it stays at the top while its folders scroll under it, and covers the gap
+            above it there (always empty, or the scroll fade's) so nothing shows over it. */}
+        <div
+          className={cn(
+            "z-10 bg-sidebar-surface",
+            open &&
+              "sticky top-0 before:absolute before:inset-x-0 before:bottom-full before:h-3 before:bg-sidebar-surface",
+          )}
+        >
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => toggle(tab.id)}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", option.name);
+              setDragged(tab.id);
+            }}
+            onDragEnd={endDrag}
+            className={cn(
+              SIDEBAR_ROW,
+              "px-(--sidebar-row-content-inset)",
+              selected
+                ? "bg-sidebar-row-selected text-sidebar-foreground"
+                : "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
+              dragged === tab.id && "opacity-40",
+            )}
+          >
+            <AccountPicture account={option.account} className="size-4 rounded-sm text-[8px]" />
+            <span className="min-w-0 truncate">{option.name}</span>
+            <ChevronDownIcon
+              className={cn("size-3 shrink-0 transition-transform", open ? "" : "-rotate-90")}
+            />
+            {open ? null : badgeStyle === "dot" ? (
+              count > 0 ? (
+                <span aria-hidden className="ml-auto size-1.5 shrink-0 rounded-full bg-primary" />
+              ) : null
+            ) : (
+              <UnreadPill count={count} />
+            )}
+          </button>
+        </div>
+        <Collapse open={open}>{children(tab)}</Collapse>
+      </div>
+    );
+  });
 }
