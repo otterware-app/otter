@@ -1540,6 +1540,7 @@ function MailHome() {
       settingsOpen={settingsRoute !== null}
       composing={composeOpen}
       onGo={goToSpace}
+      onMoveMailbox={mailboxes.move}
       onMode={switchMode}
       onSelectChat={(id) => go({ label: id }, true)}
       onNewChat={startNewChat}

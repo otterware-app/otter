@@ -266,6 +266,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["date separators today yesterday collapse expand sections inbox"],
   },
   {
+    id: "sidebar-mailboxes",
+    title: "Mailboxes in the sidebar",
+    pane: "appearance",
+    searchTerms: [
+      "all mailboxes together one at a time switcher accounts every inbox sidebar order reorder drag",
+    ],
+  },
+  {
     id: "full-width-rows",
     title: "Full-width rows",
     pane: "appearance",

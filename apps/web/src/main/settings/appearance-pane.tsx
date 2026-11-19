@@ -83,6 +83,7 @@ import {
   SettingsSection,
 } from "./settings-ui";
 import { searchableSetting } from "./settings-search";
+import { setSidebarLayout, useSidebarLayout, type MailboxesShown } from "../mail/sidebar-layout";
 
 export type ColorScheme = "system" | "light" | "dark";
 
@@ -809,6 +810,39 @@ function MailLayoutPicker() {
   );
 }
 
+const MAILBOXES_SHOWN: { value: MailboxesShown; label: string }[] = [
+  { value: "one", label: "One at a time" },
+  { value: "all", label: "All together" },
+];
+
+function SidebarMailboxesRow() {
+  const layout = useSidebarLayout();
+  const setMailboxes = (mailboxes: MailboxesShown) => setSidebarLayout({ ...layout, mailboxes });
+  return (
+    <SettingsRow
+      {...searchableSetting("sidebar-mailboxes")}
+      title="Mailboxes"
+      description="With two or more: one at a time, with a menu to switch, or all together, each with its folders, in the order you drag them."
+      control={
+        <RowSelect
+          ariaLabel="Mailboxes in the sidebar"
+          value={layout.mailboxes}
+          onValueChange={(value) => setMailboxes(value as MailboxesShown)}
+          options={MAILBOXES_SHOWN}
+        />
+      }
+      resetAction={
+        layout.mailboxes !== "one" ? (
+          <SettingResetButton
+            label="mailboxes in the sidebar"
+            onClick={() => setMailboxes("one")}
+          />
+        ) : null
+      }
+    />
+  );
+}
+
 export function useColorScheme(): [ColorScheme, (next: ColorScheme) => Promise<void>] {
   const [themeInfo, setThemeInfo] = useState<NativeThemeInfo | null>(null);
 
@@ -882,6 +916,10 @@ export function AppearancePane() {
       </div>
 
       <MailLayoutPicker />
+
+      <SettingsSection title="Sidebar">
+        <SidebarMailboxesRow />
+      </SettingsSection>
 
       <SettingsSection title="Message list" description="These options apply to every mail layout.">
         <SettingsRow
