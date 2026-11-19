@@ -1026,7 +1026,7 @@ function useAttachmentActions(
   onDownload: DownloadAttachment,
 ) {
   const [opening, setOpening] = useState(false);
-  const [previewing, setPreviewing] = useState(false);
+  const [previewing, setPreviewing] = useState<PreviewFile | null>(null);
   const pressRef = useRef<{ x: number; y: number } | null>(null);
   const draggedRef = useRef(false);
 
@@ -1057,16 +1057,11 @@ function useAttachmentActions(
   const previewable = attachmentPreview(attachment.filename, attachment.mimeType) !== null;
   const handleOpen = () => {
     if (draggedRef.current) return;
-    if (previewable) setPreviewing(true);
+    if (previewable) setPreviewing(previewFile(accountId, messageId, attachment, save));
     else openInApp();
   };
 
-  const preview = (
-    <AttachmentPreview
-      file={previewing ? previewFile(accountId, messageId, attachment, save) : null}
-      onClose={() => setPreviewing(false)}
-    />
-  );
+  const preview = <AttachmentPreview file={previewing} onClose={() => setPreviewing(null)} />;
 
   const dragProps = {
     onPointerDown: (e: PointerEvent<HTMLElement>) => {
