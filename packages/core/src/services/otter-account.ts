@@ -6,7 +6,7 @@ import type { MeResponse, RelayUser } from "@otter/contracts/relay";
 import { logger } from "../logger.js";
 import { platform } from "../platform.js";
 
-const SESSION_SECRET = "otter-session";
+export const SESSION_SECRET = "otter-session";
 
 export const OTTER_SIGNED_OUT_MESSAGE = "Not signed in to Otter.";
 

@@ -323,12 +323,22 @@ function useStoredWidth(
 
 type PaneWidths = { sidebar: number; list: number; browser: number };
 
-function PaneResizer({ onPointerDown }: { onPointerDown: (e: ReactPointerEvent) => void }) {
+function PaneResizer({
+  onPointerDown,
+  joined = false,
+}: {
+  onPointerDown: (e: ReactPointerEvent) => void;
+  /** Between the panes of one panel: its line is the panel's, below the titlebar. */
+  joined?: boolean;
+}) {
   return (
     <div className="relative z-20 w-0 shrink-0" aria-hidden>
       <div
         onPointerDown={onPointerDown}
-        className="no-drag group absolute inset-y-0 -left-1 flex w-1 cursor-col-resize justify-center"
+        className={cn(
+          "no-drag group absolute inset-y-0 -left-1 flex w-1 cursor-col-resize justify-center",
+          joined && "top-(--workspace-card-top) -left-[2.5px]",
+        )}
       >
         <div className="w-px group-hover:bg-input" />
       </div>
@@ -342,6 +352,10 @@ const PANE_SIDEBAR = `${PANE} relative text-sidebar-foreground`;
 const PANE_LIST = `${CARD} before:bg-canvas`;
 const PANE_MAIN = PANE_LIST;
 const PANE_BROWSER = PANE_LIST;
+// The list and the reader side by side are one panel (Linear's): the list's edge is the
+// line between them. The browser stays a card of its own.
+const JOINED_LIST = "pr-0 before:right-0 after:right-0 before:rounded-r-none after:rounded-r-none";
+const JOINED_MAIN = "before:rounded-l-none after:rounded-l-none after:border-l-0";
 const PANE_FRAME =
   "flex min-h-0 shrink-0 overflow-hidden [[data-panel-animations=true]_&]:transition-[width] [[data-panel-animations=true]_&]:[transition-duration:var(--panel-animation-duration)] [[data-panel-animations=true]_&]:ease-out";
 
@@ -577,19 +591,22 @@ function MailHome() {
     () => localStorage.getItem("gmail:settings-sidebar-open") !== "0",
   );
   const sidebarOpen = settingsRoute ? settingsSidebarOpen : mailSidebarOpen;
-  const browserRoom = () =>
+  const browserRoomBeside = (list: boolean) =>
     window.innerWidth -
     FRAME_INSET -
     (sidebarOpen ? sidebarWidth : 0) -
-    (mailLayoutSetting === "full" ? 0 : listWidth) -
+    (list && !ownsMain ? listWidth : 0) -
     READER_MIN_WIDTH;
+  // Dragged, it may take the list's room unless the layout is Split view: Auto then gives
+  // way to Full inbox.
+  const browserRoom = () => browserRoomBeside(mailLayoutSetting === "split");
   const {
     width: browserWidth,
     start: browserStart,
     widen: widenBrowser,
     paneRef: browserPaneRef,
     frameRef: browserFrameRef,
-  } = useStoredWidth("gmail:pane:browser", 340, 280, 1200, -1, browserRoom, undefined, (width) =>
+  } = useStoredWidth("gmail:pane:browser", 340, 280, 2400, -1, browserRoom, undefined, (width) =>
     dragAutoLayout("browser", width),
   );
   const { active: panelAnimationsActive, durationMs: panelAnimationDurationMs } =
@@ -625,10 +642,10 @@ function MailHome() {
     panelAnimationDurationMs,
   );
   // Pages need room: the panel opens wide, as far as the reader allows (narrower by hand).
-  const browserRoomRef = useLatest(browserRoom);
+  const openRoomRef = useLatest(() => browserRoomBeside(mailLayoutSetting !== "full"));
   useEffect(() => {
-    if (browserVisible) widenBrowser(Math.min(BROWSER_OPEN_WIDTH, browserRoomRef.current()));
-  }, [browserVisible, widenBrowser, browserRoomRef]);
+    if (browserVisible) widenBrowser(Math.min(BROWSER_OPEN_WIDTH, openRoomRef.current()));
+  }, [browserVisible, widenBrowser, openRoomRef]);
   const toggleSidebar = () => {
     const [key, setOpen] = settingsRoute
       ? ["gmail:settings-sidebar-open", setSettingsSidebarOpen]
@@ -1452,6 +1469,7 @@ function MailHome() {
   const showMain =
     !!settingsRoute || !fullInbox || !hasListTarget || !!selectedMessageId || composeOpen;
   const listVisible = hasListTarget && !settingsRoute && !composeOpen && (!fullInbox || !showMain);
+  const joined = listVisible && showMain;
 
   const readerOwnsBand =
     !settingsRoute && !(composeOpen && composeAccountId) && !!readerAccount && !!selectedMessageId;
@@ -1631,6 +1649,7 @@ function MailHome() {
                       style={{ width: fullInbox ? undefined : listWidth }}
                       className={cn(
                         fullInbox ? `${PANE_LIST} min-w-0 flex-1` : `${PANE_LIST} shrink-0`,
+                        joined && JOINED_LIST,
                         !listVisible && "invisible absolute inset-0",
                       )}
                       inert={!listVisible}
@@ -1678,12 +1697,13 @@ function MailHome() {
                         }
                       />
                     </div>
-                    {fullInbox ? null : <PaneResizer onPointerDown={listStart} />}
+                    {fullInbox ? null : <PaneResizer onPointerDown={listStart} joined={joined} />}
                   </>
                 ) : null}
                 <div
                   className={cn(
                     `${PANE_MAIN} min-w-0 flex-1 flex-col`,
+                    joined && JOINED_MAIN,
                     showMain ? "flex" : "hidden",
                   )}
                   data-tour={showMain ? "reader" : undefined}

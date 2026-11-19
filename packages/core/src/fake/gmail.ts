@@ -10,7 +10,7 @@ import { EXTRA_DEMO_ACCOUNTS } from "./extra-mailboxes.js";
 
 const SEEDS = [...DEMO_ACCOUNTS, ...EXTRA_DEMO_ACCOUNTS];
 import { fakeCalendar } from "./calendar.js";
-import { FAKE_RELAY_URL } from "./relay.js";
+import { answerRelay, FAKE_RELAY_URL } from "./relay.js";
 
 const attachmentData = (content: string) =>
   toBase64(new TextEncoder().encode(content))
@@ -830,9 +830,6 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
 }
 
 function answer(url: URL, method: string, headers: Headers, rawBody: unknown): Response | null {
-  if (url.origin === FAKE_RELAY_URL) {
-    return json({ error: "Demo mode has no Otter account." }, 401);
-  }
   if (url.hostname === "gmail.googleapis.com" && url.pathname.startsWith("/gmail/v1/users/me")) {
     const account = /^Bearer demo:(.+)$/.exec(headers.get("Authorization") ?? "")?.[1];
     const box = account ? state.mailboxes[account] : undefined;
@@ -875,12 +872,11 @@ export async function installFakeGmail(demoFiles: Platform["files"]): Promise<vo
     const request = input instanceof Request ? input : null;
     const url = new URL(request ? request.url : String(input));
     if (url.origin === "https://api.todoist.com") return todoist(url, init);
-    const response = answer(
-      url,
-      (init?.method ?? request?.method ?? "GET").toUpperCase(),
-      new Headers(init?.headers ?? request?.headers),
-      init?.body,
-    );
+    const method = (init?.method ?? request?.method ?? "GET").toUpperCase();
+    const response =
+      url.origin === FAKE_RELAY_URL
+        ? await answerRelay(url, method, init?.body)
+        : answer(url, method, new Headers(init?.headers ?? request?.headers), init?.body);
     if (!response) return realFetch(input, init);
     await new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
     return response;
@@ -917,9 +913,7 @@ export function demoGoogleAuth(): GoogleAuth {
     cancelSignIn() {},
     isSignedIn: isDemo,
     getAccessToken: async (accountId) => `demo:${accountId}`,
-    async getIdToken() {
-      throw new Error("Demo mailboxes can't sign in to an Otter account.");
-    },
+    getIdToken: async () => "demo-google-id-token",
     async removeTokens() {},
   };
 }

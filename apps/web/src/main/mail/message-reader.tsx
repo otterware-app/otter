@@ -12,7 +12,6 @@ import {
 import { SnoozeButton } from "./mail-schedule";
 import {
   Fragment,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -73,6 +72,7 @@ import {
   useGetAttachment,
   useLabels,
   useSendMessage,
+  useWidth,
 } from "./hooks";
 import { mailApi } from "./api";
 import { CategoryChip, InboxChip, LabelChip, isCategoryLabelId } from "./label-chip";
@@ -162,24 +162,6 @@ export type DownloadAttachment = (
   filename: string,
   mimeType: string,
 ) => void;
-
-function useWidth(initial: number): [number, (el: HTMLElement | null) => void] {
-  const [width, setWidth] = useState(initial);
-  const observer = useRef<ResizeObserver | null>(null);
-  const ref = useCallback(
-    (el: HTMLElement | null) => {
-      observer.current?.disconnect();
-      observer.current = null;
-      if (!el) return setWidth(initial);
-      setWidth(el.getBoundingClientRect().width);
-      const ro = new ResizeObserver(([entry]) => setWidth(entry.borderBoxSize[0].inlineSize));
-      ro.observe(el);
-      observer.current = ro;
-    },
-    [initial],
-  );
-  return [width, ref];
-}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -2565,10 +2547,14 @@ export function MessageReader({
     />
   );
 
-  const title = (
+  // In the title band it's sized like the list's title beside it; above the messages, a heading.
+  const renderTitle = (inBand: boolean) => (
     <>
       <h1
-        className="no-drag select-text text-xl font-semibold leading-7 tracking-[-0.01em] text-foreground [overflow-wrap:anywhere]"
+        className={cn(
+          "no-drag select-text font-semibold text-foreground [overflow-wrap:anywhere]",
+          inBand ? "text-[15px] leading-5" : "text-xl leading-7 tracking-[-0.01em]",
+        )}
         title={isThread ? `${rows.length} messages` : formatFullDate(message.date)}
       >
         {message.subject || "(no subject)"}
@@ -2632,7 +2618,7 @@ export function MessageReader({
             </span>
           ) : null}
           <div className="flex min-w-0 flex-1 items-center gap-2 pl-2 pr-3">
-            {titleInBand ? title : null}
+            {titleInBand ? renderTitle(true) : null}
           </div>
 
           <span ref={actionsRef} className="flex shrink-0 items-center gap-1">
@@ -2882,12 +2868,12 @@ export function MessageReader({
             inert
             className="pointer-events-none invisible absolute left-0 top-0 flex w-max items-center gap-2 whitespace-nowrap"
           >
-            {title}
+            {renderTitle(true)}
           </div>
 
           {titleInBand ? null : (
             <div className="mx-auto flex w-full max-w-(--reading-width) shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-6 pb-2 pt-1">
-              {title}
+              {renderTitle(false)}
             </div>
           )}
 

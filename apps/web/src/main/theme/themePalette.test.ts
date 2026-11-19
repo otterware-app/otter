@@ -78,14 +78,14 @@ function contrastRatio(first: string, second: string): number {
 describe("theme files", () => {
   it("keeps stock dark controls a step above the canvas", () => {
     expectThemeColors(getStandardThemeColors("dark"), {
-      canvas: "#17171a",
-      surface: "#202023",
-      surfaceRaised: "#202023",
-      surfaceOverlay: "#202023",
-      toolbarControl: "#202023",
-      secondary: "#202023",
-      muted: "#202023",
-      accentSurface: "#232325",
+      canvas: "#141415",
+      surface: "#1d1d1e",
+      surfaceRaised: "#1d1d1e",
+      surfaceOverlay: "#1d1d1e",
+      toolbarControl: "#1d1d1e",
+      secondary: "#1d1d1e",
+      muted: "#1d1d1e",
+      accentSurface: "#212123",
     });
   });
 
@@ -97,10 +97,10 @@ describe("theme files", () => {
       messageSurface: "#f3f3f5",
     });
     expectThemeColors(getStandardThemeColors("dark"), {
-      canvas: "#17171a",
-      sidebar: "#0c0c0e",
-      sidebarRowActive: "#2b2b2d",
-      messageSurface: "#232325",
+      canvas: "#141415",
+      sidebar: "#0a0a0b",
+      sidebarRowActive: "#252526",
+      messageSurface: "#212123",
     });
   });
 

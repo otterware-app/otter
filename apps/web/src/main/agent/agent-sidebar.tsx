@@ -86,6 +86,16 @@ const ROW_BODY =
 /** The row's time or pin, which its settle button takes the place of on hover (T3 Code's). */
 const ROW_END_HIDES = "group-hover/row:invisible group-has-focus-visible/row:invisible";
 const ROW_ACTION_SHOWS = "group-hover/row:flex group-has-focus-visible/row:flex";
+const ROW_ACTION =
+  "flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=open]:bg-foreground/[0.08]";
+
+/** How long a run has gone: "8s", "2m", "1h". */
+function elapsed(ms: number): string {
+  const seconds = Math.max(1, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`;
+}
 
 const DRAFT_SURFACE = "bg-warning/4 hover:bg-warning/8";
 const DRAFT_PEN = "size-3 shrink-0 text-warning-foreground";
@@ -116,7 +126,7 @@ export function AgentSidebar({
   const questions = useChats((s) => s.questions);
   const drafts = useChats((s) => s.drafts);
   const device = useChats((s) => s.device);
-  const now = useNow(30_000);
+  const now = useNow(Object.keys(runs).length > 0 ? 1_000 : 30_000);
   const autoSettleDays = useAutoSettleDays();
   const [settledShown, setSettledShown] = useState(SETTLED_FIRST);
   const providers = useAgentProviders().data?.providers ?? [];
@@ -247,7 +257,8 @@ export function AgentSidebar({
     }
   };
 
-  const status = (c: Conversation): ReactNode => {
+  /** What's going on with it now, when anything is: it shows where the time would. */
+  const liveStatus = (c: Conversation): ReactNode => {
     if (approving.has(c.id))
       return (
         <Status
@@ -260,11 +271,22 @@ export function AgentSidebar({
       return (
         <Status icon={CircleAlertIcon} className="text-warning-foreground" label="Has a question" />
       );
-    if (runs[c.id]) return <Status icon={CircleDashedIcon} className="text-info" label="Working" />;
+    const run = runs[c.id];
+    if (run) {
+      const started = c.turns.find((t) => t.id === `a-${run.requestId}`)?.startedAt;
+      return (
+        <Status
+          icon={CircleDashedIcon}
+          spinning
+          className="text-info-foreground"
+          label={started ? `Working ${elapsed(now - started)}` : "Working"}
+        />
+      );
+    }
     if (c.turns.at(-1)?.error)
       return <Status icon={CircleXIcon} className="text-destructive-foreground" label="Failed" />;
     if (isElsewhere(c, device)) return <Status icon={LaptopIcon} label={`On ${c.device!.name}`} />;
-    return tabsSummary(c.tabs) || agentName(c.provider, openClawAgentId(c.sessionId));
+    return null;
   };
 
   const draftRow = (c: Conversation) => {
@@ -275,7 +297,7 @@ export function AgentSidebar({
       <div
         key={c.id}
         className={cn(
-          "group/row relative rounded-lg has-focus-visible:ring-2 has-focus-visible:ring-focus-ring",
+          "group/row relative mb-0.5 rounded-lg has-focus-visible:ring-2 has-focus-visible:ring-focus-ring",
           selected ? "bg-sidebar-row-selected" : DRAFT_SURFACE,
         )}
       >
@@ -315,8 +337,7 @@ export function AgentSidebar({
     const drafted = !selected && hasDraft(drafts, c.id);
     const oneLine = shelf === "snoozed" || shelf === "settled";
     let end: ReactNode;
-    if (shelf === "pinned") end = <PinIcon aria-label="Pinned" className="size-3" />;
-    else if (shelf === "snoozed")
+    if (shelf === "snoozed")
       end = (
         <span className="flex items-center gap-1">
           <AlarmClockIcon aria-label="Wakes in" className="size-3" />
@@ -327,37 +348,56 @@ export function AgentSidebar({
     const renaming = editing === c.id;
     const busy = regenerating.has(c.id);
     const startRename = () => setEditing(c.id);
-    const body = (title: ReactNode) => (
-      <>
-        <AgentAvatar
-          id={c.provider}
-          agent={openClawAgentId(c.sessionId)}
-          className={cn("size-3.5 shrink-0", !oneLine && "mt-[3px]")}
-        />
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="flex min-w-0 items-center gap-1.5">
-            {drafted ? <SquarePenIcon aria-label="Unsent draft" className={DRAFT_PEN} /> : null}
-            {title}
-            {fresh ? (
-              <span aria-label="New" className="size-1.5 shrink-0 rounded-full bg-primary" />
-            ) : null}
-            {renaming ? null : (
-              <span
-                className={cn(
-                  "ms-auto shrink-0 ps-1 text-[11px] tabular-nums text-sidebar-muted-foreground/70",
-                  ROW_END_HIDES,
-                )}
-              >
-                {end}
-              </span>
-            )}
-          </span>
-          {oneLine ? null : (
-            <span className="truncate text-xs text-sidebar-muted-foreground/80">{status(c)}</span>
+    const agent = openClawAgentId(c.sessionId);
+    const draftPen = drafted ? (
+      <SquarePenIcon aria-label="Unsent draft" className={DRAFT_PEN} />
+    ) : null;
+    const newDot = fresh ? (
+      <span aria-label="New" className="size-1.5 shrink-0 rounded-full bg-primary" />
+    ) : null;
+    const endSlot = (content: ReactNode) =>
+      renaming ? null : (
+        <span
+          className={cn(
+            "ms-auto shrink-0 ps-1 text-[11px] tabular-nums text-sidebar-muted-foreground/70",
+            ROW_END_HIDES,
           )}
+        >
+          {content}
         </span>
-      </>
-    );
+      );
+    const made = tabsSummary(c.tabs);
+    // T3 Code's rows: who and when on a quiet line, the title the whole width under it, then
+    // what it used. Shelved chats keep to one line.
+    const body = (title: ReactNode) =>
+      oneLine ? (
+        <>
+          <AgentAvatar id={c.provider} agent={agent} className="size-3.5 shrink-0" />
+          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+            {draftPen}
+            {title}
+            {newDot}
+            {endSlot(end)}
+          </span>
+        </>
+      ) : (
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex h-4 min-w-0 items-center gap-1.5 text-xs text-sidebar-muted-foreground/85">
+            {shelf === "pinned" ? (
+              <PinIcon aria-label="Pinned" className="size-3 shrink-0" />
+            ) : null}
+            <AgentAvatar id={c.provider} agent={agent} className="size-3.5 shrink-0" />
+            <span className="truncate">{agentName(c.provider, agent)}</span>
+            {draftPen}
+            {newDot}
+            {endSlot(liveStatus(c) ?? end)}
+          </span>
+          {title}
+          {made ? (
+            <span className="truncate text-xs text-sidebar-muted-foreground/80">{made}</span>
+          ) : null}
+        </span>
+      );
     return (
       <ChatRowMenu
         key={c.id}
@@ -385,7 +425,7 @@ export function AgentSidebar({
       >
         <div
           className={cn(
-            "group/row relative flex w-full min-w-0 items-center rounded-lg",
+            "group/row relative mb-0.5 flex w-full min-w-0 items-center rounded-lg",
             !renaming && "has-focus-visible:ring-2 has-focus-visible:ring-focus-ring",
             selected
               ? "bg-sidebar-row-selected text-sidebar-foreground"
@@ -431,7 +471,9 @@ export function AgentSidebar({
                 <span
                   className={cn(
                     "min-w-0 truncate text-sm",
+                    !oneLine && "text-sidebar-foreground/80",
                     (selected || fresh || drafted) && "text-sidebar-foreground",
+                    fresh && "font-medium",
                     busy && "opacity-55",
                   )}
                 >
@@ -441,30 +483,62 @@ export function AgentSidebar({
             </button>
           )}
           {renaming ? null : (
-            <button
-              type="button"
-              aria-label={shelf === "settled" ? "Unsettle" : "Settle"}
-              title={shelf === "settled" ? "Unsettle" : "Settle"}
-              onClick={() =>
-                void shelveChat(
-                  c.id,
-                  shelf === "settled"
-                    ? { snoozedUntil: null, settledAt: null }
-                    : { snoozedUntil: null, settledAt: Date.now() },
-                )
-              }
+            <span
               className={cn(
-                "absolute end-1.5 hidden size-6 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring",
-                oneLine ? "inset-y-0 my-auto" : "top-1",
+                "absolute end-1.5 hidden items-center gap-0.5 has-data-[state=open]:flex",
+                oneLine ? "inset-y-0 my-auto h-6" : "top-1",
                 ROW_ACTION_SHOWS,
               )}
             >
-              {shelf === "settled" ? (
-                <UndoIcon className="size-3.5" />
-              ) : (
-                <CheckIcon className="size-3.5" />
+              {shelf === "settled" ? null : (
+                <DropdownMenu>
+                  <HintTooltip label="Snooze" side="bottom">
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" aria-label="Snooze" className={ROW_ACTION}>
+                        <AlarmClockIcon className="size-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                  </HintTooltip>
+                  <DropdownMenuContent align="end">
+                    {snoozePresets(new Date(now)).map((p) => (
+                      <DropdownMenuItem
+                        key={p.id}
+                        accelerator={p.when}
+                        onSelect={() =>
+                          void shelveChat(c.id, { snoozedUntil: p.until, settledAt: null })
+                        }
+                      >
+                        {p.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
-            </button>
+              <button
+                type="button"
+                title={oneLine ? (shelf === "settled" ? "Unsettle" : "Settle") : undefined}
+                onClick={() =>
+                  void shelveChat(
+                    c.id,
+                    shelf === "settled"
+                      ? { snoozedUntil: null, settledAt: null }
+                      : { snoozedUntil: null, settledAt: Date.now() },
+                  )
+                }
+                className={cn(ROW_ACTION, !oneLine && "w-auto gap-1 px-1.5 text-xs")}
+              >
+                {shelf === "settled" ? (
+                  <UndoIcon className="size-3.5" />
+                ) : (
+                  <CheckIcon className="size-3.5" />
+                )}
+                {oneLine ? (
+                  <span className="sr-only">{shelf === "settled" ? "Unsettle" : "Settle"}</span>
+                ) : (
+                  "Settle"
+                )}
+              </button>
+            </span>
           )}
         </div>
       </ChatRowMenu>
@@ -488,33 +562,39 @@ export function AgentSidebar({
           onMouseMove={() => setHighlighted(c.id)}
           onClick={() => pickResult(result)}
           className={cn(
-            "flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-lg py-1.5 ps-(--sidebar-row-content-inset) pe-(--sidebar-row-content-inset) text-left outline-none",
+            "mb-0.5 flex w-full min-w-0 cursor-pointer flex-col gap-0.5 rounded-lg py-1.5 ps-(--sidebar-row-content-inset) pe-(--sidebar-row-content-inset) text-left outline-none",
             lit || selected
               ? "bg-sidebar-row-selected text-sidebar-foreground"
               : "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
           )}
         >
-          <AgentAvatar
-            id={c.provider}
-            agent={openClawAgentId(c.sessionId)}
-            className={cn(
-              "size-3.5 shrink-0",
-              settled && !lit && !selected && "opacity-40 grayscale",
-            )}
-          />
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span
-                className={cn(
-                  "min-w-0 flex-1 truncate text-sm",
-                  (!settled || lit || selected) && "text-sidebar-foreground",
-                )}
-              >
-                <Highlighted text={c.title} ranges={ranges} />
-              </span>
-              <span className="shrink-0 ps-1 text-[11px] tabular-nums text-sidebar-muted-foreground/70">
-                {shortAgo(chatLastMessageAt(c), now)}
-              </span>
+          <span className="flex h-4 min-w-0 items-center gap-1.5 text-xs text-sidebar-muted-foreground/85">
+            <AgentAvatar
+              id={c.provider}
+              agent={openClawAgentId(c.sessionId)}
+              className={cn(
+                "size-3.5 shrink-0",
+                settled && !lit && !selected && "opacity-40 grayscale",
+              )}
+            />
+            <span className="truncate">
+              {agentName(c.provider, openClawAgentId(c.sessionId))}
+              {settled ? " · Settled" : ""}
+            </span>
+            <span className="ms-auto shrink-0 ps-1 text-[11px] tabular-nums text-sidebar-muted-foreground/70">
+              {shortAgo(chatLastMessageAt(c), now)}
+            </span>
+          </span>
+          <span className="flex min-w-0 flex-col">
+            <span
+              className={cn(
+                "min-w-0 truncate text-sm",
+                !settled || lit || selected
+                  ? "text-sidebar-foreground"
+                  : "text-sidebar-foreground/70",
+              )}
+            >
+              <Highlighted text={c.title} ranges={ranges} />
             </span>
             {match ? (
               <span className="truncate text-xs text-sidebar-muted-foreground/85">
@@ -708,7 +788,7 @@ function Highlighted({ text, ranges }: { text: string; ranges: readonly SearchRa
 function ScheduledRow({ selected, onSelect }: { selected: boolean; onSelect: () => void }) {
   const agents = useScheduledTasks().data ?? [];
   const tasks = agents.flatMap((a) => a.tasks);
-  const active = tasks.filter((t) => t.enabled && !t.managedBy).length;
+  const active = tasks.filter((t) => t.enabled).length;
   const failing =
     tasks.some((t) => t.enabled && t.lastRun?.status === "error") || agents.some((a) => a.error);
   return (
@@ -747,15 +827,20 @@ function ScheduledRow({ selected, onSelect }: { selected: boolean; onSelect: () 
 function Status({
   icon: Icon,
   label,
+  spinning = false,
   className,
 }: {
   icon: LucideIcon;
   label: string;
+  spinning?: boolean;
   className?: string;
 }) {
   return (
     <span className={cn("flex min-w-0 items-center gap-1", className)}>
-      <Icon aria-hidden className="size-3 shrink-0" />
+      <Icon
+        aria-hidden
+        className={cn("size-3 shrink-0", spinning && "animate-spin [animation-duration:3s]")}
+      />
       <span className="truncate">{label}</span>
     </span>
   );

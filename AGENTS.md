@@ -162,8 +162,9 @@ it; the web app needs it (the relay keeps its Gmail sign-ins alive).
   reload). Both render the same `apps/web`, so UI work is checked in the browser. Their data:
   - (nothing): an empty sandbox.
   - `:fake` (`pnpm dev:fake`, `pnpm dev:desktop:fake`): made-up mailboxes from pretend Gmail,
-    Outlook and Todoist (`packages/core/src/fake`), no accounts, no network. Build and test
-    against it; see the `test-otter` skill (`.agents/skills`).
+    Outlook and Todoist, and a pretend relay with a made-up Otter account, scripted agents,
+    their chats and scheduled tasks (`packages/core/src/fake`): no accounts, no network. Build
+    and test against it; see the `test-otter` skill (`.agents/skills`).
   - `:demo` (`pnpm dev:demo`, `pnpm dev:desktop:demo`): the demo accounts, already added: the
     dedicated `otterware.demo@gmail.com` Google account, an Outlook one and the local IMAP
     server's (`pnpm imap-server`, started for you). For real Gmail, Google OAuth, Contacts, Calendar

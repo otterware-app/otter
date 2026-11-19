@@ -22,9 +22,9 @@ function memoryFiles(): Platform["files"] {
   };
 }
 
-async function until(check: () => boolean, what: string) {
+async function until(check: () => boolean | Promise<boolean>, what: string) {
   for (let i = 0; i < 1000; i++) {
-    if (check()) return;
+    if (await check()) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(`Timed out waiting for ${what}`);
@@ -119,8 +119,10 @@ describe("core's Gmail provider on the made-up mailbox", { timeout: 20_000 }, ()
 
     await invoke("gmail:markLabelRead", { accountId: EMAIL, labelId: "INBOX" });
     expect(unread()).toEqual([]);
-    const labels = (await (await gmail(`/messages/${ids[0]}`)).json()) as { labelIds: string[] };
-    expect(labels.labelIds).not.toContain("UNREAD");
+    // The write can still be on its way (pending) while the first syncs run.
+    const labels = async () =>
+      ((await (await gmail(`/messages/${ids[0]}`)).json()) as { labelIds: string[] }).labelIds;
+    await until(async () => !(await labels()).includes("UNREAD"), "the write to reach Gmail");
   });
 
   it("deleting a draft already deleted elsewhere succeeds", async () => {

@@ -141,20 +141,20 @@ html[data-window-controls="none"] {
   --glass-saturation: 1.08;
   --appearance-contrast-target: white;
 
-  --canvas: #17171a;
+  --canvas: #141415;
   --surface-raised: color-mix(in srgb, var(--canvas) 96%, #ffffff);
-  --foreground: #f2f2f4;
+  --foreground: #f2f2f3;
   --card: color-mix(in srgb, var(--canvas) 96%, #ffffff);
-  --card-foreground: #f2f2f4;
+  --card-foreground: #f2f2f3;
   --popover: color-mix(in srgb, var(--canvas) 96%, #ffffff);
-  --popover-foreground: #f2f2f4;
+  --popover-foreground: #f2f2f3;
   --primary: oklch(0.62 0.19 260);
   --secondary: rgb(255 255 255 / 4%);
-  --secondary-foreground: #f2f2f4;
+  --secondary-foreground: #f2f2f3;
   --muted: rgb(255 255 255 / 4%);
-  --muted-foreground: #8e8e98;
+  --muted-foreground: #929295;
   --accent-surface: rgb(255 255 255 / 5%);
-  --accent-surface-foreground: #f2f2f4;
+  --accent-surface-foreground: #f2f2f3;
   --error: color-mix(in srgb, #ef4444 90%, #ffffff);
   --error-foreground: #f87171;
   --error-surface: color-mix(in srgb, var(--error) 16%, transparent);
@@ -166,14 +166,14 @@ html[data-window-controls="none"] {
   --warning-surface: color-mix(in srgb, var(--warning) 16%, transparent);
   /* The frame: the sidebar's (its [data-app-sidebar] scope), so the window
      around the content panel is one color, below the mail. */
-  --sidebar-surface: #0c0c0e;
+  --sidebar-surface: #0a0a0b;
   --sidebar-control-surface: var(--muted);
   --sidebar-row-hover: color-mix(in srgb, var(--foreground) 5%, transparent);
   --sidebar-row-active: color-mix(in srgb, var(--foreground) 9%, transparent);
   --sidebar-row-selected: color-mix(in srgb, var(--foreground) 7%, transparent);
   /* In the dark the cards are the lighter surface: their edge is a lift of
      their own tone, so it shows against the frame and the Mac's glass alike. */
-  --panel-edge: color-mix(in srgb, var(--foreground) 8%, var(--canvas));
+  --panel-edge: color-mix(in srgb, var(--foreground) 6%, var(--canvas));
   --chat-composer-surface: var(--surface-raised);
   --chat-composer-outline: rgb(255 255 255 / 5%);
   --chat-composer-highlight: rgb(255 255 255 / 3%);
@@ -200,14 +200,14 @@ html[data-window-controls="none"] {
   --sidebar-line: #e3e3e7;
 }
 .dark [data-app-sidebar] {
-  --canvas: #0c0c0e;
-  --foreground: #f2f2f4;
-  --card: #0c0c0e;
+  --canvas: #0a0a0b;
+  --foreground: #f2f2f3;
+  --card: #0a0a0b;
   --card-foreground: var(--foreground);
-  --accent-surface: #1c1c20;
-  --accent-surface-foreground: #f7f9ff;
-  --muted: #121215;
-  --muted-foreground: #a0a0a8;
+  --accent-surface: #1c1c1d;
+  --accent-surface-foreground: #f7f7f8;
+  --muted: #121213;
+  --muted-foreground: #9c9c9f;
   --border: rgb(255 255 255 / 8%);
   --input: rgb(255 255 255 / 18%);
   --sidebar-surface: var(--card);
@@ -504,28 +504,6 @@ html[data-window-controls="none"] {
 
 [data-full-width-rows="true"] .message-list-row {
   padding-inline-start: 1.5rem;
-}
-
-/* Unread mail is a raised card and read mail sits on the list's own surface,
-   so the shade marks what still needs you. Hovered, a step up (the plain
-   hover would match it); the open conversation is well above both. */
-:is(.message-list-row, .message-list-thread-row):not([data-read], [data-selected], [data-checked]) {
-  background-color: color-mix(in srgb, var(--foreground) 4%, transparent);
-}
-
-:is(.message-list-row, .message-list-thread-row):not(
-    [data-read],
-    [data-selected],
-    [data-checked]
-  ):hover,
-.message-list-row:not([data-read], [data-selected], [data-checked]):has(
-    ~ .message-list-hover-actions:hover
-  ) {
-  background-color: color-mix(in srgb, var(--foreground) 7%, transparent);
-}
-
-:is(.message-list-row, .message-list-thread-row)[data-selected] {
-  background-color: color-mix(in srgb, var(--foreground) 11%, transparent);
 }
 
 @container message-list (min-width: 44rem) {

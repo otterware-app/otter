@@ -35,6 +35,9 @@ import { readableError } from "../mail/add-mailbox";
 import { ChatMarkdown } from "./chat-markdown";
 import { useNow } from "./chat-shelves";
 import { useChats } from "./chat-store";
+import { EmptyState } from "~/components/ui/empty-state";
+import { useWidth } from "../mail/hooks";
+import { isTypingTarget } from "../mail/keyboard";
 import { useLatest } from "../use-latest";
 import {
   DropdownMenu,
@@ -166,7 +169,6 @@ export function ScheduledTasksView({
   const agents = query.data ?? [];
   const now = useNow(30_000);
   const [editing, setEditing] = useState<ScheduledTask | "new" | null>(null);
-  const [showManaged, setShowManaged] = useState(false);
   const agentName = useAgentName();
 
   const tasks = agents.flatMap((a) => a.tasks);
@@ -190,157 +192,231 @@ export function ScheduledTasksView({
 
   const byNext = (a: ScheduledTask, b: ScheduledTask) =>
     (a.nextRunAt ?? Infinity) - (b.nextRunAt ?? Infinity) || a.name.localeCompare(b.name);
-  const own = shown.filter((t) => !t.managedBy);
-  const active = own.filter((t) => t.enabled).sort(byNext);
-  const paused = own.filter((t) => !t.enabled).sort((a, b) => a.name.localeCompare(b.name));
-  const managed = shown.filter((t) => t.managedBy).sort(byNext);
-  const keepers = [...new Set(managed.map((t) => agentName(t.provider)))];
-  const card = (task: ScheduledTask) => (
-    <TaskCard key={keyOf(task)} task={task} now={now} onOpen={() => onOpenTask(keyOf(task))} />
+  // By what you'd do about them: what's broken, what runs next, what's off. An agent's own
+  // tasks (its config's, a plugin's) sit with the rest: they're as much yours to watch.
+  const attention = shown.filter(needsAttention).sort(byNext);
+  const active = shown.filter((t) => t.enabled && !needsAttention(t)).sort(byNext);
+  const paused = shown
+    .filter((t) => !t.enabled && !needsAttention(t))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const ordered = [...attention, ...active, ...paused];
+  const [width, measure] = useWidth(Infinity);
+  // The inbox's split: the list beside the task, when there's room for both.
+  const split = width >= SPLIT_WIDTH;
+
+  const orderedRef = useLatest(ordered);
+  useEffect(() => {
+    if (!split) return;
+    const move = (e: KeyboardEvent) => {
+      if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || e.defaultPrevented) return;
+      if (isTypingTarget(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]')) return;
+      const list = orderedRef.current;
+      if (list.length === 0) return;
+      e.preventDefault();
+      const at = list.findIndex((t) => keyOf(t) === taskKey);
+      const next =
+        at < 0
+          ? e.key === "ArrowDown"
+            ? 0
+            : list.length - 1
+          : Math.min(list.length - 1, Math.max(0, at + (e.key === "ArrowDown" ? 1 : -1)));
+      onOpenTaskRef.current(keyOf(list[next]!));
+    };
+    window.addEventListener("keydown", move);
+    return () => window.removeEventListener("keydown", move);
+  }, [split, taskKey, orderedRef, onOpenTaskRef]);
+
+  const row = (task: ScheduledTask) => (
+    <TaskRow
+      key={keyOf(task)}
+      task={task}
+      now={now}
+      selected={split && keyOf(task) === taskKey}
+      onOpen={() => onOpenTask(keyOf(task))}
+    />
   );
 
+  const listHeader = (
+    <>
+      <h1 className="text-sm font-medium text-foreground">Scheduled tasks</h1>
+      {tasks.length > 0 ? (
+        <span className="text-sm tabular-nums text-muted-foreground">{tasks.length}</span>
+      ) : null}
+      <span className="flex-1" />
+      {tasks.length > 0 ? (
+        <TaskFilterMenu tasks={tasks} value={filter} onChange={setFilter} />
+      ) : null}
+      {creatable ? (
+        <Btn size="sm" onClick={() => setEditing("new")}>
+          <PlusIcon />
+          New task
+        </Btn>
+      ) : null}
+    </>
+  );
+
+  const list = (
+    <div className="flex flex-col gap-4 px-2 pt-2 pb-16">
+      {agents
+        .filter((a) => a.error || a.readOnly)
+        .map((a) => (
+          <AgentProblem
+            key={a.provider}
+            name={agentName(a.provider)}
+            provider={a.provider}
+            message={a.error ?? a.readOnly!}
+            onRetry={a.error ? () => void query.refetch() : undefined}
+          />
+        ))}
+      {query.isLoading ? (
+        <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
+      ) : query.isError ? (
+        <AgentProblem
+          name="Agents"
+          message={readableError(query.error)}
+          onRetry={() => void query.refetch()}
+        />
+      ) : agents.length === 0 ? (
+        <Empty
+          title="No agent here runs tasks on a schedule"
+          body="Connect OpenClaw, Hermes or varys in Settings, and the tasks they run on their own show up here."
+        />
+      ) : tasks.length === 0 && agents.every((a) => !a.error) ? (
+        <Empty
+          title="Nothing scheduled yet"
+          body="Ask an agent to do something every morning, or make a task here."
+          action={
+            creatable ? (
+              <Btn size="sm" onClick={() => setEditing("new")}>
+                <PlusIcon />
+                New task
+              </Btn>
+            ) : null
+          }
+        />
+      ) : shown.length === 0 ? (
+        <Empty
+          title="No tasks match"
+          body="Nothing scheduled fits this filter."
+          action={
+            <Btn size="sm" onClick={() => setFilter(NO_FILTER)}>
+              Show all
+            </Btn>
+          }
+        />
+      ) : (
+        <>
+          {attention.length > 0 ? (
+            <Section title="Needs attention" count={attention.length}>
+              {attention.map(row)}
+            </Section>
+          ) : null}
+          {active.length > 0 ? (
+            <Section title="Active" count={active.length}>
+              {active.map(row)}
+            </Section>
+          ) : null}
+          {paused.length > 0 ? (
+            <Section title="Paused" count={paused.length}>
+              {paused.map(row)}
+            </Section>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+
+  const page = current ? (
+    <TaskPage
+      key={taskKey}
+      task={current}
+      agent={agentOf(current)}
+      now={now}
+      onEdit={() => setEditing(current)}
+      onDeleted={() => onOpenTask(null)}
+      onSelectChat={onSelectChat}
+    />
+  ) : query.isLoading ? (
+    <p className="py-16 text-center text-sm text-muted-foreground">Loading…</p>
+  ) : (
+    <Empty
+      title="This task is gone"
+      body="It was deleted, or its agent can't be reached right now."
+      action={
+        <Btn size="sm" onClick={() => onOpenTask(null)}>
+          All scheduled tasks
+        </Btn>
+      }
+    />
+  );
+
+  const toolbar = "drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-2 px-4";
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div
-        data-toolbar=""
-        className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-2 px-4"
-      >
-        {titleLeading}
-        {taskKey ? (
-          <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-sm">
-            <button
-              type="button"
-              onClick={() => onOpenTask(null)}
-              className="no-drag shrink-0 cursor-pointer rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-            >
-              Scheduled tasks
-            </button>
-            <span aria-hidden className="text-muted-foreground/60">
-              /
-            </span>
-            <span aria-current="page" className="truncate font-medium text-foreground">
-              {current?.name}
-            </span>
-          </nav>
-        ) : null}
-        <span className="flex-1" />
-        {titleTrailing}
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {taskKey ? (
-          current ? (
-            <TaskPage
-              key={taskKey}
-              task={current}
-              agent={agentOf(current)}
-              now={now}
-              onEdit={() => setEditing(current)}
-              onDeleted={() => onOpenTask(null)}
-              onSelectChat={onSelectChat}
-            />
-          ) : query.isLoading ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">Loading…</p>
-          ) : (
-            <Empty
-              title="This task is gone"
-              body="It was deleted, or its agent can't be reached right now."
-              action={
-                <Btn size="sm" onClick={() => onOpenTask(null)}>
-                  All scheduled tasks
-                </Btn>
-              }
-            />
-          )
-        ) : (
-          <div className="mx-auto flex w-full max-w-[47rem] flex-col gap-8 px-6 pt-14 pb-20">
-            <div className="flex items-center gap-3">
-              <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight text-foreground">
-                Scheduled tasks
-              </h1>
-              {tasks.length > 0 ? (
-                <TaskFilterMenu tasks={tasks} value={filter} onChange={setFilter} />
-              ) : null}
-              {creatable ? (
-                <Btn size="sm" onClick={() => setEditing("new")}>
-                  <PlusIcon />
-                  New task
-                </Btn>
-              ) : null}
+    <div ref={measure} className="flex min-h-0 min-w-0 flex-1">
+      {split ? (
+        <>
+          <div className="flex w-[23rem] shrink-0 flex-col">
+            <div data-toolbar="" className={toolbar}>
+              {titleLeading}
+              {listHeader}
             </div>
-            {agents
-              .filter((a) => a.error || a.readOnly)
-              .map((a) => (
-                <AgentProblem
-                  key={a.provider}
-                  name={agentName(a.provider)}
-                  provider={a.provider}
-                  message={a.error ?? a.readOnly!}
-                  onRetry={a.error ? () => void query.refetch() : undefined}
-                />
-              ))}
-            {query.isLoading ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
-            ) : query.isError ? (
-              <AgentProblem
-                name="Agents"
-                message={readableError(query.error)}
-                onRetry={() => void query.refetch()}
-              />
-            ) : agents.length === 0 ? (
-              <Empty
-                title="No agent here runs tasks on a schedule"
-                body="Connect OpenClaw, Hermes or varys in Settings, and the tasks they run on their own show up here."
-              />
-            ) : tasks.length === 0 && agents.every((a) => !a.error) ? (
-              <Empty
-                title="Nothing scheduled yet"
-                body="Ask an agent to do something every morning, or make a task here."
-                action={
-                  creatable ? (
-                    <Btn size="sm" onClick={() => setEditing("new")}>
-                      <PlusIcon />
-                      New task
-                    </Btn>
-                  ) : null
-                }
-              />
-            ) : shown.length === 0 ? (
-              <Empty
-                title="No tasks match"
-                body="Nothing scheduled fits this filter."
-                action={
-                  <Btn size="sm" onClick={() => setFilter(NO_FILTER)}>
-                    Show all
-                  </Btn>
-                }
-              />
-            ) : (
-              <>
-                {active.length > 0 ? (
-                  <Section title="Active" count={active.length}>
-                    {active.map(card)}
-                  </Section>
-                ) : null}
-                {paused.length > 0 ? (
-                  <Section title="Paused" count={paused.length}>
-                    {paused.map(card)}
-                  </Section>
-                ) : null}
-                {managed.length > 0 ? (
-                  <Section
-                    title={`Kept by ${keepers.length === 1 ? keepers[0] : "your agents"}`}
-                    count={managed.length}
-                    open={showManaged}
-                    onToggle={() => setShowManaged((o) => !o)}
-                  >
-                    {managed.map(card)}
-                  </Section>
-                ) : null}
-              </>
-            )}
+            <div className="min-h-0 flex-1 overflow-y-auto border-r border-(--panel-edge)">
+              {list}
+            </div>
           </div>
-        )}
-      </div>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div data-toolbar="" className={toolbar}>
+              <span className="flex-1" />
+              {titleTrailing}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {taskKey ? (
+                page
+              ) : (
+                <EmptyState
+                  className="h-full"
+                  icon={CalendarClockIcon}
+                  title="Select a task"
+                  description="Its schedule, history and results show here."
+                />
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div data-toolbar="" className={toolbar}>
+            {titleLeading}
+            {taskKey ? (
+              <>
+                <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => onOpenTask(null)}
+                    className="no-drag shrink-0 cursor-pointer rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  >
+                    Scheduled tasks
+                  </button>
+                  <span aria-hidden className="text-muted-foreground/60">
+                    /
+                  </span>
+                  <span aria-current="page" className="truncate font-medium text-foreground">
+                    {current?.name}
+                  </span>
+                </nav>
+                <span className="flex-1" />
+              </>
+            ) : (
+              listHeader
+            )}
+            {titleTrailing}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {taskKey ? page : <div className="mx-auto w-full max-w-3xl">{list}</div>}
+          </div>
+        </div>
+      )}
       {editing ? (
         <TaskEditor
           task={editing === "new" ? null : editing}
@@ -352,6 +428,9 @@ export function ScheduledTasksView({
     </div>
   );
 }
+
+/** The list (23rem) and a task page beside it. */
+const SPLIT_WIDTH = 880;
 
 type TaskFilter = { agent: string | null; status: "all" | "active" | "paused" | "attention" };
 const NO_FILTER: TaskFilter = { agent: null, status: "all" };
@@ -487,98 +566,106 @@ function AgentProblem({
 function Section({
   title,
   count,
-  open = true,
-  onToggle,
   children,
 }: {
   title: string;
   count: number;
-  open?: boolean;
-  onToggle?: () => void;
   children: ReactNode;
 }) {
-  const heading = (
-    <>
-      <span>{title}</span>
-      <span className="font-normal tabular-nums">{count}</span>
-      {onToggle ? (
-        <ChevronRightIcon
-          aria-hidden
-          className={cn("size-3 transition-transform", open && "rotate-90")}
-        />
-      ) : null}
-    </>
-  );
   return (
-    <section className="flex flex-col gap-2">
-      {onToggle ? (
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={onToggle}
-          className="flex h-7 cursor-pointer items-center gap-2 self-start rounded-md text-xs font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-        >
-          {heading}
-        </button>
-      ) : (
-        <h2 className="flex h-7 items-center gap-2 text-xs font-medium text-muted-foreground">
-          {heading}
-        </h2>
-      )}
-      {open ? <div className="flex flex-col gap-2">{children}</div> : null}
+    <section className="flex flex-col">
+      <h2 className="flex h-8 items-center gap-2 px-3 text-xs font-medium text-muted-foreground">
+        <span>{title}</span>
+        <span className="font-normal tabular-nums">{count}</span>
+      </h2>
+      <div className="flex flex-col">{children}</div>
     </section>
   );
 }
 
-function statusText(task: ScheduledTask): string {
-  if (task.running) return "Running";
-  return task.enabled ? "Active" : "Paused";
-}
-
-function TaskCard({ task, now, onOpen }: { task: ScheduledTask; now: number; onOpen: () => void }) {
+/** A task as the mail list shows a message: who runs it and when it's next, then how it repeats. */
+function TaskRow({
+  task,
+  now,
+  selected,
+  onOpen,
+}: {
+  task: ScheduledTask;
+  now: number;
+  selected: boolean;
+  onOpen: () => void;
+}) {
   const agentName = useAgentName();
+  const ref = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!selected || !ref.current) return;
+    ref.current.scrollIntoView({ block: "nearest" });
+    // Arrowed to from another row: focus follows, so Enter opens this one.
+    if (
+      document.activeElement instanceof HTMLElement &&
+      "taskRow" in document.activeElement.dataset
+    )
+      ref.current.focus({ preventScroll: true });
+  }, [selected]);
   const failed = task.lastRun?.status === "error";
-  const preview = task.prompt ?? task.description;
+  const when = task.running ? (
+    <span className="flex items-center gap-1.5 text-info-foreground">
+      <LoaderCircleIcon aria-hidden className="size-3 animate-spin" />
+      Running
+    </span>
+  ) : task.autoPaused ? (
+    <span className="text-warning-foreground">Paused by agent</span>
+  ) : failed && task.lastRun ? (
+    <span className="text-warning-foreground">Failed {agoText(task.lastRun.at, now)}</span>
+  ) : !task.enabled ? (
+    "Paused"
+  ) : task.nextRunAt ? (
+    untilText(task.nextRunAt, now)
+  ) : null;
   return (
     <button
+      ref={ref}
       type="button"
+      data-task-row=""
       onClick={onOpen}
-      className="flex min-w-0 cursor-pointer flex-col gap-1.5 rounded-xl border border-border/60 bg-surface-raised/40 px-4 py-3.5 text-left outline-none hover:border-border hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-focus-ring"
+      aria-current={selected ? "true" : undefined}
+      className={cn(
+        "flex min-w-0 cursor-pointer flex-col gap-0.5 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
+        selected ? "bg-sidebar-row-active" : "hover:bg-sidebar-row-hover",
+      )}
     >
-      <span className="flex min-w-0 items-center gap-2">
-        <AgentAvatar id={task.provider} agent={task.agent} className="size-4" />
+      <span className="flex min-w-0 items-center gap-2 text-[13px]">
+        <AgentAvatar id={task.provider} agent={task.agent} className="size-4 shrink-0" />
         <span
           className={cn(
-            "min-w-0 flex-1 truncate text-sm font-medium",
+            "min-w-0 truncate font-medium",
             task.enabled ? "text-foreground" : "text-muted-foreground",
           )}
         >
           {task.name}
         </span>
-        {failed || task.autoPaused ? (
+        {failed || task.autoPaused || task.deliveryProblem ? (
           <CircleAlertIcon
-            aria-label={task.autoPaused ?? "The last run failed"}
+            aria-label={
+              task.autoPaused ??
+              task.deliveryProblem ??
+              `The last run failed: ${task.lastRun?.error}`
+            }
             className="size-3.5 shrink-0 text-warning-foreground"
           />
         ) : null}
-      </span>
-      {preview ? (
-        <span className="line-clamp-2 text-sm text-muted-foreground">{preview}</span>
-      ) : null}
-      <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-        {task.running ? (
-          <LoaderCircleIcon aria-hidden className="size-3 shrink-0 animate-spin text-info" />
+        {task.managedBy ? (
+          <LockIcon
+            aria-label={`${task.managedBy} keeps this one: run or pause it here, change it there.`}
+            className="size-3 shrink-0 text-muted-foreground/70"
+          />
         ) : null}
-        <span className="truncate">
-          {[
-            agentName(task.provider, task.agent),
-            statusText(task),
-            scheduleText(task.schedule),
-            task.enabled && task.nextRunAt && !task.running ? untilText(task.nextRunAt, now) : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+        <span className="ms-auto shrink-0 ps-2 text-xs tabular-nums text-muted-foreground">
+          {when}
         </span>
+      </span>
+      <span className="truncate ps-6 text-xs text-muted-foreground">
+        {scheduleText(task.schedule)} · {agentName(task.provider, task.agent)}
       </span>
     </button>
   );
@@ -714,10 +801,10 @@ function TaskPage({
       ? `Next run: ${dayTimeText(task.nextRunAt, now)}`
       : null;
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col px-6 pt-14 pb-20">
+    <div className="@container mx-auto flex w-full max-w-5xl flex-col px-8 pt-6 pb-20">
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{task.name}</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{task.name}</h1>
           {when ? (
             <p className="flex items-center gap-1.5 pt-1.5 text-sm text-muted-foreground">
               {task.running ? (
@@ -791,7 +878,7 @@ function TaskPage({
           {task.lastRun.error ? `: ${task.lastRun.error}` : "."}
         </Callout>
       ) : null}
-      <div className="mt-6 grid gap-10 border-t border-border/60 pt-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <div className="mt-6 grid gap-10 border-t border-border/60 pt-6 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <div className="flex min-w-0 flex-col gap-8">
           {agent.can.history ? (
             <RunHistory task={task} agent={agent} now={now} />

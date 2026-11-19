@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   useQuery,
   useQueries,
@@ -1860,4 +1860,23 @@ export function useGetAttachment() {
       return mailApi.getAttachment(params);
     },
   });
+}
+
+/** An element's width, kept current. */
+export function useWidth(initial: number): [number, (el: HTMLElement | null) => void] {
+  const [width, setWidth] = useState(initial);
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = useCallback(
+    (el: HTMLElement | null) => {
+      observer.current?.disconnect();
+      observer.current = null;
+      if (!el) return setWidth(initial);
+      setWidth(el.getBoundingClientRect().width);
+      const ro = new ResizeObserver(([entry]) => setWidth(entry.borderBoxSize[0].inlineSize));
+      ro.observe(el);
+      observer.current = ro;
+    },
+    [initial],
+  );
+  return [width, ref];
 }
