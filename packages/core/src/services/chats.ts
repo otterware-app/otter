@@ -50,7 +50,7 @@ export async function listChats(): Promise<{ chats: ChatListing[]; device: Devic
       `SELECT c.value, (
          SELECT coalesce(json_extract(t.value, '$.turn.finishedAt'), json_extract(t.value, '$.turn.startedAt'))
          FROM agent_entries t WHERE t.chat = substr(c.key, 6) AND t.value IS NOT NULL
-         ORDER BY t.position DESC LIMIT 1
+         ORDER BY t.position DESC, t.key DESC LIMIT 1
        ) AS last
        FROM agent_entries c
        WHERE c.key >= 'chat/' AND c.key < 'chat0' AND c.value IS NOT NULL ORDER BY c.updated DESC`,
