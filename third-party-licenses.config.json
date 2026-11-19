@@ -10,7 +10,7 @@
           "licenseId": "MIT",
           "copyrights": ["Copyright (c) 2026 T3 Tools Inc."],
           "preamble": [
-            "Otter's agents are modelled on T3 Code. Its color themes and their editor, some UI primitives, its toasts, panel animations and this list of licenses are ported or adapted from T3 Code's source."
+            "Otter's agents are modelled on T3 Code. Its color themes and their editor, some UI primitives, its toasts, panel animations, dragging chats in the sidebar and this list of licenses are ported or adapted from T3 Code's source."
           ]
         }
       ]

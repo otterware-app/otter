@@ -1,19 +1,43 @@
-import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  DndContext,
+  useSensor,
+  useSensors,
+  type AutoScrollOptions,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+  type Modifier,
+} from "@dnd-kit/core";
+import { SortableContext } from "@dnd-kit/sortable";
+import { restrictToFirstScrollableAncestor, restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import {
   AlarmClockIcon,
+  AlarmClockOffIcon,
   CalendarClockIcon,
   CheckIcon,
-  ChevronRightIcon,
   CircleAlertIcon,
+  CircleCheckIcon,
   CircleDashedIcon,
-  CircleXIcon,
   LaptopIcon,
   ListFilterIcon,
+  MessageCircleQuestionIcon,
   PinIcon,
   SearchIcon,
+  ShieldQuestionIcon,
   SquarePenIcon,
-  UndoIcon,
+  Undo2Icon,
   XIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -28,6 +52,8 @@ import {
 import { SCHEDULED_TASKS, useScheduledTasks } from "./agent-scheduled";
 import { useAutoSettleDays } from "./auto-settle";
 import { AgentAvatar, openClawAgentId, useAgentProviders } from "./agent-providers";
+import { TAB_ICONS } from "./chat-context-panel";
+import { settleChat } from "./chat-shelve-actions";
 import { readableError } from "../mail/add-mailbox";
 import {
   discardDraft,
@@ -55,6 +81,31 @@ import {
   type ChatShelf,
 } from "./chat-shelves";
 import {
+  chatIdAtY,
+  createCollisionDetection,
+  createSortingStrategy,
+  dropTarget,
+  dropVerb,
+  listItemId,
+  planDrop,
+  restrictBelowLabel,
+  sweepIds,
+  withDrop,
+  type DropShelf,
+  type ListItem,
+  type ListMarker,
+  type SweepAction,
+} from "./sidebar-drag";
+import {
+  DragBoundary,
+  DropBadge,
+  ShelfHeader,
+  ShelfPlaceholder,
+  SortableRow,
+} from "./sidebar-list";
+import { createSidebarListMotion } from "./sidebar-motion";
+import { SidebarPointerSensor } from "./sidebar-pointer";
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -77,17 +128,23 @@ import { HintTooltip, cn } from "../mail/ui";
 const SETTLED_FIRST = 10;
 const SETTLED_PAGE = 25;
 
+const DRAG_DISTANCE = 6;
+// dnd-kit's 20% edge zone at full speed runs the list away while the pointer rests near the bottom.
+const AUTO_SCROLL: AutoScrollOptions = { threshold: { x: 0, y: 0.05 }, acceleration: 3 };
+const DRAG_LABEL_HEIGHT = 24;
+const NO_PINS = new Map<string, number>();
+
 const HEADER_BUTTON =
   "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring";
 
-const ROW_BODY =
-  "flex min-w-0 flex-1 gap-2.5 py-1.5 ps-(--sidebar-row-content-inset) pe-(--sidebar-row-content-inset) text-left outline-none";
-
-/** The row's time or pin, which its settle button takes the place of on hover (T3 Code's). */
+/** The row's time or status, which its controls take the place of on hover (T3 Code's). */
 const ROW_END_HIDES = "group-hover/row:invisible group-has-focus-visible/row:invisible";
 const ROW_ACTION_SHOWS = "group-hover/row:flex group-has-focus-visible/row:flex";
 const ROW_ACTION =
-  "flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=open]:bg-foreground/[0.08]";
+  "flex h-6 min-w-6 cursor-pointer items-center justify-center gap-1 rounded-md px-1 text-xs text-sidebar-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=open]:bg-foreground/[0.08]";
+
+/** What the chat used and made, in the order its details list them. */
+const TAB_KINDS = ["draft", "thread", "file", "page"] as const;
 
 /** How long a run has gone: "8s", "2m", "1h". */
 function elapsed(ms: number): string {
@@ -110,6 +167,31 @@ function agentOf(c: Conversation): { key: string; id: string; agent: string | nu
   return { key: agent ? `${c.provider}:${agent}` : c.provider, id: c.provider, agent };
 }
 
+type RowStatus = {
+  kind: "approval" | "input" | "working" | "failed" | "done";
+  label: string;
+  /** Said to screen readers, where the label is short. */
+  title: string;
+  icon: LucideIcon;
+  className: string;
+};
+
+type Held = { id: string; shelf: DropShelf; at: number; pinnedAt: ReadonlyMap<string, number> };
+
+type Drag = {
+  id: string;
+  from: ChatShelf;
+  to: ChatShelf | null;
+  /** It follows the pointer through the drag, so it lasts as long as the drag does. */
+  detect: CollisionDetection;
+};
+
+const ANY_TARGET = createCollisionDetection(() => true);
+
+const chatItems = (list: Conversation[], shelf: ChatShelf): ListItem[] =>
+  list.map((c) => ({ kind: "chat", id: c.id, shelf }));
+const marker = (name: ListMarker): ListItem => ({ kind: "marker", marker: name });
+
 export function AgentSidebar({
   chatId,
   onSelect,
@@ -129,6 +211,8 @@ export function AgentSidebar({
   const now = useNow(Object.keys(runs).length > 0 ? 1_000 : 30_000);
   const autoSettleDays = useAutoSettleDays();
   const [settledShown, setSettledShown] = useState(SETTLED_FIRST);
+  const [snoozedOpen, setSnoozedOpen] = useState(false);
+  const [settledOpen, setSettledOpen] = useState(false);
   const providers = useAgentProviders().data?.providers ?? [];
   const [agentFilter, setAgentFilter] = useState<string | null>(() => {
     try {
@@ -142,6 +226,16 @@ export function AgentSidebar({
   const searchRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState<ReadonlySet<string>>(new Set());
+  // A drop shows at once, while the chat loads and saves (T3 Code's optimistic drop).
+  const [held, setHeld] = useState<Held | null>(null);
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const [sweep, setSweep] = useState<{ action: SweepAction; ids: ReadonlySet<string> } | null>(
+    null,
+  );
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const motionRef = useRef<ReturnType<typeof createSidebarListMotion> | null>(null);
+  const sensorRef = useRef<SidebarPointerSensor | null>(null);
+  const labelOffsetRef = useRef(0);
   const pickAgent = (key: string | null) => {
     setAgentFilter(key);
     try {
@@ -186,15 +280,27 @@ export function AgentSidebar({
   const approving = askedIn(approvals);
   const asking = askedIn(questions);
   const waiting = new Set([...approving, ...asking]);
-  const shown = conversations.filter((c) => !isBlank(c) && (!filter || agentOf(c).key === filter));
+  const listed =
+    held === null
+      ? conversations
+      : conversations.map((c) =>
+          c.id === held.id
+            ? withDrop(c, held.shelf, held.at, held.pinnedAt.get(c.id))
+            : held.pinnedAt.has(c.id)
+              ? { ...c, pinnedAt: held.pinnedAt.get(c.id)! }
+              : c,
+        );
+  const shown = listed.filter((c) => !isBlank(c) && (!filter || agentOf(c).key === filter));
   const shelves = shelveChats(shown, {
     working: new Set(Object.keys(runs)),
     needsYou: waiting,
     now,
     autoSettleDays,
   });
-  const settled = shelves.settled.filter((c, i) => i < settledShown || c.id === chatId);
-  const hiddenSettled = shelves.settled.length - settled.length;
+  const settled = settledOpen
+    ? shelves.settled.filter((c, i) => i < settledShown || c.id === chatId)
+    : [];
+  const hiddenSettled = settledOpen ? shelves.settled.length - settled.length : 0;
   const current = conversations.find((c) => c.id === chatId);
 
   // A new chat you're writing joins the drafts once you leave it, not as you type (T3 Code's).
@@ -210,6 +316,48 @@ export function AgentSidebar({
     )
     .sort((a, b) => b.createdAt - a.createdAt);
   const onNewChatPage = current !== undefined && isBlank(current) && !newDrafts.includes(current);
+
+  // T3 Code's list: the pinned chats, the active ones, then the shelves, with the markers a drag
+  // moves rows around and drops them by.
+  const noChats = Object.values(shelves).every((list) => list.length === 0);
+  const freshItems: ListItem[] = noChats
+    ? []
+    : [
+        marker("pinned-header"),
+        ...chatItems(shelves.pinned, "pinned"),
+        marker("pinned-divider"),
+        marker("active-placeholder"),
+        ...chatItems(shelves.active, "active"),
+        ...(shelves.snoozed.length > 0
+          ? [
+              marker("snoozed-header"),
+              ...(snoozedOpen ? chatItems(shelves.snoozed, "snoozed") : []),
+            ]
+          : []),
+        marker("settled-header"),
+        marker("settled-placeholder"),
+        ...chatItems(settled, "settled"),
+      ];
+  // Kept while the order holds, so a drag isn't thrown off by the list re-rendering under it.
+  const itemsKey = freshItems
+    .map((item) => (item.kind === "chat" ? `${item.shelf}:${item.id}` : item.marker))
+    .join("\n");
+  const [kept, setKept] = useState({ key: itemsKey, items: freshItems });
+  if (kept.key !== itemsKey) setKept({ key: itemsKey, items: freshItems });
+  const items = kept.key === itemsKey ? kept.items : freshItems;
+  const chatById = new Map(listed.map((c) => [c.id, c]));
+  const shelfOf = new Map(
+    items.flatMap((item) => (item.kind === "chat" ? [[item.id, item.shelf] as const] : [])),
+  );
+  const orderedIds = items.flatMap((item) => (item.kind === "chat" ? [item.id] : []));
+  const idsOn = (shelf: ChatShelf) =>
+    items.flatMap((item) => (item.kind === "chat" && item.shelf === shelf ? [item.id] : []));
+  const shelfOfRef = useRef(shelfOf);
+  const orderedIdsRef = useRef(orderedIds);
+  useLayoutEffect(() => {
+    shelfOfRef.current = shelfOf;
+    orderedIdsRef.current = orderedIds;
+  });
 
   // T3 Code's sidebar search: titles ranked first, then chats listed for a message.
   const titleResults = searching ? rankChatTitles(shown, query, now) : [];
@@ -257,35 +405,247 @@ export function AgentSidebar({
     }
   };
 
+  const bringBack = (id: string) => shelveChat(id, { snoozedUntil: null, settledAt: null });
+
+  // T3 Code's drag: a chat dropped among the pinned ones is pinned there, on Settled it settles,
+  // among the active ones it comes back.
+  const dropChat = (id: string, from: ChatShelf, overId: string) => {
+    // Shown at `now` until it's saved, with the time it's saved at.
+    const at = now;
+    const target = dropTarget(items, id, overId);
+    if (!target) return;
+    const plan = planDrop({
+      id,
+      from,
+      target,
+      pinnedOrder: idsOn("pinned"),
+      pinnedAt: new Map(shelves.pinned.map((c) => [c.id, c.pinnedAt ?? 0])),
+      now: at,
+    });
+    if (plan.kind === "none") return;
+    const hold: Held = {
+      id,
+      shelf: target.shelf,
+      at,
+      pinnedAt: plan.kind === "pin" ? plan.pinnedAt : NO_PINS,
+    };
+    setHeld(hold);
+    const saves =
+      plan.kind === "pin"
+        ? [...plan.pinnedAt].map(([pinned, when]) => pinChat(pinned, true, when))
+        : plan.kind === "settle"
+          ? [settleChat(id)]
+          : from === "pinned"
+            ? [pinChat(id, false)]
+            : [bringBack(id)];
+    void Promise.all(saves).finally(() => setHeld((h) => (h === hold ? null : h)));
+  };
+
+  // Made once: fresh options would rebuild the DndContext and every row with it.
+  const [sensorOptions] = useState(() => ({
+    distance: DRAG_DISTANCE,
+    onAttach: (sensor: SidebarPointerSensor) => {
+      sensorRef.current = sensor;
+    },
+    onFinish: (started: boolean) => {
+      sensorRef.current = null;
+      if (started) {
+        motionRef.current?.release();
+        setDrag(null);
+      }
+    },
+  }));
+  const sensors = useSensors(useSensor(SidebarPointerSensor, sensorOptions));
+  const restrictBelowPins: Modifier = (args) => restrictBelowLabel(args, labelOffsetRef.current);
+  const modifiers = [restrictToVerticalAxis, restrictBelowPins, restrictToFirstScrollableAncestor];
+  const onDragStart = (event: DragStartEvent) => {
+    const id = String(event.active.id);
+    const from = shelfOf.get(id);
+    if (from === undefined) return;
+    motionRef.current?.suspend();
+    const list = listRef.current;
+    const header = list?.querySelector<HTMLElement>('[data-marker="pinned-header"]');
+    if (list && header) {
+      const listRect = list.getBoundingClientRect();
+      const scale = list.offsetWidth > 0 ? listRect.width / list.offsetWidth : 1;
+      labelOffsetRef.current =
+        header.getBoundingClientRect().top - listRect.top + DRAG_LABEL_HEIGHT * scale;
+    } else {
+      labelOffsetRef.current = 0;
+    }
+    const pinnedOrder = idsOn("pinned");
+    const detect = createCollisionDetection(
+      (overId) => {
+        const target = dropTarget(items, id, overId);
+        if (target === null) return false;
+        const plan = planDrop({ id, from, target, pinnedOrder, pinnedAt: NO_PINS, now: 0 });
+        return plan.kind !== "none";
+      },
+      {
+        items,
+        activationY:
+          event.activatorEvent instanceof PointerEvent ? event.activatorEvent.clientY : null,
+      },
+    );
+    setDrag({ id, from, to: from, detect });
+  };
+  const onDragOver = (event: DragOverEvent) => {
+    const id = String(event.active.id);
+    const target = event.over ? dropTarget(items, id, String(event.over.id)) : null;
+    setDrag((d) => (d === null || d.id !== id ? d : { ...d, to: target?.shelf ?? null }));
+  };
+  const onDragEnd = (event: DragEndEvent) => {
+    const id = String(event.active.id);
+    const from = shelfOf.get(id);
+    if (from !== undefined && event.over) dropChat(id, from, String(event.over.id));
+  };
+  // A drag whose row left the list (deleted, or settled elsewhere) can never drop.
+  useEffect(() => {
+    if (drag !== null && !items.some((item) => item.kind === "chat" && item.id === drag.id))
+      sensorRef.current?.cancel();
+  }, [drag, items]);
+
+  const dragId = drag?.id;
+  const dragFrom = drag?.from;
+  const collisionDetection = drag?.detect ?? ANY_TARGET;
+  // Where the dragged chat would sort on each shelf: on top of the active and settled ones, as
+  // coming back and settling date it now.
+  const onTop = (shelf: "active" | "settled", ids: string[]) =>
+    dragId === undefined || dragFrom === shelf
+      ? ids
+      : [dragId, ...ids.filter((id) => id !== dragId)];
+  const sortingStrategy = createSortingStrategy({
+    items,
+    activeOrder: onTop("active", idsOn("active")),
+    settledOrder: onTop(
+      "settled",
+      shelves.settled.map((c) => c.id),
+    ),
+    settledExpanded: settledOpen,
+    settledVisibleCount: settledShown,
+    openId: chatId,
+    snoozedCount: shelves.snoozed.length,
+    boundaryLabelHeight: DRAG_LABEL_HEIGHT,
+  });
+  const dragTo = drag === null ? null : drag.to;
+
+  // Press Settle, Unsettle or Wake and sweep over the rows to do it to each (T3 Code's).
+  const startSweep = (originId: string, action: SweepAction, event: ReactPointerEvent) => {
+    if (!event.isPrimary || event.button !== 0) return;
+    event.stopPropagation();
+    const originShelf = shelfOfRef.current.get(originId);
+    const canApply = (id: string) => shelfOfRef.current.get(id) === originShelf;
+    let targetId: string | null = null;
+    let swept: string[] = [];
+    const sweepTo = (id: string | null) => {
+      if (id === null || id === targetId) return;
+      targetId = id;
+      swept = sweepIds(orderedIdsRef.current, originId, id, canApply);
+      setSweep({ action, ids: new Set(swept) });
+    };
+    sensorRef.current = new SidebarPointerSensor({
+      active: originId,
+      event: event.nativeEvent,
+      options: {
+        distance: DRAG_DISTANCE,
+        onAttach: () => {},
+        onFinish: () => {
+          sensorRef.current = null;
+          setSweep(null);
+        },
+      },
+      onPending: () => {},
+      onStart: () => sweepTo(originId),
+      onMove: ({ y }) => sweepTo(listRef.current && chatIdAtY(listRef.current, y)),
+      onEnd: () => {
+        for (const id of swept.filter(canApply)) {
+          void (action === "settle" ? settleChat(id) : bringBack(id));
+        }
+      },
+      onCancel: () => {},
+      onAbort: () => {},
+    });
+  };
+  const sweepVerb = (id: string) =>
+    sweep?.ids.has(id)
+      ? sweep.action === "settle"
+        ? ("settle" as const)
+        : sweep.action === "unsettle"
+          ? ("unsettle" as const)
+          : ("wake" as const)
+      : null;
+
+  // Stable, so its cleanup runs only as the list goes (search replaces it).
+  const attachList = useCallback((node: HTMLUListElement) => {
+    listRef.current = node;
+    const motion = createSidebarListMotion(node);
+    motionRef.current = motion;
+    motion.update(false);
+    return () => {
+      // A drag whose rows are gone can never drop.
+      sensorRef.current?.cancel();
+      motion.dispose();
+      if (motionRef.current === motion) motionRef.current = null;
+      if (listRef.current === node) listRef.current = null;
+    };
+  }, []);
+  // Rows glide to where a change puts them, except rows a shelf opens or closes on, which would
+  // travel over the headers anchored at the bottom.
+  const animate = drag === null && items.length + newDrafts.length > 0;
+  useLayoutEffect(() => {
+    motionRef.current?.update(animate);
+  });
+  const toggleShelf = (toggle: () => void) => {
+    motionRef.current?.suspend();
+    toggle();
+  };
+
   /** What's going on with it now, when anything is: it shows where the time would. */
-  const liveStatus = (c: Conversation): ReactNode => {
+  const statusOf = (c: Conversation, selected: boolean): RowStatus | null => {
     if (approving.has(c.id))
-      return (
-        <Status
-          icon={CircleAlertIcon}
-          className="text-warning-foreground"
-          label="Needs your approval"
-        />
-      );
+      return {
+        kind: "approval",
+        label: "Approval",
+        title: "Needs your approval",
+        icon: ShieldQuestionIcon,
+        className: "text-warning-foreground",
+      };
     if (asking.has(c.id))
-      return (
-        <Status icon={CircleAlertIcon} className="text-warning-foreground" label="Has a question" />
-      );
+      return {
+        kind: "input",
+        label: "Input",
+        title: "Has a question",
+        icon: MessageCircleQuestionIcon,
+        className: "text-indigo-600 dark:text-indigo-300",
+      };
     const run = runs[c.id];
     if (run) {
       const started = c.turns.find((t) => t.id === `a-${run.requestId}`)?.startedAt;
-      return (
-        <Status
-          icon={CircleDashedIcon}
-          spinning
-          className="text-info-foreground"
-          label={started ? `Working ${elapsed(now - started)}` : "Working"}
-        />
-      );
+      const label = started ? `Working ${elapsed(now - started)}` : "Working";
+      return {
+        kind: "working",
+        label,
+        title: "Working",
+        icon: CircleDashedIcon,
+        className: "text-info-foreground",
+      };
     }
     if (c.turns.at(-1)?.error)
-      return <Status icon={CircleXIcon} className="text-destructive-foreground" label="Failed" />;
-    if (isElsewhere(c, device)) return <Status icon={LaptopIcon} label={`On ${c.device!.name}`} />;
+      return {
+        kind: "failed",
+        label: "Failed",
+        title: "Failed",
+        icon: CircleAlertIcon,
+        className: "text-destructive-foreground",
+      };
+    if (unseen.has(c.id) && !selected)
+      return {
+        kind: "done",
+        label: "Done",
+        title: "Done",
+        icon: CircleCheckIcon,
+        className: "text-success-foreground",
+      };
     return null;
   };
 
@@ -294,113 +654,293 @@ export function AgentSidebar({
     const preview = drafts[c.id]!.trim().split("\n", 1)[0];
     const agent = openClawAgentId(c.sessionId);
     return (
-      <div
-        key={c.id}
-        className={cn(
-          "group/row relative mb-0.5 rounded-lg has-focus-visible:ring-2 has-focus-visible:ring-focus-ring",
-          selected ? "bg-sidebar-row-selected" : DRAFT_SURFACE,
-        )}
-      >
-        <button
-          type="button"
-          onClick={() => onSelect(c.id)}
-          aria-current={selected ? "page" : undefined}
-          aria-label={`Unsent draft: ${preview}`}
-          className="flex w-full min-w-0 cursor-pointer flex-col gap-0.5 py-1.5 ps-(--sidebar-row-content-inset) pe-(--sidebar-row-content-inset) text-left outline-none"
+      <li key={c.id} className="list-none py-0.5">
+        <div
+          className={cn(
+            "group/row relative rounded-lg select-none has-focus-visible:ring-2 has-focus-visible:ring-focus-ring",
+            selected ? "bg-sidebar-row-selected" : DRAFT_SURFACE,
+          )}
         >
-          <span className="flex h-5 min-w-0 items-center gap-1.5 pe-5">
-            <SquarePenIcon aria-hidden className={DRAFT_PEN} />
-            <AgentAvatar id={c.provider} agent={agent} className="size-3.5 shrink-0" />
-            <span className="truncate text-xs font-medium text-sidebar-muted-foreground">
-              {agentName(c.provider, agent)}
+          <button
+            type="button"
+            onClick={() => onSelect(c.id)}
+            aria-current={selected ? "page" : undefined}
+            aria-label={`Unsent draft: ${preview}`}
+            className="flex w-full min-w-0 cursor-pointer flex-col px-(--sidebar-row-content-inset) py-(--sidebar-content-inset) text-left outline-none"
+          >
+            <span className="flex h-5 min-w-0 items-center gap-1.5 pe-6">
+              <SquarePenIcon aria-hidden className={DRAFT_PEN} />
+              <AgentAvatar id={c.provider} agent={agent} className="size-4 shrink-0" />
+              <span className="truncate text-xs text-secondary-label">
+                {agentName(c.provider, agent)}
+              </span>
             </span>
-          </span>
-          <span className="truncate text-sm text-sidebar-foreground">{preview}</span>
-        </button>
-        <button
-          type="button"
-          aria-label="Discard draft"
-          title="Discard draft"
-          onClick={() => discardDraft(c.id)}
-          className="absolute end-1.5 top-1.5 hidden size-5 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground outline-none group-hover/row:flex hover:text-sidebar-foreground focus-visible:flex focus-visible:ring-2 focus-visible:ring-focus-ring"
-        >
-          <XIcon className="size-3" />
-        </button>
-      </div>
+            <span className="mt-1 truncate text-sm font-medium text-sidebar-foreground/90">
+              {preview}
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-label="Discard draft"
+            title="Discard draft"
+            onClick={() => discardDraft(c.id)}
+            className={cn(
+              ROW_ACTION,
+              "absolute end-1.5 top-1.5 hidden group-hover/row:flex focus-visible:flex",
+            )}
+          >
+            <XIcon className="size-3.5" />
+          </button>
+        </div>
+      </li>
     );
   };
 
-  const row = (c: Conversation, shelf: ChatShelf) => {
+  const row = (c: Conversation, shelf: ChatShelf, dragging: boolean) => {
     const selected = c.id === chatId;
     const titles = Boolean(providers.find((p) => p.id === c.provider)?.titles);
-    const fresh = (unseen.has(c.id) || waiting.has(c.id)) && !selected;
+    const status = statusOf(c, selected);
+    const unread = unseen.has(c.id) && !selected;
+    // T3 Code's rows recede once there's nothing new in them, or while the agent is on it.
+    const recede =
+      !selected &&
+      (status?.kind === "working" || ((status === null || status.kind === "approval") && !unread));
     const drafted = !selected && hasDraft(drafts, c.id);
-    const oneLine = shelf === "snoozed" || shelf === "settled";
-    let end: ReactNode;
-    if (shelf === "snoozed")
-      end = (
-        <span className="flex items-center gap-1">
-          <AlarmClockIcon aria-label="Wakes in" className="size-3" />
-          {wakesIn(c.snoozedUntil ?? now, now)}
-        </span>
-      );
-    else end = shortAgo(shelf === "settled" ? chatSettledAt(c, now) : chatLastMessageAt(c), now);
+    const card = shelf === "pinned" || shelf === "active";
     const renaming = editing === c.id;
     const busy = regenerating.has(c.id);
     const startRename = () => setEditing(c.id);
     const agent = openClawAgentId(c.sessionId);
+    const swept = sweepVerb(c.id);
+    const verb = dragging && drag ? dropVerb(drag.from, dragTo) : swept;
+    const badge = verb ? <DropBadge verb={verb} /> : null;
     const draftPen = drafted ? (
-      <SquarePenIcon aria-label="Unsent draft" className={DRAFT_PEN} />
+      <HintTooltip label="Unsent draft">
+        <SquarePenIcon aria-label="Unsent draft" className={DRAFT_PEN} />
+      </HintTooltip>
     ) : null;
-    const newDot = fresh ? (
-      <span aria-label="New" className="size-1.5 shrink-0 rounded-full bg-primary" />
+    const elsewhere = isElsewhere(c, device) ? (
+      <HintTooltip label={`On ${c.device!.name}`}>
+        <LaptopIcon
+          aria-label={`On ${c.device!.name}`}
+          className="ms-auto size-3.5 shrink-0 text-sidebar-muted-foreground/70"
+        />
+      </HintTooltip>
     ) : null;
-    const endSlot = (content: ReactNode) =>
-      renaming ? null : (
+    const used = TAB_KINDS.filter((kind) => c.tabs.some((t) => t.ref.kind === kind));
+    const meta =
+      used.length > 0 ? (
+        <span className="mt-0.5 flex h-4 min-w-0 items-center gap-1.5 text-secondary-label">
+          <HintTooltip label={tabsSummary(c.tabs)}>
+            <span
+              role="img"
+              aria-label={tabsSummary(c.tabs)}
+              className="flex shrink-0 items-center gap-1.5"
+            >
+              {used.map((kind) => {
+                const Icon = TAB_ICONS[kind];
+                return <Icon key={kind} aria-hidden className="size-3 shrink-0" />;
+              })}
+            </span>
+          </HintTooltip>
+          {elsewhere}
+        </span>
+      ) : null;
+    const title = renaming ? (
+      <TitleInput
+        title={c.title}
+        onDone={(next) => {
+          setEditing(null);
+          if (next === null) return;
+          if (!next.trim()) toast.warning("A chat's title can't be empty");
+          else void renameChat(c.id, next, titles);
+        }}
+      />
+    ) : (
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate text-sm",
+          recede ? "font-normal" : "font-medium",
+          card
+            ? recede
+              ? "text-sidebar-foreground/75 group-hover/row:text-sidebar-foreground"
+              : "text-sidebar-foreground"
+            : cn(
+                "group-hover/row:text-sidebar-foreground group-has-focus-visible/row:text-sidebar-foreground",
+                recede
+                  ? "text-secondary-label"
+                  : selected || status?.kind === "input"
+                    ? "text-sidebar-foreground"
+                    : unread
+                      ? "text-sidebar-muted-foreground"
+                      : "text-secondary-label/70",
+              ),
+          busy && "opacity-55",
+        )}
+      >
+        {c.title}
+      </span>
+    );
+    const end =
+      shelf === "snoozed" ? (
+        <span className="flex items-center gap-1 text-info-foreground">
+          <AlarmClockIcon aria-label="Wakes in" className="size-3" />
+          {wakesIn(c.snoozedUntil ?? now, now)}
+        </span>
+      ) : status && card ? (
+        <span className={cn("flex min-w-0 items-center gap-1 font-medium", status.className)}>
+          <status.icon
+            aria-hidden
+            className={cn(
+              "size-3.5 shrink-0",
+              status.kind === "working" && "animate-spin [animation-duration:3s]",
+            )}
+          />
+          <span className="sr-only">{status.title}</span>
+          <span aria-hidden className="truncate">
+            {status.label}
+          </span>
+        </span>
+      ) : (
+        shortAgo(shelf === "settled" ? chatSettledAt(c, now) : chatLastMessageAt(c), now)
+      );
+    const endSlot = renaming ? null : dragging || swept ? (
+      badge
+    ) : (
+      <span
+        className={cn(
+          "ms-auto flex shrink-0 items-center ps-1 text-xs tabular-nums text-secondary-label",
+          ROW_END_HIDES,
+        )}
+      >
+        {end}
+      </span>
+    );
+    const body = card ? (
+      <>
+        <span className="flex h-5 min-w-0 items-center gap-1.5">
+          {draftPen}
+          <AgentAvatar id={c.provider} agent={agent} className="size-4 shrink-0" />
+          {c.pinnedAt != null && (!dragging || dragTo === "pinned") ? (
+            <PinIcon
+              aria-label="Pinned"
+              className="size-3 shrink-0 text-sidebar-muted-foreground/65"
+            />
+          ) : null}
+          <span className="min-w-0 flex-1 truncate text-xs text-secondary-label">
+            {agentName(c.provider, agent)}
+          </span>
+          {endSlot}
+        </span>
+        <span className="mt-1 flex min-w-0 items-center gap-1.5">
+          {title}
+          {meta ? null : elsewhere}
+        </span>
+        {meta}
+      </>
+    ) : (
+      <>
         <span
           className={cn(
-            "ms-auto shrink-0 ps-1 text-[11px] tabular-nums text-sidebar-muted-foreground/70",
-            ROW_END_HIDES,
+            "flex shrink-0 items-center transition-opacity",
+            (!selected || shelf === "settled") &&
+              "opacity-40 grayscale group-hover/row:opacity-100 group-hover/row:grayscale-0 group-has-focus-visible/row:opacity-100 group-has-focus-visible/row:grayscale-0",
           )}
         >
-          {content}
+          <AgentAvatar id={c.provider} agent={agent} className="size-4" />
         </span>
-      );
-    const made = tabsSummary(c.tabs);
-    // T3 Code's rows: who and when on a quiet line, the title the whole width under it, then
-    // what it used. Shelved chats keep to one line.
-    const body = (title: ReactNode) =>
-      oneLine ? (
-        <>
-          <AgentAvatar id={c.provider} agent={agent} className="size-3.5 shrink-0" />
-          <span className="flex min-w-0 flex-1 items-center gap-1.5">
-            {draftPen}
-            {title}
-            {newDot}
-            {endSlot(end)}
-          </span>
-        </>
-      ) : (
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex h-4 min-w-0 items-center gap-1.5 text-xs text-sidebar-muted-foreground/85">
-            {shelf === "pinned" ? (
-              <PinIcon aria-label="Pinned" className="size-3 shrink-0" />
-            ) : null}
-            <AgentAvatar id={c.provider} agent={agent} className="size-3.5 shrink-0" />
-            <span className="truncate">{agentName(c.provider, agent)}</span>
-            {draftPen}
-            {newDot}
-            {endSlot(liveStatus(c) ?? end)}
-          </span>
-          {title}
-          {made ? (
-            <span className="truncate text-xs text-sidebar-muted-foreground/80">{made}</span>
+        {draftPen}
+        {title}
+        {endSlot}
+      </>
+    );
+    const bodyClass = card
+      ? "flex w-full min-w-0 flex-col px-(--sidebar-row-content-inset) py-(--sidebar-content-inset) text-left outline-none"
+      : "flex h-9 w-full min-w-0 items-center gap-2.5 px-(--sidebar-row-content-inset) text-left outline-none";
+    const actions =
+      renaming || dragging || sweep !== null ? null : (
+        <span
+          className={cn(
+            "absolute end-1.5 hidden items-center gap-0.5 has-data-[state=open]:flex",
+            card ? "top-1.5" : "inset-y-0 my-auto h-6",
+            ROW_ACTION_SHOWS,
+          )}
+        >
+          {drafted && card ? (
+            <HintTooltip label="Discard draft" side="bottom">
+              <button
+                type="button"
+                aria-label="Discard draft"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => discardDraft(c.id)}
+                className={ROW_ACTION}
+              >
+                <XIcon className="size-3.5" />
+              </button>
+            </HintTooltip>
           ) : null}
+          {card ? (
+            <DropdownMenu>
+              <HintTooltip label="Snooze" side="bottom">
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Snooze"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className={ROW_ACTION}
+                  >
+                    <AlarmClockIcon className="size-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+              </HintTooltip>
+              <DropdownMenuContent align="end">
+                {snoozePresets(new Date(now)).map((p) => (
+                  <DropdownMenuItem
+                    key={p.id}
+                    accelerator={p.when}
+                    onSelect={() =>
+                      void shelveChat(c.id, { snoozedUntil: p.until, settledAt: null })
+                    }
+                  >
+                    {p.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+          {card ? (
+            <button
+              type="button"
+              onPointerDown={(e) => startSweep(c.id, "settle", e)}
+              onClick={() => void settleChat(c.id)}
+              className={ROW_ACTION}
+            >
+              <CheckIcon className="size-3.5" />
+              Settle
+            </button>
+          ) : (
+            <HintTooltip label={shelf === "settled" ? "Unsettle" : "Wake up now"} side="bottom">
+              <button
+                type="button"
+                aria-label={shelf === "settled" ? "Unsettle" : "Wake up now"}
+                onPointerDown={(e) =>
+                  startSweep(c.id, shelf === "settled" ? "unsettle" : "unsnooze", e)
+                }
+                onClick={() => void bringBack(c.id)}
+                className={ROW_ACTION}
+              >
+                {shelf === "settled" ? (
+                  <Undo2Icon className="size-3.5" />
+                ) : (
+                  <AlarmClockOffIcon className="size-3.5" />
+                )}
+              </button>
+            </HintTooltip>
+          )}
         </span>
       );
     return (
       <ChatRowMenu
-        key={c.id}
         chat={c}
         shelf={shelf}
         now={now}
@@ -425,29 +965,28 @@ export function AgentSidebar({
       >
         <div
           className={cn(
-            "group/row relative mb-0.5 flex w-full min-w-0 items-center rounded-lg",
+            "group/row relative w-full min-w-0 rounded-lg select-none",
             !renaming && "has-focus-visible:ring-2 has-focus-visible:ring-focus-ring",
-            selected
-              ? "bg-sidebar-row-selected text-sidebar-foreground"
-              : drafted
-                ? cn(DRAFT_SURFACE, "text-sidebar-foreground")
-                : "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
+            dragging
+              ? "bg-sidebar-surface bg-linear-to-b from-sidebar-row-active to-sidebar-row-active text-sidebar-foreground shadow-lg"
+              : selected || swept
+                ? "bg-sidebar-row-selected text-sidebar-foreground"
+                : drafted
+                  ? cn(DRAFT_SURFACE, "text-sidebar-foreground")
+                  : "text-sidebar-foreground hover:bg-sidebar-row-hover",
+            shelf === "settled" &&
+              !selected &&
+              !dragging &&
+              !swept &&
+              "[&:not(:hover):not(:focus-within)_*]:text-secondary-label",
+            recede &&
+              status?.kind === "working" &&
+              !dragging &&
+              "opacity-70 transition-opacity hover:opacity-100 focus-within:opacity-100 motion-reduce:transition-none",
           )}
         >
           {renaming ? (
-            <div className={cn(ROW_BODY, oneLine && "items-center")}>
-              {body(
-                <TitleInput
-                  title={c.title}
-                  onDone={(title) => {
-                    setEditing(null);
-                    if (title === null) return;
-                    if (!title.trim()) toast.warning("A chat's title can't be empty");
-                    else void renameChat(c.id, title, titles);
-                  }}
-                />,
-              )}
-            </div>
+            <div className={bodyClass}>{body}</div>
           ) : (
             <button
               type="button"
@@ -465,81 +1004,12 @@ export function AgentSidebar({
               }}
               aria-current={selected ? "page" : undefined}
               aria-busy={busy || undefined}
-              className={cn(ROW_BODY, oneLine && "items-center", "cursor-pointer")}
+              className={cn(bodyClass, "cursor-pointer")}
             >
-              {body(
-                <span
-                  className={cn(
-                    "min-w-0 truncate text-sm",
-                    !oneLine && "text-sidebar-foreground/80",
-                    (selected || fresh || drafted) && "text-sidebar-foreground",
-                    fresh && "font-medium",
-                    busy && "opacity-55",
-                  )}
-                >
-                  {c.title}
-                </span>,
-              )}
+              {body}
             </button>
           )}
-          {renaming ? null : (
-            <span
-              className={cn(
-                "absolute end-1.5 hidden items-center gap-0.5 has-data-[state=open]:flex",
-                oneLine ? "inset-y-0 my-auto h-6" : "top-1",
-                ROW_ACTION_SHOWS,
-              )}
-            >
-              {shelf === "settled" ? null : (
-                <DropdownMenu>
-                  <HintTooltip label="Snooze" side="bottom">
-                    <DropdownMenuTrigger asChild>
-                      <button type="button" aria-label="Snooze" className={ROW_ACTION}>
-                        <AlarmClockIcon className="size-3.5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                  </HintTooltip>
-                  <DropdownMenuContent align="end">
-                    {snoozePresets(new Date(now)).map((p) => (
-                      <DropdownMenuItem
-                        key={p.id}
-                        accelerator={p.when}
-                        onSelect={() =>
-                          void shelveChat(c.id, { snoozedUntil: p.until, settledAt: null })
-                        }
-                      >
-                        {p.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              <button
-                type="button"
-                title={oneLine ? (shelf === "settled" ? "Unsettle" : "Settle") : undefined}
-                onClick={() =>
-                  void shelveChat(
-                    c.id,
-                    shelf === "settled"
-                      ? { snoozedUntil: null, settledAt: null }
-                      : { snoozedUntil: null, settledAt: Date.now() },
-                  )
-                }
-                className={cn(ROW_ACTION, !oneLine && "w-auto gap-1 px-1.5 text-xs")}
-              >
-                {shelf === "settled" ? (
-                  <UndoIcon className="size-3.5" />
-                ) : (
-                  <CheckIcon className="size-3.5" />
-                )}
-                {oneLine ? (
-                  <span className="sr-only">{shelf === "settled" ? "Unsettle" : "Settle"}</span>
-                ) : (
-                  "Settle"
-                )}
-              </button>
-            </span>
-          )}
+          {actions}
         </div>
       </ChatRowMenu>
     );
@@ -551,7 +1021,7 @@ export function AgentSidebar({
     const selected = c.id === chatId;
     const settled = settledIds.has(c.id);
     return (
-      <li key={c.id} ref={lit ? scrollIntoView : undefined} role="presentation">
+      <li key={c.id} ref={lit ? scrollIntoView : undefined} role="presentation" className="py-0.5">
         <button
           id={resultId(index)}
           type="button"
@@ -562,18 +1032,18 @@ export function AgentSidebar({
           onMouseMove={() => setHighlighted(c.id)}
           onClick={() => pickResult(result)}
           className={cn(
-            "mb-0.5 flex w-full min-w-0 cursor-pointer flex-col gap-0.5 rounded-lg py-1.5 ps-(--sidebar-row-content-inset) pe-(--sidebar-row-content-inset) text-left outline-none",
+            "flex w-full min-w-0 cursor-pointer flex-col rounded-lg px-(--sidebar-row-content-inset) py-(--sidebar-content-inset) text-left outline-none",
             lit || selected
               ? "bg-sidebar-row-selected text-sidebar-foreground"
               : "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
           )}
         >
-          <span className="flex h-4 min-w-0 items-center gap-1.5 text-xs text-sidebar-muted-foreground/85">
+          <span className="flex h-5 min-w-0 items-center gap-1.5 text-xs text-secondary-label">
             <AgentAvatar
               id={c.provider}
               agent={openClawAgentId(c.sessionId)}
               className={cn(
-                "size-3.5 shrink-0",
+                "size-4 shrink-0",
                 settled && !lit && !selected && "opacity-40 grayscale",
               )}
             />
@@ -581,11 +1051,11 @@ export function AgentSidebar({
               {agentName(c.provider, openClawAgentId(c.sessionId))}
               {settled ? " · Settled" : ""}
             </span>
-            <span className="ms-auto shrink-0 ps-1 text-[11px] tabular-nums text-sidebar-muted-foreground/70">
+            <span className="ms-auto shrink-0 ps-1 tabular-nums">
               {shortAgo(chatLastMessageAt(c), now)}
             </span>
           </span>
-          <span className="flex min-w-0 flex-col">
+          <span className="mt-1 flex min-w-0 flex-col">
             <span
               className={cn(
                 "min-w-0 truncate text-sm",
@@ -597,7 +1067,7 @@ export function AgentSidebar({
               <Highlighted text={c.title} ranges={ranges} />
             </span>
             {match ? (
-              <span className="truncate text-xs text-sidebar-muted-foreground/85">
+              <span className="mt-0.5 truncate text-xs text-secondary-label">
                 <span
                   className={
                     match.role === "user" ? "text-info-foreground" : "text-success-foreground"
@@ -617,8 +1087,97 @@ export function AgentSidebar({
     );
   };
 
-  const empty = newDrafts.length === 0 && Object.values(shelves).every((list) => list.length === 0);
-  const divider = <div aria-hidden className="mx-2.5 my-1.5 h-px shrink-0 bg-sidebar-border/60" />;
+  const from = drag?.from ?? null;
+  const renderItem = (item: ListItem) => {
+    if (item.kind === "chat") {
+      const c = chatById.get(item.id)!;
+      return (
+        <SortableRow
+          key={c.id}
+          id={c.id}
+          disabled={editing === c.id || held !== null}
+          className={item.shelf === "pinned" || item.shelf === "active" ? "py-0.5" : undefined}
+        >
+          {(dragging) => row(c, item.shelf, dragging)}
+        </SortableRow>
+      );
+    }
+    switch (item.marker) {
+      case "pinned-header":
+      case "pinned-divider":
+        return (
+          <DragBoundary
+            key={item.marker}
+            marker={item.marker}
+            label={item.marker === "pinned-header" ? "Pinned" : "Active"}
+            visible={from !== null}
+            dropTarget={dragTo === (item.marker === "pinned-header" ? "pinned" : "active")}
+          />
+        );
+      case "active-placeholder":
+        return (
+          <ShelfPlaceholder
+            key={item.marker}
+            marker={item.marker}
+            label="Active"
+            visible={
+              from !== null &&
+              (shelves.active.length === 0 ||
+                (from === "active" &&
+                  shelves.active.length === 1 &&
+                  dragTo !== null &&
+                  dragTo !== "active"))
+            }
+            dropTarget={dragTo === "active"}
+          />
+        );
+      case "settled-placeholder":
+        return (
+          <ShelfPlaceholder
+            key={item.marker}
+            marker={item.marker}
+            label="Settled"
+            visible={
+              from !== null &&
+              (settled.length === 0 ||
+                (from === "settled" &&
+                  settled.length === 1 &&
+                  dragTo !== null &&
+                  dragTo !== "settled"))
+            }
+            dropTarget={dragTo === "settled"}
+          />
+        );
+      case "snoozed-header":
+        return (
+          <ShelfHeader
+            key={item.marker}
+            marker={item.marker}
+            className="mt-auto"
+            label="Snoozed"
+            count={shelves.snoozed.length}
+            open={snoozedOpen}
+            onToggle={() => toggleShelf(() => setSnoozedOpen((o) => !o))}
+          />
+        );
+      case "settled-header":
+        return (
+          <ShelfHeader
+            key={item.marker}
+            marker={item.marker}
+            className={cn(shelves.snoozed.length === 0 && "mt-auto")}
+            label="Settled"
+            count={shelves.settled.length}
+            open={settledOpen}
+            onToggle={() => toggleShelf(() => setSettledOpen((o) => !o))}
+            dragging={from !== null}
+            dropTarget={dragTo === "settled"}
+          />
+        );
+    }
+  };
+
+  const empty = newDrafts.length === 0 && noChats;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-col pt-(--sidebar-content-inset)">
@@ -734,37 +1293,44 @@ export function AgentSidebar({
             {filter ? "No chats match." : "Chats you start show up here."}
           </p>
         ) : (
-          <>
-            {newDrafts.map(draftRow)}
-            {newDrafts.length > 0 && shelves.pinned.length + shelves.active.length > 0
-              ? divider
-              : null}
-            {shelves.pinned.map((c) => row(c, "pinned"))}
-            {shelves.pinned.length > 0 && shelves.active.length > 0 ? divider : null}
-            {shelves.active.map((c) => row(c, "active"))}
-            {/* The shelves sit at the bottom, under the chats you're on (T3 Code's). */}
-            <div className="mt-auto pt-4">
-              {shelves.snoozed.length > 0 ? (
-                <Shelf title="Snoozed" count={shelves.snoozed.length}>
-                  {shelves.snoozed.map((c) => row(c, "snoozed"))}
-                </Shelf>
-              ) : null}
-              {shelves.settled.length > 0 ? (
-                <Shelf title="Settled" count={shelves.settled.length}>
-                  {settled.map((c) => row(c, "settled"))}
-                  {hiddenSettled > 0 ? (
+          <DndContext
+            sensors={sensors}
+            autoScroll={AUTO_SCROLL}
+            collisionDetection={collisionDetection}
+            modifiers={modifiers}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDragEnd={onDragEnd}
+          >
+            <SortableContext items={items.map(listItemId)} strategy={sortingStrategy}>
+              <ul
+                ref={attachList}
+                role="presentation"
+                className={cn(
+                  "relative flex flex-1 flex-col gap-px",
+                  sweep !== null && "**:pointer-events-none",
+                  // The projected rows extend the scroll range; a range that shrinks as the target
+                  // changes would clamp scrollTop and flip the target under a still pointer.
+                  drag !== null &&
+                    "after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-30 after:h-px after:content-['']",
+                )}
+              >
+                {newDrafts.map(draftRow)}
+                {items.map(renderItem)}
+                {hiddenSettled > 0 ? (
+                  <li className="list-none">
                     <button
                       type="button"
-                      onClick={() => setSettledShown((n) => n + SETTLED_PAGE)}
-                      className="flex h-8 w-full cursor-pointer items-center rounded-lg px-(--sidebar-row-content-inset) text-left text-sm text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      onClick={() => toggleShelf(() => setSettledShown((n) => n + SETTLED_PAGE))}
+                      className="flex h-9 w-full cursor-pointer items-center rounded-lg px-(--sidebar-row-content-inset) text-left text-sm text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
                     >
                       Show {Math.min(hiddenSettled, SETTLED_PAGE)} more
                     </button>
-                  ) : null}
-                </Shelf>
-              ) : null}
-            </div>
-          </>
+                  </li>
+                ) : null}
+              </ul>
+            </SortableContext>
+          </DndContext>
         )}
       </SidebarBody>
     </div>
@@ -824,50 +1390,6 @@ function ScheduledRow({ selected, onSelect }: { selected: boolean; onSelect: () 
   );
 }
 
-function Status({
-  icon: Icon,
-  label,
-  spinning = false,
-  className,
-}: {
-  icon: LucideIcon;
-  label: string;
-  spinning?: boolean;
-  className?: string;
-}) {
-  return (
-    <span className={cn("flex min-w-0 items-center gap-1", className)}>
-      <Icon
-        aria-hidden
-        className={cn("size-3 shrink-0", spinning && "animate-spin [animation-duration:3s]")}
-      />
-      <span className="truncate">{label}</span>
-    </span>
-  );
-}
-
-function Shelf({ title, count, children }: { title: string; count: number; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className="flex h-8 w-full cursor-pointer items-center gap-2 rounded-lg px-(--sidebar-row-content-inset) text-left text-xs font-medium text-sidebar-muted-foreground outline-none hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-      >
-        <span className="flex-1">{title}</span>
-        <span className="font-normal tabular-nums">{count}</span>
-        <ChevronRightIcon
-          aria-hidden
-          className={cn("size-3 shrink-0 transition-transform", open && "rotate-90")}
-        />
-      </button>
-      {open ? children : null}
-    </div>
-  );
-}
-
 function ChatRowMenu({
   chat,
   shelf,
@@ -920,13 +1442,7 @@ function ChatRowMenu({
         {shelf === "settled" ? null : (
           <>
             <ContextMenuSeparator />
-            <ContextMenuItem
-              onSelect={() =>
-                void shelveChat(chat.id, { snoozedUntil: null, settledAt: Date.now() })
-              }
-            >
-              Settle
-            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => void settleChat(chat.id)}>Settle</ContextMenuItem>
           </>
         )}
         <ContextMenuSeparator />

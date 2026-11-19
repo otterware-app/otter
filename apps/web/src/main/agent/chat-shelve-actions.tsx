@@ -9,8 +9,8 @@ import {
 } from "../mail/menu";
 import { HintTooltip } from "../mail/ui";
 
-export function settleChat(id: string) {
-  void shelveChat(id, { snoozedUntil: null, settledAt: Date.now() });
+export function settleChat(id: string): Promise<void> {
+  return shelveChat(id, { snoozedUntil: null, settledAt: Date.now() });
 }
 
 export function SnoozeMenu({

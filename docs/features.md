@@ -246,6 +246,7 @@ chats read the same everywhere and continue on that Mac. On iPhone the chats are
 | Chat history from the bottom bar                                                                | ✓                   | ✓                    | —      |
 | AI workspace (Agent in the sidebar): recent chats, the chat, its tabs                           | ✓                   | ✓                    | —      |
 | Chats sorted like T3 Code's: Snoozed, Settled (synced); auto-settles after N quiet days         | ✓                   | ✓                    | —      |
+| Drag a chat to pin it (in order), settle, unsettle or wake it; sweep Settle over several        | ✓                   | ✓                    | —      |
 | Open the small window's chat in the workspace (⌘⇧F, and back)                                   | ✓                   | ✓                    | —      |
 | Tabs: conversations and drafts it was given, read or made; files                                | ✓                   | ✓                    | —      |
 | Tabs: pages it read, events it made, links clicked in it                                        | ✓                   | — (links: a new tab) | —      |

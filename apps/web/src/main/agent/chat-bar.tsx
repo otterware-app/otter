@@ -246,7 +246,7 @@ function ChatBarTab({
             type="button"
             aria-label="Settle"
             onClick={() => {
-              settleChat(convo.id);
+              void settleChat(convo.id);
               onSettle();
             }}
             className="flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"

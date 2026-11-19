@@ -23,6 +23,8 @@ after theirs. These files are ported or adapted from T3 Code's source:
 - Trackpad swipes back and forward: `apps/web/src/main/history-swipe.tsx` and its test
 - Panel animations: `apps/web/src/main/panel-animations.ts`,
   `apps/web/src/main/settings/panel-animations-preview.tsx`
+- Dragging chats in the sidebar: `apps/web/src/main/agent/sidebar-drag.ts`, `sidebar-list.tsx`,
+  `sidebar-motion.ts` and `sidebar-pointer.ts`
 - The list of open-source licenses: `scripts/lib/third-party-licenses.ts` and its test,
   `scripts/sync-third-party-license-notices.ts`, `packages/shared/src/third-party-licenses.ts`
 - Parts of `apps/web/src/styles.css` (contrast, borders, the top bar's fade, the shine on running

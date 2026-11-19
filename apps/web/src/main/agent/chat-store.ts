@@ -992,12 +992,13 @@ export async function shelveChat(
   }));
 }
 
-export async function pinChat(id: string, pinned: boolean): Promise<void> {
+/** `at`: where it goes among the pinned chats, which keep to their `pinnedAt` (now: last). */
+export async function pinChat(id: string, pinned: boolean, at?: number): Promise<void> {
   if (!get().conversations.find((c) => c.id === id)?.loaded) await loadChat(id);
   const now = Date.now();
   patchConversation(id, (c) => ({
     ...c,
-    pinnedAt: pinned ? now : null,
+    pinnedAt: pinned ? (at ?? now) : null,
     ...(pinned ? { snoozedUntil: null, settledAt: null } : { returnedAt: now }),
     updatedAt: now,
   }));
