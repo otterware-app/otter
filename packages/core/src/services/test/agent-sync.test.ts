@@ -178,6 +178,34 @@ beforeEach(() => {
 });
 
 describe("agent sync", () => {
+  it("lists each chat with when its last message came", async () => {
+    const mac = await device();
+    await save(
+      mac,
+      chat("c1", {
+        updatedAt: 90,
+        turns: [
+          { id: "u-1", role: "user", text: "Find a venue", startedAt: 20 },
+          { id: "a-1", role: "assistant", text: "Two options", startedAt: 21, finishedAt: 40 },
+        ],
+      }),
+    );
+    await save(
+      mac,
+      chat("c2", {
+        turns: [
+          { id: "u-1", role: "user", text: "Still going?", startedAt: 50 },
+          { id: "a-1", role: "assistant", text: "", startedAt: 51 },
+        ],
+      }),
+    );
+    await save(mac, chat("c3"));
+
+    const { chats } = await mac.chats.listChats();
+    const listed = Object.fromEntries(chats.map((c) => [c.id, c.lastMessageAt]));
+    expect(listed).toEqual({ c1: 40, c2: 51, c3: undefined });
+  });
+
   it("gives another device a chat whole, every turn as it was written", async () => {
     const mac = await device();
     const web = await device();

@@ -69,6 +69,14 @@ export function chatReturnedAt(
   return Math.max(chat.returnedAt ?? chat.updatedAt, woke);
 }
 
+/** When its last message came, from its turns once they're loaded, else as core listed it. */
+export function chatLastMessageAt(
+  chat: Pick<Chat, "turns" | "updatedAt"> & { loaded: boolean; lastMessageAt?: number },
+): number {
+  const last = chat.loaded ? chat.turns.at(-1) : undefined;
+  return last?.finishedAt ?? last?.startedAt ?? chat.lastMessageAt ?? chat.updatedAt;
+}
+
 export type SnoozePreset = { id: string; label: string; when: string; until: number };
 
 const timeOfDay = (date: Date) =>

@@ -9,6 +9,7 @@ import {
   type ChatTab,
   type ChatTabRef,
   type ChatDelivery,
+  type ChatListing,
   type ChatMessageMatch,
   type ChatTurn,
   type ChatTurnItem,
@@ -49,6 +50,8 @@ export type Conversation = Chat & {
    */
   openRequest?: string | null;
   loaded: boolean;
+  /** As core listed it: its turns say once they're loaded. */
+  lastMessageAt?: number;
 };
 
 export type Run = { requestId: string; convoId: string; provider: AgentId };
@@ -361,7 +364,7 @@ export const useChats = create<ChatsState>(() => ({
 const { getState: get, setState: set } = useChats;
 
 const chatsApi = {
-  list: () => ipc<{ chats: Omit<Chat, "turns">[]; device: Device }>("chats:list"),
+  list: () => ipc<{ chats: ChatListing[]; device: Device }>("chats:list"),
   get: (id: string) => ipc<Chat | null>("chats:get", { id }),
   search: (query: string) => ipc<ChatMessageMatch[]>("chats:search", { query }),
   save: (save: ChatSave) => ipc<void>("chats:save", save),
@@ -397,7 +400,7 @@ function scheduleSave(id: string): void {
       saveTimers.delete(id);
       const convo = get().conversations.find((c) => c.id === id);
       if (!convo || !convo.loaded || convo.turns.length === 0) return;
-      const { openRequest: _open, loaded: _loaded, turns, ...chat } = convo;
+      const { openRequest: _open, loaded: _loaded, lastMessageAt: _last, turns, ...chat } = convo;
       const changed = turns.filter((turn) => stored.get(turn) !== id);
       saving.add(id);
       chatsApi
