@@ -696,6 +696,17 @@ html[data-window-controls="none"] {
     transform: translateX(-50%);
   }
 }
+
+/* Lucide scales its 2-unit stroke with the icon, so each size draws a different
+   weight. Icons left at that default draw one 1.25px line at every size, as
+   Linear's do; an icon given its own strokeWidth keeps it. */
+svg.lucide[stroke-width="2"] {
+  stroke-width: 1.25px;
+}
+svg.lucide[stroke-width="2"] > * {
+  vector-effect: non-scaling-stroke;
+}
+
 html[data-theme-switching] *,
 html[data-theme-switching] *::before,
 html[data-theme-switching] *::after {

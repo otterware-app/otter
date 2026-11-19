@@ -54,7 +54,7 @@ export function NewRow({
         }`}
       >
         <span
-          className={`flex shrink-0 [&_svg]:size-4 ${
+          className={`flex size-4 shrink-0 items-center justify-center [&_svg]:size-3.5 ${
             selected
               ? "text-sidebar-foreground"
               : "text-sidebar-muted-foreground group-hover:text-sidebar-foreground"
@@ -133,7 +133,7 @@ export function SkRow({
     >
       <span
         className={[
-          "flex shrink-0 items-center",
+          "flex min-w-4 shrink-0 items-center justify-center [&>svg.lucide]:size-3.5",
           selected
             ? "text-sidebar-foreground"
             : "text-sidebar-muted-foreground group-hover:text-sidebar-foreground",
