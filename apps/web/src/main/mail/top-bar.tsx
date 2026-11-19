@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
-import { useRouter, type RouterHistory } from "@tanstack/react-router";
+import { useRouter } from "@tanstack/react-router";
 import { useSyncExternalStore } from "react";
 import {
   ArchiveIcon,
@@ -43,19 +43,7 @@ import type { MailboxTab } from "../mailboxes";
 import type { KeybindingCommand } from "../keybindings/commands";
 import { shortcutLabelFor, useKeybindingsState } from "../keybindings/store";
 import { features } from "../features";
-
-let trackedHistory: RouterHistory | null = null;
-let furthestIndex = 0;
-
-function trackHistory(history: RouterHistory): void {
-  if (trackedHistory === history) return;
-  trackedHistory = history;
-  furthestIndex = history.location.state.__TSR_index;
-  history.subscribe(({ location, action }) => {
-    const index = location.state.__TSR_index;
-    furthestIndex = action.type === "PUSH" ? index : Math.max(furthestIndex, index);
-  });
-}
+import { canStepHistory } from "../history-steps";
 
 export function recentIcon(icon: RecentIcon): ComponentType<{ className?: string }> | undefined {
   if (icon.startsWith("workspace:"))
@@ -130,11 +118,11 @@ function RecentlyViewedMenu() {
 
 export function HistoryControls() {
   const { history } = useRouter();
-  trackHistory(history);
-  const where = useSyncExternalStore(history.subscribe, () => {
-    const index = history.location.state.__TSR_index;
-    return `${index > 0 ? "back" : ""} ${index < furthestIndex ? "forward" : ""}`;
-  });
+  const where = useSyncExternalStore(
+    history.subscribe,
+    () =>
+      `${canStepHistory(history, "back") ? "back" : ""} ${canStepHistory(history, "forward") ? "forward" : ""}`,
+  );
   if (!features.historyButtons) return null;
   return (
     <div className="flex items-center gap-1">

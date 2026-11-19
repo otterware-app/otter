@@ -136,6 +136,7 @@ import { AttachmentPreview, attachmentPreview, type PreviewFile } from "./attach
 import { isModClick } from "../keybindings/keys";
 import { loadPhoneFinder, markPhones, usePhoneFinder, type FindPhones } from "./phone-numbers";
 import { usePhoneMenu, type PhoneAt } from "./phone-menu";
+import { followFrameWheel } from "../history-swipe";
 
 type MessageReaderProps = {
   accountId: string;
@@ -609,6 +610,7 @@ function HtmlBody({
       setHasQuote(quoted.length > 0);
       setQuoteOpen(false);
       refitRef.current = fit;
+      followFrameWheel(iframe, doc);
       // Some remote images won't load in the iframe — anything served with
       // `Cross-Origin-Resource-Policy: same-origin` (Anthropic/Cloudflare, …) is
       // blocked by WebKit since the frame's origin isn't the image's. Re-fetch

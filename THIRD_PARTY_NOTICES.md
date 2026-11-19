@@ -20,6 +20,7 @@ after theirs. These files are ported or adapted from T3 Code's source:
   `popover.tsx`, `toggle.tsx`, `toggle-group.tsx`, `tooltip.tsx` (after shadcn/ui and coss ui,
   below)
 - Toasts: `apps/web/src/main/mail/toast.tsx`, `toast-layout.ts`
+- Trackpad swipes back and forward: `apps/web/src/main/history-swipe.tsx` and its test
 - Panel animations: `apps/web/src/main/panel-animations.ts`,
   `apps/web/src/main/settings/panel-animations-preview.tsx`
 - The list of open-source licenses: `scripts/lib/third-party-licenses.ts` and its test,

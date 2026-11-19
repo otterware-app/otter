@@ -44,6 +44,11 @@ export interface UpdateState {
 export interface BridgeFeatures {
   windowControls: "left" | "right" | null;
   historyButtons: boolean;
+  /**
+   * Two-finger trackpad swipes go back and forward. Only on a Mac: elsewhere a
+   * mouse's tilt wheel scrolls just as a trackpad swipe does.
+   */
+  swipeNavigation: boolean;
   launchAtLogin: boolean;
   dockBadge: boolean;
   defaultMailApp: boolean;
