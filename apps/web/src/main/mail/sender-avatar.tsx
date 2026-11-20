@@ -17,7 +17,7 @@ export function SenderAvatar({
   name?: string;
   email: string;
   accountId?: string;
-  size?: "sm" | "md";
+  size?: "xs" | "sm" | "md";
   className?: string;
 }) {
   const normalizedEmail = email.trim().toLowerCase();
@@ -31,7 +31,11 @@ export function SenderAvatar({
   });
   const photo = photoQuery.data?.dataUrl ?? null;
 
-  const sizeClasses = size === "sm" ? "size-6 text-2xs rounded-md" : "size-9 text-sm rounded-lg";
+  const sizeClasses = {
+    xs: "size-4 text-3xs rounded-sm",
+    sm: "size-6 text-2xs rounded-md",
+    md: "size-9 text-sm rounded-lg",
+  }[size];
 
   if (photo) {
     // Transparent logos need a white backing, but painting it under the whole

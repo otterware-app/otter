@@ -531,7 +531,7 @@ function MessageRow({
               if (e.shiftKey) e.preventDefault();
             }}
             className={[
-              "message-list-row group relative flex w-full cursor-pointer select-none items-start gap-3 overflow-hidden pl-5 pr-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+              "message-list-row group relative flex w-full cursor-pointer select-none flex-col overflow-hidden pl-5 pr-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
               selected
                 ? "bg-sidebar-row-active"
                 : checked
@@ -539,146 +539,138 @@ function MessageRow({
                   : "group-hover/row:bg-sidebar-row-hover",
             ].join(" ")}
           >
-            {/* Who it's from, at a glance (Outlook's column of faces); new
-                mail's dot sits centered in the gutter before it, clear of the
-                card's edge, so names stay aligned. */}
-            <span className="message-list-avatar relative mt-0.5 flex shrink-0">
-              {unread && !selected ? (
-                <span
-                  className="absolute -left-[13px] top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-primary"
-                  aria-hidden
-                />
-              ) : null}
-              <SenderAvatar
-                name={person.name}
-                email={person.email}
-                accountId={ownerAccountId}
-                className={cn(
-                  "message-list-face",
-                  selecting || checked ? "invisible" : "group-hover/row:invisible",
-                )}
-              />
-              <span
-                role="checkbox"
-                tabIndex={-1}
-                aria-checked={checked}
-                aria-label={checked ? "Deselect" : "Select"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleChecked();
-                }}
-                className={cn(
-                  "absolute inset-0 flex items-center justify-center rounded-lg border",
-                  checked
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-input bg-canvas text-transparent hover:border-muted-foreground",
-                  !selecting && !checked && "invisible group-hover/row:visible",
-                )}
-              >
-                <CheckIcon className="size-3.5" strokeWidth={3} />
-              </span>
-              {/* Across mailboxes, whose it is: a badge on the face, apart
-                  from the unread dot. */}
-              {combinedMeta ? (
-                <span
-                  className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-canvas"
-                  style={{ backgroundColor: combinedMeta.accountColor }}
-                  title={
-                    combinedMeta.mailbox
-                      ? `${combinedMeta.accountName} · ${combinedMeta.mailbox}`
-                      : combinedMeta.accountName
-                  }
-                  aria-label={combinedMeta.accountName}
-                />
-              ) : null}
-            </span>
-            <div className="message-list-row-content flex min-w-0 flex-1 flex-col">
-              <div className="message-list-row-header flex items-center justify-between gap-2">
-                <span className="message-list-sender flex min-w-0 flex-1 items-center gap-1.5">
-                  {draftRow ? (
-                    <span className="shrink-0 text-[13px] font-medium leading-snug text-destructive-foreground">
-                      Draft
-                    </span>
-                  ) : null}
-                  <span
-                    className={[
-                      "message-list-sender-name min-w-0 truncate text-[13px] leading-snug",
-                      draftRow
-                        ? "text-muted-foreground"
-                        : unread
-                          ? "font-medium text-foreground"
-                          : "font-normal text-foreground/70",
-                    ].join(" ")}
-                  >
-                    {draftRow
-                      ? draftTo
-                        ? `to ${draftTo}`
-                        : ""
-                      : writersText ||
-                        senderLabel(message.fromName, message.fromEmail, ownerAccountId)}
-                  </span>
-                  {!draftRow && labelIds.includes("DRAFT") ? (
-                    <span className="shrink-0 text-[13px] font-medium leading-snug text-destructive-foreground">
-                      Draft
-                    </span>
-                  ) : null}
-                  {/* After the name, so every sender starts at the same place. */}
-                  {labelIds.includes("IMPORTANT") ? <ImportantMarker muted /> : null}
-                </span>
-                <div className="message-list-meta flex shrink-0 items-center gap-1.5">
-                  {threadCount > 1 ? (
+            <div className="message-list-row-header flex h-5 items-center justify-between gap-2">
+              <span className="message-list-sender flex min-w-0 flex-1 items-center gap-1.5">
+                {/* T3 Code's thread row: who it's from is a small picture on the
+                    name's line. New mail's dot sits centered in the gutter before
+                    it, clear of the card's edge, so pictures stay aligned. */}
+                <span className="relative flex shrink-0">
+                  {unread && !selected ? (
                     <span
-                      role="button"
-                      tabIndex={-1}
-                      aria-label={expanded ? "Hide messages" : `Show ${threadCount} messages`}
-                      aria-expanded={expanded}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleExpanded();
-                      }}
-                      className="-my-0.5 flex items-center gap-0.5 rounded-sm px-0.5 text-xs tabular-nums text-muted-foreground hover:text-foreground"
-                    >
-                      {threadCount}
-                      <CircleChevronDownIcon
-                        className={cn("size-3.5 transition-transform", expanded && "rotate-180")}
-                      />
-                    </span>
+                      className="absolute -left-[13px] top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-primary"
+                      aria-hidden
+                    />
                   ) : null}
-                  <span className="text-xs tabular-nums text-muted-foreground">
-                    {formatRelativeDate(message.date)}
+                  <SenderAvatar
+                    name={person.name}
+                    email={person.email}
+                    accountId={ownerAccountId}
+                    size="xs"
+                    className={selecting || checked ? "invisible" : "group-hover/row:invisible"}
+                  />
+                  <span
+                    role="checkbox"
+                    tabIndex={-1}
+                    aria-checked={checked}
+                    aria-label={checked ? "Deselect" : "Select"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleChecked();
+                    }}
+                    className={cn(
+                      "absolute inset-0 flex items-center justify-center rounded-sm border before:absolute before:-inset-1.5",
+                      checked
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-input bg-canvas text-transparent hover:border-muted-foreground",
+                      !selecting && !checked && "invisible group-hover/row:visible",
+                    )}
+                  >
+                    <CheckIcon className="size-3" strokeWidth={3} />
                   </span>
-                </div>
-              </div>
-              <div className="message-list-preview flex min-w-0 flex-col gap-0.5">
+                </span>
+                {draftRow ? (
+                  <span className="shrink-0 text-xs font-medium text-destructive-foreground">
+                    Draft
+                  </span>
+                ) : null}
                 <span
                   className={cn(
-                    "message-list-subject truncate text-[13px] leading-snug",
-                    unread ? "text-foreground" : "text-foreground/60",
+                    "message-list-sender-name min-w-0 truncate text-xs",
+                    !draftRow && unread ? "font-medium text-foreground" : "text-muted-foreground",
                   )}
                 >
-                  {message.subject || "(no subject)"}
+                  {draftRow
+                    ? draftTo
+                      ? `to ${draftTo}`
+                      : ""
+                    : writersText ||
+                      senderLabel(message.fromName, message.fromEmail, ownerAccountId)}
                 </span>
-                <span className="message-list-snippet truncate text-[13px] leading-snug text-muted-foreground/75">
-                  {decodeEntities(message.snippet) || " "}
+                {!draftRow && labelIds.includes("DRAFT") ? (
+                  <span className="shrink-0 text-xs font-medium text-destructive-foreground">
+                    Draft
+                  </span>
+                ) : null}
+                {/* After the name, so every sender starts at the same place. */}
+                {labelIds.includes("IMPORTANT") ? <ImportantMarker muted /> : null}
+              </span>
+              <div className="message-list-meta flex shrink-0 items-center gap-1.5">
+                {threadCount > 1 ? (
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    aria-label={expanded ? "Hide messages" : `Show ${threadCount} messages`}
+                    aria-expanded={expanded}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleExpanded();
+                    }}
+                    className="-my-0.5 flex items-center gap-0.5 rounded-sm px-0.5 text-xs tabular-nums text-muted-foreground hover:text-foreground"
+                  >
+                    {threadCount}
+                    <CircleChevronDownIcon
+                      className={cn("size-3.5 transition-transform", expanded && "rotate-180")}
+                    />
+                  </span>
+                ) : null}
+                {/* Across mailboxes, whose it is: its color by the time, apart
+                    from the unread dot. */}
+                {combinedMeta ? (
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: combinedMeta.accountColor }}
+                    title={
+                      combinedMeta.mailbox
+                        ? `${combinedMeta.accountName} · ${combinedMeta.mailbox}`
+                        : combinedMeta.accountName
+                    }
+                    aria-label={combinedMeta.accountName}
+                  />
+                ) : null}
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {formatRelativeDate(message.date)}
                 </span>
               </div>
-              {/* Chips only when they add something beyond the current view. */}
-              {(showInboxChip && labelIds.includes("INBOX")) || shownLabels.length > 0 ? (
-                <div className="message-list-labels mt-1 flex h-5 items-center gap-1 overflow-hidden">
-                  {showInboxChip && labelIds.includes("INBOX") ? (
-                    <InboxChip selected={selected} />
-                  ) : null}
-                  {shownLabels.map((label) => (
-                    <LabelChip key={label.id} label={label} selected={selected} />
-                  ))}
-                  {hiddenLabelCount > 0 ? (
-                    <span className="text-2xs tabular-nums text-muted-foreground">
-                      +{hiddenLabelCount}
-                    </span>
-                  ) : null}
-                </div>
-              ) : null}
             </div>
+            <div className="message-list-preview mt-1 flex min-w-0 flex-col gap-0.5">
+              <span
+                className={cn(
+                  "message-list-subject truncate text-sm",
+                  unread ? "font-medium text-foreground" : "text-foreground/75",
+                )}
+              >
+                {message.subject || "(no subject)"}
+              </span>
+              <span className="message-list-snippet truncate text-xs text-muted-foreground">
+                {decodeEntities(message.snippet) || " "}
+              </span>
+            </div>
+            {/* Chips only when they add something beyond the current view. */}
+            {(showInboxChip && labelIds.includes("INBOX")) || shownLabels.length > 0 ? (
+              <div className="message-list-labels mt-1.5 flex h-5 items-center gap-1 overflow-hidden">
+                {showInboxChip && labelIds.includes("INBOX") ? (
+                  <InboxChip selected={selected} />
+                ) : null}
+                {shownLabels.map((label) => (
+                  <LabelChip key={label.id} label={label} selected={selected} />
+                ))}
+                {hiddenLabelCount > 0 ? (
+                  <span className="text-2xs tabular-nums text-muted-foreground">
+                    +{hiddenLabelCount}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </button>
         </ContextMenuTrigger>
         {flagged ? (
@@ -869,23 +861,24 @@ function ThreadMessageRow({
       data-read={!message.unread || undefined}
       data-selected={selected || undefined}
       className={cn(
-        "message-list-thread-row group flex w-full cursor-pointer select-none flex-col gap-0.5 rounded-lg py-2 pr-3 pl-14 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+        "message-list-thread-row group flex w-full cursor-pointer select-none flex-col gap-0.5 rounded-lg py-2 pr-3 pl-8.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
         selected ? "bg-sidebar-row-active" : "hover:bg-sidebar-row-hover",
       )}
     >
       <span className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-1.5">
+        <span className="relative flex min-w-0 items-center gap-1.5">
           {message.unread && !selected ? (
-            <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
+            <span
+              className="absolute -left-3 top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-primary"
+              aria-hidden
+            />
           ) : null}
           {isDraft ? (
-            <span className="shrink-0 text-[13px] font-medium text-destructive-foreground">
-              Draft
-            </span>
+            <span className="shrink-0 text-xs font-medium text-destructive-foreground">Draft</span>
           ) : null}
           <span
             className={cn(
-              "message-list-sender-name min-w-0 truncate text-[13px] text-foreground",
+              "message-list-sender-name min-w-0 truncate text-xs text-foreground",
               message.unread && "font-medium",
             )}
           >
@@ -897,7 +890,7 @@ function ThreadMessageRow({
         </span>
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="message-list-snippet min-w-0 flex-1 truncate text-[13px] text-muted-foreground/75">
+        <span className="message-list-snippet min-w-0 flex-1 truncate text-xs text-muted-foreground">
           {decodeEntities(message.snippet) || " "}
         </span>
         {message.hasAttachments ? (
@@ -2033,13 +2026,13 @@ export function MessageList({
           <div className="flex flex-col gap-0">
             {["row-1", "row-2", "row-3", "row-4", "row-5", "row-6", "row-7", "row-8"].map((key) => (
               <div key={key} className="message-list-group">
-                <div className="message-list-row flex gap-3 pl-5 pr-3">
-                  <div className="message-list-avatar size-9 shrink-0 animate-skeleton rounded-lg bg-secondary" />
-                  <div className="message-list-skeleton flex min-w-0 flex-1 flex-col gap-2">
-                    <div className="h-3.5 w-32 animate-skeleton rounded-full bg-secondary" />
-                    <div className="h-3 w-48 animate-skeleton rounded-full bg-accent-surface" />
-                    <div className="h-3 w-40 animate-skeleton rounded-full bg-accent-surface" />
+                <div className="message-list-row flex flex-col gap-2.5 pl-5 pr-3">
+                  <div className="flex items-center gap-1.5">
+                    <div className="size-4 shrink-0 animate-skeleton rounded-sm bg-secondary" />
+                    <div className="h-3 w-32 animate-skeleton rounded-full bg-secondary" />
                   </div>
+                  <div className="h-3.5 w-48 animate-skeleton rounded-full bg-accent-surface" />
+                  <div className="h-3 w-40 animate-skeleton rounded-full bg-accent-surface" />
                 </div>
               </div>
             ))}
