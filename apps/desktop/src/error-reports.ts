@@ -18,6 +18,19 @@ const LEFT_OUT = new Set(["SentryMinidump", "LocalVariables", "Console", "Screen
 
 const gate = new ConsentGate();
 
+let servedByBackend: (channel: string) => boolean = () => false;
+
+/** Core reports its handlers' failures (callHandler): a window's uncaught copy of one is left out. */
+export function reportedByBackend(serves: (channel: string) => boolean): void {
+  servedByBackend = serves;
+}
+
+const backendFailure = (event: Sentry.ErrorEvent): boolean => {
+  const value = event.exception?.values?.[0]?.value ?? "";
+  const channel = /^Error invoking remote method '([^']+)'/.exec(value)?.[1];
+  return channel !== undefined && servedByBackend(channel);
+};
+
 export const sendsErrorReports =
   Boolean(SENTRY_DSN.desktop) && (app.isPackaged || process.env.OTTER_ERROR_REPORTS === "1");
 
@@ -30,7 +43,7 @@ export function startErrorReports(): void {
       dsn: SENTRY_DSN.desktop,
       version,
       environment: reportEnvironment(version, app.isPackaged),
-      allowed: gate.allowed,
+      allowed: (event) => !backendFailure(event) && gate.allowed(event),
     }),
     // Avoid injecting Sentry into browser tab sessions.
     ipcMode: Sentry.IPCMode.Classic,
