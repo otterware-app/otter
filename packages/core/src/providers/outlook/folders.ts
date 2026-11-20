@@ -363,12 +363,8 @@ export function labelsOf(accountId: string, mailbox: Mailbox): MailLabel[] {
       total: folder.total,
     });
   }
-  const local = (id: string) => ({
-    unread: store.countUnreadForLabel(accountId, id),
-    total: store.countMessagesForLabel(accountId, id),
-  });
   for (const id of FLAG_LABELS) {
-    labels.push({ id, name: id, type: "system", ...local(id) });
+    labels.push({ id, name: id, type: "system", ...store.countLabel(accountId, id) });
   }
   for (const category of mailbox.categories) {
     const id = categoryLabel(category.name);
@@ -378,7 +374,7 @@ export function labelsOf(accountId: string, mailbox: Mailbox): MailLabel[] {
       id,
       name: category.name,
       type: "user",
-      ...local(id),
+      ...store.countLabel(accountId, id),
       color: presetColor(category.color),
     });
   }

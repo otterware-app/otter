@@ -106,3 +106,19 @@ it("rolls a conversation up from what's outside Trash and Junk, except in those 
   expect(trash).toMatchObject({ id: "discarded", threadCount: 3 });
   expect(trash.threadLabelIds).toContain("TRASH");
 });
+
+it("counts a label's mail as its list shows it: what's in Trash and Junk only there", () => {
+  store.upsertLabels(
+    "me",
+    ["DRAFT", "TRASH", "category:Later"].map((id) => ({ id, name: id, type: "system" as const })),
+  );
+  store.upsertMessages("me", [
+    row("discarded", "binned", 500, ["TRASH", "DRAFT", "category:Later"]),
+    { ...row("later", "kept", 600, ["INBOX", "UNREAD", "category:Later"]), unread: true },
+  ]);
+  store.recountLabels("me", ["DRAFT", "TRASH"]);
+  const total = (id: string) => store.getLabels("me").find((l) => l.id === id)?.total;
+  expect(total("DRAFT")).toBe(store.getThreadsPage("me", "DRAFT", 0, 10).messages.length);
+  expect(total("TRASH")).toBe(1);
+  expect(store.countLabel("me", "category:Later")).toEqual({ total: 1, unread: 1 });
+});

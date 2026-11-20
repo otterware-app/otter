@@ -394,7 +394,7 @@ export function recountLabels(accountId: string, labelIds: string[]): void {
 
 /**
  * Recomputes and persists `labels.unread`/`total` for the given label ids from
- * the local message cache. This is the only place besides a Gmail label sync
+ * the local message cache, as their lists show it (`countLabel`). This is the only place besides a Gmail label sync
  * (`upsertLabels`) that writes those counters — without it, a local mutation
  * (mark read/unread, star, archive, trash) updates the message rows but leaves
  * the cached label counters stale until the next full/incremental sync, which
@@ -412,6 +412,7 @@ function recomputeLabelCounts(accountId: string, labelIds: string[]): void {
         FROM message_labels ml
         JOIN messages m ON m.accountId = ml.accountId AND m.id = ml.messageId
        WHERE ml.accountId = ? AND ml.labelId IN (${placeholders})
+         AND (ml.labelId IN ('SPAM', 'TRASH') OR ${NOT_SPAM_TRASH})
        GROUP BY ml.labelId
     `)
     .all(accountId, ...labelIds) as unknown as {
@@ -769,6 +770,11 @@ function countWhere(
        WHERE ml.accountId = ? AND ml.labelId = ? ${exclusion} AND ${own.clause}
     `)
     .get(accountId, labelId, ...own.params) as unknown as { total: number; unread: number };
+}
+
+/** A label's mail as its list shows it: what's in Spam or Trash only in those. */
+export function countLabel(accountId: string, labelId: string): { total: number; unread: number } {
+  return countWhere(accountId, labelId, { clause: "1", params: [] });
 }
 
 export function getAliasLabels(accountId: string, alias: AliasScope): MailLabel[] {
