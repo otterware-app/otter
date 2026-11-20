@@ -24,6 +24,24 @@ struct PerformanceTests {
         #expect(thread(0, text: "").latest.snippet.isEmpty)
     }
 
+    @Test func cacheRewritesOnlyMailboxesThatChanged() async throws {
+        let folder = URL.temporaryDirectory.appending(path: "MailCacheTests-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let cache = MailCache(folder: folder)
+        let file = folder.appending(path: "\(mailbox().email).json")
+        let snapshot = MailCache.Snapshot(mailbox: mailbox(), state: MailboxState(), threads: (0..<20).map { thread($0) })
+        cache.save([snapshot])
+        _ = await cache.load([])
+        try FileManager.default.removeItem(at: file)
+        cache.save([snapshot])
+        _ = await cache.load([])
+        #expect(!FileManager.default.fileExists(atPath: file.path()))
+        var changed = snapshot
+        changed.threads.append(thread(20))
+        cache.save([changed])
+        #expect(await cache.load([mailbox().email]).first?.threads.count == 21)
+    }
+
     @Test func cachePreservesNewestMailAndOrdersDeletionAfterWrites() async throws {
         let folder = URL.temporaryDirectory.appending(path: "MailCacheTests-\(UUID())")
         defer { try? FileManager.default.removeItem(at: folder) }
