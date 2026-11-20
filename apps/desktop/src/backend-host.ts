@@ -23,7 +23,7 @@ import {
   type MainRequests,
   type ToBackend,
 } from "./backend-protocol.js";
-import { setErrorReportsAllowed, sendsErrorReports } from "./error-reports.js";
+import { reportedByBackend, setErrorReportsAllowed, sendsErrorReports } from "./error-reports.js";
 import { broadcast } from "./ipc.js";
 import { logger, writeLog } from "./logger.js";
 import { hostOS } from "./os/index.js";
@@ -39,6 +39,7 @@ const invoking = new Map<
   { resolve: (value: unknown) => void; reject: (error: Error) => void }
 >();
 const forwarded = new Set<string>();
+reportedByBackend((channel) => forwarded.has(channel));
 
 const RESTART_DELAY_MS = 1_000;
 const RESTART_DELAY_MAX_MS = 30_000;

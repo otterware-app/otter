@@ -1426,6 +1426,10 @@ describe("agent sync", () => {
     expect((await post({ op: "nope" })).status).toBe(400);
     expect((await post({ op: "chat.delete", id: "a b" })).status).toBe(400);
     expect((await post({ ...agent, kind: "Not a kind!" })).status).toBe(400);
+    const refused = await post({ op: "chat.set", chat: { id: "chat", title: "x".repeat(2001) } });
+    expect(await refused.json()).toMatchObject({
+      error: "Invalid request: mutations.0.mutation.chat.title (too_big).",
+    });
   });
 
   it("tells the account's other devices, not the one that wrote", async () => {

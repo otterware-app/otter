@@ -161,8 +161,15 @@ async function provesOutlook(env: Env, idToken: string, email: string) {
 
 const hub = (env: Env, userId: string) => env.USER_HUB.get(env.USER_HUB.idFromName(userId));
 
-const rejectInvalid = (result: { success: boolean }) => {
-  if (!result.success) throw new HTTPException(400, { message: "Invalid request." });
+// The field and why, never what it held: a client reports the refusal, so it says what to fix.
+const rejectInvalid = (result: { success: boolean; error?: z.core.$ZodError }) => {
+  if (result.success) return;
+  const issue = result.error?.issues[0];
+  throw new HTTPException(400, {
+    message: issue
+      ? `Invalid request: ${issue.path.map(String).join(".") || "body"} (${issue.code}).`
+      : "Invalid request.",
+  });
 };
 
 const profileField = z.string().max(2048).nullable().optional();
