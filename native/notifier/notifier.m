@@ -188,7 +188,15 @@ static NSData *PNGOf(NSImage *image) {
   NSImage *sized = [NSImage imageWithSize:NSMakeSize(256, 256)
                                   flipped:NO
                            drawingHandler:^BOOL(NSRect rect) {
-                             [image drawInRect:rect];
+                             // Filled and centered, as the app's round avatars crop.
+                             NSSize size = image.size;
+                             CGFloat side = MIN(size.width, size.height);
+                             NSRect square = NSMakeRect((size.width - side) / 2,
+                                                        (size.height - side) / 2, side, side);
+                             [image drawInRect:rect
+                                      fromRect:square
+                                     operation:NSCompositingOperationSourceOver
+                                      fraction:1];
                              return YES;
                            }];
   CGImageRef cgImage = [sized CGImageForProposedRect:NULL context:nil hints:nil];

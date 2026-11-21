@@ -261,29 +261,31 @@ function postAsAgent(
   if (postedAsAgent.size > MAX_AWAITING_CLICK)
     postedAsAgent.delete(postedAsAgent.keys().next().value!);
   // The addon decodes it: a picture may be WebP or SVG, which nativeImage can't read.
-  const data = effect.icon?.match(/^data:image\/[^;,]+(;base64)?,(.*)$/s);
-  const image = data?.[2]
-    ? data[1]
-      ? Buffer.from(data[2], "base64")
-      : Buffer.from(decodeURIComponent(data[2]))
-    : undefined;
-  notifier
-    .post({
-      id,
-      chat,
-      ...(effect.agent.conversation ? { conversation: effect.agent.conversation } : {}),
-      ...(effect.body ? { body: effect.body } : {}),
-      ...(effect.silent ? { silent: true } : { sound: AGENT_SOUND }),
-      ...(actions.length > 0 ? { actions } : {}),
-      ...(effect.reply ? { reply: effect.reply } : {}),
-      sender: {
-        id: effect.agent.id,
-        name: effect.agent.name,
-        ...(image ? { image } : {}),
-        ...(effect.agent.emoji ? { emoji: effect.agent.emoji } : {}),
-        ...(effect.agent.mark ? { mark: effect.agent.mark } : {}),
-      },
-    })
+  const picture = effect.icon?.startsWith("data:image/")
+    ? fetch(effect.icon)
+        .then((response) => response.arrayBuffer())
+        .then((bytes) => Buffer.from(bytes))
+        .catch(() => undefined)
+    : Promise.resolve(undefined);
+  void picture
+    .then((image) =>
+      notifier.post({
+        id,
+        chat,
+        ...(effect.agent.conversation ? { conversation: effect.agent.conversation } : {}),
+        ...(effect.body ? { body: effect.body } : {}),
+        ...(effect.silent ? { silent: true } : { sound: AGENT_SOUND }),
+        ...(actions.length > 0 ? { actions } : {}),
+        ...(effect.reply ? { reply: effect.reply } : {}),
+        sender: {
+          id: effect.agent.id,
+          name: effect.agent.name,
+          ...(image ? { image } : {}),
+          ...(effect.agent.emoji ? { emoji: effect.agent.emoji } : {}),
+          ...(effect.agent.mark ? { mark: effect.agent.mark } : {}),
+        },
+      }),
+    )
     // Dismissed (the chat opened, the ask resolved) while macOS was still taking it.
     .then(() => postedAsAgent.has(id) || notifier.remove([id]))
     .catch((error: unknown) => logger.error("notify", "posting as the agent failed", error));
