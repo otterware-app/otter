@@ -674,6 +674,8 @@ export const mailApi = {
     options?: string[];
     /** An OpenClaw gateway's agent the chat is with. */
     persona?: string;
+    /** The agent's kind's mark (SVG). */
+    mark?: string;
     viewing: boolean;
     appFocused: boolean;
   }): Promise<{ ok: boolean }> => ipc("agent:notifyAsk", params),

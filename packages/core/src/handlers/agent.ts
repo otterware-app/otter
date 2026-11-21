@@ -222,6 +222,7 @@ export function registerAgentHandlers(): void {
         ? p.options.filter((o): o is string => typeof o === "string" && o !== "")
         : undefined,
       persona: str(p?.persona) || undefined,
+      mark: str(p?.mark) || undefined,
       viewing: p?.viewing === true,
       appFocused: p?.appFocused === true,
     });

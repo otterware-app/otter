@@ -31,7 +31,7 @@ export function buildNotifier(): string {
     "-DNAPI_VERSION=8",
     `-I${headers}`,
     "-framework",
-    "Foundation",
+    "AppKit",
     "-framework",
     "Intents",
     "-framework",

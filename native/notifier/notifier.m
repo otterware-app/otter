@@ -2,7 +2,7 @@
 // INSendMessageIntent, so Notification Center shows the agent's picture with a small app
 // badge, as Messages does. Needs com.apple.developer.usernotifications.communication.
 
-#import <Foundation/Foundation.h>
+#import <AppKit/AppKit.h>
 #import <Intents/Intents.h>
 #import <Security/Security.h>
 #import <UserNotifications/UserNotifications.h>
@@ -182,6 +182,47 @@ static BOOL BoolProp(napi_env env, napi_value object, const char *name) {
   return result;
 }
 
+// A picture for a sender without one: its emoji, or its initial, on a circle (as Contacts draws).
+static NSData *GlyphPicture(NSString *glyph, BOOL emoji) {
+  NSImage *image = [NSImage
+       imageWithSize:NSMakeSize(256, 256)
+             flipped:NO
+      drawingHandler:^BOOL(NSRect rect) {
+        [(emoji ? [NSColor colorWithWhite:0.9 alpha:1] : [NSColor colorWithWhite:0.56 alpha:1])
+            setFill];
+        [[NSBezierPath bezierPathWithOvalInRect:rect] fill];
+        NSDictionary *attributes = @{
+          NSFontAttributeName : emoji ? [NSFont systemFontOfSize:140]
+                                      : [NSFont systemFontOfSize:120 weight:NSFontWeightMedium],
+          NSForegroundColorAttributeName : NSColor.whiteColor,
+        };
+        NSSize size = [glyph sizeWithAttributes:attributes];
+        [glyph drawAtPoint:NSMakePoint((256 - size.width) / 2, (256 - size.height) / 2)
+            withAttributes:attributes];
+        return YES;
+      }];
+  CGImageRef cgImage = [image CGImageForProposedRect:NULL context:nil hints:nil];
+  NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithCGImage:cgImage];
+  return [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+}
+
+// A sender's kind's mark (SVG) on a light circle, for a sender without a picture of its own.
+static NSData *MarkPicture(NSString *svg) {
+  NSImage *mark = [[NSImage alloc] initWithData:[svg dataUsingEncoding:NSUTF8StringEncoding]];
+  if (!mark.isValid) return nil;
+  NSImage *image = [NSImage imageWithSize:NSMakeSize(256, 256)
+                                  flipped:NO
+                           drawingHandler:^BOOL(NSRect rect) {
+                             [[NSColor colorWithWhite:0.94 alpha:1] setFill];
+                             [[NSBezierPath bezierPathWithOvalInRect:rect] fill];
+                             [mark drawInRect:NSInsetRect(rect, 56, 56)];
+                             return YES;
+                           }];
+  CGImageRef cgImage = [image CGImageForProposedRect:NULL context:nil hints:nil];
+  NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithCGImage:cgImage];
+  return [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+}
+
 // The buttons and the reply field, as a category: Electron's way, which it merges the same way.
 static NSString *CategoryFor(NSArray<NSString *> *buttons, NSString *reply) {
   if (buttons.count == 0 && !reply) return nil;
@@ -255,7 +296,7 @@ static napi_value Supported(napi_env env, napi_callback_info info) {
 }
 
 // post({ id, chat, conversation?, body?, sound?, silent?, actions?, reply?,
-//        sender: { id, name, image? (Buffer) } })
+//        sender: { id, name, image? (Buffer), emoji?, mark? (SVG) } })
 static napi_value Post(napi_env env, napi_callback_info info) {
   size_t argc = 1;
   napi_value options, sender, promise, name;
@@ -270,6 +311,14 @@ static napi_value Post(napi_env env, napi_callback_info info) {
   NSString *senderId = StringProp(env, sender, "id");
   NSString *senderName = StringProp(env, sender, "name");
   NSData *image = BufferProp(env, sender, "image");
+  NSString *emoji = StringProp(env, sender, "emoji");
+  if (!image && emoji.length > 0) image = GlyphPicture(emoji, YES);
+  NSString *mark = StringProp(env, sender, "mark");
+  if (!image && mark) image = MarkPicture(mark);
+  if (!image && senderName.length > 0) {
+    NSRange first = [senderName rangeOfComposedCharacterSequenceAtIndex:0];
+    image = GlyphPicture([senderName substringWithRange:first].localizedUppercaseString, NO);
+  }
   NSString *sound = StringProp(env, options, "sound");
 
   UNMutableNotificationContent *content = [UNMutableNotificationContent new];
@@ -305,8 +354,18 @@ static napi_value Post(napi_env env, napi_callback_info info) {
                                              customIdentifier:senderId];
     INSpeakableString *group =
         conversation ? [[INSpeakableString alloc] initWithSpokenPhrase:conversation] : nil;
+    // A named conversation is a group: the sender and you.
+    INPerson *me = [[INPerson alloc] initWithPersonHandle:[[INPersonHandle alloc]
+                                                              initWithValue:@"me"
+                                                                       type:INPersonHandleTypeUnknown]
+                                           nameComponents:nil
+                                              displayName:nil
+                                                    image:nil
+                                        contactIdentifier:nil
+                                         customIdentifier:nil
+                                                     isMe:YES];
     INSendMessageIntent *intent =
-        [[INSendMessageIntent alloc] initWithRecipients:nil
+        [[INSendMessageIntent alloc] initWithRecipients:group ? @[ me, person ] : nil
                                     outgoingMessageType:INOutgoingMessageTypeOutgoingMessageText
                                                 content:content.body
                                      speakableGroupName:group

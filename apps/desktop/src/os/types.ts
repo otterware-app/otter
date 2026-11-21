@@ -74,7 +74,8 @@ export interface AgentNotifications {
     silent?: boolean;
     actions?: string[];
     reply?: string;
-    sender: { id: string; name: string; image?: Buffer };
+    /** For a sender without a picture: its `emoji`, else its kind's `mark` (SVG), else its initial. */
+    sender: { id: string; name: string; image?: Buffer; emoji?: string; mark?: string };
   }): Promise<void>;
   remove(ids: string[]): void;
   /** A click (neither `action` nor `reply`), a button (its index) or a reply. */

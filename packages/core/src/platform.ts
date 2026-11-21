@@ -150,7 +150,7 @@ export interface Platform {
      * Who sent it, and the chat's name: a Mac build entitled to communication notifications posts it
      * as a message from them, as Messages does.
      */
-    agent?: { id: string; name: string; conversation?: string };
+    agent?: { id: string; name: string; emoji?: string; mark?: string; conversation?: string };
     silent?: boolean;
     /** `mailbox`: the alias mailbox to open it in. */
     open?: { accountId: string; messageId: string; mailbox?: string };

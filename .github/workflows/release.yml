@@ -203,6 +203,9 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          # The Developer ID provisioning profile (base64) granting communication notifications:
+          # agents' notifications then show the agent's picture.
+          MAC_PROVISIONING_PROFILE: ${{ secrets.MAC_PROVISIONING_PROFILE }}
         run: |
           set -euo pipefail
           if [[ -z "$OTTER_GOOGLE_CLIENT_ID" || -z "$OTTER_GOOGLE_CLIENT_SECRET" ]]; then
@@ -218,6 +221,10 @@ jobs:
             export APPLE_API_KEY="$key_path"
             echo "macOS signing and notarization enabled."
             args+=(--signed)
+            if [[ -n "$MAC_PROVISIONING_PROFILE" ]]; then
+              export OTTER_MAC_PROVISIONING_PROFILE="$RUNNER_TEMP/otter.provisionprofile"
+              printf '%s' "$MAC_PROVISIONING_PROFILE" | base64 --decode > "$OTTER_MAC_PROVISIONING_PROFILE"
+            fi
           else
             echo "::warning::Building UNSIGNED (ad hoc). Set CSC_LINK, CSC_KEY_PASSWORD, APPLE_API_KEY, APPLE_API_KEY_ID and APPLE_API_ISSUER to sign and notarize."
           fi

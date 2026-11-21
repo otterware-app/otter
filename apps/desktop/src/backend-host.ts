@@ -278,6 +278,8 @@ function postAsAgent(
         id: effect.agent.id,
         name: effect.agent.name,
         ...(image && !image.isEmpty() ? { image: image.toPNG() } : {}),
+        ...(effect.agent.emoji ? { emoji: effect.agent.emoji } : {}),
+        ...(effect.agent.mark ? { mark: effect.agent.mark } : {}),
       },
     })
     .catch((error: unknown) => logger.error("notify", "posting as the agent failed", error));

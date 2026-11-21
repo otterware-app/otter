@@ -95,6 +95,15 @@ Add them under Settings → Secrets and variables → Actions:
 | `APPLE_API_KEY_ID` | That key's ID.                                                                                |
 | `APPLE_API_ISSUER` | The issuer ID shown above the keys list in App Store Connect → Users and Access → Keys.       |
 
+Optional: `MAC_PROVISIONING_PROFILE`, base64 of the "Otter Developer ID" provisioning profile
+(Developer ID, macOS, for `dev.otterware.mail` with Communication Notifications;
+`base64 -i Otter_Developer_ID.provisionprofile`). With it the app is signed with
+`com.apple.developer.usernotifications.communication`, and agents' notifications come from the
+agent (its picture, Otter's icon on it: `native/notifier`). Without it they show Otter's icon.
+The entitlement without the profile would stop the app from launching, so the build adds one only
+with the other. Locally, `OTTER_MAC_PROVISIONING_PROFILE=<path>` does the same for `--signed`
+(`--skip-notarize` signs without notarizing, for a test build).
+
 Optional repository variable: `XCODE_APP`, the Xcode to build with on the runner (for example
 `/Applications/Xcode_26.0.app`). By default the newest Xcode 26+ on the image is used.
 

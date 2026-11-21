@@ -587,6 +587,8 @@ export function notifyAsk(
     options?: string[];
     /** Which of the agent's own agents the chat is with (an OpenClaw gateway's Rowan). */
     persona?: string;
+    /** Its kind's mark (SVG), for an agent without a picture. */
+    mark?: string;
     viewing: boolean;
     appFocused: boolean;
   },
@@ -631,9 +633,12 @@ export function notifyAsk(
           return;
         }
         // An OpenClaw agent's picture may be on the web.
-        const icon = persona?.avatar?.startsWith("https:")
+        // As the app shows it: its own picture (maybe on the web), else its emoji, else the agent's.
+        const own = persona?.avatar?.startsWith("https:")
           ? ((await fetchImageAsDataUrl(persona.avatar).catch(() => null)) ?? undefined)
-          : (persona?.avatar ?? agent?.avatar);
+          : persona?.avatar;
+        const emoji = own ? undefined : persona?.emoji;
+        const icon = own ?? (emoji ? undefined : agent?.avatar);
         if (entry.viewing || entry.cancelled) return;
         const where = ask.chatTitle?.trim() || ask.taskName?.trim();
         platform().notify({
@@ -645,6 +650,8 @@ export function notifyAsk(
           agent: {
             id: persona ? `${id}:${persona.slug}` : id,
             name: agentName,
+            ...(emoji ? { emoji } : {}),
+            ...(ask.mark && !icon ? { mark: ask.mark } : {}),
             ...(where ? { conversation: where } : {}),
           },
           ...(ask.kind === "finished" ? { silent: true } : {}),
