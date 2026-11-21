@@ -165,6 +165,9 @@ try {
   write("assets/nightly/nightly-linux-1024.png", await png(tile(nightly), 1024));
   write("apps/desktop/resources/icon-nightly.icns", await icns((size) => png(mac(nightly), size)));
   write("apps/desktop/resources/icon-nightly.png", await png(tile(nightly), 512));
+  const agentTile = tile({ ...flat(CHARCOAL, IVORY), mark: AGENT });
+  write("apps/desktop/resources/agent-icon.png", await png(agentTile, 256));
+  write("apps/web/public/agent-icon.png", await png(agentTile, 192));
 
   for (const [channel, icon] of [
     ["dev", dev],

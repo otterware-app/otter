@@ -73,6 +73,7 @@ final class Relay {
 
     private func forget() {
         token = nil
+        pendingSent.removeAll()
         Keychain.set(Self.sessionKey, nil)
         disconnect()
     }
@@ -132,6 +133,8 @@ final class Relay {
 
     private var socket: URLSessionWebSocketTask?
     private var listening: Task<Void, Never>?
+    /** Sent-origin reports recorded while the events socket was reconnecting (session -> timestamp ms). */
+    private var pendingSent: [String: Int] = [:]
 
     /**
      * The agent session on screen while the app is in front: the relay doesn't push to the
@@ -142,10 +145,55 @@ final class Relay {
         didSet { if watching != oldValue { sayWatching() } }
     }
 
+    nonisolated static func watchingMessage(_ session: String?) -> String? {
+        let said: [String: Any] = ["type": "watching", "session": session.map { $0 as Any } ?? NSNull(), "device": "ios"]
+        guard let data = try? JSONSerialization.data(withJSONObject: said) else { return nil }
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    nonisolated static func sentMessage(_ session: String, at: Int = Int(Date().timeIntervalSince1970 * 1000)) -> String? {
+        guard !session.isEmpty else { return nil }
+        let said: [String: Any] = ["type": "sent", "session": session, "device": "ios", "at": at]
+        guard let data = try? JSONSerialization.data(withJSONObject: said) else { return nil }
+        return String(decoding: data, as: UTF8.self)
+    }
+
     private func sayWatching() {
-        let said: [String: Any] = ["type": "watching", "session": watching.map { $0 as Any } ?? NSNull()]
-        guard let socket, let data = try? JSONSerialization.data(withJSONObject: said) else { return }
-        socket.send(.string(String(decoding: data, as: UTF8.self))) { _ in }
+        guard let socket, let text = Self.watchingMessage(watching) else { return }
+        socket.send(.string(text)) { _ in }
+    }
+
+    /** Tells the relay this iPhone sent a message in `session`, retrying on reconnect if the socket isn't up yet. */
+    func noteSent(session: String) {
+        guard !session.isEmpty else { return }
+        let at = Int(Date().timeIntervalSince1970 * 1000)
+        sendOrigin(session: session, at: at)
+    }
+
+    private func sendOrigin(session: String, at: Int) {
+        guard let sessionToken = token else { return }
+        guard let socket, let text = Self.sentMessage(session, at: at) else {
+            pendingSent[session] = max(pendingSent[session] ?? 0, at)
+            return
+        }
+        pendingSent.removeValue(forKey: session)
+        socket.send(.string(text)) { [weak self] error in
+            guard error != nil else { return }
+            Task { @MainActor [weak self] in
+                guard let self, self.token == sessionToken else { return }
+                let nextAt = max(self.pendingSent[session] ?? 0, at)
+                self.pendingSent[session] = nextAt
+                if let current = self.socket, current !== socket {
+                    self.sendOrigin(session: session, at: nextAt)
+                }
+            }
+        }
+    }
+
+    private func flushPendingSent() {
+        let queued = pendingSent
+        pendingSent.removeAll()
+        for (session, at) in queued { sendOrigin(session: session, at: at) }
     }
 
     func connect(onEvent: @escaping (Event) -> Void) {
@@ -159,6 +207,7 @@ final class Relay {
                 self.socket = socket
                 socket.resume()
                 self.sayWatching()
+                self.flushPendingSent()
                 let pinging = Task { [weak self] in
                     while !Task.isCancelled {
                         try? await Task.sleep(for: .seconds(30))

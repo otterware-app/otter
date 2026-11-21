@@ -20,6 +20,7 @@ import { closeChatPages } from "../browser/store";
 import { isProviderUsable, useAgentProviders } from "./agent-providers";
 import {
   mailApi,
+  type AgentNoticeKind,
   type ApprovalDecision,
   type ApprovalRequest,
   type ChatAttachment,
@@ -38,7 +39,7 @@ import { placeDelivered } from "./chat-order";
 import type { Citation } from "./chat-cite";
 import { isChatFileLink } from "./chat-links";
 import type { FollowUpBehavior } from "./chat-queue";
-import { toast } from "../mail/toast";
+import { toast, type ToastId } from "../mail/toast";
 
 export type { ChatTab, ChatTurn };
 
@@ -523,9 +524,66 @@ function patchConversation(id: string, fn: (c: Conversation) => Conversation): v
   set((s) => ({ conversations: s.conversations.map((c) => (c.id === id ? fn(c) : c)) }));
 }
 
+/** When each turn started in this window, and which runs were initiated from this device. */
+const runStartedAt = new Map<string, number>();
+const localRuns = new Set<string>();
+const FINISHED_NOTIFY_MIN_MS = 15_000;
+
+/** Active in-app toasts for agent notices, so opening the chat or resolving an ask clears them. */
+const noticeToasts = new Map<string, { toastId: ToastId; chat?: string }>();
+
+export function showAgentInAppNotice(
+  notice: {
+    id: string;
+    kind: AgentNoticeKind;
+    title: string;
+    subtitle?: string;
+    body?: string;
+    chat?: string;
+  },
+  openChat: (chatId: string) => void,
+): void {
+  if (!document.hasFocus()) return;
+  if (notice.chat && get().watched === notice.chat) return;
+  const existing = noticeToasts.get(notice.id);
+  if (existing) toast.close(existing.toastId);
+  const description = [notice.subtitle, notice.body].filter(Boolean).join(" — ") || undefined;
+  const urgent = notice.kind === "approval" || notice.kind === "question";
+  const show = urgent ? toast.warning : toast.info;
+  const toastId = show(notice.title, {
+    description,
+    timeout: urgent ? 12_000 : 6_000,
+    ...(notice.chat
+      ? {
+          action: {
+            label: "Open",
+            onClick: () => openChat(notice.chat!),
+          },
+        }
+      : {}),
+    onRemove: () => {
+      if (noticeToasts.get(notice.id)?.toastId === toastId) noticeToasts.delete(notice.id);
+    },
+  });
+  noticeToasts.set(notice.id, { toastId, chat: notice.chat });
+}
+
+function dismissAgentNotices(match: { id?: string; chat?: string }): void {
+  if (!match.id && !match.chat) return;
+  for (const [id, entry] of noticeToasts) {
+    if ((match.id && id === match.id) || (match.chat && entry.chat === match.chat)) {
+      noticeToasts.delete(id);
+      toast.close(entry.toastId);
+    }
+  }
+  void mailApi.agentDismissNotification(match).catch(() => {});
+}
+
 function endRun(requestId: string): void {
   const entry = Object.values(get().runs).find((r) => r.requestId === requestId);
   sent.delete(requestId);
+  runStartedAt.delete(requestId);
+  localRuns.delete(requestId);
   if (!entry) return;
   set((s) => {
     const runs = { ...s.runs };
@@ -615,6 +673,9 @@ function startTurn(msg: Outgoing, intent?: ChatTurn["intent"]): void {
     session: convo.sessionId ?? "new",
   });
   sent.set(requestId, msg);
+  localRuns.add(requestId);
+  runStartedAt.set(requestId, Date.now());
+  if (convo.sessionId) void mailApi.agentNoteSent(convo.sessionId).catch(() => {});
   set((s) => ({
     runs: { ...s.runs, [msg.convoId]: { requestId, convoId: msg.convoId, provider: agent } },
     retries: Object.fromEntries(
@@ -663,6 +724,8 @@ function startTurn(msg: Outgoing, intent?: ChatTurn["intent"]): void {
 function steer(msg: Outgoing, intent: "steer" | "promoted" = "steer"): void {
   const target = get().runs[msg.convoId];
   if (!target) return startTurn(msg);
+  const convo = get().conversations.find((c) => c.id === msg.convoId);
+  if (convo?.sessionId) void mailApi.agentNoteSent(convo.sessionId).catch(() => {});
   console.log("[AgentChat:steer]", { provider: target.provider, intent });
   const key = `${target.requestId}-${msg.id}`;
   appendExchange(msg.convoId, msg, key, intent);
@@ -770,6 +833,9 @@ export async function respondApproval(
   try {
     await mailApi.agentRespondApproval({ provider, requestId, approvalId, decision });
     set((s) => ({ approvals: s.approvals.filter((a) => a.approval.id !== approvalId) }));
+    dismissAgentNotices({ id: `${provider}:${requestId}:approval:${approvalId}` });
+    const session = get().conversations.find((c) => c.id === owner.convoId)?.sessionId;
+    if (session) void mailApi.agentNoteResolved(session, `approval:${approvalId}`).catch(() => {});
   } catch (error) {
     console.log("[AgentChat:approval] failed", { error: String(error) });
   }
@@ -792,6 +858,9 @@ export async function answerQuestion(
       answers,
     });
     set((s) => ({ questions: s.questions.filter((q) => q.question.id !== questionId) }));
+    dismissAgentNotices({ id: `${owner.provider}:${owner.requestId}:question:${questionId}` });
+    const session = get().conversations.find((c) => c.id === owner.convoId)?.sessionId;
+    if (session) void mailApi.agentNoteResolved(session, `question:${questionId}`).catch(() => {});
   } catch (error) {
     console.log("[AgentChat:question] failed", { error: String(error) });
     toast.error("Couldn't send the answer", {
@@ -934,6 +1003,7 @@ export function setCitations(convoId: string, update: (list: Citation[]) => Cita
 }
 
 export function showChat(id: string): void {
+  dismissAgentNotices({ chat: id });
   set((s) => {
     if (!s.unseen.has(id)) return s.activeId === id ? s : { activeId: id };
     const unseen = new Set(s.unseen);
@@ -943,6 +1013,7 @@ export function showChat(id: string): void {
 }
 
 export function watchChat(id: string | null): void {
+  if (id) dismissAgentNotices({ chat: id });
   set((s) => {
     if (!id || !s.unseen.has(id)) return s.watched === id ? s : { watched: id };
     const unseen = new Set(s.unseen);
@@ -953,6 +1024,11 @@ export function watchChat(id: string | null): void {
 
 const WINDOW_ID = crypto.randomUUID();
 let toldWatching: string | null = null;
+let toldWebActive = false;
+let webIdleTimer: ReturnType<typeof setTimeout> | null = null;
+let webRefreshTimer: ReturnType<typeof setInterval> | null = null;
+const WEB_IDLE_MS = 120_000;
+const WEB_PRESENCE_REFRESH_MS = 30_000;
 
 /** Tells the account which agent session this window shows while it's in front, so its iPhones stay quiet about it. */
 function tellWatching(): void {
@@ -966,14 +1042,59 @@ function tellWatching(): void {
   void mailApi.agentWatching({ window: WINDOW_ID, session }).catch(() => {});
 }
 
+function setWebPresence(active: boolean): void {
+  if (active === toldWebActive) return;
+  toldWebActive = active;
+  if (active && !webRefreshTimer) {
+    // Re-report while active so a replacement worker tab restores presence after failover.
+    webRefreshTimer = setInterval(() => {
+      if (toldWebActive && !document.hidden)
+        void mailApi.agentPresence({ window: WINDOW_ID, active: true }).catch(() => {});
+    }, WEB_PRESENCE_REFRESH_MS);
+  } else if (!active && webRefreshTimer) {
+    clearInterval(webRefreshTimer);
+    webRefreshTimer = null;
+  }
+  void mailApi.agentPresence({ window: WINDOW_ID, active }).catch(() => {});
+}
+
+function bumpWebPresence(): void {
+  if (document.hidden) {
+    if (webIdleTimer) clearTimeout(webIdleTimer);
+    webIdleTimer = null;
+    setWebPresence(false);
+    return;
+  }
+  setWebPresence(true);
+  if (webIdleTimer) clearTimeout(webIdleTimer);
+  webIdleTimer = setTimeout(() => {
+    webIdleTimer = null;
+    setWebPresence(false);
+  }, WEB_IDLE_MS);
+}
+
 useChats.subscribe(tellWatching);
 window.addEventListener("focus", tellWatching);
 window.addEventListener("blur", tellWatching);
 window.addEventListener("pagehide", () => {
-  if (toldWatching === null) return;
-  toldWatching = null;
-  void mailApi.agentWatching({ window: WINDOW_ID, session: null }).catch(() => {});
+  if (toldWatching !== null) {
+    toldWatching = null;
+    void mailApi.agentWatching({ window: WINDOW_ID, session: null }).catch(() => {});
+  }
+  if (toldWebActive) {
+    if (webIdleTimer) clearTimeout(webIdleTimer);
+    webIdleTimer = null;
+    setWebPresence(false);
+  }
 });
+
+if (window.desktopBridge?.platform === "web") {
+  bumpWebPresence();
+  document.addEventListener("visibilitychange", bumpWebPresence);
+  window.addEventListener("focus", bumpWebPresence);
+  window.addEventListener("pointerdown", bumpWebPresence, { passive: true });
+  window.addEventListener("keydown", bumpWebPresence, { passive: true });
+}
 
 /** Snoozing or settling a pinned chat unpins it; bringing one back puts it at the top. */
 export async function shelveChat(
@@ -1304,7 +1425,7 @@ type AgentRun = {
 };
 
 /** What an agent delivered recently enough to notify about once it's read (by request id). */
-const deliveries = new Map<string, { title: string; subtitle: string }>();
+const deliveries = new Map<string, { title: string; subtitle: string; taskName?: string }>();
 const DELIVERY_NOTIFIES_MS = 10 * 60 * 1000;
 
 /** The chat for a session that has none: what an agent delivered to Otter. Every device makes the same one. */
@@ -1338,6 +1459,8 @@ async function followAgentRun(run: AgentRun): Promise<void> {
         run.delivery?.kind === "automation"
           ? (run.delivery.name ?? "Scheduled task")
           : "Sent you a message",
+      taskName:
+        run.delivery?.kind === "automation" ? (run.delivery.name ?? "Scheduled task") : undefined,
     });
   const wait = () => {
     waitingRuns.set(convo.id, [...(waitingRuns.get(convo.id) ?? []), run]);
@@ -1406,40 +1529,72 @@ function isSilentAgentTurn(convoId: string, requestId: string): boolean {
   );
 }
 
-/** Every window reports what an agent asks; core notifies once, when none of them had focus. */
-function notifyAsk(run: Run, id: string, title: string, body?: string): void {
-  const key = `${run.provider}:${run.requestId}:${id}`;
+function windowAttention(convoId: string): { viewing: boolean; appFocused: boolean } {
   const focused = document.hasFocus();
+  const viewing = focused && get().watched === convoId;
+  return { viewing, appFocused: focused && !viewing };
+}
+
+/** Every window reports what an agent asks; core notifies once, or shows an in-app notice if focused elsewhere. */
+function notifyAsk(
+  run: Run,
+  kind: "approval" | "question",
+  id: string,
+  title: string,
+  body?: string,
+): void {
+  const key = `${run.provider}:${run.requestId}:${id}`;
+  const convo = get().conversations.find((c) => c.id === run.convoId);
+  const { viewing, appFocused } = windowAttention(run.convoId);
   void mailApi
-    .agentNotifyAsk({ provider: run.provider, key, title, body, chat: run.convoId, focused })
+    .agentNotifyAsk({
+      provider: run.provider,
+      key,
+      kind,
+      title,
+      body,
+      chat: run.convoId,
+      chatTitle: convo?.title,
+      viewing,
+      appFocused,
+    })
     .catch(() => {});
 }
 
 /**
- * An answer to the user's message, or what an agent delivered, once it's all
- * here: notifies like an ask, only when no window has focus.
+ * An answer to the user's message (when started on this device and long enough to matter),
+ * or what an agent delivered proactively: notifies when not viewing that chat.
  */
 function notifyFinished(run: Run): void {
   const delivered = deliveries.get(run.requestId);
   deliveries.delete(run.requestId);
   const convo = get().conversations.find((c) => c.id === run.convoId);
   if (!convo) return;
-  if (!delivered && !convo.turns.some((t) => t.id === `u-${run.requestId}`)) return;
+  if (!delivered) {
+    if (!localRuns.has(run.requestId)) return;
+    const started = runStartedAt.get(run.requestId);
+    if (started !== undefined && Date.now() - started < FINISHED_NOTIFY_MIN_MS) return;
+  }
   const text = convo.turns
     .find((t) => t.id === `a-${run.requestId}`)
     ?.items?.findLast((item) => item.kind === "text")
     ?.text.trim();
   if (!text) return;
   const key = `${run.provider}:${run.requestId}`;
+  const { viewing, appFocused } = windowAttention(run.convoId);
   void mailApi
     .agentNotifyAsk({
       provider: run.provider,
       key,
+      kind: delivered ? "message" : "finished",
       title: delivered?.title ?? convo.title,
       subtitle: delivered?.subtitle ?? "Finished",
       chat: run.convoId,
+      chatTitle: delivered?.title ?? convo.title,
+      taskName: delivered?.taskName,
       body: text.length > 200 ? `${text.slice(0, 200)}…` : text,
-      focused: document.hasFocus(),
+      viewing,
+      appFocused,
     })
     .catch(() => {});
 }
@@ -1471,11 +1626,21 @@ function onChatEvent(raw: unknown): void {
     set((st) => ({
       approvals: [...st.approvals, { requestId: event.requestId, approval: event.approval }],
     }));
-    notifyAsk(s, `approval:${event.approval.id}`, event.approval.title, event.approval.detail);
+    notifyAsk(
+      s,
+      "approval",
+      `approval:${event.approval.id}`,
+      event.approval.title,
+      event.approval.detail,
+    );
     return;
   }
   if (event.type === "approvalResolved") {
     set((st) => ({ approvals: st.approvals.filter((a) => a.approval.id !== event.approvalId) }));
+    dismissAgentNotices({ id: `${s.provider}:${event.requestId}:approval:${event.approvalId}` });
+    const session = get().conversations.find((c) => c.id === s.convoId)?.sessionId;
+    if (session)
+      void mailApi.agentNoteResolved(session, `approval:${event.approvalId}`).catch(() => {});
     return;
   }
   if (event.type === "question") {
@@ -1488,6 +1653,7 @@ function onChatEvent(raw: unknown): void {
     const first = event.question.questions[0];
     notifyAsk(
       s,
+      "question",
       `question:${event.question.id}`,
       first?.header || "A question for you",
       first?.question,
@@ -1496,6 +1662,10 @@ function onChatEvent(raw: unknown): void {
   }
   if (event.type === "questionResolved") {
     set((st) => ({ questions: st.questions.filter((q) => q.question.id !== event.questionId) }));
+    dismissAgentNotices({ id: `${s.provider}:${event.requestId}:question:${event.questionId}` });
+    const session = get().conversations.find((c) => c.id === s.convoId)?.sessionId;
+    if (session)
+      void mailApi.agentNoteResolved(session, `question:${event.questionId}`).catch(() => {});
     return;
   }
   if (event.type === "done" || event.type === "error") {
@@ -1529,6 +1699,9 @@ function onChatEvent(raw: unknown): void {
     }));
     endRun(event.requestId);
     return;
+  }
+  if (event.type === "session" && localRuns.has(event.requestId)) {
+    void mailApi.agentNoteSent(event.sessionId).catch(() => {});
   }
   patchConversation(s.convoId, (c) => {
     if (event.type === "session") return { ...c, sessionId: event.sessionId, sessionOwned: true };

@@ -361,6 +361,7 @@ beforeAll(async () => {
         type: "plain_text",
         value: `http://127.0.0.1:${(apnsMock.address() as net.AddressInfo).port}`,
       },
+      AGENT_ESCALATE_MS: { type: "plain_text", value: "400" },
       IDENTITY_MODE: { type: "plain_text", value: "legacy" },
       GOOGLE_CLIENT_ID: { type: "plain_text", value: CLIENT_ID },
       GOOGLE_IOS_CLIENT_ID: {
@@ -1553,6 +1554,7 @@ describe("agent channels", () => {
     expect(sent.body).toEqual({
       aps: {
         alert: { title: "Deploy the site", body: "Approval needed: Rowan" },
+        "interruption-level": "active",
         sound: "default",
         "thread-id": pointer.sessionKey,
       },
@@ -1672,6 +1674,241 @@ describe("agent channels", () => {
     expect(sessions.map((p) => [p.sessionKey, p.kind])).toEqual([
       [other.sessionKey, "message"],
       [pointer.sessionKey, "question"],
+    ]);
+  });
+
+  it("suppresses phone pushes while a computer is active, escalates unresolved asks, and follows phone-origin chats", async () => {
+    const owner = await signIn("agents-presence@example.com", "agents-presence-sub");
+    const made = await channel(owner.token);
+    const phone = "7e".repeat(32);
+    expect((await call("PUT", "/v1/push/device", owner.token, agentsDevice(phone))).status).toBe(
+      204,
+    );
+    const mac = await connect(owner.token);
+    const iphone = await connect(owner.token);
+    const pause = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    // Mac is active at the computer (not looking at any chat).
+    mac.socket.send(
+      JSON.stringify({ type: "watching", session: null, active: true, device: "desktop" }),
+    );
+    await pause();
+
+    // Non-urgent message & finished stay quiet on the phone while Mac is active.
+    const deskSession = "agent:main:otter:from-mac";
+    expect(
+      (await send(made.token, { ...pointer, sessionKey: deskSession, kind: "message" })).status,
+    ).toBe(202);
+    expect(
+      (await send(made.token, { ...pointer, sessionKey: deskSession, kind: "finished" })).status,
+    ).toBe(202);
+
+    // A chat started from the iPhone still notifies the phone immediately even while Mac is active.
+    const phoneSession = "agent:main:otter:from-phone";
+    iphone.socket.send(JSON.stringify({ type: "sent", session: phoneSession, device: "ios" }));
+    await pause();
+    expect(
+      (
+        await send(made.token, {
+          ...pointer,
+          sessionKey: phoneSession,
+          kind: "finished",
+          agentName: "Rowan",
+        })
+      ).status,
+    ).toBe(202);
+    await until(() => notifications.some((n) => n.token === phone), "phone-origin finished push");
+    expect(
+      notifications
+        .filter((n) => n.token === phone)
+        .map((n) => (n.body.otter as { pointer: { sessionKey: string; kind: string } }).pointer),
+    ).toEqual([expect.objectContaining({ sessionKey: phoneSession, kind: "finished" })]);
+
+    // An approval while Mac is active is delayed, and cancelled if resolved before escalation.
+    const cancelledSession = "agent:main:otter:cancelled-approval";
+    expect(
+      (
+        await send(made.token, {
+          ...pointer,
+          sessionKey: cancelledSession,
+          kind: "approval",
+          approvalId: "ap-cancel",
+        })
+      ).status,
+    ).toBe(202);
+    // A separate question in the same chat stays queued even when ap-cancel resolves.
+    expect(
+      (
+        await send(made.token, {
+          ...pointer,
+          sessionKey: cancelledSession,
+          kind: "question",
+          questionId: "q-keep",
+        })
+      ).status,
+    ).toBe(202);
+    await pause(120);
+    expect(
+      (
+        await send(made.token, {
+          ...pointer,
+          sessionKey: cancelledSession,
+          kind: "approval",
+          approvalId: "ap-cancel",
+          resolved: true,
+        })
+      ).status,
+    ).toBe(202);
+
+    // Client-reported resolution cancels a queued question escalation too.
+    const answeredSession = "agent:main:otter:answered-question";
+    expect(
+      (
+        await send(made.token, {
+          ...pointer,
+          sessionKey: answeredSession,
+          kind: "question",
+          questionId: "q-answered",
+        })
+      ).status,
+    ).toBe(202);
+    await pause(120);
+    mac.socket.send(
+      JSON.stringify({ type: "resolved", session: answeredSession, id: "question:q-answered" }),
+    );
+
+    // A delayed phone retry with an older `at` cannot overwrite a newer desktop send or erase its newer ask.
+    const outOfOrderSession = "agent:main:otter:out-of-order";
+    const now = Date.now();
+    mac.socket.send(
+      JSON.stringify({ type: "sent", session: outOfOrderSession, device: "desktop", at: now }),
+    );
+    await pause(100);
+    expect(
+      (
+        await send(made.token, {
+          ...pointer,
+          sessionKey: outOfOrderSession,
+          kind: "approval",
+          approvalId: "ap-after-send",
+        })
+      ).status,
+    ).toBe(202);
+    iphone.socket.send(
+      JSON.stringify({
+        type: "sent",
+        session: outOfOrderSession,
+        device: "ios",
+        at: now - 5_000,
+      }),
+    );
+    await pause(100);
+    expect(
+      (await send(made.token, { ...pointer, sessionKey: outOfOrderSession, kind: "finished" }))
+        .status,
+    ).toBe(202);
+
+    // An unresolved approval escalates to the phone once the delay expires.
+    const escalatedSession = "agent:main:otter:escalated-approval";
+    expect(
+      (
+        await send(made.token, {
+          ...pointer,
+          sessionKey: escalatedSession,
+          kind: "approval",
+          approvalId: "ap-escalate",
+        })
+      ).status,
+    ).toBe(202);
+    await until(
+      () =>
+        notifications.some(
+          (n) =>
+            n.token === phone &&
+            (n.body.otter as { pointer: { sessionKey: string } }).pointer.sessionKey ===
+              escalatedSession,
+        ) &&
+        notifications.some(
+          (n) =>
+            n.token === phone &&
+            (n.body.otter as { pointer: { sessionKey: string } }).pointer.sessionKey ===
+              cancelledSession,
+        ) &&
+        notifications.some(
+          (n) =>
+            n.token === phone &&
+            (n.body.otter as { pointer: { sessionKey: string } }).pointer.sessionKey ===
+              outOfOrderSession,
+        ),
+      "escalated approval and remaining question pushes",
+    );
+
+    mac.socket.close();
+    iphone.socket.close();
+    const got = notifications
+      .filter((n) => n.token === phone)
+      .map((n) => (n.body.otter as { pointer: { sessionKey: string; kind: string } }).pointer);
+    expect(got.map((p) => [p.sessionKey, p.kind])).toEqual([
+      [phoneSession, "finished"],
+      [cancelledSession, "question"],
+      [outOfOrderSession, "approval"],
+      [escalatedSession, "approval"],
+    ]);
+  });
+
+  it("respects synced agentNotificationsMode and coalesces finished right after an alert", async () => {
+    const owner = await signIn("agents-mode@example.com", "agents-mode-sub");
+    const made = await channel(owner.token);
+    const phone = "7f".repeat(32);
+    expect((await call("PUT", "/v1/push/device", owner.token, agentsDevice(phone))).status).toBe(
+      204,
+    );
+    expect(
+      (
+        await call("PUT", "/v1/preferences", owner.token, {
+          preferences: { settings: { agentNotificationsMode: "needs-you" } },
+        })
+      ).status,
+    ).toBe(204);
+    const s1 = "agent:main:otter:mode-1";
+    expect((await send(made.token, { ...pointer, sessionKey: s1, kind: "finished" })).status).toBe(
+      202,
+    );
+    expect(
+      (await send(made.token, { ...pointer, sessionKey: s1, kind: "question", questionId: "q-2" }))
+        .status,
+    ).toBe(202);
+    await until(() => notifications.some((n) => n.token === phone), "needs-you question push");
+    // Switch back to all; a finished right after the question is still coalesced.
+    expect(
+      (
+        await call("PUT", "/v1/preferences", owner.token, {
+          preferences: { settings: { agentNotificationsMode: "all" } },
+        })
+      ).status,
+    ).toBe(204);
+    expect((await send(made.token, { ...pointer, sessionKey: s1, kind: "finished" })).status).toBe(
+      202,
+    );
+    const s2 = "agent:main:otter:mode-2";
+    expect((await send(made.token, { ...pointer, sessionKey: s2, kind: "finished" })).status).toBe(
+      202,
+    );
+    await until(
+      () =>
+        notifications.some(
+          (n) =>
+            n.token === phone &&
+            (n.body.otter as { pointer: { sessionKey: string } }).pointer.sessionKey === s2,
+        ),
+      "non-coalesced finished push",
+    );
+    const got = notifications
+      .filter((n) => n.token === phone)
+      .map((n) => (n.body.otter as { pointer: { sessionKey: string; kind: string } }).pointer);
+    expect(got.map((p) => [p.sessionKey, p.kind])).toEqual([
+      [s1, "question"],
+      [s2, "finished"],
     ]);
   });
 

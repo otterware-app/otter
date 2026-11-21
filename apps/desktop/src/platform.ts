@@ -60,6 +60,14 @@ function openDatabase(): SqlDatabase {
 }
 
 export const resumeListeners = new Set<() => void>();
+const presenceListeners = new Set<(active: boolean) => void>();
+let currentPresence = false;
+
+export function setDesktopPresence(active: boolean): void {
+  if (active === currentPresence) return;
+  currentPresence = active;
+  for (const listener of presenceListeners) listener(active);
+}
 
 export function desktopPlatform(): Platform {
   let database: SqlDatabase | null = null;
@@ -128,10 +136,16 @@ export function desktopPlatform(): Platform {
 
     broadcast: (channel, params) => tellMain({ kind: "broadcast", channel, params }),
     notify: (notification) => tellMain({ kind: "notify", ...notification }),
+    dismissNotification: (match) => tellMain({ kind: "dismissNotification", ...match }),
     setUnreadCount: (count) => tellMain({ kind: "unread", count }),
     onResume(listener) {
       resumeListeners.add(listener);
       return () => resumeListeners.delete(listener);
+    },
+    onPresence(listener) {
+      presenceListeners.add(listener);
+      listener(currentPresence);
+      return () => presenceListeners.delete(listener);
     },
     asyncContext<T>(): AsyncContext<T> {
       const storage = new AsyncLocalStorage<T>();

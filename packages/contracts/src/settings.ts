@@ -1,8 +1,11 @@
 export type NotificationsMode = "off" | "inbox" | "all";
 
+export type AgentNotificationsMode = "off" | "needs-you" | "all";
+
 export type AppSettings = {
   syncIntervalSeconds: number;
   notificationsMode: NotificationsMode;
+  agentNotificationsMode: AgentNotificationsMode;
   launchAtLogin: boolean;
   dockBadgeEnabled: boolean;
   /** Languages the user reads (BCP-47 codes, first = where translations go).
@@ -15,6 +18,7 @@ export type AppSettings = {
 export const DEFAULT_SETTINGS: AppSettings = {
   syncIntervalSeconds: 30,
   notificationsMode: "inbox",
+  agentNotificationsMode: "all",
   launchAtLogin: false,
   dockBadgeEnabled: false,
   readLanguages: [],

@@ -156,6 +156,7 @@ export async function webPlatform(page: Page): Promise<Platform> {
 
     broadcast: page.broadcast,
     notify: (notification) => page.effect({ kind: "notify", ...notification }),
+    dismissNotification: (match) => page.effect({ kind: "dismissNotification", ...match }),
     setUnreadCount: (count) => page.effect({ kind: "badge", count }),
     onResume: page.onResume,
     // Browsers have no AsyncLocalStorage: all Gmail work shares one quota tier,

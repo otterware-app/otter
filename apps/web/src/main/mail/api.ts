@@ -337,10 +337,13 @@ export type UpdateAccountParams = {
 };
 
 export type NotificationsMode = "off" | "inbox" | "all";
+export type AgentNotificationsMode = "off" | "needs-you" | "all";
+export type AgentNoticeKind = "approval" | "question" | "message" | "finished";
 
 export type SyncSettings = {
   syncIntervalSeconds: number;
   notificationsMode: NotificationsMode;
+  agentNotificationsMode: AgentNotificationsMode;
   launchAtLogin: boolean;
   dockBadgeEnabled: boolean;
   errorReports: boolean;
@@ -646,16 +649,35 @@ export const mailApi = {
   agentWatching: (params: { window: string; session: string | null }): Promise<{ ok: boolean }> =>
     ipc("agent:watching", params),
 
-  /** Notifies that an agent is waiting on the user (an approval, a question). */
+  /** Reports whether the user is active in this web tab, so iPhones stay quiet while working here. */
+  agentPresence: (params: { window: string; active: boolean }): Promise<{ ok: boolean }> =>
+    ipc("agent:presence", params),
+
+  /** Tells the relay this device sent a message in `session`, so replies follow back to it. */
+  agentNoteSent: (session: string): Promise<{ ok: boolean }> => ipc("agent:noteSent", { session }),
+
+  /** Tells the relay an approval or question in `session` was answered here, cancelling queued phone escalation. */
+  agentNoteResolved: (session: string, id?: string): Promise<{ ok: boolean }> =>
+    ipc("agent:noteResolved", { session, id }),
+
+  /** Notifies that an agent is waiting on the user, delivered a message, or finished a run. */
   agentNotifyAsk: (params: {
     provider: ProviderKind;
     key: string;
+    kind: AgentNoticeKind;
     title: string;
     subtitle?: string;
     body?: string;
     chat?: string;
-    focused: boolean;
+    chatTitle?: string;
+    taskName?: string;
+    viewing: boolean;
+    appFocused: boolean;
   }): Promise<{ ok: boolean }> => ipc("agent:notifyAsk", params),
+
+  /** Closes stale OS notifications for an ask or chat. */
+  agentDismissNotification: (params: { id?: string; chat?: string }): Promise<{ ok: boolean }> =>
+    ipc("agent:dismissNotification", params),
 
   /** Watches these chats' sessions for runs the agent starts itself; they arrive as `agent:runStarted`. */
   agentWatch: (

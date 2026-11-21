@@ -16,13 +16,18 @@ export type MainEffect =
   | { kind: "broadcast"; channel: string; params: unknown }
   | {
       kind: "notify";
+      id?: string;
       title: string;
       subtitle?: string;
       body?: string;
+      category?: "mail" | "agent";
+      icon?: string;
+      silent?: boolean;
       open?: { accountId: string; messageId: string; mailbox?: string };
       chat?: string;
       code?: string;
     }
+  | { kind: "dismissNotification"; id?: string; chat?: string }
   | { kind: "unread"; count: number }
   | { kind: "settings"; settings: AppSettings; patch: Partial<AppSettings> }
   | { kind: "log"; level: Level; scope: string; message: string; data?: string };
@@ -31,6 +36,7 @@ export type ToBackend =
   | { type: "invoke"; id: number; channel: string; params: unknown }
   | { type: "reply"; id: number; result?: unknown; error?: string }
   | { type: "resume" }
+  | { type: "presence"; active: boolean }
   | { type: "shutdown" };
 
 export type FromBackend =

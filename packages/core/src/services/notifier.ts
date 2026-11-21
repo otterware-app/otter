@@ -98,6 +98,7 @@ export async function notifyNewMail(
         const code = await codeIn(accountId, m);
         const alias = aliasMailboxFor(aliases, m);
         platform().notify({
+          category: "mail",
           title: m.fromName || m.fromEmail,
           subtitle: alias ? aliasMailboxName(alias) : subtitle,
           // The code in the text too, for notifications without buttons (Linux, browsers).
@@ -113,6 +114,7 @@ export async function notifyNewMail(
     } else {
       const newest = fresh.reduce((a, b) => (b.date > a.date ? b : a));
       platform().notify({
+        category: "mail",
         title: `${fresh.length} new messages`,
         subtitle,
         open: { accountId, messageId: newest.id },

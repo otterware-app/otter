@@ -36,7 +36,13 @@ import { ChatWorkspace, type ChatPanelControl } from "./agent/chat-workspace";
 import { SCHEDULED_TASKS, ScheduledTasksView } from "./agent/agent-scheduled";
 import { CALENDAR_MODES, CalendarView } from "./calendar/calendar-view";
 import type { CalendarMode } from "./calendar/dates";
-import { newChat, showChat, useChatEvents, useChats } from "./agent/chat-store";
+import {
+  newChat,
+  showAgentInAppNotice,
+  showChat,
+  useChatEvents,
+  useChats,
+} from "./agent/chat-store";
 import { useMailChatContext } from "./agent/chat-context";
 import { useChatProvider } from "./agent/agent-providers";
 import { SEARCH_MAILBOX } from "./mail/gmail-query";
@@ -766,13 +772,19 @@ function MailHome() {
     go({ mailbox: CHATS_SPACE, label: chatId, messageId: null, account: null, focusId: null });
   };
   const openWorkspaceRef = useLatest(openWorkspace);
-  useEffect(
-    () =>
-      window.desktopBridge.on("agent:openChat", (id: unknown) => {
-        if (typeof id === "string") openWorkspaceRef.current(id);
-      }),
-    [openWorkspaceRef],
-  );
+  useEffect(() => {
+    const offOpen = window.desktopBridge.on("agent:openChat", (id: unknown) => {
+      if (typeof id === "string") openWorkspaceRef.current(id);
+    });
+    const offNotice = window.desktopBridge.on("agent:inAppNotice", (raw: unknown) => {
+      const notice = raw as Parameters<typeof showAgentInAppNotice>[0] | null;
+      if (notice?.id && notice.title) showAgentInAppNotice(notice, openWorkspaceRef.current);
+    });
+    return () => {
+      offOpen();
+      offNotice();
+    };
+  }, [openWorkspaceRef]);
   const leaveWorkspace = () => {
     const back = mailBeforeChats.current;
     if (back && modeOf(back.mailbox) === "mail") go({ ...back, messageId: null });

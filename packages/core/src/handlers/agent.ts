@@ -4,7 +4,12 @@ import { runAsTask } from "./ipc-budget.js";
 import { ATTACHMENTS_DIR, stageAttachment } from "../services/agent/attachments.js";
 import * as agent from "../services/agent/service.js";
 import { agentChannels, deleteAgentChannel, makeAgentChannel } from "../services/agent/channels.js";
-import { setWatching } from "../services/realtime.js";
+import {
+  noteAgentResolved,
+  noteAgentSent,
+  setWatching,
+  setWindowPresence,
+} from "../services/realtime.js";
 import type { AgentId, ApprovalDecision, ChatAttachment } from "../services/agent/types.js";
 
 type Params = Record<string, unknown> | undefined;
@@ -194,14 +199,37 @@ export function registerAgentHandlers(): void {
     const p = params as Params;
     const key = str(p?.key);
     const title = str(p?.title);
-    if (!key || !title) throw new Error("A key and a title are required.");
+    const rawKind = str(p?.kind);
+    if (
+      !key ||
+      !title ||
+      (rawKind !== "approval" &&
+        rawKind !== "question" &&
+        rawKind !== "message" &&
+        rawKind !== "finished")
+    ) {
+      throw new Error("A key, kind, and title are required.");
+    }
     agent.notifyAsk(providerOf(p), {
       key,
+      kind: rawKind,
       title,
       subtitle: str(p?.subtitle) || undefined,
       body: str(p?.body) || undefined,
       chat: str(p?.chat) || undefined,
-      focused: p?.focused === true,
+      chatTitle: str(p?.chatTitle) || undefined,
+      taskName: str(p?.taskName) || undefined,
+      viewing: p?.viewing === true,
+      appFocused: p?.appFocused === true,
+    });
+    return { ok: true };
+  });
+
+  handle("agent:dismissNotification", async (params: unknown) => {
+    const p = params as Params;
+    agent.dismissNotification({
+      id: str(p?.id) || undefined,
+      chat: str(p?.chat) || undefined,
     });
     return { ok: true };
   });
@@ -211,6 +239,28 @@ export function registerAgentHandlers(): void {
     const window = str(p?.window);
     if (!window) throw new Error("A window is required.");
     setWatching(window, str(p?.session) || null);
+    return { ok: true };
+  });
+
+  handle("agent:presence", async (params: unknown) => {
+    const p = params as Params;
+    const window = str(p?.window);
+    if (!window) throw new Error("A window is required.");
+    setWindowPresence(window, p?.active === true);
+    return { ok: true };
+  });
+
+  handle("agent:noteSent", async (params: unknown) => {
+    const p = params as Params;
+    const session = str(p?.session);
+    if (session) noteAgentSent(session);
+    return { ok: true };
+  });
+
+  handle("agent:noteResolved", async (params: unknown) => {
+    const p = params as Params;
+    const session = str(p?.session);
+    if (session) noteAgentResolved(session, str(p?.id) || undefined);
     return { ok: true };
   });
 

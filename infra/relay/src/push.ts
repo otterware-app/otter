@@ -9,6 +9,10 @@ export type PushDevice = PutPushDeviceRequest & {
   notification_mode: "inbox" | "all";
 };
 
+export type AgentPushDevice = PushDevice & {
+  agent_notification_mode: "needs-you" | "all";
+};
+
 export async function register(
   env: Env,
   session: { id: string; user: { id: string }; expiresAt: number; createdAt: number },
@@ -124,7 +128,7 @@ export async function devices(env: Env, userId: string, email: string): Promise<
 }
 
 /** The account's Otter Agents iPhones with notifications on: they hear what agents ask and send. */
-export async function agentDevices(env: Env, userId: string): Promise<PushDevice[]> {
+export async function agentDevices(env: Env, userId: string): Promise<AgentPushDevice[]> {
   const topics = [env.APNS_AGENTS_SANDBOX_TOPIC, env.APNS_AGENTS_PRODUCTION_TOPIC].filter(
     (topic): topic is string => Boolean(topic),
   );
@@ -133,11 +137,16 @@ export async function agentDevices(env: Env, userId: string): Promise<PushDevice
     .bind(userId, Date.now())
     .run();
   const { results } = await env.DB.prepare(
-    `SELECT d.*, 'all' AS notification_mode FROM push_devices d
-    WHERE d.user_id=? AND d.mode!='off' AND d.topic IN (${topics.map(() => "?").join(",")})`,
+    `SELECT d.*, 'all' AS notification_mode,
+      CASE WHEN json_extract(p.data, '$.settings.agentNotificationsMode')='needs-you'
+      THEN 'needs-you' ELSE 'all' END AS agent_notification_mode
+    FROM push_devices d
+    LEFT JOIN preferences p ON p.user_id=d.user_id
+    WHERE d.user_id=? AND d.mode!='off' AND d.topic IN (${topics.map(() => "?").join(",")})
+      AND COALESCE(json_extract(p.data, '$.settings.agentNotificationsMode'), 'all') != 'off'`,
   )
     .bind(userId, ...topics)
-    .all<PushDevice>();
+    .all<AgentPushDevice>();
   return results;
 }
 

@@ -90,10 +90,12 @@ export function agentPayload(userId: string, pointer: AgentPointer) {
   const status = AGENT_STATUS[pointer.kind];
   const title = pointer.title || pointer.agentName || "Otter Agents";
   const body = pointer.title && pointer.agentName ? `${status}: ${pointer.agentName}` : status;
+  const passive = pointer.kind === "finished";
   return {
     aps: {
       alert: { title, body },
-      sound: "default",
+      "interruption-level": passive ? "passive" : "active",
+      ...(passive ? {} : { sound: "default" }),
       ...(pointer.sessionKey ? { "thread-id": pointer.sessionKey } : {}),
     },
     otter: {
@@ -113,7 +115,7 @@ export function agentPayload(userId: string, pointer: AgentPointer) {
   };
 }
 
-/** One alert a chat and kind: a second approval in the same chat takes the first one's place. */
+/** One alert per chat: a newer update in the same chat replaces the previous one rather than stacking. */
 export function sendAgent(
   env: Env,
   device: PushDevice,
@@ -121,8 +123,9 @@ export function sendAgent(
   pointer: AgentPointer,
   transport: typeof fetch = fetch,
 ): Promise<Result> {
-  const collapse = `${userId}:${pointer.sessionKey ?? pointer.agentId}:${pointer.kind}`;
-  return post(env, device, collapse, agentPayload(userId, pointer), transport);
+  const collapse = `${userId}:${pointer.sessionKey ?? pointer.agentId}`;
+  const priority = pointer.kind === "finished" ? "5" : "10";
+  return post(env, device, collapse, agentPayload(userId, pointer), transport, priority);
 }
 
 async function post(
@@ -131,6 +134,7 @@ async function post(
   collapseKey: string,
   body: unknown,
   transport: typeof fetch,
+  priority: "5" | "10" = "10",
 ): Promise<Result> {
   const host =
     device.environment === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
@@ -148,7 +152,7 @@ async function post(
         authorization: `bearer ${await authorization(env)}`,
         "apns-topic": device.topic,
         "apns-push-type": "alert",
-        "apns-priority": "10",
+        "apns-priority": priority,
         "apns-expiration": "0", // Don't queue stale alerts across sign-out/offline periods.
         "apns-collapse-id": collapse,
         "content-type": "application/json",

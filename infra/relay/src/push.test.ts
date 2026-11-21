@@ -2,7 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { devices, invalidate, register, remove } from "./push.ts";
+import { agentDevices, devices, invalidate, register, remove } from "./push.ts";
 import type { Env } from "./worker.ts";
 import type { PutPushDeviceRequest } from "@otter/contracts/relay";
 
@@ -140,5 +140,26 @@ describe("push routing store", () => {
     expect(await devices(env, "owner", "me@example.com")).toHaveLength(1);
     await register(env, { ...session, expiresAt: 0 }, registration);
     expect(await devices(env, "owner", "me@example.com")).toHaveLength(0);
+  });
+
+  it("filters agent push devices by synced agentNotificationsMode", async () => {
+    const agentEnv = {
+      ...env,
+      APNS_AGENTS_PRODUCTION_TOPIC: "dev.otterware.agents",
+    } as Env;
+    await register(agentEnv, session, {
+      token: "c".repeat(64),
+      topic: "dev.otterware.agents",
+      environment: "production",
+      mode: "all",
+      mailboxes: [],
+    });
+    expect((await agentDevices(agentEnv, "owner"))[0]?.agent_notification_mode).toBe("all");
+    db.exec(
+      `INSERT INTO preferences (user_id,data,updated_at) VALUES ('owner','{"settings":{"agentNotificationsMode":"needs-you"}}',0)`,
+    );
+    expect((await agentDevices(agentEnv, "owner"))[0]?.agent_notification_mode).toBe("needs-you");
+    db.exec(`UPDATE preferences SET data='{"settings":{"agentNotificationsMode":"off"}}'`);
+    expect(await agentDevices(agentEnv, "owner")).toHaveLength(0);
   });
 });

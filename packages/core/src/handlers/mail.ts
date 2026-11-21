@@ -1580,6 +1580,15 @@ export function registerMailHandlers(): void {
         }
         patch.notificationsMode = mode;
       }
+      if (p?.agentNotificationsMode !== undefined) {
+        const mode = p.agentNotificationsMode;
+        if (mode !== "off" && mode !== "needs-you" && mode !== "all") {
+          throw new Error(
+            'Invalid parameter: "agentNotificationsMode" must be "off", "needs-you", or "all".',
+          );
+        }
+        patch.agentNotificationsMode = mode;
+      }
       if (p?.launchAtLogin !== undefined) {
         if (typeof p.launchAtLogin !== "boolean") {
           throw new Error('Invalid parameter: "launchAtLogin" must be a boolean.');

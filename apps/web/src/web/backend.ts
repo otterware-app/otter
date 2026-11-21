@@ -200,7 +200,7 @@ export function connectBackend(page: PageHandlers) {
         case "effect": {
           const { type: _type, ...effect } = message;
           const target =
-            effect.kind === "badge"
+            effect.kind === "badge" || effect.kind === "dismissNotification"
               ? ALL_TABS
               : effect.kind === "notify"
                 ? tab
