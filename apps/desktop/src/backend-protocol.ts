@@ -20,12 +20,14 @@ export type MainEffect =
       title: string;
       subtitle?: string;
       body?: string;
-      category?: "mail" | "agent";
+      category: "mail" | "agent" | "calendar";
       icon?: string;
       silent?: boolean;
       open?: { accountId: string; messageId: string; mailbox?: string };
       chat?: string;
       code?: string;
+      actions?: string[];
+      reply?: string;
     }
   | { kind: "dismissNotification"; id?: string; chat?: string }
   | { kind: "unread"; count: number }

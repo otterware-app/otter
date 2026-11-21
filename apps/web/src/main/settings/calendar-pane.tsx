@@ -1,9 +1,12 @@
+import { useEffect, useState } from "react";
 import { Switch } from "~/components/ui/switch";
 import { useCalendarLists } from "../calendar/api";
 import { calendarAccounts } from "../calendar/calendar-view";
 import { MEETING_NAMES, MeetingMark } from "../calendar/meeting";
 import { getAccountDisplayName } from "../mail/account-style";
+import { mailApi, type SyncSettings } from "../mail/api";
 import { useAccounts } from "../mail/hooks";
+import { toast } from "../mail/toast";
 import {
   CALENDAR_DEFAULTS,
   setCalendarPreference,
@@ -91,10 +94,58 @@ function ConferencingSection({ meetingsByDefault }: { meetingsByDefault: string[
   );
 }
 
+function RemindersRow() {
+  const [on, setOn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void mailApi
+      .getSyncSettings()
+      .then((settings) => {
+        if (active) setOn(settings.calendarReminders);
+      })
+      .catch(() => {});
+    const off = window.desktopBridge.on("settings:changed", (raw: unknown) => {
+      const settings = raw as Partial<SyncSettings> | null;
+      if (typeof settings?.calendarReminders === "boolean") setOn(settings.calendarReminders);
+    });
+    return () => {
+      active = false;
+      off();
+    };
+  }, []);
+
+  const update = (next: boolean) => {
+    setOn(next);
+    void mailApi.setSyncSettings({ calendarReminders: next }).catch((error: unknown) => {
+      setOn(!next);
+      toast.error(`Could not save: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  };
+
+  return (
+    <SettingsRow
+      {...searchableSetting("calendar-reminders")}
+      description="A notification 10 minutes before each event, from the calendars each mailbox shows by default."
+      control={
+        <Switch
+          checked={on ?? false}
+          disabled={on === null}
+          onCheckedChange={update}
+          aria-label="Event reminders"
+        />
+      }
+    />
+  );
+}
+
 export function CalendarPane() {
   const prefs = useCalendarPreferences();
   return (
     <SettingsPageContainer title="Calendar">
+      <SettingsSection title="Notifications">
+        <RemindersRow />
+      </SettingsSection>
       <SettingsSection title="Week">
         <SettingsRow
           {...searchableSetting("calendar-week-start")}

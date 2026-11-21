@@ -1589,6 +1589,12 @@ export function registerMailHandlers(): void {
         }
         patch.agentNotificationsMode = mode;
       }
+      if (p?.calendarReminders !== undefined) {
+        if (typeof p.calendarReminders !== "boolean") {
+          throw new Error('Invalid parameter: "calendarReminders" must be a boolean.');
+        }
+        patch.calendarReminders = p.calendarReminders;
+      }
       if (p?.launchAtLogin !== undefined) {
         if (typeof p.launchAtLogin !== "boolean") {
           throw new Error('Invalid parameter: "launchAtLogin" must be a boolean.');

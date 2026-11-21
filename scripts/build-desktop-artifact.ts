@@ -210,7 +210,6 @@ export function createBuildConfig(options: {
     directories: { buildResources: "resources", output: "dist" },
     extraResources: [
       { from: `resources/${icon}.png`, to: `${icon}.png` },
-      { from: "resources/agent-icon.png", to: "agent-icon.png" },
       ...NOTICES.map((name) => ({ from: name, to: name })),
     ],
     generateUpdatesFilesForAllChannels: false,

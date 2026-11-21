@@ -29,7 +29,7 @@ import type { MailAccount, MessageSummary } from "../types.js";
 
 const MAX_INDIVIDUAL_NOTIFICATIONS = 3;
 
-function accountLabel(account: MailAccount): string {
+export function accountLabel(account: MailAccount): string {
   return account.displayName?.trim() || account.name || account.email;
 }
 
@@ -91,7 +91,7 @@ export async function notifyNewMail(
       account,
       (await listAccounts()).map((a) => a.email),
     ).filter((alias) => !off.has(alias.address.toLowerCase()));
-    const subtitle = accountLabel(account);
+    const mailbox = accountLabel(account);
     if (fresh.length <= MAX_INDIVIDUAL_NOTIFICATIONS) {
       for (const m of fresh) {
         const about = m.subject || m.snippet;
@@ -99,10 +99,10 @@ export async function notifyNewMail(
         const alias = aliasMailboxFor(aliases, m);
         platform().notify({
           category: "mail",
-          title: m.fromName || m.fromEmail,
-          subtitle: alias ? aliasMailboxName(alias) : subtitle,
+          title: `Mail · ${alias ? aliasMailboxName(alias) : mailbox}`,
+          subtitle: m.fromName || m.fromEmail,
           // The code in the text too, for notifications without buttons (Linux, browsers).
-          body: code && !about.includes(code) ? `${about}\n${code}` : about,
+          body: code && !about.includes(code) ? `${about}\nCode: ${code}` : about,
           open: {
             accountId,
             messageId: m.id,
@@ -115,8 +115,8 @@ export async function notifyNewMail(
       const newest = fresh.reduce((a, b) => (b.date > a.date ? b : a));
       platform().notify({
         category: "mail",
-        title: `${fresh.length} new messages`,
-        subtitle,
+        title: `Mail · ${mailbox}`,
+        body: `${fresh.length} new messages`,
         open: { accountId, messageId: newest.id },
       });
     }

@@ -537,7 +537,6 @@ export function showAgentInAppNotice(
     id: string;
     kind: AgentNoticeKind;
     title: string;
-    subtitle?: string;
     body?: string;
     chat?: string;
   },
@@ -547,7 +546,7 @@ export function showAgentInAppNotice(
   if (notice.chat && get().watched === notice.chat) return;
   const existing = noticeToasts.get(notice.id);
   if (existing) toast.close(existing.toastId);
-  const description = [notice.subtitle, notice.body].filter(Boolean).join(" — ") || undefined;
+  const description = notice.body || undefined;
   const urgent = notice.kind === "approval" || notice.kind === "question";
   const show = urgent ? toast.warning : toast.info;
   const toastId = show(notice.title, {
@@ -1425,7 +1424,7 @@ type AgentRun = {
 };
 
 /** What an agent delivered recently enough to notify about once it's read (by request id). */
-const deliveries = new Map<string, { title: string; subtitle: string; taskName?: string }>();
+const deliveries = new Map<string, { title: string; taskName?: string }>();
 const DELIVERY_NOTIFIES_MS = 10 * 60 * 1000;
 
 /** The chat for a session that has none: what an agent delivered to Otter. Every device makes the same one. */
@@ -1455,10 +1454,6 @@ async function followAgentRun(run: AgentRun): Promise<void> {
   if (run.deliveredAt !== undefined && Date.now() - run.deliveredAt < DELIVERY_NOTIFIES_MS)
     deliveries.set(run.requestId, {
       title: convo.title,
-      subtitle:
-        run.delivery?.kind === "automation"
-          ? (run.delivery.name ?? "Scheduled task")
-          : "Sent you a message",
       taskName:
         run.delivery?.kind === "automation" ? (run.delivery.name ?? "Scheduled task") : undefined,
     });
@@ -1542,6 +1537,7 @@ function notifyAsk(
   id: string,
   title: string,
   body?: string,
+  options?: string[],
 ): void {
   const key = `${run.provider}:${run.requestId}:${id}`;
   const convo = get().conversations.find((c) => c.id === run.convoId);
@@ -1555,6 +1551,7 @@ function notifyAsk(
       body,
       chat: run.convoId,
       chatTitle: convo?.title,
+      options,
       viewing,
       appFocused,
     })
@@ -1588,7 +1585,6 @@ function notifyFinished(run: Run): void {
       key,
       kind: delivered ? "message" : "finished",
       title: delivered?.title ?? convo.title,
-      subtitle: delivered?.subtitle ?? "Finished",
       chat: run.convoId,
       chatTitle: delivered?.title ?? convo.title,
       taskName: delivered?.taskName,
@@ -1650,13 +1646,16 @@ function onChatEvent(raw: unknown): void {
         { requestId: event.requestId, question: event.question },
       ],
     }));
-    const first = event.question.questions[0];
+    const [first, ...more] = event.question.questions;
+    // As the question card's one-tap answers: a single choice, nothing secret.
+    const quick = first && more.length === 0 && !first.multiSelect && !first.secret;
     notifyAsk(
       s,
       "question",
       `question:${event.question.id}`,
       first?.header || "A question for you",
       first?.question,
+      quick ? first.options.map((o) => o.label) : undefined,
     );
     return;
   }
@@ -1863,6 +1862,50 @@ function onChatEvent(raw: unknown): void {
   }
 }
 
+/** A button or a reply on an agent's notification (macOS), done as the chat's own controls do it. */
+async function onNotificationAction(raw: unknown): Promise<void> {
+  const done = raw as { id?: string; chat?: string; action?: string; reply?: string } | undefined;
+  if (!done) return;
+  const { approvals, questions, runs } = get();
+  const keyOf = (requestId: string, ask: string) => {
+    const run = Object.values(runs).find((r) => r.requestId === requestId);
+    return run && `${run.provider}:${requestId}:${ask}`;
+  };
+  const approval = approvals.find(
+    (a) => keyOf(a.requestId, `approval:${a.approval.id}`) === done.id,
+  );
+  if (approval) {
+    if (done.action === "Approve" || done.action === "Deny")
+      await respondApproval(approval.approval.id, done.action === "Approve" ? "once" : "deny");
+    return;
+  }
+  const question = questions.find(
+    (q) => keyOf(q.requestId, `question:${q.question.id}`) === done.id,
+  );
+  if (question) {
+    const answer = done.reply?.trim() || done.action;
+    const first = question.question.questions[0];
+    if (answer && first) await answerQuestion(question.question.id, { [first.id]: [answer] });
+    return;
+  }
+  const text = done.reply?.trim();
+  if (!text || !done.chat) return;
+  await loadChat(done.chat);
+  const convo = get().conversations.find((c) => c.id === done.chat);
+  if (!convo?.loaded) return;
+  sendMessage(
+    {
+      id: crypto.randomUUID(),
+      convoId: convo.id,
+      provider: convo.provider,
+      question: text,
+      input: text,
+      title: clampTitle(text),
+    },
+    "queue",
+  );
+}
+
 let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function useChatEvents(): void {
@@ -1883,6 +1926,9 @@ export function useChatEvents(): void {
     );
     const offs = [
       window.desktopBridge.on("agent:chatEvent", onChatEvent),
+      window.desktopBridge.on("notification:action", (raw: unknown) => {
+        void onNotificationAction(raw);
+      }),
       window.desktopBridge.on("agent:runStarted", (params: unknown) => {
         const run = params as AgentRun | undefined;
         if (run?.provider && run.sessionId && run.requestId) void followAgentRun(run);

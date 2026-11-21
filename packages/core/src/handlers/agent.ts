@@ -214,11 +214,13 @@ export function registerAgentHandlers(): void {
       key,
       kind: rawKind,
       title,
-      subtitle: str(p?.subtitle) || undefined,
       body: str(p?.body) || undefined,
       chat: str(p?.chat) || undefined,
       chatTitle: str(p?.chatTitle) || undefined,
       taskName: str(p?.taskName) || undefined,
+      options: Array.isArray(p?.options)
+        ? p.options.filter((o): o is string => typeof o === "string" && o !== "")
+        : undefined,
       viewing: p?.viewing === true,
       appFocused: p?.appFocused === true,
     });

@@ -175,13 +175,13 @@ describe("private APNs payloads", () => {
     };
     const finished = agentPayload("user", { ...base, kind: "finished" });
     expect(finished.aps).toEqual({
-      alert: { title: "Launch plan", body: "Finished: Rowan" },
+      alert: { title: "Rowan · Launch plan", body: "Finished" },
       "interruption-level": "passive",
       "thread-id": base.sessionKey,
     });
     const approval = agentPayload("user", { ...base, kind: "approval", approvalId: "ap-1" });
     expect(approval.aps).toEqual({
-      alert: { title: "Launch plan", body: "Approval needed: Rowan" },
+      alert: { title: "Rowan · Launch plan", body: "Needs approval" },
       "interruption-level": "active",
       sound: "default",
       "thread-id": base.sessionKey,

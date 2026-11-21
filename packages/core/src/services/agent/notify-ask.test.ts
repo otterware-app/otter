@@ -51,7 +51,7 @@ afterEach(() => {
 });
 
 describe("what an agent asks of the user", () => {
-  it("notifies once with clear Agent branding and icon, however many windows report it", async () => {
+  it("notifies once, from the agent and its chat, with Approve and Deny, however many windows report it", async () => {
     vi.useFakeTimers();
     ask("openclaw:req-1:approval:a", false);
     ask("openclaw:req-1:approval:a", false);
@@ -62,9 +62,9 @@ describe("what an agent asks of the user", () => {
     expect(notify).toHaveBeenCalledWith({
       id: "openclaw:req-1:approval:a",
       category: "agent",
-      title: "Agent · Approval needed",
-      subtitle: "Rowan — Deploy check",
-      body: "date",
+      title: "Rowan · Deploy check",
+      body: "Needs approval: date",
+      actions: ["Approve", "Deny"],
       icon: "data:image/png;base64,abc",
       chat: "chat-1",
     });
@@ -96,9 +96,8 @@ describe("what an agent asks of the user", () => {
     expect(broadcast).toHaveBeenCalledWith("agent:inAppNotice", {
       id: "openclaw:req-inapp:approval:a",
       kind: "approval",
-      title: "Agent · Approval needed",
-      subtitle: "Rowan — Deploy check",
-      body: "git status",
+      title: "Rowan · Deploy check",
+      body: "Needs approval: git status",
       chat: "chat-1",
       agentName: "Rowan",
     });
@@ -121,9 +120,9 @@ describe("what an agent asks of the user", () => {
     expect(notify).toHaveBeenCalledWith({
       id: "openclaw:req-5",
       category: "agent",
-      title: "Agent · Rowan",
-      subtitle: "Morning brief · Finished",
-      body: "All clear.",
+      title: "Rowan · Morning brief",
+      body: "Finished: All clear.",
+      reply: "Reply to Rowan",
       icon: "data:image/png;base64,abc",
       silent: true,
       chat: "chat-1",
@@ -147,6 +146,7 @@ describe("what an agent asks of the user", () => {
       title: "Which env?",
       body: "Staging or prod?",
       chatTitle: "Deploy",
+      options: ["Staging", "Prod"],
       viewing: false,
       appFocused: false,
     });
@@ -154,9 +154,10 @@ describe("what an agent asks of the user", () => {
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: "Agent · Question",
-        subtitle: "Rowan — Deploy",
-        body: "Staging or prod?",
+        title: "Rowan · Deploy",
+        body: "Asks: Staging or prod?",
+        actions: ["Staging", "Prod"],
+        reply: "Answer Rowan",
       }),
     );
 

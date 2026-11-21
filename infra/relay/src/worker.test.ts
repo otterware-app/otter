@@ -1553,7 +1553,7 @@ describe("agent channels", () => {
     expect(sent.headers["apns-topic"]).toBe("dev.otterware.agents.dev");
     expect(sent.body).toEqual({
       aps: {
-        alert: { title: "Deploy the site", body: "Approval needed: Rowan" },
+        alert: { title: "Rowan · Deploy the site", body: "Needs approval" },
         "interruption-level": "active",
         sound: "default",
         "thread-id": pointer.sessionKey,
@@ -1611,7 +1611,7 @@ describe("agent channels", () => {
     const got = notifications.filter((n) => n.token === phone || n.token === mailPhone);
     expect(
       got.map((n) => [n.token, (n.body.aps as { alert: { body: string } }).alert.body]),
-    ).toEqual([[phone, "Question"]]);
+    ).toEqual([[phone, "Asks a question"]]);
   });
 
   it("pushes a finished run to the iPhones, and tells no open app", async () => {

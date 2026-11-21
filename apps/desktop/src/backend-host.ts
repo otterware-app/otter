@@ -3,7 +3,6 @@ import {
   clipboard,
   dialog,
   ipcMain,
-  nativeImage,
   Notification,
   powerMonitor,
   safeStorage,
@@ -28,9 +27,8 @@ import { reportedByBackend, setErrorReportsAllowed, sendsErrorReports } from "./
 import { broadcast } from "./ipc.js";
 import { logger, writeLog } from "./logger.js";
 import { hostOS } from "./os/index.js";
-import { agentIconImage } from "./resources.js";
 import { setPendingOpenMessage } from "./services/open-message-target.js";
-import { focusMainWindow } from "./windows/main-window.js";
+import { focusMainWindow, getMainWindow } from "./windows/main-window.js";
 
 let backend: UtilityProcess | null = null;
 let stopping = false;
@@ -229,17 +227,13 @@ const MAX_AWAITING_CLICK = 50;
 type ShownNotification = { notification: Notification; id?: string; chat?: string };
 const notificationsAwaitingClick = new Set<ShownNotification>();
 
-function notificationIcon(category: "mail" | "agent" | undefined, icon: string | undefined) {
-  if (icon) {
-    const custom = nativeImage.createFromDataURL(icon);
-    if (!custom.isEmpty()) return custom;
-  }
-  if (category === "agent") {
-    const fallback = agentIconImage();
-    if (!fallback.isEmpty()) return fallback;
-  }
-  return undefined;
+/** The main window's page answers it, as the chat's own controls would; it runs while hidden. */
+function sendToWindow(done: { id?: string; chat?: string; action?: string; reply?: string }) {
+  getMainWindow()?.webContents.send("notification:action", done);
 }
+
+/** Agents get a sound of their own, so you can tell them from mail and the calendar without looking. */
+const AGENT_SOUND = "Glass";
 
 function carryOut(effect: MainEffect): void {
   switch (effect.kind) {
@@ -247,14 +241,30 @@ function carryOut(effect: MainEffect): void {
       broadcast(effect.channel, effect.params);
       return;
     case "notify": {
-      const { kind: _kind, id, category, icon, silent, open, chat, code, ...options } = effect;
+      const {
+        kind: _kind,
+        icon: _icon,
+        id,
+        category,
+        silent,
+        open,
+        chat,
+        code,
+        actions,
+        reply,
+        ...options
+      } = effect;
       if (!Notification.isSupported()) return;
-      const resolvedIcon = notificationIcon(category, icon);
+      const buttons = code ? ["Copy & trash"] : (actions ?? []);
       const notification = new Notification({
         ...options,
-        ...(resolvedIcon ? { icon: resolvedIcon } : {}),
+        groupId: category,
+        ...(category === "agent" && !silent ? { sound: AGENT_SOUND } : {}),
         ...(silent !== undefined ? { silent } : {}),
-        ...(code && { actions: [{ type: "button" as const, text: "Copy & trash" }] }),
+        ...(buttons.length > 0 && {
+          actions: buttons.map((text) => ({ type: "button" as const, text })),
+        }),
+        ...(reply && { hasReply: true, replyPlaceholder: reply }),
       });
       const shown: ShownNotification = { notification, id, chat };
       notificationsAwaitingClick.add(shown);
@@ -272,15 +282,19 @@ function carryOut(effect: MainEffect): void {
           if (chat) win.webContents.send("agent:openChat", chat);
         });
       });
-      notification.on("action", () => {
+      notification.on("action", ({ actionIndex }) => {
         notificationsAwaitingClick.delete(shown);
-        if (!code) return;
+        if (!code) return sendToWindow({ id, chat, action: buttons[actionIndex] });
         clipboard.writeText(code);
         if (open) {
           invokeBackend("gmail:trashMessage", open).catch((err: unknown) =>
             logger.warn("notify", "trashing the code's mail failed", String(err)),
           );
         }
+      });
+      notification.on("reply", ({ reply }) => {
+        notificationsAwaitingClick.delete(shown);
+        sendToWindow({ id, chat, reply });
       });
       notification.show();
       return;
