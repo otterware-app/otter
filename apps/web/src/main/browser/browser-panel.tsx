@@ -113,7 +113,7 @@ export function BrowserPanel({
         <PanelControlSlot />
       </div>
       {activeId ? (
-        <PageSlot key={activeId} tabId={activeId} className="rounded-t-xl" />
+        <PageSlot key={activeId} tabId={activeId} className="rounded-xl" />
       ) : (
         <div className="min-h-0 flex-1" />
       )}
