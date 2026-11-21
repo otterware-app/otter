@@ -155,6 +155,8 @@ void app.whenReady().then(() => {
   });
   app.on("browser-window-focus", updatePresence);
   app.on("before-quit", () => {
+    // Quitting from here on: a backend killed with the app (SIGTERM on logout) isn't a crash.
+    stopping = true;
     if (presencePoll) clearInterval(presencePoll);
     presencePoll = null;
   });
