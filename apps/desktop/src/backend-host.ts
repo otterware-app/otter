@@ -3,7 +3,6 @@ import {
   clipboard,
   dialog,
   ipcMain,
-  nativeImage,
   Notification,
   powerMonitor,
   safeStorage,
@@ -248,15 +247,12 @@ function postAsAgent(
   if (!notifier) return false;
   if (!answeringAgentNotifications) {
     answeringAgentNotifications = true;
-    notifier.onResponse(({ id, action, reply }) => {
+    notifier.onResponse(({ id, chat, action, reply }) => {
       const posted = postedAsAgent.get(id);
       postedAsAgent.delete(id);
-      const chatOf = posted?.chat;
-      if (reply !== undefined) return sendToWindow({ id, chat: chatOf, reply });
-      if (action !== undefined)
-        return sendToWindow({ id, chat: chatOf, action: posted?.actions[action] });
-      if (chatOf)
-        void focusMainWindow().then((win) => win.webContents.send("agent:openChat", chatOf));
+      if (reply !== undefined) return sendToWindow({ id, chat, reply });
+      if (action !== undefined) return sendToWindow({ id, chat, action: posted?.actions[action] });
+      void focusMainWindow().then((win) => win.webContents.send("agent:openChat", chat));
     });
   }
   const id = effect.id ?? crypto.randomUUID();
@@ -264,7 +260,13 @@ function postAsAgent(
   postedAsAgent.set(id, { chat, actions });
   if (postedAsAgent.size > MAX_AWAITING_CLICK)
     postedAsAgent.delete(postedAsAgent.keys().next().value!);
-  const image = effect.icon ? nativeImage.createFromDataURL(effect.icon) : undefined;
+  // The addon decodes it: a picture may be WebP or SVG, which nativeImage can't read.
+  const data = effect.icon?.match(/^data:image\/[^;,]+(;base64)?,(.*)$/s);
+  const image = data?.[2]
+    ? data[1]
+      ? Buffer.from(data[2], "base64")
+      : Buffer.from(decodeURIComponent(data[2]))
+    : undefined;
   notifier
     .post({
       id,
@@ -277,11 +279,13 @@ function postAsAgent(
       sender: {
         id: effect.agent.id,
         name: effect.agent.name,
-        ...(image && !image.isEmpty() ? { image: image.toPNG() } : {}),
+        ...(image ? { image } : {}),
         ...(effect.agent.emoji ? { emoji: effect.agent.emoji } : {}),
         ...(effect.agent.mark ? { mark: effect.agent.mark } : {}),
       },
     })
+    // Dismissed (the chat opened, the ask resolved) while macOS was still taking it.
+    .then(() => postedAsAgent.has(id) || notifier.remove([id]))
     .catch((error: unknown) => logger.error("notify", "posting as the agent failed", error));
   return true;
 }

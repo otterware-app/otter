@@ -182,6 +182,22 @@ static BOOL BoolProp(napi_env env, napi_value object, const char *name) {
   return result;
 }
 
+// As PNG, whatever it was decoded from (PNG, JPEG, WebP, SVG); nil if it wasn't a picture.
+static NSData *PNGOf(NSImage *image) {
+  if (!image.isValid) return nil;
+  NSImage *sized = [NSImage imageWithSize:NSMakeSize(256, 256)
+                                  flipped:NO
+                           drawingHandler:^BOOL(NSRect rect) {
+                             [image drawInRect:rect];
+                             return YES;
+                           }];
+  CGImageRef cgImage = [sized CGImageForProposedRect:NULL context:nil hints:nil];
+  if (!cgImage) return nil;
+  return [[[NSBitmapImageRep alloc] initWithCGImage:cgImage]
+      representationUsingType:NSBitmapImageFileTypePNG
+                   properties:@{}];
+}
+
 // A picture for a sender without one: its emoji, or its initial, on a circle (as Contacts draws).
 static NSData *GlyphPicture(NSString *glyph, BOOL emoji) {
   NSImage *image = [NSImage
@@ -201,9 +217,7 @@ static NSData *GlyphPicture(NSString *glyph, BOOL emoji) {
             withAttributes:attributes];
         return YES;
       }];
-  CGImageRef cgImage = [image CGImageForProposedRect:NULL context:nil hints:nil];
-  NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithCGImage:cgImage];
-  return [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+  return PNGOf(image);
 }
 
 // A sender's kind's mark (SVG) on a light circle, for a sender without a picture of its own.
@@ -218,9 +232,7 @@ static NSData *MarkPicture(NSString *svg) {
                              [mark drawInRect:NSInsetRect(rect, 56, 56)];
                              return YES;
                            }];
-  CGImageRef cgImage = [image CGImageForProposedRect:NULL context:nil hints:nil];
-  NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithCGImage:cgImage];
-  return [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+  return PNGOf(image);
 }
 
 // The buttons and the reply field, as a category: Electron's way, which it merges the same way.
@@ -282,8 +294,10 @@ static void SettleJs(napi_env env, napi_value js, void *context, void *data) {
 
 static void Settle(napi_threadsafe_function settle, NSError *error) {
   char *message = error ? strdup(error.localizedDescription.UTF8String) : NULL;
-  napi_call_threadsafe_function(settle, message, napi_tsfn_blocking);
-  napi_release_threadsafe_function(settle, napi_tsfn_release);
+  napi_status status = napi_call_threadsafe_function(settle, message, napi_tsfn_blocking);
+  if (status != napi_ok) free(message);
+  // Closing: Node is tearing the function down itself.
+  if (status != napi_closing) napi_release_threadsafe_function(settle, napi_tsfn_release);
 }
 
 // supported(): whether this build can post communication notifications.
@@ -311,6 +325,7 @@ static napi_value Post(napi_env env, napi_callback_info info) {
   NSString *senderId = StringProp(env, sender, "id");
   NSString *senderName = StringProp(env, sender, "name");
   NSData *image = BufferProp(env, sender, "image");
+  if (image) image = PNGOf([[NSImage alloc] initWithData:image]);
   NSString *emoji = StringProp(env, sender, "emoji");
   if (!image && emoji.length > 0) image = GlyphPicture(emoji, YES);
   NSString *mark = StringProp(env, sender, "mark");

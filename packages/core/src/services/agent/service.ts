@@ -637,7 +637,7 @@ export function notifyAsk(
         const own = persona?.avatar?.startsWith("https:")
           ? ((await fetchImageAsDataUrl(persona.avatar).catch(() => null)) ?? undefined)
           : persona?.avatar;
-        const emoji = own ? undefined : persona?.emoji;
+        const emoji = persona?.emoji;
         const icon = own ?? (emoji ? undefined : agent?.avatar);
         if (entry.viewing || entry.cancelled) return;
         const where = ask.chatTitle?.trim() || ask.taskName?.trim();
@@ -651,7 +651,7 @@ export function notifyAsk(
             id: persona ? `${id}:${persona.slug}` : id,
             name: agentName,
             ...(emoji ? { emoji } : {}),
-            ...(ask.mark && !icon ? { mark: ask.mark } : {}),
+            ...(ask.mark ? { mark: ask.mark } : {}),
             ...(where ? { conversation: where } : {}),
           },
           ...(ask.kind === "finished" ? { silent: true } : {}),
