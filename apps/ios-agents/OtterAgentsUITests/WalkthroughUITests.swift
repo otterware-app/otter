@@ -22,7 +22,8 @@ final class WalkthroughUITests: XCTestCase {
     }
 
     private func row(_ title: String) -> XCUIElement {
-        app.buttons.containing(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
+        // Not the pill over the tabs, which names the agent a new chat goes to ("Agent, brokk", "Ask brokk").
+        app.buttons.matching(NSPredicate(format: "identifier != 'New chat' AND NOT (label BEGINSWITH 'Agent, ')")).containing(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
     }
 
     func testChatsListAndItsShelves() {

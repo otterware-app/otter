@@ -9,10 +9,15 @@ light and dark palette, and the Otter account's chats with every other app.
 
 WhatsApp's iPhone app, in Otter's face and colors, since a chat with an agent is a chat:
 
-- **The frame.** T3 Code's: the system's tab bar, Liquid Glass as iOS 27 draws it, its tabs
-  icons only (Chats, with how many are unread; Scheduled; Settings), and compose (a new chat, or
-  a task on Scheduled) as the prominent tab, its own circle at the bottom right. Each tab is its
-  own stack; the bar leaves while a chat is open or chats are being selected (`Home/RootView.swift`).
+- **The frame.** Claude's, as Otter Mail's: at the bottom of each tab a pill with the agent a new
+  chat goes to (tap its picture to choose another), "Ask …" (it opens that chat, ready to type)
+  and New chat (hold it for chats you started writing), and under it the tabs, a slim row of icons on the canvas
+  with a soft pill behind the one you're on (Chats, with how many are unread; Scheduled;
+  Settings; `Home/BottomBar.swift`). Slide across them to switch. Touch and hold a tab for what was in it lately: the newest chats and New chat, tasks and
+  New task, your agents. A chat that finishes while you're elsewhere
+  says so over the bar ("… · Done", tap to open it). New task is also Scheduled's ＋. Each tab is
+  its own stack; the bars leave while a chat is open or chats are being selected
+  (`Home/RootView.swift`).
 - **Chats** (`Home/ChatsScreen.swift`). T3 Code's header: "Otter Agents" small, search and ⋯
   (Select chats, Read all, the agent to show, On your agents). The shelves as chips: Active
   (unsent drafts and pinned on top; with how many want you), Snoozed, Settled

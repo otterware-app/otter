@@ -60,3 +60,34 @@ extension Color {
                   blue: Double(value & 0xff) / 255)
     }
 }
+
+/**
+ * The canvas behind a tab screen's top and bottom controls, opaque out to their middle and fading
+ * over 10pt, past which the system's soft edge goes on. Both edges alike, so the screen reads as one
+ * frame; and what pins to a list's edge (its day headers) draws over the soft edge, so mustn't
+ * show through the controls.
+ */
+struct BarBacking: View {
+    @Environment(\.palette) private var palette
+    let edge: VerticalEdge
+
+    var body: some View {
+        let fade = LinearGradient(colors: [palette.canvas, palette.canvas.opacity(0)],
+                                  startPoint: edge == .top ? .top : .bottom, endPoint: edge == .top ? .bottom : .top)
+        VStack(spacing: 0) {
+            if edge == .bottom { fade.frame(height: 10) }
+            palette.canvas
+            if edge == .top { fade.frame(height: 10) }
+        }
+        .ignoresSafeArea(edges: edge == .top ? .top : .bottom)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+extension View {
+    /** Under the navigation bar, the backing the bottom bar has (`BarBacking`), so the title sits wholly on the canvas. */
+    func topBarBacking() -> some View {
+        overlay(alignment: .top) { BarBacking(edge: .top).frame(height: 10).offset(y: -10) }
+    }
+}

@@ -33,15 +33,21 @@ final class AppearanceUITests: XCTestCase {
 
     private func reveal(_ element: XCUIElement) {
         for _ in 0..<5 {
-            if element.exists && element.isHittable { return }
-            app.swipeUp()
+            // Clear of the bottom's pill too, when it's in view: the list runs on under it.
+            let pill = app.buttons["Search"]
+            if element.exists && element.isHittable && (!pill.isHittable || element.frame.maxY < pill.frame.minY) { return }
+            if element.exists && pill.isHittable {
+                // Under the pill: a fling would carry it past the top, so a short drag, without momentum.
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+                    .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)), withVelocity: .slow, thenHoldForDuration: 0.3)
+            } else {
+                app.swipeUp()
+            }
         }
         XCTAssertTrue(element.isHittable)
     }
 
     private func settings() {
-        app.buttons["All places"].tap()
-        reveal(app.buttons["Settings"])
         app.buttons["Settings"].tap()
         XCTAssertTrue(row("Color scheme").waitForExistence(timeout: 5))
     }
@@ -81,7 +87,13 @@ final class AppearanceUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Send"].waitForExistence(timeout: 5))
         shot("07-compose")
         app.buttons["Close"].tap()
-        app.buttons["Drafts"].tap()
+        // Again if the composer was still on its way out.
+        let drafts = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Drafts'")).firstMatch
+        for _ in 0..<3 where !drafts.exists {
+            app.buttons["All places"].tap()
+            _ = drafts.waitForExistence(timeout: 2)
+        }
+        drafts.tap()
         XCTAssertTrue(row("Trip ideas for November").waitForExistence(timeout: 5))
         shot("08-drafts")
         row("Trip ideas for November").tap()

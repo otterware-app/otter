@@ -11,13 +11,36 @@ enum Route: Hashable {
 }
 
 /**
- * The app's frame, as T3 Code's phone app: the system's tab bar (Liquid Glass, as iOS draws
- * it), each tab its own stack, and compose as the prominent tab, its own circle at the bottom
- * right. The bar leaves while a chat is open or chats are being selected.
+ * The app's frame, as Claude's phone app: each tab its own stack, and under each tab's first
+ * screen the bar to ask an agent and the tabs (`BottomBar`), so they leave with it as a chat
+ * opens. They leave too while chats are being selected.
  */
 struct RootView: View {
-    enum Place: Hashable {
-        case chats, scheduled, settings, compose
+    /** A card over the bar: a tab's recents (touch and hold it), the agents to ask, or chats you started writing. */
+    enum Card: Equatable {
+        case recents(Place)
+        case agents
+        case drafts
+    }
+
+    enum Place: Hashable, CaseIterable {
+        case chats, scheduled, settings
+
+        var symbol: String {
+            switch self {
+            case .chats: "bubble.left.and.bubble.right.fill"
+            case .scheduled: "clock.fill"
+            case .settings: "gearshape.fill"
+            }
+        }
+
+        var name: String {
+            switch self {
+            case .chats: "Chats"
+            case .scheduled: "Scheduled"
+            case .settings: "Settings"
+            }
+        }
     }
 
     @Environment(\.palette) private var palette
@@ -28,29 +51,34 @@ struct RootView: View {
     @State private var paths: [Place: [Route]] = [:]
     @State private var newTask = false
     @State private var selecting = false
-
-    private var makesTask: Bool { place == .scheduled && !scheduled.creators.isEmpty }
+    @State private var card: Card?
+    /** A chat that finished while you were elsewhere, as Claude's "Completed". */
+    @State private var finished: String?
 
     var body: some View {
-        // Compose is a tab only to sit apart as iOS draws a prominent one: choosing it acts and stays where you were.
-        TabView(selection: Binding(get: { place }, set: { picked in if picked == .compose { compose() } else { place = picked } })) {
+        TabView(selection: $place) {
             Tab(value: Place.chats) {
                 stack(.chats) {
                     ChatsScreen(open: { open(.chat($0), in: .chats) }, openSettings: { place = .settings }, selecting: $selecting)
-                        .toolbarVisibility(selecting ? .hidden : .automatic, for: .tabBar)
                 }
-            } label: { icon("Chats", "text.bubble") }
-            .badge(store.unseen.union(store.needsYou).count)
+            }
             Tab(value: Place.scheduled) {
-                stack(.scheduled) { ScheduledScreen(open: { open(.task($0), in: .scheduled) }, openSettings: { place = .settings }) }
-            } label: { icon("Scheduled", "clock") }
-            .badge(scheduled.failing ? Text("!") : nil)
+                stack(.scheduled) {
+                    ScheduledScreen(open: { open(.task($0), in: .scheduled) }, openSettings: { place = .settings }, newTask: scheduled.creators.isEmpty ? nil : { newTask = true })
+                }
+            }
             Tab(value: Place.settings) {
                 stack(.settings) { SettingsScreen(path: path(.settings)) }
-            } label: { icon("Settings", "gearshape") }
-            Tab(value: Place.compose, role: .prominent) { Color.clear } label: { composeIcon }
+            }
         }
         .tint(palette.text)
+        .overlay { recentsOverlay }
+        .onChange(of: store.working) { before, now in
+            let open = paths[place]?.last
+            if let done = before.subtracting(now).first(where: { open != .chat($0) && store.chat($0) != nil }) {
+                withAnimation(.easeOut(duration: 0.2)) { finished = done }
+            }
+        }
         .overlay(alignment: .top) {
             if let notice = store.notice {
                 Toast(text: notice, symbol: "info.circle")
@@ -73,13 +101,119 @@ struct RootView: View {
         }
     }
 
-    /** T3 Code's tabs: the symbol alone, its name for VoiceOver. */
-    private func icon(_ name: String, _ symbol: String) -> some View {
-        Label(name, systemImage: symbol).labelStyle(.iconOnly)
+    @ViewBuilder
+    private var recentsOverlay: some View {
+        if let card {
+            ZStack(alignment: alignment(of: card)) {
+                Color.black.opacity(0.08)
+                    .ignoresSafeArea()
+                    .onTapGesture { withAnimation(.easeOut(duration: 0.18)) { self.card = nil } }
+                cardView(card)
+                    .padding(.horizontal, 16)
+                    // A tab's over the ask bar, the tabs left in view under it; the bar's own over the bar.
+                    .padding(.bottom, BottomBar.tabsHeight + (card == .agents || card == .drafts ? 60 : 4))
+                    .transition(.scale(scale: 0.6, anchor: .bottom).combined(with: .opacity))
+            }
+        } else if let finished, let chat = store.chat(finished) {
+            Button {
+                self.finished = nil
+                place = .chats
+                paths[.chats] = [.chat(chat.id)]
+            } label: {
+                Toast(text: "\(chat.title) · Done", symbol: "checkmark.circle")
+            }
+            .buttonStyle(.plain)
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, BottomBar.tabsHeight + 76)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .task(id: finished) {
+                try? await Task.sleep(for: .seconds(4))
+                withAnimation { self.finished = nil }
+            }
+        }
     }
 
-    private var composeIcon: some View {
-        icon(makesTask ? "New task" : "New chat", makesTask ? "plus" : "square.and.pencil")
+    private func alignment(of card: Card) -> Alignment {
+        switch card {
+        case .agents, .recents(.chats): .bottomLeading
+        case .recents(.scheduled): .bottom
+        case .drafts, .recents(.settings): .bottomTrailing
+        }
+    }
+
+    @ViewBuilder
+    private func cardView(_ card: Card) -> some View {
+        let close = { withAnimation(.easeOut(duration: 0.18)) { self.card = nil } }
+        switch card {
+        case .recents(let tab):
+            TabRecentsCard(items: recentItems(tab), new: recentsNew(tab)) { picked in
+                close()
+                pickRecent(picked, in: tab)
+            }
+        case .agents:
+            let starting = store.agents.starting?.id
+            TabRecentsCard(items: store.agents.usable.filter(\.canStartChat).map {
+                RecentItem(id: $0.id, title: $0.name, agent: $0.id, status: $0.id == starting ? .chosen : .none)
+            }, new: "Your agents", newSymbol: "gearshape") { picked in
+                close()
+                if let picked, let agent = store.agents.agent(picked) {
+                    Haptics.tap()
+                    store.agents.select(agent)
+                } else {
+                    place = .settings
+                    paths[.settings] = []
+                }
+            }
+        case .drafts:
+            TabRecentsCard(items: store.chats.filter { store.hasDraft($0.id) }.sorted { $0.updatedAt > $1.updatedAt }.prefix(5).map { chat in
+                let words = store.drafts[chat.id]?.split(whereSeparator: \.isNewline).first.map(String.init)
+                return RecentItem(id: chat.id, title: chat.isBlank ? words ?? "New chat" : chat.title, agent: chat.provider)
+            }, new: "New chat") { picked in
+                close()
+                if let picked {
+                    place = .chats
+                    paths[.chats] = [.chat(picked)]
+                } else {
+                    ask()
+                }
+            }
+        }
+    }
+
+    private func recentItems(_ tab: Place) -> [RecentItem] {
+        switch tab {
+        case .chats:
+            store.chats.filter { !$0.isBlank }.sorted { $0.updatedAt > $1.updatedAt }.prefix(5).map { chat in
+                RecentItem(id: chat.id, title: chat.title, agent: chat.provider,
+                           status: store.working.contains(chat.id) ? .working : store.unseen.contains(chat.id) || store.needsYou.contains(chat.id) ? .unread : .none)
+            }
+        case .scheduled:
+            scheduled.tasks.sorted { ($0.lastRun?.at ?? 0) > ($1.lastRun?.at ?? 0) }.prefix(5).map { task in
+                RecentItem(id: task.id, title: task.name, agent: task.provider, status: task.running ? .working : task.failed ? .failed : .none)
+            }
+        case .settings:
+            store.agents.runnable.prefix(5).map { RecentItem(id: $0.id, title: $0.name, agent: $0.id) }
+        }
+    }
+
+    private func recentsNew(_ tab: Place) -> String? {
+        switch tab {
+        case .chats: "New chat"
+        case .scheduled: scheduled.creators.isEmpty ? nil : "New task"
+        case .settings: nil
+        }
+    }
+
+    private func pickRecent(_ id: String?, in tab: Place) {
+        place = tab
+        switch (tab, id) {
+        case (.chats, nil): ask()
+        case (.chats, let id?): paths[.chats] = [.chat(id)]
+        case (.scheduled, nil): newTask = true
+        case (.scheduled, let id?): paths[.scheduled] = [.task(id)]
+        case (.settings, let id?): paths[.settings] = [.agent(id)]
+        case (.settings, nil): break
+        }
     }
 
     private func path(_ place: Place) -> Binding<[Route]> {
@@ -88,21 +222,34 @@ struct RootView: View {
 
     private func open(_ route: Route, in place: Place) { paths[place, default: []].append(route) }
 
-    private func compose() {
+    private func ask() {
         Haptics.tap()
-        if makesTask {
-            newTask = true
-        } else {
-            place = .chats
-            paths[.chats] = [.chat(store.newChat())]
-        }
+        place = .chats
+        paths[.chats] = [.chat(store.newChat())]
+    }
+
+    private var badges: [Place: String] {
+        var badges: [Place: String] = [:]
+        let unread = store.unseen.union(store.needsYou).count
+        if unread > 0 { badges[.chats] = "\(unread)" }
+        if scheduled.failing { badges[.scheduled] = "!" }
+        return badges
     }
 
     private func stack(_ place: Place, @ViewBuilder root: () -> some View) -> some View {
         NavigationStack(path: path(place)) {
-            root().navigationDestination(for: Route.self) { route in
-                destination(route, in: place).toolbarVisibility(.hidden, for: .tabBar).background(ShowsTabBarOnBack())
-            }
+            root()
+                .topBarBacking()
+                // A bar, so what's above softens under it as under the navigation bar.
+                .safeAreaBar(edge: .bottom, spacing: 0) {
+                    if !selecting {
+                        BottomBar(place: $place, badges: badges, ask: ask) { card in
+                            withAnimation(.spring(duration: 0.3, bounce: 0.2)) { self.card = card }
+                        }
+                    }
+                }
+                .toolbarVisibility(.hidden, for: .tabBar)
+                .navigationDestination(for: Route.self) { route in destination(route, in: place).toolbarVisibility(.hidden, for: .tabBar) }
         }
     }
 
@@ -118,31 +265,6 @@ struct RootView: View {
         case .chatSettings: ChatSettings()
         case .licenses: LicensesView()
         case .task(let id): TaskScreen(id: id) { open(.chat($0), in: place) }
-        }
-    }
-}
-
-/**
- * Brings the tab bar back as a back swipe to a tab's first screen starts, in step with it, as
- * UIKit's own hiding does: SwiftUI's `toolbarVisibility(.hidden, for: .tabBar)` brings it back
- * only once the swipe is over. A swipe let go of hides it again.
- */
-private struct ShowsTabBarOnBack: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> Marker { Marker() }
-    func updateUIViewController(_ marker: Marker, context: Context) {}
-
-    final class Marker: UIViewController {
-        override func viewWillDisappear(_ animated: Bool) {
-            super.viewWillDisappear(animated)
-            // The pushed screen this is in.
-            var screen: UIViewController? = self
-            while let current = screen, !(current.parent is UINavigationController) { screen = current.parent }
-            // Leaving its stack for the tab's first screen (SwiftUI's screens don't say `isMovingFromParent`).
-            guard let screen, let stack = screen.navigationController?.viewControllers, stack.count == 1, !stack.contains(screen),
-                  let tabs = screen.tabBarController, let coordinator = screen.transitionCoordinator else { return }
-            coordinator.animate { _ in tabs.setTabBarHidden(false, animated: false) } completion: { context in
-                if context.isCancelled { tabs.setTabBarHidden(true, animated: false) }
-            }
         }
     }
 }

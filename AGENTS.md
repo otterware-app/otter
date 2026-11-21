@@ -59,7 +59,8 @@ when a feature lands or goes.
   What the computer is called in copy (Mac / computer) is
   `src/main/os-names.ts`; shortcuts in copy go through `shortcutText("mod+k")` (⌘K, Ctrl+K).
 - `apps/ios`: Otter Mail for iPhone (the iPhone app keeps that name: the phone gets an app per job), a native SwiftUI app (iOS 27, Liquid Glass): Linear's layout
-  (a glass bar: the mailbox's picture to switch, Inbox, Drafts, Search, ⌃⌄ for every place; the
+  (Claude's bottom: a pill with the mailbox's picture to switch, Search and Compose, and under it
+  the tabs, Inbox, Starred, every place and Settings; the
   agent on its own button), T3 Code's list rows. Its own Swift code, not the TypeScript core: it signs in to Google itself (the "iOS"
   OAuth client, PKCE), talks to Gmail directly, caches on disk, and follows the Otter account
   through the relay (mailboxes, preferences under the same keys, live events). `Resources/` holds

@@ -166,6 +166,8 @@ struct ChatScreen: View {
             }
         }
         .chatDialogs($dialog) { _ in dismiss() }
+        // A new chat, from the bar over the tabs, opens ready to type.
+        .task { if chat.isBlank { focused = true } }
         .sheet(isPresented: $showQueue) { QueueSheet(chat: chat) }
         .sheet(isPresented: $showDetails) { ChatDetails(chat: chat, open: { open($0, in: chat) }, openFile: { file = FileLink(chatId: chat.id, href: $0) }) }
         .navigationDestination(item: $file) { FileScreen(link: $0) }

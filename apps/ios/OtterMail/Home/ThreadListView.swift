@@ -11,10 +11,9 @@ struct ThreadListView: View {
     let messageTransition: Namespace.ID
     var query = ""
     var searchTab = false
+    var onQuery: (String) -> Void = { _ in }
     @Binding var selecting: Bool
     let onTitle: () -> Void
-    let onCompose: () -> Void
-    let onSettings: () -> Void
     let onResume: (Draft) -> Void
 
     @State private var collapsedDays: Set<Date> = []
@@ -90,15 +89,10 @@ struct ThreadListView: View {
                 ProgressView().frame(maxWidth: .infinity).listRowSeparator(.hidden)
             }
             if searchTab && !searching {
-                ContentUnavailableView(
-                    "Search \(scopeName)",
-                    systemImage: "magnifyingglass",
-                    description: Text("Senders, subjects and words, or from: and is:unread.")
-                )
-                .foregroundStyle(palette.muted)
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .padding(.top, 80)
+                SearchStart(scope: place.scope, onQuery: onQuery)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
             } else if store.sync?.loadingCache != true && threads.isEmpty && (searching || recoveries.isEmpty) && !(store.sync?.hasMore(place.folder, scope: place.scope) ?? false) {
                 ContentUnavailableView(
                     searching ? "No results" : "Nothing in \(place.folder.title(in: mailbox))",
@@ -145,16 +139,12 @@ struct ThreadListView: View {
                     Header(title: searching || searchTab ? "Search" : place.folder.title(in: mailbox), scope: scopeName)
                 }
                 .buttonStyle(.plain)
-                .disabled(searchTab)
+                .allowsHitTesting(!searchTab)
                 .accessibilityHint("Shows every folder and label")
             }
             .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .topBarTrailing) {
-                if selecting {
-                    Button("Done", action: endSelection)
-                } else if !searchTab {
-                    Button("Compose", systemImage: "square.and.pencil", action: onCompose)
-                }
+                if selecting { Button("Done", action: endSelection) }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if !selecting && !searchTab {
@@ -165,7 +155,6 @@ struct ThreadListView: View {
                             for thread in threads where thread.unread { store.setRead(true, thread.id) }
                         }
                         .disabled(!threads.contains(where: \.unread))
-                        Button("Settings", systemImage: "gearshape", action: onSettings)
                     }
                 }
             }
