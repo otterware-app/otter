@@ -65,6 +65,16 @@ function isScopeMissing(status: number, body: string): boolean {
   );
 }
 
+// An unusable startHistoryId is a 404 (isHistoryExpiredError). This 400 is about the mailbox's
+// state at Gmail, not the cursor: retry the feed as it stands rather than start it over.
+function isHistoryPreconditionFailure(path: string, status: number, body: string): boolean {
+  return (
+    status === 400 &&
+    path.startsWith("/history?") &&
+    /FAILED_PRECONDITION|failedPrecondition/.test(body)
+  );
+}
+
 function gmailErrorMessage(body: string): string {
   try {
     return (JSON.parse(body) as { error?: { message?: string } }).error?.message?.trim() ?? "";
@@ -225,7 +235,11 @@ async function gmailFetch(
       }
     }
     const tries = attempt.transientRetries ?? 0;
-    if (background && response.status >= 500 && tries < BACKGROUND_TRANSIENT_RETRIES) {
+    if (
+      background &&
+      (response.status >= 500 || isHistoryPreconditionFailure(path, response.status, body)) &&
+      tries < BACKGROUND_TRANSIENT_RETRIES
+    ) {
       await sleep(1000 * 2 ** tries);
       return gmailFetch(accountId, path, init, retryCount, {
         ...attempt,
