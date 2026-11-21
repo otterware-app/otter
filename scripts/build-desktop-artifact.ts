@@ -6,11 +6,13 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { parseArgs } from "node:util";
 
+import { buildNotifier, notifierAddonPath } from "./build-notifier.ts";
 import { buildTranslator, findTranslatorBinary, repoRoot } from "./build-translator.ts";
 import { SENTRY_PROJECTS, uploadSourcemaps } from "./upload-sourcemaps.ts";
 import { isNightlyVersion } from "../packages/shared/src/release-channel.ts";
 
 const APP_ID = "dev.otterware.mail";
+const TEAM_ID = "838JVGY7W4";
 const PRODUCT_NAME = "Otter";
 const MAC_BUNDLE_NAME = "Otter Mail";
 const LINUX_NAME = "otter-mail";
@@ -41,6 +43,7 @@ Options:
                             CSC_NAME for an identity in the keychain) and
                             notarize (APPLE_API_KEY, APPLE_API_KEY_ID,
                             APPLE_API_ISSUER). Unsigned builds are ad hoc.
+  --skip-notarize           With --signed: sign only, for a local test build.
   --verbose                 Print electron-builder debug output.
   -h, --help                Show this help.
 
@@ -50,6 +53,9 @@ Environment:
                                 ${DEFAULT_UPDATE_REPOSITORY}).
   OTTER_UPDATE_URL         Update feed URL instead of GitHub Releases, for
                                 testing the updater against a local server.
+  OTTER_MAC_PROVISIONING_PROFILE
+                           With --signed: the Developer ID provisioning profile
+                                to embed, which grants communication notifications.
 `;
 
 interface Options {
@@ -61,6 +67,7 @@ interface Options {
   readonly skipBuild: boolean;
   readonly keepStage: boolean;
   readonly signed: boolean;
+  readonly skipNotarize: boolean;
   readonly verbose: boolean;
 }
 
@@ -89,6 +96,7 @@ export function parseOptions(argv: readonly string[]): Options | null {
       "skip-build": { type: "boolean", default: false },
       "keep-stage": { type: "boolean", default: false },
       signed: { type: "boolean", default: false },
+      "skip-notarize": { type: "boolean", default: false },
       verbose: { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -133,6 +141,7 @@ export function parseOptions(argv: readonly string[]): Options | null {
     skipBuild: values["skip-build"],
     keepStage: values["keep-stage"],
     signed: values.signed,
+    skipNotarize: values["skip-notarize"],
     verbose: values.verbose,
   };
 }
@@ -161,11 +170,21 @@ export function resolvePublishConfig(version: string, env: NodeJS.ProcessEnv) {
   };
 }
 
-const ENTITLEMENTS = `<?xml version="1.0" encoding="UTF-8"?>
+// Restricted: macOS kills the app at launch unless an embedded provisioning profile grants it,
+// and the helpers (their own bundle ids, no profile) must not carry it.
+const COMMUNICATION_ENTITLEMENT = `  <key>com.apple.application-identifier</key>
+  <string>${TEAM_ID}.${APP_ID}</string>
+  <key>com.apple.developer.team-identifier</key>
+  <string>${TEAM_ID}</string>
+  <key>com.apple.developer.usernotifications.communication</key>
+  <true/>
+`;
+
+const entitlements = (extra = "") => `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>com.apple.security.cs.allow-jit</key>
+${extra}  <key>com.apple.security.cs.allow-jit</key>
   <true/>
   <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
   <true/>
@@ -192,8 +211,11 @@ export function createBuildConfig(options: {
   version: string;
   target: string;
   signed: boolean;
+  skipNotarize?: boolean;
   electronVersion: string;
   entitlementsPath: string | undefined;
+  entitlementsInheritPath?: string | undefined;
+  provisioningProfile?: string | undefined;
   env: NodeJS.ProcessEnv;
 }): Record<string, unknown> {
   const publish = resolvePublishConfig(options.version, options.env);
@@ -227,6 +249,7 @@ export function createBuildConfig(options: {
       executableName: MAC_BUNDLE_NAME,
       extraResources: [
         { from: "bin/translator", to: "bin/translator" },
+        { from: "bin/notifier.node", to: "bin/notifier.node" },
         { from: "resources/InfoPlist.strings", to: "en.lproj/InfoPlist.strings" },
       ],
       target: options.target === "dmg" ? ["dmg", "zip"] : ["zip"],
@@ -240,11 +263,15 @@ export function createBuildConfig(options: {
         CFBundleDisplayName: MAC_BUNDLE_NAME,
         LSHasLocalizedDisplayName: true,
         NSMicrophoneUsageDescription: "Otter listens while you're on a call with your agent.",
+        NSUserActivityTypes: ["INSendMessageIntent"],
       },
       ...(options.signed
         ? {
             entitlements: options.entitlementsPath,
-            entitlementsInherit: options.entitlementsPath,
+            entitlementsInherit: options.entitlementsInheritPath ?? options.entitlementsPath,
+            ...(options.provisioningProfile
+              ? { provisioningProfile: options.provisioningProfile }
+              : {}),
             notarize: false,
           }
         : {
@@ -297,7 +324,8 @@ export function createBuildConfig(options: {
       ],
     },
   };
-  if (options.platform === "mac" && options.signed) config.afterSign = NOTARIZE_HOOK;
+  if (options.platform === "mac" && options.signed && !options.skipNotarize)
+    config.afterSign = NOTARIZE_HOOK;
   if (publish) config.publish = [publish];
   return config;
 }
@@ -429,11 +457,27 @@ function main(): void {
     NodeFS.copyFileSync(translatorBinary, NodePath.join(stageDir, "bin", "translator"));
     NodeFS.chmodSync(NodePath.join(stageDir, "bin", "translator"), 0o755);
   }
+  if (mac) {
+    let addon = notifierAddonPath;
+    if (!options.skipBuild || !NodeFS.existsSync(addon)) {
+      log("Building native/notifier (arm64)...");
+      addon = buildNotifier();
+    }
+    NodeFS.copyFileSync(addon, NodePath.join(stageDir, "bin", "notifier.node"));
+  }
 
   let entitlementsPath: string | undefined;
+  let entitlementsInheritPath: string | undefined;
+  const provisioningProfile = process.env.OTTER_MAC_PROVISIONING_PROFILE?.trim() || undefined;
+  if (provisioningProfile && !options.signed) fail("A provisioning profile needs --signed.");
   if (options.signed) {
     entitlementsPath = NodePath.join(stageDir, "entitlements.mac.plist");
-    NodeFS.writeFileSync(entitlementsPath, ENTITLEMENTS);
+    entitlementsInheritPath = NodePath.join(stageDir, "entitlements.inherit.mac.plist");
+    NodeFS.writeFileSync(
+      entitlementsPath,
+      entitlements(provisioningProfile ? COMMUNICATION_ENTITLEMENT : ""),
+    );
+    NodeFS.writeFileSync(entitlementsInheritPath, entitlements());
   }
 
   const stagedPackageJson = {
@@ -451,8 +495,11 @@ function main(): void {
       version: options.version,
       target: options.target,
       signed: options.signed,
+      skipNotarize: options.skipNotarize,
       electronVersion,
       entitlementsPath,
+      entitlementsInheritPath,
+      provisioningProfile,
       env: process.env,
     }),
   };
@@ -468,9 +515,7 @@ function main(): void {
   if (options.signed) {
     const required = [
       ...(buildEnv.CSC_NAME ? [] : ["CSC_LINK", "CSC_KEY_PASSWORD"]),
-      "APPLE_API_KEY",
-      "APPLE_API_KEY_ID",
-      "APPLE_API_ISSUER",
+      ...(options.skipNotarize ? [] : ["APPLE_API_KEY", "APPLE_API_KEY_ID", "APPLE_API_ISSUER"]),
     ];
     const absent = required.filter((key) => !buildEnv[key]);
     if (absent.length > 0) fail(`--signed needs ${absent.join(", ")}.`);

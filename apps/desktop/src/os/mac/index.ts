@@ -1,6 +1,7 @@
 import { app, nativeTheme } from "electron";
 
 import type { HostOS } from "../types.js";
+import { agentNotifications } from "./agent-notifications.js";
 import { listMailApps, setDefaultMailApp } from "./mail-apps.js";
 import { macTerminals } from "./terminals.js";
 import { nativeMessagingDirectories } from "./native-messaging.js";
@@ -12,6 +13,7 @@ const background = () => (nativeTheme.shouldUseDarkColors ? "#09090a" : "#ededf0
 
 export const macOS: HostOS = {
   nativeMessagingDirectories,
+  agentNotifications,
   modifierKey: "metaKey",
 
   mainWindowOptions: () => ({

@@ -58,6 +58,29 @@ export interface HostOS {
     open(launcher: string, terminalId: string | null): Promise<void>;
     launcher: { fileName: string; shebang: string };
   };
+
+  /** Agents' notifications with the agent's picture in place of the app's, where the build can. */
+  agentNotifications?(): AgentNotifications | null;
+}
+
+export interface AgentNotifications {
+  post(notice: {
+    id: string;
+    chat: string;
+    /** The chat's name, shown as the conversation the message is in. */
+    conversation?: string;
+    body?: string;
+    sound?: string;
+    silent?: boolean;
+    actions?: string[];
+    reply?: string;
+    sender: { id: string; name: string; image?: Buffer };
+  }): Promise<void>;
+  remove(ids: string[]): void;
+  /** A click (neither `action` nor `reply`), a button (its index) or a reply. */
+  onResponse(
+    listener: (response: { id: string; chat: string; action?: number; reply?: string }) => void,
+  ): void;
 }
 
 export interface BackendOS {

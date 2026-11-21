@@ -144,8 +144,13 @@ export interface Platform {
     body?: string;
     /** Each module stacks apart in the OS's notification center, agents with their own sound. */
     category: "mail" | "agent" | "calendar";
-    /** Data URL of the agent's avatar (the web shows it; the Mac draws only the app's icon). */
+    /** Data URL of the agent's avatar: the web shows it, and a Mac build entitled to it draws it in place of the app's icon. */
     icon?: string;
+    /**
+     * Who sent it, and the chat's name: a Mac build entitled to communication notifications posts it
+     * as a message from them, as Messages does.
+     */
+    agent?: { id: string; name: string; conversation?: string };
     silent?: boolean;
     /** `mailbox`: the alias mailbox to open it in. */
     open?: { accountId: string; messageId: string; mailbox?: string };

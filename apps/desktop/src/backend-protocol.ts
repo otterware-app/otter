@@ -22,6 +22,7 @@ export type MainEffect =
       body?: string;
       category: "mail" | "agent" | "calendar";
       icon?: string;
+      agent?: { id: string; name: string; conversation?: string };
       silent?: boolean;
       open?: { accountId: string; messageId: string; mailbox?: string };
       chat?: string;

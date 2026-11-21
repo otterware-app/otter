@@ -17,7 +17,7 @@ import {
 
 import { ipc } from "~/lib/ipc";
 import { closeChatPages } from "../browser/store";
-import { isProviderUsable, useAgentProviders } from "./agent-providers";
+import { isProviderUsable, openClawAgentId, useAgentProviders } from "./agent-providers";
 import {
   mailApi,
   type AgentNoticeKind,
@@ -1530,6 +1530,11 @@ function windowAttention(convoId: string): { viewing: boolean; appFocused: boole
   return { viewing, appFocused: focused && !viewing };
 }
 
+function personaOf(sessionId: string | null | undefined): { persona?: string } {
+  const persona = openClawAgentId(sessionId ?? null);
+  return persona ? { persona } : {};
+}
+
 /** Every window reports what an agent asks; core notifies once, or shows an in-app notice if focused elsewhere. */
 function notifyAsk(
   run: Run,
@@ -1552,6 +1557,7 @@ function notifyAsk(
       chat: run.convoId,
       chatTitle: convo?.title,
       options,
+      ...personaOf(convo?.sessionId),
       viewing,
       appFocused,
     })
@@ -1589,6 +1595,7 @@ function notifyFinished(run: Run): void {
       chatTitle: delivered?.title ?? convo.title,
       taskName: delivered?.taskName,
       body: text.length > 200 ? `${text.slice(0, 200)}…` : text,
+      ...personaOf(convo.sessionId),
       viewing,
       appFocused,
     })

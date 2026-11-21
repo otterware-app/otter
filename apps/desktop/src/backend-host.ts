@@ -3,6 +3,7 @@ import {
   clipboard,
   dialog,
   ipcMain,
+  nativeImage,
   Notification,
   powerMonitor,
   safeStorage,
@@ -235,6 +236,54 @@ function sendToWindow(done: { id?: string; chat?: string; action?: string; reply
 /** Agents get a sound of their own, so you can tell them from mail and the calendar without looking. */
 const AGENT_SOUND = "Glass";
 
+const postedAsAgent = new Map<string, { chat: string; actions: string[] }>();
+let answeringAgentNotifications = false;
+
+/** An agent's notification from the agent itself (its picture, Messages' layout), where the build can. */
+function postAsAgent(
+  effect: Extract<MainEffect, { kind: "notify" }> & { agent: { id: string; name: string } },
+  chat: string,
+): boolean {
+  const notifier = hostOS.agentNotifications?.();
+  if (!notifier) return false;
+  if (!answeringAgentNotifications) {
+    answeringAgentNotifications = true;
+    notifier.onResponse(({ id, action, reply }) => {
+      const posted = postedAsAgent.get(id);
+      postedAsAgent.delete(id);
+      const chatOf = posted?.chat;
+      if (reply !== undefined) return sendToWindow({ id, chat: chatOf, reply });
+      if (action !== undefined)
+        return sendToWindow({ id, chat: chatOf, action: posted?.actions[action] });
+      if (chatOf)
+        void focusMainWindow().then((win) => win.webContents.send("agent:openChat", chatOf));
+    });
+  }
+  const id = effect.id ?? crypto.randomUUID();
+  const actions = effect.actions ?? [];
+  postedAsAgent.set(id, { chat, actions });
+  if (postedAsAgent.size > MAX_AWAITING_CLICK)
+    postedAsAgent.delete(postedAsAgent.keys().next().value!);
+  const image = effect.icon ? nativeImage.createFromDataURL(effect.icon) : undefined;
+  notifier
+    .post({
+      id,
+      chat,
+      ...(effect.agent.conversation ? { conversation: effect.agent.conversation } : {}),
+      ...(effect.body ? { body: effect.body } : {}),
+      ...(effect.silent ? { silent: true } : { sound: AGENT_SOUND }),
+      ...(actions.length > 0 ? { actions } : {}),
+      ...(effect.reply ? { reply: effect.reply } : {}),
+      sender: {
+        id: effect.agent.id,
+        name: effect.agent.name,
+        ...(image && !image.isEmpty() ? { image: image.toPNG() } : {}),
+      },
+    })
+    .catch((error: unknown) => logger.error("notify", "posting as the agent failed", error));
+  return true;
+}
+
 function carryOut(effect: MainEffect): void {
   switch (effect.kind) {
     case "broadcast":
@@ -254,6 +303,7 @@ function carryOut(effect: MainEffect): void {
         reply,
         ...options
       } = effect;
+      if (effect.agent && chat && postAsAgent({ ...effect, agent: effect.agent }, chat)) return;
       if (!Notification.isSupported()) return;
       const buttons = code ? ["Copy & trash"] : (actions ?? []);
       const notification = new Notification({
@@ -300,6 +350,12 @@ function carryOut(effect: MainEffect): void {
       return;
     }
     case "dismissNotification": {
+      for (const [id, posted] of postedAsAgent) {
+        if ((effect.id && id === effect.id) || (effect.chat && posted.chat === effect.chat)) {
+          postedAsAgent.delete(id);
+          hostOS.agentNotifications?.()?.remove([id]);
+        }
+      }
       for (const shown of notificationsAwaitingClick) {
         if ((effect.id && shown.id === effect.id) || (effect.chat && shown.chat === effect.chat)) {
           notificationsAwaitingClick.delete(shown);

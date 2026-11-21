@@ -24,6 +24,7 @@ import { registeredAgents } from "../../extensions.js";
 import { broadcast } from "../../ipc.js";
 import { logger } from "../../logger.js";
 import { platform } from "../../platform.js";
+import { fetchImageAsDataUrl } from "../avatar-store.js";
 import { getSettings } from "../settings-store.js";
 import { answerToolApproval } from "./tools/index.js";
 import { onAgentsChanged } from "../agent-sync.js";
@@ -584,6 +585,8 @@ export function notifyAsk(
     taskName?: string;
     /** A question's choices, when one tap answers it. */
     options?: string[];
+    /** Which of the agent's own agents the chat is with (an OpenClaw gateway's Rowan). */
+    persona?: string;
     viewing: boolean;
     appFocused: boolean;
   },
@@ -605,34 +608,50 @@ export function notifyAsk(
   entry.timer = setTimeout(() => {
     entry.timer = undefined;
     if (entry.viewing || entry.cancelled) return;
-    void Promise.all([getSettings(), getProviderSettings()]).then(([settings, { agents }]) => {
-      if (entry.viewing || entry.cancelled) return;
-      const mode = settings.agentNotificationsMode ?? "all";
-      if (mode === "off") return;
-      if (mode === "needs-you" && ask.kind === "finished") return;
-      const agent = agents.find((a) => a.id === id);
-      const agentName = agent?.name ?? "Your agent";
-      const formatted = formatAgentNotice(ask.kind, agentName, ask);
-      if (entry.appFocused) {
-        broadcast("agent:inAppNotice", {
+    void Promise.all([getSettings(), getProviderSettings()]).then(
+      async ([settings, { agents }]) => {
+        if (entry.viewing || entry.cancelled) return;
+        const mode = settings.agentNotificationsMode ?? "all";
+        if (mode === "off") return;
+        if (mode === "needs-you" && ask.kind === "finished") return;
+        const agent = agents.find((a) => a.id === id);
+        const persona = ask.persona
+          ? checked.get(id)?.models.find((m) => m.slug === ask.persona)
+          : undefined;
+        const agentName = persona?.name ?? agent?.name ?? "Your agent";
+        const formatted = formatAgentNotice(ask.kind, agentName, ask);
+        if (entry.appFocused) {
+          broadcast("agent:inAppNotice", {
+            id: ask.key,
+            kind: ask.kind,
+            ...formatted,
+            chat: ask.chat,
+            agentName,
+          } satisfies AgentInAppNotice);
+          return;
+        }
+        // An OpenClaw agent's picture may be on the web.
+        const icon = persona?.avatar?.startsWith("https:")
+          ? ((await fetchImageAsDataUrl(persona.avatar).catch(() => null)) ?? undefined)
+          : (persona?.avatar ?? agent?.avatar);
+        if (entry.viewing || entry.cancelled) return;
+        const where = ask.chatTitle?.trim() || ask.taskName?.trim();
+        platform().notify({
           id: ask.key,
-          kind: ask.kind,
+          category: "agent",
           ...formatted,
+          ...noticeActions(ask.kind, agentName, ask.options),
+          ...(icon ? { icon } : {}),
+          agent: {
+            id: persona ? `${id}:${persona.slug}` : id,
+            name: agentName,
+            ...(where ? { conversation: where } : {}),
+          },
+          ...(ask.kind === "finished" ? { silent: true } : {}),
           chat: ask.chat,
-          agentName,
-        } satisfies AgentInAppNotice);
-        return;
-      }
-      platform().notify({
-        id: ask.key,
-        category: "agent",
-        ...formatted,
-        ...noticeActions(ask.kind, agentName, ask.options),
-        ...(agent?.avatar ? { icon: agent.avatar } : {}),
-        ...(ask.kind === "finished" ? { silent: true } : {}),
-        chat: ask.chat,
-      });
-    });
+        });
+      },
+    );
   }, ASK_SETTLE_MS);
 }
 
