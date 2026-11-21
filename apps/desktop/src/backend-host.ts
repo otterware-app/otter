@@ -235,6 +235,63 @@ function sendToWindow(done: { id?: string; chat?: string; action?: string; reply
 /** Agents get a sound of their own, so you can tell them from mail and the calendar without looking. */
 const AGENT_SOUND = "Glass";
 
+const postedAsAgent = new Map<string, { chat: string; actions: string[] }>();
+let answeringAgentNotifications = false;
+
+/** An agent's notification from the agent itself (its picture, Messages' layout), where the build can. */
+function postAsAgent(
+  effect: Extract<MainEffect, { kind: "notify" }> & { agent: { id: string; name: string } },
+  chat: string,
+): boolean {
+  const notifier = hostOS.agentNotifications?.();
+  if (!notifier) return false;
+  if (!answeringAgentNotifications) {
+    answeringAgentNotifications = true;
+    notifier.onResponse(({ id, chat, action, reply }) => {
+      const posted = postedAsAgent.get(id);
+      postedAsAgent.delete(id);
+      if (reply !== undefined) return sendToWindow({ id, chat, reply });
+      if (action !== undefined) return sendToWindow({ id, chat, action: posted?.actions[action] });
+      void focusMainWindow().then((win) => win.webContents.send("agent:openChat", chat));
+    });
+  }
+  const id = effect.id ?? crypto.randomUUID();
+  const actions = effect.actions ?? [];
+  postedAsAgent.set(id, { chat, actions });
+  if (postedAsAgent.size > MAX_AWAITING_CLICK)
+    postedAsAgent.delete(postedAsAgent.keys().next().value!);
+  // The addon decodes it: a picture may be WebP or SVG, which nativeImage can't read.
+  const picture = effect.icon?.startsWith("data:image/")
+    ? fetch(effect.icon)
+        .then((response) => response.arrayBuffer())
+        .then((bytes) => Buffer.from(bytes))
+        .catch(() => undefined)
+    : Promise.resolve(undefined);
+  void picture
+    .then((image) =>
+      notifier.post({
+        id,
+        chat,
+        ...(effect.agent.conversation ? { conversation: effect.agent.conversation } : {}),
+        ...(effect.body ? { body: effect.body } : {}),
+        ...(effect.silent ? { silent: true } : { sound: AGENT_SOUND }),
+        ...(actions.length > 0 ? { actions } : {}),
+        ...(effect.reply ? { reply: effect.reply } : {}),
+        sender: {
+          id: effect.agent.id,
+          name: effect.agent.name,
+          ...(image ? { image } : {}),
+          ...(effect.agent.emoji ? { emoji: effect.agent.emoji } : {}),
+          ...(effect.agent.mark ? { mark: effect.agent.mark } : {}),
+        },
+      }),
+    )
+    // Dismissed (the chat opened, the ask resolved) while macOS was still taking it.
+    .then(() => postedAsAgent.has(id) || notifier.remove([id]))
+    .catch((error: unknown) => logger.error("notify", "posting as the agent failed", error));
+  return true;
+}
+
 function carryOut(effect: MainEffect): void {
   switch (effect.kind) {
     case "broadcast":
@@ -254,6 +311,7 @@ function carryOut(effect: MainEffect): void {
         reply,
         ...options
       } = effect;
+      if (effect.agent && chat && postAsAgent({ ...effect, agent: effect.agent }, chat)) return;
       if (!Notification.isSupported()) return;
       const buttons = code ? ["Copy & trash"] : (actions ?? []);
       const notification = new Notification({
@@ -300,6 +358,12 @@ function carryOut(effect: MainEffect): void {
       return;
     }
     case "dismissNotification": {
+      for (const [id, posted] of postedAsAgent) {
+        if ((effect.id && id === effect.id) || (effect.chat && posted.chat === effect.chat)) {
+          postedAsAgent.delete(id);
+          hostOS.agentNotifications?.()?.remove([id]);
+        }
+      }
       for (const shown of notificationsAwaitingClick) {
         if ((effect.id && shown.id === effect.id) || (effect.chat && shown.chat === effect.chat)) {
           notificationsAwaitingClick.delete(shown);

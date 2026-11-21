@@ -23,6 +23,7 @@ vi.mock("./settings.js", () => ({
         avatar: "data:image/png;base64,abc",
         settings: {},
       },
+      { id: "work", kind: "hermes", name: "brokk", settings: {} },
     ],
   }),
 }));
@@ -66,6 +67,7 @@ describe("what an agent asks of the user", () => {
       body: "Needs approval: date",
       actions: ["Approve", "Deny"],
       icon: "data:image/png;base64,abc",
+      agent: { id: "home", name: "Rowan", conversation: "Deploy check" },
       chat: "chat-1",
     });
   });
@@ -124,9 +126,32 @@ describe("what an agent asks of the user", () => {
       body: "Finished: All clear.",
       reply: "Reply to Rowan",
       icon: "data:image/png;base64,abc",
+      agent: { id: "home", name: "Rowan", conversation: "Morning brief" },
       silent: true,
       chat: "chat-1",
     });
+  });
+
+  it("gives an agent without a picture its kind's mark", async () => {
+    vi.useFakeTimers();
+    notifyAsk("work", {
+      key: "hermes:req-6",
+      kind: "message",
+      title: "Inbox",
+      chatTitle: "Inbox",
+      body: "Two need you.",
+      chat: "chat-2",
+      mark: "<svg/>",
+      viewing: false,
+      appFocused: false,
+    });
+    await settle();
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agent: { id: "work", name: "brokk", mark: "<svg/>", conversation: "Inbox" },
+      }),
+    );
+    expect(notify.mock.calls[0]?.[0]).not.toHaveProperty("icon");
   });
 
   it("respects agentNotificationsMode needs-you and off", async () => {

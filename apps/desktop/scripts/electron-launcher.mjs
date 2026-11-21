@@ -11,13 +11,18 @@ const __dirname = NodePath.dirname(NodeURL.fileURLToPath(import.meta.url));
 export const desktopDir = NodePath.resolve(__dirname, "..");
 
 const APP_DISPLAY_NAME = "Otter (Dev)";
+const runtimeDir = NodePath.join(desktopDir, ".electron-runtime");
 // An id per checkout: macOS opens a clicked notification's app by its id, and
 // with one id for every worktree's copy it launches another checkout's, bare.
-const APP_BUNDLE_ID = `dev.otterware.mail.dev.${NodeCrypto.createHash("sha1").update(desktopDir).digest("hex").slice(0, 8)}`;
+const CHECKOUT_BUNDLE_ID = `dev.otterware.mail.dev.${NodeCrypto.createHash("sha1").update(desktopDir).digest("hex").slice(0, 8)}`;
+// A Developer ID provisioning profile granting communication notifications (agents' pictures on
+// their notifications): the copy then takes the profile's id and is signed with Developer ID.
+const provisioningProfile = process.env.OTTER_DEV_PROVISIONING_PROFILE?.trim() || undefined;
+const provisioned = provisioningProfile ? readProfile(provisioningProfile) : undefined;
+const APP_BUNDLE_ID = provisioned?.bundleId ?? CHECKOUT_BUNDLE_ID;
 // Bump when the patching below changes, to force a fresh copy.
-const LAUNCHER_VERSION = 3;
+const LAUNCHER_VERSION = 4;
 const iconPath = NodePath.join(desktopDir, "resources", "icon-dev.icns");
-const runtimeDir = NodePath.join(desktopDir, ".electron-runtime");
 
 const require = NodeModule.createRequire(import.meta.url);
 
@@ -33,6 +38,64 @@ function setPlistValue(plistPath, key, type, value) {
   const replaced = NodeChildProcess.spawnSync("plutil", ["-replace", key, type, value, plistPath]);
   if (replaced.status === 0) return;
   run("plutil", ["-insert", key, type, value, plistPath]);
+}
+
+function readProfile(profilePath) {
+  const decoded = NodePath.join(runtimeDir, "profile.plist");
+  NodeFS.mkdirSync(runtimeDir, { recursive: true });
+  run("security", ["cms", "-D", "-i", profilePath, "-o", decoded]);
+  const entitlement = (key) =>
+    NodeChildProcess.spawnSync(
+      "/usr/libexec/PlistBuddy",
+      ["-c", `Print :Entitlements:${key}`, decoded],
+      { encoding: "utf8" },
+    ).stdout.trim();
+  const appId = entitlement("com.apple.application-identifier");
+  const teamId = entitlement("com.apple.developer.team-identifier");
+  if (!appId || !teamId) throw new Error(`${profilePath} is not a Developer ID profile.`);
+  return { path: profilePath, appId, teamId, bundleId: appId.slice(teamId.length + 1) };
+}
+
+/** Signs the copy with Developer ID: the profile's entitlements on the app, none on its helpers. */
+function signProvisioned(appBundlePath) {
+  const identities = NodeChildProcess.spawnSync(
+    "security",
+    ["find-identity", "-v", "-p", "codesigning"],
+    { encoding: "utf8" },
+  ).stdout;
+  const identity = identities
+    .split("\n")
+    .find(
+      (line) =>
+        line.includes("Developer ID Application") && line.includes(`(${provisioned.teamId})`),
+    )
+    ?.trim()
+    .split(/\s+/)[1];
+  if (!identity) throw new Error(`No Developer ID Application identity for ${provisioned.teamId}.`);
+  NodeFS.copyFileSync(
+    provisioned.path,
+    NodePath.join(appBundlePath, "Contents", "embedded.provisionprofile"),
+  );
+  const entitlements = NodePath.join(runtimeDir, "entitlements.plist");
+  NodeFS.writeFileSync(
+    entitlements,
+    `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>com.apple.application-identifier</key>
+  <string>${provisioned.appId}</string>
+  <key>com.apple.developer.team-identifier</key>
+  <string>${provisioned.teamId}</string>
+  <key>com.apple.developer.usernotifications.communication</key>
+  <true/>
+</dict>
+</plist>
+`,
+  );
+  const sign = ["--force", "--sign", identity, "--timestamp=none"];
+  run("codesign", [...sign, "--deep", appBundlePath]);
+  run("codesign", [...sign, "--entitlements", entitlements, appBundlePath]);
 }
 
 function readJson(filePath) {
@@ -122,6 +185,7 @@ function ensureMacDevBundle(electronBinaryPath) {
     launcherVersion: LAUNCHER_VERSION,
     electronVersion,
     iconMtimeMs: NodeFS.existsSync(iconPath) ? NodeFS.statSync(iconPath).mtimeMs : 0,
+    bundleId: APP_BUNDLE_ID,
   };
 
   if (
@@ -145,6 +209,7 @@ function ensureMacDevBundle(electronBinaryPath) {
   setPlistValue(plist, "CFBundleDisplayName", "-string", APP_DISPLAY_NAME);
   setPlistValue(plist, "CFBundleIdentifier", "-string", APP_BUNDLE_ID);
   setPlistValue(plist, "CFBundleIconFile", "-string", "icon.icns");
+  setPlistValue(plist, "NSUserActivityTypes", "-json", '["INSendMessageIntent"]');
   setPlistValue(
     plist,
     "CFBundleURLTypes",
@@ -160,9 +225,10 @@ function ensureMacDevBundle(electronBinaryPath) {
     NodeFS.copyFileSync(iconPath, NodePath.join(resources, "electron.icns"));
   }
   patchHelperBundles(targetBundle);
-  // Editing Info.plist breaks Electron's signature; re-seal it ad hoc so
-  // macOS keeps launching it and notifications work.
-  run("codesign", ["--force", "--deep", "--sign", "-", "--timestamp=none", targetBundle]);
+  // Editing Info.plist breaks Electron's signature; re-seal it so macOS keeps launching it and
+  // notifications work: ad hoc, or with Developer ID for a provisioning profile.
+  if (provisioned) signProvisioned(targetBundle);
+  else run("codesign", ["--force", "--deep", "--sign", "-", "--timestamp=none", targetBundle]);
   registerDevUrlScheme(targetBundle);
 
   NodeFS.writeFileSync(metadataPath, `${JSON.stringify(expected, null, 2)}\n`);

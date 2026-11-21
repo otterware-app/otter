@@ -37,7 +37,7 @@ async function fetchWithTimeout(url: string, init?: FetchInit): Promise<Response
   return fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
 }
 
-async function fetchImageAsDataUrl(url: string, init?: FetchInit): Promise<string | null> {
+export async function fetchImageAsDataUrl(url: string, init?: FetchInit): Promise<string | null> {
   const response = await fetchWithTimeout(url, init);
   if (!response.ok) return null;
   const contentType = response.headers.get("content-type") ?? "";

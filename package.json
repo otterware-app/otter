@@ -17,6 +17,7 @@
     "start": "vp run --filter @otter/desktop start",
     "build": "vp run --filter './apps/*' build",
     "build:translator": "node scripts/build-translator.ts",
+    "build:notifier": "node scripts/build-notifier.ts",
     "icons:export": "node scripts/export-brand-icons.ts",
     "dev:ios": "node scripts/dev-ios.ts",
     "dev:ios:agents": "node scripts/dev-ios.ts --app agents",

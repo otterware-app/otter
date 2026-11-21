@@ -22,10 +22,18 @@
 | `pnpm start`                            | Runs the built app unpackaged (`pnpm build` first).                                      |
 | `pnpm build`                            | Builds `apps/web/dist` and `apps/desktop/dist-electron`.                                 |
 | `pnpm build:translator`                 | Builds the Swift translator helper.                                                      |
+| `pnpm build:notifier`                   | Builds the addon for agents' notifications with their pictures (see below).              |
 | `pnpm typecheck`                        | TypeScript across the workspace.                                                         |
 | `pnpm lint` / `pnpm fmt`                | Oxlint and Oxfmt through Vite+.                                                          |
 | `pnpm dist:desktop:dmg`                 | Unsigned DMG + ZIP for this Mac's architecture in `release/`.                            |
 | `pnpm dist:desktop:deb`                 | The Linux .deb (x64) in `release/`; on Linux.                                            |
+
+Agents' notifications with the agent's picture (Mac, `native/notifier`) need a Developer ID
+signature and an embedded profile, which the dev app lacks: it falls back to Otter's icon. To see
+them in dev, run `pnpm build:notifier` and set `OTTER_DEV_PROVISIONING_PROFILE` to the "Otter
+Desktop Dev Developer ID" profile (for `dev.otterware.mail.dev.desktop`, from the Apple developer
+portal): the dev app then takes that id and is signed with the Developer ID identity in your
+keychain. macOS asks once whether "Otter (Dev)" may send notifications.
 
 The dev commands pick ports from the worktree path, so several checkouts can run at once. Set
 `OTTER_PORT_OFFSET` to choose one yourself. `t3.json` sets up new T3 Code worktrees (install,

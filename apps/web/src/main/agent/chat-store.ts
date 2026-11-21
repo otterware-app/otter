@@ -1,4 +1,6 @@
-import { useEffect } from "react";
+import { createElement, useEffect } from "react";
+import { flushSync } from "react-dom";
+import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import {
   LOCAL_AGENT_KINDS,
@@ -17,7 +19,8 @@ import {
 
 import { ipc } from "~/lib/ipc";
 import { closeChatPages } from "../browser/store";
-import { isProviderUsable, useAgentProviders } from "./agent-providers";
+import { agentContribution } from "../extensions/registry";
+import { isProviderUsable, openClawAgentId, useAgentProviders } from "./agent-providers";
 import {
   mailApi,
   type AgentNoticeKind,
@@ -1530,6 +1533,30 @@ function windowAttention(convoId: string): { viewing: boolean; appFocused: boole
   return { viewing, appFocused: focused && !viewing };
 }
 
+/** Who an agent's notification is from: an OpenClaw gateway's agent, and its kind's mark. */
+function senderOf(provider: AgentId, sessionId: string | null | undefined) {
+  const persona = openClawAgentId(sessionId ?? null);
+  const mark = markOf(knownAgent(provider)?.kind);
+  return { ...(persona ? { persona } : {}), ...(mark ? { mark } : {}) };
+}
+
+const marks = new Map<string, string>();
+
+function markOf(kind: string | undefined): string | undefined {
+  const Icon = kind ? agentContribution(kind)?.Icon : undefined;
+  if (!kind || !Icon) return undefined;
+  let svg = marks.get(kind);
+  if (svg === undefined) {
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    flushSync(() => root.render(createElement(Icon)));
+    svg = host.innerHTML.replace(/^<svg(?![^>]*xmlns=)/, '<svg xmlns="http://www.w3.org/2000/svg"');
+    root.unmount();
+    marks.set(kind, svg);
+  }
+  return svg || undefined;
+}
+
 /** Every window reports what an agent asks; core notifies once, or shows an in-app notice if focused elsewhere. */
 function notifyAsk(
   run: Run,
@@ -1552,6 +1579,7 @@ function notifyAsk(
       chat: run.convoId,
       chatTitle: convo?.title,
       options,
+      ...senderOf(run.provider, convo?.sessionId),
       viewing,
       appFocused,
     })
@@ -1589,6 +1617,7 @@ function notifyFinished(run: Run): void {
       chatTitle: delivered?.title ?? convo.title,
       taskName: delivered?.taskName,
       body: text.length > 200 ? `${text.slice(0, 200)}…` : text,
+      ...senderOf(run.provider, convo.sessionId),
       viewing,
       appFocused,
     })
