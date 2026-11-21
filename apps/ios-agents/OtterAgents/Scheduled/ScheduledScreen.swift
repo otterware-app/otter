@@ -19,6 +19,7 @@ struct ScheduledScreen: View {
     @Environment(ScheduledStore.self) private var store
     var open: (String) -> Void
     var openSettings: () -> Void
+    var newTask: (() -> Void)?
 
     @State private var agentFilter = ""
     @State private var status = ""
@@ -84,6 +85,11 @@ struct ScheduledScreen: View {
         .overlay { empty(shown: !active.isEmpty || !paused.isEmpty) }
         .navigationTitle("Scheduled")
         .toolbarTitleDisplayMode(.inline)
+        .toolbar {
+            if let newTask {
+                ToolbarItem(placement: .topBarTrailing) { Button("New task", systemImage: "plus", action: newTask) }
+            }
+        }
         .refreshable { await store.refresh() }
         .task(id: scenePhase) {
             // Soon again while something runs, so its end shows.

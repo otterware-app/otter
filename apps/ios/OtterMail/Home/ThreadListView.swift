@@ -11,11 +11,12 @@ struct ThreadListView: View {
     let messageTransition: Namespace.ID
     var query = ""
     var searchTab = false
+    var onQuery: (String) -> Void = { _ in }
     @Binding var selecting: Bool
     let onTitle: () -> Void
-    let onCompose: () -> Void
-    let onSettings: () -> Void
     let onResume: (Draft) -> Void
+    /** Scrolling down the list (reading on) or back up. */
+    var onReading: (Bool) -> Void = { _ in }
 
     @State private var collapsedDays: Set<Date> = []
     @State private var unreadOnly = false
@@ -90,15 +91,10 @@ struct ThreadListView: View {
                 ProgressView().frame(maxWidth: .infinity).listRowSeparator(.hidden)
             }
             if searchTab && !searching {
-                ContentUnavailableView(
-                    "Search \(scopeName)",
-                    systemImage: "magnifyingglass",
-                    description: Text("Senders, subjects and words, or from: and is:unread.")
-                )
-                .foregroundStyle(palette.muted)
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .padding(.top, 80)
+                SearchStart(scope: place.scope, onQuery: onQuery)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
             } else if store.sync?.loadingCache != true && threads.isEmpty && (searching || recoveries.isEmpty) && !(store.sync?.hasMore(place.folder, scope: place.scope) ?? false) {
                 ContentUnavailableView(
                     searching ? "No results" : "Nothing in \(place.folder.title(in: mailbox))",
@@ -116,6 +112,9 @@ struct ThreadListView: View {
         .scrollContentBackground(.hidden)
         .background(palette.canvas)
         .contentMargins(.bottom, 24, for: .scrollContent)
+        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { before, now in
+            if now < 40 { onReading(false) } else if abs(now - before) > 6 { onReading(now > before) }
+        }
         .safeAreaInset(edge: .top, spacing: 0) { SignedOutBanners() }
         .task(id: place) {
             collapsedDays.removeAll()
@@ -145,16 +144,12 @@ struct ThreadListView: View {
                     Header(title: searching || searchTab ? "Search" : place.folder.title(in: mailbox), scope: scopeName)
                 }
                 .buttonStyle(.plain)
-                .disabled(searchTab)
+                .allowsHitTesting(!searchTab)
                 .accessibilityHint("Shows every folder and label")
             }
             .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .topBarTrailing) {
-                if selecting {
-                    Button("Done", action: endSelection)
-                } else if !searchTab {
-                    Button("Compose", systemImage: "square.and.pencil", action: onCompose)
-                }
+                if selecting { Button("Done", action: endSelection) }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if !selecting && !searchTab {
@@ -165,7 +160,6 @@ struct ThreadListView: View {
                             for thread in threads where thread.unread { store.setRead(true, thread.id) }
                         }
                         .disabled(!threads.contains(where: \.unread))
-                        Button("Settings", systemImage: "gearshape", action: onSettings)
                     }
                 }
             }
@@ -431,7 +425,6 @@ struct ThreadListView: View {
 
     private struct Header: View {
         @Environment(\.palette) private var palette
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
         let title: String
         let scope: String
 

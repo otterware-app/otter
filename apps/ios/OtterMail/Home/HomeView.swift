@@ -16,12 +16,18 @@ struct HomeView: View {
     @State private var place = Place()
     @State private var path: [String] = []
     @State private var menuOpen = false
+    /** Inbox or Drafts, held: its recents show over the bar. */
+    @State private var recents: Folder?
+    @State private var mailboxesOpen = false
     @State private var selecting = false
     @State private var draft: Draft?
     @State private var settingsOpen = false
     @State private var searchOpen = false
     @State private var query = ""
     @State private var searchPath: [String] = []
+    @State private var searchActive = false
+    /** Scrolled down the list: the tabs tuck away until you scroll back up. */
+    @State private var reading = false
 
     private var menuAnimation: Animation? { reduceMotion ? nil : .spring(duration: 0.4, bounce: 0.15) }
 
@@ -50,20 +56,70 @@ struct HomeView: View {
                 messageTransition: messageTransition,
                 selecting: $selecting,
                 onTitle: { setMenu(open: true) },
-                onCompose: { compose() },
-                onSettings: { settingsOpen = true },
-                onResume: { draft = $0 }
+                onResume: { draft = $0 },
+                onReading: { now in
+                    if now != reading { withAnimation(.spring(duration: 0.3, bounce: 0.1)) { reading = now } }
+                }
             )
             .overlay {
-                if menuOpen {
+                if menuOpen || recents != nil || mailboxesOpen {
                     Color.clear
                         .contentShape(.rect)
                         .ignoresSafeArea()
                         .onTapGesture { setMenu(open: false) }
                 }
             }
-            // On the list, so it goes with it when a conversation opens.
-            .safeAreaInset(edge: .bottom, spacing: 8) {
+            // Over the list, where the cards take taps: the bar's own area ends at its top.
+            .overlay(alignment: .bottomTrailing) {
+                if menuOpen {
+                    PlacesPanel(place: place, onSelect: { select($0) },
+                                onSearch: { setMenu(open: false); searchOpen = true },
+                                onSettings: { setMenu(open: false); settingsOpen = true })
+                        .frame(maxHeight: 520)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 28))
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 4)
+                        .transition(.scale(scale: 0.6, anchor: .bottomTrailing).combined(with: .opacity))
+                }
+            }
+            .overlay(alignment: .bottomLeading) {
+                if mailboxesOpen {
+                    MailboxesCard(current: place.scope) { mailbox in
+                        setMenu(open: false)
+                        switchMailbox(mailbox)
+                    } onManage: {
+                        setMenu(open: false)
+                        settingsOpen = true
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 4)
+                    .transition(.scale(scale: 0.6, anchor: .bottomLeading).combined(with: .opacity))
+                }
+            }
+            .overlay(alignment: recents == .drafts ? .bottomTrailing : .bottomLeading) {
+                if let folder = recents {
+                    RecentsCard(folder: folder, scope: place.scope) { thread in
+                        recents = nil
+                        if thread.isDraft, let message = thread.messages.last {
+                            draft = .resume(message, in: thread)
+                        } else {
+                            select(Place(scope: place.scope, folder: folder))
+                            path = [thread.id]
+                        }
+                    } onCompose: {
+                        recents = nil
+                        compose()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 4)
+                    .transition(.scale(scale: 0.6, anchor: recents == .drafts ? .bottomTrailing : .bottomLeading).combined(with: .opacity))
+                }
+            }
+            .topBarBacking()
+            // On the list, so it goes with it when a conversation opens; a bar, so the list softens
+            // under it as under the navigation bar.
+            .safeAreaBar(edge: .bottom, spacing: 8) {
                 VStack(spacing: 12) {
                     if let action = store.undoAction {
                         HStack {
@@ -82,13 +138,21 @@ struct HomeView: View {
                     if !selecting {
                         PlacesBar(
                             place: place,
-                            menuOpen: menuOpen,
+                            reading: reading,
                             onSelect: { select(Place(scope: place.scope, folder: $0)) },
-                            onPlace: { select($0) },
-                            onMailbox: { switchMailbox($0) },
                             onSearch: { setMenu(open: false); searchOpen = true },
                             onSettings: { setMenu(open: false); settingsOpen = true },
-                            onMenu: { setMenu(open: !menuOpen) }
+                            onMenu: { setMenu(open: !menuOpen) },
+                            onCompose: { compose() },
+                            onRecents: { folder in
+                                setMenu(open: false)
+                                withAnimation(menuAnimation) { recents = folder }
+                            },
+                            onMailboxes: {
+                                let open = !mailboxesOpen
+                                setMenu(open: false)
+                                withAnimation(menuAnimation) { mailboxesOpen = open }
+                            }
                         )
                     }
                 }
@@ -111,14 +175,13 @@ struct HomeView: View {
                 messageTransition: searchTransition,
                 query: query,
                 searchTab: true,
+                onQuery: { query = $0 },
                 selecting: .constant(false),
                 onTitle: {},
-                onCompose: { searchOpen = false; compose() },
-                onSettings: { searchOpen = false; settingsOpen = true },
                 onResume: { searchOpen = false; draft = $0 }
             )
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Close", systemImage: "xmark") { searchOpen = false }
                 }
             }
@@ -131,12 +194,21 @@ struct HomeView: View {
                 }
             }
         }
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+        .searchable(text: $query, isPresented: $searchActive, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+        // From the pill, ready to type, as Claude's composer is.
+        .task {
+            // Once the sheet is up: a search started while it's still rising is dropped.
+            try? await Task.sleep(for: .milliseconds(350))
+            searchActive = true
+        }
+        // Its Cancel closes the sheet: there's nothing behind the search to go back to.
+        .onChange(of: searchActive) { was, now in if was, !now { searchOpen = false } }
         .background(SearchFieldColors(color: palette.muted))
     }
 
     private func select(_ next: Place) {
         place = next
+        reading = false
         path = []
         setMenu(open: false)
     }
@@ -174,8 +246,13 @@ struct HomeView: View {
         }
     }
 
+    /** Opens or closes the places menu; any card over the bar closes either way. */
     private func setMenu(open: Bool) {
-        withAnimation(menuAnimation) { menuOpen = open }
+        withAnimation(menuAnimation) {
+            menuOpen = open
+            recents = nil
+            mailboxesOpen = false
+        }
     }
 }
 
