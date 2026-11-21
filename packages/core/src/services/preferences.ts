@@ -67,6 +67,7 @@ const SYNCED_SETTINGS = [
   "syncIntervalSeconds",
   "notificationsMode",
   "agentNotificationsMode",
+  "calendarReminders",
   "readLanguages",
   "autoTranslate",
 ] as const satisfies readonly (keyof AppSettings)[];

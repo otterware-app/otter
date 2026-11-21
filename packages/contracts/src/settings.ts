@@ -6,6 +6,8 @@ export type AppSettings = {
   syncIntervalSeconds: number;
   notificationsMode: NotificationsMode;
   agentNotificationsMode: AgentNotificationsMode;
+  /** A notification 10 minutes before each event. */
+  calendarReminders: boolean;
   launchAtLogin: boolean;
   dockBadgeEnabled: boolean;
   /** Languages the user reads (BCP-47 codes, first = where translations go).
@@ -19,7 +21,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   syncIntervalSeconds: 30,
   notificationsMode: "inbox",
   agentNotificationsMode: "all",
-  launchAtLogin: false,
+  calendarReminders: true,
+  launchAtLogin: true,
   dockBadgeEnabled: false,
   readLanguages: [],
   autoTranslate: false,

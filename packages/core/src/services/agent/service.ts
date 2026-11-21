@@ -509,7 +509,6 @@ export interface AgentInAppNotice {
   id: string;
   kind: AgentNoticeKind;
   title: string;
-  subtitle?: string;
   body?: string;
   chat?: string;
   agentName: string;
@@ -529,42 +528,41 @@ const asks = new Map<
 /** How long every window (each web tab, the desktop window) gets to report an ask. */
 const ASK_SETTLE_MS = 500;
 
+/** Where it's from (the agent and its chat), then what happened, as mail says the mailbox, then who. */
 function formatAgentNotice(
   kind: AgentNoticeKind,
   agentName: string,
-  ask: { title: string; subtitle?: string; body?: string; chatTitle?: string; taskName?: string },
-): { title: string; subtitle?: string; body?: string } {
-  const chatTitle = ask.chatTitle?.trim();
-  const taskName = ask.taskName?.trim();
+  ask: { title: string; body?: string; chatTitle?: string; taskName?: string },
+): { title: string; body?: string } {
+  const where = ask.chatTitle?.trim() || ask.taskName?.trim();
+  const title = where ? `${agentName} · ${where}` : agentName;
+  const what = ask.body?.trim() || ask.title;
   switch (kind) {
     case "approval":
-      return {
-        title: "Agent · Approval needed",
-        subtitle: chatTitle ? `${agentName} — ${chatTitle}` : agentName,
-        body: ask.body?.trim() || ask.title,
-      };
+      return { title, body: `Needs approval: ${what}` };
     case "question":
-      return {
-        title: "Agent · Question",
-        subtitle: chatTitle ? `${agentName} — ${chatTitle}` : agentName,
-        body: ask.body?.trim() || ask.title,
-      };
+      return { title, body: `Asks: ${what}` };
     case "message":
-      return {
-        title: taskName ? `Agent · ${taskName}` : `Agent · ${agentName}`,
-        subtitle: taskName
-          ? chatTitle
-            ? `${agentName} — ${chatTitle}`
-            : agentName
-          : chatTitle || ask.subtitle || "Sent you a message",
-        body: ask.body,
-      };
+      return { title, body: ask.body?.trim() || "Sent you a message" };
     case "finished":
-      return {
-        title: `Agent · ${agentName}`,
-        subtitle: chatTitle ? `${chatTitle} · Finished` : (ask.subtitle ?? "Finished"),
-        body: ask.body,
-      };
+      return { title, body: ask.body?.trim() ? `Finished: ${ask.body.trim()}` : "Finished" };
+  }
+}
+
+/** What the notification lets you do without opening the chat (macOS). */
+function noticeActions(
+  kind: AgentNoticeKind,
+  agentName: string,
+  options: string[] | undefined,
+): { actions?: string[]; reply?: string } {
+  switch (kind) {
+    case "approval":
+      return { actions: ["Approve", "Deny"] };
+    case "question":
+      return options ? { actions: options, reply: `Answer ${agentName}` } : {};
+    case "message":
+    case "finished":
+      return { reply: `Reply to ${agentName}` };
   }
 }
 
@@ -580,11 +578,12 @@ export function notifyAsk(
     key: string;
     kind: AgentNoticeKind;
     title: string;
-    subtitle?: string;
     body?: string;
     chat?: string;
     chatTitle?: string;
     taskName?: string;
+    /** A question's choices, when one tap answers it. */
+    options?: string[];
     viewing: boolean;
     appFocused: boolean;
   },
@@ -628,6 +627,7 @@ export function notifyAsk(
         id: ask.key,
         category: "agent",
         ...formatted,
+        ...noticeActions(ask.kind, agentName, ask.options),
         ...(agent?.avatar ? { icon: agent.avatar } : {}),
         ...(ask.kind === "finished" ? { silent: true } : {}),
         chat: ask.chat,

@@ -32,7 +32,7 @@ export type PageEffect =
       title: string;
       subtitle?: string;
       body?: string;
-      category?: "mail" | "agent";
+      category: "mail" | "agent" | "calendar";
       icon?: string;
       silent?: boolean;
       open?: { accountId: string; messageId: string; mailbox?: string };

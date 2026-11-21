@@ -79,17 +79,16 @@ export function send(
 }
 
 const AGENT_STATUS = {
-  approval: "Approval needed",
-  question: "Question",
+  approval: "Needs approval",
+  question: "Asks a question",
   message: "New message",
   finished: "Finished",
 };
 
-/** As T3 Code's alerts: the chat's title and what happened, by which agent; never what was said. */
+/** As the computer's: where it's from (the agent and its chat), then what happened; never what was said. */
 export function agentPayload(userId: string, pointer: AgentPointer) {
-  const status = AGENT_STATUS[pointer.kind];
-  const title = pointer.title || pointer.agentName || "Otter Agents";
-  const body = pointer.title && pointer.agentName ? `${status}: ${pointer.agentName}` : status;
+  const title = [pointer.agentName, pointer.title].filter(Boolean).join(" · ") || "Otter Agents";
+  const body = AGENT_STATUS[pointer.kind];
   const passive = pointer.kind === "finished";
   return {
     aps: {

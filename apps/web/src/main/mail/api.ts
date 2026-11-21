@@ -344,6 +344,7 @@ export type SyncSettings = {
   syncIntervalSeconds: number;
   notificationsMode: NotificationsMode;
   agentNotificationsMode: AgentNotificationsMode;
+  calendarReminders: boolean;
   launchAtLogin: boolean;
   dockBadgeEnabled: boolean;
   errorReports: boolean;
@@ -666,11 +667,11 @@ export const mailApi = {
     key: string;
     kind: AgentNoticeKind;
     title: string;
-    subtitle?: string;
     body?: string;
     chat?: string;
     chatTitle?: string;
     taskName?: string;
+    options?: string[];
     viewing: boolean;
     appFocused: boolean;
   }): Promise<{ ok: boolean }> => ipc("agent:notifyAsk", params),

@@ -118,6 +118,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["declined invitations no rsvp hide calendar"],
   },
   {
+    id: "calendar-reminders",
+    title: "Event reminders",
+    pane: "calendar",
+    searchTerms: ["notifications alerts remind upcoming meeting before calendar"],
+  },
+  {
     id: "calendar-meetings",
     title: "Conferencing",
     pane: "calendar",

@@ -142,8 +142,9 @@ export interface Platform {
     title: string;
     subtitle?: string;
     body?: string;
-    category?: "mail" | "agent";
-    /** Data URL of a specific icon (e.g. an agent's avatar); desktop falls back to the Pilot mark for agents. */
+    /** Each module stacks apart in the OS's notification center, agents with their own sound. */
+    category: "mail" | "agent" | "calendar";
+    /** Data URL of the agent's avatar (the web shows it; the Mac draws only the app's icon). */
     icon?: string;
     silent?: boolean;
     /** `mailbox`: the alias mailbox to open it in. */
@@ -151,6 +152,10 @@ export interface Platform {
     /** The agent chat to open. */
     chat?: string;
     code?: string;
+    /** Buttons (macOS); the one pressed goes to the window as `notification:action`, with `id` and `chat`. */
+    actions?: string[];
+    /** A text field's placeholder (macOS); what's typed goes to the window the same way. */
+    reply?: string;
   }): void;
   dismissNotification?(match: { id?: string; chat?: string }): void;
   setUnreadCount(count: number): void;

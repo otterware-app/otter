@@ -13,9 +13,3 @@ export function appIconImage(): NativeImage {
     : "icon-dev.png";
   return nativeImage.createFromPath(join(resourcesDir(), filename));
 }
-
-let cachedAgentIcon: NativeImage | null = null;
-
-export function agentIconImage(): NativeImage {
-  return (cachedAgentIcon ??= nativeImage.createFromPath(join(resourcesDir(), "agent-icon.png")));
-}
