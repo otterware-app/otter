@@ -11,9 +11,11 @@ import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon, ChevronRightIcon, PlusIcon, RotateCwIcon, ShieldIcon } from "lucide-react";
 import {
   mailApi,
+  type AgentNotificationsMode,
   type AgentSettingsPatch,
   type ProviderSnapshot,
   type ProvidersState,
+  type SyncSettings,
 } from "../mail/api";
 import {
   PROVIDER_STATUS_DOT,
@@ -47,6 +49,7 @@ import {
   TextInput,
 } from "./settings-ui";
 import { searchableSetting } from "./settings-search";
+import { osNames } from "../os-names";
 import { AgentTokensSection } from "./agent-tokens-section";
 import { features } from "../features";
 import {
@@ -591,11 +594,73 @@ function AgentPage({
   );
 }
 
+const AGENT_NOTIFICATIONS_OPTIONS: { value: AgentNotificationsMode; label: string }[] = [
+  { value: "all", label: "Everything" },
+  { value: "needs-you", label: "Only when needed" },
+  { value: "off", label: "Off" },
+];
+
+function AgentNotificationsRow() {
+  const [mode, setMode] = useState<AgentNotificationsMode | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void mailApi
+      .getSyncSettings()
+      .then((settings) => {
+        if (active) setMode(settings.agentNotificationsMode ?? "all");
+      })
+      .catch(() => {});
+    const off = window.desktopBridge.on("settings:changed", (raw: unknown) => {
+      const settings = raw as Partial<SyncSettings> | null;
+      if (settings?.agentNotificationsMode) setMode(settings.agentNotificationsMode);
+    });
+    return () => {
+      active = false;
+      off();
+    };
+  }, []);
+
+  const update = (next: AgentNotificationsMode) => {
+    const previous = mode;
+    setMode(next);
+    void mailApi.setSyncSettings({ agentNotificationsMode: next }).catch((error: unknown) => {
+      setMode(previous);
+      toast.error(`Could not save: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  };
+
+  return (
+    <SettingsRow
+      {...searchableSetting("agent-notifications")}
+      resetAction={
+        mode !== null && mode !== "all" ? (
+          <SettingResetButton label="agent notifications" onClick={() => update("all")} />
+        ) : null
+      }
+      description={
+        mode === "needs-you"
+          ? `Only approvals, questions, and agent messages. Your phone stays quiet while you're active on your ${osNames.computer} unless you wrote from your phone.`
+          : `Approvals, questions, agent messages, and long finished replies. Your phone stays quiet while you're active on your ${osNames.computer} unless you wrote from your phone.`
+      }
+      control={
+        <RowSelect
+          value={mode ?? undefined}
+          onValueChange={(value) => update(value as AgentNotificationsMode)}
+          options={AGENT_NOTIFICATIONS_OPTIONS}
+          ariaLabel="Agent notifications"
+        />
+      }
+    />
+  );
+}
+
 function ChatSection({ children }: { children: ReactNode }) {
   const behavior = useFollowUpBehavior();
   return (
     <SettingsSection title="Chat">
       {children}
+      <AgentNotificationsRow />
       <SettingsRow
         {...searchableSetting("follow-up-behavior")}
         resetAction={

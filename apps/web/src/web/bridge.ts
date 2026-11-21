@@ -141,15 +141,24 @@ function saveBytes(name: string, bytes: Uint8Array, open: boolean): void {
 }
 
 let pendingOpenMessage: { accountId: string; messageId: string; mailbox?: string } | null = null;
+const shownNotifications = new Set<{ notification: Notification; id?: string; chat?: string }>();
 
 function applyEffect(effect: PageEffect): void {
   switch (effect.kind) {
     case "notify":
       if ("Notification" in window && Notification.permission === "granted") {
+        const icon = effect.icon ?? (effect.category === "agent" ? "/agent-icon.png" : undefined);
         const notification = new Notification(effect.title, {
           body: [effect.subtitle, effect.body].filter(Boolean).join(" · "),
+          ...(icon ? { icon } : {}),
+          ...(effect.id || effect.chat ? { tag: effect.id ?? effect.chat } : {}),
+          ...(effect.silent !== undefined ? { silent: effect.silent } : {}),
         });
+        const shown = { notification, id: effect.id, chat: effect.chat };
+        shownNotifications.add(shown);
+        notification.addEventListener("close", () => shownNotifications.delete(shown));
         notification.addEventListener("click", () => {
+          shownNotifications.delete(shown);
           window.focus();
           notification.close();
           if (effect.chat) emit("agent:openChat", effect.chat);
@@ -157,6 +166,14 @@ function applyEffect(effect: PageEffect): void {
           pendingOpenMessage = effect.open;
           emit("mail:open");
         });
+      }
+      break;
+    case "dismissNotification":
+      for (const shown of shownNotifications) {
+        if ((effect.id && shown.id === effect.id) || (effect.chat && shown.chat === effect.chat)) {
+          shownNotifications.delete(shown);
+          shown.notification.close();
+        }
       }
       break;
     case "badge":

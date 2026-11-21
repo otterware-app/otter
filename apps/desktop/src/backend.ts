@@ -18,7 +18,7 @@ import { desktopExtensions } from "./extensions.js";
 import { registerBackendHandlers } from "./handlers/backend.js";
 import { logger, reportLogsTo, sendLogsTo } from "./logger.js";
 import { postToMain, settleRequest, tellMain } from "./main-link.js";
-import { desktopPlatform, resumeListeners } from "./platform.js";
+import { desktopPlatform, resumeListeners, setDesktopPresence } from "./platform.js";
 import { serverUrl } from "./services/agent/mcp-server.js";
 
 sendLogsTo((level, scope, message, data) => tellMain({ kind: "log", level, scope, message, data }));
@@ -86,6 +86,8 @@ process.parentPort.on("message", (event) => {
     settleRequest(message.id, message.result, message.error);
   } else if (message.type === "resume") {
     for (const listener of resumeListeners) listener();
+  } else if (message.type === "presence") {
+    setDesktopPresence(message.active);
   } else if (message.type === "shutdown") {
     shutdownProviders();
     process.exit(0);

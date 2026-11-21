@@ -46,7 +46,7 @@ import { NotificationMailbox as NotificationMailboxObject } from "./notification
 import * as apns from "./apns.ts";
 import * as tunnel from "./tunnel.ts";
 import { forHost } from "./hosts.ts";
-import { SESSION_HEADER, UserHub as UserHubObject } from "./user-hub.ts";
+import { deliverAgentPush, SESSION_HEADER, UserHub as UserHubObject } from "./user-hub.ts";
 
 export const UserHub = Sentry.instrumentDurableObjectWithSentry(errorReports, UserHubObject);
 export const NotificationMailbox = Sentry.instrumentDurableObjectWithSentry(
@@ -96,6 +96,7 @@ export interface Env {
   APNS_AGENTS_SANDBOX_TOPIC?: string;
   APNS_AGENTS_PRODUCTION_TOPIC?: string;
   APNS_TEST_ORIGIN?: string;
+  AGENT_ESCALATE_MS?: string;
   BETTER_AUTH_URL: string;
   BETTER_AUTH_SECRET: string;
   GOOGLE_JWKS_URL?: string;
@@ -791,19 +792,12 @@ app.route(
   ),
 );
 
-/** Tells the account's Otter Agents iPhones too, for when the app isn't open to hear the event. */
+/** Tells the account's Otter Agents iPhones too, when no active computer handles it or the chat started on phone. */
 async function notifyAgentDevices(env: Env, userId: string, pointer: AgentPointer): Promise<void> {
-  // An approval answered elsewhere is nothing to come back for.
-  if (pointer.resolved || !apns.configured(env)) return;
-  // Someone is looking at this chat on one of the account's devices: it tells them itself.
-  if (pointer.sessionKey && (await hub(env, userId).watching(pointer.sessionKey))) return;
-  const devices = await push.agentDevices(env, userId);
-  await Promise.all(
-    devices.map(async (device) => {
-      const result = await apns.sendAgent(env, device, userId, pointer);
-      if (result === "invalid") await push.invalidate(env, device);
-    }),
-  );
+  if (!apns.configured(env)) return;
+  const decision = await hub(env, userId).routeAgentPush(userId, pointer);
+  if (decision !== "push") return;
+  await deliverAgentPush(env, userId, pointer);
 }
 
 const gmailNotification = z.object({

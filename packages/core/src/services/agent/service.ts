@@ -503,47 +503,152 @@ export async function agentDelivered(sessionKey?: string): Promise<void> {
   }
 }
 
-/** Asks already reported, by key, and whether a window that had focus reported them. */
-const asks = new Map<string, { focused: boolean }>();
+export type AgentNoticeKind = "approval" | "question" | "message" | "finished";
+
+export interface AgentInAppNotice {
+  id: string;
+  kind: AgentNoticeKind;
+  title: string;
+  subtitle?: string;
+  body?: string;
+  chat?: string;
+  agentName: string;
+}
+
+/** Asks already reported, by key, with settle timer and cancellation state. */
+const asks = new Map<
+  string,
+  {
+    viewing: boolean;
+    appFocused: boolean;
+    chat?: string;
+    cancelled: boolean;
+    timer?: ReturnType<typeof setTimeout>;
+  }
+>();
 /** How long every window (each web tab, the desktop window) gets to report an ask. */
 const ASK_SETTLE_MS = 500;
 
+function formatAgentNotice(
+  kind: AgentNoticeKind,
+  agentName: string,
+  ask: { title: string; subtitle?: string; body?: string; chatTitle?: string; taskName?: string },
+): { title: string; subtitle?: string; body?: string } {
+  const chatTitle = ask.chatTitle?.trim();
+  const taskName = ask.taskName?.trim();
+  switch (kind) {
+    case "approval":
+      return {
+        title: "Agent · Approval needed",
+        subtitle: chatTitle ? `${agentName} — ${chatTitle}` : agentName,
+        body: ask.body?.trim() || ask.title,
+      };
+    case "question":
+      return {
+        title: "Agent · Question",
+        subtitle: chatTitle ? `${agentName} — ${chatTitle}` : agentName,
+        body: ask.body?.trim() || ask.title,
+      };
+    case "message":
+      return {
+        title: taskName ? `Agent · ${taskName}` : `Agent · ${agentName}`,
+        subtitle: taskName
+          ? chatTitle
+            ? `${agentName} — ${chatTitle}`
+            : agentName
+          : chatTitle || ask.subtitle || "Sent you a message",
+        body: ask.body,
+      };
+    case "finished":
+      return {
+        title: `Agent · ${agentName}`,
+        subtitle: chatTitle ? `${chatTitle} · Finished` : (ask.subtitle ?? "Finished"),
+        body: ask.body,
+      };
+  }
+}
+
 /**
  * What an agent asks of the user (an approval, a question), delivers or
- * finishes notifies once, when no window that showed it had focus: every window
- * reports it, a turn picked up again reports it again.
+ * finishes notifies once, when no window is actively viewing that chat:
+ * - If another Otter window has focus (e.g. Mail or Calendar), sends a calm in-app notice.
+ * - If Otter is in the background, shows a clearly tagged Agent OS notification.
  */
 export function notifyAsk(
   id: AgentId,
   ask: {
     key: string;
+    kind: AgentNoticeKind;
     title: string;
     subtitle?: string;
     body?: string;
     chat?: string;
-    focused: boolean;
+    chatTitle?: string;
+    taskName?: string;
+    viewing: boolean;
+    appFocused: boolean;
   },
 ): void {
   const seen = asks.get(ask.key);
   if (seen) {
-    seen.focused ||= ask.focused;
+    seen.viewing ||= ask.viewing;
+    seen.appFocused ||= ask.appFocused;
     return;
   }
-  const entry = { focused: ask.focused };
+  const entry: {
+    viewing: boolean;
+    appFocused: boolean;
+    chat?: string;
+    cancelled: boolean;
+    timer?: ReturnType<typeof setTimeout>;
+  } = { viewing: ask.viewing, appFocused: ask.appFocused, chat: ask.chat, cancelled: false };
   asks.set(ask.key, entry);
-  setTimeout(() => {
-    if (entry.focused) return;
+  entry.timer = setTimeout(() => {
+    entry.timer = undefined;
+    if (entry.viewing || entry.cancelled) return;
     void Promise.all([getSettings(), getProviderSettings()]).then(([settings, { agents }]) => {
-      if (settings.notificationsMode === "off") return;
-      const name = agents.find((a) => a.id === id)?.name ?? "Your agent";
+      if (entry.viewing || entry.cancelled) return;
+      const mode = settings.agentNotificationsMode ?? "all";
+      if (mode === "off") return;
+      if (mode === "needs-you" && ask.kind === "finished") return;
+      const agent = agents.find((a) => a.id === id);
+      const agentName = agent?.name ?? "Your agent";
+      const formatted = formatAgentNotice(ask.kind, agentName, ask);
+      if (entry.appFocused) {
+        broadcast("agent:inAppNotice", {
+          id: ask.key,
+          kind: ask.kind,
+          ...formatted,
+          chat: ask.chat,
+          agentName,
+        } satisfies AgentInAppNotice);
+        return;
+      }
       platform().notify({
-        title: ask.title,
-        subtitle: ask.subtitle ?? `${name} is waiting for you`,
-        body: ask.body,
+        id: ask.key,
+        category: "agent",
+        ...formatted,
+        ...(agent?.avatar ? { icon: agent.avatar } : {}),
+        ...(ask.kind === "finished" ? { silent: true } : {}),
         chat: ask.chat,
       });
     });
   }, ASK_SETTLE_MS);
+}
+
+/** Cancels in-flight notices and closes stale OS notifications when an ask is resolved or its chat opens. */
+export function dismissNotification(match: { id?: string; chat?: string }): void {
+  if (!match.id && !match.chat) return;
+  for (const [key, entry] of asks) {
+    if ((match.id && key === match.id) || (match.chat && entry.chat === match.chat)) {
+      entry.cancelled = true;
+      if (entry.timer) {
+        clearTimeout(entry.timer);
+        entry.timer = undefined;
+      }
+    }
+  }
+  platform().dismissNotification?.(match);
 }
 
 export async function answerQuestion(

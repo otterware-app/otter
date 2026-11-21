@@ -465,6 +465,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["chat queue steer running agent"],
   },
   {
+    id: "agent-notifications",
+    title: "Agent notifications",
+    pane: "agents",
+    searchTerms: ["agent notifications alerts phone approval question finished quiet computer"],
+  },
+  {
     id: "auto-settle",
     title: "Auto-settle inactive chats",
     pane: "agents",

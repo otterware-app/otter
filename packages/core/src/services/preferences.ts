@@ -66,6 +66,7 @@ export function setUiPreference(key: string, value: string): Promise<void> {
 const SYNCED_SETTINGS = [
   "syncIntervalSeconds",
   "notificationsMode",
+  "agentNotificationsMode",
   "readLanguages",
   "autoTranslate",
 ] as const satisfies readonly (keyof AppSettings)[];

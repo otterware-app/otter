@@ -28,12 +28,17 @@ export type PageRequests = {
 export type PageEffect =
   | {
       kind: "notify";
+      id?: string;
       title: string;
       subtitle?: string;
       body?: string;
+      category?: "mail" | "agent";
+      icon?: string;
+      silent?: boolean;
       open?: { accountId: string; messageId: string; mailbox?: string };
       chat?: string;
     }
+  | { kind: "dismissNotification"; id?: string; chat?: string }
   | { kind: "badge"; count: number }
   | { kind: "download"; name: string; bytes: Uint8Array }
   | { kind: "open"; name: string; bytes: Uint8Array };

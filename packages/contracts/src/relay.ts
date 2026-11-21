@@ -223,18 +223,49 @@ export interface AgentPushMetadata {
   pointer: Omit<AgentPointer, "channel" | "title" | "agentName">;
 }
 
+export type PresenceDevice = "desktop" | "web" | "ios";
+
 /**
  * What a device tells the relay over its events socket: the agent session on screen while its
- * window has focus, null once it isn't. Said again every `WATCHING_EVERY_MS`: a device that
- * stops saying it (asleep, gone) isn't looking after `WATCHING_FOR_MS`. A chat someone is looking
- * at isn't pushed to the account's iPhones.
+ * window has focus, whether the user is active on this computer, and which kind of device it is.
+ * Said again every `WATCHING_EVERY_MS`: a device that stops saying it (asleep, gone) isn't
+ * looking or active after `WATCHING_FOR_MS`.
  */
 export interface WatchingMessage {
   type: "watching";
   session: string | null;
+  active?: boolean;
+  device?: PresenceDevice;
 }
+
+/**
+ * Tells the relay which device sent the latest message in an agent session, so replies and asks
+ * follow you back to the device you wrote from (e.g. phone vs laptop).
+ */
+export interface SentMessage {
+  type: "sent";
+  session: string;
+  device: PresenceDevice;
+  at?: number;
+}
+
+/**
+ * Tells the relay an approval or question in `session` was answered on this device, cancelling
+ * any queued phone escalation for it (`id` is `approval:<id>` or `question:<id>`).
+ */
+export interface ResolvedMessage {
+  type: "resolved";
+  session: string;
+  id?: string;
+}
+
+export type ClientPresenceMessage = WatchingMessage | SentMessage | ResolvedMessage;
+
 export const WATCHING_EVERY_MS = 30_000;
 export const WATCHING_FOR_MS = 90_000;
+export const AGENT_ESCALATE_MS = 60_000;
+export const ORIGIN_TTL_MS = 30 * 60_000;
+export const AGENT_COALESCE_MS = 15_000;
 
 /** A gateway allowed to send the account's devices pointers, with a token shown once. */
 export interface AgentChannel {

@@ -191,7 +191,9 @@ function ModePicker({
   onMode: (mode: AppMode) => void;
 }) {
   const unread = Object.values(useInboxUnread(accounts)).some((n) => n > 0);
-  const agentDot = useChats((s) => s.unseen.size > 0);
+  const agentDot = useChats((s): boolean | "attention" =>
+    s.approvals.length > 0 || s.questions.length > 0 ? "attention" : s.unseen.size > 0,
+  );
   const workspaces = useWorkspaces();
   const [order, setOrder] = useState(loadModeOrder);
   const modes: {
@@ -199,7 +201,7 @@ function ModePicker({
     label: string;
     Icon: ComponentType<Pick<NavGlyphProps, "selected" | "className">>;
     shortcut?: KeybindingCommand;
-    dot: boolean;
+    dot: boolean | "attention";
   }[] = [
     { mode: "mail", label: "Mail", Icon: OtterMailIcon, shortcut: "mode.mail", dot: unread },
     {

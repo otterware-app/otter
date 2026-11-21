@@ -1,4 +1,11 @@
-import type { RelayEvent, WatchingMessage } from "@otter/contracts/relay";
+import {
+  WATCHING_FOR_MS,
+  type PresenceDevice,
+  type RelayEvent,
+  type ResolvedMessage,
+  type SentMessage,
+  type WatchingMessage,
+} from "@otter/contracts/relay";
 
 import { logger } from "../logger.js";
 import { platform } from "../platform.js";
@@ -24,6 +31,7 @@ const RETRY_MAX_MS = 60_000;
 
 let handlers: RealtimeHandlers | null = null;
 let stopWatchingResume: (() => void) | null = null;
+let stopWatchingPresence: (() => void) | null = null;
 let socket: WebSocket | null = null;
 let state: RealtimeState = "off";
 let attempt = 0;
@@ -33,11 +41,37 @@ let pongTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** The agent session each of this device's windows has on screen, while that window is in front. */
 const watching = new Map<string, string>();
+/** Active web tabs and when they last reported user activity. */
+const activeWindows = new Map<string, number>();
+/** Desktop system-level activity (unlocked and not idle), from Electron powerMonitor. */
+let systemActive = false;
+/** Whether the last presence frame sent on the current socket reported active: true. */
+let lastReportedActive = false;
+
+const deviceKind = (): PresenceDevice => (platform().kind === "desktop" ? "desktop" : "web");
+
+const isActive = (): boolean => {
+  if (systemActive) return true;
+  const now = Date.now();
+  for (const [win, at] of activeWindows) {
+    if (now - at >= WATCHING_FOR_MS) activeWindows.delete(win);
+  }
+  return activeWindows.size > 0;
+};
 
 function sayWatching(): void {
   if (socket?.readyState !== WebSocket.OPEN) return;
   const [session = null] = watching.values();
-  socket.send(JSON.stringify({ type: "watching", session } satisfies WatchingMessage));
+  const active = isActive();
+  lastReportedActive = active;
+  socket.send(
+    JSON.stringify({
+      type: "watching",
+      session,
+      active,
+      device: deviceKind(),
+    } satisfies WatchingMessage),
+  );
 }
 
 /**
@@ -50,6 +84,45 @@ export function setWatching(window: string, session: string | null): void {
   else watching.delete(window);
   const [now = null] = watching.values();
   if (now !== before) sayWatching();
+}
+
+/** A web tab reports whether the user is active in it right now. */
+export function setWindowPresence(window: string, active: boolean): void {
+  const before = isActive();
+  if (active) activeWindows.set(window, Date.now());
+  else activeWindows.delete(window);
+  if (isActive() !== before) sayWatching();
+}
+
+function setSystemPresence(active: boolean): void {
+  const before = isActive();
+  systemActive = active;
+  if (isActive() !== before) sayWatching();
+}
+
+/** Tells the relay this device sent a message in `session`, so replies follow back to it. */
+export function noteAgentSent(session: string): void {
+  if (!session || socket?.readyState !== WebSocket.OPEN) return;
+  socket.send(
+    JSON.stringify({
+      type: "sent",
+      session,
+      device: deviceKind(),
+      at: Date.now(),
+    } satisfies SentMessage),
+  );
+}
+
+/** Tells the relay an approval or question in `session` was answered here, cancelling queued phone escalation. */
+export function noteAgentResolved(session: string, id?: string): void {
+  if (!session || socket?.readyState !== WebSocket.OPEN) return;
+  socket.send(
+    JSON.stringify({
+      type: "resolved",
+      session,
+      ...(id ? { id } : {}),
+    } satisfies ResolvedMessage),
+  );
 }
 
 function setState(next: RealtimeState): void {
@@ -108,8 +181,8 @@ function connect(): void {
     sayWatching();
     pingTimer = setInterval(() => {
       ws.send("ping");
-      // Said again while it's true: the relay forgets a device that stops saying it.
-      if (watching.size > 0) sayWatching();
+      // Said again while active/watching, and once when expired presence transitions to inactive.
+      if (watching.size > 0 || isActive() || lastReportedActive) sayWatching();
       pongTimer ??= setTimeout(() => {
         logger.info("realtime", "No pong; reconnecting");
         dropSocket();
@@ -159,6 +232,7 @@ export function startRealtime(next: RealtimeHandlers): void {
   if (first) {
     // After sleep the old socket is usually dead; don't wait for the ping to notice.
     stopWatchingResume = platform().onResume(reconnectNow);
+    stopWatchingPresence = platform().onPresence?.(setSystemPresence) ?? null;
   }
   reconnectNow();
 }
@@ -167,6 +241,8 @@ export function stopRealtime(): void {
   if (!handlers) return;
   stopWatchingResume?.();
   stopWatchingResume = null;
+  stopWatchingPresence?.();
+  stopWatchingPresence = null;
   dropSocket();
   attempt = 0;
   setState("off");

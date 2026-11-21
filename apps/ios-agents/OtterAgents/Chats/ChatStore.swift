@@ -91,6 +91,7 @@ final class ChatStore {
     }
     /** The chat on screen changed, or its session did. */
     @ObservationIgnored var onWatch: () -> Void = {}
+    @ObservationIgnored var onSent: (String) -> Void = { _ in }
     /** A message a search led to, for its chat to show. */
     var found: Found?
     /** Something that didn't work, said once. */
@@ -546,6 +547,7 @@ final class ChatStore {
         }
         appendExchange(message, key: requestId, intent: intent)
         saveDrafts()
+        if let session = chat.sessionId { onSent(session) }
         let chatId = message.chatId
         runner.send(OutgoingTurn(requestId: requestId, provider: provider, input: message.input, sessionId: chat.sessionId,
                                  title: first ? message.title : nil, skill: message.skill, attachments: message.attachments)) { [weak self] event in
@@ -555,6 +557,7 @@ final class ChatStore {
 
     private func steer(_ message: Outgoing, intent: String = "steer") {
         guard let target = runs[message.chatId] else { return startTurn(message) }
+        if let session = chat(message.chatId)?.sessionId { onSent(session) }
         let key = "\(target.requestId)-\(message.id)"
         let before = lastReply[target.requestId]
         appendExchange(message, key: key, intent: intent)
@@ -718,6 +721,7 @@ final class ChatStore {
                 $0.sessionId = session
                 $0.sessionOwned = true
             }
+            if sent[requestId] != nil { onSent(session) }
             return onWatch()
         case .transcript(let messages):
             return update(chatId) { chat in

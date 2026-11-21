@@ -3,6 +3,7 @@ import {
   clipboard,
   dialog,
   ipcMain,
+  nativeImage,
   Notification,
   powerMonitor,
   safeStorage,
@@ -27,6 +28,7 @@ import { reportedByBackend, setErrorReportsAllowed, sendsErrorReports } from "./
 import { broadcast } from "./ipc.js";
 import { logger, writeLog } from "./logger.js";
 import { hostOS } from "./os/index.js";
+import { agentIconImage } from "./resources.js";
 import { setPendingOpenMessage } from "./services/open-message-target.js";
 import { focusMainWindow } from "./windows/main-window.js";
 
@@ -68,6 +70,7 @@ export function startBackend(): Promise<void> {
       if (message.type === "ready") {
         serve(message.channels);
         restartDelay = RESTART_DELAY_MS;
+        send({ type: "presence", active: lastPresence });
         resolve();
       } else {
         receive(message);
@@ -107,7 +110,55 @@ function serve(channels: string[]): void {
   }
 }
 
-void app.whenReady().then(() => powerMonitor.on("resume", () => send({ type: "resume" })));
+const IDLE_THRESHOLD_SECONDS = 120;
+const PRESENCE_POLL_MS = 15_000;
+let screenLocked = false;
+let systemSuspended = false;
+let lastPresence = false;
+let presencePoll: ReturnType<typeof setInterval> | null = null;
+
+function computePresence(): boolean {
+  if (screenLocked || systemSuspended) return false;
+  try {
+    return powerMonitor.getSystemIdleTime() < IDLE_THRESHOLD_SECONDS;
+  } catch {
+    return false;
+  }
+}
+
+function updatePresence(): void {
+  const next = computePresence();
+  if (next === lastPresence) return;
+  lastPresence = next;
+  send({ type: "presence", active: next });
+}
+
+void app.whenReady().then(() => {
+  updatePresence();
+  presencePoll = setInterval(updatePresence, PRESENCE_POLL_MS);
+  powerMonitor.on("suspend", () => {
+    systemSuspended = true;
+    updatePresence();
+  });
+  powerMonitor.on("resume", () => {
+    systemSuspended = false;
+    send({ type: "resume" });
+    updatePresence();
+  });
+  powerMonitor.on("lock-screen", () => {
+    screenLocked = true;
+    updatePresence();
+  });
+  powerMonitor.on("unlock-screen", () => {
+    screenLocked = false;
+    updatePresence();
+  });
+  app.on("browser-window-focus", updatePresence);
+  app.on("before-quit", () => {
+    if (presencePoll) clearInterval(presencePoll);
+    presencePoll = null;
+  });
+});
 
 function receive(message: Exclude<FromBackend, { type: "ready" }>): void {
   if (message.type === "result") {
@@ -173,7 +224,20 @@ async function answer(
 }
 
 const MAX_AWAITING_CLICK = 50;
-const notificationsAwaitingClick = new Set<Notification>();
+type ShownNotification = { notification: Notification; id?: string; chat?: string };
+const notificationsAwaitingClick = new Set<ShownNotification>();
+
+function notificationIcon(category: "mail" | "agent" | undefined, icon: string | undefined) {
+  if (icon) {
+    const custom = nativeImage.createFromDataURL(icon);
+    if (!custom.isEmpty()) return custom;
+  }
+  if (category === "agent") {
+    const fallback = agentIconImage();
+    if (!fallback.isEmpty()) return fallback;
+  }
+  return undefined;
+}
 
 function carryOut(effect: MainEffect): void {
   switch (effect.kind) {
@@ -181,18 +245,25 @@ function carryOut(effect: MainEffect): void {
       broadcast(effect.channel, effect.params);
       return;
     case "notify": {
-      const { kind: _kind, open, chat, code, ...options } = effect;
+      const { kind: _kind, id, category, icon, silent, open, chat, code, ...options } = effect;
       if (!Notification.isSupported()) return;
+      const resolvedIcon = notificationIcon(category, icon);
       const notification = new Notification({
         ...options,
+        ...(resolvedIcon ? { icon: resolvedIcon } : {}),
+        ...(silent !== undefined ? { silent } : {}),
         ...(code && { actions: [{ type: "button" as const, text: "Copy & trash" }] }),
       });
-      notificationsAwaitingClick.add(notification);
+      const shown: ShownNotification = { notification, id, chat };
+      notificationsAwaitingClick.add(shown);
       if (notificationsAwaitingClick.size > MAX_AWAITING_CLICK) {
         notificationsAwaitingClick.delete(notificationsAwaitingClick.values().next().value!);
       }
+      notification.on("close", () => {
+        notificationsAwaitingClick.delete(shown);
+      });
       notification.on("click", () => {
-        notificationsAwaitingClick.delete(notification);
+        notificationsAwaitingClick.delete(shown);
         if (open) setPendingOpenMessage(open);
         void focusMainWindow().then((win) => {
           if (open) win.webContents.send("mail:open");
@@ -200,7 +271,7 @@ function carryOut(effect: MainEffect): void {
         });
       });
       notification.on("action", () => {
-        notificationsAwaitingClick.delete(notification);
+        notificationsAwaitingClick.delete(shown);
         if (!code) return;
         clipboard.writeText(code);
         if (open) {
@@ -210,6 +281,15 @@ function carryOut(effect: MainEffect): void {
         }
       });
       notification.show();
+      return;
+    }
+    case "dismissNotification": {
+      for (const shown of notificationsAwaitingClick) {
+        if ((effect.id && shown.id === effect.id) || (effect.chat && shown.chat === effect.chat)) {
+          notificationsAwaitingClick.delete(shown);
+          shown.notification.close();
+        }
+      }
       return;
     }
     case "unread":

@@ -66,6 +66,7 @@ final class Account {
         preferences.onChange = { [weak self] in self?.uiChanged() }
         agents.onChange = { [weak self] in self?.uiChanged() }
         chats.onWatch = { [weak self] in self?.tellWatching() }
+        chats.onSent = { [weak self] session in self?.relay.noteSent(session: session) }
         agents.onReady = { [weak self] _ in
             self?.chats.resumeRuns()
             self?.chats.startQueued()
@@ -156,6 +157,7 @@ final class Account {
     @discardableResult
     func delivered(_ pointer: AgentPointer) async -> String? {
         guard state != .welcome, let session = pointer.sessionKey else { return nil }
+        if pointer.resolved { clearNotifications(for: session) }
         if !candidates(for: pointer).contains(where: \.isUsable) { await agents.checkAll() }
         return await chats.delivered(to: candidates(for: pointer), session: session)
     }
@@ -180,7 +182,20 @@ final class Account {
 
     /** The relay hears which chat is on screen, so this account's iPhones stay quiet about it. */
     private func tellWatching() {
-        relay.watching = chats.watched.flatMap { chats.chat($0)?.sessionId }
+        let session = chats.watched.flatMap { chats.chat($0)?.sessionId }
+        relay.watching = session
+        if let session { clearNotifications(for: session) }
+    }
+
+    /** Clears delivered notifications on this iPhone for a chat the user opened or resolved elsewhere. */
+    private func clearNotifications(for session: String) {
+        let center = UNUserNotificationCenter.current()
+        center.getDeliveredNotifications { delivered in
+            let ids = delivered
+                .filter { $0.request.content.threadIdentifier == session }
+                .map(\.request.identifier)
+            if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
+        }
     }
 
     /** Asks once to show notifications, when they're on. */

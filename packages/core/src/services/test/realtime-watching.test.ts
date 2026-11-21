@@ -33,19 +33,35 @@ class FakeSocket {
   }
 }
 
+let presenceListener: ((active: boolean) => void) | null = null;
+let platformKind: "desktop" | "web" = "desktop";
+
 vi.mock("../otter-account.ts", () => ({
   getOtterUser: () => ({ id: "user" }),
   getSessionToken: () => "token",
 }));
 vi.mock("../../platform.ts", () => ({
-  platform: () => ({ relayUrl: "http://relay.test", onResume: () => () => {} }),
+  platform: () => ({
+    kind: platformKind,
+    relayUrl: "http://relay.test",
+    onResume: () => () => {},
+    onPresence: (listener: (active: boolean) => void) => {
+      presenceListener = listener;
+      return () => {
+        presenceListener = null;
+      };
+    },
+  }),
 }));
 
-const watching = (session: string | null) => JSON.stringify({ type: "watching", session });
+const watching = (session: string | null, active = false, device = "desktop") =>
+  JSON.stringify({ type: "watching", session, active, device });
 
 beforeEach(() => {
   vi.useFakeTimers();
   FakeSocket.all = [];
+  presenceListener = null;
+  platformKind = "desktop";
   vi.stubGlobal("WebSocket", FakeSocket);
 });
 
@@ -54,8 +70,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("tells the relay the agent session a focused window shows, and says it again while it does", async () => {
-  const { setWatching, startRealtime, stopRealtime } = await import("../realtime.ts");
+it("tells the relay the agent session a focused window shows, desktop activity, sent origin, and resolved asks", async () => {
+  const {
+    noteAgentResolved,
+    noteAgentSent,
+    setWatching,
+    setWindowPresence,
+    startRealtime,
+    stopRealtime,
+  } = await import("../realtime.ts");
   startRealtime({ onConnected() {}, onEvent() {}, onStateChange() {}, onRefused() {} });
   const socket = FakeSocket.all.at(-1)!;
 
@@ -73,10 +96,50 @@ it("tells the relay the agent session a focused window shows, and says it again 
   expect(socket.sent.slice(1)).toEqual(["ping", watching("agent:main:otter-mail:1")]);
   socket.receive("pong");
 
+  // User switches away from the chat but stays active on the computer.
+  presenceListener?.(true);
   setWatching("window-a", null);
-  expect(socket.sent.at(-1)).toBe(watching(null));
+  expect(socket.sent.at(-1)).toBe(watching(null, true));
+
+  // Sending a message reports the device origin with timestamp; resolving reports ask id.
+  noteAgentSent("agent:main:otter-mail:1");
+  expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({
+    type: "sent",
+    session: "agent:main:otter-mail:1",
+    device: "desktop",
+    at: expect.any(Number),
+  });
+  noteAgentResolved("agent:main:otter-mail:1", "question:q-1");
+  expect(socket.sent.at(-1)).toBe(
+    JSON.stringify({ type: "resolved", session: "agent:main:otter-mail:1", id: "question:q-1" }),
+  );
+
+  // Still active on desktop: keep heartbeat alive.
   vi.advanceTimersByTime(30_000);
-  // Nothing on screen: the ping alone.
-  expect(socket.sent.slice(-2)).toEqual([watching(null), "ping"]);
+  expect(socket.sent.slice(-2)).toEqual(["ping", watching(null, true)]);
+  socket.receive("pong");
+
+  // Going idle stops waking the DO beyond bare ping.
+  presenceListener?.(false);
+  expect(socket.sent.at(-1)).toBe(watching(null, false));
+  vi.advanceTimersByTime(30_000);
+  expect(socket.sent.slice(-2)).toEqual([watching(null, false), "ping"]);
+  socket.receive("pong");
+
+  // A web tab that stops refreshing presence expires after WATCHING_FOR_MS, tells the relay inactive once, then sends bare pings.
+  setWindowPresence("tab-1", true);
+  expect(socket.sent.at(-1)).toBe(watching(null, true));
+  vi.advanceTimersByTime(30_000);
+  socket.receive("pong");
+  expect(socket.sent.at(-1)).toBe(watching(null, true));
+  vi.advanceTimersByTime(30_000);
+  socket.receive("pong");
+  expect(socket.sent.at(-1)).toBe(watching(null, true));
+  vi.advanceTimersByTime(30_000);
+  socket.receive("pong");
+  expect(socket.sent.at(-1)).toBe(watching(null, false));
+  vi.advanceTimersByTime(30_000);
+  socket.receive("pong");
+  expect(socket.sent.at(-1)).toBe("ping");
   stopRealtime();
 });

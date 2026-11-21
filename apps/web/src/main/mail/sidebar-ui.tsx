@@ -333,7 +333,7 @@ export type SidebarPickerItem = {
   shortcut?: KeybindingCommand;
   /** Added to the tooltip: "Mail · in iCloud". */
   detail?: string;
-  dot?: boolean;
+  dot?: boolean | "attention";
 };
 
 export function SidebarPicker({
@@ -426,7 +426,10 @@ export function SidebarPicker({
                 {dot && !selected ? (
                   <span
                     aria-hidden
-                    className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-sidebar-foreground ring-2 ring-sidebar-surface"
+                    className={cn(
+                      "absolute -right-0.5 -top-0.5 size-2 rounded-full ring-2 ring-sidebar-surface",
+                      dot === "attention" ? "bg-warning" : "bg-sidebar-foreground",
+                    )}
                   />
                 ) : null}
               </span>

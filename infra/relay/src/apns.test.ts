@@ -1,6 +1,6 @@
 import { exportPKCS8, generateKeyPair, jwtVerify } from "jose";
 import { beforeAll, describe, expect, it, vi } from "vite-plus/test";
-import { newer, payload, send } from "./apns.ts";
+import { agentPayload, newer, payload, send, sendAgent } from "./apns.ts";
 import type { Env } from "./worker.ts";
 import type { PushDevice } from "./push.ts";
 
@@ -161,5 +161,44 @@ describe("private APNs payloads", () => {
     expect(newer("9007199254740993", "9007199254740993")).toBe(false);
     expect(newer("90", "100")).toBe(false);
     expect(newer("invalid", "1")).toBe(false);
+  });
+
+  it("sends passive silent alerts for finished runs and collapses agent pushes per chat", async () => {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));
+    const base = {
+      channel: "ch-1",
+      agentId: "scout",
+      sessionKey: "agent:scout:otter-mail:plan",
+      title: "Launch plan",
+      agentName: "Rowan",
+      at: 1000,
+    };
+    const finished = agentPayload("user", { ...base, kind: "finished" });
+    expect(finished.aps).toEqual({
+      alert: { title: "Launch plan", body: "Finished: Rowan" },
+      "interruption-level": "passive",
+      "thread-id": base.sessionKey,
+    });
+    const approval = agentPayload("user", { ...base, kind: "approval", approvalId: "ap-1" });
+    expect(approval.aps).toEqual({
+      alert: { title: "Launch plan", body: "Approval needed: Rowan" },
+      "interruption-level": "active",
+      sound: "default",
+      "thread-id": base.sessionKey,
+    });
+
+    await sendAgent(
+      env,
+      device,
+      "user",
+      { ...base, kind: "approval", approvalId: "ap-1" },
+      transport,
+    );
+    await sendAgent(env, device, "user", { ...base, kind: "finished" }, transport);
+    const firstHeaders = new Headers(transport.mock.calls[0]![1]!.headers);
+    const secondHeaders = new Headers(transport.mock.calls[1]![1]!.headers);
+    expect(firstHeaders.get("apns-priority")).toBe("10");
+    expect(secondHeaders.get("apns-priority")).toBe("5");
+    expect(firstHeaders.get("apns-collapse-id")).toBe(secondHeaders.get("apns-collapse-id"));
   });
 });

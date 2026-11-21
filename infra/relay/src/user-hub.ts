@@ -8,7 +8,15 @@
 import { DurableObject } from "cloudflare:workers";
 import type { AgentSyncRequest, AgentSyncResponse } from "@otter/contracts/agent-sync";
 import type { Chat } from "@otter/contracts/chats";
-import { type RelayEvent, WATCHING_FOR_MS } from "@otter/contracts/relay";
+import {
+  AGENT_COALESCE_MS,
+  AGENT_ESCALATE_MS,
+  type AgentPointer,
+  ORIGIN_TTL_MS,
+  type PresenceDevice,
+  type RelayEvent,
+  WATCHING_FOR_MS,
+} from "@otter/contracts/relay";
 import { AgentData } from "./agent-sync.ts";
 import { openOldAgentKeys } from "./preferences.ts";
 import * as apns from "./apns.ts";
@@ -34,10 +42,46 @@ type PendingPush = {
   inboxMessage?: PendingPush["verified"];
 };
 
+type PendingAgentPush = {
+  userId: string;
+  pointer: AgentPointer;
+  due: number;
+};
+
+type SessionOrigin = {
+  device: PresenceDevice;
+  at: number;
+};
+
 export const SESSION_HEADER = "x-otter-session";
 
-/** Kept with a device's socket: the agent session it says it has on screen, and when it said so. */
-type Attachment = { session?: string; at?: number };
+/** Kept with a device's socket: the agent session it has on screen, whether the computer is active, and when it said so. */
+type Attachment = {
+  session?: string;
+  active?: boolean;
+  device?: PresenceDevice;
+  at?: number;
+};
+
+const isPresenceDevice = (value: unknown): value is PresenceDevice =>
+  value === "desktop" || value === "web" || value === "ios";
+
+/** Sends an agent pointer to every eligible Otter Agents iPhone, respecting the account's mode. */
+export async function deliverAgentPush(
+  env: Env,
+  userId: string,
+  pointer: AgentPointer,
+): Promise<void> {
+  if (!apns.configured(env)) return;
+  const devices = await push.agentDevices(env, userId);
+  await Promise.all(
+    devices.map(async (device) => {
+      if (pointer.kind === "finished" && device.agent_notification_mode === "needs-you") return;
+      const result = await apns.sendAgent(env, device, userId, pointer);
+      if (result === "invalid") await push.invalidate(env, device);
+    }),
+  );
+}
 
 export class UserHub extends DurableObject<Env> {
   private agentData: AgentData | null = null;
@@ -270,9 +314,24 @@ export class UserHub extends DurableObject<Env> {
         } else await storage.delete(key);
       });
     }
-    const remaining = await this.ctx.storage.list<PendingPush>({ prefix: "pending:" });
-    if (remaining.size)
-      await this.ctx.storage.setAlarm(Math.min(...Array.from(remaining.values(), (p) => p.due)));
+    const pendingAgents = await this.ctx.storage.list<PendingAgentPush>({
+      prefix: "pending-agent:",
+    });
+    for (const [key, item] of pendingAgents) {
+      if (item.due > Date.now()) continue;
+      await this.ctx.storage.delete(key);
+      if (item.pointer.sessionKey && this.watching(item.pointer.sessionKey)) continue;
+      await deliverAgentPush(this.env, item.userId, item.pointer);
+    }
+    const [remainingMail, remainingAgents] = await Promise.all([
+      this.ctx.storage.list<PendingPush>({ prefix: "pending:" }),
+      this.ctx.storage.list<PendingAgentPush>({ prefix: "pending-agent:" }),
+    ]);
+    const dues = [
+      ...Array.from(remainingMail.values(), (p) => p.due),
+      ...Array.from(remainingAgents.values(), (p) => p.due),
+    ];
+    if (dues.length) await this.ctx.storage.setAlarm(Math.min(...dues));
   }
 
   async disconnect(sessionId?: string): Promise<void> {
@@ -311,18 +370,136 @@ export class UserHub extends DurableObject<Env> {
     });
   }
 
-  /** Besides `ping` (answered without waking up), a device says which agent session it's looking at. */
-  override webSocketMessage(socket: WebSocket, message: string | ArrayBuffer): void {
+  /** The user is actively using Otter on a desktop or web device right now. */
+  computerActive(): boolean {
+    const since = Date.now() - WATCHING_FOR_MS;
+    return this.ctx.getWebSockets().some((socket) => {
+      const said = socket.deserializeAttachment() as Attachment | null;
+      return (
+        (said?.device === "desktop" || said?.device === "web") &&
+        said.active === true &&
+        (said.at ?? 0) > since
+      );
+    });
+  }
+
+  private async clearPendingAgent(target: string, askId?: string): Promise<void> {
+    if (askId) {
+      await this.ctx.storage.delete(`pending-agent:${target}:${askId}`);
+      return;
+    }
+    const entries = await this.ctx.storage.list({ prefix: `pending-agent:${target}:` });
+    if (entries.size) await this.ctx.storage.delete([...entries.keys()]);
+  }
+
+  /**
+   * Decides how to route an agent pointer to iPhones:
+   * - `suppress`: resolved, already on screen, redundant `finished`, or non-urgent while computer is active
+   * - `delay`: blocking ask (`approval`/`question`) while computer is active — queued for escalation
+   * - `push`: send to iPhones immediately (originated on iPhone, or computer is idle/away)
+   */
+  async routeAgentPush(
+    userId: string,
+    pointer: AgentPointer,
+  ): Promise<"push" | "suppress" | "delay"> {
+    const target = pointer.sessionKey ?? pointer.agentId;
+    const askId = pointer.approvalId
+      ? `approval:${pointer.approvalId}`
+      : pointer.questionId
+        ? `question:${pointer.questionId}`
+        : pointer.kind;
+    const pendingKey = `pending-agent:${target}:${askId}`;
+    const alertKey = `last-agent-alert:${target}`;
+
+    if (pointer.resolved) {
+      await this.clearPendingAgent(
+        target,
+        pointer.approvalId || pointer.questionId ? askId : undefined,
+      );
+      return "suppress";
+    }
+    if (pointer.sessionKey && this.watching(pointer.sessionKey)) {
+      await this.clearPendingAgent(target);
+      return "suppress";
+    }
+
+    const now = Date.now();
+    if (pointer.kind === "finished") {
+      const lastAlert = await this.ctx.storage.get<number>(alertKey);
+      if (lastAlert && now - lastAlert < AGENT_COALESCE_MS) return "suppress";
+    }
+
+    const origin = pointer.sessionKey
+      ? await this.ctx.storage.get<SessionOrigin>(`origin:${pointer.sessionKey}`)
+      : undefined;
+    const fromPhone = Boolean(origin && now - origin.at < ORIGIN_TTL_MS && origin.device === "ios");
+    if (origin && now - origin.at >= ORIGIN_TTL_MS && pointer.sessionKey) {
+      await this.ctx.storage.delete(`origin:${pointer.sessionKey}`);
+    }
+
+    if (!fromPhone && this.computerActive()) {
+      if (pointer.kind === "approval" || pointer.kind === "question") {
+        const escalateMs = Number(this.env.AGENT_ESCALATE_MS) || AGENT_ESCALATE_MS;
+        const existing = await this.ctx.storage.get<PendingAgentPush>(pendingKey);
+        const due = existing ? Math.min(existing.due, now + escalateMs) : now + escalateMs;
+        await this.ctx.storage.put({
+          [pendingKey]: { userId, pointer, due } satisfies PendingAgentPush,
+          [alertKey]: now,
+        });
+        const alarm = await this.ctx.storage.getAlarm();
+        if (!alarm || alarm > due) await this.ctx.storage.setAlarm(due);
+        return "delay";
+      }
+      return "suppress";
+    }
+
+    if (pointer.kind !== "finished") await this.ctx.storage.put(alertKey, now);
+    return "push";
+  }
+
+  /** Besides `ping` (answered without waking up), a device reports its presence, watched session, sent origin, or resolved ask. */
+  override async webSocketMessage(socket: WebSocket, message: string | ArrayBuffer): Promise<void> {
     if (typeof message !== "string" || message.length > 600) return;
-    let said: { type?: unknown; session?: unknown };
+    let said: {
+      type?: unknown;
+      session?: unknown;
+      active?: unknown;
+      device?: unknown;
+      id?: unknown;
+      at?: unknown;
+    };
     try {
       said = JSON.parse(message) as typeof said;
     } catch {
       return;
     }
-    if (said.type !== "watching") return;
-    const session = typeof said.session === "string" && said.session ? said.session : undefined;
-    socket.serializeAttachment({ session, at: Date.now() } satisfies Attachment);
+    if (said.type === "watching") {
+      const session = typeof said.session === "string" && said.session ? said.session : undefined;
+      const active = typeof said.active === "boolean" ? said.active : undefined;
+      const device = isPresenceDevice(said.device) ? said.device : undefined;
+      socket.serializeAttachment({ session, active, device, at: Date.now() } satisfies Attachment);
+      if (session) await this.clearPendingAgent(session);
+      return;
+    }
+    if (said.type === "sent") {
+      const session = typeof said.session === "string" && said.session ? said.session : undefined;
+      const device = isPresenceDevice(said.device) ? said.device : undefined;
+      if (!session || !device) return;
+      const now = Date.now();
+      const rawAt = typeof said.at === "number" && Number.isFinite(said.at) ? said.at : now;
+      const at = Math.min(now, rawAt);
+      if (now - at >= ORIGIN_TTL_MS) return;
+      const existing = await this.ctx.storage.get<SessionOrigin>(`origin:${session}`);
+      if (existing && at < existing.at) return;
+      await this.ctx.storage.put(`origin:${session}`, { device, at } satisfies SessionOrigin);
+      return;
+    }
+    if (said.type === "resolved") {
+      const session = typeof said.session === "string" && said.session ? said.session : undefined;
+      const id = typeof said.id === "string" && said.id ? said.id : undefined;
+      if (!session) return;
+      await this.clearPendingAgent(session, id);
+    }
   }
 
   override webSocketClose(socket: WebSocket, code: number, reason: string): void {

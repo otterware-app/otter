@@ -138,17 +138,25 @@ export interface Platform {
 
   broadcast(channel: string, params?: unknown): void;
   notify(notification: {
+    id?: string;
     title: string;
     subtitle?: string;
     body?: string;
+    category?: "mail" | "agent";
+    /** Data URL of a specific icon (e.g. an agent's avatar); desktop falls back to the Pilot mark for agents. */
+    icon?: string;
+    silent?: boolean;
     /** `mailbox`: the alias mailbox to open it in. */
     open?: { accountId: string; messageId: string; mailbox?: string };
     /** The agent chat to open. */
     chat?: string;
     code?: string;
   }): void;
+  dismissNotification?(match: { id?: string; chat?: string }): void;
   setUnreadCount(count: number): void;
   onResume(listener: () => void): () => void;
+  /** Reports whether the user is actively using this computer (unlocked and not idle). */
+  onPresence?(listener: (active: boolean) => void): () => void;
   asyncContext<T>(): AsyncContext<T>;
   offlineDownloads: boolean;
   translator?: Translator;

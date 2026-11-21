@@ -6,6 +6,7 @@ nonisolated struct AgentPointer: Equatable, Sendable {
     var sessionKey: String?
     var approvalId: String?
     var questionId: String?
+    var resolved: Bool
 
     init?(_ object: [String: Any]) {
         guard let agentId = object["agentId"] as? String, !agentId.isEmpty,
@@ -16,5 +17,6 @@ nonisolated struct AgentPointer: Equatable, Sendable {
         sessionKey = object["sessionKey"] as? String
         approvalId = object["approvalId"] as? String
         questionId = object["questionId"] as? String
+        resolved = object["resolved"] as? Bool ?? false
     }
 }
