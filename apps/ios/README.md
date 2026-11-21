@@ -7,13 +7,15 @@ their code.
 ## Design
 
 - **Claude's bottom.** The mail list is the page, with All and Unread pills under its title and
-  More at the top right; it softens under the bottom as under the navigation bar (`Home/PlacesBar.swift`). There, where
-  Claude has its composer, a pill: the mailbox's picture (tap for every mailbox, each with its
-  picture and unread count, the one switcher), Search, and Compose (hold it for your drafts).
-  Under it the tabs, a slim row of icons on the canvas with a soft pill behind the place you're
-  in: Inbox, Starred, every other place, and Settings at the right end (every place holds the mailbox's folders and labels, Search,
-  Settings; the title opens it too). Slide across the tabs to switch, and touch and hold one for
-  its newest conversations and New message. Search opens as a sheet, ready to type, with filters (Unread, Starred, Attachments) and the people who write most a tap away (`Home/SearchStart.swift`). Settings is ChatGPT's grouped sheet.
+  More at the top right. Top and bottom sit on the same backing: the canvas behind their
+  controls, softening past them (`BarBacking`, `Theme/Palette.swift`). At the bottom
+  (`Home/PlacesBar.swift`), where Claude has its composer, a pill: the mailbox's picture (tap for
+  every mailbox, each with its picture and unread count, the one switcher), Search, and Compose
+  (hold it for your drafts). Under it the tabs, a slim row of icons on the canvas with a soft pill behind
+  the place you're in: Inbox, Starred, every other place, and Settings at the right end (every
+  place holds the mailbox's folders and labels, Search, Settings; the title opens it too). The tabs tuck away while you
+  scroll down the list and come back as you scroll up. Slide across the tabs to switch, and touch
+  and hold one for its newest conversations and New message. Search opens as a sheet, ready to type, with filters (Unread, Starred, Attachments) and the people who write most a tap away (`Home/SearchStart.swift`). Settings is ChatGPT's grouped sheet.
   Gmail's folders include All Mail and Important; Outlook's and IMAP's an Archive of their own,
   and their Starred is Flagged (a flag, not a star).
 - **The desktop's rows.** The sender's picture, who and when, the subject, a line of the latest

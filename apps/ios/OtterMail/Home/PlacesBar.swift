@@ -4,7 +4,7 @@ import SwiftUI
  * Claude's bottom, for mail: a pill where Claude has its composer, with the mailbox's picture (tap
  * to switch mailbox), Search, and Compose (hold it for your drafts); and under it the tabs, a slim
  * row of icons: Inbox, Starred, every other place, and Settings. Slide across the tabs to
- * switch, or touch and hold one for what's newest there.
+ * switch, or touch and hold one for what's newest there. They tuck away while you scroll down.
  */
 struct PlacesBar: View {
     @Environment(MailStore.self) private var store
@@ -16,8 +16,8 @@ struct PlacesBar: View {
     @State private var width: CGFloat = 0
 
     let place: Place
+    let reading: Bool
     let onSelect: (Folder) -> Void
-    let onMailbox: (Mailbox) -> Void
     let onSearch: () -> Void
     let onSettings: () -> Void
     let onMenu: () -> Void
@@ -35,9 +35,13 @@ struct PlacesBar: View {
     var body: some View {
         VStack(spacing: 4) {
             dock.padding(.horizontal, 16).zIndex(1)
-            tabs.padding(.horizontal, 32)
-            .background { BarBacking(edge: .bottom).padding(.top, -34) }
+            if !reading {
+                tabs.padding(.horizontal, 32).transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .padding(.bottom, reading ? 8 : 0)
+        // From the pill's middle down.
+        .background { BarBacking(edge: .bottom).padding(.top, 14) }
         .padding(.top, 8)
     }
 

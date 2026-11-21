@@ -15,6 +15,8 @@ struct ThreadListView: View {
     @Binding var selecting: Bool
     let onTitle: () -> Void
     let onResume: (Draft) -> Void
+    /** Scrolling down the list (reading on) or back up. */
+    var onReading: (Bool) -> Void = { _ in }
 
     @State private var collapsedDays: Set<Date> = []
     @State private var unreadOnly = false
@@ -110,6 +112,9 @@ struct ThreadListView: View {
         .scrollContentBackground(.hidden)
         .background(palette.canvas)
         .contentMargins(.bottom, 24, for: .scrollContent)
+        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { before, now in
+            if now < 40 { onReading(false) } else if abs(now - before) > 6 { onReading(now > before) }
+        }
         .safeAreaInset(edge: .top, spacing: 0) { SignedOutBanners() }
         .task(id: place) {
             collapsedDays.removeAll()
@@ -420,7 +425,6 @@ struct ThreadListView: View {
 
     private struct Header: View {
         @Environment(\.palette) private var palette
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
         let title: String
         let scope: String
 

@@ -26,6 +26,8 @@ struct HomeView: View {
     @State private var query = ""
     @State private var searchPath: [String] = []
     @State private var searchActive = false
+    /** Scrolled down the list: the tabs tuck away until you scroll back up. */
+    @State private var reading = false
 
     private var menuAnimation: Animation? { reduceMotion ? nil : .spring(duration: 0.4, bounce: 0.15) }
 
@@ -54,7 +56,10 @@ struct HomeView: View {
                 messageTransition: messageTransition,
                 selecting: $selecting,
                 onTitle: { setMenu(open: true) },
-                onResume: { draft = $0 }
+                onResume: { draft = $0 },
+                onReading: { now in
+                    if now != reading { withAnimation(.spring(duration: 0.3, bounce: 0.1)) { reading = now } }
+                }
             )
             .overlay {
                 if menuOpen || recents != nil || mailboxesOpen {
@@ -133,8 +138,8 @@ struct HomeView: View {
                     if !selecting {
                         PlacesBar(
                             place: place,
+                            reading: reading,
                             onSelect: { select(Place(scope: place.scope, folder: $0)) },
-                            onMailbox: { switchMailbox($0) },
                             onSearch: { setMenu(open: false); searchOpen = true },
                             onSettings: { setMenu(open: false); settingsOpen = true },
                             onMenu: { setMenu(open: !menuOpen) },
@@ -203,6 +208,7 @@ struct HomeView: View {
 
     private func select(_ next: Place) {
         place = next
+        reading = false
         path = []
         setMenu(open: false)
     }
