@@ -12,7 +12,10 @@ actor SenderPhotos {
 
     private var memory: [String: UIImage?] = [:]
     private var inFlight: [String: Task<UIImage?, Never>] = [:]
-    private let directory = URL.cachesDirectory.appending(path: "sender-photos", directoryHint: .isDirectory)
+    /** Where the app and its notifications' extension both find them. */
+    private let directory = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: PushState.group)?
+        .appending(path: "SenderPhotos", directoryHint: .isDirectory)
+        ?? URL.cachesDirectory.appending(path: "sender-photos", directoryHint: .isDirectory)
 
     func photo(for email: String) async -> UIImage? {
         let email = email.trimmingCharacters(in: .whitespaces).lowercased()

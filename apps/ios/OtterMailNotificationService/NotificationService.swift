@@ -48,6 +48,11 @@ final class NotificationService: UNNotificationServiceExtension, @unchecked Send
                         content.userInfo["mailbox"] = message.alias?.id ?? event.email
                         content.userInfo["message"] = message.id
                         if let thread = message.threadId { content.userInfo["thread"] = thread }
+                        if let address = message.address,
+                           let fromSender = await MailNotification.fromSender(content, name: content.title, address: address) {
+                            gate.finish(fromSender)
+                            return
+                        }
                     }
                     gate.finish(content)
                 }
