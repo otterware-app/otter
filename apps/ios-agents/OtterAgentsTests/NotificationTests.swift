@@ -4,6 +4,15 @@ import UserNotifications
 @testable import Otter_Agents
 
 struct NotificationTests {
+    @Test func whatAgentsNotifyAboutMatchesTheMac() {
+        #expect(Account.AgentNotifications(rawValue: "needs-you") == .needsYou)
+        #expect(Account.AgentNotifications.all.shows("finished"))
+        #expect(!Account.AgentNotifications.needsYou.shows("finished"))
+        #expect(Account.AgentNotifications.needsYou.shows("approval"))
+        #expect(Account.AgentNotifications.needsYou.shows("message"))
+        #expect(!Account.AgentNotifications.off.shows("question"))
+    }
+
     @Test func aPushPointsAtTheChatItOpens() {
         let pointer = AgentPointer(["kind": "approval", "agentId": "scout", "sessionKey": "agent:scout:otter-mail:plan", "approvalId": "ap-1"])
         #expect(pointer?.sessionKey == "agent:scout:otter-mail:plan")

@@ -91,12 +91,37 @@ struct SettingsScreen: View {
 extension SettingsScreen {
     private var notifications: some View {
         @Bindable var account = account
-        return SettingsSection(footer: "When an agent finishes, needs your approval, has a question, or sends you a message. Notifications name the chat and the agent, never what was said.") {
+        return SettingsSection(footer: notificationsFooter) {
             SettingsCell {
                 SettingsSymbol(name: "bell.badge").frame(width: 24)
                 Toggle("Notifications", isOn: $account.notifications).font(.ui(16)).foregroundStyle(palette.text)
             }
+            if account.notifications {
+                SettingsCell {
+                    SettingsSymbol(name: "line.3.horizontal.decrease").frame(width: 24)
+                    Text("Notify about").font(.ui(16)).foregroundStyle(palette.text).fixedSize()
+                    Spacer()
+                    Picker("Notify about", selection: $account.agentNotifications) {
+                        ForEach(Account.AgentNotifications.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    .tint(palette.muted)
+                }
+            }
         }
+    }
+
+    private var notificationsFooter: String {
+        let what = switch account.agentNotifications {
+        case .all: "Approvals, questions, agent messages and long finished replies."
+        case .needsYou: "Only approvals, questions and agent messages."
+        case .off: "None, on any of your devices."
+        }
+        guard account.notifications else {
+            return "When an agent finishes, needs your approval, has a question, or sends you a message. Notifications name the chat and the agent, never what was said."
+        }
+        return "\(what) Otter on your computer follows the same choice; the switch is for this iPhone only. Notifications name the chat and the agent, never what was said."
     }
 }
 

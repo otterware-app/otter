@@ -116,7 +116,7 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   (`NotificationFaces`, read by `AgentFaces`). A tap opens the chat, read from the gateway. Nothing is pushed for a chat one of the account's devices has on screen and in front:
   every app tells the relay which chat that is over its events socket (`Relay.watching` here,
   core's `setWatching` on the Mac and the web), again every 30 seconds, and the relay forgets a
-  device that stops saying it. On in Settings; it needs the gateway's Otter
+  device that stops saying it. On in Settings, for this iPhone; under it, what agents notify about (Everything, Only when needed: no finished runs, Off), the account's `agentNotificationsMode` in its `settings` section, the Mac's choice too, which the relay applies to pushes. It needs the gateway's Otter
   channel (set up on the Mac: the OpenClaw agent's page in Settings › Agents, Messages from your agents) or, for varys,
   the pairing this app makes itself. A finished run notifies on OpenClaw only (its plugin, from
   0.2.7): Hermes and varys tell the relay of what they deliver or ask, not of a reply to you.
