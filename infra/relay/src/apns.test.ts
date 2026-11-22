@@ -178,13 +178,16 @@ describe("private APNs payloads", () => {
       alert: { title: "Rowan · Launch plan", body: "Finished" },
       "interruption-level": "passive",
       "thread-id": base.sessionKey,
+      "mutable-content": 1,
     });
+    expect(finished.otter.pointer).toMatchObject({ title: "Launch plan", agentName: "Rowan" });
     const approval = agentPayload("user", { ...base, kind: "approval", approvalId: "ap-1" });
     expect(approval.aps).toEqual({
       alert: { title: "Rowan · Launch plan", body: "Needs approval" },
       "interruption-level": "active",
       sound: "default",
       "thread-id": base.sessionKey,
+      "mutable-content": 1,
     });
 
     await sendAgent(

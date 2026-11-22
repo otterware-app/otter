@@ -1557,8 +1557,14 @@ describe("agent channels", () => {
         "interruption-level": "active",
         sound: "default",
         "thread-id": pointer.sessionKey,
+        "mutable-content": 1,
       },
-      otter: { version: 1, kind: "agent", userId: owner.user.id, pointer: approval },
+      otter: {
+        version: 1,
+        kind: "agent",
+        userId: owner.user.id,
+        pointer: { ...approval, title: "Deploy the site", agentName: "Rowan" },
+      },
     });
   });
 

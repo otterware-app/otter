@@ -186,6 +186,7 @@ final class Agents {
         }
         let chosen = sync.copy.get(AgentEntries.selectedKey)?.string
         if selected != chosen { selected = chosen }
+        NotificationFaces.save(runnable)
     }
 
     /** Another device changed these (by key): the agents follow, and those changed are checked again. */
@@ -290,6 +291,7 @@ final class Agents {
         await withTaskGroup(of: Void.self) { group in
             for agent in runnable { group.addTask { await self.check(agent) } }
         }
+        NotificationFaces.save(runnable)
     }
 
     func check(_ agent: Agent) async {

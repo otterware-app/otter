@@ -96,6 +96,8 @@ export function agentPayload(userId: string, pointer: AgentPointer) {
       "interruption-level": passive ? "passive" : "active",
       ...(passive ? {} : { sound: "default" }),
       ...(pointer.sessionKey ? { "thread-id": pointer.sessionKey } : {}),
+      // Otter Agents' extension makes it a message from the agent, with its picture.
+      "mutable-content": 1,
     },
     otter: {
       version: 1,
@@ -108,6 +110,8 @@ export function agentPayload(userId: string, pointer: AgentPointer) {
         ...(pointer.approvalId ? { approvalId: pointer.approvalId } : {}),
         ...(pointer.approvalKind ? { approvalKind: pointer.approvalKind } : {}),
         ...(pointer.questionId ? { questionId: pointer.questionId } : {}),
+        ...(pointer.title ? { title: pointer.title } : {}),
+        ...(pointer.agentName ? { agentName: pointer.agentName } : {}),
         at: pointer.at,
       },
     } satisfies AgentPushMetadata,
