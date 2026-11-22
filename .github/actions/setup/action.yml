@@ -13,6 +13,8 @@ runs:
         cache: false
         run-install: false
 
+    # The lockfile names every dependency of every package, so it alone says what is installed;
+    # a release's version bump in a package.json doesn't start the cache over.
     - name: Restore node_modules
       id: modules
       uses: actions/cache/restore@v6
@@ -24,7 +26,7 @@ runs:
           extensions/*/node_modules
           infra/*/node_modules
           site/node_modules
-        key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json', 'apps/*/package.json', 'packages/*/package.json', 'extensions/*/package.json', 'infra/*/package.json', 'site/package.json') }}
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
 
     - name: Install
       if: steps.modules.outputs.cache-hit != 'true'
