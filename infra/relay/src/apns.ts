@@ -89,12 +89,12 @@ const AGENT_STATUS = {
 export function agentPayload(userId: string, pointer: AgentPointer) {
   // The chat's title and the agent's name show twice (the alert, and the extension's copy): they're
   // cut, the title first, until the push fits APNs' limit.
-  let fitted = pointer;
+  const fitted = { ...pointer };
   for (const field of ["title", "agentName"] as const) {
     let chars = Array.from(fitted[field] ?? "");
     while (chars.length > 0 && bytes(agentAlert(userId, fitted)) > APNS_MAX_BYTES) {
       chars = chars.slice(0, Math.floor(chars.length * 0.8));
-      fitted = { ...fitted, [field]: chars.length > 0 ? chars.join("") : undefined };
+      fitted[field] = chars.length > 0 ? chars.join("") : undefined;
     }
   }
   return agentAlert(userId, fitted);
