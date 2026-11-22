@@ -326,6 +326,12 @@ what they build changed, the Swift jobs (the iPhone apps, the translator), the H
 tests and the desktop app's packaging, unsigned. The lint, typecheck and test jobs are
 `.github/workflows/checks.yml`, which a release runs too.
 
+The iPhone jobs build each app, its extension and its tests, and run no test: a simulator's first
+boot takes most of ten minutes on GitHub's macOS runner (3 cores, 7 GB), and the Mac can't run
+them another way (a Mac Catalyst build lacks an API each app uses; macOS installs the iPhone app
+itself only with a provisioning profile). The tests run on a Mac, in the simulator
+(`apps/ios/README.md`, `apps/ios-agents/README.md`).
+
 Typecheck and tests run through `vp run --cache`: Vite+ records every file a package's task
 reads, and replays the result while none has changed. So a change reruns only the packages it
 reaches (through imports, not only its own folder), and the slow suites (the relay's, and core's

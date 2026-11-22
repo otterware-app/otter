@@ -236,7 +236,8 @@ Before handing work back, run and fix:
 
 For UI or behavior changes, run the app and check the change in it, at a 1600x1000 viewport.
 For an iPhone app, build it (`pnpm dev:ios`, `pnpm dev:ios:agents`, or `xcodebuild` as its README
-shows) and check the change in the simulator, in light and dark.
+shows) and check the change in the simulator, in light and dark. Run its unit tests there too
+(`xcodebuild … test`, in its README): CI builds them and doesn't run them.
 For a gateway plugin (`extensions/*/gateway`) or an agent's client, run it on the real gateways
 (`pnpm agents-server`) and drive the path you changed: a turn in an Otter chat, a delivery, an
 approval, what the plugin tells the relay ([Agent gateways](docs/development.md#agent-gateways)).
