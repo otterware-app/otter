@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import UIKit
 import UserNotifications
 @testable import Otter_Agents
 
@@ -11,6 +12,32 @@ struct NotificationTests {
         #expect(Account.AgentNotifications.needsYou.shows("approval"))
         #expect(Account.AgentNotifications.needsYou.shows("message"))
         #expect(!Account.AgentNotifications.off.shows("question"))
+    }
+
+    @Test func theRelaysSilentPushClearsTheChatsAlertsOnly() async throws {
+        let center = UNUserNotificationCenter.current()
+        guard await center.notificationSettings().authorizationStatus == .authorized else { return }
+        // In front, the app's delegate shows no alert of its own making: these are listed, as in the background.
+        let delegate = center.delegate
+        let listing = Listing()
+        center.delegate = listing
+        defer { center.delegate = delegate }
+        for session in ["agent:main:otter:read", "agent:main:otter:unread"] {
+            let content = UNMutableNotificationContent()
+            content.title = "brokk"
+            content.threadIdentifier = session
+            try await center.add(UNNotificationRequest(identifier: "clear-test-\(session)", content: content, trigger: nil))
+        }
+        try await Task.sleep(for: .seconds(1))
+        let ours = { await center.deliveredNotifications().map(\.request.identifier).filter { $0.hasPrefix("clear-test-") } }
+        #expect(await ours().count == 2)
+        let push: [AnyHashable: Any] = ["aps": ["content-available": 1],
+                                        "otter": ["version": 1, "kind": "agent-clear", "userId": "u", "sessionKey": "agent:main:otter:read"]]
+        let result = await AppDelegate().application(UIApplication.shared, didReceiveRemoteNotification: push)
+        #expect(result == .newData)
+        try await Task.sleep(for: .seconds(1))
+        #expect(await ours() == ["clear-test-agent:main:otter:unread"])
+        center.removeDeliveredNotifications(withIdentifiers: ["clear-test-agent:main:otter:unread"])
     }
 
     @Test func aPushPointsAtTheChatItOpens() {
@@ -59,5 +86,11 @@ struct NotificationTests {
         }
         #expect(AgentFaces.keys(agentId: "research", sessionKey: "agent:research:otter-mail:plan") == ["openclaw-research"])
         #expect(AgentFaces.keys(agentId: "varys", sessionKey: "varys:abc") == ["varys-varys", "hermes"])
+    }
+}
+
+private final class Listing: NSObject, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        [.list]
     }
 }

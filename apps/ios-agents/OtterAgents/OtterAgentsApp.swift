@@ -68,6 +68,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         account?.registeredForPush(token)
     }
 
+    /** The relay's silent push: a chat was opened or answered on another device, so its alerts go. */
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
+        guard let metadata = userInfo["otter"] as? [String: Any], metadata["kind"] as? String == "agent-clear",
+              let session = metadata["sessionKey"] as? String else { return .noData }
+        await Account.clearNotifications(for: session)
+        return .newData
+    }
+
     private func pointer(_ notification: UNNotification) -> AgentPointer? {
         let metadata = notification.request.content.userInfo["otter"] as? [String: Any]
         guard metadata?["userId"] as? String == account?.user?.id || account == nil else { return nil }

@@ -226,6 +226,14 @@ export interface AgentPushMetadata {
   pointer: Omit<AgentPointer, "channel">;
 }
 
+/** A silent push to Otter Agents: the chat was opened or answered on another device, so its alerts go. */
+export interface AgentClearPushMetadata {
+  version: 1;
+  kind: "agent-clear";
+  userId: string;
+  sessionKey: string;
+}
+
 export type PresenceDevice = "desktop" | "web" | "ios";
 
 /**

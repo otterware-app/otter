@@ -218,13 +218,15 @@ final class Account {
 
     /** Clears delivered notifications on this iPhone for a chat the user opened or resolved elsewhere. */
     private func clearNotifications(for session: String) {
+        Task { await Self.clearNotifications(for: session) }
+    }
+
+    static func clearNotifications(for session: String) async {
         let center = UNUserNotificationCenter.current()
-        center.getDeliveredNotifications { delivered in
-            let ids = delivered
-                .filter { $0.request.content.threadIdentifier == session }
-                .map(\.request.identifier)
-            if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
-        }
+        let ids = await center.deliveredNotifications()
+            .filter { $0.request.content.threadIdentifier == session }
+            .map(\.request.identifier)
+        if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
     }
 
     /** Asks once to show notifications, when they're on. */

@@ -1,5 +1,6 @@
 import { importPKCS8, SignJWT } from "jose";
 import type {
+  AgentClearPushMetadata,
   AgentPointer,
   AgentPushMetadata,
   MailPushMetadata,
@@ -148,6 +149,21 @@ export function sendAgent(
   return post(env, device, collapse, agentPayload(userId, pointer), transport, priority);
 }
 
+/** Silent (a background push): the iPhone removes the chat's alerts, read or answered elsewhere. */
+export function clearAgent(
+  env: Env,
+  device: PushDevice,
+  userId: string,
+  sessionKey: string,
+  transport: typeof fetch = fetch,
+): Promise<Result> {
+  const body = {
+    aps: { "content-available": 1 },
+    otter: { version: 1, kind: "agent-clear", userId, sessionKey } satisfies AgentClearPushMetadata,
+  };
+  return post(env, device, `${userId}:${sessionKey}:clear`, body, transport, "5", "background");
+}
+
 async function post(
   env: Env,
   device: PushDevice,
@@ -155,6 +171,7 @@ async function post(
   body: unknown,
   transport: typeof fetch,
   priority: "5" | "10" = "10",
+  type: "alert" | "background" = "alert",
 ): Promise<Result> {
   const host =
     device.environment === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
@@ -171,7 +188,7 @@ async function post(
       headers: {
         authorization: `bearer ${await authorization(env)}`,
         "apns-topic": device.topic,
-        "apns-push-type": "alert",
+        "apns-push-type": type,
         "apns-priority": priority,
         "apns-expiration": "0", // Don't queue stale alerts across sign-out/offline periods.
         "apns-collapse-id": collapse,
