@@ -25,7 +25,8 @@ nonisolated struct GmailNotification {
         }
 
         var senderAddress: String? {
-            let from = header("From")
+            // Undecoded: an encoded name may decode to commas or angle brackets.
+            let from = payload?.headers?.first { $0.name.caseInsensitiveCompare("From") == .orderedSame }?.value ?? ""
             // The first mailbox's address: angle brackets and commas in a quoted name don't count.
             var quoted = false, address = "", bracketed: String?
             for character in from {
