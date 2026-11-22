@@ -53,9 +53,9 @@ jobs:
             *) everything ;;
           esac
           {
-            echo "iphone=$(changed '^(apps/ios/|packages/shared/|package\.json$|scripts/export-ios-resources\.ts$|\.github/actions/boot-simulator/|\.github/workflows/ci\.yml$)')"
+            echo "iphone=$(changed '^(apps/ios/|packages/shared/|package\.json$|scripts/export-ios-resources\.ts$|\.github/workflows/ci\.yml$)')"
             # Otter Agents compiles Otter Mail's themes and MailContext.
-            echo "agents=$(changed '^(apps/ios-agents/|apps/ios/OtterMail/(Agent|Theme|Resources)/|apps/ios/OtterMail/Settings/(ThemeSettings|Licenses)\.swift$|\.github/actions/boot-simulator/|\.github/workflows/ci\.yml$)')"
+            echo "agents=$(changed '^(apps/ios-agents/|apps/ios/OtterMail/(Agent|Theme|Resources)/|apps/ios/OtterMail/Settings/(ThemeSettings|Licenses)\.swift$|\.github/workflows/ci\.yml$)')"
             echo "translator=$(changed '^(native/translator/|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
             echo "hermes=$(changed '^(extensions/hermes/gateway/|\.github/workflows/ci\.yml$)')"
             echo "package=$(changed '^(scripts/(build-desktop-artifact|build-translator|build-notifier|notarize-mac|upload-sourcemaps)\.ts$|native/|apps/desktop/(package\.json$|resources/)|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
@@ -186,9 +186,7 @@ jobs:
       - name: Export shared resources
         run: node scripts/export-ios-resources.ts
 
-      - name: Start booting a simulator
-        uses: ./.github/actions/boot-simulator
-
+      # One thing at a time: booting the simulator alongside the build slowed both down.
       # Simulators on the runner are Apple silicon: arm64 alone, not the Intel slice too.
       - name: Build app, extension and tests
         run: |
@@ -198,8 +196,32 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/otter-ios-build" \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build-for-testing
 
-      - name: Wait for the simulator
-        run: xcrun simctl bootstatus "$IPHONE_SIMULATOR" -b
+      # TEMPORARY (measuring): what the runner is busy with while the simulator boots.
+      - name: Sample the runner
+        run: |
+          (
+            for i in $(seq 1 80); do
+              echo "--- $(date -u +%T) load: $(sysctl -n vm.loadavg)"
+              ps -Ao pcpu,pmem,rss,etime,comm -r | head -9 | cut -c1-150
+              vm_stat | sed -n '2,3p;7p;18,23p' | tr '\n' ' '; echo
+              sleep 10
+            done
+          ) > "$RUNNER_TEMP/samples.log" 2>&1 &
+
+      - name: Boot a simulator
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/devices.json"
+          simulator="$(node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const devices = JSON.parse(readFileSync(process.argv[1], "utf8"));
+            const device = Object.values(devices.devices).flat().find(d => d.name.startsWith("iPhone"));
+            if (!device) throw new Error("No available iPhone simulator on the Xcode runner.");
+            console.log(device.udid);
+          ' "$RUNNER_TEMP/devices.json")"
+          echo "IPHONE_SIMULATOR=$simulator" >> "$GITHUB_ENV"
+          xcrun simctl boot "$simulator" || true
+          xcrun simctl bootstatus "$simulator" -b
 
       - name: Run native tests
         run: |
@@ -224,6 +246,16 @@ jobs:
           sleep 2
           xcrun simctl io "$IPHONE_SIMULATOR" screenshot "$RUNNER_TEMP/otter-ios-preview/dark.png"
 
+      # TEMPORARY (measuring).
+      - name: Show the samples
+        if: always()
+        run: |
+          sysctl hw.memsize hw.ncpu
+          du -sh ~/Library/Developer/CoreSimulator/Caches/* 2> /dev/null || true
+          ls -la ~/Library/Developer/CoreSimulator/Caches/dyld/*/ 2> /dev/null || true
+          xcrun simctl runtime list 2> /dev/null || true
+          cat "$RUNNER_TEMP/samples.log"
+
       - name: Upload native results
         if: always()
         uses: actions/upload-artifact@v7
@@ -245,9 +277,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Start booting a simulator
-        uses: ./.github/actions/boot-simulator
-
       - name: Build app and tests
         run: |
           xcodebuild -version
@@ -256,8 +285,32 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/otter-agents-build" \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build-for-testing
 
-      - name: Wait for the simulator
-        run: xcrun simctl bootstatus "$IPHONE_SIMULATOR" -b
+      # TEMPORARY (measuring): what the runner is busy with while the simulator boots.
+      - name: Sample the runner
+        run: |
+          (
+            for i in $(seq 1 80); do
+              echo "--- $(date -u +%T) load: $(sysctl -n vm.loadavg)"
+              ps -Ao pcpu,pmem,rss,etime,comm -r | head -9 | cut -c1-150
+              vm_stat | sed -n '2,3p;7p;18,23p' | tr '\n' ' '; echo
+              sleep 10
+            done
+          ) > "$RUNNER_TEMP/samples.log" 2>&1 &
+
+      - name: Boot a simulator
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/devices.json"
+          simulator="$(node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const devices = JSON.parse(readFileSync(process.argv[1], "utf8"));
+            const device = Object.values(devices.devices).flat().find(d => d.name.startsWith("iPhone"));
+            if (!device) throw new Error("No available iPhone simulator on the Xcode runner.");
+            console.log(device.udid);
+          ' "$RUNNER_TEMP/devices.json")"
+          echo "IPHONE_SIMULATOR=$simulator" >> "$GITHUB_ENV"
+          xcrun simctl boot "$simulator" || true
+          xcrun simctl bootstatus "$simulator" -b
 
       - name: Run native tests
         run: |
@@ -266,6 +319,16 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/otter-agents-build" \
             -resultBundlePath "$RUNNER_TEMP/otter-agents-tests.xcresult" \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO test-without-building
+
+      # TEMPORARY (measuring).
+      - name: Show the samples
+        if: always()
+        run: |
+          sysctl hw.memsize hw.ncpu
+          du -sh ~/Library/Developer/CoreSimulator/Caches/* 2> /dev/null || true
+          ls -la ~/Library/Developer/CoreSimulator/Caches/dyld/*/ 2> /dev/null || true
+          xcrun simctl runtime list 2> /dev/null || true
+          cat "$RUNNER_TEMP/samples.log"
 
       - name: Upload native results
         if: always()
