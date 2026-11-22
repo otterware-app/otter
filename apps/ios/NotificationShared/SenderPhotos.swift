@@ -12,7 +12,21 @@ actor SenderPhotos {
 
     private var memory: [String: UIImage?] = [:]
     private var inFlight: [String: Task<UIImage?, Never>] = [:]
-    private let directory = URL.cachesDirectory.appending(path: "sender-photos", directoryHint: .isDirectory)
+    /** Where the app and its notifications' extension both find them: a cache, purgeable and not backed up. */
+    private static let directory = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: PushState.group)?
+        .appending(path: "Library/Caches/SenderPhotos", directoryHint: .isDirectory)
+        ?? URL.cachesDirectory.appending(path: "sender-photos", directoryHint: .isDirectory)
+
+    /** A photo already found, from disk: new mail's notification can't wait for the network. */
+    static func cached(for email: String) -> Data? {
+        let file = directory.appending(path: sha256(email.trimmingCharacters(in: .whitespaces).lowercased()))
+        guard let modified = (try? FileManager.default.attributesOfItem(atPath: file.path(percentEncoded: false)))?[.modificationDate] as? Date,
+              Date.now.timeIntervalSince(modified) < hitTTL,
+              let data = try? Data(contentsOf: file), !data.isEmpty else { return nil }
+        return data
+    }
+
+    private static let hitTTL: TimeInterval = 30 * 86_400
 
     func photo(for email: String) async -> UIImage? {
         let email = email.trimmingCharacters(in: .whitespaces).lowercased()
@@ -28,16 +42,16 @@ actor SenderPhotos {
     }
 
     private func load(_ email: String) async -> UIImage? {
-        let file = directory.appending(path: Self.sha256(email))
+        let file = Self.directory.appending(path: Self.sha256(email))
         if let attributes = try? FileManager.default.attributesOfItem(atPath: file.path()),
            let modified = attributes[.modificationDate] as? Date {
             let data = try? Data(contentsOf: file)
-            let ttl: TimeInterval = data?.isEmpty == false ? 30 * 86_400 : 7 * 86_400
+            let ttl: TimeInterval = data?.isEmpty == false ? Self.hitTTL : 7 * 86_400
             if Date.now.timeIntervalSince(modified) < ttl { return data.flatMap(UIImage.init) }
         }
         let data = await resolve(email)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try? (data ?? Data()).write(to: file)
+        try? FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true)
+        try? (data ?? Data()).write(to: file, options: .atomic)
         return data.flatMap(UIImage.init)
     }
 

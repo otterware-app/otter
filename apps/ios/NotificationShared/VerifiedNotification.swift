@@ -16,6 +16,7 @@ nonisolated enum VerifiedNotification {
         var id: String
         var threadId: String?
         var sender: String
+        var address: String? = nil
         var subject: String
         var preview: String
         var alias: AliasMailbox? = nil
@@ -33,7 +34,8 @@ nonisolated enum VerifiedNotification {
             let data = try await get("messages/" + metadata.messageId, [.init(name: "format", value: "metadata"), .init(name: "metadataHeaders", value: "From"), .init(name: "metadataHeaders", value: "Subject"), .init(name: "fields", value: "id,threadId,labelIds,snippet,payload/headers")])
             let message = try JSONDecoder().decode(GmailNotification.Message.self, from: data)
             guard message.eligible(mode) else { return nil }
-            return .init(id: message.id, threadId: message.threadId, sender: message.sender, subject: message.header("Subject"), preview: message.preview)
+            return .init(id: message.id, threadId: message.threadId, sender: message.sender, address: message.senderAddress,
+                         subject: message.header("Subject"), preview: message.preview)
         case "outlook": return try await outlook(metadata, mode: mode)
         case "imap":
             guard let settings = configuration.imapSettings?[metadata.email.lowercased()],
@@ -75,7 +77,8 @@ nonisolated enum VerifiedNotification {
             guard inbox.id == message.parentFolderId else { return nil }
         }
         let from = message.from?.emailAddress
-        return .init(id: message.id, threadId: message.conversationId, sender: from?.name.flatMap { $0.isEmpty ? nil : $0 } ?? from?.address ?? "New mail", subject: message.subject ?? "", preview: MailDecoding.preview(message.bodyPreview ?? "", limit: 500))
+        return .init(id: message.id, threadId: message.conversationId, sender: from?.name.flatMap { $0.isEmpty ? nil : $0 } ?? from?.address ?? "New mail",
+                     address: from?.address, subject: message.subject ?? "", preview: MailDecoding.preview(message.bodyPreview ?? "", limit: 500))
     }
 
     struct Part {
@@ -109,9 +112,11 @@ nonisolated enum VerifiedNotification {
             let envelope = fields["ENVELOPE"]?.list ?? []
             let subject = envelope.count > 1 ? MailDecoding.words(envelope[1].text ?? "") : ""
             var sender = "New mail"
+            var address: String?
             if envelope.count > 2, let from = envelope[2].list.first?.list, from.count >= 4 {
                 let name = MailDecoding.words(from[0].text ?? "")
-                sender = name.isEmpty ? (from[2].text ?? "") + "@" + (from[3].text ?? "") : name
+                address = (from[2].text ?? "") + "@" + (from[3].text ?? "")
+                sender = name.isEmpty ? address ?? "" : name
             }
             var preview = ""
             if let structure = fields["BODYSTRUCTURE"] {
@@ -129,7 +134,7 @@ nonisolated enum VerifiedNotification {
                     }
                 }
             }
-            return .init(id: "\(validity):\(uid):\(folder)", threadId: nil, sender: sender, subject: subject, preview: preview,
+            return .init(id: "\(validity):\(uid):\(folder)", threadId: nil, sender: sender, address: address, subject: subject, preview: preview,
                          alias: alias(envelope, fields, among: aliases))
         } onCancel: { client.close() }
     }

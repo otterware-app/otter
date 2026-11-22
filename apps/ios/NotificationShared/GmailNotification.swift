@@ -24,6 +24,23 @@ nonisolated struct GmailNotification {
             MailDecoding.words(payload?.headers?.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value ?? "")
         }
 
+        var senderAddress: String? {
+            // Undecoded: an encoded name may decode to commas or angle brackets.
+            let from = payload?.headers?.first { $0.name.caseInsensitiveCompare("From") == .orderedSame }?.value ?? ""
+            // The first mailbox's address: angle brackets and commas in a quoted name don't count.
+            var quoted = false, address = "", bracketed: String?
+            for character in from {
+                if character == "\"" { quoted.toggle(); continue }
+                if quoted { continue }
+                if character == "<" { bracketed = ""; continue }
+                if character == ">", bracketed != nil { break }
+                if character == ",", bracketed == nil { break }
+                if bracketed != nil { bracketed?.append(character) } else { address.append(character) }
+            }
+            let trimmed = (bracketed ?? address).trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.contains("@") ? trimmed : nil
+        }
+
         var sender: String {
             let from = header("From")
             if let bracket = from.firstIndex(of: "<") {

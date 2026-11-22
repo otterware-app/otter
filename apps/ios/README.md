@@ -228,6 +228,13 @@ cache. IMAP taps resolve the notified UID into its local thread, loading the fol
 Generic taps open the mailbox and sync. Notification previews render Markdown as plain text and
 keep link labels. The demo needs no Google, Microsoft, IMAP, Apple or Otter credentials.
 
+An enriched alert comes from its sender, as Messages shows a message (a communication notification,
+`NotificationShared/MailNotification.swift`): the sender's photo, as the inbox shows it, with the
+app's icon on it, then the subject and the preview. The photo is one the inbox already found
+(`SenderPhotos`' cache, in the App Group): the alert never waits for the network or asks anyone about
+the sender, and shows their initial otherwise. The app's profile carries Communication Notifications
+for this.
+
 ### Apple setup and verification
 
 Register App IDs for `dev.otterware.mail.dev` / `dev.otterware.mail` and their `.notifications`
