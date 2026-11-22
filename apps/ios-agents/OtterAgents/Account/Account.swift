@@ -27,6 +27,28 @@ final class Account {
             Task { notifications ? await requestNotifications() : await registerPush() }
         }
     }
+    /** What agents notify about, on every device of the account (the Mac's choice too). */
+    var agentNotifications: AgentNotifications {
+        didSet {
+            guard agentNotifications != oldValue else { return }
+            UserDefaults.standard.set(agentNotifications.rawValue, forKey: Self.agentNotificationsKey)
+            if !applyingSettings { settingsChanged() }
+        }
+    }
+
+    enum AgentNotifications: String, CaseIterable, Identifiable {
+        case all, needsYou = "needs-you", off
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .all: "Everything"
+            case .needsYou: "Only when needed"
+            case .off: "Off"
+            }
+        }
+
+        func shows(_ kind: String) -> Bool { self == .all || (self == .needsYou && kind != "finished") }
+    }
 
     let preferences: Preferences
     let agents = Agents()
@@ -36,6 +58,10 @@ final class Account {
     /** The account's `ui` section as last seen, so writes keep the keys only other apps have. */
     @ObservationIgnored private var remoteUI: [String: Any]?
     @ObservationIgnored private var pushingUI: Task<Void, Never>?
+    /** The account's `settings` section as last seen, likewise. */
+    @ObservationIgnored private var remoteSettings: [String: Any]?
+    @ObservationIgnored private var pushingSettings: Task<Void, Never>?
+    @ObservationIgnored private var applyingSettings = false
 
     @ObservationIgnored private var pushToken = UserDefaults.standard.string(forKey: "apns:token")
     @ObservationIgnored private var registered: String?
@@ -48,10 +74,12 @@ final class Account {
     private static let userKey = "otter:user"
     private static let demoKey = "otter:demo"
     private static let notificationsKey = "otter:notifications"
+    private static let agentNotificationsKey = "settings.agentNotificationsMode"
 
     init(preferences: Preferences) {
         self.preferences = preferences
         notifications = UserDefaults.standard.object(forKey: Self.notificationsKey) as? Bool ?? true
+        agentNotifications = UserDefaults.standard.string(forKey: Self.agentNotificationsKey).flatMap(AgentNotifications.init) ?? .all
         chats = ChatStore(agents: agents)
         agents.relay = relay
         if relay.isSignedIn, let data = UserDefaults.standard.data(forKey: Self.userKey),
@@ -176,7 +204,8 @@ final class Account {
 
     /** Whether a notification should show: not for the chat already on screen. */
     func shows(_ pointer: AgentPointer) -> Bool {
-        guard notifications, let session = pointer.sessionKey, let watched = chats.watched else { return notifications }
+        guard notifications, agentNotifications.shows(pointer.kind) else { return false }
+        guard let session = pointer.sessionKey, let watched = chats.watched else { return true }
         return chats.chat(watched)?.sessionId != session
     }
 
@@ -260,6 +289,24 @@ final class Account {
         remoteUI = ui
         preferences.apply(ui: ui)
         agents.apply(ui: ui)
+        let settings = sections["settings"] as? [String: Any] ?? [:]
+        remoteSettings = settings
+        applyingSettings = true
+        agentNotifications = (settings["agentNotificationsMode"] as? String).flatMap(AgentNotifications.init) ?? .all
+        applyingSettings = false
+    }
+
+    private func settingsChanged() {
+        guard let userId = user?.id, let remote = remoteSettings else { return }
+        var merged = remote
+        merged["agentNotificationsMode"] = agentNotifications.rawValue
+        remoteSettings = merged
+        pushingSettings?.cancel()
+        pushingSettings = Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled, user?.id == userId else { return }
+            try? await relay.putPreferences(["settings": merged])
+        }
     }
 
     private func uiChanged() {
@@ -288,6 +335,8 @@ final class Account {
     private func endSession() {
         pushingUI?.cancel()
         remoteUI = nil
+        pushingSettings?.cancel()
+        remoteSettings = nil
         relay.disconnect()
         chats.sync?.forget()
         chats.sync = nil
