@@ -20,8 +20,9 @@ struct SenderNotificationTests {
         content.body = "Here's the shortlist for Thursday."
         content.threadIdentifier = "work@acme.example:t1"
         content.userInfo = ["mailbox": "work@acme.example", "message": "m1"]
-        let message = await MailNotification.fromSender(content, name: "Lena Park", address: "lena@acme.example")
-        // A tap opens the mail from these.
-        #expect(message?.userInfo["message"] as? String == "m1")
+        // Unsigned builds (CI) lack the entitlement, and iOS keeps the alert; signed, a tap opens the mail from these.
+        if let message = await MailNotification.fromSender(content, name: "Lena Park", address: "lena@acme.example") {
+            #expect(message.userInfo["message"] as? String == "m1")
+        }
     }
 }
