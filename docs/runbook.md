@@ -4,12 +4,33 @@ How each part of Otter gets from `main` to people, what to check, and what to do
 breaks. The details behind each step are in `docs/release.md`, `infra/relay/README.md` and
 `apps/ios/README.md`.
 
-| Part            | Ships                            | You do                 |
-| --------------- | -------------------------------- | ---------------------- |
-| Relay           | on merge to `main`               | nothing                |
-| Mac, Linux, web | nightly on merge / manual stable | promote a nightly      |
-| iPhone app      | on merge, when it changed        | TestFlight / App Store |
-| Otter Agents    | on merge, when it changed        | TestFlight             |
+| Part            | Ships                             | You do                 |
+| --------------- | --------------------------------- | ---------------------- |
+| Relay           | on merge to `main`                | nothing                |
+| Mac, Linux, web | nightly on merge, when it changed | promote a nightly      |
+| iPhone app      | on merge, when it changed         | TestFlight / App Store |
+| Otter Agents    | on merge, when it changed         | TestFlight             |
+
+## One Release workflow
+
+Every app ships through **Release** (`.github/workflows/release.yml`). Each merge to `main` runs
+it, and its first job, "What to release", works out which apps the merge changed
+(`scripts/release-plan.ts`) and says so in the run's summary; only those apps' jobs run.
+
+| A change to                                                                      | Ships                   |
+| -------------------------------------------------------------------------------- | ----------------------- |
+| anything but the iPhone apps, `infra`, `docs`, `changelog`, `.github`, `.agents` | Mac, Linux and web      |
+| `apps/ios`, `packages/shared`, the iPhone scripts                                | Otter Mail for iPhone   |
+| `apps/ios-agents`, what it compiles and bundles from `apps/ios`                  | Otter Agents for iPhone |
+
+Run it by hand (Actions → **Release** → Run workflow, or `gh workflow run release.yml`) and it
+ships whatever `main` has that an app's last release doesn't: the way to finish a release that
+failed, or was cancelled. Its inputs, when you want something else:
+
+- `channel=stable`: promote the latest nightly of the Mac, Linux and web app.
+- `apps`: `desktop`, `iphone`, `agents` or `all` release those now, whatever changed.
+- `bump` (`patch`, `minor`, `major`) and `version` (an exact one): the iPhone apps' version;
+  `version` is also a stable release's.
 
 ## Relay
 
@@ -28,10 +49,10 @@ the Google and GitHub settings that go with these URLs. D1 migrations run before
 
 ## Mac, Linux and web app
 
-1. Each merge to main publishes a nightly automatically, unless it only touches `apps/ios` or
-   `docs`. A newer nightly cancels an older one still checking or building, so merges in quick
-   succession publish one nightly, with all of them; one already publishing finishes. For an
-   immediate nightly: Actions → **Release** → `channel=nightly` (`gh workflow run release.yml -f channel=nightly`).
+1. Each merge to main that changes them publishes a nightly automatically. A newer nightly
+   cancels an older one still checking or building, so merges in quick succession publish one
+   nightly, with all of them; one already publishing finishes. For a nightly now, whatever
+   changed: Actions → **Release** → `apps=desktop` (`gh workflow run release.yml -f apps=desktop`).
 2. For stable: run **Release** with `channel=stable`
    (`gh workflow run release.yml -f channel=stable`). It promotes the latest published nightly
    commit and its previewed stable version; an optional `version` overrides that version.
@@ -65,12 +86,13 @@ it, or the Changelog notes workflow once it lands after the release).
 Released on its own, with its own version (`ios-vX.Y.Z` tags), only when `apps/ios` or what it
 bundles from `packages/shared` has changed. A Mac release doesn't need one.
 
-1. Each merge to main that touches `apps/ios`, `packages/shared` or the release scripts runs
-   **Release iPhone** as a patch; one waits while another runs, and a newer merge replaces the
-   one waiting. For a minor or major version, or to run it yourself: Actions → **Release
-   iPhone** → Run workflow → `patch`, `minor` or `major` (or
-   `gh workflow run release-ios.yml -f bump=minor`). It builds `main` on GitHub's `xcode-27`
-   runner and uploads it (about 10 min), then tags the commit and bumps the version on `main`.
+1. Each merge to main that touches `apps/ios`, `packages/shared` or the release scripts
+   releases it as a patch (the Release workflow's "Otter Mail for iPhone" job); one waits while
+   another runs, and a newer merge replaces the one waiting. For a minor or major version, or
+   to run it yourself: Actions → **Release** → Run workflow → `apps=iphone` and `patch`,
+   `minor` or `major` (or `gh workflow run release.yml -f apps=iphone -f bump=minor`). It
+   builds `main` on GitHub's `xcode-27` runner and uploads it (about 5 min), then tags the
+   commit and bumps the version on `main`.
    The same from this Mac, if GitHub is down: `pnpm release:ios` (needs Xcode 27 and
    `~/.otter/signing`).
 2. Apple processes it (10–30 min). The internal group **Otter team** gets it automatically.
@@ -99,8 +121,9 @@ bundles from `packages/shared` has changed. A Mac release doesn't need one.
 The second iPhone app, released the same way with its own version (`ios-agents-vX.Y.Z` tags).
 
 1. Each merge to main that touches `apps/ios-agents`, or what it compiles and bundles from
-   `apps/ios` (the themes, `MailContext`), runs **Release Otter Agents** as a patch. By hand:
-   `gh workflow run release-ios-agents.yml -f bump=minor`. From this Mac:
+   `apps/ios` (the themes, `MailContext`), releases it as a patch (the Release workflow's
+   "Otter Agents for iPhone" job). By hand:
+   `gh workflow run release.yml -f apps=agents -f bump=minor`. From this Mac:
    `pnpm release:ios:agents`.
 2. Apple processes it (10–30 min). The internal group **Nightly (Internal)** gets it
    automatically. It is in TestFlight only: App Store Connect → Otter Agents (ID 6833242723).

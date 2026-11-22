@@ -319,6 +319,27 @@ because you asked: it reads and changes your real mail.
 `pnpm --filter @otter/site build` assembles the deployable site (the web app) in
 `site/dist`.
 
+## CI
+
+A pull request runs `.github/workflows/ci.yml`: lint, typecheck, tests and a build, and, when
+what they build changed, the Swift jobs (the iPhone apps, the translator), the Hermes plugin's
+tests and the desktop app's packaging, unsigned. The lint, typecheck and test jobs are
+`.github/workflows/checks.yml`, which a release runs too.
+
+Typecheck and tests run through `vp run --cache`: Vite+ records every file a package's task
+reads, and replays the result while none has changed. So a change reruns only the packages it
+reaches (through imports, not only its own folder), and the slow suites (the relay's, and core's
+against real mail servers in Docker) run when something they read changed. Only passing results
+are kept. The cache lives in GitHub's cache (`vite-task-…`), apart for each lockfile; a pull
+request starts from `main`'s and adds its own. A stable release replays nothing.
+
+To run everything from scratch, delete the caches (`gh cache list --key vite-task-`, then
+`gh cache delete`); locally, the same commands without `--cache` never replay.
+
+The jobs set up through `.github/actions/setup`, which caches the installed `node_modules`
+whole (`node-modules-…`, for each lockfile): only the first job after a dependency change
+installs.
+
 ## Open-source licenses
 
 What Otter is built on is listed in the app with its licenses (Settings → General → About; Settings

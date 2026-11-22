@@ -1,0 +1,48 @@
+name: Setup
+description: >-
+  Vite+, Node and the workspace's dependencies. The installed node_modules are cached whole,
+  for each lockfile: a job after the first restores them and skips the install.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Vite+
+      uses: voidzero-dev/setup-vp@v1
+      with:
+        node-version-file: package.json
+        cache: false
+        run-install: false
+
+    # The lockfile names every dependency of every package, so it alone says what is installed;
+    # a release's version bump in a package.json doesn't start the cache over.
+    - name: Restore node_modules
+      id: modules
+      uses: actions/cache/restore@v6
+      with:
+        path: |
+          node_modules
+          apps/*/node_modules
+          packages/*/node_modules
+          extensions/*/node_modules
+          infra/*/node_modules
+          site/node_modules
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
+
+    - name: Install
+      if: steps.modules.outputs.cache-hit != 'true'
+      shell: bash
+      run: vp install
+
+    # Right after the install, before anything writes its own caches into node_modules.
+    - name: Save node_modules
+      if: steps.modules.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: |
+          node_modules
+          apps/*/node_modules
+          packages/*/node_modules
+          extensions/*/node_modules
+          infra/*/node_modules
+          site/node_modules
+        key: ${{ steps.modules.outputs.cache-primary-key }}

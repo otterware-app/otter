@@ -1,0 +1,117 @@
+name: Checks
+
+# Lint, typecheck and tests: CI runs them on a pull request, Release on the commit it ships.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit to check, when it isn't the one the caller runs on.
+        type: string
+        default: ""
+      fresh:
+        description: Run every check, replaying nothing from the task cache.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  # Nothing here launches Electron; skip the ~100 MB runtime download.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+jobs:
+  # A runner each: on one they slowed each other down, enough to time out tests.
+  check:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Lint
+            run: |
+              vp run fmt:check
+              vp run lint
+              node --test scripts/release.test.ts scripts/release-plan.test.ts .github/scripts/release-source.test.cjs
+              node scripts/resolve-release-version.ts --bump patch
+              node scripts/build-desktop-artifact.ts --help > /dev/null
+              node scripts/dev-runner.ts dev --dry-run
+              node scripts/dev-runner.ts dev:desktop --dry-run
+              node scripts/dev-runner.ts dev:desktop:fake --dry-run
+          # `vp run --cache` replays a package's result while nothing it read has changed, so a
+          # change reruns only the packages it reaches. A result is kept only when it passed.
+          # Vitest's own cache is off (--no-cache): its folder would count as a changed input.
+          - name: Typecheck
+            cache: typecheck
+            run: vp run --cache typecheck
+          # The two slow suites, apart from the rest: each starts real servers.
+          - name: Test (relay)
+            cache: test-relay
+            run: vp run --cache --filter @otter/relay test --no-cache
+          - name: Test (core)
+            cache: test-core
+            docker: true
+            run: vp run --cache --filter @otter/core test --no-cache
+          # Every workspace folder (pnpm-workspace.yaml), less those two.
+          - name: Test
+            cache: test
+            run: >
+              vp run --cache --parallel --concurrency-limit 4
+              --filter './apps/*' --filter './packages/*' --filter './extensions/*' --filter ./site --filter './infra/*'
+              --filter '!@otter/relay' --filter '!@otter/core'
+              test --no-cache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+
+      # The mail servers core's tests run against, fetched while dependencies install. Without
+      # Docker those tests skip themselves, and the skip would be cached as a pass: fail instead.
+      - name: Pull the test mail servers
+        if: matrix.docker
+        run: |
+          docker info > /dev/null
+          grep -oE '"(greenmail|dovecot)/[^"]+"' packages/core/src/protocols/test/servers.ts \
+            | tr -d '"' | xargs -P 2 -n 1 docker pull --quiet > /dev/null 2>&1 &
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      # What an install leaves different each time, though nothing changed: the time pnpm
+      # stamps on it, and the folder vp makes for its config while it runs.
+      - name: Steady node_modules for the task cache
+        if: matrix.cache
+        run: |
+          sed -i -E 's/"prunedAt": "[^"]*"/"prunedAt": ""/' node_modules/.modules.yaml
+          mkdir -p node_modules/.vite-temp
+
+      # A new lockfile changes what nearly every task reads: start over then, which also keeps
+      # the cache from growing forever.
+      - name: Restore the task cache
+        id: task-cache
+        if: matrix.cache && !inputs.fresh
+        uses: actions/cache/restore@v6
+        with:
+          path: node_modules/.vite/task-cache
+          key: vite-task-${{ matrix.cache }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            vite-task-${{ matrix.cache }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      - name: Note the restored cache
+        id: restored
+        if: matrix.cache
+        run: echo "hash=${{ hashFiles('node_modules/.vite/task-cache/*/cache.db') }}" >> "$GITHUB_OUTPUT"
+
+      - name: ${{ matrix.name }}
+        run: ${{ matrix.run }}
+
+      # Only when a task ran: a run that replayed everything has nothing new to keep.
+      - name: Save the task cache
+        if: matrix.cache && success() && hashFiles('node_modules/.vite/task-cache/*/cache.db') != steps.restored.outputs.hash
+        uses: actions/cache/save@v6
+        with:
+          path: node_modules/.vite/task-cache
+          key: vite-task-${{ matrix.cache }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}

@@ -67,7 +67,7 @@ release; `OTTER_ERROR_REPORTS=1` lets a development build (`pnpm dev:fake`,
    - GitHub: secret `SENTRY_AUTH_TOKEN`, variable `SENTRY_ORG` (the Release workflow).
    - The web app's deploy (`site/scripts/build.ts`, in the Release workflow) uses the same two;
      `scripts/upload-sourcemaps.ts` skips the upload without them.
-   - The iPhone's dSYMs (`otter-mail-ios`): the Release iPhone workflow uploads them with the
+   - The iPhone's dSYMs (`otter-mail-ios`): the Release workflow's iPhone job uploads them with the
      same secret and variable (`scripts/release-ios.ts`).
 3. In each project's settings: turn off "Store client IP addresses" and keep the server-side
    data scrubber on, as a second net.
@@ -81,14 +81,14 @@ release; `OTTER_ERROR_REPORTS=1` lets a development build (`pnpm dev:fake`,
    event from a later version reopens it as a regression.
 
    Sentry resolves an issue only through a release in the issue's own project, so the iPhone has
-   its own: the Release iPhone workflow's `sentry_release` job (`scripts/sentry-release-ios.ts`)
+   its own: the last step of the Release workflow's iPhone job (`scripts/sentry-release-ios.ts`)
    runs once App Store Connect has the build, and creates `otter-mail-ios@<version>+<build>` in
    `otter-mail-ios`, the exact name the app reports (`ErrorReports.swift`). It attaches every
    commit from the previous `ios-vX.Y.Z` tag to the released commit, then finalizes the release.
    An iPhone fix says `Fixes OTTER-MAIL-IOS-<n>` and resolves with the next iPhone release. If
-   the job fails, the build and tag still go out: rerun the failed job.
+   the step fails, the build and tag still go out: make the release by hand, as below.
 
-   iPhone releases before this job (up to `ios-v0.8.5`) have no commits in Sentry, so fixes they
+   iPhone releases before this step (up to `ios-v0.8.5`) have no commits in Sentry, so fixes they
    shipped (OTTER-MAIL-IOS-2, in 0.8.5) stay open. To reconcile one, by hand and on purpose:
    `node scripts/sentry-release-ios.ts --version 0.8.5 --build 202611042249 --ref ios-v0.8.5`
    with `SENTRY_AUTH_TOKEN` and `SENTRY_ORG` set. The build is in that run's log ("Uploaded

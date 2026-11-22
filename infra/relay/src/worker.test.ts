@@ -55,6 +55,9 @@ const APP_ORIGIN = "http://app.test";
 const PUSH_AUDIENCE = "https://relay.test/push/gmail";
 const PUSH_SERVICE_ACCOUNT = "push@test.iam.gserviceaccount.com";
 const root = path.resolve(import.meta.dirname, "..");
+// Not `pnpm exec`: pnpm rewrites node_modules on the way, which the task cache takes for a
+// change to every suite's inputs.
+const wrangler = path.join(root, "node_modules", ".bin", "wrangler");
 
 let signingKey: CryptoKey;
 let jwks: http.Server;
@@ -330,10 +333,8 @@ beforeAll(async () => {
   const config = path.join(persistDir, "wrangler.jsonc");
   fs.writeFileSync(config, localConfig());
   execFileSync(
-    "pnpm",
+    wrangler,
     [
-      "exec",
-      "wrangler",
       "--config",
       config,
       "d1",
@@ -1188,10 +1189,8 @@ describe("Outlook mailboxes", () => {
 
 function d1(command: string) {
   return execFileSync(
-    "pnpm",
+    wrangler,
     [
-      "exec",
-      "wrangler",
       "d1",
       "execute",
       "otter-mail-relay",

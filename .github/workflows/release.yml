@@ -1,5 +1,8 @@
 name: Release
 
+# One workflow for every app. A push to main ships the apps its commits changed; a run by hand
+# ships whatever main has that an app's last release doesn't, or the apps it names
+# (scripts/release-plan.ts decides; the run's summary says what it chose).
 on:
   push:
     branches:
@@ -7,24 +10,38 @@ on:
     tags:
       - "v*.*.*"
       - "!v*-*"
-    # What the desktop and web apps don't ship. GitHub applies path filters to
-    # branch pushes only, so a tag always releases.
-    paths-ignore:
-      - "apps/ios/**"
-      - "apps/ios-agents/**"
-      - "docs/**"
   workflow_dispatch:
     inputs:
       channel:
-        description: Release channel
+        description: "Mac, Linux and web: a nightly, or the latest nightly as stable"
         required: true
         default: nightly
         type: choice
         options:
           - nightly
           - stable
+      apps:
+        description: "What to release. auto: each app that changed since its last release"
+        required: true
+        default: auto
+        type: choice
+        options:
+          - auto
+          - desktop
+          - iphone
+          - agents
+          - all
+      bump:
+        description: "iPhone apps: version bump from the app's latest release"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
       version:
-        description: Stable version override (e.g. 1.0.0); defaults to the version previewed by the latest nightly
+        description: Exact version instead (e.g. 1.0.0), for a stable release or one iPhone app
         required: false
         type: string
 
@@ -43,21 +60,29 @@ env:
   ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
 
 jobs:
-  resolve_commit:
-    name: Resolve release commit
+  plan:
+    name: What to release
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      ref: ${{ steps.resolve.outputs.ref }}
-      nightly_version: ${{ steps.resolve.outputs.nightly_version }}
-      channel: ${{ steps.resolve.outputs.channel }}
+      desktop: ${{ steps.apps.outputs.desktop }}
+      iphone: ${{ steps.apps.outputs.iphone }}
+      agents: ${{ steps.apps.outputs.agents }}
+      ref: ${{ steps.source.outputs.ref }}
+      channel: ${{ steps.source.outputs.channel }}
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      name: ${{ steps.meta.outputs.name }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      make_latest: ${{ steps.meta.outputs.make_latest }}
+      previous_tag: ${{ steps.meta.outputs.previous_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          sparse-checkout: .github/scripts
+          fetch-depth: 0
 
-      - id: resolve
+      - id: source
         name: Resolve release commit
         uses: actions/github-script@v8
         env:
@@ -83,39 +108,32 @@ jobs:
               core.setOutput('ref', context.sha);
             }
 
-  preflight:
-    name: Preflight
-    needs: [resolve_commit]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    outputs:
-      ref: ${{ needs.resolve_commit.outputs.ref }}
-      channel: ${{ needs.resolve_commit.outputs.channel }}
-      version: ${{ steps.meta.outputs.version }}
-      tag: ${{ steps.meta.outputs.tag }}
-      name: ${{ steps.meta.outputs.name }}
-      prerelease: ${{ steps.meta.outputs.prerelease }}
-      make_latest: ${{ steps.meta.outputs.make_latest }}
-      previous_tag: ${{ steps.meta.outputs.previous_tag }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.resolve_commit.outputs.ref }}
-          fetch-depth: 0
-
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
           node-version-file: package.json
           package-manager-cache: false
 
+      - id: apps
+        name: Choose the apps
+        env:
+          EVENT: ${{ github.event_name }}
+          CHANNEL: ${{ steps.source.outputs.channel }}
+          APPS: ${{ inputs.apps }}
+          VERSION: ${{ inputs.version }}
+          BEFORE: ${{ github.event.before }}
+        run: >
+          node scripts/release-plan.ts --github-output
+          --event "$EVENT" --channel "$CHANNEL" --apps "$APPS" --version "$VERSION"
+          --before "$BEFORE" --after "$GITHUB_SHA"
+
       - id: meta
         name: Resolve release version
+        if: steps.apps.outputs.desktop == 'true'
         env:
-          CHANNEL: ${{ needs.resolve_commit.outputs.channel }}
-          NIGHTLY_VERSION: ${{ needs.resolve_commit.outputs.nightly_version }}
-          NIGHTLY_SHA: ${{ needs.resolve_commit.outputs.ref }}
+          CHANNEL: ${{ steps.source.outputs.channel }}
+          NIGHTLY_VERSION: ${{ steps.source.outputs.nightly_version }}
+          NIGHTLY_SHA: ${{ steps.source.outputs.ref }}
           NIGHTLY_RUN_NUMBER: ${{ github.run_number }}
           VERSION: ${{ inputs.version }}
           TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
@@ -133,55 +151,36 @@ jobs:
   # A newer nightly takes over from one still checking or building: its jobs cancel
   # these, so the older run publishes nothing.
   quality:
-    name: Release quality checks
-    needs: [preflight]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    name: Checks
+    needs: [plan]
+    if: needs.plan.outputs.desktop == 'true'
     concurrency:
-      group: release-${{ needs.preflight.outputs.channel }}-quality
-      cancel-in-progress: ${{ needs.preflight.outputs.channel == 'nightly' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.preflight.outputs.ref }}
-
-      - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@v1
-        with:
-          node-version-file: package.json
-          cache: true
-          run-install: true
-
-      - name: Verify release
-        run: |
-          vp run fmt:check
-          vp run lint
-          vp run typecheck
-          vp run test
-          node --test scripts/release.test.ts .github/scripts/release-source.test.cjs
+      group: release-${{ needs.plan.outputs.channel }}-quality
+      cancel-in-progress: ${{ needs.plan.outputs.channel == 'nightly' }}
+    uses: ./.github/workflows/checks.yml
+    with:
+      ref: ${{ needs.plan.outputs.ref }}
+      # A stable release is the last gate: it replays nothing.
+      fresh: ${{ needs.plan.outputs.channel == 'stable' }}
 
   build_mac:
     name: Build macOS (Apple Silicon)
-    needs: [preflight]
+    needs: [plan]
+    if: needs.plan.outputs.desktop == 'true'
     # Needs Xcode 26+ for the translator; see .github/actions/select-xcode.
     runs-on: macos-15
     timeout-minutes: 60
     concurrency:
-      group: release-${{ needs.preflight.outputs.channel }}-mac
-      cancel-in-progress: ${{ needs.preflight.outputs.channel == 'nightly' }}
+      group: release-${{ needs.plan.outputs.channel }}-mac
+      cancel-in-progress: ${{ needs.plan.outputs.channel == 'nightly' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.preflight.outputs.ref }}
+          ref: ${{ needs.plan.outputs.ref }}
 
-      - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@v1
-        with:
-          node-version-file: package.json
-          cache: true
-          run-install: true
+      - name: Setup
+        uses: ./.github/actions/setup
 
       - name: Select Xcode
         uses: ./.github/actions/select-xcode
@@ -191,7 +190,7 @@ jobs:
       - name: Build desktop artifacts
         shell: bash
         env:
-          VERSION: ${{ needs.preflight.outputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
           OTTER_GOOGLE_CLIENT_ID: ${{ vars.OTTER_GOOGLE_CLIENT_ID }}
           OTTER_GOOGLE_CLIENT_SECRET: ${{ secrets.OTTER_MAIL_GOOGLE_CLIENT_SECRET }}
           # Outlook's sign-in (a public client: no secret); without it the app offers no Outlook.
@@ -246,31 +245,28 @@ jobs:
 
   build_linux:
     name: Build Linux (.deb, x64 and arm64)
-    needs: [preflight]
+    needs: [plan]
+    if: needs.plan.outputs.desktop == 'true'
     # The app is bundled JavaScript on Electron: one runner packages both
     # architectures (electron-builder fetches each one's Electron).
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     concurrency:
-      group: release-${{ needs.preflight.outputs.channel }}-linux
-      cancel-in-progress: ${{ needs.preflight.outputs.channel == 'nightly' }}
+      group: release-${{ needs.plan.outputs.channel }}-linux
+      cancel-in-progress: ${{ needs.plan.outputs.channel == 'nightly' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.preflight.outputs.ref }}
+          ref: ${{ needs.plan.outputs.ref }}
 
-      - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@v1
-        with:
-          node-version-file: package.json
-          cache: true
-          run-install: true
+      - name: Setup
+        uses: ./.github/actions/setup
 
       - name: Build desktop artifacts
         shell: bash
         env:
-          VERSION: ${{ needs.preflight.outputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
           OTTER_GOOGLE_CLIENT_ID: ${{ vars.OTTER_GOOGLE_CLIENT_ID }}
           OTTER_GOOGLE_CLIENT_SECRET: ${{ secrets.OTTER_MAIL_GOOGLE_CLIENT_SECRET }}
           # Outlook's sign-in (a public client: no secret); without it the app offers no Outlook.
@@ -299,12 +295,12 @@ jobs:
 
   release:
     name: Publish GitHub release
-    needs: [preflight, quality, build_mac, build_linux]
+    needs: [plan, quality, build_mac, build_linux]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # In turn within a channel, and never cancelled: it may be publishing.
     concurrency:
-      group: release-${{ needs.preflight.outputs.channel }}-publish
+      group: release-${{ needs.plan.outputs.channel }}-publish
       queue: max
       cancel-in-progress: false
     permissions:
@@ -313,7 +309,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.preflight.outputs.ref }}
+          ref: ${{ needs.plan.outputs.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -324,8 +320,8 @@ jobs:
       # The version's changelog note (if main has one) goes above GitHub's
       # generated notes, so the release and the site's changelog say the same.
       - name: Changelog note
-        if: needs.preflight.outputs.prerelease == 'false'
-        run: node scripts/changelog-release-notes.ts "${{ needs.preflight.outputs.version }}" > "$RUNNER_TEMP/notes.md"
+        if: needs.plan.outputs.prerelease == 'false'
+        run: node scripts/changelog-release-notes.ts "${{ needs.plan.outputs.version }}" > "$RUNNER_TEMP/notes.md"
 
       # Each release carries only its own latest-* or nightly-* update feeds.
       - name: Download artifacts
@@ -338,14 +334,14 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ needs.preflight.outputs.tag }}
-          target_commitish: ${{ needs.preflight.outputs.ref }}
-          name: ${{ needs.preflight.outputs.name }}
-          body_path: ${{ needs.preflight.outputs.prerelease == 'false' && format('{0}/notes.md', runner.temp) || '' }}
+          tag_name: ${{ needs.plan.outputs.tag }}
+          target_commitish: ${{ needs.plan.outputs.ref }}
+          name: ${{ needs.plan.outputs.name }}
+          body_path: ${{ needs.plan.outputs.prerelease == 'false' && format('{0}/notes.md', runner.temp) || '' }}
           generate_release_notes: true
-          previous_tag: ${{ needs.preflight.outputs.previous_tag }}
-          prerelease: ${{ needs.preflight.outputs.prerelease }}
-          make_latest: ${{ needs.preflight.outputs.make_latest }}
+          previous_tag: ${{ needs.plan.outputs.previous_tag }}
+          prerelease: ${{ needs.plan.outputs.prerelease }}
+          make_latest: ${{ needs.plan.outputs.make_latest }}
           files: release-assets/*
           fail_on_unmatched_files: true
 
@@ -353,7 +349,7 @@ jobs:
   # `Fixes <SHORT-ID>` to resolves with it. Bookkeeping: never fails the release.
   sentry_release:
     name: Sentry release
-    needs: [preflight, release]
+    needs: [plan, release]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     continue-on-error: true
@@ -361,7 +357,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.preflight.outputs.ref }}
+          ref: ${{ needs.plan.outputs.ref }}
           fetch-depth: 0
 
       - name: Create the release
@@ -370,9 +366,9 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
         with:
-          release: otter-mail@${{ needs.preflight.outputs.version }}
+          release: otter-mail@${{ needs.plan.outputs.version }}
           projects: otter-mail-desktop otter-mail-web
-          environment: ${{ needs.preflight.outputs.prerelease == 'true' && 'nightly' || 'stable' }}
+          environment: ${{ needs.plan.outputs.prerelease == 'true' && 'nightly' || 'stable' }}
           set_commits: auto
           ignore_missing: true
           ignore_empty: true
@@ -381,8 +377,8 @@ jobs:
   # a stable one waits for its GitHub release.
   deploy_web_nightly:
     name: Deploy the web app (nightly)
-    needs: [preflight, quality]
-    if: needs.preflight.outputs.prerelease == 'true'
+    needs: [plan, quality]
+    if: needs.plan.outputs.prerelease == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
@@ -392,7 +388,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.preflight.outputs.ref }}
+          ref: ${{ needs.plan.outputs.ref }}
 
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1
@@ -404,8 +400,8 @@ jobs:
       - name: Build and deploy
         working-directory: site
         env:
-          OTTER_VERSION: ${{ needs.preflight.outputs.version }}
-          NIGHTLY: ${{ needs.preflight.outputs.prerelease }}
+          OTTER_VERSION: ${{ needs.plan.outputs.version }}
+          NIGHTLY: ${{ needs.plan.outputs.prerelease }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -425,8 +421,8 @@ jobs:
 
   deploy_web:
     name: Deploy the web app
-    needs: [preflight, release]
-    if: needs.preflight.outputs.prerelease == 'false'
+    needs: [plan, release]
+    if: needs.plan.outputs.prerelease == 'false'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
@@ -436,8 +432,8 @@ jobs:
 
   finalize:
     name: Bump package versions on main
-    needs: [preflight, release]
-    if: needs.preflight.outputs.prerelease == 'false'
+    needs: [plan, release]
+    if: needs.plan.outputs.prerelease == 'false'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -456,12 +452,12 @@ jobs:
 
       - id: bump
         name: Update versions
-        run: node scripts/update-release-package-versions.ts "${{ needs.preflight.outputs.version }}" --github-output
+        run: node scripts/update-release-package-versions.ts "${{ needs.plan.outputs.version }}" --github-output
 
       - name: Commit and push
         if: steps.bump.outputs.changed == 'true'
         env:
-          TAG: ${{ needs.preflight.outputs.tag }}
+          TAG: ${{ needs.plan.outputs.tag }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -475,3 +471,177 @@ jobs:
           done
           echo "::error::Couldn't push the version bump to main."
           exit 1
+
+  # The iPhone apps ship on their own, each with its own version and tags (ios-vX.Y.Z,
+  # ios-agents-vX.Y.Z), to TestFlight. One release of an app at a time; while one runs, only
+  # the newest waits.
+  iphone:
+    name: Otter Mail for iPhone
+    needs: [plan]
+    if: needs.plan.outputs.iphone == 'true'
+    # The runner's default Xcode (a release, never a beta: App Store Connect
+    # refuses beta builds).
+    runs-on: xcode-27
+    timeout-minutes: 45
+    concurrency:
+      group: release-iphone
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      # What scripts/release-ios.ts and scripts/resolve-release-version.ts call the app.
+      IOS_APP: mail
+      VERSION_APP: ios
+      XCODE_PROJECT: apps/ios/OtterMail.xcodeproj/project.pbxproj
+      PROFILE_SECRET: IOS_PROVISIONING_PROFILE
+      NOTIFICATION_PROFILE_SECRET: IOS_NOTIFICATION_PROVISIONING_PROFILE
+    steps: &ios_steps
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          package-manager-cache: false
+
+      # Here, once it is this release's turn: the version after the one that just shipped.
+      - id: meta
+        name: Resolve release version
+        env:
+          BUMP: ${{ inputs.bump }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          args=(--app "$VERSION_APP" --github-output)
+          if [[ -n "$VERSION" ]]; then args+=(--version "$VERSION");
+          else args+=(--bump "${BUMP:-patch}"); fi
+          node scripts/resolve-release-version.ts "${args[@]}"
+
+      - name: Install signing
+        env:
+          DISTRIBUTION_P12: ${{ secrets.IOS_DISTRIBUTION_P12 }}
+          DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
+          PROVISIONING_PROFILE: ${{ secrets[env.PROFILE_SECRET] }}
+          NOTIFICATION_PROVISIONING_PROFILE: ${{ secrets[env.NOTIFICATION_PROFILE_SECRET] }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          for name in DISTRIBUTION_P12 DISTRIBUTION_P12_PASSWORD PROVISIONING_PROFILE NOTIFICATION_PROVISIONING_PROFILE APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing $name. Set the IOS_DISTRIBUTION_P12, IOS_DISTRIBUTION_P12_PASSWORD, $PROFILE_SECRET, $NOTIFICATION_PROFILE_SECRET and APPLE_API_KEY* secrets (docs/release.md)."
+              exit 1
+            fi
+          done
+          xcodebuild -version
+
+          # The Apple Distribution identity, in a keychain of its own for this run.
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password="$(openssl rand -hex 24)"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          printf '%s' "$DISTRIBUTION_P12" | base64 --decode > "$RUNNER_TEMP/distribution.p12"
+          security import "$RUNNER_TEMP/distribution.p12" -k "$keychain" -P "$DISTRIBUTION_P12_PASSWORD" -f pkcs12 -A
+          security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/distribution.p12"
+
+          # The app's and its notification extension's App Store profiles, where Xcode looks.
+          profiles="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$profiles"
+          for profile in "$PROVISIONING_PROFILE" "$NOTIFICATION_PROVISIONING_PROFILE"; do
+            printf '%s' "$profile" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+            uuid="$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" | plutil -extract UUID raw -)"
+            mv "$RUNNER_TEMP/profile.mobileprovision" "$profiles/$uuid.mobileprovision"
+          done
+
+          # The App Store Connect API key the upload signs in with.
+          key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s' "$APPLE_API_KEY" > "$key_path"
+          {
+            echo "OTTER_ASC_KEY=$key_path"
+            echo "OTTER_ASC_KEY_ID=$APPLE_API_KEY_ID"
+            echo "OTTER_ASC_ISSUER=$APPLE_API_ISSUER"
+          } >> "$GITHUB_ENV"
+
+      - id: upload
+        name: Build and upload
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+        run: node scripts/release-ios.ts --app "$IOS_APP" --version "$VERSION" --github-output
+
+      - name: Remove signing
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+
+      # Only once App Store Connect has the build, so a failed run leaves nothing behind.
+      - name: Tag, bump and push
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "$TAG"
+
+          git fetch origin "$BRANCH"
+          git checkout --force -B "$BRANCH" FETCH_HEAD
+          perl -pi -e "s/MARKETING_VERSION = [^;]+;/MARKETING_VERSION = $VERSION;/" "$XCODE_PROJECT"
+          if git diff --quiet -- "$XCODE_PROJECT"; then
+            echo "The Xcode project already says $VERSION."
+            exit 0
+          fi
+          git add "$XCODE_PROJECT"
+          git commit -m "chore(release): $TAG"
+          # The other releases also push a version bump to main; don't collide with them.
+          for attempt in 1 2 3; do
+            git pull --rebase origin "$BRANCH"
+            if git push origin "HEAD:$BRANCH"; then exit 0; fi
+            sleep 5
+          done
+          echo "::error::Couldn't push the version bump to main."
+          exit 1
+
+      # The release Otter Mail reports under, with every commit since its last one, so
+      # `Fixes OTTER-MAIL-IOS-…` resolves its issue. Bookkeeping: never fails the release
+      # (docs/error-reports.md has the command to run it again).
+      - name: Sentry release
+        if: env.IOS_APP == 'mail'
+        continue-on-error: true
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          BUILD: ${{ steps.upload.outputs.build }}
+          REPOSITORY: ${{ github.repository }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+        run: >-
+          node scripts/sentry-release-ios.ts --version "$VERSION" --build "$BUILD"
+          --repository "$REPOSITORY" --ref "$GITHUB_SHA"
+
+  agents:
+    name: Otter Agents for iPhone
+    needs: [plan]
+    if: needs.plan.outputs.agents == 'true'
+    runs-on: xcode-27
+    timeout-minutes: 45
+    concurrency:
+      group: release-agents
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      IOS_APP: agents
+      VERSION_APP: agents
+      XCODE_PROJECT: apps/ios-agents/OtterAgents.xcodeproj/project.pbxproj
+      PROFILE_SECRET: IOS_AGENTS_PROVISIONING_PROFILE
+      NOTIFICATION_PROFILE_SECRET: IOS_AGENTS_NOTIFICATION_PROVISIONING_PROFILE
+    steps: *ios_steps

@@ -2,12 +2,13 @@
 
 The short version, for every part including the web app and relay: `docs/runbook.md`.
 
-Mac releases are GitHub Releases of this repository, built by `.github/workflows/release.yml`.
+Every app is released by one workflow, `.github/workflows/release.yml`: each run works out which
+apps to ship ([What a run releases](#what-a-run-releases)). Mac releases are GitHub Releases of
+this repository.
 New releases support Apple Silicon Macs only (arm64). Intel Macs can keep using older releases,
 but no longer receive compatible updates.
-The iPhone app ships separately, with its own version, through `.github/workflows/release-ios.yml`
-([The iPhone app](#the-iphone-app)); Otter Agents, the second iPhone app, likewise through
-`release-ios-agents.yml` ([Otter Agents](#otter-agents)).
+The iPhone app ships separately, with its own version ([The iPhone app](#the-iphone-app)); Otter
+Agents, the second iPhone app, likewise ([Otter Agents](#otter-agents)).
 The Mac and Linux app follow [Otter Code's stable and nightly release trains](https://github.com/otterware-app/otter-code/blob/main/.github/workflows/release.yml). Settings → General
 chooses the update channel on this computer. Both channels use the same installed app, mailbox
 cache and account data; switching installs the selected channel's build and icon. The default
@@ -20,16 +21,42 @@ identifies nightly, and the blue blueprint identifies unpackaged development run
 favicon follows its build too; the hosted web app still deploys from main. iPhone has only stable
 (TestFlight and App Store) and dev (Debug) icons.
 
+## What a run releases
+
+The workflow's first job, "What to release" (`scripts/release-plan.ts`), chooses the apps and
+writes its choice to the run's summary; the other apps' jobs are skipped.
+
+- **A push to `main`** ships each app the push's commits changed. The Mac, Linux and web app is
+  built from the whole repository, less what only another part ships: `apps/ios`,
+  `apps/ios-agents`, `infra` (the relay, which Cloudflare deploys), `docs`, `changelog`,
+  `.github` and `.agents`. The iPhone app: `apps/ios`, `packages/shared`,
+  `scripts/export-ios-resources.ts`, `scripts/release-ios.ts`. Otter Agents: `apps/ios-agents`,
+  what it compiles and bundles from Otter Mail (`apps/ios/OtterMail/Agent`, which is
+  `MailContext`, `Theme`, `Resources`, `Settings/Licenses.swift`) and the same two scripts.
+- **A run by hand** (Actions → Release → Run workflow, or `gh workflow run release.yml`) ships
+  each app that `main` has changed since that app's last release (its newest tag; the releases'
+  own version-bump commits don't count). So a release that failed or was cancelled is finished
+  by running the workflow again, with nothing to choose.
+- `apps` (`desktop`, `iphone`, `agents`, `all`) releases those apps now, whatever changed.
+  `channel=stable` is the Mac, Linux and web app's stable release, below. `bump` and `version`
+  are the iPhone apps' ([The iPhone app](#the-iphone-app)).
+- A `vX.Y.Z` tag releases that commit of the Mac, Linux and web app as stable.
+
+Before publishing, the Mac, Linux and web app's commit passes the checks CI runs on pull
+requests (`.github/workflows/checks.yml`; [CI](development.md#ci)). A nightly replays the
+results of checks whose inputs haven't changed since they last passed on `main`; a stable
+release runs them all.
+
 ## Release cycle
 
 1. Land changes on `main` through pull requests (CI must pass).
-2. **Nightly:** the Release workflow publishes on each push to `main`, so each merged PR, unless
-   the push only touches `apps/ios` or `docs`. Each run builds that push's exact commit; there
+2. **Nightly:** the Release workflow publishes on each push to `main` that changes the app, so
+   each such merged PR. Each run builds that push's exact commit; there
    is no time gate or scheduled polling. A newer nightly cancels the checks and builds of an
    older one still running, which then publishes nothing: pushes in quick succession end in one
    nightly, of the last. Publishing itself is never cancelled, and runs in turn.
-   For an immediate build, run Actions → Release → `channel=nightly`, or
-   `gh workflow run release.yml -f channel=nightly`.
+   For a build now, whatever changed, run Actions → Release → `apps=desktop`, or
+   `gh workflow run release.yml -f apps=desktop`.
 3. A nightly previews the next patch version after the latest stable tag, for example
    `0.13.10-nightly.20261013.123`. It is a GitHub prerelease, never the latest stable release,
    and carries only `nightly-mac.yml`, `nightly-linux.yml` and `nightly-linux-arm64.yml` feeds.
@@ -126,28 +153,30 @@ The iPhone app has its own version (`MARKETING_VERSION` in `apps/ios/OtterMail.x
 its own tags (`ios-vX.Y.Z`), apart from the Mac app's: it is released when it has changed, not
 with every Mac release. It started from the Mac app's 0.5.6, the last shared version.
 
-1. The Release iPhone workflow runs on each push to `main` that touches `apps/ios`,
-   `packages/shared`, `scripts/export-ios-resources.ts` or `scripts/release-ios.ts`, as a patch.
-   Runs go one at a time; while one runs, only the newest push waits. For a minor or major
-   version: Actions → Release iPhone → Run workflow, choose `patch`, `minor` or `major`; or
-   `gh workflow run release-ios.yml -f bump=minor` (or `-f version=1.0.0`). The version is the
-   latest `ios-vX.Y.Z` tag with that bump (the first release ships the project's version).
-2. The workflow builds `main`'s HEAD on GitHub's `xcode-27` runner with its default (release)
+1. The Release workflow's "Otter Mail for iPhone" job runs on each push to `main` that touches
+   `apps/ios`, `packages/shared`, `scripts/export-ios-resources.ts` or `scripts/release-ios.ts`,
+   as a patch. Its releases go one at a time; while one runs, only the newest push waits. For a
+   minor or major version: Actions → Release → Run workflow, `apps=iphone` and `patch`, `minor`
+   or `major`; or `gh workflow run release.yml -f apps=iphone -f bump=minor` (or
+   `-f version=1.0.0`). The version is the latest `ios-vX.Y.Z` tag with that bump (the first
+   release ships the project's version), read when the job's turn comes, so one that waited
+   takes the version after the release it waited for.
+2. The job builds the run's commit on GitHub's `xcode-27` runner with its default (release)
    Xcode, signs it for the App Store and uploads it to App Store Connect. The build number is the
    time (YYYYMMDDhhmm).
 3. Only once the upload succeeded does it tag the commit `ios-vX.Y.Z` and commit the version to
    the Xcode project on `main`, so a failed run leaves nothing behind. It makes no GitHub Release:
    the Mac app updates from the latest one.
-   Beside it, the `sentry_release` job makes the build's Sentry release, with its commits since
-   the last iPhone tag (docs/error-reports.md).
+   Its last step makes the build's Sentry release, with its commits since the last iPhone tag
+   (docs/error-reports.md); a failure there doesn't fail the release.
 4. About half an hour later the build is in TestFlight for internal testers (everyone on the App
    Store Connect team). To put it in the App Store, pick the build in App Store Connect (Otter
    Mail: Calm Email → App Store) and submit it for review.
 
-Both workflows push a version bump to `main`; each rebases before pushing, so they can run at the
-same time.
+Each app's release pushes a version bump to `main`; each rebases before pushing, so they can run
+at the same time.
 
-The workflow and `scripts/release-ios.ts` (`pnpm release:ios [--version x.y.z]`, the same build
+The job and `scripts/release-ios.ts` (`pnpm release:ios [--version x.y.z]`, the same build
 from a Mac with Xcode 27, if GitHub can't) sign with:
 
 - The "Apple Distribution: Christophe Nicolas Kafrouni (838JVGY7W4)" identity: the
@@ -176,11 +205,11 @@ Otter Agents for iPhone (`apps/ios-agents`) is released like the iPhone app, apa
 own version (`MARKETING_VERSION` in `apps/ios-agents/OtterAgents.xcodeproj`, from 0.1.0) and its
 own tags (`ios-agents-vX.Y.Z`).
 
-The Release Otter Agents workflow (`release-ios-agents.yml`) runs on each push to `main` that
+The Release workflow's "Otter Agents for iPhone" job runs on each push to `main` that
 touches `apps/ios-agents`, what the app compiles and bundles from Otter Mail
 (`apps/ios/OtterMail/Agent`, which is `MailContext`, `Theme`, `Resources`, `Settings/Licenses.swift`)
 or the release scripts, as a patch; by hand,
-`gh workflow run release-ios-agents.yml -f bump=minor` (or `-f version=1.0.0`). It builds, signs
+`gh workflow run release.yml -f apps=agents -f bump=minor` (or `-f version=1.0.0`). It builds, signs
 and uploads with the same script (`scripts/release-ios.ts --app agents`; from a Mac,
 `pnpm release:ios:agents`), then tags the commit and commits the version to the Xcode project.
 It has no Sentry release: the app doesn't report errors.

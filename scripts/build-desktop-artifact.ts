@@ -346,6 +346,37 @@ function run(
   if (result.status !== 0) fail(`${label} failed with exit code ${result.status}.`);
 }
 
+// A command alongside what main() does next. Its output goes to a file, shown when it ends: the
+// two don't interleave, and main()'s blocking steps can't stall it on a full pipe.
+function start(
+  command: string,
+  args: readonly string[],
+  options: { cwd: string; env: NodeJS.ProcessEnv; label: string },
+): Promise<void> {
+  log(`$ ${options.label} (alongside)`);
+  const outputPath = NodePath.join(
+    NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otter-mail-build-")),
+    "output.log",
+  );
+  const output = NodeFS.openSync(outputPath, "w");
+  const child = NodeChildProcess.spawn(command, args, {
+    cwd: options.cwd,
+    env: options.env,
+    stdio: ["ignore", output, output],
+  });
+  return new Promise((resolve) => {
+    child.on("error", (error) => fail(`${options.label} could not start: ${error.message}`));
+    child.on("close", (status) => {
+      NodeFS.closeSync(output);
+      log(`${options.label}:`);
+      process.stdout.write(NodeFS.readFileSync(outputPath));
+      NodeFS.rmSync(NodePath.dirname(outputPath), { recursive: true, force: true });
+      if (status !== 0) fail(`${options.label} failed with exit code ${status}.`);
+      resolve();
+    });
+  });
+}
+
 function copyDir(from: string, to: string, filter?: (path: string) => boolean): void {
   NodeFS.cpSync(from, to, {
     recursive: true,
@@ -383,7 +414,7 @@ function resolveTranslatorBinary(options: Options): string {
   return binary;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   let options: Options | null;
   try {
     options = parseOptions(process.argv.slice(2));
@@ -409,24 +440,36 @@ function main(): void {
       `update feed=${resolvePublishConfig(options.version, process.env) ? "yes" : "none"}, signed=${options.signed})`,
   );
 
+  // The renderer is the long build: the main process and the Mac's native helpers build
+  // beside it.
+  const web = options.skipBuild
+    ? undefined
+    : start(vpBin, ["build"], {
+        cwd: webDir,
+        env: { ...process.env, OTTER_VERSION: options.version },
+        label: "(apps/web) vp build",
+      });
   if (!options.skipBuild) {
-    run(vpBin, ["build"], {
-      cwd: webDir,
-      env: { ...process.env, OTTER_VERSION: options.version },
-      label: "(apps/web) vp build",
-    });
     run(vpBin, ["pack"], {
       cwd: desktopDir,
       env: { ...process.env, OTTER_VERSION: options.version },
       label: `(apps/desktop) OTTER_VERSION=${options.version} vp pack`,
     });
+  }
+  const translatorBinary = mac ? resolveTranslatorBinary(options) : null;
+  let notifierAddon = notifierAddonPath;
+  if (mac && (!options.skipBuild || !NodeFS.existsSync(notifierAddon))) {
+    log("Building native/notifier (arm64)...");
+    notifierAddon = buildNotifier();
+  }
+  if (web) {
+    await web;
     // Before staging: it writes the debug ids that pair the bundles with their maps.
     uploadSourcemaps(SENTRY_PROJECTS.desktop, [
       NodePath.join(desktopDir, "dist-electron"),
       NodePath.join(webDir, "dist"),
     ]);
   }
-  const translatorBinary = mac ? resolveTranslatorBinary(options) : null;
 
   const requiredInputs = [
     NodePath.join(desktopDir, "dist-electron", "main.cjs"),
@@ -457,14 +500,7 @@ function main(): void {
     NodeFS.copyFileSync(translatorBinary, NodePath.join(stageDir, "bin", "translator"));
     NodeFS.chmodSync(NodePath.join(stageDir, "bin", "translator"), 0o755);
   }
-  if (mac) {
-    let addon = notifierAddonPath;
-    if (!options.skipBuild || !NodeFS.existsSync(addon)) {
-      log("Building native/notifier (arm64)...");
-      addon = buildNotifier();
-    }
-    NodeFS.copyFileSync(addon, NodePath.join(stageDir, "bin", "notifier.node"));
-  }
+  if (mac) NodeFS.copyFileSync(notifierAddon, NodePath.join(stageDir, "bin", "notifier.node"));
 
   let entitlementsPath: string | undefined;
   let entitlementsInheritPath: string | undefined;
@@ -526,6 +562,9 @@ function main(): void {
       if (key.startsWith("APPLE_")) delete buildEnv[key];
     }
   }
+  // The update's zip, which 7-Zip deflates at level 7 by default: level 5 takes less than half
+  // the time for under 1% more to download, and is done before the DMG beside it.
+  if (mac) buildEnv.ELECTRON_BUILDER_COMPRESSION_LEVEL ??= "5";
   if (options.verbose) {
     buildEnv.DEBUG = [
       buildEnv.DEBUG,
@@ -573,4 +612,4 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();

@@ -199,12 +199,15 @@ it; the web app needs it (the relay keeps its Gmail sign-ins alive).
 
 ## Releases
 
-The desktop app (Mac and Linux) and the web app have stable and nightly channels.
-The iPhone app releases separately, with its own version:
+One workflow, Release, ships every app: on each merge to main it works out which apps the merge
+changed (`scripts/release-plan.ts`) and releases those. Run by hand, it releases whatever main
+has that an app's last release doesn't. The desktop app (Mac and Linux) and the web app have
+stable and nightly channels. The iPhone apps release separately, each with its own version:
 
-- Mac and Linux: the Release workflow publishes a nightly on each merge to main, unless it
-  only touches `apps/ios` or `docs`. Merges in quick succession share one: a newer nightly
-  cancels an older one still building. Run it with `channel=nightly` for an immediate nightly, or `channel=stable` to promote the latest published
+- Mac and Linux: the Release workflow publishes a nightly on each merge to main that changes
+  them (anything but the iPhone apps, `infra`, `docs`, `changelog`, `.github` and `.agents`).
+  Merges in quick succession share one: a newer nightly
+  cancels an older one still building. Run it with `apps=desktop` for a nightly now, or `channel=stable` to promote the latest published
   nightly commit (an optional stable version overrides its previewed version). A `vX.Y.Z` tag
   releases that exact commit. Each release builds the DMG and .debs (x64, arm64). Settings → General
   selects Stable or Nightly on this computer; updates offer "Restart to update" in the sidebar.
@@ -214,11 +217,12 @@ The iPhone app releases separately, with its own version:
   `otter-mail-site-nightly` Worker; a stable release, after its GitHub Release, to otter.otterware.app. Both answer at
   otter.otterware.app (one browser cache and sign-in): Settings → General's channel sets a
   cookie the stable Worker routes on (`site/src/worker.ts`); open tabs offer "Reload to update".
-- iPhone: the Release iPhone workflow runs on each merge to main that touches `apps/ios` (or
-  what it bundles from `packages/shared`), as a patch. Run it by hand for a minor or major
-  version. It uploads to TestFlight and tags `ios-vX.Y.Z`. Otter Agents (`apps/ios-agents`) has
-  the same in the Release Otter Agents workflow, with its own version and `ios-agents-vX.Y.Z`
-  tags: it runs when `apps/ios-agents` or what it compiles from `apps/ios` changes.
+- iPhone: the Release workflow releases Otter Mail on each merge to main that touches
+  `apps/ios` (or what it bundles from `packages/shared`), as a patch. Run it by hand with
+  `apps=iphone` and a `bump` for a minor or major version. It uploads to TestFlight and tags
+  `ios-vX.Y.Z`. Otter Agents (`apps/ios-agents`) is the same (`apps=agents`), with its own
+  version and `ios-agents-vX.Y.Z` tags: it ships when `apps/ios-agents` or what it compiles
+  from `apps/ios` changes.
 
 `docs/runbook.md` is the short version of shipping each part; details in `docs/release.md`.
 
