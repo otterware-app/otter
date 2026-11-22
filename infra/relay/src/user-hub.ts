@@ -48,6 +48,12 @@ type PendingAgentPush = {
   due: number;
 };
 
+/** The last alert the iPhones got for a chat, until it's opened or answered elsewhere. */
+type PushedAgent = {
+  userId: string;
+  ask: string;
+};
+
 type SessionOrigin = {
   device: PresenceDevice;
   at: number;
@@ -82,6 +88,25 @@ export async function deliverAgentPush(
     }),
   );
 }
+
+/** Tells the account's Otter Agents iPhones to remove a chat's alerts. */
+export async function clearAgentPush(env: Env, userId: string, sessionKey: string): Promise<void> {
+  if (!apns.configured(env)) return;
+  const devices = await push.agentDevices(env, userId);
+  await Promise.all(
+    devices.map(async (device) => {
+      const result = await apns.clearAgent(env, device, userId, sessionKey);
+      if (result === "invalid") await push.invalidate(env, device);
+    }),
+  );
+}
+
+const askOf = (pointer: AgentPointer) =>
+  pointer.approvalId
+    ? `approval:${pointer.approvalId}`
+    : pointer.questionId
+      ? `question:${pointer.questionId}`
+      : pointer.kind;
 
 export class UserHub extends DurableObject<Env> {
   private agentData: AgentData | null = null;
@@ -321,6 +346,7 @@ export class UserHub extends DurableObject<Env> {
       if (item.due > Date.now()) continue;
       await this.ctx.storage.delete(key);
       if (item.pointer.sessionKey && this.watching(item.pointer.sessionKey)) continue;
+      await this.pushed(item.userId, item.pointer);
       await deliverAgentPush(this.env, item.userId, item.pointer);
     }
     const [remainingMail, remainingAgents] = await Promise.all([
@@ -403,19 +429,14 @@ export class UserHub extends DurableObject<Env> {
     pointer: AgentPointer,
   ): Promise<"push" | "suppress" | "delay"> {
     const target = pointer.sessionKey ?? pointer.agentId;
-    const askId = pointer.approvalId
-      ? `approval:${pointer.approvalId}`
-      : pointer.questionId
-        ? `question:${pointer.questionId}`
-        : pointer.kind;
+    const askId = askOf(pointer);
     const pendingKey = `pending-agent:${target}:${askId}`;
     const alertKey = `last-agent-alert:${target}`;
 
     if (pointer.resolved) {
-      await this.clearPendingAgent(
-        target,
-        pointer.approvalId || pointer.questionId ? askId : undefined,
-      );
+      const ask = pointer.approvalId || pointer.questionId ? askId : undefined;
+      await this.clearPendingAgent(target, ask);
+      if (pointer.sessionKey) await this.clearPushed(pointer.sessionKey, ask);
       return "suppress";
     }
     if (pointer.sessionKey && this.watching(pointer.sessionKey)) {
@@ -454,7 +475,25 @@ export class UserHub extends DurableObject<Env> {
     }
 
     if (pointer.kind !== "finished") await this.ctx.storage.put(alertKey, now);
+    await this.pushed(userId, pointer);
     return "push";
+  }
+
+  private async pushed(userId: string, pointer: AgentPointer): Promise<void> {
+    if (!pointer.sessionKey) return;
+    await this.ctx.storage.put(`pushed-agent:${pointer.sessionKey}`, {
+      userId,
+      ask: askOf(pointer),
+    } satisfies PushedAgent);
+  }
+
+  /** The chat was opened, or its ask (`ask`, else any) answered, on another device: the iPhones' alert for it goes. */
+  private async clearPushed(session: string, ask?: string): Promise<void> {
+    const key = `pushed-agent:${session}`;
+    const pushed = await this.ctx.storage.get<PushedAgent>(key);
+    if (!pushed || (ask && pushed.ask !== ask)) return;
+    await this.ctx.storage.delete(key);
+    await clearAgentPush(this.env, pushed.userId, session);
   }
 
   /** Besides `ping` (answered without waking up), a device reports its presence, watched session, sent origin, or resolved ask. */
@@ -479,6 +518,9 @@ export class UserHub extends DurableObject<Env> {
       const device = isPresenceDevice(said.device) ? said.device : undefined;
       socket.serializeAttachment({ session, active, device, at: Date.now() } satisfies Attachment);
       if (session) await this.clearPendingAgent(session);
+      // An iPhone clears its own alerts for the chat it opens.
+      if (session && device === "ios") await this.ctx.storage.delete(`pushed-agent:${session}`);
+      else if (session) await this.clearPushed(session);
       return;
     }
     if (said.type === "sent") {
@@ -499,6 +541,7 @@ export class UserHub extends DurableObject<Env> {
       const id = typeof said.id === "string" && said.id ? said.id : undefined;
       if (!session) return;
       await this.clearPendingAgent(session, id);
+      await this.clearPushed(session, id);
     }
   }
 

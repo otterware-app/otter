@@ -1683,6 +1683,67 @@ describe("agent channels", () => {
     ]);
   });
 
+  it("clears the iPhones' alert once the chat is opened or answered on another device", async () => {
+    const owner = await signIn("agents-clear@example.com", "agents-clear-sub");
+    const made = await channel(owner.token);
+    const phone = "a7".repeat(32);
+    expect((await call("PUT", "/v1/push/device", owner.token, agentsDevice(phone))).status).toBe(
+      204,
+    );
+    const clears = (session: string) =>
+      notifications.filter(
+        (n) =>
+          n.token === phone &&
+          (n.body.otter as { kind: string; sessionKey?: string }).kind === "agent-clear" &&
+          (n.body.otter as { sessionKey: string }).sessionKey === session,
+      );
+    const heard = () => new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Opened on the Mac: one silent push, and none for another look at it or a chat never pushed.
+    expect((await send(made.token, pointer)).status).toBe(202);
+    await until(() => notifications.some((n) => n.token === phone), "the agent push");
+    const mac = await connect(owner.token);
+    mac.socket.send(JSON.stringify({ type: "watching", session: "agent:main:otter:never" }));
+    mac.socket.send(JSON.stringify({ type: "watching", session: pointer.sessionKey }));
+    await until(() => clears(pointer.sessionKey).length > 0, "the clear push");
+    mac.socket.send(JSON.stringify({ type: "watching", session: pointer.sessionKey }));
+    await heard();
+    expect(clears(pointer.sessionKey)).toHaveLength(1);
+    expect(clears("agent:main:otter:never")).toHaveLength(0);
+    const sent = clears(pointer.sessionKey)[0]!;
+    expect(sent.headers["apns-push-type"]).toBe("background");
+    expect(sent.headers["apns-priority"]).toBe("5");
+    expect(sent.body).toEqual({
+      aps: { "content-available": 1 },
+      otter: {
+        version: 1,
+        kind: "agent-clear",
+        userId: owner.user.id,
+        sessionKey: pointer.sessionKey,
+      },
+    });
+    mac.socket.send(JSON.stringify({ type: "watching", session: null }));
+    await heard();
+
+    // Answered elsewhere: an older ask's answer leaves the newer one's alert.
+    const asked = { ...pointer, sessionKey: "agent:main:otter:asked" };
+    expect(
+      (await send(made.token, { ...asked, kind: "approval", approvalId: "ap-old" })).status,
+    ).toBe(202);
+    expect(
+      (await send(made.token, { ...asked, kind: "approval", approvalId: "ap-new" })).status,
+    ).toBe(202);
+    await until(() => notifications.filter((n) => n.token === phone).length >= 4, "both approvals");
+    const answer = (id: string) =>
+      send(made.token, { ...asked, kind: "approval", approvalId: id, resolved: true });
+    expect((await answer("ap-old")).status).toBe(202);
+    await heard();
+    expect(clears(asked.sessionKey)).toHaveLength(0);
+    expect((await answer("ap-new")).status).toBe(202);
+    await until(() => clears(asked.sessionKey).length > 0, "the clear once answered");
+    mac.socket.close();
+  });
+
   it("suppresses phone pushes while a computer is active, escalates unresolved asks, and follows phone-origin chats", async () => {
     const owner = await signIn("agents-presence@example.com", "agents-presence-sub");
     const made = await channel(owner.token);
