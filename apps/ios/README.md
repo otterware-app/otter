@@ -153,7 +153,7 @@ test run stays quick:
 xcodebuild -project apps/ios/OtterMail.xcodeproj -scheme OtterMailUITests -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
-Shipping: the Release iPhone workflow builds and uploads to TestFlight (`pnpm release:ios` does
+Shipping: the Release workflow builds and uploads to TestFlight (`pnpm release:ios` does
 the same from a Mac); see `docs/release.md`. The app has its own version, `MARKETING_VERSION` in
 the Xcode project, apart from the Mac app's.
 

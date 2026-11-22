@@ -27,6 +27,7 @@ jobs:
       agents: ${{ steps.filter.outputs.agents }}
       translator: ${{ steps.filter.outputs.translator }}
       hermes: ${{ steps.filter.outputs.hermes }}
+      package: ${{ steps.filter.outputs.package }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -52,38 +53,22 @@ jobs:
             *) everything ;;
           esac
           {
-            echo "iphone=$(changed '^(apps/ios/|packages/shared/|package\.json$|scripts/export-ios-resources\.ts$|\.github/workflows/ci\.yml$)')"
+            echo "iphone=$(changed '^(apps/ios/|packages/shared/|package\.json$|scripts/export-ios-resources\.ts$|\.github/actions/boot-simulator/|\.github/workflows/ci\.yml$)')"
             # Otter Agents compiles Otter Mail's themes and MailContext.
-            echo "agents=$(changed '^(apps/ios-agents/|apps/ios/OtterMail/(Agent|Theme|Resources)/|apps/ios/OtterMail/Settings/(ThemeSettings|Licenses)\.swift$|\.github/workflows/ci\.yml$)')"
+            echo "agents=$(changed '^(apps/ios-agents/|apps/ios/OtterMail/(Agent|Theme|Resources)/|apps/ios/OtterMail/Settings/(ThemeSettings|Licenses)\.swift$|\.github/actions/boot-simulator/|\.github/workflows/ci\.yml$)')"
             echo "translator=$(changed '^(native/translator/|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
             echo "hermes=$(changed '^(extensions/hermes/gateway/|\.github/workflows/ci\.yml$)')"
+            echo "package=$(changed '^(scripts/(build-desktop-artifact|build-translator|build-notifier|notarize-mac|upload-sourcemaps)\.ts$|native/|apps/desktop/(package\.json$|resources/)|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
           } | tee -a "$GITHUB_OUTPUT"
 
-  # A runner each: on one they slowed each other down, enough to time out tests.
-  check:
-    name: ${{ matrix.name }}
+  checks:
+    name: Checks
+    uses: ./.github/workflows/checks.yml
+
+  build:
+    name: Build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Lint
-            run: |
-              vp run fmt:check
-              vp run lint
-              node --test scripts/release.test.ts .github/scripts/release-source.test.cjs
-              node scripts/resolve-release-version.ts --bump patch
-              node scripts/build-desktop-artifact.ts --help > /dev/null
-              node scripts/dev-runner.ts dev --dry-run
-              node scripts/dev-runner.ts dev:desktop --dry-run
-              node scripts/dev-runner.ts dev:desktop:fake --dry-run
-          - name: Typecheck
-            run: vp run typecheck
-          - name: Test
-            run: vp run test
-          - name: Build
-            run: vp run build
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -95,8 +80,49 @@ jobs:
           cache: true
           run-install: true
 
-      - name: ${{ matrix.name }}
-        run: ${{ matrix.run }}
+      - name: Build
+        run: vp run build
+
+  # What a release builds, unsigned, when what packages it changed: otherwise a release is the
+  # first to run it.
+  package:
+    name: Package (${{ matrix.name }})
+    needs: changes
+    if: needs.changes.outputs.package == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Mac
+            runner: macos-15
+            platform: mac
+          - name: Linux
+            runner: ubuntu-24.04
+            platform: linux
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: true
+
+      - name: Select Xcode
+        if: matrix.platform == 'mac'
+        uses: ./.github/actions/select-xcode
+        with:
+          xcode-app: ${{ vars.XCODE_APP }}
+
+      # A nightly's version, for a nightly's icon and update feed.
+      - name: Build desktop artifacts
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: node scripts/build-desktop-artifact.ts --platform "$PLATFORM" --build-version 0.0.0-nightly.20260101.1
 
   # Otter's Hermes plugin (extensions/hermes/gateway), against the Hermes release on PyPI.
   hermes:
@@ -160,7 +186,9 @@ jobs:
       - name: Export shared resources
         run: node scripts/export-ios-resources.ts
 
-      # One thing at a time: booting the simulator alongside the build slowed both down.
+      - name: Start booting a simulator
+        uses: ./.github/actions/boot-simulator
+
       # Simulators on the runner are Apple silicon: arm64 alone, not the Intel slice too.
       - name: Build app, extension and tests
         run: |
@@ -170,20 +198,8 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/otter-ios-build" \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build-for-testing
 
-      - name: Boot a simulator
-        run: |
-          set -euo pipefail
-          xcrun simctl list devices available --json > "$RUNNER_TEMP/devices.json"
-          simulator="$(node --input-type=module -e '
-            import { readFileSync } from "node:fs";
-            const devices = JSON.parse(readFileSync(process.argv[1], "utf8"));
-            const device = Object.values(devices.devices).flat().find(d => d.name.startsWith("iPhone"));
-            if (!device) throw new Error("No available iPhone simulator on the Xcode runner.");
-            console.log(device.udid);
-          ' "$RUNNER_TEMP/devices.json")"
-          echo "IPHONE_SIMULATOR=$simulator" >> "$GITHUB_ENV"
-          xcrun simctl boot "$simulator" || true
-          xcrun simctl bootstatus "$simulator" -b
+      - name: Wait for the simulator
+        run: xcrun simctl bootstatus "$IPHONE_SIMULATOR" -b
 
       - name: Run native tests
         run: |
@@ -229,6 +245,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Start booting a simulator
+        uses: ./.github/actions/boot-simulator
+
       - name: Build app and tests
         run: |
           xcodebuild -version
@@ -237,20 +256,8 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/otter-agents-build" \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build-for-testing
 
-      - name: Boot a simulator
-        run: |
-          set -euo pipefail
-          xcrun simctl list devices available --json > "$RUNNER_TEMP/devices.json"
-          simulator="$(node --input-type=module -e '
-            import { readFileSync } from "node:fs";
-            const devices = JSON.parse(readFileSync(process.argv[1], "utf8"));
-            const device = Object.values(devices.devices).flat().find(d => d.name.startsWith("iPhone"));
-            if (!device) throw new Error("No available iPhone simulator on the Xcode runner.");
-            console.log(device.udid);
-          ' "$RUNNER_TEMP/devices.json")"
-          echo "IPHONE_SIMULATOR=$simulator" >> "$GITHUB_ENV"
-          xcrun simctl boot "$simulator" || true
-          xcrun simctl bootstatus "$simulator" -b
+      - name: Wait for the simulator
+        run: xcrun simctl bootstatus "$IPHONE_SIMULATOR" -b
 
       - name: Run native tests
         run: |
