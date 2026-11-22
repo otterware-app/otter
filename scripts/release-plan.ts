@@ -45,9 +45,13 @@ const AGENTS = [
 const within = (file: string, paths: readonly string[]) =>
   paths.some((path) => (path.endsWith("/") ? file.startsWith(path) : file === path));
 
+// A README is about the code beside it, and in no app.
+const README = /(^|\/)README\.md$/;
+
 export function ships(app: App, files: readonly string[]): boolean {
-  if (app === "desktop") return files.some((file) => !within(file, NOT_DESKTOP));
-  return files.some((file) => within(file, app === "iphone" ? IPHONE : AGENTS));
+  const built = files.filter((file) => !README.test(file));
+  if (app === "desktop") return built.some((file) => !within(file, NOT_DESKTOP));
+  return built.some((file) => within(file, app === "iphone" ? IPHONE : AGENTS));
 }
 
 export interface Request {

@@ -190,7 +190,9 @@ xcrun devicectl device install app --device <udid> "apps/ios-agents/.build/Build
 ```
 
 Unit tests (`OtterAgentsTests`, Swift Testing) and the walkthrough (`OtterAgentsUITests`, which
-drives the demo through every screen) run in the simulator:
+drives the demo through every screen) run in the simulator. CI builds the unit tests and doesn't
+run them (a simulator takes most of ten minutes to boot on its runner): run them here when you
+change what they cover.
 
 ```sh
 xcodebuild -project apps/ios-agents/OtterAgents.xcodeproj -scheme OtterAgents \

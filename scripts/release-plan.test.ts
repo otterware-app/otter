@@ -38,6 +38,9 @@ test("each app ships when what it is built from changed", () => {
 
 test("what no app is built from ships nothing", () => {
   for (const file of [
+    "README.md",
+    "apps/ios/README.md",
+    "apps/ios-agents/README.md",
     "docs/runbook.md",
     "changelog/0.13.51.md",
     "infra/relay/src/worker.ts",

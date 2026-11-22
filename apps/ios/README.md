@@ -140,7 +140,9 @@ xcrun devicectl device install app --device <udid> "apps/ios/.build/Build/Produc
 `-authenticationKeyPath/-authenticationKeyID/-authenticationKeyIssuerID` with an App Store Connect
 API key.)
 
-Unit tests (`OtterMailTests`, Swift Testing) run in the simulator:
+Unit tests (`OtterMailTests`, Swift Testing) run in the simulator. CI builds them and doesn't run
+them (a simulator takes most of ten minutes to boot on its runner): run them here when you change
+what they cover.
 
 ```sh
 xcodebuild -project apps/ios/OtterMail.xcodeproj -scheme OtterMail -destination 'platform=iOS Simulator,name=iPhone 17' test
@@ -290,10 +292,10 @@ Payload injection does **not** prove live APNs, or that the service extension ra
 on that simulator. Verify live sandbox delivery on a provisioned iPhone and production delivery
 in TestFlight. Use a test Gmail, with a baseline established by opening/syncing before sending
 new mail. Validate timeout/offline fallback, token rotation, remote revocation/unlink and the
-first unlock after reboot. CI's iPhone job builds the app and extension on the Xcode 27 runner,
-runs the native tests and captures the demo in light/dark. Linux development cannot run these
-checks locally. Live APNs, extension Gmail access and signed-in notification/tap/preference
-checks still require a provisioned iPhone; CI's demo screenshots do not cover them.
+first unlock after reboot. CI's iPhone job builds the app, the extension and the tests on the
+Xcode 27 runner; it runs none of them. Linux development cannot run these checks locally. Live
+APNs, extension Gmail access and signed-in notification/tap/preference checks require a
+provisioned iPhone.
 
 Sources: [Apple extension requirements](https://developer.apple.com/documentation/usernotifications/modifying-content-in-newly-delivered-notifications),
 [Apple filtering entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.usernotifications.filtering),
