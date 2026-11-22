@@ -40,20 +40,18 @@ enum NotificationFaces {
         saved = faces
         latest += 1
         let refresh = latest
-        Task {
-            var pictures: [(URL, Data)] = []
-            for face in faces {
-                if let png = await picture(face)?.pngData(), let file = AgentFaces.file(face.key) { pictures.append((file, png)) }
-            }
-            // A newer refresh began while this one downloaded: it writes.
-            guard refresh == latest else { return }
-            let manager = FileManager.default
-            try? manager.createDirectory(at: directory, withIntermediateDirectories: true)
-            for (file, png) in pictures { try? png.write(to: file, options: .atomic) }
-            let kept = Set(pictures.map { $0.0.lastPathComponent })
-            for file in (try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
-            where !kept.contains(file.lastPathComponent) {
-                try? manager.removeItem(at: file)
+        let manager = FileManager.default
+        try? manager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let keep = Set(faces.compactMap { AgentFaces.file($0.key)?.lastPathComponent })
+        for file in (try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        where !keep.contains(file.lastPathComponent) {
+            try? manager.removeItem(at: file)
+        }
+        // Each picture as it's ready, unless a newer refresh began meanwhile.
+        for face in faces {
+            Task {
+                guard let png = await picture(face)?.pngData(), refresh == latest, let file = AgentFaces.file(face.key) else { return }
+                try? png.write(to: file, options: .atomic)
             }
         }
     }

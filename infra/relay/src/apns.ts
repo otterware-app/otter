@@ -87,15 +87,23 @@ const AGENT_STATUS = {
 
 /** As the computer's: where it's from (the agent and its chat), then what happened; never what was said. */
 export function agentPayload(userId: string, pointer: AgentPointer) {
-  const payload = agentAlert(userId, pointer);
-  // The chat's title is in the alert too: the copy goes first when APNs' limit is near.
-  if (new TextEncoder().encode(JSON.stringify(payload)).length <= APNS_MAX_BYTES) return payload;
-  return agentAlert(userId, pointer, false);
+  // The chat's title and the agent's name show twice (the alert, and the extension's copy): they're
+  // cut, the title first, until the push fits APNs' limit.
+  let fitted = pointer;
+  for (const field of ["title", "agentName"] as const) {
+    let chars = Array.from(fitted[field] ?? "");
+    while (chars.length > 0 && bytes(agentAlert(userId, fitted)) > APNS_MAX_BYTES) {
+      chars = chars.slice(0, Math.floor(chars.length * 0.8));
+      fitted = { ...fitted, [field]: chars.length > 0 ? chars.join("") : undefined };
+    }
+  }
+  return agentAlert(userId, fitted);
 }
 
 const APNS_MAX_BYTES = 4096;
+const bytes = (payload: unknown) => new TextEncoder().encode(JSON.stringify(payload)).length;
 
-function agentAlert(userId: string, pointer: AgentPointer, titled = true) {
+function agentAlert(userId: string, pointer: AgentPointer) {
   const title = [pointer.agentName, pointer.title].filter(Boolean).join(" · ") || "Otter Agents";
   const body = AGENT_STATUS[pointer.kind];
   const passive = pointer.kind === "finished";
@@ -119,7 +127,7 @@ function agentAlert(userId: string, pointer: AgentPointer, titled = true) {
         ...(pointer.approvalId ? { approvalId: pointer.approvalId } : {}),
         ...(pointer.approvalKind ? { approvalKind: pointer.approvalKind } : {}),
         ...(pointer.questionId ? { questionId: pointer.questionId } : {}),
-        ...(titled && pointer.title ? { title: pointer.title } : {}),
+        ...(pointer.title ? { title: pointer.title } : {}),
         ...(pointer.agentName ? { agentName: pointer.agentName } : {}),
         at: pointer.at,
       },

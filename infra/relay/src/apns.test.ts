@@ -181,20 +181,21 @@ describe("private APNs payloads", () => {
       "mutable-content": 1,
     });
     expect(finished.otter.pointer).toMatchObject({ title: "Launch plan", agentName: "Rowan" });
-    const long = agentPayload("user", {
+    // The most the relay accepts (agent-channels.ts): control characters take six bytes in JSON.
+    const largest = agentPayload("user", {
       ...base,
       kind: "approval",
-      // The relay's limits (agent-channels.ts), in four-byte characters.
       agentId: "x".repeat(100),
-      title: "😀".repeat(200),
-      agentName: "😀".repeat(100),
       sessionKey: "x".repeat(300),
+      approvalId: "x".repeat(200),
+      title: "\u0001".repeat(200),
+      agentName: "\u0001".repeat(100),
     });
-    expect(new TextEncoder().encode(JSON.stringify(long)).length).toBeLessThanOrEqual(4096);
-    expect(long.otter.pointer).toHaveProperty("title");
-    const over = agentPayload("user", { ...base, kind: "approval", title: "a".repeat(1900) });
-    expect(new TextEncoder().encode(JSON.stringify(over)).length).toBeLessThanOrEqual(4096);
-    expect(over.otter.pointer).not.toHaveProperty("title");
+    expect(new TextEncoder().encode(JSON.stringify(largest)).length).toBeLessThanOrEqual(4096);
+    expect(largest.otter.pointer.sessionKey).toBe("x".repeat(300));
+    expect(largest.otter.pointer.approvalId).toBe("x".repeat(200));
+    expect(largest.otter.pointer.agentName).toBe("\u0001".repeat(100));
+    expect(largest.otter.pointer.title?.length).toBeGreaterThan(0);
     const approval = agentPayload("user", { ...base, kind: "approval", approvalId: "ap-1" });
     expect(approval.aps).toEqual({
       alert: { title: "Rowan · Launch plan", body: "Needs approval" },
