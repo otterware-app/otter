@@ -181,6 +181,20 @@ describe("private APNs payloads", () => {
       "mutable-content": 1,
     });
     expect(finished.otter.pointer).toMatchObject({ title: "Launch plan", agentName: "Rowan" });
+    const long = agentPayload("user", {
+      ...base,
+      kind: "approval",
+      // The relay's limits (agent-channels.ts), in four-byte characters.
+      agentId: "x".repeat(100),
+      title: "😀".repeat(200),
+      agentName: "😀".repeat(100),
+      sessionKey: "x".repeat(300),
+    });
+    expect(new TextEncoder().encode(JSON.stringify(long)).length).toBeLessThanOrEqual(4096);
+    expect(long.otter.pointer).toHaveProperty("title");
+    const over = agentPayload("user", { ...base, kind: "approval", title: "a".repeat(1900) });
+    expect(new TextEncoder().encode(JSON.stringify(over)).length).toBeLessThanOrEqual(4096);
+    expect(over.otter.pointer).not.toHaveProperty("title");
     const approval = agentPayload("user", { ...base, kind: "approval", approvalId: "ap-1" });
     expect(approval.aps).toEqual({
       alert: { title: "Rowan · Launch plan", body: "Needs approval" },

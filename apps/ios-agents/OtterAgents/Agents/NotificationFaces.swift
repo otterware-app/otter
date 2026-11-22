@@ -9,15 +9,20 @@ enum NotificationFaces {
     private struct Face: Equatable {
         var key: String
         var avatar: String?
-        var emoji: String?
+        var emoji: String? = nil
         var mark: String
     }
 
     private static var saved: [Face] = []
+    private static var latest = 0
 
     static func save(_ agents: [Agent]) {
         var faces: [Face] = []
-        func add(_ face: Face) { if !faces.contains(where: { $0.key == face.key }) { faces.append(face) } }
+        // A push names the gateway's agent, not the gateway: two that differ under one key get the kind's mark.
+        func add(_ face: Face) {
+            guard let index = faces.firstIndex(where: { $0.key == face.key }) else { return faces.append(face) }
+            if faces[index] != face { faces[index] = Face(key: face.key, mark: face.mark) }
+        }
         for agent in agents {
             switch agent.kind {
             case .openclaw:
@@ -33,12 +38,22 @@ enum NotificationFaces {
         }
         guard faces != saved, let directory = AgentFaces.directory else { return }
         saved = faces
+        latest += 1
+        let refresh = latest
         Task {
-            try? FileManager.default.removeItem(at: directory)
-            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            var pictures: [(URL, Data)] = []
             for face in faces {
-                guard let png = await picture(face)?.pngData(), let file = AgentFaces.file(face.key) else { continue }
-                try? png.write(to: file, options: .atomic)
+                if let png = await picture(face)?.pngData(), let file = AgentFaces.file(face.key) { pictures.append((file, png)) }
+            }
+            // A newer refresh began while this one downloaded: it writes.
+            guard refresh == latest else { return }
+            let manager = FileManager.default
+            try? manager.createDirectory(at: directory, withIntermediateDirectories: true)
+            for (file, png) in pictures { try? png.write(to: file, options: .atomic) }
+            let kept = Set(pictures.map { $0.0.lastPathComponent })
+            for file in (try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+            where !kept.contains(file.lastPathComponent) {
+                try? manager.removeItem(at: file)
             }
         }
     }

@@ -7,7 +7,7 @@ import UserNotifications
  * conversation. Nil when the push doesn't say who it's from: the relay's alert stays.
  */
 nonisolated enum AgentNotification {
-    static func fromAgent(_ content: UNNotificationContent) -> UNNotificationContent? {
+    static func fromAgent(_ content: UNNotificationContent) async -> UNNotificationContent? {
         guard let otter = content.userInfo["otter"] as? [String: Any], otter["kind"] as? String == "agent",
               let pointer = otter["pointer"] as? [String: Any], let agentId = pointer["agentId"] as? String,
               let name = pointer["agentName"] as? String, !name.isEmpty else { return nil }
@@ -27,7 +27,11 @@ nonisolated enum AgentNotification {
         if let picture { intent.setImage(picture, forParameterNamed: \.sender) }
         let interaction = INInteraction(intent: intent, response: nil)
         interaction.direction = .incoming
-        interaction.donate(completion: nil)
-        return try? content.updating(from: intent)
+        do {
+            try await interaction.donate()
+            return try content.updating(from: intent)
+        } catch {
+            return nil
+        }
     }
 }

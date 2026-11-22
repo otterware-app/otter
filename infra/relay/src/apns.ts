@@ -87,6 +87,15 @@ const AGENT_STATUS = {
 
 /** As the computer's: where it's from (the agent and its chat), then what happened; never what was said. */
 export function agentPayload(userId: string, pointer: AgentPointer) {
+  const payload = agentAlert(userId, pointer);
+  // The chat's title is in the alert too: the copy goes first when APNs' limit is near.
+  if (new TextEncoder().encode(JSON.stringify(payload)).length <= APNS_MAX_BYTES) return payload;
+  return agentAlert(userId, pointer, false);
+}
+
+const APNS_MAX_BYTES = 4096;
+
+function agentAlert(userId: string, pointer: AgentPointer, titled = true) {
   const title = [pointer.agentName, pointer.title].filter(Boolean).join(" · ") || "Otter Agents";
   const body = AGENT_STATUS[pointer.kind];
   const passive = pointer.kind === "finished";
@@ -110,7 +119,7 @@ export function agentPayload(userId: string, pointer: AgentPointer) {
         ...(pointer.approvalId ? { approvalId: pointer.approvalId } : {}),
         ...(pointer.approvalKind ? { approvalKind: pointer.approvalKind } : {}),
         ...(pointer.questionId ? { questionId: pointer.questionId } : {}),
-        ...(pointer.title ? { title: pointer.title } : {}),
+        ...(titled && pointer.title ? { title: pointer.title } : {}),
         ...(pointer.agentName ? { agentName: pointer.agentName } : {}),
         at: pointer.at,
       },

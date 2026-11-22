@@ -291,7 +291,6 @@ final class Agents {
         await withTaskGroup(of: Void.self) { group in
             for agent in runnable { group.addTask { await self.check(agent) } }
         }
-        NotificationFaces.save(runnable)
     }
 
     func check(_ agent: Agent) async {
@@ -302,6 +301,8 @@ final class Agents {
         case .varys: await checkVarys(agent)
         case nil: break
         }
+        // Its gateway's agents and their pictures may have changed.
+        NotificationFaces.save(runnable)
     }
 
     private func checkHermes(_ agent: Agent) async {

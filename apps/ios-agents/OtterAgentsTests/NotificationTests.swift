@@ -39,12 +39,12 @@ struct NotificationTests {
         return content
     }
 
-    @Test func anAgentsAlertComesFromTheAgentWhenThePushNamesIt() {
+    @Test func anAgentsAlertComesFromTheAgentWhenThePushNamesIt() async {
         let pointer: [String: Any] = ["kind": "question", "agentId": "research", "sessionKey": "agent:research:otter-mail:plan", "title": "Plan the Lisbon offsite"]
-        #expect(AgentNotification.fromAgent(push(pointer)) == nil)
+        #expect(await AgentNotification.fromAgent(push(pointer)) == nil)
         var named = pointer
         named["agentName"] = "Scout"
-        let message = AgentNotification.fromAgent(push(named))
+        let message = await AgentNotification.fromAgent(push(named))
         // A tap reads the chat from it.
         #expect(message?.userInfo["otter"] != nil)
         #expect(AgentFaces.keys(agentId: "research", sessionKey: "agent:research:otter-mail:plan") == ["openclaw-research"])
