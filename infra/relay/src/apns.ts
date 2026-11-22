@@ -87,6 +87,23 @@ const AGENT_STATUS = {
 
 /** As the computer's: where it's from (the agent and its chat), then what happened; never what was said. */
 export function agentPayload(userId: string, pointer: AgentPointer) {
+  // The chat's title and the agent's name show twice (the alert, and the extension's copy): they're
+  // cut, the title first, until the push fits APNs' limit.
+  const fitted = { ...pointer };
+  for (const field of ["title", "agentName"] as const) {
+    let chars = Array.from(fitted[field] ?? "");
+    while (chars.length > 0 && bytes(agentAlert(userId, fitted)) > APNS_MAX_BYTES) {
+      chars = chars.slice(0, Math.floor(chars.length * 0.8));
+      fitted[field] = chars.length > 0 ? chars.join("") : undefined;
+    }
+  }
+  return agentAlert(userId, fitted);
+}
+
+const APNS_MAX_BYTES = 4096;
+const bytes = (payload: unknown) => new TextEncoder().encode(JSON.stringify(payload)).length;
+
+function agentAlert(userId: string, pointer: AgentPointer) {
   const title = [pointer.agentName, pointer.title].filter(Boolean).join(" · ") || "Otter Agents";
   const body = AGENT_STATUS[pointer.kind];
   const passive = pointer.kind === "finished";
@@ -96,6 +113,8 @@ export function agentPayload(userId: string, pointer: AgentPointer) {
       "interruption-level": passive ? "passive" : "active",
       ...(passive ? {} : { sound: "default" }),
       ...(pointer.sessionKey ? { "thread-id": pointer.sessionKey } : {}),
+      // Otter Agents' extension makes it a message from the agent, with its picture.
+      "mutable-content": 1,
     },
     otter: {
       version: 1,
@@ -108,6 +127,8 @@ export function agentPayload(userId: string, pointer: AgentPointer) {
         ...(pointer.approvalId ? { approvalId: pointer.approvalId } : {}),
         ...(pointer.approvalKind ? { approvalKind: pointer.approvalKind } : {}),
         ...(pointer.questionId ? { questionId: pointer.questionId } : {}),
+        ...(pointer.title ? { title: pointer.title } : {}),
+        ...(pointer.agentName ? { agentName: pointer.agentName } : {}),
         at: pointer.at,
       },
     } satisfies AgentPushMetadata,

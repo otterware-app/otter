@@ -108,7 +108,12 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   name, never the text), and the relay pushes to the account's Otter Agents iPhones
   (`infra/relay`'s `apns.sendAgent`). As in T3 Code, the relay writes the alert: the chat's
   title, and what happened by which agent ("Approval needed: Rowan"); the iPhone fetches
-  nothing for it. A tap opens the chat, read from the gateway. Nothing is pushed for a chat one of the account's devices has on screen and in front:
+  nothing for it. The notification service extension (`OtterAgentsNotificationService`,
+  `NotificationShared/AgentNotification.swift`) makes it a message from the agent, as Messages
+  shows one (a communication notification): the agent's picture with the app's icon on it, its
+  name, then the chat's. The picture is the one the app shows (an OpenClaw agent's own or its
+  emoji, the picture you gave the agent, its kind's mark), which the app leaves in the app group
+  (`NotificationFaces`, read by `AgentFaces`). A tap opens the chat, read from the gateway. Nothing is pushed for a chat one of the account's devices has on screen and in front:
   every app tells the relay which chat that is over its events socket (`Relay.watching` here,
   core's `setWatching` on the Mac and the web), again every 30 seconds, and the relay forgets a
   device that stops saying it. On in Settings; it needs the gateway's Otter
@@ -202,4 +207,5 @@ Its icons come from the agent's mark (`assets/agent/otter-agent-symbol.svg`) wit
 A merge to main that changes the app, or what it shares with Otter Mail, uploads a build to
 TestFlight (the Release Otter Agents workflow; `pnpm release:ios:agents` from a Mac) and tags it
 `ios-agents-vX.Y.Z`. Release builds use manual signing: the Apple Distribution identity and the
-"Otter Agents App Store" profile. See [docs/release.md](../../docs/release.md#otter-agents).
+"Otter Agents App Store" profile, and "Otter Agents Notifications App Store" for the
+extension. See [docs/release.md](../../docs/release.md#otter-agents).

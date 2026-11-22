@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import UserNotifications
 @testable import Otter_Agents
 
 struct NotificationTests {
@@ -28,5 +29,26 @@ struct NotificationTests {
         #expect(sentJson["device"] as? String == "ios")
         #expect(sentJson["at"] as? Int == 1_700_000_000_000)
         #expect(Relay.sentMessage("") == nil)
+    }
+
+    private func push(_ pointer: [String: Any]) -> UNNotificationContent {
+        let content = UNMutableNotificationContent()
+        content.title = "Scout · Plan the Lisbon offsite"
+        content.body = "Asks a question"
+        content.userInfo = ["otter": ["version": 1, "kind": "agent", "userId": "u", "pointer": pointer]]
+        return content
+    }
+
+    @Test func anAgentsAlertComesFromTheAgentWhenThePushNamesIt() async {
+        let pointer: [String: Any] = ["kind": "question", "agentId": "research", "sessionKey": "agent:research:otter-mail:plan", "title": "Plan the Lisbon offsite"]
+        #expect(await AgentNotification.fromAgent(push(pointer)) == nil)
+        var named = pointer
+        named["agentName"] = "Scout"
+        // Unsigned builds (CI) lack the entitlement, and iOS keeps the alert; signed, a tap reads the chat from it.
+        if let message = await AgentNotification.fromAgent(push(named)) {
+            #expect(message.userInfo["otter"] != nil)
+        }
+        #expect(AgentFaces.keys(agentId: "research", sessionKey: "agent:research:otter-mail:plan") == ["openclaw-research"])
+        #expect(AgentFaces.keys(agentId: "varys", sessionKey: "varys:abc") == ["varys-varys", "hermes"])
     }
 }

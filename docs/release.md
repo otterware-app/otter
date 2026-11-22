@@ -186,8 +186,12 @@ and uploads with the same script (`scripts/release-ios.ts --app agents`; from a 
 It has no Sentry release: the app doesn't report errors.
 
 It signs with the iPhone app's Apple Distribution identity and App Store Connect API key (the
-same secrets) and its own profile, "Otter Agents App Store" for `dev.otterware.agents` (Push
-Notifications): the `IOS_AGENTS_PROVISIONING_PROFILE` secret (base64 of the `.mobileprovision`).
+same secrets) and its own profiles: "Otter Agents App Store" for `dev.otterware.agents` (Push
+Notifications, Communication Notifications, the `group.dev.otterware.agents` App Group), the
+`IOS_AGENTS_PROVISIONING_PROFILE` secret (base64 of the `.mobileprovision`); and "Otter Agents
+Notifications App Store" for the notification service extension, `dev.otterware.agents.notifications`
+(the same App Group), the `IOS_AGENTS_NOTIFICATION_PROVISIONING_PROFILE` secret. Changing an App
+ID's capabilities invalidates its profiles: regenerate them and update the secrets.
 
 The App Store Connect app is "Otter Agents" (ID 6833242723). Builds go to its internal TestFlight
 group, Nightly (Internal), automatically. Release builds sign in to Google with the iPhone app's

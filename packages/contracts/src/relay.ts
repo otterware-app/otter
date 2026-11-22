@@ -215,12 +215,15 @@ export interface AgentPointer {
   at: number;
 }
 
-/** What a push to Otter Agents carries beside its alert: the chat a tap opens. */
+/**
+ * What a push to Otter Agents carries beside its alert: the chat a tap opens, and who it's from
+ * and in which chat, for the iPhone to show it as a message from the agent.
+ */
 export interface AgentPushMetadata {
   version: 1;
   kind: "agent";
   userId: string;
-  pointer: Omit<AgentPointer, "channel" | "title" | "agentName">;
+  pointer: Omit<AgentPointer, "channel">;
 }
 
 export type PresenceDevice = "desktop" | "web" | "ios";

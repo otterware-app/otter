@@ -186,6 +186,7 @@ final class Agents {
         }
         let chosen = sync.copy.get(AgentEntries.selectedKey)?.string
         if selected != chosen { selected = chosen }
+        NotificationFaces.save(runnable)
     }
 
     /** Another device changed these (by key): the agents follow, and those changed are checked again. */
@@ -300,6 +301,8 @@ final class Agents {
         case .varys: await checkVarys(agent)
         case nil: break
         }
+        // Its gateway's agents and their pictures may have changed.
+        NotificationFaces.save(runnable)
     }
 
     private func checkHermes(_ agent: Agent) async {
