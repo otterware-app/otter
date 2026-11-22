@@ -3,16 +3,14 @@ import UIKit
 import UserNotifications
 
 /**
- * New mail, as a message from its sender (Messages' layout): their photo or initial, as the inbox
- * shows them (`SenderPhotos`, `SenderAvatar`), with the app's icon on it, and the subject as the
- * conversation. Nil when it can't be: the alert stays as it is.
+ * New mail, as a message from its sender (Messages' layout): their photo when the inbox has found
+ * it (`SenderPhotos`' cache: the alert doesn't wait for the network), else their initial as
+ * `SenderAvatar` draws it, with the app's icon on it, and the subject as the conversation. Nil when
+ * it can't be: the alert stays as it is.
  */
 nonisolated enum MailNotification {
-    /** How long the photo may take: the extension's time is for the mail first. */
-    static let photoBudget: Duration = .seconds(4)
-
-    static func fromSender(_ content: UNNotificationContent, name: String, address: String) async -> UNNotificationContent? {
-        let photo = await within(photoBudget) { await SenderPhotos.shared.photo(for: address)?.pngData() }
+    static func fromSender(_ content: UNNotificationContent, name: String, address: String) -> UNNotificationContent? {
+        let photo = SenderPhotos.cached(for: address)
         let picture = (photo.flatMap(UIImage.init(data:)).map(onWhite) ?? initial(name, address)).pngData().map(INImage.init(imageData:))
         let sender = INPerson(personHandle: INPersonHandle(value: address, type: .emailAddress), nameComponents: nil,
                               displayName: name, image: picture, contactIdentifier: nil, customIdentifier: address)
@@ -26,8 +24,8 @@ nonisolated enum MailNotification {
         if let picture { intent.setImage(picture, forParameterNamed: \.sender) }
         let interaction = INInteraction(intent: intent, response: nil)
         interaction.direction = .incoming
-        // Donating helps Siri suggest the conversation; the notification doesn't depend on it (Siri may be off).
-        try? await interaction.donate()
+        // Donating helps Siri suggest the conversation; the alert doesn't wait for it (Siri may be off).
+        interaction.donate(completion: nil)
         return try? content.updating(from: intent)
     }
 
@@ -62,32 +60,6 @@ nonisolated enum MailNotification {
                                                              .foregroundColor: UIColor.white]
             let size = letter.size(withAttributes: attributes)
             letter.draw(at: CGPoint(x: (side - size.width) / 2, y: (side - size.height) / 2), withAttributes: attributes)
-        }
-    }
-
-    /** The work's answer, or nil once the time is up (the work goes on, unheard). */
-    private static func within(_ limit: Duration, _ work: @escaping @Sendable () async -> Data?) async -> Data? {
-        let first = First()
-        return await withCheckedContinuation { continuation in
-            first.continuation = continuation
-            Task { first.resume(await work()) }
-            Task {
-                try? await Task.sleep(for: limit)
-                first.resume(nil)
-            }
-        }
-    }
-
-    private final class First: @unchecked Sendable {
-        private let lock = NSLock()
-        var continuation: CheckedContinuation<Data?, Never>?
-
-        func resume(_ value: Data?) {
-            lock.lock()
-            let pending = continuation
-            continuation = nil
-            lock.unlock()
-            pending?.resume(returning: value)
         }
     }
 }

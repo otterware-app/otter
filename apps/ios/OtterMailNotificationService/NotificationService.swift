@@ -47,13 +47,13 @@ final class NotificationService: UNNotificationServiceExtension, @unchecked Send
                     content.userInfo["mailbox"] = message.alias?.id ?? event.email
                     content.userInfo["message"] = message.id
                     if let thread = message.threadId { content.userInfo["thread"] = thread }
+                    // Ready: the deadline delivers it from now on.
+                    staged.stage(content, while: config)
                     return (content, message.address, config)
                 }
                 guard let (content, address, config) = verified else { gate.finish(staged.original); return }
-                // Ready: the deadline delivers it now, whatever the sender's photo does.
-                staged.stage(content, while: config)
                 var shown: UNNotificationContent = content
-                if let address, let fromSender = await MailNotification.fromSender(content, name: content.title, address: address) {
+                if let address, let fromSender = MailNotification.fromSender(content, name: content.title, address: address) {
                     shown = fromSender
                 }
                 gate.finish(PushState.configuration() == config ? shown : staged.original)

@@ -13,9 +13,16 @@ actor SenderPhotos {
     private var memory: [String: UIImage?] = [:]
     private var inFlight: [String: Task<UIImage?, Never>] = [:]
     /** Where the app and its notifications' extension both find them: a cache, purgeable and not backed up. */
-    private let directory = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: PushState.group)?
+    private static let directory = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: PushState.group)?
         .appending(path: "Library/Caches/SenderPhotos", directoryHint: .isDirectory)
         ?? URL.cachesDirectory.appending(path: "sender-photos", directoryHint: .isDirectory)
+
+    /** A photo already found, from disk: new mail's notification can't wait for the network. */
+    static func cached(for email: String) -> Data? {
+        let file = directory.appending(path: sha256(email.trimmingCharacters(in: .whitespaces).lowercased()))
+        guard let data = try? Data(contentsOf: file), !data.isEmpty else { return nil }
+        return data
+    }
 
     func photo(for email: String) async -> UIImage? {
         let email = email.trimmingCharacters(in: .whitespaces).lowercased()
@@ -31,7 +38,7 @@ actor SenderPhotos {
     }
 
     private func load(_ email: String) async -> UIImage? {
-        let file = directory.appending(path: Self.sha256(email))
+        let file = Self.directory.appending(path: Self.sha256(email))
         if let attributes = try? FileManager.default.attributesOfItem(atPath: file.path()),
            let modified = attributes[.modificationDate] as? Date {
             let data = try? Data(contentsOf: file)
@@ -39,9 +46,7 @@ actor SenderPhotos {
             if Date.now.timeIntervalSince(modified) < ttl { return data.flatMap(UIImage.init) }
         }
         let data = await resolve(email)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        // The other process (the app, its extension) may have found it meanwhile: a miss doesn't replace it.
-        if data == nil, let found = try? Data(contentsOf: file), !found.isEmpty { return UIImage(data: found) }
+        try? FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true)
         try? (data ?? Data()).write(to: file, options: .atomic)
         return data.flatMap(UIImage.init)
     }

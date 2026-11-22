@@ -230,10 +230,10 @@ keep link labels. The demo needs no Google, Microsoft, IMAP, Apple or Otter cred
 
 An enriched alert comes from its sender, as Messages shows a message (a communication notification,
 `NotificationShared/MailNotification.swift`): the sender's photo, as the inbox shows it, with the
-app's icon on it, then the subject and the preview. The photo comes from `SenderPhotos`, shared with
-the inbox through the App Group's cache; a sender not yet looked up is looked up as the inbox does
-(the address's Gravatar hash, then the domain's logo), for at most four seconds, else the alert shows
-their initial. The app's profile carries Communication Notifications for this.
+app's icon on it, then the subject and the preview. The photo is one the inbox already found
+(`SenderPhotos`' cache, in the App Group): the alert never waits for the network or asks anyone about
+the sender, and shows their initial otherwise. The app's profile carries Communication Notifications
+for this.
 
 ### Apple setup and verification
 

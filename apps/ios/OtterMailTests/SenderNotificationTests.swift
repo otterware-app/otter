@@ -13,9 +13,11 @@ struct SenderNotificationTests {
         #expect(bare.senderAddress == "sam@acme.example")
         let bracketed = try JSONDecoder().decode(GmailNotification.Message.self, from: Data(#"{"id":"3","threadId":"t","payload":{"headers":[{"name":"From","value":"\"Ops <alerts>\" <ops@acme.example>"}]}}"#.utf8))
         #expect(bracketed.senderAddress == "ops@acme.example")
+        let two = try JSONDecoder().decode(GmailNotification.Message.self, from: Data(#"{"id":"4","threadId":"t","payload":{"headers":[{"name":"From","value":"Lena <lena@acme.example>, Sam <sam@acme.example>"}]}}"#.utf8))
+        #expect(two.senderAddress == "lena@acme.example")
     }
 
-    @Test func newMailComesFromItsSender() async {
+    @Test func newMailComesFromItsSender() {
         let content = UNMutableNotificationContent()
         content.title = "Lena Park"
         content.subtitle = "Q4 planning"
@@ -23,7 +25,7 @@ struct SenderNotificationTests {
         content.threadIdentifier = "work@acme.example:t1"
         content.userInfo = ["mailbox": "work@acme.example", "message": "m1"]
         // Unsigned builds (CI) lack the entitlement, and iOS keeps the alert; signed, a tap opens the mail from these.
-        if let message = await MailNotification.fromSender(content, name: "Lena Park", address: "lena@acme.example") {
+        if let message = MailNotification.fromSender(content, name: "Lena Park", address: "lena@acme.example") {
             #expect(message.userInfo["message"] as? String == "m1")
         }
     }
