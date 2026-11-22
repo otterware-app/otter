@@ -336,6 +336,10 @@ request starts from `main`'s and adds its own. A stable release replays nothing.
 To run everything from scratch, delete the caches (`gh cache list --key vite-task-`, then
 `gh cache delete`); locally, the same commands without `--cache` never replay.
 
+The jobs set up through `.github/actions/setup`, which caches the installed `node_modules`
+whole (`node-modules-…`, for each lockfile): only the first job after a dependency change
+installs.
+
 ## Open-source licenses
 
 What Otter is built on is listed in the app with its licenses (Settings → General → About; Settings

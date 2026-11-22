@@ -58,7 +58,7 @@ jobs:
             echo "agents=$(changed '^(apps/ios-agents/|apps/ios/OtterMail/(Agent|Theme|Resources)/|apps/ios/OtterMail/Settings/(ThemeSettings|Licenses)\.swift$|\.github/workflows/ci\.yml$)')"
             echo "translator=$(changed '^(native/translator/|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
             echo "hermes=$(changed '^(extensions/hermes/gateway/|\.github/workflows/ci\.yml$)')"
-            echo "package=$(changed '^(scripts/(build-desktop-artifact|build-translator|build-notifier|notarize-mac|upload-sourcemaps)\.ts$|native/|apps/desktop/(package\.json$|resources/)|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
+            echo "package=$(changed '^(scripts/(build-desktop-artifact|build-translator|build-notifier|notarize-mac|upload-sourcemaps)\.ts$|native/|apps/desktop/(package\.json$|resources/)|\.github/actions/(select-xcode|setup)/|\.github/workflows/ci\.yml$)')"
           } | tee -a "$GITHUB_OUTPUT"
 
   checks:
@@ -73,12 +73,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@v1
-        with:
-          node-version-file: package.json
-          cache: true
-          run-install: true
+      - name: Setup
+        uses: ./.github/actions/setup
 
       - name: Build
         run: vp run build
@@ -105,12 +101,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@v1
-        with:
-          node-version-file: package.json
-          cache: true
-          run-install: true
+      - name: Setup
+        uses: ./.github/actions/setup
 
       - name: Select Xcode
         if: matrix.platform == 'mac'
@@ -196,18 +188,6 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/otter-ios-build" \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build-for-testing
 
-      # TEMPORARY (measuring): what the runner is busy with while the simulator boots.
-      - name: Sample the runner
-        run: |
-          (
-            for i in $(seq 1 80); do
-              echo "--- $(date -u +%T) load: $(sysctl -n vm.loadavg)"
-              ps -Ao pcpu,pmem,rss,etime,comm -r | head -9 | cut -c1-150
-              vm_stat | sed -n '2,3p;7p;18,23p' | tr '\n' ' '; echo
-              sleep 10
-            done
-          ) > "$RUNNER_TEMP/samples.log" 2>&1 &
-
       - name: Boot a simulator
         run: |
           set -euo pipefail
@@ -246,16 +226,6 @@ jobs:
           sleep 2
           xcrun simctl io "$IPHONE_SIMULATOR" screenshot "$RUNNER_TEMP/otter-ios-preview/dark.png"
 
-      # TEMPORARY (measuring).
-      - name: Show the samples
-        if: always()
-        run: |
-          sysctl hw.memsize hw.ncpu
-          du -sh ~/Library/Developer/CoreSimulator/Caches/* 2> /dev/null || true
-          ls -la ~/Library/Developer/CoreSimulator/Caches/dyld/*/ 2> /dev/null || true
-          xcrun simctl runtime list 2> /dev/null || true
-          cat "$RUNNER_TEMP/samples.log"
-
       - name: Upload native results
         if: always()
         uses: actions/upload-artifact@v7
@@ -285,18 +255,6 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/otter-agents-build" \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build-for-testing
 
-      # TEMPORARY (measuring): what the runner is busy with while the simulator boots.
-      - name: Sample the runner
-        run: |
-          (
-            for i in $(seq 1 80); do
-              echo "--- $(date -u +%T) load: $(sysctl -n vm.loadavg)"
-              ps -Ao pcpu,pmem,rss,etime,comm -r | head -9 | cut -c1-150
-              vm_stat | sed -n '2,3p;7p;18,23p' | tr '\n' ' '; echo
-              sleep 10
-            done
-          ) > "$RUNNER_TEMP/samples.log" 2>&1 &
-
       - name: Boot a simulator
         run: |
           set -euo pipefail
@@ -319,16 +277,6 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/otter-agents-build" \
             -resultBundlePath "$RUNNER_TEMP/otter-agents-tests.xcresult" \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO test-without-building
-
-      # TEMPORARY (measuring).
-      - name: Show the samples
-        if: always()
-        run: |
-          sysctl hw.memsize hw.ncpu
-          du -sh ~/Library/Developer/CoreSimulator/Caches/* 2> /dev/null || true
-          ls -la ~/Library/Developer/CoreSimulator/Caches/dyld/*/ 2> /dev/null || true
-          xcrun simctl runtime list 2> /dev/null || true
-          cat "$RUNNER_TEMP/samples.log"
 
       - name: Upload native results
         if: always()

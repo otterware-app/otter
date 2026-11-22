@@ -179,12 +179,8 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.ref }}
 
-      - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@v1
-        with:
-          node-version-file: package.json
-          cache: true
-          run-install: true
+      - name: Setup
+        uses: ./.github/actions/setup
 
       - name: Select Xcode
         uses: ./.github/actions/select-xcode
@@ -264,12 +260,8 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.ref }}
 
-      - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@v1
-        with:
-          node-version-file: package.json
-          cache: true
-          run-install: true
+      - name: Setup
+        uses: ./.github/actions/setup
 
       - name: Build desktop artifacts
         shell: bash

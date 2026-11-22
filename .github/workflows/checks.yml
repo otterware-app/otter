@@ -77,12 +77,8 @@ jobs:
           grep -oE '"(greenmail|dovecot)/[^"]+"' packages/core/src/protocols/test/servers.ts \
             | tr -d '"' | xargs -P 2 -n 1 docker pull --quiet > /dev/null 2>&1 &
 
-      - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@v1
-        with:
-          node-version-file: package.json
-          cache: true
-          run-install: true
+      - name: Setup
+        uses: ./.github/actions/setup
 
       # What an install leaves different each time, though nothing changed: the time pnpm
       # stamps on it, and the folder vp makes for its config while it runs.
