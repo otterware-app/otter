@@ -33,6 +33,7 @@ writes its choice to the run's summary; the other apps' jobs are skipped.
   `scripts/export-ios-resources.ts`, `scripts/release-ios.ts`. Otter Agents: `apps/ios-agents`,
   what it compiles and bundles from Otter Mail (`apps/ios/OtterMail/Agent`, which is
   `MailContext`, `Theme`, `Resources`, `Settings/Licenses.swift`) and the same two scripts.
+  A `README.md` counts for no app.
 - **A run by hand** (Actions → Release → Run workflow, or `gh workflow run release.yml`) ships
   each app that `main` has changed since that app's last release (its newest tag; the releases'
   own version-bump commits don't count). So a release that failed or was cancelled is finished
