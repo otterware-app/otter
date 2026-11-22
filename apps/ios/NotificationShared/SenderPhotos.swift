@@ -12,9 +12,9 @@ actor SenderPhotos {
 
     private var memory: [String: UIImage?] = [:]
     private var inFlight: [String: Task<UIImage?, Never>] = [:]
-    /** Where the app and its notifications' extension both find them. */
+    /** Where the app and its notifications' extension both find them: a cache, purgeable and not backed up. */
     private let directory = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: PushState.group)?
-        .appending(path: "SenderPhotos", directoryHint: .isDirectory)
+        .appending(path: "Library/Caches/SenderPhotos", directoryHint: .isDirectory)
         ?? URL.cachesDirectory.appending(path: "sender-photos", directoryHint: .isDirectory)
 
     func photo(for email: String) async -> UIImage? {
@@ -40,7 +40,9 @@ actor SenderPhotos {
         }
         let data = await resolve(email)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try? (data ?? Data()).write(to: file)
+        // The other process (the app, its extension) may have found it meanwhile: a miss doesn't replace it.
+        if data == nil, let found = try? Data(contentsOf: file), !found.isEmpty { return UIImage(data: found) }
+        try? (data ?? Data()).write(to: file, options: .atomic)
         return data.flatMap(UIImage.init)
     }
 

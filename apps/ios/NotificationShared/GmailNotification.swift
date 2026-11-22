@@ -26,7 +26,8 @@ nonisolated struct GmailNotification {
 
         var senderAddress: String? {
             let from = header("From")
-            let address = from.firstIndex(of: "<").map { String(from[from.index(after: $0)...].prefix { $0 != ">" }) } ?? from
+            // The last angle brackets: a display name may hold some ("Ops <alerts>" <ops@example.com>).
+            let address = from.lastIndex(of: "<").map { String(from[from.index(after: $0)...].prefix { $0 != ">" }) } ?? from
             let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.contains("@") ? trimmed : nil
         }

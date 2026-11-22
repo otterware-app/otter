@@ -11,6 +11,8 @@ struct SenderNotificationTests {
         #expect(message.senderAddress == "lena@acme.example")
         let bare = try JSONDecoder().decode(GmailNotification.Message.self, from: Data(#"{"id":"2","threadId":"t","payload":{"headers":[{"name":"From","value":"sam@acme.example"}]}}"#.utf8))
         #expect(bare.senderAddress == "sam@acme.example")
+        let bracketed = try JSONDecoder().decode(GmailNotification.Message.self, from: Data(#"{"id":"3","threadId":"t","payload":{"headers":[{"name":"From","value":"\"Ops <alerts>\" <ops@acme.example>"}]}}"#.utf8))
+        #expect(bracketed.senderAddress == "ops@acme.example")
     }
 
     @Test func newMailComesFromItsSender() async {
