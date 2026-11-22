@@ -44,9 +44,10 @@ struct NotificationTests {
         #expect(await AgentNotification.fromAgent(push(pointer)) == nil)
         var named = pointer
         named["agentName"] = "Scout"
-        let message = await AgentNotification.fromAgent(push(named))
-        // A tap reads the chat from it.
-        #expect(message?.userInfo["otter"] != nil)
+        // Unsigned builds (CI) lack the entitlement, and iOS keeps the alert; signed, a tap reads the chat from it.
+        if let message = await AgentNotification.fromAgent(push(named)) {
+            #expect(message.userInfo["otter"] != nil)
+        }
         #expect(AgentFaces.keys(agentId: "research", sessionKey: "agent:research:otter-mail:plan") == ["openclaw-research"])
         #expect(AgentFaces.keys(agentId: "varys", sessionKey: "varys:abc") == ["varys-varys", "hermes"])
     }

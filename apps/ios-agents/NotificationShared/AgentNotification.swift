@@ -27,11 +27,8 @@ nonisolated enum AgentNotification {
         if let picture { intent.setImage(picture, forParameterNamed: \.sender) }
         let interaction = INInteraction(intent: intent, response: nil)
         interaction.direction = .incoming
-        do {
-            try await interaction.donate()
-            return try content.updating(from: intent)
-        } catch {
-            return nil
-        }
+        // Donating helps Siri suggest the conversation; the notification doesn't depend on it (Siri may be off).
+        try? await interaction.donate()
+        return try? content.updating(from: intent)
     }
 }
