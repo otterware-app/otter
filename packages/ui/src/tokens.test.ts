@@ -13,6 +13,12 @@ describe("design tokens", () => {
     expect(committed).toEqual(penVariables(tokensCss, globalsCss));
   });
 
+  it("take the sidebar's roles from its own scope", () => {
+    const colors = resolveColors(tokensCss);
+    expect(colors.get("sidebar-control-surface")?.dark).toBe("#121213");
+    expect(colors.get("muted")?.dark).toBe("#ffffff0a");
+  });
+
   it("resolve var() and color-mix() as a browser does", () => {
     const colors = resolveColors(`:root {
   --canvas: #ffffff;

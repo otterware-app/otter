@@ -253,6 +253,7 @@
                           "id": "rJWcu",
                           "name": "Value",
                           "fill": "$faint-foreground",
+                          "content": "#ffffff33",
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-2xs",
                           "fontWeight": "normal"
@@ -1267,7 +1268,7 @@
                           "id": "EPbx5",
                           "name": "Value",
                           "fill": "$faint-foreground",
-                          "content": "#1d1d200a",
+                          "content": "#1d1d200d",
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-2xs",
                           "fontWeight": "normal"
@@ -1308,7 +1309,7 @@
                           "id": "u9bJ9",
                           "name": "Value",
                           "fill": "$faint-foreground",
-                          "content": "#1d1d200f",
+                          "content": "#1d1d2012",
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-2xs",
                           "fontWeight": "normal"
@@ -1357,7 +1358,7 @@
                           "id": "f7D1k",
                           "name": "Value",
                           "fill": "$faint-foreground",
-                          "content": "#1d1d2014",
+                          "content": "#1d1d2017",
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-2xs",
                           "fontWeight": "normal"
@@ -2188,6 +2189,7 @@
                           "id": "DwYZz",
                           "name": "Value",
                           "fill": "$faint-foreground",
+                          "content": "#1b1b1c",
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-2xs",
                           "fontWeight": "normal"
@@ -2482,7 +2484,7 @@
                           "id": "PvlUL",
                           "name": "Value",
                           "fill": "$faint-foreground",
-                          "content": "#ffffff0a",
+                          "content": "#121213",
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-2xs",
                           "fontWeight": "normal"
@@ -2887,7 +2889,7 @@
                           "id": "v0LjFs",
                           "name": "Value",
                           "fill": "$faint-foreground",
-                          "content": "#929295",
+                          "content": "#9c9c9f",
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-2xs",
                           "fontWeight": "normal"
@@ -2928,7 +2930,7 @@
                           "id": "f10Ps",
                           "name": "Value",
                           "fill": "$faint-foreground",
-                          "content": "#5b5b5d",
+                          "content": "#616163",
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-2xs",
                           "fontWeight": "normal"
@@ -3202,7 +3204,7 @@
                           "id": "ice6g",
                           "name": "Value",
                           "fill": "$faint-foreground",
-                          "content": "#f2f2f30d",
+                          "content": "#f2f2f314",
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-2xs",
                           "fontWeight": "normal"
@@ -3243,7 +3245,7 @@
                           "id": "npH3r",
                           "name": "Value",
                           "fill": "$faint-foreground",
-                          "content": "#f2f2f312",
+                          "content": "#f2f2f31c",
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-2xs",
                           "fontWeight": "normal"
@@ -3292,7 +3294,7 @@
                           "id": "eAht0",
                           "name": "Value",
                           "fill": "$faint-foreground",
-                          "content": "#f2f2f317",
+                          "content": "#f2f2f324",
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-2xs",
                           "fontWeight": "normal"
@@ -28401,7 +28403,7 @@
           }
         },
         {
-          "value": "#929295",
+          "value": "#9c9c9f",
           "theme": {
             "mode": "dark"
           }
@@ -28418,7 +28420,7 @@
           }
         },
         {
-          "value": "#ffffff0a",
+          "value": "#121213",
           "theme": {
             "mode": "dark"
           }
@@ -28429,13 +28431,13 @@
       "type": "color",
       "value": [
         {
-          "value": "#1d1d200a",
+          "value": "#1d1d200d",
           "theme": {
             "mode": "light"
           }
         },
         {
-          "value": "#f2f2f30d",
+          "value": "#f2f2f314",
           "theme": {
             "mode": "dark"
           }
@@ -28446,13 +28448,13 @@
       "type": "color",
       "value": [
         {
-          "value": "#1d1d2014",
+          "value": "#1d1d2017",
           "theme": {
             "mode": "light"
           }
         },
         {
-          "value": "#f2f2f317",
+          "value": "#f2f2f324",
           "theme": {
             "mode": "dark"
           }
@@ -28463,13 +28465,13 @@
       "type": "color",
       "value": [
         {
-          "value": "#1d1d200f",
+          "value": "#1d1d2012",
           "theme": {
             "mode": "light"
           }
         },
         {
-          "value": "#f2f2f312",
+          "value": "#f2f2f31c",
           "theme": {
             "mode": "dark"
           }
@@ -28503,7 +28505,7 @@
           }
         },
         {
-          "value": "#5b5b5d",
+          "value": "#616163",
           "theme": {
             "mode": "dark"
           }

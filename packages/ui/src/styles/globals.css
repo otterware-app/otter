@@ -292,28 +292,6 @@
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
-@keyframes dialog-fade-in {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes dialog-fade-out {
-  to {
-    opacity: 0;
-  }
-}
-@keyframes dialog-pop-in {
-  from {
-    opacity: 0;
-    scale: 0.97;
-  }
-}
-@keyframes dialog-pop-out {
-  to {
-    opacity: 0;
-    scale: 0.98;
-  }
-}
 
 /* Lucide scales its 2-unit stroke with the icon, so each size draws a different
    weight. Icons left at that default draw one 1.25px line at every size, as
@@ -323,16 +301,6 @@ svg.lucide[stroke-width="2"] {
 }
 svg.lucide[stroke-width="2"] > * {
   vector-effect: non-scaling-stroke;
-}
-
-@keyframes tooltip-in {
-  from {
-    opacity: 0;
-    scale: 0.98;
-  }
-}
-.tooltip-in {
-  animation: tooltip-in 120ms ease-out;
 }
 
 @layer base {
