@@ -105,6 +105,11 @@ import {
 } from "./sidebar-list";
 import { createSidebarListMotion } from "./sidebar-motion";
 import { SidebarPointerSensor } from "./sidebar-pointer";
+import { SidebarAction, sidebarRowClassName, SidebarBody } from "@otter/ui/components/sidebar";
+import { TitleInput } from "./chat-title";
+import { toast } from "@otter/ui/components/toast";
+import { inNewWindow } from "../new-window-click";
+import { PLACE } from "../place-menu";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -112,18 +117,17 @@ import {
   ContextMenuSeparator,
   ContextMenuSub,
   ContextMenuTrigger,
+} from "@otter/ui/components/context-menu";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../mail/menu";
-import { NewRow, SIDEBAR_ROW, SidebarBody } from "../mail/sidebar-ui";
-import { TitleInput } from "./chat-title";
-import { toast } from "../mail/toast";
-import { inNewWindow } from "../new-window-click";
-import { PLACE } from "../place-menu";
-import { HintTooltip, cn } from "../mail/ui";
+} from "@otter/ui/components/dropdown-menu";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 const SETTLED_FIRST = 10;
 const SETTLED_PAGE = 25;
@@ -134,14 +138,11 @@ const AUTO_SCROLL: AutoScrollOptions = { threshold: { x: 0, y: 0.05 }, accelerat
 const DRAG_LABEL_HEIGHT = 24;
 const NO_PINS = new Map<string, number>();
 
-const HEADER_BUTTON =
-  "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring";
-
 /** The row's time or status, which its controls take the place of on hover (T3 Code's). */
 const ROW_END_HIDES = "group-hover/row:invisible group-has-focus-visible/row:invisible";
 const ROW_ACTION_SHOWS = "group-hover/row:flex group-has-focus-visible/row:flex";
 const ROW_ACTION =
-  "flex h-6 min-w-6 cursor-pointer items-center justify-center gap-1 rounded-md px-1 text-xs text-sidebar-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=open]:bg-foreground/[0.08]";
+  "flex h-6 min-w-6 cursor-pointer items-center justify-center gap-1 rounded-md px-1 text-xs text-sidebar-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring data-popup-open:bg-foreground/[0.08]";
 
 /** What the chat used and made, in the order its details list them. */
 const TAB_KINDS = ["draft", "thread", "file", "page"] as const;
@@ -616,7 +617,7 @@ export function AgentSidebar({
         label: "Input",
         title: "Has a question",
         icon: MessageCircleQuestionIcon,
-        className: "text-indigo-600 dark:text-indigo-300",
+        className: "text-question-foreground",
       };
     const run = runs[c.id];
     if (run) {
@@ -861,7 +862,7 @@ export function AgentSidebar({
       renaming || dragging || sweep !== null ? null : (
         <span
           className={cn(
-            "absolute end-1.5 hidden items-center gap-0.5 has-data-[state=open]:flex",
+            "absolute end-1.5 hidden items-center gap-0.5 has-data-popup-open:flex",
             card ? "top-1.5" : "inset-y-0 my-auto h-6",
             ROW_ACTION_SHOWS,
           )}
@@ -882,15 +883,12 @@ export function AgentSidebar({
           {card ? (
             <DropdownMenu>
               <HintTooltip label="Snooze" side="bottom">
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="Snooze"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    className={ROW_ACTION}
-                  >
-                    <AlarmClockIcon className="size-3.5" />
-                  </button>
+                <DropdownMenuTrigger
+                  aria-label="Snooze"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className={ROW_ACTION}
+                >
+                  <AlarmClockIcon className="size-3.5" />
                 </DropdownMenuTrigger>
               </HintTooltip>
               <DropdownMenuContent align="end">
@@ -898,7 +896,7 @@ export function AgentSidebar({
                   <DropdownMenuItem
                     key={p.id}
                     accelerator={p.when}
-                    onSelect={() =>
+                    onClick={() =>
                       void shelveChat(c.id, { snoozedUntil: p.until, settledAt: null })
                     }
                   >
@@ -982,7 +980,7 @@ export function AgentSidebar({
             recede &&
               status?.kind === "working" &&
               !dragging &&
-              "opacity-70 transition-opacity hover:opacity-100 focus-within:opacity-100 motion-reduce:transition-none",
+              "opacity-70 hover:opacity-100 focus-within:opacity-100",
           )}
         >
           {renaming ? (
@@ -1181,11 +1179,11 @@ export function AgentSidebar({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-col pt-(--sidebar-content-inset)">
-        <NewRow
+        <SidebarAction
           icon={<SquarePenIcon />}
           label="New chat"
           selected={onNewChatPage}
-          place
+          {...PLACE}
           onClick={onNewChat}
         />
         <ScheduledRow
@@ -1237,26 +1235,28 @@ export function AgentSidebar({
               }
               side="bottom"
             >
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Filter chats by agent"
-                  className={cn(HEADER_BUTTON, "data-[state=open]:bg-sidebar-row-hover")}
-                >
-                  {filter ? (
-                    <AgentAvatar
-                      id={agents.get(filter)!.id}
-                      agent={agents.get(filter)!.agent}
-                      className="size-4"
-                    />
-                  ) : (
-                    <ListFilterIcon className="size-4" />
-                  )}
-                </button>
+              <DropdownMenuTrigger
+                render={
+                  <IconButton
+                    label="Filter chats by agent"
+                    size="icon"
+                    className="hover:bg-sidebar-row-hover data-popup-open:bg-sidebar-row-hover"
+                  />
+                }
+              >
+                {filter ? (
+                  <AgentAvatar
+                    id={agents.get(filter)!.id}
+                    agent={agents.get(filter)!.agent}
+                    className="size-4"
+                  />
+                ) : (
+                  <ListFilterIcon />
+                )}
               </DropdownMenuTrigger>
             </HintTooltip>
             <DropdownMenuContent>
-              <DropdownMenuItem onSelect={() => pickAgent(null)}>All agents</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => pickAgent(null)}>All agents</DropdownMenuItem>
               {agents.size > 0 ? <DropdownMenuSeparator /> : null}
               {[...agents]
                 .sort((a, b) => b[1].count - a[1].count)
@@ -1265,7 +1265,7 @@ export function AgentSidebar({
                     key={key}
                     icon={<AgentAvatar id={id} agent={agent} className="size-4" />}
                     accelerator={String(count)}
-                    onSelect={() => pickAgent(key)}
+                    onClick={() => pickAgent(key)}
                   >
                     {agentName(id, agent)}
                   </DropdownMenuItem>
@@ -1289,7 +1289,7 @@ export function AgentSidebar({
             </p>
           )
         ) : empty ? (
-          <p className="px-(--sidebar-row-content-inset) py-1.5 text-[13px] text-sidebar-muted-foreground">
+          <p className="px-(--sidebar-row-content-inset) py-1.5 text-body text-sidebar-muted-foreground">
             {filter ? "No chats match." : "Chats you start show up here."}
           </p>
         ) : (
@@ -1365,7 +1365,7 @@ function ScheduledRow({ selected, onSelect }: { selected: boolean; onSelect: () 
         {...PLACE}
         aria-current={selected ? "page" : undefined}
         className={cn(
-          SIDEBAR_ROW,
+          sidebarRowClassName,
           "px-(--sidebar-row-content-inset)",
           selected
             ? "bg-sidebar-row-selected text-sidebar-foreground"
@@ -1417,23 +1417,23 @@ function ChatRowMenu({
     <ContextMenu>
       <ContextMenuTrigger>{children}</ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onSelect={() => inNewWindow(onOpen)}>Open in New Window</ContextMenuItem>
+        <ContextMenuItem onClick={() => inNewWindow(onOpen)}>Open in New Window</ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onSelect={() => void pinChat(chat.id, !pinned)}>
+        <ContextMenuItem onClick={() => void pinChat(chat.id, !pinned)}>
           {pinned ? "Unpin" : "Pin"}
         </ContextMenuItem>
         {shelf === "snoozed" ? (
-          <ContextMenuItem onSelect={bringBack}>Wake up now</ContextMenuItem>
+          <ContextMenuItem onClick={bringBack}>Wake up now</ContextMenuItem>
         ) : null}
         {shelf === "settled" ? (
-          <ContextMenuItem onSelect={bringBack}>Unsettle</ContextMenuItem>
+          <ContextMenuItem onClick={bringBack}>Unsettle</ContextMenuItem>
         ) : null}
         <ContextMenuSub label={shelf === "snoozed" ? "Snooze until" : "Snooze"}>
           {snoozePresets(new Date(now)).map((p) => (
             <ContextMenuItem
               key={p.id}
               accelerator={p.when}
-              onSelect={() => void shelveChat(chat.id, { snoozedUntil: p.until, settledAt: null })}
+              onClick={() => void shelveChat(chat.id, { snoozedUntil: p.until, settledAt: null })}
             >
               {p.label}
             </ContextMenuItem>
@@ -1442,13 +1442,13 @@ function ChatRowMenu({
         {shelf === "settled" ? null : (
           <>
             <ContextMenuSeparator />
-            <ContextMenuItem onSelect={() => void settleChat(chat.id)}>Settle</ContextMenuItem>
+            <ContextMenuItem onClick={() => void settleChat(chat.id)}>Settle</ContextMenuItem>
           </>
         )}
         <ContextMenuSeparator />
-        <ContextMenuItem onSelect={onRename}>Rename</ContextMenuItem>
+        <ContextMenuItem onClick={onRename}>Rename</ContextMenuItem>
         {titles && chat.sessionId ? (
-          <ContextMenuItem disabled={regenerating} onSelect={onRegenerate}>
+          <ContextMenuItem disabled={regenerating} onClick={onRegenerate}>
             {regenerating ? "Regenerating…" : "Regenerate title"}
           </ContextMenuItem>
         ) : null}

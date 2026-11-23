@@ -1,18 +1,19 @@
 import type { KeybindingCommand } from "../keybindings/commands";
 import { strokeTokens } from "../keybindings/keys";
 import { useKeybindingsState } from "../keybindings/store";
-import { cn } from "../mail/ui";
+import { Kbd } from "@otter/ui/components/kbd";
+import { cn } from "@otter/ui/lib/utils";
 
 export function Keycap({ children, className }: { children: string; className?: string }) {
   return (
-    <kbd
+    <Kbd
       className={cn(
-        "inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-foreground/15 bg-foreground/[0.06] px-1.5 font-sans text-xs font-medium text-foreground shadow-[inset_0_-1px_0_color-mix(in_srgb,var(--foreground)_14%,transparent)]",
+        "h-6 min-w-6 border border-foreground/15 bg-foreground/[0.06] px-1.5 font-medium text-foreground shadow-[inset_0_-1px_0_color-mix(in_srgb,var(--foreground)_14%,transparent)]",
         className,
       )}
     >
       {children}
-    </kbd>
+    </Kbd>
   );
 }
 

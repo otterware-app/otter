@@ -16,6 +16,7 @@
   "dependencies": {
     "@otter/contracts": "workspace:*",
     "@otter/core": "workspace:*",
+    "@otter/ui": "workspace:*",
     "@tanstack/react-query": "^5.87.4",
     "@tanstack/react-router": "^1.131.36",
     "lucide-react": "^0.542.0",

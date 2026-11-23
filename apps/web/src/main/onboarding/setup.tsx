@@ -18,7 +18,7 @@ import {
   ZapIcon,
 } from "lucide-react";
 import { AgentIcon } from "../agent/agent-icon";
-import { Switch } from "~/components/ui/switch";
+import { Switch } from "@otter/ui/components/switch";
 import { mailApi, type NotificationsMode, type SyncSettings } from "../mail/api";
 import {
   ImapAccountDialog,
@@ -51,9 +51,8 @@ import {
   useGlobalSyncStatus,
   useMailProviders,
 } from "../mail/hooks";
-import { toast } from "../mail/toast";
+import { toast } from "@otter/ui/components/toast";
 import type { MailAccount } from "../mail/types";
-import { Btn, cn } from "../mail/ui";
 import { WindowTitle } from "../mail/top-bar";
 import { OtterSignInOnboardingLink } from "../settings/otter-account-pane";
 import {
@@ -63,7 +62,6 @@ import {
   ThemeCard,
   useColorScheme,
 } from "../settings/appearance-pane";
-import { SettingsGroup, SettingsRow } from "../settings/settings-ui";
 import { agentContribution } from "../extensions/registry";
 import {
   setThemeForAppearance,
@@ -86,6 +84,9 @@ import {
   startSetup,
 } from "./onboarding";
 import otterIconUrl from "../assets/otter-icon.png";
+import { Button } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
+import { SettingsGroup, SettingsRow } from "@otter/ui/components/settings";
 
 const STEPS = ["welcome", "mailbox", "look", "habits", "agent", "keys", "done"] as const;
 type Step = (typeof STEPS)[number];
@@ -140,9 +141,9 @@ export function SetupFlow() {
           {framed ? <Progress step={step} /> : <span />}
           <div className="flex justify-end">
             {accounts.length > 0 && step !== "done" ? (
-              <Btn variant="ghost-muted" size="sm" onClick={finishSetup}>
+              <Button variant="ghost-muted" size="sm" onClick={finishSetup}>
                 Skip setup
-              </Btn>
+              </Button>
             ) : null}
           </div>
         </header>
@@ -169,17 +170,17 @@ export function SetupFlow() {
         {framed ? (
           <footer className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 border-t border-border/50 px-5 py-3">
             <div>
-              <Btn variant="ghost-muted" onClick={back}>
+              <Button variant="ghost-muted" onClick={back}>
                 <ArrowLeftIcon />
                 Back
-              </Btn>
+              </Button>
             </div>
             <SyncNote accounts={accounts} />
             <div className="flex justify-end">
-              <Btn variant="primary" disabled={!canContinue} onClick={next}>
+              <Button variant="primary" disabled={!canContinue} onClick={next}>
                 {step === "keys" ? "Finish" : "Continue"}
                 <ArrowRightIcon />
-              </Btn>
+              </Button>
             </div>
           </footer>
         ) : null}
@@ -201,7 +202,7 @@ function Progress({ step }: { step: Step }) {
             <span
               aria-current={current ? "step" : undefined}
               className={cn(
-                "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[13px]",
+                "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-body",
                 current
                   ? "bg-accent-surface text-foreground"
                   : done
@@ -223,7 +224,7 @@ function SyncNote({ accounts }: { accounts: MailAccount[] }) {
   const sync = useGlobalSyncStatus(accounts.map((a) => a.id));
   if (!sync.syncing) return <span />;
   return (
-    <span className="flex min-w-0 items-center gap-2 text-[13px] text-muted-foreground">
+    <span className="flex min-w-0 items-center gap-2 text-body text-muted-foreground">
       <LoaderIcon className="size-3.5 shrink-0 animate-spin" />
       <span className="truncate tabular-nums">{sync.label}</span>
     </span>
@@ -233,11 +234,11 @@ function SyncNote({ accounts }: { accounts: MailAccount[] }) {
 function StepHeader({ title, description }: { title: ReactNode; description?: ReactNode }) {
   return (
     <div className="mb-8 flex flex-col items-center gap-2 text-center text-balance">
-      <h1 className="text-[28px] font-medium leading-9 tracking-[-0.015em] text-foreground">
+      <h1 className="text-3xl font-medium leading-9 tracking-[-0.015em] text-foreground">
         {title}
       </h1>
       {description ? (
-        <p className="max-w-[34rem] text-[15px] leading-6 text-muted-foreground">{description}</p>
+        <p className="max-w-[34rem] text-md leading-6 text-muted-foreground">{description}</p>
       ) : null}
     </div>
   );
@@ -283,7 +284,7 @@ function ChoiceCard({
       <span className="flex flex-col gap-0.5">
         <span className="text-sm font-medium text-foreground">{title}</span>
         {description ? (
-          <span className="text-[13px] leading-[18px] text-muted-foreground">{description}</span>
+          <span className="text-body leading-[18px] text-muted-foreground">{description}</span>
         ) : null}
       </span>
       {children}
@@ -337,15 +338,15 @@ function WelcomeStep({ onStart }: { onStart: () => void }) {
             </span>
             <div className="flex flex-col gap-0.5">
               <span className="text-sm font-medium text-foreground">{p.title}</span>
-              <span className="text-[13px] leading-[18px] text-muted-foreground">{p.body}</span>
+              <span className="text-body leading-[18px] text-muted-foreground">{p.body}</span>
             </div>
           </div>
         ))}
       </div>
-      <Btn variant="primary" className="mt-9 h-10 px-5 text-[15px]" onClick={onStart}>
+      <Button variant="primary" size="xl" className="mt-9" onClick={onStart}>
         Get started
         <ArrowRightIcon />
-      </Btn>
+      </Button>
       {/* Its line is kept while the account state loads, so nothing shifts. */}
       <div className="mt-5 h-5">
         <OtterSignInOnboardingLink />
@@ -418,7 +419,7 @@ function MailboxStep({ accounts }: { accounts: MailAccount[] }) {
         />
       </div>
       {waitingFor ? (
-        <p className="mt-3 text-center text-[13px] text-muted-foreground">
+        <p className="mt-3 text-center text-body text-muted-foreground">
           <LoaderIcon className="mr-1.5 inline size-3.5 animate-spin align-[-2px]" />
           Waiting for {waitingFor}.{" "}
           <button
@@ -439,7 +440,7 @@ function MailboxStep({ accounts }: { accounts: MailAccount[] }) {
               <ConnectedMailbox key={account.id} account={account} />
             ))}
           </SettingsGroup>
-          <p className="mt-3 px-1 text-[13px] text-muted-foreground">
+          <p className="mt-3 px-1 text-body text-muted-foreground">
             Add as many as you like: they show side by side, and together under All mailboxes.
           </p>
         </div>
@@ -467,9 +468,9 @@ function ConnectedMailbox({ account }: { account: MailAccount }) {
       <AccountPicture account={account} className="size-7 text-xs" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm text-foreground">{getAccountDisplayName(account)}</div>
-        <div className="truncate text-[13px] text-muted-foreground">{account.email}</div>
+        <div className="truncate text-body text-muted-foreground">{account.email}</div>
       </div>
-      <span className="flex shrink-0 items-center gap-1.5 text-[13px] tabular-nums text-muted-foreground">
+      <span className="flex shrink-0 items-center gap-1.5 text-body tabular-nums text-muted-foreground">
         {status?.error ? (
           <span className="text-destructive">{status.error}</span>
         ) : busy ? (
@@ -683,12 +684,12 @@ function HabitsStep() {
                 description={`Email links everywhere on your ${osNames.computer} open a new message here.`}
                 control={
                   isDefaultMail ? (
-                    <span className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                    <span className="flex items-center gap-1.5 text-body text-muted-foreground">
                       <CheckIcon className="size-3.5 text-success" />
                       Otter
                     </span>
                   ) : (
-                    <Btn
+                    <Button
                       size="sm"
                       disabled={isDefaultMail === null}
                       onClick={() => {
@@ -700,7 +701,7 @@ function HabitsStep() {
                       }}
                     >
                       Use Otter
-                    </Btn>
+                    </Button>
                   )
                 }
               />
@@ -755,7 +756,7 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
         {/* What a chat looks like, in the panel's own style. */}
         <div
           aria-hidden
-          className="flex flex-col gap-3 self-start rounded-xl border border-border/60 bg-card p-4 text-[13px] leading-5"
+          className="flex flex-col gap-3 self-start rounded-xl border border-border/60 bg-card p-4 text-body leading-5"
         >
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="rounded-md bg-accent-surface px-1.5 py-0.5 text-foreground">
@@ -784,7 +785,7 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
         <div className="flex flex-col">
           <SectionTitle>Choose who answers</SectionTitle>
           {!state ? (
-            <p className="px-1 text-[13px] text-muted-foreground">Looking for agents…</p>
+            <p className="px-1 text-body text-muted-foreground">Looking for agents…</p>
           ) : (
             <div className="flex flex-col gap-2">
               {state.providers.map((p) => {
@@ -832,7 +833,7 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
                       {selected ? (
                         <CheckIcon className="mt-0.5 size-4 shrink-0 text-foreground" />
                       ) : connectable ? (
-                        <span className="mt-0.5 shrink-0 text-[13px] text-foreground">
+                        <span className="mt-0.5 shrink-0 text-body text-foreground">
                           {open ? "Cancel" : "Connect"}
                         </span>
                       ) : null}
@@ -852,24 +853,24 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
               })}
               {state.kinds.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-1.5 px-1 pt-1">
-                  <span className="text-[13px] text-muted-foreground">
+                  <span className="text-body text-muted-foreground">
                     {state.providers.length > 0 ? "Add another:" : "Add one:"}
                   </span>
                   {state.kinds.map((k) => (
-                    <Btn key={k.kind} size="sm" onClick={() => add(k.kind)}>
+                    <Button key={k.kind} size="sm" onClick={() => add(k.kind)}>
                       <ProviderIcon kind={k.kind} className="size-3.5" />
                       {k.name}
-                    </Btn>
+                    </Button>
                   ))}
                 </div>
               ) : null}
             </div>
           )}
-          <p className="mt-4 flex items-center gap-2 px-1 text-[13px] text-muted-foreground">
+          <p className="mt-4 flex items-center gap-2 px-1 text-body text-muted-foreground">
             <ShortcutKeys command="agent.toggle" />
             opens it from anywhere.
           </p>
-          <p className="mt-1.5 px-1 text-[13px] text-muted-foreground">
+          <p className="mt-1.5 px-1 text-body text-muted-foreground">
             Add as many as you work with, and set them up, in Settings → Agents.
           </p>
         </div>
@@ -895,7 +896,7 @@ function KeysStep() {
         }
       />
       <KeyTrainer onProgress={setDone} />
-      <p className="mt-6 flex items-center justify-center gap-2 text-[13px] text-muted-foreground">
+      <p className="mt-6 flex items-center justify-center gap-2 text-body text-muted-foreground">
         <ShortcutKeys command="keybindings.show" />
         lists every shortcut. Remap any of them, or add your own, in Settings → Keybindings.
       </p>
@@ -918,12 +919,12 @@ function DoneStep() {
         description="Your mail keeps syncing in the background. Take the one-minute tour to see where everything is, or dive right in."
       />
       <div className="flex items-center gap-3">
-        <Btn variant="primary" className="h-10 px-5 text-[15px]" onClick={() => finish(true)}>
+        <Button variant="primary" size="xl" onClick={() => finish(true)}>
           Take the tour
-        </Btn>
-        <Btn variant="outline" className="h-10 px-5 text-[15px]" onClick={() => finish(false)}>
+        </Button>
+        <Button size="xl" onClick={() => finish(false)}>
           Go to my inbox
-        </Btn>
+        </Button>
       </div>
       <div className="mt-10 grid w-full max-w-[32rem] grid-cols-3 gap-3 text-center">
         {(
@@ -935,7 +936,7 @@ function DoneStep() {
         ).map(([command, label]) => (
           <div key={command} className="flex flex-col items-center gap-2">
             <ShortcutKeys command={command} />
-            <span className="text-[13px] leading-[18px] text-muted-foreground">{label}</span>
+            <span className="text-body leading-[18px] text-muted-foreground">{label}</span>
           </div>
         ))}
       </div>

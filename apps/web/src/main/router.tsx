@@ -9,7 +9,7 @@ import {
 import { HomeView } from "./home-view";
 import { RootView } from "./root-view";
 import { QueryClient } from "@tanstack/react-query";
-import { ErrorBoundaryView } from "~/components/ui/error-boundary-view";
+import { ErrorBoundaryView } from "./error-boundary-view";
 import type { SettingsPane } from "./mail/api";
 import {
   fromLabel,
@@ -32,7 +32,7 @@ const rootRoute = createRootRouteWithContext<{
     return (
       <div className="flex flex-col items-center justify-center h-screen">
         <div className="drag-region fixed top-0 left-0 right-0 h-(--workspace-topbar-height)" />
-        <p className="text-[13px] text-muted-foreground">Route not found</p>
+        <p className="text-body text-muted-foreground">Route not found</p>
       </div>
     );
   },

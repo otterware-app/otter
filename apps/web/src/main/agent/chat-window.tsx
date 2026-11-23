@@ -21,8 +21,14 @@ import { ChatTitle, TitleMenuButton } from "./chat-title";
 import { ChatView } from "./chat-view";
 import { features } from "../features";
 import { isOverlayOpen } from "../mail/keyboard";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "../mail/menu";
-import { HintTooltip, IconBtn } from "../mail/ui";
+import { ShortcutText } from "../keybindings/store";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { IconButton } from "@otter/ui/components/button";
 
 type Size = { width: number; height: number };
 type Axis = "width" | "height" | "both";
@@ -298,10 +304,10 @@ export function ChatWindow({
             ) : (
               <span className="flex min-w-0 flex-1">
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <TitleMenuButton className="text-sm font-medium text-foreground">
-                      New chat
-                    </TitleMenuButton>
+                  <DropdownMenuTrigger
+                    render={<TitleMenuButton className="text-sm font-medium text-foreground" />}
+                  >
+                    New chat
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>{switcher}</DropdownMenuContent>
                 </DropdownMenu>
@@ -322,38 +328,41 @@ export function ChatWindow({
                 }}
               />
             ) : null}
-            <HintTooltip label="Minimize" shortcut="agent.toggle" side="bottom">
-              <IconBtn label="Minimize" className="size-7" onClick={onMinimize}>
+            <HintTooltip
+              label="Minimize"
+              hint={<ShortcutText command="agent.toggle" />}
+              side="bottom"
+            >
+              <IconButton label="Minimize" onClick={onMinimize}>
                 <MinusIcon className="size-4" />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
-            <HintTooltip label="Open in workspace" shortcut="agent.openWorkspace" side="bottom">
-              <IconBtn
-                label="Open in workspace"
-                className="size-7"
-                onClick={() => onOpenWorkspace(activeId)}
-              >
+            <HintTooltip
+              label="Open in workspace"
+              hint={<ShortcutText command="agent.openWorkspace" />}
+              side="bottom"
+            >
+              <IconButton label="Open in workspace" onClick={() => onOpenWorkspace(activeId)}>
                 <Maximize2Icon className="size-4" />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
             {active && !blank ? (
               <>
                 <SnoozeMenu chatId={activeId} side="bottom" onDone={onShelve}>
-                  <IconBtn label="Snooze" className="size-7">
+                  <IconButton label="Snooze">
                     <AlarmClockIcon className="size-4" />
-                  </IconBtn>
+                  </IconButton>
                 </SnoozeMenu>
                 <HintTooltip label="Settle" side="bottom">
-                  <IconBtn
+                  <IconButton
                     label="Settle"
-                    className="size-7"
                     onClick={() => {
                       void settleChat(activeId);
                       onShelve();
                     }}
                   >
                     <CheckIcon className="size-4" />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
               </>
             ) : null}

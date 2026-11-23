@@ -24,28 +24,30 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { AgentIcon } from "../agent/agent-icon";
-import { IconBtn, HintTooltip, cn } from "./ui";
 import { getAccountDisplayName } from "./account-style";
 import { useQueries } from "@tanstack/react-query";
 import { aliasMailboxLook, type AliasMailboxEntry } from "./alias-mailboxes";
 import { mailApi } from "./api";
 import { queryKeys, useAllAccountLabels } from "./hooks";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "./menu";
 import { allWorkspaces } from "../extensions/workspaces";
 import { useRecentlyViewed, type RecentIcon } from "../recently-viewed";
 import { OtterCalendarIcon } from "./app-icons";
 import type { MailAccount, MailLabel } from "./types";
 import type { MailboxTab } from "../mailboxes";
 import type { KeybindingCommand } from "../keybindings/commands";
-import { shortcutLabelFor, useKeybindingsState } from "../keybindings/store";
+import { ShortcutText, shortcutLabelFor, useKeybindingsState } from "../keybindings/store";
 import { features } from "../features";
 import { canStepHistory } from "../history-steps";
+import { IconButton } from "@otter/ui/components/button";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
 
 export function recentIcon(icon: RecentIcon): ComponentType<{ className?: string }> | undefined {
   if (icon.startsWith("workspace:"))
@@ -82,10 +84,10 @@ function RecentlyViewedMenu() {
   return (
     <DropdownMenu>
       <HintTooltip label="Recently viewed">
-        <DropdownMenuTrigger asChild>
-          <IconBtn label="Recently viewed" className="no-drag pointer-events-auto">
-            <ClockIcon className="size-4" />
-          </IconBtn>
+        <DropdownMenuTrigger
+          render={<IconButton label="Recently viewed" className="no-drag pointer-events-auto" />}
+        >
+          <ClockIcon className="size-4" />
         </DropdownMenuTrigger>
       </HintTooltip>
       <DropdownMenuContent align="start" className="w-[26rem]">
@@ -100,7 +102,7 @@ function RecentlyViewedMenu() {
             return (
               <DropdownMenuItem
                 key={place.href}
-                onSelect={() => void navigate({ href: place.href })}
+                onClick={() => void navigate({ href: place.href })}
               >
                 <span className="flex min-w-0 items-center gap-3">
                   <span className="w-28 shrink-0 truncate text-muted-foreground">
@@ -130,24 +132,24 @@ export function HistoryControls() {
     <div className="flex items-center gap-1">
       <RecentlyViewedMenu />
       <HintTooltip label="Back">
-        <IconBtn
+        <IconButton
           label="Back"
           className="no-drag pointer-events-auto"
           disabled={!where.includes("back")}
           onClick={() => history.back()}
         >
           <ChevronLeftIcon className="size-4" />
-        </IconBtn>
+        </IconButton>
       </HintTooltip>
       <HintTooltip label="Forward">
-        <IconBtn
+        <IconButton
           label="Forward"
           className="no-drag pointer-events-auto"
           disabled={!where.includes("forward")}
           onClick={() => history.forward()}
         >
           <ChevronRightIcon className="size-4" />
-        </IconBtn>
+        </IconButton>
       </HintTooltip>
     </div>
   );
@@ -203,8 +205,11 @@ export function SidebarControl({
 }) {
   return (
     <div className="pointer-events-none fixed left-(--workspace-controls-left) top-0 z-40 flex h-(--workspace-topbar-height) items-center gap-1">
-      <HintTooltip label={sidebarOpen ? "Hide sidebar" : "Show sidebar"} shortcut="sidebar.toggle">
-        <IconBtn
+      <HintTooltip
+        label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+        hint={<ShortcutText command="sidebar.toggle" />}
+      >
+        <IconButton
           label="Toggle sidebar"
           className="no-drag pointer-events-auto"
           onClick={onToggleSidebar}
@@ -212,7 +217,7 @@ export function SidebarControl({
           onMouseLeave={onHover ? () => onHover(false) : undefined}
         >
           <PaneIcon side="left" open={sidebarOpen} className="size-4" />
-        </IconBtn>
+        </IconButton>
       </HintTooltip>
       <HistoryControls />
     </div>
@@ -236,48 +241,48 @@ export function PanelControls({
       {browser ? (
         <HintTooltip
           label={browser.open ? "Hide browser" : "Show browser"}
-          shortcut="browser.toggle"
+          hint={<ShortcutText command="browser.toggle" />}
           side="bottom"
         >
-          <IconBtn
+          <IconButton
             label="Toggle browser"
             active={browser.open}
             className="no-drag pointer-events-auto"
             onClick={browser.onToggle}
           >
             <GlobeIcon className="size-4" />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
       ) : null}
       {calendar ? (
         <HintTooltip
           label={calendar.open ? "Hide calendar" : "Show calendar"}
-          shortcut="calendar.togglePanel"
+          hint={<ShortcutText command="calendar.togglePanel" />}
           side="bottom"
         >
-          <IconBtn
+          <IconButton
             label="Toggle calendar"
             active={calendar.open}
             className="no-drag pointer-events-auto"
             onClick={calendar.onToggle}
           >
             <CalendarDaysIcon className="size-4" />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
       ) : null}
       {chatPanel ? (
         <HintTooltip
           label={chatPanel.open ? "Hide panel" : "Show panel"}
-          shortcut="browser.toggle"
+          hint={<ShortcutText command="browser.toggle" />}
           side="bottom"
         >
-          <IconBtn
+          <IconButton
             label="Toggle panel"
             className="no-drag pointer-events-auto"
             onClick={chatPanel.onToggle}
           >
             <PaneIcon side="right" open={chatPanel.open} className="size-4" />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
       ) : null}
     </div>

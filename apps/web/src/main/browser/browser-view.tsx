@@ -6,7 +6,6 @@ import {
   CodeIcon,
   CopyIcon,
   GlobeIcon,
-  LoaderCircleIcon,
   LockIcon,
   MoreHorizontalIcon,
   PuzzleIcon,
@@ -17,16 +16,7 @@ import {
 } from "lucide-react";
 
 import { mailApi } from "../mail/api";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../mail/menu";
-import { toast } from "../mail/toast";
-import { Btn, HintTooltip, IconBtn, cn } from "../mail/ui";
+import { toast } from "@otter/ui/components/toast";
 import { ExtensionToolbar } from "./extension-toolbar";
 import {
   CHROME_WEB_STORE_URL,
@@ -41,6 +31,18 @@ import {
 } from "./store";
 import { shortcutText } from "../keybindings/keys";
 import { FindBar, isFindKey } from "../agent/chat-find";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { Spinner } from "@otter/ui/components/spinner";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 
 type Webview = HTMLElement & {
   getWebContentsId(): number;
@@ -71,14 +73,14 @@ export function faviconFor(url: string): string {
 
 export function BrowserTabIcon({ tab }: { tab: BrowserTab }) {
   const [failed, setFailed] = useState<string | null>(null);
-  if (tab.loading) return <LoaderCircleIcon className="size-3.5 animate-spin" />;
+  if (tab.loading) return <Spinner className="size-3.5 text-current" />;
   if (tab.favicon && failed !== tab.favicon) {
     return (
       <img
         src={tab.favicon}
         alt=""
         draggable={false}
-        className="size-3.5 rounded-[3px]"
+        className="size-3.5 rounded-sm"
         onError={() => setFailed(tab.favicon)}
       />
     );
@@ -200,42 +202,42 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
       >
         <div className="flex shrink-0 items-center rounded-full bg-foreground/[0.06] p-0.5">
           <HintTooltip label="Back" hint={shortcutText("mod+[")} side="bottom">
-            <IconBtn
+            <IconButton
               label="Back"
               className="rounded-full"
               disabled={!history.back}
               onClick={() => view?.goBack()}
             >
               <ArrowLeftIcon className="size-4" />
-            </IconBtn>
+            </IconButton>
           </HintTooltip>
           <HintTooltip label="Forward" hint={shortcutText("mod+]")} side="bottom">
-            <IconBtn
+            <IconButton
               label="Forward"
               className="rounded-full"
               disabled={!history.forward}
               onClick={() => view?.goForward()}
             >
               <ArrowRightIcon className="size-4" />
-            </IconBtn>
+            </IconButton>
           </HintTooltip>
           <span aria-hidden className="mx-0.5 h-4 w-px bg-border" />
           {tab.loading ? (
             <HintTooltip label="Stop" side="bottom">
-              <IconBtn label="Stop" className="rounded-full" onClick={() => view?.stop()}>
+              <IconButton label="Stop" className="rounded-full" onClick={() => view?.stop()}>
                 <XIcon className="size-4" />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
           ) : (
             <HintTooltip label="Reload" hint={shortcutText("mod+r")} side="bottom">
-              <IconBtn
+              <IconButton
                 label="Reload"
                 className="rounded-full"
                 disabled={!view}
                 onClick={() => view?.reload()}
               >
                 <RotateCwIcon className="size-4" />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
           )}
         </div>
@@ -281,11 +283,11 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
               {crashed ? "This page crashed" : "This page couldn't load"}
             </p>
             {failure && !crashed ? (
-              <p className="max-w-80 text-[13px] text-muted-foreground">{failure}</p>
+              <p className="max-w-80 text-body text-muted-foreground">{failure}</p>
             ) : null}
-            <Btn size="sm" className="mt-2" onClick={() => view?.reload()}>
+            <Button size="sm" className="mt-2" onClick={() => view?.reload()}>
               {crashed ? "Reload" : "Try again"}
-            </Btn>
+            </Button>
           </div>
         ) : null}
       </div>
@@ -400,13 +402,13 @@ function AddressBar({
         <>
           <SiteInfo url={url} origin={origin} onCleared={onSiteDataCleared} />
           <HintTooltip label="Open in default browser" side="bottom">
-            <IconBtn
+            <IconButton
               label="Open in default browser"
               className="absolute right-0.5 rounded-full opacity-0 group-hover/address:opacity-100 focus-visible:opacity-100"
               onClick={() => void window.desktopBridge.openExternal(url).catch(() => {})}
             >
               <ArrowUpRightIcon className="size-4" />
-            </IconBtn>
+            </IconButton>
           </HintTooltip>
         </>
       ) : null}
@@ -436,18 +438,20 @@ function SiteInfo({
   return (
     <DropdownMenu>
       <HintTooltip label="View site information" side="bottom">
-        <DropdownMenuTrigger asChild>
-          <IconBtn
-            label="View site information"
-            className="absolute left-0.5 rounded-full opacity-0 group-hover/address:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-          >
-            <SlidersHorizontalIcon className="size-4" />
-          </IconBtn>
+        <DropdownMenuTrigger
+          render={
+            <IconButton
+              label="View site information"
+              className="absolute left-0.5 rounded-full opacity-0 group-hover/address:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
+            />
+          }
+        >
+          <SlidersHorizontalIcon className="size-4" />
         </DropdownMenuTrigger>
       </HintTooltip>
       <DropdownMenuContent align="start" className="w-72">
         <DropdownMenuLabel className="truncate">{hostOf(url)}</DropdownMenuLabel>
-        <p className="flex items-center gap-2 px-2.5 pb-2 text-[13px] text-muted-foreground">
+        <p className="flex items-center gap-2 px-2.5 pb-2 text-body text-muted-foreground">
           {secure ? (
             <LockIcon className="size-3.5 shrink-0" />
           ) : (
@@ -456,7 +460,7 @@ function SiteInfo({
           {secure ? "Connection is secure" : "Not secure: what you send here can be read"}
         </p>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => void clear()}>
+        <DropdownMenuItem onClick={() => void clear()}>
           Clear cookies and site data
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -468,10 +472,10 @@ function PageMenu({ url, onDevTools }: { url: string; onDevTools?: () => void })
   return (
     <DropdownMenu>
       <HintTooltip label="More" side="bottom">
-        <DropdownMenuTrigger asChild>
-          <IconBtn label="More" className="size-8 shrink-0 rounded-full">
-            <MoreHorizontalIcon className="size-4" />
-          </IconBtn>
+        <DropdownMenuTrigger
+          render={<IconButton label="More" size="icon" className="shrink-0 rounded-full" />}
+        >
+          <MoreHorizontalIcon className="size-4" />
         </DropdownMenuTrigger>
       </HintTooltip>
       <DropdownMenuContent align="end" className="w-56">
@@ -479,13 +483,13 @@ function PageMenu({ url, onDevTools }: { url: string; onDevTools?: () => void })
           <>
             <DropdownMenuItem
               icon={<ArrowUpRightIcon className="size-4" />}
-              onSelect={() => void window.desktopBridge.openExternal(url).catch(() => {})}
+              onClick={() => void window.desktopBridge.openExternal(url).catch(() => {})}
             >
               Open in Default Browser
             </DropdownMenuItem>
             <DropdownMenuItem
               icon={<CopyIcon className="size-4" />}
-              onSelect={() => void navigator.clipboard.writeText(url)}
+              onClick={() => void navigator.clipboard.writeText(url)}
             >
               Copy Link
             </DropdownMenuItem>
@@ -494,12 +498,12 @@ function PageMenu({ url, onDevTools }: { url: string; onDevTools?: () => void })
         ) : null}
         <DropdownMenuItem
           icon={<PuzzleIcon className="size-4" />}
-          onSelect={() => void mailApi.openSettings({ pane: "browser" })}
+          onClick={() => void mailApi.openSettings({ pane: "browser" })}
         >
           Extensions
         </DropdownMenuItem>
         {onDevTools ? (
-          <DropdownMenuItem icon={<CodeIcon className="size-4" />} onSelect={onDevTools}>
+          <DropdownMenuItem icon={<CodeIcon className="size-4" />} onClick={onDevTools}>
             Developer Tools
           </DropdownMenuItem>
         ) : null}

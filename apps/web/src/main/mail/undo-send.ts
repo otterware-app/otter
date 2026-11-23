@@ -1,4 +1,4 @@
-import { toast } from "./toast";
+import { toast } from "@otter/ui/components/toast";
 import { forgetUndo, registerUndo, type UndoAction } from "./undo";
 
 export const UNDO_SEND_MS = 10_000;

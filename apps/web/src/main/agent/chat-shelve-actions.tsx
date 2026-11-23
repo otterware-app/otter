@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ReactElement } from "react";
 import { shelveChat } from "./chat-store";
 import { snoozePresets } from "./chat-shelves";
 import {
@@ -6,8 +6,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../mail/menu";
-import { HintTooltip } from "../mail/ui";
+} from "@otter/ui/components/dropdown-menu";
+import { HintTooltip } from "@otter/ui/components/tooltip";
 
 export function settleChat(id: string): Promise<void> {
   return shelveChat(id, { snoozedUntil: null, settledAt: Date.now() });
@@ -22,20 +22,20 @@ export function SnoozeMenu({
   chatId: string;
   side: "top" | "bottom";
   onDone?: () => void;
-  children: ReactNode;
+  children: ReactElement;
 }) {
   const [openedAt, setOpenedAt] = useState(0);
   return (
     <DropdownMenu onOpenChange={(open) => open && setOpenedAt(Date.now())}>
       <HintTooltip label="Snooze" side={side}>
-        <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+        <DropdownMenuTrigger render={children} />
       </HintTooltip>
       <DropdownMenuContent align="end">
         {snoozePresets(new Date(openedAt)).map((p) => (
           <DropdownMenuItem
             key={p.id}
             accelerator={p.when}
-            onSelect={() => {
+            onClick={() => {
               void shelveChat(chatId, { snoozedUntil: p.until, settledAt: null });
               onDone?.();
             }}

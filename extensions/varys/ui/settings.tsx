@@ -1,19 +1,18 @@
 import {
-  Btn,
-  SettingsRow,
-  SettingsSection,
-  TextInput,
   osNames,
   searchableSetting,
-  toast,
   useSetProvidersState,
   type AgentSettingsProps,
   type ProviderSnapshot,
 } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import { useState } from "react";
+import { Button } from "@otter/ui/components/button";
 
 import { varysApi } from "./api";
 import { VarysDeliveries, type RelayState } from "./deliveries";
+import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
+import { Input } from "@otter/ui/components/input";
 
 export function VarysSettings({ provider }: AgentSettingsProps) {
   const setState = useSetProvidersState();
@@ -100,7 +99,7 @@ export function VarysSettings({ provider }: AgentSettingsProps) {
               title="Address"
               description="https://<computer>.<tailnet>.ts.net"
               control={
-                <TextInput
+                <Input
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="https://computer.tailnet.ts.net"
@@ -113,7 +112,7 @@ export function VarysSettings({ provider }: AgentSettingsProps) {
               title="Code"
               description="The code from Connect an app, in varys."
               control={
-                <TextInput
+                <Input
                   type="password"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
@@ -129,7 +128,7 @@ export function VarysSettings({ provider }: AgentSettingsProps) {
             title="Pairing link"
             description="From Connect an app, in varys."
             control={
-              <TextInput
+              <Input
                 type="password"
                 value={link}
                 onChange={(e) => setLink(e.target.value)}
@@ -155,9 +154,9 @@ export function VarysSettings({ provider }: AgentSettingsProps) {
             </>
           }
           control={
-            <Btn size="sm" variant="primary" disabled={saving} onClick={() => void connect()}>
+            <Button size="sm" variant="primary" disabled={saving} onClick={() => void connect()}>
               {saving ? "Connecting…" : savedAddress ? "Pair again" : "Connect"}
-            </Btn>
+            </Button>
           }
         />
         {savedAddress ? (
@@ -165,9 +164,9 @@ export function VarysSettings({ provider }: AgentSettingsProps) {
             title="Disconnect"
             description={`Ends this ${device}'s access in varys, and forgets varys here.`}
             control={
-              <Btn size="sm" disabled={saving} onClick={() => void disconnect()}>
+              <Button size="sm" disabled={saving} onClick={() => void disconnect()}>
                 Disconnect
-              </Btn>
+              </Button>
             }
           />
         ) : null}

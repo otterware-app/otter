@@ -11,13 +11,15 @@ import {
 import type { ChatTab } from "@otter/contracts/chats";
 import type { ScheduledTask } from "@otter/contracts/scheduled";
 
-import { Popover, PopoverPopup, PopoverTrigger } from "~/components/ui/popover";
+import { Popover, PopoverPopup, PopoverTrigger } from "@otter/ui/components/popover";
 import { AgentAvatar, openClawAgentId, useChatProvider } from "./agent-providers";
 import { keyOf, useScheduledTasks } from "./agent-scheduled";
 import { isOpenTab, type Conversation } from "./chat-store";
 import { scheduleText, untilText } from "./scheduled-text";
-import { toast } from "../mail/toast";
-import { HintTooltip, cn } from "../mail/ui";
+import { toast } from "@otter/ui/components/toast";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 export const TAB_ICONS = {
   thread: MailIcon,
@@ -58,9 +60,6 @@ type DetailsProps = {
   onOpenTask: (key: string) => void;
 };
 
-const detailsButton =
-  "no-drag flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring";
-
 /**
  * The chat's details: a popover, or with `docked`, a button that shows or hides them beside the
  * chat (`ChatDetailsDock`).
@@ -82,31 +81,25 @@ export function ChatContextButton({
   if (docked)
     return (
       <HintTooltip label={shown ? "Hide chat details" : "Chat details"} side="bottom">
-        <button
-          type="button"
-          aria-label="Chat details"
+        <IconButton
+          label="Chat details"
           aria-pressed={shown}
+          active={shown}
           onClick={onToggle}
-          className={cn(detailsButton, shown && "bg-foreground/[0.06] text-foreground")}
+          className="no-drag"
         >
-          <ListTodoIcon className="size-4" />
-        </button>
+          <ListTodoIcon />
+        </IconButton>
       </HintTooltip>
     );
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <HintTooltip label="Chat details" side="bottom">
         <PopoverTrigger
-          render={
-            <button
-              type="button"
-              aria-label="Chat details"
-              className={cn(detailsButton, open && "bg-foreground/[0.06] text-foreground")}
-            >
-              <ListTodoIcon className="size-4" />
-            </button>
-          }
-        />
+          render={<IconButton label="Chat details" active={open} className="no-drag" />}
+        >
+          <ListTodoIcon />
+        </PopoverTrigger>
       </HintTooltip>
       <PopoverPopup
         align="end"
@@ -163,10 +156,9 @@ function ChatDetails({ convo, onOpen, onOpenTask }: DetailsProps) {
         </div>
         {convo.sessionId ? (
           <HintTooltip label="Copy session ID" side="bottom">
-            <button
-              type="button"
-              aria-label="Copy session ID"
-              className="-mr-1.5 flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+            <IconButton
+              label="Copy session ID"
+              className="-mr-1.5"
               onClick={() =>
                 void navigator.clipboard.writeText(convo.sessionId ?? "").then(
                   () => toast.success("Session ID copied"),
@@ -174,8 +166,8 @@ function ChatDetails({ convo, onOpen, onOpenTask }: DetailsProps) {
                 )
               }
             >
-              <CopyIcon className="size-4" />
-            </button>
+              <CopyIcon />
+            </IconButton>
           </HintTooltip>
         ) : null}
       </div>
@@ -219,7 +211,7 @@ function TabSection({
   return (
     <section className={sectionClass}>
       <h3 className={headingClass}>{title}</h3>
-      {tabs.length === 0 ? <p className="text-muted-foreground/70">{empty}</p> : null}
+      {tabs.length === 0 ? <p className="text-faint-foreground">{empty}</p> : null}
       {shown.map((tab) => {
         const Icon = TAB_ICONS[tab.ref.kind];
         const detail = tab.ref.kind === "page" ? tab.ref.url : undefined;

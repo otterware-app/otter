@@ -1,4 +1,9 @@
 import type React from "react";
+import { useCapabilities } from "./capabilities";
+import { useLabels, useModifyThread } from "./hooks";
+import { buildLabelTree, type LabelTreeNode, isAssignableLabel } from "./label-tree";
+import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "./label-names";
+import type { MailLabel } from "./types";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -8,12 +13,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
-} from "./menu";
-import { useCapabilities } from "./capabilities";
-import { useLabels, useModifyThread } from "./hooks";
-import { buildLabelTree, type LabelTreeNode, isAssignableLabel } from "./label-tree";
-import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "./label-names";
-import type { MailLabel } from "./types";
+} from "@otter/ui/components/dropdown-menu";
 
 type LabelChoicesParams = {
   accountId: string;
@@ -26,8 +26,8 @@ type LabelChoicesParams = {
 };
 
 type LabelPickerMenuProps = LabelChoicesParams & {
-  /** Trigger element (rendered via asChild — must accept a ref). */
-  children: React.ReactNode;
+  /** Trigger element (the trigger's `render`: must accept a ref). */
+  children: React.ReactElement;
 };
 
 export type LabelMenuKit = {
@@ -189,7 +189,7 @@ export function LabelPickerMenu({ children, ...params }: LabelPickerMenuProps) {
   const choices = useLabelChoices(params);
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+      <DropdownMenuTrigger render={children} />
       <DropdownMenuContent align="end">
         {choices.folders ? <DropdownMenuLabel>Move to folder</DropdownMenuLabel> : null}
         {renderLabelChoices(choices, DROPDOWN_KIT)}

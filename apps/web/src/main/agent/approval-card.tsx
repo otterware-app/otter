@@ -7,8 +7,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../mail/menu";
-import { Btn, cn, Kbd } from "../mail/ui";
+} from "@otter/ui/components/dropdown-menu";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
+import { Kbd } from "@otter/ui/components/kbd";
 
 const basename = (path: string) => path.replace(/\/+$/, "").split("/").pop() || path;
 
@@ -108,9 +110,9 @@ export function ApprovalCard({
         ) : null}
       </div>
       <div className="flex min-w-0 flex-col gap-1.5">
-        <p className="text-[15px] leading-snug text-foreground">{question(agent, approval)}</p>
+        <p className="text-md leading-snug text-foreground">{question(agent, approval)}</p>
         {note ? (
-          <p className="max-h-24 overflow-auto whitespace-pre-line text-[13px] text-muted-foreground [scrollbar-width:thin]">
+          <p className="max-h-24 overflow-auto whitespace-pre-line text-body text-muted-foreground [scrollbar-width:thin]">
             {note}
           </p>
         ) : null}
@@ -122,26 +124,21 @@ export function ApprovalCard({
       </div>
       <div className="flex items-center justify-end gap-2">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Btn
-              size="icon-sm"
-              variant="ghost-muted"
-              aria-label="More options"
-              disabled={responding}
-              className="rounded-full"
-            >
-              <EllipsisIcon />
-            </Btn>
+          <DropdownMenuTrigger
+            disabled={responding}
+            render={<IconButton label="More options" className="rounded-full" />}
+          >
+            <EllipsisIcon />
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="end">
             {more.map((item) => (
-              <DropdownMenuItem key={item.label} onSelect={item.run}>
+              <DropdownMenuItem key={item.label} onClick={item.run}>
                 {item.label}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        <Btn
+        <Button
           size="sm"
           disabled={responding}
           onClick={() => onRespond("deny")}
@@ -149,8 +146,8 @@ export function ApprovalCard({
         >
           Deny
           <Kbd>Esc</Kbd>
-        </Btn>
-        <Btn
+        </Button>
+        <Button
           ref={allow}
           size="sm"
           disabled={responding}
@@ -159,7 +156,7 @@ export function ApprovalCard({
         >
           Allow once
           <Kbd>↩</Kbd>
-        </Btn>
+        </Button>
       </div>
     </div>
   );

@@ -7,9 +7,7 @@
 
 import { Fragment, useMemo, type ReactNode } from "react";
 
-import { ContextMenuItem, DropdownMenuItem } from "../mail/menu";
 import type { MessageDetail } from "../mail/types";
-import { HintTooltip, IconBtn } from "../mail/ui";
 import {
   EXTENSIONS,
   availableExtensions,
@@ -24,6 +22,10 @@ import type {
   PaletteSearch,
   UiExtension,
 } from "./types";
+import { ContextMenuItem } from "@otter/ui/components/context-menu";
+import { DropdownMenuItem } from "@otter/ui/components/dropdown-menu";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { IconButton } from "@otter/ui/components/button";
 
 function useIsOn(): (id: string) => boolean {
   const disabled = useDisabledExtensions();
@@ -106,16 +108,16 @@ export function ExtensionToolbarActions({ target }: { target: MessageTarget }) {
     .filter((a) => a.toolbar)
     .map(({ id, label, Icon, run }) => (
       <HintTooltip key={id} label={label} side="bottom">
-        <IconBtn label={label} onClick={() => run(target)}>
+        <IconButton label={label} onClick={() => run(target)}>
           <Icon className="size-4" />
-        </IconBtn>
+        </IconButton>
       </HintTooltip>
     ));
 }
 
 export function ExtensionMenuActions({ target }: { target: MessageTarget }) {
   return useMessageActions().map(({ id, label, menuLabel, run }) => (
-    <DropdownMenuItem key={id} onSelect={() => run(target)}>
+    <DropdownMenuItem key={id} onClick={() => run(target)}>
       {menuLabel ?? label}
     </DropdownMenuItem>
   ));
@@ -123,7 +125,7 @@ export function ExtensionMenuActions({ target }: { target: MessageTarget }) {
 
 export function ExtensionContextMenuActions({ target }: { target: MessageTarget }) {
   return useMessageActions().map(({ id, label, menuLabel, run }) => (
-    <ContextMenuItem key={id} onSelect={() => run(target)}>
+    <ContextMenuItem key={id} onClick={() => run(target)}>
       {menuLabel ?? label}
     </ContextMenuItem>
   ));

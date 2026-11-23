@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AgentAccess, ConnectedAgent } from "@otter/contracts/agent-tokens";
-import { Field } from "~/components/ui/field";
-import { Dialog } from "~/components/ui/dialog";
-import { Switch } from "~/components/ui/switch";
-import { Text } from "~/components/ui/text";
-import { Toggle, ToggleGroup } from "~/components/ui/toggle-group";
-import { toast } from "../mail/toast";
+import { Field } from "@otter/ui/components/field";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Switch } from "@otter/ui/components/switch";
+import { Text } from "@otter/ui/components/text";
+import { Toggle, ToggleGroup } from "@otter/ui/components/toggle-group";
+import { toast } from "@otter/ui/components/toast";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon, ChevronRightIcon, PlusIcon, RotateCwIcon, ShieldIcon } from "lucide-react";
 import {
@@ -30,24 +30,7 @@ import { AgentIcon } from "../agent/agent-icon";
 import { useOtterAccount } from "../otter-account";
 import { SignInControl } from "./otter-account-pane";
 import { EXTENSIONS } from "../extensions/registry";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../mail/menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../mail/select";
-import { Btn, cn } from "../mail/ui";
 import { PictureError, mailboxPicture } from "./mailbox-picture-image";
-import {
-  DraftInput,
-  RowSelect,
-  SettingResetButton,
-  SettingsPageContainer,
-  SettingsRow,
-  SettingsSection,
-  TextInput,
-} from "./settings-ui";
 import { searchableSetting } from "./settings-search";
 import { osNames } from "../os-names";
 import { AgentTokensSection } from "./agent-tokens-section";
@@ -64,6 +47,29 @@ import {
   setAutoSettleDays,
   useAutoSettleDays,
 } from "../agent/auto-settle";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@otter/ui/components/select";
+import { Button } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
+import {
+  SettingsSelect,
+  SettingsResetButton,
+  SettingsPageContainer,
+  SettingsRow,
+  SettingsSection,
+} from "@otter/ui/components/settings";
+import { DraftInput, Input } from "@otter/ui/components/input";
 
 function useNow(intervalMs: number): number {
   const [now, setNow] = useState(() => Date.now());
@@ -138,9 +144,9 @@ export function AgentStatusSection({
           isDefault ? (
             <span className="text-xs text-muted-foreground">Used for new chats</span>
           ) : (
-            <Btn size="sm" disabled={!provider.enabled} onClick={onMakeDefault}>
+            <Button size="sm" disabled={!provider.enabled} onClick={onMakeDefault}>
               Use for new chats
-            </Btn>
+            </Button>
           )
         }
       />
@@ -184,18 +190,20 @@ function AddAgentMenu({
   };
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Btn size="sm" {...searchableSetting("add-agent")} title={undefined}>
-          <PlusIcon />
-          {label}
-        </Btn>
+      <DropdownMenuTrigger
+        {...searchableSetting("add-agent")}
+        title={undefined}
+        render={<Button size="sm" />}
+      >
+        <PlusIcon />
+        {label}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-52">
         {kinds.map((k) => (
           <DropdownMenuItem
             key={k.kind}
             icon={<ProviderIcon kind={k.kind} className="size-4" />}
-            onSelect={() => add(k.kind)}
+            onClick={() => add(k.kind)}
           >
             {k.name}
           </DropdownMenuItem>
@@ -237,7 +245,7 @@ export function ProvidersPane({ item }: { item?: string }) {
           <AgentIcon className="size-7 text-muted-foreground" />
           <div className="space-y-1">
             <p className="text-sm text-foreground">Your agents are in your Otter account</p>
-            <p className="max-w-80 text-[13px] text-pretty text-muted-foreground">
+            <p className="max-w-80 text-body text-pretty text-muted-foreground">
               Sign in to add agents and chat with them, with the same agents and chats on every
               device.
             </p>
@@ -262,7 +270,7 @@ export function ProvidersPane({ item }: { item?: string }) {
       action={
         <>
           {providers.length > 0 ? (
-            <Btn
+            <Button
               size="sm"
               variant="ghost-muted"
               disabled={refreshing}
@@ -284,7 +292,7 @@ export function ProvidersPane({ item }: { item?: string }) {
                   "Checking…"
                 )}
               </span>
-            </Btn>
+            </Button>
           ) : null}
           {state.kinds.length > 0 ? <AddAgentMenu kinds={state.kinds} /> : null}
         </>
@@ -306,7 +314,7 @@ export function ProvidersPane({ item }: { item?: string }) {
           <AgentIcon className="size-7 text-muted-foreground" />
           <div className="space-y-1">
             <p className="text-sm text-foreground">No agents yet</p>
-            <p className="max-w-80 text-[13px] text-pretty text-muted-foreground">
+            <p className="max-w-80 text-body text-pretty text-muted-foreground">
               Add the agents you work with, then chat with any of them beside your mail.
             </p>
           </div>
@@ -321,7 +329,7 @@ export function ProvidersPane({ item }: { item?: string }) {
             {...searchableSetting("agent-providers")}
             description="The agent a new chat runs on. You can switch in the chat's agent picker."
             control={
-              <RowSelect
+              <SettingsSelect
                 value={state.selected ?? ""}
                 onValueChange={(selected) => update({ selected })}
                 options={choices.map((p) => ({ value: p.id, label: p.name }))}
@@ -375,12 +383,12 @@ function AgentListRow({
           <span className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm text-foreground">{provider.name}</span>
             {isDefault ? (
-              <span className="shrink-0 rounded bg-muted/60 px-1 py-0.5 text-3xs leading-none text-muted-foreground">
+              <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-0.5 text-3xs leading-none text-muted-foreground">
                 Default
               </span>
             ) : null}
           </span>
-          <span className="mt-0.5 flex items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
+          <span className="mt-0.5 flex items-center gap-1.5 text-body leading-[18px] text-muted-foreground">
             {needsAttention ? <StatusDot status={provider.status} /> : null}
             <span className="line-clamp-1">
               {kindName(provider.kind)} · {providerSummary(provider).headline}
@@ -402,7 +410,7 @@ function AgentListRow({
 
 /** The picture you gave the agent, else its kind's mark on a tile. */
 function AgentPicture({ provider, size }: { provider: ProviderSnapshot; size: "sm" | "lg" }) {
-  const box = size === "lg" ? "size-12 rounded-[14px]" : "size-9 rounded-[10px]";
+  const box = size === "lg" ? "size-12 rounded-2xl" : "size-9 rounded-xl";
   if (provider.avatar)
     return <img src={provider.avatar} alt="" className={cn(box, "shrink-0 object-cover")} />;
   return (
@@ -474,10 +482,10 @@ function AgentPage({
   return (
     <SettingsPageContainer className="space-y-8">
       <div className="space-y-5 px-[17px]">
-        <Btn size="sm" variant="ghost-muted" className="-ml-2.5" onClick={back}>
+        <Button size="sm" variant="ghost-muted" className="-ml-2.5" onClick={back}>
           <ArrowLeftIcon />
           Agents
-        </Btn>
+        </Button>
         <header
           className={cn(
             "-mx-2 flex items-center gap-4 rounded-xl p-2 transition-colors",
@@ -501,21 +509,18 @@ function AgentPage({
           }}
         >
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={`Picture for ${provider.name}`}
-                className="cursor-pointer rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-              >
-                <AgentPicture provider={provider} size="lg" />
-              </button>
+            <DropdownMenuTrigger
+              aria-label={`Picture for ${provider.name}`}
+              className="cursor-pointer rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            >
+              <AgentPicture provider={provider} size="lg" />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onSelect={() => input.current?.click()}>
+              <DropdownMenuItem onClick={() => input.current?.click()}>
                 {provider.avatar ? "Change picture…" : "Choose picture…"}
               </DropdownMenuItem>
               {provider.avatar ? (
-                <DropdownMenuItem onSelect={() => update({ [provider.id]: { avatar: "" } })}>
+                <DropdownMenuItem onClick={() => update({ [provider.id]: { avatar: "" } })}>
                   Remove picture
                 </DropdownMenuItem>
               ) : null}
@@ -539,7 +544,7 @@ function AgentPage({
               onCommit={(name) => {
                 if (name) update({ [provider.id]: { name } });
               }}
-              className="h-9 border-transparent bg-transparent px-1.5 text-[22px] font-medium tracking-[-0.01em] hover:border-border/70 focus-visible:bg-canvas"
+              className="h-9 border-transparent bg-transparent px-1.5 text-2xl font-medium tracking-[-0.01em] hover:border-border/70 focus-visible:bg-canvas"
             />
             <p className="mt-0.5 px-1.5 text-sm text-muted-foreground">
               {extension ? `${extension.manifest.name} · ${extension.manifest.description}` : null}
@@ -554,7 +559,7 @@ function AgentPage({
           />
         </header>
         {extension?.manifest.dataUse ? (
-          <p className="flex items-start gap-2 text-[13px] leading-[18px] text-muted-foreground">
+          <p className="flex items-start gap-2 text-body leading-[18px] text-muted-foreground">
             <ShieldIcon className="mt-px size-3.5 shrink-0" />
             {extension.manifest.dataUse}
           </p>
@@ -571,9 +576,9 @@ function AgentPage({
           title="Remove agent"
           description="Its settings and keys leave every device. Its chats stay, with nothing to run on."
           control={
-            <Btn size="sm" variant="destructive" onClick={() => setConfirmRemove(true)}>
+            <Button size="sm" variant="destructive" onClick={() => setConfirmRemove(true)}>
               Remove…
-            </Btn>
+            </Button>
           }
         />
       </SettingsSection>
@@ -582,7 +587,7 @@ function AgentPage({
         onOpenChange={setConfirmRemove}
         title={`Remove ${provider.name}?`}
         confirmLabel={removing ? "Removing…" : "Remove agent"}
-        confirmVariant="accent"
+        confirmVariant="primary"
         onConfirm={remove}
       >
         <Text variant="small">
@@ -635,7 +640,7 @@ function AgentNotificationsRow() {
       {...searchableSetting("agent-notifications")}
       resetAction={
         mode !== null && mode !== "all" ? (
-          <SettingResetButton label="agent notifications" onClick={() => update("all")} />
+          <SettingsResetButton label="agent notifications" onClick={() => update("all")} />
         ) : null
       }
       description={
@@ -644,7 +649,7 @@ function AgentNotificationsRow() {
           : `Approvals, questions, agent messages, and long finished replies. Your phone stays quiet while you're active on your ${osNames.computer} unless you wrote from your phone.`
       }
       control={
-        <RowSelect
+        <SettingsSelect
           value={mode ?? undefined}
           onValueChange={(value) => update(value as AgentNotificationsMode)}
           options={AGENT_NOTIFICATIONS_OPTIONS}
@@ -654,6 +659,11 @@ function AgentNotificationsRow() {
     />
   );
 }
+
+const FOLLOW_UP_BEHAVIORS: { value: FollowUpBehavior; label: string }[] = [
+  { value: "queue", label: "Queue" },
+  { value: "steer", label: "Steer" },
+];
 
 function ChatSection({ children }: { children: ReactNode }) {
   const behavior = useFollowUpBehavior();
@@ -665,7 +675,7 @@ function ChatSection({ children }: { children: ReactNode }) {
         {...searchableSetting("follow-up-behavior")}
         resetAction={
           behavior !== "queue" ? (
-            <SettingResetButton
+            <SettingsResetButton
               label="follow-up behavior"
               onClick={() => setFollowUpBehavior("queue")}
             />
@@ -674,15 +684,21 @@ function ChatSection({ children }: { children: ReactNode }) {
         description={`Queue follow-ups while the agent runs or steer the current run. Press ${shortcutText("mod+enter")} to do the opposite for one message.`}
         control={
           <Select
+            items={FOLLOW_UP_BEHAVIORS}
             value={behavior}
-            onValueChange={(value) => setFollowUpBehavior(value as FollowUpBehavior)}
+            onValueChange={(value) => {
+              if (value) setFollowUpBehavior(value);
+            }}
           >
             <SelectTrigger variant="pill" aria-label="Follow-up behavior">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="queue">Queue</SelectItem>
-              <SelectItem value="steer">Steer</SelectItem>
+              {FOLLOW_UP_BEHAVIORS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         }
@@ -700,7 +716,7 @@ function AutoSettleSection() {
         description="Chats with no new messages for a while settle on their own."
         resetAction={
           days !== AUTO_SETTLE_DEFAULT_DAYS ? (
-            <SettingResetButton
+            <SettingsResetButton
               label="auto-settle"
               onClick={() => setAutoSettleDays(AUTO_SETTLE_DEFAULT_DAYS)}
             />
@@ -737,7 +753,7 @@ function AutoSettleDaysInput({ days }: { days: number }) {
     setDraft(null);
   };
   return (
-    <TextInput
+    <Input
       type="number"
       min={1}
       max={AUTO_SETTLE_MAX_DAYS}
@@ -837,7 +853,7 @@ function ConnectedAgentsSection() {
         </Field>
       }
       renderControl={(agent) => (
-        <RowSelect
+        <SettingsSelect
           value={agent.access}
           onValueChange={(next) => change.mutate({ id: agent.id, access: next as AgentAccess })}
           options={AGENT_ACCESS}

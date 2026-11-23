@@ -58,8 +58,11 @@ import { PanelTab } from "../mail/panel-tab";
 import { mostRecentTab } from "../mail/panel-tabs";
 import { AgentAvatar, openClawAgentId, useChatProvider } from "./agent-providers";
 import { usePanelTabDrag } from "../mail/use-panel-tab-drag";
-import { HintTooltip, cn } from "../mail/ui";
 import { usePanelAnimationSettings, usePanelPresence } from "../panel-animations";
+import { ShortcutText } from "../keybindings/store";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 export type ChatPanelControl = { toggle: () => void; newPage: () => void };
 
@@ -561,15 +564,14 @@ export function ChatWorkspace({
                 })}
               </div>
               {features.browser ? (
-                <HintTooltip label="New tab" shortcut="browser.newTab" side="bottom">
-                  <button
-                    type="button"
-                    aria-label="New tab"
-                    onClick={newPage}
-                    className="no-drag flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-                  >
-                    <PlusIcon className="size-3.5" />
-                  </button>
+                <HintTooltip
+                  label="New tab"
+                  hint={<ShortcutText command="browser.newTab" />}
+                  side="bottom"
+                >
+                  <IconButton label="New tab" size="icon-xs" className="no-drag" onClick={newPage}>
+                    <PlusIcon />
+                  </IconButton>
                 </HintTooltip>
               ) : null}
               <span className="min-w-0 flex-1" />

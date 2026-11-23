@@ -10,12 +10,14 @@ import {
   RotateCwIcon,
 } from "lucide-react";
 
-import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
+import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@otter/ui/components/popover";
 import { releaseCompareUrl, useReleaseChanges } from "./release-changes";
-import { Btn, cn } from "./mail/ui";
-import { toast } from "./mail/toast";
-import { RowSelect, SettingsRow, SettingsSection, timeAgo } from "./settings/settings-ui";
+import { toast } from "@otter/ui/components/toast";
 import { searchableSetting } from "./settings/settings-search";
+import { Button } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
+import { SettingsSelect, SettingsRow, SettingsSection } from "@otter/ui/components/settings";
+import { timeAgo } from "./settings/time-ago";
 
 const restart = () => (window.desktopBridge.platform === "web" ? "Reload" : "Restart");
 
@@ -168,7 +170,7 @@ export function UpdateButton() {
         closeDelay={150}
         aria-label={status === "error" && !manualUrl ? "Retry the update" : undefined}
         onClick={step.act ?? undefined}
-        className="relative ml-1 flex h-8 min-w-0 flex-1 cursor-pointer items-center rounded-full bg-sidebar-control-surface pl-3 text-xs text-sidebar-foreground outline-none transition-[opacity,translate] duration-300 ease-out before:absolute before:inset-0 before:rounded-full before:transition-colors hover:before:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring starting:translate-y-1 starting:opacity-0 motion-reduce:transition-none"
+        className="relative ml-1 flex h-8 min-w-0 flex-1 cursor-pointer items-center rounded-full bg-sidebar-control-surface pl-3 text-xs text-sidebar-foreground outline-none transition-[opacity,translate] duration-300 ease-out before:absolute before:inset-0 before:rounded-full hover:before:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring starting:translate-y-1 starting:opacity-0 motion-reduce:transition-none"
       >
         <span
           className={cn(
@@ -355,29 +357,29 @@ export function UpdatesSection() {
   }
   const manualUrl = state.manualDownloadUrl;
   const control = manualUrl ? (
-    <Btn
+    <Button
       variant="primary"
       size="sm"
       onClick={() => void window.desktopBridge.openExternal(manualUrl)}
     >
       Download {state.availableVersion}
-    </Btn>
+    </Button>
   ) : state.status === "available" ? (
-    <Btn variant="primary" size="sm" onClick={() => void updates.download()}>
+    <Button variant="primary" size="sm" onClick={() => void updates.download()}>
       Download
-    </Btn>
+    </Button>
   ) : state.status === "downloaded" ? (
-    <Btn variant="primary" size="sm" onClick={() => void updates.install()}>
+    <Button variant="primary" size="sm" onClick={() => void updates.install()}>
       {restart()} to Update
-    </Btn>
+    </Button>
   ) : state.status === "disabled" ? null : (
-    <Btn
+    <Button
       size="sm"
       disabled={changingChannel || state.status === "checking" || state.status === "downloading"}
       onClick={() => void updates.check()}
     >
       Check for Updates
-    </Btn>
+    </Button>
   );
 
   return (
@@ -396,7 +398,7 @@ export function UpdatesSection() {
               : "Tested releases for everyday use."
           }
           control={
-            <RowSelect
+            <SettingsSelect
               ariaLabel="Update channel"
               value={state.channel}
               options={[

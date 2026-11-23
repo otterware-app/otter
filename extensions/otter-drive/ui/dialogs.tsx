@@ -1,26 +1,24 @@
+import { mailApi, useOpenWorkspace, type MessageTarget } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { Button } from "@otter/ui/components/button";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Field } from "@otter/ui/components/field";
+import { Input } from "@otter/ui/components/input";
 import {
-  Btn,
-  Dialog,
-  Field,
-  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  mailApi,
-  toast,
-  useOpenWorkspace,
-  type MessageTarget,
-} from "@otter/web/extension-kit";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+} from "@otter/ui/components/select";
 
 import { DriveActionDialogs } from "./actions";
 import { setDriveConnected, setDriveOpener } from "./search";
 import { ShareDialogHost } from "./share";
-import { driveApi, driveLabel } from "./api";
+import { driveApi, driveLabel, type DriveFolder } from "./api";
 import { DriveMark } from "./drive-mark";
 import { errorText, useDriveStatus, useFolders } from "./hooks";
 
@@ -73,7 +71,7 @@ function ConnectDrive({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <p>Sign in to Otter Drive to get started.</p>
-      <Btn
+      <Button
         size="sm"
         onClick={() => {
           onClose();
@@ -84,7 +82,7 @@ function ConnectDrive({ onClose }: { onClose: () => void }) {
         }}
       >
         Open settings
-      </Btn>
+      </Button>
     </div>
   );
 }
@@ -156,6 +154,10 @@ function SaveToDrive({ email, onClose }: { email: MessageTarget; onClose: () => 
           <Field label="What to save" orientation="vertical">
             <Select
               value={picked}
+              items={[
+                ...files.map((f) => ({ value: f.id, label: f.filename })),
+                { value: EMAIL, label: "The email itself" },
+              ]}
               onValueChange={(next) => {
                 setChoice(next);
                 setTitle(null);
@@ -176,17 +178,19 @@ function SaveToDrive({ email, onClose }: { email: MessageTarget; onClose: () => 
           </Field>
           {drives.length > 1 ? (
             <Field label="Drive" orientation="vertical">
-              <Select value={driveId} onValueChange={setDriveChoice}>
+              <Select value={driveId ?? null} onValueChange={setDriveChoice}>
                 <SelectTrigger aria-label="Drive">
-                  <SelectValue />
+                  <SelectValue>
+                    {(id: string | null) => {
+                      const drive = drives.find((d) => d.id === id);
+                      return drive ? <DriveOption drive={drive} /> : null;
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {drives.map((d) => (
                     <SelectItem key={d.id} value={d.id}>
-                      <span className="flex items-center gap-2">
-                        <DriveMark folder={d} className="size-4 text-[8px]" />
-                        {driveLabel(d)}
-                      </span>
+                      <DriveOption drive={d} />
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -204,5 +208,14 @@ function SaveToDrive({ email, onClose }: { email: MessageTarget; onClose: () => 
         </div>
       )}
     </Dialog>
+  );
+}
+
+function DriveOption({ drive }: { drive: DriveFolder }) {
+  return (
+    <span className="flex items-center gap-2">
+      <DriveMark folder={drive} className="size-4 text-4xs" />
+      {driveLabel(drive)}
+    </span>
   );
 }

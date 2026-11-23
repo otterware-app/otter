@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { MousePointer2Icon } from "lucide-react";
-import { Btn, cn } from "../mail/ui";
+import { Button } from "@otter/ui/components/button";
+import { Input } from "@otter/ui/components/input";
+import { cn } from "@otter/ui/lib/utils";
 
 /** Where a point of the page (CSS px) is over the canvas, which shows the frame `object-contain object-top`. */
 export type Placer = (x: number, y: number) => { left: number; top: number; scale: number } | null;
@@ -44,7 +46,7 @@ export function AgentCursor({
       {box && field ? (
         <div
           className={cn(
-            "absolute rounded-[3px] ring-2 ring-sky-500/80 transition-opacity duration-300",
+            "absolute rounded-sm ring-2 ring-info/80 transition-opacity duration-300",
             fieldShown ? "opacity-100" : "opacity-0",
           )}
           style={{
@@ -66,10 +68,10 @@ export function AgentCursor({
           {pointer.clicks > 0 ? (
             <span
               key={pointer.clicks}
-              className="absolute -top-3 -left-3 size-6 animate-[ping_0.6s_ease-out_1] rounded-full bg-sky-500/50"
+              className="absolute -top-3 -left-3 size-6 animate-[ping_0.6s_ease-out_1] rounded-full bg-info/50"
             />
           ) : null}
-          <MousePointer2Icon className="size-5 -translate-x-[3px] -translate-y-[2px] fill-sky-500 stroke-white drop-shadow" />
+          <MousePointer2Icon className="size-5 -translate-x-[3px] -translate-y-[2px] fill-info stroke-white drop-shadow" />
         </div>
       ) : null}
     </div>
@@ -94,7 +96,7 @@ export function DialogBanner({
     <div className="absolute inset-x-3 top-3 z-10 mx-auto max-w-md rounded-xl border bg-popover p-3 text-sm text-popover-foreground shadow-lg">
       <p className="whitespace-pre-wrap wrap-anywhere">{dialog.message || "The page is asking."}</p>
       {prompt ? (
-        <input
+        <Input
           aria-label="Answer"
           value={text}
           disabled={!controlling}
@@ -102,7 +104,7 @@ export function DialogBanner({
           onKeyDown={(e) => {
             if (e.key === "Enter") onAnswer(true, text);
           }}
-          className="mt-2 h-8 w-full rounded-md border bg-transparent px-2 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          className="mt-2"
         />
       ) : null}
       <div className="mt-3 flex items-center justify-end gap-2">
@@ -112,18 +114,18 @@ export function DialogBanner({
           </span>
         )}
         {dialog.dialogType === "alert" ? null : (
-          <Btn size="sm" variant="ghost" disabled={!controlling} onClick={() => onAnswer(false)}>
+          <Button size="sm" variant="ghost" disabled={!controlling} onClick={() => onAnswer(false)}>
             Cancel
-          </Btn>
+          </Button>
         )}
-        <Btn
+        <Button
           size="sm"
           variant="primary"
           disabled={!controlling}
           onClick={() => onAnswer(true, prompt ? text : undefined)}
         >
           OK
-        </Btn>
+        </Button>
       </div>
     </div>
   );

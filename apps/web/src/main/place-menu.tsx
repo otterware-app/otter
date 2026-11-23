@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 
+import { inNewWindow } from "./new-window-click";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./mail/menu";
-import { inNewWindow } from "./new-window-click";
+} from "@otter/ui/components/dropdown-menu";
 
 /** Marks a control whose click goes to a place: right-clicked, it offers to open there in a new window. */
 export const PLACE = { "data-place": "" } as const;
@@ -30,16 +29,12 @@ export function PlaceMenu() {
   }, []);
   return (
     <DropdownMenu open={at !== null} onOpenChange={(open) => !open && setAt(null)}>
-      <DropdownMenuTrigger asChild>
-        <span
-          aria-hidden
-          className="pointer-events-none fixed size-0"
-          style={{ left: at?.x ?? 0, top: at?.y ?? 0 }}
-        />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent sideOffset={0}>
+      <DropdownMenuContent
+        sideOffset={0}
+        anchor={at && { getBoundingClientRect: () => DOMRect.fromRect({ x: at.x, y: at.y }) }}
+      >
         <DropdownMenuItem
-          onSelect={() => {
+          onClick={() => {
             const place = at?.place;
             if (place) inNewWindow(() => place.click());
           }}

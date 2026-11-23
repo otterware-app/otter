@@ -10,9 +10,11 @@ import { getAccountDisplayName } from "./account-style";
 import { mailApi } from "./api";
 import { signInProvider, signsInWithPassword } from "./capabilities";
 import { syncStatusPollMs, useAddAccount } from "./hooks";
-import { toast, type ToastId } from "./toast";
+import { toast, type ToastId } from "@otter/ui/components/toast";
 import type { MailAccount, SyncStatus } from "./types";
-import { Btn, HintTooltip, IconBtn, cn } from "./ui";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 
 export function timeAgo(ts: number): string {
   const mins = Math.floor((Date.now() - ts) / 60_000);
@@ -230,18 +232,22 @@ export function SignInCards({ accountIds }: { accountIds: string[] }) {
             </p>
           </div>
           {pending ? (
-            <Btn size="xs" className="mt-2 w-full" onClick={() => void mailApi.cancelAddAccount()}>
+            <Button
+              size="xs"
+              className="mt-2 w-full"
+              onClick={() => void mailApi.cancelAddAccount()}
+            >
               Cancel sign-in
-            </Btn>
+            </Button>
           ) : (
-            <Btn
+            <Button
               size="xs"
               variant="primary"
               className="mt-2 w-full"
               onClick={() => signIn(account)}
             >
               {signInLabel(account)}
-            </Btn>
+            </Button>
           )}
         </div>
       ))}
@@ -276,7 +282,7 @@ export function SyncButton({ accountIds }: { accountIds: string[] }) {
   const busy = syncing || shown.tone === "active";
   return (
     <HintTooltip label={shown.text}>
-      <IconBtn
+      <IconButton
         label="Sync now"
         disabled={busy}
         onClick={() => {
@@ -292,7 +298,7 @@ export function SyncButton({ accountIds }: { accountIds: string[] }) {
             className="absolute top-1 right-1 size-1.5 rounded-full bg-destructive"
           />
         ) : null}
-      </IconBtn>
+      </IconButton>
     </HintTooltip>
   );
 }

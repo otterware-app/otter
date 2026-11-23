@@ -1,22 +1,17 @@
+import { features, searchableSetting } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
+import { DEFAULT_SETTINGS } from "@otter/contracts";
+import { useQueryClient } from "@tanstack/react-query";
+import { PlusIcon, StarIcon, XIcon } from "lucide-react";
+import { Button, IconButton } from "@otter/ui/components/button";
 import {
-  Switch,
-  toast,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  features,
-  Btn,
-  HintTooltip,
-  IconBtn,
-  SettingResetButton,
-  SettingsRow,
-  SettingsSection,
-  searchableSetting,
-} from "@otter/web/extension-kit";
-import { DEFAULT_SETTINGS } from "@otter/contracts";
-import { useQueryClient } from "@tanstack/react-query";
-import { PlusIcon, StarIcon, XIcon } from "lucide-react";
+} from "@otter/ui/components/dropdown-menu";
+import { Switch } from "@otter/ui/components/switch";
+import { HintTooltip } from "@otter/ui/components/tooltip";
 import {
   systemReadLanguages,
   languageName,
@@ -24,6 +19,7 @@ import {
   useTranslationSettings,
 } from "./translation";
 import { translationApi, type TranslationSettings } from "./api";
+import { SettingsResetButton, SettingsRow, SettingsSection } from "@otter/ui/components/settings";
 
 export function TranslationSection() {
   const queryClient = useQueryClient();
@@ -52,7 +48,7 @@ export function TranslationSection() {
         {...searchableSetting("read-languages")}
         resetAction={
           JSON.stringify(readLanguages) !== JSON.stringify(systemReadLanguages()) ? (
-            <SettingResetButton
+            <SettingsResetButton
               label="reading languages"
               onClick={() => setLanguages(DEFAULT_SETTINGS.readLanguages)}
             />
@@ -61,18 +57,13 @@ export function TranslationSection() {
         description="Mail in any other language offers a translation into your starred language. The translator runs on this device, so nothing is sent anywhere."
         control={
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Btn size="sm" variant="outline">
-                <PlusIcon className="size-3.5" />
-                Add language
-              </Btn>
+            <DropdownMenuTrigger render={<Button size="sm" variant="outline" />}>
+              <PlusIcon className="size-3.5" />
+              Add language
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
               {addable.map((code) => (
-                <DropdownMenuItem
-                  key={code}
-                  onSelect={() => setLanguages([...readLanguages, code])}
-                >
+                <DropdownMenuItem key={code} onClick={() => setLanguages([...readLanguages, code])}>
                   {languageName(code)}
                 </DropdownMenuItem>
               ))}
@@ -98,23 +89,24 @@ export function TranslationSection() {
                 </HintTooltip>
               ) : (
                 <HintTooltip label="Translate into this language">
-                  <IconBtn
+                  <IconButton
                     label={`Translate into ${languageName(code)}`}
-                    className="size-6 opacity-0 group-hover/lang:opacity-100 focus-visible:opacity-100"
+                    size="icon-xs"
+                    className="opacity-0 group-hover/lang:opacity-100 focus-visible:opacity-100"
                     onClick={() => setLanguages([code, ...readLanguages.filter((c) => c !== code)])}
                   >
                     <StarIcon className="size-3.5" />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
               )}
-              <IconBtn
+              <IconButton
                 label={`Remove ${languageName(code)}`}
-                className="size-6"
+                size="icon-xs"
                 disabled={readLanguages.length === 1}
                 onClick={() => setLanguages(readLanguages.filter((c) => c !== code))}
               >
                 <XIcon className="size-3.5" />
-              </IconBtn>
+              </IconButton>
             </li>
           ))}
         </ul>
@@ -123,7 +115,7 @@ export function TranslationSection() {
         {...searchableSetting("auto-translate")}
         resetAction={
           autoTranslate !== DEFAULT_SETTINGS.autoTranslate ? (
-            <SettingResetButton
+            <SettingsResetButton
               label="auto translate"
               onClick={() => void save({ autoTranslate: DEFAULT_SETTINGS.autoTranslate })}
             />

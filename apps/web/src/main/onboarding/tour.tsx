@@ -4,8 +4,9 @@ import { createPortal } from "react-dom";
 import { XIcon } from "lucide-react";
 import type { KeybindingCommand } from "../keybindings/commands";
 import { isMacPlatform, modKeyName, shortcutText } from "../keybindings/keys";
-import { Btn, IconBtn, cn } from "../mail/ui";
 import { ShortcutKeys } from "./keycap";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 export type TourActions = {
   openMessage: () => void;
@@ -223,9 +224,9 @@ export function Tour({ actions, onClose }: { actions: TourActions; onClose: () =
           <span className="text-xs tabular-nums text-muted-foreground">
             {index + 1} of {STOPS.length}
           </span>
-          <IconBtn label="End the tour" className="-mr-2 -mt-1" onClick={onClose}>
+          <IconButton label="End the tour" className="-mr-2 -mt-1" onClick={onClose}>
             <XIcon />
-          </IconBtn>
+          </IconButton>
         </div>
         <div
           key={index}
@@ -234,12 +235,12 @@ export function Tour({ actions, onClose }: { actions: TourActions; onClose: () =
           <h2 id="tour-title" className="text-base font-medium text-foreground">
             {stop.title}
           </h2>
-          <p className="text-[13px] leading-5 text-foreground/80">{stop.body}</p>
+          <p className="text-body leading-5 text-foreground/80">{stop.body}</p>
           {stop.keys ? (
             <ul className="flex flex-col gap-1.5">
               {stop.keys.map((k) => (
                 <li key={k.command} className="flex items-center justify-between gap-3">
-                  <span className="text-[13px] text-muted-foreground">{k.label}</span>
+                  <span className="text-body text-muted-foreground">{k.label}</span>
                   <ShortcutKeys command={k.command} />
                 </li>
               ))}
@@ -260,13 +261,13 @@ export function Tour({ actions, onClose }: { actions: TourActions; onClose: () =
           </span>
           <span className="flex gap-2">
             {index > 0 ? (
-              <Btn size="sm" variant="ghost" onClick={() => move(-1)}>
+              <Button size="sm" variant="ghost" onClick={() => move(-1)}>
                 Back
-              </Btn>
+              </Button>
             ) : null}
-            <Btn ref={nextButton} size="sm" variant="primary" onClick={next}>
+            <Button ref={nextButton} size="sm" variant="primary" onClick={next}>
               {last ? "Done" : index === 0 ? "Start" : "Next"}
-            </Btn>
+            </Button>
           </span>
         </div>
       </div>

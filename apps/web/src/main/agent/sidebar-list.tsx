@@ -15,7 +15,7 @@ import {
   Undo2Icon,
 } from "lucide-react";
 import { animateLayoutChanges, markerId, type DropVerb, type ListMarker } from "./sidebar-drag";
-import { cn } from "../mail/ui";
+import { cn } from "@otter/ui/lib/utils";
 
 // useSortable memoizes on its `disabled` object, so a fresh one each render re-renders every row.
 const DRAG_DISABLED = { draggable: true } as const;

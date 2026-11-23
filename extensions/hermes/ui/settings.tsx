@@ -1,21 +1,20 @@
 import {
-  Btn,
   Command,
   ModelsSection,
-  SettingsRow,
-  SettingsSection,
-  TextInput,
   osNames,
   searchableSetting,
-  toast,
   useSetProvidersState,
   type AgentSettingsProps,
   type ProviderSnapshot,
 } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import { useState } from "react";
+import { Button } from "@otter/ui/components/button";
 
 import { hermesApi } from "./api";
 import { HermesDeliveries } from "./deliveries";
+import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
+import { Input } from "@otter/ui/components/input";
 
 /** Hermes' settings as core shows them (its key never leaves the backend: only whether there is one). */
 export function hermesSettings(provider: ProviderSnapshot) {
@@ -107,7 +106,7 @@ export function HermesSettings({ provider, update }: AgentSettingsProps) {
           title="Base URL"
           description="Its address on your tailnet: https://<computer>.<tailnet>.ts.net:8642."
           control={
-            <TextInput
+            <Input
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
               placeholder={settings.baseUrl || "https://<host>:8642"}
@@ -120,7 +119,7 @@ export function HermesSettings({ provider, update }: AgentSettingsProps) {
           title="API key"
           description="The server's API_SERVER_KEY. It follows your Otter account to your other devices."
           control={
-            <TextInput
+            <Input
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
@@ -134,9 +133,9 @@ export function HermesSettings({ provider, update }: AgentSettingsProps) {
           title={connected ? "Reconnect" : "Connect"}
           description="Verifies the URL and key against the server, then saves them."
           control={
-            <Btn size="sm" variant="primary" disabled={saving} onClick={() => void connect()}>
+            <Button size="sm" variant="primary" disabled={saving} onClick={() => void connect()}>
               {saving ? "Connecting…" : connected ? "Reconnect" : "Connect"}
-            </Btn>
+            </Button>
           }
         />
       </SettingsSection>
@@ -166,14 +165,14 @@ export function HermesConnect({
         void connect().then((ok) => ok && onConnected());
       }}
     >
-      <TextInput
+      <Input
         autoFocus
         value={baseUrl}
         onChange={(e) => setBaseUrl(e.target.value)}
         placeholder={hermesSettings(provider).baseUrl || "https://<host>:8642"}
         aria-label="Hermes API base URL"
       />
-      <TextInput
+      <Input
         type="password"
         value={apiKey}
         onChange={(e) => setApiKey(e.target.value)}
@@ -183,9 +182,9 @@ export function HermesConnect({
       <p className="text-xs leading-[17px] text-muted-foreground">
         {HERMES_URL_HINT} The key stays on this device.
       </p>
-      <Btn type="submit" size="sm" variant="primary" disabled={saving} className="self-end">
+      <Button type="submit" size="sm" variant="primary" disabled={saving} className="self-end">
         {saving ? "Connecting…" : "Connect"}
-      </Btn>
+      </Button>
     </form>
   );
 }

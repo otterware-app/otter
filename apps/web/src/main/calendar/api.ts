@@ -7,7 +7,7 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { ipc, task } from "~/lib/ipc";
-import { toast } from "../mail/toast";
+import { toast } from "@otter/ui/components/toast";
 import { DAY, addDays } from "./dates";
 
 export type RsvpResponse = "accepted" | "declined" | "tentative";

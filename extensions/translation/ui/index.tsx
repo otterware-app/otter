@@ -1,15 +1,15 @@
 import {
-  DropdownMenuItem,
   features,
-  toast,
   useCommandHandlers,
   useShortcutLabel,
   type ConversationInput,
   type MessageBodyInput,
   type UiExtension,
 } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import { LanguagesIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { DropdownMenuItem } from "@otter/ui/components/dropdown-menu";
 
 import { manifest } from "../manifest";
 import {
@@ -64,7 +64,7 @@ function useConversation({ accountId, messageId, message, enabled }: Conversatio
     ),
     menuItems:
       enabled && (openedForeign || translation.on) ? (
-        <DropdownMenuItem icon={<LanguagesIcon />} accelerator={shortcut} onSelect={toggle}>
+        <DropdownMenuItem icon={<LanguagesIcon />} accelerator={shortcut} onClick={toggle}>
           {translation.on ? "Show original" : "Translate"}
         </DropdownMenuItem>
       ) : null,

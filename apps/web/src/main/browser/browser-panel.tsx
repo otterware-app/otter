@@ -2,14 +2,16 @@ import { useEffect, useRef, type MutableRefObject } from "react";
 import { PlusIcon } from "lucide-react";
 
 import { useCommandHandlers } from "../keybindings/dispatch";
+import { ShortcutText } from "../keybindings/store";
 import { PanelTab } from "../mail/panel-tab";
 import { mostRecentTab } from "../mail/panel-tabs";
 import { PanelControlSlot } from "../mail/top-bar";
-import { HintTooltip, IconBtn } from "../mail/ui";
 import { usePanelTabDrag } from "../mail/use-panel-tab-drag";
 import { BrowserTabIcon } from "./browser-view";
 import { PageSlot } from "./page-host";
 import { closeTab, hostOf, newTab, panelTabs, reorderTabs, selectTab, useBrowser } from "./store";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { IconButton } from "@otter/ui/components/button";
 
 export function BrowserPanel({
   closeTabRef,
@@ -105,10 +107,10 @@ export function BrowserPanel({
             );
           })}
         </div>
-        <HintTooltip label="New tab" shortcut="browser.newTab" side="bottom">
-          <IconBtn label="New tab" className="size-8 shrink-0" onClick={newTab}>
+        <HintTooltip label="New tab" hint={<ShortcutText command="browser.newTab" />} side="bottom">
+          <IconButton label="New tab" size="icon" className="shrink-0" onClick={newTab}>
             <PlusIcon className="size-4" />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
         <span className="min-w-0 flex-1" />
         {/* The pinned panel toggles (home view) sit here, over the rightmost panel. */}

@@ -1,22 +1,5 @@
-import {
-  Btn,
-  Dialog,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-  HintTooltip,
-  IconBtn,
-  Input,
-  Markdown,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  cn,
-  toast,
-  type WorkspaceMainProps,
-} from "@otter/web/extension-kit";
+import { Markdown, type WorkspaceMainProps } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -30,6 +13,23 @@ import {
   UserPlusIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { Dialog } from "@otter/ui/components/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
+import { Input } from "@otter/ui/components/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@otter/ui/components/select";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 
 import { ActionItems, useDocumentActions } from "./actions";
 import { driveApi, type DriveArtifact, type DrivePreview } from "./api";
@@ -248,9 +248,9 @@ export function DocumentView({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <TitleBar leading={titleLeading} trailing={titleTrailing}>
         <HintTooltip label="Back to documents" hint="Esc">
-          <IconBtn label="Back to documents" className="no-drag" onClick={back}>
+          <IconButton label="Back to documents" className="no-drag" onClick={back}>
             <ArrowLeftIcon />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
           {renaming !== null ? (
@@ -276,7 +276,7 @@ export function DocumentView({
               title={canEdit ? "Rename" : undefined}
               disabled={!canEdit}
               onClick={() => a && setRenaming(a.title)}
-              className="no-drag min-w-0 truncate rounded px-1 text-left text-sm font-medium text-foreground enabled:hover:bg-accent"
+              className="no-drag min-w-0 truncate rounded px-1 text-left text-sm font-medium text-foreground enabled:hover:bg-accent-surface"
             >
               {a?.title ?? "Loading…"}
             </button>
@@ -291,9 +291,15 @@ export function DocumentView({
         {a && a.versionCount > 1 && versions.data && !editing ? (
           <Select
             value={String(version ?? a.current?.number ?? "")}
-            onValueChange={(v) => setVersion(Number(v) === a.current?.number ? null : Number(v))}
+            items={versions.data.map((v) => ({
+              value: String(v.number),
+              label: `v${v.number} · ${v.label}`,
+            }))}
+            onValueChange={(v) => {
+              if (v !== null) setVersion(Number(v) === a.current?.number ? null : Number(v));
+            }}
           >
-            <SelectTrigger aria-label="Version" className="no-drag h-7 w-auto gap-1 text-[13px]">
+            <SelectTrigger aria-label="Version" className="no-drag h-7 w-auto gap-1 text-body">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -306,29 +312,33 @@ export function DocumentView({
           </Select>
         ) : null}
         {a && version !== null && canEdit && !a.archived && !editing ? (
-          <Btn size="sm" className="no-drag" onClick={() => void promote(version)}>
+          <Button size="sm" className="no-drag" onClick={() => void promote(version)}>
             <HistoryIcon />
             Make current
-          </Btn>
+          </Button>
         ) : null}
         {editing ? (
           <div className="no-drag flex items-center gap-1.5">
-            <Btn size="sm" disabled={saving} onClick={() => unlessUnsaved(() => setEditing(null))}>
+            <Button
+              size="sm"
+              disabled={saving}
+              onClick={() => unlessUnsaved(() => setEditing(null))}
+            >
               Cancel
-            </Btn>
-            <Btn
+            </Button>
+            <Button
               size="sm"
               variant="primary"
               disabled={saving || !draft}
               onClick={() => void save()}
             >
               {saving ? "Saving…" : "Save"}
-            </Btn>
+            </Button>
           </div>
         ) : a ? (
           <>
             {canStartEdit ? (
-              <Btn
+              <Button
                 size="sm"
                 className="no-drag"
                 onClick={() =>
@@ -341,7 +351,7 @@ export function DocumentView({
               >
                 <PencilIcon />
                 Edit
-              </Btn>
+              </Button>
             ) : null}
             <DocumentButtons a={a} folderId={folderId} version={version} onGone={back} />
           </>
@@ -352,7 +362,7 @@ export function DocumentView({
           <Empty
             title="Couldn't open this document"
             detail={errorText(artifact.error ?? preview.error)}
-            action={<Btn onClick={back}>Back to documents</Btn>}
+            action={<Button onClick={back}>Back to documents</Button>}
           />
         ) : !shown ? (
           <div className="flex-1 animate-pulse rounded-lg bg-muted/50" />
@@ -414,26 +424,24 @@ function DocumentButtons({
   };
   return (
     <div className="no-drag flex items-center gap-0.5">
-      <Btn size="sm" className="me-1" onClick={() => run("share")}>
+      <Button size="sm" className="me-1" onClick={() => run("share")}>
         <UserPlusIcon />
         Share
-      </Btn>
+      </Button>
       <HintTooltip label="Copy link">
-        <IconBtn label="Copy link" onClick={() => run("link")}>
+        <IconButton label="Copy link" onClick={() => run("link")}>
           <LinkIcon />
-        </IconBtn>
+        </IconButton>
       </HintTooltip>
       <HintTooltip label="Download">
-        <IconBtn label="Download" onClick={() => run("download")}>
+        <IconButton label="Download" onClick={() => run("download")}>
           <DownloadIcon />
-        </IconBtn>
+        </IconButton>
       </HintTooltip>
       <DropdownMenu>
         <HintTooltip label="More">
-          <DropdownMenuTrigger asChild>
-            <IconBtn label="Document actions">
-              <MoreHorizontalIcon />
-            </IconBtn>
+          <DropdownMenuTrigger render={<IconButton label="Document actions" />}>
+            <MoreHorizontalIcon />
           </DropdownMenuTrigger>
         </HintTooltip>
         <DropdownMenuContent align="end" className="min-w-56">
@@ -500,7 +508,7 @@ function Preview({ preview }: { preview: DrivePreview }) {
           <Markdown text={preview.text} />
         </div>
       ) : (
-        <pre className="px-6 py-5 font-mono text-[13px] leading-relaxed whitespace-pre-wrap text-foreground select-text">
+        <pre className="px-6 py-5 font-mono text-body leading-relaxed whitespace-pre-wrap text-foreground select-text">
           {preview.text}
         </pre>
       )}
@@ -539,8 +547,8 @@ function Workbook({
               className={cn(
                 "shrink-0 rounded-md px-2.5 py-1 text-xs",
                 i === open
-                  ? "bg-accent font-medium text-foreground"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  ? "bg-accent-surface font-medium text-foreground"
+                  : "text-muted-foreground hover:bg-accent-surface/60 hover:text-foreground",
               )}
             >
               {s.name}
@@ -585,7 +593,7 @@ function Table({ rows, footer }: { rows: string[][]; footer: ReactNode }) {
   const after = virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0);
   return (
     <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
-      <table className="w-max min-w-full border-collapse text-[13px] select-text">
+      <table className="w-max min-w-full border-collapse text-body select-text">
         <thead className="sticky top-0 z-10 bg-card">
           <tr>
             <th className="w-10 border-b border-border px-3 py-2" />

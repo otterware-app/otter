@@ -10,7 +10,7 @@ import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { canStepHistory } from "./history-steps";
-import { cn } from "./mail/ui";
+import { cn } from "@otter/ui/lib/utils";
 
 type HistoryDirection = "back" | "forward";
 

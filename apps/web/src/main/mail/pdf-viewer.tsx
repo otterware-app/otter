@@ -9,7 +9,7 @@ import {
   type PageViewport,
 } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { LoaderCircleIcon } from "lucide-react";
+import { Spinner } from "@otter/ui/components/spinner";
 import "./pdf-viewer.css";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
@@ -97,12 +97,8 @@ export default function PdfViewer({ data, name }: { data: Uint8Array; name: stri
           ))}
         </div>
       ) : (
-        <div
-          role="status"
-          aria-label="Loading file"
-          className="flex h-full items-center justify-center"
-        >
-          <LoaderCircleIcon className="size-5 animate-spin text-muted-foreground" />
+        <div className="flex h-full items-center justify-center">
+          <Spinner aria-label="Loading file" className="size-5" />
         </div>
       )}
     </div>

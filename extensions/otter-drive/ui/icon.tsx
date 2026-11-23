@@ -1,4 +1,4 @@
-import { cn } from "@otter/web/extension-kit";
+import { cn } from "@otter/ui/lib/utils";
 
 /** Otter Drive's app icon, from the Otterware production kit (kit/apps/drive/svg), on its ivory tile in both appearances so it reads on dark rows. */
 export function OtterDriveIcon({ className }: { className?: string }) {

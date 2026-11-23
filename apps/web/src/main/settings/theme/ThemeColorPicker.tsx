@@ -2,12 +2,12 @@
 import { useLatest } from "../../use-latest";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { isThemeColor, themeColorToHex, type ThemeColorRole } from "../../theme/themePalette";
-import { cn } from "~/lib/utils";
+import { cn } from "@otter/ui/lib/utils";
 import { hexToHsv, hsvToHex, type HsvColor } from "~/lib/color";
-import { ColorHueSlider, ColorSaturationValuePlane } from "~/components/ui/color-picker";
-import { Input } from "~/components/ui/input";
-import { Popover, PopoverPopup, PopoverTrigger } from "~/components/ui/popover";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
+import { ColorHueSlider, ColorSaturationValuePlane } from "./color-picker";
+import { Input } from "@otter/ui/components/input";
+import { Popover, PopoverPopup, PopoverTrigger } from "@otter/ui/components/popover";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@otter/ui/components/tooltip";
 export function getThemeRoleLabel(role: ThemeColorRole): string {
   const labels: Partial<Record<ThemeColorRole, string>> = {
     canvas: "Background",
@@ -195,7 +195,7 @@ function ThemeColorPickerPanel({
             <span className="px-1 text-3xs font-semibold uppercase tracking-widest text-muted-foreground">
               HEX
             </span>
-            <span className="flex min-w-0 items-center gap-2 rounded-lg border border-input bg-background px-2 focus-within:border-ring">
+            <span className="flex min-w-0 items-center gap-2 rounded-lg border border-input bg-background px-2 focus-within:border-focus-ring">
               <span
                 className="size-3.5 shrink-0 rounded-full"
                 style={{ backgroundColor: currentColor }}
@@ -221,7 +221,7 @@ function ThemeColorPickerPanel({
             <span className="px-1 text-3xs font-semibold uppercase tracking-widest text-muted-foreground">
               RGB
             </span>
-            <span className="flex min-w-0 items-center rounded-lg border border-input bg-background px-2 focus-within:border-ring">
+            <span className="flex min-w-0 items-center rounded-lg border border-input bg-background px-2 focus-within:border-focus-ring">
               <input
                 aria-label={`${label} picker RGB value`}
                 className="h-8 min-w-0 flex-1 bg-transparent font-mono text-xs text-foreground outline-none"
@@ -265,7 +265,7 @@ function ThemeColorPicker({
               render={
                 <button
                   aria-label={`Choose ${label} color`}
-                  className="relative flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-foreground/30 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="relative flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-foreground/30 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   onFocus={onInteract}
                   onPointerDown={onInteract}
                   type="button"
@@ -322,7 +322,7 @@ export const ThemeColorField = memo(function ThemeColorField({
     <div
       className={cn(
         "flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 transition-[background-color,box-shadow]",
-        selected && "bg-accent-surface/60 inset-ring inset-ring-ring",
+        selected && "bg-accent-surface/60 inset-ring inset-ring-focus-ring",
       )}
       data-theme-color-role={role}
     >
@@ -332,7 +332,7 @@ export const ThemeColorField = memo(function ThemeColorField({
             <button
               aria-label={`${selected ? "Hide" : "Show"} ${label} usage`}
               aria-pressed={selected}
-              className="flex min-w-0 flex-1 cursor-pointer items-center rounded-md text-left text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-w-0 flex-1 cursor-pointer items-center rounded-md text-left text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
               onClick={() => onToggleSelected?.(role)}
               type="button"
             >

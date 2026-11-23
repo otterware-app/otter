@@ -1,8 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { GripVerticalIcon } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
-import { cn } from "./ui";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@otter/ui/components/dialog";
 import {
   arrangeFolders,
   setSidebarLayout,
@@ -11,6 +9,14 @@ import {
   type BadgeStyle,
   type FolderVisibility,
 } from "./sidebar-layout";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@otter/ui/components/select";
+import { cn } from "@otter/ui/lib/utils";
 
 export type SidebarFolder = { id: string; name: string; icon: ReactNode };
 
@@ -20,11 +26,19 @@ const VISIBILITY_LABELS: Record<FolderVisibility, string> = {
   never: "Don't show",
 };
 
-const BADGE_GLYPHS: Record<BadgeStyle, ReactNode> = {
-  count: <span className="w-3 text-center text-xs text-muted-foreground tabular-nums">1</span>,
+const BADGE_STYLES: Record<BadgeStyle, ReactNode> = {
+  count: (
+    <span className="flex items-center gap-2">
+      <span className="w-3 text-center text-xs text-muted-foreground tabular-nums">1</span>
+      Count
+    </span>
+  ),
   dot: (
-    <span className="flex w-3 justify-center">
-      <span className="size-1.5 rounded-full bg-primary" />
+    <span className="flex items-center gap-2">
+      <span className="flex w-3 justify-center">
+        <span className="size-1.5 rounded-full bg-primary" />
+      </span>
+      Dot
     </span>
   ),
 };
@@ -67,7 +81,10 @@ export function CustomizeSidebarDialog({
             <span className="text-sm font-medium">Default badge style</span>
             <Select
               value={layout.badge}
-              onValueChange={(badge) => setSidebarLayout({ ...layout, badge: badge as BadgeStyle })}
+              items={BADGE_STYLES}
+              onValueChange={(badge) => {
+                if (badge) setSidebarLayout({ ...layout, badge });
+              }}
             >
               <SelectTrigger variant="pill" aria-label="Default badge style">
                 <SelectValue />
@@ -75,10 +92,7 @@ export function CustomizeSidebarDialog({
               <SelectContent align="end">
                 {(["count", "dot"] as const).map((style) => (
                   <SelectItem key={style} value={style}>
-                    <span className="flex items-center gap-2">
-                      {BADGE_GLYPHS[style]}
-                      {style === "count" ? "Count" : "Dot"}
-                    </span>
+                    {BADGE_STYLES[style]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -133,12 +147,12 @@ export function CustomizeSidebarDialog({
                     ) : null}
                     <GripVerticalIcon
                       aria-hidden
-                      className="size-4 shrink-0 cursor-grab text-muted-foreground/60 group-hover:text-muted-foreground"
+                      className="size-4 shrink-0 cursor-grab text-faint-foreground group-hover:text-muted-foreground"
                     />
                     <span
                       className={cn(
                         "flex min-w-0 flex-1 items-center gap-2.5 [&>svg]:size-4 [&>svg]:shrink-0",
-                        visibility === "never" && "text-muted-foreground/60",
+                        visibility === "never" && "text-faint-foreground",
                       )}
                     >
                       {folder.icon}
@@ -146,15 +160,14 @@ export function CustomizeSidebarDialog({
                     </span>
                     <Select
                       value={visibility}
-                      onValueChange={(value) =>
+                      items={VISIBILITY_LABELS}
+                      onValueChange={(value) => {
+                        if (!value) return;
                         setSidebarLayout({
                           ...layout,
-                          visibility: {
-                            ...layout.visibility,
-                            [folder.id]: value as FolderVisibility,
-                          },
-                        })
-                      }
+                          visibility: { ...layout.visibility, [folder.id]: value },
+                        });
+                      }}
                     >
                       <SelectTrigger
                         variant="pill"

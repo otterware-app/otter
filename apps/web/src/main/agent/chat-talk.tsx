@@ -4,8 +4,7 @@ import { AudioLinesIcon, MicIcon, MicOffIcon } from "lucide-react";
 
 import { mailApi, type ProviderKind, type TalkEvent } from "../mail/api";
 import { COMPOSER_SURFACE } from "../mail/composer-kit";
-import { toast } from "../mail/toast";
-import { HintTooltip, IconBtn, cn } from "../mail/ui";
+import { toast } from "@otter/ui/components/toast";
 import { endSpoken, hearSpoken, setChatSession, useChats } from "./chat-store";
 import {
   base64ToPcm,
@@ -15,6 +14,9 @@ import {
   type Microphone,
   type Speaker,
 } from "./talk-audio";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 export type Call = {
   id: string;
@@ -258,14 +260,15 @@ export function TalkButton({
   const label = `Talk with ${name}`;
   return (
     <HintTooltip label={label}>
-      <IconBtn
+      <IconButton
         label={label}
-        className={cn("rounded-full", compact ? "size-7" : "size-8")}
+        size={compact ? "icon-sm" : "icon"}
+        className="rounded-full"
         onPointerDown={(e) => e.preventDefault()}
         onClick={() => void startCall(chatId, provider, sessionId)}
       >
         <AudioLinesIcon className="size-4.5" />
-      </IconBtn>
+      </IconButton>
     </HintTooltip>
   );
 }
@@ -328,25 +331,24 @@ export function TalkBar({ call, name, compact }: { call: Call; name: string; com
         ) : null}
       </div>
       <HintTooltip label={call.muted ? "Unmute" : "Mute"}>
-        <IconBtn
+        <IconButton
           label={call.muted ? "Unmute" : "Mute"}
           active={call.muted}
-          className={cn("shrink-0 rounded-full", compact ? "size-7" : "size-8")}
+          size={compact ? "icon-sm" : "icon"}
+          className="shrink-0 rounded-full"
           onClick={() => muteCall(!call.muted)}
         >
           {call.muted ? <MicOffIcon className="size-4" /> : <MicIcon className="size-4" />}
-        </IconBtn>
+        </IconButton>
       </HintTooltip>
-      <button
-        type="button"
+      <Button
+        variant="destructive"
+        size={compact ? "sm" : "default"}
         onClick={endCall}
-        className={cn(
-          "flex shrink-0 cursor-pointer items-center justify-center rounded-full bg-destructive/90 px-3.5 text-sm font-medium text-white shadow-xs shadow-destructive/24 inset-shadow-2xs inset-shadow-white/16 transition-colors hover:bg-destructive active:shadow-none",
-          compact ? "h-7" : "h-8",
-        )}
+        className="rounded-full bg-destructive/90 px-3.5 text-sm font-medium shadow-xs shadow-destructive/24 inset-shadow-2xs inset-shadow-white/16 hover:bg-destructive active:shadow-none"
       >
         End
-      </button>
+      </Button>
     </div>
   );
 }

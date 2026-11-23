@@ -1,12 +1,10 @@
-import { toast } from "./toast";
+import { toast } from "@otter/ui/components/toast";
 import { useEffect, useRef, useState } from "react";
 import { MAY_HAVE_BEEN_SENT, sendWithUndo } from "./undo-send";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "./menu";
 import { ChevronDownIcon, XIcon } from "lucide-react";
 import { useSendMessage } from "./hooks";
 import { normalizeAddressList, parseAddressEntry, splitAddressList } from "./address";
 import { AccountPicture } from "./account-picture";
-import { IconBtn, HintTooltip } from "./ui";
 import {
   CcBccToggles,
   ComposeDocument,
@@ -38,6 +36,14 @@ import {
   signatureFor,
 } from "./alias-mailboxes";
 import type { ComposeAttachment, MailAccount } from "./types";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@otter/ui/components/dropdown-menu";
+import { IconButton } from "@otter/ui/components/button";
+import { HintTooltip } from "@otter/ui/components/tooltip";
 
 export function FromPicker({
   accounts,
@@ -59,19 +65,18 @@ export function FromPicker({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label="Send from"
-            className="-ml-1 flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-sm text-foreground outline-none hover:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring"
-          >
-            <AccountPicture
-              account={lookOf(value, address)}
-              className="size-4 rounded-[5px] text-[9px]"
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              aria-label="Send from"
+              className="-ml-1 flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-sm text-foreground outline-none hover:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring"
             />
-            <span className="truncate">{address}</span>
-            <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground/70" />
-          </button>
+          }
+        >
+          <AccountPicture account={lookOf(value, address)} className="size-4 rounded-sm text-4xs" />
+          <span className="truncate">{address}</span>
+          <ChevronDownIcon className="size-3.5 shrink-0 text-faint-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           {accounts.flatMap((account) =>
@@ -81,10 +86,10 @@ export function FromPicker({
                 icon={
                   <AccountPicture
                     account={lookOf(account, each)}
-                    className="size-4 rounded-[5px] text-[9px]"
+                    className="size-4 rounded-sm text-4xs"
                   />
                 }
-                onSelect={() => onChange(account.id, each)}
+                onClick={() => onChange(account.id, each)}
               >
                 {each}
               </DropdownMenuItem>
@@ -93,7 +98,7 @@ export function FromPicker({
         </DropdownMenuContent>
       </DropdownMenu>
       {unavailable ? (
-        <span className="ml-2 truncate text-xs text-destructive">
+        <span className="ml-2 truncate text-xs text-destructive-foreground">
           No longer one of this mailbox's addresses. Pick another to send.
         </span>
       ) : null}
@@ -274,9 +279,9 @@ export function NewMessageView({
       <div className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-2 px-4">
         <div className="min-w-0 flex-1 truncate text-sm text-muted-foreground">New message</div>
         <HintTooltip label="Close (keeps the draft)" hint="Esc" side="bottom">
-          <IconBtn label="Close" onClick={onClose}>
+          <IconButton label="Close" onClick={onClose}>
             <XIcon className="size-4" />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
       </div>
 

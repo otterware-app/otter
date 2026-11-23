@@ -14,7 +14,7 @@ import {
   type ThemeAppearance,
   type ThemeDefinition,
 } from "../../theme/themePalette";
-import { toast } from "../../mail/toast";
+import { toast } from "@otter/ui/components/toast";
 import { refreshTheme, setThemeForAppearance, useThemeChoice } from "../../theme/apply-theme";
 import { useThemeEditorStore } from "./themeEditorStore";
 

@@ -1,8 +1,9 @@
 import { createContext, memo, useContext, useEffect, useMemo, useState } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ImageIcon, LoaderCircleIcon } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
+import { ImageIcon } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@otter/ui/components/dialog";
+import { Spinner } from "@otter/ui/components/spinner";
 import { chatUrlTransform, isChatFileLink, isChatImageLink } from "./chat-links";
 
 import { openLink } from "../browser/store";
@@ -67,11 +68,7 @@ function ChatImage({ src, alt }: React.ComponentProps<"img">) {
         onClick={() => onOpenFile?.(src)}
         className="inline-flex min-h-28 w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-sm text-muted-foreground"
       >
-        {loaded?.error || !loadImage ? (
-          <ImageIcon className="size-4" />
-        ) : (
-          <LoaderCircleIcon className="size-4 animate-spin" />
-        )}
+        {loaded?.error || !loadImage ? <ImageIcon className="size-4" /> : <Spinner />}
         {loaded?.error || (loadImage ? "Loading image…" : alt || "View image")}
       </button>
     );
@@ -100,9 +97,7 @@ const COMPONENTS: Components = {
   ol: ({ children }) => <ol className="list-decimal pl-5">{children}</ol>,
   li: ({ children }) => <li className="my-1">{children}</li>,
   h1: ({ children }) => <h1 className="text-base font-semibold text-foreground">{children}</h1>,
-  h2: ({ children }) => (
-    <h2 className="text-[0.9375rem] font-semibold text-foreground">{children}</h2>
-  ),
+  h2: ({ children }) => <h2 className="text-md font-semibold text-foreground">{children}</h2>,
   h3: ({ children }) => <h3 className="text-sm font-semibold text-foreground">{children}</h3>,
   strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
   blockquote: ({ children }) => (
@@ -164,7 +159,7 @@ export const ChatMarkdown = memo(function ChatMarkdown({
       </LinkContext.Provider>
       <Dialog open={image !== null} onOpenChange={(open) => !open && setImage(null)}>
         {image ? (
-          <DialogContent aria-describedby={undefined} className="max-w-5xl">
+          <DialogContent className="max-w-5xl">
             <DialogTitle className="sr-only">{image.alt}</DialogTitle>
             <img src={image.src} alt={image.alt} className="max-h-[80vh] w-full object-contain" />
           </DialogContent>

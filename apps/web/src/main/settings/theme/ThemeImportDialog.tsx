@@ -9,7 +9,7 @@
 import { DownloadIcon, PlusIcon } from "lucide-react";
 import type { ChangeEvent, DragEvent, UIEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { cn } from "~/lib/utils";
+import { cn } from "@otter/ui/lib/utils";
 import {
   getCustomThemes,
   installCustomTheme,
@@ -26,9 +26,9 @@ import {
   parseVsCodeThemeFile,
   resolveThemeLabelCollisions,
 } from "../../theme/vscodeThemeImport";
-import { Alert } from "~/components/ui/alert";
-import { Button } from "~/components/ui/button";
-import { Dialog } from "~/components/ui/dialog";
+import { Alert } from "@otter/ui/components/alert";
+import { Button } from "@otter/ui/components/button";
+import { Dialog } from "@otter/ui/components/dialog";
 
 /**
  * A full theme export is a few KB, so anything past this is not a theme file.
@@ -105,13 +105,13 @@ function highlightJson(value: string): string {
     const index = match.index ?? 0;
     highlighted += escapeJsonHtml(value.slice(cursor, index));
 
-    let tokenClass = "text-[var(--app-theme-secondary-foreground,var(--color-amber-600))]";
+    let tokenClass = "text-warning-foreground";
     if (token.startsWith('"')) {
       tokenClass = /^\s*:/.test(value.slice(index + token.length))
-        ? "text-[var(--app-theme-accent,var(--color-blue-600))]"
-        : "text-[var(--app-theme-message-action,var(--color-emerald-600))]";
+        ? "text-info-foreground"
+        : "text-success-foreground";
     } else if (token === "true" || token === "false" || token === "null") {
-      tokenClass = "text-[var(--app-theme-accent-surface-foreground,var(--color-violet-600))]";
+      tokenClass = "text-primary";
     }
     highlighted += `<span class="${tokenClass}">${escapeJsonHtml(token)}</span>`;
     cursor = index + token.length;
@@ -144,7 +144,7 @@ function ThemeJsonEditor({
   }, []);
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-input bg-background shadow-xs/5 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/24">
+    <div className="relative overflow-hidden rounded-xl border border-input bg-background shadow-xs/5 focus-within:border-focus-ring focus-within:ring-3 focus-within:ring-focus-ring/24">
       {isPlainText ? null : (
         <pre
           ref={highlightRef}
@@ -474,7 +474,7 @@ export function ThemeImportDialog({
                 className={cn(
                   "flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed px-3 py-3 transition-colors",
                   isDropTarget
-                    ? "border-ring bg-accent-surface/20"
+                    ? "border-focus-ring bg-accent-surface/20"
                     : "border-border/80 bg-muted/20",
                 )}
                 {...dropHandlers}

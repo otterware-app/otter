@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { toast } from "./toast";
+import { toast } from "@otter/ui/components/toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mailApi, type SaveViewParams } from "./api";
 import type { MailAccount, MailView, ViewRule } from "./types";

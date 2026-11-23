@@ -1,9 +1,11 @@
 import { setSyncedPreference } from "../synced-preferences";
 import { useId, useState, useSyncExternalStore } from "react";
 import { ArrowUpIcon, ChevronDownIcon, PencilIcon, Redo2Icon, XIcon } from "lucide-react";
-import { Btn, HintTooltip, IconBtn, cn } from "../mail/ui";
 import { useShortcutLabel } from "../keybindings/store";
 import type { QueuedMessage } from "./chat-store";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 
 export type FollowUpBehavior = "queue" | "steer";
 
@@ -116,14 +118,14 @@ export function QueuedMessages({
                 {isEditing ? (
                   <>
                     <span className="px-1 text-foreground">Editing in the composer</span>
-                    <Btn
+                    <Button
                       size="xs"
                       variant="ghost"
                       aria-label="Cancel editing queued message"
                       onClick={onCancelEdit}
                     >
                       Cancel
-                    </Btn>
+                    </Button>
                   </>
                 ) : (
                   <>
@@ -132,32 +134,32 @@ export function QueuedMessages({
                         label="Send into the current turn"
                         hint={index === 0 ? sendShortcut : undefined}
                       >
-                        <Btn size="xs" variant="ghost-muted" onClick={() => onSend(item.id)}>
+                        <Button size="xs" variant="ghost-muted" onClick={() => onSend(item.id)}>
                           <ArrowUpIcon />
                           Send now
-                        </Btn>
+                        </Button>
                       </HintTooltip>
                     ) : null}
                     <HintTooltip
                       label="Edit in the composer"
                       hint={index === items.length - 1 ? editShortcut : undefined}
                     >
-                      <IconBtn
+                      <IconButton
                         label="Edit queued message"
-                        className="size-6"
+                        size="icon-xs"
                         onClick={() => onEdit(item.id)}
                       >
                         <PencilIcon className="size-3.5" />
-                      </IconBtn>
+                      </IconButton>
                     </HintTooltip>
                     <HintTooltip label="Remove from queue">
-                      <IconBtn
+                      <IconButton
                         label="Remove queued message"
-                        className="size-6"
+                        size="icon-xs"
                         onClick={() => onRemove(item.id)}
                       >
                         <XIcon className="size-3.5" />
-                      </IconBtn>
+                      </IconButton>
                     </HintTooltip>
                   </>
                 )}

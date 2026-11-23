@@ -1,5 +1,5 @@
-import { cn } from "@otter/web/extension-kit";
 import { UsersIcon } from "lucide-react";
+import { cn } from "@otter/ui/lib/utils";
 
 import type { DriveFolder } from "./api";
 import { DRIVE } from "./glyph";
@@ -44,7 +44,7 @@ export function DriveMark({
     <span
       aria-hidden
       className={cn(
-        "inline-flex size-5 shrink-0 items-center justify-center rounded-md text-[9px] leading-none font-bold text-white select-none",
+        "inline-flex size-5 shrink-0 items-center justify-center rounded-md text-4xs leading-none font-bold text-white select-none",
         className,
       )}
       style={{ background: colorOf(folder.id) }}

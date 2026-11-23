@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Popover } from "radix-ui";
 import { useQuery } from "@tanstack/react-query";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import { Dialog } from "~/components/ui/dialog";
-import { Text } from "~/components/ui/text";
+import { Avatar, AvatarFallback, AvatarImage } from "@otter/ui/components/avatar";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Popover, PopoverPopup, PopoverTrigger } from "@otter/ui/components/popover";
+import { Text } from "@otter/ui/components/text";
 import { CheckIcon, PlusIcon, RotateCwIcon } from "lucide-react";
-import { Switch } from "~/components/ui/switch";
+import { Switch } from "@otter/ui/components/switch";
 import {
   arrangeMailboxes,
   setMailboxArrangement,
@@ -23,7 +23,7 @@ import {
 } from "../mail/alias-mailboxes";
 import { mailApi } from "../mail/api";
 import { useOtterAccount } from "../otter-account";
-import { toast } from "../mail/toast";
+import { toast } from "@otter/ui/components/toast";
 import {
   syncStatusPollMs,
   useAccounts,
@@ -34,7 +34,6 @@ import {
 import { RichTextArea, type RichTextRef } from "../mail/rich-text";
 import { AddMailboxMenu, ImapPasswordForm } from "../mail/add-mailbox";
 import { AllowAccessButton, needsOf, useConnections } from "../mail/allow-access";
-import { DropdownMenuItem } from "../mail/menu";
 import {
   ConnectionExtensionPage,
   ConnectionExtensionsSection,
@@ -56,18 +55,20 @@ import {
 } from "../mail/account-style";
 import type { MailAccount, SyncStatus } from "../mail/types";
 import { StatusText, accountStatus, needsSignIn, takeRequestedMailbox } from "../mail/sync-health";
-import { Btn, HintTooltip, cn, restoreFocusForKeyboardOnly } from "../mail/ui";
+import { searchableSetting } from "./settings-search";
+import { MailboxPictureRow } from "./mailbox-picture";
+import { DropdownMenuItem, keyboardOnlyFocus } from "@otter/ui/components/dropdown-menu";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 import {
-  DraftInput,
-  SettingResetButton,
+  SettingsResetButton,
   SettingsGroup,
   SettingsPageContainer,
   SettingsRow,
   SettingsSection,
-  TextInput,
-} from "./settings-ui";
-import { searchableSetting } from "./settings-search";
-import { MailboxPictureRow } from "./mailbox-picture";
+} from "@otter/ui/components/settings";
+import { DraftInput, Input } from "@otter/ui/components/input";
 
 function useSyncStatusOnly(accountId: string) {
   return useQuery<SyncStatus>({
@@ -88,29 +89,23 @@ function ColorPicker({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen}>
       <HintTooltip label="Account color">
-        <Popover.Trigger asChild>
-          <button
-            type="button"
-            aria-label={label}
-            className="flex size-7 cursor-pointer items-center justify-center rounded-lg outline-none hover:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring"
-          >
-            <span
-              className="size-3.5 rounded-full ring-1 ring-inset ring-black/10"
-              style={{ backgroundColor: color }}
-            />
-          </button>
-        </Popover.Trigger>
+        <PopoverTrigger render={<IconButton label={label} />}>
+          <span
+            className="size-3.5 rounded-full ring-1 ring-inset ring-black/10"
+            style={{ backgroundColor: color }}
+          />
+        </PopoverTrigger>
       </HintTooltip>
-      <Popover.Portal>
-        <Popover.Content
-          align="end"
-          sideOffset={6}
-          collisionPadding={8}
-          onCloseAutoFocus={restoreFocusForKeyboardOnly}
-          className="dropdown-glass z-[130] grid grid-cols-5 gap-1.5 rounded-xl p-2.5 shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] outline-none"
-        >
+      <PopoverPopup
+        align="end"
+        sideOffset={6}
+        padding="none"
+        finalFocus={keyboardOnlyFocus}
+        className="rounded-xl before:rounded-[calc(var(--radius-xl)-1px)]"
+      >
+        <div className="grid grid-cols-5 gap-1.5 p-2.5">
           {ACCOUNT_COLOR_PALETTE.map((swatch) => {
             const picked = swatch.toLowerCase() === color.toLowerCase();
             return (
@@ -129,19 +124,13 @@ function ColorPicker({
               </button>
             );
           })}
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+        </div>
+      </PopoverPopup>
+    </Popover>
   );
 }
 
-function AccountAvatar({
-  account,
-  size = "small",
-}: {
-  account: MailAccount;
-  size?: "small" | "medium";
-}) {
+function AccountAvatar({ account, size = "md" }: { account: MailAccount; size?: "md" | "lg" }) {
   const displayName = getAccountDisplayName(account);
   const picture = getAccountPicture(account);
   return (
@@ -175,9 +164,9 @@ function SignInButton({
   const signIn = useAddAccount(provider);
   if (signIn.isPending) {
     return (
-      <Btn size="sm" onClick={() => void mailApi.cancelAddAccount()}>
+      <Button size="sm" onClick={() => void mailApi.cancelAddAccount()}>
         Cancel sign-in
-      </Btn>
+      </Button>
     );
   }
   const google = () =>
@@ -188,17 +177,17 @@ function SignInButton({
     });
   if (email) {
     return (
-      <Btn size="sm" variant="primary" onClick={google}>
+      <Button size="sm" variant="primary" onClick={google}>
         {label}
-      </Btn>
+      </Button>
     );
   }
   return (
     <AddMailboxMenu onGmail={google} align="end" services={services}>
-      <Btn size="sm" variant="outline">
+      <Button size="sm" variant="outline">
         <PlusIcon className="size-3.5" />
         {label}
-      </Btn>
+      </Button>
     </AddMailboxMenu>
   );
 }
@@ -294,7 +283,7 @@ function AccountListRow({
       }
     >
       <span className={cn("pointer-events-none contents", !on && "[&>*]:opacity-50")}>
-        <AccountAvatar account={account} size="medium" />
+        <AccountAvatar account={account} size="lg" />
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5 text-sm text-foreground">
             <ProviderMark account={account} />
@@ -303,7 +292,7 @@ function AccountListRow({
               <span className="shrink-0 text-xs text-muted-foreground">{provides}</span>
             ) : null}
           </span>
-          <span className="flex min-w-0 items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
+          <span className="flex min-w-0 items-center gap-1.5 text-body leading-[18px] text-muted-foreground">
             <span className="min-w-0 shrink truncate">{account.email}</span>
             <span aria-hidden>·</span>
             {on ? (
@@ -364,10 +353,10 @@ function AliasMailboxListRow({
       }
     >
       <span className={cn("pointer-events-none contents", !(on && parentOn) && "[&>*]:opacity-50")}>
-        <AccountAvatar account={aliasMailboxLook(entry)} size="small" />
+        <AccountAvatar account={aliasMailboxLook(entry)} size="md" />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm text-foreground">{entry.name}</span>
-          <span className="flex min-w-0 items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
+          <span className="flex min-w-0 items-center gap-1.5 text-body leading-[18px] text-muted-foreground">
             <span className="min-w-0 shrink truncate">{entry.alias.address}</span>
             {on ? null : (
               <>
@@ -482,12 +471,12 @@ function AccountEditor({ account }: { account: MailAccount }) {
                     label="Sign in again"
                   />
                 ) : null}
-                <Btn size="sm" disabled={syncing || sync.data?.syncing} onClick={syncNow}>
+                <Button size="sm" disabled={syncing || sync.data?.syncing} onClick={syncNow}>
                   <RotateCwIcon
                     className={cn("size-3.5", (syncing || sync.data?.syncing) && "animate-spin")}
                   />
                   Sync now
-                </Btn>
+                </Button>
               </div>
             )
           }
@@ -496,7 +485,7 @@ function AccountEditor({ account }: { account: MailAccount }) {
           {...searchableSetting("mailbox-display-name")}
           resetAction={
             account.displayName ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label="mailbox display name"
                 onClick={() =>
                   void updateAccount.mutateAsync({ accountId: account.id, displayName: "" })
@@ -522,7 +511,7 @@ function AccountEditor({ account }: { account: MailAccount }) {
           id={searchableSetting("mailbox-color").id}
           resetAction={
             getAccountColor(account) !== getAccountColor({ id: account.id }) ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label="mailbox color"
                 onClick={() =>
                   void updateAccount.mutateAsync({
@@ -558,9 +547,9 @@ function AccountEditor({ account }: { account: MailAccount }) {
             : "Added to new messages, replies and forwards from this account, on every device with your Otter account."
         }
         headerAction={
-          <Btn size="sm" variant="primary" onClick={saveSignature}>
+          <Button size="sm" variant="primary" onClick={saveSignature}>
             Save signature
-          </Btn>
+          </Button>
         }
       >
         <RichTextArea
@@ -582,9 +571,9 @@ function AccountEditor({ account }: { account: MailAccount }) {
           {...searchableSetting("remove-mailbox")}
           description={`Stops syncing and deletes the local copy. Nothing is deleted from ${mailServerName(account)}.`}
           control={
-            <Btn size="sm" variant="destructive" onClick={() => setConfirmRemove(true)}>
+            <Button size="sm" variant="destructive" onClick={() => setConfirmRemove(true)}>
               Remove…
-            </Btn>
+            </Button>
           }
         />
       </SettingsSection>
@@ -594,7 +583,7 @@ function AccountEditor({ account }: { account: MailAccount }) {
         onOpenChange={setConfirmRemove}
         title={`Remove ${displayName}?`}
         confirmLabel={removeAccount.isPending ? "Removing…" : "Remove account"}
-        confirmVariant="accent"
+        confirmVariant="primary"
         onConfirm={() => {
           console.log("[Settings:removeAccount]", { accountId: account.id });
           void removeAccount.mutateAsync(account.id).then(() => setConfirmRemove(false));
@@ -715,12 +704,12 @@ function SendAsSection({ account }: { account: MailAccount }) {
                   address,
                   i === 0 ? searchableSetting("own-mailbox").id : undefined,
                 )}
-                <Btn
+                <Button
                   size="sm"
                   onClick={() => void save(addresses.filter((a) => a !== address)).catch(() => {})}
                 >
                   Remove
-                </Btn>
+                </Button>
               </div>
             ) : null
           }
@@ -749,9 +738,9 @@ function SendAsSection({ account }: { account: MailAccount }) {
               control={
                 <div className="flex items-center gap-4">
                   {ownMailboxSwitch(address)}
-                  <Btn size="sm" disabled={updateAccount.isPending} onClick={() => add(address)}>
+                  <Button size="sm" disabled={updateAccount.isPending} onClick={() => add(address)}>
                     Add
-                  </Btn>
+                  </Button>
                 </div>
               }
             />
@@ -762,7 +751,7 @@ function SendAsSection({ account }: { account: MailAccount }) {
           title="Add an address"
           control={
             <div className="flex items-center gap-2">
-              <TextInput
+              <Input
                 type="email"
                 value={adding}
                 placeholder="you@yourdomain.com"
@@ -773,13 +762,13 @@ function SendAsSection({ account }: { account: MailAccount }) {
                 }}
                 className="@min-[32rem]/settings-row:w-56"
               />
-              <Btn
+              <Button
                 size="sm"
                 disabled={!adding.trim() || updateAccount.isPending}
                 onClick={() => add()}
               >
                 Add
-              </Btn>
+              </Button>
             </div>
           }
         />
@@ -827,7 +816,7 @@ function AliasMailboxEditor({ entry, onStop }: { entry: AliasMailboxEntry; onSto
           title="Display name"
           resetAction={
             alias.name ? (
-              <SettingResetButton label="display name" onClick={() => void save({ name: "" })} />
+              <SettingsResetButton label="display name" onClick={() => void save({ name: "" })} />
             ) : null
           }
           description="Shown in the sidebar and in notifications of its mail."
@@ -848,7 +837,7 @@ function AliasMailboxEditor({ entry, onStop }: { entry: AliasMailboxEntry; onSto
           title="Color"
           resetAction={
             entry.color !== defaultColor ? (
-              <SettingResetButton label="color" onClick={() => void save({ color: "" })} />
+              <SettingsResetButton label="color" onClick={() => void save({ color: "" })} />
             ) : null
           }
           description="Its tab's, and the app's while it's open."
@@ -880,9 +869,9 @@ function AliasMailboxEditor({ entry, onStop }: { entry: AliasMailboxEntry; onSto
         title="Signature"
         description={`Added to new messages, replies and forwards from ${alias.address}. Without one, ${parentName}'s is.`}
         headerAction={
-          <Btn size="sm" variant="primary" onClick={saveSignature}>
+          <Button size="sm" variant="primary" onClick={saveSignature}>
             Save signature
-          </Btn>
+          </Button>
         }
       >
         <RichTextArea
@@ -956,7 +945,7 @@ function MailboxNotifications({ account }: { account: MailAccount }) {
         title="Background notifications"
         description={description}
         control={
-          <Btn
+          <Button
             size="sm"
             variant="outline"
             disabled={busy}
@@ -967,14 +956,14 @@ function MailboxNotifications({ account }: { account: MailAccount }) {
             }}
           >
             {busy ? "Connecting…" : connection?.status === "ready" ? "Disconnect" : "Connect"}
-          </Btn>
+          </Button>
         }
       />
       {connection && connection.status !== "ready" ? (
         <div className="px-4 pb-3">
-          <Btn size="sm" variant="outline" disabled={busy} onClick={() => void disconnect()}>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void disconnect()}>
             Disconnect
-          </Btn>
+          </Button>
         </div>
       ) : null}
       {provider !== "imap" ? (
@@ -991,12 +980,12 @@ function MailboxNotifications({ account }: { account: MailAccount }) {
             access; Otter’s watcher reads only metadata needed to identify new mail.
           </p>
           <div className="mt-3 flex gap-2">
-            <Btn size="sm" variant="primary" onClick={() => void connect()}>
+            <Button size="sm" variant="primary" onClick={() => void connect()}>
               Enable notifications
-            </Btn>
-            <Btn size="sm" variant="outline" onClick={() => setConfirmImap(false)}>
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setConfirmImap(false)}>
               Cancel
-            </Btn>
+            </Button>
           </div>
         </div>
       ) : null}
@@ -1044,7 +1033,7 @@ function ConnectionsHub() {
               <DropdownMenuItem
                 key={extension.manifest.id}
                 icon={Icon ? <Icon /> : undefined}
-                onSelect={() =>
+                onClick={() =>
                   void navigate({
                     to: "/settings/$pane/$item",
                     params: { pane: "accounts", item: extension.manifest.id },

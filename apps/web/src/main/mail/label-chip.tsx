@@ -1,33 +1,10 @@
-import { ChevronsRightIcon, InboxIcon, XIcon } from "lucide-react";
+import { ChevronsRightIcon, InboxIcon } from "lucide-react";
+import { Chip, ChipDot, ChipRemove } from "@otter/ui/components/chip";
 import type { MailLabel } from "./types";
 
 // no-drag: in the reader's title band (a window-drag region in the Mac app)
-// the pill must get hover, or its remove button never shows.
-const PILL =
-  "no-drag group relative inline-flex h-5 w-fit max-w-32 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-transparent px-2 text-2xs font-medium leading-none text-muted-foreground";
-
-function Dot({ color }: { color: string }) {
-  return (
-    <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: color }} />
-  );
-}
-
-function RemoveButton({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={(e) => {
-        e.stopPropagation();
-        onRemove();
-      }}
-      className="-me-1 hidden size-3.5 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-foreground/15 group-hover:flex focus-visible:flex"
-    >
-      <XIcon className="size-2.5" strokeWidth={3} />
-    </button>
-  );
-}
+// the chip must get hover, or its remove button never shows.
+const PILL = "no-drag justify-center";
 
 const CATEGORY_CHIPS: Record<string, { name: string; bg: string }> = {
   CATEGORY_SOCIAL: { name: "Social", bg: "#1a73e8" },
@@ -40,11 +17,11 @@ export function CategoryChip({ id, onRemove }: { id: string; onRemove?: () => vo
   const meta = CATEGORY_CHIPS[id];
   if (!meta) return null;
   return (
-    <span className={PILL}>
-      <Dot color={meta.bg} />
+    <Chip className={PILL}>
+      <ChipDot color={meta.bg} />
       {meta.name}
-      {onRemove ? <RemoveButton label={`Remove "${meta.name}"`} onRemove={onRemove} /> : null}
-    </span>
+      {onRemove ? <ChipRemove reveal label={`Remove "${meta.name}"`} onRemove={onRemove} /> : null}
+    </Chip>
   );
 }
 
@@ -56,7 +33,7 @@ export function ImportantMarker({ muted }: { muted?: boolean }) {
   return (
     <span title="Marked important" aria-label="Important" className="shrink-0">
       <ChevronsRightIcon
-        className={muted ? "size-3.5 text-muted-foreground/60" : "size-3.5"}
+        className={muted ? "size-3.5 text-faint-foreground" : "size-3.5"}
         strokeWidth={muted ? 2.5 : 3}
         style={muted ? undefined : { color: "#f4b400" }}
       />
@@ -66,11 +43,11 @@ export function ImportantMarker({ muted }: { muted?: boolean }) {
 
 export function InboxChip({ selected, onRemove }: { selected?: boolean; onRemove?: () => void }) {
   return (
-    <span className={`${PILL} ${selected ? "border-foreground/20" : ""}`}>
-      <InboxIcon className="size-3" />
+    <Chip className={PILL} variant={selected ? "selected" : "outline"}>
+      <InboxIcon />
       Inbox
-      {onRemove ? <RemoveButton label="Archive" onRemove={onRemove} /> : null}
-    </span>
+      {onRemove ? <ChipRemove reveal label="Archive" onRemove={onRemove} /> : null}
+    </Chip>
   );
 }
 
@@ -85,10 +62,12 @@ export function LabelChip({
 }) {
   const displayName = label.name.split("/").pop() ?? label.name;
   return (
-    <span className={`${PILL} ${selected ? "border-foreground/20" : ""}`}>
-      {label.color ? <Dot color={label.color.backgroundColor} /> : null}
+    <Chip className={PILL} variant={selected ? "selected" : "outline"}>
+      {label.color ? <ChipDot color={label.color.backgroundColor} /> : null}
       <span className="min-w-0 truncate">{displayName}</span>
-      {onRemove ? <RemoveButton label={`Remove "${displayName}"`} onRemove={onRemove} /> : null}
-    </span>
+      {onRemove ? (
+        <ChipRemove reveal label={`Remove "${displayName}"`} onRemove={onRemove} />
+      ) : null}
+    </Chip>
   );
 }

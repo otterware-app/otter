@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { Switch } from "~/components/ui/switch";
+import { Switch } from "@otter/ui/components/switch";
 import { useCalendarLists } from "../calendar/api";
 import { calendarAccounts } from "../calendar/calendar-view";
 import { MEETING_NAMES, MeetingMark } from "../calendar/meeting";
 import { getAccountDisplayName } from "../mail/account-style";
 import { mailApi, type SyncSettings } from "../mail/api";
 import { useAccounts } from "../mail/hooks";
-import { toast } from "../mail/toast";
+import { toast } from "@otter/ui/components/toast";
 import {
   CALENDAR_DEFAULTS,
   setCalendarPreference,
@@ -15,14 +15,14 @@ import {
   type TimeFormat,
   type WeekStart,
 } from "../calendar/preferences";
+import { searchableSetting } from "./settings-search";
 import {
-  RowSelect,
-  SettingResetButton,
+  SettingsSelect,
+  SettingsResetButton,
   SettingsPageContainer,
   SettingsRow,
   SettingsSection,
-} from "./settings-ui";
-import { searchableSetting } from "./settings-search";
+} from "@otter/ui/components/settings";
 
 const WEEK_START_OPTIONS: { value: WeekStart; label: string }[] = [
   { value: "auto", label: "As in your region" },
@@ -43,7 +43,7 @@ function reset<K extends keyof CalendarPreferences>(
   label: string,
 ) {
   return prefs[key] !== CALENDAR_DEFAULTS[key] ? (
-    <SettingResetButton
+    <SettingsResetButton
       label={label}
       onClick={() => setCalendarPreference(key, CALENDAR_DEFAULTS[key])}
     />
@@ -152,7 +152,7 @@ export function CalendarPane() {
           resetAction={reset(prefs, "weekStart", "start of week")}
           description="The first day of the week in the week and month views, and the small month."
           control={
-            <RowSelect
+            <SettingsSelect
               value={prefs.weekStart}
               onValueChange={(v) => setCalendarPreference("weekStart", v as WeekStart)}
               options={WEEK_START_OPTIONS}
@@ -192,7 +192,7 @@ export function CalendarPane() {
           resetAction={reset(prefs, "timeFormat", "time format")}
           description="How times read on the calendar and its events."
           control={
-            <RowSelect
+            <SettingsSelect
               value={prefs.timeFormat}
               onValueChange={(v) => setCalendarPreference("timeFormat", v as TimeFormat)}
               options={TIME_FORMAT_OPTIONS}

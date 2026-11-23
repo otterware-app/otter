@@ -20,27 +20,16 @@ import {
   FULL_WIDTH_ROWS,
   useInterfaceToggle,
 } from "../theme/interface-settings";
-import { Dialog } from "~/components/ui/dialog";
-import { EmptyState } from "~/components/ui/empty-state";
-import { ScrollArea } from "~/components/ui/scroll-area";
-import { Text } from "~/components/ui/text";
+import { Dialog } from "@otter/ui/components/dialog";
+import { EmptyState } from "@otter/ui/components/empty-state";
+import { ScrollArea } from "@otter/ui/components/scroll-area";
+import { Text } from "@otter/ui/components/text";
 import { SnoozeDialog } from "./mail-schedule";
-import { toast } from "./toast";
-import {
-  ContextMenu,
-  ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuCheckboxItem,
-  ContextMenuLabel,
-  ContextMenuSeparator,
-  ContextMenuSub,
-} from "./menu";
+import { toast } from "@otter/ui/components/toast";
 import {
   ArchiveIcon,
   CheckIcon,
   ClockIcon,
-  RotateCwIcon,
   ArchiveXIcon,
   FlagIcon,
   MailIcon,
@@ -58,7 +47,6 @@ import {
   ListChecksIcon,
 } from "lucide-react";
 import { AgentIcon } from "../agent/agent-icon";
-import { IconBtn, HintTooltip, cn } from "./ui";
 import {
   useMessages,
   useCombinedMessages,
@@ -100,7 +88,22 @@ import { pickAdvanceTarget } from "./advance-direction";
 import { beginUndoGroup, clearUndo } from "./undo";
 import { isMoveSourceLabel, setThreadDragImage, writeThreadDrag } from "./thread-drag";
 import { isModClick } from "../keybindings/keys";
+import { ShortcutText } from "../keybindings/store";
 import { onePerConversation } from "./list-keys";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuCheckboxItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuSub,
+} from "@otter/ui/components/context-menu";
+import { IconButton } from "@otter/ui/components/button";
+import { Spinner } from "@otter/ui/components/spinner";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 
 type ResolveLabel = (accountId: string | undefined, labelId: string) => MailLabel | undefined;
 
@@ -573,168 +576,169 @@ function MessageRow({
   return (
     <div className="group/row relative">
       <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <button
-            ref={rowRef}
-            type="button"
-            data-message-row=""
-            data-message-id={message.id}
-            {...PLACE}
-            data-draft={isDraft || undefined}
-            data-flagged={flagged || undefined}
-            data-unread={unread || undefined}
-            data-read={!unread || undefined}
-            data-selected={selected || undefined}
-            data-checked={checked || undefined}
-            onClick={onRowClick}
-            draggable
-            onDragStart={onDragStart}
-            // shift-click must not start a text selection
-            onMouseDown={(e) => {
-              if (e.shiftKey) e.preventDefault();
-            }}
-            className={[
-              "message-list-row group relative flex w-full cursor-pointer select-none flex-col overflow-hidden pl-5 pr-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
-              selected
-                ? "bg-sidebar-row-active"
-                : checked
-                  ? "bg-sidebar-row-hover"
-                  : "group-hover/row:bg-sidebar-row-hover",
-            ].join(" ")}
-          >
-            <div className="message-list-row-header flex h-5 items-center justify-between gap-2">
-              <span className="message-list-sender flex min-w-0 flex-1 items-center gap-1.5">
-                {/* T3 Code's thread row: who it's from is a small picture on the
-                    name's line. New mail's dot sits centered in the gutter before
-                    it, clear of the card's edge, so pictures stay aligned. */}
-                <span className="relative flex shrink-0">
-                  {unread && !selected ? (
-                    <span
-                      className="absolute -left-[13px] top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-primary"
-                      aria-hidden
-                    />
-                  ) : null}
-                  <SenderAvatar
-                    name={person.name}
-                    email={person.email}
-                    accountId={ownerAccountId}
-                    size="xs"
-                    className={selecting || checked ? "invisible" : "group-hover/row:invisible"}
-                  />
+        <ContextMenuTrigger
+          render={
+            <button
+              ref={rowRef}
+              type="button"
+              data-message-row=""
+              data-message-id={message.id}
+              {...PLACE}
+              data-draft={isDraft || undefined}
+              data-flagged={flagged || undefined}
+              data-unread={unread || undefined}
+              data-read={!unread || undefined}
+              data-selected={selected || undefined}
+              data-checked={checked || undefined}
+              onClick={onRowClick}
+              draggable
+              onDragStart={onDragStart}
+              // shift-click must not start a text selection
+              onMouseDown={(e) => {
+                if (e.shiftKey) e.preventDefault();
+              }}
+              className={[
+                "message-list-row group relative flex w-full cursor-pointer select-none flex-col overflow-hidden pl-5 pr-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+                selected
+                  ? "bg-sidebar-row-active"
+                  : checked
+                    ? "bg-sidebar-row-hover"
+                    : "group-hover/row:bg-sidebar-row-hover",
+              ].join(" ")}
+            />
+          }
+        >
+          <div className="message-list-row-header flex h-5 items-center justify-between gap-2">
+            <span className="message-list-sender flex min-w-0 flex-1 items-center gap-1.5">
+              {/* T3 Code's thread row: who it's from is a small picture on the
+                  name's line. New mail's dot sits centered in the gutter before
+                  it, clear of the card's edge, so pictures stay aligned. */}
+              <span className="relative flex shrink-0">
+                {unread && !selected ? (
                   <span
-                    role="checkbox"
-                    tabIndex={-1}
-                    aria-checked={checked}
-                    aria-label={checked ? "Deselect" : "Select"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleChecked();
-                    }}
-                    className={cn(
-                      "absolute inset-0 flex items-center justify-center rounded-sm border before:absolute before:-inset-1.5",
-                      checked
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-input bg-canvas text-transparent hover:border-muted-foreground",
-                      !selecting && !checked && "invisible group-hover/row:visible",
-                    )}
-                  >
-                    <CheckIcon className="size-3" strokeWidth={3} />
-                  </span>
-                </span>
-                {draftRow ? (
-                  <span className="shrink-0 text-xs font-medium text-destructive-foreground">
-                    Draft
-                  </span>
+                    className="absolute -left-[13px] top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-primary"
+                    aria-hidden
+                  />
                 ) : null}
+                <SenderAvatar
+                  name={person.name}
+                  email={person.email}
+                  accountId={ownerAccountId}
+                  size="xs"
+                  className={selecting || checked ? "invisible" : "group-hover/row:invisible"}
+                />
                 <span
+                  role="checkbox"
+                  tabIndex={-1}
+                  aria-checked={checked}
+                  aria-label={checked ? "Deselect" : "Select"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleChecked();
+                  }}
                   className={cn(
-                    "message-list-sender-name min-w-0 truncate text-xs",
-                    !draftRow && unread ? "font-medium text-foreground" : "text-muted-foreground",
+                    "absolute inset-0 flex items-center justify-center rounded-sm border before:absolute before:-inset-1.5",
+                    checked
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-input bg-canvas text-transparent hover:border-muted-foreground",
+                    !selecting && !checked && "invisible group-hover/row:visible",
                   )}
                 >
-                  {draftRow
-                    ? draftTo
-                      ? `to ${draftTo}`
-                      : ""
-                    : writersText ||
-                      senderLabel(message.fromName, message.fromEmail, ownerAccountId)}
+                  <CheckIcon className="size-3" strokeWidth={3} />
                 </span>
-                {!draftRow && labelIds.includes("DRAFT") ? (
-                  <span className="shrink-0 text-xs font-medium text-destructive-foreground">
-                    Draft
-                  </span>
-                ) : null}
-                {/* After the name, so every sender starts at the same place. */}
-                {labelIds.includes("IMPORTANT") ? <ImportantMarker muted /> : null}
               </span>
-              <div className="message-list-meta flex shrink-0 items-center gap-1.5">
-                {threadCount > 1 ? (
-                  <span
-                    role="button"
-                    tabIndex={-1}
-                    aria-label={expanded ? "Hide messages" : `Show ${threadCount} messages`}
-                    aria-expanded={expanded}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleExpanded();
-                    }}
-                    className="-my-0.5 flex items-center gap-0.5 rounded-sm px-0.5 text-xs tabular-nums text-muted-foreground hover:text-foreground"
-                  >
-                    {threadCount}
-                    <CircleChevronDownIcon
-                      className={cn("size-3.5 transition-transform", expanded && "rotate-180")}
-                    />
-                  </span>
-                ) : null}
-                {/* Across mailboxes, whose it is: its color by the time, apart
-                    from the unread dot. */}
-                {combinedMeta ? (
-                  <span
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: combinedMeta.accountColor }}
-                    title={
-                      combinedMeta.mailbox
-                        ? `${combinedMeta.accountName} · ${combinedMeta.mailbox}`
-                        : combinedMeta.accountName
-                    }
-                    aria-label={combinedMeta.accountName}
-                  />
-                ) : null}
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  {formatRelativeDate(message.date)}
+              {draftRow ? (
+                <span className="shrink-0 text-xs font-medium text-destructive-foreground">
+                  Draft
                 </span>
-              </div>
-            </div>
-            <div className="message-list-preview mt-1 flex min-w-0 flex-col gap-0.5">
+              ) : null}
               <span
                 className={cn(
-                  "message-list-subject truncate text-sm",
-                  unread ? "font-medium text-foreground" : "text-foreground/75",
+                  "message-list-sender-name min-w-0 truncate text-xs",
+                  !draftRow && unread ? "font-medium text-foreground" : "text-muted-foreground",
                 )}
               >
-                {message.subject || "(no subject)"}
+                {draftRow
+                  ? draftTo
+                    ? `to ${draftTo}`
+                    : ""
+                  : writersText || senderLabel(message.fromName, message.fromEmail, ownerAccountId)}
               </span>
-              <span className="message-list-snippet truncate text-xs text-muted-foreground">
-                {decodeEntities(message.snippet) || " "}
+              {!draftRow && labelIds.includes("DRAFT") ? (
+                <span className="shrink-0 text-xs font-medium text-destructive-foreground">
+                  Draft
+                </span>
+              ) : null}
+              {/* After the name, so every sender starts at the same place. */}
+              {labelIds.includes("IMPORTANT") ? <ImportantMarker muted /> : null}
+            </span>
+            <div className="message-list-meta flex shrink-0 items-center gap-1.5">
+              {threadCount > 1 ? (
+                <span
+                  role="button"
+                  tabIndex={-1}
+                  aria-label={expanded ? "Hide messages" : `Show ${threadCount} messages`}
+                  aria-expanded={expanded}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleExpanded();
+                  }}
+                  className="-my-0.5 flex items-center gap-0.5 rounded-sm px-0.5 text-xs tabular-nums text-muted-foreground hover:text-foreground"
+                >
+                  {threadCount}
+                  <CircleChevronDownIcon
+                    className={cn("size-3.5 transition-transform", expanded && "rotate-180")}
+                  />
+                </span>
+              ) : null}
+              {/* Across mailboxes, whose it is: its color by the time, apart
+                  from the unread dot. */}
+              {combinedMeta ? (
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: combinedMeta.accountColor }}
+                  title={
+                    combinedMeta.mailbox
+                      ? `${combinedMeta.accountName} · ${combinedMeta.mailbox}`
+                      : combinedMeta.accountName
+                  }
+                  aria-label={combinedMeta.accountName}
+                />
+              ) : null}
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {formatRelativeDate(message.date)}
               </span>
             </div>
-            {/* Chips only when they add something beyond the current view. */}
-            {(showInboxChip && labelIds.includes("INBOX")) || shownLabels.length > 0 ? (
-              <div className="message-list-labels mt-1.5 flex h-5 items-center gap-1 overflow-hidden">
-                {showInboxChip && labelIds.includes("INBOX") ? (
-                  <InboxChip selected={selected} />
-                ) : null}
-                {shownLabels.map((label) => (
-                  <LabelChip key={label.id} label={label} selected={selected} />
-                ))}
-                {hiddenLabelCount > 0 ? (
-                  <span className="text-2xs tabular-nums text-muted-foreground">
-                    +{hiddenLabelCount}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-          </button>
+          </div>
+          <div className="message-list-preview mt-1 flex min-w-0 flex-col gap-0.5">
+            <span
+              className={cn(
+                "message-list-subject truncate text-sm",
+                unread ? "font-medium text-foreground" : "text-foreground/75",
+              )}
+            >
+              {message.subject || "(no subject)"}
+            </span>
+            <span className="message-list-snippet truncate text-xs text-muted-foreground">
+              {decodeEntities(message.snippet) || " "}
+            </span>
+          </div>
+          {/* Chips only when they add something beyond the current view. */}
+          {(showInboxChip && labelIds.includes("INBOX")) || shownLabels.length > 0 ? (
+            <div className="message-list-labels mt-1.5 flex h-5 items-center gap-1 overflow-hidden">
+              {showInboxChip && labelIds.includes("INBOX") ? (
+                <InboxChip selected={selected} />
+              ) : null}
+              {shownLabels.map((label) => (
+                <LabelChip key={label.id} label={label} selected={selected} />
+              ))}
+              {hiddenLabelCount > 0 ? (
+                <span className="text-2xs tabular-nums text-muted-foreground">
+                  +{hiddenLabelCount}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </ContextMenuTrigger>
         {flagged ? (
           <button
@@ -751,11 +755,10 @@ function MessageRow({
             {trashed || junk ? null : (
               <HintTooltip
                 label={archiveSource ? "Archive" : "Move to inbox"}
-                shortcut="message.archive"
+                hint={<ShortcutText command="message.archive" />}
               >
-                <IconBtn
+                <IconButton
                   label={archiveSource ? "Archive" : "Move to inbox"}
-                  className="size-7"
                   onClick={handleArchive}
                 >
                   {archiveSource ? (
@@ -763,52 +766,46 @@ function MessageRow({
                   ) : (
                     <InboxIcon className="size-3.5" />
                   )}
-                </IconBtn>
+                </IconButton>
               </HintTooltip>
             )}
             <HintTooltip label={unread ? "Mark as read" : "Mark as unread"}>
-              <IconBtn
+              <IconButton
                 label={unread ? "Mark as read" : "Mark as unread"}
-                className="size-7"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleToggleRead();
                 }}
               >
                 {unread ? <MailOpenIcon className="size-3.5" /> : <MailIcon className="size-3.5" />}
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
             <HintTooltip label={flagged ? "Unflag" : "Flag"}>
-              <IconBtn
-                label={flagged ? "Unflag" : "Flag"}
-                className="size-7"
-                onClick={handleStarToggle}
-              >
+              <IconButton label={flagged ? "Unflag" : "Flag"} onClick={handleStarToggle}>
                 <FlagIcon className={cn("size-3.5", flagged && "fill-current text-(--red)")} />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
             {inInbox && !trashed && !junk ? (
               <HintTooltip label="Snooze">
-                <IconBtn
+                <IconButton
                   label="Snooze"
-                  className="size-7"
                   onClick={(e) => {
                     e.stopPropagation();
                     setSnoozeOpen(true);
                   }}
                 >
                   <ClockIcon className="size-3.5" />
-                </IconBtn>
+                </IconButton>
               </HintTooltip>
             ) : null}
             <HintTooltip label={trashLabel}>
-              <IconBtn label={trashLabel} className="size-7" onClick={handleTrash}>
+              <IconButton label={trashLabel} onClick={handleTrash}>
                 {trashed ? (
                   <RotateCcwIcon className="size-3.5" />
                 ) : (
                   <Trash2Icon className="size-3.5" />
                 )}
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
           </div>
         )}
@@ -816,27 +813,19 @@ function MessageRow({
           <ContextMenuContent>{selectionMenu}</ContextMenuContent>
         ) : (
           <ContextMenuContent>
-            <ContextMenuItem onSelect={() => inNewWindow(onOpen)}>
+            <ContextMenuItem onClick={() => inNewWindow(onOpen)}>
               Open in New Window
             </ContextMenuItem>
-            <ContextMenuItem onSelect={onSelectAll}>Select all</ContextMenuItem>
+            <ContextMenuItem onClick={onSelectAll}>Select all</ContextMenuItem>
             <ContextMenuSeparator />
-            <ContextMenuItem
-              icon={unread ? "envelope.open" : "envelope.badge"}
-              onSelect={handleToggleRead}
-            >
+            <ContextMenuItem onClick={handleToggleRead}>
               {unread ? "Mark as read" : "Mark as unread"}
             </ContextMenuItem>
-            <ContextMenuItem
-              icon={flagged ? "flag.slash" : "flag"}
-              onSelect={() => handleStarToggle()}
-            >
+            <ContextMenuItem onClick={() => handleStarToggle()}>
               {flagged ? "Unflag" : "Flag"}
             </ContextMenuItem>
             <ContextMenuSeparator />
-            <ContextMenuItem icon="cursorarrow" onSelect={onChatAgent}>
-              Open in agent chat
-            </ContextMenuItem>
+            <ContextMenuItem onClick={onChatAgent}>Open in agent chat</ContextMenuItem>
             <ExtensionContextMenuActions
               target={{
                 accountId: message.accountId ?? accountId,
@@ -855,32 +844,27 @@ function MessageRow({
             ) : null}
             <ContextMenuSeparator />
             {trashed || junk ? null : (
-              <ContextMenuItem
-                icon={archiveSource ? "archivebox" : "tray.and.arrow.down"}
-                onSelect={() => handleArchive()}
-              >
+              <ContextMenuItem onClick={() => handleArchive()}>
                 {archiveSource ? "Archive" : "Move to inbox"}
               </ContextMenuItem>
             )}
             {inInbox && !trashed && !junk && (
-              <ContextMenuItem onSelect={() => setSnoozeOpen(true)}>Snooze…</ContextMenuItem>
+              <ContextMenuItem onClick={() => setSnoozeOpen(true)}>Snooze…</ContextMenuItem>
             )}
             {trashed ? null : (
-              <ContextMenuItem icon={junk ? "checkmark.shield" : "xmark.bin"} onSelect={handleJunk}>
+              <ContextMenuItem onClick={handleJunk}>
                 {junk ? "Not junk" : "Move to junk"}
               </ContextMenuItem>
             )}
             {trashed ? (
-              <ContextMenuItem icon="trash.slash" onSelect={() => handleTrash()}>
-                Restore from trash
-              </ContextMenuItem>
+              <ContextMenuItem onClick={() => handleTrash()}>Restore from trash</ContextMenuItem>
             ) : (
-              <ContextMenuItem icon="trash" color="red" onSelect={() => handleTrash()}>
+              <ContextMenuItem variant="destructive" onClick={() => handleTrash()}>
                 {trashLabel}
               </ContextMenuItem>
             )}
             {trashed || junk ? (
-              <ContextMenuItem icon="trash.fill" color="red" onSelect={onDeleteForever}>
+              <ContextMenuItem variant="destructive" onClick={onDeleteForever}>
                 Delete forever…
               </ContextMenuItem>
             ) : null}
@@ -957,7 +941,7 @@ function ThreadMessageRow({
           {decodeEntities(message.snippet) || " "}
         </span>
         {message.hasAttachments ? (
-          <PaperclipIcon className="size-3 shrink-0 text-muted-foreground/55" aria-hidden />
+          <PaperclipIcon className="size-3 shrink-0 text-faint-foreground" aria-hidden />
         ) : null}
       </span>
     </button>
@@ -1486,52 +1470,34 @@ function MessageListView({
     <>
       <ContextMenuLabel>{checked.size} selected</ContextMenuLabel>
       {checked.size < visibleMessages.length ? (
-        <ContextMenuItem onSelect={selectAll}>Select all</ContextMenuItem>
+        <ContextMenuItem onClick={selectAll}>Select all</ContextMenuItem>
       ) : null}
       <ContextMenuSeparator />
-      <ContextMenuItem icon="envelope.open" onSelect={bulkMarkRead}>
-        Mark as read
-      </ContextMenuItem>
-      <ContextMenuItem icon="envelope.badge" onSelect={bulkMarkUnread}>
-        Mark as unread
-      </ContextMenuItem>
+      <ContextMenuItem onClick={bulkMarkRead}>Mark as read</ContextMenuItem>
+      <ContextMenuItem onClick={bulkMarkUnread}>Mark as unread</ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem icon="cursorarrow" onSelect={() => onOpenChat?.()}>
-        Open in agent chat
-      </ContextMenuItem>
+      <ContextMenuItem onClick={() => onOpenChat?.()}>Open in agent chat</ContextMenuItem>
       <ContextMenuSeparator />
       {allTrashed ? (
-        <ContextMenuItem icon="trash.slash" onSelect={bulkUntrash}>
-          Restore from trash
-        </ContextMenuItem>
+        <ContextMenuItem onClick={bulkUntrash}>Restore from trash</ContextMenuItem>
       ) : allJunk ? (
         <>
-          <ContextMenuItem icon="checkmark.shield" onSelect={bulkNotJunk}>
-            Not junk
-          </ContextMenuItem>
-          <ContextMenuItem icon="trash" color="red" onSelect={bulkTrash}>
+          <ContextMenuItem onClick={bulkNotJunk}>Not junk</ContextMenuItem>
+          <ContextMenuItem variant="destructive" onClick={bulkTrash}>
             Move to trash
           </ContextMenuItem>
         </>
       ) : (
         <>
-          <ContextMenuItem icon="archivebox" onSelect={bulkArchive}>
-            Archive
-          </ContextMenuItem>
-          <ContextMenuItem icon="xmark.bin" onSelect={bulkJunk}>
-            Move to junk
-          </ContextMenuItem>
-          <ContextMenuItem icon="trash" color="red" onSelect={bulkTrash}>
+          <ContextMenuItem onClick={bulkArchive}>Archive</ContextMenuItem>
+          <ContextMenuItem onClick={bulkJunk}>Move to junk</ContextMenuItem>
+          <ContextMenuItem variant="destructive" onClick={bulkTrash}>
             {bulkDiscards ? "Discard drafts" : "Move to trash"}
           </ContextMenuItem>
         </>
       )}
       {allTrashed || allJunk ? (
-        <ContextMenuItem
-          icon="trash.fill"
-          color="red"
-          onSelect={() => setConfirmDeleteRows(checkedRows)}
-        >
+        <ContextMenuItem variant="destructive" onClick={() => setConfirmDeleteRows(checkedRows)}>
           Delete forever…
         </ContextMenuItem>
       ) : null}
@@ -2077,13 +2043,13 @@ function MessageListView({
           ) : null}
           {formatMailboxSummary(mailboxTotal, mailboxUnread)}
         </div>
-        <HintTooltip label="Search this mailbox" shortcut="search.focus">
-          <IconBtn label="Search this mailbox" onClick={onSearchView}>
+        <HintTooltip label="Search this mailbox" hint={<ShortcutText command="search.focus" />}>
+          <IconButton label="Search this mailbox" onClick={onSearchView}>
             <SearchIcon className="size-4" />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
         <HintTooltip label={unreadOnly ? "Show all messages" : "Show unread only"}>
-          <IconBtn
+          <IconButton
             label={unreadOnly ? "Show all messages" : "Show unread only"}
             aria-pressed={unreadOnly}
             onClick={() => setMailboxMode(unreadOnly ? "all" : "unread")}
@@ -2092,7 +2058,7 @@ function MessageListView({
               on={unreadOnly}
               className={cn("size-4", unreadOnly && "text-primary")}
             />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
         {headerTrailing}
       </div>
@@ -2131,7 +2097,7 @@ function MessageListView({
           </div>
         ) : filteredMessages.length === 0 && (hasNextPage || isFetchingNextPage) ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-            <RotateCwIcon className="size-4 animate-spin text-muted-foreground" />
+            <Spinner />
             <span className="text-sm text-muted-foreground">Loading more mail…</span>
           </div>
         ) : search && !search.query ? (
@@ -2203,96 +2169,93 @@ function MessageListView({
             <span className="pr-1 text-sm text-muted-foreground">selected</span>
             {checked.size < visibleMessages.length ? (
               <HintTooltip label="Select all">
-                <IconBtn label="Select all" className="size-7" onClick={selectAll}>
+                <IconButton label="Select all" onClick={selectAll}>
                   <ListChecksIcon className="size-3.5" />
-                </IconBtn>
+                </IconButton>
               </HintTooltip>
             ) : null}
             <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
             {allTrashed ? (
               <>
                 <HintTooltip label="Restore from Trash">
-                  <IconBtn label="Restore from Trash" className="size-7" onClick={bulkUntrash}>
+                  <IconButton label="Restore from Trash" onClick={bulkUntrash}>
                     <RotateCcwIcon className="size-3.5" />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
                 <HintTooltip label="Delete Forever">
-                  <IconBtn
+                  <IconButton
                     label="Delete Forever"
-                    className="size-7"
                     onClick={() => setConfirmDeleteRows(checkedRows)}
                   >
                     <Trash2Icon className="size-4 text-(--red)" />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
               </>
             ) : allJunk ? (
               <>
                 <HintTooltip label="Not Junk: move to Inbox">
-                  <IconBtn label="Not Junk" className="size-7" onClick={bulkNotJunk}>
+                  <IconButton label="Not Junk" onClick={bulkNotJunk}>
                     <ShieldCheckIcon className="size-3.5" />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
                 <HintTooltip label="Move to Trash">
-                  <IconBtn label="Move to Trash" className="size-7" onClick={bulkTrash}>
+                  <IconButton label="Move to Trash" onClick={bulkTrash}>
                     <Trash2Icon className="size-3.5" />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
                 <HintTooltip label="Delete Forever">
-                  <IconBtn
+                  <IconButton
                     label="Delete Forever"
-                    className="size-7"
                     onClick={() => setConfirmDeleteRows(checkedRows)}
                   >
                     <Trash2Icon className="size-4 text-(--red)" />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
               </>
             ) : (
               <>
                 <HintTooltip label="Archive">
-                  <IconBtn label="Archive" className="size-7" onClick={bulkArchive}>
+                  <IconButton label="Archive" onClick={bulkArchive}>
                     <ArchiveIcon className="size-3.5" />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
                 <HintTooltip label={bulkDiscards ? "Discard Drafts" : "Move to Trash"}>
-                  <IconBtn
+                  <IconButton
                     label={bulkDiscards ? "Discard Drafts" : "Move to Trash"}
-                    className="size-7"
                     onClick={bulkTrash}
                   >
                     <Trash2Icon className="size-3.5" />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
                 <HintTooltip label="Move to Junk">
-                  <IconBtn label="Move to Junk" className="size-7" onClick={bulkJunk}>
+                  <IconButton label="Move to Junk" onClick={bulkJunk}>
                     <ArchiveXIcon className="size-3.5" />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
               </>
             )}
             <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
             <HintTooltip label="Mark as read">
-              <IconBtn label="Mark as read" className="size-7" onClick={bulkMarkRead}>
+              <IconButton label="Mark as read" onClick={bulkMarkRead}>
                 <MailOpenIcon className="size-3.5" />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
             <HintTooltip label="Mark as unread">
-              <IconBtn label="Mark as unread" className="size-7" onClick={bulkMarkUnread}>
+              <IconButton label="Mark as unread" onClick={bulkMarkUnread}>
                 <MailIcon className="size-3.5" />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
             <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
             <HintTooltip label="Chat about the selection with the agent">
-              <IconBtn label="Open in agent chat" className="size-7" onClick={() => onOpenChat?.()}>
+              <IconButton label="Open in agent chat" onClick={() => onOpenChat?.()}>
                 <AgentIcon className="size-3.5" />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
             <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
             <HintTooltip label="Clear selection" hint="Esc">
-              <IconBtn label="Clear selection" className="size-7" onClick={clearChecked}>
+              <IconButton label="Clear selection" onClick={clearChecked}>
                 <XIcon className="size-3.5" />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
           </div>
         </div>
@@ -2305,7 +2268,7 @@ function MessageListView({
         }}
         title="Delete Forever"
         confirmLabel="Delete Forever"
-        confirmVariant="accent"
+        confirmVariant="primary"
         onConfirm={handleDeleteForeverConfirm}
       >
         <Text variant="small">

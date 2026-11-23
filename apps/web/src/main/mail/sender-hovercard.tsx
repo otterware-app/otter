@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { toast } from "./toast";
+import { toast } from "@otter/ui/components/toast";
 import { CopyIcon, SearchIcon, SquarePenIcon } from "lucide-react";
 import { AgentIcon } from "../agent/agent-icon";
 import { SenderAvatar } from "./sender-avatar";
@@ -77,7 +77,7 @@ export function SenderHoverCard({
                 <SenderAvatar name={name} email={email} accountId={accountId} />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-foreground">{displayName}</div>
-                  <div className="truncate text-[13px] text-muted-foreground">{email}</div>
+                  <div className="truncate text-body text-muted-foreground">{email}</div>
                 </div>
               </div>
               <div className="-mx-1 mt-3 flex flex-col gap-0.5">

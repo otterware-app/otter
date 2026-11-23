@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import type { ToolStep } from "../mail/api";
 import { ChatMarkdown } from "./chat-markdown";
-import { cn } from "../mail/ui";
+import { cn } from "@otter/ui/lib/utils";
 
 export type TurnItem =
   | { kind: "text"; id?: string; text: string }

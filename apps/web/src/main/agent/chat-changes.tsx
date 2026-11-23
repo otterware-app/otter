@@ -9,8 +9,8 @@ import {
   TagIcon,
 } from "lucide-react";
 import type { ChatChange } from "../mail/api";
-import { cn } from "../mail/ui";
-import { toast } from "../mail/toast";
+import { toast } from "@otter/ui/components/toast";
+import { cn } from "@otter/ui/lib/utils";
 
 export function chatChangeKey({ target }: ChatChange): string {
   return JSON.stringify([target.kind, "accountId" in target ? target.accountId : null, target.id]);

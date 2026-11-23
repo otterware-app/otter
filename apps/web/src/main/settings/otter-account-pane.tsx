@@ -3,22 +3,23 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { OtterAccountState, OtterDevice } from "@otter/contracts";
 import { LaptopIcon } from "lucide-react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import { Dialog } from "~/components/ui/dialog";
-import { Text } from "~/components/ui/text";
+import { Avatar, AvatarFallback, AvatarImage } from "@otter/ui/components/avatar";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Text } from "@otter/ui/components/text";
 import { mailApi } from "../mail/api";
 import { useAccounts, useAddAccount } from "../mail/hooks";
-import { toast } from "../mail/toast";
-import { Btn, cn } from "../mail/ui";
+import { toast } from "@otter/ui/components/toast";
 import { otterApi, useOtterAccount } from "../otter-account";
+import { searchableSetting } from "./settings-search";
+import { Button } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 import {
   SettingsGroup,
   SettingsPageContainer,
   SettingsRow,
   SettingsSection,
-  timeAgo,
-} from "./settings-ui";
-import { searchableSetting } from "./settings-search";
+} from "@otter/ui/components/settings";
+import { timeAgo } from "./time-ago";
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -30,7 +31,7 @@ export function OtterAvatar({
   className?: string;
 }) {
   return (
-    <Avatar size="small" className={className}>
+    <Avatar size="md" className={className}>
       {user.picture ? <AvatarImage src={user.picture} alt={user.email} /> : null}
       <AvatarFallback>{(user.name ?? user.email)[0]?.toUpperCase()}</AvatarFallback>
     </Avatar>
@@ -67,13 +68,13 @@ function useOtterSignIn() {
 export function SignInControl() {
   const { pending, signIn, cancel } = useOtterSignIn();
   return pending ? (
-    <Btn size="sm" onClick={cancel}>
+    <Button size="sm" onClick={cancel}>
       Cancel sign-in
-    </Btn>
+    </Button>
   ) : (
-    <Btn size="sm" variant="primary" onClick={signIn}>
+    <Button size="sm" variant="primary" onClick={signIn}>
       Sign in with Google
-    </Btn>
+    </Button>
   );
 }
 
@@ -113,13 +114,13 @@ function DevicesSection() {
             }
             control={
               device.current ? null : (
-                <Btn
+                <Button
                   size="sm"
                   disabled={signOutDevice.isPending}
                   onClick={() => signOutDevice.mutate(device)}
                 >
                   Sign out
-                </Btn>
+                </Button>
               )
             }
           />
@@ -164,13 +165,13 @@ function SignedInPane({ state }: { state: OtterAccountState }) {
             </span>
           }
           control={
-            <Btn
+            <Button
               size="sm"
               disabled={busy}
               onClick={() => run(otterApi.signOut, "Couldn't sign out")}
             >
               Sign out of Otter
-            </Btn>
+            </Button>
           }
         />
       </SettingsGroup>
@@ -182,9 +183,9 @@ function SignedInPane({ state }: { state: OtterAccountState }) {
           {...searchableSetting("delete-otter-account")}
           description="Removes your account and its list of mailboxes from Otter's servers, and signs out every device. Your mail and the mailboxes on each device stay."
           control={
-            <Btn size="sm" variant="destructive" onClick={() => setConfirmDelete(true)}>
+            <Button size="sm" variant="destructive" onClick={() => setConfirmDelete(true)}>
               Delete…
-            </Btn>
+            </Button>
           }
         />
       </SettingsSection>

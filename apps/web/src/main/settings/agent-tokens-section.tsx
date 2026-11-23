@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AgentToken, AgentTokens } from "@otter/contracts/agent-tokens";
 import { CheckIcon, CopyIcon } from "lucide-react";
 
-import { Button } from "~/components/ui/button";
+import { Button, IconButton } from "@otter/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -11,12 +11,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
-import { Field } from "~/components/ui/field";
-import { Input } from "~/components/ui/input";
-import { toast } from "../mail/toast";
-import { Btn, cn, IconBtn } from "../mail/ui";
-import { SettingsGroup, SettingsRow, SettingsSection, timeAgo } from "./settings-ui";
+} from "@otter/ui/components/dialog";
+import { Field } from "@otter/ui/components/field";
+import { Input } from "@otter/ui/components/input";
+import { toast } from "@otter/ui/components/toast";
+import { SettingsGroup, SettingsRow, SettingsSection } from "@otter/ui/components/settings";
+import { timeAgo } from "./time-ago";
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -31,9 +31,10 @@ export function CopyButton({
 }) {
   const [copied, setCopied] = useState(false);
   return (
-    <IconBtn
+    <IconButton
       label={label}
-      className={cn("size-6", className)}
+      size="icon-xs"
+      className={className}
       onClick={() =>
         void navigator.clipboard.writeText(value).then(() => {
           setCopied(true);
@@ -42,14 +43,14 @@ export function CopyButton({
       }
     >
       {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
-    </IconBtn>
+    </IconButton>
   );
 }
 
 function CopyRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex h-8 items-center gap-3 rounded-lg bg-input/40 pr-1 pl-3">
-      <span className="w-24 shrink-0 text-[13px] whitespace-nowrap text-muted-foreground">
+      <span className="w-24 shrink-0 text-body whitespace-nowrap text-muted-foreground">
         {label}
       </span>
       <code className="min-w-0 flex-1 truncate font-mono text-xs select-all">{value}</code>
@@ -103,7 +104,7 @@ export function AgentTokensSection<T extends AgentToken>({
       description={description}
       variant="plain"
       headerAction={
-        <Btn
+        <Button
           size="sm"
           onClick={() => {
             setName(defaultName);
@@ -111,7 +112,7 @@ export function AgentTokensSection<T extends AgentToken>({
           }}
         >
           Add agent…
-        </Btn>
+        </Button>
       }
     >
       <SettingsGroup>
@@ -130,14 +131,14 @@ export function AgentTokensSection<T extends AgentToken>({
               control={
                 <>
                   {renderControl?.(token)}
-                  <Btn
+                  <Button
                     size="sm"
                     variant="ghost-muted"
                     disabled={remove.isPending}
                     onClick={() => remove.mutate(token.id)}
                   >
                     Revoke
-                  </Btn>
+                  </Button>
                 </>
               }
             />
@@ -199,7 +200,7 @@ export function AgentTokensSection<T extends AgentToken>({
             </div>
           ) : null}
           <DialogFooter>
-            <Button variant="accent" onClick={() => setCreated(null)}>
+            <Button variant="primary" onClick={() => setCreated(null)}>
               Done
             </Button>
           </DialogFooter>

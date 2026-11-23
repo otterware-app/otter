@@ -12,6 +12,8 @@ export function isTypingTarget(e: KeyboardEvent): boolean {
  */
 export function isOverlayOpen(): boolean {
   return Array.from(
-    document.querySelectorAll('[role="dialog"], [data-radix-popper-content-wrapper]'),
+    document.querySelectorAll(
+      ':is([role="dialog"], [role="alertdialog"], [role="menu"], [data-slot="select-content"]):not([data-closed], [hidden])',
+    ),
   ).some((el) => !el.closest('[data-slot="toast-viewport"]'));
 }

@@ -3,11 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon, ChevronRightIcon, PuzzleIcon, ShieldIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { Switch } from "~/components/ui/switch";
+import { Switch } from "@otter/ui/components/switch";
 
-import { Btn, cn } from "../mail/ui";
 import { SETTINGS_SECTION_LABELS } from "../settings/settings-search";
-import { SettingsPageContainer, SettingsSection } from "../settings/settings-ui";
 import {
   CATEGORY_PANE,
   availableExtensions,
@@ -15,6 +13,9 @@ import {
   useDisabledExtensions,
 } from "./registry";
 import type { UiExtension } from "./types";
+import { Button } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
+import { SettingsPageContainer, SettingsSection } from "@otter/ui/components/settings";
 
 type Entry = { extension: UiExtension; enabled: boolean };
 
@@ -40,7 +41,7 @@ function ExtensionIcon({ extension, size }: { extension: UiExtension; size: "sm"
     <span
       className={cn(
         "flex shrink-0 items-center justify-center bg-foreground/[0.06] text-foreground",
-        size === "lg" ? "size-12 rounded-[14px]" : "size-9 rounded-[10px]",
+        size === "lg" ? "size-12 rounded-xl" : "size-9 rounded-lg",
       )}
     >
       <Icon className={size === "lg" ? "size-6" : "size-[18px]"} />
@@ -166,7 +167,7 @@ function ExtensionListRow({
           <span className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm text-foreground">{manifest.name}</span>
           </span>
-          <span className="mt-0.5 flex items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
+          <span className="mt-0.5 flex items-center gap-1.5 text-body leading-[18px] text-muted-foreground">
             <span className="line-clamp-1">{manifest.description}</span>
           </span>
         </span>
@@ -196,7 +197,7 @@ function ExtensionPage({
   return (
     <SettingsPageContainer className="space-y-8">
       <div className="space-y-5 px-[17px]">
-        <Btn
+        <Button
           size="sm"
           variant="ghost-muted"
           className="-ml-2.5"
@@ -204,13 +205,13 @@ function ExtensionPage({
         >
           <ArrowLeftIcon />
           {SETTINGS_SECTION_LABELS[pane]}
-        </Btn>
+        </Button>
         <header className="flex items-center gap-4">
           <ExtensionIcon extension={extension} size="lg" />
           <div className="min-w-0 flex-1">
             <h1
               data-slot="settings-page-title"
-              className="text-[22px] font-medium leading-7 tracking-[-0.01em] text-foreground"
+              className="text-2xl font-medium leading-7 tracking-[-0.01em] text-foreground"
             >
               {manifest.name}
             </h1>
@@ -218,7 +219,7 @@ function ExtensionPage({
           </div>
           <EnabledSwitch entry={entry} setEnabled={setEnabled} />
         </header>
-        <p className="flex items-start gap-2 text-[13px] leading-[18px] text-muted-foreground">
+        <p className="flex items-start gap-2 text-body leading-[18px] text-muted-foreground">
           <ShieldIcon className="mt-px size-3.5 shrink-0" />
           {manifest.dataUse}
         </p>
@@ -302,7 +303,7 @@ function ConnectionExtensionRow({ entry, onOpen }: { entry: Entry; onOpen: () =>
             <span className="truncate">{manifest.name}</span>
             <span className="shrink-0 text-xs text-muted-foreground">{connection!.provides}</span>
           </span>
-          <span className="block text-[13px] leading-[18px] text-muted-foreground">{state}</span>
+          <span className="block text-body leading-[18px] text-muted-foreground">{state}</span>
         </span>
       </span>
       <ChevronRightIcon className="pointer-events-none size-4 text-muted-foreground" />

@@ -1,25 +1,6 @@
-import {
-  Btn,
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuTrigger,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  HintTooltip,
-  IconBtn,
-  Input,
-  SidebarAction,
-  SidebarBody,
-  SidebarSwitcher,
-  cn,
-  toast,
-  type WorkspaceMainProps,
-  type WorkspaceProps,
-} from "@otter/web/extension-kit";
+import { type WorkspaceMainProps, type WorkspaceProps } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
+import { SidebarAction, SidebarBody, SidebarSwitcher } from "@otter/ui/components/sidebar";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArchiveIcon,
@@ -49,8 +30,26 @@ import {
   useSyncExternalStore,
   type ComponentType,
   type DragEvent,
+  type ReactElement,
   type ReactNode,
 } from "react";
+import { Button, IconButton } from "@otter/ui/components/button";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from "@otter/ui/components/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
+import { Input } from "@otter/ui/components/input";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 
 import {
   ActionItems,
@@ -64,6 +63,7 @@ import { DocumentView, Empty, TitleBar, previewQuery, when } from "./document";
 import { DriveMark, SharedMark } from "./drive-mark";
 import { errorText, useDriveSignIn, useDriveStatus, useFolders, useSaved } from "./hooks";
 import { OtterDriveIcon } from "./icon";
+import { chipVariants } from "@otter/ui/components/chip";
 
 export const MINE = "mine";
 
@@ -302,7 +302,8 @@ function useUpload(folderId: string | undefined, go: WorkspaceProps["go"]) {
 
 const chip = (on: boolean) =>
   cn(
-    "flex h-6.5 shrink-0 cursor-pointer items-center gap-1 rounded-full border px-2.5 text-[12px] font-medium whitespace-nowrap outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring [&_svg]:size-3.5",
+    chipVariants({ size: "sm" }),
+    "cursor-pointer gap-1 text-xs font-medium",
     on
       ? "border-transparent bg-sidebar-row-selected text-sidebar-foreground"
       : "border-sidebar-border text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
@@ -378,7 +379,7 @@ export function DriveSidebar({ location, item, go }: WorkspaceProps) {
               value={f.query}
               placeholder="Search documents"
               aria-label="Search documents"
-              className="h-7 pr-7 pl-8 text-[13px]"
+              className="h-7 pr-7 pl-8 text-body"
               onChange={(e) => setFilters({ query: e.target.value })}
               onKeyDown={(e) => {
                 if (e.key !== "Escape") return;
@@ -403,16 +404,25 @@ export function DriveSidebar({ location, item, go }: WorkspaceProps) {
               <ChevronDownIcon />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-44">
-              <DropdownMenuItem onSelect={() => setFilters({ kind: null })}>
-                <Tick on={f.kind === null} />
+              <DropdownMenuItem
+                icon={<Tick on={f.kind === null} />}
+                onClick={() => setFilters({ kind: null })}
+              >
                 Any type
               </DropdownMenuItem>
               {(Object.keys(KINDS) as Kind[]).map((k) => {
                 const { label, Icon } = KINDS[k];
                 return (
-                  <DropdownMenuItem key={k} onSelect={() => setFilters({ kind: k })}>
-                    <Tick on={f.kind === k} />
-                    <Icon className="size-4 text-muted-foreground" />
+                  <DropdownMenuItem
+                    key={k}
+                    icon={
+                      <>
+                        <Tick on={f.kind === k} />
+                        <Icon className="size-4 text-muted-foreground" />
+                      </>
+                    }
+                    onClick={() => setFilters({ kind: k })}
+                  >
                     {label}
                   </DropdownMenuItem>
                 );
@@ -446,7 +456,7 @@ export function DriveSidebar({ location, item, go }: WorkspaceProps) {
           <button
             type="button"
             onClick={() => go({ location: place.folder!.parentId! })}
-            className="mb-1 flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-[13px] text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
+            className="mb-1 flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-body text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
           >
             <ChevronLeftIcon className="size-4 shrink-0" />
             <span className="truncate">{place.folder.name}</span>
@@ -474,9 +484,7 @@ function DocumentList({
   const f = useFilters();
   if (place.error)
     return (
-      <p className="px-2 py-4 text-[13px] text-sidebar-muted-foreground">
-        {errorText(place.error)}
-      </p>
+      <p className="px-2 py-4 text-body text-sidebar-muted-foreground">{errorText(place.error)}</p>
     );
   if (place.loading)
     return (
@@ -494,7 +502,7 @@ function DocumentList({
     );
   if (place.subfolders.length === 0 && place.documents.length === 0)
     return (
-      <p className="px-2 py-4 text-[13px] text-sidebar-muted-foreground">
+      <p className="px-2 py-4 text-body text-sidebar-muted-foreground">
         {f.query || f.kind || f.recent
           ? "No documents match."
           : f.archived
@@ -523,10 +531,10 @@ function DocumentList({
   );
 }
 
-function WithMenu({ actions, children }: { actions: Action[]; children: ReactNode }) {
+function WithMenu({ actions, children }: { actions: Action[]; children: ReactElement }) {
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+      <ContextMenuTrigger render={children} />
       <ContextMenuContent className="min-w-56">
         <ActionItems actions={actions} menu="context" />
       </ContextMenuContent>
@@ -546,7 +554,7 @@ function FolderRow({ folder, onOpen }: { folder: DriveFolder; onOpen: () => void
         <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-sidebar-border">
           <FolderIcon className="size-4 text-sidebar-muted-foreground" />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-sidebar-foreground">
+        <span className="min-w-0 flex-1 truncate text-body font-medium text-sidebar-foreground">
           {folder.name}
         </span>
         {folder.shared ? (
@@ -602,17 +610,17 @@ function DocumentRow({
         </span>
         <span className="flex min-w-0 flex-1 flex-col leading-snug">
           <span className="flex items-baseline gap-2">
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-sidebar-foreground">
+            <span className="min-w-0 flex-1 truncate text-body font-medium text-sidebar-foreground">
               {artifact.title}
             </span>
-            <span className="shrink-0 text-[11px] text-sidebar-muted-foreground tabular-nums">
+            <span className="shrink-0 text-2xs text-sidebar-muted-foreground tabular-nums">
               {when(artifact.updatedAt)}
             </span>
           </span>
           {subtitle ? (
-            <span className="truncate text-[12px] text-sidebar-muted-foreground">{subtitle}</span>
+            <span className="truncate text-xs text-sidebar-muted-foreground">{subtitle}</span>
           ) : null}
-          <span className="flex items-center gap-1 truncate text-[11px] text-sidebar-muted-foreground/80">
+          <span className="flex items-center gap-1 truncate text-2xs text-sidebar-muted-foreground/80">
             {artifact.shared ? <UsersIcon className="size-3 shrink-0" /> : null}
             {[
               kind.one,
@@ -695,19 +703,19 @@ function SignInScreen({ titleLeading, titleTrailing }: WorkspaceMainProps) {
             </span>
             <div className="flex gap-2">
               {url ? (
-                <Btn size="sm" onClick={() => void window.desktopBridge.openExternal(url)}>
+                <Button size="sm" onClick={() => void window.desktopBridge.openExternal(url)}>
                   Open sign-in page
-                </Btn>
+                </Button>
               ) : null}
-              <Btn size="sm" onClick={cancel}>
+              <Button size="sm" onClick={cancel}>
                 Cancel
-              </Btn>
+              </Button>
             </div>
           </div>
         ) : (
-          <Btn variant="primary" disabled={pending} onClick={() => void signIn()}>
+          <Button variant="primary" disabled={pending} onClick={() => void signIn()}>
             {pending ? "Signing in…" : "Sign in to Otter Drive"}
-          </Btn>
+          </Button>
         )}
       </div>
     </div>
@@ -782,7 +790,7 @@ function Overview({
         <span className="min-w-0 flex-1" />
         <SortMenu />
         {place.writable ? (
-          <Btn
+          <Button
             size="sm"
             variant="primary"
             className="no-drag"
@@ -791,7 +799,7 @@ function Overview({
           >
             <UploadIcon />
             {upload.busy ? "Uploading…" : "Upload"}
-          </Btn>
+          </Button>
         ) : null}
       </TitleBar>
       <div key={where} className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-agent-corner">
@@ -876,12 +884,12 @@ function DocumentCard({
             />
           ) : (
             <div className="flex size-full items-center justify-center">
-              <kind.Icon className="size-8 text-muted-foreground/60" />
+              <kind.Icon className="size-8 text-faint-foreground" />
             </div>
           )}
         </div>
         <div className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5">
-          <span className="truncate text-[13px] font-medium text-foreground">{artifact.title}</span>
+          <span className="truncate text-body font-medium text-foreground">{artifact.title}</span>
           <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
             {artifact.shared ? (
               <UsersIcon className="size-3 shrink-0" />
@@ -920,7 +928,7 @@ function Crumbs({ place, title, go }: { place: Place; title: string; go: Workspa
               <button
                 type="button"
                 onClick={() => go({ location: f.id })}
-                className="truncate rounded px-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="truncate rounded px-1 text-muted-foreground hover:bg-accent-surface hover:text-foreground"
               >
                 {f.parentId ? f.name : driveLabel(f)}
               </button>
@@ -951,10 +959,8 @@ function FolderMenu({ folder, go }: { folder: DriveFolder; go: WorkspaceProps["g
   return (
     <DropdownMenu>
       <HintTooltip label="Folder actions">
-        <DropdownMenuTrigger asChild>
-          <IconBtn label="Folder actions" className="no-drag">
-            <MoreHorizontalIcon />
-          </IconBtn>
+        <DropdownMenuTrigger render={<IconButton label="Folder actions" className="no-drag" />}>
+          <MoreHorizontalIcon />
         </DropdownMenuTrigger>
       </HintTooltip>
       <DropdownMenuContent align="start" className="min-w-52">
@@ -969,18 +975,19 @@ function SortMenu() {
   return (
     <DropdownMenu>
       <HintTooltip label="Sort">
-        <DropdownMenuTrigger asChild>
-          <IconBtn label="Sort" className="no-drag">
-            <ArrowUpDownIcon />
-          </IconBtn>
+        <DropdownMenuTrigger render={<IconButton label="Sort" className="no-drag" />}>
+          <ArrowUpDownIcon />
         </DropdownMenuTrigger>
       </HintTooltip>
       <DropdownMenuContent align="end" className="min-w-44">
         <DropdownMenuLabel>Sort by</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {(Object.keys(SORTS) as Sort[]).map((k) => (
-          <DropdownMenuItem key={k} onSelect={() => setFilters({ sort: k })}>
-            <Tick on={f.sort === k} />
+          <DropdownMenuItem
+            key={k}
+            icon={<Tick on={f.sort === k} />}
+            onClick={() => setFilters({ sort: k })}
+          >
             {SORTS[k]}
           </DropdownMenuItem>
         ))}

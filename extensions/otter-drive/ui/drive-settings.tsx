@@ -1,21 +1,19 @@
+import { toast } from "@otter/ui/components/toast";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeftIcon, CopyIcon, KeyRoundIcon } from "lucide-react";
+import { useState, type ChangeEvent } from "react";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { Checkbox } from "@otter/ui/components/checkbox";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Field } from "@otter/ui/components/field";
+import { Input } from "@otter/ui/components/input";
 import {
-  Btn,
-  Dialog,
-  Field,
-  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  SettingsRow,
-  SettingsSection,
-  TextInput,
-  toast,
-} from "@otter/web/extension-kit";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeftIcon, CopyIcon, KeyRoundIcon } from "lucide-react";
-import { useState, type ChangeEvent } from "react";
+} from "@otter/ui/components/select";
 
 import {
   driveApi,
@@ -29,6 +27,7 @@ import { when } from "./document";
 import { DriveMark } from "./drive-mark";
 import { errorText, useRefresh } from "./hooks";
 import { share } from "./share";
+import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
 
 const copy = (text: string, done: string) =>
   void navigator.clipboard.writeText(text).then(
@@ -76,14 +75,14 @@ export function DrivePage({ drive, back }: { drive: DriveFolder; back: () => voi
       <SettingsSection
         title={
           <span className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="Back to Otter Drive"
+            <IconButton
+              label="Back to Otter Drive"
+              size="icon-xs"
               onClick={back}
-              className="-ms-1 flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="-ms-1 rounded-md"
             >
               <ChevronLeftIcon className="size-4" />
-            </button>
+            </IconButton>
             <DriveMark folder={drive} />
             {driveLabel(drive)}
           </span>
@@ -105,7 +104,7 @@ export function DrivePage({ drive, back }: { drive: DriveFolder; back: () => voi
           }
           control={
             shared && owner ? (
-              <TextInput
+              <Input
                 aria-label="Drive name"
                 className="w-56"
                 value={name}
@@ -136,12 +135,12 @@ export function DrivePage({ drive, back }: { drive: DriveFolder; back: () => voi
             title="Members"
             description="People in the drive open everything in it; editors also change it."
             control={
-              <Btn
+              <Button
                 size="sm"
                 onClick={() => share({ type: "folder", id: drive.id, name: drive.name })}
               >
                 {owner ? "Manage members…" : "See members"}
-              </Btn>
+              </Button>
             }
           />
         ) : null}
@@ -155,18 +154,18 @@ export function DrivePage({ drive, back }: { drive: DriveFolder; back: () => voi
             title="Transfer ownership"
             description="Give the drive to one of its members. You stay on as an editor."
             control={
-              <Btn size="sm" onClick={() => setDialog("transfer")}>
+              <Button size="sm" onClick={() => setDialog("transfer")}>
                 Transfer…
-              </Btn>
+              </Button>
             }
           />
           <SettingsRow
             title="Delete this shared drive"
             description="Its members lose it. It must be empty first."
             control={
-              <Btn size="sm" variant="destructive" onClick={() => setDialog("delete")}>
+              <Button size="sm" variant="destructive" onClick={() => setDialog("delete")}>
                 Delete drive…
-              </Btn>
+              </Button>
             }
           />
         </SettingsSection>
@@ -217,7 +216,7 @@ function TransferDialog({
   });
   // Only someone who has signed in to Drive can own it.
   const eligible = (members.data ?? []).filter((m) => m.userId);
-  const [to, setTo] = useState<string | undefined>(undefined);
+  const [to, setTo] = useState<string | null>(null);
   const picked = eligible.find((m) => m.userId === to);
   return (
     <Dialog
@@ -247,7 +246,11 @@ function TransferDialog({
         </p>
       ) : (
         <Field label="New owner" orientation="vertical">
-          <Select value={to} onValueChange={setTo}>
+          <Select
+            value={to}
+            items={eligible.map((m) => ({ value: m.userId!, label: m.email }))}
+            onValueChange={setTo}
+          >
             <SelectTrigger aria-label="New owner">
               <SelectValue placeholder={members.data ? "Choose a member" : "Loading…"} />
             </SelectTrigger>
@@ -321,6 +324,12 @@ function StorageSection({ drive }: { drive: DriveFolder }) {
   };
 
   const data = storage.data;
+  const places = data
+    ? [
+        { value: OTTERWARE, label: "Otterware storage" },
+        ...data.backends.map((b) => ({ value: b.id, label: b.name })),
+      ]
+    : [];
   return (
     <SettingsSection
       title="Storage"
@@ -338,16 +347,18 @@ function StorageSection({ drive }: { drive: DriveFolder }) {
             control={
               <Select
                 value={data.defaultBackendId ?? OTTERWARE}
-                onValueChange={(v) => void setDefault(v)}
+                items={places}
+                onValueChange={(v) => {
+                  if (v !== null) void setDefault(v);
+                }}
               >
                 <SelectTrigger aria-label="Storage for new uploads" className="w-52">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={OTTERWARE}>Otterware storage</SelectItem>
-                  {data.backends.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
+                  {places.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      {p.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -365,7 +376,7 @@ function StorageSection({ drive }: { drive: DriveFolder }) {
                 <span className="flex items-center gap-2">
                   {b.name}
                   {b.isDefault ? (
-                    <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                    <span className="rounded-md bg-muted px-1.5 py-0.5 text-2xs text-muted-foreground">
                       New uploads
                     </span>
                   ) : null}
@@ -380,15 +391,15 @@ function StorageSection({ drive }: { drive: DriveFolder }) {
                 .join(" · ")}
               control={
                 <div className="flex gap-1.5">
-                  <Btn size="sm" disabled={checking === b.id} onClick={() => void check(b)}>
+                  <Button size="sm" disabled={checking === b.id} onClick={() => void check(b)}>
                     {checking === b.id ? "Checking…" : "Check"}
-                  </Btn>
-                  <Btn size="sm" onClick={() => setRotating(b)}>
+                  </Button>
+                  <Button size="sm" onClick={() => setRotating(b)}>
                     Replace keys
-                  </Btn>
-                  <Btn size="sm" variant="ghost" onClick={() => setLeaving(b)}>
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setLeaving(b)}>
                     Disconnect
-                  </Btn>
+                  </Button>
                 </div>
               }
             />
@@ -397,9 +408,9 @@ function StorageSection({ drive }: { drive: DriveFolder }) {
             title="Connect storage"
             description="Amazon S3, Google Cloud Storage, Azure Blob Storage, Cloudflare R2 or any S3-compatible service."
             control={
-              <Btn size="sm" onClick={() => setConnecting(true)}>
+              <Button size="sm" onClick={() => setConnecting(true)}>
                 Connect…
-              </Btn>
+              </Button>
             }
           />
         </>
@@ -573,7 +584,13 @@ function ConnectStorageDialog({
     >
       <div className="flex flex-col gap-3">
         <Field label="Service" orientation="vertical">
-          <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
+          <Select
+            value={preset}
+            items={PRESETS}
+            onValueChange={(v) => {
+              if (v !== null) setPreset(v as Preset);
+            }}
+          >
             <SelectTrigger aria-label="Service">
               <SelectValue />
             </SelectTrigger>
@@ -676,11 +693,7 @@ function ConnectStorageDialog({
           </Field>
         </div>
         <label className="flex items-center gap-2 text-sm text-foreground">
-          <input
-            type="checkbox"
-            checked={makeDefault}
-            onChange={(e) => setMakeDefault(e.target.checked)}
-          />
+          <Checkbox checked={makeDefault} onCheckedChange={setMakeDefault} />
           Store new uploads here
         </label>
         {error ? (
@@ -809,17 +822,17 @@ const COMMANDS = [
 function CopyField({ value, done }: { value: string; done: string }) {
   return (
     <div className="mt-2 mb-1.5 flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 py-1 ps-2.5 pe-1">
-      <code className="min-w-0 flex-1 truncate font-mono text-[12px] text-foreground select-all">
+      <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground select-all">
         {value}
       </code>
-      <button
-        type="button"
-        aria-label="Copy"
+      <IconButton
+        label="Copy"
+        size="icon-xs"
         onClick={() => copy(value, done)}
-        className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+        className="rounded-md"
       >
-        <CopyIcon className="size-3.5" />
-      </button>
+        <CopyIcon />
+      </IconButton>
     </div>
   );
 }
@@ -873,22 +886,22 @@ export function AgentsSection() {
                 void create();
               }}
             >
-              <TextInput
+              <Input
                 aria-label="Key name"
                 className="w-40"
                 value={name}
                 maxLength={80}
                 onChange={(e) => setName(e.target.value)}
               />
-              <Btn size="sm" type="submit" disabled={creating || !name.trim()}>
+              <Button size="sm" type="submit" disabled={creating || !name.trim()}>
                 {creating ? "Creating…" : "Create key"}
-              </Btn>
+              </Button>
             </form>
           }
         >
           {created ? (
             <>
-              <p className="mt-2 text-[13px] text-amber-600 dark:text-amber-400">
+              <p className="mt-2 text-body text-warning-foreground">
                 Copy it now: it won't be shown again.
               </p>
               <CopyField value={created} done="Key copied" />
@@ -916,9 +929,9 @@ export function AgentsSection() {
                 </>
               }
               control={
-                <Btn size="sm" variant="ghost" onClick={() => setRevoking(k)}>
+                <Button size="sm" variant="ghost" onClick={() => setRevoking(k)}>
                   Revoke
-                </Btn>
+                </Button>
               }
             />
           ))

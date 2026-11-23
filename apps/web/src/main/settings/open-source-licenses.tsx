@@ -13,9 +13,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
+} from "@otter/ui/components/dialog";
 import { openLink } from "../browser/store";
-import { Btn, cn } from "../mail/ui";
+import { Button } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 type Loaded = ReadonlyArray<ThirdPartyLicenseEntry> | "failed" | null;
 
@@ -30,9 +31,9 @@ export function OpenSourceLicensesButton() {
   const [attempt, setAttempt] = useState(0);
   return (
     <>
-      <Btn size="sm" onClick={() => setOpen(true)}>
+      <Button size="sm" onClick={() => setOpen(true)}>
         View licenses
-      </Btn>
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent size="xl" className="flex h-[min(44rem,85vh)] flex-col gap-0 p-0">
           {open ? (
@@ -94,9 +95,9 @@ function OpenSourceLicenses({ onRetry }: { onRetry: () => void }) {
         ) : entries === "failed" ? (
           <div className="flex flex-col items-start gap-3 px-5 py-6">
             <p className="text-sm text-muted-foreground">The licenses didn't load.</p>
-            <Btn size="sm" onClick={onRetry}>
+            <Button size="sm" onClick={onRetry}>
               Try again
-            </Btn>
+            </Button>
           </div>
         ) : shown.length === 0 ? (
           <p className="px-5 py-6 text-sm text-muted-foreground">No license matches that.</p>

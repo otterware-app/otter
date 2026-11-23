@@ -1,8 +1,16 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Dialog } from "~/components/ui/dialog";
-import { Field } from "~/components/ui/field";
-import { Input } from "~/components/ui/input";
-import { Text } from "~/components/ui/text";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Field } from "@otter/ui/components/field";
+import { Input } from "@otter/ui/components/input";
+import { Text } from "@otter/ui/components/text";
+import { BanIcon, PlusIcon, XIcon } from "lucide-react";
+import { LabelChip } from "./label-chip";
+import { ViewIconPicker, ViewMark } from "./view-icon";
+import { useAllAccountLabels, useCombinedCounts } from "./hooks";
+import { getAccountColor, getAccountDisplayName } from "./account-style";
+import { SYSTEM_LABEL_NAMES, SYSTEM_LABEL_ORDER, labelDisplayName } from "./label-names";
+import type { MailAccount, MailLabel, MailView, ViewRule } from "./types";
+import { Button, IconButton } from "@otter/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -10,15 +18,8 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "./menu";
-import { BanIcon, PlusIcon, XIcon } from "lucide-react";
-import { LabelChip } from "./label-chip";
-import { cn } from "./ui";
-import { ViewIconPicker, ViewMark } from "./view-icon";
-import { useAllAccountLabels, useCombinedCounts } from "./hooks";
-import { getAccountColor, getAccountDisplayName } from "./account-style";
-import { SYSTEM_LABEL_NAMES, SYSTEM_LABEL_ORDER, labelDisplayName } from "./label-names";
-import type { MailAccount, MailLabel, MailView, ViewRule } from "./types";
+} from "@otter/ui/components/dropdown-menu";
+import { cn } from "@otter/ui/lib/utils";
 
 type ViewEditorProps = {
   view: MailView | null;
@@ -113,27 +114,29 @@ function AddLabelMenu({
   const system = sortSystemLabels(labels).filter((l) => !usedIds.has(l.id));
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Add label"
-          className="inline-flex h-4.5 cursor-pointer items-center gap-0.5 rounded-sm border border-dashed border-input px-1 text-2xs font-medium leading-none text-muted-foreground outline-none hover:border-foreground/30 hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-        >
-          <PlusIcon className="size-2.5" />
-          Label
-        </button>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label="Add label"
+            className="inline-flex h-4.5 cursor-pointer items-center gap-0.5 rounded-sm border border-dashed border-input px-1 text-2xs font-medium leading-none text-muted-foreground outline-none hover:border-foreground/30 hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+          />
+        }
+      >
+        <PlusIcon className="size-2.5" />
+        Label
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-80">
         {user.length > 0 ? <DropdownMenuLabel>Labels</DropdownMenuLabel> : null}
         {user.map((label) => (
-          <DropdownMenuItem key={label.id} onSelect={() => onPick(label.id)}>
+          <DropdownMenuItem key={label.id} onClick={() => onPick(label.id)}>
             {labelDisplayName(label)}
           </DropdownMenuItem>
         ))}
         {user.length > 0 && system.length > 0 ? <DropdownMenuSeparator /> : null}
         {system.length > 0 ? <DropdownMenuLabel>Mailboxes</DropdownMenuLabel> : null}
         {system.map((label) => (
-          <DropdownMenuItem key={label.id} onSelect={() => onPick(label.id)}>
+          <DropdownMenuItem key={label.id} onClick={() => onPick(label.id)}>
             {labelDisplayName(label)}
           </DropdownMenuItem>
         ))}
@@ -143,7 +146,7 @@ function AddLabelMenu({
 }
 
 function Word({ children }: { children: ReactNode }) {
-  return <span className="text-[13px] text-muted-foreground">{children}</span>;
+  return <span className="text-body text-muted-foreground">{children}</span>;
 }
 
 function Clause({
@@ -177,7 +180,7 @@ function Clause({
     <div className="group/clause flex items-start gap-2 rounded-lg px-3 py-2.5 hover:bg-accent-surface/40">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1.5">
         <Word>in</Word>
-        <span className="inline-flex h-5 items-center gap-1.5 rounded-md bg-accent-surface px-1.5 text-[13px] text-foreground">
+        <span className="inline-flex h-5 items-center gap-1.5 rounded-md bg-accent-surface px-1.5 text-body text-foreground">
           <span
             className="size-2 rounded-full"
             style={{ backgroundColor: getAccountColor(account) }}
@@ -206,14 +209,14 @@ function Clause({
           </>
         )}
       </div>
-      <button
-        type="button"
-        aria-label={`Remove ${getAccountDisplayName(account)}`}
+      <IconButton
+        label={`Remove ${getAccountDisplayName(account)}`}
+        size="icon-xs"
         onClick={onRemove}
-        className="mt-0.5 rounded-md p-0.5 text-muted-foreground opacity-0 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-focus-ring group-hover/clause:opacity-100"
+        className="-my-0.5 opacity-0 focus-visible:opacity-100 group-hover/clause:opacity-100"
       >
-        <XIcon className="size-3.5" />
-      </button>
+        <XIcon />
+      </IconButton>
     </div>
   );
 }
@@ -302,18 +305,15 @@ export function ViewEditorDialog({
       >
         <Field label="Name" orientation="vertical">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <Button
+              size="icon"
               aria-label="Choose an icon"
               aria-expanded={picking}
               onClick={() => setPicking((open) => !open)}
-              className={cn(
-                "flex size-8 shrink-0 items-center justify-center rounded-lg border border-input outline-none hover:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring",
-                picking && "bg-accent-surface",
-              )}
+              className={cn(picking && "bg-accent-surface")}
             >
               <ViewMark view={{ name: name || "?", ...mark }} />
-            </button>
+            </Button>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -324,9 +324,9 @@ export function ViewEditorDialog({
         </Field>
         {picking ? <ViewIconPicker icon={mark.icon} color={mark.color} onChange={setMark} /> : null}
 
-        <div className="mt-1 text-[13px] font-medium text-foreground">Show conversations</div>
+        <div className="mt-1 text-body font-medium text-foreground">Show conversations</div>
         {accounts.length === 0 ? (
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             Add a mailbox (Settings › Connections) to make a view.
           </p>
         ) : (
@@ -358,14 +358,11 @@ export function ViewEditorDialog({
             ))}
             {others.length > 0 ? (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="m-1 inline-flex h-7 items-center gap-1 rounded-md px-2 text-[13px] text-muted-foreground outline-none hover:bg-accent-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-                  >
-                    <PlusIcon className="size-3.5" />
-                    {clauses.length > 0 ? "Or in another mailbox" : "In a mailbox"}
-                  </button>
+                <DropdownMenuTrigger
+                  render={<Button variant="ghost-muted" size="sm" className="m-1" />}
+                >
+                  <PlusIcon />
+                  {clauses.length > 0 ? "Or in another mailbox" : "In a mailbox"}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
                   {others.map((account) => (
@@ -379,7 +376,7 @@ export function ViewEditorDialog({
                           />
                         </span>
                       }
-                      onSelect={() =>
+                      onClick={() =>
                         setPicks((prev) => ({ ...prev, [account.id]: { allOf: [], noneOf: [] } }))
                       }
                     >
@@ -392,7 +389,7 @@ export function ViewEditorDialog({
           </div>
         )}
         {/* The whole expression in words, and what it finds now. */}
-        <p className="text-[13px] leading-5 text-muted-foreground">
+        <p className="text-body leading-5 text-muted-foreground">
           {rules.length === 0 ? (
             "Pick a label to have, or not have, in a mailbox."
           ) : (

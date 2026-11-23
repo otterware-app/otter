@@ -1,23 +1,19 @@
-import { Fragment, createContext, useContext, useState, type ReactNode } from "react";
-import { Dialog } from "~/components/ui/dialog";
-import { Field } from "~/components/ui/field";
-import { Input } from "~/components/ui/input";
-import { Text } from "~/components/ui/text";
-import { inNewWindow } from "../new-window-click";
-import { toast } from "./toast";
-import { actedFrom } from "./archive";
 import {
-  ContextMenu,
-  ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./menu";
+  Fragment,
+  createContext,
+  useContext,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
+import { PLACE } from "../place-menu";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Field } from "@otter/ui/components/field";
+import { Input } from "@otter/ui/components/input";
+import { Text } from "@otter/ui/components/text";
+import { inNewWindow } from "../new-window-click";
+import { toast } from "@otter/ui/components/toast";
+import { actedFrom } from "./archive";
 import {
   ArchiveIcon,
   InboxIcon,
@@ -62,10 +58,29 @@ import { labelMoveName } from "../keybindings/commands";
 import { renameLabelKeybindings, useKeybindingsState } from "../keybindings/store";
 import { formatShortcut, parseShortcut } from "../keybindings/keys";
 import { LabelShortcutDialog } from "../settings/keybindings-pane";
-import { SIDEBAR_ROW, Section, SectionAddButton, SkRow, type RowDragProps } from "./sidebar-ui";
+import {
+  sidebarRowClassName,
+  SidebarSection,
+  SidebarSectionAction,
+  SidebarRow,
+} from "@otter/ui/components/sidebar";
 import { useCapabilities } from "./capabilities";
 import { arrangeFolders, badgeProps, useSidebarLayout, visibilityOf } from "./sidebar-layout";
 import { CustomizeSidebarDialog, type SidebarFolder } from "./customize-sidebar";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "@otter/ui/components/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
 
 const LABEL_DRAG_MIME = "application/x-gmail-label";
 
@@ -139,15 +154,17 @@ function MoreFolders({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          style={{ paddingLeft: 10 + depth * 16 }}
-          className={`${SIDEBAR_ROW} pr-(--sidebar-row-content-inset) text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground data-[state=open]:bg-sidebar-row-hover data-[state=open]:text-sidebar-foreground`}
-        >
-          <EllipsisIcon className="size-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">More</span>
-        </button>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            style={{ paddingLeft: 10 + depth * 16 }}
+            className={`${sidebarRowClassName} pr-(--sidebar-row-content-inset) text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground data-popup-open:bg-sidebar-row-hover data-popup-open:text-sidebar-foreground`}
+          />
+        }
+      >
+        <EllipsisIcon className="size-4 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">More</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="min-w-48">
         {folders.map((folder) => (
@@ -155,13 +172,13 @@ function MoreFolders({
             key={folder.id}
             icon={folder.icon}
             accelerator={folder.count > 0 ? String(folder.count) : undefined}
-            onSelect={() => onSelect(folder.id)}
+            onClick={() => onSelect(folder.id)}
           >
             {folder.name}
           </DropdownMenuItem>
         ))}
         {folders.length > 0 ? <DropdownMenuSeparator /> : null}
-        <DropdownMenuItem icon={<SquarePenIcon className="size-4" />} onSelect={onCustomize}>
+        <DropdownMenuItem icon={<SquarePenIcon className="size-4" />} onClick={onCustomize}>
           Customize Sidebar…
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -190,12 +207,12 @@ export function SearchRow({
   onClose: () => void;
 }) {
   return (
-    <SkRow
+    <SidebarRow
       icon={<SearchIcon className="size-4" />}
       title={search.title}
       depth={depth + 1}
       selected={search.selected}
-      place
+      {...PLACE}
       onClick={onSelect}
       trailing={
         <span
@@ -261,7 +278,7 @@ function LabelNode({
   // readable during dragover, so self/descendant checks happen on drop.
   // Conversations dragged from the list drop here too: moved to the label,
   // or only labelled with ⌥ held (Finder's copy modifier).
-  const dragProps: RowDragProps | undefined = label
+  const dragProps: ComponentProps<"button"> | undefined = label
     ? {
         draggable: !label.id.startsWith("category:"),
         onDragStart: (e) => {
@@ -306,7 +323,7 @@ function LabelNode({
     : undefined;
 
   const row = (
-    <SkRow
+    <SidebarRow
       icon={
         hasChildren ? (
           <span
@@ -331,8 +348,8 @@ function LabelNode({
       depth={depth}
       selected={label ? selectedLabelId === label.id : false}
       {...badgeProps(unread, badgeStyle)}
-      place={!!label}
-      dragProps={dragProps}
+      {...(label ? PLACE : {})}
+      {...dragProps}
       dropActive={dropActive}
       onClick={
         label
@@ -351,30 +368,27 @@ function LabelNode({
         <ContextMenu>
           <ContextMenuTrigger>{row}</ContextMenuTrigger>
           <ContextMenuContent>
-            <ContextMenuItem onSelect={() => inNewWindow(() => onSelectLabel(label.id))}>
+            <ContextMenuItem onClick={() => inNewWindow(() => onSelectLabel(label.id))}>
               Open in New Window
             </ContextMenuItem>
-            <ContextMenuItem icon="envelope.open" onSelect={() => actions.onMarkRead(label.id)}>
+            <ContextMenuItem onClick={() => actions.onMarkRead(label.id)}>
               Mark All as Read
             </ContextMenuItem>
             <ContextMenuSeparator />
-            <ContextMenuItem icon="pencil" onSelect={() => actions.onRename(label)}>
-              Rename…
-            </ContextMenuItem>
+            <ContextMenuItem onClick={() => actions.onRename(label)}>Rename…</ContextMenuItem>
             {actions.onRecolor && !label.id.startsWith("folder:") ? (
-              <ContextMenuItem icon="paintpalette" onSelect={() => actions.onRecolor?.(label)}>
+              <ContextMenuItem onClick={() => actions.onRecolor?.(label)}>
                 Change color…
               </ContextMenuItem>
             ) : null}
             <ContextMenuItem
-              icon="keyboard"
               accelerator={actions.shortcutFor(label)}
-              onSelect={() => actions.onEditShortcut(label)}
+              onClick={() => actions.onEditShortcut(label)}
             >
               Keyboard shortcut…
             </ContextMenuItem>
             <ContextMenuSeparator />
-            <ContextMenuItem icon="trash" color="red" onSelect={() => actions.onDelete(label)}>
+            <ContextMenuItem variant="destructive" onClick={() => actions.onDelete(label)}>
               Delete {label.id.startsWith("folder:") ? "folder" : actions.noun}
             </ContextMenuItem>
           </ContextMenuContent>
@@ -615,24 +629,22 @@ export function MailboxFolders({
     <ContextMenu>
       <ContextMenuTrigger>{row}</ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onSelect={() => inNewWindow(() => onSelectLabel(labelId))}>
+        <ContextMenuItem onClick={() => inNewWindow(() => onSelectLabel(labelId))}>
           Open in New Window
         </ContextMenuItem>
         {/* An alias mailbox shows part of the account's folder; marking it would take the rest too. */}
         {labelId !== "DRAFT" && labelId !== ALL_MAIL_LABEL_ID && !alias ? (
-          <ContextMenuItem icon="envelope.open" onSelect={() => labelActions.onMarkRead(labelId)}>
+          <ContextMenuItem onClick={() => labelActions.onMarkRead(labelId)}>
             Mark All as Read
           </ContextMenuItem>
         ) : null}
         {/* Emptying the account's Junk or Trash takes every alias mailbox's with it. */}
         <ContextMenuSeparator />
-        <ContextMenuItem onSelect={() => setCustomizeOpen(true)}>
-          Customize Sidebar…
-        </ContextMenuItem>
+        <ContextMenuItem onClick={() => setCustomizeOpen(true)}>Customize Sidebar…</ContextMenuItem>
         {(labelId === "SPAM" || labelId === "TRASH") && !alias ? (
           <>
             <ContextMenuSeparator />
-            <ContextMenuItem icon="trash" color="red" onSelect={() => setEmptyTarget(labelId)}>
+            <ContextMenuItem variant="destructive" onClick={() => setEmptyTarget(labelId)}>
               {labelId === "SPAM" ? "Empty Junk…" : "Empty Trash…"}
             </ContextMenuItem>
           </>
@@ -648,13 +660,13 @@ export function MailboxFolders({
           .map(({ id, name, icon, count }) => (
             <Fragment key={id}>
               {withMenu(
-                <SkRow
+                <SidebarRow
                   icon={icon}
                   title={name}
                   depth={depth}
                   selected={selectedLabelId === id}
                   {...badgeProps(count, layout.badge)}
-                  place
+                  {...PLACE}
                   onClick={() => {
                     console.log("[AccountsSidebar:selectLabel]", { labelId: id });
                     onSelectLabel(id);
@@ -675,7 +687,7 @@ export function MailboxFolders({
         {labelSections.map((section) =>
           section.labels.length === 0 ? (
             section.create ? (
-              <SkRow
+              <SidebarRow
                 key={section.title}
                 icon={<PlusIcon className="size-4" />}
                 title={`New ${labelNoun.toLowerCase()}`}
@@ -684,13 +696,13 @@ export function MailboxFolders({
               />
             ) : null
           ) : (
-            <Section
+            <SidebarSection
               key={section.title}
               title={section.title}
               depth={depth}
               action={
                 section.create ? (
-                  <SectionAddButton
+                  <SidebarSectionAction
                     label={`Add ${labelNoun.toLowerCase()}`}
                     onClick={() => setCreateLabelOpen(true)}
                   />
@@ -738,7 +750,7 @@ export function MailboxFolders({
                   actions={labelActions}
                 />
               ))}
-            </Section>
+            </SidebarSection>
           ),
         )}
       </>
@@ -748,7 +760,7 @@ export function MailboxFolders({
         onOpenChange={setCreateLabelOpen}
         title={`New ${labelNoun}`}
         confirmLabel="Create"
-        confirmVariant="accent"
+        confirmVariant="primary"
         confirmDisabled={!newLabelName.trim() || createLabel.isPending}
         onConfirm={handleCreateLabel}
       >
@@ -769,7 +781,7 @@ export function MailboxFolders({
         }}
         title={`Rename ${renameTarget?.id.startsWith("folder:") ? "Folder" : labelNoun}`}
         confirmLabel="Rename"
-        confirmVariant="accent"
+        confirmVariant="primary"
         confirmDisabled={!renameValue.trim()}
         onConfirm={handleRenameConfirm}
       >
@@ -819,7 +831,7 @@ export function MailboxFolders({
         }}
         title={`Delete ${deleteTarget?.id.startsWith("folder:") ? "Folder" : labelNoun}`}
         confirmLabel="Delete"
-        confirmVariant="accent"
+        confirmVariant="primary"
         onConfirm={handleDeleteConfirm}
       >
         <Text variant="small">

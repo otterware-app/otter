@@ -44,8 +44,9 @@ import {
 } from "lucide-react";
 
 import { VIEW_COLORS, type ViewIconKey } from "@otter/shared/view-marks";
-import { cn } from "./ui";
 import type { MailView } from "./types";
+import { Button } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 export const VIEW_ICONS: Record<ViewIconKey, LucideIcon> = {
   star: StarIcon,
@@ -149,7 +150,7 @@ export function ViewMark({ view, className }: { view: Mark; className?: string }
   }
   if (view.icon) {
     return (
-      <span aria-hidden className={cn("text-[17px] leading-none", className)}>
+      <span aria-hidden className={cn("text-lg leading-none", className)}>
         {view.icon}
       </span>
     );
@@ -158,7 +159,7 @@ export function ViewMark({ view, className }: { view: Mark; className?: string }
     <span
       aria-hidden
       className={cn(
-        "flex size-6 items-center justify-center rounded-md border border-sidebar-muted-foreground/40 text-[11px] font-semibold uppercase leading-none",
+        "flex size-6 items-center justify-center rounded-md border border-sidebar-muted-foreground/40 text-2xs font-semibold uppercase leading-none",
         className,
       )}
       style={view.color ? { color: view.color, borderColor: view.color } : undefined}
@@ -194,7 +195,7 @@ export function ViewIconPicker({
               aria-pressed={tab === id}
               onClick={() => setTab(id)}
               className={cn(
-                "h-7 rounded-md px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+                "h-7 rounded-md px-3 text-body outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
                 tab === id ? "bg-primary text-primary-foreground" : "text-muted-foreground",
               )}
             >
@@ -204,13 +205,9 @@ export function ViewIconPicker({
         </div>
         <span className="flex-1" />
         {icon ? (
-          <button
-            type="button"
-            onClick={() => onChange({ icon: null, color })}
-            className="h-7 rounded-md px-2 text-[13px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-          >
+          <Button variant="ghost-muted" size="sm" onClick={() => onChange({ icon: null, color })}>
             Remove
-          </button>
+          </Button>
         ) : null}
       </div>
       <div className="mt-2 grid grid-cols-10 gap-0.5">
@@ -233,7 +230,7 @@ export function ViewIconPicker({
                 type="button"
                 aria-pressed={icon === emoji}
                 onClick={() => onChange({ icon: emoji, color })}
-                className={cn(CELL, "text-[17px]", icon === emoji && "bg-accent-surface")}
+                className={cn(CELL, "text-lg", icon === emoji && "bg-accent-surface")}
               >
                 {emoji}
               </button>

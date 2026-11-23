@@ -1,6 +1,7 @@
-import { toast, Btn } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import { useEffect, useState } from "react";
 import { CheckIcon, CopyIcon, KeyRoundIcon } from "lucide-react";
+import { Button } from "@otter/ui/components/button";
 
 export function CodeCard({ code, onTrash }: { code: string; onTrash?: () => void }) {
   const [copied, setCopied] = useState(false);
@@ -25,15 +26,15 @@ export function CodeCard({ code, onTrash }: { code: string; onTrash?: () => void
         <KeyRoundIcon className="size-4 text-muted-foreground" aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="text-[13px] text-muted-foreground">Verification code</div>
+        <div className="text-body text-muted-foreground">Verification code</div>
         <div className="truncate font-mono text-lg font-semibold tracking-wider text-foreground select-all">
           {code}
         </div>
       </div>
-      <Btn size="sm" onClick={copy}>
+      <Button size="sm" onClick={copy}>
         {copied ? <CheckIcon /> : <CopyIcon />}
         {copied ? "Copied" : onTrash ? "Copy & trash" : "Copy"}
-      </Btn>
+      </Button>
     </div>
   );
 }

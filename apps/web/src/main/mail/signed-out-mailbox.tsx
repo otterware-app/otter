@@ -1,9 +1,9 @@
-import { Button } from "~/components/ui/button";
+import { Button } from "@otter/ui/components/button";
 import { ImapPasswordForm } from "./add-mailbox";
 import { mailApi } from "./api";
 import { signInName, signInProvider, signsInWithPassword } from "./capabilities";
 import { useAddAccount } from "./hooks";
-import { toast } from "./toast";
+import { toast } from "@otter/ui/components/toast";
 import type { MailAccount } from "./types";
 
 export function SignedOutMailbox({ account }: { account: MailAccount }) {
@@ -27,13 +27,13 @@ export function SignedOutMailbox({ account }: { account: MailAccount }) {
       </span>
       <div className="pt-3">
         {signIn.isPending ? (
-          <Button size="small" onClick={() => void mailApi.cancelAddAccount()}>
+          <Button size="sm" onClick={() => void mailApi.cancelAddAccount()}>
             Cancel sign-in
           </Button>
         ) : (
           <Button
-            size="small"
-            variant="accent"
+            size="sm"
+            variant="primary"
             onClick={() =>
               void signIn.mutateAsync(account.email).catch((err: unknown) => {
                 toast.error(`Couldn't sign in to ${account.email}`, {

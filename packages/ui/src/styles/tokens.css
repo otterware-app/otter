@@ -1,0 +1,179 @@
+/* Otter's design tokens: the stock palette (light, `.dark`, and the sidebar's
+   own scope) and the scales. Themes repaint these same variables at runtime
+   (apps/web/src/main/theme/apply-theme.ts). `pnpm design:tokens` resolves them
+   into design/tokens.json, the variables design/otter.pen uses. */
+
+:root {
+  /* Native scrollbars and form controls follow the app's appearance, not the
+     system's (a white scrollbar track in dark mode otherwise). */
+  color-scheme: light;
+  --radius: 0.5rem;
+  --glass-blur: 12px;
+  --glass-opacity: 80%;
+  --glass-saturation: 1.14;
+  /* The sidebar's insets: its content from its edges, a row's text from the row's. */
+  --sidebar-content-inset: 0.5rem;
+  --sidebar-control-gap: 0.5rem;
+  --sidebar-row-content-inset: 0.625rem;
+  --sidebar-heading-inset: var(--sidebar-row-content-inset);
+
+  --canvas: #ffffff;
+  --app-chrome-background: var(--canvas);
+  --foreground: #1d1d20;
+  --card: #ffffff;
+  --card-foreground: #1d1d20;
+  --popover: #ffffff;
+  --popover-foreground: #1d1d20;
+  --surface-raised: color-mix(in srgb, var(--card) 20%, transparent);
+  --primary: oklch(0.52 0.2 260);
+  --primary-foreground: #ffffff;
+  --accent: var(--primary);
+  --accent-contrast: var(--primary-foreground);
+  --secondary: #f7f7f8;
+  --secondary-foreground: #1d1d20;
+  --muted: #f7f7f8;
+  --muted-foreground: #6c6c75;
+  /* Tertiary text: timestamps, hints, counts. */
+  --faint-foreground: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+  --placeholder: var(--muted-foreground);
+  --secondary-label: var(--muted-foreground);
+  --icon-muted: var(--muted-foreground);
+  --accent-surface: #f3f3f5;
+  --accent-surface-foreground: #18181b;
+  --message-surface: var(--accent-surface);
+  --message-foreground: var(--foreground);
+  --error: #ef4444;
+  --error-foreground: #b91c1c;
+  --error-surface: color-mix(in srgb, var(--error) 8%, transparent);
+  --destructive: var(--error);
+  --destructive-foreground: var(--error-foreground);
+  /* Flags (Outlook's red) and the trash in the selection bar: the palette's
+     red, so a theme's own red carries over. */
+  --red: var(--error);
+  --border: #e3e3e7;
+  --input: #d4d4da;
+  --ring: var(--primary);
+  --info: #3b82f6;
+  --info-foreground: #1d4ed8;
+  --success: #10b981;
+  --success-foreground: #047857;
+  --warning: #f59e0b;
+  --warning-foreground: #b45309;
+  --warning-surface: color-mix(in srgb, var(--warning) 8%, transparent);
+  /* An agent waiting on an answer from you. */
+  --question-foreground: #4f46e5;
+  /* Today in the calendar: a warm red, in light and dark. */
+  --calendar-today: #eb5757;
+  --sidebar-surface: #ededf0;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-muted-foreground: var(--muted-foreground);
+  --sidebar-control-surface: #f3f3f5;
+  /* Rows are tinted with the text color, so they show on any surface: the
+     sidebar's, the list's, a menu's. */
+  --sidebar-row-hover: color-mix(in srgb, var(--foreground) 4%, transparent);
+  --sidebar-row-active: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --sidebar-row-selected: color-mix(in srgb, var(--foreground) 6%, transparent);
+  --sidebar-line: var(--border);
+  --sidebar-icon-color: color-mix(
+    in srgb,
+    var(--sidebar-muted-foreground) 60%,
+    var(--sidebar-surface)
+  );
+  /* A card's edge against the frame: the frame's surface a little of the
+     way to the text (a darker rim in light; .dark lifts the card's own), so
+     it shows in every theme, whatever its border role is. */
+  --panel-edge: color-mix(in srgb, var(--foreground) 5%, var(--sidebar-surface));
+  --code-background: color-mix(in srgb, var(--card) 90%, var(--canvas));
+  --code-foreground: var(--foreground);
+  --chat-composer-surface: var(--card);
+  --chat-composer-outline: rgb(0 0 0 / 8%);
+  --chat-composer-highlight: transparent;
+  --scrollbar-thumb: color-mix(in srgb, var(--foreground) 18%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--foreground) 28%, transparent);
+}
+
+.dark {
+  color-scheme: dark;
+  --glass-blur: 16px;
+  --glass-saturation: 1.08;
+
+  --canvas: #121213;
+  --surface-raised: color-mix(in srgb, var(--canvas) 96%, #ffffff);
+  --foreground: #f2f2f3;
+  --card: color-mix(in srgb, var(--canvas) 96%, #ffffff);
+  --card-foreground: #f2f2f3;
+  --popover: color-mix(in srgb, var(--canvas) 93%, #ffffff);
+  --popover-foreground: #f2f2f3;
+  --primary: oklch(0.62 0.19 260);
+  --secondary: rgb(255 255 255 / 4%);
+  --secondary-foreground: #f2f2f3;
+  --muted: rgb(255 255 255 / 4%);
+  --muted-foreground: #929295;
+  --accent-surface: rgb(255 255 255 / 5%);
+  --accent-surface-foreground: #f2f2f3;
+  --error: color-mix(in srgb, #ef4444 90%, #ffffff);
+  --error-foreground: #f87171;
+  --error-surface: color-mix(in srgb, var(--error) 16%, transparent);
+  --border: rgb(255 255 255 / 8%);
+  --input: rgb(255 255 255 / 11%);
+  --info-foreground: #60a5fa;
+  --success-foreground: #34d399;
+  --warning-foreground: #fbbf24;
+  --warning-surface: color-mix(in srgb, var(--warning) 16%, transparent);
+  --question-foreground: #a5b4fc;
+  /* The frame: the sidebar's (its [data-app-sidebar] scope), so the window
+     around the content panel is one color, below the mail. */
+  --sidebar-surface: #09090a;
+  --sidebar-control-surface: var(--muted);
+  --sidebar-row-hover: color-mix(in srgb, var(--foreground) 5%, transparent);
+  --sidebar-row-active: color-mix(in srgb, var(--foreground) 9%, transparent);
+  --sidebar-row-selected: color-mix(in srgb, var(--foreground) 7%, transparent);
+  /* In the dark the cards are the lighter surface: their edge is a lift of
+     their own tone, so it shows against the frame and the Mac's glass alike. */
+  --panel-edge: color-mix(in srgb, var(--foreground) 7%, var(--canvas));
+  --chat-composer-surface: var(--surface-raised);
+  --chat-composer-outline: rgb(255 255 255 / 5%);
+  --chat-composer-highlight: rgb(255 255 255 / 3%);
+}
+
+[data-app-sidebar] {
+  --canvas: #ffffff;
+  --foreground: #1d1d20;
+  --card: #ffffff;
+  --card-foreground: #1d1d20;
+  --accent-surface: #f3f3f5;
+  --accent-surface-foreground: #18181b;
+  --muted: #f7f7f8;
+  --muted-foreground: #6c6c75;
+  --border: #e3e3e7;
+  --input: #d4d4da;
+  --sidebar-surface: #ededf0;
+  --sidebar-foreground: #1d1d20;
+  --sidebar-muted-foreground: #6c6c75;
+  --sidebar-control-surface: #f3f3f5;
+  --sidebar-row-hover: color-mix(in srgb, var(--foreground) 5%, transparent);
+  --sidebar-row-active: color-mix(in srgb, var(--foreground) 9%, transparent);
+  --sidebar-row-selected: color-mix(in srgb, var(--foreground) 7%, transparent);
+  --sidebar-line: #e3e3e7;
+}
+
+.dark [data-app-sidebar] {
+  --canvas: #09090a;
+  --foreground: #f2f2f3;
+  --card: #09090a;
+  --card-foreground: var(--foreground);
+  --accent-surface: #1c1c1d;
+  --accent-surface-foreground: #f7f7f8;
+  --muted: #121213;
+  --muted-foreground: #9c9c9f;
+  --border: rgb(255 255 255 / 8%);
+  --input: rgb(255 255 255 / 18%);
+  --sidebar-surface: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-muted-foreground: var(--muted-foreground);
+  --sidebar-control-surface: var(--muted);
+  --sidebar-row-hover: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --sidebar-row-active: color-mix(in srgb, var(--foreground) 14%, transparent);
+  --sidebar-row-selected: color-mix(in srgb, var(--foreground) 11%, transparent);
+  --sidebar-line: var(--border);
+}

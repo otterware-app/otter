@@ -9,7 +9,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "./menu";
+} from "@otter/ui/components/dropdown-menu";
 
 export type PhoneAt = { number: string; text: string; x: number; y: number };
 
@@ -18,9 +18,10 @@ export function usePhoneMenu() {
   const [at, setAt] = useState<PhoneAt | null>(null);
   const menu = at ? (
     <DropdownMenu open onOpenChange={(open) => !open && setAt(null)}>
-      <DropdownMenuTrigger asChild>
-        <span aria-hidden className="fixed size-0" style={{ left: at.x, top: at.y }} />
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        nativeButton={false}
+        render={<span aria-hidden className="fixed size-0" style={{ left: at.x, top: at.y }} />}
+      />
       <DropdownMenuContent>
         <DropdownMenuLabel>{at.text}</DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -28,13 +29,13 @@ export function usePhoneMenu() {
           <>
             <DropdownMenuItem
               icon={<PhoneIcon />}
-              onSelect={() => void window.desktopBridge.openExternal(`tel:${at.number}`)}
+              onClick={() => void window.desktopBridge.openExternal(`tel:${at.number}`)}
             >
               Call
             </DropdownMenuItem>
             <DropdownMenuItem
               icon={<MessageCircleIcon />}
-              onSelect={() => void window.desktopBridge.openExternal(`sms:${at.number}`)}
+              onClick={() => void window.desktopBridge.openExternal(`sms:${at.number}`)}
             >
               Send Message
             </DropdownMenuItem>
@@ -42,7 +43,7 @@ export function usePhoneMenu() {
         ) : null}
         <DropdownMenuItem
           icon={<CopyIcon />}
-          onSelect={() => void navigator.clipboard.writeText(at.text)}
+          onClick={() => void navigator.clipboard.writeText(at.text)}
         >
           Copy
         </DropdownMenuItem>

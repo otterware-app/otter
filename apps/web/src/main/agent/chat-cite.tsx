@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { QuoteIcon } from "lucide-react";
-import { buttonClass } from "../mail/ui";
 import { useLatest } from "../use-latest";
 import { setCitations, useChats } from "./chat-store";
+import { Button } from "@otter/ui/components/button";
+import { Textarea } from "@otter/ui/components/textarea";
 
 /** `source`: the file it was selected in, when not the chat. */
 export type Citation = { id: string; text: string; comment?: string; source?: string };
@@ -158,7 +159,7 @@ export function CitationCommentEditor({
         }
       }}
     >
-      <textarea
+      <Textarea
         autoFocus
         aria-label="Comment on the cited text"
         placeholder="Add an optional comment…"
@@ -171,19 +172,15 @@ export function CitationCommentEditor({
             onSave(comment);
           }
         }}
-        className="field-sizing-content block max-h-40 min-h-12 w-full resize-none bg-transparent px-1 py-1 text-sm text-foreground outline-none placeholder:text-placeholder"
+        className="block max-h-40 min-h-12 border-0 bg-transparent p-1 focus-visible:bg-transparent focus-visible:ring-0"
       />
       <div className="mt-2 flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className={buttonClass("outline", "sm")}>
+        <Button size="sm" onClick={onCancel}>
           Cancel
-        </button>
-        <button
-          type="button"
-          onClick={() => onSave(comment)}
-          className={buttonClass("primary", "sm")}
-        >
+        </Button>
+        <Button variant="primary" size="sm" onClick={() => onSave(comment)}>
           Save
-        </button>
+        </Button>
       </div>
     </div>,
     document.body,

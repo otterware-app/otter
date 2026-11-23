@@ -3,9 +3,9 @@ import { flushSync } from "react-dom";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 
-import { cn } from "../mail/ui";
 import { BrowserPage } from "./browser-view";
 import { useBrowser, type BrowserTab } from "./store";
+import { cn } from "@otter/ui/lib/utils";
 
 type Rect = { top: number; left: number; width: number; height: number };
 type Surface = { rect: Rect; clip: string | undefined; visible: boolean; className?: string };

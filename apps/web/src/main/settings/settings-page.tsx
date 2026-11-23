@@ -3,8 +3,8 @@ import { DEFAULT_SETTINGS } from "@otter/contracts";
 import { ExtensionCategoryPane } from "../extensions/extensions-pane";
 import { hasIntegrations } from "../extensions/registry";
 import { useCallback, useEffect, useState } from "react";
-import { Switch } from "~/components/ui/switch";
-import { toast } from "../mail/toast";
+import { Switch } from "@otter/ui/components/switch";
+import { toast } from "@otter/ui/components/toast";
 import { mailApi, type MailApp, type NotificationsMode, type SettingsPane } from "../mail/api";
 import {
   getAdvanceDirection,
@@ -19,22 +19,22 @@ import { OtterAccountPane } from "./otter-account-pane";
 import { ProvidersPane } from "./providers-pane";
 import { BrowserSettingsPane } from "../browser/browser-settings";
 import { UpdatesSection } from "../updates";
-import {
-  RowSelect,
-  SettingResetButton,
-  SettingsPageContainer,
-  SettingsRow,
-  SettingsSearchTargetProvider,
-  SettingsSection,
-} from "./settings-ui";
 import { searchableSetting } from "./settings-search";
 import { features } from "../features";
 import { osNames } from "../os-names";
-import { Btn } from "../mail/ui";
 import { requestTour, startSetup } from "../onboarding/onboarding";
 import { requestProblemReport } from "../support/report-problem";
 import { errorReportsAvailable } from "../error-reports";
 import { OpenSourceLicensesButton } from "./open-source-licenses";
+import { Button } from "@otter/ui/components/button";
+import {
+  SettingsSelect,
+  SettingsResetButton,
+  SettingsPageContainer,
+  SettingsRow,
+  SettingsSearchTargetProvider,
+  SettingsSection,
+} from "@otter/ui/components/settings";
 
 export type SettingsRoute = {
   pane: SettingsPane;
@@ -205,7 +205,7 @@ function GeneralPane() {
               {...searchableSetting("launch-at-login")}
               resetAction={
                 launchAtLogin !== DEFAULT_SETTINGS.launchAtLogin ? (
-                  <SettingResetButton
+                  <SettingsResetButton
                     label="launch at login"
                     onClick={() => void handleLaunchAtLoginChange(DEFAULT_SETTINGS.launchAtLogin)}
                   />
@@ -226,7 +226,7 @@ function GeneralPane() {
               {...searchableSetting("dock-badge")}
               resetAction={
                 dockBadge !== DEFAULT_SETTINGS.dockBadgeEnabled ? (
-                  <SettingResetButton
+                  <SettingsResetButton
                     label="dock badge"
                     onClick={() => void handleDockBadgeChange(DEFAULT_SETTINGS.dockBadgeEnabled)}
                   />
@@ -250,7 +250,7 @@ function GeneralPane() {
           {...searchableSetting("sync-interval")}
           resetAction={
             syncInterval != null && syncInterval !== DEFAULT_SETTINGS.syncIntervalSeconds ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label="check for new mail"
                 onClick={() =>
                   void handleSyncIntervalChange(String(DEFAULT_SETTINGS.syncIntervalSeconds))
@@ -260,7 +260,7 @@ function GeneralPane() {
           }
           description="Sync runs in the background at this cadence."
           control={
-            <RowSelect
+            <SettingsSelect
               value={syncInterval != null ? String(syncInterval) : undefined}
               onValueChange={(v) => void handleSyncIntervalChange(v)}
               options={SYNC_INTERVAL_OPTIONS.map((o) => ({
@@ -276,7 +276,7 @@ function GeneralPane() {
           resetAction={
             notificationsMode != null &&
             notificationsMode !== DEFAULT_SETTINGS.notificationsMode ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label="notifications"
                 onClick={() =>
                   void handleNotificationsModeChange(DEFAULT_SETTINGS.notificationsMode)
@@ -286,7 +286,7 @@ function GeneralPane() {
           }
           description="Notify about new mail found by background sync."
           control={
-            <RowSelect
+            <SettingsSelect
               value={notificationsMode ?? undefined}
               onValueChange={(v) => void handleNotificationsModeChange(v)}
               options={NOTIFICATIONS_OPTIONS}
@@ -298,7 +298,7 @@ function GeneralPane() {
           {...searchableSetting("advance-direction")}
           resetAction={
             advanceDirection !== "next" ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label="after archive, delete, or move"
                 onClick={() => handleAdvanceDirectionChange("next")}
               />
@@ -306,7 +306,7 @@ function GeneralPane() {
           }
           description="Which message to select next in the list."
           control={
-            <RowSelect
+            <SettingsSelect
               value={advanceDirection}
               onValueChange={handleAdvanceDirectionChange}
               options={ADVANCE_DIRECTION_OPTIONS}
@@ -322,7 +322,7 @@ function GeneralPane() {
             {...searchableSetting("default-mail-app")}
             description={`Which app opens mailto: links across ${osNames.system}.`}
             control={
-              <RowSelect
+              <SettingsSelect
                 value={defaultMailAppId ?? undefined}
                 onValueChange={(v) => void handleDefaultMailChange(v)}
                 options={(mailApps ?? []).map((app) => ({ value: app.id, label: app.name }))}
@@ -339,18 +339,18 @@ function GeneralPane() {
           {...searchableSetting("tour")}
           description="A minute's walk through the app, on your own mail."
           control={
-            <Btn size="sm" onClick={requestTour}>
+            <Button size="sm" onClick={requestTour}>
               Take the tour
-            </Btn>
+            </Button>
           }
         />
         <SettingsRow
           {...searchableSetting("setup")}
           description="Mailboxes, look, notifications, your agent and the keys, one step at a time."
           control={
-            <Btn size="sm" onClick={() => startSetup()}>
+            <Button size="sm" onClick={() => startSetup()}>
               Run setup again
-            </Btn>
+            </Button>
           }
         />
       </SettingsSection>
@@ -361,9 +361,9 @@ function GeneralPane() {
           {...searchableSetting("send-feedback")}
           description="Report a bug or suggest a feature, with optional agent investigation."
           control={
-            <Btn size="sm" onClick={requestProblemReport}>
+            <Button size="sm" onClick={requestProblemReport}>
               Send feedback
-            </Btn>
+            </Button>
           }
         />
         {errorReportsAvailable ? (
@@ -371,7 +371,7 @@ function GeneralPane() {
             {...searchableSetting("error-reports")}
             resetAction={
               errorReports !== DEFAULT_SETTINGS.errorReports ? (
-                <SettingResetButton
+                <SettingsResetButton
                   label="error reports"
                   onClick={() => void handleErrorReportsChange(DEFAULT_SETTINGS.errorReports)}
                 />

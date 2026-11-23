@@ -1,7 +1,8 @@
 import { CopyIcon, VideoIcon, XIcon } from "lucide-react";
 import { meetingProvider, type MeetingProvider, type MeetingService } from "@otter/contracts";
-import { toast } from "../mail/toast";
-import { HintTooltip, IconBtn } from "../mail/ui";
+import { toast } from "@otter/ui/components/toast";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { IconButton, buttonVariants } from "@otter/ui/components/button";
 
 export const MEETING_NAMES: Record<MeetingProvider, string> = {
   googleMeet: "Google Meet",
@@ -68,22 +69,22 @@ export function MeetingRow({ link, onRemove }: { link: string; onRemove?: () => 
         <MeetingMark provider={provider} className="size-4 text-muted-foreground" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[13px]">{MEETING_NAMES[provider]}</span>
-        <span className="truncate text-[11px] text-muted-foreground">
+        <span className="truncate text-body">{MEETING_NAMES[provider]}</span>
+        <span className="truncate text-2xs text-muted-foreground">
           {link.replace(/^https:\/\//, "")}
         </span>
       </div>
-      <span className="flex shrink-0 items-center opacity-0 transition-opacity group-hover/meeting:opacity-100 group-focus-within/meeting:opacity-100">
+      <span className="flex shrink-0 items-center opacity-0 group-hover/meeting:opacity-100 group-focus-within/meeting:opacity-100">
         <HintTooltip label="Copy link">
-          <IconBtn label="Copy meeting link" onClick={copy}>
+          <IconButton label="Copy meeting link" onClick={copy}>
             <CopyIcon />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
         {onRemove ? (
           <HintTooltip label="Remove meeting">
-            <IconBtn label="Remove meeting" onClick={onRemove}>
+            <IconButton label="Remove meeting" onClick={onRemove}>
               <XIcon />
-            </IconBtn>
+            </IconButton>
           </HintTooltip>
         ) : null}
       </span>
@@ -91,7 +92,7 @@ export function MeetingRow({ link, onRemove }: { link: string; onRemove?: () => 
         href={link}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex h-6 shrink-0 items-center rounded-md bg-primary px-2.5 text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+        className={buttonVariants({ variant: "primary", size: "xs" })}
       >
         Join
       </a>
@@ -115,16 +116,16 @@ export function AddMeetingRow({
       </span>
       {added ? (
         <>
-          <span className="flex-1 truncate text-[13px]">{MEETING_NAMES[service]}</span>
-          <IconBtn label="Remove meeting" onClick={() => onChange(false)}>
+          <span className="flex-1 truncate text-body">{MEETING_NAMES[service]}</span>
+          <IconButton label="Remove meeting" onClick={() => onChange(false)}>
             <XIcon />
-          </IconBtn>
+          </IconButton>
         </>
       ) : (
         <button
           type="button"
           onClick={() => onChange(true)}
-          className="-mx-1.5 flex h-6 min-w-0 flex-1 cursor-pointer items-center rounded-md px-1.5 text-left text-[13px] text-muted-foreground outline-none hover:bg-foreground/[0.04] hover:text-foreground focus-visible:bg-foreground/[0.04]"
+          className="-mx-1.5 flex h-6 min-w-0 flex-1 cursor-pointer items-center rounded-md px-1.5 text-left text-body text-muted-foreground outline-none hover:bg-foreground/[0.04] hover:text-foreground focus-visible:bg-foreground/[0.04]"
         >
           Add {MEETING_NAMES[service]}
         </button>

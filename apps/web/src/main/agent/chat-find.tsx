@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { ChevronDownIcon, ChevronUpIcon, XIcon } from "lucide-react";
 
-import { IconBtn } from "../mail/ui";
 import { matchesStroke, parseStroke } from "../keybindings/keys";
+import { IconButton } from "@otter/ui/components/button";
 
 const ALL = "chat-find";
 const CURRENT = "chat-find-current";
@@ -205,15 +205,15 @@ export function FindBar({
           {total === 0 ? "No results" : `${at + 1}/${total}`}
         </span>
       ) : null}
-      <IconBtn label="Previous match" className="size-7" onClick={() => onStep(-1)}>
+      <IconButton label="Previous match" onClick={() => onStep(-1)}>
         <ChevronUpIcon className="size-4" />
-      </IconBtn>
-      <IconBtn label="Next match" className="size-7" onClick={() => onStep(1)}>
+      </IconButton>
+      <IconButton label="Next match" onClick={() => onStep(1)}>
         <ChevronDownIcon className="size-4" />
-      </IconBtn>
-      <IconBtn label="Close find" className="size-7" onClick={onClose}>
+      </IconButton>
+      <IconButton label="Close find" onClick={onClose}>
         <XIcon className="size-4" />
-      </IconBtn>
+      </IconButton>
     </div>
   );
 }

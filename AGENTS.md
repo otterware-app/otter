@@ -43,7 +43,7 @@ when a feature lands or goes.
   - `src/windows/`: the main window, and where its pages load from.
   - `src/updates.ts`: electron-updater against GitHub Releases.
 - `apps/web`: the React renderer, one build for both apps. `index.html` is the main window.
-  UI primitives live in `src/components/ui/`. `src/main/mail/` is the mail UI for every
+  Its screens are built from `@otter/ui` (below). `src/main/mail/` is the mail UI for every
   provider (sidebar, lists, reader, composer); it gates on the mailbox's capabilities.
   Where the main window is (mailbox, label, conversation, Settings pane) is its route
   (`src/main/router.tsx`, TanStack Router): in the hash in the desktop app, real paths on the web
@@ -100,6 +100,17 @@ when a feature lands or goes.
   its icon and settings form; the chat UI is shared.
 - `packages/contracts`: types shared by both sides, including `DesktopBridge`, the
   `window.desktopBridge` API the preload exposes, and the relay's API (`src/relay.ts`).
+- `packages/ui` (`@otter/ui`): the design system, shadcn-style on Base UI (Radix is gone, and
+  lint refuses it): the tokens (`src/styles/tokens.css`), the Tailwind theme and shared CSS
+  (`globals.css`, which the app's `styles.css` imports first), and every component a screen is
+  built from, primitives (Button, Dialog, menus, Select, Tooltip…) and patterns (the sidebar,
+  settings rows, chips, toasts, the command list). Its README has the rules: build from the
+  components, paint with tokens, type and radius on the scales. Something a second screen
+  would use goes here, not in the app; extensions import it directly.
+- `design/`: `otter.pen`, the design file (pen.dev), drawing the same tokens and components
+  under the same names; `tokens.json`, its variables, generated from the tokens
+  (`pnpm design:tokens`); its README says how the two stay in sync and maps each design
+  component to its code. A change to a token or a component lands in both.
 - `packages/shared`: the desktop and web color themes (`./themes`) and every app's demo mailbox
   (`./demo-mailboxes`). The web app imports it; the iPhone app bundles the demo as JSON.
 - `infra/relay`: https://relay.otterware.app (and https://relay.mail.otterware.app, for clients from

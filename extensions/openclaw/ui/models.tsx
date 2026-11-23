@@ -1,25 +1,22 @@
+import { PictureError, mailboxPicture, searchableSetting } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
+import { XIcon } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { IconButton } from "@otter/ui/components/button";
 import {
-  DraftInput,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  PictureError,
+} from "@otter/ui/components/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  SettingResetButton,
-  SettingsRow,
-  SettingsSection,
-  cn,
-  mailboxPicture,
-  searchableSetting,
-  toast,
-} from "@otter/web/extension-kit";
-import { XIcon } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+} from "@otter/ui/components/select";
+import { cn } from "@otter/ui/lib/utils";
 
 import type {
   FastMode,
@@ -31,6 +28,8 @@ import type {
 } from "../core/models";
 import { openClawApi } from "./api";
 import { OpenClawIcon } from "./icon";
+import { SettingsResetButton, SettingsRow, SettingsSection } from "@otter/ui/components/settings";
+import { DraftInput } from "@otter/ui/components/input";
 
 /** A select's value for what isn't set: an agent follows the default. */
 const DEFAULT = "default";
@@ -77,7 +76,13 @@ function OptionSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select
+      value={value}
+      items={options.map((o) => ({ value: o.id, label: o.name }))}
+      onValueChange={(v) => {
+        if (v !== null) onChange(v);
+      }}
+    >
       <SelectTrigger aria-label={label} className="w-56">
         <SelectValue placeholder={placeholder ?? "Choose a model"} />
       </SelectTrigger>
@@ -162,7 +167,7 @@ function SetupRows({
           description={fallbacksText}
           resetAction={
             defaults && setup.fallbacks ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label={`${who} fallbacks`}
                 onClick={() => onChange({ fallbacks: null })}
               />
@@ -183,17 +188,17 @@ function SetupRows({
               {chain.map((id) => (
                 <li
                   key={id}
-                  className="inline-flex h-7 items-center gap-0.5 rounded-lg border border-border/70 bg-surface-raised/60 pr-0.5 pl-2.5 text-[13px] text-foreground"
+                  className="inline-flex h-7 items-center gap-0.5 rounded-lg border border-border/70 bg-surface-raised/60 pr-0.5 pl-2.5 text-body text-foreground"
                 >
                   {nameOf(id)}
-                  <button
-                    type="button"
-                    aria-label={`Remove ${nameOf(id)}`}
+                  <IconButton
+                    label={`Remove ${nameOf(id)}`}
+                    size="icon-xs"
                     onClick={() => onChange({ fallbacks: chain.filter((f) => f !== id) })}
-                    className="inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    className="rounded-md"
                   >
                     <XIcon className="size-3" />
-                  </button>
+                  </IconButton>
                 </li>
               ))}
             </ol>
@@ -328,21 +333,18 @@ function IdentityRow({
       control={
         <>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={`Picture for ${agent.name}`}
-                className="cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-              >
-                <AgentFace agent={agent} />
-              </button>
+            <DropdownMenuTrigger
+              aria-label={`Picture for ${agent.name}`}
+              className="cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            >
+              <AgentFace agent={agent} />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onSelect={() => input.current?.click()}>
+              <DropdownMenuItem onClick={() => input.current?.click()}>
                 {agent.avatar ? "Change picture…" : "Choose picture…"}
               </DropdownMenuItem>
               {agent.avatar ? (
-                <DropdownMenuItem onSelect={() => onChange({ avatar: null })}>
+                <DropdownMenuItem onClick={() => onChange({ avatar: null })}>
                   Remove picture
                 </DropdownMenuItem>
               ) : null}

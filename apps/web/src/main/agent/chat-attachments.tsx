@@ -8,10 +8,11 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
-import { FileTextIcon, ImageIcon, LoaderCircleIcon, PaperclipIcon, XIcon } from "lucide-react";
-import { toast } from "../mail/toast";
+import { FileTextIcon, ImageIcon, PaperclipIcon, XIcon } from "lucide-react";
+import { toast } from "@otter/ui/components/toast";
 import { mailApi, type ChatAttachment } from "../mail/api";
-import { cn } from "../mail/ui";
+import { Spinner } from "@otter/ui/components/spinner";
+import { cn } from "@otter/ui/lib/utils";
 
 const IMAGE_TYPES = new Set(["image/gif", "image/jpeg", "image/png", "image/webp"]);
 const IMAGE_EXTENSIONS = /\.(gif|jpe?g|png|webp)$/i;
@@ -273,18 +274,16 @@ export function AttachmentChip({
         {tile}
         {pending ? (
           <span className="absolute inset-0 flex items-center justify-center bg-card/70">
-            <LoaderCircleIcon className="animate-spin" />
+            <Spinner />
           </span>
         ) : null}
       </span>
       <span className="flex min-w-0 flex-col">
-        <span
-          className={cn("truncate text-[13px] leading-4 text-foreground", off && "line-through")}
-        >
+        <span className={cn("truncate text-body leading-4 text-foreground", off && "line-through")}>
           {name}
         </span>
         {detail ? (
-          <span className="truncate text-[11px] leading-4 text-muted-foreground">{detail}</span>
+          <span className="truncate text-2xs leading-4 text-muted-foreground">{detail}</span>
         ) : null}
       </span>
       {onRemove ? (
@@ -375,7 +374,7 @@ export function SentAttachments({ attachments }: { attachments: SentAttachment[]
               {image.thumb ? (
                 <img src={image.thumb} alt={image.name} className="block size-full object-cover" />
               ) : (
-                <div className="flex min-h-[72px] items-center justify-center px-2 py-3 text-center text-[11px] text-muted-foreground/70">
+                <div className="flex min-h-[72px] items-center justify-center px-2 py-3 text-center text-2xs text-faint-foreground">
                   {image.name}
                 </div>
               )}

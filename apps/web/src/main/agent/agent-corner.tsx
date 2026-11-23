@@ -2,7 +2,9 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 import { AgentIcon } from "./agent-icon";
 
 import { isBlank, useChats } from "./chat-store";
-import { HintTooltip, cn } from "../mail/ui";
+import { ShortcutText } from "../keybindings/store";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 
 export type ChatStatus = "approval" | "input" | "working" | "failed" | "done" | null;
 
@@ -22,7 +24,7 @@ export function useChatStatus(id: string): ChatStatus {
 /** The list's status colors (agent-sidebar.tsx's `statusOf`). */
 const STATUS_DOT: Record<NonNullable<ChatStatus>, string> = {
   approval: "bg-warning-foreground",
-  input: "bg-indigo-600 dark:bg-indigo-300",
+  input: "bg-question-foreground",
   working: "animate-pulse bg-info-foreground",
   failed: "bg-destructive-foreground",
   done: "bg-success-foreground",
@@ -131,7 +133,7 @@ export function AgentCorner({ onOpen }: { onOpen: () => void }) {
   return (
     <>
       <Notch width={BUTTON} height={BUTTON} />
-      <HintTooltip label="Agent" shortcut="agent.toggle" side="top">
+      <HintTooltip label="Agent" hint={<ShortcutText command="agent.toggle" />} side="top">
         <button
           type="button"
           aria-label="Agent"
