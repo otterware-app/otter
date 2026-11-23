@@ -1,3 +1,4 @@
+import { useLatest } from "../use-latest";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   useQuery,
@@ -532,23 +533,43 @@ export function useAllAccountLabels(
 export function useLabelResolver(
   accountIds: string[],
 ): (accountId: string | undefined, labelId: string) => MailLabel | undefined {
-  const results = useQueries({
+  const key = accountIds.join("\n");
+  const combine = useCallback(
+    (results: { data: MailLabel[] | undefined }[]) => {
+      const ids = key.split("\n");
+      const map = new Map<string, MailLabel>();
+      results.forEach((r, i) => {
+        for (const label of r.data ?? []) map.set(`${ids[i]}:${label.id}`, label);
+      });
+      return map;
+    },
+    [key],
+  );
+  const map = useQueries({
     queries: accountIds.map((id) => ({
       queryKey: queryKeys.labels(id),
       queryFn: () => mailApi.listLabels(id),
       staleTime: STALE_TIME,
     })),
+    combine,
   });
-
-  const map = new Map<string, MailLabel>();
-  results.forEach((r, i) => {
-    const acc = accountIds[i];
-    for (const label of (r.data as MailLabel[] | undefined) ?? []) {
-      map.set(`${acc}:${label.id}`, label);
-    }
-  });
-
-  return (accountId, labelId) => (accountId ? map.get(`${accountId}:${labelId}`) : undefined);
+  // A new function only when a label's name, type or color does: counts change with every
+  // message read, and rows that take it (for their chips) can then skip re-rendering. It
+  // reads the latest labels, counts included.
+  const latest = useRef(map);
+  // oxlint-disable-next-line react/refs -- the function below reads the latest labels when called.
+  latest.current = map;
+  const shape = [...map]
+    .map(
+      ([k, l]) => `${k}\t${l.name}\t${l.type}\t${l.color?.backgroundColor}\t${l.color?.textColor}`,
+    )
+    .join("\n");
+  return useCallback(
+    (accountId: string | undefined, labelId: string) =>
+      accountId ? latest.current.get(`${accountId}:${labelId}`) : undefined,
+    // oxlint-disable-next-line react/memo-dependencies -- `shape` is what decides a new function.
+    [shape],
+  );
 }
 
 export function useThread(accountId: string | null, threadId: string | null, alias?: string) {
@@ -1890,18 +1911,28 @@ export function useGetAttachment() {
 /** An element's width, kept current. */
 export function useWidth(initial: number): [number, (el: HTMLElement | null) => void] {
   const [width, setWidth] = useState(initial);
+  const ref = useObservedWidth(setWidth, initial);
+  return [width, ref];
+}
+
+/** Calls `onWidth` with an element's width as it changes, without re-rendering for it:
+ *  a panel sliding open resizes what's beside it on every frame. */
+export function useObservedWidth(
+  onWidth: (width: number) => void,
+  initial: number,
+): (el: HTMLElement | null) => void {
+  const latest = useLatest(onWidth);
   const observer = useRef<ResizeObserver | null>(null);
-  const ref = useCallback(
+  return useCallback(
     (el: HTMLElement | null) => {
       observer.current?.disconnect();
       observer.current = null;
-      if (!el) return setWidth(initial);
-      setWidth(el.getBoundingClientRect().width);
-      const ro = new ResizeObserver(([entry]) => setWidth(entry.borderBoxSize[0].inlineSize));
+      if (!el) return latest.current(initial);
+      latest.current(el.getBoundingClientRect().width);
+      const ro = new ResizeObserver(([entry]) => latest.current(entry.borderBoxSize[0].inlineSize));
       ro.observe(el);
       observer.current = ro;
     },
-    [initial],
+    [initial, latest],
   );
-  return [width, ref];
 }

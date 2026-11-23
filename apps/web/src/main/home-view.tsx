@@ -30,7 +30,7 @@ import { NewMessageView } from "./mail/new-message-view";
 import { CommandPalette } from "./mail/command-palette";
 import { BrowserPanel } from "./browser/browser-panel";
 import { PageHost } from "./browser/page-host";
-import { ChatBar } from "./agent/chat-bar";
+import { AgentCorner } from "./agent/agent-corner";
 import { ChatWindow } from "./agent/chat-window";
 import { ChatWorkspace, type ChatPanelControl } from "./agent/chat-workspace";
 import { SCHEDULED_TASKS, ScheduledTasksView } from "./agent/agent-scheduled";
@@ -150,7 +150,6 @@ const READER_MIN_WIDTH = 360;
 // Auto layout: below this, the reader beside the list is too narrow to read in.
 const AUTO_SPLIT_READER_WIDTH = 560;
 const BROWSER_OPEN_WIDTH = 720;
-const CALENDAR_PANEL_WIDTH = 260;
 const FRAME_INSET = 4;
 const IN_EVERY_MAILBOX = new Set(["INBOX", "SENT", "DRAFT", "STARRED", "UNREAD", "SPAM", "TRASH"]);
 
@@ -334,7 +333,7 @@ function useStoredWidth(
   return { width: shown, start, widen, paneRef, frameRef };
 }
 
-type PaneWidths = { sidebar: number; list: number; browser: number };
+type PaneWidths = { sidebar: number; list: number; browser: number; calendar: number };
 
 function PaneResizer({
   onPointerDown,
@@ -359,6 +358,19 @@ function PaneResizer({
   );
 }
 
+// Left to CSS (the root's data attributes) and made once: the list then keeps its props, and
+// skips re-rendering, when the sidebar or a panel opening flips the layout.
+const LIST_LEADING = (
+  <span className="contents [[data-sidebar-open=true]_&]:hidden">
+    <TitlebarInset />
+  </span>
+);
+const LIST_TRAILING = (
+  <span className="hidden [[data-mail-layout=full][data-right-panels=none]_&]:contents">
+    <PanelControlSlot />
+  </span>
+);
+
 const PANE = "min-h-0 overflow-hidden";
 const CARD = `${PANE} relative pr-1 before:pointer-events-none before:absolute before:left-0 before:right-1 before:bottom-0 before:top-(--workspace-card-top) before:-z-10 before:rounded-xl after:pointer-events-none after:absolute after:left-0 after:right-1 after:bottom-0 after:top-(--workspace-card-top) after:z-30 after:rounded-xl after:border after:border-(--panel-edge) dark:after:border-[0.5px]`;
 const PANE_SIDEBAR = `${PANE} relative text-sidebar-foreground`;
@@ -372,6 +384,15 @@ const JOINED_MAIN =
   "before:rounded-l-none after:rounded-l-none after:border-l-0 dark:after:border-l-0";
 const PANE_FRAME =
   "flex min-h-0 shrink-0 overflow-hidden [[data-panel-animations=true]_&]:transition-[width] [[data-panel-animations=true]_&]:[transition-duration:var(--panel-animation-duration)] [[data-panel-animations=true]_&]:ease-out";
+
+/** The same object until the view or the mailboxes change, so the list's rows can skip
+ *  re-rendering. */
+function useCombined(view: MailView | null, accounts: MailAccount[]) {
+  return useMemo(
+    () => (view ? { viewId: view.id, name: view.name, rules: resolveRules(view, accounts) } : null),
+    [view, accounts],
+  );
+}
 
 export function HomeView() {
   const accountsQuery = useAccounts();
@@ -621,11 +642,26 @@ function MailHome() {
   const sidebarOpen = settingsRoute ? settingsSidebarOpen : mailSidebarOpen;
   const hasCalendars = calendarAccounts(accounts).length > 0;
   const calendarPanelVisible = calendarPanelOpen && hasCalendars && !settingsRoute && !isChats;
+  const {
+    width: calendarPanelWidth,
+    start: calendarPanelStart,
+    paneRef: calendarPanelPaneRef,
+    frameRef: calendarPanelFrameRef,
+  } = useStoredWidth(
+    "gmail:pane:calendar",
+    260,
+    220,
+    480,
+    -1,
+    () => window.innerWidth - FRAME_INSET - (sidebarOpen ? sidebarWidth : 0) - READER_MIN_WIDTH,
+    undefined,
+    (width) => dragAutoLayout("calendar", width),
+  );
   const browserRoomBeside = (list: boolean) =>
     window.innerWidth -
     FRAME_INSET -
     (sidebarOpen ? sidebarWidth : 0) -
-    (calendarPanelVisible ? CALENDAR_PANEL_WIDTH : 0) -
+    (calendarPanelVisible ? calendarPanelWidth : 0) -
     (list && !ownsMain ? listWidth : 0) -
     READER_MIN_WIDTH;
   // Dragged, it may take the list's room unless the layout is Split view: Auto then gives
@@ -644,15 +680,20 @@ function MailHome() {
     usePanelAnimationSettings(settingsRoute ? "settings" : "mail");
   const browserVisible = browserOpen && !settingsRoute && !isChats;
   const windowWidth = useSyncExternalStore(onWindowResize, () => window.innerWidth);
-  const splitFits = ({ sidebar, list, browser }: PaneWidths) =>
+  const splitFits = ({ sidebar, list, browser, calendar }: PaneWidths) =>
     windowWidth -
       FRAME_INSET -
       (sidebarOpen ? sidebar : 0) -
       list -
       (browserVisible ? browser : 0) -
-      (calendarPanelVisible ? CALENDAR_PANEL_WIDTH : 0) >=
+      (calendarPanelVisible ? calendar : 0) >=
     AUTO_SPLIT_READER_WIDTH;
-  const paneWidths = { sidebar: sidebarWidth, list: listWidth, browser: browserWidth };
+  const paneWidths = {
+    sidebar: sidebarWidth,
+    list: listWidth,
+    browser: browserWidth,
+    calendar: calendarPanelWidth,
+  };
   useLayoutEffect(() => {
     splitFitsRef.current = (dragged) => splitFits({ ...paneWidths, ...dragged });
   });
@@ -663,11 +704,6 @@ function MailHome() {
         ? "split"
         : "full";
   const fullInbox = mailLayout === "full" && !ownsMain;
-  const sidebarPresent = usePanelPresence(
-    sidebarOpen,
-    panelAnimationsActive,
-    panelAnimationDurationMs,
-  );
   const browserPresent = usePanelPresence(
     browserVisible,
     panelAnimationsActive,
@@ -750,7 +786,17 @@ function MailHome() {
     setChatWindow(true);
   };
   const chatWindowShown = chatWindowOpen && !isChats && !settingsRoute;
-  const chatBarShown = !isChats || settingsRoute;
+  const settingsSidebarPresent = usePanelPresence(
+    sidebarOpen,
+    panelAnimationsActive,
+    panelAnimationDurationMs,
+  );
+  const chatWindowPresent = usePanelPresence(
+    chatWindowShown,
+    panelAnimationsActive,
+    panelAnimationDurationMs,
+  );
+  const agentCornerShown = !isChats || settingsRoute;
   const closeChat = () => setChatWindow(false);
   useLayoutEffect(() => {
     closeChatWindowRef.current = () => {
@@ -767,18 +813,6 @@ function MailHome() {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const selectedKind = useChatProvider(undefined).selectedId ?? "";
   const activeChatId = useChats((s) => s.activeId);
-  const selectChat = (id: string) => {
-    if (isChats && !settingsRoute) go({ label: id }, true);
-    else if (chatWindowShown && activeChatId === id) setChatWindow(false);
-    else {
-      showChat(id);
-      openChat();
-    }
-  };
-  const chatShelved = (id: string) => {
-    if (chatWindowShown && activeChatId === id) closeChat();
-  };
-
   const mailBeforeChats = useRef<MailLoc | null>(null);
   const lastCalendarMode = useRef<string>("week");
   const lastInWorkspace = useRef(new Map<string, WorkspaceLocation>());
@@ -1207,9 +1241,7 @@ function MailHome() {
     root.setProperty("--ring", brand);
   }, [brand]);
 
-  const combined = viewSpace
-    ? { viewId: viewSpace.id, name: viewSpace.name, rules: resolveRules(viewSpace, accounts) }
-    : null;
+  const combined = useCombined(viewSpace, accounts);
 
   const handleSelectAccount = (accountId: string) => {
     console.log("[HomeView:selectAccount]", { accountId });
@@ -1541,13 +1573,6 @@ function MailHome() {
     panelControls > 0 && (isChats || (!browserVisible && !calendarPanelVisible));
   const titleTrailing = <TitleTrailing showPanelToggle={browserToggleRoom} />;
   const titlebarInset = <TitlebarInset />;
-  // Left to CSS (the root's data attributes): the list then keeps its props, and skips
-  // re-rendering, when a panel opening flips the layout.
-  const listTrailing = (
-    <span className="hidden [[data-mail-layout=full][data-right-panels=none]_&]:contents">
-      <PanelControlSlot />
-    </span>
-  );
   const readerLeading = fullInbox ? (
     <>
       {sidebarOpen ? null : titlebarInset}
@@ -1584,8 +1609,6 @@ function MailHome() {
     },
     openCompose,
     handleSearchChange,
-    selectChat,
-    chatShelved,
   });
   const renderReader = (
     leading: ReactNode = readerLeading,
@@ -1665,6 +1688,7 @@ function MailHome() {
         className="flex h-full flex-col bg-sidebar-surface text-foreground"
         data-panel-animations={panelAnimationsActive ? "true" : "false"}
         data-mail-layout={ownsMain ? "split" : mailLayout}
+        data-sidebar-open={sidebarOpen}
         data-right-panels={
           !panelControls ? "off" : browserVisible || calendarPanelVisible ? "open" : "none"
         }
@@ -1678,12 +1702,7 @@ function MailHome() {
         <div className="flex min-h-0 flex-1">
           {/* The frame's width round the cards (the right edge is the last
               card's own gap), so they float with every corner rounded. */}
-          <div
-            className={cn(
-              "relative isolate flex min-w-0 flex-1 pl-1",
-              chatBarShown ? "pb-8" : "pb-(--workspace-frame-inset)",
-            )}
-          >
+          <div className="relative isolate flex min-w-0 flex-1 pb-(--workspace-frame-inset) pl-1">
             {/* Inside the frame's stacking: what floats over a page (the agent's window, resize
                 handles, the cards' edges) stays over it. */}
             {features.browser ? <PageHost /> : null}
@@ -1703,14 +1722,17 @@ function MailHome() {
                   className="absolute inset-y-0 -left-1 z-30 w-3"
                 />
               )}
-              {sidebarPresent ? (
+              {/* Kept mounted while closed, so opening it only slides (but not twice: the peek
+                  has its own). Settings' isn't: its search shortcut would act while hidden. */}
+              {peeking || (settingsRoute && !settingsSidebarPresent) ? null : (
                 <>
                   <div
                     ref={sidebarFrameRef}
+                    inert={!sidebarOpen}
                     style={{ width: sidebarOpen ? sidebarWidth : 0 }}
                     className={cn(
                       PANE_FRAME,
-                      chatBarShown ? "-mb-8" : "-mb-(--workspace-frame-inset)",
+                      "-mb-(--workspace-frame-inset)",
                       sidebarOpen && "[[data-panel-animations=true]_&]:starting:w-0!",
                       !sidebarOpen && "pointer-events-none",
                     )}
@@ -1741,7 +1763,7 @@ function MailHome() {
                   </div>
                   {sidebarOpen ? <PaneResizer onPointerDown={sidebarStart} /> : null}
                 </>
-              ) : null}
+              )}
               <div data-main-pane="" className="relative flex min-h-0 min-w-0 flex-1">
                 {hasListTarget && !settingsRoute ? (
                   <>
@@ -1759,8 +1781,8 @@ function MailHome() {
                       data-tour="list"
                     >
                       <MessageList
-                        headerLeading={sidebarOpen ? null : titlebarInset}
-                        headerTrailing={listTrailing}
+                        headerLeading={LIST_LEADING}
+                        headerTrailing={LIST_TRAILING}
                         accountId={(spansMailboxes ? firstRealAccountId : effectiveAccountId) ?? ""}
                         alias={aliasSpace?.id}
                         labelId={selectedLabelId}
@@ -1914,33 +1936,39 @@ function MailHome() {
               </>
             ) : null}
             {calendarPanelPresent ? (
-              <div
-                style={{ width: calendarPanelVisible ? CALENDAR_PANEL_WIDTH : 0 }}
-                className={cn(
-                  PANE_FRAME,
-                  // Drawn from the window's edge as it slides: its title never passes under the toggles.
-                  "justify-end",
-                  calendarPanelVisible && "[[data-panel-animations=true]_&]:starting:w-0!",
-                  !calendarPanelVisible && "pointer-events-none",
-                )}
-              >
+              <>
+                {calendarPanelVisible ? <PaneResizer onPointerDown={calendarPanelStart} /> : null}
                 <div
-                  style={{ width: CALENDAR_PANEL_WIDTH }}
-                  className={cn(PANE_BROWSER, "shrink-0")}
+                  ref={calendarPanelFrameRef}
+                  style={{ width: calendarPanelVisible ? calendarPanelWidth : 0 }}
+                  className={cn(
+                    PANE_FRAME,
+                    // Drawn from the window's edge as it slides: its title never passes under the toggles.
+                    "justify-end",
+                    calendarPanelVisible && "[[data-panel-animations=true]_&]:starting:w-0!",
+                    !calendarPanelVisible && "pointer-events-none",
+                  )}
                 >
-                  <CalendarPanel
-                    onOpen={(event) => {
-                      if (!isCalendar || composeOpen) switchMode("calendar");
-                      useCalendar.getState().show(event);
-                    }}
-                  />
+                  <div
+                    ref={calendarPanelPaneRef}
+                    style={{ width: calendarPanelWidth }}
+                    className={cn(PANE_BROWSER, "shrink-0")}
+                  >
+                    <CalendarPanel
+                      onOpen={(event) => {
+                        if (!isCalendar || composeOpen) switchMode("calendar");
+                        useCalendar.getState().show(event);
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
+              </>
             ) : null}
-            {/* The agent's small window, in the workspace's corner over the
-                bottom bar (and over the browser when it's open). */}
-            {chatWindowShown ? (
+            {/* The agent's small window, in its corner button's place (over the browser too). */}
+            {chatWindowPresent ? (
               <ChatWindow
+                animationMs={panelAnimationsActive ? panelAnimationDurationMs : 0}
+                closing={!chatWindowShown}
                 context={mailChatContext}
                 onClearQuote={() => setPendingQuote(null)}
                 onOpenChange={openChatChange}
@@ -1957,29 +1985,12 @@ function MailHome() {
                 }}
                 onMinimize={() => setChatWindow(false)}
                 onShelve={closeChat}
+                onNewChat={startNewChat}
+                onOpenAgents={() => switchMode("agent")}
                 inputRef={chatInputRef}
               />
             ) : null}
-            {/* The bottom bar: under the cards, right of the sidebar, which runs on down beside it.
-                The Agent space has none: its sidebar is the list of chats. */}
-            {chatBarShown ? (
-              <div
-                className="absolute bottom-0 right-0 z-40"
-                style={{
-                  left: sidebarOpen
-                    ? "calc(var(--workspace-sidebar-width) + var(--workspace-frame-inset))"
-                    : 0,
-                }}
-              >
-                <ChatBar
-                  shownId={chatWindowShown ? activeChatId : null}
-                  onSelect={h.selectChat}
-                  onShelve={h.chatShelved}
-                  onNewChat={h.startNewChat}
-                  onOpenAgents={() => h.switchMode("agent")}
-                />
-              </div>
-            ) : null}
+            {agentCornerShown && !chatWindowPresent ? <AgentCorner onOpen={toggleChat} /> : null}
           </div>
         </div>
       </div>

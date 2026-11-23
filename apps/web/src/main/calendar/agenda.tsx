@@ -171,7 +171,7 @@ function AgendaDays({
   }
 
   return (
-    <ScrollArea className="flex-1" contentClassName="px-2 pb-4">
+    <ScrollArea className="flex-1" contentClassName="px-2 pb-agent-corner">
       {days.map(({ day, events }) => (
         <section key={dayKey(day)} className="pt-3">
           <h3 className="px-2 pb-1 text-xs font-medium text-muted-foreground">

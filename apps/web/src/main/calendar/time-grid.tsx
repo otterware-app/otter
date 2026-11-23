@@ -309,7 +309,11 @@ export function TimeGrid({
 
   const stripWidth = colW * days.length;
   return (
-    <ScrollArea ref={scrollRef} className="min-h-0 flex-1" viewportClassName="overscroll-contain">
+    <ScrollArea
+      ref={scrollRef}
+      className="min-h-0 flex-1"
+      viewportClassName="overscroll-contain pb-agent-corner"
+    >
       <div
         className="relative"
         style={{ width: GUTTER_PX + stripWidth, visibility: colW ? undefined : "hidden" }}

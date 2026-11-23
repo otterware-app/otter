@@ -72,7 +72,7 @@ import {
   useGetAttachment,
   useLabels,
   useSendMessage,
-  useWidth,
+  useObservedWidth,
 } from "./hooks";
 import { mailApi } from "./api";
 import { CategoryChip, InboxChip, LabelChip, isCategoryLabelId } from "./label-chip";
@@ -2152,6 +2152,14 @@ function ReaderShell({
   );
 }
 
+function bandLayout(w: { reader: number; leading: number; actions: number; title: number }) {
+  return {
+    compactActions: w.reader < 36 * 16,
+    titleInBand: w.reader - 3.75 * 16 - w.leading - w.actions >= w.title,
+    summaryFits: w.reader >= 48 * 16 + 16 * 16 + 2 * 16,
+  };
+}
+
 export function MessageReader({
   accountId,
   messageId,
@@ -2181,19 +2189,42 @@ export function MessageReader({
   // The band adapts to the reader's width (panels open → narrow): secondary
   // actions fold into "…" below 36rem. Measured in JS because the "…" menu
   // renders outside this element.
-  const [readerWidth, readerRef] = useWidth(Infinity);
-  const [leadingWidth, leadingRef] = useWidth(0);
-  const [actionsWidth, actionsRef] = useWidth(0);
-  const compactActions = readerWidth < 36 * 16;
+  // Only what the widths decide is state: the reader re-renders when that changes, not on
+  // every frame of a panel sliding beside it.
+  const widths = useRef({ reader: Infinity, leading: 0, actions: 0, title: 0 });
+  const [band, setBand] = useState(() =>
+    bandLayout({ reader: Infinity, leading: 0, actions: 0, title: 0 }),
+  );
+  const relayout = () =>
+    setBand((prev) => {
+      const next = bandLayout(widths.current);
+      return next.compactActions === prev.compactActions &&
+        next.titleInBand === prev.titleInBand &&
+        next.summaryFits === prev.summaryFits
+        ? prev
+        : next;
+    });
+  const readerRef = useObservedWidth((w) => {
+    widths.current.reader = w;
+    relayout();
+  }, Infinity);
+  const leadingRef = useObservedWidth((w) => {
+    widths.current.leading = w;
+    relayout();
+  }, 0);
+  const actionsRef = useObservedWidth((w) => {
+    widths.current.actions = w;
+    relayout();
+  }, 0);
   // Read before paint on every render, so a new subject never shows in the
   // wrong place first.
   const titleMeasureRef = useRef<HTMLDivElement>(null);
-  const [titleWidth, setTitleWidth] = useState(0);
   useLayoutEffect(() => {
-    if (titleMeasureRef.current) setTitleWidth(titleMeasureRef.current.offsetWidth);
+    if (!titleMeasureRef.current) return;
+    widths.current.title = titleMeasureRef.current.offsetWidth;
+    relayout();
   });
-  const titleInBand = readerWidth - 3.75 * 16 - leadingWidth - actionsWidth >= titleWidth;
-  const summaryFits = readerWidth >= 48 * 16 + 16 * 16 + 2 * 16;
+  const { compactActions, titleInBand, summaryFits } = band;
   const [summaryPinned, setSummaryPinned] = useState(
     () => localStorage.getItem("gmail:summary-pinned") !== "0",
   );
@@ -2964,7 +2995,7 @@ export function MessageReader({
           {/* Conversation */}
           <ScrollArea
             className="flex-1"
-            viewportClassName={cn("pb-6", summaryShown && "pr-[18rem]")}
+            viewportClassName={cn("pb-agent-corner", summaryShown && "pr-[18rem]")}
             onMouseUp={onParentMouseUp}
           >
             <div className="mx-auto w-full max-w-(--reading-width)">

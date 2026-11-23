@@ -1,13 +1,31 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { ChevronDownIcon } from "lucide-react";
 import { readableError } from "../mail/add-mailbox";
 import { useAgentProviders } from "./agent-providers";
 import { regenerateTitle, renameChat, type Conversation } from "./chat-store";
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "../mail/menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "../mail/menu";
 import { toast } from "../mail/toast";
 import { cn } from "../mail/ui";
 
-/** A chat's title in a header: double-click to rename, right-click to rename or regenerate it. */
-export function ChatTitle({ chat, className }: { chat: Conversation; className?: string }) {
+/** A chat's title in a header: double-click to rename, right-click to rename or regenerate it.
+ *  With a `menu`, a click opens it instead, and double-click doesn't rename. */
+export function ChatTitle({
+  chat,
+  className,
+  menu,
+}: {
+  chat: Conversation;
+  className?: string;
+  menu?: ReactNode;
+}) {
   const providers = useAgentProviders().data?.providers ?? [];
   const titles = Boolean(providers.find((p) => p.id === chat.provider)?.titles);
   const [renaming, setRenaming] = useState(false);
@@ -29,21 +47,34 @@ export function ChatTitle({ chat, className }: { chat: Conversation; className?:
   return (
     <span className="flex min-w-0 flex-1">
       <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <span
-            onDoubleClick={(e) => {
-              e.preventDefault();
-              setRenaming(true);
-            }}
-            className={cn(
-              "no-drag min-w-0 cursor-default truncate",
-              regenerating && "opacity-55",
-              className,
-            )}
-          >
-            {chat.title}
-          </span>
-        </ContextMenuTrigger>
+        {menu ? (
+          <DropdownMenu>
+            <ContextMenuTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <TitleMenuButton className={cn(regenerating && "opacity-55", className)}>
+                  {chat.title}
+                </TitleMenuButton>
+              </DropdownMenuTrigger>
+            </ContextMenuTrigger>
+            <DropdownMenuContent>{menu}</DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <ContextMenuTrigger asChild>
+            <span
+              onDoubleClick={(e) => {
+                e.preventDefault();
+                setRenaming(true);
+              }}
+              className={cn(
+                "no-drag min-w-0 cursor-default truncate",
+                regenerating && "opacity-55",
+                className,
+              )}
+            >
+              {chat.title}
+            </span>
+          </ContextMenuTrigger>
+        )}
         <ContextMenuContent>
           <ContextMenuItem onSelect={() => setRenaming(true)}>Rename</ContextMenuItem>
           {titles && chat.sessionId ? (
@@ -66,6 +97,23 @@ export function ChatTitle({ chat, className }: { chat: Conversation; className?:
         </ContextMenuContent>
       </ContextMenu>
     </span>
+  );
+}
+
+/** A header's title that opens a menu. */
+export function TitleMenuButton({ className, children, ...props }: ComponentProps<"button">) {
+  return (
+    <button
+      type="button"
+      {...props}
+      className={cn(
+        "no-drag -mx-1.5 flex h-7 min-w-0 cursor-pointer items-center gap-1 rounded-md px-1.5 outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=open]:bg-foreground/[0.06]",
+        className,
+      )}
+    >
+      <span className="min-w-0 truncate">{children}</span>
+      <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+    </button>
   );
 }
 
