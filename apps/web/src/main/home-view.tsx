@@ -371,9 +371,6 @@ const LIST_TRAILING = (
   </span>
 );
 
-// The list beside the reader is clear of the agent's corner: its scrolling needs no room.
-const CLEAR_OF_CORNER = { "--agent-corner-clearance": "0px" } as CSSProperties;
-
 const PANE = "min-h-0 overflow-hidden";
 const CARD = `${PANE} relative pr-1 before:pointer-events-none before:absolute before:left-0 before:right-1 before:bottom-0 before:top-(--workspace-card-top) before:-z-10 before:rounded-xl after:pointer-events-none after:absolute after:left-0 after:right-1 after:bottom-0 after:top-(--workspace-card-top) after:z-30 after:rounded-xl after:border after:border-(--panel-edge) dark:after:border-[0.5px]`;
 const PANE_SIDEBAR = `${PANE} relative text-sidebar-foreground`;
@@ -1774,7 +1771,7 @@ function MailHome() {
                     scroll position, selection and next-message shortcuts stay. */}
                     <div
                       ref={listPaneRef}
-                      style={fullInbox ? undefined : { ...CLEAR_OF_CORNER, width: listWidth }}
+                      style={{ width: fullInbox ? undefined : listWidth }}
                       className={cn(
                         fullInbox ? `${PANE_LIST} min-w-0 flex-1` : `${PANE_LIST} shrink-0`,
                         joined && JOINED_LIST,

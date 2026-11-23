@@ -598,8 +598,7 @@ html[data-window-controls="none"] {
 }
 
 /* Room at the end of a scrolling pane for the agent's corner (its button, or its window open in
-   the button's place): the corner sets the height on the frame, the panes left of the
-   rightmost reset it. */
+   the button's place): the corner sets its height on the frame. */
 @utility pb-agent-corner {
   padding-bottom: calc(var(--agent-corner-clearance, 0px) + 0.75rem);
 }

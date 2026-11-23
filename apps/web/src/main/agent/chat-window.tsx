@@ -122,7 +122,8 @@ export function ChatWindow({
     const width = panel.offsetWidth;
     const height = panel.offsetHeight;
     const target = closing ? 0 : 1;
-    if (animationMs <= 0) {
+    if (closing && progress.current === 0) return;
+    if (animationMs <= 0 || progress.current === target) {
       progress.current = target;
       panel.style.clipPath = "";
       panel.style.opacity = "";
