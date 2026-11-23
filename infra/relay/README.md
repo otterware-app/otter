@@ -44,6 +44,12 @@ a Cloudflare Worker. It gives Otter seven things (the Mac app works without it; 
   auth secret), so a notification without it is acknowledged (202) and dropped; with it, devices
   of whoever linked the address as Outlook get a `mail` event (`historyId` ""). No iPhone
   alerts for Outlook yet.
+- **Realtime calendars.** Each device has Google (a push channel per calendar) or Graph (a
+  subscription to the mailbox's events) post its calendars' changes to `/push/calendar/:email`,
+  with the address and token `/v1/calendar/watch` gives it (an HMAC of the address, keyed apart
+  from Outlook mail's). Genuine ones become a `calendar` event to the devices of whoever linked
+  the mailbox with that provider, which sync it; Google's opening `sync` message and anything
+  without the token are acknowledged and dropped.
 - **A tunnel to mail servers for the web app.** A browser can't open TCP connections, so
   `/v1/tunnel` pipes a WebSocket to an IMAP or SMTP server (mail ports only, public hosts only).
   The web app does TLS inside it, so the relay carries ciphertext; it logs host, port, byte
@@ -82,7 +88,8 @@ Mac ◀──── WebSocket /v1/events ◀── UserHub (Durable Object, one 
 
 - `src/worker.ts`: routes (Hono). `/v1/auth/*` is better-auth; `/v1/me`, `/v1/accounts`,
   `/v1/preferences`, `/v1/agent-sync`, `/v1/events` and `/v1/tunnel` need a session; `/push/gmail`
-  takes Pub/Sub pushes, `/push/outlook/:email` Graph's.
+  takes Pub/Sub pushes, `/push/outlook/:email` Graph's, `/push/calendar/:email` calendar changes
+  (`src/calendar-push.ts`).
 - `src/tunnel.ts`: the web app's TCP tunnel (`cloudflare:sockets`), and which hosts and ports
   it may reach.
 - `src/auth.ts`: better-auth: Google sign-in (ID tokens from the Mac app, the redirect flow for

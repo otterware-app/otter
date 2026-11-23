@@ -16,6 +16,7 @@ import {
 import type {
   ListAccountsResponse,
   MeResponse,
+  CalendarWatchResponse,
   OutlookWatchResponse,
   Preferences,
   RelayUser,
@@ -147,6 +148,12 @@ export async function answerRelay(url: URL, method: string, rawBody: unknown): P
       notificationUrl: `${FAKE_RELAY_URL}/v1/outlook/notify`,
       clientState: "demo",
     } satisfies OutlookWatchResponse);
+  }
+  if (route === "POST /v1/calendar/watch") {
+    return json({
+      notificationUrl: `${FAKE_RELAY_URL}/push/calendar`,
+      token: "demo",
+    } satisfies CalendarWatchResponse);
   }
   return json({ error: "The made-up relay doesn't do that." }, 404);
 }

@@ -1,9 +1,11 @@
 import { logger } from "../logger.js";
 import { platform } from "../platform.js";
-import { capabilitiesOf, providerFor } from "../providers/index.js";
+import { capabilitiesOf } from "../providers/index.js";
 import type { CalendarEvent } from "../providers/provider.js";
 import type { MailAccount } from "../types.js";
 import { listAccounts } from "./account-store.js";
+import * as calendarStore from "./calendar-store.js";
+import { onCalendarChanged } from "./calendar-sync.js";
 import { turnedOffMailboxes } from "./mail-sync.js";
 import { accountLabel } from "./notifier.js";
 import { getSettings, onSettingsChanged } from "./settings-store.js";
@@ -22,6 +24,12 @@ export function startCalendarReminders(): void {
   onSettingsChanged((_settings, patch) => {
     if (patch.calendarReminders !== undefined) void checkReminders();
   });
+  // An event added or moved into the next minutes reminds too.
+  let again: ReturnType<typeof setTimeout> | undefined;
+  onCalendarChanged(() => {
+    clearTimeout(again);
+    again = setTimeout(() => void checkReminders(), 1_000);
+  });
 }
 
 /** Events starting in the next check's window, from the calendars each mailbox shows by default. */
@@ -34,32 +42,21 @@ export async function checkReminders(now = Date.now()): Promise<void> {
       (a) => capabilitiesOf(a)?.calendar && !off.has(a.email.toLowerCase()),
     );
     for (const id of pending.keys()) if (!accounts.some((a) => a.id === id)) clearPending(id);
-    await Promise.all(accounts.map((account) => checkAccount(account, now)));
+    for (const account of accounts) checkAccount(account, now);
   } catch (err) {
     logger.failure("calendar-reminders", "checking for reminders failed", err);
   }
 }
 
-async function checkAccount(account: MailAccount, now: number): Promise<void> {
-  const calendar = providerFor(account.id).calendar;
-  if (!calendar) return;
-  const range = {
-    from: new Date(now).toISOString(),
-    to: new Date(now + REMINDER_LEAD_MS + CHECK_MS).toISOString(),
-    limit: 50,
-  };
-  let events: CalendarEvent[];
-  try {
-    const calendars = (await calendar.listCalendars(account.id)).filter((c) => !c.hiddenByDefault);
-    events = (
-      await Promise.all(
-        calendars.map((c) => calendar.listEvents(account.id, { ...range, calendarId: c.id })),
-      )
-    ).flat();
-  } catch {
-    // Unreachable for now (offline, or no calendar access): what's set keeps.
-    return;
-  }
+/** From the synced calendars (calendar-sync.ts), so a check costs no request. */
+function checkAccount(account: MailAccount, now: number): void {
+  const list = calendarStore.getList(account.id);
+  if (!list) return;
+  const events: CalendarEvent[] = list.calendars
+    .filter((c) => !c.hiddenByDefault)
+    .flatMap((c) =>
+      calendarStore.eventsIn(account.id, c.id, now, now + REMINDER_LEAD_MS + CHECK_MS),
+    );
   clearPending(account.id);
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   pending.set(account.id, timers);
@@ -69,7 +66,8 @@ async function checkAccount(account: MailAccount, now: number): Promise<void> {
       event.allDay ||
       event.status === "cancelled" ||
       event.response === "declined" ||
-      !(start > now)
+      !(start > now) ||
+      start > now + REMINDER_LEAD_MS + CHECK_MS
     )
       continue;
     const key = `${start}:${event.title}`;

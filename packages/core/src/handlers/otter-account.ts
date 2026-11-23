@@ -17,6 +17,7 @@ import {
   reconcileAccounts,
 } from "../services/linked-accounts.js";
 import { setPushedAccounts, syncAccount, syncAllAccounts } from "../services/mail-sync.js";
+import { calendarPushed, syncDueCalendars } from "../services/calendar-sync.js";
 import {
   deleteOtterAccount,
   getOtterUser,
@@ -117,6 +118,10 @@ async function onEvent(event: RelayEvent): Promise<void> {
     );
     return;
   }
+  if (event.type === "calendar") {
+    await calendarPushed(event.email);
+    return;
+  }
   if (event.type !== "mail") return;
   const account = (await listAccounts()).find(
     (a) => a.email.toLowerCase() === event.email.toLowerCase(),
@@ -133,6 +138,7 @@ function start(): void {
       void syncPreferences();
       void syncAgentData();
       void syncAllAccounts({ force: true, trigger: "push" });
+      void syncDueCalendars("push");
     },
     onEvent: (event) => void onEvent(event),
     onStateChange: (state) => {

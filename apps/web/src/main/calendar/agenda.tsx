@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { ChevronsLeftIcon } from "lucide-react";
 import { IconBtn, buttonClass, cn } from "../mail/ui";
-import { LIST_LIMIT, useUpcomingEvents, type CalEvent } from "./api";
+import { useUpcomingEvents, type CalEvent } from "./api";
 import { useCalendar } from "./calendar-store";
 import type { ListedCalendar } from "./calendar-view";
 import { addDays, dayKey, durationLabel, sameDay, startOfDay } from "./dates";
@@ -126,12 +126,6 @@ export function AgendaDrawer({
             ))}
           </section>
         ))}
-        {/* At the list's limit, the year runs past what came back. */}
-        {(data?.events.length ?? 0) >= LIST_LIMIT && days.length ? (
-          <p className="px-2 pt-4 text-center text-xs text-muted-foreground">
-            Showing what's coming until {dayTitle(days[days.length - 1]!.day, now)}.
-          </p>
-        ) : null}
         {isError || data?.failed.length ? (
           <div className="flex flex-col items-center gap-2 px-2 pt-6 text-center text-[13px] text-muted-foreground">
             Couldn&apos;t load this calendar&apos;s events.
