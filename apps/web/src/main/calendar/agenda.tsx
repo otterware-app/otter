@@ -30,6 +30,7 @@ export function CalendarPanel({ onOpen }: { onOpen: (event: CalEvent) => void })
   const accounts = calendarAccounts(useAccounts().data ?? []);
   const listsQuery = useCalendarLists(accounts.map((a) => a.id));
   const lists = listsQuery.data;
+  const listsFailed = listsQuery.isError || !!lists?.some((l) => l.error === "failed");
   const { colors, showDeclined } = useCalendarPreferences();
   const shown = useCalendar((s) => s.shown);
   const visible = listedCalendars(accounts, lists, colors).filter((c) =>
@@ -65,8 +66,8 @@ export function CalendarPanel({ onOpen }: { onOpen: (event: CalEvent) => void })
         colorOf={(e) => colorOf.get(calendarKey(e)) ?? "#8a8a8a"}
         onOpen={onOpen}
         loading={listsQuery.isPending || (query.isPending && visible.length > 0)}
-        failed={listsQuery.isError || query.isError || !!query.data?.failed.length}
-        onRetry={() => void (listsQuery.isError ? listsQuery.refetch() : query.refetch())}
+        failed={listsFailed || query.isError || !!query.data?.failed.length}
+        onRetry={() => void (listsFailed ? listsQuery.refetch() : query.refetch())}
         empty="Nothing in the next 30 days."
       />
     </div>
