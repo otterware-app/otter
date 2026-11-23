@@ -1912,7 +1912,7 @@ function MailHome() {
                 >
                   <CalendarPanel
                     onOpen={(event) => {
-                      if (!isCalendar) switchMode("calendar");
+                      if (!isCalendar || composeOpen) switchMode("calendar");
                       useCalendar.getState().show(event);
                     }}
                   />

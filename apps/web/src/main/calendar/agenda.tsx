@@ -28,7 +28,8 @@ const PANEL_DAYS = 30;
 /** Every shown calendar's coming month, beside the app (the panel by the browser's). */
 export function CalendarPanel({ onOpen }: { onOpen: (event: CalEvent) => void }) {
   const accounts = calendarAccounts(useAccounts().data ?? []);
-  const lists = useCalendarLists(accounts.map((a) => a.id)).data;
+  const listsQuery = useCalendarLists(accounts.map((a) => a.id));
+  const lists = listsQuery.data;
   const { colors, showDeclined } = useCalendarPreferences();
   const shown = useCalendar((s) => s.shown);
   const visible = listedCalendars(accounts, lists, colors).filter((c) =>
@@ -63,9 +64,9 @@ export function CalendarPanel({ onOpen }: { onOpen: (event: CalEvent) => void })
         now={now}
         colorOf={(e) => colorOf.get(calendarKey(e)) ?? "#8a8a8a"}
         onOpen={onOpen}
-        loading={query.isPending && visible.length > 0}
-        failed={query.isError || !!query.data?.failed.length}
-        onRetry={() => void query.refetch()}
+        loading={listsQuery.isPending || (query.isPending && visible.length > 0)}
+        failed={listsQuery.isError || query.isError || !!query.data?.failed.length}
+        onRetry={() => void (listsQuery.isError ? listsQuery.refetch() : query.refetch())}
         empty="Nothing in the next 30 days."
       />
     </div>
