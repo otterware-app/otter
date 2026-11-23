@@ -9,7 +9,7 @@ import {
 import type { MailAccount } from "../../../types.js";
 import {
   accountCalendars,
-  changeEvent,
+  changeEventById,
   createEvent,
   eventsInRange,
   patched,
@@ -275,9 +275,8 @@ export const calendarTools: AgentTool[] = [
         await ctx.confirm(
           `Change ${describeEvent(event)} in ${account.email}'s calendar\n${describeInput(input)}${event.attendees.length ? `\n${notifyNote(notify)}` : ""}`,
         );
-        const saved = await changeEvent(
+        const saved = await changeEventById(
           account.id,
-          await defaultCalendar(account),
           eventId,
           (before) => patched(before, input),
           () => calendar.updateEvent(account.id, eventId, input, notify),
@@ -315,9 +314,8 @@ export const calendarTools: AgentTool[] = [
         await ctx.confirm(
           `Delete ${describeEvent(event)} from ${account.email}'s calendar${event.attendees.length ? `\n${notifyNote(notify)}` : ""}`,
         );
-        await changeEvent(
+        await changeEventById(
           account.id,
-          await defaultCalendar(account),
           eventId,
           () => null,
           () => calendar.deleteEvent(account.id, eventId, notify),
@@ -354,9 +352,8 @@ export const calendarTools: AgentTool[] = [
       return calendarOf(account, async (calendar) => {
         const event = await calendar.getEvent(account.id, eventId);
         await ctx.confirm(`Answer ${describeEvent(event)} in ${account.email}: ${response}`);
-        const saved = await changeEvent(
+        const saved = await changeEventById(
           account.id,
-          await defaultCalendar(account),
           eventId,
           (before) => ({ ...before, response }),
           () => calendar.respondToEvent(account.id, eventId, response),

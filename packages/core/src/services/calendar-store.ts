@@ -107,6 +107,14 @@ export function getEvent(accountId: string, calendarId: string, id: string): Cal
   return row ? parse(row) : null;
 }
 
+/** The calendar the account keeps an event in, when it does. */
+export function calendarHolding(accountId: string, id: string): string | null {
+  const row = getDb()
+    .prepare("SELECT calendarId FROM calendar_events WHERE accountId = ? AND id = ? LIMIT 1")
+    .get(accountId, id);
+  return row ? String(row.calendarId) : null;
+}
+
 export function seriesEvents(
   accountId: string,
   calendarId: string,

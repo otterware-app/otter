@@ -88,14 +88,25 @@ const syncable = (account: MailAccount) =>
   isSignedIn(account) &&
   !turnedOffMailboxes().has(account.email.toLowerCase());
 
-/** Throws Superseded when the account went, or (with a calendar) the user changed it, since. */
-function guard(accountId: string, calendarId?: string): () => void {
-  const epoch = count(epochs, accountId);
+/**
+ * Throws Superseded when the account went (since `epoch`, by default now), or, for a calendar,
+ * when the user changed it or a listing moved its window since (a delta for the old window
+ * mustn't land on the new one).
+ */
+function guard(
+  accountId: string,
+  calendarId?: string,
+  epoch = count(epochs, accountId),
+): () => void {
   const k = calendarId === undefined ? null : key(accountId, calendarId);
   const edit = k ? count(edits, k) : 0;
+  const bounds = (window: store.Window | null) => `${window?.fromMs}-${window?.toMs}`;
+  const window = calendarId === undefined ? "" : bounds(store.windowOf(accountId, calendarId));
   return () => {
     if (count(epochs, accountId) !== epoch) throw new Superseded();
-    if (k && (count(editing, k) > 0 || count(edits, k) !== edit)) throw new Superseded();
+    if (!k || calendarId === undefined) return;
+    if (count(editing, k) > 0 || count(edits, k) !== edit) throw new Superseded();
+    if (bounds(store.windowOf(accountId, calendarId)) !== window) throw new Superseded();
   };
 }
 
@@ -172,8 +183,9 @@ async function listWindow(
   accountId: string,
   calendarId: string,
   window: { fromMs: number; toMs: number },
+  epoch?: number,
 ): Promise<void> {
-  const check = guard(accountId, calendarId);
+  const check = guard(accountId, calendarId, epoch);
   const found = await calendarOf(accountId).syncEvents(accountId, calendarId, {
     from: new Date(window.fromMs).toISOString(),
     to: new Date(window.toMs).toISOString(),
@@ -192,22 +204,24 @@ function cover(
   calendarId: string,
   fromMs: number,
   toMs: number,
+  epoch = count(epochs, accountId),
 ): Promise<boolean> {
+  if (count(epochs, accountId) !== epoch) return Promise.reject(new Superseded());
   const k = key(accountId, calendarId);
+  const current = store.windowOf(accountId, calendarId);
+  if (current && current.fromMs <= fromMs && current.toMs >= toMs) return Promise.resolve(false);
   const pending = covering.get(k);
   if (pending)
     return pending.then(
-      () => cover(accountId, calendarId, fromMs, toMs),
-      () => cover(accountId, calendarId, fromMs, toMs),
+      () => cover(accountId, calendarId, fromMs, toMs, epoch),
+      () => cover(accountId, calendarId, fromMs, toMs, epoch),
     );
-  const current = store.windowOf(accountId, calendarId);
-  if (current && current.fromMs <= fromMs && current.toMs >= toMs) return Promise.resolve(false);
   const base = current ?? defaultWindow();
   const wanted = {
     fromMs: fromMs < base.fromMs ? startOfMonth(fromMs, -1) : base.fromMs,
     toMs: toMs > base.toMs ? startOfMonth(toMs, 2) : base.toMs,
   };
-  const work = listWindow(accountId, calendarId, wanted)
+  const work = listWindow(accountId, calendarId, wanted, epoch)
     .then(() => {
       failures.delete(k);
       changed(accountId);
@@ -261,15 +275,20 @@ export async function eventsInRange(
 }
 
 /** What changed in one calendar since its token; a token that's lapsed lists it again. */
-async function syncCalendar(accountId: string, calendarId: string): Promise<boolean> {
+async function syncCalendar(
+  accountId: string,
+  calendarId: string,
+  epoch: number,
+): Promise<boolean> {
   const today = defaultWindow();
-  if (await cover(accountId, calendarId, today.fromMs, today.toMs)) return true;
-  const window = store.windowOf(accountId, calendarId)!;
+  if (await cover(accountId, calendarId, today.fromMs, today.toMs, epoch)) return true;
+  const window = store.windowOf(accountId, calendarId);
+  if (!window || count(epochs, accountId) !== epoch) throw new Superseded();
   if (!window.token) {
-    await listWindow(accountId, calendarId, window);
+    await listWindow(accountId, calendarId, window, epoch);
     return true;
   }
-  const check = guard(accountId, calendarId);
+  const check = guard(accountId, calendarId, epoch);
   let found;
   try {
     found = await calendarOf(accountId).syncEvents(accountId, calendarId, {
@@ -279,7 +298,8 @@ async function syncCalendar(accountId: string, calendarId: string): Promise<bool
     });
   } catch (error) {
     if (!(error instanceof CalendarSyncExpired)) throw error;
-    await listWindow(accountId, calendarId, window);
+    check();
+    await listWindow(accountId, calendarId, window, epoch);
     return true;
   }
   check();
@@ -294,6 +314,7 @@ async function syncCalendar(accountId: string, calendarId: string): Promise<bool
 }
 
 async function runSync(accountId: string): Promise<void> {
+  const epoch = count(epochs, accountId);
   const check = guard(accountId);
   let list = store.getList(accountId);
   if (!list || list.needsAccess || Date.now() - list.syncedAt > LIST_STALE_MS)
@@ -303,7 +324,7 @@ async function runSync(accountId: string): Promise<void> {
   for (const calendar of list.calendars) {
     check();
     try {
-      any = (await syncCalendar(accountId, calendar.id)) || any;
+      any = (await syncCalendar(accountId, calendar.id, epoch)) || any;
       failures.delete(key(accountId, calendar.id));
     } catch (error) {
       if (error instanceof Superseded) continue;
@@ -316,13 +337,17 @@ async function runSync(accountId: string): Promise<void> {
   }
   if (any) changed(accountId);
   check();
-  await watch(accountId, list.calendars).catch((err: unknown) =>
+  await watch(accountId, list.calendars, check).catch((err: unknown) =>
     logger.failure("calendar-sync", `Couldn't watch ${accountId}'s calendars`, err),
   );
 }
 
 /** Asks the relay where the provider should send the account's calendar changes, and has it. */
-async function watch(accountId: string, calendars: CalendarInfo[]): Promise<void> {
+async function watch(
+  accountId: string,
+  calendars: CalendarInfo[],
+  check: () => void,
+): Promise<void> {
   const email = accountId.toLowerCase();
   const calendar = calendarOf(accountId);
   if (!getOtterUser() || !linkedAccountIds().has(email)) {
@@ -333,9 +358,10 @@ async function watch(accountId: string, calendars: CalendarInfo[]): Promise<void
   let target = watchTargets.get(email);
   if (!target) {
     target = await relayRequest<CalendarWatchResponse>("POST", "/v1/calendar/watch", { email });
+    check();
     watchTargets.set(email, target);
   }
-  const check = guard(accountId);
+  check();
   const watching = await calendar.watchEvents(
     accountId,
     calendars.map((c) => c.id),
@@ -493,19 +519,42 @@ export function changeEvent<T extends CalendarEvent | void>(
   });
 }
 
+/**
+ * A change to an event named only by its id (the agents'): Google's go to the primary calendar,
+ * Outlook's to whichever holds it, as the store says; one it doesn't keep lands with the sync
+ * after.
+ */
+export async function changeEventById<T extends CalendarEvent | void>(
+  accountId: string,
+  eventId: string,
+  shown: (before: CalendarEvent) => CalendarEvent | null,
+  run: () => Promise<T>,
+): Promise<T> {
+  const calendarId =
+    findProvider(accountId)?.kind === "gmail"
+      ? "primary"
+      : store.calendarHolding(accountId, eventId);
+  if (calendarId) return changeEvent(accountId, calendarId, eventId, shown, run);
+  try {
+    return await run();
+  } finally {
+    syncAccountSoon(accountId);
+  }
+}
+
 /** A new event; a repeating one comes as its days, with the sync that follows. */
-export function createEvent(
+export async function createEvent(
   accountId: string,
   calendarId: string,
   run: () => Promise<CalendarEvent>,
 ): Promise<CalendarEvent> {
-  return editingCalendar(accountId, calendarId, async (check) => {
+  const made = await editingCalendar(accountId, calendarId, async (check) => {
     const made = await run();
-    const series = made.seriesId === made.id;
-    if (series) syncAccountSoon(accountId, 0);
-    else if (kept(check)) store.putEvent(accountId, calendarId, made);
+    if (made.seriesId !== made.id && kept(check)) store.putEvent(accountId, calendarId, made);
     return made;
   });
+  if (made.seriesId === made.id) syncAccountSoon(accountId, 0);
+  return made;
 }
 
 /** An answer to an invitation, on every day of its series. */
