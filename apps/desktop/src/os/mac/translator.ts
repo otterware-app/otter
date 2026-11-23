@@ -21,6 +21,16 @@ function helperPath(): string {
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0]!;
 }
 
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+// JSON.stringify escapes a lone surrogate (an emoji cut in half by a slice) as \uD83D, which
+// Foundation's JSONDecoder rejects, so they become U+FFFD first.
+export function helperInput(request: unknown): string {
+  return JSON.stringify(request, (_key, value: unknown) =>
+    typeof value === "string" ? value.replace(LONE_SURROGATE, "\uFFFD") : value,
+  );
+}
+
 function runHelper(command: "detect" | "translate", request: unknown): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const child = execFile(
@@ -40,7 +50,7 @@ function runHelper(command: "detect" | "translate", request: unknown): Promise<u
         }
       },
     );
-    child.stdin?.end(JSON.stringify(request));
+    child.stdin?.end(helperInput(request));
   });
 }
 
