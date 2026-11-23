@@ -34,7 +34,9 @@ import { ChatBar } from "./agent/chat-bar";
 import { ChatWindow } from "./agent/chat-window";
 import { ChatWorkspace, type ChatPanelControl } from "./agent/chat-workspace";
 import { SCHEDULED_TASKS, ScheduledTasksView } from "./agent/agent-scheduled";
-import { CALENDAR_MODES, CalendarView } from "./calendar/calendar-view";
+import { CALENDAR_MODES, CalendarView, calendarAccounts } from "./calendar/calendar-view";
+import { CalendarPanel } from "./calendar/agenda";
+import { useCalendar } from "./calendar/calendar-store";
 import type { CalendarMode } from "./calendar/dates";
 import {
   newChat,
@@ -48,7 +50,7 @@ import { useChatProvider } from "./agent/agent-providers";
 import { SEARCH_MAILBOX } from "./mail/gmail-query";
 import { searchTabId, searchTitle, type SearchTab } from "./mail/search-tabs";
 import {
-  PanelControl,
+  PanelControls,
   SidebarControl,
   TitleControls,
   TitleTrailing,
@@ -146,6 +148,7 @@ const READER_MIN_WIDTH = 360;
 // Auto layout: below this, the reader beside the list is too narrow to read in.
 const AUTO_SPLIT_READER_WIDTH = 560;
 const BROWSER_OPEN_WIDTH = 720;
+const CALENDAR_PANEL_WIDTH = 260;
 const FRAME_INSET = 4;
 const IN_EVERY_MAILBOX = new Set(["INBOX", "SENT", "DRAFT", "STARRED", "UNREAD", "SPAM", "TRASH"]);
 
@@ -590,6 +593,9 @@ function MailHome() {
   const [browserOpen, setBrowserOpen] = useState(
     () => features.browser && localStorage.getItem("gmail:browser-open") === "1",
   );
+  const [calendarPanelOpen, setCalendarPanelOpen] = useState(
+    () => localStorage.getItem("gmail:calendar-panel-open") === "1",
+  );
   const [chatWindowOpen, setChatWindowOpen] = useState(
     () => localStorage.getItem("gmail:chat-window-open") === "1",
   );
@@ -600,10 +606,13 @@ function MailHome() {
     () => localStorage.getItem("gmail:settings-sidebar-open") !== "0",
   );
   const sidebarOpen = settingsRoute ? settingsSidebarOpen : mailSidebarOpen;
+  const hasCalendars = calendarAccounts(accounts).length > 0;
+  const calendarPanelVisible = calendarPanelOpen && hasCalendars && !settingsRoute && !isChats;
   const browserRoomBeside = (list: boolean) =>
     window.innerWidth -
     FRAME_INSET -
     (sidebarOpen ? sidebarWidth : 0) -
+    (calendarPanelVisible ? CALENDAR_PANEL_WIDTH : 0) -
     (list && !ownsMain ? listWidth : 0) -
     READER_MIN_WIDTH;
   // Dragged, it may take the list's room unless the layout is Split view: Auto then gives
@@ -627,7 +636,8 @@ function MailHome() {
       FRAME_INSET -
       (sidebarOpen ? sidebar : 0) -
       list -
-      (browserVisible ? browser : 0) >=
+      (browserVisible ? browser : 0) -
+      (calendarPanelVisible ? CALENDAR_PANEL_WIDTH : 0) >=
     AUTO_SPLIT_READER_WIDTH;
   const paneWidths = { sidebar: sidebarWidth, list: listWidth, browser: browserWidth };
   useLayoutEffect(() => {
@@ -647,6 +657,11 @@ function MailHome() {
   );
   const browserPresent = usePanelPresence(
     browserVisible,
+    panelAnimationsActive,
+    panelAnimationDurationMs,
+  );
+  const calendarPanelPresent = usePanelPresence(
+    calendarPanelVisible,
     panelAnimationsActive,
     panelAnimationDurationMs,
   );
@@ -693,6 +708,14 @@ function MailHome() {
       else newTab();
     }
     openBrowser();
+  };
+  const toggleCalendarPanel = () => {
+    if (!hasCalendars) return false;
+    if (settingsRouteRef.current) leaveSettingsRef.current();
+    if (isChats) leaveWorkspace();
+    const open = !calendarPanelVisible;
+    localStorage.setItem("gmail:calendar-panel-open", open ? "1" : "0");
+    setCalendarPanelOpen(open);
   };
   const browserRevealed = useBrowser((s) => s.revealed);
   const openBrowserForEffect = useLatest(openBrowser);
@@ -1012,6 +1035,7 @@ function MailHome() {
     },
     "mode.agent": () => switchMode("agent"),
     "browser.toggle": () => toggleBrowser(),
+    "calendar.togglePanel": () => toggleCalendarPanel(),
     "browser.newTab": () => {
       if (!features.browser) return false;
       if (isChats) {
@@ -1492,7 +1516,13 @@ function MailHome() {
 
   const readerOwnsBand =
     !settingsRoute && !(composeOpen && composeAccountId) && !!readerAccount && !!selectedMessageId;
-  const browserToggleRoom = features.browser && !settingsRoute && (isChats || !browserVisible);
+  const panelControls = settingsRoute
+    ? 0
+    : isChats
+      ? Number(features.browser)
+      : Number(features.browser) + Number(hasCalendars);
+  const browserToggleRoom =
+    panelControls > 0 && (isChats || (!browserVisible && !calendarPanelVisible));
   const titleTrailing = <TitleTrailing showPanelToggle={browserToggleRoom} />;
   const titlebarInset = <TitlebarInset />;
   const readerLeading = fullInbox ? (
@@ -1591,7 +1621,12 @@ function MailHome() {
         className="flex h-full flex-col bg-sidebar-surface text-foreground"
         data-panel-animations={panelAnimationsActive ? "true" : "false"}
         data-mail-layout={ownsMain ? "split" : mailLayout}
-        style={{ "--panel-animation-duration": `${panelAnimationDurationMs}ms` } as CSSProperties}
+        style={
+          {
+            "--panel-animation-duration": `${panelAnimationDurationMs}ms`,
+            "--workspace-panel-controls": panelControls,
+          } as CSSProperties
+        }
       >
         <div className="flex min-h-0 flex-1">
           {/* The frame's width round the cards (the right edge is the last
@@ -1821,10 +1856,36 @@ function MailHome() {
                     style={{ width: browserWidth }}
                     className={cn(PANE_BROWSER, "shrink-0")}
                   >
-                    <BrowserPanel closeTabRef={closeBrowserTabRef} onClosePanel={closeBrowser} />
+                    <BrowserPanel
+                      closeTabRef={closeBrowserTabRef}
+                      onClosePanel={closeBrowser}
+                      controlSlot={!calendarPanelVisible}
+                    />
                   </div>
                 </div>
               </>
+            ) : null}
+            {calendarPanelPresent ? (
+              <div
+                style={{ width: calendarPanelVisible ? CALENDAR_PANEL_WIDTH : 0 }}
+                className={cn(
+                  PANE_FRAME,
+                  calendarPanelVisible && "[[data-panel-animations=true]_&]:starting:w-0!",
+                  !calendarPanelVisible && "pointer-events-none",
+                )}
+              >
+                <div
+                  style={{ width: CALENDAR_PANEL_WIDTH }}
+                  className={cn(PANE_BROWSER, "shrink-0")}
+                >
+                  <CalendarPanel
+                    onOpen={(event) => {
+                      if (!isCalendar) switchMode("calendar");
+                      useCalendar.getState().show(event);
+                    }}
+                  />
+                </div>
+              </div>
             ) : null}
             {/* The agent's small window, in the workspace's corner over the
                 bottom bar (and over the browser when it's open). */}
@@ -1879,8 +1940,24 @@ function MailHome() {
         onToggleSidebar={toggleSidebar}
         onHover={sidebarOpen || settingsRoute ? undefined : sidebarPeek.hover}
       />
-      {features.browser && !settingsRoute ? (
-        <PanelControl open={isChats ? chatPanelOpen : browserOpen} onToggle={toggleBrowser} />
+      {panelControls > 0 ? (
+        <PanelControls
+          calendar={
+            hasCalendars && !isChats
+              ? { open: calendarPanelVisible, onToggle: toggleCalendarPanel }
+              : undefined
+          }
+          browser={
+            features.browser && !isChats
+              ? { open: browserVisible, onToggle: toggleBrowser }
+              : undefined
+          }
+          chatPanel={
+            features.browser && isChats
+              ? { open: chatPanelOpen, onToggle: toggleBrowser }
+              : undefined
+          }
+        />
       ) : null}
 
       {tourRequested && initialized ? (
@@ -1930,6 +2007,7 @@ function MailHome() {
           onOpenChat={openWorkspace}
           onNewChat={startNewChat}
           onToggleBrowser={toggleBrowser}
+          onToggleCalendarPanel={hasCalendars ? toggleCalendarPanel : undefined}
           onCompose={() => openCompose()}
           onOpenSettings={(pane = lastPaneRef.current) => openSettings({ pane })}
           onNewView={() => openViewEditor("new")}

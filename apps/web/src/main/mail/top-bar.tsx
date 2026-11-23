@@ -2,6 +2,8 @@ import type { ComponentType, ReactNode } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { useSyncExternalStore } from "react";
 import {
+  CalendarDaysIcon,
+  GlobeIcon,
   ArchiveIcon,
   ArchiveXIcon,
   BookmarkIcon,
@@ -217,27 +219,77 @@ export function SidebarControl({
   );
 }
 
-export function PanelControl({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+export type PanelToggle = { open: boolean; onToggle: () => void };
+
+/** The right-hand panels' toggles, pinned to the window's corner: the calendar's, then the browser's (in Agent, the chat's panel). */
+export function PanelControls({
+  calendar,
+  browser,
+  chatPanel,
+}: {
+  calendar?: PanelToggle;
+  browser?: PanelToggle;
+  chatPanel?: PanelToggle;
+}) {
   return (
-    <div className="pointer-events-none fixed right-(--workspace-controls-right) top-0 z-40 flex h-(--workspace-topbar-height) items-center">
-      <HintTooltip
-        label={open ? "Hide browser" : "Show browser"}
-        shortcut="browser.toggle"
-        side="bottom"
-      >
-        <IconBtn label="Toggle browser" className="no-drag pointer-events-auto" onClick={onToggle}>
-          <PaneIcon side="right" open={open} className="size-4" />
-        </IconBtn>
-      </HintTooltip>
+    <div className="pointer-events-none fixed right-(--workspace-controls-right) top-0 z-40 flex h-(--workspace-topbar-height) items-center gap-1">
+      {calendar ? (
+        <HintTooltip
+          label={calendar.open ? "Hide calendar" : "Show calendar"}
+          shortcut="calendar.togglePanel"
+          side="bottom"
+        >
+          <IconBtn
+            label="Toggle calendar"
+            active={calendar.open}
+            className="no-drag pointer-events-auto"
+            onClick={calendar.onToggle}
+          >
+            <CalendarDaysIcon className="size-4" />
+          </IconBtn>
+        </HintTooltip>
+      ) : null}
+      {browser ? (
+        <HintTooltip
+          label={browser.open ? "Hide browser" : "Show browser"}
+          shortcut="browser.toggle"
+          side="bottom"
+        >
+          <IconBtn
+            label="Toggle browser"
+            active={browser.open}
+            className="no-drag pointer-events-auto"
+            onClick={browser.onToggle}
+          >
+            <GlobeIcon className="size-4" />
+          </IconBtn>
+        </HintTooltip>
+      ) : null}
+      {chatPanel ? (
+        <HintTooltip
+          label={chatPanel.open ? "Hide panel" : "Show panel"}
+          shortcut="browser.toggle"
+          side="bottom"
+        >
+          <IconBtn
+            label="Toggle panel"
+            className="no-drag pointer-events-auto"
+            onClick={chatPanel.onToggle}
+          >
+            <PaneIcon side="right" open={chatPanel.open} className="size-4" />
+          </IconBtn>
+        </HintTooltip>
+      ) : null}
     </div>
   );
 }
 
+/** Room under the pinned panel toggles, in the rightmost pane's title bar; `--workspace-panel-controls` is how many there are. */
 export function PanelControlSlot() {
   return (
     <span
       aria-hidden
-      className="w-[calc(var(--workspace-titlebar-control-size)+var(--workspace-window-controls-width))] shrink-0"
+      className="w-[calc(var(--workspace-panel-controls,1)*(var(--workspace-titlebar-control-size)+0.25rem)-0.25rem+var(--workspace-window-controls-width))] shrink-0"
     />
   );
 }

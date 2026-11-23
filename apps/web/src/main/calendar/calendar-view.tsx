@@ -99,7 +99,7 @@ export function useDefaultCalendar(): { accountId: string; calendarId: string } 
 }
 
 /** A near-black calendar color (a mailbox colored black) lifted toward the text, so it reads on a dark canvas. */
-function legible(hex: string): string {
+export function legible(hex: string): string {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
   const luminance = 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
   return luminance < 0.12 ? `color-mix(in srgb, ${hex} 45%, var(--color-foreground))` : hex;
@@ -284,7 +284,8 @@ export function CalendarView({
     requestAnimationFrame(() => requestAnimationFrame(() => stepGrid.current?.(lead)));
   });
   useEffect(() => {
-    if (target) glide.current(target);
+    // Glided already: a remount (Strict Mode's, or the panel opening Calendar) would drop the event it revealed.
+    if (target && useCalendar.getState().target) glide.current(target);
   }, [target, glide]);
   const goToday = () => useCalendar.getState().goTo(new Date());
 
