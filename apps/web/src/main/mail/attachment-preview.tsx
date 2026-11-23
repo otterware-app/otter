@@ -1,20 +1,14 @@
 /* oxlint-disable react/no-array-index-key -- Table rows and columns have stable positions and may contain identical values. */
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
-import {
-  AppWindowIcon,
-  Code2Icon,
-  DownloadIcon,
-  EyeIcon,
-  LoaderCircleIcon,
-  Table2Icon,
-  XIcon,
-} from "lucide-react";
-import { Dialog, DialogClose, DialogContent, DialogTitle } from "~/components/ui/dialog";
+import { AppWindowIcon, Code2Icon, DownloadIcon, EyeIcon, Table2Icon, XIcon } from "lucide-react";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@otter/ui/components/dialog";
 import { features } from "../features";
 import { ChatMarkdown } from "../agent/chat-markdown";
 import { formatAttachmentSize } from "../agent/chat-attachments";
 import { DomFind, isFindKey } from "../agent/chat-find";
-import { HintTooltip, IconBtn } from "./ui";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { Spinner } from "@otter/ui/components/spinner";
 
 const PdfViewer = lazy(() => import("./pdf-viewer"));
 
@@ -188,9 +182,8 @@ export function AttachmentPreview({
     <Dialog open={file !== null && preview !== null} onOpenChange={(open) => !open && onClose()}>
       {file && preview ? (
         <DialogContent
-          aria-describedby={undefined}
           className="h-[85vh] max-w-5xl overflow-hidden bg-canvas!"
-          onOpenAutoFocus={(event) => event.preventDefault()}
+          initialFocus={false}
         >
           <PreviewSurface key={`${file.name}:${file.size}`} file={file} {...preview} />
         </DialogContent>
@@ -274,21 +267,13 @@ function PreviewSurface({
       className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center text-sm"
     >
       <p className="text-muted-foreground">{error}</p>
-      <button
-        type="button"
-        onClick={() => setAttempt((n) => n + 1)}
-        className="rounded-lg border border-border px-2.5 py-1 text-xs text-foreground hover:bg-accent-surface"
-      >
+      <Button size="xs" onClick={() => setAttempt((n) => n + 1)}>
         Try again
-      </button>
+      </Button>
     </div>
   ) : !loaded ? (
-    <div
-      role="status"
-      aria-label="Loading file"
-      className="flex flex-1 items-center justify-center"
-    >
-      <LoaderCircleIcon className="size-5 animate-spin text-muted-foreground" />
+    <div className="flex flex-1 items-center justify-center">
+      <Spinner aria-label="Loading file" className="size-5" />
     </div>
   ) : kind === "pdf" ? (
     <Suspense fallback={<div className="flex-1" />}>
@@ -382,7 +367,7 @@ function PreviewSurface({
           <HintTooltip
             label={rendered ? "Show source" : kind === "table" ? "Show table" : "Show rendered"}
           >
-            <IconBtn
+            <IconButton
               label={rendered ? "Show source" : kind === "table" ? "Show table" : "Show rendered"}
               active={!rendered}
               onClick={() => setRendered((value) => !value)}
@@ -396,29 +381,27 @@ function PreviewSurface({
               ) : (
                 <Code2Icon className="size-4" />
               )}
-            </IconBtn>
+            </IconButton>
           </HintTooltip>
         ) : null}
         {features.openFiles && file.onOpen ? (
           <HintTooltip label="Open in default app">
-            <IconBtn label="Open in default app" onClick={file.onOpen}>
+            <IconButton label="Open in default app" onClick={file.onOpen}>
               <AppWindowIcon className="size-4" />
-            </IconBtn>
+            </IconButton>
           </HintTooltip>
         ) : null}
         {file.onSave ? (
           <HintTooltip label="Save…">
-            <IconBtn label="Save" onClick={file.onSave}>
+            <IconButton label="Save" onClick={file.onSave}>
               <DownloadIcon className="size-4" />
-            </IconBtn>
+            </IconButton>
           </HintTooltip>
         ) : null}
         {inline ? null : (
           <HintTooltip label="Close">
-            <DialogClose asChild>
-              <IconBtn label="Close">
-                <XIcon className="size-4" />
-              </IconBtn>
+            <DialogClose render={<IconButton label="Close" />}>
+              <XIcon className="size-4" />
             </DialogClose>
           </HintTooltip>
         )}

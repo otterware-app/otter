@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { ChevronsLeftIcon } from "lucide-react";
-import { ScrollArea } from "~/components/ui/scroll-area";
-import { IconBtn, buttonClass, cn } from "../mail/ui";
+import { ScrollArea } from "@otter/ui/components/scroll-area";
 import { useAccounts } from "../mail/hooks";
 import { PanelControlSlot } from "../mail/top-bar";
 import { calendarKey, useCalendarLists, useUpcomingEvents, type CalEvent } from "./api";
@@ -11,6 +10,8 @@ import { addDays, dayKey, durationLabel, sameDay, startOfDay } from "./dates";
 import { isPending, rangeLabel } from "./event-style";
 import { useCalendarPreferences } from "./preferences";
 import { useNow } from "./time-grid";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 function dayTitle(day: Date, now: Date): string {
   if (sameDay(day, now)) return "Today";
@@ -57,7 +58,7 @@ export function CalendarPanel({ onOpen }: { onOpen: (event: CalEvent) => void })
   return (
     <div className="flex h-full min-w-0 flex-col">
       <div className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-2 pl-4 pr-2">
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">Upcoming</span>
+        <span className="min-w-0 flex-1 truncate text-body font-medium">Upcoming</span>
         {/* The pinned panel toggles (home view) sit here. */}
         <PanelControlSlot />
       </div>
@@ -111,17 +112,11 @@ export function AgendaDrawer({
     <aside className="flex w-[300px] shrink-0 flex-col border-r border-border/60 animate-calendar-fade motion-reduce:animate-none">
       <div className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-2 pl-4 pr-2">
         {titleLeading}
-        <span
-          aria-hidden
-          className="size-3.5 shrink-0 rounded-[4px]"
-          style={{ background: color }}
-        />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
-          {calendar.info.name}
-        </span>
-        <IconBtn label="Close" className="no-drag" onClick={() => setAgenda(null)}>
+        <span aria-hidden className="size-3.5 shrink-0 rounded-sm" style={{ background: color }} />
+        <span className="min-w-0 flex-1 truncate text-body font-medium">{calendar.info.name}</span>
+        <IconButton label="Close" className="no-drag" onClick={() => setAgenda(null)}>
           <ChevronsLeftIcon />
-        </IconBtn>
+        </IconButton>
       </div>
       <AgendaDays
         events={events}
@@ -197,7 +192,7 @@ function AgendaDays({
               <span className="flex min-w-0 flex-col">
                 <span
                   className={cn(
-                    "truncate text-[13px] font-medium text-foreground",
+                    "truncate text-body font-medium text-foreground",
                     event.response === "declined" && "text-muted-foreground line-through",
                   )}
                 >
@@ -209,7 +204,7 @@ function AgendaDays({
                   ) : (
                     <>
                       {rangeLabel(event.startMs, event.endMs)}
-                      <span className="ml-1.5 text-muted-foreground/60">
+                      <span className="ml-1.5 text-faint-foreground">
                         {durationLabel(event.endMs - event.startMs)}
                       </span>
                     </>
@@ -221,14 +216,14 @@ function AgendaDays({
         </section>
       ))}
       {failed ? (
-        <div className="flex flex-col items-center gap-2 px-2 pt-6 text-center text-[13px] text-muted-foreground">
+        <div className="flex flex-col items-center gap-2 px-2 pt-6 text-center text-body text-muted-foreground">
           Couldn&apos;t load some events.
-          <button type="button" onClick={onRetry} className={buttonClass("outline", "sm")}>
+          <Button size="sm" onClick={onRetry}>
             Try again
-          </button>
+          </Button>
         </div>
       ) : !loading && !days.length ? (
-        <p className="px-2 pt-6 text-center text-[13px] text-muted-foreground">{empty}</p>
+        <p className="px-2 pt-6 text-center text-body text-muted-foreground">{empty}</p>
       ) : null}
     </ScrollArea>
   );

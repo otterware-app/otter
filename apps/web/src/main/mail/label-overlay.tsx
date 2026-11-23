@@ -2,18 +2,18 @@ import { useEffect, useState } from "react";
 import {
   Command,
   CommandEmpty,
-  CommandGroup,
   CommandInput,
   CommandItem,
+  CommandLabel,
   CommandList,
-} from "~/components/ui/command";
+} from "@otter/ui/components/command";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
+} from "@otter/ui/components/dialog";
 import { CheckIcon } from "lucide-react";
 import { useCapabilities } from "./capabilities";
 import { useLabels } from "./hooks";
@@ -22,6 +22,8 @@ import { labelDisplayName } from "./label-names";
 import type { MailLabel } from "./types";
 
 export type LabelOverlayMode = "label" | "move";
+
+type Choice = { id: string; name: string; color?: string };
 
 export function LabelOverlay({
   open,
@@ -57,7 +59,7 @@ export function LabelOverlay({
     .map(({ node }) => node.label)
     .filter((l): l is MailLabel => l != null);
 
-  const choices: { id: string; name: string; color?: string }[] = [];
+  const choices: Choice[] = [];
   if ((mode === "move" && currentLabelId !== "INBOX") || (mode === "label" && folders)) {
     choices.push({ id: "INBOX", name: "Inbox" });
   }
@@ -97,34 +99,39 @@ export function LabelOverlay({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>Pick a {noun}</DialogDescription>
         </DialogHeader>
-        <Command className="[&_[cmdk-item]]:py-2">
-          <CommandInput placeholder={`${title}…`} value={query} onValueChange={setQuery} />
+        <Command
+          items={choices}
+          itemToStringValue={(choice: Choice) => choice.name}
+          value={query}
+          onValueChange={setQuery}
+        >
+          <CommandInput placeholder={`${title}…`} />
+          <CommandLabel>{title}</CommandLabel>
+          <CommandEmpty>No {noun === "category" ? "categories" : `${noun}s`} found.</CommandEmpty>
           <CommandList>
-            <CommandEmpty>No {noun === "category" ? "categories" : `${noun}s`} found.</CommandEmpty>
-            <CommandGroup heading={title}>
-              {choices.map((choice) => (
-                <CommandItem
-                  key={choice.id}
-                  value={choice.name}
-                  onSelect={() => {
-                    onOpenChange(false);
-                    onPick(choice.id, applied.has(choice.id));
-                  }}
-                >
-                  <span
-                    className={[
-                      "size-2.5 rounded-full shrink-0",
-                      choice.color ? "" : "bg-foreground-40",
-                    ].join(" ")}
-                    style={choice.color ? { backgroundColor: choice.color } : undefined}
-                  />
-                  <span className="truncate flex-1">{choice.name}</span>
-                  {mode === "label" && applied.has(choice.id) ? (
-                    <CheckIcon className="shrink-0" />
-                  ) : null}
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            {(choice: Choice) => (
+              <CommandItem
+                key={choice.id}
+                value={choice}
+                className="py-2"
+                onClick={() => {
+                  onOpenChange(false);
+                  onPick(choice.id, applied.has(choice.id));
+                }}
+              >
+                <span
+                  className={[
+                    "size-2.5 rounded-full shrink-0",
+                    choice.color ? "" : "bg-foreground-40",
+                  ].join(" ")}
+                  style={choice.color ? { backgroundColor: choice.color } : undefined}
+                />
+                <span className="truncate flex-1">{choice.name}</span>
+                {mode === "label" && applied.has(choice.id) ? (
+                  <CheckIcon className="shrink-0" />
+                ) : null}
+              </CommandItem>
+            )}
           </CommandList>
         </Command>
       </DialogContent>

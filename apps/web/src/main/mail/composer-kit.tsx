@@ -4,12 +4,15 @@ import { useState, type ReactNode } from "react";
 import { PaperclipIcon, Trash2Icon } from "lucide-react";
 import { matchesCommand } from "../keybindings/dispatch";
 import { ShortcutText } from "../keybindings/store";
-import { HintTooltip, IconBtn, cn } from "./ui";
 import type { DraftRemoteState, DraftSaveState } from "./use-draft-autosave";
 import { normalizeAddressList } from "./address";
 import { diffText } from "./text-diff";
 import { htmlToText } from "./text";
 import type { MessageDetail } from "./types";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { Textarea } from "@otter/ui/components/textarea";
+import { cn } from "@otter/ui/lib/utils";
 
 export const COMPOSER_SURFACE =
   "rounded-3xl border border-(--chat-composer-outline) bg-(--chat-composer-surface) backdrop-blur-(--chat-composer-blur) shadow-composer transition-colors focus-within:border-input/70 dark:border-transparent dark:shadow-none dark:inset-shadow-2xs dark:inset-shadow-(color:--chat-composer-highlight) dark:focus-within:border-transparent";
@@ -72,19 +75,18 @@ export function CcBccToggles({
   onShowCc: () => void;
   onShowBcc: () => void;
 }) {
-  const btn =
-    "cursor-pointer rounded-md px-1.5 py-0.5 text-sm text-muted-foreground/80 outline-none hover:bg-accent-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring";
+  const toggle = "text-sm text-faint-foreground";
   return (
     <>
       {!showCc ? (
-        <button type="button" className={btn} onClick={onShowCc}>
+        <Button variant="ghost-muted" size="xs" className={toggle} onClick={onShowCc}>
           Cc
-        </button>
+        </Button>
       ) : null}
       {!showBcc ? (
-        <button type="button" className={btn} onClick={onShowBcc}>
+        <Button variant="ghost-muted" size="xs" className={toggle} onClick={onShowBcc}>
           Bcc
-        </button>
+        </Button>
       ) : null}
     </>
   );
@@ -98,7 +100,7 @@ export function SubjectInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <textarea
+    <Textarea
       rows={1}
       value={value}
       onChange={(e) => {
@@ -116,12 +118,15 @@ export function SubjectInput({
         if (e.key === "Enter" && !e.nativeEvent.isComposing) e.preventDefault();
       }}
       aria-label="Subject"
-      className="field-sizing-content min-w-0 flex-1 resize-none bg-transparent py-1.5 text-sm font-medium leading-5 text-foreground outline-none"
+      className="min-h-0 flex-1 border-0 bg-transparent px-0 font-medium focus-visible:bg-transparent focus-visible:ring-0"
     />
   );
 }
 
 export type DraftVersionText = { to: string; cc?: string; subject: string; body: string };
+
+const BANNER_ACTION = "font-medium hover:bg-warning/15";
+const BANNER_CHOICE = "bg-warning/20 font-medium hover:bg-warning/30";
 
 export function DraftRemoteBanner({
   remote,
@@ -138,8 +143,6 @@ export function DraftRemoteBanner({
 }) {
   const [showDiff, setShowDiff] = useState(true);
   if (!remote) return null;
-  const action =
-    "h-6 cursor-pointer rounded-md px-2 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring";
   return (
     <div className="border-b border-warning/30 bg-warning/10">
       <div role="status" className="flex flex-wrap items-center gap-2 px-4 py-2 text-xs">
@@ -150,39 +153,25 @@ export function DraftRemoteBanner({
         </span>
         {remote.kind === "conflict" ? (
           <>
-            <button
-              type="button"
+            <Button
+              variant="ghost-muted"
+              size="xs"
               onClick={() => setShowDiff((v) => !v)}
-              className={cn(
-                action,
-                "text-muted-foreground hover:bg-warning/15 hover:text-foreground",
-              )}
+              className={BANNER_ACTION}
             >
               {showDiff ? "Hide changes" : "Show changes"}
-            </button>
-            <button
-              type="button"
-              onClick={onTakeTheirs}
-              className={cn(action, "hover:bg-warning/15")}
-            >
+            </Button>
+            <Button variant="ghost" size="xs" onClick={onTakeTheirs} className={BANNER_ACTION}>
               Use their version
-            </button>
-            <button
-              type="button"
-              onClick={onKeepMine}
-              className={cn(action, "bg-warning/20 text-foreground hover:bg-warning/30")}
-            >
+            </Button>
+            <Button variant="ghost" size="xs" onClick={onKeepMine} className={BANNER_CHOICE}>
               Keep mine
-            </button>
+            </Button>
           </>
         ) : (
-          <button
-            type="button"
-            onClick={onSaveAsNew}
-            className={cn(action, "bg-warning/20 text-foreground hover:bg-warning/30")}
-          >
+          <Button variant="ghost" size="xs" onClick={onSaveAsNew} className={BANNER_CHOICE}>
             Keep as a new draft
-          </button>
+          </Button>
         )}
       </div>
       {remote.kind === "conflict" && showDiff ? (
@@ -191,6 +180,9 @@ export function DraftRemoteBanner({
     </div>
   );
 }
+
+const ADDED = "rounded-sm bg-success/15 text-success-foreground";
+const REMOVED = "rounded-sm bg-destructive/15 text-destructive-foreground line-through";
 
 /* oxlint-disable react/no-array-index-key -- Stateless spans represent an ordered diff snapshot. */
 function DraftDiff({ theirs, mine }: { theirs: MessageDetail; mine: DraftVersionText }) {
@@ -214,27 +206,15 @@ function DraftDiff({ theirs, mine }: { theirs: MessageDetail; mine: DraftVersion
     <div className="te-scroll max-h-56 space-y-2 overflow-y-auto border-t border-warning/20 bg-canvas/60 px-4 py-3 text-xs leading-relaxed">
       <div className="flex items-center gap-3 text-2xs text-muted-foreground">
         <span>Keeping yours would change their version:</span>
-        <span className="rounded-sm bg-emerald-500/15 px-1 text-emerald-600 dark:text-emerald-400">
-          your text
-        </span>
-        <span className="rounded-sm bg-red-500/15 px-1 text-red-600 line-through dark:text-red-400">
-          their text
-        </span>
+        <span className={cn(ADDED, "px-1")}>your text</span>
+        <span className={cn(REMOVED, "px-1")}>their text</span>
       </div>
       {fields.map((f) => (
         <div key={f.label} className="flex gap-2">
           <span className="w-14 shrink-0 text-muted-foreground">{f.label}</span>
           <span className="min-w-0">
-            {f.theirs ? (
-              <span className="rounded-sm bg-red-500/15 text-red-600 line-through dark:text-red-400">
-                {f.theirs}
-              </span>
-            ) : null}{" "}
-            {f.mine ? (
-              <span className="rounded-sm bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                {f.mine}
-              </span>
-            ) : null}
+            {f.theirs ? <span className={REMOVED}>{f.theirs}</span> : null}{" "}
+            {f.mine ? <span className={ADDED}>{f.mine}</span> : null}
           </span>
         </div>
       ))}
@@ -244,17 +224,11 @@ function DraftDiff({ theirs, mine }: { theirs: MessageDetail; mine: DraftVersion
               part.kind === "same" ? (
                 <span key={i}>{part.text}</span>
               ) : part.kind === "added" ? (
-                <span
-                  key={i}
-                  className="rounded-sm bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                >
+                <span key={i} className={ADDED}>
                   {part.text}
                 </span>
               ) : (
-                <span
-                  key={i}
-                  className="mr-0.5 rounded-sm bg-red-500/15 text-red-600 line-through dark:text-red-400"
-                >
+                <span key={i} className={cn(REMOVED, "mr-0.5")}>
                   {part.text}
                 </span>
               ),
@@ -280,8 +254,6 @@ export function draftStatusText(state: DraftSaveState): string | null {
   if (state === "error") return "Couldn't save draft. Retrying…";
   return null;
 }
-
-const FOOTER_ICON = "size-8 rounded-lg";
 
 export function ComposerFooter({
   onAttach,
@@ -310,29 +282,25 @@ export function ComposerFooter({
   return (
     <div className={cn("flex items-center gap-1 px-3 py-2.5", className)}>
       <HintTooltip label="Attach files">
-        <IconBtn
-          label="Attach files"
-          disabled={attachDisabled}
-          onClick={onAttach}
-          className={FOOTER_ICON}
-        >
+        <IconButton label="Attach files" size="icon" disabled={attachDisabled} onClick={onAttach}>
           <PaperclipIcon className="size-4" />
-        </IconBtn>
+        </IconButton>
       </HintTooltip>
       <HintTooltip label="Discard draft">
-        <IconBtn
+        <IconButton
           label="Discard draft"
+          size="icon"
           onClick={onDiscard}
-          className={cn(FOOTER_ICON, "hover:text-destructive-foreground")}
+          className="hover:text-destructive-foreground"
         >
           <Trash2Icon className="size-4" />
-        </IconBtn>
+        </IconButton>
       </HintTooltip>
       {status ? (
         <span
           className={cn(
             "min-w-0 truncate pl-2 text-sm",
-            statusTone === "error" ? "text-destructive-foreground" : "text-muted-foreground/70",
+            statusTone === "error" ? "text-destructive-foreground" : "text-faint-foreground",
           )}
         >
           {status}
@@ -345,15 +313,15 @@ export function ComposerFooter({
         disabled={!canSend}
         onChoose={onSchedule}
       />
-      <button
-        type="button"
+      <Button
+        variant="primary"
         onClick={onSend}
         disabled={!canSend}
-        className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground outline-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-30"
+        className="gap-2 rounded-full px-4 font-medium disabled:opacity-30 data-disabled:opacity-30"
       >
         Send
-        <ShortcutText command="composer.send" className="text-[13px] font-normal opacity-60" />
-      </button>
+        <ShortcutText command="composer.send" className="text-body font-normal opacity-60" />
+      </Button>
     </div>
   );
 }

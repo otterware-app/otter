@@ -34,32 +34,38 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
-import { Field } from "~/components/ui/field";
-import { Input } from "~/components/ui/input";
+} from "@otter/ui/components/dialog";
+import { Field } from "@otter/ui/components/field";
+import { Input } from "@otter/ui/components/input";
 import { features } from "../features";
-import { Btn } from "../mail/ui";
 import { mailApi } from "../mail/api";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../mail/select";
+import { toast } from "@otter/ui/components/toast";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { Checkbox } from "@otter/ui/components/checkbox";
 import {
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuCheckboxItem,
+  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuTrigger,
-} from "../mail/menu";
-import { toast } from "../mail/toast";
+} from "@otter/ui/components/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@otter/ui/components/select";
+import { Textarea } from "@otter/ui/components/textarea";
 
 export function requestProblemReport(): void {
-  // Let the originating menu close before Radix transfers focus to the sheet.
+  // Let the originating menu close before the dialog takes focus.
   setTimeout(() => window.dispatchEvent(new Event("otter:report-problem")), 0);
 }
 
-const TEXTAREA =
-  "w-full resize-y rounded-lg border border-border/70 bg-surface-raised/60 px-3 py-2 text-sm leading-5 outline-none placeholder:text-placeholder focus-visible:border-focus-ring/60 focus-visible:ring-[3px] focus-visible:ring-focus-ring/16";
 const currentPlatform: keyof typeof SUPPORT_PLATFORMS =
   window.desktopBridge.platform === "web"
     ? "web"
@@ -414,15 +420,17 @@ export function ReportProblemDialog() {
 
   const agentMenu = (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Btn
-          variant="primary"
-          className="rounded-l-none border-l-primary-foreground/20 px-2"
-          aria-label="Report actions"
-          disabled={!!busy || loading}
-        >
-          <ChevronDownIcon />
-        </Btn>
+      <DropdownMenuTrigger
+        disabled={!!busy || loading}
+        render={
+          <Button
+            variant="primary"
+            className="rounded-l-none border-l-primary-foreground/20 px-2"
+            aria-label="Report actions"
+          />
+        }
+      >
+        <ChevronDownIcon />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top">
         {!session ? (
@@ -434,7 +442,7 @@ export function ReportProblemDialog() {
               <DropdownMenuItem
                 key={item.id}
                 icon={<TerminalIcon />}
-                onSelect={() => void investigate(item.id)}
+                onClick={() => void investigate(item.id)}
               >
                 Send to {item.label}
               </DropdownMenuItem>
@@ -446,7 +454,7 @@ export function ReportProblemDialog() {
             ) : null}
             <DropdownMenuItem
               icon={<DownloadIcon />}
-              onSelect={() => void save(step === "describe" ? describedBody() : body)}
+              onClick={() => void save(step === "describe" ? describedBody() : body)}
             >
               Download for another agent
             </DropdownMenuItem>
@@ -457,7 +465,7 @@ export function ReportProblemDialog() {
             </DropdownMenuLabel>
           </>
         ) : (
-          <DropdownMenuItem onSelect={() => void leaveSession(true)}>New report</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void leaveSession(true)}>New report</DropdownMenuItem>
         )}
         {terminals ? (
           <>
@@ -465,7 +473,7 @@ export function ReportProblemDialog() {
             <DropdownMenuSub label={"Terminal: " + (terminalName ?? "System default")}>
               <DropdownMenuCheckboxItem
                 checked={!terminals.selectedId}
-                onSelect={() => void chooseTerminal(null)}
+                onClick={() => void chooseTerminal(null)}
               >
                 System default{terminals.defaultName ? " (" + terminals.defaultName + ")" : ""}
               </DropdownMenuCheckboxItem>
@@ -473,7 +481,7 @@ export function ReportProblemDialog() {
                 <DropdownMenuCheckboxItem
                   key={item.id}
                   checked={terminals.selectedId === item.id}
-                  onSelect={() => void chooseTerminal(item.id)}
+                  onClick={() => void chooseTerminal(item.id)}
                 >
                   {item.name}
                 </DropdownMenuCheckboxItem>
@@ -484,7 +492,7 @@ export function ReportProblemDialog() {
         {step === "describe" ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem icon={<UploadIcon />} onSelect={() => draftInput.current?.click()}>
+            <DropdownMenuItem icon={<UploadIcon />} onClick={() => draftInput.current?.click()}>
               Import agent draft
             </DropdownMenuItem>
           </>
@@ -504,10 +512,7 @@ export function ReportProblemDialog() {
         size="xl"
         className="max-w-[40rem]"
         showCloseButton
-        onOpenAutoFocus={(event) => {
-          event.preventDefault();
-          messageInput.current?.focus();
-        }}
+        initialFocus={messageInput}
         onKeyDown={(event) => {
           if (
             !event.defaultPrevented &&
@@ -525,20 +530,16 @@ export function ReportProblemDialog() {
             <DialogTitle>Send feedback</DialogTitle>
             {step === "review" ? (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Btn
-                    size="icon-sm"
-                    variant="ghost-muted"
-                    disabled={!!busy}
-                    aria-label="More report options"
-                  >
-                    <EllipsisIcon />
-                  </Btn>
+                <DropdownMenuTrigger
+                  disabled={!!busy}
+                  render={<IconButton label="More report options" />}
+                >
+                  <EllipsisIcon />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
                     icon={<CopyIcon />}
-                    onSelect={() =>
+                    onClick={() =>
                       void navigator.clipboard.writeText(body).then(
                         () => toast.success("Report copied."),
                         () =>
@@ -550,19 +551,19 @@ export function ReportProblemDialog() {
                   >
                     Copy report
                   </DropdownMenuItem>
-                  <DropdownMenuItem icon={<DownloadIcon />} onSelect={() => void save()}>
+                  <DropdownMenuItem icon={<DownloadIcon />} onClick={() => void save()}>
                     Download for an agent
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     icon={<UploadIcon />}
-                    onSelect={() => draftInput.current?.click()}
+                    onClick={() => draftInput.current?.click()}
                   >
                     Import agent draft
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   {session ? (
                     <DropdownMenuItem
-                      onSelect={() =>
+                      onClick={() =>
                         void run("save", async () => {
                           await window.desktopBridge.invoke("support:showFiles", {
                             id: session.id,
@@ -573,7 +574,7 @@ export function ReportProblemDialog() {
                       Show report files
                     </DropdownMenuItem>
                   ) : null}
-                  <DropdownMenuItem onSelect={() => void leaveSession(true)}>
+                  <DropdownMenuItem onClick={() => void leaveSession(true)}>
                     New report
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -610,7 +611,7 @@ export function ReportProblemDialog() {
                           );
                         }}
                       />
-                      <span className="block rounded-md px-3 py-1 text-[13px] text-muted-foreground peer-checked:bg-accent-surface peer-checked:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-focus-ring peer-disabled:opacity-64">
+                      <span className="block rounded-md px-3 py-1 text-body text-muted-foreground peer-checked:bg-accent-surface peer-checked:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-focus-ring peer-disabled:opacity-64">
                         {SUPPORT_TYPES[kind]}
                       </span>
                     </label>
@@ -621,8 +622,10 @@ export function ReportProblemDialog() {
                   <Select
                     disabled={!!busy}
                     value={affectedPlatform}
+                    items={SUPPORT_PLATFORMS}
                     onValueChange={(value) => {
-                      change("platform", value as NonNullable<SupportReport["platform"]>);
+                      if (!value) return;
+                      change("platform", value);
                       setIncludeDiagnostics(feedbackKind === "bug" && value === currentPlatform);
                     }}
                   >
@@ -640,11 +643,10 @@ export function ReportProblemDialog() {
                 </div>
               </div>
               <Field label="Message">
-                <textarea
+                <Textarea
                   ref={messageInput}
                   disabled={!!busy}
-                  className={TEXTAREA + " min-h-44"}
-                  rows={7}
+                  className="max-h-96 min-h-44"
                   maxLength={6_000}
                   value={report.happened}
                   placeholder={
@@ -658,19 +660,17 @@ export function ReportProblemDialog() {
               {affectedPlatform === currentPlatform ? (
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       disabled={!!busy || !diagnostics}
                       checked={includeDiagnostics}
-                      onChange={(event) => {
+                      onCheckedChange={(checked) => {
                         edited.current = true;
-                        setIncludeDiagnostics(event.target.checked);
+                        setIncludeDiagnostics(checked);
                       }}
-                      className="size-4 accent-primary"
                     />
                     Include diagnostics
                   </label>
-                  <Btn
+                  <Button
                     size="xs"
                     variant="ghost-muted"
                     disabled={!!busy || !diagnostics}
@@ -685,7 +685,7 @@ export function ReportProblemDialog() {
                           ? "Hide"
                           : "View"
                         : "Unavailable"}
-                  </Btn>
+                  </Button>
                 </div>
               ) : null}
               {affectedPlatform === currentPlatform && showDiagnostics && diagnostics ? (
@@ -700,7 +700,7 @@ export function ReportProblemDialog() {
                   <p className="mt-1">
                     Mail, addresses, credentials, and raw log messages are excluded.
                   </p>
-                  <Btn
+                  <Button
                     size="xs"
                     className="mt-2"
                     disabled={!!busy || !includeDiagnostics}
@@ -708,14 +708,14 @@ export function ReportProblemDialog() {
                   >
                     <DownloadIcon />
                     Download diagnostics
-                  </Btn>
+                  </Button>
                 </div>
               ) : null}
             </>
           ) : (
             <>
               {session || draftKind === "findings" ? (
-                <div className="flex flex-col gap-2 text-[13px] text-muted-foreground">
+                <div className="flex flex-col gap-2 text-body text-muted-foreground">
                   <p role="status" className="flex items-center gap-2">
                     <TerminalIcon className="size-4 shrink-0" />
                     {pendingDraft
@@ -728,10 +728,10 @@ export function ReportProblemDialog() {
                   </p>
                   {pendingDraft ? (
                     <div className="flex gap-2">
-                      <Btn size="sm" disabled={!!busy} onClick={() => useDraft(pendingDraft)}>
+                      <Button size="sm" disabled={!!busy} onClick={() => useDraft(pendingDraft)}>
                         Use agent draft
-                      </Btn>
-                      <Btn
+                      </Button>
+                      <Button
                         size="sm"
                         disabled={!!busy}
                         onClick={() => {
@@ -740,22 +740,22 @@ export function ReportProblemDialog() {
                         }}
                       >
                         Keep my edits
-                      </Btn>
+                      </Button>
                     </div>
                   ) : draftStatus === "waiting" ? (
                     <div>
-                      <Btn
+                      <Button
                         size="xs"
                         variant="ghost-muted"
                         disabled={!!busy}
                         onClick={() => void leaveSession(false)}
                       >
                         Use current report
-                      </Btn>
+                      </Button>
                     </div>
                   ) : draftKind === "findings" && session ? (
                     <div>
-                      <Btn
+                      <Button
                         size="xs"
                         variant="ghost-muted"
                         disabled={!!busy}
@@ -768,7 +768,7 @@ export function ReportProblemDialog() {
                         }
                       >
                         Use original report
-                      </Btn>
+                      </Button>
                     </div>
                   ) : null}
                 </div>
@@ -782,11 +782,10 @@ export function ReportProblemDialog() {
                 />
               </Field>
               <Field label={draftKind === "findings" ? "Findings" : "Description"}>
-                <textarea
+                <Textarea
                   ref={messageInput}
                   disabled={!!busy}
-                  className={TEXTAREA + " min-h-44"}
-                  rows={8}
+                  className="max-h-96 min-h-44"
                   maxLength={MAX_SUPPORT_BODY}
                   value={body}
                   onChange={(event) => {
@@ -801,7 +800,7 @@ export function ReportProblemDialog() {
                     <FileJsonIcon className="size-4" />
                     Diagnostics file
                   </span>
-                  <Btn
+                  <Button
                     size="xs"
                     variant="ghost-muted"
                     disabled={!!busy}
@@ -809,7 +808,7 @@ export function ReportProblemDialog() {
                   >
                     <DownloadIcon />
                     Download
-                  </Btn>
+                  </Button>
                 </div>
               ) : null}
               {draftKind === "issue" ? (
@@ -877,15 +876,14 @@ export function ReportProblemDialog() {
                 <p className="mt-1">Check for private mail before sharing.</p>
               </div>
               {step === "describe" ? (
-                <Btn
+                <IconButton
+                  label="Remove screenshot"
                   size="icon-xs"
-                  variant="ghost-muted"
                   disabled={!!busy}
-                  aria-label="Remove screenshot"
                   onClick={() => setScreenshot(null)}
                 >
                   <XIcon />
-                </Btn>
+                </IconButton>
               ) : null}
             </div>
           ) : null}
@@ -897,25 +895,25 @@ export function ReportProblemDialog() {
         </div>
         <DialogFooter className="sm:justify-between">
           {step === "describe" ? (
-            <Btn
+            <Button
               variant="ghost-muted"
               disabled={!!busy}
               onClick={() => imageInput.current?.click()}
             >
               <ImagePlusIcon />
               {screenshot ? "Change screenshot" : "Attach screenshot"}
-            </Btn>
+            </Button>
           ) : (
-            <Btn
+            <Button
               variant="ghost-muted"
               disabled={!!busy}
               onClick={() => (session ? setOpen(false) : setStep("describe"))}
             >
               {session ? "Close" : "Back"}
-            </Btn>
+            </Button>
           )}
           <div className="flex justify-end">
-            <Btn
+            <Button
               variant="primary"
               className="rounded-r-none"
               disabled={!canContinue}
@@ -930,7 +928,7 @@ export function ReportProblemDialog() {
                     : draftKind === "findings"
                       ? "Done"
                       : "Continue on GitHub"}
-            </Btn>
+            </Button>
             {agentMenu}
           </div>
         </DialogFooter>

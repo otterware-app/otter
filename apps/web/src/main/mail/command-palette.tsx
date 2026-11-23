@@ -40,7 +40,6 @@ import { AccountPicture } from "./account-picture";
 import { useDebouncedValue, useSearchMessages } from "./hooks";
 import { getAccountColor, getAccountDisplayName } from "./account-style";
 import { senderLabel } from "./address";
-import { cn } from "./ui";
 import { changelogUrl } from "@otter/shared/changelog";
 import { openLink } from "../browser/store";
 import { getThemeModes } from "../theme/themePalette";
@@ -68,6 +67,9 @@ import { CALENDAR_SPACE } from "./spaces";
 import { OtterCalendarIcon } from "./app-icons";
 import { features } from "../features";
 import { shortcutText } from "../keybindings/keys";
+import { MenuShortcut } from "@otter/ui/components/dropdown-menu";
+import { Kbd } from "@otter/ui/components/kbd";
+import { cn } from "@otter/ui/lib/utils";
 
 const MAX_MAIL_RESULTS = 12;
 
@@ -142,14 +144,6 @@ function Dot({ color }: { color: string }) {
     <span className="flex size-4 shrink-0 items-center justify-center" aria-hidden>
       <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
     </span>
-  );
-}
-
-function Kbd({ children }: { children: ReactNode }) {
-  return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center gap-1 rounded bg-foreground/[0.08] px-1 font-sans text-xs font-medium text-foreground [&_svg]:size-3">
-      {children}
-    </kbd>
   );
 }
 
@@ -462,7 +456,7 @@ export function CommandPalette({
       icon: (
         <AccountPicture
           account={tab.alias ? aliasMailboxLook(tab.alias) : tab.account}
-          className="size-4 rounded-[5px] text-[9px]"
+          className="size-4 rounded-sm text-4xs"
         />
       ),
       title: tab.alias?.name ?? getAccountDisplayName(tab.account),
@@ -474,7 +468,7 @@ export function CommandPalette({
 
     const viewItems: PaletteItem[] = views.map((view) => ({
       id: `view:${view.id}`,
-      icon: <ViewMark view={view} className="size-4 text-[13px]" />,
+      icon: <ViewMark view={view} className="size-4 text-body" />,
       title: view.name,
       keywords: "view space",
       checked: selectedAccountId === view.id,
@@ -703,7 +697,7 @@ export function CommandPalette({
             ) : (
               groups.map((group) => (
                 <div key={group.id} className="[&+&]:mt-1.5" role="group" aria-label={group.label}>
-                  <div className="px-2.5 pt-2 pb-1 text-[13px] text-muted-foreground">
+                  <div className="px-2.5 pt-2 pb-1 text-body text-muted-foreground">
                     {group.label}
                   </div>
                   {group.items.map((item) => {
@@ -741,17 +735,17 @@ export function CommandPalette({
                           <CheckIcon className="size-3.5 shrink-0 text-foreground" />
                         ) : null}
                         {item.trailing ? (
-                          <span className="min-w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground/70">
+                          <span className="min-w-12 shrink-0 text-right text-xs tabular-nums text-faint-foreground">
                             {item.trailing}
                           </span>
                         ) : null}
                         {item.shortcut ? (
-                          <kbd className="ms-auto shrink-0 font-sans text-xs font-medium tracking-widest text-secondary-label">
+                          <MenuShortcut className="shrink-0 font-medium text-secondary-label">
                             {item.shortcut}
-                          </kbd>
+                          </MenuShortcut>
                         ) : null}
                         {item.submenu ? (
-                          <ChevronRightIcon className="-me-0.5 ms-auto size-4 shrink-0 text-muted-foreground/70" />
+                          <ChevronRightIcon className="-me-0.5 ms-auto size-4 shrink-0 text-faint-foreground" />
                         ) : null}
                       </div>
                     );
@@ -762,13 +756,13 @@ export function CommandPalette({
           </div>
 
           {/* Key hints */}
-          <div className="flex shrink-0 items-center gap-3 border-t border-border/50 px-4 py-2.5 text-[13px] text-muted-foreground">
+          <div className="flex shrink-0 items-center gap-3 border-t border-border/50 px-4 py-2.5 text-body text-muted-foreground">
             <span className="flex items-center gap-1">
               <Kbd>
-                <ArrowUpIcon />
+                <ArrowUpIcon className="size-3" />
               </Kbd>
               <Kbd>
-                <ArrowDownIcon />
+                <ArrowDownIcon className="size-3" />
               </Kbd>
               <span className="ms-1">Navigate</span>
             </span>

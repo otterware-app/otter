@@ -1,5 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Popover } from "radix-ui";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDownIcon,
   EllipsisIcon,
@@ -8,17 +7,12 @@ import {
   TriangleAlertIcon,
   XIcon,
 } from "lucide-react";
-import { Dialog } from "~/components/ui/dialog";
-import { Text } from "~/components/ui/text";
-import { toast } from "../mail/toast";
-import { Btn, HintTooltip, IconBtn, cn, restoreFocusForKeyboardOnly } from "../mail/ui";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../mail/menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../mail/select";
+import { Badge } from "@otter/ui/components/badge";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Input } from "@otter/ui/components/input";
+import { Popover, PopoverPopup, PopoverTrigger } from "@otter/ui/components/popover";
+import { Text } from "@otter/ui/components/text";
+import { toast } from "@otter/ui/components/toast";
 import {
   DEFAULT_KEYBINDINGS,
   IN_MAIL,
@@ -47,14 +41,31 @@ import {
 } from "../keybindings/store";
 import { useCommandHandlers } from "../keybindings/dispatch";
 import { useAccounts, useAllAccountLabels } from "../mail/hooks";
+import { keybindingSearchAnchorId, searchableSetting } from "./settings-search";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  keyboardOnlyFocus,
+} from "@otter/ui/components/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@otter/ui/components/select";
 import {
   SettingsGroup,
   SettingsPageContainer,
   SettingsRow,
   SettingsSearchTarget,
   SettingsSectionHeader,
-} from "./settings-ui";
-import { keybindingSearchAnchorId, searchableSetting } from "./settings-search";
+} from "@otter/ui/components/settings";
 
 type Row = { id: string; rule: KeybindingRule; source: "Default" | "Custom" };
 
@@ -97,10 +108,10 @@ function KeyChips({ value }: { value: string }) {
   const shortcut = parseShortcut(value);
   if (!shortcut) return <span className="font-mono text-xs text-muted-foreground">{value}</span>;
   return (
-    <span className="inline-flex items-center gap-1.5 text-[13px] text-foreground/85">
+    <span className="inline-flex items-center gap-1.5 text-body text-foreground/85">
       {shortcut.map((stroke, i) => (
         <Fragment key={i}>
-          {i > 0 ? <span className="text-xs text-muted-foreground/70">then</span> : null}
+          {i > 0 ? <span className="text-xs text-faint-foreground">then</span> : null}
           <span className="tracking-[0.12em] last:tracking-normal">{formatShortcut([stroke])}</span>
         </Fragment>
       ))}
@@ -134,18 +145,19 @@ function KeyControl({
 
   if (!recording) {
     return (
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => onRecordingChange(true)}
         aria-label="Change shortcut"
-        className="-me-2.5 inline-flex h-7 cursor-pointer items-center rounded-full px-2.5 outline-none hover:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring"
+        className="-me-2.5 rounded-full"
       >
         {value ? (
           <KeyChips value={value} />
         ) : (
-          <span className="text-[13px] text-muted-foreground">Record shortcut</span>
+          <span className="text-body text-muted-foreground">Record shortcut</span>
         )}
-      </button>
+      </Button>
     );
   }
 
@@ -194,6 +206,7 @@ function KeyControl({
 function WhenControl({ value, onChange }: { value: string; onChange: (when: string) => void }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
+  const draftRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect -- Reset the local recording/editing session when its binding or dialog changes.
     if (open) setDraft(value);
@@ -222,33 +235,37 @@ function WhenControl({ value, onChange }: { value: string; onChange: (when: stri
 
   return (
     <span className="flex h-6 items-center gap-1.5">
-      <span className="text-xs leading-none text-muted-foreground/70">When</span>
-      <Popover.Root open={open} onOpenChange={setOpen}>
-        <Popover.Trigger asChild>
-          <button
-            type="button"
-            className={cn(
-              "inline-flex h-6 min-w-0 shrink cursor-pointer items-center gap-1 rounded-lg px-1.5 text-xs outline-none hover:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring",
-              value ? "text-foreground" : "text-muted-foreground",
-            )}
-          >
-            <span className="truncate font-mono">{value || "Always"}</span>
-            <ChevronDownIcon className="size-3.5 shrink-0 opacity-60" />
-          </button>
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Content
-            align="start"
-            sideOffset={6}
-            collisionPadding={8}
-            onCloseAutoFocus={restoreFocusForKeyboardOnly}
-            className="dropdown-glass z-[130] w-[min(30rem,calc(100vw-2rem))] space-y-3 rounded-2xl p-3.5 text-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] outline-none dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
-          >
+      <span className="text-xs leading-none text-faint-foreground">When</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="xs"
+              className={cn(
+                "min-w-0 shrink px-[calc(--spacing(1.5)-1px)]",
+                !value && "text-muted-foreground",
+              )}
+            />
+          }
+        >
+          <span className="truncate font-mono">{value || "Always"}</span>
+          <ChevronDownIcon className="size-3.5 shrink-0 opacity-60" />
+        </PopoverTrigger>
+        <PopoverPopup
+          align="start"
+          sideOffset={6}
+          padding="none"
+          initialFocus={draftRef}
+          finalFocus={keyboardOnlyFocus}
+          className="w-[min(30rem,calc(100vw-2rem))] rounded-2xl text-foreground before:rounded-[calc(var(--radius-2xl)-1px)]"
+        >
+          <div className="space-y-3 p-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] text-muted-foreground">When</span>
+              <span className="text-body text-muted-foreground">When</span>
               <div className="flex items-center gap-1">
                 {(["!", "&&", "||"] as const).map((op) => (
-                  <Btn
+                  <Button
                     key={op}
                     variant="ghost-muted"
                     size="xs"
@@ -256,15 +273,17 @@ function WhenControl({ value, onChange }: { value: string; onChange: (when: stri
                     onClick={() => insertOperator(op)}
                   >
                     {op}
-                  </Btn>
+                  </Button>
                 ))}
               </div>
             </div>
-            <input
-              autoFocus
+            <Input
+              ref={draftRef}
+              font="mono"
               value={draft}
               spellCheck={false}
               placeholder="Always"
+              aria-invalid={!valid}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -273,10 +292,10 @@ function WhenControl({ value, onChange }: { value: string; onChange: (when: stri
                 }
               }}
               className={cn(
-                "h-8 w-full rounded-lg border bg-surface-raised/60 px-2.5 font-mono text-xs text-foreground outline-none placeholder:text-placeholder focus-visible:bg-canvas focus-visible:ring-[3px]",
+                "px-2.5 text-xs",
                 valid
                   ? "border-input focus-visible:border-focus-ring focus-visible:ring-focus-ring/24"
-                  : "border-destructive focus-visible:ring-destructive/20",
+                  : "border-destructive aria-invalid:border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20",
               )}
             />
             {!valid ? (
@@ -290,32 +309,33 @@ function WhenControl({ value, onChange }: { value: string; onChange: (when: stri
             ) : null}
             <div className="flex flex-wrap gap-1">
               {WHEN_VARIABLES.map((name) => (
-                <button
+                <Button
                   key={name}
-                  type="button"
+                  variant="outline"
+                  size="xs"
                   onClick={() => insertVariable(name)}
-                  className="inline-flex h-6 cursor-pointer items-center rounded-lg border border-border/70 px-1.5 font-mono text-2xs text-muted-foreground hover:bg-accent-surface hover:text-foreground"
+                  className="border-border/70 px-1.5 font-mono text-2xs text-muted-foreground hover:text-foreground"
                 >
                   {name}
-                </button>
+                </Button>
               ))}
             </div>
             <div className="flex items-center justify-between pt-1">
-              <Btn variant="ghost-muted" size="xs" onClick={() => setDraft("")}>
+              <Button variant="ghost-muted" size="xs" onClick={() => setDraft("")}>
                 Always
-              </Btn>
+              </Button>
               <div className="flex items-center gap-1.5">
-                <Btn variant="ghost" size="xs" onClick={() => setOpen(false)}>
+                <Button variant="ghost" size="xs" onClick={() => setOpen(false)}>
                   Cancel
-                </Btn>
-                <Btn variant="primary" size="xs" disabled={!valid} onClick={apply}>
+                </Button>
+                <Button variant="primary" size="xs" disabled={!valid} onClick={apply}>
                   Done
-                </Btn>
+                </Button>
               </div>
             </div>
-          </Popover.Content>
-        </Popover.Portal>
-      </Popover.Root>
+          </div>
+        </PopoverPopup>
+      </Popover>
     </span>
   );
 }
@@ -332,14 +352,6 @@ function WarningIcon({ message }: { message: string | null }) {
         <TriangleAlertIcon className="size-3.5" />
       </span>
     </HintTooltip>
-  );
-}
-
-function Badge({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex h-4.5 items-center rounded-sm border border-border/80 px-1 text-2xs font-medium leading-none text-muted-foreground">
-      {children}
-    </span>
   );
 }
 
@@ -377,7 +389,11 @@ function KeybindingRow({ row, rows, searchId }: { row: Row; rows: Row[]; searchI
           <HintTooltip label={rule.command}>
             <span className="truncate">{splitCommandLabel(rule.command).name}</span>
           </HintTooltip>
-          {row.source === "Custom" ? <Badge>Custom</Badge> : null}
+          {row.source === "Custom" ? (
+            <Badge className="h-4.5 rounded-sm border-border/80 px-1 text-2xs font-medium leading-none">
+              Custom
+            </Badge>
+          ) : null}
         </div>
         <WhenControl value={whenDraft} onChange={setWhenDraft} />
       </div>
@@ -385,18 +401,21 @@ function KeybindingRow({ row, rows, searchId }: { row: Row; rows: Row[]; searchI
         <WarningIcon message={warning} />
         {row.source === "Custom" ? (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <IconBtn
-                label="More"
-                className="size-6 opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100 data-[state=open]:opacity-100"
-              >
-                <EllipsisIcon className="size-3.5" />
-              </IconBtn>
+            <DropdownMenuTrigger
+              render={
+                <IconButton
+                  label="More"
+                  size="icon-xs"
+                  className="opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100 data-popup-open:opacity-100"
+                />
+              }
+            >
+              <EllipsisIcon className="size-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {defaults.length > 0 ? (
                 <DropdownMenuItem
-                  onSelect={() => {
+                  onClick={() => {
                     const custom = rows.filter(
                       (r) => r.rule.command === rule.command && r.source === "Custom",
                     );
@@ -409,7 +428,7 @@ function KeybindingRow({ row, rows, searchId }: { row: Row; rows: Row[]; searchI
                   Reset to default
                 </DropdownMenuItem>
               ) : null}
-              <DropdownMenuItem color="red" onSelect={() => void removeKeybinding(rule)}>
+              <DropdownMenuItem variant="destructive" onClick={() => void removeKeybinding(rule)}>
                 Remove
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -417,7 +436,7 @@ function KeybindingRow({ row, rows, searchId }: { row: Row; rows: Row[]; searchI
         ) : null}
         {dirty ? (
           <>
-            <Btn
+            <Button
               variant="ghost-muted"
               size="xs"
               onClick={() => {
@@ -426,10 +445,10 @@ function KeybindingRow({ row, rows, searchId }: { row: Row; rows: Row[]; searchI
               }}
             >
               Cancel
-            </Btn>
-            <Btn variant="primary" size="xs" onClick={commit}>
+            </Button>
+            <Button variant="primary" size="xs" onClick={commit}>
               Save
-            </Btn>
+            </Button>
           </>
         ) : null}
         <KeyControl
@@ -543,6 +562,10 @@ function NewKeybindingRow({ rows, onDone }: { rows: Row[]; onDone: () => void })
   const [recording, setRecording] = useState(false);
   const warning = key ? warningFor(rows, "__new__", key, when) : null;
   const canSave = command !== "" && parseShortcut(key) !== null;
+  const commands = [...COMMAND_OPTIONS, ...labelNames.map(labelMoveCommand)].map((c) => ({
+    value: c,
+    label: commandLabel(c),
+  }));
 
   return (
     <SettingsRow
@@ -550,19 +573,20 @@ function NewKeybindingRow({ rows, onDone }: { rows: Row[]; onDone: () => void })
       description={<WhenControl value={when} onChange={setWhen} />}
       control={
         <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <Select value={command} onValueChange={(v) => setCommand(v as KeybindingCommand)}>
+          <Select
+            items={commands}
+            value={command}
+            onValueChange={(v) => {
+              if (v) setCommand(v);
+            }}
+          >
             <SelectTrigger variant="pill" className="w-52">
               <SelectValue placeholder="Command" />
             </SelectTrigger>
             <SelectContent>
-              {COMMAND_OPTIONS.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {commandLabel(c)}
-                </SelectItem>
-              ))}
-              {labelNames.map((name) => (
-                <SelectItem key={name} value={labelMoveCommand(name)}>
-                  {commandLabel(labelMoveCommand(name))}
+              {commands.map((c) => (
+                <SelectItem key={c.value} value={c.value}>
+                  {c.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -574,7 +598,7 @@ function NewKeybindingRow({ rows, onDone }: { rows: Row[]; onDone: () => void })
             onRecordingChange={setRecording}
             onChange={setKey}
           />
-          <Btn
+          <Button
             variant="primary"
             size="sm"
             disabled={!canSave}
@@ -584,10 +608,10 @@ function NewKeybindingRow({ rows, onDone }: { rows: Row[]; onDone: () => void })
             }}
           >
             Save
-          </Btn>
-          <IconBtn label="Cancel" onClick={onDone}>
+          </Button>
+          <IconButton label="Cancel" onClick={onDone}>
             <XIcon className="size-3.5" />
-          </IconBtn>
+          </IconButton>
         </div>
       }
     />
@@ -636,8 +660,9 @@ export function KeybindingsPane() {
       {searchOpen ? (
         <div className="relative w-52">
           <SearchIcon className="pointer-events-none absolute start-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input
+          <Input
             ref={searchRef}
+            size="sm"
             value={query}
             placeholder="Search keybindings"
             onChange={(e) => setQuery(e.target.value)}
@@ -650,7 +675,7 @@ export function KeybindingsPane() {
                 setSearchOpen(false);
               }
             }}
-            className="h-7 w-full rounded-lg border border-border/70 bg-surface-raised/60 ps-7 pe-2 text-[13px] text-foreground outline-none placeholder:text-placeholder focus-visible:border-focus-ring/60 focus-visible:bg-canvas focus-visible:ring-[3px] focus-visible:ring-focus-ring/16"
+            className="ps-7 pe-2 text-body"
           />
         </div>
       ) : (
@@ -659,16 +684,16 @@ export function KeybindingsPane() {
             {count} binding{count === 1 ? "" : "s"}
           </span>
           <HintTooltip label="Search keybindings">
-            <IconBtn label="Search keybindings" onClick={() => setSearchOpen(true)}>
+            <IconButton label="Search keybindings" onClick={() => setSearchOpen(true)}>
               <SearchIcon className="size-4" />
-            </IconBtn>
+            </IconButton>
           </HintTooltip>
         </>
       )}
       <HintTooltip label="Add keybinding">
-        <IconBtn label="Add keybinding" onClick={() => setAdding(true)}>
+        <IconButton label="Add keybinding" onClick={() => setAdding(true)}>
           <PlusIcon className="size-4" />
-        </IconBtn>
+        </IconButton>
       </HintTooltip>
     </div>
   );

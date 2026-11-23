@@ -1,15 +1,12 @@
-import {
-  Btn,
-  Input,
-  toast,
-  SettingsRow,
-  SettingsSection,
-  searchableSetting,
-} from "@otter/web/extension-kit";
+import { searchableSetting } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Button } from "@otter/ui/components/button";
+import { Input } from "@otter/ui/components/input";
 import { todoistApi } from "./api";
 import { browseTodoist, useTodoistStatus } from "./dialogs";
+import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
 
 export function TodoistSettingsPane() {
   const status = useTodoistStatus();
@@ -44,13 +41,13 @@ export function TodoistSettingsPane() {
         }
         control={
           status.data?.connected ? (
-            <Btn size="sm" onClick={browseTodoist}>
+            <Button size="sm" onClick={browseTodoist}>
               Browse tasks
-            </Btn>
+            </Button>
           ) : status.isError ? (
-            <Btn size="sm" onClick={() => void status.refetch()}>
+            <Button size="sm" onClick={() => void status.refetch()}>
               Retry
-            </Btn>
+            </Button>
           ) : undefined
         }
       />
@@ -62,7 +59,7 @@ export function TodoistSettingsPane() {
             : "Sign in securely in your browser. Your connection stays on this device."
         }
         control={
-          <Btn
+          <Button
             size="sm"
             variant="primary"
             disabled={pending}
@@ -77,7 +74,7 @@ export function TodoistSettingsPane() {
               : status.data?.connected
                 ? "Reconnect with Todoist"
                 : "Connect with Todoist"}
-          </Btn>
+          </Button>
         }
       />
       <details>
@@ -118,22 +115,22 @@ export function TodoistSettingsPane() {
           description="The token is verified before it is saved."
           control={
             <div className="flex gap-2">
-              <Btn
+              <Button
                 size="sm"
                 variant="primary"
                 disabled={pending || !token.trim() || !status.data}
                 onClick={() => void change(() => todoistApi.connectTodoist(token))}
               >
                 {pending ? "Saving…" : status.data?.connected ? "Replace token" : "Connect"}
-              </Btn>
+              </Button>
               {status.data?.connected ? (
-                <Btn
+                <Button
                   size="sm"
                   disabled={pending}
                   onClick={() => void change(todoistApi.disconnectTodoist)}
                 >
                   Disconnect
-                </Btn>
+                </Button>
               ) : null}
             </div>
           }

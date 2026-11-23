@@ -2,12 +2,13 @@ import { useRef, useState, type DragEvent } from "react";
 import { AccountPicture } from "../mail/account-picture";
 import type { AliasMailboxEntry } from "../mail/alias-mailboxes";
 import { useUpdateAccount } from "../mail/hooks";
-import { toast } from "../mail/toast";
+import { toast } from "@otter/ui/components/toast";
 import type { MailAccount } from "../mail/types";
-import { Btn, cn } from "../mail/ui";
 import { PictureError, mailboxPicture } from "./mailbox-picture-image";
-import { SettingsRow } from "./settings-ui";
 import { searchableSetting } from "./settings-search";
+import { Button } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
+import { SettingsRow } from "@otter/ui/components/settings";
 
 const hasFiles = (event: DragEvent) => event.dataTransfer.types.includes("Files");
 
@@ -88,13 +89,13 @@ export function MailboxPictureRow({
             }}
           />
           <AccountPicture account={account} className="size-8 rounded-lg text-xs" />
-          <Btn size="sm" disabled={reading} onClick={() => input.current?.click()}>
+          <Button size="sm" disabled={reading} onClick={() => input.current?.click()}>
             {account.customPicture ? "Change…" : "Choose…"}
-          </Btn>
+          </Button>
           {account.customPicture ? (
-            <Btn size="sm" disabled={reading} onClick={() => void save("")}>
+            <Button size="sm" disabled={reading} onClick={() => void save("")}>
               Remove
-            </Btn>
+            </Button>
           ) : null}
         </>
       }

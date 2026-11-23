@@ -7,9 +7,9 @@ import {
   type ProviderSnapshot,
   type ProvidersState,
 } from "../mail/api";
-import { cn } from "../mail/ui";
 import { BotIcon } from "lucide-react";
 import { EXTENSIONS, agentContribution } from "../extensions/registry";
+import { cn } from "@otter/ui/lib/utils";
 
 const PROVIDERS_KEY = ["agent-providers"] as const;
 

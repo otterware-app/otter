@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { agentContribution } from "../extensions/registry";
 import { useQuery } from "@tanstack/react-query";
 import { CheckIcon, CornerUpRightIcon, ListPlusIcon, PlusIcon, QuoteIcon } from "lucide-react";
-import { IconBtn, HintTooltip, cn } from "../mail/ui";
 import { COMPOSER_SURFACE } from "../mail/composer-kit";
 import {
   mailApi,
@@ -43,9 +42,13 @@ import {
 } from "./chat-store";
 import { ContextKindIcon, SkillBadge } from "./chat-transcript";
 import { TalkBar, TalkButton, useTalk } from "./chat-talk";
-import { toast } from "../mail/toast";
+import { toast } from "@otter/ui/components/toast";
 import { useCommandHandlers } from "../keybindings/dispatch";
 import { modKeyName, shortcutText } from "../keybindings/keys";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { Textarea } from "@otter/ui/components/textarea";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 
 const NO_CITATIONS: Citation[] = [];
 
@@ -406,7 +409,7 @@ export function ChatComposer({
                 <SkillBadge name={activeSkill.name} onRemove={() => setActiveSkill(null)} />
               </div>
             ) : null}
-            <textarea
+            <Textarea
               ref={inputRef}
               value={draft}
               onChange={(e) => handleDraftChange(e.target.value)}
@@ -458,8 +461,7 @@ export function ChatComposer({
               aria-label={`Message ${providerName}`}
               rows={compact ? 1 : 2}
               className={cn(
-                "w-full resize-none bg-transparent pb-1 text-sm leading-relaxed text-foreground outline-none placeholder:text-placeholder",
-                "field-sizing-content",
+                "min-h-0 rounded-none border-0 bg-transparent pb-1 leading-relaxed focus-visible:bg-transparent focus-visible:ring-0",
                 compact
                   ? "max-h-40 px-3.5 pt-3"
                   : "min-h-[calc(2lh+1.25rem)] max-h-[min(20rem,45vh)] px-4.5 pt-4",
@@ -469,14 +471,15 @@ export function ChatComposer({
               className={cn("flex min-w-0 items-center gap-1", compact ? "px-2 pb-2" : "px-3 pb-3")}
             >
               <HintTooltip label="Attach files">
-                <IconBtn
+                <IconButton
                   label="Attach files"
-                  className={cn("-ms-0.5 rounded-full", compact ? "size-7" : "size-8")}
+                  size={compact ? "icon-sm" : "icon"}
+                  className="-ms-0.5 rounded-full"
                   onPointerDown={(e) => e.preventDefault()}
                   onClick={() => filePickerRef.current?.click()}
                 >
                   <PlusIcon className="size-4.5" />
-                </IconBtn>
+                </IconButton>
               </HintTooltip>
               <input
                 ref={filePickerRef}
@@ -515,7 +518,7 @@ export function ChatComposer({
                   the traits follow it muted and carry the chevron, and
                   one pill wraps both, as a single control. */}
               {provider && (pickModels || traitOptions.length > 0) ? (
-                <div className="ms-auto flex min-w-0 shrink items-center rounded-full hover:bg-accent-surface has-[[data-state=open]]:bg-accent-surface">
+                <div className="ms-auto flex min-w-0 shrink items-center rounded-full hover:bg-accent-surface has-data-popup-open:bg-accent-surface">
                   {pickModels ? (
                     <ModelPicker
                       provider={provider}
@@ -523,7 +526,7 @@ export function ChatComposer({
                       returnFocus={focusComposer}
                       chevron={traitOptions.length === 0}
                       className={cn(
-                        "hover:bg-transparent data-[state=open]:bg-transparent",
+                        "hover:bg-transparent data-popup-open:bg-transparent",
                         traitOptions.length > 0 && "pe-1",
                       )}
                     />
@@ -533,7 +536,7 @@ export function ChatComposer({
                       returnFocus={focusComposer}
                       options={traitOptions}
                       values={traitValues}
-                      className="shrink-0 ps-1 hover:bg-transparent data-[state=open]:bg-transparent"
+                      className="shrink-0 ps-1 hover:bg-transparent data-popup-open:bg-transparent"
                       onChange={(id, value) => {
                         updateSettings({ [agentId]: { [id]: value } });
                       }}
@@ -557,14 +560,12 @@ export function ChatComposer({
                     queues or steers it (T3 Code's primary actions). */}
                 {busy && !hasDraft && !editing ? (
                   <HintTooltip label="Interrupt">
-                    <button
-                      type="button"
+                    <Button
+                      variant="destructive"
+                      size={compact ? "icon-sm" : "icon"}
                       onClick={stop}
                       aria-label="Stop generation"
-                      className={cn(
-                        "flex cursor-pointer items-center justify-center rounded-full bg-destructive/90 text-white shadow-xs shadow-destructive/24 inset-shadow-2xs inset-shadow-white/16 transition-transform duration-150 hover:scale-105 hover:bg-destructive active:shadow-none active:inset-shadow-black/8",
-                        compact ? "size-7" : "size-8",
-                      )}
+                      className="rounded-full bg-destructive/90 shadow-xs shadow-destructive/24 inset-shadow-2xs inset-shadow-white/16 transition-transform duration-150 hover:scale-105 hover:bg-destructive active:shadow-none active:inset-shadow-black/8"
                     >
                       <svg
                         width="12"
@@ -572,22 +573,21 @@ export function ChatComposer({
                         viewBox="0 0 12 12"
                         fill="currentColor"
                         aria-hidden
+                        className="size-3"
                       >
                         <rect x="2" y="2" width="8" height="8" rx="1.5" />
                       </svg>
-                    </button>
+                    </Button>
                   </HintTooltip>
                 ) : (
                   <HintTooltip label={submitTooltip}>
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
+                      size={compact ? "icon-sm" : "icon"}
                       onClick={(e) => send(e.metaKey || e.ctrlKey)}
                       disabled={!hasDraft}
                       aria-label={submitLabel}
-                      className={cn(
-                        "relative isolate flex items-center justify-center overflow-hidden rounded-full bg-primary text-primary-foreground shadow-xs transition-transform duration-150 enabled:cursor-pointer enabled:shadow-primary/24 enabled:inset-shadow-2xs enabled:inset-shadow-white/16 hover:scale-105 hover:bg-primary/90 active:shadow-none active:inset-shadow-black/8 disabled:pointer-events-none disabled:opacity-30 disabled:shadow-none",
-                        compact ? "size-7" : "size-8",
-                      )}
+                      className="isolate overflow-hidden rounded-full shadow-xs transition-transform duration-150 enabled:shadow-primary/24 enabled:inset-shadow-2xs enabled:inset-shadow-white/16 hover:scale-105 hover:bg-primary/90 active:shadow-none active:inset-shadow-black/8 disabled:opacity-30 disabled:shadow-none"
                     >
                       {editing ? (
                         <CheckIcon className="size-4" aria-hidden />
@@ -596,7 +596,14 @@ export function ChatComposer({
                       ) : submitMode === "steer" ? (
                         <CornerUpRightIcon className="size-4" aria-hidden />
                       ) : (
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 14 14"
+                          fill="none"
+                          aria-hidden
+                          className="size-3.5"
+                        >
                           <path
                             d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5L11 6.5"
                             stroke="currentColor"
@@ -606,7 +613,7 @@ export function ChatComposer({
                           />
                         </svg>
                       )}
-                    </button>
+                    </Button>
                   </HintTooltip>
                 )}
               </div>

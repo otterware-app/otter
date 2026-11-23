@@ -10,9 +10,10 @@ import type { ConnectionSummary } from "@otter/contracts";
 import { ipc } from "~/lib/ipc";
 import { signInProvider } from "./capabilities";
 import { useAddAccount } from "./hooks";
-import { toast } from "./toast";
+import { toast } from "@otter/ui/components/toast";
 import type { MailAccount } from "./types";
-import { buttonClass, cn } from "./ui";
+import { Button } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 const CONNECTIONS = ["connections"] as const;
 
@@ -68,13 +69,13 @@ export function AllowAccessButton({
     );
   };
   return (
-    <button
-      type="button"
+    <Button
+      size="sm"
       disabled={signIn.isPending}
       onClick={allow}
-      className={cn(buttonClass("outline", "sm", "no-drag shrink-0"), className)}
+      className={cn("no-drag shrink-0", className)}
     >
       {signIn.isPending ? "Waiting for sign-in…" : label}
-    </button>
+    </Button>
   );
 }

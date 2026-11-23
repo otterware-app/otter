@@ -5,10 +5,12 @@ import { parseAddressEntry, splitAddressList } from "./address";
 import { useAccounts, useMessage } from "./hooks";
 import { SenderAvatar } from "./sender-avatar";
 import type { MessageDetail, MessageSummary } from "./types";
-import { HintTooltip, cn } from "./ui";
 import { UnsubscribeLink } from "./unsubscribe-link";
 import { openLink } from "../browser/store";
 import { isModClick } from "../keybindings/keys";
+import { IconButton } from "@otter/ui/components/button";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 
 type OpenFile = (messageId: string, attachment: MessageDetail["attachments"][number]) => void;
 
@@ -52,7 +54,7 @@ export function ConversationSummary({
       {/* Where it lives, and how long it's run. */}
       <div className="flex items-start gap-2 px-4 pb-3 pt-3.5">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-body text-muted-foreground">
             {account ? (
               <span
                 aria-hidden
@@ -67,20 +69,15 @@ export function ConversationSummary({
             {unread > 0 ? <span className="text-muted-foreground"> · {unread} unread</span> : null}
           </div>
           {first && last ? (
-            <div className="text-[13px] text-muted-foreground">{span(first.date, last.date)}</div>
+            <div className="text-body text-muted-foreground">{span(first.date, last.date)}</div>
           ) : null}
         </div>
         {/* IMAP mail has no web page to open. */}
         {account?.imap ? null : (
           <HintTooltip label="Open in Gmail">
-            <button
-              type="button"
-              aria-label="Open in Gmail"
-              onClick={openInGmail}
-              className="-me-1.5 -mt-0.5 flex size-7 cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
-            >
+            <IconButton label="Open in Gmail" onClick={openInGmail} className="-me-1.5 -mt-0.5">
               <ExternalLinkIcon className="size-4" />
-            </button>
+            </IconButton>
           </HintTooltip>
         )}
       </div>
@@ -121,7 +118,7 @@ export function ConversationSummary({
             </div>
           ))}
           {people.length > 8 ? (
-            <div className="px-2 pt-0.5 text-[13px] text-muted-foreground">
+            <div className="px-2 pt-0.5 text-body text-muted-foreground">
               and {people.length - 8} more
             </div>
           ) : null}
@@ -143,7 +140,7 @@ export function ConversationSummary({
 
       {/* A mailing list's way out (renders nothing for ordinary mail). */}
       {last ? (
-        <div className="border-t border-foreground/10 px-4 py-2.5 text-[13px] empty:hidden">
+        <div className="border-t border-foreground/10 px-4 py-2.5 text-body empty:hidden">
           <UnsubscribeLink
             accountId={accountId}
             messageId={last.id}
@@ -159,7 +156,7 @@ export function ConversationSummary({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border-t border-foreground/10 px-2 pb-2 pt-2.5">
-      <div className="px-2 pb-1 text-[13px] text-muted-foreground">{title}</div>
+      <div className="px-2 pb-1 text-body text-muted-foreground">{title}</div>
       {children}
     </div>
   );
@@ -176,14 +173,9 @@ function PersonAction({
 }) {
   return (
     <HintTooltip label={label}>
-      <button
-        type="button"
-        aria-label={label}
-        onClick={onClick}
-        className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/[0.08] hover:text-foreground [&_svg]:size-3.5"
-      >
+      <IconButton label={label} size="icon-xs" onClick={onClick} className="rounded-md">
         {children}
-      </button>
+      </IconButton>
     </HintTooltip>
   );
 }

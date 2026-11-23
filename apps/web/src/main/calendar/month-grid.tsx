@@ -1,10 +1,10 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { cn } from "../mail/ui";
 import { calendarKey, type CalEvent } from "./api";
 import { useCalendar } from "./calendar-store";
 import { DAY, sameDay, timeLabel, weekdayShort } from "./dates";
 import { eventStyle, isPending } from "./event-style";
 import { eventKey, useNow } from "./time-grid";
+import { cn } from "@otter/ui/lib/utils";
 
 const ROW_PX = 22;
 
@@ -59,7 +59,7 @@ export function MonthGrid({
         {days.slice(0, columns).map((day) => (
           <div
             key={day.getDay()}
-            className="flex h-9 items-center justify-center text-[13px] text-muted-foreground"
+            className="flex h-9 items-center justify-center text-body text-muted-foreground"
           >
             {weekdayShort(day)}
           </div>
@@ -106,9 +106,9 @@ export function MonthGrid({
                   type="button"
                   onClick={() => onOpenDay(day)}
                   className={cn(
-                    "flex h-5 min-w-5 cursor-pointer items-center justify-center rounded-[5px] px-1 text-[12px] tabular-nums outline-none transition-colors",
+                    "flex h-5 min-w-5 cursor-pointer items-center justify-center rounded-sm px-1 text-xs tabular-nums outline-none transition-colors",
                     today
-                      ? "bg-(--calendar-today) font-medium text-white"
+                      ? "bg-calendar-today font-medium text-white"
                       : outside
                         ? "text-muted-foreground/50 hover:text-foreground"
                         : "text-muted-foreground hover:text-foreground",
@@ -142,7 +142,7 @@ export function MonthGrid({
                         : ({ "--event-color": colorOf(calendarKey(event)) } as CSSProperties)
                     }
                     className={cn(
-                      "flex h-5 shrink-0 cursor-default items-center gap-1.5 overflow-hidden rounded-[5px] border border-transparent px-1 text-left text-[11px] transition-colors duration-150",
+                      "flex h-5 shrink-0 cursor-default items-center gap-1.5 overflow-hidden rounded-sm border border-transparent px-1 text-left text-2xs transition-colors duration-150",
                       solid && isPending(event) && !selected && "border-dashed",
                       !solid && !selected && "hover:bg-foreground/[0.05]",
                       outside && !selected && "opacity-60",
@@ -180,7 +180,7 @@ export function MonthGrid({
                   data-event=""
                   data-event-key="draft"
                   style={eventStyle(colorOf(calendarKey(draft)), { response: null }, true)}
-                  className="flex h-5 shrink-0 items-center rounded-[5px] border px-1.5 text-[11px] font-medium"
+                  className="flex h-5 shrink-0 items-center rounded-sm border px-1.5 text-2xs font-medium"
                 >
                   <span className="truncate">{draft.title?.trim() || "New event"}</span>
                 </div>
@@ -189,7 +189,7 @@ export function MonthGrid({
                 <button
                   type="button"
                   onClick={() => onOpenDay(day)}
-                  className="h-5 shrink-0 cursor-pointer rounded-[5px] px-1 text-left text-[11px] text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground"
+                  className="h-5 shrink-0 cursor-pointer rounded-sm px-1 text-left text-2xs text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground"
                 >
                   {dayEvents.length - shown.length} more
                 </button>

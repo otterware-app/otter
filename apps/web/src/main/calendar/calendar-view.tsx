@@ -5,15 +5,8 @@ import { AllowAccessButton } from "../mail/allow-access";
 import { getAccountColor, getAccountDisplayName } from "../mail/account-style";
 import { isModClick } from "../keybindings/keys";
 import { isTypingTarget } from "../mail/keyboard";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../mail/menu";
 import type { MailAccount } from "../mail/types";
 import { useAccounts } from "../mail/hooks";
-import { HintTooltip, IconBtn, buttonClass } from "../mail/ui";
 import {
   calendarKey,
   useCachedEvent,
@@ -44,6 +37,14 @@ import { EventPanel } from "./event-panel";
 import { TeamPicker } from "./team-picker";
 import { MonthGrid } from "./month-grid";
 import { TimeGrid } from "./time-grid";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { Button, IconButton } from "@otter/ui/components/button";
 
 export const CALENDAR_MODES: { mode: CalendarMode; label: string }[] = [
   { mode: "day", label: "Day" },
@@ -386,18 +387,18 @@ export function CalendarView({
           {needsAccess.length ? <AllowCalendarAccess accounts={needsAccess} /> : null}
           <span className="min-w-0 flex-1" />
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button" className={buttonClass("ghost", "sm", "no-drag gap-1 px-2")}>
-                {modeLabel}
-                <ChevronDownIcon className="size-3.5 text-muted-foreground" />
-              </button>
+            <DropdownMenuTrigger
+              render={<Button variant="ghost" size="sm" className="no-drag gap-1 px-2" />}
+            >
+              {modeLabel}
+              <ChevronDownIcon className="size-3.5 text-muted-foreground" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-36">
               {CALENDAR_MODES.map((m) => (
                 <DropdownMenuItem
                   key={m.mode}
                   icon={m.mode === mode ? <CheckIcon /> : <span className="size-4" />}
-                  onSelect={() => onMode(m.mode)}
+                  onClick={() => onMode(m.mode)}
                 >
                   {m.label}
                 </DropdownMenuItem>
@@ -405,26 +406,20 @@ export function CalendarView({
             </DropdownMenuContent>
           </DropdownMenu>
           <HintTooltip label="Today">
-            <button
-              type="button"
-              onClick={() => {
-                goToday();
-              }}
-              className={buttonClass("outline", "sm", "no-drag")}
-            >
+            <Button size="sm" className="no-drag" onClick={goToday}>
               Today
-            </button>
+            </Button>
           </HintTooltip>
           <div className="no-drag flex items-center">
             <HintTooltip label="Previous" hint="←">
-              <IconBtn label="Previous" onClick={() => go(-1)}>
+              <IconButton label="Previous" onClick={() => go(-1)}>
                 <ChevronLeftIcon />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
             <HintTooltip label="Next" hint="→">
-              <IconBtn label="Next" onClick={() => go(1)}>
+              <IconButton label="Next" onClick={() => go(1)}>
                 <ChevronRightIcon />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
           </div>
           {titleTrailing}

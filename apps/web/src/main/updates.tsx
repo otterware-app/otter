@@ -10,12 +10,14 @@ import {
   RotateCwIcon,
 } from "lucide-react";
 
-import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
+import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@otter/ui/components/popover";
 import { releaseCompareUrl, useReleaseChanges } from "./release-changes";
-import { Btn, cn } from "./mail/ui";
-import { toast } from "./mail/toast";
-import { RowSelect, SettingsRow, SettingsSection, timeAgo } from "./settings/settings-ui";
+import { toast } from "@otter/ui/components/toast";
 import { searchableSetting } from "./settings/settings-search";
+import { Button } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
+import { SettingsSelect, SettingsRow, SettingsSection } from "@otter/ui/components/settings";
+import { timeAgo } from "./settings/time-ago";
 
 const restart = () => (window.desktopBridge.platform === "web" ? "Reload" : "Restart");
 
@@ -355,29 +357,29 @@ export function UpdatesSection() {
   }
   const manualUrl = state.manualDownloadUrl;
   const control = manualUrl ? (
-    <Btn
+    <Button
       variant="primary"
       size="sm"
       onClick={() => void window.desktopBridge.openExternal(manualUrl)}
     >
       Download {state.availableVersion}
-    </Btn>
+    </Button>
   ) : state.status === "available" ? (
-    <Btn variant="primary" size="sm" onClick={() => void updates.download()}>
+    <Button variant="primary" size="sm" onClick={() => void updates.download()}>
       Download
-    </Btn>
+    </Button>
   ) : state.status === "downloaded" ? (
-    <Btn variant="primary" size="sm" onClick={() => void updates.install()}>
+    <Button variant="primary" size="sm" onClick={() => void updates.install()}>
       {restart()} to Update
-    </Btn>
+    </Button>
   ) : state.status === "disabled" ? null : (
-    <Btn
+    <Button
       size="sm"
       disabled={changingChannel || state.status === "checking" || state.status === "downloading"}
       onClick={() => void updates.check()}
     >
       Check for Updates
-    </Btn>
+    </Button>
   );
 
   return (
@@ -396,7 +398,7 @@ export function UpdatesSection() {
               : "Tested releases for everyday use."
           }
           control={
-            <RowSelect
+            <SettingsSelect
               ariaLabel="Update channel"
               value={state.channel}
               options={[

@@ -17,9 +17,9 @@ import {
 import { useMatch, useNavigate, useRouter } from "@tanstack/react-router";
 import { placeHref as hrefOf } from "./places";
 import { ArrowLeftIcon } from "lucide-react";
-import { EmptyState } from "~/components/ui/empty-state";
+import { EmptyState } from "@otter/ui/components/empty-state";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast, type ToastId } from "./mail/toast";
+import { toast, type ToastId } from "@otter/ui/components/toast";
 import { setDraftOpener } from "./mail/undo-send";
 import { AppSidebar } from "./mail/app-sidebar";
 import { SidebarPeekCard, useSidebarPeek } from "./mail/sidebar-peek";
@@ -61,7 +61,6 @@ import {
 import { SettingsPage, type SettingsRoute } from "./settings/settings-page";
 import { SettingsNav } from "./settings/settings-nav";
 import { isTypingTarget } from "./mail/keyboard";
-import { cn, HintTooltip, IconBtn } from "./mail/ui";
 import { useMailLayout } from "./theme/interface-settings";
 import { usePanelAnimationSettings, usePanelPresence } from "./panel-animations";
 import {
@@ -71,6 +70,7 @@ import {
   useKeybindingDispatcher,
 } from "./keybindings/dispatch";
 import { MAILBOX_JUMP_COMMANDS } from "./keybindings/commands";
+import { ShortcutText } from "./keybindings/store";
 import {
   useAccounts,
   useAccountSync,
@@ -145,6 +145,9 @@ import {
   useSetupStage,
   useTourRequested,
 } from "./onboarding/onboarding";
+import { cn } from "@otter/ui/lib/utils";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { IconButton } from "@otter/ui/components/button";
 
 const READER_MIN_WIDTH = 360;
 // Auto layout: below this, the reader beside the list is too narrow to read in.
@@ -1576,10 +1579,10 @@ function MailHome() {
   const readerLeading = fullInbox ? (
     <>
       {sidebarOpen ? null : titlebarInset}
-      <HintTooltip label="Back to message list" shortcut="message.close">
-        <IconBtn label="Back to message list" onClick={closeMessage}>
+      <HintTooltip label="Back to message list" hint={<ShortcutText command="message.close" />}>
+        <IconButton label="Back to message list" onClick={closeMessage}>
           <ArrowLeftIcon className="size-4" />
-        </IconBtn>
+        </IconButton>
       </HintTooltip>
     </>
   ) : undefined;

@@ -1,14 +1,10 @@
-import {
-  Btn,
-  SettingsRow,
-  SettingsSection,
-  searchableSetting,
-  toast,
-  useSetProvidersState,
-} from "@otter/web/extension-kit";
+import { searchableSetting, useSetProvidersState } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import { useState } from "react";
+import { Button } from "@otter/ui/components/button";
 
 import { varysApi } from "./api";
+import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
 
 export type RelayState = "on" | "off" | "signedOut";
 
@@ -54,9 +50,9 @@ export function VarysDeliveries({ agent, relay }: { agent: string; relay: RelayS
           title="Off"
           description="varys didn't take Otter's relay when this device connected."
           control={
-            <Btn size="sm" variant="primary" disabled={busy} onClick={() => void turnOn()}>
+            <Button size="sm" variant="primary" disabled={busy} onClick={() => void turnOn()}>
               {busy ? "Turning on…" : "Turn on"}
-            </Btn>
+            </Button>
           }
         />
       )}

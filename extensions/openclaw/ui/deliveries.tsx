@@ -1,14 +1,10 @@
-import {
-  Btn,
-  Command,
-  SettingsRow,
-  SettingsSection,
-  searchableSetting,
-  toast,
-} from "@otter/web/extension-kit";
+import { Command, searchableSetting } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@otter/ui/components/button";
 
 import { channelApi, type AgentChannel } from "./api";
+import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
 
 const PLUGIN = "@otterware/openclaw-otter";
 
@@ -74,9 +70,9 @@ export function OpenClawDeliveries() {
                   : "Nothing sent yet"
               }
               control={
-                <Btn size="sm" onClick={() => void remove(c.id)}>
+                <Button size="sm" onClick={() => void remove(c.id)}>
                   Remove
-                </Btn>
+                </Button>
               }
             />
           ))}
@@ -99,9 +95,9 @@ export function OpenClawDeliveries() {
               title={channels?.length ? "Set up another gateway" : "Set up"}
               description="Makes a token for the gateway, and shows what to run there."
               control={
-                <Btn size="sm" variant="primary" disabled={busy} onClick={() => void make()}>
+                <Button size="sm" variant="primary" disabled={busy} onClick={() => void make()}>
                   {busy ? "Setting up…" : "Set up"}
-                </Btn>
+                </Button>
               }
             />
           )}

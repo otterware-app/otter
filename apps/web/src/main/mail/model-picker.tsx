@@ -1,5 +1,4 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Popover } from "radix-ui";
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -22,20 +21,24 @@ import {
 import { AgentFace, isProviderUsable, kindName } from "../agent/agent-providers";
 import { agentContribution } from "../extensions/registry";
 import { modelKey, toggleFavorite, useModelPrefs } from "./model-prefs";
+import { AGENT_PICKER_JUMP_COMMANDS } from "../keybindings/commands";
+import { matchesCommand, useCommandHandlers, useKeybindingContext } from "../keybindings/dispatch";
+import { ShortcutText, shortcutLabelFor, useKeybindingsState } from "../keybindings/store";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "./menu";
-import { HintTooltip, Kbd, cn, restoreFocusForKeyboardOnly } from "./ui";
-import { AGENT_PICKER_JUMP_COMMANDS } from "../keybindings/commands";
-import { matchesCommand, useCommandHandlers, useKeybindingContext } from "../keybindings/dispatch";
-import { shortcutLabelFor, useKeybindingsState } from "../keybindings/store";
+  keyboardOnlyFocus,
+} from "@otter/ui/components/dropdown-menu";
+import { Popover, PopoverPopup, PopoverTrigger } from "@otter/ui/components/popover";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { Kbd } from "@otter/ui/components/kbd";
+import { cn } from "@otter/ui/lib/utils";
 
 export const COMPOSER_CONTROL =
-  "relative inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-full border border-transparent outline-none hover:bg-accent-surface data-[state=open]:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-64 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:-mx-0.5 [&_svg[data-composer-control-icon]]:mx-0 h-7 gap-1.5 px-2.5 text-sm font-normal text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground hover:text-foreground [&_svg:not([class*='size-'])]:size-4";
+  "relative inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-full border border-transparent outline-none hover:bg-accent-surface data-popup-open:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-64 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:-mx-0.5 [&_svg[data-composer-control-icon]]:mx-0 h-7 gap-1.5 px-2.5 text-sm font-normal text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground hover:text-foreground [&_svg:not([class*='size-'])]:size-4";
 
 export function ComposerControlChevron() {
   return (
@@ -48,10 +51,12 @@ export function ComposerControlChevron() {
   );
 }
 
-function closeFocus(event: Event, returnFocus?: () => void): void {
-  if (!returnFocus) return restoreFocusForKeyboardOnly(event);
-  event.preventDefault();
-  returnFocus();
+function closeFocus(returnFocus?: () => void) {
+  if (!returnFocus) return keyboardOnlyFocus;
+  return () => {
+    returnFocus();
+    return false;
+  };
 }
 
 export function modelLabel(name: string): string {
@@ -396,49 +401,48 @@ export function AgentPicker({
     );
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
-      <HintTooltip label="Choose agent" shortcut="agentPicker.toggle">
-        <Popover.Trigger asChild>
-          <button
-            type="button"
-            aria-label={`Agent: ${label}`}
-            data-chat-agent-picker
-            className={cn(
-              COMPOSER_CONTROL,
-              "min-w-0 max-w-48 shrink justify-between text-foreground/90 sm:max-w-56",
-              className,
-            )}
-          >
-            {face}
-            <ComposerControlChevron />
-          </button>
-        </Popover.Trigger>
-      </HintTooltip>
-      <Popover.Portal>
-        <Popover.Content
-          side="top"
-          align="start"
-          sideOffset={6}
-          collisionPadding={8}
-          onCloseAutoFocus={(event) => closeFocus(event, returnFocus)}
-          className="dropdown-glass z-[130] overflow-hidden rounded-lg text-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] outline-none dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
+    <Popover open={open} onOpenChange={setOpen}>
+      <HintTooltip label="Choose agent" hint={<ShortcutText command="agentPicker.toggle" />}>
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              aria-label={`Agent: ${label}`}
+              data-chat-agent-picker
+              className={cn(
+                COMPOSER_CONTROL,
+                "min-w-0 max-w-48 shrink justify-between text-foreground/90 sm:max-w-56",
+                className,
+              )}
+            />
+          }
         >
-          <AgentPickerContent
-            providers={providers.filter((p) => p.enabled || p.id === active?.id)}
-            activeKey={activeKey}
-            onClose={() => setOpen(false)}
-            onAdd={() => {
-              setOpen(false);
-              void mailApi.openSettings({ pane: "agents" });
-            }}
-            onPick={(item) => {
-              onPick(item.provider.id, item.agent);
-              setOpen(false);
-            }}
-          />
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+          {face}
+          <ComposerControlChevron />
+        </PopoverTrigger>
+      </HintTooltip>
+      <PopoverPopup
+        side="top"
+        align="start"
+        sideOffset={6}
+        padding="none"
+        finalFocus={closeFocus(returnFocus)}
+      >
+        <AgentPickerContent
+          providers={providers.filter((p) => p.enabled || p.id === active?.id)}
+          activeKey={activeKey}
+          onClose={() => setOpen(false)}
+          onAdd={() => {
+            setOpen(false);
+            void mailApi.openSettings({ pane: "agents" });
+          }}
+          onPick={(item) => {
+            onPick(item.provider.id, item.agent);
+            setOpen(false);
+          }}
+        />
+      </PopoverPopup>
+    </Popover>
   );
 }
 
@@ -507,133 +511,131 @@ export function ModelPicker({
   const grouped = !query.trim();
 
   return (
-    <Popover.Root open={open} onOpenChange={openPicker}>
+    <Popover open={open} onOpenChange={openPicker}>
       <HintTooltip label={`${provider.name}'s model`}>
-        <Popover.Trigger asChild>
-          <button
-            type="button"
-            aria-label={`Model: ${label}`}
-            data-chat-model-picker
-            className={cn(COMPOSER_CONTROL, "min-w-0 max-w-44 shrink justify-between", className)}
-          >
-            <span className="min-w-0 flex-1 truncate">{label}</span>
-            {chevron ? <ComposerControlChevron /> : null}
-          </button>
-        </Popover.Trigger>
-      </HintTooltip>
-      <Popover.Portal>
-        <Popover.Content
-          side="top"
-          align="end"
-          sideOffset={6}
-          collisionPadding={8}
-          onCloseAutoFocus={(event) => closeFocus(event, returnFocus)}
-          className="dropdown-glass z-[130] overflow-hidden rounded-lg text-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] outline-none dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              aria-label={`Model: ${label}`}
+              data-chat-model-picker
+              className={cn(COMPOSER_CONTROL, "min-w-0 max-w-44 shrink justify-between", className)}
+            />
+          }
         >
-          <div className="flex max-h-86.5 w-screen max-w-72 flex-col overflow-hidden">
-            {provider.models.length > 8 ? (
-              <div className="min-w-0 shrink-0 border-b border-foreground/10 px-3 py-2">
-                <div className="relative">
-                  <SearchIcon
-                    aria-hidden
-                    className="pointer-events-none absolute left-0 top-1.5 size-4 shrink-0 text-muted-foreground"
-                  />
-                  <input
-                    autoFocus
-                    value={query}
-                    onChange={(e) => {
-                      setQuery(e.target.value);
-                      setHighlight(0);
-                    }}
-                    placeholder="Search models..."
-                    spellCheck={false}
-                    aria-label="Search models"
-                    className="h-7 w-full bg-transparent ps-6 font-sans text-sm leading-7 text-foreground outline-none placeholder:text-muted-foreground"
-                    onKeyDown={(e) => {
-                      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                        e.preventDefault();
-                        const delta = e.key === "ArrowDown" ? 1 : -1;
-                        setHighlight((h) =>
-                          models.length ? (h + delta + models.length) % models.length : 0,
-                        );
-                      } else if (e.key === "Enter") {
-                        e.preventDefault();
-                        pick(models[highlight]);
-                      } else if (e.key !== "Escape") e.stopPropagation();
-                    }}
-                  />
-                </div>
+          <span className="min-w-0 flex-1 truncate">{label}</span>
+          {chevron ? <ComposerControlChevron /> : null}
+        </PopoverTrigger>
+      </HintTooltip>
+      <PopoverPopup
+        side="top"
+        align="end"
+        sideOffset={6}
+        padding="none"
+        finalFocus={closeFocus(returnFocus)}
+      >
+        <div className="flex max-h-86.5 w-screen max-w-72 flex-col overflow-hidden">
+          {provider.models.length > 8 ? (
+            <div className="min-w-0 shrink-0 border-b border-foreground/10 px-3 py-2">
+              <div className="relative">
+                <SearchIcon
+                  aria-hidden
+                  className="pointer-events-none absolute left-0 top-1.5 size-4 shrink-0 text-muted-foreground"
+                />
+                <input
+                  autoFocus
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setHighlight(0);
+                  }}
+                  placeholder="Search models..."
+                  spellCheck={false}
+                  aria-label="Search models"
+                  className="h-7 w-full bg-transparent ps-6 font-sans text-sm leading-7 text-foreground outline-none placeholder:text-muted-foreground"
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                      e.preventDefault();
+                      const delta = e.key === "ArrowDown" ? 1 : -1;
+                      setHighlight((h) =>
+                        models.length ? (h + delta + models.length) % models.length : 0,
+                      );
+                    } else if (e.key === "Enter") {
+                      e.preventDefault();
+                      pick(models[highlight]);
+                    } else if (e.key !== "Escape") e.stopPropagation();
+                  }}
+                />
+              </div>
+            </div>
+          ) : null}
+          <div
+            ref={listRef}
+            role="listbox"
+            aria-label="Models"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-1.5"
+          >
+            {models.map((m, index) => {
+              const favorite = favorites.includes(key(m.slug));
+              const group = m.subProvider ?? null;
+              return (
+                <Fragment key={m.slug}>
+                  {grouped && group && group !== (models[index - 1]?.subProvider ?? null) ? (
+                    <div className="px-2 pb-1 pt-2 text-body text-muted-foreground first:pt-1">
+                      {group}
+                    </div>
+                  ) : null}
+                  <div
+                    role="option"
+                    aria-selected={m.slug === provider.model}
+                    data-highlighted={index === highlight || undefined}
+                    onMouseMove={() => setHighlight(index)}
+                    onClick={() => pick(m)}
+                    className={cn(
+                      "group relative flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm outline-none",
+                      index === highlight && "bg-foreground/[0.06]",
+                    )}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-foreground">
+                      {modelLabel(m.name)}
+                    </span>
+                    <button
+                      type="button"
+                      className={cn(
+                        "inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
+                        !favorite && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+                      )}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleFavorite(key(m.slug));
+                      }}
+                      aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+                      title={favorite ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      <StarIcon
+                        className={cn("size-3.5", favorite && "fill-current text-warning")}
+                      />
+                    </button>
+                    <CheckIcon
+                      aria-hidden
+                      className={cn(
+                        "size-4 shrink-0 text-foreground",
+                        m.slug !== provider.model && "invisible",
+                      )}
+                    />
+                  </div>
+                </Fragment>
+              );
+            })}
+            {models.length === 0 ? (
+              <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                No models found
               </div>
             ) : null}
-            <div
-              ref={listRef}
-              role="listbox"
-              aria-label="Models"
-              className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-1.5"
-            >
-              {models.map((m, index) => {
-                const favorite = favorites.includes(key(m.slug));
-                const group = m.subProvider ?? null;
-                return (
-                  <Fragment key={m.slug}>
-                    {grouped && group && group !== (models[index - 1]?.subProvider ?? null) ? (
-                      <div className="px-2 pb-1 pt-2 text-[13px] text-muted-foreground first:pt-1">
-                        {group}
-                      </div>
-                    ) : null}
-                    <div
-                      role="option"
-                      aria-selected={m.slug === provider.model}
-                      data-highlighted={index === highlight || undefined}
-                      onMouseMove={() => setHighlight(index)}
-                      onClick={() => pick(m)}
-                      className={cn(
-                        "group relative flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm outline-none",
-                        index === highlight && "bg-foreground/[0.06]",
-                      )}
-                    >
-                      <span className="min-w-0 flex-1 truncate text-foreground">
-                        {modelLabel(m.name)}
-                      </span>
-                      <button
-                        type="button"
-                        className={cn(
-                          "inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
-                          !favorite &&
-                            "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-                        )}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          toggleFavorite(key(m.slug));
-                        }}
-                        aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
-                        title={favorite ? "Remove from favorites" : "Add to favorites"}
-                      >
-                        <StarIcon
-                          className={cn("size-3.5", favorite && "fill-current text-yellow-500")}
-                        />
-                      </button>
-                      <CheckIcon
-                        aria-hidden
-                        className={cn(
-                          "size-4 shrink-0 text-foreground",
-                          m.slug !== provider.model && "invisible",
-                        )}
-                      />
-                    </div>
-                  </Fragment>
-                );
-              })}
-              {models.length === 0 ? (
-                <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                  No models found
-                </div>
-              ) : null}
-            </div>
           </div>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+        </div>
+      </PopoverPopup>
+    </Popover>
   );
 }
 
@@ -682,35 +684,37 @@ export function TraitsPicker({
   return (
     <DropdownMenu>
       <HintTooltip label={accessible}>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={accessible}
-            className={cn(
-              COMPOSER_CONTROL,
-              "min-w-0 max-w-40 shrink justify-start overflow-hidden sm:max-w-48",
-              className,
-            )}
-          >
-            <span className="flex w-full min-w-0 items-center gap-1.5">
-              {fast ? (
-                <ZapIcon
-                  aria-hidden
-                  data-composer-control-icon
-                  className="size-4 shrink-0 fill-current text-foreground opacity-80"
-                />
-              ) : null}
-              <span className="min-w-0 truncate">{label}</span>
-              <ComposerControlChevron />
-            </span>
-          </button>
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              aria-label={accessible}
+              className={cn(
+                COMPOSER_CONTROL,
+                "min-w-0 max-w-40 shrink justify-start overflow-hidden sm:max-w-48",
+                className,
+              )}
+            />
+          }
+        >
+          <span className="flex w-full min-w-0 items-center gap-1.5">
+            {fast ? (
+              <ZapIcon
+                aria-hidden
+                data-composer-control-icon
+                className="size-4 shrink-0 fill-current text-foreground opacity-80"
+              />
+            ) : null}
+            <span className="min-w-0 truncate">{label}</span>
+            <ComposerControlChevron />
+          </span>
         </DropdownMenuTrigger>
       </HintTooltip>
       <DropdownMenuContent
         align="start"
         side="bottom"
         className="min-w-44"
-        onCloseAutoFocus={(event) => closeFocus(event, returnFocus)}
+        finalFocus={closeFocus(returnFocus)}
       >
         {options.map((option, index) => {
           const selected = currentChoice(option, values[option.id] ?? "");
@@ -723,7 +727,7 @@ export function TraitsPicker({
               {option.choices.map((choice) => (
                 <DropdownMenuItem
                   key={choice.id}
-                  onSelect={() => onChange(option.id, choice.id)}
+                  onClick={() => onChange(option.id, choice.id)}
                   className={cn(choice.id === selected && "bg-foreground/[0.08] text-foreground")}
                 >
                   <span className="flex w-full min-w-0 flex-col">
@@ -732,7 +736,7 @@ export function TraitsPicker({
                       {choice.isDefault ? <DefaultBadge /> : null}
                     </span>
                     {choice.description ? (
-                      <span className="max-w-56 text-pretty text-xs text-muted-foreground/80">
+                      <span className="max-w-56 text-pretty text-xs text-faint-foreground">
                         {choice.description}
                       </span>
                     ) : null}
@@ -788,30 +792,28 @@ export function RuntimeModePicker({
   const Icon = current.icon;
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <HintTooltip label={current.description} shortcut="composer.mode">
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label="Runtime mode"
-            className={cn(COMPOSER_CONTROL, "shrink-0")}
-          >
-            <Icon aria-hidden data-composer-control-icon className="size-4 shrink-0" />
-            <span>{current.label}</span>
-            <ComposerControlChevron />
-          </button>
+      <HintTooltip label={current.description} hint={<ShortcutText command="composer.mode" />}>
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              aria-label="Runtime mode"
+              className={cn(COMPOSER_CONTROL, "shrink-0")}
+            />
+          }
+        >
+          <Icon aria-hidden data-composer-control-icon className="size-4 shrink-0" />
+          <span>{current.label}</span>
+          <ComposerControlChevron />
         </DropdownMenuTrigger>
       </HintTooltip>
-      <DropdownMenuContent
-        align="start"
-        side="bottom"
-        onCloseAutoFocus={(event) => closeFocus(event, returnFocus)}
-      >
+      <DropdownMenuContent align="start" side="bottom" finalFocus={closeFocus(returnFocus)}>
         {RUNTIME_MODE_OPTIONS.map((option) => {
           const OptionIcon = option.icon;
           return (
             <DropdownMenuItem
               key={option.value}
-              onSelect={() => onChange(option.value)}
+              onClick={() => onChange(option.value)}
               className={cn(
                 "min-w-64",
                 option.value === value && "bg-foreground/[0.08] text-foreground",

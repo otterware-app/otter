@@ -2,7 +2,10 @@ import { CheckIcon, MessageCircleQuestionIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ChatQuestion } from "../mail/api";
 import { COMPOSER_SURFACE } from "../mail/composer-kit";
-import { Btn, cn, Kbd } from "../mail/ui";
+import { Button } from "@otter/ui/components/button";
+import { Input } from "@otter/ui/components/input";
+import { cn } from "@otter/ui/lib/utils";
+import { Kbd } from "@otter/ui/components/kbd";
 
 export function QuestionCard({
   agent,
@@ -78,9 +81,9 @@ export function QuestionCard({
       <div className="flex max-h-[45vh] min-w-0 flex-col gap-4 overflow-auto [scrollbar-width:thin]">
         {question.questions.map((q) => (
           <div key={q.id} className="flex flex-col gap-1.5">
-            <p className="text-[15px] leading-snug text-foreground">{q.question}</p>
+            <p className="text-md leading-snug text-foreground">{q.question}</p>
             {q.secret ? (
-              <p className="text-[13px] text-muted-foreground">
+              <p className="text-body text-muted-foreground">
                 This asks for a secret, which only goes through {agent}&rsquo;s own app.
               </p>
             ) : (
@@ -100,7 +103,7 @@ export function QuestionCard({
                         disabled={responding}
                         onClick={() => choose(q.id, option.label, q.multiSelect)}
                         className={cn(
-                          "flex w-full cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-64",
+                          "flex w-full cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-1.5 text-left text-body outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-64",
                           on
                             ? "border-primary/60 bg-primary/8"
                             : "border-border/70 hover:bg-accent-surface",
@@ -128,7 +131,7 @@ export function QuestionCard({
                     );
                   })}
                 </div>
-                <input
+                <Input
                   value={own[q.id] ?? ""}
                   disabled={responding}
                   placeholder="Or answer in your own words"
@@ -138,7 +141,7 @@ export function QuestionCard({
                     setOwn((all) => ({ ...all, [q.id]: value }));
                     if (!q.multiSelect && value) setChosen((all) => ({ ...all, [q.id]: [] }));
                   }}
-                  className="h-8 rounded-lg border border-border/70 bg-transparent px-2.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  className="bg-transparent text-body focus-visible:bg-transparent"
                 />
               </>
             )}
@@ -146,7 +149,7 @@ export function QuestionCard({
         ))}
       </div>
       <div className="flex items-center justify-end gap-2">
-        <Btn
+        <Button
           size="sm"
           disabled={responding}
           onClick={() => onAnswer(null)}
@@ -154,9 +157,9 @@ export function QuestionCard({
         >
           Skip
           <Kbd>Esc</Kbd>
-        </Btn>
+        </Button>
         {secret ? null : (
-          <Btn
+          <Button
             size="sm"
             disabled={responding || !complete}
             onClick={() => onAnswer(answers)}
@@ -164,7 +167,7 @@ export function QuestionCard({
           >
             Answer
             <Kbd>↩</Kbd>
-          </Btn>
+          </Button>
         )}
       </div>
     </div>

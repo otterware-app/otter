@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { SearchIcon } from "lucide-react";
 import { mailApi } from "../mail/api";
 import type { ContactSuggestion } from "../mail/types";
-import { Kbd, cn } from "../mail/ui";
 import { useCalendar, type Teammate } from "./calendar-store";
+import { Kbd } from "@otter/ui/components/kbd";
+import { cn } from "@otter/ui/lib/utils";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -86,7 +87,7 @@ export function TeamPicker({ onClose }: { onClose: () => void }) {
                 onClose();
               }
             }}
-            className="h-full min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-placeholder"
+            className="h-full min-w-0 flex-1 bg-transparent text-md outline-none placeholder:text-placeholder"
           />
         </div>
         {options.length ? (

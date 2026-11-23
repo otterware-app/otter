@@ -3,17 +3,19 @@ import { ChevronDownIcon } from "lucide-react";
 import { readableError } from "../mail/add-mailbox";
 import { useAgentProviders } from "./agent-providers";
 import { regenerateTitle, renameChat, type Conversation } from "./chat-store";
+import { toast } from "@otter/ui/components/toast";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
+} from "@otter/ui/components/context-menu";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "../mail/menu";
-import { toast } from "../mail/toast";
-import { cn } from "../mail/ui";
+} from "@otter/ui/components/dropdown-menu";
+import { cn } from "@otter/ui/lib/utils";
 
 /** A chat's title in a header: double-click to rename, right-click to rename or regenerate it.
  *  With a `menu`, a click opens it instead, and double-click doesn't rename. */
@@ -49,38 +51,44 @@ export function ChatTitle({
       <ContextMenu>
         {menu ? (
           <DropdownMenu>
-            <ContextMenuTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <TitleMenuButton className={cn(regenerating && "opacity-55", className)}>
-                  {chat.title}
-                </TitleMenuButton>
-              </DropdownMenuTrigger>
+            <ContextMenuTrigger
+              render={
+                <DropdownMenuTrigger
+                  render={
+                    <TitleMenuButton className={cn(regenerating && "opacity-55", className)} />
+                  }
+                />
+              }
+            >
+              {chat.title}
             </ContextMenuTrigger>
             <DropdownMenuContent>{menu}</DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <ContextMenuTrigger asChild>
-            <span
-              onDoubleClick={(e) => {
-                e.preventDefault();
-                setRenaming(true);
-              }}
-              className={cn(
-                "no-drag min-w-0 cursor-default truncate",
-                regenerating && "opacity-55",
-                className,
-              )}
-            >
-              {chat.title}
-            </span>
+          <ContextMenuTrigger
+            render={
+              <span
+                onDoubleClick={(e) => {
+                  e.preventDefault();
+                  setRenaming(true);
+                }}
+              />
+            }
+            className={cn(
+              "no-drag min-w-0 cursor-default truncate",
+              regenerating && "opacity-55",
+              className,
+            )}
+          >
+            {chat.title}
           </ContextMenuTrigger>
         )}
         <ContextMenuContent>
-          <ContextMenuItem onSelect={() => setRenaming(true)}>Rename</ContextMenuItem>
+          <ContextMenuItem onClick={() => setRenaming(true)}>Rename</ContextMenuItem>
           {titles && chat.sessionId ? (
             <ContextMenuItem
               disabled={regenerating}
-              onSelect={() => {
+              onClick={() => {
                 setRegenerating(true);
                 void regenerateTitle(chat.id)
                   .catch((err: unknown) =>
@@ -107,7 +115,7 @@ export function TitleMenuButton({ className, children, ...props }: ComponentProp
       type="button"
       {...props}
       className={cn(
-        "no-drag -mx-1.5 flex h-7 min-w-0 cursor-pointer items-center gap-1 rounded-md px-1.5 outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=open]:bg-foreground/[0.06]",
+        "no-drag -mx-1.5 flex h-7 min-w-0 cursor-pointer items-center gap-1 rounded-md px-1.5 outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-focus-ring data-popup-open:bg-foreground/[0.06]",
         className,
       )}
     >

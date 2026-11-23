@@ -2,20 +2,21 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRightIcon, PuzzleIcon, SearchIcon } from "lucide-react";
 
-import { Dialog } from "~/components/ui/dialog";
-import { Switch } from "~/components/ui/switch";
-import { Text } from "~/components/ui/text";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Switch } from "@otter/ui/components/switch";
+import { Text } from "@otter/ui/components/text";
 import { ipc } from "~/lib/ipc";
-import { toast } from "../mail/toast";
-import { Btn, cn } from "../mail/ui";
+import { toast } from "@otter/ui/components/toast";
+import { searchableSetting } from "../settings/settings-search";
+import { CHROME_WEB_STORE_URL, openTab, setExtensionsButton, setPinned, useBrowser } from "./store";
+import { Button } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 import {
-  SettingResetButton,
+  SettingsResetButton,
   SettingsGroup,
   SettingsRow,
   SettingsSection,
-} from "../settings/settings-ui";
-import { searchableSetting } from "../settings/settings-search";
-import { CHROME_WEB_STORE_URL, openTab, setExtensionsButton, setPinned, useBrowser } from "./store";
+} from "@otter/ui/components/settings";
 
 type Extension = {
   id: string;
@@ -91,7 +92,7 @@ export function ExtensionsSection() {
           {...searchableSetting("browser-extensions-button")}
           resetAction={
             extensionsButton ? null : (
-              <SettingResetButton
+              <SettingsResetButton
                 label="extensions button"
                 onClick={() => setExtensionsButton(true)}
               />
@@ -128,14 +129,14 @@ export function ExtensionsSection() {
             />
           </div>
           {developerMode ? (
-            <Btn className={PILL} onClick={() => void loadUnpacked()}>
+            <Button className={PILL} onClick={() => void loadUnpacked()}>
               Load unpacked
-            </Btn>
+            </Button>
           ) : null}
-          <Btn className={PILL} onClick={() => openTab(CHROME_WEB_STORE_URL)}>
+          <Button className={PILL} onClick={() => openTab(CHROME_WEB_STORE_URL)}>
             Chrome Web Store
             <ArrowUpRightIcon className="size-4 text-muted-foreground" />
-          </Btn>
+          </Button>
         </div>
 
         {shown.length === 0 ? (
@@ -149,7 +150,7 @@ export function ExtensionsSection() {
                   : "No extensions yet"}
             </p>
             {!words && !extensions.isPending ? (
-              <p className="max-w-80 text-[13px] text-muted-foreground">
+              <p className="max-w-80 text-body text-muted-foreground">
                 Find one in the Chrome Web Store and choose Add to Otter.
               </p>
             ) : null}
@@ -170,13 +171,13 @@ export function ExtensionsSection() {
                       {extension.version}
                     </span>
                   </p>
-                  <p className="mt-1 line-clamp-2 text-[13px] leading-[18px] text-muted-foreground">
+                  <p className="mt-1 line-clamp-2 text-body leading-[18px] text-muted-foreground">
                     {extension.description}
                   </p>
                 </div>
               </div>
               {details === extension.id ? (
-                <dl className="mt-4 grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2 border-t border-border/70 pt-4 text-[13px]">
+                <dl className="mt-4 grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2 border-t border-border/70 pt-4 text-body">
                   <dt className="text-muted-foreground">Site access</dt>
                   <dd className="text-foreground">{extension.siteAccess}</dd>
                   {extension.permissions.length > 0 ? (
@@ -196,15 +197,15 @@ export function ExtensionsSection() {
                   </dd>
                   <dd className="col-span-2 flex flex-wrap gap-2 pt-1">
                     {extension.optionsUrl ? (
-                      <Btn
+                      <Button
                         size="sm"
                         className={PILL}
                         onClick={() => openTab(extension.optionsUrl!)}
                       >
                         Extension options
-                      </Btn>
+                      </Button>
                     ) : null}
-                    <Btn
+                    <Button
                       size="sm"
                       className={PILL}
                       onClick={() =>
@@ -212,21 +213,21 @@ export function ExtensionsSection() {
                       }
                     >
                       View in Chrome Web Store
-                    </Btn>
+                    </Button>
                   </dd>
                 </dl>
               ) : null}
               <div className="mt-4 flex items-center gap-2">
-                <Btn
+                <Button
                   size="sm"
                   className={cn(PILL, details === extension.id && "bg-accent-surface")}
                   onClick={() => setDetails(details === extension.id ? null : extension.id)}
                 >
                   Details
-                </Btn>
-                <Btn size="sm" className={PILL} onClick={() => setRemoving(extension)}>
+                </Button>
+                <Button size="sm" className={PILL} onClick={() => setRemoving(extension)}>
                   Remove
-                </Btn>
+                </Button>
                 <span className="flex-1" />
                 <Switch
                   aria-label={`${extension.name} on`}

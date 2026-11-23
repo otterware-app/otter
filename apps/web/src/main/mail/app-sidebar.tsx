@@ -7,6 +7,7 @@ import { useWorkspaces, type Workspace } from "../extensions/workspaces";
 import type { CalendarMode } from "../calendar/dates";
 import type { KeybindingCommand } from "../keybindings/commands";
 import { shortcutText } from "../keybindings/keys";
+import { ShortcutText } from "../keybindings/store";
 import { UpdateButton } from "../updates";
 import { AccountPicture } from "./account-picture";
 import { MailboxFolders, SearchRow, type SidebarSearch } from "./accounts-sidebar";
@@ -18,35 +19,38 @@ import type { SettingsPane } from "./api";
 import { useChats } from "../agent/chat-store";
 import { useAddAccount, useViewUnreadCounts } from "./hooks";
 import { ScheduledMailButton } from "./mail-schedule";
+import { useSidebarLayout } from "./sidebar-layout";
+import {
+  SidebarCollapse,
+  SidebarAction,
+  sidebarRowClassName,
+  SidebarSection,
+  SidebarSectionAction,
+  SidebarBody,
+  SidebarPicker,
+  SidebarSwitcher,
+  SidebarRow,
+  SidebarBadge,
+} from "@otter/ui/components/sidebar";
+import { VIEW_LIST, type AppMode } from "./spaces";
+import { SignInCards, SyncButton } from "./sync-health";
+import { toast } from "@otter/ui/components/toast";
+import { useInboxUnread, useMailboxOptions, type MailboxOption } from "./top-bar";
+import type { MailAccount, MailView } from "./types";
+import type { MailboxTab } from "../mailboxes";
+import { ViewMark } from "./view-icon";
+import { inNewWindow } from "../new-window-click";
+import { PLACE } from "../place-menu";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "./menu";
-import { useSidebarLayout } from "./sidebar-layout";
-import {
-  Collapse,
-  NewRow,
-  SIDEBAR_ROW,
-  Section,
-  SectionAddButton,
-  SidebarBody,
-  SidebarPicker,
-  SidebarSwitcher,
-  SkRow,
-} from "./sidebar-ui";
-import { VIEW_LIST, type AppMode } from "./spaces";
-import { SignInCards, SyncButton } from "./sync-health";
-import { toast } from "./toast";
-import { useInboxUnread, useMailboxOptions, type MailboxOption } from "./top-bar";
-import type { MailAccount, MailView } from "./types";
-import type { MailboxTab } from "../mailboxes";
-import { HintTooltip, IconBtn, UnreadPill, cn } from "./ui";
-import { ViewMark } from "./view-icon";
-import { inNewWindow } from "../new-window-click";
-import { PLACE } from "../place-menu";
+} from "@otter/ui/components/context-menu";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 function AppSidebarView({
   accounts,
@@ -124,12 +128,12 @@ function AppSidebarView({
       ) : (
         <>
           <div className="flex shrink-0 flex-col pt-(--sidebar-content-inset)">
-            <NewRow
+            <SidebarAction
               icon={<SquarePenIcon />}
               label="New message"
               selected={composing}
               tour="compose"
-              place
+              {...PLACE}
               onClick={onCompose}
             />
             <ScheduledMailButton />
@@ -165,14 +169,14 @@ function AppSidebarView({
       <SignInCards accountIds={healthIds} />
       <div className="flex shrink-0 items-center gap-0.5 px-(--sidebar-content-inset) pb-(--sidebar-content-inset)">
         <HintTooltip label="Settings" hint={shortcutText("mod+,")}>
-          <IconBtn
+          <IconButton
             label="Settings"
             active={settingsOpen}
             onClick={() => onOpenSettings()}
             {...PLACE}
           >
             <SettingsIcon />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
         {mode === "mail" ? <SyncButton accountIds={healthIds} /> : null}
         <UpdateButton />
@@ -240,6 +244,7 @@ function ModePicker({
   return (
     <SidebarPicker
       tour="modes"
+      itemProps={PLACE}
       selectedId={mode}
       onSelect={(id) => onMode(id as AppMode)}
       onMove={move}
@@ -247,7 +252,7 @@ function ModePicker({
         id: m.mode,
         label: m.label,
         icon: <m.Icon selected={m.mode === mode} />,
-        shortcut: m.shortcut,
+        hint: m.shortcut ? <ShortcutText command={m.shortcut} /> : undefined,
         dot: m.dot,
       }))}
     />
@@ -302,7 +307,7 @@ function MailboxSwitcher({
       items={options.map((option) => ({
         id: option.id,
         label: option.name,
-        icon: <AccountPicture account={option.account} className="size-5 rounded-md text-[10px]" />,
+        icon: <AccountPicture account={option.account} className="size-5 rounded-md text-3xs" />,
         detail: option.detail,
         accelerator: option.shortcut,
         dot: (unread[option.id] ?? 0) > 0,
@@ -400,7 +405,7 @@ function MailPage({
           <AddMailboxMenu onGmail={() => void addGmail()} onAdded={(a) => onGo(a.id)}>
             <button
               type="button"
-              className={`${SIDEBAR_ROW} px-(--sidebar-row-content-inset) text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground`}
+              className={`${sidebarRowClassName} px-(--sidebar-row-content-inset) text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground`}
             >
               <PlusIcon className="size-4 shrink-0 text-sidebar-muted-foreground" />
               <span className="truncate">Add mailbox</span>
@@ -409,33 +414,36 @@ function MailPage({
         )}
 
         {/* Views: one list of what their filters find, across the mailboxes. */}
-        <Section title="Views" action={<SectionAddButton label="New view" onClick={onNewView} />}>
+        <SidebarSection
+          title="Views"
+          action={<SidebarSectionAction label="New view" onClick={onNewView} />}
+        >
           {views.map((view) => (
             <ContextMenu key={view.id}>
               <ContextMenuTrigger>
-                <SkRow
+                <SidebarRow
                   icon={
                     <span className="flex size-4 items-center justify-center [&>svg]:size-4">
-                      <ViewMark view={view} className="text-[14px]" />
+                      <ViewMark view={view} className="text-sm" />
                     </span>
                   }
                   title={view.name}
                   selected={view.id === spaceId}
                   badge={viewUnread[view.id] ?? 0}
-                  place
+                  {...PLACE}
                   onClick={() => onGo(view.id, VIEW_LIST)}
                 />
               </ContextMenuTrigger>
               <ContextMenuContent>
-                <ContextMenuItem onSelect={() => inNewWindow(() => onGo(view.id, VIEW_LIST))}>
+                <ContextMenuItem onClick={() => inNewWindow(() => onGo(view.id, VIEW_LIST))}>
                   Open in New Window
                 </ContextMenuItem>
                 <ContextMenuSeparator />
-                <ContextMenuItem onSelect={() => onEditView(view.id)}>Edit view…</ContextMenuItem>
+                <ContextMenuItem onClick={() => onEditView(view.id)}>Edit view…</ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
           ))}
-        </Section>
+        </SidebarSection>
       </SidebarBody>
     </div>
   );
@@ -539,7 +547,7 @@ function MailboxGroups({
             }}
             onDragEnd={endDrag}
             className={cn(
-              SIDEBAR_ROW,
+              sidebarRowClassName,
               // Inside the row, where the next mailbox's cover can't hide it.
               "px-(--sidebar-row-content-inset) focus-visible:ring-inset",
               selected
@@ -548,7 +556,7 @@ function MailboxGroups({
               dragged === tab.id && "opacity-40",
             )}
           >
-            <AccountPicture account={option.account} className="size-4 rounded-sm text-[8px]" />
+            <AccountPicture account={option.account} className="size-4 rounded-sm text-4xs" />
             <span className="min-w-0 truncate">{option.name}</span>
             <ChevronDownIcon
               className={cn("size-3 shrink-0 transition-transform", open ? "" : "-rotate-90")}
@@ -558,11 +566,11 @@ function MailboxGroups({
                 <span aria-hidden className="ml-auto size-1.5 shrink-0 rounded-full bg-primary" />
               ) : null
             ) : (
-              <UnreadPill count={count} />
+              <SidebarBadge count={count} />
             )}
           </button>
         </div>
-        <Collapse open={open}>{children(tab)}</Collapse>
+        <SidebarCollapse open={open}>{children(tab)}</SidebarCollapse>
       </div>
     );
   });

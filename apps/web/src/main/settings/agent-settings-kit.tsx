@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CheckIcon, StarIcon } from "lucide-react";
-import { Switch } from "~/components/ui/switch";
+import { Switch } from "@otter/ui/components/switch";
 import type { ProviderModel, ProviderSnapshot, RuntimeMode } from "../mail/api";
 import { RUNTIME_MODE_OPTIONS } from "../mail/model-picker";
 import {
@@ -11,20 +11,22 @@ import {
   toggleFavorite,
   useModelPrefs,
 } from "../mail/model-prefs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../mail/select";
-import { Btn, cn } from "../mail/ui";
 import { shortcutText } from "../keybindings/keys";
 import { AgentAvatar } from "../agent/agent-providers";
 import type { AgentSettingsProps } from "../extensions/types";
 import { CopyButton } from "./agent-tokens-section";
-import {
-  DraftInput,
-  SettingResetButton,
-  SettingsRow,
-  SettingsSection,
-  TextInput,
-} from "./settings-ui";
 import { searchableSetting } from "./settings-search";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@otter/ui/components/select";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
+import { SettingsResetButton, SettingsRow, SettingsSection } from "@otter/ui/components/settings";
+import { DraftInput, Input } from "@otter/ui/components/input";
 
 function capabilityLabels(model: ProviderModel): string[] {
   return (model.options ?? []).map((o) => (o.id === "serviceTier" ? "Fast" : o.label));
@@ -76,7 +78,7 @@ export function ModelsSection({
         selectedModel ||
         favorites.some((key) => key.startsWith(`${provider.id}:`)) ||
         hidden.some((key) => key.startsWith(`${provider.id}:`)) ? (
-          <SettingResetButton
+          <SettingsResetButton
             label={`${provider.name} models`}
             onClick={() => {
               onPick?.("");
@@ -92,7 +94,7 @@ export function ModelsSection({
       <div className="px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           {models.length > 8 ? (
-            <TextInput
+            <Input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               placeholder="Filter models"
@@ -103,9 +105,9 @@ export function ModelsSection({
           ) : null}
           <div className="flex items-center gap-2">
             {models.length > 0 ? (
-              <Btn size="xs" variant="ghost-muted" onClick={() => toggleAllHidden(allKeys)}>
+              <Button size="xs" variant="ghost-muted" onClick={() => toggleAllHidden(allKeys)}>
                 {allHidden ? "Enable all" : "Disable all"}
-              </Btn>
+              </Button>
             ) : null}
             <span className="text-xs text-muted-foreground">
               {models.length} model{models.length === 1 ? "" : "s"}
@@ -148,17 +150,15 @@ export function ModelsSection({
                     isHidden && "opacity-50",
                   )}
                 >
-                  <button
-                    type="button"
-                    onClick={() => toggleFavorite(key(m.slug))}
-                    aria-label={`${isFavorite ? "Remove" : "Add"} ${m.name} ${isFavorite ? "from" : "to"} favorites`}
+                  <IconButton
+                    label={`${isFavorite ? "Remove" : "Add"} ${m.name} ${isFavorite ? "from" : "to"} favorites`}
                     title={isFavorite ? "Remove from favorites" : "Add to favorites"}
-                    className="inline-flex size-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-accent-surface hover:text-foreground"
+                    size="icon-xs"
+                    className="size-5 rounded-sm"
+                    onClick={() => toggleFavorite(key(m.slug))}
                   >
-                    <StarIcon
-                      className={cn("size-3", isFavorite && "fill-current text-yellow-500")}
-                    />
-                  </button>
+                    <StarIcon className={cn("size-3", isFavorite && "fill-current text-warning")} />
+                  </IconButton>
                   <button
                     type="button"
                     disabled={!onPick}
@@ -181,11 +181,11 @@ export function ModelsSection({
                       {m.name}
                     </span>
                     {m.subProvider ? (
-                      <span className="truncate text-2xs text-muted-foreground/70">
+                      <span className="truncate text-2xs text-faint-foreground">
                         {m.subProvider}
                       </span>
                     ) : m.name !== m.slug && m.slug ? (
-                      <code className="truncate font-mono text-2xs text-muted-foreground/70">
+                      <code className="truncate font-mono text-2xs text-faint-foreground">
                         {m.slug}
                       </code>
                     ) : null}
@@ -196,7 +196,7 @@ export function ModelsSection({
                       </span>
                     ) : null}
                   </button>
-                  <span className="text-2xs text-muted-foreground/70">
+                  <span className="text-2xs text-faint-foreground">
                     {caps.length > 0 ? (
                       <span className="hidden sm:inline">{caps.join(" · ")}</span>
                     ) : null}
@@ -260,7 +260,7 @@ export function LocalAgentSettings({
           {...searchableSetting("agent-binary-path")}
           resetAction={
             settings.binaryPath ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label={`${meta.name} binary path`}
                 onClick={() => set({ binaryPath: "" })}
               />
@@ -281,7 +281,7 @@ export function LocalAgentSettings({
           title={meta.home.title}
           resetAction={
             settings.homePath ? (
-              <SettingResetButton label={meta.home.title} onClick={() => set({ homePath: "" })} />
+              <SettingsResetButton label={meta.home.title} onClick={() => set({ homePath: "" })} />
             ) : null
           }
           description={meta.home.description}
@@ -300,7 +300,7 @@ export function LocalAgentSettings({
             title="Launch arguments"
             resetAction={
               settings.launchArgs ? (
-                <SettingResetButton
+                <SettingsResetButton
                   label="launch arguments"
                   onClick={() => set({ launchArgs: "" })}
                 />
@@ -322,7 +322,7 @@ export function LocalAgentSettings({
           {...searchableSetting("agent-access")}
           resetAction={
             settings.runtimeMode !== "full-access" ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label={`${meta.name} access`}
                 onClick={() => set({ runtimeMode: "full-access" })}
               />
@@ -331,8 +331,11 @@ export function LocalAgentSettings({
           description={`Default for new turns; also switchable from the composer (${shortcutText("mod+shift+a")}).`}
           control={
             <Select
+              items={RUNTIME_MODE_OPTIONS}
               value={settings.runtimeMode}
-              onValueChange={(value) => set({ runtimeMode: value as RuntimeMode })}
+              onValueChange={(value) => {
+                if (value) set({ runtimeMode: value });
+              }}
             >
               <SelectTrigger variant="pill" aria-label={`${meta.name} access`}>
                 <SelectValue />

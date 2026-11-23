@@ -5,8 +5,8 @@ import type { KeybindingCommand } from "../keybindings/commands";
 import { isModifierOnly, matchesStroke } from "../keybindings/keys";
 import { getKeybindings } from "../keybindings/store";
 import { isTypingTarget } from "../mail/keyboard";
-import { cn } from "../mail/ui";
 import { ShortcutKeys } from "./keycap";
+import { cn } from "@otter/ui/lib/utils";
 
 type Drill = { command: KeybindingCommand; label: string; caption: string };
 
@@ -135,7 +135,7 @@ export function KeyTrainer({ onProgress }: { onProgress?: (done: number) => void
           {rows.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center">
               <p className="text-sm text-foreground">Inbox zero.</p>
-              <p className="text-[13px] text-muted-foreground">Press Z to bring them back.</p>
+              <p className="text-body text-muted-foreground">Press Z to bring them back.</p>
             </div>
           ) : (
             rows.map((row, i) => (
@@ -147,7 +147,7 @@ export function KeyTrainer({ onProgress }: { onProgress?: (done: number) => void
                 )}
               >
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] font-medium text-foreground">{row.from}</div>
+                  <div className="truncate text-body font-medium text-foreground">{row.from}</div>
                   <div className="truncate text-xs text-muted-foreground">{row.subject}</div>
                 </div>
                 {row.starred ? (
@@ -160,7 +160,7 @@ export function KeyTrainer({ onProgress }: { onProgress?: (done: number) => void
         <p
           key={caption?.seq}
           aria-live="polite"
-          className="h-5 px-1 text-[13px] text-muted-foreground motion-safe:animate-[onboarding-in_200ms_ease-out]"
+          className="h-5 px-1 text-body text-muted-foreground motion-safe:animate-[onboarding-in_200ms_ease-out]"
         >
           {caption?.text ?? "Press a key on the right to try it here."}
         </p>
@@ -184,7 +184,7 @@ export function KeyTrainer({ onProgress }: { onProgress?: (done: number) => void
                   <CheckIcon className="size-3.5 shrink-0 text-success motion-safe:animate-[onboarding-pop_240ms_ease-out]" />
                 ) : null}
               </div>
-              <span className="text-[13px] text-muted-foreground">{drill.label}</span>
+              <span className="text-body text-muted-foreground">{drill.label}</span>
             </div>
           );
         })}

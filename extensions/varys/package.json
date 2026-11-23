@@ -17,6 +17,7 @@
     "@generalpursuit/varys": "0.4.0",
     "@otter/contracts": "workspace:*",
     "@otter/core": "workspace:*",
+    "@otter/ui": "workspace:*",
     "neverthrow": "8.2.0",
     "react": "^19.1.1"
   },

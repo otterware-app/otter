@@ -12,6 +12,7 @@ import {
 
 import { ipc } from "~/lib/ipc";
 import { mailApi } from "../mail/api";
+import { CHROME_WEB_STORE_URL, openTab, setExtensionsButton, setPinned, useBrowser } from "./store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,9 +21,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuTrigger,
-} from "../mail/menu";
-import { HintTooltip, IconBtn, cn } from "../mail/ui";
-import { CHROME_WEB_STORE_URL, openTab, setExtensionsButton, setPinned, useBrowser } from "./store";
+} from "@otter/ui/components/dropdown-menu";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { IconButton, buttonVariants } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 type ExtensionAction = {
   id: string;
@@ -75,7 +77,7 @@ function ActionIcon({ action, className }: { action: ExtensionAction; className?
       )}
       {action.badgeText ? (
         <span
-          className="absolute -bottom-1.5 -right-2 min-w-3.5 rounded-[4px] px-0.5 text-center text-[9px] font-semibold leading-[13px]"
+          className="absolute -bottom-1.5 -right-2 min-w-3.5 rounded-sm px-0.5 text-center text-4xs font-semibold leading-[13px]"
           style={{ background: action.badgeBackgroundColor, color: action.badgeTextColor }}
         >
           {action.badgeText.slice(0, 4)}
@@ -109,7 +111,7 @@ export function ExtensionToolbar() {
     <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-foreground/[0.06] p-0.5">
       {onToolbar.map((action) => (
         <HintTooltip key={action.id} label={action.title} side="bottom">
-          <IconBtn
+          <IconButton
             ref={(node) => {
               if (node) buttons.current.set(action.id, node);
               else buttons.current.delete(action.id);
@@ -119,16 +121,16 @@ export function ExtensionToolbar() {
             onClick={(e) => run(action.id, e.currentTarget)}
           >
             <ActionIcon action={action} />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
       ))}
       {showButton && actions.length > 0 ? (
         <DropdownMenu>
           <HintTooltip label="Extensions" side="bottom">
-            <DropdownMenuTrigger asChild>
-              <IconBtn ref={menuButton} label="Extensions" className="rounded-full">
-                <PuzzleIcon className="size-4" />
-              </IconBtn>
+            <DropdownMenuTrigger
+              render={<IconButton ref={menuButton} label="Extensions" className="rounded-full" />}
+            >
+              <PuzzleIcon className="size-4" />
             </DropdownMenuTrigger>
           </HintTooltip>
           <DropdownMenuContent align="end" className="w-80">
@@ -140,34 +142,36 @@ export function ExtensionToolbar() {
                   <DropdownMenuItem
                     className="min-w-0 flex-1"
                     icon={<ActionIcon action={action} />}
-                    onSelect={() => run(action.id, menuButton.current)}
+                    onClick={() => run(action.id, menuButton.current)}
                   >
                     {action.name}
                   </DropdownMenuItem>
                   <HintTooltip label={isPinned ? "Unpin" : "Pin to toolbar"} side="bottom">
-                    <IconBtn
+                    <IconButton
                       label={isPinned ? "Unpin" : "Pin to toolbar"}
-                      className={cn("size-7", isPinned && "text-foreground")}
+                      className={cn(isPinned && "text-foreground")}
                       onClick={() => setPinned(action.id, !isPinned)}
                     >
                       <PinIcon className={cn("size-4", isPinned && "fill-current")} />
-                    </IconBtn>
+                    </IconButton>
                   </HintTooltip>
                   <DropdownMenuSub
                     label={`More for ${action.name}`}
                     trigger={
-                      <button
-                        type="button"
-                        className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-foreground/[0.07] hover:text-foreground data-[state=open]:bg-foreground/[0.07]"
+                      <div
+                        className={cn(
+                          buttonVariants({ variant: "ghost-muted", size: "icon-sm" }),
+                          "data-popup-open:bg-accent-surface data-popup-open:text-foreground",
+                        )}
                       >
                         <MoreVerticalIcon className="size-4" />
-                      </button>
+                      </div>
                     }
                   >
                     {action.optionsUrl ? (
                       <DropdownMenuItem
                         icon={<Settings2Icon className="size-4" />}
-                        onSelect={() => openTab(action.optionsUrl!)}
+                        onClick={() => openTab(action.optionsUrl!)}
                       >
                         Options
                       </DropdownMenuItem>
@@ -180,13 +184,13 @@ export function ExtensionToolbar() {
                           <PinIcon className="size-4" />
                         )
                       }
-                      onSelect={() => setPinned(action.id, !isPinned)}
+                      onClick={() => setPinned(action.id, !isPinned)}
                     >
                       {isPinned ? "Unpin" : "Pin to toolbar"}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       icon={<PuzzleIcon className="size-4" />}
-                      onSelect={() => void mailApi.openSettings({ pane: "browser" })}
+                      onClick={() => void mailApi.openSettings({ pane: "browser" })}
                     >
                       Manage extension
                     </DropdownMenuItem>
@@ -195,19 +199,19 @@ export function ExtensionToolbar() {
               );
             })}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => void mailApi.openSettings({ pane: "browser" })}>
+            <DropdownMenuItem onClick={() => void mailApi.openSettings({ pane: "browser" })}>
               <span className="flex items-center justify-between gap-2">
                 Manage extensions
                 <ArrowUpRightIcon className="size-4 text-muted-foreground" />
               </span>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => openTab(CHROME_WEB_STORE_URL)}>
+            <DropdownMenuItem onClick={() => openTab(CHROME_WEB_STORE_URL)}>
               <span className="flex items-center justify-between gap-2">
                 Visit Web Store
                 <ArrowUpRightIcon className="size-4 text-muted-foreground" />
               </span>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setExtensionsButton(false)}>
+            <DropdownMenuItem onClick={() => setExtensionsButton(false)}>
               <span className="flex items-center justify-between gap-2">
                 Hide from toolbar
                 <EyeOffIcon className="size-4 text-muted-foreground" />

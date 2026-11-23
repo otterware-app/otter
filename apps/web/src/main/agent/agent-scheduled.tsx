@@ -8,7 +8,6 @@ import {
   CircleMinusIcon,
   EllipsisIcon,
   ListFilterIcon,
-  LoaderCircleIcon,
   LockIcon,
   MessageSquareIcon,
   PencilIcon,
@@ -25,10 +24,12 @@ import type {
   TaskModels,
   TaskRun,
 } from "@otter/contracts/scheduled";
-import { Dialog } from "~/components/ui/dialog";
-import { Field } from "~/components/ui/field";
-import { Input } from "~/components/ui/input";
-import { Switch } from "~/components/ui/switch";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Field } from "@otter/ui/components/field";
+import { Input } from "@otter/ui/components/input";
+import { Spinner } from "@otter/ui/components/spinner";
+import { Textarea } from "@otter/ui/components/textarea";
+import { Switch } from "@otter/ui/components/switch";
 import { mailApi, type ProviderSnapshot } from "../mail/api";
 import { AgentAvatar, useAgentProviders } from "./agent-providers";
 import { agentContribution } from "../extensions/registry";
@@ -36,19 +37,10 @@ import { readableError } from "../mail/add-mailbox";
 import { ChatMarkdown } from "./chat-markdown";
 import { useNow } from "./chat-shelves";
 import { useChats } from "./chat-store";
-import { EmptyState } from "~/components/ui/empty-state";
+import { EmptyState } from "@otter/ui/components/empty-state";
 import { useWidth } from "../mail/hooks";
 import { isTypingTarget } from "../mail/keyboard";
 import { useLatest } from "../use-latest";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../mail/menu";
 import {
   agoText,
   durationText,
@@ -63,9 +55,25 @@ import {
   type Repeat,
   type WhenForm,
 } from "./scheduled-text";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../mail/select";
-import { toast } from "../mail/toast";
-import { Btn, IconBtn, cn } from "../mail/ui";
+import { toast } from "@otter/ui/components/toast";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@otter/ui/components/select";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 /** The Agents space's place for every agent's scheduled tasks: /agents/scheduled. */
 export const SCHEDULED_TASKS = "scheduled";
@@ -262,10 +270,10 @@ export function ScheduledTasksView({
         <TaskFilterMenu tasks={tasks} value={filter} onChange={setFilter} />
       ) : null}
       {creatable ? (
-        <Btn size="sm" onClick={() => setEditing("new")}>
+        <Button size="sm" onClick={() => setEditing("new")}>
           <PlusIcon />
           New task
-        </Btn>
+        </Button>
       ) : null}
     </>
   );
@@ -302,10 +310,10 @@ export function ScheduledTasksView({
           body="Ask an agent to do something every morning, or make a task here."
           action={
             creatable ? (
-              <Btn size="sm" onClick={() => setEditing("new")}>
+              <Button size="sm" onClick={() => setEditing("new")}>
                 <PlusIcon />
                 New task
-              </Btn>
+              </Button>
             ) : null
           }
         />
@@ -314,9 +322,9 @@ export function ScheduledTasksView({
           title="No tasks match"
           body="Nothing scheduled fits this filter."
           action={
-            <Btn size="sm" onClick={() => setFilter(NO_FILTER)}>
+            <Button size="sm" onClick={() => setFilter(NO_FILTER)}>
               Show all
-            </Btn>
+            </Button>
           }
         />
       ) : (
@@ -358,9 +366,9 @@ export function ScheduledTasksView({
       title="This task is gone"
       body="It was deleted, or its agent can't be reached right now."
       action={
-        <Btn size="sm" onClick={() => onOpenTask(null)}>
+        <Button size="sm" onClick={() => onOpenTask(null)}>
           All scheduled tasks
-        </Btn>
+        </Button>
       }
     />
   );
@@ -412,7 +420,7 @@ export function ScheduledTasksView({
                   >
                     Scheduled tasks
                   </button>
-                  <span aria-hidden className="text-muted-foreground/60">
+                  <span aria-hidden className="text-faint-foreground">
                     /
                   </span>
                   <span aria-current="page" className="truncate font-medium text-foreground">
@@ -485,10 +493,8 @@ function TaskFilterMenu({
   const filtering = value.agent !== null || value.status !== "all";
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <IconBtn label="Filter tasks" active={filtering}>
-          <ListFilterIcon />
-        </IconBtn>
+      <DropdownMenuTrigger render={<IconButton label="Filter tasks" active={filtering} />}>
+        <ListFilterIcon />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Agent</DropdownMenuLabel>
@@ -568,10 +574,10 @@ function AgentProblem({
         <span className="text-muted-foreground">{message}</span>
       </div>
       {onRetry ? (
-        <Btn size="xs" variant="ghost" onClick={onRetry}>
+        <Button size="xs" variant="ghost" onClick={onRetry}>
           <RotateCwIcon />
           Retry
-        </Btn>
+        </Button>
       ) : null}
     </div>
   );
@@ -624,7 +630,7 @@ function TaskRow({
   const failed = task.lastRun?.status === "error";
   const when = task.running ? (
     <span className="flex items-center gap-1.5 text-info-foreground">
-      <LoaderCircleIcon aria-hidden className="size-3 animate-spin" />
+      <Spinner aria-hidden className="size-3 text-current" />
       Running
     </span>
   ) : task.autoPaused ? (
@@ -648,7 +654,7 @@ function TaskRow({
         selected ? "bg-sidebar-row-active" : "hover:bg-sidebar-row-hover",
       )}
     >
-      <span className="flex min-w-0 items-center gap-2 text-[13px]">
+      <span className="flex min-w-0 items-center gap-2 text-body">
         <AgentAvatar id={task.provider} agent={task.agent} className="size-4 shrink-0" />
         <span
           className={cn(
@@ -671,7 +677,7 @@ function TaskRow({
         {task.managedBy ? (
           <LockIcon
             aria-label={`${task.managedBy} keeps this one: run or pause it here, change it there.`}
-            className="size-3 shrink-0 text-muted-foreground/70"
+            className="size-3 shrink-0 text-faint-foreground"
           />
         ) : null}
         <span className="ms-auto shrink-0 ps-2 text-xs tabular-nums text-muted-foreground">
@@ -692,14 +698,14 @@ function TaskMenu({ task, onDeleted }: { task: ScheduledTask; onDeleted: () => v
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <IconBtn label={`More for ${task.name}`} className="shrink-0">
-            <EllipsisIcon />
-          </IconBtn>
+        <DropdownMenuTrigger
+          render={<IconButton label={`More for ${task.name}`} className="shrink-0" />}
+        >
+          <EllipsisIcon />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem
-            color="red"
+            variant="destructive"
             icon={<Trash2Icon className="size-4" />}
             onClick={() => setConfirming(true)}
           >
@@ -822,9 +828,7 @@ function TaskPage({
           <h1 className="text-xl font-semibold tracking-tight text-foreground">{task.name}</h1>
           {when ? (
             <p className="flex items-center gap-1.5 pt-1.5 text-sm text-muted-foreground">
-              {task.running ? (
-                <LoaderCircleIcon aria-hidden className="size-3.5 animate-spin text-info" />
-              ) : null}
+              {task.running ? <Spinner aria-hidden className="size-3.5 text-info" /> : null}
               {when}
             </p>
           ) : null}
@@ -845,7 +849,7 @@ function TaskPage({
         </div>
         {agent.readOnly ? null : (
           <div className="flex shrink-0 items-center gap-3 pt-1">
-            <Btn
+            <Button
               size="sm"
               disabled={action.isPending || task.running}
               onClick={() =>
@@ -860,12 +864,12 @@ function TaskPage({
             >
               <PlayIcon />
               Run now
-            </Btn>
+            </Button>
             {editable ? (
-              <Btn size="sm" onClick={onEdit}>
+              <Button size="sm" onClick={onEdit}>
                 <PencilIcon />
                 Edit
-              </Btn>
+              </Button>
             ) : null}
             <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
               {task.enabled ? "Active" : "Paused"}
@@ -991,9 +995,9 @@ function RunHistory({
       ) : runs.isError ? (
         <p className="flex items-center gap-2 py-2 text-sm text-destructive-foreground">
           {readableError(runs.error)}
-          <Btn size="xs" variant="ghost" onClick={() => void runs.refetch()}>
+          <Button size="xs" variant="ghost" onClick={() => void runs.refetch()}>
             Retry
-          </Btn>
+          </Button>
         </p>
       ) : !runs.data?.length ? (
         <p className="py-2 text-sm text-muted-foreground">It hasn't run yet.</p>
@@ -1119,9 +1123,9 @@ function RunTranscript({
       ) : transcript.isError ? (
         <p className="flex items-center gap-2 text-muted-foreground">
           Couldn't load what it wrote: {readableError(transcript.error)}
-          <Btn size="xs" variant="ghost" onClick={() => void transcript.refetch()}>
+          <Button size="xs" variant="ghost" onClick={() => void transcript.refetch()}>
             Retry
-          </Btn>
+          </Button>
         </p>
       ) : replies.length > 0 ? (
         <ChatMarkdown text={replies.map((m) => m.text).join("\n\n")} />
@@ -1353,7 +1357,13 @@ function SelectField({
   className?: string;
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select
+      items={options}
+      value={value}
+      onValueChange={(next) => {
+        if (next !== null) onChange(next);
+      }}
+    >
       <SelectTrigger aria-label={label} className={className}>
         <SelectValue />
       </SelectTrigger>
@@ -1500,7 +1510,7 @@ function TaskEditor({
         </Field>
         {asksPrompt ? (
           <Field label="What should it do?">
-            <textarea
+            <Textarea
               value={prompt}
               rows={4}
               maxLength={5000}
@@ -1509,7 +1519,7 @@ function TaskEditor({
                 setError(null);
                 setPrompt(e.target.value);
               }}
-              className="min-h-24 w-full resize-y rounded-lg border border-border/70 bg-surface-raised/60 px-2.5 py-2 text-sm text-foreground outline-none placeholder:text-placeholder focus-visible:border-focus-ring/60 focus-visible:bg-canvas focus-visible:ring-[3px] focus-visible:ring-focus-ring/16"
+              className="max-h-64 min-h-24"
             />
           </Field>
         ) : null}

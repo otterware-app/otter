@@ -81,6 +81,7 @@ const THEME_UTILITY_ROLES: Readonly<Partial<Record<string, ThemeColorRole>>> = {
   border: "border",
   input: "input",
   ring: "focus",
+  "focus-ring": "focus",
 };
 
 const THEME_UTILITY_PREFIXES: Readonly<Record<ThemePaintKind, ReadonlyArray<string>>> = {

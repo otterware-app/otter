@@ -36,6 +36,7 @@ describe("themeRoleFromUtilityClass", () => {
     );
     expect(themeRoleFromUtilityClass("bg-primary/90", "background")).toBe("messageAction");
     expect(themeRoleFromUtilityClass("ring-ring", "border")).toBe("focus");
+    expect(themeRoleFromUtilityClass("ring-focus-ring", "border")).toBe("focus");
   });
 
   it("does not infer hardcoded or potentially inactive colors", () => {

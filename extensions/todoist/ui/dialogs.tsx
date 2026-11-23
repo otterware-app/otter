@@ -1,16 +1,4 @@
-import {
-  Dialog,
-  Field,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Btn,
-  IconBtn,
-  toast,
-} from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import type { TodoistPage, TodoistTask } from "@otter/contracts/todoist";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
@@ -21,6 +9,18 @@ import {
   type InfiniteData,
 } from "@tanstack/react-query";
 import { CheckIcon, ExternalLinkIcon, RefreshCwIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Field } from "@otter/ui/components/field";
+import { Input } from "@otter/ui/components/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@otter/ui/components/select";
+import { Textarea } from "@otter/ui/components/textarea";
 import { todoistApi } from "./api";
 
 export function useTodoistStatus() {
@@ -105,7 +105,7 @@ function ConnectTodoist({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <p>Connect your Todoist account to get started.</p>
-      <Btn
+      <Button
         size="sm"
         onClick={() => {
           onClose();
@@ -116,7 +116,7 @@ function ConnectTodoist({ onClose }: { onClose: () => void }) {
         }}
       >
         Open settings
-      </Btn>
+      </Button>
     </div>
   );
 }
@@ -134,27 +134,40 @@ function ProjectSelect({
   all?: boolean;
   defaultInbox?: boolean;
 }) {
+  const items = [
+    ...(all || defaultInbox
+      ? [{ value: "__default__", label: all ? "All projects" : "Inbox (default)" }]
+      : []),
+    ...projects.map((p) => ({ value: p.id, label: p.name })),
+  ];
   return (
     <Select
       value={value || "__default__"}
-      onValueChange={(next) => onChange(next === "__default__" ? "" : next)}
+      items={items}
+      onValueChange={(next) => {
+        if (next !== null) onChange(next === "__default__" ? "" : next);
+      }}
     >
       <SelectTrigger aria-label="Todoist project">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {all || defaultInbox ? (
-          <SelectItem value="__default__">{all ? "All projects" : "Inbox (default)"}</SelectItem>
-        ) : null}
-        {projects.map((p) => (
-          <SelectItem key={p.id} value={p.id}>
-            {p.name}
+        {items.map((item) => (
+          <SelectItem key={item.value} value={item.value}>
+            {item.label}
           </SelectItem>
         ))}
       </SelectContent>
     </Select>
   );
 }
+
+const PRIORITIES = [
+  { value: "4", label: "Priority 1 · Urgent" },
+  { value: "3", label: "Priority 2 · High" },
+  { value: "2", label: "Priority 3 · Medium" },
+  { value: "1", label: "Priority 4 · Normal" },
+];
 
 function TodoistCreate({
   email,
@@ -283,9 +296,9 @@ function TodoistCreate({
           />
         </Field>
         <Field label="Notes" orientation="vertical">
-          <textarea
+          <Textarea
             aria-label="Notes"
-            className="min-h-24 rounded-md border border-input bg-transparent p-2"
+            className="min-h-24 max-h-60"
             value={description}
             maxLength={12000}
             onChange={(e) => setDescription(e.target.value)}
@@ -377,15 +390,22 @@ function TodoistCreate({
           />
         </Field>
         <Field label="Priority" orientation="vertical">
-          <Select value={priority} onValueChange={setPriority}>
+          <Select
+            value={priority}
+            items={PRIORITIES}
+            onValueChange={(next) => {
+              if (next !== null) setPriority(next);
+            }}
+          >
             <SelectTrigger aria-label="Priority">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="4">Priority 1 · Urgent</SelectItem>
-              <SelectItem value="3">Priority 2 · High</SelectItem>
-              <SelectItem value="2">Priority 3 · Medium</SelectItem>
-              <SelectItem value="1">Priority 4 · Normal</SelectItem>
+              {PRIORITIES.map((p) => (
+                <SelectItem key={p.value} value={p.value}>
+                  {p.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </Field>
@@ -471,7 +491,7 @@ function TodoistBrowser({
         {view === "all" ? (
           <ProjectSelect value={project} onChange={setProject} projects={projects.data ?? []} all />
         ) : null}
-        <IconBtn
+        <IconButton
           label="Refresh Todoist"
           disabled={tasks.isFetching || projects.isFetching}
           onClick={() => {
@@ -480,15 +500,15 @@ function TodoistBrowser({
           }}
         >
           <RefreshCwIcon className="size-4" />
-        </IconBtn>
-        <Btn
+        </IconButton>
+        <Button
           size="sm"
           variant="primary"
           disabled={!connected || completing !== null}
           onClick={onCreate}
         >
           New task
-        </Btn>
+        </Button>
       </div>
       {view === "filter" ? (
         <form
@@ -506,9 +526,9 @@ function TodoistBrowser({
             maxLength={1024}
             placeholder="search: proposal, or p1 & @work"
           />
-          <Btn type="submit" disabled={!filterText.trim()}>
+          <Button type="submit" disabled={!filterText.trim()}>
             Apply
-          </Btn>
+          </Button>
         </form>
       ) : null}
       {view === "filter" ? (
@@ -550,7 +570,7 @@ function TodoistBrowser({
       <ul className="divide-y divide-border">
         {rows.map((task) => (
           <li key={task.id} className="flex items-start gap-3 py-3">
-            <IconBtn
+            <IconButton
               label={`Complete ${task.content}`}
               disabled={completing !== null}
               onClick={() => {
@@ -572,7 +592,7 @@ function TodoistBrowser({
               }}
             >
               <CheckIcon className="size-4" />
-            </IconBtn>
+            </IconButton>
             <div className="min-w-0 flex-1">
               <a
                 href={taskUrl(task.id)}
@@ -594,20 +614,20 @@ function TodoistBrowser({
                 </p>
               ) : null}
             </div>
-            <IconBtn
+            <IconButton
               label={`Edit ${task.content}`}
               disabled={completing !== null}
               onClick={() => onEdit(task)}
             >
               <PencilIcon className="size-4" />
-            </IconBtn>
+            </IconButton>
           </li>
         ))}
       </ul>
       {tasks.hasNextPage ? (
-        <Btn disabled={tasks.isFetchingNextPage} onClick={() => void tasks.fetchNextPage()}>
+        <Button disabled={tasks.isFetchingNextPage} onClick={() => void tasks.fetchNextPage()}>
           {tasks.isFetchingNextPage ? "Loading…" : "Load more"}
-        </Btn>
+        </Button>
       ) : null}
     </Dialog>
   );
@@ -626,19 +646,25 @@ function Choice({
   empty: string;
   options: { id: string; name: string }[];
 }) {
+  const items = [
+    { value: "__empty__", label: empty },
+    ...options.map((o) => ({ value: o.id, label: o.name })),
+  ];
   return (
     <Select
       value={value || "__empty__"}
-      onValueChange={(v) => onChange(v === "__empty__" ? "" : v)}
+      items={items}
+      onValueChange={(v) => {
+        if (v !== null) onChange(v === "__empty__" ? "" : v);
+      }}
     >
       <SelectTrigger aria-label={label}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="__empty__">{empty}</SelectItem>
-        {options.map((o) => (
-          <SelectItem key={o.id} value={o.id}>
-            {o.name}
+        {items.map((item) => (
+          <SelectItem key={item.value} value={item.value}>
+            {item.label}
           </SelectItem>
         ))}
       </SelectContent>
@@ -718,7 +744,7 @@ function Reminders({
               ? `${r.minute_offset} minutes before due`
               : r.due?.string || r.due?.date || "Reminder"}
           </span>
-          <IconBtn
+          <IconButton
             label="Remove reminder"
             onClick={() => {
               const id = deletes.current.get(r.id) ?? crypto.randomUUID();
@@ -732,7 +758,7 @@ function Reminders({
             }}
           >
             <Trash2Icon className="size-4" />
-          </IconBtn>
+          </IconButton>
         </div>
       ))}
       <div className="flex gap-2">
@@ -743,7 +769,7 @@ function Reminders({
           maxLength={200}
           placeholder="Tomorrow at 9am"
         />
-        <Btn
+        <Button
           disabled={!due.trim() || pending}
           onClick={() => {
             if (attempt.current?.due !== due) attempt.current = { due, id: crypto.randomUUID() };
@@ -760,7 +786,7 @@ function Reminders({
           }}
         >
           Add reminder
-        </Btn>
+        </Button>
       </div>
     </fieldset>
   );

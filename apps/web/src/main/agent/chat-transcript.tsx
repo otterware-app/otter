@@ -19,7 +19,6 @@ import {
   TextQuoteIcon,
   XIcon,
 } from "lucide-react";
-import { IconBtn, HintTooltip, cn } from "../mail/ui";
 import { CompactionRow, WorkLog, type TurnItem } from "./work-log";
 import type { ChatChange } from "../mail/api";
 import type { ContextKind, ContextMeta } from "./chat-context";
@@ -33,19 +32,21 @@ import {
   shownItems,
   splitAnswer,
 } from "./chat-runs";
-import { Button } from "~/components/ui/button";
+import { Button, IconButton } from "@otter/ui/components/button";
 import { ChatMarkdown } from "./chat-markdown";
 import { messageTime } from "./chat-time";
 import { ChatChanges } from "./chat-changes";
 import { SentAttachments } from "./chat-attachments";
 import { IntentMarker } from "./chat-queue";
+import { toast } from "@otter/ui/components/toast";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../mail/menu";
-import { toast } from "../mail/toast";
+} from "@otter/ui/components/dropdown-menu";
 
 export function ContextKindIcon({ kind, className }: { kind: ContextKind; className?: string }) {
   const Icon =
@@ -122,19 +123,16 @@ function ContextRecap({
         </button>
       ) : items.length > 1 ? (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className={`${chipClass} cursor-pointer hover:bg-accent-surface hover:text-foreground`}
-              aria-label={`Open ${label}`}
-            >
-              <ContextKindIcon kind={context.kind} className="size-3 shrink-0" />
-              <span>{label}</span>
-            </button>
+          <DropdownMenuTrigger
+            className={`${chipClass} cursor-pointer hover:bg-accent-surface hover:text-foreground`}
+            aria-label={`Open ${label}`}
+          >
+            <ContextKindIcon kind={context.kind} className="size-3 shrink-0" />
+            <span>{label}</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {items.map((item) => (
-              <DropdownMenuItem key={JSON.stringify(item)} onSelect={() => onOpen(item)}>
+              <DropdownMenuItem key={JSON.stringify(item)} onClick={() => onOpen(item)}>
                 {item.title}
               </DropdownMenuItem>
             ))}
@@ -319,9 +317,10 @@ function CopyMessageButton({ text }: { text: string }) {
   }, [copied]);
   return (
     <HintTooltip label={copied ? "Copied" : "Copy message"}>
-      <IconBtn
+      <IconButton
         label={copied ? "Copied" : "Copy message"}
-        className="size-6 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+        size="icon-xs"
+        className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
         onClick={() => {
           void navigator.clipboard.writeText(text).then(
             () => setCopied(true),
@@ -330,7 +329,7 @@ function CopyMessageButton({ text }: { text: string }) {
         }}
       >
         {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
-      </IconBtn>
+      </IconButton>
     </HintTooltip>
   );
 }
@@ -538,13 +537,14 @@ export function ChatTranscript({
                 <CopyMessageButton text={answer} />
                 {onFork && !streaming ? (
                   <HintTooltip label="Fork conversation">
-                    <IconBtn
+                    <IconButton
                       label="Fork conversation"
-                      className="size-6 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                      size="icon-xs"
+                      className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                       onClick={() => onFork(turn.id)}
                     >
                       <GitForkIcon className="size-3.5" />
-                    </IconBtn>
+                    </IconButton>
                   </HintTooltip>
                 ) : null}
               </div>

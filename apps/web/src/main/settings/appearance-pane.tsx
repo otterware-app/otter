@@ -1,6 +1,6 @@
 import { useLatest } from "../use-latest";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { toast } from "../mail/toast";
+import { toast } from "@otter/ui/components/toast";
 import { openLink } from "../browser/store";
 import type { NativeThemeInfo } from "@otter/contracts";
 import {
@@ -13,13 +13,6 @@ import {
   Trash2Icon,
   UploadIcon,
 } from "lucide-react";
-import { cn, HintTooltip } from "../mail/ui";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../mail/menu";
 import {
   appearance,
   INITIAL_THEME_ID,
@@ -37,10 +30,10 @@ import {
   type ThemeDefinition,
 } from "@otter/shared/themes";
 import { getThemeModes, removeCustomTheme, serializeThemeFile } from "../theme/themePalette";
-import { Button } from "~/components/ui/button";
-import { Switch } from "~/components/ui/switch";
-import { Dialog } from "~/components/ui/dialog";
-import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
+import { Button } from "@otter/ui/components/button";
+import { Switch } from "@otter/ui/components/switch";
+import { Dialog } from "@otter/ui/components/dialog";
+import { HintTooltip, TooltipProvider } from "@otter/ui/components/tooltip";
 import { ThemeImportDialog } from "./theme/ThemeImportDialog";
 import { useThemeEditorStore } from "./theme/themeEditorStore";
 import {
@@ -75,15 +68,22 @@ import {
   type ReadingWidth,
   type MailLayout,
 } from "../theme/interface-settings";
+import { searchableSetting } from "./settings-search";
+import { setSidebarLayout, useSidebarLayout, type MailboxesShown } from "../mail/sidebar-layout";
+import { cn } from "@otter/ui/lib/utils";
 import {
-  RowSelect,
-  SettingResetButton,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
+import {
+  SettingsSelect,
+  SettingsResetButton,
   SettingsPageContainer,
   SettingsRow,
   SettingsSection,
-} from "./settings-ui";
-import { searchableSetting } from "./settings-search";
-import { setSidebarLayout, useSidebarLayout, type MailboxesShown } from "../mail/sidebar-layout";
+} from "@otter/ui/components/settings";
 
 export type ColorScheme = "system" | "light" | "dark";
 
@@ -222,8 +222,8 @@ function ThemeHalf({
         }}
         className={cn(
           "group/half relative min-w-0 flex-1 cursor-pointer overflow-hidden outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-focus-ring",
-          side !== "end" && "rounded-s-[7px]",
-          side !== "start" && "rounded-e-[7px]",
+          side !== "end" && "rounded-s-[calc(var(--radius-lg)-1px)]",
+          side !== "start" && "rounded-e-[calc(var(--radius-lg)-1px)]",
         )}
       >
         <span
@@ -301,7 +301,7 @@ export function ThemeCard({
         <span className="min-w-0 flex-1 truncate text-sm text-foreground">{theme.label}</span>
         {actions ? (
           <span
-            className="-me-1.5 flex shrink-0 items-center gap-0.5 opacity-0 group-focus-within/theme:opacity-100 group-hover/theme:opacity-100 has-[[data-state=open]]:opacity-100"
+            className="-me-1.5 flex shrink-0 items-center gap-0.5 opacity-0 group-focus-within/theme:opacity-100 group-hover/theme:opacity-100 has-data-popup-open:opacity-100"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
@@ -327,21 +327,16 @@ function ThemeAction({
   children: ReactNode;
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            aria-label={label}
-            size="icon-xs"
-            variant={destructive ? "ghost-destructive" : "ghost"}
-            onClick={onClick}
-          >
-            {children}
-          </Button>
-        }
-      />
-      <TooltipPopup>{tooltip}</TooltipPopup>
-    </Tooltip>
+    <HintTooltip label={tooltip}>
+      <Button
+        aria-label={label}
+        size="icon-xs"
+        variant={destructive ? "ghost-destructive" : "ghost"}
+        onClick={onClick}
+      >
+        {children}
+      </Button>
+    </HintTooltip>
   );
 }
 
@@ -403,15 +398,17 @@ function ThemeLibrary() {
       actions={
         custom ? (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button aria-label={`More for ${theme.label}`} size="icon-xs" variant="ghost">
-                <EllipsisIcon />
-              </Button>
+            <DropdownMenuTrigger
+              render={
+                <Button aria-label={`More for ${theme.label}`} size="icon-xs" variant="ghost" />
+              }
+            >
+              <EllipsisIcon />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 icon={<PenLineIcon />}
-                onSelect={() =>
+                onClick={() =>
                   openThemeEditor({
                     editingThemeId: theme.id,
                     seedThemeId: null,
@@ -422,19 +419,19 @@ function ThemeLibrary() {
               >
                 Edit
               </DropdownMenuItem>
-              <DropdownMenuItem icon={<CopyIcon />} onSelect={() => duplicate(theme)}>
+              <DropdownMenuItem icon={<CopyIcon />} onClick={() => duplicate(theme)}>
                 Duplicate
               </DropdownMenuItem>
               <DropdownMenuItem
                 icon={<UploadIcon />}
-                onSelect={() => downloadThemeFile(`${theme.id}.json`, serializeThemeFile(theme))}
+                onClick={() => downloadThemeFile(`${theme.id}.json`, serializeThemeFile(theme))}
               >
                 Export theme file
               </DropdownMenuItem>
               <DropdownMenuItem
                 icon={<Trash2Icon />}
-                color="red"
-                onSelect={() => setRemoving(theme)}
+                variant="destructive"
+                onClick={() => setRemoving(theme)}
               >
                 Remove
               </DropdownMenuItem>
@@ -462,7 +459,7 @@ function ThemeLibrary() {
       headerAction={
         <div className="flex items-center gap-2">
           {choice.light !== INITIAL_THEME_ID || choice.dark !== INITIAL_THEME_ID ? (
-            <SettingResetButton
+            <SettingsResetButton
               label="themes"
               onClick={() => {
                 setThemeForAppearance("light", INITIAL_THEME_ID);
@@ -630,7 +627,7 @@ function PercentSettingRow({
       }
       resetAction={
         value !== setting.defaultValue ? (
-          <SettingResetButton
+          <SettingsResetButton
             label={label.toLowerCase()}
             onClick={() => setInterfaceSetting(setting, setting.defaultValue)}
           />
@@ -653,7 +650,7 @@ export function FontSizeRow({ id }: { id?: string }) {
       title="Font size"
       description="Text and controls across the app, messages included."
       control={
-        <RowSelect
+        <SettingsSelect
           ariaLabel="Font size"
           value={String(fontSize)}
           onValueChange={(size) => setInterfaceSetting(INTERFACE_FONT_SIZE, Number(size))}
@@ -662,7 +659,7 @@ export function FontSizeRow({ id }: { id?: string }) {
       }
       resetAction={
         fontSize !== INTERFACE_FONT_SIZE.defaultValue ? (
-          <SettingResetButton
+          <SettingsResetButton
             label="font size"
             onClick={() =>
               setInterfaceSetting(INTERFACE_FONT_SIZE, INTERFACE_FONT_SIZE.defaultValue)
@@ -682,7 +679,7 @@ export function ReadingWidthRow({ id }: { id?: string }) {
       title="Reading width"
       description="How wide emails and threads can grow on large screens."
       control={
-        <RowSelect
+        <SettingsSelect
           ariaLabel="Reading width"
           value={readingWidth}
           onValueChange={(width) => setReadingWidth(width as ReadingWidth)}
@@ -691,7 +688,7 @@ export function ReadingWidthRow({ id }: { id?: string }) {
       }
       resetAction={
         readingWidth !== DEFAULT_READING_WIDTH ? (
-          <SettingResetButton
+          <SettingsResetButton
             label="reading width"
             onClick={() => setReadingWidth(DEFAULT_READING_WIDTH)}
           />
@@ -710,7 +707,7 @@ function MailLayoutPicker() {
       variant="plain"
       headerAction={
         selectedLayout !== DEFAULT_MAIL_LAYOUT ? (
-          <SettingResetButton
+          <SettingsResetButton
             label="mail layout"
             onClick={() => setMailLayout(DEFAULT_MAIL_LAYOUT)}
           />
@@ -824,7 +821,7 @@ function SidebarMailboxesRow() {
       title="Mailboxes"
       description="With two or more: one at a time, with a menu to switch, or all together, each with its folders, in the order you drag them."
       control={
-        <RowSelect
+        <SettingsSelect
           ariaLabel="Mailboxes in the sidebar"
           value={layout.mailboxes}
           onValueChange={(value) => setMailboxes(value as MailboxesShown)}
@@ -833,7 +830,7 @@ function SidebarMailboxesRow() {
       }
       resetAction={
         layout.mailboxes !== "one" ? (
-          <SettingResetButton
+          <SettingsResetButton
             label="mailboxes in the sidebar"
             onClick={() => setMailboxes("one")}
           />
@@ -893,7 +890,7 @@ export function AppearancePane() {
           variant="plain"
           headerAction={
             scheme !== "system" ? (
-              <SettingResetButton label="color scheme" onClick={() => void setScheme("system")} />
+              <SettingsResetButton label="color scheme" onClick={() => void setScheme("system")} />
             ) : null
           }
         >
@@ -926,7 +923,7 @@ export function AppearancePane() {
           {...searchableSetting("group-messages-by-day")}
           resetAction={
             groupMessagesByDay !== GROUP_MESSAGES_BY_DAY.defaultValue ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label="group messages by day"
                 onClick={() =>
                   setInterfaceToggle(GROUP_MESSAGES_BY_DAY, GROUP_MESSAGES_BY_DAY.defaultValue)
@@ -947,7 +944,7 @@ export function AppearancePane() {
           {...searchableSetting("full-width-rows")}
           resetAction={
             fullWidthRows !== FULL_WIDTH_ROWS.defaultValue ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label="full-width rows"
                 onClick={() => setInterfaceToggle(FULL_WIDTH_ROWS, FULL_WIDTH_ROWS.defaultValue)}
               />
@@ -969,7 +966,7 @@ export function AppearancePane() {
           {...searchableSetting("open-messages-with-arrows")}
           resetAction={
             openMessagesWithArrows !== OPEN_MESSAGES_WITH_ARROWS.defaultValue ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label="open messages with arrow keys"
                 onClick={() =>
                   setInterfaceToggle(
@@ -1008,7 +1005,7 @@ export function AppearancePane() {
           }
           resetAction={
             markReadDelay !== MARK_READ_DELAY.defaultValue ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label="mark as read delay"
                 onClick={() => setInterfaceSetting(MARK_READ_DELAY, MARK_READ_DELAY.defaultValue)}
               />
@@ -1055,7 +1052,7 @@ export function AppearancePane() {
           }
           resetAction={
             panelAnimationDurationMs !== DEFAULT_PANEL_ANIMATION_DURATION_MS ? (
-              <SettingResetButton
+              <SettingsResetButton
                 label="panel animations"
                 onClick={() => setPanelAnimationDurationMs(DEFAULT_PANEL_ANIMATION_DURATION_MS)}
               />

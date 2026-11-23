@@ -10,15 +10,16 @@ import { XIcon } from "lucide-react";
 import { useDebouncedValue, useSuggestContacts } from "./hooks";
 import { splitAddressList, parseAddressEntry, formatAddressEntry } from "./address";
 import { SenderAvatar } from "./sender-avatar";
-import { cn } from "./ui";
-import { toast } from "./toast";
+import { toast } from "@otter/ui/components/toast";
+import { cn } from "@otter/ui/lib/utils";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "./menu";
+} from "@otter/ui/components/context-menu";
+import { chipVariants } from "@otter/ui/components/chip";
 
 export const RecipientInput = forwardRef<
   HTMLInputElement,
@@ -144,58 +145,58 @@ export const RecipientInput = forwardRef<
         const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
         return (
           <ContextMenu key={key}>
-            <ContextMenuTrigger asChild>
-              <span
-                tabIndex={0}
-                title={name ? `${name} <${email}>` : email}
-                onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c") {
+            <ContextMenuTrigger
+              render={
+                <span
+                  tabIndex={0}
+                  title={name ? `${name} <${email}>` : email}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c") {
+                      e.preventDefault();
+                      copy(email);
+                    } else if (e.key === "Backspace" || e.key === "Delete") {
+                      e.preventDefault();
+                      removeAt(i);
+                    } else if (e.key === "Enter") {
+                      e.preventDefault();
+                      editAt(i);
+                    }
+                  }}
+                  onCopy={(e) => {
                     e.preventDefault();
-                    copy(email);
-                  } else if (e.key === "Backspace" || e.key === "Delete") {
-                    e.preventDefault();
-                    removeAt(i);
-                  } else if (e.key === "Enter") {
-                    e.preventDefault();
-                    editAt(i);
-                  }
-                }}
-                onCopy={(e) => {
-                  e.preventDefault();
-                  e.clipboardData.setData("text/plain", email);
-                  toast.success(`Copied ${email}`);
-                }}
-                onDoubleClick={() => editAt(i)}
-                className={cn(
-                  "inline-flex h-6.5 max-w-64 cursor-default items-center gap-1 rounded-full border pl-2.5 pr-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus:bg-accent-surface",
-                  valid
-                    ? "border-transparent bg-accent-surface text-foreground"
-                    : "border-destructive/50 bg-destructive/10 text-destructive-foreground",
-                )}
+                    e.clipboardData.setData("text/plain", email);
+                    toast.success(`Copied ${email}`);
+                  }}
+                  onDoubleClick={() => editAt(i)}
+                  className={cn(
+                    chipVariants({ size: "sm", variant: valid ? "active" : "destructive" }),
+                    "cursor-default gap-1 pr-1 focus:bg-accent-surface",
+                  )}
+                />
+              }
+            >
+              <span className="min-w-0 truncate">{name || email}</span>
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label={`Remove ${email}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => removeAt(i)}
+                className="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
               >
-                <span className="min-w-0 truncate">{name || email}</span>
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  aria-label={`Remove ${email}`}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => removeAt(i)}
-                  className="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
-                >
-                  <XIcon className="size-3" />
-                </button>
-              </span>
+                <XIcon className="size-3" />
+              </button>
             </ContextMenuTrigger>
             <ContextMenuContent>
-              <ContextMenuItem onSelect={() => copy(email)}>Copy address</ContextMenuItem>
+              <ContextMenuItem onClick={() => copy(email)}>Copy address</ContextMenuItem>
               {name ? (
-                <ContextMenuItem onSelect={() => copy(formatAddressEntry(name, email))}>
+                <ContextMenuItem onClick={() => copy(formatAddressEntry(name, email))}>
                   Copy name and address
                 </ContextMenuItem>
               ) : null}
               <ContextMenuSeparator />
-              <ContextMenuItem onSelect={() => editAt(i)}>Edit</ContextMenuItem>
-              <ContextMenuItem color="red" onSelect={() => removeAt(i)}>
+              <ContextMenuItem onClick={() => editAt(i)}>Edit</ContextMenuItem>
+              <ContextMenuItem variant="destructive" onClick={() => removeAt(i)}>
                 Remove
               </ContextMenuItem>
             </ContextMenuContent>

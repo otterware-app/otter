@@ -1,7 +1,9 @@
-import { Markdown, cn } from "@otter/web/extension-kit";
+import { Markdown } from "@otter/web/extension-kit";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { PlusIcon } from "lucide-react";
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 import type { DrivePreview } from "./api";
 import { parseDelimited } from "./table";
@@ -71,7 +73,7 @@ function TextEditor({
         setText(e.target.value);
         onChange({ text: e.target.value });
       }}
-      className="min-h-0 flex-1 resize-none bg-transparent px-6 py-5 font-mono text-[13px] leading-relaxed text-foreground outline-none"
+      className="min-h-0 flex-1 resize-none bg-transparent px-6 py-5 font-mono text-body leading-relaxed text-foreground outline-none"
     />
   );
   if (!markdown)
@@ -162,7 +164,7 @@ function SheetEditor({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
       <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
-        <table className="w-max min-w-full border-collapse text-[13px]">
+        <table className="w-max min-w-full border-collapse text-body">
           <thead className="sticky top-0 z-10 bg-card">
             <tr>
               <th className="w-10 border-b border-border" />
@@ -175,17 +177,17 @@ function SheetEditor({
                 </th>
               ))}
               <th className="border-b border-l border-border px-1">
-                <button
-                  type="button"
-                  aria-label="Add a column"
+                <IconButton
+                  label="Add a column"
+                  size="icon-xs"
                   disabled={disabled}
                   onClick={() =>
                     update(rows.map((r) => [...r, ...Array(width - r.length).fill(""), ""]))
                   }
-                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="rounded-md"
                 >
-                  <PlusIcon className="size-3.5" />
-                </button>
+                  <PlusIcon />
+                </IconButton>
               </th>
             </tr>
           </thead>
@@ -195,15 +197,16 @@ function SheetEditor({
               r === count - 1 ? (
                 <tr key="add" style={{ height: ROW }}>
                   <td colSpan={width + 2} className="px-2">
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost-muted"
+                      size="xs"
                       disabled={disabled}
                       onClick={() => update([...rows, []])}
-                      className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                      className="h-7 rounded-md"
                     >
-                      <PlusIcon className="size-3.5" />
+                      <PlusIcon />
                       Add a row
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ) : (
@@ -220,7 +223,7 @@ function SheetEditor({
                         aria-label={`${columnName(c)}${r + 1}`}
                         onChange={(e) => setCell(r, c, e.target.value)}
                         onKeyDown={(e) => down(e, r, c)}
-                        className="h-8 w-full min-w-32 bg-transparent px-2 text-foreground outline-none focus:bg-accent/40 focus:ring-2 focus:ring-focus-ring focus:ring-inset"
+                        className="h-8 w-full min-w-32 bg-transparent px-2 text-foreground outline-none focus:bg-accent-surface/40 focus:ring-2 focus:ring-focus-ring focus:ring-inset"
                       />
                     </td>
                   ))}
@@ -242,8 +245,8 @@ function SheetEditor({
               className={cn(
                 "shrink-0 rounded-md px-2.5 py-1 text-xs",
                 i === open
-                  ? "bg-accent font-medium text-foreground"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  ? "bg-accent-surface font-medium text-foreground"
+                  : "text-muted-foreground hover:bg-accent-surface/60 hover:text-foreground",
               )}
             >
               {s.name}

@@ -1,6 +1,6 @@
 /** From T3 Code (github.com/pingdotgg/t3code, apps/web/src/components/settings/PanelAnimationsPreview.tsx; MIT, see THIRD_PARTY_NOTICES.md). */
 import { type CSSProperties, useState } from "react";
-import { cn } from "../mail/ui";
+import { cn } from "@otter/ui/lib/utils";
 
 export function PanelAnimationsPreview({ durationMs }: { durationMs: number }) {
   const [panelsOpen, setPanelsOpen] = useState(true);

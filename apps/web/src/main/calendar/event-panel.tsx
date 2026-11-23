@@ -7,7 +7,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { Dialog } from "~/components/ui/dialog";
+import { Dialog } from "@otter/ui/components/dialog";
 import {
   AlignLeftIcon,
   ArrowRightIcon,
@@ -24,14 +24,6 @@ import {
 import { meetingProvider, type MeetingService } from "@otter/contracts";
 import { getAccountDisplayName } from "../mail/account-style";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "../mail/menu";
-import { HintTooltip, IconBtn, cn } from "../mail/ui";
-import {
   calendarKey,
   eventTimes,
   hasGuests,
@@ -47,6 +39,16 @@ import { DAY, HOUR, dayKey, durationLabel, startOfDay, timeLabel } from "./dates
 import { AddMeetingRow, MeetingRow } from "./meeting";
 import { useCalendarPreferences } from "./preferences";
 import { eventKey } from "./time-grid";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 const WIDTH = 304;
 const GAP = 8;
@@ -202,11 +204,11 @@ function Header({
 }) {
   return (
     <div className="flex h-10 shrink-0 items-center gap-0.5 pl-4 pr-2">
-      <span className="flex-1 text-[13px] text-muted-foreground">{title}</span>
+      <span className="flex-1 text-body text-muted-foreground">{title}</span>
       {children}
-      <IconBtn label="Close" onClick={onClose}>
+      <IconButton label="Close" onClick={onClose}>
         <XIcon />
-      </IconBtn>
+      </IconButton>
     </div>
   );
 }
@@ -233,7 +235,7 @@ function Row({
 const Divider = () => <div className="my-1.5 h-px bg-border/60" />;
 
 const FIELD =
-  "w-full min-w-0 rounded-md bg-transparent px-1.5 -mx-1.5 py-0.5 text-[13px] text-foreground outline-none placeholder:text-placeholder hover:bg-foreground/[0.04] focus:bg-foreground/[0.06]";
+  "w-full min-w-0 rounded-md bg-transparent px-1.5 -mx-1.5 py-0.5 text-body text-foreground outline-none placeholder:text-placeholder hover:bg-foreground/[0.04] focus:bg-foreground/[0.06]";
 
 function CommitInput({
   value,
@@ -333,7 +335,7 @@ function Pick({
   onPick: (value: string) => void;
 }) {
   return (
-    <label className="relative -mx-1.5 inline-flex h-7 cursor-pointer items-center whitespace-nowrap rounded-md px-1.5 text-[13px] tabular-nums text-foreground hover:bg-foreground/[0.05]">
+    <label className="relative -mx-1.5 inline-flex h-7 cursor-pointer items-center whitespace-nowrap rounded-md px-1.5 text-body tabular-nums text-foreground hover:bg-foreground/[0.05]">
       {text}
       <input
         type={type}
@@ -403,7 +405,7 @@ function TimeRows({
                 onChange(startMs, end, false);
               }}
             />
-            <span className="truncate text-[13px] text-muted-foreground">
+            <span className="truncate text-body text-muted-foreground">
               {durationLabel(length)}
             </span>
           </>
@@ -437,7 +439,7 @@ function TimeRows({
           aria-pressed={allDay}
           onClick={toggleAllDay}
           className={cn(
-            "-mx-1.5 h-7 cursor-pointer rounded-md px-1.5 text-[13px] outline-none transition-colors hover:bg-foreground/[0.05]",
+            "-mx-1.5 h-7 cursor-pointer rounded-md px-1.5 text-body outline-none transition-colors hover:bg-foreground/[0.05]",
             allDay ? "text-foreground" : "text-muted-foreground",
           )}
         >
@@ -445,17 +447,14 @@ function TimeRows({
         </button>
         {onRepeat ? (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={cn(
-                  "flex h-7 min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-[13px] outline-none transition-colors hover:bg-foreground/[0.05]",
-                  repeat ? "text-foreground" : "text-muted-foreground",
-                )}
-              >
-                <RepeatIcon className="size-3.5 shrink-0" />
-                <span className="truncate">{repeat ? repeatLabel(repeat, startMs) : "Repeat"}</span>
-              </button>
+            <DropdownMenuTrigger
+              className={cn(
+                "flex h-7 min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-body outline-none transition-colors hover:bg-foreground/[0.05]",
+                repeat ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              <RepeatIcon className="size-3.5 shrink-0" />
+              <span className="truncate">{repeat ? repeatLabel(repeat, startMs) : "Repeat"}</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               {([null, "daily", "weekdays", "weekly", "monthly", "yearly"] as const).map(
@@ -463,7 +462,7 @@ function TimeRows({
                   <DropdownMenuItem
                     key={option ?? "none"}
                     icon={option === (repeat ?? null) ? <CheckIcon /> : <span className="size-4" />}
-                    onSelect={() => onRepeat(option)}
+                    onClick={() => onRepeat(option)}
                   >
                     {option ? repeatLabel(option, startMs) : "Does not repeat"}
                   </DropdownMenuItem>
@@ -496,7 +495,7 @@ function People({ event }: { event: CalEvent }) {
     <>
       <Divider />
       <Row icon={<UsersIcon />}>
-        <div className="flex h-6 items-baseline gap-2 text-[13px]">
+        <div className="flex h-6 items-baseline gap-2 text-body">
           <span>
             {event.attendees.length} {event.attendees.length === 1 ? "guest" : "guests"}
           </span>
@@ -509,7 +508,7 @@ function People({ event }: { event: CalEvent }) {
           const isMe = a.email.toLowerCase() === me;
           return (
             <div key={a.email} className="flex h-8 items-center gap-3 px-4" title={a.email}>
-              <span className="relative flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground/[0.08] text-[9px] font-medium text-muted-foreground">
+              <span className="relative flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground/[0.08] text-4xs font-medium text-muted-foreground">
                 {initials(name)}
                 <span
                   aria-label={a.response}
@@ -519,7 +518,7 @@ function People({ event }: { event: CalEvent }) {
                   )}
                 />
               </span>
-              <span className="min-w-0 flex-1 truncate text-[13px]">
+              <span className="min-w-0 flex-1 truncate text-body">
                 {isMe ? `${name} (you)` : name}
               </span>
               {event.organizer?.toLowerCase() === a.email.toLowerCase() ? (
@@ -553,7 +552,7 @@ function Rsvp({
           type="button"
           onClick={() => onChange(response)}
           className={cn(
-            "h-7 flex-1 cursor-pointer rounded-md text-[13px] outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-focus-ring",
+            "h-7 flex-1 cursor-pointer rounded-md text-body outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-focus-ring",
             value === response
               ? "bg-canvas font-medium text-foreground shadow-[0_1px_2px_rgb(0_0_0/12%)] dark:bg-foreground/[0.12]"
               : "text-muted-foreground hover:text-foreground",
@@ -620,11 +619,11 @@ function ReadOnlyEvent({
   return (
     <>
       <Header title="Event" onClose={onClose} />
-      <div className="px-4 pb-2 text-[15px] font-medium">{event.title}</div>
+      <div className="px-4 pb-2 text-md font-medium">{event.title}</div>
       <Divider />
       <Row icon={<ClockIcon />} className="py-1.5">
         {event.allDay ? null : (
-          <div className="flex h-7 items-center gap-2.5 text-[13px] tabular-nums">
+          <div className="flex h-7 items-center gap-2.5 text-body tabular-nums">
             <span>{timeLabel(new Date(event.startMs))}</span>
             <ArrowRightIcon className="size-3.5 text-muted-foreground" />
             <span>{timeLabel(new Date(event.endMs))}</span>
@@ -633,7 +632,7 @@ function ReadOnlyEvent({
             </span>
           </div>
         )}
-        <div className="flex h-7 items-center gap-2.5 text-[13px]">
+        <div className="flex h-7 items-center gap-2.5 text-body">
           <span>{dayLabel(event.startMs)}</span>
           {sameDay ? null : (
             <>
@@ -647,22 +646,22 @@ function ReadOnlyEvent({
       {event.meetingLink ? <MeetingRow link={event.meetingLink} /> : null}
       {event.location ? (
         <Row icon={<MapPinIcon />}>
-          <span className="flex min-h-6 items-center text-[13px]">{event.location}</span>
+          <span className="flex min-h-6 items-center text-body">{event.location}</span>
         </Row>
       ) : null}
       {event.description ? (
         <Row icon={<AlignLeftIcon />}>
-          <p className="whitespace-pre-wrap py-0.5 text-[13px] leading-5 text-foreground">
+          <p className="whitespace-pre-wrap py-0.5 text-body leading-5 text-foreground">
             {plainText(event.description)}
           </p>
         </Row>
       ) : null}
       <Divider />
       <Row
-        icon={<span className="size-3 rounded-[3px]" style={{ background: color }} />}
+        icon={<span className="size-3 rounded-sm" style={{ background: color }} />}
         className="mb-2"
       >
-        <span className="flex h-6 items-center truncate text-[13px]">
+        <span className="flex h-6 items-center truncate text-body">
           {owner}
           {note ? <span className="ml-3 text-muted-foreground">{note}</span> : null}
         </span>
@@ -706,7 +705,7 @@ function SeriesResponseDialog({
         ].map(([value, label]) => (
           <label
             key={String(value)}
-            className="flex h-8 cursor-pointer items-center gap-3 text-[13px]"
+            className="flex h-8 cursor-pointer items-center gap-3 text-body"
           >
             <input
               type="radio"
@@ -724,7 +723,7 @@ function SeriesResponseDialog({
         placeholder="Leave a note (optional)"
         aria-label="Note for the organizer"
         onChange={(e) => setNote(e.target.value)}
-        className="h-9 w-full rounded-lg border border-border/70 bg-transparent px-3 text-[13px] outline-none placeholder:text-placeholder focus-visible:border-focus-ring/60"
+        className="h-9 w-full rounded-lg border border-border/70 bg-transparent px-3 text-body outline-none placeholder:text-placeholder focus-visible:border-focus-ring/60"
       />
     </Dialog>
   );
@@ -761,16 +760,16 @@ function EventDetails({
       <Header title={event.recurring ? "Event · repeats" : "Event"} onClose={onClose}>
         {event.htmlLink ? (
           <HintTooltip label="Open in your calendar">
-            <IconBtn
+            <IconButton
               label="Open in your calendar"
               onClick={() => window.open(event.htmlLink!, "_blank")}
             >
               <ExternalLinkIcon />
-            </IconBtn>
+            </IconButton>
           </HintTooltip>
         ) : null}
         <HintTooltip label="Delete event">
-          <IconBtn
+          <IconButton
             label="Delete event"
             onClick={() => {
               actions.remove(event, notify && mine);
@@ -778,7 +777,7 @@ function EventDetails({
             }}
           >
             <Trash2Icon />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
       </Header>
       <div className="px-4 pb-2">
@@ -786,7 +785,7 @@ function EventDetails({
           value={event.title}
           placeholder="Title"
           onCommit={(title) => update({ title: title || "(no title)" })}
-          className="text-[15px] font-medium"
+          className="text-md font-medium"
         />
       </div>
       <Divider />
@@ -798,7 +797,7 @@ function EventDetails({
       />
       {event.recurring ? (
         <Row icon={<RepeatIcon />}>
-          <span className="flex h-6 items-center text-[13px] text-muted-foreground">
+          <span className="flex h-6 items-center text-body text-muted-foreground">
             Repeats · changes apply to this one
           </span>
         </Row>
@@ -845,10 +844,10 @@ function EventDetails({
       </Row>
       <Divider />
       <Row
-        icon={<span className="size-3 rounded-[3px]" style={{ background: color }} />}
+        icon={<span className="size-3 rounded-sm" style={{ background: color }} />}
         className="mb-2"
       >
-        <span className="flex h-6 items-center truncate text-[13px]">{calendarName}</span>
+        <span className="flex h-6 items-center truncate text-body">{calendarName}</span>
       </Row>
     </>
   );
@@ -917,7 +916,7 @@ function NewEvent({
           placeholder="Event title"
           onChange={(e) => onChange({ ...draft, title: e.target.value })}
           onKeyDown={enter}
-          className="h-9 w-full rounded-lg bg-foreground/[0.05] px-3 text-[14px] font-medium text-foreground outline-none placeholder:font-normal placeholder:text-placeholder focus:bg-foreground/[0.07]"
+          className="h-9 w-full rounded-lg bg-foreground/[0.05] px-3 text-sm font-medium text-foreground outline-none placeholder:font-normal placeholder:text-placeholder focus:bg-foreground/[0.07]"
         />
       </div>
       <Divider />
@@ -953,17 +952,12 @@ function NewEvent({
       <Divider />
       <Row icon={<CalendarIcon />}>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="-mx-1.5 flex h-6 max-w-full cursor-pointer items-center gap-2 rounded-md px-1.5 text-[13px] outline-none hover:bg-foreground/[0.04]"
-            >
-              <span
-                className="size-3 shrink-0 rounded-[3px]"
-                style={{ background: colorOf(calendarKey(draft)) }}
-              />
-              <span className="truncate">{calendarLabel(target) ?? draft.accountId}</span>
-            </button>
+          <DropdownMenuTrigger className="-mx-1.5 flex h-6 max-w-full cursor-pointer items-center gap-2 rounded-md px-1.5 text-body outline-none hover:bg-foreground/[0.04]">
+            <span
+              className="size-3 shrink-0 rounded-sm"
+              style={{ background: colorOf(calendarKey(draft)) }}
+            />
+            <span className="truncate">{calendarLabel(target) ?? draft.accountId}</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             {/* By mailbox, as in the sidebar. */}
@@ -977,11 +971,11 @@ function NewEvent({
                       key={c.key}
                       icon={
                         <span
-                          className="size-3 rounded-[3px]"
+                          className="size-3 rounded-sm"
                           style={{ background: colorOf(c.key) }}
                         />
                       }
-                      onSelect={() =>
+                      onClick={() =>
                         onChange({ ...draft, accountId: c.account.id, calendarId: c.info.id })
                       }
                     >
@@ -995,14 +989,9 @@ function NewEvent({
         </DropdownMenu>
       </Row>
       <div className="flex justify-end gap-2 px-4 pb-3 pt-2">
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void create()}
-          className="h-7 cursor-pointer rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
-        >
+        <Button variant="primary" size="sm" disabled={saving} onClick={() => void create()}>
           Create event
-        </button>
+        </Button>
       </div>
     </>
   );

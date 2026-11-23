@@ -1,13 +1,15 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ReactElement, type ReactNode } from "react";
 import type { ImapSettings, MailServer } from "@otter/contracts";
 import { ChevronRightIcon, CloudIcon, ServerIcon } from "lucide-react";
 import { GmailMark, MicrosoftMark } from "./provider-mark";
-import { Button } from "~/components/ui/button";
-import { Dialog } from "~/components/ui/dialog";
-import { Field } from "~/components/ui/field";
-import { Input } from "~/components/ui/input";
+import { Button } from "@otter/ui/components/button";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Field } from "@otter/ui/components/field";
+import { Input } from "@otter/ui/components/input";
 import { mailApi } from "./api";
 import { useAddAccount, useAddImapAccount, useMailProviders, useSignInImap } from "./hooks";
+import { toast } from "@otter/ui/components/toast";
+import type { MailAccount } from "./types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,11 +17,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "./menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
-import { toast } from "./toast";
-import type { MailAccount } from "./types";
-import { cn } from "./ui";
+} from "@otter/ui/components/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@otter/ui/components/select";
+import { cn } from "@otter/ui/lib/utils";
 
 export function readableError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
@@ -50,7 +56,7 @@ export function AddMailboxMenu({
   onAdded?: (account: MailAccount) => void;
   align?: "start" | "end";
   services?: ReactNode;
-  children: ReactNode;
+  children: ReactElement;
 }) {
   const [imapOpen, setImapOpen] = useState<ImapService | null>(null);
   const outlook = useAddOutlook(onAdded);
@@ -58,21 +64,21 @@ export function AddMailboxMenu({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+        <DropdownMenuTrigger render={children} />
         <DropdownMenuContent align={align}>
           {services ? <DropdownMenuLabel>Mail & calendar</DropdownMenuLabel> : null}
-          <DropdownMenuItem icon={<GmailMark />} onSelect={onGmail}>
+          <DropdownMenuItem icon={<GmailMark />} onClick={onGmail}>
             Gmail
           </DropdownMenuItem>
           {providers?.outlook ? (
-            <DropdownMenuItem icon={<MicrosoftMark />} onSelect={outlook.start}>
+            <DropdownMenuItem icon={<MicrosoftMark />} onClick={outlook.start}>
               Outlook
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem icon={<CloudIcon />} onSelect={() => setImapOpen("icloud")}>
+          <DropdownMenuItem icon={<CloudIcon />} onClick={() => setImapOpen("icloud")}>
             iCloud
           </DropdownMenuItem>
-          <DropdownMenuItem icon={<ServerIcon />} onSelect={() => setImapOpen("other")}>
+          <DropdownMenuItem icon={<ServerIcon />} onClick={() => setImapOpen("other")}>
             Other mail (IMAP)
           </DropdownMenuItem>
           {services ? (
@@ -249,7 +255,7 @@ export function ImapAccountDialog({
     >
       <div className="flex flex-col gap-3">
         {icloud ? (
-          <ol className="list-decimal space-y-1 pl-5 text-[13px] text-muted-foreground">
+          <ol className="list-decimal space-y-1 pl-5 text-body text-muted-foreground">
             <li>
               Open{" "}
               <button
@@ -309,14 +315,14 @@ export function ImapAccountDialog({
               type="button"
               aria-expanded={showServers}
               onClick={() => setShowServers((s) => !s)}
-              className="-mx-1 flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-[13px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+              className="-mx-1 flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-body text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
             >
               <ChevronRightIcon
                 className={cn("size-3.5 shrink-0 transition-transform", showServers && "rotate-90")}
               />
               <span className="shrink-0">Server settings</span>
               {showServers ? null : (
-                <span className="min-w-0 truncate text-muted-foreground/70">
+                <span className="min-w-0 truncate text-faint-foreground">
                   {settings.imap.host} · {settings.smtp.host}
                 </span>
               )}
@@ -351,11 +357,11 @@ export function ImapAccountDialog({
             ) : null}
           </div>
         ) : discovery?.state === "looking" ? (
-          <p className="text-[13px] text-muted-foreground">Looking up the servers…</p>
+          <p className="text-body text-muted-foreground">Looking up the servers…</p>
         ) : null}
 
         {error ? (
-          <p role="alert" className="text-[13px] text-destructive-foreground">
+          <p role="alert" className="text-body text-destructive-foreground">
             {error}
           </p>
         ) : null}
@@ -363,6 +369,11 @@ export function ImapAccountDialog({
     </Dialog>
   );
 }
+
+const SECURITY_LABELS: Record<MailServer["security"], string> = {
+  tls: "SSL/TLS",
+  starttls: "STARTTLS",
+};
 
 function ServerFields({
   label,
@@ -377,7 +388,7 @@ function ServerFields({
 }) {
   return (
     <div role="group" aria-label={label} className="flex flex-col gap-1.5">
-      <span className="text-[13px] text-muted-foreground">{label}</span>
+      <span className="text-body text-muted-foreground">{label}</span>
       <div className="flex gap-2">
         <Input
           aria-label={`${label} server`}
@@ -396,20 +407,25 @@ function ServerFields({
         />
         <Select
           value={server.security}
-          onValueChange={(security: MailServer["security"]) =>
+          items={SECURITY_LABELS}
+          onValueChange={(security) => {
+            if (!security) return;
             onChange({
               ...server,
               security,
               port: server.port === ports[server.security] ? ports[security] : server.port,
-            })
-          }
+            });
+          }}
         >
           <SelectTrigger aria-label={`${label} security`} className="w-28 min-w-0">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="tls">SSL/TLS</SelectItem>
-            <SelectItem value="starttls">STARTTLS</SelectItem>
+            {(Object.keys(SECURITY_LABELS) as MailServer["security"][]).map((security) => (
+              <SelectItem key={security} value={security}>
+                {SECURITY_LABELS[security]}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -425,11 +441,11 @@ function ServerFields({
  */
 export function ImapPasswordForm({
   account,
-  size = "small",
+  size = "sm",
   className,
 }: {
   account: MailAccount;
-  size?: "small" | "default";
+  size?: "sm" | "default";
   className?: string;
 }) {
   const signIn = useSignInImap();
@@ -461,9 +477,14 @@ export function ImapPasswordForm({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           aria-invalid={error ? true : undefined}
-          className={size === "small" ? "h-7 min-w-44 text-[13px]" : "min-w-52"}
+          className={size === "sm" ? "h-7 min-w-44 text-body" : "min-w-52"}
         />
-        <Button type="submit" size={size} variant="accent" disabled={!password || signIn.isPending}>
+        <Button
+          type="submit"
+          size={size}
+          variant="primary"
+          disabled={!password || signIn.isPending}
+        >
           {signIn.isPending ? "Signing in…" : "Sign in"}
         </Button>
       </div>

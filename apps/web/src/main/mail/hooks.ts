@@ -9,7 +9,7 @@ import {
   type InfiniteData,
 } from "@tanstack/react-query";
 import { inThreadChange, isFolderLabel, landLabelChange } from "@otter/contracts";
-import { toast } from "./toast";
+import { toast } from "@otter/ui/components/toast";
 import {
   mailApi,
   type AddImapAccountParams,

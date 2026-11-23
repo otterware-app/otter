@@ -1,22 +1,22 @@
 import { useState } from "react";
 
-import { Dialog } from "~/components/ui/dialog";
-import { Text } from "~/components/ui/text";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Text } from "@otter/ui/components/text";
 import { ipc } from "~/lib/ipc";
-import { toast } from "../mail/toast";
-import { Btn } from "../mail/ui";
-import {
-  RowSelect,
-  SettingResetButton,
-  SettingsPageContainer,
-  SettingsRow,
-  SettingsSection,
-} from "../settings/settings-ui";
+import { toast } from "@otter/ui/components/toast";
 import { searchableSetting } from "../settings/settings-search";
 import { osNames } from "../os-names";
 import { modKeyName } from "../keybindings/keys";
 import { ExtensionsSection } from "./extensions-section";
 import { setOpenLinksIn, useBrowser, type OpenLinksIn } from "./store";
+import { Button } from "@otter/ui/components/button";
+import {
+  SettingsSelect,
+  SettingsResetButton,
+  SettingsPageContainer,
+  SettingsRow,
+  SettingsSection,
+} from "@otter/ui/components/settings";
 
 const OPEN_LINKS_OPTIONS: { value: OpenLinksIn; label: string }[] = [
   { value: "app", label: "In Otter" },
@@ -34,12 +34,12 @@ export function BrowserSettingsPane() {
           {...searchableSetting("browser-links")}
           resetAction={
             openLinksIn !== "app" ? (
-              <SettingResetButton label="open links" onClick={() => setOpenLinksIn("app")} />
+              <SettingsResetButton label="open links" onClick={() => setOpenLinksIn("app")} />
             ) : null
           }
           description={`Links in mail and chat open in a tab in the browser panel, or in your ${osNames.computer}'s default browser. ${modKeyName}-click opens one the other way.`}
           control={
-            <RowSelect
+            <SettingsSelect
               value={openLinksIn}
               onValueChange={(value) => setOpenLinksIn(value as OpenLinksIn)}
               options={OPEN_LINKS_OPTIONS}
@@ -56,9 +56,9 @@ export function BrowserSettingsPane() {
           {...searchableSetting("browser-data")}
           description="Signs you out of every site: their cookies, storage and the cache go. Extensions stay."
           control={
-            <Btn size="sm" onClick={() => setClearing(true)}>
+            <Button size="sm" onClick={() => setClearing(true)}>
               Clear…
-            </Btn>
+            </Button>
           }
         />
       </SettingsSection>

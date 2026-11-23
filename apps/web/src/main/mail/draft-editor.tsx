@@ -2,7 +2,7 @@ import { useLatest } from "../use-latest";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { MAY_HAVE_BEEN_SENT, sendWithUndo } from "./undo-send";
-import { toast } from "./toast";
+import { toast } from "@otter/ui/components/toast";
 import { useQuery } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
 import { useAccounts, useGetAttachment, usePruneThreadRows, useSendMessage } from "./hooks";
@@ -12,7 +12,6 @@ import { RecipientInput } from "./recipient-input";
 import { FromPicker } from "./new-message-view";
 import { addressesOf, chosenAddress } from "./send-from";
 import { useDraftAutosave } from "./use-draft-autosave";
-import { IconBtn, HintTooltip } from "./ui";
 import { normalizeAddressList, parseAddressEntry, splitAddressList } from "./address";
 import {
   CcBccToggles,
@@ -42,6 +41,8 @@ import {
   loadMessageAttachments,
 } from "./compose-attachments";
 import type { ComposeAttachment, MessageDetail, MessageSummary } from "./types";
+import { IconButton } from "@otter/ui/components/button";
+import { HintTooltip } from "@otter/ui/components/tooltip";
 
 export function DraftEditor({
   accountId,
@@ -410,9 +411,9 @@ export function DraftEditor({
         {titleLeading}
         <div className="min-w-0 flex-1 truncate text-sm text-muted-foreground">Draft</div>
         <HintTooltip label="Close (keeps the draft)" hint="Esc" side="bottom">
-          <IconBtn label="Close" onClick={onDone}>
+          <IconButton label="Close" onClick={onDone}>
             <XIcon className="size-4" />
-          </IconBtn>
+          </IconButton>
         </HintTooltip>
         {titleTrailing ? (
           <span className="ml-1 flex items-center gap-1">{titleTrailing}</span>

@@ -10,18 +10,9 @@ import {
   Undo2Icon,
   XIcon,
 } from "lucide-react";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuSub,
-  ContextMenuTrigger,
-} from "../mail/menu";
 import { getAccountDisplayName } from "../mail/account-style";
-import { Section, SidebarBody } from "../mail/sidebar-ui";
+import { SidebarSection, SidebarBody } from "@otter/ui/components/sidebar";
 import type { MailAccount } from "../mail/types";
-import { HintTooltip, cn } from "../mail/ui";
 import { isShown, useCalendar } from "./calendar-store";
 import { setCalendarPreference, useCalendarPreferences } from "./preferences";
 import { useCalendarLists } from "./api";
@@ -40,6 +31,17 @@ import {
   visibleDays,
   type CalendarMode,
 } from "./dates";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuTrigger,
+} from "@otter/ui/components/context-menu";
+import { IconButton } from "@otter/ui/components/button";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 
 const CALENDAR_COLORS: { name: string; hex: string }[] = [
   { name: "Red", hex: "#e5484d" },
@@ -87,7 +89,7 @@ function MiniMonth({ mode }: { mode: CalendarMode }) {
   return (
     <div className="px-(--sidebar-content-inset) pb-2">
       <div className="flex h-7 items-center pl-(--sidebar-row-content-inset) pr-0.5">
-        <span className="flex-1 text-[13px] font-medium text-sidebar-foreground">
+        <span className="flex-1 text-body font-medium text-sidebar-foreground">
           {shown.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
         </span>
         {/* Off today's month, a way back to it (and the view to today). */}
@@ -111,7 +113,7 @@ function MiniMonth({ mode }: { mode: CalendarMode }) {
       </div>
       <div className="grid grid-cols-7 text-center">
         {days.slice(0, 7).map((d) => (
-          <span key={d.getDay()} className="py-1 text-[10px] text-sidebar-muted-foreground">
+          <span key={d.getDay()} className="py-1 text-3xs text-sidebar-muted-foreground">
             {d.toLocaleDateString(undefined, { weekday: "narrow" })}
           </span>
         ))}
@@ -140,9 +142,9 @@ function MiniMonth({ mode }: { mode: CalendarMode }) {
                 type="button"
                 onClick={() => goTo(d)}
                 className={cn(
-                  "flex size-[26px] cursor-pointer items-center justify-center rounded-md text-[11.5px] tabular-nums outline-none transition-colors duration-150",
+                  "flex size-[26px] cursor-pointer items-center justify-center rounded-md text-2xs tabular-nums outline-none transition-colors duration-150",
                   isToday
-                    ? "bg-(--calendar-today) font-medium text-white"
+                    ? "bg-calendar-today font-medium text-white"
                     : viewed
                       ? "text-sidebar-foreground"
                       : outside
@@ -178,11 +180,11 @@ function TeamCalendars() {
           <div
             key={teammate.email}
             title={teammate.email}
-            className="flex h-7 items-center gap-2 px-(--sidebar-row-content-inset) text-[13px] font-medium text-sidebar-foreground"
+            className="flex h-7 items-center gap-2 px-(--sidebar-row-content-inset) text-body font-medium text-sidebar-foreground"
           >
             <span
               aria-hidden
-              className="flex size-4 shrink-0 items-center justify-center rounded-full bg-sidebar-muted-foreground/45 text-[7px] font-semibold text-sidebar-foreground"
+              className="flex size-4 shrink-0 items-center justify-center rounded-full bg-sidebar-muted-foreground/45 text-4xs font-semibold text-sidebar-foreground"
               style={{ boxShadow: `0 0 0 1.5px ${TEAM_COLORS[i % TEAM_COLORS.length]}` }}
             >
               {initials(teammate.name)}
@@ -215,14 +217,14 @@ function MonthStep({
   children: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
+    <IconButton
+      label={label}
+      size="icon-xs"
       onClick={onClick}
-      className="flex size-6 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
+      className="rounded-md hover:bg-sidebar-row-hover"
     >
       {children}
-    </button>
+    </IconButton>
   );
 }
 
@@ -256,7 +258,7 @@ export function CalendarSidebar({
           const group = listed.filter((c) => c.account.id === account.id);
           if (!group.length) return null;
           return (
-            <Section key={account.id} title={getAccountDisplayName(account)}>
+            <SidebarSection key={account.id} title={getAccountDisplayName(account)}>
               {group.map((calendar) => {
                 const on = isShown(shown, calendar.key, calendar.info.hiddenByDefault);
                 return (
@@ -289,7 +291,7 @@ export function CalendarSidebar({
                   />
                 );
               })}
-            </Section>
+            </SidebarSection>
           );
         })}
       </SidebarBody>
@@ -322,13 +324,13 @@ function CalendarRow({
 }) {
   const named = CALENDAR_COLORS.find((c) => c.hex === picked);
   const dot = (color: string) => (
-    <span className="size-3.5 shrink-0 rounded-[4px]" style={{ background: color }} />
+    <span className="size-3.5 shrink-0 rounded-sm" style={{ background: color }} />
   );
   const swatch = (
     <span
       aria-hidden
       className={cn(
-        "flex size-3.5 shrink-0 items-center justify-center rounded-[4px] transition-[opacity,outline-color] duration-150",
+        "flex size-3.5 shrink-0 items-center justify-center rounded-sm transition-[opacity,outline-color] duration-150",
         !on && "opacity-40",
       )}
       style={{
@@ -343,70 +345,69 @@ function CalendarRow({
   const { info } = calendar;
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          className={cn(
-            "group flex h-7 w-full items-center rounded-md data-[state=open]:bg-sidebar-row-hover",
-            open ? "bg-sidebar-row-selected" : "hover:bg-sidebar-row-hover",
-          )}
-        >
-          {/* The square makes it the default, where it can take events. */}
-          {info.writable ? (
-            <HintTooltip label={isDefault ? "Default calendar" : "Make default"}>
-              <button
-                type="button"
-                aria-label="Make default"
-                aria-pressed={isDefault}
-                onClick={onMakeDefault}
-                className="ml-[calc(var(--sidebar-row-content-inset)-5px)] flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-              >
-                {swatch}
-              </button>
-            </HintTooltip>
-          ) : (
-            <span className="ml-[calc(var(--sidebar-row-content-inset)-5px)] flex size-6 shrink-0 items-center justify-center">
-              {swatch}
-            </span>
-          )}
-          <button
-            type="button"
-            aria-expanded={open}
-            onClick={onOpen}
-            className="flex h-full min-w-0 flex-1 cursor-pointer items-center rounded-md pl-0.5 text-left text-[13px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-          >
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate transition-colors",
-                on ? "text-sidebar-foreground" : "text-sidebar-muted-foreground/70",
-              )}
-            >
-              {info.name}
-              {isDefault ? (
-                <span className="ml-1.5 font-normal text-sidebar-muted-foreground">Default</span>
-              ) : null}
-            </span>
-          </button>
-          <HintTooltip label={on ? "Hide calendar" : "Show calendar"}>
+      <ContextMenuTrigger
+        render={<div />}
+        className={cn(
+          "group flex h-7 w-full items-center rounded-md data-popup-open:bg-sidebar-row-hover",
+          open ? "bg-sidebar-row-selected" : "hover:bg-sidebar-row-hover",
+        )}
+      >
+        {/* The square makes it the default, where it can take events. */}
+        {info.writable ? (
+          <HintTooltip label={isDefault ? "Default calendar" : "Make default"}>
             <button
               type="button"
-              aria-pressed={on}
-              aria-label={on ? "Hide calendar" : "Show calendar"}
-              onClick={onToggle}
-              className={cn(
-                "mr-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground outline-none transition-[color,opacity] hover:text-sidebar-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-focus-ring",
-                on && "opacity-0 group-hover:opacity-100",
-              )}
+              aria-label="Make default"
+              aria-pressed={isDefault}
+              onClick={onMakeDefault}
+              className="ml-[calc(var(--sidebar-row-content-inset)-5px)] flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
             >
-              {on ? <EyeIcon className="size-3.5" /> : <EyeOffIcon className="size-3.5" />}
+              {swatch}
             </button>
           </HintTooltip>
-        </div>
+        ) : (
+          <span className="ml-[calc(var(--sidebar-row-content-inset)-5px)] flex size-6 shrink-0 items-center justify-center">
+            {swatch}
+          </span>
+        )}
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={onOpen}
+          className="flex h-full min-w-0 flex-1 cursor-pointer items-center rounded-md pl-0.5 text-left text-body font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+        >
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate transition-colors",
+              on ? "text-sidebar-foreground" : "text-sidebar-muted-foreground/70",
+            )}
+          >
+            {info.name}
+            {isDefault ? (
+              <span className="ml-1.5 font-normal text-sidebar-muted-foreground">Default</span>
+            ) : null}
+          </span>
+        </button>
+        <HintTooltip label={on ? "Hide calendar" : "Show calendar"}>
+          <button
+            type="button"
+            aria-pressed={on}
+            aria-label={on ? "Hide calendar" : "Show calendar"}
+            onClick={onToggle}
+            className={cn(
+              "mr-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground outline-none transition-[color,opacity] hover:text-sidebar-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-focus-ring",
+              on && "opacity-0 group-hover:opacity-100",
+            )}
+          >
+            {on ? <EyeIcon className="size-3.5" /> : <EyeOffIcon className="size-3.5" />}
+          </button>
+        </HintTooltip>
       </ContextMenuTrigger>
       {/* Notion Calendar's menu, for what Otter does. */}
       <ContextMenuContent className="min-w-56">
         <ContextMenuSub label="Color" icon={dot(calendar.color)} detail={named?.name}>
           {CALENDAR_COLORS.map((c) => (
-            <ContextMenuItem key={c.hex} icon={dot(c.hex)} onSelect={() => onColor(c.hex)}>
+            <ContextMenuItem key={c.hex} icon={dot(c.hex)} onClick={() => onColor(c.hex)}>
               <span className="flex items-center justify-between gap-4">
                 {c.name}
                 {c.hex === picked ? <CheckIcon className="size-3.5 text-foreground" /> : null}
@@ -416,7 +417,7 @@ function CalendarRow({
           {picked ? (
             <>
               <ContextMenuSeparator />
-              <ContextMenuItem icon={<Undo2Icon />} onSelect={() => onColor(null)}>
+              <ContextMenuItem icon={<Undo2Icon />} onClick={() => onColor(null)}>
                 Its own color
               </ContextMenuItem>
             </>
@@ -426,14 +427,14 @@ function CalendarRow({
         <ContextMenuItem
           icon={<SquareDotIcon />}
           disabled={!info.writable || isDefault}
-          onSelect={onMakeDefault}
+          onClick={onMakeDefault}
         >
           Make default calendar
         </ContextMenuItem>
-        <ContextMenuItem icon={<EyeIcon />} onSelect={onShowOnly}>
+        <ContextMenuItem icon={<EyeIcon />} onClick={onShowOnly}>
           Show only this calendar
         </ContextMenuItem>
-        <ContextMenuItem icon={on ? <EyeOffIcon /> : <EyeIcon />} onSelect={onToggle}>
+        <ContextMenuItem icon={on ? <EyeOffIcon /> : <EyeIcon />} onClick={onToggle}>
           {on ? "Hide calendar" : "Show calendar"}
         </ContextMenuItem>
       </ContextMenuContent>

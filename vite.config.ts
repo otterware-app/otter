@@ -38,6 +38,16 @@ export default defineConfig({
       "eslint/no-shadow": "off",
       "eslint/no-await-in-loop": "off",
       "eslint/no-underscore-dangle": "off",
+      "eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [{ name: "radix-ui", message: "Use @otter/ui's components (Base UI)." }],
+          patterns: [
+            { group: ["@radix-ui/*"], message: "Use @otter/ui's components (Base UI)." },
+            { group: ["**/components/ui/*"], message: "UI components are in @otter/ui." },
+          ],
+        },
+      ],
     },
     overrides: [
       {
@@ -51,6 +61,7 @@ export default defineConfig({
                   name: "@otter/core",
                   message: "Import from @otter/core/extension-kit.",
                 },
+                { name: "radix-ui", message: "Use @otter/ui's components (Base UI)." },
               ],
               patterns: [
                 {
@@ -66,6 +77,7 @@ export default defineConfig({
                   message:
                     "Extensions use the app through @otter/core/extension-kit, @otter/web/extension-kit or @otter/desktop/extension-kit.",
                 },
+                { group: ["@radix-ui/*"], message: "Use @otter/ui's components (Base UI)." },
               ],
             },
           ],

@@ -1,7 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { XIcon } from "lucide-react";
-
-import { cn } from "./ui";
+import { cn } from "@otter/ui/lib/utils";
 
 export function PanelTab({
   id,

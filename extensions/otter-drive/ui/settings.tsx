@@ -1,20 +1,16 @@
-import {
-  Btn,
-  SettingsRow,
-  SettingsSection,
-  Switch,
-  searchableSetting,
-  toast,
-  useOpenWorkspace,
-} from "@otter/web/extension-kit";
+import { searchableSetting, useOpenWorkspace } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronRightIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { Switch } from "@otter/ui/components/switch";
 
 import { SHARED, driveApi, driveLabel, type DriveFolder } from "./api";
 import { DriveMark, SharedMark } from "./drive-mark";
 import { AgentsSection, DrivePage, NewDriveDialog } from "./drive-settings";
 import { errorText, useDriveSignIn, useDriveStatus, useDrives } from "./hooks";
+import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
 
 const KIND_TEXT: Record<DriveFolder["kind"], string> = {
   personal: "Your drive",
@@ -66,9 +62,9 @@ export function OtterDriveSettingsPane() {
             aria-label={`${hidden.has(id) ? "Turn on" : "Turn off"} ${title}`}
           />
           {onOpen ? (
-            <Btn size="sm" variant="ghost-muted" aria-label={`${title} settings`} onClick={onOpen}>
+            <IconButton label={`${title} settings`} onClick={onOpen}>
               <ChevronRightIcon />
-            </Btn>
+            </IconButton>
           ) : null}
         </div>
       }
@@ -93,9 +89,9 @@ export function OtterDriveSettingsPane() {
           }
           control={
             connected ? (
-              <Btn size="sm" onClick={() => openWorkspace("drive")}>
+              <Button size="sm" onClick={() => openWorkspace("drive")}>
                 Open Drive
-              </Btn>
+              </Button>
             ) : undefined
           }
         />
@@ -116,28 +112,28 @@ export function OtterDriveSettingsPane() {
               {code ? (
                 <>
                   {url ? (
-                    <Btn size="sm" onClick={() => void window.desktopBridge.openExternal(url)}>
+                    <Button size="sm" onClick={() => void window.desktopBridge.openExternal(url)}>
                       Open sign-in page
-                    </Btn>
+                    </Button>
                   ) : null}
-                  <Btn size="sm" onClick={cancel}>
+                  <Button size="sm" onClick={cancel}>
                     Cancel
-                  </Btn>
+                  </Button>
                 </>
               ) : (
-                <Btn
+                <Button
                   size="sm"
                   variant={connected ? "outline" : "primary"}
                   disabled={pending || !status.data}
                   onClick={() => void signIn()}
                 >
                   {pending ? "Signing in…" : connected ? "Sign in again" : "Sign in"}
-                </Btn>
+                </Button>
               )}
               {connected && !code ? (
-                <Btn size="sm" disabled={pending} onClick={() => void run(driveApi.disconnect)}>
+                <Button size="sm" disabled={pending} onClick={() => void run(driveApi.disconnect)}>
                   Sign out
-                </Btn>
+                </Button>
               ) : null}
             </div>
           }
@@ -153,9 +149,9 @@ export function OtterDriveSettingsPane() {
               title="Couldn't load your drives"
               description={errorText(drives.error)}
               control={
-                <Btn size="sm" onClick={() => void drives.refetch()}>
+                <Button size="sm" onClick={() => void drives.refetch()}>
                   Try again
-                </Btn>
+                </Button>
               }
             />
           ) : !drives.data ? (
@@ -182,9 +178,9 @@ export function OtterDriveSettingsPane() {
                 title="New shared drive"
                 description="A drive for a team: its members open everything in it."
                 control={
-                  <Btn size="sm" onClick={() => setCreating(true)}>
+                  <Button size="sm" onClick={() => setCreating(true)}>
                     Create…
-                  </Btn>
+                  </Button>
                 }
               />
             </>

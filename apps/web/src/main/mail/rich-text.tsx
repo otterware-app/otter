@@ -33,9 +33,9 @@ import {
   textOfHtml,
   withoutPastedStyles,
 } from "./rich-text-schema";
-import { Popover, PopoverPopup, PopoverTrigger } from "~/components/ui/popover";
-import { cn } from "./ui";
+import { Popover, PopoverPopup, PopoverTrigger } from "@otter/ui/components/popover";
 import { shortcutText } from "../keybindings/keys";
+import { cn } from "@otter/ui/lib/utils";
 
 export type RichTextRef = {
   getHTML: () => string;
@@ -86,7 +86,7 @@ const ToolBtn = forwardRef<
       onMouseDown={(e) => e.preventDefault()}
       {...props}
       className={cn(
-        "flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-[10px] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent",
+        "flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent",
         active
           ? "bg-background text-foreground shadow-xs"
           : "text-muted-foreground hover:bg-background/70 hover:text-foreground",

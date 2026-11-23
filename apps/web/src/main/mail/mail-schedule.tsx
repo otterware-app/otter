@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClockIcon } from "lucide-react";
-import { Button } from "~/components/ui/button";
+import { Button, IconButton } from "@otter/ui/components/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "~/components/ui/dialog";
+} from "@otter/ui/components/dialog";
 import { mailApi } from "./api";
-import { HintTooltip, IconBtn } from "./ui";
-import { NewRow } from "./sidebar-ui";
-import { toast } from "./toast";
+import { SidebarAction } from "@otter/ui/components/sidebar";
+import { toast } from "@otter/ui/components/toast";
+import { HintTooltip } from "@otter/ui/components/tooltip";
 
 const NOTE =
   "If this device sleeps or you close Otter, scheduled sends and snoozed emails wait until the app resumes here. A suspended browser tab can also delay them.";
@@ -52,9 +52,9 @@ export function TimePicker({
   return (
     <>
       <HintTooltip label={title}>
-        <IconBtn label={title} disabled={disabled} onClick={() => setOpen(true)}>
+        <IconButton label={title} disabled={disabled} onClick={() => setOpen(true)}>
           <ClockIcon className="size-4" />
-        </IconBtn>
+        </IconButton>
       </HintTooltip>
       {open && (
         <TimePickerDialog
@@ -141,7 +141,7 @@ function TimePickerDialog({
             </p>
           )}
           <Button
-            variant="accent"
+            variant="primary"
             disabled={busy || !value}
             onClick={() => void choose(new Date(value).getTime())}
           >
@@ -211,7 +211,7 @@ export function ScheduledMailButton() {
   const entries = query.data ?? [];
   return (
     <>
-      <NewRow
+      <SidebarAction
         icon={<ClockIcon />}
         label={
           entries.length > 0 ? `Scheduled & snoozed (${entries.length})` : "Scheduled & snoozed"
@@ -259,7 +259,7 @@ export function ScheduledMailButton() {
                   </p>
                 )}
                 <Button
-                  size="small"
+                  size="sm"
                   disabled={busy !== null || entry.state === "running"}
                   onClick={() => {
                     setBusy(entry.id);

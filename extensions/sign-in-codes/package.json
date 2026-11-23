@@ -15,6 +15,7 @@
   "dependencies": {
     "@otter/contracts": "workspace:*",
     "@otter/shared": "workspace:*",
+    "@otter/ui": "workspace:*",
     "lucide-react": "^0.542.0",
     "react": "^19.1.1"
   },

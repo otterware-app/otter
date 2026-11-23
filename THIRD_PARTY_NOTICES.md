@@ -16,10 +16,10 @@ after theirs. These files are ported or adapted from T3 Code's source:
   `apps/web/src/main/theme/themePalette.ts`, `vscodeThemeImport.ts` and their tests,
   `apps/web/src/main/settings/theme/` (`ThemeEditorHost.tsx`, `ThemeEditorPanel.tsx`,
   `ThemeImportDialog.tsx`, `ThemeColorPicker.tsx`, `themeEditorStore.ts`, `themeInspector.ts`)
-- UI primitives in `apps/web/src/components/ui/`: `alert.tsx`, `color-picker.tsx`,
-  `popover.tsx`, `toggle.tsx`, `toggle-group.tsx`, `tooltip.tsx` (after shadcn/ui and coss ui,
-  below)
-- Toasts: `apps/web/src/main/mail/toast.tsx`, `toast-layout.ts`
+- UI components in `packages/ui/src/components/`: `alert.tsx`, `popover.tsx`, `toggle.tsx`,
+  `toggle-group.tsx`, `tooltip.tsx` (after shadcn/ui and coss ui, below), and the color picker,
+  `apps/web/src/main/settings/theme/color-picker.tsx`
+- Toasts: `packages/ui/src/components/toast.tsx`, `packages/ui/src/lib/toast-layout.ts`
 - Trackpad swipes back and forward: `apps/web/src/main/history-swipe.tsx` and its test
 - Panel animations: `apps/web/src/main/panel-animations.ts`,
   `apps/web/src/main/settings/panel-animations-preview.tsx`
@@ -27,7 +27,8 @@ after theirs. These files are ported or adapted from T3 Code's source:
   `sidebar-motion.ts` and `sidebar-pointer.ts`
 - The list of open-source licenses: `scripts/lib/third-party-licenses.ts` and its test,
   `scripts/sync-third-party-license-notices.ts`, `packages/shared/src/third-party-licenses.ts`
-- Parts of `apps/web/src/styles.css` (contrast, borders, the top bar's fade, the shine on running
+- Parts of `packages/ui/src/styles/globals.css` (contrast, borders, the settings search pulse) and
+  `apps/web/src/styles.css` (the top bar's fade, the shine on running
   work) and of `apps/web/src/main/agent/chat-queue.tsx`
 
 ```
@@ -56,8 +57,8 @@ SOFTWARE.
 
 ## shadcn/ui and coss ui
 
-https://ui.shadcn.com (MIT, Copyright (c) 2023 shadcn) and https://coss.com/ui. The primitives
-in `apps/web/src/components/ui/` follow their components, on Base UI.
+https://ui.shadcn.com (MIT, Copyright (c) 2023 shadcn) and https://coss.com/ui. The components
+in `packages/ui/src/components/` follow their components, on Base UI.
 
 ## PDF.js
 

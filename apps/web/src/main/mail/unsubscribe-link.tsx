@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Dialog } from "~/components/ui/dialog";
-import { Text } from "~/components/ui/text";
-import { toast } from "./toast";
+import { Dialog } from "@otter/ui/components/dialog";
+import { Text } from "@otter/ui/components/text";
+import { toast } from "@otter/ui/components/toast";
 import { mailApi } from "./api";
 import { openLink } from "../browser/store";
 
@@ -31,7 +31,7 @@ export function UnsubscribeLink({
   const who = senderName || senderEmail;
 
   if (info.unsubscribed) {
-    return <span className="shrink-0 text-[13px] text-muted-foreground/70">Unsubscribed</span>;
+    return <span className="shrink-0 text-body text-faint-foreground">Unsubscribed</span>;
   }
 
   const run = async () => {
@@ -71,7 +71,7 @@ export function UnsubscribeLink({
           e.stopPropagation();
           setConfirming(true);
         }}
-        className="shrink-0 cursor-pointer text-[13px] text-muted-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+        className="shrink-0 cursor-pointer text-body text-muted-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
       >
         Unsubscribe
       </button>
@@ -82,7 +82,7 @@ export function UnsubscribeLink({
         confirmLabel={
           working ? "Unsubscribing…" : info.method === "web" ? "Open page" : "Unsubscribe"
         }
-        confirmVariant="accent"
+        confirmVariant="primary"
         onConfirm={() => void run()}
       >
         <Text variant="small">{explanation}</Text>

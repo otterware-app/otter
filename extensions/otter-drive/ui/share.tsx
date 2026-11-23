@@ -1,16 +1,19 @@
+import { toast } from "@otter/ui/components/toast";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckIcon, ChevronDownIcon, GlobeIcon, LockIcon, UsersIcon, XIcon } from "lucide-react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Button } from "@otter/ui/components/button";
+import { Checkbox } from "@otter/ui/components/checkbox";
+import { Dialog } from "@otter/ui/components/dialog";
 import {
-  Dialog,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  cn,
-  toast,
-} from "@otter/web/extension-kit";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckIcon, ChevronDownIcon, GlobeIcon, LockIcon, UsersIcon, XIcon } from "lucide-react";
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+} from "@otter/ui/components/dropdown-menu";
+import { Textarea } from "@otter/ui/components/textarea";
+import { cn } from "@otter/ui/lib/utils";
 
 import {
   driveApi,
@@ -202,24 +205,18 @@ function ShareDialog({ request, close }: { request: Request; close: () => void }
             </div>
             {adding.length && !isDrive ? (
               <div className="flex flex-col gap-2">
-                <label className="flex w-fit items-center gap-2 text-[13px] text-foreground select-none">
-                  <input
-                    type="checkbox"
-                    checked={notify}
-                    onChange={(e) => setNotify(e.target.checked)}
-                    className="size-3.5"
-                  />
+                <label className="flex w-fit items-center gap-2 text-body text-foreground select-none">
+                  <Checkbox checked={notify} onCheckedChange={setNotify} />
                   Notify people
                 </label>
                 {notify ? (
-                  <textarea
+                  <Textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     placeholder="Message"
-                    rows={2}
                     maxLength={1000}
                     aria-label="Message"
-                    className="w-full resize-none rounded-lg border border-border bg-transparent px-2.5 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    className="max-h-32"
                   />
                 ) : null}
               </div>
@@ -247,7 +244,7 @@ function ShareDialog({ request, close }: { request: Request; close: () => void }
               <PersonRow
                 person={data.owner}
                 you={you(data.owner)}
-                trailing={<span className="pe-2 text-[13px] text-muted-foreground">Owner</span>}
+                trailing={<span className="pe-2 text-body text-muted-foreground">Owner</span>}
               />
               {!isDrive && data.drive.kind === "shared" ? (
                 <li className="flex items-center gap-3 rounded-lg px-2 py-1.5">
@@ -258,11 +255,11 @@ function ShareDialog({ request, close }: { request: Request; close: () => void }
                     <div className="truncate text-sm text-foreground">
                       Members of {data.drive.name}
                     </div>
-                    <div className="truncate text-[13px] text-muted-foreground">
+                    <div className="truncate text-body text-muted-foreground">
                       {data.drive.memberCount} {data.drive.memberCount === 1 ? "person" : "people"}
                     </div>
                   </div>
-                  <span className="pe-2 text-[13px] text-muted-foreground">Shared drive</span>
+                  <span className="pe-2 text-body text-muted-foreground">Shared drive</span>
                 </li>
               ) : null}
               {data.people.map((entry) => {
@@ -298,7 +295,7 @@ function ShareDialog({ request, close }: { request: Request; close: () => void }
                           ghost
                         />
                       ) : (
-                        <span className="pe-2 text-[13px] text-muted-foreground">
+                        <span className="pe-2 text-body text-muted-foreground">
                           {ROLE_LABEL[entry.role]}
                         </span>
                       )
@@ -340,7 +337,7 @@ export function Avatar({ person, className }: { person: DrivePerson; className?:
     <span
       aria-hidden
       className={cn(
-        "flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-[12px] font-medium text-foreground",
+        "flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground",
         className,
       )}
     >
@@ -368,7 +365,7 @@ function PersonRow({
           {person.name || person.email}
           {you ? <span className="text-muted-foreground"> (you)</span> : null}
         </div>
-        <div className="truncate text-[13px] text-muted-foreground">
+        <div className="truncate text-body text-muted-foreground">
           {person.name ? person.email : null}
           {person.name && note ? " · " : null}
           {note}
@@ -397,24 +394,25 @@ function RoleMenu({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild disabled={disabled}>
-        <button
-          type="button"
-          className={cn(
-            "flex h-8 shrink-0 items-center gap-1 rounded-lg px-2.5 text-[13px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-60 data-[state=open]:bg-accent",
-            ghost ? "hover:bg-accent" : "border border-border hover:bg-accent",
-          )}
-        >
-          {ROLE_LABEL[value]}
-          <ChevronDownIcon className="size-3.5 text-muted-foreground" />
-        </button>
+      <DropdownMenuTrigger
+        disabled={disabled}
+        render={
+          <Button
+            variant={ghost ? "ghost" : "outline"}
+            size="sm"
+            className="h-8 gap-1 px-2.5 data-popup-open:bg-accent-surface"
+          />
+        }
+      >
+        {ROLE_LABEL[value]}
+        <ChevronDownIcon className="text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56">
         {roles.map((role) => (
           <DropdownMenuItem
             key={role}
             icon={role === value ? <CheckIcon /> : <span className="size-4" />}
-            onSelect={() => onChange(role)}
+            onClick={() => onChange(role)}
             className="h-auto py-1.5"
           >
             <span className="block">{ROLE_LABEL[role]}</span>
@@ -429,9 +427,9 @@ function RoleMenu({
           <>
             {roles.length ? <DropdownMenuSeparator /> : null}
             <DropdownMenuItem
-              color="red"
+              variant="destructive"
               icon={<span className="size-4" />}
-              onSelect={() => onChange(null)}
+              onClick={() => onChange(null)}
             >
               {removeLabel}
             </DropdownMenuItem>
@@ -463,9 +461,7 @@ function GeneralAccess({
         <span
           className={cn(
             "flex size-8 shrink-0 items-center justify-center rounded-full",
-            link
-              ? "bg-green-500/12 text-green-600 dark:text-green-400"
-              : "bg-muted text-muted-foreground",
+            link ? "bg-success/12 text-success-foreground" : "bg-muted text-muted-foreground",
           )}
         >
           {link ? <GlobeIcon className="size-4" /> : <LockIcon className="size-4" />}
@@ -473,19 +469,17 @@ function GeneralAccess({
         <div className="min-w-0 flex-1">
           {sharing.canShare ? (
             <DropdownMenu>
-              <DropdownMenuTrigger asChild disabled={busy}>
-                <button
-                  type="button"
-                  className="-ms-1.5 flex h-6 items-center gap-1 rounded-md px-1.5 text-sm font-medium text-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=open]:bg-accent"
-                >
-                  {label}
-                  <ChevronDownIcon className="size-3.5 text-muted-foreground" />
-                </button>
+              <DropdownMenuTrigger
+                disabled={busy}
+                className="-ms-1.5 flex h-6 items-center gap-1 rounded-md px-1.5 text-sm font-medium text-foreground outline-none hover:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring data-popup-open:bg-accent-surface"
+              >
+                {label}
+                <ChevronDownIcon className="size-3.5 text-muted-foreground" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-64">
                 <DropdownMenuItem
                   icon={<LockIcon />}
-                  onSelect={() => link && onChange(null)}
+                  onClick={() => link && onChange(null)}
                   className="h-auto py-1.5"
                 >
                   <span className="block">Restricted</span>
@@ -495,7 +489,7 @@ function GeneralAccess({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   icon={<GlobeIcon />}
-                  onSelect={() => !link && onChange("viewer")}
+                  onClick={() => !link && onChange("viewer")}
                   className="h-auto py-1.5"
                 >
                   <span className="block">Anyone with the link</span>
@@ -508,7 +502,7 @@ function GeneralAccess({
           ) : (
             <div className="text-sm font-medium text-foreground">{label}</div>
           )}
-          <div className="text-[13px] text-muted-foreground">
+          <div className="text-body text-muted-foreground">
             {link
               ? link.role === "editor"
                 ? "Anyone with the link can view; people who sign in with it can edit"
@@ -525,12 +519,12 @@ function GeneralAccess({
               ghost
             />
           ) : (
-            <span className="pe-2 text-[13px] text-muted-foreground">{ROLE_LABEL[link.role]}</span>
+            <span className="pe-2 text-body text-muted-foreground">{ROLE_LABEL[link.role]}</span>
           )
         ) : null}
       </div>
       {sharing.inheritedLink ? (
-        <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+        <p className="flex items-center gap-1.5 text-body text-muted-foreground">
           <UsersIcon className="size-3.5 shrink-0" />
           Anyone with the link to “{sharing.inheritedLink.folderName}” can also{" "}
           {sharing.inheritedLink.role === "editor" ? "edit" : "view"} it.
@@ -645,7 +639,7 @@ function PeopleInput({
         {emails.map((email) => (
           <span
             key={email}
-            className="flex h-6 max-w-full items-center gap-1 rounded-full bg-muted ps-2 pe-1 text-[13px] text-foreground"
+            className="flex h-6 max-w-full items-center gap-1 rounded-full bg-muted ps-2 pe-1 text-body text-foreground"
           >
             <span className="truncate">{email}</span>
             <button
@@ -718,10 +712,10 @@ function PeopleInput({
               onClick={() => add([person.email])}
               className={cn(
                 "flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5",
-                i === active && "bg-accent",
+                i === active && "bg-accent-surface",
               )}
             >
-              <Avatar person={person} className="size-6 text-[10px]" />
+              <Avatar person={person} className="size-6 text-3xs" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm text-foreground">
                   {person.name || person.email}

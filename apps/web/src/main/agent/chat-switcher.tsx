@@ -6,7 +6,11 @@ import { StatusDot, useChatStatus } from "./agent-corner";
 import { useAutoSettleDays } from "./auto-settle";
 import { isBlank, showChat, useChats, type Conversation } from "./chat-store";
 import { shelveChats, useNow } from "./chat-shelves";
-import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "../mail/menu";
+import {
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@otter/ui/components/dropdown-menu";
 
 /** The small window's title menu: the active chats to switch to, a new one, or all of them. */
 export function ChatSwitcherItems({
@@ -39,10 +43,10 @@ export function ChatSwitcherItems({
         <SwitcherItem key={c.id} convo={c} current={c.id === activeId} />
       ))}
       {open.length > 0 ? <DropdownMenuSeparator /> : null}
-      <DropdownMenuItem icon={<PlusIcon />} onSelect={onNewChat}>
+      <DropdownMenuItem icon={<PlusIcon />} onClick={onNewChat}>
         New chat
       </DropdownMenuItem>
-      <DropdownMenuItem icon={<AgentIcon className="size-4" />} onSelect={onOpenAgents}>
+      <DropdownMenuItem icon={<AgentIcon className="size-4" />} onClick={onOpenAgents}>
         All chats
       </DropdownMenuItem>
     </>
@@ -60,7 +64,7 @@ function SwitcherItem({ convo, current }: { convo: Conversation; current: boolea
           className="size-4"
         />
       }
-      onSelect={() => showChat(convo.id)}
+      onClick={() => showChat(convo.id)}
       className="max-w-80"
     >
       <span className="flex w-full min-w-0 items-center gap-2">

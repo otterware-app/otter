@@ -1,14 +1,10 @@
 import {
-  toast,
   useCapabilities,
   useDefaultCalendar,
-  Btn,
-  HintTooltip,
-  IconBtn,
-  cn,
   openLink,
   isModClick,
 } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -18,6 +14,9 @@ import {
   ExternalLinkIcon,
   MapPinIcon,
 } from "lucide-react";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
 import { invitesApi, type CalendarInvite, type RsvpResponse } from "./api";
 
 const inviteKey = (accountId: string, messageId: string) => [
@@ -147,27 +146,27 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
           >
             {invite.summary}
           </div>
-          {when ? <div className="text-[13px] text-muted-foreground">{when}</div> : null}
+          {when ? <div className="text-body text-muted-foreground">{when}</div> : null}
           {invite.location ? (
-            <div className="flex min-w-0 items-center gap-1 text-[13px] text-muted-foreground">
+            <div className="flex min-w-0 items-center gap-1 text-body text-muted-foreground">
               <MapPinIcon className="size-3 shrink-0" aria-hidden />
               <span className="min-w-0 truncate">{invite.location}</span>
             </div>
           ) : null}
           {invite.organizer ? (
-            <div className="text-[13px] text-muted-foreground">
+            <div className="text-body text-muted-foreground">
               Organizer: {invite.organizer.name || invite.organizer.email}
             </div>
           ) : null}
         </div>
         {invite.htmlLink ? (
           <HintTooltip label="Open in calendar">
-            <IconBtn
+            <IconButton
               label="Open in calendar"
               onClick={(e) => openLink(invite.htmlLink!, { flip: isModClick(e) })}
             >
               <ExternalLinkIcon className="size-4" />
-            </IconBtn>
+            </IconButton>
           </HintTooltip>
         ) : null}
       </div>
@@ -189,7 +188,7 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
                   aria-pressed={active}
                   onClick={() => !active && respond.mutate(choice.value)}
                   className={cn(
-                    "inline-flex h-7 cursor-pointer items-center gap-1 px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring disabled:opacity-60",
+                    "inline-flex h-7 cursor-pointer items-center gap-1 px-3 text-body outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring disabled:opacity-60",
                     i > 0 && "border-l border-border/60",
                     active
                       ? "bg-primary text-primary-foreground"
@@ -214,7 +213,7 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
         </div>
       ) : target && invite.start ? (
         <div className="pl-13">
-          <Btn
+          <Button
             size="sm"
             className="rounded-full"
             disabled={add.isPending}
@@ -222,7 +221,7 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
           >
             <CalendarPlusIcon aria-hidden />
             Add to calendar
-          </Btn>
+          </Button>
         </div>
       ) : null}
     </div>

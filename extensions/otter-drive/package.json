@@ -17,6 +17,7 @@
     "@e965/xlsx": "0.20.3",
     "@otter/contracts": "workspace:*",
     "@otter/core": "workspace:*",
+    "@otter/ui": "workspace:*",
     "@tanstack/react-query": "^5.87.4",
     "@tanstack/react-router": "^1.131.36",
     "@tanstack/react-virtual": "^3.14.25",

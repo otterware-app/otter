@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { toast, type ToastId } from "../mail/toast";
+import { toast, type ToastId } from "@otter/ui/components/toast";
 
 export type SetupStage = "setup" | "done";
 

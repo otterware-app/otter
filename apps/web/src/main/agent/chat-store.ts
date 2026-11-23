@@ -42,7 +42,7 @@ import { placeDelivered } from "./chat-order";
 import type { Citation } from "./chat-cite";
 import { isChatFileLink } from "./chat-links";
 import type { FollowUpBehavior } from "./chat-queue";
-import { toast, type ToastId } from "../mail/toast";
+import { toast, type ToastId } from "@otter/ui/components/toast";
 
 export type { ChatTab, ChatTurn };
 

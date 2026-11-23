@@ -13,15 +13,6 @@ import type { MailAccount, MessageSummary } from "./types";
 import { getAccountDisplayName } from "./account-style";
 import { capabilitiesOf } from "./capabilities";
 import { senderLabel } from "./address";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
-import { Btn, HintTooltip, IconBtn, cn } from "./ui";
 import { useSearchMessages, useSuggestContacts } from "./hooks";
 import {
   DATE_WITHIN,
@@ -43,19 +34,37 @@ import {
   type AdvancedFields,
 } from "./gmail-query";
 import { isTypingTarget } from "./keyboard";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@otter/ui/components/select";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { Checkbox } from "@otter/ui/components/checkbox";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
+import { chipVariants } from "@otter/ui/components/chip";
+
+const SIZE_OPS = { larger: "greater than", smaller: "less than" };
+const SIZE_UNITS = { MB: "MB", KB: "KB", bytes: "Bytes" };
 
 const FIELD =
   "h-7.5 w-full min-w-0 rounded-lg border border-input bg-canvas px-2.5 text-sm text-foreground shadow-xs/5 outline-none placeholder:text-placeholder focus-visible:border-focus-ring focus-visible:ring-[3px] focus-visible:ring-focus-ring/24 dark:bg-input/32";
 
-const CHIP =
-  "inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-focus-ring";
-
 function chipClass(active: boolean) {
   return cn(
-    CHIP,
-    active
-      ? "border-transparent bg-accent-surface text-foreground"
-      : "border-border/60 text-muted-foreground hover:bg-accent-surface/60 hover:text-foreground",
+    chipVariants({ size: "sm", variant: active ? "active" : "outline" }),
+    "cursor-pointer",
+    !active && "border-border/60 hover:bg-accent-surface/60 hover:text-foreground",
   );
 }
 
@@ -134,7 +143,7 @@ function SuggestionRow({
                 e.stopPropagation();
                 onForget();
               }}
-              className="shrink-0 rounded-sm p-0.5 text-muted-foreground/70 hover:text-foreground"
+              className="shrink-0 rounded-sm p-0.5 text-faint-foreground hover:text-foreground"
             >
               <XIcon className="size-3" />
             </span>
@@ -278,11 +287,8 @@ function AdvancedSearch({
       {row(
         "Size",
         <div className="flex min-w-0 flex-wrap gap-1.5">
-          <Select
-            value={f.sizeOp}
-            onValueChange={(v) => set("sizeOp", v as AdvancedFields["sizeOp"])}
-          >
-            <SelectTrigger size="small" className="w-28 shrink-0" aria-label="Size comparison">
+          <Select value={f.sizeOp} items={SIZE_OPS} onValueChange={(v) => v && set("sizeOp", v)}>
+            <SelectTrigger className="w-28 shrink-0" aria-label="Size comparison">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -302,9 +308,10 @@ function AdvancedSearch({
           />
           <Select
             value={f.sizeUnit}
-            onValueChange={(v) => set("sizeUnit", v as AdvancedFields["sizeUnit"])}
+            items={SIZE_UNITS}
+            onValueChange={(v) => v && set("sizeUnit", v)}
           >
-            <SelectTrigger size="small" className="w-18 shrink-0" aria-label="Size unit">
+            <SelectTrigger className="w-18 shrink-0" aria-label="Size unit">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -318,13 +325,17 @@ function AdvancedSearch({
       {row(
         "Date within",
         <div className="flex min-w-0 flex-wrap gap-1.5">
-          <Select value={String(f.withinDays)} onValueChange={(v) => set("withinDays", Number(v))}>
-            <SelectTrigger size="small" className="w-28 shrink-0" aria-label="Date range">
+          <Select
+            value={f.withinDays}
+            items={DATE_WITHIN.map((d) => ({ value: d.days, label: d.label }))}
+            onValueChange={(v) => v !== null && set("withinDays", v)}
+          >
+            <SelectTrigger className="w-28 shrink-0" aria-label="Date range">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {DATE_WITHIN.map((d) => (
-                <SelectItem key={d.days} value={String(d.days)}>
+                <SelectItem key={d.days} value={d.days}>
                   {d.label}
                 </SelectItem>
               ))}
@@ -346,9 +357,10 @@ function AdvancedSearch({
         "Search",
         <Select
           value={f.searchIn || "all"}
-          onValueChange={(v) => set("searchIn", v === "all" ? "" : v)}
+          items={SEARCH_IN.map((s) => ({ value: s.value || "all", label: s.label }))}
+          onValueChange={(v) => v && set("searchIn", v === "all" ? "" : v)}
         >
-          <SelectTrigger size="small" className="w-full" aria-label="Search in">
+          <SelectTrigger className="w-full" aria-label="Search in">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -362,24 +374,16 @@ function AdvancedSearch({
       )}
       <div className="flex flex-wrap items-center gap-4 text-sm @min-[30rem]/adv:pl-[8.75rem]">
         <label className="inline-flex cursor-pointer items-center gap-2">
-          <input
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            type="checkbox"
+          <Checkbox
             checked={f.hasAttachment}
-            onChange={(e) => set("hasAttachment", e.target.checked)}
+            onCheckedChange={(checked) => set("hasAttachment", checked)}
           />
           Has attachment
         </label>
         <label className="inline-flex cursor-pointer items-center gap-2">
-          <input
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            type="checkbox"
+          <Checkbox
             checked={f.excludeChats}
-            onChange={(e) => set("excludeChats", e.target.checked)}
+            onCheckedChange={(checked) => set("excludeChats", checked)}
           />
           Don't include chats
         </label>
@@ -389,12 +393,12 @@ function AdvancedSearch({
           {built}
         </code>
         <div className="flex shrink-0 gap-1.5">
-          <Btn size="sm" variant="ghost" onClick={() => setF(EMPTY_ADVANCED)}>
+          <Button size="sm" variant="ghost" onClick={() => setF(EMPTY_ADVANCED)}>
             Clear
-          </Btn>
-          <Btn size="sm" variant="primary" type="submit" disabled={!built}>
+          </Button>
+          <Button size="sm" variant="primary" type="submit" disabled={!built}>
             Search
-          </Btn>
+          </Button>
         </div>
       </div>
     </form>
@@ -417,13 +421,11 @@ function PersonChip({
   const contacts = useSuggestContacts(value, value.trim().length > 1);
   return (
     <DropdownMenu onOpenChange={(open) => open && setValue(current ?? "")}>
-      <DropdownMenuTrigger asChild>
-        <button type="button" className={chipClass(current !== null)}>
-          {current ? `${label}: ${current}` : label}
-          <span aria-hidden className="text-muted-foreground/70">
-            ▾
-          </span>
-        </button>
+      <DropdownMenuTrigger className={chipClass(current !== null)}>
+        {current ? `${label}: ${current}` : label}
+        <span aria-hidden className="text-faint-foreground">
+          ▾
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64 p-2">
         <input
@@ -443,7 +445,7 @@ function PersonChip({
         {(contacts.data ?? []).slice(0, 5).map((c) => (
           <DropdownMenuItem
             key={c.email}
-            onSelect={() => onSearch(setOperator(query, operator, c.email))}
+            onClick={() => onSearch(setOperator(query, operator, c.email))}
           >
             <span className="min-w-0 truncate">
               {c.name ? `${c.name} · ` : ""}
@@ -454,7 +456,7 @@ function PersonChip({
         {current ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => onSearch(setOperator(query, operator, null))}>
+            <DropdownMenuItem onClick={() => onSearch(setOperator(query, operator, null))}>
               Clear {label.toLowerCase()}
             </DropdownMenuItem>
           </>
@@ -476,20 +478,18 @@ function TimeChip({ query, onSearch }: { query: string; onSearch: (q: string) =>
   };
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button type="button" className={chipClass(current !== null)}>
-          {current ?? "Any time"}
-          <span aria-hidden className="text-muted-foreground/70">
-            ▾
-          </span>
-        </button>
+      <DropdownMenuTrigger className={chipClass(current !== null)}>
+        {current ?? "Any time"}
+        <span aria-hidden className="text-faint-foreground">
+          ▾
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-60">
-        <DropdownMenuItem onSelect={() => onSearch(clearDates(query))}>Any time</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onSearch(clearDates(query))}>Any time</DropdownMenuItem>
         {TIME_PRESETS.map((p) => (
           <DropdownMenuItem
             key={p.value}
-            onSelect={() => onSearch(`${clearDates(query)} ${p.value}`.trim())}
+            onClick={() => onSearch(`${clearDates(query)} ${p.value}`.trim())}
           >
             {p.label}
           </DropdownMenuItem>
@@ -517,9 +517,9 @@ function TimeChip({ query, onSearch }: { query: string; onSearch: (q: string) =>
             onChange={(e) => setBefore(e.target.value)}
             aria-label="Before"
           />
-          <Btn size="xs" variant="outline" disabled={!after && !before} onClick={custom}>
+          <Button size="xs" variant="outline" disabled={!after && !before} onClick={custom}>
             Apply
-          </Btn>
+          </Button>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -543,21 +543,19 @@ function ScopeChip({
     : (accounts.find((a) => a.id === scope[0])?.email ?? scope[0] ?? "Account");
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button type="button" className={chipClass(!all)}>
-          {label}
-          <span aria-hidden className="text-muted-foreground/70">
-            ▾
-          </span>
-        </button>
+      <DropdownMenuTrigger className={chipClass(!all)}>
+        {label}
+        <span aria-hidden className="text-faint-foreground">
+          ▾
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuItem onSelect={() => onScope(accounts.map((a) => a.id))}>
+        <DropdownMenuItem onClick={() => onScope(accounts.map((a) => a.id))}>
           All accounts
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         {accounts.map((a) => (
-          <DropdownMenuItem key={a.id} onSelect={() => onScope([a.id])}>
+          <DropdownMenuItem key={a.id} onClick={() => onScope([a.id])}>
             {a.email}
           </DropdownMenuItem>
         ))}
@@ -734,13 +732,13 @@ export function SearchHeader({
                 setDraft(base ? `${base} ` : "");
                 focusRef.current?.focus();
               }}
-              className="shrink-0 text-muted-foreground/70 hover:text-foreground"
+              className="shrink-0 text-faint-foreground hover:text-foreground"
             >
               <XIcon className="size-3.5" />
             </button>
           ) : null}
           <HintTooltip label="Show search options">
-            <IconBtn
+            <IconButton
               label="Show search options"
               active={advancedOpen}
               className="-me-1.5 size-6"
@@ -750,7 +748,7 @@ export function SearchHeader({
               }}
             >
               <SlidersHorizontalIcon className="size-3.5" />
-            </IconBtn>
+            </IconButton>
           </HintTooltip>
         </div>
         {headerTrailing}
@@ -786,7 +784,7 @@ export function SearchHeader({
 
       {/* Gmail's search chips: one row inside the panel, 10px in like the list's
           rows, scrolling sideways and fading out at the edge. */}
-      <div className="flex items-center gap-1.5 overflow-x-auto px-[10px] pb-1 pt-[10px] [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex items-center gap-1.5 overflow-x-auto px-2.5 pb-1 pt-2.5 [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ScopeChip accounts={accounts} scope={scope} onScope={onScope} />
         <PersonChip label="From" operator="from" query={query} onSearch={run} />
         <TimeChip query={query} onSearch={run} />

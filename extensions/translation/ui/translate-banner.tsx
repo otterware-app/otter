@@ -1,14 +1,14 @@
+import type { MessageDetail } from "@otter/web/extension-kit";
+import { createContext, useContext, useState } from "react";
+import { ChevronDownIcon, LanguagesIcon } from "lucide-react";
+import { Button, IconButton } from "@otter/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  buttonClass,
-  IconBtn,
-} from "@otter/web/extension-kit";
-import type { MessageDetail } from "@otter/web/extension-kit";
-import { createContext, useContext, useState } from "react";
-import { ChevronDownIcon, LanguagesIcon, LoaderCircleIcon } from "lucide-react";
+} from "@otter/ui/components/dropdown-menu";
+import { Spinner } from "@otter/ui/components/spinner";
 import {
   languageName,
   sameLanguage,
@@ -75,7 +75,7 @@ export function useMessageTranslation(accountId: string, detail: MessageDetail |
   };
 }
 
-const PILL = buttonClass("outline", "sm", "rounded-full border-border/60");
+const PILL = "rounded-full border-border/60";
 
 function errorMessage(error: Error, from: string, to: string): string {
   if (error instanceof TranslationUnavailableError) {
@@ -127,44 +127,42 @@ function TranslateBanner({
   return (
     <div className="mb-4 flex min-h-11 items-center gap-2.5 rounded-2xl border border-border/60 bg-card py-1.5 pr-1.5 pl-3.5">
       {pending ? (
-        <LoaderCircleIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
+        <Spinner className="shrink-0" />
       ) : (
         <LanguagesIcon className="size-4 shrink-0 text-muted-foreground" />
       )}
       <span className="min-w-0 flex-1 text-sm text-muted-foreground">{text}</span>
       {notInstalled ? (
-        <button
-          type="button"
+        <Button
+          size="sm"
           onClick={() => void window.desktopBridge.openExternal(TRANSLATION_SETTINGS_URL)}
           className={PILL}
         >
           Open Settings
-        </button>
+        </Button>
       ) : null}
       {translating && error ? (
-        <button type="button" onClick={onRetry} className={PILL}>
+        <Button size="sm" onClick={onRetry} className={PILL}>
           Try Again
-        </button>
+        </Button>
       ) : null}
       {translating ? (
-        <button type="button" onClick={onShowOriginal} className={PILL}>
+        <Button size="sm" onClick={onShowOriginal} className={PILL}>
           Show Original
-        </button>
+        </Button>
       ) : (
-        <button type="button" onClick={() => onTranslate(target)} className={PILL}>
+        <Button size="sm" onClick={() => onTranslate(target)} className={PILL}>
           Translate to {to}
-        </button>
+        </Button>
       )}
       {otherTargets.length > 0 ? (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <IconBtn label="Translate to another language">
-              <ChevronDownIcon className="size-4" />
-            </IconBtn>
+          <DropdownMenuTrigger render={<IconButton label="Translate to another language" />}>
+            <ChevronDownIcon className="size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {otherTargets.map((code) => (
-              <DropdownMenuItem key={code} onSelect={() => onTranslate(code)}>
+              <DropdownMenuItem key={code} onClick={() => onTranslate(code)}>
                 Translate to {languageName(code)}
               </DropdownMenuItem>
             ))}

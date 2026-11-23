@@ -35,12 +35,12 @@ import {
   type ThemeColorRole,
   type ThemeDefinition,
 } from "../../theme/themePalette";
-import { cn } from "~/lib/utils";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Switch } from "~/components/ui/switch";
-import { Toggle, ToggleGroup } from "~/components/ui/toggle-group";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
+import { cn } from "@otter/ui/lib/utils";
+import { Button } from "@otter/ui/components/button";
+import { Input } from "@otter/ui/components/input";
+import { Switch } from "@otter/ui/components/switch";
+import { Toggle, ToggleGroup } from "@otter/ui/components/toggle-group";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@otter/ui/components/tooltip";
 import { getThemeRoleLabel, ThemeColorField } from "./ThemeColorPicker";
 import {
   clearThemeInspectorHighlights,
@@ -1075,7 +1075,7 @@ export function ThemeEditorPanel({
           </div>
           <div
             aria-hidden
-            className="absolute bottom-0 right-0 z-10 flex size-5 cursor-se-resize touch-none select-none items-end justify-end p-1 text-muted-foreground/70"
+            className="absolute bottom-0 right-0 z-10 flex size-5 cursor-se-resize touch-none select-none items-end justify-end p-1 text-faint-foreground"
             onPointerCancel={endResize}
             onPointerDown={handleResizePointerDown}
             onPointerMove={handleResizePointerMove}

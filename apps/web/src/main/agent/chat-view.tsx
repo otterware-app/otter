@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState, type RefObject } from "react";
 import { MessageScroller } from "@shadcn/react/message-scroller";
 import { ArrowDownIcon, MailIcon } from "lucide-react";
-import { ScrollArea } from "~/components/ui/scroll-area";
-import { buttonClass, cn } from "../mail/ui";
+import { ScrollArea } from "@otter/ui/components/scroll-area";
 import { mailApi, type AgentId, type AgentSettingsPatch, type ChatChange } from "../mail/api";
 import {
   AgentFace,
@@ -32,7 +31,9 @@ import { ChatTranscript } from "./chat-transcript";
 import { ChatComposer } from "./chat-composer";
 import { AgentIcon } from "./agent-icon";
 import { useOtterAccount } from "../otter-account";
-import { toast } from "../mail/toast";
+import { toast } from "@otter/ui/components/toast";
+import { Button } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 const NO_QUEUE: QueuedMessage[] = [];
 
@@ -162,7 +163,7 @@ export function ChatView({
   );
   const hero = turns.length === 0 && !hydrating && !unloaded;
   const composer = elsewhere ? (
-    <p className="shrink-0 px-6 pb-4 pt-2 text-center text-[13px] text-muted-foreground">
+    <p className="shrink-0 px-6 pb-4 pt-2 text-center text-body text-muted-foreground">
       This chat ran in {chat.name} on {elsewhere.name}. Continue it there.
     </p>
   ) : (
@@ -220,8 +221,8 @@ export function ChatView({
             </>
           )}
           <div className="mt-1 flex items-center gap-2">
-            <button
-              type="button"
+            <Button
+              size="sm"
               onClick={() =>
                 void mailApi.openSettings(
                   signedOut && !chat.provider
@@ -229,18 +230,17 @@ export function ChatView({
                     : { pane: "agents", item: chat.provider?.id },
                 )
               }
-              className={buttonClass("outline", "sm")}
             >
               {chat.provider ? "Open Settings" : signedOut ? "Sign in" : "Add agent"}
-            </button>
+            </Button>
             {fallback ? (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => updateSettings({ selected: fallback.id })}
-                className={buttonClass("ghost", "sm")}
               >
                 Use {fallback.name}
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>

@@ -1,23 +1,22 @@
 import {
-  Btn,
   ModelsSection,
   mailApi,
   Command,
-  SettingsRow,
-  SettingsSection,
-  TextInput,
   osNames,
   searchableSetting,
-  toast,
   useSetProvidersState,
   type AgentSettingsProps,
   type ProviderSnapshot,
 } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import { useEffect, useState } from "react";
+import { Button } from "@otter/ui/components/button";
 
 import { openClawApi } from "./api";
 import { OpenClawDeliveries } from "./deliveries";
 import { OpenClawAgents } from "./models";
+import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
+import { Input } from "@otter/ui/components/input";
 
 const SITE_ORIGIN = window.desktopBridge.platform === "web" ? location.origin : null;
 
@@ -169,7 +168,7 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
               title="Gateway address"
               description="wss://<computer>.<tailnet>.ts.net"
               control={
-                <TextInput
+                <Input
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder={savedUrl ? "Change address" : "computer.tailnet.ts.net"}
@@ -182,7 +181,7 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
               title="Gateway token"
               description="gateway.auth.token, which this prints on the gateway's computer. It stays on this device."
               control={
-                <TextInput
+                <Input
                   type="password"
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
@@ -201,7 +200,7 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
             title="Setup code"
             description="From openclaw qr --setup-code-only."
             control={
-              <TextInput
+              <Input
                 type="password"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -227,9 +226,9 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
             </>
           }
           control={
-            <Btn size="sm" variant="primary" disabled={saving} onClick={() => void connect()}>
+            <Button size="sm" variant="primary" disabled={saving} onClick={() => void connect()}>
               {saving ? "Connecting…" : savedUrl ? "Reconnect" : "Connect"}
-            </Btn>
+            </Button>
           }
         />
         {openclawPairingRequest ? (
@@ -250,9 +249,9 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
             }
             control={
               openclawFullAccess.request ? null : (
-                <Btn size="sm" disabled={asking} onClick={() => void allowFullAccess()}>
+                <Button size="sm" disabled={asking} onClick={() => void allowFullAccess()}>
                   {asking ? "Asking…" : "Allow"}
-                </Btn>
+                </Button>
               )
             }
           >
@@ -266,9 +265,9 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
             title="Manage every scheduled task"
             description="A chat can only see and change the scheduled tasks it made, and the agent doesn't know which Otter chats it can post to. Allowing this lists Otter as one of the gateway's owners (commands.ownerAllowFrom), as you would your own Telegram account, so any chat can manage them all, and lets Otter's plugin tell the agent where it can deliver: this chat, or a new chat each time."
             control={
-              <Btn size="sm" disabled={asking} onClick={() => void allowOwner()}>
+              <Button size="sm" disabled={asking} onClick={() => void allowOwner()}>
                 {asking ? "Allowing…" : "Allow"}
-              </Btn>
+              </Button>
             }
           />
         ) : null}

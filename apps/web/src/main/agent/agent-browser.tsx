@@ -4,7 +4,6 @@ import {
   ArrowRightIcon,
   CloudIcon,
   GlobeIcon,
-  LoaderCircleIcon,
   MonitorOffIcon,
   MousePointer2Icon,
   RotateCwIcon,
@@ -22,8 +21,11 @@ import {
 import { faviconFor } from "../browser/browser-view";
 import { addressToUrl, hostOf } from "../browser/store";
 import { useLatest } from "../use-latest";
-import { HintTooltip, IconBtn, cn } from "../mail/ui";
-import { toast } from "../mail/toast";
+import { toast } from "@otter/ui/components/toast";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { IconButton } from "@otter/ui/components/button";
+import { Spinner } from "@otter/ui/components/spinner";
+import { cn } from "@otter/ui/lib/utils";
 
 /** Held tabs are let go a while after the last heartbeat, so a closed app never keeps one. */
 const HEARTBEAT_MS = 10_000;
@@ -57,7 +59,7 @@ export function AgentBrowserTabIcon({ page }: { page?: string }) {
           src={icon}
           alt=""
           draggable={false}
-          className="size-3.5 rounded-[3px]"
+          className="size-3.5 rounded-sm"
           onError={() => setFailed(icon)}
         />
       ) : (
@@ -422,38 +424,40 @@ export function AgentBrowser({
           <span className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-foreground/[0.06] px-3 text-xs font-medium text-foreground">
             <CloudIcon className="size-3.5 text-muted-foreground" />
             {agentName}
-            {live ? <span className="size-1.5 rounded-full bg-red-500" aria-label="Live" /> : null}
+            {live ? (
+              <span className="size-1.5 rounded-full bg-destructive" aria-label="Live" />
+            ) : null}
           </span>
         </HintTooltip>
         {controlling ? (
           <div className="flex shrink-0 items-center rounded-full bg-foreground/[0.06] p-0.5">
             <HintTooltip label="Back" side="bottom">
-              <IconBtn
+              <IconButton
                 label="Back"
                 className="rounded-full"
                 onClick={() => send({ type: "history", delta: -1 })}
               >
                 <ArrowLeftIcon className="size-4" />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
             <HintTooltip label="Forward" side="bottom">
-              <IconBtn
+              <IconButton
                 label="Forward"
                 className="rounded-full"
                 onClick={() => send({ type: "history", delta: 1 })}
               >
                 <ArrowRightIcon className="size-4" />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
             <span aria-hidden className="mx-0.5 h-4 w-px bg-border" />
             <HintTooltip label="Reload" side="bottom">
-              <IconBtn
+              <IconButton
                 label="Reload"
                 className="rounded-full"
                 onClick={() => send({ type: "reload" })}
               >
                 <RotateCwIcon className="size-4" />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
           </div>
         ) : null}
@@ -553,7 +557,7 @@ export function AgentBrowser({
         {state.status === "live" ? null : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center text-sm text-muted-foreground">
             {state.status === "connecting" ? (
-              <LoaderCircleIcon className="size-5 animate-spin" />
+              <Spinner className="size-5" />
             ) : (
               <>
                 <MonitorOffIcon className="size-5" />

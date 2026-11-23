@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import otterUrl from "../assets/agent-otter.jpg";
-import { cn } from "./ui";
+import { cn } from "@otter/ui/lib/utils";
 
 const CELL = 3;
 const DOT = 2;

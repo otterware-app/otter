@@ -31,15 +31,8 @@ import {
 import { AgentIcon } from "../agent/agent-icon";
 import { changelogUrl } from "@otter/shared/changelog";
 import { openLink } from "../browser/store";
-import { ScrollArea } from "~/components/ui/scroll-area";
+import { ScrollArea } from "@otter/ui/components/scroll-area";
 import { mailApi, type SettingsPane } from "../mail/api";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../mail/menu";
-import { HintTooltip, IconBtn, cn } from "../mail/ui";
 import { features } from "../features";
 import { useCommandHandlers } from "../keybindings/dispatch";
 import {
@@ -51,6 +44,15 @@ import {
 import { requestProblemReport } from "../support/report-problem";
 import { hasIntegrations } from "../extensions/registry";
 import { PLACE } from "../place-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 const SETTINGS_SECTION_ICONS: Readonly<
   Record<SettingsPane, ComponentType<{ className?: string }>>
@@ -77,7 +79,7 @@ const SETTINGS_SECTIONS = (Object.keys(SETTINGS_SECTION_LABELS) as SettingsPane[
   }));
 
 const ROW =
-  "flex h-7 w-full cursor-pointer items-center gap-2 rounded-md px-(--sidebar-row-content-inset) text-left text-[13px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring active:bg-sidebar-row-active [&>svg]:size-3.5 [&>svg]:mx-px [&>svg]:shrink-0";
+  "flex h-7 w-full cursor-pointer items-center gap-2 rounded-md px-(--sidebar-row-content-inset) text-left text-body font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring active:bg-sidebar-row-active [&>svg]:size-3.5 [&>svg]:mx-px [&>svg]:shrink-0";
 
 const ROW_IDLE =
   "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground [&>svg]:text-sidebar-muted-foreground hover:[&>svg]:text-sidebar-foreground";
@@ -289,17 +291,15 @@ function HelpMenu() {
   return (
     <DropdownMenu>
       <HintTooltip label="Help">
-        <DropdownMenuTrigger asChild>
-          <IconBtn label="Help">
-            <CircleHelpIcon className="size-4" />
-          </IconBtn>
+        <DropdownMenuTrigger render={<IconButton label="Help" />}>
+          <CircleHelpIcon className="size-4" />
         </DropdownMenuTrigger>
       </HintTooltip>
       <DropdownMenuContent side="top">
-        <DropdownMenuItem icon={<MessageSquareIcon />} onSelect={requestProblemReport}>
+        <DropdownMenuItem icon={<MessageSquareIcon />} onClick={requestProblemReport}>
           Send feedback
         </DropdownMenuItem>
-        <DropdownMenuItem icon={<ScrollTextIcon />} onSelect={() => openLink(changelogUrl())}>
+        <DropdownMenuItem icon={<ScrollTextIcon />} onClick={() => openLink(changelogUrl())}>
           Changelog
           <ArrowUpRightIcon className="ms-1 inline size-3.5 align-[-2px]" />
         </DropdownMenuItem>

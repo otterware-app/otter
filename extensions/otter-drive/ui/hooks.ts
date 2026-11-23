@@ -1,4 +1,4 @@
-import { toast } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import { useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 

@@ -44,7 +44,7 @@ export function MailField() {
       className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
       style={MASK_STYLE}
     >
-      <div className="whitespace-pre text-[13px] leading-[1.65rem] text-foreground opacity-[0.055] dark:opacity-[0.06]">
+      <div className="whitespace-pre text-body leading-[1.65rem] text-foreground opacity-[0.055] dark:opacity-[0.06]">
         {ROWS.map((text, i) => (
           <div
             key={text}

@@ -1,21 +1,5 @@
-import {
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuSub,
-  Dialog,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  Field,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  openLink,
-  toast,
-} from "@otter/web/extension-kit";
+import { openLink } from "@otter/web/extension-kit";
+import { toast } from "@otter/ui/components/toast";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
@@ -34,6 +18,26 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Fragment, useEffect, useState, type ComponentType } from "react";
+import {
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+} from "@otter/ui/components/context-menu";
+import { Dialog } from "@otter/ui/components/dialog";
+import {
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+} from "@otter/ui/components/dropdown-menu";
+import { Field } from "@otter/ui/components/field";
+import { Input } from "@otter/ui/components/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@otter/ui/components/select";
 
 import { driveApi, driveLabel, type DriveArtifact, type DriveFolder } from "./api";
 import { errorText, useDriveStatus, useFolders, useRefresh } from "./hooks";
@@ -41,7 +45,7 @@ import { share } from "./share";
 
 type Icon = ComponentType<{ className?: string }>;
 export type Action =
-  | { id: string; label: string; Icon: Icon; run: () => void; red?: boolean }
+  | { id: string; label: string; Icon: Icon; run: () => void; destructive?: boolean }
   | { id: string; label: string; Icon: Icon; items: Action[] }
   | { id: string; separator: true };
 
@@ -80,8 +84,8 @@ export function ActionItems({
           <Item
             key={a.id}
             icon={<a.Icon />}
-            color={a.red ? "red" : undefined}
-            onSelect={() => a.run()}
+            variant={a.destructive ? "destructive" : undefined}
+            onClick={() => a.run()}
           >
             {a.label}
           </Item>
@@ -246,7 +250,7 @@ export function useDocumentActions(
             id: "delete",
             label: "Delete permanently…",
             Icon: Trash2Icon,
-            red: true,
+            destructive: true,
             run: () => openDialog({ type: "deleteDocument", artifact: a, folderId, onGone }),
           },
         ]
@@ -314,7 +318,7 @@ export function useFolderActions(
             id: "delete",
             label: "Delete…",
             Icon: Trash2Icon,
-            red: true,
+            destructive: true,
             run: () => openDialog({ type: "deleteFolder", folder }),
           },
         ]
@@ -491,7 +495,7 @@ function MoveFolderDialog({
     .filter((f) => f.role === "owner" && f.id !== folder.parentId && !inside(f) && top(f) === drive)
     .map((f) => ({ id: f.id, path: folderPath(list, f) }))
     .sort((x, y) => x.path.localeCompare(y.path));
-  const [to, setTo] = useState<string | undefined>(undefined);
+  const [to, setTo] = useState<string | null>(null);
   const picked = options.find((o) => o.id === to);
   return (
     <Dialog
@@ -509,7 +513,11 @@ function MoveFolderDialog({
       }
     >
       <Field label="Into" orientation="vertical">
-        <Select value={to} onValueChange={setTo}>
+        <Select
+          value={to}
+          items={options.map((o) => ({ value: o.id, label: o.path }))}
+          onValueChange={setTo}
+        >
           <SelectTrigger aria-label="Into">
             <SelectValue placeholder="Choose a folder" />
           </SelectTrigger>

@@ -1,9 +1,10 @@
 import { useRef, useState, type DragEvent } from "react";
-import { toast } from "./toast";
-import { PaperclipIcon, XIcon } from "lucide-react";
+import { toast } from "@otter/ui/components/toast";
+import { PaperclipIcon } from "lucide-react";
 import { mailApi } from "./api";
 import { AttachmentPreview, attachmentPreview } from "./attachment-preview";
 import type { ComposeAttachment } from "./types";
+import { Chip, ChipRemove } from "@otter/ui/components/chip";
 
 /** Mirror of the backend cap (core services/outgoing.ts) so renderer-side drops fail early. */
 const MAX_ATTACHMENT_TOTAL_BYTES = 25 * 1024 * 1024;
@@ -185,10 +186,7 @@ export function AttachmentChips({
   return (
     <div className="flex flex-wrap items-center gap-1.5 px-5 pb-1 pt-2">
       {attachments.map((att, i) => (
-        <span
-          key={att.key ?? `${att.name}:${att.mimeType}:${att.size}`}
-          className="flex h-8 max-w-64 items-center gap-1.5 rounded-xl border border-border/40 bg-accent-surface/60 pl-2.5 pr-1 text-sm text-foreground"
-        >
+        <Chip key={att.key ?? `${att.name}:${att.mimeType}:${att.size}`} size="md" variant="filled">
           <button
             type="button"
             title={att.name}
@@ -198,19 +196,16 @@ export function AttachmentChips({
             }
             className="flex min-w-0 cursor-pointer items-center gap-1.5 hover:text-foreground"
           >
-            <PaperclipIcon className="size-3 shrink-0 text-muted-foreground/70" />
+            <PaperclipIcon className="size-3 shrink-0 text-faint-foreground" />
             <span className="min-w-0 truncate">{att.name}</span>
           </button>
-          <span className="shrink-0 text-muted-foreground/70">{formatBytes(att.size)}</span>
-          <button
-            type="button"
-            aria-label={`Remove ${att.name}`}
-            onClick={() => onRemove(i)}
-            className="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground/70 hover:bg-foreground/10 hover:text-foreground"
-          >
-            <XIcon className="size-3" />
-          </button>
-        </span>
+          <span className="shrink-0 text-faint-foreground">{formatBytes(att.size)}</span>
+          <ChipRemove
+            label={`Remove ${att.name}`}
+            onRemove={() => onRemove(i)}
+            className="-me-0 text-faint-foreground hover:bg-foreground/10 hover:text-foreground"
+          />
+        </Chip>
       ))}
       <AttachmentPreview
         file={

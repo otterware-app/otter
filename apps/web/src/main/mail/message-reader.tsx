@@ -20,13 +20,13 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { Popover } from "radix-ui";
-import { Dialog } from "~/components/ui/dialog";
-import { EmptyState } from "~/components/ui/empty-state";
-import { ScrollArea } from "~/components/ui/scroll-area";
-import { Text } from "~/components/ui/text";
+import { Popover } from "@base-ui/react/popover";
+import { Dialog } from "@otter/ui/components/dialog";
+import { EmptyState } from "@otter/ui/components/empty-state";
+import { ScrollArea } from "@otter/ui/components/scroll-area";
+import { Text } from "@otter/ui/components/text";
 import { MAY_HAVE_BEEN_SENT, sendWithUndo } from "./undo-send";
-import { toast } from "./toast";
+import { toast } from "@otter/ui/components/toast";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
@@ -98,19 +98,7 @@ import {
   splitAddressList,
 } from "./address";
 import { useCommandHandlers } from "../keybindings/dispatch";
-import { useShortcutLabel } from "../keybindings/store";
-import { IconBtn, HintTooltip, buttonClass, cn } from "./ui";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  ContextMenu,
-  ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuItem,
-} from "./menu";
+import { ShortcutText, useShortcutLabel } from "../keybindings/store";
 import { RichTextArea, textToHtml, type RichTextRef } from "./rich-text";
 import { RecipientInput } from "./recipient-input";
 import { FromPicker } from "./new-message-view";
@@ -137,6 +125,22 @@ import { isModClick } from "../keybindings/keys";
 import { loadPhoneFinder, markPhones, usePhoneFinder, type FindPhones } from "./phone-numbers";
 import { usePhoneMenu, type PhoneAt } from "./phone-menu";
 import { followFrameWheel } from "../history-swipe";
+import { Button, IconButton } from "@otter/ui/components/button";
+import { HintTooltip } from "@otter/ui/components/tooltip";
+import { cn } from "@otter/ui/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+} from "@otter/ui/components/context-menu";
 
 type MessageReaderProps = {
   accountId: string;
@@ -1144,53 +1148,45 @@ function ImageAttachmentTile({
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div className="group relative w-36 select-none">
-          <div
-            role="button"
-            aria-label={`Open ${attachment.filename}`}
-            onClick={handleOpen}
-            {...(features.dragOut ? dragProps : {})}
-            className={`h-28 w-36 cursor-pointer overflow-hidden rounded-xl border border-border/60 bg-secondary${opening ? " opacity-60" : ""}`}
-          >
-            {url ? (
-              <img
-                src={url}
-                alt={attachment.filename}
-                draggable={false}
-                className="h-full w-full object-cover"
-              />
-            ) : failed ? (
-              <div className="flex h-full items-center justify-center">
-                <ImageIcon className="size-6 text-muted-foreground/70" />
-              </div>
-            ) : (
-              <div className="h-full w-full animate-skeleton bg-secondary" />
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={save}
-            aria-label={`Download ${attachment.filename}`}
-            className="absolute right-1.5 top-1.5 flex size-7 items-center justify-center rounded-lg bg-black/60 text-white opacity-0 hover:bg-black/80 focus-visible:opacity-100 group-hover:opacity-100"
-          >
-            <DownloadIcon className="size-3.5" />
-          </button>
-          <div className="mt-1.5 truncate text-xs text-muted-foreground">{attachment.filename}</div>
+      <ContextMenuTrigger render={<div className="group relative w-36 select-none" />}>
+        <div
+          role="button"
+          aria-label={`Open ${attachment.filename}`}
+          onClick={handleOpen}
+          {...(features.dragOut ? dragProps : {})}
+          className={`h-28 w-36 cursor-pointer overflow-hidden rounded-xl border border-border/60 bg-secondary${opening ? " opacity-60" : ""}`}
+        >
+          {url ? (
+            <img
+              src={url}
+              alt={attachment.filename}
+              draggable={false}
+              className="h-full w-full object-cover"
+            />
+          ) : failed ? (
+            <div className="flex h-full items-center justify-center">
+              <ImageIcon className="size-6 text-faint-foreground" />
+            </div>
+          ) : (
+            <div className="h-full w-full animate-skeleton bg-secondary" />
+          )}
         </div>
+        <button
+          type="button"
+          onClick={save}
+          aria-label={`Download ${attachment.filename}`}
+          className="absolute right-1.5 top-1.5 flex size-7 items-center justify-center rounded-lg bg-black/60 text-white opacity-0 hover:bg-black/80 focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          <DownloadIcon className="size-3.5" />
+        </button>
+        <div className="mt-1.5 truncate text-xs text-muted-foreground">{attachment.filename}</div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem icon="eye" onSelect={handleOpen}>
-          Open
-        </ContextMenuItem>
+        <ContextMenuItem onClick={handleOpen}>Open</ContextMenuItem>
         {previewable && features.openFiles ? (
-          <ContextMenuItem icon="arrow.up.forward.app" onSelect={openInApp}>
-            Open in default app
-          </ContextMenuItem>
+          <ContextMenuItem onClick={openInApp}>Open in default app</ContextMenuItem>
         ) : null}
-        <ContextMenuItem icon="square.and.arrow.down" onSelect={save}>
-          Save…
-        </ContextMenuItem>
+        <ContextMenuItem onClick={save}>Save…</ContextMenuItem>
       </ContextMenuContent>
       {preview}
     </ContextMenu>
@@ -1212,46 +1208,41 @@ function FileAttachmentRow({
     useAttachmentActions(accountId, messageId, attachment, onDownload);
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          role="button"
-          aria-label={`Open ${attachment.filename}`}
-          onClick={handleOpen}
-          {...dragProps}
-          className={`flex cursor-pointer select-none items-center gap-3 px-4 py-2 hover:bg-accent-surface/60${opening ? " opacity-60" : ""}`}
+      <ContextMenuTrigger
+        render={
+          <div
+            role="button"
+            aria-label={`Open ${attachment.filename}`}
+            onClick={handleOpen}
+            {...dragProps}
+            className={`flex cursor-pointer select-none items-center gap-3 px-4 py-2 hover:bg-accent-surface/60${opening ? " opacity-60" : ""}`}
+          />
+        }
+      >
+        <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+          {attachment.filename}
+        </span>
+        <span className="shrink-0 truncate text-sm text-muted-foreground">
+          {attachment.mimeType} · {formatBytes(attachment.size)}
+        </span>
+        <IconButton
+          label={`Download ${attachment.filename}`}
+          className="-me-1.5"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            save();
+          }}
         >
-          <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-            {attachment.filename}
-          </span>
-          <span className="shrink-0 truncate text-sm text-muted-foreground">
-            {attachment.mimeType} · {formatBytes(attachment.size)}
-          </span>
-          <button
-            type="button"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              save();
-            }}
-            aria-label={`Download ${attachment.filename}`}
-            className="-me-1.5 flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent-surface hover:text-foreground"
-          >
-            <DownloadIcon className="size-3.5" />
-          </button>
-        </div>
+          <DownloadIcon className="size-3.5" />
+        </IconButton>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem icon="eye" onSelect={handleOpen}>
-          Open
-        </ContextMenuItem>
+        <ContextMenuItem onClick={handleOpen}>Open</ContextMenuItem>
         {previewable && features.openFiles ? (
-          <ContextMenuItem icon="arrow.up.forward.app" onSelect={openInApp}>
-            Open in default app
-          </ContextMenuItem>
+          <ContextMenuItem onClick={openInApp}>Open in default app</ContextMenuItem>
         ) : null}
-        <ContextMenuItem icon="square.and.arrow.down" onSelect={save}>
-          Save…
-        </ContextMenuItem>
+        <ContextMenuItem onClick={save}>Save…</ContextMenuItem>
       </ContextMenuContent>
       {preview}
     </ContextMenu>
@@ -1505,7 +1496,7 @@ export function ExpandedRow({
               </span>
             </button>
             <div className="flex min-w-0 items-baseline gap-3">
-              <div className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
+              <div className="min-w-0 flex-1 truncate text-body text-muted-foreground">
                 to{" "}
                 <RecipientList
                   list={summary.to}
@@ -1707,22 +1698,25 @@ function ModeSwitcher({
   const Icon = INLINE_MODE_ICON[mode];
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Reply mode"
-          className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm font-medium text-foreground outline-none hover:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring"
-        >
-          <Icon className="size-3.5 text-muted-foreground" />
-          {INLINE_MODE_LABEL[mode]}
-          <ChevronDownIcon className="size-3.5 text-muted-foreground/70" />
-        </button>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Reply mode"
+            className="rounded-md px-2 text-sm font-medium"
+          />
+        }
+      >
+        <Icon className="size-3.5 text-muted-foreground" />
+        {INLINE_MODE_LABEL[mode]}
+        <ChevronDownIcon className="size-3.5 text-faint-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         {(Object.keys(INLINE_MODE_LABEL) as InlineMode[]).map((m) => {
           const ItemIcon = INLINE_MODE_ICON[m];
           return (
-            <DropdownMenuItem key={m} icon={<ItemIcon />} onSelect={() => onChange(m)}>
+            <DropdownMenuItem key={m} icon={<ItemIcon />} onClick={() => onChange(m)}>
               {INLINE_MODE_LABEL[m]}
             </DropdownMenuItem>
           );
@@ -2041,9 +2035,9 @@ function InlineComposer({
             <span className="flex-1" />
           )}
           <HintTooltip label="Close (keeps the draft)" hint="Esc">
-            <IconBtn label="Close" className="size-7" onClick={onClose}>
+            <IconButton label="Close" onClick={onClose}>
               <XIcon className="size-3.5" />
-            </IconBtn>
+            </IconButton>
           </HintTooltip>
         </div>
         <DraftRemoteBanner
@@ -2620,7 +2614,7 @@ export function MessageReader({
       <h1
         className={cn(
           "no-drag select-text font-semibold text-foreground [overflow-wrap:anywhere]",
-          inBand ? "text-[15px] leading-5" : "text-xl leading-7 tracking-[-0.01em]",
+          inBand ? "text-md leading-5" : "text-xl leading-7 tracking-[-0.01em]",
         )}
         title={isThread ? `${rows.length} messages` : formatFullDate(message.date)}
       >
@@ -2691,22 +2685,34 @@ export function MessageReader({
           <span ref={actionsRef} className="flex shrink-0 items-center gap-1">
             {/* Priority + overflow: Reply, Archive, Trash and "…" always show;
               as the pane narrows the rest folds into "…". */}
-            <HintTooltip label="Reply" shortcut="message.reply" side="bottom">
-              <IconBtn label="Reply" onClick={handleReply}>
+            <HintTooltip
+              label="Reply"
+              hint={<ShortcutText command="message.reply" />}
+              side="bottom"
+            >
+              <IconButton label="Reply" onClick={handleReply}>
                 <ReplyIcon className="size-4" />
-              </IconBtn>
+              </IconButton>
             </HintTooltip>
             {compactActions ? null : (
               <>
-                <HintTooltip label="Reply all" shortcut="message.replyAll" side="bottom">
-                  <IconBtn label="Reply all" onClick={handleReplyAll}>
+                <HintTooltip
+                  label="Reply all"
+                  hint={<ShortcutText command="message.replyAll" />}
+                  side="bottom"
+                >
+                  <IconButton label="Reply all" onClick={handleReplyAll}>
                     <ReplyAllIcon className="size-4" />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
-                <HintTooltip label="Forward" shortcut="message.forward" side="bottom">
-                  <IconBtn label="Forward" onClick={handleForward}>
+                <HintTooltip
+                  label="Forward"
+                  hint={<ShortcutText command="message.forward" />}
+                  side="bottom"
+                >
+                  <IconButton label="Forward" onClick={handleForward}>
                     <ForwardIcon className="size-4" />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
               </>
             )}
@@ -2714,14 +2720,22 @@ export function MessageReader({
             {groupDivider}
 
             {isTrashed ? (
-              <HintTooltip label="Restore from Trash" shortcut="message.trash" side="bottom">
-                <IconBtn label="Restore from Trash" onClick={handleUntrash}>
+              <HintTooltip
+                label="Restore from Trash"
+                hint={<ShortcutText command="message.trash" />}
+                side="bottom"
+              >
+                <IconButton label="Restore from Trash" onClick={handleUntrash}>
                   <RotateCcwIcon className="size-4" />
-                </IconBtn>
+                </IconButton>
               </HintTooltip>
             ) : archiveSource ? (
-              <HintTooltip label="Archive" shortcut="message.archive" side="bottom">
-                <IconBtn
+              <HintTooltip
+                label="Archive"
+                hint={<ShortcutText command="message.archive" />}
+                side="bottom"
+              >
+                <IconButton
                   label="Archive"
                   onClick={() => {
                     onAdvance?.();
@@ -2729,13 +2743,17 @@ export function MessageReader({
                   }}
                 >
                   <ArchiveIcon className="size-4" />
-                </IconBtn>
+                </IconButton>
               </HintTooltip>
             ) : (
-              <HintTooltip label="Move to Inbox" shortcut="message.archive" side="bottom">
-                <IconBtn label="Move to Inbox" onClick={handleUnarchive}>
+              <HintTooltip
+                label="Move to Inbox"
+                hint={<ShortcutText command="message.archive" />}
+                side="bottom"
+              >
+                <IconButton label="Move to Inbox" onClick={handleUnarchive}>
                   <ArchiveRestoreIcon className="size-4" />
-                </IconBtn>
+                </IconButton>
               </HintTooltip>
             )}
             {!isTrashed && rows.some((m) => m.labelIds.includes("INBOX")) && (
@@ -2746,8 +2764,12 @@ export function MessageReader({
               />
             )}
             {isTrashed ? null : (
-              <HintTooltip label="Move to Trash" shortcut="message.trash" side="bottom">
-                <IconBtn
+              <HintTooltip
+                label="Move to Trash"
+                hint={<ShortcutText command="message.trash" />}
+                side="bottom"
+              >
+                <IconButton
                   label="Move to Trash"
                   onClick={() => {
                     onAdvance?.();
@@ -2755,7 +2777,7 @@ export function MessageReader({
                   }}
                 >
                   <Trash2Icon className="size-4" />
-                </IconBtn>
+                </IconButton>
               </HintTooltip>
             )}
             {compactActions ? null : (
@@ -2766,7 +2788,7 @@ export function MessageReader({
                   labelIds={conversationLabelIds}
                   from={from}
                 >
-                  <IconBtn
+                  <IconButton
                     label={
                       foldersAndCategories
                         ? "Categorize"
@@ -2776,28 +2798,26 @@ export function MessageReader({
                     }
                   >
                     <FolderIcon className="size-4" />
-                  </IconBtn>
+                  </IconButton>
                 </LabelPickerMenu>
                 <HintTooltip
                   label={isFlagged ? "Unflag" : "Flag"}
-                  shortcut="message.star"
+                  hint={<ShortcutText command="message.star" />}
                   side="bottom"
                 >
-                  <IconBtn label={isFlagged ? "Unflag" : "Flag"} onClick={handleToggleFlag}>
+                  <IconButton label={isFlagged ? "Unflag" : "Flag"} onClick={handleToggleFlag}>
                     <FlagIcon
                       className={cn("size-4", isFlagged ? "fill-current text-(--red)" : "")}
                     />
-                  </IconBtn>
+                  </IconButton>
                 </HintTooltip>
               </>
             )}
 
             <ExtensionToolbarActions target={extensionTarget} />
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <IconBtn label="More actions">
-                  <EllipsisIcon className="size-4" />
-                </IconBtn>
+              <DropdownMenuTrigger render={<IconButton label="More actions" />}>
+                <EllipsisIcon className="size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {compactActions ? (
@@ -2805,14 +2825,14 @@ export function MessageReader({
                     <DropdownMenuItem
                       icon={<ReplyAllIcon />}
                       accelerator={replyAllShortcut}
-                      onSelect={handleReplyAll}
+                      onClick={handleReplyAll}
                     >
                       Reply all
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       icon={<ForwardIcon />}
                       accelerator={forwardShortcut}
-                      onSelect={handleForward}
+                      onClick={handleForward}
                     >
                       Forward
                     </DropdownMenuItem>
@@ -2834,7 +2854,7 @@ export function MessageReader({
                     <DropdownMenuItem
                       icon={<FlagIcon />}
                       accelerator={flagShortcut}
-                      onSelect={handleToggleFlag}
+                      onClick={handleToggleFlag}
                     >
                       {isFlagged ? "Unflag" : "Flag"}
                     </DropdownMenuItem>
@@ -2842,7 +2862,7 @@ export function MessageReader({
                 ) : null}
                 <DropdownMenuItem
                   icon={isUnread ? <MailOpenIcon /> : <MailIcon />}
-                  onSelect={handleToggleRead}
+                  onClick={handleToggleRead}
                 >
                   {isUnread ? "Mark as read" : "Mark as unread"}
                 </DropdownMenuItem>
@@ -2851,7 +2871,7 @@ export function MessageReader({
                   <DropdownMenuItem
                     icon={<ShieldCheckIcon />}
                     accelerator={junkShortcut}
-                    onSelect={handleJunk}
+                    onClick={handleJunk}
                   >
                     Not junk
                   </DropdownMenuItem>
@@ -2859,7 +2879,7 @@ export function MessageReader({
                   <DropdownMenuItem
                     icon={<ArchiveXIcon />}
                     accelerator={junkShortcut}
-                    onSelect={() => {
+                    onClick={() => {
                       onAdvance?.();
                       handleJunk();
                     }}
@@ -2868,7 +2888,7 @@ export function MessageReader({
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem icon={<AgentIcon />} onSelect={() => onOpenChat?.()}>
+                <DropdownMenuItem icon={<AgentIcon />} onClick={() => onOpenChat?.()}>
                   Chat about this with the agent
                 </DropdownMenuItem>
                 <ExtensionMenuActions target={extensionTarget} />
@@ -2877,8 +2897,8 @@ export function MessageReader({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       icon={<Trash2Icon />}
-                      color="red"
-                      onSelect={() => setConfirmDeleteOpen(true)}
+                      variant="destructive"
+                      onClick={() => setConfirmDeleteOpen(true)}
                     >
                       Delete forever…
                     </DropdownMenuItem>
@@ -2889,7 +2909,7 @@ export function MessageReader({
 
             {summaryFits ? (
               <HintTooltip label={summaryPinned ? "Hide summary" : "Show summary"} side="bottom">
-                <IconBtn
+                <IconButton
                   label="Toggle summary"
                   active={summaryPinned}
                   onClick={() => {
@@ -2898,27 +2918,27 @@ export function MessageReader({
                   }}
                 >
                   <ListTodoIcon className="size-4" />
-                </IconBtn>
+                </IconButton>
               </HintTooltip>
             ) : (
               <Popover.Root open={summaryOpen} onOpenChange={setSummaryOpen}>
                 <HintTooltip label="Summary" side="bottom">
-                  <Popover.Trigger asChild>
-                    <IconBtn label="Toggle summary" active={summaryOpen}>
-                      <ListTodoIcon className="size-4" />
-                    </IconBtn>
+                  <Popover.Trigger
+                    render={<IconButton label="Toggle summary" active={summaryOpen} />}
+                  >
+                    <ListTodoIcon className="size-4" />
                   </Popover.Trigger>
                 </HintTooltip>
                 <Popover.Portal>
-                  <Popover.Content
+                  <Popover.Positioner
                     side="bottom"
                     align="end"
                     sideOffset={6}
                     collisionPadding={8}
-                    className="z-[130] outline-none"
+                    className="z-[130]"
                   >
-                    {summary}
-                  </Popover.Content>
+                    <Popover.Popup className="outline-none">{summary}</Popover.Popup>
+                  </Popover.Positioner>
                 </Popover.Portal>
               </Popover.Root>
             )}
@@ -2952,13 +2972,13 @@ export function MessageReader({
                 One message of {threadMessages.length} in this conversation
               </span>
               <span className="flex-1" />
-              <button
-                type="button"
+              <Button
+                size="sm"
+                className="rounded-full border-border/60"
                 onClick={onShowConversation}
-                className={buttonClass("outline", "sm", "rounded-full border-border/60")}
               >
                 Show conversation
-              </button>
+              </Button>
             </div>
           ) : null}
 
@@ -2970,24 +2990,16 @@ export function MessageReader({
                   This conversation is in the Trash
                 </span>
                 <span className="flex-1" />
-                <button
-                  type="button"
-                  onClick={handleUntrash}
-                  className={buttonClass("outline", "sm", "rounded-full")}
-                >
+                <Button size="sm" className="rounded-full" onClick={handleUntrash}>
                   Restore
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  size="sm"
+                  className="rounded-full text-destructive-foreground"
                   onClick={() => setConfirmDeleteOpen(true)}
-                  className={buttonClass(
-                    "outline",
-                    "sm",
-                    "rounded-full text-destructive-foreground",
-                  )}
                 >
                   Delete forever
-                </button>
+                </Button>
               </div>
             </div>
           ) : null}
@@ -3095,7 +3107,7 @@ export function MessageReader({
         onOpenChange={setConfirmDeleteOpen}
         title="Delete Forever"
         confirmLabel="Delete Forever"
-        confirmVariant="accent"
+        confirmVariant="primary"
         onConfirm={handleDeleteForever}
       >
         <Text variant="small">Permanently delete this conversation? This cannot be undone.</Text>

@@ -7,8 +7,7 @@ import {
   type PointerEvent,
 } from "react";
 import { useLatest } from "../use-latest";
-import { ScrollArea } from "~/components/ui/scroll-area";
-import { cn } from "../mail/ui";
+import { ScrollArea } from "@otter/ui/components/scroll-area";
 import { eventTimes, hasGuests, type CalEvent, type useCalendarActions, calendarKey } from "./api";
 import { useCalendar } from "./calendar-store";
 import {
@@ -23,6 +22,7 @@ import {
   weekdayShort,
 } from "./dates";
 import { eventStyle, isPending, rangeLabel } from "./event-style";
+import { cn } from "@otter/ui/lib/utils";
 
 export const HOUR_PX = 48;
 const SNAP = 15;
@@ -326,7 +326,7 @@ export function TimeGrid({
               "sticky left-0 z-10 flex shrink-0 items-end justify-end bg-canvas pb-1.5 pr-2",
             )}
           >
-            <span className="text-[10px] text-muted-foreground/80">{zoneLabel()}</span>
+            <span className="text-3xs text-faint-foreground">{zoneLabel()}</span>
           </div>
           <div className="flex flex-col" style={{ width: stripWidth }}>
             <div className="flex">
@@ -338,7 +338,7 @@ export function TimeGrid({
                     type="button"
                     onClick={() => onOpenDay(day)}
                     style={{ width: colW }}
-                    className="flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 text-[13px] outline-none"
+                    className="flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 text-body outline-none"
                   >
                     <span
                       className={today ? "font-medium text-foreground" : "text-muted-foreground"}
@@ -347,9 +347,9 @@ export function TimeGrid({
                     </span>
                     <span
                       className={cn(
-                        "flex h-5 min-w-5 items-center justify-center rounded-[5px] px-1 tabular-nums",
+                        "flex h-5 min-w-5 items-center justify-center rounded-sm px-1 tabular-nums",
                         today
-                          ? "bg-(--calendar-today) font-medium text-white"
+                          ? "bg-calendar-today font-medium text-white"
                           : "text-muted-foreground",
                       )}
                     >
@@ -377,7 +377,7 @@ export function TimeGrid({
             {Array.from({ length: 23 }, (_, i) => i + 1).map((hour) => (
               <span
                 key={hour}
-                className="absolute right-2 -translate-y-1/2 text-[10px] tabular-nums text-muted-foreground/80"
+                className="absolute right-2 -translate-y-1/2 text-3xs tabular-nums text-faint-foreground"
                 style={{ top: hour * HOUR_PX }}
               >
                 {hourLabel(hour)}
@@ -385,7 +385,7 @@ export function TimeGrid({
             ))}
             {todayIndex >= 0 ? (
               <span
-                className="absolute right-1 z-10 -translate-y-1/2 rounded-[4px] bg-(--calendar-today) px-1 py-px text-[10px] font-medium tabular-nums text-white"
+                className="absolute right-1 z-10 -translate-y-1/2 rounded-sm bg-calendar-today px-1 py-px text-3xs font-medium tabular-nums text-white"
                 style={{ top: (minutesOfDay(now) / 60) * HOUR_PX }}
               >
                 {timeLabel(now)}
@@ -516,7 +516,7 @@ function TimedEvent({
         zIndex: dragging ? 20 : selected ? 10 : col + 1,
       }}
       className={cn(
-        "group/event absolute flex cursor-default overflow-hidden rounded-[5px] border text-[11px] leading-[14px]",
+        "group/event absolute flex cursor-default overflow-hidden rounded-sm border text-2xs leading-[14px]",
         isPending(event) && !selected && "border-dashed",
         declined && !selected && "opacity-55",
         dragging
@@ -593,7 +593,7 @@ function DraftBlock({
         height,
         background: `color-mix(in srgb, ${color} 16%, transparent)`,
       }}
-      className="absolute inset-x-0 z-20 flex flex-col overflow-hidden px-1.5 pt-[3px] text-[11px] leading-[14px] transition-[top,height] duration-100 ease-out"
+      className="absolute inset-x-0 z-20 flex flex-col overflow-hidden px-1.5 pt-[3px] text-2xs leading-[14px] transition-[top,height] duration-100 ease-out"
     >
       {title?.trim() ? <span className="truncate font-medium text-foreground">{title}</span> : null}
       {label ? (
@@ -617,13 +617,10 @@ function NowLine({ now, strong = false }: { now: Date; strong?: boolean }) {
       style={{ top }}
     >
       <div
-        className={cn(
-          "-translate-y-1/2 bg-(--calendar-today)",
-          strong ? "h-[2px]" : "h-px opacity-40",
-        )}
+        className={cn("-translate-y-1/2 bg-calendar-today", strong ? "h-[2px]" : "h-px opacity-40")}
       />
       {strong ? (
-        <span className="absolute -left-[3px] top-0 h-2.5 w-[3px] -translate-y-1/2 rounded-full bg-(--calendar-today)" />
+        <span className="absolute -left-[3px] top-0 h-2.5 w-[3px] -translate-y-1/2 rounded-full bg-calendar-today" />
       ) : null}
     </div>
   );
@@ -678,7 +675,7 @@ function AllDayRow({
               width: `calc(${((to - from) / days.length) * 100}% - 5px)`,
             }}
             className={cn(
-              "absolute flex h-5 cursor-default items-center gap-1.5 overflow-hidden rounded-[5px] border px-1.5 text-left text-[11px] font-medium transition-colors duration-150",
+              "absolute flex h-5 cursor-default items-center gap-1.5 overflow-hidden rounded-sm border px-1.5 text-left text-2xs font-medium transition-colors duration-150",
               isPending(event) && !selected && "border-dashed",
               !selected && "text-foreground",
             )}
