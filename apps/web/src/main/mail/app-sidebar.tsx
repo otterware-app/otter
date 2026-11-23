@@ -1,4 +1,4 @@
-import { useState, type ComponentType, type ReactNode } from "react";
+import { memo, useState, type ComponentType, type ReactNode } from "react";
 import { ChevronDownIcon, PlusIcon, SettingsIcon, SquarePenIcon } from "lucide-react";
 
 import { CalendarSidebar } from "../calendar/calendar-sidebar";
@@ -48,7 +48,7 @@ import { ViewMark } from "./view-icon";
 import { inNewWindow } from "../new-window-click";
 import { PLACE } from "../place-menu";
 
-export function AppSidebar({
+function AppSidebarView({
   accounts,
   tabs,
   views,
@@ -567,3 +567,6 @@ function MailboxGroups({
     );
   });
 }
+
+/** Memoized: the home view re-renders on every pane toggle, which this skips. */
+export const AppSidebar = memo(AppSidebarView);

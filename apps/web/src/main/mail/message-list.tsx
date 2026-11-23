@@ -4,7 +4,7 @@ import { inNewWindow } from "../new-window-click";
 import { PLACE } from "../place-menu";
 import type React from "react";
 import type { ReactNode } from "react";
-import { useLayoutEffect, useEffect, useId, useMemo, useRef, useState } from "react";
+import { memo, useLayoutEffect, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   OPEN_MESSAGES_WITH_ARROWS,
   GROUP_MESSAGES_BY_DAY,
@@ -930,7 +930,7 @@ function formatMailboxSummary(total: number, unread: number): string {
   return unread > 0 ? `${messages} · ${unread.toLocaleString()} unread` : messages;
 }
 
-export function MessageList({
+function MessageListView({
   headerLeading,
   headerTrailing,
   accountId,
@@ -2239,3 +2239,6 @@ export function MessageList({
     </div>
   );
 }
+
+/** Memoized: the home view re-renders on every pane toggle, which this skips. */
+export const MessageList = memo(MessageListView);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CheckIcon, HistoryIcon, LoaderCircleIcon, PlusIcon } from "lucide-react";
 
@@ -33,7 +33,7 @@ function useStatus(id: string): Status {
 const BAR_BUTTON =
   "flex h-6 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-[13px] text-muted-foreground outline-none hover:bg-foreground/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring";
 
-export function ChatBar({
+function ChatBarView({
   shownId,
   onSelect,
   onShelve,
@@ -258,3 +258,6 @@ function ChatBarTab({
     </div>
   );
 }
+
+/** Memoized: the home view re-renders on every pane toggle, which this skips. */
+export const ChatBar = memo(ChatBarView);
