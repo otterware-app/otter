@@ -331,6 +331,8 @@ export async function syncEvents(
   let next: string | undefined =
     request.token ?? `/me/calendars/${encodeURIComponent(calendarId)}/calendarView/delta?${params}`;
   const changes: CalendarChanges = { events: [], removed: [], token: null };
+  const masters = new Map<string, ApiEvent | null>();
+  const occurrences: DeltaEvent[] = [];
   while (next) {
     let page: Page<DeltaEvent>;
     try {
@@ -345,10 +347,28 @@ export async function syncEvents(
     }
     for (const item of page.value ?? []) {
       if (item["@removed"] || item.isCancelled) changes.removed.push(item.id);
+      else if (item.type === "seriesMaster") masters.set(item.id, item);
+      // The delta gives a series' plain occurrences only their times: the rest is the series'.
+      else if (item.type === "occurrence" && item.subject === undefined) occurrences.push(item);
       else changes.events.push(toEvent(item));
     }
     next = page["@odata.nextLink"];
     changes.token = page["@odata.deltaLink"] ?? null;
+  }
+  for (const item of occurrences) {
+    const masterId = item.seriesMasterId;
+    if (!masterId) continue;
+    if (!masters.has(masterId))
+      masters.set(
+        masterId,
+        await fetchEvent(accountId, masterId).catch((err) => {
+          if (isNotFound(err)) return null;
+          throw err;
+        }),
+      );
+    const master = masters.get(masterId);
+    if (master) changes.events.push(toEvent({ ...master, webLink: undefined, ...item }));
+    else changes.removed.push(item.id);
   }
   return changes;
 }
