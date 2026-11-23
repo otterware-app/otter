@@ -45,7 +45,7 @@ const STOPS: TourStop[] = [
   {
     target: "chats",
     title: "Views and chats",
-    body: "Under your mailboxes: views, which + makes, each one list of what its filters find across them (every newsletter, receipts from any account). Along the bottom, your chats with the agent: a minimized one waits here as a tab, Agent starts a new one, and History has every chat, on every device.",
+    body: "Under your mailboxes: views, which + makes, each one list of what its filters find across them (every newsletter, receipts from any account). In the corner, your agent: a dot says a chat is open, and its title switches between your active chats.",
   },
   {
     target: "list",

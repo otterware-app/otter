@@ -794,7 +794,7 @@ function Overview({
           </Btn>
         ) : null}
       </TitleBar>
-      <div key={where} className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-6">
+      <div key={where} className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-agent-corner">
         {place.error ? (
           <Empty title="Couldn't load your documents" detail={errorText(place.error)} />
         ) : place.loading ? (

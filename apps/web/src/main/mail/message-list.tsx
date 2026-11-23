@@ -1,10 +1,19 @@
-import { useLatest } from "../use-latest";
+import { useHandlers, useLatest } from "../use-latest";
 import { ExtensionContextMenuActions } from "../extensions/slots";
 import { inNewWindow } from "../new-window-click";
 import { PLACE } from "../place-menu";
 import type React from "react";
 import type { ReactNode } from "react";
-import { memo, useLayoutEffect, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useLayoutEffect,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   OPEN_MESSAGES_WITH_ARROWS,
   GROUP_MESSAGES_BY_DAY,
@@ -335,6 +344,60 @@ type MessageRowProps = {
   onToggleExpanded: () => void;
   onDragStart: (e: React.DragEvent<HTMLButtonElement>) => void;
 };
+
+type RowHandlers = {
+  toggleChecked: (id: string) => void;
+  toggleExpanded: (m: MessageSummary) => void;
+  dragStart: (e: React.DragEvent, m: MessageSummary) => void;
+  rowClick: (e: React.MouseEvent, m: MessageSummary) => void;
+  open: (m: MessageSummary) => void;
+  deleteForever: (m: MessageSummary) => void;
+  deselect: () => void;
+  chatAgent: (m: MessageSummary) => void;
+  selectAll: () => void;
+};
+
+/** A row that re-renders only when its own props change: selecting a message, or a pane
+ *  sliding open, re-renders the list but not every row. */
+const ListRow = memo(function ListRow({
+  handlers: h,
+  combined,
+  accounts,
+  ...props
+}: Omit<
+  MessageRowProps,
+  | "combinedMeta"
+  | "onToggleChecked"
+  | "onToggleExpanded"
+  | "onDragStart"
+  | "onRowClick"
+  | "onOpen"
+  | "onDeleteForever"
+  | "onDeselect"
+  | "onChatAgent"
+  | "onSelectAll"
+> & {
+  handlers: RowHandlers;
+  combined: CombinedList | null;
+  accounts: MailAccount[];
+}) {
+  const { message } = props;
+  return (
+    <MessageRow
+      {...props}
+      combinedMeta={resolveCombinedMeta(message, combined, accounts, props.resolveLabel)}
+      onToggleChecked={() => h.toggleChecked(message.id)}
+      onToggleExpanded={() => h.toggleExpanded(message)}
+      onDragStart={(e) => h.dragStart(e, message)}
+      onRowClick={(e) => h.rowClick(e, message)}
+      onOpen={() => h.open(message)}
+      onDeleteForever={() => h.deleteForever(message)}
+      onDeselect={h.deselect}
+      onChatAgent={() => h.chatAgent(message)}
+      onSelectAll={h.selectAll}
+    />
+  );
+});
 
 function MessageRow({
   message,
@@ -985,7 +1048,10 @@ function MessageListView({
   const resolveLabel = useLabelResolver(isCombined ? accountIds : [accountId]);
   const listLabel = isCombined || searching ? undefined : resolveLabel(accountId, labelId);
   const listCapabilities = useCapabilities(accountId);
-  const archiveSourceOf = (labels: string[]) => archiveFrom(labels, listLabel, listCapabilities);
+  const archiveSourceOf = useCallback(
+    (labels: string[]) => archiveFrom(labels, listLabel, listCapabilities),
+    [listLabel, listCapabilities],
+  );
   // A view has no single "active account" to drive per-account label
   // sync (see useAccountSync), so the header's counts need their own refresh loop.
   useSyncAccountLabels(accountIds, isCombined);
@@ -1046,12 +1112,22 @@ function MessageListView({
   const listModifyMessage = useModifyMessage();
   const listModifyThread = useModifyThread();
   const EMPTY_LABELS: ReadonlySet<string> = new Set();
+  // The same set for a mailbox each render, so its rows can skip re-rendering.
+  const viewLabelIds = useMemo(() => {
+    if (globalSearching || !combined) return null;
+    const byOwner = new Map<string, Set<string>>();
+    for (const rule of combined.rules) {
+      const ids = byOwner.get(rule.accountId) ?? new Set<string>();
+      for (const id of rule.allOf) ids.add(id);
+      byOwner.set(rule.accountId, ids);
+    }
+    return byOwner;
+  }, [globalSearching, combined]);
+  const listLabelIds = useMemo(() => new Set([labelId]), [labelId]);
   const viewLabelIdsFor = (ownerId: string): ReadonlySet<string> => {
     if (globalSearching) return EMPTY_LABELS;
-    if (combined) {
-      return new Set(combined.rules.filter((r) => r.accountId === ownerId).flatMap((r) => r.allOf));
-    }
-    return new Set([labelId]);
+    if (viewLabelIds) return viewLabelIds.get(ownerId) ?? EMPTY_LABELS;
+    return listLabelIds;
   };
   const fromFor = (ownerId: string) => actedFrom(viewLabelIdsFor(ownerId));
 
@@ -1878,10 +1954,26 @@ function MessageListView({
       globalSearching ? (gmailSearch.data?.pages.flatMap((p) => p.failed ?? []) ?? []) : [],
     ),
   ];
-  const ownAddressesOf = (owner: string) => {
-    const account = accounts.find((a) => a.id === owner);
-    return account ? addressesOf(account) : [owner];
-  };
+  const addressesByAccount = useMemo(
+    () => new Map(accounts.map((a) => [a.id, addressesOf(a)])),
+    [accounts],
+  );
+  const ownAddressesOf = (owner: string) => addressesByAccount.get(owner) ?? [owner];
+  // Row callbacks that keep their identity, so a row re-renders only when its own data does.
+  const rowHandlers = useHandlers({
+    toggleChecked,
+    toggleExpanded: (m: MessageSummary) => setThreadExpanded(m, !expanded.has(threadKey(m))),
+    dragStart: (e: React.DragEvent, m: MessageSummary) => handleRowDragStart(e, m),
+    rowClick: (e: React.MouseEvent, m: MessageSummary) => handleRowClick(e, m),
+    open: (m: MessageSummary) => onSelectMessage(m.id, m.accountId ?? accountId),
+    deleteForever: (m: MessageSummary) => setConfirmDeleteRows([m]),
+    deselect: () => onDeselect(),
+    chatAgent: (m: MessageSummary) => {
+      openMessage(m);
+      onOpenChat?.();
+    },
+    selectAll,
+  });
   const handleRowDragStart = (e: React.DragEvent, message: MessageSummary) => {
     const rows = checked.has(message.id) ? checkedRows : [message];
     console.log("[MessageList:dragStart]", { count: rows.length });
@@ -1905,32 +1997,22 @@ function MessageListView({
 
   const renderMessage = (message: MessageSummary) => (
     <div className="message-list-group" key={`${message.accountId ?? accountId}:${message.id}`}>
-      <MessageRow
+      <ListRow
         viewLabelIds={viewLabelIdsFor(message.accountId ?? accountId)}
         message={message}
         selected={selectedMessageId === message.id && !focusedMessageId}
         checked={checked.has(message.id)}
         selecting={checked.size > 0}
-        onToggleChecked={() => toggleChecked(message.id)}
         selectionMenu={checked.has(message.id) ? selectionMenu : undefined}
         expanded={expanded.has(threadKey(message))}
-        onToggleExpanded={() => setThreadExpanded(message, !expanded.has(threadKey(message)))}
-        onDragStart={(e) => handleRowDragStart(e, message)}
-        onRowClick={(e) => handleRowClick(e, message)}
-        onOpen={() => onSelectMessage(message.id, message.accountId ?? accountId)}
         accountId={accountId}
         ownAddresses={ownAddressesOf(message.accountId ?? accountId)}
         resolveLabel={resolveLabel}
-        combinedMeta={resolveCombinedMeta(message, combined, accounts, resolveLabel)}
+        combined={combined}
+        accounts={accounts}
         showInboxChip={!inInboxContext}
         archiveFrom={archiveSourceOf}
-        onDeleteForever={() => setConfirmDeleteRows([message])}
-        onDeselect={onDeselect}
-        onChatAgent={() => {
-          openMessage(message);
-          onOpenChat?.();
-        }}
-        onSelectAll={selectAll}
+        handlers={rowHandlers}
       />
       {threadMessagesOf(message).length > 0 ? (
         <div className="message-list-thread-messages flex flex-col px-2 pb-1">
@@ -2023,7 +2105,7 @@ function MessageListView({
         className="flex-1 rounded-xl"
         contentClassName={filteredMessages.length === 0 ? "h-full" : undefined}
         viewportClassName={[
-          "message-list-scroll pb-1 pt-[9px]",
+          "message-list-scroll pb-agent-corner pt-[9px]",
           checked.size > 0 ? "pb-16" : "",
         ].join(" ")}
       >
