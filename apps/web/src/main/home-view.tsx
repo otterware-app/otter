@@ -1870,6 +1870,8 @@ function MailHome() {
                 style={{ width: calendarPanelVisible ? CALENDAR_PANEL_WIDTH : 0 }}
                 className={cn(
                   PANE_FRAME,
+                  // Drawn from the window's edge as it slides: its title never passes under the toggles.
+                  "justify-end",
                   calendarPanelVisible && "[[data-panel-animations=true]_&]:starting:w-0!",
                   !calendarPanelVisible && "pointer-events-none",
                 )}
