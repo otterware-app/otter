@@ -2930,7 +2930,7 @@
                           "id": "f10Ps",
                           "name": "Value",
                           "fill": "$faint-foreground",
-                          "content": "#616163",
+                          "content": "#5b5b5d",
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-2xs",
                           "fontWeight": "normal"
@@ -28505,7 +28505,7 @@
           }
         },
         {
-          "value": "#616163",
+          "value": "#5b5b5d",
           "theme": {
             "mode": "dark"
           }

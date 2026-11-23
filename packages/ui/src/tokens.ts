@@ -129,23 +129,24 @@ function isColor(value: string, vars: Map<string, string>): boolean {
 
 /**
  * The stock palette, resolved per mode, in tokens.css's order. The `sidebar-*`
- * roles take the sidebar's own scope (`[data-app-sidebar]`), where they're drawn.
+ * roles the sidebar redeclares (`[data-app-sidebar]`) take its values, where
+ * they're drawn.
  */
 export function resolveColors(tokensCss: string): Map<string, Record<Mode, string>> {
   const light = blocks(tokensCss, ":root");
   const dark = new Map([...light, ...blocks(tokensCss, ".dark")]);
-  const sidebarLight = new Map([...light, ...blocks(tokensCss, "[data-app-sidebar]")]);
-  const sidebarDark = new Map([
-    ...dark,
-    ...blocks(tokensCss, "[data-app-sidebar]"),
-    ...blocks(tokensCss, ".dark [data-app-sidebar]"),
-  ]);
+  const sidebarScope = blocks(tokensCss, "[data-app-sidebar]");
+  const sidebarDarkScope = blocks(tokensCss, ".dark [data-app-sidebar]");
+  const sidebarLight = new Map([...light, ...sidebarScope]);
+  const sidebarDark = new Map([...dark, ...sidebarScope, ...sidebarDarkScope]);
   const colors = new Map<string, Record<Mode, string>>();
   for (const [name, value] of light) {
     if (SKIPPED.has(name) || !isColor(value, light)) continue;
-    const [inLight, inDark] = name.startsWith("sidebar-")
-      ? [sidebarLight, sidebarDark]
-      : [light, dark];
+    // A sidebar role the sidebar redeclares is computed there; one declared
+    // only on :root is computed there and inherited as is.
+    const scoped =
+      name.startsWith("sidebar-") && (sidebarScope.has(name) || sidebarDarkScope.has(name));
+    const [inLight, inDark] = scoped ? [sidebarLight, sidebarDark] : [light, dark];
     colors.set(name, {
       light: hex(evaluate(inLight.get(name) ?? value, inLight)),
       dark: hex(evaluate(inDark.get(name)!, inDark)),

@@ -17,6 +17,7 @@ describe("design tokens", () => {
     const colors = resolveColors(tokensCss);
     expect(colors.get("sidebar-control-surface")?.dark).toBe("#121213");
     expect(colors.get("muted")?.dark).toBe("#ffffff0a");
+    expect(colors.get("sidebar-icon-color")?.dark).toBe("#5b5b5d");
   });
 
   it("resolve var() and color-mix() as a browser does", () => {

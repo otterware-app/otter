@@ -438,7 +438,7 @@ function PersonChip({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
-            e.stopPropagation();
+            if (e.key !== "Escape") e.stopPropagation();
             if (e.key === "Enter") onSearch(setOperator(query, operator, value));
           }}
         />
@@ -495,7 +495,12 @@ function TimeChip({ query, onSearch }: { query: string; onSearch: (q: string) =>
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
-        <div className="flex flex-col gap-1.5 p-2" onKeyDown={(e) => e.stopPropagation()}>
+        <div
+          className="flex flex-col gap-1.5 p-2"
+          onKeyDown={(e) => {
+            if (e.key !== "Escape") e.stopPropagation();
+          }}
+        >
           <span className="text-xs text-muted-foreground">Custom range</span>
           <input
             autoCorrect="off"
