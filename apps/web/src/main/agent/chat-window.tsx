@@ -80,10 +80,13 @@ export function ChatWindow({
   const active = useChats((s) => s.conversations.find((c) => c.id === s.activeId));
   const blank = !active || isBlank(active);
 
+  // Closing, it lets go at once: the Agent space it may be closing for watches the chat next.
   useEffect(() => {
+    if (closing) return;
     watchChat(activeId);
     return () => watchChat(null);
-  }, [activeId]);
+  }, [activeId, closing]);
+  const idleInputRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [inputRef]);
@@ -98,6 +101,8 @@ export function ChatWindow({
   // it grows from the agent's button and shrinks back into it on every frame.
   const notchRef = useRef<SVGSVGElement>(null);
   const animating = useRef(false);
+  /** How open it's drawn, 0 to 1: a reversal starts from there. */
+  const progress = useRef(0);
   useLayoutEffect(() => {
     const panel = panelRef.current;
     const notch = notchRef.current;
@@ -113,9 +118,18 @@ export function ChatWindow({
   useLayoutEffect(() => {
     const panel = panelRef.current;
     const notch = notchRef.current;
-    if (!panel || !notch || animationMs <= 0) return;
+    if (!panel || !notch) return;
     const width = panel.offsetWidth;
     const height = panel.offsetHeight;
+    const target = closing ? 0 : 1;
+    if (animationMs <= 0) {
+      progress.current = target;
+      panel.style.clipPath = "";
+      panel.style.opacity = "";
+      drawNotch(notch, width, height);
+      return;
+    }
+    const from = progress.current;
     // From the first frame painted: mounting the chat can take a few frames itself.
     let start = -1;
     let raf = 0;
@@ -124,7 +138,8 @@ export function ChatWindow({
       if (start < 0) start = now;
       const t = Math.min(1, (now - start) / animationMs);
       const eased = 1 - (1 - t) ** 3;
-      const k = closing ? 1 - eased : eased;
+      const k = from + (target - from) * eased;
+      progress.current = k;
       const w = BUTTON + (width - BUTTON) * k;
       const h = BUTTON + (height - BUTTON) * k;
       panel.style.clipPath = `inset(${height - h}px 0 0 ${width - w}px round ${8 + 4 * k}px)`;
@@ -240,114 +255,117 @@ export function ChatWindow({
           // The mail's one-key shortcuts don't act from in here; ⌘ and Ctrl ones do.
           if (!e.metaKey && !e.ctrlKey && !e.altKey) e.stopPropagation();
         }}
-        className="absolute right-1 bottom-1 z-40 flex h-[min(38rem,calc(100%-5.5rem))] w-[min(25rem,calc(100%-1.5rem))] flex-col overflow-hidden rounded-xl bg-sidebar-surface text-sidebar-foreground"
+        className="absolute right-1 bottom-1 z-40 h-[min(38rem,calc(100%-5.5rem))] w-[min(25rem,calc(100%-1.5rem))] text-sidebar-foreground"
       >
+        {/* In the gap round it, outside the clip of its rounded corners. */}
         <button
           type="button"
           aria-label="Resize agent width"
-          className="absolute inset-y-3 left-0 z-20 w-1.5 touch-none cursor-ew-resize outline-none hover:bg-input focus-visible:bg-focus-ring"
+          className="absolute inset-y-3 -left-1 z-20 w-2 touch-none cursor-ew-resize rounded-full outline-none hover:bg-input focus-visible:bg-focus-ring"
           onPointerDown={(event) => startResize(event, "width")}
           onKeyDown={(event) => resizeWithKeys(event, "width")}
         />
         <button
           type="button"
           aria-label="Resize agent height"
-          className="absolute inset-x-3 top-0 z-20 h-1.5 touch-none cursor-ns-resize outline-none hover:bg-input focus-visible:bg-focus-ring"
+          className="absolute inset-x-3 -top-1 z-20 h-2 touch-none cursor-ns-resize rounded-full outline-none hover:bg-input focus-visible:bg-focus-ring"
           onPointerDown={(event) => startResize(event, "height")}
           onKeyDown={(event) => resizeWithKeys(event, "height")}
         />
         <button
           type="button"
           aria-label="Resize agent"
-          className="absolute left-0 top-0 z-20 size-3 touch-none cursor-nwse-resize outline-none focus-visible:bg-focus-ring"
+          className="absolute -top-1 -left-1 z-30 size-5 touch-none cursor-nwse-resize rounded-tl-xl outline-none focus-visible:bg-focus-ring"
           onPointerDown={(event) => startResize(event, "both")}
           onKeyDown={(event) => resizeWithKeys(event, "both")}
         />
-        <div className="relative flex h-11 shrink-0 items-center gap-1.5 border-b border-border/60 ps-3.5 pe-1.5">
-          {active && !blank ? (
-            <AgentAvatar id={active.provider} agent={openClawAgentId(active.sessionId)} />
-          ) : (
-            <AgentAvatar />
-          )}
-          {active && !blank ? (
-            <ChatTitle
-              chat={active}
-              className="text-sm font-medium text-foreground"
-              menu={switcher}
+        <div className="flex size-full flex-col overflow-hidden rounded-xl bg-sidebar-surface">
+          <div className="relative flex h-11 shrink-0 items-center gap-1.5 border-b border-border/60 ps-3.5 pe-1.5">
+            {active && !blank ? (
+              <AgentAvatar id={active.provider} agent={openClawAgentId(active.sessionId)} />
+            ) : (
+              <AgentAvatar />
+            )}
+            {active && !blank ? (
+              <ChatTitle
+                chat={active}
+                className="text-sm font-medium text-foreground"
+                menu={switcher}
+              />
+            ) : (
+              <span className="flex min-w-0 flex-1">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <TitleMenuButton className="text-sm font-medium text-foreground">
+                      New chat
+                    </TitleMenuButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>{switcher}</DropdownMenuContent>
+                </DropdownMenu>
+              </span>
+            )}
+            {active && !blank ? (
+              <ChatContextButton
+                convo={active}
+                onOpenTask={onOpenTask}
+                // What it opens shows in the workspace, beside the chat.
+                onOpen={(tab) => {
+                  if (tab.ref.kind === "page" && !features.browser) {
+                    window.open(tab.ref.url, "_blank", "noopener");
+                    return;
+                  }
+                  openChatTab(activeId, tab.ref, tab.title, { id: tab.id });
+                  onOpenWorkspace(activeId);
+                }}
+              />
+            ) : null}
+            <HintTooltip label="Minimize" shortcut="agent.toggle" side="bottom">
+              <IconBtn label="Minimize" className="size-7" onClick={onMinimize}>
+                <MinusIcon className="size-4" />
+              </IconBtn>
+            </HintTooltip>
+            <HintTooltip label="Open in workspace" shortcut="agent.openWorkspace" side="bottom">
+              <IconBtn
+                label="Open in workspace"
+                className="size-7"
+                onClick={() => onOpenWorkspace(activeId)}
+              >
+                <Maximize2Icon className="size-4" />
+              </IconBtn>
+            </HintTooltip>
+            {active && !blank ? (
+              <>
+                <SnoozeMenu chatId={activeId} side="bottom" onDone={onShelve}>
+                  <IconBtn label="Snooze" className="size-7">
+                    <AlarmClockIcon className="size-4" />
+                  </IconBtn>
+                </SnoozeMenu>
+                <HintTooltip label="Settle" side="bottom">
+                  <IconBtn
+                    label="Settle"
+                    className="size-7"
+                    onClick={() => {
+                      void settleChat(activeId);
+                      onShelve();
+                    }}
+                  >
+                    <CheckIcon className="size-4" />
+                  </IconBtn>
+                </HintTooltip>
+              </>
+            ) : null}
+          </div>
+          {activeId ? (
+            <ChatView
+              compact
+              chatId={activeId}
+              context={context}
+              onClearQuote={onClearQuote}
+              inputRef={closing ? idleInputRef : inputRef}
+              onOpenChange={onOpenChange}
             />
-          ) : (
-            <span className="flex min-w-0 flex-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <TitleMenuButton className="text-sm font-medium text-foreground">
-                    New chat
-                  </TitleMenuButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>{switcher}</DropdownMenuContent>
-              </DropdownMenu>
-            </span>
-          )}
-          {active && !blank ? (
-            <ChatContextButton
-              convo={active}
-              onOpenTask={onOpenTask}
-              // What it opens shows in the workspace, beside the chat.
-              onOpen={(tab) => {
-                if (tab.ref.kind === "page" && !features.browser) {
-                  window.open(tab.ref.url, "_blank", "noopener");
-                  return;
-                }
-                openChatTab(activeId, tab.ref, tab.title, { id: tab.id });
-                onOpenWorkspace(activeId);
-              }}
-            />
-          ) : null}
-          <HintTooltip label="Minimize" shortcut="agent.toggle" side="bottom">
-            <IconBtn label="Minimize" className="size-7" onClick={onMinimize}>
-              <MinusIcon className="size-4" />
-            </IconBtn>
-          </HintTooltip>
-          <HintTooltip label="Open in workspace" shortcut="agent.openWorkspace" side="bottom">
-            <IconBtn
-              label="Open in workspace"
-              className="size-7"
-              onClick={() => onOpenWorkspace(activeId)}
-            >
-              <Maximize2Icon className="size-4" />
-            </IconBtn>
-          </HintTooltip>
-          {active && !blank ? (
-            <>
-              <SnoozeMenu chatId={activeId} side="bottom" onDone={onShelve}>
-                <IconBtn label="Snooze" className="size-7">
-                  <AlarmClockIcon className="size-4" />
-                </IconBtn>
-              </SnoozeMenu>
-              <HintTooltip label="Settle" side="bottom">
-                <IconBtn
-                  label="Settle"
-                  className="size-7"
-                  onClick={() => {
-                    void settleChat(activeId);
-                    onShelve();
-                  }}
-                >
-                  <CheckIcon className="size-4" />
-                </IconBtn>
-              </HintTooltip>
-            </>
           ) : null}
         </div>
-        {activeId ? (
-          <ChatView
-            compact
-            chatId={activeId}
-            context={context}
-            onClearQuote={onClearQuote}
-            inputRef={inputRef}
-            onOpenChange={onOpenChange}
-          />
-        ) : null}
       </div>
     </>
   );

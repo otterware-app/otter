@@ -2105,8 +2105,11 @@ function MessageListView({
         className="flex-1 rounded-xl"
         contentClassName={filteredMessages.length === 0 ? "h-full" : undefined}
         viewportClassName={[
-          "message-list-scroll pb-agent-corner pt-[9px]",
-          checked.size > 0 ? "pb-16" : "",
+          "message-list-scroll pt-[9px]",
+          // Clear of the selection's toolbar too, while there is one.
+          checked.size > 0
+            ? "pb-[calc(var(--agent-corner-clearance,0px)+4rem)]"
+            : "pb-agent-corner",
         ].join(" ")}
       >
         {signedOutAccount && !isCombined && !search && filteredMessages.length === 0 ? (

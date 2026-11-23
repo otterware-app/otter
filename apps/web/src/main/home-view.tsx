@@ -333,7 +333,7 @@ function useStoredWidth(
   return { width: shown, start, widen, paneRef, frameRef };
 }
 
-type PaneWidths = { sidebar: number; list: number; browser: number };
+type PaneWidths = { sidebar: number; list: number; browser: number; calendar: number };
 
 function PaneResizer({
   onPointerDown,
@@ -371,7 +371,7 @@ const LIST_TRAILING = (
   </span>
 );
 
-// A pane with another to its right is clear of the agent's corner: its scrolling needs no room.
+// The list beside the reader is clear of the agent's corner: its scrolling needs no room.
 const CLEAR_OF_CORNER = { "--agent-corner-clearance": "0px" } as CSSProperties;
 
 const PANE = "min-h-0 overflow-hidden";
@@ -387,6 +387,15 @@ const JOINED_MAIN =
   "before:rounded-l-none after:rounded-l-none after:border-l-0 dark:after:border-l-0";
 const PANE_FRAME =
   "flex min-h-0 shrink-0 overflow-hidden [[data-panel-animations=true]_&]:transition-[width] [[data-panel-animations=true]_&]:[transition-duration:var(--panel-animation-duration)] [[data-panel-animations=true]_&]:ease-out";
+
+/** The same object until the view or the mailboxes change, so the list's rows can skip
+ *  re-rendering. */
+function useCombined(view: MailView | null, accounts: MailAccount[]) {
+  return useMemo(
+    () => (view ? { viewId: view.id, name: view.name, rules: resolveRules(view, accounts) } : null),
+    [view, accounts],
+  );
+}
 
 export function HomeView() {
   const accountsQuery = useAccounts();
@@ -648,6 +657,8 @@ function MailHome() {
     480,
     -1,
     () => window.innerWidth - FRAME_INSET - (sidebarOpen ? sidebarWidth : 0) - READER_MIN_WIDTH,
+    undefined,
+    (width) => dragAutoLayout("calendar", width),
   );
   const browserRoomBeside = (list: boolean) =>
     window.innerWidth -
@@ -672,15 +683,20 @@ function MailHome() {
     usePanelAnimationSettings(settingsRoute ? "settings" : "mail");
   const browserVisible = browserOpen && !settingsRoute && !isChats;
   const windowWidth = useSyncExternalStore(onWindowResize, () => window.innerWidth);
-  const splitFits = ({ sidebar, list, browser }: PaneWidths) =>
+  const splitFits = ({ sidebar, list, browser, calendar }: PaneWidths) =>
     windowWidth -
       FRAME_INSET -
       (sidebarOpen ? sidebar : 0) -
       list -
       (browserVisible ? browser : 0) -
-      (calendarPanelVisible ? calendarPanelWidth : 0) >=
+      (calendarPanelVisible ? calendar : 0) >=
     AUTO_SPLIT_READER_WIDTH;
-  const paneWidths = { sidebar: sidebarWidth, list: listWidth, browser: browserWidth };
+  const paneWidths = {
+    sidebar: sidebarWidth,
+    list: listWidth,
+    browser: browserWidth,
+    calendar: calendarPanelWidth,
+  };
   useLayoutEffect(() => {
     splitFitsRef.current = (dragged) => splitFits({ ...paneWidths, ...dragged });
   });
@@ -773,6 +789,11 @@ function MailHome() {
     setChatWindow(true);
   };
   const chatWindowShown = chatWindowOpen && !isChats && !settingsRoute;
+  const settingsSidebarPresent = usePanelPresence(
+    sidebarOpen,
+    panelAnimationsActive,
+    panelAnimationDurationMs,
+  );
   const chatWindowPresent = usePanelPresence(
     chatWindowShown,
     panelAnimationsActive,
@@ -1223,9 +1244,7 @@ function MailHome() {
     root.setProperty("--ring", brand);
   }, [brand]);
 
-  const combined = viewSpace
-    ? { viewId: viewSpace.id, name: viewSpace.name, rules: resolveRules(viewSpace, accounts) }
-    : null;
+  const combined = useCombined(viewSpace, accounts);
 
   const handleSelectAccount = (accountId: string) => {
     console.log("[HomeView:selectAccount]", { accountId });
@@ -1707,8 +1726,8 @@ function MailHome() {
                 />
               )}
               {/* Kept mounted while closed, so opening it only slides (but not twice: the peek
-                  has its own). */}
-              {peeking ? null : (
+                  has its own). Settings' isn't: its search shortcut would act while hidden. */}
+              {peeking || (settingsRoute && !settingsSidebarPresent) ? null : (
                 <>
                   <div
                     ref={sidebarFrameRef}
@@ -1748,11 +1767,7 @@ function MailHome() {
                   {sidebarOpen ? <PaneResizer onPointerDown={sidebarStart} /> : null}
                 </>
               )}
-              <div
-                data-main-pane=""
-                style={browserVisible || calendarPanelVisible ? CLEAR_OF_CORNER : undefined}
-                className="relative flex min-h-0 min-w-0 flex-1"
-              >
+              <div data-main-pane="" className="relative flex min-h-0 min-w-0 flex-1">
                 {hasListTarget && !settingsRoute ? (
                   <>
                     {/* Keep the list mounted while reading in Full inbox: its
@@ -1911,10 +1926,7 @@ function MailHome() {
                 >
                   <div
                     ref={browserPaneRef}
-                    style={{
-                      ...(calendarPanelVisible ? CLEAR_OF_CORNER : undefined),
-                      width: browserWidth,
-                    }}
+                    style={{ width: browserWidth }}
                     className={cn(PANE_BROWSER, "shrink-0")}
                   >
                     <BrowserPanel
