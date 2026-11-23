@@ -7,7 +7,10 @@
  */
 
 import {
+  CalendarSyncExpired,
   NoCalendarAccess,
+  type CalendarChanges,
+  type CalendarPushTarget,
   type BusyBlock,
   type CalendarEvent,
   type CalendarInfo,
@@ -18,7 +21,9 @@ import {
 } from "../provider.js";
 import { findMeetingLink } from "@otter/contracts";
 import { wallClock } from "../wall-clock.js";
-import { GraphError, graph, isNotFound, type GraphInit } from "./graph.js";
+import { logger } from "../../logger.js";
+import * as mailStore from "../../services/mail-store.js";
+import { GraphError, graph, isNotFound, type GraphInit, type Page } from "./graph.js";
 
 const UTC = 'outlook.timezone="UTC"';
 
@@ -309,6 +314,126 @@ export async function listEvents(
     )
     .slice(0, range.limit)
     .map(toEvent);
+}
+
+type DeltaEvent = ApiEvent & { "@removed"?: unknown };
+
+/** The calendar view's delta: the token is its deltaLink, which keeps the range. */
+export async function syncEvents(
+  accountId: string,
+  calendarId: string,
+  request: { from: string; to: string; token: string | null },
+): Promise<CalendarChanges> {
+  const params = new URLSearchParams({
+    startDateTime: new Date(request.from).toISOString(),
+    endDateTime: new Date(request.to).toISOString(),
+  });
+  let next: string | undefined =
+    request.token ?? `/me/calendars/${encodeURIComponent(calendarId)}/calendarView/delta?${params}`;
+  const changes: CalendarChanges = { events: [], removed: [], token: null };
+  while (next) {
+    let page: Page<DeltaEvent>;
+    try {
+      page = await calendarGraph<Page<DeltaEvent>>(accountId, next, {
+        prefer: ["odata.maxpagesize=1000"],
+      });
+    } catch (err) {
+      // An old delta is gone (410); one Graph can't read any more is "badly formed" (400).
+      if (request.token && err instanceof GraphError && (err.status === 410 || err.status === 400))
+        throw new CalendarSyncExpired(err.message);
+      throw err;
+    }
+    for (const item of page.value ?? []) {
+      if (item["@removed"] || item.isCancelled) changes.removed.push(item.id);
+      else changes.events.push(toEvent(item));
+    }
+    next = page["@odata.nextLink"];
+    changes.token = page["@odata.deltaLink"] ?? null;
+  }
+  return changes;
+}
+
+/**
+ * One Graph subscription to the mailbox's events, every calendar's, as mail's
+ * (`watch.ts`): to the relay's calendar address, renewed a day before it lapses.
+ */
+type Subscription = { id: string; notificationUrl: string; expiration: number };
+
+const LIFETIME_MS = 70 * 60 * 60_000;
+const RENEW_BEFORE_MS = 24 * 60 * 60_000;
+const subscriptionKey = (accountId: string) => `outlookCalendarSubscription:${accountId}`;
+
+function readSubscription(accountId: string): Subscription | null {
+  try {
+    return JSON.parse(mailStore.getKv(subscriptionKey(accountId)) || "null") as Subscription | null;
+  } catch {
+    return null;
+  }
+}
+
+export async function watchEvents(
+  accountId: string,
+  _calendarIds: string[],
+  target: CalendarPushTarget,
+): Promise<boolean> {
+  const current = readSubscription(accountId);
+  if (
+    current?.notificationUrl === target.notificationUrl &&
+    current.expiration - Date.now() > RENEW_BEFORE_MS
+  )
+    return true;
+  const expiration = Date.now() + LIFETIME_MS;
+  const expirationDateTime = new Date(expiration).toISOString();
+  try {
+    let id: string | null = null;
+    if (current?.notificationUrl === target.notificationUrl) {
+      try {
+        await graph(accountId, `/subscriptions/${encodeURIComponent(current.id)}`, {
+          method: "PATCH",
+          body: { expirationDateTime },
+        });
+        id = current.id;
+      } catch (err) {
+        if (!isNotFound(err)) throw err;
+      }
+    }
+    id ??= (
+      await graph<{ id: string }>(accountId, "/subscriptions", {
+        method: "POST",
+        body: {
+          changeType: "created,updated,deleted",
+          notificationUrl: target.notificationUrl,
+          resource: "me/events",
+          expirationDateTime,
+          clientState: target.token,
+        },
+      })
+    ).id;
+    if (current && current.id !== id) await endSubscription(accountId, current);
+    mailStore.setKv(
+      subscriptionKey(accountId),
+      JSON.stringify({
+        id,
+        notificationUrl: target.notificationUrl,
+        expiration,
+      } satisfies Subscription),
+    );
+    return true;
+  } catch (err) {
+    logger.failure("calendar-watch", `Couldn't watch ${accountId}'s calendar`, err);
+    return false;
+  }
+}
+
+const endSubscription = (accountId: string, subscription: Subscription) =>
+  graph(accountId, `/subscriptions/${encodeURIComponent(subscription.id)}`, {
+    method: "DELETE",
+  }).catch(() => {});
+
+export async function stopWatchingEvents(accountId: string): Promise<void> {
+  const current = readSubscription(accountId);
+  mailStore.setKv(subscriptionKey(accountId), "");
+  if (current) await endSubscription(accountId, current);
 }
 
 export async function getEvent(accountId: string, eventId: string): Promise<CalendarEvent> {

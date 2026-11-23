@@ -323,23 +323,24 @@ of every Gmail and Outlook mailbox side by side (its own, shared and followed: b
 holidays), grouped by mailbox as Notion Calendar does. The default calendar wears its mailbox's
 color, the others their color in Google or Outlook. IMAP mailboxes have none.
 
-| Feature                                                                                                                                                                           | Mac | Web | iPhone |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --- | ------ |
-| Day, week and month views; mini month and calendars in sidebar                                                                                                                    | ✓   | ✓   | —      |
-| Show or hide each calendar with its eye (Google's unchecked ones start hidden); click one for its coming events in a drawer; right-click: color, make default, show only this one | ✓   | ✓   | —      |
-| Followed and read-only calendars: looked at, not changed (no drag, read-only card)                                                                                                | ✓   | ✓   | —      |
-| New events on any calendar that takes them (picked in the card; the default first: click a calendar's square to make it the default)                                              | ✓   | ✓   | —      |
-| Event panel: title, time, place, notes edit in place; guests                                                                                                                      | ✓   | ✓   | —      |
-| Yes / No / Maybe on invitations, with a note; repeating ones ask: this event or all events                                                                                        | ✓   | ✓   | —      |
-| Online meetings: Google Meet, Teams, Zoom, Webex shown with Join and copy link (also links found in an invitation's text)                                                         | ✓   | ✓   | —      |
-| Add a meeting to an event or new event: Gmail Google Meet, Outlook Teams (work and school); Meet comes off                                                                        | ✓   | ✓   | —      |
-| Draw or double-click a slot to create; drag to move; drag edge to resize                                                                                                          | ✓   | ✓   | —      |
-| New events repeat: every day, every weekday, weekly, monthly, yearly (from their start, no end)                                                                                   | ✓   | ✓   | —      |
-| Delete an event (Delete key or the panel)                                                                                                                                         | ✓   | ✓   | —      |
-| Scroll sideways day by day; ‹ › and Today glide; any day can lead the week                                                                                                        | ✓   | ✓   | —      |
-| Teammates' calendars over yours (⌘P to add, Esc to clear): Outlook with titles they share, Gmail busy times                                                                       | ✓   | ✓   | —      |
-| Keys: ← → to step                                                                                                                                                                 | ✓   | ✓   | —      |
-| Settings → Calendar (follows your Otter account): start of week, weekends, declined events, 12 / 24-hour, a meeting on new events by mailbox                                      | ✓   | ✓   | —      |
+| Feature                                                                                                                                                                                  | Mac | Web | iPhone |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --- | ------ |
+| Day, week and month views; mini month and calendars in sidebar                                                                                                                           | ✓   | ✓   | —      |
+| Kept on this device: any week draws at once, offline too; only changes are fetched (Google sync tokens, Graph delta), pushed through the relay with an Otter account, polled without one | ✓   | ✓   | —      |
+| Show or hide each calendar with its eye (Google's unchecked ones start hidden); click one for its coming events in a drawer; right-click: color, make default, show only this one        | ✓   | ✓   | —      |
+| Followed and read-only calendars: looked at, not changed (no drag, read-only card)                                                                                                       | ✓   | ✓   | —      |
+| New events on any calendar that takes them (picked in the card; the default first: click a calendar's square to make it the default)                                                     | ✓   | ✓   | —      |
+| Event panel: title, time, place, notes edit in place; guests                                                                                                                             | ✓   | ✓   | —      |
+| Yes / No / Maybe on invitations, with a note; repeating ones ask: this event or all events                                                                                               | ✓   | ✓   | —      |
+| Online meetings: Google Meet, Teams, Zoom, Webex shown with Join and copy link (also links found in an invitation's text)                                                                | ✓   | ✓   | —      |
+| Add a meeting to an event or new event: Gmail Google Meet, Outlook Teams (work and school); Meet comes off                                                                               | ✓   | ✓   | —      |
+| Draw or double-click a slot to create; drag to move; drag edge to resize                                                                                                                 | ✓   | ✓   | —      |
+| New events repeat: every day, every weekday, weekly, monthly, yearly (from their start, no end)                                                                                          | ✓   | ✓   | —      |
+| Delete an event (Delete key or the panel)                                                                                                                                                | ✓   | ✓   | —      |
+| Scroll sideways day by day; ‹ › and Today glide; any day can lead the week                                                                                                               | ✓   | ✓   | —      |
+| Teammates' calendars over yours (⌘P to add, Esc to clear): Outlook with titles they share, Gmail busy times                                                                              | ✓   | ✓   | —      |
+| Keys: ← → to step                                                                                                                                                                        | ✓   | ✓   | —      |
+| Settings → Calendar (follows your Otter account): start of week, weekends, declined events, 12 / 24-hour, a meeting on new events by mailbox                                             | ✓   | ✓   | —      |
 
 ## Contacts & avatars
 

@@ -78,6 +78,16 @@ export interface OutlookTokenResponse {
   sealed: string;
 }
 
+/**
+ * Where a device has Google or Graph send a mailbox's calendar changes (a push channel's
+ * address, a subscription's notificationUrl), and the secret they carry back (the channel's
+ * token, the subscription's clientState), which the relay checks.
+ */
+export interface CalendarWatchResponse {
+  notificationUrl: string;
+  token: string;
+}
+
 export interface OutlookWatchResponse {
   notificationUrl: string;
   clientState: string;
@@ -182,6 +192,8 @@ export const TUNNEL_CLOSE = {
 
 export type RelayEvent =
   | { type: "mail"; email: string; historyId: string }
+  /** A calendar of the mailbox changed: Google or Graph told the relay (`/v1/calendar/watch`). */
+  | { type: "calendar"; email: string }
   | { type: "accounts" }
   | { type: "preferences" }
   /**

@@ -9,9 +9,14 @@
 
 import { findMeetingLink } from "@otter/contracts";
 import { wallClock } from "../wall-clock.js";
+import { logger } from "../../logger.js";
 import { platform } from "../../platform.js";
+import * as mailStore from "../../services/mail-store.js";
 import {
+  CalendarSyncExpired,
   NoCalendarAccess,
+  type CalendarChanges,
+  type CalendarPushTarget,
   type BusyBlock,
   type CalendarEvent,
   type CalendarInfo,
@@ -45,6 +50,8 @@ async function calendarFetch(
       throw new NoCalendarAccess(body.slice(0, 200));
     throw new Error(`Calendar API error: ${response.status} ${body.slice(0, 200)}`);
   }
+  // Only a sync token answers 410 to a list: it's too old.
+  if (response.status === 410 && (init.method ?? "GET") === "GET") throw new CalendarSyncExpired();
   if (!response.ok)
     throw new Error(
       `Calendar API error: ${response.status} ${(await response.text()).slice(0, 200)}`,
@@ -310,6 +317,127 @@ export async function listEvents(
     items?: ApiEvent[];
   };
   return (data.items ?? []).map((e) => toEvent(accountId, e));
+}
+
+export async function syncEvents(
+  accountId: string,
+  calendarId: string,
+  request: { from: string; to: string; token: string | null },
+): Promise<CalendarChanges> {
+  const changes: CalendarChanges = { events: [], removed: [], token: null };
+  let pageToken: string | undefined;
+  do {
+    // A sync token goes alone: Google refuses it with a range.
+    const params = new URLSearchParams({ singleEvents: "true", maxResults: "2500" });
+    if (request.token) params.set("syncToken", request.token);
+    else {
+      params.set("timeMin", new Date(request.from).toISOString());
+      params.set("timeMax", new Date(request.to).toISOString());
+    }
+    if (pageToken) params.set("pageToken", pageToken);
+    const data = (await calendarFetch(accountId, `${on(calendarId)}/events?${params}`)) as {
+      items?: ApiEvent[];
+      nextPageToken?: string;
+      nextSyncToken?: string;
+    };
+    for (const item of data.items ?? []) {
+      if (item.status === "cancelled") changes.removed.push(item.id);
+      else changes.events.push(toEvent(accountId, item));
+    }
+    pageToken = data.nextPageToken;
+    changes.token = data.nextSyncToken ?? null;
+  } while (pageToken);
+  return changes;
+}
+
+/** Google's push channels on an account's calendars, by calendar; no `id`: refused, tried again a day later. */
+type Channel = { id: string; resourceId: string; address: string; expiration: number };
+
+const CHANNEL_TTL_S = 7 * 24 * 60 * 60;
+const RENEW_BEFORE_MS = 24 * 60 * 60_000;
+const channelsKey = (accountId: string) => `googleCalendarChannels:${accountId}`;
+
+function readChannels(accountId: string): Record<string, Channel> {
+  try {
+    return (JSON.parse(mailStore.getKv(channelsKey(accountId)) || "{}") ?? {}) as Record<
+      string,
+      Channel
+    >;
+  } catch {
+    return {};
+  }
+}
+
+const stopChannel = async (accountId: string, channel: Channel) =>
+  channel.id &&
+  calendarFetch(accountId, `${API}/channels/stop`, {
+    method: "POST",
+    body: JSON.stringify({ id: channel.id, resourceId: channel.resourceId }),
+  }).catch(() => {});
+
+export async function watchEvents(
+  accountId: string,
+  calendarIds: string[],
+  target: CalendarPushTarget,
+): Promise<boolean> {
+  const channels = readChannels(accountId);
+  const watched: string[] = [];
+  for (const [calendarId, channel] of Object.entries(channels)) {
+    if (calendarIds.includes(calendarId)) continue;
+    delete channels[calendarId];
+    await stopChannel(accountId, channel);
+  }
+  for (const calendarId of calendarIds) {
+    const current = channels[calendarId];
+    if (
+      current?.address === target.notificationUrl &&
+      current.expiration - Date.now() > RENEW_BEFORE_MS
+    ) {
+      if (current.id) watched.push(calendarId);
+      continue;
+    }
+    try {
+      const made = (await calendarFetch(accountId, `${on(calendarId)}/events/watch`, {
+        method: "POST",
+        body: JSON.stringify({
+          id: crypto.randomUUID(),
+          type: "web_hook",
+          address: target.notificationUrl,
+          token: target.token,
+          params: { ttl: String(CHANNEL_TTL_S) },
+        }),
+      })) as { id: string; resourceId: string; expiration?: string };
+      if (current) await stopChannel(accountId, current);
+      channels[calendarId] = {
+        id: made.id,
+        resourceId: made.resourceId,
+        address: target.notificationUrl,
+        expiration: Number(made.expiration) || Date.now() + CHANNEL_TTL_S * 1000,
+      };
+      watched.push(calendarId);
+    } catch (err) {
+      // Some calendars take no channel (holidays, birthdays): they're polled.
+      if (current) await stopChannel(accountId, current);
+      channels[calendarId] = {
+        id: "",
+        resourceId: "",
+        address: target.notificationUrl,
+        expiration: Date.now() + 2 * RENEW_BEFORE_MS,
+      };
+      logger.info("calendar-watch", "Polling a calendar Google won't watch", {
+        accountId,
+        error: String(err).slice(0, 200),
+      });
+    }
+  }
+  mailStore.setKv(channelsKey(accountId), JSON.stringify(channels));
+  return watched.length > 0;
+}
+
+export async function stopWatchingEvents(accountId: string): Promise<void> {
+  const channels = readChannels(accountId);
+  mailStore.setKv(channelsKey(accountId), "");
+  await Promise.all(Object.values(channels).map((c) => stopChannel(accountId, c)));
 }
 
 export async function getEvent(

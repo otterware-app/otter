@@ -7,6 +7,7 @@ import {
   removeAccountSchedules,
   futureTime,
 } from "../services/mail-schedule.js";
+import { forgetCalendarAccount } from "../services/calendar-sync.js";
 
 import {
   GMAIL_CAPABILITIES,
@@ -83,6 +84,7 @@ export async function removeLocalAccount(accountId: string): Promise<void> {
   removeAccountSchedules(accountId);
   mailSync.forgetAccount(accountId);
   forgetLiveCursors(accountId);
+  await forgetCalendarAccount(accountId);
   await findProvider(accountId)?.removeAccount(accountId);
   if (providerKindOf(accountId) === "imap") await deleteImapPassword(accountId);
   await storeRemoveAccount(accountId);

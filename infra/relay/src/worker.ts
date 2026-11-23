@@ -15,6 +15,7 @@ import {
   isMailboxPicture,
   type ListAccountsResponse,
   type MeResponse,
+  type CalendarWatchResponse,
   type OutlookWatchResponse,
   type PreferencesResponse,
   type RelayEvent,
@@ -37,6 +38,7 @@ import { InvalidTokenError, remoteKeys, verifyGoogleJwt } from "./google-jwt.ts"
 import identity from "./identity.ts";
 import { MICROSOFT_JWKS_URL, provesMailbox, verifyMicrosoftJwt } from "./microsoft-jwt.ts";
 import * as outlook from "./outlook.ts";
+import * as calendarPush from "./calendar-push.ts";
 import * as preferences from "./preferences.ts";
 import * as store from "./store.ts";
 import * as push from "./push.ts";
@@ -438,6 +440,22 @@ authed.post(
       notificationUrl: outlook.notificationUrl(c.env, email),
       clientState: await outlook.clientState(c.env, email),
     } satisfies OutlookWatchResponse);
+  },
+);
+
+authed.post(
+  "/calendar/watch",
+  zValidator("json", z.object({ email: mailbox }), rejectInvalid),
+  async (c) => {
+    const { email } = c.req.valid("json");
+    const provider = await store.linkedProvider(c.var.db, c.var.session.user.id, email);
+    if (provider !== "gmail" && provider !== "outlook") {
+      throw new HTTPException(404, { message: "No such Gmail or Outlook mailbox." });
+    }
+    return c.json({
+      notificationUrl: calendarPush.notificationUrl(c.env, email),
+      token: await calendarPush.calendarToken(c.env, email),
+    } satisfies CalendarWatchResponse);
   },
 );
 
@@ -904,6 +922,62 @@ app.post(
       }),
     );
     return c.body(null, 202);
+  },
+);
+
+/**
+ * A mailbox's calendar changed: Google's push channel (its token in `X-Goog-Channel-Token`)
+ * or Graph's subscription (its clientState), made with `/v1/calendar/watch`'s answer. Sent on
+ * as a `calendar` event to every device of everyone who linked the mailbox with that provider,
+ * which syncs it. Everything is acknowledged, or Google and Graph would retry it.
+ */
+app.post(
+  "/push/calendar/:email",
+  zValidator("param", z.object({ email: mailbox }), (result, c) => {
+    if (!result.success) return c.body(null, 202);
+  }),
+  async (c) => {
+    const validationToken = c.req.query("validationToken");
+    if (validationToken !== undefined) {
+      c.header("X-Content-Type-Options", "nosniff");
+      return c.text(validationToken);
+    }
+    const { email } = c.req.valid("param");
+    const channelToken = c.req.header("X-Goog-Channel-Token");
+    let provider: "gmail" | "outlook" | null = null;
+    if (channelToken !== undefined) {
+      // A channel's first message only says it's open.
+      const opened = c.req.header("X-Goog-Resource-State") === "sync";
+      if (!opened && (await calendarPush.checkCalendarToken(c.env, email, channelToken)))
+        provider = "gmail";
+    } else {
+      const body = (await c.req.json().catch(() => null)) as { value?: unknown } | null;
+      const notifications = Array.isArray(body?.value) ? (body.value as unknown[]) : [];
+      for (const note of notifications.slice(0, 100)) {
+        const state = (note as { clientState?: unknown } | null)?.clientState;
+        if (
+          typeof state === "string" &&
+          (await calendarPush.checkCalendarToken(c.env, email, state))
+        ) {
+          provider = "outlook";
+          break;
+        }
+      }
+    }
+    const status = channelToken !== undefined ? 200 : 202;
+    if (!provider) return c.body(null, status);
+
+    const event: RelayEvent = { type: "calendar", email };
+    const users = await store.usersWithMailbox(c.var.db, email, provider);
+    await Promise.all(
+      users.map((userId) =>
+        retryingReset(
+          () => hub(c.env, userId),
+          (target) => target.publish(event),
+        ),
+      ),
+    );
+    return c.body(null, status);
   },
 );
 

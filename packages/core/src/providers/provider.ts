@@ -36,6 +36,19 @@ export class SyncCancelled extends Error {
 
 export class NoCalendarAccess extends Error {}
 
+/** A calendar's sync token the provider no longer takes: list the calendar's events again. */
+export class CalendarSyncExpired extends Error {}
+
+/**
+ * What `syncEvents` found: without a token, every event of the range; with one, what changed
+ * since (anywhere in the calendar for Google, in the token's range for Outlook). `token` asks
+ * for the next changes; null when the provider gave none.
+ */
+export type CalendarChanges = { events: CalendarEvent[]; removed: string[]; token: string | null };
+
+/** Where the relay takes a calendar's change notifications, and the secret they carry. */
+export type CalendarPushTarget = { notificationUrl: string; token: string };
+
 export type LabelChange = { addLabelIds?: string[]; removeLabelIds?: string[] };
 
 export type OutgoingMail = {
@@ -265,6 +278,21 @@ export interface MailProvider {
       accountId: string,
       range: { from: string; to: string; query?: string; limit: number; calendarId?: string },
     ): Promise<CalendarEvent[]>;
+    syncEvents(
+      accountId: string,
+      calendarId: string,
+      request: { from: string; to: string; token: string | null },
+    ): Promise<CalendarChanges>;
+    /**
+     * Asks the provider to tell the relay when the calendars change, renewing what's about to
+     * lapse; answers whether it watches any (the rest are polled).
+     */
+    watchEvents(
+      accountId: string,
+      calendarIds: string[],
+      target: CalendarPushTarget,
+    ): Promise<boolean>;
+    stopWatchingEvents(accountId: string): Promise<void>;
     getEvent(accountId: string, eventId: string, calendarId?: string): Promise<CalendarEvent>;
     createEvent(
       accountId: string,

@@ -15,19 +15,19 @@ vi.mock("./account-store.js", () => ({
 }));
 vi.mock("./mail-sync.js", () => ({ turnedOffMailboxes: () => new Set() }));
 vi.mock("./notifier.js", () => ({ accountLabel: (a: { name: string }) => a.name }));
-vi.mock("../providers/index.js", () => ({
-  capabilitiesOf: () => ({ calendar: true }),
-  providerFor: () => ({
-    calendar: {
-      listCalendars: async () => [
-        { id: "primary", hiddenByDefault: false },
-        { id: "team", hiddenByDefault: false },
-        { id: "holidays", hiddenByDefault: true },
-      ],
-      listEvents: async (_: string, range: { calendarId: string }) =>
-        range.calendarId === "holidays" ? [event("Holiday", 30)] : events,
-    },
+vi.mock("../providers/index.js", () => ({ capabilitiesOf: () => ({ calendar: true }) }));
+vi.mock("./calendar-sync.js", () => ({ onCalendarChanged: () => {} }));
+vi.mock("./calendar-store.js", () => ({
+  getList: () => ({
+    calendars: [
+      { id: "primary", hiddenByDefault: false },
+      { id: "team", hiddenByDefault: false },
+      { id: "holidays", hiddenByDefault: true },
+    ],
+    syncedAt: 0,
   }),
+  eventsIn: (_: string, calendarId: string) =>
+    calendarId === "holidays" ? [event("Holiday", 30)] : events,
 }));
 
 const { checkReminders } = await import("./calendar-reminders.js");

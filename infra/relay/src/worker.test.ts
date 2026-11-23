@@ -39,6 +39,7 @@ import {
 import type {
   OutlookSignInResult,
   OutlookTokenResponse,
+  CalendarWatchResponse,
   OutlookWatchResponse,
 } from "@otter/contracts/relay";
 
@@ -1183,6 +1184,89 @@ describe("Outlook mailboxes", () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(devices.map((d) => d.events)).toEqual([[event], [event], []]);
+    for (const device of devices) device.socket.close();
+  });
+});
+
+describe("calendar push", () => {
+  const watch = (token: string, email: string) =>
+    call("POST", "/v1/calendar/watch", token, { email });
+  const tokenOf = async (token: string, email: string) =>
+    ((await (await watch(token, email)).json()) as CalendarWatchResponse).token;
+  const fromGoogle = (email: string, channelToken: string, state = "exists") =>
+    fetch(`${base}/push/calendar/${encodeURIComponent(email)}`, {
+      method: "POST",
+      headers: {
+        "X-Goog-Channel-ID": "c1",
+        "X-Goog-Channel-Token": channelToken,
+        "X-Goog-Resource-State": state,
+      },
+    });
+  const fromGraph = (email: string, clientState: string) =>
+    call("POST", `/push/calendar/${encodeURIComponent(email)}`, undefined, {
+      value: [{ subscriptionId: "s1", changeType: "updated", clientState, resource: "x" }],
+    });
+
+  it("tells a device where to send its Gmail and Outlook calendars' changes", async () => {
+    const { token } = await signIn("calendar-watcher@example.com");
+    await link(token, "me@gmail.test");
+    await call("PUT", "/v1/accounts/me%40contoso.test", token, {
+      provider: "outlook",
+      idToken: await msIdToken("me@contoso.test"),
+    });
+    expect((await watch(token, "nobody@gmail.test")).status).toBe(404);
+    expect(
+      (await call("POST", "/v1/calendar/watch", undefined, { email: "me@gmail.test" })).status,
+    ).toBe(401);
+    const response = await watch(token, "Me@Gmail.test");
+    expect(response.status).toBe(200);
+    const google = (await response.json()) as CalendarWatchResponse;
+    expect(google.notificationUrl).toMatch(/\/push\/calendar\/me%40gmail\.test$/);
+    expect(google.token.length).toBeLessThanOrEqual(128);
+    expect(await tokenOf(token, "me@contoso.test")).not.toBe(google.token);
+  });
+
+  it("answers Graph's validation of a new subscription", async () => {
+    const response = await fetch(`${base}/push/calendar/a%40contoso.test?validationToken=abc`, {
+      method: "POST",
+    });
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("abc");
+  });
+
+  it("passes genuine changes on to whoever linked the mailbox", async () => {
+    const alice = await signIn("calendar-alice@example.com");
+    const mallory = await signIn("calendar-mallory@example.com");
+    await link(alice.token, "shared@gmail.test");
+    await link(mallory.token, "mallory@gmail.test");
+    await call("PUT", "/v1/accounts/work%40contoso.test", alice.token, {
+      provider: "outlook",
+      idToken: await msIdToken("work@contoso.test"),
+    });
+    const devices = await Promise.all([alice, mallory].map((u) => connect(u.token)));
+    const shared = await tokenOf(alice.token, "shared@gmail.test");
+    const work = await tokenOf(alice.token, "work@contoso.test");
+    const mallorys = await tokenOf(mallory.token, "mallory@gmail.test");
+
+    expect((await fromGoogle("shared@gmail.test", mallorys)).status).toBe(200);
+    expect((await fromGoogle("shared@gmail.test", "forged")).status).toBe(200);
+    expect((await fromGoogle("shared@gmail.test", shared, "sync")).status).toBe(200);
+    expect((await fromGraph("work@contoso.test", shared)).status).toBe(202);
+    expect((await fromGraph("shared@gmail.test", shared)).status).toBe(202);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(devices.map((d) => d.events)).toEqual([[], []]);
+
+    expect((await fromGoogle("shared@gmail.test", shared)).status).toBe(200);
+    expect((await fromGraph("Work@Contoso.test", work)).status).toBe(202);
+    await until(() => devices[0]!.events.length >= 2, "the calendar events");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(devices.map((d) => d.events)).toEqual([
+      [
+        { type: "calendar", email: "shared@gmail.test" },
+        { type: "calendar", email: "work@contoso.test" },
+      ],
+      [],
+    ]);
     for (const device of devices) device.socket.close();
   });
 });

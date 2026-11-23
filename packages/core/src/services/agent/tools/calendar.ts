@@ -7,6 +7,8 @@ import {
   type RsvpResponse,
 } from "../../../providers/provider.js";
 import type { MailAccount } from "../../../types.js";
+import * as calendarStore from "../../calendar-store.js";
+import { eventsInRange, syncAccountSoon } from "../../calendar-sync.js";
 import {
   mailbox,
   mailboxes,
@@ -37,6 +39,29 @@ async function calendarOf<T>(
       );
     throw error;
   }
+}
+
+/** The default calendar's events, from those Otter keeps in sync. */
+async function storedEvents(
+  account: MailAccount,
+  from: Date,
+  to: Date,
+  limit: number,
+): Promise<CalendarEvent[]> {
+  const calendarId =
+    calendarStore.getList(account.id)?.calendars.find((c) => c.primary)?.id ?? "primary";
+  const [range] = await eventsInRange(
+    [{ accountId: account.id, calendarId }],
+    from.toISOString(),
+    to.toISOString(),
+  );
+  if (!range || "error" in range)
+    throw range?.error === "noAccess"
+      ? new NoCalendarAccess(range.message)
+      : new Error(range?.message);
+  return range.events
+    .filter((e) => Date.parse(e.end) > from.getTime() && Date.parse(e.start) < to.getTime())
+    .slice(0, limit);
 }
 
 function instant(value: string, key: string): Date {
@@ -139,15 +164,18 @@ export const calendarTools: AgentTool[] = [
       const from = fromArg ? instant(fromArg, "from") : new Date();
       const to = toArg ? instant(toArg, "to") : new Date(from.getTime() + 7 * 86_400_000);
       const limit = optInt(args, "limit", 250) ?? 50;
+      const query = optStr(args, "query");
       const lists = await Promise.allSettled(
         accounts.map((account) =>
           calendarOf(account, (calendar) =>
-            calendar.listEvents(account.id, {
-              from: from.toISOString(),
-              to: to.toISOString(),
-              query: optStr(args, "query"),
-              limit,
-            }),
+            query
+              ? calendar.listEvents(account.id, {
+                  from: from.toISOString(),
+                  to: to.toISOString(),
+                  query,
+                  limit,
+                })
+              : storedEvents(account, from, to, limit),
           ).then((events) => events.map((e) => ({ account: account.email, ...e }))),
         ),
       );
@@ -205,6 +233,7 @@ export const calendarTools: AgentTool[] = [
           `Add to ${account.email}'s calendar\n${describeInput(input)}${input.attendees?.length ? `\n${notifyNote(notify)}` : ""}`,
         );
         const saved = await calendar.createEvent(account.id, input, notify);
+        syncAccountSoon(account.id);
         ctx.changed?.({
           action: "created",
           title: saved.title,
@@ -236,6 +265,7 @@ export const calendarTools: AgentTool[] = [
           `Change ${describeEvent(event)} in ${account.email}'s calendar\n${describeInput(input)}${event.attendees.length ? `\n${notifyNote(notify)}` : ""}`,
         );
         const saved = await calendar.updateEvent(account.id, eventId, input, notify);
+        syncAccountSoon(account.id);
         ctx.changed?.({
           action: "updated",
           title: saved.title,
@@ -270,6 +300,7 @@ export const calendarTools: AgentTool[] = [
           `Delete ${describeEvent(event)} from ${account.email}'s calendar${event.attendees.length ? `\n${notifyNote(notify)}` : ""}`,
         );
         await calendar.deleteEvent(account.id, eventId, notify);
+        syncAccountSoon(account.id);
         ctx.changed?.({
           action: "deleted",
           title: event.title,
@@ -303,6 +334,7 @@ export const calendarTools: AgentTool[] = [
         const event = await calendar.getEvent(account.id, eventId);
         await ctx.confirm(`Answer ${describeEvent(event)} in ${account.email}: ${response}`);
         const saved = await calendar.respondToEvent(account.id, eventId, response);
+        syncAccountSoon(account.id);
         ctx.changed?.({
           action: "updated",
           title: saved.title,
