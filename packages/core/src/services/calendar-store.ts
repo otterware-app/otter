@@ -46,6 +46,13 @@ function getDb(): SqlDatabase {
       list      TEXT NOT NULL
     );
   `);
+  // A series kept as an event of its own came from Outlook's delta before its occurrences were
+  // filled in from it: its calendar is listed again.
+  const broken = `SELECT accountId, calendarId FROM calendar_events WHERE id = seriesId`;
+  handle.exec(`
+    DELETE FROM calendar_windows WHERE (accountId, calendarId) IN (${broken});
+    DELETE FROM calendar_events WHERE (accountId, calendarId) IN (${broken});
+  `);
   db = handle;
   return handle;
 }
