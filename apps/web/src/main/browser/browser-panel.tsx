@@ -14,9 +14,11 @@ import { closeTab, hostOf, newTab, panelTabs, reorderTabs, selectTab, useBrowser
 export function BrowserPanel({
   closeTabRef,
   onClosePanel,
+  controlSlot,
 }: {
   closeTabRef: MutableRefObject<(() => boolean) | null>;
   onClosePanel: () => void;
+  controlSlot: boolean;
 }) {
   const allTabs = useBrowser((s) => s.tabs);
   const activeId = useBrowser((s) => s.activeId);
@@ -109,8 +111,8 @@ export function BrowserPanel({
           </IconBtn>
         </HintTooltip>
         <span className="min-w-0 flex-1" />
-        {/* The pinned panel toggle (home view) sits here. */}
-        <PanelControlSlot />
+        {/* The pinned panel toggles (home view) sit here, over the rightmost panel. */}
+        {controlSlot ? <PanelControlSlot /> : null}
       </div>
       {activeId ? (
         <PageSlot key={activeId} tabId={activeId} className="rounded-xl" />

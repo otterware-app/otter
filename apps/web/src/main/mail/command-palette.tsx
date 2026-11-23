@@ -18,7 +18,8 @@ import {
   CheckIcon,
   ChevronRightIcon,
   MessageSquarePlusIcon,
-  PanelRightIcon,
+  GlobeIcon,
+  CalendarDaysIcon,
   InboxIcon,
   ListChecksIcon,
   MonitorIcon,
@@ -87,6 +88,8 @@ type CommandPaletteProps = {
   onNewView: () => void;
   onToggleChat: () => void;
   onToggleBrowser: () => void;
+  /** Absent without a calendar. */
+  onToggleCalendarPanel?: () => void;
   onToggleSidebar: () => void;
   onSync: () => void;
 };
@@ -167,6 +170,7 @@ export function CommandPalette({
   onNewView,
   onToggleChat,
   onToggleBrowser,
+  onToggleCalendarPanel,
   onToggleSidebar,
   onSync,
 }: CommandPaletteProps) {
@@ -353,11 +357,23 @@ export function CommandPalette({
         ? [
             {
               id: "browser",
-              icon: <PanelRightIcon className={ICON} />,
+              icon: <GlobeIcon className={ICON} />,
               title: "Toggle browser",
               keywords: "web pages tabs",
               shortcut: sc("browser.toggle"),
               run: onToggleBrowser,
+            },
+          ]
+        : []),
+      ...(onToggleCalendarPanel
+        ? [
+            {
+              id: "calendar-panel",
+              icon: <CalendarDaysIcon className={ICON} />,
+              title: "Toggle calendar",
+              keywords: "upcoming events agenda timeline",
+              shortcut: sc("calendar.togglePanel"),
+              run: onToggleCalendarPanel,
             },
           ]
         : []),
@@ -558,6 +574,7 @@ export function CommandPalette({
     onOpenChat,
     onNewChat,
     onToggleBrowser,
+    onToggleCalendarPanel,
     conversations,
     onOpenMessage,
     onSearchMail,

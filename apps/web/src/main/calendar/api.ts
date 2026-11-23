@@ -271,12 +271,14 @@ export function useCachedEvent(
   return useSyncExternalStore(subscribe, () => (ref ? findCachedEvent(qc, ref) : null));
 }
 
-export function useUpcomingEvents(ref: CalendarRef | null, from: number) {
-  const to = addDays(new Date(from), 365).getTime();
+export function useUpcomingEvents(refs: CalendarRef[], from: number, days: number) {
+  const to = addDays(new Date(from), days).getTime();
   return useQuery({
-    queryKey: ref ? rangeKey([ref], from, to) : [...KEY, "none"],
-    queryFn: () => fetchRange([ref!], from, to),
-    enabled: !!ref,
+    queryKey: rangeKey(refs, from, to),
+    queryFn: () => fetchRange(refs, from, to),
+    enabled: refs.length > 0,
+    // Showing or hiding a calendar (or midnight) changes the key: keep the list until the new one.
+    placeholderData: keepPreviousData,
     staleTime: fresh,
   });
 }

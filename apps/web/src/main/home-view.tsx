@@ -1,4 +1,4 @@
-import { useLatest } from "./use-latest";
+import { useHandlers, useLatest } from "./use-latest";
 import { ExtensionDialogs } from "./extensions/slots";
 import { useWorkspaces, workspaceOf, workspaceSpace } from "./extensions/workspaces";
 import type { WorkspaceLocation } from "./extensions/types";
@@ -34,7 +34,9 @@ import { ChatBar } from "./agent/chat-bar";
 import { ChatWindow } from "./agent/chat-window";
 import { ChatWorkspace, type ChatPanelControl } from "./agent/chat-workspace";
 import { SCHEDULED_TASKS, ScheduledTasksView } from "./agent/agent-scheduled";
-import { CALENDAR_MODES, CalendarView } from "./calendar/calendar-view";
+import { CALENDAR_MODES, CalendarView, calendarAccounts } from "./calendar/calendar-view";
+import { CalendarPanel } from "./calendar/agenda";
+import { useCalendar } from "./calendar/calendar-store";
 import type { CalendarMode } from "./calendar/dates";
 import {
   newChat,
@@ -48,10 +50,11 @@ import { useChatProvider } from "./agent/agent-providers";
 import { SEARCH_MAILBOX } from "./mail/gmail-query";
 import { searchTabId, searchTitle, type SearchTab } from "./mail/search-tabs";
 import {
-  PanelControl,
+  PanelControls,
   SidebarControl,
   TitleControls,
   TitleTrailing,
+  PanelControlSlot,
   TitlebarInset,
   SidebarTitle,
 } from "./mail/top-bar";
@@ -147,6 +150,7 @@ const READER_MIN_WIDTH = 360;
 // Auto layout: below this, the reader beside the list is too narrow to read in.
 const AUTO_SPLIT_READER_WIDTH = 560;
 const BROWSER_OPEN_WIDTH = 720;
+const CALENDAR_PANEL_WIDTH = 260;
 const FRAME_INSET = 4;
 const IN_EVERY_MAILBOX = new Set(["INBOX", "SENT", "DRAFT", "STARRED", "UNREAD", "SPAM", "TRASH"]);
 
@@ -334,7 +338,7 @@ type PaneWidths = { sidebar: number; list: number; browser: number };
 
 function PaneResizer({
   onPointerDown,
-  joined = false,
+  joined,
 }: {
   onPointerDown: (e: ReactPointerEvent) => void;
   /** Between the panes of one panel: its line is the panel's, below the titlebar. */
@@ -402,9 +406,18 @@ function MailHome() {
   // mailboxes are known, it's always one of theirs (effects below catch the
   // route up), so nothing shows a place only to leave it at once.
   const placed = routeLoc ?? lastMail;
-  const mailLoc = ready
+  const where = ready
     ? placeFor(placed ?? savedLoc(), accounts, aliases, viewsLoaded ? views : null)
     : placed;
+  // Rebuilt from its fields, so it keeps its identity (and so does every handler built on it)
+  // until the place changes: a pane toggling then doesn't re-render the list and reader.
+  const mailLoc = where && {
+    mailbox: where.mailbox,
+    label: where.label,
+    messageId: where.messageId,
+    account: where.account,
+    focusId: where.focusId,
+  };
   const initialized = ready && mailLoc !== null;
   const selectedAccountId = mailLoc?.mailbox ?? null;
   const selectedLabelId = mailLoc?.label ?? "INBOX";
@@ -453,17 +466,18 @@ function MailHome() {
   );
   const openSettingsRef = useLatest(openSettings);
   useEffect(() => {
-    const pull = async () => {
-      try {
-        const target = await mailApi.getSettingsTarget();
-        if (!target) return;
-        const pane = target.pane ?? lastPaneRef.current;
-        console.log("[HomeView:openSettings]", { pane, item: target.item });
-        openSettingsRef.current({ pane, item: target.item });
-      } catch (error) {
-        console.log("[HomeView:getSettingsTarget] failed", { error: String(error) });
-      }
-    };
+    const pull = () =>
+      Promise.resolve()
+        .then(() => mailApi.getSettingsTarget())
+        .then((target) => {
+          if (!target) return;
+          const pane = target.pane ?? lastPaneRef.current;
+          console.log("[HomeView:openSettings]", { pane, item: target.item });
+          openSettingsRef.current({ pane, item: target.item });
+        })
+        .catch((error: unknown) => {
+          console.log("[HomeView:getSettingsTarget] failed", { error: String(error) });
+        });
     void pull();
     return window.desktopBridge.on("settings:open", () => void pull());
   }, [openSettingsRef]);
@@ -592,6 +606,9 @@ function MailHome() {
   const [browserOpen, setBrowserOpen] = useState(
     () => features.browser && localStorage.getItem("gmail:browser-open") === "1",
   );
+  const [calendarPanelOpen, setCalendarPanelOpen] = useState(
+    () => localStorage.getItem("gmail:calendar-panel-open") === "1",
+  );
   const [chatWindowOpen, setChatWindowOpen] = useState(
     () => localStorage.getItem("gmail:chat-window-open") === "1",
   );
@@ -602,10 +619,13 @@ function MailHome() {
     () => localStorage.getItem("gmail:settings-sidebar-open") !== "0",
   );
   const sidebarOpen = settingsRoute ? settingsSidebarOpen : mailSidebarOpen;
+  const hasCalendars = calendarAccounts(accounts).length > 0;
+  const calendarPanelVisible = calendarPanelOpen && hasCalendars && !settingsRoute && !isChats;
   const browserRoomBeside = (list: boolean) =>
     window.innerWidth -
     FRAME_INSET -
     (sidebarOpen ? sidebarWidth : 0) -
+    (calendarPanelVisible ? CALENDAR_PANEL_WIDTH : 0) -
     (list && !ownsMain ? listWidth : 0) -
     READER_MIN_WIDTH;
   // Dragged, it may take the list's room unless the layout is Split view: Auto then gives
@@ -629,7 +649,8 @@ function MailHome() {
       FRAME_INSET -
       (sidebarOpen ? sidebar : 0) -
       list -
-      (browserVisible ? browser : 0) >=
+      (browserVisible ? browser : 0) -
+      (calendarPanelVisible ? CALENDAR_PANEL_WIDTH : 0) >=
     AUTO_SPLIT_READER_WIDTH;
   const paneWidths = { sidebar: sidebarWidth, list: listWidth, browser: browserWidth };
   useLayoutEffect(() => {
@@ -649,6 +670,11 @@ function MailHome() {
   );
   const browserPresent = usePanelPresence(
     browserVisible,
+    panelAnimationsActive,
+    panelAnimationDurationMs,
+  );
+  const calendarPanelPresent = usePanelPresence(
+    calendarPanelVisible,
     panelAnimationsActive,
     panelAnimationDurationMs,
   );
@@ -695,6 +721,14 @@ function MailHome() {
       else newTab();
     }
     openBrowser();
+  };
+  const toggleCalendarPanel = () => {
+    if (!hasCalendars) return false;
+    if (settingsRouteRef.current) leaveSettingsRef.current();
+    if (isChats) leaveWorkspace();
+    const open = !calendarPanelVisible;
+    localStorage.setItem("gmail:calendar-panel-open", open ? "1" : "0");
+    setCalendarPanelOpen(open);
   };
   const browserRevealed = useBrowser((s) => s.revealed);
   const openBrowserForEffect = useLatest(openBrowser);
@@ -1014,6 +1048,7 @@ function MailHome() {
     },
     "mode.agent": () => switchMode("agent"),
     "browser.toggle": () => toggleBrowser(),
+    "calendar.togglePanel": () => toggleCalendarPanel(),
     "browser.newTab": () => {
       if (!features.browser) return false;
       if (isChats) {
@@ -1427,22 +1462,25 @@ function MailHome() {
     console.log("[HomeView:syncNow]");
     setManualSyncing(true);
     const startedAt = Date.now();
+    const settle = async () => {
+      const remaining = 700 - (Date.now() - startedAt);
+      if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
+      setManualSyncing(false);
+    };
+    // A promise's finally, not try/finally: the React Compiler can't compile a try without a
+    // catch, and would leave this whole component unmemoized.
     void (async () => {
-      try {
-        await Promise.all(accountIds.map((id) => mailApi.syncAccount(id).catch(() => null)));
-        for (let i = 0; i < 150; i++) {
-          const statuses = await Promise.all(
-            accountIds.map((id) => mailApi.getSyncStatus(id).catch(() => null)),
-          );
-          if (!statuses.some((st) => st?.syncing)) break;
-          await new Promise((r) => setTimeout(r, 400));
-        }
-      } finally {
-        const remaining = 700 - (Date.now() - startedAt);
-        if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
-        setManualSyncing(false);
+      await Promise.all(accountIds.map((id) => mailApi.syncAccount(id).catch(() => null)));
+      for (let i = 0; i < 150; i++) {
+        const statuses = await Promise.all(
+          accountIds.map((id) => mailApi.getSyncStatus(id).catch(() => null)),
+        );
+        if (!statuses.some((st) => st?.syncing)) break;
+        await new Promise((r) => setTimeout(r, 400));
       }
-    })();
+    })()
+      .catch(() => null)
+      .finally(() => void settle());
   };
   const syncNowRef = useLatest(syncNow);
   useEffect(
@@ -1494,9 +1532,22 @@ function MailHome() {
 
   const readerOwnsBand =
     !settingsRoute && !(composeOpen && composeAccountId) && !!readerAccount && !!selectedMessageId;
-  const browserToggleRoom = features.browser && !settingsRoute && (isChats || !browserVisible);
+  const panelControls = settingsRoute
+    ? 0
+    : isChats
+      ? Number(features.browser)
+      : Number(features.browser) + Number(hasCalendars);
+  const browserToggleRoom =
+    panelControls > 0 && (isChats || (!browserVisible && !calendarPanelVisible));
   const titleTrailing = <TitleTrailing showPanelToggle={browserToggleRoom} />;
   const titlebarInset = <TitlebarInset />;
+  // Left to CSS (the root's data attributes): the list then keeps its props, and skips
+  // re-rendering, when a panel opening flips the layout.
+  const listTrailing = (
+    <span className="hidden [[data-mail-layout=full][data-right-panels=none]_&]:contents">
+      <PanelControlSlot />
+    </span>
+  );
   const readerLeading = fullInbox ? (
     <>
       {sidebarOpen ? null : titlebarInset}
@@ -1507,6 +1558,35 @@ function MailHome() {
       </HintTooltip>
     </>
   ) : undefined;
+  const h = useHandlers({
+    go,
+    closeMessage,
+    goToSpace,
+    switchMode,
+    startNewChat,
+    openViewEditor,
+    openSettings,
+    closeSearch,
+    selectSearch: (id: string) => {
+      showSearch(id);
+      focusSearchEnd();
+    },
+    composeFromSidebar: () => {
+      sidebarPeek.close();
+      openCompose();
+    },
+    handleSelectMessage,
+    handleReaderAdvance,
+    openChat,
+    searchFromView,
+    quote: (q: QuoteContext) => {
+      if (chatWindowOpen) setPendingQuote(q);
+    },
+    openCompose,
+    handleSearchChange,
+    selectChat,
+    chatShelved,
+  });
   const renderReader = (
     leading: ReactNode = readerLeading,
     trailing: ReactNode = titleTrailing,
@@ -1520,15 +1600,13 @@ function MailHome() {
       alias={aliasSpace ?? undefined}
       autoFocusDraft={autoFocusDraft}
       single={focusedMessageId != null}
-      onShowConversation={() => go({ focusId: null })}
-      onDeselect={closeMessage}
-      onAdvance={handleReaderAdvance}
-      onOpenChat={openChat}
-      onQuote={(q) => {
-        if (chatWindowOpen) setPendingQuote(q);
-      }}
-      onComposeTo={(email) => openCompose({ to: email, cc: "", subject: "", body: "" })}
-      onSearchSender={(email) => handleSearchChange(`from:${email}`)}
+      onShowConversation={() => h.go({ focusId: null })}
+      onDeselect={h.closeMessage}
+      onAdvance={h.handleReaderAdvance}
+      onOpenChat={h.openChat}
+      onQuote={h.quote}
+      onComposeTo={(email) => h.openCompose({ to: email, cc: "", subject: "", body: "" })}
+      onSearchSender={(email) => h.handleSearchChange(`from:${email}`)}
     />
   );
   // With the sidebar hidden and no list pane, this band is the window's first:
@@ -1558,18 +1636,15 @@ function MailHome() {
       }
       settingsOpen={settingsRoute !== null}
       composing={composeOpen}
-      onGo={goToSpace}
+      onGo={h.goToSpace}
       onMoveMailbox={mailboxes.move}
-      onMode={switchMode}
-      onSelectChat={(id) => go({ label: id }, true)}
-      onNewChat={startNewChat}
-      onCompose={() => {
-        sidebarPeek.close();
-        openCompose();
-      }}
-      onNewView={() => openViewEditor("new")}
-      onEditView={openViewEditor}
-      onOpenSettings={(pane = lastPaneRef.current) => openSettings({ pane })}
+      onMode={h.switchMode}
+      onSelectChat={(id) => h.go({ label: id }, true)}
+      onNewChat={h.startNewChat}
+      onCompose={h.composeFromSidebar}
+      onNewView={() => h.openViewEditor("new")}
+      onEditView={h.openViewEditor}
+      onOpenSettings={(pane) => h.openSettings({ pane: pane ?? lastPaneRef.current })}
       searches={searchTabs
         .filter((t) => t.mailbox === searchMailbox && t.parent)
         .map((t) => ({
@@ -1578,11 +1653,8 @@ function MailHome() {
           title: searchTitle(t),
           selected: activeSearch?.id === t.id,
         }))}
-      onSelectSearch={(id) => {
-        showSearch(id);
-        focusSearchEnd();
-      }}
-      onCloseSearch={closeSearch}
+      onSelectSearch={h.selectSearch}
+      onCloseSearch={h.closeSearch}
     />
   );
   return (
@@ -1593,7 +1665,15 @@ function MailHome() {
         className="flex h-full flex-col bg-sidebar-surface text-foreground"
         data-panel-animations={panelAnimationsActive ? "true" : "false"}
         data-mail-layout={ownsMain ? "split" : mailLayout}
-        style={{ "--panel-animation-duration": `${panelAnimationDurationMs}ms` } as CSSProperties}
+        data-right-panels={
+          !panelControls ? "off" : browserVisible || calendarPanelVisible ? "open" : "none"
+        }
+        style={
+          {
+            "--panel-animation-duration": `${panelAnimationDurationMs}ms`,
+            "--workspace-panel-controls": panelControls,
+          } as CSSProperties
+        }
       >
         <div className="flex min-h-0 flex-1">
           {/* The frame's width round the cards (the right edge is the last
@@ -1680,7 +1760,7 @@ function MailHome() {
                     >
                       <MessageList
                         headerLeading={sidebarOpen ? null : titlebarInset}
-                        headerTrailing={fullInbox ? titleTrailing : undefined}
+                        headerTrailing={listTrailing}
                         accountId={(spansMailboxes ? firstRealAccountId : effectiveAccountId) ?? ""}
                         alias={aliasSpace?.id}
                         labelId={selectedLabelId}
@@ -1689,12 +1769,12 @@ function MailHome() {
                         accounts={accounts}
                         selectedMessageId={selectedMessageId}
                         focusedMessageId={focusedMessageId}
-                        onSelectMessage={handleSelectMessage}
-                        onDeselect={closeMessage}
+                        onSelectMessage={h.handleSelectMessage}
+                        onDeselect={h.closeMessage}
                         advanceRef={advanceRef}
                         onSelectionChange={setChatSelection}
-                        onOpenChat={openChat}
-                        onSearchView={searchFromView}
+                        onOpenChat={h.openChat}
+                        onSearchView={h.searchFromView}
                         viewQueryRef={viewQueryRef}
                         search={
                           activeSearch
@@ -1811,6 +1891,7 @@ function MailHome() {
                 {browserVisible ? <PaneResizer onPointerDown={browserStart} /> : null}
                 <div
                   ref={browserFrameRef}
+                  data-page-clip=""
                   style={{ width: browserVisible ? browserWidth : 0 }}
                   className={cn(
                     PANE_FRAME,
@@ -1823,10 +1904,38 @@ function MailHome() {
                     style={{ width: browserWidth }}
                     className={cn(PANE_BROWSER, "shrink-0")}
                   >
-                    <BrowserPanel closeTabRef={closeBrowserTabRef} onClosePanel={closeBrowser} />
+                    <BrowserPanel
+                      closeTabRef={closeBrowserTabRef}
+                      onClosePanel={closeBrowser}
+                      controlSlot={!calendarPanelVisible}
+                    />
                   </div>
                 </div>
               </>
+            ) : null}
+            {calendarPanelPresent ? (
+              <div
+                style={{ width: calendarPanelVisible ? CALENDAR_PANEL_WIDTH : 0 }}
+                className={cn(
+                  PANE_FRAME,
+                  // Drawn from the window's edge as it slides: its title never passes under the toggles.
+                  "justify-end",
+                  calendarPanelVisible && "[[data-panel-animations=true]_&]:starting:w-0!",
+                  !calendarPanelVisible && "pointer-events-none",
+                )}
+              >
+                <div
+                  style={{ width: CALENDAR_PANEL_WIDTH }}
+                  className={cn(PANE_BROWSER, "shrink-0")}
+                >
+                  <CalendarPanel
+                    onOpen={(event) => {
+                      if (!isCalendar || composeOpen) switchMode("calendar");
+                      useCalendar.getState().show(event);
+                    }}
+                  />
+                </div>
+              </div>
             ) : null}
             {/* The agent's small window, in the workspace's corner over the
                 bottom bar (and over the browser when it's open). */}
@@ -1864,10 +1973,10 @@ function MailHome() {
               >
                 <ChatBar
                   shownId={chatWindowShown ? activeChatId : null}
-                  onSelect={selectChat}
-                  onShelve={chatShelved}
-                  onNewChat={startNewChat}
-                  onOpenAgents={() => switchMode("agent")}
+                  onSelect={h.selectChat}
+                  onShelve={h.chatShelved}
+                  onNewChat={h.startNewChat}
+                  onOpenAgents={() => h.switchMode("agent")}
                 />
               </div>
             ) : null}
@@ -1881,8 +1990,24 @@ function MailHome() {
         onToggleSidebar={toggleSidebar}
         onHover={sidebarOpen || settingsRoute ? undefined : sidebarPeek.hover}
       />
-      {features.browser && !settingsRoute ? (
-        <PanelControl open={isChats ? chatPanelOpen : browserOpen} onToggle={toggleBrowser} />
+      {panelControls > 0 ? (
+        <PanelControls
+          calendar={
+            hasCalendars && !isChats
+              ? { open: calendarPanelVisible, onToggle: toggleCalendarPanel }
+              : undefined
+          }
+          browser={
+            features.browser && !isChats
+              ? { open: browserVisible, onToggle: toggleBrowser }
+              : undefined
+          }
+          chatPanel={
+            features.browser && isChats
+              ? { open: chatPanelOpen, onToggle: toggleBrowser }
+              : undefined
+          }
+        />
       ) : null}
 
       {tourRequested && initialized ? (
@@ -1932,8 +2057,9 @@ function MailHome() {
           onOpenChat={openWorkspace}
           onNewChat={startNewChat}
           onToggleBrowser={toggleBrowser}
+          onToggleCalendarPanel={hasCalendars ? toggleCalendarPanel : undefined}
           onCompose={() => openCompose()}
-          onOpenSettings={(pane = lastPaneRef.current) => openSettings({ pane })}
+          onOpenSettings={(pane) => openSettings({ pane: pane ?? lastPaneRef.current })}
           onNewView={() => openViewEditor("new")}
           onToggleChat={toggleChat}
           onToggleSidebar={toggleSidebar}
