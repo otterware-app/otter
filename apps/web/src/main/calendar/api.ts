@@ -311,6 +311,8 @@ export function useUpcomingEvents(refs: CalendarRef[], from: number, days: numbe
     queryKey: rangeKey(refs, from, to),
     queryFn: () => fetchRange(refs, from, to),
     enabled: refs.length > 0,
+    // Showing or hiding a calendar (or midnight) changes the key: keep the list until the new one.
+    placeholderData: (previous) => previous,
     staleTime: 30_000,
   });
 }

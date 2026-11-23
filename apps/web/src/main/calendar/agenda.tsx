@@ -51,6 +51,8 @@ export function CalendarPanel({ onOpen }: { onOpen: (event: CalEvent) => void })
   const events = (query.data?.events ?? []).filter(
     (e) => colorOf.has(calendarKey(e)) && (showDeclined || e.response !== "declined"),
   );
+  // A calendar shared without its details (free/busy only) can't be read: not a failure to retry.
+  const eventsFailed = query.isError || !!query.data?.failed.some((f) => f.error !== "noAccess");
 
   return (
     <div className="flex h-full min-w-0 flex-col">
@@ -66,12 +68,12 @@ export function CalendarPanel({ onOpen }: { onOpen: (event: CalEvent) => void })
         colorOf={(e) => colorOf.get(calendarKey(e)) ?? "#8a8a8a"}
         onOpen={onOpen}
         loading={listsQuery.isPending || (query.isPending && visible.length > 0)}
-        failed={listsFailed || query.isError || !!query.data?.failed.length}
+        failed={listsFailed || eventsFailed}
         onRetry={() => {
           if (listsFailed) void listsQuery.refetch();
-          if (query.isError || query.data?.failed.length) void query.refetch();
+          if (eventsFailed) void query.refetch();
         }}
-        empty="Nothing in the next 30 days."
+        empty={visible.length ? "Nothing in the next 30 days." : "No calendars shown."}
       />
     </div>
   );

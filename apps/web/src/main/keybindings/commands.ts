@@ -133,7 +133,7 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "g d", command: "mode.drive", when: OUTSIDE_FIELDS },
   { key: "g a", command: "mode.agent", when: OUTSIDE_FIELDS },
   { key: "mod+shift+b", command: "browser.toggle", when: "!dialogOpen" },
-  { key: "mod+shift+u", command: "calendar.togglePanel", when: "!dialogOpen" },
+  { key: "mod+shift+e", command: "calendar.togglePanel", when: "!dialogOpen" },
   { key: "mod+t", command: "browser.newTab", when: "!dialogOpen" },
   { key: "ctrl+tab", command: "tab.previous", when: "!dialogOpen" },
   { key: "mod+shift+m", command: "agentPicker.toggle", when: "agentOpen" },

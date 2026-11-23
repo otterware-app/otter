@@ -54,6 +54,7 @@ import {
   SidebarControl,
   TitleControls,
   TitleTrailing,
+  PanelControlSlot,
   TitlebarInset,
   SidebarTitle,
 } from "./mail/top-bar";
@@ -465,8 +466,8 @@ function MailHome() {
   const openSettingsRef = useLatest(openSettings);
   useEffect(() => {
     const pull = () =>
-      mailApi
-        .getSettingsTarget()
+      Promise.resolve()
+        .then(() => mailApi.getSettingsTarget())
         .then((target) => {
           if (!target) return;
           const pane = target.pane ?? lastPaneRef.current;
@@ -1459,8 +1460,13 @@ function MailHome() {
     console.log("[HomeView:syncNow]");
     setManualSyncing(true);
     const startedAt = Date.now();
-    // Nothing here throws (each call catches), so no try/finally: the React Compiler can't
-    // compile a try without a catch, and would leave this whole component unmemoized.
+    const settle = async () => {
+      const remaining = 700 - (Date.now() - startedAt);
+      if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
+      setManualSyncing(false);
+    };
+    // A promise's finally, not try/finally: the React Compiler can't compile a try without a
+    // catch, and would leave this whole component unmemoized.
     void (async () => {
       await Promise.all(accountIds.map((id) => mailApi.syncAccount(id).catch(() => null)));
       for (let i = 0; i < 150; i++) {
@@ -1470,10 +1476,9 @@ function MailHome() {
         if (!statuses.some((st) => st?.syncing)) break;
         await new Promise((r) => setTimeout(r, 400));
       }
-      const remaining = 700 - (Date.now() - startedAt);
-      if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
-      setManualSyncing(false);
-    })();
+    })()
+      .catch(() => null)
+      .finally(() => void settle());
   };
   const syncNowRef = useLatest(syncNow);
   useEffect(
@@ -1534,6 +1539,13 @@ function MailHome() {
     panelControls > 0 && (isChats || (!browserVisible && !calendarPanelVisible));
   const titleTrailing = <TitleTrailing showPanelToggle={browserToggleRoom} />;
   const titlebarInset = <TitlebarInset />;
+  // Left to CSS (the root's data attributes): the list then keeps its props, and skips
+  // re-rendering, when a panel opening flips the layout.
+  const listTrailing = (
+    <span className="hidden [[data-mail-layout=full][data-right-panels=none]_&]:contents">
+      <PanelControlSlot />
+    </span>
+  );
   const readerLeading = fullInbox ? (
     <>
       {sidebarOpen ? null : titlebarInset}
@@ -1651,6 +1663,9 @@ function MailHome() {
         className="flex h-full flex-col bg-sidebar-surface text-foreground"
         data-panel-animations={panelAnimationsActive ? "true" : "false"}
         data-mail-layout={ownsMain ? "split" : mailLayout}
+        data-right-panels={
+          !panelControls ? "off" : browserVisible || calendarPanelVisible ? "open" : "none"
+        }
         style={
           {
             "--panel-animation-duration": `${panelAnimationDurationMs}ms`,
@@ -1743,7 +1758,7 @@ function MailHome() {
                     >
                       <MessageList
                         headerLeading={sidebarOpen ? null : titlebarInset}
-                        headerTrailing={fullInbox ? titleTrailing : undefined}
+                        headerTrailing={listTrailing}
                         accountId={(spansMailboxes ? firstRealAccountId : effectiveAccountId) ?? ""}
                         alias={aliasSpace?.id}
                         labelId={selectedLabelId}
@@ -1874,6 +1889,7 @@ function MailHome() {
                 {browserVisible ? <PaneResizer onPointerDown={browserStart} /> : null}
                 <div
                   ref={browserFrameRef}
+                  data-page-clip=""
                   style={{ width: browserVisible ? browserWidth : 0 }}
                   className={cn(
                     PANE_FRAME,

@@ -1288,10 +1288,10 @@ function MessageListView({
   const bulk = (
     label: string,
     run: (m: MessageSummary) => void,
-    { undoable = true }: { undoable?: boolean } = {},
+    { undoable }: { undoable?: boolean } = {},
   ) => {
     console.log("[MessageList:bulk]", { action: label, count: checkedRows.length });
-    if (undoable) beginUndoGroup(checkedRows.length);
+    if (undoable ?? true) beginUndoGroup(checkedRows.length);
     for (const m of checkedRows) run(m);
     clearChecked();
   };
@@ -1564,6 +1564,8 @@ function MessageListView({
         advance: () => void;
         focus: MessageSummary | null;
         advanceFocus: () => void;
+        checked: ReadonlySet<string>;
+        moveContextLabelId: string | null | undefined;
       }) => boolean | void,
     ) =>
     (e: KeyboardEvent) => {
@@ -1595,6 +1597,8 @@ function MessageListView({
         advanceFocus: () => {
           if (row && focus) advanceFocusIn(row, focus);
         },
+        checked: checkedRef.current,
+        moveContextLabelId: shortcutState.current.moveContextLabelId,
       });
     };
   const navCommand = (step: 1 | -1) => (e: KeyboardEvent) => {
@@ -1657,79 +1661,79 @@ function MessageListView({
     }),
     // With rows multi-selected, triage keys act on the whole selection; with
     // one message of a conversation open, on that message alone.
-    // oxlint-disable-next-line react/refs -- rowCommand builds an event handler; its ref reads happen when the command runs.
-    "message.archive": rowCommand(({ row, owner, threadId, advance, focus, advanceFocus }) => {
-      if (checkedRef.current.size > 0) return bulkArchive();
-      if (!row) return false;
-      if (focus) {
-        const from = archiveSourceOf(focus.labelIds);
-        if (from) advanceFocus();
-        void listModifyMessage.mutateAsync({
+    "message.archive": (e: KeyboardEvent) =>
+      rowCommand(({ row, owner, threadId, advance, focus, advanceFocus, checked }) => {
+        if (checked.size > 0) return bulkArchive();
+        if (!row) return false;
+        if (focus) {
+          const from = archiveSourceOf(focus.labelIds);
+          if (from) advanceFocus();
+          void listModifyMessage.mutateAsync({
+            accountId: owner,
+            messageId: focus.id,
+            addLabelIds: from ? undefined : ["INBOX"],
+            removeLabelIds: from ? [from] : undefined,
+          });
+          return;
+        }
+        const from = archiveSourceOf(rowLabels(row));
+        if (from) advance();
+        void listModifyThread.mutateAsync({
           accountId: owner,
-          messageId: focus.id,
+          threadId,
           addLabelIds: from ? undefined : ["INBOX"],
           removeLabelIds: from ? [from] : undefined,
+          from: fromFor(owner),
         });
-        return;
-      }
-      const from = archiveSourceOf(rowLabels(row));
-      if (from) advance();
-      void listModifyThread.mutateAsync({
-        accountId: owner,
-        threadId,
-        addLabelIds: from ? undefined : ["INBOX"],
-        removeLabelIds: from ? [from] : undefined,
-        from: fromFor(owner),
-      });
-    }),
-    // oxlint-disable-next-line react/refs -- rowCommand builds an event handler; its ref reads happen when the command runs.
-    "message.trash": rowCommand(({ row, owner, threadId, advance, focus, advanceFocus }) => {
-      if (checkedRef.current.size > 0) {
-        trashCheckedRef.current();
-        return;
-      }
-      if (!row) return false;
-      if (focus) {
-        if (focus.labelIds.includes("TRASH")) {
-          void listUntrashMessage.mutateAsync({ accountId: owner, messageId: focus.id });
-        } else {
-          advanceFocus();
-          void listTrashMessage.mutateAsync({ accountId: owner, messageId: focus.id });
+      })(e),
+    "message.trash": (e: KeyboardEvent) =>
+      rowCommand(({ row, owner, threadId, advance, focus, advanceFocus, checked }) => {
+        if (checked.size > 0) {
+          trashCheckedRef.current();
+          return;
         }
-        return;
-      }
-      if (rowLabels(row).includes("TRASH")) {
-        void listUntrashThread.mutateAsync({ accountId: owner, threadId });
-      } else {
+        if (!row) return false;
+        if (focus) {
+          if (focus.labelIds.includes("TRASH")) {
+            void listUntrashMessage.mutateAsync({ accountId: owner, messageId: focus.id });
+          } else {
+            advanceFocus();
+            void listTrashMessage.mutateAsync({ accountId: owner, messageId: focus.id });
+          }
+          return;
+        }
+        if (rowLabels(row).includes("TRASH")) {
+          void listUntrashThread.mutateAsync({ accountId: owner, threadId });
+        } else {
+          advance();
+          trashRow(owner, threadId);
+        }
+      })(e),
+    "message.junk": (e: KeyboardEvent) =>
+      rowCommand(({ row, owner, threadId, advance, focus, advanceFocus, checked }) => {
+        if (checked.size > 0) return allJunk ? bulkNotJunk() : bulkJunk();
+        if (!row) return false;
+        if (focus) {
+          const focusJunk = isJunk(focus.labelIds, labelId === "SPAM");
+          advanceFocus();
+          void listModifyMessage.mutateAsync({
+            accountId: owner,
+            messageId: focus.id,
+            addLabelIds: focusJunk ? ["INBOX"] : ["SPAM"],
+            removeLabelIds: focusJunk ? ["SPAM"] : ["INBOX"],
+          });
+          return;
+        }
+        const rowJunk = isJunk(rowLabels(row), labelId === "SPAM");
         advance();
-        trashRow(owner, threadId);
-      }
-    }),
-    // oxlint-disable-next-line react/refs -- rowCommand builds an event handler; its ref reads happen when the command runs.
-    "message.junk": rowCommand(({ row, owner, threadId, advance, focus, advanceFocus }) => {
-      if (checkedRef.current.size > 0) return allJunk ? bulkNotJunk() : bulkJunk();
-      if (!row) return false;
-      if (focus) {
-        const focusJunk = isJunk(focus.labelIds, labelId === "SPAM");
-        advanceFocus();
-        void listModifyMessage.mutateAsync({
+        void listModifyThread.mutateAsync({
           accountId: owner,
-          messageId: focus.id,
-          addLabelIds: focusJunk ? ["INBOX"] : ["SPAM"],
-          removeLabelIds: focusJunk ? ["SPAM"] : ["INBOX"],
+          threadId,
+          addLabelIds: rowJunk ? ["INBOX"] : ["SPAM"],
+          removeLabelIds: rowJunk ? ["SPAM"] : ["INBOX"],
+          from: fromFor(owner),
         });
-        return;
-      }
-      const rowJunk = isJunk(rowLabels(row), labelId === "SPAM");
-      advance();
-      void listModifyThread.mutateAsync({
-        accountId: owner,
-        threadId,
-        addLabelIds: rowJunk ? ["INBOX"] : ["SPAM"],
-        removeLabelIds: rowJunk ? ["SPAM"] : ["INBOX"],
-        from: fromFor(owner),
-      });
-    }),
+      })(e),
     "message.star": rowCommand(({ row, owner, threadId, focus }) => {
       if (!row) return false;
       if (!focus && (row.threadStarred ?? row.starred)) {
@@ -1748,38 +1752,41 @@ function MessageListView({
         removeLabelIds: target.starred ? ["STARRED"] : undefined,
       });
     }),
-    // oxlint-disable-next-line react/refs -- rowCommand builds an event handler; its ref reads happen when the command runs.
-    "message.markUnread": rowCommand(({ row, owner, focus }) => {
-      if (checkedRef.current.size > 0) return bulkMarkUnread();
-      if (!row) return false;
-      void listModifyMessage.mutateAsync({
-        accountId: owner,
-        messageId: (focus ?? row).id,
-        addLabelIds: ["UNREAD"],
-      });
-      onDeselect();
-    }),
-    // oxlint-disable-next-line react/refs -- rowCommand builds an event handler; its ref reads happen when the command runs.
-    "message.markRead": rowCommand(({ row, owner, threadId, focus }) => {
-      if (checkedRef.current.size > 0) return bulkMarkRead();
-      if (!row) return false;
-      if (focus) {
+    "message.markUnread": (e: KeyboardEvent) =>
+      rowCommand(({ row, owner, focus, checked }) => {
+        if (checked.size > 0) return bulkMarkUnread();
+        if (!row) return false;
         void listModifyMessage.mutateAsync({
           accountId: owner,
-          messageId: focus.id,
+          messageId: (focus ?? row).id,
+          addLabelIds: ["UNREAD"],
+        });
+        onDeselect();
+      })(e),
+    "message.markRead": (e: KeyboardEvent) =>
+      rowCommand(({ row, owner, threadId, focus, checked }) => {
+        if (checked.size > 0) return bulkMarkRead();
+        if (!row) return false;
+        if (focus) {
+          void listModifyMessage.mutateAsync({
+            accountId: owner,
+            messageId: focus.id,
+            removeLabelIds: ["UNREAD"],
+          });
+          return;
+        }
+        void listModifyThread.mutateAsync({
+          accountId: owner,
+          threadId,
           removeLabelIds: ["UNREAD"],
         });
-        return;
-      }
-      void listModifyThread.mutateAsync({ accountId: owner, threadId, removeLabelIds: ["UNREAD"] });
-    }),
+      })(e),
     "message.label": rowCommand(({ row }) => {
       if (!row) return false;
       setLabelOverlay("label");
     }),
-    // oxlint-disable-next-line react/refs -- rowCommand builds an event handler; its ref reads happen when the command runs.
-    "message.move": rowCommand(({ row }) => {
-      if (!row || !shortcutState.current.moveContextLabelId) return false;
+    "message.move": rowCommand(({ row, moveContextLabelId }) => {
+      if (!row || !moveContextLabelId) return false;
       setLabelOverlay("move");
     }),
     // A label's own shortcut (label.move:<name>): moves the selection there,

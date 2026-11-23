@@ -8,7 +8,7 @@ import { BrowserPage } from "./browser-view";
 import { useBrowser, type BrowserTab } from "./store";
 
 type Rect = { top: number; left: number; width: number; height: number };
-type Surface = { rect: Rect; visible: boolean; className?: string };
+type Surface = { rect: Rect; clip: string | undefined; visible: boolean; className?: string };
 
 const useSurfaces = create<Record<string, Surface>>(() => ({}));
 
@@ -28,6 +28,7 @@ function present(tabId: string, surface: Surface) {
   if (
     current?.visible === surface.visible &&
     current.className === surface.className &&
+    current.clip === surface.clip &&
     sameRect(current.rect, surface.rect)
   )
     return;
@@ -43,10 +44,18 @@ export function PageSlot({ tabId, className }: { tabId: string; className?: stri
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // The page is laid over the slot, outside the frame a sliding panel clips its card with.
+    const frame = el.closest("[data-page-clip]");
     const measure = () => {
-      const { top, left, width, height } = el.getBoundingClientRect();
+      const { top, left, width, height, right, bottom } = el.getBoundingClientRect();
+      const box = frame?.getBoundingClientRect();
+      const clip =
+        box && (box.left > left || box.right < right || box.top > top || box.bottom < bottom)
+          ? `inset(${Math.max(0, box.top - top)}px ${Math.max(0, right - box.right)}px ${Math.max(0, bottom - box.bottom)}px ${Math.max(0, box.left - left)}px)`
+          : undefined;
       present(tabId, {
         rect: { top, left, width, height },
+        clip,
         visible: width > 0 && height > 0,
         className,
       });
@@ -57,13 +66,24 @@ export function PageSlot({ tabId, className }: { tabId: string; className?: stri
     // Panes move and resize around the slot (sidebar, list, the calendar panel, animations)
     // without resizing it: a sibling's resize is what moves it.
     const observer = new ResizeObserver(update);
-    for (let node: Element | null = el; node; node = node.parentElement) {
-      observer.observe(node);
-      for (const sibling of node.parentElement?.children ?? []) observer.observe(sibling);
-    }
+    const observeAround = () => {
+      for (let node: Element | null = el; node; node = node.parentElement) {
+        observer.observe(node);
+        for (const sibling of node.parentElement?.children ?? []) observer.observe(sibling);
+      }
+    };
+    observeAround();
+    // A pane mounted later (a panel opening) moves it too.
+    const added = new MutationObserver(() => {
+      observeAround();
+      update();
+    });
+    for (let node = el.parentElement; node; node = node.parentElement)
+      added.observe(node, { childList: true });
     window.addEventListener("resize", update);
     return () => {
       observer.disconnect();
+      added.disconnect();
       window.removeEventListener("resize", update);
       const current = useSurfaces.getState()[tabId];
       if (current) useSurfaces.setState({ [tabId]: { ...current, visible: false } });
@@ -95,7 +115,11 @@ function HostedPage({ tab }: { tab: BrowserTab }) {
       data-browser-page=""
       inert={!surface.visible}
       className={cn("fixed z-10 flex flex-col overflow-hidden bg-canvas", surface.className)}
-      style={surface.visible ? surface.rect : { ...surface.rect, ...OFFSCREEN }}
+      style={
+        surface.visible
+          ? { ...surface.rect, clipPath: surface.clip }
+          : { ...surface.rect, ...OFFSCREEN }
+      }
     >
       <BrowserPage tab={tab} active={surface.visible} />
     </div>
