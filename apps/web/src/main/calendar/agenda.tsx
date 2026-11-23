@@ -4,7 +4,7 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { IconBtn, buttonClass, cn } from "../mail/ui";
 import { useAccounts } from "../mail/hooks";
 import { PanelControlSlot } from "../mail/top-bar";
-import { LIST_LIMIT, calendarKey, useCalendarLists, useUpcomingEvents, type CalEvent } from "./api";
+import { calendarKey, useCalendarLists, useUpcomingEvents, type CalEvent } from "./api";
 import { isShown, useCalendar } from "./calendar-store";
 import { calendarAccounts, legible, listedCalendars, type ListedCalendar } from "./calendar-view";
 import { addDays, dayKey, durationLabel, sameDay, startOfDay } from "./dates";
@@ -132,8 +132,6 @@ export function AgendaDrawer({
         loading={query.isPending}
         failed={query.isError || !!query.data?.failed.length}
         onRetry={() => void query.refetch()}
-        // At the list's limit, the year runs past what came back.
-        limited={(query.data?.events.length ?? 0) >= LIST_LIMIT}
         empty="Nothing coming up in the next year."
       />
     </aside>
@@ -149,7 +147,6 @@ function AgendaDays({
   loading,
   failed,
   onRetry,
-  limited,
   empty,
 }: {
   events: CalEvent[];
@@ -160,7 +157,6 @@ function AgendaDays({
   loading: boolean;
   failed: boolean;
   onRetry: () => void;
-  limited?: boolean;
   empty: string;
 }) {
   const events = all
@@ -224,11 +220,6 @@ function AgendaDays({
           ))}
         </section>
       ))}
-      {limited && days.length ? (
-        <p className="px-2 pt-4 text-center text-xs text-muted-foreground">
-          Showing what's coming until {dayTitle(days[days.length - 1]!.day, now)}.
-        </p>
-      ) : null}
       {failed ? (
         <div className="flex flex-col items-center gap-2 px-2 pt-6 text-center text-[13px] text-muted-foreground">
           Couldn&apos;t load some events.

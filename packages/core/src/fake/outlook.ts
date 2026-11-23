@@ -1324,6 +1324,25 @@ function events(box: Mailbox, req: Req, rest: string[]): Answer {
   return ok(undefined, 202);
 }
 
+/** The events each deltaLink saw: the next call answers them all again, and what's gone. */
+const calendarDeltas = new Map<string, Set<string>>();
+let nextDelta = 1;
+
+function calendarDelta(req: Req, items: Record<string, unknown>[]): Answer {
+  const token = req.url.searchParams.get("$deltatoken");
+  const seen = token ? calendarDeltas.get(token) : undefined;
+  if (token && !seen) return graphError(410, "SyncStateNotFound", "The sync state is gone.");
+  const ids = new Set(items.map((e) => String(e.id)));
+  const removed = [...(seen ?? [])]
+    .filter((id) => !ids.has(id))
+    .map((id) => ({ id, "@removed": { reason: "deleted" } }));
+  const next = String(nextDelta++);
+  calendarDeltas.set(next, ids);
+  const link = new URL(req.url);
+  link.searchParams.set("$deltatoken", next);
+  return ok({ value: [...items, ...removed], "@odata.deltaLink": link.toString() });
+}
+
 function calendarView(box: Mailbox, req: Req): Answer {
   const from = Date.parse(req.url.searchParams.get("startDateTime") ?? "");
   const to = Date.parse(req.url.searchParams.get("endDateTime") ?? "");
@@ -1333,6 +1352,7 @@ function calendarView(box: Mailbox, req: Req): Answer {
   const list = Object.values(box.events)
     .filter((e) => e.start < to && e.end > from)
     .sort((a, b) => a.start - b.start);
+  if (req.path.at(-1) === "delta") return calendarDelta(req, list.map(eventResource));
   return page(req, list, (e) => pick(eventResource(e), select(req)));
 }
 
@@ -1399,7 +1419,9 @@ function calendars(box: Mailbox, req: Req, rest: string[]): Answer {
           },
         ]
       : [{ id: "hol-1", subject: "Veterans Day", start: day(9), end: day(10), isAllDay: true }];
-  return ok({ value: made.map((e) => ({ ...e, showAs: "busy", isOrganizer: true })) });
+  const value = made.map((e) => ({ ...e, showAs: "busy", isOrganizer: true }));
+  if (rest[2] === "delta") return calendarDelta(req, value);
+  return ok({ value });
 }
 
 const SUBJECTS = ["1:1", "Pipeline review", "Customer call", "Focus", "Planning", "Interview"];

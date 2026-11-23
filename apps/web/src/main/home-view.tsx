@@ -84,6 +84,7 @@ import {
   useUntrashThread,
   useUntrashMessage,
 } from "./mail/hooks";
+import { useCalendarChanges } from "./calendar/api";
 import {
   beginUndoGroup,
   onUndoableAction,
@@ -556,6 +557,7 @@ function MailHome() {
   useWriteFailureToasts();
   useSignInAlerts();
   useExternalMailChanges();
+  useCalendarChanges();
   useBrowserEvents();
   useEffect(() => {
     const unwatch = watchNewWindowClicks();

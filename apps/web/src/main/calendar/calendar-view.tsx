@@ -21,6 +21,7 @@ import {
   useCalendarActions,
   useCalendarEvents,
   useCalendarLists,
+  useSyncWhileShown,
   useTeamEvents,
   type AccountCalendars,
   type CalendarInfo,
@@ -177,6 +178,7 @@ export function CalendarView({
   const select = useCalendar((s) => s.select);
   const actions = useCalendarActions();
   const bodyRef = useRef<HTMLDivElement>(null);
+  useSyncWhileShown();
 
   const {
     showWeekends,

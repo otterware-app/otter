@@ -28,6 +28,7 @@ import { getUiPreferences, preferenceChanged, setUiPreference } from "./services
 import { getSettings, onSettingsChanged } from "./services/settings-store.js";
 import { refreshProfiles } from "./services/google-profile.js";
 import { startCalendarReminders } from "./services/calendar-reminders.js";
+import { startCalendarSync } from "./services/calendar-sync.js";
 import { startMailSchedule } from "./services/mail-schedule.js";
 import { refreshSignatures } from "./services/signatures.js";
 
@@ -87,6 +88,7 @@ export async function startCore(
   followAliasMailApart(ui["mail:alias-mail-apart"]);
   void syncAllAccounts({ force: true });
   configureAutoSync((await getSettings()).syncIntervalSeconds);
+  startCalendarSync();
   startCalendarReminders();
   void pruneAttachmentCache();
   void refreshSignatures();

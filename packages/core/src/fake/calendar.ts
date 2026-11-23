@@ -17,6 +17,9 @@ type ApiEvent = {
 
 const overrides = new Map<string, Partial<ApiEvent>>();
 
+/** The events each sync token saw. */
+const syncTokens = new Map<string, Set<string>>();
+
 const calendars = new Map<string, Map<string, ApiEvent[]>>();
 
 type ListedCalendar = {
@@ -357,6 +360,13 @@ export function fakeCalendar(
     });
   }
   if (url.pathname.endsWith("/users/me/calendarList")) return json({ items: calendarList(email) });
+  if (url.pathname.endsWith("/channels/stop")) return new Response(null, { status: 204 });
+  if (url.pathname.endsWith("/events/watch"))
+    return json({
+      id: body.id,
+      resourceId: `resource-${String(body.id)}`,
+      expiration: String(Date.now() + 7 * 86_400_000),
+    });
   const calendarId = decodeURIComponent(
     /\/calendars\/([^/]+)/.exec(url.pathname)?.[1] ?? "primary",
   );
@@ -365,13 +375,28 @@ export function fakeCalendar(
   // Invitations in the demo mail aren't on it: RSVPs go out as email replies.
   if (url.searchParams.has("iCalUID")) return json({ items: [] });
   if (!id && method === "GET") {
-    const from = Date.parse(url.searchParams.get("timeMin") ?? "");
-    const to = Date.parse(url.searchParams.get("timeMax") ?? "");
+    // What changed since a sync token: everything around now, and what's gone since.
+    const since = syncTokens.get(url.searchParams.get("syncToken") ?? "");
+    if (url.searchParams.has("syncToken") && !since)
+      return json({ error: { code: 410, message: "Sync token is no longer valid" } }, 410);
+    const from = since
+      ? Date.now() - 400 * 86_400_000
+      : Date.parse(url.searchParams.get("timeMin") ?? "");
+    const to = since
+      ? Date.now() + 400 * 86_400_000
+      : Date.parse(url.searchParams.get("timeMax") ?? "");
     const items = events
       .flatMap((e) => (e.recurrence ? occurrences(e, from, to) : [e]))
       .filter((e) => endOf(e) > from && startOf(e) < to)
       .sort((a, b) => startOf(a) - startOf(b));
-    return json({ items });
+    const ids = new Set(items.map((e) => e.id));
+    const gone = [...(since ?? [])].filter((i) => !ids.has(i));
+    const nextSyncToken = `sync${nextId++}`;
+    syncTokens.set(nextSyncToken, ids);
+    return json({
+      items: [...items, ...gone.map((i) => ({ id: i, status: "cancelled" }))],
+      ...(url.searchParams.has("singleEvents") ? { nextSyncToken } : {}),
+    });
   }
   if (!id && method === "POST") {
     const event: ApiEvent = {

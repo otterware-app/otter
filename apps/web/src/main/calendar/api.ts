@@ -78,47 +78,45 @@ export type CalEvent = CalendarEvent & {
   teammate?: string;
 };
 
-const SAVED_LISTS = "calendar:lists";
-const SAVED_EVENTS = "calendar:events";
-
-function readSaved<T>(key: string): T | null {
-  try {
-    return JSON.parse(localStorage.getItem(key) ?? "null") as T | null;
-  } catch {
-    return null;
-  }
-}
-
-function save(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Full or blocked: the next open loads from the network, as before.
-  }
-}
-
-function savedLists(accountIds: string[]): AccountCalendars[] | undefined {
-  const found = (readSaved<AccountCalendars[]>(SAVED_LISTS) ?? []).filter((l) =>
-    accountIds.includes(l.accountId),
+/**
+ * Calendars and events come from core's copy (calendar-sync.ts), which answers at once and
+ * says when it changes: queries stay fresh until then.
+ */
+export function useCalendarChanges() {
+  const qc = useQueryClient();
+  useEffect(
+    () =>
+      window.desktopBridge.on("calendar:changed", () => {
+        void qc.invalidateQueries({ queryKey: ["calendar", "lists"] });
+        void qc.invalidateQueries({ queryKey: KEY });
+      }),
+    [qc],
   );
-  return found.length ? found : undefined;
 }
 
-/** The calendars, drawn from the last time's list while the network answers. */
+/** While the calendar is in front, core checks it hasn't missed a change. */
+export function useSyncWhileShown() {
+  useEffect(() => {
+    const sync = () => {
+      if (document.visibilityState === "visible") void ipc("calendar:sync").catch(() => {});
+    };
+    sync();
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, []);
+}
+
 export function useCalendarLists(accountIds: string[]) {
   return useQuery({
     queryKey: ["calendar", "lists", accountIds],
-    queryFn: async () => {
-      const lists = await ipc<AccountCalendars[]>("calendar:listCalendars", { accountIds });
-      save(
-        SAVED_LISTS,
-        lists.filter((l) => !l.error),
-      );
-      return lists;
-    },
+    queryFn: () => ipc<AccountCalendars[]>("calendar:listCalendars", { accountIds }),
     enabled: accountIds.length > 0,
-    placeholderData: (previous) => previous ?? savedLists(accountIds),
-    staleTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: Infinity,
   });
 }
 
@@ -230,52 +228,20 @@ const rangeKey = (refs: CalendarRef[], from: number, to: number) => [
   refs.map(calendarKey),
 ];
 
-type SavedRange = { from: number; to: number; events: CalEvent[] };
+/** Fresh until core says it changed; a range that couldn't load is asked again (focus, retry). */
+const fresh = (query: { state: { data?: Cached } }) =>
+  query.state.data?.failed.length ? 0 : Infinity;
 
-/** Last time's events in the range, from the calendars shown: what to draw while the network answers. */
-function savedEvents(refs: CalendarRef[], from: number, to: number): Cached | undefined {
-  const saved = readSaved<SavedRange>(SAVED_EVENTS);
-  if (!saved || saved.to <= from || saved.from >= to) return undefined;
-  const keys = new Set(refs.map(calendarKey));
-  return {
-    events: saved.events.filter(
-      (e) => keys.has(calendarKey(e)) && e.endMs > from && e.startMs < to,
-    ),
-    failed: [],
-  };
-}
-
-/** The calendars' events in [from, to); the neighbouring ranges load too, so stepping is instant. */
+/** The calendars' events in [from, to). */
 export function useCalendarEvents(refs: CalendarRef[], from: number, to: number) {
-  const qc = useQueryClient();
-  const query = useQuery({
+  return useQuery({
     queryKey: rangeKey(refs, from, to),
-    queryFn: async () => {
-      const found = await fetchRange(refs, from, to);
-      save(SAVED_EVENTS, { from, to, events: found.events } satisfies SavedRange);
-      return found;
-    },
+    queryFn: () => fetchRange(refs, from, to),
     enabled: refs.length > 0,
-    placeholderData: (previous) => previous ?? savedEvents(refs, from, to),
-    staleTime: 30_000,
-    refetchInterval: 120_000,
+    placeholderData: keepPreviousData,
+    staleTime: fresh,
   });
-  const latest = JSON.stringify(refs);
-  useEffect(() => {
-    const list = JSON.parse(latest) as CalendarRef[];
-    if (!list.length) return;
-    for (const shift of [from - to, to - from])
-      void qc.prefetchQuery({
-        queryKey: rangeKey(list, from + shift, to + shift),
-        queryFn: () => fetchRange(list, from + shift, to + shift),
-        staleTime: 30_000,
-      });
-  }, [qc, latest, from, to]);
-  return query;
 }
-
-/** What core's `calendar:listEvents` returns at most, per calendar, the soonest first. */
-export const LIST_LIMIT = 500;
 
 function findCachedEvent(
   qc: QueryClient,
@@ -312,8 +278,8 @@ export function useUpcomingEvents(refs: CalendarRef[], from: number, days: numbe
     queryFn: () => fetchRange(refs, from, to),
     enabled: refs.length > 0,
     // Showing or hiding a calendar (or midnight) changes the key: keep the list until the new one.
-    placeholderData: (previous) => previous,
-    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+    staleTime: fresh,
   });
 }
 
