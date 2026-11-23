@@ -1253,6 +1253,7 @@ describe("calendar push", () => {
     expect((await fromGoogle("shared@gmail.test", shared, "sync")).status).toBe(200);
     expect((await fromGraph("work@contoso.test", shared)).status).toBe(202);
     expect((await fromGraph("shared@gmail.test", shared)).status).toBe(202);
+    expect((await fromGoogle("work@contoso.test", work)).status).toBe(200);
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(devices.map((d) => d.events)).toEqual([[], []]);
 

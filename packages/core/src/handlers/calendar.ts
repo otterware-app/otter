@@ -9,9 +9,9 @@ import {
 } from "../providers/provider.js";
 import {
   accountCalendars,
-  addedEvent,
   answeredSeries,
   changeEvent,
+  createEvent,
   eventsInRange,
   patched,
   syncDueCalendars,
@@ -74,6 +74,13 @@ async function teammateSchedules(
   return results.flat();
 }
 
+/** Every change names its calendar: the store keeps events by it. */
+function calendarIdOf(p: Params): string {
+  const calendarId = str(p?.calendarId);
+  if (!calendarId) throw new Error("calendarId is required.");
+  return calendarId;
+}
+
 const strings = (value: unknown) =>
   ((value ?? []) as unknown[]).filter((v): v is string => typeof v === "string");
 
@@ -108,17 +115,17 @@ export function registerCalendarHandlers(): void {
   handle("calendar:createEvent", async (params: unknown) => {
     const p = params as Params;
     const accountId = str(p?.accountId);
-    const calendarId = str(p?.calendarId);
-    return runAsTask(str(p?.taskId) || undefined, async () => {
-      const made = await calendarOf(accountId).createEvent(
-        accountId,
-        eventInput(p?.input),
-        p?.notify === true,
-        calendarId || undefined,
-      );
-      if (calendarId) addedEvent(accountId, calendarId, made);
-      return made;
-    });
+    const calendarId = calendarIdOf(p);
+    return runAsTask(str(p?.taskId) || undefined, () =>
+      createEvent(accountId, calendarId, () =>
+        calendarOf(accountId).createEvent(
+          accountId,
+          eventInput(p?.input),
+          p?.notify === true,
+          calendarId,
+        ),
+      ),
+    );
   });
 
   handle("calendar:updateEvent", async (params: unknown) => {
@@ -126,7 +133,7 @@ export function registerCalendarHandlers(): void {
     const accountId = str(p?.accountId);
     const eventId = str(p?.eventId);
     if (!eventId) throw new Error("eventId is required.");
-    const calendarId = str(p?.calendarId);
+    const calendarId = calendarIdOf(p);
     const patch = eventInput(p?.patch);
     return runAsTask(str(p?.taskId) || undefined, () =>
       changeEvent(
@@ -140,7 +147,7 @@ export function registerCalendarHandlers(): void {
             eventId,
             patch,
             p?.notify === true,
-            calendarId || undefined,
+            calendarId,
           ),
       ),
     );
@@ -151,20 +158,14 @@ export function registerCalendarHandlers(): void {
     const accountId = str(p?.accountId);
     const eventId = str(p?.eventId);
     if (!eventId) throw new Error("eventId is required.");
-    const calendarId = str(p?.calendarId);
+    const calendarId = calendarIdOf(p);
     return runAsTask(str(p?.taskId) || undefined, () =>
       changeEvent(
         accountId,
         calendarId,
         eventId,
         () => null,
-        () =>
-          calendarOf(accountId).deleteEvent(
-            accountId,
-            eventId,
-            p?.notify === true,
-            calendarId || undefined,
-          ),
+        () => calendarOf(accountId).deleteEvent(accountId, eventId, p?.notify === true, calendarId),
       ),
     );
   });
@@ -176,26 +177,27 @@ export function registerCalendarHandlers(): void {
     const response = str(p?.response);
     if (!eventId || !RESPONSES.has(response))
       throw new Error("eventId and a valid response are required.");
-    const calendarId = str(p?.calendarId);
+    const calendarId = calendarIdOf(p);
     const allEvents = p?.allEvents === true;
     return runAsTask(str(p?.taskId) || undefined, () =>
       changeEvent(
         accountId,
         calendarId,
         eventId,
-        (before) => {
-          if (allEvents && before.seriesId)
-            answeredSeries(accountId, calendarId, before.seriesId, response as RsvpResponse);
-          return { ...before, response: response as RsvpResponse };
-        },
+        (before) => ({ ...before, response: response as RsvpResponse }),
         () =>
           calendarOf(accountId).respondToEvent(
             accountId,
             eventId,
             response as RsvpResponse,
-            calendarId || undefined,
+            calendarId,
             { allEvents, comment: str(p?.comment) || undefined },
           ),
+        (before) => {
+          // The series' other days once the provider took it; the sync after confirms them.
+          if (allEvents && before?.seriesId)
+            answeredSeries(accountId, calendarId, before.seriesId, response as RsvpResponse);
+        },
       ),
     );
   });

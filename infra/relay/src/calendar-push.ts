@@ -18,22 +18,37 @@ const pushKey = async (env: Env) =>
 /**
  * The secret a mailbox's calendar watches hand Google (a channel's token) or Graph (a
  * subscription's clientState), which they send back with each notification: an HMAC of the
- * address (43 characters; Google allows 256, Graph 128).
+ * provider and address (43 characters; Google allows 256, Graph 128), so one provider's
+ * can't pass for the other's.
  */
-export async function calendarToken(env: Env, email: string): Promise<string> {
-  const data = new TextEncoder().encode(email.toLowerCase());
+export type CalendarProvider = "gmail" | "outlook";
+
+const signed = (provider: CalendarProvider, email: string) =>
+  new TextEncoder().encode(`${provider}:${email.toLowerCase()}`);
+
+export async function calendarToken(
+  env: Env,
+  provider: CalendarProvider,
+  email: string,
+): Promise<string> {
+  const data = signed(provider, email);
   return base64url.encode(
     new Uint8Array(await crypto.subtle.sign("HMAC", await pushKey(env), data)),
   );
 }
 
-export async function checkCalendarToken(env: Env, email: string, token: string) {
+export async function checkCalendarToken(
+  env: Env,
+  provider: CalendarProvider,
+  email: string,
+  token: string,
+) {
   let signature: Uint8Array;
   try {
     signature = base64url.decode(token);
   } catch {
     return false;
   }
-  const data = new TextEncoder().encode(email.toLowerCase());
+  const data = signed(provider, email);
   return crypto.subtle.verify("HMAC", await pushKey(env), signature, data);
 }

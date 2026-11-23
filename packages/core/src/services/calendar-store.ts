@@ -3,13 +3,13 @@ import type { CalendarEvent, CalendarInfo } from "../providers/provider.js";
 
 /**
  * The calendars' events, kept as their providers last said (calendar-sync.ts keeps them
- * current), so any range draws from here at once. A calendar's segments are the ranges listed
- * from the provider, each with the token for what changed since.
+ * current), so any range draws from here at once. A calendar's window is the range listed
+ * from the provider, with the token for what changed since.
  */
 
 export type StoredList = { calendars: CalendarInfo[]; needsAccess?: boolean; syncedAt: number };
 
-export type Segment = { fromMs: number; toMs: number; token: string | null };
+export type Window = { fromMs: number; toMs: number; token: string | null };
 
 const DAY_MS = 86_400_000;
 
@@ -32,13 +32,13 @@ function getDb(): SqlDatabase {
     CREATE INDEX IF NOT EXISTS idx_calendar_events_start
       ON calendar_events (accountId, calendarId, startMs);
 
-    CREATE TABLE IF NOT EXISTS calendar_segments (
+    CREATE TABLE IF NOT EXISTS calendar_windows (
       accountId  TEXT NOT NULL,
       calendarId TEXT NOT NULL,
       fromMs     INTEGER NOT NULL,
       toMs       INTEGER NOT NULL,
       token      TEXT,
-      PRIMARY KEY (accountId, calendarId, fromMs)
+      PRIMARY KEY (accountId, calendarId)
     );
 
     CREATE TABLE IF NOT EXISTS calendar_lists (
@@ -80,6 +80,8 @@ export function timesOf(event: CalendarEvent): { startMs: number; endMs: number 
   return { startMs, endMs };
 }
 
+const parse = (row: Record<string, unknown>) => JSON.parse(String(row.event)) as CalendarEvent;
+
 function put(d: SqlDatabase, accountId: string, calendarId: string, event: CalendarEvent): void {
   const { startMs, endMs } = timesOf(event);
   d.prepare(
@@ -102,7 +104,7 @@ export function getEvent(accountId: string, calendarId: string, id: string): Cal
   const row = getDb()
     .prepare("SELECT event FROM calendar_events WHERE accountId = ? AND calendarId = ? AND id = ?")
     .get(accountId, calendarId, id);
-  return row ? (JSON.parse(String(row.event)) as CalendarEvent) : null;
+  return row ? parse(row) : null;
 }
 
 export function seriesEvents(
@@ -115,10 +117,10 @@ export function seriesEvents(
       "SELECT event FROM calendar_events WHERE accountId = ? AND calendarId = ? AND seriesId = ?",
     )
     .all(accountId, calendarId, seriesId)
-    .map((row) => JSON.parse(String(row.event)) as CalendarEvent);
+    .map(parse);
 }
 
-/** The events in [fromMs, toMs), a day either side for all-day ones read in another zone. */
+/** The events in [fromMs, toMs); all-day ones as their dates fall in this time zone. */
 export function eventsIn(
   accountId: string,
   calendarId: string,
@@ -132,36 +134,37 @@ export function eventsIn(
        ORDER BY startMs`,
     )
     .all(accountId, calendarId, toMs + DAY_MS, fromMs - DAY_MS)
-    .map((row) => JSON.parse(String(row.event)) as CalendarEvent);
+    .map(parse)
+    .filter((event) => {
+      const { startMs, endMs } = timesOf(event);
+      return startMs < toMs && endMs > fromMs;
+    });
 }
 
-/**
- * Changes since a token: upserts and removals, except the events `skip` holds (a change of the
- * user's still on its way: its answer lands them). A removed series takes its instances along.
- */
+/** Changes since the window's token, and the token for the next ones. */
 export function applyChanges(
   accountId: string,
   calendarId: string,
+  window: Window,
   events: CalendarEvent[],
   removed: string[],
-  skip: (id: string) => boolean,
 ): void {
   transaction((d) => {
-    for (const event of events) if (!skip(event.id)) put(d, accountId, calendarId, event);
+    for (const event of events) put(d, accountId, calendarId, event);
     const remove = d.prepare(
-      "DELETE FROM calendar_events WHERE accountId = ? AND calendarId = ? AND (id = ? OR seriesId = ?)",
+      "DELETE FROM calendar_events WHERE accountId = ? AND calendarId = ? AND id = ?",
     );
-    for (const id of removed) if (!skip(id)) remove.run(accountId, calendarId, id, id);
+    for (const id of removed) remove.run(accountId, calendarId, id);
+    setWindow(d, accountId, calendarId, window);
   });
 }
 
-/** A range listed whole: what it held and the listing didn't name is gone. */
-export function replaceRange(
+/** The window listed whole: what it held and the listing didn't name is gone. */
+export function replaceWindow(
   accountId: string,
   calendarId: string,
-  segment: Segment,
+  window: Window,
   events: CalendarEvent[],
-  skip: (id: string) => boolean,
 ): void {
   transaction((d) => {
     const kept = new Set(events.map((e) => e.id));
@@ -170,40 +173,38 @@ export function replaceRange(
         `SELECT id FROM calendar_events
          WHERE accountId = ? AND calendarId = ? AND startMs < ? AND endMs > ?`,
       )
-      .all(accountId, calendarId, segment.toMs, segment.fromMs)
+      .all(accountId, calendarId, window.toMs, window.fromMs)
       .map((row) => String(row.id))
-      .filter((id) => !kept.has(id) && !skip(id));
+      .filter((id) => !kept.has(id));
     const remove = d.prepare(
       "DELETE FROM calendar_events WHERE accountId = ? AND calendarId = ? AND id = ?",
     );
     for (const id of stale) remove.run(accountId, calendarId, id);
-    for (const event of events) if (!skip(event.id)) put(d, accountId, calendarId, event);
-    setSegment(d, accountId, calendarId, segment);
+    for (const event of events) put(d, accountId, calendarId, event);
+    setWindow(d, accountId, calendarId, window);
   });
 }
 
-function setSegment(d: SqlDatabase, accountId: string, calendarId: string, segment: Segment) {
+function setWindow(d: SqlDatabase, accountId: string, calendarId: string, window: Window) {
   d.prepare(
-    `INSERT OR REPLACE INTO calendar_segments (accountId, calendarId, fromMs, toMs, token)
+    `INSERT OR REPLACE INTO calendar_windows (accountId, calendarId, fromMs, toMs, token)
      VALUES (?, ?, ?, ?, ?)`,
-  ).run(accountId, calendarId, segment.fromMs, segment.toMs, segment.token);
+  ).run(accountId, calendarId, window.fromMs, window.toMs, window.token);
 }
 
-export function saveToken(accountId: string, calendarId: string, segment: Segment): void {
-  setSegment(getDb(), accountId, calendarId, segment);
-}
-
-export function segmentsOf(accountId: string, calendarId: string): Segment[] {
-  return getDb()
+export function windowOf(accountId: string, calendarId: string): Window | null {
+  const row = getDb()
     .prepare(
-      "SELECT fromMs, toMs, token FROM calendar_segments WHERE accountId = ? AND calendarId = ? ORDER BY fromMs",
+      "SELECT fromMs, toMs, token FROM calendar_windows WHERE accountId = ? AND calendarId = ?",
     )
-    .all(accountId, calendarId)
-    .map((row) => ({
-      fromMs: Number(row.fromMs),
-      toMs: Number(row.toMs),
-      token: row.token === null ? null : String(row.token),
-    }));
+    .get(accountId, calendarId);
+  return row
+    ? {
+        fromMs: Number(row.fromMs),
+        toMs: Number(row.toMs),
+        token: row.token === null ? null : String(row.token),
+      }
+    : null;
 }
 
 export function getList(accountId: string): StoredList | null {
@@ -211,16 +212,20 @@ export function getList(accountId: string): StoredList | null {
   return row ? (JSON.parse(String(row.list)) as StoredList) : null;
 }
 
-/** The account's calendars; the events and segments of those it no longer lists go. */
+/**
+ * The account's calendars; the events of those it no longer lists go, unless the list is only
+ * the primary one because the sign-in may not read the rest yet.
+ */
 export function saveList(accountId: string, list: StoredList): void {
   transaction((d) => {
     d.prepare("INSERT OR REPLACE INTO calendar_lists (accountId, list) VALUES (?, ?)").run(
       accountId,
       JSON.stringify(list),
     );
+    if (list.needsAccess) return;
     const ids = list.calendars.map((c) => c.id);
     const marks = ids.map(() => "?").join(", ") || "''";
-    for (const table of ["calendar_events", "calendar_segments"])
+    for (const table of ["calendar_events", "calendar_windows"])
       d.prepare(`DELETE FROM ${table} WHERE accountId = ? AND calendarId NOT IN (${marks})`).run(
         accountId,
         ...ids,
@@ -230,7 +235,7 @@ export function saveList(accountId: string, list: StoredList): void {
 
 export function removeAccount(accountId: string): void {
   transaction((d) => {
-    for (const table of ["calendar_events", "calendar_segments", "calendar_lists"])
+    for (const table of ["calendar_events", "calendar_windows", "calendar_lists"])
       d.prepare(`DELETE FROM ${table} WHERE accountId = ?`).run(accountId);
   });
 }

@@ -454,7 +454,7 @@ authed.post(
     }
     return c.json({
       notificationUrl: calendarPush.notificationUrl(c.env, email),
-      token: await calendarPush.calendarToken(c.env, email),
+      token: await calendarPush.calendarToken(c.env, provider, email),
     } satisfies CalendarWatchResponse);
   },
 );
@@ -948,7 +948,7 @@ app.post(
     if (channelToken !== undefined) {
       // A channel's first message only says it's open.
       const opened = c.req.header("X-Goog-Resource-State") === "sync";
-      if (!opened && (await calendarPush.checkCalendarToken(c.env, email, channelToken)))
+      if (!opened && (await calendarPush.checkCalendarToken(c.env, "gmail", email, channelToken)))
         provider = "gmail";
     } else {
       const body = (await c.req.json().catch(() => null)) as { value?: unknown } | null;
@@ -957,7 +957,7 @@ app.post(
         const state = (note as { clientState?: unknown } | null)?.clientState;
         if (
           typeof state === "string" &&
-          (await calendarPush.checkCalendarToken(c.env, email, state))
+          (await calendarPush.checkCalendarToken(c.env, "outlook", email, state))
         ) {
           provider = "outlook";
           break;

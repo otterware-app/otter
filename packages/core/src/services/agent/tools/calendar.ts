@@ -7,8 +7,13 @@ import {
   type RsvpResponse,
 } from "../../../providers/provider.js";
 import type { MailAccount } from "../../../types.js";
-import * as calendarStore from "../../calendar-store.js";
-import { eventsInRange, syncAccountSoon } from "../../calendar-sync.js";
+import {
+  accountCalendars,
+  changeEvent,
+  createEvent,
+  eventsInRange,
+  patched,
+} from "../../calendar-sync.js";
 import {
   mailbox,
   mailboxes,
@@ -41,6 +46,14 @@ async function calendarOf<T>(
   }
 }
 
+/** The tools' calendar: the mailbox's default one, as Otter keeps it. */
+async function defaultCalendar(account: MailAccount): Promise<string> {
+  const { calendars } = await accountCalendars(account.id);
+  const calendarId = calendars.find((c) => c.primary)?.id;
+  if (!calendarId) throw new Error(`Couldn't read ${account.email}'s calendars.`);
+  return calendarId;
+}
+
 /** The default calendar's events, from those Otter keeps in sync. */
 async function storedEvents(
   account: MailAccount,
@@ -48,8 +61,7 @@ async function storedEvents(
   to: Date,
   limit: number,
 ): Promise<CalendarEvent[]> {
-  const calendarId =
-    calendarStore.getList(account.id)?.calendars.find((c) => c.primary)?.id ?? "primary";
+  const calendarId = await defaultCalendar(account);
   const [range] = await eventsInRange(
     [{ accountId: account.id, calendarId }],
     from.toISOString(),
@@ -59,9 +71,7 @@ async function storedEvents(
     throw range?.error === "noAccess"
       ? new NoCalendarAccess(range.message)
       : new Error(range?.message);
-  return range.events
-    .filter((e) => Date.parse(e.end) > from.getTime() && Date.parse(e.start) < to.getTime())
-    .slice(0, limit);
+  return range.events.slice(0, limit);
 }
 
 function instant(value: string, key: string): Date {
@@ -232,8 +242,9 @@ export const calendarTools: AgentTool[] = [
         await ctx.confirm(
           `Add to ${account.email}'s calendar\n${describeInput(input)}${input.attendees?.length ? `\n${notifyNote(notify)}` : ""}`,
         );
-        const saved = await calendar.createEvent(account.id, input, notify);
-        syncAccountSoon(account.id);
+        const saved = await createEvent(account.id, await defaultCalendar(account), () =>
+          calendar.createEvent(account.id, input, notify),
+        );
         ctx.changed?.({
           action: "created",
           title: saved.title,
@@ -264,8 +275,13 @@ export const calendarTools: AgentTool[] = [
         await ctx.confirm(
           `Change ${describeEvent(event)} in ${account.email}'s calendar\n${describeInput(input)}${event.attendees.length ? `\n${notifyNote(notify)}` : ""}`,
         );
-        const saved = await calendar.updateEvent(account.id, eventId, input, notify);
-        syncAccountSoon(account.id);
+        const saved = await changeEvent(
+          account.id,
+          await defaultCalendar(account),
+          eventId,
+          (before) => patched(before, input),
+          () => calendar.updateEvent(account.id, eventId, input, notify),
+        );
         ctx.changed?.({
           action: "updated",
           title: saved.title,
@@ -299,8 +315,13 @@ export const calendarTools: AgentTool[] = [
         await ctx.confirm(
           `Delete ${describeEvent(event)} from ${account.email}'s calendar${event.attendees.length ? `\n${notifyNote(notify)}` : ""}`,
         );
-        await calendar.deleteEvent(account.id, eventId, notify);
-        syncAccountSoon(account.id);
+        await changeEvent(
+          account.id,
+          await defaultCalendar(account),
+          eventId,
+          () => null,
+          () => calendar.deleteEvent(account.id, eventId, notify),
+        );
         ctx.changed?.({
           action: "deleted",
           title: event.title,
@@ -333,8 +354,13 @@ export const calendarTools: AgentTool[] = [
       return calendarOf(account, async (calendar) => {
         const event = await calendar.getEvent(account.id, eventId);
         await ctx.confirm(`Answer ${describeEvent(event)} in ${account.email}: ${response}`);
-        const saved = await calendar.respondToEvent(account.id, eventId, response);
-        syncAccountSoon(account.id);
+        const saved = await changeEvent(
+          account.id,
+          await defaultCalendar(account),
+          eventId,
+          (before) => ({ ...before, response }),
+          () => calendar.respondToEvent(account.id, eventId, response),
+        );
         ctx.changed?.({
           action: "updated",
           title: saved.title,

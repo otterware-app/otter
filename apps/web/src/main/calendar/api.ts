@@ -228,6 +228,10 @@ const rangeKey = (refs: CalendarRef[], from: number, to: number) => [
   refs.map(calendarKey),
 ];
 
+/** Fresh until core says it changed; a range that couldn't load is asked again (focus, retry). */
+const fresh = (query: { state: { data?: Cached } }) =>
+  query.state.data?.failed.length ? 0 : Infinity;
+
 /** The calendars' events in [from, to). */
 export function useCalendarEvents(refs: CalendarRef[], from: number, to: number) {
   return useQuery({
@@ -235,7 +239,7 @@ export function useCalendarEvents(refs: CalendarRef[], from: number, to: number)
     queryFn: () => fetchRange(refs, from, to),
     enabled: refs.length > 0,
     placeholderData: keepPreviousData,
-    staleTime: Infinity,
+    staleTime: fresh,
   });
 }
 
@@ -273,7 +277,7 @@ export function useUpcomingEvents(ref: CalendarRef | null, from: number) {
     queryKey: ref ? rangeKey([ref], from, to) : [...KEY, "none"],
     queryFn: () => fetchRange([ref!], from, to),
     enabled: !!ref,
-    staleTime: Infinity,
+    staleTime: fresh,
   });
 }
 

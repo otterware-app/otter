@@ -84,7 +84,7 @@ export async function removeLocalAccount(accountId: string): Promise<void> {
   removeAccountSchedules(accountId);
   mailSync.forgetAccount(accountId);
   forgetLiveCursors(accountId);
-  await forgetCalendarAccount(accountId);
+  forgetCalendarAccount(accountId);
   await findProvider(accountId)?.removeAccount(accountId);
   if (providerKindOf(accountId) === "imap") await deleteImapPassword(accountId);
   await storeRemoveAccount(accountId);
