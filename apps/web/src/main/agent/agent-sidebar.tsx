@@ -980,7 +980,7 @@ export function AgentSidebar({
             recede &&
               status?.kind === "working" &&
               !dragging &&
-              "opacity-70 transition-opacity hover:opacity-100 focus-within:opacity-100 motion-reduce:transition-none",
+              "opacity-70 hover:opacity-100 focus-within:opacity-100",
           )}
         >
           {renaming ? (

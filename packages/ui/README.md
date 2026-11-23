@@ -31,6 +31,9 @@ Components are imported one file at a time: `import { Button } from "@otter/ui/c
   `text-2xl` 24 (page titles), `text-3xl` 30. No `text-[13px]`.
 - **Radius on the scale.** `rounded-sm` 4, `rounded-md` 6, `rounded-lg` 8 (controls),
   `rounded-xl` 12 (menus, cards), `rounded-2xl` 16 (dialogs), `rounded-full`.
+- **Hover is instant.** A row, a navigation item, a chip or a button changes on hover at once:
+  no `transition-colors` (or `transition-opacity` on actions a row shows on hover). Motion is
+  for what moves or opens: popups, panels, a section folding.
 - **Compose with `render`.** Base UI's parts take a `render` element instead of Radix's
   `asChild`: `<DropdownMenuTrigger render={<IconButton label="More" />}>`.
 - **One primitive library.** Base UI only; `radix-ui` is gone (lint refuses it).

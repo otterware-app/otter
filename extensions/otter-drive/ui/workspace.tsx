@@ -303,7 +303,7 @@ function useUpload(folderId: string | undefined, go: WorkspaceProps["go"]) {
 const chip = (on: boolean) =>
   cn(
     chipVariants({ size: "sm" }),
-    "cursor-pointer gap-1 text-xs font-medium transition-colors",
+    "cursor-pointer gap-1 text-xs font-medium",
     on
       ? "border-transparent bg-sidebar-row-selected text-sidebar-foreground"
       : "border-sidebar-border text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",

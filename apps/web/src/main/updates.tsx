@@ -170,7 +170,7 @@ export function UpdateButton() {
         closeDelay={150}
         aria-label={status === "error" && !manualUrl ? "Retry the update" : undefined}
         onClick={step.act ?? undefined}
-        className="relative ml-1 flex h-8 min-w-0 flex-1 cursor-pointer items-center rounded-full bg-sidebar-control-surface pl-3 text-xs text-sidebar-foreground outline-none transition-[opacity,translate] duration-300 ease-out before:absolute before:inset-0 before:rounded-full before:transition-colors hover:before:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring starting:translate-y-1 starting:opacity-0 motion-reduce:transition-none"
+        className="relative ml-1 flex h-8 min-w-0 flex-1 cursor-pointer items-center rounded-full bg-sidebar-control-surface pl-3 text-xs text-sidebar-foreground outline-none transition-[opacity,translate] duration-300 ease-out before:absolute before:inset-0 before:rounded-full hover:before:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring starting:translate-y-1 starting:opacity-0 motion-reduce:transition-none"
       >
         <span
           className={cn(

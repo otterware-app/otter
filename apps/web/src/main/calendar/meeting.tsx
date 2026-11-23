@@ -74,7 +74,7 @@ export function MeetingRow({ link, onRemove }: { link: string; onRemove?: () => 
           {link.replace(/^https:\/\//, "")}
         </span>
       </div>
-      <span className="flex shrink-0 items-center opacity-0 transition-opacity group-hover/meeting:opacity-100 group-focus-within/meeting:opacity-100">
+      <span className="flex shrink-0 items-center opacity-0 group-hover/meeting:opacity-100 group-focus-within/meeting:opacity-100">
         <HintTooltip label="Copy link">
           <IconButton label="Copy meeting link" onClick={copy}>
             <CopyIcon />

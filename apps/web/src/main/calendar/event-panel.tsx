@@ -439,7 +439,7 @@ function TimeRows({
           aria-pressed={allDay}
           onClick={toggleAllDay}
           className={cn(
-            "-mx-1.5 h-7 cursor-pointer rounded-md px-1.5 text-body outline-none transition-colors hover:bg-foreground/[0.05]",
+            "-mx-1.5 h-7 cursor-pointer rounded-md px-1.5 text-body outline-none hover:bg-foreground/[0.05]",
             allDay ? "text-foreground" : "text-muted-foreground",
           )}
         >
@@ -449,7 +449,7 @@ function TimeRows({
           <DropdownMenu>
             <DropdownMenuTrigger
               className={cn(
-                "flex h-7 min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-body outline-none transition-colors hover:bg-foreground/[0.05]",
+                "flex h-7 min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-body outline-none hover:bg-foreground/[0.05]",
                 repeat ? "text-foreground" : "text-muted-foreground",
               )}
             >
@@ -552,7 +552,7 @@ function Rsvp({
           type="button"
           onClick={() => onChange(response)}
           className={cn(
-            "h-7 flex-1 cursor-pointer rounded-md text-body outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-focus-ring",
+            "h-7 flex-1 cursor-pointer rounded-md text-body outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
             value === response
               ? "bg-canvas font-medium text-foreground shadow-[0_1px_2px_rgb(0_0_0/12%)] dark:bg-foreground/[0.12]"
               : "text-muted-foreground hover:text-foreground",

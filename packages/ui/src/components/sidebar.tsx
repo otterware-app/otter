@@ -438,7 +438,7 @@ function SidebarPicker({
               }}
               onDragEnd={endDrag}
               className={cn(
-                "relative flex h-8 min-w-0 shrink-0 cursor-pointer items-center rounded-lg px-1.5 text-sm font-medium outline-none transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-focus-ring motion-reduce:transition-none",
+                "relative flex h-8 min-w-0 shrink-0 cursor-pointer items-center rounded-lg px-1.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
                 selected
                   ? "max-w-full shrink bg-sidebar-row-selected text-sidebar-foreground"
                   : "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground",

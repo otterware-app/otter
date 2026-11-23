@@ -132,7 +132,7 @@ function MiniMonth({ mode }: { mode: CalendarMode }) {
             <div
               key={t}
               className={cn(
-                "my-px flex h-[26px] items-center justify-center transition-colors duration-150",
+                "my-px flex h-[26px] items-center justify-center",
                 viewed && "bg-sidebar-row-selected",
                 opens && "rounded-l-md",
                 closes && "rounded-r-md",
@@ -142,7 +142,7 @@ function MiniMonth({ mode }: { mode: CalendarMode }) {
                 type="button"
                 onClick={() => goTo(d)}
                 className={cn(
-                  "flex size-[26px] cursor-pointer items-center justify-center rounded-md text-2xs tabular-nums outline-none transition-colors duration-150",
+                  "flex size-[26px] cursor-pointer items-center justify-center rounded-md text-2xs tabular-nums outline-none",
                   isToday
                     ? "bg-calendar-today font-medium text-white"
                     : viewed
@@ -197,7 +197,7 @@ function TeamCalendars() {
             type="button"
             aria-label="Hide teammates"
             onClick={clearTeam}
-            className="absolute -right-1.5 -top-1.5 flex size-5 cursor-pointer items-center justify-center rounded-full bg-sidebar-row-hover text-sidebar-muted-foreground shadow-[0_0_0_2px_var(--sidebar-surface)] outline-none transition-colors hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="absolute -right-1.5 -top-1.5 flex size-5 cursor-pointer items-center justify-center rounded-full bg-sidebar-row-hover text-sidebar-muted-foreground shadow-[0_0_0_2px_var(--sidebar-surface)] outline-none hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <XIcon className="size-3" />
           </button>
@@ -378,7 +378,7 @@ function CalendarRow({
         >
           <span
             className={cn(
-              "min-w-0 flex-1 truncate transition-colors",
+              "min-w-0 flex-1 truncate",
               on ? "text-sidebar-foreground" : "text-sidebar-muted-foreground/70",
             )}
           >
@@ -395,7 +395,7 @@ function CalendarRow({
             aria-label={on ? "Hide calendar" : "Show calendar"}
             onClick={onToggle}
             className={cn(
-              "mr-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground outline-none transition-[color,opacity] hover:text-sidebar-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-focus-ring",
+              "mr-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground outline-none transition-opacity hover:text-sidebar-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-focus-ring",
               on && "opacity-0 group-hover:opacity-100",
             )}
           >

@@ -301,7 +301,7 @@ function MessageTime({ at }: { at: number | undefined }) {
   if (!at) return null;
   return (
     <HintTooltip label={new Date(at).toLocaleString([], { dateStyle: "full", timeStyle: "short" })}>
-      <span className="px-1 text-xs text-muted-foreground tabular-nums opacity-0 transition-opacity group-hover:opacity-100">
+      <span className="px-1 text-xs text-muted-foreground tabular-nums opacity-0 group-hover:opacity-100">
         {messageTime(at)}
       </span>
     </HintTooltip>
@@ -320,7 +320,7 @@ function CopyMessageButton({ text }: { text: string }) {
       <IconButton
         label={copied ? "Copied" : "Copy message"}
         size="icon-xs"
-        className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
         onClick={() => {
           void navigator.clipboard.writeText(text).then(
             () => setCopied(true),
@@ -540,7 +540,7 @@ export function ChatTranscript({
                     <IconButton
                       label="Fork conversation"
                       size="icon-xs"
-                      className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                       onClick={() => onFork(turn.id)}
                     >
                       <GitForkIcon className="size-3.5" />

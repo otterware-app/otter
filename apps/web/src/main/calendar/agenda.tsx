@@ -178,7 +178,7 @@ function AgendaDays({
               type="button"
               onClick={() => onOpen(event)}
               style={{ "--event-color": colorOf(event) } as CSSProperties}
-              className="flex w-full cursor-pointer gap-2.5 rounded-lg px-2 py-1.5 text-left outline-none transition-colors hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-focus-ring"
+              className="flex w-full cursor-pointer gap-2.5 rounded-lg px-2 py-1.5 text-left outline-none hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-focus-ring"
             >
               <span
                 aria-hidden

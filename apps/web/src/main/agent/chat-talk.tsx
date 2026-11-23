@@ -345,7 +345,7 @@ export function TalkBar({ call, name, compact }: { call: Call; name: string; com
         variant="destructive"
         size={compact ? "sm" : "default"}
         onClick={endCall}
-        className="rounded-full bg-destructive/90 px-3.5 text-sm font-medium shadow-xs shadow-destructive/24 inset-shadow-2xs inset-shadow-white/16 transition-colors hover:bg-destructive active:shadow-none"
+        className="rounded-full bg-destructive/90 px-3.5 text-sm font-medium shadow-xs shadow-destructive/24 inset-shadow-2xs inset-shadow-white/16 hover:bg-destructive active:shadow-none"
       >
         End
       </Button>

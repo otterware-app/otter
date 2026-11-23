@@ -106,7 +106,7 @@ export function MonthGrid({
                   type="button"
                   onClick={() => onOpenDay(day)}
                   className={cn(
-                    "flex h-5 min-w-5 cursor-pointer items-center justify-center rounded-sm px-1 text-xs tabular-nums outline-none transition-colors",
+                    "flex h-5 min-w-5 cursor-pointer items-center justify-center rounded-sm px-1 text-xs tabular-nums outline-none",
                     today
                       ? "bg-calendar-today font-medium text-white"
                       : outside
@@ -142,7 +142,7 @@ export function MonthGrid({
                         : ({ "--event-color": colorOf(calendarKey(event)) } as CSSProperties)
                     }
                     className={cn(
-                      "flex h-5 shrink-0 cursor-default items-center gap-1.5 overflow-hidden rounded-sm border border-transparent px-1 text-left text-2xs transition-colors duration-150",
+                      "flex h-5 shrink-0 cursor-default items-center gap-1.5 overflow-hidden rounded-sm border border-transparent px-1 text-left text-2xs",
                       solid && isPending(event) && !selected && "border-dashed",
                       !solid && !selected && "hover:bg-foreground/[0.05]",
                       outside && !selected && "opacity-60",

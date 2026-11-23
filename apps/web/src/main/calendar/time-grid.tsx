@@ -521,7 +521,7 @@ function TimedEvent({
         declined && !selected && "opacity-55",
         dragging
           ? "shadow-[0_8px_24px_-8px_rgb(0_0_0/45%)]"
-          : "transition-[top,height,left,width,background-color,color] duration-150 ease-out",
+          : "transition-[top,height,left,width] duration-150 ease-out",
         !dragging && cols > 1 && "shadow-[0_0_0_1px_var(--canvas)]",
       )}
     >
@@ -675,7 +675,7 @@ function AllDayRow({
               width: `calc(${((to - from) / days.length) * 100}% - 5px)`,
             }}
             className={cn(
-              "absolute flex h-5 cursor-default items-center gap-1.5 overflow-hidden rounded-sm border px-1.5 text-left text-2xs font-medium transition-colors duration-150",
+              "absolute flex h-5 cursor-default items-center gap-1.5 overflow-hidden rounded-sm border px-1.5 text-left text-2xs font-medium",
               isPending(event) && !selected && "border-dashed",
               !selected && "text-foreground",
             )}
