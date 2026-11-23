@@ -221,7 +221,7 @@ export function SidebarControl({
 
 export type PanelToggle = { open: boolean; onToggle: () => void };
 
-/** The right-hand panels' toggles, pinned to the window's corner: the calendar's, then the browser's (in Agent, the chat's panel). */
+/** The right-hand panels' toggles, pinned to the window's corner: the browser's, then the calendar's (in Agent, the chat's panel). */
 export function PanelControls({
   calendar,
   browser,
@@ -233,22 +233,6 @@ export function PanelControls({
 }) {
   return (
     <div className="pointer-events-none fixed right-(--workspace-controls-right) top-0 z-40 flex h-(--workspace-topbar-height) items-center gap-1">
-      {calendar ? (
-        <HintTooltip
-          label={calendar.open ? "Hide calendar" : "Show calendar"}
-          shortcut="calendar.togglePanel"
-          side="bottom"
-        >
-          <IconBtn
-            label="Toggle calendar"
-            active={calendar.open}
-            className="no-drag pointer-events-auto"
-            onClick={calendar.onToggle}
-          >
-            <CalendarDaysIcon className="size-4" />
-          </IconBtn>
-        </HintTooltip>
-      ) : null}
       {browser ? (
         <HintTooltip
           label={browser.open ? "Hide browser" : "Show browser"}
@@ -262,6 +246,22 @@ export function PanelControls({
             onClick={browser.onToggle}
           >
             <GlobeIcon className="size-4" />
+          </IconBtn>
+        </HintTooltip>
+      ) : null}
+      {calendar ? (
+        <HintTooltip
+          label={calendar.open ? "Hide calendar" : "Show calendar"}
+          shortcut="calendar.togglePanel"
+          side="bottom"
+        >
+          <IconBtn
+            label="Toggle calendar"
+            active={calendar.open}
+            className="no-drag pointer-events-auto"
+            onClick={calendar.onToggle}
+          >
+            <CalendarDaysIcon className="size-4" />
           </IconBtn>
         </HintTooltip>
       ) : null}

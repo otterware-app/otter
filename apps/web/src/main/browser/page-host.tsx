@@ -54,11 +54,13 @@ export function PageSlot({ tabId, className }: { tabId: string; className?: stri
     measure();
     // Before the next paint, so the page never trails its panel by a frame.
     const update = () => flushSync(measure);
-    // Panes move and resize around the slot (sidebar, list, animations) without resizing it.
-    const observed: Element[] = [];
-    for (let node: Element | null = el; node; node = node.parentElement) observed.push(node);
+    // Panes move and resize around the slot (sidebar, list, the calendar panel, animations)
+    // without resizing it: a sibling's resize is what moves it.
     const observer = new ResizeObserver(update);
-    for (const node of observed) observer.observe(node);
+    for (let node: Element | null = el; node; node = node.parentElement) {
+      observer.observe(node);
+      for (const sibling of node.parentElement?.children ?? []) observer.observe(sibling);
+    }
     window.addEventListener("resize", update);
     return () => {
       observer.disconnect();
