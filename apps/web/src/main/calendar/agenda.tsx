@@ -67,7 +67,10 @@ export function CalendarPanel({ onOpen }: { onOpen: (event: CalEvent) => void })
         onOpen={onOpen}
         loading={listsQuery.isPending || (query.isPending && visible.length > 0)}
         failed={listsFailed || query.isError || !!query.data?.failed.length}
-        onRetry={() => void (listsFailed ? listsQuery.refetch() : query.refetch())}
+        onRetry={() => {
+          if (listsFailed) void listsQuery.refetch();
+          if (query.isError || query.data?.failed.length) void query.refetch();
+        }}
         empty="Nothing in the next 30 days."
       />
     </div>
