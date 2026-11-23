@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { ChevronsLeftIcon } from "lucide-react";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { IconBtn, buttonClass, cn } from "../mail/ui";
 import { useAccounts } from "../mail/hooks";
 import { PanelControlSlot } from "../mail/top-bar";
@@ -167,7 +168,7 @@ function AgendaDays({
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+    <ScrollArea className="flex-1" contentClassName="px-2 pb-4">
       {days.map(({ day, events }) => (
         <section key={dayKey(day)} className="pt-3">
           <h3 className="px-2 pb-1 text-xs font-medium text-muted-foreground">
@@ -231,6 +232,6 @@ function AgendaDays({
       ) : !loading && !days.length ? (
         <p className="px-2 pt-6 text-center text-[13px] text-muted-foreground">{empty}</p>
       ) : null}
-    </div>
+    </ScrollArea>
   );
 }
