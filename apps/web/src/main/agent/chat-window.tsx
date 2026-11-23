@@ -108,7 +108,9 @@ export function ChatWindow({
     const notch = notchRef.current;
     if (!panel || !notch) return;
     const draw = () => {
-      if (!animating.current) drawNotch(notch, panel.offsetWidth, panel.offsetHeight);
+      // Only open and still: while it opens or closes, the animation draws it.
+      if (!animating.current && progress.current === 1)
+        drawNotch(notch, panel.offsetWidth, panel.offsetHeight);
     };
     draw();
     const observer = new ResizeObserver(draw);
