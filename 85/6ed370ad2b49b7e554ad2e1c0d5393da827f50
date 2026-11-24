@@ -1,0 +1,21 @@
+.github/workflows/release.yml
+  s_076b12ad1c9082::t_52353609eca8e4 1,13-15,19,22-25,28,83-87,89-90,95-96
+scripts/release-ios.ts
+  s_076b12ad1c9082::t_6f5e5884720b00 133
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "856ed370ad2b49b7e554ad2e1c0d5393da827f50",
+  "prompts": {},
+  "sessions": {
+    "s_076b12ad1c9082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f03-1d60-7480-929a-3cc6584d46dd",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
