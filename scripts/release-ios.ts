@@ -119,6 +119,7 @@ NodeFS.writeFileSync(
 <dict>
   <key>method</key><string>app-store-connect</string>
   <key>destination</key><string>upload</string>
+  <key>testFlightInternalTestingOnly</key><true/>
   <key>teamID</key><string>838JVGY7W4</string>
   <key>signingStyle</key><string>manual</string>
   <key>signingCertificate</key><string>Apple Distribution</string>
