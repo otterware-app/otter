@@ -20,17 +20,10 @@ sync finishes, tap **Replay 200 changes** and continue scrolling for the steady-
 
 ## Production accounts
 
-Register `"./plugins/with-mail-auth.cjs"` in `app.config.ts`'s `plugins` array. It adds the
-callback schemes for the app's existing `ios.infoPlist.GoogleClientID` and Microsoft redirect
-`msauth.<bundle identifier>://auth`. Keep `NotificationAppGroup` set to
-`group.<bundle identifier>.notifications` on the app and extension with that App Group
-entitlement. The Swift files in `packages/mobile/ios/MailShared` can be compiled into the
-notification service target as well. Its credential readers call the same refresh functions and
-use the same Keychain group and locks.
-
-Mount `WelcomeScreen` from `src/account/welcome-screen.tsx` when the mailbox list is empty.
-Settings can render `AccountScreen` or compose `OtterAccountSection` and
-`MailboxSettingsSection` into its own page. These use the shared Otter account and Mail clients.
+The config plugins generate the Google and Microsoft callback schemes and give both targets
+the `group.<bundle identifier>.notifications` App Group. The app and notification service
+compile the Swift credential readers from `packages/mobile/ios/MailShared` and use the same
+Keychain group and locks.
 
 The production bundle reads the Swift install's mailbox metadata and Otter session before core
 starts, then resumes Gmail, Outlook and IMAP from the existing shared Keychain. Core rebuilds its

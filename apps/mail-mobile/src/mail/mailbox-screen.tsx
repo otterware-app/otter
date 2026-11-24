@@ -6,7 +6,6 @@ import { useAccountSync, useLabels, useMarkLabelRead, useMessages } from "@otter
 import { folderName } from "@otter/client/mail/label-names";
 import { groupMessagesByDay } from "@otter/client/mail/rows";
 import type { MessageSummary } from "@otter/client/mail/types";
-import { findVerificationCode } from "@otter/client/mail/verification-code";
 import { startup } from "@otter/mobile/start";
 import { Button } from "@otter/ui-native/components/button";
 import { EmptyState } from "@otter/ui-native/components/empty-state";
@@ -42,6 +41,7 @@ import {
   type MailAction,
 } from "./mail-actions.tsx";
 import { MailRow } from "./mail-row.tsx";
+import { mayHaveVerificationCode } from "./verification-code.ts";
 import { useMailboxes, type Mailbox } from "./mailboxes.ts";
 import { mailPointer, sendToAgent, useAgentsInstalled } from "./send-to-agent.ts";
 
@@ -131,19 +131,18 @@ function MailboxList({
     ]);
   }, [listed, collapsed, groupByDay]);
   const codes = useMemo(() => {
-    const found = new Map<string, { code: string; expires: number }>();
+    const found = new Map<string, number>();
     if (isBenchmark || selected || label === "DRAFT") return found;
     for (const message of listed) {
       const expires = message.date + codeLifetime;
       if (expires <= clock) continue;
-      const code = findVerificationCode(message.subject, message.snippet);
-      if (code) found.set(message.threadId, { code, expires });
+      if (mayHaveVerificationCode(message)) found.set(message.threadId, expires);
     }
     return found;
   }, [isBenchmark, selected, label, listed, clock]);
   useEffect(() => {
     if (!codes.size) return;
-    const expires = Math.min(...Array.from(codes.values(), ({ expires }) => expires));
+    const expires = Math.min(...codes.values());
     const timer = setTimeout(() => setClock(Date.now()), Math.max(0, expires - Date.now()) + 10);
     return () => clearTimeout(timer);
   }, [codes]);
@@ -264,7 +263,7 @@ function MailboxList({
         ) : (
           <Glass shape="circle">
             <MailButton title="Mailbox actions" onPress={listMenu}>
-              <Icon name="ellipsis" size={19} weight="semibold" color="primary" />
+              <Icon name="ellipsis" size={14} weight="semibold" color="primary" />
             </MailButton>
           </Glass>
         )}
@@ -311,7 +310,7 @@ function MailboxList({
               account={look.id}
               label={label}
               own={[account.email, ...(account.sendAs ?? [])]}
-              code={codes.get(message.threadId)?.code}
+              codeAccount={codes.has(message.threadId) ? account.id : undefined}
               trashCode={isBin ? undefined : () => act("trash", [message])}
               flagged={!capabilities.stars}
               fullWidth={fullWidth}

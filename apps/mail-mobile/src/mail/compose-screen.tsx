@@ -23,6 +23,8 @@ import {
 import { addressesOf, chosenAddress, replyAddress } from "@otter/client/mail/send-from";
 import type { ComposeAttachment, MailAccount, MessageDetail } from "@otter/client/mail/types";
 import { draftStatus, useDraftAutosave } from "@otter/client/mail/use-draft-autosave";
+import { toBase64 } from "@otter/core";
+import { fileBytes } from "@otter/mobile/file-bytes";
 import { showNotice } from "@otter/mobile/notices";
 import { Button } from "@otter/ui-native/components/button";
 import { EmptyState } from "@otter/ui-native/components/empty-state";
@@ -31,6 +33,7 @@ import { Spinner } from "@otter/ui-native/components/spinner";
 import { Text } from "@otter/ui-native/components/text";
 import { typeStyle, useTheme } from "@otter/ui-native/theme";
 import { useQuery } from "@tanstack/react-query";
+import { launchImageLibraryAsync } from "expo-image-picker";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState, type ComponentRef } from "react";
 import {
@@ -45,6 +48,7 @@ import {
 } from "react-native";
 
 import { htmlToPlain, plainToHtml } from "./compose-text.ts";
+import { fullMailDate } from "./format-date.ts";
 import { mailFailure } from "./mail-actions.tsx";
 import { useMailboxes, type Mailbox } from "./mailboxes.ts";
 import { mailPointer, sendToAgent, useAgentsInstalled } from "./send-to-agent.ts";
@@ -187,9 +191,9 @@ function Composer({
         (params.body ?? "") +
         signature(original, initialFrom) +
         (forwarding
-          ? forwardBlock(source, htmlToPlain)
+          ? forwardBlock(source, htmlToPlain, fullMailDate)
           : replying
-            ? replyBlock(source!, htmlToPlain)
+            ? replyBlock(source!, htmlToPlain, fullMailDate)
             : ""),
     };
   });
@@ -333,13 +337,40 @@ function Composer({
     }
   }
 
-  async function addFiles() {
+  async function addFiles(source: "files" | "photos") {
     setPicking(true);
     setError(undefined);
     try {
-      const result = await mailApi.pickAttachments(
-        files.reduce((total, file) => total + file.size, 0),
-      );
+      let size = files.reduce((total, file) => total + file.size, 0);
+      if (source === "photos") {
+        const result = await launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsMultipleSelection: true,
+          selectionLimit: 10,
+        });
+        if (result.canceled) return;
+        for (const asset of result.assets) {
+          const limit = 25 * 1024 * 1024;
+          const oversized = "Attachments can't exceed 25 MB in total.";
+          if (asset.fileSize && size + asset.fileSize > limit) throw new Error(oversized);
+          const bytes = await fileBytes(asset.uri);
+          size += bytes.byteLength;
+          if (size > limit) throw new Error(oversized);
+          const key = crypto.randomUUID();
+          const extension = /\.([\da-z]+)$/i.exec(asset.uri)?.[1] ?? "jpg";
+          const name = asset.fileName || `Photo-${key.slice(0, 8)}.${extension}`;
+          const file = {
+            key,
+            name,
+            mimeType: asset.mimeType ?? "image/jpeg",
+            size: bytes.byteLength,
+            base64: toBase64(bytes),
+          };
+          setFiles((current) => [...current, file]);
+        }
+        return;
+      }
+      const result = await mailApi.pickAttachments(size);
       setFiles((current) => [
         ...current,
         ...result.attachments.map((file) => ({ ...file, key: file.key ?? crypto.randomUUID() })),
@@ -390,7 +421,7 @@ function Composer({
     }
   }
 
-  const inputStyle = [typeStyle(theme, "base", "regular"), { color: theme.colors.foreground }];
+  const inputStyle = [typeStyle(theme, "lg"), { color: theme.colors.foreground }];
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -404,11 +435,13 @@ function Composer({
           title: editing ? "Draft" : replying ? "Reply" : forwarding ? "Forward" : "New message",
           gestureEnabled: !dirty && !busy,
           headerBackVisible: false,
+          headerShadowVisible: false,
         }}
       />
       <Stack.Toolbar placement="left">
         <Stack.Toolbar.Button
           icon="xmark"
+          tintColor={theme.colors.primary}
           accessibilityLabel="Close"
           disabled={busy}
           onPress={close}
@@ -433,7 +466,7 @@ function Composer({
         />
       </Stack.Toolbar>
       <View style={[styles.field, { borderColor: theme.colors.border }]}>
-        <Text size="base" color="mutedForeground" style={styles.fieldLabel}>
+        <Text size="lg" color="mutedForeground" style={[styles.fieldLabel, styles.fromLabel]}>
           From
         </Text>
         <Pressable
@@ -444,7 +477,7 @@ function Composer({
           style={styles.sender}
         >
           <Text
-            size="base"
+            size="lg"
             style={{ flexShrink: 1 }}
             numberOfLines={1}
             color={from.unavailable ? "error" : "foreground"}
@@ -481,10 +514,18 @@ function Composer({
       {(!showCc || !showBcc) && (
         <View style={styles.accessories}>
           {!showCc && (
-            <Button title="Cc" size="sm" variant="ghost" onPress={() => setShowCc(true)} />
+            <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setShowCc(true)}>
+              <Text size="md" color="mutedForeground">
+                Cc
+              </Text>
+            </Pressable>
           )}
           {!showBcc && (
-            <Button title="Bcc" size="sm" variant="ghost" onPress={() => setShowBcc(true)} />
+            <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setShowBcc(true)}>
+              <Text size="md" color="mutedForeground">
+                Bcc
+              </Text>
+            </Pressable>
           )}
         </View>
       )}
@@ -499,7 +540,7 @@ function Composer({
         scrollEnabled={false}
         style={[
           typeStyle(theme, "2xl", "semibold"),
-          { color: theme.colors.foreground, paddingVertical: 10 },
+          { color: theme.colors.foreground, paddingTop: 12, paddingBottom: 10 },
         ]}
       />
       <TextInput
@@ -514,55 +555,69 @@ function Composer({
         placeholderTextColor={theme.colors.mutedForeground}
         value={fields.body}
         onChangeText={(body) => setFields((current) => ({ ...current, body }))}
-        autoFocus={replying || Boolean(params.to)}
+        autoFocus={Boolean(fields.to)}
+        selectionColor={theme.colors.primary}
         editable={!busy}
         multiline
         scrollEnabled={false}
         style={[inputStyle, styles.body]}
       />
-      <View style={styles.attachments}>
-        {files.map((file, index) => (
-          <View
-            key={file.key ?? index}
-            style={[styles.file, { backgroundColor: theme.colors.card }]}
-          >
-            <Pressable
-              accessibilityRole="button"
-              style={styles.fileName}
-              onPress={() => void mailApi.openComposeAttachment(file).catch(mailFailure)}
+      {files.length > 0 && (
+        <View style={styles.attachments}>
+          {files.map((file, index) => (
+            <View
+              key={file.key ?? index}
+              style={[styles.file, { backgroundColor: theme.colors.card }]}
             >
-              <Icon name="paperclip" size={14} />
-              <Text size="sm" numberOfLines={1} style={{ flexShrink: 1 }}>
-                {file.name}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Remove ${file.name}`}
-              disabled={busy}
-              onPress={() => setFiles((current) => current.filter((_, at) => at !== index))}
-              style={styles.remove}
-            >
-              <Icon name="xmark" size={12} />
-            </Pressable>
-          </View>
-        ))}
-      </View>
-      <View style={styles.footer}>
-        <Button
-          title={picking ? "Opening Files…" : "Attach files"}
-          icon="paperclip"
-          size="sm"
-          variant="ghost"
+              <Pressable
+                accessibilityRole="button"
+                style={styles.fileName}
+                onPress={() => void mailApi.openComposeAttachment(file).catch(mailFailure)}
+              >
+                <Icon name="paperclip" size={14} />
+                <Text size="sm" numberOfLines={1} style={{ flexShrink: 1 }}>
+                  {file.name}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${file.name}`}
+                disabled={busy}
+                onPress={() => setFiles((current) => current.filter((_, at) => at !== index))}
+                style={styles.remove}
+              >
+                <Icon name="xmark" size={12} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      )}
+      <View style={styles.attachmentActions}>
+        <Pressable
+          accessibilityRole="button"
           disabled={busy}
-          onPress={() => void addFiles()}
-        />
-        {status && (
-          <Text size="sm" color="mutedForeground" accessibilityLiveRegion="polite">
-            {status}
-          </Text>
-        )}
+          style={styles.attachmentAction}
+          onPress={() => void addFiles("files")}
+        >
+          <Icon name="paperclip" size={17} />
+          <Text size="md">Files</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={busy}
+          style={styles.attachmentAction}
+          onPress={() => void addFiles("photos")}
+        >
+          <Icon name="photo" size={15} />
+          <Text size="md">Photos</Text>
+        </Pressable>
+        {picking && <Spinner />}
       </View>
+      {status && (
+        <Text size="body" color="mutedForeground" accessibilityLiveRegion="polite">
+          {status}
+        </Text>
+      )}
       {draft.remote?.kind === "conflict" && (
         <View style={{ gap: 8 }}>
           <Text size="sm">This draft was edited on another device.</Text>
@@ -634,7 +689,7 @@ function RecipientField({
   return (
     <View>
       <View style={[styles.field, styles.recipientField, { borderColor: theme.colors.border }]}>
-        <Text size="base" color="mutedForeground" style={[styles.fieldLabel, { paddingTop: 11 }]}>
+        <Text size="lg" color="mutedForeground" style={[styles.fieldLabel, { paddingTop: 10 }]}>
           {title}
         </Text>
         <View style={{ flex: 1 }}>
@@ -660,7 +715,7 @@ function RecipientField({
                     <Text size="md" numberOfLines={1} style={{ flexShrink: 1 }}>
                       {name || email}
                     </Text>
-                    <Icon name="xmark" size={12} weight="semibold" />
+                    <Icon name="xmark" size={10} weight="bold" />
                   </Pressable>
                 );
               })}
@@ -668,7 +723,7 @@ function RecipientField({
           )}
           <TextInput
             accessibilityLabel={title}
-            placeholder={recipients.length ? "Add recipient" : undefined}
+            placeholder="Add recipient"
             placeholderTextColor={theme.colors.mutedForeground}
             value={entry}
             onChangeText={changeEntry}
@@ -684,10 +739,13 @@ function RecipientField({
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
+            textContentType="emailAddress"
+            returnKeyType="done"
+            autoFocus={title === "To" && !value}
             editable={!disabled}
             style={[
-              typeStyle(theme, "base", "regular"),
-              { color: theme.colors.foreground, minHeight: 43, paddingVertical: 9 },
+              typeStyle(theme, "lg"),
+              { color: theme.colors.foreground, minHeight: 40, paddingVertical: 9 },
             ]}
           />
         </View>
@@ -720,30 +778,40 @@ function RecipientField({
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  content: { paddingHorizontal: 20, paddingTop: 3, paddingBottom: 38, gap: 5 },
+  content: { paddingHorizontal: 20, paddingBottom: 38, gap: 8 },
   field: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 46,
+    minHeight: 54,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  fieldLabel: { width: 53 },
-  recipientField: { alignItems: "flex-start" },
-  recipientChips: { flexDirection: "row", flexWrap: "wrap", gap: 6, paddingTop: 6 },
+  fieldLabel: { width: 54 },
+  fromLabel: { marginBottom: 8 },
+  recipientField: { alignItems: "flex-start", paddingBottom: 6 },
+  recipientChips: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 6 },
   recipientChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     borderRadius: 16,
     borderWidth: 1,
     maxWidth: "100%",
-    minHeight: 33,
+    paddingVertical: 7,
     paddingHorizontal: 10,
   },
-  sender: { flex: 1, minHeight: 44, flexDirection: "row", alignItems: "center", gap: 7 },
-  accessories: { flexDirection: "row", justifyContent: "flex-end", minHeight: 32 },
-  body: { minHeight: 220, textAlignVertical: "top", paddingVertical: 5 },
+  sender: {
+    flex: 1,
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    marginBottom: 8,
+  },
+  accessories: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
+  body: { minHeight: 220, lineHeight: 24, textAlignVertical: "top", padding: 0, marginTop: -11 },
   footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 9 },
+  attachmentActions: { flexDirection: "row", alignItems: "center", gap: 24 },
+  attachmentAction: { flexDirection: "row", alignItems: "center", gap: 9, paddingVertical: 10 },
   attachments: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   file: {
     maxWidth: "100%",

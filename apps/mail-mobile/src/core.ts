@@ -1,3 +1,4 @@
+import translation from "@otter/extension-translation/core";
 import { watchLongTasks } from "@otter/mobile/long-tasks";
 import { startMobileCore } from "@otter/mobile/start";
 
@@ -12,7 +13,7 @@ if (benchmark) watchLongTasks();
 export const coreStarted = startMobileCore({
   secretsService: "dev.otterware.mail",
   modules: ["mail"],
-  extensions: [],
+  extensions: [translation],
   fake,
   prepare: fake ? undefined : importSwiftMailboxes,
   relayUrl: __DEV__ ? process.env.EXPO_PUBLIC_OTTER_RELAY_URL : undefined,

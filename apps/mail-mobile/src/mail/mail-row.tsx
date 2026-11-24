@@ -1,5 +1,4 @@
 import { senderFirstName, senderLabel } from "@otter/client/mail/address";
-import { formatRelativeDate } from "@otter/client/mail/format";
 import type { MessageSummary } from "@otter/client/mail/types";
 import { Icon, type IconName } from "@otter/ui-native/components/icon";
 import { Text } from "@otter/ui-native/components/text";
@@ -11,7 +10,10 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-na
 import { scheduleOnRN } from "react-native-worklets";
 
 import { CodeCard } from "./code-card.tsx";
+import { decodeEntities } from "./compose-text.ts";
+import { shortMailDate } from "./format-date.ts";
 import { SenderAvatar } from "./sender-avatar.tsx";
+import { useVerificationCode } from "./verification-code.ts";
 
 const pan = Gesture.Pan;
 
@@ -22,7 +24,7 @@ export function MailRow({
   account,
   label,
   own,
-  code,
+  codeAccount,
   trashCode,
   flagged,
   fullWidth,
@@ -35,7 +37,7 @@ export function MailRow({
   account: string;
   label: string;
   own?: string[];
-  code?: string;
+  codeAccount?: string;
   trashCode?: () => void;
   flagged?: boolean;
   fullWidth?: boolean;
@@ -64,6 +66,8 @@ export function MailRow({
         ? "me"
         : senderLabel(lastSender.name, lastSender.email);
   const subject = message.subject || "(No subject)";
+  const snippet = decodeEntities(message.snippet);
+  const code = useVerificationCode(codeAccount, message);
   const selecting = selected !== undefined;
   const drag = useSharedValue(0);
   const width = useSharedValue(0);
@@ -171,7 +175,7 @@ export function MailRow({
           <Pressable
             accessibilityRole="button"
             accessibilityState={selecting ? { selected } : undefined}
-            accessibilityLabel={[unread ? "Unread" : "", from, subject, message.snippet]
+            accessibilityLabel={[unread ? "Unread" : "", from, subject, snippet]
               .filter(Boolean)
               .join(", ")}
             accessibilityActions={[
@@ -214,10 +218,9 @@ export function MailRow({
             <View style={styles.lines}>
               <View style={styles.top}>
                 <Text
-                  style={styles.sender}
+                  style={[styles.sender, !unread && { color: alpha(theme.colors.foreground, 0.7) }]}
                   size="md"
                   weight={unread ? "medium" : "regular"}
-                  color={unread ? "foreground" : "mutedForeground"}
                   numberOfLines={1}
                 >
                   {from}
@@ -229,21 +232,25 @@ export function MailRow({
                   <Icon name="paperclip" size={11} color="mutedForeground" />
                 )}
                 {(message.threadCount ?? 0) > 1 && (
-                  <Text size="sm" color="mutedForeground">
+                  <Text size="body" color="mutedForeground" tabular>
                     {message.threadCount}
                   </Text>
                 )}
-                <Text size="sm" color="mutedForeground">
-                  {formatRelativeDate(message.date)}
+                <Text size="body" color="mutedForeground" tabular>
+                  {shortMailDate(message.date)}
                 </Text>
               </View>
-              <Text size="md" color={unread ? "foreground" : "mutedForeground"} numberOfLines={1}>
+              <Text
+                size="md"
+                style={!unread && { color: alpha(theme.colors.foreground, 0.6) }}
+                numberOfLines={1}
+              >
                 {subject}
               </Text>
-              {message.snippet && !code ? (
+              {snippet && !code ? (
                 <Text size="md" color="mutedForeground" numberOfLines={1}>
                   {draft ? "Draft · " : ""}
-                  {message.snippet}
+                  {snippet}
                 </Text>
               ) : null}
             </View>

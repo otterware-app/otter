@@ -17,7 +17,12 @@ export function SenderAvatar({
     hash = (Math.imul(hash, 31) + address.charCodeAt(index)) | 0;
   }
   const hue = ((hash % 360) + 360) % 360;
-  const darkText = hue >= 25 && hue <= 180;
+  const [r, g, b] = [5, 3, 1].map((channel) => {
+    const k = (channel + hue / 60) % 6;
+    const value = 0.75 * (1 - 0.614 * Math.max(0, Math.min(k, 4 - k, 1)));
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  const darkText = r * 0.2126 + g * 0.7152 + b * 0.0722 > 0.179;
   return (
     <Avatar
       size={size}

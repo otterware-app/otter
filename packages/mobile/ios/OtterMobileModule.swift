@@ -1,6 +1,9 @@
 import CryptoKit
 import ExpoModulesCore
 import Foundation
+import NaturalLanguage
+import SwiftUI
+@preconcurrency import Translation
 
 /** What the phone apps' JavaScript needs of iOS that Expo's packages don't give it. */
 public class OtterMobileModule: Module {
@@ -9,6 +12,8 @@ public class OtterMobileModule: Module {
 
   public func definition() -> ModuleDefinition {
     Name("OtterMobile")
+
+    ExpoSwiftUI.ViewDefinition(MailTranslationView.self, name: "MailTranslationView", elements: [])
 
     AsyncFunction("keychainGet") { (service: String, name: String) in
       try Keychain.get(service: service, name: name)
@@ -150,5 +155,58 @@ public class OtterMobileModule: Module {
       throw Exception(name: "MailProvider", description: "Unknown mail provider.")
     }
     return auth
+  }
+}
+
+private final class MailTranslationProps: ExpoSwiftUI.ViewProps {
+  @Field var text = ""
+  @Field var presented = false
+  @Field var automatic = false
+  @Field var languages: [String] = []
+  var onDismiss = EventDispatcher()
+  var onTranslated = EventDispatcher()
+}
+
+private struct MailTranslationView: ExpoSwiftUI.View, ExpoSwiftUI.WithHostingView {
+  @ObservedObject var props: MailTranslationProps
+  @State private var showing = false
+  @State private var translation: TranslationSession.Configuration?
+
+  var body: some View {
+    Color.clear
+      .translationPresentation(isPresented: $showing, text: props.text)
+      .onChange(of: props.presented, initial: true) { _, value in showing = value }
+      .onChange(of: showing) { _, value in
+        if !value && props.presented { props.onDismiss([:]) }
+      }
+      .task(id: automaticRequest) {
+        translation = nil
+        guard let request = automaticRequest, !request.text.isEmpty else { return }
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(String(request.text.prefix(4000)))
+        let languages = request.languages.isEmpty
+          ? Locale.preferredLanguages.map { Locale.Language(identifier: $0) }
+          : request.languages.map { Locale.Language(identifier: $0) }
+        guard let detected = recognizer.dominantLanguage?.rawValue,
+          !languages.contains(where: { $0.languageCode?.identifier == detected }),
+          let target = languages.first else { return }
+        translation = .init(source: Locale.Language(identifier: detected), target: target)
+      }
+      .translationTask(translation) { session in
+        guard let request = automaticRequest,
+          let translated = try? await session.translate(request.text),
+          !Task.isCancelled, request == automaticRequest else { return }
+        props.onTranslated(["text": translated.targetText, "source": request.text, "languages": request.languages])
+      }
+      .accessibilityHidden(true)
+  }
+
+  private var automaticRequest: Request? {
+    props.automatic ? Request(text: props.text, languages: props.languages) : nil
+  }
+
+  private struct Request: Equatable {
+    var text: String
+    var languages: [String]
   }
 }

@@ -21,6 +21,12 @@ import { ActionSheetIOS, View } from "react-native";
 import { version } from "../../package.json";
 import { mailFailure } from "../mail/mail-actions.tsx";
 import { useMailboxes } from "../mail/mailboxes.ts";
+import {
+  effectiveLanguages,
+  languageName,
+  useTranslationSettings,
+  useUpdateTranslationSettings,
+} from "../mail/translation.ts";
 import { setFullWidthMessages, useFullWidthMessages, usePreference } from "./preferences.ts";
 
 const advance: Record<AdvanceDirection, string> = {
@@ -63,6 +69,9 @@ export function SettingsScreen() {
   const fullMessages = useFullWidthMessages();
   usePreference("gmail:advance-direction");
   const settings = useQuery({ queryKey: ["settings:mail"], queryFn: mailApi.getSyncSettings });
+  const translation = useTranslationSettings().data;
+  const updateTranslation = useUpdateTranslationSettings();
+  const read = effectiveLanguages(translation).map(languageName);
   const update = useMutation({
     mutationFn: (mode: NotificationsMode) => mailApi.setSyncSettings({ notificationsMode: mode }),
     onSuccess: (data) => queries.setQueryData(["settings:mail"], data),
@@ -110,6 +119,23 @@ export function SettingsScreen() {
           title="After archive"
           value={advance[getAdvanceDirection()]}
           onPress={() => picker("After archive", advance, setAdvanceDirection)}
+        />
+      </SettingsSection>
+      <SettingsSection
+        title="Translation"
+        footer="Mail in other languages is translated on this iPhone, by Apple's Translation."
+      >
+        <SettingsRow
+          icon="character.bubble"
+          title="Languages I read"
+          value={read.length > 2 ? `${read[0]} +${read.length - 1}` : read.join(", ")}
+          onPress={() => router.push("/settings/languages")}
+        />
+        <SettingsSwitchRow
+          icon="translate"
+          title="Translate automatically"
+          value={translation?.autoTranslate ?? false}
+          onValueChange={(autoTranslate) => updateTranslation.mutate({ autoTranslate })}
         />
       </SettingsSection>
       <SettingsSection title="Appearance">

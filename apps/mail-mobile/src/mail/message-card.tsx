@@ -1,6 +1,6 @@
 import { mailApi } from "@otter/client/mail/api";
 import { parseAddressEntry, splitAddressList } from "@otter/client/mail/address";
-import { formatFullDate, formatRelativeDate } from "@otter/client/mail/format";
+import { formatFullDate } from "@otter/client/mail/format";
 import { useMessage } from "@otter/client/mail/hooks";
 import { splitPlainQuote } from "@otter/client/mail/reply";
 import type { MessageDetail, MessageSummary } from "@otter/client/mail/types";
@@ -13,11 +13,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { ActionSheetIOS, Alert, Pressable, StyleSheet, View } from "react-native";
 
-import { plainToHtml } from "./compose-text.ts";
+import { decodeEntities, htmlToPlain, plainToHtml } from "./compose-text.ts";
+import { shortMailDate } from "./format-date.ts";
 import HTMLBody from "./html-body.tsx";
 import { mailFailure } from "./mail-actions.tsx";
 import { mailPointer, sendToAgent } from "./send-to-agent.ts";
 import { SenderAvatar } from "./sender-avatar.tsx";
+import { NativeMailTranslation, useTranslationSettings } from "./translation.ts";
 import { useEmailLinks } from "./use-email-links.ts";
 
 export type ReplyMode = "reply" | "replyAll" | "forward";
@@ -69,11 +71,11 @@ function MessageHeader({
             {sender}
           </Text>
           <Text size="body" color="mutedForeground" tabular>
-            {formatRelativeDate(message.date)}
+            {shortMailDate(message.date)}
           </Text>
         </View>
         <Text color="mutedForeground" size="md" numberOfLines={1}>
-          {to === undefined ? message.snippet : to ? `to ${to}` : ""}
+          {to === undefined ? decodeEntities(message.snippet) : to ? `to ${to}` : ""}
         </Text>
       </View>
     </Pressable>
@@ -98,6 +100,21 @@ function MessageBody({
   const [busyAttachment, setBusyAttachment] = useState<string>();
   const openLink = useEmailLinks(scope);
   const attachments = detail.data?.attachments;
+  const translationSettings = useTranslationSettings().data;
+  const [translationOpen, setTranslationOpen] = useState(false);
+  const [translated, setTranslated] = useState<{
+    text: string;
+    source: string;
+    languages: string[];
+  }>();
+  const [showOriginal, setShowOriginal] = useState(false);
+  const sourceText = detail.data?.bodyText || htmlToPlain(detail.data?.bodyHtml ?? "");
+  const changedLanguage =
+    translated?.languages.join() !== translationSettings?.readLanguages.join();
+  const translation =
+    translated?.source === sourceText && !changedLanguage && translationSettings?.autoTranslate
+      ? translated.text
+      : undefined;
   const inline = useQuery({
     queryKey: ["mobile:inlineImages", account, message.id],
     enabled: Boolean(detail.data?.bodyHtml && attachments?.some(({ contentId }) => contentId)),
@@ -164,6 +181,8 @@ function MessageBody({
       title: showAddress ? "Hide details" : "Show details",
       run: () => setShowAddress(!showAddress),
     });
+    if (sourceText.trim())
+      options.push({ title: "Translate", run: () => setTranslationOpen(true) });
     if (agents)
       options.push({
         title: selection ? "Send selection to agent" : "Send to agent",
@@ -277,7 +296,11 @@ function MessageBody({
         </View>
       )}
       <View style={{ marginTop: 12, paddingHorizontal: fullWidth ? 0 : 20 }}>
-        {body.bodyHtml || agents ? (
+        {translation && !showOriginal ? (
+          <Text selectable size="lg" style={{ lineHeight: 23 }}>
+            {translation}
+          </Text>
+        ) : body.bodyHtml || agents ? (
           <HTMLBody
             html={
               body.bodyHtml ??
@@ -305,6 +328,26 @@ function MessageBody({
           <Text selectable size="lg" style={{ lineHeight: 23 }}>
             {text || body.snippet}
           </Text>
+        )}
+        {translation && (
+          <Button
+            title={showOriginal ? "Show translation" : "Translated · Show original"}
+            variant="ghost"
+            size="sm"
+            onPress={() => setShowOriginal((value) => !value)}
+          />
+        )}
+        {(translationOpen || (translationSettings?.autoTranslate && !body.bodyHtml)) && (
+          <NativeMailTranslation
+            style={styles.translationAnchor}
+            pointerEvents="none"
+            text={sourceText}
+            presented={translationOpen}
+            automatic={Boolean(translationSettings?.autoTranslate && !body.bodyHtml)}
+            languages={translationSettings?.readLanguages ?? []}
+            onDismiss={() => setTranslationOpen(false)}
+            onTranslated={({ nativeEvent }) => setTranslated(nativeEvent)}
+          />
         )}
         {!body.bodyHtml && quote ? (
           <>
@@ -372,12 +415,12 @@ export const replyOptions: { id: ReplyMode; title: string; icon: IconName }[] = 
 const styles = StyleSheet.create({
   sender: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 12,
     paddingHorizontal: 20,
-    minHeight: 44,
   },
-  senderTitle: { flexDirection: "row", alignItems: "center", gap: 7 },
+  senderTitle: { flexDirection: "row", alignItems: "baseline", gap: 7 },
+  translationAnchor: { position: "absolute", width: 1, height: 1 },
   files: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 17, marginHorizontal: 20 },
   file: {
     maxWidth: "100%",

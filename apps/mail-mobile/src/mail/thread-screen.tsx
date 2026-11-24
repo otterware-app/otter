@@ -3,7 +3,6 @@ import { pickAdvanceTarget } from "@otter/client/mail/advance-direction";
 import type { ListMessagesResult } from "@otter/client/mail/api";
 import { capabilitiesOf } from "@otter/client/mail/capabilities";
 import { queryKeys, useLabels, useModifyThread, useThread } from "@otter/client/mail/hooks";
-import { findVerificationCode } from "@otter/client/mail/verification-code";
 import type { MessageSummary } from "@otter/client/mail/types";
 import { Button } from "@otter/ui-native/components/button";
 import { EmptyState } from "@otter/ui-native/components/empty-state";
@@ -31,6 +30,7 @@ import {
 import { useMailboxes } from "./mailboxes.ts";
 import { MessageCard, replyOptions, type ReplyMode } from "./message-card.tsx";
 import { mailPointer, sendToAgent, useAgentsInstalled } from "./send-to-agent.ts";
+import { useVerificationCode } from "./verification-code.ts";
 
 export function ThreadScreen() {
   const { account, label, thread } = useLocalSearchParams<{
@@ -70,7 +70,7 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
   const messages = result.data ?? [];
   const latest = messages.at(-1);
   const replyTo = messages.findLast((message) => !message.labelIds.includes("DRAFT"));
-  const verification = replyTo ? findVerificationCode(replyTo.subject, replyTo.snippet) : null;
+  const verification = useVerificationCode(account?.id, replyTo);
   const starred = messages.some((message) => message.starred);
   const caps = capabilitiesOf(account);
   const flag = caps.stars ? "star" : "flag";
@@ -148,18 +148,25 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
 
   return (
     <View style={styles.fill}>
-      <Stack.Screen options={{ title: "", headerBackButtonDisplayMode: "minimal" }} />
+      <Stack.Screen
+        options={{ title: "", headerBackButtonDisplayMode: "minimal", headerShadowVisible: false }}
+      />
       {summary && (
         <>
           <Stack.Toolbar placement="right">
             <Stack.Toolbar.Button
               icon={starred ? (caps.stars ? "star.fill" : "flag.fill") : flag}
+              tintColor={theme.colors.primary}
               accessibilityLabel={
                 starred ? (caps.stars ? "Unstar" : "Unflag") : caps.stars ? "Star" : "Flag"
               }
               onPress={() => act(starred ? "unstar" : "star")}
             />
-            <Stack.Toolbar.Menu icon="ellipsis" accessibilityLabel="Conversation actions">
+            <Stack.Toolbar.Menu
+              icon="ellipsis"
+              tintColor={theme.colors.primary}
+              accessibilityLabel="Conversation actions"
+            >
               {replyTo && (
                 <>
                   <Stack.Toolbar.MenuAction
@@ -259,6 +266,7 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
               accessibilityRole="header"
               size="2xl"
               weight="semibold"
+              lineBreakStrategyIOS="push-out"
               selectable
               style={styles.subject}
             >
@@ -401,7 +409,7 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  content: { paddingTop: 8, gap: 10 },
+  content: { paddingTop: 8, gap: 8 },
   subject: { marginHorizontal: 20 },
   threadLabels: {
     flexDirection: "row",
@@ -409,7 +417,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     marginHorizontal: 20,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   mailboxDot: { width: 7, height: 7, borderRadius: 4 },
   label: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 9, overflow: "hidden" },

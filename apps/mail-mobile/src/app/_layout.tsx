@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { coreStarted } from "../core.ts";
 import { MailNotices } from "../frame/mail-notices.tsx";
+import { useFollowTranslationSettings } from "../mail/translation.ts";
 import { followColorScheme } from "../settings/preferences.ts";
 
 export { ErrorBoundary } from "expo-router";
@@ -40,6 +41,7 @@ function MailStack() {
   use(coreStarted);
   const theme = useTheme();
   useExternalMailChanges();
+  useFollowTranslationSettings();
   useWriteFailureToasts();
   useEffect(() => followColorScheme(), []);
   useEffect(() => startSyncedPreferences(), []);
@@ -61,6 +63,7 @@ function MailStack() {
         <Stack.Screen name="settings" options={{ presentation: "modal", title: "Settings" }} />
         <Stack.Screen name="settings/mailboxes" options={{ title: "Mailboxes" }} />
         <Stack.Screen name="settings/mailbox" options={{ title: "Mailbox" }} />
+        <Stack.Screen name="settings/languages" options={{ title: "Languages I read" }} />
         <Stack.Screen name="account" options={{ title: "Otter account" }} />
       </Stack>
       <MailNotices />

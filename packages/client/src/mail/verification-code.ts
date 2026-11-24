@@ -1,1 +1,1 @@
-export { findVerificationCode } from "@otter/shared/verification-code";
+export { findVerificationCode, mentionsVerificationCode } from "@otter/shared/verification-code";

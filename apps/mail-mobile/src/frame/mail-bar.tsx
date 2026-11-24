@@ -152,7 +152,7 @@ export function MailBar({
           style={styles.search}
         >
           <Icon name="magnifyingglass" size={15} color="mutedForeground" />
-          <Text size="base" color="mutedForeground" numberOfLines={1} style={{ flex: 1 }}>
+          <Text size="lg" color="mutedForeground" numberOfLines={1} style={{ flex: 1 }}>
             Search {mailboxName}
           </Text>
         </Pressable>

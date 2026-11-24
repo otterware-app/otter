@@ -43,6 +43,10 @@ const config: ExpoConfig = {
     "@bacons/apple-targets",
     ["expo-font", { fonts: ["../../packages/ui-native/fonts/InterVariable.ttf"] }],
     "expo-image",
+    [
+      "expo-image-picker",
+      { photosPermission: false, cameraPermission: false, microphonePermission: false },
+    ],
     "expo-status-bar",
   ],
 };

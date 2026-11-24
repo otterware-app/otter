@@ -9,10 +9,16 @@ export function plainToHtml(text: string) {
 }
 
 export function htmlToPlain(html: string) {
-  return html
-    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
-    .replace(/<br\b[^>]*>|<\/(?:div|p|li|tr|blockquote)>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
+  return decodeEntities(
+    html
+      .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+      .replace(/<br\b[^>]*>|<\/(?:div|p|li|tr|blockquote)>/gi, "\n")
+      .replace(/<[^>]*>/g, ""),
+  ).trim();
+}
+
+export function decodeEntities(text: string) {
+  return text
     .replace(/&#(x[\da-f]+|\d+);/gi, (match, value: string) => {
       const code = value[0].toLowerCase() === "x" ? parseInt(value.slice(1), 16) : Number(value);
       return code <= 0x10ffff ? String.fromCodePoint(code) : match;
@@ -22,6 +28,5 @@ export function htmlToPlain(html: string) {
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&apos;/gi, "'")
-    .replace(/&amp;/gi, "&")
-    .trim();
+    .replace(/&amp;/gi, "&");
 }
