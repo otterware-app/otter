@@ -1,0 +1,21 @@
+docs/expo-migration.md
+  s_076b12ad1c9082::t_9229467f266256 71-77
+apps/mail-mobile/package.json
+  s_076b12ad1c9082::t_9229467f266256 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "97634adfbf49d560039c9b719f3a3355c1e07d9c",
+  "prompts": {},
+  "sessions": {
+    "s_076b12ad1c9082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f03-1d60-7480-929a-3cc6584d46dd",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
