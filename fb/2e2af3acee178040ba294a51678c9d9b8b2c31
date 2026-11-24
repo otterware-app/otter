@@ -1,0 +1,170 @@
+apps/mail-mobile/package.json
+  s_076b12ad1c9082::t_6ac6d3bd331755 34,39-40
+  s_076b12ad1c9082::t_641f990be9f8ae 3
+  s_076b12ad1c9082::t_c6399922122a1c 25
+  s_076b12ad1c9082::t_ee9b51cab25f34 24
+apps/mail-mobile/app.config.ts
+  s_076b12ad1c9082::t_641f990be9f8ae 16,23
+  s_076b12ad1c9082::t_d30ac2fc8a1580 42
+apps/mail-mobile/src/notifications/mail-device.ts
+  s_076b12ad1c9082::t_fa256974c254de 8-11,19-23,25-27,31-52,70-72,74-81,89-96,99-100,111-112,114-115
+  s_076b12ad1c9082::t_ac8c1d4b299597 97-98
+  s_076b12ad1c9082::t_6ac6d3bd331755 1-5,7,12-18,24,28,30,53-62,64-69,101-110,113,116-137,139-142
+  s_076b12ad1c9082::t_727aaf22fc21f5 63,82-86,88
+  s_076b12ad1c9082::t_a56af32c61f297 6,29,73,138
+  s_076b12ad1c9082::t_0965e2ef15e8c2 87
+docs/development.md
+  s_076b12ad1c9082::t_74158b155e8789 369-370
+apps/mail-mobile/src/mail/draft-recovery.ts
+  s_076b12ad1c9082::t_e1cbd82b1dd4e4 35-39,91-120,134-149,154-170,172-179
+  s_076b12ad1c9082::t_2efde1d1dcbc1d 171
+  s_076b12ad1c9082::t_a56af32c61f297 42
+  s_076b12ad1c9082::t_4d4aa1350dac4d 3-6,8-23,34,41,43-55,57-62,64-89,121-125,184-186,188-194,196-197,207-209
+  s_076b12ad1c9082::t_da713c2233c4b2 1-2,7,24-33,40,56,63,90,126-133,150-153,180-183,187,195,198-206
+packages/mobile/src/long-tasks.ts
+  s_076b12ad1c9082::t_00152b1da080d8 24-26,28-30,32-33
+  s_076b12ad1c9082::t_035f05745a9a22 27
+packages/core/src/services/test/gmail-sync.test.ts
+  s_076b12ad1c9082::t_ace6faf0c9cc0a 507-515,521-528,532-533
+  s_076b12ad1c9082::t_32be762311087a 516-520,529-531
+package.json
+  s_076b12ad1c9082::t_c6399922122a1c 30
+scripts/release-plan.test.ts
+  s_076b12ad1c9082::t_56ce48fd4fe076 14,24,48,64
+apps/mail-mobile/src/mail/message-card.tsx
+  s_076b12ad1c9082::t_db17e9b5eec8b6 41,45,51,69,234
+apps/mail-mobile/src/mail/benchmark-status.tsx
+  s_076b12ad1c9082::t_00152b1da080d8 24-25,27
+packages/core/src/services/mail-sync.ts
+  s_076b12ad1c9082::t_85cf5277fde5c8 16,187,189,203,208
+  s_076b12ad1c9082::t_9696899a66f783 56-60
+  s_076b12ad1c9082::t_ace6faf0c9cc0a 184-186
+scripts/release-plan.ts
+  s_076b12ad1c9082::t_56ce48fd4fe076 37-53
+apps/mail-mobile/src/app/settings/licenses.tsx
+  s_076b12ad1c9082::t_c6399922122a1c 1
+apps/mail-mobile/src/mail/mailbox-screen.tsx
+  s_076b12ad1c9082::t_b8ca4a8afeac95 44,50
+  s_076b12ad1c9082::t_2efde1d1dcbc1d 94-95
+  s_076b12ad1c9082::t_43d2ddc3c3d95f 99
+  s_076b12ad1c9082::t_ac8c1d4b299597 88-93,96-98
+  s_076b12ad1c9082::t_28c43758c564e8 85-87,100,381-384,391-396,400-404
+  s_076b12ad1c9082::t_b1723136caeee0 139-144,385-390,397-399
+apps/mail-mobile/src/notifications/background-refresh.ts
+  s_076b12ad1c9082::t_9696899a66f783 28-35,37-41
+  s_076b12ad1c9082::t_d30ac2fc8a1580 1-24,26-27,36,42-55,57-60
+  s_076b12ad1c9082::t_5e065a79e87fcb 25
+  s_076b12ad1c9082::t_0ab7d2b004b630 56
+.github/workflows/release.yml
+  s_076b12ad1c9082::t_641f990be9f8ae 495
+  s_076b12ad1c9082::t_56ce48fd4fe076 601
+scripts/release-ios.ts
+  s_076b12ad1c9082::t_641f990be9f8ae 11-13,23-24,57-61,87-93,97-98
+packages/mobile/ios/OtterMobileModule.swift
+  s_076b12ad1c9082::t_c33126d7b1806a 108-126
+  s_076b12ad1c9082::t_b4f48777871c1d 63-87
+  s_076b12ad1c9082::t_8cdf04670d0e57 187-190
+packages/mobile/src/native.ts
+  s_076b12ad1c9082::t_8cdf04670d0e57 43
+  s_076b12ad1c9082::t_c33126d7b1806a 34-35
+  s_076b12ad1c9082::t_b4f48777871c1d 22-23
+docs/expo-migration.md
+  s_076b12ad1c9082::t_7fba1dbc151b4b 42-47
+  s_076b12ad1c9082::t_6e7f0de8a06846 48-58
+.github/workflows/checks.yml
+  s_076b12ad1c9082::t_74158b155e8789 40
+apps/mail-mobile/src/settings/settings-screen.tsx
+  s_076b12ad1c9082::t_2fb6480d90af29 19,80-83
+  s_076b12ad1c9082::t_c6399922122a1c 18,195-200
+  s_076b12ad1c9082::t_8df0640c33e794 31-32,74,123-126
+  s_076b12ad1c9082::t_c7e04b0728a46d 127-128
+apps/mail-mobile/src/settings/licenses-screen.tsx
+  s_076b12ad1c9082::t_43d2ddc3c3d95f 33-34
+  s_076b12ad1c9082::t_c6399922122a1c 1-32,35-38,42-64
+  s_076b12ad1c9082::t_6e7f0de8a06846 39-41
+apps/mail-mobile/src/core.ts
+  s_076b12ad1c9082::t_6ac6d3bd331755 7
+apps/mail-mobile/src/settings/mailbox-settings-screen.tsx
+  s_076b12ad1c9082::t_8df0640c33e794 28,119
+docs/release.md
+  s_076b12ad1c9082::t_7fba1dbc151b4b 32-34,152,156-158,164-165,168
+apps/mail-mobile/src/mail/format-date.ts
+  s_076b12ad1c9082::t_8cdf04670d0e57 2,30
+apps/mail-mobile/src/mail/compose-screen.tsx
+  s_076b12ad1c9082::t_28c43758c564e8 186,201,328
+  s_076b12ad1c9082::t_8cdf04670d0e57 821
+  s_076b12ad1c9082::t_1c2311b23727db 51-57,117-120,137,149-154,200,210-216,266-267,269-271,329-336,338-343,362,365,436
+  s_076b12ad1c9082::t_6e7f0de8a06846 101,112-114,518-520
+  s_076b12ad1c9082::t_d12a3a28fb950b 165-168
+  s_076b12ad1c9082::t_ecf53d9f1943f4 523-524
+  s_076b12ad1c9082::t_b3d1b6dc6ac8e4 35,38,50,58,64,72,91,93-98,138,159,171,174-175,187,194-195,199,206-207,226,254-255,257,263-265,268,290,309-310,325,327,344-360,363-364,366-367,373-374,437,442
+  s_076b12ad1c9082::t_2efde1d1dcbc1d 99-100,102-111,291-298,305-308,337,385,516-517,521,584
+  s_076b12ad1c9082::t_57131df41476ab 311,326,370,500,502-505,507-508,510-515,522,525-538
+  s_076b12ad1c9082::t_b2c40008449715 361
+apps/mail-mobile/src/mail/sender-avatar.tsx
+  s_076b12ad1c9082::t_686e909b2b0df3 56-66
+  s_076b12ad1c9082::t_db17e9b5eec8b6 1,4-5,8-9,11,16,22-28,52-53
+third-party-licenses.config.json
+  s_076b12ad1c9082::t_c6399922122a1c 5,40,59,66,74,82,94,102,110,118,126,134,141,149,157,165,173,181,192
+scripts/resolve-release-version.ts
+  s_076b12ad1c9082::t_56ce48fd4fe076 37,49,54,59
+  s_076b12ad1c9082::t_035f05745a9a22 39-42
+packages/client/src/mail/use-draft-autosave.ts
+  s_076b12ad1c9082::t_44cc7994c4ae7e 12-19,37-39,62-64,84-85,92,195,225-226,248,252,290-293,302,371,375-382,399-400
+  s_076b12ad1c9082::t_b1723136caeee0 346
+apps/mail-mobile/src/notifications/use-mail-notifications.ts
+  s_076b12ad1c9082::t_daa16246d1b2fc 107-110
+  s_076b12ad1c9082::t_5d9e9328d47bbc 2,4-5,7,14-18,20,22-40,43-57,59,62-64,66-69,75-77,112-114,118-129,131,134-136,151-152,154-156,158-160,166-167,170,174-175,179,183-185,187-188,193-201
+  s_076b12ad1c9082::t_b350c6aa659060 6,65,78-79,84
+  s_076b12ad1c9082::t_8ad2efa3bf1264 1
+  s_076b12ad1c9082::t_d30ac2fc8a1580 19,21,73,85-88,90-95,130,157
+  s_076b12ad1c9082::t_6e7f0de8a06846 80-83
+  s_076b12ad1c9082::t_8df0640c33e794 3,58,186
+  s_076b12ad1c9082::t_edfa284b31f7e9 106,111,133,153,169
+  s_076b12ad1c9082::t_fa256974c254de 8-13,41-42,60-61,70-72,74,96-105,115-117,132,137-150,161-165,168,171-173,176-178,180-182,189-192
+  s_076b12ad1c9082::t_1a21ad0568876c 89
+apps/mail-mobile/index.ts
+  s_076b12ad1c9082::t_d30ac2fc8a1580 3
+apps/mail-mobile/src/mail/mail-row.tsx
+  s_076b12ad1c9082::t_686e909b2b0df3 215-219
+apps/mail-mobile/README.md
+  s_076b12ad1c9082::t_477282071611b4 31-36
+apps/mail-mobile/src/notifications/mailbox-notifications.tsx
+  s_076b12ad1c9082::t_fa256974c254de 31-34,37-39,66-70,75
+  s_076b12ad1c9082::t_8df0640c33e794 1-30,35-36,40-65,71-74,76-79
+packages/mobile/src/notifications.ts
+  s_076b12ad1c9082::t_a56af32c61f297 21,33-36
+  s_076b12ad1c9082::t_6ac6d3bd331755 20,27-32,60
+  s_076b12ad1c9082::t_ac8c1d4b299597 72-77
+apps/mail-mobile/plugins/with-mail-notifications.cjs
+  s_076b12ad1c9082::t_035f05745a9a22 37,47-48
+  s_076b12ad1c9082::t_641f990be9f8ae 3-7,36,44-46,49-61
+  s_076b12ad1c9082::t_d30ac2fc8a1580 27-29
+  s_076b12ad1c9082::t_42e8541927108a 62
+apps/mail-mobile/src/app/_layout.tsx
+  s_076b12ad1c9082::t_8df0640c33e794 15,46
+  s_076b12ad1c9082::t_c6399922122a1c 69
+packages/core/src/handlers/otter-account.ts
+  s_076b12ad1c9082::t_fa256974c254de 182-184,197-205
+  s_076b12ad1c9082::t_b4f48777871c1d 180-181,185-196,206-207
+pnpm-lock.yaml
+  s_076b12ad1c9082::t_61fbf2fbbd29cd 359-364,389-391,404-409,5974-5978,6226-6231,8420-8422,13354-13360,13623-13628,16458-16459
+apps/mail-mobile/src/settings/licenses.json
+  s_076b12ad1c9082::t_86862272341247 1-758
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fb2e2af3acee178040ba294a51678c9d9b8b2c31",
+  "prompts": {},
+  "sessions": {
+    "s_076b12ad1c9082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f03-1d60-7480-929a-3cc6584d46dd",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
