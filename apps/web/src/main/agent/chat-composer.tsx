@@ -64,6 +64,7 @@ export function ChatComposer({
   onSent,
   updateSettings,
   compact = false,
+  ruled = false,
 }: {
   chatId: string;
   convo: Conversation | undefined;
@@ -76,6 +77,8 @@ export function ChatComposer({
   onSent: () => void;
   updateSettings: (patch: AgentSettingsPatch) => void;
   compact?: boolean;
+  /** The Margin layout's: a ruled line at the bottom of the column, not a card. */
+  ruled?: boolean;
 }) {
   const { provider, name: providerName, usable } = chat;
   const agentId = chat.id ?? "";
@@ -321,8 +324,10 @@ export function ChatComposer({
   const call = useTalk((s) => (s.call?.chatId === chatId ? s.call : null));
 
   return (
-    <div className={cn("relative shrink-0 pt-1", compact ? "px-2 pb-2" : "px-3 pb-3")}>
-      <div className="relative mx-auto w-full max-w-3xl">
+    <div
+      className={cn("relative shrink-0 pt-1", compact ? "px-2 pb-2" : ruled ? "pb-4" : "px-3 pb-3")}
+    >
+      <div className={cn("relative w-full", !ruled && "mx-auto max-w-3xl")}>
         {slashOpen ? (
           <div className="dropdown-glass absolute inset-x-0 bottom-full z-20 mb-1 max-h-64 overflow-y-auto rounded-xl p-1.5 shadow-overlay">
             <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Skills</div>
@@ -371,7 +376,13 @@ export function ChatComposer({
         ) : call ? (
           <TalkBar call={call} name={providerName} compact={compact} />
         ) : (
-          <div className={cn("relative", COMPOSER_SURFACE, compact && "rounded-lg")}>
+          <div
+            className={cn(
+              "relative",
+              ruled ? "border-t border-foreground bg-canvas" : COMPOSER_SURFACE,
+              compact && "rounded-lg",
+            )}
+          >
             <ComposerAttachments items={files.items} onRemove={files.remove} compact={compact}>
               {/* The mail this message is about; click to leave it out. */}
               {attached ? (
@@ -457,7 +468,11 @@ export function ChatComposer({
                   send(e.metaKey || e.ctrlKey);
                 }
               }}
-              placeholder="Ask anything, / for skills"
+              placeholder={
+                ruled && convo?.turns.length
+                  ? `Reply to ${providerName}…`
+                  : "Ask anything, / for skills"
+              }
               aria-label={`Message ${providerName}`}
               rows={compact ? 1 : 2}
               className={cn(
@@ -465,10 +480,14 @@ export function ChatComposer({
                 compact
                   ? "max-h-40 px-3.5 pt-3"
                   : "min-h-[calc(2lh+1.25rem)] max-h-[min(20rem,45vh)] px-4.5 pt-4",
+                ruled && "px-1 font-reading text-lg placeholder:italic",
               )}
             />
             <div
-              className={cn("flex min-w-0 items-center gap-1", compact ? "px-2 pb-2" : "px-3 pb-3")}
+              className={cn(
+                "flex min-w-0 items-center gap-1",
+                compact ? "px-2 pb-2" : ruled ? "pb-1" : "px-3 pb-3",
+              )}
             >
               <HintTooltip label="Attach files">
                 <IconButton

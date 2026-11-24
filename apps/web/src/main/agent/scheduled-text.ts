@@ -117,6 +117,19 @@ export function dayTimeText(at: number, now: number): string {
   return `${day} at ${time}`;
 }
 
+/** The day of `at` in a time gutter: "Today", "Tomorrow", "Yesterday", "Thu" within a week, else "12 Nov". */
+export function dayText(at: number, now: number): string {
+  const date = new Date(at);
+  const days = Math.round(
+    (new Date(date).setHours(0, 0, 0, 0) - new Date(now).setHours(0, 0, 0, 0)) / DAY,
+  );
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days === -1) return "Yesterday";
+  if (Math.abs(days) < 7) return date.toLocaleDateString(undefined, { weekday: "short" });
+  return date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
 /** How long until `at`: "in 5 min", "in 3 h", "in 2 days"; "now" once it's due. */
 export function untilText(at: number, now: number): string {
   const left = at - now;
