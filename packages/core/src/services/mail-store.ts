@@ -683,19 +683,23 @@ function threadPageQuery(matchedSql: string, draftsView = false, listed = false)
      WHERE t.accountId = mt.accountId AND t.threadId = mt.threadId ${kept("t")} ${extra}
      ORDER BY t.date DESC LIMIT 1
   )`;
-  const latestNonDraft = latest(`
-    AND NOT EXISTS (SELECT 1 FROM message_labels td
-                     WHERE td.accountId = t.accountId AND td.messageId = t.id AND td.labelId = 'DRAFT')
-  `);
-  const sortDate = draftsView ? latest() : `COALESCE(${latestNonDraft}, ${latest()})`;
+  const sortDate = draftsView
+    ? latest()
+    : `COALESCE(${latest(`AND ${notDraft("t")}`)}, ${latest()})`;
+  return threadSummaryQuery(
+    `WITH matched AS (${matchedSql})
+     SELECT mt.accountId, mt.threadId, ${sortDate} AS sortDate
+       FROM matched mt
+      ORDER BY sortDate DESC, mt.accountId, mt.threadId
+      LIMIT ? OFFSET ?`,
+    listed,
+  );
+}
+
+function threadSummaryQuery(pageSql: string, listed: boolean): string {
+  const kept = (alias: string) => (listed ? `AND ${notInBins(alias)}` : "");
   return `
-    WITH matched AS (${matchedSql}),
-    page AS (
-      SELECT mt.accountId, mt.threadId, ${sortDate} AS sortDate
-        FROM matched mt
-       ORDER BY sortDate DESC, mt.accountId, mt.threadId
-       LIMIT ? OFFSET ?
-    ),
+    WITH page AS (${pageSql}),
     agg AS (
       SELECT p.accountId, p.threadId, p.sortDate,
              COUNT(DISTINCT COALESCE(t.messageIdHeader, t.id)) AS threadCount,
@@ -738,7 +742,37 @@ function threadPageQuery(matchedSql: string, draftsView = false, listed = false)
 const notInBins = (alias: string) =>
   `NOT EXISTS (SELECT 1 FROM message_labels mlx WHERE mlx.accountId = ${alias}.accountId AND mlx.messageId = ${alias}.id AND mlx.labelId IN ('SPAM', 'TRASH'))`;
 
+const notDraft = (alias: string) =>
+  `NOT EXISTS (SELECT 1 FROM message_labels d WHERE d.accountId = ${alias}.accountId AND d.messageId = ${alias}.id AND d.labelId = 'DRAFT')`;
+
 const NOT_SPAM_TRASH = notInBins("m");
+
+function recentInboxPage(): string {
+  const latest = (extra = "") => `(
+    SELECT t.id FROM messages t
+     WHERE t.accountId = m.accountId AND t.threadId = m.threadId AND ${notInBins("t")} ${extra}
+     ORDER BY t.date DESC, t.id LIMIT 1
+  )`;
+  return threadSummaryQuery(
+    `
+    SELECT m.accountId, m.threadId, m.date AS sortDate
+      FROM (
+        SELECT accountId, threadId, date, id FROM messages
+         WHERE accountId = ?
+         ORDER BY date DESC, threadId, id LIMIT 1024
+      ) m
+     WHERE ${NOT_SPAM_TRASH}
+       AND m.id = COALESCE(${latest(`AND ${notDraft("t")}`)}, ${latest()})
+       AND EXISTS (
+         SELECT 1 FROM messages candidate
+         CROSS JOIN message_labels label ON label.accountId = candidate.accountId AND label.messageId = candidate.id
+          WHERE candidate.accountId = m.accountId AND candidate.threadId = m.threadId
+            AND label.labelId = 'INBOX' AND ${notInBins("candidate")}
+       )
+     ORDER BY m.date DESC, m.threadId LIMIT ? OFFSET ?`,
+    true,
+  );
+}
 
 /** Lower-cased; `sendAs` is the parent's whole Send from list. */
 export type AliasScope = { address: string; sendAs: string[] };
@@ -805,6 +839,16 @@ export function getThreadsPage(
   scope?: MailboxScope,
 ): { messages: MessageSummary[]; hasMore: boolean } {
   const d = getDb();
+  // A full page from the newest messages makes the common Inbox read independent
+  // of the total mailbox size. Sparse inboxes and deep pages use the label query.
+  if (labelId === "INBOX" && !scope && offset + limit < 512) {
+    const recent = d
+      .prepare(recentInboxPage())
+      .all(accountId, limit + 1, offset) as unknown as ThreadRow[];
+    if (recent.length > limit) {
+      return { messages: recent.slice(0, limit).map(rowToThreadSummary), hasMore: true };
+    }
+  }
   const own = scope ? scopeWhere(labelId, scope) : null;
   const ownSql = own ? `AND ${own.clause}` : "";
   const ownParams = own?.params ?? [];
