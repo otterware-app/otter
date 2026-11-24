@@ -5,6 +5,8 @@ const twMerge = extendTailwindMerge({
   extend: {
     theme: {
       text: ["4xs", "3xs", "2xs", "body", "md"],
+      radius: ["pill"],
+      shadow: ["overlay"],
     },
   },
 });

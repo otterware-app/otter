@@ -47,11 +47,12 @@ export function StatusDot({ status, className }: { status: ChatStatus; className
 /** The frame's gap round the cards. */
 const GAP = 4;
 
-let radius: { design: string | null; px: number } | null = null;
+let radius: { design: string; px: number } | null = null;
 
-/** The cards' corner radius (rounded-xl), which the theme's design sets. */
+/** The cards' corner radius (rounded-xl): Otter's 12, or what the theme's design sets. */
 function cardRadius(): number {
   const design = document.documentElement.getAttribute("data-design");
+  if (!design) return 12;
   if (radius?.design !== design) {
     const probe = document.createElement("div");
     probe.style.borderTopLeftRadius = "var(--radius-xl)";

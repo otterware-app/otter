@@ -383,7 +383,7 @@ svg.lucide[stroke-width="2"] > * {
 [data-settings-page-scroll] div.settings-search-target-pulse,
 [data-settings-page-scroll] section.settings-search-target-pulse > :last-child {
   animation: settings-search-target-pulse 650ms ease-in-out 2;
-  border-radius: var(--radius-xl);
+  border-radius: 0.75rem;
 }
 
 [data-settings-page-scroll] [data-slot="settings-row"].settings-search-target-pulse {

@@ -2613,7 +2613,9 @@ export function MessageReader({
     <>
       <h1
         className={cn(
-          "no-drag select-text font-semibold text-foreground [overflow-wrap:anywhere] font-reading",
+          "no-drag select-text font-semibold text-foreground [overflow-wrap:anywhere] font-reading margin:font-medium",
+          // A serif sits high in its line box: trimmed to cap height and baseline, it centers.
+          "margin:[text-box:trim-both_cap_alphabetic]",
           inBand ? "text-md leading-5" : "text-xl leading-7 tracking-[-0.01em]",
         )}
         title={isThread ? `${rows.length} messages` : formatFullDate(message.date)}
@@ -2960,25 +2962,30 @@ export function MessageReader({
             {renderTitle(true)}
           </div>
 
+          {/* Beside the pinned summary, as the messages are (the viewport's pr-[18rem]). */}
           {titleInBand ? null : (
-            <div className="mx-auto flex w-full max-w-(--reading-width) shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-6 pb-2 pt-1">
-              {renderTitle(false)}
+            <div className={cn("shrink-0", summaryShown && "pr-[18rem]")}>
+              <div className="mx-auto flex w-full max-w-(--reading-width) flex-wrap items-center gap-x-2 gap-y-1 px-6 pb-2 pt-1 margin:pt-5 margin:pb-3">
+                {renderTitle(false)}
+              </div>
             </div>
           )}
 
           {single && threadMessages.length > 1 ? (
-            <div className="mx-auto flex w-full max-w-(--reading-width) shrink-0 items-center gap-2 px-6 py-1.5">
-              <span className="text-sm text-muted-foreground">
-                One message of {threadMessages.length} in this conversation
-              </span>
-              <span className="flex-1" />
-              <Button
-                size="sm"
-                className="rounded-pill border-border/60"
-                onClick={onShowConversation}
-              >
-                Show conversation
-              </Button>
+            <div className={cn("shrink-0", summaryShown && "pr-[18rem]")}>
+              <div className="mx-auto flex w-full max-w-(--reading-width) items-center gap-2 px-6 py-1.5">
+                <span className="text-sm text-muted-foreground">
+                  One message of {threadMessages.length} in this conversation
+                </span>
+                <span className="flex-1" />
+                <Button
+                  size="sm"
+                  className="rounded-pill border-border/60"
+                  onClick={onShowConversation}
+                >
+                  Show conversation
+                </Button>
+              </div>
             </div>
           ) : null}
 
