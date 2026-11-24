@@ -57,6 +57,7 @@ import {
   INTERFACE_FONT_SIZE,
   MARK_READ_DELAY,
   useInterfaceSetting,
+  useMailLayout,
 } from "../theme/interface-settings";
 import {
   useAccounts,
@@ -2146,11 +2147,17 @@ function ReaderShell({
   );
 }
 
-function bandLayout(w: { reader: number; leading: number; actions: number; title: number }) {
+function bandLayout(
+  w: { reader: number; leading: number; actions: number; title: number },
+  margin: boolean,
+) {
   return {
     compactActions: w.reader < 36 * 16,
     titleInBand: w.reader - 3.75 * 16 - w.leading - w.actions >= w.title,
-    summaryFits: w.reader >= 48 * 16 + 16 * 16 + 2 * 16,
+    // Margin's column stays centered, so its margin needs room on both sides.
+    summaryFits: margin
+      ? w.reader >= 42.5 * 16 + 2 * (15 + 2 + 1) * 16
+      : w.reader >= 48 * 16 + 16 * 16 + 2 * 16,
   };
 }
 
@@ -2185,13 +2192,14 @@ export function MessageReader({
   // renders outside this element.
   // Only what the widths decide is state: the reader re-renders when that changes, not on
   // every frame of a panel sliding beside it.
+  const margin = useMailLayout() === "margin";
   const widths = useRef({ reader: Infinity, leading: 0, actions: 0, title: 0 });
   const [band, setBand] = useState(() =>
-    bandLayout({ reader: Infinity, leading: 0, actions: 0, title: 0 }),
+    bandLayout({ reader: Infinity, leading: 0, actions: 0, title: 0 }, margin),
   );
   const relayout = () =>
     setBand((prev) => {
-      const next = bandLayout(widths.current);
+      const next = bandLayout(widths.current, margin);
       return next.compactActions === prev.compactActions &&
         next.titleInBand === prev.titleInBand &&
         next.summaryFits === prev.summaryFits
@@ -2224,7 +2232,8 @@ export function MessageReader({
   );
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [summaryFile, setSummaryFile] = useState<PreviewFile | null>(null);
-  const summaryShown = summaryFits && summaryPinned;
+  const summaryShown = summaryFits && (margin || summaryPinned);
+  const inMargin = summaryShown && margin;
   const readerAction = (name: "reply" | "replyAll" | "forward") => () => {
     const action = readerActions.current[name];
     if (!action) return false;
@@ -2605,6 +2614,11 @@ export function MessageReader({
       onComposeTo={onComposeTo}
       onSearchSender={onSearchSender}
       onOpenFile={handleOpenSummaryFile}
+      className={
+        inMargin
+          ? "w-60 rounded-none border-0 border-l border-border bg-transparent shadow-none margin:border-border"
+          : undefined
+      }
     />
   );
 
@@ -2909,7 +2923,7 @@ export function MessageReader({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {summaryFits ? (
+            {inMargin ? null : summaryFits ? (
               <HintTooltip label={summaryPinned ? "Hide summary" : "Show summary"} side="bottom">
                 <IconButton
                   label="Toggle summary"
@@ -3014,7 +3028,7 @@ export function MessageReader({
           {/* Conversation */}
           <ScrollArea
             className="flex-1"
-            viewportClassName={cn("pb-agent-corner", summaryShown && "pr-[18rem]")}
+            viewportClassName={cn("pb-agent-corner", summaryShown && !margin && "pr-[18rem]")}
             onMouseUp={onParentMouseUp}
           >
             <div className="mx-auto w-full max-w-(--reading-width)">
@@ -3091,7 +3105,13 @@ export function MessageReader({
           </ScrollArea>
 
           {/* Pinned in the reader's top-right corner, still while the conversation scrolls. */}
-          {summaryShown ? <aside className="absolute right-4 top-3 z-10">{summary}</aside> : null}
+          {inMargin ? (
+            <aside className="absolute top-3 left-[calc(50%+var(--reading-width)/2+2rem)] z-10">
+              {summary}
+            </aside>
+          ) : summaryShown ? (
+            <aside className="absolute right-4 top-3 z-10">{summary}</aside>
+          ) : null}
         </div>
 
         {/* In-thread composer, hidden until replying/forwarding */}

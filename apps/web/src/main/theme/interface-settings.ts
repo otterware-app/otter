@@ -82,6 +82,10 @@ export const MAIL_LAYOUTS = {
   },
   split: { label: "Split view", description: "Keep the message list beside the conversation." },
   full: { label: "Full inbox", description: "A wide inbox. Open a message to read it in full." },
+  margin: {
+    label: "Margin",
+    description: "One column at a reading measure, with the conversation's details in the margin.",
+  },
 } as const;
 export type MailLayout = keyof typeof MAIL_LAYOUTS;
 export const DEFAULT_MAIL_LAYOUT: MailLayout = "auto";

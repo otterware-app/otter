@@ -699,6 +699,8 @@ export function ReadingWidthRow({ id }: { id?: string }) {
   );
 }
 
+const hasReader = (layout: string) => layout === "auto" || layout === "split";
+
 function MailLayoutPicker() {
   const selectedLayout = useMailLayout();
   return (
@@ -716,7 +718,7 @@ function MailLayoutPicker() {
       }
     >
       <div className="@container">
-        <div className="grid grid-cols-1 gap-2 @min-[24rem]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 @min-[24rem]:grid-cols-2 @min-[40rem]:grid-cols-4">
           {Object.entries(MAIL_LAYOUTS).map(([value, { label, description }]) => (
             <button
               key={value}
@@ -745,7 +747,11 @@ function MailLayoutPicker() {
                 <span
                   className={cn(
                     "flex flex-col",
-                    value !== "full" ? "w-1/3 border-r border-border/70" : "flex-1",
+                    value === "full"
+                      ? "flex-1"
+                      : value === "margin"
+                        ? "flex-1 px-[15%]"
+                        : "w-1/3 border-r border-border/70",
                   )}
                 >
                   <span className="flex h-6 shrink-0 items-center border-b border-border/60 px-2">
@@ -757,7 +763,7 @@ function MailLayoutPicker() {
                       className={cn(
                         "flex gap-1.5 border-b border-border/40 px-2 py-2",
                         value !== "full" ? "flex-col" : "items-center",
-                        row === 0 && value !== "full" && "bg-sidebar-row-active",
+                        row === 0 && hasReader(value) && "bg-sidebar-row-active",
                       )}
                     >
                       <span
@@ -778,7 +784,7 @@ function MailLayoutPicker() {
                     </span>
                   ))}
                 </span>
-                {value !== "full" ? (
+                {hasReader(value) ? (
                   <span className="flex min-w-0 flex-1 flex-col gap-2 p-2 pt-4">
                     <span className="h-1.5 w-4/5 rounded-full bg-foreground/50" />
                     <span className="mt-2 h-1 w-3/5 rounded-full bg-muted-foreground/30" />

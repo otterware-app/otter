@@ -74,6 +74,16 @@ new component starts in `@otter/ui` when more than one screen will use it, else 
 | Task Group Header · Task Row · Detail Field · History Run · Tasks Toolbar                           | `apps/web/src/main/agent/agent-scheduled.tsx`                                          |
 | App Shell · Calendar Shell · Agent Shell · Window Controls                                          | `apps/web/src/main/root-view.tsx`, `home-view.tsx`                                     |
 
+## Part B, Margin's UX
+
+Part B (its banner, "Part B · UX proposal — Margin") is a proposal for how Otter works in the
+Margin theme, not only how it looks. Its containers, B1 to B6 (principles and components, Desk,
+Mail, Calendar, Agent, Settings), each pair today's page on the left with the Margin screen on
+the right. It draws with the Margin theme (the theme axis set to `margin`). Its Margin
+components (Rail, Top Bar, Section Head, Margin Note, Margin Note / ask, Button / signal, rule
+and ink) have no code yet; the Margin mail layout (Settings → Appearance → Mail layout) is the
+first screen built. What's left, in order: [docs/margin-ux.md](../docs/margin-ux.md).
+
 ## Editing the file
 
 Open it in pen.dev, or drive it from an agent with the Pencil MCP (`file://…/design/otter.pen`)

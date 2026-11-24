@@ -371,7 +371,7 @@ const LIST_LEADING = (
   </span>
 );
 const LIST_TRAILING = (
-  <span className="hidden [[data-mail-layout=full][data-right-panels=none]_&]:contents">
+  <span className="hidden [[data-mail-layout=full][data-right-panels=none]_&]:contents [[data-mail-layout=margin][data-right-panels=none]_&]:contents">
     <PanelControlSlot />
   </span>
 );
@@ -715,7 +715,7 @@ function MailHome() {
       : (dragSplit ?? splitFits(paneWidths))
         ? "split"
         : "full";
-  const fullInbox = mailLayout === "full" && !ownsMain;
+  const fullInbox = (mailLayout === "full" || mailLayout === "margin") && !ownsMain;
   const browserPresent = usePanelPresence(
     browserVisible,
     panelAnimationsActive,

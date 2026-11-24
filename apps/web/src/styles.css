@@ -80,6 +80,16 @@ html[data-window-controls="none"] {
   scroll-margin-top: 2rem;
 }
 
+/* Margin: the list and the reader keep to one column at a reading measure. */
+[data-mail-layout="margin"] {
+  --reading-width: 42.5rem;
+}
+
+[data-mail-layout="margin"] .message-list-scroll > * {
+  max-width: var(--reading-width);
+  margin-inline: auto;
+}
+
 /* Full-width rows (Gmail's): edge to edge with a hairline between them, not cards. */
 [data-full-width-rows="true"] .message-list-group {
   padding: 0;
