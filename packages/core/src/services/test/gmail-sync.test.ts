@@ -504,6 +504,33 @@ afterEach(() => {
 
 // Real background syncs: well under a second alone, seconds on a busy CI runner.
 describe("Gmail sync", { timeout: 15_000 }, () => {
+  it("waits for queued mailbox work before finishing a background refresh", async () => {
+    deliver("old", ["INBOX"]);
+    const { mailSync, mailStore, status } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+
+    deliver("background", ["INBOX", "UNREAD"]);
+    let release!: () => void;
+    hold = { ids: ["background"], until: new Promise((resolve) => (release = resolve)) };
+    let finished = false;
+    const refresh = mailSync
+      .syncAllAccounts({ force: true, trigger: "timer", wait: true })
+      .then(() => {
+        finished = true;
+      });
+    try {
+      await until(() => held.has("background"), "the held refresh");
+      expect(finished).toBe(false);
+      expect(status().syncing).toBe(true);
+    } finally {
+      release();
+      await refresh;
+    }
+    expect(mailStore.getMessageDetail(account.id, "background")?.bodyText).toBe(
+      "Body of background",
+    );
+  });
+
   it("brings new mail while the first sync is still filling the mailbox", async () => {
     for (let i = 1; i <= 8; i++) deliver(`old${i}`, ["INBOX"], Date.now() - i * 60_000);
     let release!: () => void;

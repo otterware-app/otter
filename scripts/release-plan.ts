@@ -34,8 +34,23 @@ const NOT_DESKTOP = [
   ".github/",
   ".agents/",
 ];
-const IOS_SCRIPTS = ["scripts/export-ios-resources.ts", "scripts/release-ios.ts"];
-const IPHONE = ["apps/ios/", "packages/shared/", ...IOS_SCRIPTS];
+const IPHONE = [
+  "apps/mail-mobile/",
+  "apps/ios/NotificationShared/",
+  "apps/ios/OtterMailNotificationService/",
+  "apps/ios/OtterMail/Assets.xcassets/",
+  "apps/ios/OtterMail/Imap/",
+  "packages/client/",
+  "packages/contracts/",
+  "packages/core/",
+  "packages/mobile/",
+  "packages/shared/",
+  "packages/ui-native/",
+  "extensions/translation/",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "scripts/release-ios.ts",
+];
 const AGENTS = [
   "apps/agents-mobile/",
   "packages/client/",

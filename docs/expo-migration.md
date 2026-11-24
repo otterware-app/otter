@@ -39,7 +39,23 @@ replays pending changes with their original exchange IDs and downloads the curre
 Check these on a signed upgrade. On a development install with its own identity, connect
 from the existing gateway's settings to keep its chats.
 
-Otter Mail remains on Swift. Its Expo migration follows the Agents cutover.
+The Otter Mail draft builds the Expo app and notification service under the existing App
+Store identity. The production signing settings use the existing app and extension profiles.
+The simulator comparison covers the Swift and Expo inbox, reader, and reply sheet in light
+and dark. The Expo branch adds native Photos and Translation, on-device draft recovery,
+and background notification setup.
+
+Two iPhone 18 Pro simulator Release runs scrolled through the 50,000-message Gmail fixture.
+The first row appeared at 4,094 ms and 7,585 ms. The second run's 311 ms peak happened with
+rows already visible.
+
+| Run | First sync max / p95 | 200-change replay max / p95 |
+| --- | -------------------- | --------------------------- |
+| 1   | 186 ms / 14 ms       | 40 ms / 8 ms                |
+| 2   | 311 ms / 10 ms       | 539 ms / 15 ms              |
+
+The 50 ms maximum is still open. A signed upgrade with live provider sign-in, background
+refresh, and APNs also needs verification before cutover.
 
 |                   | Otter Mail (`apps/ios`) | Otter Agents (`apps/ios-agents`) |
 | ----------------- | ----------------------- | -------------------------------- |

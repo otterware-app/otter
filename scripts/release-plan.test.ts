@@ -11,7 +11,7 @@ test("each app ships when what it is built from changed", () => {
     iphone: false,
     agents: false,
   });
-  assert.deepEqual(release("auto", ["apps/ios/OtterMail/Mail/MessageList.swift"]), {
+  assert.deepEqual(release("auto", ["apps/mail-mobile/src/mail/mailbox-screen.tsx"]), {
     desktop: false,
     iphone: true,
     agents: false,
@@ -21,7 +21,7 @@ test("each app ships when what it is built from changed", () => {
     iphone: false,
     agents: true,
   });
-  assert.deepEqual(release("auto", ["apps/ios/OtterMail/Theme/Palette.swift"]), {
+  assert.deepEqual(release("auto", ["apps/ios/NotificationShared/PushState.swift"]), {
     desktop: false,
     iphone: true,
     agents: false,
@@ -45,7 +45,7 @@ test("each app ships when what it is built from changed", () => {
   ]) {
     assert.deepEqual(release("auto", [`packages/mobile/ios/${file}`]), {
       desktop: false,
-      iphone: false,
+      iphone: true,
       agents: true,
     });
   }
@@ -61,7 +61,7 @@ test("what no app is built from ships nothing", () => {
     "infra/relay/src/worker.ts",
     ".github/workflows/ci.yml",
     ".agents/skills/pr/SKILL.md",
-    "apps/mail-mobile/src/mail/mailbox-screen.tsx",
+    "apps/ios/OtterMail/Theme/Palette.swift",
   ]) {
     assert.deepEqual(release("auto", [file]), { desktop: false, iphone: false, agents: false });
   }

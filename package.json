@@ -27,6 +27,7 @@
     "ios:resources": "node scripts/export-ios-resources.ts",
     "licenses:sync": "node scripts/sync-third-party-license-notices.ts",
     "licenses:mobile:agents": "node scripts/export-mobile-licenses.ts agents-mobile",
+    "licenses:mobile:mail": "node scripts/export-mobile-licenses.ts mail-mobile",
     "release:ios": "node scripts/release-ios.ts",
     "release:ios:agents": "node scripts/release-ios.ts --app agents",
     "typecheck": "vp run -r --parallel --concurrency-limit 4 typecheck",

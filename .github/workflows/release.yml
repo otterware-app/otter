@@ -492,7 +492,7 @@ jobs:
       # What scripts/release-ios.ts and scripts/resolve-release-version.ts call the app.
       IOS_APP: mail
       VERSION_APP: ios
-      VERSION_FILE: apps/ios/OtterMail.xcodeproj/project.pbxproj
+      VERSION_FILE: apps/mail-mobile/package.json
       PROFILE_SECRET: IOS_PROVISIONING_PROFILE
       NOTIFICATION_PROFILE_SECRET: IOS_NOTIFICATION_PROVISIONING_PROFILE
     steps: &ios_steps
@@ -520,7 +520,6 @@ jobs:
           node scripts/resolve-release-version.ts "${args[@]}"
 
       - name: Setup Expo workspace
-        if: env.IOS_APP == 'agents'
         uses: ./.github/actions/setup
 
       - name: Install signing
@@ -599,11 +598,7 @@ jobs:
 
           git fetch origin "$BRANCH"
           git checkout --force -B "$BRANCH" FETCH_HEAD
-          if [[ "$IOS_APP" == agents ]]; then
-            node -e 'const fs = require("node:fs"); const [file, version] = process.argv.slice(1); const app = JSON.parse(fs.readFileSync(file, "utf8")); app.version = version; fs.writeFileSync(file, JSON.stringify(app, null, 2) + "\n");' "$VERSION_FILE" "$VERSION"
-          else
-            perl -pi -e "s/MARKETING_VERSION = [^;]+;/MARKETING_VERSION = $VERSION;/" "$VERSION_FILE"
-          fi
+          node -e 'const fs = require("node:fs"); const [file, version] = process.argv.slice(1); const app = JSON.parse(fs.readFileSync(file, "utf8")); app.version = version; fs.writeFileSync(file, JSON.stringify(app, null, 2) + "\n");' "$VERSION_FILE" "$VERSION"
           if git diff --quiet -- "$VERSION_FILE"; then exit 0; fi
           git add "$VERSION_FILE"
           git commit -m "chore(release): $TAG"

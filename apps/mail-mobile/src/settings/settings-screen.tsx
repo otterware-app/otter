@@ -15,10 +15,11 @@ import {
 } from "@otter/ui-native/components/settings";
 import { Text } from "@otter/ui-native/components/text";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Constants from "expo-constants";
+import { requestPermissionsAsync } from "expo-notifications";
 import { Stack, useRouter } from "expo-router";
 import { ActionSheetIOS, View } from "react-native";
 
-import { version } from "../../package.json";
 import { mailFailure } from "../mail/mail-actions.tsx";
 import { useMailboxes } from "../mail/mailboxes.ts";
 import {
@@ -27,6 +28,8 @@ import {
   useTranslationSettings,
   useUpdateTranslationSettings,
 } from "../mail/translation.ts";
+import { fake } from "../core.ts";
+import { mailSettingsKey } from "../notifications/use-mail-notifications.ts";
 import { setFullWidthMessages, useFullWidthMessages, usePreference } from "./preferences.ts";
 
 const advance: Record<AdvanceDirection, string> = {
@@ -68,13 +71,16 @@ export function SettingsScreen() {
   const fullRows = usePreference("otter:full-width-rows") === "true";
   const fullMessages = useFullWidthMessages();
   usePreference("gmail:advance-direction");
-  const settings = useQuery({ queryKey: ["settings:mail"], queryFn: mailApi.getSyncSettings });
+  const settings = useQuery({ queryKey: mailSettingsKey, queryFn: mailApi.getSyncSettings });
   const translation = useTranslationSettings().data;
   const updateTranslation = useUpdateTranslationSettings();
   const read = effectiveLanguages(translation).map(languageName);
   const update = useMutation({
     mutationFn: (mode: NotificationsMode) => mailApi.setSyncSettings({ notificationsMode: mode }),
-    onSuccess: (data) => queries.setQueryData(["settings:mail"], data),
+    onSuccess: (data) => {
+      queries.setQueryData(mailSettingsKey, data);
+      if (data.notificationsMode !== "off") void requestPermissionsAsync().catch(mailFailure);
+    },
     onError: mailFailure,
   });
   const name = otter?.user?.name || otter?.user?.email;
@@ -112,6 +118,12 @@ export function SettingsScreen() {
             onPress={() =>
               picker("Notifications", notifications, (choice) => update.mutate(choice))
             }
+          />
+        )}
+        {!fake && (
+          <SettingsRow
+            title="Background notification setup"
+            onPress={() => router.push("/settings/mailboxes")}
           />
         )}
         <SettingsRow
@@ -180,7 +192,12 @@ export function SettingsScreen() {
           title="Otter account"
           onPress={() => router.push("/account")}
         />
-        <SettingsRow icon="info.circle" title="Version" value={version} />
+        <SettingsRow icon="info.circle" title="Version" value={Constants.expoConfig?.version} />
+        <SettingsRow
+          icon="doc.text"
+          title="Open-source licenses"
+          onPress={() => router.push("/settings/licenses")}
+        />
       </SettingsSection>
     </SettingsPage>
   );

@@ -34,39 +34,29 @@ export function bumpVersion(version: string, bump: Bump): string {
 
 type App = "mac" | "ios" | "agents";
 
-function xcodeVersion(project: string): string {
+function packageVersion(dir: string): string {
   return (
-    /MARKETING_VERSION = ([^;]+);/.exec(
-      NodeFS.readFileSync(NodePath.join(repoRoot, project, "project.pbxproj"), "utf8"),
-    )?.[1] ?? ""
-  );
+    JSON.parse(NodeFS.readFileSync(NodePath.join(repoRoot, dir, "package.json"), "utf8")) as {
+      version: string;
+    }
+  ).version;
 }
 
 const APPS: Record<App, { prefix: string; name: string; sourceVersion: () => string }> = {
   mac: {
     prefix: "v",
     name: "Otter",
-    sourceVersion: () =>
-      (
-        JSON.parse(
-          NodeFS.readFileSync(NodePath.join(repoRoot, "apps/desktop/package.json"), "utf8"),
-        ) as { version: string }
-      ).version,
+    sourceVersion: () => packageVersion("apps/desktop"),
   },
   ios: {
     prefix: "ios-v",
     name: "Otter Mail for iPhone",
-    sourceVersion: () => xcodeVersion("apps/ios/OtterMail.xcodeproj"),
+    sourceVersion: () => packageVersion("apps/mail-mobile"),
   },
   agents: {
     prefix: "ios-agents-v",
     name: "Otter Agents for iPhone",
-    sourceVersion: () =>
-      (
-        JSON.parse(
-          NodeFS.readFileSync(NodePath.join(repoRoot, "apps/agents-mobile/package.json"), "utf8"),
-        ) as { version: string }
-      ).version,
+    sourceVersion: () => packageVersion("apps/agents-mobile"),
   },
 };
 

@@ -21,13 +21,16 @@ export function watchLongTasks(): void {
  * The longest block that overlapped `from`…`to` (ms since the epoch), and the 95th percentile of
  * the ticks' lateness. Timers fire on frames here, so a tick is about 7 ms late at rest.
  */
-export function longTasks(from: number, to = Date.now()): { longest: number; p95: number } {
-  const late = ticks
-    .filter((t) => t.at >= from && t.at - t.late <= to)
-    .map((t) => t.late)
-    .sort((a, b) => a - b);
+export function longTasks(from: number, to = Date.now()) {
+  const samples = ticks.filter((t) => t.at >= from && t.at - t.late <= to);
+  const worst = samples.reduce<(typeof ticks)[number] | undefined>(
+    (previous, next) => (!previous || next.late > previous.late ? next : previous),
+    undefined,
+  );
+  const late = samples.map((t) => t.late).sort((a, b) => a - b);
   return {
-    longest: late.at(-1) ?? 0,
+    longest: worst?.late ?? 0,
+    longestAt: worst ? worst.at - from : null,
     p95: late[Math.floor(late.length * 0.95)] ?? 0,
   };
 }

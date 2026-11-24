@@ -19,6 +19,8 @@ export const native = requireNativeModule<{
     force: boolean,
   ): Promise<string | null>;
   mailForget(provider: MailOAuthProvider, email: string): Promise<void>;
+  mailPushConfig(): { topic: string; environment: "sandbox" | "production" } | null;
+  writeMailPushConfiguration(configuration: string | null): Promise<void>;
   mailSocketOpen(host: string, port: number, tls: boolean): Promise<string>;
   mailSocketRead(id: string): Promise<string | null>;
   mailSocketWrite(id: string, base64: string): Promise<void>;
@@ -29,6 +31,8 @@ export const native = requireNativeModule<{
     "otter:mailboxes"?: string;
     "otter:addresses"?: string;
   };
+  existingMailDrafts(userId: string): Promise<string[]>;
+  existingMailDraftAttachment(folder: string, filename: string): Promise<string>;
   makeAgentPicture(uri: string, maxLength: number): Promise<string>;
   ed25519Generate(): { privateKey: string; publicKey: string };
   ed25519Sign(privateKey: string, data: string): Promise<string>;
@@ -36,4 +40,5 @@ export const native = requireNativeModule<{
   existingAgentSettings(): { deviceId?: string; notifications?: string; user?: string };
   ed25519PublicKey(privateKey: string): string | null;
   launchedAt(): number;
+  formatMailDate(timestamp: number): string;
 }>("OtterMobile");

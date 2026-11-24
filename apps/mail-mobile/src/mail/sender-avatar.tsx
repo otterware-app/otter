@@ -1,17 +1,31 @@
+import { mailApi } from "@otter/client/mail/api";
 import { Avatar } from "@otter/ui-native/components/avatar";
 import { Text } from "@otter/ui-native/components/text";
+import { useQuery } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { View } from "react-native";
 
+import { fake } from "../core.ts";
+
 export function SenderAvatar({
+  account,
   email,
   name,
   size = 36,
 }: {
+  account: string;
   email: string;
   name: string;
   size?: number;
 }) {
   const address = email.trim().toLowerCase();
+  const photo = useQuery({
+    queryKey: ["mail:sender-photo", account, address],
+    queryFn: () => mailApi.getSenderAvatar(account, address),
+    enabled: !fake && Boolean(account) && address.includes("@"),
+    staleTime: 60 * 60_000,
+    retry: false,
+  }).data?.dataUrl;
   let hash = 0;
   for (let index = 0; index < address.length; index++) {
     hash = (Math.imul(hash, 31) + address.charCodeAt(index)) | 0;
@@ -35,16 +49,21 @@ export function SenderAvatar({
             borderRadius: size * 0.22,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: `hsl(${hue}, 48%, 52%)`,
+            backgroundColor: photo ? "#fff" : `hsl(${hue}, 48%, 52%)`,
+            overflow: "hidden",
           }}
         >
-          <Text
-            allowFontScaling={false}
-            weight="medium"
-            style={{ fontSize: size * 0.42, color: darkText ? "#000" : "#fff" }}
-          >
-            {Array.from(name || email)[0]?.toUpperCase()}
-          </Text>
+          {photo ? (
+            <Image source={photo} contentFit="cover" style={{ width: size, height: size }} />
+          ) : (
+            <Text
+              allowFontScaling={false}
+              weight="medium"
+              style={{ fontSize: size * 0.42, color: darkText ? "#000" : "#fff" }}
+            >
+              {Array.from(name || email)[0]?.toUpperCase()}
+            </Text>
+          )}
         </View>
       }
     />

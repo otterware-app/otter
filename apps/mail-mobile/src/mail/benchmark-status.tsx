@@ -21,9 +21,10 @@ export function BenchmarkStatus({
   useEffect(() => {
     if (!complete || result || !startup.listShownAt) return;
     const timer = setTimeout(() => {
-      const { longest, p95 } = longTasks(startup.launchedAt);
+      const { longest, longestAt, p95 } = longTasks(startup.launchedAt);
+      const visible = longTasks(startup.listShownAt);
       setResult(
-        `First row ${startup.listShownAt - startup.launchedAt} ms · max ${longest} ms · p95 ${p95} ms`,
+        `First row ${startup.listShownAt - startup.launchedAt} ms · max ${longest} ms at ${longestAt ?? 0} ms · p95 ${p95} ms\nWhile rows were visible · max ${visible.longest} ms · p95 ${visible.p95} ms`,
       );
     }, 0);
     return () => clearTimeout(timer);

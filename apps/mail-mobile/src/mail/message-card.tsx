@@ -38,15 +38,17 @@ type MessageProps = {
 
 export function MessageCard(props: MessageProps) {
   if (props.opened) return <MessageBody {...props} />;
-  return <MessageHeader message={props.message} onPress={props.toggle} />;
+  return <MessageHeader account={props.account} message={props.message} onPress={props.toggle} />;
 }
 
 function MessageHeader({
+  account,
   message,
   to,
   onPress,
   onMenu,
 }: {
+  account: string;
   message: MessageSummary;
   to?: string;
   onPress: () => void;
@@ -64,7 +66,7 @@ function MessageHeader({
       onLongPress={onMenu}
       style={styles.sender}
     >
-      <SenderAvatar email={message.fromEmail} name={sender} size={34} />
+      <SenderAvatar account={account} email={message.fromEmail} name={sender} size={34} />
       <View style={{ flex: 1, gap: 2 }}>
         <View style={styles.senderTitle}>
           <Text weight="semibold" size="md" numberOfLines={1} style={{ flex: 1 }}>
@@ -229,6 +231,7 @@ function MessageBody({
     .join(", ");
   const header = (
     <MessageHeader
+      account={account}
       message={message}
       to={to}
       onPress={message.labelIds.includes("DRAFT") ? () => onCompose("draft", message) : toggle}

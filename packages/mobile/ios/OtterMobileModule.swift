@@ -60,6 +60,31 @@ public class OtterMobileModule: Module {
       try await Self.mailAuth(provider).forget(email)
     }
 
+    Function("mailPushConfig") { () -> [String: String]? in
+      guard let topic = Bundle.main.bundleIdentifier,
+        let environment = Bundle.main.object(forInfoDictionaryKey: "APNsEnvironment") as? String,
+        Bundle.main.object(forInfoDictionaryKey: "NotificationAppGroup") is String else { return nil }
+      return ["topic": topic, "environment": environment == "development" ? "sandbox" : "production"]
+    }
+
+    AsyncFunction("writeMailPushConfiguration") { (configuration: String?) throws in
+      guard let group = Bundle.main.object(forInfoDictionaryKey: "NotificationAppGroup") as? String,
+        let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) else {
+        throw CocoaError(.fileNoSuchFile)
+      }
+      let directory = container.appending(path: "Notifications", directoryHint: .isDirectory)
+      let location = directory.appending(path: "configuration.json")
+      guard let configuration else {
+        if FileManager.default.fileExists(atPath: location.path) {
+          try FileManager.default.removeItem(at: location)
+        }
+        return
+      }
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+        attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
+      try Data(configuration.utf8).write(to: location, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
     AsyncFunction("mailSocketOpen") { (host: String, port: Int, tls: Bool) in
       try await self.mailSockets.open(host: host, port: port, tls: tls)
     }
@@ -78,6 +103,25 @@ public class OtterMobileModule: Module {
     OnDestroy { [weak self] in
       self?.mailSockets.closeAll()
       Task { @MainActor in Self.signIn.cancel() }
+    }
+
+    AsyncFunction("existingMailDrafts") { (userId: String) -> [String] in
+      guard !userId.isEmpty else { return [] }
+      let key = Data(userId.utf8).base64EncodedString().replacingOccurrences(of: "/", with: "_")
+      let directory = URL.applicationSupportDirectory.appending(path: "draft-recovery").appending(path: key)
+      let entries = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+      return entries.filter { $0.pathExtension == "json" }.compactMap { try? String(contentsOf: $0, encoding: .utf8) }
+    }
+
+    AsyncFunction("existingMailDraftAttachment") { (folder: String, filename: String) throws -> String in
+      guard UUID(uuidString: folder) != nil, !filename.isEmpty, filename != ".", filename != "..",
+        filename == (filename as NSString).lastPathComponent else { throw CocoaError(.fileReadInvalidFileName) }
+      let file = URL.applicationSupportDirectory.appending(path: "draft-files").appending(path: folder).appending(path: filename)
+      let properties = try file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+      guard properties.isRegularFile == true, let size = properties.fileSize, size <= 25 * 1024 * 1024 else {
+        throw CocoaError(.fileReadTooLarge)
+      }
+      return try Data(contentsOf: file).base64EncodedString()
     }
 
     Function("existingMailSettings") { () -> [String: String] in
@@ -140,6 +184,10 @@ public class OtterMobileModule: Module {
     }
 
     // When the process started (ms since the epoch), to time a cold start from.
+    Function("formatMailDate") { (timestamp: Double) -> String in
+      Date(timeIntervalSince1970: timestamp / 1000).formatted(date: .abbreviated, time: .shortened)
+    }
+
     Function("launchedAt") { () -> Double in
       var info = kinfo_proc()
       var size = MemoryLayout<kinfo_proc>.stride

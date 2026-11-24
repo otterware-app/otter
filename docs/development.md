@@ -366,9 +366,8 @@ generated (`scripts/lib/third-party-licenses.ts`, T3 Code's):
   the workspace packages they use, with the license text its package ships. The dev server
   answers the same path.
 - `pnpm ios:resources` writes the iPhone apps' `Licenses.json`.
-- `pnpm licenses:mobile:agents` writes the Expo app's `apps/agents-mobile/src/settings/licenses.json`
-  (`scripts/export-mobile-licenses.ts <app>`, one list per Expo app, its bundle named for the
-  app): what the iPhone build ships. That is every package whose JavaScript is in the app's
+- `pnpm licenses:mobile:agents` and `pnpm licenses:mobile:mail` write each Expo app's
+  `src/settings/licenses.json`. Each list reflects what its iPhone build ships. That is every package whose JavaScript is in the app's
   bundle (an `expo export` for iOS, read from its source map, with its own Metro cache), and
   every package Expo autolinks into a Release build for its native code. It takes about 15
   seconds. CI's Lint job runs it with `--check`, which fails while the committed list is stale:

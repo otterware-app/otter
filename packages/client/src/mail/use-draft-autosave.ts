@@ -9,6 +9,14 @@ export type DraftSaveState = "idle" | "saving" | "saved" | "error";
 
 export type DraftRemoteState = { kind: "conflict"; detail: MessageDetail } | { kind: "gone" };
 
+export type DraftAnchor = {
+  sessionKey: string;
+  draftId: string | null;
+  messageId: string | null;
+  revision: string | null;
+  threadId?: string;
+};
+
 const REMOTE_CHECK_MS = 10_000;
 const REMOTE_NOTICE_MS = 4_000;
 
@@ -26,6 +34,9 @@ export function useDraftAutosave({
   initialMessageId,
   initialRevision,
   initialGone,
+  initialDirty = false,
+  initialSessionKey,
+  autosave = true,
   onRemoteChange,
 }: {
   accountId: string | null;
@@ -48,6 +59,9 @@ export function useDraftAutosave({
   initialMessageId?: string;
   initialRevision?: string;
   initialGone?: boolean;
+  initialDirty?: boolean;
+  initialSessionKey?: string;
+  autosave?: boolean;
   onRemoteChange?: (detail: MessageDetail) => void | Promise<void>;
 }) {
   const qc = useQueryClient();
@@ -67,14 +81,15 @@ export function useDraftAutosave({
   const unmountedRef = useRef(false);
   const pausedRef = useRef(!enabled);
   const remoteRef = useLatest(remote);
-  const sessionKeyRef = useRef(crypto.randomUUID());
-  const snapshotRef = useRef(signal);
+  const [sessionKey] = useState(() => initialSessionKey ?? crypto.randomUUID());
+  const snapshotRef = useRef(initialDirty ? "" : signal);
 
   const signalRef = useLatest(signal);
   const accountRef = useLatest(accountId);
   const threadRef = useLatest(threadId);
   const getPayloadRef = useLatest(getPayload);
   const onRemoteChangeRef = useLatest(onRemoteChange);
+  const autosaveRef = useLatest(autosave);
 
   useEffect(() => {
     if (initialDraftId && !draftIdRef.current) {
@@ -177,7 +192,7 @@ export function useDraftAutosave({
       const res = await mailApi.saveDraft({
         accountId: account,
         draftId: draftIdRef.current ?? undefined,
-        sessionKey: sessionKeyRef.current,
+        sessionKey,
         expectMessageId: draftIdRef.current ? (messageIdRef.current ?? undefined) : undefined,
         expectRevision: draftIdRef.current ? (versionRef.current ?? undefined) : undefined,
         ...payload,
@@ -207,7 +222,8 @@ export function useDraftAutosave({
       setSaveState("error");
       // Retry while the composer is open; a closed one's last save carries on
       // in the backend (same session, so no duplicate draft).
-      if (!unmountedRef.current) setTimeout(() => void triggerRef.current?.(), 5000);
+      if (!unmountedRef.current && autosaveRef.current)
+        setTimeout(() => void triggerRef.current?.(), 5000);
     } finally {
       savingRef.current = false;
     }
@@ -229,10 +245,11 @@ export function useDraftAutosave({
   });
 
   useEffect(() => {
+    if (!autosave) return;
     const timer = setTimeout(() => void triggerRef.current?.(), delayMs);
     return () => clearTimeout(timer);
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Re-run this DOM/reset lifecycle when its explicit trigger changes, even when the callback reads refs.
-  }, [signal, delayMs, triggerRef]);
+  }, [signal, delayMs, triggerRef, autosave]);
 
   const handleRemoteVersionForEffect = useLatest(handleRemoteVersion);
   const markGoneForEffect = useLatest(markGone);
@@ -270,6 +287,10 @@ export function useDraftAutosave({
   useEffect(
     () => () => {
       unmountedRef.current = true;
+      if (!autosaveRef.current) {
+        refreshRef.current();
+        return;
+      }
       if (remoteRef.current) {
         draftIdRef.current = null;
         versionRef.current = null;
@@ -278,7 +299,7 @@ export function useDraftAutosave({
       }
       void Promise.resolve(triggerRef.current?.()).finally(() => refreshRef.current());
     },
-    [refreshRef, remoteRef, triggerRef],
+    [refreshRef, remoteRef, triggerRef, autosaveRef],
   );
 
   const takeTheirs = () => {
@@ -322,11 +343,7 @@ export function useDraftAutosave({
     const account = draftAccountRef.current ?? accountRef.current;
     if (opts?.deleteDraft && account) {
       try {
-        await mailApi.deleteSessionDraft(
-          account,
-          sessionKeyRef.current,
-          draftIdRef.current ?? undefined,
-        );
+        await mailApi.deleteSessionDraft(account, sessionKey, draftIdRef.current ?? undefined);
       } catch {
         // sync reconciles leftovers
       }
@@ -351,8 +368,16 @@ export function useDraftAutosave({
 
   /** What sending needs to send the draft itself: the backend knows the session's draft. */
   const sending = (accountId: string) => ({
-    sessionKey: sessionKeyRef.current,
+    sessionKey,
     draftId: draftAccountRef.current === accountId ? (draftIdRef.current ?? undefined) : undefined,
+  });
+
+  const anchor = (account: string): DraftAnchor => ({
+    sessionKey,
+    draftId: draftAccountRef.current === account ? draftIdRef.current : null,
+    messageId: draftAccountRef.current === account ? messageIdRef.current : null,
+    revision: draftAccountRef.current === account ? versionRef.current : null,
+    threadId: threadRef.current ?? adoptedThreadRef.current ?? undefined,
   });
 
   const reopen = () => {
@@ -371,6 +396,8 @@ export function useDraftAutosave({
     savedDraft,
     sending,
     reopen,
+    anchor,
+    isSaved: () => signalRef.current === snapshotRef.current,
   };
 }
 

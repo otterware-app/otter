@@ -13,7 +13,7 @@ import { notifyNewMail, updateDockBadge } from "./notifier.ts";
 import type { MessageDetail, SyncStatus } from "../types.ts";
 
 const statuses = new Map<string, SyncStatus>();
-const running = new Set<string>();
+const running = new Map<string, Promise<void>>();
 const backfilling = new Set<string>();
 
 function ensureStatus(accountId: string): SyncStatus {
@@ -53,7 +53,11 @@ export function forgetMessage(accountId: string, messageId: string): void {
 
 export function getSyncStatus(accountId: string): SyncStatus {
   const status = ensureStatus(accountId);
-  return { ...status, download: status.download ? { ...status.download } : null };
+  return {
+    ...status,
+    syncing: running.has(accountId) || status.syncing,
+    download: status.download ? { ...status.download } : null,
+  };
 }
 
 const lastFinishedAt = new Map<string, number>();
@@ -177,9 +181,12 @@ export function syncAccount(
   ) {
     return;
   }
-  running.add(accountId);
+  const run = Promise.resolve().then(() => {
+    if (!removed.has(accountId)) return runSync(accountId);
+  });
+  running.set(accountId, run);
   broadcast("gmail:sync-started");
-  void runSync(accountId).finally(() => {
+  void run.finally(() => {
     running.delete(accountId);
     lastFinishedAt.set(accountId, Date.now());
     const again = rerun.get(accountId);
@@ -193,10 +200,12 @@ export function syncAccount(
 export async function syncAllAccounts(opts?: {
   force?: boolean;
   trigger?: "timer" | "push";
+  wait?: boolean;
 }): Promise<void> {
   try {
     const accounts = await listAccounts();
     for (const account of accounts) syncAccount(account.id, opts);
+    if (opts?.wait) await Promise.all(running.values());
   } catch (err) {
     logger.error("mail-sync", `syncAllAccounts failed: ${String(err)}`, err);
   }

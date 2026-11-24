@@ -177,6 +177,34 @@ export function registerOtterAccountHandlers(): void {
   handle("otter:getState", async () => otterState());
 
   if (platform().kind === "mobile") {
+    if (runs("mail")) {
+      handle("otter:setMailPushDevice", async (params: unknown) => {
+        const p = params as
+          | { userId?: unknown; device?: Partial<PutPushDeviceRequest> | null }
+          | undefined;
+        const user = getOtterUser();
+        if (!user || p?.userId !== user.id) throw new Error("The Otter account changed.");
+        if (p.device === null) return relayRequest("DELETE", "/v1/push/device");
+        const { token, topic, environment, mode, mailboxes } = p.device ?? {};
+        if (
+          typeof token !== "string" ||
+          !/^(?:[a-f\d]{2}){1,256}$/i.test(token) ||
+          (topic !== "dev.otterware.mail" && topic !== "dev.otterware.mail.dev") ||
+          (environment !== "sandbox" && environment !== "production") ||
+          (mode !== "off" && mode !== "inbox" && mode !== "all") ||
+          !Array.isArray(mailboxes) ||
+          !mailboxes.every((email) => typeof email === "string")
+        )
+          throw new Error("Invalid APNs device.");
+        return relayRequest("PUT", "/v1/push/device", {
+          token,
+          topic,
+          environment,
+          mode,
+          mailboxes,
+        } satisfies PutPushDeviceRequest);
+      });
+    }
     handle("otter:setAgentPushDevice", async (params: unknown) => {
       const p = params as
         | { userId?: unknown; device?: Partial<PutPushDeviceRequest> | null }

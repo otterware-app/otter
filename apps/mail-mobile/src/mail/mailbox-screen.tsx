@@ -41,11 +41,13 @@ import {
   type MailAction,
 } from "./mail-actions.tsx";
 import { MailRow } from "./mail-row.tsx";
+import { useRecoveries, useRecoveryOwner, type RecoveryDraft } from "./draft-recovery.ts";
 import { mayHaveVerificationCode } from "./verification-code.ts";
 import { useMailboxes, type Mailbox } from "./mailboxes.ts";
 import { mailPointer, sendToAgent, useAgentsInstalled } from "./send-to-agent.ts";
 
 const empty: MessageSummary[] = [];
+const emptyDrafts: RecoveryDraft[] = [];
 const codeLifetime = 30 * 60_000;
 type Row = { day: number; count: number; unread: number } | { message: MessageSummary };
 const unread = (message: MessageSummary) => message.threadUnread ?? message.unread;
@@ -80,6 +82,22 @@ function MailboxList({
   mailboxes: Mailbox[];
 }) {
   const { account, alias, look } = mailbox;
+  const owner = useRecoveryOwner();
+  const recoveries = useRecoveries(owner, label === "DRAFT").data;
+  const keptDrafts = useMemo(
+    () =>
+      label === "DRAFT" && recoveries
+        ? recoveries.filter(
+            (draft) =>
+              draft.account === look.id ||
+              (!alias &&
+                (draft.sender.id === account.id ||
+                  draft.sender.id === account.email.toLowerCase()) &&
+                !mailboxes.some(({ look }) => look.id === draft.account)),
+          )
+        : emptyDrafts,
+    [label, recoveries, look.id, alias, account.id, account.email, mailboxes],
+  );
   const labels = useLabels(account.id, alias);
   const messages = useMessages(account.id, label, alias);
   const sync = useAccountSync(account.id);
@@ -118,10 +136,12 @@ function MailboxList({
     folderName(label, capabilities) ??
     currentLabels.find((folder) => folder.id === label)?.name ??
     "Mail";
-  const all = useMemo(
-    () => messages.data?.pages.flatMap((page) => page.messages) ?? empty,
-    [messages.data],
-  );
+  const all = useMemo(() => {
+    const rows = messages.data?.pages.flatMap((page) => page.messages) ?? empty;
+    if (!keptDrafts.length) return rows;
+    const known = new Set(keptDrafts.map(({ anchor }) => anchor.messageId));
+    return rows.filter(({ id }) => !known.has(id));
+  }, [messages.data, keptDrafts]);
   const listed = useMemo(() => (unreadOnly ? all.filter(unread) : all), [all, unreadOnly]);
   const rows = useMemo<Row[]>(() => {
     if (!groupByDay) return listed.map((message) => ({ message }));
@@ -358,6 +378,30 @@ function MailboxList({
             <BenchmarkStatus accountId={account.id} status={sync} />
           ) : (
             <View style={styles.listTop}>
+              {keptDrafts.map((draft) => (
+                <Pressable
+                  key={draft.id}
+                  accessibilityRole="button"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/compose",
+                      params: { account: look.id, recovery: draft.id },
+                    })
+                  }
+                  style={[styles.banner, { backgroundColor: theme.colors.card }]}
+                >
+                  <Icon name="square.and.pencil" color="mutedForeground" />
+                  <View style={{ flex: 1 }}>
+                    <Text size="md" weight="medium" numberOfLines={1}>
+                      {draft.fields.subject || "(No subject)"}
+                    </Text>
+                    <Text size="body" color="mutedForeground">
+                      Saved on this iPhone
+                    </Text>
+                  </View>
+                  <Icon name="chevron.right" size={12} color="mutedForeground" />
+                </Pressable>
+              ))}
               {signInNeeded && (
                 <Pressable
                   onPress={() =>

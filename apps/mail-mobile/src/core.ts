@@ -4,7 +4,7 @@ import { startMobileCore } from "@otter/mobile/start";
 
 import { importSwiftMailboxes } from "./account/migration.ts";
 
-const fake = process.env.EXPO_PUBLIC_OTTER_DATA === "fake";
+export const fake = process.env.EXPO_PUBLIC_OTTER_DATA === "fake";
 export const benchmark = fake && process.env.EXPO_PUBLIC_OTTER_MAIL_BENCHMARK === "1";
 export let benchmarkAccountId: string | undefined;
 

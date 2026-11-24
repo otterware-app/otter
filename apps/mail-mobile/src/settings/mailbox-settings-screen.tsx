@@ -25,6 +25,7 @@ import { Pressable, TextInput, View } from "react-native";
 import { htmlToPlain, plainToHtml } from "../mail/compose-text.ts";
 import { mailFailure } from "../mail/mail-actions.tsx";
 import { useMailboxes, type Mailbox } from "../mail/mailboxes.ts";
+import { MailboxNotifications } from "../notifications/mailbox-notifications.tsx";
 import { setMailboxArrangement, useMailboxArrangement } from "./preferences.ts";
 
 export function MailboxSettingsScreen() {
@@ -115,6 +116,7 @@ function MailboxSettings({ mailbox, mailboxes }: { mailbox: Mailbox; mailboxes: 
         {index > 0 && <SettingsButton title="Move up" onPress={() => move(-1)} />}
         {index < ids.length - 1 && <SettingsButton title="Move down" onPress={() => move(1)} />}
       </SettingsSection>
+      {!alias && <MailboxNotifications account={account} />}
       <SettingsSection title="Appearance">
         <SettingsField placeholder="Mailbox name" value={name} onChangeText={setName} />
         <View style={{ flexDirection: "row", flexWrap: "wrap", padding: 10, gap: 5 }}>

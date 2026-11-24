@@ -32,14 +32,13 @@ import { Icon } from "@otter/ui-native/components/icon";
 import { Spinner } from "@otter/ui-native/components/spinner";
 import { Text } from "@otter/ui-native/components/text";
 import { typeStyle, useTheme } from "@otter/ui-native/theme";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { launchImageLibraryAsync } from "expo-image-picker";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState, type ComponentRef } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type ComponentRef } from "react";
 import {
   ActionSheetIOS,
   AppState,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -48,12 +47,21 @@ import {
 } from "react-native";
 
 import { htmlToPlain, plainToHtml } from "./compose-text.ts";
+import {
+  forgetDraft,
+  loadRecovery,
+  recoveriesKey,
+  retainDraft,
+  useRecoveryOwner,
+  type RecoveryDraft,
+  type DraftFields,
+} from "./draft-recovery.ts";
 import { fullMailDate } from "./format-date.ts";
 import { mailFailure } from "./mail-actions.tsx";
 import { useMailboxes, type Mailbox } from "./mailboxes.ts";
 import { mailPointer, sendToAgent, useAgentsInstalled } from "./send-to-agent.ts";
 
-type Fields = { to: string; cc: string; bcc: string; subject: string; body: string };
+type Fields = DraftFields;
 type Mode = "reply" | "replyAll" | "forward";
 type Route = Partial<Fields> & {
   account?: string;
@@ -61,6 +69,7 @@ type Route = Partial<Fields> & {
   mode?: Mode;
   thread?: string;
   draft?: string;
+  recovery?: string;
 };
 
 async function loadFiles(accountId: string, message: MessageDetail) {
@@ -79,13 +88,36 @@ async function loadFiles(accountId: string, message: MessageDetail) {
 export function ComposeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<Route>();
+  const owner = useRecoveryOwner();
   const { mailboxes, isPending } = useMailboxes();
-  const mailbox =
-    mailboxes.find(({ look }) => look.id === params.account) ??
-    mailboxes.find(({ enabled }) => enabled);
+  const recovery = useQuery({
+    queryKey: ["mail:recovery", owner, params.recovery],
+    enabled: Boolean(owner && params.recovery),
+    queryFn: () => loadRecovery(owner!, params.recovery!),
+    staleTime: 0,
+  });
+  const recovered = recovery.data?.record;
+  const mailbox = recovered
+    ? (mailboxes.find(
+        ({ account, look }) =>
+          (account.id === recovered.sender.id ||
+            account.email.toLowerCase() === recovered.sender.id) &&
+          look.id === recovered.account,
+      ) ??
+      mailboxes.find(
+        ({ account, alias }) =>
+          !alias &&
+          (account.id === recovered.sender.id ||
+            account.email.toLowerCase() === recovered.sender.id),
+      ))
+    : (mailboxes.find(({ look }) => look.id === params.account) ??
+      mailboxes.find(({ enabled }) => enabled));
   const accountId = mailbox?.account.id ?? null;
   const detail = useMessage(accountId, params.draft ?? params.replyTo ?? null);
-  const thread = useThread(params.draft ? accountId : null, params.thread ?? null);
+  const thread = useThread(
+    params.draft || recovery.data ? accountId : null,
+    params.thread ?? recovery.data?.record.anchor.threadId ?? null,
+  );
   const setup = useQuery({
     queryKey: ["mobile:compose", accountId, params.draft, params.mode, detail.data?.id],
     enabled: Boolean(accountId && detail.data && (params.draft || params.mode === "forward")),
@@ -102,6 +134,8 @@ export function ComposeScreen() {
   });
   if (
     isPending ||
+    owner === null ||
+    (params.recovery && recovery.isPending) ||
     ((params.draft || params.replyTo) && detail.isPending) ||
     (params.draft && params.thread && thread.isPending) ||
     (setup.fetchStatus === "fetching" && !setup.data)
@@ -112,25 +146,33 @@ export function ComposeScreen() {
       </View>
     );
   }
-  if (!mailbox || ((params.draft || params.replyTo) && !detail.data) || setup.isError) {
+  if (
+    !mailbox ||
+    ((params.draft || params.replyTo) && !detail.data) ||
+    setup.isError ||
+    (params.recovery && !recovery.data)
+  ) {
     return (
       <EmptyState
         icon="square.and.pencil"
         title="Couldn't open the composer"
-        description={setup.error?.message ?? detail.error?.message}
+        description={recovery.error?.message ?? setup.error?.message ?? detail.error?.message}
         actions={<Button title="Close" onPress={() => router.back()} />}
       />
     );
   }
   const source = detail.data ?? null;
-  const earlier = params.draft
-    ? thread.data?.findLast((message) => !message.labelIds.includes("DRAFT"))
-    : undefined;
+  const earlier =
+    params.draft || recovery.data
+      ? thread.data?.findLast((message) => !message.labelIds.includes("DRAFT"))
+      : undefined;
   return (
     <Composer
-      key={`${accountId}:${source?.id ?? "new"}`}
+      key={`${accountId}:${params.recovery ?? source?.id ?? "new"}`}
       {...{ params, mailbox, source, earlier }}
       setup={setup.data}
+      owner={owner}
+      recovery={recovery.data}
     />
   );
 }
@@ -141,27 +183,37 @@ function Composer({
   source,
   earlier,
   setup,
+  owner: activeOwner,
+  recovery,
 }: {
   params: Route;
   mailbox: Mailbox;
   source: MessageDetail | null;
   earlier?: { id: string; threadId: string };
   setup?: { draft: { draftId: string | null; gone?: true } | null; files: ComposeAttachment[] };
+  owner: string | null;
+  recovery?: { record: RecoveryDraft; files: ComposeAttachment[] } | null;
 }) {
   const router = useRouter();
   const theme = useTheme();
+  const queries = useQueryClient();
+  const [draftOwner] = useState(activeOwner);
+  const owner = draftOwner === activeOwner ? activeOwner : null;
   const agents = useAgentsInstalled();
   const { mailboxes } = useMailboxes();
   const send = useSendMessage();
   const original = mailbox.account;
-  const editing = Boolean(params.draft && source);
+  const restored = recovery?.record;
+  const editing = Boolean((params.draft && source) || restored);
   const replying = Boolean(params.replyTo && source && params.mode !== "forward");
   const forwarding = params.mode === "forward" && source;
-  const initialFrom = editing
-    ? source!.fromEmail
-    : replying
-      ? replyAddress(original, source!, mailbox.alias)
-      : (mailbox.alias ?? original.email);
+  const initialFrom =
+    restored?.sender.address ??
+    (editing
+      ? source!.fromEmail
+      : replying
+        ? replyAddress(original, source!, mailbox.alias)
+        : (mailbox.alias ?? original.email));
   const signature = (account: MailAccount, address: string) => {
     const text = htmlToPlain(signatureFor(account, address) ?? "");
     return text ? `\n\n${text}` : "";
@@ -171,6 +223,7 @@ function Composer({
     mailboxes.find(({ account }) => account.id === sender.id)?.account ?? original;
   const from = chosenAddress(fromAccount, sender.address, fromAccount.email);
   const [fields, setFields] = useState<Fields>(() => {
+    if (restored) return restored.fields;
     if (editing) return fieldsOf(source!);
     const reply = replying
       ? (params.mode === "replyAll" ? computeReplyAll : computeReply)(
@@ -198,16 +251,24 @@ function Composer({
     };
   });
   const [remoteHtml, setRemoteHtml] = useState(() => ({
-    text: editing ? fieldsOf(source!).body : "",
-    html: editing ? source?.bodyHtml : null,
+    text: restored?.fields.body ?? (editing ? fieldsOf(source!).body : ""),
+    html: restored?.bodyHtml ?? (editing ? source?.bodyHtml : null),
   }));
-  const [files, setFiles] = useState(setup?.files ?? []);
+  const [files, setFiles] = useState(recovery?.files ?? setup?.files ?? []);
   const [showCc, setShowCc] = useState(Boolean(fields.cc));
   const [showBcc, setShowBcc] = useState(Boolean(fields.bcc));
   const [picking, setPicking] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState<string>();
-  const threadId = replying || editing ? (params.thread ?? source?.threadId) : undefined;
+  const [recoveryId] = useState(() => restored?.id ?? crypto.randomUUID());
+  const [localSaved, setLocalSaved] = useState(Boolean(restored));
+  const storedCopy = useRef(Boolean(restored));
+  const threadId =
+    restored?.anchor.threadId ??
+    (replying || editing ? (params.thread ?? source?.threadId) : undefined);
+  const reply =
+    restored?.reply ??
+    (replying && source ? { id: source.id, threadId: source.threadId } : earlier);
   const bodyHtml =
     remoteHtml.html && fields.body === remoteHtml.text ? remoteHtml.html : plainToHtml(fields.body);
   const payload = {
@@ -226,17 +287,28 @@ function Composer({
     files.map(({ key, name, size }) => [key, name, size]),
   ]);
   const [initialSignal] = useState(signal);
-  const dirty = initialSignal !== signal;
+  const dirty = Boolean(restored) || initialSignal !== signal;
+  const previous = restored?.anchor;
+  const legacyMessageId = previous?.draftId ? null : previous?.messageId;
+  const legacyDraft = useQuery({
+    queryKey: ["mobile:legacy-draft", original.id, legacyMessageId],
+    enabled: Boolean(legacyMessageId && !original.signedOut),
+    queryFn: () => mailApi.getDraftForMessage(original.id, legacyMessageId!, previous?.threadId),
+  });
+  const needsLegacyDraft = Boolean(legacyMessageId && !legacyDraft.data);
   const draft = useDraftAutosave({
     accountId: sender.id,
     threadId,
     signal,
     getPayload: () => payload,
     seeded: true,
-    initialDraftId: setup?.draft?.draftId,
-    initialGone: setup?.draft?.gone,
-    initialMessageId: editing ? source?.id : undefined,
-    initialRevision: editing ? source?.draftRevision : undefined,
+    initialDraftId: previous?.draftId ?? legacyDraft.data?.draftId ?? setup?.draft?.draftId,
+    initialGone: legacyDraft.data?.gone ?? setup?.draft?.gone,
+    initialMessageId: previous?.messageId ?? (editing ? source?.id : undefined),
+    initialRevision: previous?.revision ?? (editing ? source?.draftRevision : undefined),
+    initialSessionKey: restored?.anchor.sessionKey,
+    initialDirty: Boolean(restored),
+    autosave: false,
     onRemoteChange: async (next) => {
       const nextFiles = await loadFiles(sender.id, next);
       const nextFields = fieldsOf(next);
@@ -250,15 +322,56 @@ function Composer({
   });
   const bodyInput = useRef<ComponentRef<typeof TextInput>>(null);
   const positioned = useRef(false);
-  const { flush } = draft;
+
+  async function saveRecovery() {
+    if (!owner) throw new Error("Draft recovery is still loading. Keep this message open.");
+    storedCopy.current = true;
+    await retainDraft(
+      owner,
+      {
+        id: recoveryId,
+        account: sender.id === mailbox.account.id ? mailbox.look.id : sender.id,
+        sender,
+        fields,
+        bodyHtml,
+        anchor: needsLegacyDraft && previous ? previous : draft.anchor(sender.id),
+        reply,
+        mode: restored?.mode ?? params.mode,
+        updated: Date.now(),
+      },
+      files,
+    );
+    setLocalSaved(true);
+    void queries.invalidateQueries({ queryKey: recoveriesKey(owner) });
+  }
+
+  async function clearRecovery() {
+    if (!owner || !storedCopy.current) return;
+    storedCopy.current = false;
+    await forgetDraft(owner, recoveryId);
+    setLocalSaved(false);
+    void queries.invalidateQueries({ queryKey: recoveriesKey(owner) });
+  }
+
+  const recordEdits = useEffectEvent(() => {
+    if (!owner || finishing || picking) return;
+    void (dirty ? saveRecovery() : clearRecovery()).catch(mailFailure);
+  });
+
   useEffect(() => {
-    if (!dirty) return;
+    if (!owner || finishing || picking || (!dirty && !storedCopy.current)) return;
+    const timer = setTimeout(recordEdits, 200);
+    return () => clearTimeout(timer);
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- The payload and its server checkpoint drive writes. The event reads both from the latest render.
+  }, [dirty, owner, signal, draft.saveState, finishing, picking]);
+
+  useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "background") void flush();
+      if (state === "background") recordEdits();
     });
     return () => subscription.remove();
-  }, [dirty, flush]);
-  const status = draftStatus(draft);
+  }, []);
+  const status = localSaved && !draft.isSaved() ? "Saved on this iPhone" : draftStatus(draft);
   const busy = finishing || picking;
   const validRecipients = (value: string) =>
     splitAddressList(value).every((entry) =>
@@ -269,6 +382,7 @@ function Composer({
     !from.unavailable &&
     !fromAccount.signedOut &&
     !draft.remote &&
+    !needsLegacyDraft &&
     Boolean(payload.to || payload.cc || payload.bcc) &&
     [payload.to, payload.cc ?? "", payload.bcc ?? ""].every(validRecipients) &&
     Boolean(fields.subject.trim() || fields.body.trim() || files.length);
@@ -314,20 +428,18 @@ function Composer({
     setFinishing(true);
     setError(undefined);
     try {
-      if (sender.id !== original.id && !(await draft.flush())) {
-        throw new Error("Couldn't move the draft to this mailbox.");
-      }
       await draft.finalize();
       const result = await send.mutateAsync({
         ...payload,
         ...draft.sending(sender.id),
         accountId: sender.id,
-        threadId: replying ? threadId : earlier?.threadId,
-        replyToMessageId: replying ? source?.id : earlier?.id,
+        threadId: reply?.threadId ?? (restored?.mode === "reply" ? threadId : undefined),
+        replyToMessageId: reply?.id,
       });
       if (result.uncertain)
         showNotice({ title: "Check Sent before trying again", tone: "warning" });
       else if (!result.ok && !result.pending) throw new Error("Couldn't send this message.");
+      await clearRecovery().catch(mailFailure);
       router.back();
     } catch (cause) {
       draft.reopen();
@@ -385,28 +497,45 @@ function Composer({
 
   function close() {
     if (!dirty) return router.back();
-    Alert.alert("Keep this message?", undefined, [
-      { text: "Cancel", style: "cancel" },
+    ActionSheetIOS.showActionSheetWithOptions(
       {
-        text: "Save to Drafts",
-        onPress: () => {
-          setFinishing(true);
-          void draft.flush().then((saved) => {
-            setFinishing(false);
-            if (saved || draft.remote) router.back();
-            else setError("Couldn't save this draft. Try again.");
-          });
-        },
+        title: "Keep this message?",
+        options: ["Save to Drafts", "Keep on This iPhone", "Delete Draft", "Cancel"],
+        destructiveButtonIndex: 2,
+        cancelButtonIndex: 3,
       },
-      {
-        text: "Discard",
-        style: "destructive",
-        onPress: () => {
-          setFinishing(true);
-          void draft.finalize({ deleteDraft: true }).then(() => router.back());
-        },
+      (choice) => {
+        if (choice === 0 || choice === 1 || choice === 2) void finishClose(choice);
       },
-    ]);
+    );
+  }
+
+  async function finishClose(choice: 0 | 1 | 2) {
+    setFinishing(true);
+    try {
+      if (choice !== 1 && needsLegacyDraft) {
+        void legacyDraft.refetch();
+        throw new Error(
+          "Couldn't check this draft on the mail server. Keep it on this iPhone or try again.",
+        );
+      }
+      if (choice === 0) {
+        if (!(await draft.flush()))
+          throw new Error("Couldn't save this draft. Try again or keep it on this iPhone.");
+        await clearRecovery().catch(mailFailure);
+      } else if (choice === 1) {
+        await draft.finalize();
+        await saveRecovery();
+      } else {
+        await draft.finalize({ deleteDraft: true });
+        await clearRecovery().catch(mailFailure);
+      }
+      router.back();
+    } catch (cause) {
+      draft.reopen();
+      setFinishing(false);
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
   }
 
   async function handoff() {
@@ -452,7 +581,7 @@ function Composer({
           <Stack.Toolbar.Button
             icon="sparkles"
             accessibilityLabel="Send to agent"
-            disabled={busy}
+            disabled={busy || needsLegacyDraft}
             onPress={() => void handoff()}
           />
         ) : null}
@@ -689,7 +818,7 @@ function RecipientField({
   return (
     <View>
       <View style={[styles.field, styles.recipientField, { borderColor: theme.colors.border }]}>
-        <Text size="lg" color="mutedForeground" style={[styles.fieldLabel, { paddingTop: 10 }]}>
+        <Text size="lg" color="mutedForeground" style={[styles.fieldLabel, { marginTop: 10 }]}>
           {title}
         </Text>
         <View style={{ flex: 1 }}>

@@ -212,7 +212,11 @@ export function MailRow({
                   <Icon name="square.and.pencil" size={14} color="mutedForeground" />
                 </View>
               ) : (
-                <SenderAvatar email={lastSender.email} name={lastSender.name} />
+                <SenderAvatar
+                  account={message.accountId ?? account}
+                  email={lastSender.email}
+                  name={lastSender.name}
+                />
               )}
             </View>
             <View style={styles.lines}>

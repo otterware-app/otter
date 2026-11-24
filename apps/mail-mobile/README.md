@@ -28,3 +28,9 @@ Keychain group and locks.
 The production bundle reads the Swift install's mailbox metadata and Otter session before core
 starts, then resumes Gmail, Outlook and IMAP from the existing shared Keychain. Core rebuilds its
 mail cache from the providers. The fake uses separate data and bypasses the native Mail host.
+
+The upgrade also opens Swift's on-device draft recovery copies. The composer keeps edits on
+this iPhone until you choose **Save to Drafts** or send, and unsent drafts can be reopened
+from Drafts.
+
+To regenerate the notices for Settings → Open-source licenses, run `pnpm licenses:mobile:mail`.

@@ -13,13 +13,14 @@ const config: ExpoConfig = {
   slug: "otter-mail",
   owner: "otterware-app",
   extra: { eas: { projectId: "2fbe5710-15c4-4415-a161-6653afc1db9e" } },
-  version,
+  version: process.env.OTTER_MAIL_RELEASE_VERSION ?? version,
   platforms: ["ios"],
   orientation: "portrait",
   userInterfaceStyle: "automatic",
   scheme: [bundleIdentifier, "ottermail-notifications"],
   ios: {
     bundleIdentifier,
+    buildNumber: process.env.OTTER_MAIL_RELEASE_BUILD,
     appleTeamId: "838JVGY7W4",
     deploymentTarget: "27.0",
     supportsTablet: false,
@@ -38,6 +39,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    "expo-background-task",
     "./plugins/with-mail-auth.cjs",
     "./plugins/with-mail-notifications.cjs",
     "@bacons/apple-targets",

@@ -1,4 +1,5 @@
 import { dayKey } from "@otter/client/mail/format";
+import { native } from "@otter/mobile/native";
 import { getCalendars, getLocales } from "expo-localization";
 
 const locale = getLocales()[0].languageTag;
@@ -16,12 +17,6 @@ const older = new Intl.DateTimeFormat(locale, {
   month: "numeric",
   day: "numeric",
 });
-const full = new Intl.DateTimeFormat(locale, {
-  ...time,
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
 
 export function shortMailDate(timestamp: number): string {
   const now = new Date();
@@ -32,4 +27,4 @@ export function shortMailDate(timestamp: number): string {
   return (date.getFullYear() === now.getFullYear() ? monthAndDay : older).format(date);
 }
 
-export const fullMailDate = (timestamp: number) => full.format(timestamp);
+export const fullMailDate = (timestamp: number) => native.formatMailDate(timestamp);
