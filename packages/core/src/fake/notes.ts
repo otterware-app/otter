@@ -37,7 +37,18 @@ function itemsOf(prompt: string): Item[] | null {
 }
 
 const sender = (from = "") => from.replace(/\s*<.*>$/, "").split(" ")[0] || "They";
-const sentence = (text = "") => (/^[^.!?]*[.!?]/.exec(text)?.[0] ?? text).slice(0, 160).trim();
+const ENTITIES: Record<string, string> = {
+  "&quot;": '"',
+  "&#39;": "'",
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+};
+/** A snippet's first sentence: Gmail's snippets come HTML-escaped. */
+const sentence = (snippet = "") => {
+  const text = snippet.replace(/&(?:quot|#39|amp|lt|gt);/g, (e) => ENTITIES[e]!);
+  return (/^[^.!?]*[.!?]/.exec(text)?.[0] ?? text).slice(0, 160).trim();
+};
 const time = (iso = "") =>
   new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
