@@ -1,0 +1,25 @@
+packages/core/src/services/agent-sync.ts
+  s_076b12ad1c9082::t_582361f858944d 105-108,112-113
+docs/expo-migration.md
+  s_076b12ad1c9082::t_582361f858944d 18-19,21-24,39-40
+packages/core/src/index.ts
+  s_076b12ad1c9082::t_582361f858944d 63
+packages/core/src/services/test/gmail-realtime.test.ts
+  s_076b12ad1c9082::t_582361f858944d 490-491
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2a3cae37b31d0ed7374ea7490767a055f4e6f3d6",
+  "prompts": {},
+  "sessions": {
+    "s_076b12ad1c9082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f03-1d60-7480-929a-3cc6584d46dd",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
