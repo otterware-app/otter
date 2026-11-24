@@ -1,0 +1,95 @@
+apps/mail-mobile/src/mail/translation.ts
+  s_076b12ad1c9082::t_bb1b9eadaf9843 61,80,85-86
+  s_076b12ad1c9082::t_adfcf4bb186d31 1-53,59-60
+  s_076b12ad1c9082::t_2377595b5dd3ea 54-58,62-79,81-84
+apps/mail-mobile/src/app/settings/languages.tsx
+  s_076b12ad1c9082::t_0d45a79343519e 1
+packages/mobile/ios/OtterMobileModule.swift
+  s_076b12ad1c9082::t_851245779c2e3f 16,170
+  s_076b12ad1c9082::t_509c2cd666834e 4-6,17,160-169,171-212
+apps/mail-mobile/src/settings/languages-screen.tsx
+  s_076b12ad1c9082::t_2377595b5dd3ea 22-26,30-34,52-61
+  s_076b12ad1c9082::t_0d45a79343519e 1-21,27-29,35-51,62-65
+apps/mail-mobile/src/mail/mailbox-screen.tsx
+  s_076b12ad1c9082::t_7a0d9a179e62bb 266
+  s_076b12ad1c9082::t_a78ee32489be0f 44,139
+  s_076b12ad1c9082::t_9e772773b2318d 134,145,313
+apps/mail-mobile/README.md
+  s_076b12ad1c9082::t_3641bc07098ab9 23-26
+apps/mail-mobile/src/core.ts
+  s_076b12ad1c9082::t_adfcf4bb186d31 1,16
+apps/mail-mobile/app.config.ts
+  s_076b12ad1c9082::t_1d5fba188c83b4 46-49
+apps/mail-mobile/src/mail/sender-avatar.tsx
+  s_076b12ad1c9082::t_3641bc07098ab9 20-25
+apps/mail-mobile/src/app/_layout.tsx
+  s_076b12ad1c9082::t_adfcf4bb186d31 44,66
+  s_076b12ad1c9082::t_bb1b9eadaf9843 14
+apps/mail-mobile/src/frame/mail-bar.tsx
+  s_076b12ad1c9082::t_9e772773b2318d 155
+apps/mail-mobile/src/mail/compose-screen.tsx
+  s_076b12ad1c9082::t_f06514c14065db 51,194,196
+  s_076b12ad1c9082::t_bc802bf8264ae2 565-570,572-594,802-808
+  s_076b12ad1c9082::t_c1b3a6520f0f59 469,543,611,789-790,811,813
+  s_076b12ad1c9082::t_1d5fba188c83b4 518-520,525-527
+  s_076b12ad1c9082::t_9e772773b2318d 360-361
+  s_076b12ad1c9082::t_669ca015a63d7e 26-27,36,340,344-359,362-373,424,438,444,480,517,521,524,528,558-559,595-597,599-610,612-614,616-620,692,718,726,742-744,747-748,781,785,788,791,795,799,810,814
+  s_076b12ad1c9082::t_9285127b07a7c0 809
+apps/mail-mobile/src/mail/format-date.ts
+  s_076b12ad1c9082::t_f06514c14065db 1-13,25-35
+  s_076b12ad1c9082::t_ec31ea12e2f94d 14-24
+apps/mail-mobile/src/mail/compose-text.ts
+  s_076b12ad1c9082::t_9e772773b2318d 18-21,31
+  s_076b12ad1c9082::t_42b42ce5909e54 12-17
+apps/mail-mobile/package.json
+  s_076b12ad1c9082::t_f06514c14065db 31
+  s_076b12ad1c9082::t_adfcf4bb186d31 18
+  s_076b12ad1c9082::t_f35ef8a009466f 29
+apps/mail-mobile/src/mail/message-card.tsx
+  s_076b12ad1c9082::t_f06514c14065db 3,17,74
+  s_076b12ad1c9082::t_3641bc07098ab9 78,418,422
+  s_076b12ad1c9082::t_bb1b9eadaf9843 16
+  s_076b12ad1c9082::t_2377595b5dd3ea 105-109,112-117,184-185,300-302
+  s_076b12ad1c9082::t_adfcf4bb186d31 22,103-104,110-111,299,303,332-351,423
+apps/mail-mobile/src/settings/settings-screen.tsx
+  s_076b12ad1c9082::t_bb1b9eadaf9843 24-29,72-74,124-140
+apps/mail-mobile/src/mail/mail-row.tsx
+  s_076b12ad1c9082::t_f06514c14065db 14,240
+  s_076b12ad1c9082::t_a78ee32489be0f 13,16,70
+  s_076b12ad1c9082::t_1d5fba188c83b4 243-247
+  s_076b12ad1c9082::t_9e772773b2318d 27,40,69,178,221,235,239,250,253
+apps/mail-mobile/src/mail/thread-screen.tsx
+  s_076b12ad1c9082::t_a78ee32489be0f 33,73
+  s_076b12ad1c9082::t_3641bc07098ab9 151-153,159,165-169,269,412,420
+apps/mail-mobile/src/mail/verification-code.ts
+  s_076b12ad1c9082::t_a78ee32489be0f 1-18,21,29
+  s_076b12ad1c9082::t_87fbd0aaf235ff 19-20,22-28
+packages/client/src/mail/verification-code.ts
+  s_076b12ad1c9082::t_9e772773b2318d 1
+packages/client/src/mail/reply.ts
+  s_076b12ad1c9082::t_f06514c14065db 85,95,102,108
+.github/workflows/ci.yml
+  s_076b12ad1c9082::t_0d45a79343519e 58
+  s_076b12ad1c9082::t_6fc303eb5076af 27,196-224
+  s_076b12ad1c9082::t_a5297852e0b9e9 225
+extensions/translation/package.json
+  s_076b12ad1c9082::t_adfcf4bb186d31 37-38
+pnpm-lock.yaml
+  s_076b12ad1c9082::t_c999bd28e50af0 341-343,374-376,380-382
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e2490f478ceed0f1e8c345ef3b09ca506975dee0",
+  "prompts": {},
+  "sessions": {
+    "s_076b12ad1c9082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f03-1d60-7480-929a-3cc6584d46dd",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
