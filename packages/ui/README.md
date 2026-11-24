@@ -11,11 +11,15 @@ src/styles/tokens.css    the tokens: the stock palette (light, .dark, the sideba
 src/styles/globals.css   Tailwind, the fonts, the contrast layer, the Tailwind theme, shared utilities
 src/components/*.tsx     the components
 src/lib/utils.ts         cn()
-src/tokens.ts            tokens.css resolved for design/tokens.json (pnpm design:tokens)
+src/tokens.ts            the tokens resolved for design/tokens.json and @otter/ui-native
 ```
 
 An app imports `@otter/ui/globals.css` first in its stylesheet, then adds its own `@source`.
 Components are imported one file at a time: `import { Button } from "@otter/ui/components/button"`.
+
+The iPhone apps draw with the same tokens: `pnpm design:tokens` generates them, in hex, into
+`@otter/ui-native`'s `src/tokens.ts`, and the phone's own canvases, greys and Dynamic Type sizes
+are an override of the same names in its `src/phone.ts`.
 
 ## Rules
 

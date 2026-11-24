@@ -1,9 +1,9 @@
 import type { AgentRun, ChatEvent } from "@otter/core/extension-kit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { HermesSettings } from "./settings.js";
+import type { HermesSettings } from "./settings.ts";
 
 const files = vi.hoisted(() => new Map<string, string>());
-vi.mock("../../../packages/core/src/platform.js", () => ({
+vi.mock("../../../packages/core/src/platform.ts", () => ({
   platform: () => ({
     kind: "desktop",
     appVersion: "test",
@@ -16,11 +16,11 @@ vi.mock("../../../packages/core/src/platform.js", () => ({
   }),
 }));
 const current = vi.hoisted(() => ({ settings: {} as Record<string, unknown> }));
-vi.mock("../../../packages/core/src/services/agent/service.js", () => ({
+vi.mock("../../../packages/core/src/services/agent/service.ts", () => ({
   saveAgentSettings: vi.fn(async () => {}),
   agentSettings: async () => current.settings,
 }));
-const { hermesAgent } = await import("./hermes.js");
+const { hermesAgent } = await import("./hermes.ts");
 const secrets = { get: async () => "test-key", set: async () => {}, delete: async () => {} };
 const create = (id = "hermes-1") => hermesAgent.create({ id, secrets });
 let hermes = create();

@@ -1,4 +1,4 @@
-import type { FromBackend, MainEffect, MainRequests } from "./backend-protocol.js";
+import type { FromBackend, MainEffect, MainRequests } from "./backend-protocol.ts";
 
 export function postToMain(message: FromBackend): void {
   // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a process port has none

@@ -1,7 +1,7 @@
 import { ARCHIVE_LABEL_ID } from "@otter/contracts";
 
-import { toBase64 } from "../../../bytes.js";
-import { providerFor } from "../../../providers/index.js";
+import { toBase64 } from "../../../bytes.ts";
+import { providerFor } from "../../../providers/index.ts";
 import {
   ALL_MAIL_LABEL_ID,
   type ComposeAttachment,
@@ -9,11 +9,11 @@ import {
   type MailLabel,
   type MessageDetail,
   type MessageSummary,
-} from "../../../types.js";
-import { getAttachmentBytes } from "../../attachment-cache.js";
-import * as mailStore from "../../mail-store.js";
-import { turnedOffMailboxes } from "../../mail-sync.js";
-import { splitAddressList } from "../../outgoing.js";
+} from "../../../types.ts";
+import { getAttachmentBytes } from "../../attachment-cache.ts";
+import * as mailStore from "../../mail-store.ts";
+import { turnedOffMailboxes } from "../../mail-sync.ts";
+import { splitAddressList } from "../../outgoing.ts";
 import {
   address,
   bodyText,
@@ -24,7 +24,7 @@ import {
   localTime,
   textToHtml,
   withoutQuote,
-} from "./text.js";
+} from "./text.ts";
 import {
   invoke,
   listMailboxes,
@@ -38,8 +38,8 @@ import {
   type AgentTool,
   type ToolArgs,
   type ToolContext,
-} from "./tool.js";
-import { listConnections } from "../../connections.js";
+} from "./tool.ts";
+import { listConnections } from "../../connections.ts";
 
 const LABEL_ALIASES: Record<string, string> = {
   inbox: "INBOX",

@@ -1,5 +1,5 @@
-import { linuxBackend } from "./linux/backend.js";
-import { macBackend } from "./mac/backend.js";
-import type { BackendOS } from "./types.js";
+import { linuxBackend } from "./linux/backend.ts";
+import { macBackend } from "./mac/backend.ts";
+import type { BackendOS } from "./types.ts";
 
 export const backendOS: BackendOS = process.platform === "darwin" ? macBackend : linuxBackend;

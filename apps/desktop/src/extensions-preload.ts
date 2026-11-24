@@ -9,7 +9,7 @@
 
 import { contextBridge, ipcRenderer } from "electron";
 
-import { installNativeMessaging } from "./native-messaging-preload.js";
+import { installNativeMessaging } from "./native-messaging-preload.ts";
 
 function ownExtensionId(): string | null {
   const own = (where: { protocol: string; host: string }) =>

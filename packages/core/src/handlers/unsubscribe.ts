@@ -1,6 +1,6 @@
-import { handle } from "../ipc.js";
-import { getUnsubscribe, isUnsubscribed, unsubscribe } from "../services/unsubscribe.js";
-import { runAsTask } from "./ipc-budget.js";
+import { handle } from "../ipc.ts";
+import { getUnsubscribe, isUnsubscribed, unsubscribe } from "../services/unsubscribe.ts";
+import { runAsTask } from "./ipc-budget.ts";
 
 type Params = Record<string, unknown> | undefined;
 const str = (v: unknown) => (typeof v === "string" ? v : "");

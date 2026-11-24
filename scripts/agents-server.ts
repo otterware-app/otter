@@ -106,10 +106,11 @@ const SETUP: Record<Agent, (login: CodexLogin, key: string) => { script: string;
   {
     openclaw: (login, key) => ({
       script: `set -e
+IFS= read -r key
 cd /app
 if [ ! -f ~/.openclaw/.otter-dev ]; then
   node openclaw.mjs onboard --non-interactive --accept-risk --skip-health --mode local \\
-    --auth-choice skip --gateway-auth token --gateway-token ${key} \\
+    --auth-choice skip --gateway-auth token --gateway-token "$key" \\
     --gateway-bind loopback --skip-channels --no-install-daemon
   node openclaw.mjs config set plugins.entries.codex.enabled true
   node openclaw.mjs config set plugins.entries.codex.config.appServer.homeScope user
@@ -118,28 +119,29 @@ if [ ! -f ~/.openclaw/.otter-dev ]; then
   node openclaw.mjs config set plugins.entries.otter.hooks.allowConversationAccess true
   touch ~/.openclaw/.otter-dev
 else
-  node openclaw.mjs config set gateway.auth.token ${key}
+  node openclaw.mjs config set gateway.auth.token "$key"
 fi
 umask 077
 mkdir -p "$CODEX_HOME"
 cat > "$CODEX_HOME/auth.json"
 # Talk's voice (GPT-Live) signs in with an OpenAI profile, not Codex's own file.
 node -e 'process.stdout.write(require(process.env.CODEX_HOME + "/auth.json").tokens.access_token)' |
-  node openclaw.mjs models auth paste-token --provider openai --profile-id openai:codex-dev >/dev/null`,
-      input: JSON.stringify(login),
+  node openclaw.mjs models --agent main auth paste-token --provider openai --profile-id openai:codex-dev >/dev/null`,
+      input: `${key}\n${JSON.stringify(login)}`,
     }),
     hermes: (login, key) => ({
       script: `set -e
+IFS= read -r key
 if [ ! -f /opt/data/.otter-dev ]; then
   hermes config set model.provider openai-codex
   hermes config set model.default ${MODEL}
   hermes plugins enable otter
   touch /opt/data/.otter-dev
 fi
-hermes config set API_SERVER_KEY ${key}
+hermes config set API_SERVER_KEY "$key"
 umask 077
 cat > /opt/data/auth.json`,
-      input: JSON.stringify({
+      input: `${key}\n${JSON.stringify({
         version: 1,
         providers: {
           "openai-codex": {
@@ -149,7 +151,7 @@ cat > /opt/data/auth.json`,
           },
         },
         active_provider: "openai-codex",
-      }),
+      })}`,
     }),
   };
 
@@ -158,8 +160,9 @@ const SERVICES: Record<Agent, string[]> = {
   hermes: ["hermes"],
 };
 
-async function waitFor(name: string, url: string): Promise<void> {
-  for (let attempt = 0; attempt < 120; attempt++) {
+async function waitFor(name: string, url: string, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
     const up = await fetch(url, { signal: AbortSignal.timeout(2_000) }).then(
       (response) => response.ok,
       () => false,
@@ -188,16 +191,32 @@ export async function startAgents(agents: readonly Agent[], offset: number): Pro
     docker(offset, ["run", "--rm", "-T", "--no-deps", ...shell, script], input);
   }
   docker(offset, ["up", "-d", "--force-recreate", ...agents.flatMap((agent) => SERVICES[agent])]);
-  const openclaw = `localhost:${OPENCLAW_PORT + offset}`;
-  const hermes = `http://localhost:${HERMES_PORT + offset}`;
   await Promise.all([
-    agents.includes("openclaw") && waitFor("OpenClaw", `http://${openclaw}/readyz`),
-    agents.includes("hermes") && waitFor("Hermes", `${hermes}/health`),
+    agents.includes("openclaw") &&
+      waitFor("OpenClaw", `http://localhost:${OPENCLAW_PORT + offset}/readyz`, 8 * 60_000),
+    agents.includes("hermes") &&
+      waitFor("Hermes", `http://localhost:${HERMES_PORT + offset}/health`, 2 * 60_000),
   ]);
+  return where(agents, offset, key);
+}
+
+function where(agents: readonly Agent[], offset: number, key: string): DemoAgents {
+  const openclaw = `ws://localhost:${OPENCLAW_PORT + offset}`;
+  const hermes = `http://localhost:${HERMES_PORT + offset}`;
   return {
-    ...(agents.includes("openclaw") ? { openclaw: { url: `ws://${openclaw}`, token: key } } : {}),
+    ...(agents.includes("openclaw") ? { openclaw: { url: openclaw, token: key } } : {}),
     ...(agents.includes("hermes") ? { hermes: { baseUrl: hermes, apiKey: key } } : {}),
   };
+}
+
+/** Where the checkout's running gateways are, as a dev run hands them to the app. */
+function running(offset: number): DemoAgents {
+  const services = docker(offset, ["ps", "--services", "--status", "running"]).split("\n");
+  return where(
+    AGENTS.filter((agent) => services.includes(agent)),
+    offset,
+    gatewayKey(),
+  );
 }
 
 /** Stops the checkout's gateways without waiting; their data stays for the next start. */
@@ -237,6 +256,10 @@ async function main(): Promise<void> {
     docker(offset, ["down", ...rest]);
     return;
   }
+  if (command === "json") {
+    console.log(JSON.stringify(running(offset)));
+    return;
+  }
   if (command === "approve") {
     let approved: number;
     try {
@@ -250,15 +273,18 @@ async function main(): Promise<void> {
   const agents = command ? parseAgents([command, ...rest].join(",")) : [...AGENTS];
   const started = await startAgents(agents, offset);
   console.log(`Up, on your Codex sign-in, with the Otter plugins from this checkout's extensions/.
-Connect to them in Settings → Agents:
+Their addresses for Settings → Agents:
 ${[
-  started.openclaw && `  OpenClaw  ${started.openclaw.url}, token ${started.openclaw.token}`,
-  started.hermes && `  Hermes    ${started.hermes.baseUrl}, API key ${started.hermes.apiKey}`,
+  started.openclaw && `  OpenClaw  ${started.openclaw.url}`,
+  started.hermes && `  Hermes    ${started.hermes.baseUrl}`,
 ]
   .filter(Boolean)
   .join("\n")}
 
+Use \`pnpm -s agents-server json\` to get the key for a manual connection.
 The web app's first connection to OpenClaw waits for \`pnpm agents-server approve\`.
+Otter Agents on Expo connects to them with
+  EXPO_PUBLIC_OTTER_AGENTS="$(pnpm -s agents-server json)" pnpm dev:mobile:agents:fake
 Run it again after changing a plugin. Stop them with \`pnpm agents-server down\`
 (\`down --volumes\` also forgets their chats and settings).`);
 }

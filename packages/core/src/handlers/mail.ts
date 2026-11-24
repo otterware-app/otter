@@ -6,8 +6,8 @@ import {
   cancelSchedule,
   removeAccountSchedules,
   futureTime,
-} from "../services/mail-schedule.js";
-import { forgetCalendarAccount } from "../services/calendar-sync.js";
+} from "../services/mail-schedule.ts";
+import { forgetCalendarAccount } from "../services/calendar-sync.ts";
 
 import {
   GMAIL_CAPABILITIES,
@@ -18,12 +18,12 @@ import {
 } from "@otter/contracts";
 import { ALIAS_PICTURES_MAX, isMailboxPicture } from "@otter/contracts/relay";
 
-import { fromBase64 } from "../bytes.js";
-import { SignInCancelledError } from "../google.js";
-import { broadcast, handle, registeredHandlers } from "../ipc.js";
-import { platform } from "../platform.js";
-import { capabilitiesOf, findProvider, isSignedIn, providerFor } from "../providers/index.js";
-import { DraftChanged, SendUncertain } from "../providers/provider.js";
+import { fromBase64 } from "../bytes.ts";
+import { SignInCancelledError } from "../google.ts";
+import { broadcast, handle, registeredHandlers } from "../ipc.ts";
+import { platform } from "../platform.ts";
+import { capabilitiesOf, findProvider, isSignedIn, providerFor } from "../providers/index.ts";
+import { DraftChanged, SendUncertain } from "../providers/provider.ts";
 import {
   getAccount,
   keepsSendAsOnDevice,
@@ -31,19 +31,19 @@ import {
   providerKindOf,
   removeAccount as storeRemoveAccount,
   updateAccount as storeUpdateAccount,
-} from "../services/account-store.js";
+} from "../services/account-store.ts";
 import {
   getAttachmentBytes,
   getAttachmentData,
   saveAttachment,
-} from "../services/attachment-cache.js";
-import { proxyRemoteImage } from "../services/image-proxy.js";
-import { deleteImapPassword } from "../services/imap-passwords.js";
-import { MAX_ATTACHMENT_TOTAL_BYTES, pickComposeAttachments } from "../services/outgoing.js";
-import * as mailStore from "../services/mail-store.js";
-import { IPC_WRITE_BUDGET_MS, atMost, runAsTask, settleWrite, sleep } from "./ipc-budget.js";
-import { forgetLiveCursors, pageWithLiveFill, reconcileUnread } from "./live-paging.js";
-import { trackLabelWrite } from "../services/pending-label-writes.js";
+} from "../services/attachment-cache.ts";
+import { proxyRemoteImage } from "../services/image-proxy.ts";
+import { deleteImapPassword } from "../services/imap-passwords.ts";
+import { MAX_ATTACHMENT_TOTAL_BYTES, pickComposeAttachments } from "../services/outgoing.ts";
+import * as mailStore from "../services/mail-store.ts";
+import { IPC_WRITE_BUDGET_MS, atMost, runAsTask, settleWrite, sleep } from "./ipc-budget.ts";
+import { forgetLiveCursors, pageWithLiveFill, reconcileUnread } from "./live-paging.ts";
+import { trackLabelWrite } from "../services/pending-label-writes.ts";
 import {
   draftFingerprint,
   draftSessionId,
@@ -57,26 +57,25 @@ import {
   settledSessionDraft,
   takeSessionDraft,
   type DraftContent,
-} from "./draft-sessions.js";
-import * as mailSync from "../services/mail-sync.js";
-import { accountAdded, accountEdited, accountRemoved } from "../services/linked-accounts.js";
-import { getSenderAvatar } from "../services/avatar-store.js";
-import { updateDockBadge } from "../services/notifier.js";
-import { getSettings, updateSettings, type AppSettings } from "../services/settings-store.js";
-import { preferenceChanged } from "../services/preferences.js";
-import { refreshProfiles } from "../services/google-profile.js";
-import { forgetRefusals } from "../services/connections.js";
+} from "./draft-sessions.ts";
+import * as mailSync from "../services/mail-sync.ts";
+import { accountAdded, accountEdited, accountRemoved } from "../services/linked-accounts.ts";
+import { getSenderAvatar } from "../services/avatar-store.ts";
+import { updateDockBadge } from "../services/notifier.ts";
+import { preferenceChanged } from "../services/preferences.ts";
+import { refreshProfiles } from "../services/google-profile.ts";
+import { forgetRefusals } from "../services/connections.ts";
 import {
   refreshSignatures,
   saveAliasMailboxes,
   saveSendAs,
   saveSignature,
-} from "../services/signatures.js";
-import { aliasScope, resolveMailbox, restScope } from "../services/alias-mailboxes.js";
-import { suggestSendAs } from "../services/send-as-suggestions.js";
-import * as viewsStore from "../services/views-store.js";
-import { ALL_MAIL_LABEL_ID } from "../types.js";
-import type { ComposeAttachment, ViewRule } from "../types.js";
+} from "../services/signatures.ts";
+import { aliasScope, resolveMailbox, restScope } from "../services/alias-mailboxes.ts";
+import { suggestSendAs } from "../services/send-as-suggestions.ts";
+import * as viewsStore from "../services/views-store.ts";
+import { ALL_MAIL_LABEL_ID } from "../types.ts";
+import type { ComposeAttachment, ViewRule } from "../types.ts";
 
 const LOCAL_PAGE_SIZE = 50;
 
@@ -1102,8 +1101,7 @@ export function registerMailHandlers(): void {
         const answered = threadId
           ? mailStore
               .getThreadMessages(accountId, threadId)
-              .filter((m) => !m.labelIds.includes("DRAFT"))
-              .at(-1)
+              .findLast((m) => !m.labelIds.includes("DRAFT"))
           : undefined;
         let res: Awaited<ReturnType<typeof provider.saveDraft>>;
         try {
@@ -1543,85 +1541,6 @@ export function registerMailHandlers(): void {
       return mailSync.getSyncStatus(accountId);
     } catch (err) {
       console.log("[gmail:getSyncStatus] error", { error: String(err) });
-      throw err;
-    }
-  });
-
-  handle("gmail:getSyncSettings", async () => {
-    try {
-      return await getSettings();
-    } catch (err) {
-      console.log("[gmail:getSyncSettings] error", { error: String(err) });
-      throw err;
-    }
-  });
-
-  handle("gmail:setSyncSettings", async (params: unknown) => {
-    const p = params as Record<string, unknown>;
-    console.log("[gmail:setSyncSettings]", {
-      syncIntervalSeconds: p?.syncIntervalSeconds,
-      notificationsMode: p?.notificationsMode,
-    });
-    try {
-      const patch: Partial<AppSettings> = {};
-      if (p?.syncIntervalSeconds !== undefined) {
-        const raw = p.syncIntervalSeconds;
-        if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0) {
-          throw new Error(
-            'Invalid parameter: "syncIntervalSeconds" must be a non-negative number.',
-          );
-        }
-        patch.syncIntervalSeconds = Math.min(Math.round(raw), 24 * 60 * 60);
-      }
-      if (p?.notificationsMode !== undefined) {
-        const mode = p.notificationsMode;
-        if (mode !== "off" && mode !== "inbox" && mode !== "all") {
-          throw new Error(
-            'Invalid parameter: "notificationsMode" must be "off", "inbox", or "all".',
-          );
-        }
-        patch.notificationsMode = mode;
-      }
-      if (p?.agentNotificationsMode !== undefined) {
-        const mode = p.agentNotificationsMode;
-        if (mode !== "off" && mode !== "needs-you" && mode !== "all") {
-          throw new Error(
-            'Invalid parameter: "agentNotificationsMode" must be "off", "needs-you", or "all".',
-          );
-        }
-        patch.agentNotificationsMode = mode;
-      }
-      if (p?.calendarReminders !== undefined) {
-        if (typeof p.calendarReminders !== "boolean") {
-          throw new Error('Invalid parameter: "calendarReminders" must be a boolean.');
-        }
-        patch.calendarReminders = p.calendarReminders;
-      }
-      if (p?.launchAtLogin !== undefined) {
-        if (typeof p.launchAtLogin !== "boolean") {
-          throw new Error('Invalid parameter: "launchAtLogin" must be a boolean.');
-        }
-        patch.launchAtLogin = p.launchAtLogin;
-      }
-      if (p?.dockBadgeEnabled !== undefined) {
-        if (typeof p.dockBadgeEnabled !== "boolean") {
-          throw new Error('Invalid parameter: "dockBadgeEnabled" must be a boolean.');
-        }
-        patch.dockBadgeEnabled = p.dockBadgeEnabled;
-      }
-      if (p?.errorReports !== undefined) {
-        if (typeof p.errorReports !== "boolean") {
-          throw new Error('Invalid parameter: "errorReports" must be a boolean.');
-        }
-        patch.errorReports = p.errorReports;
-      }
-      const settings = await updateSettings(patch);
-      if (patch.syncIntervalSeconds !== undefined) {
-        mailSync.configureAutoSync(settings.syncIntervalSeconds);
-      }
-      return settings;
-    } catch (err) {
-      console.log("[gmail:setSyncSettings] error", { error: String(err) });
       throw err;
     }
   });

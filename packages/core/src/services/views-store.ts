@@ -1,5 +1,5 @@
-import { readJson, writeJson } from "../json-file.js";
-import type { MailView, ViewRule } from "../types.js";
+import { readJson, writeJson } from "../json-file.ts";
+import type { MailView, ViewRule } from "../types.ts";
 
 const ownViews = (views: MailView[]): MailView[] =>
   views.filter((v) => typeof v?.id === "string" && v.id.startsWith("v_"));

@@ -45,7 +45,7 @@ import type {
   RuntimeMode,
   Skill,
 } from "@otter/core/extension-kit";
-import { CLAUDE_DEFAULTS, type ClaudeSettings } from "./settings.js";
+import { CLAUDE_DEFAULTS, type ClaudeSettings } from "./settings.ts";
 
 const PROBE_TIMEOUT_MS = 25_000;
 const CLAUDE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);

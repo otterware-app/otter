@@ -1,5 +1,5 @@
-import { toBase64 } from "../../bytes.js";
-import { GraphError, graph, graphBytes } from "./graph.js";
+import { toBase64 } from "../../bytes.ts";
+import { GraphError, graph, graphBytes } from "./graph.ts";
 
 export async function readProfile(accountId: string): Promise<{ name?: string; picture?: string }> {
   const me = await graph<{ displayName?: string }>(accountId, "/me?$select=displayName");

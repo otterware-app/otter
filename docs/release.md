@@ -28,9 +28,9 @@ writes its choice to the run's summary; the other apps' jobs are skipped.
 
 - **A push to `main`** ships each app the push's commits changed. The Mac, Linux and web app is
   built from the whole repository, less what only another part ships: `apps/ios`,
-  `apps/ios-agents`, `infra` (the relay, which Cloudflare deploys), `docs`, `changelog`,
+  `apps/agents-mobile`, `infra` (the relay, which Cloudflare deploys), `docs`, `changelog`,
   `.github` and `.agents`. The iPhone app: `apps/ios`, `packages/shared`,
-  `scripts/export-ios-resources.ts`, `scripts/release-ios.ts`. Otter Agents: `apps/ios-agents`,
+  `scripts/export-ios-resources.ts`, `scripts/release-ios.ts`. Otter Agents: `apps/agents-mobile`,
   what it compiles and bundles from Otter Mail (`apps/ios/OtterMail/Agent`, which is
   `MailContext`, `Theme`, `Resources`, `Settings/Licenses.swift`) and the same two scripts.
   A `README.md` counts for no app.
@@ -202,18 +202,13 @@ development builds use the one for `dev.otterware.mail.dev`. The relay accepts b
 
 ## Otter Agents
 
-Otter Agents for iPhone (`apps/ios-agents`) is released like the iPhone app, apart from it: its
-own version (`MARKETING_VERSION` in `apps/ios-agents/OtterAgents.xcodeproj`, from 0.1.0) and its
-own tags (`ios-agents-vX.Y.Z`).
-
-The Release workflow's "Otter Agents for iPhone" job runs on each push to `main` that
-touches `apps/ios-agents`, what the app compiles and bundles from Otter Mail
-(`apps/ios/OtterMail/Agent`, which is `MailContext`, `Theme`, `Resources`, `Settings/Licenses.swift`)
-or the release scripts, as a patch; by hand,
-`gh workflow run release.yml -f apps=agents -f bump=minor` (or `-f version=1.0.0`). It builds, signs
-and uploads with the same script (`scripts/release-ios.ts --app agents`; from a Mac,
-`pnpm release:ios:agents`), then tags the commit and commits the version to the Xcode project.
-It has no Sentry release: the app doesn't report errors.
+Otter Agents for iPhone (`apps/agents-mobile`) ships through the same Release workflow.
+It uses its own version in `apps/agents-mobile/package.json` and tags `ios-agents-vX.Y.Z`.
+Changes to the Expo app and its shared packages trigger a release. To run it by hand, use
+`gh workflow run release.yml -f apps=agents -f bump=minor` or pass an exact version.
+The workflow installs the workspace dependencies, generates the production Expo project,
+and builds, signs and uploads using `scripts/release-ios.ts --app agents`.
+It tags the commit and records the published version in the package manifest.
 
 It signs with the iPhone app's Apple Distribution identity and App Store Connect API key (the
 same secrets) and its own profiles: "Otter Agents App Store" for `dev.otterware.agents` (Push

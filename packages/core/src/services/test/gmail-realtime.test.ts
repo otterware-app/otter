@@ -1,8 +1,10 @@
 import { DatabaseSync } from "node:sqlite";
 
+import { agentKey, type AgentSyncResponse } from "@otter/contracts/agent-sync";
 import type { RelayAccount, RelayEvent } from "@otter/contracts/relay";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
+import type { CoreOptions } from "../../index.ts";
 import type { Platform, SqlDatabase } from "../../platform.ts";
 import type { MailAccount } from "../../types.ts";
 
@@ -47,7 +49,13 @@ class FakeSocket {
   readyState = FakeSocket.CONNECTING;
   private listeners = new Map<string, ((event: unknown) => void)[]>();
 
-  constructor(readonly url: string) {
+  readonly options: unknown[];
+
+  constructor(
+    readonly url: string,
+    ...options: unknown[]
+  ) {
+    this.options = options;
     FakeSocket.all.push(this);
   }
 
@@ -111,6 +119,15 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
     }
     if (route === "GET /v1/accounts") return json({ accounts: relayAccounts });
     if (route === "GET /v1/preferences") return json({ preferences: {}, agentKeys: null });
+    if (route === "POST /v1/agent-sync") {
+      const agent = { id: "gateway", kind: "openclaw", name: "OpenClaw", settings: {}, addedAt: 1 };
+      return json({
+        version: 1,
+        lastMutationId: 0,
+        changes: [{ key: agentKey(agent.id), value: agent }],
+        more: false,
+      } satisfies AgentSyncResponse);
+    }
     if (method === "PUT" || method === "DELETE") return new Response(null, { status: 204 });
     return json({ error: "not found" }, 404);
   }
@@ -154,7 +171,7 @@ async function until(check: () => boolean, what: string): Promise<void> {
 /** Lets pending work (a sync's promise chain) run; what it didn't start by then, it won't. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
 
-async function boot() {
+async function boot({ kind = "desktop", modules }: { kind?: Platform["kind"] } & CoreOptions = {}) {
   vi.resetModules();
   const { setPlatform } = await import("../../platform.ts");
   const { startCore } = await import("../../index.ts");
@@ -188,7 +205,7 @@ async function boot() {
     throw new Error("Not in this test.");
   };
   const platform: Platform = {
-    kind: "desktop",
+    kind,
     appVersion: "test",
     log: () => {},
     database: () => database,
@@ -254,7 +271,7 @@ async function boot() {
     JSON.stringify([gmail, signedOut, imap].map((a) => a.email.toLowerCase())),
   );
 
-  await startCore(platform);
+  await startCore(platform, [], { modules });
   mailSync.configureAutoSync(0);
   return { mailSync, mailStore };
 }
@@ -294,6 +311,7 @@ describe("Gmail realtime", { timeout: 15_000 }, () => {
     await boot();
     await goLive();
     expect(socket().url).toBe("ws://relay.test/v1/events");
+    expect(socket().options).toEqual([{ headers: { Authorization: "Bearer otter-token" } }]);
     const states = broadcasts
       .filter((b) => b.channel === "otter:state")
       .map((b) => (b.params as { realtime: string }).realtime);
@@ -433,5 +451,42 @@ describe("Gmail realtime", { timeout: 15_000 }, () => {
 
     socket().event({ type: "preferences" });
     await until(() => relayCalls("GET /v1/preferences").length === preferences + 1, "the pull");
+  });
+
+  it("loads the phone's agents before the event stream opens", async () => {
+    await boot({ kind: "mobile", modules: [] });
+    const { entry } = await import("../agent-sync.ts");
+    await until(() => Boolean(entry(agentKey("gateway"))), "the agent pulled over HTTP");
+    expect(socket().readyState).toBe(FakeSocket.CONNECTING);
+  });
+
+  it("starts no mail or calendar on a phone without them", async () => {
+    await boot({ kind: "mobile", modules: [] });
+    const { registeredHandlers } = await import("../../ipc.ts");
+    await until(() => FakeSocket.all.length > 0, "the event stream");
+    expect(socket().options).toEqual([
+      undefined,
+      { headers: { Authorization: "Bearer otter-token" } },
+    ]);
+    socket().open();
+    await until(() => relayCalls("GET /v1/preferences").length > 0, "the preferences");
+
+    socket().event({ type: "accounts" });
+    socket().event({ type: "mail", email: "live@gmail.test", historyId: "101" });
+    socket().event({ type: "calendar", email: "live@gmail.test" });
+    await settle();
+    expect(calls.filter((c) => c.host === GMAIL)).toEqual([]);
+    expect(relayCalls("GET /v1/accounts")).toEqual([]);
+    expect(imapWatch).toBeNull();
+    expect(imapSyncs).toEqual([]);
+    const channels = [...registeredHandlers().keys()];
+    expect(channels).toContain("otter:getState");
+    expect(channels).toContain("agent:providers");
+    expect(channels).toContain("preferences:getUi");
+    expect(channels.filter((c) => /^(gmail|imap|outlook|calendar):/.test(c))).toEqual([]);
+  });
+
+  it("refuses the calendar without mail", async () => {
+    await expect(boot({ modules: ["calendar"] })).rejects.toThrow(/needs the mail module/);
   });
 });

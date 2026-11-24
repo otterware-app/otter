@@ -24,8 +24,8 @@ vi.mock("node:child_process", () => ({
     },
   }),
 }));
-const support = await import("./support-terminal.js");
-const { macTerminals } = await import("../os/mac/terminals.js");
+const support = await import("./support-terminal.ts");
+const { macTerminals } = await import("../os/mac/terminals.ts");
 const getSupportTerminals = (home: string) => support.getSupportTerminals(home, macTerminals);
 const setSupportTerminal = (home: string, id: unknown) =>
   support.setSupportTerminal(home, macTerminals, id);

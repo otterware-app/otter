@@ -6,7 +6,7 @@ import {
 } from "@otter/contracts/agent-tokens";
 import { readJson, writeJson, type ToolCaller } from "@otter/core";
 
-import { deviceFiles } from "./local.js";
+import { deviceFiles } from "./local.ts";
 
 type StoredAgent = ConnectedAgent & { hash: string };
 

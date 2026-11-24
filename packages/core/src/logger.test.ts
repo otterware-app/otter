@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
 const log = vi.hoisted(() => vi.fn());
-vi.mock("./platform.js", () => ({ platform: () => ({ log }) }));
+vi.mock("./platform.ts", () => ({ platform: () => ({ log }) }));
 
-import { logger } from "./logger.js";
+import { logger } from "./logger.ts";
 
 const levelOf = (message: string, error: Error) => {
   log.mockClear();

@@ -5,7 +5,7 @@ import * as NodePath from "node:path";
 
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { generateThirdPartyLicenseManifest } from "./third-party-licenses.js";
+import { generateThirdPartyLicenseManifest } from "./third-party-licenses.ts";
 
 const tempDirectories: string[] = [];
 async function writeJson(path: string, value: unknown): Promise<void> {

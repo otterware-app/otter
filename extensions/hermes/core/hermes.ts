@@ -41,7 +41,7 @@ import {
   toSession,
   type RawSession,
   type Ready,
-} from "./http.js";
+} from "./http.ts";
 import {
   LET_GO,
   follow,
@@ -52,7 +52,7 @@ import {
   replyOf,
   startRun,
   type Run,
-} from "./runs.js";
+} from "./runs.ts";
 import {
   DELIVERED,
   deliveredNow,
@@ -62,12 +62,12 @@ import {
   stopWatching,
   watchDeliveries,
   type Deliveries,
-} from "./deliveries.js";
-import { hermesSchedules } from "./schedules.js";
-import { HERMES_DEFAULTS, type HermesSettings } from "./settings.js";
+} from "./deliveries.ts";
+import { hermesSchedules } from "./schedules.ts";
+import { HERMES_DEFAULTS, type HermesSettings } from "./settings.ts";
 
-export { normalizeHermesBaseUrl } from "./http.js";
-export { hermesSchedule, hermesTask } from "./schedules.js";
+export { normalizeHermesBaseUrl } from "./http.ts";
+export { hermesSchedule, hermesTask } from "./schedules.ts";
 
 /** Sessions of Otter's own: those started through the API, and those its plugin delivered. */
 const OWN_SOURCES = ["api_server", "otter"];

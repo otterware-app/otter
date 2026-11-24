@@ -5,7 +5,7 @@
  */
 
 import { useNavigate } from "@tanstack/react-router";
-import { placeHref } from "../places";
+import { placeHref, workspaceSpace } from "@otter/client/places";
 import { useCallback, useMemo } from "react";
 
 import { availableExtensions, extensionEnabled, useDisabledExtensions } from "./registry";
@@ -14,8 +14,6 @@ import type { WorkspaceContribution, WorkspaceLocation } from "./types";
 export type Workspace = WorkspaceContribution & { title: string; extensionId: string };
 
 const SPACE = /^__([a-z]+)__$/;
-
-export const workspaceSpace = (id: string) => `__${id}__`;
 
 let all: readonly Workspace[] | null = null;
 

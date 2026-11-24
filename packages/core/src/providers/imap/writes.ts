@@ -12,12 +12,12 @@
 
 import { ARCHIVE_LABEL_ID, inThreadChange } from "@otter/contracts";
 
-import { getAccount } from "../../services/account-store.js";
-import * as store from "../../services/mail-store.js";
-import type { ImapClient } from "../../protocols/index.js";
-import type { MailLabel, MessageSummary } from "../../types.js";
-import type { LabelChange } from "../provider.js";
-import { findByMessageId, FolderGone, selectFolder, withImap } from "./connection.js";
+import { getAccount } from "../../services/account-store.ts";
+import * as store from "../../services/mail-store.ts";
+import type { ImapClient } from "../../protocols/index.ts";
+import type { MailLabel, MessageSummary } from "../../types.ts";
+import type { LabelChange } from "../provider.ts";
+import { findByMessageId, FolderGone, selectFolder, withImap } from "./connection.ts";
 import {
   byFolder,
   ensureFolder,
@@ -30,9 +30,9 @@ import {
   type Folder,
   type Folders,
   type Role,
-} from "./folders.js";
-import { currentId, getSummaries, rememberMove } from "./reads.js";
-import { renameFolderState } from "./sync.js";
+} from "./folders.ts";
+import { currentId, getSummaries, rememberMove } from "./reads.ts";
+import { renameFolderState } from "./sync.ts";
 
 type Row = { id: string; labelIds: string[]; fromEmail?: string };
 

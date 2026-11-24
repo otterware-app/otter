@@ -10,7 +10,7 @@ import {
   type UpdateState,
 } from "@otter/contracts";
 
-import { featuresFor } from "./os/features.js";
+import { featuresFor } from "./os/features.ts";
 
 function subscribe(channel: string, listener: (params: unknown) => void): () => void {
   const handler = (_event: IpcRendererEvent, params: unknown) => listener(params);

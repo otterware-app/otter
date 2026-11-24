@@ -1,5 +1,5 @@
 import PostalMime from "postal-mime";
-import { utf8Encode } from "../bytes.js";
+import { utf8Encode } from "../bytes.ts";
 
 export interface ParsedAttachment {
   filename: string | null;

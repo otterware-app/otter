@@ -1,8 +1,8 @@
-import { parseMessage, type FetchQuery, type FetchedMessage } from "../../protocols/index.js";
-import type { MessageDetail, MessageSummary } from "../../types.js";
-import { FolderGone, inFolder } from "./connection.js";
-import { byFolder, foldersOf, parseMessageId, type Folder } from "./folders.js";
-import { DETAIL_QUERY, SUMMARY_QUERY, toDetail, toSummary } from "./messages.js";
+import { parseMessage, type FetchQuery, type FetchedMessage } from "../../protocols/index.ts";
+import type { MessageDetail, MessageSummary } from "../../types.ts";
+import { FolderGone, inFolder } from "./connection.ts";
+import { byFolder, foldersOf, parseMessageId, type Folder } from "./folders.ts";
+import { DETAIL_QUERY, SUMMARY_QUERY, toDetail, toSummary } from "./messages.ts";
 
 export class MessageGone extends Error {
   constructor(id: string) {

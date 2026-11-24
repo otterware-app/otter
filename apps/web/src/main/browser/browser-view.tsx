@@ -15,14 +15,12 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { mailApi } from "../mail/api";
 import { toast } from "@otter/ui/components/toast";
+import { addressToUrl, hostOf } from "@otter/client/web-address";
 import { ExtensionToolbar } from "./extension-toolbar";
 import {
   CHROME_WEB_STORE_URL,
-  addressToUrl,
   closeTab,
-  hostOf,
   openTab,
   selectTab,
   updateTab,
@@ -43,6 +41,7 @@ import { Button, IconButton } from "@otter/ui/components/button";
 import { Spinner } from "@otter/ui/components/spinner";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { cn } from "@otter/ui/lib/utils";
+import { appApi } from "../app-api";
 
 type Webview = HTMLElement & {
   getWebContentsId(): number;
@@ -498,7 +497,7 @@ function PageMenu({ url, onDevTools }: { url: string; onDevTools?: () => void })
         ) : null}
         <DropdownMenuItem
           icon={<PuzzleIcon className="size-4" />}
-          onClick={() => void mailApi.openSettings({ pane: "browser" })}
+          onClick={() => void appApi.openSettings({ pane: "browser" })}
         >
           Extensions
         </DropdownMenuItem>
@@ -523,7 +522,7 @@ function StartPage({ onNavigate }: { onNavigate: (url: string) => void }) {
           <button
             type="button"
             className={tile}
-            onClick={() => void mailApi.openSettings({ pane: "browser" })}
+            onClick={() => void appApi.openSettings({ pane: "browser" })}
           >
             <PuzzleIcon />
             Extensions

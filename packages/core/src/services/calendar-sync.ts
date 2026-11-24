@@ -1,8 +1,8 @@
 import type { CalendarWatchResponse } from "@otter/contracts/relay";
 
-import { broadcast } from "../ipc.js";
-import { logger } from "../logger.js";
-import { capabilitiesOf, findProvider, isSignedIn } from "../providers/index.js";
+import { broadcast } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { capabilitiesOf, findProvider, isSignedIn } from "../providers/index.ts";
 import {
   CalendarSyncExpired,
   NoCalendarAccess,
@@ -10,15 +10,15 @@ import {
   type CalendarInfo,
   type EventInput,
   type MailProvider,
-} from "../providers/provider.js";
-import type { MailAccount } from "../types.js";
-import { listAccounts } from "./account-store.js";
-import * as store from "./calendar-store.js";
-import { generationOf, noteAllowed, noteRefused } from "./connections.js";
-import { linkedAccountIds } from "./linked-accounts.js";
-import { turnedOffMailboxes } from "./mail-sync.js";
-import { getOtterUser, relayRequest } from "./otter-account.js";
-import { getRealtimeState } from "./realtime.js";
+} from "../providers/provider.ts";
+import type { MailAccount } from "../types.ts";
+import { listAccounts } from "./account-store.ts";
+import * as store from "./calendar-store.ts";
+import { generationOf, noteAllowed, noteRefused } from "./connections.ts";
+import { linkedAccountIds } from "./linked-accounts.ts";
+import { turnedOffMailboxes } from "./mail-sync.ts";
+import { getOtterUser, relayRequest } from "./otter-account.ts";
+import { getRealtimeState } from "./realtime.ts";
 
 /**
  * Keeps calendar-store.ts current: each calendar's window, three months back to a year ahead

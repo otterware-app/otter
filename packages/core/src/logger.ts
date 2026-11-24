@@ -5,11 +5,11 @@ import {
   GMAIL_ACCESS_MISSING_MESSAGE,
   GOOGLE_UNAVAILABLE_MESSAGE,
   SIGNED_OUT_MESSAGE,
-} from "./google.js";
-import { OUTLOOK_SIGNED_OUT_MESSAGE } from "./microsoft.js";
-import { platform } from "./platform.js";
-import { OTTER_SIGNED_OUT_MESSAGE } from "./services/otter-account.js";
-import { recordSupportError } from "./services/support-errors.js";
+} from "./google.ts";
+import { OUTLOOK_SIGNED_OUT_MESSAGE } from "./microsoft.ts";
+import { platform } from "./platform.ts";
+import { OTTER_SIGNED_OUT_MESSAGE } from "./services/otter-account.ts";
+import { recordSupportError } from "./services/support-errors.ts";
 
 type Level = "debug" | "info" | "warn" | "error";
 

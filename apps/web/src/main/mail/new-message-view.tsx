@@ -1,9 +1,13 @@
 import { toast } from "@otter/ui/components/toast";
 import { useEffect, useRef, useState } from "react";
-import { MAY_HAVE_BEEN_SENT, sendWithUndo } from "./undo-send";
+import { sendWithUndo } from "./undo-send";
 import { ChevronDownIcon, XIcon } from "lucide-react";
-import { useSendMessage } from "./hooks";
-import { normalizeAddressList, parseAddressEntry, splitAddressList } from "./address";
+import { useSendMessage, MAY_HAVE_BEEN_SENT } from "@otter/client/mail/hooks";
+import {
+  normalizeAddressList,
+  parseAddressEntry,
+  splitAddressList,
+} from "@otter/client/mail/address";
 import { AccountPicture } from "./account-picture";
 import {
   CcBccToggles,
@@ -13,7 +17,6 @@ import {
   ComposerFooter,
   SubjectInput,
   DraftRemoteBanner,
-  draftStatus,
 } from "./composer-kit";
 import { RichTextArea, textToHtml, type RichTextRef } from "./rich-text";
 import {
@@ -26,16 +29,16 @@ import {
   pickComposeAttachments,
   useComposeFileDrop,
 } from "./compose-attachments";
-import { useDraftAutosave } from "./use-draft-autosave";
+import { draftStatus, useDraftAutosave } from "@otter/client/mail/use-draft-autosave";
 import { RecipientInput } from "./recipient-input";
-import { addressesOf, chosenAddress } from "./send-from";
+import { addressesOf, chosenAddress } from "@otter/client/mail/send-from";
 import {
   aliasMailboxId,
   aliasMailboxLook,
   aliasMailboxesOf,
   signatureFor,
-} from "./alias-mailboxes";
-import type { ComposeAttachment, MailAccount } from "./types";
+} from "@otter/client/mail/alias-mailboxes";
+import type { ComposeAttachment, MailAccount } from "@otter/client/mail/types";
 import {
   DropdownMenu,
   DropdownMenuTrigger,

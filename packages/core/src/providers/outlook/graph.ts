@@ -12,9 +12,9 @@
  * user's own requests retry a few times, then fail.
  */
 
-import { OUTLOOK_SIGNED_OUT_MESSAGE } from "../../microsoft.js";
-import { platform, type AsyncContext } from "../../platform.js";
-import type { ErrorKind, Lane } from "../provider.js";
+import { OUTLOOK_SIGNED_OUT_MESSAGE } from "../../microsoft.ts";
+import { platform, type AsyncContext } from "../../platform.ts";
+import type { ErrorKind, Lane } from "../provider.ts";
 
 export const GRAPH = "https://graph.microsoft.com/v1.0";
 export const GRAPH_BETA = "https://graph.microsoft.com/beta";

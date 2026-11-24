@@ -10,15 +10,15 @@ import {
   type SupportDiagnostics,
   type SupportSession,
 } from "@otter/shared/support";
-import { invokeBackend } from "../backend-host.js";
-import { hostOS } from "../os/index.js";
-import { ensureShellPath } from "../services/agent/shell-path.js";
-import { buildSupportLauncher, supportBinary } from "../services/support-launcher.js";
+import { invokeBackend } from "../backend-host.ts";
+import { hostOS } from "../os/index.ts";
+import { ensureShellPath } from "../services/agent/shell-path.ts";
+import { buildSupportLauncher, supportBinary } from "../services/support-launcher.ts";
 import {
   getSupportTerminals,
   openSupportTerminal,
   setSupportTerminal,
-} from "../services/support-terminal.js";
+} from "../services/support-terminal.ts";
 import {
   forgetSupportSession,
   readSupportDraft,
@@ -26,7 +26,7 @@ import {
   resumeSupportSession,
   supportDirectory,
   validSupportReport,
-} from "../services/support-session.js";
+} from "../services/support-session.ts";
 
 let reportRequested = false;
 

@@ -1,5 +1,3 @@
-import { useLatest } from "../use-latest";
-
 import {
   Children,
   useEffect,
@@ -8,42 +6,17 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
+import {
+  attachmentDetail,
+  formatAttachmentSize,
+  useChatAttachments,
+  type AttachmentFiles,
+  type DraftAttachment,
+  type SentAttachment,
+} from "@otter/client/agents/chat-attachments";
 import { FileTextIcon, ImageIcon, PaperclipIcon, XIcon } from "lucide-react";
-import { toast } from "@otter/ui/components/toast";
-import { mailApi, type ChatAttachment } from "../mail/api";
 import { Spinner } from "@otter/ui/components/spinner";
 import { cn } from "@otter/ui/lib/utils";
-
-const IMAGE_TYPES = new Set(["image/gif", "image/jpeg", "image/png", "image/webp"]);
-const IMAGE_EXTENSIONS = /\.(gif|jpe?g|png|webp)$/i;
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const MAX_FILE_BYTES = 50 * 1024 * 1024;
-export const MAX_ATTACHMENTS = 10;
-
-export type SentAttachment = { name: string; kind: "image" | "file"; size: number; thumb?: string };
-
-type DraftAttachment = {
-  key: string;
-  name: string;
-  kind: "image" | "file";
-  size: number;
-  previewUrl?: string;
-  thumb?: string;
-  staged?: ChatAttachment;
-};
-
-export function formatAttachmentSize(bytes: number): string {
-  return bytes >= 1024 * 1024
-    ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
-    : `${Math.max(1, Math.ceil(bytes / 1024))} KB`;
-}
-
-function isImage(file: File): boolean {
-  return (
-    IMAGE_TYPES.has(file.type) ||
-    ((!file.type || file.type === "application/octet-stream") && IMAGE_EXTENSIONS.test(file.name))
-  );
-}
 
 function thumbnail(url: string): Promise<string | undefined> {
   return new Promise((resolve) => {
@@ -65,97 +38,14 @@ function thumbnail(url: string): Promise<string | undefined> {
   });
 }
 
-export function useChatAttachments() {
-  const [items, setItems] = useState<DraftAttachment[]>([]);
-  const itemsRef = useLatest(items);
+const BROWSER_FILES: AttachmentFiles<File> = {
+  bytes: async (file) => new Uint8Array(await file.arrayBuffer()),
+  preview: (file) => URL.createObjectURL(file),
+  release: (url) => URL.revokeObjectURL(url),
+  thumbnail,
+};
 
-  useEffect(
-    () => () => {
-      for (const item of itemsRef.current)
-        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-    },
-    [itemsRef],
-  );
-
-  const add = async (files: File[]) => {
-    const room = MAX_ATTACHMENTS - itemsRef.current.length;
-    if (files.length > room) {
-      toast.error(`You can attach up to ${MAX_ATTACHMENTS} files per message.`);
-      files = files.slice(0, Math.max(0, room));
-    }
-    for (const file of files) {
-      const image = isImage(file);
-      if (!image && file.type.startsWith("image/") && !/heic|heif/i.test(file.type)) {
-        toast.error(
-          `'${file.name}' is not a supported image type. Attach GIF, JPEG, PNG, or WebP images.`,
-        );
-        continue;
-      }
-      if (file.size === 0) {
-        toast.error(`'${file.name}' is empty or could not be read.`);
-        continue;
-      }
-      const limit = image ? MAX_IMAGE_BYTES : MAX_FILE_BYTES;
-      if (file.size > limit) {
-        toast.error(`'${file.name}' exceeds the ${limit / 1024 / 1024} MB attachment limit.`);
-        continue;
-      }
-      const key = crypto.randomUUID();
-      const previewUrl = image ? URL.createObjectURL(file) : undefined;
-      const name = file.name || (image ? "Pasted image.png" : "Attachment");
-      setItems((list) => [
-        ...list,
-        { key, name, kind: image ? "image" : "file", size: file.size, previewUrl },
-      ]);
-      void (async () => {
-        try {
-          const item = {
-            name,
-            mime: file.type || "application/octet-stream",
-            bytes: new Uint8Array(await file.arrayBuffer()),
-          };
-          const [thumb, result] = await Promise.all([
-            previewUrl ? thumbnail(previewUrl) : Promise.resolve(undefined),
-            mailApi.agentStageAttachments([item]),
-          ]);
-          const staged = result.attachments[0];
-          if (!staged) throw new Error(result.errors[0] ?? `'${name}' could not be attached.`);
-          setItems((list) => list.map((a) => (a.key === key ? { ...a, staged, thumb } : a)));
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : String(error));
-          setItems((list) => list.filter((a) => a.key !== key));
-          if (previewUrl) URL.revokeObjectURL(previewUrl);
-        }
-      })();
-    }
-  };
-
-  const remove = (key: string) =>
-    setItems((list) => {
-      const gone = list.find((a) => a.key === key);
-      if (gone?.previewUrl) URL.revokeObjectURL(gone.previewUrl);
-      return list.filter((a) => a.key !== key);
-    });
-
-  const take = (): { staged: ChatAttachment[]; sent: SentAttachment[] } => {
-    const ready = itemsRef.current.filter((a) => a.staged);
-    for (const item of itemsRef.current) if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-    setItems([]);
-    return {
-      staged: ready.map((a) => a.staged!),
-      sent: ready.map((a) => ({ name: a.name, kind: a.kind, size: a.size, thumb: a.thumb })),
-    };
-  };
-
-  return {
-    items,
-    add,
-    remove,
-    take,
-    staging: items.some((a) => !a.staged),
-    count: items.length,
-  };
-}
+export const useComposerAttachments = () => useChatAttachments(BROWSER_FILES);
 
 const isFileDrag = (e: DragEvent) => e.dataTransfer.types.includes("Files");
 const movedWithin = (e: DragEvent) =>
@@ -300,11 +190,6 @@ export function AttachmentChip({
   );
 }
 
-function extensionOf(name: string): string {
-  const dot = name.lastIndexOf(".");
-  return dot > 0 && dot < name.length - 1 ? name.slice(dot + 1, dot + 6).toUpperCase() : "File";
-}
-
 export function ComposerAttachments({
   items,
   onRemove,
@@ -329,11 +214,7 @@ export function ComposerAttachments({
         <AttachmentChip
           key={item.key}
           name={item.name}
-          detail={
-            item.kind === "image"
-              ? "Image"
-              : `${extensionOf(item.name)} · ${formatAttachmentSize(item.size)}`
-          }
+          detail={attachmentDetail(item)}
           pending={!item.staged}
           compact={compact}
           onRemove={() => onRemove(item.key)}

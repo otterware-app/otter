@@ -1,10 +1,10 @@
 import { validAliasMailboxes, type AliasMailbox } from "@otter/contracts";
 
-import { broadcast } from "../ipc.js";
-import { getAccount, isAccountId, listAccounts } from "./account-store.js";
-import { addressList, type AliasScope, type MailboxScope, type RestScope } from "./mail-store.js";
-import { turnedOffMailboxes } from "./mail-sync.js";
-import type { MailAccount, MessageSummary } from "../types.js";
+import { broadcast } from "../ipc.ts";
+import { getAccount, isAccountId, listAccounts } from "./account-store.ts";
+import { addressList, type AliasScope, type MailboxScope, type RestScope } from "./mail-store.ts";
+import { turnedOffMailboxes } from "./mail-sync.ts";
+import type { MailAccount, MessageSummary } from "../types.ts";
 
 export function parseAliasMailboxes(value: unknown): AliasMailbox[] {
   if (!Array.isArray(value)) return [];

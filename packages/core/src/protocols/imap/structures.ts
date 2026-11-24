@@ -1,5 +1,5 @@
 import { decodeWords } from "postal-mime";
-import { utf8Decode, utf8Encode } from "../../bytes.js";
+import { utf8Decode, utf8Encode } from "../../bytes.ts";
 import {
   tokenBytes,
   tokenList,
@@ -7,7 +7,7 @@ import {
   tokenText,
   type ImapResponse,
   type ImapToken,
-} from "./parser.js";
+} from "./parser.ts";
 
 export interface ImapAddress {
   name: string;

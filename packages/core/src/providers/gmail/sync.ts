@@ -1,10 +1,10 @@
 // Replay history from the backfill seed after it finishes so newer changes overwrite older backfill copies.
 
-import { logger } from "../../logger.js";
-import { platform } from "../../platform.js";
-import * as store from "../../services/mail-store.js";
-import type { MessageSummary } from "../../types.js";
-import { SyncCancelled, type SyncContext } from "../provider.js";
+import { logger } from "../../logger.ts";
+import { platform } from "../../platform.ts";
+import * as store from "../../services/mail-store.ts";
+import type { MessageSummary } from "../../types.ts";
+import { SyncCancelled, type SyncContext } from "../provider.ts";
 import {
   describeError,
   fetchMessagesForIds,
@@ -16,8 +16,8 @@ import {
   listLabelNames,
   listLabels,
   listMessageIdsPage,
-} from "./api.js";
-import { fillOverImap } from "./imap-fill.js";
+} from "./api.ts";
+import { fillOverImap } from "./imap-fill.ts";
 
 // Kept in kv, so a backfill survives quitting and picks up where it stopped.
 const seedKey = (accountId: string) => `fullSyncSeed:${accountId}`;

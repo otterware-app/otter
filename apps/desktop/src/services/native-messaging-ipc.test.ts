@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   connect: vi.fn(),
 }));
 vi.mock("electron", () => ({ ipcMain: { handle: mocks.handle }, app: { on: mocks.onQuit } }));
-vi.mock("./native-messaging.js", () => ({ connectNativeHost: mocks.connect }));
+vi.mock("./native-messaging.ts", () => ({ connectNativeHost: mocks.connect }));
 
 const ID = "aeblfdkhhhdcdjpifhhbdiojplfjncoa";
 const extension = { id: ID, manifest: { permissions: ["nativeMessaging"] } };

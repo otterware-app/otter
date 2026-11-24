@@ -16,7 +16,7 @@ import {
   utf8Encode,
 } from "@otter/core/extension-kit";
 
-import * as local from "./local.js";
+import * as local from "./local.ts";
 
 const BASE = "https://drive.otterware.app";
 const CLIENT_ID = "otterware-cli";

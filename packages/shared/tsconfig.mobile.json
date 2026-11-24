@@ -1,0 +1,11 @@
+{
+  // What the phone runs this on: Hermes with Expo's fetch, streams, URL and WebSocket, and
+  // @otter/mobile/polyfills's crypto. No window, document or localStorage: a Web Worker's
+  // library is the nearest TypeScript has.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "WebWorker", "WebWorker.Iterable"],
+    "types": []
+  },
+  "exclude": ["src/**/*.test.ts"]
+}

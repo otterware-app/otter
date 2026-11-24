@@ -20,10 +20,10 @@ import {
 } from "@otter/contracts/agent-sync";
 import type { ChatTurn } from "@otter/contracts/chats";
 
-import { broadcast } from "../ipc.js";
-import { logger } from "../logger.js";
-import { platform, type SqlDatabase } from "../platform.js";
-import { getOtterUser, onOtterAccountChange, relayRequest, RelayError } from "./otter-account.js";
+import { broadcast } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { platform, type SqlDatabase } from "../platform.ts";
+import { getOtterUser, onOtterAccountChange, relayRequest, RelayError } from "./otter-account.ts";
 
 export const CHATS_CHANGED = "chats:changed";
 

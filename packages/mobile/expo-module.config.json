@@ -1,0 +1,12 @@
+{
+  "platforms": ["apple"],
+  "apple": {
+    "modules": [
+      "OtterMobileModule",
+      "OtterTalkModule",
+      "OtterAgentBrowserModule",
+      "OtterAgentNotificationsModule"
+    ],
+    "appDelegateSubscribers": ["OtterAgentNotificationsSubscriber"]
+  }
+}

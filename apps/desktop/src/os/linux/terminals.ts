@@ -9,8 +9,8 @@ import { spawn } from "node:child_process";
 import { realpathSync } from "node:fs";
 import * as path from "node:path";
 
-import type { HostOS } from "../types.js";
-import { desktopEntries, type DesktopEntry } from "./desktop-entries.js";
+import type { HostOS } from "../types.ts";
+import { desktopEntries, type DesktopEntry } from "./desktop-entries.ts";
 
 const DEFAULT_TERMINAL = "/usr/bin/x-terminal-emulator";
 

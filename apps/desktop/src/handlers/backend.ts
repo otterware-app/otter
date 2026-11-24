@@ -6,8 +6,8 @@ import {
   listAgents,
   removeAgent,
   setAgentAccess,
-} from "../services/agent/connected-agents.js";
-import { serverUrl } from "../services/agent/mcp-server.js";
+} from "../services/agent/connected-agents.ts";
+import { serverUrl } from "../services/agent/mcp-server.ts";
 
 export function registerBackendHandlers(): void {
   handle("desktop:syncAll", async () => {

@@ -1,4 +1,4 @@
-import { utf8Encode } from "../../bytes.js";
+import { utf8Encode } from "../../bytes.ts";
 import {
   parseMessage,
   type BodyStructure,
@@ -6,9 +6,9 @@ import {
   type FetchQuery,
   type ImapAddress,
   type ParsedMessage,
-} from "../../protocols/index.js";
-import type { MessageDetail, MessageSummary } from "../../types.js";
-import { labelsFor, messageId, type Folder } from "./folders.js";
+} from "../../protocols/index.ts";
+import type { MessageDetail, MessageSummary } from "../../types.ts";
+import { labelsFor, messageId, type Folder } from "./folders.ts";
 
 const SNIPPET_BYTES = 1024;
 

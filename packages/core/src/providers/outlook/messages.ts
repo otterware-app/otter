@@ -1,8 +1,8 @@
-import { parseMessage } from "../../protocols/index.js";
-import { getMessageLabelIds } from "../../services/mail-store.js";
-import type { MessageDetail, MessageSummary } from "../../types.js";
-import { formatAddresses, snippetOf } from "../imap/messages.js";
-import { labelsFor, stillInMailbox } from "./folders.js";
+import { parseMessage } from "../../protocols/index.ts";
+import { getMessageLabelIds } from "../../services/mail-store.ts";
+import type { MessageDetail, MessageSummary } from "../../types.ts";
+import { formatAddresses, snippetOf } from "../imap/messages.ts";
+import { labelsFor, stillInMailbox } from "./folders.ts";
 import {
   batchError,
   graph,
@@ -12,7 +12,7 @@ import {
   isAccessDenied,
   isNotFound,
   ok,
-} from "./graph.js";
+} from "./graph.ts";
 
 export const SUMMARY_FIELDS = [
   "id",

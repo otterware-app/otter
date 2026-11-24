@@ -16,6 +16,8 @@ const relay = {
   down: false,
   /** The next request is applied, and its answer lost on the way back. */
   loseAnswer: false,
+  /** A request carrying this text is refused, as the relay refuses a change it can't take. */
+  refuses: null as string | null,
   page: 3,
 };
 
@@ -61,13 +63,15 @@ class RelayError extends Error {
 
 const account = { user: { id: "u1", email: "me@example.com" } as { id: string } | null };
 
-vi.mock("../otter-account.js", () => ({
+vi.mock("../otter-account.ts", () => ({
   RelayError,
   OTTER_SIGNED_OUT_MESSAGE: "Signed out",
   getOtterUser: () => account.user,
   onOtterAccountChange: () => {},
   async relayRequest(_method: string, _route: string, body: AgentSyncRequest) {
     if (relay.down) throw new RelayError(0, "offline");
+    if (relay.refuses && JSON.stringify(body.mutations).includes(relay.refuses))
+      throw new RelayError(400, "Invalid mutation");
     const answer = exchange(structuredClone(body));
     if (relay.loseAnswer) {
       relay.loseAnswer = false;
@@ -92,7 +96,7 @@ const openclaw = {
   deviceSecrets: ["device-key"],
 };
 const claude = { ...hermes, kind: "claude", secrets: [], deviceFields: ["binaryPath"] };
-vi.mock("../../extensions.js", () => ({
+vi.mock("../../extensions.ts", () => ({
   registeredAgents: () =>
     new Map<string, unknown>([
       ["hermes", hermes],
@@ -174,6 +178,7 @@ beforeEach(() => {
   relay.head = 0;
   relay.down = false;
   relay.loseAnswer = false;
+  relay.refuses = null;
   account.user = { id: "u1" };
 });
 
@@ -460,6 +465,22 @@ describe("agent sync", () => {
       true,
       true,
     ]);
+  });
+
+  it("drops a change the relay refuses, with what it did here, and sends the rest", async () => {
+    const mac = await device();
+    relay.refuses = "Refused title";
+    await save(mac, chat("c1"));
+    await save(mac, chat("c2", { title: "Refused title" }));
+    await save(mac, chat("c3"));
+    await mac.sync.syncAgentData();
+    expect([...relay.entries.keys()].filter((k) => k.startsWith("chat/"))).toEqual([
+      "chat/c1",
+      "chat/c3",
+    ]);
+    const { chats } = await mac.chats.listChats();
+    expect(chats.map((c) => c.id).sort()).toEqual(["c1", "c3"]);
+    expect((await mac.chats.getChat("c3"))?.title).toBe("Plan the offsite");
   });
 
   it("keeps a change made after a send whose answer was lost", async () => {

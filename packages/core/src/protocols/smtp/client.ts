@@ -1,5 +1,5 @@
-import { toBase64, utf8Decode, utf8Encode } from "../../bytes.js";
-import type { ByteStream } from "../../platform.js";
+import { toBase64, utf8Decode, utf8Encode } from "../../bytes.ts";
+import type { ByteStream } from "../../platform.ts";
 import {
   DEFAULT_TIMEOUT_MS,
   errorText,
@@ -11,7 +11,7 @@ import {
   writeBytes,
   type MailErrorKind,
   type ServerOptions,
-} from "../common.js";
+} from "../common.ts";
 
 export interface SmtpOptions extends ServerOptions {
   clientName?: string;

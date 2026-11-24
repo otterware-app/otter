@@ -44,7 +44,7 @@ import {
 } from "lucide-react";
 
 import { VIEW_COLORS, type ViewIconKey } from "@otter/shared/view-marks";
-import type { MailView } from "./types";
+import type { MailView } from "@otter/client/mail/types";
 import { Button } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
 

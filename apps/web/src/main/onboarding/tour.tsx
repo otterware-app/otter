@@ -1,4 +1,4 @@
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { XIcon } from "lucide-react";

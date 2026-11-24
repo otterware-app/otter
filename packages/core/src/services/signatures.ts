@@ -2,15 +2,15 @@
 
 import { GMAIL_SETTINGS_PERMISSION } from "@otter/contracts";
 
-import { broadcast } from "../ipc.js";
-import { logger } from "../logger.js";
-import { findProvider, isSignedIn } from "../providers/index.js";
-import { isSingleAddress } from "./outgoing.js";
-import { keepsSendAsOnDevice, listAccounts, updateAccount } from "./account-store.js";
-import { parseAliasMailboxes } from "./alias-mailboxes.js";
+import { broadcast } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { findProvider, isSignedIn } from "../providers/index.ts";
+import { isSingleAddress } from "./outgoing.ts";
+import { keepsSendAsOnDevice, listAccounts, updateAccount } from "./account-store.ts";
+import { parseAliasMailboxes } from "./alias-mailboxes.ts";
 import { validAliasMailboxes } from "@otter/contracts";
-import { preferenceChanged } from "./preferences.js";
-import type { MailAccount } from "../types.js";
+import { preferenceChanged } from "./preferences.ts";
+import type { MailAccount } from "../types.ts";
 
 export async function saveSignature(account: MailAccount, html: string): Promise<MailAccount> {
   const signatures = findProvider(account)?.signatures;

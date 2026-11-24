@@ -6,19 +6,19 @@ const fixtures = vi.hoisted(() => ({
   environment: vi.fn(),
   sync: vi.fn(),
 }));
-vi.mock("../platform.js", () => ({
+vi.mock("../platform.ts", () => ({
   platform: () => ({ kind: "web", appVersion: "0.5.13", supportDiagnostics: fixtures.environment }),
 }));
-vi.mock("./account-store.js", () => ({ listAccounts: fixtures.accounts }));
-vi.mock("./settings-store.js", () => ({ getSettings: fixtures.settings }));
-vi.mock("./mail-sync.js", () => ({
+vi.mock("./account-store.ts", () => ({ listAccounts: fixtures.accounts }));
+vi.mock("./settings-store.ts", () => ({ getSettings: fixtures.settings }));
+vi.mock("./mail-sync.ts", () => ({
   getSyncStatus: fixtures.sync,
   turnedOffMailboxes: () => new Set(["private-imap-id"]),
 }));
-vi.mock("../providers/index.js", () => ({ isSignedIn: () => true }));
+vi.mock("../providers/index.ts", () => ({ isSignedIn: () => true }));
 
-const { collectSupportDiagnostics } = await import("./support.js");
-const { recordSupportError } = await import("./support-errors.js");
+const { collectSupportDiagnostics } = await import("./support.ts");
+const { recordSupportError } = await import("./support-errors.ts");
 
 beforeEach(() => {
   fixtures.accounts.mockResolvedValue([

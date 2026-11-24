@@ -16,7 +16,7 @@ import type {
   MessageDetail,
   MessageSummary,
   SyncStatus,
-} from "../types.js";
+} from "../types.ts";
 
 export interface SyncContext {
   update(patch: Partial<SyncStatus>): void;

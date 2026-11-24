@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import * as os from "node:os";
 
-import type { BackendOS } from "../types.js";
+import type { BackendOS } from "../types.ts";
 
 function field(file: string, key: string): string | null {
   try {

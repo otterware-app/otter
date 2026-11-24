@@ -71,7 +71,7 @@ MailProvider               packages/core/src/providers/provider.ts
   draft doesn't make an Inbox conversation look deleted. Discarding a draft moves it to Deleted
   Items, as Outlook's Discard does. The app's Archive
   (button, `e`, bulk) archives from any of your folders, as Outlook's does: in a folder's list it
-  takes that folder away (`apps/web/src/main/mail/archive.ts`). Deleting a folder label
+  takes that folder away (`packages/client/src/mail/archive.ts`). Deleting a folder label
   deletes the folder (it goes to Deleted Items with its mail, as in Outlook); deleting a category
   takes it off every message. Delete forever and Empty Trash / Junk are Graph's plain `DELETE`, as
   Outlook deletes from Deleted Items: the mail leaves every folder but stays in Outlook's Recover

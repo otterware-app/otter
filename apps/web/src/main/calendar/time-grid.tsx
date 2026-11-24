@@ -6,7 +6,7 @@ import {
   type MutableRefObject,
   type PointerEvent,
 } from "react";
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import { ScrollArea } from "@otter/ui/components/scroll-area";
 import { eventTimes, hasGuests, type CalEvent, type useCalendarActions, calendarKey } from "./api";
 import { useCalendar } from "./calendar-store";

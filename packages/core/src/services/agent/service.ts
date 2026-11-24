@@ -20,21 +20,21 @@ import type {
   TaskModels,
   TaskRun,
 } from "@otter/contracts/scheduled";
-import { registeredAgents } from "../../extensions.js";
-import { broadcast } from "../../ipc.js";
-import { logger } from "../../logger.js";
-import { platform } from "../../platform.js";
-import { fetchImageAsDataUrl } from "../avatar-store.js";
-import { getSettings } from "../settings-store.js";
-import { answerToolApproval } from "./tools/index.js";
-import { onAgentsChanged } from "../agent-sync.js";
-import { getOtterUser, onOtterAccountChange } from "../otter-account.js";
+import { registeredAgents } from "../../extensions.ts";
+import { broadcast } from "../../ipc.ts";
+import { logger } from "../../logger.ts";
+import { platform } from "../../platform.ts";
+import { fetchImageAsDataUrl } from "../avatar-store.ts";
+import { getSettings } from "../settings-store.ts";
+import { answerToolApproval } from "./tools/index.ts";
+import { onAgentsChanged } from "../agent-sync.ts";
+import { getOtterUser, onOtterAccountChange } from "../otter-account.ts";
 import {
   agentExists,
   agentSecrets,
   getProviderSettings,
   saveProviderSettings,
-} from "./settings.js";
+} from "./settings.ts";
 import {
   RUNTIME_MODES,
   type AgentEntry,
@@ -58,7 +58,7 @@ import {
   type WatchedSession,
   type SendTurnInput,
   type Skill,
-} from "./types.js";
+} from "./types.ts";
 
 type Agent = {
   entry: AgentEntry;
@@ -193,6 +193,9 @@ export async function providersState(): Promise<ProvidersState> {
           name: type.displayName,
         }))
       : [],
+    others: all.agents
+      .filter((entry) => !registeredAgents().has(entry.kind))
+      .map(({ id, name, kind }) => ({ id, name, kind })),
   };
 }
 
@@ -380,6 +383,12 @@ function checkedPatch(type: AgentType, raw: unknown): Partial<AgentSettings> {
     if (field === "boolean" && typeof value === "boolean") out[key] = value;
     else if (field === "string" && typeof value === "string") out[key] = value.trim();
     else if (field === "runtimeMode" && RUNTIME_MODES.includes(value as never)) out[key] = value;
+    else if (
+      field === "strings" &&
+      Array.isArray(value) &&
+      value.every((v) => typeof v === "string")
+    )
+      out[key] = [...new Set(value)].sort();
   }
   return out as Partial<AgentSettings>;
 }

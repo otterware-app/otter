@@ -1,6 +1,5 @@
 import { EllipsisIcon, FileIcon, HandIcon } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
-import type { ApprovalDecision, ApprovalRequest } from "../mail/api";
 import { COMPOSER_SURFACE } from "../mail/composer-kit";
 import {
   DropdownMenu,
@@ -11,48 +10,43 @@ import {
 import { Button, IconButton } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
 import { Kbd } from "@otter/ui/components/kbd";
-
-const basename = (path: string) => path.replace(/\/+$/, "").split("/").pop() || path;
+import type { ApprovalDecision, ApprovalRequest } from "@otter/client/agents/api";
+import {
+  approvalFiles,
+  approvalMore,
+  approvalNote,
+  approvalQuestion,
+  approvalShowsCode,
+  fileList,
+} from "@otter/client/agents/approvals";
 
 function Files({ paths }: { paths: string[] }) {
-  const shown = paths.slice(0, 3);
+  const { shown, more } = fileList(paths);
   return (
     <>
-      {shown.map((path, i) => (
-        <span key={path}>
-          {i > 0 ? (i === shown.length - 1 && paths.length <= 3 ? " and " : ", ") : null}
-          <span title={path} className="whitespace-nowrap text-info-foreground">
+      {shown.map((file) => (
+        <span key={file.path}>
+          {file.joiner || null}
+          <span title={file.path} className="whitespace-nowrap text-info-foreground">
             <FileIcon className="mr-1 inline size-3.5 -translate-y-px" aria-hidden />
-            {basename(path)}
+            {file.name}
           </span>
         </span>
       ))}
-      {paths.length > 3 ? ` and ${paths.length - 3} more` : null}
+      {more ? ` and ${more} more` : null}
     </>
   );
 }
 
 function question(agent: string, approval: ApprovalRequest): ReactNode {
-  switch (approval.kind) {
-    case "command":
-      return `Allow ${agent} to run this command?`;
-    case "fileChange": {
-      const paths = (approval.detail ?? "").split("\n").filter(Boolean);
-      return paths.length > 0 ? (
-        <>
-          Allow {agent} to edit <Files paths={paths} />?
-        </>
-      ) : (
-        `Allow ${agent} to edit files?`
-      );
-    }
-    case "permission":
-      return `Allow ${agent} to change its permissions?`;
-    case "tool":
-      return approval.title === "Tool approval"
-        ? `Allow ${agent} to use a tool?`
-        : `Allow ${agent} to ${approval.title[0]!.toLowerCase()}${approval.title.slice(1)}?`;
-  }
+  const paths = approvalFiles(approval);
+  return paths.length > 0 ? (
+    <>
+      Allow {agent} to edit <Files paths={paths} />?
+    </>
+  ) : (
+    approvalQuestion(agent, approval)
+  );
 }
 
 export function ApprovalCard({
@@ -77,19 +71,11 @@ export function ApprovalCard({
     if (!active || active === document.body) allow.current?.focus();
   }, []);
 
-  const more = [
-    ...(approval.choices.includes("session")
-      ? [{ label: "Allow for this chat", run: () => onRespond("session") }]
-      : []),
-    ...(approval.choices.includes("always")
-      ? [{ label: "Always allow", run: () => onRespond("always") }]
-      : []),
-    { label: "Stop the agent", run: onCancel },
-  ];
-  const code = approval.kind === "command" || approval.kind === "permission";
-  const note = [approval.reason, approval.kind === "tool" ? approval.detail : undefined]
-    .filter(Boolean)
-    .join("\n");
+  const more = approvalMore(approval).map(({ label, decision }) => ({
+    label,
+    run: () => (decision === "stop" ? onCancel() : onRespond(decision)),
+  }));
+  const note = approvalNote(approval);
 
   return (
     <div
@@ -116,7 +102,7 @@ export function ApprovalCard({
             {note}
           </p>
         ) : null}
-        {code && approval.detail ? (
+        {approvalShowsCode(approval) ? (
           <code className="block max-h-24 overflow-auto rounded-lg bg-muted/60 px-2.5 py-1.5 font-mono text-xs whitespace-pre-wrap text-foreground [overflow-wrap:anywhere] [scrollbar-width:thin]">
             {approval.detail}
           </code>

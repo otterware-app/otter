@@ -25,8 +25,8 @@ import {
   type Emit,
 } from "@otter/core/extension-kit";
 
-import { failed } from "./client.js";
-import { varysStep } from "./steps.js";
+import { failed } from "./client.ts";
+import { varysStep } from "./steps.ts";
 
 export type Turn = {
   requestId: string;

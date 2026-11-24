@@ -18,12 +18,12 @@ vi.mock("electron", () => ({
   webFrameMain: {},
 }));
 vi.mock("electron-chrome-web-store", () => ({ uninstallExtension: vi.fn() }));
-vi.mock("../ipc.js", () => ({ broadcast: vi.fn() }));
-vi.mock("../logger.js", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
-vi.mock("../windows/main-window.js", () => ({ getMainWindow: () => null }));
-vi.mock("../os/index.js", () => ({ hostOS: { nativeMessagingDirectories: () => [] } }));
-vi.mock("./native-messaging-ipc.js", () => ({ enableNativeMessaging: vi.fn() }));
-vi.mock("./browser.js", () => ({
+vi.mock("../ipc.ts", () => ({ broadcast: vi.fn() }));
+vi.mock("../logger.ts", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+vi.mock("../windows/main-window.ts", () => ({ getMainWindow: () => null }));
+vi.mock("../os/index.ts", () => ({ hostOS: { nativeMessagingDirectories: () => [] } }));
+vi.mock("./native-messaging-ipc.ts", () => ({ enableNativeMessaging: vi.fn() }));
+vi.mock("./browser.ts", () => ({
   isPageUrl: () => true,
   preparePage: vi.fn(),
   getBrowserSession: () => ({

@@ -16,36 +16,52 @@ test("each app ships when what it is built from changed", () => {
     iphone: true,
     agents: false,
   });
-  assert.deepEqual(release("auto", ["apps/ios-agents/OtterAgents/Chats/Chat.swift"]), {
+  assert.deepEqual(release("auto", ["apps/agents-mobile/src/chats/chats-screen.tsx"]), {
     desktop: false,
     iphone: false,
     agents: true,
   });
-  // Otter Agents compiles Otter Mail's themes; both iPhone apps bundle packages/shared's demo.
   assert.deepEqual(release("auto", ["apps/ios/OtterMail/Theme/Palette.swift"]), {
     desktop: false,
     iphone: true,
-    agents: true,
+    agents: false,
   });
   assert.deepEqual(release("auto", ["packages/shared/src/themes.ts"]), {
     desktop: true,
     iphone: true,
-    agents: false,
+    agents: true,
   });
-  assert.equal(ships("agents", ["apps/ios/OtterMail/Settings/Licenses.swift"]), true);
+  assert.equal(ships("agents", ["packages/core/src/services/agent-sync.ts"]), true);
+  assert.equal(ships("agents", ["extensions/hermes/mobile/mark.tsx"]), true);
+  assert.equal(ships("agents", ["apps/ios/OtterMail/Settings/Licenses.swift"]), false);
   assert.equal(ships("agents", ["apps/ios/OtterMail/Settings/General.swift"]), false);
+  for (const file of [
+    "GoogleSignIn.swift",
+    "AgentPicture.swift",
+    "TalkAudio.swift",
+    "BrowserPage.swift",
+    "AgentFaces.swift",
+    "AgentFaceWriter.swift",
+  ]) {
+    assert.deepEqual(release("auto", [`packages/mobile/ios/${file}`]), {
+      desktop: false,
+      iphone: false,
+      agents: true,
+    });
+  }
 });
 
 test("what no app is built from ships nothing", () => {
   for (const file of [
     "README.md",
     "apps/ios/README.md",
-    "apps/ios-agents/README.md",
+    "apps/agents-mobile/README.md",
     "docs/runbook.md",
     "changelog/0.13.51.md",
     "infra/relay/src/worker.ts",
     ".github/workflows/ci.yml",
     ".agents/skills/pr/SKILL.md",
+    "apps/mail-mobile/src/mail/mailbox-screen.tsx",
   ]) {
     assert.deepEqual(release("auto", [file]), { desktop: false, iphone: false, agents: false });
   }

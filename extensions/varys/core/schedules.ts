@@ -16,9 +16,9 @@ import type {
 } from "@otter/contracts/scheduled";
 import { saveAgentSettings, type AgentId, type ScheduleSupport } from "@otter/core/extension-kit";
 
-import { answered, type VarysConnection } from "./client.js";
-import type { VarysSettings } from "./settings.js";
-import { messagesOf } from "./turns.js";
+import { answered, type VarysConnection } from "./client.ts";
+import type { VarysSettings } from "./settings.ts";
+import { messagesOf } from "./turns.ts";
 
 type Trigger = Routine["trigger"];
 type Run = RoutineRunPage["runs"][number];

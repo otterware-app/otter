@@ -1,6 +1,6 @@
 import { useState, type ReactElement } from "react";
-import { shelveChat } from "./chat-store";
-import { snoozePresets } from "./chat-shelves";
+import { snoozeChat } from "@otter/client/agents/chat-actions";
+import { snoozePresets } from "@otter/client/agents/chat-shelves";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,10 +8,6 @@ import {
   DropdownMenuTrigger,
 } from "@otter/ui/components/dropdown-menu";
 import { HintTooltip } from "@otter/ui/components/tooltip";
-
-export function settleChat(id: string): Promise<void> {
-  return shelveChat(id, { snoozedUntil: null, settledAt: Date.now() });
-}
 
 export function SnoozeMenu({
   chatId,
@@ -36,7 +32,7 @@ export function SnoozeMenu({
             key={p.id}
             accelerator={p.when}
             onClick={() => {
-              void shelveChat(chatId, { snoozedUntil: p.until, settledAt: null });
+              void snoozeChat(chatId, p.until);
               onDone?.();
             }}
           >

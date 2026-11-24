@@ -5,7 +5,7 @@ import { ArrowUpRightIcon, PuzzleIcon, SearchIcon } from "lucide-react";
 import { Dialog } from "@otter/ui/components/dialog";
 import { Switch } from "@otter/ui/components/switch";
 import { Text } from "@otter/ui/components/text";
-import { ipc } from "~/lib/ipc";
+import { ipc } from "@otter/client/bridge";
 import { toast } from "@otter/ui/components/toast";
 import { searchableSetting } from "../settings/settings-search";
 import { CHROME_WEB_STORE_URL, openTab, setExtensionsButton, setPinned, useBrowser } from "./store";

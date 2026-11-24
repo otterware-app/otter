@@ -1,6 +1,6 @@
 import { Outlet } from "@tanstack/react-router";
 import * as React from "react";
-import { startSyncedPreferences } from "./synced-preferences";
+import { startSyncedPreferences } from "@otter/client/preferences";
 import { applyAppTheme, startAppTheme } from "./theme/apply-theme";
 import { applyInterfaceSettings, startInterfaceSettings } from "./theme/interface-settings";
 import { UpdateNotifier } from "./updates";

@@ -7,7 +7,8 @@
   "exports": {
     "./manifest": "./manifest.ts",
     "./core": "./core/index.ts",
-    "./ui": "./ui/index.tsx"
+    "./ui": "./ui/index.tsx",
+    "./mobile": "./mobile/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -15,16 +16,25 @@
   },
   "dependencies": {
     "@generalpursuit/varys": "0.4.0",
+    "@otter/client": "workspace:*",
     "@otter/contracts": "workspace:*",
     "@otter/core": "workspace:*",
+    "@otter/mobile": "workspace:*",
     "@otter/ui": "workspace:*",
+    "@otter/ui-native": "workspace:*",
     "neverthrow": "8.2.0",
-    "react": "^19.1.1"
+    "react": "catalog:"
   },
   "devDependencies": {
-    "@types/react": "^19.1.12",
+    "@types/react": "catalog:",
+    "react-native": "catalog:",
+    "react-native-svg": "catalog:",
     "typescript": "catalog:",
     "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "react-native": "*",
+    "react-native-svg": "*"
   },
   "otter": {
     "id": "varys",

@@ -10,7 +10,6 @@ import { HomeView } from "./home-view";
 import { RootView } from "./root-view";
 import { QueryClient } from "@tanstack/react-query";
 import { ErrorBoundaryView } from "./error-boundary-view";
-import type { SettingsPane } from "./mail/api";
 import {
   fromLabel,
   fromSpace,
@@ -20,8 +19,10 @@ import {
   toLabel,
   toSpace,
   type MessageSearch,
-} from "./places";
+} from "@otter/client/places";
 import { firstLabelOf } from "./mail/spaces";
+import { isWorkspaceSegment } from "./extensions/workspaces";
+import type { SettingsPane } from "./app-api";
 
 const rootRoute = createRootRouteWithContext<{
   queryClient: QueryClient;
@@ -154,7 +155,7 @@ const modeRoute = createRoute({
   getParentRoute: () => mailRoute,
   path: "$space",
   beforeLoad: ({ params }) => {
-    const id = toSpace(params.space);
+    const id = toSpace(params.space, isWorkspaceSegment);
     // No mailbox named: the app opens its first one in place of "-".
     const mail = params.space === "mail" ? placeHref("-", "INBOX") : "/";
     throw redirect({ href: isSpaceId(id) ? placeHref(id, firstLabelOf(id)) : mail, replace: true });
@@ -165,7 +166,11 @@ const spaceRoute = createRoute({
   getParentRoute: () => mailRoute,
   path: "$space/$label",
   params: {
-    parse: ({ space, label }) => ({ space, mailbox: toSpace(space), label: toLabel(label) }),
+    parse: ({ space, label }) => ({
+      space,
+      mailbox: toSpace(space, isWorkspaceSegment),
+      label: toLabel(label),
+    }),
     stringify: ({ space, label }) => ({ space, label: fromLabel(label) }),
   },
   beforeLoad: ({ params, location }) => toCurrentPlace(params, location),
@@ -178,7 +183,7 @@ const spaceItemRoute = createRoute({
   params: {
     parse: ({ space, label, messageId }) => ({
       space,
-      mailbox: toSpace(space),
+      mailbox: toSpace(space, isWorkspaceSegment),
       label: toLabel(label),
       messageId,
     }),

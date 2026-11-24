@@ -6,8 +6,8 @@
  * STARTTLS upgrade, and an IDLE connection holds the queue until it stops.
  */
 
-import { utf8Encode } from "../../bytes.js";
-import type { ByteStream } from "../../platform.js";
+import { utf8Encode } from "../../bytes.ts";
+import type { ByteStream } from "../../platform.ts";
 import {
   DEFAULT_TIMEOUT_MS,
   errorText,
@@ -19,7 +19,7 @@ import {
   writeBytes,
   type MailErrorKind,
   type ServerOptions,
-} from "../common.js";
+} from "../common.ts";
 import {
   ResponseReader,
   tokenList,
@@ -27,7 +27,7 @@ import {
   tokenText,
   type ImapResponse,
   type ImapToken,
-} from "./parser.js";
+} from "./parser.ts";
 import {
   formatInternalDate,
   parseFetch,
@@ -37,8 +37,8 @@ import {
   uidSet,
   type FetchedMessage,
   type UidRange,
-} from "./structures.js";
-import { decodeMailboxName, encodeMailboxName } from "./utf7.js";
+} from "./structures.ts";
+import { decodeMailboxName, encodeMailboxName } from "./utf7.ts";
 
 export interface ImapOptions extends ServerOptions {
   /** Sent with ID when the server has it (some servers, like NetEase's, insist on one). */

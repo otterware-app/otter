@@ -4,7 +4,7 @@ import { GraphError } from "./graph.ts";
 import { cancelScheduledSend, scheduleSend, send } from "./send.ts";
 
 const graph = vi.hoisted(() => vi.fn());
-vi.mock("./graph.js", async (original) => ({ ...(await original()), graph }));
+vi.mock("./graph.ts", async (original) => ({ ...(await original()), graph }));
 
 const ME = "me@contoso.test";
 const mail = { to: "you@example.com", subject: "Later", body: "Hello" };

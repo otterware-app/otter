@@ -11,14 +11,14 @@ import {
 } from "@otter/core/extension-kit";
 
 import { manifest } from "../manifest.ts";
-import type { OpenClawChange } from "./models.js";
+import type { OpenClawChange } from "./models.ts";
 import {
   normalizeOpenClawUrl,
   openClawAgent,
   parseOpenClawSetupCode,
   type OpenClawProvider,
-} from "./openclaw.js";
-import type { OpenClawSettings } from "./settings.js";
+} from "./openclaw.ts";
+import type { OpenClawSettings } from "./settings.ts";
 
 const str = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
 

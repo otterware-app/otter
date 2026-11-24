@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { aliasMailboxesOf, type AliasMailboxEntry } from "./mail/alias-mailboxes";
-import { useAccounts } from "./mail/hooks";
-import type { MailAccount } from "./mail/types";
-import { setSyncedPreference, type SyncedKey } from "./synced-preferences";
+import { aliasMailboxesOf, type AliasMailboxEntry } from "@otter/client/mail/alias-mailboxes";
+import { useAccounts } from "@otter/client/mail/hooks";
+import type { MailAccount } from "@otter/client/mail/types";
+import { setSyncedPreference, type SyncedKey } from "@otter/client/preferences";
 
 /**
  * Accounts by address, alias mailboxes by id, in the sidebar's order. One not in `order` yet

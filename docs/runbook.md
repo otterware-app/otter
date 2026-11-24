@@ -21,7 +21,7 @@ it, and its first job, "What to release", works out which apps the merge changed
 | -------------------------------------------------------------------------------- | ----------------------- |
 | anything but the iPhone apps, `infra`, `docs`, `changelog`, `.github`, `.agents` | Mac, Linux and web      |
 | `apps/ios`, `packages/shared`, the iPhone scripts                                | Otter Mail for iPhone   |
-| `apps/ios-agents`, what it compiles and bundles from `apps/ios`                  | Otter Agents for iPhone |
+| `apps/agents-mobile` and its shared packages                                     | Otter Agents for iPhone |
 
 Run it by hand (Actions → **Release** → Run workflow, or `gh workflow run release.yml`) and it
 ships whatever `main` has that an app's last release doesn't: the way to finish a release that
@@ -120,8 +120,8 @@ bundles from `packages/shared` has changed. A Mac release doesn't need one.
 
 The second iPhone app, released the same way with its own version (`ios-agents-vX.Y.Z` tags).
 
-1. Each merge to main that touches `apps/ios-agents`, or what it compiles and bundles from
-   `apps/ios` (the themes, `MailContext`), releases it as a patch (the Release workflow's
+1. Each merge to main that touches `apps/agents-mobile` or one of its release dependencies
+   builds the Expo app (the Release workflow's
    "Otter Agents for iPhone" job). By hand:
    `gh workflow run release.yml -f apps=agents -f bump=minor`. From this Mac:
    `pnpm release:ios:agents`.

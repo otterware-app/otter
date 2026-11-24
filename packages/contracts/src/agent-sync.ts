@@ -15,7 +15,7 @@
  *   turn/<chat>/<id>              TurnRecord: one of its turns, where it sits
  */
 
-import type { Chat, ChatTurn } from "./chats.js";
+import type { Chat, ChatTurn } from "./chats.ts";
 
 export interface AgentRecord {
   id: string;

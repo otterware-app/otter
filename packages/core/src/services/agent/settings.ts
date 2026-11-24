@@ -15,17 +15,17 @@ import {
   type AgentRecord,
 } from "@otter/contracts/agent-sync";
 
-import { registeredAgents } from "../../extensions.js";
-import { platform } from "../../platform.js";
-import { deviceId, entries, entry, mutate } from "../agent-sync.js";
-import { getOtterUser } from "../otter-account.js";
+import { registeredAgents } from "../../extensions.ts";
+import { platform } from "../../platform.ts";
+import { deviceId, entries, entry, mutate } from "../agent-sync.ts";
+import { getOtterUser } from "../otter-account.ts";
 import type {
   AgentEntry,
   AgentId,
   AgentSecrets,
   AgentSettings,
   ProviderSettings,
-} from "./types.js";
+} from "./types.ts";
 
 const deviceFields = (kind: string) =>
   (registeredAgents().get(kind)?.deviceFields ?? []) as readonly string[];

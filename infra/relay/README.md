@@ -322,7 +322,7 @@ Use an Apple APNs ES256 signing key for team `838JVGY7W4` authorized for both al
 PKCS#8 `.p8` contents; this is **not** the App Store Connect upload key. Keep key ID/team ID in
 Worker secrets too. Allowed topics are `APNS_SANDBOX_TOPIC=dev.otterware.mail.dev` and
 `APNS_PRODUCTION_TOPIC=dev.otterware.mail` in `wrangler.jsonc`, and for Otter Agents
-(`apps/ios-agents`) `APNS_AGENTS_SANDBOX_TOPIC=dev.otterware.agents.dev` and
+(`apps/agents-mobile`) `APNS_AGENTS_SANDBOX_TOPIC=dev.otterware.agents.dev` and
 `APNS_AGENTS_PRODUCTION_TOPIC=dev.otterware.agents`: the key must be authorized for those too.
 An Otter Agents device registers with no mailboxes and gets no mail pushes; it's pushed to when
 an agent's gateway posts a pointer (`/channel/v1/pointers`: an approval, a question, a message,

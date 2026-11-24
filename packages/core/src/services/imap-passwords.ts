@@ -4,10 +4,10 @@
  * memory too, so "is this mailbox signed in?" answers without waiting.
  */
 
-import { broadcast } from "../ipc.js";
-import { logger } from "../logger.js";
-import { platform } from "../platform.js";
-import { listAccounts } from "./account-store.js";
+import { broadcast } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { platform } from "../platform.ts";
+import { listAccounts } from "./account-store.ts";
 
 const passwords = new Map<string, string>();
 

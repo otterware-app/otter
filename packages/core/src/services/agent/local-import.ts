@@ -7,12 +7,12 @@
 import type { AgentMutation } from "@otter/contracts/agent-sync";
 import type { Chat, ChatTurn } from "@otter/contracts/chats";
 
-import { registeredAgents } from "../../extensions.js";
-import { readJson } from "../../json-file.js";
-import { logger } from "../../logger.js";
-import { platform } from "../../platform.js";
-import { agentDb, deviceId, keepDeviceId, mutate, transaction } from "../agent-sync.js";
-import type { AgentEntry } from "./types.js";
+import { registeredAgents } from "../../extensions.ts";
+import { readJson } from "../../json-file.ts";
+import { logger } from "../../logger.ts";
+import { platform } from "../../platform.ts";
+import { agentDb, deviceId, keepDeviceId, mutate, transaction } from "../agent-sync.ts";
+import type { AgentEntry } from "./types.ts";
 
 const AGENTS_FILE = "agents.json";
 

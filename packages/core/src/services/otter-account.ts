@@ -3,8 +3,8 @@ import { createAuthClient } from "better-auth/client";
 import type { OtterDevice } from "@otter/contracts";
 import type { MeResponse, RelayUser } from "@otter/contracts/relay";
 
-import { logger } from "../logger.js";
-import { platform } from "../platform.js";
+import { logger } from "../logger.ts";
+import { platform } from "../platform.ts";
 
 export const SESSION_SECRET = "otter-session";
 
@@ -35,7 +35,18 @@ export async function loadOtterAccount(): Promise<void> {
       session = { token: null, user };
     } else {
       const saved = await platform().secrets.get(SESSION_SECRET);
-      session = saved ? (JSON.parse(saved) as { token: string; user: RelayUser }) : null;
+      if (saved && platform().kind === "mobile" && !saved.startsWith("{")) {
+        // Swift Otter Agents stored only the bearer token. Look up its account before rewriting it.
+        try {
+          const { user } = await request<MeResponse>("GET", "/v1/me", { token: saved });
+          await setSession({ token: saved, user });
+        } catch (error) {
+          if (error instanceof RelayError && error.status === 401) await setSession(null);
+          else throw error;
+        }
+      } else {
+        session = saved ? (JSON.parse(saved) as { token: string; user: RelayUser }) : null;
+      }
     }
   } catch {
     session = null;

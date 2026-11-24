@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import { usePanelAnimationDurationMs } from "../panel-animations";
 import { movePanelTab, orderedPanelTabs, tabDragTarget } from "./panel-tabs";
 

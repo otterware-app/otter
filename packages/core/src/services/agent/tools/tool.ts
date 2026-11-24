@@ -1,10 +1,10 @@
-import { registeredHandlers } from "../../../ipc.js";
-import { turnedOffMailboxes } from "../../mail-sync.js";
+import { registeredHandlers } from "../../../ipc.ts";
+import { turnedOffMailboxes } from "../../mail-sync.ts";
 import type { AgentAccess } from "@otter/contracts/agent-tokens";
 import type { ChatChange } from "@otter/contracts";
 
-import type { MailAccount } from "../../../types.js";
-import type { Emit, RuntimeMode } from "../types.js";
+import type { MailAccount } from "../../../types.ts";
+import type { Emit, RuntimeMode } from "../types.ts";
 
 export type ToolFiles = {
   save(name: string, bytes: Uint8Array): Promise<string>;

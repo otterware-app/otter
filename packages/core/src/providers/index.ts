@@ -5,12 +5,12 @@
 
 import type { MailCapabilities, MailProviderKind } from "@otter/contracts";
 
-import { imapHostOf, providerKindOf } from "../services/account-store.js";
-import type { MailAccount } from "../types.js";
-import { gmailProvider } from "./gmail/index.js";
-import { imapProvider } from "./imap/index.js";
-import { outlookProvider } from "./outlook/index.js";
-import type { MailProvider } from "./provider.js";
+import { imapHostOf, providerKindOf } from "../services/account-store.ts";
+import type { MailAccount } from "../types.ts";
+import { gmailProvider } from "./gmail/index.ts";
+import { imapProvider } from "./imap/index.ts";
+import { outlookProvider } from "./outlook/index.ts";
+import type { MailProvider } from "./provider.ts";
 
 const providers: Record<MailProviderKind, MailProvider | null> = {
   gmail: gmailProvider,

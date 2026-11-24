@@ -24,8 +24,8 @@ import {
   toMillis,
   type RawSession,
   type Ready,
-} from "./http.js";
-import type { Runs } from "./runs.js";
+} from "./http.ts";
+import type { Runs } from "./runs.ts";
 import {
   SILENT,
   finalReply,
@@ -34,8 +34,8 @@ import {
   runReply,
   toOtter,
   type HermesJob,
-} from "./schedules.js";
-import type { HermesSettings } from "./settings.js";
+} from "./schedules.ts";
+import type { HermesSettings } from "./settings.ts";
 
 /** A delivery's request id: `delivered:<session>`, or `delivered:<session>@<message>` for what follows a message. */
 export const DELIVERED = "delivered:";

@@ -1,19 +1,19 @@
-import { providerFor } from "../../../providers/index.js";
+import { providerFor } from "../../../providers/index.ts";
 import {
   NoCalendarAccess,
   type CalendarEvent,
   type EventInput,
   type MailProvider,
   type RsvpResponse,
-} from "../../../providers/provider.js";
-import type { MailAccount } from "../../../types.js";
+} from "../../../providers/provider.ts";
+import type { MailAccount } from "../../../types.ts";
 import {
   accountCalendars,
   changeEventById,
   createEvent,
   eventsInRange,
   patched,
-} from "../../calendar-sync.js";
+} from "../../calendar-sync.ts";
 import {
   mailbox,
   mailboxes,
@@ -24,7 +24,7 @@ import {
   strList,
   type AgentTool,
   type ToolArgs,
-} from "./tool.js";
+} from "./tool.ts";
 
 type Calendar = NonNullable<MailProvider["calendar"]>;
 

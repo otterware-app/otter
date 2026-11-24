@@ -1,8 +1,8 @@
 // Full-format fetches cost more quota than Google's published method costs.
 // Pace all callers through one per-account budget and reduce it when Gmail reports exhaustion.
 
-import { platform, type AsyncContext } from "../../platform.js";
-import type { Lane } from "../provider.js";
+import { platform, type AsyncContext } from "../../platform.ts";
+import type { Lane } from "../provider.ts";
 
 const UNITS_PER_MINUTE_LIMIT = 6_000;
 /**

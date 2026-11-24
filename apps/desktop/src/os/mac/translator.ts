@@ -4,7 +4,7 @@ import path from "path";
 
 import type { TranslationStatus, Translator } from "@otter/core";
 
-import { appInfo } from "../../backend-protocol.js";
+import { appInfo } from "../../backend-protocol.ts";
 
 const STATUSES: ReadonlySet<string> = new Set(["ok", "notInstalled", "unsupported", "unavailable"]);
 

@@ -1,4 +1,4 @@
-import type { ChatChange } from "./index.js";
+import type { ChatChange } from "./index.ts";
 
 /** The agent a chat runs on: its id, one of the agents you added. */
 export type ChatProvider = string;

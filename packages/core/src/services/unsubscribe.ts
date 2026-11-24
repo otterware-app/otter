@@ -1,8 +1,8 @@
-import { logger } from "../logger.js";
-import { getAccount } from "./account-store.js";
-import { providerFor } from "../providers/index.js";
-import * as store from "./mail-store.js";
-import { buildMime, formatAddress } from "./outgoing.js";
+import { logger } from "../logger.ts";
+import { getAccount } from "./account-store.ts";
+import { providerFor } from "../providers/index.ts";
+import * as store from "./mail-store.ts";
+import { buildMime, formatAddress } from "./outgoing.ts";
 
 export type UnsubscribeInfo = {
   method: "oneClick" | "mailto" | "web";

@@ -53,7 +53,7 @@ Options:
   --reset         Desktop: start its data over (for :real, a fresh copy).
   --login         :demo: sign the demo Gmail mailboxes in to Google (Outlook ones to
                   Microsoft) first, once per machine, saving the sign-ins in .env.local.
-  --agents <list> :demo: start local agent gateways and connect the app to them:
+  --agents <list> :demo or :fake: start local agent gateways and connect the app to them:
                   openclaw, hermes or both (\`pnpm agents-server\`). They run the Otter
                   plugins from this checkout and stop with the run.
   --dry-run       Print the resolved ports and commands, then exit.
@@ -156,7 +156,9 @@ async function main(): Promise<void> {
   const { app, data } = MODES[mode];
   const desktop = app === "desktop";
   const agents = values.agents ? parseAgents(values.agents) : [];
-  if (agents.length > 0 && data !== "demo") throw new Error("--agents goes with a :demo run.");
+  if (agents.length > 0 && data !== "demo" && data !== "fake") {
+    throw new Error("--agents goes with a :demo or :fake run.");
+  }
   // The web app signs in through a relay; the made-up mailbox needs none.
   const relay = app === "web" && data !== "fake";
 
@@ -244,6 +246,7 @@ async function main(): Promise<void> {
     console.log("[dev] Made-up mailbox (?reset-demo starts it over)");
   }
   if (relay) console.log(`[dev] Relay: ${relayUrl}`);
+  if (agents.length > 0) console.log(`[dev] Agents: ${agents.join(", ")} (pnpm agents-server)`);
   if (desktop) console.log(`[dev] Data (${data}): ${desktopStateDir(dataHome)}`);
   if (debugPort > 0) console.log(`[dev] DevTools: http://127.0.0.1:${debugPort}`);
   if (values["dry-run"]) {

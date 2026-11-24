@@ -1,9 +1,8 @@
 import { toast } from "@otter/ui/components/toast";
-import { forgetUndo, registerUndo, type UndoAction } from "./undo";
+import { MAY_HAVE_BEEN_SENT } from "@otter/client/mail/hooks";
+import { forgetUndo, registerUndo, type UndoAction } from "@otter/client/mail/undo";
 
 export const UNDO_SEND_MS = 10_000;
-
-export const MAY_HAVE_BEEN_SENT = "May have been sent. Check Sent before sending again.";
 
 export type SavedDraft = { accountId: string; messageId: string };
 

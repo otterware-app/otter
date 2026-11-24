@@ -2,7 +2,7 @@
   "customNotices": [
     {
       "name": "T3 Code",
-      "bundles": ["desktop", "ios", "web"],
+      "bundles": ["agents-mobile", "desktop", "ios", "web"],
       "license": "MIT",
       "sourceUrl": "https://github.com/pingdotgg/t3code",
       "generatedNotices": [
@@ -37,10 +37,10 @@
     },
     {
       "name": "Inter",
-      "bundles": ["ios"],
+      "bundles": ["agents-mobile", "ios"],
       "license": "OFL-1.1",
       "sourceUrl": "https://github.com/rsms/inter",
-      "noticeFile": "apps/ios/OtterMail/Resources/Fonts/Inter-LICENSE.txt"
+      "noticeFile": "packages/ui-native/fonts/Inter-LICENSE.txt"
     },
     {
       "name": "Sentry",
@@ -52,6 +52,149 @@
           "licenseId": "MIT",
           "copyrights": ["Copyright (c) 2015 Sentry"]
         }
+      ]
+    },
+    {
+      "name": "Hermes",
+      "bundles": ["agents-mobile"],
+      "license": "MIT",
+      "sourceUrl": "https://github.com/facebook/hermes",
+      "noticeFile": "third-party-licenses/native/hermes.txt"
+    },
+    {
+      "name": "Boost",
+      "bundles": ["agents-mobile"],
+      "license": "BSL-1.0",
+      "version": "1.84.0",
+      "sourceUrl": "https://github.com/boostorg/boost",
+      "noticeFile": "third-party-licenses/native/boost.txt"
+    },
+    {
+      "name": "double-conversion",
+      "bundles": ["agents-mobile"],
+      "license": "BSD-3-Clause",
+      "version": "1.1.6",
+      "sourceUrl": "https://github.com/google/double-conversion",
+      "noticeFile": "third-party-licenses/native/double-conversion.txt"
+    },
+    {
+      "name": "fast_float",
+      "bundles": ["agents-mobile"],
+      "license": "Apache-2.0 OR BSL-1.0 OR MIT",
+      "version": "8.0.0",
+      "sourceUrl": "https://github.com/fastfloat/fast_float",
+      "noticeFiles": [
+        "third-party-licenses/native/fast_float-MIT.txt",
+        "third-party-licenses/native/fast_float-Apache-2.0.txt",
+        "third-party-licenses/native/fast_float-BSL-1.0.txt"
+      ]
+    },
+    {
+      "name": "{fmt}",
+      "bundles": ["agents-mobile"],
+      "license": "MIT",
+      "version": "12.1.0",
+      "sourceUrl": "https://github.com/fmtlib/fmt",
+      "noticeFile": "third-party-licenses/native/fmt.txt"
+    },
+    {
+      "name": "glog",
+      "bundles": ["agents-mobile"],
+      "license": "BSD-3-Clause",
+      "version": "0.3.5",
+      "sourceUrl": "https://github.com/google/glog",
+      "noticeFile": "third-party-licenses/native/glog.txt"
+    },
+    {
+      "name": "Folly",
+      "bundles": ["agents-mobile"],
+      "license": "Apache-2.0",
+      "version": "2024.11.18.00",
+      "sourceUrl": "https://github.com/facebook/folly",
+      "noticeFile": "third-party-licenses/native/folly.txt"
+    },
+    {
+      "name": "SocketRocket",
+      "bundles": ["agents-mobile"],
+      "license": "BSD-3-Clause",
+      "version": "0.7.1",
+      "sourceUrl": "https://github.com/facebook/SocketRocket",
+      "noticeFile": "third-party-licenses/native/SocketRocket.txt"
+    },
+    {
+      "name": "SQLite",
+      "bundles": ["agents-mobile"],
+      "license": "blessing",
+      "version": "3.53.3",
+      "sourceUrl": "https://sqlite.org",
+      "noticeFile": "third-party-licenses/native/sqlite.txt"
+    },
+    {
+      "name": "MD4C",
+      "bundles": ["agents-mobile"],
+      "license": "MIT",
+      "sourceUrl": "https://github.com/mity/md4c",
+      "noticeFile": "third-party-licenses/native/md4c.txt"
+    },
+    {
+      "name": "SDWebImage",
+      "bundles": ["agents-mobile"],
+      "license": "MIT",
+      "version": "5.21.6",
+      "sourceUrl": "https://github.com/SDWebImage/SDWebImage",
+      "noticeFile": "third-party-licenses/native/SDWebImage.txt"
+    },
+    {
+      "name": "SDWebImageAVIFCoder",
+      "bundles": ["agents-mobile"],
+      "license": "MIT",
+      "version": "0.12.0",
+      "sourceUrl": "https://github.com/SDWebImage/SDWebImageAVIFCoder",
+      "noticeFile": "third-party-licenses/native/SDWebImageAVIFCoder.txt"
+    },
+    {
+      "name": "SDWebImageSVGCoder",
+      "bundles": ["agents-mobile"],
+      "license": "MIT",
+      "version": "1.8.0",
+      "sourceUrl": "https://github.com/SDWebImage/SDWebImageSVGCoder",
+      "noticeFile": "third-party-licenses/native/SDWebImageSVGCoder.txt"
+    },
+    {
+      "name": "SDWebImageWebPCoder",
+      "bundles": ["agents-mobile"],
+      "license": "MIT",
+      "version": "0.15.0",
+      "sourceUrl": "https://github.com/SDWebImage/SDWebImageWebPCoder",
+      "noticeFile": "third-party-licenses/native/SDWebImageWebPCoder.txt"
+    },
+    {
+      "name": "libavif",
+      "bundles": ["agents-mobile"],
+      "license": "BSD-2-Clause",
+      "version": "1.0.0",
+      "sourceUrl": "https://github.com/AOMediaCodec/libavif",
+      "noticeFile": "third-party-licenses/native/libavif.txt"
+    },
+    {
+      "name": "libaom",
+      "bundles": ["agents-mobile"],
+      "license": "BSD-2-Clause",
+      "version": "3.0.0",
+      "sourceUrl": "https://aomedia.googlesource.com/aom",
+      "noticeFiles": [
+        "third-party-licenses/native/libaom.txt",
+        "third-party-licenses/native/libaom-PATENTS.txt"
+      ]
+    },
+    {
+      "name": "libwebp",
+      "bundles": ["agents-mobile"],
+      "license": "BSD-3-Clause",
+      "sourceUrl": "https://github.com/webmproject/libwebp",
+      "noticeFiles": [
+        "third-party-licenses/native/libwebp.txt",
+        "third-party-licenses/native/libwebp-PATENTS.txt"
       ]
     }
   ],
@@ -132,6 +275,13 @@
         "copyrights": [
           "Copyright (c) 2017 Rollup contributors (https://github.com/rollup/rollup/graphs/contributors)"
         ]
+      }
+    },
+    {
+      "name": "standard-navigation",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) 2026 React Navigation Contributors"]
       }
     }
   ]

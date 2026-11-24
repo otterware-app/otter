@@ -7,9 +7,9 @@ import {
   type WatchingMessage,
 } from "@otter/contracts/relay";
 
-import { logger } from "../logger.js";
-import { platform } from "../platform.js";
-import { getOtterUser, getSessionToken } from "./otter-account.js";
+import { logger } from "../logger.ts";
+import { platform, type Platform } from "../platform.ts";
+import { getOtterUser, getSessionToken } from "./otter-account.ts";
 
 export type RealtimeState = "off" | "connecting" | "live";
 
@@ -48,7 +48,18 @@ let systemActive = false;
 /** Whether the last presence frame sent on the current socket reported active: true. */
 let lastReportedActive = false;
 
-const deviceKind = (): PresenceDevice => (platform().kind === "desktop" ? "desktop" : "web");
+const DEVICES: Record<Platform["kind"], PresenceDevice> = {
+  desktop: "desktop",
+  web: "web",
+  mobile: "ios",
+};
+const deviceKind = (): PresenceDevice => DEVICES[platform().kind];
+
+type ReactNativeWebSocket = new (
+  url: string,
+  protocols: string[] | undefined,
+  options: { headers: Record<string, string> },
+) => WebSocket;
 
 const isActive = (): boolean => {
   if (systemActive) return true;
@@ -163,13 +174,18 @@ function connect(): void {
   dropSocket();
   setState("connecting");
 
-  // The desktop authenticates with its bearer token (Node's WebSocket takes
-  // request headers; the DOM typings don't know); a browser sends its cookie.
+  // A browser sends its cookie. The desktop and the phone send their bearer
+  // token as a request header, which the DOM typings don't know: Node's
+  // WebSocket takes the options in the second argument, React Native's in the
+  // third, after the protocols.
   const url = `${platform().relayUrl.replace(/^http/, "ws")}/v1/events`;
   const token = getSessionToken();
-  const ws = token
-    ? new WebSocket(url, { headers: { Authorization: `Bearer ${token}` } } as unknown as string[])
-    : new WebSocket(url);
+  const headers = { Authorization: `Bearer ${token}` };
+  const ws = !token
+    ? new WebSocket(url)
+    : platform().kind === "mobile"
+      ? new (WebSocket as unknown as ReactNativeWebSocket)(url, undefined, { headers })
+      : new WebSocket(url, { headers } as unknown as string[]);
   socket = ws;
   let opened = false;
 

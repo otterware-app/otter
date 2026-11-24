@@ -8,7 +8,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   DndContext,
   useSensor,
@@ -41,34 +40,52 @@ import {
   XIcon,
   type LucideIcon,
 } from "lucide-react";
-import type { ChatMessageMatch } from "@otter/contracts/chats";
 import {
   findTokenRanges,
   messageTokens,
-  rankChatTitles,
   splitSearchText,
   type SearchRange,
 } from "@otter/shared/chat-search";
-import { SCHEDULED_TASKS, useScheduledTasks } from "./agent-scheduled";
-import { useAutoSettleDays } from "./auto-settle";
-import { AgentAvatar, openClawAgentId, useAgentProviders } from "./agent-providers";
+import { SCHEDULED_TASKS } from "./agent-scheduled";
+import { scheduledSummary, useScheduledTasks } from "@otter/client/agents/agent-scheduled";
+import { useAutoSettleDays } from "@otter/client/agents/auto-settle";
+import { AgentAvatar } from "./agent-providers";
 import { TAB_ICONS } from "./chat-context-panel";
-import { settleChat } from "./chat-shelve-actions";
-import { readableError } from "../mail/add-mailbox";
+import {
+  bringBackChat,
+  regenerateChatTitle,
+  renameChatAs,
+  settleChat,
+  snoozeChat,
+} from "@otter/client/agents/chat-actions";
+import {
+  agentNameOf,
+  chatAgentOf,
+  chatAgents,
+  chatRowStatus,
+  chatSearchResults,
+  chatsWaitingOnYou,
+  draftPreview,
+  getChatAgentFilter,
+  messageSearchQuery,
+  newDraftChats,
+  rowRecedes,
+  setChatAgentFilter,
+  useChatMessageSearch,
+  usedTabKinds,
+  type ChatSearchResult,
+  type ChatStatus,
+} from "@otter/client/agents/chat-list";
 import {
   discardDraft,
   hasDraft,
   isBlank,
   isElsewhere,
   pinChat,
-  regenerateTitle,
-  renameChat,
-  searchChatMessages,
   showFoundMessage,
-  shelveChat,
   useChats,
   type Conversation,
-} from "./chat-store";
+} from "@otter/client/agents/chat-store";
 import {
   chatLastMessageAt,
   chatSettledAt,
@@ -79,7 +96,7 @@ import {
   useNow,
   wakesIn,
   type ChatShelf,
-} from "./chat-shelves";
+} from "@otter/client/agents/chat-shelves";
 import {
   chatIdAtY,
   createCollisionDetection,
@@ -107,7 +124,6 @@ import { createSidebarListMotion } from "./sidebar-motion";
 import { SidebarPointerSensor } from "./sidebar-pointer";
 import { SidebarAction, sidebarRowClassName, SidebarBody } from "@otter/ui/components/sidebar";
 import { TitleInput } from "./chat-title";
-import { toast } from "@otter/ui/components/toast";
 import { inNewWindow } from "../new-window-click";
 import { PLACE } from "../place-menu";
 import {
@@ -128,6 +144,7 @@ import {
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
+import { openClawAgentId, useAgentProviders } from "@otter/client/agents/agent-providers";
 
 const SETTLED_FIRST = 10;
 const SETTLED_PAGE = 25;
@@ -144,37 +161,18 @@ const ROW_ACTION_SHOWS = "group-hover/row:flex group-has-focus-visible/row:flex"
 const ROW_ACTION =
   "flex h-6 min-w-6 cursor-pointer items-center justify-center gap-1 rounded-md px-1 text-xs text-sidebar-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-focus-ring data-popup-open:bg-foreground/[0.08]";
 
-/** What the chat used and made, in the order its details list them. */
-const TAB_KINDS = ["draft", "thread", "file", "page"] as const;
-
-/** How long a run has gone: "8s", "2m", "1h". */
-function elapsed(ms: number): string {
-  const seconds = Math.max(1, Math.floor(ms / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`;
-}
-
 const DRAFT_SURFACE = "bg-warning/4 hover:bg-warning/8";
 const DRAFT_PEN = "size-3 shrink-0 text-warning-foreground";
-
-const AGENT_FILTER_KEY = "gmail:chat-agent-filter";
 
 const resultId = (index: number) => `agent-search-result-${index}`;
 const scrollIntoView = (el: HTMLElement | null) => el?.scrollIntoView({ block: "nearest" });
 
-function agentOf(c: Conversation): { key: string; id: string; agent: string | null } {
-  const agent = openClawAgentId(c.sessionId);
-  return { key: agent ? `${c.provider}:${agent}` : c.provider, id: c.provider, agent };
-}
-
-type RowStatus = {
-  kind: "approval" | "input" | "working" | "failed" | "done";
-  label: string;
-  /** Said to screen readers, where the label is short. */
-  title: string;
-  icon: LucideIcon;
-  className: string;
+const STATUS_LOOK: Record<ChatStatus, { icon: LucideIcon; className: string }> = {
+  approval: { icon: ShieldQuestionIcon, className: "text-warning-foreground" },
+  input: { icon: MessageCircleQuestionIcon, className: "text-question-foreground" },
+  working: { icon: CircleDashedIcon, className: "text-info-foreground" },
+  failed: { icon: CircleAlertIcon, className: "text-destructive-foreground" },
+  done: { icon: CircleCheckIcon, className: "text-success-foreground" },
 };
 
 type Held = { id: string; shelf: DropShelf; at: number; pinnedAt: ReadonlyMap<string, number> };
@@ -214,14 +212,9 @@ export function AgentSidebar({
   const [settledShown, setSettledShown] = useState(SETTLED_FIRST);
   const [snoozedOpen, setSnoozedOpen] = useState(false);
   const [settledOpen, setSettledOpen] = useState(false);
-  const providers = useAgentProviders().data?.providers ?? [];
-  const [agentFilter, setAgentFilter] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(AGENT_FILTER_KEY);
-    } catch {
-      return null;
-    }
-  });
+  const providersState = useAgentProviders().data;
+  const providers = providersState?.providers ?? [];
+  const [agentFilter, setAgentFilter] = useState(getChatAgentFilter);
   const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -239,48 +232,17 @@ export function AgentSidebar({
   const labelOffsetRef = useRef(0);
   const pickAgent = (key: string | null) => {
     setAgentFilter(key);
-    try {
-      if (key) localStorage.setItem(AGENT_FILTER_KEY, key);
-      else localStorage.removeItem(AGENT_FILTER_KEY);
-    } catch {
-      // A per-device convenience: without storage the filter just doesn't stick.
-    }
+    setChatAgentFilter(key);
   };
 
-  const agents = new Map<string, { id: string; agent: string | null; count: number }>();
-  for (const c of conversations) {
-    if (isBlank(c)) continue;
-    const { key, id, agent } = agentOf(c);
-    const seen = agents.get(key);
-    agents.set(key, { id, agent, count: (seen?.count ?? 0) + 1 });
-  }
-  const agentName = (id: string, agent: string | null) => {
-    const provider = providers.find((p) => p.id === id);
-    return (
-      (agent ? (provider?.models.find((m) => m.slug === agent)?.name ?? agent) : null) ??
-      provider?.name ??
-      "Removed agent"
-    );
-  };
+  const agents = chatAgents(conversations);
+  const agentName = (id: string, agent: string | null) => agentNameOf(providersState, id, agent);
   const filter = agentFilter && agents.has(agentFilter) ? agentFilter : null;
   const searching = query.trim().length > 0;
-  const messageQuery = messageTokens(query).length > 0 ? query.trim() : "";
-  const messageSearch = useQuery({
-    queryKey: ["chat-search", messageQuery],
-    enabled: messageQuery !== "",
-    queryFn: () => searchChatMessages(messageQuery),
-  });
-
-  const askedIn = (list: { requestId: string }[]) =>
-    new Set(
-      list.flatMap(
-        ({ requestId }) =>
-          Object.values(runs).find((r) => r.requestId === requestId)?.convoId ?? [],
-      ),
-    );
-  const approving = askedIn(approvals);
-  const asking = askedIn(questions);
-  const waiting = new Set([...approving, ...asking]);
+  const messageQuery = messageSearchQuery(query);
+  const messageSearch = useChatMessageSearch(query);
+  const statusState = { runs, approvals, questions, conversations, unseen };
+  const waiting = chatsWaitingOnYou(statusState);
   const listed =
     held === null
       ? conversations
@@ -291,7 +253,7 @@ export function AgentSidebar({
               ? { ...c, pinnedAt: held.pinnedAt.get(c.id)! }
               : c,
         );
-  const shown = listed.filter((c) => !isBlank(c) && (!filter || agentOf(c).key === filter));
+  const shown = listed.filter((c) => !isBlank(c) && (!filter || chatAgentOf(c).key === filter));
   const shelves = shelveChats(shown, {
     working: new Set(Object.keys(runs)),
     needsYou: waiting,
@@ -307,15 +269,11 @@ export function AgentSidebar({
   // A new chat you're writing joins the drafts once you leave it, not as you type (T3 Code's).
   const [opened, setOpened] = useState({ chatId: "", hadDraft: false });
   if (opened.chatId !== chatId) setOpened({ chatId, hadDraft: hasDraft(drafts, chatId) });
-  const newDrafts = conversations
-    .filter(
-      (c) =>
-        isBlank(c) &&
-        hasDraft(drafts, c.id) &&
-        (c.id !== chatId || opened.hadDraft) &&
-        (!filter || agentOf(c).key === filter),
-    )
-    .sort((a, b) => b.createdAt - a.createdAt);
+  const newDrafts = newDraftChats(conversations, drafts, {
+    openId: chatId,
+    openedWithDraft: opened.hadDraft,
+    agent: filter,
+  });
   const onNewChatPage = current !== undefined && isBlank(current) && !newDrafts.includes(current);
 
   // T3 Code's list: the pinned chats, the active ones, then the shelves, with the markers a drag
@@ -360,22 +318,7 @@ export function AgentSidebar({
     orderedIdsRef.current = orderedIds;
   });
 
-  // T3 Code's sidebar search: titles ranked first, then chats listed for a message.
-  const titleResults = searching ? rankChatTitles(shown, query, now) : [];
-  const titled = new Set(titleResults.map((r) => r.chat.id));
-  const shownById = new Map(shown.map((c) => [c.id, c]));
-  const messageResults =
-    messageQuery && messageSearch.data
-      ? messageSearch.data.flatMap((match) => {
-          const chat = shownById.get(match.id);
-          return chat && !titled.has(chat.id) ? [{ chat, ranges: [], match }] : [];
-        })
-      : [];
-  const results: {
-    chat: Conversation;
-    ranges: readonly SearchRange[];
-    match?: ChatMessageMatch;
-  }[] = [...titleResults, ...messageResults];
+  const results = chatSearchResults(shown, query, now, messageSearch.data);
   const active = Math.max(
     0,
     results.findIndex((r) => r.chat.id === highlighted),
@@ -385,7 +328,7 @@ export function AgentSidebar({
     setQuery("");
     setHighlighted(null);
   };
-  const pickResult = ({ chat, match }: (typeof results)[number]) => {
+  const pickResult = ({ chat, match }: ChatSearchResult) => {
     showFoundMessage(match ? { turnId: match.turnId, query: messageQuery } : null);
     clearSearch();
     onSelect(chat.id);
@@ -405,8 +348,6 @@ export function AgentSidebar({
       pickResult(results[active]);
     }
   };
-
-  const bringBack = (id: string) => shelveChat(id, { snoozedUntil: null, settledAt: null });
 
   // T3 Code's drag: a chat dropped among the pinned ones is pinned there, on Settled it settles,
   // among the active ones it comes back.
@@ -438,7 +379,7 @@ export function AgentSidebar({
           ? [settleChat(id)]
           : from === "pinned"
             ? [pinChat(id, false)]
-            : [bringBack(id)];
+            : [bringBackChat(id)];
     void Promise.all(saves).finally(() => setHeld((h) => (h === hold ? null : h)));
   };
 
@@ -560,7 +501,7 @@ export function AgentSidebar({
       onMove: ({ y }) => sweepTo(listRef.current && chatIdAtY(listRef.current, y)),
       onEnd: () => {
         for (const id of swept.filter(canApply)) {
-          void (action === "settle" ? settleChat(id) : bringBack(id));
+          void (action === "settle" ? settleChat(id) : bringBackChat(id));
         }
       },
       onCancel: () => {},
@@ -601,58 +542,9 @@ export function AgentSidebar({
     toggle();
   };
 
-  /** What's going on with it now, when anything is: it shows where the time would. */
-  const statusOf = (c: Conversation, selected: boolean): RowStatus | null => {
-    if (approving.has(c.id))
-      return {
-        kind: "approval",
-        label: "Approval",
-        title: "Needs your approval",
-        icon: ShieldQuestionIcon,
-        className: "text-warning-foreground",
-      };
-    if (asking.has(c.id))
-      return {
-        kind: "input",
-        label: "Input",
-        title: "Has a question",
-        icon: MessageCircleQuestionIcon,
-        className: "text-question-foreground",
-      };
-    const run = runs[c.id];
-    if (run) {
-      const started = c.turns.find((t) => t.id === `a-${run.requestId}`)?.startedAt;
-      const label = started ? `Working ${elapsed(now - started)}` : "Working";
-      return {
-        kind: "working",
-        label,
-        title: "Working",
-        icon: CircleDashedIcon,
-        className: "text-info-foreground",
-      };
-    }
-    if (c.turns.at(-1)?.error)
-      return {
-        kind: "failed",
-        label: "Failed",
-        title: "Failed",
-        icon: CircleAlertIcon,
-        className: "text-destructive-foreground",
-      };
-    if (unseen.has(c.id) && !selected)
-      return {
-        kind: "done",
-        label: "Done",
-        title: "Done",
-        icon: CircleCheckIcon,
-        className: "text-success-foreground",
-      };
-    return null;
-  };
-
   const draftRow = (c: Conversation) => {
     const selected = c.id === chatId;
-    const preview = drafts[c.id]!.trim().split("\n", 1)[0];
+    const preview = draftPreview(drafts[c.id]!);
     const agent = openClawAgentId(c.sessionId);
     return (
       <li key={c.id} className="list-none py-0.5">
@@ -700,12 +592,10 @@ export function AgentSidebar({
   const row = (c: Conversation, shelf: ChatShelf, dragging: boolean) => {
     const selected = c.id === chatId;
     const titles = Boolean(providers.find((p) => p.id === c.provider)?.titles);
-    const status = statusOf(c, selected);
+    const status = chatRowStatus(statusState, c, selected, now);
+    const look = status && STATUS_LOOK[status.kind];
     const unread = unseen.has(c.id) && !selected;
-    // T3 Code's rows recede once there's nothing new in them, or while the agent is on it.
-    const recede =
-      !selected &&
-      (status?.kind === "working" || ((status === null || status.kind === "approval") && !unread));
+    const recede = rowRecedes(status, unread, selected);
     const drafted = !selected && hasDraft(drafts, c.id);
     const card = shelf === "pinned" || shelf === "active";
     const renaming = editing === c.id;
@@ -728,7 +618,7 @@ export function AgentSidebar({
         />
       </HintTooltip>
     ) : null;
-    const used = TAB_KINDS.filter((kind) => c.tabs.some((t) => t.ref.kind === kind));
+    const used = usedTabKinds(c.tabs);
     const meta =
       used.length > 0 ? (
         <span className="mt-0.5 flex h-4 min-w-0 items-center gap-1.5 text-secondary-label">
@@ -752,9 +642,7 @@ export function AgentSidebar({
         title={c.title}
         onDone={(next) => {
           setEditing(null);
-          if (next === null) return;
-          if (!next.trim()) toast.warning("A chat's title can't be empty");
-          else void renameChat(c.id, next, titles);
+          if (next !== null) renameChatAs(c.id, next, titles);
         }}
       />
     ) : (
@@ -788,9 +676,9 @@ export function AgentSidebar({
           <AlarmClockIcon aria-label="Wakes in" className="size-3" />
           {wakesIn(c.snoozedUntil ?? now, now)}
         </span>
-      ) : status && card ? (
-        <span className={cn("flex min-w-0 items-center gap-1 font-medium", status.className)}>
-          <status.icon
+      ) : status && look && card ? (
+        <span className={cn("flex min-w-0 items-center gap-1 font-medium", look.className)}>
+          <look.icon
             aria-hidden
             className={cn(
               "size-3.5 shrink-0",
@@ -896,9 +784,7 @@ export function AgentSidebar({
                   <DropdownMenuItem
                     key={p.id}
                     accelerator={p.when}
-                    onClick={() =>
-                      void shelveChat(c.id, { snoozedUntil: p.until, settledAt: null })
-                    }
+                    onClick={() => void snoozeChat(c.id, p.until)}
                   >
                     {p.label}
                   </DropdownMenuItem>
@@ -924,7 +810,7 @@ export function AgentSidebar({
                 onPointerDown={(e) =>
                   startSweep(c.id, shelf === "settled" ? "unsettle" : "unsnooze", e)
                 }
-                onClick={() => void bringBack(c.id)}
+                onClick={() => void bringBackChat(c.id)}
                 className={ROW_ACTION}
               >
                 {shelf === "settled" ? (
@@ -948,17 +834,13 @@ export function AgentSidebar({
         onRename={startRename}
         onRegenerate={() => {
           setRegenerating((ids) => new Set(ids).add(c.id));
-          void regenerateTitle(c.id)
-            .catch((err: unknown) =>
-              toast.error("Couldn't regenerate the title", { description: readableError(err) }),
-            )
-            .finally(() =>
-              setRegenerating((ids) => {
-                const next = new Set(ids);
-                next.delete(c.id);
-                return next;
-              }),
-            );
+          void regenerateChatTitle(c.id).finally(() =>
+            setRegenerating((ids) => {
+              const next = new Set(ids);
+              next.delete(c.id);
+              return next;
+            }),
+          );
         }}
       >
         <div
@@ -1013,7 +895,7 @@ export function AgentSidebar({
     );
   };
 
-  const resultRow = (result: (typeof results)[number], index: number) => {
+  const resultRow = (result: ChatSearchResult, index: number) => {
     const { chat: c, ranges, match } = result;
     const lit = index === active;
     const selected = c.id === chatId;
@@ -1352,11 +1234,7 @@ function Highlighted({ text, ranges }: { text: string; ranges: readonly SearchRa
 
 /** Every agent's scheduled tasks. */
 function ScheduledRow({ selected, onSelect }: { selected: boolean; onSelect: () => void }) {
-  const agents = useScheduledTasks().data ?? [];
-  const tasks = agents.flatMap((a) => a.tasks);
-  const active = tasks.filter((t) => t.enabled).length;
-  const failing =
-    tasks.some((t) => t.enabled && t.lastRun?.status === "error") || agents.some((a) => a.error);
+  const { active, failing } = scheduledSummary(useScheduledTasks().data ?? []);
   return (
     <div className="flex shrink-0 flex-col px-(--sidebar-content-inset)">
       <button
@@ -1411,7 +1289,7 @@ function ChatRowMenu({
   onRegenerate: () => void;
   children: ReactNode;
 }) {
-  const bringBack = () => void shelveChat(chat.id, { snoozedUntil: null, settledAt: null });
+  const bringBack = () => void bringBackChat(chat.id);
   const pinned = chat.pinnedAt != null;
   return (
     <ContextMenu>
@@ -1433,7 +1311,7 @@ function ChatRowMenu({
             <ContextMenuItem
               key={p.id}
               accelerator={p.when}
-              onClick={() => void shelveChat(chat.id, { snoozedUntil: p.until, settledAt: null })}
+              onClick={() => void snoozeChat(chat.id, p.until)}
             >
               {p.label}
             </ContextMenuItem>

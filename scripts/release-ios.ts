@@ -8,6 +8,7 @@ import * as NodePath from "node:path";
 
 const APPS = {
   mail: {
+    expo: false,
     project: "apps/ios/OtterMail.xcodeproj",
     scheme: "OtterMail",
     profiles: {
@@ -17,7 +18,8 @@ const APPS = {
     sentryProject: "otter-mail-ios",
   },
   agents: {
-    project: "apps/ios-agents/OtterAgents.xcodeproj",
+    expo: true,
+    project: "apps/agents-mobile",
     scheme: "OtterAgents",
     profiles: {
       "dev.otterware.agents": "Otter Agents App Store",
@@ -44,18 +46,25 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-function run(command: string, args: string[]): void {
+function run(command: string, args: string[], cwd = root): void {
   console.log(`[release-ios] ${command} ${args.join(" ")}`);
-  NodeChildProcess.execFileSync(command, args, { stdio: "inherit" });
+  NodeChildProcess.execFileSync(command, args, { stdio: "inherit", cwd });
+}
+
+function sourceVersion(): string | undefined {
+  if (appName === "agents")
+    return (
+      JSON.parse(NodeFS.readFileSync(NodePath.join(project, "package.json"), "utf8")) as {
+        version: string;
+      }
+    ).version;
+  return /MARKETING_VERSION = ([^;]+);/.exec(
+    NodeFS.readFileSync(NodePath.join(project, "project.pbxproj"), "utf8"),
+  )?.[1];
 }
 
 const versionFlag = process.argv.indexOf("--version");
-const version =
-  versionFlag > 0
-    ? process.argv[versionFlag + 1]
-    : /MARKETING_VERSION = ([^;]+);/.exec(
-        NodeFS.readFileSync(NodePath.join(project, "project.pbxproj"), "utf8"),
-      )?.[1];
+const version = versionFlag > 0 ? process.argv[versionFlag + 1] : sourceVersion();
 if (!version || !/^\d+\.\d+\.\d+$/.test(version)) fail(`"${version}" isn't a version (x.y.z).`);
 const build = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 12);
 
@@ -77,12 +86,27 @@ const auth = [
   issuer,
 ];
 
-run("node", [NodePath.join(root, "scripts/export-ios-resources.ts")]);
+if (app.expo) {
+  process.env.OTTER_APP_VARIANT = "production";
+  process.env.OTTER_AGENTS_RELEASE_VERSION = version;
+  process.env.OTTER_AGENTS_RELEASE_BUILD = build;
+  process.env.EXPO_NO_DOTENV = "1";
+  process.env.EXPO_NO_CLIENT_ENV_VARS = "1";
+  run(
+    "pnpm",
+    ["exec", "expo", "prebuild", "--platform", "ios", "--clean", "--no-install"],
+    project,
+  );
+  run("pod", ["install"], NodePath.join(project, "ios"));
+} else {
+  run("node", [NodePath.join(root, "scripts/export-ios-resources.ts")]);
+}
 
 const archive = NodePath.join(work, `${app.scheme}.xcarchive`);
 run("xcodebuild", [
-  "-project",
-  project,
+  ...(app.expo
+    ? ["-workspace", NodePath.join(project, "ios", `${app.scheme}.xcworkspace`)]
+    : ["-project", project]),
   "-scheme",
   app.scheme,
   "-configuration",

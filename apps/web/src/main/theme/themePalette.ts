@@ -27,7 +27,7 @@ import {
   type ThemeVariants,
 } from "@otter/shared/themes";
 import { softenThemeColors } from "@otter/shared/theme-display";
-import { setSyncedPreference } from "../synced-preferences";
+import { setSyncedPreference } from "@otter/client/preferences";
 
 // Mail: every built-in (T3 Code's stock palette is Mail's "otter" theme, and
 // Mail adds Codex) is a library theme, so each can be duplicated.

@@ -5,8 +5,8 @@
  */
 
 import type { AgentChannel } from "@otter/contracts/relay";
-import { platform } from "../../platform.js";
-import { relayRequest } from "../otter-account.js";
+import { platform } from "../../platform.ts";
+import { relayRequest } from "../otter-account.ts";
 
 export async function agentChannels(): Promise<{ channels: AgentChannel[]; relayUrl: string }> {
   const { channels } = await relayRequest<{ channels: AgentChannel[] }>(

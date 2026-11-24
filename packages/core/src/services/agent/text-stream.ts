@@ -1,4 +1,4 @@
-import type { Emit } from "./types.js";
+import type { Emit } from "./types.ts";
 
 export class TextStream {
   private sequence = 0;

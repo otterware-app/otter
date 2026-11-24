@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vite-plus/test";
-import { buildSupportLauncher, supportBinary } from "./support-launcher.js";
+import { buildSupportLauncher, supportBinary } from "./support-launcher.ts";
 import {
   SUPPORT_PLAYBOOK,
   buildSupportIssue,

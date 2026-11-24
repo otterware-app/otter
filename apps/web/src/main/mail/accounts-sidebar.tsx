@@ -13,7 +13,7 @@ import { Input } from "@otter/ui/components/input";
 import { Text } from "@otter/ui/components/text";
 import { inNewWindow } from "../new-window-click";
 import { toast } from "@otter/ui/components/toast";
-import { actedFrom } from "./archive";
+import { actedFrom } from "@otter/client/mail/archive";
 import {
   ArchiveIcon,
   InboxIcon,
@@ -43,17 +43,21 @@ import {
   useModifyThread,
   useEmptyFolder,
   useMarkLabelRead,
-} from "./hooks";
-import type { MailLabel } from "./types";
-import { ALL_MAIL_LABEL_ID, ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "./label-names";
-import { buildLabelTree, type LabelTreeNode } from "./label-tree";
+} from "@otter/client/mail/hooks";
+import type { MailLabel } from "@otter/client/mail/types";
+import {
+  ALL_MAIL_LABEL_ID,
+  ARCHIVE_LABEL_ID,
+  SNOOZED_LABEL_ID,
+} from "@otter/client/mail/label-names";
+import { buildLabelTree, type LabelTreeNode } from "@otter/client/mail/label-tree";
 import {
   isMoveSourceLabel,
   isThreadDrag,
   readThreadDrag,
   type ThreadDragPayload,
 } from "./thread-drag";
-import { beginUndoGroup } from "./undo";
+import { beginUndoGroup } from "@otter/client/mail/undo";
 import { labelMoveName } from "../keybindings/commands";
 import { renameLabelKeybindings, useKeybindingsState } from "../keybindings/store";
 import { formatShortcut, parseShortcut } from "../keybindings/keys";
@@ -64,7 +68,7 @@ import {
   SidebarSectionAction,
   SidebarRow,
 } from "@otter/ui/components/sidebar";
-import { useCapabilities } from "./capabilities";
+import { useCapabilities } from "@otter/client/mail/capabilities";
 import { arrangeFolders, badgeProps, useSidebarLayout, visibilityOf } from "./sidebar-layout";
 import { CustomizeSidebarDialog, type SidebarFolder } from "./customize-sidebar";
 import {

@@ -19,7 +19,7 @@ import {
   type SendTurnInput,
 } from "@otter/core/extension-kit";
 
-import { TOKEN, answered, failed, varysConnection } from "./client.js";
+import { TOKEN, answered, failed, varysConnection } from "./client.ts";
 import {
   AGENT_RUN,
   DELIVERED,
@@ -30,12 +30,12 @@ import {
   resumeAgentRun,
   stopWatching,
   watchDeliveries,
-} from "./deliveries.js";
-import { sameChoice, varysModels } from "./models.js";
-import { revokeGrant } from "./relay.js";
-import { varysSchedules } from "./schedules.js";
-import { VARYS_DEFAULTS, type VarysSettings } from "./settings.js";
-import { DETACHED, followTurn, messagesOf, newTurn, newTurns } from "./turns.js";
+} from "./deliveries.ts";
+import { sameChoice, varysModels } from "./models.ts";
+import { revokeGrant } from "./relay.ts";
+import { varysSchedules } from "./schedules.ts";
+import { VARYS_DEFAULTS, type VarysSettings } from "./settings.ts";
+import { DETACHED, followTurn, messagesOf, newTurn, newTurns } from "./turns.ts";
 
 /** What Otter needs its grant to do: chats, and what they ask of you. */
 const SCOPES = ["threads:read", "threads:write", "inbox"];

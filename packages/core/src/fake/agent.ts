@@ -2,11 +2,14 @@
  * The made-up agents (the iPhone Agents app's DemoAgent.swift): every kind keeps its own settings
  * and face, but answers from a script with the steps, approvals and questions a real one has, so
  * every part of a chat can be tried without an agent. "ask" or "plan" asks questions first; "send",
- * "run" or "approve" asks before a step; "fail" fails; "take your time" takes its time. A steer is
- * read after the step running when it's sent; one still unread when the run ends comes back.
+ * "run" or "approve" asks before a step; "delegate" waits on a subagent (on two with "both");
+ * "fail" fails; "take your time" takes its time. A steer is read after the step running when it's
+ * sent; one still unread when the run ends comes back. An OpenClaw gateway's sessions are on its
+ * agents, Molty (`main`) and Scout (`research`), and Studio has the session of one chat whose
+ * gateway was removed. Files open by what they are (files.ts); sessions not yet chats are in
+ * sessions.ts.
  */
-import type { CoreExtension } from "../extensions.js";
-import { chatFile } from "../services/agent/files.js";
+import type { CoreExtension } from "../extensions.ts";
 import type {
   AgentSettings,
   ApprovalDecision,
@@ -14,9 +17,11 @@ import type {
   Emit,
   SendTurnInput,
   ToolStep,
-} from "../services/agent/types.js";
-import { DEMO_MODELS } from "./chats.js";
-import { scriptedSchedules } from "./schedules.js";
+} from "../services/agent/types.ts";
+import { DEMO_AGENTS, DEMO_MODELS, gatewaySession } from "./chats.ts";
+import { readFakeFile } from "./files.ts";
+import { fakeSession, fakeSessions } from "./sessions.ts";
+import { scriptedSchedules } from "./schedules.ts";
 
 /** Each kind of agent the extensions bring, run by the script. */
 export function withFakeAgents(extensions: readonly CoreExtension[]): CoreExtension[] {
@@ -28,7 +33,8 @@ export function withFakeAgents(extensions: readonly CoreExtension[]): CoreExtens
         registerAgent: (type) =>
           context.registerAgent({
             ...type,
-            create: (agent) => scriptedAgent(agent.id) as unknown as ReturnType<typeof type.create>,
+            create: (agent) =>
+              scriptedAgent(agent.id, type.kind) as unknown as ReturnType<typeof type.create>,
           }),
       }),
   }));
@@ -68,7 +74,71 @@ gog draft --to platform@acme.example --subject "Q4 planning at 2pm"
 
 Say *send it* and I'll ask before it goes out.`;
 
-function scriptedAgent(id: string): ChatProvider<AgentSettings> {
+/** What each kind's settings page reads of a connected agent, beside its settings. */
+const SETTINGS_VIEW: Record<string, Record<string, unknown>> = {
+  openclaw: {
+    hasToken: true,
+    pairingRequest: null,
+    fullAccess: { allowed: true, request: null },
+    owner: true,
+  },
+  hermes: { hasKey: true },
+  varys: { paired: true, relay: "off" },
+};
+
+const setup = (model: string | null) => ({
+  model,
+  fallbacks: null,
+  thinking: null,
+  fast: null,
+  utilityModel: null,
+});
+
+const THINKING = [
+  { id: "low", label: "Low" },
+  { id: "medium", label: "Medium" },
+  { id: "high", label: "High" },
+];
+
+/** What each kind's settings page asks of a connected agent beyond chatting: OpenClaw's gateway agents and their models. */
+const SETTINGS_CALLS: Record<string, Record<string, unknown>> = {
+  openclaw: {
+    models: async () => ({
+      defaults: setup("anthropic/claude-opus-5.5"),
+      agents: [
+        { id: "main", name: "Molty", avatar: null, emoji: null, ...setup(null) },
+        { id: "research", name: "Scout", avatar: null, emoji: "🔭", ...setup("openai/gpt-5.5") },
+      ],
+      models: [
+        {
+          id: "anthropic/claude-opus-5.5",
+          name: "Claude Opus 5.5",
+          thinkingLevels: THINKING,
+          thinkingDefault: "medium",
+          fast: false,
+        },
+        {
+          id: "openai/gpt-5.5",
+          name: "GPT-5.5",
+          thinkingLevels: THINKING,
+          thinkingDefault: "medium",
+          fast: true,
+        },
+      ],
+    }),
+    change: async () => {},
+  },
+};
+
+/** The gateway's agent a new chat starts on, as OpenClaw picks it: the chosen one while it's on, else the first on. */
+function startingAgent(id: string, settings: AgentSettings): string {
+  const { model, disabledAgents } = settings as { model?: string; disabledAgents?: string[] };
+  const off = new Set(disabledAgents);
+  const agents = (DEMO_MODELS[id] ?? []).map((m) => m.slug);
+  return [model, ...agents].find((a) => a && !off.has(a)) ?? "main";
+}
+
+export function scriptedAgent(id: string, kind: string): ChatProvider<AgentSettings> {
   const runs = new Map<string, AbortController>();
   const steers = new Map<string, string[]>();
   const waiting = new Map<string, (answer: string) => void>();
@@ -79,7 +149,12 @@ function scriptedAgent(id: string): ChatProvider<AgentSettings> {
       signal.addEventListener("abort", () => resolve("deny"), { once: true });
     });
 
-  async function run(input: SendTurnInput, emit: Emit, signal: AbortSignal): Promise<boolean> {
+  async function run(
+    input: SendTurnInput,
+    settings: AgentSettings,
+    emit: Emit,
+    signal: AbortSignal,
+  ): Promise<boolean> {
     const { requestId } = input;
     const pause = (ms: number) =>
       new Promise<boolean>((resolve) => {
@@ -117,8 +192,15 @@ function scriptedAgent(id: string): ChatProvider<AgentSettings> {
       return true;
     };
 
-    if (!input.sessionId)
-      emit({ requestId, type: "session", sessionId: `demo-${requestId.slice(0, 8)}` });
+    if (!input.sessionId) {
+      const session = `demo-${requestId.slice(0, 8)}`;
+      emit({
+        requestId,
+        type: "session",
+        sessionId:
+          kind === "openclaw" ? gatewaySession(startingAgent(id, settings), session) : session,
+      });
+    }
     const text = input.input.toLowerCase();
     if (!(await pause(500))) return false;
     if (text.includes("fail")) {
@@ -128,6 +210,19 @@ function scriptedAgent(id: string): ChatProvider<AgentSettings> {
         message: "The agent stopped answering: the request timed out.",
       });
       return false;
+    }
+    if (text.includes("delegate")) {
+      const subagents = text.includes("both")
+        ? ["Research venue prices", "Check flight times"]
+        : ["Research venue prices"];
+      if (!(await say(`I'll hand ${subagents.length > 1 ? "these" : "this"} off and wait.`)))
+        return false;
+      emit({ requestId, type: "waiting", subagents });
+      if (!(await pause(6_000))) return false;
+      emit({ requestId, type: "waiting", subagents: null });
+      return say(
+        "\n\nBack from the subagents: the Alfama venue is €40 a night cheaper, and the 9:40 TAP flight lands before noon.",
+      );
     }
     if (text.includes("ask") || text.includes("plan")) {
       if (!(await say("Before I plan it, two things I can't tell from here."))) return false;
@@ -260,6 +355,8 @@ function scriptedAgent(id: string): ChatProvider<AgentSettings> {
   }
 
   return {
+    ...SETTINGS_CALLS[kind],
+    settingsView: async () => SETTINGS_VIEW[kind] ?? {},
     async checkStatus() {
       return {
         installed: true,
@@ -271,11 +368,11 @@ function scriptedAgent(id: string): ChatProvider<AgentSettings> {
         sessions: true,
       };
     },
-    async sendTurn(input, _settings, emit) {
+    async sendTurn(input, settings, emit) {
       const controller = new AbortController();
       runs.set(input.requestId, controller);
       try {
-        if (await run(input, emit, controller.signal)) {
+        if (await run(input, settings, emit, controller.signal)) {
           for (const text of steers.get(input.requestId) ?? [])
             emit({ requestId: input.requestId, type: "steerReturned", text });
           emit({ requestId: input.requestId, type: "done", responseId: null });
@@ -302,13 +399,11 @@ function scriptedAgent(id: string): ChatProvider<AgentSettings> {
       waiting.delete(questionId);
     },
     listSkills: async () => SKILLS,
-    listSessions: async () => [],
-    readSession: async () => [],
-    async readFile(_settings, _sessionId, href) {
-      const name = href.split("/").at(-1) ?? href;
-      const text = `# ${name}\n\nThis is the made-up agent. A real agent's file opens here, read from where the agent runs.\n`;
-      return chatFile(name, new TextEncoder().encode(text), "text/markdown");
-    },
+    listSessions: async (_settings, limit, everywhere) =>
+      fakeSessions(id, everywhere).slice(0, limit),
+    otherSessions: id === DEMO_AGENTS.brokk,
+    readSession: async (_settings, sessionId) => fakeSession(id, sessionId),
+    readFile: async (_settings, _sessionId, href) => readFakeFile(href),
     async retitle(_settings, _sessionId, name) {
       if ("title" in name) return name.title;
       const words = name.message.trim().split(/\s+/).slice(0, 6).join(" ");

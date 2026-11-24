@@ -7,10 +7,10 @@ const mocks = vi.hoisted(() => ({
   broadcast: vi.fn(),
 }));
 
-vi.mock("../account-store.js", () => ({ listAccounts: async () => mocks.accounts }));
-vi.mock("../../ipc.js", () => ({ broadcast: mocks.broadcast }));
-vi.mock("../../logger.js", () => ({ logger: { info: () => {} } }));
-vi.mock("../../providers/index.js", () => ({
+vi.mock("../account-store.ts", () => ({ listAccounts: async () => mocks.accounts }));
+vi.mock("../../ipc.ts", () => ({ broadcast: mocks.broadcast }));
+vi.mock("../../logger.ts", () => ({ logger: { info: () => {} } }));
+vi.mock("../../providers/index.ts", () => ({
   isSignedIn: () => true,
   capabilitiesOf: (a: MailAccount) => ({ calendar: a.provider !== "imap" }),
   findProvider: (a: MailAccount) =>

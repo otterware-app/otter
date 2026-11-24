@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { mailApi } from "./api";
+import { mailApi } from "@otter/client/mail/api";
 
 function hueFor(seed: string): number {
   let h = 0;

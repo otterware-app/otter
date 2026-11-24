@@ -1,14 +1,14 @@
-import { logger } from "../logger.js";
-import { platform } from "../platform.js";
-import { capabilitiesOf } from "../providers/index.js";
-import type { CalendarEvent } from "../providers/provider.js";
-import type { MailAccount } from "../types.js";
-import { listAccounts } from "./account-store.js";
-import * as calendarStore from "./calendar-store.js";
-import { onCalendarChanged } from "./calendar-sync.js";
-import { turnedOffMailboxes } from "./mail-sync.js";
-import { accountLabel } from "./notifier.js";
-import { getSettings, onSettingsChanged } from "./settings-store.js";
+import { logger } from "../logger.ts";
+import { platform } from "../platform.ts";
+import { capabilitiesOf } from "../providers/index.ts";
+import type { CalendarEvent } from "../providers/provider.ts";
+import type { MailAccount } from "../types.ts";
+import { listAccounts } from "./account-store.ts";
+import * as calendarStore from "./calendar-store.ts";
+import { onCalendarChanged } from "./calendar-sync.ts";
+import { turnedOffMailboxes } from "./mail-sync.ts";
+import { accountLabel } from "./notifier.ts";
+import { getSettings, onSettingsChanged } from "./settings-store.ts";
 
 export const REMINDER_LEAD_MS = 10 * 60_000;
 const CHECK_MS = 5 * 60_000;

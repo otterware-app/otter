@@ -3,34 +3,34 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 const files = new Map<string, unknown>();
 const relay = vi.fn();
 const state = { relaySession: "cookie" };
-vi.mock("../json-file.js", () => ({
+vi.mock("../json-file.ts", () => ({
   readJson: async (name: string) => files.get(name),
   writeJson: async (name: string, value: unknown) => void files.set(name, value),
 }));
-vi.mock("../platform.js", () => ({
+vi.mock("../platform.ts", () => ({
   platform: () => ({ ...state, secrets: { get: async () => null, set: async () => {} } }),
 }));
-vi.mock("../logger.js", () => ({ logger: { info: vi.fn(), warn: vi.fn(), failure: vi.fn() } }));
-vi.mock("../ipc.js", () => ({ broadcast: vi.fn() }));
-vi.mock("./otter-account.js", () => ({
+vi.mock("../logger.ts", () => ({ logger: { info: vi.fn(), warn: vi.fn(), failure: vi.fn() } }));
+vi.mock("../ipc.ts", () => ({ broadcast: vi.fn() }));
+vi.mock("./otter-account.ts", () => ({
   getOtterUser: () => ({ id: "test-user" }),
   relayRequest: (...args: unknown[]) => relay(...args),
 }));
-vi.mock("./keybindings-store.js", () => ({
+vi.mock("./keybindings-store.ts", () => ({
   readKeybindings: async () => ({}),
   writeKeybindings: vi.fn(),
 }));
-vi.mock("./mail-sync.js", () => ({
+vi.mock("./mail-sync.ts", () => ({
   configureAutoSync: vi.fn(),
   followMailboxArrangement: vi.fn(),
 }));
-vi.mock("./account-store.js", () => ({ listAccounts: async () => [], updateAccount: vi.fn() }));
-vi.mock("./settings-store.js", () => ({
+vi.mock("./account-store.ts", () => ({ listAccounts: async () => [], updateAccount: vi.fn() }));
+vi.mock("./settings-store.ts", () => ({
   getSettings: async () => ({}),
   updateSettings: async () => ({}),
 }));
 const writeViews = vi.fn();
-vi.mock("./views-store.js", () => ({
+vi.mock("./views-store.ts", () => ({
   listViews: async () => [{ id: "mine" }],
   writeViews: (value: unknown) => writeViews(value),
 }));

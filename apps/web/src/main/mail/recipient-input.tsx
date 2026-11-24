@@ -1,4 +1,4 @@
-import { withOccurrenceKeys } from "./list-keys";
+import { withOccurrenceKeys } from "@otter/client/mail/list-keys";
 import {
   forwardRef,
   useRef,
@@ -7,8 +7,12 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { XIcon } from "lucide-react";
-import { useDebouncedValue, useSuggestContacts } from "./hooks";
-import { splitAddressList, parseAddressEntry, formatAddressEntry } from "./address";
+import { useDebouncedValue, useSuggestContacts } from "@otter/client/mail/hooks";
+import {
+  splitAddressList,
+  parseAddressEntry,
+  formatAddressEntry,
+} from "@otter/client/mail/address";
 import { SenderAvatar } from "./sender-avatar";
 import { toast } from "@otter/ui/components/toast";
 import { cn } from "@otter/ui/lib/utils";

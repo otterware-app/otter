@@ -10,12 +10,12 @@
  * sender costs at most one network cascade per TTL window.
  */
 
-import { fromBase64, sha256Hex, toBase64 } from "../bytes.js";
-import { logger } from "../logger.js";
-import { platform } from "../platform.js";
-import { findProvider } from "../providers/index.js";
-import { FREEMAIL_DOMAINS } from "./freemail.js";
-import { getKv, setKv } from "./mail-store.js";
+import { fromBase64, sha256Hex, toBase64 } from "../bytes.ts";
+import { logger } from "../logger.ts";
+import { platform } from "../platform.ts";
+import { findProvider } from "../providers/index.ts";
+import { FREEMAIL_DOMAINS } from "./freemail.ts";
+import { getKv, setKv } from "./mail-store.ts";
 
 const HIT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MISS_TTL_MS = 7 * 24 * 60 * 60 * 1000;

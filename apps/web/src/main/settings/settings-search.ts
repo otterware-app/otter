@@ -2,8 +2,8 @@ import { errorReportsAvailable } from "../error-reports";
 import { features } from "../features";
 import { CATEGORY_PANE, availableExtensions } from "../extensions/registry";
 import { osNames } from "../os-names";
-import type { SettingsPane } from "../mail/api";
 import { commandLabel, DEFAULT_KEYBINDINGS, KEYBINDING_COMMANDS } from "../keybindings/commands";
+import type { SettingsPane } from "../app-api";
 
 export interface SettingsSearchItem {
   readonly id: string;

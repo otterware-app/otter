@@ -5,20 +5,19 @@ export { ChatMarkdown as Markdown } from "../agent/chat-markdown";
 export { useCommandHandlers } from "../keybindings/dispatch";
 export { ShortcutText, useShortcutLabel } from "../keybindings/store";
 
-export { ipc, task } from "~/lib/ipc";
+export { ipc, task } from "@otter/client/bridge";
 export { openLink } from "../browser/store";
 export { features } from "../features";
 export { isModClick } from "../keybindings/keys";
-export { useSetProvidersState } from "../agent/agent-providers";
-export { mailApi } from "../mail/api";
-export type { ProviderSnapshot } from "../mail/api";
-export { useCapabilities } from "../mail/capabilities";
+export { mailApi } from "@otter/client/mail/api";
+export { agentApi } from "@otter/client/agents/api";
+export type { ProviderSnapshot, ProvidersState, RuntimeMode } from "@otter/client/agents/api";
+export { useCapabilities } from "@otter/client/mail/capabilities";
 export { useDefaultCalendar } from "../calendar/calendar-view";
-export type { MessageDetail } from "../mail/types";
+export type { MessageDetail } from "@otter/client/mail/types";
 export { searchableSetting } from "../settings/settings-search";
 export { PictureError, mailboxPicture } from "../settings/mailbox-picture-image";
 
-export type { ProvidersState, RuntimeMode } from "../mail/api";
 export { RUNTIME_MODE_OPTIONS } from "../mail/model-picker";
 export {
   Command,
@@ -29,3 +28,4 @@ export {
 export { osNames } from "../os-names";
 export { htmlToText } from "../mail/text";
 export { AgentIcon } from "../agent/agent-icon";
+export { useSetProvidersState } from "@otter/client/agents/agent-providers";

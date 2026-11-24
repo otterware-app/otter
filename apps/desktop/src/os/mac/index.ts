@@ -1,10 +1,10 @@
 import { app, nativeTheme } from "electron";
 
-import type { HostOS } from "../types.js";
-import { agentNotifications } from "./agent-notifications.js";
-import { listMailApps, setDefaultMailApp } from "./mail-apps.js";
-import { macTerminals } from "./terminals.js";
-import { nativeMessagingDirectories } from "./native-messaging.js";
+import type { HostOS } from "../types.ts";
+import { agentNotifications } from "./agent-notifications.ts";
+import { listMailApps, setDefaultMailApp } from "./mail-apps.ts";
+import { macTerminals } from "./terminals.ts";
+import { nativeMessagingDirectories } from "./native-messaging.ts";
 
 const TOPBAR_HEIGHT = 42;
 const WINDOW_BUTTON_RADIUS = 7;

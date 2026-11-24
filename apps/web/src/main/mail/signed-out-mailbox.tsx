@@ -1,10 +1,10 @@
 import { Button } from "@otter/ui/components/button";
 import { ImapPasswordForm } from "./add-mailbox";
-import { mailApi } from "./api";
-import { signInName, signInProvider, signsInWithPassword } from "./capabilities";
-import { useAddAccount } from "./hooks";
+import { mailApi } from "@otter/client/mail/api";
+import { signInName, signInProvider, signsInWithPassword } from "@otter/client/mail/capabilities";
+import { useAddAccount } from "@otter/client/mail/hooks";
 import { toast } from "@otter/ui/components/toast";
-import type { MailAccount } from "./types";
+import type { MailAccount } from "@otter/client/mail/types";
 
 export function SignedOutMailbox({ account }: { account: MailAccount }) {
   const signIn = useAddAccount(signInProvider(account));

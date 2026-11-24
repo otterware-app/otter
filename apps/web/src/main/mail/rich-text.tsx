@@ -1,4 +1,4 @@
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import {
   forwardRef,
   useEffect,

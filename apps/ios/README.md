@@ -73,7 +73,7 @@ add limited server grants (or an encrypted IMAP password), while mail content st
   providers, then Thunderbird's autoconfig, then the domain's MX host). The password stays in the Keychain; the settings
   follow the Otter account. Debug builds trust any certificate from localhost, to test against
   GreenMail or Dovecot in Docker.
-- `Agent/`: the agents are Otter Agents' (`apps/ios-agents`), not this app's. **Send to agent**
+- `Agent/`: the agents are Otter Agents' (`apps/agents-mobile`), not this app's. **Send to agent**
   (`SendToAgent.swift`: beside Reply in the reader, a message's and a list row's menu, the
   selection's bar, the composer of a draft the mailbox has) opens a new chat there about a
   conversation, several selected, a message or a draft. What goes is a pointer each

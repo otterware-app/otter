@@ -30,7 +30,7 @@ export type DataOptions = {
   reset: boolean;
   /** `--login`: sign the demo mailboxes in first. */
   login: boolean;
-  /** `--agents`: the local gateways a demo run starts and connects to. */
+  /** `--agents`: the local gateways a demo or fake run starts and connects to. */
   agents: readonly Agent[];
   /** The checkout's port offset, which its gateways' ports follow. */
   portOffset: number;
@@ -66,7 +66,7 @@ export async function prepareData(
   options: DataOptions,
 ): Promise<Record<string, string>> {
   if (app === "web") {
-    if (data === "fake") return { VITE_DEMO: "1" };
+    if (data === "fake") return { VITE_DEMO: "1", ...(await demoAgents(options)) };
     if (data === "demo") {
       return {
         [DEMO_MAILBOXES_ENV]: JSON.stringify(await demoMailboxes(app, options)),
@@ -93,10 +93,8 @@ export async function prepareData(
     return { ...env, ...installedOAuthClients() };
   }
   if (options.reset) NodeFS.rmSync(stateDir, { recursive: true, force: true });
-  if (data === "demo") {
-    env[DEMO_MAILBOXES_ENV] = JSON.stringify(await demoMailboxes(app, options));
-    Object.assign(env, await demoAgents(options));
-  }
+  if (data === "demo") env[DEMO_MAILBOXES_ENV] = JSON.stringify(await demoMailboxes(app, options));
+  Object.assign(env, await demoAgents(options));
   return env;
 }
 

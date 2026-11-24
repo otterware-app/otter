@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
 
-import type { HostOS } from "../types.js";
+import type { HostOS } from "../types.ts";
 
 const exec = promisify(execFile);
 

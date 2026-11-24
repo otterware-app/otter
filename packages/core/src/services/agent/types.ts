@@ -81,6 +81,8 @@ export type ProvidersState = {
   selected: AgentId | null;
   /** The kinds this device can add. */
   kinds: { kind: ProviderKind; name: string }[];
+  /** The account's agents this device can't run (a Mac's Claude): what their chats are named by. */
+  others: { id: AgentId; name: string; kind: ProviderKind }[];
 };
 
 export type RuntimeMode = "approval-required" | "auto-accept-edits" | "full-access";
@@ -112,7 +114,8 @@ export type AgentSettings = {
 
 export type AgentSettingsView = AgentSettings & Record<string, unknown>;
 
-export type AgentSettingField = "string" | "boolean" | "runtimeMode";
+/** `strings`: a list of strings (OpenClaw's gateway agents turned off). */
+export type AgentSettingField = "string" | "boolean" | "runtimeMode" | "strings";
 
 export type AgentEntry = {
   id: AgentId;
@@ -172,6 +175,11 @@ export type ChatEvent =
   | { requestId: string; type: "transcript"; messages: ChatSessionMessage[] }
   /** A steer the agent didn't get to before finishing: send it as the next message. */
   | { requestId: string; type: "steerReturned"; text: string }
+  /**
+   * The run handed off (OpenClaw's yield): the turn stays open, waiting on the subagents it
+   * started, each by its label when it has one. Null once it works again.
+   */
+  | { requestId: string; type: "waiting"; subagents: (string | null)[] | null }
   | { requestId: string; type: "done"; responseId: string | null }
   | { requestId: string; type: "error"; message: string };
 
@@ -278,6 +286,8 @@ export type BrowserEvents = {
   run: string;
   seq: number;
   dialog: { dialogType: string; message: string; defaultPrompt: string } | null;
+  /** Whether a field that takes typing has focus. */
+  field?: boolean;
   events: Record<string, unknown>[];
 };
 

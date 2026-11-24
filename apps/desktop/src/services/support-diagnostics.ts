@@ -1,8 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { summarizeSupportLog, type SupportError } from "@otter/shared/support";
-import { appInfo } from "../backend-protocol.js";
-import { backendOS } from "../os/backend.js";
+import { appInfo } from "../backend-protocol.ts";
+import { backendOS } from "../os/backend.ts";
 
 /** Bounded tail read; the raw log never leaves this process. */
 export async function desktopSupportDiagnostics(): Promise<{

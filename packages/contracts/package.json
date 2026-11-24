@@ -17,7 +17,7 @@
     "./agent-sync": "./src/agent-sync.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.mobile.json"
   },
   "dependencies": {
     "zod": "^4.6.5"

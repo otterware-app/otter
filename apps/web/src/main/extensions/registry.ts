@@ -12,9 +12,9 @@ import { useMemo, useSyncExternalStore } from "react";
 
 import { runsOn, type AppPlatform, type ExtensionCategory } from "@otter/contracts/extensions";
 
-import type { SettingsPane } from "../mail/api";
-import { setSyncedPreference } from "../synced-preferences";
+import { setSyncedPreference } from "@otter/client/preferences";
 import type { AgentContribution, UiExtension } from "./types";
+import type { SettingsPane } from "../app-api";
 
 export const EXTENSIONS: readonly UiExtension[] = [
   signInCodes,

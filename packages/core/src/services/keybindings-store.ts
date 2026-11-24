@@ -1,6 +1,6 @@
-import { utf8Decode } from "../bytes.js";
-import { logger } from "../logger.js";
-import { platform } from "../platform.js";
+import { utf8Decode } from "../bytes.ts";
+import { logger } from "../logger.ts";
+import { platform } from "../platform.ts";
 
 export const KEYBINDINGS_FILE = "keybindings.json";
 

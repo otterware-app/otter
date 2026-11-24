@@ -22,12 +22,12 @@ import { uninstallExtension } from "electron-chrome-web-store";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { broadcast } from "../ipc.js";
-import { logger } from "../logger.js";
-import { getMainWindow } from "../windows/main-window.js";
-import { getBrowserSession, isPageUrl, preparePage } from "./browser.js";
-import { hostOS } from "../os/index.js";
-import { enableNativeMessaging } from "./native-messaging-ipc.js";
+import { broadcast } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { getMainWindow } from "../windows/main-window.ts";
+import { getBrowserSession, isPageUrl, preparePage } from "./browser.ts";
+import { hostOS } from "../os/index.ts";
+import { enableNativeMessaging } from "./native-messaging-ipc.ts";
 
 type Manifest = {
   description?: string;

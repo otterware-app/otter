@@ -1,9 +1,8 @@
 import captureUrl from "./talk-capture.worklet.ts?worker&url";
-
-export type Microphone = { stop: () => void; mute: (muted: boolean) => void };
+import type { Microphone, Speaker, TalkAudio } from "@otter/client/agents/talk";
 
 /** The microphone at `rate`, in 40 ms chunks of 16-bit PCM, each with how loud it was (0–1). */
-export async function openMicrophone(
+async function openMicrophone(
   context: AudioContext,
   stream: MediaStream,
   rate: number,
@@ -39,10 +38,8 @@ export async function openMicrophone(
 /** Played a moment late after a pause, so audio arriving unevenly doesn't break up. */
 const LEAD_S = 0.1;
 
-export type Speaker = ReturnType<typeof openSpeaker>;
-
 /** Plays 16-bit PCM at `rate` as it comes, one piece after another. */
-export function openSpeaker(context: AudioContext, rate: number) {
+function openSpeaker(context: AudioContext, rate: number): Speaker {
   let queuedUntil = 0;
   const playing = new Set<AudioBufferSourceNode>();
   const levels: { from: number; to: number; level: number }[] = [];
@@ -72,7 +69,7 @@ export function openSpeaker(context: AudioContext, rate: number) {
       levels.length = 0;
       queuedUntil = 0;
     },
-    /** Two soft notes, rising: the agent is working, the call isn't stuck. */
+    /** Two soft notes, rising. */
     cue() {
       const at = context.currentTime + 0.02;
       for (const [hz, from, length] of [
@@ -90,9 +87,7 @@ export function openSpeaker(context: AudioContext, rate: number) {
         tone.stop(at + from + length + 0.02);
       }
     },
-    /** Until what's queued has played. */
     pendingMs: () => Math.max(0, (queuedUntil - context.currentTime) * 1000),
-    /** How loud what's playing now is (0–1). */
     level() {
       const now = context.currentTime;
       while (levels.length > 0 && levels[0].to < now) levels.shift();
@@ -105,16 +100,40 @@ export function openSpeaker(context: AudioContext, rate: number) {
   };
 }
 
-export function pcmToBase64(pcm: Int16Array): string {
-  const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
-
-export function base64ToPcm(base64: string): Int16Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length & ~1);
-  for (let i = 0; i < bytes.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new Int16Array(bytes.buffer);
-}
+/** A call's audio in the browser: the microphone through a worklet, the voice through Web Audio. */
+export const browserTalkAudio: TalkAudio = {
+  async open() {
+    // Made while the click still counts, so they may listen and play.
+    const input = new AudioContext();
+    const output = new AudioContext();
+    const stream = await navigator.mediaDevices
+      .getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      })
+      .catch((error: unknown) => {
+        void input.close();
+        void output.close();
+        throw new Error(
+          error instanceof DOMException && error.name === "NotAllowedError"
+            ? "Otter isn't allowed to use the microphone."
+            : "Couldn't open the microphone.",
+        );
+      });
+    let listening = false;
+    return {
+      listen: async (rate, heard) => {
+        const mic = await openMicrophone(input, stream, rate, heard);
+        listening = true;
+        return mic;
+      },
+      speak: (rate) => openSpeaker(output, rate),
+      release: () => {
+        if (!listening) {
+          for (const track of stream.getTracks()) track.stop();
+          void input.close();
+        }
+        void output.close();
+      },
+    };
+  },
+};

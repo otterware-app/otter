@@ -2,7 +2,7 @@
 
 import type { ImapSettings, MailServer } from "@otter/contracts/mail";
 
-import { platform } from "../platform.js";
+import { platform } from "../platform.ts";
 
 const FETCH_TIMEOUT_MS = 5_000;
 const PROBE_TIMEOUT_MS = 5_000;

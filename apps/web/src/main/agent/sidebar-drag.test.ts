@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { ChatShelf } from "./chat-shelves";
+import type { ChatShelf } from "@otter/client/agents/chat-shelves";
 import {
   dropTarget,
   dropVerb,

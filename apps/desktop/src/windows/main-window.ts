@@ -1,13 +1,13 @@
 import { app, BrowserWindow, shell } from "electron";
 
-import { logger } from "../logger.js";
-import { hostOS } from "../os/index.js";
-import { attachBrowser, focusedBrowserPage } from "../services/browser.js";
-import { isDriveContent } from "../services/drive-content.js";
-import { addContextMenu } from "./context-menu.js";
-import { followHistoryButtons } from "./history-buttons.js";
-import { getPreloadPath, getWindowUrl } from "./window-paths.js";
-import { saveOpenWindows, savedFrame, savedOpenWindows, trackFrame } from "./window-state.js";
+import { logger } from "../logger.ts";
+import { hostOS } from "../os/index.ts";
+import { attachBrowser, focusedBrowserPage } from "../services/browser.ts";
+import { isDriveContent } from "../services/drive-content.ts";
+import { addContextMenu } from "./context-menu.ts";
+import { followHistoryButtons } from "./history-buttons.ts";
+import { getPreloadPath, getWindowUrl } from "./window-paths.ts";
+import { saveOpenWindows, savedFrame, savedOpenWindows, trackFrame } from "./window-state.ts";
 
 /**
  * The app's windows: the main one, and those opened on a place.

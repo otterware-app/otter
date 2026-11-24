@@ -61,7 +61,12 @@ const APPS: Record<App, { prefix: string; name: string; sourceVersion: () => str
   agents: {
     prefix: "ios-agents-v",
     name: "Otter Agents for iPhone",
-    sourceVersion: () => xcodeVersion("apps/ios-agents/OtterAgents.xcodeproj"),
+    sourceVersion: () =>
+      (
+        JSON.parse(
+          NodeFS.readFileSync(NodePath.join(repoRoot, "apps/agents-mobile/package.json"), "utf8"),
+        ) as { version: string }
+      ).version,
   },
 };
 
@@ -121,6 +126,10 @@ function main(): void {
     const bump = values.bump as Bump;
     if (!["patch", "minor", "major"].includes(bump)) throw new Error(`Unknown bump: ${bump}`);
     version = bumpVersion(tags[0], bump);
+    if (values.app === "agents") {
+      const configured = app.sourceVersion();
+      if (configured.localeCompare(version, "en", { numeric: true }) > 0) version = configured;
+    }
   } else {
     version = app.sourceVersion();
   }

@@ -1,8 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import type { MailApps } from "../types.js";
-import { desktopEntries } from "./desktop-entries.js";
+import type { MailApps } from "../types.ts";
+import { desktopEntries } from "./desktop-entries.ts";
 
 const exec = promisify(execFile);
 const MAILTO = "x-scheme-handler/mailto";

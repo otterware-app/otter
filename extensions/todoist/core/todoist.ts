@@ -15,7 +15,7 @@ import {
   hasTodoistOAuth,
   clearTodoistOAuth,
   signInTodoist,
-} from "./todoist-auth.js";
+} from "./todoist-auth.ts";
 
 const SECRET = "todoist-token";
 const API = "https://api.todoist.com/api/v1";

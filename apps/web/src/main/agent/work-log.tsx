@@ -12,52 +12,32 @@ import {
   TerminalIcon,
   WrenchIcon,
 } from "lucide-react";
-import type { ToolStep } from "../mail/api";
 import { ChatMarkdown } from "./chat-markdown";
 import { cn } from "@otter/ui/lib/utils";
+import type { ChatTurnItem } from "@otter/contracts/chats";
+import type { ToolStep } from "@otter/client/agents/api";
+import {
+  blocksOf,
+  compactionLabel,
+  jsonTokens,
+  prettyJson,
+  stepExpandable,
+  stepGroupTitle,
+  stepIcon,
+  stepPending,
+  type StepIcon,
+  type StepItem,
+} from "@otter/client/agents/work-log";
 
-export type TurnItem =
-  | { kind: "text"; id?: string; text: string }
-  | { kind: "step"; id?: string; step: ToolStep; output?: string };
-
-const STEP_ICONS: Record<ToolStep["kind"], typeof WrenchIcon> = {
-  command: TerminalIcon,
-  read: FileTextIcon,
-  edit: FilePenLineIcon,
+const STEP_ICONS: Record<StepIcon, typeof WrenchIcon> = {
+  terminal: TerminalIcon,
+  "file-text": FileTextIcon,
+  "file-pen-line": FilePenLineIcon,
   search: SearchIcon,
-  web: GlobeIcon,
-  skill: WrenchIcon,
-  tool: WrenchIcon,
+  globe: GlobeIcon,
+  wrench: WrenchIcon,
+  command: CommandIcon,
 };
-
-const stepIcon = (step: ToolStep) => (step.source ? CommandIcon : STEP_ICONS[step.kind]);
-
-type Step = Extract<TurnItem, { kind: "step" }>;
-
-type Block =
-  | { kind: "text"; text: string }
-  | { kind: "step"; item: Step }
-  | { kind: "group"; source: string; items: Step[] };
-
-function blocksOf(items: TurnItem[]): Block[] {
-  const blocks: Block[] = [];
-  for (const item of items) {
-    if (item.kind === "text") {
-      blocks.push({ kind: "text", text: item.text });
-      continue;
-    }
-    const last = blocks[blocks.length - 1];
-    const source = item.step.source;
-    // Back-to-back compactions (OpenClaw's transcript, then Codex's thread) are one to the reader.
-    if (item.step.compaction && last?.kind === "step" && last.item.step.compaction)
-      blocks[blocks.length - 1] = { kind: "step", item };
-    else if (source && last?.kind === "group" && last.source === source) last.items.push(item);
-    else if (source && last?.kind === "step" && last.item.step.source === source)
-      blocks[blocks.length - 1] = { kind: "group", source, items: [last.item, item] };
-    else blocks.push({ kind: "step", item });
-  }
-  return blocks;
-}
 
 /* oxlint-disable react/no-array-index-key -- Transcript blocks append and update in place; position preserves streaming row state. */
 export function WorkLog({
@@ -67,7 +47,7 @@ export function WorkLog({
   onOpenFile,
   loadImage,
 }: {
-  items: TurnItem[];
+  items: ChatTurnItem[];
   /** The turn is still going: a step without a result is running (else it never reported one). */
   live?: boolean;
   /**
@@ -102,11 +82,7 @@ export function WorkLog({
 
 export function CompactionRow({ output, live }: { output?: string; live: boolean }) {
   const running = live && output === undefined;
-  const label = running
-    ? "Compacting context"
-    : output
-      ? "Context compaction failed"
-      : "Context compacted";
+  const label = compactionLabel(output, live);
   return (
     <div
       role="separator"
@@ -189,7 +165,7 @@ function StepGroup({
   lit,
 }: {
   source: string;
-  items: Step[];
+  items: StepItem[];
   live: boolean;
   lit: boolean;
 }) {
@@ -198,10 +174,10 @@ function StepGroup({
     <div className="flex flex-col">
       <RowHead
         icon={CommandIcon}
-        title={`Used ${source} integration`}
+        title={stepGroupTitle(source)}
         open={open}
         expandable
-        pending={lit || (live && items.some((i) => i.output === undefined))}
+        pending={lit || items.some((i) => stepPending(i, live))}
         onToggle={() => setOpen((o) => !o)}
       />
 
@@ -213,17 +189,17 @@ function StepGroup({
 }
 /* oxlint-enable react/no-array-index-key */
 
-function StepRow({ item, live, lit }: { item: Step; live: boolean; lit: boolean }) {
+function StepRow({ item, live, lit }: { item: StepItem; live: boolean; lit: boolean }) {
   const [open, setOpen] = useState(false);
-  const expandable = Boolean(item.output || item.step.detail);
+  const expandable = stepExpandable(item);
   return (
     <div className="flex flex-col">
       <RowHead
-        icon={stepIcon(item.step)}
+        icon={STEP_ICONS[stepIcon(item.step)]}
         title={item.step.title}
         open={open}
         expandable={expandable}
-        pending={lit || (live && item.output === undefined)}
+        pending={lit || stepPending(item, live)}
         onToggle={() => setOpen((o) => !o)}
       />
       {open ? <StepResult step={item.step} output={item.output} live={live} /> : null}
@@ -231,61 +207,19 @@ function StepRow({ item, live, lit }: { item: Step; live: boolean; lit: boolean 
   );
 }
 
-/** Indents JSON that doesn't parse (the chat keeps only the start of long outputs). */
-function indentJson(text: string): string {
-  let out = "";
-  let depth = 0;
-  let inString = false;
-  const newline = () => `\n${"  ".repeat(depth)}`;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inString) {
-      out += c;
-      if (c === "\\") out += text[++i] ?? "";
-      else if (c === '"') inString = false;
-    } else if (c === '"') {
-      inString = true;
-      out += c;
-    } else if (c === "{" || c === "[") {
-      depth += 1;
-      out += c + newline();
-    } else if (c === "}" || c === "]") {
-      depth = Math.max(0, depth - 1);
-      out += newline() + c;
-    } else if (c === ",") out += c + newline();
-    else if (c === ":") out += ": ";
-    else if (!/\s/.test(c)) out += c;
-  }
-  return out;
-}
-
-function prettyJson(text: string | undefined): string | null {
-  if (!text || !/^\s*[[{]/.test(text)) return null;
-  try {
-    return JSON.stringify(JSON.parse(text), null, 2);
-  } catch {
-    return indentJson(text.trim());
-  }
-}
-
 function highlightJson(json: string): ReactNode[] {
-  const parts: ReactNode[] = [];
-  let last = 0;
-  for (const match of json.matchAll(
-    /"(?:\\.|[^"\\])*"|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g,
-  )) {
-    const index = match.index ?? 0;
-    if (index > last) parts.push(json.slice(last, index));
-    const token = match[0];
-    parts.push(
-      <span key={index} className={token.startsWith('"') ? "text-success" : "text-info"}>
-        {token}
-      </span>,
+  let at = 0;
+  return jsonTokens(json).map((token) => {
+    const key = at;
+    at += token.text.length;
+    return token.kind === "plain" ? (
+      token.text
+    ) : (
+      <span key={key} className={token.kind === "string" ? "text-success" : "text-info"}>
+        {token.text}
+      </span>
     );
-    last = index + token.length;
-  }
-  parts.push(json.slice(last));
-  return parts;
+  });
 }
 
 function StepResult({ step, output, live }: { step: ToolStep; output?: string; live: boolean }) {

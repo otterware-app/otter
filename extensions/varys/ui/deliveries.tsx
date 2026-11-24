@@ -1,33 +1,12 @@
-import { searchableSetting, useSetProvidersState } from "@otter/web/extension-kit";
-import { toast } from "@otter/ui/components/toast";
-import { useState } from "react";
+import { searchableSetting } from "@otter/web/extension-kit";
 import { Button } from "@otter/ui/components/button";
 
-import { varysApi } from "./api";
+import { useVarysRelay, type RelayState } from "../shared/connect";
 import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
 
-export type RelayState = "on" | "off" | "signedOut";
-
-/**
- * Whether varys can tell your devices there's something new while Otter is closed: this
- * device's grant names Otter's relay, which hears which thread to read, never what's in it.
- */
+/** Whether varys tells your devices there's something new while Otter is closed (`RelayState`). */
 export function VarysDeliveries({ agent, relay }: { agent: string; relay: RelayState }) {
-  const setState = useSetProvidersState();
-  const [busy, setBusy] = useState(false);
-
-  const turnOn = async () => {
-    setBusy(true);
-    try {
-      setState(await varysApi.varysRelay(agent));
-    } catch (error) {
-      toast.error(
-        `Could not turn it on: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { busy, turnOn } = useVarysRelay(agent);
 
   return (
     <SettingsSection

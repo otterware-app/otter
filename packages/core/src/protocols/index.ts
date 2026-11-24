@@ -4,7 +4,7 @@ export {
   type MailAuth,
   type MailErrorKind,
   type ServerOptions,
-} from "./common.js";
+} from "./common.ts";
 export {
   connectImap,
   ImapClient,
@@ -19,7 +19,7 @@ export {
   type SearchCriteria,
   type SelectedMailbox,
   type SpecialUse,
-} from "./imap/client.js";
+} from "./imap/client.ts";
 export {
   decodeHeader,
   inUidRanges,
@@ -31,8 +31,8 @@ export {
   type ImapAddress,
   type ImapEnvelope,
   type UidRange,
-} from "./imap/structures.js";
-export { decodeMailboxName, encodeMailboxName } from "./imap/utf7.js";
+} from "./imap/structures.ts";
+export { decodeMailboxName, encodeMailboxName } from "./imap/utf7.ts";
 export {
   connectSmtp,
   sendMail,
@@ -42,5 +42,5 @@ export {
   type SmtpOptions,
   type SmtpReply,
   type SmtpSendResult,
-} from "./smtp/client.js";
-export { parseMessage, type ParsedAttachment, type ParsedMessage } from "./mime.js";
+} from "./smtp/client.ts";
+export { parseMessage, type ParsedAttachment, type ParsedMessage } from "./mime.ts";

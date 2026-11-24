@@ -7,24 +7,24 @@
  * rate limits (429, and 403 per-user quota errors).
  */
 
-import { fromBase64, toBase64Url, utf8Decode, utf8Encode } from "../../bytes.js";
+import { fromBase64, toBase64Url, utf8Decode, utf8Encode } from "../../bytes.ts";
 import {
   GMAIL_ACCESS_MISSING_MESSAGE,
   GOOGLE_UNAVAILABLE_MESSAGE,
   SIGNED_OUT_MESSAGE,
-} from "../../google.js";
-import { logger } from "../../logger.js";
-import { platform } from "../../platform.js";
-import { mapPool } from "../../pool.js";
-import { getAccount } from "../../services/account-store.js";
+} from "../../google.ts";
+import { logger } from "../../logger.ts";
+import { platform } from "../../platform.ts";
+import { mapPool } from "../../pool.ts";
+import { getAccount } from "../../services/account-store.ts";
 import {
   buildMime,
   completeAddresses,
   newMessageIdHeader,
   senderOf,
-} from "../../services/outgoing.js";
-import type { MailLabel, MessageSummary, MessageDetail } from "../../types.js";
-import { SendUncertain, type DraftSave, type ErrorKind, type OutgoingMail } from "../provider.js";
+} from "../../services/outgoing.ts";
+import type { MailLabel, MessageSummary, MessageDetail } from "../../types.ts";
+import { SendUncertain, type DraftSave, type ErrorKind, type OutgoingMail } from "../provider.ts";
 import {
   acquireQuota,
   budgetOf,
@@ -32,7 +32,7 @@ import {
   quotaCost,
   reportQuotaExceeded,
   spentLastMinute,
-} from "./quota.js";
+} from "./quota.ts";
 
 const BASE_URL = "https://gmail.googleapis.com/gmail/v1/users/me";
 

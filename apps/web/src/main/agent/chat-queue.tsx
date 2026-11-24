@@ -1,38 +1,11 @@
-import { setSyncedPreference } from "../synced-preferences";
-import { useId, useState, useSyncExternalStore } from "react";
+import { useId, useState } from "react";
 import { ArrowUpIcon, ChevronDownIcon, PencilIcon, Redo2Icon, XIcon } from "lucide-react";
 import { useShortcutLabel } from "../keybindings/store";
-import type { QueuedMessage } from "./chat-store";
+import type { QueuedMessage } from "@otter/client/agents/chat-store";
+import { queuedText, visibleQueue } from "@otter/client/agents/chat-queue";
 import { Button, IconButton } from "@otter/ui/components/button";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { cn } from "@otter/ui/lib/utils";
-
-export type FollowUpBehavior = "queue" | "steer";
-
-const FOLLOW_UP_KEY = "assistant:follow-up-behavior" as const;
-const listeners = new Set<() => void>();
-
-export function getFollowUpBehavior(): FollowUpBehavior {
-  return localStorage.getItem(FOLLOW_UP_KEY) === "steer" ? "steer" : "queue";
-}
-
-export function setFollowUpBehavior(value: FollowUpBehavior): void {
-  setSyncedPreference(FOLLOW_UP_KEY, value);
-  for (const listener of listeners) listener();
-}
-
-window.addEventListener("storage", (event) => {
-  if (event.key === FOLLOW_UP_KEY) for (const listener of listeners) listener();
-});
-
-export function useFollowUpBehavior(): FollowUpBehavior {
-  return useSyncExternalStore((listener) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  }, getFollowUpBehavior);
-}
-
-const QUEUE_VISIBLE_ROWS = 3;
 
 /**
  * The chat's queued messages at the end of its transcript, as T3 Code shows them: each in
@@ -61,8 +34,7 @@ export function QueuedMessages({
   const editShortcut = useShortcutLabel("agent.editQueued");
   const listId = useId();
   if (items.length === 0) return null;
-  const collapsible = items.length > QUEUE_VISIBLE_ROWS;
-  const visible = collapsible && !showAll ? items.slice(0, QUEUE_VISIBLE_ROWS - 1) : items;
+  const { collapsible, visible } = visibleQueue(items, showAll);
 
   return (
     <section
@@ -75,7 +47,7 @@ export function QueuedMessages({
       <ol id={listId} className="flex flex-col items-end gap-3">
         {visible.map((item, index) => {
           const isEditing = item.id === editingId;
-          const text = `${item.skill ? `/${item.skill.name} ` : ""}${item.question}`.trim();
+          const text = queuedText(item);
           return (
             <li
               key={item.id}

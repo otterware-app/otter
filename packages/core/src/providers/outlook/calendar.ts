@@ -18,12 +18,12 @@ import {
   type RespondOptions,
   type EventInput,
   type RsvpResponse,
-} from "../provider.js";
+} from "../provider.ts";
 import { findMeetingLink } from "@otter/contracts";
-import { wallClock } from "../wall-clock.js";
-import { logger } from "../../logger.js";
-import * as mailStore from "../../services/mail-store.js";
-import { GraphError, graph, isNotFound, type GraphInit, type Page } from "./graph.js";
+import { wallClock } from "../wall-clock.ts";
+import { logger } from "../../logger.ts";
+import * as mailStore from "../../services/mail-store.ts";
+import { GraphError, graph, isNotFound, type GraphInit, type Page } from "./graph.ts";
 
 const UTC = 'outlook.timezone="UTC"';
 

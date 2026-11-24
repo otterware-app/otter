@@ -1,10 +1,10 @@
-import { broadcast } from "../ipc.js";
-import { logger } from "../logger.js";
-import { platform } from "../platform.js";
-import { findProvider, isSignedIn } from "../providers/index.js";
-import { listAccounts, updateAccount } from "./account-store.js";
-import { accountEdited } from "./linked-accounts.js";
-import type { MailAccount } from "../types.js";
+import { broadcast } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { platform } from "../platform.ts";
+import { findProvider, isSignedIn } from "../providers/index.ts";
+import { listAccounts, updateAccount } from "./account-store.ts";
+import { accountEdited } from "./linked-accounts.ts";
+import type { MailAccount } from "../types.ts";
 
 const USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
 const FETCH_TIMEOUT_MS = 10_000;

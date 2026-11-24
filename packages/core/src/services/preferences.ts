@@ -2,24 +2,25 @@
 
 import type { PreferencesResponse } from "@otter/contracts/relay";
 
-import { broadcast } from "../ipc.js";
-import { readJson, writeJson } from "../json-file.js";
-import { logger } from "../logger.js";
-import { platform } from "../platform.js";
-import { readKeybindings, writeKeybindings } from "./keybindings-store.js";
-import { configureAutoSync, followMailboxArrangement } from "./mail-sync.js";
-import { getOtterUser, relayRequest } from "./otter-account.js";
+import { broadcast } from "../ipc.ts";
+import { readJson, writeJson } from "../json-file.ts";
+import { logger } from "../logger.ts";
+import { runs } from "../modules.ts";
+import { platform } from "../platform.ts";
+import { readKeybindings, writeKeybindings } from "./keybindings-store.ts";
+import { configureAutoSync, followMailboxArrangement } from "./mail-sync.ts";
+import { getOtterUser, relayRequest } from "./otter-account.ts";
 import {
   keepsSendAsOnDevice,
   keepsSignatureOnDevice,
   listAccounts,
   updateAccount,
-} from "./account-store.js";
-import { followAliasMailApart, parseAliasMailboxes } from "./alias-mailboxes.js";
-import { getSettings, updateSettings, type AppSettings } from "./settings-store.js";
-import { listViews, writeViews } from "./views-store.js";
+} from "./account-store.ts";
+import { followAliasMailApart, parseAliasMailboxes } from "./alias-mailboxes.ts";
+import { getSettings, updateSettings, type AppSettings } from "./settings-store.ts";
+import { listViews, writeViews } from "./views-store.ts";
 import type { AliasMailbox } from "@otter/contracts";
-import type { MailView } from "../types.js";
+import type { MailView } from "../types.ts";
 
 const UI_FILE = "ui-preferences.json";
 export type UiPreferences = Record<string, string>;
@@ -44,8 +45,10 @@ export async function getUiPreferences(initialize = false): Promise<UiPreference
 
 async function writeUiPreferences(ui: UiPreferences): Promise<void> {
   await writeJson(UI_FILE, ui);
-  followMailboxArrangement(ui["mail:mailboxes"]);
-  followAliasMailApart(ui["mail:alias-mail-apart"]);
+  if (runs("mail")) {
+    followMailboxArrangement(ui["mail:mailboxes"]);
+    followAliasMailApart(ui["mail:alias-mail-apart"]);
+  }
   broadcast("preferences:uiChanged", ui);
 }
 
@@ -90,7 +93,7 @@ const SECTIONS = {
         ),
       );
       const settings = await updateSettings(patch);
-      configureAutoSync(settings.syncIntervalSeconds);
+      if (runs("mail")) configureAutoSync(settings.syncIntervalSeconds);
       broadcast("translation:settingsChanged");
     },
   },

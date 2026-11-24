@@ -1,10 +1,10 @@
 // Renew IDLE before the server's 30-minute cutoff; stop on refused credentials to avoid repeated failed logins.
 
-import { logger } from "../../logger.js";
-import { platform } from "../../platform.js";
-import type { IdleSession, ImapClient } from "../../protocols/index.js";
-import { openImap } from "./connection.js";
-import { isSignInFailure } from "./sign-in-failure.js";
+import { logger } from "../../logger.ts";
+import { platform } from "../../platform.ts";
+import type { IdleSession, ImapClient } from "../../protocols/index.ts";
+import { openImap } from "./connection.ts";
+import { isSignInFailure } from "./sign-in-failure.ts";
 
 const RENEW_MS = 25 * 60_000;
 const DEBOUNCE_MS = 1_000;

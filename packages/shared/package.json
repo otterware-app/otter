@@ -20,7 +20,7 @@
   },
   "scripts": {
     "test": "vp test run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.mobile.json"
   },
   "dependencies": {
     "@sentry/core": "11.8.0"

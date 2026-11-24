@@ -1,0 +1,30 @@
+{
+  "name": "@otter/client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "What every Otter interface does that isn't drawing: the typed calls to core, the stores and hooks over them, and the logic screens share. The web renderer and the iPhone apps import it; it has no DOM and no React Native.",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vp test run --passWithNoTests",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.mobile.json"
+  },
+  "dependencies": {
+    "@otter/contracts": "workspace:*",
+    "@otter/core": "workspace:*",
+    "@otter/shared": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "react": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^19.1.1"
+  }
+}

@@ -1,11 +1,11 @@
 import { landLabelChange, type MailSchedule } from "@otter/contracts";
-import { broadcast } from "../ipc.js";
-import { platform } from "../platform.js";
-import { capabilitiesOf, providerFor } from "../providers/index.js";
-import { SendUncertain, type OutgoingMail, type ScheduleOutcome } from "../providers/provider.js";
-import { getAccount } from "./account-store.js";
-import * as store from "./mail-store.js";
-import { updateDockBadge } from "./notifier.js";
+import { broadcast } from "../ipc.ts";
+import { platform } from "../platform.ts";
+import { capabilitiesOf, providerFor } from "../providers/index.ts";
+import { SendUncertain, type OutgoingMail, type ScheduleOutcome } from "../providers/provider.ts";
+import { getAccount } from "./account-store.ts";
+import * as store from "./mail-store.ts";
+import { updateDockBadge } from "./notifier.ts";
 
 // The backend is single-owner (a utility process, or the elected web worker).
 // SQLite commits the claim before a send: a crash must never automatically resend it.

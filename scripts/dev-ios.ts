@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Builds an iPhone app for the simulator and runs it in the booted one (booting an iPhone first
-// if none is): Otter Mail (apps/ios), or Otter Agents (apps/ios-agents) with `--app agents`.
+// if none is): Otter Mail (apps/ios).
 // Use `--relay local` to point it at this checkout's `pnpm dev` relay instead of production, and
 // `--as <email>` with `pnpm dev:demo`'s relay to sign in as that Otter account without Google.
 //
 //   pnpm dev:ios [--relay local]
-//   pnpm dev:ios:agents [--relay local [--as <email>]]
+//   pnpm dev:ios --relay local --as <email>
 
 import * as NodeChildProcess from "node:child_process";
 import * as NodePath from "node:path";
@@ -13,22 +13,13 @@ import * as NodePath from "node:path";
 import { BASE_RELAY_PORT, resolvePortOffset } from "./port-offset.ts";
 
 const root = NodePath.resolve(import.meta.dirname, "..");
-const agents = process.argv.includes("agents");
-const target = agents
-  ? {
-      folder: "apps/ios-agents",
-      project: "OtterAgents.xcodeproj",
-      scheme: "OtterAgents",
-      product: "Otter Agents.app",
-      bundle: "dev.otterware.agents.dev",
-    }
-  : {
-      folder: "apps/ios",
-      project: "OtterMail.xcodeproj",
-      scheme: "OtterMail",
-      product: "Otter Mail.app",
-      bundle: "dev.otterware.mail.dev",
-    };
+const target = {
+  folder: "apps/ios",
+  project: "OtterMail.xcodeproj",
+  scheme: "OtterMail",
+  product: "Otter Mail.app",
+  bundle: "dev.otterware.mail.dev",
+};
 const derived = NodePath.join(root, target.folder, ".build");
 const app = NodePath.join(derived, "Build/Products/Debug-iphonesimulator", target.product);
 const local = process.argv.includes("local");

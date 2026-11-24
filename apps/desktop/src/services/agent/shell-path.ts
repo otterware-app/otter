@@ -1,7 +1,7 @@
 // Desktop launchers omit CLI install paths; read PATH from the user's login shell.
 
 import { spawn } from "node:child_process";
-import { logger } from "../../logger.js";
+import { logger } from "../../logger.ts";
 
 const MARKER = "__OTTER_PATH__";
 

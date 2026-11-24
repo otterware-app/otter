@@ -1,8 +1,13 @@
 import type { ExtensionManifest } from "@otter/contracts/extensions";
 import type { ComponentType, ReactNode } from "react";
 
-import type { AgentSettingsPatch, ProviderSnapshot, ProvidersState } from "../mail/api";
-import type { MessageDetail, MessageSummary } from "../mail/types";
+import type { MessageDetail, MessageSummary } from "@otter/client/mail/types";
+import type {
+  AgentSettingsPatch,
+  ProviderSnapshot,
+  ProvidersState,
+} from "@otter/client/agents/api";
+import type { AgentTraits } from "@otter/client/agents/agent-traits";
 
 export type UiExtension = {
   manifest: ExtensionManifest;
@@ -124,7 +129,7 @@ export type PaletteCommand = {
   run(): void;
 };
 
-export type AgentContribution = {
+export type AgentContribution = AgentTraits & {
   Icon: ComponentType<{ className?: string }>;
   Settings: ComponentType<AgentSettingsProps>;
   Connect?: ComponentType<{
@@ -132,14 +137,6 @@ export type AgentContribution = {
     provider: ProviderSnapshot;
     onConnected: () => void;
   }>;
-  missing: { headline: string; detail?: string };
-  connectedAs?: boolean;
-  serverApprovals?: boolean;
-  ownModelSettings?: boolean;
-  /** Its models are the agents it runs (an OpenClaw gateway's): the agent picker lists each. */
-  subAgents?: boolean;
-  /** What the agent reads mail with, named in the line under the mail a message points to; Otter's tools when absent. */
-  mailReader?: string;
 };
 
 export type AgentSettingsProps = {

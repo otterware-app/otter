@@ -6,8 +6,8 @@ const fixture = vi.hoisted(() => ({
   codex: [] as { method: string; params: Record<string, unknown> }[],
 }));
 vi.mock("@otter/core/extension-kit", async () => ({
-  ...(await import("../../../packages/core/src/services/agent/steps.js")),
-  ...(await import("../../../packages/core/src/services/agent/text-stream.js")),
+  ...(await import("../../../packages/core/src/services/agent/steps.ts")),
+  ...(await import("../../../packages/core/src/services/agent/text-stream.ts")),
   dataUrl: vi.fn(),
 }));
 vi.mock("@otter/desktop/extension-kit", () => ({
@@ -35,8 +35,8 @@ vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
     close: () => {},
   }),
 }));
-const { createClaude } = await import("./claude.js");
-const { CLAUDE_DEFAULTS } = await import("./settings.js");
+const { createClaude } = await import("./claude.ts");
+const { CLAUDE_DEFAULTS } = await import("./settings.ts");
 const settings = CLAUDE_DEFAULTS;
 const claudeProvider = createClaude();
 afterEach(() => claudeProvider.shutdown());

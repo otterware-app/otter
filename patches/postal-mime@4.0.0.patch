@@ -1,0 +1,279 @@
+diff --git a/dist/cjs/base64-decoder.js b/dist/cjs/base64-decoder.js
+index 8e06d691a6e37acefab16a307d6a96716e4527b5..af17931f6f247327c682c79b091aa1c1ba331cbf 100644
+--- a/dist/cjs/base64-decoder.js
++++ b/dist/cjs/base64-decoder.js
+@@ -39,7 +39,7 @@ class Base64Decoder {
+     }
+     finalize() {
+         this.flushRemainder();
+-        return (0, decode_strings_js_1.blobToArrayBuffer)(new Blob(this.chunks, { type: 'application/octet-stream' }));
++        return (0, decode_strings_js_1.joinChunks)(this.chunks);
+     }
+ }
+ exports.default = Base64Decoder;
+diff --git a/dist/cjs/decode-strings.d.ts b/dist/cjs/decode-strings.d.ts
+index 41948b6e18d88ea1402194bcb296e463de6cd6ff..f945332efc4f1ab9774feb06707cd49d9100c611 100644
+--- a/dist/cjs/decode-strings.d.ts
++++ b/dist/cjs/decode-strings.d.ts
+@@ -8,6 +8,7 @@ export declare function getDecoder(charset?: string | null): TextDecoder;
+  * @returns Converted value
+  */
+ export declare function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer>;
++export declare function joinChunks(chunks: Array<ArrayBuffer | Uint8Array | string>): Promise<ArrayBuffer>;
+ /**
+  * Numeric value of an ASCII hex digit
+  *
+diff --git a/dist/cjs/decode-strings.js b/dist/cjs/decode-strings.js
+index 578100d06d01b0b29e00b8975b15d4c79715a674..d737832c32b890f1bfe4b100f00e568714f1d5be 100644
+--- a/dist/cjs/decode-strings.js
++++ b/dist/cjs/decode-strings.js
+@@ -4,6 +4,7 @@ exports.ENCODING_LABELS = exports.textEncoder = void 0;
+ exports.decodeBase64 = decodeBase64;
+ exports.getDecoder = getDecoder;
+ exports.blobToArrayBuffer = blobToArrayBuffer;
++exports.joinChunks = joinChunks;
+ exports.hexNibble = hexNibble;
+ exports.decodeWord = decodeWord;
+ exports.isEncodedWordsOnly = isEncodedWordsOnly;
+@@ -263,6 +264,24 @@ async function blobToArrayBuffer(blob) {
+         fr.readAsArrayBuffer(blob);
+     });
+ }
++/**
++ * Joins chunks into a single ArrayBuffer. Done by hand rather than through a Blob, as
++ * React Native can't create a Blob from an ArrayBuffer or an ArrayBufferView
++ * @param chunks Bytes, or strings to encode as UTF-8
++ * @returns Joined value
++ */
++async function joinChunks(chunks) {
++    const parts = chunks.map(chunk =>
++        typeof chunk === 'string' ? exports.textEncoder.encode(chunk) : chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk)
++    );
++    const joined = new Uint8Array(parts.reduce((length, part) => length + part.length, 0));
++    let offset = 0;
++    for (const part of parts) {
++        joined.set(part, offset);
++        offset += part.length;
++    }
++    return joined.buffer;
++}
+ /**
+  * Numeric value of an ASCII hex digit
+  *
+diff --git a/dist/cjs/pass-through-decoder.js b/dist/cjs/pass-through-decoder.js
+index f10d86b135510743698db065be06bd2a8e49c42a..1b6f654e649af1e6848d96324a4b963d8191b474 100644
+--- a/dist/cjs/pass-through-decoder.js
++++ b/dist/cjs/pass-through-decoder.js
+@@ -10,8 +10,7 @@ class PassThroughDecoder {
+         this.chunks.push('\n');
+     }
+     finalize() {
+-        // convert an array of arraybuffers into a blob and then back into a single arraybuffer
+-        return (0, decode_strings_js_1.blobToArrayBuffer)(new Blob(this.chunks, { type: 'application/octet-stream' }));
++        return (0, decode_strings_js_1.joinChunks)(this.chunks);
+     }
+ }
+ exports.default = PassThroughDecoder;
+diff --git a/dist/cjs/qp-decoder.js b/dist/cjs/qp-decoder.js
+index f0f8b3cc3246b5aff9e0a30f022cbcac66b23b49..fbdfb1d9cf25985bb3840d5dfcc1d3bee3cfe89d 100644
+--- a/dist/cjs/qp-decoder.js
++++ b/dist/cjs/qp-decoder.js
+@@ -69,8 +69,7 @@ class QPDecoder {
+     }
+     finalize() {
+         this.flushBuffer();
+-        // convert an array of arraybuffers into a blob and then back into a single arraybuffer
+-        return (0, decode_strings_js_1.blobToArrayBuffer)(new Blob(this.chunks, { type: 'application/octet-stream' }));
++        return (0, decode_strings_js_1.joinChunks)(this.chunks);
+     }
+ }
+ exports.default = QPDecoder;
+diff --git a/dist/esm/base64-decoder.js b/dist/esm/base64-decoder.js
+index e7fe5f80bb46067b855969e05994c19a7928b056..e202d7ea36be7abaa289fde93f3590b6cef73827 100644
+--- a/dist/esm/base64-decoder.js
++++ b/dist/esm/base64-decoder.js
+@@ -1,4 +1,4 @@
+-import { decodeBase64, blobToArrayBuffer } from './decode-strings.js';
++import { decodeBase64, joinChunks } from './decode-strings.js';
+ export default class Base64Decoder {
+     constructor(opts) {
+         opts = opts || {};
+@@ -37,7 +37,7 @@ export default class Base64Decoder {
+     }
+     finalize() {
+         this.flushRemainder();
+-        return blobToArrayBuffer(new Blob(this.chunks, { type: 'application/octet-stream' }));
++        return joinChunks(this.chunks);
+     }
+ }
+ //# sourceMappingURL=base64-decoder.js.map
+\ No newline at end of file
+diff --git a/dist/esm/decode-strings.d.ts b/dist/esm/decode-strings.d.ts
+index 41948b6e18d88ea1402194bcb296e463de6cd6ff..f945332efc4f1ab9774feb06707cd49d9100c611 100644
+--- a/dist/esm/decode-strings.d.ts
++++ b/dist/esm/decode-strings.d.ts
+@@ -8,6 +8,7 @@ export declare function getDecoder(charset?: string | null): TextDecoder;
+  * @returns Converted value
+  */
+ export declare function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer>;
++export declare function joinChunks(chunks: Array<ArrayBuffer | Uint8Array | string>): Promise<ArrayBuffer>;
+ /**
+  * Numeric value of an ASCII hex digit
+  *
+diff --git a/dist/esm/decode-strings.js b/dist/esm/decode-strings.js
+index a5f88f701d6fba93fdbbfc26373717369883e253..e9e6b8f3ffcd14384eac28d569445311fd83a40c 100644
+--- a/dist/esm/decode-strings.js
++++ b/dist/esm/decode-strings.js
+@@ -251,6 +251,24 @@ export async function blobToArrayBuffer(blob) {
+         fr.readAsArrayBuffer(blob);
+     });
+ }
++/**
++ * Joins chunks into a single ArrayBuffer. Done by hand rather than through a Blob, as
++ * React Native can't create a Blob from an ArrayBuffer or an ArrayBufferView
++ * @param chunks Bytes, or strings to encode as UTF-8
++ * @returns Joined value
++ */
++export async function joinChunks(chunks) {
++    const parts = chunks.map(chunk =>
++        typeof chunk === 'string' ? textEncoder.encode(chunk) : chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk)
++    );
++    const joined = new Uint8Array(parts.reduce((length, part) => length + part.length, 0));
++    let offset = 0;
++    for (const part of parts) {
++        joined.set(part, offset);
++        offset += part.length;
++    }
++    return joined.buffer;
++}
+ /**
+  * Numeric value of an ASCII hex digit
+  *
+diff --git a/dist/esm/pass-through-decoder.js b/dist/esm/pass-through-decoder.js
+index 6cfc95a5755b4153554e4a7f73f19ce559f0aa8c..c42aecc64d4926c9c6f04b356f01ee872569d317 100644
+--- a/dist/esm/pass-through-decoder.js
++++ b/dist/esm/pass-through-decoder.js
+@@ -1,4 +1,4 @@
+-import { blobToArrayBuffer } from './decode-strings.js';
++import { joinChunks } from './decode-strings.js';
+ export default class PassThroughDecoder {
+     constructor() {
+         this.chunks = [];
+@@ -8,8 +8,7 @@ export default class PassThroughDecoder {
+         this.chunks.push('\n');
+     }
+     finalize() {
+-        // convert an array of arraybuffers into a blob and then back into a single arraybuffer
+-        return blobToArrayBuffer(new Blob(this.chunks, { type: 'application/octet-stream' }));
++        return joinChunks(this.chunks);
+     }
+ }
+ //# sourceMappingURL=pass-through-decoder.js.map
+\ No newline at end of file
+diff --git a/dist/esm/qp-decoder.js b/dist/esm/qp-decoder.js
+index ac79872ca0e7b9271bae3b67d6743d891777fdf8..e04418fa08032e60bfe6c2f8d10303f95819e2da 100644
+--- a/dist/esm/qp-decoder.js
++++ b/dist/esm/qp-decoder.js
+@@ -1,4 +1,4 @@
+-import { blobToArrayBuffer, hexNibble } from './decode-strings.js';
++import { joinChunks, hexNibble } from './decode-strings.js';
+ const CHR_EQUALS = 0x3d;
+ const CHR_LF = 0x0a;
+ export default class QPDecoder {
+@@ -67,8 +67,7 @@ export default class QPDecoder {
+     }
+     finalize() {
+         this.flushBuffer();
+-        // convert an array of arraybuffers into a blob and then back into a single arraybuffer
+-        return blobToArrayBuffer(new Blob(this.chunks, { type: 'application/octet-stream' }));
++        return joinChunks(this.chunks);
+     }
+ }
+ //# sourceMappingURL=qp-decoder.js.map
+\ No newline at end of file
+diff --git a/src/base64-decoder.ts b/src/base64-decoder.ts
+index 3cf9c580c141dd495668c36eb31f56456ae98a73..ff5f8de0dd677dba57c96f8c160142c68bc1b85b 100644
+--- a/src/base64-decoder.ts
++++ b/src/base64-decoder.ts
+@@ -1,4 +1,4 @@
+-import { decodeBase64, blobToArrayBuffer } from './decode-strings.js';
++import { decodeBase64, joinChunks } from './decode-strings.js';
+ 
+ export interface Base64DecoderOptions {
+     decoder?: TextDecoder | undefined;
+@@ -58,6 +58,6 @@ export default class Base64Decoder {
+     finalize(): Promise<ArrayBuffer> {
+         this.flushRemainder();
+ 
+-        return blobToArrayBuffer(new Blob(this.chunks, { type: 'application/octet-stream' }));
++        return joinChunks(this.chunks);
+     }
+ }
+diff --git a/src/decode-strings.ts b/src/decode-strings.ts
+index 6c93fab834e88f3427ef4eee03834a75d49d54d1..66a04ae3a2c431f739a2ee21e26d0fcfe239f542 100644
+--- a/src/decode-strings.ts
++++ b/src/decode-strings.ts
+@@ -287,6 +287,25 @@ export async function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+     });
+ }
+ 
++/**
++ * Joins chunks into a single ArrayBuffer. Done by hand rather than through a Blob, as
++ * React Native can't create a Blob from an ArrayBuffer or an ArrayBufferView
++ * @param chunks Bytes, or strings to encode as UTF-8
++ * @returns Joined value
++ */
++export async function joinChunks(chunks: Array<ArrayBuffer | Uint8Array | string>): Promise<ArrayBuffer> {
++    const parts = chunks.map(chunk =>
++        typeof chunk === 'string' ? textEncoder.encode(chunk) : chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk)
++    );
++    const joined = new Uint8Array(parts.reduce((length, part) => length + part.length, 0));
++    let offset = 0;
++    for (const part of parts) {
++        joined.set(part, offset);
++        offset += part.length;
++    }
++    return joined.buffer;
++}
++
+ /**
+  * Numeric value of an ASCII hex digit
+  *
+diff --git a/src/pass-through-decoder.ts b/src/pass-through-decoder.ts
+index 6d7c6fd9df09e3d62d288fe897cc12375f4b1351..9ae2d3d4e349eabe0993ebbe119dc525f72a8c25 100644
+--- a/src/pass-through-decoder.ts
++++ b/src/pass-through-decoder.ts
+@@ -1,4 +1,4 @@
+-import { blobToArrayBuffer } from './decode-strings.js';
++import { joinChunks } from './decode-strings.js';
+ 
+ export default class PassThroughDecoder {
+     chunks: Array<Uint8Array<ArrayBuffer> | string>;
+@@ -13,7 +13,6 @@ export default class PassThroughDecoder {
+     }
+ 
+     finalize(): Promise<ArrayBuffer> {
+-        // convert an array of arraybuffers into a blob and then back into a single arraybuffer
+-        return blobToArrayBuffer(new Blob(this.chunks, { type: 'application/octet-stream' }));
++        return joinChunks(this.chunks);
+     }
+ }
+diff --git a/src/qp-decoder.ts b/src/qp-decoder.ts
+index 463d4108068601dc70565c1a1f245da732305fed..ce2644fe5de4247b1cb596874ac3f846a30de5ce 100644
+--- a/src/qp-decoder.ts
++++ b/src/qp-decoder.ts
+@@ -1,4 +1,4 @@
+-import { blobToArrayBuffer, hexNibble } from './decode-strings.js';
++import { joinChunks, hexNibble } from './decode-strings.js';
+ 
+ const CHR_EQUALS = 0x3d;
+ const CHR_LF = 0x0a;
+@@ -87,7 +87,6 @@ export default class QPDecoder {
+     finalize(): Promise<ArrayBuffer> {
+         this.flushBuffer();
+ 
+-        // convert an array of arraybuffers into a blob and then back into a single arraybuffer
+-        return blobToArrayBuffer(new Blob(this.chunks, { type: 'application/octet-stream' }));
++        return joinChunks(this.chunks);
+     }
+ }

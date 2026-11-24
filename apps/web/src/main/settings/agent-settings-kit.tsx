@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { CheckIcon, StarIcon } from "lucide-react";
 import { Switch } from "@otter/ui/components/switch";
-import type { ProviderModel, ProviderSnapshot, RuntimeMode } from "../mail/api";
 import { RUNTIME_MODE_OPTIONS } from "../mail/model-picker";
 import {
   modelKey,
@@ -10,7 +9,8 @@ import {
   toggleAllHidden,
   toggleFavorite,
   useModelPrefs,
-} from "../mail/model-prefs";
+} from "@otter/client/agents/model-prefs";
+import { modelCapabilities, modelsList } from "@otter/client/agents/model-picker";
 import { shortcutText } from "../keybindings/keys";
 import { AgentAvatar } from "../agent/agent-providers";
 import type { AgentSettingsProps } from "../extensions/types";
@@ -27,10 +27,7 @@ import { Button, IconButton } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
 import { SettingsResetButton, SettingsRow, SettingsSection } from "@otter/ui/components/settings";
 import { DraftInput, Input } from "@otter/ui/components/input";
-
-function capabilityLabels(model: ProviderModel): string[] {
-  return (model.options ?? []).map((o) => (o.id === "serviceTier" ? "Fast" : o.label));
-}
+import type { ProviderSnapshot, RuntimeMode } from "@otter/client/agents/api";
 
 export function ModelsSection({
   provider,
@@ -44,26 +41,18 @@ export function ModelsSection({
   const { favorites, hidden } = useModelPrefs();
   const [filter, setFilter] = useState("");
   const key = (slug: string) => modelKey(provider.id, slug);
-  const favoriteSet = new Set(favorites);
-  const hiddenSet = new Set(hidden);
-  const groupOf = (m: ProviderModel) =>
-    favoriteSet.has(key(m.slug)) ? "favorite" : hiddenSet.has(key(m.slug)) ? "hidden" : "visible";
-  const rank = { favorite: 0, visible: 1, hidden: 2 } as const;
   const models = provider.models;
-  const query = filter.trim().toLowerCase();
-  const visible = models
-    .filter(
-      (m) =>
-        !query ||
-        m.name.toLowerCase().includes(query) ||
-        m.slug.toLowerCase().includes(query) ||
-        (m.subProvider ?? "").toLowerCase().includes(query),
-    )
-    .sort((a, b) => rank[groupOf(a)] - rank[groupOf(b)]);
-  const favoriteCount = models.filter((m) => favoriteSet.has(key(m.slug))).length;
-  const hiddenCount = models.filter((m) => hiddenSet.has(key(m.slug))).length;
-  const allKeys = models.map((m) => key(m.slug));
-  const allHidden = allKeys.length > 0 && allKeys.every((k) => hiddenSet.has(k));
+  const {
+    query,
+    shown: visible,
+    groupOf,
+    isHidden: hiddenModel,
+    favoriteCount,
+    hiddenCount,
+    allKeys,
+    allHidden,
+    customized,
+  } = modelsList(provider, { favorites, hidden }, filter, selectedModel);
 
   const groupLabel = (label: string, isFirst: boolean) => (
     <div className={cn("px-2 pb-1.5 text-2xs text-muted-foreground", isFirst ? "pt-1" : "pt-5")}>
@@ -75,9 +64,7 @@ export function ModelsSection({
     <SettingsSection
       {...searchableSetting("agent-models")}
       headerAction={
-        selectedModel ||
-        favorites.some((key) => key.startsWith(`${provider.id}:`)) ||
-        hidden.some((key) => key.startsWith(`${provider.id}:`)) ? (
+        customized ? (
           <SettingsResetButton
             label={`${provider.name} models`}
             onClick={() => {
@@ -128,10 +115,10 @@ export function ModelsSection({
             const group = groupOf(m);
             const previous = visible[index - 1];
             const startsGroup = !previous || groupOf(previous) !== group;
-            const isHidden = hiddenSet.has(key(m.slug));
+            const isHidden = hiddenModel(m);
             const isFavorite = group === "favorite";
             const isDefault = m.slug === provider.model;
-            const caps = capabilityLabels(m);
+            const caps = modelCapabilities(m);
             return (
               <div key={m.slug}>
                 {startsGroup && favoriteCount > 0 && group === "favorite"

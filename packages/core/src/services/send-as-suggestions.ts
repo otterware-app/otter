@@ -1,6 +1,6 @@
-import { FREEMAIL_DOMAINS } from "./freemail.js";
-import type { AddressCounts } from "./mail-store.js";
-import { isSingleAddress } from "./outgoing.js";
+import { FREEMAIL_DOMAINS } from "./freemail.ts";
+import type { AddressCounts } from "./mail-store.ts";
+import { isSingleAddress } from "./outgoing.ts";
 
 const domainOf = (address: string) => address.slice(address.lastIndexOf("@") + 1);
 

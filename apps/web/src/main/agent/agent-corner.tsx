@@ -1,29 +1,15 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import { AgentIcon } from "./agent-icon";
 
-import { isBlank, useChats } from "./chat-store";
+import { isBlank, useChats } from "@otter/client/agents/chat-store";
+import { useChatStatus, type ChatStatus } from "@otter/client/agents/chat-list";
 import { ShortcutText } from "../keybindings/store";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { cn } from "@otter/ui/lib/utils";
 import { useThemeDesign } from "../theme/apply-theme";
 
-export type ChatStatus = "approval" | "input" | "working" | "failed" | "done" | null;
-
-/** What a chat is doing, as the Agent space's list says it. */
-export function useChatStatus(id: string): ChatStatus {
-  return useChats((s) => {
-    const run = s.runs[id];
-    const asks = (r: { requestId: string }) => r.requestId === run?.requestId;
-    if (run && s.approvals.some(asks)) return "approval";
-    if (run && s.questions.some(asks)) return "input";
-    if (run) return "working";
-    if (s.conversations.find((c) => c.id === id)?.turns.at(-1)?.error) return "failed";
-    return s.unseen.has(id) ? "done" : null;
-  });
-}
-
-/** The list's status colors (agent-sidebar.tsx's `statusOf`). */
-const STATUS_DOT: Record<NonNullable<ChatStatus>, string> = {
+/** The list's status colors (agent-sidebar.tsx's `STATUS_LOOK`). */
+const STATUS_DOT: Record<ChatStatus, string> = {
   approval: "bg-warning-foreground",
   input: "bg-question-foreground",
   working: "animate-pulse bg-info-foreground",
@@ -31,7 +17,13 @@ const STATUS_DOT: Record<NonNullable<ChatStatus>, string> = {
   done: "bg-success-foreground",
 };
 
-export function StatusDot({ status, className }: { status: ChatStatus; className?: string }) {
+export function StatusDot({
+  status,
+  className,
+}: {
+  status: ChatStatus | null;
+  className?: string;
+}) {
   return (
     <span
       aria-hidden
