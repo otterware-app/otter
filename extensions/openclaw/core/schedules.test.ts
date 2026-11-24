@@ -761,6 +761,7 @@ describe("runs", () => {
     const rows = await runRows(g, "brief", "at:5");
     expect(calls[0].params).toEqual({ id: "brief", runAtMs: 5, limit: 200 });
     expect(rows[0]).toMatchObject({ role: "user", content: "Summarise my inbox" });
+    expect(rows[0]).not.toHaveProperty("provenance");
     expect(rows[1].role).toBe("assistant");
   });
 
