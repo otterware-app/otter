@@ -21,6 +21,7 @@ export function useDraftAutosave({
   getPayload,
   delayMs = 1500,
   enabled = true,
+  seeded = false,
   initialDraftId,
   initialMessageId,
   initialRevision,
@@ -42,6 +43,7 @@ export function useDraftAutosave({
     attachments?: ComposeAttachment[];
   } | null;
   enabled?: boolean;
+  seeded?: boolean;
   initialDraftId?: string | null;
   initialMessageId?: string;
   initialRevision?: string;
@@ -98,9 +100,9 @@ export function useDraftAutosave({
   const adoptCurrentSoonForEffect = useLatest(adoptCurrentSoon);
   useEffect(() => {
     if (!enabled) return;
-    adoptCurrentSoonForEffect.current();
+    if (!seeded) adoptCurrentSoonForEffect.current();
     pausedRef.current = remoteRef.current != null;
-  }, [enabled, adoptCurrentSoonForEffect, remoteRef]);
+  }, [enabled, seeded, adoptCurrentSoonForEffect, remoteRef]);
 
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["gmail:messages"] });
@@ -215,9 +217,10 @@ export function useDraftAutosave({
   // deleting (send path closes the composer first, optimistically).
   const pendingRef = useRef<Promise<void> | null>(null);
   const trigger = () => {
-    const p = saveRef.current();
-    pendingRef.current = p;
-    return p;
+    if (savingRef.current && pendingRef.current) return pendingRef.current;
+    const pending = saveRef.current();
+    pendingRef.current = pending;
+    return pending;
   };
   const triggerRef = useRef<typeof trigger | null>(null);
   useLayoutEffect(() => {
@@ -305,6 +308,12 @@ export function useDraftAutosave({
     void triggerRef.current?.();
   };
 
+  const flush = async () => {
+    await pendingRef.current;
+    await trigger();
+    return signalRef.current === snapshotRef.current && remoteRef.current === null;
+  };
+
   const finalize = async (opts?: { deleteDraft?: boolean }) => {
     doneRef.current = true;
     if (pendingRef.current) await pendingRef.current;
@@ -358,6 +367,7 @@ export function useDraftAutosave({
     keepMine,
     saveAsNew,
     finalize,
+    flush,
     savedDraft,
     sending,
     reopen,

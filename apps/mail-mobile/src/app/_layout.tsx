@@ -1,5 +1,5 @@
 import { startSyncedPreferences } from "@otter/client/preferences";
-import { useExternalMailChanges } from "@otter/client/mail/hooks";
+import { useExternalMailChanges, useWriteFailureToasts } from "@otter/client/mail/hooks";
 import { Spinner } from "@otter/ui-native/components/spinner";
 import { useTheme } from "@otter/ui-native/theme";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -10,6 +10,8 @@ import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { coreStarted } from "../core.ts";
+import { MailNotices } from "../frame/mail-notices.tsx";
+import { followColorScheme } from "../settings/preferences.ts";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -38,6 +40,8 @@ function MailStack() {
   use(coreStarted);
   const theme = useTheme();
   useExternalMailChanges();
+  useWriteFailureToasts();
+  useEffect(() => followColorScheme(), []);
   useEffect(() => startSyncedPreferences(), []);
   return (
     <ThemeProvider value={theme.scheme === "dark" ? DarkTheme : DefaultTheme}>
@@ -50,12 +54,16 @@ function MailStack() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="mail/[account]/[label]/index" options={{ headerLargeTitle: true }} />
+        <Stack.Screen name="mail/[account]/[label]/index" options={{ headerShown: false }} />
         <Stack.Screen name="mail/[account]/[label]/[thread]" />
         <Stack.Screen name="search" options={{ presentation: "modal", title: "Search" }} />
         <Stack.Screen name="compose" options={{ presentation: "modal", title: "New message" }} />
         <Stack.Screen name="settings" options={{ presentation: "modal", title: "Settings" }} />
+        <Stack.Screen name="settings/mailboxes" options={{ title: "Mailboxes" }} />
+        <Stack.Screen name="settings/mailbox" options={{ title: "Mailbox" }} />
+        <Stack.Screen name="account" options={{ title: "Otter account" }} />
       </Stack>
+      <MailNotices />
     </ThemeProvider>
   );
 }

@@ -1,1 +1,1 @@
-export { SettingsScreen as default } from "../mail/settings-screen.tsx";
+export { SettingsScreen as default } from "../settings/settings-screen.tsx";

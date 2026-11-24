@@ -1,13 +1,36 @@
-import { formatFullDate } from "@otter/client/mail/format";
-import { useMessage, useModifyThread, useThread } from "@otter/client/mail/hooks";
+import { getAccountColor, getAccountDisplayName } from "@otter/client/mail/account-style";
+import { pickAdvanceTarget } from "@otter/client/mail/advance-direction";
+import type { ListMessagesResult } from "@otter/client/mail/api";
+import { capabilitiesOf } from "@otter/client/mail/capabilities";
+import { queryKeys, useLabels, useModifyThread, useThread } from "@otter/client/mail/hooks";
+import { findVerificationCode } from "@otter/client/mail/verification-code";
 import type { MessageSummary } from "@otter/client/mail/types";
-import { Avatar } from "@otter/ui-native/components/avatar";
+import { Button } from "@otter/ui-native/components/button";
 import { EmptyState } from "@otter/ui-native/components/empty-state";
+import { Glass } from "@otter/ui-native/components/glass";
 import { Spinner } from "@otter/ui-native/components/spinner";
 import { Text } from "@otter/ui-native/components/text";
-import { useTheme } from "@otter/ui-native/theme";
+import { alpha, useTheme } from "@otter/ui-native/theme";
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { ScrollView, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActionSheetIOS, ScrollView, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { CodeCard } from "./code-card.tsx";
+import { MailButton } from "../frame/mail-bar.tsx";
+import { useFullWidthMessages } from "../settings/preferences.ts";
+import {
+  confirmDelete,
+  hasLabels,
+  LabelSheet,
+  useMailActions,
+  type LabelPicker,
+  type MailAction,
+} from "./mail-actions.tsx";
+import { useMailboxes } from "./mailboxes.ts";
+import { MessageCard, replyOptions, type ReplyMode } from "./message-card.tsx";
+import { mailPointer, sendToAgent, useAgentsInstalled } from "./send-to-agent.ts";
 
 export function ThreadScreen() {
   const { account, label, thread } = useLocalSearchParams<{
@@ -15,137 +38,387 @@ export function ThreadScreen() {
     label: string;
     thread: string;
   }>();
-  const result = useThread(account, thread);
-  const modify = useModifyThread();
+  return (
+    <Conversation
+      key={JSON.stringify([account, thread])}
+      scope={account}
+      label={label}
+      thread={thread}
+    />
+  );
+}
+
+function Conversation({ scope, label, thread }: { scope: string; label: string; thread: string }) {
   const router = useRouter();
+  const queries = useQueryClient();
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const { mailboxes } = useMailboxes();
+  const mailbox = mailboxes.find(({ look }) => look.id === scope);
+  const account = mailbox?.account;
+  const alias = mailbox?.alias;
+  const result = useThread(account?.id ?? null, thread, alias);
+  const labels = useLabels(account?.id ?? null, alias);
+  const { mutate: modify } = useModifyThread();
+  const currentLabels = labels.data ?? [];
+  const actions = useMailActions(account, label, currentLabels);
+  const agents = useAgentsInstalled();
+  const fullWidth = useFullWidthMessages();
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [labelPicker, setLabelPicker] = useState<LabelPicker | null>(null);
+  const markedRead = useRef(false);
   const messages = result.data ?? [];
   const latest = messages.at(-1);
+  const replyTo = messages.findLast((message) => !message.labelIds.includes("DRAFT"));
+  const verification = replyTo ? findVerificationCode(replyTo.subject, replyTo.snippet) : null;
   const starred = messages.some((message) => message.starred);
-  const inInbox = messages.some((message) => message.labelIds.includes("INBOX"));
-  const canReply = latest && !latest.labelIds.includes("DRAFT");
+  const caps = capabilitiesOf(account);
+  const flag = caps.stars ? "star" : "flag";
+  const bin = label === "TRASH" || label === "SPAM";
+  const removable = label === "TRASH" || label === "SPAM" || label === "DRAFT";
+  const summary = latest
+    ? {
+        ...latest,
+        threadLabelIds: [...new Set(messages.flatMap((message) => message.labelIds))],
+        threadUnread: messages.some((message) => message.unread),
+        threadStarred: starred,
+      }
+    : null;
+
+  useEffect(() => {
+    if (!account || !result.data?.length || markedRead.current) return;
+    markedRead.current = true;
+    if (result.data.some((message) => message.unread)) {
+      modify({ accountId: account.id, threadId: thread, removeLabelIds: ["UNREAD"] });
+    }
+  }, [account, modify, result.data, thread]);
+
+  function compose(mode: ReplyMode | "draft", message: MessageSummary) {
+    router.push({
+      pathname: "/compose",
+      params:
+        mode === "draft"
+          ? { account: scope, draft: message.id, thread }
+          : { account: scope, replyTo: message.id, mode, thread },
+    });
+  }
+
+  function goBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace({ pathname: "/mail/[account]/[label]", params: { account: scope, label } });
+  }
+
+  function act(action: MailAction, leaves = false) {
+    if (!account || !summary) return;
+    const rows =
+      queries
+        .getQueryData<InfiniteData<ListMessagesResult>>(
+          queryKeys.messages(account.id, label, alias),
+        )
+        ?.pages.flatMap((page) => page.messages) ?? [];
+    const index = rows.findIndex(({ threadId }) => threadId === thread);
+    const next = leaves && index >= 0 ? pickAdvanceTarget(rows, index) : null;
+    const run = () =>
+      void actions.run(action, [summary]).then((ok) => {
+        if (!ok || !leaves) return;
+        if (next)
+          router.replace({
+            pathname: "/mail/[account]/[label]/[thread]",
+            params: { account: scope, label, thread: next.threadId },
+          });
+        else goBack();
+      });
+    if (action === "delete" || action === "discard") confirmDelete(1, action === "discard", run);
+    else run();
+  }
+
+  function replyMenu() {
+    if (!replyTo) return;
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        options: [...replyOptions.map(({ title }) => title), "Cancel"],
+        cancelButtonIndex: replyOptions.length,
+      },
+      (index) => {
+        const option = replyOptions[index];
+        if (option) compose(option.id, replyTo);
+      },
+    );
+  }
+
   return (
-    <View style={{ flex: 1 }}>
-      <Stack.Screen options={{ title: "" }} />
-      {latest ? (
-        <Stack.Toolbar placement="right">
-          <Stack.Toolbar.Button
-            icon={starred ? "star.fill" : "star"}
-            accessibilityLabel={starred ? "Unstar conversation" : "Star conversation"}
-            onPress={() =>
-              modify.mutate({
-                accountId: account,
-                threadId: thread,
-                ...(starred ? { removeLabelIds: ["STARRED"] } : { addLabelIds: ["STARRED"] }),
-              })
-            }
-          />
-          <Stack.Toolbar.Menu icon="ellipsis" accessibilityLabel="Conversation actions">
-            {inInbox ? (
-              <Stack.Toolbar.MenuAction
-                icon="archivebox"
-                onPress={() =>
-                  modify.mutate(
-                    {
-                      accountId: account,
-                      threadId: thread,
-                      removeLabelIds: ["INBOX"],
-                      from: label,
-                    },
-                    { onSuccess: () => router.back() },
-                  )
-                }
-              >
-                Archive
-              </Stack.Toolbar.MenuAction>
-            ) : null}
-            <Stack.Toolbar.MenuAction
-              icon="envelope"
-              onPress={() =>
-                modify.mutate({ accountId: account, threadId: thread, addLabelIds: ["UNREAD"] })
+    <View style={styles.fill}>
+      <Stack.Screen options={{ title: "", headerBackButtonDisplayMode: "minimal" }} />
+      {summary && (
+        <>
+          <Stack.Toolbar placement="right">
+            <Stack.Toolbar.Button
+              icon={starred ? (caps.stars ? "star.fill" : "flag.fill") : flag}
+              accessibilityLabel={
+                starred ? (caps.stars ? "Unstar" : "Unflag") : caps.stars ? "Star" : "Flag"
               }
-            >
-              Mark unread
-            </Stack.Toolbar.MenuAction>
-            {canReply ? (
+              onPress={() => act(starred ? "unstar" : "star")}
+            />
+            <Stack.Toolbar.Menu icon="ellipsis" accessibilityLabel="Conversation actions">
+              {replyTo && (
+                <>
+                  <Stack.Toolbar.MenuAction
+                    icon="arrowshape.turn.up.left.2"
+                    onPress={() => compose("replyAll", replyTo)}
+                  >
+                    Reply all
+                  </Stack.Toolbar.MenuAction>
+                  <Stack.Toolbar.MenuAction
+                    icon="arrowshape.turn.up.right"
+                    onPress={() => compose("forward", replyTo)}
+                  >
+                    Forward
+                  </Stack.Toolbar.MenuAction>
+                </>
+              )}
+              <Stack.Toolbar.MenuAction icon="envelope" onPress={() => act("unread", true)}>
+                Mark unread
+              </Stack.Toolbar.MenuAction>
+              {bin || label === "ARCHIVE" ? (
+                <Stack.Toolbar.MenuAction
+                  icon="tray.and.arrow.down"
+                  onPress={() => act("restore", true)}
+                >
+                  Move to Inbox
+                </Stack.Toolbar.MenuAction>
+              ) : actions.canArchive(summary) ? (
+                <Stack.Toolbar.MenuAction icon="archivebox" onPress={() => act("archive", true)}>
+                  Archive
+                </Stack.Toolbar.MenuAction>
+              ) : null}
+              {!bin && label !== "DRAFT" ? (
+                <Stack.Toolbar.MenuAction
+                  icon="exclamationmark.octagon"
+                  onPress={() => act("junk", true)}
+                >
+                  Mark as junk
+                </Stack.Toolbar.MenuAction>
+              ) : null}
+              {caps.archiveFolder ? (
+                <Stack.Toolbar.MenuAction icon="folder" onPress={() => setLabelPicker("move")}>
+                  Move to
+                </Stack.Toolbar.MenuAction>
+              ) : null}
+              {hasLabels(account, currentLabels) ? (
+                <Stack.Toolbar.MenuAction icon="tag" onPress={() => setLabelPicker("label")}>
+                  {caps.foldersAndCategories ? "Categories" : "Labels"}
+                </Stack.Toolbar.MenuAction>
+              ) : null}
+              {agents && account ? (
+                <Stack.Toolbar.MenuAction
+                  icon="sparkles"
+                  onPress={() => sendToAgent([mailPointer(account.email, summary)])}
+                >
+                  Send to agent
+                </Stack.Toolbar.MenuAction>
+              ) : null}
               <Stack.Toolbar.MenuAction
-                icon="arrowshape.turn.up.left"
+                icon="trash"
+                destructive
                 onPress={() =>
-                  router.push({
-                    pathname: "/compose",
-                    params: { account, replyTo: latest.id, thread },
-                  })
+                  act(removable ? (label === "DRAFT" ? "discard" : "delete") : "trash", true)
                 }
               >
-                Reply
+                {label === "DRAFT"
+                  ? "Discard draft"
+                  : label === "TRASH"
+                    ? "Delete forever"
+                    : "Move to Trash"}
               </Stack.Toolbar.MenuAction>
-            ) : null}
-          </Stack.Toolbar.Menu>
-        </Stack.Toolbar>
-      ) : null}
+            </Stack.Toolbar.Menu>
+          </Stack.Toolbar>
+        </>
+      )}
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={{ paddingHorizontal: 18, paddingVertical: 16, gap: 12 }}
+        contentContainerStyle={[
+          styles.content,
+          { paddingHorizontal: 0, paddingBottom: insets.bottom + 74 },
+        ]}
       >
-        {result.isPending ? <Spinner /> : null}
+        {result.isPending && <Spinner />}
         {result.isError ? (
           <EmptyState
             icon="envelope"
             title="Couldn't load conversation"
             description={result.error.message}
+            actions={<Button title="Try again" onPress={() => void result.refetch()} />}
           />
         ) : null}
-        {latest ? (
-          <Text size="2xl" weight="semibold" accessibilityRole="header">
-            {latest.subject || "(No subject)"}
-          </Text>
+        {result.isSuccess && !latest ? (
+          <EmptyState icon="envelope" title="Conversation unavailable" />
         ) : null}
-        {messages.map((message) => (
-          <MessageCard key={message.id} account={account} message={message} />
-        ))}
+        {latest && account && (
+          <>
+            <Text
+              accessibilityRole="header"
+              size="2xl"
+              weight="semibold"
+              selectable
+              style={styles.subject}
+            >
+              {latest.subject || "(No subject)"}
+            </Text>
+            {mailbox && summary && (
+              <View style={styles.threadLabels}>
+                <View
+                  style={[styles.mailboxDot, { backgroundColor: getAccountColor(mailbox.look) }]}
+                />
+                <Text size="body" color="mutedForeground">
+                  {getAccountDisplayName(mailbox.look)}
+                </Text>
+                {currentLabels
+                  .filter(
+                    (label) => label.type === "user" && summary.threadLabelIds.includes(label.id),
+                  )
+                  .map(({ id, name, color }) => (
+                    <Text
+                      key={id}
+                      size="xs"
+                      weight="medium"
+                      style={[
+                        styles.label,
+                        {
+                          backgroundColor: alpha(
+                            color?.backgroundColor ?? theme.colors.mutedForeground,
+                            0.18,
+                          ),
+                        },
+                      ]}
+                    >
+                      {name.split("/").at(-1)}
+                    </Text>
+                  ))}
+              </View>
+            )}
+            {verification && (
+              <View style={{ marginHorizontal: 20 }}>
+                <CodeCard
+                  code={verification}
+                  onTrash={bin ? undefined : () => act("trash", true)}
+                />
+              </View>
+            )}
+            {messages.map((message) => (
+              <MessageCard
+                key={message.id}
+                message={message}
+                account={account.id}
+                email={account.email}
+                scope={scope}
+                agents={agents}
+                fullWidth={fullWidth}
+                opened={expanded[message.id] ?? message.id === latest.id}
+                toggle={() =>
+                  setExpanded((current) => ({
+                    ...current,
+                    [message.id]: !(current[message.id] ?? message.id === latest.id),
+                  }))
+                }
+                onCompose={compose}
+              />
+            ))}
+          </>
+        )}
       </ScrollView>
+      {latest && summary && (
+        <View pointerEvents="box-none" style={[styles.bottom, { bottom: insets.bottom + 6 }]}>
+          {actions.canArchive(summary) ? (
+            <Glass shape="circle">
+              <MailButton title="Archive" icon="archivebox" onPress={() => act("archive", true)} />
+            </Glass>
+          ) : bin || label === "ARCHIVE" ? (
+            <Glass shape="circle">
+              <MailButton
+                title="Move to Inbox"
+                icon="tray.and.arrow.down"
+                onPress={() => act("restore", true)}
+              />
+            </Glass>
+          ) : null}
+          <Glass shape="circle">
+            <MailButton
+              title={removable ? (label === "DRAFT" ? "Discard draft" : "Delete forever") : "Trash"}
+              icon="trash"
+              onPress={() =>
+                act(removable ? (label === "DRAFT" ? "discard" : "delete") : "trash", true)
+              }
+            />
+          </Glass>
+          <View style={{ flex: 1 }} />
+          {agents && account && (
+            <Glass shape="circle">
+              <MailButton
+                title="Send to agent"
+                icon="sparkles"
+                onPress={() => sendToAgent([mailPointer(account.email, summary)])}
+              />
+            </Glass>
+          )}
+          {latest.labelIds.includes("DRAFT") ? (
+            <Glass shape="circle">
+              <MailButton
+                title="Edit draft"
+                icon="square.and.pencil"
+                onPress={() => compose("draft", latest)}
+              />
+            </Glass>
+          ) : (
+            replyTo && (
+              <Glass shape="circle">
+                <MailButton
+                  title="Reply"
+                  icon="arrowshape.turn.up.left"
+                  onPress={() => compose("reply", replyTo)}
+                  onLongPress={replyMenu}
+                />
+              </Glass>
+            )
+          )}
+        </View>
+      )}
+      <LabelSheet
+        kind={labelPicker}
+        account={account}
+        labels={currentLabels}
+        threads={summary ? [summary] : []}
+        onClose={() => setLabelPicker(null)}
+        onChange={(kind, id) => {
+          if (!summary) return;
+          void actions.changeLabel(kind, id, [summary]).then((ok) => {
+            if (ok && kind === "move" && id !== label) goBack();
+          });
+        }}
+      />
     </View>
   );
 }
 
-function MessageCard({ account, message }: { account: string; message: MessageSummary }) {
-  const theme = useTheme();
-  const detail = useMessage(account, message.id);
-  const sender = message.fromName || message.fromEmail;
-  const body = detail.data?.bodyText?.trim() || message.snippet;
-  return (
-    <View
-      style={{
-        borderRadius: 18,
-        borderCurve: "continuous",
-        backgroundColor: theme.colors.card,
-        gap: 11,
-        padding: 14,
-      }}
-    >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
-        <Avatar size={34} initials={Array.from(sender)[0]?.toLocaleUpperCase()} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text size="md" weight="semibold" numberOfLines={1}>
-            {sender}
-          </Text>
-          <Text size="sm" color="mutedForeground">
-            {formatFullDate(message.date)}
-          </Text>
-        </View>
-      </View>
-      {detail.isError ? (
-        <Text size="sm" color="mutedForeground">
-          Couldn't load the full message.
-        </Text>
-      ) : null}
-      <Text size="base" selectable>
-        {body}
-      </Text>
-      {detail.data?.attachments.map((attachment) => (
-        <Text key={attachment.id} size="sm" color="mutedForeground">
-          {attachment.filename}
-        </Text>
-      ))}
-    </View>
-  );
-}
+const styles = StyleSheet.create({
+  fill: { flex: 1 },
+  content: { paddingTop: 8, gap: 10 },
+  subject: { marginHorizontal: 20 },
+  threadLabels: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 20,
+    marginBottom: 10,
+  },
+  mailboxDot: { width: 7, height: 7, borderRadius: 4 },
+  label: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 9, overflow: "hidden" },
+  bottom: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+});
