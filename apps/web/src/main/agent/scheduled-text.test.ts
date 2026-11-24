@@ -3,6 +3,7 @@ import {
   cronText,
   everyText,
   newWhenForm,
+  dayText,
   dayTimeText,
   scheduleOfForm,
   scheduleText,
@@ -58,6 +59,23 @@ describe("scheduleText", () => {
     expect(everyText(86_400_000)).toBe("Every day");
     expect(scheduleText({ kind: "at", at: "2026-12-01T09:00:00Z" })).toMatch(/^Once, /);
     expect(scheduleText({ kind: "other", text: "When make exits" })).toBe("When make exits");
+  });
+});
+
+describe("dayText", () => {
+  const now = new Date(2026, 10, 8, 14, 0).getTime();
+  const on = (d: number) => new Date(2026, 10, d, 9, 30).getTime();
+
+  it("names the day near today, and dates the rest", () => {
+    expect(dayText(on(8), now)).toBe("Today");
+    expect(dayText(on(9), now)).toBe("Tomorrow");
+    expect(dayText(on(7), now)).toBe("Yesterday");
+    expect(dayText(on(5), now)).toBe(
+      new Date(2026, 10, 5).toLocaleDateString(undefined, { weekday: "short" }),
+    );
+    expect(dayText(on(20), now)).toBe(
+      new Date(2026, 10, 20).toLocaleDateString(undefined, { day: "numeric", month: "short" }),
+    );
   });
 });
 

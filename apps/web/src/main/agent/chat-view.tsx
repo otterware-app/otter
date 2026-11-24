@@ -34,6 +34,10 @@ import { useOtterAccount } from "../otter-account";
 import { toast } from "@otter/ui/components/toast";
 import { Button } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
+import { MarginPage, MarginRow } from "@otter/ui/components/margin";
+import { useAppLayout } from "../theme/interface-settings";
+import { ChatTitle } from "./chat-title";
+import { messageTime } from "./chat-time";
 
 const NO_QUEUE: QueuedMessage[] = [];
 
@@ -81,6 +85,7 @@ export function ChatView({
   centered?: boolean;
 }) {
   const convo = useChats((s) => s.conversations.find((c) => c.id === chatId));
+  const margin = useAppLayout() === "margin" && !compact;
   const device = useChats((s) => s.device);
   const unloaded = convo !== undefined && !convo.loaded;
   useEffect(() => {
@@ -179,8 +184,31 @@ export function ChatView({
       onSent={citing.close}
       updateSettings={updateSettings}
       compact={compact}
+      ruled={margin}
     />
   );
+  const queued = (
+    <QueuedMessages
+      items={queue}
+      editingId={editingQueued}
+      canSend={canSendQueued}
+      onSend={steerQueued}
+      onEdit={(id) => {
+        editQueued(id);
+        inputRef.current?.focus();
+      }}
+      onCancelEdit={() => cancelQueuedEdit(chatId)}
+      onRemove={removeQueued}
+    />
+  );
+  const first = turns[0];
+  const kicker = [
+    chat.name,
+    first?.context?.subjects[0] ? `started from ${first.context.subjects[0]}` : null,
+    first?.startedAt ? messageTime(first.startedAt) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div
@@ -254,14 +282,35 @@ export function ChatView({
               viewportClassName={
                 compact
                   ? "px-1 pb-2 pt-2"
-                  : "topbar-scroll-fade px-3 pb-3 pt-(--workspace-titlebar-scroll-fade-height)"
+                  : cn(
+                      "topbar-scroll-fade pb-3 pt-(--workspace-titlebar-scroll-fade-height)",
+                      margin ? "px-0" : "px-3",
+                    )
               }
               render={<MessageScroller.Viewport />}
             >
               <MessageScroller.Content
                 ref={setTranscript}
-                className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-2"
+                className={
+                  margin
+                    ? // MarginPage's room: its rows have to be the scroller's own children.
+                      "@container/margin mx-auto flex w-full max-w-[85rem] flex-col px-6"
+                    : "mx-auto flex w-full max-w-3xl flex-col gap-2 px-2"
+                }
               >
+                {margin && convo && turns.length > 0 ? (
+                  <MarginRow className="pb-6 pt-8">
+                    <div className="flex flex-col gap-2 px-1">
+                      <span className="truncate font-mono text-2xs tracking-wider text-placeholder uppercase">
+                        {kicker}
+                      </span>
+                      <ChatTitle
+                        chat={convo}
+                        className="font-reading text-3xl leading-tight text-foreground"
+                      />
+                    </div>
+                  </MarginRow>
+                ) : null}
                 {turns.length === 0 && hydrating ? (
                   <div className="px-2 pt-6 text-center text-sm text-placeholder">
                     Loading this session from {chat.name}…
@@ -277,6 +326,7 @@ export function ChatView({
                   loadImage={loadChatImage}
                   onOpenContext={openContextItem}
                   onOpenChange={onOpenChange}
+                  margin={margin}
                   onFork={
                     chat.provider?.forks && convo?.sessionId
                       ? (turnId) =>
@@ -290,18 +340,7 @@ export function ChatView({
                       : undefined
                   }
                 />
-                <QueuedMessages
-                  items={queue}
-                  editingId={editingQueued}
-                  canSend={canSendQueued}
-                  onSend={steerQueued}
-                  onEdit={(id) => {
-                    editQueued(id);
-                    inputRef.current?.focus();
-                  }}
-                  onCancelEdit={() => cancelQueuedEdit(chatId)}
-                  onRemove={removeQueued}
-                />
+                {margin ? queue.length > 0 ? <MarginRow>{queued}</MarginRow> : null : queued}
               </MessageScroller.Content>
             </ScrollArea>
             <MessageScroller.Button
@@ -345,7 +384,13 @@ export function ChatView({
               </div>
             ) : null}
           </MessageScroller.Root>
-          {composer}
+          {margin ? (
+            <MarginPage className="shrink-0">
+              <MarginRow>{composer}</MarginRow>
+            </MarginPage>
+          ) : (
+            composer
+          )}
           {compact ? null : (
             <div
               key={chatId}

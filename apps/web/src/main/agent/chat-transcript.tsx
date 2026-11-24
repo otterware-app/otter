@@ -19,7 +19,7 @@ import {
   TextQuoteIcon,
   XIcon,
 } from "lucide-react";
-import { CompactionRow, WorkLog, type TurnItem } from "./work-log";
+import { CompactionRow, MarginSteps, WorkLog, type TurnItem } from "./work-log";
 import type { ChatChange } from "../mail/api";
 import type { ContextKind, ContextMeta } from "./chat-context";
 import { findTokenRanges, messageTokens } from "@otter/shared/chat-search";
@@ -41,6 +41,7 @@ import { IntentMarker } from "./chat-queue";
 import { toast } from "@otter/ui/components/toast";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { cn } from "@otter/ui/lib/utils";
+import { MarginRow } from "@otter/ui/components/margin";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -97,9 +98,11 @@ export function SkillBadge({
 function ContextRecap({
   context,
   onOpen,
+  start = false,
 }: {
   context: ContextMeta;
   onOpen: (item: { title: string; target: ChatChange["target"] }) => void;
+  start?: boolean;
 }) {
   const label =
     context.count > 1
@@ -109,7 +112,7 @@ function ContextRecap({
   const chipClass =
     "flex max-w-64 items-center gap-1.5 rounded-sm border border-border px-2 py-0.5 text-2xs font-medium text-muted-foreground";
   return (
-    <div className="mb-1 flex justify-end">
+    <div className={cn("mb-1 flex", start ? "justify-start" : "justify-end")}>
       {items.length === 1 ? (
         <button
           type="button"
@@ -308,6 +311,16 @@ function MessageTime({ at }: { at: number | undefined }) {
   );
 }
 
+/** A turn's time in the Margin layout's gutter. */
+function GutterTime({ at }: { at: number | undefined }) {
+  if (!at) return null;
+  return (
+    <HintTooltip label={new Date(at).toLocaleString([], { dateStyle: "full", timeStyle: "short" })}>
+      <span>{messageTime(at)}</span>
+    </HintTooltip>
+  );
+}
+
 function CopyMessageButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -373,6 +386,7 @@ export function ChatTranscript({
   onOpenContext,
   onOpenChange,
   onFork,
+  margin = false,
 }: {
   turns: ChatTurn[];
   streaming: boolean;
@@ -386,6 +400,8 @@ export function ChatTranscript({
   onOpenChange: (change: ChatChange) => Promise<void>;
   /** Forks the chat after this reply; absent when the agent can't. */
   onFork?: (turnId: string) => void;
+  /** The Margin layout: turns as a document, what each did and made in its margin. */
+  margin?: boolean;
 }) {
   const [expandedFolds, setExpandedFolds] = useState<Set<string>>(() => new Set());
   const { scrollToEnd, scrollToMessage } = useMessageScroller();
@@ -429,15 +445,68 @@ export function ChatTranscript({
       const opening = replyItems[openingCompactions(replyItems) - 1];
       const waiting = opening?.kind === "step" && isLive(reply) && opening.output === undefined;
       const compaction = opening?.kind === "step" && !waiting ? opening : null;
+      const intent =
+        (turn.intent === "steer" || turn.intent === "promoted") && !continuesSteer(turns, index) ? (
+          <IntentMarker intent={turn.intent} />
+        ) : null;
+      const citations = turn.citations?.map((citation, at) => (
+        // oxlint-disable-next-line react/no-array-index-key -- A sent message's citations never change.
+        <div key={at} className="mb-2">
+          <div className="line-clamp-3 border-l-2 border-message-foreground/25 pl-2.5 text-message-foreground/70">
+            {citation.text}
+          </div>
+          {citation.comment ? <div className="mt-1">{citation.comment}</div> : null}
+        </div>
+      ));
+      const spoken = turn.spoken ? (
+        <HintTooltip label="Said in a call">
+          <AudioLinesIcon
+            aria-label="Said in a call"
+            className="mx-1 size-3.5 text-muted-foreground"
+          />
+        </HintTooltip>
+      ) : null;
+      if (margin)
+        return (
+          <MessageScroller.Item key={turn.id} messageId={turn.id}>
+            {compaction ? <CompactionRow output={compaction.output} live={false} /> : null}
+            {waiting ? <WorkingRow startedAt={runStartedAt} compacting /> : null}
+            <MarginRow gutter={<GutterTime at={turn.startedAt} />} className="group py-4">
+              <div className="flex flex-col gap-1.5 px-1">
+                {intent}
+                <span className="text-body text-placeholder">You</span>
+                {turn.context ? (
+                  <ContextRecap context={turn.context} onOpen={onOpenContext} start />
+                ) : null}
+                {turn.attachments ? <SentAttachments attachments={turn.attachments} /> : null}
+                {citations}
+                <div
+                  className={cn(
+                    "select-text whitespace-pre-wrap text-lg leading-relaxed wrap-anywhere",
+                    waiting ? "text-muted-foreground" : "text-foreground",
+                  )}
+                >
+                  {turn.skill ? (
+                    <span className="mr-1.5 inline-flex align-middle">
+                      <SkillBadge name={turn.skill} />
+                    </span>
+                  ) : null}
+                  {turn.text}
+                </div>
+                <div className="-ms-1 flex h-6 items-center">
+                  {spoken}
+                  {turn.text ? <CopyMessageButton text={turn.text} /> : null}
+                </div>
+              </div>
+            </MarginRow>
+          </MessageScroller.Item>
+        );
       return (
         <MessageScroller.Item key={turn.id} messageId={turn.id}>
           {compaction ? <CompactionRow output={compaction.output} live={false} /> : null}
           {waiting ? <WorkingRow startedAt={runStartedAt} compacting /> : null}
           <div className="group flex flex-col items-end gap-1 py-3">
-            {(turn.intent === "steer" || turn.intent === "promoted") &&
-            !continuesSteer(turns, index) ? (
-              <IntentMarker intent={turn.intent} />
-            ) : null}
+            {intent}
             {turn.context ? <ContextRecap context={turn.context} onOpen={onOpenContext} /> : null}
             <div
               className={cn(
@@ -453,26 +522,11 @@ export function ChatTranscript({
                 </span>
               ) : null}
               {turn.attachments ? <SentAttachments attachments={turn.attachments} /> : null}
-              {turn.citations?.map((citation, at) => (
-                // oxlint-disable-next-line react/no-array-index-key -- A sent message's citations never change.
-                <div key={at} className="mb-2">
-                  <div className="line-clamp-3 border-l-2 border-message-foreground/25 pl-2.5 text-message-foreground/70">
-                    {citation.text}
-                  </div>
-                  {citation.comment ? <div className="mt-1">{citation.comment}</div> : null}
-                </div>
-              ))}
+              {citations}
               {turn.text}
             </div>
             <div className="flex items-center">
-              {turn.spoken ? (
-                <HintTooltip label="Said in a call">
-                  <AudioLinesIcon
-                    aria-label="Said in a call"
-                    className="mx-1 size-3.5 text-muted-foreground"
-                  />
-                </HintTooltip>
-              ) : null}
+              {spoken}
               <MessageTime at={turn.startedAt} />
               {turn.text ? <CopyMessageButton text={turn.text} /> : null}
             </div>
@@ -502,76 +556,109 @@ export function ChatTranscript({
     const shown = folded
       ? body.filter((item, i) => isCompaction(item) && !isCompaction(body[i + 1]))
       : body;
-    return (
-      <MessageScroller.Item key={turn.id} messageId={turn.id}>
-        <div className="flex flex-col">
-          <DeliveryRow turn={turn} />
-          {layout?.working && !compactingFirst ? (
-            <WorkingRow startedAt={turn.startedAt} compacting={false} />
-          ) : null}
-          {fold ? (
-            <WorkFoldRow
-              label={fold.label}
-              at={fold.at}
-              expanded={expandedFolds.has(fold.id)}
-              onToggle={() => toggleFold(fold.id)}
-            />
-          ) : null}
-          {shown.length > 0 ? (
+    const said = margin
+      ? shown.filter((item) => item.kind === "text" || isCompaction(item))
+      : shown;
+    const column = (
+      <>
+        <DeliveryRow turn={turn} />
+        {layout?.working && !compactingFirst ? (
+          <WorkingRow startedAt={turn.startedAt} compacting={false} />
+        ) : null}
+        {fold ? (
+          <WorkFoldRow
+            label={fold.label}
+            at={fold.at}
+            expanded={expandedFolds.has(fold.id)}
+            onToggle={() => toggleFold(fold.id)}
+          />
+        ) : null}
+        {said.length > 0 ? (
+          <div className={cn(margin && "font-reading")}>
             <WorkLog
-              items={shown}
+              items={said}
               live={live}
               stepping={layout?.stepping}
               onOpenFile={onOpenFile}
               loadImage={loadImage}
             />
-          ) : null}
-          {layout?.thinking ? <ThinkingRow /> : null}
-          {answer ? (
-            <div className="group min-w-0 px-1 py-2">
-              <div data-cite-source className="font-reading">
-                <ChatMarkdown text={answer} onOpenFile={onOpenFile} loadImage={loadImage} />
-              </div>
-              <div className="mt-1 flex items-center">
-                <MessageTime at={turn.finishedAt ?? turn.startedAt} />
-                <CopyMessageButton text={answer} />
-                {onFork && !streaming ? (
-                  <HintTooltip label="Fork conversation">
-                    <IconButton
-                      label="Fork conversation"
-                      size="icon-xs"
-                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                      onClick={() => onFork(turn.id)}
-                    >
-                      <GitForkIcon className="size-3.5" />
-                    </IconButton>
-                  </HintTooltip>
-                ) : null}
-              </div>
+          </div>
+        ) : null}
+        {layout?.thinking ? <ThinkingRow /> : null}
+        {answer ? (
+          <div className="group min-w-0 px-1 py-2">
+            <div
+              data-cite-source
+              className={cn("font-reading", margin && "[--text-sm:var(--text-lg)]")}
+            >
+              <ChatMarkdown text={answer} onOpenFile={onOpenFile} loadImage={loadImage} />
             </div>
-          ) : null}
-          {isLast && !streaming && detached ? <DetachedRow providerName={providerName} /> : null}
-          {turn.error ? (
-            <ErrorRow
-              message={turn.error}
-              providerName={providerName}
-              onRetry={isLast && retryable && !streaming ? () => retryTurn(turn.id) : undefined}
-            />
-          ) : null}
-          {!live && turn.changes?.length ? (
-            <ChatChanges changes={turn.changes} onOpen={onOpenChange} />
-          ) : null}
-          {turn.forked ? (
-            <div className="flex items-center gap-3 py-4 text-xs text-muted-foreground">
-              <div className="h-px flex-1 bg-border" />
-              <span className="flex items-center gap-1.5 rounded-pill border px-3 py-1">
-                <GitForkIcon className="size-3.5" />
-                Forked from conversation
-              </span>
-              <div className="h-px flex-1 bg-border" />
+            <div className={cn("mt-1 flex items-center", margin && "-ms-1")}>
+              {margin ? null : <MessageTime at={turn.finishedAt ?? turn.startedAt} />}
+              <CopyMessageButton text={answer} />
+              {onFork && !streaming ? (
+                <HintTooltip label="Fork conversation">
+                  <IconButton
+                    label="Fork conversation"
+                    size="icon-xs"
+                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                    onClick={() => onFork(turn.id)}
+                  >
+                    <GitForkIcon className="size-3.5" />
+                  </IconButton>
+                </HintTooltip>
+              ) : null}
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
+        {isLast && !streaming && detached ? <DetachedRow providerName={providerName} /> : null}
+        {turn.error ? (
+          <ErrorRow
+            message={turn.error}
+            providerName={providerName}
+            onRetry={isLast && retryable && !streaming ? () => retryTurn(turn.id) : undefined}
+          />
+        ) : null}
+        {!margin && !live && turn.changes?.length ? (
+          <ChatChanges changes={turn.changes} onOpen={onOpenChange} />
+        ) : null}
+        {turn.forked ? (
+          <div className="flex items-center gap-3 py-4 text-xs text-muted-foreground">
+            <div className="h-px flex-1 bg-border" />
+            <span className="flex items-center gap-1.5 rounded-pill border px-3 py-1">
+              <GitForkIcon className="size-3.5" />
+              Forked from conversation
+            </span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+        ) : null}
+      </>
+    );
+    if (!margin)
+      return (
+        <MessageScroller.Item key={turn.id} messageId={turn.id}>
+          <div className="flex flex-col">{column}</div>
+        </MessageScroller.Item>
+      );
+    return (
+      <MessageScroller.Item key={turn.id} messageId={turn.id}>
+        <MarginRow
+          gutter={<GutterTime at={turn.startedAt} />}
+          margin={
+            <>
+              <MarginSteps items={items} live={live} stepping={layout?.stepping} />
+              {!live && turn.changes?.length ? (
+                <ChatChanges changes={turn.changes} onOpen={onOpenChange} margin />
+              ) : null}
+            </>
+          }
+          className="py-4"
+        >
+          {turns[index - 1]?.role === "assistant" ? null : (
+            <span className="px-1 text-body text-primary">{providerName}</span>
+          )}
+          <div className="flex flex-col">{column}</div>
+        </MarginRow>
       </MessageScroller.Item>
     );
   });

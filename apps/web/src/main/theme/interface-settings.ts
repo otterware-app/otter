@@ -222,7 +222,9 @@ export function applyInterfaceSettings(): void {
 
   style.fontSize = `${getInterfaceSetting(INTERFACE_FONT_SIZE)}px`;
 
-  style.setProperty("--reading-width", READING_WIDTHS[getReadingWidth()].maxWidth);
+  // The Margin layout keeps its own measure (styles.css), whatever the Reading width setting says.
+  if (getAppLayout() === "margin") style.removeProperty("--reading-width");
+  else style.setProperty("--reading-width", READING_WIDTHS[getReadingWidth()].maxWidth);
 }
 
 export function startInterfaceSettings(): () => void {

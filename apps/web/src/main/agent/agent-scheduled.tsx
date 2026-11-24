@@ -43,6 +43,7 @@ import { isTypingTarget } from "../mail/keyboard";
 import { useLatest } from "../use-latest";
 import {
   agoText,
+  dayText,
   durationText,
   localTimeZone,
   newWhenForm,
@@ -74,6 +75,9 @@ import {
 } from "@otter/ui/components/select";
 import { Button, IconButton } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
+import { MarginPage, MarginRow, SectionHead } from "@otter/ui/components/margin";
+import { useAppLayout } from "../theme/interface-settings";
+import { AgentNotes } from "./agent-notes";
 
 /** The Agents space's place for every agent's scheduled tasks: /agents/scheduled. */
 export const SCHEDULED_TASKS = "scheduled";
@@ -223,8 +227,9 @@ export function ScheduledTasksView({
     .sort((a, b) => a.name.localeCompare(b.name));
   const ordered = [...attention, ...active, ...paused];
   const [width, measure] = useWidth(Infinity);
+  const margin = useAppLayout() === "margin";
   // The inbox's split: the list beside the task, when there's room for both.
-  const split = width >= SPLIT_WIDTH;
+  const split = !margin && width >= SPLIT_WIDTH;
 
   const orderedRef = useLatest(ordered);
   useEffect(() => {
@@ -374,6 +379,131 @@ export function ScheduledTasksView({
   );
 
   const toolbar = "drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-2 px-4";
+  const editor = editing ? (
+    <TaskEditor
+      task={editing === "new" ? null : editing}
+      agents={agents}
+      onClose={() => setEditing(null)}
+      onCreated={onOpenTask}
+    />
+  ) : null;
+  const breadcrumb = (
+    <>
+      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-sm">
+        <button
+          type="button"
+          onClick={() => onOpenTask(null)}
+          className="no-drag shrink-0 cursor-pointer rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+        >
+          Scheduled tasks
+        </button>
+        <span aria-hidden className="text-faint-foreground">
+          /
+        </span>
+        <span aria-current="page" className="truncate font-medium text-foreground">
+          {current?.name}
+        </span>
+      </nav>
+      <span className="flex-1" />
+    </>
+  );
+
+  if (margin) {
+    const ledgerRow = (task: ScheduledTask) => (
+      <LedgerRow key={keyOf(task)} task={task} now={now} onOpen={() => onOpenTask(keyOf(task))} />
+    );
+    const needs = attention.length;
+    const ledger = (
+      <MarginPage className="pt-8 pb-20">
+        <MarginRow className="pb-8">
+          <div className="flex items-center gap-3">
+            <h1 className="min-w-0 flex-1 font-reading text-3xl text-foreground">Scheduled</h1>
+            {creatable ? (
+              <Button size="sm" onClick={() => setEditing("new")}>
+                <PlusIcon />
+                New task
+              </Button>
+            ) : null}
+          </div>
+          {tasks.length > 0 ? (
+            <p className="pt-2 font-reading text-xl text-muted-foreground">
+              What your agents do while you're away. {tasks.length}{" "}
+              {tasks.length === 1 ? "schedule" : "schedules"},{" "}
+              {needs === 0 ? "nothing needs you" : `${needs} ${needs === 1 ? "needs" : "need"} you`}
+              .
+            </p>
+          ) : null}
+        </MarginRow>
+        {query.isLoading || query.isError || agents.length === 0 || shown.length === 0 ? (
+          <MarginRow>{list}</MarginRow>
+        ) : (
+          <>
+            {agents
+              .filter((a) => a.error || a.readOnly)
+              .map((a) => (
+                <MarginRow key={a.provider} className="pb-4">
+                  <AgentProblem
+                    name={agentName(a.provider)}
+                    provider={a.provider}
+                    message={a.error ?? a.readOnly!}
+                    onRetry={a.error ? () => void query.refetch() : undefined}
+                  />
+                </MarginRow>
+              ))}
+            {[
+              { label: "Needs you", tasks: attention, attention: true },
+              { label: "Running", tasks: active, attention: false },
+              { label: "Paused", tasks: paused, attention: false },
+            ].map((section) =>
+              section.tasks.length > 0 ? (
+                <section key={section.label} className="flex flex-col pb-6">
+                  <MarginRow>
+                    <SectionHead
+                      label={section.label}
+                      count={section.tasks.length}
+                      attention={section.attention}
+                    />
+                  </MarginRow>
+                  {section.tasks.map(ledgerRow)}
+                </section>
+              ) : null,
+            )}
+          </>
+        )}
+      </MarginPage>
+    );
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div data-toolbar="" className={toolbar}>
+          {titleLeading}
+          {taskKey ? breadcrumb : <span className="flex-1" />}
+          {!taskKey && tasks.length > 0 ? (
+            <TaskFilterMenu tasks={tasks} value={filter} onChange={setFilter} />
+          ) : null}
+          {titleTrailing}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {!taskKey ? (
+            ledger
+          ) : current ? (
+            <MarginTaskPage
+              key={taskKey}
+              task={current}
+              agent={agentOf(current)}
+              now={now}
+              onEdit={() => setEditing(current)}
+              onDeleted={() => onOpenTask(null)}
+              onSelectChat={onSelectChat}
+            />
+          ) : (
+            page
+          )}
+        </div>
+        {editor}
+      </div>
+    );
+  }
+
   return (
     <div ref={measure} className="flex min-h-0 min-w-0 flex-1">
       {split ? (
@@ -410,28 +540,7 @@ export function ScheduledTasksView({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div data-toolbar="" className={toolbar}>
             {titleLeading}
-            {taskKey ? (
-              <>
-                <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-sm">
-                  <button
-                    type="button"
-                    onClick={() => onOpenTask(null)}
-                    className="no-drag shrink-0 cursor-pointer rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
-                  >
-                    Scheduled tasks
-                  </button>
-                  <span aria-hidden className="text-faint-foreground">
-                    /
-                  </span>
-                  <span aria-current="page" className="truncate font-medium text-foreground">
-                    {current?.name}
-                  </span>
-                </nav>
-                <span className="flex-1" />
-              </>
-            ) : (
-              listHeader
-            )}
+            {taskKey ? breadcrumb : listHeader}
             {titleTrailing}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -439,14 +548,7 @@ export function ScheduledTasksView({
           </div>
         </div>
       )}
-      {editing ? (
-        <TaskEditor
-          task={editing === "new" ? null : editing}
-          agents={agents}
-          onClose={() => setEditing(null)}
-          onCreated={onOpenTask}
-        />
-      ) : null}
+      {editor}
     </div>
   );
 }
@@ -691,6 +793,360 @@ function TaskRow({
   );
 }
 
+const clockText = (at: number) =>
+  new Date(at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+/** When a task runs next, in a Margin page's gutter: "09:00" today, "Thu 09:00" later. */
+function nextRunText(task: ScheduledTask, now: number): string {
+  if (task.running) return "Now";
+  if (!task.enabled || !task.nextRunAt) return "—";
+  const day = dayText(task.nextRunAt, now);
+  return day === "Today" ? clockText(task.nextRunAt) : `${day} ${clockText(task.nextRunAt)}`;
+}
+
+/** Why a task needs you, in words. */
+function problemOf(task: ScheduledTask): string | null {
+  if (task.autoPaused) return `${task.autoPaused}. Resume it once what failed is fixed.`;
+  if (task.lastRun?.status === "error")
+    return task.lastRun.error
+      ? `The last run failed: ${task.lastRun.error}`
+      : "The last run failed.";
+  return task.deliveryProblem ?? null;
+}
+
+function StatusMark({ task }: { task: ScheduledTask }) {
+  if (task.running) return <Spinner aria-hidden className="size-3 text-info" />;
+  if (needsAttention(task))
+    return <CircleAlertIcon aria-hidden className="size-3.5 text-question-foreground" />;
+  if (!task.enabled) return <CircleMinusIcon aria-hidden className="size-3.5 text-placeholder" />;
+  if (task.lastRun?.status === "ok")
+    return <CircleCheckIcon aria-hidden className="size-3.5 text-success" />;
+  return <CalendarClockIcon aria-hidden className="size-3.5 text-placeholder" />;
+}
+
+function statusText(task: ScheduledTask, now: number): string {
+  const last = task.lastRun;
+  if (task.running) return "Running now";
+  if (task.autoPaused) return "Paused by the agent";
+  if (last?.status === "error") return `Failed ${agoText(last.at, now)}`;
+  if (task.deliveryProblem) return "Can't deliver";
+  if (!task.enabled) return "Paused";
+  if (last) return `Ran ${agoText(last.at, now)} · ${last.status === "ok" ? "ok" : last.status}`;
+  return "Not run yet";
+}
+
+/** A task on the Margin layout's Scheduled page: when it runs next, how it's doing, what it is. */
+function LedgerRow({
+  task,
+  now,
+  onOpen,
+}: {
+  task: ScheduledTask;
+  now: number;
+  onOpen: () => void;
+}) {
+  const agentName = useAgentName();
+  const attention = needsAttention(task);
+  const problem = problemOf(task);
+  return (
+    <MarginRow
+      className="py-4"
+      gutter={
+        <span className={cn(attention && "text-question-foreground")}>
+          {nextRunText(task, now).toUpperCase()}
+        </span>
+      }
+      margin={
+        <>
+          {problem ? (
+            <p className="text-xs leading-relaxed text-muted-foreground">{problem}</p>
+          ) : null}
+          <AgentNotes target={{ kind: "task", agentId: task.provider, taskId: task.id }} />
+        </>
+      }
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        className="group flex w-full min-w-0 cursor-pointer flex-col gap-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+      >
+        <span
+          className={cn(
+            "flex items-center gap-2 font-mono text-3xs tracking-wider uppercase",
+            attention ? "text-question-foreground" : "text-placeholder",
+          )}
+        >
+          <StatusMark task={task} />
+          {statusText(task, now)}
+          {task.managedBy ? (
+            <LockIcon
+              aria-label={`${task.managedBy} keeps this one: run or pause it here, change it there.`}
+              className="size-3 text-faint-foreground"
+            />
+          ) : null}
+        </span>
+        <span
+          className={cn(
+            "font-reading text-xl underline-offset-4 group-hover:underline",
+            task.enabled ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          {task.name}
+        </span>
+        <span className="text-body text-muted-foreground">
+          {scheduleText(task.schedule)} · {agentName(task.provider, task.agent)}
+        </span>
+      </button>
+    </MarginRow>
+  );
+}
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-border/60 py-1.5 text-xs last:border-b-0">
+      <dt className="shrink-0 text-placeholder">{label}</dt>
+      <dd className="min-w-0 text-right text-foreground">{children}</dd>
+    </div>
+  );
+}
+
+/** A scheduled task in the Margin layout: what it is and does, its facts in the margin, its runs. */
+function MarginTaskPage({
+  task,
+  agent,
+  now,
+  onEdit,
+  onDeleted,
+  onSelectChat,
+}: {
+  task: ScheduledTask;
+  agent: AgentScheduledTasks;
+  now: number;
+  onEdit: () => void;
+  onDeleted: () => void;
+  onSelectChat: (chatId: string) => void;
+}) {
+  const agentName = useAgentName();
+  const action = useTaskAction();
+  const models = useTaskModels(task.provider, task.agent ?? "", Boolean(task.model));
+  const results = useTaskResults(task);
+  const editable = !agent.readOnly && !task.managedBy && task.schedule.kind !== "other";
+  const problem = problemOf(task);
+  const notes = <AgentNotes target={{ kind: "task", agentId: task.provider, taskId: task.id }} />;
+  const brief = task.prompt
+    ? { label: "Brief", text: task.prompt }
+    : task.runs
+      ? { label: "Runs", text: task.runs }
+      : task.description
+        ? { label: "Does", text: task.description }
+        : null;
+  return (
+    <MarginPage className="pt-8 pb-20">
+      <MarginRow
+        className="pb-8"
+        margin={
+          <dl className="flex flex-col">
+            <Fact label="Next run">
+              {task.running
+                ? "Running now"
+                : task.enabled && task.nextRunAt
+                  ? capitalized(dayTimeText(task.nextRunAt, now))
+                  : "Paused"}
+            </Fact>
+            <Fact label="Agent">{agentName(task.provider, task.agent)}</Fact>
+            {task.model ? <Fact label="Model">{modelName(models.data, task.model)}</Fact> : null}
+            <Fact label="Results">{deliveryText(task.delivery)}</Fact>
+            {task.failureAlerts ? <Fact label="Failures">{task.failureAlerts}</Fact> : null}
+            {task.conditional ? <Fact label="Runs">When its own check says so</Fact> : null}
+          </dl>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <span className="font-mono text-2xs tracking-wider text-placeholder uppercase">
+            Scheduled · {agentName(task.provider, task.agent)} · {scheduleText(task.schedule)}
+          </span>
+          <h1 className="font-reading text-3xl leading-tight text-foreground">{task.name}</h1>
+          {task.description && task.prompt ? (
+            <p className="text-body text-muted-foreground">{task.description}</p>
+          ) : null}
+          {agent.readOnly ? null : task.managedBy ? (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <LockIcon aria-hidden className="size-3.5 shrink-0" />
+              {task.managedBy} keeps this one: run or pause it here, and change it there.
+            </p>
+          ) : task.schedule.kind === "other" ? (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <LockIcon aria-hidden className="size-3.5 shrink-0" />
+              Otter can't change this kind of schedule: change it in {agentName(task.provider)}.
+            </p>
+          ) : null}
+          {agent.readOnly ? null : (
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                size="sm"
+                disabled={action.isPending || task.running}
+                onClick={() =>
+                  action.mutate(
+                    {
+                      run: () => mailApi.runScheduledTask(task.provider, task.id),
+                      failed: "Couldn't start it",
+                    },
+                    { onSuccess: () => toast.success(`${task.name} is running`) },
+                  )
+                }
+              >
+                <PlayIcon />
+                Run now
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={action.isPending}
+                onClick={() =>
+                  action.mutate({
+                    run: () =>
+                      mailApi.setScheduledTaskEnabled(task.provider, task.id, !task.enabled),
+                    failed: task.enabled ? "Couldn't pause it" : "Couldn't resume it",
+                    shows: { key: keyOf(task), patch: { enabled: !task.enabled } },
+                  })
+                }
+              >
+                {task.enabled ? "Pause" : "Resume"}
+              </Button>
+              {editable ? (
+                <Button size="sm" variant="outline" onClick={onEdit}>
+                  <PencilIcon />
+                  Edit
+                </Button>
+              ) : null}
+              <TaskMenu task={task} onDeleted={onDeleted} />
+            </div>
+          )}
+          {problem && !task.running ? (
+            <p className="text-sm text-question-foreground">{problem}</p>
+          ) : null}
+        </div>
+      </MarginRow>
+      {brief ? (
+        <MarginRow className="pb-8" gutter={brief.label.toUpperCase()}>
+          {brief.label === "Runs" ? (
+            <span className="block font-mono text-xs break-all text-muted-foreground">
+              {brief.text}
+            </span>
+          ) : (
+            <blockquote className="font-reading text-xl leading-relaxed text-muted-foreground italic">
+              <LongText key={brief.text} text={`“${brief.text}”`} />
+            </blockquote>
+          )}
+        </MarginRow>
+      ) : null}
+      {agent.can.history ? (
+        <RunHistory task={task} agent={agent} now={now} margin notes={notes} />
+      ) : (
+        <MarginRow margin={notes}>
+          <p className="text-sm text-muted-foreground">
+            {agentName(task.provider)} doesn't keep a history of runs Otter can show.
+          </p>
+        </MarginRow>
+      )}
+      {results.length > 0 ? (
+        <section className="flex flex-col pt-6">
+          <MarginRow>
+            <SectionHead label="Results in Otter" count={results.length} />
+          </MarginRow>
+          {results.map((c) => (
+            <MarginRow key={c.id} className="py-2" gutter={dayText(c.updatedAt, now).toUpperCase()}>
+              <button
+                type="button"
+                onClick={() => onSelectChat(c.id)}
+                className="flex min-w-0 cursor-pointer items-center gap-2 text-left font-reading text-lg text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus-ring"
+              >
+                <MessageSquareIcon aria-hidden className="size-3.5 shrink-0 text-placeholder" />
+                <span className="min-w-0 truncate">{c.title}</span>
+              </button>
+            </MarginRow>
+          ))}
+        </section>
+      ) : null}
+    </MarginPage>
+  );
+}
+
+/** What a run did, in a sentence. */
+function outcomeText(run: TaskRun): string {
+  if (run.error) return run.error;
+  if (run.status === "skipped") return "Skipped.";
+  if (run.silent) return "It chose to send nothing this time.";
+  const summary = run.summary?.replace(/[#*_`>]/g, "").trim();
+  return summary || "Done.";
+}
+
+function MarginRunRow({
+  task,
+  agent,
+  run,
+  now,
+  open,
+  onToggle,
+  margin,
+}: {
+  task: ScheduledTask;
+  agent: AgentScheduledTasks;
+  run: TaskRun;
+  now: number;
+  open: boolean;
+  onToggle: () => void;
+  margin?: ReactNode;
+}) {
+  const failed = run.status === "error";
+  const Icon = failed
+    ? CircleAlertIcon
+    : run.status === "skipped"
+      ? CircleMinusIcon
+      : CircleCheckIcon;
+  return (
+    <MarginRow className="py-3" gutter={dayText(run.at, now).toUpperCase()} margin={margin}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        title={capitalized(dayTimeText(run.at, now))}
+        className="group flex w-full min-w-0 cursor-pointer flex-col gap-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+      >
+        <span className="flex items-center gap-2 font-mono text-3xs tracking-wider text-placeholder uppercase">
+          <Icon
+            aria-label={failed ? "Failed" : run.status === "skipped" ? "Skipped" : "Done"}
+            className={cn(
+              "size-3.5",
+              failed
+                ? "text-question-foreground"
+                : run.status === "skipped"
+                  ? "text-placeholder"
+                  : "text-success",
+            )}
+          />
+          {[
+            clockText(run.at),
+            run.durationMs !== undefined ? durationText(run.durationMs) : null,
+            run.model,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+        <span
+          className={cn(
+            "font-reading text-lg text-foreground underline-offset-4 group-hover:underline",
+            !open && "line-clamp-2",
+          )}
+        >
+          {outcomeText(run)}
+        </span>
+      </button>
+      {open ? <RunTranscript task={task} agent={agent} run={run} /> : null}
+    </MarginRow>
+  );
+}
+
 function TaskMenu({ task, onDeleted }: { task: ScheduledTask; onDeleted: () => void }) {
   const action = useTaskAction();
   const [confirming, setConfirming] = useState(false);
@@ -784,6 +1240,23 @@ function Callout({ children }: { children: ReactNode }) {
   );
 }
 
+/** The chats a task's results went to, latest first. */
+function useTaskResults(task: ScheduledTask) {
+  const conversations = useChats((s) => s.conversations);
+  return conversations
+    .filter(
+      (c) =>
+        c.provider === task.provider &&
+        c.turns.some(
+          (t) =>
+            t.delivered?.kind === "automation" &&
+            (t.delivered.jobId ? t.delivered.jobId === task.id : t.delivered.name === task.name),
+        ),
+    )
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 5);
+}
+
 function TaskPage({
   task,
   agent,
@@ -802,19 +1275,7 @@ function TaskPage({
   const agentName = useAgentName();
   const action = useTaskAction();
   const models = useTaskModels(task.provider, task.agent ?? "", Boolean(task.model));
-  const conversations = useChats((s) => s.conversations);
-  const results = conversations
-    .filter(
-      (c) =>
-        c.provider === task.provider &&
-        c.turns.some(
-          (t) =>
-            t.delivered?.kind === "automation" &&
-            (t.delivered.jobId ? t.delivered.jobId === task.id : t.delivered.name === task.name),
-        ),
-    )
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, 5);
+  const results = useTaskResults(task);
   const editable = !agent.readOnly && !task.managedBy && task.schedule.kind !== "other";
   const when = task.running
     ? "Running now"
@@ -978,10 +1439,15 @@ function RunHistory({
   task,
   agent,
   now,
+  margin = false,
+  notes,
 }: {
   task: ScheduledTask;
   agent: AgentScheduledTasks;
   now: number;
+  /** The Margin layout's: a row a run, `notes` beside the latest. */
+  margin?: boolean;
+  notes?: ReactNode;
 }) {
   const runs = useQuery({
     queryKey: ["agent-scheduled-runs", task.provider, task.id, task.lastRun?.at ?? 0],
@@ -989,6 +1455,38 @@ function RunHistory({
     refetchInterval: task.running ? BUSY_REFRESH_MS : false,
   });
   const [open, setOpen] = useState<string | null>(null);
+  if (margin)
+    return (
+      <section className="flex flex-col">
+        <MarginRow margin={runs.data?.length ? null : notes}>
+          <SectionHead label="History" count={runs.data?.length || undefined} />
+          {runs.isLoading ? (
+            <p className="py-2 text-sm text-muted-foreground">Loading…</p>
+          ) : runs.isError ? (
+            <p className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+              {readableError(runs.error)}
+              <Button size="xs" variant="ghost" onClick={() => void runs.refetch()}>
+                Retry
+              </Button>
+            </p>
+          ) : !runs.data?.length ? (
+            <p className="py-2 text-sm text-muted-foreground">It hasn't run yet.</p>
+          ) : null}
+        </MarginRow>
+        {runs.data?.map((run, i) => (
+          <MarginRunRow
+            key={run.id}
+            task={task}
+            agent={agent}
+            run={run}
+            now={now}
+            open={open === run.id}
+            onToggle={() => setOpen(open === run.id ? null : run.id)}
+            margin={i === 0 ? notes : null}
+          />
+        ))}
+      </section>
+    );
   return (
     <div className="flex flex-col gap-1">
       <h2 className="pb-1 text-sm font-medium text-foreground">History</h2>

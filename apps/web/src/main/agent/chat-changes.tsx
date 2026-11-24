@@ -43,9 +43,12 @@ const KINDS = {
 export function ChatChanges({
   changes,
   onOpen,
+  margin = false,
 }: {
   changes: ChatChange[];
   onOpen: (change: ChatChange) => Promise<void>;
+  /** In the Margin layout's margin: what the turn made, a title and what it did to it. */
+  margin?: boolean;
 }) {
   const [opening, setOpening] = useState<string | null>(null);
   if (changes.length === 0) return null;
@@ -62,6 +65,45 @@ export function ChatChanges({
       setOpening((current) => (current === key ? null : current));
     }
   };
+  if (margin)
+    return (
+      <section aria-label="Chat changes" className="flex min-w-0 flex-col gap-2.5">
+        <span className="font-mono text-3xs tracking-wider text-placeholder uppercase">Made</span>
+        {changes.map((change) => {
+          const key = chatChangeKey(change);
+          const { label } = KINDS[change.target.kind];
+          const canOpen =
+            change.action !== "deleted" &&
+            (change.target.kind !== "event" || Boolean(change.target.url));
+          return (
+            <button
+              key={key}
+              type="button"
+              disabled={!canOpen}
+              aria-label={`Open ${label}: ${change.title}`}
+              aria-busy={opening === key}
+              onClick={() => void open(change)}
+              className={cn(
+                "group/made flex min-w-0 flex-col gap-0.5 text-left outline-none enabled:cursor-pointer focus-visible:ring-2 focus-visible:ring-focus-ring",
+                opening === key && "animate-status-pulse",
+              )}
+            >
+              <span
+                className={cn(
+                  "truncate font-reading text-md text-foreground underline-offset-2",
+                  canOpen && "group-hover/made:underline",
+                )}
+              >
+                {change.title}
+              </span>
+              <span className="font-mono text-3xs tracking-wider text-placeholder uppercase">
+                {label} · {change.action}
+              </span>
+            </button>
+          );
+        })}
+      </section>
+    );
   return (
     <section aria-label="Chat changes" className="my-2 min-w-0 px-1">
       <ul className="overflow-hidden rounded-lg border border-border/60">

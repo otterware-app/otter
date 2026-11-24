@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
+  CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   CodeXmlIcon,
@@ -288,11 +289,26 @@ function highlightJson(json: string): ReactNode[] {
   return parts;
 }
 
-function StepResult({ step, output, live }: { step: ToolStep; output?: string; live: boolean }) {
+function StepResult({
+  step,
+  output,
+  live,
+  className,
+}: {
+  step: ToolStep;
+  output?: string;
+  live: boolean;
+  className?: string;
+}) {
   const json = prettyJson(output);
   const detail = prettyJson(step.detail) ?? step.detail;
   return (
-    <div className="mb-2 ms-7 mt-1 flex min-w-0 flex-col overflow-hidden rounded-2xl bg-code">
+    <div
+      className={cn(
+        "mb-2 ms-7 mt-1 flex min-w-0 flex-col overflow-hidden rounded-2xl bg-code",
+        className,
+      )}
+    >
       <div className="flex items-center gap-2 px-4 pb-1 pt-3 text-xs text-foreground">
         <CodeXmlIcon className="size-3.5" aria-hidden />
         <span>{json ? "json" : "text"}</span>
@@ -330,5 +346,75 @@ function FadingPre({ children }: { children: ReactNode }) {
     >
       {children}
     </pre>
+  );
+}
+
+const SHOWN_STEPS = 8;
+
+/** What a turn did, beside it in the Margin layout's margin: a line a step, opened for its result. */
+export function MarginSteps({
+  items,
+  live,
+  stepping,
+}: {
+  items: TurnItem[];
+  live: boolean;
+  stepping?: boolean;
+}) {
+  const steps = items.filter((item): item is Step => item.kind === "step" && !item.step.compaction);
+  const [all, setAll] = useState(false);
+  const [open, setOpen] = useState<number | null>(null);
+  if (steps.length === 0) return null;
+  const hidden = all ? 0 : Math.max(0, steps.length - SHOWN_STEPS);
+  return (
+    <section aria-label="What it did" className="flex min-w-0 flex-col gap-1">
+      <span className="pb-1 font-mono text-3xs tracking-wider text-placeholder uppercase">
+        What it did
+      </span>
+      {hidden > 0 ? (
+        <button
+          type="button"
+          onClick={() => setAll(true)}
+          className="self-start text-xs text-placeholder hover:text-foreground"
+        >
+          {hidden} earlier
+        </button>
+      ) : null}
+      {steps.slice(hidden).map((item, i) => {
+        const at = hidden + i;
+        const Icon = stepIcon(item.step);
+        const pending =
+          (stepping && at === steps.length - 1) || (live && item.output === undefined);
+        const expandable = Boolean(item.output || item.step.detail);
+        return (
+          <div key={at} className="flex min-w-0 flex-col">
+            <button
+              type="button"
+              disabled={!expandable}
+              aria-expanded={expandable ? open === at : undefined}
+              onClick={() => setOpen((o) => (o === at ? null : at))}
+              title={item.step.title}
+              className="flex min-w-0 items-center gap-2 py-0.5 text-left text-xs text-muted-foreground enabled:cursor-pointer enabled:hover:text-foreground"
+            >
+              <Icon className="size-3.5 shrink-0 text-placeholder" aria-hidden />
+              <span className={cn("min-w-0 flex-1 truncate", pending && "text-shimmer")}>
+                {item.step.title}
+              </span>
+              {pending || item.output === undefined ? null : (
+                <CheckIcon className="size-3 shrink-0 text-success" aria-hidden />
+              )}
+            </button>
+            {open === at ? (
+              <StepResult
+                step={item.step}
+                output={item.output}
+                live={live}
+                className="ms-0 rounded-md"
+              />
+            ) : null}
+          </div>
+        );
+      })}
+    </section>
   );
 }

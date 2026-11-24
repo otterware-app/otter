@@ -1,3 +1,4 @@
+import { useAppLayout } from "../theme/interface-settings";
 import {
   useEffect,
   useMemo,
@@ -198,6 +199,7 @@ export function ChatWorkspace({
     messageId: mail ? (message.data ?? null) : null,
   });
   const { width, start } = useChatWidth();
+  const margin = useAppLayout() === "margin";
 
   useEffect(() => {
     watchChat(chatId);
@@ -359,7 +361,8 @@ export function ChatWorkspace({
   };
   const roomy = useWideEnough(columnRef, DOCK_WIDTH);
   const [detailsShown, setDetailsShown] = useState(readDetailsDocked);
-  const docked = roomy && !blank;
+  // The Margin layout's margin is the turns' own: details open from the bar instead.
+  const docked = roomy && !blank && !margin;
   const transcriptRef = useRef<HTMLElement | null>(null);
   const barRef = useRef<HTMLDivElement | null>(null);
   const [find, setFind] = useState<number | null>(null);
