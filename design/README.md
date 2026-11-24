@@ -76,13 +76,14 @@ new component starts in `@otter/ui` when more than one screen will use it, else 
 
 ## Part B, Margin's UX
 
-Part B (its banner, "Part B · UX proposal — Margin") is a proposal for how Otter works in the
-Margin theme, not only how it looks. Its containers, B1 to B6 (principles and components, Desk,
-Mail, Calendar, Agent, Settings), each pair today's page on the left with the Margin screen on
-the right. It draws with the Margin theme (the theme axis set to `margin`). Its Margin
-components (Rail, Top Bar, Section Head, Margin Note, Margin Note / ask, Button / signal, rule
-and ink) have no code yet; the Margin mail layout (Settings → Appearance → Mail layout) is the
-first screen built. What's left, in order: [docs/margin-ux.md](../docs/margin-ux.md).
+Part B (its banner, "Part B · UX — Margin") is the Margin layout: how Otter works with
+Settings → Appearance → Layout set to Margin, apart from the theme it wears. Its containers, B1
+to B6 (principles and components, Desk, Mail, Calendar, Agent, Settings), each pair the Classic
+page on the left with the Margin screen on the right. It draws with the Margin theme (the theme
+axis set to `margin`). Its components are in code under these names: Section Head and Margin
+Note in `packages/ui/src/components/margin.tsx` (with MarginPage and MarginRow, the column and
+its margin), the Rail in `apps/web/src/main/margin-rail.tsx`. What differs from the screens, and
+what's left: [docs/margin-ux.md](../docs/margin-ux.md).
 
 ## Editing the file
 

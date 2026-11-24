@@ -411,7 +411,9 @@ On iPhone, the bottom holds a pill with the mailbox's picture (tap for every mai
 | Unread messages on a soft background, in every mail layout                                                       | ✓   | ✓   | ✓                                                                          |
 | Keyboard navigation highlights rows; Enter opens (optional open with arrows)                                     | ✓   | ✓   | —                                                                          |
 | Configurable delay before keyboard previews are marked read (2 seconds by default); clicks mark read immediately | ✓   | ✓   | —                                                                          |
-| Mail layouts: Auto, Split view, Full inbox, Margin                                                               | ✓   | ✓   | —                                                                          |
+| Mail layouts: Auto, Split view, Full inbox                                                                       | ✓   | ✓   | —                                                                          |
+| Layout: Classic, or Margin (one column, a margin, the Desk, a rail, agents' notes)                               | ✓   | ✓   | —                                                                          |
+| Agents' notes in the margin beside mail, events and tasks (Margin layout)                                        | ✓   | ✓   | —                                                                          |
 | Floating reader: move, snap, resize, minimize, expand                                                            | ✓   | ✓   | —                                                                          |
 | Keyboard shortcuts, rebindable (incl. move to label)                                                             | ✓   | ✓   | —                                                                          |
 | Command palette (⌘K)                                                                                             | ✓   | ✓   | —                                                                          |

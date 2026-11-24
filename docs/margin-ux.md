@@ -1,68 +1,49 @@
 # Margin's UX
 
-Part B of `design/otter.pen` proposes how Otter works in the Margin theme: one column at a
-reading measure (680px), a 240px margin column beside it and, in Calendar, an 80px time gutter.
-Agents write in the margin beside what they're about (a serif italic note on a 2px vermilion
-rule, accept ↵ / dismiss ⌫); an event, a draft or a question opens in the margin instead of a
-popover or a floating window; color is kept for what needs you.
+Settings → Appearance → Layout: **Classic** (the panes) or **Margin**. Margin is how Otter works,
+apart from the theme it wears (the Margin theme is its look): one column at a reading measure
+(42.5rem), a margin beside it (15rem) and, where time matters, a gutter before it (5rem); agents
+write in the margin beside what they're about; an event, a draft or a question opens in the
+margin instead of a popover or a floating window. The design is Part B of `design/otter.pen`.
 
-This is the order to build it in. Each step is its own PR and works in both themes; the Margin
-theme (look) is already in.
+The setting is the synced preference `otter:layout`, `data-layout="margin"` on `<html>` and the
+`layout-margin:` variant; the column, margin and section heads are `@otter/ui`'s `margin.tsx`.
 
-## 1. Mail: the Margin layout (B3, built)
+## What it is
 
-A fourth Mail layout in Settings → Appearance. The inbox is one column at the reading measure
-(the list kept as in Full inbox), and the reader is the same column with the conversation's
-details (`conversation-summary.tsx`, today's side card) in the margin beside it. Renderer only:
-`theme/interface-settings.ts`, `home-view.tsx`, `mail/message-reader.tsx`, `styles.css`.
+- **The frame**: a rail of the modes (`margin-rail.tsx`, the same list as the switcher's), a top
+  bar with where you are and "Find anything, or ask the agent ⌘K". Sidebars start closed.
+- **Desk** (`/desk`, `desk/`): the home in Margin. Today's meeting now, what needs you across
+  mailboxes and Todoist, the rest of today's meetings, each with its agents' notes.
+- **Mail**: the inbox as a page (masthead, place tabs, day sections, time in the gutter, notes in
+  the margin); the reader with notes and the summary in the margin, earlier messages on a line
+  each and the reply inline; New message as a page; ⌘E docks the agent beside the page.
+- **Calendar**: the grid drawn Margin's way; the week's summary, notes and calendars in the
+  margin; an event opens in the margin.
+- **⌘K**: a sheet at the measure; "Ask the agent" hands the text to a new chat (Tab).
+- **Agent**: a chat as a document, what each turn did in the margin beside it; Scheduled as a
+  ledger; a task's page with its brief and history.
+- **Settings**: each pane a page, each section's help in the margin.
 
-## 2. The margin column as a component
+## Agents' notes
 
-Before more screens use it: a `Margin` layout in `@otter/ui` (column, margin, the margin's
-sticky top) and the design's Margin Note, Section Head and Button / signal, rule and ink under
-the same names, so the next steps share them. Draw-to-code per the `design-sync` skill.
+An agent writes a note beside a conversation, an event, a scheduled task or the day
+(`packages/contracts/src/margin-notes.ts`): a summary, a draft, a question or something done,
+with an action to accept. Notes are kept with the account's agents and chats (`note/<id>` in
+the relay's store), so every device shows the same ones; accepting starts a chat with the action,
+dismissing hides it for good. Core's writer (`services/margin-notes.ts`) asks the selected agent
+for them, only while the layout is Margin, an Otter account is signed in and an agent is set up:
+at most every 5 minutes, about a dozen items at a time (unread inbox conversations from the last
+two days, today's and tomorrow's events, scheduled tasks that failed or paused), never twice
+about the same item, through a one-off request that makes no chat.
 
-## 3. Mail: reply inline and compose as a page (B3)
+## Not yet, or not as drawn
 
-The reply opens in the column under the last message (the inline composer, laid out at the
-measure), and New message opens as a page in the column instead of today's composer pane. Renderer
-only.
-
-## 4. Mail: Ask Pilot (⌘E) in the margin (B3)
-
-⌘E in Margin opens the agent in the reader's margin, about the open conversation, instead of
-the small window over the mail (`agent/chat-window.tsx`). The chat is the same; only where it
-is drawn changes. Renderer only.
-
-## 5. Calendar: the event in the margin, ⌘K as a sheet (B4)
-
-The week keeps its grid with an 80px time gutter; an event opens in a margin column beside it
-instead of today's popover. ⌘K becomes a sheet that finds, does, or hands the question to the
-agent (the command list's last row: "Ask the agent"). Renderer only.
-
-## 6. Agent: chat as a document, Scheduled as a ledger (B5)
-
-A chat reads as a document at the measure, with what the agent did (tools, files, sent mail)
-in the margin beside the turn that did it, from the work log the transcript already has.
-Scheduled becomes a ledger (when, what, last run), and a scheduled task gets a page. Renderer,
-and `apps/ios-agents` follows when the layout settles (its chat is a port of the web one).
-
-## 7. Desk, the new home (B2)
-
-Today's mail, meetings and tasks on one running page. Needs a place in the router
-(`/desk`) and a mode beside Mail, Calendar and Agent, reading what the app already caches
-(mail, calendar, Todoist). Renderer, plus a read of each cache that doesn't exist yet (the
-day's items across mailboxes and calendars).
-
-## 8. Agent margin notes (B2, B3, B4)
-
-The notes an agent writes beside a message, an event or a task ("Maya asked about Saturday:
-reply yes?", accept ↵ / dismiss ⌫). **Needs backend work**: the agent must produce
-suggestions tied to an item (contracts: a suggestion with its target, text and action; core:
-asking the agent for them and storing them, synced like chats through the relay; the relay:
-keeping them with the account's agent data). Accepting runs the action through the tools agents
-already have; dismissing is remembered so the note doesn't come back.
-
-## 9. Settings (B6)
-
-Settings in one column at the measure, each section's help in the margin. Renderer only.
+- The Desk's greeting is `text-3xl`: the design's 52px needs a display size in the type scale.
+- Mail's place tabs don't include Gmail's categories; the masthead's mailbox isn't a switcher. A
+  draft has no notes (no note target for it).
+- ⌘E docks beside any page, not only the reader; Escape in its input doesn't close it.
+- The rail can't reorder modes (the Classic switcher can). Panes keep their own top bands under
+  the top bar.
+- The writer remembers what it asked on each device: two devices in Margin may each ask once.
+- Otter Agents on the iPhone (a port of the web chat) follows once the layout settles.
