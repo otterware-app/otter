@@ -58,7 +58,7 @@ export function CalendarPanel({ onOpen }: { onOpen: (event: CalEvent) => void })
   return (
     <div className="flex h-full min-w-0 flex-col">
       <div className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-2 pl-4 pr-2">
-        <span className="min-w-0 flex-1 truncate text-body font-medium">Upcoming</span>
+        <span className="min-w-0 flex-1 truncate text-body font-medium font-reading">Upcoming</span>
         {/* The pinned panel toggles (home view) sit here. */}
         <PanelControlSlot />
       </div>

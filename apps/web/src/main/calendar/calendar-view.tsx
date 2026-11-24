@@ -65,7 +65,7 @@ function CalendarTitle({
   const first = peek ?? shown;
   if (mode === "day")
     return (
-      <h1 className="shrink-0 text-sm font-semibold text-foreground">
+      <h1 className="shrink-0 text-sm font-semibold text-foreground font-reading">
         {first.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
         <span className="ml-2 font-normal text-muted-foreground">
           {first.toLocaleDateString(undefined, { weekday: "long" })}

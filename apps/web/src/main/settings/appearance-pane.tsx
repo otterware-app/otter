@@ -21,6 +21,7 @@ import {
   themeColors,
   useAppThemes,
   useThemeChoice,
+  useThemeDesign,
 } from "../theme/apply-theme";
 import {
   APP_THEMES,
@@ -124,7 +125,7 @@ function MiniWindow({ colors }: { colors: ThemeColors }) {
         {line("62%")}
         {line("48%")}
         <span
-          className="absolute inset-x-3 bottom-2.5 flex h-4 items-center justify-end rounded-full px-1"
+          className="absolute inset-x-3 bottom-2.5 flex h-4 items-center justify-end rounded-pill px-1"
           style={{ backgroundColor: colors.surfaceRaised, border: `1px solid ${colors.input}` }}
         >
           <span
@@ -787,7 +788,7 @@ function MailLayoutPicker() {
                   </span>
                 ) : null}
                 {value === "auto" ? (
-                  <span className="absolute right-1.5 bottom-1.5 flex size-5 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm">
+                  <span className="absolute right-1.5 bottom-1.5 flex size-5 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm margin:shadow-none">
                     <MoveHorizontalIcon className="size-3" />
                   </span>
                 ) : null}
@@ -870,6 +871,7 @@ export function useColorScheme(): [ColorScheme, (next: ColorScheme) => Promise<v
 
 export function AppearancePane() {
   const choice = useThemeChoice();
+  const design = useThemeDesign();
   const [scheme, setScheme] = useColorScheme();
   const groupMessagesByDay = useInterfaceToggle(GROUP_MESSAGES_BY_DAY);
   const fullWidthRows = useInterfaceToggle(FULL_WIDTH_ROWS);
@@ -1021,12 +1023,15 @@ export function AppearancePane() {
           label="Contrast"
           description="Adjust the contrast of text and borders across the app."
         />
-        <PercentSettingRow
-          setting={GLASS_OPACITY}
-          searchId="glass-opacity"
-          label="Glass opacity"
-          description="Higher values make menus, popovers and dialogs more solid."
-        />
+        {/* Margin's overlays are always solid. */}
+        {design !== "margin" ? (
+          <PercentSettingRow
+            setting={GLASS_OPACITY}
+            searchId="glass-opacity"
+            label="Glass opacity"
+            description="Higher values make menus, popovers and dialogs more solid."
+          />
+        ) : null}
         <FontSizeRow id={searchableSetting("font-size").id} />
         <ReadingWidthRow id={searchableSetting("reading-width").id} />
       </SettingsSection>

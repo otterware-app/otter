@@ -529,7 +529,7 @@ export function ChatTranscript({
           {layout?.thinking ? <ThinkingRow /> : null}
           {answer ? (
             <div className="group min-w-0 px-1 py-2">
-              <div data-cite-source>
+              <div data-cite-source className="font-reading">
                 <ChatMarkdown text={answer} onOpenFile={onOpenFile} loadImage={loadImage} />
               </div>
               <div className="mt-1 flex items-center">
@@ -564,7 +564,7 @@ export function ChatTranscript({
           {turn.forked ? (
             <div className="flex items-center gap-3 py-4 text-xs text-muted-foreground">
               <div className="h-px flex-1 bg-border" />
-              <span className="flex items-center gap-1.5 rounded-full border px-3 py-1">
+              <span className="flex items-center gap-1.5 rounded-pill border px-3 py-1">
                 <GitForkIcon className="size-3.5" />
                 Forked from conversation
               </span>

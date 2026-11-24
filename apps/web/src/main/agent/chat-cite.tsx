@@ -73,7 +73,7 @@ export function CiteSelectionButton({
       aria-label="Cite selection in composer"
       onMouseDown={(e) => e.preventDefault()}
       onClick={cite}
-      className="surface-glass fixed z-50 flex items-center gap-1 rounded-full border border-border/60 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm hover:bg-accent-surface"
+      className="surface-glass fixed z-50 flex items-center gap-1 rounded-pill border border-border/60 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm hover:bg-accent-surface margin:shadow-none"
       style={{
         left: Math.max(8, Math.min(at.right - 24, window.innerWidth - 80)),
         top: Math.min(at.bottom + 6, window.innerHeight - 36),
@@ -149,7 +149,7 @@ export function CitationCommentEditor({
   return createPortal(
     <div
       ref={ref}
-      className="dropdown-glass fixed z-50 w-80 rounded-xl p-3 shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
+      className="dropdown-glass fixed z-50 w-80 rounded-xl p-3 shadow-overlay"
       style={position ?? { left: 0, top: 0, visibility: "hidden" }}
       onKeyDown={(e) => {
         e.stopPropagation();

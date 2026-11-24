@@ -75,7 +75,7 @@ export function useMessageTranslation(accountId: string, detail: MessageDetail |
   };
 }
 
-const PILL = "rounded-full border-border/60";
+const PILL = "rounded-pill border-border/60";
 
 function errorMessage(error: Error, from: string, to: string): string {
   if (error instanceof TranslationUnavailableError) {

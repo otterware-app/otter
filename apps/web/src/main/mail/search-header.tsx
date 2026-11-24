@@ -58,7 +58,7 @@ const SIZE_OPS = { larger: "greater than", smaller: "less than" };
 const SIZE_UNITS = { MB: "MB", KB: "KB", bytes: "Bytes" };
 
 const FIELD =
-  "h-7.5 w-full min-w-0 rounded-lg border border-input bg-canvas px-2.5 text-sm text-foreground shadow-xs/5 outline-none placeholder:text-placeholder focus-visible:border-focus-ring focus-visible:ring-[3px] focus-visible:ring-focus-ring/24 dark:bg-input/32";
+  "h-7.5 w-full min-w-0 rounded-lg border border-input bg-canvas px-2.5 text-sm text-foreground shadow-xs/5 outline-none placeholder:text-placeholder focus-visible:border-focus-ring focus-visible:ring-[3px] focus-visible:ring-focus-ring/24 dark:bg-input/32 margin:shadow-none";
 
 function chipClass(active: boolean) {
   return cn(
@@ -226,7 +226,7 @@ function AdvancedSearch({
           onClose();
         }
       }}
-      className="@container/adv dropdown-glass absolute inset-x-3 top-[calc(var(--workspace-topbar-height)-2px)] z-30 flex max-h-[70vh] flex-col gap-2.5 overflow-y-auto rounded-xl p-4 shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
+      className="@container/adv dropdown-glass absolute inset-x-3 top-[calc(var(--workspace-topbar-height)-2px)] z-30 flex max-h-[70vh] flex-col gap-2.5 overflow-y-auto rounded-xl p-4 shadow-overlay"
     >
       {row(
         "From",
@@ -694,7 +694,7 @@ export function SearchHeader({
     <div ref={boxRef} className="relative shrink-0">
       <div className="drag-region flex h-(--workspace-topbar-height) items-center gap-2 px-3">
         {headerLeading}
-        <div className="no-drag relative flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full bg-accent-surface px-3 transition-colors focus-within:bg-secondary">
+        <div className="no-drag relative flex h-8 min-w-0 flex-1 items-center gap-2 rounded-pill bg-accent-surface px-3 transition-colors focus-within:bg-secondary">
           <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
           <input
             autoCorrect="off"
@@ -762,7 +762,7 @@ export function SearchHeader({
       {showSuggestions ? (
         <div
           role="listbox"
-          className="dropdown-glass absolute inset-x-3 top-[calc(var(--workspace-topbar-height)-2px)] z-30 flex max-h-96 flex-col overflow-y-auto rounded-xl p-1 shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
+          className="dropdown-glass absolute inset-x-3 top-[calc(var(--workspace-topbar-height)-2px)] z-30 flex max-h-96 flex-col overflow-y-auto rounded-xl p-1 shadow-overlay"
         >
           {!draft.trim() ? (
             <div className="px-2.5 pb-1 pt-1.5 text-sm text-muted-foreground">Recent searches</div>

@@ -263,7 +263,7 @@ export function TalkButton({
       <IconButton
         label={label}
         size={compact ? "icon-sm" : "icon"}
-        className="rounded-full"
+        className="rounded-pill"
         onPointerDown={(e) => e.preventDefault()}
         onClick={() => void startCall(chatId, provider, sessionId)}
       >
@@ -335,7 +335,7 @@ export function TalkBar({ call, name, compact }: { call: Call; name: string; com
           label={call.muted ? "Unmute" : "Mute"}
           active={call.muted}
           size={compact ? "icon-sm" : "icon"}
-          className="shrink-0 rounded-full"
+          className="shrink-0 rounded-pill"
           onClick={() => muteCall(!call.muted)}
         >
           {call.muted ? <MicOffIcon className="size-4" /> : <MicIcon className="size-4" />}
@@ -345,7 +345,7 @@ export function TalkBar({ call, name, compact }: { call: Call; name: string; com
         variant="destructive"
         size={compact ? "sm" : "default"}
         onClick={endCall}
-        className="rounded-full bg-destructive/90 px-3.5 text-sm font-medium shadow-xs shadow-destructive/24 inset-shadow-2xs inset-shadow-white/16 hover:bg-destructive active:shadow-none"
+        className="rounded-pill bg-destructive/90 px-3.5 text-sm font-medium shadow-xs shadow-destructive/24 inset-shadow-2xs inset-shadow-white/16 hover:bg-destructive active:shadow-none margin:inset-shadow-none margin:shadow-none"
       >
         End
       </Button>

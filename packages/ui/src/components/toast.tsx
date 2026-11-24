@@ -47,7 +47,7 @@ function errorDescriptionClampClass(type: unknown, description: unknown): string
 
 const toastCornerDismissClass = "absolute z-20 -top-1.5 -right-1.5";
 const toastCornerOrbClass = cn(
-  "inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border/60 bg-popover/92 text-muted-foreground shadow-sm outline-none backdrop-blur-sm",
+  "inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border/60 bg-popover/92 text-muted-foreground shadow-sm outline-none backdrop-blur-sm margin:shadow-none",
   "hover:bg-popover hover:text-foreground",
   "focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1",
 );
@@ -129,7 +129,7 @@ function ToastBody({
             <Toast.Action
               className={cn(
                 buttonVariants({ variant: "ghost", size: "sm" }),
-                "shrink-0 rounded-full text-sm",
+                "shrink-0 rounded-pill text-sm",
               )}
               data-slot="toast-action"
             >
@@ -205,7 +205,7 @@ function Toasts({ position }: { position: ToastPosition }) {
           return (
             <Toast.Root
               className={cn(
-                "dropdown-glass absolute z-[calc(9999-var(--toast-index))] w-full overflow-visible select-none rounded-xl text-popover-foreground shadow-lg shadow-black/10 dark:shadow-black/30 [transition:transform_.35s_cubic-bezier(.22,1,.36,1),opacity_.25s,height_.15s]",
+                "dropdown-glass absolute z-[calc(9999-var(--toast-index))] w-full overflow-visible select-none rounded-xl text-popover-foreground shadow-lg shadow-black/10 dark:shadow-black/30 [transition:transform_.35s_cubic-bezier(.22,1,.36,1),opacity_.25s,height_.15s] margin:shadow-none",
                 "data-[position*=right]:right-0 data-[position*=right]:left-auto",
                 "data-[position*=left]:right-auto data-[position*=left]:left-0",
                 "data-[position*=center]:right-0 data-[position*=center]:left-0",

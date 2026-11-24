@@ -421,7 +421,7 @@ export function AgentBrowser({
           label={`${agentName}'s browser, running on the OpenClaw gateway`}
           side="bottom"
         >
-          <span className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-foreground/[0.06] px-3 text-xs font-medium text-foreground">
+          <span className="flex h-8 shrink-0 items-center gap-1.5 rounded-pill bg-foreground/[0.06] px-3 text-xs font-medium text-foreground">
             <CloudIcon className="size-3.5 text-muted-foreground" />
             {agentName}
             {live ? (
@@ -430,11 +430,11 @@ export function AgentBrowser({
           </span>
         </HintTooltip>
         {controlling ? (
-          <div className="flex shrink-0 items-center rounded-full bg-foreground/[0.06] p-0.5">
+          <div className="flex shrink-0 items-center rounded-pill bg-foreground/[0.06] p-0.5">
             <HintTooltip label="Back" side="bottom">
               <IconButton
                 label="Back"
-                className="rounded-full"
+                className="rounded-pill"
                 onClick={() => send({ type: "history", delta: -1 })}
               >
                 <ArrowLeftIcon className="size-4" />
@@ -443,7 +443,7 @@ export function AgentBrowser({
             <HintTooltip label="Forward" side="bottom">
               <IconButton
                 label="Forward"
-                className="rounded-full"
+                className="rounded-pill"
                 onClick={() => send({ type: "history", delta: 1 })}
               >
                 <ArrowRightIcon className="size-4" />
@@ -453,7 +453,7 @@ export function AgentBrowser({
             <HintTooltip label="Reload" side="bottom">
               <IconButton
                 label="Reload"
-                className="rounded-full"
+                className="rounded-pill"
                 onClick={() => send({ type: "reload" })}
               >
                 <RotateCwIcon className="size-4" />
@@ -483,14 +483,14 @@ export function AgentBrowser({
               e.currentTarget.blur();
             }}
             className={cn(
-              "mx-auto h-8 min-w-0 max-w-[56rem] flex-1 rounded-full bg-foreground/[0.06] px-4 text-sm text-foreground outline-none hover:bg-foreground/[0.09] focus:bg-foreground/[0.09]",
+              "mx-auto h-8 min-w-0 max-w-[56rem] flex-1 rounded-pill bg-foreground/[0.06] px-4 text-sm text-foreground outline-none hover:bg-foreground/[0.09] focus:bg-foreground/[0.09]",
               address === null ? "text-center" : "text-left",
             )}
           />
         ) : (
           <div
             title={page}
-            className="mx-auto flex h-8 min-w-0 max-w-[56rem] flex-1 items-center justify-center rounded-full bg-foreground/[0.06] px-4 text-sm text-foreground"
+            className="mx-auto flex h-8 min-w-0 max-w-[56rem] flex-1 items-center justify-center rounded-pill bg-foreground/[0.06] px-4 text-sm text-foreground"
           >
             <span className="truncate">{page ? hostOf(page) : `${agentName}'s browser`}</span>
           </div>
@@ -503,7 +503,7 @@ export function AgentBrowser({
               setControlling((on) => !on);
             }}
             className={cn(
-              "flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+              "flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-pill px-3 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
               controlling
                 ? "bg-foreground text-background hover:bg-foreground/85"
                 : "bg-foreground/[0.06] text-foreground hover:bg-foreground/[0.09]",

@@ -64,6 +64,8 @@ export const THEME_COLOR_ROLES = [
 export type ThemeColorRole = (typeof THEME_COLOR_ROLES)[number];
 export type ThemeColors = Readonly<Record<ThemeColorRole, string>>;
 export type ThemeVariants = Readonly<Partial<Record<ThemeAppearance, ThemeColors>>>;
+export type ThemeDesign = "margin";
+
 export type ThemeDefinition = Readonly<{
   id: string;
   label: string;
@@ -77,6 +79,8 @@ export type ThemeDefinition = Readonly<{
   exact?: boolean;
   /** Keep the theme's primary instead of taking the active account's color. */
   monochrome?: boolean;
+  /** Its design beyond color: tokens.css's block for `html[data-design="…"]`. */
+  design?: ThemeDesign;
 }>;
 
 /**
@@ -858,4 +862,134 @@ export const OTTER_THEME: ThemeDefinition = {
   variants: { light: OTTER_LIGHT_THEME_COLORS, dark: OTTER_DARK_THEME_COLORS },
 };
 
-export const APP_THEMES: ReadonlyArray<ThemeDefinition> = [OTTER_THEME, ...BUILT_IN_THEMES];
+/** Margin's colors, as its tokens.css block paints them (for previews and drafts). */
+export const MARGIN_LIGHT_THEME_COLORS: ThemeColors = {
+  ...OTTER_LIGHT_THEME_COLORS,
+  canvas: "#fcfcfb",
+  chrome: "#fcfcfb",
+  toolbar: "#fcfcfb",
+  toolbarForeground: "#121214",
+  toolbarBorder: "#e7e7ea",
+  toolbarControl: "#ffffff",
+  toolbarControlForeground: "#121214",
+  toolbarControlHover: "#f1f1f3",
+  surface: "#ffffff",
+  surfaceRaised: "#ffffff",
+  surfaceOverlay: "#ffffff",
+  text: "#121214",
+  textMuted: "#5c5d64",
+  border: "#e7e7ea",
+  input: "#d7d7dc",
+  focus: "#7b7b7c",
+  accent: "#121214",
+  accentForeground: "#fcfcfb",
+  secondary: "#f3f3f4",
+  secondaryForeground: "#121214",
+  muted: "#f3f3f4",
+  mutedForeground: "#5c5d64",
+  placeholder: "#8e8f96",
+  secondaryLabel: "#5c5d64",
+  iconMuted: "#8e8f96",
+  error: "#d1341f",
+  errorForeground: "#b02a17",
+  errorSurface: "#f9ece9",
+  warning: "#c27c12",
+  warningForeground: "#8f5a0b",
+  warningSurface: "#f7f2e8",
+  update: "#121214",
+  updateForeground: "#121214",
+  updateSurface: "#f1f1f3",
+  accentSurface: "#f1f1f3",
+  accentSurfaceForeground: "#121214",
+  messageSurface: "#f1f1f3",
+  messageForeground: "#121214",
+  messageAction: "#121214",
+  messageActionForeground: "#fcfcfb",
+  messageActionHover: "#353537",
+  codeBackground: "#f3f3f4",
+  codeForeground: "#121214",
+  sidebar: "#fcfcfb",
+  sidebarForeground: "#121214",
+  sidebarMutedForeground: "#5c5d64",
+  sidebarControlSurface: "#f3f3f4",
+  sidebarRowHover: "#f3f3f2",
+  sidebarRowActive: "#ececeb",
+  sidebarRowSelected: "#f0f0ef",
+  sidebarBorder: "#e7e7ea",
+  terminalBackground: "#fcfcfb",
+  terminalForeground: "#121214",
+};
+
+export const MARGIN_DARK_THEME_COLORS: ThemeColors = {
+  ...OTTER_DARK_THEME_COLORS,
+  canvas: "#0d0d0f",
+  chrome: "#0d0d0f",
+  toolbar: "#0d0d0f",
+  toolbarForeground: "#ededef",
+  toolbarBorder: "#24242a",
+  toolbarControl: "#141417",
+  toolbarControlForeground: "#ededef",
+  toolbarControlHover: "#1b1b20",
+  surface: "#141417",
+  surfaceRaised: "#141417",
+  surfaceOverlay: "#17171b",
+  text: "#ededef",
+  textMuted: "#a3a4ab",
+  border: "#24242a",
+  input: "#303037",
+  focus: "#88888a",
+  accent: "#ededef",
+  accentForeground: "#0d0d0f",
+  secondary: "#1b1b20",
+  secondaryForeground: "#ededef",
+  muted: "#1b1b20",
+  mutedForeground: "#a3a4ab",
+  placeholder: "#6b6c74",
+  secondaryLabel: "#a3a4ab",
+  iconMuted: "#6b6c74",
+  error: "#f05a3f",
+  errorForeground: "#ff8a73",
+  errorSurface: "#311917",
+  warning: "#e0a03a",
+  warningForeground: "#f0bd6a",
+  warningSurface: "#2f2516",
+  update: "#ededef",
+  updateForeground: "#ededef",
+  updateSurface: "#1b1b20",
+  accentSurface: "#1b1b20",
+  accentSurfaceForeground: "#ededef",
+  messageSurface: "#1b1b20",
+  messageForeground: "#ededef",
+  messageAction: "#ededef",
+  messageActionForeground: "#0d0d0f",
+  messageActionHover: "#cbcbcd",
+  codeBackground: "#1b1b20",
+  codeForeground: "#ededef",
+  sidebar: "#0d0d0f",
+  sidebarForeground: "#ededef",
+  sidebarMutedForeground: "#a3a4ab",
+  sidebarControlSurface: "#1b1b20",
+  sidebarRowHover: "#18181a",
+  sidebarRowActive: "#212123",
+  sidebarRowSelected: "#1d1d1f",
+  sidebarBorder: "#24242a",
+  terminalBackground: "#0d0d0f",
+  terminalForeground: "#ededef",
+};
+
+export const MARGIN_THEME: ThemeDefinition = {
+  id: "margin",
+  label: "Margin",
+  appearance: "light",
+  colors: MARGIN_LIGHT_THEME_COLORS,
+  variants: { light: MARGIN_LIGHT_THEME_COLORS, dark: MARGIN_DARK_THEME_COLORS },
+  exact: true,
+  monochrome: true,
+  design: "margin",
+};
+
+export const APP_THEMES: ReadonlyArray<ThemeDefinition> = [
+  OTTER_THEME,
+  MARGIN_THEME,
+  ...BUILT_IN_THEMES,
+];

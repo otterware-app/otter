@@ -108,7 +108,7 @@ export function ExtensionToolbar() {
 
   if (onToolbar.length === 0 && (!showButton || actions.length === 0)) return null;
   return (
-    <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-foreground/[0.06] p-0.5">
+    <div className="flex shrink-0 items-center gap-0.5 rounded-pill bg-foreground/[0.06] p-0.5">
       {onToolbar.map((action) => (
         <HintTooltip key={action.id} label={action.title} side="bottom">
           <IconButton
@@ -117,7 +117,7 @@ export function ExtensionToolbar() {
               else buttons.current.delete(action.id);
             }}
             label={action.title}
-            className="rounded-full"
+            className="rounded-pill"
             onClick={(e) => run(action.id, e.currentTarget)}
           >
             <ActionIcon action={action} />
@@ -128,7 +128,7 @@ export function ExtensionToolbar() {
         <DropdownMenu>
           <HintTooltip label="Extensions" side="bottom">
             <DropdownMenuTrigger
-              render={<IconButton ref={menuButton} label="Extensions" className="rounded-full" />}
+              render={<IconButton ref={menuButton} label="Extensions" className="rounded-pill" />}
             >
               <PuzzleIcon className="size-4" />
             </DropdownMenuTrigger>

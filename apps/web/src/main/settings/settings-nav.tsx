@@ -156,7 +156,7 @@ export function SettingsNav({
         <h2 className="mb-1 flex h-8 items-center pe-(--sidebar-row-content-inset) ps-(--sidebar-heading-inset) text-base font-semibold text-sidebar-foreground">
           Settings
         </h2>
-        <div className="mb-2 flex h-9 shrink-0 items-center gap-2 rounded-full bg-foreground/[0.06] ps-3 pe-2.5 transition-colors focus-within:bg-foreground/[0.08]">
+        <div className="mb-2 flex h-9 shrink-0 items-center gap-2 rounded-pill bg-foreground/[0.06] ps-3 pe-2.5 transition-colors focus-within:bg-foreground/[0.08]">
           <SearchIcon className="size-4 shrink-0 text-sidebar-muted-foreground" />
           <input
             ref={searchInputRef}

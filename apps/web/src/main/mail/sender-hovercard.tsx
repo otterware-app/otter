@@ -71,7 +71,7 @@ export function SenderHoverCard({
               style={{ left: pos.x, top: pos.y }}
               onMouseEnter={clearTimers}
               onMouseLeave={hide}
-              className="dropdown-glass fixed z-50 w-72 rounded-2xl p-3 shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
+              className="dropdown-glass fixed z-50 w-72 rounded-2xl p-3 shadow-overlay"
             >
               <div className="flex items-center gap-2.5">
                 <SenderAvatar name={name} email={email} accountId={accountId} />

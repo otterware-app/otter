@@ -49,7 +49,7 @@ function useExtensions() {
   return query;
 }
 
-const PILL = "rounded-full px-3.5";
+const PILL = "rounded-pill px-3.5";
 
 export function ExtensionsSection() {
   const extensions = useExtensions();
@@ -118,7 +118,7 @@ export function ExtensionsSection() {
 
       <div className="mt-4 space-y-4 px-[1px]">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full bg-foreground/[0.05] px-3.5 focus-within:bg-foreground/[0.08]">
+          <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-pill bg-foreground/[0.05] px-3.5 focus-within:bg-foreground/[0.08]">
             <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
             <input
               value={query}

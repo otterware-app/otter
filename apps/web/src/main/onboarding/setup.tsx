@@ -202,7 +202,7 @@ function Progress({ step }: { step: Step }) {
             <span
               aria-current={current ? "step" : undefined}
               className={cn(
-                "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-body",
+                "flex h-7 items-center gap-1.5 rounded-pill px-2.5 text-body",
                 current
                   ? "bg-accent-surface text-foreground"
                   : done

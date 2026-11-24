@@ -11,6 +11,7 @@ import {
   type ThemeColorRole,
   type ThemeColors,
   type ThemeDefinition,
+  type ThemeDesign,
 } from "@otter/shared/themes";
 import { getCustomThemes, subscribeToCustomThemes } from "./themePalette";
 
@@ -187,11 +188,16 @@ export function applyAppTheme(): void {
   const colors = draft?.colors ?? themeColors(themeId, mode);
   const exact = draft !== null || isCustom(themeId) || (findTheme(themeId)?.exact ?? false);
 
+  const design = draft ? undefined : findTheme(themeId)?.design;
+
   const root = document.documentElement;
   withoutTransitions(root);
   root.classList.toggle("dark", mode === "dark");
+  if (design) root.setAttribute("data-design", design);
+  else root.removeAttribute("data-design");
   let style = document.getElementById(STYLE_ID);
-  if (themeId === DEFAULT_THEME_ID) {
+  // A theme with a design is painted whole by its tokens.css block.
+  if (themeId === DEFAULT_THEME_ID || design) {
     root.removeAttribute("data-theme-id");
     style?.remove();
     return;
@@ -244,6 +250,29 @@ export function useMonochromeTheme(): boolean {
     };
   }, []);
   return monochrome;
+}
+
+function currentDesign(): ThemeDesign | undefined {
+  if (draft) return undefined;
+  return findTheme(previewId ?? getThemeChoice()[appearance()])?.design;
+}
+
+/** The design of the theme on screen, for what reads it outside CSS. */
+export function useThemeDesign(): ThemeDesign | undefined {
+  const [design, setDesign] = useState(currentDesign);
+  useEffect(() => {
+    const update = () => setDesign(currentDesign());
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", update);
+    window.addEventListener(CHANGE_EVENT, update);
+    window.addEventListener("storage", update);
+    return () => {
+      mq.removeEventListener("change", update);
+      window.removeEventListener(CHANGE_EVENT, update);
+      window.removeEventListener("storage", update);
+    };
+  }, []);
+  return design;
 }
 
 export function useThemeChoice(): ThemeChoice {

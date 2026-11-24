@@ -151,7 +151,7 @@ export function EventPanel({
         visibility: place ? "visible" : "hidden",
       }}
       className={cn(
-        "absolute z-40 border border-border/70 [background:linear-gradient(var(--popover),var(--popover)),var(--canvas)] flex max-h-[calc(100%-16px)] flex-col overflow-y-auto rounded-xl text-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)] animate-calendar-fade motion-reduce:animate-none",
+        "absolute z-40 border border-border/70 [background:linear-gradient(var(--popover),var(--popover)),var(--canvas)] flex max-h-[calc(100%-16px)] flex-col overflow-y-auto rounded-xl text-foreground shadow-overlay animate-calendar-fade motion-reduce:animate-none margin:border-overlay-edge",
         placed && "transition-[left,top] duration-150 ease-out",
       )}
     >
@@ -554,7 +554,7 @@ function Rsvp({
           className={cn(
             "h-7 flex-1 cursor-pointer rounded-md text-body outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
             value === response
-              ? "bg-canvas font-medium text-foreground shadow-[0_1px_2px_rgb(0_0_0/12%)] dark:bg-foreground/[0.12]"
+              ? "bg-canvas font-medium text-foreground shadow-[0_1px_2px_rgb(0_0_0/12%)] dark:bg-foreground/[0.12] margin:shadow-none"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
@@ -619,7 +619,7 @@ function ReadOnlyEvent({
   return (
     <>
       <Header title="Event" onClose={onClose} />
-      <div className="px-4 pb-2 text-md font-medium">{event.title}</div>
+      <div className="px-4 pb-2 text-md font-medium font-reading">{event.title}</div>
       <Divider />
       <Row icon={<ClockIcon />} className="py-1.5">
         {event.allDay ? null : (

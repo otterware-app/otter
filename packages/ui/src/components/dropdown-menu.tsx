@@ -9,7 +9,7 @@ import { cn } from "../lib/utils";
 const keyboardOnlyFocus = (closeType: string) => closeType === "keyboard";
 
 const POPUP =
-  "dropdown-glass z-[130] max-h-(--available-height) min-w-44 origin-(--transform-origin) overflow-y-auto rounded-xl p-1.5 text-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] outline-none transition-[opacity,scale] duration-100 data-ending-style:scale-98 data-ending-style:opacity-0 data-instant:duration-0 data-starting-style:scale-98 data-starting-style:opacity-0 dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]";
+  "dropdown-glass z-[130] max-h-(--available-height) min-w-44 origin-(--transform-origin) overflow-y-auto rounded-xl p-1.5 text-foreground shadow-overlay outline-none transition-[opacity,scale] duration-100 data-ending-style:scale-98 data-ending-style:opacity-0 data-instant:duration-0 data-starting-style:scale-98 data-starting-style:opacity-0";
 
 const ROW =
   "relative flex min-h-8 cursor-pointer select-none items-center gap-2.5 rounded-lg px-2.5 py-1 text-sm outline-none data-disabled:pointer-events-none data-disabled:opacity-64 data-highlighted:bg-foreground/[0.07] data-highlighted:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground";

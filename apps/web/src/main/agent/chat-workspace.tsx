@@ -429,7 +429,10 @@ export function ChatWorkspace({
           ) : (
             <>
               <AgentAvatar id={convo.provider} agent={openClawAgentId(convo.sessionId)} />
-              <ChatTitle chat={convo} className="text-sm font-medium text-foreground" />
+              <ChatTitle
+                chat={convo}
+                className="text-sm font-medium text-foreground font-reading"
+              />
               <span className="flex-1" />
               <ChatContextButton
                 convo={convo}

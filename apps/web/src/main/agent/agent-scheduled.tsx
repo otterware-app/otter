@@ -261,7 +261,7 @@ export function ScheduledTasksView({
 
   const listHeader = (
     <>
-      <h1 className="text-sm font-medium text-foreground">Scheduled tasks</h1>
+      <h1 className="text-sm font-medium text-foreground font-reading">Scheduled tasks</h1>
       {tasks.length > 0 ? (
         <span className="text-sm tabular-nums text-muted-foreground">{tasks.length}</span>
       ) : null}
@@ -825,7 +825,9 @@ function TaskPage({
     <div className="@container mx-auto flex w-full max-w-5xl flex-col px-8 pt-6 pb-20">
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">{task.name}</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground font-reading">
+            {task.name}
+          </h1>
           {when ? (
             <p className="flex items-center gap-1.5 pt-1.5 text-sm text-muted-foreground">
               {task.running ? <Spinner aria-hidden className="size-3.5 text-info" /> : null}

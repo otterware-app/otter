@@ -5,6 +5,7 @@ import { isBlank, useChats } from "./chat-store";
 import { ShortcutText } from "../keybindings/store";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { cn } from "@otter/ui/lib/utils";
+import { useThemeDesign } from "../theme/apply-theme";
 
 export type ChatStatus = "approval" | "input" | "working" | "failed" | "done" | null;
 
@@ -43,11 +44,26 @@ export function StatusDot({ status, className }: { status: ChatStatus; className
   );
 }
 
-/** Card corners' radius (rounded-xl) and the frame's gap round them. */
-const R = 12;
+/** The frame's gap round the cards. */
 const GAP = 4;
 
-function notchShape(width: number, height: number) {
+let radius: { design: string; px: number } | null = null;
+
+/** The cards' corner radius (rounded-xl): Otter's 12, or what the theme's design sets. */
+function cardRadius(design: string | null): number {
+  if (!design) return 12;
+  if (radius?.design !== design) {
+    const probe = document.createElement("div");
+    probe.style.borderTopLeftRadius = "var(--radius-xl)";
+    document.body.append(probe);
+    radius = { design, px: Number.parseFloat(getComputedStyle(probe).borderTopLeftRadius) || 0 };
+    probe.remove();
+  }
+  return radius.px;
+}
+
+function notchShape(width: number, height: number, design: string | null) {
+  const R = cardRadius(design);
   const w = width + 2 * GAP + R;
   const h = height + 2 * GAP + R;
   const bottom = h - GAP - 0.5;
@@ -82,7 +98,8 @@ export function Notch({
   height?: number;
   ref?: RefObject<SVGSVGElement | null>;
 }) {
-  const shape = width != null && height != null ? notchShape(width, height) : null;
+  const design = useThemeDesign() ?? null;
+  const shape = width != null && height != null ? notchShape(width, height, design) : null;
   const svgRef = useRef<SVGSVGElement>(null);
   useLayoutEffect(() => {
     const svg = svgRef.current;
@@ -113,8 +130,13 @@ export function Notch({
   );
 }
 
-export function drawNotch(svg: SVGSVGElement, width: number, height: number) {
-  const { w, h, edge, fill } = notchShape(width, height);
+export function drawNotch(
+  svg: SVGSVGElement,
+  width: number,
+  height: number,
+  design: string | null,
+) {
+  const { w, h, edge, fill } = notchShape(width, height, design);
   setClearance(svg, height);
   svg.setAttribute("width", String(w));
   svg.setAttribute("height", String(h));

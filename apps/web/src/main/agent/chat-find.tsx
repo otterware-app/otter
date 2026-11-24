@@ -176,7 +176,7 @@ export function FindBar({
   return (
     <div
       data-own-escape=""
-      className="dropdown-glass flex items-center gap-1 rounded-lg py-1 pr-1 pl-3 shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
+      className="dropdown-glass flex items-center gap-1 rounded-lg py-1 pr-1 pl-3 shadow-overlay"
     >
       <input
         ref={inputRef}

@@ -44,7 +44,8 @@ export function PanelTab({
         selected || dragging
           ? "bg-foreground/10 text-foreground"
           : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
-        dragging && "z-10 cursor-grabbing bg-canvas shadow-sm ring-1 ring-border",
+        dragging &&
+          "z-10 cursor-grabbing bg-canvas shadow-sm ring-1 ring-border margin:shadow-none",
         className,
       )}
     >

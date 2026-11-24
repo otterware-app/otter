@@ -33,7 +33,7 @@ function EmptyState({
       {title || description ? (
         <div className="flex max-w-xs flex-col items-center gap-1">
           {title ? (
-            <h1 className="text-md leading-5 font-medium text-foreground">{title}</h1>
+            <h1 className="font-reading text-md leading-5 font-medium text-foreground">{title}</h1>
           ) : null}
           {description ? <p className="text-body text-muted-foreground">{description}</p> : null}
         </div>

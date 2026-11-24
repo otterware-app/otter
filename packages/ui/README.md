@@ -6,8 +6,9 @@ parts) on [Base UI](https://base-ui.com) primitives. `design/otter.pen` draws th
 and components; [design/README.md](../../design/README.md) is how the two stay in sync.
 
 ```
-src/styles/tokens.css    the tokens: the stock palette (light, .dark, the sidebar's scope), radius, glass
-src/styles/globals.css   Tailwind, Inter, the contrast layer, the Tailwind theme, shared utilities
+src/styles/tokens.css    the tokens: the stock palette (light, .dark, the sidebar's scope), radius, glass,
+                         and each theme design's block (Margin: html[data-design="margin"])
+src/styles/globals.css   Tailwind, the fonts, the contrast layer, the Tailwind theme, shared utilities
 src/components/*.tsx     the components
 src/lib/utils.ts         cn()
 src/tokens.ts            tokens.css resolved for design/tokens.json (pnpm design:tokens)
@@ -30,7 +31,15 @@ Components are imported one file at a time: `import { Button } from "@otter/ui/c
   13 (the body), `text-sm` 14, `text-md` 15, `text-base` 16, `text-lg` 18, `text-xl` 20,
   `text-2xl` 24 (page titles), `text-3xl` 30. No `text-[13px]`.
 - **Radius on the scale.** `rounded-sm` 4, `rounded-md` 6, `rounded-lg` 8 (controls),
-  `rounded-xl` 12 (menus, cards), `rounded-2xl` 16 (dialogs), `rounded-full`.
+  `rounded-xl` 12 (menus, cards), `rounded-2xl` 16 (dialogs), `rounded-full` (circles: avatars,
+  dots), `rounded-pill` (a control shaped as a pill: a pill button, a search field, a chip).
+  The values are Otter's; a theme's design sets its own (Margin: 2–8, pills 3).
+- **Themes set every token.** A theme is colors and, through its design, any other token: the
+  fonts, the radius scale, `rounded-pill`, `shadow-overlay`, `border-overlay-edge`, glass.
+  So a component takes those from tokens too: what you read (a subject, a title, an agent's
+  prose, a draft) is `font-reading`, an overlay's lift `shadow-overlay`. Where a design needs a
+  component to differ in a way no token says, a `margin:` variant does it (`shadow-xs
+margin:shadow-none`). A new token defaults to Otter's value, so Otter never moves.
 - **Hover is instant.** A row, a navigation item, a chip or a button changes on hover at once:
   no `transition-colors` (or `transition-opacity` on actions a row shows on hover). Motion is
   for what moves or opens: popups, panels, a section folding.

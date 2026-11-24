@@ -78,6 +78,18 @@ https://github.com/rsms/inter, SIL Open Font License 1.1, Copyright (c) 2016 The
 Authors. Bundled in the web and desktop app (`@fontsource-variable/inter`) and the iPhone apps
 (`apps/ios/OtterMail/Resources/Fonts/`, with its license).
 
+## Geist and Geist Mono
+
+https://github.com/vercel/geist-font, SIL Open Font License 1.1, Copyright 2024 The Geist Project
+Authors. Bundled in the web and desktop app for the Margin theme (`@fontsource-variable/geist`,
+`@fontsource-variable/geist-mono`).
+
+## Newsreader
+
+https://github.com/productiontype/Newsreader, SIL Open Font License 1.1, Copyright 2020 The
+Newsreader Project Authors. Bundled in the web and desktop app for the Margin theme
+(`@fontsource-variable/newsreader`).
+
 ## Names and marks
 
 Gmail, Google Calendar and Google Meet are trademarks of Google LLC; Outlook, Microsoft Teams

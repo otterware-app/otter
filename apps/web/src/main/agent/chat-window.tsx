@@ -20,6 +20,7 @@ import { ChatSwitcherItems } from "./chat-switcher";
 import { ChatTitle, TitleMenuButton } from "./chat-title";
 import { ChatView } from "./chat-view";
 import { features } from "../features";
+import { useThemeDesign } from "../theme/apply-theme";
 import { isOverlayOpen } from "../mail/keyboard";
 import { ShortcutText } from "../keybindings/store";
 import {
@@ -106,6 +107,7 @@ export function ChatWindow({
   // The notch round it follows its size, drawn here rather than rendered: opening and closing,
   // it grows from the agent's button and shrinks back into it on every frame.
   const notchRef = useRef<SVGSVGElement>(null);
+  const design = useThemeDesign();
   const animating = useRef(false);
   /** How open it's drawn, 0 to 1: a reversal starts from there. */
   const progress = useRef(0);
@@ -116,13 +118,13 @@ export function ChatWindow({
     const draw = () => {
       // Only open and still: while it opens or closes, the animation draws it.
       if (!animating.current && progress.current === 1)
-        drawNotch(notch, panel.offsetWidth, panel.offsetHeight);
+        drawNotch(notch, panel.offsetWidth, panel.offsetHeight, design ?? null);
     };
     draw();
     const observer = new ResizeObserver(draw);
     observer.observe(panel);
     return () => observer.disconnect();
-  }, []);
+  }, [design]);
   useLayoutEffect(() => {
     const panel = panelRef.current;
     const notch = notchRef.current;
@@ -135,7 +137,7 @@ export function ChatWindow({
       progress.current = target;
       panel.style.clipPath = "";
       panel.style.opacity = "";
-      drawNotch(notch, width, height);
+      drawNotch(notch, width, height, design ?? null);
       return;
     }
     const from = progress.current;
@@ -153,7 +155,7 @@ export function ChatWindow({
       const h = BUTTON + (height - BUTTON) * k;
       panel.style.clipPath = `inset(${height - h}px 0 0 ${width - w}px round ${8 + 4 * k}px)`;
       panel.style.opacity = String(Math.min(1, k * 2));
-      drawNotch(notch, w, h);
+      drawNotch(notch, w, h, design ?? null);
       if (t < 1) {
         raf = requestAnimationFrame(frame);
         return;
@@ -170,7 +172,7 @@ export function ChatWindow({
       cancelAnimationFrame(raf);
       animating.current = false;
     };
-  }, [animationMs, closing]);
+  }, [animationMs, closing, design]);
 
   const resized = (axis: Axis, dx: number, dy: number) => {
     const panel = panelRef.current!;
@@ -298,14 +300,16 @@ export function ChatWindow({
             {active && !blank ? (
               <ChatTitle
                 chat={active}
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium text-foreground font-reading"
                 menu={switcher}
               />
             ) : (
               <span className="flex min-w-0 flex-1">
                 <DropdownMenu>
                   <DropdownMenuTrigger
-                    render={<TitleMenuButton className="text-sm font-medium text-foreground" />}
+                    render={
+                      <TitleMenuButton className="text-sm font-medium text-foreground font-reading" />
+                    }
                   >
                     New chat
                   </DropdownMenuTrigger>

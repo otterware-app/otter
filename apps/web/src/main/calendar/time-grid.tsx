@@ -520,7 +520,7 @@ function TimedEvent({
         isPending(event) && !selected && "border-dashed",
         declined && !selected && "opacity-55",
         dragging
-          ? "shadow-[0_8px_24px_-8px_rgb(0_0_0/45%)]"
+          ? "shadow-[0_8px_24px_-8px_rgb(0_0_0/45%)] margin:shadow-none margin:ring-1 margin:ring-overlay-edge"
           : "transition-[top,height,left,width] duration-150 ease-out",
         !dragging && cols > 1 && "shadow-[0_0_0_1px_var(--canvas)]",
       )}

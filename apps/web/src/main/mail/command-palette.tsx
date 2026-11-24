@@ -663,7 +663,7 @@ export function CommandPalette({
           aria-modal="true"
           aria-label="Command palette"
           className={cn(
-            "pointer-events-auto relative flex max-h-105 w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-foreground/10 text-foreground shadow-[0_24px_64px_-24px_rgb(0_0_0/45%)] transition-[background-color] dark:shadow-[0_24px_64px_-24px_rgb(0_0_0/80%)]",
+            "pointer-events-auto relative flex max-h-105 w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-foreground/10 text-foreground shadow-[0_24px_64px_-24px_rgb(0_0_0/45%)] transition-[background-color] dark:shadow-[0_24px_64px_-24px_rgb(0_0_0/80%)] margin:shadow-none margin:border-overlay-edge",
             page === "theme" ? "bg-popover/70 backdrop-blur-md" : "bg-popover",
           )}
         >

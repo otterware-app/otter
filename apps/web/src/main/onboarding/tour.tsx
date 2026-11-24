@@ -217,7 +217,7 @@ export function Tour({ actions, onClose }: { actions: TourActions; onClose: () =
         role="dialog"
         aria-modal="true"
         aria-labelledby="tour-title"
-        className="fixed flex flex-col gap-3 rounded-2xl border border-border/70 bg-popover p-5 text-popover-foreground shadow-[0_24px_64px_-24px_rgb(0_0_0/0.65)] transition-[left,top] duration-[420ms] ease-drawer motion-reduce:transition-none"
+        className="fixed flex flex-col gap-3 rounded-2xl border border-border/70 bg-popover p-5 text-popover-foreground shadow-[0_24px_64px_-24px_rgb(0_0_0/0.65)] transition-[left,top] duration-[420ms] ease-drawer motion-reduce:transition-none margin:shadow-none margin:border-overlay-edge"
         style={{ width: CARD_WIDTH, ...position }}
       >
         <div className="flex items-center justify-between">

@@ -150,7 +150,7 @@ function KeyControl({
         size="sm"
         onClick={() => onRecordingChange(true)}
         aria-label="Change shortcut"
-        className="-me-2.5 rounded-full"
+        className="-me-2.5 rounded-pill"
       >
         {value ? (
           <KeyChips value={value} />
@@ -197,7 +197,7 @@ function KeyControl({
           }
           finish(stroke);
         }}
-        className="h-7 w-40 rounded-full border border-focus-ring/60 bg-canvas px-3 text-right font-mono text-xs text-foreground outline-none ring-[3px] ring-focus-ring/16 placeholder:font-sans placeholder:text-placeholder"
+        className="h-7 w-40 rounded-pill border border-focus-ring/60 bg-canvas px-3 text-right font-mono text-xs text-foreground outline-none ring-[3px] ring-focus-ring/16 placeholder:font-sans placeholder:text-placeholder"
       />
     </div>
   );
