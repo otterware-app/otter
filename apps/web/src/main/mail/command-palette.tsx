@@ -724,7 +724,7 @@ export function CommandPalette({
           className={cn(
             "pointer-events-auto relative flex w-full flex-col overflow-hidden text-foreground transition-[background-color]",
             margin
-              ? "max-h-[min(36rem,80vh)] max-w-170 rounded-lg border border-overlay-edge shadow-overlay"
+              ? "max-h-[min(36rem,80vh)] max-w-(--reading-width) rounded-lg border border-overlay-edge shadow-overlay"
               : "max-h-105 max-w-xl rounded-2xl border border-foreground/10 shadow-[0_24px_64px_-24px_rgb(0_0_0/45%)] dark:shadow-[0_24px_64px_-24px_rgb(0_0_0/80%)] margin:shadow-none margin:border-overlay-edge",
             page === "theme" ? "bg-popover/70 backdrop-blur-md" : "bg-popover",
           )}
