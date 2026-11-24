@@ -2,7 +2,8 @@
  * How long Gmail's sync holds the JavaScript thread, for the phone's threading budget
  * (docs/expo-migration.md, gate 3): the made-up mailbox at 50,000 messages, core's real store on
  * an on-disk SQLite in WAL mode, a phone host (`kind: "mobile"`, no offline downloads), and a
- * 10 ms timer whose lateness is what a UI on the same thread would wait. Skipped unless asked:
+ * 10 ms timer whose lateness is what a UI on the same thread would wait. It also reads Inbox
+ * pages during sync to exercise the scrolling read path. Skipped unless asked:
  *
  *   OTTER_BENCH=1 pnpm --filter @otter/core exec vp test run bench
  *
@@ -11,7 +12,8 @@
  * OTTER_BENCH_PREPARE=each prepares on every run instead, as that adapter did at first, and
  * OTTER_BENCH_SYNCHRONOUS=FULL is SQLite's default. Gmail's quota pacing is off: it spreads a
  * real first sync over hours of idle time, which hides nothing about how long each stretch of
- * work is. The results go to bench/results.json (results-<variant>.json for the others).
+ * work is. Set OTTER_BENCH_PROFILE=1 to collect a V8 profile of the longest stalls.
+ * The results go to bench/results.json (results-<variant>.json for the others).
  */
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { Session } from "node:inspector/promises";
@@ -27,6 +29,8 @@ import type { Platform, SqlDatabase } from "../src/platform.ts";
 const MESSAGES = Number(process.env.OTTER_BENCH_MESSAGES ?? 50_000);
 const CHANGES = 200;
 const TICK_MS = 10;
+const LIST_EVERY_MS = 100;
+const PAGE_SIZE = 50;
 const seed = DEMO_ACCOUNTS[0]!;
 
 const now = () => Number(process.hrtime.bigint() / 1000n) / 1000;
@@ -46,6 +50,9 @@ function lagSampler() {
   return {
     stop() {
       clearTimeout(timer);
+      // Include a stall that ended just as the workload completed, before its tick ran.
+      const endedAt = now();
+      if (endedAt > due) late.push({ due, at: endedAt });
       const lateness = late.map((t) => t.at - t.due).sort((a, b) => a - b);
       const share = (p: number) =>
         lateness[Math.min(lateness.length - 1, Math.floor(lateness.length * p))] ?? 0;
@@ -150,14 +157,6 @@ function blame(profile: Profile, long: { due: number; at: number }[], startedAt:
   };
 }
 
-async function until(check: () => boolean, what: string, timeoutMs = 3_600_000) {
-  const start = now();
-  while (!check()) {
-    if (now() - start > timeoutMs) throw new Error(`Timed out waiting for ${what}`);
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-}
-
 function memoryFiles(): Platform["files"] {
   const files = new Map<string, Uint8Array>([
     [
@@ -222,68 +221,71 @@ describe.skipIf(!process.env.OTTER_BENCH)("Gmail sync on one thread", () => {
       const home = mkdtempSync(join(tmpdir(), "otter-bench-"));
       onTestFinished(() => rmSync(home, { recursive: true, force: true }));
       const database = phoneDatabase(join(home, "mail.db"));
-      const generating = now();
-      const platform = await withFakeServices(
-        {
-          kind: "mobile",
-          appVersion: "bench",
-          log: (level, scope, message) => {
-            if (level === "error" || level === "warn") errors.push(`${scope}: ${message}`);
+      const fixture = () =>
+        withFakeServices(
+          {
+            kind: "mobile",
+            appVersion: "bench",
+            log: (level, scope, message) => {
+              if (level === "error" || level === "warn") errors.push(`${scope}: ${message}`);
+            },
+            database: () => database,
+            files: memoryFiles(),
+            secrets: { get: async () => null, set: async () => {}, delete: async () => {} },
+            userFiles: { open: unused, save: unused, pick: unused },
+            google: {} as Platform["google"],
+            connect: unused,
+            relayUrl: "",
+            relaySession: "bearer",
+            broadcast: () => {},
+            notify: () => {},
+            setUnreadCount: () => {},
+            onResume: () => () => {},
+            asyncContext: () => {
+              let current: unknown;
+              return {
+                run: (value, fn) => {
+                  const before = current;
+                  current = value;
+                  try {
+                    return fn();
+                  } finally {
+                    current = before;
+                  }
+                },
+                get: () => current as never,
+              };
+            },
+            offlineDownloads: false,
           },
-          database: () => database,
-          files: memoryFiles(),
-          secrets: { get: async () => null, set: async () => {}, delete: async () => {} },
-          userFiles: { open: unused, save: unused, pick: unused },
-          google: {} as Platform["google"],
-          connect: unused,
-          relayUrl: "",
-          relaySession: "bearer",
-          broadcast: () => {},
-          notify: () => {},
-          setUnreadCount: () => {},
-          onResume: () => () => {},
-          asyncContext: () => {
-            let current: unknown;
-            return {
-              run: (value, fn) => {
-                const before = current;
-                current = value;
-                try {
-                  return fn();
-                } finally {
-                  current = before;
-                }
-              },
-              get: () => current as never,
-            };
-          },
-          offlineDownloads: false,
-        },
-        { gmailMessages: MESSAGES },
-      );
-      const generatedMs = now() - generating;
+          { gmailMessages: MESSAGES },
+        );
       const status = () => mailSync.getSyncStatus(seed.email);
       const settled = () =>
         status().fullSyncDone &&
         !status().syncing &&
         store.getKv(`spamTrashBackfilled:${seed.email}`) === "1";
 
-      const session = new Session();
-      session.connect();
-      await session.post("Profiler.enable");
-      await session.post("Profiler.setSamplingInterval", { interval: 500 });
-      const measure = async (run: () => Promise<void>) => {
+      const profileEnabled = process.env.OTTER_BENCH_PROFILE === "1";
+      const session = profileEnabled ? new Session() : null;
+      if (session) {
+        session.connect();
+        onTestFinished(() => session.disconnect());
+        await session.post("Profiler.enable");
+        await session.post("Profiler.setSamplingInterval", { interval: 500 });
+      }
+      const measure = async (run: (startedAt: number) => Promise<unknown>) => {
         const startRequestedAt = now();
-        await session.post("Profiler.start");
+        await session?.post("Profiler.start");
         const startedAt = now();
         const sampler = lagSampler();
-        await run();
+        await run(startedAt);
         const durationMs = round(now() - startedAt);
         const { longest, ...lag } = sampler.stop();
+        if (!session) return { durationMs, ...lag };
         const stopRequestedAt = now();
         const { profile } = (await session.post("Profiler.stop")) as { profile: Profile };
-        // V8's profile clock and Node's hrtime use different origins. Anchor the
-        // profile at stop and keep its start within the start call's bounds.
+        // V8's profile clock and Node's hrtime use different origins.
         const profileStartAt = Math.min(
           startedAt,
           Math.max(
@@ -295,24 +297,67 @@ describe.skipIf(!process.env.OTTER_BENCH)("Gmail sync on one thread", () => {
       };
 
       let firstRowsMs = 0;
-      const firstSync = await measure(async () => {
-        const start = now();
-        const { microsoft: _outlook, ...gmailOnly } = platform;
+      let firstRowsAfterFixtureMs = 0;
+      let fixtureStartup:
+        | (Omit<ReturnType<ReturnType<typeof lagSampler>["stop"]>, "longest"> & {
+            durationMs: number;
+          })
+        | undefined;
+      const listReads: { initial: number[]; steady: number[] } = { initial: [], steady: [] };
+      function readInbox(reads: number[], offset: number) {
+        const startedAt = now();
+        const page = store.getThreadsPage(seed.email, "INBOX", offset, PAGE_SIZE);
+        reads.push(now() - startedAt);
+        return page;
+      }
+
+      async function scrollUntil(
+        reads: number[],
+        done: () => boolean,
+        firstRow?: () => void,
+      ): Promise<void> {
+        let offset = 0;
+        const startedAt = now();
+        while (now() - startedAt <= 3_600_000) {
+          const page = readInbox(reads, offset);
+          if (page.messages.length) {
+            firstRow?.();
+            firstRow = undefined;
+          }
+          offset = page.hasMore && offset < PAGE_SIZE * 5 ? offset + PAGE_SIZE : 0;
+          if (done()) return;
+          await new Promise((resolve) => setTimeout(resolve, LIST_EVERY_MS));
+        }
+        throw new Error("Timed out waiting for sync");
+      }
+
+      const firstSync = await measure(async (startedAt) => {
+        const fixtureSampler = lagSampler();
+        const { microsoft: _outlook, ...gmailOnly } = await fixture();
+        const coreStartedAt = now();
+        const { longest: _samples, ...lag } = fixtureSampler.stop();
+        fixtureStartup = { durationMs: round(coreStartedAt - startedAt), ...lag };
         await startCore(gmailOnly, [], { modules: ["mail"] });
-        await until(() => store.countAllMessages(seed.email) > 0, "the first rows");
-        firstRowsMs = round(now() - start);
-        await until(settled, "the first sync");
+        await scrollUntil(listReads.initial, settled, () => {
+          const shownAt = now();
+          firstRowsMs = round(shownAt - startedAt);
+          firstRowsAfterFixtureMs = round(shownAt - coreStartedAt);
+        });
+        expect(firstRowsMs).toBeGreaterThan(0);
       });
       const cached = store.countAllMessages(seed.email);
       const pages = (pragma: string) => Number(database.prepare(`PRAGMA ${pragma}`).get()![pragma]);
       const databaseMB = round((pages("page_count") * pages("page_size")) / 1_048_576);
       expect(cached).toBeGreaterThanOrEqual(MESSAGES);
 
-      const expectedCount = cached + (await stageLargeGmailChanges(seed.email, CHANGES));
+      let expectedCount = cached;
+      const fixtureReplay = await measure(async () => {
+        expectedCount += await stageLargeGmailChanges(seed.email, CHANGES);
+      });
       const before = status().revision;
       const steadyState = await measure(async () => {
         mailSync.syncAccount(seed.email, { force: true, trigger: "push" });
-        await until(() => status().revision > before && !status().syncing, "the changes");
+        await scrollUntil(listReads.steady, () => status().revision > before && !status().syncing);
       });
       expect(status().error).toBeNull();
       expect(store.countAllMessages(seed.email)).toBe(expectedCount);
@@ -325,22 +370,37 @@ describe.skipIf(!process.env.OTTER_BENCH)("Gmail sync on one thread", () => {
         synchronous: SYNCHRONOUS,
         node: process.version,
         loadAverage: loadavg().map(round),
-        generatedMs: round(generatedMs),
+        fixtureStartup,
         firstRowsMs,
+        firstRowsAfterFixtureMs,
+        fixtureReplay,
         firstSync,
         steadyState,
+        listReads: Object.fromEntries(
+          Object.entries(listReads).map(([phase, reads]) => {
+            reads.sort((a, b) => a - b);
+            return [
+              phase,
+              {
+                pages: reads.length,
+                maxMs: round(reads.at(-1) ?? 0),
+                p95Ms: round(reads[Math.floor(reads.length * 0.95)] ?? 0),
+              },
+            ];
+          }),
+        ),
         errors,
       };
       const variant = [
         MESSAGES !== 50_000 && `${MESSAGES}-messages`,
         PREPARE_EACH && "each",
         SYNCHRONOUS !== "NORMAL" && SYNCHRONOUS.toLowerCase(),
+        profileEnabled && "profile",
       ]
         .filter(Boolean)
         .join("-");
       const name = variant ? `results-${variant}.json` : "results.json";
       writeFileSync(join(import.meta.dirname, name), `${JSON.stringify(results, null, 2)}\n`);
-      session.disconnect();
     },
   );
 });

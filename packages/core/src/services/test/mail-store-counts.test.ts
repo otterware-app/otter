@@ -162,3 +162,23 @@ it("uses the unread flag for the inbox badge and supports excluded accounts", ()
   expect(store.countInboxUnreadAll()).toBe(2);
   expect(store.countInboxUnreadAll(new Set(["other"]))).toBe(1);
 });
+
+it("rolls back the sync cursor when its replay checkpoint fails", () => {
+  store.setSyncState("me", { historyId: "100" });
+  database.exec(`
+    CREATE TRIGGER fail_replay_checkpoint BEFORE INSERT ON kv
+    WHEN NEW.key = 'replayFrom:me' BEGIN
+      SELECT RAISE(ABORT, 'checkpoint failed');
+    END;
+  `);
+
+  expect(() =>
+    store.setSyncCheckpoint(
+      "me",
+      { historyId: "200", fullSyncDone: true },
+      { "fullSyncSeed:me": "", "replayFrom:me": "100" },
+    ),
+  ).toThrow("checkpoint failed");
+  expect(store.getSyncState("me")).toMatchObject({ historyId: "100", fullSyncDone: false });
+  expect(store.getKv("fullSyncSeed:me")).toBeNull();
+});

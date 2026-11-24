@@ -217,24 +217,24 @@ const rfc2822 = (time: number) => new Date(time).toUTCString().replace("GMT", "+
  * `count` messages for the mailbox of `me`, newest threads first. Ids are `prefix` and the
  * message's index in hex, so they never meet the seed's.
  */
-export function largeMailbox(
+export function* largeMailbox(
   count: number,
   prefix: string,
   me: { name: string; email: string },
   userLabels: readonly string[],
   seededAt: number,
-): FakeMessage[] {
-  const messages: FakeMessage[] = [];
+): IterableIterator<FakeMessage> {
+  let index = 0;
   const domain = me.email.split("@")[1];
   const idOf = (index: number) => `${prefix}f${index.toString(16).padStart(11, "0")}`;
   const threads = Math.ceil(count / 2.2);
-  for (let t = 0; messages.length < count; t++) {
+  for (let t = 0; index < count; t++) {
     const rand = random(t * 2_654_435_761 + 1);
     const automated = rand() < 0.45;
     const label = automated
       ? pick(rand, ["CATEGORY_UPDATES", "CATEGORY_PROMOTIONS"])
       : category(rand);
-    const size = automated ? 1 : Math.min(threadSize(rand), count - messages.length);
+    const size = automated ? 1 : Math.min(threadSize(rand), count - index);
     const them = automated ? pick(rand, BRANDS) : pick(rand, SENDERS);
     const subject = automated ? pick(rand, AUTOMATED)(t) : pick(rand, PERSONAL)(pick(rand, TOPICS));
     const newest = seededAt - (Math.min(t / threads, 1) ** 1.5 * SPAN_MS + rand() * 3_600_000);
@@ -256,9 +256,7 @@ export function largeMailbox(
     ];
     const starred = rand() < 0.02;
     const ids: string[] = [];
-    const first = messages.length;
-    for (let k = 0; k < size; k++) {
-      const index = first + k;
+    for (let k = 0; k < size; k++, index++) {
       const id = idOf(index);
       const own = random(index * 40_503 + 7);
       const mine = k % 2 === 1 && own() < 0.6;
@@ -303,7 +301,7 @@ export function largeMailbox(
             })
           : [];
       ids.push(id);
-      messages.push({
+      yield {
         id,
         threadId: ids[0]!,
         labelIds,
@@ -313,10 +311,9 @@ export function largeMailbox(
         html: null,
         attachments,
         generated: index,
-      });
+      };
     }
   }
-  return messages;
 }
 
 function bodyStart(m: FakeMessage) {

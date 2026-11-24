@@ -130,6 +130,11 @@ function getDb(): SqlDatabase {
     "CREATE INDEX IF NOT EXISTS idx_messages_undownloaded ON messages (accountId, detailFetched, date DESC);",
   );
 
+  handle.exec(`
+    CREATE INDEX IF NOT EXISTS idx_messages_unread
+      ON messages (accountId, COALESCE(messageIdHeader, id), id) WHERE unread = 1;
+  `);
+
   const ftsExists =
     handle
       .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'messages_fts'")
@@ -336,11 +341,7 @@ function writeSummaries(accountId: string, fetched: MessageSummary[], counted = 
                               THEN messages.recipients ELSE excluded.recipients END,
       deliveredTo      = COALESCE(excluded.deliveredTo, messages.deliveredTo)
   `);
-  const delLabels = d.prepare("DELETE FROM message_labels WHERE accountId = ? AND messageId = ?");
-  const insLabel = d.prepare(
-    "INSERT OR IGNORE INTO message_labels (accountId, messageId, labelId) VALUES (?, ?, ?)",
-  );
-
+  const labelsById = new Map<string, string[]>();
   for (const m of messages) {
     upsert.run(
       accountId,
@@ -362,14 +363,22 @@ function writeSummaries(accountId: string, fetched: MessageSummary[], counted = 
       recipientsOf(m.to, m.cc),
       m.deliveredTo?.length ? addressSet(m.deliveredTo) : null,
     );
-    delLabels.run(accountId, m.id);
-    for (const lid of m.labelIds) insLabel.run(accountId, m.id, lid);
+    labelsById.set(m.id, m.labelIds);
     if (!before) continue;
     const prior = before.get(m.id);
     if (prior) addCounts(counts, prior.labelIds, prior.unread, -1);
     addCounts(counts, m.labelIds, m.unread, 1);
     before.set(m.id, { labelIds: m.labelIds, unread: m.unread });
   }
+  const labels = JSON.stringify(Object.fromEntries(labelsById));
+  d.prepare(`
+    DELETE FROM message_labels
+     WHERE accountId = ? AND messageId IN (SELECT key FROM json_each(?))
+  `).run(accountId, labels);
+  d.prepare(`
+    INSERT OR IGNORE INTO message_labels (accountId, messageId, labelId)
+    SELECT ?, m.key, l.value FROM json_each(?) m CROSS JOIN json_each(m.value) l
+  `).run(accountId, labels);
   moveCounts(accountId, counts);
 }
 
@@ -664,31 +673,39 @@ export function applyLabelChange(
  * with `listed`, only those outside Trash and Junk, which views other than those
  * leave out (as Gmail's and Outlook's own conversations do).
  * Outside the Drafts view a draft doesn't move its thread: the thread sorts and
- * dates by its latest other message, as in Gmail.
+ * dates by its latest other message, as in Gmail. The thread/date index supplies
+ * that date before the query rolls up the threads on the requested page.
  */
 function threadPageQuery(matchedSql: string, draftsView = false, listed = false): string {
   const kept = (alias: string) => (listed ? `AND ${notInBins(alias)}` : "");
-  const sortDate = draftsView
-    ? "MAX(t.date)"
-    : `COALESCE(MAX(CASE WHEN NOT EXISTS (SELECT 1 FROM message_labels td
+  const latest = (extra = "") => `(
+    SELECT t.date FROM messages t
+     WHERE t.accountId = mt.accountId AND t.threadId = mt.threadId ${kept("t")} ${extra}
+     ORDER BY t.date DESC LIMIT 1
+  )`;
+  const latestNonDraft = latest(`
+    AND NOT EXISTS (SELECT 1 FROM message_labels td
                      WHERE td.accountId = t.accountId AND td.messageId = t.id AND td.labelId = 'DRAFT')
-                   THEN t.date END), MAX(t.date))`;
+  `);
+  const sortDate = draftsView ? latest() : `COALESCE(${latestNonDraft}, ${latest()})`;
   return `
     WITH matched AS (${matchedSql}),
+    page AS (
+      SELECT mt.accountId, mt.threadId, ${sortDate} AS sortDate
+        FROM matched mt
+       ORDER BY sortDate DESC, mt.accountId, mt.threadId
+       LIMIT ? OFFSET ?
+    ),
     agg AS (
-      SELECT t.accountId AS accountId, t.threadId AS threadId,
-             -- Copies of one message (delivered to two of its addresses) count once.
+      SELECT p.accountId, p.threadId, p.sortDate,
              COUNT(DISTINCT COALESCE(t.messageIdHeader, t.id)) AS threadCount,
              MAX(t.unread) AS threadUnread,
              MAX(t.starred) AS threadStarred,
-             MAX(t.date) AS repDate,
-             ${sortDate} AS sortDate
-        FROM messages t
-        JOIN matched mt ON mt.accountId = t.accountId AND mt.threadId = t.threadId
+             MAX(t.date) AS repDate
+        FROM page p
+        CROSS JOIN messages t ON t.accountId = p.accountId AND t.threadId = p.threadId
        WHERE 1 ${kept("t")}
-       GROUP BY t.accountId, t.threadId
-       ORDER BY sortDate DESC
-       LIMIT ? OFFSET ?
+       GROUP BY p.accountId, p.threadId
     )
     SELECT m.*, agg.sortDate AS sortDate, agg.threadCount AS threadCount,
            agg.threadUnread AS threadUnread,
@@ -714,7 +731,7 @@ function threadPageQuery(matchedSql: string, draftsView = false, listed = false)
         ON m.accountId = agg.accountId AND m.threadId = agg.threadId AND m.date = agg.repDate
        ${kept("m")}
      GROUP BY agg.accountId, agg.threadId
-     ORDER BY agg.sortDate DESC
+     ORDER BY agg.sortDate DESC, agg.accountId, agg.threadId
   `;
 }
 
@@ -813,10 +830,9 @@ export function getThreadsPage(
       threadPageQuery(
         `
         SELECT DISTINCT m.accountId AS accountId, m.threadId AS threadId
-          FROM messages m
-          JOIN message_labels ml
-            ON ml.accountId = m.accountId AND ml.messageId = m.id
-         WHERE m.accountId = ? AND ml.labelId = ? ${exclusion} ${ownSql}
+          FROM message_labels ml
+          CROSS JOIN messages m ON m.accountId = ml.accountId AND m.id = ml.messageId
+         WHERE ml.accountId = ? AND ml.labelId = ? ${exclusion} ${ownSql}
       `,
         labelId === "DRAFT",
         exclusion !== "",
@@ -1299,21 +1315,14 @@ export function getMessageIdsForLabel(accountId: string, labelId: string): strin
 
 export function countInboxUnreadAll(except: ReadonlySet<string> = new Set()): number {
   const d = getDb();
-  // Skip through the label index by account, then read only Inbox messages.
   const rows = d
     .prepare(`
-      WITH RECURSIVE accounts(id) AS (
-        SELECT MIN(accountId) FROM message_labels
-        UNION ALL
-        SELECT (SELECT MIN(accountId) FROM message_labels WHERE accountId > accounts.id)
-          FROM accounts WHERE accounts.id IS NOT NULL
-      )
-      SELECT ml.accountId, COUNT(DISTINCT COALESCE(m.messageIdHeader, m.id)) AS n
-        FROM accounts
-        CROSS JOIN message_labels ml ON ml.accountId = accounts.id AND ml.labelId = 'INBOX'
-        CROSS JOIN messages m ON m.accountId = ml.accountId AND m.id = ml.messageId
+      SELECT m.accountId, COUNT(DISTINCT COALESCE(m.messageIdHeader, m.id)) AS n
+        FROM messages m
        WHERE m.unread = 1
-       GROUP BY ml.accountId
+         AND EXISTS (SELECT 1 FROM message_labels l
+                      WHERE l.accountId = m.accountId AND l.messageId = m.id AND l.labelId = 'INBOX')
+       GROUP BY m.accountId
     `)
     .all() as unknown as { accountId: string; n: number }[];
   return rows.reduce((sum, r) => (except.has(r.accountId) ? sum : sum + r.n), 0);
@@ -1328,13 +1337,14 @@ export function countMessagesForLabel(accountId: string, labelId: string): numbe
 }
 
 export function countUnreadForLabel(accountId: string, labelId: string): number {
-  const d = getDb();
-  const row = d
-    .prepare(
-      `SELECT COUNT(*) AS n FROM message_labels ml
-         JOIN messages m ON m.accountId = ml.accountId AND m.id = ml.messageId
-        WHERE ml.accountId = ? AND ml.labelId = ? AND m.unread = 1`,
-    )
+  const row = getDb()
+    .prepare(`
+      SELECT COUNT(*) AS n
+        FROM messages m
+       WHERE m.accountId = ? AND m.unread = 1
+         AND EXISTS (SELECT 1 FROM message_labels l
+                      WHERE l.accountId = m.accountId AND l.messageId = m.id AND l.labelId = ?)
+    `)
     .get(accountId, labelId) as unknown as { n: number };
   return row?.n ?? 0;
 }
@@ -1813,6 +1823,17 @@ export function setSyncState(accountId: string, patch: Partial<SyncStateRow>): v
   `).run(accountId, next.historyId, next.fullSyncDone ? 1 : 0, next.lastSyncAt);
 }
 
+export function setSyncCheckpoint(
+  accountId: string,
+  patch: Partial<SyncStateRow>,
+  entries: Record<string, string>,
+): void {
+  inTransaction(() => {
+    setSyncState(accountId, patch);
+    for (const [key, value] of Object.entries(entries)) setKv(key, value);
+  });
+}
+
 export function removeAccountData(accountId: string): void {
   const d = getDb();
   d.exec("BEGIN");
@@ -1828,6 +1849,7 @@ export function removeAccountData(accountId: string): void {
       "fullSyncCursor",
       "fullSyncSeed",
       "fullSyncRefresh",
+      "replayFrom",
       "spamTrashBackfilled",
       "gmailWatch",
       "imapSync",

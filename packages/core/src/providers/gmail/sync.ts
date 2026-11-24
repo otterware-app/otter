@@ -65,18 +65,22 @@ async function startFeed(accountId: string, ctx: SyncContext): Promise<string> {
   const seed = (await getProfile(accountId)).historyId;
   if (!seed) throw new Error("Gmail didn't say where the mailbox's history starts.");
   ctx.assertActive();
-  store.setKv(seedKey(accountId), seed);
-  store.setSyncState(accountId, { historyId: seed });
+  store.setSyncCheckpoint(accountId, { historyId: seed }, { [seedKey(accountId)]: seed });
   return seed;
 }
 
 function finishBackfill(accountId: string): void {
   const seed = store.getKv(seedKey(accountId));
-  store.setSyncState(accountId, { fullSyncDone: true });
-  if (seed) store.setKv(replayKey(accountId), seed);
-  store.setKv(seedKey(accountId), "");
-  store.setKv(cursorKey(accountId), "");
-  store.setKv(refreshKey(accountId), "");
+  store.setSyncCheckpoint(
+    accountId,
+    { fullSyncDone: true },
+    {
+      ...(seed ? { [replayKey(accountId)]: seed } : {}),
+      [seedKey(accountId)]: "",
+      [cursorKey(accountId)]: "",
+      [refreshKey(accountId)]: "",
+    },
+  );
 }
 
 // Rows per write, with the thread let go between them: a hundred, with the search index, held
@@ -218,6 +222,7 @@ async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
       page = await listMessageIdsPage(accountId, { pageToken, maxResults: 500, spamTrash: false });
     } catch (err) {
       if (pageToken && err instanceof Error && err.message.includes("Gmail API error: 400")) {
+        ctx.assertActive();
         store.setKv(cursorKey(accountId), "");
         pageToken = undefined;
         continue;
@@ -235,6 +240,7 @@ async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
       ctx.bumpRevision();
     }
 
+    ctx.assertActive();
     pageToken = page.nextPageToken;
     store.setKv(cursorKey(accountId), pageToken ?? "");
     if (!pageToken) break;
@@ -246,21 +252,32 @@ async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
 
 async function applyChanges(
   accountId: string,
-  ops: store.HistoryOp[],
+  changes: Iterable<store.HistoryOp[]>,
   ctx: SyncContext,
   { counted = true } = {},
 ): Promise<string[]> {
   const unknown = new Set<string>();
-  for (let i = 0; i < ops.length; i += WRITE_BATCH) {
-    if (i > 0) await yieldThread();
+  let batch: store.HistoryOp[] = [];
+  let rows = 0;
+  const write = () => {
     ctx.assertActive();
-    const batch = ops.slice(i, i + WRITE_BATCH);
     for (const op of batch) if (op.kind === "deleted") unknown.delete(op.id);
     for (const id of store.applyHistoryChanges(accountId, batch, { counted, keepPending: true })
       .unknownIds) {
       unknown.add(id);
     }
+  };
+  for (const ops of changes) {
+    if (rows === WRITE_BATCH) {
+      write();
+      await yieldThread();
+      batch = [];
+      rows = 0;
+    }
+    for (const op of ops) batch.push(op);
+    rows++;
   }
+  if (rows) write();
   return [...unknown];
 }
 
@@ -270,7 +287,7 @@ async function fillCategories(accountId: string, ctx: SyncContext): Promise<void
     const ids = await listAllIds(accountId, label.id);
     await applyChanges(
       accountId,
-      ids.map((id) => ({ kind: "labelsAdded", id, labelIds: [label.id] })),
+      ids.map((id) => [{ kind: "labelsAdded", id, labelIds: [label.id] }]),
       ctx,
       { counted: false },
     );
@@ -303,21 +320,26 @@ async function refreshMailbox(accountId: string, ctx: SyncContext): Promise<void
   }
 
   ctx.assertActive();
-  const ops: store.HistoryOp[] = [];
+  const changes: store.HistoryOp[][] = [];
   for (const [id, labelIds] of cached) {
     if (!listed.has(id)) {
-      ops.push({ kind: "deleted", id });
+      changes.push([{ kind: "deleted", id }]);
       continue;
     }
     const has = new Set(labelIds);
-    const add = [...members].filter(([l, ids]) => ids.has(id) && !has.has(l)).map(([l]) => l);
+    const add: string[] = [];
+    for (const [label, ids] of members) {
+      if (ids.has(id) && !has.has(label)) add.push(label);
+    }
     const remove = labelIds.filter((l) => members.get(l)?.has(id) === false);
-    if (add.length > 0) ops.push({ kind: "labelsAdded", id, labelIds: add });
-    if (remove.length > 0) ops.push({ kind: "labelsRemoved", id, labelIds: remove });
+    const ops: store.HistoryOp[] = [];
+    if (add.length) ops.push({ kind: "labelsAdded", id, labelIds: add });
+    if (remove.length) ops.push({ kind: "labelsRemoved", id, labelIds: remove });
+    if (ops.length) changes.push(ops);
   }
-  await applyChanges(accountId, ops, ctx);
-  if (ops.length > 0) ctx.bumpRevision();
-  logger.info("mail-sync", `${ops.length} changes found comparing ${accountId}`);
+  await applyChanges(accountId, changes, ctx);
+  if (changes.length > 0) ctx.bumpRevision();
+  logger.info("mail-sync", `${changes.length} messages changed comparing ${accountId}`);
 
   const missing = all.filter((id) => !cached.has(id));
   let synced = all.length - missing.length;
@@ -404,6 +426,7 @@ async function backfillSpamTrash(accountId: string, ctx: SyncContext): Promise<v
       pageToken = page.nextPageToken;
     } while (pageToken);
   }
+  ctx.assertActive();
   store.setKv(spamTrashKey(accountId), "1");
   logger.info("mail-sync", `spam/trash backfill done for ${accountId}`);
 }
@@ -425,7 +448,12 @@ async function incrementalSync(
   const replay = store.getKv(replayKey(accountId)) || null;
   const startHistoryId = replay ?? historyId;
   const addedIds = new Set<string>();
-  const ops: store.HistoryOp[] = [];
+  const byMessage = new Map<string, store.HistoryOp[]>();
+  const addOp = (op: store.HistoryOp) => {
+    const ops = byMessage.get(op.id);
+    if (ops) ops.push(op);
+    else byMessage.set(op.id, [op]);
+  };
   let latestHistoryId = startHistoryId;
   let pageToken: string | undefined;
 
@@ -439,14 +467,14 @@ async function incrementalSync(
           addedIds.add(added.message.id);
         }
         for (const deleted of entry.messagesDeleted ?? []) {
-          ops.push({ kind: "deleted", id: deleted.message.id });
+          addOp({ kind: "deleted", id: deleted.message.id });
           addedIds.delete(deleted.message.id);
         }
         for (const change of entry.labelsAdded ?? []) {
-          ops.push({ kind: "labelsAdded", id: change.message.id, labelIds: change.labelIds });
+          addOp({ kind: "labelsAdded", id: change.message.id, labelIds: change.labelIds });
         }
         for (const change of entry.labelsRemoved ?? []) {
-          ops.push({ kind: "labelsRemoved", id: change.message.id, labelIds: change.labelIds });
+          addOp({ kind: "labelsRemoved", id: change.message.id, labelIds: change.labelIds });
         }
       }
 
@@ -463,7 +491,8 @@ async function incrementalSync(
     throw err;
   }
 
-  const unknownIds = await applyChanges(accountId, ops, ctx);
+  // Apply each message's final state together so a retry never replays its intermediate counts.
+  const unknownIds = await applyChanges(accountId, byMessage.values(), ctx);
 
   // New mail, plus mail the feed changed that the cache doesn't have (an
   // earlier run missed it, or a backfill hasn't got to it): both fetched with
@@ -478,11 +507,18 @@ async function incrementalSync(
     ctx.update({ synced: fetched.length });
   }
 
-  const changed = ops.length > 0 || ids.length > 0;
+  const changed = byMessage.size > 0 || ids.length > 0;
   ctx.assertActive();
+  if (replay && store.getKv(replayKey(accountId)) === replay) {
+    store.setSyncCheckpoint(
+      accountId,
+      { historyId: latestHistoryId },
+      { [replayKey(accountId)]: "" },
+    );
+  } else {
+    store.setSyncState(accountId, { historyId: latestHistoryId });
+  }
   if (changed) ctx.bumpRevision();
-  store.setSyncState(accountId, { historyId: latestHistoryId });
-  if (replay && store.getKv(replayKey(accountId)) === replay) store.setKv(replayKey(accountId), "");
   return { added, changed };
 }
 
@@ -491,8 +527,9 @@ async function restartFeed(accountId: string, ctx: SyncContext): Promise<void> {
   const { historyId } = await getProfile(accountId);
   if (!historyId) throw new Error("Gmail didn't say where the mailbox's history starts.");
   ctx.assertActive();
-  store.setKv(seedKey(accountId), historyId);
-  store.setKv(replayKey(accountId), "");
-  store.setKv(refreshKey(accountId), "1");
-  store.setSyncState(accountId, { historyId });
+  store.setSyncCheckpoint(
+    accountId,
+    { historyId },
+    { [seedKey(accountId)]: historyId, [replayKey(accountId)]: "", [refreshKey(accountId)]: "1" },
+  );
 }

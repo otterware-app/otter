@@ -35,10 +35,11 @@ async function gmail(path: string, init: RequestInit = {}) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("largeMailbox", () => {
-  const messages = largeMailbox(5000, "19a", me, ["Label_1"], 1_700_000_000_000);
+  const generate = () => [...largeMailbox(5000, "19a", me, ["Label_1"], 1_700_000_000_000)];
+  const messages = generate();
 
   it("is the same every time, its threads whole", () => {
-    expect(largeMailbox(5000, "19a", me, ["Label_1"], 1_700_000_000_000)).toEqual(messages);
+    expect(generate()).toEqual(messages);
     expect(new Set(messages.map((m) => m.id)).size).toBe(5000);
     const ids = new Set(messages.map((m) => m.id));
     expect(messages.every((m) => ids.has(m.threadId))).toBe(true);
@@ -86,15 +87,22 @@ describe("the fake Gmail", () => {
       method: "POST",
       body: JSON.stringify({ addLabelIds: ["STARRED"] }),
     });
+    const deleted = first.messages.find(
+      (m: { id: string }) => m.id.startsWith("190f") && m.id !== id,
+    ).id;
+    await gmail(`/messages/${deleted}`, { method: "DELETE" });
     await new Promise((resolve) => setTimeout(resolve, 250));
 
     const saved = JSON.parse(files.text("demo-gmail.json"));
-    expect(saved.mailboxes[EMAIL].messages[id]).toEqual({
+    expect(saved.mailboxes[EMAIL].generatedEdits[id]).toEqual({
       generated: expect.any(Number),
       labelIds: expect.arrayContaining(["STARRED"]),
     });
+    expect(saved.mailboxes[EMAIL].generatedEdits[deleted]).toBeNull();
+    expect(saved.mailboxes[EMAIL].messages[id]).toBeUndefined();
     await installFakeGmail(files, { messages: 1000 });
     expect((await gmail(`/messages/${id}?format=full`)).labelIds).toContain("STARRED");
+    expect((await gmail(`/messages/${deleted}`)).error.code).toBe(404);
   });
 
   it("saves the seed alone as it always has", async () => {

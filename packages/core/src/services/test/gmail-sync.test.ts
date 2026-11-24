@@ -636,12 +636,15 @@ describe("Gmail sync", { timeout: 15_000 }, () => {
     const originalHistoryId = mailStore.getSyncState(account.id).historyId;
     const inbox = () => mailStore.getLabels(account.id).find((l) => l.id === "INBOX");
 
+    relabel("old1", ["STARRED"], []);
     for (let i = 1; i <= 30; i++) relabel(`old${i}`, [], ["UNREAD"]);
+    relabel("old1", [], ["STARRED"]);
     killable.killAfter(25, true);
     mailSync.syncAccount(account.id, { force: true });
     await until(() => status().error !== null && !status().syncing, "the kill");
     expect(mailStore.getSyncState(account.id).historyId).toBe(originalHistoryId);
     expect(inbox()).toMatchObject({ total: 30, unread: 5 });
+    expect(mailStore.getMessageLabelIds(account.id, "old1")).toEqual(["INBOX"]);
 
     killable.killAfter(Infinity);
     mailSync.syncAccount(account.id, { force: true });
