@@ -487,7 +487,8 @@ describe("Gmail realtime", { timeout: 15_000 }, () => {
       since: 0,
       mutations: [{ id: 13, mutation }],
     });
-    restoreAgentOutbox("u1", previous);
+    await restoreAgentOutbox("u1", existingAgentOutbox);
+    expect(existingAgentOutbox).toHaveBeenCalledTimes(1);
     await syncAgentData();
     expect(exchanges().at(-1)?.body).toMatchObject({ mutations: [] });
   });

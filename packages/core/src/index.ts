@@ -60,8 +60,7 @@ export async function startCore(
   const user = getOtterUser();
   if (user && existingAgentOutbox) {
     try {
-      const pending = await existingAgentOutbox(user.id);
-      if (pending) restoreAgentOutbox(user.id, pending);
+      await restoreAgentOutbox(user.id, existingAgentOutbox);
     } catch (error) {
       logger.failure("agent-sync", "Couldn't load the previous app's pending changes", error);
     }

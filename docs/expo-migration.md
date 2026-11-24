@@ -15,14 +15,13 @@ uses the existing App Store bundle ID and builds the iOS project from the Expo a
 
 The combined Expo Debug and Release simulator builds include Talk, the live agent browser and
 the notification service extension. The Release package includes an embedded JavaScript bundle
-and passed simulator signature verification. Talk and the browser share their Swift engines with
-the shipping app. Live audio, browser controls and notification delivery still need device checks.
+and passed simulator signature verification. Talk and the browser reuse the Swift engines.
+Live audio, browser controls and notification delivery still need device checks.
 
-The local Expo Release build compiled and installed on an iPhone 18 Pro simulator.
-With the Swift app previously installed under the same bundle ID, the native window
-appeared and React Native did not start. A fresh simulator test bundle reached the
-JavaScript startup and reported a missing Keychain entitlement. Cold start and the
-in-place update still need verification with a correctly entitled build.
+On an iPhone 18 Pro simulator, Expo 0.2.0 opened fixture Chats after an in-place update
+over Swift 0.1.29 under the shipping bundle ID. The attachment tray fitted its actions
+in light and dark, and switching to the keyboard kept the draft. A signed iPhone update
+still needs to verify the existing Keychain items and production notification permissions.
 
 On the web, real Hermes and OpenClaw gateways completed turns. OpenClaw kept a single
 reply when the app reloaded during a subagent wait, and an existing chat reconnected
@@ -37,8 +36,8 @@ and showed the existing OpenClaw gateway after the account sync. The phone start
 HTTP sync at sign-in without waiting for the realtime connection. The shipping-ID build reads
 the Swift app's account token, device ID and OpenClaw pairing from the existing install. It
 replays pending changes with their original exchange IDs and downloads the current relay copy.
-Check these on a signed upgrade. On a development
-install with its own identity, connect from the existing gateway’s settings to keep its chats.
+Check these on a signed upgrade. On a development install with its own identity, connect
+from the existing gateway's settings to keep its chats.
 
 Otter Mail remains on Swift. Its Expo migration follows the Agents cutover.
 

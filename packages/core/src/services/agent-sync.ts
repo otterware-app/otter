@@ -102,10 +102,15 @@ export function keepDeviceId(id: string): void {
 }
 
 /** Restore pending Swift edits under the same exchange client so the relay can deduplicate them. */
-export function restoreAgentOutbox(user: string, raw: string): void {
+export async function restoreAgentOutbox(
+  user: string,
+  read: (user: string) => Promise<string | null>,
+): Promise<void> {
   const db = agentDb();
   if (state("client") || state("swift-outbox") || db.prepare("SELECT 1 FROM agent_outbox").get())
     return;
+  const raw = await read(user);
+  if (!raw) return;
   const { client, sent, nextId, outbox } = JSON.parse(raw) as {
     client: string;
     sent: number;
