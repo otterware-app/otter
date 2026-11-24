@@ -673,10 +673,21 @@ function MailHome() {
   const [mailSidebarOpen, setMailSidebarOpen] = useState(
     () => localStorage.getItem("gmail:sidebar-open") !== "0",
   );
+  // Margin's places sit in its pages (tabs, the rail): its sidebar starts closed, and remembers apart.
+  const [marginSidebarOpen, setMarginSidebarOpen] = useState(
+    () => localStorage.getItem("gmail:margin-sidebar-open") === "1",
+  );
   const [settingsSidebarOpen, setSettingsSidebarOpen] = useState(
     () => localStorage.getItem("gmail:settings-sidebar-open") !== "0",
   );
-  const sidebarOpen = settingsRoute ? settingsSidebarOpen : mailSidebarOpen;
+  // The Desk is one page with no sidebar: the rail is how you leave it.
+  const sidebarOpen = settingsRoute
+    ? settingsSidebarOpen
+    : isDesk
+      ? false
+      : marginLayout
+        ? marginSidebarOpen
+        : mailSidebarOpen;
   const hasCalendars = calendarAccounts(accounts).length > 0;
   const calendarPanelVisible = calendarPanelOpen && hasCalendars && !settingsRoute && !isChats;
   const {
@@ -759,7 +770,9 @@ function MailHome() {
   const toggleSidebar = () => {
     const [key, setOpen] = settingsRoute
       ? ["gmail:settings-sidebar-open", setSettingsSidebarOpen]
-      : ["gmail:sidebar-open", setMailSidebarOpen];
+      : marginLayout
+        ? ["gmail:margin-sidebar-open", setMarginSidebarOpen]
+        : ["gmail:sidebar-open", setMailSidebarOpen];
     setOpen((open) => {
       localStorage.setItem(key, open ? "0" : "1");
       return !open;
