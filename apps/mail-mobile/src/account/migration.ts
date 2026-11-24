@@ -1,6 +1,6 @@
 import type { AliasMailbox, ImapSettings } from "@otter/contracts";
 import type { MailAccount, Platform } from "@otter/core";
-import { native } from "@otter/mobile/native";
+import type { native } from "@otter/mobile/native";
 
 type SwiftMailbox = {
   email: string;
@@ -29,9 +29,19 @@ function readSaved<T>(value?: string): T | undefined {
   }
 }
 
-export async function importSwiftMailboxes({ files }: Platform): Promise<void> {
+export async function importSwiftMailState(
+  { files }: Platform,
+  settings: ReturnType<typeof native.existingMailSettings>,
+): Promise<void> {
+  for (const [path, values] of [
+    ["ui-preferences.json", settings.ui],
+    ["settings.json", settings.sync],
+  ] as const) {
+    if (values && Object.keys(values).length && (await files.read(path)) === null)
+      await files.write(path, JSON.stringify(values));
+  }
+
   const path = "accounts.json";
-  const settings = native.existingMailSettings();
   const saved = readSaved<SwiftMailbox[]>(settings["otter:mailboxes"]);
   if (!Array.isArray(saved) || (await files.read(path)) !== null) return;
 

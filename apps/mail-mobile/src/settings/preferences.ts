@@ -1,4 +1,3 @@
-import { host } from "@otter/client/host";
 import {
   getSyncedPreference,
   onSyncedPreferenceChange,
@@ -43,19 +42,11 @@ export function setMailboxArrangement(arrangement: MailboxArrangement) {
 }
 
 const fullWidthKey = "otter:full-width-messages";
-const widthListeners = new Set<() => void>();
 
 export function useFullWidthMessages() {
-  return useSyncExternalStore(
-    (listener) => {
-      widthListeners.add(listener);
-      return () => widthListeners.delete(listener);
-    },
-    () => host().storage.get(fullWidthKey) === "true",
-  );
+  return usePreference(fullWidthKey) === "true";
 }
 
 export function setFullWidthMessages(value: boolean) {
-  host().storage.set(fullWidthKey, String(value));
-  for (const listener of widthListeners) listener();
+  setSyncedPreference(fullWidthKey, String(value));
 }

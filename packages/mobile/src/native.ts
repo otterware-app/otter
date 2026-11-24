@@ -1,3 +1,4 @@
+import type { AppSettings } from "@otter/contracts";
 import { requireNativeModule } from "expo";
 
 export type MailOAuthProvider = "gmail" | "outlook";
@@ -30,6 +31,8 @@ export const native = requireNativeModule<{
     "otter:user"?: string;
     "otter:mailboxes"?: string;
     "otter:addresses"?: string;
+    ui?: Record<string, string>;
+    sync?: Partial<Pick<AppSettings, "notificationsMode" | "readLanguages" | "autoTranslate">>;
   };
   existingMailDrafts(userId: string): Promise<string[]>;
   existingMailDraftAttachment(folder: string, filename: string): Promise<string>;

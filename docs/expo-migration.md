@@ -43,7 +43,8 @@ The Otter Mail draft builds the Expo app and notification service under the exis
 Store identity. The production signing settings use the existing app and extension profiles.
 The simulator comparison covers the Swift and Expo inbox, reader, and reply sheet in light
 and dark. The Expo branch adds native Photos and Translation, on-device draft recovery,
-and background notification setup.
+and background notification setup. The upgrade seeds local Swift appearance, mailbox, notification,
+and language preferences before starting sync.
 
 Three iPhone 18 Pro simulator Release runs scrolled through the 50,000-message Gmail fixture.
 The third ran with the bounded Inbox query, which returned the first page in under 1 ms in
@@ -55,6 +56,11 @@ came about two minutes after launch, while rows were visible.
 | 1   |  4,094 ms | 186 ms / 14 ms       | 40 ms / 8 ms                |
 | 2   |  7,585 ms | 311 ms / 10 ms       | 539 ms / 15 ms              |
 | 3   |  5,724 ms | 377 ms / 10 ms       | 217 ms / 31 ms              |
+
+A separate V8 profile on the same 50,000-message fixture measured 86.6 ms max and 12 ms p95
+in first sync, and 41.8 ms max and 6.7 ms p95 in replay. The longest first-sync window
+contained a SQLite message write. A second 71.5 ms window was mostly garbage collection.
+The longer iOS peaks still need on-device profiling.
 
 The 50 ms maximum and 16 ms p95 budget remain open. A signed upgrade with live provider
 sign-in, background refresh, and APNs also needs verification before cutover.

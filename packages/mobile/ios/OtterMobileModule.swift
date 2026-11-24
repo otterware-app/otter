@@ -124,14 +124,30 @@ public class OtterMobileModule: Module {
       return try Data(contentsOf: file).base64EncodedString()
     }
 
-    Function("existingMailSettings") { () -> [String: String] in
+    Function("existingMailSettings") { () -> [String: Any] in
       guard Bundle.main.bundleIdentifier == "dev.otterware.mail" else { return [:] }
       let defaults = UserDefaults.standard
-      let keys = ["otter:user", "otter:mailboxes", "otter:addresses"]
-      return Dictionary(uniqueKeysWithValues: keys.compactMap { key in
-        guard let data = defaults.data(forKey: key), let value = String(data: data, encoding: .utf8) else { return nil }
-        return (key, value)
+      var saved: [String: Any] = [:]
+      for key in ["otter:user", "otter:mailboxes", "otter:addresses"] {
+        if let data = defaults.data(forKey: key) {
+          saved[key] = String(data: data, encoding: .utf8)
+        }
+      }
+      let uiKeys = [
+        "otter:theme-source", "otter:group-messages-by-day", "otter:full-width-rows",
+        "otter:full-width-messages", "gmail:advance-direction", "mail:mailboxes", "mail:alias-mail-apart",
+      ]
+      saved["ui"] = Dictionary(uniqueKeysWithValues: uiKeys.compactMap { key in
+        defaults.string(forKey: key).map { (key, $0) }
       })
+      var sync: [String: Any] = [:]
+      if let mode = defaults.string(forKey: "settings.notificationsMode"), ["off", "inbox", "all"].contains(mode) {
+        sync["notificationsMode"] = mode
+      }
+      sync["readLanguages"] = defaults.stringArray(forKey: "settings.readLanguages")
+      sync["autoTranslate"] = defaults.object(forKey: "settings.autoTranslate") as? Bool
+      saved["sync"] = sync
+      return saved
     }
 
     AsyncFunction("makeAgentPicture") { (uri: String, maxLength: Int) throws -> String in
