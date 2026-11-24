@@ -13,8 +13,11 @@ light and dark) and `globals.css` (radius and type scale). `pnpm design:tokens` 
 (var() followed, color-mix() mixed) into `tokens.json`, the variables `otter.pen` uses, one
 per token under the same name (`canvas`, `foreground`, `muted-foreground`, `primary`,
 `radius-lg`, `text-body`, `space-3`…). A test (`packages/ui/src/tokens.test.ts`) fails when
-`tokens.json` is stale. To change a token, change the CSS, run `pnpm design:tokens`, then load
-`tokens.json` into the file:
+`tokens.json` is stale. The same run writes the iPhone apps' tokens,
+`packages/ui-native/src/tokens.ts` (the names in camelCase), which the test checks too; the
+phone's own palette and type sizes are an override of those names in
+`packages/ui-native/src/phone.ts`. To change a token, change the CSS, run `pnpm design:tokens`,
+then load `tokens.json` into the file:
 
 ```js
 // In pen.dev's execute (the Pencil MCP, or `pen interactive --in design/otter.pen --out design/otter.pen`)

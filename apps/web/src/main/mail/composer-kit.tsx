@@ -1,14 +1,14 @@
 import { TimePicker } from "./mail-schedule";
-import { useCapabilities } from "./capabilities";
+import { useCapabilities } from "@otter/client/mail/capabilities";
 import { useState, type ReactNode } from "react";
 import { PaperclipIcon, Trash2Icon } from "lucide-react";
 import { matchesCommand } from "../keybindings/dispatch";
 import { ShortcutText } from "../keybindings/store";
-import type { DraftRemoteState, DraftSaveState } from "./use-draft-autosave";
-import { normalizeAddressList } from "./address";
-import { diffText } from "./text-diff";
+import type { DraftRemoteState } from "@otter/client/mail/use-draft-autosave";
+import { normalizeAddressList } from "@otter/client/mail/address";
+import { diffText } from "@otter/client/mail/text-diff";
 import { htmlToText } from "./text";
-import type { MessageDetail } from "./types";
+import type { MessageDetail } from "@otter/client/mail/types";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { Button, IconButton } from "@otter/ui/components/button";
 import { Textarea } from "@otter/ui/components/textarea";
@@ -239,21 +239,6 @@ function DraftDiff({ theirs, mine }: { theirs: MessageDetail; mine: DraftVersion
   );
 }
 /* oxlint-enable react/no-array-index-key */
-
-export function draftStatus(draft: {
-  saveState: DraftSaveState;
-  remoteNotice: boolean;
-}): string | null {
-  if (draft.remoteNotice) return "Updated elsewhere";
-  return draftStatusText(draft.saveState);
-}
-
-export function draftStatusText(state: DraftSaveState): string | null {
-  if (state === "saving") return "Saving draft…";
-  if (state === "saved") return "Draft saved";
-  if (state === "error") return "Couldn't save draft. Retrying…";
-  return null;
-}
 
 export function ComposerFooter({
   onAttach,

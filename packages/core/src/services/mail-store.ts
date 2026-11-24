@@ -1,15 +1,15 @@
 import { ARCHIVE_LABEL_ID } from "@otter/contracts";
 
-import { platform, type SqlDatabase } from "../platform.js";
-import { ALL_MAIL_LABEL_ID } from "../types.js";
-import { withPendingLabels } from "./pending-label-writes.js";
+import { platform, type SqlDatabase } from "../platform.ts";
+import { ALL_MAIL_LABEL_ID } from "../types.ts";
+import { withPendingLabels } from "./pending-label-writes.ts";
 import type {
   MailLabel,
   MessageSummary,
   MessageDetail,
   ViewRule,
   ContactSuggestion,
-} from "../types.js";
+} from "../types.ts";
 
 let db: SqlDatabase | null = null;
 

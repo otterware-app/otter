@@ -1,7 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { Platform, SqlDatabase } from "../../platform.js";
-import type { MessageSummary } from "../../types.js";
+import type { Platform, SqlDatabase } from "../../platform.ts";
+import type { MessageSummary } from "../../types.ts";
 
 const mocks = vi.hoisted(() => ({
   capabilities: { archiveFolder: false },
@@ -15,15 +15,15 @@ const mocks = vi.hoisted(() => ({
   broadcast: vi.fn(),
 }));
 const held = vi.hoisted(() => ({ scheduleSend: vi.fn(), cancelScheduledSend: vi.fn() }));
-vi.mock("../../providers/index.js", () => ({
+vi.mock("../../providers/index.ts", () => ({
   providerFor: (accountId: string) => (accountId === "outlook" ? { ...mocks, ...held } : mocks),
   capabilitiesOf: () => mocks.capabilities,
 }));
-vi.mock("../account-store.js", () => ({ getAccount: mocks.getAccount }));
-vi.mock("../notifier.js", () => ({ updateDockBadge: () => {} }));
+vi.mock("../account-store.ts", () => ({ getAccount: mocks.getAccount }));
+vi.mock("../notifier.ts", () => ({ updateDockBadge: () => {} }));
 let database: DatabaseSync;
-let schedule: typeof import("../mail-schedule.js");
-let store: typeof import("../mail-store.js");
+let schedule: typeof import("../mail-schedule.ts");
+let store: typeof import("../mail-store.ts");
 const mail = {
   to: "you@example.com",
   subject: "Later",
@@ -53,15 +53,15 @@ beforeEach(async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-02T12:00:00Z"));
   database = new DatabaseSync(":memory:");
-  const { setPlatform } = await import("../../platform.js");
+  const { setPlatform } = await import("../../platform.ts");
   setPlatform({
     database: () => database as unknown as SqlDatabase,
     broadcast: mocks.broadcast,
     onResume: () => () => {},
     log: () => {},
   } as unknown as Platform);
-  schedule = await import("../mail-schedule.js");
-  store = await import("../mail-store.js");
+  schedule = await import("../mail-schedule.ts");
+  store = await import("../mail-store.ts");
   mocks.capabilities.archiveFolder = false;
   mocks.getAccount.mockResolvedValue({ id: "me" });
   mocks.send.mockResolvedValue({});
@@ -89,12 +89,12 @@ describe("persistent mail scheduling", () => {
   it("loads overdue work from the durable queue after restarting the service", async () => {
     await schedule.scheduleSend("me", mail, Date.now() + 60_000);
     vi.resetModules();
-    const { setPlatform } = await import("../../platform.js");
+    const { setPlatform } = await import("../../platform.ts");
     setPlatform({
       database: () => database as unknown as SqlDatabase,
       broadcast: mocks.broadcast,
     } as unknown as Platform);
-    const restarted = await import("../mail-schedule.js");
+    const restarted = await import("../mail-schedule.ts");
     vi.setSystemTime(Date.now() + 120_000);
     await restarted.processSchedules();
     expect(mocks.send).toHaveBeenCalledExactlyOnceWith("me", mail);

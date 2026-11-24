@@ -10,7 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { ensureShellPath, logger } from "@otter/desktop/extension-kit";
 
-import type { CodexSettings } from "./settings.js";
+import type { CodexSettings } from "./settings.ts";
 
 type Pending = {
   resolve: (value: unknown) => void;

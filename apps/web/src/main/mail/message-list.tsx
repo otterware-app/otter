@@ -1,4 +1,4 @@
-import { useHandlers, useLatest } from "../use-latest";
+import { useHandlers, useLatest } from "@otter/client/use-latest";
 import { ExtensionContextMenuActions } from "../extensions/slots";
 import { inNewWindow } from "../new-window-click";
 import { PLACE } from "../place-menu";
@@ -66,30 +66,45 @@ import {
   useLabels,
   useSyncAccountLabels,
   useAccounts,
-} from "./hooks";
+} from "@otter/client/mail/hooks";
 import { LabelChip, InboxChip, ImportantMarker } from "./label-chip";
 import { SenderAvatar } from "./sender-avatar";
 import { SignedOutMailbox } from "./signed-out-mailbox";
 import { LabelOverlay, type LabelOverlayMode } from "./label-overlay";
-import { useCapabilities } from "./capabilities";
-import { actedFrom, archiveFrom } from "./archive";
-import { moveToFolder, renderLabelChoices, useLabelChoices } from "./label-picker-menu";
+import { useCapabilities } from "@otter/client/mail/capabilities";
+import { actedFrom, archiveFrom, moveToFolder } from "@otter/client/mail/archive";
+import { renderLabelChoices, useLabelChoices } from "./label-picker-menu";
 import { isTypingTarget } from "./keyboard";
 import { useCommandHandlers } from "../keybindings/dispatch";
 import { SEARCH_HINT, SearchHeader } from "./search-header";
-import { labelSearchToken, viewSearchQuery } from "./gmail-query";
-import { getAccountColor, getAccountDisplayName } from "./account-style";
-import { ALL_MAIL_LABEL_ID, SYSTEM_LABEL_NAMES, folderName, labelDisplayName } from "./label-names";
+import { labelSearchToken, viewSearchQuery } from "@otter/client/mail/gmail-query";
+import { ALL_MAIL_LABEL_ID, folderName, labelDisplayName } from "@otter/client/mail/label-names";
 import { decodeEntities } from "./text";
-import { parseAddressEntry, senderFirstName, senderLabel, splitAddressList } from "./address";
-import { addressesOf } from "./send-from";
-import type { MailAccount, MailLabel, MessageSummary, ViewRule } from "./types";
-import { pickAdvanceTarget } from "./advance-direction";
-import { beginUndoGroup, clearUndo } from "./undo";
+import {
+  parseAddressEntry,
+  senderFirstName,
+  senderLabel,
+  splitAddressList,
+} from "@otter/client/mail/address";
+import { addressesOf } from "@otter/client/mail/send-from";
+import type { MailAccount, MailLabel, MessageSummary } from "@otter/client/mail/types";
+import { formatRelativeDate } from "@otter/client/mail/format";
+import {
+  groupMessagesByDay,
+  isJunk,
+  resolveCombinedMeta,
+  rowLabels,
+  type CombinedList,
+  type CombinedMeta,
+  type MessageDay,
+  type ResolveLabel,
+} from "@otter/client/mail/rows";
+import { pickAdvanceTarget } from "@otter/client/mail/advance-direction";
+import { beginUndoGroup, clearUndo } from "@otter/client/mail/undo";
 import { isMoveSourceLabel, setThreadDragImage, writeThreadDrag } from "./thread-drag";
 import { isModClick } from "../keybindings/keys";
 import { ShortcutText } from "../keybindings/store";
-import { onePerConversation } from "./list-keys";
+import { onePerConversation } from "@otter/client/mail/list-keys";
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -104,15 +119,6 @@ import { IconButton } from "@otter/ui/components/button";
 import { Spinner } from "@otter/ui/components/spinner";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { cn } from "@otter/ui/lib/utils";
-
-type ResolveLabel = (accountId: string | undefined, labelId: string) => MailLabel | undefined;
-
-export type CombinedList = { viewId: string; name: string; rules: ViewRule[] };
-
-/** Mailbox + account identity shown next to the date in a view's rows.
-    mailbox is null when every selection in the view is the same mailbox,
-    where naming it on every row would be redundant. */
-type CombinedMeta = { mailbox: string | null; accountName: string; accountColor: string };
 
 type MessageListProps = {
   headerTrailing?: ReactNode;
@@ -155,97 +161,6 @@ export type SearchMode = {
   onDraftChange: (draft: string) => void;
   messageOpen: boolean;
 };
-
-function rowLabels(message: MessageSummary): string[] {
-  return message.threadLabelIds ?? message.labelIds;
-}
-
-/** A conversation with mail in both Junk and the Inbox (a junked sender wrote again) is junk only in the Junk view. */
-function isJunk(labels: string[], inJunkView: boolean): boolean {
-  return labels.includes("SPAM") && (inJunkView || !labels.includes("INBOX"));
-}
-
-function ruleMailboxName(rule: ViewRule, resolveLabel: ResolveLabel): string | null {
-  if (rule.allOf.length === 0) return null;
-  return rule.allOf
-    .map((labelId) => {
-      const label = resolveLabel(rule.accountId, labelId);
-      return label ? labelDisplayName(label) : (SYSTEM_LABEL_NAMES[labelId] ?? labelId);
-    })
-    .join(" + ");
-}
-
-function resolveCombinedMeta(
-  message: MessageSummary,
-  combined: CombinedList | null,
-  accounts: MailAccount[],
-  resolveLabel: ResolveLabel,
-): CombinedMeta | null {
-  if (!combined || !message.accountId) return null;
-  if (
-    combined.rules.length > 0 &&
-    combined.rules.every((r) => r.accountId === combined.rules[0].accountId)
-  ) {
-    return null;
-  }
-  const account = accounts.find((a) => a.id === message.accountId);
-  if (!account) return null;
-  const matched = combined.rules.find(
-    (r) =>
-      r.accountId === message.accountId &&
-      r.allOf.every((id) => rowLabels(message).includes(id)) &&
-      !r.noneOf.some((id) => rowLabels(message).includes(id)),
-  );
-  // Thread representatives may not carry the matched labels themselves (e.g.
-  // your own reply in an Inbox view) — still show which account the row is from.
-  if (!matched) {
-    return {
-      mailbox: null,
-      accountName: getAccountDisplayName(account),
-      accountColor: getAccountColor(account),
-    };
-  }
-  const mailbox = ruleMailboxName(matched, resolveLabel);
-  const uniform = combined.rules.every((r) => ruleMailboxName(r, resolveLabel) === mailbox);
-  return {
-    mailbox: uniform ? null : mailbox,
-    accountName: getAccountDisplayName(account),
-    accountColor: getAccountColor(account),
-  };
-}
-
-function formatRelativeDate(timestamp: number): string {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } else if (diffDays === 1) {
-    return "Yesterday";
-  } else if (diffDays < 7) {
-    return date.toLocaleDateString([], { weekday: "short" });
-  } else {
-    return date.toLocaleDateString([], { month: "short", day: "numeric" });
-  }
-}
-
-type MessageDay = { day: number; messages: MessageSummary[] };
-
-function groupMessagesByDay(messages: MessageSummary[]): MessageDay[] {
-  const days = new Map<number, MessageDay>();
-  for (const message of messages) {
-    const day = new Date(message.date).setHours(0, 0, 0, 0);
-    let group = days.get(day);
-    if (!group) {
-      group = { day, messages: [] };
-      days.set(day, group);
-    }
-    group.messages.push(message);
-  }
-  return [...days.values()].sort((a, b) => b.day - a.day);
-}
 
 function MessageDayGroup({
   group,

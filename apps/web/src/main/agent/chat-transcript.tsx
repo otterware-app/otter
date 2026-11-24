@@ -19,22 +19,15 @@ import {
   TextQuoteIcon,
   XIcon,
 } from "lucide-react";
-import { CompactionRow, WorkLog, type TurnItem } from "./work-log";
-import type { ChatChange } from "../mail/api";
-import type { ContextKind, ContextMeta } from "./chat-context";
+import { CompactionRow, WorkLog } from "./work-log";
+import type { ContextKind, ContextMeta } from "@otter/client/agents/chat-context";
 import { findTokenRanges, messageTokens } from "@otter/shared/chat-search";
-import { retryTurn, useChats, type ChatTurn } from "./chat-store";
-import {
-  continuesSteer,
-  formatDuration,
-  isCompaction,
-  layoutReplies,
-  shownItems,
-  splitAnswer,
-} from "./chat-runs";
+import { retryTurn, useChats, type ChatTurn } from "@otter/client/agents/chat-store";
+import { formatDuration, layoutReplies } from "@otter/client/agents/chat-runs";
+import { contextLabel, deliveryLabel, transcriptRows } from "@otter/client/agents/transcript";
 import { Button, IconButton } from "@otter/ui/components/button";
 import { ChatMarkdown } from "./chat-markdown";
-import { messageTime } from "./chat-time";
+import { messageTime } from "@otter/client/agents/chat-time";
 import { ChatChanges } from "./chat-changes";
 import { SentAttachments } from "./chat-attachments";
 import { IntentMarker } from "./chat-queue";
@@ -47,6 +40,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@otter/ui/components/dropdown-menu";
+import type { ChatChange } from "@otter/client/agents/api";
 
 export function ContextKindIcon({ kind, className }: { kind: ContextKind; className?: string }) {
   const Icon =
@@ -101,10 +95,7 @@ function ContextRecap({
   context: ContextMeta;
   onOpen: (item: { title: string; target: ChatChange["target"] }) => void;
 }) {
-  const label =
-    context.count > 1
-      ? `${context.count} conversations`
-      : (context.subjects[0] ?? "1 conversation");
+  const label = contextLabel(context);
   const items = context.items ?? [];
   const chipClass =
     "flex max-w-64 items-center gap-1.5 rounded-sm border border-border px-2 py-0.5 text-2xs font-medium text-muted-foreground";
@@ -151,16 +142,9 @@ function ContextRecap({
 /** A turn no message of yours started: a scheduled task's result, or a message the agent sent. */
 function DeliveryRow({ turn }: { turn: ChatTurn }) {
   const delivered = turn.delivered;
-  if (!delivered) return null;
-  const at = turn.startedAt
-    ? new Date(turn.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-    : null;
+  const label = deliveryLabel(turn);
+  if (!delivered || !label) return null;
   const automation = delivered.kind === "automation";
-  const label = automation
-    ? ["Scheduled", delivered.name, at].filter(Boolean).join(" · ")
-    : [delivered.from ? `Sent by ${delivered.from}` : "Sent to you", at]
-        .filter(Boolean)
-        .join(" · ");
   const Icon = automation ? ClockIcon : SendIcon;
   const row = (
     <div className="flex min-w-0 items-center gap-1.5 px-1 pt-2 text-xs text-muted-foreground">
@@ -186,9 +170,18 @@ function WorkingTimer({ startedAt }: { startedAt: number }) {
 
 /**
  * The run's working row, under the message that started it, as T3 Code draws it: still, unless
- * `compacting` (the agent compacts its context before it starts on your message).
+ * `compacting` (the agent compacts its context before it starts on your message). A run handed
+ * off to subagents says what it waits on instead.
  */
-function WorkingRow({ startedAt, compacting }: { startedAt?: number; compacting: boolean }) {
+function WorkingRow({
+  startedAt,
+  compacting,
+  waiting,
+}: {
+  startedAt?: number;
+  compacting: boolean;
+  waiting?: string;
+}) {
   const verb = compacting ? "Compacting" : "Working";
   return (
     <div className="border-b border-border/40 pb-2 pt-1">
@@ -200,7 +193,9 @@ function WorkingRow({ startedAt, compacting }: { startedAt?: number; compacting:
           )}
         >
           {compacting ? <Minimize2Icon aria-hidden className="size-3 shrink-0" /> : null}
-          {startedAt ? (
+          {waiting ? (
+            waiting
+          ) : startedAt ? (
             <span>
               {verb} for <WorkingTimer startedAt={startedAt} />
             </span>
@@ -356,15 +351,10 @@ function highlightFound(turnId: string, query: string): (() => void) | undefined
   };
 }
 
-/** How many compactions a reply opens with: those ran before the agent read your message. */
-function openingCompactions(items: TurnItem[]): number {
-  const at = items.findIndex((item) => !isCompaction(item));
-  return at < 0 ? items.length : at;
-}
-
 export function ChatTranscript({
   turns,
   streaming,
+  waiting,
   asking,
   detached,
   providerName,
@@ -376,6 +366,8 @@ export function ChatTranscript({
 }: {
   turns: ChatTurn[];
   streaming: boolean;
+  /** What the run in flight, handed off to subagents, waits on: "Waiting · Research pricing". */
+  waiting?: string;
   /** The run in flight waits on an approval or an answer from you. */
   asking: boolean;
   detached: boolean;
@@ -391,7 +383,7 @@ export function ChatTranscript({
   const { scrollToEnd, scrollToMessage } = useMessageScroller();
   const found = useChats((s) => s.found);
   const retryable = useChats((s) => s.retries[turns[turns.length - 1]?.id ?? ""] !== undefined);
-  const layouts = layoutReplies(turns, { streaming, asking });
+  const layouts = layoutReplies(turns, { streaming, asking, waiting: Boolean(waiting) });
   const foundHere = found && turns.some((turn) => turn.id === found.turnId) ? found : null;
   // A match can be in the work a run folds away: open it before the jump below.
   const [unfoldedFor, setUnfoldedFor] = useState<typeof foundHere>(null);
@@ -418,26 +410,22 @@ export function ChatTranscript({
       else next.add(id);
       return next;
     });
-  const isLive = (turn: ChatTurn | undefined) => Boolean(turn && layouts.get(turn.id)?.live);
-  const runStartedAt = turns.find((turn) => layouts.get(turn.id)?.working)?.startedAt;
-  return turns.map((turn, index) => {
-    if (turn.role === "user") {
-      // A compaction before the run comes before the message, as in T3 Code: while it runs,
-      // the message waits under it, dashed, not read yet; once done, its divider stays above.
-      const reply = turns[index + 1];
-      const replyItems = reply?.role === "assistant" ? shownItems(reply) : [];
-      const opening = replyItems[openingCompactions(replyItems) - 1];
-      const waiting = opening?.kind === "step" && isLive(reply) && opening.output === undefined;
-      const compaction = opening?.kind === "step" && !waiting ? opening : null;
+  const rows = transcriptRows(turns, layouts, {
+    streaming,
+    detached,
+    retryable,
+    expanded: expandedFolds,
+  });
+  return rows.map((row) => {
+    const turn = row.turn;
+    if (row.kind === "message") {
+      const { compaction, waiting } = row;
       return (
         <MessageScroller.Item key={turn.id} messageId={turn.id}>
           {compaction ? <CompactionRow output={compaction.output} live={false} /> : null}
-          {waiting ? <WorkingRow startedAt={runStartedAt} compacting /> : null}
+          {waiting ? <WorkingRow startedAt={row.runStartedAt} compacting /> : null}
           <div className="group flex flex-col items-end gap-1 py-3">
-            {(turn.intent === "steer" || turn.intent === "promoted") &&
-            !continuesSteer(turns, index) ? (
-              <IntentMarker intent={turn.intent} />
-            ) : null}
+            {row.steered ? <IntentMarker intent={row.steered} /> : null}
             {turn.context ? <ContextRecap context={turn.context} onOpen={onOpenContext} /> : null}
             <div
               className={cn(
@@ -480,34 +468,14 @@ export function ChatTranscript({
         </MessageScroller.Item>
       );
     }
-    // What's said in a call after a reply doesn't make it any less the latest.
-    const isLast = turn.id === turns.findLast((t) => !t.spoken)?.id;
-    const layout = layouts.get(turn.id);
-    const live = Boolean(layout?.live);
-    const all = shownItems(turn);
-    const opening = turns[index - 1]?.role === "user" ? openingCompactions(all) : 0;
-    const items = all.slice(opening);
-    // Drawn above the message that waits on it.
-    const compactingFirst =
-      live &&
-      all.slice(0, opening).some((item) => item.kind === "step" && item.output === undefined);
-    const { work, answer: final } = splitAnswer(items);
-    // While it runs, everything shows where it was written: which text is the answer is known
-    // once it's done, and only the run's last answer stays out of its folds.
-    const answer = !live && layout?.answers ? final : "";
-    const body = answer ? work : items;
+    const { layout, live, work: shown, answer } = row;
     const fold = layout?.fold;
-    const folded = Boolean(layout?.foldedUnder && !expandedFolds.has(layout.foldedUnder));
-    // A compaction never folds away: it stays between the fold and what follows.
-    const shown = folded
-      ? body.filter((item, i) => isCompaction(item) && !isCompaction(body[i + 1]))
-      : body;
     return (
       <MessageScroller.Item key={turn.id} messageId={turn.id}>
         <div className="flex flex-col">
           <DeliveryRow turn={turn} />
-          {layout?.working && !compactingFirst ? (
-            <WorkingRow startedAt={turn.startedAt} compacting={false} />
+          {row.working ? (
+            <WorkingRow startedAt={turn.startedAt} compacting={false} waiting={waiting} />
           ) : null}
           {fold ? (
             <WorkFoldRow
@@ -550,15 +518,15 @@ export function ChatTranscript({
               </div>
             </div>
           ) : null}
-          {isLast && !streaming && detached ? <DetachedRow providerName={providerName} /> : null}
+          {row.detached ? <DetachedRow providerName={providerName} /> : null}
           {turn.error ? (
             <ErrorRow
               message={turn.error}
               providerName={providerName}
-              onRetry={isLast && retryable && !streaming ? () => retryTurn(turn.id) : undefined}
+              onRetry={row.retry ? () => retryTurn(turn.id) : undefined}
             />
           ) : null}
-          {!live && turn.changes?.length ? (
+          {row.showsChanges && turn.changes ? (
             <ChatChanges changes={turn.changes} onOpen={onOpenChange} />
           ) : null}
           {turn.forked ? (

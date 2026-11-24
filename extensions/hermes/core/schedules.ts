@@ -29,8 +29,8 @@ import {
   toMillis,
   type RawSession,
   type Ready,
-} from "./http.js";
-import type { HermesSettings } from "./settings.js";
+} from "./http.ts";
+import type { HermesSettings } from "./settings.ts";
 
 export type HermesJob = {
   id: string;

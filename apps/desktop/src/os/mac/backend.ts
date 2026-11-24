@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import * as os from "node:os";
 
-import type { BackendOS } from "../types.js";
-import { appleTranslator } from "./translator.js";
+import type { BackendOS } from "../types.ts";
+import { appleTranslator } from "./translator.ts";
 
 export const macBackend: BackendOS = {
   platform: "mac",

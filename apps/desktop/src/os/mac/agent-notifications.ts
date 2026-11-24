@@ -2,8 +2,8 @@ import { app, Notification } from "electron";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-import { logger } from "../../logger.js";
-import type { AgentNotifications } from "../types.js";
+import { logger } from "../../logger.ts";
+import type { AgentNotifications } from "../types.ts";
 
 function addonPath(): string {
   if (app.isPackaged) return path.join(process.resourcesPath, "bin", "notifier.node");

@@ -1,4 +1,4 @@
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { toast } from "@otter/ui/components/toast";
 import { openLink } from "../browser/store";

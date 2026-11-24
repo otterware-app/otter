@@ -1,11 +1,11 @@
 import { supportError, type SupportDiagnostics } from "@otter/shared/support";
-import { platform } from "../platform.js";
-import { isSignedIn } from "../providers/index.js";
-import { listAccounts } from "./account-store.js";
-import { getSyncStatus, turnedOffMailboxes } from "./mail-sync.js";
-import { errorReportsConfig } from "./error-reports.js";
-import { getSettings } from "./settings-store.js";
-import { recentSupportErrors } from "./support-errors.js";
+import { platform } from "../platform.ts";
+import { isSignedIn } from "../providers/index.ts";
+import { listAccounts } from "./account-store.ts";
+import { getSyncStatus, turnedOffMailboxes } from "./mail-sync.ts";
+import { errorReportsConfig } from "./error-reports.ts";
+import { getSettings } from "./settings-store.ts";
+import { recentSupportErrors } from "./support-errors.ts";
 
 export async function collectSupportDiagnostics(): Promise<SupportDiagnostics> {
   const unavailable: string[] = [];

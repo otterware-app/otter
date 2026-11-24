@@ -1,9 +1,13 @@
 import type React from "react";
-import { useCapabilities } from "./capabilities";
-import { useLabels, useModifyThread } from "./hooks";
-import { buildLabelTree, type LabelTreeNode, isAssignableLabel } from "./label-tree";
-import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "./label-names";
-import type { MailLabel } from "./types";
+import { useCapabilities } from "@otter/client/mail/capabilities";
+import { useLabels, useModifyThread } from "@otter/client/mail/hooks";
+import {
+  buildLabelTree,
+  type LabelTreeNode,
+  isAssignableLabel,
+} from "@otter/client/mail/label-tree";
+import { moveToFolder } from "@otter/client/mail/archive";
+import { ARCHIVE_LABEL_ID } from "@otter/client/mail/label-names";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -80,19 +84,6 @@ export function renderLabelMenuNodes(
     );
   };
   return nodes.map(renderNode);
-}
-
-export function moveToFolder(labelIds: string[], folderId: string, labels: MailLabel[]) {
-  const folders = new Set([
-    "INBOX",
-    ARCHIVE_LABEL_ID,
-    SNOOZED_LABEL_ID,
-    ...labels.filter(isAssignableLabel).map((l) => l.id),
-  ]);
-  return {
-    addLabelIds: [folderId],
-    removeLabelIds: labelIds.filter((id) => id !== folderId && folders.has(id)),
-  };
 }
 
 export function useLabelChoices({

@@ -4,13 +4,13 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({ home: "" }));
-vi.mock("../../backend-protocol.js", () => ({ appInfo: () => ({ stateDir: state.home }) }));
-vi.mock("../../main-link.js", () => ({ requestMain: vi.fn() }));
+vi.mock("../../backend-protocol.ts", () => ({ appInfo: () => ({ stateDir: state.home }) }));
+vi.mock("../../main-link.ts", () => ({ requestMain: vi.fn() }));
 vi.mock("@otter/core", async () => ({
-  ...(await import("../../../../../packages/core/src/services/agent/files.js")),
+  ...(await import("../../../../../packages/core/src/services/agent/files.ts")),
   ATTACHMENTS_DIR: "assistant-attachments",
 }));
-const { agentWorkspace, readAgentFile } = await import("./local.js");
+const { agentWorkspace, readAgentFile } = await import("./local.ts");
 
 beforeEach(async () => {
   state.home = await fs.mkdtemp(path.join(os.tmpdir(), "otter-agent-files-"));

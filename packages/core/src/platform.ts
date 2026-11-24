@@ -1,4 +1,4 @@
-import type { MailAccount } from "./types.js";
+import type { MailAccount } from "./types.ts";
 import type { DemoGmailMailbox, DemoOutlookMailbox } from "@otter/contracts/demo";
 import type { SupportError } from "@otter/shared/support";
 
@@ -93,7 +93,7 @@ export interface AsyncContext<T> {
 }
 
 export interface Platform {
-  kind: "desktop" | "web";
+  kind: "desktop" | "web" | "mobile";
   appVersion: string;
   errorReports?: boolean;
   supportDiagnostics?(): Promise<{ environment: string; errors?: SupportError[] }>;

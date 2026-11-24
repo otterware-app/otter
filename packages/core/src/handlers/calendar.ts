@@ -1,12 +1,12 @@
-import { handle } from "../ipc.js";
-import { capabilitiesOf, providerFor } from "../providers/index.js";
+import { handle } from "../ipc.ts";
+import { capabilitiesOf, providerFor } from "../providers/index.ts";
 import {
   NoCalendarAccess,
   type BusyBlock,
   type EventInput,
   type MailProvider,
   type RsvpResponse,
-} from "../providers/provider.js";
+} from "../providers/provider.ts";
 import {
   accountCalendars,
   answeredSeries,
@@ -15,8 +15,8 @@ import {
   eventsInRange,
   patched,
   syncDueCalendars,
-} from "../services/calendar-sync.js";
-import { runAsTask } from "./ipc-budget.js";
+} from "../services/calendar-sync.ts";
+import { runAsTask } from "./ipc-budget.ts";
 
 type Calendar = NonNullable<MailProvider["calendar"]>;
 type Params = Record<string, unknown> | undefined;

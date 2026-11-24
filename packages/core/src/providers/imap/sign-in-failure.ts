@@ -1,4 +1,4 @@
-import { MailProtocolError } from "../../protocols/index.js";
+import { MailProtocolError } from "../../protocols/index.ts";
 
 export class NeedsPassword extends Error {
   constructor(email: string) {

@@ -1,19 +1,19 @@
 import { OUTLOOK_CAPABILITIES } from "@otter/contracts";
 
-import { OUTLOOK_SIGNED_OUT_MESSAGE } from "../../microsoft.js";
-import { platform } from "../../platform.js";
-import * as mailStore from "../../services/mail-store.js";
-import type { MailProvider } from "../provider.js";
-import * as calendar from "./calendar.js";
-import { forgetFolders, labelsOf, readMailbox } from "./folders.js";
-import { describeError, errorKind, forgetGraph, isCoolingDown, tier } from "./graph.js";
-import * as messages from "./messages.js";
-import { readProfile } from "./profile.js";
-import * as search from "./search.js";
-import * as send from "./send.js";
-import { backfillOutlook, forgetOutlookSync, needsBackfill, syncOutlook } from "./sync.js";
-import { endSubscription, renewSubscription } from "./watch.js";
-import * as writes from "./writes.js";
+import { OUTLOOK_SIGNED_OUT_MESSAGE } from "../../microsoft.ts";
+import { platform } from "../../platform.ts";
+import * as mailStore from "../../services/mail-store.ts";
+import type { MailProvider } from "../provider.ts";
+import * as calendar from "./calendar.ts";
+import { forgetFolders, labelsOf, readMailbox } from "./folders.ts";
+import { describeError, errorKind, forgetGraph, isCoolingDown, tier } from "./graph.ts";
+import * as messages from "./messages.ts";
+import { readProfile } from "./profile.ts";
+import * as search from "./search.ts";
+import * as send from "./send.ts";
+import { backfillOutlook, forgetOutlookSync, needsBackfill, syncOutlook } from "./sync.ts";
+import { endSubscription, renewSubscription } from "./watch.ts";
+import * as writes from "./writes.ts";
 
 export const outlookProvider: MailProvider = {
   kind: "outlook",

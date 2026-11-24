@@ -1,9 +1,9 @@
 import { MAX_SUPPORT_BODY } from "@otter/shared/support";
-import { handle } from "../ipc.js";
-import { platform } from "../platform.js";
-import { errorReportsConfig } from "../services/error-reports.js";
-import { collectSupportDiagnostics } from "../services/support.js";
-import { runAsTask } from "./ipc-budget.js";
+import { handle } from "../ipc.ts";
+import { platform } from "../platform.ts";
+import { errorReportsConfig } from "../services/error-reports.ts";
+import { collectSupportDiagnostics } from "../services/support.ts";
+import { runAsTask } from "./ipc-budget.ts";
 
 export function registerSupportHandlers(): void {
   handle("support:diagnostics", collectSupportDiagnostics);

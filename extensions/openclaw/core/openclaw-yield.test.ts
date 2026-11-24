@@ -1,13 +1,13 @@
 import type { AgentRun, ChatEvent } from "@otter/core/extension-kit";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import type { OpenClawSettings } from "./settings.js";
-import { testAgent } from "./test-agent.js";
+import type { OpenClawSettings } from "./settings.ts";
+import { testAgent } from "./test-agent.ts";
 
 const fixture = vi.hoisted(() => ({
   request: vi.fn(),
   onEvent: (_event: { event: string; payload: unknown }) => {},
 }));
-vi.mock("../../../packages/core/src/platform.js", () => ({
+vi.mock("../../../packages/core/src/platform.ts", () => ({
   platform: () => ({
     kind: "desktop",
     appVersion: "test",
@@ -33,7 +33,7 @@ vi.mock("@openclaw/gateway-client/browser", () => ({
   },
 }));
 const { createOpenClaw, agentRunsSince, scheduleText, turnRows, waitingOnYield } =
-  await import("./openclaw.js");
+  await import("./openclaw.ts");
 const settings = { url: "wss://gateway.test" } as OpenClawSettings;
 let openclaw = createOpenClaw(testAgent());
 afterEach(() => {
@@ -140,6 +140,62 @@ describe("an OpenClaw turn that hands off with sessions_yield", () => {
     const ids = events.flatMap((e) => (e.type === "delta" ? [e.id] : []));
     expect(new Set(ids).size).toBe(2);
     expect(events.at(-1)).toEqual({ requestId: "req-1", type: "done", responseId: null });
+  });
+
+  it("says what it waits on, and that it works again once its continuation starts", async () => {
+    gateway();
+    const { events, ended } = send();
+    await vi.waitFor(() =>
+      expect(fixture.request).toHaveBeenCalledWith(
+        "chat.send",
+        expect.anything(),
+        expect.anything(),
+      ),
+    );
+    event("agent", {
+      runId: "req-1",
+      stream: "tool",
+      data: {
+        phase: "start",
+        name: "sessions_spawn",
+        toolCallId: "sp-1",
+        args: { label: "Research pricing" },
+      },
+    });
+    event("chat", { runId: "req-1", state: "final", yielded: true });
+    lifecycleStart("announce:1");
+    event("chat", { runId: "announce:1", state: "final" });
+    await ended;
+    expect(events.filter((e) => e.type === "waiting")).toEqual([
+      { requestId: "req-1", type: "waiting", subagents: ["Research pricing"] },
+      { requestId: "req-1", type: "waiting", subagents: null },
+    ]);
+  });
+
+  it("waits on the subagents its run started, picked up from the session's rows", async () => {
+    history = () => ({
+      messages: [
+        sent,
+        row("req-1", [
+          { type: "toolCall", id: "sp-1", name: "sessions_spawn", arguments: { label: "Docs" } },
+          { type: "toolCall", id: "sp-2", name: "sessions_spawn", arguments: {} },
+        ]),
+        yieldCall,
+        yieldResult,
+      ],
+      sessionInfo: { activeRunIds: [] },
+    });
+    gateway();
+    const events: ChatEvent[] = [];
+    void openclaw.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) => events.push(e));
+    await vi.waitFor(() =>
+      expect(events.find((e) => e.type === "waiting")).toEqual({
+        requestId: "req-1",
+        type: "waiting",
+        subagents: ["Docs", null],
+      }),
+    );
+    openclaw.cancel("req-1");
   });
 
   it("doesn't take a message sent meanwhile from another device for its continuation", async () => {
@@ -289,8 +345,9 @@ describe("an OpenClaw turn that hands off with sessions_yield", () => {
     const ended = openclaw.resume!({ requestId: "req-1", sessionId: "s" }, settings, (e) =>
       events.push(e),
     );
-    await vi.waitFor(() => expect(events.map((e) => e.type)).toEqual(["transcript"]));
+    await vi.waitFor(() => expect(events.map((e) => e.type)).toEqual(["transcript", "waiting"]));
     expect(events[0]).toMatchObject({ messages: [] });
+    expect(events[1]).toMatchObject({ subagents: [] });
     lifecycleStart("announce:1");
     say("announce:1", "i-2", "All checks passed.");
     const before = history();
@@ -303,8 +360,16 @@ describe("an OpenClaw turn that hands off with sessions_yield", () => {
     });
     event("chat", { runId: "announce:1", state: "final" });
     await ended;
-    expect(events.map((e) => e.type)).toEqual(["transcript", "delta", "transcript", "done"]);
-    expect(events[2]).toMatchObject({
+    expect(events.map((e) => e.type)).toEqual([
+      "transcript",
+      "waiting",
+      "waiting",
+      "delta",
+      "transcript",
+      "done",
+    ]);
+    expect(events[2]).toMatchObject({ subagents: null });
+    expect(events[4]).toMatchObject({
       messages: [{ role: "assistant", text: "All checks passed." }],
     });
   });
@@ -749,6 +814,53 @@ describe("what an agent delivers to Otter", () => {
     ...m,
     __openclaw: { ...(m.__openclaw as object), seq },
   });
+
+  it.each([
+    { phase: "finished", active: false },
+    { phase: "still running", active: true },
+  ])(
+    "keeps a $phase continuation part of the original turn after reopening",
+    async ({ active }) => {
+      const now = Date.now();
+      const session = { key: "s", updatedAt: now, activeRunIds: active ? ["announce:1"] : [] };
+      const updates = active
+        ? [numbered(4, delivered("d-checkin", "A separate delivery.", now))]
+        : [
+            numbered(
+              4,
+              row("announce:1", [{ type: "text", text: "Checks passed." }], {
+                recordTimestampMs: now,
+              }),
+            ),
+            numbered(
+              5,
+              row("wake-1", [{ type: "text", text: "A separate update." }], {
+                recordTimestampMs: now,
+              }),
+            ),
+          ];
+      gateway((method) => {
+        if (method === "sessions.list") return { sessions: [session] };
+        if (method === "chat.history")
+          return {
+            sessionId: "t-1",
+            messages: [
+              numbered(1, sent),
+              numbered(2, yieldCall),
+              numbered(3, yieldResult),
+              ...updates,
+            ],
+          };
+        return undefined;
+      });
+      const started: AgentRun[] = [];
+      openclaw.watch!(settings, [{ id: "s", since: now, cursor: "t-1:3" }], (run) =>
+        started.push(run),
+      );
+      const expected = active ? "run:delivery:d-checkin" : "run:wake-1";
+      await vi.waitFor(() => expect(started.map((run) => run.requestId)).toEqual([expected]));
+    },
+  );
 
   it("reads a chat from where it was last read, and still shows a delivery missed before your next message", async () => {
     const now = Date.now();

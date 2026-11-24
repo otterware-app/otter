@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain } from "electron";
 
-import { logger } from "../logger.js";
-import { clearBrowsingData } from "../services/browser.js";
+import { logger } from "../logger.ts";
+import { clearBrowsingData } from "../services/browser.ts";
 import {
   extensionActions,
   listExtensions,
@@ -10,7 +10,7 @@ import {
   runAction,
   setActiveTab,
   setExtensionEnabled,
-} from "../services/extensions.js";
+} from "../services/extensions.ts";
 
 export function registerBrowserHandlers(): void {
   ipcMain.handle("browser:extensions", () => listExtensions());

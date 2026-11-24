@@ -492,7 +492,7 @@ jobs:
       # What scripts/release-ios.ts and scripts/resolve-release-version.ts call the app.
       IOS_APP: mail
       VERSION_APP: ios
-      XCODE_PROJECT: apps/ios/OtterMail.xcodeproj/project.pbxproj
+      VERSION_FILE: apps/ios/OtterMail.xcodeproj/project.pbxproj
       PROFILE_SECRET: IOS_PROVISIONING_PROFILE
       NOTIFICATION_PROFILE_SECRET: IOS_NOTIFICATION_PROVISIONING_PROFILE
     steps: &ios_steps
@@ -518,6 +518,10 @@ jobs:
           if [[ -n "$VERSION" ]]; then args+=(--version "$VERSION");
           else args+=(--bump "${BUMP:-patch}"); fi
           node scripts/resolve-release-version.ts "${args[@]}"
+
+      - name: Setup Expo workspace
+        if: env.IOS_APP == 'agents'
+        uses: ./.github/actions/setup
 
       - name: Install signing
         env:
@@ -595,12 +599,13 @@ jobs:
 
           git fetch origin "$BRANCH"
           git checkout --force -B "$BRANCH" FETCH_HEAD
-          perl -pi -e "s/MARKETING_VERSION = [^;]+;/MARKETING_VERSION = $VERSION;/" "$XCODE_PROJECT"
-          if git diff --quiet -- "$XCODE_PROJECT"; then
-            echo "The Xcode project already says $VERSION."
-            exit 0
+          if [[ "$IOS_APP" == agents ]]; then
+            node -e 'const fs = require("node:fs"); const [file, version] = process.argv.slice(1); const app = JSON.parse(fs.readFileSync(file, "utf8")); app.version = version; fs.writeFileSync(file, JSON.stringify(app, null, 2) + "\n");' "$VERSION_FILE" "$VERSION"
+          else
+            perl -pi -e "s/MARKETING_VERSION = [^;]+;/MARKETING_VERSION = $VERSION;/" "$VERSION_FILE"
           fi
-          git add "$XCODE_PROJECT"
+          if git diff --quiet -- "$VERSION_FILE"; then exit 0; fi
+          git add "$VERSION_FILE"
           git commit -m "chore(release): $TAG"
           # The other releases also push a version bump to main; don't collide with them.
           for attempt in 1 2 3; do
@@ -641,7 +646,7 @@ jobs:
     env:
       IOS_APP: agents
       VERSION_APP: agents
-      XCODE_PROJECT: apps/ios-agents/OtterAgents.xcodeproj/project.pbxproj
+      VERSION_FILE: apps/agents-mobile/package.json
       PROFILE_SECRET: IOS_AGENTS_PROVISIONING_PROFILE
       NOTIFICATION_PROFILE_SECRET: IOS_AGENTS_NOTIFICATION_PROVISIONING_PROFILE
     steps: *ios_steps

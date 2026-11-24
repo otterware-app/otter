@@ -1,9 +1,9 @@
 import type { ChatEvent } from "@otter/core/extension-kit";
 import { GatewayProtocolRequestError } from "@openclaw/gateway-client/browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { OpenClawProvider } from "./openclaw.js";
-import type { OpenClawSettings } from "./settings.js";
-import { testAgent } from "./test-agent.js";
+import type { OpenClawProvider } from "./openclaw.ts";
+import type { OpenClawSettings } from "./settings.ts";
+import { testAgent } from "./test-agent.ts";
 
 type Options = {
   createSocket: (on: Record<string, () => void>) => unknown;
@@ -24,7 +24,7 @@ const fixture = vi.hoisted(() => ({
   onEvent: (_event: { event: string; payload: unknown }) => {},
   wake: () => {},
 }));
-vi.mock("../../../packages/core/src/platform.js", () => ({
+vi.mock("../../../packages/core/src/platform.ts", () => ({
   platform: () => ({
     kind: "desktop",
     appVersion: "test",
@@ -73,7 +73,7 @@ vi.stubGlobal(
     addEventListener() {}
   },
 );
-const { createOpenClaw } = await import("./openclaw.js");
+const { createOpenClaw } = await import("./openclaw.ts");
 const settings = { url: "wss://gateway.test" } as OpenClawSettings;
 let agent: ReturnType<typeof testAgent>;
 let openclaw: OpenClawProvider;
@@ -233,6 +233,28 @@ describe("an OpenClaw connection", () => {
     expect(events.at(-1)).toEqual({ requestId: "req-1", type: "error", message: "detached" });
     await flush(1_000);
     expect(fixture.urls).toEqual(["wss://gateway.test", "wss://new.test"]);
+  });
+
+  it("starts a new chat on the agent chosen, or on the next one that's on", async () => {
+    gateway((method) =>
+      method === "agents.list"
+        ? { defaultId: "main", agents: [{ id: "main" }, { id: "research" }] }
+        : undefined,
+    );
+    const startsOn = async (model: string, disabledAgents: string[]) => {
+      const events: ChatEvent[] = [];
+      void openclaw.sendTurn(
+        { requestId: "req-new", input: "Hi" },
+        { ...settings, model, disabledAgents },
+        (e) => events.push(e),
+      );
+      await flush();
+      const session = events.find((e) => e.type === "session");
+      return session?.type === "session" ? session.sessionId.split(":")[1] : null;
+    };
+    expect(await startsOn("research", [])).toBe("research");
+    expect(await startsOn("research", ["research"])).toBe("main");
+    expect(await startsOn("", ["main"])).toBe("research");
   });
 
   it("is each agent's own: its pairing, its gateway and its turns", async () => {

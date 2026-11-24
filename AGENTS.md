@@ -47,11 +47,11 @@ when a feature lands or goes.
   provider (sidebar, lists, reader, composer); it gates on the mailbox's capabilities.
   Where the main window is (mailbox, label, conversation, Settings pane) is its route
   (`src/main/router.tsx`, TanStack Router): in the hash in the desktop app, real paths on the web
-  (`/mail/you@gmail.com/INBOX/<id>`, `/agents/<id>`, `/calendar/week`, `/settings/appearance`; `src/main/places.ts`;
+  (`/mail/you@gmail.com/INBOX/<id>`, `/agents/<id>`, `/calendar/week`, `/settings/appearance`; `@otter/client`'s `places.ts`;
   addresses from before the rename, without `/mail` or with `/chats`, redirect).
   `src/main/browser/` is the browser (Mac): the panel of `<webview>` tabs beside the mail, a
   chat's pages in the AI workspace, and `openLink`, where links from mail and chat go.
-  The agents' UI is `src/main/agent/`: the chats (`chat-store.ts`, synced through core), shown in the
+  The agents' UI is `src/main/agent/`: the chats (`@otter/client`'s `agents/chat-store.ts`, synced through core), shown in the
   small window over the mail (⌘E, `chat-window.tsx`) or the AI workspace, the Chats space
   (`/agents/<id>`, `chat-workspace.tsx`), with what each chat used and made as tabs.
   `src/web/` is the browser shell: core in a Web Worker (SQLite WASM on OPFS) hosted by one
@@ -67,13 +67,6 @@ when a feature lands or goes.
   the demo mailbox, exported from `packages/shared` by `pnpm ios:resources`. Light and dark use a fixed
   white and black palette. See its
   README.
-- `apps/ios-agents`: Otter Agents for iPhone, the agents on their own (a second app, as the phone
-  gets an app per job): the account's chats and what agents run on a schedule, laid out like
-  T3 Code's phone app. Its own project (`OtterAgents.xcodeproj`); it compiles `apps/ios`'s
-  palette and `MailContext` (listed in its project under "Shared with Otter Mail"), so a change to
-  those builds in both. Otter Mail has no agent of its own: its Send to agent opens a new chat
-  about a conversation, a message or a draft in Otter Agents. The chat's logic is `apps/web/src/main/agent` ported (`Chats/`,
-  `Scheduled/`): change both together. See its README.
 - `extensions/`: the built-in extensions, a package each (VS Code's model; contracts'
   `src/extensions.ts`): Sign-in codes, Calendar invites, Translation, Todoist, Otter Drive, and
   the agents (`hermes`, `openclaw`, `varys`, `claude`, `codex`). Each
@@ -86,18 +79,60 @@ when a feature lands or goes.
   `./desktop` (Claude, Codex). A workspace (Otter Drive's Drive) is declared in the manifest's
   `contributes.workspaces` (VS Code's view containers: known without running it) and drawn by the
   `./ui` half: a mode beside Mail, Calendar and Agent at `/<id>/<location>/<item>`, with its own
-  sidebar and main area (`extensions/workspaces.ts`). The manifest's `platforms` (mac, linux, web; absent: all) says where one runs, and each
+  sidebar and main area (`extensions/workspaces.ts`). The manifest's `platforms` (mac, linux, web, ios; absent: all) says where one runs, and each
   app loads the half it can run, as VS Code loads `main` or `browser`: the desktop app `./desktop`
   when there is one, else `./core`; the web app `./core`. Core doesn't import them: the shells pass
   their list to `startCore`
   (`apps/desktop/src/extensions.ts`, `apps/web/src/web/extensions.ts`), the renderer lists the
   `./ui` halves (`extensions/registry.ts`). Extensions reach the app only through the kits
   (`@otter/core/extension-kit`, `@otter/web/extension-kit`,
-  `@otter/desktop/extension-kit`; the last two are aliases), which lint enforces. An agent is
+  `@otter/desktop/extension-kit`; the last two are aliases), and through `@otter/client` for
+  what isn't drawing, which lint enforces. What an extension's `./ui` half shares with a phone's
+  half to come (its typed calls, its forms' state) is in its `shared/` folder (Hermes, OpenClaw,
+  varys), which draws nothing and lint holds to no DOM. An agent is
   the strict contribution: core's `AgentType`, a kind of agent whose `create` makes a
   `ChatProvider` for each agent the user adds (as many of a kind as they like: its settings and
-  secrets are its own, under the agent's id, which chats and tasks name), and, in the renderer,
-  its icon and settings form; the chat UI is shared.
+  secrets are its own, under the agent's id, which chats and tasks name), what the kind says of
+  itself (`shared/traits.ts`, `@otter/client`'s `AgentTraits`), and, in the renderer, its icon
+  and settings form; the chat UI is shared.
+- `packages/client` (`@otter/client`): what every interface does that isn't drawing, shared by
+  the web renderer and the phone apps to come: the one way to core (`src/bridge.ts`: `ipc`, `task`,
+  `listen`), the agents' calls (`agents/api.ts`, `agentApi`), the chat store, and the logic
+  around it (shelves, runs, schedule text): what the chats list says of each chat
+  (`agents/chat-list.ts`), the transcript's rows and work log (`transcript.ts`, `work-log.ts`),
+  the composer (`composer.ts`, attachments, quotes, the queue), approvals and questions, a chat's
+  details and files, the model picker and its synced favorites (`model-picker.ts`,
+  `model-prefs.ts`), a call (`talk.ts`, over the audio each app supplies: `TalkAudio`), the
+  agent's browser (`agent-browser.ts`), scheduled tasks and their editor (`agent-scheduled.ts`,
+  `scheduled-editor.ts`) and the agents' settings (`agent-settings.ts`, `agent-channels.ts`);
+  what a file previews as (`file-preview.ts`); the mail calls (`mail/api.ts`, `mailApi`), their
+  TanStack Query hooks (`mail/hooks.ts`) and the mail logic screens share (addresses, reply and
+  forward, search operators, undo, labels, rows and dates, draft autosave); the Otter account
+  (`otter-account.ts`: `otterApi`, `useOtterAccount`) and the preferences that follow it
+  (`preferences.ts`); and the app's paths (`places.ts`). The
+  desktop shell's own calls (windows, Settings, the default mail app) stay in the web app
+  (`src/main/app-api.ts`). No DOM and no React Native: what it needs of the app
+  (storage, focus, notices) it asks of the host each app sets at startup (`src/host.ts`; the
+  web's is `apps/web/src/main/client-host.ts`), and lint holds it to that.
+- `apps/agents-mobile` (`@otter/agents-mobile`): Otter Agents for iPhone on Expo (React Native),
+  with chat, agent setup and Scheduled. See `docs/expo-migration.md` for the cutover checks.
+  It runs core in the
+  app's own JavaScript runtime (`index.ts`, `src/core.ts`: no mail, the agent extensions) and
+  reaches it as the web does, through `@otter/client`. Thin: routes in `src/app/` (Expo Router)
+  that only re-export screens, the frame (`src/frame/`: the bottom bar and its tabs) and a
+  folder per area (`src/chats/`, `src/chat/`, `src/scheduled/`, `src/settings/`,
+  `src/account/`). Its `ios/` is generated by `expo prebuild` and never committed. See its
+  README.
+- `packages/mobile` (`@otter/mobile`): what the Expo apps share to host core: its Platform on
+  iOS (`src/platform.ts`: expo-sqlite, files, the Keychain), the bridge the screens call it
+  through (`src/bridge.ts`, a `desktopBridge` over core in the same runtime, messages copied as
+  between processes), `@otter/client`'s host, what Hermes lacks (`src/polyfills.ts`), a self-test
+  of all of it, and the native module behind them (`ios/`, Swift: `OtterMobile`).
+- `packages/ui-native` (`@otter/ui-native`): the design system on React Native, for the Expo
+  apps: `@otter/ui`'s tokens as typed data (`src/tokens.ts`, generated by `pnpm design:tokens`:
+  never edited), the phone's palette, type and fonts over the same names (`src/phone.ts`),
+  `useTheme()` (`src/theme.ts`), and the components under `@otter/ui`'s names, drawn with
+  `StyleSheet` (no Tailwind on native). Lint keeps the DOM and `@otter/ui` out of all three.
 - `packages/contracts`: types shared by both sides, including `DesktopBridge`, the
   `window.desktopBridge` API the preload exposes, and the relay's API (`src/relay.ts`).
 - `packages/ui` (`@otter/ui`): the design system, shadcn-style on Base UI (Radix is gone, and
@@ -196,9 +231,10 @@ it; the web app needs it (the relay keeps its Gmail sign-ins alive).
   `pnpm dev:demo --agents openclaw,hermes` (or `dev:desktop:demo`) starts them and opens the app
   connected. Test a change to a gateway plugin or an agent's client against them. See
   [Agent gateways](docs/development.md#agent-gateways).
+- `pnpm dev:mobile:agents`: Otter Agents on Expo in the simulator (a development build, then
+  Metro); `pnpm dev:mobile:agents:fake` over core's made-up account, agents and chats.
 - `pnpm dev:ios`: the iPhone app in the simulator (it has the same demo mailbox, from the welcome
-  screen). `pnpm dev:ios:agents`: Otter Agents (its demo, from its welcome screen, is a pretend
-  agent and made-up chats).
+  screen).
 - `pnpm start` runs the built app unpackaged; `pnpm dist:desktop:dmg` builds a DMG in `release/`
   (on a Mac), `pnpm dist:desktop:deb` a .deb (on Linux).
 - Data homes (`apps/desktop/src/paths.ts`, as in T3 Code): the installed app uses
@@ -231,9 +267,8 @@ stable and nightly channels. The iPhone apps release separately, each with its o
 - iPhone: the Release workflow releases Otter Mail on each merge to main that touches
   `apps/ios` (or what it bundles from `packages/shared`), as a patch. Run it by hand with
   `apps=iphone` and a `bump` for a minor or major version. It uploads to TestFlight and tags
-  `ios-vX.Y.Z`. Otter Agents (`apps/ios-agents`) is the same (`apps=agents`), with its own
-  version and `ios-agents-vX.Y.Z` tags: it ships when `apps/ios-agents` or what it compiles
-  from `apps/ios` changes.
+  `ios-vX.Y.Z`. Otter Agents (`apps/agents-mobile`) ships via `apps=agents`, with its own
+  version and `ios-agents-vX.Y.Z` tags. Its release generates the Expo native project.
 
 `docs/runbook.md` is the short version of shipping each part; details in `docs/release.md`.
 
@@ -246,7 +281,7 @@ Before handing work back, run and fix:
 - `pnpm fmt`
 
 For UI or behavior changes, run the app and check the change in it, at a 1600x1000 viewport.
-For an iPhone app, build it (`pnpm dev:ios`, `pnpm dev:ios:agents`, or `xcodebuild` as its README
+For an iPhone app, build it (`pnpm dev:ios`, `pnpm dev:mobile:agents`, or `xcodebuild` as its README
 shows) and check the change in the simulator, in light and dark. Run its unit tests there too
 (`xcodebuild … test`, in its README): CI builds them and doesn't run them.
 For a gateway plugin (`extensions/*/gateway`) or an agent's client, run it on the real gateways

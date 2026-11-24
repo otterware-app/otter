@@ -10,8 +10,7 @@ import {
   Settings2Icon,
 } from "lucide-react";
 
-import { ipc } from "~/lib/ipc";
-import { mailApi } from "../mail/api";
+import { ipc } from "@otter/client/bridge";
 import { CHROME_WEB_STORE_URL, openTab, setExtensionsButton, setPinned, useBrowser } from "./store";
 import {
   DropdownMenu,
@@ -25,6 +24,7 @@ import {
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton, buttonVariants } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
+import { appApi } from "../app-api";
 
 type ExtensionAction = {
   id: string;
@@ -190,7 +190,7 @@ export function ExtensionToolbar() {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       icon={<PuzzleIcon className="size-4" />}
-                      onClick={() => void mailApi.openSettings({ pane: "browser" })}
+                      onClick={() => void appApi.openSettings({ pane: "browser" })}
                     >
                       Manage extension
                     </DropdownMenuItem>
@@ -199,7 +199,7 @@ export function ExtensionToolbar() {
               );
             })}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => void mailApi.openSettings({ pane: "browser" })}>
+            <DropdownMenuItem onClick={() => void appApi.openSettings({ pane: "browser" })}>
               <span className="flex items-center justify-between gap-2">
                 Manage extensions
                 <ArrowUpRightIcon className="size-4 text-muted-foreground" />

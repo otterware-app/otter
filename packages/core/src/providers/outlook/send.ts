@@ -9,20 +9,20 @@
  * draft's id is its message's id and never changes.
  */
 
-import { fromBase64, toBase64, utf8Encode, sha256Hex } from "../../bytes.js";
-import * as store from "../../services/mail-store.js";
-import { splitAddressList } from "../../services/outgoing.js";
-import type { ComposeAttachment } from "../../types.js";
+import { fromBase64, toBase64, utf8Encode, sha256Hex } from "../../bytes.ts";
+import * as store from "../../services/mail-store.ts";
+import { splitAddressList } from "../../services/outgoing.ts";
+import type { ComposeAttachment } from "../../types.ts";
 import {
   DraftChanged,
   SendUncertain,
   type DraftSave,
   type OutgoingMail,
   type ScheduleOutcome,
-} from "../provider.js";
-import { folderLabel, isSyncedFolder, stillInMailbox, wellKnownId } from "./folders.js";
-import { graph, graphAll, isNetworkError, isNotFound, GraphError } from "./graph.js";
-import { messagePath, type ApiMessage } from "./messages.js";
+} from "../provider.ts";
+import { folderLabel, isSyncedFolder, stillInMailbox, wellKnownId } from "./folders.ts";
+import { graph, graphAll, isNetworkError, isNotFound, GraphError } from "./graph.ts";
+import { messagePath, type ApiMessage } from "./messages.ts";
 
 const INLINE_ATTACHMENT_BYTES = 3 * 1024 * 1024;
 const UPLOAD_CHUNK_BYTES = 10 * 320 * 1024;

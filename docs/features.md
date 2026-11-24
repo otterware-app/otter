@@ -610,7 +610,7 @@ claude.ai connectors) can't reach a server on the Mac.
 
 ## Otter Agents (iPhone)
 
-A second iPhone app (`apps/ios-agents`): the Agent mode on its own, laid out like T3 Code's
+A second iPhone app (`apps/agents-mobile`): the Agent mode on its own, laid out like T3 Code's
 phone app. It has no mail; its chats and settings are the Otter account's, the same as every
 other app's. What the Mac and web apps' chat does, and whether Otter Agents does it:
 

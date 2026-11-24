@@ -9,10 +9,10 @@
 
 import type { OutlookWatchResponse } from "@otter/contracts/relay";
 
-import { logger } from "../../logger.js";
-import * as mailStore from "../../services/mail-store.js";
-import { relayRequest } from "../../services/otter-account.js";
-import { graph, isNotFound } from "./graph.js";
+import { logger } from "../../logger.ts";
+import * as mailStore from "../../services/mail-store.ts";
+import { relayRequest } from "../../services/otter-account.ts";
+import { graph, isNotFound } from "./graph.ts";
 
 const LIFETIME_MS = 70 * 60 * 60_000;
 const RENEW_BEFORE_MS = 24 * 60 * 60_000;

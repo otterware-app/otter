@@ -1,5 +1,5 @@
 import type { ThemeSource } from "@otter/contracts";
-import { setSyncedPreference } from "../synced-preferences";
+import { setSyncedPreference } from "@otter/client/preferences";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   APP_THEMES,

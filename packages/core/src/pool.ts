@@ -15,3 +15,6 @@ export async function mapPool<T, R>(
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
   return results;
 }
+
+/** Lets the rest of the thread run (on the phone, the interface) between stretches of work. */
+export const yieldThread = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));

@@ -1,5 +1,5 @@
-import { withOccurrenceKeys } from "./list-keys";
-import { useLatest } from "../use-latest";
+import { withOccurrenceKeys } from "@otter/client/mail/list-keys";
+import { useLatest } from "@otter/client/use-latest";
 import {
   ExtensionMenuActions,
   ExtensionMessageCards,
@@ -25,7 +25,7 @@ import { Dialog } from "@otter/ui/components/dialog";
 import { EmptyState } from "@otter/ui/components/empty-state";
 import { ScrollArea } from "@otter/ui/components/scroll-area";
 import { Text } from "@otter/ui/components/text";
-import { MAY_HAVE_BEEN_SENT, sendWithUndo } from "./undo-send";
+import { sendWithUndo } from "./undo-send";
 import { toast } from "@otter/ui/components/toast";
 import {
   ArchiveIcon,
@@ -72,9 +72,10 @@ import {
   useGetAttachment,
   useLabels,
   useSendMessage,
-  useObservedWidth,
-} from "./hooks";
-import { mailApi } from "./api";
+  MAY_HAVE_BEEN_SENT,
+} from "@otter/client/mail/hooks";
+import { useObservedWidth } from "../use-width";
+import { mailApi } from "@otter/client/mail/api";
 import { CategoryChip, InboxChip, LabelChip, isCategoryLabelId } from "./label-chip";
 import { SenderAvatar } from "./sender-avatar";
 import { ConversationSummary } from "./conversation-summary";
@@ -84,26 +85,38 @@ import {
   ComposerField,
   ComposerFooter,
   DraftRemoteBanner,
-  draftStatus,
 } from "./composer-kit";
 import { decodeEntities, htmlToText } from "./text";
 import { LabelPickerMenu, LabelSubmenu } from "./label-picker-menu";
-import { useCapabilities } from "./capabilities";
-import { actedFrom, archiveFrom } from "./archive";
+import { useCapabilities } from "@otter/client/mail/capabilities";
+import { actedFrom, archiveFrom } from "@otter/client/mail/archive";
 import {
-  formatAddressEntry,
   normalizeAddressList,
   parseAddressEntry,
   senderLabel,
   splitAddressList,
-} from "./address";
+} from "@otter/client/mail/address";
+import {
+  dayKey,
+  formatBytes,
+  formatDayLabel,
+  formatFullDate,
+  formatTime,
+} from "@otter/client/mail/format";
+import {
+  computeReply,
+  computeReplyAll,
+  forwardBlock,
+  prefixSubject,
+  splitPlainQuote,
+} from "@otter/client/mail/reply";
 import { useCommandHandlers } from "../keybindings/dispatch";
 import { ShortcutText, useShortcutLabel } from "../keybindings/store";
 import { RichTextArea, textToHtml, type RichTextRef } from "./rich-text";
 import { RecipientInput } from "./recipient-input";
 import { FromPicker } from "./new-message-view";
-import { addressesOf, chosenAddress, ownAddress, replyAddress } from "./send-from";
-import { signatureFor, type AliasMailboxEntry } from "./alias-mailboxes";
+import { addressesOf, chosenAddress, ownAddress, replyAddress } from "@otter/client/mail/send-from";
+import { signatureFor, type AliasMailboxEntry } from "@otter/client/mail/alias-mailboxes";
 import {
   AttachmentChips,
   ComposeDropOverlay,
@@ -114,13 +127,19 @@ import {
   autosaveDelayMs,
   loadMessageAttachments,
 } from "./compose-attachments";
-import type { QuoteContext } from "../agent/chat-context";
+import type { QuoteContext } from "@otter/client/agents/chat-context";
 import { DraftEditor } from "./draft-editor";
-import { useDraftAutosave } from "./use-draft-autosave";
-import type { ComposeAttachment, MailLabel, MessageDetail, MessageSummary } from "./types";
+import { draftStatus, useDraftAutosave } from "@otter/client/mail/use-draft-autosave";
+import type {
+  ComposeAttachment,
+  MailLabel,
+  MessageDetail,
+  MessageSummary,
+} from "@otter/client/mail/types";
 import { features } from "../features";
 import { openLink } from "../browser/store";
-import { AttachmentPreview, attachmentPreview, type PreviewFile } from "./attachment-preview";
+import { AttachmentPreview, type PreviewFile } from "./attachment-preview";
+import { attachmentPreview } from "@otter/client/file-preview";
 import { isModClick } from "../keybindings/keys";
 import { loadPhoneFinder, markPhones, usePhoneFinder, type FindPhones } from "./phone-numbers";
 import { usePhoneMenu, type PhoneAt } from "./phone-menu";
@@ -167,47 +186,6 @@ export type DownloadAttachment = (
   filename: string,
   mimeType: string,
 ) => void;
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatFullDate(timestamp: number): string {
-  return new Date(timestamp).toLocaleString([], {
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatTime(timestamp: number): string {
-  return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function formatDayLabel(timestamp: number): string {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const dayDiff = Math.round((startOfDay(now) - startOfDay(date)) / 86_400_000);
-  if (dayDiff === 0) return "Today";
-  if (dayDiff === 1) return "Yesterday";
-  if (dayDiff < 7) return date.toLocaleDateString([], { weekday: "long" });
-  return date.toLocaleDateString([], {
-    month: "long",
-    day: "numeric",
-    ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
-  });
-}
-
-export function dayKey(timestamp: number): string {
-  const d = new Date(timestamp);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
 
 // The frame is sized to its content, so a template's `html { height: 100% }` (sizing the content
 // to the frame) would keep the frame from ever shrinking.
@@ -855,26 +833,6 @@ function HtmlBody({
       {phoneMenu}
     </div>
   );
-}
-
-function splitPlainQuote(text: string): [string, string] {
-  const lines = text.split("\n");
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    const quoteRunFollows = lines
-      .slice(i)
-      .every((l) => l.trim() === "" || l.trimStart().startsWith(">"));
-    if (
-      /^On .+wrote:$/i.test(line) ||
-      /^-{2,}\s*Original Message\s*-{2,}$/i.test(line) ||
-      (line.startsWith(">") && quoteRunFollows)
-    ) {
-      const main = lines.slice(0, i).join("\n").trimEnd();
-      if (main.trim().length < 20) return [text, ""];
-      return [main, lines.slice(i).join("\n")];
-    }
-  }
-  return [text, ""];
 }
 
 const URL_RE = /\bhttps?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]}'*]/g;
@@ -1607,40 +1565,6 @@ function RecipientList({
   );
 }
 
-function computeReplyAll(
-  last: MessageSummary & { cc?: string; replyTo?: string },
-  ownAddresses: string[],
-): { to: string; cc: string | undefined } {
-  const own = ownAddresses.map((a) => a.toLowerCase());
-  const fromSelf = own.includes(last.fromEmail.toLowerCase());
-  const seen = new Set<string>(own);
-  const to: string[] = [];
-  const cc: string[] = [];
-  if (!fromSelf) {
-    for (const entry of splitAddressList(replyTarget(last))) {
-      const email = parseAddressEntry(entry).email.toLowerCase();
-      if (!email || seen.has(email)) continue;
-      seen.add(email);
-      to.push(entry);
-    }
-    seen.add(last.fromEmail.toLowerCase());
-  }
-  for (const entry of splitAddressList(last.to)) {
-    const email = parseAddressEntry(entry).email.toLowerCase();
-    if (!email || seen.has(email)) continue;
-    seen.add(email);
-    (fromSelf ? to : cc).push(entry);
-  }
-  for (const entry of splitAddressList(last.cc ?? "")) {
-    const email = parseAddressEntry(entry).email.toLowerCase();
-    if (!email || seen.has(email)) continue;
-    seen.add(email);
-    cc.push(entry);
-  }
-  if (to.length === 0) to.push(senderAddress(last));
-  return { to: to.join(", "), cc: cc.length > 0 ? cc.join(", ") : undefined };
-}
-
 type InlineMode = "reply" | "replyAll" | "forward";
 
 const INLINE_MODE_LABEL: Record<InlineMode, string> = {
@@ -1648,39 +1572,6 @@ const INLINE_MODE_LABEL: Record<InlineMode, string> = {
   replyAll: "Reply all",
   forward: "Forward",
 };
-
-function senderAddress(m: MessageSummary): string {
-  return formatAddressEntry(m.fromName, m.fromEmail);
-}
-
-/** Where a reply goes: Reply-To when the sender set one, else From. */
-function replyTarget(m: MessageSummary & { replyTo?: string }): string {
-  return m.replyTo || senderAddress(m);
-}
-
-function computeReply(
-  last: MessageSummary & { replyTo?: string },
-  ownAddresses: string[],
-): { to: string; cc: string | undefined } {
-  const fromSelf = ownAddresses.some((a) => a.toLowerCase() === last.fromEmail.toLowerCase());
-  // Replying to your own message targets its recipients instead of yourself.
-  return { to: fromSelf ? last.to : replyTarget(last), cc: undefined };
-}
-
-function prefixSubject(prefix: "Re" | "Fwd", subject: string): string {
-  const already = prefix === "Re" ? /^re:/i : /^(fwd?|fw):/i;
-  return already.test(subject.trim()) ? subject : `${prefix}: ${subject}`;
-}
-
-function forwardBlock(
-  source: MessageSummary & { bodyText?: string | null; bodyHtml?: string | null },
-): string {
-  const fromDisplay = source.fromName
-    ? `${source.fromName} <${source.fromEmail}>`
-    : source.fromEmail;
-  const body = source.bodyText ?? (source.bodyHtml ? htmlToText(source.bodyHtml) : "");
-  return `\n\n---------- Forwarded message ----------\nFrom: ${fromDisplay}\nDate: ${formatFullDate(source.date)}\nSubject: ${source.subject}\nTo: ${source.to}\n\n${body}`;
-}
 
 const INLINE_MODE_ICON: Record<InlineMode, typeof ReplyIcon> = {
   reply: ReplyIcon,
@@ -1928,7 +1819,7 @@ function InlineComposer({
     if (!canSend) return;
     const plain = editorRef.current?.getText() ?? text;
     const html = editorRef.current?.getHTML() ?? textToHtml(text);
-    const quoted = mode === "forward" ? forwardBlock(lastDetail ?? lastMessage) : "";
+    const quoted = mode === "forward" ? forwardBlock(lastDetail ?? lastMessage, htmlToText) : "";
     const body = `${plain}${quoted}`;
     const bodyHtml = `<div dir="auto">${html}${textToHtml(quoted)}</div>`;
     console.log("[MessageReader:inlineSend]", { mode, threadId });

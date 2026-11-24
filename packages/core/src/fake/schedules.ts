@@ -1,6 +1,7 @@
 /**
  * The made-up agents' scheduled tasks: what each runs on its own, with a history, as a gateway
- * keeps them (OpenClaw's own jobs among them). Kept while the app runs; they start over with it.
+ * keeps them (OpenClaw's own jobs among them). rata's fail to load and varys's can't be changed.
+ * Kept while the app runs; they start over with it.
  */
 import type {
   AgentScheduledTasks,
@@ -15,8 +16,8 @@ import type {
   AgentSettings,
   ChatSessionMessage,
   ScheduleSupport,
-} from "../services/agent/types.js";
-import { DEMO_AGENTS } from "./chats.js";
+} from "../services/agent/types.ts";
+import { DEMO_AGENTS, PLANNING_PACK_SESSION } from "./chats.ts";
 
 type Task = Omit<ScheduledTask, "provider">;
 
@@ -168,9 +169,6 @@ function seed(agent: string, now: number): Task[] {
           },
           delivery: toOtter,
         },
-      ];
-    case DEMO_AGENTS.rata:
-      return [
         {
           id: "newsletters",
           name: "Newsletter digest",
@@ -187,6 +185,29 @@ function seed(agent: string, now: number): Task[] {
             durationMs: 31_000,
           },
           delivery: { kind: "elsewhere", label: "Telegram" },
+        },
+        {
+          id: "build-status",
+          name: "Post the build status",
+          prompt: "Every morning, post whether last night's builds passed to the team dashboard.",
+          schedule: { kind: "cron", expr: "0 7 * * 1-5" },
+          enabled: true,
+          running: false,
+          nextRunAt: now + 20 * HOUR,
+          lastRun: ok(HOUR, 12_000),
+          delivery: { kind: "webhook", url: "https://dash.acme.example/hooks/builds" },
+        },
+        {
+          id: "hiring-pipeline",
+          name: "Hiring pipeline check",
+          prompt:
+            "Until Thursday's planning, tell me each evening how many backend candidates are in the pipeline and who's waiting on me.",
+          schedule: { kind: "cron", expr: "0 18 * * *" },
+          enabled: true,
+          running: false,
+          nextRunAt: now + 7 * HOUR,
+          delivery: { kind: "otter", chat: "one" },
+          chats: [PLANNING_PACK_SESSION],
         },
       ];
     case DEMO_AGENTS.varys:
@@ -257,7 +278,12 @@ export function scriptedSchedules(agent: string): ScheduleSupport<AgentSettings>
   };
   return {
     async list(): Promise<Omit<AgentScheduledTasks, "provider">> {
+      if (agent === DEMO_AGENTS.rata)
+        throw new Error("rata didn't answer: the request timed out after 30 seconds.");
       return {
+        ...(agent === DEMO_AGENTS.varys
+          ? { readOnly: "varys shares its jobs with Otter but doesn't let it change them." }
+          : {}),
         tasks: tasks.map((task) => ({ ...task, provider: agent })),
         channels: [{ id: "slack", label: "Slack", accounts: ["acme"] }],
         can: { create: true, deliverToOtter: true, webhooks: true, history: true, timeZones: true },

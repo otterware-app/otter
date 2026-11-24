@@ -12,7 +12,7 @@ import {
   taskOf,
   taskRuns,
   type CronGateway,
-} from "./schedules.js";
+} from "./schedules.ts";
 
 // Shaped like a 2026.11 gateway's answers.
 const brief = {

@@ -14,7 +14,7 @@ import {
   normalizeHermesBaseUrl,
   probeHermesSessions,
   type HermesProvider,
-} from "./hermes.js";
+} from "./hermes.ts";
 
 const str = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
 

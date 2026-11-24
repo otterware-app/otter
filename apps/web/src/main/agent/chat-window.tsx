@@ -8,14 +8,14 @@ import {
   type RefObject,
 } from "react";
 import { AlarmClockIcon, CheckIcon, Maximize2Icon, MinusIcon } from "lucide-react";
-import { AgentAvatar, openClawAgentId } from "./agent-providers";
+import { AgentAvatar } from "./agent-providers";
 import { BUTTON, drawNotch, Notch } from "./agent-corner";
 import { ChatContextButton } from "./chat-context-panel";
 
-import type { ChatChange } from "../mail/api";
-import type { MailChatContext } from "./chat-context";
-import { isBlank, openChatTab, useChats, watchChat } from "./chat-store";
-import { settleChat, SnoozeMenu } from "./chat-shelve-actions";
+import type { MailChatContext } from "@otter/client/agents/chat-context";
+import { isBlank, openChatTab, useChats, watchChat } from "@otter/client/agents/chat-store";
+import { SnoozeMenu } from "./chat-shelve-actions";
+import { settleChat } from "@otter/client/agents/chat-actions";
 import { ChatSwitcherItems } from "./chat-switcher";
 import { ChatTitle, TitleMenuButton } from "./chat-title";
 import { ChatView } from "./chat-view";
@@ -30,6 +30,8 @@ import {
 } from "@otter/ui/components/dropdown-menu";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton } from "@otter/ui/components/button";
+import type { ChatChange } from "@otter/client/agents/api";
+import { openClawAgentId } from "@otter/client/agents/agent-providers";
 
 type Size = { width: number; height: number };
 type Axis = "width" | "height" | "both";

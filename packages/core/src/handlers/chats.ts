@@ -1,7 +1,7 @@
 import type { ChatSave } from "@otter/contracts/chats";
 
-import { handle } from "../ipc.js";
-import * as chats from "../services/chats.js";
+import { handle } from "../ipc.ts";
+import * as chats from "../services/chats.ts";
 
 type Params = Record<string, unknown> | undefined;
 

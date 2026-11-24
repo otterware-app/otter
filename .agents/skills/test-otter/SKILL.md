@@ -35,11 +35,18 @@ mail it doesn't have.
 A pretend Gmail (`apps/web/src/web/demo/gmail.ts`) answers the backend: archive,
 labels, stars, trash, send and drafts change it and its history feed, so sync
 behaves as with Gmail. Search supports the common operators and free text.
-It's signed in to a made-up Otter account with scripted agents, ten chats and
+It's signed in to a made-up Otter account with scripted agents, fourteen chats and
 scheduled tasks (`packages/core/src/fake`: `chats.ts`, `agent.ts`,
-`schedules.ts`); a message with "ask", "send" or "fail" in it tries questions,
-approvals and failures. Not available: a real Otter account (sign-in, devices),
-Google Calendar (RSVPs go out as email replies), contact photos, new mail
+`schedules.ts`, `files.ts`, `sessions.ts`); a message with "ask", "send", "delegate" or "fail" in it tries
+questions, approvals, waiting on a subagent and failures, and "take your time" a
+slow reply. Studio's chats run on its gateway agents Molty and Scout (turn one off
+in its Settings page), one chat ran on a Mac's Claude, and two are on a removed
+agent (Reconnect agent: "Book the venue in Alfama" moves to Studio, "Draft the
+visa letters" is refused). "Get ready for Thursday's planning" used and made
+eight things, has a scheduled task, and links one file of each kind. The Otter
+account signs out and in again without Google and lists two other devices; rata's
+scheduled tasks fail to load and varys's are read-only. Not available: a real
+Otter account, Google Calendar (RSVPs go out as email replies), contact photos, new mail
 arriving on its own, and Mac-only features (`features` in the web bridge).
 
 ## Use the Browser panel

@@ -19,6 +19,7 @@
 | `pnpm agents-server [down]`             | Local OpenClaw and Hermes gateways (see [Agent gateways](#agent-gateways)).              |
 | `pnpm dev:ios`                          | Builds the iPhone app and runs it in the simulator (see `apps/ios/README.md`).           |
 | `pnpm ios:resources`                    | Re-exports the demo mailbox and licenses the iPhone apps bundle.                         |
+| `pnpm licenses:mobile:agents`           | Re-exports the licenses Otter Agents on Expo lists (see [below](#open-source-licenses)). |
 | `pnpm start`                            | Runs the built app unpackaged (`pnpm build` first).                                      |
 | `pnpm build`                            | Builds `apps/web/dist` and `apps/desktop/dist-electron`.                                 |
 | `pnpm build:translator`                 | Builds the Swift translator helper.                                                      |
@@ -222,8 +223,16 @@ gateway someone uses. Name one to start only that: `pnpm agents-server openclaw`
 
 `pnpm dev:demo --agents openclaw,hermes` (or `dev:desktop:demo`) starts the ones it names and
 opens the app already connected to them, then stops the checkout's gateways when the run ends.
-Without `--agents` a demo run starts none: OpenClaw takes over a gigabyte of memory and about
-half a minute to start (a few minutes the first time).
+Without `--agents` a run starts none: OpenClaw takes over a gigabyte of memory and about
+half a minute to start (several minutes on the first start or during a gateway migration).
+
+`pnpm dev:fake --agents openclaw,hermes` (or `dev:desktop:fake`) does the same over the
+[made-up account](#made-up-mailbox), with no sign-in: the agents are real, connected to the
+gateways (the made-up OpenClaw and Hermes agents are pointed at them), and everything else stays
+made up. Otter Agents on Expo does it in the simulator, with the gateways already up:
+`EXPO_PUBLIC_OTTER_AGENTS="$(pnpm -s agents-server json)" pnpm dev:mobile:agents:fake`
+(`json` prints where the checkout's running gateways are, with their key; Metro builds it into the
+development bundle).
 
 - **A pair per checkout.** Each checkout has its own containers, data and ports (OpenClaw on
   41000 and Hermes on 45000, plus the checkout's port offset), so two worktrees test two versions
@@ -330,7 +339,7 @@ The iPhone jobs build each app, its extension and its tests, and run no test: a 
 boot takes most of ten minutes on GitHub's macOS runner (3 cores, 7 GB), and the Mac can't run
 them another way (a Mac Catalyst build lacks an API each app uses; macOS installs the iPhone app
 itself only with a provisioning profile). The tests run on a Mac, in the simulator
-(`apps/ios/README.md`, `apps/ios-agents/README.md`).
+(`apps/ios/README.md`, `apps/agents-mobile/README.md`).
 
 Typecheck and tests run through `vp run --cache`: Vite+ records every file a package's task
 reads, and replays the result while none has changed. So a change reruns only the packages it
@@ -357,12 +366,23 @@ generated (`scripts/lib/third-party-licenses.ts`, T3 Code's):
   the workspace packages they use, with the license text its package ships. The dev server
   answers the same path.
 - `pnpm ios:resources` writes the iPhone apps' `Licenses.json`.
+- `pnpm licenses:mobile:agents` writes the Expo app's `apps/agents-mobile/src/settings/licenses.json`
+  (`scripts/export-mobile-licenses.ts <app>`, one list per Expo app, its bundle named for the
+  app): what the iPhone build ships. That is every package whose JavaScript is in the app's
+  bundle (an `expo export` for iOS, read from its source map, with its own Metro cache), and
+  every package Expo autolinks into a Release build for its native code. It takes about 15
+  seconds. CI's Lint job runs it with `--check`, which fails while the committed list is stale:
+  run it again after a dependency, an import of a new package or the config changes.
 
 `third-party-licenses.config.json` holds what a package can't say for itself:
 
 - `customNotices`: what didn't come from npm, such as code ported from another project, a font,
-  an image, a Swift package. `bundles` says which apps list it (`web`, `desktop`, `ios`). Give it
-  `generatedNotices` (an SPDX license id, with `copyrights` and a `preamble`) or a `noticeFile`.
+  an image, a Swift package. `bundles` says which apps list it (`web`, `desktop`, `ios`,
+  `agents-mobile`). Give it `generatedNotices` (an SPDX license id, with `copyrights` and a
+  `preamble`) or a `noticeFile`. The libraries an Expo app's native code carries that npm doesn't
+  name (React Native's prebuilt dependencies, Hermes, SQLite, expo-image's decoders) are here,
+  their license files in `third-party-licenses/native/`, taken from each library's repository at
+  the version the app builds.
 - `packageOverrides`: a package whose archive has no license file. The build fails on one and
   names it; add its license and copyright line here.
 

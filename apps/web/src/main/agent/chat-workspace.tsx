@@ -8,25 +8,33 @@ import {
   type KeyboardEvent,
   type RefObject,
 } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useShallow } from "zustand/react/shallow";
 import { PlusIcon, TriangleAlertIcon } from "lucide-react";
-import { chatTabId, type ChatTabRef } from "@otter/contracts/chats";
+import type { ChatTabRef } from "@otter/contracts/chats";
 
 import { PageSlot } from "../browser/page-host";
 import {
   chatPageId,
   closeChatPage,
   ensureChatPage,
-  hostOf,
   routeLinks,
   useBrowser,
 } from "../browser/store";
+import { hostOf } from "@otter/client/web-address";
+import { browserActivity } from "@otter/client/agents/agent-browser";
+import {
+  chatChangeTab,
+  chatFileKey,
+  chatFileProblem,
+  fileTabTitle,
+  useChatFile,
+  useChatTabMessage,
+} from "@otter/client/agents/chat-files";
 import { features } from "../features";
 import { matchesCommand, useCommandHandlers } from "../keybindings/dispatch";
-import { useLatest } from "../use-latest";
-import { mailApi, type ChatChange } from "../mail/api";
-import { useMailChatContext } from "./chat-context";
+import { useLatest } from "@otter/client/use-latest";
+import { useMailChatContext } from "@otter/client/agents/chat-context";
 import {
   closeChatTab,
   isBlank,
@@ -38,15 +46,10 @@ import {
   useChats,
   watchChat,
   type ChatTab,
-} from "./chat-store";
+} from "@otter/client/agents/chat-store";
 import { AgentBrowser, AgentBrowserTabIcon } from "./agent-browser";
-import {
-  ChatContextButton,
-  ChatDetailsDock,
-  TAB_ICONS,
-  readDetailsDocked,
-  saveDetailsDocked,
-} from "./chat-context-panel";
+import { ChatContextButton, ChatDetailsDock, TAB_ICONS } from "./chat-context-panel";
+import { readDetailsDocked, saveDetailsDocked } from "@otter/client/agents/chat-details";
 import { CiteSelectionButton, useCitations } from "./chat-cite";
 import { DomFind } from "./chat-find";
 import { ChatTitle } from "./chat-title";
@@ -56,13 +59,15 @@ import { FilePreview } from "../mail/attachment-preview";
 import { MessageReader } from "../mail/message-reader";
 import { PanelTab } from "../mail/panel-tab";
 import { mostRecentTab } from "../mail/panel-tabs";
-import { AgentAvatar, openClawAgentId, useChatProvider } from "./agent-providers";
+import { AgentAvatar } from "./agent-providers";
 import { usePanelTabDrag } from "../mail/use-panel-tab-drag";
 import { usePanelAnimationSettings, usePanelPresence } from "../panel-animations";
 import { ShortcutText } from "../keybindings/store";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
+import type { ChatChange } from "@otter/client/agents/api";
+import { openClawAgentId, useChatProvider } from "@otter/client/agents/agent-providers";
 
 export type ChatPanelControl = { toggle: () => void; newPage: () => void };
 
@@ -83,29 +88,6 @@ function useWideEnough(ref: RefObject<HTMLElement | null>, min: number): boolean
 
 /** The agent's browser, live: a tab of this device's, not one the chat keeps. */
 const LIVE_TAB = "agent-browser";
-
-function useTabMessage(ref: ChatTabRef | undefined) {
-  const mail = ref?.kind === "thread" || ref?.kind === "draft" ? ref : null;
-  return useQuery({
-    queryKey: ["chat-tab-message", mail ? chatTabId(mail) : null],
-    enabled: mail !== null,
-    staleTime: 30_000,
-    retry: false,
-    queryFn: async () => {
-      if (!mail) return null;
-      if (mail.kind === "draft") {
-        const version = await mailApi.getDraftVersion(mail.accountId, mail.id);
-        if (!version.messageId) throw new Error("This draft was sent or deleted.");
-        await mailApi.loadDraftVersion(mail.accountId, mail.id, version.messageId);
-        return version.messageId;
-      }
-      const messages = await mailApi.getThread(mail.accountId, mail.id);
-      const last = messages.at(-1);
-      if (!last) throw new Error("This conversation is no longer available.");
-      return last.id;
-    },
-  });
-}
 
 function useChatWidth() {
   const key = "gmail:pane:workspace-chat";
@@ -168,14 +150,9 @@ export function ChatWorkspace({
   const chatAgent = useChatProvider(convo);
   const [browserSteps, browserDone] = useChats(
     useShallow((s) => {
-      let steps = 0;
-      let done = 0;
-      for (const turn of s.conversations.find((c) => c.id === chatId)?.turns ?? [])
-        for (const item of turn.items ?? [])
-          if (item.kind === "step" && item.step.title === "Browser") {
-            steps++;
-            if (item.output !== undefined) done++;
-          }
+      const { steps, done } = browserActivity(
+        s.conversations.find((c) => c.id === chatId)?.turns ?? [],
+      );
       return [steps, done];
     }),
   );
@@ -191,7 +168,7 @@ export function ChatWorkspace({
     chatAgent.provider?.models.find((m) => m.slug === openClawAgentId(liveSession))?.name ??
     chatAgent.name;
   const shown = liveShown ? undefined : (tabs.find((t) => t.id === activeTab) ?? tabs.at(-1));
-  const message = useTabMessage(shown?.ref);
+  const message = useChatTabMessage(shown?.ref);
   const mail = shown?.ref.kind === "thread" || shown?.ref.kind === "draft" ? shown.ref : null;
   const context = useMailChatContext({
     accountId: mail && message.data ? mail.accountId : null,
@@ -220,17 +197,14 @@ export function ChatWorkspace({
   const queryClient = useQueryClient();
   // The agent may have rewritten the file since its tab first loaded it.
   const openFile = (href: string) => {
-    open({ kind: "file", href }, href.split(/[\\/]/).pop() || href);
+    open({ kind: "file", href }, fileTabTitle(href));
     void queryClient.invalidateQueries({
-      queryKey: ["chat-file", convo?.provider, convo?.sessionId, href],
+      queryKey: chatFileKey(convo?.provider, convo?.sessionId, href),
     });
   };
   const openChange = async (change: ChatChange) => {
-    const { target } = change;
-    if (target.kind === "thread" || target.kind === "draft")
-      open({ kind: target.kind, accountId: target.accountId, id: target.id }, change.title);
-    else if (target.kind === "event" && target.url && features.browser)
-      open({ kind: "page", url: target.url }, change.title);
+    const tab = chatChangeTab(change, features.browser);
+    if (tab) open(tab.ref, tab.title);
     else await onNavigate(change);
   };
   useEffect(() => {
@@ -600,25 +574,11 @@ function FileTab({ chatId, href, onCited }: { chatId: string; href: string; onCi
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const citing = useCitations(chatId, onCited);
   const convo = useChats((s) => s.conversations.find((c) => c.id === chatId));
-  const file = useQuery({
-    queryKey: ["chat-file", convo?.provider, convo?.sessionId, href],
-    enabled: Boolean(convo),
-    retry: false,
-    queryFn: () => mailApi.agentReadFile(convo!.provider, convo!.sessionId ?? "", href),
-  });
+  const file = useChatFile(convo, href);
   const data = file.data;
   // Stable while the bytes are, so the preview reloads only when they change.
   const preview = useMemo(() => data && { ...data, load: async () => data.data }, [data]);
-  if (file.error)
-    return (
-      <TabProblem
-        message={
-          convo?.device && convo.device.name
-            ? `This file is on ${convo.device.name}, where the chat ran.`
-            : file.error.message
-        }
-      />
-    );
+  if (file.error) return <TabProblem message={chatFileProblem(file.error, convo)} />;
   if (!preview) return null;
   return (
     <div ref={setRoot} data-cite-source className="flex min-h-0 flex-1 flex-col">

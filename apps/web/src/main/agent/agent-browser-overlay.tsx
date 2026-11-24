@@ -3,13 +3,13 @@ import { MousePointer2Icon } from "lucide-react";
 import { Button } from "@otter/ui/components/button";
 import { Input } from "@otter/ui/components/input";
 import { cn } from "@otter/ui/lib/utils";
+import type { PageDialog } from "@otter/client/agents/agent-browser";
 
 /** Where a point of the page (CSS px) is over the canvas, which shows the frame `object-contain object-top`. */
 export type Placer = (x: number, y: number) => { left: number; top: number; scale: number } | null;
 
 export type PagePointer = { x: number; y: number; clicks: number; at: number };
 export type PageField = { x: number; y: number; width: number; height: number; at: number };
-export type PageDialog = { dialogType: string; message: string; defaultPrompt: string };
 
 const SHOWN_MS = 1800;
 

@@ -1,7 +1,7 @@
 import { CloudIcon, ServerIcon } from "lucide-react";
 import gmailMark from "../assets/gmail.svg";
-import { isICloud } from "./capabilities";
-import type { MailAccount } from "./types";
+import { isICloud } from "@otter/client/mail/capabilities";
+import type { MailAccount } from "@otter/client/mail/types";
 
 export function GmailMark({ className = "size-4" }: { className?: string }) {
   return <img src={gmailMark} className={`${className} object-contain`} alt="" aria-hidden />;

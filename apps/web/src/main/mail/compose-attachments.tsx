@@ -1,9 +1,10 @@
 import { useRef, useState, type DragEvent } from "react";
 import { toast } from "@otter/ui/components/toast";
 import { PaperclipIcon } from "lucide-react";
-import { mailApi } from "./api";
-import { AttachmentPreview, attachmentPreview } from "./attachment-preview";
-import type { ComposeAttachment } from "./types";
+import { mailApi } from "@otter/client/mail/api";
+import { AttachmentPreview } from "./attachment-preview";
+import { attachmentPreview } from "@otter/client/file-preview";
+import type { ComposeAttachment } from "@otter/client/mail/types";
 import { Chip, ChipRemove } from "@otter/ui/components/chip";
 
 /** Mirror of the backend cap (core services/outgoing.ts) so renderer-side drops fail early. */

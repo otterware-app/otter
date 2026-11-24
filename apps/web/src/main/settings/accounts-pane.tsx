@@ -20,9 +20,9 @@ import {
   aliasMailboxesOf,
   withAliasMailbox,
   type AliasMailboxEntry,
-} from "../mail/alias-mailboxes";
-import { mailApi } from "../mail/api";
-import { useOtterAccount } from "../otter-account";
+} from "@otter/client/mail/alias-mailboxes";
+import { mailApi } from "@otter/client/mail/api";
+import { useOtterAccount } from "@otter/client/otter-account";
 import { toast } from "@otter/ui/components/toast";
 import {
   syncStatusPollMs,
@@ -30,7 +30,7 @@ import {
   useAddAccount,
   useRemoveAccount,
   useUpdateAccount,
-} from "../mail/hooks";
+} from "@otter/client/mail/hooks";
 import { RichTextArea, type RichTextRef } from "../mail/rich-text";
 import { AddMailboxMenu, ImapPasswordForm } from "../mail/add-mailbox";
 import { AllowAccessButton, needsOf, useConnections } from "../mail/allow-access";
@@ -46,14 +46,14 @@ import {
   signInName,
   signInProvider,
   signsInWithPassword,
-} from "../mail/capabilities";
+} from "@otter/client/mail/capabilities";
 import {
   ACCOUNT_COLOR_PALETTE,
   getAccountColor,
   getAccountDisplayName,
   getAccountPicture,
-} from "../mail/account-style";
-import type { MailAccount, SyncStatus } from "../mail/types";
+} from "@otter/client/mail/account-style";
+import type { MailAccount, SyncStatus } from "@otter/client/mail/types";
 import { StatusText, accountStatus, needsSignIn, takeRequestedMailbox } from "../mail/sync-health";
 import { searchableSetting } from "./settings-search";
 import { MailboxPictureRow } from "./mailbox-picture";

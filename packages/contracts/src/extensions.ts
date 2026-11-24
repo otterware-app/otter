@@ -27,7 +27,7 @@ const RESERVED_WORKSPACES = new Set([
   "settings",
 ]);
 
-export const APP_PLATFORMS = ["mac", "linux", "web"] as const;
+export const APP_PLATFORMS = ["mac", "linux", "web", "ios"] as const;
 
 export type AppPlatform = (typeof APP_PLATFORMS)[number];
 

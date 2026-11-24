@@ -1,5 +1,5 @@
-import { OTTER_TOOLS_SERVER, toolTitle } from "./tools/index.js";
-import type { ToolStep } from "./types.js";
+import { OTTER_TOOLS_SERVER, toolTitle } from "./tools/index.ts";
+import type { ToolStep } from "./types.ts";
 
 const DETAIL_CHARS = 2_000;
 

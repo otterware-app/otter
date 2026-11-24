@@ -1,4 +1,4 @@
-import { useLatest } from "../../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 /**
  * Ported from T3 Code (github.com/pingdotgg/t3code at a107f8a07; MIT, see
  * THIRD_PARTY_NOTICES.md):

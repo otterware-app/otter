@@ -3,9 +3,9 @@ import { Switch } from "@otter/ui/components/switch";
 import { useCalendarLists } from "../calendar/api";
 import { calendarAccounts } from "../calendar/calendar-view";
 import { MEETING_NAMES, MeetingMark } from "../calendar/meeting";
-import { getAccountDisplayName } from "../mail/account-style";
-import { mailApi, type SyncSettings } from "../mail/api";
-import { useAccounts } from "../mail/hooks";
+import { getAccountDisplayName } from "@otter/client/mail/account-style";
+import { mailApi, type SyncSettings } from "@otter/client/mail/api";
+import { useAccounts } from "@otter/client/mail/hooks";
 import { toast } from "@otter/ui/components/toast";
 import {
   CALENDAR_DEFAULTS,

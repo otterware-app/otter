@@ -10,13 +10,13 @@ vi.mock("electron-chrome-web-store", () => ({
   installChromeWebStore: vi.fn(),
   updateExtensions: mocks.updateExtensions,
 }));
-vi.mock("../ipc.js", () => ({ broadcast: vi.fn() }));
-vi.mock("../logger.js", () => ({ logger: mocks.logger }));
-vi.mock("./extensions.js", () => ({ trackTab: vi.fn() }));
-vi.mock("./mailto-target.js", () => ({}));
-vi.mock("../os/index.js", () => ({ hostOS: { modifierKey: "ctrlKey" } }));
-vi.mock("../windows/context-menu.js", () => ({}));
-vi.mock("../windows/history-buttons.js", () => ({ followPageHistoryButtons: vi.fn() }));
+vi.mock("../ipc.ts", () => ({ broadcast: vi.fn() }));
+vi.mock("../logger.ts", () => ({ logger: mocks.logger }));
+vi.mock("./extensions.ts", () => ({ trackTab: vi.fn() }));
+vi.mock("./mailto-target.ts", () => ({}));
+vi.mock("../os/index.ts", () => ({ hostOS: { modifierKey: "ctrlKey" } }));
+vi.mock("../windows/context-menu.ts", () => ({}));
+vi.mock("../windows/history-buttons.ts", () => ({ followPageHistoryButtons: vi.fn() }));
 
 const session = {} as Electron.Session;
 

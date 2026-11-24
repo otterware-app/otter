@@ -1,17 +1,17 @@
 // IMAP avoids Gmail API quota during initial sync but lacks snippets and category labels; the API fills those later.
 
-import { platform } from "../../platform.js";
+import { platform } from "../../platform.ts";
 import {
   connectImap,
   decodeMailboxName,
   type FetchedMessage,
   type SpecialUse,
-} from "../../protocols/index.js";
-import { getAccount } from "../../services/account-store.js";
-import * as store from "../../services/mail-store.js";
-import type { MessageSummary } from "../../types.js";
-import type { SyncContext } from "../provider.js";
-import { mapMessageSummary } from "./api.js";
+} from "../../protocols/index.ts";
+import { getAccount } from "../../services/account-store.ts";
+import * as store from "../../services/mail-store.ts";
+import type { MessageSummary } from "../../types.ts";
+import type { SyncContext } from "../provider.ts";
+import { mapMessageSummary } from "./api.ts";
 
 const ROWS_PER_FETCH = 1000;
 const HEADERS = ["From", "To", "Cc", "Subject", "Date", "Message-ID", "References"];

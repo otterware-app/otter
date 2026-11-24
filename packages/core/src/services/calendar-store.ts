@@ -1,5 +1,5 @@
-import { platform, type SqlDatabase } from "../platform.js";
-import type { CalendarEvent, CalendarInfo } from "../providers/provider.js";
+import { platform, type SqlDatabase } from "../platform.ts";
+import type { CalendarEvent, CalendarInfo } from "../providers/provider.ts";
 
 /**
  * The calendars' events, kept as their providers last said (calendar-sync.ts keeps them

@@ -15,11 +15,11 @@ import {
   DialogTitle,
 } from "@otter/ui/components/dialog";
 import { CheckIcon } from "lucide-react";
-import { useCapabilities } from "./capabilities";
-import { useLabels } from "./hooks";
-import { buildLabelTree, flattenLabelTree, isAssignableLabel } from "./label-tree";
-import { labelDisplayName } from "./label-names";
-import type { MailLabel } from "./types";
+import { useCapabilities } from "@otter/client/mail/capabilities";
+import { useLabels } from "@otter/client/mail/hooks";
+import { buildLabelTree, flattenLabelTree, isAssignableLabel } from "@otter/client/mail/label-tree";
+import { labelDisplayName } from "@otter/client/mail/label-names";
+import type { MailLabel } from "@otter/client/mail/types";
 
 export type LabelOverlayMode = "label" | "move";
 

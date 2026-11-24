@@ -1,18 +1,15 @@
 import {
   ModelsSection,
-  mailApi,
   Command,
   osNames,
   searchableSetting,
-  useSetProvidersState,
   type AgentSettingsProps,
-  type ProviderSnapshot,
 } from "@otter/web/extension-kit";
-import { toast } from "@otter/ui/components/toast";
-import { useEffect, useState } from "react";
 import { Button } from "@otter/ui/components/button";
+import { Switch } from "@otter/ui/components/switch";
+import { disabledAgents } from "@otter/client/agents/agent-providers";
 
-import { openClawApi } from "./api";
+import { gatewayAgentPatch, useOpenClawConnection } from "../shared/connect";
 import { OpenClawDeliveries } from "./deliveries";
 import { OpenClawAgents } from "./models";
 import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
@@ -20,105 +17,31 @@ import { Input } from "@otter/ui/components/input";
 
 const SITE_ORIGIN = window.desktopBridge.platform === "web" ? location.origin : null;
 
-const gatewayHost = (address: string) =>
-  address
-    .trim()
-    .replace(/^[a-z]+:\/\//i, "")
-    .replace(/\/.*$/, "");
-
-function setupCodeUrl(code: string): string {
-  try {
-    const json = JSON.parse(atob(code.trim().replace(/-/g, "+").replace(/_/g, "/"))) as {
-      url?: unknown;
-    };
-    return typeof json.url === "string" ? json.url : "";
-  } catch {
-    return "";
-  }
-}
-
 export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
-  const setState = useSetProvidersState();
-  const [code, setCode] = useState("");
-  const [useToken, setUseToken] = useState(false);
-  const [url, setUrl] = useState("");
-  const [token, setToken] = useState("");
-  const [saving, setSaving] = useState(false);
   const {
-    url: savedUrl,
-    pairingRequest: openclawPairingRequest,
-    fullAccess: openclawFullAccess,
-    owner: openclawOwner,
-  } = provider.settings as ProviderSnapshot["settings"] & {
-    url: string;
-    pairingRequest: string | null;
-    fullAccess: { allowed: boolean | null; request: string | null };
-    owner: boolean | null;
-  };
-  const [asking, setAsking] = useState(false);
-  const connected = provider.status === "ready";
+    settings: {
+      url: savedUrl,
+      pairingRequest: openclawPairingRequest,
+      fullAccess: openclawFullAccess,
+      owner: openclawOwner,
+    },
+    connected,
+    host,
+    code,
+    setCode,
+    useToken,
+    setUseToken,
+    url,
+    setUrl,
+    token,
+    setToken,
+    saving,
+    connect,
+    asking,
+    allowFullAccess,
+    allowOwner,
+  } = useOpenClawConnection(provider);
   const device = window.desktopBridge.platform === "web" ? "browser" : osNames.computer;
-  const host = gatewayHost(url || setupCodeUrl(code) || savedUrl);
-
-  useEffect(() => {
-    if (!openclawPairingRequest) return;
-    const timer = setInterval(
-      () => void mailApi.refreshAgentProviders(provider.id).catch(() => {}),
-      4000,
-    );
-    return () => clearInterval(timer);
-  }, [openclawPairingRequest, provider.id]);
-
-  const allowFullAccess = async () => {
-    setAsking(true);
-    try {
-      setState(await openClawApi.agentAllowOpenClawFullAccess(provider.id));
-    } catch (error) {
-      toast.error(
-        `Could not ask the gateway: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    } finally {
-      setAsking(false);
-    }
-  };
-
-  const allowOwner = async () => {
-    setAsking(true);
-    try {
-      setState(await openClawApi.agentAllowOpenClawOwner(provider.id));
-    } catch (error) {
-      toast.error(
-        `Could not change the gateway's settings: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    } finally {
-      setAsking(false);
-    }
-  };
-
-  const connect = async () => {
-    const address = url.trim() || savedUrl;
-    if (useToken ? !address || !token.trim() : !code.trim()) {
-      toast.error(useToken ? "Gateway address and token are both required" : "Paste a setup code");
-      return;
-    }
-    setSaving(true);
-    console.log("[Settings:connectOpenClaw]", useToken ? "token" : "setup code");
-    try {
-      setState(
-        await openClawApi.connectOpenClaw(
-          provider.id,
-          useToken ? { url: address, token: token.trim() } : { code: code.trim() },
-        ),
-      );
-      setCode("");
-      setUrl("");
-      setToken("");
-    } catch (error) {
-      toast.error(`Could not connect: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <>
@@ -272,6 +195,26 @@ export function OpenClawSettings({ provider, update }: AgentSettingsProps) {
           />
         ) : null}
       </SettingsSection>
+      {connected && provider.models.length > 0 ? (
+        <SettingsSection
+          title="Agents"
+          description="An agent turned off isn't offered for new chats, and its chats wait until it's back on. The same on every device."
+        >
+          {provider.models.map((m) => (
+            <SettingsRow
+              key={m.slug}
+              title={m.name}
+              control={
+                <Switch
+                  aria-label={`Use ${m.name}`}
+                  checked={!disabledAgents(provider).includes(m.slug)}
+                  onCheckedChange={(on) => update(gatewayAgentPatch(provider, m.slug, on))}
+                />
+              }
+            />
+          ))}
+        </SettingsSection>
+      ) : null}
       {connected ? <OpenClawDeliveries /> : null}
       {connected ? (
         <OpenClawAgents key={openclawFullAccess.allowed ? "full" : "limited"} agent={provider.id} />

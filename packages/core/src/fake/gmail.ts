@@ -1,16 +1,16 @@
-import { fakeTodoist } from "./todoist.js";
+import { fakeTodoist } from "./todoist.ts";
 
-import * as accountStore from "../services/account-store.js";
-import { fromBase64, toBase64 } from "../bytes.js";
-import type { GoogleAuth, Platform } from "../platform.js";
-import type { MailAccount } from "../types.js";
+import * as accountStore from "../services/account-store.ts";
+import { fromBase64, toBase64 } from "../bytes.ts";
+import type { GoogleAuth, Platform } from "../platform.ts";
+import type { MailAccount } from "../types.ts";
 
 import { DEMO_ACCOUNTS, type SeedAccount } from "@otter/shared/demo-mailboxes";
-import { EXTRA_DEMO_ACCOUNTS } from "./extra-mailboxes.js";
+import { EXTRA_DEMO_ACCOUNTS } from "./extra-mailboxes.ts";
 
 const SEEDS = [...DEMO_ACCOUNTS, ...EXTRA_DEMO_ACCOUNTS];
-import { fakeCalendar } from "./calendar.js";
-import { answerRelay, FAKE_RELAY_URL } from "./relay.js";
+import { fakeCalendar } from "./calendar.ts";
+import { answerRelay, FAKE_RELAY_URL } from "./relay.ts";
 
 const attachmentData = (content: string) =>
   toBase64(new TextEncoder().encode(content))

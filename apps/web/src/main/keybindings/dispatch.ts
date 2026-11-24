@@ -1,4 +1,4 @@
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import { useEffect } from "react";
 import { labelMoveName, type CommandHandlerKey, type KeybindingCommand } from "./commands";
 import { evaluateWhen, isModifierOnly, matchesStroke, type WhenContext } from "./keys";

@@ -24,15 +24,15 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { AgentIcon } from "../agent/agent-icon";
-import { getAccountDisplayName } from "./account-style";
+import { getAccountDisplayName } from "@otter/client/mail/account-style";
 import { useQueries } from "@tanstack/react-query";
-import { aliasMailboxLook, type AliasMailboxEntry } from "./alias-mailboxes";
-import { mailApi } from "./api";
-import { queryKeys, useAllAccountLabels } from "./hooks";
+import { aliasMailboxLook, type AliasMailboxEntry } from "@otter/client/mail/alias-mailboxes";
+import { mailApi } from "@otter/client/mail/api";
+import { queryKeys, useAllAccountLabels } from "@otter/client/mail/hooks";
 import { allWorkspaces } from "../extensions/workspaces";
 import { useRecentlyViewed, type RecentIcon } from "../recently-viewed";
 import { OtterCalendarIcon } from "./app-icons";
-import type { MailAccount, MailLabel } from "./types";
+import type { MailAccount, MailLabel } from "@otter/client/mail/types";
 import type { MailboxTab } from "../mailboxes";
 import type { KeybindingCommand } from "../keybindings/commands";
 import { ShortcutText, shortcutLabelFor, useKeybindingsState } from "../keybindings/store";

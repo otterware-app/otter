@@ -9,9 +9,9 @@
 
 import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "@otter/contracts";
 
-import { categoryOf, folderOfLabel, isSyncedFolder, labelsFor } from "./folders.js";
-import { graph, type Page } from "./graph.js";
-import { isRegularId, toImmutableIds, type ApiMessage } from "./messages.js";
+import { categoryOf, folderOfLabel, isSyncedFolder, labelsFor } from "./folders.ts";
+import { graph, type Page } from "./graph.ts";
+import { isRegularId, toImmutableIds, type ApiMessage } from "./messages.ts";
 
 const quote = (value: string) => `'${value.replace(/'/g, "''")}'`;
 

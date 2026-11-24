@@ -7,7 +7,7 @@ import { chromium } from "playwright-core";
 const root = NodePath.resolve(import.meta.dirname, "..");
 const at = (file: string) => NodePath.join(root, file);
 const catalog = "apps/ios/OtterMail/Assets.xcassets";
-const agentsCatalog = "apps/ios-agents/OtterAgents/Assets.xcassets";
+const agentsCatalog = "apps/agents-mobile/assets";
 
 const IVORY = "#f8f5ec";
 const CHARCOAL = "#2c2f31";
@@ -229,7 +229,7 @@ try {
     });
   }
   await iphoneIcons(catalog, MAIL, `${catalog}/OtterMark.imageset/otter-mark.png`);
-  await iphoneIcons(agentsCatalog, AGENT, `${agentsCatalog}/OtterMark.imageset/otter-mark.png`);
+  await iphoneIcons(agentsCatalog, AGENT, "apps/agents-mobile/src/account/otter-mark.png");
 } finally {
   await browser.close();
 }

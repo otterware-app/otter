@@ -1,15 +1,15 @@
 import { IMAP_CAPABILITIES, type ImapSettings, type MailServer } from "@otter/contracts/mail";
 
-import { broadcast, handle } from "../ipc.js";
-import { MailProtocolError, connectImap, connectSmtp } from "../protocols/index.js";
-import { capabilitiesOf } from "../providers/index.js";
-import * as accountStore from "../services/account-store.js";
-import { appPasswordUrl, discoverImap, mxHosts, servesImap } from "../services/imap-discovery.js";
-import { setImapPassword } from "../services/imap-passwords.js";
-import { accountAdded } from "../services/linked-accounts.js";
-import * as mailSync from "../services/mail-sync.js";
-import { syncedAliasMailboxes, syncedSendAs, syncedSignature } from "../services/preferences.js";
-import type { MailAccount } from "../types.js";
+import { broadcast, handle } from "../ipc.ts";
+import { MailProtocolError, connectImap, connectSmtp } from "../protocols/index.ts";
+import { capabilitiesOf } from "../providers/index.ts";
+import * as accountStore from "../services/account-store.ts";
+import { appPasswordUrl, discoverImap, mxHosts, servesImap } from "../services/imap-discovery.ts";
+import { setImapPassword } from "../services/imap-passwords.ts";
+import { accountAdded } from "../services/linked-accounts.ts";
+import * as mailSync from "../services/mail-sync.ts";
+import { syncedAliasMailboxes, syncedSendAs, syncedSignature } from "../services/preferences.ts";
+import type { MailAccount } from "../types.ts";
 
 const VERIFY_TIMEOUT_MS = 20_000;
 

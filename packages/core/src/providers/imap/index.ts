@@ -1,15 +1,15 @@
 import { IMAP_CAPABILITIES } from "@otter/contracts";
 
-import { MailProtocolError } from "../../protocols/index.js";
-import { hasImapPassword } from "../../services/imap-passwords.js";
-import type { ErrorKind, MailProvider } from "../provider.js";
-import { closeImap, FolderChanged, failedServer, tier } from "./connection.js";
-import { forgetFolders } from "./folders.js";
-import * as reads from "./reads.js";
-import * as send from "./send.js";
-import { backfillDeliveredTo, needsDeliveredTo, readLabels, syncImap } from "./sync.js";
-import { watchInbox } from "./watch.js";
-import * as writes from "./writes.js";
+import { MailProtocolError } from "../../protocols/index.ts";
+import { hasImapPassword } from "../../services/imap-passwords.ts";
+import type { ErrorKind, MailProvider } from "../provider.ts";
+import { closeImap, FolderChanged, failedServer, tier } from "./connection.ts";
+import { forgetFolders } from "./folders.ts";
+import * as reads from "./reads.ts";
+import * as send from "./send.ts";
+import { backfillDeliveredTo, needsDeliveredTo, readLabels, syncImap } from "./sync.ts";
+import { watchInbox } from "./watch.ts";
+import * as writes from "./writes.ts";
 
 /** The web app's tunnel turned a connection away (mail-socket.ts): wait, like a rate limit. */
 const tooManyConnections = (err: MailProtocolError) =>

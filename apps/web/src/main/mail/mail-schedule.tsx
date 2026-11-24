@@ -9,7 +9,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@otter/ui/components/dialog";
-import { mailApi } from "./api";
+import { mailApi } from "@otter/client/mail/api";
 import { SidebarAction } from "@otter/ui/components/sidebar";
 import { toast } from "@otter/ui/components/toast";
 import { HintTooltip } from "@otter/ui/components/tooltip";

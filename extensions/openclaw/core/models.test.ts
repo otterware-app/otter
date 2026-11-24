@@ -6,7 +6,7 @@ import {
   openClawModels,
   setOpenClawIdentity,
   type Request,
-} from "./models.js";
+} from "./models.ts";
 
 function fakeGateway(answer: (method: string, params: Record<string, unknown>) => unknown) {
   const calls: { method: string; params: { raw?: string } & Record<string, unknown> }[] = [];

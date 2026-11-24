@@ -12,7 +12,7 @@ import {
 } from "@otter/core/extension-kit";
 import type { ResultAsync } from "neverthrow";
 
-import type { VarysSettings } from "./settings.js";
+import type { VarysSettings } from "./settings.ts";
 
 /** The grant's token, in the agent's secrets. */
 export const TOKEN = "token";

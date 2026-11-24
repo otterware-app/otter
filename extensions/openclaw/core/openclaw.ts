@@ -27,7 +27,7 @@ import type {
   ForkPoint,
   ToolStep,
 } from "@otter/core/extension-kit";
-import { OPENCLAW_DEFAULTS, type OpenClawSettings } from "./settings.js";
+import { OPENCLAW_DEFAULTS, type OpenClawSettings } from "./settings.ts";
 import {
   GatewayBrowserDeviceAuthLifecycle,
   GatewayProtocolClient,
@@ -36,8 +36,8 @@ import {
   type GatewayBrowserDeviceAuthPlan,
   type GatewayBrowserDeviceIdentity,
 } from "@openclaw/gateway-client/browser";
-import { OpenClawText, openClawMessageText as textOf } from "./openclaw-stream.js";
-import { createTalks, talkReady, type TalkGateway } from "./openclaw-talk.js";
+import { OpenClawText, openClawMessageText as textOf } from "./openclaw-stream.ts";
+import { createTalks, talkReady, type TalkGateway } from "./openclaw-talk.ts";
 import {
   agentAvatar,
   changeOpenClaw,
@@ -46,7 +46,7 @@ import {
   type OpenClawChange,
   type OpenClawModels,
   type Request,
-} from "./models.js";
+} from "./models.ts";
 import {
   channelTargets,
   listTasks,
@@ -58,7 +58,7 @@ import {
   taskModels,
   taskRuns,
   type CronGateway,
-} from "./schedules.js";
+} from "./schedules.ts";
 
 const CONNECT_TIMEOUT_MS = 8_000;
 /** What a request waits for unless it says otherwise; without one, a request on a dead socket waits forever. */
@@ -160,6 +160,14 @@ async function ownerConfig(g: Gateway): Promise<OwnerConfig> {
   };
 }
 
+/** The gateway's agent a new chat starts on: the one chosen while it's on, else the default, else the first on. */
+async function startingAgent(g: Gateway, settings: OpenClawSettings): Promise<string> {
+  const off = new Set(settings.disabledAgents);
+  if (settings.model && !off.has(settings.model)) return settings.model;
+  const { defaultId, agents } = await listAgents(g);
+  return [defaultId, ...agents.map((a) => a.id)].find((id) => !off.has(id)) ?? defaultId;
+}
+
 async function listAgents(g: Gateway): Promise<{ defaultId: string; agents: GatewayAgent[] }> {
   const result = await g.client.request<{ defaultId?: string; agents?: GatewayAgent[] }>(
     "agents.list",
@@ -221,6 +229,8 @@ type Turn = {
    * its subagents' or background commands' completion starts, which joins it.
    */
   yielded: boolean;
+  /** The subagents its run started, each by its label when it has one: what it waits on once it yields. */
+  spawned: (string | null)[];
   /** Settling: a run that starts now is the agent's own, not this turn's. */
   ending: boolean;
   /** Its runs that are over. */
@@ -256,6 +266,7 @@ function newTurn(requestId: string, sessionKey: string, gateway: Gateway, emit: 
     runId: requestId.startsWith(AGENT_RUN) ? requestId.slice(AGENT_RUN.length) : requestId,
     steers: new Set(),
     yielded: false,
+    spawned: [],
     ending: false,
     finals: new Set(),
     gateway,
@@ -421,7 +432,32 @@ type RunState = {
   /** Runs going in the session: the turn's, or (while it waits on a yield) its continuation. */
   active: string[];
   waiting: boolean;
+  spawned: (string | null)[];
 };
+
+/** A subagent a tool call starts, by its label when it has one. */
+const spawnedBy = (name: unknown, args: unknown): (string | null)[] => {
+  if (name !== "sessions_spawn") return [];
+  const label = (args as { label?: unknown } | undefined)?.label;
+  return [typeof label === "string" && label ? label : null];
+};
+
+/** The subagents the last run in the rows started: what a turn that yielded there waits on. */
+export function spawnedIn(rows: Record<string, unknown>[]): (string | null)[] {
+  const run = rows.length > 0 ? runOf(rows[rows.length - 1]) : undefined;
+  return rows
+    .filter((m) => m.role === "assistant" && runOf(m) === run && Array.isArray(m.content))
+    .flatMap((m) => m.content as Record<string, unknown>[])
+    .filter((part) => part.type === "toolCall")
+    .flatMap((part) => spawnedBy(part.name, part.arguments));
+}
+
+/** The turn starts or stops waiting on a yield: the chat says so, with what it waits on. */
+function waitOn(turn: Turn, waiting: boolean, spawned = turn.spawned): void {
+  if (waiting === turn.yielded) return;
+  turn.yielded = waiting;
+  turn.emit({ requestId: turn.requestId, type: "waiting", subagents: waiting ? spawned : null });
+}
 
 /**
  * Rows grouped by run into what each turn showed: a run that starts after one
@@ -487,6 +523,7 @@ async function runState(turn: Turn): Promise<RunState> {
     // While it waits on a yield, the run that starts is its continuation.
     active: ids.filter((id) => ownsRun(turn, id) || chain.has(id) || waiting),
     waiting,
+    spawned: rows ? spawnedIn(rows) : [],
   };
 }
 
@@ -616,9 +653,10 @@ export function rowsAfter(
  * what was delivered (wherever it falls), and runs of the agent's own after the last message.
  * A run whose start was read before continues it.
  */
-export function newRuns(
+function newRuns(
   lastRun: Map<string, Record<string, unknown> | undefined>,
   sessionKey: string,
+  history: Record<string, unknown>[],
   rows: Record<string, unknown>[],
   active: string[] = [],
 ): string[] {
@@ -629,7 +667,21 @@ export function newRuns(
       sessionKey,
       rows.findLast((m) => runOf(m) !== undefined && !isDelivery(m)) ?? before,
     );
-  const runs = agentRunsSince(rows, 0, active).filter((id) => id !== continued);
+  // A continuation can be after the cursor while the yield that started it is before it.
+  const chains = runChains(history);
+  const continuations = new Set<string>();
+  for (const chain of chains) {
+    const ids = chain.map(runOf).filter((id): id is string => typeof id === "string");
+    for (const id of ids) if (id !== ids[0]) continuations.add(id);
+  }
+  const last = chains.findLast((chain) => !isDelivery(chain[0]));
+  if (last && waitingOnYield(last)) {
+    const written = new Set(history.map(runOf));
+    for (const id of active) if (!written.has(id)) continuations.add(id);
+  }
+  const runs = agentRunsSince(rows, 0, active).filter(
+    (id) => id !== continued && !continuations.has(id),
+  );
   for (const id of deliveredSince(rows, 0)) if (!runs.includes(id)) runs.push(id);
   return runs;
 }
@@ -785,9 +837,18 @@ export type OpenClawProvider = ChatProvider<OpenClawSettings> & {
 export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
   let identity: Promise<GatewayBrowserDeviceIdentity> | null = null;
 
+  /** A saved JSON value; one that doesn't parse is absent, and the device pairs again. */
+  async function saved<T>(name: string): Promise<T | null> {
+    try {
+      return JSON.parse((await secrets.get(name)) || "null") as T | null;
+    } catch {
+      return null;
+    }
+  }
+
   function deviceIdentity(): Promise<GatewayBrowserDeviceIdentity> {
     identity ??= (async () => {
-      let jwk = JSON.parse((await secrets.get("device-key")) || "null") as JsonWebKey | null;
+      let jwk = await saved<JsonWebKey>("device-key");
       if (!jwk) {
         const pair = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
           "sign",
@@ -819,7 +880,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
   const lifecycle = new GatewayBrowserDeviceAuthLifecycle({
     loadIdentity: deviceIdentity,
     tokenStore: {
-      load: async () => JSON.parse((await secrets.get("device-token")) || "null"),
+      load: () => saved("device-token"),
       store: ({ token, scopes }) => secrets.set("device-token", JSON.stringify({ token, scopes })),
       clear: () => secrets.delete("device-token"),
     },
@@ -845,7 +906,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
     const [token, bootstrapToken, deviceToken] = await Promise.all([
       secrets.get("token"),
       secrets.get("bootstrap-token"),
-      secrets.get("device-token"),
+      saved("device-token"),
     ]);
     return token || bootstrapToken || deviceToken ? { token, bootstrapToken } : null;
   }
@@ -1052,9 +1113,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
   }
 
   async function heldScopes(): Promise<string[] | null> {
-    const stored = JSON.parse((await secrets.get("device-token")) || "null") as {
-      scopes?: string[];
-    } | null;
+    const stored = await saved<{ scopes?: string[] }>("device-token");
     return stored?.scopes?.length ? stored.scopes : null;
   }
 
@@ -1318,7 +1377,8 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
       for (const id of [turn.runId, ...turn.steers]) turn.finals.add(id);
       turn.steers.add(runId);
       remember(announced, runId);
-      turn.yielded = false;
+      waitOn(turn, false);
+      turn.spawned = [];
       turn.text.nextRun();
     };
 
@@ -1331,7 +1391,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
       try {
         const state = await runState(turn);
         if (!ended) return;
-        turn.yielded = state.waiting;
+        waitOn(turn, state.waiting, state.spawned);
         for (const id of state.active) adopt(id);
         if (state.active.length > 0 || turn.yielded) hush();
         else {
@@ -1370,7 +1430,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
             waiting: state.waiting,
           });
           turn.resynced = true;
-          turn.yielded = state.waiting;
+          waitOn(turn, state.waiting, state.spawned);
           for (const id of state.active) adopt(id);
           if (state.active.length === 0 && !turn.yielded) return await settle(state);
           catchUp(turn, state);
@@ -1396,6 +1456,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
         return;
       }
       if (id) open.add(id);
+      turn.spawned.push(...spawnedBy(name, args));
       turn.text.boundary();
       emit({ requestId, type: "tool", id, step: openClawStep(name, args) });
     };
@@ -1550,7 +1611,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
           turn.text.chat(p, true);
           clearTimeout(quiet);
           if (p.yielded === true) {
-            turn.yielded = true;
+            waitOn(turn, true);
             hush();
           } else if ([turn.runId, ...turn.steers].every((id) => turn.finals.has(id))) void settle();
           else void check();
@@ -1780,7 +1841,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
       if (startOnly) continue;
       let runs: string[];
       if (cursor !== undefined)
-        runs = newRuns(lastRun, key, rowsAfter(rows, cursor, history.sessionId), active);
+        runs = newRuns(lastRun, key, rows, rowsAfter(rows, cursor, history.sessionId), active);
       else {
         runs = agentRunsSince(rows, since, active);
         // A chat read for the first time catches up on what was delivered to it while it was missed.
@@ -1989,8 +2050,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
 
       let sessionKey = input.sessionId;
       if (!sessionKey) {
-        const agentId = settings.model || (await listAgents(g)).defaultId;
-        sessionKey = `agent:${agentId}:otter-mail:${crypto.randomUUID()}`;
+        sessionKey = `agent:${await startingAgent(g, settings)}:otter-mail:${crypto.randomUUID()}`;
         emit({ requestId, type: "session", sessionId: sessionKey });
         void nameSession(g, sessionKey, input.input, (title) =>
           emit({ requestId, type: "title", title }),
@@ -2103,7 +2163,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
             : { requestId, type: "error", message: "not_received" },
         );
       catchUp(turn, state);
-      turn.yielded = state.waiting;
+      waitOn(turn, state.waiting, state.spawned);
       for (const id of state.active)
         if (id !== turn.runId) {
           turn.steers.add(id);
@@ -2462,7 +2522,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
         });
         const sessionKey =
           sessionId ||
-          `agent:${settings.model || (await listAgents(g)).defaultId}:otter-mail:${crypto.randomUUID()}`;
+          `agent:${await startingAgent(g, settings)}:otter-mail:${crypto.randomUUID()}`;
         return calls.startTalk(talkGateway(g), sessionKey, emit);
       },
       audio: calls.talkAudio,
@@ -2526,7 +2586,7 @@ export const openClawAgent: AgentType<OpenClawSettings> = {
   kind: "openclaw",
   displayName: "OpenClaw",
   defaults: OPENCLAW_DEFAULTS,
-  fields: { enabled: "boolean", model: "string" },
+  fields: { enabled: "boolean", model: "string", disabledAgents: "strings" },
   secrets: ["token", "bootstrap-token", "device-key", "device-token"],
   deviceSecrets: ["bootstrap-token", "device-key", "device-token"],
   create: createOpenClaw,

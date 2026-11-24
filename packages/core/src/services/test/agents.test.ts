@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 const secrets = new Map<string, string>();
 const database = new DatabaseSync(":memory:");
 let user: { id: string } | null = { id: "u1" };
-vi.mock("../../platform.js", () => ({
+vi.mock("../../platform.ts", () => ({
   platform: () => ({
     database: () => database,
     secrets: {
@@ -14,16 +14,20 @@ vi.mock("../../platform.js", () => ({
     },
   }),
 }));
-vi.mock("../otter-account.js", () => ({
+vi.mock("../otter-account.ts", () => ({
   RelayError: Error,
   getOtterUser: () => user,
   onOtterAccountChange: () => {},
   relayRequest: () => new Promise(() => {}),
 }));
-vi.mock("../../ipc.js", () => ({ broadcast: vi.fn() }));
-vi.mock("../../logger.js", () => ({ logger: { info: vi.fn(), failure: vi.fn() } }));
+vi.mock("../../ipc.ts", () => ({ broadcast: vi.fn() }));
+vi.mock("../../logger.ts", () => ({ logger: { info: vi.fn(), failure: vi.fn() } }));
 
-const made: { id: string; shutdown: ReturnType<typeof vi.fn> }[] = [];
+const made: {
+  id: string;
+  shutdown: ReturnType<typeof vi.fn>;
+  delivered: ReturnType<typeof vi.fn>;
+}[] = [];
 const ready = async () => ({
   installed: true,
   version: null,
@@ -37,12 +41,13 @@ const hermes = {
   kind: "hermes",
   displayName: "Hermes",
   defaults: { enabled: true, model: "", baseUrl: "" },
-  fields: { enabled: "boolean", model: "string", baseUrl: "string" },
+  fields: { enabled: "boolean", model: "string", baseUrl: "string", off: "strings" },
   secrets: ["key"],
   create({ id }: { id: string }) {
     const provider = {
       id,
       shutdown: vi.fn(),
+      delivered: vi.fn(),
       checkStatus: ready,
       listSessions: async () => [],
     };
@@ -58,20 +63,27 @@ const claude = {
   deviceFields: ["binaryPath"],
   create: () => ({ shutdown: vi.fn(), checkStatus: ready }),
 };
-vi.mock("../../extensions.js", () => ({
+/** A device that can't run Claude (the web, a phone). */
+let withoutClaude = false;
+vi.mock("../../extensions.ts", () => ({
   registeredAgents: () =>
-    new Map<string, unknown>([
-      ["hermes", hermes],
-      ["claude", claude],
-    ]),
+    new Map<string, unknown>(
+      withoutClaude
+        ? [["hermes", hermes]]
+        : [
+            ["hermes", hermes],
+            ["claude", claude],
+          ],
+    ),
 }));
 
-const service = await import("../agent/service.js");
-const { getProviderSettings } = await import("../agent/settings.js");
-const { agentDb } = await import("../agent-sync.js");
+const service = await import("../agent/service.ts");
+const { getProviderSettings } = await import("../agent/settings.ts");
+const { agentDb } = await import("../agent-sync.ts");
 
 beforeEach(async () => {
   user = { id: "u1" };
+  withoutClaude = false;
   secrets.clear();
   made.length = 0;
   agentDb().exec("DELETE FROM agent_entries; DELETE FROM agent_outbox;");
@@ -122,6 +134,23 @@ describe("the agents you add", () => {
     );
   });
 
+  it("keeps a list of strings sorted and once each, and drops one that isn't", async () => {
+    const brokk = (await service.addAgent("hermes")).id;
+    await service.updateProviderSettings({ [brokk]: { off: ["ops", "main", "ops"] } });
+    expect(await service.agentSettings(brokk)).toMatchObject({ off: ["main", "ops"] });
+    await service.updateProviderSettings({ [brokk]: { off: ["main", 3] } });
+    expect(await service.agentSettings(brokk)).toMatchObject({ off: ["main", "ops"] });
+  });
+
+  it("names the account's agents this device can't run, without running them", async () => {
+    const cc = (await service.addAgent("claude")).id;
+    await service.updateProviderSettings({ [cc]: { name: "Claude on the Mac" } });
+    withoutClaude = true;
+    const state = await service.providersState();
+    expect(state.providers).toEqual([]);
+    expect(state.others).toEqual([{ id: cc, name: "Claude on the Mac", kind: "claude" }]);
+  });
+
   it("offers none to add while signed out", async () => {
     user = null;
     expect((await service.providersState()).kinds).toEqual([]);
@@ -131,12 +160,28 @@ describe("the agents you add", () => {
   });
 });
 
+describe("a delivery", () => {
+  it("has each agent that's on catch up, on the session it names", async () => {
+    const brokk = (await service.addAgent("hermes")).id;
+    const rata = (await service.addAgent("hermes")).id;
+    await service.updateProviderSettings({ [rata]: { enabled: false } });
+    await service.agentDelivered("agent:main:otter:plan");
+    const provider = async (id: string) =>
+      (await service.agentProvider(id)) as unknown as (typeof made)[number];
+    expect((await provider(brokk)).delivered).toHaveBeenCalledWith(
+      expect.anything(),
+      "agent:main:otter:plan",
+    );
+    expect((await provider(rata)).delivered).not.toHaveBeenCalled();
+  });
+});
+
 describe("following the account", () => {
   it("shares the agents, and keeps each device's own fields to that device", async () => {
     const cc = (await service.addAgent("claude")).id;
     await service.updateProviderSettings({ [cc]: { model: "opus", binaryPath: "/opt/claude" } });
 
-    const { entries } = await import("../agent-sync.js");
+    const { entries } = await import("../agent-sync.ts");
     expect(entries("agent/").map(({ value }) => value)).toMatchObject([
       { id: cc, kind: "claude", settings: { model: "opus" } },
     ]);
@@ -151,7 +196,7 @@ describe("following the account", () => {
 
   it("sends a key as the account's, and the agent's removal with it", async () => {
     const brokk = (await service.addAgent("hermes")).id;
-    await (await import("../agent/settings.js")).agentSecrets(brokk).set("key", "sk-brokk");
+    await (await import("../agent/settings.ts")).agentSecrets(brokk).set("key", "sk-brokk");
     expect(secrets.get(`agent:${brokk}:key`)).toBe("sk-brokk");
     const queued = () =>
       database

@@ -1,51 +1,16 @@
 import { Command, searchableSetting } from "@otter/web/extension-kit";
-import { toast } from "@otter/ui/components/toast";
-import { useCallback, useEffect, useState } from "react";
+import { channelLastSent, useAgentChannels } from "@otter/client/agents/agent-channels";
 import { Button } from "@otter/ui/components/button";
 
-import { channelApi, type AgentChannel } from "./api";
+import { deliveryCommands } from "../shared/connect";
 import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
-
-const PLUGIN = "@otterware/openclaw-otter";
 
 /** Lets the gateway send what its agents deliver to Otter (extensions/openclaw/gateway). */
 export function OpenClawDeliveries() {
-  const [channels, setChannels] = useState<AgentChannel[] | null>(null);
-  const [made, setMade] = useState<{ token: string; relayUrl: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [signedOut, setSignedOut] = useState(false);
-
-  const load = useCallback(
-    () =>
-      channelApi.list().then(
-        ({ channels }) => setChannels(channels.filter((c) => c.label !== "Hermes")),
-        () => setSignedOut(true),
-      ),
-    [],
+  const { channels, made, busy, signedOut, make, remove } = useAgentChannels(
+    "OpenClaw",
+    (c) => c.label !== "Hermes",
   );
-  useEffect(() => void load(), [load]);
-
-  const make = async () => {
-    setBusy(true);
-    try {
-      const result = await channelApi.make("OpenClaw");
-      setMade(result);
-      await load();
-    } catch (error) {
-      toast.error(`Could not set it up: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async (id: string) => {
-    try {
-      await channelApi.remove(id);
-      await load();
-    } catch (error) {
-      toast.error(`Could not remove it: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  };
 
   return (
     <SettingsSection
@@ -64,11 +29,7 @@ export function OpenClawDeliveries() {
             <SettingsRow
               key={c.id}
               title={c.label}
-              description={
-                c.lastUsedAt
-                  ? `Last sent ${new Date(c.lastUsedAt).toLocaleString()}`
-                  : "Nothing sent yet"
-              }
+              description={channelLastSent(c)}
               control={
                 <Button size="sm" onClick={() => void remove(c.id)}>
                   Remove
@@ -81,14 +42,9 @@ export function OpenClawDeliveries() {
               title="Run these on the gateway's computer"
               description="The token is shown only now. Then send a job here with --announce --channel otter --to chat:new (a new chat each time), or --to chat:<session key> for one chat."
             >
-              <Command value={`openclaw plugins install ${PLUGIN}`} />
-              <Command
-                value={`openclaw config set channels.otter '${JSON.stringify({
-                  relayUrl: made.relayUrl,
-                  token: made.token,
-                })}'`}
-              />
-              <Command value="openclaw cron edit <job> --announce --channel otter --to chat:new" />
+              {deliveryCommands(made).map((command) => (
+                <Command key={command} value={command} />
+              ))}
             </SettingsRow>
           ) : (
             <SettingsRow

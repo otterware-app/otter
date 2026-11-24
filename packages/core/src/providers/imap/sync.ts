@@ -1,4 +1,4 @@
-import { logger } from "../../logger.js";
+import { logger } from "../../logger.ts";
 import {
   ImapError,
   inUidRanges,
@@ -7,12 +7,12 @@ import {
   type MailboxStatus,
   type SelectedMailbox,
   type UidRange,
-} from "../../protocols/index.js";
-import { hasPendingLabelWrites } from "../../services/pending-label-writes.js";
-import * as store from "../../services/mail-store.js";
-import type { MailLabel, MessageSummary } from "../../types.js";
-import type { SyncContext } from "../provider.js";
-import { FolderChanged, FolderGone, inFolder, withImap } from "./connection.js";
+} from "../../protocols/index.ts";
+import { hasPendingLabelWrites } from "../../services/pending-label-writes.ts";
+import * as store from "../../services/mail-store.ts";
+import type { MailLabel, MessageSummary } from "../../types.ts";
+import type { SyncContext } from "../provider.ts";
+import { FolderChanged, FolderGone, inFolder, withImap } from "./connection.ts";
 import {
   FLAG_LABELS,
   labelsFor,
@@ -21,8 +21,8 @@ import {
   parseMessageId,
   type Folder,
   type Folders,
-} from "./folders.js";
-import { DELIVERY_HEADERS, deliveryAddressesOf, SUMMARY_QUERY, toSummary } from "./messages.js";
+} from "./folders.ts";
+import { DELIVERY_HEADERS, deliveryAddressesOf, SUMMARY_QUERY, toSummary } from "./messages.ts";
 
 const PAGE = 200;
 /** Without mod-sequences, flags are only compared when STATUS changed, or this often. */

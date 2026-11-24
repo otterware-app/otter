@@ -1,4 +1,4 @@
-import { readJson, writeJson } from "../json-file.js";
+import { readJson, writeJson } from "../json-file.ts";
 
 import { DEFAULT_SETTINGS, type AppSettings } from "@otter/contracts";
 export {

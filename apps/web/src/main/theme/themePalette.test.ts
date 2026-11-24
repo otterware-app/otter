@@ -9,7 +9,7 @@
  */
 import { describe, expect, it, vi } from "vite-plus/test";
 
-vi.mock("../synced-preferences", () => ({
+vi.mock("@otter/client/preferences", () => ({
   setSyncedPreference: (key: string, value: string) => window.localStorage.setItem(key, value),
 }));
 

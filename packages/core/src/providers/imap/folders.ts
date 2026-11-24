@@ -1,6 +1,6 @@
 import { ARCHIVE_LABEL_ID } from "@otter/contracts";
 
-import type { ImapClient, ImapFolder, SpecialUse } from "../../protocols/index.js";
+import type { ImapClient, ImapFolder, SpecialUse } from "../../protocols/index.ts";
 
 export type Role = "INBOX" | "SENT" | "DRAFT" | "TRASH" | "SPAM" | "ARCHIVE";
 

@@ -1,5 +1,5 @@
 /** Adapted from T3 Code (github.com/pingdotgg/t3code, apps/web/src/panelAnimations.ts; MIT, see THIRD_PARTY_NOTICES.md). */
-import { setSyncedPreference } from "./synced-preferences";
+import { setSyncedPreference } from "@otter/client/preferences";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 export const MIN_PANEL_ANIMATION_DURATION_MS = 0;

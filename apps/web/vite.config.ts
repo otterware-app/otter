@@ -21,14 +21,15 @@ function demoMailboxes(): Plugin {
     name: "otter-demo-mailboxes",
     apply: "serve",
     configureServer(server) {
+      // A :fake run connects them too.
+      server.middlewares.use("/__dev/demo-agents", (_req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        res.end(process.env.OTTER_DEMO_AGENTS ?? "{}");
+      });
       if (!devDemo) return;
       server.middlewares.use("/__dev/demo-mailboxes", (_req, res) => {
         res.setHeader("Content-Type", "application/json");
         res.end(process.env.OTTER_DEMO_MAILBOXES);
-      });
-      server.middlewares.use("/__dev/demo-agents", (_req, res) => {
-        res.setHeader("Content-Type", "application/json");
-        res.end(process.env.OTTER_DEMO_AGENTS ?? "{}");
       });
     },
   };

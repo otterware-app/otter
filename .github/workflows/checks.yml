@@ -36,10 +36,12 @@ jobs:
               vp run lint
               node --test scripts/release.test.ts scripts/release-plan.test.ts .github/scripts/release-source.test.cjs
               node scripts/resolve-release-version.ts --bump patch
+              node scripts/export-mobile-licenses.ts agents-mobile --check
               node scripts/build-desktop-artifact.ts --help > /dev/null
               node scripts/dev-runner.ts dev --dry-run
               node scripts/dev-runner.ts dev:desktop --dry-run
               node scripts/dev-runner.ts dev:desktop:fake --dry-run
+              node scripts/dev-runner.ts dev:fake --agents openclaw,hermes --dry-run
           # `vp run --cache` replays a package's result while nothing it read has changed, so a
           # change reruns only the packages it reaches. A result is kept only when it passed.
           # Vitest's own cache is off (--no-cache): its folder would count as a changed input.

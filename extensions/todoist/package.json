@@ -20,10 +20,10 @@
     "@tanstack/react-query": "^5.87.4",
     "@tanstack/react-router": "^1.131.36",
     "lucide-react": "^0.542.0",
-    "react": "^19.1.1"
+    "react": "catalog:"
   },
   "devDependencies": {
-    "@types/react": "^19.1.12",
+    "@types/react": "catalog:",
     "typescript": "catalog:",
     "vite-plus": "catalog:"
   },

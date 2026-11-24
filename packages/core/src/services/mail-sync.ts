@@ -1,16 +1,16 @@
 // Keep backfill and body downloads in separate lanes so they cannot delay new-mail sync.
 
-import { logger } from "../logger.js";
-import { broadcast } from "../ipc.js";
-import { mapPool } from "../pool.js";
-import { findProvider, isSignedIn, providerFor, signedOutMessage } from "../providers/index.js";
-import { SyncCancelled, type MailProvider } from "../providers/provider.js";
-import { getAttachmentData, hasCachedAttachment } from "./attachment-cache.js";
-import { isAccountId, listAccounts } from "./account-store.js";
-import { platform } from "../platform.js";
-import * as store from "./mail-store.js";
-import { notifyNewMail, updateDockBadge } from "./notifier.js";
-import type { MessageDetail, SyncStatus } from "../types.js";
+import { logger } from "../logger.ts";
+import { broadcast } from "../ipc.ts";
+import { mapPool } from "../pool.ts";
+import { findProvider, isSignedIn, providerFor, signedOutMessage } from "../providers/index.ts";
+import { SyncCancelled, type MailProvider } from "../providers/provider.ts";
+import { getAttachmentData, hasCachedAttachment } from "./attachment-cache.ts";
+import { isAccountId, listAccounts } from "./account-store.ts";
+import { platform } from "../platform.ts";
+import * as store from "./mail-store.ts";
+import { notifyNewMail, updateDockBadge } from "./notifier.ts";
+import type { MessageDetail, SyncStatus } from "../types.ts";
 
 const statuses = new Map<string, SyncStatus>();
 const running = new Set<string>();

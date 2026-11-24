@@ -1,6 +1,6 @@
 import type { AppSettings, PickedFile } from "@otter/core";
 
-import type { Level } from "./logger.js";
+import type { Level } from "./logger.ts";
 
 export type MainRequests = {
   /** safeStorage: `text` encrypted with the Keychain's key, as base64. */

@@ -5,8 +5,8 @@ import {
   type ThemeDefinition,
 } from "@otter/shared/themes";
 import { displayedThemeColors, PAINTED_ROLES } from "@otter/shared/theme-display";
-import { getUiPreferences, setUiPreference } from "../../preferences.js";
-import { optBool, optStr, str, type AgentTool, type ToolArgs } from "./tool.js";
+import { getUiPreferences, setUiPreference } from "../../preferences.ts";
+import { optBool, optStr, str, type AgentTool, type ToolArgs } from "./tool.ts";
 
 const LIBRARY = "otter:themes:v1";
 const WORN: Record<ThemeAppearance, string> = {

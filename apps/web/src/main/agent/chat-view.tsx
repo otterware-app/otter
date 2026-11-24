@@ -2,56 +2,68 @@ import { useCallback, useEffect, useState, type RefObject } from "react";
 import { MessageScroller } from "@shadcn/react/message-scroller";
 import { ArrowDownIcon, MailIcon } from "lucide-react";
 import { ScrollArea } from "@otter/ui/components/scroll-area";
-import { mailApi, type AgentId, type AgentSettingsPatch, type ChatChange } from "../mail/api";
-import {
-  AgentFace,
-  isProviderUsable,
-  providerSummary,
-  useChatProvider,
-  useSetProvidersState,
-} from "./agent-providers";
-import type { MailChatContext } from "./chat-context";
+import { AgentFace, providerSummary } from "./agent-providers";
+import type { MailChatContext } from "@otter/client/agents/chat-context";
 import { CiteSelectionButton, useCitations } from "./chat-cite";
-import { AttachmentPreview, attachmentPreview, type PreviewFile } from "../mail/attachment-preview";
-import { DropOverlay, useChatAttachments, useFileDrop } from "./chat-attachments";
+import { AttachmentPreview, type PreviewFile } from "../mail/attachment-preview";
+import { readChatFile, readChatImage } from "@otter/client/agents/chat-files";
+import { canSteer, runAsking } from "@otter/client/agents/composer";
+import { DropOverlay, useComposerAttachments, useFileDrop } from "./chat-attachments";
 import {
+  canReconnect,
   cancelQueuedEdit,
   editQueued,
   forkChat,
-  isCompacting,
   isElsewhere,
   loadChat,
+  reconnectChat,
+  reconnectTargets,
   removeQueued,
   steerQueued,
   useChats,
+  type Conversation,
   type QueuedMessage,
-} from "./chat-store";
+} from "@otter/client/agents/chat-store";
 import { QueuedMessages } from "./chat-queue";
+import { agentNameOf, waitingLabel } from "@otter/client/agents/chat-list";
 import { ChatTranscript } from "./chat-transcript";
 import { ChatComposer } from "./chat-composer";
 import { AgentIcon } from "./agent-icon";
-import { useOtterAccount } from "../otter-account";
+import { useOtterAccount } from "@otter/client/otter-account";
 import { toast } from "@otter/ui/components/toast";
 import { Button } from "@otter/ui/components/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@otter/ui/components/dropdown-menu";
 import { cn } from "@otter/ui/lib/utils";
+import {
+  type AgentId,
+  type AgentSettingsPatch,
+  type ChatChange,
+  agentApi,
+} from "@otter/client/agents/api";
+import {
+  canRunChat,
+  isProviderUsable,
+  kindList,
+  openClawAgentId,
+  useChatProvider,
+  useSetProvidersState,
+  type ChatProvider,
+} from "@otter/client/agents/agent-providers";
+import { appApi } from "../app-api";
 
 const NO_QUEUE: QueuedMessage[] = [];
-
-function kindList(kinds: { name: string }[]): string {
-  const names = kinds.map((k) => k.name);
-  return names.length > 1
-    ? `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`
-    : (names[0] ?? "an agent");
-}
 
 function useChatImageLoader(provider?: AgentId, sessionId?: string | null) {
   return useCallback(
     async (href: string) => {
       if (!provider) throw new Error("Open the image from its chat.");
-      const file = await mailApi.agentReadFile(provider, sessionId ?? "", href);
-      const preview = attachmentPreview(file.name, file.mimeType);
-      if (preview?.kind !== "image") throw new Error("This file isn't an image.");
-      return `data:${preview.mimeType};base64,${file.data}`;
+      return readChatImage(provider, sessionId ?? null, href);
     },
     [provider, sessionId],
   );
@@ -87,29 +99,15 @@ export function ChatView({
     if (unloaded) void loadChat(chatId);
   }, [unloaded, chatId]);
   const streaming = useChats((s) => Boolean(s.runs[chatId]));
+  const waitingOn = useChats((s) => s.runs[chatId]?.waiting);
   const queue = useChats((s) =>
     s.queue.some((m) => m.convoId === chatId) ? s.queue : NO_QUEUE,
   ).filter((m) => m.convoId === chatId);
   const editingQueued = useChats((s) =>
     s.editingQueued?.convoId === chatId ? s.editingQueued.id : null,
   );
-  // A message joins the run unless the run waits on an approval.
-  const canSendQueued = useChats((s) => {
-    const run = s.runs[chatId];
-    return (
-      Boolean(run) &&
-      !s.approvals.some((a) => a.requestId === run.requestId) &&
-      !isCompacting(s.conversations.find((c) => c.id === chatId)?.turns ?? [])
-    );
-  });
-  const asking = useChats((s) => {
-    const run = s.runs[chatId];
-    return (
-      Boolean(run) &&
-      (s.approvals.some((a) => a.requestId === run.requestId) ||
-        s.questions.some((q) => q.requestId === run.requestId))
-    );
-  });
+  const canSendQueued = useChats((s) => canSteer(s, chatId));
+  const asking = useChats((s) => runAsking(s, chatId));
   const hydrating = useChats((s) => s.hydrating === chatId);
   const turns = convo?.turns ?? [];
   const chat = useChatProvider(convo);
@@ -117,10 +115,10 @@ export function ChatView({
   const setProvidersState = useSetProvidersState();
   const updateSettings = (patch: AgentSettingsPatch) => {
     console.log("[AgentChat:updateSettings]", patch);
-    mailApi.updateAgentSettings(patch).then(setProvidersState, () => {});
+    agentApi.updateSettings(patch).then(setProvidersState, () => {});
   };
 
-  const files = useChatAttachments();
+  const files = useComposerAttachments();
   const drop = useFileDrop((dropped) => {
     void files.add(dropped);
     inputRef.current?.focus();
@@ -133,13 +131,8 @@ export function ChatView({
   const loadChatImage = useChatImageLoader(convo?.provider, convo?.sessionId);
   const previewChatFile = (href: string) => {
     if (!convo) return;
-    void mailApi
-      .agentReadFile(convo.provider, convo.sessionId ?? "", href)
-      .then((file) => {
-        if (!attachmentPreview(file.name, file.mimeType))
-          throw new Error("This file type can't be previewed.");
-        setPreviewFile({ ...file, load: async () => file.data });
-      })
+    void readChatFile(convo.provider, convo.sessionId, href)
+      .then((file) => setPreviewFile({ ...file, load: async () => file.data }))
       .catch((error: unknown) =>
         toast.error(error instanceof Error ? error.message : "Couldn't open the file."),
       );
@@ -162,10 +155,27 @@ export function ChatView({
     (p) => p.id !== chat.id && isProviderUsable(p) && p.checkedAt !== null,
   );
   const hero = turns.length === 0 && !hydrating && !unloaded;
+  const started = convo && turns.length > 0 ? convo : null;
+  const removed =
+    started && chat.state && !chat.provider && !chat.state.others.some((o) => o.id === chat.id);
+  const agentOff =
+    started && isProviderUsable(chat.provider) && !canRunChat(chat.provider, started.sessionId);
   const composer = elsewhere ? (
     <p className="shrink-0 px-6 pb-4 pt-2 text-center text-body text-muted-foreground">
       This chat ran in {chat.name} on {elsewhere.name}. Continue it there.
     </p>
+  ) : removed ? (
+    <RemovedAgent convo={started} chat={chat} />
+  ) : agentOff ? (
+    <div className="flex shrink-0 flex-col items-center gap-2 px-6 pb-4 pt-2 text-center text-body text-muted-foreground">
+      {agentNameOf(chat.state, started.provider, openClawAgentId(started.sessionId))} is turned off.
+      <Button
+        size="sm"
+        onClick={() => void appApi.openSettings({ pane: "agents", item: started.provider })}
+      >
+        Open Settings
+      </Button>
+    </div>
   ) : (
     <ChatComposer
       chatId={chatId}
@@ -226,7 +236,7 @@ export function ChatView({
             <Button
               size="sm"
               onClick={() =>
-                void mailApi.openSettings(
+                void appApi.openSettings(
                   signedOut && !chat.provider
                     ? { pane: "otter" }
                     : { pane: "agents", item: chat.provider?.id },
@@ -270,6 +280,7 @@ export function ChatView({
                 <ChatTranscript
                   turns={turns}
                   streaming={streaming}
+                  waiting={waitingOn && waitingLabel(waitingOn)}
                   asking={asking}
                   detached={Boolean(convo?.openRequest)}
                   providerName={chat.name}
@@ -359,6 +370,50 @@ export function ChatView({
         </MessageScroller.Provider>
       )}
       <AttachmentPreview file={previewFile} onClose={() => setPreviewFile(null)} />
+    </div>
+  );
+}
+
+/** A chat whose agent was removed: an OpenClaw one goes on with its gateway added again. */
+function RemovedAgent({ convo, chat }: { convo: Conversation; chat: ChatProvider }) {
+  const providers = chat.state?.providers ?? [];
+  const reconnectable = useChats((s) => canReconnect(s, convo, providers));
+  const gateways = reconnectTargets(providers);
+  const [connecting, setConnecting] = useState(false);
+  const reconnect = (gateway: (typeof gateways)[number]) => {
+    setConnecting(true);
+    reconnectChat(convo.id, gateway)
+      .catch((error: unknown) =>
+        toast.error(error instanceof Error ? error.message : "Couldn't reconnect this chat."),
+      )
+      .finally(() => setConnecting(false));
+  };
+  return (
+    <div className="flex shrink-0 flex-col items-center gap-2 px-6 pb-4 pt-2 text-center text-body text-muted-foreground">
+      This chat&apos;s agent was removed.
+      {!reconnectable ? null : gateways.length > 0 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button size="sm" disabled={connecting} />}>
+            {connecting ? "Reconnecting…" : "Reconnect agent"}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuLabel>The OpenClaw gateway this chat ran on</DropdownMenuLabel>
+            {gateways.map((gateway) => (
+              <DropdownMenuItem key={gateway.id} onClick={() => reconnect(gateway)}>
+                <AgentFace provider={gateway} className="size-4" />
+                {gateway.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <>
+          <span>Connect the OpenClaw gateway this chat ran on, then come back here.</span>
+          <Button size="sm" onClick={() => void appApi.openSettings({ pane: "agents" })}>
+            Open Settings
+          </Button>
+        </>
+      )}
     </div>
   );
 }

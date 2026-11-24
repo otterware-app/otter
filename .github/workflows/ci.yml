@@ -54,8 +54,7 @@ jobs:
           esac
           {
             echo "iphone=$(changed '^(apps/ios/|packages/shared/|package\.json$|scripts/export-ios-resources\.ts$|\.github/workflows/ci\.yml$)')"
-            # Otter Agents compiles Otter Mail's themes and MailContext.
-            echo "agents=$(changed '^(apps/ios-agents/|apps/ios/OtterMail/(Agent|Theme|Resources)/|apps/ios/OtterMail/Settings/(ThemeSettings|Licenses)\.swift$|\.github/workflows/ci\.yml$)')"
+            echo "agents=$(changed '^(apps/agents-mobile/|packages/(core|client|contracts|mobile|ui-native|shared)/|extensions/(hermes|openclaw|varys|claude|codex)/|package\.json$|pnpm-(lock\.yaml|workspace\.yaml)$|\.github/(actions/setup/|workflows/ci\.yml$))')"
             echo "translator=$(changed '^(native/translator/|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
             echo "hermes=$(changed '^(extensions/hermes/gateway/|\.github/workflows/ci\.yml$)')"
             echo "package=$(changed '^(scripts/(build-desktop-artifact|build-translator|build-notifier|notarize-mac|upload-sourcemaps)\.ts$|native/|apps/desktop/(package\.json$|resources/)|\.github/actions/(select-xcode|setup)/|\.github/workflows/ci\.yml$)')"
@@ -193,19 +192,36 @@ jobs:
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build-for-testing
 
   agents:
-    name: iPhone, Otter Agents (Swift)
+    name: iPhone, Otter Agents
     needs: changes
     if: needs.changes.outputs.agents == 'true'
     runs-on: xcode-27
-    timeout-minutes: 15
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Build app and tests
+      - name: Setup Expo workspace
+        uses: ./.github/actions/setup
+
+      - name: Generate native project
+        working-directory: apps/agents-mobile
+        env:
+          OTTER_APP_VARIANT: production
+          OTTER_AGENTS_RELEASE_BUILD: "1"
+          EXPO_NO_DOTENV: "1"
         run: |
-          xcodebuild -version
-          xcodebuild -project apps/ios-agents/OtterAgents.xcodeproj -scheme OtterAgents \
-            -destination "generic/platform=iOS Simulator" \
+          pnpm exec expo prebuild --platform ios --clean --no-install
+          cd ios
+          pod install
+
+      - name: Build Expo app and extension
+        env:
+          OTTER_APP_VARIANT: production
+          OTTER_AGENTS_RELEASE_BUILD: "1"
+          EXPO_NO_DOTENV: "1"
+        run: |
+          xcodebuild -workspace apps/agents-mobile/ios/OtterAgents.xcworkspace -scheme OtterAgents \
+            -configuration Release -destination "generic/platform=iOS Simulator" \
             -derivedDataPath "$RUNNER_TEMP/otter-agents-build" \
-            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build-for-testing
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build

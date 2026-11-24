@@ -15,13 +15,13 @@ import {
 } from "@otter/contracts/chats";
 import { matchMessage, messageSnippet, messageTokens } from "@otter/shared/chat-search";
 
-import { platform } from "../platform.js";
-import { agentDb, deviceId, entry, mutate, onSynced } from "./agent-sync.js";
-import { getProviderSettings } from "./agent/settings.js";
-import { logger } from "../logger.js";
-import { getOtterUser } from "./otter-account.js";
+import { platform } from "../platform.ts";
+import { agentDb, deviceId, entry, mutate, onSynced } from "./agent-sync.ts";
+import { getProviderSettings } from "./agent/settings.ts";
+import { logger } from "../logger.ts";
+import { getOtterUser } from "./otter-account.ts";
 
-export { CHATS_CHANGED } from "./agent-sync.js";
+export { CHATS_CHANGED } from "./agent-sync.ts";
 
 type Device = { id: string; name: string };
 

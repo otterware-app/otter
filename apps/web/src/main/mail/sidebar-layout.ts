@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { setSyncedPreference } from "../synced-preferences";
+import { setSyncedPreference } from "@otter/client/preferences";
 
 export type FolderVisibility = "always" | "badged" | "never";
 export type BadgeStyle = "count" | "dot";

@@ -1,9 +1,9 @@
 import { useRef, useState, type DragEvent } from "react";
 import { AccountPicture } from "../mail/account-picture";
-import type { AliasMailboxEntry } from "../mail/alias-mailboxes";
-import { useUpdateAccount } from "../mail/hooks";
+import type { AliasMailboxEntry } from "@otter/client/mail/alias-mailboxes";
+import { useUpdateAccount } from "@otter/client/mail/hooks";
 import { toast } from "@otter/ui/components/toast";
-import type { MailAccount } from "../mail/types";
+import type { MailAccount } from "@otter/client/mail/types";
 import { PictureError, mailboxPicture } from "./mailbox-picture-image";
 import { searchableSetting } from "./settings-search";
 import { Button } from "@otter/ui/components/button";

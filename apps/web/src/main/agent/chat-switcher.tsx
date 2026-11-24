@@ -1,16 +1,18 @@
 import { CheckIcon, PlusIcon } from "lucide-react";
 
-import { AgentAvatar, openClawAgentId } from "./agent-providers";
+import { AgentAvatar } from "./agent-providers";
 import { AgentIcon } from "./agent-icon";
-import { StatusDot, useChatStatus } from "./agent-corner";
-import { useAutoSettleDays } from "./auto-settle";
-import { isBlank, showChat, useChats, type Conversation } from "./chat-store";
-import { shelveChats, useNow } from "./chat-shelves";
+import { StatusDot } from "./agent-corner";
+import { useAutoSettleDays } from "@otter/client/agents/auto-settle";
+import { showChat, useChats, type Conversation } from "@otter/client/agents/chat-store";
+import { openChats, useChatStatus } from "@otter/client/agents/chat-list";
+import { useNow } from "@otter/client/agents/chat-shelves";
 import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@otter/ui/components/dropdown-menu";
+import { openClawAgentId } from "@otter/client/agents/agent-providers";
 
 /** The small window's title menu: the active chats to switch to, a new one, or all of them. */
 export function ChatSwitcherItems({
@@ -27,15 +29,7 @@ export function ChatSwitcherItems({
   const activeId = useChats((s) => s.activeId);
   const now = useNow(30_000);
   const autoSettleDays = useAutoSettleDays();
-  const asked = new Set([...approvals, ...questions].map((r) => r.requestId));
-  const needsYou = new Set(
-    Object.values(runs).flatMap((r) => (asked.has(r.requestId) ? r.convoId : [])),
-  );
-  const shelves = shelveChats(
-    conversations.filter((c) => !isBlank(c)),
-    { working: new Set(Object.keys(runs)), needsYou, now, autoSettleDays },
-  );
-  const open = [...shelves.pinned, ...shelves.active];
+  const open = openChats({ conversations, runs, approvals, questions }, now, autoSettleDays);
   return (
     <>
       {open.length > 0 ? <DropdownMenuLabel>Active</DropdownMenuLabel> : null}

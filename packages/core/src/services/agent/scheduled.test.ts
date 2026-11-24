@@ -42,8 +42,8 @@ const entry = (id: string, kindName: string, name: string) => ({
   name,
   settings: {},
 });
-vi.mock("../../extensions.js", () => ({ registeredAgents: () => types }));
-vi.mock("./settings.js", () => ({
+vi.mock("../../extensions.ts", () => ({ registeredAgents: () => types }));
+vi.mock("./settings.ts", () => ({
   agentSecrets: () => ({}),
   getProviderSettings: async () => ({
     selected: "home",
@@ -58,8 +58,8 @@ vi.mock("./settings.js", () => ({
   }),
 }));
 
-const { listScheduledTasks, saveScheduledTask, runScheduledTask } = await import("./service.js");
-const { scheduledTaskInputOf } = await import("../../handlers/agent.js");
+const { listScheduledTasks, saveScheduledTask, runScheduledTask } = await import("./service.ts");
+const { scheduledTaskInputOf } = await import("../../handlers/agent.ts");
 
 describe("scheduled tasks across agents", () => {
   it("lists each enabled, set-up agent that schedules, and says which couldn't be read", async () => {

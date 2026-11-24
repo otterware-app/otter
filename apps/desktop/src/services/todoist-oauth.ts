@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { signInPage } from "@otter/shared/sign-in-page";
 
-import { requestMain } from "../main-link.js";
+import { requestMain } from "../main-link.ts";
 
 export async function todoistSignIn(
   authorize: (redirectUri: string) => Promise<string>,

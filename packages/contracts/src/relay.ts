@@ -8,7 +8,7 @@ export interface RelayUser {
   signInMethods?: SignInMethod[];
 }
 
-import type { ImapSettings, MailProviderKind } from "./mail.js";
+import type { ImapSettings, MailProviderKind } from "./mail.ts";
 
 export interface RelayAccount {
   email: string;

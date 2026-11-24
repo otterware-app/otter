@@ -1,8 +1,8 @@
 import type { ExtensionManifest } from "@otter/contracts/extensions";
 
-import { handle, registeredHandlers, unhandle, type Handler } from "./ipc.js";
-import { logger } from "./logger.js";
-import type { AgentSettings, AgentType } from "./services/agent/types.js";
+import { handle, registeredHandlers, unhandle, type Handler } from "./ipc.ts";
+import { logger } from "./logger.ts";
+import type { AgentSettings, AgentType } from "./services/agent/types.ts";
 
 export type ExtensionContext = {
   readonly manifest: ExtensionManifest;

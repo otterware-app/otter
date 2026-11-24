@@ -19,10 +19,6 @@ if (!window.desktopBridge) {
     document.body.replaceChildren(main);
     throw err;
   }
-  const { loadSyncedPreferences } = await import("./synced-preferences");
-  await loadSyncedPreferences(true).catch((err) =>
-    console.warn("Couldn't load UI preferences", err),
-  );
 }
 
 document.documentElement.dataset.windowControls =
@@ -30,5 +26,8 @@ document.documentElement.dataset.windowControls =
 window.desktopBridge.on("window:fullScreen", (fullScreen: unknown) => {
   document.documentElement.toggleAttribute("data-full-screen", fullScreen === true);
 });
+
+const { startClient } = await import("./client-host");
+await startClient();
 
 await import("./app");

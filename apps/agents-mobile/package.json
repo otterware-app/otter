@@ -1,0 +1,78 @@
+{
+  "name": "@otter/agents-mobile",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "scripts": {
+    "dev": "expo start --dev-client --port 8097",
+    "ios": "expo run:ios --port 8097",
+    "prebuild": "expo prebuild --platform ios",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bacons/apple-targets": "5.0.0",
+    "@expo/log-box": "^58.0.15",
+    "@expo/metro-runtime": "~58.0.17",
+    "@expo/ui": "~58.0.29",
+    "@otter/client": "workspace:*",
+    "@otter/contracts": "workspace:*",
+    "@otter/core": "workspace:*",
+    "@otter/extension-claude": "workspace:*",
+    "@otter/extension-codex": "workspace:*",
+    "@otter/extension-hermes": "workspace:*",
+    "@otter/extension-openclaw": "workspace:*",
+    "@otter/extension-varys": "workspace:*",
+    "@otter/mobile": "workspace:*",
+    "@otter/shared": "workspace:*",
+    "@otter/ui-native": "workspace:*",
+    "@shopify/flash-list": "2.3.2",
+    "@tanstack/react-query": "catalog:",
+    "expo": "catalog:",
+    "expo-camera": "~58.0.14",
+    "expo-clipboard": "~58.0.4",
+    "expo-constants": "~58.0.16",
+    "expo-dev-client": "~58.0.21",
+    "expo-document-picker": "~58.0.5",
+    "expo-font": "~58.0.12",
+    "expo-glass-effect": "catalog:",
+    "expo-haptics": "catalog:",
+    "expo-image": "catalog:",
+    "expo-image-picker": "~58.0.10",
+    "expo-linking": "~58.0.17",
+    "expo-notifications": "~58.1.9",
+    "expo-router": "~58.0.32",
+    "expo-sharing": "~58.0.23",
+    "expo-status-bar": "~58.0.5",
+    "expo-symbols": "catalog:",
+    "expo-system-ui": "~58.0.7",
+    "expo-web-browser": "~58.1.0",
+    "react": "catalog:",
+    "react-native": "catalog:",
+    "react-native-enriched-markdown": "1.2.0",
+    "react-native-gesture-handler": "catalog:",
+    "react-native-keyboard-controller": "1.22.7",
+    "react-native-reanimated": "catalog:",
+    "react-native-safe-area-context": "catalog:",
+    "react-native-screens": "~4.30.1",
+    "react-native-svg": "catalog:",
+    "react-native-worklets": "catalog:",
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "typescript": "catalog:"
+  },
+  "enriched-markdown": {
+    "enableCodeHighlight": false,
+    "enableMath": false,
+    "enableVideo": false
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "typescript"
+      ]
+    }
+  }
+}

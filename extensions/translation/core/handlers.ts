@@ -8,7 +8,7 @@
 import { broadcast, getSettings, updateSettings, runAsTask } from "@otter/core/extension-kit";
 import type { ExtensionContext } from "@otter/core/extension-kit";
 import type { AppSettings } from "@otter/core/extension-kit";
-import { detectLanguage, translateSegments } from "./translation.js";
+import { detectLanguage, translateSegments } from "./translation.ts";
 
 type Params = Record<string, unknown> | undefined;
 const str = (v: unknown) => (typeof v === "string" ? v : "");

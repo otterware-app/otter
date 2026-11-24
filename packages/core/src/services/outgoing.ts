@@ -1,6 +1,6 @@
-import { fromBase64, randomHex, toBase64, utf8Encode } from "../bytes.js";
-import { platform } from "../platform.js";
-import type { ComposeAttachment, MailAccount } from "../types.js";
+import { fromBase64, randomHex, toBase64, utf8Encode } from "../bytes.ts";
+import { platform } from "../platform.ts";
+import type { ComposeAttachment, MailAccount } from "../types.ts";
 
 const CRLF = "\r\n";
 

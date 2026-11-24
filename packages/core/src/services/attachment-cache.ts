@@ -9,10 +9,10 @@
  * the mail flow.
  */
 
-import { sha256Hex, toBase64 } from "../bytes.js";
-import { platform } from "../platform.js";
-import { providerFor } from "../providers/index.js";
-import { getStoredDraftRevision } from "./mail-store.js";
+import { sha256Hex, toBase64 } from "../bytes.ts";
+import { platform } from "../platform.ts";
+import { providerFor } from "../providers/index.ts";
+import { getStoredDraftRevision } from "./mail-store.ts";
 
 const DIR = "attachment-cache";
 const MAX_CACHE_BYTES = 512 * 1024 * 1024;

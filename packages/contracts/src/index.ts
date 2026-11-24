@@ -1,9 +1,9 @@
-export * from "./connections.js";
-export * from "./google.js";
-export * from "./mail.js";
-export * from "./meetings.js";
-export * from "./microsoft.js";
-export * from "./settings.js";
+export * from "./connections.ts";
+export * from "./google.ts";
+export * from "./mail.ts";
+export * from "./meetings.ts";
+export * from "./microsoft.ts";
+export * from "./settings.ts";
 
 export type ThemeSource = "system" | "light" | "dark";
 
@@ -67,7 +67,7 @@ export interface BridgeFeatures {
 }
 
 export interface DesktopBridge {
-  platform: "darwin" | "linux" | "win32" | "web" | (string & {});
+  platform: "darwin" | "linux" | "win32" | "web" | "ios" | (string & {});
   features: BridgeFeatures;
   invoke<T = unknown>(channel: string, params?: unknown): Promise<T>;
   on(channel: string, listener: (params: unknown) => void): () => void;
@@ -91,7 +91,7 @@ export interface DesktopBridge {
 export const UPDATE_STATE_CHANNEL = "updates:state";
 
 export interface OtterAccountState {
-  user: { email: string; name: string | null; picture: string | null } | null;
+  user: { id: string; email: string; name: string | null; picture: string | null } | null;
   realtime: "off" | "connecting" | "live";
 }
 

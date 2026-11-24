@@ -9,7 +9,7 @@ import {
   type SortingStrategy,
 } from "@dnd-kit/sortable";
 import type { Chat } from "@otter/contracts/chats";
-import type { ChatShelf } from "./chat-shelves";
+import type { ChatShelf } from "@otter/client/agents/chat-shelves";
 
 /** Snoozed chats can't take a drop: there's no wake time to give them. */
 export type DropShelf = Exclude<ChatShelf, "snoozed">;

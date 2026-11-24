@@ -6,10 +6,14 @@ import { Text } from "@otter/ui/components/text";
 import { BanIcon, PlusIcon, XIcon } from "lucide-react";
 import { LabelChip } from "./label-chip";
 import { ViewIconPicker, ViewMark } from "./view-icon";
-import { useAllAccountLabels, useCombinedCounts } from "./hooks";
-import { getAccountColor, getAccountDisplayName } from "./account-style";
-import { SYSTEM_LABEL_NAMES, SYSTEM_LABEL_ORDER, labelDisplayName } from "./label-names";
-import type { MailAccount, MailLabel, MailView, ViewRule } from "./types";
+import { useAllAccountLabels, useCombinedCounts } from "@otter/client/mail/hooks";
+import { getAccountColor, getAccountDisplayName } from "@otter/client/mail/account-style";
+import {
+  SYSTEM_LABEL_NAMES,
+  SYSTEM_LABEL_ORDER,
+  labelDisplayName,
+} from "@otter/client/mail/label-names";
+import type { MailAccount, MailLabel, MailView, ViewRule } from "@otter/client/mail/types";
 import { Button, IconButton } from "@otter/ui/components/button";
 import {
   DropdownMenu,

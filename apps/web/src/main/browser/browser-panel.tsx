@@ -9,7 +9,8 @@ import { PanelControlSlot } from "../mail/top-bar";
 import { usePanelTabDrag } from "../mail/use-panel-tab-drag";
 import { BrowserTabIcon } from "./browser-view";
 import { PageSlot } from "./page-host";
-import { closeTab, hostOf, newTab, panelTabs, reorderTabs, selectTab, useBrowser } from "./store";
+import { closeTab, newTab, panelTabs, reorderTabs, selectTab, useBrowser } from "./store";
+import { hostOf } from "@otter/client/web-address";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton } from "@otter/ui/components/button";
 

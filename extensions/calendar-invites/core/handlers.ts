@@ -5,7 +5,7 @@ import {
   getInvite,
   respondToInvite,
   type RsvpResponse,
-} from "./calendar-invites.js";
+} from "./calendar-invites.ts";
 
 type Params = Record<string, unknown> | undefined;
 const str = (v: unknown) => (typeof v === "string" ? v : "");

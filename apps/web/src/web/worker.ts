@@ -80,14 +80,25 @@ async function startDemo(platform: Platform): Promise<void> {
   }
   await startCore(platform, webExtensions);
   await addDemoMailboxes(json).catch((err: unknown) => console.error("Demo mailboxes:", err));
-  const agents = await (await fetch("/__dev/demo-agents")).text();
+  const agents = await (await fetch(new URL("/__dev/demo-agents", self.location.href))).text();
   void addDemoAgents(agents).catch((err: unknown) => console.error("Demo agents:", err));
 }
 
-/** `pnpm dev:fake`: the made-up services' agents are scripted. */
+/**
+ * `pnpm dev:fake`: the made-up services' agents are scripted, unless the run started local
+ * gateways (`--agents`): then the agents are real and connect to them.
+ */
 async function startFake(platform: Platform): Promise<void> {
-  const { withFakeAgents } = await import("@otter/core/fake");
-  await startCore(platform, withFakeAgents(webExtensions));
+  const agents = import.meta.env.DEV
+    ? await (await fetch(new URL("/__dev/demo-agents", self.location.href))).text()
+    : "{}";
+  if (agents === "{}") {
+    const { withFakeAgents } = await import("@otter/core/fake");
+    await startCore(platform, withFakeAgents(webExtensions));
+    return;
+  }
+  await startCore(platform, webExtensions);
+  void addDemoAgents(agents).catch((err: unknown) => console.error("Demo agents:", err));
 }
 
 const ready = webPlatform(page).then(

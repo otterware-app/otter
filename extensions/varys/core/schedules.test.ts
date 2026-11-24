@@ -2,11 +2,11 @@ import type { Routine } from "@generalpursuit/varys";
 import { errAsync, okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { VarysConnection } from "./client.js";
-import type { VarysSettings } from "./settings.js";
+import type { VarysConnection } from "./client.ts";
+import type { VarysSettings } from "./settings.ts";
 
 const saved = vi.hoisted(() => [] as unknown[]);
-vi.mock("../../../packages/core/src/services/agent/service.js", () => ({
+vi.mock("../../../packages/core/src/services/agent/service.ts", () => ({
   saveAgentSettings: async (agent: string, change: unknown) => void saved.push({ agent, change }),
 }));
 
@@ -49,7 +49,7 @@ const routines = vi.hoisted(() => ({
   edit: vi.fn(),
   delete: vi.fn(),
 }));
-const { routineTask, varysSchedules } = await import("./schedules.js");
+const { routineTask, varysSchedules } = await import("./schedules.ts");
 const schedules = varysSchedules("agent-a", {
   client: async () => ({ routines }),
   close: () => {},

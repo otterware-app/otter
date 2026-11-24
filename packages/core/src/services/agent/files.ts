@@ -1,5 +1,5 @@
-import { toBase64 } from "../../bytes.js";
-import type { ChatFile } from "./types.js";
+import { toBase64 } from "../../bytes.ts";
+import type { ChatFile } from "./types.ts";
 
 export const MAX_CHAT_FILE_BYTES = 50 * 1024 * 1024;
 

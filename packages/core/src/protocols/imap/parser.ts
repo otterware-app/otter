@@ -5,7 +5,7 @@
  * it into atoms, strings, literals and lists.
  */
 
-import { utf8Decode, utf8Encode } from "../../bytes.js";
+import { utf8Decode, utf8Encode } from "../../bytes.ts";
 
 export type ImapToken =
   | { type: "atom"; value: string }

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import { AllowAccessButton } from "../mail/allow-access";
-import { getAccountColor, getAccountDisplayName } from "../mail/account-style";
+import { getAccountColor, getAccountDisplayName } from "@otter/client/mail/account-style";
 import { isModClick } from "../keybindings/keys";
 import { isTypingTarget } from "../mail/keyboard";
-import type { MailAccount } from "../mail/types";
-import { useAccounts } from "../mail/hooks";
+import type { MailAccount } from "@otter/client/mail/types";
+import { useAccounts } from "@otter/client/mail/hooks";
 import {
   calendarKey,
   useCachedEvent,

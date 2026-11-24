@@ -10,7 +10,7 @@ import {
   rememberSupportSession,
   resumeSupportSession,
   supportDirectory,
-} from "./support-session.js";
+} from "./support-session.ts";
 
 let home: string;
 let session: SupportSession;

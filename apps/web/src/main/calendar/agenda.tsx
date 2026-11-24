@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { ChevronsLeftIcon } from "lucide-react";
 import { ScrollArea } from "@otter/ui/components/scroll-area";
-import { useAccounts } from "../mail/hooks";
+import { useAccounts } from "@otter/client/mail/hooks";
 import { PanelControlSlot } from "../mail/top-bar";
 import { calendarKey, useCalendarLists, useUpcomingEvents, type CalEvent } from "./api";
 import { isShown, useCalendar } from "./calendar-store";

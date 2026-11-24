@@ -1,11 +1,12 @@
 import { CheckIcon, MessageCircleQuestionIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import type { ChatQuestion } from "../mail/api";
+import { useEffect, useRef } from "react";
 import { COMPOSER_SURFACE } from "../mail/composer-kit";
 import { Button } from "@otter/ui/components/button";
 import { Input } from "@otter/ui/components/input";
 import { cn } from "@otter/ui/lib/utils";
 import { Kbd } from "@otter/ui/components/kbd";
+import type { ChatQuestion } from "@otter/client/agents/api";
+import { useQuestionAnswers } from "@otter/client/agents/question";
 
 export function QuestionCard({
   agent,
@@ -20,38 +21,16 @@ export function QuestionCard({
   responding: boolean;
   onAnswer: (answers: Record<string, string[]> | null) => void;
 }) {
-  const [chosen, setChosen] = useState<Record<string, string[]>>({});
-  const [own, setOwn] = useState<Record<string, string>>({});
   const card = useRef<HTMLDivElement>(null);
-  const secret = question.questions.some((q) => q.secret);
-  const quick = question.questions.length === 1 && !question.questions[0].multiSelect && !secret;
+  const { own, answers, complete, secret, choose, type, isChosen } = useQuestionAnswers(
+    question,
+    onAnswer,
+  );
 
   useEffect(() => {
     const active = document.activeElement;
     if (!active || active === document.body) card.current?.focus();
   }, []);
-
-  const answers = Object.fromEntries(
-    question.questions.map((q) => {
-      const typed = own[q.id]?.trim();
-      return [q.id, [...(chosen[q.id] ?? []), ...(typed ? [typed] : [])]];
-    }),
-  );
-  const complete = !secret && question.questions.every((q) => answers[q.id].length > 0);
-
-  const choose = (id: string, label: string, multi: boolean) => {
-    if (quick) return onAnswer({ [id]: [label] });
-    setChosen((all) => {
-      const current = all[id] ?? [];
-      const next = multi
-        ? current.includes(label)
-          ? current.filter((l) => l !== label)
-          : [...current, label]
-        : [label];
-      return { ...all, [id]: next };
-    });
-    if (!multi) setOwn((all) => ({ ...all, [id]: "" }));
-  };
 
   return (
     <div
@@ -93,7 +72,7 @@ export function QuestionCard({
                 ) : null}
                 <div className="flex flex-col gap-1">
                   {q.options.map((option) => {
-                    const on = chosen[q.id]?.includes(option.label) ?? false;
+                    const on = isChosen(q.id, option.label);
                     return (
                       <button
                         key={option.label}
@@ -136,11 +115,7 @@ export function QuestionCard({
                   disabled={responding}
                   placeholder="Or answer in your own words"
                   aria-label={`Your own answer to: ${q.question}`}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setOwn((all) => ({ ...all, [q.id]: value }));
-                    if (!q.multiSelect && value) setChosen((all) => ({ ...all, [q.id]: [] }));
-                  }}
+                  onChange={(event) => type(q.id, event.target.value, q.multiSelect)}
                   className="bg-transparent text-body focus-visible:bg-transparent"
                 />
               </>

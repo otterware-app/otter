@@ -3,7 +3,8 @@ import { converter, formatHex, formatHex8, parse, toGamut, type Color } from "cu
 /**
  * The tokens in tokens.css and globals.css, resolved to the values a browser
  * paints (var() followed, color-mix() mixed) for the stock light and dark
- * palettes, and written as the variables of design/otter.pen.
+ * palettes, and written as the variables of design/otter.pen and as
+ * @otter/ui-native's tokens.
  */
 
 export type Mode = "light" | "dark";
@@ -249,4 +250,73 @@ export function penVariables(tokensCss: string, globalsCss: string): PenVariable
     value: themed(sans, family(margin.get("font-reading"))),
   };
   return variables;
+}
+
+/** The designs the iPhone apps draw with. */
+const NATIVE_DESIGNS: readonly Design[] = ["otter"];
+
+type Tree = string | number | [string, Tree][];
+
+function printTree(tree: Tree, indent = ""): string {
+  if (!Array.isArray(tree)) return JSON.stringify(tree);
+  const inner = `${indent}  `;
+  const entries = tree.map(([key, value]) => {
+    const name = /^([A-Za-z_$][\w$]*|\d+(\.\d+)?)$/.test(key) ? key : JSON.stringify(key);
+    return `${inner}${name}: ${printTree(value, inner)},\n`;
+  });
+  return `{\n${entries.join("")}${indent}}`;
+}
+
+/**
+ * packages/ui-native/src/tokens.ts: the same variables as plain data for React
+ * Native, per design (colors per scheme, the radius scale, the fonts) beside
+ * the type scale and spacing every design shares. Names are camelCase, without
+ * their group's prefix (`muted-foreground` → `colors.mutedForeground`,
+ * `radius-lg` → `radius.lg`).
+ */
+export function nativeTokensModule(tokensCss: string, globalsCss: string): string {
+  const variables = Object.entries(penVariables(tokensCss, globalsCss));
+  const pick = ({ value }: PenVariable, design: Design, mode?: Mode) =>
+    Array.isArray(value)
+      ? (value as Themed<string | number>).find(
+          ({ theme }) =>
+            theme.theme === design && (theme.mode === undefined || theme.mode === mode),
+        )!.value
+      : value;
+  const group = (prefix: string, design: Design): [string, Tree][] =>
+    variables
+      .filter(([name, variable]) => variable.type !== "color" && name.startsWith(prefix))
+      .map(([name, variable]) => [name.slice(prefix.length), pick(variable, design)]);
+  const colors = (design: Design, mode: Mode): [string, Tree][] =>
+    variables
+      .filter(([, variable]) => variable.type === "color")
+      .map(([name, variable]) => [
+        name.replace(/-(\w)/g, (_, letter: string) => letter.toUpperCase()),
+        pick(variable, design, mode),
+      ]);
+  const designs: [string, Tree][] = NATIVE_DESIGNS.map((design) => [
+    design,
+    [
+      [
+        "colors",
+        [
+          ["light", colors(design, "light")],
+          ["dark", colors(design, "dark")],
+        ],
+      ],
+      ["radius", group("radius-", design)],
+      ["fonts", group("font-", design)],
+    ],
+  ]);
+  return `${[
+    "// Generated from @otter/ui's tokens.css and globals.css by `pnpm design:tokens`: don't edit.",
+    [
+      'export type Scheme = "light" | "dark";',
+      "export type Design = keyof typeof designs;",
+      'export type Colors = (typeof designs)[Design]["colors"][Scheme];',
+    ].join("\n"),
+    `export const designs = ${printTree(designs)};`,
+    `export const text = ${printTree(group("text-", "otter"))};`,
+    `export const space = ${printTree(group("space-", "otter"))};`,
+  ].join("\n\n")}\n`;
 }

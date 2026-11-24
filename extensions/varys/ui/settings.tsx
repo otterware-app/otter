@@ -1,73 +1,28 @@
-import {
-  osNames,
-  searchableSetting,
-  useSetProvidersState,
-  type AgentSettingsProps,
-  type ProviderSnapshot,
-} from "@otter/web/extension-kit";
-import { toast } from "@otter/ui/components/toast";
-import { useState } from "react";
+import { osNames, searchableSetting, type AgentSettingsProps } from "@otter/web/extension-kit";
 import { Button } from "@otter/ui/components/button";
 
-import { varysApi } from "./api";
-import { VarysDeliveries, type RelayState } from "./deliveries";
+import { useVarysConnection } from "../shared/connect";
+import { VarysDeliveries } from "./deliveries";
 import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
 import { Input } from "@otter/ui/components/input";
 
 export function VarysSettings({ provider }: AgentSettingsProps) {
-  const setState = useSetProvidersState();
-  const [link, setLink] = useState("");
-  const [useCode, setUseCode] = useState(false);
-  const [address, setAddress] = useState("");
-  const [code, setCode] = useState("");
-  const [saving, setSaving] = useState(false);
-  const { address: savedAddress, relay } = provider.settings as ProviderSnapshot["settings"] & {
-    address: string;
-    relay: RelayState;
-  };
-  const connected = provider.status === "ready";
+  const {
+    settings: { address: savedAddress, relay },
+    connected,
+    link,
+    setLink,
+    useCode,
+    setUseCode,
+    address,
+    setAddress,
+    code,
+    setCode,
+    saving,
+    connect,
+    disconnect,
+  } = useVarysConnection(provider);
   const device = window.desktopBridge.platform === "web" ? "browser" : osNames.computer;
-
-  const disconnect = async () => {
-    setSaving(true);
-    try {
-      const { state, notice } = await varysApi.disconnectVarys(provider.id);
-      setState(state);
-      if (notice) toast.warning(notice);
-    } catch (error) {
-      toast.error(
-        `Could not disconnect: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const connect = async () => {
-    if (useCode ? !address.trim() || !code.trim() : !link.trim()) {
-      toast.error(
-        useCode ? "varys's address and the code are both required" : "Paste a pairing link",
-      );
-      return;
-    }
-    setSaving(true);
-    console.log("[Settings:connectVarys]", useCode ? "code" : "link");
-    try {
-      setState(
-        await varysApi.connectVarys(
-          provider.id,
-          useCode ? { address: address.trim(), code: code.trim() } : { link: link.trim() },
-        ),
-      );
-      setLink("");
-      setAddress("");
-      setCode("");
-    } catch (error) {
-      toast.error(`Could not connect: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <>

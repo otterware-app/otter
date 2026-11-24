@@ -1,7 +1,7 @@
 import { handle, setPlatform, registeredHandlers } from "@otter/core/extension-kit";
 import type { Platform } from "@otter/core/extension-kit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { registerTodoistHandlers } from "./handlers.js";
+import { registerTodoistHandlers } from "./handlers.ts";
 import {
   updateTodoistTask,
   addTodoistReminder,
@@ -15,12 +15,12 @@ import {
   todoistProjects,
   todoistStatus,
   todoistTasks,
-} from "./todoist.js";
+} from "./todoist.ts";
 
-vi.mock("../../../packages/core/src/services/account-store.js", () => ({
+vi.mock("../../../packages/core/src/services/account-store.ts", () => ({
   listAccounts: async () => [{ id: "me@example.com", email: "me@example.com" }],
 }));
-vi.mock("../../../packages/core/src/services/mail-store.js", () => ({
+vi.mock("../../../packages/core/src/services/mail-store.ts", () => ({
   getMessageLabelIds: (_account: string, id: string) => (id === "message-1" ? ["INBOX"] : null),
 }));
 

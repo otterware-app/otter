@@ -20,9 +20,9 @@ import {
 
 import { signInPage } from "@otter/shared/sign-in-page";
 
-import { appInfo } from "../backend-protocol.js";
-import { requestMain } from "../main-link.js";
-import { getCredentials } from "./credentials-store.js";
+import { appInfo } from "../backend-protocol.ts";
+import { requestMain } from "../main-link.ts";
+import { getCredentials } from "./credentials-store.ts";
 
 const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";

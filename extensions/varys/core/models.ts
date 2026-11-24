@@ -14,7 +14,7 @@ import type {
 } from "@generalpursuit/varys";
 import { logger, type ProviderModel, type ProviderModelOption } from "@otter/core/extension-kit";
 
-import type { VarysSettings } from "./settings.js";
+import type { VarysSettings } from "./settings.ts";
 
 const LEVELS: Record<ReasoningLevel, string> = {
   off: "Off",

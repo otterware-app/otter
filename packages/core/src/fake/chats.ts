@@ -6,14 +6,59 @@
 import { type AgentMutation, type AgentRecord, type ChatRecord } from "@otter/contracts/agent-sync";
 import { chatTabId, type ChatTab, type ChatTabRef, type ChatTurn } from "@otter/contracts/chats";
 
-import type { ProviderModel } from "../services/agent/types.js";
+import { DEMO_ACCOUNTS } from "@otter/shared/demo-mailboxes";
+
+import type {
+  ChatSessionMessage,
+  ProviderModel,
+  ProviderModelOption,
+} from "../services/agent/types.ts";
 
 export const DEMO_AGENTS = {
   brokk: "demo-brokk",
   rata: "demo-rata",
   studio: "demo-studio",
   varys: "demo-varys",
+  claude: "demo-claude",
 } as const;
+
+/** An OpenClaw gateway the account had and removed: its chats can move to Studio, which has one of their sessions. */
+const GONE = "demo-gone";
+
+/** A gateway's session for an Otter chat: its key names the gateway's agent it runs on. */
+export const gatewaySession = (agent: string, id: string) => `agent:${agent}:otter-mail:${id}`;
+
+/** The session Studio has of the removed gateway's chats: reconnecting it reads this. */
+export const STUDIO_SESSIONS: Record<string, ChatSessionMessage[]> = {
+  [gatewaySession("main", "demo-session-12")]: [
+    { role: "user", text: "Ask the Alfama venue whether they can hold the 15th for twelve." },
+    {
+      role: "assistant",
+      text: "I wrote to Casa do Fado's events team for the 15th, twelve people, lunch included. They answer by Friday.",
+    },
+  ],
+};
+
+/** Hermes's options for a model that reasons, as its /api/model/options capabilities give them. */
+const REASONING: ProviderModelOption = {
+  id: "reasoningEffort",
+  label: "Reasoning",
+  choices: [
+    { id: "", label: "Default", description: "Hermes' configured effort", isDefault: true },
+    { id: "none", label: "Off" },
+    { id: "low", label: "Low" },
+    { id: "medium", label: "Medium" },
+    { id: "high", label: "High" },
+  ],
+};
+const FAST: ProviderModelOption = {
+  id: "serviceTier",
+  label: "Service Tier",
+  choices: [
+    { id: "default", label: "Standard", isDefault: true },
+    { id: "priority", label: "Fast", description: "Priority processing, increased usage" },
+  ],
+};
 
 /** What each pretend agent offers to choose from. */
 export const DEMO_MODELS: Record<string, ProviderModel[]> = {
@@ -23,8 +68,9 @@ export const DEMO_MODELS: Record<string, ProviderModel[]> = {
       name: "claude-opus-5.5",
       subProvider: "Anthropic",
       isDefault: true,
+      options: [REASONING],
     },
-    { slug: "openai::gpt-5.5", name: "gpt-5.5", subProvider: "OpenAI" },
+    { slug: "openai::gpt-5.5", name: "gpt-5.5", subProvider: "OpenAI", options: [REASONING, FAST] },
   ],
   [DEMO_AGENTS.rata]: [{ slug: "hermes-agent", name: "hermes-agent", isDefault: true }],
   [DEMO_AGENTS.studio]: [
@@ -37,6 +83,14 @@ export const DEMO_MODELS: Record<string, ProviderModel[]> = {
 const WORK = "sam@acme.example";
 /** The Work mailbox's first thread (fake/gmail.ts numbers them in the seed's order). */
 const Q4_THREAD = "191000000000001";
+/** The Work mailbox's draft, as fake/gmail.ts numbers its messages: "Performance review — self assessment". */
+const REVIEW_DRAFT = (() => {
+  const messages = DEMO_ACCOUNTS[1]!.threads(0).flatMap((thread) => thread.messages);
+  return `r-191${(messages.findIndex((m) => m.draft) + 1).toString(16).padStart(12, "0")}`;
+})();
+
+/** The brokk chat that used and made the most: a scheduled task belongs to its session. */
+export const PLANNING_PACK_SESSION = "demo-session-14";
 
 /** A picture as you'd give an agent one: an emoji on a color. */
 const picture = (emoji: string, color: string) =>
@@ -82,6 +136,12 @@ export function seedAgents(now: number): AgentMutation[] {
         agentId: "varys",
         model: "",
       },
+    },
+    {
+      id: DEMO_AGENTS.claude,
+      kind: "claude",
+      name: "Claude",
+      settings: { enabled: true, model: "" },
     },
   ];
 
@@ -132,10 +192,13 @@ export function seedAgents(now: number): AgentMutation[] {
     provider: string;
     ago: number;
     turns: ChatTurn[];
+    /** On an OpenClaw gateway: the gateway's agent its session runs on. */
+    on?: string;
   })[] = [
     {
       title: "Plan the Lisbon offsite",
       provider: DEMO_AGENTS.studio,
+      on: "research",
       ago: 9 * DAY,
       pinnedAt: now - 8 * DAY,
       turns: [
@@ -164,6 +227,7 @@ export function seedAgents(now: number): AgentMutation[] {
     {
       title: "What do I owe Priya for Q4 planning?",
       provider: DEMO_AGENTS.studio,
+      on: "main",
       ago: 12 * MINUTE,
       turns: [
         user(
@@ -362,6 +426,136 @@ export function seedAgents(now: number): AgentMutation[] {
         ]),
       ],
     },
+    {
+      title: "Fix the flaky calendar sync test",
+      provider: DEMO_AGENTS.claude,
+      device: { id: "demo-mac", name: "Robin's MacBook Pro" },
+      ago: 4 * HOUR,
+      turns: [
+        user(
+          "12",
+          "The calendar sync test fails about one run in five. Find out why and fix it.",
+          now - 4 * HOUR,
+        ),
+        reply("12", now - 4 * HOUR, 186_000, [
+          {
+            kind: "command",
+            title: "Ran pnpm vitest run calendar-sync --repeat 20",
+            output: "4 failed, 16 passed",
+          },
+          { kind: "read", title: "Read packages/core/src/calendar/sync.test.ts", output: "" },
+          {
+            kind: "edit",
+            title: "Edited packages/core/src/calendar/sync.test.ts",
+            output: "+3 −2",
+          },
+          {
+            text: "The test built its events from today's date, so runs near midnight UTC crossed into the next day. It uses a fixed date now, and twenty runs in a row pass.",
+          },
+        ]),
+      ],
+    },
+    {
+      title: "Book the venue in Alfama",
+      provider: GONE,
+      on: "main",
+      ago: 3 * DAY,
+      turns: [
+        user(
+          "13",
+          "Ask the Alfama venue whether they can hold the 15th for twelve.",
+          now - 3 * DAY,
+        ),
+        reply("13", now - 3 * DAY, 41_000, [
+          {
+            text: "I wrote to Casa do Fado's events team for the 15th, twelve people, lunch included. They answer by Friday.",
+          },
+        ]),
+      ],
+    },
+    {
+      title: "Draft the visa letters",
+      provider: GONE,
+      on: "research",
+      ago: 6 * DAY,
+      settledAt: now - 5 * DAY,
+      turns: [
+        user(
+          "14",
+          "Draft invitation letters for the two people who need a visa for Lisbon.",
+          now - 6 * DAY,
+        ),
+        reply("14", now - 6 * DAY, 33_000, [
+          {
+            text: "Both letters are drafted on the company letterhead, with the dates, the hotel and who pays. They're in your Drafts for a signature.",
+          },
+        ]),
+      ],
+    },
+    {
+      title: "Get ready for Thursday's planning",
+      provider: DEMO_AGENTS.brokk,
+      ago: 50 * MINUTE,
+      turns: [
+        user(
+          "15",
+          "Get me ready for Thursday's Q4 planning: the hiring numbers, a chart, and finish my self assessment while you're at it.",
+          now - 50 * MINUTE,
+        ),
+        reply("15", now - 50 * MINUTE, 236_000, [
+          {
+            kind: "read",
+            title: "Read Q4 planning — draft agenda",
+            output: "3. Hiring plan (20 min)",
+            source: "Otter",
+          },
+          { kind: "web", title: "Opened levels.fyi", output: "200 OK" },
+          { kind: "web", title: "Opened acme.example/careers", output: "200 OK" },
+          {
+            kind: "command",
+            title: "Ran python3 scripts/headcount.py --hires 1 2 --chart",
+            output: "1 hire: €96k\n2 hires: €184k\nWrote headcount-chart.bmp",
+          },
+          { kind: "edit", title: "Updated your self assessment draft", output: "Saved." },
+          {
+            text: "You're ready for Thursday.\n\n- [The agenda notes](notes/q4-agenda.md), with the hiring plan as item 3\n- [The cost model](scripts/headcount.py), and [the line that sets the overhead](scripts/headcount.py:13)\n- [The chart](headcount-chart.bmp): two hires land offline search four weeks earlier\n- [The sync log](logs/sync.log) behind the latency numbers Tom will ask about\n- [The board deck](exports/board-deck.key) is Keynote, so open it on your Mac\n- [My scratch notes](/tmp/scratch.txt) didn't make it into the workspace\n\nI also finished the draft of your self assessment: it's in Drafts.",
+          },
+        ]),
+      ],
+      tabs: [
+        tab(
+          { kind: "thread", accountId: WORK, id: Q4_THREAD },
+          "Q4 planning — draft agenda",
+          now - 50 * MINUTE,
+        ),
+        tab({ kind: "page", url: "https://www.levels.fyi" }, "levels.fyi", now - 49 * MINUTE),
+        tab(
+          { kind: "page", url: "https://acme.example/careers" },
+          "Careers at Acme",
+          now - 49 * MINUTE,
+        ),
+        tab({ kind: "file", href: "notes/q4-agenda.md" }, "q4-agenda.md", now - 48 * MINUTE, true),
+        tab(
+          { kind: "file", href: "scripts/headcount.py" },
+          "headcount.py",
+          now - 48 * MINUTE,
+          true,
+        ),
+        tab(
+          { kind: "file", href: "headcount-chart.bmp" },
+          "headcount-chart.bmp",
+          now - 47 * MINUTE,
+          true,
+        ),
+        tab({ kind: "file", href: "logs/sync.log" }, "sync.log", now - 47 * MINUTE),
+        tab(
+          { kind: "draft", accountId: WORK, id: REVIEW_DRAFT },
+          "Performance review — self assessment",
+          now - 46 * MINUTE,
+          true,
+        ),
+      ],
+    },
   ];
 
   return [
@@ -371,15 +565,16 @@ export function seedAgents(now: number): AgentMutation[] {
       addedAt: now - 30 * DAY + i,
     })),
     { op: "select", id: DEMO_AGENTS.studio },
-    ...chats.flatMap(({ ago, turns, ...chat }, i): AgentMutation[] => {
+    ...chats.flatMap(({ ago, turns, on, ...chat }, i): AgentMutation[] => {
       const id = `demo-chat-${i + 1}`;
+      const session = `demo-session-${i + 1}`;
       const last = turns.at(-1)!;
       return [
         {
           op: "chat.set",
           chat: {
             id,
-            sessionId: `demo-session-${i + 1}`,
+            sessionId: on ? gatewaySession(on, session) : session,
             sessionOwned: true,
             lastResponseId: null,
             device: null,

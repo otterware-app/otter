@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { Dialog } from "@otter/ui/components/dialog";
 import { Text } from "@otter/ui/components/text";
-import { ipc } from "~/lib/ipc";
+import { ipc } from "@otter/client/bridge";
 import { toast } from "@otter/ui/components/toast";
 import { searchableSetting } from "../settings/settings-search";
 import { osNames } from "../os-names";

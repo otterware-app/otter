@@ -20,10 +20,10 @@ import {
 } from "@otter/contracts/agent-sync";
 import type { ChatTurn } from "@otter/contracts/chats";
 
-import { broadcast } from "../ipc.js";
-import { logger } from "../logger.js";
-import { platform, type SqlDatabase } from "../platform.js";
-import { getOtterUser, onOtterAccountChange, relayRequest, RelayError } from "./otter-account.js";
+import { broadcast } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { platform, type SqlDatabase } from "../platform.ts";
+import { getOtterUser, onOtterAccountChange, relayRequest, RelayError } from "./otter-account.ts";
 
 export const CHATS_CHANGED = "chats:changed";
 
@@ -99,6 +99,37 @@ export const deviceId = () => ownId("device");
 /** The id this device had before (its chats name it), kept. */
 export function keepDeviceId(id: string): void {
   setState("device", id);
+}
+
+/** Restore pending Swift edits under the same exchange client so the relay can deduplicate them. */
+export async function restoreAgentOutbox(
+  user: string,
+  read: (user: string) => Promise<string | null>,
+): Promise<void> {
+  const db = agentDb();
+  if (state("client") || state("swift-outbox") || db.prepare("SELECT 1 FROM agent_outbox").get())
+    return;
+  const raw = await read(user);
+  if (!raw) return;
+  const { client, sent, nextId, outbox } = JSON.parse(raw) as {
+    client: string;
+    sent: number;
+    nextId: number;
+    outbox: { id: number; mutation: AgentMutation }[];
+  };
+  if (!client || !Array.isArray(outbox) || outbox.length === 0) return;
+  const newest = Math.max(outbox.at(-1)!.id, sent, nextId - 1);
+  transaction(db, () => {
+    const insert = db.prepare("INSERT INTO agent_outbox (id, mutation) VALUES (?, ?)");
+    for (const { id, mutation } of outbox) insert.run(id, JSON.stringify(mutation));
+    db.prepare("UPDATE sqlite_sequence SET seq = max(seq, ?) WHERE name = 'agent_outbox'").run(
+      newest,
+    );
+    setState("user", user);
+    setState("client", client);
+    setState("sent", sent);
+    setState("swift-outbox", true);
+  });
 }
 
 /** What a message says: a reply's text is in its items, between its steps. */

@@ -5,9 +5,9 @@ vi.mock("electron", () => ({
   app: { isPackaged: true, getVersion: () => "1.0.0", getPath: () => "/nonexistent" },
 }));
 vi.mock("@sentry/electron/main", () => ({ init, IPCMode: { Classic: 1 } }));
-vi.mock("./logger.js", () => ({ reportLogsTo: vi.fn() }));
+vi.mock("./logger.ts", () => ({ reportLogsTo: vi.fn() }));
 
-const { reportedByBackend, startErrorReports } = await import("./error-reports.js");
+const { reportedByBackend, startErrorReports } = await import("./error-reports.ts");
 
 const windowError = (value: string) => ({
   exception: { values: [{ type: "Error", value }] },

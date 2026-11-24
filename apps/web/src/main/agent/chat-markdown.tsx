@@ -4,7 +4,8 @@ import remarkGfm from "remark-gfm";
 import { ImageIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@otter/ui/components/dialog";
 import { Spinner } from "@otter/ui/components/spinner";
-import { chatUrlTransform, isChatFileLink, isChatImageLink } from "./chat-links";
+import { isChatFileLink, isChatImageLink } from "@otter/client/agents/chat-links";
+import { chatUrlTransform } from "./chat-url";
 
 import { openLink } from "../browser/store";
 import { isModClick } from "../keybindings/keys";

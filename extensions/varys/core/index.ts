@@ -14,9 +14,9 @@ import {
 } from "@otter/core/extension-kit";
 
 import { manifest } from "../manifest.ts";
-import { registerRelay, removeRelay, revokeGrant } from "./relay.js";
-import type { VarysSettings } from "./settings.js";
-import { varysAgent, type VarysProvider } from "./varys.js";
+import { registerRelay, removeRelay, revokeGrant } from "./relay.ts";
+import type { VarysSettings } from "./settings.ts";
+import { varysAgent, type VarysProvider } from "./varys.ts";
 
 const str = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
 

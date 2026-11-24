@@ -1,7 +1,7 @@
 import { setPlatform } from "@otter/core/extension-kit";
 import type { Platform } from "@otter/core/extension-kit";
 import { beforeEach, afterEach, it, expect, vi } from "vite-plus/test";
-import { signInTodoist, todoistAccessToken, clearTodoistOAuth } from "./todoist-auth.js";
+import { signInTodoist, todoistAccessToken, clearTodoistOAuth } from "./todoist-auth.ts";
 const secrets = new Map<string, string>();
 const fetchMock = vi.fn<typeof fetch>();
 let callbackState: "valid" | "wrong" | "denied" = "valid";

@@ -7,29 +7,40 @@
  * works.
  * Development only: both shells import this lazily, behind their dev switch.
  */
-import type { Platform } from "../platform.js";
-import { SESSION_SECRET } from "../services/otter-account.js";
-import { demoGoogleAuth, installFakeGmail } from "./gmail.js";
-import { demoMicrosoftAuth, installFakeOutlook } from "./outlook.js";
-import { DEMO_USER, FAKE_RELAY_URL, installFakeRelay } from "./relay.js";
+import type { Platform } from "../platform.ts";
+import { SESSION_SECRET } from "../services/otter-account.ts";
+import { demoGoogleAuth, installFakeGmail } from "./gmail.ts";
+import { demoMicrosoftAuth, installFakeOutlook } from "./outlook.ts";
+import {
+  DEMO_ID_TOKEN,
+  DEMO_USER,
+  FAKE_RELAY_URL,
+  installFakeRelay,
+  startSignedIn,
+} from "./relay.ts";
 
 export { FAKE_RELAY_URL };
-export { withFakeAgents } from "./agent.js";
+export { withFakeAgents } from "./agent.ts";
 /** For tests that drive one service alone. */
 export { demoMicrosoftAuth, installFakeOutlook };
 
-/** Wraps `fetch` with the fakes and returns `platform` signed in to them. */
+/** Wraps fetch with the fake services and returns the platform signed in to them. */
 export async function withFakeServices(platform: Platform): Promise<Platform> {
   await installFakeGmail(platform.files);
   await installFakeOutlook(platform.files);
   await installFakeRelay(platform.files);
-  // A browser's session is its cookie: the made-up relay answers who it is.
-  if (platform.relaySession !== "cookie" && !(await platform.secrets.get(SESSION_SECRET))) {
-    await platform.secrets.set(SESSION_SECRET, JSON.stringify({ token: "demo", user: DEMO_USER }));
+  // A browser's session is its cookie: the made-up relay answers who it is, and stays signed out.
+  if (platform.relaySession !== "cookie") {
+    startSignedIn();
+    if (!(await platform.secrets.get(SESSION_SECRET)))
+      await platform.secrets.set(
+        SESSION_SECRET,
+        JSON.stringify({ token: "demo", user: DEMO_USER }),
+      );
   }
   return {
     ...platform,
-    google: demoGoogleAuth(),
+    google: { ...demoGoogleAuth(), signInForIdToken: async () => DEMO_ID_TOKEN },
     microsoft: demoMicrosoftAuth(),
     relayUrl: FAKE_RELAY_URL,
     connect: () => Promise.reject(new Error("The made-up mailbox can't connect to mail servers.")),

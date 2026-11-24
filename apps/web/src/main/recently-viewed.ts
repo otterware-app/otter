@@ -7,20 +7,21 @@
  */
 
 import { useEffect, useSyncExternalStore } from "react";
-import { getAccountDisplayName } from "./mail/account-style";
-import { senderLabel } from "./mail/address";
+import { getAccountDisplayName } from "@otter/client/mail/account-style";
+import { senderLabel } from "@otter/client/mail/address";
 import { workspaceOf } from "./extensions/workspaces";
-import { CALENDAR_SPACE, CHATS_SPACE, isViewSpaceId } from "./mail/spaces";
+import { CALENDAR_SPACE, CHATS_SPACE } from "@otter/client/places";
+import { isViewSpaceId } from "./mail/spaces";
 import { SCHEDULED_TASKS } from "./agent/agent-scheduled";
-import { SEARCH_MAILBOX } from "./mail/gmail-query";
-import { useLabels, useMessage } from "./mail/hooks";
-import { isBlank, useChats } from "./agent/chat-store";
-import { folderName, labelDisplayName } from "./mail/label-names";
-import { capabilitiesOf } from "./mail/capabilities";
-import type { AliasMailboxEntry } from "./mail/alias-mailboxes";
-import type { MailAccount, MailView } from "./mail/types";
-import type { SettingsPane } from "./mail/api";
+import { SEARCH_MAILBOX } from "@otter/client/mail/gmail-query";
+import { useLabels, useMessage } from "@otter/client/mail/hooks";
+import { isBlank, useChats } from "@otter/client/agents/chat-store";
+import { folderName, labelDisplayName } from "@otter/client/mail/label-names";
+import { capabilitiesOf } from "@otter/client/mail/capabilities";
+import type { AliasMailboxEntry } from "@otter/client/mail/alias-mailboxes";
+import type { MailAccount, MailView } from "@otter/client/mail/types";
 import { SETTINGS_SECTION_LABELS } from "./settings/settings-search";
+import type { SettingsPane } from "./app-api";
 
 export type RecentIcon =
   | "inbox"

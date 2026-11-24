@@ -1,13 +1,13 @@
 import { GMAIL_CAPABILITIES, GMAIL_SETTINGS_PERMISSION } from "@otter/contracts";
 
-import { SIGNED_OUT_MESSAGE } from "../../google.js";
-import { platform } from "../../platform.js";
-import type { MailProvider } from "../provider.js";
-import * as api from "./api.js";
-import * as calendar from "./calendar.js";
-import { inTier, isCoolingDown } from "./quota.js";
-import { backfillGmail, forgetGmailSync, needsBackfill, syncGmail } from "./sync.js";
-import { renewWatch } from "./watch.js";
+import { SIGNED_OUT_MESSAGE } from "../../google.ts";
+import { platform } from "../../platform.ts";
+import type { MailProvider } from "../provider.ts";
+import * as api from "./api.ts";
+import * as calendar from "./calendar.ts";
+import { inTier, isCoolingDown } from "./quota.ts";
+import { backfillGmail, forgetGmailSync, needsBackfill, syncGmail } from "./sync.ts";
+import { renewWatch } from "./watch.ts";
 
 export const gmailProvider: MailProvider = {
   kind: "gmail",

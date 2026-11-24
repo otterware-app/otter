@@ -1,54 +1,19 @@
 import { Command, searchableSetting } from "@otter/web/extension-kit";
-import { toast } from "@otter/ui/components/toast";
-import { useCallback, useEffect, useState } from "react";
+import { channelLastSent, useAgentChannels } from "@otter/client/agents/agent-channels";
 import { Button } from "@otter/ui/components/button";
 
-import { channelApi, type AgentChannel } from "./api";
+import { deliveryCommands } from "../shared/connect";
 import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
-
-export const PLUGIN_INSTALL =
-  "hermes plugins install otterware-app/otter/extensions/hermes/gateway --enable --yes-deps";
 
 /**
  * Lets this Hermes send to Otter, as one of its platforms (extensions/hermes/gateway), with a
  * channel named for it.
  */
 export function HermesDeliveries({ name }: { name: string }) {
-  const [channels, setChannels] = useState<AgentChannel[] | null>(null);
-  const [made, setMade] = useState<{ token: string; relayUrl: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [signedOut, setSignedOut] = useState(false);
-
-  const load = useCallback(
-    () =>
-      channelApi.list().then(
-        ({ channels }) => setChannels(channels.filter((c) => c.label === name)),
-        () => setSignedOut(true),
-      ),
-    [name],
+  const { channels, made, busy, signedOut, make, remove } = useAgentChannels(
+    name,
+    (c) => c.label === name,
   );
-  useEffect(() => void load(), [load]);
-
-  const make = async () => {
-    setBusy(true);
-    try {
-      setMade(await channelApi.make(name));
-      await load();
-    } catch (error) {
-      toast.error(`Could not set it up: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async (id: string) => {
-    try {
-      await channelApi.remove(id);
-      await load();
-    } catch (error) {
-      toast.error(`Could not remove it: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  };
 
   return (
     <SettingsSection
@@ -67,11 +32,7 @@ export function HermesDeliveries({ name }: { name: string }) {
             <SettingsRow
               key={c.id}
               title={c.label}
-              description={
-                c.lastUsedAt
-                  ? `Last sent ${new Date(c.lastUsedAt).toLocaleString()}`
-                  : "Nothing sent yet"
-              }
+              description={channelLastSent(c)}
               control={
                 <Button size="sm" onClick={() => void remove(c.id)}>
                   Remove
@@ -84,10 +45,9 @@ export function HermesDeliveries({ name }: { name: string }) {
               title="Run these where Hermes runs"
               description="The token is shown only now. Then a scheduled task can send its results to Otter (deliver: otter), and Hermes can message you here."
             >
-              <Command value={PLUGIN_INSTALL} />
-              <Command value={`hermes config set OTTER_RELAY_URL ${made.relayUrl}`} />
-              <Command value={`hermes config set OTTER_CHANNEL_TOKEN ${made.token}`} />
-              <Command value="hermes gateway restart" />
+              {deliveryCommands(made).map((command) => (
+                <Command key={command} value={command} />
+              ))}
             </SettingsRow>
           ) : (
             <SettingsRow

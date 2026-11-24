@@ -1,6 +1,6 @@
-import { readJson, writeJson } from "../json-file.js";
-import { platform } from "../platform.js";
-import { getSettings } from "./settings-store.js";
+import { readJson, writeJson } from "../json-file.ts";
+import { platform } from "../platform.ts";
+import { getSettings } from "./settings-store.ts";
 
 export type ErrorReportsConfig = { available: boolean; enabled: boolean; reportId: string };
 

@@ -1,4 +1,4 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["manifest.ts", "core"]
+  "include": ["manifest.ts", "core", "shared"]
 }

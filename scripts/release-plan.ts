@@ -24,6 +24,10 @@ const NAMES: Record<App, string> = {
 const NOT_DESKTOP = [
   "apps/ios/",
   "apps/ios-agents/",
+  "apps/agents-mobile/",
+  "apps/mail-mobile/",
+  "packages/mobile/",
+  "packages/ui-native/",
   "infra/",
   "docs/",
   "changelog/",
@@ -32,25 +36,39 @@ const NOT_DESKTOP = [
 ];
 const IOS_SCRIPTS = ["scripts/export-ios-resources.ts", "scripts/release-ios.ts"];
 const IPHONE = ["apps/ios/", "packages/shared/", ...IOS_SCRIPTS];
-// Otter Agents compiles Otter Mail's themes and MailContext, and bundles its resources.
 const AGENTS = [
-  "apps/ios-agents/",
-  "apps/ios/OtterMail/Agent/",
-  "apps/ios/OtterMail/Theme/",
-  "apps/ios/OtterMail/Resources/",
-  "apps/ios/OtterMail/Settings/Licenses.swift",
-  ...IOS_SCRIPTS,
+  "apps/agents-mobile/",
+  "packages/client/",
+  "packages/contracts/",
+  "packages/core/",
+  "packages/mobile/",
+  "packages/shared/",
+  "packages/ui-native/",
+  "extensions/claude/mobile/",
+  "extensions/claude/shared/",
+  "extensions/codex/mobile/",
+  "extensions/codex/shared/",
+  "extensions/hermes/",
+  "extensions/openclaw/",
+  "extensions/varys/",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "scripts/release-ios.ts",
 ];
 
 const within = (file: string, paths: readonly string[]) =>
   paths.some((path) => (path.endsWith("/") ? file.startsWith(path) : file === path));
+
+// An extension's ./mobile half is built into the Expo apps alone.
+const MOBILE_HALF = /^extensions\/[^/]+\/mobile\//;
 
 // A README is about the code beside it, and in no app.
 const README = /(^|\/)README\.md$/;
 
 export function ships(app: App, files: readonly string[]): boolean {
   const built = files.filter((file) => !README.test(file));
-  if (app === "desktop") return built.some((file) => !within(file, NOT_DESKTOP));
+  if (app === "desktop")
+    return built.some((file) => !within(file, NOT_DESKTOP) && !MOBILE_HALF.test(file));
   return built.some((file) => within(file, app === "iphone" ? IPHONE : AGENTS));
 }
 
