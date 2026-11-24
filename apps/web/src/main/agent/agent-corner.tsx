@@ -50,8 +50,7 @@ const GAP = 4;
 let radius: { design: string; px: number } | null = null;
 
 /** The cards' corner radius (rounded-xl): Otter's 12, or what the theme's design sets. */
-function cardRadius(): number {
-  const design = document.documentElement.getAttribute("data-design");
+function cardRadius(design: string | null): number {
   if (!design) return 12;
   if (radius?.design !== design) {
     const probe = document.createElement("div");
@@ -63,8 +62,8 @@ function cardRadius(): number {
   return radius.px;
 }
 
-function notchShape(width: number, height: number) {
-  const R = cardRadius();
+function notchShape(width: number, height: number, design: string | null) {
+  const R = cardRadius(design);
   const w = width + 2 * GAP + R;
   const h = height + 2 * GAP + R;
   const bottom = h - GAP - 0.5;
@@ -99,8 +98,8 @@ export function Notch({
   height?: number;
   ref?: RefObject<SVGSVGElement | null>;
 }) {
-  useThemeDesign();
-  const shape = width != null && height != null ? notchShape(width, height) : null;
+  const design = useThemeDesign() ?? null;
+  const shape = width != null && height != null ? notchShape(width, height, design) : null;
   const svgRef = useRef<SVGSVGElement>(null);
   useLayoutEffect(() => {
     const svg = svgRef.current;
@@ -131,8 +130,13 @@ export function Notch({
   );
 }
 
-export function drawNotch(svg: SVGSVGElement, width: number, height: number) {
-  const { w, h, edge, fill } = notchShape(width, height);
+export function drawNotch(
+  svg: SVGSVGElement,
+  width: number,
+  height: number,
+  design: string | null,
+) {
+  const { w, h, edge, fill } = notchShape(width, height, design);
   setClearance(svg, height);
   svg.setAttribute("width", String(w));
   svg.setAttribute("height", String(h));
