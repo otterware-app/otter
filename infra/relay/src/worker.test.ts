@@ -1517,6 +1517,41 @@ describe("agent sync", () => {
     });
   });
 
+  it("keeps agents' margin notes, answered once", async () => {
+    const { token } = await signIn("agent-sync-notes@example.com");
+    const note = {
+      id: "n_1",
+      agentId: "hermes-1",
+      target: { kind: "thread" as const, accountId: "robin@example.com", threadId: "t1" },
+      kind: "draft" as const,
+      text: "Say yes to Saturday.",
+      action: { label: "Draft reply", prompt: "Draft a yes." },
+      state: "open" as const,
+      createdAt: 1_000,
+    };
+    await sync(token, [
+      { op: "note.set", note },
+      { op: "note.state", id: "n_1", state: "accepted" },
+      { op: "note.state", id: "n_1", state: "dismissed" },
+    ]);
+    expect((await entries(token))["note/n_1"]).toEqual({ ...note, state: "accepted" });
+    await sync(token, [{ op: "note.remove", id: "n_1" }]);
+    expect((await entries(token))["note/n_1"]).toBeNull();
+
+    const post = (mutation: unknown) =>
+      call("POST", "/v1/agent-sync", token, {
+        client: "device-a",
+        since: 0,
+        mutations: [{ id: ++next, mutation }],
+      });
+    expect((await post({ op: "note.set", note: { ...note, kind: "rant" } })).status).toBe(400);
+    expect((await post({ op: "note.state", id: "n_1", state: "open" })).status).toBe(400);
+    expect(
+      (await post({ op: "note.set", note: { ...note, target: { kind: "day", date: "today" } } }))
+        .status,
+    ).toBe(400);
+  });
+
   it("tells the account's other devices, not the one that wrote", async () => {
     const { token } = await signIn("agent-sync-multi@example.com", "agent-sync-multi-sub");
     const other = await signIn("agent-sync-multi@example.com", "agent-sync-multi-sub");

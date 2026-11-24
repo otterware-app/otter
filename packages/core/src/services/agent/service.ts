@@ -473,6 +473,59 @@ export async function sendTurn(id: AgentId, turn: SendTurnInput): Promise<void> 
   });
 }
 
+/** The agent new chats start with, without checking on any: null when none is usable. */
+export async function selectedAgent(): Promise<AgentId | null> {
+  return selectedOf(await getProviderSettings(), await runnable());
+}
+
+/**
+ * A one-off question to an agent, outside any chat: its answer's text. A run that asks for an
+ * approval or a question is stopped (nobody is there to answer), and the session it made is
+ * deleted after, so it isn't listed among the agent's.
+ */
+export async function askAgent(
+  id: AgentId,
+  input: string,
+  timeoutMs = 3 * 60_000,
+): Promise<string> {
+  const { provider, settings } = await agentOf(id);
+  if (!settings.enabled) throw new Error("This agent is turned off.");
+  const requestId = crypto.randomUUID();
+  const messages = new Map<string, string>();
+  let sessionId = null as string | null;
+  try {
+    return await new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => stop(new Error("The agent took too long.")), timeoutMs);
+      const stop = (error: Error) => {
+        clearTimeout(timer);
+        provider.cancel(requestId);
+        reject(error);
+      };
+      const listen = (event: ChatEvent) => {
+        if (event.type === "session") sessionId = event.sessionId;
+        else if (event.type === "delta")
+          messages.set(event.id ?? "", (messages.get(event.id ?? "") ?? "") + event.text);
+        else if (event.type === "text") messages.set(event.id, event.text);
+        else if (event.type === "approval" || event.type === "question")
+          stop(new Error("The agent asked for something while writing notes."));
+        else if (event.type === "error") stop(new Error(event.message));
+        else if (event.type === "done") {
+          clearTimeout(timer);
+          resolve([...messages.values()].join("\n"));
+        }
+      };
+      provider.sendTurn({ requestId, input }, settings, listen).catch(stop);
+    });
+  } finally {
+    if (sessionId)
+      void provider
+        .deleteSession(settings, sessionId)
+        .catch((error: unknown) =>
+          logger.info("agent", "couldn't delete a one-off session", { id, error: String(error) }),
+        );
+  }
+}
+
 export async function resumeTurn(id: AgentId, turn: ResumeTurnInput): Promise<boolean> {
   const { provider, settings } = await agentOf(id);
   if (!provider.resume || !settings.enabled) return false;

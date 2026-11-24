@@ -26,6 +26,7 @@ import { platform, type SqlDatabase } from "../platform.js";
 import { getOtterUser, onOtterAccountChange, relayRequest, RelayError } from "./otter-account.js";
 
 export const CHATS_CHANGED = "chats:changed";
+export const NOTES_CHANGED = "notes:changed";
 
 /** What a change touched: each entry as it was before (to tell what really changed), and secrets to write. */
 type Touched = {
@@ -196,6 +197,7 @@ async function settle(db: SqlDatabase, touched: Touched, remote: boolean): Promi
   const chats = new Set<string>();
   const agents = new Set<string>();
   let selected = false;
+  let notes = false;
   const read = db.prepare("SELECT value FROM agent_entries WHERE key = ?");
   for (const [key, before] of touched.before) {
     const row = read.get(key);
@@ -204,6 +206,7 @@ async function settle(db: SqlDatabase, touched: Touched, remote: boolean): Promi
     const [kind, id] = segments(key);
     if (kind === "chat" || kind === "turn") chats.add(id!);
     else if (kind === "selected") selected = true;
+    else if (kind === "note") notes = true;
     else agents.add(id!);
   }
   for (const [key, value] of touched.secrets) {
@@ -221,6 +224,7 @@ async function settle(db: SqlDatabase, touched: Touched, remote: boolean): Promi
     }
   }
   if (chats.size > 0) broadcast(CHATS_CHANGED, { ids: [...chats] });
+  if (notes) broadcast(NOTES_CHANGED, {});
   if (remote && (agents.size > 0 || selected))
     for (const listener of agentListeners) listener({ agents, selected });
 }
@@ -336,8 +340,11 @@ export function entries<T>(prefix: string): { key: string; value: T }[] {
     .map((row) => ({ key: String(row.key), value: JSON.parse(String(row.value)) as T }));
 }
 
-// The windows show the account's chats, or none without it.
-onOtterAccountChange(() => broadcast(CHATS_CHANGED, { ids: [] }));
+// The windows show the account's chats and notes, or none without it.
+onOtterAccountChange(() => {
+  broadcast(CHATS_CHANGED, { ids: [] });
+  broadcast(NOTES_CHANGED, {});
+});
 
 /** Whose account the copy is: another's signing in starts it over. */
 async function adoptAccount(): Promise<boolean> {

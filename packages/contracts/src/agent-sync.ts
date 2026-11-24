@@ -13,9 +13,11 @@
  *   selected                      the agent new chats start with
  *   chat/<id>                     ChatRecord: a chat without its turns
  *   turn/<chat>/<id>              TurnRecord: one of its turns, where it sits
+ *   note/<id>                     MarginNote: what an agent wrote in the margin (margin-notes.ts)
  */
 
 import type { Chat, ChatTurn } from "./chats.js";
+import type { MarginNote, NoteState } from "./margin-notes.js";
 
 export interface AgentRecord {
   id: string;
@@ -68,7 +70,12 @@ export type AgentMutation =
        * removed one stays removed.
        */
       imported?: true;
-    };
+    }
+  /** Writes the note once: a note already written, or removed, stays as it is. */
+  | { op: "note.set"; note: MarginNote }
+  /** Accepts or dismisses an open note: the first to answer it wins. */
+  | { op: "note.state"; id: string; state: Exclude<NoteState, "open"> }
+  | { op: "note.remove"; id: string };
 
 export interface AgentChange {
   key: string;
@@ -109,6 +116,7 @@ export const secretKey = (agent: string, name: string) => `secret/${agent}/${nam
 export const SELECTED_KEY = "selected";
 export const chatKey = (id: string) => `chat/${id}`;
 export const turnKey = (chat: string, id: string) => `turn/${chat}/${id}`;
+export const noteKey = (id: string) => `note/${id}`;
 /** Every key under `prefix` sorts between it and this. */
 export const prefixEnd = (prefix: string) =>
   `${prefix.slice(0, -1)}${String.fromCharCode(prefix.charCodeAt(prefix.length - 1) + 1)}`;
@@ -279,6 +287,24 @@ export function applyMutation(store: AgentStore, mutation: AgentMutation): void 
           } satisfies TurnRecord);
         else if (before && before.position !== position) store.set(key, { ...before, position });
       });
+      return;
+    }
+    case "note.set": {
+      const key = noteKey(mutation.note.id);
+      if (store.get(key) !== undefined) return;
+      store.set(key, { ...mutation.note, state: "open" } satisfies MarginNote);
+      return;
+    }
+    case "note.state": {
+      const key = noteKey(mutation.id);
+      const current = store.get(key);
+      if (!isObject(current) || current.state !== "open") return;
+      store.set(key, { ...(current as unknown as MarginNote), state: mutation.state });
+      return;
+    }
+    case "note.remove": {
+      if (store.get(noteKey(mutation.id)) == null) return;
+      store.set(noteKey(mutation.id), null);
       return;
     }
   }

@@ -684,6 +684,32 @@ const turn = z.looseObject({
   role: z.enum(["user", "assistant"]),
   text: z.string(),
 });
+const noteTarget = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("thread"),
+    accountId: z.string().max(320),
+    threadId: z.string().max(512),
+  }),
+  z.object({
+    kind: z.literal("event"),
+    calendarId: z.string().max(512),
+    eventId: z.string().max(1024),
+  }),
+  z.object({ kind: z.literal("task"), agentId: id, taskId: z.string().max(512) }),
+  z.object({ kind: z.literal("day"), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
+]);
+const note = z.object({
+  id,
+  agentId: id,
+  target: noteTarget,
+  kind: z.enum(["summary", "draft", "question", "done"]),
+  text: z.string().min(1).max(2000),
+  action: z
+    .object({ label: z.string().min(1).max(60), prompt: z.string().min(1).max(4000) })
+    .optional(),
+  state: z.enum(["open", "accepted", "dismissed"]),
+  createdAt: timestamp,
+});
 const mutation = z.discriminatedUnion("op", [
   z.object({
     op: z.literal("agent.set"),
@@ -717,6 +743,9 @@ const mutation = z.discriminatedUnion("op", [
     removed: z.array(z.string().max(200)).max(20_000).optional(),
     imported: z.literal(true).optional(),
   }),
+  z.object({ op: z.literal("note.set"), note }),
+  z.object({ op: z.literal("note.state"), id, state: z.enum(["accepted", "dismissed"]) }),
+  z.object({ op: z.literal("note.remove"), id }),
 ]);
 
 authed.post(

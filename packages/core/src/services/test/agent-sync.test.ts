@@ -7,6 +7,7 @@ import {
   type AgentSyncResponse,
 } from "@otter/contracts/agent-sync";
 import type { Chat, ChatTurn } from "@otter/contracts/chats";
+import type { MarginNote } from "@otter/contracts/margin-notes";
 
 /** The relay, as infra/relay keeps it: an entry per key, numbered by the write that last changed it. */
 const relay = {
@@ -101,6 +102,18 @@ vi.mock("../../extensions.js", () => ({
     ]),
 }));
 
+/** Notes start chats with the agents this device has (settings.ts's), and ask none here. */
+vi.mock("../agent/service.js", () => {
+  const agents = async () =>
+    (await (await import("../agent/settings.ts")).getProviderSettings()).agents;
+  return {
+    hasAgent: async (id: string) => (await agents()).some((a) => a.id === id),
+    selectedAgent: async () => (await agents())[0]?.id ?? null,
+    askAgent: async () => "[]",
+    listScheduledTasks: async () => [],
+  };
+});
+
 /** A device of the account: its own database, secrets and files, and its own copy of core. */
 async function device(files = new Map<string, string>(), database = new DatabaseSync(":memory:")) {
   vi.resetModules();
@@ -133,6 +146,7 @@ async function device(files = new Map<string, string>(), database = new Database
     chats: await import("../chats.ts"),
     settings: await import("../agent/settings.ts"),
     local: await import("../agent/local-import.ts"),
+    notes: await import("../margin-notes.ts"),
   };
 }
 
@@ -541,5 +555,89 @@ describe("agent sync", () => {
     expect((await web.chats.getChat("old"))?.provider).toBe("oc");
     // No agent of that kind: it waits for one.
     expect((await web.chats.getChat("gone"))?.provider).toBe("codex");
+  });
+});
+
+const note = (id: string, patch: Partial<MarginNote> = {}): MarginNote => ({
+  id,
+  agentId: "hermes-1",
+  target: { kind: "thread", accountId: "robin@example.com", threadId: `t-${id}` },
+  kind: "summary",
+  text: "Maya says see you at 7.",
+  state: "open",
+  createdAt: 10,
+  ...patch,
+});
+
+describe("margin notes", () => {
+  it("gives another device the notes written, and tells its windows", async () => {
+    const mac = await device();
+    const web = await device();
+    await mac.sync.mutate([
+      { op: "note.set", note: note("n1") },
+      { op: "note.set", note: note("n2", { createdAt: 20 }) },
+    ]);
+    expect(mac.broadcasts).toContainEqual(["notes:changed", {}]);
+    await mac.sync.syncAgentData();
+    await web.sync.syncAgentData();
+
+    expect(web.broadcasts).toContainEqual(["notes:changed", {}]);
+    expect(web.notes.listNotes().map((n) => n.id)).toEqual(["n2", "n1"]);
+    expect(
+      web.notes
+        .listNotes([{ kind: "thread", accountId: "robin@example.com", threadId: "t-n1" }])
+        .map((n) => n.id),
+    ).toEqual(["n1"]);
+  });
+
+  it("dismisses a note on every device, once", async () => {
+    const mac = await device();
+    const web = await device();
+    await mac.sync.mutate([{ op: "note.set", note: note("n1") }]);
+    await mac.sync.syncAgentData();
+    await web.sync.syncAgentData();
+
+    await web.notes.dismissNote("n1");
+    expect(web.notes.listNotes()).toEqual([]);
+    await expect(web.notes.dismissNote("n1")).rejects.toThrow("no longer there");
+    await web.sync.syncAgentData();
+    await mac.sync.syncAgentData();
+    expect(mac.notes.listNotes()).toEqual([]);
+    expect(relay.entries.get("note/n1")?.value).toMatchObject({ state: "dismissed" });
+  });
+
+  it("accepts a note: the chat its action starts, with an agent this device has", async () => {
+    const mac = await device();
+    await mac.settings.saveProviderSettings({
+      selected: "oc",
+      agents: [{ id: "oc", kind: "openclaw", name: "Claw", settings: { enabled: true } as never }],
+    });
+    await mac.sync.mutate([
+      {
+        op: "note.set",
+        note: note("n1", {
+          kind: "question",
+          target: { kind: "day", date: "2026-11-24" },
+          action: { label: "Plan it", prompt: "Plan my afternoon." },
+        }),
+      },
+      { op: "note.set", note: note("n2") },
+    ]);
+
+    expect(await mac.notes.acceptNote("n1")).toEqual({
+      agentId: "oc",
+      prompt: "Plan my afternoon.",
+      title: "Plan it",
+      about: "About the day, 2026-11-24.",
+    });
+    expect(await mac.notes.acceptNote("n2")).toBeNull();
+    expect(mac.notes.listNotes()).toEqual([]);
+  });
+
+  it("has no notes without an Otter account", async () => {
+    const mac = await device();
+    await mac.sync.mutate([{ op: "note.set", note: note("n1") }]);
+    account.user = null;
+    expect(mac.notes.listNotes()).toEqual([]);
   });
 });

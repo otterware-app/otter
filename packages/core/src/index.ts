@@ -3,6 +3,7 @@ import { registerCalendarHandlers } from "./handlers/calendar.js";
 import { registerConnectionHandlers } from "./handlers/connections.js";
 import { registerChatHandlers } from "./handlers/chats.js";
 import { registerMailHandlers } from "./handlers/mail.js";
+import { registerNoteHandlers } from "./handlers/notes.js";
 import { registerImapAccountHandlers } from "./handlers/imap-accounts.js";
 import { registerOutlookAccountHandlers } from "./handlers/outlook-accounts.js";
 import { registerOtterAccountHandlers } from "./handlers/otter-account.js";
@@ -30,6 +31,7 @@ import { refreshProfiles } from "./services/google-profile.js";
 import { startCalendarReminders } from "./services/calendar-reminders.js";
 import { startCalendarSync } from "./services/calendar-sync.js";
 import { startMailSchedule } from "./services/mail-schedule.js";
+import { startMarginNotes } from "./services/margin-notes.js";
 import { refreshSignatures } from "./services/signatures.js";
 
 export async function startCore(
@@ -51,6 +53,7 @@ export async function startCore(
   registerOtterAccountHandlers();
   registerAgentHandlers();
   registerChatHandlers();
+  registerNoteHandlers();
   registerCalendarHandlers();
   registerConnectionHandlers();
   registerSupportHandlers();
@@ -90,6 +93,7 @@ export async function startCore(
   configureAutoSync((await getSettings()).syncIntervalSeconds);
   startCalendarSync();
   startCalendarReminders();
+  startMarginNotes();
   void pruneAttachmentCache();
   void refreshSignatures();
   void refreshProfiles();

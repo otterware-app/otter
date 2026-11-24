@@ -4,6 +4,7 @@
  * every part of a chat can be tried without an agent. "ask" or "plan" asks questions first; "send",
  * "run" or "approve" asks before a step; "fail" fails; "take your time" takes its time. A steer is
  * read after the step running when it's sent; one still unread when the run ends comes back.
+ * Asked for margin notes, it writes them (notes.ts).
  */
 import type { CoreExtension } from "../extensions.js";
 import { chatFile } from "../services/agent/files.js";
@@ -16,6 +17,7 @@ import type {
   ToolStep,
 } from "../services/agent/types.js";
 import { DEMO_MODELS } from "./chats.js";
+import { scriptedNotes } from "./notes.js";
 import { scriptedSchedules } from "./schedules.js";
 
 /** Each kind of agent the extensions bring, run by the script. */
@@ -121,6 +123,11 @@ function scriptedAgent(id: string): ChatProvider<AgentSettings> {
       emit({ requestId, type: "session", sessionId: `demo-${requestId.slice(0, 8)}` });
     const text = input.input.toLowerCase();
     if (!(await pause(500))) return false;
+    const notes = scriptedNotes(input.input);
+    if (notes !== null) {
+      emit({ requestId, type: "text", id: "notes", text: notes });
+      return true;
+    }
     if (text.includes("fail")) {
       emit({
         requestId,

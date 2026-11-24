@@ -6,7 +6,8 @@
  * (agent-sync.ts: `note/<id>`), so every device shows the same ones.
  *
  * Handlers: `notes:list` ({ targets?: NoteTarget[] }) → MarginNote[] (open ones, newest first),
- * `notes:accept` ({ id }), `notes:dismiss` ({ id }); `notes:changed` is broadcast when they change.
+ * `notes:accept` ({ id }) → NoteChat | null, `notes:dismiss` ({ id }); `notes:changed` is
+ * broadcast when they change.
  */
 
 export type NoteTarget =
@@ -33,6 +34,26 @@ export interface MarginNote {
   action?: { label: string; prompt: string };
   state: NoteState;
   createdAt: number;
+}
+
+/**
+ * What accepting a note with an action starts: a chat with `agentId`, asked `prompt` about the
+ * note's target (`thread`, as a chat about a conversation is; else `about`, a line saying what it
+ * is). Chats run in the windows, so the window that accepted starts it.
+ */
+export interface NoteChat {
+  agentId: string;
+  prompt: string;
+  title: string;
+  thread?: {
+    account: string;
+    accountId: string;
+    threadId: string;
+    subject: string;
+    from: string;
+    messageIds: string[];
+  };
+  about?: string;
 }
 
 /** One key per target, for maps and the store. */
