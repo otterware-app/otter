@@ -45,17 +45,19 @@ The simulator comparison covers the Swift and Expo inbox, reader, and reply shee
 and dark. The Expo branch adds native Photos and Translation, on-device draft recovery,
 and background notification setup.
 
-Two iPhone 18 Pro simulator Release runs scrolled through the 50,000-message Gmail fixture.
-The first row appeared at 4,094 ms and 7,585 ms. The second run's 311 ms peak happened with
-rows already visible.
+Three iPhone 18 Pro simulator Release runs scrolled through the 50,000-message Gmail fixture.
+The third ran with the bounded Inbox query, which returned the first page in under 1 ms in
+a separate query test against the populated fake database. The 377 ms peak in that run
+came about two minutes after launch, while rows were visible.
 
-| Run | First sync max / p95 | 200-change replay max / p95 |
-| --- | -------------------- | --------------------------- |
-| 1   | 186 ms / 14 ms       | 40 ms / 8 ms                |
-| 2   | 311 ms / 10 ms       | 539 ms / 15 ms              |
+| Run | First row | First sync max / p95 | 200-change replay max / p95 |
+| --- | --------: | -------------------- | --------------------------- |
+| 1   |  4,094 ms | 186 ms / 14 ms       | 40 ms / 8 ms                |
+| 2   |  7,585 ms | 311 ms / 10 ms       | 539 ms / 15 ms              |
+| 3   |  5,724 ms | 377 ms / 10 ms       | 217 ms / 31 ms              |
 
-The 50 ms maximum is still open. A signed upgrade with live provider sign-in, background
-refresh, and APNs also needs verification before cutover.
+The 50 ms maximum and 16 ms p95 budget remain open. A signed upgrade with live provider
+sign-in, background refresh, and APNs also needs verification before cutover.
 
 |                   | Otter Mail (`apps/ios`) | Otter Agents (`apps/ios-agents`) |
 | ----------------- | ----------------------- | -------------------------------- |
