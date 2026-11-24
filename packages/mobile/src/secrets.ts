@@ -12,6 +12,23 @@ export function keychainSecrets(service: string): Platform["secrets"] {
       const value = await native.keychainGet(service, name);
       if (service !== "dev.otterware.agents" || !value || value.startsWith("{")) return value;
 
+      if (name === "otter-session") {
+        const savedUser = native.existingAgentSettings().user;
+        if (savedUser) {
+          try {
+            const user = JSON.parse(savedUser) as { id?: unknown; email?: unknown };
+            if (typeof user.id === "string" && typeof user.email === "string") {
+              const session = JSON.stringify({ token: value, user });
+              await native.keychainSet(service, name, session);
+              return session;
+            }
+          } catch {
+            // Core can recover the user from the relay using the original token.
+          }
+        }
+        return value;
+      }
+
       // Read the Swift install's OpenClaw pairing in the format the shared client uses.
       const match = /^(agent:.+):device-(key|token)$/.exec(name);
       if (!match) return value;

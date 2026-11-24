@@ -155,15 +155,10 @@ navigation and the tab bars in `src/frame/`.
   sheet of choices (`destructiveButtonIndex`, `cancelButtonIndex`). Both in the gallery.
 - **Haptics**: `haptics.tap()` / `haptics.impact()` from `@otter/ui-native/haptics` (the
   simulator plays nothing).
-- **The keyboard**: `react-native-keyboard-controller` (provider at the root). A chat
-  (`chat/chat-screen.tsx`) is the pattern: the list's scroll view is a `KeyboardChatScrollView`
-  (FlashList's `renderScrollComponent`, `keyboardDismissMode="interactive"`,
-  `keyboardLiftBehavior="always"`), the footer an absolutely placed `KeyboardStickyView` at the
-  bottom with `offset={{ opened: insets.bottom }}`, padded by `insets.bottom` itself. The footer's
-  measured height (safe area included) goes to the scroll view's `extraContentPadding` (a shared
-  value) and `offset` is `insets.bottom`, so the end stays in view as the keyboard and the
-  footer's height change, and dragging the list down takes the keyboard with the finger. What's
-  inside the footer does no keyboard or safe-area arithmetic.
+- **The keyboard**: the transcript uses `KeyboardChatScrollView` and dismisses the keyboard
+  interactively. The footer follows the keyboard and contributes its measured height to the
+  transcript's bottom padding. The attachment tray takes the height of its actions. While
+  switching between the two, the footer only moves by the part of the keyboard above the tray.
 - **Logic**: everything that isn't drawing is `@otter/client` (`agentApi`, `useChats`, the
   composer, the scheduled editor…; `tmp/parity/otter-agents-map.md` maps each screen to it). A
   screen needing logic that isn't there asks for it rather than writing it in the app.

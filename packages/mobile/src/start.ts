@@ -31,6 +31,7 @@ export async function startMobileCore(options: {
   agents?: string;
   relayUrl?: string;
   existingDeviceId?: string;
+  existingAgentOutbox?: (userId: string) => Promise<string | null>;
   initialStorage?: Record<string, string>;
 }): Promise<void> {
   const home = options.fake ? "fake" : "otter";
@@ -58,6 +59,7 @@ export async function startMobileCore(options: {
   await startCore(platform, extensions, {
     modules: options.modules,
     existingDeviceId: options.existingDeviceId,
+    existingAgentOutbox: options.existingAgentOutbox,
   });
   startChats();
   if (options.agents) {

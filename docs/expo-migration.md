@@ -35,8 +35,9 @@ Live varys verification needs a service.
 The signed Expo Agents build launched on a physical iPhone, signed in to the Otter account,
 and showed the existing OpenClaw gateway after the account sync. The phone starts that
 HTTP sync at sign-in without waiting for the realtime connection. The shipping-ID build reads
-the Swift app's account token, device ID and OpenClaw pairing from the existing install. Check
-these on the signed upgrade, along with cached state and unsynced changes. On a development
+the Swift app's account token, device ID and OpenClaw pairing from the existing install. It
+replays pending changes with their original exchange IDs and downloads the current relay copy.
+Check these on a signed upgrade. On a development
 install with its own identity, connect from the existing gateway’s settings to keep its chats.
 
 Otter Mail remains on Swift. Its Expo migration follows the Agents cutover.

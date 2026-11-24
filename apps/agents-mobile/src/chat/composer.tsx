@@ -68,6 +68,7 @@ import { ComposerPanelContext } from "./composer-panel.ts";
 
 const NO_CITATIONS: Citation[] = [];
 const LINE = 22;
+const COMPOSER_GAP = 7;
 const SIZE = 46;
 
 /** Composer.swift: ＋ for what a message can carry (its panel takes the keyboard's place), the text in its pill with the agent beside it, and Send. */
@@ -91,7 +92,7 @@ export function Composer({
   const files = useChatAttachments(phoneFiles);
   const skills = useSkills(agentId, agent.usable).data ?? [];
   const [skill, setSkill] = useState<Skill | null>(null);
-  const { open: panel, height: panelHeight, setOpen: setPanel } = use(ComposerPanelContext);
+  const { open: panel, setHeight: setPanelHeight, setOpen: setPanel } = use(ComposerPanelContext);
   const [canPaste, setCanPaste] = useState(false);
   const panelFocus = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // A new chat opens ready to type; one with a conversation doesn't take the keyboard.
@@ -180,12 +181,13 @@ export function Composer({
   };
 
   const showModels = () => {
+    setPanel(false);
     Keyboard.dismiss();
     router.push({ pathname: "/agents/[id]/model", params: { id: chatId } });
   };
 
   return (
-    <View style={{ paddingHorizontal: 10, paddingTop: 6, paddingBottom: 6, gap: 7 }}>
+    <View style={{ paddingHorizontal: 10, paddingTop: 6, paddingBottom: 6, gap: COMPOSER_GAP }}>
       {matching.length > 0 ? (
         <SkillMenu
           skills={matching}
@@ -224,7 +226,12 @@ export function Composer({
                   onPress={() =>
                     setCitations(chatId, (list) => list.filter((c) => c.id !== quote.id))
                   }
-                  style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center" }}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
                   <Icon name="xmark" size={15} weight="medium" color="mutedForeground" />
                 </Pressable>
@@ -392,8 +399,8 @@ export function Composer({
       </View>
       {panel ? (
         <Animated.View
-          entering={FadeIn.duration(250)}
-          style={{ position: "absolute", top: "100%", left: 0, right: 0, height: panelHeight }}
+          entering={FadeIn.duration(180)}
+          onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height + COMPOSER_GAP)}
         >
           <Glass
             shape={{ radius: 32 }}
@@ -404,8 +411,8 @@ export function Composer({
               flexDirection: "row",
               flexWrap: "wrap",
               paddingHorizontal: 18,
-              paddingTop: 18,
-              rowGap: 18,
+              paddingVertical: 14,
+              rowGap: 14,
             }}
           >
             {agent.usable ? (

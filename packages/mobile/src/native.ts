@@ -10,7 +10,8 @@ export const native = requireNativeModule<{
   makeAgentPicture(uri: string, maxLength: number): Promise<string>;
   ed25519Generate(): { privateKey: string; publicKey: string };
   ed25519Sign(privateKey: string, data: string): Promise<string>;
-  existingAgentSettings(): { deviceId?: string; notifications?: string };
+  existingAgentOutbox(userId: string): Promise<string | null>;
+  existingAgentSettings(): { deviceId?: string; notifications?: string; user?: string };
   ed25519PublicKey(privateKey: string): string | null;
   launchedAt(): number;
 }>("OtterMobile");

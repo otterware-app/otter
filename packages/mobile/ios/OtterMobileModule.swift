@@ -59,11 +59,20 @@ public class OtterMobileModule: Module {
             let key = try? Curve25519.Signing.PrivateKey(rawRepresentation: raw) else { return nil }
       return key.publicKey.rawRepresentation.base64EncodedString()
     }
+    AsyncFunction("existingAgentOutbox") { (user: String) -> String? in
+      guard Bundle.main.bundleIdentifier == "dev.otterware.agents" else { return nil }
+      let folder = Data(user.utf8).base64EncodedString().replacingOccurrences(of: "/", with: "_")
+      let file = URL.applicationSupportDirectory.appending(path: "AgentSync/\(folder)/state.json")
+      return try? String(contentsOf: file, encoding: .utf8)
+    }
     Function("existingAgentSettings") { () -> [String: String] in
       guard Bundle.main.bundleIdentifier == "dev.otterware.agents" else { return [:] }
       let defaults = UserDefaults.standard
       var settings: [String: String] = [:]
       settings["deviceId"] = defaults.string(forKey: "agent-sync:device")
+      if let user = defaults.data(forKey: "otter:user") {
+        settings["user"] = String(data: user, encoding: .utf8)
+      }
       if defaults.object(forKey: "otter:notifications") as? Bool == false {
         settings["notifications"] = "off"
       }

@@ -24,8 +24,8 @@ import {
   followMailboxArrangement,
   syncAllAccounts,
 } from "./services/mail-sync.ts";
-import { keepDeviceId } from "./services/agent-sync.ts";
-import { loadOtterAccount } from "./services/otter-account.ts";
+import { keepDeviceId, restoreAgentOutbox } from "./services/agent-sync.ts";
+import { getOtterUser, loadOtterAccount } from "./services/otter-account.ts";
 import { importLocalAgentData } from "./services/agent/local-import.ts";
 import { getUiPreferences, preferenceChanged, setUiPreference } from "./services/preferences.ts";
 import { getSettings, onSettingsChanged } from "./services/settings-store.ts";
@@ -40,12 +40,13 @@ export type CoreOptions = {
   modules?: readonly CoreModule[];
   /** An existing phone install’s device id, kept during its upgrade. */
   existingDeviceId?: string;
+  existingAgentOutbox?: (userId: string) => Promise<string | null>;
 };
 
 export async function startCore(
   platform: Platform,
   extensions: readonly CoreExtension[] = [],
-  { modules = ALL_MODULES, existingDeviceId }: CoreOptions = {},
+  { modules = ALL_MODULES, existingDeviceId, existingAgentOutbox }: CoreOptions = {},
 ): Promise<void> {
   setModules(modules);
   setPlatform(platform);
@@ -56,6 +57,15 @@ export async function startCore(
     await loadImapPasswords();
   }
   await loadOtterAccount();
+  const user = getOtterUser();
+  if (user && existingAgentOutbox) {
+    try {
+      const pending = await existingAgentOutbox(user.id);
+      if (pending) restoreAgentOutbox(user.id, pending);
+    } catch (error) {
+      logger.failure("agent-sync", "Couldn't load the previous app's pending changes", error);
+    }
+  }
 
   if (runs("mail")) {
     registerMailHandlers();

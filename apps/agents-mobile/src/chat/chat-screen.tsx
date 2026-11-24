@@ -66,15 +66,12 @@ import {
   useReanimatedKeyboardAnimation,
 } from "react-native-keyboard-controller";
 import Animated, {
-  Easing,
   useAnimatedStyle,
   useDerivedValue,
-  withTiming,
   useSharedValue,
   type SharedValue,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { scheduleOnRN } from "react-native-worklets";
 
 import { AgentAvatar } from "../agents/agent-avatar.tsx";
 import { useChatAgent } from "./chat-agent.ts";
@@ -88,9 +85,6 @@ import { AssistantTurn, DayPill, UserTurn, type Live } from "./transcript.tsx";
 const Footer = createContext<{
   height: SharedValue<number>;
   bottom: number;
-  frozen: SharedValue<boolean>;
-  /** The keyboard comes over the panel: the transcript doesn't rise for it. */
-  holds: boolean;
   onEnd: (visible: boolean) => void;
 } | null>(null);
 
@@ -105,9 +99,8 @@ function TranscriptScroll(props: ScrollViewProps) {
       {...props}
       keyboardDismissMode="interactive"
       keyboardShouldPersistTaps="handled"
-      keyboardLiftBehavior={footer?.holds ? "never" : "always"}
+      keyboardLiftBehavior="always"
       offset={footer?.bottom}
-      freeze={footer?.frozen}
       extraContentPadding={footer?.height}
       onEndVisible={footer?.onEnd}
     />
@@ -177,7 +170,7 @@ function Chat({ chat }: { chat: Conversation }) {
   const composer = useRef<ComponentRef<typeof TextInput>>(null);
   const viewport = useRef(0);
   const footerHeight = useSharedValue(insets.bottom);
-  const keyboard = usePanelOverKeyboard(insets.bottom, footerHeight);
+  const keyboard = useComposerPosition(insets.bottom, footerHeight);
   const atEnd = useSharedValue(true);
   const [finding, setFinding] = useState(false);
   const [query, setQuery] = useState("");
@@ -340,14 +333,12 @@ function Chat({ chat }: { chat: Conversation }) {
     () => ({
       height: keyboard.padding,
       bottom: insets.bottom,
-      frozen: keyboard.frozen,
-      holds: keyboard.holds,
       onEnd: (visible: boolean) => {
         "worklet";
         atEnd.set(visible);
       },
     }),
-    [keyboard.padding, keyboard.frozen, keyboard.holds, insets.bottom, atEnd],
+    [keyboard.padding, insets.bottom, atEnd],
   );
   const canFork = Boolean(provider?.forks && chat.sessionId) && canWrite;
   const renderItem = useCallback(
@@ -431,98 +422,42 @@ function Chat({ chat }: { chat: Conversation }) {
   );
 }
 
-/** The keyboard's height when last up, for the next chat's panel too. */
-let keyboardHeight = 336;
-
-const panelEasing = Easing.bezier(0, 0, 0.58, 1);
-
-/**
- * The footer over the keyboard, and ＋'s panel in the keyboard's place (ChatScreen.swift lets the
- * keyboard pass over it): while the panel is open the footer stands as high as the keyboard did and
- * the transcript is frozen, so the keyboard leaves or comes over the panel and nothing moves.
- */
-function usePanelOverKeyboard(bottom: number, footerHeight: SharedValue<number>) {
+function useComposerPosition(bottom: number, footerHeight: SharedValue<number>) {
   const { height, progress } = useReanimatedKeyboardAnimation();
   const [open, setOpenState] = useState(false);
-  const [panelHeight, setPanelHeight] = useState(keyboardHeight);
-  const [holds, setHolds] = useState(false);
-  const panelLift = useSharedValue(0);
-  const opened = useSharedValue(false);
-  const frozen = useSharedValue(false);
-  const frozenLift = useSharedValue(0);
-  const keyboardLift = useDerivedValue(() => -height.get() - bottom * progress.get());
-
-  useEffect(() => {
-    const show = Keyboard.addListener("keyboardWillShow", (e) => {
-      // A hardware keyboard shows only its thin bar: keep the on-screen one's height.
-      if (e.endCoordinates.height > 200) keyboardHeight = e.endCoordinates.height;
-    });
-    // The keyboard is all the way up over the panel: the panel can go without anything moving.
-    const shown = Keyboard.addListener("keyboardDidShow", () => {
-      if (!opened.get()) return;
-      opened.set(false);
-      panelLift.set(0);
-      frozen.set(false);
-      setOpenState(false);
-      setHolds(false);
-    });
-    return () => {
-      show.remove();
-      shown.remove();
-    };
-  }, [opened, frozen, panelLift]);
+  const panelHeight = useSharedValue(0);
+  const keyboardLift = useDerivedValue(() => Math.max(0, -height.get() - bottom * progress.get()));
 
   const setOpen = useCallback(
     (now: boolean) => {
-      if (now === opened.get()) return;
-      opened.set(now);
-      const lift = keyboardHeight - bottom;
-      if (now) {
-        setPanelHeight(keyboardHeight);
-        const up = keyboardLift.get() > 1;
-        frozenLift.set(up ? keyboardLift.get() : 0);
-        if (up) {
-          // From the keyboard, the panel is there before it leaves, under it, as tall.
-          frozen.set(true);
-          panelLift.set(lift);
-          Keyboard.dismiss();
-        } else {
-          // The transcript rises with it, then holds still for the keyboard to come over it.
-          panelLift.set(
-            withTiming(lift, { duration: 250, easing: panelEasing }, (done) => {
-              if (done && opened.get()) scheduleOnRN(setHolds, true);
-            }),
-          );
-        }
-      } else {
-        frozen.set(false);
-        setHolds(false);
-        panelLift.set(withTiming(0, { duration: 250, easing: panelEasing }));
-      }
       setOpenState(now);
+      if (now) Keyboard.dismiss();
+      else panelHeight.set(0);
     },
-    [bottom, opened, frozen, frozenLift, keyboardLift, panelLift],
+    [panelHeight],
   );
 
-  // The transcript keeps room for the panel where the keyboard's room doesn't cover it.
-  const padding = useDerivedValue(
-    () =>
-      footerHeight.get() +
-      Math.max(0, panelLift.get() - (frozen.get() ? frozenLift.get() : keyboardLift.get())),
-  );
-  const lift = useAnimatedStyle(() => ({
-    transform: [{ translateY: -Math.max(keyboardLift.get(), panelLift.get()) }],
-  }));
+  useEffect(() => {
+    if (!open) return;
+    const shown = Keyboard.addListener("keyboardDidShow", () => setOpen(false));
+    return () => shown.remove();
+  }, [open, setOpen]);
+
   const panel = useMemo(
-    () => ({ open, height: panelHeight, setOpen }),
-    [open, panelHeight, setOpen],
+    () => ({ open, setOpen, setHeight: (height: number) => panelHeight.set(height) }),
+    [open, setOpen, panelHeight],
   );
-  /** How much of the screen's bottom the footer and what's under it take, now. */
-  const covered = useCallback(
-    () => footerHeight.get() + Math.max(keyboardLift.get(), panelLift.get()),
-    [footerHeight, keyboardLift, panelLift],
+  // The attachment tray already lifts the input by its own height. Only add the
+  // part of the keyboard that rises above the tray while the two are switching.
+  const liftBy = useDerivedValue(() => Math.max(0, keyboardLift.get() - panelHeight.get()));
+  const lift = useAnimatedStyle(() => ({
+    transform: [{ translateY: -liftBy.get() }],
+  }));
+  const padding = useDerivedValue(
+    () => footerHeight.get() - Math.min(keyboardLift.get(), panelHeight.get()),
   );
-  return { panel, padding, frozen, holds, lift, covered };
+  const covered = useCallback(() => footerHeight.get() + liftBy.get(), [footerHeight, liftBy]);
+  return { panel, padding, lift, covered };
 }
 
 /** Find in chat's bar, over the transcript: what it goes to shows under it. */

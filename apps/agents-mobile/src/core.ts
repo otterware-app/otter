@@ -24,6 +24,7 @@ export const coreStarted = startMobileCore({
   modules: [],
   extensions: [hermes, openclaw, varys],
   existingDeviceId: existing?.deviceId,
+  existingAgentOutbox: existing?.deviceId ? (user) => native.existingAgentOutbox(user) : undefined,
   initialStorage: existing?.notifications === "off" ? { "otter:notifications": "off" } : undefined,
   fake: FAKE,
   agents: AGENTS,

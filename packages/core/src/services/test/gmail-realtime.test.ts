@@ -1,6 +1,10 @@
 import { DatabaseSync } from "node:sqlite";
 
-import { agentKey, type AgentSyncResponse } from "@otter/contracts/agent-sync";
+import {
+  agentKey,
+  type AgentSyncRequest,
+  type AgentSyncResponse,
+} from "@otter/contracts/agent-sync";
 import type { RelayAccount, RelayEvent } from "@otter/contracts/relay";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -120,10 +124,11 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
     if (route === "GET /v1/accounts") return json({ accounts: relayAccounts });
     if (route === "GET /v1/preferences") return json({ preferences: {}, agentKeys: null });
     if (route === "POST /v1/agent-sync") {
+      const request = JSON.parse(String(init?.body)) as AgentSyncRequest;
       const agent = { id: "gateway", kind: "openclaw", name: "OpenClaw", settings: {}, addedAt: 1 };
       return json({
         version: 1,
-        lastMutationId: 0,
+        lastMutationId: request.mutations.at(-1)?.id ?? 0,
         changes: [{ key: agentKey(agent.id), value: agent }],
         more: false,
       } satisfies AgentSyncResponse);
@@ -171,7 +176,10 @@ async function until(check: () => boolean, what: string): Promise<void> {
 /** Lets pending work (a sync's promise chain) run; what it didn't start by then, it won't. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
 
-async function boot({ kind = "desktop", modules }: { kind?: Platform["kind"] } & CoreOptions = {}) {
+async function boot({
+  kind = "desktop",
+  ...options
+}: { kind?: Platform["kind"] } & CoreOptions = {}) {
   vi.resetModules();
   const { setPlatform } = await import("../../platform.ts");
   const { startCore } = await import("../../index.ts");
@@ -271,7 +279,7 @@ async function boot({ kind = "desktop", modules }: { kind?: Platform["kind"] } &
     JSON.stringify([gmail, signedOut, imap].map((a) => a.email.toLowerCase())),
   );
 
-  await startCore(platform, [], { modules });
+  await startCore(platform, [], options);
   mailSync.configureAutoSync(0);
   return { mailSync, mailStore };
 }
@@ -451,6 +459,37 @@ describe("Gmail realtime", { timeout: 15_000 }, () => {
 
     socket().event({ type: "preferences" });
     await until(() => relayCalls("GET /v1/preferences").length === preferences + 1, "the pull");
+  });
+
+  it("sends the previous iPhone install's queued edits under their original exchange IDs", async () => {
+    const mutation = { op: "chat.set", chat: { id: "fixture-chat", title: "Changed offline" } };
+    const previous = JSON.stringify({
+      client: "previous-client",
+      since: 42,
+      sent: 13,
+      nextId: 14,
+      outbox: [{ id: 13, mutation }],
+    });
+    const existingAgentOutbox = vi.fn(async () => previous);
+    await boot({
+      kind: "mobile",
+      modules: [],
+      existingDeviceId: "previous-device",
+      existingAgentOutbox,
+    });
+    const { deviceId, restoreAgentOutbox, syncAgentData } = await import("../agent-sync.ts");
+    await syncAgentData();
+    expect(existingAgentOutbox).toHaveBeenCalledWith("u1");
+    expect(deviceId()).toBe("previous-device");
+    const exchanges = () => calls.filter((call) => call.path === "/v1/agent-sync");
+    expect(exchanges()[0]?.body).toEqual({
+      client: "previous-client",
+      since: 0,
+      mutations: [{ id: 13, mutation }],
+    });
+    restoreAgentOutbox("u1", previous);
+    await syncAgentData();
+    expect(exchanges().at(-1)?.body).toMatchObject({ mutations: [] });
   });
 
   it("loads the phone's agents before the event stream opens", async () => {

@@ -101,6 +101,32 @@ export function keepDeviceId(id: string): void {
   setState("device", id);
 }
 
+/** Restore pending Swift edits under the same exchange client so the relay can deduplicate them. */
+export function restoreAgentOutbox(user: string, raw: string): void {
+  const db = agentDb();
+  if (state("client") || state("swift-outbox") || db.prepare("SELECT 1 FROM agent_outbox").get())
+    return;
+  const { client, sent, nextId, outbox } = JSON.parse(raw) as {
+    client: string;
+    sent: number;
+    nextId: number;
+    outbox: { id: number; mutation: AgentMutation }[];
+  };
+  if (!client || !Array.isArray(outbox) || outbox.length === 0) return;
+  const newest = Math.max(outbox.at(-1)!.id, sent, nextId - 1);
+  transaction(db, () => {
+    const insert = db.prepare("INSERT INTO agent_outbox (id, mutation) VALUES (?, ?)");
+    for (const { id, mutation } of outbox) insert.run(id, JSON.stringify(mutation));
+    db.prepare("UPDATE sqlite_sequence SET seq = max(seq, ?) WHERE name = 'agent_outbox'").run(
+      newest,
+    );
+    setState("user", user);
+    setState("client", client);
+    setState("sent", sent);
+    setState("swift-outbox", true);
+  });
+}
+
 /** What a message says: a reply's text is in its items, between its steps. */
 const messageText = (turn: ChatTurn) =>
   [turn.text, ...(turn.items ?? []).map((item) => (item.kind === "text" ? item.text : ""))]
