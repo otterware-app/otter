@@ -187,10 +187,12 @@ export async function providersState(): Promise<ProvidersState> {
   return {
     providers,
     selected: selectedOf(all, shown),
-    kinds: [...registeredAgents().values()].map((type) => ({
-      kind: type.kind,
-      name: type.displayName,
-    })),
+    kinds: getOtterUser()
+      ? [...registeredAgents().values()].map((type) => ({
+          kind: type.kind,
+          name: type.displayName,
+        }))
+      : [],
   };
 }
 
