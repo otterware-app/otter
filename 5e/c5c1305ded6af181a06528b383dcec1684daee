@@ -1,0 +1,112 @@
+docs/outlook.md
+  s_076b12ad1c9082::t_cd89e824613df0 143-149,152
+apps/mail-mobile/targets/notifications/MailNotification.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-65
+packages/mobile/src/start.ts
+  s_076b12ad1c9082::t_4a825d208e3cc1 58
+apps/mail-mobile/targets/notifications/MicrosoftCredentials.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-51
+.github/workflows/ci.yml
+  s_076b12ad1c9082::t_85869c1433444b 56
+apps/mail-mobile/targets/notifications/VerifiedNotification.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-151
+apps/mail-mobile/targets/notifications/GoogleCredentials.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-99
+docs/expo-migration.md
+  s_076b12ad1c9082::t_16156edcc18c1f 65-71,390
+packages/mobile/src/long-tasks.ts
+  s_076b12ad1c9082::t_d9a9a9a4867a4a 47-71
+  s_076b12ad1c9082::t_30d105903a2190 6,9,12,15-22,42-43
+apps/mail-mobile/assets/Assets.xcassets/Contents.json
+  s_076b12ad1c9082::t_85869c1433444b 1-6
+apps/mail-mobile/README.md
+  s_076b12ad1c9082::t_cd89e824613df0 37-65
+docs/features.md
+  s_076b12ad1c9082::t_35ff57d69ff3e5 434
+  s_076b12ad1c9082::t_cd89e824613df0 5,381
+.agents/skills/pr/SKILL.md
+  s_076b12ad1c9082::t_35ff57d69ff3e5 39,62
+packages/mobile/ios/OtterMobileModule.swift
+  s_076b12ad1c9082::t_30d105903a2190 207-210
+packages/mobile/src/native.ts
+  s_076b12ad1c9082::t_30d105903a2190 45
+apps/mail-mobile/targets/notifications/AliasMailbox.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-44
+apps/mail-mobile/targets/notifications/ImapClient.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-376
+apps/mail-mobile/targets/notifications/MailServer.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-21
+t3.json
+  s_076b12ad1c9082::t_35ff57d69ff3e5 46
+apps/mail-mobile/targets/notifications/PushState.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-78
+apps/mail-mobile/targets/notifications/SenderPhotos.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-109
+packages/mobile/src/platform.ts
+  s_076b12ad1c9082::t_4a825d208e3cc1 67
+  s_076b12ad1c9082::t_30d105903a2190 76-77
+README.md
+  s_076b12ad1c9082::t_cd89e824613df0 100
+apps/mail-mobile/targets/notifications/MailSocket.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-274
+apps/mail-mobile/targets/notifications/ImapParser.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-222
+apps/mail-mobile/targets/notifications/NotificationService.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-91
+scripts/export-brand-icons.ts
+  s_076b12ad1c9082::t_1356e5bdaad830 197,220
+  s_076b12ad1c9082::t_85869c1433444b 9,231
+docs/runbook.md
+  s_076b12ad1c9082::t_30d105903a2190 23
+  s_076b12ad1c9082::t_cd89e824613df0 5,86,89,142
+scripts/release-plan.test.ts
+  s_076b12ad1c9082::t_1356e5bdaad830 24,36-37,57,96,107
+apps/mail-mobile/src/core.ts
+  s_076b12ad1c9082::t_30d105903a2190 12
+apps/mail-mobile/targets/notifications/GmailNotification.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-103
+infra/relay/README.md
+  s_076b12ad1c9082::t_cd89e824613df0 266
+apps/mail-mobile/app.config.ts
+  s_076b12ad1c9082::t_85869c1433444b 9,33
+apps/mail-mobile/targets/notifications/MailDecoding.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-152
+apps/mail-mobile/targets/notifications/Keychain.swift
+  s_076b12ad1c9082::t_85869c1433444b 1-42
+packages/mobile/src/database.ts
+  s_076b12ad1c9082::t_4a825d208e3cc1 22,40,42,50,57-64,68
+  s_076b12ad1c9082::t_d9a9a9a4867a4a 2-10,27-39,41,43-49,51-56,69,89-92,94-102,104-112
+  s_076b12ad1c9082::t_30d105903a2190 65-67
+THIRD_PARTY_NOTICES.md
+  s_076b12ad1c9082::t_cd89e824613df0 78
+AGENTS.md
+  s_076b12ad1c9082::t_35ff57d69ff3e5 117-120,231,262,278
+third-party-licenses.config.json
+  s_076b12ad1c9082::t_35ff57d69ff3e5 5,40
+apps/mail-mobile/src/mail/benchmark-status.tsx
+  s_076b12ad1c9082::t_30d105903a2190 24,28,51,54
+  s_076b12ad1c9082::t_d9a9a9a4867a4a 3,26,52-53,55
+docs/error-reports.md
+  s_076b12ad1c9082::t_30d105903a2190 49-53
+docs/development.md
+  s_076b12ad1c9082::t_30d105903a2190 20
+  s_076b12ad1c9082::t_cd89e824613df0 341
+docs/release.md
+  s_076b12ad1c9082::t_cd89e824613df0 30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5ec5c1305ded6af181a06528b383dcec1684daee",
+  "prompts": {},
+  "sessions": {
+    "s_076b12ad1c9082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f03-1d60-7480-929a-3cc6584d46dd",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
