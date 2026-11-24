@@ -1,0 +1,26 @@
+packages/core/src/services/agent/service.ts
+  s_fb3dda828e9332::t_04cbd69e6c9016 190-195
+changelog/0.13.53.md
+  s_fb3dda828e9332::t_04cbd69e6c9016 1-23
+apps/web/src/main/onboarding/setup.tsx
+  s_fb3dda828e9332::t_04cbd69e6c9016 50-51,718,789-797
+packages/core/src/services/test/agents.test.ts
+  s_fb3dda828e9332::t_04cbd69e6c9016 6,19,74,124-130
+  s_fb3dda828e9332::t_2d28121378c383 131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1b50624111e25171ef093fe11f2b732e3815d74f",
+  "prompts": {},
+  "sessions": {
+    "s_fb3dda828e9332": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9b3487da-9d28-482f-ab1b-0ef56440b5b6",
+        "model": "claude-fable-5-2"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
