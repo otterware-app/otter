@@ -68,7 +68,13 @@ mailboxes and drafts on an iPhone. Live push still needs a signed device check.
 The fourth simulator run moved passive WAL checkpoints to a separate SQLite connection.
 It reached its first row at 4,821 ms. First sync measured 599 ms max and 10 ms p95. The
 longest SQLite call was a 37 ms read at a different time. The replay measured 63 ms max
-and 18 ms p95. Both phases still exceed the 50 ms maximum.
+and 18 ms p95.
+
+The fifth run used the standalone Expo app with the old Swift target removed. First sync
+reached the first row at 5,921 ms and peaked at 531 ms, with 9 ms p95. The JavaScript thread
+used 30 ms of CPU during the longest timer delay and reached 76 ms of CPU in a separate
+interval. A synchronous SQLite write took 119 ms. The 200-change replay peaked at 67 ms
+with 42 ms p95. The 50 ms maximum remains open.
 
 |                   | Otter Mail (`apps/ios`) | Otter Agents (`apps/ios-agents`) |
 | ----------------- | ----------------------- | -------------------------------- |
