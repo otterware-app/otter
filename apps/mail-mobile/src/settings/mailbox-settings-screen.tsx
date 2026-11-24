@@ -97,7 +97,7 @@ function MailboxSettings({ mailbox, mailboxes }: { mailbox: Mailbox; mailboxes: 
           <SettingsRow
             icon="exclamationmark.triangle"
             title="Reconnect mailbox"
-            onPress={() => router.push("/account")}
+            onPress={() => router.push("/settings/account")}
           />
         )}
         <SettingsSwitchRow

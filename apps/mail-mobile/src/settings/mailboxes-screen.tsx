@@ -38,7 +38,7 @@ export function MailboxesScreen() {
         <SettingsRow
           icon="plus"
           title="Manage connections"
-          onPress={() => router.push("/account")}
+          onPress={() => router.push("/settings/account")}
         />
       </SettingsSection>
     </SettingsPage>

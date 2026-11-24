@@ -62,12 +62,7 @@ function MailStack() {
         <Stack.Screen name="mail/[account]/[label]/[thread]" />
         <Stack.Screen name="search" options={{ presentation: "modal", title: "Search" }} />
         <Stack.Screen name="compose" options={{ presentation: "modal", title: "New message" }} />
-        <Stack.Screen name="settings" options={{ presentation: "modal", title: "Settings" }} />
-        <Stack.Screen name="settings/mailboxes" options={{ title: "Mailboxes" }} />
-        <Stack.Screen name="settings/mailbox" options={{ title: "Mailbox" }} />
-        <Stack.Screen name="settings/languages" options={{ title: "Languages I read" }} />
-        <Stack.Screen name="settings/licenses" options={{ title: "Open-source licenses" }} />
-        <Stack.Screen name="account" options={{ title: "Otter account" }} />
+        <Stack.Screen name="settings" options={{ presentation: "modal", headerShown: false }} />
       </Stack>
       <MailNotices />
     </ThemeProvider>

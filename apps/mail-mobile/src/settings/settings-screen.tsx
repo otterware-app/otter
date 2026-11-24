@@ -190,7 +190,7 @@ export function SettingsScreen() {
         <SettingsRow
           icon="person.crop.circle"
           title="Otter account"
-          onPress={() => router.push("/account")}
+          onPress={() => router.push("/settings/account")}
         />
         <SettingsRow icon="info.circle" title="Version" value={Constants.expoConfig?.version} />
         <SettingsRow
