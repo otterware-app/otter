@@ -1,0 +1,1600 @@
+apps/agents-mobile/src/chat/chat-screen.tsx
+  s_076b12ad1c9082::t_17d6f1eed42ab0 1-832
+docs/runbook.md
+  s_076b12ad1c9082::t_589c92f4f41518 123-124
+  s_076b12ad1c9082::t_34beba39aac5b9 24
+docs/expo-migration.md
+  s_076b12ad1c9082::t_34beba39aac5b9 1-35,41-431
+  s_076b12ad1c9082::t_80d5629877b701 36-40
+packages/core/src/services/pending-label-writes.ts
+  s_076b12ad1c9082::t_34beba39aac5b9 5
+packages/core/src/services/mail-store.ts
+  s_076b12ad1c9082::t_34beba39aac5b9 3-5,12
+packages/core/src/platform.ts
+  s_076b12ad1c9082::t_793c60147864e5 1,96
+packages/mobile/src/start.ts
+  s_076b12ad1c9082::t_3a11514d7e8815 33,58-61
+  s_076b12ad1c9082::t_793c60147864e5 1-32,35-57,62-69
+  s_076b12ad1c9082::t_0bd597e2a48ccd 34
+.github/workflows/ci.yml
+  s_076b12ad1c9082::t_1b15eb8df843b4 57,195,199,204-212,214-225,227
+extensions/openclaw/core/openclaw.test.ts
+  s_076b12ad1c9082::t_793c60147864e5 9
+packages/core/src/index.ts
+  s_076b12ad1c9082::t_3a11514d7e8815 1-21,26-43,48,50,52-57,60-67,71,73,104-117,120-122,129-138,143-146,155-162,168-169,171
+apps/agents-mobile/app.config.ts
+  s_076b12ad1c9082::t_793c60147864e5 1-20,22-27,29-48,51-69
+  s_076b12ad1c9082::t_589c92f4f41518 50
+  s_076b12ad1c9082::t_32382fe30b459d 21,28,49
+packages/core/src/fake/index.ts
+  s_076b12ad1c9082::t_793c60147864e5 10-20,23,27,32-39,43
+apps/agents-mobile/plugins/with-release-signing.cjs
+  s_076b12ad1c9082::t_623063424667f8 1-22
+  s_076b12ad1c9082::t_9f0b07185363de 23-28
+packages/core/src/fake/gmail.ts
+  s_076b12ad1c9082::t_34beba39aac5b9 1,3-6,9,12-13
+apps/agents-mobile/plugins/with-agent-notifications.cjs
+  s_076b12ad1c9082::t_793c60147864e5 1-44
+scripts/release-plan.ts
+  s_076b12ad1c9082::t_1b15eb8df843b4 27-30,40-56,62-64,70-71
+packages/mobile/ios/OtterMobileModule.swift
+  s_076b12ad1c9082::t_3a11514d7e8815 1-61,69,71-83
+  s_076b12ad1c9082::t_c4034bfb5fdfa1 62-68,70
+apps/ios/README.md
+  s_076b12ad1c9082::t_34beba39aac5b9 76
+scripts/dev-ios.ts
+  s_076b12ad1c9082::t_793c60147864e5 3,8,16-22
+packages/core/src/providers/gmail/sync.ts
+  s_076b12ad1c9082::t_34beba39aac5b9 3-7,19-20
+packages/core/src/handlers/draft-sessions.ts
+  s_076b12ad1c9082::t_34beba39aac5b9 7-10
+package.json
+  s_076b12ad1c9082::t_793c60147864e5 23-24,27,44
+scripts/export-brand-icons.ts
+  s_076b12ad1c9082::t_793c60147864e5 10,232
+apps/agents-mobile/README.md
+  s_076b12ad1c9082::t_34beba39aac5b9 1-185
+apps/agents-mobile/src/settings/add-agent.tsx
+  s_076b12ad1c9082::t_17d6f1eed42ab0 1-24,28-67
+  s_076b12ad1c9082::t_fc6029124eee8b 25-27
+packages/core/src/handlers/mail.ts
+  s_076b12ad1c9082::t_623063424667f8 9-10,21-26,34,39-46,60-67,73-78,1104
+packages/core/src/services/otter-account.ts
+  s_076b12ad1c9082::t_3a11514d7e8815 6-7,38-49
+docs/features.md
+  s_076b12ad1c9082::t_34beba39aac5b9 613
+packages/core/src/services/mail-schedule.ts
+  s_076b12ad1c9082::t_34beba39aac5b9 2-8
+docs/release.md
+  s_076b12ad1c9082::t_34beba39aac5b9 31,33,205-211
+packages/core/src/providers/outlook/sync.ts
+  s_076b12ad1c9082::t_34beba39aac5b9 3-7,17-18,27
+.gitignore
+  s_076b12ad1c9082::t_34beba39aac5b9 24-28
+extensions/openclaw/mobile/settings.tsx
+  s_076b12ad1c9082::t_17d6f1eed42ab0 1-271
+infra/relay/README.md
+  s_076b12ad1c9082::t_34beba39aac5b9 325
+packages/core/package.json
+  s_076b12ad1c9082::t_793c60147864e5 16
+apps/agents-mobile/src/settings/agents-section.tsx
+  s_076b12ad1c9082::t_17d6f1eed42ab0 1-41,43-51
+  s_076b12ad1c9082::t_7c41f7e5d40537 42
+packages/mobile/src/secrets.ts
+  s_076b12ad1c9082::t_3a11514d7e8815 1-24,26-35
+  s_076b12ad1c9082::t_66f2595b8223b1 25
+packages/core/src/providers/gmail/api.ts
+  s_076b12ad1c9082::t_34beba39aac5b9 10,15-19,25-27,35
+packages/mobile/src/native.ts
+  s_076b12ad1c9082::t_3a11514d7e8815 1-12,14-16
+  s_076b12ad1c9082::t_0df09792f6b1c9 13
+AGENTS.md
+  s_076b12ad1c9082::t_34beba39aac5b9 50,54,82,89-92,95-135,234-235,237,270-271,284
+scripts/release-plan.test.ts
+  s_076b12ad1c9082::t_1b15eb8df843b4 19,27,32,34-36,38-51,58,64
+apps/agents-mobile/src/core.ts
+  s_076b12ad1c9082::t_3a11514d7e8815 1-25,28-31
+  s_076b12ad1c9082::t_21bca2773330bd 26-27
+docs/development.md
+  s_076b12ad1c9082::t_34beba39aac5b9 22,226-235,342,369-375,380-385
+.agents/skills/test-otter/SKILL.md
+  s_076b12ad1c9082::t_0519b3d14be531 38,40-49
+.github/workflows/checks.yml
+  s_076b12ad1c9082::t_03ccef2224cf66 39,44
+.github/workflows/release.yml
+  s_076b12ad1c9082::t_541ebd79a7de46 495,522-525,602-605,607-608,649
+THIRD_PARTY_NOTICES.md
+  s_076b12ad1c9082::t_922bf748438b5a 78-80
+apps/agents-mobile/.gitignore
+  s_076b12ad1c9082::t_881495d07c6c7c 1-5
+apps/agents-mobile/index.ts
+  s_076b12ad1c9082::t_8372fa5dec7a57 1-5
+apps/agents-mobile/package.json
+  s_076b12ad1c9082::t_6c88bbea7079a3 1-78
+apps/agents-mobile/src/account/account-screen.tsx
+  s_076b12ad1c9082::t_3d6f9ff65e5900 1-123
+apps/agents-mobile/src/account/welcome-screen.tsx
+  s_076b12ad1c9082::t_397dfdead15ac5 1-130
+apps/agents-mobile/src/agents/agent-avatar.tsx
+  s_076b12ad1c9082::t_833df0159d7b44 1-42
+apps/agents-mobile/src/agents/otter-mark.tsx
+  s_076b12ad1c9082::t_092a0c9c3a1b7c 1-18
+apps/agents-mobile/src/agents/registry.ts
+  s_076b12ad1c9082::t_51bdc31a377e47 1-21
+apps/agents-mobile/src/app/(tabs)/(chats)/_layout.tsx
+  s_076b12ad1c9082::t_99aec89e9fdcce 1-21
+apps/agents-mobile/src/app/(tabs)/(chats)/agents/[id]/browser.tsx
+  s_076b12ad1c9082::t_fc0cb2c5ab8e43 1
+apps/agents-mobile/src/app/(tabs)/(chats)/agents/[id]/details.tsx
+  s_076b12ad1c9082::t_55384b66851ad2 1
+apps/agents-mobile/src/app/(tabs)/(chats)/agents/[id]/file.tsx
+  s_076b12ad1c9082::t_5ea715493fdad4 1
+apps/agents-mobile/src/app/(tabs)/(chats)/agents/[id]/index.tsx
+  s_076b12ad1c9082::t_1842985d9ea4a6 1
+apps/agents-mobile/src/app/(tabs)/(chats)/agents/[id]/model.tsx
+  s_076b12ad1c9082::t_ad9143455698eb 1
+apps/agents-mobile/src/app/(tabs)/(chats)/agents/[id]/queue.tsx
+  s_076b12ad1c9082::t_43e58f97e044ed 1
+apps/agents-mobile/src/app/(tabs)/(chats)/agents/[id]/talk.tsx
+  s_076b12ad1c9082::t_ebaff7ed9c8696 1
+apps/agents-mobile/src/app/(tabs)/(chats)/index.tsx
+  s_076b12ad1c9082::t_7f08b5a80102cf 1
+apps/agents-mobile/src/app/(tabs)/(chats)/new.tsx
+  s_076b12ad1c9082::t_f3cdc0de96c58e 1
+apps/agents-mobile/src/app/(tabs)/(chats)/sessions.tsx
+  s_076b12ad1c9082::t_6ba83bf8fad7d0 1
+apps/agents-mobile/src/app/(tabs)/(scheduled)/_layout.tsx
+  s_076b12ad1c9082::t_9b26e0923dbb9f 1-14
+apps/agents-mobile/src/app/(tabs)/(scheduled)/scheduled/[id]/edit.tsx
+  s_076b12ad1c9082::t_39ceeb6a86334d 1
+apps/agents-mobile/src/app/(tabs)/(scheduled)/scheduled/[id]/index.tsx
+  s_076b12ad1c9082::t_9a9b639ac3b94e 1
+apps/agents-mobile/src/app/(tabs)/(scheduled)/scheduled/index.tsx
+  s_076b12ad1c9082::t_19a5850324e970 1
+apps/agents-mobile/src/app/(tabs)/(scheduled)/scheduled/new.tsx
+  s_076b12ad1c9082::t_18ecf0c17d7494 1
+apps/agents-mobile/src/app/(tabs)/(settings)/_layout.tsx
+  s_076b12ad1c9082::t_ed89de291ad540 1-7
+apps/agents-mobile/src/app/(tabs)/(settings)/settings/agents/[id].tsx
+  s_076b12ad1c9082::t_25db4b0744ea61 1
+apps/agents-mobile/src/app/(tabs)/(settings)/settings/agents/index.tsx
+  s_076b12ad1c9082::t_24cbe2a15d23d4 1
+apps/agents-mobile/src/app/(tabs)/(settings)/settings/agents/new.tsx
+  s_076b12ad1c9082::t_a9533d8ed7025c 1
+apps/agents-mobile/src/app/(tabs)/(settings)/settings/chat.tsx
+  s_076b12ad1c9082::t_a0d5f44bdc4829 1
+apps/agents-mobile/src/app/(tabs)/(settings)/settings/index.tsx
+  s_076b12ad1c9082::t_95622e0b73949e 1
+apps/agents-mobile/src/app/(tabs)/(settings)/settings/licenses.tsx
+  s_076b12ad1c9082::t_4b31695f1e9bd0 1
+apps/agents-mobile/src/app/(tabs)/(settings)/settings/notifications.tsx
+  s_076b12ad1c9082::t_24072b5d5c07aa 1
+apps/agents-mobile/src/app/(tabs)/(settings)/settings/otter.tsx
+  s_076b12ad1c9082::t_47c5952da8d151 1
+apps/agents-mobile/src/app/(tabs)/_layout.tsx
+  s_076b12ad1c9082::t_e324e31d5a005c 1
+apps/agents-mobile/src/app/+native-intent.tsx
+  s_076b12ad1c9082::t_90a5a053e710fc 1-7
+apps/agents-mobile/src/app/_layout.tsx
+  s_076b12ad1c9082::t_571502afbae34e 1-109
+apps/agents-mobile/src/app/gallery.tsx
+  s_076b12ad1c9082::t_cc992350501b8d 1
+apps/agents-mobile/src/app/self-test.tsx
+  s_076b12ad1c9082::t_4606ead2845512 1
+apps/agents-mobile/src/app/welcome.tsx
+  s_076b12ad1c9082::t_090bdb3d4d1f2b 1
+apps/agents-mobile/src/chat/ask-cards.tsx
+  s_076b12ad1c9082::t_b3e7a705963e5f 1-303
+apps/agents-mobile/src/chat/attachment-files.ts
+  s_076b12ad1c9082::t_cea6f1648a535b 1-78
+apps/agents-mobile/src/chat/browser-page.tsx
+  s_076b12ad1c9082::t_5cf5fdf742fa6a 1-31
+apps/agents-mobile/src/chat/browser-screen.tsx
+  s_076b12ad1c9082::t_ba0fa160e08913 1-15,17-19,21-30,32-51,53-64,66-70,72-74,76-90,92,94-106,108,110-113,115-134,136-331,333-348,350-384
+apps/agents-mobile/src/chat/browser-session.ts
+  s_076b12ad1c9082::t_74694971c96cb2 1-16,18-23,25-29,31-37,39-44,46-79,82-181,183-211,213-223,225-273,275-282,284-301,303-308,310-315,317-335,337-373
+apps/agents-mobile/src/chat/browser-source.ts
+  s_076b12ad1c9082::t_2eeead34b5d78a 1-69
+apps/agents-mobile/src/chat/chat-agent.ts
+  s_076b12ad1c9082::t_d6a0b7326cb57c 1-30
+apps/agents-mobile/src/chat/chat-header.tsx
+  s_076b12ad1c9082::t_603ce04b0e1ba6 1-140
+apps/agents-mobile/src/chat/composer-panel.ts
+  s_076b12ad1c9082::t_ec153dfa47d4c8 1-20
+apps/agents-mobile/src/chat/composer.tsx
+  s_076b12ad1c9082::t_ef22c2548501b0 1-134,136-140,142-170,172-383,385-467,469-500,502-538,540-551,554-593,595-621,623-668,671-745,747-778
+apps/agents-mobile/src/chat/details-sheet.tsx
+  s_076b12ad1c9082::t_72f32311893779 1-22,24,26-31,33-34,36-40,42-44,46-50,53-56,58-65,67,69-113,116-166,169-192,195-209,212-225,228-273
+apps/agents-mobile/src/chat/file-screen.tsx
+  s_076b12ad1c9082::t_2291d530189baf 1-22,24,26-32,34-44,46-48,50-60,62-63,65-70,72-73,75-80,82,84-88,90-217,219-233,235-282,284-285,287-341
+apps/agents-mobile/src/chat/find-bar.tsx
+  s_076b12ad1c9082::t_ff43c74ed9eee7 1-90
+apps/agents-mobile/src/chat/footer.tsx
+  s_076b12ad1c9082::t_86b55d19f31e7e 1-59
+apps/agents-mobile/src/chat/markdown.tsx
+  s_076b12ad1c9082::t_f438930ecfe849 1-46
+apps/agents-mobile/src/chat/model-sheet.tsx
+  s_076b12ad1c9082::t_05c505eccae899 1-549
+apps/agents-mobile/src/chat/new-from-mail.tsx
+  s_076b12ad1c9082::t_d99eaa611cac47 1-43
+apps/agents-mobile/src/chat/queue-sheet.tsx
+  s_076b12ad1c9082::t_d0c0d478e390ae 1-172
+apps/agents-mobile/src/chat/talk-screen.tsx
+  s_076b12ad1c9082::t_a0df18ae53b818 1-285
+apps/agents-mobile/src/chat/transcript.tsx
+  s_076b12ad1c9082::t_a8676d617c915a 1-60,63-77,80-87,90-91,94-98,100-226,228-251,253-324,327-357,359-388,391,393-395,398-407,409-576,579-712,714-767
+apps/agents-mobile/src/chat/work-log.tsx
+  s_076b12ad1c9082::t_dc3ad0788a0372 1-213
+apps/agents-mobile/src/chat/working-control.tsx
+  s_076b12ad1c9082::t_8fa04504946394 1-104
+apps/agents-mobile/src/chats/chat-list-rows.tsx
+  s_076b12ad1c9082::t_4e2503cb128a65 1-61,63-65,67-69,71-150,152-155,157-160,162-166,168-297
+apps/agents-mobile/src/chats/chat-menu.ts
+  s_076b12ad1c9082::t_55f7a2847f273c 1-95,97,99-134,136-150,152-154
+apps/agents-mobile/src/chats/chat-preview.tsx
+  s_076b12ad1c9082::t_2e23775d3ef71f 1-60
+apps/agents-mobile/src/chats/chat-row.tsx
+  s_076b12ad1c9082::t_aa66e94cb0e803 1-31,34-35,37-42,44-62,64-84,86,88-170,172-225,227-233,236-253,255-291,293-316,318-319,321-364,366-381,383-400,402-411
+apps/agents-mobile/src/chats/chats-screen.tsx
+  s_076b12ad1c9082::t_a5475c8a32cf99 1-43,45-51,53-63,65,67-85,87-96,98-101,103-106,108-129,131-132,134-136,138-142,144-148,150-153,155-162,164-175,177-192,194-233,235-489,491-516,519-543,545-607
+apps/agents-mobile/src/chats/search-field.tsx
+  s_076b12ad1c9082::t_8985d6109040bc 1-45
+apps/agents-mobile/src/chats/selection-bar.tsx
+  s_076b12ad1c9082::t_4971c0677d9dcf 1-59
+apps/agents-mobile/src/chats/sessions-sheet.tsx
+  s_076b12ad1c9082::t_75daf0df68b477 1-148
+apps/agents-mobile/src/dev/gallery-screen.tsx
+  s_076b12ad1c9082::t_5e1ce830b68daa 1-404
+apps/agents-mobile/src/dev/self-test-screen.tsx
+  s_076b12ad1c9082::t_44639da7b0bfd4 1-73
+apps/agents-mobile/src/frame/bottom-bar.tsx
+  s_076b12ad1c9082::t_1632d17f4c8b82 1-331
+apps/agents-mobile/src/frame/frame-store.ts
+  s_076b12ad1c9082::t_f7e87a001a140e 1-36
+apps/agents-mobile/src/frame/held-row.tsx
+  s_076b12ad1c9082::t_5abf6e120b58b3 1-2,4-6,8-46
+apps/agents-mobile/src/frame/navigation.ts
+  s_076b12ad1c9082::t_62f597651b0f70 1-58
+apps/agents-mobile/src/frame/notices.tsx
+  s_076b12ad1c9082::t_ae97ec1f0ddd7e 1-49
+apps/agents-mobile/src/frame/placeholder.tsx
+  s_076b12ad1c9082::t_0573540bc1e541 1-51
+apps/agents-mobile/src/frame/recents-card.tsx
+  s_076b12ad1c9082::t_5221809fa17ae9 1-205
+apps/agents-mobile/src/frame/stack-options.ts
+  s_076b12ad1c9082::t_8241e9d981490c 1-43
+apps/agents-mobile/src/frame/tab-root.tsx
+  s_076b12ad1c9082::t_83474138902160 1-26
+apps/agents-mobile/src/frame/tab-stack.tsx
+  s_076b12ad1c9082::t_cef40259e7f859 1-2,4-7,9-10,12-16,18-39
+apps/agents-mobile/src/frame/tabs-frame.tsx
+  s_076b12ad1c9082::t_c82928249e9c08 1-126
+apps/agents-mobile/src/frame/tabs.ts
+  s_076b12ad1c9082::t_7deb4777bc1a3e 1-10
+apps/agents-mobile/src/frame/theme-preference.ts
+  s_076b12ad1c9082::t_d6dc3a95566c13 1-26
+apps/agents-mobile/src/notifications/device.ts
+  s_076b12ad1c9082::t_cd49018d81b595 1-113
+apps/agents-mobile/src/notifications/faces.ts
+  s_076b12ad1c9082::t_9ddcfe1c041293 1-71
+apps/agents-mobile/src/notifications/follow.ts
+  s_076b12ad1c9082::t_d53ea71f88e131 1-128
+apps/agents-mobile/src/notifications/native.ts
+  s_076b12ad1c9082::t_f16cee2597cbf9 1-18
+apps/agents-mobile/src/scheduled/form.tsx
+  s_076b12ad1c9082::t_522b58f249d2c3 1-25,27-28,30-62,64-87,89-116,118-153,155-185,188-235
+apps/agents-mobile/src/scheduled/run-history.tsx
+  s_076b12ad1c9082::t_95f7bef2d06bc1 1-169
+apps/agents-mobile/src/scheduled/scheduled-screen.tsx
+  s_076b12ad1c9082::t_b88ee3bdc92839 1-29,31-33,35-47,49-53,55-71,73-120,122-153,155,157-185,187-207,209-225,227-255,257-293,295-310,312-320,322-327
+apps/agents-mobile/src/scheduled/task-editor.tsx
+  s_076b12ad1c9082::t_77f28e680346e3 1-29,31-32,34-55,58,60-66,68-98,100-115,117-121,123-128,130-201,203-270,272-352
+apps/agents-mobile/src/scheduled/task-row.tsx
+  s_076b12ad1c9082::t_e3680b164ebb84 1-19,21-22,24-38,41-45,47-74,76-99,101-104,106-183
+apps/agents-mobile/src/scheduled/task-screen.tsx
+  s_076b12ad1c9082::t_d35ad24db163e7 1-36,38-41,43-66,68-82,84-109,111-134,136-152,154-164,166-168,170-186,188-202,204-216,218-225,227-244,246-266
+apps/agents-mobile/src/settings/agent-kinds.ts
+  s_076b12ad1c9082::t_8c0a079e43c362 1-5
+apps/agents-mobile/src/settings/agent-page.tsx
+  s_076b12ad1c9082::t_6f49f9210e260e 1-36,39-74,76-147,149-192
+apps/agents-mobile/src/settings/agents-screen.tsx
+  s_076b12ad1c9082::t_1c095214c0e4a1 1-22
+apps/agents-mobile/src/settings/chat-settings.tsx
+  s_076b12ad1c9082::t_a1a649c2493757 1-106
+apps/agents-mobile/src/settings/licenses-screen.tsx
+  s_076b12ad1c9082::t_6090b975a9e1ef 1-112
+apps/agents-mobile/src/settings/menus.tsx
+  s_076b12ad1c9082::t_ef723b22caf827 1-153
+apps/agents-mobile/src/settings/notifications-settings.tsx
+  s_076b12ad1c9082::t_205c81ca8ef467 1-52
+apps/agents-mobile/src/settings/qr-scanner.tsx
+  s_076b12ad1c9082::t_18c78bd3907216 1-97,99-108,110-138
+apps/agents-mobile/src/settings/settings-screen.tsx
+  s_076b12ad1c9082::t_48051c39ad2593 1-129
+apps/agents-mobile/targets/notifications/AgentFaces.swift
+  s_076b12ad1c9082::t_fd2cd87405ecfb 1
+apps/agents-mobile/targets/notifications/expo-target.config.js
+  s_076b12ad1c9082::t_6817462baae37b 1-11
+apps/agents-mobile/targets/package.json
+  s_076b12ad1c9082::t_0b91d6dc2e8bd0 2
+apps/agents-mobile/tsconfig.json
+  s_076b12ad1c9082::t_9534ed0573bd24 2-10
+apps/desktop/src/backend-host.test.ts
+  s_076b12ad1c9082::t_3084d4201d6c84 36,41-42,46-49,59
+apps/desktop/src/backend-host.ts
+  s_076b12ad1c9082::t_74b8197f126b6d 25-31
+apps/desktop/src/backend-protocol.ts
+  s_076b12ad1c9082::t_0d6181706c9267 3
+apps/desktop/src/backend.ts
+  s_076b12ad1c9082::t_53ce166fa089e2 16-22,58-61,69-71
+apps/desktop/src/error-reports.test.ts
+  s_076b12ad1c9082::t_fec5f98833cca4 8,10
+apps/desktop/src/error-reports.ts
+  s_076b12ad1c9082::t_e4717008957839 14
+apps/desktop/src/extension-kit.ts
+  s_076b12ad1c9082::t_8f325a8ed43c57 1-2,9-11
+apps/desktop/src/extensions-preload.ts
+  s_076b12ad1c9082::t_c353aad00d35f9 12
+apps/desktop/src/extensions.ts
+  s_076b12ad1c9082::t_bd578f55e614e9 13
+apps/desktop/src/handlers/backend.ts
+  s_076b12ad1c9082::t_569a83ed0288bc 9-10
+apps/desktop/src/handlers/browser.ts
+  s_076b12ad1c9082::t_28ba05f8cb21ac 3-4,13
+apps/desktop/src/handlers/index.ts
+  s_076b12ad1c9082::t_e60ebb95a4c60a 3-12
+apps/desktop/src/handlers/support.test.ts
+  s_076b12ad1c9082::t_8f66881c741d8a 20,30,38,40
+apps/desktop/src/handlers/support.ts
+  s_076b12ad1c9082::t_66abb6efb3d316 13-16,21,29
+apps/desktop/src/main-link.ts
+  s_076b12ad1c9082::t_6042a96d6dcc0c 1
+apps/desktop/src/main.ts
+  s_076b12ad1c9082::t_d73386cfdcbd1e 8-21,28-29,333
+apps/desktop/src/os/backend.ts
+  s_076b12ad1c9082::t_bf0cddf546a88c 1-3
+apps/desktop/src/os/index.ts
+  s_076b12ad1c9082::t_e39a05742ae682 1-3
+apps/desktop/src/os/linux/backend.ts
+  s_076b12ad1c9082::t_8f02f17c9c5b29 4
+apps/desktop/src/os/linux/index.ts
+  s_076b12ad1c9082::t_0e2dce8d5aa2da 3-9
+apps/desktop/src/os/linux/linux.test.ts
+  s_076b12ad1c9082::t_12f7812a19f3ce 6,12-13
+apps/desktop/src/os/linux/mail-apps.ts
+  s_076b12ad1c9082::t_c19485985970fa 4-5
+apps/desktop/src/os/linux/terminals.ts
+  s_076b12ad1c9082::t_9992657deeb5cc 12-13
+apps/desktop/src/os/mac/agent-notifications.ts
+  s_076b12ad1c9082::t_8f916ae0bb5344 5-6
+apps/desktop/src/os/mac/backend.ts
+  s_076b12ad1c9082::t_b2d1f68f0c64de 4-5
+apps/desktop/src/os/mac/index.ts
+  s_076b12ad1c9082::t_931af9d1b9dfc5 3-7
+apps/desktop/src/os/mac/mail-apps.ts
+  s_076b12ad1c9082::t_2d266d210dce91 6
+apps/desktop/src/os/mac/terminals.ts
+  s_076b12ad1c9082::t_0ed15c071e1a9a 7
+apps/desktop/src/os/mac/translator.test.ts
+  s_076b12ad1c9082::t_761547ef2fc85f 3
+apps/desktop/src/os/mac/translator.ts
+  s_076b12ad1c9082::t_7e3aa70e28f7a2 7
+apps/desktop/src/platform.ts
+  s_076b12ad1c9082::t_5ca7733482c389 1,11-18
+apps/desktop/src/preload.ts
+  s_076b12ad1c9082::t_9bc553d4353010 13
+apps/desktop/src/services/agent/connected-agents.ts
+  s_076b12ad1c9082::t_8ccbc3e11ae3d4 9
+apps/desktop/src/services/agent/local.test.ts
+  s_076b12ad1c9082::t_703232d14df692 7-8,10,13
+apps/desktop/src/services/agent/local.ts
+  s_076b12ad1c9082::t_2d8277c89bcaf5 15
+apps/desktop/src/services/agent/mcp-server.ts
+  s_076b12ad1c9082::t_8eb5b134da404e 17-21
+apps/desktop/src/services/agent/shell-path.ts
+  s_076b12ad1c9082::t_376d7d871d9227 4
+apps/desktop/src/services/browser.test.ts
+  s_076b12ad1c9082::t_1f0f430f0aeed5 13-19
+apps/desktop/src/services/browser.ts
+  s_076b12ad1c9082::t_5f87854070729d 18-24
+apps/desktop/src/services/credentials-store.test.ts
+  s_076b12ad1c9082::t_04b7798f3f913f 2
+apps/desktop/src/services/extensions.test.ts
+  s_076b12ad1c9082::t_c1051294f936a8 21-26
+apps/desktop/src/services/extensions.ts
+  s_076b12ad1c9082::t_d34bd635cf4dc2 25-30
+apps/desktop/src/services/gmail-oauth.test.ts
+  s_076b12ad1c9082::t_eb2fba91a5536b 13-15,29
+apps/desktop/src/services/gmail-oauth.ts
+  s_076b12ad1c9082::t_0d4a7961369fba 23-25
+apps/desktop/src/services/microsoft-oauth.ts
+  s_076b12ad1c9082::t_43c1dfc58a4251 22-23
+apps/desktop/src/services/native-messaging-ipc.test.ts
+  s_076b12ad1c9082::t_ffc850eb951cc3 10
+apps/desktop/src/services/native-messaging-ipc.ts
+  s_076b12ad1c9082::t_c059641b4de788 12
+apps/desktop/src/services/support-diagnostics.ts
+  s_076b12ad1c9082::t_38f6bf27eec2ed 4-5
+apps/desktop/src/services/support-launcher.test.ts
+  s_076b12ad1c9082::t_97704d40734b25 7
+apps/desktop/src/services/support-session.test.ts
+  s_076b12ad1c9082::t_3e295458f763f9 13
+apps/desktop/src/services/support-terminal.test.ts
+  s_076b12ad1c9082::t_e93b53d6c57ac9 27-28
+apps/desktop/src/services/support-terminal.ts
+  s_076b12ad1c9082::t_d525f7de791c15 5
+apps/desktop/src/services/todoist-oauth.test.ts
+  s_076b12ad1c9082::t_bf2903c5503401 2,4
+apps/desktop/src/services/todoist-oauth.ts
+  s_076b12ad1c9082::t_bd3604c88922ca 4
+apps/desktop/src/updates.test.ts
+  s_076b12ad1c9082::t_83eb4857674e93 34-37,65
+apps/desktop/src/updates.ts
+  s_076b12ad1c9082::t_8cf4946ad1edaf 9-12
+apps/desktop/src/windows/main-window.ts
+  s_076b12ad1c9082::t_b488812d6251fd 3-10
+apps/web/package.json
+  s_076b12ad1c9082::t_922946e3353368 19,40,55-56,60,66-67
+apps/web/src/main/agent/agent-browser-overlay.tsx
+  s_076b12ad1c9082::t_e0324af0652f87 6
+apps/web/src/main/agent/agent-browser.tsx
+  s_076b12ad1c9082::t_1a618507bfec90 20-32,37,110,169-170,196-197,200-203,208-210,214,224,246-251,268,271,279,287-307,309-310,315-319
+apps/web/src/main/agent/agent-corner.tsx
+  s_076b12ad1c9082::t_2fd2d3a49b23e6 4-5,11-12,20-26
+apps/web/src/main/agent/agent-providers.tsx
+  s_076b12ad1c9082::t_ce4fca42c2cfb3 1-4,6,10-15,42,46-57,70,81,89,106-107
+apps/web/src/main/agent/agent-scheduled.tsx
+  s_076b12ad1c9082::t_40036d3105febf 18,25,27,29-30,32,34,40,59-109,139,153,210,224,226,232,237,250,397,411-420,422-425,428,532-544,567,569,575,620,699-702,736,752,759,844,907,914,916,939-940,944-951,963-964,987-989,993,998-999,1004,1016,1089-1096,1107-1109,1116-1118,1124,1127,1130,1133,1137,1142,1146-1148,1165,1173,1199,1222,1225-1226,1228,1232,1234,1238,1241-1244,1247,1249-1250,1253,1255
+apps/web/src/main/agent/agent-sidebar.tsx
+  s_076b12ad1c9082::t_f5aa13b632759a 49-52,54-78,88,99,147,170-175,215-217,235,238-239,242-245,256,272-276,321,331,382,504,547,595-596,598,621,645,679-681,787,813,837-843,898,1237,1292,1314
+apps/web/src/main/agent/approval-card.tsx
+  s_076b12ad1c9082::t_5c1a33993f589e 13-21,24,27-30,32,36,42-49,74-78,105
+apps/web/src/main/agent/chat-attachments.tsx
+  s_076b12ad1c9082::t_9cc4c20b960382 9-16,41-46,48,217
+apps/web/src/main/agent/chat-changes.tsx
+  s_076b12ad1c9082::t_5fd890162d72a4 13-14,16-22,52-54
+apps/web/src/main/agent/chat-cite.tsx
+  s_076b12ad1c9082::t_c844003bc1a664 4-5,8-13,67,214,225
+apps/web/src/main/agent/chat-composer.tsx
+  s_076b12ad1c9082::t_7304011f9bc6d3 8-25,30,32,47,49-50,58-64,86,120,128-132,136-137,172-177,179-180,192,194-202,205,239-244,262,264-267,271-277,367
+apps/web/src/main/agent/chat-context-panel.tsx
+  s_076b12ad1c9082::t_d4cd48f2a3bae5 14-23,28,122,175,196,218
+apps/web/src/main/agent/chat-find.tsx
+  s_076b12ad1c9082::t_8a56fcf72523bc 4,31-33
+apps/web/src/main/agent/chat-markdown.tsx
+  s_076b12ad1c9082::t_e7bb0834b4d268 7-8
+apps/web/src/main/agent/chat-queue.tsx
+  s_076b12ad1c9082::t_7447a90a6f40d3 1,4-5,37,50
+apps/web/src/main/agent/chat-shelve-actions.tsx
+  s_076b12ad1c9082::t_ccd3ac46bd4adc 2-3,35
+apps/web/src/main/agent/chat-switcher.tsx
+  s_076b12ad1c9082::t_7f31e1aee8c165 3,5-9,15,32
+apps/web/src/main/agent/chat-talk.tsx
+  s_076b12ad1c9082::t_e96d552acb7a8c 5,7-16,20,80,94,102-103
+apps/web/src/main/agent/chat-title.tsx
+  s_076b12ad1c9082::t_4e499f5c93f995 3-4,17,41,90
+apps/web/src/main/agent/chat-transcript.tsx
+  s_076b12ad1c9082::t_e5c5a0b15ea899 22-23,25-27,30,43,98,145-146,173-174,176-184,196-198,357,369-370,386,413-422,426,428,471,477-478,521,526,529
+apps/web/src/main/agent/chat-url.test.ts
+  s_076b12ad1c9082::t_caa9869e7b28f9 2,12
+apps/web/src/main/agent/chat-url.ts
+  s_076b12ad1c9082::t_8621e152ee8fbe 1-8
+apps/web/src/main/agent/chat-view.tsx
+  s_076b12ad1c9082::t_26726362f97a1c 5-6,8-11,13,19-20,24,26,28,32,35-41,43-58,66,102,109-110,118,121,134-135,158-162,167-178,239,283,376-419
+apps/web/src/main/agent/chat-window.tsx
+  s_076b12ad1c9082::t_1c55af3dec2a38 11,15-18,33-34
+apps/web/src/main/agent/chat-workspace.tsx
+  s_076b12ad1c9082::t_aaa5149a16e967 11,14,24-33,36-37,49,51-52,62,69-70,153-155,171,200,202,206-207,577,581
+apps/web/src/main/agent/question-card.tsx
+  s_076b12ad1c9082::t_0edbf14fd83169 2,8-9,25-28,75,118
+apps/web/src/main/agent/sidebar-drag.test.ts
+  s_076b12ad1c9082::t_50300ad74f9f0d 2
+apps/web/src/main/agent/sidebar-drag.ts
+  s_076b12ad1c9082::t_51c55b82550053 12
+apps/web/src/main/agent/talk-audio.ts
+  s_076b12ad1c9082::t_96b6106e112f6c 2,5,42,72,103-139
+apps/web/src/main/agent/web-presence.ts
+  s_076b12ad1c9082::t_251679ed368499 1-54
+apps/web/src/main/agent/work-log.tsx
+  s_076b12ad1c9082::t_ec4be4544b6940 17-35,37-39,50,85,168,177,180,192,194,198,202,211-220,222
+apps/web/src/main/app-api.ts
+  s_076b12ad1c9082::t_87529aeaa91f27 1-46
+apps/web/src/main/browser/browser-panel.tsx
+  s_076b12ad1c9082::t_3a8244cc2f3285 12-13
+apps/web/src/main/browser/browser-settings.tsx
+  s_076b12ad1c9082::t_53633de4369cc8 5
+apps/web/src/main/browser/browser-view.tsx
+  s_076b12ad1c9082::t_82956038483b3e 19,44,500,525
+apps/web/src/main/browser/extension-toolbar.tsx
+  s_076b12ad1c9082::t_7a3dcfa1beabc9 13,27,193,202
+apps/web/src/main/browser/extensions-section.tsx
+  s_076b12ad1c9082::t_f3c22dae2dad79 8
+apps/web/src/main/browser/store.ts
+  s_076b12ad1c9082::t_a3ba90636756e4 5
+apps/web/src/main/calendar/agenda.tsx
+  s_076b12ad1c9082::t_d2d7cb67159bdc 4
+apps/web/src/main/calendar/api.ts
+  s_076b12ad1c9082::t_4d9ff6f5d1db0d 9
+apps/web/src/main/calendar/calendar-sidebar.tsx
+  s_076b12ad1c9082::t_3632bd459c1dcf 13,15
+apps/web/src/main/calendar/calendar-view.tsx
+  s_076b12ad1c9082::t_000525da50d75d 3,5,8-9
+apps/web/src/main/calendar/event-panel.tsx
+  s_076b12ad1c9082::t_fb2a71f28ac50c 25
+apps/web/src/main/calendar/event-style.ts
+  s_076b12ad1c9082::t_ea41a41b90937c 2
+apps/web/src/main/calendar/preferences.ts
+  s_076b12ad1c9082::t_82ae1301178ca7 2
+apps/web/src/main/calendar/team-picker.tsx
+  s_076b12ad1c9082::t_09b7caf736fb25 3-4
+apps/web/src/main/calendar/time-grid.tsx
+  s_076b12ad1c9082::t_bfad318b6e2103 9
+apps/web/src/main/client-host.ts
+  s_076b12ad1c9082::t_b80eff6a94ce4c 1-88
+apps/web/src/main/extensions/kit.ts
+  s_076b12ad1c9082::t_8a3776083a07a7 8,12-15,17,31
+apps/web/src/main/extensions/registry.ts
+  s_076b12ad1c9082::t_66322646519e1d 15,17
+apps/web/src/main/extensions/slots.tsx
+  s_076b12ad1c9082::t_cc0113bb9c8126 10
+apps/web/src/main/extensions/types.ts
+  s_076b12ad1c9082::t_e1f9e4cb3733eb 4-10,132
+apps/web/src/main/extensions/workspaces.ts
+  s_076b12ad1c9082::t_5e101782d193fc 8
+apps/web/src/main/home-view.tsx
+  s_076b12ad1c9082::t_0110fd59d0a322 1,3-4,19,42,50-53,89,99-103,109-111,115,152-153,505,530,601,1184,1201
+apps/web/src/main/index.tsx
+  s_076b12ad1c9082::t_62f74411f97c58 30-32
+apps/web/src/main/keybindings/dispatch.ts
+  s_076b12ad1c9082::t_e87fcf309ea4fe 1
+apps/web/src/main/mail/account-picture.tsx
+  s_076b12ad1c9082::t_feb7018010d9aa 2-7
+apps/web/src/main/mail/accounts-sidebar.tsx
+  s_076b12ad1c9082::t_c3227adad9e8a8 16,46-53,60,71
+apps/web/src/main/mail/add-mailbox.tsx
+  s_076b12ad1c9082::t_41eae1e7afbf81 9-16,18
+apps/web/src/main/mail/allow-access.tsx
+  s_076b12ad1c9082::t_216a2d13da0ec7 10-12,14
+apps/web/src/main/mail/app-sidebar.tsx
+  s_076b12ad1c9082::t_74f866cca3abd4 18-19,38,53
+apps/web/src/main/mail/attachment-preview.tsx
+  s_076b12ad1c9082::t_dbcfb1214469db 7-17,59,106
+apps/web/src/main/mail/command-palette.tsx
+  s_076b12ad1c9082::t_00f469ea0910dc 40-42,53,55,62,64-65,72
+apps/web/src/main/mail/compose-attachments.tsx
+  s_076b12ad1c9082::t_4c22d37cac4643 4-7
+apps/web/src/main/mail/composer-kit.tsx
+  s_076b12ad1c9082::t_443af6077af011 2,7-9,11
+apps/web/src/main/mail/conversation-summary.tsx
+  s_076b12ad1c9082::t_cdca0a2807ba68 3-5,7
+apps/web/src/main/mail/draft-editor.tsx
+  s_076b12ad1c9082::t_55e4b87196c8c7 1,4,8-15,19-25,35-36,47
+apps/web/src/main/mail/label-chip.tsx
+  s_076b12ad1c9082::t_8570a99daca0fe 3
+apps/web/src/main/mail/label-overlay.tsx
+  s_076b12ad1c9082::t_b62fee2b2930ef 18-22
+apps/web/src/main/mail/label-picker-menu.tsx
+  s_076b12ad1c9082::t_313c59cfc0f481 2-10
+apps/web/src/main/mail/mail-schedule.tsx
+  s_076b12ad1c9082::t_1800b5ddc5be2e 12
+apps/web/src/main/mail/message-list.tsx
+  s_076b12ad1c9082::t_24bbb161da9f9e 1,69,74-76,80-81,83-103,107
+apps/web/src/main/mail/message-reader.tsx
+  s_076b12ad1c9082::t_6670ee24c33a0d 1-2,28,75-78,91-92,98-112,118-119,130,132-138,141-142,1822
+apps/web/src/main/mail/model-picker.tsx
+  s_076b12ad1c9082::t_4d2ae2f1c77525 13,15-27,43-51,146-150,299,301-305,363,397-400,577,649-658,671-672
+apps/web/src/main/mail/new-message-view.tsx
+  s_076b12ad1c9082::t_667cdbaeda92f1 3,5-10,32,34,40-41
+apps/web/src/main/mail/provider-mark.tsx
+  s_076b12ad1c9082::t_92637688af9450 3-4
+apps/web/src/main/mail/recipient-input.tsx
+  s_076b12ad1c9082::t_29bc4011747306 1,10-15
+apps/web/src/main/mail/rich-text.tsx
+  s_076b12ad1c9082::t_76af3ba91ceecd 1
+apps/web/src/main/mail/search-header.tsx
+  s_076b12ad1c9082::t_d2e897c58f6c06 1,12-16,35
+apps/web/src/main/mail/sender-avatar.tsx
+  s_076b12ad1c9082::t_5a8b80b6b1a8c7 2
+apps/web/src/main/mail/sidebar-layout.ts
+  s_076b12ad1c9082::t_8f4bcd47623095 2
+apps/web/src/main/mail/signed-out-mailbox.tsx
+  s_076b12ad1c9082::t_ae8a854465f234 3-5,7
+apps/web/src/main/mail/spaces.ts
+  s_076b12ad1c9082::t_621e30ef4ee8c5 1,3-4
+apps/web/src/main/mail/sync-health.tsx
+  s_076b12ad1c9082::t_ee6c815bad1710 8-12,14
+apps/web/src/main/mail/thread-drag.ts
+  s_076b12ad1c9082::t_b2a87927f0daa9 1
+apps/web/src/main/mail/top-bar.tsx
+  s_076b12ad1c9082::t_c307c0d10e6282 27,29-31,35
+apps/web/src/main/mail/undo-send.ts
+  s_076b12ad1c9082::t_13ff69e00c0661 2-3
+apps/web/src/main/mail/unsubscribe-link.tsx
+  s_076b12ad1c9082::t_43ca1c8c6fbed2 6
+apps/web/src/main/mail/use-panel-tab-drag.ts
+  s_076b12ad1c9082::t_27c859037e1de5 2
+apps/web/src/main/mail/view-editor.tsx
+  s_076b12ad1c9082::t_f27aceaab8d172 9-16
+apps/web/src/main/mail/view-icon.tsx
+  s_076b12ad1c9082::t_35d526db6fbdd1 47
+apps/web/src/main/mailboxes.test.ts
+  s_076b12ad1c9082::t_83a71a7d829aef 1-66
+apps/web/src/main/mailboxes.ts
+  s_076b12ad1c9082::t_5511daf894c1a3 2-5
+apps/web/src/main/new-window-click.ts
+  s_076b12ad1c9082::t_8676058dc1226c 2,21
+apps/web/src/main/onboarding/key-trainer.tsx
+  s_076b12ad1c9082::t_6ab3937cd781e0 1
+apps/web/src/main/onboarding/setup.tsx
+  s_076b12ad1c9082::t_65eb7e79dd4a79 1,22-24,26,32,46,48,51,84-90,598,698,725-726,731
+apps/web/src/main/onboarding/tour.tsx
+  s_076b12ad1c9082::t_779b598ff0befc 1
+apps/web/src/main/panel-animations.ts
+  s_076b12ad1c9082::t_5b2873b7494ee0 2
+apps/web/src/main/recently-viewed.ts
+  s_076b12ad1c9082::t_cb4e520f8ddd11 10-11,13-14,16-22,24
+apps/web/src/main/root-view.tsx
+  s_076b12ad1c9082::t_f13be8b3bd8079 3
+apps/web/src/main/router.tsx
+  s_076b12ad1c9082::t_2cd75c2d64a115 22,24-25,158,169-173,186
+apps/web/src/main/settings/accounts-pane.tsx
+  s_076b12ad1c9082::t_e109bfc6587ee3 23-25,33,49,55-56
+apps/web/src/main/settings/agent-settings-kit.tsx
+  s_076b12ad1c9082::t_56caa3a3373853 12-13,30,45-55,67,118,121
+apps/web/src/main/settings/appearance-pane.tsx
+  s_076b12ad1c9082::t_abec2ebeb378bb 1
+apps/web/src/main/settings/calendar-pane.tsx
+  s_076b12ad1c9082::t_12b2e20f5ba1ba 6-8
+apps/web/src/main/settings/keybindings-pane.tsx
+  s_076b12ad1c9082::t_c134799f950407 43
+apps/web/src/main/settings/mailbox-picture.tsx
+  s_076b12ad1c9082::t_015eea8a8731d3 3-4,6
+apps/web/src/main/settings/otter-account-pane.tsx
+  s_076b12ad1c9082::t_8e6724625e7d37 9-10,12
+apps/web/src/main/settings/providers-pane.tsx
+  s_076b12ad1c9082::t_68b47f587fa276 1,19,27-28,30-41,48,72-79,157-159,196,232,327,416-419,556,565,660-661,729,739-741
+apps/web/src/main/settings/settings-nav.tsx
+  s_076b12ad1c9082::t_0cb4fb5307284b 1,55,315,332
+apps/web/src/main/settings/settings-page.tsx
+  s_076b12ad1c9082::t_37dd3ec51fc2b8 1,8,13,38,96,190
+apps/web/src/main/settings/settings-search.ts
+  s_076b12ad1c9082::t_7e32ca5d4c0b74 6
+apps/web/src/main/settings/theme/ThemeColorPicker.tsx
+  s_076b12ad1c9082::t_3316912f425e9c 2
+apps/web/src/main/settings/theme/ThemeEditorPanel.tsx
+  s_076b12ad1c9082::t_f4f1a23d033f04 1
+apps/web/src/main/support/report-problem.tsx
+  s_076b12ad1c9082::t_f08384b27c2ef2 62,330,338
+apps/web/src/main/theme/apply-theme.ts
+  s_076b12ad1c9082::t_7ccea8d4de0172 2
+apps/web/src/main/theme/interface-settings.ts
+  s_076b12ad1c9082::t_54186953b3ef1f 2
+apps/web/src/main/theme/themePalette.test.ts
+  s_076b12ad1c9082::t_142a7c9bab5a33 12
+apps/web/src/main/theme/themePalette.ts
+  s_076b12ad1c9082::t_315be7e3c27726 30
+apps/web/src/main/use-width.ts
+  s_076b12ad1c9082::t_595508560f357e 1-31
+apps/web/src/web/worker.ts
+  s_076b12ad1c9082::t_3553a3287759fb 83,87-90,92-101
+apps/web/vite.config.ts
+  s_076b12ad1c9082::t_2da71dce9c31d3 24-28
+design/README.md
+  s_076b12ad1c9082::t_3b83a3241b7457 16-20
+docs/imap.md
+  s_076b12ad1c9082::t_36287e18518250 75
+docs/outlook.md
+  s_076b12ad1c9082::t_227abc4aa5c40d 74
+extensions/calendar-invites/core/handlers.ts
+  s_076b12ad1c9082::t_1b59564343e128 8
+extensions/calendar-invites/core/index.ts
+  s_076b12ad1c9082::t_f4b0f9e5111c6d 4
+extensions/calendar-invites/package.json
+  s_076b12ad1c9082::t_eeced00bf51412 22,25
+extensions/claude/desktop/claude.ts
+  s_076b12ad1c9082::t_14260dc764ab19 48
+extensions/claude/desktop/index.ts
+  s_076b12ad1c9082::t_2f426eed746f53 4
+extensions/claude/desktop/transcript.test.ts
+  s_076b12ad1c9082::t_44475cabf035a0 9-10,38-39
+extensions/claude/mobile/index.ts
+  s_076b12ad1c9082::t_a8c05511ba45c0 1-6
+extensions/claude/mobile/mark.tsx
+  s_076b12ad1c9082::t_a606c1a23a2fc0 1-16
+extensions/claude/package.json
+  s_076b12ad1c9082::t_693ab2e5c1aae7 10-11,21,23,27-29,33-36
+extensions/claude/shared/mark.ts
+  s_076b12ad1c9082::t_f70a5f0a22132c 1-6
+extensions/claude/ui/icon.tsx
+  s_076b12ad1c9082::t_367decafeaca73 1,7-9,12
+extensions/codex/desktop/codex-app-server.ts
+  s_076b12ad1c9082::t_03e6928180dd4b 13
+extensions/codex/desktop/codex.ts
+  s_076b12ad1c9082::t_7641390ee4097b 6,32
+extensions/codex/desktop/index.ts
+  s_076b12ad1c9082::t_0af731b44b4bdb 4
+extensions/codex/desktop/transcript.test.ts
+  s_076b12ad1c9082::t_5569958416d407 8-9,24,46-47
+extensions/codex/mobile/index.ts
+  s_076b12ad1c9082::t_bed1be9ed5bc4c 1-6
+extensions/codex/mobile/mark.tsx
+  s_076b12ad1c9082::t_6a3e81cc79f7ea 1-16
+extensions/codex/package.json
+  s_076b12ad1c9082::t_7e25fa0231c363 10-11,20,22,26-28,32-35
+extensions/codex/shared/mark.ts
+  s_076b12ad1c9082::t_d8a657d8e8a68d 1-5
+extensions/codex/ui/icon.tsx
+  s_076b12ad1c9082::t_63772807df03a1 3-4,9,13
+extensions/hermes/core/deliveries.ts
+  s_076b12ad1c9082::t_ad3b00f193f7c2 27-28,37-38
+extensions/hermes/core/hermes-schedules.test.ts
+  s_076b12ad1c9082::t_930f7f5488d7ab 3,6,9
+extensions/hermes/core/hermes.test.ts
+  s_076b12ad1c9082::t_9a7afc69190d96 3,6,19,23
+extensions/hermes/core/hermes.ts
+  s_076b12ad1c9082::t_8ee3c40d276109 44,55,65-67,69-70
+extensions/hermes/core/http.ts
+  s_076b12ad1c9082::t_d1d1449e37b4ed 4
+extensions/hermes/core/index.ts
+  s_076b12ad1c9082::t_c298ada532452f 17
+extensions/hermes/core/runs.ts
+  s_076b12ad1c9082::t_314c38d0ffec17 33
+extensions/hermes/core/schedules.ts
+  s_076b12ad1c9082::t_7d3165b3b5d16b 32-33
+extensions/hermes/mobile/index.ts
+  s_076b12ad1c9082::t_0048ccf1630882 1-11
+extensions/hermes/mobile/mark.tsx
+  s_076b12ad1c9082::t_984675f0bab8de 1-12
+extensions/hermes/mobile/settings.tsx
+  s_076b12ad1c9082::t_902cd71a42ded3 1-176
+extensions/hermes/package.json
+  s_076b12ad1c9082::t_cae4ce714bf4d4 10-11,18,21,23-24,27-29,33-36
+extensions/hermes/shared/api.ts
+  s_076b12ad1c9082::t_13e2fa25c77df6 1-2
+extensions/hermes/shared/connect.ts
+  s_076b12ad1c9082::t_f5113832850b56 1-64
+extensions/hermes/shared/traits.ts
+  s_076b12ad1c9082::t_d0eb4335bcaba4 1-7
+extensions/hermes/tsconfig.json
+  s_076b12ad1c9082::t_69dee4095db906 3
+extensions/hermes/ui/deliveries.tsx
+  s_076b12ad1c9082::t_3d0378e9df05d0 2,5,13-15,35,48-50
+extensions/hermes/ui/index.tsx
+  s_076b12ad1c9082::t_dc00849a33174e 4,11
+extensions/hermes/ui/settings.tsx
+  s_076b12ad1c9082::t_2ce537694a0916 11,26
+extensions/openclaw/core/index.ts
+  s_076b12ad1c9082::t_e1db1716226361 14,20-21
+extensions/openclaw/core/models.test.ts
+  s_076b12ad1c9082::t_bec67ab49621c0 9
+extensions/openclaw/core/openclaw-connection.test.ts
+  s_076b12ad1c9082::t_88a538c96ff2cb 4-6,27,76,238-259
+extensions/openclaw/core/openclaw-files.test.ts
+  s_076b12ad1c9082::t_0cae78b09e656c 2-3,6,23
+extensions/openclaw/core/openclaw-owner.test.ts
+  s_076b12ad1c9082::t_e45798c17c43ab 3-4,19,41
+extensions/openclaw/core/openclaw-resume.test.ts
+  s_076b12ad1c9082::t_1753983f04bcf2 3-4,10,35
+extensions/openclaw/core/openclaw-talk.test.ts
+  s_076b12ad1c9082::t_5b385f3c1129ad 4,13
+extensions/openclaw/core/openclaw-title.test.ts
+  s_076b12ad1c9082::t_34ad0c92814a9e 3-4,10,35
+extensions/openclaw/core/openclaw-yield.test.ts
+  s_076b12ad1c9082::t_919c92a18f8784 3-4,10,36,145-200,348,350,363-372,818-864
+extensions/openclaw/core/openclaw.ts
+  s_076b12ad1c9082::t_5cd74c2dbb04d2 30,39-40,49,61,163-170,232-233,269,435-442,445-461,526,656,659,670-684,840-848,851,883,909,1116,1380-1381,1394,1433,1459,1614,1844,2053,2166,2525,2589
+extensions/openclaw/core/schedules.test.ts
+  s_076b12ad1c9082::t_b7a99b211d115e 15
+extensions/openclaw/core/schedules.ts
+  s_076b12ad1c9082::t_e989d47b4993d7 14
+extensions/openclaw/core/settings.ts
+  s_076b12ad1c9082::t_799648ab1811a7 6-7,10-15
+extensions/openclaw/core/text-stream.test.ts
+  s_076b12ad1c9082::t_1f9dd49e9e7545 4
+extensions/openclaw/mobile/index.ts
+  s_076b12ad1c9082::t_c5be0eb169fdcf 1-12
+extensions/openclaw/mobile/mark.tsx
+  s_076b12ad1c9082::t_aacf52b1b5542d 1-31
+extensions/openclaw/mobile/rows.tsx
+  s_076b12ad1c9082::t_1db5b4ca754366 1-39
+extensions/openclaw/package.json
+  s_076b12ad1c9082::t_701e970fe4eaad 10-11,19,22,24,26,29-31,35-38
+extensions/openclaw/shared/api.ts
+  s_076b12ad1c9082::t_35c34d1ac87dc1 1-2
+extensions/openclaw/shared/connect.test.ts
+  s_076b12ad1c9082::t_e435f4298a4ccf 1-35
+extensions/openclaw/shared/connect.ts
+  s_076b12ad1c9082::t_c50f81dc7f2185 1-5,7-16,18-29,31-36,38-48,50-54,56-70,72-79,81-88,90,92-116,118-143,145-157
+extensions/openclaw/shared/mark.ts
+  s_076b12ad1c9082::t_253c7d1f6c4a46 1-20
+extensions/openclaw/shared/models.ts
+  s_076b12ad1c9082::t_5a81d81f5ef763 1-113,115-175,178-209
+extensions/openclaw/shared/traits.ts
+  s_076b12ad1c9082::t_5cf5c85707959f 1-10
+extensions/openclaw/tsconfig.json
+  s_076b12ad1c9082::t_c3eb0652310219 3
+extensions/openclaw/ui/deliveries.tsx
+  s_076b12ad1c9082::t_d5d66578347a4f 2,5,10-12,32,45-47
+extensions/openclaw/ui/icon.tsx
+  s_076b12ad1c9082::t_143efd15099a77 1-2,4,6,9-10,13-21
+extensions/openclaw/ui/index.tsx
+  s_076b12ad1c9082::t_6bb9e09f980381 4,11
+extensions/openclaw/ui/models.tsx
+  s_076b12ad1c9082::t_80f61517f394f5 4,21-22,84-100,104-105,108,110,122-123,127,129,138,149-151,238
+extensions/openclaw/ui/settings.tsx
+  s_076b12ad1c9082::t_bc7bb3e776e10c 9-10,12,22-43,198-217
+extensions/otter-drive/core/drive.test.ts
+  s_076b12ad1c9082::t_612c5856599e7e 5-6
+extensions/otter-drive/core/drive.ts
+  s_076b12ad1c9082::t_4a98501c78de65 19
+extensions/otter-drive/core/index.ts
+  s_076b12ad1c9082::t_7a4f54ad1f1fd3 5
+extensions/otter-drive/core/local.test.ts
+  s_076b12ad1c9082::t_396273963debda 5
+extensions/otter-drive/package.json
+  s_076b12ad1c9082::t_5842a95418f02e 25,28
+extensions/sign-in-codes/package.json
+  s_076b12ad1c9082::t_56bc88df15c637 20,23
+extensions/todoist/core/handlers.ts
+  s_076b12ad1c9082::t_504772e6a54d27 3
+extensions/todoist/core/index.ts
+  s_076b12ad1c9082::t_167fc09f96957f 4
+extensions/todoist/core/todoist-auth.test.ts
+  s_076b12ad1c9082::t_4fb8ca0b10d37b 4
+extensions/todoist/core/todoist.test.ts
+  s_076b12ad1c9082::t_229dd810ace3d2 4,18,20,23
+extensions/todoist/core/todoist.ts
+  s_076b12ad1c9082::t_29ec0ad24107ab 18
+extensions/todoist/package.json
+  s_076b12ad1c9082::t_b9d56705f524e9 23,26
+extensions/translation/core/handlers.ts
+  s_076b12ad1c9082::t_7a13ec3acc2adb 11
+extensions/translation/core/index.ts
+  s_076b12ad1c9082::t_661c83a93e0f94 4
+extensions/translation/package.json
+  s_076b12ad1c9082::t_c00324cf46935f 22,25
+extensions/varys/core/client.ts
+  s_076b12ad1c9082::t_42e1455dd5026d 15
+extensions/varys/core/deliveries.ts
+  s_076b12ad1c9082::t_d6cdc3beaeb4a3 32-34,43
+extensions/varys/core/index.ts
+  s_076b12ad1c9082::t_fc8dd37667f493 17-19
+extensions/varys/core/models.ts
+  s_076b12ad1c9082::t_45d11d3d220ba8 17
+extensions/varys/core/relay.test.ts
+  s_076b12ad1c9082::t_0ade6bfb3764ae 5,7,11,18,30,34
+extensions/varys/core/relay.ts
+  s_076b12ad1c9082::t_766ad493028aae 19
+extensions/varys/core/schedules.test.ts
+  s_076b12ad1c9082::t_3539f19deacddd 5-6,9,52
+extensions/varys/core/schedules.ts
+  s_076b12ad1c9082::t_928f28c7efe4fd 19-21
+extensions/varys/core/turns.ts
+  s_076b12ad1c9082::t_331f4dd76130ff 28-29
+extensions/varys/core/varys.test.ts
+  s_076b12ad1c9082::t_83c67b1f13b6af 18,20,27
+extensions/varys/core/varys.ts
+  s_076b12ad1c9082::t_1d303cc578daa1 22,33-38
+extensions/varys/mobile/index.ts
+  s_076b12ad1c9082::t_0288f07f06fb3c 1-11
+extensions/varys/mobile/mark.tsx
+  s_076b12ad1c9082::t_484dae6cd3f98a 1-16
+extensions/varys/mobile/settings.tsx
+  s_076b12ad1c9082::t_bc7d2428bd807c 1-122
+extensions/varys/package.json
+  s_076b12ad1c9082::t_611b1a7468c22c 10-11,19,22,24,26,29-31,35-38
+extensions/varys/shared/api.ts
+  s_076b12ad1c9082::t_36556e4b79d163 1-2
+extensions/varys/shared/connect.ts
+  s_076b12ad1c9082::t_19944480bb7af0 1-108
+extensions/varys/shared/mark.ts
+  s_076b12ad1c9082::t_b7ad6c98635385 1-5
+extensions/varys/shared/traits.ts
+  s_076b12ad1c9082::t_6ef3a403c5633b 1-7
+extensions/varys/tsconfig.json
+  s_076b12ad1c9082::t_e2a17f67756f1d 3
+extensions/varys/ui/deliveries.tsx
+  s_076b12ad1c9082::t_f76a35cdbcba69 1,4,7,9
+extensions/varys/ui/icon.tsx
+  s_076b12ad1c9082::t_6327a9d4d69e38 1-2,5-6
+extensions/varys/ui/index.tsx
+  s_076b12ad1c9082::t_87ad6dce7ed887 4,11
+extensions/varys/ui/settings.tsx
+  s_076b12ad1c9082::t_8d3e11e8893b67 1,4-5,10-24
+packages/client/package.json
+  s_076b12ad1c9082::t_e5f3c5ba38eb23 1-30
+packages/client/src/agents/agent-browser.test.ts
+  s_076b12ad1c9082::t_6cf81926e9d633 1-181
+packages/client/src/agents/agent-browser.ts
+  s_076b12ad1c9082::t_098c26cd99180d 1-3,5-6,8-13,15-29,31,33-55,57-61,63-75,77-78,80-125,127,129-140,142-179,181-212,214-217,219-227,229-233,235-262,264-265,267-293,295-311,313-336
+packages/client/src/agents/agent-channels.ts
+  s_076b12ad1c9082::t_915578cf906b29 1-61
+packages/client/src/agents/agent-providers.test.ts
+  s_076b12ad1c9082::t_9fce0f47694cad 1-50
+packages/client/src/agents/agent-providers.ts
+  s_076b12ad1c9082::t_a8e942368bd8ff 1-150
+packages/client/src/agents/agent-scheduled.ts
+  s_076b12ad1c9082::t_398c9e2b73cea6 1-226,229-230,232-374
+packages/client/src/agents/agent-settings.test.ts
+  s_076b12ad1c9082::t_ba9a0eab7f29df 1-45
+packages/client/src/agents/agent-settings.ts
+  s_076b12ad1c9082::t_a77d5cd9b94155 1-13,15-29,32-45,47-66,68-70,72-74,76-83,85-89,91-100,102-161,163-171
+packages/client/src/agents/agent-traits.ts
+  s_076b12ad1c9082::t_ed9560b9726737 1-12
+packages/client/src/agents/api.ts
+  s_076b12ad1c9082::t_d1db7cbd32f5f3 1-439
+packages/client/src/agents/approvals.test.ts
+  s_076b12ad1c9082::t_f3b38c1c0d8cd3 1-49
+packages/client/src/agents/approvals.ts
+  s_076b12ad1c9082::t_e7c996d6b0737a 1-76
+packages/client/src/agents/auto-settle.ts
+  s_076b12ad1c9082::t_732464c29caed0 2-6,8,14,26-27,30
+packages/client/src/agents/chat-actions.ts
+  s_076b12ad1c9082::t_92404472ea31b8 1-33
+packages/client/src/agents/chat-attachments.test.ts
+  s_076b12ad1c9082::t_1b90e75a5bd901 1-33
+packages/client/src/agents/chat-attachments.ts
+  s_076b12ad1c9082::t_b367f156c03ee3 1-4,6,8-11,14-28,31-40,43-46,49-99,101-132,134,136-162
+packages/client/src/agents/chat-changes.test.ts
+  s_076b12ad1c9082::t_e8c1a887e64062 2-3
+packages/client/src/agents/chat-changes.ts
+  s_076b12ad1c9082::t_d7a71d15be1366 1-40
+packages/client/src/agents/chat-cite.test.ts
+  s_076b12ad1c9082::t_52c8fe84f8e132 1-21
+packages/client/src/agents/chat-cite.ts
+  s_076b12ad1c9082::t_cd004f32782dab 1-48
+packages/client/src/agents/chat-context.test.ts
+  s_076b12ad1c9082::t_8c3136f0a2808b 3-4,6,25-93
+packages/client/src/agents/chat-context.ts
+  s_076b12ad1c9082::t_933a35a9cb7c47 3-5,20-21,77-80,82,173,176-196,200-201,209-220,224-271
+packages/client/src/agents/chat-details.ts
+  s_076b12ad1c9082::t_021834ba54fef0 1-68
+packages/client/src/agents/chat-files.ts
+  s_076b12ad1c9082::t_fa6a73db30e22c 1-95
+packages/client/src/agents/chat-find.test.ts
+  s_076b12ad1c9082::t_f01ddc3a1baaa0 1-31
+packages/client/src/agents/chat-find.ts
+  s_076b12ad1c9082::t_c9550294926f6b 1-32
+packages/client/src/agents/chat-links.test.ts
+  s_076b12ad1c9082::t_9f73c6088b2a24 1-36
+packages/client/src/agents/chat-links.ts
+  s_076b12ad1c9082::t_977fbc6737fcf3 16-19
+packages/client/src/agents/chat-list.test.ts
+  s_076b12ad1c9082::t_c176eb94b88b67 1-406
+packages/client/src/agents/chat-list.ts
+  s_076b12ad1c9082::t_a91bbe61a31d62 1-448
+packages/client/src/agents/chat-mail.test.ts
+  s_076b12ad1c9082::t_7f6ceab05ee77b 1-24
+packages/client/src/agents/chat-mail.ts
+  s_076b12ad1c9082::t_b0cf2fae17d923 1-24
+packages/client/src/agents/chat-order.test.ts
+  s_076b12ad1c9082::t_c5dd1ca3d3fefa 3
+packages/client/src/agents/chat-queue.ts
+  s_076b12ad1c9082::t_615aada80ef19b 1-42
+packages/client/src/agents/chat-runs.test.ts
+  s_076b12ad1c9082::t_3620ab80ebbce8 3,67-70
+packages/client/src/agents/chat-runs.ts
+  s_076b12ad1c9082::t_06c31884bc8d84 46-49,93-97,123-124
+packages/client/src/agents/chat-shelves.test.ts
+  s_076b12ad1c9082::t_5014888ac33fe4 2-11,51-134
+packages/client/src/agents/chat-store.test.ts
+  s_076b12ad1c9082::t_475e57727b34d9 1-823
+packages/client/src/agents/chat-store.ts
+  s_076b12ad1c9082::t_05597471601eed 1,18-19,21-28,41-47,63-69,89,121,316-318,340,357,360-361,370,391,427-429,431,441-442,461-462,469,474,544-545,557,559,561-564,566-568,571,576,578-579,582,610-612,619-626,691,710-711,741,753-754,759-760,762,834,848,852,868,877,880-883,1041-1052,1060,1065,1068-1071,1124,1145-1147,1193,1215,1221,1250,1271-1314,1348-1349,1393,1432,1449-1452,1455,1529,1551,1559-1560,1576-1577,1614-1615,1672,1695-1704,1710,1746,1952-1976,1979-2030,2033-2034
+packages/client/src/agents/chat-time.test.ts
+  s_076b12ad1c9082::t_8de1b4969b821f 2,20-54
+packages/client/src/agents/chat-time.ts
+  s_076b12ad1c9082::t_96be8f62d19916 17-55
+packages/client/src/agents/composer.test.ts
+  s_076b12ad1c9082::t_8b916c1338ef5f 1-84
+packages/client/src/agents/composer.ts
+  s_076b12ad1c9082::t_4472668f0a0cdf 1-191
+packages/client/src/agents/model-picker.test.ts
+  s_076b12ad1c9082::t_4081aea8e8b098 1-10,12-25,27-34,36-52,54-61,63-68,70-87,89-98,100-103,105-110,112-142
+packages/client/src/agents/model-picker.ts
+  s_076b12ad1c9082::t_3b589172e7116e 1-265
+packages/client/src/agents/model-prefs.ts
+  s_076b12ad1c9082::t_df300410dedb49 2-8,10,20,22,29-32,38-40,47-50,54,62,67-68,71,79,83
+packages/client/src/agents/notifications.test.ts
+  s_076b12ad1c9082::t_06eaa3a212cf3f 1-102
+packages/client/src/agents/notifications.ts
+  s_076b12ad1c9082::t_52925a6f8faee2 1-71
+packages/client/src/agents/question.ts
+  s_076b12ad1c9082::t_afebe4559921e7 1-58
+packages/client/src/agents/reply-bubbles.test.ts
+  s_076b12ad1c9082::t_2f4e30b9f9a57c 1-67
+packages/client/src/agents/reply-bubbles.ts
+  s_076b12ad1c9082::t_f5811fb89aa893 1,3-8,10-71,73-75,78-94,96-106,109-118
+packages/client/src/agents/scheduled-editor.test.ts
+  s_076b12ad1c9082::t_8f394c14f36bb3 1-245
+packages/client/src/agents/scheduled-editor.ts
+  s_076b12ad1c9082::t_6d479981e98722 1-368
+packages/client/src/agents/scheduled-text.test.ts
+  s_076b12ad1c9082::t_7f74d74c3bd551 4,14,158-178
+packages/client/src/agents/talk.test.ts
+  s_076b12ad1c9082::t_b27e4682aabb98 1-310
+packages/client/src/agents/talk.ts
+  s_076b12ad1c9082::t_b41158f9dcc36c 1-284
+packages/client/src/agents/transcript.test.ts
+  s_076b12ad1c9082::t_f27b831d29501a 1-11,13-23,25-39,41-56,59-65,67-75,77-84,86-98,100-189
+packages/client/src/agents/transcript.ts
+  s_076b12ad1c9082::t_1e8ae680504ad7 1-14,17-95,97-129,131-142,144-147
+packages/client/src/agents/work-log.test.ts
+  s_076b12ad1c9082::t_228502243e0dcf 1-80
+packages/client/src/agents/work-log.ts
+  s_076b12ad1c9082::t_d796d41158a1c5 1-122
+packages/client/src/bridge.ts
+  s_076b12ad1c9082::t_9f4226f5bd5bc5 1-5,7-11,16
+packages/client/src/errors.ts
+  s_076b12ad1c9082::t_692cf13203fc49 1-5
+packages/client/src/file-preview.test.ts
+  s_076b12ad1c9082::t_9b65b87537b5c1 1-29
+packages/client/src/file-preview.ts
+  s_076b12ad1c9082::t_6d3a007f6f8e9d 1-10,12-47,49-50,52-141,143-159,161-164
+packages/client/src/host.ts
+  s_076b12ad1c9082::t_d15fa47c3a6be2 1-39
+packages/client/src/mail/account-style.ts
+  s_076b12ad1c9082::t_0bbfdae9603b04 1
+packages/client/src/mail/action-summary.ts
+  s_076b12ad1c9082::t_4a2134bb6ee49b 3
+packages/client/src/mail/advance-direction.ts
+  s_076b12ad1c9082::t_0a08d5b4eddec4 1-2,8
+packages/client/src/mail/alias-mailboxes.test.ts
+  s_076b12ad1c9082::t_83f8c43cf7c2d6 3-4
+packages/client/src/mail/alias-mailboxes.ts
+  s_076b12ad1c9082::t_325ab6f8b74885 2-4
+packages/client/src/mail/api.ts
+  s_076b12ad1c9082::t_52484f1362edda 1,4,15,385,388
+packages/client/src/mail/archive.test.ts
+  s_076b12ad1c9082::t_67d5d303f880a6 4-7
+packages/client/src/mail/archive.ts
+  s_076b12ad1c9082::t_9838bff5ee7bb0 2-4,30-43
+packages/client/src/mail/capabilities.test.ts
+  s_076b12ad1c9082::t_192f0447247bc3 2-3
+packages/client/src/mail/capabilities.ts
+  s_076b12ad1c9082::t_8f9e798b220642 2-3
+packages/client/src/mail/custom-views.ts
+  s_076b12ad1c9082::t_80f7878d22a1fe 3-6,21,90,99,123,137
+packages/client/src/mail/format.ts
+  s_076b12ad1c9082::t_b9d350e898a432 1-57
+packages/client/src/mail/gmail-query.ts
+  s_076b12ad1c9082::t_f49fcb3196d3ad 1-2,254,263,267
+packages/client/src/mail/hooks.ts
+  s_076b12ad1c9082::t_7041d9ff34647d 11-12,19-21,31-35,39-40,80,82-85,88,94,98-103,106-110,124,156,974,1109,1296,1432,1567,1693,1785,1822,1835,1838-1839,1860-1866,1868-1869
+packages/client/src/mail/label-names.ts
+  s_076b12ad1c9082::t_762c7a22784813 2
+packages/client/src/mail/label-tree.ts
+  s_076b12ad1c9082::t_3c29e3f4273a09 1
+packages/client/src/mail/list-keys.test.ts
+  s_076b12ad1c9082::t_5331d8ee483c9b 3
+packages/client/src/mail/reply.ts
+  s_076b12ad1c9082::t_5cdfeff8eb1cf7 1-19,21-23,25-39,41-57,59-61,63-66,68-75,77-80,82-91
+packages/client/src/mail/rows.ts
+  s_076b12ad1c9082::t_4c1a18c30cc8f8 1-89
+packages/client/src/mail/send-from.test.ts
+  s_076b12ad1c9082::t_52820aea99a78d 2-3
+packages/client/src/mail/send-from.ts
+  s_076b12ad1c9082::t_054626bef5b887 1-2
+packages/client/src/mail/undo.ts
+  s_076b12ad1c9082::t_40d63271023016 1
+packages/client/src/mail/use-draft-autosave.ts
+  s_076b12ad1c9082::t_e958fdfb873afd 3-6,245,257,260,366-380
+packages/client/src/otter-account.ts
+  s_076b12ad1c9082::t_54f2ba5728b397 8,11-17,20,28
+packages/client/src/places.ts
+  s_076b12ad1c9082::t_7af7d4a242953e 1-5,18-22
+packages/client/src/preferences.test.ts
+  s_076b12ad1c9082::t_791f9fae14c846 1,7-9,11-15,17-21,23-29,32,34-35,38-46,57-60,66-67,74-94
+packages/client/src/preferences.ts
+  s_076b12ad1c9082::t_160092f3251e15 1-2,5,38,43-45,48-53,56-60,62-83,91-94,100,102-103,106-107,110-111,116
+packages/client/src/web-address.test.ts
+  s_076b12ad1c9082::t_1b6ff974f25cdb 1-23
+packages/client/src/web-address.ts
+  s_076b12ad1c9082::t_1af23e47d0f7c7 1-4,6-13
+packages/client/tsconfig.json
+  s_076b12ad1c9082::t_b473d72e61ae0c 2-7,9
+packages/client/tsconfig.mobile.json
+  s_076b12ad1c9082::t_e878fab7f77556 1-10
+packages/contracts/package.json
+  s_076b12ad1c9082::t_c93e5918f527ac 20
+packages/contracts/src/agent-sync.ts
+  s_076b12ad1c9082::t_10a55340058268 18
+packages/contracts/src/chats.ts
+  s_076b12ad1c9082::t_cd81df06bc0309 1
+packages/contracts/src/extensions.ts
+  s_076b12ad1c9082::t_e0f1117bf1d479 30
+packages/contracts/src/index.ts
+  s_076b12ad1c9082::t_914d934107fb30 1-6,70,94
+packages/contracts/src/relay.ts
+  s_076b12ad1c9082::t_4817ef78d20df5 11
+packages/contracts/tsconfig.mobile.json
+  s_076b12ad1c9082::t_973b21fcc4f198 1-10
+packages/core/src/extension-kit.ts
+  s_076b12ad1c9082::t_437a3eb8131609 1,19,27-29,31-41,47-48,56-59,85-92
+packages/core/src/extensions.test.ts
+  s_076b12ad1c9082::t_7c135d03cef269 3,5-7
+packages/core/src/extensions.ts
+  s_076b12ad1c9082::t_2865937a19921f 3-5
+packages/core/src/fake/agent.test.ts
+  s_076b12ad1c9082::t_f5efc0051f7e3a 1-47
+packages/core/src/fake/agent.ts
+  s_076b12ad1c9082::t_f326fff458d72e 5-10,12,20-24,36-37,77-141,152-157,195-203,214-226,358-359,371,375,402-406
+packages/core/src/fake/chats.ts
+  s_076b12ad1c9082::t_f0587744c87e85 9-15,22,25-62,71,73,86-93,140-145,195-196,201,230,429-558,568,570,577
+packages/core/src/fake/files.test.ts
+  s_076b12ad1c9082::t_6735441f69ea82 1-23
+packages/core/src/fake/files.ts
+  s_076b12ad1c9082::t_37d699eb4bc772 1-122
+packages/core/src/fake/outlook.ts
+  s_076b12ad1c9082::t_f1a4570e6e5e94 14-17,25-26
+packages/core/src/fake/relay.test.ts
+  s_076b12ad1c9082::t_b37eadd715f911 1,3-10,12-19,21-75
+packages/core/src/fake/relay.ts
+  s_076b12ad1c9082::t_a253dd247a5c43 5-7,27-30,41-44,47,55-56,60-130,202-203,205,228,259-263,274-278,281-292
+packages/core/src/fake/schedules.ts
+  s_076b12ad1c9082::t_c1ef2f151641d7 3-4,19-20,189-211,281-282,284-286
+packages/core/src/fake/sessions.test.ts
+  s_076b12ad1c9082::t_0d895d91653605 1-24
+packages/core/src/fake/sessions.ts
+  s_076b12ad1c9082::t_0a5dc4b89de473 1-32,34-45,47-59,61-111
+packages/core/src/fake/todoist.ts
+  s_076b12ad1c9082::t_323ab48b13c4a9 2
+packages/core/src/handlers/agent.ts
+  s_076b12ad1c9082::t_8e8d206f5fdaf3 2-6,12-13,184-189
+packages/core/src/handlers/calendar.ts
+  s_076b12ad1c9082::t_29afbbb21e82c1 1-2,9,18-19
+packages/core/src/handlers/chats.ts
+  s_076b12ad1c9082::t_360d13326b2c03 3-4
+packages/core/src/handlers/connections.ts
+  s_076b12ad1c9082::t_a95e4295e52290 1-2
+packages/core/src/handlers/imap-accounts.ts
+  s_076b12ad1c9082::t_3684f55c1c4e21 3-12
+packages/core/src/handlers/ipc-budget.ts
+  s_076b12ad1c9082::t_e1136534ed9581 1
+packages/core/src/handlers/live-paging.ts
+  s_076b12ad1c9082::t_2580ba7fb0fc96 1-5
+packages/core/src/handlers/otter-account.ts
+  s_076b12ad1c9082::t_e6cd67de4d2f34 2-12,14,19-21,32-36,39-40,46,62,126,129,139-140,146-147,179-206,232
+packages/core/src/handlers/outlook-accounts.ts
+  s_076b12ad1c9082::t_0480c8e8284323 3-12
+packages/core/src/handlers/search.ts
+  s_076b12ad1c9082::t_b4a49c041557ad 11-18
+packages/core/src/handlers/settings.ts
+  s_076b12ad1c9082::t_621b242551edf2 1-30,32,34-39,41,43-48,50,52-54,56,58-60,62,64-66,68,70-72,74,76-78,80-83,85
+packages/core/src/handlers/support.ts
+  s_076b12ad1c9082::t_1010301eeb336b 2-6
+packages/core/src/handlers/unsubscribe.ts
+  s_076b12ad1c9082::t_3e459953cae45e 1-3
+packages/core/src/ipc.test.ts
+  s_076b12ad1c9082::t_c586f5912e0e80 4-5,18-21
+packages/core/src/ipc.ts
+  s_076b12ad1c9082::t_d4f3b5b6fcb353 3-8
+packages/core/src/json-file.ts
+  s_076b12ad1c9082::t_7e252ad2007868 1-2
+packages/core/src/logger.test.ts
+  s_076b12ad1c9082::t_150c1e5b315756 4,6
+packages/core/src/logger.ts
+  s_076b12ad1c9082::t_061aef1409da15 8-12
+packages/core/src/modules.ts
+  s_076b12ad1c9082::t_a031003ef25cb9 1-15
+packages/core/src/pool.ts
+  s_076b12ad1c9082::t_14b59e9731ca4e 18-20
+packages/core/src/protocols/common.ts
+  s_076b12ad1c9082::t_3556a0f5140ac0 2-3
+packages/core/src/protocols/imap/client.ts
+  s_076b12ad1c9082::t_797de9e77f8ed6 9-10,22,30,40-41
+packages/core/src/protocols/imap/parser.ts
+  s_076b12ad1c9082::t_5b657e10d6226f 8
+packages/core/src/protocols/imap/structures.ts
+  s_076b12ad1c9082::t_7e7dcc3e731801 2,10
+packages/core/src/protocols/imap/utf7.ts
+  s_076b12ad1c9082::t_c3c766d890ea96 7
+packages/core/src/protocols/index.ts
+  s_076b12ad1c9082::t_2a44083be2a17e 7,22,34-35,45-46
+packages/core/src/protocols/mime-react-native.test.ts
+  s_076b12ad1c9082::t_321e660463382f 1-123
+packages/core/src/protocols/mime.ts
+  s_076b12ad1c9082::t_d7d710840b088d 2
+packages/core/src/protocols/smtp/client.ts
+  s_076b12ad1c9082::t_59d78801fa9c30 1-2,14
+packages/core/src/providers/gmail/calendar.ts
+  s_076b12ad1c9082::t_3ea0fb8fbda2df 11-14,27
+packages/core/src/providers/gmail/imap-fill.ts
+  s_076b12ad1c9082::t_057ac069048360 3,9-14
+packages/core/src/providers/gmail/index.ts
+  s_076b12ad1c9082::t_271e5222c224df 3-10
+packages/core/src/providers/gmail/quota.ts
+  s_076b12ad1c9082::t_77cfcacc9367e0 4-5
+packages/core/src/providers/gmail/watch.ts
+  s_076b12ad1c9082::t_c6cf4dcac08a27 1-3
+packages/core/src/providers/imap/connection.ts
+  s_076b12ad1c9082::t_5294c86dcf3c4b 12,21-25
+packages/core/src/providers/imap/folders.ts
+  s_076b12ad1c9082::t_a6fa0e77cd05b3 3
+packages/core/src/providers/imap/index.ts
+  s_076b12ad1c9082::t_d6e542fb8646b3 3-12
+packages/core/src/providers/imap/messages.ts
+  s_076b12ad1c9082::t_a217ae2f4aab23 1,9-11
+packages/core/src/providers/imap/reads.ts
+  s_076b12ad1c9082::t_05820ccabede69 1-5
+packages/core/src/providers/imap/send.ts
+  s_076b12ad1c9082::t_7f41fb1a32ef63 1-6,13-14,25-28
+packages/core/src/providers/imap/sign-in-failure.ts
+  s_076b12ad1c9082::t_37806c82e0012b 1
+packages/core/src/providers/imap/sync.ts
+  s_076b12ad1c9082::t_1f05f24d1f80d2 1,10-15,24-25
+packages/core/src/providers/imap/watch.ts
+  s_076b12ad1c9082::t_6af7b8970cec97 3-7
+packages/core/src/providers/imap/writes.ts
+  s_076b12ad1c9082::t_5e6465620833f4 15-20,33-35
+packages/core/src/providers/index.ts
+  s_076b12ad1c9082::t_4587102d8dfde1 8-13
+packages/core/src/providers/outlook/calendar.test.ts
+  s_076b12ad1c9082::t_6ac0d1bd5bdaf0 6
+packages/core/src/providers/outlook/calendar.ts
+  s_076b12ad1c9082::t_bd9ae268582672 21,23-26
+packages/core/src/providers/outlook/folders.ts
+  s_076b12ad1c9082::t_5b60cd6f34fd4d 3-5
+packages/core/src/providers/outlook/graph.ts
+  s_076b12ad1c9082::t_101a089374d9e6 15-17
+packages/core/src/providers/outlook/index.ts
+  s_076b12ad1c9082::t_87d572f15e2de0 3-16
+packages/core/src/providers/outlook/messages.ts
+  s_076b12ad1c9082::t_718f6d34deea3f 1-5,15
+packages/core/src/providers/outlook/profile.ts
+  s_076b12ad1c9082::t_c8d4fe41a9ecff 1-2
+packages/core/src/providers/outlook/search.ts
+  s_076b12ad1c9082::t_5a4b37c3477636 12-14
+packages/core/src/providers/outlook/send.test.ts
+  s_076b12ad1c9082::t_8ab4187c8c25e8 7
+packages/core/src/providers/outlook/send.ts
+  s_076b12ad1c9082::t_c6a6c6f0d0cc29 12-15,22-25
+packages/core/src/providers/outlook/watch.ts
+  s_076b12ad1c9082::t_37794490a56598 12-15
+packages/core/src/providers/outlook/writes.ts
+  s_076b12ad1c9082::t_4c75b301cb9589 3-7,21,30-31
+packages/core/src/providers/provider.ts
+  s_076b12ad1c9082::t_0167c3ef265052 19
+packages/core/src/services/account-store.ts
+  s_076b12ad1c9082::t_f8317cff111af2 11-12
+packages/core/src/services/agent-sync.ts
+  s_076b12ad1c9082::t_baffd4ab079243 23-26
+packages/core/src/services/agent/attachments.ts
+  s_076b12ad1c9082::t_4bfbff7eddc058 8-10
+packages/core/src/services/agent/channels.ts
+  s_076b12ad1c9082::t_d82a5467f6a712 8-9
+packages/core/src/services/agent/files.ts
+  s_076b12ad1c9082::t_af5677c90e9533 1-2
+packages/core/src/services/agent/local-import.ts
+  s_076b12ad1c9082::t_2cd293fcfdf1b0 10-15
+packages/core/src/services/agent/notify-ask.test.ts
+  s_076b12ad1c9082::t_4cf0f87a5bc463 8,11-12,15,31
+packages/core/src/services/agent/scheduled.test.ts
+  s_076b12ad1c9082::t_6dc1304c00e177 45-46,61-62
+packages/core/src/services/agent/service.ts
+  s_076b12ad1c9082::t_8d5897a5b417c0 23-31,37,61,196-198,386-391
+packages/core/src/services/agent/settings.ts
+  s_076b12ad1c9082::t_8bd98121cfd4cf 18-21,28
+packages/core/src/services/agent/steps.ts
+  s_076b12ad1c9082::t_a623b5eee7f8ac 1-2
+packages/core/src/services/agent/text-stream.ts
+  s_076b12ad1c9082::t_1393b3f4a39faa 1
+packages/core/src/services/agent/tools/calendar.ts
+  s_076b12ad1c9082::t_a93f0660eaeefa 1,8-9,16,27
+packages/core/src/services/agent/tools/index.ts
+  s_076b12ad1c9082::t_85882f5151ffbc 10-17,19,29-34,40
+packages/core/src/services/agent/tools/mail.ts
+  s_076b12ad1c9082::t_16ac823dd29649 3-4,12-16,27,41-42
+packages/core/src/services/agent/tools/themes.ts
+  s_076b12ad1c9082::t_04aa055066ee45 8-9
+packages/core/src/services/agent/tools/tool.ts
+  s_076b12ad1c9082::t_d966ed08143383 1-2,6-7
+packages/core/src/services/agent/tools/views.ts
+  s_076b12ad1c9082::t_2571cb344f9865 2-3,12
+packages/core/src/services/agent/types.ts
+  s_076b12ad1c9082::t_19f06ea7373f28 84-85,117-118,178-182,289-290
+packages/core/src/services/alias-mailboxes.ts
+  s_076b12ad1c9082::t_3f181526c15cad 3-7
+packages/core/src/services/attachment-cache.ts
+  s_076b12ad1c9082::t_bcb8435fe9fbae 12-15
+packages/core/src/services/avatar-store.ts
+  s_076b12ad1c9082::t_9b8b76c4fe616c 13-18
+packages/core/src/services/calendar-reminders.test.ts
+  s_076b12ad1c9082::t_6d417d9e3f3912 2,8-9,13,16-20,33
+packages/core/src/services/calendar-reminders.ts
+  s_076b12ad1c9082::t_2dfe584f18378b 1-11
+packages/core/src/services/calendar-store.ts
+  s_076b12ad1c9082::t_62336d5fbb5f07 1-2
+packages/core/src/services/calendar-sync.ts
+  s_076b12ad1c9082::t_8d602e572c8e6e 3-5,13-21
+packages/core/src/services/chats.ts
+  s_076b12ad1c9082::t_b4d0a939961022 18-22,24
+packages/core/src/services/connections.ts
+  s_076b12ad1c9082::t_d8f64e9b5d3069 10-15
+packages/core/src/services/demo-agents.ts
+  s_076b12ad1c9082::t_ddbf91435be680 3-7,11,15-17,25-30
+packages/core/src/services/demo-mailboxes.ts
+  s_076b12ad1c9082::t_88c411144a8175 3-11
+packages/core/src/services/error-reports.ts
+  s_076b12ad1c9082::t_db1464d1954495 1-3
+packages/core/src/services/google-profile.ts
+  s_076b12ad1c9082::t_5082264a72db53 1-7
+packages/core/src/services/image-proxy.ts
+  s_076b12ad1c9082::t_b67ba1a5e9dc55 1
+packages/core/src/services/imap-discovery.ts
+  s_076b12ad1c9082::t_db77920d0831a4 5
+packages/core/src/services/imap-passwords.ts
+  s_076b12ad1c9082::t_8fbe5d6486c8c5 7-10
+packages/core/src/services/keybindings-store.ts
+  s_076b12ad1c9082::t_ca02d2ccf37908 1-3
+packages/core/src/services/linked-accounts.ts
+  s_076b12ad1c9082::t_0286d0bba8c52e 11-20
+packages/core/src/services/mail-sync.ts
+  s_076b12ad1c9082::t_1875026d9919bb 3-13
+packages/core/src/services/notifier.ts
+  s_076b12ad1c9082::t_e72fb288c30930 19-28
+packages/core/src/services/otter-account-signed-out.test.ts
+  s_076b12ad1c9082::t_b7002ebb79d280 3-11,14,17,21,24,29,57-87
+packages/core/src/services/outgoing.ts
+  s_076b12ad1c9082::t_f05298ed19b35f 1-3
+packages/core/src/services/preferences.test.ts
+  s_076b12ad1c9082::t_a14158499b8055 6,10,13-15,19,23,27-28,33
+packages/core/src/services/preferences.ts
+  s_076b12ad1c9082::t_1a61092daced98 5-12,18-21,23,48-51,96
+packages/core/src/services/realtime.ts
+  s_076b12ad1c9082::t_7e16c90812ae99 10-12,51-62,177-180,183-188
+packages/core/src/services/send-as-suggestions.ts
+  s_076b12ad1c9082::t_d5dfb0a8552226 1-3
+packages/core/src/services/settings-store.ts
+  s_076b12ad1c9082::t_9e9fc99866a736 1
+packages/core/src/services/signatures.ts
+  s_076b12ad1c9082::t_469e0c05740d2f 5-10,12-13
+packages/core/src/services/support.test.ts
+  s_076b12ad1c9082::t_add2aafdf3ed97 9,12-14,18,20-21
+packages/core/src/services/support.ts
+  s_076b12ad1c9082::t_8202a67ee0c5ed 2-8
+packages/core/src/services/test/agent-files.test.ts
+  s_076b12ad1c9082::t_854a1cb39d8b4f 1-23
+packages/core/src/services/test/agent-mutations.test.ts
+  s_076b12ad1c9082::t_8a172d209aad09 1-9,11-34,36-46,48-58,60-63,65-68,70-76,78-116,118-122,124-150,152-158,160-179
+packages/core/src/services/test/agent-sync.test.ts
+  s_076b12ad1c9082::t_2ad6a89152dc70 19-20,66,73-74,99,181,470-485
+packages/core/src/services/test/agents.test.ts
+  s_076b12ad1c9082::t_75c5eda6aabcb0 7,17,23-24,26-30,44,50,66-68,70-77,80-82,86,137-153,163-178,184,199
+packages/core/src/services/test/connections.test.ts
+  s_076b12ad1c9082::t_6a2d49789e3326 10-13
+packages/core/src/services/test/gmail-realtime.test.ts
+  s_076b12ad1c9082::t_b5ea31b6ce9852 3,7,52-58,122-130,174,208,274,314,455-491
+packages/core/src/services/test/mail-schedule.test.ts
+  s_076b12ad1c9082::t_1be1edb10da1dd 3-4,18,22-23,25-26,56,63-64,92,97
+packages/core/src/services/test/mail-store-threads.test.ts
+  s_076b12ad1c9082::t_4b36b5a6157e2c 3-4,7,28,35
+packages/core/src/services/test/otter-account-session.test.ts
+  s_076b12ad1c9082::t_0795498e629ff7 2-3
+packages/core/src/services/unsubscribe.ts
+  s_076b12ad1c9082::t_2badecc1ff8f71 1-5
+packages/core/src/services/views-store.ts
+  s_076b12ad1c9082::t_a5ab3501b2e594 1-2
+packages/core/tsconfig.mobile.json
+  s_076b12ad1c9082::t_956951e21da2ab 1-15
+packages/mobile/expo-module.config.json
+  s_076b12ad1c9082::t_4229099138f6c3 2-10
+packages/mobile/ios/AgentFaceWriter.swift
+  s_076b12ad1c9082::t_45f53a0065abc0 3-5,12,15,22
+packages/mobile/ios/AgentFaces.swift
+  s_076b12ad1c9082::t_bc463bb9a75187 10-15,31,33-34
+packages/mobile/ios/AgentPicture.swift
+  s_076b12ad1c9082::t_b50acad6a0079a 19,26
+packages/mobile/ios/BrowserPage.swift
+  s_076b12ad1c9082::t_2a5fae69b7971c 5-23,25,27-28,30-31,33,41-47,52-55,63,76,104,108,152,161,168-170,177,200-204,234-235,237,247,255,257,287,292,311-367
+packages/mobile/ios/GoogleSignIn.swift
+  s_076b12ad1c9082::t_fc78d2506b7ff7 4,7,29-33,35-63,76-86,88,90-92,94,97,99,114,118-124,126-127,130,132-134
+packages/mobile/ios/Keychain.swift
+  s_076b12ad1c9082::t_7626346002a811 1-13,15-35,37-51
+packages/mobile/ios/OtterAgentBrowserModule.swift
+  s_076b12ad1c9082::t_11da63da601276 1,3-33,38-42,44-45,49-54,56-57,61-80,82-93,96,98-102,105-114
+packages/mobile/ios/OtterAgentNotificationsModule.swift
+  s_076b12ad1c9082::t_75e53dbb715d32 1-2,5-10,12-16,19-21,23-26,29-30,33-34,37-38,40-41,43-57,59-67,69-92,94
+packages/mobile/ios/OtterMobile.podspec
+  s_076b12ad1c9082::t_b4b118f9d286bb 1-21
+packages/mobile/ios/OtterTalkModule.swift
+  s_076b12ad1c9082::t_15fa5129c9a9cb 1-73
+packages/mobile/ios/TalkAudio.swift
+  s_076b12ad1c9082::t_788a6b4a957a4d 7-11,23,26,28-29,32-34,36,41-52,62,72-74,80-81,115-116,122-123,126,130,132,140,143,152,154-158,167-170,173-174,177,195
+packages/mobile/package.json
+  s_076b12ad1c9082::t_43da11b7705fa6 1-37
+packages/mobile/src/assets.d.ts
+  s_076b12ad1c9082::t_3bf2eb5afb8aa2 1-5
+packages/mobile/src/bridge.ts
+  s_076b12ad1c9082::t_9c20b31c2ae87b 1-71,73-77,79-94,97-103,105-106
+packages/mobile/src/browser-files.ts
+  s_076b12ad1c9082::t_2b84145c7dd753 1-7
+packages/mobile/src/client-host.ts
+  s_076b12ad1c9082::t_69f40121783cae 1-24
+packages/mobile/src/database.ts
+  s_076b12ad1c9082::t_3cf39ca7b277f9 1-30,32-52
+packages/mobile/src/extension-kit.ts
+  s_076b12ad1c9082::t_d8ba04c36c3d23 1-59
+packages/mobile/src/file-bytes.ts
+  s_076b12ad1c9082::t_656eac4a089b7e 1-4
+packages/mobile/src/files.ts
+  s_076b12ad1c9082::t_dfd20a4a145a3c 1-10,12-18,20-22,24-34,36
+packages/mobile/src/long-tasks.ts
+  s_076b12ad1c9082::t_19a06a458a29c7 1-33
+packages/mobile/src/notices.ts
+  s_076b12ad1c9082::t_09244636941a3c 1-40
+packages/mobile/src/notifications.ts
+  s_076b12ad1c9082::t_aefabe808af756 1-22,25-28,31-92
+packages/mobile/src/platform.ts
+  s_076b12ad1c9082::t_da063c8f46ed2b 1-33,35-89
+packages/mobile/src/polyfills.ts
+  s_076b12ad1c9082::t_59aa0cdbba7367 1-142
+packages/mobile/src/self-test.ts
+  s_076b12ad1c9082::t_c1289b07057f6d 1-58,60-92,94-111,113-186,189-204,206-222,224-291,293-301,303-316,318-338,340-346,348-359,361-398,400-416,418
+packages/mobile/src/talk-audio.ts
+  s_076b12ad1c9082::t_e19d6338d081d5 1-74
+packages/mobile/src/user-files.ts
+  s_076b12ad1c9082::t_d71e4919c36cab 1-32
+packages/mobile/tsconfig.json
+  s_076b12ad1c9082::t_032b64f02776dd 2-6,8
+packages/shared/package.json
+  s_076b12ad1c9082::t_758060a0223761 23
+packages/shared/src/support.ts
+  s_076b12ad1c9082::t_064c0bca6d08a6 68
+packages/shared/tsconfig.mobile.json
+  s_076b12ad1c9082::t_f00cd6069f8ff6 1-11
+packages/ui-native/fonts/Inter-LICENSE.txt
+  s_076b12ad1c9082::t_34be4ca88b729c 1-92
+packages/ui-native/package.json
+  s_076b12ad1c9082::t_be3430acd68cc1 1-50
+packages/ui-native/src/accessibility.ts
+  s_076b12ad1c9082::t_794861ebbd6160 1-27
+packages/ui-native/src/components/alert.tsx
+  s_076b12ad1c9082::t_c10297cd6cd262 1-57
+packages/ui-native/src/components/avatar.tsx
+  s_076b12ad1c9082::t_dd5467fdc73eaf 1-100
+packages/ui-native/src/components/badge.tsx
+  s_076b12ad1c9082::t_ec92f215678af5 1-69
+packages/ui-native/src/components/bubble.tsx
+  s_076b12ad1c9082::t_a889c626ee9b22 1-48
+packages/ui-native/src/components/button.tsx
+  s_076b12ad1c9082::t_c2dd2013407609 1-181
+packages/ui-native/src/components/chip.tsx
+  s_076b12ad1c9082::t_8c36355af83146 1-102
+packages/ui-native/src/components/empty-state.tsx
+  s_076b12ad1c9082::t_3183d580ecfc7c 1-37
+packages/ui-native/src/components/glass.tsx
+  s_076b12ad1c9082::t_1754712abf8f91 1-65
+packages/ui-native/src/components/icon.tsx
+  s_076b12ad1c9082::t_bf2e4ce3fd2606 1-53
+packages/ui-native/src/components/list-row.tsx
+  s_076b12ad1c9082::t_1a257d8b418468 1-76
+packages/ui-native/src/components/markdown.tsx
+  s_076b12ad1c9082::t_1343e1380a59d9 1-3,5,7-9,11-16,18-28,31-124,126,128-145,147-148,150-165,168-169,171-222
+packages/ui-native/src/components/separator.tsx
+  s_076b12ad1c9082::t_0ba6e7d45b1bcf 1-17
+packages/ui-native/src/components/settings-field.tsx
+  s_076b12ad1c9082::t_5a0ed4f5c38bea 1-46
+packages/ui-native/src/components/settings.tsx
+  s_076b12ad1c9082::t_32db5539fd2046 1-242
+packages/ui-native/src/components/sheet.tsx
+  s_076b12ad1c9082::t_af8a3e628558a6 1-2,4-5,7-24,26-104
+packages/ui-native/src/components/spinner.tsx
+  s_076b12ad1c9082::t_a49b44cdad0f45 1-22
+packages/ui-native/src/components/swipe-row.tsx
+  s_076b12ad1c9082::t_a8b672676754c6 1-294
+packages/ui-native/src/components/swipe-to-reply.tsx
+  s_076b12ad1c9082::t_e5ba10c2a39df4 1-49,51-54,56-62,64-68,70-97,99-108,110-118
+packages/ui-native/src/components/switch.tsx
+  s_076b12ad1c9082::t_c232b1b520fa01 1-20
+packages/ui-native/src/components/text.tsx
+  s_076b12ad1c9082::t_0e4792be5f68ee 1-36
+packages/ui-native/src/components/toast.tsx
+  s_076b12ad1c9082::t_1ac9496cba4a01 1-53
+packages/ui-native/src/haptics.ts
+  s_076b12ad1c9082::t_e059993f92b19a 1-8
+packages/ui-native/src/phone.ts
+  s_076b12ad1c9082::t_c8633ed5550e77 1-95
+packages/ui-native/src/theme.ts
+  s_076b12ad1c9082::t_e65b186594a907 1-16,18,20-23,25-28,30-36,38,40-50,53-58
+packages/ui-native/src/tokens.ts
+  s_076b12ad1c9082::t_0bf1b7903ce7b9 1-174
+packages/ui-native/tsconfig.json
+  s_076b12ad1c9082::t_4429714f0f2b49 2-6,8
+packages/ui/README.md
+  s_076b12ad1c9082::t_4b2440c99dfc92 14,20-23
+packages/ui/package.json
+  s_076b12ad1c9082::t_2470ec8f6d2644 33-36
+packages/ui/src/tokens.test.ts
+  s_076b12ad1c9082::t_9ef460dc917a63 4,16-45
+packages/ui/src/tokens.ts
+  s_076b12ad1c9082::t_1398ab3b98676a 6-7,254-322
+patches/expo-dev-launcher@58.0.21.patch
+  s_076b12ad1c9082::t_f1563d8214ee61 1-13
+patches/postal-mime@4.0.0.patch
+  s_076b12ad1c9082::t_e536f33f310d8e 1-279
+pnpm-lock.yaml
+  s_076b12ad1c9082::t_f4bf7ee68b4590 12-14,18-59,72-81,87-89,104-255,300,303,325,344-346,397,408,453,456,468,473,476,481,484,491,503,506,529,533,540,553-555,560,567,569-574,580,590-592,597,604,606-611,617,621-623,630-632,636-638,640,644,646-651,657,664-666,673-675,679-681,686,690,692-697,703,732,736,743,760,764,771,794,798,805,825,829,836,843-845,852-854,858-860,865,869,871-876,882,888,903,906,909,934,939-969,990,993,1003-1055,1071,1113,1116,1119,1122,1132-1180,1196-1204,1266-1268,1273-1330,1332-1334,1336-1340,1342-1346,1348-1350,1352-1354,1364-1370,1372-1374,1376-1378,1380-1382,1385-1386,1388-1389,1391-1395,1397-1401,1403-1409,1411-1412,1414-1418,1420-1422,1424-1684,2400-2659,2865-2868,2873-2884,2895-2897,3012-3063,3575-3578,3591-3836,4116-4125,4477-4479,4504-4511,4536-4538,4557-4562,4730-4734,4902-4909,4914-4918,4927-4931,4943-4953,4958-4965,4974-4977,4985-4987,4994-4996,5019-5021,5025-5039,5043-5069,5080-5082,5086-5087,5158-5161,5172-5174,5179-5189,5200-5205,5209-5211,5247-5252,5261-5264,5288-5291,5303-5313,5321-5324,5329-5331,5336-5338,5349-5355,5360-5363,5372-5379,5383-5386,5417-5420,5435-5445,5453-5468,5485-5491,5500-5503,5523-5526,5543-5545,5549-5561,5680-5682,5705-5706,5723-5728,5741-5744,5759-5761,5806-5809,5828-5831,5844-6137,6167-6174,6184-6186,6190-6197,6202-6231,6241-6244,6307-6315,6343-6346,6372-6380,6392-6395,6422-6424,6436-6438,6457-6460,6464-6468,6476-6479,6487-6490,6517-6519,6525-6543,6558-6560,6596-6599,6608-6611,6615-6618,6773-6775,6783-6785,6789-6792,6796-6799,6804-6806,6811-6813,6830-6832,6889-6891,6896-6898,6903-7021,7106-7109,7126-7130,7136-7139,7186-7188,7192-7193,7204-7211,7227-7230,7239-7240,7252-7273,7290-7293,7298-7301,7305-7318,7365-7367,7371-7374,7387-7393,7422-7425,7447-7450,7472-7479,7495-7501,7579-7582,7591-7593,7599-7607,7611-7616,7623-7707,7719-7739,7770-7773,7780-7787,7791-7794,7826-7828,7832-7834,7838-7842,7874-7877,7887-7890,7905-7908,7913-7915,7922-7925,7943-7946,7969-7975,7984-7989,7998-8001,8015-8024,8032-8035,8043-8046,8051-8054,8061-8064,8069-8075,8093-8096,8105-8112,8138-8149,8182-8188,8193-8195,8224-8231,8272-8287,8321-8322,8327-8331,8343-8355,8463-8465,8469-8477,8484-8489,8532-8535,8539-8550,8587-8602,8611-8613,8680-8684,8687-8690,8737-8740,8747,8749,8751-8760,8762,8765-8767,8769,8771-8773,8777,8779,8781-8787,8789-8800,8802-8807,8809-8820,8822-8828,8830-8835,8837,8839-8844,8846,8848,8850,8852,8854-8859,8861,8863-8868,8870,8872-8875,8877-8885,8887-8891,8893,8895-8896,8898,8900-8903,8905,8907-9285,9297,9302,9321,9326,9726-10156,10158-10173,10175-10189,10191-10199,10201-10209,10211-10224,10226,10228,10230-10232,10234,10236-10245,10247-10249,10251-10255,10414-10422,10427-10429,10431-10440,10442,10454-10458,10562-10585,10971-11254,11256,11258,11260-11267,11314,11316,11320,11322,11344,11354,11396,11406,11415,11420,11431,11434,11484-11491,11515,11569,11574,11841-11842,11867-11875,11903-11906,11925-11930,11933,11936,11938,11941,11945-11946,11953,11957-11958,11965,11969-11970,11978,11981,11987,11995,11998,12004,12012,12015,12021,12039,12045,12047,12053,12055,12061,12088,12093,12109,12113,12118,12134,12162-12163,12242-12250,12256-12257,12262-12263,12275-12282,12285-12290,12297-12298,12347-12348,12355-12356,12373-12374,12377-12400,12405-12470,12477-12482,12485,12487,12490,12508,12511,12524-12525,12544-12545,12549-12560,12574-12578,12580-12588,12644-12646,12652-12657,12675-12676,12685-12692,12703-12704,12707-12710,12715-12716,12725-12728,12731-12732,12738-12754,12757-12765,12782-12785,12802-12816,12821-12828,12841-12846,12856-12857,12873-12874,12899-12900,12903-12920,12936,12940,12953-12954,13009,13046-13048,13061-13062,13071-13074,13178-13364,13366-13374,13376-13378,13380-13399,13401-13437,13439-13441,13443-13451,13453-13458,13460-13464,13466,13468-13473,13475-13535,13590-13595,13600-13601,13606-13621,13633-13656,13668-13669,13746-13756,13806-13807,13849-13856,13865-13868,13904,13915-13918,13932-13935,13938-13939,13944-13945,13950-13953,13968-13973,13980-14008,14019-14020,14053-14054,14059-14060,14063-14064,14167-14168,14173-14174,14177-14180,14183-14186,14189-14190,14193-14196,14211-14214,14373-14682,14684-14723,14916-14920,14933-14934,14937-14938,14986-14987,14990,14992,14996-14999,15016-15017,15033,15041-15075,15085-15088,15093-15094,15099-15108,15111-15119,15146,15169,15171,15194,15205,15227,15229,15251,15259-15260,15271-15274,15281-15287,15311-15312,15334,15336,15338,15357-15364,15376-15384,15496-15497,15507-15514,15520-15525,15528-15531,15550-15677,15696-15718,15765-15766,15773-15781,15786-15790,15844-15845,15848-15849,15852-15853,15873-15890,15909-15910,15922-15930,15940-15941,15946-15947,15987-15988,16021-16028,16039,16041-16043,16050-16051,16061-16068,16076-16077,16082-16083,16090-16095,16105-16108,16113-16118,16140-16143,16152-16158,16185-16198,16224-16229,16232-16233,16257-16260,16292-16302,16350,16352,16356-16359,16368-16370,16372-16374,16386,16390-16391,16393,16399-16400,16402-16403,16443,16447-16448,16450,16456-16457,16459-16460,16500,16512,16516,16519,16536,16541,16545,16548,16565,16570,16575,16578,16595,16600,16604-16605,16608-16617,16628-16631,16683-16688,16691-16692,16699-16711,16716-16717,16801-16805
+pnpm-workspace.yaml
+  s_076b12ad1c9082::t_8dea139b0fbd5c 12,17,19-25,27-34,39,51-59
+scripts/agents-server.ts
+  s_076b12ad1c9082::t_153fc057cd4bd6 109,113,122,129-130,134,141,144,154,163-165,195-198,200-205,207,212-221,259-262,276,278-279,284,286-287
+scripts/design-tokens.ts
+  s_076b12ad1c9082::t_37d056c88fd760 2-4,7,11-12,14-17,19-32
+scripts/dev-data.ts
+  s_076b12ad1c9082::t_3d682d87d71d5d 33,69,96-97
+scripts/dev-runner.ts
+  s_076b12ad1c9082::t_9fdd50368dd047 56,159-161,249
+scripts/export-mobile-licenses.ts
+  s_076b12ad1c9082::t_49961e1a487b8c 1-130
+scripts/lib/third-party-licenses.test.ts
+  s_076b12ad1c9082::t_9f15b6f845e927 8
+scripts/release-ios.ts
+  s_076b12ad1c9082::t_56524948363246 11,21-22,49,51-63,67,89-103,107-109
+scripts/resolve-release-version.ts
+  s_076b12ad1c9082::t_db8aad5ae4b76e 64-69,129-132
+third-party-licenses.config.json
+  s_076b12ad1c9082::t_66468650550f5c 5,40,43,56-198,279-285
+third-party-licenses/native/SDWebImage.txt
+  s_076b12ad1c9082::t_0a238b91d4903a 1-20
+third-party-licenses/native/SDWebImageAVIFCoder.txt
+  s_076b12ad1c9082::t_047451c9dc8b63 1-19
+third-party-licenses/native/SDWebImageSVGCoder.txt
+  s_076b12ad1c9082::t_61270e612b4241 1-19
+third-party-licenses/native/SDWebImageWebPCoder.txt
+  s_076b12ad1c9082::t_7a4ea86415b290 1-19
+third-party-licenses/native/SocketRocket.txt
+  s_076b12ad1c9082::t_f078f4d2eff5a5 1-30
+third-party-licenses/native/boost.txt
+  s_076b12ad1c9082::t_ef36dbaf25e995 1-23
+third-party-licenses/native/double-conversion.txt
+  s_076b12ad1c9082::t_32fec7c6116cb7 1-26
+third-party-licenses/native/fast_float-Apache-2.0.txt
+  s_076b12ad1c9082::t_c399b13a4530f7 1-190
+third-party-licenses/native/fast_float-BSL-1.0.txt
+  s_076b12ad1c9082::t_1c451a452b9025 1-23
+third-party-licenses/native/fast_float-MIT.txt
+  s_076b12ad1c9082::t_d8b76d101ac9d7 1-27
+third-party-licenses/native/fmt.txt
+  s_076b12ad1c9082::t_6b41fbef83e331 1,3-9,11-27
+third-party-licenses/native/folly.txt
+  s_076b12ad1c9082::t_f9868361b921ff 1-200
+third-party-licenses/native/glog.txt
+  s_076b12ad1c9082::t_b89ab98a8f7712 1-65
+third-party-licenses/native/hermes.txt
+  s_076b12ad1c9082::t_463ed157a2bab2 1,3,5-10,12-13,15-21
+third-party-licenses/native/libaom-PATENTS.txt
+  s_076b12ad1c9082::t_d19d6941d8c0c7 1-108
+third-party-licenses/native/libaom.txt
+  s_076b12ad1c9082::t_78df4e52b8a83c 1-27
+third-party-licenses/native/libavif.txt
+  s_076b12ad1c9082::t_3bf78fd5d55c1b 1-353
+third-party-licenses/native/libwebp-PATENTS.txt
+  s_076b12ad1c9082::t_1f514e004877f1 1-2,4-5,7-23
+third-party-licenses/native/libwebp.txt
+  s_076b12ad1c9082::t_33a51a5f6b9f9a 1-30
+third-party-licenses/native/md4c.txt
+  s_076b12ad1c9082::t_b8b7f158f03b58 1-22
+third-party-licenses/native/sqlite.txt
+  s_076b12ad1c9082::t_104cf8f5a87b3a 1-6
+vite.config.ts
+  s_076b12ad1c9082::t_3513722ef24aa6 21-24,29-39,104-209
+apps/agents-mobile/src/settings/licenses.json
+  s_076b12ad1c9082::t_5f9a35ef979175 1-891
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fc31cdd4ae499c2c13f4cf1a6751e9ce45503370",
+  "prompts": {},
+  "sessions": {
+    "s_076b12ad1c9082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f03-1d60-7480-929a-3cc6584d46dd",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
