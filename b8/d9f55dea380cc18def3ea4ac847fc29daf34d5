@@ -1,0 +1,146 @@
+apps/mail-mobile/targets/notifications/Info.plist
+  s_cc8ffb6e1db829::t_7b61517e037bee 6
+  s_cc8ffb6e1db829::t_393aca9636fc3a 1-5,7-11
+apps/mail-mobile/src/account/welcome-screen.tsx
+  s_bff670e2c19f9b::t_fe96ca0d3f876c 1-22
+packages/mobile/ios/MailShared/MailCredentialStore.swift
+  s_b732cdf72249e1::t_3f3c397fc8b8d8 1-105,115-116
+  s_b732cdf72249e1::t_370483b63567d9 106-114
+apps/mail-mobile/src/core.ts
+  s_b732cdf72249e1::t_e914c336128ce0 4-5,17-18
+packages/mobile/ios/MailShared/GoogleCredentials.swift
+  s_b732cdf72249e1::t_3f3c397fc8b8d8 15,39,41,43-46,61-63,66,69-70,72,75-77,80-84,86-90,92-95
+  s_076b12ad1c9082::t_520d1b58a5be99 31-34,38,47,55,60,65,71
+  s_b732cdf72249e1::t_c1aaa72d0cd6ec 1-14,16-30,35-37,40,42,48-54,56-59,64,67-68,73-74,78-79,85,91,96-98
+apps/mail-mobile/src/account/imap-form.tsx
+  s_bff670e2c19f9b::t_fe96ca0d3f876c 1-33,35-131
+  s_b732cdf72249e1::t_11a47e91c55f06 34
+apps/mail-mobile/plugins/with-mail-auth.cjs
+  s_bff670e2c19f9b::t_c4fe38c3f5ed01 1-7,9-17
+  s_b732cdf72249e1::t_370483b63567d9 8
+apps/mail-mobile/src/app/account.tsx
+  s_cc8ffb6e1db829::t_b25a28b4980b0d 1
+apps/mail-mobile/src/account/account-screen.tsx
+  s_bff670e2c19f9b::t_fe96ca0d3f876c 1-5,7-12,14-47,49-57,59-70
+  s_b732cdf72249e1::t_a672b4cd6d1756 6,13,48,58
+packages/mobile/ios/MailShared/MicrosoftCredentials.swift
+  s_076b12ad1c9082::t_520d1b58a5be99 22,25,28-31,33,35
+  s_b732cdf72249e1::t_c1aaa72d0cd6ec 1-15,20-21,26-27,32,37-38,43,54,59,64-66
+  s_b732cdf72249e1::t_3f3c397fc8b8d8 16-19,23-24,34,36,39-42,44-53,55-58,60-63
+packages/mobile/src/mail-auth.ts
+  s_bff670e2c19f9b::t_046af43a0572cd 16-34,40
+  s_bff670e2c19f9b::t_e03d9f38bcd4be 1-15,35-39,41-97
+apps/mail-mobile/src/account/mailbox-settings.tsx
+  s_bff670e2c19f9b::t_fe96ca0d3f876c 1-133
+packages/mobile/ios/GoogleSignIn.swift
+  s_076b12ad1c9082::t_520d1b58a5be99 4,8,11,16,21-28,30-39,44-54,63,68,70-72,75,82-92,95,102,109,115,117-118,120-121,139
+packages/mobile/src/platform.ts
+  s_bff670e2c19f9b::t_c4fe38c3f5ed01 14-15,66,80-84
+packages/mobile/ios/MailSocket.swift
+  s_bff670e2c19f9b::t_046af43a0572cd 3-181,199,208,217,221,226
+  s_bff670e2c19f9b::t_0a672b7732f29a 1-2,182-198,200-207,209-216,218-220,222-225,227
+packages/mobile/ios/MailAuth.swift
+  s_076b12ad1c9082::t_520d1b58a5be99 1-108,110-159
+  s_b732cdf72249e1::t_a3337c265a6a78 109
+apps/mail-mobile/targets/package.json
+  s_076b12ad1c9082::t_118cee39e62dbc 1
+  s_076b12ad1c9082::t_dd349c52bccbaf 2-3
+apps/mail-mobile/package.json
+  s_cc8ffb6e1db829::t_7b61517e037bee 14
+packages/mobile/src/secrets.ts
+  s_b732cdf72249e1::t_e914c336128ce0 13-15,18-20,23-28,30-35,37-38,49
+  s_b732cdf72249e1::t_238e06393f6716 36,50
+packages/mobile/ios/OtterMobileModule.swift
+  s_bff670e2c19f9b::t_046af43a0572cd 75
+  s_bff670e2c19f9b::t_737c93efb00fc0 7-8,25-33,38-74,76-85,147-153
+packages/mobile/src/start.ts
+  s_bff670e2c19f9b::t_c4fe38c3f5ed01 4-8,10,41,57,69
+  s_b732cdf72249e1::t_e914c336128ce0 75
+  s_b732cdf72249e1::t_cde2e2ae364c56 9
+apps/mail-mobile/src/account/migration.ts
+  s_b732cdf72249e1::t_e914c336128ce0 1-61
+apps/mail-mobile/app.config.ts
+  s_076b12ad1c9082::t_d0b0c3e7df69d6 4-9,20,26-36,41-43
+apps/mail-mobile/plugins/with-mail-notifications.cjs
+  s_cc8ffb6e1db829::t_3ddd6e23a244b4 1-39
+apps/mail-mobile/targets/notifications/AliasMailbox.swift
+  s_cc8ffb6e1db829::t_2c26ce84924d2c 1
+apps/mail-mobile/targets/notifications/GmailNotification.swift
+  s_cc8ffb6e1db829::t_c546f0ad05d50f 1
+apps/mail-mobile/targets/notifications/GoogleCredentials.swift
+  s_cc8ffb6e1db829::t_4dc94f074bbbc9 1
+apps/mail-mobile/targets/notifications/ImapClient.swift
+  s_b732cdf72249e1::t_029347ac478bb1 1
+apps/mail-mobile/targets/notifications/ImapParser.swift
+  s_b732cdf72249e1::t_1aa4ef67633e19 1
+apps/mail-mobile/targets/notifications/Keychain.swift
+  s_cc8ffb6e1db829::t_2f2198a14cd039 1
+apps/mail-mobile/targets/notifications/MailDecoding.swift
+  s_b732cdf72249e1::t_e0a4a7473151e5 1
+apps/mail-mobile/targets/notifications/MailNotification.swift
+  s_cc8ffb6e1db829::t_6e3cc0db137766 1
+apps/mail-mobile/targets/notifications/MailServer.swift
+  s_076b12ad1c9082::t_ac312c0298e190 1
+apps/mail-mobile/targets/notifications/MailSocket.swift
+  s_b732cdf72249e1::t_057ba1f7003fbe 1
+apps/mail-mobile/targets/notifications/MicrosoftCredentials.swift
+  s_076b12ad1c9082::t_e222ab5523007a 1
+apps/mail-mobile/targets/notifications/NotificationService.swift
+  s_cc8ffb6e1db829::t_604febd015c3ad 1
+apps/mail-mobile/targets/notifications/PushState.swift
+  s_076b12ad1c9082::t_aa02a1c07482bd 1
+apps/mail-mobile/targets/notifications/SenderPhotos.swift
+  s_076b12ad1c9082::t_eaf1bec8f71479 1
+apps/mail-mobile/targets/notifications/VerifiedNotification.swift
+  s_076b12ad1c9082::t_655d36fafb5824 1
+apps/mail-mobile/targets/notifications/expo-target.config.js
+  s_cc8ffb6e1db829::t_35085a7f98454a 1-11
+packages/mobile/ios/Keychain.swift
+  s_bff670e2c19f9b::t_030f634d1d9918 18,29,43,48-51
+packages/mobile/src/mail-socket.ts
+  s_b732cdf72249e1::t_087137bab33304 1-54
+packages/mobile/src/native.ts
+  s_bff670e2c19f9b::t_37b5c9f1bb9c9b 3-5,13-31
+pnpm-lock.yaml
+  s_076b12ad1c9082::t_8571f5b0da8df9 329-331
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b8d9f55dea380cc18def3ea4ac847fc29daf34d5",
+  "prompts": {},
+  "sessions": {
+    "s_076b12ad1c9082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f03-1d60-7480-929a-3cc6584d46dd",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    },
+    "s_b732cdf72249e1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f64-2aa8-7bd3-b41c-79cca6e77015",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    },
+    "s_bff670e2c19f9b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f64-1b78-7952-874a-fbdefc1e0451",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    },
+    "s_cc8ffb6e1db829": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f64-3cb0-7ab3-8f4c-82b69d57b882",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
