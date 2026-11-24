@@ -22,6 +22,7 @@ import {
 import { isShown, useCalendar } from "./calendar-store";
 import { useCalendarPreferences } from "./preferences";
 import {
+  DAY,
   addDays,
   monthTitle,
   sameDay,
@@ -37,6 +38,8 @@ import { EventPanel } from "./event-panel";
 import { TeamPicker } from "./team-picker";
 import { MonthGrid } from "./month-grid";
 import { TimeGrid } from "./time-grid";
+import { CalendarMargin, MarginMasthead } from "./margin-calendar";
+import { useAppLayout } from "../theme/interface-settings";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,6 +48,7 @@ import {
 } from "@otter/ui/components/dropdown-menu";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { Button, IconButton } from "@otter/ui/components/button";
+import { cn } from "@otter/ui/lib/utils";
 
 export const CALENDAR_MODES: { mode: CalendarMode; label: string }[] = [
   { mode: "day", label: "Day" },
@@ -179,6 +183,7 @@ export function CalendarView({
   const select = useCalendar((s) => s.select);
   const actions = useCalendarActions();
   const bodyRef = useRef<HTMLDivElement>(null);
+  const margin = useAppLayout() === "margin";
   useSyncWhileShown();
 
   const {
@@ -361,17 +366,138 @@ export function CalendarView({
   const agenda = useCalendar((s) => s.agenda);
   const agendaCalendar = listed.find((c) => c.key === agenda);
 
+  const warnings = (
+    <>
+      {failed.length ? (
+        <span className="min-w-0 truncate text-xs text-muted-foreground">
+          Couldn&apos;t load {failed.join(", ")}
+        </span>
+      ) : null}
+      {needsAccess.length ? <AllowCalendarAccess accounts={needsAccess} /> : null}
+    </>
+  );
+  const agendaDrawer = agendaCalendar ? (
+    // Beside the sidebar, as in Notion Calendar.
+    <AgendaDrawer
+      key={agendaCalendar.key}
+      calendar={agendaCalendar}
+      color={colorOf(agendaCalendar.key)}
+      titleLeading={titleLeading}
+    />
+  ) : null;
+  const panelOpen = Boolean(selected || (draft && selection && "draft" in selection));
+  const panel = panelOpen ? (
+    <EventPanel
+      containerRef={bodyRef}
+      event={selected}
+      draft={selected ? null : draft}
+      calendars={listed}
+      colorOf={colorOf}
+      actions={actions}
+      margin={margin}
+    />
+  ) : null;
+  const body = (
+    <div
+      ref={bodyRef}
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl"
+      onPointerDown={(e) => {
+        if (!(e.target as HTMLElement).closest("[data-event]")) select(null);
+      }}
+    >
+      <div
+        key={mode === "month" ? `${mode}:${from}` : mode}
+        className="flex min-h-0 flex-1 flex-col animate-calendar-in motion-reduce:animate-none"
+      >
+        {mode === "month" ? (
+          <MonthGrid
+            days={days}
+            columns={weekends ? 7 : 5}
+            month={date.getMonth()}
+            events={events}
+            colorOf={colorOf}
+            defaultCalendar={defaultCalendar}
+            onOpenDay={openDay}
+          />
+        ) : (
+          <TimeGrid
+            days={strip}
+            visible={days.length}
+            buffer={buffer}
+            stepRef={stepGrid}
+            onSettle={(shift) => setStart(strip[buffer + shift]!)}
+            onPeek={(shift) => setPeek(shift ? strip[buffer + shift]! : null)}
+            events={events}
+            colorOf={colorOf}
+            defaultCalendar={defaultCalendar}
+            actions={actions}
+            onOpenDay={openDay}
+            margin={margin}
+          />
+        )}
+      </div>
+      {margin ? null : panel}
+      {picking ? <TeamPicker onClose={() => setPicking(false)} /> : null}
+    </div>
+  );
+
+  // Margin: the grid in a column under a large title, and a margin beside it that an event
+  // opens in, wider and on a rule, instead of a popover.
+  if (margin) {
+    const dayStart = days[0].getTime();
+    const onDay = events.filter(
+      (e) => e.startMs < dayStart + DAY && e.endMs > dayStart && !e.teammate,
+    ).length;
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1">
+        {agendaDrawer}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-calendar="">
+          <div
+            data-toolbar=""
+            className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-3 px-4"
+          >
+            {agendaCalendar ? null : titleLeading}
+            {warnings}
+            <span className="min-w-0 flex-1" />
+            {titleTrailing}
+          </div>
+          <div className="flex min-h-0 flex-1 gap-10 px-6">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <MarginMasthead
+                mode={mode}
+                date={date}
+                days={days}
+                count={onDay}
+                onMode={onMode}
+                onToday={goToday}
+                onStep={go}
+              />
+              {body}
+            </div>
+            <aside
+              className={cn(
+                "flex min-h-0 shrink-0 flex-col overflow-y-auto pb-agent-corner",
+                panelOpen ? "w-96 border-l border-border pl-2" : "w-60 gap-6 pt-3",
+              )}
+            >
+              {panel ?? (
+                <CalendarMargin
+                  mode={mode}
+                  days={days}
+                  events={events}
+                  calendars={listed}
+                  colorOf={colorOf}
+                />
+              )}
+            </aside>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
-      {/* Beside the sidebar, as in Notion Calendar. */}
-      {agendaCalendar ? (
-        <AgendaDrawer
-          key={agendaCalendar.key}
-          calendar={agendaCalendar}
-          color={colorOf(agendaCalendar.key)}
-          titleLeading={titleLeading}
-        />
-      ) : null}
+      {agendaDrawer}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-calendar="">
         <div
           data-toolbar=""
@@ -379,12 +505,7 @@ export function CalendarView({
         >
           {agendaCalendar ? null : titleLeading}
           <CalendarTitle mode={mode} date={date} first={days[0]} />
-          {failed.length ? (
-            <span className="min-w-0 truncate text-xs text-muted-foreground">
-              Couldn&apos;t load {failed.join(", ")}
-            </span>
-          ) : null}
-          {needsAccess.length ? <AllowCalendarAccess accounts={needsAccess} /> : null}
+          {warnings}
           <span className="min-w-0 flex-1" />
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -425,55 +546,7 @@ export function CalendarView({
           {titleTrailing}
         </div>
 
-        <div
-          ref={bodyRef}
-          className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl"
-          onPointerDown={(e) => {
-            if (!(e.target as HTMLElement).closest("[data-event]")) select(null);
-          }}
-        >
-          <div
-            key={mode === "month" ? `${mode}:${from}` : mode}
-            className="flex min-h-0 flex-1 flex-col animate-calendar-in motion-reduce:animate-none"
-          >
-            {mode === "month" ? (
-              <MonthGrid
-                days={days}
-                columns={weekends ? 7 : 5}
-                month={date.getMonth()}
-                events={events}
-                colorOf={colorOf}
-                defaultCalendar={defaultCalendar}
-                onOpenDay={openDay}
-              />
-            ) : (
-              <TimeGrid
-                days={strip}
-                visible={days.length}
-                buffer={buffer}
-                stepRef={stepGrid}
-                onSettle={(shift) => setStart(strip[buffer + shift]!)}
-                onPeek={(shift) => setPeek(shift ? strip[buffer + shift]! : null)}
-                events={events}
-                colorOf={colorOf}
-                defaultCalendar={defaultCalendar}
-                actions={actions}
-                onOpenDay={openDay}
-              />
-            )}
-          </div>
-          {selected || (draft && selection && "draft" in selection) ? (
-            <EventPanel
-              containerRef={bodyRef}
-              event={selected}
-              draft={selected ? null : draft}
-              calendars={listed}
-              colorOf={colorOf}
-              actions={actions}
-            />
-          ) : null}
-          {picking ? <TeamPicker onClose={() => setPicking(false)} /> : null}
-        </div>
+        {body}
       </div>
     </div>
   );

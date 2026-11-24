@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { dayKey, stepDays, visibleDays } from "./dates";
+import { dayKey, stepDays, visibleDays, weekNumber } from "./dates";
 
 const keys = (days: Date[]) => days.map(dayKey);
 const MONDAY = new Date(2026, 10, 2);
@@ -27,5 +27,15 @@ describe("weekdays only", () => {
     const days = visibleDays("month", MONDAY, false, false);
     expect(days.length % 5).toBe(0);
     expect(days.some((d) => d.getDay() === 0 || d.getDay() === 6)).toBe(false);
+  });
+});
+
+describe("weekNumber", () => {
+  it("counts ISO weeks", () => {
+    expect(weekNumber(new Date(2026, 10, 24))).toBe(48);
+    expect(weekNumber(new Date(2026, 0, 1))).toBe(1);
+    expect(weekNumber(new Date(2027, 0, 1))).toBe(53);
+    expect(weekNumber(new Date(2027, 0, 4))).toBe(1);
+    expect(weekNumber(new Date(2026, 2, 30))).toBe(14);
   });
 });

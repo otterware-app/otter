@@ -38,3 +38,17 @@ export function rangeLabel(startMs: number, endMs: number): string {
   if (suffix && end.endsWith(suffix.trim())) return `${start.slice(0, -suffix.length)}–${end}`;
   return `${start}–${end}`;
 }
+
+/** The Margin layout's event: a rule in the calendar's color on a faint tint, dashed while unanswered. */
+export function marginEventStyle(
+  color: string,
+  event: Pick<CalEvent, "response">,
+  selected: boolean,
+): CSSProperties {
+  const tint = selected ? 20 : isPending(event) ? 0 : 7;
+  return {
+    "--event-color": color,
+    background: `color-mix(in srgb, ${color} ${tint}%, var(--canvas))`,
+    borderColor: color,
+  } as CSSProperties;
+}

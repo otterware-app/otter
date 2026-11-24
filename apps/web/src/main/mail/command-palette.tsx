@@ -60,7 +60,9 @@ import { shortcutLabelFor, useKeybindingsState } from "../keybindings/store";
 import { requestTour, startSetup } from "../onboarding/onboarding";
 import { updateNow, useUpdateState } from "../updates";
 import { requestProblemReport } from "../support/report-problem";
-import { isBlank, useChats } from "../agent/chat-store";
+import { clampTitle, isBlank, sendMessage, setDraft, useChats } from "../agent/chat-store";
+import { useAppLayout } from "../theme/interface-settings";
+import { SectionHead } from "@otter/ui/components/margin";
 import { ViewMark } from "./view-icon";
 import { useWorkspaces, workspaceSpace } from "../extensions/workspaces";
 import { CALENDAR_SPACE } from "./spaces";
@@ -111,9 +113,10 @@ type PaletteItem = {
   run?: () => void;
 };
 
-type PaletteGroup = { id: string; label: string; items: PaletteItem[] };
+type PaletteGroup = { id: string; label: string; items: PaletteItem[]; attention?: boolean };
 
 const ICON = "size-4";
+const KEYS = "font-mono text-3xs tracking-widest text-placeholder uppercase";
 
 function formatResultDate(timestamp: number): string {
   const date = new Date(timestamp);
@@ -147,6 +150,29 @@ function Dot({ color }: { color: string }) {
   );
 }
 
+/** Margin: what was typed goes to the agent, as the first message of a new chat. */
+function askAgent(text: string, startChat: () => void) {
+  startChat();
+  const { activeId, conversations } = useChats.getState();
+  const convo = conversations.find((c) => c.id === activeId);
+  if (!convo) return;
+  if (!convo.provider) {
+    setDraft(convo.id, text);
+    return;
+  }
+  sendMessage(
+    {
+      id: crypto.randomUUID(),
+      convoId: convo.id,
+      provider: convo.provider,
+      question: text,
+      input: text,
+      title: clampTitle(text),
+    },
+    "queue",
+  );
+}
+
 export function CommandPalette({
   open,
   onOpenChange,
@@ -177,6 +203,7 @@ export function CommandPalette({
   const themes = useAppThemes();
   const update = useUpdateState();
   const [scheme, setScheme] = useState<"system" | "light" | "dark">("system");
+  const margin = useAppLayout() === "margin";
 
   // Each opening starts fresh, set while rendering so the first frame
   // doesn't show the page or search from last time.
@@ -539,10 +566,33 @@ export function CommandPalette({
     const strong = staticGroups.filter((g) => best(g) >= STRONG).sort((a, b) => best(b) - best(a));
     const weak = staticGroups.filter((g) => best(g) < STRONG);
     const searchFirst = /[:@"]/.test(needle) || strong.length === 0;
+    // Margin: text that names nothing and doesn't read as a search goes to the agent first;
+    // otherwise asking it is the last row.
+    const agentGroup: PaletteGroup[] = margin
+      ? [
+          {
+            id: "agent",
+            label: "Ask the agent",
+            attention: true,
+            items: [
+              {
+                id: "ask-agent",
+                icon: <AgentIcon className={ICON} />,
+                title: query.trim(),
+                run: () => askAgent(query.trim(), onNewChat),
+              },
+            ],
+          },
+        ]
+      : [];
+    const agentFirst = strong.length === 0 && !/[:@"]/.test(needle);
+    const lead = agentFirst ? agentGroup : [];
+    const tail = agentFirst ? [] : agentGroup;
     return searchFirst
-      ? [searchGroup, ...strong, ...mailGroup, ...weak]
-      : [...strong, searchGroup, ...mailGroup, ...weak];
+      ? [...lead, searchGroup, ...strong, ...mailGroup, ...weak, ...tail]
+      : [...strong, searchGroup, ...mailGroup, ...weak, ...tail];
   }, [
+    margin,
     workspaces,
     extensionCommands,
     extensionGroups,
@@ -636,6 +686,10 @@ export function CommandPalette({
       e.preventDefault();
       e.stopPropagation();
       close();
+    } else if (e.key === "Tab" && margin && page === "root" && query.trim()) {
+      e.preventDefault();
+      close();
+      askAgent(query.trim(), onNewChat);
     } else if (e.key === "Backspace" && query === "" && page !== "root") {
       e.preventDefault();
       setPage("root");
@@ -657,19 +711,32 @@ export function CommandPalette({
     <div className="no-drag fixed inset-0 z-[100]" role="presentation">
       {/* Backdrop: clear, like Linear's; a click outside closes. */}
       <div className="absolute inset-0" onPointerDown={close} aria-hidden />
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center px-4 pt-[10vh]">
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-0 flex flex-col items-center px-4",
+          margin ? "pt-[calc(var(--workspace-topbar-height)+0.5rem)]" : "pt-[10vh]",
+        )}
+      >
         <div
           role="dialog"
           aria-modal="true"
           aria-label="Command palette"
           className={cn(
-            "pointer-events-auto relative flex max-h-105 w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-foreground/10 text-foreground shadow-[0_24px_64px_-24px_rgb(0_0_0/45%)] transition-[background-color] dark:shadow-[0_24px_64px_-24px_rgb(0_0_0/80%)] margin:shadow-none margin:border-overlay-edge",
+            "pointer-events-auto relative flex w-full flex-col overflow-hidden text-foreground transition-[background-color]",
+            margin
+              ? "max-h-[min(36rem,80vh)] max-w-170 rounded-lg border border-overlay-edge shadow-overlay"
+              : "max-h-105 max-w-xl rounded-2xl border border-foreground/10 shadow-[0_24px_64px_-24px_rgb(0_0_0/45%)] dark:shadow-[0_24px_64px_-24px_rgb(0_0_0/80%)] margin:shadow-none margin:border-overlay-edge",
             page === "theme" ? "bg-popover/70 backdrop-blur-md" : "bg-popover",
           )}
         >
           {/* Search field */}
-          <div className="relative flex h-12 shrink-0 items-center gap-2.5 px-4">
-            <SearchIcon className="size-4 shrink-0 text-icon-muted" aria-hidden />
+          <div
+            className={cn(
+              "relative flex shrink-0 items-center gap-2.5",
+              margin ? "h-16 px-6" : "h-12 px-4",
+            )}
+          >
+            {margin ? null : <SearchIcon className="size-4 shrink-0 text-icon-muted" aria-hidden />}
             <input
               ref={inputRef}
               autoCorrect="off"
@@ -681,14 +748,23 @@ export function CommandPalette({
               onKeyDown={onKeyDown}
               placeholder={placeholder}
               aria-label="Search commands and mail"
-              className="h-full min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-placeholder"
+              className={cn(
+                "h-full min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-placeholder",
+                margin ? "font-reading text-2xl" : "text-base",
+              )}
             />
+            {margin ? <span className={KEYS}>Esc</span> : null}
           </div>
 
           {/* Results */}
           <div
             ref={listRef}
-            className="min-h-0 flex-1 scroll-py-1.5 overflow-y-auto border-t border-border/50 p-1.5"
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto border-t",
+              margin
+                ? "scroll-py-3 border-foreground px-3 pb-2"
+                : "scroll-py-1.5 border-border/50 p-1.5",
+            )}
           >
             {flat.length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground">
@@ -697,9 +773,17 @@ export function CommandPalette({
             ) : (
               groups.map((group) => (
                 <div key={group.id} className="[&+&]:mt-1.5" role="group" aria-label={group.label}>
-                  <div className="px-2.5 pt-2 pb-1 text-body text-muted-foreground">
-                    {group.label}
-                  </div>
+                  {margin ? (
+                    <SectionHead
+                      label={group.label}
+                      attention={group.attention}
+                      className="border-t-0 px-2.5 pt-3 pb-1.5 text-placeholder"
+                    />
+                  ) : (
+                    <div className="px-2.5 pt-2 pb-1 text-body text-muted-foreground">
+                      {group.label}
+                    </div>
+                  )}
                   {group.items.map((item) => {
                     index += 1;
                     const i = index;
@@ -716,6 +800,8 @@ export function CommandPalette({
                         className={cn(
                           "flex min-h-8 cursor-pointer select-none items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm outline-none [&_svg:not([class*='text-'])]:text-muted-foreground",
                           active && "bg-foreground/[0.07] text-foreground",
+                          margin && "rounded-md text-md",
+                          margin && group.attention && "font-reading text-lg",
                         )}
                       >
                         {item.icon}
@@ -735,7 +821,12 @@ export function CommandPalette({
                           <CheckIcon className="size-3.5 shrink-0 text-foreground" />
                         ) : null}
                         {item.trailing ? (
-                          <span className="min-w-12 shrink-0 text-right text-xs tabular-nums text-faint-foreground">
+                          <span
+                            className={cn(
+                              "min-w-12 shrink-0 text-right tabular-nums text-faint-foreground",
+                              margin ? "font-mono text-3xs uppercase" : "text-xs",
+                            )}
+                          >
                             {item.trailing}
                           </span>
                         ) : null}
@@ -755,32 +846,45 @@ export function CommandPalette({
             )}
           </div>
 
-          {/* Key hints */}
-          <div className="flex shrink-0 items-center gap-3 border-t border-border/50 px-4 py-2.5 text-body text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Kbd>
-                <ArrowUpIcon className="size-3" />
-              </Kbd>
-              <Kbd>
-                <ArrowDownIcon className="size-3" />
-              </Kbd>
-              <span className="ms-1">Navigate</span>
-            </span>
-            <span className="flex items-center gap-1">
-              <Kbd>Enter</Kbd>
-              <span className="ms-1">{flat[clamped]?.submenu ? "Open" : "Select"}</span>
-            </span>
-            {page !== "root" ? (
+          {margin ? (
+            <div
+              className={cn(
+                KEYS,
+                "flex shrink-0 items-center gap-5 border-t border-border/50 px-6 py-3",
+              )}
+            >
+              <span>↑↓ Move</span>
+              <span>↵ {flat[clamped]?.submenu ? "Open" : "Select"}</span>
+              {page === "root" ? <span>Tab Ask the agent</span> : <span>⌫ Back</span>}
+              <span>Esc Close</span>
+            </div>
+          ) : (
+            <div className="flex shrink-0 items-center gap-3 border-t border-border/50 px-4 py-2.5 text-body text-muted-foreground">
               <span className="flex items-center gap-1">
-                <Kbd>Backspace</Kbd>
-                <span className="ms-1">Back</span>
+                <Kbd>
+                  <ArrowUpIcon className="size-3" />
+                </Kbd>
+                <Kbd>
+                  <ArrowDownIcon className="size-3" />
+                </Kbd>
+                <span className="ms-1">Navigate</span>
               </span>
-            ) : null}
-            <span className="flex items-center gap-1">
-              <Kbd>Esc</Kbd>
-              <span className="ms-1">Close</span>
-            </span>
-          </div>
+              <span className="flex items-center gap-1">
+                <Kbd>Enter</Kbd>
+                <span className="ms-1">{flat[clamped]?.submenu ? "Open" : "Select"}</span>
+              </span>
+              {page !== "root" ? (
+                <span className="flex items-center gap-1">
+                  <Kbd>Backspace</Kbd>
+                  <span className="ms-1">Back</span>
+                </span>
+              ) : null}
+              <span className="flex items-center gap-1">
+                <Kbd>Esc</Kbd>
+                <span className="ms-1">Close</span>
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>,

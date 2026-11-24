@@ -127,3 +127,16 @@ export function durationLabel(ms: number): string {
 }
 
 export const minutesOfDay = (d: Date) => d.getHours() * 60 + d.getMinutes();
+
+/** The ISO week of the year `d` is in: the week (from Monday) of that year's first Thursday is 1. */
+export function weekNumber(d: Date): number {
+  const thursday = new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate() + 3 - ((d.getDay() + 6) % 7),
+  );
+  const days = Math.round(
+    (thursday.getTime() - new Date(thursday.getFullYear(), 0, 1).getTime()) / DAY,
+  );
+  return Math.floor(days / 7) + 1;
+}
