@@ -32,7 +32,6 @@ export const SUMMARY_FIELDS = [
   "hasAttachments",
   "parentFolderId",
   "internetMessageId",
-  "changeKey",
 ].join(",");
 
 type Recipient = { emailAddress?: { name?: string; address?: string } };
@@ -95,7 +94,6 @@ export function toSummary(accountId: string, message: ApiMessage): MessageSummar
     labelIds,
     hasAttachments: message.hasAttachments === true,
     messageIdHeader: message.internetMessageId ?? undefined,
-    draftRevision: message.isDraft ? message.changeKey : undefined,
   };
 }
 
@@ -186,7 +184,7 @@ async function source(accountId: string, id: string) {
 }
 
 export async function getMessage(accountId: string, id: string): Promise<MessageDetail> {
-  const path = `${messagePath(id)}?$select=${SUMMARY_FIELDS},ccRecipients,bccRecipients,replyTo`;
+  const path = `${messagePath(id)}?$select=${SUMMARY_FIELDS},ccRecipients,bccRecipients,replyTo,changeKey`;
   const knownDraft = getMessageLabelIds(accountId, id)?.includes("DRAFT");
   let [message, parsed] = await Promise.all([
     graph<ApiMessage>(accountId, path),
@@ -222,6 +220,7 @@ export async function getMessage(accountId: string, id: string): Promise<Message
   }));
   return {
     ...summary,
+    draftRevision: message.isDraft ? message.changeKey : undefined,
     snippet: summary.snippet || snippetOf(parsed),
     cc: addresses(message.ccRecipients) || undefined,
     bcc: addresses(message.bccRecipients) || undefined,

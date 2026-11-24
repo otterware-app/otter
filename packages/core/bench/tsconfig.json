@@ -1,0 +1,8 @@
+{
+  // The benchmark runs on Node (node:sqlite, the inspector): Node's types, which core must not see.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["."]
+}

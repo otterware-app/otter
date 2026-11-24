@@ -2,6 +2,7 @@
 
 import { logger } from "../../logger.ts";
 import { platform } from "../../platform.ts";
+import { yieldThread } from "../../pool.ts";
 import * as store from "../../services/mail-store.ts";
 import type { MessageSummary } from "../../types.ts";
 import { SyncCancelled, type SyncContext } from "../provider.ts";
@@ -78,14 +79,23 @@ function finishBackfill(accountId: string): void {
   store.setKv(refreshKey(accountId), "");
 }
 
+// Rows per write, with the thread let go between them: a hundred, with the search index, held
+// it for tens of milliseconds. Each write stands on its own, so stopping between them is a
+// resume like any other.
+const WRITE_BATCH = 25;
+
+/**
+ * `new`: mail the labels' counts don't have yet, which moves them. A backfill's are in the
+ * server's counts already.
+ */
 async function fetchAndStore(
   accountId: string,
   ids: string[],
   ctx: SyncContext,
-  skipCached = false,
+  mail: "new" | "uncached",
 ): Promise<MessageSummary[]> {
   const uncached = <T extends MessageSummary>(fetched: T[]): T[] => {
-    if (!skipCached) return fetched;
+    if (mail === "new") return fetched;
     const unknown = new Set(
       store.filterUnknownIds(
         accountId,
@@ -94,16 +104,24 @@ async function fetchAndStore(
     );
     return fetched.filter((m) => unknown.has(m.id));
   };
-  if (platform().offlineDownloads) {
-    const details = await fetchMessagesForIds(accountId, ids);
+  const counted = mail === "new";
+  const write = async <T extends MessageSummary>(
+    fetched: T[],
+    upsert: (accountId: string, messages: T[], opts: { counted: boolean }) => void,
+  ) => {
     ctx.assertActive();
-    store.upsertMessageDetails(accountId, uncached(details));
-    return details;
-  }
-  const summaries = await fetchMetadataForIds(accountId, ids);
-  ctx.assertActive();
-  store.upsertMessages(accountId, uncached(summaries));
-  return summaries;
+    for (let i = 0; i < fetched.length; i += WRITE_BATCH) {
+      if (i > 0) {
+        await yieldThread();
+        ctx.assertActive();
+      }
+      upsert(accountId, uncached(fetched.slice(i, i + WRITE_BATCH)), { counted });
+    }
+    return fetched;
+  };
+  return platform().offlineDownloads
+    ? write(await fetchMessagesForIds(accountId, ids), store.upsertMessageDetails)
+    : write(await fetchMetadataForIds(accountId, ids), store.upsertMessages);
 }
 
 export function forgetGmailSync(accountId: string): void {
@@ -188,7 +206,7 @@ async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
   });
   const inboxFresh = store.filterUnknownIds(accountId, inbox.ids);
   for (let i = 0; i < inboxFresh.length; i += META_CHUNK) {
-    synced += (await fetchAndStore(accountId, inboxFresh.slice(i, i + META_CHUNK), ctx, true))
+    synced += (await fetchAndStore(accountId, inboxFresh.slice(i, i + META_CHUNK), ctx, "uncached"))
       .length;
     ctx.update({ synced });
     ctx.bumpRevision();
@@ -211,7 +229,8 @@ async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
 
     const fresh = store.filterUnknownIds(accountId, page.ids);
     for (let i = 0; i < fresh.length; i += META_CHUNK) {
-      synced += (await fetchAndStore(accountId, fresh.slice(i, i + META_CHUNK), ctx, true)).length;
+      synced += (await fetchAndStore(accountId, fresh.slice(i, i + META_CHUNK), ctx, "uncached"))
+        .length;
       ctx.update({ synced });
       ctx.bumpRevision();
     }
@@ -225,15 +244,38 @@ async function fillMailbox(accountId: string, ctx: SyncContext): Promise<void> {
   finishBackfill(accountId);
 }
 
+async function applyChanges(
+  accountId: string,
+  ops: store.HistoryOp[],
+  ctx: SyncContext,
+  { counted = true } = {},
+): Promise<string[]> {
+  const unknown = new Set<string>();
+  for (let i = 0; i < ops.length; i += WRITE_BATCH) {
+    if (i > 0) await yieldThread();
+    ctx.assertActive();
+    const batch = ops.slice(i, i + WRITE_BATCH);
+    for (const op of batch) if (op.kind === "deleted") unknown.delete(op.id);
+    for (const id of store.applyHistoryChanges(accountId, batch, { counted, keepPending: true })
+      .unknownIds) {
+      unknown.add(id);
+    }
+  }
+  return [...unknown];
+}
+
 async function fillCategories(accountId: string, ctx: SyncContext): Promise<void> {
   for (const label of store.getLabels(accountId)) {
     if (!label.id.startsWith("CATEGORY_")) continue;
     const ids = await listAllIds(accountId, label.id);
-    ctx.assertActive();
-    store.applyHistoryChanges(
+    await applyChanges(
       accountId,
       ids.map((id) => ({ kind: "labelsAdded", id, labelIds: [label.id] })),
+      ctx,
+      { counted: false },
     );
+    ctx.assertActive();
+    store.recountLabels(accountId, [label.id]);
   }
   ctx.bumpRevision();
 }
@@ -273,7 +315,7 @@ async function refreshMailbox(accountId: string, ctx: SyncContext): Promise<void
     if (add.length > 0) ops.push({ kind: "labelsAdded", id, labelIds: add });
     if (remove.length > 0) ops.push({ kind: "labelsRemoved", id, labelIds: remove });
   }
-  store.applyHistoryChanges(accountId, ops);
+  await applyChanges(accountId, ops, ctx);
   if (ops.length > 0) ctx.bumpRevision();
   logger.info("mail-sync", `${ops.length} changes found comparing ${accountId}`);
 
@@ -281,7 +323,8 @@ async function refreshMailbox(accountId: string, ctx: SyncContext): Promise<void
   let synced = all.length - missing.length;
   ctx.update({ synced });
   for (let i = 0; i < missing.length; i += META_CHUNK) {
-    synced += (await fetchAndStore(accountId, missing.slice(i, i + META_CHUNK), ctx, true)).length;
+    synced += (await fetchAndStore(accountId, missing.slice(i, i + META_CHUNK), ctx, "uncached"))
+      .length;
     ctx.update({ synced });
     ctx.bumpRevision();
   }
@@ -355,7 +398,7 @@ async function backfillSpamTrash(accountId: string, ctx: SyncContext): Promise<v
       const page = await listMessageIdsPage(accountId, { pageToken, labelIds: [labelId] });
       const fresh = store.filterUnknownIds(accountId, page.ids);
       if (fresh.length > 0) {
-        await fetchAndStore(accountId, fresh, ctx, true);
+        await fetchAndStore(accountId, fresh, ctx, "uncached");
         ctx.bumpRevision();
       }
       pageToken = page.nextPageToken;
@@ -420,8 +463,7 @@ async function incrementalSync(
     throw err;
   }
 
-  ctx.assertActive();
-  const { unknownIds } = store.applyHistoryChanges(accountId, ops);
+  const unknownIds = await applyChanges(accountId, ops, ctx);
 
   // New mail, plus mail the feed changed that the cache doesn't have (an
   // earlier run missed it, or a backfill hasn't got to it): both fetched with
@@ -431,16 +473,13 @@ async function incrementalSync(
   if (replay) ids = store.filterUnknownIds(accountId, ids);
   let added: MessageSummary[] = [];
   if (ids.length > 0) {
-    const fetched = await fetchAndStore(accountId, ids, ctx);
-    store.recountLabels(
-      accountId,
-      fetched.flatMap((m) => m.labelIds),
-    );
+    const fetched = await fetchAndStore(accountId, ids, ctx, "new");
     added = fetched.filter((m) => addedIds.has(m.id));
     ctx.update({ synced: fetched.length });
   }
 
   const changed = ops.length > 0 || ids.length > 0;
+  ctx.assertActive();
   if (changed) ctx.bumpRevision();
   store.setSyncState(accountId, { historyId: latestHistoryId });
   if (replay && store.getKv(replayKey(accountId)) === replay) store.setKv(replayKey(accountId), "");

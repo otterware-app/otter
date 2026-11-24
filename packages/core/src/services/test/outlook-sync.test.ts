@@ -39,7 +39,6 @@ type Message = {
   categories: string[];
   fromMe: boolean;
   draft?: boolean;
-  body?: string;
   date: number;
   version: number;
 };
@@ -138,7 +137,6 @@ const resource = (m: Message) => ({
   hasAttachments: false,
   parentFolderId: m.folder,
   internetMessageId: `<${m.id}@example.test>`,
-  changeKey: String(m.version),
 });
 
 function handle(method: string, url: URL, body: unknown): Response {
@@ -329,9 +327,7 @@ function handle(method: string, url: URL, body: unknown): Response {
   if (source) {
     const m = messages.get(decodeURIComponent(source[1]!));
     if (!m) return notFound();
-    return new Response(
-      `Subject: ${m.subject}\r\nContent-Type: text/plain\r\n\r\n${m.body ?? "Body."}\r\n`,
-    );
+    return new Response(`Subject: ${m.subject}\r\nContent-Type: text/plain\r\n\r\nBody.\r\n`);
   }
 
   const one = /^\/me\/messages\/([^/]+)(\/move)?$/.exec(path);
@@ -488,9 +484,9 @@ async function boot() {
   const status = () => mailSync.getSyncStatus(account.id);
   const labelsOf = (id: string) => mailStore.getAllMessageLabels(account.id).get(id);
   const sync = async () => {
-    const before = status().lastSyncAt;
     mailSync.syncAccount(account.id, { force: true, trigger: "push" });
-    await until(() => status().lastSyncAt !== before && !status().syncing, "a sync");
+    expect(status().syncing).toBe(true);
+    await until(() => !status().syncing, "a sync");
   };
   const invoke = (channel: string, params: unknown) => registeredHandlers().get(channel)!(params);
   return { mailStore, status, labelsOf, sync, invoke, provider: providerFor(account.id) };
@@ -891,7 +887,14 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
 
       failedTranslations = true;
       deliver("new", "inbox");
-      await sync();
+      const before = status().lastSyncAt!;
+      const clock = vi.spyOn(Date, "now").mockReturnValue(before);
+      try {
+        await sync();
+        expect(status().lastSyncAt).toBe(before);
+      } finally {
+        clock.mockRestore();
+      }
       expect(status().error).toBeNull();
       expect(labelsOf("new")).toEqual(["INBOX", "UNREAD"]);
       expect(restRows(mailStore)).toHaveLength(2);
@@ -956,21 +959,6 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
       expect(labelsOf("kept")).toEqual(["INBOX", "UNREAD"]);
       expect(mailStore.getLabels(account.id).find((l) => l.id === "INBOX")?.total).toBe(4);
     });
-  });
-
-  it("reads a draft's body again once it's edited elsewhere, under the same id", async () => {
-    deliver("draft", "drafts", { draft: true, fromMe: true, body: "" });
-    const { status, sync, invoke } = await boot();
-    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
-    const open = () =>
-      invoke("gmail:getMessage", { accountId: account.id, messageId: "draft" }) as Promise<{
-        bodyText: string | null;
-      }>;
-    expect((await open()).bodyText?.trim()).toBe("");
-
-    Object.assign(messages.get("draft")!, { body: "Hi Amin", version: ++version });
-    await sync();
-    expect((await open()).bodyText?.trim()).toBe("Hi Amin");
   });
 
   describe("mail Outlook deleted into Recoverable Items", () => {

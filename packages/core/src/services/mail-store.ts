@@ -2,7 +2,7 @@ import { ARCHIVE_LABEL_ID } from "@otter/contracts";
 
 import { platform, type SqlDatabase } from "../platform.ts";
 import { ALL_MAIL_LABEL_ID } from "../types.ts";
-import { withPendingLabels } from "./pending-label-writes.ts";
+import { withPendingLabelIds, withPendingLabels } from "./pending-label-writes.ts";
 import type {
   MailLabel,
   MessageSummary,
@@ -125,11 +125,6 @@ function getDb(): SqlDatabase {
     handle.exec("ALTER TABLE messages ADD COLUMN replyTo TEXT;");
     // Cached details never kept Reply-To: read them again, so replies go where senders asked.
     handle.exec("UPDATE messages SET detailFetched = 0;");
-  }
-  // Outlook drafts edited elsewhere kept the body first cached (empty, often): read them again.
-  if (!handle.prepare("SELECT 1 FROM kv WHERE key = 'outlookDraftBodiesReread'").get()) {
-    handle.exec(`UPDATE messages SET detailFetched = 0 WHERE draftRevision IS NOT NULL;
-      INSERT INTO kv (key, value) VALUES ('outlookDraftBodiesReread', '1');`);
   }
   handle.exec(
     "CREATE INDEX IF NOT EXISTS idx_messages_undownloaded ON messages (accountId, detailFetched, date DESC);",
@@ -275,9 +270,17 @@ function rowToDetail(row: MessageRow): MessageDetail {
   };
 }
 
-export function upsertMessages(accountId: string, fetched: MessageSummary[]): void {
+/**
+ * `counted`: the labels' counts move by what the rows change, as for new mail. Without it they're
+ * left as they are, as for a backfill, whose mail the server's counts already have.
+ */
+export function upsertMessages(
+  accountId: string,
+  fetched: MessageSummary[],
+  opts: { counted?: boolean } = {},
+): void {
   if (fetched.length === 0) return;
-  inTransaction(() => writeSummaries(accountId, fetched));
+  inTransaction(() => writeSummaries(accountId, fetched, opts.counted));
 }
 
 function inTransaction(fn: () => void): void {
@@ -300,10 +303,12 @@ function recipientsOf(to: string, cc: string | undefined): string {
   return addressSet(addressList(cc ? `${to},${cc}` : to));
 }
 
-function writeSummaries(accountId: string, fetched: MessageSummary[]): void {
+function writeSummaries(accountId: string, fetched: MessageSummary[], counted = false): void {
   // Gmail may not have caught up with changes made here moments ago; keep them.
   const messages = withPendingLabels(accountId, fetched);
   const d = getDb();
+  const counts: LabelCounts = new Map();
+  const before = counted ? countedRows(accountId, messages) : null;
 
   // hasAttachments from a list response is always false; never clobber a `true`
   // already established by a full-message fetch. A summary without Cc (Gmail's
@@ -331,11 +336,6 @@ function writeSummaries(accountId: string, fetched: MessageSummary[]): void {
                               THEN messages.recipients ELSE excluded.recipients END,
       deliveredTo      = COALESCE(excluded.deliveredTo, messages.deliveredTo)
   `);
-  // A draft edited elsewhere keeps its id on Outlook: its cached body is read again.
-  const staleBody = d.prepare(`
-    UPDATE messages SET detailFetched = 0
-     WHERE accountId = ? AND id = ? AND detailFetched = 1 AND draftRevision IS NOT ?
-  `);
   const delLabels = d.prepare("DELETE FROM message_labels WHERE accountId = ? AND messageId = ?");
   const insLabel = d.prepare(
     "INSERT OR IGNORE INTO message_labels (accountId, messageId, labelId) VALUES (?, ?, ?)",
@@ -362,17 +362,49 @@ function writeSummaries(accountId: string, fetched: MessageSummary[]): void {
       recipientsOf(m.to, m.cc),
       m.deliveredTo?.length ? addressSet(m.deliveredTo) : null,
     );
-    if (m.draftRevision) staleBody.run(accountId, m.id, m.draftRevision);
     delLabels.run(accountId, m.id);
     for (const lid of m.labelIds) insLabel.run(accountId, m.id, lid);
+    if (!before) continue;
+    const prior = before.get(m.id);
+    if (prior) addCounts(counts, prior.labelIds, prior.unread, -1);
+    addCounts(counts, m.labelIds, m.unread, 1);
+    before.set(m.id, { labelIds: m.labelIds, unread: m.unread });
   }
+  moveCounts(accountId, counts);
 }
 
-export function upsertMessageDetail(accountId: string, detail: MessageDetail): void {
-  upsertMessageDetails(accountId, [detail]);
+function countedRows(
+  accountId: string,
+  messages: MessageSummary[],
+): Map<string, { labelIds: string[]; unread: boolean }> {
+  const rows = new Map<string, { labelIds: string[]; unread: boolean }>();
+  for (let i = 0; i < messages.length; i += 500) {
+    const chunk = messages.slice(i, i + 500).map((m) => m.id);
+    const found = getDb()
+      .prepare(
+        `SELECT id, labelIds, unread FROM messages WHERE accountId = ? AND id IN (${chunk.map(() => "?").join(", ")})`,
+      )
+      .all(accountId, ...chunk) as unknown as { id: string; labelIds: string; unread: number }[];
+    for (const r of found) {
+      rows.set(r.id, { labelIds: parseLabelIds(r.labelIds), unread: r.unread === 1 });
+    }
+  }
+  return rows;
 }
 
-export function upsertMessageDetails(accountId: string, details: MessageDetail[]): void {
+export function upsertMessageDetail(
+  accountId: string,
+  detail: MessageDetail,
+  opts: { counted?: boolean } = {},
+): void {
+  upsertMessageDetails(accountId, [detail], opts);
+}
+
+export function upsertMessageDetails(
+  accountId: string,
+  details: MessageDetail[],
+  opts: { counted?: boolean } = {},
+): void {
   if (details.length === 0) return;
   const setBody = getDb().prepare(`
     UPDATE messages
@@ -380,7 +412,7 @@ export function upsertMessageDetails(accountId: string, details: MessageDetail[]
      WHERE accountId = ? AND id = ?
   `);
   inTransaction(() => {
-    writeSummaries(accountId, details);
+    writeSummaries(accountId, details, opts.counted);
     for (const detail of details) {
       setBody.run(
         detail.cc ?? null,
@@ -399,20 +431,62 @@ export function upsertMessageDetails(accountId: string, details: MessageDetail[]
   });
 }
 
+type LabelCounts = Map<string, { total: number; unread: number }>;
+
+/** What a message adds to its labels' counts, as `countLabel` counts: mail in Spam or Trash only to those. */
+function addCounts(
+  counts: LabelCounts,
+  labelIds: Iterable<string>,
+  unread: boolean,
+  sign: 1 | -1,
+): void {
+  const labels = new Set(labelIds);
+  const binned = labels.has("SPAM") || labels.has("TRASH");
+  for (const id of labels) {
+    if (binned && id !== "SPAM" && id !== "TRASH") continue;
+    const count = counts.get(id) ?? { total: 0, unread: 0 };
+    count.total += sign;
+    if (unread) count.unread += sign;
+    counts.set(id, count);
+  }
+}
+
+/**
+ * Moves the labels' counts by what a change did, in its transaction: recounting a label whole
+ * walks all its mail (tens of milliseconds for a category at 50,000 messages). A label still
+ * without counts is counted whole.
+ */
+function moveCounts(accountId: string, counts: LabelCounts): void {
+  const moved = [...counts].filter(([, c]) => c.total !== 0 || c.unread !== 0);
+  if (moved.length === 0) return;
+  const d = getDb();
+  const move = d.prepare(`
+    UPDATE labels SET total = MAX(0, total + ?), unread = MAX(0, unread + ?)
+     WHERE accountId = ? AND id = ? AND total IS NOT NULL AND unread IS NOT NULL
+  `);
+  const uncounted: string[] = [];
+  for (const [labelId, c] of moved) {
+    if (move.run(c.total, c.unread, accountId, labelId).changes === 0) uncounted.push(labelId);
+  }
+  if (uncounted.length === 0) return;
+  const rows = d
+    .prepare("SELECT id FROM labels WHERE accountId = ? AND id IN (SELECT value FROM json_each(?))")
+    .all(accountId, JSON.stringify(uncounted)) as unknown as { id: string }[];
+  recomputeLabelCounts(
+    accountId,
+    rows.map((r) => r.id),
+  );
+}
+
 export function recountLabels(accountId: string, labelIds: string[]): void {
   recomputeLabelCounts(accountId, [...new Set(labelIds)]);
 }
 
 /**
  * Recomputes and persists `labels.unread`/`total` for the given label ids from
- * the local message cache, as their lists show it (`countLabel`). This is the only place besides a Gmail label sync
- * (`upsertLabels`) that writes those counters — without it, a local mutation
- * (mark read/unread, star, archive, trash) updates the message rows but leaves
- * the cached label counters stale until the next full/incremental sync, which
- * is why sidebar/header unread badges could disagree with what the message
- * list actually showed until the app was relaunched.
+ * the local message cache, as their lists show it (`countLabel`). Changes move
+ * the counts instead (`moveCounts`); this is for mail written without them.
  */
-
 function recomputeLabelCounts(accountId: string, labelIds: string[]): void {
   if (labelIds.length === 0) return;
   const d = getDb();
@@ -464,25 +538,20 @@ export function deleteOtherDraftsInThread(
 export function deleteMessage(accountId: string, messageId: string): boolean {
   const d = getDb();
   const existing = d
-    .prepare("SELECT labelIds FROM messages WHERE accountId = ? AND id = ?")
-    .get(accountId, messageId) as unknown as { labelIds: string } | undefined;
+    .prepare("SELECT labelIds, unread FROM messages WHERE accountId = ? AND id = ?")
+    .get(accountId, messageId) as unknown as { labelIds: string; unread: number } | undefined;
   if (!existing) return false;
-  const priorLabelIds = parseLabelIds(existing.labelIds);
+  const counts: LabelCounts = new Map();
+  addCounts(counts, parseLabelIds(existing.labelIds), existing.unread === 1, -1);
 
-  d.exec("BEGIN");
-  try {
+  inTransaction(() => {
     d.prepare("DELETE FROM messages WHERE accountId = ? AND id = ?").run(accountId, messageId);
     d.prepare("DELETE FROM message_labels WHERE accountId = ? AND messageId = ?").run(
       accountId,
       messageId,
     );
-    d.exec("COMMIT");
-  } catch (err) {
-    d.exec("ROLLBACK");
-    throw err;
-  }
-
-  recomputeLabelCounts(accountId, priorLabelIds);
+    moveCounts(accountId, counts);
+  });
   return true;
 }
 
@@ -521,7 +590,6 @@ export function renameMessage(
     labelIds.filter((l) => !current.includes(l)),
     current.filter((l) => !labelIds.includes(l)),
   );
-  recomputeLabelCounts(accountId, prior);
 }
 
 export function getMessageIdsByHeader(accountId: string, messageIdHeader: string): string[] {
@@ -553,14 +621,13 @@ export function applyLabelChange(
 ): void {
   const d = getDb();
   const existing = d
-    .prepare("SELECT labelIds FROM messages WHERE accountId = ? AND id = ?")
-    .get(accountId, messageId) as unknown as { labelIds: string } | undefined;
+    .prepare("SELECT labelIds, unread FROM messages WHERE accountId = ? AND id = ?")
+    .get(accountId, messageId) as unknown as { labelIds: string; unread: number } | undefined;
   if (!existing) return;
-  const priorLabelIds = parseLabelIds(existing.labelIds);
+  const counts: LabelCounts = new Map();
+  addCounts(counts, parseLabelIds(existing.labelIds), existing.unread === 1, -1);
 
-  let newLabelIds: string[] = priorLabelIds;
-  d.exec("BEGIN");
-  try {
+  inTransaction(() => {
     for (const lid of removeLabelIds) {
       d.prepare(
         "DELETE FROM message_labels WHERE accountId = ? AND messageId = ? AND labelId = ?",
@@ -574,7 +641,7 @@ export function applyLabelChange(
     const labelRows = d
       .prepare("SELECT labelId FROM message_labels WHERE accountId = ? AND messageId = ?")
       .all(accountId, messageId) as unknown as { labelId: string }[];
-    newLabelIds = labelRows.map((r) => r.labelId);
+    const newLabelIds = labelRows.map((r) => r.labelId);
     d.prepare(
       "UPDATE messages SET labelIds = ?, unread = ?, starred = ? WHERE accountId = ? AND id = ?",
     ).run(
@@ -584,13 +651,9 @@ export function applyLabelChange(
       accountId,
       messageId,
     );
-    d.exec("COMMIT");
-  } catch (err) {
-    d.exec("ROLLBACK");
-    throw err;
-  }
-
-  recomputeLabelCounts(accountId, [...new Set([...priorLabelIds, ...newLabelIds])]);
+    addCounts(counts, newLabelIds, newLabelIds.includes("UNREAD"), 1);
+    moveCounts(accountId, counts);
+  });
 }
 
 /**
@@ -1041,13 +1104,19 @@ export type HistoryOp =
   | { kind: "deleted"; id: string };
 
 /**
- * Applies one history-feed delta in a single transaction and recounts every
- * touched label once at the end (instead of once per change). Returns the ids
- * that had label changes but aren't cached, so sync can fetch mail it missed.
+ * Applies one history-feed delta in a single transaction, the labels' counts moving with it.
+ * Returns the ids that had label changes but aren't cached, so sync can fetch mail it missed.
  */
-export function applyHistoryChanges(accountId: string, ops: HistoryOp[]): { unknownIds: string[] } {
+export function applyHistoryChanges(
+  accountId: string,
+  ops: HistoryOp[],
+  { counted = true, keepPending = false } = {},
+): { unknownIds: string[] } {
+  if (ops.length === 0) return { unknownIds: [] };
   const d = getDb();
-  const selectLabels = d.prepare("SELECT labelIds FROM messages WHERE accountId = ? AND id = ?");
+  const selectLabels = d.prepare(
+    "SELECT labelIds, unread FROM messages WHERE accountId = ? AND id = ?",
+  );
   const delMsg = d.prepare("DELETE FROM messages WHERE accountId = ? AND id = ?");
   const delAllLabels = d.prepare(
     "DELETE FROM message_labels WHERE accountId = ? AND messageId = ?",
@@ -1062,13 +1131,19 @@ export function applyHistoryChanges(accountId: string, ops: HistoryOp[]): { unkn
     "UPDATE messages SET labelIds = ?, unread = ?, starred = ? WHERE accountId = ? AND id = ?",
   );
 
-  const touched = new Set<string>();
+  const counts: LabelCounts = new Map();
   const unknown = new Set<string>();
+  const prior = new Map<string, Set<string>>();
   const current = new Map<string, Set<string> | null>();
   const labelsOf = (id: string): Set<string> | null => {
     if (!current.has(id)) {
-      const row = selectLabels.get(accountId, id) as unknown as { labelIds: string } | undefined;
-      current.set(id, row ? new Set(parseLabelIds(row.labelIds)) : null);
+      const row = selectLabels.get(accountId, id) as unknown as
+        | { labelIds: string; unread: number }
+        | undefined;
+      const labels = row ? new Set(parseLabelIds(row.labelIds)) : null;
+      if (counted && row && labels) addCounts(counts, labels, row.unread === 1, -1);
+      if (labels) prior.set(id, new Set(labels));
+      current.set(id, labels);
     }
     return current.get(id) ?? null;
   };
@@ -1079,23 +1154,9 @@ export function applyHistoryChanges(accountId: string, ops: HistoryOp[]): { unkn
       return;
     }
     for (const lid of labelIds) {
-      touched.add(lid);
-      if (add) {
-        labels.add(lid);
-        insLabel.run(accountId, id, lid);
-      } else {
-        labels.delete(lid);
-        delLabel.run(accountId, id, lid);
-      }
+      if (add) labels.add(lid);
+      else labels.delete(lid);
     }
-    const next = [...labels];
-    setLabels.run(
-      JSON.stringify(next),
-      labels.has("UNREAD") ? 1 : 0,
-      labels.has("STARRED") ? 1 : 0,
-      accountId,
-      id,
-    );
   };
 
   d.exec("BEGIN");
@@ -1106,20 +1167,35 @@ export function applyHistoryChanges(accountId: string, ops: HistoryOp[]): { unkn
         continue;
       }
       unknown.delete(op.id);
-      const labels = labelsOf(op.id);
-      if (!labels) continue;
-      for (const lid of labels) touched.add(lid);
+      if (!labelsOf(op.id)) continue;
       delMsg.run(accountId, op.id);
       delAllLabels.run(accountId, op.id);
       current.set(op.id, null);
     }
+    for (const [id, labels] of current) {
+      if (!labels) continue;
+      const before = prior.get(id)!;
+      const next = keepPending ? withPendingLabelIds(accountId, id, [...labels]) : [...labels];
+      const after = new Set(next);
+      for (const lid of before) if (!after.has(lid)) delLabel.run(accountId, id, lid);
+      for (const lid of after) if (!before.has(lid)) insLabel.run(accountId, id, lid);
+      const unread = after.has("UNREAD");
+      setLabels.run(
+        JSON.stringify(next),
+        unread ? 1 : 0,
+        after.has("STARRED") ? 1 : 0,
+        accountId,
+        id,
+      );
+      if (counted) addCounts(counts, after, unread, 1);
+    }
+    if (counted) moveCounts(accountId, counts);
     d.exec("COMMIT");
   } catch (err) {
     d.exec("ROLLBACK");
     throw err;
   }
 
-  recomputeLabelCounts(accountId, [...touched]);
   return { unknownIds: [...unknown] };
 }
 
@@ -1207,30 +1283,37 @@ export function getUnreadIdsForLabel(accountId: string, labelId: string): string
   return rows.map((r) => r.id);
 }
 
+// CROSS JOIN keeps SQLite from walking every message by date to sort a few.
 export function getMessageIdsForLabel(accountId: string, labelId: string): string[] {
   const d = getDb();
   const rows = d
     .prepare(`
-      SELECT m.id FROM messages m
-      JOIN message_labels ml
-        ON ml.accountId = m.accountId AND ml.messageId = m.id AND ml.labelId = ?
-     WHERE m.accountId = ?
+      SELECT m.id FROM message_labels ml
+      CROSS JOIN messages m ON m.accountId = ml.accountId AND m.id = ml.messageId
+     WHERE ml.accountId = ? AND ml.labelId = ?
      ORDER BY m.date DESC
     `)
-    .all(labelId, accountId) as unknown as { id: string }[];
+    .all(accountId, labelId) as unknown as { id: string }[];
   return rows.map((r) => r.id);
 }
 
 export function countInboxUnreadAll(except: ReadonlySet<string> = new Set()): number {
   const d = getDb();
+  // Skip through the label index by account, then read only Inbox messages.
   const rows = d
     .prepare(`
-      SELECT m.accountId, COUNT(DISTINCT COALESCE(m.messageIdHeader, m.id)) AS n
-        FROM messages m
-        JOIN message_labels ml
-          ON ml.accountId = m.accountId AND ml.messageId = m.id AND ml.labelId = 'INBOX'
+      WITH RECURSIVE accounts(id) AS (
+        SELECT MIN(accountId) FROM message_labels
+        UNION ALL
+        SELECT (SELECT MIN(accountId) FROM message_labels WHERE accountId > accounts.id)
+          FROM accounts WHERE accounts.id IS NOT NULL
+      )
+      SELECT ml.accountId, COUNT(DISTINCT COALESCE(m.messageIdHeader, m.id)) AS n
+        FROM accounts
+        CROSS JOIN message_labels ml ON ml.accountId = accounts.id AND ml.labelId = 'INBOX'
+        CROSS JOIN messages m ON m.accountId = ml.accountId AND m.id = ml.messageId
        WHERE m.unread = 1
-       GROUP BY m.accountId
+       GROUP BY ml.accountId
     `)
     .all() as unknown as { accountId: string; n: number }[];
   return rows.reduce((sum, r) => (except.has(r.accountId) ? sum : sum + r.n), 0);

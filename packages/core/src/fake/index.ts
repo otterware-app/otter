@@ -23,10 +23,17 @@ export { FAKE_RELAY_URL };
 export { withFakeAgents } from "./agent.ts";
 /** For tests that drive one service alone. */
 export { demoMicrosoftAuth, installFakeOutlook };
+export { largeGmailAccountId, stageLargeGmailChanges } from "./gmail.ts";
 
-/** Wraps fetch with the fake services and returns the platform signed in to them. */
-export async function withFakeServices(platform: Platform): Promise<Platform> {
-  await installFakeGmail(platform.files);
+/**
+ * Wraps `fetch` with the fakes and returns `platform` signed in to them. `gmailMessages` adds that
+ * many made-up messages to the first Gmail mailbox (large-mailbox.ts), for measuring sync.
+ */
+export async function withFakeServices(
+  platform: Platform,
+  { gmailMessages = 0 }: { gmailMessages?: number } = {},
+): Promise<Platform> {
+  await installFakeGmail(platform.files, { messages: gmailMessages });
   await installFakeOutlook(platform.files);
   await installFakeRelay(platform.files);
   // A browser's session is its cookie: the made-up relay answers who it is, and stays signed out.

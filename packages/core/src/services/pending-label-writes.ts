@@ -74,19 +74,35 @@ export function hasPendingLabelWrites(accountId: string): boolean {
   return false;
 }
 
+export function withPendingLabelIds(
+  accountId: string,
+  messageId: string,
+  labelIds: string[],
+  now = Date.now(),
+): string[] {
+  if (pending.size === 0) return labelIds;
+  const changes = live(keyOf(accountId, messageId), now);
+  if (changes.length === 0) return labelIds;
+  const labels = new Set(labelIds);
+  for (const c of changes) {
+    const landed = landLabelChange([...labels], c.add, c.remove, c.landing);
+    for (const l of landed.remove) labels.delete(l);
+    for (const l of landed.add) labels.add(l);
+  }
+  return [...labels];
+}
+
 export function withPendingLabels<T extends MessageSummary>(accountId: string, messages: T[]): T[] {
   if (pending.size === 0) return messages;
   const now = Date.now();
   return messages.map((m) => {
-    const changes = live(keyOf(accountId, m.id), now);
-    if (changes.length === 0) return m;
-    const labels = new Set(m.labelIds);
-    for (const c of changes) {
-      const landed = landLabelChange([...labels], c.add, c.remove, c.landing);
-      for (const l of landed.remove) labels.delete(l);
-      for (const l of landed.add) labels.add(l);
-    }
-    const labelIds = [...labels];
-    return { ...m, labelIds, unread: labels.has("UNREAD"), starred: labels.has("STARRED") };
+    const labelIds = withPendingLabelIds(accountId, m.id, m.labelIds, now);
+    if (labelIds === m.labelIds) return m;
+    return {
+      ...m,
+      labelIds,
+      unread: labelIds.includes("UNREAD"),
+      starred: labelIds.includes("STARRED"),
+    };
   });
 }

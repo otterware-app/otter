@@ -179,8 +179,11 @@ async function gmailFetch(
   retryCount = 0,
   attempt: { tokenRefreshed?: boolean; transientRetries?: number } = {},
 ): Promise<unknown> {
-  await acquireQuota(accountId, quotaCost(init.method ?? "GET", path));
-  const token = await platform().google.getAccessToken(accountId);
+  const google = platform().google;
+  if (!google.bypassGmailQuota?.(accountId)) {
+    await acquireQuota(accountId, quotaCost(init.method ?? "GET", path));
+  }
+  const token = await google.getAccessToken(accountId);
   const background = isBackgroundWork();
 
   let response: Response;

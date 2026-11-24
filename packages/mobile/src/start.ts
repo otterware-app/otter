@@ -28,13 +28,15 @@ export async function startMobileCore(options: {
   modules: readonly CoreModule[];
   extensions: readonly CoreExtension[];
   fake?: boolean;
+  fakeGmailMessages?: number;
   agents?: string;
   relayUrl?: string;
   existingDeviceId?: string;
   existingAgentOutbox?: (userId: string) => Promise<string | null>;
   initialStorage?: Record<string, string>;
 }): Promise<void> {
-  const home = options.fake ? "fake" : "otter";
+  const largeMailbox = options.fake && options.fakeGmailMessages;
+  const home = largeMailbox ? "fake-mail-benchmark" : options.fake ? "fake" : "otter";
   const kv = new SQLiteStorage(`${home}-storage.db`);
   for (const [key, value] of Object.entries(options.initialStorage ?? {})) {
     if (kv.getItemSync(key) === null) kv.setItemSync(key, value);
@@ -51,7 +53,7 @@ export async function startMobileCore(options: {
   let extensions = options.extensions.filter((e) => runsOn(e.manifest, "ios"));
   if (options.fake) {
     const { withFakeAgents, withFakeServices } = await import("@otter/core/fake");
-    platform = await withFakeServices(platform);
+    platform = await withFakeServices(platform, { gmailMessages: options.fakeGmailMessages });
     if (!options.agents) extensions = withFakeAgents(extensions);
   }
   installBridge({ appVersion: platform.appVersion, storage });

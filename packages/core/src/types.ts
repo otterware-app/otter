@@ -72,14 +72,10 @@ export interface MessageSummary {
    * Original-Recipient, Delivered-To and X-Original-To). Never returned by store reads.
    */
   deliveredTo?: string[];
-  /**
-   * A draft's version where its id survives edits (Outlook's changeKey): a new one means the
-   * cached body is stale.
-   */
-  draftRevision?: string;
 }
 
 export interface MessageDetail extends MessageSummary {
+  draftRevision?: string;
   bodyHtml: string | null;
   bodyText: string | null;
   bcc?: string;

@@ -6,6 +6,12 @@ import type { Platform, SqlDatabase } from "../../platform.ts";
 import { FakeStream, tagOf } from "../../protocols/test/fake-stream.ts";
 import type { MailAccount } from "../../types.ts";
 
+// Gmail's pacing spreads a first sync of more than a few messages over seconds.
+vi.mock("../../providers/gmail/quota.ts", async (original) => ({
+  ...(await original<typeof import("../../providers/gmail/quota.ts")>()),
+  acquireQuota: async () => {},
+}));
+
 const GMAIL = "gmail.googleapis.com";
 const account: MailAccount = { id: "me@gmail.test", email: "me@gmail.test", name: "Me" };
 
@@ -250,7 +256,15 @@ async function fakeFetch(input: string | URL | Request, init?: RequestInit): Pro
   }
   if (path === "/labels") return json({ labels });
   const label = path.match(/^\/labels\/([^/]+)$/);
-  if (label) return json({ id: label[1], messagesTotal: 0, messagesUnread: 0 });
+  if (label) {
+    const id = label[1]!;
+    const binned = (m: Mail) => m.labelIds.includes("SPAM") || m.labelIds.includes("TRASH");
+    const counted = [...mail.values()].filter(
+      (m) => m.labelIds.includes(id) && (id === "SPAM" || id === "TRASH" || !binned(m)),
+    );
+    const unread = counted.filter((m) => m.labelIds.includes("UNREAD")).length;
+    return json({ id, messagesTotal: counted.length, messagesUnread: unread });
+  }
   if (path === "/settings/sendAs") return json({ sendAs: [] });
   return json({ error: { message: "not in this test" } }, 404);
 }
@@ -343,6 +357,34 @@ function gmailImap(): FakeStream {
 
 let notified: string[];
 
+/** Stops writing messages after `killAfter` rows, as the app being killed would: what came before is kept. */
+function killableDatabase() {
+  const db = new DatabaseSync(":memory:");
+  let left = Infinity;
+  let writes = /^\s*INSERT INTO messages\s/;
+  const database: SqlDatabase = {
+    exec: (sql) => db.exec(sql),
+    prepare: (sql) => {
+      const statement = db.prepare(sql);
+      return {
+        get: (...params) => statement.get(...params) as never,
+        all: (...params) => statement.all(...params) as never,
+        run: (...params) => {
+          if (writes.test(sql) && left-- <= 0) throw new Error("Killed.");
+          return statement.run(...params);
+        },
+      };
+    },
+  };
+  return {
+    database,
+    killAfter(rows: number, history = false) {
+      left = rows;
+      writes = history ? /^UPDATE messages SET labelIds/ : /^\s*INSERT INTO messages\s/;
+    },
+  };
+}
+
 async function until(check: () => boolean, what: string): Promise<void> {
   for (let i = 0; i < 400; i++) {
     if (check()) return;
@@ -353,7 +395,7 @@ async function until(check: () => boolean, what: string): Promise<void> {
 
 async function boot(
   seed?: (store: typeof import("../mail-store.ts")) => void,
-  opts: { imap?: boolean } = {},
+  opts: { imap?: boolean; database?: SqlDatabase } = {},
 ) {
   vi.resetModules();
   const { setPlatform } = await import("../../platform.ts");
@@ -364,7 +406,7 @@ async function boot(
   const files = new Map<string, Uint8Array>([
     ["accounts.json", new TextEncoder().encode(JSON.stringify([account]))],
   ]);
-  const database = new DatabaseSync(":memory:") as unknown as SqlDatabase;
+  const database = opts.database ?? (new DatabaseSync(":memory:") as unknown as SqlDatabase);
   const unused = () => {
     throw new Error("Not in this test.");
   };
@@ -539,6 +581,74 @@ describe("Gmail sync", { timeout: 15_000 }, () => {
     expect(labelsOf("a")).toEqual(["INBOX"]);
     expect(labelsOf("c")?.sort()).toEqual(["INBOX", "STARRED"]);
     expect(mailStore.countAllMessages(account.id)).toBe(2);
+  });
+
+  it("picks a first sync killed between two writes up without fetching what it wrote", async () => {
+    for (let i = 1; i <= 30; i++) deliver(`old${i}`, ["INBOX"], Date.now() - i * 60_000);
+    const killable = killableDatabase();
+    killable.killAfter(25);
+
+    const first = await boot(undefined, { database: killable.database });
+    await until(() => first.status().error !== null && !first.status().syncing, "the kill");
+    expect(first.mailStore.countAllMessages(account.id)).toBe(25);
+
+    killable.killAfter(Infinity);
+    const { mailStore, status } = await boot(undefined, { database: killable.database });
+    await until(() => status().fullSyncDone && !status().syncing, "the fill to finish");
+    expect(mailStore.countAllMessages(account.id)).toBe(30);
+    const fetched = (id: string) => fetches.filter((f) => f.id === id).length;
+    expect(fetched("old1")).toBe(1);
+    expect(fetched("old30")).toBe(2);
+  });
+
+  it("brings new mail cut off between two writes once, its counts moved once", async () => {
+    deliver("old", ["INBOX"], Date.now() - 60_000);
+    const killable = killableDatabase();
+    const { mailSync, mailStore, status } = await boot(undefined, {
+      database: killable.database,
+    });
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+    const inbox = () => mailStore.getLabels(account.id).find((l) => l.id === "INBOX");
+    expect(inbox()).toMatchObject({ total: 1, unread: 0 });
+
+    for (let i = 1; i <= 30; i++) deliver(`new${i}`, ["INBOX", "UNREAD"]);
+    killable.killAfter(25);
+    mailSync.syncAccount(account.id, { force: true });
+    await until(() => status().error !== null && !status().syncing, "the kill");
+    expect(mailStore.countAllMessages(account.id)).toBe(26);
+    expect(inbox()).toMatchObject({ total: 26, unread: 25 });
+
+    killable.killAfter(Infinity);
+    mailSync.syncAccount(account.id, { force: true });
+    await until(() => status().error === null && !status().syncing, "the retry");
+    expect(mailStore.countAllMessages(account.id)).toBe(31);
+    expect(inbox()).toMatchObject({ total: 31, unread: 30 });
+    expect(mailStore.countLabel(account.id, "INBOX")).toEqual({ total: 31, unread: 30 });
+  });
+
+  it("replays history after a partial write without applying its count deltas twice", async () => {
+    for (let i = 1; i <= 30; i++) deliver(`old${i}`, ["INBOX", "UNREAD"]);
+    const killable = killableDatabase();
+    const { mailSync, mailStore, status } = await boot(undefined, {
+      database: killable.database,
+    });
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+    const originalHistoryId = mailStore.getSyncState(account.id).historyId;
+    const inbox = () => mailStore.getLabels(account.id).find((l) => l.id === "INBOX");
+
+    for (let i = 1; i <= 30; i++) relabel(`old${i}`, [], ["UNREAD"]);
+    killable.killAfter(25, true);
+    mailSync.syncAccount(account.id, { force: true });
+    await until(() => status().error !== null && !status().syncing, "the kill");
+    expect(mailStore.getSyncState(account.id).historyId).toBe(originalHistoryId);
+    expect(inbox()).toMatchObject({ total: 30, unread: 5 });
+
+    killable.killAfter(Infinity);
+    mailSync.syncAccount(account.id, { force: true });
+    await until(() => status().error === null && !status().syncing, "the retry");
+    expect(mailStore.getSyncState(account.id).historyId).toBe(String(historyId));
+    expect(inbox()).toMatchObject({ total: 30, unread: 0 });
+    expect(mailStore.countLabel(account.id, "INBOX")).toEqual({ total: 30, unread: 0 });
   });
 
   it("catches up an expired history feed from Gmail's listings, fetching only what's missing", async () => {

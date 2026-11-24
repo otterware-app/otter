@@ -275,12 +275,7 @@ async function followDelta(
       summaries.map((m) => m.id),
     ),
   );
-  const touched = new Set<string>();
-  for (const m of summaries) {
-    for (const l of store.getMessageLabelIds(accountId, m.id) ?? []) touched.add(l);
-  }
-  store.upsertMessages(accountId, summaries);
-  for (const m of summaries) for (const l of m.labelIds) touched.add(l);
+  store.upsertMessages(accountId, summaries, { counted: true });
 
   const gone = removed.filter((id) => !present.some((m) => m.id === id));
   if (gone.length > 0) {
@@ -296,14 +291,9 @@ async function followDelta(
         ops.push({ kind: "deleted", id });
       } else moved.push(toSummary(accountId, message));
     }
-    for (const id of gone) {
-      for (const l of store.getMessageLabelIds(accountId, id) ?? []) touched.add(l);
-    }
     store.applyHistoryChanges(accountId, ops);
-    store.upsertMessages(accountId, moved);
-    for (const m of moved) for (const l of m.labelIds) touched.add(l);
+    store.upsertMessages(accountId, moved, { counted: true });
   }
-  store.recountLabels(accountId, [...touched]);
   setFolderDelta(accountId, folder.id, {
     ...readDelta(accountId)[folder.id],
     link: deltaLink,

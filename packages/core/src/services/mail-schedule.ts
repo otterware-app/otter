@@ -220,6 +220,7 @@ export async function cancelSchedule(id: string): Promise<ScheduleOutcome | unde
             store.upsertMessages(
               entry.accountId,
               await provider.getSummaries(entry.accountId, [draft.messageId]),
+              { counted: true },
             );
             store.setDraftId(entry.accountId, draft.messageId, draft.draftId);
           } catch {
@@ -277,6 +278,7 @@ export async function processSchedules(): Promise<void> {
               store.upsertMessages(
                 entry.accountId,
                 await provider.getSummaries(entry.accountId, [result.messageId]),
+                { counted: true },
               );
             } catch {
               /* Sync fills this in. */

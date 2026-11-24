@@ -1,0 +1,46 @@
+{
+  "name": "@otter/mail-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "scripts": {
+    "dev": "expo start --dev-client --port 8099",
+    "ios": "expo run:ios --port 8099",
+    "prebuild": "expo prebuild --platform ios",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@otter/client": "workspace:*",
+    "@otter/contracts": "workspace:*",
+    "@otter/core": "workspace:*",
+    "@otter/mobile": "workspace:*",
+    "@otter/ui-native": "workspace:*",
+    "@shopify/flash-list": "2.3.2",
+    "@tanstack/react-query": "catalog:",
+    "expo": "catalog:",
+    "expo-dev-client": "~58.0.21",
+    "expo-font": "~58.0.12",
+    "expo-glass-effect": "catalog:",
+    "expo-haptics": "catalog:",
+    "expo-image": "catalog:",
+    "expo-linking": "~58.0.17",
+    "expo-router": "~58.0.32",
+    "expo-status-bar": "~58.0.5",
+    "expo-symbols": "catalog:",
+    "expo-system-ui": "~58.0.7",
+    "react": "catalog:",
+    "react-native": "catalog:",
+    "react-native-enriched-markdown": "1.2.0",
+    "react-native-gesture-handler": "catalog:",
+    "react-native-reanimated": "catalog:",
+    "react-native-safe-area-context": "catalog:",
+    "react-native-screens": "~4.30.1",
+    "react-native-svg": "catalog:",
+    "react-native-worklets": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "typescript": "catalog:"
+  }
+}
