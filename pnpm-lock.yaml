@@ -550,9 +550,6 @@ importers:
       '@otter/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@otter/mobile':
-        specifier: workspace:*
-        version: link:../../packages/mobile
       '@otter/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -560,6 +557,9 @@ importers:
         specifier: 'catalog:'
         version: 19.3.0
     devDependencies:
+      '@otter/mobile':
+        specifier: workspace:*
+        version: link:../../packages/mobile
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.4
@@ -587,9 +587,6 @@ importers:
       '@otter/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@otter/mobile':
-        specifier: workspace:*
-        version: link:../../packages/mobile
       '@otter/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -597,6 +594,9 @@ importers:
         specifier: 'catalog:'
         version: 19.3.0
     devDependencies:
+      '@otter/mobile':
+        specifier: workspace:*
+        version: link:../../packages/mobile
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.4
@@ -627,19 +627,19 @@ importers:
       '@otter/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@otter/mobile':
-        specifier: workspace:*
-        version: link:../../packages/mobile
       '@otter/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@otter/ui-native':
-        specifier: workspace:*
-        version: link:../../packages/ui-native
       react:
         specifier: 'catalog:'
         version: 19.3.0
     devDependencies:
+      '@otter/mobile':
+        specifier: workspace:*
+        version: link:../../packages/mobile
+      '@otter/ui-native':
+        specifier: workspace:*
+        version: link:../../packages/ui-native
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0
@@ -670,15 +670,9 @@ importers:
       '@otter/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@otter/mobile':
-        specifier: workspace:*
-        version: link:../../packages/mobile
       '@otter/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@otter/ui-native':
-        specifier: workspace:*
-        version: link:../../packages/ui-native
       lucide-react:
         specifier: ^0.542.0
         version: 0.542.0(react@19.3.0)
@@ -686,6 +680,12 @@ importers:
         specifier: 'catalog:'
         version: 19.3.0
     devDependencies:
+      '@otter/mobile':
+        specifier: workspace:*
+        version: link:../../packages/mobile
+      '@otter/ui-native':
+        specifier: workspace:*
+        version: link:../../packages/ui-native
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0
@@ -849,15 +849,9 @@ importers:
       '@otter/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@otter/mobile':
-        specifier: workspace:*
-        version: link:../../packages/mobile
       '@otter/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@otter/ui-native':
-        specifier: workspace:*
-        version: link:../../packages/ui-native
       neverthrow:
         specifier: 8.2.0
         version: 8.2.0
@@ -865,6 +859,12 @@ importers:
         specifier: 'catalog:'
         version: 19.3.0
     devDependencies:
+      '@otter/mobile':
+        specifier: workspace:*
+        version: link:../../packages/mobile
+      '@otter/ui-native':
+        specifier: workspace:*
+        version: link:../../packages/ui-native
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0

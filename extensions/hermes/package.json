@@ -18,12 +18,12 @@
     "@otter/client": "workspace:*",
     "@otter/contracts": "workspace:*",
     "@otter/core": "workspace:*",
-    "@otter/mobile": "workspace:*",
     "@otter/ui": "workspace:*",
-    "@otter/ui-native": "workspace:*",
     "react": "catalog:"
   },
   "devDependencies": {
+    "@otter/mobile": "workspace:*",
+    "@otter/ui-native": "workspace:*",
     "@types/react": "catalog:",
     "expo-image": "catalog:",
     "react-native": "catalog:",
@@ -31,8 +31,14 @@
     "vite-plus": "catalog:"
   },
   "peerDependencies": {
+    "@otter/ui-native": "*",
     "expo-image": "*",
     "react-native": "*"
+  },
+  "peerDependenciesMeta": {
+    "@otter/ui-native": {
+      "optional": true
+    }
   },
   "otter": {
     "id": "hermes",
