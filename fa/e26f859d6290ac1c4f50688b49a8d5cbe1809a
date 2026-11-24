@@ -1,0 +1,45 @@
+packages/core/src/services/agent-sync.ts
+  s_076b12ad1c9082::t_88784822deadc8 104-129
+packages/mobile/ios/OtterMobileModule.swift
+  s_076b12ad1c9082::t_88784822deadc8 62-67
+  s_076b12ad1c9082::t_e321c6bf245497 73-75
+packages/mobile/src/native.ts
+  s_076b12ad1c9082::t_88784822deadc8 13
+  s_076b12ad1c9082::t_d891fbb27467e5 14
+packages/mobile/src/start.ts
+  s_076b12ad1c9082::t_88784822deadc8 34,62
+packages/core/src/index.ts
+  s_076b12ad1c9082::t_88784822deadc8 27-28,43,49,60-68
+apps/agents-mobile/src/core.ts
+  s_076b12ad1c9082::t_88784822deadc8 27
+apps/agents-mobile/README.md
+  s_076b12ad1c9082::t_814759ef06a065 158-161
+apps/agents-mobile/src/chat/chat-screen.tsx
+  s_076b12ad1c9082::t_425d2713f152d3 102,173,341,425,428-429,434-435,437,440-448,450-452,454,456-457,459-460
+apps/agents-mobile/src/chat/composer-panel.ts
+  s_076b12ad1c9082::t_98eede63c6d497 3,5-6
+apps/agents-mobile/src/chat/composer.tsx
+  s_076b12ad1c9082::t_641b95775531e4 71,95,184,190,229-234,402-403,414-415
+docs/expo-migration.md
+  s_076b12ad1c9082::t_7761bd9c700e88 38-40
+packages/core/src/services/test/gmail-realtime.test.ts
+  s_076b12ad1c9082::t_a5bb73580f54bd 3-7,127,131,179-182,282,464-494
+packages/mobile/src/secrets.ts
+  s_076b12ad1c9082::t_27cf24c73c2604 15-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fae26f859d6290ac1c4f50688b49a8d5cbe1809a",
+  "prompts": {},
+  "sessions": {
+    "s_076b12ad1c9082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f03-1d60-7480-929a-3cc6584d46dd",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
