@@ -54,7 +54,8 @@ import {
 import { toast } from "@otter/ui/components/toast";
 import type { MailAccount } from "../mail/types";
 import { WindowTitle } from "../mail/top-bar";
-import { OtterSignInOnboardingLink } from "../settings/otter-account-pane";
+import { OtterSignInOnboardingLink, SignInControl } from "../settings/otter-account-pane";
+import { useOtterAccount } from "../otter-account";
 import {
   FontSizeRow,
   ReadingWidthRow,
@@ -714,6 +715,7 @@ function HabitsStep() {
 }
 
 function AgentStep({ firstRun }: { firstRun: boolean }) {
+  const otter = useOtterAccount();
   const query = useAgentProviders();
   const setState = useSetProvidersState();
   const state = query.data;
@@ -784,7 +786,15 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
 
         <div className="flex flex-col">
           <SectionTitle>Choose who answers</SectionTitle>
-          {!state ? (
+          {otter && !otter.user ? (
+            <div className="flex flex-col items-start gap-3 px-1">
+              <p className="text-body text-pretty text-muted-foreground">
+                Your agents are in your Otter account. Sign in to add them, with the same agents and
+                chats on every device.
+              </p>
+              <SignInControl />
+            </div>
+          ) : !state ? (
             <p className="px-1 text-body text-muted-foreground">Looking for agents…</p>
           ) : (
             <div className="flex flex-col gap-2">

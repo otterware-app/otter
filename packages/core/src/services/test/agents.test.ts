@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const secrets = new Map<string, string>();
 const database = new DatabaseSync(":memory:");
+let user: { id: string } | null = { id: "u1" };
 vi.mock("../../platform.js", () => ({
   platform: () => ({
     database: () => database,
@@ -15,7 +16,7 @@ vi.mock("../../platform.js", () => ({
 }));
 vi.mock("../otter-account.js", () => ({
   RelayError: Error,
-  getOtterUser: () => ({ id: "u1" }),
+  getOtterUser: () => user,
   onOtterAccountChange: () => {},
   relayRequest: () => new Promise(() => {}),
 }));
@@ -70,6 +71,7 @@ const { getProviderSettings } = await import("../agent/settings.js");
 const { agentDb } = await import("../agent-sync.js");
 
 beforeEach(async () => {
+  user = { id: "u1" };
   secrets.clear();
   made.length = 0;
   agentDb().exec("DELETE FROM agent_entries; DELETE FROM agent_outbox;");
@@ -118,6 +120,14 @@ describe("the agents you add", () => {
     await expect(service.sendTurn(brokk, { requestId: "r", input: "hi" })).rejects.toThrow(
       "isn't on this device",
     );
+  });
+
+  it("offers none to add while signed out", async () => {
+    user = null;
+    expect((await service.providersState()).kinds).toEqual([]);
+    await expect(service.addAgent("hermes")).rejects.toThrow("Sign in");
+    user = { id: "u1" };
+    expect((await service.providersState()).kinds.map((k) => k.kind)).toEqual(["hermes", "claude"]);
   });
 });
 
