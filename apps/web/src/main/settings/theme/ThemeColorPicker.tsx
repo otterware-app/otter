@@ -271,7 +271,7 @@ function ThemeColorPicker({
                   type="button"
                 >
                   <span
-                    className="absolute inset-0 rounded-full shadow-sm"
+                    className="absolute inset-0 rounded-full shadow-sm margin:shadow-none"
                     style={{ backgroundColor: value }}
                   />
                 </button>

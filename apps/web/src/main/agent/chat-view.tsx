@@ -193,7 +193,7 @@ export function ChatView({
           {chat.provider ? (
             <>
               <AgentFace provider={chat.provider} className="mb-1 size-6" />
-              <span className="text-sm font-medium text-foreground">
+              <span className="text-sm font-medium text-foreground font-reading">
                 {chat.name}: {setupSummary.headline}
               </span>
               {setupSummary.detail ? (
@@ -203,7 +203,7 @@ export function ChatView({
           ) : signedOut ? (
             <>
               <AgentIcon className="mb-1 size-6 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">
+              <span className="text-sm font-medium text-foreground font-reading">
                 Sign in to chat with your agents
               </span>
               <span className="max-w-80 text-sm text-pretty text-muted-foreground">
@@ -213,7 +213,9 @@ export function ChatView({
           ) : (
             <>
               <AgentIcon className="mb-1 size-6 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">Add an agent to chat with</span>
+              <span className="text-sm font-medium text-foreground font-reading">
+                Add an agent to chat with
+              </span>
               <span className="max-w-80 text-sm text-pretty text-muted-foreground">
                 Connect {kindList(chat.state?.kinds ?? [])} in Settings → Agents. Add as many as you
                 work with.
@@ -310,7 +312,7 @@ export function ChatView({
                     {...props}
                     type="button"
                     aria-label="Jump to latest"
-                    className="surface-glass absolute bottom-3 left-1/2 flex size-8 -translate-x-1/2 items-center justify-center rounded-full border border-border/40 text-muted-foreground shadow-sm hover:text-foreground"
+                    className="surface-glass absolute bottom-3 left-1/2 flex size-8 -translate-x-1/2 items-center justify-center rounded-full border border-border/40 text-muted-foreground shadow-sm hover:text-foreground margin:shadow-none"
                   >
                     <ArrowDownIcon className="size-3.5" />
                   </button>

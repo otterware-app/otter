@@ -140,7 +140,7 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
         <div className="min-w-0 flex-1">
           <div
             className={cn(
-              "text-sm font-medium text-foreground",
+              "font-reading text-sm font-medium text-foreground",
               invite.cancelled && "line-through",
             )}
           >
@@ -177,7 +177,7 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
           <span className="text-sm text-muted-foreground">
             {answered ? DONE[answered] : "Going?"}
           </span>
-          <div className="inline-flex overflow-hidden rounded-full border border-border/60">
+          <div className="inline-flex overflow-hidden rounded-pill border border-border/60">
             {CHOICES.map((choice, i) => {
               const active = invite.response === choice.value;
               return (
@@ -215,7 +215,7 @@ export function InviteCard({ accountId, messageId }: { accountId: string; messag
         <div className="pl-13">
           <Button
             size="sm"
-            className="rounded-full"
+            className="rounded-pill"
             disabled={add.isPending}
             onClick={() => add.mutate()}
           >

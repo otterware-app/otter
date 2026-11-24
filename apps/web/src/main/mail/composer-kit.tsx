@@ -15,7 +15,7 @@ import { Textarea } from "@otter/ui/components/textarea";
 import { cn } from "@otter/ui/lib/utils";
 
 export const COMPOSER_SURFACE =
-  "rounded-3xl border border-(--chat-composer-outline) bg-(--chat-composer-surface) backdrop-blur-(--chat-composer-blur) shadow-composer transition-colors focus-within:border-input/70 dark:border-transparent dark:shadow-none dark:inset-shadow-2xs dark:inset-shadow-(color:--chat-composer-highlight) dark:focus-within:border-transparent";
+  "rounded-3xl border border-(--chat-composer-outline) bg-(--chat-composer-surface) backdrop-blur-(--chat-composer-blur) shadow-composer transition-colors focus-within:border-input/70 dark:border-transparent dark:shadow-none dark:inset-shadow-2xs dark:inset-shadow-(color:--chat-composer-highlight) dark:focus-within:border-transparent margin:inset-shadow-none margin:shadow-none";
 
 export function ComposerCard({
   onSend,
@@ -317,7 +317,7 @@ export function ComposerFooter({
         variant="primary"
         onClick={onSend}
         disabled={!canSend}
-        className="gap-2 rounded-full px-4 font-medium disabled:opacity-30 data-disabled:opacity-30"
+        className="gap-2 rounded-pill px-4 font-medium disabled:opacity-30 data-disabled:opacity-30"
       >
         Send
         <ShortcutText command="composer.send" className="text-body font-normal opacity-60" />

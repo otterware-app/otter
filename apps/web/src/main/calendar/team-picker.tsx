@@ -59,7 +59,7 @@ export function TeamPicker({ onClose }: { onClose: () => void }) {
       <div
         role="dialog"
         aria-label="Show a teammate's calendar"
-        className="flex h-fit w-[520px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-xl border border-border/70 text-foreground shadow-[0_24px_60px_-20px_rgb(0_0_0/55%)] animate-calendar-pop [background:linear-gradient(var(--popover),var(--popover)),var(--canvas)]"
+        className="flex h-fit w-[520px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-xl border border-border/70 text-foreground shadow-[0_24px_60px_-20px_rgb(0_0_0/55%)] animate-calendar-pop [background:linear-gradient(var(--popover),var(--popover)),var(--canvas)] margin:shadow-none margin:border-overlay-edge"
       >
         <div className="flex h-12 items-center gap-3 px-4">
           <SearchIcon className="size-4 shrink-0 text-muted-foreground" />

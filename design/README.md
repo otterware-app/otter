@@ -26,6 +26,15 @@ tints, avatar fills, the email body's white). Every other variable is a token: n
 in the file alone. To rename a token, add the new name first, move the references, then
 remove the old one; a reference to a variable that doesn't exist yet turns into a fixed color.
 
+**Themes: an axis beside light and dark.** A theme sets every token, not only colors. Each
+variable in `tokens.json` carries a value per `theme` (`otter`, the default, and `margin`) as
+well as per `mode`; a frame wears one with `theme: { mode, theme }`, and a frame that doesn't
+say is Otter. In code the same tokens are `tokens.css`: the stock blocks are Otter, and
+`html[data-design="margin"]` (with `.dark` and the sidebar's scope) is Margin, which the Margin
+theme sets on `<html>`. A component reads what a theme can change from tokens (`$font-reading`,
+`$radius-pill`, `$overlay-edge`); the overlays' shadow is `pen-shadow`, transparent in Margin.
+`Pages · Margin theme` is today's pages in Margin.
+
 **Components: one name, one file.** A component in the file is named after the code that
 draws it (`Button / outline`, `SidebarRow / selected`, `Chip / folder`); variants follow the
 component's props. A design change lands in both: the file and the component's file below. A

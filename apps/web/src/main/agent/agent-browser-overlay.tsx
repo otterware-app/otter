@@ -93,7 +93,7 @@ export function DialogBanner({
   const [text, setText] = useState(dialog.defaultPrompt);
   const prompt = dialog.dialogType === "prompt";
   return (
-    <div className="absolute inset-x-3 top-3 z-10 mx-auto max-w-md rounded-xl border bg-popover p-3 text-sm text-popover-foreground shadow-lg">
+    <div className="absolute inset-x-3 top-3 z-10 mx-auto max-w-md rounded-xl border bg-popover p-3 text-sm text-popover-foreground shadow-lg margin:shadow-none margin:border-overlay-edge">
       <p className="whitespace-pre-wrap wrap-anywhere">{dialog.message || "The page is asking."}</p>
       {prompt ? (
         <Input

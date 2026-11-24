@@ -153,7 +153,7 @@ export function QuestionCard({
           size="sm"
           disabled={responding}
           onClick={() => onAnswer(null)}
-          className="rounded-full pr-1.5"
+          className="rounded-pill pr-1.5"
         >
           Skip
           <Kbd>Esc</Kbd>
@@ -163,7 +163,7 @@ export function QuestionCard({
             size="sm"
             disabled={responding || !complete}
             onClick={() => onAnswer(answers)}
-            className="rounded-full pr-1.5"
+            className="rounded-pill pr-1.5"
           >
             Answer
             <Kbd>↩</Kbd>

@@ -20,9 +20,9 @@ const chipVariants = cva(
       },
       size: {
         /** A label on a message: Inbox, a Gmail label, a category. */
-        xs: "h-5 max-w-32 gap-1.5 rounded-full px-2 text-2xs font-medium leading-none [&_svg:not([class*='size-'])]:size-3",
+        xs: "h-5 max-w-32 gap-1.5 rounded-pill px-2 text-2xs font-medium leading-none [&_svg:not([class*='size-'])]:size-3",
         /** A recipient, a filter. */
-        sm: "h-6.5 max-w-64 gap-1.5 rounded-full px-2.5 text-body [&_svg:not([class*='size-'])]:size-3.5",
+        sm: "h-6.5 max-w-64 gap-1.5 rounded-pill px-2.5 text-body [&_svg:not([class*='size-'])]:size-3.5",
         /** A file. */
         md: "h-8 max-w-64 gap-1.5 rounded-xl pl-2.5 pr-1 text-sm [&_svg:not([class*='size-'])]:size-3",
       },

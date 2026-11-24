@@ -298,14 +298,16 @@ export function ChatWindow({
             {active && !blank ? (
               <ChatTitle
                 chat={active}
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium text-foreground font-reading"
                 menu={switcher}
               />
             ) : (
               <span className="flex min-w-0 flex-1">
                 <DropdownMenu>
                   <DropdownMenuTrigger
-                    render={<TitleMenuButton className="text-sm font-medium text-foreground" />}
+                    render={
+                      <TitleMenuButton className="text-sm font-medium text-foreground font-reading" />
+                    }
                   >
                     New chat
                   </DropdownMenuTrigger>

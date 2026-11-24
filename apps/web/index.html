@@ -13,8 +13,13 @@
     <title>Otter</title>
     <script>
       var chosen = localStorage.getItem("otter:theme-source");
-      if (chosen ? chosen === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        document.documentElement.classList.add("dark");
+      var dark = chosen
+        ? chosen === "dark"
+        : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      if (dark) document.documentElement.classList.add("dark");
+      // A theme with a design (apply-theme.ts), so its first paint is already its own.
+      if (localStorage.getItem(dark ? "otter:theme:dark" : "otter:theme:light") === "margin") {
+        document.documentElement.setAttribute("data-design", "margin");
       }
     </script>
     <style>

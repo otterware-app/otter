@@ -687,7 +687,7 @@ function SignInScreen({ titleLeading, titleTrailing }: WorkspaceMainProps) {
         <span className="min-w-0 flex-1" />
       </TitleBar>
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
-        <OtterDriveIcon className="size-14 rounded-2xl shadow-sm" />
+        <OtterDriveIcon className="size-14 rounded-2xl shadow-sm margin:shadow-none" />
         <div className="flex max-w-sm flex-col gap-1.5">
           <h2 className="text-lg font-medium text-foreground">Your documents, beside your mail</h2>
           <p className="text-sm text-muted-foreground">

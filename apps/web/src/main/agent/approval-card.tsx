@@ -126,7 +126,7 @@ export function ApprovalCard({
         <DropdownMenu>
           <DropdownMenuTrigger
             disabled={responding}
-            render={<IconButton label="More options" className="rounded-full" />}
+            render={<IconButton label="More options" className="rounded-pill" />}
           >
             <EllipsisIcon />
           </DropdownMenuTrigger>
@@ -142,7 +142,7 @@ export function ApprovalCard({
           size="sm"
           disabled={responding}
           onClick={() => onRespond("deny")}
-          className="rounded-full pr-1.5"
+          className="rounded-pill pr-1.5"
         >
           Deny
           <Kbd>Esc</Kbd>
@@ -152,7 +152,7 @@ export function ApprovalCard({
           size="sm"
           disabled={responding}
           onClick={() => onRespond("once")}
-          className="rounded-full pr-1.5 focus:ring-2 focus:ring-focus-ring focus:ring-offset-1 focus:ring-offset-(--chat-composer-surface)"
+          className="rounded-pill pr-1.5 focus:ring-2 focus:ring-focus-ring focus:ring-offset-1 focus:ring-offset-(--chat-composer-surface)"
         >
           Allow once
           <Kbd>↩</Kbd>

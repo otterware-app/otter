@@ -129,7 +129,7 @@ export function ChatDetailsDock(props: DetailsProps) {
   return (
     <aside
       aria-label="Chat details"
-      className="dropdown-glass min-h-0 overflow-y-auto rounded-lg p-4 text-popover-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]"
+      className="dropdown-glass min-h-0 overflow-y-auto rounded-lg p-4 text-popover-foreground shadow-overlay"
     >
       <ChatDetails {...props} />
     </aside>

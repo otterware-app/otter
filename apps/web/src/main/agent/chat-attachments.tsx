@@ -208,7 +208,7 @@ export function DropOverlay() {
     <div className="pointer-events-none absolute inset-2 z-40 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary/60 bg-primary/[0.035]">
       <div
         role="status"
-        className="flex items-center gap-2 rounded-full border border-primary/25 bg-background/95 px-4 py-2.5 text-sm font-medium text-foreground shadow-lg"
+        className="flex items-center gap-2 rounded-pill border border-primary/25 bg-background/95 px-4 py-2.5 text-sm font-medium text-foreground shadow-lg margin:shadow-none margin:border-overlay-edge margin:bg-popover"
       >
         <PaperclipIcon className="size-4 text-primary" aria-hidden />
         Drop files to attach
@@ -291,7 +291,7 @@ export function AttachmentChip({
           type="button"
           onClick={onRemove}
           aria-label={`Remove ${name}`}
-          className="absolute -right-1.5 -top-1.5 z-20 flex size-4.5 cursor-pointer items-center justify-center rounded-full border border-foreground/10 bg-popover text-muted-foreground opacity-0 shadow-sm hover:text-foreground group-hover/attachment:opacity-100 focus-visible:opacity-100"
+          className="absolute -right-1.5 -top-1.5 z-20 flex size-4.5 cursor-pointer items-center justify-center rounded-full border border-foreground/10 bg-popover text-muted-foreground opacity-0 shadow-sm hover:text-foreground group-hover/attachment:opacity-100 focus-visible:opacity-100 margin:shadow-none"
         >
           <XIcon className="size-2.5" />
         </button>

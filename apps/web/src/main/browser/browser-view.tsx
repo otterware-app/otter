@@ -200,11 +200,11 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
           setFind((key) => (key ?? 0) + 1);
         }}
       >
-        <div className="flex shrink-0 items-center rounded-full bg-foreground/[0.06] p-0.5">
+        <div className="flex shrink-0 items-center rounded-pill bg-foreground/[0.06] p-0.5">
           <HintTooltip label="Back" hint={shortcutText("mod+[")} side="bottom">
             <IconButton
               label="Back"
-              className="rounded-full"
+              className="rounded-pill"
               disabled={!history.back}
               onClick={() => view?.goBack()}
             >
@@ -214,7 +214,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
           <HintTooltip label="Forward" hint={shortcutText("mod+]")} side="bottom">
             <IconButton
               label="Forward"
-              className="rounded-full"
+              className="rounded-pill"
               disabled={!history.forward}
               onClick={() => view?.goForward()}
             >
@@ -224,7 +224,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
           <span aria-hidden className="mx-0.5 h-4 w-px bg-border" />
           {tab.loading ? (
             <HintTooltip label="Stop" side="bottom">
-              <IconButton label="Stop" className="rounded-full" onClick={() => view?.stop()}>
+              <IconButton label="Stop" className="rounded-pill" onClick={() => view?.stop()}>
                 <XIcon className="size-4" />
               </IconButton>
             </HintTooltip>
@@ -232,7 +232,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
             <HintTooltip label="Reload" hint={shortcutText("mod+r")} side="bottom">
               <IconButton
                 label="Reload"
-                className="rounded-full"
+                className="rounded-pill"
                 disabled={!view}
                 onClick={() => view?.reload()}
               >
@@ -366,7 +366,7 @@ function AddressBar({
   const editing = draft !== null;
   const origin = URL.parse(url)?.origin;
   return (
-    <div className="group/address relative mx-auto flex h-8 min-w-0 max-w-[56rem] flex-1 items-center rounded-full bg-foreground/[0.06] focus-within:bg-foreground/[0.09] hover:bg-foreground/[0.09]">
+    <div className="group/address relative mx-auto flex h-8 min-w-0 max-w-[56rem] flex-1 items-center rounded-pill bg-foreground/[0.06] focus-within:bg-foreground/[0.09] hover:bg-foreground/[0.09]">
       <input
         ref={inputRef}
         aria-label="Address"
@@ -404,7 +404,7 @@ function AddressBar({
           <HintTooltip label="Open in default browser" side="bottom">
             <IconButton
               label="Open in default browser"
-              className="absolute right-0.5 rounded-full opacity-0 group-hover/address:opacity-100 focus-visible:opacity-100"
+              className="absolute right-0.5 rounded-pill opacity-0 group-hover/address:opacity-100 focus-visible:opacity-100"
               onClick={() => void window.desktopBridge.openExternal(url).catch(() => {})}
             >
               <ArrowUpRightIcon className="size-4" />
@@ -442,7 +442,7 @@ function SiteInfo({
           render={
             <IconButton
               label="View site information"
-              className="absolute left-0.5 rounded-full opacity-0 group-hover/address:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
+              className="absolute left-0.5 rounded-pill opacity-0 group-hover/address:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
             />
           }
         >
@@ -473,7 +473,7 @@ function PageMenu({ url, onDevTools }: { url: string; onDevTools?: () => void })
     <DropdownMenu>
       <HintTooltip label="More" side="bottom">
         <DropdownMenuTrigger
-          render={<IconButton label="More" size="icon" className="shrink-0 rounded-full" />}
+          render={<IconButton label="More" size="icon" className="shrink-0 rounded-pill" />}
         >
           <MoreHorizontalIcon className="size-4" />
         </DropdownMenuTrigger>

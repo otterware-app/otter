@@ -397,7 +397,7 @@ On iPhone, the bottom holds a pill with the mailbox's picture (tap for every mai
 | Feature                                                                                                          | Mac | Web | iPhone                                                                     |
 | ---------------------------------------------------------------------------------------------------------------- | --- | --- | -------------------------------------------------------------------------- |
 | System / Light / Dark color scheme (iPhone: white light background, pitch-black dark background)                 | ✓   | ✓   | ✓                                                                          |
-| 5 themes, a light and a dark pick                                                                                | ✓   | ✓   | —                                                                          |
+| 6 themes, a light and a dark pick; Margin's sets fonts and shapes too                                            | ✓   | ✓   | —                                                                          |
 | Inter, the same typeface in every app                                                                            | ✓   | ✓   | ✓                                                                          |
 | App icon follows the build (stable, nightly or dev; iPhone: stable or dev)                                       | ✓   | ✓   | ✓                                                                          |
 | Stable / Nightly update channel, selected in General and remembered on this computer (web: this browser)         | ✓   | ✓   | —                                                                          |

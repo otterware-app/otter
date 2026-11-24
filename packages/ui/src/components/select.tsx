@@ -85,7 +85,7 @@ function SelectContent({
           data-slot="select-content"
           finalFocus={keyboardOnlyFocus}
           className={cn(
-            "dropdown-glass max-h-(--available-height) min-w-(--anchor-width) origin-(--transform-origin) overflow-y-auto rounded-xl text-foreground shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] outline-none transition-[opacity,scale] duration-100 data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0 dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]",
+            "dropdown-glass max-h-(--available-height) min-w-(--anchor-width) origin-(--transform-origin) overflow-y-auto rounded-xl text-foreground shadow-overlay outline-none transition-[opacity,scale] duration-100 data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0",
             className,
           )}
           {...props}

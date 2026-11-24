@@ -50,8 +50,8 @@ function TooltipPopup({
           className={cn(
             "relative flex h-(--popup-height,auto) w-(--popup-width,auto) origin-(--transform-origin) text-balance rounded-lg text-popover-foreground text-xs transition-[width,height,scale,opacity] duration-120 data-ending-style:scale-98 data-ending-style:opacity-0 data-instant:duration-0 data-starting-style:scale-98 data-starting-style:opacity-0",
             variant === "glass"
-              ? "dropdown-glass shadow-xl shadow-black/25"
-              : "border border-border/60 bg-popover shadow-lg/10",
+              ? "dropdown-glass shadow-xl shadow-black/25 margin:shadow-none"
+              : "border border-border/60 bg-popover shadow-lg/10 margin:border-overlay-edge margin:shadow-none",
             variant === "code"
               ? "max-w-120 wrap-anywhere text-left font-mono text-2xs leading-relaxed"
               : "max-w-80 wrap-anywhere whitespace-normal leading-snug",

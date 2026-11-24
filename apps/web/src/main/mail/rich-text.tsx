@@ -163,7 +163,7 @@ export const RichTextArea = forwardRef<
         "data-placeholder": placeholder,
         class: [
           "te-scroll w-full flex-1 overflow-y-auto bg-transparent px-5 py-3.5",
-          "text-sm leading-relaxed text-foreground outline-none",
+          "font-reading text-sm leading-relaxed text-foreground outline-none",
           minHeightClass ?? "min-h-[38px]",
           maxHeightClass ?? "max-h-[55vh]",
         ].join(" "),

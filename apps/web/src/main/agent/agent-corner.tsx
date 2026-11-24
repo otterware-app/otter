@@ -5,6 +5,7 @@ import { isBlank, useChats } from "./chat-store";
 import { ShortcutText } from "../keybindings/store";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { cn } from "@otter/ui/lib/utils";
+import { useThemeDesign } from "../theme/apply-theme";
 
 export type ChatStatus = "approval" | "input" | "working" | "failed" | "done" | null;
 
@@ -43,11 +44,26 @@ export function StatusDot({ status, className }: { status: ChatStatus; className
   );
 }
 
-/** Card corners' radius (rounded-xl) and the frame's gap round them. */
-const R = 12;
+/** The frame's gap round the cards. */
 const GAP = 4;
 
+let radius: { design: string | null; px: number } | null = null;
+
+/** The cards' corner radius (rounded-xl), which the theme's design sets. */
+function cardRadius(): number {
+  const design = document.documentElement.getAttribute("data-design");
+  if (radius?.design !== design) {
+    const probe = document.createElement("div");
+    probe.style.borderTopLeftRadius = "var(--radius-xl)";
+    document.body.append(probe);
+    radius = { design, px: Number.parseFloat(getComputedStyle(probe).borderTopLeftRadius) || 0 };
+    probe.remove();
+  }
+  return radius.px;
+}
+
 function notchShape(width: number, height: number) {
+  const R = cardRadius();
   const w = width + 2 * GAP + R;
   const h = height + 2 * GAP + R;
   const bottom = h - GAP - 0.5;
@@ -82,6 +98,7 @@ export function Notch({
   height?: number;
   ref?: RefObject<SVGSVGElement | null>;
 }) {
+  useThemeDesign();
   const shape = width != null && height != null ? notchShape(width, height) : null;
   const svgRef = useRef<SVGSVGElement>(null);
   useLayoutEffect(() => {

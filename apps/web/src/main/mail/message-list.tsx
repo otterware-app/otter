@@ -713,7 +713,7 @@ function MessageRow({
           <div className="message-list-preview mt-1 flex min-w-0 flex-col gap-0.5">
             <span
               className={cn(
-                "message-list-subject truncate text-sm",
+                "message-list-subject truncate text-sm font-reading",
                 unread ? "font-medium text-foreground" : "text-foreground/75",
               )}
             >
@@ -751,7 +751,7 @@ function MessageRow({
           </button>
         ) : null}
         {selecting ? null : (
-          <div className="message-list-hover-actions invisible absolute right-3 bottom-2 z-[2] flex items-center gap-0.5 rounded-lg border border-border/60 bg-canvas p-0.5 shadow-sm group-hover/row:visible">
+          <div className="message-list-hover-actions invisible absolute right-3 bottom-2 z-[2] flex items-center gap-0.5 rounded-lg border border-border/60 bg-canvas p-0.5 shadow-sm group-hover/row:visible margin:shadow-none">
             {trashed || junk ? null : (
               <HintTooltip
                 label={archiveSource ? "Archive" : "Move to inbox"}
@@ -2037,7 +2037,7 @@ function MessageListView({
           {/* Where you are (the sidebar may be hidden, a view has none), then how much. */}
           {listName ? (
             <>
-              <span className="font-medium text-foreground">{listName}</span>
+              <span className="font-medium text-foreground font-reading">{listName}</span>
               {" · "}
             </>
           ) : null}
@@ -2162,7 +2162,7 @@ function MessageListView({
 
       {checked.size > 0 ? (
         <div className="absolute inset-x-0 bottom-3 z-10 flex justify-center px-3">
-          <div className="dropdown-glass flex items-center gap-0.5 rounded-xl px-2 py-1 shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]">
+          <div className="dropdown-glass flex items-center gap-0.5 rounded-xl px-2 py-1 shadow-overlay">
             <span className="pl-1 text-sm font-medium tabular-nums text-foreground">
               {checked.size}
             </span>

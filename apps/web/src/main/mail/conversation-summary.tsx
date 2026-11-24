@@ -47,7 +47,7 @@ export function ConversationSummary({
   return (
     <div
       className={cn(
-        "w-64 rounded-2xl border border-foreground/10 bg-popover text-foreground shadow-[0_16px_40px_-22px_rgb(0_0_0/45%)]",
+        "w-64 rounded-2xl border border-foreground/10 bg-popover text-foreground shadow-[0_16px_40px_-22px_rgb(0_0_0/45%)] margin:shadow-none margin:border-overlay-edge",
         className,
       )}
     >

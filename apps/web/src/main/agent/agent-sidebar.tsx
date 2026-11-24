@@ -966,7 +966,7 @@ export function AgentSidebar({
             "group/row relative w-full min-w-0 rounded-lg select-none",
             !renaming && "has-focus-visible:ring-2 has-focus-visible:ring-focus-ring",
             dragging
-              ? "bg-sidebar-surface bg-linear-to-b from-sidebar-row-active to-sidebar-row-active text-sidebar-foreground shadow-lg"
+              ? "bg-sidebar-surface bg-linear-to-b from-sidebar-row-active to-sidebar-row-active text-sidebar-foreground shadow-lg margin:shadow-none"
               : selected || swept
                 ? "bg-sidebar-row-selected text-sidebar-foreground"
                 : drafted

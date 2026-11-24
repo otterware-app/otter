@@ -324,7 +324,7 @@ export function ChatComposer({
     <div className={cn("relative shrink-0 pt-1", compact ? "px-2 pb-2" : "px-3 pb-3")}>
       <div className="relative mx-auto w-full max-w-3xl">
         {slashOpen ? (
-          <div className="dropdown-glass absolute inset-x-0 bottom-full z-20 mb-1 max-h-64 overflow-y-auto rounded-xl p-1.5 shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]">
+          <div className="dropdown-glass absolute inset-x-0 bottom-full z-20 mb-1 max-h-64 overflow-y-auto rounded-xl p-1.5 shadow-overlay">
             <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Skills</div>
             {slashSkills.map((s, i) => (
               <button
@@ -474,7 +474,7 @@ export function ChatComposer({
                 <IconButton
                   label="Attach files"
                   size={compact ? "icon-sm" : "icon"}
-                  className="-ms-0.5 rounded-full"
+                  className="-ms-0.5 rounded-pill"
                   onPointerDown={(e) => e.preventDefault()}
                   onClick={() => filePickerRef.current?.click()}
                 >
@@ -518,7 +518,7 @@ export function ChatComposer({
                   the traits follow it muted and carry the chevron, and
                   one pill wraps both, as a single control. */}
               {provider && (pickModels || traitOptions.length > 0) ? (
-                <div className="ms-auto flex min-w-0 shrink items-center rounded-full hover:bg-accent-surface has-data-popup-open:bg-accent-surface">
+                <div className="ms-auto flex min-w-0 shrink items-center rounded-pill hover:bg-accent-surface has-data-popup-open:bg-accent-surface">
                   {pickModels ? (
                     <ModelPicker
                       provider={provider}
@@ -565,7 +565,7 @@ export function ChatComposer({
                       size={compact ? "icon-sm" : "icon"}
                       onClick={stop}
                       aria-label="Stop generation"
-                      className="rounded-full bg-destructive/90 shadow-xs shadow-destructive/24 inset-shadow-2xs inset-shadow-white/16 transition-transform duration-150 hover:scale-105 hover:bg-destructive active:shadow-none active:inset-shadow-black/8"
+                      className="rounded-pill bg-destructive/90 shadow-xs shadow-destructive/24 inset-shadow-2xs inset-shadow-white/16 transition-transform duration-150 hover:scale-105 hover:bg-destructive active:shadow-none active:inset-shadow-black/8 margin:inset-shadow-none margin:shadow-none"
                     >
                       <svg
                         width="12"
@@ -587,7 +587,7 @@ export function ChatComposer({
                       onClick={(e) => send(e.metaKey || e.ctrlKey)}
                       disabled={!hasDraft}
                       aria-label={submitLabel}
-                      className="isolate overflow-hidden rounded-full shadow-xs transition-transform duration-150 enabled:shadow-primary/24 enabled:inset-shadow-2xs enabled:inset-shadow-white/16 hover:scale-105 hover:bg-primary/90 active:shadow-none active:inset-shadow-black/8 disabled:opacity-30 disabled:shadow-none"
+                      className="isolate overflow-hidden rounded-pill shadow-xs transition-transform duration-150 enabled:shadow-primary/24 enabled:inset-shadow-2xs enabled:inset-shadow-white/16 hover:scale-105 hover:bg-primary/90 active:shadow-none active:inset-shadow-black/8 disabled:opacity-30 disabled:shadow-none margin:inset-shadow-none margin:shadow-none"
                     >
                       {editing ? (
                         <CheckIcon className="size-4" aria-hidden />

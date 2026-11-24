@@ -7,11 +7,15 @@ import { converter, formatHex, formatHex8, parse, toGamut, type Color } from "cu
  */
 
 export type Mode = "light" | "dark";
+/** A theme's design: the stock tokens, or a `html[data-design]` block over them. */
+export type Design = "otter" | "margin";
+export const DESIGNS: readonly Design[] = ["otter", "margin"];
 
+type Themed<T> = { value: T; theme: { mode?: Mode; theme: Design } }[];
 type PenVariable =
-  | { type: "color"; value: { value: string; theme: { mode: Mode } }[] }
-  | { type: "number"; value: number }
-  | { type: "string"; value: string };
+  | { type: "color"; value: { value: string; theme: { mode: Mode; theme: Design } }[] }
+  | { type: "number"; value: number | Themed<number> }
+  | { type: "string"; value: string | Themed<string> };
 
 export type PenVariables = Record<string, PenVariable>;
 
@@ -132,15 +136,35 @@ function isColor(value: string, vars: Map<string, string>): boolean {
  * roles the sidebar redeclares (`[data-app-sidebar]`) take its values, where
  * they're drawn.
  */
-export function resolveColors(tokensCss: string): Map<string, Record<Mode, string>> {
-  const light = blocks(tokensCss, ":root");
-  const dark = new Map([...light, ...blocks(tokensCss, ".dark")]);
-  const sidebarScope = blocks(tokensCss, "[data-app-sidebar]");
-  const sidebarDarkScope = blocks(tokensCss, ".dark [data-app-sidebar]");
+function designBlock(css: string, design: Design, suffix = ""): Map<string, string> {
+  return design === "otter" ? new Map() : blocks(css, `html[data-design="${design}"]${suffix}`);
+}
+
+export function resolveColors(
+  tokensCss: string,
+  design: Design = "otter",
+): Map<string, Record<Mode, string>> {
+  const stock = blocks(tokensCss, ":root");
+  const designLight = designBlock(tokensCss, design);
+  const light = new Map([...stock, ...designLight]);
+  const dark = new Map([
+    ...stock,
+    ...blocks(tokensCss, ".dark"),
+    ...designLight,
+    ...designBlock(tokensCss, design, ".dark"),
+  ]);
+  const sidebarScope = new Map([
+    ...blocks(tokensCss, "[data-app-sidebar]"),
+    ...designBlock(tokensCss, design, " [data-app-sidebar]"),
+  ]);
+  const sidebarDarkScope = new Map([
+    ...blocks(tokensCss, ".dark [data-app-sidebar]"),
+    ...designBlock(tokensCss, design, ".dark [data-app-sidebar]"),
+  ]);
   const sidebarLight = new Map([...light, ...sidebarScope]);
   const sidebarDark = new Map([...dark, ...sidebarScope, ...sidebarDarkScope]);
   const colors = new Map<string, Record<Mode, string>>();
-  for (const [name, value] of light) {
+  for (const [name, value] of stock) {
     if (SKIPPED.has(name) || !isColor(value, light)) continue;
     // A sidebar role the sidebar redeclares is computed there; one declared
     // only on :root is computed there and inherited as is.
@@ -163,25 +187,42 @@ function firstFamily(stack: string): string {
 
 export function penVariables(tokensCss: string, globalsCss: string): PenVariables {
   const variables: PenVariables = {};
-  for (const [name, value] of resolveColors(tokensCss)) {
+  const colors = DESIGNS.map((design) => [design, resolveColors(tokensCss, design)] as const);
+  for (const name of colors[0]![1].keys()) {
     variables[name] = {
       type: "color",
-      value: [
-        { value: value.light, theme: { mode: "light" } },
-        { value: value.dark, theme: { mode: "dark" } },
-      ],
+      value: colors.flatMap(([design, resolved]) =>
+        (["light", "dark"] as const).map((mode) => ({
+          value: resolved.get(name)![mode],
+          theme: { mode, theme: design },
+        })),
+      ),
     };
   }
 
   const root = blocks(tokensCss, ":root");
+  const margin = designBlock(tokensCss, "margin");
   const radiusPx = Number.parseFloat(root.get("radius") ?? "0.5") * 16;
+  const themed = <T>(otter: T, marginValue: T | undefined): T | Themed<T> =>
+    marginValue === undefined || marginValue === otter
+      ? otter
+      : [
+          { value: otter, theme: { theme: "otter" } },
+          { value: marginValue, theme: { theme: "margin" } },
+        ];
+  const px = (value: string | undefined) =>
+    value === undefined ? undefined : Number.parseFloat(value);
   for (const match of globalsCss.matchAll(
     /--radius-([\w-]+):\s*(?:var\(--radius\)|calc\(var\(--radius\)\s*([+-])\s*(\d+)px\));/g,
   )) {
     const offset = match[3] ? Number(match[3]) * (match[2] === "-" ? -1 : 1) : 0;
-    variables[`radius-${match[1]}`] = { type: "number", value: radiusPx + offset };
+    variables[`radius-${match[1]}`] = {
+      type: "number",
+      value: themed(radiusPx + offset, px(margin.get(`radius-${match[1]}`))),
+    };
   }
   variables["radius-full"] = { type: "number", value: 9999 };
+  variables["radius-pill"] = { type: "number", value: themed(9999, px(margin.get("radius-pill"))) };
 
   const text: Record<string, number> = { ...TAILWIND_TEXT };
   for (const match of globalsCss.matchAll(/--text-([\w-]+):\s*([\d.]+)rem;/g)) {
@@ -196,7 +237,16 @@ export function penVariables(tokensCss: string, globalsCss: string): PenVariable
   }
 
   const theme = blocks(globalsCss, "@theme");
-  variables["font-sans"] = { type: "string", value: firstFamily(theme.get("font-sans") ?? "") };
-  variables["font-mono"] = { type: "string", value: firstFamily(theme.get("font-mono") ?? "") };
+  const sans = firstFamily(theme.get("font-sans") ?? "");
+  const family = (value: string | undefined) => (value ? firstFamily(value) : undefined);
+  variables["font-sans"] = { type: "string", value: themed(sans, family(margin.get("font-sans"))) };
+  variables["font-mono"] = {
+    type: "string",
+    value: themed(firstFamily(theme.get("font-mono") ?? ""), family(margin.get("font-mono"))),
+  };
+  variables["font-reading"] = {
+    type: "string",
+    value: themed(sans, family(margin.get("font-reading"))),
+  };
   return variables;
 }

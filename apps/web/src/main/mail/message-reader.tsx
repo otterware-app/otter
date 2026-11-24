@@ -503,7 +503,7 @@ function QuoteToggle({ open, onToggle }: { open: boolean; onToggle: () => void }
         aria-expanded={open}
         aria-label={open ? "Hide quoted text" : "Show quoted text"}
         onClick={onToggle}
-        className="mt-2 inline-flex h-5 cursor-pointer items-center rounded-full bg-accent-surface px-2 text-muted-foreground outline-none hover:bg-input hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
+        className="mt-2 inline-flex h-5 cursor-pointer items-center rounded-pill bg-accent-surface px-2 text-muted-foreground outline-none hover:bg-input hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus-ring"
       >
         <EllipsisIcon className="size-4" />
       </button>
@@ -2613,7 +2613,7 @@ export function MessageReader({
     <>
       <h1
         className={cn(
-          "no-drag select-text font-semibold text-foreground [overflow-wrap:anywhere]",
+          "no-drag select-text font-semibold text-foreground [overflow-wrap:anywhere] font-reading",
           inBand ? "text-md leading-5" : "text-xl leading-7 tracking-[-0.01em]",
         )}
         title={isThread ? `${rows.length} messages` : formatFullDate(message.date)}
@@ -2974,7 +2974,7 @@ export function MessageReader({
               <span className="flex-1" />
               <Button
                 size="sm"
-                className="rounded-full border-border/60"
+                className="rounded-pill border-border/60"
                 onClick={onShowConversation}
               >
                 Show conversation
@@ -2990,12 +2990,12 @@ export function MessageReader({
                   This conversation is in the Trash
                 </span>
                 <span className="flex-1" />
-                <Button size="sm" className="rounded-full" onClick={handleUntrash}>
+                <Button size="sm" className="rounded-pill" onClick={handleUntrash}>
                   Restore
                 </Button>
                 <Button
                   size="sm"
-                  className="rounded-full text-destructive-foreground"
+                  className="rounded-pill text-destructive-foreground"
                   onClick={() => setConfirmDeleteOpen(true)}
                 >
                   Delete forever

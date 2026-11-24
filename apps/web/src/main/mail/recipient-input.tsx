@@ -238,7 +238,7 @@ export const RecipientInput = forwardRef<
         className="h-6 min-w-24 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-placeholder"
       />
       {open ? (
-        <div className="dropdown-glass absolute left-0 top-full z-50 mt-1.5 max-h-64 w-full min-w-64 overflow-y-auto rounded-xl p-1.5 shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]">
+        <div className="dropdown-glass absolute left-0 top-full z-50 mt-1.5 max-h-64 w-full min-w-64 overflow-y-auto rounded-xl p-1.5 shadow-overlay">
           {suggestions.map((suggestion, i) => (
             <button
               key={suggestion.email}

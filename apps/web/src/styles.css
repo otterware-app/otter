@@ -52,7 +52,7 @@ html[data-window-controls="none"] {
 }
 
 .message-list-row {
-  border-radius: 0.5rem;
+  border-radius: var(--radius-lg);
   padding-block: 0.5rem;
 }
 

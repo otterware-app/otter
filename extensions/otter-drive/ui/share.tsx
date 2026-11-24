@@ -639,7 +639,7 @@ function PeopleInput({
         {emails.map((email) => (
           <span
             key={email}
-            className="flex h-6 max-w-full items-center gap-1 rounded-full bg-muted ps-2 pe-1 text-body text-foreground"
+            className="flex h-6 max-w-full items-center gap-1 rounded-pill bg-muted ps-2 pe-1 text-body text-foreground"
           >
             <span className="truncate">{email}</span>
             <button
@@ -699,7 +699,7 @@ function PeopleInput({
           id={listId}
           role="listbox"
           aria-label="Suggestions"
-          className="absolute inset-x-0 top-[calc(100%+4px)] z-10 rounded-xl border border-border bg-popover p-1.5 shadow-lg"
+          className="absolute inset-x-0 top-[calc(100%+4px)] z-10 rounded-xl border border-border bg-popover p-1.5 shadow-lg margin:shadow-none margin:border-overlay-edge"
         >
           {suggestions.map((person, i) => (
             <li

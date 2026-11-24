@@ -144,7 +144,7 @@ function ThemeJsonEditor({
   }, []);
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-input bg-background shadow-xs/5 focus-within:border-focus-ring focus-within:ring-3 focus-within:ring-focus-ring/24">
+    <div className="relative overflow-hidden rounded-xl border border-input bg-background shadow-xs/5 focus-within:border-focus-ring focus-within:ring-3 focus-within:ring-focus-ring/24 margin:shadow-none">
       {isPlainText ? null : (
         <pre
           ref={highlightRef}

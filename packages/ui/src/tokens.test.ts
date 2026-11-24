@@ -20,6 +20,14 @@ describe("design tokens", () => {
     expect(colors.get("sidebar-icon-color")?.dark).toBe("#5b5b5d");
   });
 
+  it("take Margin's design over the stock tokens, mode by mode and in the sidebar", () => {
+    const margin = resolveColors(tokensCss, "margin");
+    expect(margin.get("canvas")).toEqual({ light: "#fcfcfb", dark: "#0d0d0f" });
+    expect(margin.get("primary")).toEqual({ light: "#121214", dark: "#ededef" });
+    expect(margin.get("sidebar-surface")).toEqual(margin.get("canvas"));
+    expect(resolveColors(tokensCss).get("canvas")).toEqual({ light: "#ffffff", dark: "#121213" });
+  });
+
   it("resolve var() and color-mix() as a browser does", () => {
     const colors = resolveColors(`:root {
   --canvas: #ffffff;
