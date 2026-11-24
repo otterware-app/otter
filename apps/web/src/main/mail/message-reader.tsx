@@ -57,7 +57,6 @@ import {
   INTERFACE_FONT_SIZE,
   MARK_READ_DELAY,
   useInterfaceSetting,
-  useMailLayout,
 } from "../theme/interface-settings";
 import {
   useAccounts,
@@ -144,6 +143,8 @@ import {
 } from "@otter/ui/components/context-menu";
 
 type MessageReaderProps = {
+  /** The Margin mail layout: the summary in the margin beside the centered column. */
+  margin?: boolean;
   accountId: string;
   messageId: string | null;
   listLabelId?: string | null;
@@ -2150,18 +2151,20 @@ function ReaderShell({
 function bandLayout(
   w: { reader: number; leading: number; actions: number; title: number },
   margin: boolean,
+  rem: number,
 ) {
   return {
     compactActions: w.reader < 36 * 16,
     titleInBand: w.reader - 3.75 * 16 - w.leading - w.actions >= w.title,
     // Margin's column stays centered, so its margin needs room on both sides.
     summaryFits: margin
-      ? w.reader >= 42.5 * 16 + 2 * (15 + 2 + 1) * 16
+      ? w.reader >= (42.5 + 2 * (15 + 2 + 1)) * rem
       : w.reader >= 48 * 16 + 16 * 16 + 2 * 16,
   };
 }
 
 export function MessageReader({
+  margin = false,
   accountId,
   messageId,
   listLabelId = null,
@@ -2192,14 +2195,14 @@ export function MessageReader({
   // renders outside this element.
   // Only what the widths decide is state: the reader re-renders when that changes, not on
   // every frame of a panel sliding beside it.
-  const margin = useMailLayout() === "margin";
+  const rem = useInterfaceSetting(INTERFACE_FONT_SIZE);
   const widths = useRef({ reader: Infinity, leading: 0, actions: 0, title: 0 });
   const [band, setBand] = useState(() =>
-    bandLayout({ reader: Infinity, leading: 0, actions: 0, title: 0 }, margin),
+    bandLayout({ reader: Infinity, leading: 0, actions: 0, title: 0 }, margin, rem),
   );
   const relayout = () =>
     setBand((prev) => {
-      const next = bandLayout(widths.current, margin);
+      const next = bandLayout(widths.current, margin, rem);
       return next.compactActions === prev.compactActions &&
         next.titleInBand === prev.titleInBand &&
         next.summaryFits === prev.summaryFits
@@ -2616,7 +2619,7 @@ export function MessageReader({
       onOpenFile={handleOpenSummaryFile}
       className={
         inMargin
-          ? "w-60 rounded-none border-0 border-l border-border bg-transparent shadow-none margin:border-border"
+          ? "w-60 rounded-none border-0 border-l border-border bg-transparent shadow-none"
           : undefined
       }
     />
@@ -2978,7 +2981,7 @@ export function MessageReader({
 
           {/* Beside the pinned summary, as the messages are (the viewport's pr-[18rem]). */}
           {titleInBand ? null : (
-            <div className={cn("shrink-0", summaryShown && "pr-[18rem]")}>
+            <div className={cn("shrink-0", summaryShown && !margin && "pr-[18rem]")}>
               <div className="mx-auto flex w-full max-w-(--reading-width) flex-wrap items-center gap-x-2 gap-y-1 px-6 pb-2 pt-1 margin:pt-5 margin:pb-3">
                 {renderTitle(false)}
               </div>
@@ -2986,7 +2989,7 @@ export function MessageReader({
           )}
 
           {single && threadMessages.length > 1 ? (
-            <div className={cn("shrink-0", summaryShown && "pr-[18rem]")}>
+            <div className={cn("shrink-0", summaryShown && !margin && "pr-[18rem]")}>
               <div className="mx-auto flex w-full max-w-(--reading-width) items-center gap-2 px-6 py-1.5">
                 <span className="text-sm text-muted-foreground">
                   One message of {threadMessages.length} in this conversation

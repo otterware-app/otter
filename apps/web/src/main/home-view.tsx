@@ -727,7 +727,9 @@ function MailHome() {
     panelAnimationDurationMs,
   );
   // Pages need room: the panel opens wide, as far as the reader allows (narrower by hand).
-  const openRoomRef = useLatest(() => browserRoomBeside(mailLayoutSetting !== "full"));
+  const openRoomRef = useLatest(() =>
+    browserRoomBeside(mailLayoutSetting !== "full" && mailLayoutSetting !== "margin"),
+  );
   useEffect(() => {
     if (browserVisible) widenBrowser(Math.min(BROWSER_OPEN_WIDTH, openRoomRef.current()));
   }, [browserVisible, widenBrowser, openRoomRef]);
@@ -1640,6 +1642,7 @@ function MailHome() {
     trailing: ReactNode = titleTrailing,
   ) => (
     <MessageReader
+      margin={!ownsMain && mailLayout === "margin"}
       titleLeading={leading}
       titleTrailing={trailing}
       accountId={readerAccount ?? ""}

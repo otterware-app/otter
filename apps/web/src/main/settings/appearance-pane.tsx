@@ -878,6 +878,7 @@ export function useColorScheme(): [ColorScheme, (next: ColorScheme) => Promise<v
 export function AppearancePane() {
   const choice = useThemeChoice();
   const design = useThemeDesign();
+  const mailLayout = useMailLayout();
   const [scheme, setScheme] = useColorScheme();
   const groupMessagesByDay = useInterfaceToggle(GROUP_MESSAGES_BY_DAY);
   const fullWidthRows = useInterfaceToggle(FULL_WIDTH_ROWS);
@@ -1039,7 +1040,10 @@ export function AppearancePane() {
           />
         ) : null}
         <FontSizeRow id={searchableSetting("font-size").id} />
-        <ReadingWidthRow id={searchableSetting("reading-width").id} />
+        {/* The Margin layout sets its own measure. */}
+        {mailLayout !== "margin" ? (
+          <ReadingWidthRow id={searchableSetting("reading-width").id} />
+        ) : null}
       </SettingsSection>
 
       <SettingsSection title="Motion">
