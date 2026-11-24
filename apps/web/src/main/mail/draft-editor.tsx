@@ -19,7 +19,7 @@ import {
   ComposerCard,
   ComposerField,
   ComposerFooter,
-  SubjectInput,
+  SubjectField,
   DraftRemoteBanner,
   draftStatus,
 } from "./composer-kit";
@@ -336,9 +336,7 @@ export function DraftEditor({
           <RecipientInput value={bcc} onChange={setBcc} ariaLabel="Bcc" />
         </ComposerField>
       ) : null}
-      <ComposerField label="Subject">
-        <SubjectInput value={subject} onChange={setSubject} />
-      </ComposerField>
+      <SubjectField value={subject} onChange={setSubject} />
     </>
   );
   const banner = (

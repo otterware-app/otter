@@ -12,7 +12,9 @@ import type { MessageDetail } from "./types";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { Button, IconButton } from "@otter/ui/components/button";
 import { Textarea } from "@otter/ui/components/textarea";
+import { MarginPage, MarginRow } from "@otter/ui/components/margin";
 import { cn } from "@otter/ui/lib/utils";
+import { useAppLayout } from "../theme/interface-settings";
 
 export const COMPOSER_SURFACE =
   "rounded-3xl border border-(--chat-composer-outline) bg-(--chat-composer-surface) backdrop-blur-(--chat-composer-blur) shadow-composer transition-colors focus-within:border-input/70 dark:border-transparent dark:shadow-none dark:inset-shadow-2xs dark:inset-shadow-(color:--chat-composer-highlight) dark:focus-within:border-transparent margin:inset-shadow-none margin:shadow-none";
@@ -54,7 +56,7 @@ export function ComposerField({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-10 items-start gap-3 border-b border-border/40 px-5 py-1 text-sm">
+    <div className="flex min-h-10 items-start gap-3 border-b border-border/40 px-5 py-1 text-sm layout-margin:border-border layout-margin:px-0">
       <span className="flex h-8 w-14 shrink-0 items-center text-sm text-muted-foreground">
         {label}
       </span>
@@ -95,9 +97,13 @@ export function CcBccToggles({
 export function SubjectInput({
   value,
   onChange,
+  placeholder,
+  className,
 }: {
   value: string;
   onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
 }) {
   return (
     <Textarea
@@ -118,8 +124,38 @@ export function SubjectInput({
         if (e.key === "Enter" && !e.nativeEvent.isComposing) e.preventDefault();
       }}
       aria-label="Subject"
-      className="min-h-0 flex-1 border-0 bg-transparent px-0 font-medium focus-visible:bg-transparent focus-visible:ring-0"
+      placeholder={placeholder}
+      className={cn(
+        "min-h-0 flex-1 border-0 bg-transparent px-0 font-medium focus-visible:bg-transparent focus-visible:ring-0",
+        className,
+      )}
     />
+  );
+}
+
+/** The subject: a field among the others, or in Margin, the page's title under them. */
+export function SubjectField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  if (useAppLayout() !== "margin")
+    return (
+      <ComposerField label="Subject">
+        <SubjectInput value={value} onChange={onChange} />
+      </ComposerField>
+    );
+  return (
+    <div className="flex pt-6 pb-2">
+      <SubjectInput
+        value={value}
+        onChange={onChange}
+        placeholder="Subject"
+        className="font-reading text-3xl leading-tight font-normal tracking-[-0.01em] md:text-3xl"
+      />
+    </div>
   );
 }
 
@@ -337,6 +373,23 @@ export function ComposeDocument({
   attachments?: ReactNode;
   footer: ReactNode;
 }) {
+  if (useAppLayout() === "margin")
+    return (
+      <div className="te-scroll min-h-0 flex-1 overflow-y-auto">
+        <MarginPage className="min-h-full pt-4">
+          <MarginRow>
+            <div className="flex min-h-[calc(100vh-9rem)] flex-col">
+              {fields}
+              <div className="flex min-h-0 flex-1 flex-col [&_.ProseMirror]:px-0 [&_.ProseMirror]:font-reading [&_.ProseMirror]:text-lg">
+                {editor}
+              </div>
+              {attachments}
+              <div className="sticky bottom-0 border-t border-foreground bg-canvas">{footer}</div>
+            </div>
+          </MarginRow>
+        </MarginPage>
+      </div>
+    );
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="te-scroll min-h-0 flex-1 overflow-y-auto">

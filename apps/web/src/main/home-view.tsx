@@ -1673,6 +1673,34 @@ function MailHome() {
       showPanelToggle={browserToggleRoom}
     />
   );
+  const renderChatWindow = (docked: boolean) => (
+    <ChatWindow
+      animationMs={panelAnimationsActive ? panelAnimationDurationMs : 0}
+      closing={!chatWindowShown}
+      docked={docked}
+      context={mailChatContext}
+      onClearQuote={() => setPendingQuote(null)}
+      onOpenChange={openChatChange}
+      onOpenWorkspace={openWorkspace}
+      onOpenTask={(key) => {
+        setChatWindow(false);
+        go({
+          mailbox: CHATS_SPACE,
+          label: SCHEDULED_TASKS,
+          messageId: key,
+          account: null,
+          focusId: null,
+        });
+      }}
+      onMinimize={() => setChatWindow(false)}
+      onShelve={closeChat}
+      onNewChat={startNewChat}
+      onOpenAgents={() => switchMode("agent")}
+      inputRef={chatInputRef}
+    />
+  );
+  // Margin's agent is a column beside the page, about what's open in it.
+  const chatDocked = marginLayout && chatWindowShown;
   const sidebar = (
     <AppSidebar
       accounts={accounts}
@@ -1803,7 +1831,7 @@ function MailHome() {
                       style={{ width: fullInbox ? undefined : listWidth }}
                       className={cn(
                         fullInbox ? `${PANE_LIST} min-w-0 flex-1` : `${PANE_LIST} shrink-0`,
-                        joined && JOINED_LIST,
+                        (joined || chatDocked) && JOINED_LIST,
                         !listVisible && "invisible absolute inset-0",
                       )}
                       inert={!listVisible}
@@ -1826,6 +1854,11 @@ function MailHome() {
                         onSelectionChange={setChatSelection}
                         onOpenChat={h.openChat}
                         onSearchView={h.searchFromView}
+                        onSelectPlace={
+                          effectiveSpaceId
+                            ? (label) => h.goToSpace(effectiveSpaceId, label)
+                            : undefined
+                        }
                         viewQueryRef={viewQueryRef}
                         search={
                           activeSearch
@@ -1858,6 +1891,7 @@ function MailHome() {
                   className={cn(
                     `${PANE_MAIN} min-w-0 flex-1 flex-col`,
                     joined && JOINED_MAIN,
+                    chatDocked && JOINED_LIST,
                     showMain ? "flex" : "hidden",
                   )}
                   data-tour={showMain ? "reader" : undefined}
@@ -1935,6 +1969,11 @@ function MailHome() {
                     )}
                   </div>
                 </div>
+                {chatDocked ? (
+                  <div className={cn(PANE_MAIN, JOINED_MAIN, "flex shrink-0")}>
+                    {renderChatWindow(true)}
+                  </div>
+                ) : null}
               </div>
             </div>
             {browserPresent ? (
@@ -1994,32 +2033,10 @@ function MailHome() {
               </>
             ) : null}
             {/* The agent's small window, in its corner button's place (over the browser too). */}
-            {chatWindowPresent ? (
-              <ChatWindow
-                animationMs={panelAnimationsActive ? panelAnimationDurationMs : 0}
-                closing={!chatWindowShown}
-                context={mailChatContext}
-                onClearQuote={() => setPendingQuote(null)}
-                onOpenChange={openChatChange}
-                onOpenWorkspace={openWorkspace}
-                onOpenTask={(key) => {
-                  setChatWindow(false);
-                  go({
-                    mailbox: CHATS_SPACE,
-                    label: SCHEDULED_TASKS,
-                    messageId: key,
-                    account: null,
-                    focusId: null,
-                  });
-                }}
-                onMinimize={() => setChatWindow(false)}
-                onShelve={closeChat}
-                onNewChat={startNewChat}
-                onOpenAgents={() => switchMode("agent")}
-                inputRef={chatInputRef}
-              />
+            {chatWindowPresent && !marginLayout ? renderChatWindow(false) : null}
+            {agentCornerShown && !(marginLayout ? chatWindowShown : chatWindowPresent) ? (
+              <AgentCorner onOpen={toggleChat} />
             ) : null}
-            {agentCornerShown && !chatWindowPresent ? <AgentCorner onOpen={toggleChat} /> : null}
           </div>
         </div>
       </div>

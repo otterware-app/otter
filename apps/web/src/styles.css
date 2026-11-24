@@ -85,11 +85,6 @@ html[data-layout="margin"] {
   --reading-width: 42.5rem;
 }
 
-[data-layout="margin"] .message-list-scroll > * {
-  max-width: var(--reading-width);
-  margin-inline: auto;
-}
-
 /* Full-width rows (Gmail's): edge to edge with a hairline between them, not cards. */
 [data-full-width-rows="true"] .message-list-group {
   padding: 0;
