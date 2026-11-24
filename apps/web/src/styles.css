@@ -83,12 +83,7 @@ html[data-window-controls="none"] {
 /* The Margin layout: every screen keeps to one column at a reading measure. Important: the
    Reading width setting (hidden in Margin) sets it inline. */
 html[data-layout="margin"] {
-  --reading-width: 42.5rem !important;
-}
-
-[data-layout="margin"] .message-list-scroll > * {
-  max-width: var(--reading-width);
-  margin-inline: auto;
+  --reading-width: 42.5rem;
 }
 
 /* Full-width rows (Gmail's): edge to edge with a hairline between them, not cards. */

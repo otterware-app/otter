@@ -113,7 +113,7 @@ const GMAIL_LABEL_COLORS: { backgroundColor: string; textColor: string }[] = [
   { backgroundColor: "#cccccc", textColor: "#000000" },
 ];
 
-const SIDEBAR_SYSTEM_ORDER = [
+export const SIDEBAR_SYSTEM_ORDER = [
   "INBOX",
   "STARRED",
   SNOOZED_LABEL_ID,
@@ -126,7 +126,7 @@ const SIDEBAR_SYSTEM_ORDER = [
   "TRASH",
 ];
 
-const SYSTEM_LABEL_MAP: Record<string, { name: string; icon: ReactNode }> = {
+export const SYSTEM_LABEL_MAP: Record<string, { name: string; icon: ReactNode }> = {
   INBOX: { name: "Inbox", icon: <InboxIcon className="size-4" /> },
   STARRED: { name: "Starred", icon: <StarIcon className="size-4" /> },
   SENT: { name: "Sent", icon: <SendIcon className="size-4" /> },
@@ -139,7 +139,7 @@ const SYSTEM_LABEL_MAP: Record<string, { name: string; icon: ReactNode }> = {
   TRASH: { name: "Trash", icon: <Trash2Icon className="size-4" /> },
 };
 
-const FLAGGED = { name: "Flagged", icon: <FlagIcon className="size-4" /> };
+export const FLAGGED = { name: "Flagged", icon: <FlagIcon className="size-4" /> };
 
 function MoreFolders({
   folders,

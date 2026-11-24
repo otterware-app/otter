@@ -18,8 +18,12 @@ import {
   OPEN_MESSAGES_WITH_ARROWS,
   GROUP_MESSAGES_BY_DAY,
   FULL_WIDTH_ROWS,
+  useAppLayout,
   useInterfaceToggle,
 } from "../theme/interface-settings";
+import { MarginPage, MarginRow, SectionHead } from "@otter/ui/components/margin";
+import { AgentNotes } from "../agent/agent-notes";
+import { MarginPlaces } from "./margin-places";
 import { Dialog } from "@otter/ui/components/dialog";
 import { EmptyState } from "@otter/ui/components/empty-state";
 import { ScrollArea } from "@otter/ui/components/scroll-area";
@@ -137,6 +141,8 @@ type MessageListProps = {
   onOpenChat?: () => void;
   onSearchView?: () => void;
   viewQueryRef?: React.MutableRefObject<string>;
+  /** Goes to another place of this mailbox: the Margin layout's tabs. */
+  onSelectPlace?: (labelId: string) => void;
 
   search?: SearchMode;
 };
@@ -214,6 +220,10 @@ function resolveCombinedMeta(
   };
 }
 
+function formatTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 function formatRelativeDate(timestamp: number): string {
   const date = new Date(timestamp);
   const now = new Date();
@@ -251,11 +261,13 @@ function MessageDayGroup({
   group,
   collapsed,
   onToggle,
+  margin,
   children,
 }: {
   group: MessageDay;
   collapsed: boolean;
   onToggle: () => void;
+  margin: boolean;
   children: ReactNode;
 }) {
   const bodyId = useId();
@@ -276,6 +288,32 @@ function MessageDayGroup({
             ...(date.getFullYear() !== today.getFullYear() ? { year: "numeric" } : {}),
           });
   const unread = group.messages.filter((message) => message.threadUnread ?? message.unread).length;
+  const ariaLabel = `${label}, ${group.messages.length} conversation${group.messages.length === 1 ? "" : "s"}${unread > 0 ? `, ${unread} unread` : ""}`;
+  if (margin)
+    return (
+      <section data-message-day={group.day} className="pt-6 first:pt-2">
+        <MarginRow className="sticky top-0 z-10 bg-canvas">
+          <button
+            type="button"
+            data-message-day-header=""
+            aria-label={ariaLabel}
+            aria-expanded={!collapsed}
+            aria-controls={bodyId}
+            onClick={onToggle}
+            className="block w-full cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+          >
+            <SectionHead
+              label={label}
+              count={`${group.messages.length}${unread > 0 ? ` · ${unread} unread` : ""}${collapsed ? " · hidden" : ""}`}
+              attention={unread > 0}
+            />
+          </button>
+        </MarginRow>
+        <div id={bodyId} hidden={collapsed}>
+          {children}
+        </div>
+      </section>
+    );
   return (
     <section data-message-day={group.day}>
       {/* Linear's group heading: text only, so it doesn't read as another
@@ -284,7 +322,7 @@ function MessageDayGroup({
         <button
           type="button"
           data-message-day-header=""
-          aria-label={`${label}, ${group.messages.length} conversation${group.messages.length === 1 ? "" : "s"}${unread > 0 ? `, ${unread} unread` : ""}`}
+          aria-label={ariaLabel}
           aria-expanded={!collapsed}
           aria-controls={bodyId}
           onClick={onToggle}
@@ -346,6 +384,8 @@ type MessageRowProps = {
   expanded: boolean;
   onToggleExpanded: () => void;
   onDragStart: (e: React.DragEvent<HTMLButtonElement>) => void;
+  /** Drawn on the Margin layout's grid: the time in the gutter, agents' notes in the margin. */
+  margin: boolean;
 };
 
 type RowHandlers = {
@@ -425,6 +465,7 @@ function MessageRow({
   expanded,
   onToggleExpanded,
   onDragStart,
+  margin,
 }: MessageRowProps) {
   const modifyMessage = useModifyMessage();
   const modifyThread = useModifyThread();
@@ -573,106 +614,98 @@ function MessageRow({
         email: message.fromEmail,
       });
 
-  return (
-    <div className="group/row relative">
-      <ContextMenu>
-        <ContextMenuTrigger
-          render={
-            <button
-              ref={rowRef}
-              type="button"
-              data-message-row=""
-              data-message-id={message.id}
-              {...PLACE}
-              data-draft={isDraft || undefined}
-              data-flagged={flagged || undefined}
-              data-unread={unread || undefined}
-              data-read={!unread || undefined}
-              data-selected={selected || undefined}
-              data-checked={checked || undefined}
-              onClick={onRowClick}
-              draggable
-              onDragStart={onDragStart}
-              // shift-click must not start a text selection
-              onMouseDown={(e) => {
-                if (e.shiftKey) e.preventDefault();
-              }}
-              className={[
-                "message-list-row group relative flex w-full cursor-pointer select-none flex-col overflow-hidden pl-5 pr-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
-                selected
-                  ? "bg-sidebar-row-active"
-                  : checked
-                    ? "bg-sidebar-row-hover"
-                    : "group-hover/row:bg-sidebar-row-hover",
-              ].join(" ")}
-            />
-          }
-        >
-          <div className="message-list-row-header flex h-5 items-center justify-between gap-2">
-            <span className="message-list-sender flex min-w-0 flex-1 items-center gap-1.5">
-              {/* T3 Code's thread row: who it's from is a small picture on the
-                  name's line. New mail's dot sits centered in the gutter before
-                  it, clear of the card's edge, so pictures stay aligned. */}
-              <span className="relative flex shrink-0">
-                {unread && !selected ? (
+  const checkbox = (
+    <span
+      role="checkbox"
+      tabIndex={-1}
+      aria-checked={checked}
+      aria-label={checked ? "Deselect" : "Select"}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggleChecked();
+      }}
+      className={cn(
+        "absolute inset-0 flex items-center justify-center rounded-sm border before:absolute before:-inset-1.5",
+        checked
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-input bg-canvas text-transparent hover:border-muted-foreground",
+        !selecting && !checked && "invisible group-hover/row:visible",
+      )}
+    >
+      <CheckIcon className="size-3" strokeWidth={3} />
+    </span>
+  );
+  const senderText = draftRow
+    ? draftTo
+      ? `to ${draftTo}`
+      : ""
+    : writersText || senderLabel(message.fromName, message.fromEmail, ownerAccountId);
+  const tags = [
+    ...(showInboxChip && labelIds.includes("INBOX") ? ["Inbox"] : []),
+    ...shownLabels.map((label) => label.name.split("/").pop() ?? label.name),
+  ];
+
+  const menu = (
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={
+          <button
+            ref={rowRef}
+            type="button"
+            data-message-row=""
+            data-message-id={message.id}
+            {...PLACE}
+            data-draft={isDraft || undefined}
+            data-flagged={flagged || undefined}
+            data-unread={unread || undefined}
+            data-read={!unread || undefined}
+            data-selected={selected || undefined}
+            data-checked={checked || undefined}
+            onClick={onRowClick}
+            draggable
+            onDragStart={onDragStart}
+            // shift-click must not start a text selection
+            onMouseDown={(e) => {
+              if (e.shiftKey) e.preventDefault();
+            }}
+            className={[
+              margin
+                ? "group relative -mx-3 flex w-[calc(100%+1.5rem)] cursor-pointer select-none flex-col gap-1 rounded-md px-3 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                : "message-list-row group relative flex w-full cursor-pointer select-none flex-col overflow-hidden pl-5 pr-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+              selected
+                ? "bg-sidebar-row-active"
+                : checked
+                  ? "bg-sidebar-row-hover"
+                  : "group-hover/row:bg-sidebar-row-hover",
+            ].join(" ")}
+          />
+        }
+      >
+        {margin ? (
+          <>
+            <span className="flex h-5 min-w-0 items-center gap-2">
+              <span className="relative flex size-3.5 shrink-0 items-center justify-center">
+                {unread && !selecting && !checked ? (
                   <span
-                    className="absolute -left-[13px] top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-primary"
+                    className="size-1.5 rounded-full bg-primary group-hover/row:invisible"
                     aria-hidden
                   />
                 ) : null}
-                <SenderAvatar
-                  name={person.name}
-                  email={person.email}
-                  accountId={ownerAccountId}
-                  size="xs"
-                  className={selecting || checked ? "invisible" : "group-hover/row:invisible"}
-                />
-                <span
-                  role="checkbox"
-                  tabIndex={-1}
-                  aria-checked={checked}
-                  aria-label={checked ? "Deselect" : "Select"}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleChecked();
-                  }}
-                  className={cn(
-                    "absolute inset-0 flex items-center justify-center rounded-sm border before:absolute before:-inset-1.5",
-                    checked
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-input bg-canvas text-transparent hover:border-muted-foreground",
-                    !selecting && !checked && "invisible group-hover/row:visible",
-                  )}
-                >
-                  <CheckIcon className="size-3" strokeWidth={3} />
-                </span>
+                {checkbox}
               </span>
-              {draftRow ? (
-                <span className="shrink-0 text-xs font-medium text-destructive-foreground">
+              {isDraft ? (
+                <span className="shrink-0 text-sm font-medium text-destructive-foreground">
                   Draft
                 </span>
               ) : null}
               <span
                 className={cn(
-                  "message-list-sender-name min-w-0 truncate text-xs",
+                  "min-w-0 truncate text-sm",
                   !draftRow && unread ? "font-medium text-foreground" : "text-muted-foreground",
                 )}
               >
-                {draftRow
-                  ? draftTo
-                    ? `to ${draftTo}`
-                    : ""
-                  : writersText || senderLabel(message.fromName, message.fromEmail, ownerAccountId)}
+                {senderText}
               </span>
-              {!draftRow && labelIds.includes("DRAFT") ? (
-                <span className="shrink-0 text-xs font-medium text-destructive-foreground">
-                  Draft
-                </span>
-              ) : null}
-              {/* After the name, so every sender starts at the same place. */}
-              {labelIds.includes("IMPORTANT") ? <ImportantMarker muted /> : null}
-            </span>
-            <div className="message-list-meta flex shrink-0 items-center gap-1.5">
               {threadCount > 1 ? (
                 <span
                   role="button"
@@ -683,16 +716,27 @@ function MessageRow({
                     e.stopPropagation();
                     onToggleExpanded();
                   }}
-                  className="-my-0.5 flex items-center gap-0.5 rounded-sm px-0.5 text-xs tabular-nums text-muted-foreground hover:text-foreground"
+                  className="flex shrink-0 items-center gap-0.5 font-mono text-2xs tabular-nums text-placeholder hover:text-foreground"
                 >
                   {threadCount}
-                  <CircleChevronDownIcon
-                    className={cn("size-3.5 transition-transform", expanded && "rotate-180")}
+                  <ChevronDownIcon
+                    className={cn("size-3 transition-transform", expanded && "rotate-180")}
                   />
                 </span>
               ) : null}
-              {/* Across mailboxes, whose it is: its color by the time, apart
-                  from the unread dot. */}
+              {labelIds.includes("IMPORTANT") ? <ImportantMarker muted /> : null}
+              <span className="flex-1" />
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="max-w-32 shrink-0 truncate font-mono text-3xs tracking-wider text-placeholder uppercase"
+                >
+                  {tag}
+                </span>
+              ))}
+              {hiddenLabelCount > 0 ? (
+                <span className="font-mono text-3xs text-placeholder">+{hiddenLabelCount}</span>
+              ) : null}
               {combinedMeta ? (
                 <span
                   className="size-2 shrink-0 rounded-full"
@@ -705,181 +749,325 @@ function MessageRow({
                   aria-label={combinedMeta.accountName}
                 />
               ) : null}
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {formatRelativeDate(message.date)}
-              </span>
-            </div>
-          </div>
-          <div className="message-list-preview mt-1 flex min-w-0 flex-col gap-0.5">
+              {message.hasAttachments ? (
+                <PaperclipIcon
+                  className="size-3 shrink-0 text-placeholder"
+                  aria-label="Attachment"
+                />
+              ) : null}
+              {flagged ? (
+                <FlagIcon
+                  className="size-3.5 shrink-0 fill-current text-(--red)"
+                  aria-label="Flagged"
+                />
+              ) : null}
+            </span>
             <span
               className={cn(
-                "message-list-subject truncate text-sm font-reading",
-                unread ? "font-medium text-foreground" : "text-foreground/75",
+                "truncate pl-5.5 font-reading text-lg leading-snug",
+                unread ? "text-foreground" : "text-foreground/75",
               )}
             >
               {message.subject || "(no subject)"}
             </span>
-            <span className="message-list-snippet truncate text-xs text-muted-foreground">
+            <span className="truncate pl-5.5 text-sm text-muted-foreground">
               {decodeEntities(message.snippet) || " "}
             </span>
-          </div>
-          {/* Chips only when they add something beyond the current view. */}
-          {(showInboxChip && labelIds.includes("INBOX")) || shownLabels.length > 0 ? (
-            <div className="message-list-labels mt-1.5 flex h-5 items-center gap-1 overflow-hidden">
-              {showInboxChip && labelIds.includes("INBOX") ? (
-                <InboxChip selected={selected} />
-              ) : null}
-              {shownLabels.map((label) => (
-                <LabelChip key={label.id} label={label} selected={selected} />
-              ))}
-              {hiddenLabelCount > 0 ? (
-                <span className="text-2xs tabular-nums text-muted-foreground">
-                  +{hiddenLabelCount}
+          </>
+        ) : (
+          <>
+            <div className="message-list-row-header flex h-5 items-center justify-between gap-2">
+              <span className="message-list-sender flex min-w-0 flex-1 items-center gap-1.5">
+                {/* T3 Code's thread row: who it's from is a small picture on the
+                  name's line. New mail's dot sits centered in the gutter before
+                  it, clear of the card's edge, so pictures stay aligned. */}
+                <span className="relative flex shrink-0">
+                  {unread && !selected ? (
+                    <span
+                      className="absolute -left-[13px] top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-primary"
+                      aria-hidden
+                    />
+                  ) : null}
+                  <SenderAvatar
+                    name={person.name}
+                    email={person.email}
+                    accountId={ownerAccountId}
+                    size="xs"
+                    className={selecting || checked ? "invisible" : "group-hover/row:invisible"}
+                  />
+                  {checkbox}
                 </span>
-              ) : null}
-            </div>
-          ) : null}
-        </ContextMenuTrigger>
-        {flagged ? (
-          <button
-            type="button"
-            onClick={handleStarToggle}
-            className="message-list-flag"
-            aria-label="Unflag"
-          >
-            <FlagIcon className="size-4 fill-current text-(--red)" />
-          </button>
-        ) : null}
-        {selecting ? null : (
-          <div className="message-list-hover-actions invisible absolute right-3 bottom-2 z-[2] flex items-center gap-0.5 rounded-lg border border-border/60 bg-canvas p-0.5 shadow-sm group-hover/row:visible margin:shadow-none">
-            {trashed || junk ? null : (
-              <HintTooltip
-                label={archiveSource ? "Archive" : "Move to inbox"}
-                hint={<ShortcutText command="message.archive" />}
-              >
-                <IconButton
-                  label={archiveSource ? "Archive" : "Move to inbox"}
-                  onClick={handleArchive}
-                >
-                  {archiveSource ? (
-                    <ArchiveIcon className="size-3.5" />
-                  ) : (
-                    <InboxIcon className="size-3.5" />
+                {draftRow ? (
+                  <span className="shrink-0 text-xs font-medium text-destructive-foreground">
+                    Draft
+                  </span>
+                ) : null}
+                <span
+                  className={cn(
+                    "message-list-sender-name min-w-0 truncate text-xs",
+                    !draftRow && unread ? "font-medium text-foreground" : "text-muted-foreground",
                   )}
-                </IconButton>
-              </HintTooltip>
-            )}
-            <HintTooltip label={unread ? "Mark as read" : "Mark as unread"}>
-              <IconButton
-                label={unread ? "Mark as read" : "Mark as unread"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleRead();
-                }}
-              >
-                {unread ? <MailOpenIcon className="size-3.5" /> : <MailIcon className="size-3.5" />}
-              </IconButton>
-            </HintTooltip>
-            <HintTooltip label={flagged ? "Unflag" : "Flag"}>
-              <IconButton label={flagged ? "Unflag" : "Flag"} onClick={handleStarToggle}>
-                <FlagIcon className={cn("size-3.5", flagged && "fill-current text-(--red)")} />
-              </IconButton>
-            </HintTooltip>
-            {inInbox && !trashed && !junk ? (
-              <HintTooltip label="Snooze">
-                <IconButton
-                  label="Snooze"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSnoozeOpen(true);
-                  }}
                 >
-                  <ClockIcon className="size-3.5" />
-                </IconButton>
-              </HintTooltip>
+                  {senderText}
+                </span>
+                {!draftRow && labelIds.includes("DRAFT") ? (
+                  <span className="shrink-0 text-xs font-medium text-destructive-foreground">
+                    Draft
+                  </span>
+                ) : null}
+                {/* After the name, so every sender starts at the same place. */}
+                {labelIds.includes("IMPORTANT") ? <ImportantMarker muted /> : null}
+              </span>
+              <div className="message-list-meta flex shrink-0 items-center gap-1.5">
+                {threadCount > 1 ? (
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    aria-label={expanded ? "Hide messages" : `Show ${threadCount} messages`}
+                    aria-expanded={expanded}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleExpanded();
+                    }}
+                    className="-my-0.5 flex items-center gap-0.5 rounded-sm px-0.5 text-xs tabular-nums text-muted-foreground hover:text-foreground"
+                  >
+                    {threadCount}
+                    <CircleChevronDownIcon
+                      className={cn("size-3.5 transition-transform", expanded && "rotate-180")}
+                    />
+                  </span>
+                ) : null}
+                {/* Across mailboxes, whose it is: its color by the time, apart
+                  from the unread dot. */}
+                {combinedMeta ? (
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: combinedMeta.accountColor }}
+                    title={
+                      combinedMeta.mailbox
+                        ? `${combinedMeta.accountName} · ${combinedMeta.mailbox}`
+                        : combinedMeta.accountName
+                    }
+                    aria-label={combinedMeta.accountName}
+                  />
+                ) : null}
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {formatRelativeDate(message.date)}
+                </span>
+              </div>
+            </div>
+            <div className="message-list-preview mt-1 flex min-w-0 flex-col gap-0.5">
+              <span
+                className={cn(
+                  "message-list-subject truncate text-sm font-reading",
+                  unread ? "font-medium text-foreground" : "text-foreground/75",
+                )}
+              >
+                {message.subject || "(no subject)"}
+              </span>
+              <span className="message-list-snippet truncate text-xs text-muted-foreground">
+                {decodeEntities(message.snippet) || " "}
+              </span>
+            </div>
+            {/* Chips only when they add something beyond the current view. */}
+            {(showInboxChip && labelIds.includes("INBOX")) || shownLabels.length > 0 ? (
+              <div className="message-list-labels mt-1.5 flex h-5 items-center gap-1 overflow-hidden">
+                {showInboxChip && labelIds.includes("INBOX") ? (
+                  <InboxChip selected={selected} />
+                ) : null}
+                {shownLabels.map((label) => (
+                  <LabelChip key={label.id} label={label} selected={selected} />
+                ))}
+                {hiddenLabelCount > 0 ? (
+                  <span className="text-2xs tabular-nums text-muted-foreground">
+                    +{hiddenLabelCount}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
-            <HintTooltip label={trashLabel}>
-              <IconButton label={trashLabel} onClick={handleTrash}>
-                {trashed ? (
-                  <RotateCcwIcon className="size-3.5" />
+          </>
+        )}
+      </ContextMenuTrigger>
+      {flagged && !margin ? (
+        <button
+          type="button"
+          onClick={handleStarToggle}
+          className="message-list-flag"
+          aria-label="Unflag"
+        >
+          <FlagIcon className="size-4 fill-current text-(--red)" />
+        </button>
+      ) : null}
+      {selecting ? null : (
+        <div
+          className={cn(
+            "invisible absolute z-[2] flex items-center gap-0.5 rounded-lg border border-border/60 bg-canvas p-0.5 shadow-sm group-hover/row:visible margin:shadow-none",
+            margin ? "right-2 bottom-2" : "message-list-hover-actions right-3 bottom-2",
+          )}
+        >
+          {trashed || junk ? null : (
+            <HintTooltip
+              label={archiveSource ? "Archive" : "Move to inbox"}
+              hint={<ShortcutText command="message.archive" />}
+            >
+              <IconButton
+                label={archiveSource ? "Archive" : "Move to inbox"}
+                onClick={handleArchive}
+              >
+                {archiveSource ? (
+                  <ArchiveIcon className="size-3.5" />
                 ) : (
-                  <Trash2Icon className="size-3.5" />
+                  <InboxIcon className="size-3.5" />
                 )}
               </IconButton>
             </HintTooltip>
-          </div>
-        )}
-        {selectionMenu ? (
-          <ContextMenuContent>{selectionMenu}</ContextMenuContent>
-        ) : (
-          <ContextMenuContent>
-            <ContextMenuItem onClick={() => inNewWindow(onOpen)}>
-              Open in New Window
-            </ContextMenuItem>
-            <ContextMenuItem onClick={onSelectAll}>Select all</ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem onClick={handleToggleRead}>
-              {unread ? "Mark as read" : "Mark as unread"}
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => handleStarToggle()}>
-              {flagged ? "Unflag" : "Flag"}
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem onClick={onChatAgent}>Open in agent chat</ContextMenuItem>
-            <ExtensionContextMenuActions
-              target={{
-                accountId: message.accountId ?? accountId,
-                messageId: message.id,
-                subject: message.subject,
+          )}
+          <HintTooltip label={unread ? "Mark as read" : "Mark as unread"}>
+            <IconButton
+              label={unread ? "Mark as read" : "Mark as unread"}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleRead();
               }}
-            />
-            <ContextMenuSeparator />
-            <ContextMenuSub label={labelChoices.title}>
-              {renderLabelChoices(labelChoices, CONTEXT_MENU_KIT)}
-            </ContextMenuSub>
-            {labelChoices.alsoFolders ? (
-              <ContextMenuSub label={folderChoices.title}>
-                {renderLabelChoices(folderChoices, CONTEXT_MENU_KIT)}
-              </ContextMenuSub>
-            ) : null}
-            <ContextMenuSeparator />
-            {trashed || junk ? null : (
-              <ContextMenuItem onClick={() => handleArchive()}>
-                {archiveSource ? "Archive" : "Move to inbox"}
-              </ContextMenuItem>
-            )}
-            {inInbox && !trashed && !junk && (
-              <ContextMenuItem onClick={() => setSnoozeOpen(true)}>Snooze…</ContextMenuItem>
-            )}
-            {trashed ? null : (
-              <ContextMenuItem onClick={handleJunk}>
-                {junk ? "Not junk" : "Move to junk"}
-              </ContextMenuItem>
-            )}
-            {trashed ? (
-              <ContextMenuItem onClick={() => handleTrash()}>Restore from trash</ContextMenuItem>
-            ) : (
-              <ContextMenuItem variant="destructive" onClick={() => handleTrash()}>
-                {trashLabel}
-              </ContextMenuItem>
-            )}
-            {trashed || junk ? (
-              <ContextMenuItem variant="destructive" onClick={onDeleteForever}>
-                Delete forever…
-              </ContextMenuItem>
-            ) : null}
-          </ContextMenuContent>
-        )}
-      </ContextMenu>
-      {snoozeOpen && (
-        <SnoozeDialog
-          accountId={ownerAccountId}
-          threadId={threadId}
-          onClose={() => setSnoozeOpen(false)}
-          onDone={selected ? onDeselect : undefined}
-        />
+            >
+              {unread ? <MailOpenIcon className="size-3.5" /> : <MailIcon className="size-3.5" />}
+            </IconButton>
+          </HintTooltip>
+          <HintTooltip label={flagged ? "Unflag" : "Flag"}>
+            <IconButton label={flagged ? "Unflag" : "Flag"} onClick={handleStarToggle}>
+              <FlagIcon className={cn("size-3.5", flagged && "fill-current text-(--red)")} />
+            </IconButton>
+          </HintTooltip>
+          {inInbox && !trashed && !junk ? (
+            <HintTooltip label="Snooze">
+              <IconButton
+                label="Snooze"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSnoozeOpen(true);
+                }}
+              >
+                <ClockIcon className="size-3.5" />
+              </IconButton>
+            </HintTooltip>
+          ) : null}
+          <HintTooltip label={trashLabel}>
+            <IconButton label={trashLabel} onClick={handleTrash}>
+              {trashed ? (
+                <RotateCcwIcon className="size-3.5" />
+              ) : (
+                <Trash2Icon className="size-3.5" />
+              )}
+            </IconButton>
+          </HintTooltip>
+        </div>
       )}
+      {selectionMenu ? (
+        <ContextMenuContent>{selectionMenu}</ContextMenuContent>
+      ) : (
+        <ContextMenuContent>
+          <ContextMenuItem onClick={() => inNewWindow(onOpen)}>Open in New Window</ContextMenuItem>
+          <ContextMenuItem onClick={onSelectAll}>Select all</ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={handleToggleRead}>
+            {unread ? "Mark as read" : "Mark as unread"}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => handleStarToggle()}>
+            {flagged ? "Unflag" : "Flag"}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={onChatAgent}>Open in agent chat</ContextMenuItem>
+          <ExtensionContextMenuActions
+            target={{
+              accountId: message.accountId ?? accountId,
+              messageId: message.id,
+              subject: message.subject,
+            }}
+          />
+          <ContextMenuSeparator />
+          <ContextMenuSub label={labelChoices.title}>
+            {renderLabelChoices(labelChoices, CONTEXT_MENU_KIT)}
+          </ContextMenuSub>
+          {labelChoices.alsoFolders ? (
+            <ContextMenuSub label={folderChoices.title}>
+              {renderLabelChoices(folderChoices, CONTEXT_MENU_KIT)}
+            </ContextMenuSub>
+          ) : null}
+          <ContextMenuSeparator />
+          {trashed || junk ? null : (
+            <ContextMenuItem onClick={() => handleArchive()}>
+              {archiveSource ? "Archive" : "Move to inbox"}
+            </ContextMenuItem>
+          )}
+          {inInbox && !trashed && !junk && (
+            <ContextMenuItem onClick={() => setSnoozeOpen(true)}>Snooze…</ContextMenuItem>
+          )}
+          {trashed ? null : (
+            <ContextMenuItem onClick={handleJunk}>
+              {junk ? "Not junk" : "Move to junk"}
+            </ContextMenuItem>
+          )}
+          {trashed ? (
+            <ContextMenuItem onClick={() => handleTrash()}>Restore from trash</ContextMenuItem>
+          ) : (
+            <ContextMenuItem variant="destructive" onClick={() => handleTrash()}>
+              {trashLabel}
+            </ContextMenuItem>
+          )}
+          {trashed || junk ? (
+            <ContextMenuItem variant="destructive" onClick={onDeleteForever}>
+              Delete forever…
+            </ContextMenuItem>
+          ) : null}
+        </ContextMenuContent>
+      )}
+    </ContextMenu>
+  );
+  const snooze = snoozeOpen ? (
+    <SnoozeDialog
+      accountId={ownerAccountId}
+      threadId={threadId}
+      onClose={() => setSnoozeOpen(false)}
+      onDone={selected ? onDeselect : undefined}
+    />
+  ) : null;
+
+  if (margin)
+    return (
+      <MarginRow
+        className="group/row"
+        gutter={
+          <span className={cn("block pt-3.5", selected && "text-foreground")}>
+            {selected ? "› " : null}
+            {formatTime(message.date)}
+          </span>
+        }
+        margin={<AgentNotes target={{ kind: "thread", accountId: ownerAccountId, threadId }} />}
+      >
+        <div className="relative">{menu}</div>
+        {snooze}
+      </MarginRow>
+    );
+  return (
+    <div className="group/row relative">
+      {menu}
+      {snooze}
     </div>
+  );
+}
+
+/** The Margin layout's list sits on its page's grid; the others fill the pane. */
+function ListPage({ margin, children }: { margin: boolean; children: ReactNode }) {
+  return margin ? <MarginPage className="pb-8">{children}</MarginPage> : children;
+}
+
+function ThreadMessages({ margin, children }: { margin: boolean; children: ReactNode }) {
+  return margin ? (
+    <MarginRow>
+      <div className="flex flex-col pb-1 pl-5.5">{children}</div>
+    </MarginRow>
+  ) : (
+    <div className="message-list-thread-messages flex flex-col px-2 pb-1">{children}</div>
   );
 }
 
@@ -995,9 +1183,12 @@ function MessageListView({
   onOpenChat,
   onSearchView,
   viewQueryRef,
+  onSelectPlace,
   search,
 }: MessageListProps) {
-  const groupByDay = useInterfaceToggle(GROUP_MESSAGES_BY_DAY);
+  const marginLayout = useAppLayout() === "margin";
+  const groupByDayToggle = useInterfaceToggle(GROUP_MESSAGES_BY_DAY);
+  const groupByDay = groupByDayToggle || marginLayout;
   const fullWidthRows = useInterfaceToggle(FULL_WIDTH_ROWS);
   const openMessagesWithArrows = useInterfaceToggle(OPEN_MESSAGES_WITH_ARROWS);
   const [cursor, setCursor] = useState<{ messageId: string; focusId?: string } | null>(null);
@@ -1063,6 +1254,9 @@ function MessageListView({
         : (labelSearchToken(labelId, nameOf(accountId, labelId)) ?? "");
     }
   });
+  const mailboxAddress = isCombined
+    ? null
+    : (accounts.find((a) => a.id === accountId)?.email ?? null);
   const listName = combined
     ? combined.name
     : (folderName(labelId, listCapabilities) ??
@@ -1962,7 +2156,14 @@ function MessageListView({
   };
 
   const renderMessage = (message: MessageSummary) => (
-    <div className="message-list-group" key={`${message.accountId ?? accountId}:${message.id}`}>
+    <div
+      className={
+        marginLayout
+          ? "[contain-intrinsic-size:auto_96px] [content-visibility:auto]"
+          : "message-list-group"
+      }
+      key={`${message.accountId ?? accountId}:${message.id}`}
+    >
       <ListRow
         viewLabelIds={viewLabelIdsFor(message.accountId ?? accountId)}
         message={message}
@@ -1979,9 +2180,10 @@ function MessageListView({
         showInboxChip={!inInboxContext}
         archiveFrom={archiveSourceOf}
         handlers={rowHandlers}
+        margin={marginLayout}
       />
       {threadMessagesOf(message).length > 0 ? (
-        <div className="message-list-thread-messages flex flex-col px-2 pb-1">
+        <ThreadMessages margin={marginLayout}>
           {threadMessagesOf(message).map((m) => (
             <ThreadMessageRow
               key={m.id}
@@ -1994,7 +2196,7 @@ function MessageListView({
               }}
             />
           ))}
-        </div>
+        </ThreadMessages>
       ) : null}
     </div>
   );
@@ -2035,13 +2237,13 @@ function MessageListView({
         {headerLeading}
         <div className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
           {/* Where you are (the sidebar may be hidden, a view has none), then how much. */}
-          {listName ? (
+          {marginLayout ? null : listName ? (
             <>
               <span className="font-medium text-foreground font-reading">{listName}</span>
               {" · "}
             </>
           ) : null}
-          {formatMailboxSummary(mailboxTotal, mailboxUnread)}
+          {marginLayout ? null : formatMailboxSummary(mailboxTotal, mailboxUnread)}
         </div>
         <HintTooltip label="Search this mailbox" hint={<ShortcutText command="search.focus" />}>
           <IconButton label="Search this mailbox" onClick={onSearchView}>
@@ -2066,98 +2268,132 @@ function MessageListView({
       <ScrollArea
         ref={scrollRef}
         data-group-messages-by-day={groupByDay || undefined}
-        data-full-width-rows={fullWidthRows || undefined}
+        data-full-width-rows={(fullWidthRows && !marginLayout) || undefined}
         onScroll={maybeLoadMore}
         className="flex-1 rounded-xl"
         contentClassName={filteredMessages.length === 0 ? "h-full" : undefined}
         viewportClassName={[
-          "message-list-scroll pt-[9px]",
+          marginLayout ? "message-list-scroll" : "message-list-scroll pt-[9px]",
           // Clear of the selection's toolbar too, while there is one.
           checked.size > 0
             ? "pb-[calc(var(--agent-corner-clearance,0px)+4rem)]"
             : "pb-agent-corner",
         ].join(" ")}
       >
-        {signedOutAccount && !isCombined && !search && filteredMessages.length === 0 ? (
-          <SignedOutMailbox account={signedOutAccount} />
-        ) : isLoading ? (
-          <div className="flex flex-col gap-0">
-            {["row-1", "row-2", "row-3", "row-4", "row-5", "row-6", "row-7", "row-8"].map((key) => (
-              <div key={key} className="message-list-group">
-                <div className="message-list-row flex flex-col gap-2.5 pl-5 pr-3">
-                  <div className="flex items-center gap-1.5">
-                    <div className="size-4 shrink-0 animate-skeleton rounded-sm bg-secondary" />
-                    <div className="h-3 w-32 animate-skeleton rounded-full bg-secondary" />
-                  </div>
-                  <div className="h-3.5 w-48 animate-skeleton rounded-full bg-accent-surface" />
-                  <div className="h-3 w-40 animate-skeleton rounded-full bg-accent-surface" />
+        <ListPage margin={marginLayout}>
+          {marginLayout && !search ? (
+            <MarginRow className="pt-8 pb-2">
+              <div className="flex items-baseline gap-4">
+                <h1 className="min-w-0 truncate font-reading text-5xl leading-tight tracking-[-0.02em] text-foreground">
+                  {listName ?? "Mail"}
+                </h1>
+                {mailboxAddress ? (
+                  <span className="min-w-0 truncate text-sm text-muted-foreground">
+                    {mailboxAddress}
+                  </span>
+                ) : null}
+                <span className="flex-1" />
+                <span className="shrink-0 font-mono text-2xs tracking-wider whitespace-nowrap text-placeholder uppercase tabular-nums">
+                  {mailboxUnread > 0 ? `${mailboxUnread} unread · ` : ""}
+                  {mailboxTotal} {mailboxTotal === 1 ? "message" : "messages"}
+                </span>
+              </div>
+              {onSelectPlace && !isCombined ? (
+                <div className="pt-4">
+                  <MarginPlaces
+                    accountId={accountId}
+                    alias={alias}
+                    labelId={labelId}
+                    onSelect={onSelectPlace}
+                  />
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : filteredMessages.length === 0 && (hasNextPage || isFetchingNextPage) ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-            <Spinner />
-            <span className="text-sm text-muted-foreground">Loading more mail…</span>
-          </div>
-        ) : search && !search.query ? (
-          <EmptyState
-            className="h-full px-8"
-            media={<SearchIcon className="size-10 stroke-[1.25] text-muted-foreground" />}
-            title="Search your mail"
-            description={SEARCH_HINT}
-          />
-        ) : search && filteredMessages.length === 0 ? (
-          <EmptyState
-            className="h-full px-8"
-            media={<SearchXIcon className="size-10 stroke-[1.25] text-muted-foreground" />}
-            title={gmailSearch.isError ? "Search failed" : "No messages matched your search"}
-            description={
-              gmailSearch.isError
-                ? String(gmailSearch.error?.message ?? "Gmail didn't answer.")
-                : "Try different words, or use Advanced search."
-            }
-          />
-        ) : filteredMessages.length === 0 ? (
-          <EmptyState
-            className="h-full px-6"
-            media={<InboxIcon className="size-10 stroke-[1.25] text-muted-foreground" />}
-            title={unreadOnly ? "No unread messages" : "No messages"}
-            description={
-              unreadOnly
-                ? "Everything here has been read."
-                : searchQuery
-                  ? "No messages match your search."
-                  : multipleLabels
-                    ? "This label is empty."
-                    : "This folder is empty."
-            }
-          />
-        ) : (
-          <>
-            {groupByDay
-              ? dayGroups.map((group) => (
-                  <MessageDayGroup
-                    key={group.day}
-                    group={group}
-                    collapsed={collapsedDays.has(group.day)}
-                    onToggle={() => toggleDay(group)}
-                  >
-                    {collapsedDays.has(group.day) ? null : group.messages.map(renderMessage)}
-                  </MessageDayGroup>
-                ))
-              : visibleMessages.map(renderMessage)}
-            {isFetchingNextPage ? (
-              <div className="flex items-center justify-center gap-1.5 py-3">
-                <span
-                  className="size-1.5 shrink-0 rounded-full bg-primary animate-status-pulse"
-                  aria-hidden
-                />
-                <span className="text-xs text-muted-foreground">Loading more</span>
-              </div>
-            ) : null}
-          </>
-        )}
+              ) : null}
+            </MarginRow>
+          ) : null}
+          {signedOutAccount && !isCombined && !search && filteredMessages.length === 0 ? (
+            <SignedOutMailbox account={signedOutAccount} />
+          ) : isLoading ? (
+            <div className="flex flex-col gap-0">
+              {["row-1", "row-2", "row-3", "row-4", "row-5", "row-6", "row-7", "row-8"].map(
+                (key) => (
+                  <div key={key} className="message-list-group">
+                    <div className="message-list-row flex flex-col gap-2.5 pl-5 pr-3">
+                      <div className="flex items-center gap-1.5">
+                        <div className="size-4 shrink-0 animate-skeleton rounded-sm bg-secondary" />
+                        <div className="h-3 w-32 animate-skeleton rounded-full bg-secondary" />
+                      </div>
+                      <div className="h-3.5 w-48 animate-skeleton rounded-full bg-accent-surface" />
+                      <div className="h-3 w-40 animate-skeleton rounded-full bg-accent-surface" />
+                    </div>
+                  </div>
+                ),
+              )}
+            </div>
+          ) : filteredMessages.length === 0 && (hasNextPage || isFetchingNextPage) ? (
+            <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+              <Spinner />
+              <span className="text-sm text-muted-foreground">Loading more mail…</span>
+            </div>
+          ) : search && !search.query ? (
+            <EmptyState
+              className="h-full px-8"
+              media={<SearchIcon className="size-10 stroke-[1.25] text-muted-foreground" />}
+              title="Search your mail"
+              description={SEARCH_HINT}
+            />
+          ) : search && filteredMessages.length === 0 ? (
+            <EmptyState
+              className="h-full px-8"
+              media={<SearchXIcon className="size-10 stroke-[1.25] text-muted-foreground" />}
+              title={gmailSearch.isError ? "Search failed" : "No messages matched your search"}
+              description={
+                gmailSearch.isError
+                  ? String(gmailSearch.error?.message ?? "Gmail didn't answer.")
+                  : "Try different words, or use Advanced search."
+              }
+            />
+          ) : filteredMessages.length === 0 ? (
+            <EmptyState
+              className="h-full px-6"
+              media={<InboxIcon className="size-10 stroke-[1.25] text-muted-foreground" />}
+              title={unreadOnly ? "No unread messages" : "No messages"}
+              description={
+                unreadOnly
+                  ? "Everything here has been read."
+                  : searchQuery
+                    ? "No messages match your search."
+                    : multipleLabels
+                      ? "This label is empty."
+                      : "This folder is empty."
+              }
+            />
+          ) : (
+            <>
+              {groupByDay
+                ? dayGroups.map((group) => (
+                    <MessageDayGroup
+                      key={group.day}
+                      group={group}
+                      collapsed={collapsedDays.has(group.day)}
+                      onToggle={() => toggleDay(group)}
+                      margin={marginLayout}
+                    >
+                      {collapsedDays.has(group.day) ? null : group.messages.map(renderMessage)}
+                    </MessageDayGroup>
+                  ))
+                : visibleMessages.map(renderMessage)}
+              {isFetchingNextPage ? (
+                <div className="flex items-center justify-center gap-1.5 py-3">
+                  <span
+                    className="size-1.5 shrink-0 rounded-full bg-primary animate-status-pulse"
+                    aria-hidden
+                  />
+                  <span className="text-xs text-muted-foreground">Loading more</span>
+                </div>
+              ) : null}
+            </>
+          )}
+        </ListPage>
       </ScrollArea>
 
       {checked.size > 0 ? (

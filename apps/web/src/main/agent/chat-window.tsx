@@ -67,6 +67,7 @@ export function ChatWindow({
   inputRef,
   animationMs,
   closing,
+  docked = false,
 }: {
   context: MailChatContext;
   onClearQuote: () => void;
@@ -82,6 +83,8 @@ export function ChatWindow({
   animationMs: number;
   /** Shrinking back into the agent's button, before it unmounts. */
   closing: boolean;
+  /** In the Margin layout: a column beside the page, under a left rule, not a window over it. */
+  docked?: boolean;
 }) {
   const activeId = useChats((s) => s.activeId);
   const active = useChats((s) => s.conversations.find((c) => c.id === s.activeId));
@@ -234,6 +237,121 @@ export function ChatWindow({
   };
 
   const switcher = <ChatSwitcherItems onNewChat={onNewChat} onOpenAgents={onOpenAgents} />;
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") {
+      if (!e.defaultPrevented && !isOverlayOpen()) {
+        e.preventDefault();
+        onMinimize();
+      }
+      e.stopPropagation();
+      return;
+    }
+    // The mail's one-key shortcuts don't act from in here; ⌘ and Ctrl ones do.
+    if (!e.metaKey && !e.ctrlKey && !e.altKey) e.stopPropagation();
+  };
+  const header = (
+    <div className="relative flex h-11 shrink-0 items-center gap-1.5 border-b border-border/60 ps-3.5 pe-1.5">
+      {active && !blank ? (
+        <AgentAvatar id={active.provider} agent={openClawAgentId(active.sessionId)} />
+      ) : (
+        <AgentAvatar />
+      )}
+      {active && !blank ? (
+        <ChatTitle
+          chat={active}
+          className="text-sm font-medium text-foreground font-reading"
+          menu={switcher}
+        />
+      ) : (
+        <span className="flex min-w-0 flex-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <TitleMenuButton className="text-sm font-medium text-foreground font-reading" />
+              }
+            >
+              New chat
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>{switcher}</DropdownMenuContent>
+          </DropdownMenu>
+        </span>
+      )}
+      {active && !blank ? (
+        <ChatContextButton
+          convo={active}
+          onOpenTask={onOpenTask}
+          // What it opens shows in the workspace, beside the chat.
+          onOpen={(tab) => {
+            if (tab.ref.kind === "page" && !features.browser) {
+              window.open(tab.ref.url, "_blank", "noopener");
+              return;
+            }
+            openChatTab(activeId, tab.ref, tab.title, { id: tab.id });
+            onOpenWorkspace(activeId);
+          }}
+        />
+      ) : null}
+      <HintTooltip label="Minimize" hint={<ShortcutText command="agent.toggle" />} side="bottom">
+        <IconButton label="Minimize" onClick={onMinimize}>
+          <MinusIcon className="size-4" />
+        </IconButton>
+      </HintTooltip>
+      <HintTooltip
+        label="Open in workspace"
+        hint={<ShortcutText command="agent.openWorkspace" />}
+        side="bottom"
+      >
+        <IconButton label="Open in workspace" onClick={() => onOpenWorkspace(activeId)}>
+          <Maximize2Icon className="size-4" />
+        </IconButton>
+      </HintTooltip>
+      {active && !blank ? (
+        <>
+          <SnoozeMenu chatId={activeId} side="bottom" onDone={onShelve}>
+            <IconButton label="Snooze">
+              <AlarmClockIcon className="size-4" />
+            </IconButton>
+          </SnoozeMenu>
+          <HintTooltip label="Settle" hint={<ShortcutText command="agent.settle" />} side="bottom">
+            <IconButton
+              label="Settle"
+              onClick={() => {
+                void settleChat(activeId);
+                onShelve();
+              }}
+            >
+              <CheckIcon className="size-4" />
+            </IconButton>
+          </HintTooltip>
+        </>
+      ) : null}
+    </div>
+  );
+  const chat = activeId ? (
+    <ChatView
+      compact
+      chatId={activeId}
+      context={context}
+      onClearQuote={onClearQuote}
+      inputRef={closing ? idleInputRef : inputRef}
+      onOpenChange={onOpenChange}
+    />
+  ) : null;
+
+  if (docked)
+    return (
+      <div
+        role="region"
+        aria-label="Agent"
+        data-tour="agent"
+        onKeyDown={onKeyDown}
+        className="flex h-full min-h-0 w-96 shrink-0 flex-col border-l border-border text-foreground"
+      >
+        <div className="drag-region h-(--workspace-topbar-height) shrink-0" />
+        {header}
+        {chat}
+      </div>
+    );
 
   return (
     <>
@@ -254,18 +372,7 @@ export function ChatWindow({
         role="region"
         aria-label="Agent"
         data-tour="agent"
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            if (!e.defaultPrevented && !isOverlayOpen()) {
-              e.preventDefault();
-              onMinimize();
-            }
-            e.stopPropagation();
-            return;
-          }
-          // The mail's one-key shortcuts don't act from in here; ⌘ and Ctrl ones do.
-          if (!e.metaKey && !e.ctrlKey && !e.altKey) e.stopPropagation();
-        }}
+        onKeyDown={onKeyDown}
         className="absolute right-1 bottom-1 z-40 h-[min(38rem,calc(100%-5.5rem))] w-[min(25rem,calc(100%-1.5rem))] text-sidebar-foreground"
       >
         {/* In the gap round it, outside the clip of its rounded corners. */}
@@ -291,100 +398,8 @@ export function ChatWindow({
           onKeyDown={(event) => resizeWithKeys(event, "both")}
         />
         <div className="flex size-full flex-col overflow-hidden rounded-xl bg-sidebar-surface">
-          <div className="relative flex h-11 shrink-0 items-center gap-1.5 border-b border-border/60 ps-3.5 pe-1.5">
-            {active && !blank ? (
-              <AgentAvatar id={active.provider} agent={openClawAgentId(active.sessionId)} />
-            ) : (
-              <AgentAvatar />
-            )}
-            {active && !blank ? (
-              <ChatTitle
-                chat={active}
-                className="text-sm font-medium text-foreground font-reading"
-                menu={switcher}
-              />
-            ) : (
-              <span className="flex min-w-0 flex-1">
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <TitleMenuButton className="text-sm font-medium text-foreground font-reading" />
-                    }
-                  >
-                    New chat
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>{switcher}</DropdownMenuContent>
-                </DropdownMenu>
-              </span>
-            )}
-            {active && !blank ? (
-              <ChatContextButton
-                convo={active}
-                onOpenTask={onOpenTask}
-                // What it opens shows in the workspace, beside the chat.
-                onOpen={(tab) => {
-                  if (tab.ref.kind === "page" && !features.browser) {
-                    window.open(tab.ref.url, "_blank", "noopener");
-                    return;
-                  }
-                  openChatTab(activeId, tab.ref, tab.title, { id: tab.id });
-                  onOpenWorkspace(activeId);
-                }}
-              />
-            ) : null}
-            <HintTooltip
-              label="Minimize"
-              hint={<ShortcutText command="agent.toggle" />}
-              side="bottom"
-            >
-              <IconButton label="Minimize" onClick={onMinimize}>
-                <MinusIcon className="size-4" />
-              </IconButton>
-            </HintTooltip>
-            <HintTooltip
-              label="Open in workspace"
-              hint={<ShortcutText command="agent.openWorkspace" />}
-              side="bottom"
-            >
-              <IconButton label="Open in workspace" onClick={() => onOpenWorkspace(activeId)}>
-                <Maximize2Icon className="size-4" />
-              </IconButton>
-            </HintTooltip>
-            {active && !blank ? (
-              <>
-                <SnoozeMenu chatId={activeId} side="bottom" onDone={onShelve}>
-                  <IconButton label="Snooze">
-                    <AlarmClockIcon className="size-4" />
-                  </IconButton>
-                </SnoozeMenu>
-                <HintTooltip
-                  label="Settle"
-                  hint={<ShortcutText command="agent.settle" />}
-                  side="bottom"
-                >
-                  <IconButton
-                    label="Settle"
-                    onClick={() => {
-                      void settleChat(activeId);
-                      onShelve();
-                    }}
-                  >
-                    <CheckIcon className="size-4" />
-                  </IconButton>
-                </HintTooltip>
-              </>
-            ) : null}
-          </div>
-          {activeId ? (
-            <ChatView
-              compact
-              chatId={activeId}
-              context={context}
-              onClearQuote={onClearQuote}
-              inputRef={closing ? idleInputRef : inputRef}
-              onOpenChange={onOpenChange}
-            />
-          ) : null}
+          {header}
+          {chat}
         </div>
       </div>
     </>

@@ -128,6 +128,7 @@ import { followFrameWheel } from "../history-swipe";
 import { Button, IconButton } from "@otter/ui/components/button";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { cn } from "@otter/ui/lib/utils";
+import { AgentNotes } from "../agent/agent-notes";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1328,12 +1329,45 @@ export function CollapsedRow({
   accountId,
   summary,
   onExpand,
+  oneLine = false,
 }: {
   accountId: string;
   summary: MessageSummary;
   onExpand: () => void;
   standalone?: boolean;
+  /** Who, what and when on one line (Margin). */
+  oneLine?: boolean;
 }) {
+  if (oneLine)
+    return (
+      <div className="px-3 py-px">
+        <button
+          type="button"
+          onClick={onExpand}
+          aria-label="Expand message"
+          className="flex w-full cursor-pointer items-baseline gap-3 rounded-md px-3 py-2 text-left text-sm outline-none hover:bg-accent-surface/60 focus-visible:ring-2 focus-visible:ring-focus-ring"
+        >
+          {isDraft(summary) ? <DraftTag /> : null}
+          <span
+            className={cn(
+              "max-w-[40%] shrink-0 truncate text-foreground",
+              summary.unread && "font-medium",
+            )}
+          >
+            {senderLabel(summary.fromName, summary.fromEmail, accountId)}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+            {decodeEntities(summary.snippet)}
+          </span>
+          <span
+            className="shrink-0 font-mono text-2xs tabular-nums text-placeholder"
+            title={formatFullDate(summary.date)}
+          >
+            {formatTime(summary.date)}
+          </span>
+        </button>
+      </div>
+    );
   return (
     <div className="px-3 py-px">
       <button
@@ -1737,6 +1771,7 @@ function InlineComposer({
   baseSubject,
   threadId,
   onClose,
+  inColumn = false,
 }: {
   accountId: string;
   alias?: AliasMailboxEntry;
@@ -1746,6 +1781,8 @@ function InlineComposer({
   baseSubject: string;
   threadId: string;
   onClose: () => void;
+  /** Under the last message, scrolling with the conversation (Margin), not pinned below it. */
+  inColumn?: boolean;
 }) {
   const [text, setText] = useState("");
   const [to, setTo] = useState("");
@@ -2008,7 +2045,10 @@ function InlineComposer({
 
   return (
     <div
-      className="relative mx-auto w-full max-w-(--reading-width) shrink-0 px-5 pb-4 pt-1"
+      className={cn(
+        "relative mx-auto w-full max-w-(--reading-width) shrink-0 px-5 pb-4 pt-1",
+        inColumn && "pt-4",
+      )}
       data-inline-compose=""
       {...dropProps}
     >
@@ -2229,7 +2269,9 @@ export function MessageReader({
     widths.current.title = titleMeasureRef.current.offsetWidth;
     relayout();
   });
-  const { compactActions, titleInBand, summaryFits } = band;
+  const { compactActions, summaryFits } = band;
+  // Margin reads the subject large above the conversation, never in the band.
+  const titleInBand = band.titleInBand && !margin;
   const [summaryPinned, setSummaryPinned] = useState(
     () => localStorage.getItem("gmail:summary-pinned") !== "0",
   );
@@ -2405,6 +2447,20 @@ export function MessageReader({
   const rows: MessageSummary[] = !single && shown.length > 0 ? shown : [message];
   const sentRows = rows.filter((m) => !isDraft(m));
   const lastRow = sentRows[sentRows.length - 1] ?? rows[rows.length - 1];
+  const composer =
+    lastRow && inline ? (
+      <InlineComposer
+        accountId={accountId}
+        alias={alias}
+        mode={inline}
+        onModeChange={setInline}
+        lastMessage={lastRow}
+        baseSubject={message.subject}
+        threadId={message.threadId || message.id}
+        onClose={() => setInline(null)}
+        inColumn={margin}
+      />
+    ) : null;
   const conversationLabelIds = [...new Set(rows.flatMap((m) => m.labelIds))];
   const conversationId = threadId ?? message.threadId ?? message.id;
 
@@ -2633,7 +2689,11 @@ export function MessageReader({
           "no-drag select-text font-semibold text-foreground [overflow-wrap:anywhere] font-reading margin:font-medium",
           // A serif sits high in its line box: trimmed to cap height and baseline, it centers.
           "margin:[text-box:trim-both_cap_alphabetic]",
-          inBand ? "text-md leading-5" : "text-xl leading-7 tracking-[-0.01em]",
+          inBand
+            ? "text-md leading-5"
+            : margin
+              ? "text-4xl leading-tight font-normal tracking-[-0.02em] margin:font-normal"
+              : "text-xl leading-7 tracking-[-0.01em]",
         )}
         title={isThread ? `${rows.length} messages` : formatFullDate(message.date)}
       >
@@ -2982,7 +3042,12 @@ export function MessageReader({
           {/* Beside the pinned summary, as the messages are (the viewport's pr-[18rem]). */}
           {titleInBand ? null : (
             <div className={cn("shrink-0", summaryShown && !margin && "pr-[18rem]")}>
-              <div className="mx-auto flex w-full max-w-(--reading-width) flex-wrap items-center gap-x-2 gap-y-1 px-6 pb-2 pt-1 margin:pt-5 margin:pb-3">
+              <div
+                className={cn(
+                  "mx-auto flex w-full max-w-(--reading-width) flex-wrap items-center gap-x-2 gap-y-1 px-6 pb-2 pt-1 margin:pt-5 margin:pb-3",
+                  margin && "gap-y-3 pt-6 pb-4",
+                )}
+              >
                 {renderTitle(false)}
               </div>
             </div>
@@ -3095,6 +3160,7 @@ export function MessageReader({
                               accountId={accountId}
                               summary={m}
                               standalone={false}
+                              oneLine={margin}
                               onExpand={() => toggleExpanded(m.id)}
                             />
                           </Fragment>
@@ -3104,12 +3170,14 @@ export function MessageReader({
                   );
                 });
               })()}
+              {margin ? composer : null}
             </div>
           </ScrollArea>
 
           {/* Pinned in the reader's top-right corner, still while the conversation scrolls. */}
           {inMargin ? (
-            <aside className="absolute top-3 left-[calc(50%+var(--reading-width)/2+2rem)] z-10">
+            <aside className="absolute top-3 left-[calc(50%+var(--reading-width)/2+2rem)] z-10 flex w-60 flex-col gap-6">
+              <AgentNotes target={{ kind: "thread", accountId, threadId: conversationId }} />
               {summary}
             </aside>
           ) : summaryShown ? (
@@ -3117,19 +3185,8 @@ export function MessageReader({
           ) : null}
         </div>
 
-        {/* In-thread composer, hidden until replying/forwarding */}
-        {lastRow && inline ? (
-          <InlineComposer
-            accountId={accountId}
-            alias={alias}
-            mode={inline}
-            onModeChange={setInline}
-            lastMessage={lastRow}
-            baseSubject={message.subject}
-            threadId={message.threadId || message.id}
-            onClose={() => setInline(null)}
-          />
-        ) : null}
+        {/* In-thread composer, hidden until replying/forwarding; Margin's is in the column. */}
+        {margin ? null : composer}
       </div>
 
       <Dialog
