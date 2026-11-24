@@ -85,6 +85,12 @@ const settingsRoute = createRoute({
   component: () => null,
 });
 
+const deskRoute = createRoute({
+  getParentRoute: () => mailRoute,
+  path: "desk",
+  component: () => null,
+});
+
 const composeRoute = createRoute({
   getParentRoute: () => mailRoute,
   path: "compose",
@@ -201,6 +207,7 @@ const appRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   mailRoute.addChildren([
     indexRoute,
+    deskRoute,
     composeRoute,
     settingsRoute,
     settingsItemRoute,

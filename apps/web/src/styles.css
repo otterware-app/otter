@@ -80,9 +80,10 @@ html[data-window-controls="none"] {
   scroll-margin-top: 2rem;
 }
 
-/* The Margin layout: every screen keeps to one column at a reading measure. */
+/* The Margin layout: every screen keeps to one column at a reading measure. Important: the
+   Reading width setting (hidden in Margin) sets it inline. */
 html[data-layout="margin"] {
-  --reading-width: 42.5rem;
+  --reading-width: 42.5rem !important;
 }
 
 [data-layout="margin"] .message-list-scroll > * {

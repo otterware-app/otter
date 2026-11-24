@@ -33,6 +33,7 @@ import { PageHost } from "./browser/page-host";
 import { AgentCorner } from "./agent/agent-corner";
 import { ChatWindow } from "./agent/chat-window";
 import { ChatWorkspace, type ChatPanelControl } from "./agent/chat-workspace";
+import { DeskView } from "./desk/desk-view";
 import { SCHEDULED_TASKS, ScheduledTasksView } from "./agent/agent-scheduled";
 import { CALENDAR_MODES, CalendarView, calendarAccounts } from "./calendar/calendar-view";
 import { CalendarPanel } from "./calendar/agenda";
@@ -114,6 +115,8 @@ import { useMailboxes } from "./mailboxes";
 import type { AliasMailboxEntry } from "./mail/alias-mailboxes";
 import {
   CALENDAR_SPACE,
+  DESK_SPACE,
+  DESK_TODAY,
   CHATS_SPACE,
   modeOf,
   type AppMode,
@@ -182,6 +185,7 @@ function useRouteMailLoc(): MailLoc | null {
   const spaceItem = useMatch({ from: "/mail/$space/$label/$messageId", shouldThrow: false });
   const mailboxList = useMatch({ from: "/mail/mail/$mailbox/$label", shouldThrow: false });
   const spaceList = useMatch({ from: "/mail/$space/$label", shouldThrow: false });
+  const desk = useMatch({ from: "/mail/desk", shouldThrow: false });
   const message = mailboxMessage ?? spaceItem;
   const list = mailboxList ?? spaceList;
   if (message) {
@@ -193,8 +197,16 @@ function useRouteMailLoc(): MailLoc | null {
     const { mailbox, label } = list.params;
     return { mailbox, label, messageId: null, account: null, focusId: null };
   }
-  return null;
+  return desk ? DESK_LOC : null;
 }
+
+const DESK_LOC: MailLoc = {
+  mailbox: DESK_SPACE,
+  label: DESK_TODAY,
+  messageId: null,
+  account: null,
+  focusId: null,
+};
 
 function savedLoc(): MailLoc {
   const saved = loadLastLocation();
@@ -438,9 +450,17 @@ function MailHome() {
   // that started in Settings), it's where it was last time. Once the
   // mailboxes are known, it's always one of theirs (effects below catch the
   // route up), so nothing shows a place only to leave it at once.
-  const placed = routeLoc ?? lastMail;
+  // The Margin layout opens on the Desk, which only it has.
+  const marginLayout = useAppLayout() === "margin";
+  const remembered = routeLoc ?? lastMail;
+  const placed = remembered?.mailbox === DESK_SPACE && !marginLayout ? null : remembered;
   const where = ready
-    ? placeFor(placed ?? savedLoc(), accounts, aliases, viewsLoaded ? views : null)
+    ? placeFor(
+        placed ?? (marginLayout ? DESK_LOC : savedLoc()),
+        accounts,
+        aliases,
+        viewsLoaded ? views : null,
+      )
     : placed;
   // Rebuilt from its fields, so it keeps its identity (and so does every handler built on it)
   // until the place changes: a pane toggling then doesn't re-render the list and reader.
@@ -578,12 +598,12 @@ function MailHome() {
   const aliasSpace = space?.kind === "alias" ? space.alias : null;
   const isChats = space?.kind === "chats";
   const isCalendar = space?.kind === "calendar";
+  const isDesk = space?.kind === "desk";
   const workspace = space?.kind === "workspace" ? workspaceOf(space.id) : undefined;
   // Turning one off re-reads where we are (spaceOf drops it).
   const workspaces = useWorkspaces();
-  const ownsMain = isChats || isCalendar || workspace !== undefined;
+  const ownsMain = isChats || isCalendar || isDesk || workspace !== undefined;
   // The Margin layout reads mail as Full inbox does: one pane at a time.
-  const marginLayout = useAppLayout() === "margin";
   const mailLayoutChoice = useMailLayout();
   const mailLayoutSetting: MailLayout = marginLayout ? "full" : mailLayoutChoice;
   const viewSpace = space?.kind === "view" ? space.view : null;
@@ -880,7 +900,9 @@ function MailHome() {
   const switchMode = (next: AppMode) => {
     sidebarPeek.close();
     if (next === mode && !settingsRoute) return;
-    if (next === "mail") {
+    if (next === "desk") {
+      go(DESK_LOC);
+    } else if (next === "mail") {
       if (composeOpen || (settingsRoute && mode === "mail")) leaveSettings();
       else leaveWorkspace();
     } else if (next === "calendar") {
@@ -1076,6 +1098,7 @@ function MailHome() {
   };
   const jumpToMode = (index: number) => {
     const modes: { mode: AppMode }[] = [
+      ...(marginLayout ? [{ mode: "desk" as const }] : []),
       { mode: "mail" },
       { mode: "calendar" },
       ...workspaces.map((w) => ({ mode: `workspace:${w.id}` as const })),
@@ -1152,7 +1175,7 @@ function MailHome() {
   }, [onIndex, hasMail, goForEffect]);
 
   useEffect(() => {
-    if (!initialized || !selectedAccountId) return;
+    if (!initialized || !selectedAccountId || selectedAccountId === DESK_SPACE) return;
     if (selectedLabelId === SEARCH_MAILBOX) return;
     saveLastLocation({ accountId: selectedAccountId, labelId: selectedLabelId });
   }, [initialized, selectedAccountId, selectedLabelId]);
@@ -1888,6 +1911,25 @@ function MailHome() {
                         setTitle={nameWorkspacePlace}
                         titleLeading={sidebarOpen ? null : titlebarInset}
                         titleTrailing={titleTrailing}
+                      />
+                    ) : isDesk ? (
+                      <DeskView
+                        accounts={accounts}
+                        titleLeading={sidebarOpen ? null : titlebarInset}
+                        titleTrailing={titleTrailing}
+                        onOpenMessage={(m) =>
+                          go({
+                            mailbox: m.accountId ?? "",
+                            label: "INBOX",
+                            messageId: m.id,
+                            account: null,
+                            focusId: null,
+                          })
+                        }
+                        onOpenEvent={(event) => {
+                          switchMode("calendar");
+                          useCalendar.getState().show(event);
+                        }}
                       />
                     ) : isCalendar ? (
                       <CalendarView
