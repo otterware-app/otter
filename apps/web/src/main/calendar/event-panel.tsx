@@ -49,9 +49,12 @@ import {
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { Button, IconButton } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
+import { AgentNotes } from "../agent/agent-notes";
+import { useAppLayout } from "../theme/interface-settings";
 
 const WIDTH = 304;
 const GAP = 8;
+const NO_CONTAINER = { current: null };
 
 type Actions = ReturnType<typeof useCalendarActions>;
 
@@ -103,6 +106,7 @@ export function EventPanel({
   calendars,
   colorOf,
   actions,
+  margin = false,
 }: {
   containerRef: RefObject<HTMLElement | null>;
   event: CalEvent | null;
@@ -110,6 +114,8 @@ export function EventPanel({
   calendars: ListedCalendar[];
   colorOf: (key: string) => string;
   actions: Actions;
+  /** In the Margin layout's margin beside the grid, instead of a popover over it. */
+  margin?: boolean;
 }) {
   const select = useCalendar((s) => s.select);
   const setDraft = useCalendar((s) => s.setDraft);
@@ -117,7 +123,7 @@ export function EventPanel({
   const anchorKey = event ? eventKey(event) : "draft";
   const calendarOf = (ref: { accountId: string; calendarId: string }) =>
     calendars.find((c) => c.key === calendarKey(ref));
-  const place = usePlacement(containerRef, anchorKey, panelRef);
+  const place = usePlacement(margin ? NO_CONTAINER : containerRef, anchorKey, panelRef);
   const close = () => select(null);
   const [placed, setPlaced] = useState(false);
   useEffect(() => {
@@ -138,6 +144,50 @@ export function EventPanel({
   }, [select]);
 
   if (!event && !draft) return null;
+  const content = event?.teammate ? (
+    <TeammateEvent event={event} color={colorOf(calendarKey(event))} onClose={close} />
+  ) : event?.readOnly ? (
+    <ReadOnlyEvent
+      event={event}
+      color={colorOf(calendarKey(event))}
+      owner={calendarLabel(calendarOf(event)) ?? event.accountId}
+      onClose={close}
+    />
+  ) : event ? (
+    <EventDetails
+      key={anchorKey}
+      event={event}
+      color={colorOf(calendarKey(event))}
+      calendarName={calendarLabel(calendarOf(event)) ?? event.accountId}
+      meetings={calendarOf(event)?.info.meetings ?? null}
+      actions={actions}
+      onClose={close}
+    />
+  ) : draft ? (
+    <NewEvent
+      draft={draft}
+      calendars={calendars.filter((c) => c.info.writable)}
+      colorOf={colorOf}
+      onChange={(next) => setDraft(next)}
+      onCreate={async (input) => {
+        const made = await actions.create(draft, input, (input.attendees ?? []).length > 0);
+        if (made) select({ accountId: made.accountId, calendarId: made.calendarId, id: made.id });
+        else setDraft(null);
+      }}
+      onClose={close}
+    />
+  ) : null;
+  if (margin)
+    return (
+      <div
+        role="dialog"
+        aria-label={event ? event.title : "New event"}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="flex flex-col text-foreground animate-calendar-fade motion-reduce:animate-none"
+      >
+        {content}
+      </div>
+    );
   return (
     <div
       ref={panelRef}
@@ -155,40 +205,7 @@ export function EventPanel({
         placed && "transition-[left,top] duration-150 ease-out",
       )}
     >
-      {event?.teammate ? (
-        <TeammateEvent event={event} color={colorOf(calendarKey(event))} onClose={close} />
-      ) : event?.readOnly ? (
-        <ReadOnlyEvent
-          event={event}
-          color={colorOf(calendarKey(event))}
-          owner={calendarLabel(calendarOf(event)) ?? event.accountId}
-          onClose={close}
-        />
-      ) : event ? (
-        <EventDetails
-          key={anchorKey}
-          event={event}
-          color={colorOf(calendarKey(event))}
-          calendarName={calendarLabel(calendarOf(event)) ?? event.accountId}
-          meetings={calendarOf(event)?.info.meetings ?? null}
-          actions={actions}
-          onClose={close}
-        />
-      ) : draft ? (
-        <NewEvent
-          draft={draft}
-          calendars={calendars.filter((c) => c.info.writable)}
-          colorOf={colorOf}
-          onChange={(next) => setDraft(next)}
-          onCreate={async (input) => {
-            const made = await actions.create(draft, input, (input.attendees ?? []).length > 0);
-            if (made)
-              select({ accountId: made.accountId, calendarId: made.calendarId, id: made.id });
-            else setDraft(null);
-          }}
-          onClose={close}
-        />
-      ) : null}
+      {content}
     </div>
   );
 }
@@ -204,7 +221,9 @@ function Header({
 }) {
   return (
     <div className="flex h-10 shrink-0 items-center gap-0.5 pl-4 pr-2">
-      <span className="flex-1 text-body text-muted-foreground">{title}</span>
+      <span className="flex-1 text-body text-muted-foreground layout-margin:font-mono layout-margin:text-3xs layout-margin:tracking-widest layout-margin:text-placeholder layout-margin:uppercase">
+        {title}
+      </span>
       {children}
       <IconButton label="Close" onClick={onClose}>
         <XIcon />
@@ -619,7 +638,9 @@ function ReadOnlyEvent({
   return (
     <>
       <Header title="Event" onClose={onClose} />
-      <div className="px-4 pb-2 text-md font-medium font-reading">{event.title}</div>
+      <div className="px-4 pb-2 text-md font-medium font-reading layout-margin:text-2xl layout-margin:font-normal">
+        {event.title}
+      </div>
       <Divider />
       <Row icon={<ClockIcon />} className="py-1.5">
         {event.allDay ? null : (
@@ -656,6 +677,7 @@ function ReadOnlyEvent({
           </p>
         </Row>
       ) : null}
+      <EventNotes event={event} />
       <Divider />
       <Row
         icon={<span className="size-3 rounded-sm" style={{ background: color }} />}
@@ -667,6 +689,17 @@ function ReadOnlyEvent({
         </span>
       </Row>
     </>
+  );
+}
+
+/** What the agents wrote about the event, in the Margin layout's margin. */
+function EventNotes({ event }: { event: CalEvent }) {
+  const margin = useAppLayout() === "margin";
+  if (!margin || event.teammate) return null;
+  return (
+    <div className="flex flex-col gap-4 px-4 py-2 empty:hidden">
+      <AgentNotes target={{ kind: "event", calendarId: event.calendarId, eventId: event.id }} />
+    </div>
   );
 }
 
@@ -748,6 +781,15 @@ function EventDetails({
   const mine = !event.organizer || event.organizer.toLowerCase() === event.accountId.toLowerCase();
   const update = (patch: EventInput) => actions.update(event, patch, notify);
   const [asking, setAsking] = useState<RsvpResponse | null>(null);
+  // In the margin, as in an invitation: answer it before the details.
+  const rsvpFirst = useAppLayout() === "margin";
+  const rsvp =
+    event.response && !mine ? (
+      <Rsvp
+        value={event.response}
+        onChange={(r) => (event.recurring ? setAsking(r) : actions.respond(event, r))}
+      />
+    ) : null;
   return (
     <>
       <SeriesResponseDialog
@@ -785,9 +827,10 @@ function EventDetails({
           value={event.title}
           placeholder="Title"
           onCommit={(title) => update({ title: title || "(no title)" })}
-          className="text-md font-medium"
+          className="text-md font-medium layout-margin:font-reading layout-margin:text-xl layout-margin:font-normal"
         />
       </div>
+      {rsvpFirst ? rsvp : null}
       <Divider />
       <TimeRows
         startMs={event.startMs}
@@ -827,12 +870,7 @@ function EventDetails({
         />
       </Row>
       <People event={event} />
-      {event.response && !mine ? (
-        <Rsvp
-          value={event.response}
-          onChange={(r) => (event.recurring ? setAsking(r) : actions.respond(event, r))}
-        />
-      ) : null}
+      {rsvpFirst ? null : rsvp}
       <Divider />
       <Row icon={<AlignLeftIcon />}>
         <CommitInput
@@ -842,6 +880,7 @@ function EventDetails({
           onCommit={(description) => update({ description })}
         />
       </Row>
+      <EventNotes event={event} />
       <Divider />
       <Row
         icon={<span className="size-3 rounded-sm" style={{ background: color }} />}
@@ -916,7 +955,7 @@ function NewEvent({
           placeholder="Event title"
           onChange={(e) => onChange({ ...draft, title: e.target.value })}
           onKeyDown={enter}
-          className="h-9 w-full rounded-lg bg-foreground/[0.05] px-3 text-sm font-medium text-foreground outline-none placeholder:font-normal placeholder:text-placeholder focus:bg-foreground/[0.07]"
+          className="h-9 w-full rounded-lg bg-foreground/[0.05] px-3 text-sm font-medium text-foreground outline-none placeholder:font-normal placeholder:text-placeholder focus:bg-foreground/[0.07] layout-margin:h-10 layout-margin:font-reading layout-margin:text-xl layout-margin:font-normal"
         />
       </div>
       <Divider />

@@ -21,7 +21,7 @@ import {
   timeLabel,
   weekdayShort,
 } from "./dates";
-import { eventStyle, isPending, rangeLabel } from "./event-style";
+import { eventStyle, isPending, marginEventStyle, rangeLabel } from "./event-style";
 import { cn } from "@otter/ui/lib/utils";
 
 export const HOUR_PX = 48;
@@ -87,6 +87,7 @@ export function TimeGrid({
   defaultCalendar,
   actions,
   onOpenDay,
+  margin = false,
 }: {
   days: Date[];
   visible: number;
@@ -99,6 +100,8 @@ export function TimeGrid({
   defaultCalendar: { accountId: string; calendarId: string } | null;
   actions: Actions;
   onOpenDay: (day: Date) => void;
+  /** Drawn the Margin layout's way: serif day heads, mono hours, events on a rule. */
+  margin?: boolean;
 }) {
   const selection = useCalendar((s) => s.selection);
   const draft = useCalendar((s) => s.draft);
@@ -319,19 +322,50 @@ export function TimeGrid({
         style={{ width: GUTTER_PX + stripWidth, visibility: colW ? undefined : "hidden" }}
       >
         {/* Day names and the all-day row stay on top; the corner, on both. */}
-        <div className="sticky top-0 z-30 flex border-b border-border/60 bg-canvas">
+        <div
+          className={cn(
+            "sticky top-0 z-30 flex border-b bg-canvas",
+            margin ? "border-foreground" : "border-border/60",
+          )}
+        >
           <div
             className={cn(
               GUTTER,
               "sticky left-0 z-10 flex shrink-0 items-end justify-end bg-canvas pb-1.5 pr-2",
             )}
           >
-            <span className="text-3xs text-faint-foreground">{zoneLabel()}</span>
+            <span className={cn("text-3xs text-faint-foreground", margin && "font-mono")}>
+              {zoneLabel()}
+            </span>
           </div>
           <div className="flex flex-col" style={{ width: stripWidth }}>
-            <div className="flex">
+            {/* A day in the Margin layout has its date in the title above. */}
+            <div className={cn("flex", margin && visible === 1 && "hidden")}>
               {days.map((day) => {
                 const today = sameDay(day, now);
+                if (margin)
+                  return (
+                    <button
+                      key={day.getTime()}
+                      type="button"
+                      onClick={() => onOpenDay(day)}
+                      style={{ width: colW }}
+                      className={cn(
+                        "flex h-14 shrink-0 cursor-pointer items-baseline gap-2 px-2.5 pt-2 outline-none",
+                        today ? "text-calendar-today" : "text-foreground",
+                      )}
+                    >
+                      <span className="font-reading text-2xl tabular-nums">{day.getDate()}</span>
+                      <span
+                        className={cn(
+                          "font-mono text-3xs tracking-wider uppercase",
+                          !today && "text-placeholder",
+                        )}
+                      >
+                        {weekdayShort(day)}
+                      </span>
+                    </button>
+                  );
                 return (
                   <button
                     key={day.getTime()}
@@ -364,6 +398,7 @@ export function TimeGrid({
               events={allDay}
               colorOf={colorOf}
               selectedKey={selectedKey}
+              margin={margin}
               onSelect={(event) =>
                 select({ accountId: event.accountId, calendarId: event.calendarId, id: event.id })
               }
@@ -377,7 +412,10 @@ export function TimeGrid({
             {Array.from({ length: 23 }, (_, i) => i + 1).map((hour) => (
               <span
                 key={hour}
-                className="absolute right-2 -translate-y-1/2 text-3xs tabular-nums text-faint-foreground"
+                className={cn(
+                  "absolute right-2 -translate-y-1/2 text-3xs tabular-nums text-faint-foreground",
+                  margin && "font-mono text-placeholder",
+                )}
                 style={{ top: hour * HOUR_PX }}
               >
                 {hourLabel(hour)}
@@ -448,6 +486,7 @@ export function TimeGrid({
                         color={colorOf(calendarKey(event))}
                         selected={key === selectedKey}
                         dragging={preview?.key === key}
+                        margin={margin}
                         onPointerDown={onEventDown}
                       />
                     );
@@ -484,6 +523,7 @@ function TimedEvent({
   color,
   selected,
   dragging,
+  margin,
   onPointerDown,
 }: {
   event: CalEvent;
@@ -493,6 +533,7 @@ function TimedEvent({
   color: string;
   selected: boolean;
   dragging: boolean;
+  margin: boolean;
   onPointerDown: (e: PointerEvent<HTMLElement>, event: CalEvent, resize: boolean) => void;
 }) {
   const start = Math.max(event.startMs, dayStart);
@@ -502,6 +543,52 @@ function TimedEvent({
   const short = height < 36;
   const width = col === cols - 1 ? 1 - col / cols : Math.min(1 - col / cols, 1.5 / cols);
   const declined = event.response === "declined";
+  if (margin)
+    return (
+      <div
+        data-event=""
+        data-event-key={eventKey(event)}
+        onPointerDown={(e) => onPointerDown(e, event, false)}
+        style={{
+          ...marginEventStyle(color, event, selected),
+          top: top + 1,
+          height: height - 2,
+          left: `calc(${(col / cols) * 100}% + 2px)`,
+          width: `calc(${width * 100}% - 5px)`,
+          zIndex: dragging ? 20 : selected ? 10 : col + 1,
+        }}
+        className={cn(
+          "group/event absolute flex cursor-default overflow-hidden border-0 border-l-2 px-2 text-foreground",
+          short ? "items-center gap-1.5" : "flex-col gap-0.5 pt-1",
+          isPending(event) && "border-dashed",
+          declined && !selected && "opacity-55",
+          dragging
+            ? "ring-1 ring-overlay-edge"
+            : "transition-[top,height,left,width] duration-150 ease-out",
+        )}
+      >
+        <span
+          className={cn(
+            "min-w-0 font-reading text-body leading-4",
+            short ? "truncate" : "line-clamp-2",
+            declined && "line-through",
+          )}
+        >
+          {event.title}
+        </span>
+        <span className="shrink-0 truncate font-mono text-4xs tracking-wider text-placeholder uppercase tabular-nums">
+          {short ? timeLabel(new Date(event.startMs)) : rangeLabel(event.startMs, event.endMs)}
+          {!short && event.location ? ` · ${event.location}` : null}
+        </span>
+        {event.readOnly ? null : (
+          <div
+            aria-hidden
+            onPointerDown={(e) => onPointerDown(e, event, true)}
+            className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize"
+          />
+        )}
+      </div>
+    );
   return (
     <div
       data-event=""
@@ -631,12 +718,14 @@ function AllDayRow({
   events,
   colorOf,
   selectedKey,
+  margin,
   onSelect,
 }: {
   days: Date[];
   events: CalEvent[];
   colorOf: (accountId: string) => string;
   selectedKey: string | null;
+  margin: boolean;
   onSelect: (event: CalEvent) => void;
 }) {
   const first = days[0].getTime();
@@ -661,6 +750,30 @@ function AllDayRow({
       {bars.map(({ event, from, to, lane }) => {
         const key = eventKey(event);
         const selected = key === selectedKey;
+        const left = `calc(${(from / days.length) * 100}% + 2px)`;
+        const width = `calc(${((to - from) / days.length) * 100}% - 5px)`;
+        if (margin)
+          return (
+            <button
+              key={key}
+              type="button"
+              data-event=""
+              data-event-key={key}
+              onClick={() => onSelect(event)}
+              style={{
+                ...marginEventStyle(colorOf(calendarKey(event)), event, selected),
+                top: lane * 22 + 2,
+                left,
+                width,
+              }}
+              className={cn(
+                "absolute flex h-5 cursor-default items-center overflow-hidden border-0 border-l-2 px-2 text-left font-reading text-body text-foreground",
+                isPending(event) && "border-dashed",
+              )}
+            >
+              <span className="truncate">{event.title}</span>
+            </button>
+          );
         return (
           <button
             key={key}
@@ -671,8 +784,8 @@ function AllDayRow({
             style={{
               ...eventStyle(colorOf(calendarKey(event)), event, selected),
               top: lane * 22 + 2,
-              left: `calc(${(from / days.length) * 100}% + 2px)`,
-              width: `calc(${((to - from) / days.length) * 100}% - 5px)`,
+              left,
+              width,
             }}
             className={cn(
               "absolute flex h-5 cursor-default items-center gap-1.5 overflow-hidden rounded-sm border px-1.5 text-left text-2xs font-medium",
