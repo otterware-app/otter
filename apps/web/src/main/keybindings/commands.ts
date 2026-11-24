@@ -10,6 +10,18 @@ export const MAILBOX_JUMP_COMMANDS = [
   "mailbox.jump.9",
 ] as const;
 
+export const MODE_JUMP_COMMANDS = [
+  "mode.jump.1",
+  "mode.jump.2",
+  "mode.jump.3",
+  "mode.jump.4",
+  "mode.jump.5",
+  "mode.jump.6",
+  "mode.jump.7",
+  "mode.jump.8",
+  "mode.jump.9",
+] as const;
+
 export const AGENT_PICKER_JUMP_COMMANDS = [
   "agentPicker.jump.1",
   "agentPicker.jump.2",
@@ -28,10 +40,8 @@ export const KEYBINDING_COMMANDS = [
   "agent.toggle",
   "agent.openWorkspace",
   "agent.newChat",
-  "mode.mail",
-  "mode.calendar",
-  "mode.drive",
-  "mode.agent",
+  "agent.settle",
+  ...MODE_JUMP_COMMANDS,
   "browser.toggle",
   "calendar.togglePanel",
   "browser.newTab",
@@ -124,16 +134,18 @@ const ON_MESSAGE = `${IN_MAIL} && messageOpen`;
 export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+k", command: "commandPalette.toggle" },
   { key: "mod+b", command: "sidebar.toggle", when: OUTSIDE_FIELDS },
-  { key: "mod+i", command: "agent.toggle", when: "!dialogOpen" },
-  { key: "mod+shift+f", command: "agent.openWorkspace", when: "!dialogOpen" },
+  { key: "mod+e", command: "agent.toggle", when: "!dialogOpen" },
+  { key: "mod+shift+e", command: "agent.openWorkspace", when: "!dialogOpen" },
   { key: "mod+n", command: "agent.newChat", when: "agentOpen && !dialogOpen" },
   { key: "mod+shift+o", command: "agent.newChat", when: "!dialogOpen" },
-  { key: "g m", command: "mode.mail", when: OUTSIDE_FIELDS },
-  { key: "g c", command: "mode.calendar", when: OUTSIDE_FIELDS },
-  { key: "g d", command: "mode.drive", when: OUTSIDE_FIELDS },
-  { key: "g a", command: "mode.agent", when: OUTSIDE_FIELDS },
+  { key: "mod+d", command: "agent.settle", when: "agentOpen && !dialogOpen" },
+  ...MODE_JUMP_COMMANDS.map((command, i): KeybindingRule => ({
+    key: `alt+${i + 1}`,
+    command,
+    when: OUTSIDE_FIELDS,
+  })),
   { key: "mod+shift+b", command: "browser.toggle", when: "!dialogOpen" },
-  { key: "mod+shift+e", command: "calendar.togglePanel", when: "!dialogOpen" },
+  { key: "mod+shift+c", command: "calendar.togglePanel", when: "!dialogOpen" },
   { key: "mod+t", command: "browser.newTab", when: "!dialogOpen" },
   { key: "ctrl+tab", command: "tab.previous", when: "!dialogOpen" },
   { key: "mod+shift+m", command: "agentPicker.toggle", when: "agentOpen" },

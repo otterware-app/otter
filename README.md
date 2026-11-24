@@ -59,7 +59,7 @@ through today's list without leaving your mail.
 Bring your own. Otter is where you see them, answer them and hand them work.
 
 - Claude Code and Codex on your Mac, OpenClaw and Hermes on your own gateway, and your varys agent
-- A chat over the mail in front of you (⌘I), or a workspace with everything it read and made in
+- A chat over the mail in front of you (⌘E), or a workspace with everything it read and made in
   tabs; chats follow your Otter account to every device
 - Otter's tools for mail, calendar, themes and views, asking before anything it can't undo
 - Otter's tools for any other agent on your Mac (Cursor, a terminal's Claude Code, …) over MCP,

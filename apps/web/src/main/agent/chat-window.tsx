@@ -353,7 +353,11 @@ export function ChatWindow({
                     <AlarmClockIcon className="size-4" />
                   </IconButton>
                 </SnoozeMenu>
-                <HintTooltip label="Settle" side="bottom">
+                <HintTooltip
+                  label="Settle"
+                  hint={<ShortcutText command="agent.settle" />}
+                  side="bottom"
+                >
                   <IconButton
                     label="Settle"
                     onClick={() => {

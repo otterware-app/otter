@@ -319,7 +319,7 @@ export function CalendarView({
         e.preventDefault();
         fn();
       };
-      // No single letters: they'd catch the app's own (G then D).
+      // No single letters: they'd catch the app's own (G then I).
       if (key === "arrowright") run(() => k.go(1));
       else if (key === "arrowleft") run(() => k.go(-1));
       else if ((key === "backspace" || key === "delete") && k.selected && !k.selected.readOnly) {

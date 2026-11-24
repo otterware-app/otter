@@ -52,7 +52,7 @@ when a feature lands or goes.
   `src/main/browser/` is the browser (Mac): the panel of `<webview>` tabs beside the mail, a
   chat's pages in the AI workspace, and `openLink`, where links from mail and chat go.
   The agents' UI is `src/main/agent/`: the chats (`chat-store.ts`, synced through core), shown in the
-  small window over the mail (⌘I, `chat-window.tsx`) or the AI workspace, the Chats space
+  small window over the mail (⌘E, `chat-window.tsx`) or the AI workspace, the Chats space
   (`/agents/<id>`, `chat-workspace.tsx`), with what each chat used and made as tabs.
   `src/web/` is the browser shell: core in a Web Worker (SQLite WASM on OPFS) hosted by one
   tab for every open tab (`backend.ts`), and the bridge that stands in for the preload. What only the desktop app has is off in `desktopBridge.features`.

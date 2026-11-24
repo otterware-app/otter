@@ -241,13 +241,13 @@ chats read the same everywhere and continue on that Mac. On iPhone the chats are
 
 | Feature                                                                                         | Mac                 | Web                  | iPhone |
 | ----------------------------------------------------------------------------------------------- | ------------------- | -------------------- | ------ |
-| Small window over the mail (⌘I), the mail on screen as its context                              | ✓                   | ✓                    | —      |
+| Small window over the mail (⌘E), the mail on screen as its context                              | ✓                   | ✓                    | —      |
 | Bottom bar: minimized chats as tabs (working, waiting, finished), Agent                         | ✓                   | ✓                    | —      |
 | Chat history from the bottom bar                                                                | ✓                   | ✓                    | —      |
 | AI workspace (Agent in the sidebar): recent chats, the chat, its tabs                           | ✓                   | ✓                    | —      |
 | Chats sorted like T3 Code's: Snoozed, Settled (synced); auto-settles after N quiet days         | ✓                   | ✓                    | —      |
 | Drag a chat to pin it (in order), settle, unsettle or wake it; sweep Settle over several        | ✓                   | ✓                    | —      |
-| Open the small window's chat in the workspace (⌘⇧F, and back)                                   | ✓                   | ✓                    | —      |
+| Open the small window's chat in the workspace (⌘⇧E, and back)                                   | ✓                   | ✓                    | —      |
 | Tabs: conversations and drafts it was given, read or made; files                                | ✓                   | ✓                    | —      |
 | Tabs: pages it read, events it made, links clicked in it                                        | ✓                   | — (links: a new tab) | —      |
 | The tab showing is the next message's context                                                   | ✓                   | ✓                    | —      |
@@ -328,7 +328,7 @@ color, the others their color in Google or Outlook. IMAP mailboxes have none.
 | Day, week and month views; mini month and calendars in sidebar                                                                                                                                         | ✓   | ✓   | —      |
 | Kept on this device: any week it has synced draws at once, offline too; only changes are fetched (Google sync tokens, Graph delta), pushed through the relay with an Otter account, polled without one | ✓   | ✓   | —      |
 | Show or hide each calendar with its eye (Google's unchecked ones start hidden); click one for its coming events in a drawer; right-click: color, make default, show only this one                      | ✓   | ✓   | —      |
-| Calendar panel beside Mail, Calendar and Drive (the calendar button at the window's top right, or ⌘⇧E): the shown calendars' next 30 days; click an event to open it in Calendar                       | ✓   | ✓   | —      |
+| Calendar panel beside Mail, Calendar and Drive (the calendar button at the window's top right, or ⌘⇧C): the shown calendars' next 30 days; click an event to open it in Calendar                       | ✓   | ✓   | —      |
 | Followed and read-only calendars: looked at, not changed (no drag, read-only card)                                                                                                                     | ✓   | ✓   | —      |
 | New events on any calendar that takes them (picked in the card; the default first: click a calendar's square to make it the default)                                                                   | ✓   | ✓   | —      |
 | Event panel: title, time, place, notes edit in place; guests                                                                                                                                           | ✓   | ✓   | —      |
