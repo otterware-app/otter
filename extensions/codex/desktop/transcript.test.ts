@@ -5,8 +5,8 @@ const fixture = vi.hoisted(() => ({
   codex: [] as { method: string; params: Record<string, unknown> }[],
 }));
 vi.mock("@otter/core/extension-kit", async () => ({
-  ...(await import("../../../packages/core/src/services/agent/steps.js")),
-  ...(await import("../../../packages/core/src/services/agent/text-stream.js")),
+  ...(await import("../../../packages/core/src/services/agent/steps.ts")),
+  ...(await import("../../../packages/core/src/services/agent/text-stream.ts")),
   dataUrl: vi.fn(),
 }));
 vi.mock("@otter/desktop/extension-kit", () => ({
@@ -21,7 +21,7 @@ vi.mock("@otter/desktop/extension-kit", () => ({
   toolAccess: async () => ({ url: "https://tools.test", headers: {}, revoke: () => {} }),
   withAttachmentPaths: (text: string) => text,
 }));
-vi.mock("./codex-app-server.js", () => ({
+vi.mock("./codex-app-server.ts", () => ({
   CodexSpawnError: class extends Error {},
   CodexAppServer: class {
     alive = true;
@@ -43,8 +43,8 @@ vi.mock("./codex-app-server.js", () => ({
   },
 }));
 
-const { createCodex } = await import("./codex.js");
-const { CODEX_DEFAULTS } = await import("./settings.js");
+const { createCodex } = await import("./codex.ts");
+const { CODEX_DEFAULTS } = await import("./settings.ts");
 const settings = CODEX_DEFAULTS;
 const codexProvider = createCodex();
 afterEach(() => codexProvider.shutdown());

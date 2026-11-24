@@ -1,9 +1,9 @@
 import { demoAgents } from "@otter/contracts/demo";
 
-import { callHandler } from "../ipc.js";
-import { logger } from "../logger.js";
-import { addAgent } from "./agent/service.js";
-import { getProviderSettings } from "./agent/settings.js";
+import { callHandler } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { addAgent } from "./agent/service.ts";
+import { getProviderSettings } from "./agent/settings.ts";
 
 /**
  * Connects the demo run's local gateways, as their settings forms would: to the agent of each

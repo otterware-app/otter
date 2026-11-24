@@ -8,31 +8,33 @@ import {
   MousePointer2Icon,
   RotateCwIcon,
 } from "lucide-react";
-import { mailApi, type ProviderKind } from "../mail/api";
 import { controlBrowser } from "./agent-browser-input";
 import {
   AgentCursor,
   DialogBanner,
-  type PageDialog,
   type PageField,
   type PagePointer,
   type Placer,
 } from "./agent-browser-overlay";
 import { faviconFor } from "../browser/browser-view";
-import { addressToUrl, hostOf } from "../browser/store";
-import { useLatest } from "../use-latest";
-import { toast } from "@otter/ui/components/toast";
+import { addressToUrl, hostOf } from "@otter/client/web-address";
+import {
+  chooseBrowserFiles,
+  followBrowser,
+  holdBrowser,
+  screencastClosed,
+  screencastFrame,
+  screencastPage,
+  viewRetryMs,
+  type BrowserTab,
+  type PageDialog,
+} from "@otter/client/agents/agent-browser";
+import { useLatest } from "@otter/client/use-latest";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton } from "@otter/ui/components/button";
 import { Spinner } from "@otter/ui/components/spinner";
 import { cn } from "@otter/ui/lib/utils";
-
-/** Held tabs are let go a while after the last heartbeat, so a closed app never keeps one. */
-const HEARTBEAT_MS = 10_000;
-/** How long one request for what happens on the tab waits for something to. */
-const EVENTS_WAIT_MS = 20_000;
-/** Files travel to the gateway in one message. */
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+import { type ProviderKind, agentApi } from "@otter/client/agents/api";
 
 const toBase64 = async (file: File) => {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -105,7 +107,7 @@ export function AgentBrowser({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const targetRef = useRef<string | null>(null);
   const frameRef = useRef<{ cssWidth: number; cssHeight: number } | null>(null);
-  const [tab, setTab] = useState<{ targetId: string; profile?: string } | null>(null);
+  const [tab, setTab] = useState<BrowserTab | null>(null);
   const [controlling, setControlling] = useState(false);
   const [controlError, setControlError] = useState<string | null>(null);
   const [pointer, setPointer] = useState<PagePointer | null>(null);
@@ -131,7 +133,6 @@ export function AgentBrowser({
     let decoding = false;
     let waiting: Blob | null = null;
     let shown = false;
-    const decoder = new TextDecoder();
 
     const draw = (frame: Blob) => {
       if (decoding) {
@@ -165,8 +166,8 @@ export function AgentBrowser({
     const connect = () => {
       const box = canvas.parentElement?.getBoundingClientRect();
       const scale = window.devicePixelRatio || 1;
-      mailApi
-        .agentBrowserView(provider, sessionId, {
+      agentApi
+        .browserView(provider, sessionId, {
           width: Math.round((box?.width ?? 1280) * scale),
           height: Math.round((box?.height ?? 800) * scale),
         })
@@ -192,43 +193,24 @@ export function AgentBrowser({
             opened.binaryType = "arraybuffer";
             opened.addEventListener("message", ({ data }) => {
               if (typeof data === "string") {
-                const message = JSON.parse(data) as { type?: string; url?: string };
-                if (message.url && (message.type === "ready" || message.type === "meta"))
-                  setState((s) =>
-                    s.status === "live" ? { status: "live", page: message.url } : s,
-                  );
+                const page = screencastPage(data);
+                if (page) setState((s) => (s.status === "live" ? { status: "live", page } : s));
                 return;
               }
-              const buffer = data as ArrayBuffer;
-              const header = new DataView(buffer).getUint32(0);
-              const meta = JSON.parse(decoder.decode(new Uint8Array(buffer, 4, header))) as {
-                cssWidth?: number;
-                cssHeight?: number;
-              };
-              if (meta.cssWidth && meta.cssHeight)
-                frameRef.current = { cssWidth: meta.cssWidth, cssHeight: meta.cssHeight };
-              draw(new Blob([new Uint8Array(buffer, 4 + header)], { type: "image/jpeg" }));
+              const frame = screencastFrame(data as ArrayBuffer);
+              if (frame.size) frameRef.current = frame.size;
+              draw(new Blob([frame.jpeg], { type: "image/jpeg" }));
             });
             opened.addEventListener("close", ({ code }) => {
               socket = null;
               if (stopped) return;
-              if (code === 4003) {
-                setState({
-                  status: "failed",
-                  message: "OpenClaw stopped the view: it doesn't allow that address.",
-                });
+              const closed = screencastClosed(code, failures + 1);
+              if ("failed" in closed) {
+                setState({ status: "failed", message: closed.failed });
                 return;
               }
-              if (code === 4005) {
-                setState({ status: "failed", message: "This browser can't be watched live." });
-                return;
-              }
-              // The tab closed (4004) or the stream dropped: ask again, as often as it keeps working.
               failures += 1;
-              retry = setTimeout(
-                connect,
-                code === 4004 ? 300 : Math.min(1000 * 2 ** failures, 15000),
-              );
+              retry = setTimeout(connect, closed.retryMs);
             });
           },
           (error: unknown) => {
@@ -238,7 +220,7 @@ export function AgentBrowser({
               status: "failed",
               message: error instanceof Error ? error.message : "Couldn't open the live view.",
             });
-            retry = setTimeout(connect, Math.min(2000 * 2 ** failures, 30000));
+            retry = setTimeout(connect, viewRetryMs(failures));
           },
         );
     };
@@ -260,14 +242,12 @@ export function AgentBrowser({
       return;
     }
     let cancelled = false;
-    mailApi
-      .agentBrowserView(provider, sessionId, { width: 320, height: 320, except: current })
-      .then(
-        (view) => {
-          if (!cancelled && view?.targetId !== current) setConnection((n) => n + 1);
-        },
-        () => {},
-      );
+    agentApi.browserView(provider, sessionId, { width: 320, height: 320, except: current }).then(
+      (view) => {
+        if (!cancelled && view?.targetId !== current) setConnection((n) => n + 1);
+      },
+      () => {},
+    );
     return () => {
       cancelled = true;
     };
@@ -279,119 +259,63 @@ export function AgentBrowser({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!controlling || !tab || !canvas) return;
-    const input = (request: { take?: boolean; seq?: number; events?: unknown[] }) =>
-      mailApi.agentBrowserInput(provider, { ...tab, ...request });
     const lost = (error: unknown) => {
       setControlling(false);
       setControlError(error instanceof Error ? error.message : "Lost control of the tab.");
     };
     let held = true;
-    input({ take: true }).catch(lost);
-    const heartbeat = setInterval(() => input({ take: true }).catch(lost), HEARTBEAT_MS);
+    const hold = holdBrowser(provider, tab, lost);
     const control = controlBrowser(canvas, {
       frameSize: () => frameRef.current,
-      send: (seq, events) => input({ seq, events }),
+      send: hold.send,
       onLost: (error) => held && lost(error),
     });
     controlRef.current = control;
     return () => {
       held = false;
       controlRef.current = null;
-      clearInterval(heartbeat);
       control.detach();
-      void input({ take: false }).catch(() => {});
+      hold.release();
     };
   }, [controlling, tab, provider]);
 
   // What happens on the tab: the agent's pointer and typing, pop-ups, file pickers, copies.
   const controllingRef = useLatest(controlling);
   useEffect(() => {
-    // From the moment the tab is known: a page held up by a pop-up sends no frames until it's answered.
     if (!tab) return;
-    let stopped = false;
-    let since: number | undefined;
-    let run: string | undefined;
-    let failures = 0;
-    const handle = (event: { type: string } & Record<string, unknown>) => {
-      const at = Date.now();
-      if (event.type === "pointer")
-        setPointer((p) => ({
-          x: event.x as number,
-          y: event.y as number,
-          clicks: (p?.clicks ?? 0) + (event.phase === "click" ? 1 : 0),
-          at,
-        }));
-      else if (event.type === "typing")
-        setField({
-          x: event.x as number,
-          y: event.y as number,
-          width: event.width as number,
-          height: event.height as number,
-          at,
-        });
-      else if (event.type === "dialog")
-        setDialog({
-          dialogType: String(event.dialogType),
-          message: String(event.message),
-          defaultPrompt: String(event.defaultPrompt ?? ""),
-        });
-      else if (event.type === "dialogClosed") setDialog(null);
-      else if (!controllingRef.current) return;
-      else if (event.type === "clipboard")
-        void navigator.clipboard.writeText(String(event.text)).catch(() => {});
-      else if (event.type === "fileChooser" && fileRef.current) {
-        fileRef.current.multiple = event.multiple === true;
-        fileRef.current.click();
-      }
-    };
-    void (async () => {
-      for (;;) {
-        if (stopped) return;
-        try {
-          const result = await mailApi.agentBrowserEvents(provider, {
-            ...tab,
-            since,
-            run,
-            waitMs: since === undefined ? 0 : EVENTS_WAIT_MS,
-          });
-          if (stopped || !result) return;
-          // A first answer, or the plugin started over: take its state as it is.
-          if (since === undefined || result.run !== run) setDialog(result.dialog);
-          run = result.run;
-          for (const event of result.events) handle(event);
-          since = result.seq;
-          failures = 0;
-        } catch (error) {
-          // A gateway being updated, or without the plugin's events yet: ask again, less often.
-          if (stopped) return;
-          failures += 1;
-          const later = /update the Otter plugin/.test(String(error)) ? 60_000 : 15_000;
-          await new Promise((resolve) =>
-            setTimeout(resolve, Math.min(1000 * 2 ** failures, later)),
-          );
+    return followBrowser(provider, tab, {
+      onDialog: setDialog,
+      onEvent: (event) => {
+        const at = Date.now();
+        if (event.type === "pointer")
+          setPointer((p) => ({
+            x: event.x,
+            y: event.y,
+            clicks: (p?.clicks ?? 0) + (event.click ? 1 : 0),
+            at,
+          }));
+        else if (event.type === "typing")
+          setField({ x: event.x, y: event.y, width: event.width, height: event.height, at });
+        else if (event.type === "dialog") setDialog(event.dialog);
+        else if (event.type === "dialogClosed") setDialog(null);
+        else if (!controllingRef.current) return;
+        else if (event.type === "clipboard")
+          void navigator.clipboard.writeText(event.text).catch(() => {});
+        else if (event.type === "fileChooser" && fileRef.current) {
+          fileRef.current.multiple = event.multiple;
+          fileRef.current.click();
         }
-      }
-    })();
-    return () => {
-      stopped = true;
-    };
+      },
+    });
   }, [tab, provider, controllingRef]);
 
   const choose = async (files: File[]) => {
     if (!tab) return;
-    const size = files.reduce((sum, f) => sum + f.size, 0);
-    if (size > MAX_UPLOAD_BYTES) {
-      toast.error("Those files are too large to send to the agent's browser (10 MB at most).");
-      files = [];
-    }
-    try {
-      const encoded = await Promise.all(
-        files.map(async (file) => ({ name: file.name, data: await toBase64(file) })),
-      );
-      await mailApi.agentBrowserUpload(provider, { ...tab, files: encoded });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Couldn't send the files.");
-    }
+    await chooseBrowserFiles(
+      provider,
+      tab,
+      files.map((file) => ({ name: file.name, size: file.size, data: () => toBase64(file) })),
+    );
   };
 
   // Closing the picker without a file cancels the page's.

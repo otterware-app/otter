@@ -1,8 +1,8 @@
 import { ARCHIVE_LABEL_ID, SNOOZED_LABEL_ID } from "@otter/contracts";
 
-import * as store from "../../services/mail-store.js";
-import type { MailLabel } from "../../types.js";
-import { graph, graphAll, graphBatch, isAccessDenied, ok } from "./graph.js";
+import * as store from "../../services/mail-store.ts";
+import type { MailLabel } from "../../types.ts";
+import { graph, graphAll, graphBatch, isAccessDenied, ok } from "./graph.ts";
 
 export const FOLDER_PREFIX = "folder:";
 export const CATEGORY_PREFIX = "category:";

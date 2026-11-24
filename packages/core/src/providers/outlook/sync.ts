@@ -1,10 +1,10 @@
 // A delta removal can mean a move: look up the immutable message id before deleting its cached copy.
 
-import { logger } from "../../logger.js";
-import * as store from "../../services/mail-store.js";
-import type { MessageSummary } from "../../types.js";
-import { hasPendingLabelWrites } from "../../services/pending-label-writes.js";
-import { SyncCancelled, type SyncContext } from "../provider.js";
+import { logger } from "../../logger.ts";
+import * as store from "../../services/mail-store.ts";
+import type { MessageSummary } from "../../types.ts";
+import { hasPendingLabelWrites } from "../../services/pending-label-writes.ts";
+import { SyncCancelled, type SyncContext } from "../provider.ts";
 import {
   FOLDER_PREFIX,
   isSyncedFolder,
@@ -14,8 +14,8 @@ import {
   skippedFolderIds,
   type Folder,
   type Mailbox,
-} from "./folders.js";
-import { GraphError, graph, graphAll, isAccessDenied, type Page } from "./graph.js";
+} from "./folders.ts";
+import { GraphError, graph, graphAll, isAccessDenied, type Page } from "./graph.ts";
 import {
   findApiMessages,
   getApiMessages,
@@ -24,7 +24,7 @@ import {
   toImmutableIds,
   toSummary,
   type ApiMessage,
-} from "./messages.js";
+} from "./messages.ts";
 
 const PAGE_SIZE = 100;
 

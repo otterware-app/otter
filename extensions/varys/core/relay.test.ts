@@ -2,20 +2,20 @@ import type { Varys } from "@generalpursuit/varys";
 import { errAsync, okAsync } from "neverthrow";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { VarysSettings } from "./settings.js";
+import type { VarysSettings } from "./settings.ts";
 
-vi.mock("../../../packages/core/src/platform.js", () => ({
+vi.mock("../../../packages/core/src/platform.ts", () => ({
   platform: () => ({ kind: "web", appVersion: "test", log: () => {} }),
 }));
 const account = vi.hoisted(() => ({ user: { id: "u1" } as unknown }));
-vi.mock("../../../packages/core/src/services/otter-account.js", () => ({
+vi.mock("../../../packages/core/src/services/otter-account.ts", () => ({
   getOtterUser: () => account.user,
 }));
 const channels = vi.hoisted(() => ({
   made: [] as string[],
   deleted: [] as string[],
 }));
-vi.mock("../../../packages/core/src/services/agent/channels.js", () => ({
+vi.mock("../../../packages/core/src/services/agent/channels.ts", () => ({
   makeAgentChannel: async (label: string) => {
     channels.made.push(label);
     return {
@@ -27,11 +27,11 @@ vi.mock("../../../packages/core/src/services/agent/channels.js", () => ({
   deleteAgentChannel: async (id: string) => void channels.deleted.push(id),
 }));
 const saved = vi.hoisted(() => [] as unknown[]);
-vi.mock("../../../packages/core/src/services/agent/service.js", () => ({
+vi.mock("../../../packages/core/src/services/agent/service.ts", () => ({
   saveAgentSettings: async (agent: string, change: unknown) => void saved.push({ agent, change }),
 }));
 
-const { registerRelay, removeRelay, revokeGrant } = await import("./relay.js");
+const { registerRelay, removeRelay, revokeGrant } = await import("./relay.ts");
 
 const relay = { set: vi.fn(), remove: vi.fn() };
 const revoke = vi.fn();

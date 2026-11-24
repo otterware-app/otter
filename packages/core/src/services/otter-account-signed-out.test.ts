@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const log = vi.hoisted(() => vi.fn());
-vi.mock("../platform.js", () => ({
+vi.mock("../platform.ts", () => ({
   platform: () => ({
     log,
     relayUrl: "https://relay.demo.invalid",
@@ -10,14 +10,14 @@ vi.mock("../platform.js", () => ({
   }),
 }));
 
-import { logger } from "../logger.js";
+import { logger } from "../logger.ts";
 import {
   deleteOtterAccount,
   listDevices,
   loadOtterAccount,
   OTTER_SIGNED_OUT_MESSAGE,
   signOutDevice,
-} from "./otter-account.js";
+} from "./otter-account.ts";
 
 // The demo mailbox's relay (apps/web/src/web/demo/gmail.ts): every request is a 401.
 const relay = vi.fn(

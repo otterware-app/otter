@@ -1,4 +1,4 @@
-import { todoistSignIn } from "./services/todoist-oauth.js";
+import { todoistSignIn } from "./services/todoist-oauth.ts";
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
@@ -8,14 +8,14 @@ import { DatabaseSync } from "node:sqlite";
 
 import type { AsyncContext, Platform, SqlDatabase } from "@otter/core";
 
-import { appInfo } from "./backend-protocol.js";
-import { logger } from "./logger.js";
-import { requestMain, tellMain } from "./main-link.js";
-import { backendOS } from "./os/backend.js";
-import { googleAuth } from "./services/gmail-oauth.js";
-import { connectMailSocket } from "./services/mail-socket.js";
-import { microsoftAuth } from "./services/microsoft-oauth.js";
-import { desktopSupportDiagnostics } from "./services/support-diagnostics.js";
+import { appInfo } from "./backend-protocol.ts";
+import { logger } from "./logger.ts";
+import { requestMain, tellMain } from "./main-link.ts";
+import { backendOS } from "./os/backend.ts";
+import { googleAuth } from "./services/gmail-oauth.ts";
+import { connectMailSocket } from "./services/mail-socket.ts";
+import { microsoftAuth } from "./services/microsoft-oauth.ts";
+import { desktopSupportDiagnostics } from "./services/support-diagnostics.ts";
 
 const home = () => appInfo().stateDir;
 

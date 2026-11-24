@@ -3,8 +3,8 @@ import { createAuthClient } from "better-auth/client";
 import type { OtterDevice } from "@otter/contracts";
 import type { MeResponse, RelayUser } from "@otter/contracts/relay";
 
-import { logger } from "../logger.js";
-import { platform } from "../platform.js";
+import { logger } from "../logger.ts";
+import { platform } from "../platform.ts";
 
 export const SESSION_SECRET = "otter-session";
 

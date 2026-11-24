@@ -1,6 +1,6 @@
 import type { MailServer } from "@otter/contracts/mail";
-import { toBase64, utf8Encode } from "../bytes.js";
-import { platform, type ByteStream } from "../platform.js";
+import { toBase64, utf8Encode } from "../bytes.ts";
+import { platform, type ByteStream } from "../platform.ts";
 
 export type MailAuth = { user: string; pass: string } | { user: string; accessToken: string };
 

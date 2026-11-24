@@ -11,10 +11,10 @@
  * changed since. `demoMicrosoftAuth` signs the mailbox in.
  */
 
-import * as accountStore from "../services/account-store.js";
-import { fromBase64, toBase64 } from "../bytes.js";
-import type { MicrosoftAuth, Platform } from "../platform.js";
-import type { MailAccount } from "../types.js";
+import * as accountStore from "../services/account-store.ts";
+import { fromBase64, toBase64 } from "../bytes.ts";
+import type { MicrosoftAuth, Platform } from "../platform.ts";
+import type { MailAccount } from "../types.ts";
 
 import {
   DEMO_OUTLOOK_ACCOUNT,
@@ -22,8 +22,8 @@ import {
   type OutlookSeedFolder,
 } from "@otter/shared/demo-mailboxes";
 
-import { parseMime } from "./gmail.js";
-import { busyWeek } from "./calendar.js";
+import { parseMime } from "./gmail.ts";
+import { busyWeek } from "./calendar.ts";
 
 const GRAPH_HOST = "graph.microsoft.com";
 const GRAPH = `https://${GRAPH_HOST}/v1.0`;

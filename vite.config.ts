@@ -18,11 +18,25 @@ export default defineConfig({
       "pnpm-lock.yaml",
       "*.tsbuildinfo",
       "native/*/.build/**",
+      "apps/*-mobile/ios/**",
+      "apps/*-mobile/android/**",
+      "apps/*-mobile/.expo/**",
+      "apps/*-mobile/expo-env.d.ts",
     ],
     sortPackageJson: {},
   },
   lint: {
-    ignorePatterns: ["dist", "dist-electron", "release", "node_modules", "native/*/.build/**"],
+    ignorePatterns: [
+      "dist",
+      "dist-electron",
+      "release",
+      "node_modules",
+      "native/*/.build/**",
+      "apps/*-mobile/ios/**",
+      "apps/*-mobile/android/**",
+      "apps/*-mobile/.expo/**",
+      "apps/*-mobile/expo-env.d.ts",
+    ],
     plugins: ["eslint", "oxc", "react", "unicorn", "typescript"],
     categories: {
       correctness: "warn",
@@ -86,6 +100,111 @@ export default defineConfig({
       {
         files: ["extensions/**/*.test.ts"],
         rules: { "eslint/no-restricted-imports": "off" },
+      },
+      {
+        // What an extension's halves share (its calls, its forms' state): a phone's half imports it too.
+        files: ["extensions/*/shared/**/*.ts"],
+        rules: {
+          "eslint/no-restricted-globals": [
+            "error",
+            ...["window", "document", "navigator", "location", "localStorage"].map((name) => ({
+              name,
+              message:
+                "An extension's shared files run in React Native too: ask @otter/client's host.",
+            })),
+          ],
+          "eslint/no-restricted-imports": [
+            "error",
+            {
+              paths: [{ name: "@otter/core", message: "Import from @otter/core/extension-kit." }],
+              patterns: [
+                {
+                  group: [
+                    "~/*",
+                    "**/apps/**",
+                    "**/packages/**",
+                    "@otter/web/*",
+                    "@otter/desktop/*",
+                    "@otter/ui/*",
+                    "react-dom",
+                    "react-native",
+                  ],
+                  message:
+                    "An extension's shared files draw nothing: they reach the app through @otter/client.",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        files: ["packages/client/**/*.{ts,tsx}"],
+        rules: {
+          "eslint/no-restricted-globals": [
+            "error",
+            ...[
+              "window",
+              "document",
+              "navigator",
+              "location",
+              "history",
+              "localStorage",
+              "sessionStorage",
+            ].map((name) => ({
+              name,
+              message: "@otter/client runs in React Native too: ask the host (src/host.ts).",
+            })),
+          ],
+          "eslint/no-restricted-imports": [
+            "error",
+            {
+              paths: [
+                {
+                  name: "react-dom",
+                  message: "@otter/client runs in React Native too.",
+                },
+                {
+                  name: "react-native",
+                  message: "@otter/client runs in a browser too.",
+                },
+              ],
+              patterns: [
+                {
+                  group: ["react-dom/*", "@otter/ui/*", "~/*", "**/apps/**"],
+                  message: "@otter/client draws nothing and belongs to no app.",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        files: [
+          "apps/*-mobile/**/*.{ts,tsx}",
+          "packages/mobile/**/*.ts",
+          "packages/ui-native/**/*.{ts,tsx}",
+        ],
+        rules: {
+          "eslint/no-restricted-globals": [
+            "error",
+            ...["document", "localStorage", "sessionStorage"].map((name) => ({
+              name,
+              message: "React Native has no DOM.",
+            })),
+          ],
+          "eslint/no-restricted-imports": [
+            "error",
+            {
+              paths: [{ name: "react-dom", message: "React Native has no DOM." }],
+              patterns: [
+                {
+                  group: ["react-dom/*", "@otter/ui/*", "@base-ui/*", "lucide-react"],
+                  message: "The iPhone apps draw with @otter/ui-native.",
+                },
+              ],
+            },
+          ],
+        },
       },
     ],
   },

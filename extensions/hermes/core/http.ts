@@ -1,7 +1,7 @@
 import { hermesStep } from "@otter/core/extension-kit";
 import type { AgentSecrets, ChatSession, ChatSessionMessage } from "@otter/core/extension-kit";
 
-import type { HermesSettings } from "./settings.js";
+import type { HermesSettings } from "./settings.ts";
 
 export const PROBE_TIMEOUT_MS = 4_000;
 

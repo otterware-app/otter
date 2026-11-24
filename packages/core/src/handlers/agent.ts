@@ -1,16 +1,16 @@
 import type { ResultsTo, ScheduledTaskInput } from "@otter/contracts/scheduled";
-import { handle } from "../ipc.js";
-import { runAsTask } from "./ipc-budget.js";
-import { ATTACHMENTS_DIR, stageAttachment } from "../services/agent/attachments.js";
-import * as agent from "../services/agent/service.js";
-import { agentChannels, deleteAgentChannel, makeAgentChannel } from "../services/agent/channels.js";
+import { handle } from "../ipc.ts";
+import { runAsTask } from "./ipc-budget.ts";
+import { ATTACHMENTS_DIR, stageAttachment } from "../services/agent/attachments.ts";
+import * as agent from "../services/agent/service.ts";
+import { agentChannels, deleteAgentChannel, makeAgentChannel } from "../services/agent/channels.ts";
 import {
   noteAgentResolved,
   noteAgentSent,
   setWatching,
   setWindowPresence,
-} from "../services/realtime.js";
-import type { AgentId, ApprovalDecision, ChatAttachment } from "../services/agent/types.js";
+} from "../services/realtime.ts";
+import type { AgentId, ApprovalDecision, ChatAttachment } from "../services/agent/types.ts";
 
 type Params = Record<string, unknown> | undefined;
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { SearchIcon } from "lucide-react";
-import { mailApi } from "../mail/api";
-import type { ContactSuggestion } from "../mail/types";
+import { mailApi } from "@otter/client/mail/api";
+import type { ContactSuggestion } from "@otter/client/mail/types";
 import { useCalendar, type Teammate } from "./calendar-store";
 import { Kbd } from "@otter/ui/components/kbd";
 import { cn } from "@otter/ui/lib/utils";

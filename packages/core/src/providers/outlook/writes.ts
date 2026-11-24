@@ -1,10 +1,10 @@
 import { ARCHIVE_LABEL_ID, inThreadChange, SNOOZED_LABEL_ID } from "@otter/contracts";
 
-import { logger } from "../../logger.js";
-import * as store from "../../services/mail-store.js";
-import { renamePendingLabel } from "../../services/pending-label-writes.js";
-import type { MailLabel, MessageSummary } from "../../types.js";
-import type { LabelChange } from "../provider.js";
+import { logger } from "../../logger.ts";
+import * as store from "../../services/mail-store.ts";
+import { renamePendingLabel } from "../../services/pending-label-writes.ts";
+import type { MailLabel, MessageSummary } from "../../types.ts";
+import type { LabelChange } from "../provider.ts";
 import {
   categoryLabel,
   categoryOf,
@@ -18,7 +18,7 @@ import {
   presetColor,
   readMailbox,
   wellKnownId,
-} from "./folders.js";
+} from "./folders.ts";
 import {
   batchError,
   graph,
@@ -27,8 +27,8 @@ import {
   GRAPH_BETA,
   ok,
   type BatchRequest,
-} from "./graph.js";
-import { getApiMessages, messagePath, toSummary, type ApiMessage } from "./messages.js";
+} from "./graph.ts";
+import { getApiMessages, messagePath, toSummary, type ApiMessage } from "./messages.ts";
 
 const STATE_FIELDS = "id,parentFolderId,categories,isRead,flag,importance,isDraft,from";
 

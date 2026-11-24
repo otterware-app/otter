@@ -1,4 +1,4 @@
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
@@ -9,11 +9,11 @@ import {
   UserIcon,
   XIcon,
 } from "lucide-react";
-import type { MailAccount, MessageSummary } from "./types";
-import { getAccountDisplayName } from "./account-style";
-import { capabilitiesOf } from "./capabilities";
-import { senderLabel } from "./address";
-import { useSearchMessages, useSuggestContacts } from "./hooks";
+import type { MailAccount, MessageSummary } from "@otter/client/mail/types";
+import { getAccountDisplayName } from "@otter/client/mail/account-style";
+import { capabilitiesOf } from "@otter/client/mail/capabilities";
+import { senderLabel } from "@otter/client/mail/address";
+import { useSearchMessages, useSuggestContacts } from "@otter/client/mail/hooks";
 import {
   DATE_WITHIN,
   EMPTY_ADVANCED,
@@ -32,7 +32,7 @@ import {
   timeLabel,
   toggleToken,
   type AdvancedFields,
-} from "./gmail-query";
+} from "@otter/client/mail/gmail-query";
 import { isTypingTarget } from "./keyboard";
 import {
   DropdownMenu,

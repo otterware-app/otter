@@ -1,23 +1,23 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import type { CalendarEvent } from "../providers/provider.js";
+import type { CalendarEvent } from "../providers/provider.ts";
 
 const notify = vi.fn();
 let events: CalendarEvent[] = [];
 let reminders = true;
 
-vi.mock("../platform.js", () => ({ platform: () => ({ notify }) }));
-vi.mock("./settings-store.js", () => ({
+vi.mock("../platform.ts", () => ({ platform: () => ({ notify }) }));
+vi.mock("./settings-store.ts", () => ({
   getSettings: async () => ({ calendarReminders: reminders }),
   onSettingsChanged: () => {},
 }));
-vi.mock("./account-store.js", () => ({
+vi.mock("./account-store.ts", () => ({
   listAccounts: async () => [{ id: "me@work.com", email: "me@work.com", name: "work" }],
 }));
-vi.mock("./mail-sync.js", () => ({ turnedOffMailboxes: () => new Set() }));
-vi.mock("./notifier.js", () => ({ accountLabel: (a: { name: string }) => a.name }));
-vi.mock("../providers/index.js", () => ({ capabilitiesOf: () => ({ calendar: true }) }));
-vi.mock("./calendar-sync.js", () => ({ onCalendarChanged: () => {} }));
-vi.mock("./calendar-store.js", () => ({
+vi.mock("./mail-sync.ts", () => ({ turnedOffMailboxes: () => new Set() }));
+vi.mock("./notifier.ts", () => ({ accountLabel: (a: { name: string }) => a.name }));
+vi.mock("../providers/index.ts", () => ({ capabilitiesOf: () => ({ calendar: true }) }));
+vi.mock("./calendar-sync.ts", () => ({ onCalendarChanged: () => {} }));
+vi.mock("./calendar-store.ts", () => ({
   getList: () => ({
     calendars: [
       { id: "primary", hiddenByDefault: false },
@@ -30,7 +30,7 @@ vi.mock("./calendar-store.js", () => ({
     calendarId === "holidays" ? [event("Holiday", 30)] : events,
 }));
 
-const { checkReminders } = await import("./calendar-reminders.js");
+const { checkReminders } = await import("./calendar-reminders.ts");
 
 const NOW = Date.parse("2026-11-23T09:00:00Z");
 const event = (title: string, inMinutes: number, extra: Partial<CalendarEvent> = {}) =>

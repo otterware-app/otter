@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { setSyncedPreference, type SyncedKey } from "../synced-preferences";
+import { setSyncedPreference, type SyncedKey } from "@otter/client/preferences";
 
 export type InterfaceSetting = Readonly<{
   key: SyncedKey;

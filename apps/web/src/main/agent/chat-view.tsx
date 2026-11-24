@@ -2,30 +2,24 @@ import { useCallback, useEffect, useState, type RefObject } from "react";
 import { MessageScroller } from "@shadcn/react/message-scroller";
 import { ArrowDownIcon, MailIcon } from "lucide-react";
 import { ScrollArea } from "@otter/ui/components/scroll-area";
-import { mailApi, type AgentId, type AgentSettingsPatch, type ChatChange } from "../mail/api";
-import {
-  AgentFace,
-  isProviderUsable,
-  providerSummary,
-  useChatProvider,
-  useSetProvidersState,
-} from "./agent-providers";
-import type { MailChatContext } from "./chat-context";
+import { AgentFace, providerSummary } from "./agent-providers";
+import type { MailChatContext } from "@otter/client/agents/chat-context";
 import { CiteSelectionButton, useCitations } from "./chat-cite";
-import { AttachmentPreview, attachmentPreview, type PreviewFile } from "../mail/attachment-preview";
-import { DropOverlay, useChatAttachments, useFileDrop } from "./chat-attachments";
+import { AttachmentPreview, type PreviewFile } from "../mail/attachment-preview";
+import { readChatFile, readChatImage } from "@otter/client/agents/chat-files";
+import { canSteer, runAsking } from "@otter/client/agents/composer";
+import { DropOverlay, useComposerAttachments, useFileDrop } from "./chat-attachments";
 import {
   cancelQueuedEdit,
   editQueued,
   forkChat,
-  isCompacting,
   isElsewhere,
   loadChat,
   removeQueued,
   steerQueued,
   useChats,
   type QueuedMessage,
-} from "./chat-store";
+} from "@otter/client/agents/chat-store";
 import { QueuedMessages } from "./chat-queue";
 import { ChatTranscript } from "./chat-transcript";
 import { ChatComposer } from "./chat-composer";
@@ -34,24 +28,27 @@ import { useOtterAccount } from "../otter-account";
 import { toast } from "@otter/ui/components/toast";
 import { Button } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
+import {
+  type AgentId,
+  type AgentSettingsPatch,
+  type ChatChange,
+  agentApi,
+} from "@otter/client/agents/api";
+import {
+  isProviderUsable,
+  kindList,
+  useChatProvider,
+  useSetProvidersState,
+} from "@otter/client/agents/agent-providers";
+import { appApi } from "../app-api";
 
 const NO_QUEUE: QueuedMessage[] = [];
-
-function kindList(kinds: { name: string }[]): string {
-  const names = kinds.map((k) => k.name);
-  return names.length > 1
-    ? `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`
-    : (names[0] ?? "an agent");
-}
 
 function useChatImageLoader(provider?: AgentId, sessionId?: string | null) {
   return useCallback(
     async (href: string) => {
       if (!provider) throw new Error("Open the image from its chat.");
-      const file = await mailApi.agentReadFile(provider, sessionId ?? "", href);
-      const preview = attachmentPreview(file.name, file.mimeType);
-      if (preview?.kind !== "image") throw new Error("This file isn't an image.");
-      return `data:${preview.mimeType};base64,${file.data}`;
+      return readChatImage(provider, sessionId ?? null, href);
     },
     [provider, sessionId],
   );
@@ -93,23 +90,8 @@ export function ChatView({
   const editingQueued = useChats((s) =>
     s.editingQueued?.convoId === chatId ? s.editingQueued.id : null,
   );
-  // A message joins the run unless the run waits on an approval.
-  const canSendQueued = useChats((s) => {
-    const run = s.runs[chatId];
-    return (
-      Boolean(run) &&
-      !s.approvals.some((a) => a.requestId === run.requestId) &&
-      !isCompacting(s.conversations.find((c) => c.id === chatId)?.turns ?? [])
-    );
-  });
-  const asking = useChats((s) => {
-    const run = s.runs[chatId];
-    return (
-      Boolean(run) &&
-      (s.approvals.some((a) => a.requestId === run.requestId) ||
-        s.questions.some((q) => q.requestId === run.requestId))
-    );
-  });
+  const canSendQueued = useChats((s) => canSteer(s, chatId));
+  const asking = useChats((s) => runAsking(s, chatId));
   const hydrating = useChats((s) => s.hydrating === chatId);
   const turns = convo?.turns ?? [];
   const chat = useChatProvider(convo);
@@ -117,10 +99,10 @@ export function ChatView({
   const setProvidersState = useSetProvidersState();
   const updateSettings = (patch: AgentSettingsPatch) => {
     console.log("[AgentChat:updateSettings]", patch);
-    mailApi.updateAgentSettings(patch).then(setProvidersState, () => {});
+    agentApi.updateSettings(patch).then(setProvidersState, () => {});
   };
 
-  const files = useChatAttachments();
+  const files = useComposerAttachments();
   const drop = useFileDrop((dropped) => {
     void files.add(dropped);
     inputRef.current?.focus();
@@ -133,13 +115,8 @@ export function ChatView({
   const loadChatImage = useChatImageLoader(convo?.provider, convo?.sessionId);
   const previewChatFile = (href: string) => {
     if (!convo) return;
-    void mailApi
-      .agentReadFile(convo.provider, convo.sessionId ?? "", href)
-      .then((file) => {
-        if (!attachmentPreview(file.name, file.mimeType))
-          throw new Error("This file type can't be previewed.");
-        setPreviewFile({ ...file, load: async () => file.data });
-      })
+    void readChatFile(convo.provider, convo.sessionId, href)
+      .then((file) => setPreviewFile({ ...file, load: async () => file.data }))
       .catch((error: unknown) =>
         toast.error(error instanceof Error ? error.message : "Couldn't open the file."),
       );
@@ -226,7 +203,7 @@ export function ChatView({
             <Button
               size="sm"
               onClick={() =>
-                void mailApi.openSettings(
+                void appApi.openSettings(
                   signedOut && !chat.provider
                     ? { pane: "otter" }
                     : { pane: "agents", item: chat.provider?.id },

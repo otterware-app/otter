@@ -15,13 +15,13 @@ import {
 import { installChromeWebStore, updateExtensions } from "electron-chrome-web-store";
 import * as path from "node:path";
 
-import { broadcast } from "../ipc.js";
-import { logger } from "../logger.js";
-import { extensionMenuItems, reachOf, setupExtensions, trackTab } from "./extensions.js";
-import { parseMailtoUrl, setPendingMailto } from "./mailto-target.js";
-import { hostOS } from "../os/index.js";
-import { editingItems } from "../windows/context-menu.js";
-import { followPageHistoryButtons } from "../windows/history-buttons.js";
+import { broadcast } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { extensionMenuItems, reachOf, setupExtensions, trackTab } from "./extensions.ts";
+import { parseMailtoUrl, setPendingMailto } from "./mailto-target.ts";
+import { hostOS } from "../os/index.ts";
+import { editingItems } from "../windows/context-menu.ts";
+import { followPageHistoryButtons } from "../windows/history-buttons.ts";
 
 export const BROWSER_PARTITION = "persist:browser";
 

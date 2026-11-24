@@ -1,32 +1,38 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { agentContribution } from "../extensions/registry";
-import { useQuery } from "@tanstack/react-query";
 import { CheckIcon, CornerUpRightIcon, ListPlusIcon, PlusIcon, QuoteIcon } from "lucide-react";
 import { COMPOSER_SURFACE } from "../mail/composer-kit";
-import {
-  mailApi,
-  type AgentSettingsPatch,
-  type ApprovalDecision,
-  type AgentId,
-  type Skill,
-} from "../mail/api";
-import { openClawAgentId, type ChatProvider } from "./agent-providers";
 import { AgentPicker, ModelPicker, RuntimeModePicker, TraitsPicker } from "../mail/model-picker";
 import { ApprovalCard } from "./approval-card";
 import { QuestionCard } from "./question-card";
-import { buildHandoffText, type MailChatContext } from "./chat-context";
-import { withCitations, type Citation } from "./chat-cite";
+import type { MailChatContext } from "@otter/client/agents/chat-context";
+import { removeCitation, type Citation } from "@otter/client/agents/chat-cite";
+import {
+  agentPick,
+  alternateOf,
+  canSteer as canSteerRun,
+  composeOutgoing,
+  composerControls,
+  composerHasContent,
+  runCompacting,
+  runRequests,
+  skillCommand,
+  slashQuery as slashQueryOf,
+  slashSkills as slashSkillsOf,
+  submitLabel as submitLabelOf,
+  submitMode as submitModeOf,
+  useSkills,
+} from "@otter/client/agents/composer";
 import {
   AttachmentChip,
   ComposerAttachments,
   filesFromPaste,
-  type useChatAttachments,
+  type useComposerAttachments,
 } from "./chat-attachments";
-import { useFollowUpBehavior } from "./chat-queue";
+import { useFollowUpBehavior } from "@otter/client/agents/chat-queue";
 import {
   answerQuestion,
   cancelQueuedEdit,
-  clampTitle,
   editQueued as editQueuedMessage,
   respondApproval,
   sendMessage,
@@ -35,13 +41,13 @@ import {
   steerQueued,
   stopRun,
   updateQueued,
-  isCompacting,
   useChats,
   type Conversation,
   type Outgoing,
-} from "./chat-store";
+} from "@otter/client/agents/chat-store";
 import { ContextKindIcon, SkillBadge } from "./chat-transcript";
-import { TalkBar, TalkButton, useTalk } from "./chat-talk";
+import { TalkBar, TalkButton } from "./chat-talk";
+import { useTalk } from "@otter/client/agents/talk";
 import { toast } from "@otter/ui/components/toast";
 import { useCommandHandlers } from "../keybindings/dispatch";
 import { modKeyName, shortcutText } from "../keybindings/keys";
@@ -49,6 +55,13 @@ import { Button, IconButton } from "@otter/ui/components/button";
 import { Textarea } from "@otter/ui/components/textarea";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { cn } from "@otter/ui/lib/utils";
+import type {
+  AgentSettingsPatch,
+  ApprovalDecision,
+  AgentId,
+  Skill,
+} from "@otter/client/agents/api";
+import { openClawAgentId, type ChatProvider } from "@otter/client/agents/agent-providers";
 
 const NO_CITATIONS: Citation[] = [];
 
@@ -70,7 +83,7 @@ export function ChatComposer({
   chat: ChatProvider;
   context: MailChatContext;
   onClearQuote?: () => void;
-  files: ReturnType<typeof useChatAttachments>;
+  files: ReturnType<typeof useComposerAttachments>;
   inputRef: RefObject<HTMLTextAreaElement | null>;
   onEditCitation: (id: string, anchor: DOMRect) => void;
   onSent: () => void;
@@ -104,13 +117,7 @@ export function ChatComposer({
   const [respondingApproval, setRespondingApproval] = useState<string | null>(null);
   const [answeringQuestion, setAnsweringQuestion] = useState<string | null>(null);
 
-  const skillsQuery = useQuery<Skill[]>({
-    queryKey: ["agent-skills", agentId],
-    queryFn: () => mailApi.agentSkills(agentId),
-    enabled: usable,
-    staleTime: 5 * 60_000,
-  });
-  const skills = skillsQuery.data ?? [];
+  const skills = useSkills(agentId, usable).data ?? [];
 
   const [slashDismissed, setSlashDismissed] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
@@ -118,23 +125,16 @@ export function ChatComposer({
   const [activeSkill, setActiveSkill] = useState<Skill | null>(null);
   const handleDraftChange = (value: string) => {
     setSlashDismissed(false);
-    if (!activeSkill) {
-      const m = value.match(/^\/([a-z0-9:_-]+)\s([\s\S]*)$/i);
-      const sk = m && skills.find((s) => s.name.toLowerCase() === m[1].toLowerCase());
-      if (sk) {
-        setActiveSkill(sk);
-        setDraft(chatId, m![2]);
-        return;
-      }
+    const command = activeSkill ? null : skillCommand(value, skills);
+    if (command) {
+      setActiveSkill(command.skill);
+      setDraft(chatId, command.rest);
+      return;
     }
     setDraft(chatId, value);
   };
-  const slashMatch = draft.match(/^\/([a-z0-9:_-]*)$/i);
-  const slashQuery = slashMatch ? slashMatch[1].toLowerCase() : null;
-  const slashSkills =
-    slashQuery !== null
-      ? skills.filter((s) => s.name.toLowerCase().includes(slashQuery)).slice(0, 8)
-      : [];
+  const slashQuery = slashQueryOf(draft);
+  const slashSkills = slashSkillsOf(skills, slashQuery);
   const slashOpen = slashQuery !== null && !slashDismissed && slashSkills.length > 0;
   const [indexForQuery, setIndexForQuery] = useState(slashQuery);
   if (indexForQuery !== slashQuery) {
@@ -169,55 +169,40 @@ export function ChatComposer({
     setActiveSkill(null);
   }
 
+  const hasDraft = composerHasContent({
+    draft,
+    skill: activeSkill,
+    files: files.count,
+    citations: citations.length,
+  });
   const compose = (): Outgoing | null => {
-    const question = draft.trim();
-    if (
-      (!question && !activeSkill && files.count === 0 && citations.length === 0) ||
-      !usable ||
-      // A chat's turns load first: sending before would start it over.
-      !convo?.loaded
-    )
-      return null;
+    // A chat's turns load first: sending before would start it over.
+    if (!hasDraft || !usable || !convo?.loaded) return null;
     if (files.staging) {
       toast.info("Attachments are still being added");
       return null;
     }
     const { staged, sent } = files.take();
     const attached = attach ? context.attached : null;
-    const skill = activeSkill ?? undefined;
-    const cited = citations;
-    const text = withCitations(question, cited);
     setDraft(chatId, "");
     setActiveSkill(null);
     setCitations(chatId, () => []);
     onSent();
     if (attached && context.quote) onClearQuote?.();
-    return {
-      id: crypto.randomUUID(),
+    return composeOutgoing({
       convoId: convo.id,
-      provider: agentId,
-      question,
-      input: attached
-        ? buildHandoffText(
-            text,
-            attached.context,
-            agentContribution(provider?.kind ?? "")?.mailReader,
-          )
-        : text,
-      skill,
-      title: clampTitle(
-        skill
-          ? `/${skill.name} ${question}`
-          : question || cited[0]?.comment || cited[0]?.text || sent[0]?.name || "Attachment",
-      ),
-      attachments: staged.length > 0 ? staged : undefined,
-      sent: sent.length > 0 ? sent : undefined,
-      citations: cited.length > 0 ? cited : undefined,
-      context: attached?.meta,
-    };
+      agentId,
+      draft,
+      skill: activeSkill,
+      citations,
+      staged,
+      sent,
+      attached,
+      mailReader: agentContribution(provider?.kind ?? "")?.mailReader,
+    });
   };
 
-  const alternateAction = followUp === "queue" ? "steer" : "queue";
+  const alternateAction = alternateOf(followUp);
 
   const send = (alternate = false) => {
     if (editing) {
@@ -251,14 +236,12 @@ export function ChatComposer({
   const stop = () => stopRun(chatId);
 
   const activeQueue = queue.filter((m) => m.convoId === chatId);
-  const activeApprovals = run ? approvals.filter((a) => a.requestId === run.requestId) : [];
-  const activeQuestions = run ? questions.filter((q) => q.requestId === run.requestId) : [];
-  const compacting = useChats((s) =>
-    s.runs[chatId]
-      ? isCompacting(s.conversations.find((c) => c.id === chatId)?.turns ?? [])
-      : false,
-  );
-  const canSteer = run != null && activeApprovals.length === 0 && !compacting;
+  const { approvals: activeApprovals, questions: activeQuestions } = runRequests(run, {
+    approvals,
+    questions,
+  });
+  const compacting = useChats((s) => runCompacting(s, chatId));
+  const canSteer = useChats((s) => canSteerRun(s, chatId));
   useCommandHandlers({
     "agent.sendQueuedNow": () => {
       const next = activeQueue[0];
@@ -276,39 +259,22 @@ export function ChatComposer({
   const focusComposer = () => inputRef.current?.focus();
 
   const pickAgent = (id: AgentId, gatewayAgent: string | null) =>
-    updateSettings(
-      gatewayAgent ? { selected: id, [id]: { model: gatewayAgent } } : { selected: id },
-    );
+    updateSettings(agentPick(id, gatewayAgent));
 
-  const agent = agentContribution(provider?.kind ?? "");
-  const runtimeMode = agent?.serverApprovals ? null : (provider?.settings.runtimeMode ?? null);
+  const { runtimeMode, pickModels, traitOptions, traitValues } = composerControls(
+    provider,
+    agentContribution(provider?.kind ?? ""),
+  );
   const pendingApproval = activeApprovals[0];
   const pendingQuestion = activeQuestions[0];
 
-  const currentModel = provider?.models.find((m) => m.slug === provider.model);
-  const pickModels = Boolean(provider && !agent?.subAgents && provider.models.length > 1);
-  const traitOptions = currentModel?.options ?? [];
-  const traitSettings = agent?.ownModelSettings ? undefined : provider?.settings;
-  const traitValues = {
-    reasoningEffort: traitSettings?.reasoningEffort ?? "",
-    serviceTier: traitSettings?.serviceTier ?? "",
-  };
-
-  const hasDraft = Boolean(draft.trim() || activeSkill || files.count > 0 || citations.length > 0);
-  const submitMode: "send" | "queue" | "steer" = run
-    ? compacting
-      ? "queue"
-      : modHeld
-        ? alternateAction
-        : followUp
-    : "send";
-  const submitLabel = editing
-    ? "Update queued message"
-    : submitMode === "queue"
-      ? "Queue message"
-      : submitMode === "steer"
-        ? "Steer message"
-        : "Send message";
+  const submitMode = submitModeOf({
+    running: run != null,
+    compacting,
+    followUp,
+    alternate: modHeld,
+  });
+  const submitLabel = submitLabelOf(submitMode, Boolean(editing));
   const submitTooltip =
     submitMode === "send" || editing
       ? submitLabel
@@ -398,9 +364,7 @@ export function ChatComposer({
                   onClick={(e) =>
                     onEditCitation(citation.id, e.currentTarget.getBoundingClientRect())
                   }
-                  onRemove={() =>
-                    setCitations(chatId, (list) => list.filter((c) => c.id !== citation.id))
-                  }
+                  onRemove={() => removeCitation(chatId, citation.id)}
                 />
               ))}
             </ComposerAttachments>

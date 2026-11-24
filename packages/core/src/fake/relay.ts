@@ -22,10 +22,10 @@ import type {
   RelayUser,
 } from "@otter/contracts/relay";
 
-import type { Platform } from "../platform.js";
-import * as accountStore from "../services/account-store.js";
-import type { MailAccount } from "../types.js";
-import { seedAgents } from "./chats.js";
+import type { Platform } from "../platform.ts";
+import * as accountStore from "../services/account-store.ts";
+import type { MailAccount } from "../types.ts";
+import { seedAgents } from "./chats.ts";
 
 export const FAKE_RELAY_URL = "https://relay.demo.invalid";
 
@@ -173,7 +173,11 @@ class FakeRelaySocket extends EventTarget {
 
   send(data: string): void {
     if (data === "ping") {
-      setTimeout(() => this.dispatchEvent(new MessageEvent("message", { data: "pong" })), 20);
+      // An Event with `data`, as the close event has its code: React Native has no MessageEvent.
+      setTimeout(
+        () => this.dispatchEvent(Object.assign(new Event("message"), { data: "pong" })),
+        20,
+      );
     }
   }
 

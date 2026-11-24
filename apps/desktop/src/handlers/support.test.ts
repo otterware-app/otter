@@ -17,7 +17,7 @@ vi.mock("electron", () => ({
       fixture.handlers.set(channel, handler),
   },
 }));
-vi.mock("../os/index.js", () => ({
+vi.mock("../os/index.ts", () => ({
   hostOS: {
     terminals: {
       list: async () => ({ apps: [], defaultName: "Terminal" }),
@@ -27,7 +27,7 @@ vi.mock("../os/index.js", () => ({
     },
   },
 }));
-vi.mock("../backend-host.js", () => ({
+vi.mock("../backend-host.ts", () => ({
   invokeBackend: async () => ({
     providers: ["claude", "codex"].map((kind) => ({
       kind,
@@ -35,9 +35,9 @@ vi.mock("../backend-host.js", () => ({
     })),
   }),
 }));
-vi.mock("../services/agent/shell-path.js", () => ({ ensureShellPath: async () => {} }));
+vi.mock("../services/agent/shell-path.ts", () => ({ ensureShellPath: async () => {} }));
 
-const { registerSupportHandlers } = await import("./support.js");
+const { registerSupportHandlers } = await import("./support.ts");
 
 beforeEach(async () => {
   fixture.directory = await fs.mkdtemp(path.join(os.tmpdir(), "otter-support-handler-"));

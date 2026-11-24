@@ -22,13 +22,13 @@ import {
   type MainEffect,
   type MainRequests,
   type ToBackend,
-} from "./backend-protocol.js";
-import { reportedByBackend, setErrorReportsAllowed, sendsErrorReports } from "./error-reports.js";
-import { broadcast } from "./ipc.js";
-import { logger, writeLog } from "./logger.js";
-import { hostOS } from "./os/index.js";
-import { setPendingOpenMessage } from "./services/open-message-target.js";
-import { focusMainWindow, getMainWindow } from "./windows/main-window.js";
+} from "./backend-protocol.ts";
+import { reportedByBackend, setErrorReportsAllowed, sendsErrorReports } from "./error-reports.ts";
+import { broadcast } from "./ipc.ts";
+import { logger, writeLog } from "./logger.ts";
+import { hostOS } from "./os/index.ts";
+import { setPendingOpenMessage } from "./services/open-message-target.ts";
+import { focusMainWindow, getMainWindow } from "./windows/main-window.ts";
 
 let backend: UtilityProcess | null = null;
 let stopping = false;

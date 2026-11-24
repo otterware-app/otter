@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Otter_Agents
 
-/** apps/web's scheduled-text.test.ts, for the phone's port of it. */
+/** @otter/client's agents/scheduled-text.test.ts, for the phone's port of it. */
 @MainActor
 struct ScheduleTests {
     @Test func cronInWords() {

@@ -7,12 +7,12 @@
 
 import type { AccessNeed, ConnectionSummary } from "@otter/contracts";
 
-import { broadcast } from "../ipc.js";
-import { logger } from "../logger.js";
-import { capabilitiesOf, findProvider, isSignedIn } from "../providers/index.js";
-import { NoCalendarAccess } from "../providers/provider.js";
-import type { MailAccount } from "../types.js";
-import { listAccounts } from "./account-store.js";
+import { broadcast } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { capabilitiesOf, findProvider, isSignedIn } from "../providers/index.ts";
+import { NoCalendarAccess } from "../providers/provider.ts";
+import type { MailAccount } from "../types.ts";
+import { listAccounts } from "./account-store.ts";
 
 type Operation = AccessNeed["operation"];
 

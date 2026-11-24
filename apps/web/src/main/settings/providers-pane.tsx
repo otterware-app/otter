@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AgentAccess, ConnectedAgent } from "@otter/contracts/agent-tokens";
 import { Field } from "@otter/ui/components/field";
@@ -10,21 +10,10 @@ import { toast } from "@otter/ui/components/toast";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon, ChevronRightIcon, PlusIcon, RotateCwIcon, ShieldIcon } from "lucide-react";
 import {
-  mailApi,
-  type AgentNotificationsMode,
-  type AgentSettingsPatch,
-  type ProviderSnapshot,
-  type ProvidersState,
-  type SyncSettings,
-} from "../mail/api";
-import {
   PROVIDER_STATUS_DOT,
   ProviderIcon,
   kindName,
   providerSummary,
-  providerVersionLabel,
-  useAgentProviders,
-  useSetProvidersState,
 } from "../agent/agent-providers";
 import { AgentIcon } from "../agent/agent-icon";
 import { useOtterAccount } from "../otter-account";
@@ -35,18 +24,28 @@ import { searchableSetting } from "./settings-search";
 import { osNames } from "../os-names";
 import { AgentTokensSection } from "./agent-tokens-section";
 import { features } from "../features";
+import { setFollowUpBehavior, useFollowUpBehavior } from "@otter/client/agents/chat-queue";
+import { useNow } from "@otter/client/agents/chat-shelves";
 import {
-  setFollowUpBehavior,
-  useFollowUpBehavior,
-  type FollowUpBehavior,
-} from "../agent/chat-queue";
+  AGENT_NOTIFICATIONS_OPTIONS,
+  FOLLOW_UP_BEHAVIORS,
+  agentNotificationsDescription,
+  autoSettleDaysOf,
+  formatAgo,
+  lastChecked as lastCheckedOf,
+  needsAttention as providerNeedsAttention,
+  useAddAgent,
+  useAgentNotificationsMode,
+  useRemoveAgent,
+  useUpdateAgents,
+} from "@otter/client/agents/agent-settings";
 import { shortcutText } from "../keybindings/keys";
 import {
   AUTO_SETTLE_DEFAULT_DAYS,
   AUTO_SETTLE_MAX_DAYS,
   setAutoSettleDays,
   useAutoSettleDays,
-} from "../agent/auto-settle";
+} from "@otter/client/agents/auto-settle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,23 +69,14 @@ import {
   SettingsSection,
 } from "@otter/ui/components/settings";
 import { DraftInput, Input } from "@otter/ui/components/input";
-
-function useNow(intervalMs: number): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(timer);
-  }, [intervalMs]);
-  return now;
-}
-
-function formatAgo(ms: number): string {
-  const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  return `${Math.floor(m / 60)}h ago`;
-}
+import {
+  type AgentNotificationsMode,
+  type AgentSettingsPatch,
+  type ProviderSnapshot,
+  type ProvidersState,
+  agentApi,
+} from "@otter/client/agents/api";
+import { providerVersionLabel, useAgentProviders } from "@otter/client/agents/agent-providers";
 
 function StatusDot({ status }: { status: ProviderSnapshot["status"] }) {
   return (
@@ -155,18 +145,6 @@ export function AgentStatusSection({
   );
 }
 
-function useUpdateAgents() {
-  const setState = useSetProvidersState();
-  return (patch: AgentSettingsPatch) => {
-    console.log("[Settings:updateAgent]", patch);
-    mailApi
-      .updateAgentSettings(patch)
-      .then(setState, (error: unknown) =>
-        toast.error(`Could not save: ${error instanceof Error ? error.message : String(error)}`),
-      );
-  };
-}
-
 /** The kinds this device can add, as a menu: the new agent's page opens to set it up. */
 function AddAgentMenu({
   kinds,
@@ -176,18 +154,9 @@ function AddAgentMenu({
   label?: string;
 }) {
   const navigate = useNavigate();
-  const setState = useSetProvidersState();
-  const add = (kind: string) => {
-    console.log("[Settings:addAgent]", { kind });
-    mailApi.addAgent(kind).then(
-      ({ id, state }) => {
-        setState(state);
-        void navigate({ to: "/settings/$pane/$item", params: { pane: "agents", item: id } });
-      },
-      (error: unknown) =>
-        toast.error(`Could not add it: ${error instanceof Error ? error.message : String(error)}`),
-    );
-  };
+  const add = useAddAgent(
+    (id) => void navigate({ to: "/settings/$pane/$item", params: { pane: "agents", item: id } }),
+  );
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -224,7 +193,7 @@ export function ProvidersPane({ item }: { item?: string }) {
   const refresh = () => {
     if (refreshing) return;
     setRefreshing(true);
-    void mailApi.refreshAgentProviders().catch(() => {});
+    void agentApi.refreshProviders().catch(() => {});
     setTimeout(() => setRefreshing(false), 1500);
   };
 
@@ -260,7 +229,7 @@ export function ProvidersPane({ item }: { item?: string }) {
   const shown = item ? providers.find((p) => p.id === item) : undefined;
   if (shown) return <AgentPage key={shown.id} state={state} provider={shown} update={update} />;
 
-  const lastChecked = Math.max(0, ...providers.map((p) => p.checkedAt ?? 0));
+  const lastChecked = lastCheckedOf(providers);
   const choices = providers.filter((p) => p.enabled || p.id === state.selected);
 
   return (
@@ -355,7 +324,7 @@ function AgentListRow({
   onEnabled: (enabled: boolean) => void;
 }) {
   const navigate = useNavigate();
-  const needsAttention = provider.status === "warning" || provider.status === "error";
+  const needsAttention = providerNeedsAttention(provider);
   return (
     <div
       data-slot="settings-row"
@@ -438,14 +407,16 @@ function AgentPage({
   update: (patch: AgentSettingsPatch) => void;
 }) {
   const navigate = useNavigate();
-  const setState = useSetProvidersState();
   const extension = EXTENSIONS.find((e) => e.manifest.id === provider.kind);
   const Settings = extension?.agent?.Settings;
   const input = useRef<HTMLInputElement>(null);
   const [dropping, setDropping] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
-  const [removing, setRemoving] = useState(false);
   const back = () => void navigate({ to: "/settings/$pane", params: { pane: "agents" } });
+  const { remove, removing } = useRemoveAgent(provider.id, () => {
+    setConfirmRemove(false);
+    back();
+  });
 
   const usePicture = async (file: File | undefined) => {
     if (!file) return;
@@ -459,24 +430,6 @@ function AgentPage({
             : "Couldn't read it. Choose a PNG, JPEG or WebP.",
       });
     }
-  };
-
-  const remove = () => {
-    setRemoving(true);
-    console.log("[Settings:removeAgent]", { id: provider.id });
-    mailApi.removeAgent(provider.id).then(
-      (next) => {
-        setState(next);
-        setConfirmRemove(false);
-        back();
-      },
-      (error: unknown) => {
-        setRemoving(false);
-        toast.error(
-          `Could not remove it: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      },
-    );
   };
 
   return (
@@ -599,42 +552,8 @@ function AgentPage({
   );
 }
 
-const AGENT_NOTIFICATIONS_OPTIONS: { value: AgentNotificationsMode; label: string }[] = [
-  { value: "all", label: "Everything" },
-  { value: "needs-you", label: "Only when needed" },
-  { value: "off", label: "Off" },
-];
-
 function AgentNotificationsRow() {
-  const [mode, setMode] = useState<AgentNotificationsMode | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void mailApi
-      .getSyncSettings()
-      .then((settings) => {
-        if (active) setMode(settings.agentNotificationsMode ?? "all");
-      })
-      .catch(() => {});
-    const off = window.desktopBridge.on("settings:changed", (raw: unknown) => {
-      const settings = raw as Partial<SyncSettings> | null;
-      if (settings?.agentNotificationsMode) setMode(settings.agentNotificationsMode);
-    });
-    return () => {
-      active = false;
-      off();
-    };
-  }, []);
-
-  const update = (next: AgentNotificationsMode) => {
-    const previous = mode;
-    setMode(next);
-    void mailApi.setSyncSettings({ agentNotificationsMode: next }).catch((error: unknown) => {
-      setMode(previous);
-      toast.error(`Could not save: ${error instanceof Error ? error.message : String(error)}`);
-    });
-  };
-
+  const { mode, update } = useAgentNotificationsMode();
   return (
     <SettingsRow
       {...searchableSetting("agent-notifications")}
@@ -643,11 +562,7 @@ function AgentNotificationsRow() {
           <SettingsResetButton label="agent notifications" onClick={() => update("all")} />
         ) : null
       }
-      description={
-        mode === "needs-you"
-          ? `Only approvals, questions, and agent messages. Your phone stays quiet while you're active on your ${osNames.computer} unless you wrote from your phone.`
-          : `Approvals, questions, agent messages, and long finished replies. Your phone stays quiet while you're active on your ${osNames.computer} unless you wrote from your phone.`
-      }
+      description={agentNotificationsDescription(mode, osNames.computer)}
       control={
         <SettingsSelect
           value={mode ?? undefined}
@@ -659,11 +574,6 @@ function AgentNotificationsRow() {
     />
   );
 }
-
-const FOLLOW_UP_BEHAVIORS: { value: FollowUpBehavior; label: string }[] = [
-  { value: "queue", label: "Queue" },
-  { value: "steer", label: "Steer" },
-];
 
 function ChatSection({ children }: { children: ReactNode }) {
   const behavior = useFollowUpBehavior();
@@ -747,9 +657,8 @@ function AutoSettleSection() {
 function AutoSettleDaysInput({ days }: { days: number }) {
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
-    const next = Math.round(Number(draft));
-    if (draft?.trim() && Number.isFinite(next))
-      setAutoSettleDays(Math.min(AUTO_SETTLE_MAX_DAYS, Math.max(1, next)));
+    const next = draft === null ? null : autoSettleDaysOf(draft);
+    if (next !== null) setAutoSettleDays(next);
     setDraft(null);
   };
   return (
@@ -817,7 +726,7 @@ function ConnectedAgentsSection() {
   const [access, setAccess] = useState<AgentAccess>("safe");
   const change = useMutation({
     mutationFn: ({ id, access }: { id: string; access: AgentAccess }) =>
-      mailApi.setConnectedAgentAccess(id, access),
+      agentApi.setConnectedAgentAccess(id, access),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["mcp:agents"] }),
     onError: (error) =>
       toast.error(`Could not save: ${error instanceof Error ? error.message : String(error)}`),
@@ -827,9 +736,9 @@ function ConnectedAgentsSection() {
       {...searchableSetting("connected-agents")}
       description="Claude Code, Codex, Cursor or any agent that speaks MCP can use your mail, calendars and views while Otter is open."
       queryKey="mcp:agents"
-      list={mailApi.connectedAgents}
-      create={(name) => mailApi.addConnectedAgent(name, access)}
-      revoke={mailApi.removeConnectedAgent}
+      list={agentApi.connectedAgents}
+      create={(name) => agentApi.addConnectedAgent(name, access)}
+      revoke={agentApi.removeConnectedAgent}
       defaultName="Claude Code"
       newTokenFields={
         <Field label="Access" orientation="vertical">

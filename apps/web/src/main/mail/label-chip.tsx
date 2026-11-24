@@ -1,6 +1,6 @@
 import { ChevronsRightIcon, InboxIcon } from "lucide-react";
 import { Chip, ChipDot, ChipRemove } from "@otter/ui/components/chip";
-import type { MailLabel } from "./types";
+import type { MailLabel } from "@otter/client/mail/types";
 
 // no-drag: in the reader's title band (a window-drag region in the Mac app)
 // the chip must get hover, or its remove button never shows.

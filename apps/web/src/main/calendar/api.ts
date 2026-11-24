@@ -6,7 +6,7 @@ import {
   useQueryClient,
   type QueryClient,
 } from "@tanstack/react-query";
-import { ipc, task } from "~/lib/ipc";
+import { ipc, task } from "@otter/client/bridge";
 import { toast } from "@otter/ui/components/toast";
 import { DAY, addDays } from "./dates";
 

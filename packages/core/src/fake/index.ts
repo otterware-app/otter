@@ -7,14 +7,14 @@
  * works.
  * Development only: both shells import this lazily, behind their dev switch.
  */
-import type { Platform } from "../platform.js";
-import { SESSION_SECRET } from "../services/otter-account.js";
-import { demoGoogleAuth, installFakeGmail } from "./gmail.js";
-import { demoMicrosoftAuth, installFakeOutlook } from "./outlook.js";
-import { DEMO_USER, FAKE_RELAY_URL, installFakeRelay } from "./relay.js";
+import type { Platform } from "../platform.ts";
+import { SESSION_SECRET } from "../services/otter-account.ts";
+import { demoGoogleAuth, installFakeGmail } from "./gmail.ts";
+import { demoMicrosoftAuth, installFakeOutlook } from "./outlook.ts";
+import { DEMO_USER, FAKE_RELAY_URL, installFakeRelay } from "./relay.ts";
 
 export { FAKE_RELAY_URL };
-export { withFakeAgents } from "./agent.js";
+export { withFakeAgents } from "./agent.ts";
 /** For tests that drive one service alone. */
 export { demoMicrosoftAuth, installFakeOutlook };
 

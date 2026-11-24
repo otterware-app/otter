@@ -1,10 +1,10 @@
 import { ExternalLinkIcon, FileTextIcon, PenLineIcon, SearchIcon } from "lucide-react";
 import type { MouseEvent } from "react";
-import { getAccountColor, getAccountDisplayName } from "./account-style";
-import { parseAddressEntry, splitAddressList } from "./address";
-import { useAccounts, useMessage } from "./hooks";
+import { getAccountColor, getAccountDisplayName } from "@otter/client/mail/account-style";
+import { parseAddressEntry, splitAddressList } from "@otter/client/mail/address";
+import { useAccounts, useMessage } from "@otter/client/mail/hooks";
 import { SenderAvatar } from "./sender-avatar";
-import type { MessageDetail, MessageSummary } from "./types";
+import type { MessageDetail, MessageSummary } from "@otter/client/mail/types";
 import { UnsubscribeLink } from "./unsubscribe-link";
 import { openLink } from "../browser/store";
 import { isModClick } from "../keybindings/keys";

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const logger = vi.hoisted(() => ({ info: vi.fn(), failure: vi.fn() }));
-vi.mock("./logger.js", () => ({ logger }));
-vi.mock("./services/account-store.js", () => {
+vi.mock("./logger.ts", () => ({ logger }));
+vi.mock("./services/account-store.ts", () => {
   const accounts: Record<string, { provider: string; host?: string }> = {
     "me@gmail.com": { provider: "gmail" },
     "me@icloud.com": { provider: "imap", host: "imap.mail.me.com" },
@@ -15,10 +15,10 @@ vi.mock("./services/account-store.js", () => {
   };
 });
 
-import { SignInCancelledError, SignInTimedOutError } from "./google.js";
-import { callHandler, handle } from "./ipc.js";
-import { ImapError } from "./protocols/imap/client.js";
-import { NeedsPassword } from "./providers/imap/sign-in-failure.js";
+import { SignInCancelledError, SignInTimedOutError } from "./google.ts";
+import { callHandler, handle } from "./ipc.ts";
+import { ImapError } from "./protocols/imap/client.ts";
+import { NeedsPassword } from "./providers/imap/sign-in-failure.ts";
 
 describe("a handler that fails", () => {
   beforeEach(() => vi.clearAllMocks());

@@ -1,4 +1,4 @@
-import { broadcast } from "../ipc.js";
+import { broadcast } from "../ipc.ts";
 
 /** A label write can take several seconds while the first full sync is
  *  hogging the event loop or Gmail rate-limits us (the 429 backoff alone

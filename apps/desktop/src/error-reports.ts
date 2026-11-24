@@ -11,7 +11,7 @@ import {
   SENTRY_DSN,
 } from "@otter/shared/error-reports";
 
-import { reportLogsTo } from "./logger.js";
+import { reportLogsTo } from "./logger.ts";
 
 /** Native crash dumps hold memory, local variables hold values: either could be mail. */
 const LEFT_OUT = new Set(["SentryMinidump", "LocalVariables", "Console", "Screenshots"]);

@@ -3,14 +3,14 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
-import { autostartEntry, autostartFile, setAutostart } from "./autostart.js";
+import { autostartEntry, autostartFile, setAutostart } from "./autostart.ts";
 import {
   applicationDirs,
   desktopEntries,
   execWords,
   parseDesktopEntry,
-} from "./desktop-entries.js";
-import { terminalCommand } from "./terminals.js";
+} from "./desktop-entries.ts";
+import { terminalCommand } from "./terminals.ts";
 
 let root: string;
 beforeEach(async () => {

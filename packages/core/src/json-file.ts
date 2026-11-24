@@ -1,5 +1,5 @@
-import { utf8Decode } from "./bytes.js";
-import { platform } from "./platform.js";
+import { utf8Decode } from "./bytes.ts";
+import { platform } from "./platform.ts";
 
 /** The parsed file, or null when it doesn't exist or isn't JSON. */
 export async function readJson<T>(name: string): Promise<T | null> {

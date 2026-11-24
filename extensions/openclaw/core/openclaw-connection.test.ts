@@ -1,9 +1,9 @@
 import type { ChatEvent } from "@otter/core/extension-kit";
 import { GatewayProtocolRequestError } from "@openclaw/gateway-client/browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { OpenClawProvider } from "./openclaw.js";
-import type { OpenClawSettings } from "./settings.js";
-import { testAgent } from "./test-agent.js";
+import type { OpenClawProvider } from "./openclaw.ts";
+import type { OpenClawSettings } from "./settings.ts";
+import { testAgent } from "./test-agent.ts";
 
 type Options = {
   createSocket: (on: Record<string, () => void>) => unknown;
@@ -24,7 +24,7 @@ const fixture = vi.hoisted(() => ({
   onEvent: (_event: { event: string; payload: unknown }) => {},
   wake: () => {},
 }));
-vi.mock("../../../packages/core/src/platform.js", () => ({
+vi.mock("../../../packages/core/src/platform.ts", () => ({
   platform: () => ({
     kind: "desktop",
     appVersion: "test",
@@ -73,7 +73,7 @@ vi.stubGlobal(
     addEventListener() {}
   },
 );
-const { createOpenClaw } = await import("./openclaw.js");
+const { createOpenClaw } = await import("./openclaw.ts");
 const settings = { url: "wss://gateway.test" } as OpenClawSettings;
 let agent: ReturnType<typeof testAgent>;
 let openclaw: OpenClawProvider;

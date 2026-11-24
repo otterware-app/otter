@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
-import { setPlatform, type Platform } from "../../platform.js";
-import { clearOtterSession, getOtterUser, signInWithSession } from "../otter-account.js";
+import { setPlatform, type Platform } from "../../platform.ts";
+import { clearOtterSession, getOtterUser, signInWithSession } from "../otter-account.ts";
 
 const saved = new Map<string, string>();
 const user = {

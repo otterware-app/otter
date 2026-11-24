@@ -1,14 +1,14 @@
 import { parseDemoMailboxes, type DemoMailbox } from "@otter/contracts/demo";
 
-import { broadcast } from "../ipc.js";
-import { logger } from "../logger.js";
-import { platform } from "../platform.js";
-import { addImapAccount } from "../handlers/imap-accounts.js";
-import { saveOutlookAccount } from "../handlers/outlook-accounts.js";
-import * as accountStore from "./account-store.js";
-import { accountAdded } from "./linked-accounts.js";
-import * as mailSync from "./mail-sync.js";
-import { refreshSignatures } from "./signatures.js";
+import { broadcast } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { platform } from "../platform.ts";
+import { addImapAccount } from "../handlers/imap-accounts.ts";
+import { saveOutlookAccount } from "../handlers/outlook-accounts.ts";
+import * as accountStore from "./account-store.ts";
+import { accountAdded } from "./linked-accounts.ts";
+import * as mailSync from "./mail-sync.ts";
+import { refreshSignatures } from "./signatures.ts";
 
 async function addDemoMailbox(mailbox: DemoMailbox): Promise<void> {
   if (mailbox.provider === "imap") {

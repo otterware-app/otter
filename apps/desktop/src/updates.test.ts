@@ -31,10 +31,10 @@ vi.mock("electron-updater", () => ({
     }),
   },
 }));
-vi.mock("./ipc.js", () => ({ broadcast: vi.fn() }));
-vi.mock("./logger.js", () => ({ logger: { info: vi.fn(), warn: vi.fn() } }));
-vi.mock("./os/index.js", () => ({ hostOS: { installsUpdatesOnQuit: true } }));
-vi.mock("./windows/main-window.js", () => ({ rememberWindowsForUpdate: vi.fn() }));
+vi.mock("./ipc.ts", () => ({ broadcast: vi.fn() }));
+vi.mock("./logger.ts", () => ({ logger: { info: vi.fn(), warn: vi.fn() } }));
+vi.mock("./os/index.ts", () => ({ hostOS: { installsUpdatesOnQuit: true } }));
+vi.mock("./windows/main-window.ts", () => ({ rememberWindowsForUpdate: vi.fn() }));
 
 const nightly = "0.13.10-nightly.20261013.123";
 const state = () => fixture.ipc.get("updates:getState")!();
@@ -62,7 +62,7 @@ afterEach(() => {
 
 async function start(version = "0.13.9") {
   fixture.version = version;
-  const { initUpdates } = await import("./updates.js");
+  const { initUpdates } = await import("./updates.ts");
   initUpdates();
 }
 

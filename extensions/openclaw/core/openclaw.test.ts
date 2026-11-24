@@ -5,7 +5,7 @@ import {
   forkEntry,
   normalizeOpenClawUrl,
   parseOpenClawSetupCode,
-} from "./openclaw.js";
+} from "./openclaw.ts";
 
 describe("OpenClaw", () => {
   it("watches the tab the chat's agent browsed in last, on the gateway's own browser", () => {

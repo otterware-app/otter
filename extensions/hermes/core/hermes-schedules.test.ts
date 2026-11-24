@@ -1,12 +1,12 @@
 import type { ScheduledTaskInput } from "@otter/contracts/scheduled";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import type { HermesSettings } from "./settings.js";
+import type { HermesSettings } from "./settings.ts";
 
 const saved = vi.hoisted(() => [] as unknown[]);
-vi.mock("../../../packages/core/src/services/agent/service.js", () => ({
+vi.mock("../../../packages/core/src/services/agent/service.ts", () => ({
   saveAgentSettings: async (agent: string, change: unknown) => void saved.push([agent, change]),
 }));
-const { hermesAgent, hermesSchedule, hermesTask } = await import("./hermes.js");
+const { hermesAgent, hermesSchedule, hermesTask } = await import("./hermes.ts");
 const settings = { baseUrl: "https://hermes.test/v1", enabled: true } as HermesSettings;
 const secrets = { get: async () => "test-key", set: async () => {}, delete: async () => {} };
 const schedules = hermesAgent.create({ id: "hermes-1", secrets }).schedules!;

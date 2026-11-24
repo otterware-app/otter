@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { ChevronDownIcon, ChevronUpIcon, XIcon } from "lucide-react";
 
+import { findMatches } from "@otter/client/agents/chat-find";
 import { matchesStroke, parseStroke } from "../keybindings/keys";
 import { IconButton } from "@otter/ui/components/button";
 
@@ -13,8 +14,6 @@ const CURRENT = "chat-find-current";
  */
 export function findRanges(root: Element, query: string): Range[] {
   if (!query) return [];
-  // Case folded by the pattern, so the offsets are the text's own ("İstanbul" lowercased is longer).
-  const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
   const messages = root.querySelectorAll("[data-message-id]");
   const ranges: Range[] = [];
   for (const message of messages.length > 0 ? messages : [root]) {
@@ -29,9 +28,9 @@ export function findRanges(root: Element, query: string): Range[] {
       const i = nodes.findLastIndex((n) => (end ? n.start < offset : n.start <= offset));
       return { node: nodes[i].node, offset: offset - nodes[i].start };
     };
-    for (const match of text.matchAll(pattern)) {
-      const start = at(match.index, false);
-      const end = at(match.index + match[0].length, true);
+    for (const match of findMatches(text, query)) {
+      const start = at(match.start, false);
+      const end = at(match.end, true);
       const range = new Range();
       range.setStart(start.node, start.offset);
       range.setEnd(end.node, end.offset);

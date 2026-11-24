@@ -8,16 +8,16 @@ import type {
   RelayAccount,
 } from "@otter/contracts/relay";
 
-import { logger } from "../logger.js";
-import { broadcast } from "../ipc.js";
-import * as accountStore from "./account-store.js";
-import { platform } from "../platform.js";
-import { isSignedIn } from "../providers/index.js";
-import * as mailStore from "./mail-store.js";
-import { getImapPassword, setAsideImapPassword } from "./imap-passwords.js";
-import { getOtterUser, relayRequest, RelayError } from "./otter-account.js";
-import { syncedAliasMailboxes, syncedSendAs, syncedSignature } from "./preferences.js";
-import type { MailAccount } from "../types.js";
+import { logger } from "../logger.ts";
+import { broadcast } from "../ipc.ts";
+import * as accountStore from "./account-store.ts";
+import { platform } from "../platform.ts";
+import { isSignedIn } from "../providers/index.ts";
+import * as mailStore from "./mail-store.ts";
+import { getImapPassword, setAsideImapPassword } from "./imap-passwords.ts";
+import { getOtterUser, relayRequest, RelayError } from "./otter-account.ts";
+import { syncedAliasMailboxes, syncedSendAs, syncedSignature } from "./preferences.ts";
+import type { MailAccount } from "../types.ts";
 
 export type LocalAccount = Pick<
   MailAccount,

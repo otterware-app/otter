@@ -8,10 +8,10 @@
  */
 
 import { findMeetingLink } from "@otter/contracts";
-import { wallClock } from "../wall-clock.js";
-import { logger } from "../../logger.js";
-import { platform } from "../../platform.js";
-import * as mailStore from "../../services/mail-store.js";
+import { wallClock } from "../wall-clock.ts";
+import { logger } from "../../logger.ts";
+import { platform } from "../../platform.ts";
+import * as mailStore from "../../services/mail-store.ts";
 import {
   CalendarSyncExpired,
   NoCalendarAccess,
@@ -24,7 +24,7 @@ import {
   type RespondOptions,
   type EventInput,
   type RsvpResponse,
-} from "../provider.js";
+} from "../provider.ts";
 
 const API = "https://www.googleapis.com/calendar/v3";
 const CALENDAR = `${API}/calendars/primary`;

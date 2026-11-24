@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { getAccountContrastColor } from "../mail/account-style";
+import { getAccountContrastColor } from "@otter/client/mail/account-style";
 import type { CalEvent } from "./api";
 import { timeLabel } from "./dates";
 

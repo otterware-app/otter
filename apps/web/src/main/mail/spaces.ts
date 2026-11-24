@@ -1,10 +1,7 @@
+import { CALENDAR_SPACE, CHATS_SPACE } from "@otter/client/places";
 import { workspaceOf } from "../extensions/workspaces";
-import type { AliasMailboxEntry } from "./alias-mailboxes";
-import type { MailAccount, MailView } from "./types";
-
-export const CHATS_SPACE = "__chats__";
-
-export const CALENDAR_SPACE = "__calendar__";
+import type { AliasMailboxEntry } from "@otter/client/mail/alias-mailboxes";
+import type { MailAccount, MailView } from "@otter/client/mail/types";
 
 export const NEW_CHAT = "new";
 

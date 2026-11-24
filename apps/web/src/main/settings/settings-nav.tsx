@@ -1,4 +1,4 @@
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import {
   Fragment,
   useCallback,
@@ -32,7 +32,6 @@ import { AgentIcon } from "../agent/agent-icon";
 import { changelogUrl } from "@otter/shared/changelog";
 import { openLink } from "../browser/store";
 import { ScrollArea } from "@otter/ui/components/scroll-area";
-import { mailApi, type SettingsPane } from "../mail/api";
 import { features } from "../features";
 import { useCommandHandlers } from "../keybindings/dispatch";
 import {
@@ -53,6 +52,7 @@ import {
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
+import { appApi, type SettingsPane } from "../app-api";
 
 const SETTINGS_SECTION_ICONS: Readonly<
   Record<SettingsPane, ComponentType<{ className?: string }>>
@@ -312,7 +312,7 @@ function DefaultMailRow() {
   const [isDefault, setIsDefault] = useState<boolean | null>(null);
   const refresh = async () => {
     try {
-      setIsDefault((await mailApi.getDefaultMailStatus()).isDefault);
+      setIsDefault((await appApi.getDefaultMailStatus()).isDefault);
     } catch (err) {
       console.log("[SettingsNav:defaultMailStatus] failed", { error: String(err) });
     }
@@ -329,7 +329,7 @@ function DefaultMailRow() {
         onClick={async () => {
           console.log("[SettingsNav:setDefaultMailApp]");
           try {
-            await mailApi.setDefaultMailApp();
+            await appApi.setDefaultMailApp();
           } catch (err) {
             console.log("[SettingsNav:setDefaultMailApp] failed", { error: String(err) });
           }

@@ -10,17 +10,21 @@ import {
   StarIcon,
   ZapIcon,
 } from "lucide-react";
-import {
-  mailApi,
-  type AgentId,
-  type ProviderModel,
-  type ProviderModelOption,
-  type ProviderSnapshot,
-  type RuntimeMode,
-} from "./api";
-import { AgentFace, isProviderUsable, kindName } from "../agent/agent-providers";
+import { AgentFace, kindName } from "../agent/agent-providers";
 import { agentContribution } from "../extensions/registry";
-import { modelKey, toggleFavorite, useModelPrefs } from "./model-prefs";
+import { modelKey, toggleFavorite, useModelPrefs } from "@otter/client/agents/model-prefs";
+import {
+  RUNTIME_MODES,
+  agentItems,
+  currentChoice,
+  modelLabel,
+  pickedAgent,
+  pickerModels,
+  runtimeModeOf,
+  searchAgentItems,
+  traitsLabel,
+  type AgentItem,
+} from "@otter/client/agents/model-picker";
 import { AGENT_PICKER_JUMP_COMMANDS } from "../keybindings/commands";
 import { matchesCommand, useCommandHandlers, useKeybindingContext } from "../keybindings/dispatch";
 import { ShortcutText, shortcutLabelFor, useKeybindingsState } from "../keybindings/store";
@@ -36,6 +40,15 @@ import { Popover, PopoverPopup, PopoverTrigger } from "@otter/ui/components/popo
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { Kbd } from "@otter/ui/components/kbd";
 import { cn } from "@otter/ui/lib/utils";
+import {
+  agentApi,
+  type AgentId,
+  type ProviderModel,
+  type ProviderModelOption,
+  type ProviderSnapshot,
+  type RuntimeMode,
+} from "@otter/client/agents/api";
+import { appApi } from "../app-api";
 
 export const COMPOSER_CONTROL =
   "relative inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-full border border-transparent outline-none hover:bg-accent-surface data-popup-open:bg-accent-surface focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-64 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:-mx-0.5 [&_svg[data-composer-control-icon]]:mx-0 h-7 gap-1.5 px-2.5 text-sm font-normal text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground hover:text-foreground [&_svg:not([class*='size-'])]:size-4";
@@ -57,86 +70,6 @@ function closeFocus(returnFocus?: () => void) {
     returnFocus();
     return false;
   };
-}
-
-export function modelLabel(name: string): string {
-  if (!/^[a-z0-9.-]+$/.test(name)) return name;
-  const parts = name.split("-").filter((part) => !/^\d{8}$/.test(part));
-  const words: string[] = [];
-  for (const part of parts) {
-    const last = words[words.length - 1];
-    if (/^\d+$/.test(part) && last && /\d$/.test(last)) words[words.length - 1] = `${last}.${part}`;
-    else if (/^\d/.test(part) && last === "GPT") words[words.length - 1] = `GPT-${part}`;
-    else if (part === "gpt") words.push("GPT");
-    // OpenAI's o-series keeps its lowercase (o3, o4-mini).
-    else if (/^o\d/.test(part)) words.push(part);
-    else words.push(part.charAt(0).toUpperCase() + part.slice(1));
-  }
-  return words.join(" ");
-}
-
-/** Where `query`'s words fall in these fields (earlier fields, starts of words: better); null when one doesn't. */
-function searchScore(fields: string[], query: string): number | null {
-  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const lower = fields.map((f) => f.toLowerCase());
-  let score = 0;
-  for (const token of tokens) {
-    let best: number | null = null;
-    lower.forEach((field, i) => {
-      const at = field.indexOf(token);
-      if (at === -1) return;
-      const s =
-        i * 10 +
-        (field === token ? 0 : at === 0 ? 2 : /[\s\-_.]/.test(field[at - 1] ?? "") ? 4 : 6);
-      best = best === null ? s : Math.min(best, s);
-    });
-    if (best === null) return null;
-    score += best;
-  }
-  return score;
-}
-
-function statusText(p: ProviderSnapshot): string | null {
-  if (isProviderUsable(p)) return null;
-  if (!p.enabled) return "Turned off";
-  return p.status === "error" ? "Unavailable" : "Not ready";
-}
-
-/** One row of the agent picker: an agent, or one of the agents an OpenClaw gateway runs. */
-type AgentItem = {
-  key: string;
-  provider: ProviderSnapshot;
-  /** The gateway's agent (`ProviderModel.slug`), for a kind whose models are agents. */
-  agent: string | null;
-  name: string;
-  detail: string;
-  status: string | null;
-};
-
-function agentItems(providers: ProviderSnapshot[]): AgentItem[] {
-  return providers.flatMap((p): AgentItem[] => {
-    const status = statusText(p);
-    if (agentContribution(p.kind)?.subAgents && p.models.length > 0)
-      return p.models.map((m) => ({
-        key: `${p.id}:${m.slug}`,
-        provider: p,
-        agent: m.slug,
-        name: m.name,
-        detail: p.name,
-        status,
-      }));
-    const model = p.models.find((m) => m.slug === p.model);
-    return [
-      {
-        key: p.id,
-        provider: p,
-        agent: null,
-        name: p.name,
-        detail: model && p.models.length > 1 ? modelLabel(model.name) : kindName(p.kind),
-        status,
-      },
-    ];
-  });
 }
 
 function AgentRow({
@@ -210,18 +143,11 @@ function AgentPickerContent({
   const [highlight, setHighlight] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const all = useMemo(() => agentItems(providers), [providers]);
-  const items = useMemo(() => {
-    if (!query.trim()) return all;
-    return all
-      .map((item) => ({
-        item,
-        score: searchScore([item.name, item.detail, item.provider.name, item.provider.kind], query),
-      }))
-      .filter((r): r is { item: AgentItem; score: number } => r.score !== null)
-      .sort((a, b) => a.score - b.score)
-      .map((r) => r.item);
-  }, [all, query]);
+  const all = useMemo(
+    () => agentItems(providers, (kind) => Boolean(agentContribution(kind)?.subAgents), kindName),
+    [providers],
+  );
+  const items = useMemo(() => searchAgentItems(all, query), [all, query]);
   const rows = items.length + 1;
 
   const highlightKey = `${activeKey}:${items.map((item) => item.key).join(",")}`;
@@ -370,13 +296,13 @@ export function AgentPicker({
   useCommandHandlers({ "agentPicker.toggle": () => (locked ? false : setOpen((o) => !o)) });
   // An agent's models change as its logins do (varys): listed again each time the picker opens.
   useEffect(() => {
-    if (open) void mailApi.refreshAgentProviders().catch(() => {});
+    if (open) void agentApi.refreshProviders().catch(() => {});
   }, [open]);
-  const gateway = active && agentContribution(active.kind)?.subAgents;
-  const slug = gateway ? (agent ?? active.model) : null;
-  const shownAgent = slug ? active?.models.find((m) => m.slug === slug) : undefined;
-  const label = shownAgent?.name ?? active?.name ?? "Choose agent";
-  const activeKey = active ? (slug ? `${active.id}:${slug}` : active.id) : null;
+  const {
+    slug,
+    label,
+    key: activeKey,
+  } = pickedAgent(active, agent, Boolean(active && agentContribution(active.kind)?.subAgents));
   const face = (
     <span className="flex min-w-0 flex-1 items-center gap-1.5">
       <AgentFace provider={active} agent={slug} className="size-4" />
@@ -434,7 +360,7 @@ export function AgentPicker({
           onClose={() => setOpen(false)}
           onAdd={() => {
             setOpen(false);
-            void mailApi.openSettings({ pane: "agents" });
+            void appApi.openSettings({ pane: "agents" });
           }}
           onPick={(item) => {
             onPick(item.provider.id, item.agent);
@@ -468,23 +394,10 @@ export function ModelPicker({
   const model = provider.models.find((m) => m.slug === provider.model);
   const label = modelLabel(model?.name ?? provider.model ?? "Model");
   const key = (slug: string) => modelKey(provider.id, slug);
-  const models = useMemo(() => {
-    const shown = provider.models.filter(
-      (m) => !hidden.includes(modelKey(provider.id, m.slug)) || m.slug === provider.model,
-    );
-    if (query.trim())
-      return shown
-        .map((m) => ({ m, score: searchScore([m.name, m.slug, m.subProvider ?? ""], query) }))
-        .filter((r): r is { m: ProviderModel; score: number } => r.score !== null)
-        .sort((a, b) => a.score - b.score)
-        .map((r) => r.m);
-    const groups = [...new Set(shown.map((m) => m.subProvider ?? null))];
-    return groups.flatMap((group) => {
-      const inGroup = shown.filter((m) => (m.subProvider ?? null) === group);
-      const starred = (m: ProviderModel) => favorites.includes(modelKey(provider.id, m.slug));
-      return [...inGroup.filter(starred), ...inGroup.filter((m) => !starred(m))];
-    });
-  }, [provider, hidden, favorites, query]);
+  const models = useMemo(
+    () => pickerModels(provider, { favorites, hidden }, query),
+    [provider, hidden, favorites, query],
+  );
   const openPicker = (next: boolean) => {
     if (next) {
       setQuery("");
@@ -647,12 +560,6 @@ function DefaultBadge() {
   );
 }
 
-export function currentChoice(option: ProviderModelOption, chosen: string): string | undefined {
-  return (
-    option.choices.find((c) => c.id === chosen)?.id ?? option.choices.find((c) => c.isDefault)?.id
-  );
-}
-
 export function TraitsPicker({
   options,
   values,
@@ -667,19 +574,7 @@ export function TraitsPicker({
   className?: string;
 }) {
   if (options.length === 0) return null;
-  const labels: string[] = [];
-  let fast = false;
-  for (const option of options) {
-    const value = currentChoice(option, values[option.id] ?? "");
-    const choice = option.choices.find((c) => c.id === value);
-    if (option.id === "serviceTier") {
-      fast = choice?.label === "Fast";
-      continue;
-    }
-    if (choice) labels.push(choice.label);
-  }
-  const label = labels.join(" · ") || (fast ? "Fast" : "Standard");
-  const accessible = fast ? `${label}, Fast mode on` : label;
+  const { label, fast, accessible } = traitsLabel(options, values);
 
   return (
     <DropdownMenu>
@@ -751,31 +646,16 @@ export function TraitsPicker({
   );
 }
 
-export const RUNTIME_MODE_OPTIONS: {
-  value: RuntimeMode;
-  label: string;
-  description: string;
-  icon: typeof LockIcon;
-}[] = [
-  {
-    value: "approval-required",
-    label: "Supervised",
-    description: "Ask before commands and file changes.",
-    icon: LockIcon,
-  },
-  {
-    value: "auto-accept-edits",
-    label: "Auto-accept edits",
-    description: "Auto-approve edits, ask before other actions.",
-    icon: PenLineIcon,
-  },
-  {
-    value: "full-access",
-    label: "Full access",
-    description: "Allow commands and edits without prompts.",
-    icon: LockOpenIcon,
-  },
-];
+const RUNTIME_MODE_ICONS: Record<RuntimeMode, typeof LockIcon> = {
+  "approval-required": LockIcon,
+  "auto-accept-edits": PenLineIcon,
+  "full-access": LockOpenIcon,
+};
+
+export const RUNTIME_MODE_OPTIONS = RUNTIME_MODES.map((mode) => ({
+  ...mode,
+  icon: RUNTIME_MODE_ICONS[mode.value],
+}));
 
 export function RuntimeModePicker({
   value,
@@ -788,8 +668,8 @@ export function RuntimeModePicker({
 }) {
   const [open, setOpen] = useState(false);
   useCommandHandlers({ "composer.mode": () => setOpen((o) => !o) });
-  const current = RUNTIME_MODE_OPTIONS.find((o) => o.value === value) ?? RUNTIME_MODE_OPTIONS[2];
-  const Icon = current.icon;
+  const current = runtimeModeOf(value);
+  const Icon = RUNTIME_MODE_ICONS[current.value];
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <HintTooltip label={current.description} hint={<ShortcutText command="composer.mode" />}>

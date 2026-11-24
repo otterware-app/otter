@@ -1,23 +1,24 @@
 import { OTTER_ACCOUNT_STATE_CHANNEL, type OtterAccountState } from "@otter/contracts";
 import type { MeResponse, RelayEvent } from "@otter/contracts/relay";
 
-import { SignInCancelledError } from "../google.js";
-import { broadcast, handle } from "../ipc.js";
-import { logger } from "../logger.js";
-import { platform } from "../platform.js";
-import { listAccounts } from "../services/account-store.js";
-import { agentDelivered } from "../services/agent/service.js";
-import { getAccount } from "../services/account-store.js";
-import { getImapPassword } from "../services/imap-passwords.js";
+import { SignInCancelledError } from "../google.ts";
+import { broadcast, handle } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { runs } from "../modules.ts";
+import { platform } from "../platform.ts";
+import { listAccounts } from "../services/account-store.ts";
+import { agentDelivered } from "../services/agent/service.ts";
+import { getAccount } from "../services/account-store.ts";
+import { getImapPassword } from "../services/imap-passwords.ts";
 import type { NotificationConnection } from "@otter/contracts/relay";
-import { findProvider, isSignedIn } from "../providers/index.js";
+import { findProvider, isSignedIn } from "../providers/index.ts";
 import {
   clearLinkedSnapshot,
   linkedAccountIds,
   reconcileAccounts,
-} from "../services/linked-accounts.js";
-import { setPushedAccounts, syncAccount, syncAllAccounts } from "../services/mail-sync.js";
-import { calendarPushed, syncDueCalendars } from "../services/calendar-sync.js";
+} from "../services/linked-accounts.ts";
+import { setPushedAccounts, syncAccount, syncAllAccounts } from "../services/mail-sync.ts";
+import { calendarPushed, syncDueCalendars } from "../services/calendar-sync.ts";
 import {
   deleteOtterAccount,
   getOtterUser,
@@ -28,13 +29,15 @@ import {
   signInRedirect,
   signOut,
   signOutDevice,
-} from "../services/otter-account.js";
-import { forgetSyncedPreferences, pullPreferences } from "../services/preferences.js";
-import { forgetAgentData, syncAgentData } from "../services/agent-sync.js";
-import { getRealtimeState, startRealtime, stopRealtime } from "../services/realtime.js";
-import { removeLocalAccount } from "./mail.js";
+} from "../services/otter-account.ts";
+import { forgetSyncedPreferences, pullPreferences } from "../services/preferences.ts";
+import { forgetAgentData, syncAgentData } from "../services/agent-sync.ts";
+import { getRealtimeState, startRealtime, stopRealtime } from "../services/realtime.ts";
+import { removeLocalAccount } from "./mail.ts";
 
 const REFRESH_EVERY_MS = 60 * 60_000;
+/** Where the relay sends the browser after background-notification consent: "native" opens the phone app. */
+const RETURN_TO = { desktop: "desktop", web: "web", mobile: "native" } as const;
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 function otterState(): OtterAccountState {
@@ -56,6 +59,7 @@ let refreshAgain = false;
  * made while one runs coalesce into a single rerun.
  */
 function refresh(): Promise<void> {
+  if (!runs("mail")) return Promise.resolve();
   if (refreshing) {
     refreshAgain = true;
     return refreshing;
@@ -119,10 +123,10 @@ async function onEvent(event: RelayEvent): Promise<void> {
     return;
   }
   if (event.type === "calendar") {
-    await calendarPushed(event.email);
+    if (runs("calendar")) await calendarPushed(event.email);
     return;
   }
-  if (event.type !== "mail") return;
+  if (event.type !== "mail" || !runs("mail")) return;
   const account = (await listAccounts()).find(
     (a) => a.email.toLowerCase() === event.email.toLowerCase(),
   );
@@ -137,8 +141,8 @@ function start(): void {
       void refresh();
       void syncPreferences();
       void syncAgentData();
-      void syncAllAccounts({ force: true, trigger: "push" });
-      void syncDueCalendars("push");
+      if (runs("mail")) void syncAllAccounts({ force: true, trigger: "push" });
+      if (runs("calendar")) void syncDueCalendars("push");
     },
     onEvent: (event) => void onEvent(event),
     onStateChange: (state) => {
@@ -195,7 +199,7 @@ export function registerOtterAccountHandlers(): void {
     }
     return relayRequest<{ url: string }>("POST", "/v1/notification-connections/authorize", {
       email: account.email,
-      returnTo: platform().kind === "web" ? "web" : "desktop",
+      returnTo: RETURN_TO[platform().kind],
     });
   });
   handle("otter:disconnectNotifications", async (params: unknown) => {

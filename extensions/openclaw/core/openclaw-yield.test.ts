@@ -1,13 +1,13 @@
 import type { AgentRun, ChatEvent } from "@otter/core/extension-kit";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import type { OpenClawSettings } from "./settings.js";
-import { testAgent } from "./test-agent.js";
+import type { OpenClawSettings } from "./settings.ts";
+import { testAgent } from "./test-agent.ts";
 
 const fixture = vi.hoisted(() => ({
   request: vi.fn(),
   onEvent: (_event: { event: string; payload: unknown }) => {},
 }));
-vi.mock("../../../packages/core/src/platform.js", () => ({
+vi.mock("../../../packages/core/src/platform.ts", () => ({
   platform: () => ({
     kind: "desktop",
     appVersion: "test",
@@ -33,7 +33,7 @@ vi.mock("@openclaw/gateway-client/browser", () => ({
   },
 }));
 const { createOpenClaw, agentRunsSince, scheduleText, turnRows, waitingOnYield } =
-  await import("./openclaw.js");
+  await import("./openclaw.ts");
 const settings = { url: "wss://gateway.test" } as OpenClawSettings;
 let openclaw = createOpenClaw(testAgent());
 afterEach(() => {

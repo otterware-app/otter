@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-vi.mock("./logger.js", () => ({ logger: { error: () => {}, info: () => {} } }));
+vi.mock("./logger.ts", () => ({ logger: { error: () => {}, info: () => {} } }));
 
-import { activateExtensions, registeredAgents } from "./extensions.js";
-import { handle, registeredHandlers } from "./ipc.js";
-import type { AgentType } from "./services/agent/types.js";
+import { activateExtensions, registeredAgents } from "./extensions.ts";
+import { handle, registeredHandlers } from "./ipc.ts";
+import type { AgentType } from "./services/agent/types.ts";
 
 const manifest = (id: string) => ({
   id,

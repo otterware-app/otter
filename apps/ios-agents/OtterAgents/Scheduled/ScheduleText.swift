@@ -1,6 +1,6 @@
 import Foundation
 
-/** When a task runs, in words, and the editor's fields for it (apps/web's scheduled-text.ts). */
+/** When a task runs, in words, and the editor's fields for it (@otter/client's agents/scheduled-text.ts). */
 nonisolated enum ScheduleText {
     private static let days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     private static let minute = 60_000, hour = 3_600_000, day = 86_400_000

@@ -8,36 +8,18 @@ import {
   PaletteIcon,
   TagIcon,
 } from "lucide-react";
-import type { ChatChange } from "../mail/api";
 import { toast } from "@otter/ui/components/toast";
 import { cn } from "@otter/ui/lib/utils";
+import type { ChatChange } from "@otter/client/agents/api";
+import { canOpenChange, chatChangeKey, chatChangeLine } from "@otter/client/agents/chat-changes";
 
-export function chatChangeKey({ target }: ChatChange): string {
-  return JSON.stringify([target.kind, "accountId" in target ? target.accountId : null, target.id]);
-}
-
-export function mergeChatChanges(changes: ChatChange[]): ChatChange[] {
-  const results = new Map<string, ChatChange>();
-  for (const change of changes) {
-    const key = chatChangeKey(change);
-    const previous = results.get(key);
-    results.set(key, {
-      ...change,
-      title: change.action === "deleted" && previous ? previous.title : change.title,
-      action:
-        previous?.action === "created" && change.action === "updated" ? "created" : change.action,
-    });
-  }
-  return [...results.values()];
-}
-
-const KINDS = {
-  draft: { label: "draft", icon: FilePenLineIcon },
-  thread: { label: "conversation", icon: MailIcon },
-  label: { label: "label", icon: TagIcon },
-  view: { label: "view", icon: ListFilterIcon },
-  theme: { label: "theme", icon: PaletteIcon },
-  event: { label: "event", icon: CalendarIcon },
+const ICONS: Record<ChatChange["target"]["kind"], typeof MailIcon> = {
+  draft: FilePenLineIcon,
+  thread: MailIcon,
+  label: TagIcon,
+  view: ListFilterIcon,
+  theme: PaletteIcon,
+  event: CalendarIcon,
 };
 
 export function ChatChanges({
@@ -67,12 +49,9 @@ export function ChatChanges({
       <ul className="overflow-hidden rounded-lg border border-border/60">
         {changes.map((change) => {
           const key = chatChangeKey(change);
-          const { label, icon: Icon } = KINDS[change.target.kind];
-          const action = `${change.action[0].toUpperCase()}${change.action.slice(1)}`;
-          const description = `${action} ${label}`;
-          const canOpen =
-            change.action !== "deleted" &&
-            (change.target.kind !== "event" || Boolean(change.target.url));
+          const Icon = ICONS[change.target.kind];
+          const { kind: label, action, description } = chatChangeLine(change);
+          const canOpen = canOpenChange(change);
           const content = (
             <>
               <Icon className="size-3.5 shrink-0 text-icon-muted" aria-hidden />

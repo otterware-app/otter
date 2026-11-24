@@ -38,7 +38,6 @@ import {
 import { Field } from "@otter/ui/components/field";
 import { Input } from "@otter/ui/components/input";
 import { features } from "../features";
-import { mailApi } from "../mail/api";
 import { toast } from "@otter/ui/components/toast";
 import { Button, IconButton } from "@otter/ui/components/button";
 import { Checkbox } from "@otter/ui/components/checkbox";
@@ -60,6 +59,7 @@ import {
   SelectValue,
 } from "@otter/ui/components/select";
 import { Textarea } from "@otter/ui/components/textarea";
+import { appApi } from "../app-api";
 
 export function requestProblemReport(): void {
   // Let the originating menu close before the dialog takes focus.
@@ -327,7 +327,7 @@ export function ReportProblemDialog() {
     });
   const save = (contents = body) =>
     run("save", async () => {
-      const saved = await mailApi.saveSupportReport(
+      const saved = await appApi.saveSupportReport(
         buildSupportPrompt(`# ${describedReport().title}\n\n${contents}`, false, describedReport()),
       );
       if (saved) toast.success("Report saved. Open it in your coding agent to investigate.");
@@ -335,7 +335,7 @@ export function ReportProblemDialog() {
   const saveDiagnostics = () =>
     run("save", async () => {
       if (!reportDiagnostics) return;
-      const saved = await mailApi.saveSupportReport(
+      const saved = await appApi.saveSupportReport(
         JSON.stringify(reportDiagnostics, null, 2),
         "Otter diagnostics.json",
       );

@@ -1,6 +1,6 @@
 import { runAsTask } from "@otter/core/extension-kit";
 import type { ExtensionContext } from "@otter/core/extension-kit";
-import * as todoist from "./todoist.js";
+import * as todoist from "./todoist.ts";
 
 type Params = Record<string, unknown> | undefined;
 const optional = (value: unknown) => (typeof value === "string" ? value : undefined);

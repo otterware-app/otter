@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog } from "@otter/ui/components/dialog";
 import { Text } from "@otter/ui/components/text";
 import { toast } from "@otter/ui/components/toast";
-import { mailApi } from "./api";
+import { mailApi } from "@otter/client/mail/api";
 import { openLink } from "../browser/store";
 
 export function UnsubscribeLink({

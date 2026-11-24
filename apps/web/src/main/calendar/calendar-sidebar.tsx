@@ -10,9 +10,9 @@ import {
   Undo2Icon,
   XIcon,
 } from "lucide-react";
-import { getAccountDisplayName } from "../mail/account-style";
+import { getAccountDisplayName } from "@otter/client/mail/account-style";
 import { SidebarSection, SidebarBody } from "@otter/ui/components/sidebar";
-import type { MailAccount } from "../mail/types";
+import type { MailAccount } from "@otter/client/mail/types";
 import { isShown, useCalendar } from "./calendar-store";
 import { setCalendarPreference, useCalendarPreferences } from "./preferences";
 import { useCalendarLists } from "./api";

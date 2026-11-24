@@ -40,7 +40,7 @@
       "bundles": ["ios"],
       "license": "OFL-1.1",
       "sourceUrl": "https://github.com/rsms/inter",
-      "noticeFile": "apps/ios/OtterMail/Resources/Fonts/Inter-LICENSE.txt"
+      "noticeFile": "packages/ui-native/fonts/Inter-LICENSE.txt"
     },
     {
       "name": "Sentry",

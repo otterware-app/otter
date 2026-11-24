@@ -10,9 +10,9 @@ const { requestMain, saved, stateDir } = vi.hoisted(() => ({
   stateDir: { path: "" },
 }));
 
-vi.mock("../main-link.js", () => ({ requestMain }));
-vi.mock("../backend-protocol.js", () => ({ appInfo: () => ({ stateDir: stateDir.path }) }));
-vi.mock("./credentials-store.js", () => ({
+vi.mock("../main-link.ts", () => ({ requestMain }));
+vi.mock("../backend-protocol.ts", () => ({ appInfo: () => ({ stateDir: stateDir.path }) }));
+vi.mock("./credentials-store.ts", () => ({
   getCredentials: async () => ({ clientId: "client", clientSecret: "secret" }),
 }));
 vi.mock("@otter/core", async (importOriginal) => ({
@@ -26,7 +26,7 @@ vi.mock("@otter/core", async (importOriginal) => ({
 import type { DemoGmailMailbox } from "@otter/contracts/demo";
 import { GMAIL_ACCESS_MISSING_MESSAGE, GOOGLE_UNAVAILABLE_MESSAGE } from "@otter/core";
 
-import { googleAuth } from "./gmail-oauth.js";
+import { googleAuth } from "./gmail-oauth.ts";
 
 const realFetch = globalThis.fetch;
 let grantedScope = "";

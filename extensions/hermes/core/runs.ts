@@ -30,7 +30,7 @@ import {
   readSse,
   sessionMessages,
   type Ready,
-} from "./http.js";
+} from "./http.ts";
 
 /** The gateway sends a keepalive every 10s: silence this long is a dead connection. */
 const SILENT_MS = 45_000;

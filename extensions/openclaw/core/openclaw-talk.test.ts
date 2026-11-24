@@ -1,7 +1,7 @@
 import type { TalkEvent } from "@otter/core/extension-kit";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-vi.mock("../../../packages/core/src/platform.js", () => ({
+vi.mock("../../../packages/core/src/platform.ts", () => ({
   platform: () => ({
     kind: "desktop",
     appVersion: "test",
@@ -10,7 +10,7 @@ vi.mock("../../../packages/core/src/platform.js", () => ({
   }),
 }));
 
-const { createTalks, talkReady } = await import("./openclaw-talk.js");
+const { createTalks, talkReady } = await import("./openclaw-talk.ts");
 let talks = createTalks();
 
 const created = {

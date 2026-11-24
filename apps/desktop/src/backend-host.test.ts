@@ -33,20 +33,20 @@ vi.mock("electron", async () => {
     },
   };
 });
-vi.mock("./error-reports.js", () => ({
+vi.mock("./error-reports.ts", () => ({
   reportedByBackend: vi.fn(),
   setErrorReportsAllowed: vi.fn(),
   sendsErrorReports: false,
 }));
-vi.mock("./ipc.js", () => ({ broadcast: vi.fn() }));
-vi.mock("./logger.js", () => ({
+vi.mock("./ipc.ts", () => ({ broadcast: vi.fn() }));
+vi.mock("./logger.ts", () => ({
   logger: { error: fixture.error, warn: vi.fn() },
   writeLog: vi.fn(),
 }));
-vi.mock("./os/index.js", () => ({ hostOS: {} }));
-vi.mock("./resources.js", () => ({ agentIconImage: vi.fn() }));
-vi.mock("./services/open-message-target.js", () => ({ setPendingOpenMessage: vi.fn() }));
-vi.mock("./windows/main-window.js", () => ({ focusMainWindow: vi.fn() }));
+vi.mock("./os/index.ts", () => ({ hostOS: {} }));
+vi.mock("./resources.ts", () => ({ agentIconImage: vi.fn() }));
+vi.mock("./services/open-message-target.ts", () => ({ setPendingOpenMessage: vi.fn() }));
+vi.mock("./windows/main-window.ts", () => ({ focusMainWindow: vi.fn() }));
 
 beforeEach(() => {
   vi.resetModules();
@@ -56,7 +56,7 @@ beforeEach(() => {
 });
 
 async function start() {
-  const { startBackend } = await import("./backend-host.js");
+  const { startBackend } = await import("./backend-host.ts");
   void startBackend();
   await Promise.resolve();
   return fixture.children[0]!;

@@ -30,10 +30,10 @@
   "devDependencies": {
     "@types/culori": "^4.0.1",
     "@types/node": "catalog:",
-    "@types/react": "^19.1.12",
-    "@types/react-dom": "^19.1.9",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite-plus": "catalog:"

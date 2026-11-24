@@ -29,9 +29,9 @@ import {
   type WatchedSession,
 } from "@otter/core/extension-kit";
 
-import { answered } from "./client.js";
-import { scheduleText } from "./schedules.js";
-import type { VarysSettings } from "./settings.js";
+import { answered } from "./client.ts";
+import { scheduleText } from "./schedules.ts";
+import type { VarysSettings } from "./settings.ts";
 import {
   endTurn,
   messagesOf,
@@ -40,7 +40,7 @@ import {
   placed,
   type Turn,
   type Turns,
-} from "./turns.js";
+} from "./turns.ts";
 
 /** A run the agent started in a chat: `agent:<thread>:<uuid>`. */
 export const AGENT_RUN = "agent:";

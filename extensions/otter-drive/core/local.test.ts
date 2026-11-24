@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { setPlatform, utf8Encode } from "@otter/core/extension-kit";
 
-import * as drive from "./drive.js";
+import * as drive from "./drive.ts";
 
 const files = new Map<string, Uint8Array>();
 const secrets = new Map<string, string>();

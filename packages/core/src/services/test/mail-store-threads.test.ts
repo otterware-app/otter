@@ -1,10 +1,10 @@
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
-import type { Platform, SqlDatabase } from "../../platform.js";
-import type { MessageSummary } from "../../types.js";
+import type { Platform, SqlDatabase } from "../../platform.ts";
+import type { MessageSummary } from "../../types.ts";
 
 let database: DatabaseSync;
-let store: typeof import("../mail-store.js");
+let store: typeof import("../mail-store.ts");
 
 const row = (id: string, threadId: string, date: number, labels: string[]): MessageSummary => ({
   id,
@@ -25,14 +25,14 @@ async function open(prepare?: (db: DatabaseSync) => void) {
   vi.resetModules();
   database = new DatabaseSync(":memory:");
   prepare?.(database);
-  const { setPlatform } = await import("../../platform.js");
+  const { setPlatform } = await import("../../platform.ts");
   setPlatform({
     database: () => database as unknown as SqlDatabase,
     broadcast: () => {},
     onResume: () => () => {},
     log: () => {},
   } as unknown as Platform);
-  store = await import("../mail-store.js");
+  store = await import("../mail-store.ts");
 }
 
 beforeEach(async () => {

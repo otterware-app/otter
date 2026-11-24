@@ -6,10 +6,16 @@ import { Button } from "@otter/ui/components/button";
 import { Dialog } from "@otter/ui/components/dialog";
 import { Field } from "@otter/ui/components/field";
 import { Input } from "@otter/ui/components/input";
-import { mailApi } from "./api";
-import { useAddAccount, useAddImapAccount, useMailProviders, useSignInImap } from "./hooks";
+import { mailApi } from "@otter/client/mail/api";
+import { readableError } from "@otter/client/errors";
+import {
+  useAddAccount,
+  useAddImapAccount,
+  useMailProviders,
+  useSignInImap,
+} from "@otter/client/mail/hooks";
 import { toast } from "@otter/ui/components/toast";
-import type { MailAccount } from "./types";
+import type { MailAccount } from "@otter/client/mail/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,11 +32,6 @@ import {
   SelectValue,
 } from "@otter/ui/components/select";
 import { cn } from "@otter/ui/lib/utils";
-
-export function readableError(err: unknown): string {
-  const raw = err instanceof Error ? err.message : String(err);
-  return raw.replace(/^Error invoking remote method '[^']*':\s*/, "").replace(/^Error:\s*/, "");
-}
 
 export function useAddOutlook(onAdded?: (account: MailAccount) => void) {
   const add = useAddAccount("outlook");

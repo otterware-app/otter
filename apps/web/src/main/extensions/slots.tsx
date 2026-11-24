@@ -7,7 +7,7 @@
 
 import { Fragment, useMemo, type ReactNode } from "react";
 
-import type { MessageDetail } from "../mail/types";
+import type { MessageDetail } from "@otter/client/mail/types";
 import {
   EXTENSIONS,
   availableExtensions,

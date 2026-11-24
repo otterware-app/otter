@@ -1,6 +1,6 @@
-import { logger } from "../../logger.js";
-import * as mailStore from "../../services/mail-store.js";
-import { watchMailbox } from "./api.js";
+import { logger } from "../../logger.ts";
+import * as mailStore from "../../services/mail-store.ts";
+import { watchMailbox } from "./api.ts";
 
 const RENEW_AFTER_MS = 24 * 60 * 60_000;
 

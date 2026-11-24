@@ -3,7 +3,7 @@ import {
   CodexSpawnError,
   type Notification,
   type ServerRequest,
-} from "./codex-app-server.js";
+} from "./codex-app-server.ts";
 import { TOOL_OUTPUT_CHARS, codexStep, dataUrl, TextStream } from "@otter/core/extension-kit";
 import {
   AGENT_INSTRUCTIONS,
@@ -29,7 +29,7 @@ import type {
   SendTurnInput,
   Skill,
 } from "@otter/core/extension-kit";
-import { CODEX_DEFAULTS, type CodexSettings } from "./settings.js";
+import { CODEX_DEFAULTS, type CodexSettings } from "./settings.ts";
 
 const PROBE_TIMEOUT_MS = 10_000;
 const REQUEST_TIMEOUT_MS = 30_000;

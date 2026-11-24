@@ -2,7 +2,7 @@ import { runAsTask } from "@otter/core/extension-kit";
 import type { CoreExtension } from "@otter/core/extension-kit";
 
 import { manifest } from "../manifest.ts";
-import * as drive from "./drive.js";
+import * as drive from "./drive.ts";
 
 type Params = Record<string, unknown> | undefined;
 const text = (value: unknown, max = 500) =>

@@ -7,11 +7,11 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ConnectionSummary } from "@otter/contracts";
-import { ipc } from "~/lib/ipc";
-import { signInProvider } from "./capabilities";
-import { useAddAccount } from "./hooks";
+import { ipc } from "@otter/client/bridge";
+import { signInProvider } from "@otter/client/mail/capabilities";
+import { useAddAccount } from "@otter/client/mail/hooks";
 import { toast } from "@otter/ui/components/toast";
-import type { MailAccount } from "./types";
+import type { MailAccount } from "@otter/client/mail/types";
 import { Button } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
 

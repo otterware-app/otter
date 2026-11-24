@@ -7,15 +7,16 @@
  * the agents' own approvals do, unless the chat has full access.
  */
 
-import { logger } from "../../../logger.js";
-import type { ApprovalDecision, ApprovalRequest } from "../types.js";
-import { calendarTools } from "./calendar.js";
-import { mailTools } from "./mail.js";
-import { themeTools } from "./themes.js";
-import { viewTools } from "./views.js";
-import type { AgentTool, ToolArgs, ToolCaller } from "./tool.js";
+import { logger } from "../../../logger.ts";
+import { runs } from "../../../modules.ts";
+import type { ApprovalDecision, ApprovalRequest } from "../types.ts";
+import { calendarTools } from "./calendar.ts";
+import { mailTools } from "./mail.ts";
+import { themeTools } from "./themes.ts";
+import { viewTools } from "./views.ts";
+import type { AgentTool, ToolArgs, ToolCaller } from "./tool.ts";
 
-export type { AgentTool, ToolCaller, ToolFiles } from "./tool.js";
+export type { AgentTool, ToolCaller, ToolFiles } from "./tool.ts";
 
 const TOOLS: AgentTool[] = [...mailTools, ...calendarTools, ...themeTools, ...viewTools];
 
@@ -25,11 +26,18 @@ export function toolTitle(name: string): string | undefined {
   return TOOLS.find((t) => t.name === name)?.title;
 }
 
+/** Mail's tools (views are mail's too) and the calendar's go with their modules. */
+function available(tool: AgentTool): boolean {
+  if (calendarTools.includes(tool)) return runs("calendar");
+  return runs("mail") || themeTools.includes(tool);
+}
+
 /** The tools a caller can use: attachments need files on the device, and its access may leave out changes. */
 export function agentTools(caller: ToolCaller): AgentTool[] {
   const access = caller.access?.() ?? "full-access";
   return TOOLS.filter(
     (t) =>
+      available(t) &&
       (!t.needsFiles || caller.files) &&
       (t.readOnly || access === "full-access" || (access === "safe" && !t.permanent)),
   );

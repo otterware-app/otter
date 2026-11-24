@@ -15,8 +15,8 @@ import type {
   AgentSettings,
   ChatSessionMessage,
   ScheduleSupport,
-} from "../services/agent/types.js";
-import { DEMO_AGENTS } from "./chats.js";
+} from "../services/agent/types.ts";
+import { DEMO_AGENTS } from "./chats.ts";
 
 type Task = Omit<ScheduledTask, "provider">;
 

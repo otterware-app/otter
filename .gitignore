@@ -22,3 +22,8 @@ tmp/
 apps/ios/.build/
 infra/relay/.wrangler.local.jsonc
 /apps/ios-agents/.build/
+apps/*-mobile/ios/
+apps/*-mobile/android/
+apps/*-mobile/.expo/
+apps/*-mobile/expo-env.d.ts
+apps/*-mobile/.metro-health-check*

@@ -8,8 +8,8 @@
 import type { AliasMailbox, MailProviderKind } from "@otter/contracts";
 import type { AliasPictures } from "@otter/contracts/relay";
 
-import { readJson, writeJson } from "../json-file.js";
-import type { MailAccount } from "../types.js";
+import { readJson, writeJson } from "../json-file.ts";
+import type { MailAccount } from "../types.ts";
 
 /** Each account's provider (and IMAP server) as last read or written, for lookups by id that can't wait. */
 const providerKinds = new Map<string, MailProviderKind>();

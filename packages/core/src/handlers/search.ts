@@ -8,14 +8,14 @@
  * providers without server search.
  */
 
-import { handle } from "../ipc.js";
-import { logger } from "../logger.js";
-import { providerFor } from "../providers/index.js";
-import { resolveMailbox } from "../services/alias-mailboxes.js";
-import * as mailStore from "../services/mail-store.js";
-import type { AliasScope } from "../services/mail-store.js";
-import { runAsTask } from "./ipc-budget.js";
-import type { MessageSummary } from "../types.js";
+import { handle } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { providerFor } from "../providers/index.ts";
+import { resolveMailbox } from "../services/alias-mailboxes.ts";
+import * as mailStore from "../services/mail-store.ts";
+import type { AliasScope } from "../services/mail-store.ts";
+import { runAsTask } from "./ipc-budget.ts";
+import type { MessageSummary } from "../types.ts";
 
 const PAGE_SIZE = 50;
 

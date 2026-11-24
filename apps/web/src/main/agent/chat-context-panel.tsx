@@ -9,17 +9,23 @@ import {
   MailIcon,
 } from "lucide-react";
 import type { ChatTab } from "@otter/contracts/chats";
-import type { ScheduledTask } from "@otter/contracts/scheduled";
 
 import { Popover, PopoverPopup, PopoverTrigger } from "@otter/ui/components/popover";
-import { AgentAvatar, openClawAgentId, useChatProvider } from "./agent-providers";
-import { keyOf, useScheduledTasks } from "./agent-scheduled";
-import { isOpenTab, type Conversation } from "./chat-store";
-import { scheduleText, untilText } from "./scheduled-text";
+import { AgentAvatar } from "./agent-providers";
+import { keyOf, useScheduledTasks } from "@otter/client/agents/agent-scheduled";
+import { isOpenTab, type Conversation } from "@otter/client/agents/chat-store";
+import {
+  DETAILS_SHOWN,
+  chatDetails,
+  chatTasks,
+  tabTitle,
+  taskLine,
+} from "@otter/client/agents/chat-details";
 import { toast } from "@otter/ui/components/toast";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
+import { useChatProvider } from "@otter/client/agents/agent-providers";
 
 export const TAB_ICONS = {
   thread: MailIcon,
@@ -27,31 +33,6 @@ export const TAB_ICONS = {
   page: GlobeIcon,
   file: FileIcon,
 };
-
-/** What the agent made: a draft, a file, an event; the rest is what it read. */
-export const isOutput = (tab: ChatTab) =>
-  tab.made ?? (tab.ref.kind === "draft" || tab.ref.kind === "file");
-
-const SHOWN = 5;
-
-/** Shown docked beside the chat when there's room; the button then hides or shows it. */
-const DOCKED_KEY = "otter:chat-details-docked";
-
-export function readDetailsDocked(): boolean {
-  try {
-    return localStorage.getItem(DOCKED_KEY) !== "false";
-  } catch {
-    return true;
-  }
-}
-
-export function saveDetailsDocked(shown: boolean): void {
-  try {
-    localStorage.setItem(DOCKED_KEY, String(shown));
-  } catch {
-    // Without storage it shows each time.
-  }
-}
 
 type DetailsProps = {
   convo: Conversation;
@@ -138,14 +119,7 @@ export function ChatDetailsDock(props: DetailsProps) {
 
 /** The chat's context: the agent and session it runs in, and what it made and used, closed tabs included. */
 function ChatDetails({ convo, onOpen, onOpenTask }: DetailsProps) {
-  const chatAgent = useChatProvider(convo);
-  const agent = openClawAgentId(convo.sessionId);
-  const agentName =
-    (agent ? (chatAgent.provider?.models.find((m) => m.slug === agent)?.name ?? agent) : null) ??
-    chatAgent.name;
-  const about = [agent ? chatAgent.name : null, convo.device?.name].filter(Boolean).join(" · ");
-  const outputs = convo.tabs.filter(isOutput).toReversed();
-  const sources = convo.tabs.filter((t) => !isOutput(t)).toReversed();
+  const { agent, agentName, about, outputs, sources } = chatDetails(convo, useChatProvider(convo));
   return (
     <div className="flex flex-col gap-4 text-sm">
       <div className="flex items-center gap-2">
@@ -186,15 +160,6 @@ const headingClass = "pb-1.5 text-sm font-medium text-muted-foreground";
 const rowClass =
   "-mx-2 flex min-w-0 cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-left outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-focus-ring";
 
-/** A page's title, or where it is when it has none of its own: its site and path. */
-function tabTitle(tab: ChatTab): string {
-  if (tab.ref.kind !== "page" || tab.title !== tab.ref.url || !URL.canParse(tab.ref.url))
-    return tab.title;
-  const url = new URL(tab.ref.url);
-  const path = url.pathname === "/" ? "" : decodeURIComponent(url.pathname).replace(/\/$/, "");
-  return url.host.replace(/^www\./, "") + path;
-}
-
 function TabSection({
   title,
   empty,
@@ -207,7 +172,7 @@ function TabSection({
   onOpen: (tab: ChatTab) => void;
 }) {
   const [all, setAll] = useState(false);
-  const shown = all ? tabs : tabs.slice(0, SHOWN);
+  const shown = all ? tabs : tabs.slice(0, DETAILS_SHOWN);
   return (
     <section className={sectionClass}>
       <h3 className={headingClass}>{title}</h3>
@@ -228,7 +193,7 @@ function TabSection({
           </button>
         );
       })}
-      {tabs.length > SHOWN ? (
+      {tabs.length > DETAILS_SHOWN ? (
         <button
           type="button"
           onClick={() => setAll(!all)}
@@ -250,9 +215,7 @@ function ScheduledSection({
   onOpen: (key: string) => void;
 }) {
   const { data } = useScheduledTasks(true);
-  const tasks = (data ?? []).flatMap((agent) =>
-    agent.tasks.filter((task) => task.chats?.includes(sessionId)),
-  );
+  const tasks = chatTasks(data ?? [], sessionId);
   if (tasks.length === 0) return null;
   const now = Date.now();
   return (
@@ -274,11 +237,4 @@ function ScheduledSection({
       ))}
     </section>
   );
-}
-
-function taskLine(task: ScheduledTask, now: number): string {
-  const when = scheduleText(task.schedule);
-  if (!task.enabled) return `${when} · Paused`;
-  if (task.running) return `${when} · Running now`;
-  return task.nextRunAt ? `${when} · next ${untilText(task.nextRunAt, now)}` : when;
 }

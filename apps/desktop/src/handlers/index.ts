@@ -1,15 +1,15 @@
 import { app, ipcMain, nativeImage } from "electron";
 
-import { invokeBackend, tempFile } from "../backend-host.js";
-import { broadcast } from "../ipc.js";
-import { logger } from "../logger.js";
-import { hostOS } from "../os/index.js";
-import { takePendingMailto } from "../services/mailto-target.js";
-import { takePendingOpenMessage } from "../services/open-message-target.js";
-import { focusMainWindow, openPlaceWindow } from "../windows/main-window.js";
-import { setSettingsTarget, takeSettingsTarget } from "../windows/settings-window.js";
-import { registerSupportHandlers } from "./support.js";
-import { registerBrowserHandlers } from "./browser.js";
+import { invokeBackend, tempFile } from "../backend-host.ts";
+import { broadcast } from "../ipc.ts";
+import { logger } from "../logger.ts";
+import { hostOS } from "../os/index.ts";
+import { takePendingMailto } from "../services/mailto-target.ts";
+import { takePendingOpenMessage } from "../services/open-message-target.ts";
+import { focusMainWindow, openPlaceWindow } from "../windows/main-window.ts";
+import { setSettingsTarget, takeSettingsTarget } from "../windows/settings-window.ts";
+import { registerSupportHandlers } from "./support.ts";
+import { registerBrowserHandlers } from "./browser.ts";
 
 export function registerHandlers(): void {
   registerBrowserHandlers();

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { TextStream } from "@otter/core/extension-kit";
 import type { ChatEvent } from "@otter/core/extension-kit";
-import { OpenClawText, openClawMessageText } from "./openclaw-stream.js";
+import { OpenClawText, openClawMessageText } from "./openclaw-stream.ts";
 
 function transcript(events: ChatEvent[]): string[] {
   const messages = new Map<string, string>();

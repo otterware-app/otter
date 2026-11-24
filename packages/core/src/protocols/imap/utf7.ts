@@ -4,7 +4,7 @@
  * UTF-16 in base64 (with "," for "/") between "&" and "-".
  */
 
-import { fromBase64, toBase64 } from "../../bytes.js";
+import { fromBase64, toBase64 } from "../../bytes.ts";
 
 export function encodeMailboxName(name: string): string {
   let out = "";

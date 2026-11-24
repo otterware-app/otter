@@ -1,0 +1,48 @@
+{
+  "name": "@otter/ui-native",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Otter's design system on React Native, for the iPhone apps: @otter/ui's tokens and components under the same names, drawn natively.",
+  "type": "module",
+  "exports": {
+    "./tokens": "./src/tokens.ts",
+    "./theme": "./src/theme.ts",
+    "./haptics": "./src/haptics.ts",
+    "./accessibility": "./src/accessibility.ts",
+    "./components/*": "./src/components/*.tsx",
+    "./fonts/*": "./fonts/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "expo": "catalog:",
+    "expo-glass-effect": "catalog:",
+    "expo-haptics": "catalog:",
+    "expo-image": "catalog:",
+    "expo-symbols": "catalog:",
+    "react": "catalog:",
+    "react-native": "catalog:",
+    "react-native-gesture-handler": "catalog:",
+    "react-native-reanimated": "catalog:",
+    "react-native-safe-area-context": "catalog:",
+    "react-native-svg": "catalog:",
+    "react-native-worklets": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "expo": "*",
+    "expo-glass-effect": "*",
+    "expo-haptics": "*",
+    "expo-image": "*",
+    "expo-symbols": "*",
+    "react": "*",
+    "react-native": "*",
+    "react-native-gesture-handler": "*",
+    "react-native-reanimated": "*",
+    "react-native-safe-area-context": "*",
+    "react-native-svg": "*",
+    "react-native-worklets": "*"
+  }
+}

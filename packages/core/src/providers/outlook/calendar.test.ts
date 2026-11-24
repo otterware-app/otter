@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { createEvent, syncEvents } from "./calendar.ts";
 
 const graph = vi.hoisted(() => vi.fn());
-vi.mock("./graph.js", async (original) => ({ ...(await original()), graph }));
+vi.mock("./graph.ts", async (original) => ({ ...(await original()), graph }));
 
 const ME = "me@contoso.test";
 const sent = () => graph.mock.calls[0][2].body;

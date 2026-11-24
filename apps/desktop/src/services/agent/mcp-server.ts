@@ -14,11 +14,11 @@ import {
   type ToolCaller,
 } from "@otter/core";
 
-import { appInfo } from "../../backend-protocol.js";
-import { logger } from "../../logger.js";
-import { agentCaller } from "./connected-agents.js";
-import { connectedAgentInstructions } from "./instructions.js";
-import { deviceFiles } from "./local.js";
+import { appInfo } from "../../backend-protocol.ts";
+import { logger } from "../../logger.ts";
+import { agentCaller } from "./connected-agents.ts";
+import { connectedAgentInstructions } from "./instructions.ts";
+import { deviceFiles } from "./local.ts";
 
 export const MCP_SERVER_NAME = OTTER_TOOLS_SERVER;
 

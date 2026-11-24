@@ -21,7 +21,7 @@ WhatsApp's iPhone app, in Otter's face and colors, since a chat with an agent is
 - **Chats** (`Home/ChatsScreen.swift`). T3 Code's header: "Otter Agents" small, search and ⋯
   (Select chats, Read all, the agent to show, On your agents). The shelves as chips: Active
   (unsent drafts and pinned on top; with how many want you), Snoozed, Settled
-  (`Chats/ChatShelves.swift`, apps/web's chat-shelves.ts). A row a chat, as T3 Code's: the title
+  (`Chats/ChatShelves.swift`, @otter/client's agents/chat-shelves.ts). A row a chat, as T3 Code's: the title
   and one quiet line under it. You talk to one or two agents across many chats, so the agent's
   mark is small beside the time, and only when there are several. The line says what
   the chat is doing, the most pressing first: an approval or a question (in the warning color,
@@ -64,7 +64,7 @@ Everything the Mac and web apps' chat does that a phone without the mail can
   streaming turn as its latest, every 300 ms), and every turn whole. A turn keeps the fields this
   app doesn't read (`Chats/Chat.swift`), so writing a chat the Mac made loses nothing of it.
 - **Any number of chats run at once**, each on the agent it started with (`Chats/ChatStore.swift`,
-  apps/web's chat-store.ts): send, queue or steer (Settings › Chat; touch and hold Send for the
+  @otter/client's agents/chat-store.ts): send, queue or steer (Settings › Chat; touch and hold Send for the
   other), stop, retry a failed message, edit or send now what's queued.
 - **A turn that hands off stays open** (`apps/ios`'s `OpenClaw.swift`, as
   extensions/openclaw/core/openclaw.ts): when an OpenClaw agent yields to wait for its subagents

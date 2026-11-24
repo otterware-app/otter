@@ -19,8 +19,8 @@ import {
 
 import { signInPage } from "@otter/shared/sign-in-page";
 
-import { appInfo } from "../backend-protocol.js";
-import { requestMain } from "../main-link.js";
+import { appInfo } from "../backend-protocol.ts";
+import { requestMain } from "../main-link.ts";
 
 declare const __MICROSOFT_CLIENT_ID__: string;
 

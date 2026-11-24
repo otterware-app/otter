@@ -9,7 +9,7 @@
 
 import type { ImapSettings } from "@otter/contracts";
 
-import { platform, type AsyncContext } from "../../platform.js";
+import { platform, type AsyncContext } from "../../platform.ts";
 import {
   connectImap,
   ImapClient,
@@ -18,11 +18,11 @@ import {
   type ImapOptions,
   type SelectedMailbox,
   type SmtpOptions,
-} from "../../protocols/index.js";
-import { getAccount } from "../../services/account-store.js";
-import { getImapPassword, setAsideImapPassword } from "../../services/imap-passwords.js";
-import type { Lane } from "../provider.js";
-import { NeedsPassword } from "./sign-in-failure.js";
+} from "../../protocols/index.ts";
+import { getAccount } from "../../services/account-store.ts";
+import { getImapPassword, setAsideImapPassword } from "../../services/imap-passwords.ts";
+import type { Lane } from "../provider.ts";
+import { NeedsPassword } from "./sign-in-failure.ts";
 
 const IDLE_CLOSE_MS = 2 * 60_000;
 

@@ -27,7 +27,7 @@ import type {
   ForkPoint,
   ToolStep,
 } from "@otter/core/extension-kit";
-import { OPENCLAW_DEFAULTS, type OpenClawSettings } from "./settings.js";
+import { OPENCLAW_DEFAULTS, type OpenClawSettings } from "./settings.ts";
 import {
   GatewayBrowserDeviceAuthLifecycle,
   GatewayProtocolClient,
@@ -36,8 +36,8 @@ import {
   type GatewayBrowserDeviceAuthPlan,
   type GatewayBrowserDeviceIdentity,
 } from "@openclaw/gateway-client/browser";
-import { OpenClawText, openClawMessageText as textOf } from "./openclaw-stream.js";
-import { createTalks, talkReady, type TalkGateway } from "./openclaw-talk.js";
+import { OpenClawText, openClawMessageText as textOf } from "./openclaw-stream.ts";
+import { createTalks, talkReady, type TalkGateway } from "./openclaw-talk.ts";
 import {
   agentAvatar,
   changeOpenClaw,
@@ -46,7 +46,7 @@ import {
   type OpenClawChange,
   type OpenClawModels,
   type Request,
-} from "./models.js";
+} from "./models.ts";
 import {
   channelTargets,
   listTasks,
@@ -58,7 +58,7 @@ import {
   taskModels,
   taskRuns,
   type CronGateway,
-} from "./schedules.js";
+} from "./schedules.ts";
 
 const CONNECT_TIMEOUT_MS = 8_000;
 /** What a request waits for unless it says otherwise; without one, a request on a dead socket waits forever. */

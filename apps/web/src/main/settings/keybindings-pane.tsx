@@ -40,7 +40,7 @@ import {
   useKeybindingsState,
 } from "../keybindings/store";
 import { useCommandHandlers } from "../keybindings/dispatch";
-import { useAccounts, useAllAccountLabels } from "../mail/hooks";
+import { useAccounts, useAllAccountLabels } from "@otter/client/mail/hooks";
 import { keybindingSearchAnchorId, searchableSetting } from "./settings-search";
 import { Button, IconButton } from "@otter/ui/components/button";
 import { HintTooltip } from "@otter/ui/components/tooltip";

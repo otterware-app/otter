@@ -12,7 +12,7 @@ import {
   MAX_CHAT_FILE_BYTES,
 } from "@otter/core";
 
-import { appInfo } from "../../backend-protocol.js";
+import { appInfo } from "../../backend-protocol.ts";
 
 // Keep the old workspace name: renaming it would orphan existing Codex threads.
 export async function agentWorkspace(): Promise<string> {

@@ -1,4 +1,4 @@
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import { useEffect, useState } from "react";
 import { CheckIcon, StarIcon } from "lucide-react";
 import type { KeybindingCommand } from "../keybindings/commands";

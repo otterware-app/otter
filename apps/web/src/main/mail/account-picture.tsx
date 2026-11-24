@@ -1,6 +1,10 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@otter/ui/components/avatar";
-import { getAccountColor, getAccountDisplayName, getAccountPicture } from "./account-style";
-import type { MailAccount } from "./types";
+import {
+  getAccountColor,
+  getAccountDisplayName,
+  getAccountPicture,
+} from "@otter/client/mail/account-style";
+import type { MailAccount } from "@otter/client/mail/types";
 
 export function AccountPicture({
   account,

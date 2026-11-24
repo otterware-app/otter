@@ -1,5 +1,5 @@
 import { isModClick } from "./keybindings/keys";
-import { mailApi } from "./mail/api";
+import { appApi } from "./app-api";
 
 /**
  * ⌘-click (Ctrl-click off the Mac) on a place opens it in a new window, as
@@ -18,7 +18,7 @@ function note(fallback: boolean): void {
   pending = true;
   // Only the navigation this click starts, not a later one.
   setTimeout(() => {
-    if (pending && fallback) void mailApi.openWindow(here());
+    if (pending && fallback) void appApi.openWindow(here());
     pending = false;
   }, 0);
 }

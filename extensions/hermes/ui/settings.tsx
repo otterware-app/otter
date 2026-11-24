@@ -3,23 +3,15 @@ import {
   ModelsSection,
   osNames,
   searchableSetting,
-  useSetProvidersState,
   type AgentSettingsProps,
   type ProviderSnapshot,
 } from "@otter/web/extension-kit";
-import { toast } from "@otter/ui/components/toast";
-import { useState } from "react";
 import { Button } from "@otter/ui/components/button";
 
-import { hermesApi } from "./api";
+import { hermesConnected, hermesSettings, useConnectHermes } from "../shared/connect";
 import { HermesDeliveries } from "./deliveries";
 import { SettingsRow, SettingsSection } from "@otter/ui/components/settings";
 import { Input } from "@otter/ui/components/input";
-
-/** Hermes' settings as core shows them (its key never leaves the backend: only whether there is one). */
-export function hermesSettings(provider: ProviderSnapshot) {
-  return provider.settings as ProviderSnapshot["settings"] & { baseUrl: string; hasKey: boolean };
-}
 
 const SITE_ORIGIN = window.desktopBridge.platform === "web" ? location.origin : null;
 
@@ -28,42 +20,10 @@ export const HERMES_URL_HINT =
     ? `Hermes' built-in API server (port 8642), over HTTPS. Allow ${location.origin} in its API_SERVER_CORS_ORIGINS.`
     : "Hermes' built-in API server (port 8642), reached over Tailscale.";
 
-export function useConnectHermes(provider: ProviderSnapshot) {
-  const setState = useSetProvidersState();
-  const [baseUrl, setBaseUrl] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const connect = async (): Promise<boolean> => {
-    const url = baseUrl.trim() || hermesSettings(provider).baseUrl;
-    if (!url || !apiKey.trim()) {
-      toast.error("API base URL and key are both required");
-      return false;
-    }
-    setSaving(true);
-    console.log("[Settings:connectHermes]");
-    try {
-      setState(
-        await hermesApi.connectHermes({ agent: provider.id, baseUrl: url, apiKey: apiKey.trim() }),
-      );
-      setBaseUrl("");
-      setApiKey("");
-      toast.success(`${provider.name} connected`);
-      return true;
-    } catch (error) {
-      toast.error(`Could not connect: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  };
-  return { baseUrl, setBaseUrl, apiKey, setApiKey, saving, connect };
-}
-
 export function HermesSettings({ provider, update }: AgentSettingsProps) {
   const settings = hermesSettings(provider);
   const { baseUrl, setBaseUrl, apiKey, setApiKey, saving, connect } = useConnectHermes(provider);
-  const connected = Boolean(settings.baseUrl && settings.hasKey);
+  const connected = hermesConnected(provider);
   const device = window.desktopBridge.platform === "web" ? "browser" : osNames.computer;
 
   return (

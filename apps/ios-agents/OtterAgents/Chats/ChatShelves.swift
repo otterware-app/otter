@@ -1,6 +1,6 @@
 import Foundation
 
-/** Where a chat sits in the list (apps/web's chat-shelves.ts). */
+/** Where a chat sits in the list (@otter/client's agents/chat-shelves.ts). */
 nonisolated enum ChatShelf: CaseIterable {
     case pinned, active, snoozed, settled
 

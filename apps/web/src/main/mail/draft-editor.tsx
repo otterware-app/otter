@@ -1,18 +1,28 @@
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { MAY_HAVE_BEEN_SENT, sendWithUndo } from "./undo-send";
+import { sendWithUndo } from "./undo-send";
 import { toast } from "@otter/ui/components/toast";
 import { useQuery } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
-import { useAccounts, useGetAttachment, usePruneThreadRows, useSendMessage } from "./hooks";
-import { mailApi } from "./api";
+import {
+  useAccounts,
+  useGetAttachment,
+  usePruneThreadRows,
+  useSendMessage,
+  MAY_HAVE_BEEN_SENT,
+} from "@otter/client/mail/hooks";
+import { mailApi } from "@otter/client/mail/api";
 import { RichTextArea, textToHtml, type RichTextRef } from "./rich-text";
 import { RecipientInput } from "./recipient-input";
 import { FromPicker } from "./new-message-view";
-import { addressesOf, chosenAddress } from "./send-from";
-import { useDraftAutosave } from "./use-draft-autosave";
-import { normalizeAddressList, parseAddressEntry, splitAddressList } from "./address";
+import { addressesOf, chosenAddress } from "@otter/client/mail/send-from";
+import { draftStatus, useDraftAutosave } from "@otter/client/mail/use-draft-autosave";
+import {
+  normalizeAddressList,
+  parseAddressEntry,
+  splitAddressList,
+} from "@otter/client/mail/address";
 import {
   CcBccToggles,
   ComposeDocument,
@@ -21,15 +31,9 @@ import {
   ComposerFooter,
   SubjectInput,
   DraftRemoteBanner,
-  draftStatus,
 } from "./composer-kit";
-import {
-  CollapsedRow,
-  DayDivider,
-  ExpandedRow,
-  dayKey,
-  type DownloadAttachment,
-} from "./message-reader";
+import { CollapsedRow, DayDivider, ExpandedRow, type DownloadAttachment } from "./message-reader";
+import { dayKey } from "@otter/client/mail/format";
 import {
   AttachmentChips,
   ComposeDropOverlay,
@@ -40,7 +44,7 @@ import {
   useComposeFileDrop,
   loadMessageAttachments,
 } from "./compose-attachments";
-import type { ComposeAttachment, MessageDetail, MessageSummary } from "./types";
+import type { ComposeAttachment, MessageDetail, MessageSummary } from "@otter/client/mail/types";
 import { IconButton } from "@otter/ui/components/button";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 

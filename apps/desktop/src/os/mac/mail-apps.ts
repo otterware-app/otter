@@ -3,7 +3,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import type { MailApps } from "../types.js";
+import type { MailApps } from "../types.ts";
 
 const execFileAsync = promisify(execFile);
 

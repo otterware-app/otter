@@ -10,7 +10,7 @@ import varys from "@otter/extension-varys/core";
 import { runsOn } from "@otter/contracts/extensions";
 import type { CoreExtension } from "@otter/core";
 
-import { backendOS } from "./os/backend.js";
+import { backendOS } from "./os/backend.ts";
 
 const ALL: CoreExtension[] = [
   calendarInvites,

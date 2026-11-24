@@ -9,7 +9,7 @@ import {
   type WebFrameMain,
 } from "electron";
 
-import { connectNativeHost, type NativePort } from "./native-messaging.js";
+import { connectNativeHost, type NativePort } from "./native-messaging.ts";
 
 type Owner = ServiceWorkerMain | WebFrameMain;
 type Connection = { extensionId: string; port?: NativePort; release(): void };

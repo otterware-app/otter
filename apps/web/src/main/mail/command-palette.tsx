@@ -37,9 +37,9 @@ import {
 } from "lucide-react";
 import { AgentIcon } from "../agent/agent-icon";
 import { AccountPicture } from "./account-picture";
-import { useDebouncedValue, useSearchMessages } from "./hooks";
-import { getAccountColor, getAccountDisplayName } from "./account-style";
-import { senderLabel } from "./address";
+import { useDebouncedValue, useSearchMessages } from "@otter/client/mail/hooks";
+import { getAccountColor, getAccountDisplayName } from "@otter/client/mail/account-style";
+import { senderLabel } from "@otter/client/mail/address";
 import { changelogUrl } from "@otter/shared/changelog";
 import { openLink } from "../browser/store";
 import { getThemeModes } from "../theme/themePalette";
@@ -50,26 +50,26 @@ import {
   useAppThemes,
   useThemeChoice,
 } from "../theme/apply-theme";
-import type { MailAccount, MessageSummary, MailView } from "./types";
+import type { MailAccount, MessageSummary, MailView } from "@otter/client/mail/types";
 import type { MailboxTab } from "../mailboxes";
-import { aliasMailboxLook } from "./alias-mailboxes";
+import { aliasMailboxLook } from "@otter/client/mail/alias-mailboxes";
 import { PaneIcon } from "./top-bar";
-import type { SettingsPane } from "./api";
 import type { KeybindingCommand } from "../keybindings/commands";
 import { shortcutLabelFor, useKeybindingsState } from "../keybindings/store";
 import { requestTour, startSetup } from "../onboarding/onboarding";
 import { updateNow, useUpdateState } from "../updates";
 import { requestProblemReport } from "../support/report-problem";
-import { isBlank, useChats } from "../agent/chat-store";
+import { isBlank, useChats } from "@otter/client/agents/chat-store";
 import { ViewMark } from "./view-icon";
-import { useWorkspaces, workspaceSpace } from "../extensions/workspaces";
-import { CALENDAR_SPACE } from "./spaces";
+import { useWorkspaces } from "../extensions/workspaces";
+import { CALENDAR_SPACE, workspaceSpace } from "@otter/client/places";
 import { OtterCalendarIcon } from "./app-icons";
 import { features } from "../features";
 import { shortcutText } from "../keybindings/keys";
 import { MenuShortcut } from "@otter/ui/components/dropdown-menu";
 import { Kbd } from "@otter/ui/components/kbd";
 import { cn } from "@otter/ui/lib/utils";
+import type { SettingsPane } from "../app-api";
 
 const MAX_MAIL_RESULTS = 12;
 

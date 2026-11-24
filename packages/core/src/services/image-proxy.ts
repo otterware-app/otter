@@ -1,4 +1,4 @@
-import { toBase64 } from "../bytes.js";
+import { toBase64 } from "../bytes.ts";
 
 const MAX_PROXY_IMAGE_BYTES = 10 * 1024 * 1024;
 

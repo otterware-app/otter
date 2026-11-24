@@ -61,7 +61,7 @@ class RelayError extends Error {
 
 const account = { user: { id: "u1", email: "me@example.com" } as { id: string } | null };
 
-vi.mock("../otter-account.js", () => ({
+vi.mock("../otter-account.ts", () => ({
   RelayError,
   OTTER_SIGNED_OUT_MESSAGE: "Signed out",
   getOtterUser: () => account.user,
@@ -92,7 +92,7 @@ const openclaw = {
   deviceSecrets: ["device-key"],
 };
 const claude = { ...hermes, kind: "claude", secrets: [], deviceFields: ["binaryPath"] };
-vi.mock("../../extensions.js", () => ({
+vi.mock("../../extensions.ts", () => ({
   registeredAgents: () =>
     new Map<string, unknown>([
       ["hermes", hermes],

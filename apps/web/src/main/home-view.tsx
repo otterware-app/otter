@@ -1,6 +1,7 @@
-import { useHandlers, useLatest } from "./use-latest";
+import { useHandlers, useLatest } from "@otter/client/use-latest";
 import { ExtensionDialogs } from "./extensions/slots";
-import { useWorkspaces, workspaceOf, workspaceSpace } from "./extensions/workspaces";
+import { useWorkspaces, workspaceOf } from "./extensions/workspaces";
+import { CALENDAR_SPACE, CHATS_SPACE, workspaceSpace } from "@otter/client/places";
 import type { WorkspaceLocation } from "./extensions/types";
 import {
   useLayoutEffect,
@@ -15,7 +16,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useMatch, useNavigate, useRouter } from "@tanstack/react-router";
-import { placeHref as hrefOf } from "./places";
+import { placeHref as hrefOf } from "@otter/client/places";
 import { ArrowLeftIcon } from "lucide-react";
 import { EmptyState } from "@otter/ui/components/empty-state";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,7 +39,7 @@ import { CALENDAR_MODES, CalendarView, calendarAccounts } from "./calendar/calen
 import { CalendarPanel } from "./calendar/agenda";
 import { useCalendar } from "./calendar/calendar-store";
 import type { CalendarMode } from "./calendar/dates";
-import { settleChat } from "./agent/chat-shelve-actions";
+import { settleChat } from "@otter/client/agents/chat-actions";
 import {
   isBlank,
   newChat,
@@ -46,10 +47,10 @@ import {
   showChat,
   useChatEvents,
   useChats,
-} from "./agent/chat-store";
-import { useMailChatContext } from "./agent/chat-context";
-import { useChatProvider } from "./agent/agent-providers";
-import { SEARCH_MAILBOX } from "./mail/gmail-query";
+} from "@otter/client/agents/chat-store";
+import { useMailChatContext } from "@otter/client/agents/chat-context";
+import { useChatProvider } from "@otter/client/agents/agent-providers";
+import { SEARCH_MAILBOX } from "@otter/client/mail/gmail-query";
 import { searchTabId, searchTitle, type SearchTab } from "./mail/search-tabs";
 import {
   PanelControls,
@@ -85,7 +86,7 @@ import {
   useTrashThread,
   useUntrashThread,
   useUntrashMessage,
-} from "./mail/hooks";
+} from "@otter/client/mail/hooks";
 import { useCalendarChanges } from "./calendar/api";
 import {
   beginUndoGroup,
@@ -95,26 +96,24 @@ import {
   takeRedo,
   takeUndo,
   type UndoAction,
-} from "./mail/undo";
-import { getAccountColor, getAccountContrastColor } from "./mail/account-style";
-import { mailApi, type ChatChange, type MailtoTarget, type SettingsPane } from "./mail/api";
-import type { QuoteContext } from "./agent/chat-context";
-import type { MailAccount, MessageSummary, MailView } from "./mail/types";
+} from "@otter/client/mail/undo";
+import { getAccountColor, getAccountContrastColor } from "@otter/client/mail/account-style";
+import { mailApi } from "@otter/client/mail/api";
+import type { QuoteContext } from "@otter/client/agents/chat-context";
+import type { MailAccount, MessageSummary, MailView } from "@otter/client/mail/types";
 import {
   useMailViews,
   resolveRules,
   loadLastLocation,
   saveLastLocation,
-} from "./mail/custom-views";
-import { ALL_MAIL_LABEL_ID, ARCHIVE_LABEL_ID } from "./mail/label-names";
-import { capabilitiesOf } from "./mail/capabilities";
+} from "@otter/client/mail/custom-views";
+import { ALL_MAIL_LABEL_ID, ARCHIVE_LABEL_ID } from "@otter/client/mail/label-names";
+import { capabilitiesOf } from "@otter/client/mail/capabilities";
 import { useMonochromeTheme } from "./theme/apply-theme";
 import { features } from "./features";
 import { useMailboxes } from "./mailboxes";
-import type { AliasMailboxEntry } from "./mail/alias-mailboxes";
+import type { AliasMailboxEntry } from "@otter/client/mail/alias-mailboxes";
 import {
-  CALENDAR_SPACE,
-  CHATS_SPACE,
   modeOf,
   type AppMode,
   NEW_CHAT,
@@ -150,6 +149,8 @@ import {
 import { cn } from "@otter/ui/lib/utils";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton } from "@otter/ui/components/button";
+import { type ChatChange } from "@otter/client/agents/api";
+import { appApi, type MailtoTarget, type SettingsPane } from "./app-api";
 
 const READER_MIN_WIDTH = 360;
 // Auto layout: below this, the reader beside the list is too narrow to read in.
@@ -501,7 +502,7 @@ function MailHome() {
   useEffect(() => {
     const pull = () =>
       Promise.resolve()
-        .then(() => mailApi.getSettingsTarget())
+        .then(() => appApi.getSettingsTarget())
         .then((target) => {
           if (!target) return;
           const pane = target.pane ?? lastPaneRef.current;
@@ -526,7 +527,7 @@ function MailHome() {
         if (closeBrowserTabRef.current?.()) return;
         if (closeWorkspaceTabRef.current?.()) return;
         if (closeChatWindowRef.current()) return;
-        void mailApi.closeMainWindow();
+        void appApi.closeMainWindow();
       }),
     [],
   );
@@ -597,7 +598,7 @@ function MailHome() {
     const unblock = router.history.block({
       blockerFn: ({ nextLocation }) => {
         if (!takeNewWindowClick()) return false;
-        void mailApi.openWindow(nextLocation.href);
+        void appApi.openWindow(nextLocation.href);
         return true;
       },
       enableBeforeUnload: false,
@@ -1180,7 +1181,7 @@ function MailHome() {
 
   useEffect(() => {
     const pull = async () => {
-      const target = await mailApi.takePendingMailto();
+      const target = await appApi.takePendingMailto();
       if (!target) return;
       console.log("[HomeView:mailto]", { to: target.to });
       openComposeRef.current(target);
@@ -1197,7 +1198,7 @@ function MailHome() {
   } | null>(null);
   useEffect(() => {
     const pull = async () => {
-      const target = await mailApi.takePendingOpenMessage().catch(() => null);
+      const target = await appApi.takePendingOpenMessage().catch(() => null);
       if (!target) return;
       console.log("[HomeView:openFromNotification]", { messageId: target.messageId });
       setOpenFromNotification(target);

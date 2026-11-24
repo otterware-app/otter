@@ -1,17 +1,17 @@
-import { utf8Encode } from "../../bytes.js";
-import { logger } from "../../logger.js";
-import { sendMail, SmtpError, type ImapClient } from "../../protocols/index.js";
-import { parseHeaders } from "../../protocols/imap/structures.js";
-import { getAccount } from "../../services/account-store.js";
-import * as store from "../../services/mail-store.js";
+import { utf8Encode } from "../../bytes.ts";
+import { logger } from "../../logger.ts";
+import { sendMail, SmtpError, type ImapClient } from "../../protocols/index.ts";
+import { parseHeaders } from "../../protocols/imap/structures.ts";
+import { getAccount } from "../../services/account-store.ts";
+import * as store from "../../services/mail-store.ts";
 import {
   buildMime,
   newMessageIdHeader,
   senderOf,
   splitAddressList,
   type OutgoingMessage,
-} from "../../services/outgoing.js";
-import { SendUncertain, type DraftSave, type OutgoingMail } from "../provider.js";
+} from "../../services/outgoing.ts";
+import { SendUncertain, type DraftSave, type OutgoingMail } from "../provider.ts";
 import {
   accessFor,
   findByMessageId,
@@ -22,10 +22,10 @@ import {
   tagFailure,
   withImap,
   type ImapAccess,
-} from "./connection.js";
-import { ensureFolder, foldersOf, messageId, parseMessageId } from "./folders.js";
-import { referencesFor, threadIdOf } from "./messages.js";
-import { expungeOnly } from "./writes.js";
+} from "./connection.ts";
+import { ensureFolder, foldersOf, messageId, parseMessageId } from "./folders.ts";
+import { referencesFor, threadIdOf } from "./messages.ts";
+import { expungeOnly } from "./writes.ts";
 
 /** Date and Message-ID up front: the Gmail API adds them, SMTP servers may not. */
 const withIds = (mime: string, messageIdHeader: string, date: Date) =>

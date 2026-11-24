@@ -6,10 +6,10 @@ import * as path from "node:path";
 import { UPDATE_STATE_CHANNEL, type UpdateState, type UpdateChannel } from "@otter/contracts";
 import { releaseChannel, versionMatchesChannel } from "@otter/shared/release-channel";
 
-import { broadcast } from "./ipc.js";
-import { logger } from "./logger.js";
-import { hostOS } from "./os/index.js";
-import { rememberWindowsForUpdate } from "./windows/main-window.js";
+import { broadcast } from "./ipc.ts";
+import { logger } from "./logger.ts";
+import { hostOS } from "./os/index.ts";
+import { rememberWindowsForUpdate } from "./windows/main-window.ts";
 
 const { autoUpdater } = electronUpdater;
 

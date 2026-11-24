@@ -4,10 +4,10 @@
  * (IPC timeout) can't lead to a second draft.
  */
 
-import { sha256Hex } from "../bytes.js";
-import { getAccount } from "../services/account-store.js";
-import * as mailStore from "../services/mail-store.js";
-import type { ComposeAttachment, MessageSummary } from "../types.js";
+import { sha256Hex } from "../bytes.ts";
+import { getAccount } from "../services/account-store.ts";
+import * as mailStore from "../services/mail-store.ts";
+import type { ComposeAttachment, MessageSummary } from "../types.ts";
 
 const draftSessions = new Map<string, string>();
 const draftSaveQueues = new Map<string, Promise<unknown>>();

@@ -47,11 +47,11 @@ when a feature lands or goes.
   provider (sidebar, lists, reader, composer); it gates on the mailbox's capabilities.
   Where the main window is (mailbox, label, conversation, Settings pane) is its route
   (`src/main/router.tsx`, TanStack Router): in the hash in the desktop app, real paths on the web
-  (`/mail/you@gmail.com/INBOX/<id>`, `/agents/<id>`, `/calendar/week`, `/settings/appearance`; `src/main/places.ts`;
+  (`/mail/you@gmail.com/INBOX/<id>`, `/agents/<id>`, `/calendar/week`, `/settings/appearance`; `@otter/client`'s `places.ts`;
   addresses from before the rename, without `/mail` or with `/chats`, redirect).
   `src/main/browser/` is the browser (Mac): the panel of `<webview>` tabs beside the mail, a
   chat's pages in the AI workspace, and `openLink`, where links from mail and chat go.
-  The agents' UI is `src/main/agent/`: the chats (`chat-store.ts`, synced through core), shown in the
+  The agents' UI is `src/main/agent/`: the chats (`@otter/client`'s `agents/chat-store.ts`, synced through core), shown in the
   small window over the mail (⌘E, `chat-window.tsx`) or the AI workspace, the Chats space
   (`/agents/<id>`, `chat-workspace.tsx`), with what each chat used and made as tabs.
   `src/web/` is the browser shell: core in a Web Worker (SQLite WASM on OPFS) hosted by one
@@ -86,18 +86,40 @@ when a feature lands or goes.
   `./desktop` (Claude, Codex). A workspace (Otter Drive's Drive) is declared in the manifest's
   `contributes.workspaces` (VS Code's view containers: known without running it) and drawn by the
   `./ui` half: a mode beside Mail, Calendar and Agent at `/<id>/<location>/<item>`, with its own
-  sidebar and main area (`extensions/workspaces.ts`). The manifest's `platforms` (mac, linux, web; absent: all) says where one runs, and each
+  sidebar and main area (`extensions/workspaces.ts`). The manifest's `platforms` (mac, linux, web, ios; absent: all) says where one runs, and each
   app loads the half it can run, as VS Code loads `main` or `browser`: the desktop app `./desktop`
   when there is one, else `./core`; the web app `./core`. Core doesn't import them: the shells pass
   their list to `startCore`
   (`apps/desktop/src/extensions.ts`, `apps/web/src/web/extensions.ts`), the renderer lists the
   `./ui` halves (`extensions/registry.ts`). Extensions reach the app only through the kits
   (`@otter/core/extension-kit`, `@otter/web/extension-kit`,
-  `@otter/desktop/extension-kit`; the last two are aliases), which lint enforces. An agent is
+  `@otter/desktop/extension-kit`; the last two are aliases), and through `@otter/client` for
+  what isn't drawing, which lint enforces. What an extension's `./ui` half shares with a phone's
+  half to come (its typed calls, its forms' state) is in its `shared/` folder (Hermes, OpenClaw,
+  varys), which draws nothing and lint holds to no DOM. An agent is
   the strict contribution: core's `AgentType`, a kind of agent whose `create` makes a
   `ChatProvider` for each agent the user adds (as many of a kind as they like: its settings and
-  secrets are its own, under the agent's id, which chats and tasks name), and, in the renderer,
-  its icon and settings form; the chat UI is shared.
+  secrets are its own, under the agent's id, which chats and tasks name), what the kind says of
+  itself (`shared/traits.ts`, `@otter/client`'s `AgentTraits`), and, in the renderer, its icon
+  and settings form; the chat UI is shared.
+- `packages/client` (`@otter/client`): what every interface does that isn't drawing, shared by
+  the web renderer and the phone apps to come: the one way to core (`src/bridge.ts`: `ipc`, `task`,
+  `listen`), the agents' calls (`agents/api.ts`, `agentApi`), the chat store, and the logic
+  around it (shelves, runs, schedule text): what the chats list says of each chat
+  (`agents/chat-list.ts`), the transcript's rows and work log (`transcript.ts`, `work-log.ts`),
+  the composer (`composer.ts`, attachments, quotes, the queue), approvals and questions, a chat's
+  details and files, the model picker and its synced favorites (`model-picker.ts`,
+  `model-prefs.ts`), a call (`talk.ts`, over the audio each app supplies: `TalkAudio`), the
+  agent's browser (`agent-browser.ts`), scheduled tasks and their editor (`agent-scheduled.ts`,
+  `scheduled-editor.ts`) and the agents' settings (`agent-settings.ts`, `agent-channels.ts`);
+  what a file previews as (`file-preview.ts`); the mail calls (`mail/api.ts`, `mailApi`), their
+  TanStack Query hooks (`mail/hooks.ts`) and the mail logic screens share (addresses, reply and
+  forward, search operators, undo, labels, rows and dates, draft autosave); the preferences
+  that follow the Otter account (`preferences.ts`); and the app's paths (`places.ts`). The
+  desktop shell's own calls (windows, Settings, the default mail app) stay in the web app
+  (`src/main/app-api.ts`). No DOM and no React Native: what it needs of the app
+  (storage, focus, notices) it asks of the host each app sets at startup (`src/host.ts`; the
+  web's is `apps/web/src/main/client-host.ts`), and lint holds it to that.
 - `packages/contracts`: types shared by both sides, including `DesktopBridge`, the
   `window.desktopBridge` API the preload exposes, and the relay's API (`src/relay.ts`).
 - `packages/ui` (`@otter/ui`): the design system, shadcn-style on Base UI (Radix is gone, and

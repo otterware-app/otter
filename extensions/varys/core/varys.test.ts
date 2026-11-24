@@ -15,16 +15,16 @@ import type { AgentContext, AgentRun, ChatEvent } from "@otter/core/extension-ki
 import { errAsync, ok, okAsync, err, type ResultAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { VarysSettings } from "./settings.js";
+import type { VarysSettings } from "./settings.ts";
 
-vi.mock("../../../packages/core/src/platform.js", () => ({
+vi.mock("../../../packages/core/src/platform.ts", () => ({
   platform: () => ({ kind: "desktop", appVersion: "test", log: () => {} }),
 }));
 /** A varys agent as the SDK shows it, played by the test. */
 const agent = vi.hoisted(() => ({ fake: null as unknown as ReturnType<typeof fakeVarys> }));
 vi.mock("@generalpursuit/varys", () => ({ connect: () => ok(agent.fake.varys) }));
 
-const { varysAgent } = await import("./varys.js");
+const { varysAgent } = await import("./varys.ts");
 
 const paired = (id: string): AgentContext => ({
   id,

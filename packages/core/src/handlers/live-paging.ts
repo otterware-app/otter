@@ -1,8 +1,8 @@
-import { findProvider, isSignedIn, providerFor } from "../providers/index.js";
-import * as mailStore from "../services/mail-store.js";
-import type { MessageSummary } from "../types.js";
-import { sleep } from "./ipc-budget.js";
-import { hasPendingLabelWrites } from "../services/pending-label-writes.js";
+import { findProvider, isSignedIn, providerFor } from "../providers/index.ts";
+import * as mailStore from "../services/mail-store.ts";
+import type { MessageSummary } from "../types.ts";
+import { sleep } from "./ipc-budget.ts";
+import { hasPendingLabelWrites } from "../services/pending-label-writes.ts";
 
 // Lists read the local cache, which on a big mailbox fills in over a long
 // time. When a page comes up short for an account that isn't fully synced,

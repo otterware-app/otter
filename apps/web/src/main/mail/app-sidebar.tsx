@@ -15,9 +15,8 @@ import { AddMailboxMenu } from "./add-mailbox";
 import { AgentIcon } from "../agent/agent-icon";
 import { type NavGlyphProps, OtterCalendarIcon, OtterMailIcon } from "./app-icons";
 import { AgentSidebar } from "../agent/agent-sidebar";
-import type { SettingsPane } from "./api";
-import { useChats } from "../agent/chat-store";
-import { useAddAccount, useViewUnreadCounts } from "./hooks";
+import { useChats } from "@otter/client/agents/chat-store";
+import { useAddAccount, useViewUnreadCounts } from "@otter/client/mail/hooks";
 import { ScheduledMailButton } from "./mail-schedule";
 import { useSidebarLayout } from "./sidebar-layout";
 import {
@@ -36,7 +35,7 @@ import { VIEW_LIST, type AppMode } from "./spaces";
 import { SignInCards, SyncButton } from "./sync-health";
 import { toast } from "@otter/ui/components/toast";
 import { useInboxUnread, useMailboxOptions, type MailboxOption } from "./top-bar";
-import type { MailAccount, MailView } from "./types";
+import type { MailAccount, MailView } from "@otter/client/mail/types";
 import type { MailboxTab } from "../mailboxes";
 import { ViewMark } from "./view-icon";
 import { inNewWindow } from "../new-window-click";
@@ -51,6 +50,7 @@ import {
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
+import type { SettingsPane } from "../app-api";
 
 function AppSidebarView({
   accounts,

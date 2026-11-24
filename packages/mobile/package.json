@@ -1,0 +1,38 @@
+{
+  "name": "@otter/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "What both iPhone apps share to host core: its Platform on iOS, the bridge the screens call it through, @otter/client's host, and the native module (Swift) behind them.",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@otter/client": "workspace:*",
+    "@otter/contracts": "workspace:*",
+    "@otter/core": "workspace:*",
+    "@otter/shared": "workspace:*",
+    "expo-constants": "~58.0.16",
+    "expo-crypto": "~58.0.8",
+    "expo-file-system": "~58.0.14",
+    "expo-localization": "~58.0.5",
+    "expo-notifications": "~58.1.9",
+    "expo-sharing": "~58.0.23",
+    "expo-sqlite": "~58.0.18"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "expo": "catalog:",
+    "react": "catalog:",
+    "react-native": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

@@ -1,6 +1,6 @@
 import { VIEW_COLORS, VIEW_ICON_KEYS } from "@otter/shared/view-marks";
-import type { MailAccount, MailView, ViewRule } from "../../../types.js";
-import { labelId, labelsOf } from "./mail.js";
+import type { MailAccount, MailView, ViewRule } from "../../../types.ts";
+import { labelId, labelsOf } from "./mail.ts";
 import {
   invoke,
   listMailboxes,
@@ -9,7 +9,7 @@ import {
   str,
   type AgentTool,
   type ToolArgs,
-} from "./tool.js";
+} from "./tool.ts";
 
 const listViews = async () =>
   (await invoke<MailView[]>("gmail:listViews", {})).filter((v) => v.kind === "custom");

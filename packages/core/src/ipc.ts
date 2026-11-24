@@ -1,11 +1,11 @@
 import type { ReportTags } from "@otter/shared/error-reports";
 
-import { SignInCancelledError, SignInTimedOutError } from "./google.js";
-import { logger } from "./logger.js";
-import { platform } from "./platform.js";
-import { isSignInFailure } from "./providers/imap/sign-in-failure.js";
-import { imapHostOf, isAccountId, providerKindOf } from "./services/account-store.js";
-import { knownImapServer } from "./services/imap-discovery.js";
+import { SignInCancelledError, SignInTimedOutError } from "./google.ts";
+import { logger } from "./logger.ts";
+import { platform } from "./platform.ts";
+import { isSignInFailure } from "./providers/imap/sign-in-failure.ts";
+import { imapHostOf, isAccountId, providerKindOf } from "./services/account-store.ts";
+import { knownImapServer } from "./services/imap-discovery.ts";
 
 export type Handler = (params: unknown) => unknown;
 

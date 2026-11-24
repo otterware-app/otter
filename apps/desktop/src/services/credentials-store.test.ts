@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vite-plus/test";
-import { getCredentials } from "./credentials-store.js";
+import { getCredentials } from "./credentials-store.ts";
 
 afterEach(() => vi.unstubAllEnvs());
 

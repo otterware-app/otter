@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import * as NodeFS from "node:fs";
 
-import { penVariables, resolveColors } from "./tokens.ts";
+import { nativeTokensModule, penVariables, resolveColors } from "./tokens.ts";
 
 const read = (path: string) => NodeFS.readFileSync(new URL(path, import.meta.url), "utf8");
 const tokensCss = read("./styles/tokens.css");
@@ -11,6 +11,36 @@ describe("design tokens", () => {
   it("are what design/otter.pen draws with (pnpm design:tokens)", () => {
     const committed = JSON.parse(read("../../../design/tokens.json"));
     expect(committed).toEqual(penVariables(tokensCss, globalsCss));
+  });
+
+  it("are what @otter/ui-native draws with (pnpm design:tokens)", () => {
+    expect(read("../../ui-native/src/tokens.ts")).toBe(nativeTokensModule(tokensCss, globalsCss));
+  });
+
+  it("are what the utilities paint: the contrast layer at its default changes no role", () => {
+    const defaults = new Map(
+      [...globalsCss.matchAll(/--(appearance-contrast-[\w-]+): ([\d.]+%);/g)].map((m) => [
+        m[1]!,
+        m[2]!,
+      ]),
+    );
+    const layer = /:root,\s*\[data-app-sidebar\] \{([\s\S]*?)\n\}/
+      .exec(globalsCss)![1]!
+      .replace(/var\(--(appearance-contrast-(?:base|boost|border-boost))\)/g, (_, name: string) =>
+        defaults.get(name)!,
+      );
+    const colors = resolveColors(tokensCss);
+    const palette = (mode: "light" | "dark") =>
+      [...colors].map(([name, value]) => `--${name}: ${value[mode]};`).join("\n");
+    const contrast = resolveColors(
+      `:root {\n${palette("light")}\n--appearance-contrast-target: black;\n${layer}\n}\n` +
+        `.dark {\n${palette("dark")}\n--appearance-contrast-target: white;\n}`,
+    );
+    const roles = [...contrast.keys()].filter((name) => name.startsWith("contrast-"));
+    expect(roles.length).toBeGreaterThan(10);
+    for (const role of roles) {
+      expect(contrast.get(role), role).toEqual(colors.get(role.slice("contrast-".length)));
+    }
   });
 
   it("take the sidebar's roles from its own scope", () => {

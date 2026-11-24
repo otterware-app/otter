@@ -6,7 +6,7 @@
 import { type AgentMutation, type AgentRecord, type ChatRecord } from "@otter/contracts/agent-sync";
 import { chatTabId, type ChatTab, type ChatTabRef, type ChatTurn } from "@otter/contracts/chats";
 
-import type { ProviderModel } from "../services/agent/types.js";
+import type { ProviderModel } from "../services/agent/types.ts";
 
 export const DEMO_AGENTS = {
   brokk: "demo-brokk",

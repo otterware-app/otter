@@ -2,8 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import * as XLSX from "@e965/xlsx";
 
-import { delimited, documentKind, emailPage, patchWorkbook, slugFor } from "./drive.js";
-import { parseDelimited } from "../ui/table.js";
+import { delimited, documentKind, emailPage, patchWorkbook, slugFor } from "./drive.ts";
+import { parseDelimited } from "../ui/table.ts";
 
 describe("slugFor", () => {
   it("makes a valid Otter Drive slug with a random tail", () => {

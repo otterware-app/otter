@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { SupportTerminals } from "@otter/shared/support";
 
-import type { HostOS } from "../os/types.js";
+import type { HostOS } from "../os/types.ts";
 
 type Terminals = HostOS["terminals"];
 

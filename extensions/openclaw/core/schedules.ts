@@ -11,7 +11,7 @@ import type {
   TaskSchedule,
 } from "@otter/contracts/scheduled";
 
-import { gatewayModels } from "./models.js";
+import { gatewayModels } from "./models.ts";
 
 /** The gateway as the scheduler sees it: what it answers, what this device may do, its agents. */
 export type CronGateway = {

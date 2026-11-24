@@ -1,5 +1,5 @@
 /** From T3 Code (github.com/pingdotgg/t3code, apps/web/src/components/settings/ThemeColorPicker.tsx; MIT, see THIRD_PARTY_NOTICES.md). */
-import { useLatest } from "../../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { isThemeColor, themeColorToHex, type ThemeColorRole } from "../../theme/themePalette";
 import { cn } from "@otter/ui/lib/utils";

@@ -1,9 +1,7 @@
 import { useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { ChevronDownIcon } from "lucide-react";
-import { readableError } from "../mail/add-mailbox";
-import { useAgentProviders } from "./agent-providers";
-import { regenerateTitle, renameChat, type Conversation } from "./chat-store";
-import { toast } from "@otter/ui/components/toast";
+import type { Conversation } from "@otter/client/agents/chat-store";
+import { regenerateChatTitle, renameChatAs } from "@otter/client/agents/chat-actions";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -16,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@otter/ui/components/dropdown-menu";
 import { cn } from "@otter/ui/lib/utils";
+import { useAgentProviders } from "@otter/client/agents/agent-providers";
 
 /** A chat's title in a header: double-click to rename, right-click to rename or regenerate it.
  *  With a `menu`, a click opens it instead, and double-click doesn't rename. */
@@ -39,9 +38,7 @@ export function ChatTitle({
           title={chat.title}
           onDone={(title) => {
             setRenaming(false);
-            if (title === null) return;
-            if (!title.trim()) toast.warning("A chat's title can't be empty");
-            else void renameChat(chat.id, title, titles);
+            if (title !== null) renameChatAs(chat.id, title, titles);
           }}
         />
       </span>
@@ -90,13 +87,7 @@ export function ChatTitle({
               disabled={regenerating}
               onClick={() => {
                 setRegenerating(true);
-                void regenerateTitle(chat.id)
-                  .catch((err: unknown) =>
-                    toast.error("Couldn't regenerate the title", {
-                      description: readableError(err),
-                    }),
-                  )
-                  .finally(() => setRegenerating(false));
+                void regenerateChatTitle(chat.id).finally(() => setRegenerating(false));
               }}
             >
               {regenerating ? "Regenerating…" : "Regenerate title"}

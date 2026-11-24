@@ -1,15 +1,15 @@
 import { OUTLOOK_CAPABILITIES } from "@otter/contracts";
 
-import { SignInCancelledError } from "../google.js";
-import { broadcast, handle } from "../ipc.js";
-import { platform, type MicrosoftSignIn } from "../platform.js";
-import * as accountStore from "../services/account-store.js";
-import { refreshProfiles } from "../services/google-profile.js";
-import { accountAdded } from "../services/linked-accounts.js";
-import * as mailSync from "../services/mail-sync.js";
-import { syncedSignature } from "../services/preferences.js";
-import { forgetRefusals } from "../services/connections.js";
-import type { MailAccount } from "../types.js";
+import { SignInCancelledError } from "../google.ts";
+import { broadcast, handle } from "../ipc.ts";
+import { platform, type MicrosoftSignIn } from "../platform.ts";
+import * as accountStore from "../services/account-store.ts";
+import { refreshProfiles } from "../services/google-profile.ts";
+import { accountAdded } from "../services/linked-accounts.ts";
+import * as mailSync from "../services/mail-sync.ts";
+import { syncedSignature } from "../services/preferences.ts";
+import { forgetRefusals } from "../services/connections.ts";
+import type { MailAccount } from "../types.ts";
 
 export async function addOutlookAccount(params: unknown): Promise<MailAccount | null> {
   const auth = platform().microsoft;

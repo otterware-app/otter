@@ -2,7 +2,7 @@ import Foundation
 import Observation
 
 /**
- * The chats and what runs in them (apps/web's chat-store.ts, for this iPhone): the account's
+ * The chats and what runs in them (@otter/client's agents/chat-store.ts, for this iPhone): the account's
  * list, the turns in flight, what they ask, and what waits its turn. Screens render from it; the
  * relay catches up behind it (`ChatSync`).
  */
@@ -974,7 +974,7 @@ final class ChatStore {
         return nil
     }
 
-    /** The id every device gives the chat an agent delivers to (apps/web's chat-store.ts). */
+    /** The id every device gives the chat an agent delivers to (@otter/client's agents/chat-store.ts). */
     static func deliveredId(agent: String, session: String) -> String {
         String("\(agent)-\(session)".map { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "-" }.prefix(64))
     }

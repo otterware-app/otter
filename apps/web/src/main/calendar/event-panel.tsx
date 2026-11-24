@@ -22,7 +22,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { meetingProvider, type MeetingService } from "@otter/contracts";
-import { getAccountDisplayName } from "../mail/account-style";
+import { getAccountDisplayName } from "@otter/client/mail/account-style";
 import {
   calendarKey,
   eventTimes,

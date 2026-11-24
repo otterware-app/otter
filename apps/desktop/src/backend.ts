@@ -13,13 +13,13 @@ import {
 } from "@otter/core";
 import { errorReportOptions, reportLog, SENTRY_DSN } from "@otter/shared/error-reports";
 
-import { appInfo, type ToBackend } from "./backend-protocol.js";
-import { desktopExtensions } from "./extensions.js";
-import { registerBackendHandlers } from "./handlers/backend.js";
-import { logger, reportLogsTo, sendLogsTo } from "./logger.js";
-import { postToMain, settleRequest, tellMain } from "./main-link.js";
-import { desktopPlatform, resumeListeners, setDesktopPresence } from "./platform.js";
-import { serverUrl } from "./services/agent/mcp-server.js";
+import { appInfo, type ToBackend } from "./backend-protocol.ts";
+import { desktopExtensions } from "./extensions.ts";
+import { registerBackendHandlers } from "./handlers/backend.ts";
+import { logger, reportLogsTo, sendLogsTo } from "./logger.ts";
+import { postToMain, settleRequest, tellMain } from "./main-link.ts";
+import { desktopPlatform, resumeListeners, setDesktopPresence } from "./platform.ts";
+import { serverUrl } from "./services/agent/mcp-server.ts";
 
 sendLogsTo((level, scope, message, data) => tellMain({ kind: "log", level, scope, message, data }));
 

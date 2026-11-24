@@ -5,9 +5,9 @@
  * pasted screenshot that only ever existed in memory).
  */
 
-import { toBase64 } from "../../bytes.js";
-import { platform } from "../../platform.js";
-import type { ChatAttachment } from "./types.js";
+import { toBase64 } from "../../bytes.ts";
+import { platform } from "../../platform.ts";
+import type { ChatAttachment } from "./types.ts";
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_FILE_BYTES = 50 * 1024 * 1024;

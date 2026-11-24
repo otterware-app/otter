@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { helperInput } from "./translator.js";
+import { helperInput } from "./translator.ts";
 
 describe("helperInput", () => {
   it("replaces lone surrogates, which Foundation's JSONDecoder rejects", () => {

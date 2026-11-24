@@ -1,4 +1,4 @@
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   ArrowDownIcon,
@@ -19,29 +19,22 @@ import {
 } from "lucide-react";
 import { AgentIcon } from "../agent/agent-icon";
 import { Switch } from "@otter/ui/components/switch";
-import { mailApi, type NotificationsMode, type SyncSettings } from "../mail/api";
-import {
-  ImapAccountDialog,
-  readableError,
-  useAddOutlook,
-  type ImapService,
-} from "../mail/add-mailbox";
+import { mailApi, type NotificationsMode, type SyncSettings } from "@otter/client/mail/api";
+import { ImapAccountDialog, useAddOutlook, type ImapService } from "../mail/add-mailbox";
+import { readableError } from "@otter/client/errors";
 import { GmailMark, MicrosoftMark } from "../mail/provider-mark";
-import { getAccountDisplayName } from "../mail/account-style";
+import { getAccountDisplayName } from "@otter/client/mail/account-style";
 import { AccountPicture } from "../mail/account-picture";
 import {
   getAdvanceDirection,
   setAdvanceDirection,
   type AdvanceDirection,
-} from "../mail/advance-direction";
+} from "@otter/client/mail/advance-direction";
 import {
   PROVIDER_STATUS_DOT,
   AgentFace,
   ProviderIcon,
-  isProviderUsable,
   providerSummary,
-  useAgentProviders,
-  useSetProvidersState,
 } from "../agent/agent-providers";
 import {
   syncLabel,
@@ -50,9 +43,9 @@ import {
   useAddAccount,
   useGlobalSyncStatus,
   useMailProviders,
-} from "../mail/hooks";
+} from "@otter/client/mail/hooks";
 import { toast } from "@otter/ui/components/toast";
-import type { MailAccount } from "../mail/types";
+import type { MailAccount } from "@otter/client/mail/types";
 import { WindowTitle } from "../mail/top-bar";
 import { OtterSignInOnboardingLink } from "../settings/otter-account-pane";
 import {
@@ -87,6 +80,13 @@ import otterIconUrl from "../assets/otter-icon.png";
 import { Button } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
 import { SettingsGroup, SettingsRow } from "@otter/ui/components/settings";
+import { agentApi } from "@otter/client/agents/api";
+import {
+  isProviderUsable,
+  useAgentProviders,
+  useSetProvidersState,
+} from "@otter/client/agents/agent-providers";
+import { appApi } from "../app-api";
 
 const STEPS = ["welcome", "mailbox", "look", "habits", "agent", "keys", "done"] as const;
 type Step = (typeof STEPS)[number];
@@ -594,7 +594,7 @@ function HabitsStep() {
 
   const refreshDefaultMail = () => {
     if (!features.defaultMailApp) return;
-    mailApi.getDefaultMailStatus().then(
+    appApi.getDefaultMailStatus().then(
       (s) => setIsDefaultMail(s.isDefault),
       () => {},
     );
@@ -694,7 +694,7 @@ function HabitsStep() {
                       disabled={isDefaultMail === null}
                       onClick={() => {
                         console.log("[Setup:setDefaultMailApp]");
-                        void mailApi
+                        void appApi
                           .setDefaultMailApp()
                           .catch(() => {})
                           .then(refreshDefaultMail);
@@ -720,13 +720,13 @@ function AgentStep({ firstRun }: { firstRun: boolean }) {
   const [connecting, setConnecting] = useState<string | null>(null);
   const pick = (id: string) => {
     console.log("[Setup:selectAgent]", { id });
-    mailApi
-      .updateAgentSettings({ selected: id })
+    agentApi
+      .updateSettings({ selected: id })
       .then(setState, (error: unknown) => toast.error(`Could not save: ${String(error)}`));
   };
   const add = (kind: string) => {
     console.log("[Setup:addAgent]", { kind });
-    mailApi.addAgent(kind).then(
+    agentApi.add(kind).then(
       ({ id, state: next }) => {
         setState(next);
         if (agentContribution(kind)?.Connect) setConnecting(id);

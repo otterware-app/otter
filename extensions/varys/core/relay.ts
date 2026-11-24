@@ -16,7 +16,7 @@ import {
   type AgentId,
 } from "@otter/core/extension-kit";
 
-import type { VarysSettings } from "./settings.js";
+import type { VarysSettings } from "./settings.ts";
 
 /** Names this device's grant a channel of the account's; nothing without the Otter account. */
 export async function registerRelay(agent: AgentId, varys: Varys, name: string): Promise<void> {

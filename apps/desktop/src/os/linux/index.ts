@@ -1,12 +1,12 @@
 import { app, Menu, nativeTheme, safeStorage, Tray } from "electron";
 
-import { logger } from "../../logger.js";
-import { appIconImage } from "../../resources.js";
-import type { HostOS } from "../types.js";
-import { HIDDEN_FLAG, setAutostart } from "./autostart.js";
-import { listMailApps, setDefaultMailApp } from "./mail-apps.js";
-import { linuxTerminals } from "./terminals.js";
-import { nativeMessagingDirectories } from "./native-messaging.js";
+import { logger } from "../../logger.ts";
+import { appIconImage } from "../../resources.ts";
+import type { HostOS } from "../types.ts";
+import { HIDDEN_FLAG, setAutostart } from "./autostart.ts";
+import { listMailApps, setDefaultMailApp } from "./mail-apps.ts";
+import { linuxTerminals } from "./terminals.ts";
+import { nativeMessagingDirectories } from "./native-messaging.ts";
 
 const TOPBAR_HEIGHT = 42;
 

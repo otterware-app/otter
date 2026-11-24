@@ -2,7 +2,7 @@
 
 import { landLabelChange, type Landing } from "@otter/contracts";
 
-import type { MessageSummary } from "../types.js";
+import type { MessageSummary } from "../types.ts";
 
 const SETTLED_GRACE_MS = 30_000;
 

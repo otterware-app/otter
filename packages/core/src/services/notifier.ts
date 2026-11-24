@@ -16,16 +16,16 @@
 import { aliasMailboxName, validAliasMailboxes } from "@otter/contracts";
 
 import { findVerificationCode, mentionsVerificationCode } from "@otter/shared/verification-code";
-import { logger } from "../logger.js";
-import { platform } from "../platform.js";
-import { providerFor } from "../providers/index.js";
-import { getAccount, listAccounts } from "./account-store.js";
-import { aliasMailboxFor } from "./alias-mailboxes.js";
-import { turnedOffMailboxes } from "./mail-sync.js";
-import { getSettings } from "./settings-store.js";
-import * as mailStore from "./mail-store.js";
-import { bodyText } from "./agent/tools/text.js";
-import type { MailAccount, MessageSummary } from "../types.js";
+import { logger } from "../logger.ts";
+import { platform } from "../platform.ts";
+import { providerFor } from "../providers/index.ts";
+import { getAccount, listAccounts } from "./account-store.ts";
+import { aliasMailboxFor } from "./alias-mailboxes.ts";
+import { turnedOffMailboxes } from "./mail-sync.ts";
+import { getSettings } from "./settings-store.ts";
+import * as mailStore from "./mail-store.ts";
+import { bodyText } from "./agent/tools/text.ts";
+import type { MailAccount, MessageSummary } from "../types.ts";
 
 const MAX_INDIVIDUAL_NOTIFICATIONS = 3;
 

@@ -5,14 +5,14 @@ const dismissNotification = vi.fn();
 const broadcast = vi.fn();
 let mockSettings = { notificationsMode: "inbox", agentNotificationsMode: "all" as const };
 
-vi.mock("../../platform.js", () => ({
+vi.mock("../../platform.ts", () => ({
   platform: () => ({ notify, dismissNotification }),
 }));
-vi.mock("../../ipc.js", () => ({ broadcast }));
-vi.mock("../settings-store.js", () => ({
+vi.mock("../../ipc.ts", () => ({ broadcast }));
+vi.mock("../settings-store.ts", () => ({
   getSettings: async () => mockSettings,
 }));
-vi.mock("./settings.js", () => ({
+vi.mock("./settings.ts", () => ({
   getProviderSettings: async () => ({
     selected: "home",
     agents: [
@@ -28,7 +28,7 @@ vi.mock("./settings.js", () => ({
   }),
 }));
 
-const { notifyAsk, dismissNotification: dismiss } = await import("./service.js");
+const { notifyAsk, dismissNotification: dismiss } = await import("./service.ts");
 
 const ask = (key: string, viewing: boolean) =>
   notifyAsk("home", {

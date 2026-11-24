@@ -5,8 +5,8 @@
  * "run" or "approve" asks before a step; "fail" fails; "take your time" takes its time. A steer is
  * read after the step running when it's sent; one still unread when the run ends comes back.
  */
-import type { CoreExtension } from "../extensions.js";
-import { chatFile } from "../services/agent/files.js";
+import type { CoreExtension } from "../extensions.ts";
+import { chatFile } from "../services/agent/files.ts";
 import type {
   AgentSettings,
   ApprovalDecision,
@@ -14,9 +14,9 @@ import type {
   Emit,
   SendTurnInput,
   ToolStep,
-} from "../services/agent/types.js";
-import { DEMO_MODELS } from "./chats.js";
-import { scriptedSchedules } from "./schedules.js";
+} from "../services/agent/types.ts";
+import { DEMO_MODELS } from "./chats.ts";
+import { scriptedSchedules } from "./schedules.ts";
 
 /** Each kind of agent the extensions bring, run by the script. */
 export function withFakeAgents(extensions: readonly CoreExtension[]): CoreExtension[] {

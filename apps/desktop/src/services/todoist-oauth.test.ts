@@ -1,7 +1,7 @@
 import { it, expect, vi } from "vite-plus/test";
-import { todoistSignIn } from "./todoist-oauth.js";
+import { todoistSignIn } from "./todoist-oauth.ts";
 const opened = vi.hoisted(() => vi.fn());
-vi.mock("../main-link.js", () => ({ requestMain: opened }));
+vi.mock("../main-link.ts", () => ({ requestMain: opened }));
 it("accepts only the current loopback callback and closes the listener afterward", async () => {
   let redirect = "";
   opened.mockImplementationOnce(async (_kind: string, { url }: { url: string }) => {

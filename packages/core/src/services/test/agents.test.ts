@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const secrets = new Map<string, string>();
 const database = new DatabaseSync(":memory:");
-vi.mock("../../platform.js", () => ({
+vi.mock("../../platform.ts", () => ({
   platform: () => ({
     database: () => database,
     secrets: {
@@ -13,14 +13,14 @@ vi.mock("../../platform.js", () => ({
     },
   }),
 }));
-vi.mock("../otter-account.js", () => ({
+vi.mock("../otter-account.ts", () => ({
   RelayError: Error,
   getOtterUser: () => ({ id: "u1" }),
   onOtterAccountChange: () => {},
   relayRequest: () => new Promise(() => {}),
 }));
-vi.mock("../../ipc.js", () => ({ broadcast: vi.fn() }));
-vi.mock("../../logger.js", () => ({ logger: { info: vi.fn(), failure: vi.fn() } }));
+vi.mock("../../ipc.ts", () => ({ broadcast: vi.fn() }));
+vi.mock("../../logger.ts", () => ({ logger: { info: vi.fn(), failure: vi.fn() } }));
 
 const made: { id: string; shutdown: ReturnType<typeof vi.fn> }[] = [];
 const ready = async () => ({
@@ -57,7 +57,7 @@ const claude = {
   deviceFields: ["binaryPath"],
   create: () => ({ shutdown: vi.fn(), checkStatus: ready }),
 };
-vi.mock("../../extensions.js", () => ({
+vi.mock("../../extensions.ts", () => ({
   registeredAgents: () =>
     new Map<string, unknown>([
       ["hermes", hermes],
@@ -65,9 +65,9 @@ vi.mock("../../extensions.js", () => ({
     ]),
 }));
 
-const service = await import("../agent/service.js");
-const { getProviderSettings } = await import("../agent/settings.js");
-const { agentDb } = await import("../agent-sync.js");
+const service = await import("../agent/service.ts");
+const { getProviderSettings } = await import("../agent/settings.ts");
+const { agentDb } = await import("../agent-sync.ts");
 
 beforeEach(async () => {
   secrets.clear();
@@ -126,7 +126,7 @@ describe("following the account", () => {
     const cc = (await service.addAgent("claude")).id;
     await service.updateProviderSettings({ [cc]: { model: "opus", binaryPath: "/opt/claude" } });
 
-    const { entries } = await import("../agent-sync.js");
+    const { entries } = await import("../agent-sync.ts");
     expect(entries("agent/").map(({ value }) => value)).toMatchObject([
       { id: cc, kind: "claude", settings: { model: "opus" } },
     ]);
@@ -141,7 +141,7 @@ describe("following the account", () => {
 
   it("sends a key as the account's, and the agent's removal with it", async () => {
     const brokk = (await service.addAgent("hermes")).id;
-    await (await import("../agent/settings.js")).agentSecrets(brokk).set("key", "sk-brokk");
+    await (await import("../agent/settings.ts")).agentSecrets(brokk).set("key", "sk-brokk");
     expect(secrets.get(`agent:${brokk}:key`)).toBe("sk-brokk");
     const queued = () =>
       database

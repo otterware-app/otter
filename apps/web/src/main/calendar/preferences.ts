@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { setSyncedPreference } from "../synced-preferences";
+import { setSyncedPreference } from "@otter/client/preferences";
 
 export type WeekStart = "auto" | "sunday" | "monday" | "saturday";
 export type TimeFormat = "auto" | "12" | "24";

@@ -1,16 +1,16 @@
-import { useLatest } from "../use-latest";
+import { useLatest } from "@otter/client/use-latest";
 import { DEFAULT_SETTINGS } from "@otter/contracts";
 import { ExtensionCategoryPane } from "../extensions/extensions-pane";
 import { hasIntegrations } from "../extensions/registry";
 import { useCallback, useEffect, useState } from "react";
 import { Switch } from "@otter/ui/components/switch";
 import { toast } from "@otter/ui/components/toast";
-import { mailApi, type MailApp, type NotificationsMode, type SettingsPane } from "../mail/api";
+import { mailApi, type NotificationsMode } from "@otter/client/mail/api";
 import {
   getAdvanceDirection,
   setAdvanceDirection as persistAdvanceDirection,
   type AdvanceDirection,
-} from "../mail/advance-direction";
+} from "@otter/client/mail/advance-direction";
 import { AppearancePane } from "./appearance-pane";
 import { KeybindingsPane } from "./keybindings-pane";
 import { AccountsPane } from "./accounts-pane";
@@ -35,6 +35,7 @@ import {
   SettingsSearchTargetProvider,
   SettingsSection,
 } from "@otter/ui/components/settings";
+import { appApi, type MailApp, type SettingsPane } from "../app-api";
 
 export type SettingsRoute = {
   pane: SettingsPane;
@@ -92,7 +93,7 @@ function GeneralPane() {
   const loadMailApps = async () => {
     if (!features.defaultMailApp) return;
     try {
-      const result = await mailApi.listMailApps();
+      const result = await appApi.listMailApps();
       setMailApps(result.apps);
       setDefaultMailAppId(result.defaultId);
     } catch (error) {
@@ -186,7 +187,7 @@ function GeneralPane() {
     setDefaultMailAppId(id);
     console.log("[Settings:setDefaultMailApp]", { id });
     try {
-      await mailApi.setDefaultMailApp(id);
+      await appApi.setDefaultMailApp(id);
     } catch (error) {
       toast.error(`Failed to change default mail app: ${error}`);
     }

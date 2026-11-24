@@ -5,28 +5,28 @@ import * as path from "node:path";
 import type { NativeThemeInfo, ThemeSource } from "@otter/contracts";
 import type { AppSettings, ErrorReportsConfig } from "@otter/core";
 
-import { invokeBackend, setDockBadgeEnabled, startBackend, stopBackend } from "./backend-host.js";
-import { registerHandlers } from "./handlers/index.js";
-import { requestSupportReport } from "./handlers/support.js";
-import { setErrorReportsAllowed, setReportId, startErrorReports } from "./error-reports.js";
-import { logger, logToFile } from "./logger.js";
-import { hostOS } from "./os/index.js";
-import type { AppMenuItems } from "./os/types.js";
-import { configureAppPaths, nameApp } from "./paths.js";
-import { focusedBrowserPage, setupBrowser } from "./services/browser.js";
-import { embedDriveContent } from "./services/drive-content.js";
-import { parseMailtoUrl, setPendingMailto } from "./services/mailto-target.js";
-import { initUpdates } from "./updates.js";
-import { stepHistory } from "./windows/history-buttons.js";
-import { setSettingsTarget } from "./windows/settings-window.js";
+import { invokeBackend, setDockBadgeEnabled, startBackend, stopBackend } from "./backend-host.ts";
+import { registerHandlers } from "./handlers/index.ts";
+import { requestSupportReport } from "./handlers/support.ts";
+import { setErrorReportsAllowed, setReportId, startErrorReports } from "./error-reports.ts";
+import { logger, logToFile } from "./logger.ts";
+import { hostOS } from "./os/index.ts";
+import type { AppMenuItems } from "./os/types.ts";
+import { configureAppPaths, nameApp } from "./paths.ts";
+import { focusedBrowserPage, setupBrowser } from "./services/browser.ts";
+import { embedDriveContent } from "./services/drive-content.ts";
+import { parseMailtoUrl, setPendingMailto } from "./services/mailto-target.ts";
+import { initUpdates } from "./updates.ts";
+import { stepHistory } from "./windows/history-buttons.ts";
+import { setSettingsTarget } from "./windows/settings-window.ts";
 import {
   allowWindows,
   createMainWindow,
   focusMainWindow,
   focusedAppWindow,
   getMainWindow,
-} from "./windows/main-window.js";
-import { handleRendererProtocol, registerRendererScheme } from "./windows/window-paths.js";
+} from "./windows/main-window.ts";
+import { handleRendererProtocol, registerRendererScheme } from "./windows/window-paths.ts";
 
 configureAppPaths();
 startErrorReports();
