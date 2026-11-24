@@ -10,15 +10,32 @@ export function keychainSecrets(service: string): Platform["secrets"] {
   return {
     async get(name) {
       const value = await native.keychainGet(service, name);
-      if (service !== "dev.otterware.agents" || !value || value.startsWith("{")) return value;
+      const agents = service === "dev.otterware.agents";
+      const mail = service === "dev.otterware.mail";
+      if ((!agents && !mail) || !value || value.startsWith("{")) return value;
 
       if (name === "otter-session") {
-        const savedUser = native.existingAgentSettings().user;
+        const savedUser = agents
+          ? native.existingAgentSettings().user
+          : native.existingMailSettings()["otter:user"];
         if (savedUser) {
           try {
-            const user = JSON.parse(savedUser) as { id?: unknown; email?: unknown };
+            const user = JSON.parse(savedUser) as {
+              id?: unknown;
+              email?: unknown;
+              name?: string | null;
+              picture?: string | null;
+            };
             if (typeof user.id === "string" && typeof user.email === "string") {
-              const session = JSON.stringify({ token: value, user });
+              const session = JSON.stringify({
+                token: value,
+                user: {
+                  id: user.id,
+                  email: user.email,
+                  name: user.name ?? null,
+                  picture: user.picture ?? null,
+                },
+              });
               await native.keychainSet(service, name, session);
               return session;
             }
@@ -28,6 +45,8 @@ export function keychainSecrets(service: string): Platform["secrets"] {
         }
         return value;
       }
+
+      if (!agents) return value;
 
       // Read the Swift install's OpenClaw pairing in the format the shared client uses.
       const match = /^(agent:.+):device-(key|token)$/.exec(name);

@@ -1,7 +1,13 @@
 import { startChats } from "@otter/client/agents/chat-store";
 import { setHost } from "@otter/client/host";
 import { runsOn } from "@otter/contracts/extensions";
-import { addDemoAgents, startCore, type CoreExtension, type CoreModule } from "@otter/core";
+import {
+  addDemoAgents,
+  startCore,
+  type CoreExtension,
+  type CoreModule,
+  type Platform,
+} from "@otter/core";
 import { SQLiteStorage } from "expo-sqlite/kv-store";
 
 import { installBridge } from "./bridge.ts";
@@ -32,6 +38,7 @@ export async function startMobileCore(options: {
   agents?: string;
   relayUrl?: string;
   existingDeviceId?: string;
+  prepare?: (platform: Platform) => Promise<void>;
   existingAgentOutbox?: (userId: string) => Promise<string | null>;
   initialStorage?: Record<string, string>;
 }): Promise<void> {
@@ -47,6 +54,7 @@ export async function startMobileCore(options: {
   };
   let platform = phonePlatform({
     home,
+    mail: options.modules.includes("mail") && !options.fake,
     secretsService: options.fake ? `${options.secretsService}.fake` : options.secretsService,
     relayUrl: options.relayUrl,
   });
@@ -58,12 +66,13 @@ export async function startMobileCore(options: {
   }
   installBridge({ appVersion: platform.appVersion, storage });
   setHost(phoneHost(storage));
+  await options.prepare?.(platform);
   await startCore(platform, extensions, {
     modules: options.modules,
     existingDeviceId: options.existingDeviceId,
     existingAgentOutbox: options.existingAgentOutbox,
   });
-  startChats();
+  if (!options.modules.includes("mail")) startChats();
   if (options.agents) {
     addDemoAgents(options.agents).catch((error: unknown) =>
       console.error("Couldn't connect the local agents", error),

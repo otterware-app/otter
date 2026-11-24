@@ -1,0 +1,1 @@
+../../../ios/NotificationShared/VerifiedNotification.swift

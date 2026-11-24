@@ -326,6 +326,9 @@ importers:
 
   apps/mail-mobile:
     dependencies:
+      '@bacons/apple-targets':
+        specifier: 5.0.0
+        version: 5.0.0(expo@58.0.26)(typescript@5.9.3)
       '@otter/client':
         specifier: workspace:*
         version: link:../../packages/client

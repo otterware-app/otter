@@ -4,7 +4,8 @@ import Foundation
 
 /** What the phone apps' JavaScript needs of iOS that Expo's packages don't give it. */
 public class OtterMobileModule: Module {
-  @MainActor private static let google = GoogleSignIn()
+  @MainActor private static let signIn = OAuthSignIn()
+  private let mailSockets = MailSockets()
 
   public func definition() -> ModuleDefinition {
     Name("OtterMobile")
@@ -21,13 +22,67 @@ public class OtterMobileModule: Module {
 
     AsyncFunction("googleIdToken") { () async throws -> String? in
       do {
-        return try await Self.google.idToken()
-      } catch GoogleSignIn.Failure.cancelled {
+        return try await Self.signIn.perform(
+          .google(scopes: ["openid", "email", "profile"], options: ["prompt": "select_account"])
+        ) { form in
+          guard let response = try? await GoogleCredentials.request(form), let token = response.id_token else {
+            throw OAuthSignIn.Failure.message("Couldn't reach Google to complete sign-in. Try again.")
+          }
+          return token
+        }
+      } catch OAuthSignIn.Failure.cancelled {
         return nil
       }
     }
     AsyncFunction("cancelGoogleSignIn") {
-      await Self.google.cancel()
+      await Self.signIn.cancel()
+    }
+
+    AsyncFunction("mailSignedInAddresses") { (provider: String) in
+      try Self.mailAuth(provider).signedInAddresses()
+    }
+    AsyncFunction("mailSignIn") { (provider: String, loginHint: String?) async throws -> [String: String]? in
+      do {
+        return try await Self.mailAuth(provider).signIn(browser: Self.signIn, loginHint: loginHint)
+      } catch OAuthSignIn.Failure.cancelled {
+        return nil
+      }
+    }
+    AsyncFunction("mailToken") { (provider: String, email: String, id: Bool, force: Bool) in
+      try await Self.mailAuth(provider).token(email, id: id, force: force)
+    }
+    AsyncFunction("mailForget") { (provider: String, email: String) in
+      try await Self.mailAuth(provider).forget(email)
+    }
+
+    AsyncFunction("mailSocketOpen") { (host: String, port: Int, tls: Bool) in
+      try await self.mailSockets.open(host: host, port: port, tls: tls)
+    }
+    AsyncFunction("mailSocketRead") { (id: String) in
+      try await self.mailSockets.read(id)
+    }
+    AsyncFunction("mailSocketWrite") { (id: String, base64: String) in
+      try await self.mailSockets.write(id, base64: base64)
+    }
+    AsyncFunction("mailSocketStartTls") { (id: String) in
+      try await self.mailSockets.startTLS(id)
+    }
+    Function("mailSocketClose") { (id: String) in
+      self.mailSockets.close(id)
+    }
+    OnDestroy { [weak self] in
+      self?.mailSockets.closeAll()
+      Task { @MainActor in Self.signIn.cancel() }
+    }
+
+    Function("existingMailSettings") { () -> [String: String] in
+      guard Bundle.main.bundleIdentifier == "dev.otterware.mail" else { return [:] }
+      let defaults = UserDefaults.standard
+      let keys = ["otter:user", "otter:mailboxes", "otter:addresses"]
+      return Dictionary(uniqueKeysWithValues: keys.compactMap { key in
+        guard let data = defaults.data(forKey: key), let value = String(data: data, encoding: .utf8) else { return nil }
+        return (key, value)
+      })
     }
 
     AsyncFunction("makeAgentPicture") { (uri: String, maxLength: Int) throws -> String in
@@ -88,5 +143,12 @@ public class OtterMobileModule: Module {
       let start = info.kp_proc.p_un.__p_starttime
       return Double(start.tv_sec) * 1000 + Double(start.tv_usec) / 1000
     }
+  }
+
+  private static func mailAuth(_ provider: String) throws -> MailAuth {
+    guard let auth = MailAuth(rawValue: provider) else {
+      throw Exception(name: "MailProvider", description: "Unknown mail provider.")
+    }
+    return auth
   }
 }
