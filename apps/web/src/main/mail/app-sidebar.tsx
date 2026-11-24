@@ -105,6 +105,7 @@ function AppSidebarView({
   onSelectSearch: (id: string) => void;
   onCloseSearch: (id: string) => void;
 }) {
+  const margin = useAppLayout() === "margin";
   const options = useMailboxOptions(tabs);
   const all = useSidebarLayout().mailboxes === "all" && options.length > 1;
   const isMailbox = (id: string | null) => options.some((option) => option.id === id);
@@ -119,9 +120,12 @@ function AppSidebarView({
   const healthIds = spaceTab ? [spaceTab.account.id] : accounts.map((a) => a.id);
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex shrink-0 flex-col px-(--sidebar-content-inset) pt-(--sidebar-content-inset) pb-2">
-        <ModePicker mode={composing ? "mail" : mode} accounts={accounts} onMode={onMode} />
-      </div>
+      {/* The Margin layout switches modes on its rail. */}
+      {margin ? null : (
+        <div className="flex shrink-0 flex-col px-(--sidebar-content-inset) pt-(--sidebar-content-inset) pb-2">
+          <ModePicker mode={composing ? "mail" : mode} accounts={accounts} onMode={onMode} />
+        </div>
+      )}
       {workspace && !composing ? (
         <workspace.workspace.Sidebar
           location={workspace.location}
@@ -192,15 +196,15 @@ function AppSidebarView({
   );
 }
 
-function ModePicker({
-  mode,
-  accounts,
-  onMode,
-}: {
+export type AppModeEntry = {
   mode: AppMode;
-  accounts: MailAccount[];
-  onMode: (mode: AppMode) => void;
-}) {
+  label: string;
+  Icon: ComponentType<Pick<NavGlyphProps, "selected" | "className">>;
+  dot: boolean | "attention";
+};
+
+/** The modes, in this computer's order: the switcher's, and the Margin layout's rail. */
+export function useAppModes(accounts: MailAccount[]) {
   const unread = Object.values(useInboxUnread(accounts)).some((n) => n > 0);
   const agentDot = useChats((s): boolean | "attention" =>
     s.approvals.length > 0 || s.questions.length > 0 ? "attention" : s.unseen.size > 0,
@@ -208,12 +212,7 @@ function ModePicker({
   const workspaces = useWorkspaces();
   const margin = useAppLayout() === "margin";
   const [order, setOrder] = useState(loadModeOrder);
-  const modes: {
-    mode: AppMode;
-    label: string;
-    Icon: ComponentType<Pick<NavGlyphProps, "selected" | "className">>;
-    dot: boolean | "attention";
-  }[] = [
+  const modes: AppModeEntry[] = [
     ...(margin ? [{ mode: "desk" as const, label: "Desk", Icon: DeskIcon, dot: false }] : []),
     { mode: "mail", label: "Mail", Icon: OtterMailIcon, dot: unread },
     {
@@ -239,6 +238,19 @@ function ModePicker({
     setOrder(next);
     saveModeOrder(next);
   };
+  return { modes: sorted, move };
+}
+
+function ModePicker({
+  mode,
+  accounts,
+  onMode,
+}: {
+  mode: AppMode;
+  accounts: MailAccount[];
+  onMode: (mode: AppMode) => void;
+}) {
+  const { modes: sorted, move } = useAppModes(accounts);
   return (
     <SidebarPicker
       tour="modes"

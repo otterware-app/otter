@@ -304,7 +304,8 @@ export function TitlebarInset() {
     <span
       aria-hidden
       className={cn(
-        "shrink-0",
+        // The Margin layout's top bar holds the pinned controls, above the panes.
+        "shrink-0 layout-margin:hidden",
         features.historyButtons
           ? "w-[max(0px,calc(var(--workspace-titlebar-content-left)+var(--workspace-history-controls-width)-1rem-var(--workspace-frame-inset)))]"
           : "w-[max(0px,calc(var(--workspace-titlebar-content-left)-1rem-var(--workspace-frame-inset)))]",
