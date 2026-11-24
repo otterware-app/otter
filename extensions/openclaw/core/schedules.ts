@@ -671,9 +671,11 @@ export async function runRows(
     if (!cursor) break;
   }
   return messages.map((row) => {
-    const provenance = row.provenance as { kind?: string; sourceTool?: string } | undefined;
+    const { provenance: raw, ...rest } = row;
+    const provenance = raw as { kind?: string; sourceTool?: string } | undefined;
     if (provenance?.kind !== "internal_system" || provenance.sourceTool !== "cron") return row;
+    // Without its provenance: the task's prompt is shown as the run's message.
     const text = typeof row.content === "string" ? row.content : "";
-    return { ...row, role: "user", content: text.split(/\nCurrent time: /)[0] };
+    return { ...rest, role: "user", content: text.split(/\nCurrent time: /)[0] };
   });
 }

@@ -5,6 +5,7 @@ import {
   forkEntry,
   normalizeOpenClawUrl,
   parseOpenClawSetupCode,
+  transcript,
 } from "./openclaw.js";
 
 describe("OpenClaw", () => {
@@ -46,6 +47,27 @@ describe("OpenClaw", () => {
     expect(forkEntry(rows, { requestId: "req-gone", fromEnd: 2 })).toBe("e1");
     expect(forkEntry(rows, { fromEnd: 0 })).toBe("e3");
     expect(forkEntry(rows, { fromEnd: 5 })).toBeUndefined();
+  });
+
+  it("doesn't show what the gateway wrote to wake the agent as your message", () => {
+    const hook = {
+      role: "user",
+      content: "Hook Gmail personal: Sign in to pen.dev (error): ⚠️ Bash failed",
+      provenance: { kind: "internal_system", sourceTool: "hook" },
+      __openclaw: { id: "e2" },
+    };
+    const rows = [
+      { role: "user", content: "Check my mail", __openclaw: { id: "e1" } },
+      { role: "assistant", content: [{ type: "text", text: "Done" }] },
+      hook,
+      { role: "assistant", content: [{ type: "text", text: "A false alarm" }] },
+    ];
+    expect(transcript(rows)).toEqual([
+      { role: "user", text: "Check my mail" },
+      { role: "assistant", text: "Done" },
+      { role: "assistant", text: "A false alarm" },
+    ]);
+    expect(forkEntry(rows, { fromEnd: 0 })).toBe("e1");
   });
 
   it("reaches the gateway over its WebSocket, whatever address is pasted", () => {

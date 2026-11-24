@@ -308,9 +308,17 @@ export function browserTabOf(
   }
 }
 
+/**
+ * A message you sent. OpenClaw also writes what wakes the agent as the user's (a hook's
+ * failure, a finished command); those are the gateway's, not yours.
+ */
+const isYours = (row: Record<string, unknown>) =>
+  row.role === "user" &&
+  (row.provenance as { kind?: unknown } | undefined)?.kind !== "internal_system";
+
 /** The entry `sessions.fork` takes for one of your messages. */
 export function forkEntry(rows: Record<string, unknown>[], at: ForkPoint): string | undefined {
-  const sent = rows.filter((m) => m.role === "user");
+  const sent = rows.filter(isYours);
   const row =
     (at.requestId && sent.findLast((m) => sendKeyOf(m) === at.requestId)) ||
     sent[sent.length - 1 - at.fromEnd];
@@ -331,7 +339,7 @@ const isCompaction = (row: Record<string, unknown>) =>
 /** A compaction is known by its item, the same in its events and its row. */
 const compactionId = (item: unknown) => `compaction:${String(item)}`;
 
-function transcript(messages: Record<string, unknown>[]): ChatSessionMessage[] {
+export function transcript(messages: Record<string, unknown>[]): ChatSessionMessage[] {
   const unshown = new Set(
     messages.flatMap((m) => {
       const meta = m.__openclaw as { toolOutput?: { source?: string } } | undefined;
@@ -345,7 +353,7 @@ function transcript(messages: Record<string, unknown>[]): ChatSessionMessage[] {
   );
   return messages.flatMap((m): ChatSessionMessage[] => {
     if (isCompaction(m)) return [{ role: "assistant", text: "", toolCalls: [COMPACTION] }];
-    if (m.role === "user") return [{ role: "user", text: textOf(m) }];
+    if (m.role === "user") return isYours(m) ? [{ role: "user", text: textOf(m) }] : [];
     if (m.role === "toolResult")
       return unshown.has(m.toolCallId)
         ? []
