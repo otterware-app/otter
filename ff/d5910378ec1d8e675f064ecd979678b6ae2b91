@@ -1,0 +1,64 @@
+packages/core/bench/mail-sync.test.ts
+  s_cc8ffb6e1db829::t_cf2792fa03e283 321-331
+  s_b732cdf72249e1::t_c87f05b2d3f757 5-6,15-16,32-33,53-55,224-259,261-262,269-277,279,282,285,288,300-320,332-339,341-346,353-356,360,373,375-376,379-391,398
+packages/core/src/fake/gmail.ts
+  s_b732cdf72249e1::t_1c936159c6fb9f 699-701
+  s_cc8ffb6e1db829::t_dc60fc4b7b1fe8 5,65-66,80,87,119,217-219,221-229,238,240-269,284,286-291,301,304-310,330-332,341-342,351-353,677-698,702-769,774-777,781,789-799,818-823,830-831,834-835,838,870,890,1036-1041,1091,1165
+packages/core/src/fake/large-mailbox.test.ts
+  s_076b12ad1c9082::t_9938ac399ea2b7 38-39,42,97
+  s_b732cdf72249e1::t_1c936159c6fb9f 90-93,101-102,105
+packages/core/src/providers/gmail/sync.ts
+  s_cc8ffb6e1db829::t_6e218a4ddc113c 68,74-83,225,243,429,451-456,470,474,477,510,512-520,530-534
+  s_b732cdf72249e1::t_1c936159c6fb9f 255,260-262,269-278,280,290,323,326,330-333,335-338,340-342,494-495
+packages/core/src/services/mail-store.ts
+  s_bff670e2c19f9b::t_70c8d89fa19a41 696-698,700,704-706,708,734
+  s_cc8ffb6e1db829::t_7b61517e037bee 133-137,689,1320-1321,1323-1325
+  s_cc8ffb6e1db829::t_6e218a4ddc113c 676-677,833-835,1340-1347,1826-1836,1852
+  s_bff670e2c19f9b::t_66342d65cfd849 344,366,373-381,681-687,690,693-695
+packages/core/src/fake/large-mailbox.ts
+  s_076b12ad1c9082::t_9938ac399ea2b7 220,226-227,231,237,259,304,314
+packages/core/src/providers/outlook/sync.ts
+  s_cc8ffb6e1db829::t_5b8eaf9b6d3a55 4,31-44,228,231,233,288-291,303-318,374,394
+packages/core/src/services/test/gmail-sync.test.ts
+  s_cc8ffb6e1db829::t_19fbd71c9355ed 639,641,647
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ffd5910378ec1d8e675f064ecd979678b6ae2b91",
+  "prompts": {},
+  "sessions": {
+    "s_076b12ad1c9082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f03-1d60-7480-929a-3cc6584d46dd",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    },
+    "s_b732cdf72249e1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f64-2aa8-7bd3-b41c-79cca6e77015",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    },
+    "s_bff670e2c19f9b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f64-1b78-7952-874a-fbdefc1e0451",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    },
+    "s_cc8ffb6e1db829": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f64-3cb0-7ab3-8f4c-82b69d57b882",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
