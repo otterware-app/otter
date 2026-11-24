@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Repeat } from "./api";
+import { setSyncedPreference } from "../synced-preferences";
 import { startOfDay } from "./dates";
 
 const SHOWN_KEY = "calendar:shown";
@@ -97,13 +98,13 @@ export const useCalendar = create<CalendarState>((set) => ({
   setShown: (key, show) =>
     set((s) => {
       const shown = { ...s.shown, [key]: show };
-      localStorage.setItem(SHOWN_KEY, JSON.stringify(shown));
+      setSyncedPreference(SHOWN_KEY, JSON.stringify(shown));
       return { shown };
     }),
   showOnly: (key, keys) =>
     set((s) => {
       const shown = { ...s.shown, ...Object.fromEntries(keys.map((k) => [k, k === key])) };
-      localStorage.setItem(SHOWN_KEY, JSON.stringify(shown));
+      setSyncedPreference(SHOWN_KEY, JSON.stringify(shown));
       return { shown };
     }),
   addTeammate: (teammate) =>
@@ -125,3 +126,8 @@ export const useCalendar = create<CalendarState>((set) => ({
       draft: null,
     }),
 }));
+
+// From the account (another device, or core's copy at startup).
+window.addEventListener("storage", (event) => {
+  if (event.key === SHOWN_KEY) useCalendar.setState({ shown: readShown() });
+});

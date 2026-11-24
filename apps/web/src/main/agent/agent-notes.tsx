@@ -1,6 +1,8 @@
 import type { NoteKind, NoteTarget } from "@otter/contracts/margin-notes";
 import { Button } from "@otter/ui/components/button";
 import { MarginNote } from "@otter/ui/components/margin";
+import { toast } from "@otter/ui/components/toast";
+import { readableError } from "../mail/add-mailbox";
 import { useAgentProviders } from "./agent-providers";
 import { acceptNote, dismissNote, useMarginNotes } from "./margin-notes";
 
@@ -28,7 +30,15 @@ export function AgentNotes({ target }: { target: NoteTarget | NoteTarget[] | nul
             actions={
               <>
                 {note.action ? (
-                  <Button size="xs" variant="ghost" onClick={() => void acceptNote(note.id)}>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() =>
+                      acceptNote(note.id).catch((error: unknown) =>
+                        toast.error(readableError(error)),
+                      )
+                    }
+                  >
                     {note.action.label}
                   </Button>
                 ) : null}

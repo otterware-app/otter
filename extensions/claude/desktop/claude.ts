@@ -92,6 +92,27 @@ function permissionMode(mode: RuntimeMode): PermissionMode {
       : "default";
 }
 
+/**
+ * A one-off question (`ChatProvider.ask`): no tools, built in or MCP (strictMcpConfig drops the
+ * user's servers), no settings files (their hooks and plugins), and no session kept on disk.
+ */
+function askOptions(settings: ClaudeSettings, abortController: AbortController): ClaudeOptions {
+  return {
+    pathToClaudeCodeExecutable: claudeBinary(settings),
+    env: claudeEnv(settings),
+    ...(settings.model ? { model: settings.model } : {}),
+    tools: [],
+    allowedTools: [],
+    mcpServers: {},
+    strictMcpConfig: true,
+    settingSources: [],
+    persistSession: false,
+    maxTurns: 1,
+    canUseTool: async () => ({ behavior: "deny", message: "No tools here." }),
+    abortController,
+  };
+}
+
 function isReadOnlyTool(name: string): boolean {
   const n = name.toLowerCase();
   return (
@@ -889,6 +910,18 @@ export function createClaude(): ChatProvider<ClaudeSettings> {
       const live = sessions.get(sessionId);
       if (live) closeSession(sessions, live);
       await sdkDeleteSession(sessionId, { dir: await agentWorkspace() });
+    },
+
+    async ask(settings, input, signal) {
+      const abortController = new AbortController();
+      signal.addEventListener("abort", () => abortController.abort(), { once: true });
+      const answer = query({ prompt: input, options: askOptions(settings, abortController) });
+      for await (const message of answer) {
+        if (message.type !== "result") continue;
+        if (message.subtype === "success") return message.result;
+        throw new Error(`Claude couldn't answer (${message.subtype}).`);
+      }
+      throw new Error("Claude didn't answer.");
     },
 
     shutdown() {

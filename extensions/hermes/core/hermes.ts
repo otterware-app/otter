@@ -357,6 +357,62 @@ export const otterTargetsNote = (sessionId: string) =>
     '- "otter:new" (or "otter"): a new Otter chat for each delivery, for a scheduled task that should post a fresh chat every run (a morning brief, an alert).',
   ].join("\n");
 
+/**
+ * The Otter plugin's (gateway/tool_free.py): in a session whose id starts with `otter-ask-`, the
+ * model is given no tools and any tool call is refused, and the answer starts with this mark when
+ * that held for every request of the run.
+ */
+const TOOL_FREE_MARK = "[otter:tool-free]\n";
+/** Asked first, before anything nobody vetted: what tells a Hermes with the plugin from one without. */
+const TOOL_FREE_PROBE = "Answer with the word OK alone.";
+/** A run cut off by the caller may still write its session: it's deleted again after this. */
+const LATE_DELETE_MS = 5 * 60_000;
+
+async function removeSession(ready: Ready, sessionId: string): Promise<void> {
+  const response = await fetch(`${ready.root}/api/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "DELETE",
+    headers: authHeaders(ready.key),
+  });
+  if (!response.ok && response.status !== 404) throw new Error(await readError(response));
+}
+
+async function askToolFree(
+  ready: Ready,
+  modelFields: Record<string, unknown>,
+  input: string,
+  signal: AbortSignal,
+): Promise<string> {
+  const sessionId = `otter-ask-${crypto.randomUUID()}`;
+  const remove = () =>
+    removeSession(ready, sessionId).catch((error: unknown) =>
+      logger.info("agent", "hermes ask session not deleted", { error: String(error) }),
+    );
+  try {
+    const response = await fetch(`${ready.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: { ...authHeaders(ready.key, true), "X-Hermes-Session-Id": sessionId },
+      body: JSON.stringify({
+        model: ready.agentModel,
+        ...modelFields,
+        messages: [{ role: "user", content: input }],
+        stream: false,
+      }),
+      signal,
+    });
+    if (!response.ok) throw new Error(await readError(response));
+    const body = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    const text = body.choices?.[0]?.message?.content ?? "";
+    if (!text.startsWith(TOOL_FREE_MARK))
+      throw new Error(
+        "To have notes written, update the Otter plugin on Hermes: hermes plugins update otter",
+      );
+    return text.slice(TOOL_FREE_MARK.length);
+  } finally {
+    await remove();
+    if (signal.aborted) setTimeout(() => void remove(), LATE_DELETE_MS);
+  }
+}
+
 async function patchSession(ready: Ready, sessionId: string, patch: Record<string, unknown>) {
   const response = await fetch(`${ready.root}/api/sessions/${encodeURIComponent(sessionId)}`, {
     method: "PATCH",
@@ -404,6 +460,8 @@ function createHermes(agent: AgentContext): HermesProvider {
   let otterPlatform = false;
   /** Turns over the Responses API, which end when the app lets go of them. */
   const responding = new Map<string, AbortController>();
+  /** Servers whose answers came marked tool-free (`TOOL_FREE_MARK`). */
+  const toolFree = new Set<string>();
 
   return {
     otherSessions: true,
@@ -733,12 +791,22 @@ function createHermes(agent: AgentContext): HermesProvider {
     schedules: hermesSchedules(agent),
 
     async deleteSession(settings, sessionId) {
+      await removeSession(await requireReady(settings, secrets), sessionId);
+    },
+
+    async ask(settings, input, signal) {
       const ready = await requireReady(settings, secrets);
-      const response = await fetch(`${ready.root}/api/sessions/${encodeURIComponent(sessionId)}`, {
-        method: "DELETE",
-        headers: authHeaders(ready.key),
-      });
-      if (!response.ok && response.status !== 404) throw new Error(await readError(response));
+      const modelFields = turnModelFields(settings);
+      if (!toolFree.has(ready.baseUrl)) {
+        await askToolFree(ready, modelFields, TOOL_FREE_PROBE, signal);
+        toolFree.add(ready.baseUrl);
+      }
+      try {
+        return await askToolFree(ready, modelFields, input, signal);
+      } catch (error) {
+        toolFree.delete(ready.baseUrl);
+        throw error;
+      }
     },
 
     shutdown() {

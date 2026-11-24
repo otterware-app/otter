@@ -34,8 +34,16 @@ the relay's store), so every device shows the same ones; accepting starts a chat
 dismissing hides it for good. Core's writer (`services/margin-notes.ts`) asks the selected agent
 for them, only while the layout is Margin, an Otter account is signed in and an agent is set up:
 at most every 5 minutes, about a dozen items at a time (unread inbox conversations from the last
-two days, today's and tomorrow's events, scheduled tasks that failed or paused), never twice
-about the same item, through a one-off request that makes no chat.
+two days, today's and tomorrow's events on the calendars the Calendar shows, scheduled tasks that
+failed or paused), never again about an item once answered (a failed request, at most twice more),
+through a one-off request that makes no chat. The items are mail and events anyone could have
+written, so the request runs without tools, as the agent enforces it, not just asks
+(`ChatProvider.ask`), and keeps no session: Claude (no tools, MCP servers or settings, nothing
+saved), OpenClaw (the Otter plugin's `otter.ask`, OpenClaw's tool-free `subagent.complete`) and
+Hermes (the Otter plugin takes the tools out of every model request of an `otter-ask-` session and
+marks its answer; Otter checks the mark on a harmless question first). Codex and Varys can't
+promise it, so they write no notes. Accepting a note starts its chat first, then marks it
+accepted: with no agent to start it, the note stays.
 
 ## Not yet, or not as drawn
 

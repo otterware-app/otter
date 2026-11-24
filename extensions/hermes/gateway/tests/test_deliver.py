@@ -94,14 +94,21 @@ def test_plain_send_is_titled_hermes(plugin):
 def test_registers_with_this_hermes(plugin):
     from gateway.platform_registry import PlatformEntry
 
-    entries = []
+    entries, hooks = [], []
 
     class Ctx:
         def register_platform(self, **fields):
             entries.append(PlatformEntry(source="plugin", **fields))
+
+        def register_middleware(self, kind, _callback):
+            hooks.append(kind)
+
+        def register_hook(self, name, _callback):
+            hooks.append(name)
 
     package = sys.modules["otter_plugin"]
     package.register(Ctx())
     (entry,) = entries
     assert entry.name == "otter" and entry.cron_deliver_env_var == "OTTER_HOME_CHANNEL"
     assert entry.standalone_sender_fn is not None and entry.platform_hint
+    assert hooks == ["llm_request", "pre_tool_call", "transform_llm_output"]

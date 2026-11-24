@@ -239,6 +239,24 @@ export default defineChannelPluginEntry({
       { scope: "operator.admin" },
     );
 
+    // A one-off question from Otter over text nobody vetted (its notes on your mail): the agent's
+    // model with no tools at all and no session, which `subagent.complete` guarantees.
+    api.registerGatewayMethod(
+      "otter.ask",
+      async ({ params }) => {
+        const { agentId, message, timeoutMs } = params ?? {};
+        if (typeof agentId !== "string" || !agentId || typeof message !== "string" || !message)
+          throw new Error("agentId and message are required");
+        const { text } = await api.runtime.subagent.complete({
+          agentId,
+          message,
+          timeoutMs: Math.min(Number(timeoutMs) || 120_000, 300_000),
+        });
+        return { text };
+      },
+      { scope: "operator.admin" },
+    );
+
     // Otter's preview of a file an agent linked: PDFs and other files sessions.files.get won't send.
     api.registerGatewayMethod(
       "otter.files.get",

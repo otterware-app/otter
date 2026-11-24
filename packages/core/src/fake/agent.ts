@@ -123,11 +123,6 @@ function scriptedAgent(id: string): ChatProvider<AgentSettings> {
       emit({ requestId, type: "session", sessionId: `demo-${requestId.slice(0, 8)}` });
     const text = input.input.toLowerCase();
     if (!(await pause(500))) return false;
-    const notes = scriptedNotes(input.input);
-    if (notes !== null) {
-      emit({ requestId, type: "text", id: "notes", text: notes });
-      return true;
-    }
     if (text.includes("fail")) {
       emit({
         requestId,
@@ -322,6 +317,11 @@ function scriptedAgent(id: string): ChatProvider<AgentSettings> {
       return words ? words[0]!.toUpperCase() + words.slice(1) : null;
     },
     deleteSession: async () => {},
+    async ask(_settings, input) {
+      const notes = scriptedNotes(input);
+      if (notes === null) throw new Error("The made-up agent only answers for notes.");
+      return notes;
+    },
     schedules: scriptedSchedules(id),
     shutdown: () => {
       for (const controller of runs.values()) controller.abort();

@@ -124,6 +124,9 @@ type Gateway = {
 
 /** The Otter plugin's: a message sent as the channel's owner (`extensions/openclaw/gateway`). */
 const OTTER_SEND = "otter.chat.send";
+/** The Otter plugin's: a one-off question its agent answers with no tools and no session. */
+const OTTER_ASK = "otter.ask";
+const ASK_TIMEOUT_MS = 150_000;
 /** Who the Otter plugin sends as, which `commands.ownerAllowFrom` lists to make it the owner. */
 const OTTER_OWNER = "otter:owner";
 
@@ -2423,6 +2426,21 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
     async deleteSession(settings, sessionId) {
       const g = await gateway(settings);
       await g.client.request("sessions.delete", { key: sessionId });
+    },
+
+    async ask(settings, input, signal) {
+      const g = await gateway(settings);
+      if (!g.methods.includes(OTTER_ASK))
+        throw new Error(
+          "To have notes written, update the Otter plugin on the OpenClaw gateway: openclaw plugins update @otterware/openclaw-otter",
+        );
+      const agentId = settings.model || (await listAgents(g)).defaultId;
+      const { text } = await g.client.request<{ text: string }>(
+        OTTER_ASK,
+        { agentId, message: input, timeoutMs: ASK_TIMEOUT_MS },
+        { timeoutMs: ASK_TIMEOUT_MS + 10_000, signal },
+      );
+      return text;
     },
 
     schedules: {

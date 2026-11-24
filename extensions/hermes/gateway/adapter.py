@@ -31,6 +31,7 @@ except ImportError:
     )
 from gateway.platforms.base import BasePlatformAdapter, SendResult
 
+from . import tool_free
 from ._compat import register_platform
 from .otter_channel import (
     DEFAULT_TITLE,
@@ -210,3 +211,4 @@ def register(ctx):
         allow_update_command=False,
         platform_hint=PLATFORM_HINT,
     )
+    tool_free.register(ctx)

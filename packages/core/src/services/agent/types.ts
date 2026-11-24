@@ -444,6 +444,12 @@ export interface ChatProvider<S extends AgentSettings = AgentSettings> {
     upload: { targetId: string; profile?: string; files: { name: string; data: string }[] },
   ): Promise<void>;
   deleteSession(settings: S, sessionId: string): Promise<void>;
+  /**
+   * A one-off question outside any chat, over text nobody vetted (the margin's notes on mail):
+   * its answer's text. The agent itself runs it with no tools at all, not just asked to use none,
+   * and keeps no session of it. Absent when the agent can't promise both.
+   */
+  ask?(settings: S, input: string, signal: AbortSignal): Promise<string>;
   readonly schedules?: ScheduleSupport<S>;
   readonly talk?: TalkSupport<S>;
   /** It's being removed from this device: ends what it holds elsewhere (varys's grant), as far as it can. */

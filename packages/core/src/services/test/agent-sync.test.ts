@@ -102,15 +102,28 @@ vi.mock("../../extensions.js", () => ({
     ]),
 }));
 
-/** Notes start chats with the agents this device has (settings.ts's), and ask none here. */
+/** What the writer's agent answers (unless `toolFree` is off), and the scheduled tasks it's asked about. */
+const agent = {
+  toolFree: true,
+  asked: [] as string[],
+  answer: async (_input: string): Promise<string> => "[]",
+  tasks: [] as unknown[],
+};
+
+/** Notes start chats with the agents this device has (settings.ts's). */
 vi.mock("../agent/service.js", () => {
   const agents = async () =>
     (await (await import("../agent/settings.ts")).getProviderSettings()).agents;
+  const selectedAgent = async () => (await agents())[0]?.id ?? null;
   return {
     hasAgent: async (id: string) => (await agents()).some((a) => a.id === id),
-    selectedAgent: async () => (await agents())[0]?.id ?? null,
-    askAgent: async () => "[]",
-    listScheduledTasks: async () => [],
+    selectedAgent,
+    toolFreeAgent: async () => (agent.toolFree ? selectedAgent() : null),
+    askAgent: async (_id: string, input: string) => {
+      agent.asked.push(input);
+      return agent.answer(input);
+    },
+    listScheduledTasks: async () => agent.tasks,
   };
 });
 
@@ -189,6 +202,10 @@ beforeEach(() => {
   relay.down = false;
   relay.loseAnswer = false;
   account.user = { id: "u1" };
+  agent.toolFree = true;
+  agent.asked = [];
+  agent.answer = async () => "[]";
+  agent.tasks = [];
 });
 
 describe("agent sync", () => {
@@ -634,10 +651,87 @@ describe("margin notes", () => {
     expect(mac.notes.listNotes()).toEqual([]);
   });
 
+  it("leaves the note when there's no agent to start its chat with", async () => {
+    const mac = await device();
+    await mac.sync.mutate([
+      {
+        op: "note.set",
+        note: note("n1", { agentId: "gone", action: { label: "Plan it", prompt: "Plan." } }),
+      },
+    ]);
+    await expect(mac.notes.acceptNote("n1")).rejects.toThrow("No agent is set up");
+    expect(mac.notes.listNotes().map((n) => n.id)).toEqual(["n1"]);
+  });
+
   it("has no notes without an Otter account", async () => {
     const mac = await device();
     await mac.sync.mutate([{ op: "note.set", note: note("n1") }]);
     account.user = null;
     expect(mac.notes.listNotes()).toEqual([]);
+  });
+});
+
+describe("writing notes", () => {
+  const MINUTE = 60_000;
+  const ref = "task/oc/t1";
+
+  async function writer() {
+    const files = new Map([["ui-preferences.json", JSON.stringify({ "otter:layout": "margin" })]]);
+    const mac = await device(files);
+    await mac.settings.saveProviderSettings({
+      selected: "oc",
+      agents: [{ id: "oc", kind: "openclaw", name: "Claw", settings: { enabled: true } as never }],
+    });
+    agent.tasks = [
+      {
+        provider: "oc",
+        tasks: [
+          { provider: "oc", id: "t1", name: "Digest", enabled: true, lastRun: { status: "error" } },
+        ],
+      },
+    ];
+    return { mac, files };
+  }
+
+  it("writes the agent's notes, and asks about an item once", async () => {
+    const { mac } = await writer();
+    agent.answer = async () => JSON.stringify([{ ref, kind: "question", text: "Retry it?" }]);
+    await mac.notes.writeNotes(10 * MINUTE);
+    await mac.notes.writeNotes(20 * MINUTE);
+    expect(agent.asked).toHaveLength(1);
+    expect(mac.notes.listNotes().map((n) => [n.target, n.text])).toEqual([
+      [{ kind: "task", agentId: "oc", taskId: "t1" }, "Retry it?"],
+    ]);
+  });
+
+  it("asks again about items whose request failed, three times in all", async () => {
+    const { mac, files } = await writer();
+    agent.answer = async () => {
+      throw new Error("The agent took too long.");
+    };
+    for (const minute of [10, 15, 20, 25, 30, 60, 120]) await mac.notes.writeNotes(minute * MINUTE);
+    expect(agent.asked).toHaveLength(3);
+    expect(JSON.parse(files.get("margin-notes-asked.json")!)[ref]).toEqual({
+      at: 25 * MINUTE,
+      tries: 3,
+    });
+  });
+
+  it("writes nothing into an account signed in while it asked", async () => {
+    const { mac } = await writer();
+    agent.answer = async () => {
+      account.user = { id: "u2" };
+      return JSON.stringify([{ ref, kind: "question", text: "Retry it?" }]);
+    };
+    await mac.notes.writeNotes(10 * MINUTE);
+    expect(agent.asked).toHaveLength(1);
+    expect([...relay.entries.keys()].filter((k) => k.startsWith("note/"))).toEqual([]);
+  });
+
+  it("asks only an agent that answers without tools", async () => {
+    const { mac } = await writer();
+    agent.toolFree = false;
+    await mac.notes.writeNotes(10 * MINUTE);
+    expect(agent.asked).toEqual([]);
   });
 });

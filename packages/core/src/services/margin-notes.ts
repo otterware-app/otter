@@ -22,7 +22,13 @@ import { capabilitiesOf } from "../providers/index.js";
 import type { CalendarEvent } from "../providers/provider.js";
 import type { MailAccount, MessageSummary } from "../types.js";
 import { getAccount, listAccounts } from "./account-store.js";
-import { askAgent, hasAgent, listScheduledTasks, selectedAgent } from "./agent/service.js";
+import {
+  askAgent,
+  hasAgent,
+  listScheduledTasks,
+  selectedAgent,
+  toolFreeAgent,
+} from "./agent/service.js";
 import { entries, entry, mutate } from "./agent-sync.js";
 import * as calendarStore from "./calendar-store.js";
 import { accountCalendars, eventsInRange } from "./calendar-sync.js";
@@ -36,9 +42,16 @@ const DAY = 24 * 60 * 60_000;
 const EVERY_MS = 5 * 60_000;
 /** Items in one request, at most. */
 const BATCH = 12;
-/** Items asked about, so none is asked about twice: kept a few days, longer than they're in the day. */
+/**
+ * Items asked about, written before asking, so none is asked about again once answered and a
+ * failing request can't come back to the same items forever: kept a few days, longer than
+ * they're in the day.
+ */
 const ASKED_FILE = "margin-notes-asked.json";
 const ASKED_KEEP_MS = 3 * DAY;
+/** Times an item is asked about when the request fails, the next after EVERY_MS, then twice that. */
+const TRIES = 3;
+type Asked = Record<string, { at: number; tries: number; retryAt?: number }>;
 /** Notes older than this go from the account. */
 const NOTES_KEEP_MS = 30 * DAY;
 const KINDS: readonly NoteKind[] = ["summary", "draft", "question", "done"];
@@ -65,18 +78,28 @@ export async function dismissNote(id: string): Promise<void> {
   await mutate([{ op: "note.state", id, state: "dismissed" }]);
 }
 
-/** Marks the note accepted, and answers the chat its action starts (null when it has none). */
+/**
+ * The chat the note's action starts (null when it has none), and then the note is accepted: when
+ * there's no agent to start it with, the note stays.
+ */
 export async function acceptNote(id: string): Promise<NoteChat | null> {
   const note = openNote(id);
+  const chat = note.action ? await noteChat(note, note.action) : null;
   await mutate([{ op: "note.state", id, state: "accepted" }]);
-  if (!note.action) return null;
+  return chat;
+}
+
+async function noteChat(
+  note: MarginNote,
+  action: NonNullable<MarginNote["action"]>,
+): Promise<NoteChat> {
   const agentId = (await hasAgent(note.agentId)) ? note.agentId : await selectedAgent();
   if (!agentId) throw new Error("No agent is set up to do this.");
   const about = await describe(note.target);
   return {
     agentId,
-    prompt: note.action.prompt,
-    title: about.name ? `${note.action.label}: ${about.name}` : note.action.label,
+    prompt: action.prompt,
+    title: about.name ? `${action.label}: ${about.name}` : action.label,
     ...(about.thread ? { thread: about.thread } : { about: about.text }),
   };
 }
@@ -184,8 +207,21 @@ const taskItem = (task: ScheduledTask) =>
     },
   );
 
+/** The calendars shown in Otter's Calendar: those shown or hidden there by hand, else as they came. */
+export function shownCalendars(ui: Record<string, string>) {
+  let shown: Record<string, unknown> = {};
+  try {
+    shown = JSON.parse(ui["calendar:shown"] ?? "{}") ?? {};
+  } catch {}
+  return (accountId: string, calendar: { id: string; hiddenByDefault: boolean }) => {
+    const set = shown[`${accountId}|${calendar.id}`];
+    return typeof set === "boolean" ? set : !calendar.hiddenByDefault;
+  };
+}
+
 /** Scheduled tasks that need a look, today's and tomorrow's events, the last two days' unread inbox. */
-async function dayItems(now = Date.now()): Promise<NoteItem[]> {
+async function dayItems(now: number, ui: Record<string, string>): Promise<NoteItem[]> {
+  const isShown = shownCalendars(ui);
   const off = turnedOffMailboxes();
   const accounts = (await listAccounts()).filter(
     (a) => !off.has(a.id) && !off.has(a.email.toLowerCase()),
@@ -209,7 +245,7 @@ async function dayItems(now = Date.now()): Promise<NoteItem[]> {
         const { calendars } = await accountCalendars(account.id);
         const ranges = await eventsInRange(
           calendars
-            .filter((c) => !c.hiddenByDefault)
+            .filter((c) => isShown(account.id, c))
             .map((c) => ({ accountId: account.id, calendarId: c.id })),
           today.toISOString(),
           until.toISOString(),
@@ -303,11 +339,16 @@ export function parseNotes(
 let lastAsked = 0;
 let asking = false;
 
-/** Asks the agent about the day's things it hasn't been asked about, when it's time. */
+/**
+ * Asks the agent about the day's things it hasn't been asked about, when it's time: only an agent
+ * that answers without tools, as the items are mail and events anyone could have written.
+ */
 export async function writeNotes(now = Date.now()): Promise<void> {
-  if (asking || now - lastAsked < EVERY_MS || !getOtterUser()) return;
-  if ((await getUiPreferences())["otter:layout"] !== "margin") return;
-  const agentId = await selectedAgent();
+  const user = getOtterUser()?.id;
+  if (asking || now - lastAsked < EVERY_MS || !user) return;
+  const ui = await getUiPreferences();
+  if (ui["otter:layout"] !== "margin") return;
+  const agentId = await toolFreeAgent();
   if (!agentId) return;
   asking = true;
   lastAsked = now;
@@ -318,18 +359,33 @@ export async function writeNotes(now = Date.now()): Promise<void> {
       .map((note) => ({ op: "note.remove", id: note.id }));
     if (old.length > 0) await mutate(old);
     const noted = new Set(notes.map((note) => noteTargetKey(note.target)));
-    const asked = Object.fromEntries(
-      Object.entries((await readJson<Record<string, number>>(ASKED_FILE)) ?? {}).filter(
-        ([, at]) => at > now - ASKED_KEEP_MS,
+    const asked: Asked = Object.fromEntries(
+      Object.entries((await readJson<Asked>(ASKED_FILE)) ?? {}).filter(
+        ([, entry]) => entry.at > now - ASKED_KEEP_MS,
       ),
     );
-    const items = (await dayItems(now))
-      .filter((i) => !asked[i.ref] && !noted.has(i.ref))
+    const due = (ref: string) => {
+      const entry = asked[ref];
+      return !entry || (entry.retryAt !== undefined && entry.retryAt <= now);
+    };
+    const items = (await dayItems(now, ui))
+      .filter((i) => due(i.ref) && !noted.has(i.ref))
       .slice(0, BATCH);
     if (items.length === 0) return;
-    const written = parseNotes(await askAgent(agentId, notesPrompt(items)), items, agentId, now);
-    for (const i of items) asked[i.ref] = now;
+    for (const { ref } of items) {
+      const tries = (asked[ref]?.tries ?? 0) + 1;
+      asked[ref] = {
+        at: now,
+        tries,
+        ...(tries < TRIES && { retryAt: now + EVERY_MS * 2 ** (tries - 1) }),
+      };
+    }
     await writeJson(ASKED_FILE, asked);
+    const answer = await askAgent(agentId, notesPrompt(items));
+    if (getOtterUser()?.id !== user) return;
+    for (const { ref } of items) delete asked[ref]?.retryAt;
+    await writeJson(ASKED_FILE, asked);
+    const written = parseNotes(answer, items, agentId, now);
     logger.info("margin-notes", "asked", { items: items.length, notes: written.length });
     if (written.length > 0) await mutate(written.map((note) => ({ op: "note.set", note })));
   } catch (error) {

@@ -3,7 +3,7 @@ import { applyMutation, type AgentStore } from "@otter/contracts/agent-sync";
 import type { MarginNote } from "@otter/contracts/margin-notes";
 
 import { scriptedNotes } from "../fake/notes.js";
-import { notesPrompt, parseNotes, type NoteItem } from "./margin-notes.js";
+import { notesPrompt, parseNotes, shownCalendars, type NoteItem } from "./margin-notes.js";
 
 vi.mock("./agent/service.js", () => ({}));
 
@@ -137,5 +137,20 @@ describe("asking for notes", () => {
       ["summary", "Prepare a brief"],
     ]);
     expect(scriptedNotes("Find a venue")).toBeNull();
+  });
+});
+
+describe("the calendars notes are on", () => {
+  it("are those Otter's Calendar shows", () => {
+    const isShown = shownCalendars({
+      "calendar:shown": JSON.stringify({ "a1|work": false, "a1|holidays": true }),
+    });
+    expect(isShown("a1", { id: "work", hiddenByDefault: false })).toBe(false);
+    expect(isShown("a1", { id: "holidays", hiddenByDefault: true })).toBe(true);
+    expect(isShown("a1", { id: "birthdays", hiddenByDefault: true })).toBe(false);
+    expect(isShown("a2", { id: "work", hiddenByDefault: false })).toBe(true);
+    expect(
+      shownCalendars({ "calendar:shown": "{" })("a1", { id: "x", hiddenByDefault: false }),
+    ).toBe(true);
   });
 });

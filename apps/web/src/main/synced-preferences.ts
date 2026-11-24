@@ -35,6 +35,8 @@ const SYNCED_KEYS = [
   "calendar:meetings-by-default",
   "calendar:default-calendar",
   "calendar:colors",
+  // Core reads it too: an agent's notes are only on the calendars shown.
+  "calendar:shown",
 ] as const;
 
 export type SyncedKey = (typeof SYNCED_KEYS)[number];
