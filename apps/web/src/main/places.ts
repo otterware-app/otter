@@ -1,10 +1,10 @@
 import { isWorkspaceSegment, workspaceSpace } from "./extensions/workspaces";
 import { SEARCH_MAILBOX } from "./mail/gmail-query";
-import { CALENDAR_SPACE, CHATS_SPACE } from "./mail/spaces";
+import { CALENDAR_SPACE, CHATS_SPACE, DESK_SPACE } from "./mail/spaces";
 
 /**
  * Each mode is the first segment: /mail/<mailbox>/<label>, /agents/<chat>, /calendar/<day>,
- * /<workspace>/<location> (/drive/…). Before Otter, mailboxes had no /mail prefix and Agents was
+ * /<workspace>/<location> (/drive/…), and the Desk is /desk. Before Otter, mailboxes had no /mail prefix and Agents was
  * /chats: those addresses (old tabs, links, bookmarks) redirect.
  */
 const SPACE_SEGMENTS: Record<string, string> = {
@@ -37,6 +37,7 @@ export function placeHref(
   messageId?: string | null,
   search: MessageSearch = {},
 ): string {
+  if (mailbox === DESK_SPACE) return "/desk";
   const head = isSpaceId(mailbox) ? [fromSpace(mailbox)] : ["mail", mailbox];
   const parts = [...head, fromLabel(label), ...(messageId ? [messageId] : [])];
   return `/${parts.map(encode).join("/")}${messageId ? searchString(search) : ""}`;

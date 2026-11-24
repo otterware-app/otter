@@ -6,6 +6,11 @@ export const CHATS_SPACE = "__chats__";
 
 export const CALENDAR_SPACE = "__calendar__";
 
+/** The Desk (the Margin layout's home): today, at /desk. */
+export const DESK_SPACE = "__desk__";
+
+export const DESK_TODAY = "today";
+
 export const NEW_CHAT = "new";
 
 export const VIEW_LIST = "all";
@@ -18,6 +23,7 @@ export type Space =
   | { kind: "view"; id: string; view: MailView }
   | { kind: "chats"; id: typeof CHATS_SPACE }
   | { kind: "calendar"; id: typeof CALENDAR_SPACE }
+  | { kind: "desk"; id: typeof DESK_SPACE }
   | { kind: "workspace"; id: string; workspace: string };
 
 export function spaceOf(
@@ -30,6 +36,7 @@ export function spaceOf(
 ): Space | null {
   if (id === CHATS_SPACE) return { kind: "chats", id };
   if (id === CALENDAR_SPACE) return { kind: "calendar", id };
+  if (id === DESK_SPACE) return { kind: "desk", id };
   const workspace = workspaceOf(id);
   if (workspace) return { kind: "workspace", id, workspace: workspace.id };
   if (isViewSpaceId(id)) {
@@ -45,16 +52,18 @@ export function spaceOf(
 export function firstLabelOf(spaceId: string): string {
   if (spaceId === CHATS_SPACE) return NEW_CHAT;
   if (spaceId === CALENDAR_SPACE) return "week";
+  if (spaceId === DESK_SPACE) return DESK_TODAY;
   const workspace = workspaceOf(spaceId);
   if (workspace) return workspace.home;
   if (isViewSpaceId(spaceId)) return VIEW_LIST;
   return "INBOX";
 }
 
-export type AppMode = "mail" | "calendar" | "agent" | `workspace:${string}`;
+export type AppMode = "desk" | "mail" | "calendar" | "agent" | `workspace:${string}`;
 
 export function modeOf(spaceId: string | null): AppMode {
   if (spaceId === CALENDAR_SPACE) return "calendar";
+  if (spaceId === DESK_SPACE) return "desk";
   if (spaceId === CHATS_SPACE) return "agent";
   const workspace = workspaceOf(spaceId);
   return workspace ? `workspace:${workspace.id}` : "mail";

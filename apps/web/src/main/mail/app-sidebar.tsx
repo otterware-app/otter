@@ -1,5 +1,11 @@
 import { memo, useState, type ComponentType, type ReactNode } from "react";
-import { ChevronDownIcon, PlusIcon, SettingsIcon, SquarePenIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  NewspaperIcon,
+  PlusIcon,
+  SettingsIcon,
+  SquarePenIcon,
+} from "lucide-react";
 
 import { CalendarSidebar } from "../calendar/calendar-sidebar";
 import type { WorkspaceProps } from "../extensions/types";
@@ -8,6 +14,7 @@ import type { CalendarMode } from "../calendar/dates";
 import { MODE_JUMP_COMMANDS } from "../keybindings/commands";
 import { shortcutText } from "../keybindings/keys";
 import { ShortcutText } from "../keybindings/store";
+import { useAppLayout } from "../theme/interface-settings";
 import { UpdateButton } from "../updates";
 import { AccountPicture } from "./account-picture";
 import { MailboxFolders, SearchRow, type SidebarSearch } from "./accounts-sidebar";
@@ -199,6 +206,7 @@ function ModePicker({
     s.approvals.length > 0 || s.questions.length > 0 ? "attention" : s.unseen.size > 0,
   );
   const workspaces = useWorkspaces();
+  const margin = useAppLayout() === "margin";
   const [order, setOrder] = useState(loadModeOrder);
   const modes: {
     mode: AppMode;
@@ -206,6 +214,7 @@ function ModePicker({
     Icon: ComponentType<Pick<NavGlyphProps, "selected" | "className">>;
     dot: boolean | "attention";
   }[] = [
+    ...(margin ? [{ mode: "desk" as const, label: "Desk", Icon: DeskIcon, dot: false }] : []),
     { mode: "mail", label: "Mail", Icon: OtterMailIcon, dot: unread },
     {
       mode: "calendar",
@@ -250,6 +259,10 @@ function ModePicker({
     />
   );
 }
+
+const DeskIcon = ({ className }: Pick<NavGlyphProps, "selected" | "className">) => (
+  <NewspaperIcon className={className} />
+);
 
 /** This computer's order of the mode switcher; not synced. */
 const MODE_ORDER_KEY = "otter:mode-order";
