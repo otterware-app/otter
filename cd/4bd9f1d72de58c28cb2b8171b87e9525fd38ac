@@ -1,0 +1,154 @@
+apps/mail-mobile/src/mail/sender-avatar.tsx
+  s_bff670e2c19f9b::t_aaa88836fa4dbc 33
+  s_bff670e2c19f9b::t_046af43a0572cd 1-32,34-47
+apps/mail-mobile/src/mail/send-to-agent.ts
+  s_bff670e2c19f9b::t_39b2674ae05184 1-61
+packages/client/src/mail/use-draft-autosave.ts
+  s_bff670e2c19f9b::t_8a91bf5655176c 24,46,103,105,220-223,311-316,370
+apps/mail-mobile/src/settings/mailboxes-screen.tsx
+  s_bff670e2c19f9b::t_375679aa8c252a 15-26
+  s_bff670e2c19f9b::t_227da9f7d580b3 11
+  s_cc8ffb6e1db829::t_b25a28b4980b0d 1-10,12-14,27-46
+apps/mail-mobile/src/app/index.tsx
+  s_cc8ffb6e1db829::t_b25a28b4980b0d 6-8,10-11,22-23,31-32
+  s_076b12ad1c9082::t_4d9aec25ec7fda 17
+apps/mail-mobile/src/mail/code-card.tsx
+  s_bff670e2c19f9b::t_1d39148b74919a 1-74
+apps/mail-mobile/src/mail/mailboxes.ts
+  s_bff670e2c19f9b::t_6fc240ddc73cb8 1-31
+apps/mail-mobile/src/mail/use-email-links.ts
+  s_b732cdf72249e1::t_3d5a925cd6fdde 1-30
+apps/mail-mobile/src/settings/mailbox-settings-screen.tsx
+  s_bff670e2c19f9b::t_f92d75ac942563 20,23,145-146,148,152-155
+  s_bff670e2c19f9b::t_375679aa8c252a 74-77,79-85
+  s_cc8ffb6e1db829::t_b25a28b4980b0d 1-19,21-22,24-44,47-50,52-56,60-73,78,87-103,106-144,147,149-151,156-183
+  s_bff670e2c19f9b::t_227da9f7d580b3 45-46,51,57-59,86,104-105
+apps/mail-mobile/src/mail/mail-actions.tsx
+  s_076b12ad1c9082::t_520d1b58a5be99 1-240
+apps/mail-mobile/src/frame/mail-places.tsx
+  s_bff670e2c19f9b::t_6fc240ddc73cb8 1-2,4-10,13-63,65-68,88-90
+  s_bff670e2c19f9b::t_aaa88836fa4dbc 3,64,75,80-83
+  s_076b12ad1c9082::t_ea16c26e7a60c6 11-12,69-73,76-79,84-87
+  s_bff670e2c19f9b::t_1d39148b74919a 74
+apps/mail-mobile/src/mail/search-screen.tsx
+  s_076b12ad1c9082::t_445b22565a9a83 109,176
+  s_bff670e2c19f9b::t_f92d75ac942563 16
+  s_cc8ffb6e1db829::t_b25a28b4980b0d 1-8,10-11,15,17,19,21,25-30,32,34-84,87-108,110-150,152-153,155-159,163-173,175,177,180,182-187,190-204,207-217,222-237
+apps/mail-mobile/src/mail/compose-screen.tsx
+  s_076b12ad1c9082::t_1dc613bba467bd 20,44,139,222,454,456,574-575,577-578,582
+  s_bff670e2c19f9b::t_227da9f7d580b3 313-315
+  s_bff670e2c19f9b::t_45ee6bed77f94f 1-19,22-30,33,36-37,39-43,45-73,76-111,113-118,121-124,127-129,135-138,141-145,148-150,152-188,194-221,223-230,232-244,246,257-312,316-393,398-400,402-416,418-425,429-432,435-453,455,457-470,472-478,480-490,492-504,515-518,520-521,523-573,576,579-580,586-609,621-622,624,634-635,638-639,694-695,697-704,707-730,743-763
+  s_bff670e2c19f9b::t_8a91bf5655176c 231
+  s_bff670e2c19f9b::t_dc2758ed45ba40 21
+  s_bff670e2c19f9b::t_10ead1e21b3d80 35,38,189-193,247-256,506-511
+  s_bff670e2c19f9b::t_b6d6319c12891e 610-611,620,623,625-633,636-637,640-646,648-693,696,705-706,731-742
+  s_bff670e2c19f9b::t_eed8a4091b92c8 612-619,647
+  s_bff670e2c19f9b::t_94d24148600b8f 505
+apps/mail-mobile/src/app/settings/mailbox.tsx
+  s_cc8ffb6e1db829::t_b25a28b4980b0d 1
+apps/mail-mobile/src/frame/mail-bar.tsx
+  s_bff670e2c19f9b::t_aaa88836fa4dbc 434
+  s_bff670e2c19f9b::t_8d14431d2b87f3 9,11-12,25,33,45,59-69,73-74,81,83-85,87-111,113-115,120-124,130-145,147-169,171-212,405-432
+  s_076b12ad1c9082::t_ea16c26e7a60c6 1-8,10,13-17,20-24,26-32,34-44,46-58,70-72,75-80,82,86,129,146,170,213-404,433,435-466
+  s_076b12ad1c9082::t_e7b67187e91697 18-19,112
+  s_076b12ad1c9082::t_f36bab496716bc 116-119,125-128
+packages/client/src/mail/reply.ts
+  s_bff670e2c19f9b::t_10ead1e21b3d80 82-96
+apps/mail-mobile/src/mail/mailbox-screen.tsx
+  s_bff670e2c19f9b::t_375679aa8c252a 111-116,195,331-335
+  s_076b12ad1c9082::t_e26754ccd700d4 66,125,157,230,240,290,358,389,424,426
+  s_076b12ad1c9082::t_e7b67187e91697 377,379
+  s_bff670e2c19f9b::t_227da9f7d580b3 110,200-203,474,477
+  s_bff670e2c19f9b::t_39b2674ae05184 1,3,5-6,8,14-15,19,33-43,45-46,48,51,55-65,67-86,90-92,96-109,118-124,127-128,130,132,150,152-154,158-165,167-192,194,197,199,206,208-229,232-233,237-238,242,245-252,260-264,270-271,274,277-289,303-312,317-330,336-338,340,343-351,355-356,359-376,378,402-405,408-423,425,427-429,431,433-471,473,475-476,479,481,536-567,573-576,580-582,591-593,595-596,600-602
+  s_bff670e2c19f9b::t_046af43a0572cd 17,25-32,50,94-95,129,253-259,265,269,292-302,313,316,380-388,390-401,482-497,499-535,577,579,584-590,597
+  s_bff670e2c19f9b::t_1d39148b74919a 9,20,49,93,133-149,266-268,314-315,578,583,598
+  s_bff670e2c19f9b::t_c70d3f487b6981 231,291
+apps/mail-mobile/src/mail/mail-row.tsx
+  s_bff670e2c19f9b::t_f92d75ac942563 268,277
+  s_bff670e2c19f9b::t_1d39148b74919a 13,25-26,38-39,151-170,189,243,251-255,265
+  s_076b12ad1c9082::t_e7b67187e91697 16-17,72,78,85-86,90-93,97,99-101,121
+  s_bff670e2c19f9b::t_0fb28c4b77b9ff 4,6,9-11,18,28-32,41-45,67-71,73-76,79-84,87-88,94-95,98,102-117,119-120,122,125-126,128-131,133-140,142-146,148-150,171-188,200,213-218,220-224,229-242,247,249-250,256-258,263,273,276,278-284
+  s_076b12ad1c9082::t_ce6ec5cc04995d 127,141,248
+  s_bff670e2c19f9b::t_046af43a0572cd 1,14-15,24,27,37,40,50-65,123,192-198,202-211,219,226,244-246,264,266-267,269-272
+  s_076b12ad1c9082::t_28c1c21109416e 12,77,89,96,190-191,199,201,212,225,227-228
+apps/mail-mobile/src/settings/preferences.ts
+  s_bff670e2c19f9b::t_8a91bf5655176c 1,43-60
+  s_bff670e2c19f9b::t_6fc240ddc73cb8 2-42,61
+apps/mail-mobile/src/app/_layout.tsx
+  s_cc8ffb6e1db829::t_b25a28b4980b0d 2,13-14,43-44,57,62-64,66
+apps/mail-mobile/src/frame/mail-notices.tsx
+  s_076b12ad1c9082::t_520d1b58a5be99 1-78
+apps/mail-mobile/src/mail/benchmark-status.tsx
+  s_bff670e2c19f9b::t_39b2674ae05184 1-69
+apps/mail-mobile/src/app/settings/mailboxes.tsx
+  s_cc8ffb6e1db829::t_b25a28b4980b0d 1
+apps/mail-mobile/src/mail/html-body.tsx
+  s_bff670e2c19f9b::t_f92d75ac942563 113,115
+  s_bff670e2c19f9b::t_a1fc431fce7409 1-112,114,116-183
+apps/mail-mobile/src/settings/settings-screen.tsx
+  s_cc8ffb6e1db829::t_b25a28b4980b0d 1-161
+apps/mail-mobile/src/mail/compose-text.ts
+  s_bff670e2c19f9b::t_45ee6bed77f94f 1-27
+apps/mail-mobile/src/mail/message-card.tsx
+  s_bff670e2c19f9b::t_b6d6319c12891e 2-3,25,35-51,55-68,71-72,75-79,91-92,163-166,203-225,227-236,238-245,258-260,263-265,279,305,326,330,332,380
+  s_076b12ad1c9082::t_e7b67187e91697 20,33,89,257,324,373-377,381
+  s_bff670e2c19f9b::t_dc2758ed45ba40 306-323
+  s_b732cdf72249e1::t_3d5a925cd6fdde 1,4-15,17-19,21-24,26-32,34,52-54,69-70,73-74,80-88,93-162,167-202,226,237,246-256,261-262,266-278,281,286-304,358-372,379,382-392
+  s_bff670e2c19f9b::t_3effc56d7dd22d 16,280,282-285
+  s_bff670e2c19f9b::t_1ee4de777a3e58 90,325,327-329,331,333-357,378
+apps/mail-mobile/src/app/settings.tsx
+  s_cc8ffb6e1db829::t_b25a28b4980b0d 1
+apps/mail-mobile/src/mail/thread-screen.tsx
+  s_bff670e2c19f9b::t_8a91bf5655176c 22,66,258-266
+  s_076b12ad1c9082::t_e7b67187e91697 1,13,16-17,69,78,89-90,94,135-148,161,164-179,241,268-274,305,315,331-345,347-348,350-351,353-361,363-365,369-370,382,404-423
+  s_076b12ad1c9082::t_cf0d97277ff95f 48,129,152,154-155,212,224,233-234,236,253,256,320,327,346,349,362,368,373-380
+  s_bff670e2c19f9b::t_c1c757d39ab0d5 2-5,8,10,14,18,21,23-33,41-47,49-51,53-65,67-68,72,75-77,79-88,91-93,95-128,130-134,150-151,153,156-158,160,180-210,213-219,221-222,227-231,235,239-240,242,244,250,254,257,307-314,316-319,321-326,329-330,352,384-397,401-403,424
+  s_bff670e2c19f9b::t_1d39148b74919a 6,20,73,297-304,306
+  s_bff670e2c19f9b::t_e21c7de0abae05 19,162-163,211,267,275-296,366-367,371-372,381
+packages/client/src/mail/verification-code.ts
+  s_bff670e2c19f9b::t_1d39148b74919a 1
+apps/mail-mobile/README.md
+  s_b732cdf72249e1::t_70c16a1226f0d8 20-37
+apps/mail-mobile/tsconfig.json
+  s_076b12ad1c9082::t_9870d0ba0fd393 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cd4bd9f1d72de58c28cb2b8171b87e9525fd38ac",
+  "prompts": {},
+  "sessions": {
+    "s_076b12ad1c9082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f03-1d60-7480-929a-3cc6584d46dd",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    },
+    "s_b732cdf72249e1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f64-2aa8-7bd3-b41c-79cca6e77015",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    },
+    "s_bff670e2c19f9b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f64-1b78-7952-874a-fbdefc1e0451",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    },
+    "s_cc8ffb6e1db829": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f64-3cb0-7ab3-8f4c-82b69d57b882",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
