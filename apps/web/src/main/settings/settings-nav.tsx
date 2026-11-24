@@ -86,15 +86,47 @@ const ROW =
 const ROW_IDLE =
   "text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground [&>svg]:text-sidebar-muted-foreground hover:[&>svg]:text-sidebar-foreground";
 
+const LOOKS = {
+  sidebar: {
+    scroll:
+      "scroll-fade-y px-(--sidebar-content-inset) pb-8 pt-3 web:pt-[calc(var(--workspace-topbar-height)/2-1rem)]",
+    search:
+      "mb-2 flex h-9 shrink-0 items-center gap-2 rounded-pill bg-foreground/[0.06] ps-3 pe-2.5 transition-colors focus-within:bg-foreground/[0.08]",
+    row: ROW,
+    idle: ROW_IDLE,
+    selected: "bg-sidebar-row-selected text-sidebar-foreground [&>svg]:text-sidebar-foreground",
+    active: "bg-sidebar-row-hover text-sidebar-foreground [&>svg]:text-sidebar-foreground",
+    footer: "px-(--sidebar-content-inset) pt-1 pb-(--sidebar-content-inset)",
+    input: "text-sidebar-foreground placeholder:text-sidebar-muted-foreground",
+    muted: "text-sidebar-muted-foreground",
+  },
+  // The Margin layout's: a quiet list beside the page, an ink rule on the current pane.
+  margin: {
+    scroll: "pt-14 pb-8 ps-6",
+    search:
+      "mb-4 flex h-8 shrink-0 items-center gap-2 rounded-sm border border-border ps-2.5 pe-2 transition-colors focus-within:border-foreground-40",
+    row: "flex w-full cursor-pointer items-center gap-2 border-l py-1.5 ps-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring [&>svg]:hidden",
+    idle: "border-border text-muted-foreground hover:text-foreground",
+    selected: "border-l-2 border-foreground ps-[11px] font-medium text-foreground",
+    active: "border-foreground text-foreground",
+    footer: "ps-6 pb-4",
+    input: "text-foreground placeholder:text-muted-foreground",
+    muted: "text-muted-foreground",
+  },
+};
+
 export function SettingsNav({
   pane,
   onSelect,
   onBack,
+  look = "sidebar",
 }: {
   pane: SettingsPane;
   onSelect: (pane: SettingsPane, target?: string, item?: string) => void;
   onBack: () => void;
+  look?: keyof typeof LOOKS;
 }) {
+  const styles = LOOKS[look];
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [activeResultIndex, setActiveResultIndex] = useState(0);
@@ -163,14 +195,16 @@ export function SettingsNav({
           heading centers in its place, after the sidebar toggle. */}
       <ScrollArea
         className="flex-1"
-        viewportClassName="scroll-fade-y px-(--sidebar-content-inset) pb-8 pt-3 web:pt-[calc(var(--workspace-topbar-height)/2-1rem)]"
-        contentClassName="flex flex-col gap-0.5"
+        viewportClassName={styles.scroll}
+        contentClassName={cn("flex flex-col", look === "sidebar" && "gap-0.5")}
       >
-        <h2 className="mb-1 flex h-8 items-center pe-(--sidebar-row-content-inset) ps-(--sidebar-heading-inset) text-base font-semibold text-sidebar-foreground">
-          Settings
-        </h2>
-        <div className="mb-2 flex h-9 shrink-0 items-center gap-2 rounded-pill bg-foreground/[0.06] ps-3 pe-2.5 transition-colors focus-within:bg-foreground/[0.08]">
-          <SearchIcon className="size-4 shrink-0 text-sidebar-muted-foreground" />
+        {look === "sidebar" ? (
+          <h2 className="mb-1 flex h-8 items-center pe-(--sidebar-row-content-inset) ps-(--sidebar-heading-inset) text-base font-semibold text-sidebar-foreground">
+            Settings
+          </h2>
+        ) : null}
+        <div className={styles.search}>
+          <SearchIcon className={cn("size-4 shrink-0", styles.muted)} />
           <input
             ref={searchInputRef}
             type="text"
@@ -192,7 +226,10 @@ export function SettingsNav({
                 ? `settings-search-result-${results[activeResultIndex].id}`
                 : undefined
             }
-            className="h-full min-w-0 flex-1 bg-transparent text-sm text-sidebar-foreground outline-none placeholder:text-sidebar-muted-foreground"
+            className={cn(
+              "h-full min-w-0 flex-1 bg-transparent text-sm outline-none",
+              styles.input,
+            )}
           />
           {isSearching ? (
             <button
@@ -214,7 +251,7 @@ export function SettingsNav({
               id="settings-search-results"
               role="listbox"
               aria-label="Settings search results"
-              className="flex flex-col gap-0.5"
+              className={cn("flex flex-col", look === "sidebar" && "gap-0.5")}
             >
               {results.map((item, index) => {
                 const Icon = SETTINGS_SECTION_ICONS[item.pane];
@@ -231,11 +268,9 @@ export function SettingsNav({
                     onClick={() => openResult(item)}
                     {...PLACE}
                     className={cn(
-                      ROW,
+                      styles.row,
                       "h-auto min-h-11 items-start py-1.5 [&>svg]:mt-0.5",
-                      active
-                        ? "bg-sidebar-row-hover text-sidebar-foreground [&>svg]:text-sidebar-foreground"
-                        : ROW_IDLE,
+                      active ? styles.active : styles.idle,
                     )}
                   >
                     <Icon />
@@ -262,7 +297,9 @@ export function SettingsNav({
             const Icon = section.icon;
             const active = section.id === pane;
             const heading =
-              section.id === PLUG_IN_PANES[0] ? <div aria-hidden className="h-4" /> : null;
+              section.id === PLUG_IN_PANES[0] ? (
+                <div aria-hidden className={look === "sidebar" ? "h-4" : "h-3"} />
+              ) : null;
             return (
               <Fragment key={section.id}>
                 {heading}
@@ -271,12 +308,7 @@ export function SettingsNav({
                   onClick={() => onSelect(section.id)}
                   {...PLACE}
                   aria-current={active ? "page" : undefined}
-                  className={cn(
-                    ROW,
-                    active
-                      ? "bg-sidebar-row-selected text-sidebar-foreground [&>svg]:text-sidebar-foreground"
-                      : ROW_IDLE,
-                  )}
+                  className={cn(styles.row, active ? styles.selected : styles.idle)}
                 >
                   <Icon />
                   <span className="truncate">{section.label}</span>
@@ -286,10 +318,16 @@ export function SettingsNav({
           })
         )}
       </ScrollArea>
-      <div className="flex shrink-0 flex-col gap-0.5 px-(--sidebar-content-inset) pt-1 pb-(--sidebar-content-inset)">
-        {features.defaultMailApp ? <DefaultMailRow /> : null}
+      <div className={cn("flex shrink-0 flex-col gap-0.5", styles.footer)}>
+        {features.defaultMailApp ? (
+          <DefaultMailRow className={cn(styles.row, styles.idle)} />
+        ) : null}
         <div className="flex items-center gap-1">
-          <button type="button" onClick={onBack} className={cn(ROW, ROW_IDLE, "min-w-0 flex-1")}>
+          <button
+            type="button"
+            onClick={onBack}
+            className={cn(styles.row, styles.idle, "min-w-0 flex-1")}
+          >
             <ArrowLeftIcon />
             <span className="truncate">Back</span>
           </button>
@@ -321,7 +359,7 @@ function HelpMenu() {
   );
 }
 
-function DefaultMailRow() {
+function DefaultMailRow({ className }: { className: string }) {
   const [isDefault, setIsDefault] = useState<boolean | null>(null);
   const refresh = async () => {
     try {
@@ -348,7 +386,7 @@ function DefaultMailRow() {
           }
           void refresh();
         }}
-        className={cn(ROW, ROW_IDLE)}
+        className={className}
       >
         <MailCheckIcon />
         <span className="truncate">Set as default mail app</span>

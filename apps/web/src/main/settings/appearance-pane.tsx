@@ -19,6 +19,7 @@ import {
   setColorScheme,
   setThemeForAppearance,
   themeColors,
+  type ThemeChoice,
   useAppThemes,
   useThemeChoice,
   useThemeDesign,
@@ -139,6 +140,53 @@ function MiniWindow({ colors }: { colors: ThemeColors }) {
         </span>
       </span>
     </span>
+  );
+}
+
+/** A preview in a section's margin (the Margin layout's), under a small label. */
+function MarginPreview({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="font-mono text-3xs tracking-wider text-placeholder uppercase">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function WornThemes({
+  choice,
+  themes,
+}: {
+  choice: ThemeChoice;
+  themes: readonly ThemeDefinition[];
+}) {
+  return (
+    <MarginPreview label="Wearing">
+      {(["light", "dark"] as const).map((mode) => (
+        <div key={mode} className="flex flex-col gap-1">
+          <span className="block h-20 overflow-hidden rounded-sm border border-border">
+            <MiniWindow colors={themeColors(choice[mode], mode)} />
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {mode === "light" ? "Light" : "Dark"} ·{" "}
+            {themes.find((theme) => theme.id === choice[mode])?.label}
+          </span>
+        </div>
+      ))}
+    </MarginPreview>
+  );
+}
+
+function ReadingTypePreview() {
+  return (
+    <MarginPreview label="Reading type">
+      <p className="font-reading text-lg leading-snug text-foreground">
+        Rivers, rafts, and remote work
+      </p>
+      <p className="font-reading text-sm leading-relaxed text-muted-foreground">
+        Subjects, messages and an agent’s replies read in this type, at the size you choose.
+      </p>
+    </MarginPreview>
   );
 }
 
@@ -461,6 +509,7 @@ function ThemeLibrary() {
     <SettingsSection
       {...searchableSetting("themes")}
       variant="plain"
+      margin={<WornThemes choice={choice} themes={themes} />}
       headerAction={
         <div className="flex items-center gap-2">
           {choice.light !== INITIAL_THEME_ID || choice.dark !== INITIAL_THEME_ID ? (
@@ -968,7 +1017,7 @@ export function AppearancePane() {
   const dark = themeColors(choice.dark, "dark");
 
   return (
-    <SettingsPageContainer title="Appearance">
+    <SettingsPageContainer title="Appearance" lead="Color, type and layout.">
       {/* The scheme and the themes it wears, together (T3 Code's). */}
       <div className="space-y-6">
         <SettingsSection
@@ -1102,7 +1151,7 @@ export function AppearancePane() {
         />
       </SettingsSection>
 
-      <SettingsSection title="Interface">
+      <SettingsSection title="Interface" margin={<ReadingTypePreview />}>
         <PercentSettingRow
           setting={CONTRAST}
           searchId="contrast"

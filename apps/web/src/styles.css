@@ -85,6 +85,16 @@ html[data-layout="margin"] {
   --reading-width: 42.5rem;
 }
 
+/* Its rail (margin-rail.tsx) runs down the window's left edge: the pinned title bar controls
+   start after it, unless the traffic lights already put them there. */
+html[data-layout="margin"]:is(
+    [data-window-controls="right"],
+    [data-window-controls="none"],
+    [data-window-controls="left"][data-full-screen]
+  ) {
+  --workspace-controls-left: calc(var(--workspace-frame-inset) + 0.75rem + 4rem);
+}
+
 [data-layout="margin"] .message-list-scroll > * {
   max-width: var(--reading-width);
   margin-inline: auto;

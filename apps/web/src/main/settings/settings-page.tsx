@@ -2,7 +2,7 @@ import { useLatest } from "../use-latest";
 import { DEFAULT_SETTINGS } from "@otter/contracts";
 import { ExtensionCategoryPane } from "../extensions/extensions-pane";
 import { hasIntegrations } from "../extensions/registry";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Switch } from "@otter/ui/components/switch";
 import { toast } from "@otter/ui/components/toast";
 import { mailApi, type MailApp, type NotificationsMode, type SettingsPane } from "../mail/api";
@@ -196,7 +196,7 @@ function GeneralPane() {
   };
 
   return (
-    <SettingsPageContainer title="General">
+    <SettingsPageContainer title="General" lead="How Otter runs, and where to get help.">
       {/* What only the desktop app has isn't shown elsewhere. */}
       {features.launchAtLogin || features.dockBadge ? (
         <SettingsSection title={features.dockBadge ? "Startup & Dock" : "Startup"}>
@@ -402,9 +402,12 @@ function GeneralPane() {
 export function SettingsPage({
   route,
   onNavigate,
+  nav,
 }: {
   route: SettingsRoute;
   onNavigate: (route: SettingsRoute) => void;
+  /** The Margin layout's: Settings' own list, beside the page instead of in the sidebar. */
+  nav?: ReactNode;
 }) {
   const clearTarget = useCallback(
     () => onNavigate({ ...route, target: undefined }),
@@ -412,7 +415,18 @@ export function SettingsPage({
   );
   return (
     <SettingsSearchTargetProvider targetId={route.target ?? null} onTargetHandled={clearTarget}>
-      <SettingsPane route={route} />
+      {nav ? (
+        <div className="flex min-h-0 flex-1">
+          <nav aria-label="Settings" className="flex w-60 shrink-0 flex-col">
+            {nav}
+          </nav>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <SettingsPane route={route} />
+          </div>
+        </div>
+      ) : (
+        <SettingsPane route={route} />
+      )}
     </SettingsSearchTargetProvider>
   );
 }

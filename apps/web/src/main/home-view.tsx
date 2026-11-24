@@ -62,6 +62,8 @@ import {
 } from "./mail/top-bar";
 import { SettingsPage, type SettingsRoute } from "./settings/settings-page";
 import { SettingsNav } from "./settings/settings-nav";
+import { SETTINGS_SECTION_LABELS } from "./settings/settings-search";
+import { MarginRail, MarginTopBar } from "./margin-rail";
 import { isTypingTarget } from "./mail/keyboard";
 import { type MailLayout, useAppLayout, useMailLayout } from "./theme/interface-settings";
 import { usePanelAnimationSettings, usePanelPresence } from "./panel-animations";
@@ -1570,7 +1572,7 @@ function MailHome() {
     (title: string | null) => setWorkspaceTitle(title ? { href: locationHref, title } : null),
     [locationHref],
   );
-  useRecordRecentlyViewed({
+  const place = useRecordRecentlyViewed({
     ready: initialized,
     href: locationHref,
     workspaceTitle: workspaceTitle?.href === locationHref ? workspaceTitle.title : null,
@@ -1673,6 +1675,25 @@ function MailHome() {
       showPanelToggle={browserToggleRoom}
     />
   );
+  const modeLabel =
+    mode === "mail"
+      ? "Mail"
+      : mode === "calendar"
+        ? "Calendar"
+        : mode === "agent"
+          ? "Agent"
+          : (workspace?.title ?? "");
+  const placeTrail = settingsRoute
+    ? ["Settings", SETTINGS_SECTION_LABELS[settingsRoute.pane]]
+    : [modeLabel, ...(place && place.title !== modeLabel ? [place.title] : [])];
+  const settingsNav = (look?: "margin") => (
+    <SettingsNav
+      pane={settingsRoute?.pane ?? "general"}
+      onSelect={(pane, target, item) => openSettings({ pane, target, item })}
+      onBack={leaveSettings}
+      look={look}
+    />
+  );
   const sidebar = (
     <AppSidebar
       accounts={accounts}
@@ -1713,8 +1734,17 @@ function MailHome() {
     <>
       <PlaceMenu />
       {features.swipeNavigation ? <HistorySwipeNavigation /> : null}
+      {marginLayout ? (
+        <MarginRail
+          mode={settingsRoute ? null : mode}
+          accounts={accounts}
+          settingsOpen={settingsRoute !== null}
+          onMode={h.switchMode}
+          onOpenSettings={(pane) => h.openSettings({ pane })}
+        />
+      ) : null}
       <div
-        className="flex h-full flex-col bg-sidebar-surface text-foreground"
+        className="flex h-full flex-col bg-sidebar-surface text-foreground layout-margin:ps-16"
         data-panel-animations={panelAnimationsActive ? "true" : "false"}
         data-mail-layout={ownsMain ? "split" : mailLayout}
         data-sidebar-open={sidebarOpen}
@@ -1728,6 +1758,14 @@ function MailHome() {
           } as CSSProperties
         }
       >
+        {marginLayout ? (
+          <MarginTopBar
+            where={placeTrail}
+            status={globalSync.syncing ? globalSync.label : null}
+            showPanelToggle={panelControls > 0}
+            onFind={() => setPaletteOpen(true)}
+          />
+        ) : null}
         <div className="flex min-h-0 flex-1">
           {/* The frame's width round the cards (the right edge is the last
               card's own gap), so they float with every corner rounded. */}
@@ -1753,7 +1791,8 @@ function MailHome() {
               )}
               {/* Kept mounted while closed, so opening it only slides (but not twice: the peek
                   has its own). Settings' isn't: its search shortcut would act while hidden. */}
-              {peeking || (settingsRoute && !settingsSidebarPresent) ? null : (
+              {/* The Margin layout's Settings has its list in the page. */}
+              {peeking || (settingsRoute && (!settingsSidebarPresent || marginLayout)) ? null : (
                 <>
                   <div
                     ref={sidebarFrameRef}
@@ -1775,11 +1814,7 @@ function MailHome() {
                       {settingsRoute ? (
                         <>
                           <SidebarTitle />
-                          <SettingsNav
-                            pane={settingsRoute.pane}
-                            onSelect={(pane, target, item) => openSettings({ pane, target, item })}
-                            onBack={leaveSettings}
-                          />
+                          {settingsNav()}
                         </>
                       ) : (
                         <>
@@ -1858,16 +1893,24 @@ function MailHome() {
                   className={cn(
                     `${PANE_MAIN} min-w-0 flex-1 flex-col`,
                     joined && JOINED_MAIN,
+                    // The Margin layout's top bar is Settings' title band.
+                    settingsRoute && marginLayout && "[--workspace-card-top:0px]",
                     showMain ? "flex" : "hidden",
                   )}
                   data-tour={showMain ? "reader" : undefined}
                 >
-                  {readerOwnsBand || (ownsMain && !settingsRoute && !composeOpen)
+                  {readerOwnsBand ||
+                  (ownsMain && !settingsRoute && !composeOpen) ||
+                  (settingsRoute && marginLayout)
                     ? null
                     : titleControls}
                   <div className="flex min-h-0 flex-1 flex-col">
                     {settingsRoute ? (
-                      <SettingsPage route={settingsRoute} onNavigate={openSettings} />
+                      <SettingsPage
+                        route={settingsRoute}
+                        onNavigate={openSettings}
+                        nav={marginLayout && settingsSidebarOpen ? settingsNav("margin") : null}
+                      />
                     ) : composeOpen && composeAccountId ? (
                       <NewMessageView
                         key={mailtoSeq}

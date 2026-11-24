@@ -142,7 +142,7 @@ function RemindersRow() {
 export function CalendarPane() {
   const prefs = useCalendarPreferences();
   return (
-    <SettingsPageContainer title="Calendar">
+    <SettingsPageContainer title="Calendar" lead="Reminders, and how your week is laid out.">
       <SettingsSection title="Notifications">
         <RemindersRow />
       </SettingsSection>
