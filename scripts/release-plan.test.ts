@@ -21,7 +21,7 @@ test("each app ships when what it is built from changed", () => {
     iphone: false,
     agents: true,
   });
-  assert.deepEqual(release("auto", ["apps/ios/NotificationShared/PushState.swift"]), {
+  assert.deepEqual(release("auto", ["apps/mail-mobile/targets/notifications/PushState.swift"]), {
     desktop: false,
     iphone: true,
     agents: false,
@@ -33,8 +33,8 @@ test("each app ships when what it is built from changed", () => {
   });
   assert.equal(ships("agents", ["packages/core/src/services/agent-sync.ts"]), true);
   assert.equal(ships("agents", ["extensions/hermes/mobile/mark.tsx"]), true);
-  assert.equal(ships("agents", ["apps/ios/OtterMail/Settings/Licenses.swift"]), false);
-  assert.equal(ships("agents", ["apps/ios/OtterMail/Settings/General.swift"]), false);
+  assert.equal(ships("agents", ["apps/mail-mobile/src/settings/licenses-screen.tsx"]), false);
+  assert.equal(ships("agents", ["apps/mail-mobile/src/settings/settings-screen.tsx"]), false);
   for (const file of [
     "GoogleSignIn.swift",
     "AgentPicture.swift",
@@ -54,14 +54,13 @@ test("each app ships when what it is built from changed", () => {
 test("what no app is built from ships nothing", () => {
   for (const file of [
     "README.md",
-    "apps/ios/README.md",
+    "apps/mail-mobile/README.md",
     "apps/agents-mobile/README.md",
     "docs/runbook.md",
     "changelog/0.13.51.md",
     "infra/relay/src/worker.ts",
     ".github/workflows/ci.yml",
     ".agents/skills/pr/SKILL.md",
-    "apps/ios/OtterMail/Theme/Palette.swift",
   ]) {
     assert.deepEqual(release("auto", [file]), { desktop: false, iphone: false, agents: false });
   }
@@ -94,7 +93,7 @@ test("naming apps ships them whatever changed", () => {
 
 test("an exact version is one release's", () => {
   const versioned = (apps: string, channel: "nightly" | "stable") =>
-    plan({ channel, apps, version: "1.0.0", changed: () => ["apps/ios/OtterMail/App.swift"] });
+    plan({ channel, apps, version: "1.0.0", changed: () => ["apps/mail-mobile/index.ts"] });
   assert.equal(versioned("iphone", "nightly").iphone, true);
   assert.equal(versioned("agents", "nightly").agents, true);
   assert.equal(versioned("auto", "stable").desktop, true);
@@ -105,7 +104,7 @@ test("an exact version is one release's", () => {
 
 test("a stable release is the desktop app's alone", () => {
   const stable = { desktop: true, iphone: false, agents: false };
-  assert.deepEqual(release("auto", ["apps/ios/OtterMail/App.swift"], "stable"), stable);
+  assert.deepEqual(release("auto", ["apps/mail-mobile/index.ts"], "stable"), stable);
   assert.deepEqual(release("desktop", [], "stable"), stable);
   assert.throws(() => release("iphone", [], "stable"), /stable release/);
   assert.throws(() => release("all", [], "stable"), /stable release/);

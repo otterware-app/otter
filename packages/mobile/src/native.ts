@@ -42,6 +42,7 @@ export const native = requireNativeModule<{
   existingAgentOutbox(userId: string): Promise<string | null>;
   existingAgentSettings(): { deviceId?: string; notifications?: string; user?: string };
   ed25519PublicKey(privateKey: string): string | null;
+  currentThreadCpuMs(): number;
   launchedAt(): number;
   formatMailDate(timestamp: number): string;
 }>("OtterMobile");

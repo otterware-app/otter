@@ -1,6 +1,6 @@
 import { mailApi } from "@otter/client/mail/api";
 import type { SyncStatus } from "@otter/client/mail/types";
-import { longTasks } from "@otter/mobile/long-tasks";
+import { longestSqlite, longTasks } from "@otter/mobile/long-tasks";
 import { startup } from "@otter/mobile/start";
 import { Button } from "@otter/ui-native/components/button";
 import { Text } from "@otter/ui-native/components/text";
@@ -21,10 +21,11 @@ export function BenchmarkStatus({
   useEffect(() => {
     if (!complete || result || !startup.listShownAt) return;
     const timer = setTimeout(() => {
-      const { longest, longestAt, p95 } = longTasks(startup.launchedAt);
+      const { longest, longestAt, p95, cpuAtLongest, longestCpu } = longTasks(startup.launchedAt);
       const visible = longTasks(startup.listShownAt);
+      const sql = longestSqlite(startup.launchedAt);
       setResult(
-        `First row ${startup.listShownAt - startup.launchedAt} ms · max ${longest} ms at ${longestAt ?? 0} ms · p95 ${p95} ms\nWhile rows were visible · max ${visible.longest} ms · p95 ${visible.p95} ms`,
+        `First row ${startup.listShownAt - startup.launchedAt} ms · max ${longest} ms at ${longestAt ?? 0} ms · p95 ${p95} ms\nJS CPU · ${cpuAtLongest ?? 0} ms at max delay · max ${longestCpu} ms\nWhile rows were visible · max ${visible.longest} ms · p95 ${visible.p95} ms${sql ? `\nSQLite ${sql.operation} · ${sql.ms} ms at ${sql.at - startup.launchedAt} ms` : ""}`,
       );
     }, 0);
     return () => clearTimeout(timer);
@@ -47,8 +48,11 @@ export function BenchmarkStatus({
         current = await mailApi.getSyncStatus(accountId);
       }
       if (current.error) throw new Error(current.error);
-      const { longest, p95 } = longTasks(start);
-      setReplay(`200 changes · ${Date.now() - start} ms · max ${longest} ms · p95 ${p95} ms`);
+      const { longest, p95, cpuAtLongest, longestCpu } = longTasks(start);
+      const sql = longestSqlite(start);
+      setReplay(
+        `200 changes · ${Date.now() - start} ms · max ${longest} ms · p95 ${p95} ms · CPU ${cpuAtLongest ?? 0} ms at max delay / ${longestCpu} ms peak${sql ? ` · SQLite ${sql.operation} ${sql.ms} ms` : ""}`,
+      );
     } catch (error) {
       setReplay(error instanceof Error ? error.message : String(error));
     } finally {

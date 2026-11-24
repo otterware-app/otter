@@ -2,7 +2,7 @@
 
 How each part of Otter gets from `main` to people, what to check, and what to do when it
 breaks. The details behind each step are in `docs/release.md`, `infra/relay/README.md` and
-`apps/ios/README.md`.
+`apps/mail-mobile/README.md`.
 
 | Part            | Ships                             | You do                 |
 | --------------- | --------------------------------- | ---------------------- |
@@ -20,7 +20,7 @@ it, and its first job, "What to release", works out which apps the merge changed
 | A change to                                                                      | Ships                   |
 | -------------------------------------------------------------------------------- | ----------------------- |
 | anything but the iPhone apps, `infra`, `docs`, `changelog`, `.github`, `.agents` | Mac, Linux and web      |
-| `apps/ios`, `packages/shared`, the iPhone scripts                                | Otter Mail for iPhone   |
+| `apps/mail-mobile`, shared mobile and mail packages                              | Otter Mail for iPhone   |
 | `apps/agents-mobile` and its shared packages                                     | Otter Agents for iPhone |
 
 Run it by hand (Actions → **Release** → Run workflow, or `gh workflow run release.yml`) and it
@@ -83,10 +83,10 @@ it, or the Changelog notes workflow once it lands after the release).
 
 ## iPhone app
 
-Released on its own, with its own version (`ios-vX.Y.Z` tags), only when `apps/ios` or what it
+Released on its own, with its own version (`ios-vX.Y.Z` tags), only when `apps/mail-mobile` or what it
 bundles from `packages/shared` has changed. A Mac release doesn't need one.
 
-1. Each merge to main that touches `apps/ios`, `packages/shared` or the release scripts
+1. Each merge to main that touches the Expo app or its dependencies
    releases it as a patch (the Release workflow's "Otter Mail for iPhone" job); one waits while
    another runs, and a newer merge replaces the one waiting. For a minor or major version, or
    to run it yourself: Actions → **Release** → Run workflow → `apps=iphone` and `patch`,
@@ -139,7 +139,7 @@ Worker secrets. Use application topics `dev.otterware.mail.dev` (sandbox) and
 `dev.otterware.mail` (production), with matching signed APS environments. Provision the app and
 its embedded notification extension with App Groups/Keychain Sharing. Release signing also
 needs `IOS_NOTIFICATION_PROVISIONING_PROFILE` and a regenerated main profile; see
-[Apple setup](../apps/ios/README.md#apple-setup-and-verification) and
+[Apple setup](../apps/mail-mobile/README.md#apple-setup-and-verification) and
 [relay APNs configuration](../infra/relay/README.md#verified-iphone-apns).
 
 Check live sandbox arrival on a provisioned iPhone and production in TestFlight, using a test

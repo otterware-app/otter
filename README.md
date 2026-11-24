@@ -97,7 +97,7 @@ Mac releases support Apple Silicon Macs (arm64).
 
 ## Install
 
-On the iPhone, [Otter Mail](apps/ios/README.md) (the iPhone app keeps that name) supports background notifications after connecting
+On the iPhone, [Otter Mail](apps/mail-mobile/README.md) (the iPhone app keeps that name) supports background notifications after connecting
 each mailbox in Settings. Gmail and Outlook request separate limited permissions; IMAP asks
 to store its password securely. Message content is fetched directly on the phone for previews.
 

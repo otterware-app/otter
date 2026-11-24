@@ -2,7 +2,7 @@
 
 Every user-facing feature and where it works, checked against the code. Mac and Web are the
 same renderer (`apps/web`) over core, so they match unless noted; the iPhone app is its own
-Swift code (`apps/ios`). Otter Agents, the second iPhone app, has [its own section](#otter-agents-iphone). Gmail, IMAP and Outlook are noted where they differ
+Expo app (`apps/mail-mobile`) over the same core. Otter Agents, the second iPhone app, has [its own section](#otter-agents-iphone). Gmail, IMAP and Outlook are noted where they differ
 ([Outlook](outlook.md): Microsoft Graph, on Mac, Linux, web and iPhone).
 The Mac app supports Apple Silicon Macs (arm64).
 The Linux app is the same desktop app; it matches the Mac column except where
@@ -378,7 +378,7 @@ notification-enrichment proxy is added. Grants permit metadata access (IMAP cred
 permit content); they are not end-to-end encrypted against Otter. Local alerts continue for
 unconnected mailboxes. Watches/subscriptions renew on the server; Off/revocation/unlink stop future
 routing. Apple delivery/enrichment remain best effort, and an already submitted alert cannot be
-recalled. See [behavior and setup](../apps/ios/README.md#verified-background-notifications).
+recalled. See [behavior and setup](../apps/mail-mobile/README.md#verified-background-notifications).
 
 ## Offline & sync
 
@@ -431,7 +431,7 @@ On iPhone, the bottom holds a pill with the mailbox's picture (tap for every mai
 | Open a support investigation in an installed Claude / Codex terminal session | ✓   | —   | —      |
 | Return local-agent drafts and findings to the report preview                 | ✓   | —   | —      |
 | Download diagnostics as a file and import an agent's Markdown draft          | ✓   | ✓   | —      |
-| Scrubbed error reports (Sentry), off in Settings → General                   | ✓   | ✓   | ✓      |
+| Scrubbed error reports (Sentry), off in Settings → General                   | ✓   | ✓   | —      |
 | Open-source licenses (Settings → General, About; Settings on the iPhone)     | ✓   | ✓   | ✓      |
 
 The support playbook covers diagnosis, duplicate detection, issue review, and

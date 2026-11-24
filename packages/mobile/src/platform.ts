@@ -64,6 +64,7 @@ export function phonePlatform(options: {
   secretsService: string;
   relayUrl?: string;
   mail?: boolean;
+  backgroundCheckpoints?: boolean;
 }): Platform {
   let database: ReturnType<Platform["database"]> | null = null;
   return {
@@ -72,7 +73,8 @@ export function phonePlatform(options: {
     log: (level, scope, message, data) =>
       console[level === "debug" ? "log" : level](`[${scope}] ${message}`, data ?? ""),
 
-    database: () => (database ??= openDatabase(`${options.home}.db`)),
+    database: () =>
+      (database ??= openDatabase(`${options.home}.db`, options.backgroundCheckpoints)),
     files: appFiles(options.home),
     secrets: keychainSecrets(options.secretsService),
     userFiles,

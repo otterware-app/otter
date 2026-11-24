@@ -27,7 +27,7 @@ The workflow's first job, "What to release" (`scripts/release-plan.ts`), chooses
 writes its choice to the run's summary; the other apps' jobs are skipped.
 
 - **A push to `main`** ships each app the push's commits changed. The Mac, Linux and web app is
-  built from the whole repository, less what only another part ships: `apps/ios`,
+  built from the whole repository, less what only another part ships: `apps/mail-mobile`,
   `apps/agents-mobile`, `infra` (the relay, which Cloudflare deploys), `docs`, `changelog`,
   `.github` and `.agents`. The iPhone jobs use the input paths for
   `apps/mail-mobile` and `apps/agents-mobile` in `scripts/release-plan.ts`. These include the

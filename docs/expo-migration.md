@@ -62,8 +62,13 @@ in first sync, and 41.8 ms max and 6.7 ms p95 in replay. The longest first-sync 
 contained a SQLite message write. A second 71.5 ms window was mostly garbage collection.
 The longer iOS peaks still need on-device profiling.
 
-The 50 ms maximum and 16 ms p95 budget remain open. A signed upgrade with live provider
-sign-in, background refresh, and APNs also needs verification before cutover.
+The in-place internal TestFlight update to 0.8.35 (202611242208) preserved the existing
+mailboxes and drafts on an iPhone. Live push still needs a signed device check.
+
+The fourth simulator run moved passive WAL checkpoints to a separate SQLite connection.
+It reached its first row at 4,821 ms. First sync measured 599 ms max and 10 ms p95. The
+longest SQLite call was a 37 ms read at a different time. The replay measured 63 ms max
+and 18 ms p95. Both phases still exceed the 50 ms maximum.
 
 |                   | Otter Mail (`apps/ios`) | Otter Agents (`apps/ios-agents`) |
 | ----------------- | ----------------------- | -------------------------------- |
@@ -382,7 +387,7 @@ leaving, deliveries, forks.
 3. Screens: welcome; the list (rows, swipes, days, selection); the bar, places and the mailbox
    switcher; the reader; compose; search (core's full-text search and the providers'); settings
    and its panes; Send to agent, with the same link Otter Agents reads.
-4. The extension, verified on a phone as `apps/ios/README.md` lists: live APNs, a locked
+4. The extension, verified on a phone as `apps/mail-mobile/README.md` lists: live APNs, a locked
    phone, revocation, the first unlock after a restart.
 5. Parity is the iPhone column of `docs/features.md`. TestFlight under `dev.otterware.mail`;
    `apps/ios`, `scripts/dev-ios.ts` and `scripts/export-ios-resources.ts` are deleted.

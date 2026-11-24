@@ -9,7 +9,7 @@ export const fake = process.env.EXPO_PUBLIC_OTTER_DATA === "fake";
 export const benchmark = fake && process.env.EXPO_PUBLIC_OTTER_MAIL_BENCHMARK === "1";
 export let benchmarkAccountId: string | undefined;
 
-if (benchmark) watchLongTasks();
+if (benchmark) watchLongTasks(native.currentThreadCpuMs);
 const legacy = fake ? undefined : native.existingMailSettings();
 
 export const coreStarted = startMobileCore({

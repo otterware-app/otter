@@ -55,6 +55,7 @@ export async function startMobileCore(options: {
   let platform = phonePlatform({
     home,
     mail: options.modules.includes("mail") && !options.fake,
+    backgroundCheckpoints: options.modules.includes("mail"),
     secretsService: options.fake ? `${options.secretsService}.fake` : options.secretsService,
     relayUrl: options.relayUrl,
   });

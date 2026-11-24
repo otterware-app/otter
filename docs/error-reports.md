@@ -46,12 +46,11 @@ Mail sync logs what the user can see and fix (signed out, offline, rate limited)
 
 ## Where it's wired
 
-| Part    | Sends from                                                                        | Code                                                            |
-| ------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Desktop | main, for every process (Sentry's Electron IPC)                                   | `apps/desktop/src/error-reports.ts`, `backend.ts`, `preload.ts` |
-| Web     | the page; the worker hands it its lines                                           | `apps/web/src/main/error-reports.ts`, `src/web/backend.ts`      |
-| Relay   | the Worker and its Durable Objects                                                | `infra/relay/src/error-reports.ts`                              |
-| iPhone  | the app (crashes as stack traces, hangs from iOS's MetricKit; Settings › Support) | `apps/ios/OtterMail/Reports/` (the same rules, in Swift)        |
+| Part    | Sends from                                      | Code                                                            |
+| ------- | ----------------------------------------------- | --------------------------------------------------------------- |
+| Desktop | main, for every process (Sentry's Electron IPC) | `apps/desktop/src/error-reports.ts`, `backend.ts`, `preload.ts` |
+| Web     | the page; the worker hands it its lines         | `apps/web/src/main/error-reports.ts`, `src/web/backend.ts`      |
+| Relay   | the Worker and its Durable Objects              | `infra/relay/src/error-reports.ts`                              |
 
 A build reports when its app has a DSN (`SENTRY_DSN` in `error-reports.ts`) and it's a
 release; `OTTER_ERROR_REPORTS=1` lets a development build (`pnpm dev:fake`,

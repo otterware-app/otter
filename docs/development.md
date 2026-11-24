@@ -17,8 +17,7 @@
 | `pnpm dev:desktop[:fake\|:demo\|:real]` | Vite dev server + main-process watcher + Electron, restarting on main changes.           |
 | `pnpm imap-server [down]`               | A local IMAP server with a seeded mailbox (see [IMAP locally](#imap-locally)).           |
 | `pnpm agents-server [down]`             | Local OpenClaw and Hermes gateways (see [Agent gateways](#agent-gateways)).              |
-| `pnpm dev:ios`                          | Builds the iPhone app and runs it in the simulator (see `apps/ios/README.md`).           |
-| `pnpm ios:resources`                    | Re-exports the demo mailbox and licenses the iPhone apps bundle.                         |
+| `pnpm dev:mobile:mail`                  | Builds the iPhone app and runs it in the simulator (see `apps/mail-mobile/README.md`).   |
 | `pnpm licenses:mobile:agents`           | Re-exports the licenses Otter Agents on Expo lists (see [below](#open-source-licenses)). |
 | `pnpm start`                            | Runs the built app unpackaged (`pnpm build` first).                                      |
 | `pnpm build`                            | Builds `apps/web/dist` and `apps/desktop/dist-electron`.                                 |
@@ -339,7 +338,7 @@ The iPhone jobs build each app, its extension and its tests, and run no test: a 
 boot takes most of ten minutes on GitHub's macOS runner (3 cores, 7 GB), and the Mac can't run
 them another way (a Mac Catalyst build lacks an API each app uses; macOS installs the iPhone app
 itself only with a provisioning profile). The tests run on a Mac, in the simulator
-(`apps/ios/README.md`, `apps/agents-mobile/README.md`).
+(`apps/mail-mobile/README.md`, `apps/agents-mobile/README.md`).
 
 Typecheck and tests run through `vp run --cache`: Vite+ records every file a package's task
 reads, and replays the result while none has changed. So a change reruns only the packages it
@@ -365,7 +364,6 @@ generated (`scripts/lib/third-party-licenses.ts`, T3 Code's):
   desktop app: every installed production dependency of `apps/web` and `apps/desktop`, through
   the workspace packages they use, with the license text its package ships. The dev server
   answers the same path.
-- `pnpm ios:resources` writes the iPhone apps' `Licenses.json`.
 - `pnpm licenses:mobile:agents` and `pnpm licenses:mobile:mail` write each Expo app's
   `src/settings/licenses.json`. Each list reflects what its iPhone build ships. That is every package whose JavaScript is in the app's
   bundle (an `expo export` for iOS, read from its source map, with its own Metro cache), and

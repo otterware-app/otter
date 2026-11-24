@@ -43,7 +43,7 @@
     },
     {
       "name": "Dev (iPhone app)",
-      "command": "pnpm dev:ios",
+      "command": "pnpm dev:mobile:mail:fake",
       "icon": "play"
     }
   ]

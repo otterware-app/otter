@@ -204,6 +204,10 @@ public class OtterMobileModule: Module {
       Date(timeIntervalSince1970: timestamp / 1000).formatted(date: .abbreviated, time: .shortened)
     }
 
+    Function("currentThreadCpuMs") { () -> Double in
+      Double(clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)) / 1_000_000
+    }
+
     Function("launchedAt") { () -> Double in
       var info = kinfo_proc()
       var size = MemoryLayout<kinfo_proc>.stride

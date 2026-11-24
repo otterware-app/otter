@@ -34,3 +34,32 @@ this iPhone until you choose **Save to Drafts** or send, and unsent drafts can b
 from Drafts.
 
 To regenerate the notices for Settings → Open-source licenses, run `pnpm licenses:mobile:mail`.
+
+## Verified background notifications
+
+Connect each mailbox in Settings → Mailboxes → the mailbox → Background notifications.
+Gmail and Outlook use separate grants limited to notification metadata. IMAP requires
+explicit consent to store its password for the relay's unread checks. Account and device
+settings apply the more restrictive Inbox, All, or Off filter. The main app still reads
+mail directly from the provider with its own credentials.
+
+APNs carries a generic alert and the IDs for the verified arrival. The Swift notification
+extension uses the App Group and shared credentials to fetch that message directly from
+its provider. It adds sender, subject, and a preview locally. Locked devices can enrich
+alerts after their first unlock since reboot. If the provider is unreachable or credentials
+are locked or revoked, iOS can show the generic alert. Foreground taps route to the
+mailbox and conversation. Local notifications still serve unconnected mailboxes.
+
+### Apple setup and verification
+
+The Expo config generates the app and its notification service with the existing Otter Mail
+identities. The app uses `dev.otterware.mail` and its extension uses `dev.otterware.mail.notifications`.
+Development adds `.dev` before the extension suffix. Enable Push Notifications and
+Communication Notifications on the app and provision both targets for their matching App
+Group. Keep the app-private Keychain group first. The generated APNs environment must match
+the profile. See the [release guide](../../docs/release.md) for signing and the
+[relay guide](../../infra/relay/README.md) for push credentials.
+
+On a signed test iPhone, test Inbox, All, and Off. Include an arrival while locked after first
+unlock, a revoked provider grant, and a notification tap for a conversation absent from
+the cache. The simulator can exercise display and routing with a synthetic notification.

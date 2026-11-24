@@ -36,10 +36,6 @@ const NOT_DESKTOP = [
 ];
 const IPHONE = [
   "apps/mail-mobile/",
-  "apps/ios/NotificationShared/",
-  "apps/ios/OtterMailNotificationService/",
-  "apps/ios/OtterMail/Assets.xcassets/",
-  "apps/ios/OtterMail/Imap/",
   "packages/client/",
   "packages/contracts/",
   "packages/core/",

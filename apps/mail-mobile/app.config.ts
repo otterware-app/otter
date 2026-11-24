@@ -6,7 +6,7 @@ const bundleIdentifier = production ? "dev.otterware.mail" : "dev.otterware.mail
 const googleClientId = production
   ? "997327858649-vcvktkdnrs6p8c31ucsp1oeia7l8taho.apps.googleusercontent.com"
   : "997327858649-0dfa4knnv1ur7021dn1ojuovoj1i3ed8.apps.googleusercontent.com";
-const icon = "../ios/OtterMail/Assets.xcassets/AppIcon.appiconset";
+const icon = "./assets/Assets.xcassets/AppIcon.appiconset";
 
 const config: ExpoConfig = {
   name: "Otter Mail",
@@ -30,7 +30,7 @@ const config: ExpoConfig = {
           dark: `${icon}/icon-dark-1024.png`,
           tinted: `${icon}/icon-tinted-1024.png`,
         }
-      : "../ios/OtterMail/Assets.xcassets/AppIconDev.appiconset/icon-1024.png",
+      : "./assets/Assets.xcassets/AppIconDev.appiconset/icon-1024.png",
     infoPlist: {
       GoogleClientID: googleClientId,
       LSApplicationQueriesSchemes: ["dev.otterware.agents", "dev.otterware.agents.dev"],

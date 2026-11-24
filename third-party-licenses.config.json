@@ -2,7 +2,7 @@
   "customNotices": [
     {
       "name": "T3 Code",
-      "bundles": ["agents-mobile", "desktop", "ios", "mail-mobile", "web"],
+      "bundles": ["agents-mobile", "desktop", "mail-mobile", "web"],
       "license": "MIT",
       "sourceUrl": "https://github.com/pingdotgg/t3code",
       "generatedNotices": [
@@ -37,22 +37,10 @@
     },
     {
       "name": "Inter",
-      "bundles": ["agents-mobile", "ios", "mail-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "OFL-1.1",
       "sourceUrl": "https://github.com/rsms/inter",
       "noticeFile": "packages/ui-native/fonts/Inter-LICENSE.txt"
-    },
-    {
-      "name": "Sentry",
-      "bundles": ["ios"],
-      "license": "MIT",
-      "sourceUrl": "https://github.com/getsentry/sentry-cocoa",
-      "generatedNotices": [
-        {
-          "licenseId": "MIT",
-          "copyrights": ["Copyright (c) 2015 Sentry"]
-        }
-      ]
     },
     {
       "name": "Hermes",

@@ -23,7 +23,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      iphone: ${{ steps.filter.outputs.iphone }}
       mail_expo: ${{ steps.filter.outputs.mail_expo }}
       agents: ${{ steps.filter.outputs.agents }}
       translator: ${{ steps.filter.outputs.translator }}
@@ -54,8 +53,7 @@ jobs:
             *) everything ;;
           esac
           {
-            echo "iphone=$(changed '^(apps/ios/|packages/shared/|package\.json$|scripts/export-ios-resources\.ts$|\.github/workflows/ci\.yml$)')"
-            echo "mail_expo=$(changed '^(apps/(ios|mail-mobile)/|packages/(core|client|contracts|mobile|ui-native|shared)/|extensions/translation/|package\.json$|pnpm-(lock\.yaml|workspace\.yaml)$|\.github/(actions/setup/|workflows/ci\.yml$))')"
+            echo "mail_expo=$(changed '^(apps/mail-mobile/|packages/(core|client|contracts|mobile|ui-native|shared)/|extensions/translation/|package\.json$|pnpm-(lock\.yaml|workspace\.yaml)$|\.github/(actions/setup/|workflows/ci\.yml$))')"
             echo "agents=$(changed '^(apps/agents-mobile/|packages/(core|client|contracts|mobile|ui-native|shared)/|extensions/(hermes|openclaw|varys|claude|codex)/|package\.json$|pnpm-(lock\.yaml|workspace\.yaml)$|\.github/(actions/setup/|workflows/ci\.yml$))')"
             echo "translator=$(changed '^(native/translator/|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
             echo "hermes=$(changed '^(extensions/hermes/gateway/|\.github/workflows/ci\.yml$)')"
@@ -159,39 +157,6 @@ jobs:
 
       - name: Build translator (Apple Silicon)
         run: swift build -c release --package-path native/translator --arch arm64
-
-  # The iPhone apps are built here, tests and all, and the tests aren't run: a simulator's
-  # first boot takes most of ten minutes on this runner (3 cores, 7 GB), for seconds of tests,
-  # and the Mac has no other way to run them. As a Mac Catalyst build, each app uses an API
-  # that doesn't exist there; as the iPhone app itself ("Designed for iPad"), macOS installs
-  # only one signed with a provisioning profile. Run them on a Mac (each app's README).
-  iphone:
-    name: iPhone (Swift)
-    needs: changes
-    if: needs.changes.outputs.iphone == 'true'
-    runs-on: xcode-27
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: package.json
-          package-manager-cache: false
-
-      - name: Export shared resources
-        run: node scripts/export-ios-resources.ts
-
-      # Simulators on the runner are Apple silicon: arm64 alone, not the Intel slice too.
-      - name: Build app, extension and tests
-        run: |
-          xcodebuild -version
-          xcodebuild -project apps/ios/OtterMail.xcodeproj -scheme OtterMail \
-            -destination "generic/platform=iOS Simulator" \
-            -derivedDataPath "$RUNNER_TEMP/otter-ios-build" \
-            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build-for-testing
 
   mail-expo:
     name: iPhone, Otter Mail on Expo
