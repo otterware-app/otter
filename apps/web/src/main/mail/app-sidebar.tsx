@@ -5,7 +5,7 @@ import { CalendarSidebar } from "../calendar/calendar-sidebar";
 import type { WorkspaceProps } from "../extensions/types";
 import { useWorkspaces, type Workspace } from "../extensions/workspaces";
 import type { CalendarMode } from "../calendar/dates";
-import type { KeybindingCommand } from "../keybindings/commands";
+import { MODE_JUMP_COMMANDS } from "../keybindings/commands";
 import { shortcutText } from "../keybindings/keys";
 import { ShortcutText } from "../keybindings/store";
 import { UpdateButton } from "../updates";
@@ -204,35 +204,24 @@ function ModePicker({
     mode: AppMode;
     label: string;
     Icon: ComponentType<Pick<NavGlyphProps, "selected" | "className">>;
-    shortcut?: KeybindingCommand;
     dot: boolean | "attention";
   }[] = [
-    { mode: "mail", label: "Mail", Icon: OtterMailIcon, shortcut: "mode.mail", dot: unread },
+    { mode: "mail", label: "Mail", Icon: OtterMailIcon, dot: unread },
     {
       mode: "calendar",
       label: "Calendar",
       Icon: OtterCalendarIcon,
-      shortcut: "mode.calendar",
       dot: false,
     },
     ...workspaces.map((w) => ({
       mode: `workspace:${w.id}` as const,
       label: w.title,
       Icon: w.Icon,
-      shortcut: w.id === "drive" ? ("mode.drive" as const) : undefined,
       dot: false,
     })),
-    { mode: "agent", label: "Agent", Icon: AgentIcon, shortcut: "mode.agent", dot: agentDot },
+    { mode: "agent", label: "Agent", Icon: AgentIcon, dot: agentDot },
   ];
-  // Modes not yet ordered (new ones) keep their place after the ordered ones.
-  const rank = (mode: string) => {
-    const at = order.indexOf(mode);
-    return at < 0 ? order.length : at;
-  };
-  const sorted = modes
-    .map((m, i) => ({ m, i }))
-    .sort((a, b) => rank(a.m.mode) - rank(b.m.mode) || a.i - b.i)
-    .map(({ m }) => m);
+  const sorted = orderModes(modes, order);
   const move = (id: string, target: string, after: boolean) => {
     const shown = sorted.map((m) => m.mode as string).filter((m) => m !== id);
     shown.splice(shown.indexOf(target) + (after ? 1 : 0), 0, id);
@@ -248,11 +237,14 @@ function ModePicker({
       selectedId={mode}
       onSelect={(id) => onMode(id as AppMode)}
       onMove={move}
-      items={sorted.map((m) => ({
+      items={sorted.map((m, i) => ({
         id: m.mode,
         label: m.label,
         icon: <m.Icon selected={m.mode === mode} />,
-        hint: m.shortcut ? <ShortcutText command={m.shortcut} /> : undefined,
+        hint:
+          i < MODE_JUMP_COMMANDS.length ? (
+            <ShortcutText command={MODE_JUMP_COMMANDS[i]} />
+          ) : undefined,
         dot: m.dot,
       }))}
     />
@@ -281,7 +273,19 @@ function saveList(key: string, list: string[]): void {
   }
 }
 
-const loadModeOrder = () => loadList(MODE_ORDER_KEY);
+export const loadModeOrder = () => loadList(MODE_ORDER_KEY);
+
+/** The mode switcher's order: modes not yet ordered (new ones) keep their place after the ordered ones. */
+export function orderModes<T extends { mode: string }>(modes: T[], order: string[]): T[] {
+  const rank = (mode: string) => {
+    const at = order.indexOf(mode);
+    return at < 0 ? order.length : at;
+  };
+  return modes
+    .map((m, i) => ({ m, i }))
+    .sort((a, b) => rank(a.m.mode) - rank(b.m.mode) || a.i - b.i)
+    .map(({ m }) => m);
+}
 const saveModeOrder = (order: string[]) => saveList(MODE_ORDER_KEY, order);
 
 function MailboxSwitcher({

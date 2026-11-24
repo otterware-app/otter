@@ -21,7 +21,7 @@ import { EmptyState } from "@otter/ui/components/empty-state";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast, type ToastId } from "@otter/ui/components/toast";
 import { setDraftOpener } from "./mail/undo-send";
-import { AppSidebar } from "./mail/app-sidebar";
+import { AppSidebar, loadModeOrder, orderModes } from "./mail/app-sidebar";
 import { SidebarPeekCard, useSidebarPeek } from "./mail/sidebar-peek";
 import { ViewEditorDialog } from "./mail/view-editor";
 import { MessageList } from "./mail/message-list";
@@ -38,7 +38,9 @@ import { CALENDAR_MODES, CalendarView, calendarAccounts } from "./calendar/calen
 import { CalendarPanel } from "./calendar/agenda";
 import { useCalendar } from "./calendar/calendar-store";
 import type { CalendarMode } from "./calendar/dates";
+import { settleChat } from "./agent/chat-shelve-actions";
 import {
+  isBlank,
   newChat,
   showAgentInAppNotice,
   showChat,
@@ -69,7 +71,7 @@ import {
   useKeybindingContext,
   useKeybindingDispatcher,
 } from "./keybindings/dispatch";
-import { MAILBOX_JUMP_COMMANDS } from "./keybindings/commands";
+import { MAILBOX_JUMP_COMMANDS, MODE_JUMP_COMMANDS } from "./keybindings/commands";
 import { ShortcutText } from "./keybindings/store";
 import {
   useAccounts,
@@ -1069,6 +1071,17 @@ function MailHome() {
       messageId: null,
     });
   };
+  const jumpToMode = (index: number) => {
+    const modes: { mode: AppMode }[] = [
+      { mode: "mail" },
+      { mode: "calendar" },
+      ...workspaces.map((w) => ({ mode: `workspace:${w.id}` as const })),
+      { mode: "agent" },
+    ];
+    const target = orderModes(modes, loadModeOrder())[index];
+    if (!target) return false;
+    switchMode(target.mode);
+  };
   const jumpToMailbox = (digit: number) => {
     const { ids, select } = accountSwitchRef.current;
     const target = ids[digit - 1];
@@ -1085,13 +1098,13 @@ function MailHome() {
       else openWorkspace(activeChatId);
     },
     "agent.newChat": () => startNewChat(),
-    "mode.mail": () => switchMode("mail"),
-    "mode.calendar": () => switchMode("calendar"),
-    "mode.drive": () => {
-      if (!workspaces.some((w) => w.id === "drive")) return false;
-      switchMode("workspace:drive");
+    "agent.settle": () => {
+      const chat = useChats.getState().conversations.find((c) => c.id === activeChatId);
+      if (!chat || isBlank(chat)) return false;
+      void settleChat(chat.id);
+      if (isChats) go({ label: newChat(selectedKind) });
+      else closeChat();
     },
-    "mode.agent": () => switchMode("agent"),
     "browser.toggle": () => toggleBrowser(),
     "calendar.togglePanel": () => toggleCalendarPanel(),
     "browser.newTab": () => {
@@ -1124,6 +1137,7 @@ function MailHome() {
     ...Object.fromEntries(
       MAILBOX_JUMP_COMMANDS.map((command, i) => [command, () => jumpToMailbox(i + 1)]),
     ),
+    ...Object.fromEntries(MODE_JUMP_COMMANDS.map((command, i) => [command, () => jumpToMode(i)])),
   });
 
   const onIndex = !routeLoc && !settingsRoute && !composeOpen;
