@@ -126,6 +126,11 @@ function getDb(): SqlDatabase {
     // Cached details never kept Reply-To: read them again, so replies go where senders asked.
     handle.exec("UPDATE messages SET detailFetched = 0;");
   }
+  // Outlook drafts edited elsewhere kept the body first cached (empty, often): read them again.
+  if (!handle.prepare("SELECT 1 FROM kv WHERE key = 'outlookDraftBodiesReread'").get()) {
+    handle.exec(`UPDATE messages SET detailFetched = 0 WHERE draftRevision IS NOT NULL;
+      INSERT INTO kv (key, value) VALUES ('outlookDraftBodiesReread', '1');`);
+  }
   handle.exec(
     "CREATE INDEX IF NOT EXISTS idx_messages_undownloaded ON messages (accountId, detailFetched, date DESC);",
   );
@@ -326,6 +331,11 @@ function writeSummaries(accountId: string, fetched: MessageSummary[]): void {
                               THEN messages.recipients ELSE excluded.recipients END,
       deliveredTo      = COALESCE(excluded.deliveredTo, messages.deliveredTo)
   `);
+  // A draft edited elsewhere keeps its id on Outlook: its cached body is read again.
+  const staleBody = d.prepare(`
+    UPDATE messages SET detailFetched = 0
+     WHERE accountId = ? AND id = ? AND detailFetched = 1 AND draftRevision IS NOT ?
+  `);
   const delLabels = d.prepare("DELETE FROM message_labels WHERE accountId = ? AND messageId = ?");
   const insLabel = d.prepare(
     "INSERT OR IGNORE INTO message_labels (accountId, messageId, labelId) VALUES (?, ?, ?)",
@@ -352,6 +362,7 @@ function writeSummaries(accountId: string, fetched: MessageSummary[]): void {
       recipientsOf(m.to, m.cc),
       m.deliveredTo?.length ? addressSet(m.deliveredTo) : null,
     );
+    if (m.draftRevision) staleBody.run(accountId, m.id, m.draftRevision);
     delLabels.run(accountId, m.id);
     for (const lid of m.labelIds) insLabel.run(accountId, m.id, lid);
   }
