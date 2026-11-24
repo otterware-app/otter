@@ -397,6 +397,13 @@ function useCombined(view: MailView | null, accounts: MailAccount[]) {
   );
 }
 
+/** Settled or snoozed: the small window opens on a new chat instead. */
+function activeChatShelved(): boolean {
+  const { activeId, conversations } = useChats.getState();
+  const active = conversations.find((c) => c.id === activeId);
+  return !!active && (active.settledAt != null || (active.snoozedUntil ?? 0) > Date.now());
+}
+
 export function HomeView() {
   const accountsQuery = useAccounts();
   const stage = useSetupStage();
@@ -786,6 +793,7 @@ function MailHome() {
   const openChat = () => {
     if (settingsRouteRef.current) leaveSettingsRef.current();
     if (isChats) leaveWorkspace();
+    if (activeChatShelved()) newChat(selectedKind);
     setChatWindow(true);
   };
   const chatWindowShown = chatWindowOpen && !isChats && !settingsRoute;
