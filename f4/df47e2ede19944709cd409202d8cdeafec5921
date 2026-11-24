@@ -1,0 +1,107 @@
+packages/mobile/src/start.ts
+  s_076b12ad1c9082::t_820140d17ad8a0 31,38-39,56
+package.json
+  s_076b12ad1c9082::t_820140d17ad8a0 25-26
+apps/mail-mobile/.gitignore
+  s_076b12ad1c9082::t_3ba8b835a9f9a1 1-2
+apps/mail-mobile/README.md
+  s_076b12ad1c9082::t_651f343839bf53 1-19
+apps/mail-mobile/app.config.ts
+  s_076b12ad1c9082::t_0ed6125f2becd3 1-32
+apps/mail-mobile/index.ts
+  s_076b12ad1c9082::t_dc0a0c6c031535 1-3
+apps/mail-mobile/package.json
+  s_076b12ad1c9082::t_8346d7581d687c 1-46
+apps/mail-mobile/src/app/_layout.tsx
+  s_076b12ad1c9082::t_0165189315aee4 1-61
+apps/mail-mobile/src/app/compose.tsx
+  s_076b12ad1c9082::t_35089f5edff406 1
+apps/mail-mobile/src/app/index.tsx
+  s_076b12ad1c9082::t_4d9aec25ec7fda 1-33
+apps/mail-mobile/src/app/mail/[account]/[label]/[thread].tsx
+  s_076b12ad1c9082::t_5c6d4eba3fea14 1
+apps/mail-mobile/src/app/mail/[account]/[label]/index.tsx
+  s_076b12ad1c9082::t_3aa9c7905bc26b 1
+apps/mail-mobile/src/app/search.tsx
+  s_076b12ad1c9082::t_cc3a842f4ba686 1
+apps/mail-mobile/src/app/settings.tsx
+  s_076b12ad1c9082::t_14d2d57a1a2304 1
+apps/mail-mobile/src/core.ts
+  s_076b12ad1c9082::t_1d5a98b413c1ec 1-18
+apps/mail-mobile/src/mail/compose-screen.tsx
+  s_076b12ad1c9082::t_1dc613bba467bd 1-128
+apps/mail-mobile/src/mail/mail-row.tsx
+  s_076b12ad1c9082::t_ce6ec5cc04995d 1-92
+apps/mail-mobile/src/mail/mailbox-screen.tsx
+  s_076b12ad1c9082::t_e26754ccd700d4 1-303
+apps/mail-mobile/src/mail/search-screen.tsx
+  s_076b12ad1c9082::t_445b22565a9a83 1-69
+apps/mail-mobile/src/mail/settings-screen.tsx
+  s_076b12ad1c9082::t_2e0c5a4912b97b 1-34
+apps/mail-mobile/src/mail/thread-screen.tsx
+  s_076b12ad1c9082::t_cf0d97277ff95f 1-151
+apps/mail-mobile/tsconfig.json
+  s_076b12ad1c9082::t_42f2cb0c1e5550 1-4
+packages/core/bench/.gitignore
+  s_076b12ad1c9082::t_414e6c4b860521 1
+packages/core/bench/mail-sync.test.ts
+  s_076b12ad1c9082::t_91ca01f1669cb9 1-346
+packages/core/bench/tsconfig.json
+  s_076b12ad1c9082::t_0fc79d87dcc378 1-8
+packages/core/package.json
+  s_076b12ad1c9082::t_a2b9f3dd182eb3 16
+packages/core/src/fake/gmail.ts
+  s_076b12ad1c9082::t_34543cabec15d5 10,42-43,46-47,75-76,114,203-206,216-223,227,231-249,253-256,260-261,265,274,277,304,312,446-448,450-452,458-464,477-479,649-660,669-674,718-720,722,724,788-792,938-941,943,975,996-1041
+packages/core/src/fake/index.ts
+  s_076b12ad1c9082::t_1cb5c1410dd757 26,28-36
+packages/core/src/fake/large-mailbox.test.ts
+  s_076b12ad1c9082::t_3c9c700ae961b4 1-106
+packages/core/src/fake/large-mailbox.ts
+  s_076b12ad1c9082::t_87672e17db10d9 1-365
+packages/core/src/handlers/draft-sessions.ts
+  s_076b12ad1c9082::t_7fb3b4c48c7ab5 99,102-114
+packages/core/src/handlers/mail.ts
+  s_076b12ad1c9082::t_fe0a7f8b65f9b5 128,925,946,1311
+packages/core/src/platform.ts
+  s_076b12ad1c9082::t_a7aa2d50271b8d 23-24
+packages/core/src/providers/gmail/api.ts
+  s_076b12ad1c9082::t_40183fe91c6a87 182-186
+packages/core/src/providers/gmail/sync.ts
+  s_076b12ad1c9082::t_19339f65dd7110 5,82-90,95,98,107-111,113-124,209,232-233,247-266,271,274-275,277-278,318,326-327,401,466,476,482
+packages/core/src/providers/outlook/messages.ts
+  s_076b12ad1c9082::t_94b1987566ef0f 187,223
+packages/core/src/providers/outlook/sync.ts
+  s_076b12ad1c9082::t_d37a2a99b28384 278,295
+packages/core/src/services/mail-schedule.ts
+  s_076b12ad1c9082::t_4aa1aecbac529a 223,281
+packages/core/src/services/mail-store.ts
+  s_076b12ad1c9082::t_913972cadc3dff 5,273-281,283,306,310-311,367-371,373,376-400,403-407,415,434-480,487-488,541-542,544-545,547,553-554,624-625,627-628,630,644,654-656,1107-1108,1110-1115,1117-1119,1134,1136,1140-1146,1157-1158,1170,1175-1192,1286,1291-1293,1296,1302,1305-1314,1316
+packages/core/src/services/pending-label-writes.ts
+  s_076b12ad1c9082::t_1a9b847c2567be 77-94,99-106
+packages/core/src/services/test/gmail-sync.test.ts
+  s_076b12ad1c9082::t_b4da659c37f692 9-14,259-267,360-387,398,409,586-653
+packages/core/src/services/test/mail-store-counts.test.ts
+  s_076b12ad1c9082::t_d17470770f9a3d 1-164
+packages/core/src/services/test/outlook-sync.test.ts
+  s_076b12ad1c9082::t_0db564fe6c783d 330,488-489,890-897
+packages/core/src/types.ts
+  s_076b12ad1c9082::t_47c6bdf8054684 78
+pnpm-lock.yaml
+  s_076b12ad1c9082::t_4a523fecfdd197 327-417
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f4df47e2ede19944709cd409202d8cdeafec5921",
+  "prompts": {},
+  "sessions": {
+    "s_076b12ad1c9082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20f03-1d60-7480-929a-3cc6584d46dd",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
