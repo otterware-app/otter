@@ -15,6 +15,7 @@ const SYNCED_KEYS = [
   "otter:group-messages-by-day",
   "otter:full-width-rows",
   "otter:mail-layout",
+  "otter:layout",
   "otter:open-messages-with-arrows",
   "otter:mark-read-delay",
   "gmail:panel-animation-duration",

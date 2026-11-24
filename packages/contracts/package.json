@@ -9,6 +9,7 @@
     "./agent-tokens": "./src/agent-tokens.ts",
     "./chats": "./src/chats.ts",
     "./scheduled": "./src/scheduled.ts",
+    "./margin-notes": "./src/margin-notes.ts",
     "./demo": "./src/demo.ts",
     "./mail": "./src/mail.ts",
     "./todoist": "./src/todoist.ts",

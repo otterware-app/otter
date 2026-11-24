@@ -65,6 +65,10 @@ import {
   useInterfaceToggle,
   useReadingWidth,
   useMailLayout,
+  APP_LAYOUTS,
+  setAppLayout,
+  useAppLayout,
+  type AppLayout,
   type InterfaceSetting,
   type ReadingWidth,
   type MailLayout,
@@ -699,7 +703,84 @@ export function ReadingWidthRow({ id }: { id?: string }) {
   );
 }
 
-const hasReader = (layout: string) => layout === "auto" || layout === "split";
+function AppLayoutPicker() {
+  const selected = useAppLayout();
+  return (
+    <SettingsSection
+      {...searchableSetting("layout")}
+      description="How every screen is laid out."
+      variant="plain"
+    >
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-2 @min-[24rem]:grid-cols-2">
+          {Object.entries(APP_LAYOUTS).map(([value, { label, description }]) => (
+            <button
+              key={value}
+              type="button"
+              aria-label={label}
+              aria-pressed={selected === value}
+              aria-describedby={`layout-${value}-description`}
+              onClick={() => setAppLayout(value as AppLayout)}
+              className={cn(
+                "flex cursor-pointer flex-col rounded-xl border bg-card p-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+                selected === value
+                  ? "border-focus-ring ring-1 ring-focus-ring"
+                  : "border-border/60 hover:border-input",
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className="relative flex h-32 w-full overflow-hidden rounded-lg border border-border/60 bg-canvas"
+              >
+                {value === "classic" ? (
+                  <>
+                    <span className="flex w-1/5 shrink-0 flex-col gap-2 border-r border-border/70 bg-sidebar-surface p-2 pt-4">
+                      <span className="h-2 rounded-sm bg-sidebar-row-active" />
+                      <span className="h-1 w-4/5 rounded-full bg-muted-foreground/25" />
+                      <span className="h-1 w-3/5 rounded-full bg-muted-foreground/25" />
+                    </span>
+                    <span className="flex w-1/3 flex-col gap-2 border-r border-border/70 p-2 pt-4">
+                      <span className="h-1 w-3/5 rounded-full bg-foreground/40" />
+                      <span className="h-1 w-4/5 rounded-full bg-muted-foreground/25" />
+                      <span className="mt-1 h-1 w-3/5 rounded-full bg-foreground/40" />
+                      <span className="h-1 w-4/5 rounded-full bg-muted-foreground/25" />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-2 p-2 pt-4">
+                      <span className="h-1.5 w-4/5 rounded-full bg-foreground/50" />
+                      <span className="mt-2 h-1 w-full rounded-full bg-muted-foreground/20" />
+                      <span className="h-1 w-4/5 rounded-full bg-muted-foreground/20" />
+                    </span>
+                  </>
+                ) : (
+                  <span className="mx-auto flex w-4/5 gap-3 pt-4">
+                    <span className="flex flex-1 flex-col gap-2 border-t border-foreground/50 pt-2">
+                      <span className="h-1.5 w-3/5 rounded-full bg-foreground/50" />
+                      <span className="h-1 w-full rounded-full bg-muted-foreground/25" />
+                      <span className="h-1 w-4/5 rounded-full bg-muted-foreground/25" />
+                      <span className="mt-1 h-1.5 w-1/2 rounded-full bg-foreground/50" />
+                      <span className="h-1 w-full rounded-full bg-muted-foreground/25" />
+                    </span>
+                    <span className="flex w-1/4 flex-col gap-1.5 border-l-2 border-question-foreground/70 pt-2 pl-1.5">
+                      <span className="h-1 w-4/5 rounded-full bg-muted-foreground/30" />
+                      <span className="h-1 w-3/5 rounded-full bg-muted-foreground/30" />
+                    </span>
+                  </span>
+                )}
+              </span>
+              <span className="mt-2 px-2.5 text-sm font-medium text-foreground">{label}</span>
+              <span
+                id={`layout-${value}-description`}
+                className="mt-1 mb-1 px-2.5 text-xs leading-relaxed text-muted-foreground"
+              >
+                {description}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </SettingsSection>
+  );
+}
 
 function MailLayoutPicker() {
   const selectedLayout = useMailLayout();
@@ -718,7 +799,7 @@ function MailLayoutPicker() {
       }
     >
       <div className="@container">
-        <div className="grid grid-cols-1 gap-2 @min-[24rem]:grid-cols-2 @min-[40rem]:grid-cols-4">
+        <div className="grid grid-cols-1 gap-2 @min-[24rem]:grid-cols-3">
           {Object.entries(MAIL_LAYOUTS).map(([value, { label, description }]) => (
             <button
               key={value}
@@ -747,11 +828,7 @@ function MailLayoutPicker() {
                 <span
                   className={cn(
                     "flex flex-col",
-                    value === "full"
-                      ? "flex-1"
-                      : value === "margin"
-                        ? "flex-1 px-[15%]"
-                        : "w-1/3 border-r border-border/70",
+                    value !== "full" ? "w-1/3 border-r border-border/70" : "flex-1",
                   )}
                 >
                   <span className="flex h-6 shrink-0 items-center border-b border-border/60 px-2">
@@ -763,7 +840,7 @@ function MailLayoutPicker() {
                       className={cn(
                         "flex gap-1.5 border-b border-border/40 px-2 py-2",
                         value !== "full" ? "flex-col" : "items-center",
-                        row === 0 && hasReader(value) && "bg-sidebar-row-active",
+                        row === 0 && value !== "full" && "bg-sidebar-row-active",
                       )}
                     >
                       <span
@@ -784,7 +861,7 @@ function MailLayoutPicker() {
                     </span>
                   ))}
                 </span>
-                {hasReader(value) ? (
+                {value !== "full" ? (
                   <span className="flex min-w-0 flex-1 flex-col gap-2 p-2 pt-4">
                     <span className="h-1.5 w-4/5 rounded-full bg-foreground/50" />
                     <span className="mt-2 h-1 w-3/5 rounded-full bg-muted-foreground/30" />
@@ -878,7 +955,7 @@ export function useColorScheme(): [ColorScheme, (next: ColorScheme) => Promise<v
 export function AppearancePane() {
   const choice = useThemeChoice();
   const design = useThemeDesign();
-  const mailLayout = useMailLayout();
+  const layout = useAppLayout();
   const [scheme, setScheme] = useColorScheme();
   const groupMessagesByDay = useInterfaceToggle(GROUP_MESSAGES_BY_DAY);
   const fullWidthRows = useInterfaceToggle(FULL_WIDTH_ROWS);
@@ -921,7 +998,9 @@ export function AppearancePane() {
         <ThemeLibrary />
       </div>
 
-      <MailLayoutPicker />
+      <AppLayoutPicker />
+      {/* The Margin layout reads mail one pane at a time, at its own measure. */}
+      {layout !== "margin" ? <MailLayoutPicker /> : null}
 
       <SettingsSection title="Sidebar">
         <SidebarMailboxesRow />
@@ -1040,8 +1119,7 @@ export function AppearancePane() {
           />
         ) : null}
         <FontSizeRow id={searchableSetting("font-size").id} />
-        {/* The Margin layout sets its own measure. */}
-        {mailLayout !== "margin" ? (
+        {layout !== "margin" ? (
           <ReadingWidthRow id={searchableSetting("reading-width").id} />
         ) : null}
       </SettingsSection>

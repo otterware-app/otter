@@ -18,6 +18,8 @@
 /* A theme's design (Margin sets data-design="margin" on <html>), for what a
    token can't say. It wins over dark: and the other zero-specificity variants. */
 @custom-variant margin (&:is([data-design="margin"] *));
+/* The Margin layout (Appearance → Layout sets data-layout="margin" on <html>). */
+@custom-variant layout-margin (&:is([data-layout="margin"] *));
 
 :root {
   /* Interface settings' contrast (apps/web/src/main/theme/interface-settings.ts). */

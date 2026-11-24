@@ -251,6 +251,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["text size bigger smaller zoom scale typography accessibility"],
   },
   {
+    id: "layout",
+    title: "Layout",
+    pane: "appearance",
+    searchTerms: ["classic margin one column reading measure panes agents notes"],
+  },
+  {
     id: "mail-layout",
     title: "Mail layout",
     pane: "appearance",

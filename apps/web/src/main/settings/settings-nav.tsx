@@ -1,6 +1,6 @@
 import { useLatest } from "../use-latest";
 import { useThemeDesign } from "../theme/apply-theme";
-import { useMailLayout } from "../theme/interface-settings";
+import { useAppLayout } from "../theme/interface-settings";
 import {
   Fragment,
   useCallback,
@@ -99,16 +99,16 @@ export function SettingsNav({
   const [query, setQuery] = useState("");
   const [activeResultIndex, setActiveResultIndex] = useState(0);
   const design = useThemeDesign();
-  const mailLayout = useMailLayout();
-  // Rows Appearance hides: Margin's overlays are always solid, its layout sets its own measure.
+  const layout = useAppLayout();
+  // Rows Appearance hides: Margin's overlays are always solid; its layout has one pane at its own measure.
   const results = useMemo(
     () =>
       searchSettings(query).filter(
         (item) =>
           !(item.id === "glass-opacity" && design === "margin") &&
-          !(item.id === "reading-width" && mailLayout === "margin"),
+          !((item.id === "reading-width" || item.id === "mail-layout") && layout === "margin"),
       ),
-    [query, design, mailLayout],
+    [query, design, layout],
   );
   const isSearching = query.trim().length > 0;
   const hasResults = results.length > 0;

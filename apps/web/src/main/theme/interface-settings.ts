@@ -82,14 +82,38 @@ export const MAIL_LAYOUTS = {
   },
   split: { label: "Split view", description: "Keep the message list beside the conversation." },
   full: { label: "Full inbox", description: "A wide inbox. Open a message to read it in full." },
-  margin: {
-    label: "Margin",
-    description: "One column at a reading measure, with the conversation's details in the margin.",
-  },
 } as const;
 export type MailLayout = keyof typeof MAIL_LAYOUTS;
 export const DEFAULT_MAIL_LAYOUT: MailLayout = "auto";
 const MAIL_LAYOUT_KEY = "otter:mail-layout";
+
+/** How every screen is laid out: today's panes, or Margin's one column with a margin beside it. */
+export const APP_LAYOUTS = {
+  classic: {
+    label: "Classic",
+    description: "Panes side by side: a sidebar, a list, what you read.",
+  },
+  margin: {
+    label: "Margin",
+    description:
+      "One column at a reading measure, with the details and your agents' notes in the margin.",
+  },
+} as const;
+export type AppLayout = keyof typeof APP_LAYOUTS;
+export const DEFAULT_APP_LAYOUT: AppLayout = "classic";
+const APP_LAYOUT_KEY = "otter:layout";
+
+export function getAppLayout(): AppLayout {
+  const value = localStorage.getItem(APP_LAYOUT_KEY);
+  return value !== null && Object.hasOwn(APP_LAYOUTS, value)
+    ? (value as AppLayout)
+    : DEFAULT_APP_LAYOUT;
+}
+
+export function setAppLayout(layout: AppLayout): void {
+  setSyncedPreference(APP_LAYOUT_KEY, layout);
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+}
 
 export function getMailLayout(): MailLayout {
   const value = localStorage.getItem(MAIL_LAYOUT_KEY);
@@ -178,8 +202,13 @@ export function useMailLayout(): MailLayout {
   return useSyncExternalStore(subscribe, getMailLayout);
 }
 
+export function useAppLayout(): AppLayout {
+  return useSyncExternalStore(subscribe, getAppLayout);
+}
+
 export function applyInterfaceSettings(): void {
   const style = document.documentElement.style;
+  document.documentElement.setAttribute("data-layout", getAppLayout());
 
   const contrast = getInterfaceSetting(CONTRAST);
   style.setProperty("--appearance-contrast-base", `${Math.min(contrast, 100)}%`);

@@ -63,7 +63,7 @@ import {
 import { SettingsPage, type SettingsRoute } from "./settings/settings-page";
 import { SettingsNav } from "./settings/settings-nav";
 import { isTypingTarget } from "./mail/keyboard";
-import { useMailLayout } from "./theme/interface-settings";
+import { type MailLayout, useAppLayout, useMailLayout } from "./theme/interface-settings";
 import { usePanelAnimationSettings, usePanelPresence } from "./panel-animations";
 import {
   keybindingContext,
@@ -371,7 +371,7 @@ const LIST_LEADING = (
   </span>
 );
 const LIST_TRAILING = (
-  <span className="hidden [[data-mail-layout=full][data-right-panels=none]_&]:contents [[data-mail-layout=margin][data-right-panels=none]_&]:contents">
+  <span className="hidden [[data-mail-layout=full][data-right-panels=none]_&]:contents">
     <PanelControlSlot />
   </span>
 );
@@ -582,7 +582,10 @@ function MailHome() {
   // Turning one off re-reads where we are (spaceOf drops it).
   const workspaces = useWorkspaces();
   const ownsMain = isChats || isCalendar || workspace !== undefined;
-  const mailLayoutSetting = useMailLayout();
+  // The Margin layout reads mail as Full inbox does: one pane at a time.
+  const marginLayout = useAppLayout() === "margin";
+  const mailLayoutChoice = useMailLayout();
+  const mailLayoutSetting: MailLayout = marginLayout ? "full" : mailLayoutChoice;
   const viewSpace = space?.kind === "view" ? space.view : null;
   const spansMailboxes = spanning(space);
 
@@ -715,7 +718,7 @@ function MailHome() {
       : (dragSplit ?? splitFits(paneWidths))
         ? "split"
         : "full";
-  const fullInbox = (mailLayout === "full" || mailLayout === "margin") && !ownsMain;
+  const fullInbox = mailLayout === "full" && !ownsMain;
   const browserPresent = usePanelPresence(
     browserVisible,
     panelAnimationsActive,
@@ -727,9 +730,7 @@ function MailHome() {
     panelAnimationDurationMs,
   );
   // Pages need room: the panel opens wide, as far as the reader allows (narrower by hand).
-  const openRoomRef = useLatest(() =>
-    browserRoomBeside(mailLayoutSetting !== "full" && mailLayoutSetting !== "margin"),
-  );
+  const openRoomRef = useLatest(() => browserRoomBeside(mailLayoutSetting !== "full"));
   useEffect(() => {
     if (browserVisible) widenBrowser(Math.min(BROWSER_OPEN_WIDTH, openRoomRef.current()));
   }, [browserVisible, widenBrowser, openRoomRef]);
@@ -1642,7 +1643,7 @@ function MailHome() {
     trailing: ReactNode = titleTrailing,
   ) => (
     <MessageReader
-      margin={!ownsMain && mailLayout === "margin"}
+      margin={!ownsMain && marginLayout}
       titleLeading={leading}
       titleTrailing={trailing}
       accountId={readerAccount ?? ""}

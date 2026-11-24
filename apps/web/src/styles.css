@@ -80,12 +80,12 @@ html[data-window-controls="none"] {
   scroll-margin-top: 2rem;
 }
 
-/* Margin: the list and the reader keep to one column at a reading measure. */
-[data-mail-layout="margin"] {
+/* The Margin layout: every screen keeps to one column at a reading measure. */
+html[data-layout="margin"] {
   --reading-width: 42.5rem;
 }
 
-[data-mail-layout="margin"] .message-list-scroll > * {
+[data-layout="margin"] .message-list-scroll > * {
   max-width: var(--reading-width);
   margin-inline: auto;
 }
