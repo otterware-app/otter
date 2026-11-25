@@ -16,11 +16,14 @@ import { installChromeWebStore, updateExtensions } from "electron-chrome-web-sto
 
 import { extensionMenuItems, reachOf, setupExtensions, trackTab } from "./extensions.ts";
 import { host, setBrowserHost, type BrowserHost } from "./host.ts";
+import {
+  checkPermission,
+  forgetPermissions,
+  requestPermission,
+  setupPermissionPrompts,
+} from "./permissions.ts";
 
 export const BROWSER_PARTITION = "persist:browser";
-
-/** What a page may use without asking; anything else (camera, location, notifications…) is refused. */
-const ALLOWED_PERMISSIONS = new Set(["fullscreen", "clipboard-sanitized-write", "pointerLock"]);
 
 export function isPageUrl(url: string): boolean {
   return /^(https?|chrome-extension):/i.test(url);
@@ -45,9 +48,18 @@ export function setupBrowser(browserHost: BrowserHost, preloadPath: string): voi
       callback(false);
       return;
     }
-    callback(ALLOWED_PERMISSIONS.has(permission));
+    const origin = URL.parse(details.requestingUrl ?? "")?.origin ?? "";
+    void requestPermission(page, origin, permission, details as { mediaTypes?: string[] }).then(
+      callback,
+      () => callback(false),
+    );
   });
-  ses.setPermissionCheckHandler((_page, permission) => ALLOWED_PERMISSIONS.has(permission));
+  ses.setPermissionCheckHandler((_page, permission, origin) => checkPermission(origin, permission));
+  // Sharing a screen or window (a video call's): macOS's own picker chooses what.
+  ses.setDisplayMediaRequestHandler((_request, callback) => callback({}), {
+    useSystemPicker: true,
+  });
+  setupPermissionPrompts();
   ses.extensions.on("extension-loaded", () => host().broadcast("browser:extensionsChanged"));
   ses.extensions.on("extension-unloaded", () => host().broadcast("browser:extensionsChanged"));
   // Before any extension loads, so each worker and page gets its chrome.action.
@@ -132,6 +144,7 @@ export async function clearBrowsingData(origin?: string): Promise<void> {
     ...(origin ? { origin } : {}),
     storages: ["cookies", "filesystem", "indexdb", "localstorage", "cachestorage"],
   });
+  forgetPermissions(origin);
   if (!origin) {
     await ses.clearCache();
     await ses.clearAuthCache();

@@ -12,6 +12,8 @@ export type BrowserTab = {
   favicon: string | null;
   loading: boolean;
   chatId?: string;
+  /** Asked for by the main process (an extension, an agent), which waits to hear the page's id. */
+  requestId?: string;
 };
 
 export type OpenLinksIn = "app" | "browser";
@@ -127,8 +129,11 @@ export function closeChatPages(chatId: string): void {
   set((s) => ({ tabs: s.tabs.filter((tab) => tab.chatId !== chatId) }));
 }
 
-export function openTab(url: string, { background = false } = {}): void {
-  const tab = blankTab(url);
+export function openTab(
+  url: string,
+  { background = false, requestId }: { background?: boolean; requestId?: string } = {},
+): void {
+  const tab = { ...blankTab(url), ...(requestId ? { requestId } : {}) };
   set((s) => {
     const at = s.tabs.findIndex((t) => t.id === s.activeId);
     const tabs = at < 0 ? [...s.tabs, tab] : s.tabs.toSpliced(at + 1, 0, tab);
@@ -244,9 +249,13 @@ export function useBrowserEvents(): void {
     window.addEventListener("error", quietDetachError, true);
     const offs = [
       desktopBridge().on("browser:openTab", (params) => {
-        const { url, background } = params as { url: string; background?: boolean };
-        if (linkHandler) linkHandler(url);
-        else openTab(url, { background });
+        const { url, background, requestId } = params as {
+          url: string;
+          background?: boolean;
+          requestId?: string;
+        };
+        if (linkHandler && !requestId) linkHandler(url);
+        else openTab(url, { background, requestId });
       }),
       desktopBridge().on("browser:newTab", newTab),
       desktopBridge().on("browser:focusAddress", focusAddress),

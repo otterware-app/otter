@@ -203,13 +203,6 @@ export function trackTab(contents: WebContents): void {
     actionsChanged();
   });
   emit((ext) => ["tabs.onCreated", [tabOf(tabId, ext)]]);
-  // A tab asked for (createTab): the panel opens one per request, in order; its address can
-  // be unknown yet, or already redirected.
-  const waiting = Math.max(
-    0,
-    creating.findIndex((pending) => pending.url === contents.getURL()),
-  );
-  if (creating.length > 0) creating.splice(waiting, 1)[0]!.resolve(tabId);
 }
 
 function frameIdOf(contents: WebContents, frame: WebFrameMain): number {
@@ -237,20 +230,19 @@ export function setActiveTab(tabId: number): void {
   actionsChanged();
 }
 
-const creating: { url: string; resolve: (tabId: number) => void }[] = [];
+const creating = new Map<string, (tabId: number | null) => void>();
 
+/** A new tab, by the panel: its page's id once the page is there (the panel says which). */
 export function createTab(url: string, active = true): Promise<number | null> {
   if (!isPageUrl(url)) return Promise.resolve(null);
+  const requestId = crypto.randomUUID();
   return new Promise((resolve) => {
-    const pending = { url, resolve };
-    creating.push(pending);
-    host().broadcast("browser:openTab", { url, background: !active });
+    creating.set(requestId, resolve);
+    host().broadcast("browser:openTab", { url, background: !active, requestId });
     setTimeout(() => {
-      const at = creating.indexOf(pending);
-      if (at < 0) return;
-      creating.splice(at, 1);
+      creating.delete(requestId);
       resolve(null);
-    }, 5_000);
+    }, 10_000);
   });
 }
 
@@ -1162,6 +1154,15 @@ export function setupExtensions(preloadPath: string): void {
     ses.registerPreloadScript({ id: `otter-extensions-${type}`, type, filePath: preloadPath });
   }
   wire(ipcMain, false);
+  ipcMain.handle("browser:tabCreated", (_event, params: unknown) => {
+    const { requestId, webContentsId } = (params ?? {}) as {
+      requestId?: unknown;
+      webContentsId?: unknown;
+    };
+    if (typeof requestId !== "string" || typeof webContentsId !== "number") return;
+    creating.get(requestId)?.(webContentsId);
+    creating.delete(requestId);
+  });
   // A worker's calls may arrive on its own ipc rather than ipcMain.
   ses.serviceWorkers.on("running-status-changed", ({ versionId, runningStatus }) => {
     if (runningStatus !== "starting" && runningStatus !== "running") return;

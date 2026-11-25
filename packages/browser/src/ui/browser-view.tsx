@@ -18,6 +18,7 @@ import {
 import { toast } from "@otter/ui/components/toast";
 import { addressToUrl, hostOf } from "@otter/client/web-address";
 import { ExtensionToolbar } from "./extension-toolbar";
+import { PermissionPrompt } from "./permission-prompt";
 import {
   CHROME_WEB_STORE_URL,
   closeTab,
@@ -164,6 +165,14 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
     if (active && pageId !== null) void desktopBridge().invoke("browser:activeTab", pageId);
   }, [active, pageId]);
   useEffect(() => {
+    if (pageId === null || !tab.requestId) return;
+    void desktopBridge().invoke("browser:tabCreated", {
+      requestId: tab.requestId,
+      webContentsId: pageId,
+    });
+    updateTab(tab.id, { requestId: undefined });
+  }, [pageId, tab.id, tab.requestId]);
+  useEffect(() => {
     if (pageId === null) return;
     const mine = (params: unknown) =>
       (params as { webContentsId?: number }).webContentsId === pageId;
@@ -262,6 +271,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
         ) : (
           <StartPage onNavigate={navigate} />
         )}
+        {src ? <PermissionPrompt pageId={pageId} /> : null}
         {view && find !== null ? (
           <div className="absolute top-3 right-3 z-10 w-72 max-w-[calc(100%-1.5rem)]">
             <PageFind
