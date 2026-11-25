@@ -30,6 +30,7 @@ import { MessageReader } from "./mail/message-reader";
 import { NewMessageView } from "./mail/new-message-view";
 import { CommandPalette } from "./mail/command-palette";
 import { BrowserPanel } from "./browser/browser-panel";
+import { OtterCalendarIcon, OtterMailIcon } from "./mail/app-icons";
 import { PageHost } from "@otter/browser/ui/page-host";
 import { AgentCorner } from "./agent/agent-corner";
 import { ChatWindow } from "./agent/chat-window";
@@ -640,6 +641,9 @@ function MailHome() {
   const [browserOpen, setBrowserOpen] = useState(
     () => features.browser && localStorage.getItem("gmail:browser-open") === "1",
   );
+  const [browserFull, setBrowserFull] = useState(
+    () => localStorage.getItem("gmail:browser-full") === "1",
+  );
   const [calendarPanelOpen, setCalendarPanelOpen] = useState(
     () => localStorage.getItem("gmail:calendar-panel-open") === "1",
   );
@@ -692,6 +696,7 @@ function MailHome() {
   const { active: panelAnimationsActive, durationMs: panelAnimationDurationMs } =
     usePanelAnimationSettings(settingsRoute ? "settings" : "mail");
   const browserVisible = browserOpen && !settingsRoute && !isChats;
+  const fullView = browserFull && browserVisible;
   const windowWidth = useSyncExternalStore(onWindowResize, () => window.innerWidth);
   const splitFits = ({ sidebar, list, browser, calendar }: PaneWidths) =>
     windowWidth -
@@ -746,9 +751,14 @@ function MailHome() {
     localStorage.setItem("gmail:browser-open", "1");
     setBrowserOpen(true);
   };
+  const setFullView = (full: boolean) => {
+    localStorage.setItem("gmail:browser-full", full ? "1" : "0");
+    setBrowserFull(full);
+  };
   const closeBrowser = () => {
     localStorage.setItem("gmail:browser-open", "0");
     setBrowserOpen(false);
+    setFullView(false);
   };
   const toggleBrowser = () => {
     if (!features.browser) return false;
@@ -1107,6 +1117,11 @@ function MailHome() {
       else closeChat();
     },
     "browser.toggle": () => toggleBrowser(),
+    "browser.fullView": () => {
+      if (!features.browser || isChats) return false;
+      if (!browserVisible) toggleBrowser();
+      setFullView(!fullView);
+    },
     "calendar.togglePanel": () => toggleCalendarPanel(),
     "browser.newTab": () => {
       if (!features.browser) return false;
@@ -1732,7 +1747,10 @@ function MailHome() {
             {/* Inside the frame's stacking: what floats over a page (the agent's window, resize
                 handles, the cards' edges) stays over it. */}
             {features.browser ? <PageHost /> : null}
-            <div data-mail-workspace="" className="relative flex min-h-0 min-w-0 flex-1">
+            <div
+              data-mail-workspace=""
+              className={cn("relative flex min-h-0 min-w-0 flex-1", fullView && "hidden")}
+            >
               {peeking ? (
                 <SidebarPeekCard width={sidebarWidth} onHover={sidebarPeek.hover}>
                   {sidebar}
@@ -1936,32 +1954,46 @@ function MailHome() {
             </div>
             {browserPresent ? (
               <>
-                {browserVisible ? <PaneResizer onPointerDown={browserStart} /> : null}
+                {browserVisible && !fullView ? <PaneResizer onPointerDown={browserStart} /> : null}
                 <div
                   ref={browserFrameRef}
                   data-page-clip=""
-                  style={{ width: browserVisible ? browserWidth : 0 }}
+                  style={{ width: fullView ? undefined : browserVisible ? browserWidth : 0 }}
                   className={cn(
                     PANE_FRAME,
+                    fullView && "min-w-0 flex-1",
                     browserVisible && "[[data-panel-animations=true]_&]:starting:w-0!",
                     !browserVisible && "pointer-events-none",
                   )}
                 >
                   <div
                     ref={browserPaneRef}
-                    style={{ width: browserWidth }}
+                    style={{ width: fullView ? "100%" : browserWidth }}
                     className={cn(PANE_BROWSER, "shrink-0")}
                   >
                     <BrowserPanel
                       closeTabRef={closeBrowserTabRef}
                       onClosePanel={closeBrowser}
-                      controlSlot={!calendarPanelVisible}
+                      controlSlot={!calendarPanelVisible || fullView}
+                      full={fullView}
+                      onFullView={setFullView}
+                      home={
+                        isCalendar
+                          ? { title: "Calendar", icon: <OtterCalendarIcon className="size-4" /> }
+                          : workspace
+                            ? {
+                                title: workspace.title,
+                                icon: <workspace.Icon className="size-4" />,
+                              }
+                            : { title: "Mail", icon: <OtterMailIcon className="size-4" /> }
+                      }
+                      leading={titlebarInset}
                     />
                   </div>
                 </div>
               </>
             ) : null}
-            {calendarPanelPresent ? (
+            {calendarPanelPresent && !fullView ? (
               <>
                 {calendarPanelVisible ? <PaneResizer onPointerDown={calendarPanelStart} /> : null}
                 <div

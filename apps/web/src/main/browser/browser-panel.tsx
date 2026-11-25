@@ -1,5 +1,5 @@
-import { useEffect, useRef, type MutableRefObject } from "react";
-import { PlusIcon } from "lucide-react";
+import { useEffect, useRef, type MutableRefObject, type ReactNode } from "react";
+import { ChevronRightIcon, Maximize2Icon, Minimize2Icon, PlusIcon } from "lucide-react";
 
 import { useCommandHandlers } from "../keybindings/dispatch";
 import { ShortcutText } from "../keybindings/store";
@@ -25,10 +25,21 @@ export function BrowserPanel({
   closeTabRef,
   onClosePanel,
   controlSlot,
+  full,
+  onFullView,
+  home,
+  leading,
 }: {
   closeTabRef: MutableRefObject<(() => boolean) | null>;
   onClosePanel: () => void;
   controlSlot: boolean;
+  /** Full view (ChatGPT's): the browser has the window, and what it hid is a tab before its pages. */
+  full: boolean;
+  onFullView: (full: boolean) => void;
+  /** That tab: the mode the browser opened beside (Mail, Calendar…). */
+  home: { title: string; icon: ReactNode };
+  /** Room for the window's own controls, which full view puts over the tabs. */
+  leading: ReactNode;
 }) {
   const allTabs = useBrowser((s) => s.tabs);
   const activeId = useBrowser((s) => s.activeId);
@@ -88,6 +99,32 @@ export function BrowserPanel({
   return (
     <div ref={panelRef} className="relative flex h-full min-w-0 flex-col">
       <div className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-1 px-3">
+        {full ? (
+          <>
+            {leading}
+            <PanelTab
+              id="home"
+              title={home.title}
+              tooltip={`Back to ${home.title}`}
+              icon={home.icon}
+              selected={false}
+              closable={false}
+              onSelect={() => onFullView(false)}
+              onClose={() => onFullView(false)}
+              className="no-drag shrink-0"
+            />
+            <HintTooltip label="Restore split view" side="bottom">
+              <IconButton
+                label="Restore split view"
+                size="icon"
+                className="no-drag shrink-0"
+                onClick={() => onFullView(false)}
+              >
+                <ChevronRightIcon className="size-4" />
+              </IconButton>
+            </HintTooltip>
+          </>
+        ) : null}
         <div
           role="tablist"
           ref={ref}
@@ -121,6 +158,20 @@ export function BrowserPanel({
           </IconButton>
         </HintTooltip>
         <span className="min-w-0 flex-1" />
+        <HintTooltip
+          label={full ? "Exit full view" : "Enter full view"}
+          hint={<ShortcutText command="browser.fullView" />}
+          side="bottom"
+        >
+          <IconButton
+            label={full ? "Exit full view" : "Enter full view"}
+            size="icon"
+            className="no-drag shrink-0"
+            onClick={() => onFullView(!full)}
+          >
+            {full ? <Minimize2Icon className="size-4" /> : <Maximize2Icon className="size-4" />}
+          </IconButton>
+        </HintTooltip>
         {/* The pinned panel toggles (home view) sit here, over the rightmost panel. */}
         {controlSlot ? <PanelControlSlot /> : null}
       </div>
