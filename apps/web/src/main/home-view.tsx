@@ -855,7 +855,11 @@ function MailHome() {
   );
   const agentChat =
     chatWindowShown && activeChatId && features.browser
-      ? { chatId: activeChatId, title: agentChatTitle || "Agent" }
+      ? {
+          chatId: activeChatId,
+          title: agentChatTitle || "Agent",
+          onOpen: () => openWorkspaceRef.current(activeChatId),
+        }
       : null;
   // A page its agent opens while you're in the mail: the browser opens on it, as ChatGPT's does.
   const agentPages = useBrowser(

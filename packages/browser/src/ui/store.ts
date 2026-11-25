@@ -18,6 +18,8 @@ export type BrowserTab = {
   keep?: boolean;
   /** Its page's WebContents id, once it has one (not kept across launches). */
   pageId?: number;
+  /** An agent is acting in it now. */
+  working?: boolean;
   /** Asked for by the main process (an extension, an agent), which waits to hear the page's id. */
   requestId?: string;
 };
@@ -179,20 +181,38 @@ function openForChat(chatId: string, url: string, requestId: string): void {
   }));
 }
 
-/** One of the user's tabs, taken by a chat: the same page (signed in, filled in), the chat's now. */
-function takeForChat(chatId: string, pageId: number): void {
-  const tab = get().tabs.find((t) => t.pageId === pageId);
+/** One of the user's tabs, given to a chat: the same page (signed in, filled in), the chat's now. */
+export function giveToChat(id: string, chatId: string): void {
+  const tab = get().tabs.find((t) => t.id === id);
   if (!tab || tab.chatId) return;
   const chatTabId = uiHost().addChatPage?.(chatId, { url: tab.url, title: tab.title });
   if (!chatTabId) return;
-  set((s) => {
-    const tabs = s.tabs.map((t) => (t === tab ? { ...t, chatId, chatTabId, keep: true } : t));
-    const mine = panelTabs(tabs);
-    return {
-      tabs,
-      activeId: s.activeId === tab.id ? (mine.at(-1)?.id ?? null) : s.activeId,
-    };
-  });
+  updateTab(id, { chatId, chatTabId, keep: true });
+}
+
+/** A chat's page, made one of the user's tabs: the chat keeps no tab for it. */
+export function giveBack(id: string): void {
+  set((s) => ({
+    tabs: s.tabs.map((t) =>
+      t.id === id ? { ...t, chatId: undefined, chatTabId: undefined, keep: undefined } : t,
+    ),
+  }));
+}
+
+const idle = new Map<number, ReturnType<typeof setTimeout>>();
+
+/** Held a moment after the agent's last command, so a run of them reads as one. */
+function agentWorking(pageId: number, working: boolean): void {
+  clearTimeout(idle.get(pageId));
+  idle.delete(pageId);
+  const mark = (on: boolean) =>
+    set((s) => ({ tabs: s.tabs.map((t) => (t.pageId === pageId ? { ...t, working: on } : t)) }));
+  if (working) mark(true);
+  else
+    idle.set(
+      pageId,
+      setTimeout(() => mark(false), 1500),
+    );
 }
 
 export function closeChatPages(chatId: string): void {
@@ -229,7 +249,6 @@ export function focusAddress(): void {
 }
 
 export function selectTab(id: string | null): void {
-  if (id && get().tabs.find((tab) => tab.id === id)?.chatId) return;
   set({ activeId: id });
 }
 
@@ -238,7 +257,7 @@ export function closeTab(id: string): void {
     const closing = s.tabs.find((tab) => tab.id === id);
     if (!closing) return s;
     const tabs = s.tabs.filter((tab) => tab !== closing);
-    if (closing.chatId || s.activeId !== id) return { tabs };
+    if (s.activeId !== id) return { tabs };
     const panel = panelTabs(s.tabs);
     const at = panel.indexOf(closing);
     return { tabs, activeId: (panel[at - 1] ?? panel[at + 1])?.id ?? null };
@@ -331,7 +350,12 @@ export function useBrowserEvents(): void {
       }),
       desktopBridge().on("browser:takeTab", (params) => {
         const { webContentsId, chatId } = params as { webContentsId: number; chatId: string };
-        takeForChat(chatId, webContentsId);
+        const tab = get().tabs.find((t) => t.pageId === webContentsId);
+        if (tab) giveToChat(tab.id, chatId);
+      }),
+      desktopBridge().on("browser:agentWorking", (params) => {
+        const { webContentsId, working } = params as { webContentsId: number; working: boolean };
+        agentWorking(webContentsId, working);
       }),
       desktopBridge().on("browser:newTab", newTab),
       desktopBridge().on("browser:focusAddress", focusAddress),

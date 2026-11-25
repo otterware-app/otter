@@ -505,10 +505,31 @@ function tabs(chatId: string | undefined) {
 }
 
 /** What the agents' browser tools ask for, by name (core's tools/browser.ts). */
+const busy = new Map<number, number>();
+
+/** The tab shows its agent at work while a command runs in it. */
+function working(pageId: number, delta: 1 | -1): void {
+  const n = (busy.get(pageId) ?? 0) + delta;
+  if (n > 0) busy.set(pageId, n);
+  else busy.delete(pageId);
+  host().broadcast("browser:agentWorking", { webContentsId: pageId, working: n > 0 });
+}
+
 export async function runAgentBrowser(
   command: string,
   args: Record<string, unknown>,
 ): Promise<unknown> {
+  const pageId = typeof args.tabId === "number" ? args.tabId : undefined;
+  if (pageId === undefined) return run(command, args);
+  working(pageId, 1);
+  try {
+    return await run(command, args);
+  } finally {
+    working(pageId, -1);
+  }
+}
+
+async function run(command: string, args: Record<string, unknown>): Promise<unknown> {
   const chatId = typeof args.chatId === "string" ? args.chatId : undefined;
   if (args.tabId !== undefined) mayUse(args.tabId, chatId);
   switch (command) {
