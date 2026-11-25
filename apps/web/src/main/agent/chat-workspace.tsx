@@ -15,7 +15,7 @@ import type { ChatTabRef } from "@otter/contracts/chats";
 
 import { PageSlot } from "@otter/browser/ui/page-host";
 import {
-  chatPageId,
+  chatPage,
   closeChatPage,
   ensureChatPage,
   routeLinks,
@@ -495,7 +495,10 @@ export function ChatWorkspace({
                 />
               ) : null}
               {features.browser && shown?.ref.kind === "page" ? (
-                <PageSlot key={shown.id} tabId={chatPageId(chatId, shown.id)} />
+                <PageSlot
+                  key={shown.id}
+                  tabId={chatPage(allPages, chatId, shown.id)?.id ?? `${chatId}|${shown.id}`}
+                />
               ) : null}
             </div>
             {/* After the tab's page, as the chat's bar is: so it scrolls under the bar without cutting it out. */}
@@ -521,9 +524,7 @@ export function ChatWorkspace({
                 {tabs.map((tab) => {
                   const Icon = TAB_ICONS[tab.ref.kind];
                   const page =
-                    tab.ref.kind === "page"
-                      ? pageTabs.find((t) => t.id === chatPageId(chatId, tab.id))
-                      : undefined;
+                    tab.ref.kind === "page" ? chatPage(pageTabs, chatId, tab.id) : undefined;
                   const title = page?.title || tab.title;
                   return (
                     <PanelTab

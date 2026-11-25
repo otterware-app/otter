@@ -103,12 +103,12 @@ export function PageHost() {
   );
   const presented = useSurfaces(useShallow((s) => Object.keys(s)));
   return tabs.map((tab) =>
-    presented.includes(tab.id) ? <HostedPage key={tab.id} tab={tab} /> : null,
+    presented.includes(tab.id) || tab.keep ? <HostedPage key={tab.id} tab={tab} /> : null,
   );
 }
 
 function HostedPage({ tab }: { tab: BrowserTab }) {
-  const surface = useSurfaces((s) => s[tab.id]);
+  const surface = useSurfaces((s) => s[tab.id]) ?? (tab.keep ? UNSEEN : undefined);
   if (!surface) return null;
   return (
     <div
@@ -130,4 +130,11 @@ function HostedPage({ tab }: { tab: BrowserTab }) {
  * Where a page that isn't showing waits: off to the side at its last size, so nothing reflows,
  * and Electron stops drawing it. A macOS webview hidden outright can come back blank.
  */
+/** A page an agent works in that no panel has shown yet: a laptop's window, off to the side. */
+const UNSEEN: Surface = {
+  rect: { top: 0, left: 0, width: 1280, height: 800 },
+  clip: undefined,
+  visible: false,
+};
+
 const OFFSCREEN: CSSProperties = { top: -100_000, left: -100_000, pointerEvents: "none" };

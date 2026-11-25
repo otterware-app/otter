@@ -157,6 +157,7 @@ import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton } from "@otter/ui/components/button";
 import { type ChatChange } from "@otter/client/agents/api";
 import { appApi, type MailtoTarget, type SettingsPane } from "./app-api";
+import { useShallow } from "zustand/react/shallow";
 
 const READER_MIN_WIDTH = 360;
 // Auto layout: below this, the reader beside the list is too narrow to read in.
@@ -848,6 +849,32 @@ function MailHome() {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const selectedKind = useChatProvider(undefined).selectedId ?? "";
   const activeChatId = useChats((s) => s.activeId);
+  // The small agent window's chat: its pages show in the browser beside the mail, as its group.
+  const agentChatTitle = useChats(
+    (s) => s.conversations.find((c) => c.id === s.activeId)?.title ?? "",
+  );
+  const agentChat =
+    chatWindowShown && activeChatId && features.browser
+      ? { chatId: activeChatId, title: agentChatTitle || "Agent" }
+      : null;
+  // A page its agent opens while you're in the mail: the browser opens on it, as ChatGPT's does.
+  const agentPages = useBrowser(
+    useShallow((s) =>
+      agentChat
+        ? s.tabs.filter((t) => t.chatId === agentChat.chatId && t.keep).map((t) => t.id)
+        : [],
+    ),
+  );
+  const seenAgentPages = useRef<string[]>([]);
+  const openBrowserRef = useLatest(openBrowser);
+  useEffect(() => {
+    const fresh = agentPages.filter((id) => !seenAgentPages.current.includes(id));
+    seenAgentPages.current = agentPages;
+    const page = fresh.at(-1);
+    if (!page) return;
+    openBrowserRef.current();
+    selectTab(page);
+  }, [agentPages, openBrowserRef]);
   const mailBeforeChats = useRef<MailLoc | null>(null);
   const lastCalendarMode = useRef<string>("week");
   const lastInWorkspace = useRef(new Map<string, WorkspaceLocation>());
@@ -1785,6 +1812,7 @@ function MailHome() {
                   onClose={(id) => closePageRef.current(id)}
                   onFullView={setFullView}
                   controlSlot={!calendarPanelVisible}
+                  agentChat={agentChat}
                 />
               ) : null}
               <div className="relative flex min-h-0 min-w-0 flex-1">
@@ -2020,6 +2048,7 @@ function MailHome() {
                       controlSlot={!calendarPanelVisible}
                       full={full}
                       onFullView={setFullView}
+                      agentChat={agentChat}
                     />
                   </div>
                 </div>

@@ -10,7 +10,10 @@ import { usePanelTabDrag } from "../mail/use-panel-tab-drag";
 import { HOME, TabSwitcher, type Switching } from "./tab-switcher";
 import { BrowserTabIcon } from "@otter/browser/ui/browser-view";
 import { PageSlot } from "@otter/browser/ui/page-host";
+import { AgentIcon } from "../agent/agent-icon";
+import { closeChatTab } from "@otter/client/agents/chat-store";
 import {
+  closeChatPage,
   closeTab,
   newTab,
   panelTabs,
@@ -38,6 +41,9 @@ export type FullView = {
   leading: ReactNode;
 };
 
+/** The chat in the small agent window: its pages show after yours, as its own group. */
+export type AgentChat = { chatId: string; title: string };
+
 /** The pages' tabs, with full view's home tab before them and its toggle after. */
 export function BrowserTabStrip({
   full,
@@ -45,14 +51,18 @@ export function BrowserTabStrip({
   onFullView,
   controlSlot,
   tabListRef,
+  agentChat,
 }: {
   full: FullView | null;
   onClose: (id: string) => void;
   onFullView: (full: boolean) => void;
   controlSlot: boolean;
   tabListRef?: MutableRefObject<HTMLDivElement | null>;
+  agentChat?: AgentChat | null;
 }) {
-  const tabs = panelTabs(useBrowser((s) => s.tabs));
+  const all = useBrowser((s) => s.tabs);
+  const tabs = panelTabs(all);
+  const agentTabs = agentChat ? all.filter((t) => t.chatId === agentChat.chatId) : [];
   const activeId = useBrowser((s) => s.activeId);
   const { ref, draggingId, handlers } = usePanelTabDrag(reorderTabs);
   const focusSelected = () =>
@@ -119,6 +129,39 @@ export function BrowserTabStrip({
             />
           );
         })}
+        {agentChat && agentTabs.length > 0 ? (
+          <>
+            <HintTooltip label={`${agentChat.title}'s pages`} side="bottom">
+              <span className="flex shrink-0 items-center gap-1 border-l border-border pl-2 text-muted-foreground">
+                <AgentIcon className="size-4" />
+              </span>
+            </HintTooltip>
+            {agentTabs.map((tab) => {
+              const title = tab.title || (tab.url ? hostOf(tab.url) : "New tab");
+              return (
+                <PanelTab
+                  key={tab.id}
+                  id={tab.id}
+                  title={title}
+                  tooltip={`${title}\n${tab.url}\n${agentChat.title}`}
+                  selected={tab.id === activeId && !full?.homeShown}
+                  onSelect={() => {
+                    selectTab(tab.id);
+                    full?.onShowPage();
+                  }}
+                  onClose={() => {
+                    if (tab.chatTabId) {
+                      closeChatTab(agentChat.chatId, tab.chatTabId);
+                      closeChatPage(agentChat.chatId, tab.chatTabId);
+                    }
+                  }}
+                  icon={<BrowserTabIcon tab={tab} />}
+                  className="bg-primary/[0.06]"
+                />
+              );
+            })}
+          </>
+        ) : null}
       </div>
       <HintTooltip label="New tab" hint={<ShortcutText command="browser.newTab" />} side="bottom">
         <IconButton
@@ -160,12 +203,14 @@ export function BrowserPanel({
   controlSlot,
   full,
   onFullView,
+  agentChat,
 }: {
   closeTabRef: MutableRefObject<(() => boolean) | null>;
   onClosePanel: () => void;
   controlSlot: boolean;
   full: FullView | null;
   onFullView: (full: boolean) => void;
+  agentChat?: AgentChat | null;
 }) {
   const allTabs = useBrowser((s) => s.tabs);
   const activeId = useBrowser((s) => s.activeId);
@@ -296,6 +341,7 @@ export function BrowserPanel({
         onFullView={onFullView}
         controlSlot={controlSlot}
         tabListRef={tabListRef}
+        agentChat={agentChat}
       />
       {switching ? <TabSwitcher switching={switching} onPick={pick} home={full?.home} /> : null}
       {activeId ? (
