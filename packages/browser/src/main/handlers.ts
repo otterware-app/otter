@@ -1,8 +1,9 @@
 import { BrowserWindow, ipcMain } from "electron";
 
-import { logger } from "../logger.ts";
-import { clearBrowsingData } from "../services/browser.ts";
-import { importFromBrowser, importSources } from "../services/browser-import.ts";
+import { host } from "./host.ts";
+
+import { clearBrowsingData } from "./browser.ts";
+import { importFromBrowser, importSources } from "./browser-import.ts";
 import {
   extensionActions,
   listExtensions,
@@ -11,14 +12,14 @@ import {
   runAction,
   setActiveTab,
   setExtensionEnabled,
-} from "../services/extensions.ts";
+} from "./extensions.ts";
 
 export function registerBrowserHandlers(): void {
   ipcMain.handle("browser:extensions", () => listExtensions());
 
   ipcMain.handle("browser:removeExtension", async (_event, id: unknown) => {
     if (typeof id !== "string") throw new Error("Invalid parameters for browser:removeExtension.");
-    logger.info("browser", "Remove extension", { id });
+    host().logger.info("browser", "Remove extension", { id });
     await removeExtension(id);
   });
 
@@ -58,7 +59,7 @@ export function registerBrowserHandlers(): void {
     if (origin !== undefined && (typeof origin !== "string" || !/^https?:\/\//.test(origin))) {
       throw new Error("Invalid parameters for browser:clearData.");
     }
-    logger.info("browser", "Clear browsing data", { origin: origin ?? "all" });
+    host().logger.info("browser", "Clear browsing data", { origin: origin ?? "all" });
     await clearBrowsingData(origin);
   });
 
@@ -78,7 +79,7 @@ export function registerBrowserHandlers(): void {
     ) {
       throw new Error("Invalid parameters for browser:import.");
     }
-    logger.info("browser", "Import from browser", {
+    host().logger.info("browser", "Import from browser", {
       source,
       cookies,
       extensions: extensions.length,

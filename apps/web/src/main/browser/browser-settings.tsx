@@ -7,9 +7,9 @@ import { toast } from "@otter/ui/components/toast";
 import { searchableSetting } from "../settings/settings-search";
 import { osNames } from "../os-names";
 import { modKeyName } from "../keybindings/keys";
-import { ExtensionsSection } from "./extensions-section";
-import { ImportSection } from "./import-section";
-import { setOpenLinksIn, useBrowser, type OpenLinksIn } from "./store";
+import { ExtensionsSection } from "@otter/browser/ui/extensions-section";
+import { ImportSection } from "@otter/browser/ui/import-section";
+import { setOpenLinksIn, useBrowser, type OpenLinksIn } from "@otter/browser/ui/store";
 import { Button } from "@otter/ui/components/button";
 import {
   SettingsSelect,

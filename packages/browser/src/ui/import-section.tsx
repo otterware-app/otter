@@ -8,8 +8,7 @@ import { Dialog } from "@otter/ui/components/dialog";
 import { SettingsRow, SettingsSection, SettingsSelect } from "@otter/ui/components/settings";
 import { Text } from "@otter/ui/components/text";
 import { toast } from "@otter/ui/components/toast";
-import { osNames } from "../os-names";
-import { searchableSetting } from "../settings/settings-search";
+import { uiHost } from "./host";
 
 type ImportSource = { id: string; name: string; extensions: { id: string; name: string }[] };
 type ImportResult = { cookies: number; extensions: number; failed: string[] };
@@ -25,7 +24,7 @@ export function ImportSection() {
   return (
     <SettingsSection title="Import">
       <SettingsRow
-        {...searchableSetting("browser-import")}
+        {...uiHost().settingProps("browser-import")}
         title="Import from another browser"
         description={`Your sign-ins and extensions from ${sources.data.map((s) => s.name).join(", ")}.`}
         control={
@@ -98,8 +97,8 @@ function ImportDialog({ sources, onClose }: { sources: ImportSource[]; onClose: 
           <span className="flex flex-col">
             <Text>Sign-ins</Text>
             <Text variant="small" color="secondary">
-              The sites you're signed in to, with their cookies. {osNames.system} may ask to let
-              Otter read {source.name}'s Safe Storage key.
+              The sites you're signed in to, with their cookies. {uiHost().systemName} may ask to
+              let Otter read {source.name}'s Safe Storage key.
             </Text>
           </span>
         </label>

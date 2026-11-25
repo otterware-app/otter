@@ -22,11 +22,9 @@ import { uninstallExtension } from "electron-chrome-web-store";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { broadcast } from "../ipc.ts";
-import { logger } from "../logger.ts";
-import { getMainWindow } from "../windows/main-window.ts";
 import { getBrowserSession, isPageUrl, preparePage } from "./browser.ts";
-import { hostOS } from "../os/index.ts";
+import { host } from "./host.ts";
+import { browserOS } from "./os/index.ts";
 import { enableNativeMessaging } from "./native-messaging-ipc.ts";
 
 type Manifest = {
@@ -71,7 +69,7 @@ function tabOf(tabId: number, extensionId: string | null = null) {
   const entry = tabs.get(tabId);
   if (!entry || entry.contents.isDestroyed()) return null;
   const { contents, favicon } = entry;
-  const window = getMainWindow();
+  const window = host().mainWindow();
   const sees = seesPage(extensionId, tabId);
   return {
     id: tabId,
@@ -97,7 +95,7 @@ function tabOf(tabId: number, extensionId: string | null = null) {
 
 function windowOf(window: BrowserWindow, populate = false, extensionId: string | null = null) {
   const bounds = window.getBounds();
-  const main = window === getMainWindow();
+  const main = window === host().mainWindow();
   return {
     id: window.id,
     focused: window.isFocused(),
@@ -194,7 +192,7 @@ export function trackTab(contents: WebContents): void {
     if (activeTabId === tabId) activeTabId = -1;
     emit(() => [
       "tabs.onRemoved",
-      [tabId, { windowId: getMainWindow()?.id ?? -1, isWindowClosing: false }],
+      [tabId, { windowId: host().mainWindow()?.id ?? -1, isWindowClosing: false }],
     ]);
     actionsChanged();
   });
@@ -224,7 +222,7 @@ function frameInfo(contents: WebContents, frame: WebFrameMain) {
 export function setActiveTab(tabId: number): void {
   if (!tabs.has(tabId) || tabId === activeTabId) return;
   activeTabId = tabId;
-  emit(() => ["tabs.onActivated", [{ tabId, windowId: getMainWindow()?.id ?? -1 }]]);
+  emit(() => ["tabs.onActivated", [{ tabId, windowId: host().mainWindow()?.id ?? -1 }]]);
   actionsChanged();
 }
 
@@ -235,7 +233,7 @@ function createTab(url: string, active = true): Promise<number | null> {
   return new Promise((resolve) => {
     const pending = { url, resolve };
     creating.push(pending);
-    broadcast("browser:openTab", { url, background: !active });
+    host().broadcast("browser:openTab", { url, background: !active });
     setTimeout(() => {
       const at = creating.indexOf(pending);
       if (at < 0) return;
@@ -301,7 +299,7 @@ async function wakeWorker(extensionId: string, name: string): Promise<ServiceWor
       .startWorkerForScope(`chrome-extension://${extensionId}/`)
       .catch((error: unknown) => {
         failedWorkers.set(extensionId, Date.now());
-        logger.warn("extensions", "Couldn't start an extension's worker", {
+        host().logger.warn("extensions", "Couldn't start an extension's worker", {
           extensionId,
           error: String(error),
         });
@@ -420,7 +418,7 @@ function actionsChanged(): void {
   if (changedTimer) return;
   changedTimer = setTimeout(() => {
     changedTimer = null;
-    broadcast("browser:extensionActionsChanged");
+    host().broadcast("browser:extensionActionsChanged");
   }, 30);
 }
 
@@ -475,7 +473,7 @@ let popup: BrowserWindow | null = null;
 let lastAnchor: Rectangle | null = null;
 
 function openPopup(extension: Extension, page: string, anchor: Rectangle): void {
-  const owner = getMainWindow();
+  const owner = host().mainWindow();
   if (!owner) return;
   popup?.close();
   lastAnchor = anchor;
@@ -657,7 +655,7 @@ type Call = (extension: Extension, args: unknown[], sender: WebContents | null) 
 const tabIdOf = (value: unknown) => (typeof value === "number" ? value : activeTabId);
 
 function matches(tab: NonNullable<ReturnType<typeof tabOf>>, query: Record<string, unknown>) {
-  const mainId = getMainWindow()?.id;
+  const mainId = host().mainWindow()?.id;
   if (query.active !== undefined && tab.active !== query.active) return false;
   if (query.highlighted !== undefined && tab.highlighted !== query.highlighted) return false;
   if ((query.currentWindow || query.lastFocusedWindow) && tab.windowId !== mainId) return false;
@@ -730,7 +728,7 @@ const calls: Record<string, Call> = {
   "action.openPopup": (extension) => {
     const page = resolvedAction(extension).popup;
     if (page && lastAnchor) openPopup(extension, page, lastAnchor);
-    else if (page) broadcast("browser:openExtensionPopup", { id: extension.id });
+    else if (page) host().broadcast("browser:openExtensionPopup", { id: extension.id });
   },
   "action.getUserSettings": () => ({ isOnToolbar: true }),
 
@@ -763,12 +761,12 @@ const calls: Record<string, Call> = {
     if (properties.url)
       await contents.loadURL(absolute(extension.id, properties.url)).catch(() => {});
     if (properties.muted !== undefined) contents.setAudioMuted(properties.muted);
-    if (properties.active) broadcast("browser:selectTab", { webContentsId: tabId });
+    if (properties.active) host().broadcast("browser:selectTab", { webContentsId: tabId });
     return tabOf(tabId, extension.id);
   },
   "tabs.remove": (_extension, [ids]) => {
     for (const tabId of Array.isArray(ids) ? ids : [ids]) {
-      if (tabs.has(tabId as number)) broadcast("browser:closeTab", { webContentsId: tabId });
+      if (tabs.has(tabId as number)) host().broadcast("browser:closeTab", { webContentsId: tabId });
     }
   },
   "tabs.goBack": (_extension, [tabId]) =>
@@ -777,25 +775,25 @@ const calls: Record<string, Call> = {
     tabs.get(tabIdOf(tabId))?.contents.navigationHistory.goForward(),
 
   "windows.get": (extension, [windowId, info]) => {
-    const window = BrowserWindow.fromId(windowId as number) ?? getMainWindow();
+    const window = BrowserWindow.fromId(windowId as number) ?? host().mainWindow();
     return window
       ? windowOf(window, Boolean((info as { populate?: boolean })?.populate), extension.id)
       : undefined;
   },
   "windows.getCurrent": (extension, [info]) => {
-    const window = getMainWindow();
+    const window = host().mainWindow();
     return window
       ? windowOf(window, Boolean((info as { populate?: boolean })?.populate), extension.id)
       : undefined;
   },
   "windows.getLastFocused": (extension, [info]) => {
-    const window = getMainWindow();
+    const window = host().mainWindow();
     return window
       ? windowOf(window, Boolean((info as { populate?: boolean })?.populate), extension.id)
       : undefined;
   },
   "windows.getAll": (extension, [info]) => {
-    const window = getMainWindow();
+    const window = host().mainWindow();
     return window
       ? [windowOf(window, Boolean((info as { populate?: boolean })?.populate), extension.id)]
       : [];
@@ -809,7 +807,7 @@ const calls: Record<string, Call> = {
       focused?: boolean;
     };
     const first = Array.isArray(url) ? url[0] : url;
-    const owner = getMainWindow();
+    const owner = host().mainWindow();
     if ((type === "popup" || type === "panel") && first && owner) {
       const window = new BrowserWindow({
         width: width ?? 420,
@@ -836,7 +834,7 @@ const calls: Record<string, Call> = {
   },
   "windows.remove": (_extension, [windowId]) => {
     const window = BrowserWindow.fromId(windowId as number);
-    if (window && window !== getMainWindow()) window.close();
+    if (window && window !== host().mainWindow()) window.close();
   },
 
   "contextMenus.create": (extension, [properties]) => {
@@ -1132,8 +1130,8 @@ export async function setExtensionEnabled(id: string, enabled: boolean): Promise
       await ses.serviceWorkers.startWorkerForScope(`chrome-extension://${id}/`).catch(() => {});
     }
   }
-  logger.info("extensions", enabled ? "Turned on" : "Turned off", { id });
-  broadcast("browser:extensionsChanged");
+  host().logger.info("extensions", enabled ? "Turned on" : "Turned off", { id });
+  host().broadcast("browser:extensionsChanged");
   actionsChanged();
 }
 
@@ -1142,13 +1140,13 @@ export async function removeExtension(id: string): Promise<void> {
   listening.delete(id);
   await uninstallExtension(id, { session: getBrowserSession() });
   fs.rmSync(path.join(disabledDir(), id), { recursive: true, force: true });
-  broadcast("browser:extensionsChanged");
+  host().broadcast("browser:extensionsChanged");
   actionsChanged();
 }
 
 export function setupExtensions(preloadPath: string): void {
   const ses = getBrowserSession();
-  enableNativeMessaging(ses, hostOS.nativeMessagingDirectories());
+  enableNativeMessaging(ses, browserOS.nativeMessagingDirectories());
   for (const type of ["frame", "service-worker"] as const) {
     ses.registerPreloadScript({ id: `otter-extensions-${type}`, type, filePath: preloadPath });
   }
@@ -1194,6 +1192,6 @@ export async function loadUnpacked(owner: BrowserWindow | null): Promise<Browser
     fs.cpSync(dir, target, { recursive: true });
     await ses.extensions.loadExtension(target, { allowFileAccess: true });
   }
-  broadcast("browser:extensionsChanged");
+  host().broadcast("browser:extensionsChanged");
   return listExtensions().find((each) => each.id === extension.id) ?? null;
 }

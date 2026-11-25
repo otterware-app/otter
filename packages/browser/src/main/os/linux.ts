@@ -4,7 +4,7 @@ import { pbkdf2Sync } from "node:crypto";
 import * as path from "node:path";
 import { promisify } from "node:util";
 
-import type { ChromiumBrowser } from "../types.ts";
+import type { ChromiumBrowser } from "./index.ts";
 
 const BROWSERS = [
   { id: "chrome", name: "Google Chrome", dir: "google-chrome", secret: "chrome" },
@@ -34,4 +34,16 @@ export async function chromiumKeys(browser: ChromiumBrowser): Promise<Record<str
     // No keyring, or no secret-tool: only what Chromium encrypted without one can be read.
   }
   return keys;
+}
+
+export function nativeMessagingDirectories(): string[] {
+  const config = process.env.XDG_CONFIG_HOME || path.join(app.getPath("home"), ".config");
+  return [
+    path.join(app.getPath("userData"), "NativeMessagingHosts"),
+    path.join(config, "google-chrome/NativeMessagingHosts"),
+    path.join(config, "chromium/NativeMessagingHosts"),
+    "/etc/opt/chrome/native-messaging-hosts",
+    "/etc/chromium/native-messaging-hosts",
+    "/etc/chromium-browser/native-messaging-hosts",
+  ];
 }

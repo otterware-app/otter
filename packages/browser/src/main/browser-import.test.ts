@@ -7,11 +7,11 @@ import { expect, it, vi } from "vite-plus/test";
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "otter-import-test-"));
 
 vi.mock("electron-chrome-web-store", () => ({ installExtension: vi.fn() }));
-vi.mock("../logger.ts", () => ({ logger: { info: vi.fn(), warn: vi.fn() } }));
+vi.mock("./host.ts", () => ({ host: () => ({ logger: { info: vi.fn(), warn: vi.fn() } }) }));
 vi.mock("./browser.ts", () => ({ getBrowserSession: vi.fn() }));
 vi.mock("./extensions.ts", () => ({ listExtensions: () => [{ id: "already" }] }));
-vi.mock("../os/index.ts", () => ({
-  hostOS: { chromiumBrowsers: () => [{ id: "chrome", name: "Google Chrome", dataDir }] },
+vi.mock("./os/index.ts", () => ({
+  browserOS: { chromiumBrowsers: () => [{ id: "chrome", name: "Google Chrome", dataDir }] },
 }));
 
 const { decryptValue, importSources, toCookie } = await import("./browser-import.ts");

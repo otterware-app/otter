@@ -4,7 +4,7 @@ import { pbkdf2Sync } from "node:crypto";
 import * as path from "node:path";
 import { promisify } from "node:util";
 
-import type { ChromiumBrowser } from "../types.ts";
+import type { ChromiumBrowser } from "./index.ts";
 
 const BROWSERS = [
   { id: "chrome", name: "Google Chrome", dir: "Google/Chrome", keychain: "Chrome" },
@@ -32,4 +32,15 @@ export async function chromiumKeys(browser: ChromiumBrowser): Promise<Record<str
     account,
   ]);
   return { v10: pbkdf2Sync(stdout.trim(), "saltysalt", 1003, 16, "sha1") };
+}
+
+export function nativeMessagingDirectories(): string[] {
+  const support = path.join(app.getPath("home"), "Library/Application Support");
+  return [
+    path.join(app.getPath("userData"), "NativeMessagingHosts"),
+    path.join(support, "Google/Chrome/NativeMessagingHosts"),
+    path.join(support, "Chromium/NativeMessagingHosts"),
+    "/Library/Google/Chrome/NativeMessagingHosts",
+    "/Library/Application Support/Chromium/NativeMessagingHosts",
+  ];
 }

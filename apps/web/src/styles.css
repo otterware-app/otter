@@ -2,6 +2,7 @@
 
 @source "./**/*.{ts,tsx}";
 @source "../../../extensions/*/ui/**/*.{ts,tsx}";
+@source "../../../packages/browser/src/ui/**/*.{ts,tsx}";
 
 /* `web:` is the app in a browser tab, whose window is the browser's (no
    `features.windowControls`): nothing to frame, so the panes run to the page's

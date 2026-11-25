@@ -6,9 +6,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { logger } from "../logger.ts";
-import { hostOS } from "../os/index.ts";
-import type { ChromiumBrowser } from "../os/types.ts";
+import { host } from "./host.ts";
+import { browserOS, type ChromiumBrowser } from "./os/index.ts";
 import { getBrowserSession } from "./browser.ts";
 import { listExtensions } from "./extensions.ts";
 
@@ -32,7 +31,7 @@ const readJson = (file: string): Record<string, any> | null => {
 };
 
 function profiles(): Profile[] {
-  return hostOS.chromiumBrowsers().flatMap((browser) => {
+  return browserOS.chromiumBrowsers().flatMap((browser) => {
     const cache = readJson(path.join(browser.dataDir, "Local State"))?.profile?.info_cache ?? {};
     return Object.entries(cache as Record<string, { name?: string }>)
       .filter(([dir]) => fs.existsSync(path.join(browser.dataDir, dir)))
@@ -190,7 +189,7 @@ export function toCookie(row: CookieRow, value: string): CookiesSetDetails | nul
 async function importCookies(profileDir: string, browser: ChromiumBrowser): Promise<number> {
   const file = cookiesFile(profileDir);
   if (!file) return 0;
-  const keys = await hostOS.chromiumKeys(browser);
+  const keys = await browserOS.chromiumKeys(browser);
   const rows = readDatabase(file, (db) => {
     // expires_utc counts microseconds from 1601: past what a Number holds exactly.
     const select = db.prepare(
@@ -226,7 +225,7 @@ async function importCookies(profileDir: string, browser: ChromiumBrowser): Prom
     }),
   );
   await ses.cookies.flushStore();
-  logger.info("browser", "Imported cookies", { browser: browser.id, imported, unreadable });
+  host().logger.info("browser", "Imported cookies", { browser: browser.id, imported, unreadable });
   return imported;
 }
 
@@ -246,7 +245,7 @@ export async function importFromBrowser(
       await installExtension(id, { session: getBrowserSession() });
       result.extensions++;
     } catch (error) {
-      logger.warn("browser", "Couldn't import an extension", { id, error: String(error) });
+      host().logger.warn("browser", "Couldn't import an extension", { id, error: String(error) });
       result.failed.push(offered.get(id)!);
     }
   }

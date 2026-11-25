@@ -13,14 +13,14 @@ import { useShallow } from "zustand/react/shallow";
 import { PlusIcon, TriangleAlertIcon } from "lucide-react";
 import type { ChatTabRef } from "@otter/contracts/chats";
 
-import { PageSlot } from "../browser/page-host";
+import { PageSlot } from "@otter/browser/ui/page-host";
 import {
   chatPageId,
   closeChatPage,
   ensureChatPage,
   routeLinks,
   useBrowser,
-} from "../browser/store";
+} from "@otter/browser/ui/store";
 import { hostOf } from "@otter/client/web-address";
 import { browserActivity } from "@otter/client/agents/agent-browser";
 import {

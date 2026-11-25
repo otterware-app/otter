@@ -7,9 +7,16 @@ import { PanelTab } from "../mail/panel-tab";
 import { mostRecentTab } from "../mail/panel-tabs";
 import { PanelControlSlot } from "../mail/top-bar";
 import { usePanelTabDrag } from "../mail/use-panel-tab-drag";
-import { BrowserTabIcon } from "./browser-view";
-import { PageSlot } from "./page-host";
-import { closeTab, newTab, panelTabs, reorderTabs, selectTab, useBrowser } from "./store";
+import { BrowserTabIcon } from "@otter/browser/ui/browser-view";
+import { PageSlot } from "@otter/browser/ui/page-host";
+import {
+  closeTab,
+  newTab,
+  panelTabs,
+  reorderTabs,
+  selectTab,
+  useBrowser,
+} from "@otter/browser/ui/store";
 import { hostOf } from "@otter/client/web-address";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton } from "@otter/ui/components/button";

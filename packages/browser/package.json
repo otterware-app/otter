@@ -1,0 +1,43 @@
+{
+  "name": "@otter/browser",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Chrome-compatible browser for an Electron app: tabs in <webview>, Chrome Web Store extensions, native messaging and import from other browsers. `./main` runs in Electron's main process, `./preload/*` are built beside it, `./ui/*` are the React screens.",
+  "type": "module",
+  "exports": {
+    "./main": "./src/main/index.ts",
+    "./preload/*": "./src/preload/*.ts",
+    "./ui/*": "./src/ui/*.tsx",
+    "./ui/store": "./src/ui/store.ts",
+    "./ui/host": "./src/ui/host.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vp test run --passWithNoTests"
+  },
+  "dependencies": {
+    "@otter/client": "workspace:*",
+    "@otter/contracts": "workspace:*",
+    "@otter/ui": "workspace:*",
+    "electron-chrome-web-store": "^0.13.0",
+    "lucide-react": "^0.542.0",
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "electron": "44.4.2",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "*",
+    "electron": "*",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  }
+}

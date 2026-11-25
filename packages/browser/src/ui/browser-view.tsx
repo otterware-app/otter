@@ -27,8 +27,6 @@ import {
   useBrowser,
   type BrowserTab,
 } from "./store";
-import { shortcutText } from "../keybindings/keys";
-import { FindBar, isFindKey } from "../agent/chat-find";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +39,8 @@ import { Button, IconButton } from "@otter/ui/components/button";
 import { Spinner } from "@otter/ui/components/spinner";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { cn } from "@otter/ui/lib/utils";
-import { appApi } from "../app-api";
+import { uiHost } from "./host";
+import { desktopBridge } from "./bridge";
 
 type Webview = HTMLElement & {
   getWebContentsId(): number;
@@ -162,20 +161,20 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
   }, [view, tab.id]);
 
   useEffect(() => {
-    if (active && pageId !== null) void window.desktopBridge.invoke("browser:activeTab", pageId);
+    if (active && pageId !== null) void desktopBridge().invoke("browser:activeTab", pageId);
   }, [active, pageId]);
   useEffect(() => {
     if (pageId === null) return;
     const mine = (params: unknown) =>
       (params as { webContentsId?: number }).webContentsId === pageId;
     const offs = [
-      window.desktopBridge.on("browser:selectTab", (params) => {
+      desktopBridge().on("browser:selectTab", (params) => {
         if (mine(params)) selectTab(tab.id);
       }),
-      window.desktopBridge.on("browser:closeTab", (params) => {
+      desktopBridge().on("browser:closeTab", (params) => {
         if (mine(params)) closeTab(tab.id);
       }),
-      window.desktopBridge.on("browser:find", (params) => {
+      desktopBridge().on("browser:find", (params) => {
         if (mine(params)) setFind((key) => (key ?? 0) + 1);
       }),
     ];
@@ -193,14 +192,14 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
       <div
         className="flex h-12 shrink-0 items-center gap-2 border-b border-border/70 px-3"
         onKeyDown={(e) => {
-          if (!view || !isFindKey(e.nativeEvent)) return;
+          if (!view || !uiHost().isFindKey(e.nativeEvent)) return;
           e.preventDefault();
           e.stopPropagation();
           setFind((key) => (key ?? 0) + 1);
         }}
       >
         <div className="flex shrink-0 items-center rounded-pill bg-foreground/[0.06] p-0.5">
-          <HintTooltip label="Back" hint={shortcutText("mod+[")} side="bottom">
+          <HintTooltip label="Back" hint={uiHost().shortcutText("mod+[")} side="bottom">
             <IconButton
               label="Back"
               className="rounded-pill"
@@ -210,7 +209,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
               <ArrowLeftIcon className="size-4" />
             </IconButton>
           </HintTooltip>
-          <HintTooltip label="Forward" hint={shortcutText("mod+]")} side="bottom">
+          <HintTooltip label="Forward" hint={uiHost().shortcutText("mod+]")} side="bottom">
             <IconButton
               label="Forward"
               className="rounded-pill"
@@ -228,7 +227,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
               </IconButton>
             </HintTooltip>
           ) : (
-            <HintTooltip label="Reload" hint={shortcutText("mod+r")} side="bottom">
+            <HintTooltip label="Reload" hint={uiHost().shortcutText("mod+r")} side="bottom">
               <IconButton
                 label="Reload"
                 className="rounded-pill"
@@ -319,6 +318,7 @@ function PageFind({
       view.stopFindInPage("keepSelection");
     };
   }, [view]);
+  const { FindBar } = uiHost();
   return (
     <FindBar
       label="Find in page"
@@ -404,7 +404,11 @@ function AddressBar({
             <IconButton
               label="Open in default browser"
               className="absolute right-0.5 rounded-pill opacity-0 group-hover/address:opacity-100 focus-visible:opacity-100"
-              onClick={() => void window.desktopBridge.openExternal(url).catch(() => {})}
+              onClick={() =>
+                void desktopBridge()
+                  .openExternal(url)
+                  .catch(() => {})
+              }
             >
               <ArrowUpRightIcon className="size-4" />
             </IconButton>
@@ -427,7 +431,7 @@ function SiteInfo({
   const secure = url.startsWith("https:");
   const clear = async () => {
     try {
-      await window.desktopBridge.invoke("browser:clearData", { origin });
+      await desktopBridge().invoke("browser:clearData", { origin });
       toast.success(`Cleared ${hostOf(url)}'s cookies and data`);
       onCleared();
     } catch (error) {
@@ -482,7 +486,11 @@ function PageMenu({ url, onDevTools }: { url: string; onDevTools?: () => void })
           <>
             <DropdownMenuItem
               icon={<ArrowUpRightIcon className="size-4" />}
-              onClick={() => void window.desktopBridge.openExternal(url).catch(() => {})}
+              onClick={() =>
+                void desktopBridge()
+                  .openExternal(url)
+                  .catch(() => {})
+              }
             >
               Open in Default Browser
             </DropdownMenuItem>
@@ -497,7 +505,7 @@ function PageMenu({ url, onDevTools }: { url: string; onDevTools?: () => void })
         ) : null}
         <DropdownMenuItem
           icon={<PuzzleIcon className="size-4" />}
-          onClick={() => void appApi.openSettings({ pane: "browser" })}
+          onClick={() => uiHost().openSettings()}
         >
           Extensions
         </DropdownMenuItem>
@@ -519,11 +527,7 @@ function StartPage({ onNavigate }: { onNavigate: (url: string) => void }) {
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-6 py-8">
         <h2 className="text-sm font-medium text-foreground">Tools</h2>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-3">
-          <button
-            type="button"
-            className={tile}
-            onClick={() => void appApi.openSettings({ pane: "browser" })}
-          >
+          <button type="button" className={tile} onClick={() => uiHost().openSettings()}>
             <PuzzleIcon />
             Extensions
           </button>

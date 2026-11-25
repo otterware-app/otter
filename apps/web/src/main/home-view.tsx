@@ -30,7 +30,7 @@ import { MessageReader } from "./mail/message-reader";
 import { NewMessageView } from "./mail/new-message-view";
 import { CommandPalette } from "./mail/command-palette";
 import { BrowserPanel } from "./browser/browser-panel";
-import { PageHost } from "./browser/page-host";
+import { PageHost } from "@otter/browser/ui/page-host";
 import { AgentCorner } from "./agent/agent-corner";
 import { ChatWindow } from "./agent/chat-window";
 import { ChatWorkspace, type ChatPanelControl } from "./agent/chat-workspace";
@@ -136,7 +136,7 @@ import {
   selectTab,
   useBrowser,
   useBrowserEvents,
-} from "./browser/store";
+} from "@otter/browser/ui/store";
 import { Tour } from "./onboarding/tour";
 import {
   endTour,

@@ -2,7 +2,7 @@ import { app, BrowserWindow, shell } from "electron";
 
 import { logger } from "../logger.ts";
 import { hostOS } from "../os/index.ts";
-import { attachBrowser, focusedBrowserPage } from "../services/browser.ts";
+import { attachBrowser, focusedBrowserPage } from "@otter/browser/main";
 import { isDriveContent } from "../services/drive-content.ts";
 import { addContextMenu } from "./context-menu.ts";
 import { followHistoryButtons } from "./history-buttons.ts";

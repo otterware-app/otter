@@ -13,15 +13,9 @@ import {
   type WebContents,
 } from "electron";
 import { installChromeWebStore, updateExtensions } from "electron-chrome-web-store";
-import * as path from "node:path";
 
-import { broadcast } from "../ipc.ts";
-import { logger } from "../logger.ts";
 import { extensionMenuItems, reachOf, setupExtensions, trackTab } from "./extensions.ts";
-import { parseMailtoUrl, setPendingMailto } from "./mailto-target.ts";
-import { hostOS } from "../os/index.ts";
-import { editingItems } from "../windows/context-menu.ts";
-import { followPageHistoryButtons } from "../windows/history-buttons.ts";
+import { host, setBrowserHost, type BrowserHost } from "./host.ts";
 
 export const BROWSER_PARTITION = "persist:browser";
 
@@ -36,7 +30,9 @@ export function getBrowserSession(): Session {
   return session.fromPartition(BROWSER_PARTITION);
 }
 
-export function setupBrowser(): void {
+/** `preloadPath`: the built `@otter/browser/preload/extensions`, beside the app's main. */
+export function setupBrowser(browserHost: BrowserHost, preloadPath: string): void {
+  setBrowserHost(browserHost);
   // Electron's own user agent stays, less its Electron/x: Google's sign-in gives
   // agents that name Electron a lite page that never offers your passkeys (as
   // 1Password's) until you ask. A whole new string drops the client hints
@@ -52,10 +48,10 @@ export function setupBrowser(): void {
     callback(ALLOWED_PERMISSIONS.has(permission));
   });
   ses.setPermissionCheckHandler((_page, permission) => ALLOWED_PERMISSIONS.has(permission));
-  ses.extensions.on("extension-loaded", () => broadcast("browser:extensionsChanged"));
-  ses.extensions.on("extension-unloaded", () => broadcast("browser:extensionsChanged"));
+  ses.extensions.on("extension-loaded", () => host().broadcast("browser:extensionsChanged"));
+  ses.extensions.on("extension-unloaded", () => host().broadcast("browser:extensionsChanged"));
   // Before any extension loads, so each worker and page gets its chrome.action.
-  setupExtensions(path.join(__dirname, "extensions-preload.cjs"));
+  setupExtensions(preloadPath);
   // The library's own updater leaves its update check's rejection unhandled.
   installChromeWebStore({ session: ses, beforeInstall: confirmInstall, autoUpdate: false }).then(
     () => {
@@ -64,7 +60,7 @@ export function setupBrowser(): void {
       setInterval(() => keepExtensionsUpdated(ses), 60 * 60_000);
     },
     (error: unknown) =>
-      logger.error("browser", "Chrome Web Store setup failed", { error: String(error) }),
+      host().logger.error("browser", "Chrome Web Store setup failed", { error: String(error) }),
   );
 }
 
@@ -77,22 +73,17 @@ export function keepExtensionsUpdated(ses: Session): void {
   updateExtensions(ses).catch((error: unknown) => {
     // Undici's fetch rejects with this when the network does: offline, a connect timeout.
     if (error instanceof TypeError && error.message === "fetch failed") {
-      logger.warn("browser", "Couldn't check for extension updates", {
+      host().logger.warn("browser", "Couldn't check for extension updates", {
         error: String(error.cause ?? error),
       });
     } else {
-      logger.error("browser", "Extension update failed", error);
+      host().logger.error("browser", "Extension update failed", error);
     }
   });
 }
 
 async function openOutside(page: WebContents, url: string): Promise<void> {
-  const mailto = parseMailtoUrl(url);
-  if (mailto) {
-    setPendingMailto(mailto);
-    broadcast("compose:mailto");
-    return;
-  }
+  if (host().openInApp?.(url)) return;
   const appName = app.getApplicationNameForProtocol(url);
   if (!appName) return;
   const window = BrowserWindow.fromWebContents(page.hostWebContents ?? page);
@@ -128,7 +119,7 @@ async function confirmInstall(details: {
   const { response } = window
     ? await dialog.showMessageBox(window, options)
     : await dialog.showMessageBox(options);
-  logger.info("browser", "Extension install", {
+  host().logger.info("browser", "Extension install", {
     name: details.localizedName,
     allowed: response === 0,
   });
@@ -172,10 +163,10 @@ export function attachBrowser(win: BrowserWindow): void {
   win.webContents.on("did-attach-webview", (_event, page) => {
     preparePage(win, page);
     trackTab(page);
-    followPageHistoryButtons(page);
+    host().followHistoryButtons(page);
     // A focused guest page's keys never reach the panel's dispatcher.
     page.on("before-input-event", (event, input) => {
-      const mod = hostOS.modifierKey === "metaKey";
+      const mod = host().modifierKey === "metaKey";
       const key = input.key.toLowerCase();
       const modOnly = mod ? input.meta && !input.control : input.control && !input.meta;
       if (
@@ -188,7 +179,7 @@ export function attachBrowser(win: BrowserWindow): void {
         if (!win.isDestroyed())
           win.webContents.send("keybindings:keydown", {
             key,
-            [hostOS.modifierKey]: true,
+            [host().modifierKey]: true,
             shiftKey: input.shift,
           });
         return;
@@ -258,7 +249,7 @@ function contextMenu(
   }
   const selection = params.selectionText.trim();
   if (params.isEditable) {
-    groups.push(...editingItems(page, params));
+    groups.push(...host().editingItems(page, params));
   } else if (selection) {
     const quoted = selection.length > 30 ? `${selection.slice(0, 30)}…` : selection;
     groups.push([

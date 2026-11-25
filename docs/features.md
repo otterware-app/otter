@@ -691,7 +691,7 @@ other sites, so the web app opens links in a new browser tab as before.
 
 Extensions install through electron-chrome-web-store (MIT) and run on Electron's extension
 support, plus Otter's own layer for what Chrome has and Electron doesn't
-(`apps/desktop/src/services/extensions.ts` and its preload): `chrome.action`, the rest of
+(`packages/browser/src/main/extensions.ts` and its preload): `chrome.action`, the rest of
 `chrome.tabs`, `chrome.windows`, `contextMenus`, `notifications`, `webNavigation`, `commands`,
 `permissions`, native messaging, and simple `downloads` and `privacy`. To connect 1Password to
 its desktop app on Mac, add Otter in 1Password's Settings › Browser › Add Browser. It then
@@ -700,7 +700,7 @@ notifications are refused to pages.
 
 Settings › Browser › Import brings a Chromium browser's sign-ins (its cookies, decrypted with
 the key the browser keeps in the macOS keychain, or the Linux keyring) and the extensions you
-added from the Chrome Web Store (`apps/desktop/src/services/browser-import.ts`). Linux offers
+added from the Chrome Web Store (`packages/browser/src/main/browser-import.ts`). Linux offers
 Chrome, Brave and Chromium.
 
 ## Translation

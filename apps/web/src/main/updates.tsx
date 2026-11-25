@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { UpdateState, UpdateChannel } from "@otter/contracts";
-import { openLink } from "./browser/store";
+import { openLink } from "@otter/browser/ui/store";
 
 import {
   ArrowDownIcon,
