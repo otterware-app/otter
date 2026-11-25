@@ -2,6 +2,7 @@ import { BrowserWindow, ipcMain } from "electron";
 
 import { logger } from "../logger.ts";
 import { clearBrowsingData } from "../services/browser.ts";
+import { importFromBrowser, importSources } from "../services/browser-import.ts";
 import {
   extensionActions,
   listExtensions,
@@ -59,5 +60,29 @@ export function registerBrowserHandlers(): void {
     }
     logger.info("browser", "Clear browsing data", { origin: origin ?? "all" });
     await clearBrowsingData(origin);
+  });
+
+  ipcMain.handle("browser:importSources", () => importSources());
+
+  ipcMain.handle("browser:import", async (_event, params: unknown) => {
+    const { source, cookies, extensions } = (params ?? {}) as {
+      source?: unknown;
+      cookies?: unknown;
+      extensions?: unknown;
+    };
+    if (
+      typeof source !== "string" ||
+      typeof cookies !== "boolean" ||
+      !Array.isArray(extensions) ||
+      !extensions.every((id) => typeof id === "string")
+    ) {
+      throw new Error("Invalid parameters for browser:import.");
+    }
+    logger.info("browser", "Import from browser", {
+      source,
+      cookies,
+      extensions: extensions.length,
+    });
+    return importFromBrowser(source, { cookies, extensions });
   });
 }

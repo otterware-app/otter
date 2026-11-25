@@ -7,6 +7,7 @@ import { HIDDEN_FLAG, setAutostart } from "./autostart.ts";
 import { listMailApps, setDefaultMailApp } from "./mail-apps.ts";
 import { linuxTerminals } from "./terminals.ts";
 import { nativeMessagingDirectories } from "./native-messaging.ts";
+import { chromiumBrowsers, chromiumKeys } from "./chromium-browsers.ts";
 
 const TOPBAR_HEIGHT = 42;
 
@@ -18,6 +19,8 @@ let tray: Tray | null = null;
 
 export const linuxOS: HostOS = {
   nativeMessagingDirectories,
+  chromiumBrowsers,
+  chromiumKeys,
   modifierKey: "ctrlKey",
 
   mainWindowOptions: () => ({

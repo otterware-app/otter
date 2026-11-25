@@ -513,6 +513,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
+    id: "browser-import",
+    title: "Import from another browser",
+    pane: "browser",
+    available: features.browser,
+    searchTerms: ["import chrome arc brave edge cookies sign-ins logins extensions migrate"],
+  },
+  {
     id: "browser-data",
     title: "Clear browsing data",
     pane: "browser",

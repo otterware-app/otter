@@ -11,6 +11,9 @@ export type MailApps = { apps: MailApp[]; defaultId: string | null };
 
 export type TerminalApp = { id: string; name: string };
 
+/** A Chromium-based browser installed here: Chrome, Arc, Brave… */
+export type ChromiumBrowser = { id: string; name: string; dataDir: string };
+
 export type AppMenuItems = {
   about: MenuItemConstructorOptions;
   checkForUpdates: MenuItemConstructorOptions;
@@ -25,6 +28,11 @@ export type AppMenuItems = {
 
 export interface HostOS {
   nativeMessagingDirectories(): string[];
+
+  /** The Chromium-based browsers Otter can import from, where each keeps its profiles. */
+  chromiumBrowsers(): ChromiumBrowser[];
+  /** The keys a browser encrypts its cookies and passwords with, by their prefix ("v10", "v11"). */
+  chromiumKeys(browser: ChromiumBrowser): Promise<Record<string, Buffer>>;
 
   modifierKey: "metaKey" | "ctrlKey";
 

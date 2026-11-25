@@ -8,6 +8,7 @@ import { searchableSetting } from "../settings/settings-search";
 import { osNames } from "../os-names";
 import { modKeyName } from "../keybindings/keys";
 import { ExtensionsSection } from "./extensions-section";
+import { ImportSection } from "./import-section";
 import { setOpenLinksIn, useBrowser, type OpenLinksIn } from "./store";
 import { Button } from "@otter/ui/components/button";
 import {
@@ -50,6 +51,8 @@ export function BrowserSettingsPane() {
       </SettingsSection>
 
       <ExtensionsSection />
+
+      <ImportSection />
 
       <SettingsSection title="Browsing data">
         <SettingsRow
