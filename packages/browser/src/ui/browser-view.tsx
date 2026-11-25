@@ -3,11 +3,8 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   ArrowUpRightIcon,
-  CodeIcon,
-  CopyIcon,
   GlobeIcon,
   LockIcon,
-  MoreHorizontalIcon,
   PuzzleIcon,
   RotateCwIcon,
   SlidersHorizontalIcon,
@@ -19,6 +16,13 @@ import { toast } from "@otter/ui/components/toast";
 import { addressToUrl, hostOf } from "@otter/client/web-address";
 import { ExtensionToolbar } from "./extension-toolbar";
 import { PermissionPrompt } from "./permission-prompt";
+import {
+  DownloadsButton,
+  HistoryDialog,
+  PageMenu,
+  useSuggestions,
+  type PageView,
+} from "./page-tools";
 import {
   CHROME_WEB_STORE_URL,
   closeTab,
@@ -90,6 +94,7 @@ export function BrowserTabIcon({ tab }: { tab: BrowserTab }) {
 export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean }) {
   const [view, setView] = useState<Webview | null>(null);
   const [pageId, setPageId] = useState<number | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   // The address the page opens at; later ones go through loadURL (a new src
   // attribute would load the page over again).
   const [src, setSrc] = useState(tab.url);
@@ -258,7 +263,14 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
           onSiteDataCleared={() => view?.reload()}
         />
         {src ? <ExtensionToolbar /> : null}
-        <PageMenu url={tab.url} onDevTools={view ? () => view.openDevTools() : undefined} />
+        <DownloadsButton />
+        <PageMenu
+          url={tab.url}
+          view={src ? (view as unknown as PageView | null) : null}
+          onFind={() => setFind((key) => (key ?? 0) + 1)}
+          onHistory={() => setHistoryOpen(true)}
+        />
+        {historyOpen ? <HistoryDialog onClose={() => setHistoryOpen(false)} /> : null}
       </div>
       <div className="relative flex min-h-0 flex-1 flex-col">
         {src ? (
@@ -377,6 +389,13 @@ function AddressBar({
   }, [focusRequest]);
   const editing = draft !== null;
   const origin = URL.parse(url)?.origin;
+  // What history suggests for what's typed (not for the address as it was).
+  const suggestions = useSuggestions(editing && draft !== url ? draft : null);
+  const [highlight, setHighlight] = useState(-1);
+  const go = (next: string) => {
+    onNavigate(next);
+    inputRef.current?.blur();
+  };
   return (
     <div className="group/address relative mx-auto flex h-8 min-w-0 max-w-[56rem] flex-1 items-center rounded-pill bg-foreground/[0.06] focus-within:bg-foreground/[0.09] hover:bg-foreground/[0.09]">
       <input
@@ -392,17 +411,26 @@ function AddressBar({
           const input = e.currentTarget;
           requestAnimationFrame(() => input.select());
         }}
-        onBlur={() => setDraft(null)}
-        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          setDraft(null);
+          setHighlight(-1);
+        }}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setHighlight(-1);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.preventDefault();
             e.currentTarget.blur();
+          } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && suggestions.length > 0) {
+            e.preventDefault();
+            const n = suggestions.length;
+            setHighlight((at) => (e.key === "ArrowDown" ? (at + 1) % n : (at - 1 + n) % n));
           } else if (e.key === "Enter") {
-            const next = addressToUrl(draft ?? "");
-            if (!next) return;
-            onNavigate(next);
-            e.currentTarget.blur();
+            const picked = suggestions[highlight];
+            const next = picked ? picked.url : addressToUrl(draft ?? "");
+            if (next) go(next);
           }
         }}
         className={cn(
@@ -410,6 +438,38 @@ function AddressBar({
           editing ? "text-left" : "text-center",
         )}
       />
+      {suggestions.length > 0 ? (
+        <div
+          role="listbox"
+          className="absolute top-full right-0 left-0 z-30 mt-1 flex flex-col rounded-xl border border-border bg-popover p-1 shadow-lg"
+        >
+          {suggestions.map((s, i) => (
+            <button
+              key={s.url}
+              type="button"
+              role="option"
+              aria-selected={i === highlight}
+              // Before the input's blur drops the list.
+              onMouseDown={(e) => {
+                e.preventDefault();
+                go(s.url);
+              }}
+              className={cn(
+                "flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-accent-surface",
+                i === highlight && "bg-accent-surface",
+              )}
+            >
+              <GlobeIcon className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 truncate text-sm text-foreground">
+                {s.title || hostOf(s.url)}
+              </span>
+              <span className="min-w-0 shrink truncate text-xs text-muted-foreground">
+                {s.url.replace(/^https?:\/\/(www\.)?/, "")}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {origin && origin !== "null" && !editing ? (
         <>
           <SiteInfo url={url} origin={origin} onCleared={onSiteDataCleared} />
@@ -479,54 +539,6 @@ function SiteInfo({
         <DropdownMenuItem onClick={() => void clear()}>
           Clear cookies and site data
         </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function PageMenu({ url, onDevTools }: { url: string; onDevTools?: () => void }) {
-  return (
-    <DropdownMenu>
-      <HintTooltip label="More" side="bottom">
-        <DropdownMenuTrigger
-          render={<IconButton label="More" size="icon" className="shrink-0 rounded-pill" />}
-        >
-          <MoreHorizontalIcon className="size-4" />
-        </DropdownMenuTrigger>
-      </HintTooltip>
-      <DropdownMenuContent align="end" className="w-56">
-        {url ? (
-          <>
-            <DropdownMenuItem
-              icon={<ArrowUpRightIcon className="size-4" />}
-              onClick={() =>
-                void desktopBridge()
-                  .openExternal(url)
-                  .catch(() => {})
-              }
-            >
-              Open in Default Browser
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              icon={<CopyIcon className="size-4" />}
-              onClick={() => void navigator.clipboard.writeText(url)}
-            >
-              Copy Link
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-          </>
-        ) : null}
-        <DropdownMenuItem
-          icon={<PuzzleIcon className="size-4" />}
-          onClick={() => uiHost().openSettings()}
-        >
-          Extensions
-        </DropdownMenuItem>
-        {onDevTools ? (
-          <DropdownMenuItem icon={<CodeIcon className="size-4" />} onClick={onDevTools}>
-            Developer Tools
-          </DropdownMenuItem>
-        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

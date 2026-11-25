@@ -3,7 +3,9 @@ import {
   Menu,
   app,
   clipboard,
+  ClipboardItem,
   dialog,
+  ipcMain,
   session,
   shell,
   webContents,
@@ -23,6 +25,8 @@ import {
   setupPermissionPrompts,
 } from "./permissions.ts";
 import { setupThumbnails } from "./thumbnails.ts";
+import { setupDownloads } from "./downloads.ts";
+import { clearHistory, setupHistory, trackHistory } from "./history.ts";
 
 export const BROWSER_PARTITION = "persist:browser";
 
@@ -62,6 +66,17 @@ export function setupBrowser(browserHost: BrowserHost, preloadPath: string): voi
   });
   setupPermissionPrompts();
   setupThumbnails();
+  setupDownloads(ses);
+  setupHistory();
+  ipcMain.handle("browser:screenshot", async (_event, webContentsId: unknown) => {
+    const page = typeof webContentsId === "number" ? webContents.fromId(webContentsId) : undefined;
+    if (!page || page.session !== ses) return false;
+    const png = (await page.capturePage()).toPNG();
+    await clipboard.write([
+      new ClipboardItem({ "image/png": new Blob([new Uint8Array(png)], { type: "image/png" }) }),
+    ]);
+    return true;
+  });
   ses.extensions.on("extension-loaded", () => host().broadcast("browser:extensionsChanged"));
   ses.extensions.on("extension-unloaded", () => host().broadcast("browser:extensionsChanged"));
   // Before any extension loads, so each worker and page gets its chrome.action.
@@ -148,6 +163,7 @@ export async function clearBrowsingData(origin?: string): Promise<void> {
   });
   forgetPermissions(origin);
   if (!origin) {
+    clearHistory();
     await ses.clearCache();
     await ses.clearAuthCache();
   }
@@ -178,6 +194,7 @@ export function attachBrowser(win: BrowserWindow): void {
   win.webContents.on("did-attach-webview", (_event, page) => {
     preparePage(win, page);
     trackTab(page);
+    trackHistory(page);
     host().followHistoryButtons(page);
     // A focused guest page's keys never reach the panel's dispatcher.
     let switching = false;

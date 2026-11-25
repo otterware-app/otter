@@ -26,6 +26,7 @@ import { getBrowserSession, isPageUrl, preparePage } from "./browser.ts";
 import { host } from "./host.ts";
 import { browserOS } from "./os/index.ts";
 import { leavingTab, trackThumbnail } from "./thumbnails.ts";
+import { downloadItem, listDownloads } from "./downloads.ts";
 import { enableNativeMessaging } from "./native-messaging-ipc.ts";
 
 type Manifest = {
@@ -84,7 +85,7 @@ function tabOf(tabId: number, extensionId: string | null = null) {
     discarded: false,
     autoDiscardable: true,
     frozen: false,
-    groupId: -1,
+    groupId: groupOf(tabId)?.id ?? -1,
     status: contents.isLoading() ? "loading" : "complete",
     audible: contents.isCurrentlyAudible(),
     mutedInfo: { muted: contents.isAudioMuted() },
@@ -195,6 +196,12 @@ export function trackTab(contents: WebContents): void {
     updated({ favIconUrl: favicons[0] });
   });
   contents.once("destroyed", () => {
+    const group = groupOf(tabId);
+    group?.tabIds.delete(tabId);
+    if (group?.tabIds.size === 0) {
+      groups.delete(group.id);
+      emit(() => ["tabGroups.onRemoved", [groupInfo(group)]]);
+    }
     tabs.delete(tabId);
     for (const state of actions.values()) state.tabs.delete(tabId);
     if (activeTabId === tabId) activeTabId = -1;
@@ -658,6 +665,86 @@ let downloadId = 0;
 
 type Call = (extension: Extension, args: unknown[], sender: WebContents | null) => unknown;
 
+/**
+ * chrome.tabGroups: groups kept for extensions (Playwright's gathers its tabs in one), each with
+ * its tabs; the panel doesn't draw them.
+ */
+type TabGroup = {
+  id: number;
+  title: string;
+  color: string;
+  collapsed: boolean;
+  tabIds: Set<number>;
+};
+const groups = new Map<number, TabGroup>();
+let lastGroupId = 0;
+const GROUP_COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
+
+function groupOf(tabId: number): TabGroup | undefined {
+  for (const group of groups.values()) if (group.tabIds.has(tabId)) return group;
+  return undefined;
+}
+
+function groupInfo({ id, title, color, collapsed }: TabGroup) {
+  return { id, title, color, collapsed, windowId: host().mainWindow()?.id ?? -1 };
+}
+
+function ungroupTab(tabId: number): void {
+  const group = groupOf(tabId);
+  if (!group) return;
+  group.tabIds.delete(tabId);
+  emit((ext) => ["tabs.onUpdated", [tabId, { groupId: -1 }, tabOf(tabId, ext)]]);
+  if (group.tabIds.size === 0) {
+    groups.delete(group.id);
+    emit(() => ["tabGroups.onRemoved", [groupInfo(group)]]);
+  }
+}
+
+/**
+ * chrome.debugger, on Electron's own debugger of the tab: one client a tab, which the agents'
+ * browser tools may share; each extension attached hears its events.
+ */
+const debuggers = new Map<number, Set<string>>();
+
+function debuggee(extension: Extension, target: unknown): WebContents {
+  if (!(manifestOf(extension).permissions ?? []).includes("debugger")) {
+    throw new Error("This extension doesn't have the debugger permission.");
+  }
+  const tabId = (target as { tabId?: unknown } | undefined)?.tabId;
+  const contents = typeof tabId === "number" ? tabs.get(tabId)?.contents : undefined;
+  if (!contents || contents.isDestroyed())
+    throw new Error(`No tab with given id ${String(tabId)}.`);
+  return contents;
+}
+
+function attachDebugger(extension: Extension, contents: WebContents): void {
+  const tabId = contents.id;
+  const attached = debuggers.get(tabId) ?? new Set<string>();
+  if (attached.has(extension.id)) {
+    throw new Error(`Another debugger is already attached to the tab with id: ${tabId}.`);
+  }
+  if (!contents.debugger.isAttached()) contents.debugger.attach("1.3");
+  if (!debuggers.has(tabId)) {
+    debuggers.set(tabId, attached);
+    contents.debugger.on("message", (_event, method, params, sessionId) => {
+      for (const id of debuggers.get(tabId) ?? []) {
+        void deliver(id, "debugger.onEvent", [
+          { tabId, ...(sessionId ? { sessionId } : {}) },
+          method,
+          params,
+        ]);
+      }
+    });
+    contents.debugger.on("detach", (_event, reason) => {
+      for (const id of debuggers.get(tabId) ?? []) {
+        void deliver(id, "debugger.onDetach", [{ tabId }, reason || "target_closed"]);
+      }
+      debuggers.delete(tabId);
+    });
+  }
+  attached.add(extension.id);
+}
+
 const tabIdOf = (value: unknown) => (typeof value === "number" ? value : activeTabId);
 
 function matches(tab: NonNullable<ReturnType<typeof tabOf>>, query: Record<string, unknown>) {
@@ -886,13 +973,41 @@ const calls: Record<string, Call> = {
     getBrowserSession().downloadURL(url);
     return ++downloadId;
   },
-  "downloads.search": () => [],
-  "downloads.pause": () => undefined,
-  "downloads.resume": () => undefined,
-  "downloads.cancel": () => undefined,
+  "downloads.search": () =>
+    listDownloads().map((d) => ({
+      id: d.id,
+      url: d.url,
+      finalUrl: d.url,
+      filename: d.path,
+      state:
+        d.state === "progressing"
+          ? "in_progress"
+          : d.state === "completed"
+            ? "complete"
+            : "interrupted",
+      paused: d.paused,
+      bytesReceived: d.received,
+      totalBytes: d.total,
+      fileSize: d.total,
+      startTime: new Date(d.startTime).toISOString(),
+      exists: d.state === "completed",
+      incognito: false,
+      danger: "safe",
+      mime: "",
+      canResume: d.paused,
+    })),
+  "downloads.pause": (_extension, [id]) => downloadItem(Number(id))?.pause(),
+  "downloads.resume": (_extension, [id]) => downloadItem(Number(id))?.resume(),
+  "downloads.cancel": (_extension, [id]) => downloadItem(Number(id))?.cancel(),
   "downloads.erase": () => [],
-  "downloads.open": () => undefined,
-  "downloads.show": () => undefined,
+  "downloads.open": (_extension, [id]) => {
+    const download = listDownloads().find((d) => d.id === Number(id));
+    if (download) void shell.openPath(download.path);
+  },
+  "downloads.show": (_extension, [id]) => {
+    const download = listDownloads().find((d) => d.id === Number(id));
+    if (download) shell.showItemInFolder(download.path);
+  },
   "downloads.showDefaultFolder": () => void shell.openPath(app.getPath("downloads")),
 
   "privacy.get": (extension, [name]) => {
@@ -910,6 +1025,104 @@ const calls: Record<string, Call> = {
     ]);
   },
   "privacy.clear": (extension, [name]) => privacy.delete(`${extension.id} ${String(name)}`),
+
+  "debugger.attach": (extension, [target]) =>
+    attachDebugger(extension, debuggee(extension, target)),
+  "debugger.detach": (extension, [target]) => {
+    const contents = debuggee(extension, target);
+    const attached = debuggers.get(contents.id);
+    if (!attached?.delete(extension.id)) {
+      throw new Error(`Debugger is not attached to the tab with id: ${contents.id}.`);
+    }
+  },
+  "debugger.sendCommand": (extension, [target, method, params]) => {
+    const contents = debuggee(extension, target);
+    if (!debuggers.get(contents.id)?.has(extension.id)) {
+      throw new Error(`Debugger is not attached to the tab with id: ${contents.id}.`);
+    }
+    const sessionId = (target as { sessionId?: unknown }).sessionId;
+    return contents.debugger.sendCommand(
+      String(method),
+      (params ?? {}) as Record<string, unknown>,
+      typeof sessionId === "string" ? sessionId : undefined,
+    );
+  },
+  "debugger.getTargets": (extension) =>
+    openTabIds().map((tabId) => {
+      const contents = tabs.get(tabId)!.contents;
+      return {
+        type: "page",
+        id: String(tabId),
+        tabId,
+        title: contents.getTitle(),
+        url: contents.getURL(),
+        attached: Boolean(debuggers.get(tabId)?.has(extension.id)),
+      };
+    }),
+
+  "tabs.group": (_extension, [options]) => {
+    const { tabIds, groupId } = (options ?? {}) as { tabIds?: unknown; groupId?: unknown };
+    const ids = (Array.isArray(tabIds) ? tabIds : [tabIds]).filter(
+      (id): id is number => typeof id === "number" && tabs.has(id),
+    );
+    if (ids.length === 0) throw new Error("No tabs to group.");
+    let group = typeof groupId === "number" ? groups.get(groupId) : undefined;
+    if (typeof groupId === "number" && !group) throw new Error(`No group with id: ${groupId}.`);
+    if (!group) {
+      const id = ++lastGroupId;
+      group = {
+        id,
+        title: "",
+        color: GROUP_COLORS[id % GROUP_COLORS.length]!,
+        collapsed: false,
+        tabIds: new Set(),
+      };
+      groups.set(id, group);
+      emit(() => ["tabGroups.onCreated", [groupInfo(group!)]]);
+    }
+    for (const id of ids) {
+      if (group.tabIds.has(id)) continue;
+      ungroupTab(id);
+      group.tabIds.add(id);
+      emit((ext) => ["tabs.onUpdated", [id, { groupId: group!.id }, tabOf(id, ext)]]);
+    }
+    return group.id;
+  },
+  "tabs.ungroup": (_extension, [tabIds]) => {
+    for (const id of Array.isArray(tabIds) ? tabIds : [tabIds]) {
+      if (typeof id === "number") ungroupTab(id);
+    }
+  },
+  "tabGroups.get": (_extension, [groupId]) => {
+    const group = groups.get(Number(groupId));
+    if (!group) throw new Error(`No group with id: ${String(groupId)}.`);
+    return groupInfo(group);
+  },
+  "tabGroups.query": (_extension, [query]) => {
+    const q = (query ?? {}) as Record<string, unknown>;
+    return [...groups.values()]
+      .map(groupInfo)
+      .filter((g) =>
+        Object.entries(q).every(([key, value]) =>
+          key === "windowId" ? true : (g as Record<string, unknown>)[key] === value,
+        ),
+      );
+  },
+  "tabGroups.update": (_extension, [groupId, properties]) => {
+    const group = groups.get(Number(groupId));
+    if (!group) throw new Error(`No group with id: ${String(groupId)}.`);
+    const { title, color, collapsed } = (properties ?? {}) as Partial<TabGroup>;
+    if (typeof title === "string") group.title = title;
+    if (typeof color === "string" && GROUP_COLORS.includes(color)) group.color = color;
+    if (typeof collapsed === "boolean") group.collapsed = collapsed;
+    emit(() => ["tabGroups.onUpdated", [groupInfo(group)]]);
+    return groupInfo(group);
+  },
+  "tabGroups.move": (_extension, [groupId]) => {
+    const group = groups.get(Number(groupId));
+    if (!group) throw new Error(`No group with id: ${String(groupId)}.`);
+    return groupInfo(group);
+  },
 
   "webNavigation.getAllFrames": (_extension, [details]) => {
     const contents = tabs.get((details as { tabId?: number })?.tabId ?? -1)?.contents;
