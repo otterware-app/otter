@@ -676,6 +676,7 @@ other sites, so the web app opens links in a new browser tab as before.
 | -------------------------------------------------------------------------------------------------------- | --- | --- | ------ |
 | Pages as tabs in the panel: back, forward, reload, address and search                                    | ✓   | —   | —      |
 | ⌘F finds in the page                                                                                     | ✓   | —   | —      |
+| Full view (⇧⌘F): the browser has the window, Mail a tab before its pages                                 | ✓   | —   | —      |
 | ⌘W closes a page, returning to the last tab viewed; the last closes it                                   | ✓   | —   | —      |
 | Drag to reorder tabs, Control + Tab for the last one                                                     | ✓   | —   | —      |
 | Links in mail and chat open in a tab or the default browser; ⌘-click flips                               | ✓   | —   | —      |
