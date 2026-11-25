@@ -52,7 +52,9 @@ export default defineConfig({
       entry: ["src/main.ts"],
       clean: true,
       outputOptions: { codeSplitting: false },
-      copy: { from: "node_modules/electron-chrome-web-store/dist/chrome-web-store.preload.js" },
+      copy: {
+        from: "../../packages/browser/node_modules/electron-chrome-web-store/dist/chrome-web-store.preload.js",
+      },
     },
     {
       ...shared,
@@ -68,7 +70,7 @@ export default defineConfig({
     },
     {
       ...shared,
-      entry: ["src/extensions-preload.ts"],
+      entry: { "extensions-preload": "../../packages/browser/src/preload/extensions.ts" },
       clean: false,
       outputOptions: { codeSplitting: false },
     },

@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 
-import { features } from "../features";
 import { hostOf } from "@otter/client/web-address";
+import { uiHost } from "./host";
+import { desktopBridge } from "./bridge";
 
 export type BrowserTab = {
   id: string;
@@ -11,6 +12,10 @@ export type BrowserTab = {
   favicon: string | null;
   loading: boolean;
   chatId?: string;
+  /** Its page's WebContents id, once it has one (not kept across launches). */
+  pageId?: number;
+  /** Asked for by the main process (an extension, an agent), which waits to hear the page's id. */
+  requestId?: string;
 };
 
 export type OpenLinksIn = "app" | "browser";
@@ -126,8 +131,11 @@ export function closeChatPages(chatId: string): void {
   set((s) => ({ tabs: s.tabs.filter((tab) => tab.chatId !== chatId) }));
 }
 
-export function openTab(url: string, { background = false } = {}): void {
-  const tab = blankTab(url);
+export function openTab(
+  url: string,
+  { background = false, requestId }: { background?: boolean; requestId?: string } = {},
+): void {
+  const tab = { ...blankTab(url), ...(requestId ? { requestId } : {}) };
   set((s) => {
     const at = s.tabs.findIndex((t) => t.id === s.activeId);
     const tabs = at < 0 ? [...s.tabs, tab] : s.tabs.toSpliced(at + 1, 0, tab);
@@ -216,12 +224,14 @@ export function routeLinks(handler: ((url: string) => void) | null): void {
  */
 export function openLink(url: string, { flip = false } = {}): void {
   const inApp = (get().openLinksIn === "app") !== flip;
-  if (features.browser && /^https?:/i.test(url) && inApp) {
+  if (uiHost().enabled && /^https?:/i.test(url) && inApp) {
     if (linkHandler) linkHandler(url);
     else openTab(url);
     return;
   }
-  void window.desktopBridge.openExternal(url).catch(() => {});
+  void desktopBridge()
+    .openExternal(url)
+    .catch(() => {});
 }
 
 /**
@@ -237,16 +247,20 @@ function quietDetachError(event: ErrorEvent): void {
 
 export function useBrowserEvents(): void {
   useEffect(() => {
-    if (!features.browser) return;
+    if (!uiHost().enabled) return;
     window.addEventListener("error", quietDetachError, true);
     const offs = [
-      window.desktopBridge.on("browser:openTab", (params) => {
-        const { url, background } = params as { url: string; background?: boolean };
-        if (linkHandler) linkHandler(url);
-        else openTab(url, { background });
+      desktopBridge().on("browser:openTab", (params) => {
+        const { url, background, requestId } = params as {
+          url: string;
+          background?: boolean;
+          requestId?: string;
+        };
+        if (linkHandler && !requestId) linkHandler(url);
+        else openTab(url, { background, requestId });
       }),
-      window.desktopBridge.on("browser:newTab", newTab),
-      window.desktopBridge.on("browser:focusAddress", focusAddress),
+      desktopBridge().on("browser:newTab", newTab),
+      desktopBridge().on("browser:focusAddress", focusAddress),
     ];
     return () => {
       window.removeEventListener("error", quietDetachError, true);

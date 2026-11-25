@@ -170,6 +170,8 @@ export interface Platform {
   asyncContext<T>(): AsyncContext<T>;
   offlineDownloads: boolean;
   translator?: Translator;
+  /** The built-in browser the agents drive (the desktop app's): a command and its arguments. */
+  browser?: { run(command: string, args: Record<string, unknown>): Promise<unknown> };
 }
 
 let current: Platform | null = null;

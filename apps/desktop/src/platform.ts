@@ -127,6 +127,8 @@ export function desktopPlatform(): Platform {
       pick: () => requestMain("pickFiles", undefined),
     },
 
+    browser: { run: (command, args) => requestMain("browser", { command, args }) },
+
     google: googleAuth,
     microsoft: microsoftAuth,
     todoistSignIn,

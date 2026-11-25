@@ -35,9 +35,8 @@ when a feature lands or goes.
     The rest of the app asks `hostOS` / `backendOS` and never checks `process.platform`.
   - `src/handlers/`: the desktop-only handlers (default mail app, …); `backend.ts` there holds
     the ones the backend serves.
-  - `src/services/`: Google and Microsoft sign-in (loopback OAuth), the
-    browser (`browser.ts`: its session, the Web Store, popups and permissions; `extensions.ts`
-    with `src/extensions-preload.ts`: Chrome's extension APIs Electron lacks), the local agents
+  - `src/browser.ts`: sets up `@otter/browser` (below) with what it asks of the app.
+  - `src/services/`: Google and Microsoft sign-in (loopback OAuth), the local agents
     (Claude, Codex; Hermes is in core) and the MCP server that gives them, and other agents on
     the Mac with a token, Otter's tools, default mail app.
   - `src/windows/`: the main window, and where its pages load from.
@@ -49,8 +48,8 @@ when a feature lands or goes.
   (`src/main/router.tsx`, TanStack Router): in the hash in the desktop app, real paths on the web
   (`/mail/you@gmail.com/INBOX/<id>`, `/agents/<id>`, `/calendar/week`, `/settings/appearance`; `@otter/client`'s `places.ts`;
   addresses from before the rename, without `/mail` or with `/chats`, redirect).
-  `src/main/browser/` is the browser (Mac): the panel of `<webview>` tabs beside the mail, a
-  chat's pages in the AI workspace, and `openLink`, where links from mail and chat go.
+  `src/main/browser/` places the browser (`@otter/browser`'s screens) in this app: the panel
+  of tabs beside the mail, its Settings page, and the host its screens ask (`browser-host.ts`).
   The agents' UI is `src/main/agent/`: the chats (`@otter/client`'s `agents/chat-store.ts`, synced through core), shown in the
   small window over the mail (⌘E, `chat-window.tsx`) or the AI workspace, the Chats space
   (`/agents/<id>`, `chat-workspace.tsx`), with what each chat used and made as tabs.
@@ -95,6 +94,16 @@ when a feature lands or goes.
   secrets are its own, under the agent's id, which chats and tasks name), what the kind says of
   itself (`shared/traits.ts`, `@otter/client`'s `AgentTraits`), and, in the renderer, its icon
   and settings form; the chat UI is shared.
+- `packages/browser` (`@otter/browser`): the built-in browser, for any Electron app in the repo
+  (ChatGPT's in-app browser). `./main` runs in Electron's main process, set up with a
+  `BrowserHost` (the app's logger, events, main window…): its session, the Chrome Web Store,
+  Chrome's extension APIs Electron lacks (`extensions.ts`, with `./preload/extensions`, built
+  beside the app's main), native messaging, import from other browsers, its IPC handlers, and the agents' hands on it
+  (`agent.ts`: DevTools protocol, every frame, trusted input; core's `tools/browser.ts` through
+  `platform.browser`);
+  `main/os/` is what differs between macOS and Linux. `./ui/*` are its screens (`<webview>`
+  tabs, toolbar, Settings sections) and their store, with `openLink`, where links from mail and
+  chat go; the app gives them a `BrowserUIHost` at startup (`./ui/host`).
 - `packages/client` (`@otter/client`): what every interface does that isn't drawing, shared by
   the web renderer and the phone apps to come: the one way to core (`src/bridge.ts`: `ipc`, `task`,
   `listen`), the agents' calls (`agents/api.ts`, `agentApi`), the chat store, and the logic

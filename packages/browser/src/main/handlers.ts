@@ -1,7 +1,9 @@
 import { BrowserWindow, ipcMain } from "electron";
 
-import { logger } from "../logger.ts";
-import { clearBrowsingData } from "../services/browser.ts";
+import { host } from "./host.ts";
+
+import { clearBrowsingData } from "./browser.ts";
+import { importFromBrowser, importSources } from "./browser-import.ts";
 import {
   extensionActions,
   listExtensions,
@@ -10,14 +12,14 @@ import {
   runAction,
   setActiveTab,
   setExtensionEnabled,
-} from "../services/extensions.ts";
+} from "./extensions.ts";
 
 export function registerBrowserHandlers(): void {
   ipcMain.handle("browser:extensions", () => listExtensions());
 
   ipcMain.handle("browser:removeExtension", async (_event, id: unknown) => {
     if (typeof id !== "string") throw new Error("Invalid parameters for browser:removeExtension.");
-    logger.info("browser", "Remove extension", { id });
+    host().logger.info("browser", "Remove extension", { id });
     await removeExtension(id);
   });
 
@@ -57,7 +59,31 @@ export function registerBrowserHandlers(): void {
     if (origin !== undefined && (typeof origin !== "string" || !/^https?:\/\//.test(origin))) {
       throw new Error("Invalid parameters for browser:clearData.");
     }
-    logger.info("browser", "Clear browsing data", { origin: origin ?? "all" });
+    host().logger.info("browser", "Clear browsing data", { origin: origin ?? "all" });
     await clearBrowsingData(origin);
+  });
+
+  ipcMain.handle("browser:importSources", () => importSources());
+
+  ipcMain.handle("browser:import", async (_event, params: unknown) => {
+    const { source, cookies, extensions } = (params ?? {}) as {
+      source?: unknown;
+      cookies?: unknown;
+      extensions?: unknown;
+    };
+    if (
+      typeof source !== "string" ||
+      typeof cookies !== "boolean" ||
+      !Array.isArray(extensions) ||
+      !extensions.every((id) => typeof id === "string")
+    ) {
+      throw new Error("Invalid parameters for browser:import.");
+    }
+    host().logger.info("browser", "Import from browser", {
+      source,
+      cookies,
+      extensions: extensions.length,
+    });
+    return importFromBrowser(source, { cookies, extensions });
   });
 }

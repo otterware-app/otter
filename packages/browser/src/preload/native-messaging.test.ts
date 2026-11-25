@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
-import { installNativeMessaging } from "./native-messaging-preload.ts";
+import { installNativeMessaging } from "./native-messaging.ts";
 
 type Event<Args extends unknown[]> = {
   addListener(listener: (...args: Args) => void): void;

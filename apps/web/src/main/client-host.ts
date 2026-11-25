@@ -11,7 +11,8 @@ import {
 import type { ThemeSource } from "@otter/contracts";
 import { toast } from "@otter/ui/components/toast";
 import { startWebPresence } from "./agent/web-presence";
-import { closeChatPages } from "./browser/store";
+import { closeChatPages } from "@otter/browser/ui/store";
+import { startBrowserUI } from "./browser/browser-host";
 import { agentContribution } from "./extensions/registry";
 
 const marks = new Map<string, string>();
@@ -33,6 +34,7 @@ function agentMark(kind: string): string | undefined {
 
 /** @otter/client in this window, with its host: before the app renders. */
 export async function startClient(): Promise<void> {
+  startBrowserUI();
   window.addEventListener("storage", (event) => {
     // Another window's; this window's own (below) are dispatched, so untrusted.
     if (event.isTrusted && event.key) syncedPreferenceChanged(event.key);

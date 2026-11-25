@@ -497,6 +497,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["links mail chat tab default browser safari chrome external"],
   },
   {
+    id: "browser-solve-captchas",
+    title: "Solve CAPTCHAs",
+    pane: "browser",
+    available: features.browser,
+    searchTerms: ["captcha recaptcha hcaptcha robot agent challenge"],
+  },
+  {
     id: "browser-extensions-button",
     title: "Extensions button",
     pane: "browser",
@@ -511,6 +518,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [
       "chrome web store add-ons plugins ad blocker password manager developer mode unpacked",
     ],
+  },
+  {
+    id: "browser-import",
+    title: "Import from another browser",
+    pane: "browser",
+    available: features.browser,
+    searchTerms: ["import chrome arc brave edge cookies sign-ins logins extensions migrate"],
   },
   {
     id: "browser-data",

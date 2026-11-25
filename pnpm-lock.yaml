@@ -259,6 +259,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.1
         version: 1.30.1(@cfworker/json-schema@4.1.1)(zod@4.6.5)
+      '@otter/browser':
+        specifier: workspace:*
+        version: link:../../packages/browser
       '@otter/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -304,9 +307,6 @@ importers:
       electron:
         specifier: 44.4.2
         version: 44.4.2
-      electron-chrome-web-store:
-        specifier: ^0.13.0
-        version: 0.13.0
       electron-updater:
         specifier: ^6.8.9
         version: 6.8.9
@@ -341,6 +341,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.3.0)
+      '@otter/browser':
+        specifier: workspace:*
+        version: link:../../packages/browser
       '@otter/client':
         specifier: workspace:*
         version: link:../../packages/client
@@ -935,6 +938,55 @@ importers:
       wrangler:
         specifier: ^4.141.0
         version: 4.141.0(@cloudflare/workers-types@5.20260927.1)(@types/node@24.12.4)
+
+  packages/browser:
+    dependencies:
+      '@otter/client':
+        specifier: workspace:*
+        version: link:../client
+      '@otter/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@otter/ui':
+        specifier: workspace:*
+        version: link:../ui
+      electron-chrome-web-store:
+        specifier: ^0.13.0
+        version: 0.13.0
+      lucide-react:
+        specifier: ^0.542.0
+        version: 0.542.0(react@19.3.0)
+      zustand:
+        specifier: 'catalog:'
+        version: 5.0.15(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+    devDependencies:
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.103.2(react@19.3.0)
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.12.4
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.3.0(@types/react@19.3.0)
+      electron:
+        specifier: 44.4.2
+        version: 44.4.2
+      react:
+        specifier: 'catalog:'
+        version: 19.3.0
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.3(@opentelemetry/api@1.10.0)(@types/node@24.12.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.4)(tsx@4.23.15)(typescript@5.9.3)
 
   packages/client:
     dependencies:

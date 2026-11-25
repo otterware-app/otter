@@ -4,7 +4,6 @@ import type { HostOS } from "../types.ts";
 import { agentNotifications } from "./agent-notifications.ts";
 import { listMailApps, setDefaultMailApp } from "./mail-apps.ts";
 import { macTerminals } from "./terminals.ts";
-import { nativeMessagingDirectories } from "./native-messaging.ts";
 
 const TOPBAR_HEIGHT = 42;
 const WINDOW_BUTTON_RADIUS = 7;
@@ -12,7 +11,6 @@ const WINDOW_BUTTON_RADIUS = 7;
 const background = () => (nativeTheme.shouldUseDarkColors ? "#09090a" : "#ededf0");
 
 export const macOS: HostOS = {
-  nativeMessagingDirectories,
   agentNotifications,
   modifierKey: "metaKey",
 

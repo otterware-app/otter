@@ -9,7 +9,7 @@ import { takePendingOpenMessage } from "../services/open-message-target.ts";
 import { focusMainWindow, openPlaceWindow } from "../windows/main-window.ts";
 import { setSettingsTarget, takeSettingsTarget } from "../windows/settings-window.ts";
 import { registerSupportHandlers } from "./support.ts";
-import { registerBrowserHandlers } from "./browser.ts";
+import { registerBrowserHandlers } from "@otter/browser/main";
 
 export function registerHandlers(): void {
   registerBrowserHandlers();

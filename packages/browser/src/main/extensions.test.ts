@@ -18,10 +18,14 @@ vi.mock("electron", () => ({
   webFrameMain: {},
 }));
 vi.mock("electron-chrome-web-store", () => ({ uninstallExtension: vi.fn() }));
-vi.mock("../ipc.ts", () => ({ broadcast: vi.fn() }));
-vi.mock("../logger.ts", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
-vi.mock("../windows/main-window.ts", () => ({ getMainWindow: () => null }));
-vi.mock("../os/index.ts", () => ({ hostOS: { nativeMessagingDirectories: () => [] } }));
+vi.mock("./host.ts", () => ({
+  host: () => ({
+    broadcast: vi.fn(),
+    logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    mainWindow: () => null,
+  }),
+}));
+vi.mock("./os/index.ts", () => ({ browserOS: { nativeMessagingDirectories: () => [] } }));
 vi.mock("./native-messaging-ipc.ts", () => ({ enableNativeMessaging: vi.fn() }));
 vi.mock("./browser.ts", () => ({
   isPageUrl: () => true,

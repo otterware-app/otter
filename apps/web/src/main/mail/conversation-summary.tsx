@@ -6,7 +6,7 @@ import { useAccounts, useMessage } from "@otter/client/mail/hooks";
 import { SenderAvatar } from "./sender-avatar";
 import type { MessageDetail, MessageSummary } from "@otter/client/mail/types";
 import { UnsubscribeLink } from "./unsubscribe-link";
-import { openLink } from "../browser/store";
+import { openLink } from "@otter/browser/ui/store";
 import { isModClick } from "../keybindings/keys";
 import { IconButton } from "@otter/ui/components/button";
 import { HintTooltip } from "@otter/ui/components/tooltip";

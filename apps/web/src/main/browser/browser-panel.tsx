@@ -1,5 +1,5 @@
-import { useEffect, useRef, type MutableRefObject } from "react";
-import { PlusIcon } from "lucide-react";
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
+import { ChevronRightIcon, Maximize2Icon, Minimize2Icon, PlusIcon } from "lucide-react";
 
 import { useCommandHandlers } from "../keybindings/dispatch";
 import { ShortcutText } from "../keybindings/store";
@@ -7,41 +7,185 @@ import { PanelTab } from "../mail/panel-tab";
 import { mostRecentTab } from "../mail/panel-tabs";
 import { PanelControlSlot } from "../mail/top-bar";
 import { usePanelTabDrag } from "../mail/use-panel-tab-drag";
-import { BrowserTabIcon } from "./browser-view";
-import { PageSlot } from "./page-host";
-import { closeTab, newTab, panelTabs, reorderTabs, selectTab, useBrowser } from "./store";
+import { HOME, TabSwitcher, type Switching } from "./tab-switcher";
+import { BrowserTabIcon } from "@otter/browser/ui/browser-view";
+import { PageSlot } from "@otter/browser/ui/page-host";
+import {
+  closeTab,
+  newTab,
+  panelTabs,
+  reorderTabs,
+  selectTab,
+  useBrowser,
+} from "@otter/browser/ui/store";
 import { hostOf } from "@otter/client/web-address";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton } from "@otter/ui/components/button";
+
+/**
+ * Full view (ChatGPT's): the browser's pages and what they opened beside (Mail, Calendar…) are
+ * tabs of one strip, shown one at a time across the window; the chevron restores split view.
+ */
+export type FullView = {
+  home: { title: string; icon: ReactNode };
+  /** The home tab is the one shown. */
+  homeShown: boolean;
+  onShowHome: () => void;
+  /** A page's tab picked: the browser is shown. */
+  onShowPage: () => void;
+  onExit: () => void;
+  /** Room for the window's own controls, over the strip's start. */
+  leading: ReactNode;
+};
+
+/** The pages' tabs, with full view's home tab before them and its toggle after. */
+export function BrowserTabStrip({
+  full,
+  onClose,
+  onFullView,
+  controlSlot,
+  tabListRef,
+}: {
+  full: FullView | null;
+  onClose: (id: string) => void;
+  onFullView: (full: boolean) => void;
+  controlSlot: boolean;
+  tabListRef?: MutableRefObject<HTMLDivElement | null>;
+}) {
+  const tabs = panelTabs(useBrowser((s) => s.tabs));
+  const activeId = useBrowser((s) => s.activeId);
+  const { ref, draggingId, handlers } = usePanelTabDrag(reorderTabs);
+  const focusSelected = () =>
+    requestAnimationFrame(() =>
+      tabListRef?.current
+        ?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+        ?.focus(),
+    );
+
+  return (
+    <div className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-1 px-3">
+      {full ? (
+        <>
+          {full.leading}
+          <PanelTab
+            id="home"
+            title={full.home.title}
+            icon={full.home.icon}
+            selected={full.homeShown}
+            closable={false}
+            onSelect={full.onShowHome}
+            onClose={full.onShowHome}
+            className="no-drag shrink-0"
+          />
+          <HintTooltip label="Restore split view" side="bottom">
+            <IconButton
+              label="Restore split view"
+              size="icon"
+              className="no-drag shrink-0"
+              onClick={full.onExit}
+            >
+              <ChevronRightIcon className="size-4" />
+            </IconButton>
+          </HintTooltip>
+        </>
+      ) : null}
+      <div
+        role="tablist"
+        ref={(node) => {
+          ref.current = node;
+          if (tabListRef) tabListRef.current = node;
+        }}
+        aria-label="Open pages"
+        className="no-drag scroll-fade-x relative flex min-w-0 shrink items-center gap-1 overflow-x-auto [scrollbar-width:none]"
+        {...handlers}
+      >
+        {tabs.map((tab) => {
+          const title = tab.title || (tab.url ? hostOf(tab.url) : "New tab");
+          return (
+            <PanelTab
+              key={tab.id}
+              id={tab.id}
+              title={title}
+              tooltip={tab.url ? `${title}\n${tab.url}` : title}
+              selected={tab.id === activeId && !full?.homeShown}
+              dragging={draggingId === tab.id}
+              onSelect={() => {
+                selectTab(tab.id);
+                full?.onShowPage();
+                focusSelected();
+              }}
+              onClose={() => onClose(tab.id)}
+              icon={<BrowserTabIcon tab={tab} />}
+            />
+          );
+        })}
+      </div>
+      <HintTooltip label="New tab" hint={<ShortcutText command="browser.newTab" />} side="bottom">
+        <IconButton
+          label="New tab"
+          size="icon"
+          className="shrink-0"
+          onClick={() => {
+            newTab();
+            full?.onShowPage();
+          }}
+        >
+          <PlusIcon className="size-4" />
+        </IconButton>
+      </HintTooltip>
+      <span className="min-w-0 flex-1" />
+      <HintTooltip
+        label={full ? "Exit full view" : "Enter full view"}
+        hint={<ShortcutText command="browser.fullView" />}
+        side="bottom"
+      >
+        <IconButton
+          label={full ? "Exit full view" : "Enter full view"}
+          size="icon"
+          className="no-drag shrink-0"
+          onClick={() => onFullView(!full)}
+        >
+          {full ? <Minimize2Icon className="size-4" /> : <Maximize2Icon className="size-4" />}
+        </IconButton>
+      </HintTooltip>
+      {/* The pinned panel toggles (home view) sit here, over the rightmost panel. */}
+      {controlSlot ? <PanelControlSlot /> : null}
+    </div>
+  );
+}
 
 export function BrowserPanel({
   closeTabRef,
   onClosePanel,
   controlSlot,
+  full,
+  onFullView,
 }: {
   closeTabRef: MutableRefObject<(() => boolean) | null>;
   onClosePanel: () => void;
   controlSlot: boolean;
+  full: FullView | null;
+  onFullView: (full: boolean) => void;
 }) {
   const allTabs = useBrowser((s) => s.tabs);
   const activeId = useBrowser((s) => s.activeId);
-  const tabs = panelTabs(allTabs);
+  const tabListRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const { ref, draggingId, handlers } = usePanelTabDrag(reorderTabs);
 
   const recentRef = useRef<string[]>([]);
+  // In full view, the home tab (Mail…) takes its turn with the pages.
+  const homeShown = full?.homeShown ?? false;
+  const fullView = full !== null;
   useEffect(() => {
     const open = new Set(panelTabs(allTabs).map((tab) => tab.id));
+    if (fullView) open.add(HOME);
+    const shown = homeShown ? HOME : activeId;
     recentRef.current = [
-      ...(activeId && open.has(activeId) ? [activeId] : []),
-      ...recentRef.current.filter((id) => id !== activeId && open.has(id)),
+      ...(shown && open.has(shown) ? [shown] : []),
+      ...recentRef.current.filter((id) => id !== shown && open.has(id)),
     ];
-  }, [activeId, allTabs]);
+  }, [activeId, allTabs, homeShown, fullView]);
 
-  const focusSelected = () =>
-    requestAnimationFrame(() =>
-      panelRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus(),
-    );
   const close = (id: string) => {
     const ids = panelTabs(useBrowser.getState().tabs).map((tab) => tab.id);
     if (ids.length < 2) onClosePanel();
@@ -50,23 +194,89 @@ export function BrowserPanel({
     closeTab(id);
     if (shown === id && next) selectTab(next);
   };
-  const previousTab = () => {
-    const ids = panelTabs(useBrowser.getState().tabs).map((tab) => tab.id);
-    const id = mostRecentTab(ids, useBrowser.getState().activeId ?? "", recentRef.current);
-    if (!id) return false;
-    selectTab(id);
-    focusSelected();
+  useEffect(() => {
+    closePageRef.current = close;
+  });
+  // ⌃Tab: the tabs, most recently used first, stepped through while ⌃ is held.
+  const [switching, setSwitching] = useState<Switching | null>(null);
+  // Kept as it changes, not as React draws it: ⌃ can come up before the strip is drawn.
+  const switchingRef = useRef(switching);
+  const setChoice = (next: Switching | null) => {
+    switchingRef.current = next;
+    setSwitching(next);
+  };
+  const step = (back: boolean) => {
+    const open = [
+      ...panelTabs(useBrowser.getState().tabs).map((tab) => tab.id),
+      ...(full ? [HOME] : []),
+    ];
+    if (open.length < 2) return false;
+    const current = switchingRef.current;
+    if (current) {
+      const n = current.order.length;
+      setChoice({ ...current, index: (current.index + (back ? n - 1 : 1)) % n });
+    } else {
+      const order = [
+        ...recentRef.current.filter((id) => open.includes(id)),
+        ...open.filter((id) => !recentRef.current.includes(id)),
+      ];
+      setChoice({ order, index: back ? order.length - 1 : 1 });
+    }
     return true;
   };
+  const pick = (index?: number) => {
+    const current = switchingRef.current;
+    if (!current) return;
+    if (index !== undefined) current.index = index;
+    setChoice(null);
+    const id = current.order[current.index];
+    if (!id) return;
+    if (id === HOME) {
+      full?.onShowHome();
+      return;
+    }
+    selectTab(id);
+    full?.onShowPage();
+    // Into the page, as Chrome's switch: once it's the one shown.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>("[data-browser-page]:not([inert]) webview")?.focus(),
+      ),
+    );
+  };
+  const inBrowser = (event: KeyboardEvent) =>
+    Boolean(full) ||
+    (event.target instanceof Element &&
+      (Boolean(panelRef.current?.contains(event.target)) ||
+        Boolean(event.target.closest("[data-browser-page]"))));
   useCommandHandlers({
-    "tab.previous": (event) => {
-      if (!(event.target instanceof Element)) return false;
-      if (!panelRef.current?.contains(event.target) && !event.target.closest("[data-browser-page]"))
-        return false;
-      return previousTab();
-    },
+    "tab.previous": (event) => inBrowser(event) && step(false),
+    "tab.switchBack": (event) => inBrowser(event) && step(true),
   });
-  useEffect(() => window.desktopBridge.on("browser:previousTab", previousTab));
+  useEffect(() => {
+    const offs = [
+      window.desktopBridge.on("browser:switchTabs", (params) =>
+        step((params as { back?: boolean }).back === true),
+      ),
+      window.desktopBridge.on("browser:switchTabsDone", () => pick()),
+    ];
+    const keyUp = (event: KeyboardEvent) => {
+      if (event.key === "Control") pick();
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && switchingRef.current) {
+        event.preventDefault();
+        setChoice(null);
+      }
+    };
+    window.addEventListener("keyup", keyUp, true);
+    window.addEventListener("keydown", escape, true);
+    return () => {
+      offs.forEach((off) => off());
+      window.removeEventListener("keyup", keyUp, true);
+      window.removeEventListener("keydown", escape, true);
+    };
+  });
   useEffect(() => {
     closeTabRef.current = () => {
       const shown = useBrowser.getState().activeId;
@@ -80,43 +290,14 @@ export function BrowserPanel({
 
   return (
     <div ref={panelRef} className="relative flex h-full min-w-0 flex-col">
-      <div className="drag-region flex h-(--workspace-topbar-height) shrink-0 items-center gap-1 px-3">
-        <div
-          role="tablist"
-          ref={ref}
-          aria-label="Open pages"
-          className="no-drag scroll-fade-x relative flex min-w-0 shrink items-center gap-1 overflow-x-auto [scrollbar-width:none]"
-          {...handlers}
-        >
-          {tabs.map((tab) => {
-            const title = tab.title || (tab.url ? hostOf(tab.url) : "New tab");
-            return (
-              <PanelTab
-                key={tab.id}
-                id={tab.id}
-                title={title}
-                tooltip={tab.url ? `${title}\n${tab.url}` : title}
-                selected={tab.id === activeId}
-                dragging={draggingId === tab.id}
-                onSelect={() => {
-                  selectTab(tab.id);
-                  focusSelected();
-                }}
-                onClose={() => close(tab.id)}
-                icon={<BrowserTabIcon tab={tab} />}
-              />
-            );
-          })}
-        </div>
-        <HintTooltip label="New tab" hint={<ShortcutText command="browser.newTab" />} side="bottom">
-          <IconButton label="New tab" size="icon" className="shrink-0" onClick={newTab}>
-            <PlusIcon className="size-4" />
-          </IconButton>
-        </HintTooltip>
-        <span className="min-w-0 flex-1" />
-        {/* The pinned panel toggles (home view) sit here, over the rightmost panel. */}
-        {controlSlot ? <PanelControlSlot /> : null}
-      </div>
+      <BrowserTabStrip
+        full={full}
+        onClose={close}
+        onFullView={onFullView}
+        controlSlot={controlSlot}
+        tabListRef={tabListRef}
+      />
+      {switching ? <TabSwitcher switching={switching} onPick={pick} home={full?.home} /> : null}
       {activeId ? (
         <PageSlot key={activeId} tabId={activeId} className="rounded-xl" />
       ) : (
@@ -125,3 +306,6 @@ export function BrowserPanel({
     </div>
   );
 }
+
+/** How a page's tab closes (its × in full view's other strip): the panel's own way. */
+export const closePageRef: { current: (id: string) => void } = { current: closeTab };

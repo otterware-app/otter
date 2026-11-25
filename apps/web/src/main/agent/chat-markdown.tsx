@@ -7,7 +7,7 @@ import { Spinner } from "@otter/ui/components/spinner";
 import { isChatFileLink, isChatImageLink } from "@otter/client/agents/chat-links";
 import { chatUrlTransform } from "./chat-url";
 
-import { openLink } from "../browser/store";
+import { openLink } from "@otter/browser/ui/store";
 import { isModClick } from "../keybindings/keys";
 
 type ImagePreview = { src: string; alt: string };

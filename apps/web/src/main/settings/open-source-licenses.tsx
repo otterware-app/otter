@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@otter/ui/components/dialog";
-import { openLink } from "../browser/store";
+import { openLink } from "@otter/browser/ui/store";
 import { Button } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
 

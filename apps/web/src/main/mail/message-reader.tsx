@@ -137,7 +137,7 @@ import type {
   MessageSummary,
 } from "@otter/client/mail/types";
 import { features } from "../features";
-import { openLink } from "../browser/store";
+import { openLink } from "@otter/browser/ui/store";
 import { AttachmentPreview, type PreviewFile } from "./attachment-preview";
 import { attachmentPreview } from "@otter/client/file-preview";
 import { isModClick } from "../keybindings/keys";
