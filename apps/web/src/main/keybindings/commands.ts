@@ -47,6 +47,7 @@ export const KEYBINDING_COMMANDS = [
   "calendar.togglePanel",
   "browser.newTab",
   "tab.previous",
+  "tab.switchBack",
   "agentPicker.toggle",
   "composer.mode",
   "agent.sendQueuedNow",
@@ -150,6 +151,7 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+shift+c", command: "calendar.togglePanel", when: "!dialogOpen" },
   { key: "mod+t", command: "browser.newTab", when: "!dialogOpen" },
   { key: "ctrl+tab", command: "tab.previous", when: "!dialogOpen" },
+  { key: "ctrl+shift+tab", command: "tab.switchBack", when: "!dialogOpen" },
   { key: "mod+shift+m", command: "agentPicker.toggle", when: "agentOpen" },
   { key: "mod+shift+a", command: "composer.mode", when: "agentOpen" },
   {

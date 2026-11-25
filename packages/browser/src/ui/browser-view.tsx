@@ -165,6 +165,9 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
     if (active && pageId !== null) void desktopBridge().invoke("browser:activeTab", pageId);
   }, [active, pageId]);
   useEffect(() => {
+    if (pageId !== null) updateTab(tab.id, { pageId });
+  }, [pageId, tab.id]);
+  useEffect(() => {
     if (pageId === null || !tab.requestId) return;
     void desktopBridge().invoke("browser:tabCreated", {
       requestId: tab.requestId,

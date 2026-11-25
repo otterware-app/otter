@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MutableRefObject, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { ChevronRightIcon, Maximize2Icon, Minimize2Icon, PlusIcon } from "lucide-react";
 
 import { useCommandHandlers } from "../keybindings/dispatch";
@@ -7,6 +7,7 @@ import { PanelTab } from "../mail/panel-tab";
 import { mostRecentTab } from "../mail/panel-tabs";
 import { PanelControlSlot } from "../mail/top-bar";
 import { usePanelTabDrag } from "../mail/use-panel-tab-drag";
+import { TabSwitcher, type Switching } from "./tab-switcher";
 import { BrowserTabIcon } from "@otter/browser/ui/browser-view";
 import { PageSlot } from "@otter/browser/ui/page-host";
 import {
@@ -188,26 +189,78 @@ export function BrowserPanel({
     closeTab(id);
     if (shown === id && next) selectTab(next);
   };
-  closePageRef.current = close;
-  const previousTab = () => {
-    const ids = panelTabs(useBrowser.getState().tabs).map((tab) => tab.id);
-    const id = mostRecentTab(ids, useBrowser.getState().activeId ?? "", recentRef.current);
-    if (!id) return false;
+  useEffect(() => {
+    closePageRef.current = close;
+  });
+  // ⌃Tab: the tabs, most recently used first, stepped through while ⌃ is held.
+  const [switching, setSwitching] = useState<Switching | null>(null);
+  // Kept as it changes, not as React draws it: ⌃ can come up before the strip is drawn.
+  const switchingRef = useRef(switching);
+  const setChoice = (next: Switching | null) => {
+    switchingRef.current = next;
+    setSwitching(next);
+  };
+  const step = (back: boolean) => {
+    const open = panelTabs(useBrowser.getState().tabs).map((tab) => tab.id);
+    if (open.length < 2) return false;
+    const current = switchingRef.current;
+    if (current) {
+      const n = current.order.length;
+      setChoice({ ...current, index: (current.index + (back ? n - 1 : 1)) % n });
+    } else {
+      const order = [
+        ...recentRef.current.filter((id) => open.includes(id)),
+        ...open.filter((id) => !recentRef.current.includes(id)),
+      ];
+      setChoice({ order, index: back ? order.length - 1 : 1 });
+    }
+    return true;
+  };
+  const pick = (index?: number) => {
+    const current = switchingRef.current;
+    if (!current) return;
+    if (index !== undefined) current.index = index;
+    setChoice(null);
+    const id = current.order[current.index];
+    if (!id) return;
     selectTab(id);
+    full?.onShowPage();
     requestAnimationFrame(() =>
       tabListRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus(),
     );
-    return true;
   };
+  const inBrowser = (event: KeyboardEvent) =>
+    event.target instanceof Element &&
+    (Boolean(panelRef.current?.contains(event.target)) ||
+      Boolean(event.target.closest("[data-browser-page]")));
   useCommandHandlers({
-    "tab.previous": (event) => {
-      if (!(event.target instanceof Element)) return false;
-      if (!panelRef.current?.contains(event.target) && !event.target.closest("[data-browser-page]"))
-        return false;
-      return previousTab();
-    },
+    "tab.previous": (event) => inBrowser(event) && step(false),
+    "tab.switchBack": (event) => inBrowser(event) && step(true),
   });
-  useEffect(() => window.desktopBridge.on("browser:previousTab", previousTab));
+  useEffect(() => {
+    const offs = [
+      window.desktopBridge.on("browser:switchTabs", (params) =>
+        step((params as { back?: boolean }).back === true),
+      ),
+      window.desktopBridge.on("browser:switchTabsDone", () => pick()),
+    ];
+    const keyUp = (event: KeyboardEvent) => {
+      if (event.key === "Control") pick();
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && switchingRef.current) {
+        event.preventDefault();
+        setChoice(null);
+      }
+    };
+    window.addEventListener("keyup", keyUp, true);
+    window.addEventListener("keydown", escape, true);
+    return () => {
+      offs.forEach((off) => off());
+      window.removeEventListener("keyup", keyUp, true);
+      window.removeEventListener("keydown", escape, true);
+    };
+  });
   useEffect(() => {
     closeTabRef.current = () => {
       const shown = useBrowser.getState().activeId;
@@ -228,6 +281,7 @@ export function BrowserPanel({
         controlSlot={controlSlot}
         tabListRef={tabListRef}
       />
+      {switching ? <TabSwitcher switching={switching} onPick={pick} /> : null}
       {activeId ? (
         <PageSlot key={activeId} tabId={activeId} className="rounded-xl" />
       ) : (

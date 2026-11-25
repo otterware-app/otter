@@ -678,7 +678,7 @@ other sites, so the web app opens links in a new browser tab as before.
 | ⌘F finds in the page                                                                                     | ✓   | —   | —      |
 | Full view (⇧⌘F): the browser has the window, Mail a tab before its pages                                 | ✓   | —   | —      |
 | ⌘W closes a page, returning to the last tab viewed; the last closes it                                   | ✓   | —   | —      |
-| Drag to reorder tabs, Control + Tab for the last one                                                     | ✓   | —   | —      |
+| Drag to reorder tabs; ⌃Tab (⇧ back) shows every tab, most recently used first, and switches on release   | ✓   | —   | —      |
 | Links in mail and chat open in a tab or the default browser; ⌘-click flips                               | ✓   | —   | —      |
 | Start page (⌘T): new chat, extensions, suggested sites; ⌘L for the address                               | ✓   | —   | —      |
 | Sign-in popups, links to other apps (asked first), mailto: opens a message                               | ✓   | —   | —      |

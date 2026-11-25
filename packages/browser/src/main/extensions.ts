@@ -25,6 +25,7 @@ import * as path from "node:path";
 import { getBrowserSession, isPageUrl, preparePage } from "./browser.ts";
 import { host } from "./host.ts";
 import { browserOS } from "./os/index.ts";
+import { leavingTab, trackThumbnail } from "./thumbnails.ts";
 import { enableNativeMessaging } from "./native-messaging-ipc.ts";
 
 type Manifest = {
@@ -127,6 +128,7 @@ export const currentTabId = (): number => activeTabId;
 
 export function trackTab(contents: WebContents): void {
   const tabId = contents.id;
+  trackThumbnail(contents);
   tabs.set(tabId, { contents, favicon: null });
   const updated = (change: Record<string, unknown>) =>
     emit((ext) => ["tabs.onUpdated", [tabId, change, tabOf(tabId, ext)]]);
@@ -225,6 +227,7 @@ function frameInfo(contents: WebContents, frame: WebFrameMain) {
 
 export function setActiveTab(tabId: number): void {
   if (!tabs.has(tabId) || tabId === activeTabId) return;
+  if (activeTabId >= 0) leavingTab(activeTabId);
   activeTabId = tabId;
   emit(() => ["tabs.onActivated", [{ tabId, windowId: host().mainWindow()?.id ?? -1 }]]);
   actionsChanged();

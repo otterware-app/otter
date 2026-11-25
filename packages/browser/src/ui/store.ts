@@ -12,6 +12,8 @@ export type BrowserTab = {
   favicon: string | null;
   loading: boolean;
   chatId?: string;
+  /** Its page's WebContents id, once it has one (not kept across launches). */
+  pageId?: number;
   /** Asked for by the main process (an extension, an agent), which waits to hear the page's id. */
   requestId?: string;
 };

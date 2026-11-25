@@ -22,6 +22,7 @@ import {
   requestPermission,
   setupPermissionPrompts,
 } from "./permissions.ts";
+import { setupThumbnails } from "./thumbnails.ts";
 
 export const BROWSER_PARTITION = "persist:browser";
 
@@ -60,6 +61,7 @@ export function setupBrowser(browserHost: BrowserHost, preloadPath: string): voi
     useSystemPicker: true,
   });
   setupPermissionPrompts();
+  setupThumbnails();
   ses.extensions.on("extension-loaded", () => host().broadcast("browser:extensionsChanged"));
   ses.extensions.on("extension-unloaded", () => host().broadcast("browser:extensionsChanged"));
   // Before any extension loads, so each worker and page gets its chrome.action.
@@ -178,6 +180,7 @@ export function attachBrowser(win: BrowserWindow): void {
     trackTab(page);
     host().followHistoryButtons(page);
     // A focused guest page's keys never reach the panel's dispatcher.
+    let switching = false;
     page.on("before-input-event", (event, input) => {
       const mod = host().modifierKey === "metaKey";
       const key = input.key.toLowerCase();
@@ -202,17 +205,23 @@ export function attachBrowser(win: BrowserWindow): void {
         if (!win.isDestroyed()) win.webContents.send("browser:find", { webContentsId: page.id });
         return;
       }
+      // ⌃Tab's switcher, as Aside's: Tab (⇧ back) through the tabs while ⌃ is held, its release picks.
+      if ((input.type === "keyUp" && input.key === "Control") || (!input.control && switching)) {
+        switching = false;
+        if (!win.isDestroyed()) win.webContents.send("browser:switchTabsDone");
+        return;
+      }
       if (
         input.type !== "keyDown" ||
         input.key !== "Tab" ||
         !input.control ||
         input.meta ||
-        input.alt ||
-        input.shift
+        input.alt
       )
         return;
       event.preventDefault();
-      if (!win.isDestroyed()) win.webContents.send("browser:previousTab");
+      switching = true;
+      if (!win.isDestroyed()) win.webContents.send("browser:switchTabs", { back: input.shift });
     });
   });
 }

@@ -703,10 +703,10 @@ function MailHome() {
   const browserVisible = browserOpen && !settingsRoute && !isChats;
   const fullView = browserFull && browserVisible;
   // In full view the mode (Mail…) is a tab beside the pages: shown alone, as they are.
-  const [fullHome, setFullHome] = useState(false);
-  const homeShown = fullView && fullHome;
+  // Shown until a page is revealed (a link opened): as of which reveal, then.
   const revealed = useBrowser((s) => s.revealed);
-  useEffect(() => setFullHome(false), [revealed]);
+  const [homeAt, setHomeAt] = useState<number | null>(null);
+  const homeShown = fullView && homeAt === revealed;
   const windowWidth = useSyncExternalStore(onWindowResize, () => window.innerWidth);
   const splitFits = ({ sidebar, list, browser, calendar }: PaneWidths) =>
     windowWidth -
@@ -764,7 +764,7 @@ function MailHome() {
   const setFullView = (full: boolean) => {
     localStorage.setItem("gmail:browser-full", full ? "1" : "0");
     setBrowserFull(full);
-    setFullHome(false);
+    setHomeAt(null);
   };
   const closeBrowser = () => {
     localStorage.setItem("gmail:browser-open", "0");
@@ -1633,8 +1633,8 @@ function MailHome() {
             ? { title: workspace.title, icon: <workspace.Icon className="size-4" /> }
             : { title: "Mail", icon: <OtterMailIcon className="size-4" /> },
         homeShown,
-        onShowHome: () => setFullHome(true),
-        onShowPage: () => setFullHome(false),
+        onShowHome: () => setHomeAt(revealed),
+        onShowPage: () => setHomeAt(null),
         onExit: () => setFullView(false),
         leading: titlebarInset,
       }
