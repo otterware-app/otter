@@ -151,6 +151,8 @@ async function run(
   signal: AbortSignal | undefined,
 ): Promise<ToolResult> {
   const name = tool.name;
+  // Stopped while it waited its turn behind another change: it doesn't happen.
+  if (signal?.aborted) return { text: "Stopped by the user.", isError: true };
   logger.info("agent", "tool", { tool: name });
   const turn = caller.turn();
   try {

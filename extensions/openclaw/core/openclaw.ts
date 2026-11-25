@@ -1821,6 +1821,9 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
     return caller;
   }
 
+  /** Each chat's calls running or queued: stopping its turn stops them. */
+  const toolStops = new Map<string, Set<AbortController>>();
+
   /** The run each chat's latest call came from: its turn asks for approval and owns its pages. */
   const toolRuns = new Map<string, string | undefined>();
 
@@ -1903,8 +1906,15 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
     try {
       if (!(await reply({ taken: true })).ok) return;
       toolRuns.set(call.sessionKey, call.runId);
-      const answer = await runAgentTool(toolCaller(call.sessionKey), call.name, call.args ?? {});
-      await reply(answer);
+      const stop = new AbortController();
+      const stops = toolStops.get(call.sessionKey) ?? new Set();
+      toolStops.set(call.sessionKey, stops.add(stop));
+      try {
+        const caller = toolCaller(call.sessionKey);
+        await reply(await runAgentTool(caller, call.name, call.args ?? {}, stop.signal));
+      } finally {
+        stops.delete(stop);
+      }
     } catch (error) {
       logger.info("agent", "openclaw tool call failed", { tool: call.name, error: String(error) });
     }
@@ -2313,6 +2323,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
     cancel(requestId) {
       const turn = turns.get(requestId);
       if (!turn) return;
+      for (const stop of toolStops.get(turn.sessionKey) ?? []) stop.abort();
       const caller = toolCallers.get(turn.sessionKey);
       if (caller) cancelToolApprovals(caller);
       // Waiting on a yield, no run is going to report it stopped, or continue it.

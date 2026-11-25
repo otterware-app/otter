@@ -172,4 +172,19 @@ describe("agent changes", () => {
     );
     expect(emit.mock.calls[0][0].requestId).toBe("run-1");
   });
+
+  it("doesn't make a change that was stopped while it waited behind another", async () => {
+    const emit = vi.fn();
+    const caller = {
+      mode: () => "full-access" as const,
+      turn: () => ({ requestId: "run-1", emit }),
+    };
+    const stop = new AbortController();
+    const first = runAgentTool(caller, "save_draft", { subject: "First" });
+    const second = runAgentTool(caller, "save_draft", { subject: "Second" }, stop.signal);
+    stop.abort();
+    expect((await first).isError).toBe(false);
+    expect(await second).toEqual({ text: "Stopped by the user.", isError: true });
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
 });
