@@ -51,13 +51,18 @@ function mcpServer(caller: ToolCaller, instructions: string | undefined): Server
   }));
   // The signal aborts when the agent hangs up, so a change it stopped waiting for won't happen.
   server.setRequestHandler(CallToolRequestSchema, async (request, { signal }) => {
-    const { text, isError } = await runAgentTool(
+    const { text, image, isError } = await runAgentTool(
       caller,
       request.params.name,
       request.params.arguments ?? {},
       signal,
     );
-    return { content: [{ type: "text", text }], isError };
+    return {
+      content: image
+        ? [{ type: "image", data: image.image, mimeType: image.mimeType }]
+        : [{ type: "text", text }],
+      isError,
+    };
   });
   return server;
 }

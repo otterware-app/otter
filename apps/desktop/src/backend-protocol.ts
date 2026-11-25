@@ -10,6 +10,7 @@ export type MainRequests = {
   openFile: { params: { name: string; bytes: Uint8Array }; result: void };
   saveFile: { params: { name: string; bytes: Uint8Array }; result: boolean };
   pickFiles: { params: undefined; result: PickedFile[] };
+  browser: { params: { command: string; args: Record<string, unknown> }; result: unknown };
 };
 
 export type MainEffect =

@@ -10,6 +10,7 @@
 import { logger } from "../../../logger.ts";
 import { runs } from "../../../modules.ts";
 import type { ApprovalDecision, ApprovalRequest } from "../types.ts";
+import { browserTools, hasBrowser } from "./browser.ts";
 import { calendarTools } from "./calendar.ts";
 import { mailTools } from "./mail.ts";
 import { themeTools } from "./themes.ts";
@@ -18,7 +19,13 @@ import type { AgentTool, ToolArgs, ToolCaller } from "./tool.ts";
 
 export type { AgentTool, ToolCaller, ToolFiles } from "./tool.ts";
 
-const TOOLS: AgentTool[] = [...mailTools, ...calendarTools, ...themeTools, ...viewTools];
+const TOOLS: AgentTool[] = [
+  ...mailTools,
+  ...calendarTools,
+  ...themeTools,
+  ...viewTools,
+  ...browserTools,
+];
 
 export const OTTER_TOOLS_SERVER = "otter";
 
@@ -26,9 +33,10 @@ export function toolTitle(name: string): string | undefined {
   return TOOLS.find((t) => t.name === name)?.title;
 }
 
-/** Mail's tools (views are mail's too) and the calendar's go with their modules. */
+/** Mail's tools (views are mail's too) and the calendar's go with their modules; the browser's with an app that has one. */
 function available(tool: AgentTool): boolean {
   if (calendarTools.includes(tool)) return runs("calendar");
+  if (browserTools.includes(tool)) return hasBrowser();
   return runs("mail") || themeTools.includes(tool);
 }
 
@@ -91,6 +99,19 @@ async function confirm(
   }
 }
 
+/** What a tool answers: text, or a picture (a browser tab's). */
+export type ToolResult = {
+  text: string;
+  image?: { image: string; mimeType: string };
+  isError: boolean;
+};
+
+const isImage = (value: unknown): value is { image: string; mimeType: string } =>
+  typeof value === "object" &&
+  value !== null &&
+  typeof (value as { image?: unknown }).image === "string" &&
+  typeof (value as { mimeType?: unknown }).mimeType === "string";
+
 const lastChange = new WeakMap<ToolCaller, Promise<unknown>>();
 
 /**
@@ -104,7 +125,7 @@ export function runAgentTool(
   name: string,
   args: ToolArgs,
   signal?: AbortSignal,
-): Promise<{ text: string; isError: boolean }> {
+): Promise<ToolResult> {
   const tool = agentTools(caller).find((t) => t.name === name);
   if (!tool) return Promise.resolve({ text: `No tool "${name}".`, isError: true });
   if (tool.readOnly) return run(tool, caller, args, signal);
@@ -120,7 +141,7 @@ async function run(
   caller: ToolCaller,
   args: ToolArgs,
   signal: AbortSignal | undefined,
-): Promise<{ text: string; isError: boolean }> {
+): Promise<ToolResult> {
   const name = tool.name;
   logger.info("agent", "tool", { tool: name });
   const turn = caller.turn();
@@ -132,7 +153,9 @@ async function run(
         if (turn) turn.emit({ requestId: turn.requestId, type: "change", change });
       },
     });
-    return { text: JSON.stringify(result ?? { ok: true }), isError: false };
+    if (isImage(result)) return { text: "", image: result, isError: false };
+    const text = typeof result === "string" ? result : JSON.stringify(result ?? { ok: true });
+    return { text, isError: false };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.info("agent", "tool failed", { tool: name, error: message });

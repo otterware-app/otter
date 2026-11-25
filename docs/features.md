@@ -672,22 +672,24 @@ them to the default browser instead. A chat's pages open beside it in the AI wor
 Chats). The pages live in a session of their own, apart from the app's. A web page can't embed
 other sites, so the web app opens links in a new browser tab as before.
 
-| Feature                                                                         | Mac | Web | iPhone |
-| ------------------------------------------------------------------------------- | --- | --- | ------ |
-| Pages as tabs in the panel: back, forward, reload, address and search           | ✓   | —   | —      |
-| ⌘F finds in the page                                                            | ✓   | —   | —      |
-| ⌘W closes a page, returning to the last tab viewed; the last closes it          | ✓   | —   | —      |
-| Drag to reorder tabs, Control + Tab for the last one                            | ✓   | —   | —      |
-| Links in mail and chat open in a tab or the default browser; ⌘-click flips      | ✓   | —   | —      |
-| Start page (⌘T): new chat, extensions, suggested sites; ⌘L for the address      | ✓   | —   | —      |
-| Sign-in popups, links to other apps (asked first), mailto: opens a message      | ✓   | —   | —      |
-| Context menu, site info (clear a site's data), clear all browsing data          | ✓   | —   | —      |
-| Chrome Web Store extensions: add (asked first), auto-update                     | ✓   | —   | —      |
-| Toolbar: pinned extensions, Extensions menu, badges, popups                     | ✓   | —   | —      |
-| Settings › Browser: extensions on/off, details, remove, developer mode          | ✓   | —   | —      |
-| Extensions' context menu items and notifications                                | ✓   | —   | —      |
-| Native messaging (an extension talking to its Mac app, e.g. 1Password's)        | ✓   | —   | —      |
-| Import from Chrome, Arc, Brave, Edge, Vivaldi or Chromium: sign-ins, extensions | ✓   | —   | —      |
+| Feature                                                                                                  | Mac | Web | iPhone |
+| -------------------------------------------------------------------------------------------------------- | --- | --- | ------ |
+| Pages as tabs in the panel: back, forward, reload, address and search                                    | ✓   | —   | —      |
+| ⌘F finds in the page                                                                                     | ✓   | —   | —      |
+| ⌘W closes a page, returning to the last tab viewed; the last closes it                                   | ✓   | —   | —      |
+| Drag to reorder tabs, Control + Tab for the last one                                                     | ✓   | —   | —      |
+| Links in mail and chat open in a tab or the default browser; ⌘-click flips                               | ✓   | —   | —      |
+| Start page (⌘T): new chat, extensions, suggested sites; ⌘L for the address                               | ✓   | —   | —      |
+| Sign-in popups, links to other apps (asked first), mailto: opens a message                               | ✓   | —   | —      |
+| Context menu, site info (clear a site's data), clear all browsing data                                   | ✓   | —   | —      |
+| Chrome Web Store extensions: add (asked first), auto-update                                              | ✓   | —   | —      |
+| Toolbar: pinned extensions, Extensions menu, badges, popups                                              | ✓   | —   | —      |
+| Settings › Browser: extensions on/off, details, remove, developer mode                                   | ✓   | —   | —      |
+| Extensions' context menu items and notifications                                                         | ✓   | —   | —      |
+| Native messaging (an extension talking to its Mac app, e.g. 1Password's)                                 | ✓   | —   | —      |
+| Import from Chrome, Arc, Brave, Edge, Vivaldi or Chromium: sign-ins, extensions                          | ✓   | —   | —      |
+| Agents use the browser: tabs, read (every frame, extensions' too), click, type, keys, scroll, screenshot | ✓   | —   | —      |
+| Agents sign in with 1Password's menu, never seeing a password; Solve CAPTCHAs (on by default)            | ✓   | —   | —      |
 
 Extensions install through electron-chrome-web-store (MIT) and run on Electron's extension
 support, plus Otter's own layer for what Chrome has and Electron doesn't
@@ -697,6 +699,13 @@ support, plus Otter's own layer for what Chrome has and Electron doesn't
 its desktop app on Mac, add Otter in 1Password's Settings › Browser › Add Browser. It then
 shares the desktop app's unlock, including Touch ID. Camera, microphone, location and
 notifications are refused to pages.
+
+Agents drive the browser as Aside's does (`packages/browser/src/main/agent.ts`, core's
+`tools/browser.ts`): Chrome's DevTools protocol on the tab, each frame read in its own session
+(1Password's menu in the page is a frame of its extension), and clicks and keys sent as the
+user's own input, which 1Password requires. Password fields read as `••••`; the agent picks a
+login in 1Password's menu and 1Password fills it. Settings › Browser › Solve CAPTCHAs (synced)
+says whether the agent solves a CAPTCHA it meets or asks the user to.
 
 Settings › Browser › Import brings a Chromium browser's sign-ins (its cookies, decrypted with
 the key the browser keeps in the macOS keychain, or the Linux keyring) and the extensions you

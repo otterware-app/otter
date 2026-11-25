@@ -98,7 +98,9 @@ when a feature lands or goes.
   (ChatGPT's in-app browser). `./main` runs in Electron's main process, set up with a
   `BrowserHost` (the app's logger, events, main window…): its session, the Chrome Web Store,
   Chrome's extension APIs Electron lacks (`extensions.ts`, with `./preload/extensions`, built
-  beside the app's main), native messaging, import from other browsers, and its IPC handlers;
+  beside the app's main), native messaging, import from other browsers, its IPC handlers, and the agents' hands on it
+  (`agent.ts`: DevTools protocol, every frame, trusted input; core's `tools/browser.ts` through
+  `platform.browser`);
   `main/os/` is what differs between macOS and Linux. `./ui/*` are its screens (`<webview>`
   tabs, toolbar, Settings sections) and their store, with `openLink`, where links from mail and
   chat go; the app gives them a `BrowserUIHost` at startup (`./ui/host`).

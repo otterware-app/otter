@@ -7,3 +7,4 @@ export {
   setupBrowser,
 } from "./browser.ts";
 export { registerBrowserHandlers } from "./handlers.ts";
+export { runAgentBrowser } from "./agent.ts";

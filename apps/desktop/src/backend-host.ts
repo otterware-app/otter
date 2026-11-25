@@ -1,3 +1,4 @@
+import { runAgentBrowser } from "@otter/browser/main";
 import {
   app,
   clipboard,
@@ -207,6 +208,10 @@ async function answer(
       if (result.canceled || !result.filePath) return false;
       await fs.writeFile(result.filePath, bytes);
       return true;
+    }
+    case "browser": {
+      const { command, args } = params as MainRequests["browser"]["params"];
+      return runAgentBrowser(command, args);
     }
     case "pickFiles": {
       const result = await dialog.showOpenDialog({ properties: ["openFile", "multiSelections"] });

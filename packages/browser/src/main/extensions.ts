@@ -119,6 +119,12 @@ function windowOf(window: BrowserWindow, populate = false, extensionId: string |
   };
 }
 
+/** The open tabs, in their order. */
+export const openTabIds = (): number[] =>
+  [...tabs].filter(([, tab]) => !tab.contents.isDestroyed()).map(([id]) => id);
+
+export const currentTabId = (): number => activeTabId;
+
 export function trackTab(contents: WebContents): void {
   const tabId = contents.id;
   tabs.set(tabId, { contents, favicon: null });
@@ -197,8 +203,13 @@ export function trackTab(contents: WebContents): void {
     actionsChanged();
   });
   emit((ext) => ["tabs.onCreated", [tabOf(tabId, ext)]]);
-  const waiting = creating.findIndex((pending) => pending.url === contents.getURL());
-  if (waiting >= 0) creating.splice(waiting, 1)[0]!.resolve(tabId);
+  // A tab asked for (createTab): the panel opens one per request, in order; its address can
+  // be unknown yet, or already redirected.
+  const waiting = Math.max(
+    0,
+    creating.findIndex((pending) => pending.url === contents.getURL()),
+  );
+  if (creating.length > 0) creating.splice(waiting, 1)[0]!.resolve(tabId);
 }
 
 function frameIdOf(contents: WebContents, frame: WebFrameMain): number {
@@ -228,7 +239,7 @@ export function setActiveTab(tabId: number): void {
 
 const creating: { url: string; resolve: (tabId: number) => void }[] = [];
 
-function createTab(url: string, active = true): Promise<number | null> {
+export function createTab(url: string, active = true): Promise<number | null> {
   if (!isPageUrl(url)) return Promise.resolve(null);
   return new Promise((resolve) => {
     const pending = { url, resolve };

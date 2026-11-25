@@ -497,6 +497,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["links mail chat tab default browser safari chrome external"],
   },
   {
+    id: "browser-solve-captchas",
+    title: "Solve CAPTCHAs",
+    pane: "browser",
+    available: features.browser,
+    searchTerms: ["captcha recaptcha hcaptcha robot agent challenge"],
+  },
+  {
     id: "browser-extensions-button",
     title: "Extensions button",
     pane: "browser",
