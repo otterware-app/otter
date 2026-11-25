@@ -66,18 +66,18 @@ export function createToolBroker({ now = Date.now, setTimer = setTimeout } = {})
   const devices = new Map();
   /** callId → the call, with the device it's for and whether that device took it */
   const calls = new Map();
-  /** sessionKey → the device that sent the chat's last message */
+  /** runId → the device whose message started the run */
   const senders = new Map();
 
   const alive = (d) => Boolean(d.waiter) || now() - d.seen < POLL_MS + GRACE_MS;
 
   /** Who runs a call: the device the chat's message came from, else the one with the most of Otter (the Mac's browser). */
-  function deviceFor(name, sessionKey, skip) {
+  function deviceFor(name, sessionKey, runId, skip) {
     const able = [...devices.entries()].filter(
       ([id, d]) => !skip.has(id) && alive(d) && d.tools.some((t) => t.name === name),
     );
     const rank = ([id, d]) =>
-      (senders.get(sessionKey) === id ? 2 : 0) + (d.sessions.includes(sessionKey) ? 1 : 0);
+      (senders.get(runId) === id ? 2 : 0) + (d.sessions.includes(sessionKey) ? 1 : 0);
     able.sort(
       (a, b) => rank(b) - rank(a) || b[1].tools.length - a[1].tools.length || b[1].seen - a[1].seen,
     );
@@ -115,10 +115,12 @@ export function createToolBroker({ now = Date.now, setTimer = setTimeout } = {})
       return undefined;
     },
 
-    /** A chat's message came from this device: its calls go there first. */
-    sentFrom(sessionKey, device) {
-      if (typeof sessionKey === "string" && typeof device === "string")
-        senders.set(sessionKey, device);
+    /** The run a message started came from this device: its calls go there first. */
+    sentFrom(runId, device) {
+      if (typeof runId !== "string" || typeof device !== "string") return;
+      senders.set(runId, device);
+      // Only recent runs matter: the oldest go.
+      if (senders.size > 500) senders.delete(senders.keys().next().value);
     },
 
     /** A device asking for calls: what's waiting for it, or what comes within `waitMs`. */
@@ -154,7 +156,8 @@ export function createToolBroker({ now = Date.now, setTimer = setTimeout } = {})
       const call = calls.get(callId);
       if (!call || call.device !== device) return false;
       if (taken === true) {
-        if (call.taken) return false;
+        // Asked again (the first answer was lost): still the same device's.
+        if (call.taken) return true;
         call.taken = true;
         call.wait(ANSWER_MS);
         return true;
@@ -199,7 +202,7 @@ export function createToolBroker({ now = Date.now, setTimer = setTimeout } = {})
         // open, a dropped connection) passes it to the next.
         const give = () => {
           unqueue(call);
-          const device = deviceFor(name, sessionKey, tried);
+          const device = deviceFor(name, sessionKey, runId, tried);
           if (!device)
             return call.done({
               text:

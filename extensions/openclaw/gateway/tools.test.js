@@ -44,6 +44,8 @@ describe("Otter's tools on the gateway", () => {
     expect(tools.result({ callId: call.callId, device: "mac", text: "early" })).toBe(false);
     expect(tools.result({ callId: call.callId, device: "web", taken: true })).toBe(false);
     expect(tools.result({ callId: call.callId, device: "mac", taken: true })).toBe(true);
+    // A claim asked again (its answer was lost) still holds.
+    expect(tools.result({ callId: call.callId, device: "mac", taken: true })).toBe(true);
     expect(tools.result({ callId: call.callId, device: "mac", text: '{"threads":[]}' })).toBe(true);
     expect(await answer).toEqual({ text: '{"threads":[]}', isError: false });
     // Answered once.
@@ -72,8 +74,8 @@ describe("Otter's tools on the gateway", () => {
     const tools = createToolBroker();
     const web = tools.next({ device: "web", tools: mail, waitMs: POLL_MS });
     const onMac = tools.next({ device: "mac", tools: mac, waitMs: POLL_MS });
-    tools.sentFrom("chat-w", "web");
-    void tools.call("search_mail", {}, "chat-w", "r", undefined);
+    tools.sentFrom("run-w", "web");
+    void tools.call("search_mail", {}, "chat-w", "run-w", undefined);
     expect((await web)[0].name).toBe("search_mail");
     void tools.next({ device: "web", tools: mail, waitMs: POLL_MS });
     void tools.call("search_mail", {}, "chat-other", "r", undefined);

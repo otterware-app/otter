@@ -1883,12 +1883,23 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
       runId?: string;
     },
   ): Promise<void> {
-    const reply = async (params: Record<string, unknown>) =>
-      (await onGateway(g)).client.request<{ ok?: boolean }>("otter.tools.result", {
-        callId: call.callId,
-        device: toolDevice,
-        ...params,
-      });
+    // Over the connection there is now, a few times: a reconnect mustn't lose a change that's done.
+    const reply = async (params: Record<string, unknown>) => {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await (
+            await onGateway(g)
+          ).client.request<{ ok?: boolean }>("otter.tools.result", {
+            callId: call.callId,
+            device: toolDevice,
+            ...params,
+          });
+        } catch (error) {
+          if (error instanceof GatewayProtocolRequestError || attempt >= 3) throw error;
+          await sleep(RECONNECT_DELAYS_MS[attempt + 1]);
+        }
+      }
+    };
     try {
       if (!(await reply({ taken: true })).ok) return;
       toolRuns.set(call.sessionKey, call.runId);
