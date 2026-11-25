@@ -29,6 +29,9 @@ const TOOLS: AgentTool[] = [
 
 export const OTTER_TOOLS_SERVER = "otter";
 
+/** Every tool's name, whichever this app has: what a gateway plugin declares it may lend. */
+export const agentToolNames = (): string[] => TOOLS.map((t) => t.name);
+
 export function toolTitle(name: string): string | undefined {
   return TOOLS.find((t) => t.name === name)?.title;
 }
@@ -38,6 +41,11 @@ function available(tool: AgentTool): boolean {
   if (calendarTools.includes(tool)) return runs("calendar");
   if (browserTools.includes(tool)) return hasBrowser();
   return runs("mail") || themeTools.includes(tool);
+}
+
+/** This device has tools to lend an agent elsewhere (an OpenClaw gateway's): mail, calendars or a browser. */
+export function hostsTools(): boolean {
+  return runs("mail") || runs("calendar") || hasBrowser();
 }
 
 /** The tools a caller can use: attachments need files on the device, and its access may leave out changes. */

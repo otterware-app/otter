@@ -9,6 +9,10 @@ import {
   chatFilePath,
   downloadChatFile,
   openClawStep,
+  agentTools,
+  hostsTools,
+  runAgentTool,
+  REMOTE_TOOL_INSTRUCTIONS,
 } from "@otter/core/extension-kit";
 import type {
   AgentContext,
@@ -25,6 +29,7 @@ import type {
   ChatSessionMessage,
   Emit,
   ForkPoint,
+  ToolCaller,
   ToolStep,
 } from "@otter/core/extension-kit";
 import { OPENCLAW_DEFAULTS, type OpenClawSettings } from "./settings.ts";
@@ -121,6 +126,10 @@ type Gateway = {
   capabilities: string[];
   woke: () => void;
 };
+
+/** The Otter plugin's: Otter's tools, lent to the gateway's agents while this device is there. */
+const TOOLS_NEXT = "otter.tools.next";
+const TOOLS_POLL_MS = 25_000;
 
 /** The Otter plugin's: a message sent as the channel's owner (`extensions/openclaw/gateway`). */
 const OTTER_SEND = "otter.chat.send";
@@ -1071,6 +1080,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
       disconnect();
       const ready = open(url, creds);
       current = { url, ready };
+      void ready.then(lendTools, () => {});
       ready.catch(() => {
         if (current?.ready === ready) current = null;
       });
@@ -1772,6 +1782,82 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
       if (error instanceof Error && error.message === "not_configured") return;
       logger.info("agent", "openclaw watch failed", { error: String(error) });
       scheduleWatch(Math.min(Math.max(delay * 2, RECONNECT_DELAYS_MS[0]), 60_000));
+    }
+  }
+
+  /** Still this connection: a new one lends the tools itself. */
+  async function isCurrent(g: Gateway): Promise<boolean> {
+    const now = await current?.ready.catch(() => null);
+    return now?.client === g.client;
+  }
+
+  /** This device, to the gateway's plugin: which of the user's devices runs a call. */
+  const toolDevice = crypto.randomUUID();
+  /** Each chat's caller: what it allowed for the chat holds for its next calls. */
+  const toolCallers = new Map<string, ToolCaller>();
+
+  function toolCaller(sessionKey: string): ToolCaller {
+    let caller = toolCallers.get(sessionKey);
+    if (!caller) {
+      caller = {
+        // A change asks in the chat first, as Claude's and Codex's do.
+        mode: () => "approval-required",
+        turn: () => {
+          const turn = [...turns.values()].findLast((t) => t.sessionKey === sessionKey);
+          return turn ? { requestId: turn.requestId, emit: turn.emit } : null;
+        },
+      };
+      toolCallers.set(sessionKey, caller);
+    }
+    return caller;
+  }
+
+  /**
+   * Otter's tools (mail, calendars, the browser) for the gateway's agents: this device asks
+   * the plugin for calls while it watches the gateway, runs each and answers.
+   */
+  async function lendTools(g: Gateway): Promise<void> {
+    if (!g.methods.includes(TOOLS_NEXT) || !holdsAll(g.scopes) || !hostsTools()) return;
+    const offer = agentTools({ mode: () => "approval-required", turn: () => null }).map((t) => ({
+      name: t.name,
+      title: t.title,
+      description: t.description,
+      input: t.input,
+    }));
+    while (await isCurrent(g)) {
+      let calls: {
+        callId: string;
+        name: string;
+        args: Record<string, unknown>;
+        sessionKey: string;
+      }[];
+      try {
+        ({ calls } = await g.client.request<{ calls: typeof calls }>(
+          TOOLS_NEXT,
+          {
+            device: toolDevice,
+            tools: offer,
+            sessions: [...new Set([...turns.values()].map((t) => t.sessionKey))],
+            instructions: REMOTE_TOOL_INSTRUCTIONS,
+            waitMs: TOOLS_POLL_MS,
+          },
+          { timeoutMs: TOOLS_POLL_MS + 15_000 },
+        ));
+      } catch (error) {
+        // A dropped connection ends it (the next one lends them again); anything else, again soon.
+        logger.info("agent", "openclaw tools poll failed", { error: String(error) });
+        await sleep(RECONNECT_DELAYS_MS[2]);
+        continue;
+      }
+      for (const call of calls) {
+        void runAgentTool(toolCaller(call.sessionKey), call.name, call.args ?? {}).then((answer) =>
+          g.client
+            .request("otter.tools.result", { callId: call.callId, ...answer })
+            .catch((error: unknown) =>
+              logger.info("agent", "openclaw tool answer failed", { error: String(error) }),
+            ),
+        );
+      }
     }
   }
 

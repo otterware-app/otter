@@ -29,3 +29,9 @@ export function connectedAgentInstructions(access: AgentAccess): string {
     .filter(Boolean)
     .join("\n");
 }
+
+/** For an agent on a gateway elsewhere, given Otter's tools by the app open on the user's devices. */
+export const REMOTE_TOOL_INSTRUCTIONS = [
+  "Otter is the user's app for their mail, calendar and agents. While it's open on one of their devices, its tools act there:",
+  TOOL_INSTRUCTIONS,
+].join("\n");

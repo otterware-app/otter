@@ -55,7 +55,14 @@ export {
   sentence,
 } from "./services/agent/steps.ts";
 export { TextStream } from "./services/agent/text-stream.ts";
-export { agentTools, cancelToolApprovals, runAgentTool } from "./services/agent/tools/index.ts";
+export {
+  agentToolNames,
+  agentTools,
+  cancelToolApprovals,
+  hostsTools,
+  runAgentTool,
+} from "./services/agent/tools/index.ts";
+export { REMOTE_TOOL_INSTRUCTIONS } from "./services/agent/instructions.ts";
 export type { ToolCaller, ToolFiles } from "./services/agent/tools/index.ts";
 export type {
   AgentRun,

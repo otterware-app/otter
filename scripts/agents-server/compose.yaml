@@ -1,6 +1,6 @@
 services:
   openclaw:
-    image: ghcr.io/openclaw/openclaw:2026.11.2
+    image: ghcr.io/openclaw/openclaw:2026.11.10
     environment:
       CODEX_HOME: /home/node/.openclaw/codex
     ports:
@@ -11,7 +11,7 @@ services:
   # The gateway pairs a device without asking only when it connects from loopback, which a
   # published port isn't: this forwards the port from inside the gateway's own network.
   openclaw-loopback:
-    image: ghcr.io/openclaw/openclaw:2026.11.2
+    image: ghcr.io/openclaw/openclaw:2026.11.10
     network_mode: service:openclaw
     entrypoint:
       - node
