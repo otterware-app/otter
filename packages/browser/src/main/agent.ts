@@ -4,10 +4,11 @@
  * menu in the page, 1Password's) through their own sessions, and clicks and keys go in as the
  * user's own input would (trusted), which extensions such as 1Password require.
  */
-import { webContents, type WebContents } from "electron";
+import { ipcMain, webContents, type WebContents } from "electron";
 
 import { getBrowserSession } from "./browser.ts";
 import { createTab, currentTabId, extensionDebugs, openTabIds } from "./extensions.ts";
+import { host } from "./host.ts";
 
 type Session = string | undefined;
 
@@ -465,25 +466,87 @@ async function scroll(contents: WebContents, args: Record<string, unknown>): Pro
   });
 }
 
-function tabs() {
+/** Which chat owns each page (the screens say): a page no chat owns is the user's. */
+const owners = new Map<number, string>();
+
+export function setupAgentBrowser(): void {
+  ipcMain.handle("browser:owners", (_event, list: unknown) => {
+    if (!Array.isArray(list)) return;
+    owners.clear();
+    for (const entry of list) {
+      const [pageId, chatId] = entry as [unknown, unknown];
+      if (typeof pageId === "number" && typeof chatId === "string") owners.set(pageId, chatId);
+    }
+  });
+}
+
+/** A chat works in the user's tabs and its own, never another chat's. */
+function mayUse(tabId: unknown, chatId: string | undefined): void {
+  const owner = typeof tabId === "number" ? owners.get(tabId) : undefined;
+  if (owner && owner !== chatId) throw new Error("That tab is another chat's.");
+}
+
+function tabs(chatId: string | undefined) {
   const active = currentTabId();
-  return openTabIds().map((id) => {
+  return openTabIds().flatMap((id) => {
+    const owner = owners.get(id);
+    if (owner && owner !== chatId) return [];
     const contents = webContents.fromId(id)!;
-    return { tabId: id, url: contents.getURL(), title: contents.getTitle(), active: id === active };
+    return [
+      {
+        tabId: id,
+        url: contents.getURL(),
+        title: contents.getTitle(),
+        owner: owner ? "chat" : "user",
+        ...(!owner && id === active && { active: true }),
+      },
+    ];
   });
 }
 
 /** What the agents' browser tools ask for, by name (core's tools/browser.ts). */
+const busy = new Map<number, number>();
+
+/** The tab shows its agent at work while a command runs in it. */
+function working(pageId: number, delta: 1 | -1): void {
+  const n = (busy.get(pageId) ?? 0) + delta;
+  if (n > 0) busy.set(pageId, n);
+  else busy.delete(pageId);
+  host().broadcast("browser:agentWorking", { webContentsId: pageId, working: n > 0 });
+}
+
 export async function runAgentBrowser(
   command: string,
   args: Record<string, unknown>,
 ): Promise<unknown> {
+  const pageId = typeof args.tabId === "number" ? args.tabId : undefined;
+  if (pageId === undefined) return run(command, args);
+  working(pageId, 1);
+  try {
+    return await run(command, args);
+  } finally {
+    working(pageId, -1);
+  }
+}
+
+async function run(command: string, args: Record<string, unknown>): Promise<unknown> {
+  const chatId = typeof args.chatId === "string" ? args.chatId : undefined;
+  if (args.tabId !== undefined) mayUse(args.tabId, chatId);
   switch (command) {
     case "tabs":
-      return tabs();
+      return tabs(chatId);
+    case "take": {
+      const contents = tab(args.tabId);
+      if (!chatId) throw new Error("Only a chat can take a tab.");
+      if (owners.get(contents.id) !== chatId) {
+        owners.set(contents.id, chatId);
+        host().broadcast("browser:takeTab", { webContentsId: contents.id, chatId });
+      }
+      return snapshot(args.tabId);
+    }
     case "open": {
       const url = String(args.url ?? "");
-      const tabId = await createTab(/^[a-z-]+:/i.test(url) ? url : `https://${url}`, true);
+      const tabId = await createTab(/^[a-z-]+:/i.test(url) ? url : `https://${url}`, true, chatId);
       if (tabId === null) throw new Error("Couldn't open that page.");
       const contents = tab(tabId);
       await settle(contents);

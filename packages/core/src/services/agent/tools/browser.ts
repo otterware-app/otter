@@ -1,5 +1,6 @@
 import { platform } from "../../../platform.ts";
 import { getUiPreferences } from "../../preferences.ts";
+import { turnChat } from "../turn-chats.ts";
 import type { AgentTool, ToolArgs } from "./tool.ts";
 
 const tabId = { type: "number", description: "The tab, from browser_tabs or the last snapshot." };
@@ -49,7 +50,9 @@ const tool = (
         .join(" ");
       await ctx.confirm(`${title}${what ? `: ${String(what)}` : ""}`);
     }
-    const result = await run(name.replace(/^browser_/, ""), args);
+    // The chat asking: pages it opens are its own, in its browser beside the conversation.
+    const chatId = turnChat(ctx.caller.turn()?.requestId);
+    const result = await run(name.replace(/^browser_/, ""), { ...args, ...(chatId && { chatId }) });
     return typeof result === "string" && CAPTCHA.test(result)
       ? result + (await captchaNote())
       : result;
@@ -73,7 +76,8 @@ export const browserTools: AgentTool[] = [
   tool(
     "browser_tabs",
     "List browser tabs",
-    "The tabs open in Otter's browser, which the user sees too: their ids, addresses and titles.",
+    "The tabs open in Otter's browser, with their ids, addresses and titles: the user's own " +
+      '(owner "user") and this chat\'s (owner "chat").',
     {},
     [],
     true,
@@ -89,9 +93,18 @@ export const browserTools: AgentTool[] = [
   tool(
     "browser_open",
     "Open a page",
-    `Opens a page in a new tab of Otter's browser, beside the user's, and reads it. ${SNAPSHOT_HELP}`,
+    `Opens a page in a new tab of this chat's own, in Otter's browser beside the conversation, and reads it. ${SNAPSHOT_HELP}`,
     { url: { type: "string" } },
     ["url"],
+  ),
+  tool(
+    "browser_take",
+    "Take a tab",
+    "Takes one of the user's tabs into this chat, the page as it is (signed in, filled in): it " +
+      "leaves the user's tabs and is this chat's from then on. Take a tab before working in it " +
+      'for the user ("this page", "the form I have open").',
+    { tabId },
+    ["tabId"],
   ),
   tool(
     "browser_navigate",

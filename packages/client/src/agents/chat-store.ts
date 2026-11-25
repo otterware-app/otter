@@ -717,6 +717,7 @@ function startTurn(msg: Outgoing, intent?: ChatTurn["intent"]): void {
       skill: msg.skill ? { name: msg.skill.name, path: msg.skill.path } : undefined,
       attachments: msg.attachments,
       previousResponseId: convo.sessionId ? undefined : (convo.lastResponseId ?? undefined),
+      chatId: msg.convoId,
     })
     .catch((error: unknown) => {
       console.log("[AgentChat:send] failed", { error: String(error) });
@@ -1394,6 +1395,7 @@ export function resumeRuns(providers: ProviderSnapshot[]): void {
           provider: c.provider,
           requestId,
           sessionId,
+          chatId: c.id,
         });
         if (!resumed) giveUp();
       } catch (error) {
@@ -1526,7 +1528,7 @@ async function followAgentRun(run: AgentRun): Promise<void> {
     endRun(run.requestId);
   };
   try {
-    const { resumed } = await agentApi.resume(run);
+    const { resumed } = await agentApi.resume({ ...run, chatId: convo.id });
     if (!resumed) drop();
   } catch (error) {
     console.log("[AgentChat:agentRun] failed", { error: String(error) });

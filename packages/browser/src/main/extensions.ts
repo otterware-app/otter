@@ -244,12 +244,17 @@ export function setActiveTab(tabId: number): void {
 const creating = new Map<string, (tabId: number | null) => void>();
 
 /** A new tab, by the panel: its page's id once the page is there (the panel says which). */
-export function createTab(url: string, active = true): Promise<number | null> {
+export function createTab(url: string, active = true, chatId?: string): Promise<number | null> {
   if (!isPageUrl(url)) return Promise.resolve(null);
   const requestId = crypto.randomUUID();
   return new Promise((resolve) => {
     creating.set(requestId, resolve);
-    host().broadcast("browser:openTab", { url, background: !active, requestId });
+    host().broadcast("browser:openTab", {
+      url,
+      background: !active,
+      requestId,
+      ...(chatId && { chatId }),
+    });
     setTimeout(() => {
       creating.delete(requestId);
       resolve(null);

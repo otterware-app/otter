@@ -387,7 +387,7 @@ describe("the chat store", () => {
     store.followAgents([agent]);
     await settle();
     expect(next.calls("agent:resume")).toEqual([
-      { provider: agent.id, requestId: request, sessionId: "s1" },
+      { provider: agent.id, requestId: request, sessionId: "s1", chatId: id },
     ]);
     expect(store.useChats.getState().runs[id].requestId).toBe(request);
   });

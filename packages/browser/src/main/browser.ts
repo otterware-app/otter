@@ -25,6 +25,7 @@ import {
   setupPermissionPrompts,
 } from "./permissions.ts";
 import { setupThumbnails } from "./thumbnails.ts";
+import { setupAgentBrowser } from "./agent.ts";
 import { setupDownloads } from "./downloads.ts";
 import { clearHistory, setupHistory, trackHistory } from "./history.ts";
 
@@ -68,6 +69,7 @@ export function setupBrowser(browserHost: BrowserHost, preloadPath: string): voi
   });
   setupPermissionPrompts();
   setupThumbnails();
+  setupAgentBrowser();
   setupDownloads(ses);
   setupHistory();
   ipcMain.handle("browser:screenshot", async (_event, webContentsId: unknown) => {

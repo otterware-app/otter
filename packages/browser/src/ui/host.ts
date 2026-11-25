@@ -30,6 +30,11 @@ export type BrowserUIHost = {
   isFindKey(event: KeyboardEvent): boolean;
   /** Props that let the app's Settings search find and scroll to a setting. */
   settingProps(id: BrowserSettingId): { readonly id: string; readonly title: string };
+  /**
+   * Files a page under a chat (the app's chats keep their tabs), for a page an agent opened or a
+   * tab it took: the chat's id for the tab. Absent, agents open pages in the user's tabs.
+   */
+  addChatPage?(chatId: string, page: { url: string; title: string }): string;
 };
 
 let current: BrowserUIHost | null = null;

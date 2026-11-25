@@ -1,4 +1,5 @@
 import { setBrowserUIHost } from "@otter/browser/ui/host";
+import { openChatTab, useChats } from "@otter/client/agents/chat-store";
 
 import { FindBar, isFindKey } from "../agent/chat-find";
 import { appApi } from "../app-api";
@@ -17,5 +18,11 @@ export function startBrowserUI(): void {
     FindBar,
     isFindKey,
     settingProps: searchableSetting,
+    addChatPage(chatId, { url, title }) {
+      if (!useChats.getState().conversations.some((c) => c.id === chatId)) return "";
+      const id = `page:agent:${crypto.randomUUID()}`;
+      openChatTab(chatId, { kind: "page", url }, title, { id });
+      return id;
+    },
   });
 }

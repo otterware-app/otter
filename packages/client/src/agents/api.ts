@@ -221,12 +221,15 @@ export const agentApi = {
     skill?: { name: string; path?: string };
     attachments?: ChatAttachment[];
     previousResponseId?: string;
+    /** The chat the turn is for: pages the agent opens are this chat's. */
+    chatId?: string;
   }): Promise<{ ok: boolean }> => ipc("agent:send", params),
 
   resume: (params: {
     provider: ProviderKind;
     requestId: string;
     sessionId: string;
+    chatId?: string;
   }): Promise<{ resumed: boolean }> => ipc("agent:resume", params),
 
   /** The agent session this window has on screen while it's in front, or null: its iPhones aren't told of that chat. */
