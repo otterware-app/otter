@@ -7,7 +7,7 @@ import { PanelTab } from "../mail/panel-tab";
 import { mostRecentTab } from "../mail/panel-tabs";
 import { PanelControlSlot } from "../mail/top-bar";
 import { usePanelTabDrag } from "../mail/use-panel-tab-drag";
-import { TabSwitcher, type Switching } from "./tab-switcher";
+import { HOME, TabSwitcher, type Switching } from "./tab-switcher";
 import { BrowserTabIcon } from "@otter/browser/ui/browser-view";
 import { PageSlot } from "@otter/browser/ui/page-host";
 import {
@@ -173,13 +173,18 @@ export function BrowserPanel({
   const panelRef = useRef<HTMLDivElement>(null);
 
   const recentRef = useRef<string[]>([]);
+  // In full view, the home tab (Mail…) takes its turn with the pages.
+  const homeShown = full?.homeShown ?? false;
+  const fullView = full !== null;
   useEffect(() => {
     const open = new Set(panelTabs(allTabs).map((tab) => tab.id));
+    if (fullView) open.add(HOME);
+    const shown = homeShown ? HOME : activeId;
     recentRef.current = [
-      ...(activeId && open.has(activeId) ? [activeId] : []),
-      ...recentRef.current.filter((id) => id !== activeId && open.has(id)),
+      ...(shown && open.has(shown) ? [shown] : []),
+      ...recentRef.current.filter((id) => id !== shown && open.has(id)),
     ];
-  }, [activeId, allTabs]);
+  }, [activeId, allTabs, homeShown, fullView]);
 
   const close = (id: string) => {
     const ids = panelTabs(useBrowser.getState().tabs).map((tab) => tab.id);
@@ -201,7 +206,10 @@ export function BrowserPanel({
     setSwitching(next);
   };
   const step = (back: boolean) => {
-    const open = panelTabs(useBrowser.getState().tabs).map((tab) => tab.id);
+    const open = [
+      ...panelTabs(useBrowser.getState().tabs).map((tab) => tab.id),
+      ...(full ? [HOME] : []),
+    ];
     if (open.length < 2) return false;
     const current = switchingRef.current;
     if (current) {
@@ -223,16 +231,24 @@ export function BrowserPanel({
     setChoice(null);
     const id = current.order[current.index];
     if (!id) return;
+    if (id === HOME) {
+      full?.onShowHome();
+      return;
+    }
     selectTab(id);
     full?.onShowPage();
+    // Into the page, as Chrome's switch: once it's the one shown.
     requestAnimationFrame(() =>
-      tabListRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus(),
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>("[data-browser-page]:not([inert]) webview")?.focus(),
+      ),
     );
   };
   const inBrowser = (event: KeyboardEvent) =>
-    event.target instanceof Element &&
-    (Boolean(panelRef.current?.contains(event.target)) ||
-      Boolean(event.target.closest("[data-browser-page]")));
+    Boolean(full) ||
+    (event.target instanceof Element &&
+      (Boolean(panelRef.current?.contains(event.target)) ||
+        Boolean(event.target.closest("[data-browser-page]"))));
   useCommandHandlers({
     "tab.previous": (event) => inBrowser(event) && step(false),
     "tab.switchBack": (event) => inBrowser(event) && step(true),
@@ -281,7 +297,7 @@ export function BrowserPanel({
         controlSlot={controlSlot}
         tabListRef={tabListRef}
       />
-      {switching ? <TabSwitcher switching={switching} onPick={pick} /> : null}
+      {switching ? <TabSwitcher switching={switching} onPick={pick} home={full?.home} /> : null}
       {activeId ? (
         <PageSlot key={activeId} tabId={activeId} className="rounded-xl" />
       ) : (
