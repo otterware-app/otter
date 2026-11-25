@@ -59,7 +59,9 @@ export function setupBrowser(browserHost: BrowserHost, preloadPath: string): voi
       () => callback(false),
     );
   });
-  ses.setPermissionCheckHandler((_page, permission, origin) => checkPermission(origin, permission));
+  ses.setPermissionCheckHandler((_page, permission, origin, details) =>
+    checkPermission(origin, permission, details.mediaType),
+  );
   // Sharing a screen or window (a video call's): macOS's own picker chooses what.
   ses.setDisplayMediaRequestHandler((_request, callback) => callback({}), {
     useSystemPicker: true,

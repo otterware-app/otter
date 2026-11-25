@@ -92,6 +92,8 @@ export async function requestPermission(
   const known = sitePermissions(origin);
   if (wanted.some((p) => known[p] === false)) return false;
   if (wanted.every((p) => known[p] === true)) return systemAllows(wanted);
+  // Only a tab draws the prompt; a popup (a sign-in window) can't be asked in.
+  if (page.getType() !== "webview") return false;
   const id = randomUUID();
   const answer = await new Promise<{ allow: boolean; remember: boolean }>((resolve) => {
     const asked = { id, webContentsId: page.id, site: new URL(origin).host, permissions: wanted };
@@ -116,11 +118,12 @@ export async function requestPermission(
   return answer.allow && (await systemAllows(wanted));
 }
 
-export function checkPermission(origin: string, permission: string): boolean {
+export function checkPermission(origin: string, permission: string, mediaType?: string): boolean {
   if (ALLOWED.has(permission)) return true;
-  const wanted = asked(permission, { mediaTypes: ["video", "audio"] });
+  const mediaTypes = mediaType === "video" || mediaType === "audio" ? [mediaType] : [];
+  const wanted = asked(permission, { mediaTypes });
   const known = sitePermissions(origin);
-  return wanted.some((p) => known[p] === true);
+  return wanted.length > 0 && wanted.every((p) => known[p] === true);
 }
 
 export function setupPermissionPrompts(): void {

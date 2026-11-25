@@ -3,7 +3,10 @@ import { getUiPreferences } from "../../preferences.ts";
 import type { AgentTool, ToolArgs } from "./tool.ts";
 
 const tabId = { type: "number", description: "The tab, from browser_tabs or the last snapshot." };
-const ref = { type: "string", description: 'An element\'s ref from the last snapshot ("f0e12").' };
+const ref = {
+  type: "string",
+  description: 'An element\'s ref from the last snapshot ("s1f0e12").',
+};
 
 const SNAPSHOT_HELP =
   "Returns the page as a tree of what can be read and used, each control with a ref, " +

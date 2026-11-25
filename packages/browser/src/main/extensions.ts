@@ -720,7 +720,8 @@ function debuggee(extension: Extension, target: unknown): WebContents {
 function attachDebugger(extension: Extension, contents: WebContents): void {
   const tabId = contents.id;
   const attached = debuggers.get(tabId) ?? new Set<string>();
-  if (attached.has(extension.id)) {
+  // One extension at a time on a tab, as Chrome has it.
+  if (attached.size > 0) {
     throw new Error(`Another debugger is already attached to the tab with id: ${tabId}.`);
   }
   if (!contents.debugger.isAttached()) contents.debugger.attach("1.3");

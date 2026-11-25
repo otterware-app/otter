@@ -24,6 +24,8 @@ type Attached = {
   frameSessions: Map<string, { session: string; parent: Session }>;
   /** The frames of the last snapshot, by their index in its refs. */
   frames: Frame[];
+  /** Which snapshot the refs are from: refs of an older one (another agent's) are refused. */
+  snapshot: number;
 };
 
 const attached = new Map<number, Attached>();
@@ -46,7 +48,7 @@ async function attach(contents: WebContents): Promise<Attached> {
   const existing = attached.get(contents.id);
   if (existing && contents.debugger.isAttached()) return existing;
   if (!contents.debugger.isAttached()) contents.debugger.attach("1.3");
-  const state: Attached = { frameSessions: new Map(), frames: [] };
+  const state: Attached = { frameSessions: new Map(), frames: [], snapshot: 0 };
   attached.set(contents.id, state);
   contents.debugger.on("detach", () => attached.delete(contents.id));
   contents.once("destroyed", () => attached.delete(contents.id));
@@ -265,13 +267,14 @@ export async function snapshot(tabId: unknown): Promise<string> {
   const contents = tab(tabId);
   const state = await attach(contents);
   state.frames = await frames(contents, state);
+  const taken = ++state.snapshot;
   const parts: string[] = [`Tab ${contents.id}: ${contents.getTitle()} (${contents.getURL()})`];
   for (const [index, frame] of state.frames.entries()) {
     const { result, exceptionDetails } = await send(
       contents,
       "Runtime.evaluate",
       {
-        expression: `(${readFrame.toString()})(${JSON.stringify(`f${index}`)})`,
+        expression: `(${readFrame.toString()})(${JSON.stringify(`s${taken}f${index}`)})`,
         contextId: frame.contextId,
         returnByValue: true,
       },
@@ -296,8 +299,11 @@ export async function snapshot(tabId: unknown): Promise<string> {
 /** A ref's element as a remote object in its frame. */
 async function element(contents: WebContents, ref: unknown) {
   const state = attached.get(contents.id);
-  const match = typeof ref === "string" ? /^f(\d+)e\d+$/.exec(ref) : null;
-  const frame = match ? state?.frames[Number(match[1])] : undefined;
+  const match = typeof ref === "string" ? /^s(\d+)f(\d+)e\d+$/.exec(ref) : null;
+  if (match && Number(match[1]) !== state?.snapshot) {
+    throw new Error(`Element ${String(ref)} is from an older snapshot: take a new one.`);
+  }
+  const frame = match ? state?.frames[Number(match[2])] : undefined;
   if (!frame) throw new Error(`No element ${String(ref)}: take a new snapshot.`);
   const { result } = await send(
     contents,
