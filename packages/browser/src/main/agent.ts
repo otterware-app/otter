@@ -281,6 +281,11 @@ export function snapshot(tabId: unknown): Promise<string> {
     .catch(() => {})
     .then(() => takeSnapshot(tabId));
   snapshotting.set(id, next);
+  // Not kept once done: the queue holds only what's still running.
+  const done = () => {
+    if (snapshotting.get(id) === next) snapshotting.delete(id);
+  };
+  next.then(done, done);
   return next;
 }
 
