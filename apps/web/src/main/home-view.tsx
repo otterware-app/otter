@@ -29,7 +29,12 @@ import { MessageList } from "./mail/message-list";
 import { MessageReader } from "./mail/message-reader";
 import { NewMessageView } from "./mail/new-message-view";
 import { CommandPalette } from "./mail/command-palette";
-import { BrowserPanel } from "./browser/browser-panel";
+import {
+  BrowserPanel,
+  BrowserTabStrip,
+  closePageRef,
+  type FullView,
+} from "./browser/browser-panel";
 import { OtterCalendarIcon, OtterMailIcon } from "./mail/app-icons";
 import { PageHost } from "@otter/browser/ui/page-host";
 import { AgentCorner } from "./agent/agent-corner";
@@ -697,6 +702,11 @@ function MailHome() {
     usePanelAnimationSettings(settingsRoute ? "settings" : "mail");
   const browserVisible = browserOpen && !settingsRoute && !isChats;
   const fullView = browserFull && browserVisible;
+  // In full view the mode (Mail…) is a tab beside the pages: shown alone, as they are.
+  const [fullHome, setFullHome] = useState(false);
+  const homeShown = fullView && fullHome;
+  const revealed = useBrowser((s) => s.revealed);
+  useEffect(() => setFullHome(false), [revealed]);
   const windowWidth = useSyncExternalStore(onWindowResize, () => window.innerWidth);
   const splitFits = ({ sidebar, list, browser, calendar }: PaneWidths) =>
     windowWidth -
@@ -754,6 +764,7 @@ function MailHome() {
   const setFullView = (full: boolean) => {
     localStorage.setItem("gmail:browser-full", full ? "1" : "0");
     setBrowserFull(full);
+    setFullHome(false);
   };
   const closeBrowser = () => {
     localStorage.setItem("gmail:browser-open", "0");
@@ -1614,6 +1625,20 @@ function MailHome() {
     panelControls > 0 && (isChats || (!browserVisible && !calendarPanelVisible));
   const titleTrailing = <TitleTrailing showPanelToggle={browserToggleRoom} />;
   const titlebarInset = <TitlebarInset />;
+  const full: FullView | null = fullView
+    ? {
+        home: isCalendar
+          ? { title: "Calendar", icon: <OtterCalendarIcon className="size-4" /> }
+          : workspace
+            ? { title: workspace.title, icon: <workspace.Icon className="size-4" /> }
+            : { title: "Mail", icon: <OtterMailIcon className="size-4" /> },
+        homeShown,
+        onShowHome: () => setFullHome(true),
+        onShowPage: () => setFullHome(false),
+        onExit: () => setFullView(false),
+        leading: titlebarInset,
+      }
+    : null;
   const readerLeading = fullInbox ? (
     <>
       {sidebarOpen ? null : titlebarInset}
@@ -1749,205 +1774,222 @@ function MailHome() {
             {features.browser ? <PageHost /> : null}
             <div
               data-mail-workspace=""
-              className={cn("relative flex min-h-0 min-w-0 flex-1", fullView && "hidden")}
+              className={cn(
+                "relative flex min-h-0 min-w-0 flex-1 flex-col",
+                fullView && !homeShown && "hidden",
+              )}
             >
-              {peeking ? (
-                <SidebarPeekCard width={sidebarWidth} onHover={sidebarPeek.hover}>
-                  {sidebar}
-                </SidebarPeekCard>
-              ) : null}
-              {/* Hidden, the sidebar peeks from the window's left edge. */}
-              {sidebarOpen || settingsRoute ? null : (
-                <div
-                  aria-hidden
-                  onMouseEnter={() => sidebarPeek.hover(true)}
-                  onMouseLeave={() => sidebarPeek.hover(false)}
-                  onDragEnter={() => sidebarPeek.hover(true)}
-                  className="absolute inset-y-0 -left-1 z-30 w-3"
+              {homeShown && full ? (
+                <BrowserTabStrip
+                  full={full}
+                  onClose={(id) => closePageRef.current(id)}
+                  onFullView={setFullView}
+                  controlSlot={!calendarPanelVisible}
                 />
-              )}
-              {/* Kept mounted while closed, so opening it only slides (but not twice: the peek
-                  has its own). Settings' isn't: its search shortcut would act while hidden. */}
-              {peeking || (settingsRoute && !settingsSidebarPresent) ? null : (
-                <>
-                  <div
-                    ref={sidebarFrameRef}
-                    inert={!sidebarOpen}
-                    style={{ width: sidebarOpen ? sidebarWidth : 0 }}
-                    className={cn(
-                      PANE_FRAME,
-                      "-mb-(--workspace-frame-inset)",
-                      sidebarOpen && "[[data-panel-animations=true]_&]:starting:w-0!",
-                      !sidebarOpen && "pointer-events-none",
-                    )}
-                  >
-                    <div
-                      ref={sidebarPaneRef}
-                      style={{ width: sidebarWidth }}
-                      className={`${PANE_SIDEBAR} flex shrink-0 flex-col`}
-                      data-app-sidebar=""
-                    >
-                      {settingsRoute ? (
-                        <>
-                          <SidebarTitle />
-                          <SettingsNav
-                            pane={settingsRoute.pane}
-                            onSelect={(pane, target, item) => openSettings({ pane, target, item })}
-                            onBack={leaveSettings}
-                          />
-                        </>
-                      ) : (
-                        <>
-                          {/* The traffic lights and the pinned toggle sit over its band. */}
-                          <div className="drag-region h-(--workspace-topbar-height) shrink-0" />
-                          {sidebar}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  {sidebarOpen ? <PaneResizer onPointerDown={sidebarStart} /> : null}
-                </>
-              )}
-              <div data-main-pane="" className="relative flex min-h-0 min-w-0 flex-1">
-                {hasListTarget && !settingsRoute ? (
-                  <>
-                    {/* Keep the list mounted while reading in Full inbox: its
-                    scroll position, selection and next-message shortcuts stay. */}
-                    <div
-                      ref={listPaneRef}
-                      style={{ width: fullInbox ? undefined : listWidth }}
-                      className={cn(
-                        fullInbox ? `${PANE_LIST} min-w-0 flex-1` : `${PANE_LIST} shrink-0`,
-                        joined && JOINED_LIST,
-                        !listVisible && "invisible absolute inset-0",
-                      )}
-                      inert={!listVisible}
-                      data-tour="list"
-                    >
-                      <MessageList
-                        headerLeading={LIST_LEADING}
-                        headerTrailing={LIST_TRAILING}
-                        accountId={(spansMailboxes ? firstRealAccountId : effectiveAccountId) ?? ""}
-                        alias={aliasSpace?.id}
-                        labelId={selectedLabelId}
-                        combined={combined}
-                        accountIds={accountIds}
-                        accounts={accounts}
-                        selectedMessageId={selectedMessageId}
-                        focusedMessageId={focusedMessageId}
-                        onSelectMessage={h.handleSelectMessage}
-                        onDeselect={h.closeMessage}
-                        advanceRef={advanceRef}
-                        onSelectionChange={setChatSelection}
-                        onOpenChat={h.openChat}
-                        onSearchView={h.searchFromView}
-                        viewQueryRef={viewQueryRef}
-                        search={
-                          activeSearch
-                            ? {
-                                id: activeSearch.id,
-                                query: activeSearch.query,
-                                base: activeSearch.base,
-                                accountIds: activeSearch.scope,
-                                onSearch: runSearch,
-                                onClear: () => {
-                                  const base = activeSearch.base ? `${activeSearch.base} ` : "";
-                                  patchSearch(activeSearch.id, { query: "", draft: base });
-                                  focusSearchEnd();
-                                },
-                                onExit: () => closeSearch(activeSearch.id),
-                                onScope: (scope) => patchSearch(activeSearch.id, { scope }),
-                                focusRef: searchRef,
-                                draft: activeSearch.draft,
-                                onDraftChange: (draft) => patchSearch(activeSearch.id, { draft }),
-                                messageOpen: selectedMessageId !== null,
-                              }
-                            : undefined
-                        }
-                      />
-                    </div>
-                    {fullInbox ? null : <PaneResizer onPointerDown={listStart} joined={joined} />}
-                  </>
+              ) : null}
+              <div className="relative flex min-h-0 min-w-0 flex-1">
+                {peeking ? (
+                  <SidebarPeekCard width={sidebarWidth} onHover={sidebarPeek.hover}>
+                    {sidebar}
+                  </SidebarPeekCard>
                 ) : null}
-                <div
-                  className={cn(
-                    `${PANE_MAIN} min-w-0 flex-1 flex-col`,
-                    joined && JOINED_MAIN,
-                    showMain ? "flex" : "hidden",
-                  )}
-                  data-tour={showMain ? "reader" : undefined}
-                >
-                  {readerOwnsBand || (ownsMain && !settingsRoute && !composeOpen)
-                    ? null
-                    : titleControls}
-                  <div className="flex min-h-0 flex-1 flex-col">
-                    {settingsRoute ? (
-                      <SettingsPage route={settingsRoute} onNavigate={openSettings} />
-                    ) : composeOpen && composeAccountId ? (
-                      <NewMessageView
-                        key={mailtoSeq}
-                        accounts={accounts}
-                        defaultAccountId={composeAccountId}
-                        defaultAddress={aliasSpace?.alias.address}
-                        onClose={() => {
-                          setMailtoPrefill(null);
-                          leaveSettings();
-                        }}
-                        prefill={mailtoPrefill ?? undefined}
-                      />
-                    ) : workspace ? (
-                      <workspace.Main
-                        location={selectedLabelId}
-                        item={workspaceItem}
-                        go={goInWorkspace}
-                        setTitle={nameWorkspacePlace}
-                        titleLeading={sidebarOpen ? null : titlebarInset}
-                        titleTrailing={titleTrailing}
-                      />
-                    ) : isCalendar ? (
-                      <CalendarView
-                        mode={selectedLabelId as CalendarMode}
-                        accounts={accounts}
-                        titleLeading={sidebarOpen ? null : titlebarInset}
-                        titleTrailing={titleTrailing}
-                        onMode={(mode) => go({ label: mode }, true)}
-                      />
-                    ) : isChats ? (
-                      selectedLabelId === SCHEDULED_TASKS ? (
-                        <ScheduledTasksView
-                          taskKey={mailLoc?.messageId ?? null}
-                          onOpenTask={(key) => go({ messageId: key })}
-                          titleLeading={sidebarOpen ? null : titlebarInset}
-                          titleTrailing={titleTrailing}
-                          onSelectChat={(id) => go({ label: id }, true)}
-                        />
-                      ) : selectedLabelId !== NEW_CHAT ? (
-                        <ChatWorkspace
-                          key={selectedLabelId}
-                          chatId={selectedLabelId}
-                          titleLeading={sidebarOpen ? null : titlebarInset}
-                          titleTrailing={titleTrailing}
-                          inputRef={chatInputRef}
-                          closeTabRef={closeWorkspaceTabRef}
-                          panelRef={chatPanelRef}
-                          onPanelOpen={setChatPanelOpen}
-                          onNavigate={openChatChange}
-                          onSelectChat={(id) => go({ label: id }, true)}
-                          onOpenTask={(key) => go({ label: SCHEDULED_TASKS, messageId: key })}
-                        />
-                      ) : null
-                    ) : readerAccount ? (
-                      showMain ? (
-                        renderReader()
-                      ) : null
-                    ) : (
-                      <div className="flex h-full items-center justify-center">
-                        <EmptyState
-                          title="No account selected"
-                          description="Select a mailbox from the sidebar."
+                {/* Hidden, the sidebar peeks from the window's left edge. */}
+                {sidebarOpen || settingsRoute ? null : (
+                  <div
+                    aria-hidden
+                    onMouseEnter={() => sidebarPeek.hover(true)}
+                    onMouseLeave={() => sidebarPeek.hover(false)}
+                    onDragEnter={() => sidebarPeek.hover(true)}
+                    className="absolute inset-y-0 -left-1 z-30 w-3"
+                  />
+                )}
+                {/* Kept mounted while closed, so opening it only slides (but not twice: the peek
+                  has its own). Settings' isn't: its search shortcut would act while hidden. */}
+                {peeking || (settingsRoute && !settingsSidebarPresent) ? null : (
+                  <>
+                    <div
+                      ref={sidebarFrameRef}
+                      inert={!sidebarOpen}
+                      style={{ width: sidebarOpen ? sidebarWidth : 0 }}
+                      className={cn(
+                        PANE_FRAME,
+                        "-mb-(--workspace-frame-inset)",
+                        sidebarOpen && "[[data-panel-animations=true]_&]:starting:w-0!",
+                        !sidebarOpen && "pointer-events-none",
+                      )}
+                    >
+                      <div
+                        ref={sidebarPaneRef}
+                        style={{ width: sidebarWidth }}
+                        className={`${PANE_SIDEBAR} flex shrink-0 flex-col`}
+                        data-app-sidebar=""
+                      >
+                        {settingsRoute ? (
+                          <>
+                            <SidebarTitle />
+                            <SettingsNav
+                              pane={settingsRoute.pane}
+                              onSelect={(pane, target, item) =>
+                                openSettings({ pane, target, item })
+                              }
+                              onBack={leaveSettings}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            {/* The traffic lights and the pinned toggle sit over its band. */}
+                            <div className="drag-region h-(--workspace-topbar-height) shrink-0" />
+                            {sidebar}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {sidebarOpen ? <PaneResizer onPointerDown={sidebarStart} /> : null}
+                  </>
+                )}
+                <div data-main-pane="" className="relative flex min-h-0 min-w-0 flex-1">
+                  {hasListTarget && !settingsRoute ? (
+                    <>
+                      {/* Keep the list mounted while reading in Full inbox: its
+                    scroll position, selection and next-message shortcuts stay. */}
+                      <div
+                        ref={listPaneRef}
+                        style={{ width: fullInbox ? undefined : listWidth }}
+                        className={cn(
+                          fullInbox ? `${PANE_LIST} min-w-0 flex-1` : `${PANE_LIST} shrink-0`,
+                          joined && JOINED_LIST,
+                          !listVisible && "invisible absolute inset-0",
+                        )}
+                        inert={!listVisible}
+                        data-tour="list"
+                      >
+                        <MessageList
+                          headerLeading={LIST_LEADING}
+                          headerTrailing={LIST_TRAILING}
+                          accountId={
+                            (spansMailboxes ? firstRealAccountId : effectiveAccountId) ?? ""
+                          }
+                          alias={aliasSpace?.id}
+                          labelId={selectedLabelId}
+                          combined={combined}
+                          accountIds={accountIds}
+                          accounts={accounts}
+                          selectedMessageId={selectedMessageId}
+                          focusedMessageId={focusedMessageId}
+                          onSelectMessage={h.handleSelectMessage}
+                          onDeselect={h.closeMessage}
+                          advanceRef={advanceRef}
+                          onSelectionChange={setChatSelection}
+                          onOpenChat={h.openChat}
+                          onSearchView={h.searchFromView}
+                          viewQueryRef={viewQueryRef}
+                          search={
+                            activeSearch
+                              ? {
+                                  id: activeSearch.id,
+                                  query: activeSearch.query,
+                                  base: activeSearch.base,
+                                  accountIds: activeSearch.scope,
+                                  onSearch: runSearch,
+                                  onClear: () => {
+                                    const base = activeSearch.base ? `${activeSearch.base} ` : "";
+                                    patchSearch(activeSearch.id, { query: "", draft: base });
+                                    focusSearchEnd();
+                                  },
+                                  onExit: () => closeSearch(activeSearch.id),
+                                  onScope: (scope) => patchSearch(activeSearch.id, { scope }),
+                                  focusRef: searchRef,
+                                  draft: activeSearch.draft,
+                                  onDraftChange: (draft) => patchSearch(activeSearch.id, { draft }),
+                                  messageOpen: selectedMessageId !== null,
+                                }
+                              : undefined
+                          }
                         />
                       </div>
+                      {fullInbox ? null : <PaneResizer onPointerDown={listStart} joined={joined} />}
+                    </>
+                  ) : null}
+                  <div
+                    className={cn(
+                      `${PANE_MAIN} min-w-0 flex-1 flex-col`,
+                      joined && JOINED_MAIN,
+                      showMain ? "flex" : "hidden",
                     )}
+                    data-tour={showMain ? "reader" : undefined}
+                  >
+                    {readerOwnsBand || (ownsMain && !settingsRoute && !composeOpen)
+                      ? null
+                      : titleControls}
+                    <div className="flex min-h-0 flex-1 flex-col">
+                      {settingsRoute ? (
+                        <SettingsPage route={settingsRoute} onNavigate={openSettings} />
+                      ) : composeOpen && composeAccountId ? (
+                        <NewMessageView
+                          key={mailtoSeq}
+                          accounts={accounts}
+                          defaultAccountId={composeAccountId}
+                          defaultAddress={aliasSpace?.alias.address}
+                          onClose={() => {
+                            setMailtoPrefill(null);
+                            leaveSettings();
+                          }}
+                          prefill={mailtoPrefill ?? undefined}
+                        />
+                      ) : workspace ? (
+                        <workspace.Main
+                          location={selectedLabelId}
+                          item={workspaceItem}
+                          go={goInWorkspace}
+                          setTitle={nameWorkspacePlace}
+                          titleLeading={sidebarOpen ? null : titlebarInset}
+                          titleTrailing={titleTrailing}
+                        />
+                      ) : isCalendar ? (
+                        <CalendarView
+                          mode={selectedLabelId as CalendarMode}
+                          accounts={accounts}
+                          titleLeading={sidebarOpen ? null : titlebarInset}
+                          titleTrailing={titleTrailing}
+                          onMode={(mode) => go({ label: mode }, true)}
+                        />
+                      ) : isChats ? (
+                        selectedLabelId === SCHEDULED_TASKS ? (
+                          <ScheduledTasksView
+                            taskKey={mailLoc?.messageId ?? null}
+                            onOpenTask={(key) => go({ messageId: key })}
+                            titleLeading={sidebarOpen ? null : titlebarInset}
+                            titleTrailing={titleTrailing}
+                            onSelectChat={(id) => go({ label: id }, true)}
+                          />
+                        ) : selectedLabelId !== NEW_CHAT ? (
+                          <ChatWorkspace
+                            key={selectedLabelId}
+                            chatId={selectedLabelId}
+                            titleLeading={sidebarOpen ? null : titlebarInset}
+                            titleTrailing={titleTrailing}
+                            inputRef={chatInputRef}
+                            closeTabRef={closeWorkspaceTabRef}
+                            panelRef={chatPanelRef}
+                            onPanelOpen={setChatPanelOpen}
+                            onNavigate={openChatChange}
+                            onSelectChat={(id) => go({ label: id }, true)}
+                            onOpenTask={(key) => go({ label: SCHEDULED_TASKS, messageId: key })}
+                          />
+                        ) : null
+                      ) : readerAccount ? (
+                        showMain ? (
+                          renderReader()
+                        ) : null
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <EmptyState
+                            title="No account selected"
+                            description="Select a mailbox from the sidebar."
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1962,6 +2004,7 @@ function MailHome() {
                   className={cn(
                     PANE_FRAME,
                     fullView && "min-w-0 flex-1",
+                    homeShown && "hidden",
                     browserVisible && "[[data-panel-animations=true]_&]:starting:w-0!",
                     !browserVisible && "pointer-events-none",
                   )}
@@ -1974,26 +2017,15 @@ function MailHome() {
                     <BrowserPanel
                       closeTabRef={closeBrowserTabRef}
                       onClosePanel={closeBrowser}
-                      controlSlot={!calendarPanelVisible || fullView}
-                      full={fullView}
+                      controlSlot={!calendarPanelVisible}
+                      full={full}
                       onFullView={setFullView}
-                      home={
-                        isCalendar
-                          ? { title: "Calendar", icon: <OtterCalendarIcon className="size-4" /> }
-                          : workspace
-                            ? {
-                                title: workspace.title,
-                                icon: <workspace.Icon className="size-4" />,
-                              }
-                            : { title: "Mail", icon: <OtterMailIcon className="size-4" /> }
-                      }
-                      leading={titlebarInset}
                     />
                   </div>
                 </div>
               </>
             ) : null}
-            {calendarPanelPresent && !fullView ? (
+            {calendarPanelPresent ? (
               <>
                 {calendarPanelVisible ? <PaneResizer onPointerDown={calendarPanelStart} /> : null}
                 <div

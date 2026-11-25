@@ -120,7 +120,7 @@ export function checkPermission(origin: string, permission: string): boolean {
   if (ALLOWED.has(permission)) return true;
   const wanted = asked(permission, { mediaTypes: ["video", "audio"] });
   const known = sitePermissions(origin);
-  return wanted.length > 0 && wanted.some((p) => known[p] === true);
+  return wanted.some((p) => known[p] === true);
 }
 
 export function setupPermissionPrompts(): void {
