@@ -758,7 +758,10 @@ authed.get("/events", async (c) => {
   const { id, user } = c.var.session;
   const headers = new Headers(c.req.raw.headers);
   headers.set(SESSION_HEADER, id);
-  return hub(c.env, user.id).fetch(new Request(c.req.raw, { headers }));
+  return retryingReset(
+    () => hub(c.env, user.id),
+    (target) => target.fetch(new Request(c.req.raw, { headers })),
+  );
 });
 
 /**
