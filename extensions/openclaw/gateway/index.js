@@ -219,7 +219,9 @@ export default defineChannelPluginEntry({
               parameters: tool.input,
               async execute(_id, params, signal) {
                 context.assertInvocationCurrent();
-                return toolResult(await tools.call(name, params, context.sessionKey, signal));
+                return toolResult(
+                  await tools.call(name, params, context.sessionKey, context.runId, signal),
+                );
               },
             };
           },
@@ -263,6 +265,7 @@ export default defineChannelPluginEntry({
         const cfg = context?.getRuntimeConfig?.() ?? api.config;
         if (!isOwnerConfigured(cfg)) throw new Error("otter_not_owner");
         const message = messageOf(params);
+        tools.sentFrom(message.sessionKey, params?.device);
         // The run starts outside the request that carried it (the gateway's context-free root,
         // whatever request loaded this plugin), so it's the channel owner's, not that
         // connection's, and outlives it. What fails before it starts fails the request.

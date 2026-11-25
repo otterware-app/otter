@@ -64,21 +64,22 @@ const isTool = (tool) =>
 export function createToolBroker({ now = Date.now, setTimer = setTimeout } = {}) {
   /** device → { tools, sessions, instructions, seen, waiter, queue } */
   const devices = new Map();
-  /** callId → { answered } */
+  /** callId → the call, with the device it's for and whether that device took it */
   const calls = new Map();
+  /** sessionKey → the device that sent the chat's last message */
+  const senders = new Map();
 
   const alive = (d) => Boolean(d.waiter) || now() - d.seen < POLL_MS + GRACE_MS;
 
-  /** Who runs a call: the device in that chat, else the one with the most of Otter (the Mac's browser). */
+  /** Who runs a call: the device the chat's message came from, else the one with the most of Otter (the Mac's browser). */
   function deviceFor(name, sessionKey, skip) {
     const able = [...devices.entries()].filter(
-      ([id, d]) => id !== skip && alive(d) && d.tools.some((t) => t.name === name),
+      ([id, d]) => !skip.has(id) && alive(d) && d.tools.some((t) => t.name === name),
     );
+    const rank = ([id, d]) =>
+      (senders.get(sessionKey) === id ? 2 : 0) + (d.sessions.includes(sessionKey) ? 1 : 0);
     able.sort(
-      ([, a], [, b]) =>
-        Number(b.sessions.includes(sessionKey)) - Number(a.sessions.includes(sessionKey)) ||
-        b.tools.length - a.tools.length ||
-        b.seen - a.seen,
+      (a, b) => rank(b) - rank(a) || b[1].tools.length - a[1].tools.length || b[1].seen - a[1].seen,
     );
     return able[0]?.[0];
   }
@@ -90,6 +91,12 @@ export function createToolBroker({ now = Date.now, setTimer = setTimeout } = {})
       d.waiter = null;
       waiter([call]);
     } else d.queue.push(call);
+  }
+
+  function unqueue(call) {
+    const queue = devices.get(call.device)?.queue;
+    const at = queue?.indexOf(call.payload) ?? -1;
+    if (at >= 0) queue.splice(at, 1);
   }
 
   return {
@@ -106,6 +113,12 @@ export function createToolBroker({ now = Date.now, setTimer = setTimeout } = {})
     instructions() {
       for (const d of devices.values()) if (alive(d) && d.instructions) return d.instructions;
       return undefined;
+    },
+
+    /** A chat's message came from this device: its calls go there first. */
+    sentFrom(sessionKey, device) {
+      if (typeof sessionKey === "string" && typeof device === "string")
+        senders.set(sessionKey, device);
     },
 
     /** A device asking for calls: what's waiting for it, or what comes within `waitMs`. */
@@ -133,11 +146,21 @@ export function createToolBroker({ now = Date.now, setTimer = setTimeout } = {})
       });
     },
 
-    /** A device's answer to a call it was given. */
-    result({ callId, text, image, isError }) {
+    /**
+     * A device taking a call before it runs it (false: it went elsewhere, don't run it), or
+     * answering one it took.
+     */
+    result({ callId, device, taken, text, image, isError }) {
       const call = calls.get(callId);
-      if (!call) return false;
-      call.answered({
+      if (!call || call.device !== device) return false;
+      if (taken === true) {
+        if (call.taken) return false;
+        call.taken = true;
+        call.wait(ANSWER_MS);
+        return true;
+      }
+      if (!call.taken) return false;
+      call.done({
         text: typeof text === "string" ? text : "",
         ...(image && typeof image.image === "string" && typeof image.mimeType === "string"
           ? { image: { image: image.image, mimeType: image.mimeType } }
@@ -148,52 +171,55 @@ export function createToolBroker({ now = Date.now, setTimer = setTimeout } = {})
     },
 
     /** Runs a tool on a device: what it answers, or why it couldn't. */
-    call(name, args, sessionKey, signal) {
+    call(name, args, sessionKey, runId, signal) {
       return new Promise((resolve) => {
+        if (signal?.aborted) return resolve({ text: "The call was cancelled.", isError: true });
         const callId = randomUUID();
-        let device = deviceFor(name, sessionKey);
-        if (!device) {
-          resolve({ text: "Otter isn't open on any of the user's devices.", isError: true });
-          return;
-        }
-        const call = { callId, name, args: args ?? {}, sessionKey };
+        const tried = new Set();
+        const call = {
+          payload: { callId, name, args: args ?? {}, sessionKey, runId },
+          taken: false,
+        };
         let timer;
-        const done = (answer) => {
+        call.done = (answer) => {
           if (!calls.has(callId)) return;
           calls.delete(callId);
           clearTimeout(timer);
+          unqueue(call);
           resolve(answer);
         };
-        const picked = () => {
+        call.wait = (ms) => {
           clearTimeout(timer);
-          timer = setTimer(
-            () => done({ text: "Otter didn't answer in time.", isError: true }),
-            ANSWER_MS,
-          );
+          timer = setTimer(() => {
+            if (call.taken) call.done({ text: "Otter didn't answer in time.", isError: true });
+            else give();
+          }, ms);
         };
-        // Not picked up (the device went to sleep with its poll open): another device, or none.
-        const unclaimed = () => {
-          const d = devices.get(device);
-          if (!d?.queue.includes(call)) return;
-          d.queue.splice(d.queue.indexOf(call), 1);
-          const other = deviceFor(name, sessionKey, device);
-          if (!other) return done({ text: "Otter didn't pick this up.", isError: true });
-          device = other;
-          hand(device, call);
-          timer = setTimer(unclaimed, PICKUP_MS);
+        // To a device that's there; one that doesn't take it in time (asleep with its poll
+        // open, a dropped connection) passes it to the next.
+        const give = () => {
+          unqueue(call);
+          const device = deviceFor(name, sessionKey, tried);
+          if (!device)
+            return call.done({
+              text:
+                tried.size === 0
+                  ? "Otter isn't open on any of the user's devices."
+                  : "Otter didn't pick this up.",
+              isError: true,
+            });
+          tried.add(device);
+          call.device = device;
+          hand(device, call.payload);
+          call.wait(PICKUP_MS);
         };
-        calls.set(callId, { answered: done });
+        calls.set(callId, call);
         signal?.addEventListener(
           "abort",
-          () => done({ text: "The call was cancelled.", isError: true }),
+          () => call.done({ text: "The call was cancelled.", isError: true }),
           { once: true },
         );
-        hand(device, call);
-        timer = setTimer(() => {
-          const d = devices.get(device);
-          if (d?.queue.includes(call)) unclaimed();
-          else picked();
-        }, PICKUP_MS);
+        give();
       });
     },
   };

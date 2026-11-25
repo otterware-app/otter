@@ -10,6 +10,7 @@ import {
   downloadChatFile,
   openClawStep,
   agentTools,
+  cancelToolApprovals,
   hostsTools,
   runAgentTool,
   REMOTE_TOOL_INSTRUCTIONS,
@@ -801,12 +802,18 @@ export function agentRunsSince(
 async function sendAsOwner(
   g: Gateway,
   send: { sessionKey: string; message: string; idempotencyKey: string; attachments?: unknown[] },
+  device: string,
 ): Promise<{ runId?: string }> {
   if (g.methods.includes(OTTER_SEND) && holdsAll(g.scopes)) {
     try {
-      return await g.client.request<{ runId?: string }>(OTTER_SEND, send, {
-        timeoutMs: FILE_TIMEOUT_MS,
-      });
+      // From this device: the run's calls to Otter's tools come here first.
+      return await g.client.request<{ runId?: string }>(
+        OTTER_SEND,
+        { ...send, device },
+        {
+          timeoutMs: FILE_TIMEOUT_MS,
+        },
+      );
     } catch (error) {
       if (!/otter_not_owner/.test(String(error))) throw error;
     }
@@ -1803,13 +1810,24 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
         // A change asks in the chat first, as Claude's and Codex's do.
         mode: () => "approval-required",
         turn: () => {
-          const turn = [...turns.values()].findLast((t) => t.sessionKey === sessionKey);
+          const here = [...turns.values()].filter((t) => t.sessionKey === sessionKey);
+          const run = toolRuns.get(sessionKey);
+          const turn = here.find((t) => ownsRun(t, run)) ?? here.at(-1);
           return turn ? { requestId: turn.requestId, emit: turn.emit } : null;
         },
       };
       toolCallers.set(sessionKey, caller);
     }
     return caller;
+  }
+
+  /** The run each chat's latest call came from: its turn asks for approval and owns its pages. */
+  const toolRuns = new Map<string, string | undefined>();
+
+  /** On the connection to that gateway now: a call outlives the one it came on. */
+  async function onGateway(g: Gateway): Promise<Gateway> {
+    const now = current?.url === g.url ? await current.ready.catch(() => null) : null;
+    return now ?? g;
   }
 
   /**
@@ -1830,6 +1848,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
         name: string;
         args: Record<string, unknown>;
         sessionKey: string;
+        runId?: string;
       }[];
       try {
         ({ calls } = await g.client.request<{ calls: typeof calls }>(
@@ -1849,15 +1868,34 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
         await sleep(RECONNECT_DELAYS_MS[2]);
         continue;
       }
-      for (const call of calls) {
-        void runAgentTool(toolCaller(call.sessionKey), call.name, call.args ?? {}).then((answer) =>
-          g.client
-            .request("otter.tools.result", { callId: call.callId, ...answer })
-            .catch((error: unknown) =>
-              logger.info("agent", "openclaw tool answer failed", { error: String(error) }),
-            ),
-        );
-      }
+      for (const call of calls) void runCall(g, call);
+    }
+  }
+
+  /** Takes a call (another device may have it by now: then it isn't run), runs it and answers. */
+  async function runCall(
+    g: Gateway,
+    call: {
+      callId: string;
+      name: string;
+      args: Record<string, unknown>;
+      sessionKey: string;
+      runId?: string;
+    },
+  ): Promise<void> {
+    const reply = async (params: Record<string, unknown>) =>
+      (await onGateway(g)).client.request<{ ok?: boolean }>("otter.tools.result", {
+        callId: call.callId,
+        device: toolDevice,
+        ...params,
+      });
+    try {
+      if (!(await reply({ taken: true })).ok) return;
+      toolRuns.set(call.sessionKey, call.runId);
+      const answer = await runAgentTool(toolCaller(call.sessionKey), call.name, call.args ?? {});
+      await reply(answer);
+    } catch (error) {
+      logger.info("agent", "openclaw tool call failed", { tool: call.name, error: String(error) });
     }
   }
 
@@ -2178,7 +2216,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
       await follow(turn, settings, async (going) => {
         let sent: { runId?: string } | undefined;
         try {
-          sent = await sendAsOwner(g, send);
+          sent = await sendAsOwner(g, send, toolDevice);
         } catch (error) {
           if (error instanceof GatewayProtocolRequestError) throw error;
           // The socket went before the gateway answered, which may have the message already.
@@ -2190,7 +2228,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
               turn.gateway = await gateway(settings);
               const { found } = await runState(turn);
               if (!going()) return;
-              sent = found ? {} : await sendAsOwner(turn.gateway, send);
+              sent = found ? {} : await sendAsOwner(turn.gateway, send, toolDevice);
             } catch (retry) {
               if (retry instanceof GatewayProtocolRequestError) throw retry;
               if (retry instanceof Error && retry.message === "not_configured") throw retry;
@@ -2264,6 +2302,8 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
     cancel(requestId) {
       const turn = turns.get(requestId);
       if (!turn) return;
+      const caller = toolCallers.get(turn.sessionKey);
+      if (caller) cancelToolApprovals(caller);
       // Waiting on a yield, no run is going to report it stopped, or continue it.
       const waiting = turn.yielded;
       if (waiting) continuing.delete(turn.sessionKey);
