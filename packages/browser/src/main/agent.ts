@@ -7,7 +7,7 @@
 import { webContents, type WebContents } from "electron";
 
 import { getBrowserSession } from "./browser.ts";
-import { createTab, currentTabId, openTabIds } from "./extensions.ts";
+import { createTab, currentTabId, extensionDebugs, openTabIds } from "./extensions.ts";
 
 type Session = string | undefined;
 
@@ -44,9 +44,18 @@ function tab(tabId: unknown): WebContents {
 const send = (contents: WebContents, method: string, params: object = {}, session?: Session) =>
   contents.debugger.sendCommand(method, params, session) as Promise<any>;
 
+/** Snapshots are numbered for the app's life: a ref outlives the debugger reattaching. */
+let snapshots = 0;
+
+/** A tab the agents' tools are driving (an extension can't debug it meanwhile, nor they one it debugs). */
+export const agentDrives = (tabId: number): boolean => attached.has(tabId);
+
 async function attach(contents: WebContents): Promise<Attached> {
   const existing = attached.get(contents.id);
   if (existing && contents.debugger.isAttached()) return existing;
+  if (extensionDebugs(contents.id)) {
+    throw new Error("An extension is debugging this tab: use another tab.");
+  }
   if (!contents.debugger.isAttached()) contents.debugger.attach("1.3");
   const state: Attached = { frameSessions: new Map(), frames: [], snapshot: 0 };
   attached.set(contents.id, state);
@@ -263,11 +272,24 @@ const extensionName = (url: string) => {
   return id ? getBrowserSession().extensions.getExtension(id)?.name : undefined;
 };
 
-export async function snapshot(tabId: unknown): Promise<string> {
+/** One snapshot of a tab at a time: two would interleave their frames' refs. */
+const snapshotting = new Map<number, Promise<unknown>>();
+
+export function snapshot(tabId: unknown): Promise<string> {
+  const id = tab(tabId).id;
+  const next = (snapshotting.get(id) ?? Promise.resolve())
+    .catch(() => {})
+    .then(() => takeSnapshot(tabId));
+  snapshotting.set(id, next);
+  return next;
+}
+
+async function takeSnapshot(tabId: unknown): Promise<string> {
   const contents = tab(tabId);
   const state = await attach(contents);
   state.frames = await frames(contents, state);
-  const taken = ++state.snapshot;
+  const taken = ++snapshots;
+  state.snapshot = taken;
   const parts: string[] = [`Tab ${contents.id}: ${contents.getTitle()} (${contents.getURL()})`];
   for (const [index, frame] of state.frames.entries()) {
     const { result, exceptionDetails } = await send(

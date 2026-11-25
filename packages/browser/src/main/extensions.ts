@@ -27,6 +27,7 @@ import { host } from "./host.ts";
 import { browserOS } from "./os/index.ts";
 import { leavingTab, trackThumbnail } from "./thumbnails.ts";
 import { downloadItem, listDownloads } from "./downloads.ts";
+import { agentDrives } from "./agent.ts";
 import { enableNativeMessaging } from "./native-messaging-ipc.ts";
 
 type Manifest = {
@@ -706,6 +707,8 @@ function ungroupTab(tabId: number): void {
  */
 const debuggers = new Map<number, Set<string>>();
 
+export const extensionDebugs = (tabId: number): boolean => (debuggers.get(tabId)?.size ?? 0) > 0;
+
 function debuggee(extension: Extension, target: unknown): WebContents {
   if (!(manifestOf(extension).permissions ?? []).includes("debugger")) {
     throw new Error("This extension doesn't have the debugger permission.");
@@ -720,8 +723,8 @@ function debuggee(extension: Extension, target: unknown): WebContents {
 function attachDebugger(extension: Extension, contents: WebContents): void {
   const tabId = contents.id;
   const attached = debuggers.get(tabId) ?? new Set<string>();
-  // One extension at a time on a tab, as Chrome has it.
-  if (attached.size > 0) {
+  // One debugger at a time on a tab, as Chrome has it: an extension, or the agents' tools.
+  if (attached.size > 0 || agentDrives(tabId)) {
     throw new Error(`Another debugger is already attached to the tab with id: ${tabId}.`);
   }
   if (!contents.debugger.isAttached()) contents.debugger.attach("1.3");
