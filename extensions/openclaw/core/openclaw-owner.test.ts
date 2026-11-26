@@ -85,6 +85,8 @@ const sendsWith = (method: string) =>
         sessionKey: "s",
         message: "Get my check-ins automation",
         idempotencyKey: "req-1",
+        // Otter's channel hears which device it's from: that device runs the run's tool calls.
+        ...(method === "otter.chat.send" && { device: expect.any(String) }),
       },
       expect.anything(),
     ),

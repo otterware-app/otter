@@ -9,6 +9,11 @@ import {
   chatFilePath,
   downloadChatFile,
   openClawStep,
+  agentTools,
+  cancelToolApprovals,
+  hostsTools,
+  runAgentTool,
+  REMOTE_TOOL_INSTRUCTIONS,
 } from "@otter/core/extension-kit";
 import type {
   AgentContext,
@@ -25,6 +30,7 @@ import type {
   ChatSessionMessage,
   Emit,
   ForkPoint,
+  ToolCaller,
   ToolStep,
 } from "@otter/core/extension-kit";
 import { OPENCLAW_DEFAULTS, type OpenClawSettings } from "./settings.ts";
@@ -121,6 +127,10 @@ type Gateway = {
   capabilities: string[];
   woke: () => void;
 };
+
+/** The Otter plugin's: Otter's tools, lent to the gateway's agents while this device is there. */
+const TOOLS_NEXT = "otter.tools.next";
+const TOOLS_POLL_MS = 25_000;
 
 /** The Otter plugin's: a message sent as the channel's owner (`extensions/openclaw/gateway`). */
 const OTTER_SEND = "otter.chat.send";
@@ -792,12 +802,18 @@ export function agentRunsSince(
 async function sendAsOwner(
   g: Gateway,
   send: { sessionKey: string; message: string; idempotencyKey: string; attachments?: unknown[] },
+  device: string,
 ): Promise<{ runId?: string }> {
   if (g.methods.includes(OTTER_SEND) && holdsAll(g.scopes)) {
     try {
-      return await g.client.request<{ runId?: string }>(OTTER_SEND, send, {
-        timeoutMs: FILE_TIMEOUT_MS,
-      });
+      // From this device: the run's calls to Otter's tools come here first.
+      return await g.client.request<{ runId?: string }>(
+        OTTER_SEND,
+        { ...send, device },
+        {
+          timeoutMs: FILE_TIMEOUT_MS,
+        },
+      );
     } catch (error) {
       if (!/otter_not_owner/.test(String(error))) throw error;
     }
@@ -1071,6 +1087,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
       disconnect();
       const ready = open(url, creds);
       current = { url, ready };
+      void ready.then(lendTools, () => {});
       ready.catch(() => {
         if (current?.ready === ready) current = null;
       });
@@ -1775,6 +1792,134 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
     }
   }
 
+  /** Still this connection: a new one lends the tools itself. */
+  async function isCurrent(g: Gateway): Promise<boolean> {
+    const now = await current?.ready.catch(() => null);
+    return now?.client === g.client;
+  }
+
+  /** This device, to the gateway's plugin: which of the user's devices runs a call. */
+  const toolDevice = crypto.randomUUID();
+  /** Each chat's caller: what it allowed for the chat holds for its next calls. */
+  const toolCallers = new Map<string, ToolCaller>();
+
+  function toolCaller(sessionKey: string): ToolCaller {
+    let caller = toolCallers.get(sessionKey);
+    if (!caller) {
+      caller = {
+        // A change asks in the chat first, as Claude's and Codex's do.
+        mode: () => "approval-required",
+        turn: () => {
+          const here = [...turns.values()].filter((t) => t.sessionKey === sessionKey);
+          const run = toolRuns.get(sessionKey);
+          const turn = here.find((t) => ownsRun(t, run)) ?? here.at(-1);
+          return turn ? { requestId: turn.requestId, emit: turn.emit } : null;
+        },
+      };
+      toolCallers.set(sessionKey, caller);
+    }
+    return caller;
+  }
+
+  /** Each chat's calls running or queued: stopping its turn stops them. */
+  const toolStops = new Map<string, Set<AbortController>>();
+
+  /** The run each chat's latest call came from: its turn asks for approval and owns its pages. */
+  const toolRuns = new Map<string, string | undefined>();
+
+  /** On the connection to that gateway now: a call outlives the one it came on. */
+  async function onGateway(g: Gateway): Promise<Gateway> {
+    const now = current?.url === g.url ? await current.ready.catch(() => null) : null;
+    return now ?? g;
+  }
+
+  /**
+   * Otter's tools (mail, calendars, the browser) for the gateway's agents: this device asks
+   * the plugin for calls while it watches the gateway, runs each and answers.
+   */
+  async function lendTools(g: Gateway): Promise<void> {
+    if (!g.methods.includes(TOOLS_NEXT) || !holdsAll(g.scopes) || !hostsTools()) return;
+    const offer = agentTools({ mode: () => "approval-required", turn: () => null }).map((t) => ({
+      name: t.name,
+      title: t.title,
+      description: t.description,
+      input: t.input,
+    }));
+    while (await isCurrent(g)) {
+      let calls: {
+        callId: string;
+        name: string;
+        args: Record<string, unknown>;
+        sessionKey: string;
+        runId?: string;
+      }[];
+      try {
+        ({ calls } = await g.client.request<{ calls: typeof calls }>(
+          TOOLS_NEXT,
+          {
+            device: toolDevice,
+            tools: offer,
+            sessions: [...new Set([...turns.values()].map((t) => t.sessionKey))],
+            instructions: REMOTE_TOOL_INSTRUCTIONS,
+            waitMs: TOOLS_POLL_MS,
+          },
+          { timeoutMs: TOOLS_POLL_MS + 15_000 },
+        ));
+      } catch (error) {
+        // A dropped connection ends it (the next one lends them again); anything else, again soon.
+        logger.info("agent", "openclaw tools poll failed", { error: String(error) });
+        await sleep(RECONNECT_DELAYS_MS[2]);
+        continue;
+      }
+      for (const call of calls) void runCall(g, call);
+    }
+  }
+
+  /** Takes a call (another device may have it by now: then it isn't run), runs it and answers. */
+  async function runCall(
+    g: Gateway,
+    call: {
+      callId: string;
+      name: string;
+      args: Record<string, unknown>;
+      sessionKey: string;
+      runId?: string;
+    },
+  ): Promise<void> {
+    // Over the connection there is now, a few times: a reconnect mustn't lose a change that's done.
+    const reply = async (params: Record<string, unknown>) => {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await (
+            await onGateway(g)
+          ).client.request<{ ok?: boolean }>("otter.tools.result", {
+            callId: call.callId,
+            device: toolDevice,
+            ...params,
+          });
+        } catch (error) {
+          if (error instanceof GatewayProtocolRequestError || attempt >= 3) throw error;
+          await sleep(RECONNECT_DELAYS_MS[attempt + 1]);
+        }
+      }
+    };
+    try {
+      if (!(await reply({ taken: true })).ok) return;
+      toolRuns.set(call.sessionKey, call.runId);
+      const stop = new AbortController();
+      const stops = toolStops.get(call.sessionKey) ?? new Set();
+      toolStops.set(call.sessionKey, stops.add(stop));
+      try {
+        const caller = toolCaller(call.sessionKey);
+        await reply(await runAgentTool(caller, call.name, call.args ?? {}, stop.signal));
+      } finally {
+        stops.delete(stop);
+      }
+    } catch (error) {
+      logger.info("agent", "openclaw tool call failed", { tool: call.name, error: String(error) });
+    }
+  }
+
   /**
    * Chats to catch up on whatever their last activity, from their last message
    * on (one just watched, or whose turn was just picked up again), until a catch-up gets through.
@@ -2092,7 +2237,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
       await follow(turn, settings, async (going) => {
         let sent: { runId?: string } | undefined;
         try {
-          sent = await sendAsOwner(g, send);
+          sent = await sendAsOwner(g, send, toolDevice);
         } catch (error) {
           if (error instanceof GatewayProtocolRequestError) throw error;
           // The socket went before the gateway answered, which may have the message already.
@@ -2104,7 +2249,7 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
               turn.gateway = await gateway(settings);
               const { found } = await runState(turn);
               if (!going()) return;
-              sent = found ? {} : await sendAsOwner(turn.gateway, send);
+              sent = found ? {} : await sendAsOwner(turn.gateway, send, toolDevice);
             } catch (retry) {
               if (retry instanceof GatewayProtocolRequestError) throw retry;
               if (retry instanceof Error && retry.message === "not_configured") throw retry;
@@ -2178,6 +2323,9 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
     cancel(requestId) {
       const turn = turns.get(requestId);
       if (!turn) return;
+      for (const stop of toolStops.get(turn.sessionKey) ?? []) stop.abort();
+      const caller = toolCallers.get(turn.sessionKey);
+      if (caller) cancelToolApprovals(caller);
       // Waiting on a yield, no run is going to report it stopped, or continue it.
       const waiting = turn.yielded;
       if (waiting) continuing.delete(turn.sessionKey);

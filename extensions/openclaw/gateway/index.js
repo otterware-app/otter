@@ -19,6 +19,7 @@ import { getSessionEntryAsync } from "openclaw/plugin-sdk/session-store-runtime"
 import { createBrowserControl } from "./control.js";
 import { runDetachedWebhookWork } from "openclaw/plugin-sdk/webhook-request-guards";
 import { readWorkspaceFile } from "./files.js";
+import { createToolBroker, OTTER_TOOLS, toolResult } from "./tools.js";
 import {
   accountOf,
   chatOf,
@@ -183,11 +184,50 @@ export default defineChannelPluginEntry({
     logger = api.logger;
     // What Otter's targets are, for a turn in an Otter chat: the Codex harness leaves channels'
     // message-tool hints out of its instructions, but every harness runs this hook.
-    api.on("before_prompt_build", (_event, ctx) =>
-      ctx?.channel === "otter" || ctx?.messageProvider === "otter"
-        ? { appendSystemContext: otterTargetsNote(ctx.sessionKey) }
-        : undefined,
+    const tools = createToolBroker();
+    api.on("before_prompt_build", (_event, ctx) => {
+      if (ctx?.channel !== "otter" && ctx?.messageProvider !== "otter") return undefined;
+      const note = otterTargetsNote(ctx.sessionKey);
+      const instructions = tools.instructions();
+      return { appendSystemContext: instructions ? `${note}\n${instructions}` : note };
+    });
+
+    // Otter's own tools (the user's mail, calendars, Otter's browser), run in the Otter app
+    // that's open: offered on the owner's turns only, and only while a device has them.
+    api.registerGatewayMethod(
+      "otter.tools.next",
+      async ({ params }) => ({ calls: await tools.next(params ?? {}) }),
+      { scope: "operator.admin" },
     );
+    api.registerGatewayMethod(
+      "otter.tools.result",
+      ({ params }) => ({ ok: tools.result(params ?? {}) }),
+      { scope: "operator.admin" },
+    );
+    for (const name of OTTER_TOOLS)
+      api.registerTool(
+        {
+          contextVersion: 2,
+          create(context) {
+            if (context.senderIsOwner !== true) return null;
+            const tool = tools.describe(name);
+            if (!tool) return null;
+            return {
+              name,
+              label: tool.title,
+              description: tool.description,
+              parameters: tool.input,
+              async execute(_id, params, signal) {
+                context.assertInvocationCurrent();
+                return toolResult(
+                  await tools.call(name, params, context.sessionKey, context.runId, signal),
+                );
+              },
+            };
+          },
+        },
+        { name },
+      );
 
     // OpenClaw tells clients of a compaction inside a run, not of one before it (a transcript
     // over its byte limit), where a chat would wait on it without a word.
@@ -225,6 +265,7 @@ export default defineChannelPluginEntry({
         const cfg = context?.getRuntimeConfig?.() ?? api.config;
         if (!isOwnerConfigured(cfg)) throw new Error("otter_not_owner");
         const message = messageOf(params);
+        tools.sentFrom(message.messageId, params?.device);
         // The run starts outside the request that carried it (the gateway's context-free root,
         // whatever request loaded this plugin), so it's the channel owner's, not that
         // connection's, and outlives it. What fails before it starts fails the request.
