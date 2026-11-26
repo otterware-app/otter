@@ -317,6 +317,123 @@ const ListRow = memo(function ListRow({
   );
 });
 
+type RowActionsParams = Pick<
+  MessageRowProps,
+  "message" | "selected" | "accountId" | "archiveFrom" | "viewLabelIds" | "onDeselect"
+>;
+
+/** What a row's labels say it can do. */
+function rowState({ message, accountId, archiveFrom, viewLabelIds }: RowActionsParams) {
+  const labelIds = rowLabels(message);
+  const trashed = labelIds.includes("TRASH");
+  const discards = viewLabelIds.has("DRAFT") && !trashed;
+  return {
+    ownerAccountId: message.accountId ?? accountId,
+    threadId: message.threadId || message.id,
+    labelIds,
+    unread: message.threadUnread ?? message.unread,
+    // Flagged while any of its messages is, as Outlook and Gmail show a conversation.
+    flagged: message.threadStarred ?? message.starred,
+    junk: isJunk(labelIds, viewLabelIds.has("SPAM")),
+    inInbox: labelIds.includes("INBOX"),
+    archiveSource: archiveFrom(labelIds),
+    trashed,
+    trashLabel: trashed ? "Restore from trash" : discards ? "Discard draft" : "Move to trash",
+  };
+}
+
+/**
+ * A row's actions, for the parts that act: the hover actions while the pointer is on it, its
+ * menu while open, its flag. Not every row of a long list holding its own mutations.
+ */
+function useRowActions(params: RowActionsParams) {
+  const { message, selected, viewLabelIds, onDeselect } = params;
+  const modifyMessage = useModifyMessage();
+  const modifyThread = useModifyThread();
+  const trashThread = useTrashThread();
+  const discardDrafts = useDiscardThreadDrafts();
+  const untrashThread = useUntrashThread();
+  const state = rowState(params);
+  const { ownerAccountId, threadId, flagged, junk, archiveSource, trashed } = state;
+  const from = actedFrom(viewLabelIds);
+  const discards = viewLabelIds.has("DRAFT") && !trashed;
+
+  const toggleRead = () => {
+    console.log("[MessageList:toggleRead]", { threadId, isUnread: state.unread });
+    if (state.unread) {
+      void modifyThread.mutateAsync({
+        accountId: ownerAccountId,
+        threadId,
+        removeLabelIds: ["UNREAD"],
+      });
+    } else {
+      void modifyMessage.mutateAsync({
+        accountId: ownerAccountId,
+        messageId: message.id,
+        addLabelIds: ["UNREAD"],
+      });
+      if (selected) onDeselect();
+    }
+  };
+
+  const toggleJunk = () => {
+    console.log("[MessageList:junkToggle]", { threadId, junk });
+    void modifyThread.mutateAsync({
+      accountId: ownerAccountId,
+      threadId,
+      addLabelIds: junk ? ["INBOX"] : ["SPAM"],
+      removeLabelIds: junk ? ["SPAM"] : ["INBOX"],
+      from,
+    });
+  };
+
+  const toggleStar = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    console.log("[MessageList:starToggle]", { messageId: message.id, flagged });
+    if (flagged) {
+      void modifyThread.mutateAsync({
+        accountId: ownerAccountId,
+        threadId,
+        removeLabelIds: ["STARRED"],
+      });
+    } else {
+      void modifyMessage.mutateAsync({
+        accountId: ownerAccountId,
+        messageId: message.id,
+        addLabelIds: ["STARRED"],
+      });
+    }
+  };
+
+  const archive = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    console.log("[MessageList:archiveToggle]", { threadId, archiveSource });
+    void modifyThread.mutateAsync({
+      accountId: ownerAccountId,
+      threadId,
+      addLabelIds: archiveSource ? undefined : ["INBOX"],
+      removeLabelIds: archiveSource ? [archiveSource] : undefined,
+      from,
+    });
+  };
+
+  const trash = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    console.log("[MessageList:trashToggle]", { threadId, trashed });
+    if (trashed) {
+      void untrashThread.mutateAsync({ accountId: ownerAccountId, threadId });
+      return;
+    }
+    if (discards) {
+      void discardDrafts.mutateAsync({ accountId: ownerAccountId, threadId });
+      return;
+    }
+    void trashThread.mutateAsync({ accountId: ownerAccountId, threadId, from });
+  };
+
+  return { ...state, from, toggleRead, toggleJunk, toggleStar, archive, trash };
+}
+
 function MessageRow({
   message,
   selected,
@@ -341,21 +458,13 @@ function MessageRow({
   onToggleExpanded,
   onDragStart,
 }: MessageRowProps) {
-  const modifyMessage = useModifyMessage();
-  const modifyThread = useModifyThread();
-  const trashThread = useTrashThread();
-  const discardDrafts = useDiscardThreadDrafts();
-  const untrashThread = useUntrashThread();
-
+  const actionParams = { message, selected, accountId, archiveFrom, viewLabelIds, onDeselect };
+  const { ownerAccountId, labelIds, unread, flagged } = rowState(actionParams);
+  // The hover actions mount with the pointer on the row: they're hidden until then anyway.
+  const [hovered, setHovered] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
-  const ownerAccountId = message.accountId ?? accountId;
-  const threadId = message.threadId || message.id;
   const threadCount = message.threadCount ?? 1;
 
-  const labelIds = rowLabels(message);
-  const from = actedFrom(viewLabelIds);
-  // Flagged while any of its messages is, as Outlook and Gmail show a conversation.
-  const flagged = message.threadStarred ?? message.starred;
   const messageLabels = labelIds
     .filter((id) => !viewLabelIds.has(id))
     .map((id) => resolveLabel(ownerAccountId, id))
@@ -364,98 +473,6 @@ function MessageRow({
   const shownLabels = messageLabels.slice(0, MAX_CHIPS);
   const hiddenLabelCount = messageLabels.length - shownLabels.length;
 
-  const labelChoices = useLabelChoices({ accountId: ownerAccountId, threadId, labelIds });
-  const folderChoices = useLabelChoices({
-    accountId: ownerAccountId,
-    threadId,
-    labelIds,
-    folders: true,
-    from,
-  });
-
-  const handleToggleRead = () => {
-    const isUnread = message.threadUnread ?? message.unread;
-    console.log("[MessageList:toggleRead]", { threadId, isUnread });
-    if (isUnread) {
-      void modifyThread.mutateAsync({
-        accountId: ownerAccountId,
-        threadId,
-        removeLabelIds: ["UNREAD"],
-      });
-    } else {
-      void modifyMessage.mutateAsync({
-        accountId: ownerAccountId,
-        messageId: message.id,
-        addLabelIds: ["UNREAD"],
-      });
-      if (selected) onDeselect();
-    }
-  };
-
-  const junk = isJunk(labelIds, viewLabelIds.has("SPAM"));
-
-  const handleJunk = () => {
-    console.log("[MessageList:junkToggle]", { threadId, junk });
-    void modifyThread.mutateAsync({
-      accountId: ownerAccountId,
-      threadId,
-      addLabelIds: junk ? ["INBOX"] : ["SPAM"],
-      removeLabelIds: junk ? ["SPAM"] : ["INBOX"],
-      from,
-    });
-  };
-
-  const handleStarToggle = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    console.log("[MessageList:starToggle]", { messageId: message.id, flagged });
-    if (flagged) {
-      void modifyThread.mutateAsync({
-        accountId: ownerAccountId,
-        threadId,
-        removeLabelIds: ["STARRED"],
-      });
-    } else {
-      void modifyMessage.mutateAsync({
-        accountId: ownerAccountId,
-        messageId: message.id,
-        addLabelIds: ["STARRED"],
-      });
-    }
-  };
-
-  const inInbox = labelIds.includes("INBOX");
-  const archiveSource = archiveFrom(labelIds);
-
-  const handleArchive = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    console.log("[MessageList:archiveToggle]", { threadId, archiveSource });
-    void modifyThread.mutateAsync({
-      accountId: ownerAccountId,
-      threadId,
-      addLabelIds: archiveSource ? undefined : ["INBOX"],
-      removeLabelIds: archiveSource ? [archiveSource] : undefined,
-      from,
-    });
-  };
-
-  const trashed = labelIds.includes("TRASH");
-  const discards = viewLabelIds.has("DRAFT") && !trashed;
-  const trashLabel = trashed ? "Restore from trash" : discards ? "Discard draft" : "Move to trash";
-
-  const handleTrash = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    console.log("[MessageList:trashToggle]", { threadId, trashed });
-    if (trashed) {
-      void untrashThread.mutateAsync({ accountId: ownerAccountId, threadId });
-      return;
-    }
-    if (discards) {
-      void discardDrafts.mutateAsync({ accountId: ownerAccountId, threadId });
-      return;
-    }
-    void trashThread.mutateAsync({ accountId: ownerAccountId, threadId, from });
-  };
-
   const rowRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const row = rowRef.current;
@@ -463,7 +480,6 @@ function MessageRow({
       row.scrollIntoView({ block: "nearest", behavior: "instant" });
   }, [selected]);
 
-  const unread = message.threadUnread ?? message.unread;
   const isDraft = message.labelIds.includes("DRAFT");
   // A conversation is named by everyone who wrote in it, as in Gmail, with its draft after them;
   // a draft is named by whom it's to in Drafts, or while no one has written yet.
@@ -489,7 +505,11 @@ function MessageRow({
       });
 
   return (
-    <div className="group/row relative">
+    <div
+      className="group/row relative"
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+    >
       <ContextMenu>
         <ContextMenuTrigger
           render={
@@ -655,146 +675,171 @@ function MessageRow({
             </div>
           ) : null}
         </ContextMenuTrigger>
-        {flagged ? (
-          <button
-            type="button"
-            onClick={handleStarToggle}
-            className="message-list-flag"
-            aria-label="Unflag"
-          >
-            <FlagIcon className="size-4 fill-current text-(--red)" />
-          </button>
-        ) : null}
-        {selecting ? null : (
-          <div className="message-list-hover-actions invisible absolute right-3 bottom-2 z-[2] flex items-center gap-0.5 rounded-lg border border-border/60 bg-canvas p-0.5 shadow-sm group-hover/row:visible margin:shadow-none">
-            {trashed || junk ? null : (
-              <HintTooltip
-                label={archiveSource ? "Archive" : "Move to inbox"}
-                hint={<ShortcutText command="message.archive" />}
-              >
-                <IconButton
-                  label={archiveSource ? "Archive" : "Move to inbox"}
-                  onClick={handleArchive}
-                >
-                  {archiveSource ? (
-                    <ArchiveIcon className="size-3.5" />
-                  ) : (
-                    <InboxIcon className="size-3.5" />
-                  )}
-                </IconButton>
-              </HintTooltip>
-            )}
-            <HintTooltip label={unread ? "Mark as read" : "Mark as unread"}>
-              <IconButton
-                label={unread ? "Mark as read" : "Mark as unread"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleRead();
-                }}
-              >
-                {unread ? <MailOpenIcon className="size-3.5" /> : <MailIcon className="size-3.5" />}
-              </IconButton>
-            </HintTooltip>
-            <HintTooltip label={flagged ? "Unflag" : "Flag"}>
-              <IconButton label={flagged ? "Unflag" : "Flag"} onClick={handleStarToggle}>
-                <FlagIcon className={cn("size-3.5", flagged && "fill-current text-(--red)")} />
-              </IconButton>
-            </HintTooltip>
-            {inInbox && !trashed && !junk ? (
-              <HintTooltip label="Snooze">
-                <IconButton
-                  label="Snooze"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSnoozeOpen(true);
-                  }}
-                >
-                  <ClockIcon className="size-3.5" />
-                </IconButton>
-              </HintTooltip>
-            ) : null}
-            <HintTooltip label={trashLabel}>
-              <IconButton label={trashLabel} onClick={handleTrash}>
-                {trashed ? (
-                  <RotateCcwIcon className="size-3.5" />
-                ) : (
-                  <Trash2Icon className="size-3.5" />
-                )}
-              </IconButton>
-            </HintTooltip>
-          </div>
+        {flagged ? <RowFlag {...actionParams} /> : null}
+        {selecting || !hovered ? null : (
+          <RowHoverActions {...actionParams} onSnooze={() => setSnoozeOpen(true)} />
         )}
-        {selectionMenu ? (
-          <ContextMenuContent>{selectionMenu}</ContextMenuContent>
-        ) : (
-          <ContextMenuContent>
-            <ContextMenuItem onClick={() => inNewWindow(onOpen)}>
-              Open in New Window
-            </ContextMenuItem>
-            <ContextMenuItem onClick={onSelectAll}>Select all</ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem onClick={handleToggleRead}>
-              {unread ? "Mark as read" : "Mark as unread"}
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => handleStarToggle()}>
-              {flagged ? "Unflag" : "Flag"}
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem onClick={onChatAgent}>Open in agent chat</ContextMenuItem>
-            <ExtensionContextMenuActions
-              target={{
-                accountId: message.accountId ?? accountId,
-                messageId: message.id,
-                subject: message.subject,
-              }}
+        <ContextMenuContent>
+          {selectionMenu ?? (
+            <RowMenu
+              {...actionParams}
+              onOpen={onOpen}
+              onSelectAll={onSelectAll}
+              onChatAgent={onChatAgent}
+              onSnooze={() => setSnoozeOpen(true)}
+              onDeleteForever={onDeleteForever}
             />
-            <ContextMenuSeparator />
-            <ContextMenuSub label={labelChoices.title}>
-              {renderLabelChoices(labelChoices, CONTEXT_MENU_KIT)}
-            </ContextMenuSub>
-            {labelChoices.alsoFolders ? (
-              <ContextMenuSub label={folderChoices.title}>
-                {renderLabelChoices(folderChoices, CONTEXT_MENU_KIT)}
-              </ContextMenuSub>
-            ) : null}
-            <ContextMenuSeparator />
-            {trashed || junk ? null : (
-              <ContextMenuItem onClick={() => handleArchive()}>
-                {archiveSource ? "Archive" : "Move to inbox"}
-              </ContextMenuItem>
-            )}
-            {inInbox && !trashed && !junk && (
-              <ContextMenuItem onClick={() => setSnoozeOpen(true)}>Snooze…</ContextMenuItem>
-            )}
-            {trashed ? null : (
-              <ContextMenuItem onClick={handleJunk}>
-                {junk ? "Not junk" : "Move to junk"}
-              </ContextMenuItem>
-            )}
-            {trashed ? (
-              <ContextMenuItem onClick={() => handleTrash()}>Restore from trash</ContextMenuItem>
-            ) : (
-              <ContextMenuItem variant="destructive" onClick={() => handleTrash()}>
-                {trashLabel}
-              </ContextMenuItem>
-            )}
-            {trashed || junk ? (
-              <ContextMenuItem variant="destructive" onClick={onDeleteForever}>
-                Delete forever…
-              </ContextMenuItem>
-            ) : null}
-          </ContextMenuContent>
-        )}
+          )}
+        </ContextMenuContent>
       </ContextMenu>
       {snoozeOpen && (
         <SnoozeDialog
           accountId={ownerAccountId}
-          threadId={threadId}
+          threadId={message.threadId || message.id}
           onClose={() => setSnoozeOpen(false)}
           onDone={selected ? onDeselect : undefined}
         />
       )}
     </div>
+  );
+}
+
+function RowFlag(params: RowActionsParams) {
+  const { toggleStar } = useRowActions(params);
+  return (
+    <button type="button" onClick={toggleStar} className="message-list-flag" aria-label="Unflag">
+      <FlagIcon className="size-4 fill-current text-(--red)" />
+    </button>
+  );
+}
+
+function RowHoverActions({ onSnooze, ...params }: RowActionsParams & { onSnooze: () => void }) {
+  const a = useRowActions(params);
+  return (
+    <div className="message-list-hover-actions invisible absolute right-3 bottom-2 z-[2] flex items-center gap-0.5 rounded-lg border border-border/60 bg-canvas p-0.5 shadow-sm group-hover/row:visible margin:shadow-none">
+      {a.trashed || a.junk ? null : (
+        <HintTooltip
+          label={a.archiveSource ? "Archive" : "Move to inbox"}
+          hint={<ShortcutText command="message.archive" />}
+        >
+          <IconButton label={a.archiveSource ? "Archive" : "Move to inbox"} onClick={a.archive}>
+            {a.archiveSource ? (
+              <ArchiveIcon className="size-3.5" />
+            ) : (
+              <InboxIcon className="size-3.5" />
+            )}
+          </IconButton>
+        </HintTooltip>
+      )}
+      <HintTooltip label={a.unread ? "Mark as read" : "Mark as unread"}>
+        <IconButton
+          label={a.unread ? "Mark as read" : "Mark as unread"}
+          onClick={(e) => {
+            e.stopPropagation();
+            a.toggleRead();
+          }}
+        >
+          {a.unread ? <MailOpenIcon className="size-3.5" /> : <MailIcon className="size-3.5" />}
+        </IconButton>
+      </HintTooltip>
+      <HintTooltip label={a.flagged ? "Unflag" : "Flag"}>
+        <IconButton label={a.flagged ? "Unflag" : "Flag"} onClick={a.toggleStar}>
+          <FlagIcon className={cn("size-3.5", a.flagged && "fill-current text-(--red)")} />
+        </IconButton>
+      </HintTooltip>
+      {a.inInbox && !a.trashed && !a.junk ? (
+        <HintTooltip label="Snooze">
+          <IconButton
+            label="Snooze"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSnooze();
+            }}
+          >
+            <ClockIcon className="size-3.5" />
+          </IconButton>
+        </HintTooltip>
+      ) : null}
+      <HintTooltip label={a.trashLabel}>
+        <IconButton label={a.trashLabel} onClick={a.trash}>
+          {a.trashed ? <RotateCcwIcon className="size-3.5" /> : <Trash2Icon className="size-3.5" />}
+        </IconButton>
+      </HintTooltip>
+    </div>
+  );
+}
+
+function RowMenu({
+  onOpen,
+  onSelectAll,
+  onChatAgent,
+  onSnooze,
+  onDeleteForever,
+  ...params
+}: RowActionsParams & {
+  onOpen: () => void;
+  onSelectAll: () => void;
+  onChatAgent: () => void;
+  onSnooze: () => void;
+  onDeleteForever: () => void;
+}) {
+  const a = useRowActions(params);
+  const { message } = params;
+  const choice = { accountId: a.ownerAccountId, threadId: a.threadId, labelIds: a.labelIds };
+  const labelChoices = useLabelChoices(choice);
+  const folderChoices = useLabelChoices({ ...choice, folders: true, from: a.from });
+  return (
+    <>
+      <ContextMenuItem onClick={() => inNewWindow(onOpen)}>Open in New Window</ContextMenuItem>
+      <ContextMenuItem onClick={onSelectAll}>Select all</ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={a.toggleRead}>
+        {a.unread ? "Mark as read" : "Mark as unread"}
+      </ContextMenuItem>
+      <ContextMenuItem onClick={() => a.toggleStar()}>
+        {a.flagged ? "Unflag" : "Flag"}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={onChatAgent}>Open in agent chat</ContextMenuItem>
+      <ExtensionContextMenuActions
+        target={{ accountId: a.ownerAccountId, messageId: message.id, subject: message.subject }}
+      />
+      <ContextMenuSeparator />
+      <ContextMenuSub label={labelChoices.title}>
+        {renderLabelChoices(labelChoices, CONTEXT_MENU_KIT)}
+      </ContextMenuSub>
+      {labelChoices.alsoFolders ? (
+        <ContextMenuSub label={folderChoices.title}>
+          {renderLabelChoices(folderChoices, CONTEXT_MENU_KIT)}
+        </ContextMenuSub>
+      ) : null}
+      <ContextMenuSeparator />
+      {a.trashed || a.junk ? null : (
+        <ContextMenuItem onClick={() => a.archive()}>
+          {a.archiveSource ? "Archive" : "Move to inbox"}
+        </ContextMenuItem>
+      )}
+      {a.inInbox && !a.trashed && !a.junk && (
+        <ContextMenuItem onClick={onSnooze}>Snooze…</ContextMenuItem>
+      )}
+      {a.trashed ? null : (
+        <ContextMenuItem onClick={a.toggleJunk}>
+          {a.junk ? "Not junk" : "Move to junk"}
+        </ContextMenuItem>
+      )}
+      {a.trashed ? (
+        <ContextMenuItem onClick={() => a.trash()}>Restore from trash</ContextMenuItem>
+      ) : (
+        <ContextMenuItem variant="destructive" onClick={() => a.trash()}>
+          {a.trashLabel}
+        </ContextMenuItem>
+      )}
+      {a.trashed || a.junk ? (
+        <ContextMenuItem variant="destructive" onClick={onDeleteForever}>
+          Delete forever…
+        </ContextMenuItem>
+      ) : null}
+    </>
   );
 }
 
