@@ -222,7 +222,7 @@ native module, a config plugin, the extension, a dependency with native code), i
 above, with the fingerprint as the build's runtime version. A run by hand always builds. The
 update job signs in to Expo with the `EXPO_TOKEN` secret, a robot token
 (`otter-github-releases`). A build from this Mac (`pnpm release:ios:agents`) records no
-fingerprint and takes no updates: the next merge builds.
+fingerprint and takes no updates; merges keep comparing with the last build the workflow made.
 
 It signs with the iPhone app's Apple Distribution identity and App Store Connect API key (the
 same secrets) and its own profiles: "Otter Agents App Store" for `dev.otterware.agents` (Push

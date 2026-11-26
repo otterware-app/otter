@@ -14,8 +14,6 @@ const app = NodePath.join(repoRoot, "apps/agents-mobile");
 /** How a build's tag says what it runs. */
 const RECORD = /^Otter Agents runtime: ([0-9a-f]{40})$/m;
 
-export const runtimeRecord = (runtime: string) => `Otter Agents runtime: ${runtime}`;
-
 export function recordedRuntime(tagContents: string): string | undefined {
   return RECORD.exec(tagContents)?.[1];
 }
