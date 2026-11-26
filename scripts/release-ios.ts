@@ -27,8 +27,7 @@ const APPS = {
       "dev.otterware.agents": "Otter Agents App Store",
       "dev.otterware.agents.notifications": "Otter Agents Notifications App Store",
     },
-    // It doesn't report errors.
-    sentryProject: undefined,
+    sentryProject: "otter-agents-ios",
   },
 };
 
@@ -89,6 +88,10 @@ process.env[app.versionEnv] = version;
 process.env[app.buildEnv] = build;
 process.env.EXPO_NO_DOTENV = "1";
 process.env.EXPO_NO_CLIENT_ENV_VARS = "1";
+// Sentry's build phases upload the source maps (with debug IDs: no release of their own); a
+// failed upload doesn't stop the release. Without a token prebuild leaves them out (app.config.ts).
+process.env.AUTO_RELEASE = "false";
+process.env.SENTRY_ALLOW_FAILURE = "true";
 run("pnpm", ["exec", "expo", "prebuild", "--platform", "ios", "--clean", "--no-install"], project);
 run("pod", ["install"], NodePath.join(project, "ios"));
 

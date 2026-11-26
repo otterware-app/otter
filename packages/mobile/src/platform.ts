@@ -5,6 +5,7 @@ import {
   type GoogleAuth,
   type Platform,
 } from "@otter/core";
+import { reportLog } from "@otter/shared/error-reports";
 import Constants from "expo-constants";
 import { AppState } from "react-native";
 
@@ -58,6 +59,7 @@ function onResume(listener: () => void): () => void {
 /**
  * `home`: where its files and database are, apart from another home's (the fake's).
  * `secretsService`: the Keychain service its secrets are kept under.
+ * `errorReports`: the app runs Sentry; core's log lines go to it.
  */
 export function phonePlatform(options: {
   home: string;
@@ -65,13 +67,17 @@ export function phonePlatform(options: {
   relayUrl?: string;
   mail?: boolean;
   backgroundCheckpoints?: boolean;
+  errorReports?: boolean;
 }): Platform {
   let database: ReturnType<Platform["database"]> | null = null;
   return {
     kind: "mobile",
     appVersion: Constants.expoConfig?.version ?? "0.0.0",
-    log: (level, scope, message, data) =>
-      console[level === "debug" ? "log" : level](`[${scope}] ${message}`, data ?? ""),
+    errorReports: options.errorReports,
+    log: (level, scope, message, data) => {
+      console[level === "debug" ? "log" : level](`[${scope}] ${message}`, data ?? "");
+      if (options.errorReports) reportLog(level, scope, message, data);
+    },
 
     database: () =>
       (database ??= openDatabase(`${options.home}.db`, options.backgroundCheckpoints)),

@@ -128,7 +128,10 @@ plays Google and signs the ID and push tokens.
 Cloudflare Workers Builds deploys on every push to `main` that touches `infra/relay/`,
 `packages/contracts/` or `pnpm-lock.yaml` (trigger "Deploy relay from main" on the
 `otter-mail-relay` Worker): it installs the workspace from the repo root and runs
-`pnpm --filter @otter/relay run deploy`, which applies D1 migrations and deploys. Builds and
+`pnpm --filter @otter/relay run deploy`, which bundles the Worker into `dist/` with Sentry debug
+IDs injected, applies D1 migrations and deploys that bundle. The Relay source maps workflow
+builds the same bundle (the same debug IDs) and uploads its maps to Sentry, so the relay's
+stack traces show our TypeScript. Builds and
 logs are in the Cloudflare dashboard (Workers → otter-mail-relay → Deployments) and on the
 commit's checks. `site/` deploys the same way ("Deploy site from main").
 

@@ -5,6 +5,8 @@ import { watchLongTasks } from "@otter/mobile/long-tasks";
 import { native } from "@otter/mobile/native";
 import { startMobileCore } from "@otter/mobile/start";
 
+import { errorReportsAvailable, followErrorReports, startErrorReports } from "./error-reports.ts";
+
 /** `pnpm dev:mobile:agents:fake`: core's made-up account, agents and chats, no network. */
 export const FAKE = process.env.EXPO_PUBLIC_OTTER_DATA === "fake";
 
@@ -13,6 +15,8 @@ const AGENTS = __DEV__ ? process.env.EXPO_PUBLIC_OTTER_AGENTS : undefined;
 
 /** The self-test and the long-task watch: in development builds and builds over the fake, never in a release. */
 export const DEV_TOOLS = __DEV__ || FAKE;
+
+startErrorReports();
 
 if (DEV_TOOLS) watchLongTasks();
 
@@ -29,4 +33,7 @@ export const coreStarted = startMobileCore({
   fake: FAKE,
   agents: AGENTS,
   relayUrl: process.env.EXPO_PUBLIC_OTTER_RELAY_URL,
+  errorReports: errorReportsAvailable,
 });
+
+void coreStarted.then(followErrorReports);

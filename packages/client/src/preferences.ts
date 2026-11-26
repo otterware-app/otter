@@ -34,6 +34,7 @@ const SYNCED_KEYS = [
   "calendar:meetings-by-default",
   "calendar:default-calendar",
   "calendar:colors",
+  "browser:solve-captchas",
 ] as const;
 
 /** A preference that follows the Otter account to each device (core's `preferences:*`). */

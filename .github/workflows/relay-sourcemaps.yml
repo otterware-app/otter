@@ -1,0 +1,49 @@
+name: Relay source maps
+
+# Workers Builds deploys the relay with Sentry debug IDs injected (`pnpm --filter @otter/relay
+# run deploy`). The same build here gives the same debug IDs, so its maps match what runs.
+on:
+  push:
+    branches: [main]
+    paths:
+      - infra/relay/**
+      - packages/contracts/**
+      - packages/core/**
+      - packages/shared/**
+      - pnpm-lock.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: relay-sourcemaps
+  cancel-in-progress: true
+
+env:
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+jobs:
+  upload:
+    name: Upload source maps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: true
+
+      - name: Build
+        run: pnpm --filter @otter/relay run build
+
+      - name: Upload
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+        run: pnpm --filter @otter/relay exec sentry-cli sourcemaps upload --org "$SENTRY_ORG" --project otter-mail-relay dist

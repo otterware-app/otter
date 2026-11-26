@@ -6,7 +6,7 @@ export { useCommandHandlers } from "../keybindings/dispatch";
 export { ShortcutText, useShortcutLabel } from "../keybindings/store";
 
 export { ipc, task } from "@otter/client/bridge";
-export { openLink } from "../browser/store";
+export { openLink } from "@otter/browser/ui/store";
 export { features } from "../features";
 export { isModClick } from "../keybindings/keys";
 export { mailApi } from "@otter/client/mail/api";

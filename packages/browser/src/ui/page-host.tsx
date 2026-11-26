@@ -73,15 +73,22 @@ export function PageSlot({ tabId, className }: { tabId: string; className?: stri
       }
     };
     observeAround();
-    // A pane mounted later (a panel opening) moves it too.
+    // A pane mounted later (a panel opening) moves it too. Once a frame, before it paints:
+    // the window mounts a lot as it opens, and measuring at each would lay it out each time.
+    let pending = 0;
     const added = new MutationObserver(() => {
-      observeAround();
-      update();
+      if (pending) return;
+      pending = requestAnimationFrame(() => {
+        pending = 0;
+        observeAround();
+        update();
+      });
     });
     for (let node = el.parentElement; node; node = node.parentElement)
       added.observe(node, { childList: true });
     window.addEventListener("resize", update);
     return () => {
+      cancelAnimationFrame(pending);
       observer.disconnect();
       added.disconnect();
       window.removeEventListener("resize", update);
@@ -103,12 +110,12 @@ export function PageHost() {
   );
   const presented = useSurfaces(useShallow((s) => Object.keys(s)));
   return tabs.map((tab) =>
-    presented.includes(tab.id) ? <HostedPage key={tab.id} tab={tab} /> : null,
+    presented.includes(tab.id) || tab.keep ? <HostedPage key={tab.id} tab={tab} /> : null,
   );
 }
 
 function HostedPage({ tab }: { tab: BrowserTab }) {
-  const surface = useSurfaces((s) => s[tab.id]);
+  const surface = useSurfaces((s) => s[tab.id]) ?? (tab.keep ? UNSEEN : undefined);
   if (!surface) return null;
   return (
     <div
@@ -130,4 +137,11 @@ function HostedPage({ tab }: { tab: BrowserTab }) {
  * Where a page that isn't showing waits: off to the side at its last size, so nothing reflows,
  * and Electron stops drawing it. A macOS webview hidden outright can come back blank.
  */
+/** A page an agent works in that no panel has shown yet: a laptop's window, off to the side. */
+const UNSEEN: Surface = {
+  rect: { top: 0, left: 0, width: 1280, height: 800 },
+  clip: undefined,
+  visible: false,
+};
+
 const OFFSCREEN: CSSProperties = { top: -100_000, left: -100_000, pointerEvents: "none" };

@@ -8,12 +8,13 @@ import type { AppSettings, ErrorReportsConfig } from "@otter/core";
 import { invokeBackend, setDockBadgeEnabled, startBackend, stopBackend } from "./backend-host.ts";
 import { registerHandlers } from "./handlers/index.ts";
 import { requestSupportReport } from "./handlers/support.ts";
-import { setErrorReportsAllowed, setReportId, startErrorReports } from "./error-reports.ts";
+import { followErrorReportsConfig, startErrorReports } from "./error-reports.ts";
 import { logger, logToFile } from "./logger.ts";
 import { hostOS } from "./os/index.ts";
 import type { AppMenuItems } from "./os/types.ts";
 import { configureAppPaths, nameApp } from "./paths.ts";
-import { focusedBrowserPage, setupBrowser } from "./services/browser.ts";
+import { focusedBrowserPage } from "@otter/browser/main";
+import { setupBrowser } from "./browser.ts";
 import { embedDriveContent } from "./services/drive-content.ts";
 import { parseMailtoUrl, setPendingMailto } from "./services/mailto-target.ts";
 import { initUpdates } from "./updates.ts";
@@ -324,27 +325,24 @@ void app.whenReady().then(async () => {
   });
 
   setupBrowser();
-  await startBackend();
+  // The window loads while the backend starts: the preload holds its invokes until it's ready.
+  const backendStarted = startBackend();
   registerHandlers();
   setupApplicationMenu();
   initUpdates();
   allowWindows();
+  hostOS.showInTray(() => void focusMainWindow());
+  createMainWindow(app.isPackaged && hostOS.launchedAtLogin()).catch((error: unknown) =>
+    logger.error("main", "Failed to create main window", error),
+  );
 
+  await backendStarted;
   const startupSettings = (await invokeBackend("settings:get")) as AppSettings;
   if (app.isPackaged) {
     hostOS.setLaunchAtLogin(startupSettings.launchAtLogin);
   }
   setDockBadgeEnabled(startupSettings.dockBadgeEnabled);
-  void invokeBackend("errorReports:config").then((config) => {
-    const reports = config as ErrorReportsConfig;
-    setReportId(reports.reportId);
-    setErrorReportsAllowed(reports.enabled);
-  });
-
-  hostOS.showInTray(() => void focusMainWindow());
-  try {
-    await createMainWindow(app.isPackaged && hostOS.launchedAtLogin());
-  } catch (error) {
-    logger.error("main", "Failed to create main window", error);
-  }
+  void invokeBackend("errorReports:config").then((config) =>
+    followErrorReportsConfig(config as ErrorReportsConfig),
+  );
 });

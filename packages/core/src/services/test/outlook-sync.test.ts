@@ -39,6 +39,7 @@ type Message = {
   categories: string[];
   fromMe: boolean;
   draft?: boolean;
+  body?: string;
   date: number;
   version: number;
 };
@@ -137,6 +138,7 @@ const resource = (m: Message) => ({
   hasAttachments: false,
   parentFolderId: m.folder,
   internetMessageId: `<${m.id}@example.test>`,
+  changeKey: String(m.version),
 });
 
 function handle(method: string, url: URL, body: unknown): Response {
@@ -327,7 +329,9 @@ function handle(method: string, url: URL, body: unknown): Response {
   if (source) {
     const m = messages.get(decodeURIComponent(source[1]!));
     if (!m) return notFound();
-    return new Response(`Subject: ${m.subject}\r\nContent-Type: text/plain\r\n\r\nBody.\r\n`);
+    return new Response(
+      `Subject: ${m.subject}\r\nContent-Type: text/plain\r\n\r\n${m.body ?? "Body."}\r\n`,
+    );
   }
 
   const one = /^\/me\/messages\/([^/]+)(\/move)?$/.exec(path);
@@ -959,6 +963,21 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
       expect(labelsOf("kept")).toEqual(["INBOX", "UNREAD"]);
       expect(mailStore.getLabels(account.id).find((l) => l.id === "INBOX")?.total).toBe(4);
     });
+  });
+
+  it("reads a draft's body again once it's edited elsewhere, under the same id", async () => {
+    deliver("draft", "drafts", { draft: true, fromMe: true, body: "" });
+    const { status, sync, invoke } = await boot();
+    await until(() => status().fullSyncDone && !status().syncing, "the first sync");
+    const open = () =>
+      invoke("gmail:getMessage", { accountId: account.id, messageId: "draft" }) as Promise<{
+        bodyText: string | null;
+      }>;
+    expect((await open()).bodyText?.trim()).toBe("");
+
+    Object.assign(messages.get("draft")!, { body: "Hi Amin", version: ++version });
+    await sync();
+    expect((await open()).bodyText?.trim()).toBe("Hi Amin");
   });
 
   describe("mail Outlook deleted into Recoverable Items", () => {

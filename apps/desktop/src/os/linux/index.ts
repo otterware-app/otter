@@ -6,7 +6,6 @@ import type { HostOS } from "../types.ts";
 import { HIDDEN_FLAG, setAutostart } from "./autostart.ts";
 import { listMailApps, setDefaultMailApp } from "./mail-apps.ts";
 import { linuxTerminals } from "./terminals.ts";
-import { nativeMessagingDirectories } from "./native-messaging.ts";
 
 const TOPBAR_HEIGHT = 42;
 
@@ -17,7 +16,6 @@ const symbolColor = () => (nativeTheme.shouldUseDarkColors ? "#d4d4d4" : "#52525
 let tray: Tray | null = null;
 
 export const linuxOS: HostOS = {
-  nativeMessagingDirectories,
   modifierKey: "ctrlKey",
 
   mainWindowOptions: () => ({

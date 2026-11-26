@@ -8,7 +8,7 @@ import {
 } from "./google.ts";
 import { OUTLOOK_SIGNED_OUT_MESSAGE } from "./microsoft.ts";
 import { platform } from "./platform.ts";
-import { OTTER_SIGNED_OUT_MESSAGE } from "./services/otter-account.ts";
+import { OTTER_SIGNED_OUT_MESSAGE, RelayError } from "./services/otter-account.ts";
 import { recordSupportError } from "./services/support-errors.ts";
 
 type Level = "debug" | "info" | "warn" | "error";
@@ -18,8 +18,10 @@ function log(level: Level, scope: string, message: string, data?: unknown): void
   platform().log(level, scope, message, data);
 }
 
-/** The network's doing, or a mailbox the user has to sign in to again: theirs to see, not ours to fix. */
+/** The network's or the relay's doing, or a mailbox to sign in to again: theirs to see, not a bug here. */
 function expected(message: string, error: unknown): boolean {
+  // The relay reports its own failures; the devices it failed would each report a copy.
+  if (error instanceof RelayError && error.status >= 500) return true;
   const reason = error instanceof Error ? error.message : String(error);
   if (
     reason === SIGNED_OUT_MESSAGE ||

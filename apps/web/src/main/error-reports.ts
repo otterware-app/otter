@@ -1,6 +1,7 @@
 import * as SentryElectron from "@sentry/electron/renderer";
 import * as Sentry from "@sentry/react";
 import type { Integration } from "@sentry/core";
+import type { AnyRouter } from "@tanstack/react-router";
 
 import type { ErrorReportsConfig } from "@otter/core";
 import {
@@ -17,7 +18,7 @@ export const errorReportsAvailable = Boolean(dsn) && __ERROR_REPORTS__;
 
 const gate = new ConsentGate();
 
-export function startErrorReports(): void {
+export function startErrorReports(router: AnyRouter): void {
   if (!errorReportsAvailable) return;
   const options = {
     ...errorReportOptions({
@@ -28,25 +29,25 @@ export function startErrorReports(): void {
     }),
     // Electron's `<webview>` when its element goes after its page did (browser/store.ts): harmless.
     ignoreErrors: [/Invalid guestInstanceId/],
-    // What was clicked and the console can hold mail.
+    // The console repeats our own log lines.
     integrations: (defaults: Integration[]) => [
-      ...defaults.filter(({ name }) => name !== "Console" && name !== "Breadcrumbs"),
-      Sentry.breadcrumbsIntegration({ dom: false }),
+      ...defaults.filter(({ name }) => name !== "Console"),
+      Sentry.tanstackRouterBrowserTracingIntegration(router),
     ],
   };
   if (desktop) SentryElectron.init(options, Sentry.init);
   else Sentry.init(options);
 
-  const follow = () =>
-    void window.desktopBridge
-      .invoke<ErrorReportsConfig>("errorReports:config")
-      .then((config) => {
-        Sentry.setUser({ id: config.reportId });
-        gate.set(config.enabled);
-      })
-      .catch(() => {});
-  follow();
-  window.desktopBridge.on("settings:changed", follow);
+  const follow = (config: ErrorReportsConfig) => {
+    Sentry.setUser(config.user);
+    Sentry.setContext("install", { reportId: config.reportId });
+    gate.set(config.enabled);
+  };
+  void window.desktopBridge
+    .invoke<ErrorReportsConfig>("errorReports:config")
+    .then(follow)
+    .catch(() => {});
+  window.desktopBridge.on("errorReports:changed", (config) => follow(config as ErrorReportsConfig));
 }
 
 export const reactErrorHandlers = {

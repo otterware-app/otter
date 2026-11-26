@@ -2,24 +2,81 @@
   "id": "otter",
   "name": "Otter",
   "description": "Send what your agents want you to see to Otter.",
-  "activation": { "onStartup": true },
-  "contracts": { "gatewayMethodDispatch": ["authenticated-request"] },
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "gatewayMethodDispatch": ["authenticated-request"],
+    "tools": [
+      "list_accounts",
+      "list_labels",
+      "list_threads",
+      "search_mail",
+      "get_thread",
+      "get_attachment",
+      "update_threads",
+      "trash_threads",
+      "restore_threads",
+      "create_label",
+      "save_draft",
+      "delete_draft",
+      "send_email",
+      "list_events",
+      "get_event",
+      "create_event",
+      "update_event",
+      "delete_event",
+      "respond_to_event",
+      "list_themes",
+      "get_theme",
+      "save_theme",
+      "use_theme",
+      "list_views",
+      "save_view",
+      "delete_view",
+      "browser_tabs",
+      "browser_snapshot",
+      "browser_open",
+      "browser_take",
+      "browser_navigate",
+      "browser_click",
+      "browser_type",
+      "browser_press",
+      "browser_screenshot",
+      "browser_scroll"
+    ]
+  },
   "channels": ["otter"],
-  "configSchema": { "type": "object", "additionalProperties": false, "properties": {} },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
   "channelConfigs": {
     "otter": {
       "schema": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "enabled": { "type": "boolean" },
-          "relayUrl": { "type": "string" },
-          "token": { "type": "string" }
+          "enabled": {
+            "type": "boolean"
+          },
+          "relayUrl": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
         }
       },
       "uiHints": {
-        "relayUrl": { "label": "Otter relay" },
-        "token": { "label": "Otter channel token", "sensitive": true }
+        "relayUrl": {
+          "label": "Otter relay"
+        },
+        "token": {
+          "label": "Otter channel token",
+          "sensitive": true
+        }
       }
     }
   }

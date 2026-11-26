@@ -248,7 +248,7 @@ async function settle(db: SqlDatabase, touched: Touched, remote: boolean): Promi
       else await platform().secrets.set(name, value);
       agents.add(segments(key)[1]!);
     } catch (err) {
-      logger.failure("agent-sync", "Couldn't keep an agent's secret", err);
+      logger.failure("agent-sync", "Couldn't keep an agent's secret", err, { phase: "sync" });
     }
   }
   if (chats.size > 0) broadcast(CHATS_CHANGED, { ids: [...chats] });
@@ -445,7 +445,9 @@ export function syncAgentData(): Promise<void> {
       const delay = RETRY_MS[Math.min(failures, RETRY_MS.length - 1)]!;
       failures += 1;
       if (!(err instanceof RelayError && err.status === 401))
-        logger.failure("agent-sync", "Couldn't sync agents and chats, retrying", err);
+        logger.failure("agent-sync", "Couldn't sync agents and chats, retrying", err, {
+          phase: "sync",
+        });
       requestSync(delay);
     } finally {
       running = null;
@@ -489,7 +491,9 @@ async function exchange(): Promise<void> {
         throw err;
       if (mutations.length > 1) oneByOne = true;
       else {
-        logger.failure("agent-sync", "The relay refused a change; it's dropped", err);
+        logger.failure("agent-sync", "The relay refused a change; it's dropped", err, {
+          phase: "sync",
+        });
         // What it did here goes too: the copy is read again whole, under what's still to send.
         transaction(db, () => {
           db.prepare("DELETE FROM agent_outbox WHERE id = ?").run(mutations[0]!.id);

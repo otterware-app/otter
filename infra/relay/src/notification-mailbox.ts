@@ -1,5 +1,7 @@
+import * as Sentry from "@sentry/cloudflare";
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./worker.ts";
+import { log } from "./log.ts";
 import * as connections from "./notification-connections.ts";
 import * as providers from "./notification-providers.ts";
 import * as push from "./push.ts";
@@ -74,6 +76,13 @@ export class NotificationMailbox extends DurableObject<Env> {
         return;
       // A durable outbox is committed with the cursor. Alarm retries cannot lose or duplicate arrivals.
       stage = "commit";
+      if (result.messages.length)
+        log("mail.arrived", {
+          provider: row.provider,
+          userId,
+          email,
+          messages: result.messages.length,
+        });
       await this.ctx.storage.transaction(async (storage) => {
         let sequence = (await storage.get<number>("sequence")) ?? 0;
         for (const message of result.messages) {
@@ -111,17 +120,28 @@ export class NotificationMailbox extends DurableObject<Env> {
       await this.ctx.storage.delete("failures");
     } catch (error) {
       const reauthorize = error instanceof connections.NotificationFailure && error.reauthorize;
-      console.warn("Notification check failed", {
-        provider: row.provider,
-        stage,
-        reason: error instanceof connections.NotificationFailure ? error.reason : "unexpected",
-        detail: error instanceof connections.NotificationFailure ? error.detail : undefined,
-        category: reauthorize
-          ? "authorization"
-          : error instanceof connections.NotificationFailure
-            ? "temporary"
-            : "unexpected",
-      });
+      log(
+        "mail.check_failed",
+        {
+          provider: row.provider,
+          userId,
+          email,
+          stage,
+          reason: error instanceof connections.NotificationFailure ? error.reason : "unexpected",
+          detail: error instanceof connections.NotificationFailure ? error.detail : undefined,
+          category: reauthorize
+            ? "authorization"
+            : error instanceof connections.NotificationFailure
+              ? "temporary"
+              : "unexpected",
+        },
+        "warn",
+      );
+      if (!(error instanceof connections.NotificationFailure))
+        Sentry.captureException(error, {
+          tags: { provider: row.provider, stage },
+          user: { id: userId, email },
+        });
       await this.env.DB.prepare(
         "UPDATE notification_connections SET status=?,updated_at=? WHERE user_id=? AND email=? AND generation=?",
       )

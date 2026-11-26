@@ -43,6 +43,18 @@
       "noticeFile": "packages/ui-native/fonts/Inter-LICENSE.txt"
     },
     {
+      "name": "Sentry",
+      "bundles": ["agents-mobile", "mail-mobile"],
+      "license": "MIT",
+      "sourceUrl": "https://github.com/getsentry/sentry-cocoa",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2015 Sentry"]
+        }
+      ]
+    },
+    {
       "name": "Hermes",
       "bundles": ["agents-mobile", "mail-mobile"],
       "license": "MIT",
@@ -253,6 +265,14 @@
       "generatedNotice": {
         "licenseId": "MIT",
         "copyrights": ["Copyright (c) Vladimir Krivosheev"]
+      }
+    },
+    {
+      "name": "metro-runtime",
+      "sourceUrl": "https://github.com/facebook/metro",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Meta Platforms, Inc. and affiliates."]
       }
     },
     {

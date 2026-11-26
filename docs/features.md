@@ -431,7 +431,7 @@ On iPhone, the bottom holds a pill with the mailbox's picture (tap for every mai
 | Open a support investigation in an installed Claude / Codex terminal session | ✓   | —   | —      |
 | Return local-agent drafts and findings to the report preview                 | ✓   | —   | —      |
 | Download diagnostics as a file and import an agent's Markdown draft          | ✓   | ✓   | —      |
-| Scrubbed error reports (Sentry), off in Settings → General                   | ✓   | ✓   | —      |
+| Error reports and tracing (Sentry), off in Settings → General                | ✓   | ✓   | ✓      |
 | Open-source licenses (Settings → General, About; Settings on the iPhone)     | ✓   | ✓   | ✓      |
 
 The support playbook covers diagnosis, duplicate detection, issue review, and
@@ -463,8 +463,8 @@ optional fix PRs. See [support.md](support.md); error reports, [error-reports.md
 | How an OpenClaw gateway's agents run, set on the gateway from Settings: model, fallbacks, thinking, fast mode and utility model, its defaults and each agent's own; each agent's name and picture; a scheduled task's own model, or its agent's                          | ✓                                                                       | ✓                                             | —                                                                                                                       |
 | Take control of the agent's browser (OpenClaw)                                                                                                                                                                                                                           | ✓                                                                       | ✓                                             | —                                                                                                                       |
 | See the agent's pointer in its browser (OpenClaw)                                                                                                                                                                                                                        | ✓                                                                       | ✓                                             | —                                                                                                                       |
-| Mail tools (Claude, Codex on Mac)                                                                                                                                                                                                                                        | ✓ (every mailbox)                                                       | —                                             | —                                                                                                                       |
-| Calendar tools (Claude, Codex on Mac)                                                                                                                                                                                                                                    | ✓                                                                       | —                                             | —                                                                                                                       |
+| Mail tools (Claude, Codex on Mac; OpenClaw while the app is open)                                                                                                                                                                                                        | ✓ (every mailbox)                                                       | —                                             | —                                                                                                                       |
+| Calendar tools (Claude, Codex on Mac; OpenClaw while the app is open)                                                                                                                                                                                                    | ✓                                                                       | —                                             | —                                                                                                                       |
 | Theme tools: make, change and wear themes                                                                                                                                                                                                                                | ✓                                                                       | —                                             | —                                                                                                                       |
 | View tools: make, change and delete views                                                                                                                                                                                                                                | ✓                                                                       | —                                             | —                                                                                                                       |
 | Tools for other agents on the Mac (MCP, token)                                                                                                                                                                                                                           | ✓ (Claude Code, Cursor, …)                                              | —                                             | —                                                                                                                       |
@@ -475,6 +475,12 @@ any mailbox (Gmail, IMAP or Outlook), and list, add, change and answer events in
 that changes a mailbox asks first unless the chat has full access; drafts don't ask. They can
 also make a theme or change one of the user's own, and wear a theme; a built-in never changes
 (changing one makes a copy, worn in its place).
+
+An OpenClaw agent gets the same tools, Otter's browser included, from the Otter plugin on its
+gateway: the app open on one of the user's devices asks the plugin for calls (`otter.tools.next`,
+a long poll) and runs each as Claude's would, asking in the chat before a change; the Mac runs
+what the web app can't (the browser). They're offered only on turns the gateway owner sent, and
+only while a device is there.
 
 OpenClaw connects to the user's gateway over its WebSocket, as OpenClaw's own apps do (usually
 `wss://<computer>.<tailnet>.ts.net`, with Tailscale Serve). Each OpenClaw agent you add, on each install, is a device with its own
@@ -672,30 +678,56 @@ them to the default browser instead. A chat's pages open beside it in the AI wor
 Chats). The pages live in a session of their own, apart from the app's. A web page can't embed
 other sites, so the web app opens links in a new browser tab as before.
 
-| Feature                                                                    | Mac | Web | iPhone |
-| -------------------------------------------------------------------------- | --- | --- | ------ |
-| Pages as tabs in the panel: back, forward, reload, address and search      | ✓   | —   | —      |
-| ⌘F finds in the page                                                       | ✓   | —   | —      |
-| ⌘W closes a page, returning to the last tab viewed; the last closes it     | ✓   | —   | —      |
-| Drag to reorder tabs, Control + Tab for the last one                       | ✓   | —   | —      |
-| Links in mail and chat open in a tab or the default browser; ⌘-click flips | ✓   | —   | —      |
-| Start page (⌘T): new chat, extensions, suggested sites; ⌘L for the address | ✓   | —   | —      |
-| Sign-in popups, links to other apps (asked first), mailto: opens a message | ✓   | —   | —      |
-| Context menu, site info (clear a site's data), clear all browsing data     | ✓   | —   | —      |
-| Chrome Web Store extensions: add (asked first), auto-update                | ✓   | —   | —      |
-| Toolbar: pinned extensions, Extensions menu, badges, popups                | ✓   | —   | —      |
-| Settings › Browser: extensions on/off, details, remove, developer mode     | ✓   | —   | —      |
-| Extensions' context menu items and notifications                           | ✓   | —   | —      |
-| Native messaging (an extension talking to its Mac app, e.g. 1Password's)   | ✓   | —   | —      |
+| Feature                                                                                                                                                                                                                                                                                                                                       | Mac | Web | iPhone |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --- | ------ |
+| Pages as tabs in the panel: back, forward, reload, address and search                                                                                                                                                                                                                                                                         | ✓   | —   | —      |
+| ⌘F finds in the page                                                                                                                                                                                                                                                                                                                          | ✓   | —   | —      |
+| Page menu: find, print, zoom, screenshot (to the clipboard), history, import, clear data, settings                                                                                                                                                                                                                                            | ✓   | —   | —      |
+| Downloads straight to Downloads, listed in the toolbar (open, show, cancel); History, searchable; the address bar suggests from it                                                                                                                                                                                                            | ✓   | —   | —      |
+| Full view (⇧⌘F): the browser has the window, Mail a tab before its pages                                                                                                                                                                                                                                                                      | ✓   | —   | —      |
+| ⌘W closes a page, returning to the last tab viewed; the last closes it                                                                                                                                                                                                                                                                        | ✓   | —   | —      |
+| Drag to reorder tabs; ⌃Tab (⇧ back) shows every tab, most recently used first, and switches on release                                                                                                                                                                                                                                        | ✓   | —   | —      |
+| Links in mail and chat open in a tab or the default browser; ⌘-click flips                                                                                                                                                                                                                                                                    | ✓   | —   | —      |
+| Start page (⌘T): new chat, extensions, suggested sites; ⌘L for the address                                                                                                                                                                                                                                                                    | ✓   | —   | —      |
+| Sign-in popups, links to other apps (asked first), mailto: opens a message                                                                                                                                                                                                                                                                    | ✓   | —   | —      |
+| Context menu, site info (clear a site's data), clear all browsing data                                                                                                                                                                                                                                                                        | ✓   | —   | —      |
+| Sites ask for camera, microphone, location, notifications, clipboard; screen sharing                                                                                                                                                                                                                                                          | ✓   | —   | —      |
+| Chrome Web Store extensions: add (asked first), auto-update                                                                                                                                                                                                                                                                                   | ✓   | —   | —      |
+| Toolbar: pinned extensions, Extensions menu, badges, popups                                                                                                                                                                                                                                                                                   | ✓   | —   | —      |
+| Settings › Browser: extensions on/off, details, remove, developer mode                                                                                                                                                                                                                                                                        | ✓   | —   | —      |
+| Extensions' context menu items and notifications                                                                                                                                                                                                                                                                                              | ✓   | —   | —      |
+| Native messaging (an extension talking to its Mac app, e.g. 1Password's)                                                                                                                                                                                                                                                                      | ✓   | —   | —      |
+| Import from Chrome, Arc, Brave, Edge, Vivaldi or Chromium: sign-ins, extensions                                                                                                                                                                                                                                                               | ✓   | —   | —      |
+| Agents use the browser: tabs, read (every frame, extensions' too), click, type, keys, scroll, screenshot                                                                                                                                                                                                                                      | ✓   | —   | —      |
+| Tabs have an owner: an agent's pages are its chat's (beside the conversation, and a group named for the chat after yours while its small window is open, which folds, opens the chat, and lights the tab the agent is working in); it can take one of yours into the chat, and you can give a tab to the chat or move its pages back to yours | ✓   | —   | —      |
+| Agents sign in with 1Password's menu, never seeing a password; Solve CAPTCHAs (on by default)                                                                                                                                                                                                                                                 | ✓   | —   | —      |
 
 Extensions install through electron-chrome-web-store (MIT) and run on Electron's extension
 support, plus Otter's own layer for what Chrome has and Electron doesn't
-(`apps/desktop/src/services/extensions.ts` and its preload): `chrome.action`, the rest of
+(`packages/browser/src/main/extensions.ts` and its preload): `chrome.action`, the rest of
 `chrome.tabs`, `chrome.windows`, `contextMenus`, `notifications`, `webNavigation`, `commands`,
-`permissions`, native messaging, and simple `downloads` and `privacy`. To connect 1Password to
+`permissions`, native messaging, `debugger` (on the tab's DevTools protocol), `tabGroups`
+(kept, not drawn), `downloads` on the browser's own, and simple `privacy`. To connect 1Password to
 its desktop app on Mac, add Otter in 1Password's Settings › Browser › Add Browser. It then
-shares the desktop app's unlock, including Touch ID. Camera, microphone, location and
-notifications are refused to pages.
+shares the desktop app's unlock, including Touch ID. A site asks before it uses the camera, microphone, location, notifications or
+the clipboard, Chrome's way (Allow while visiting, Allow this time, Never allow); clearing a
+site's data forgets its answers. Screen sharing uses macOS's own picker.
+
+Agents drive the browser as Aside's does (`packages/browser/src/main/agent.ts`, core's
+`tools/browser.ts`): Chrome's DevTools protocol on the tab, each frame read in its own session
+(1Password's menu in the page is a frame of its extension), and clicks and keys sent as the
+user's own input, which 1Password requires. Password fields read as `••••`; the agent picks a
+login in 1Password's menu and 1Password fills it. Settings › Browser › Solve CAPTCHAs (synced)
+says whether the agent solves a CAPTCHA it meets or asks the user to.
+Each page is the user's or a chat's (`chatId` on the browser's tab; core's `turn-chats.ts` says
+which chat a turn is for): pages an agent opens are its chat's and keep running off screen, and
+`browser_take` moves one of the user's tabs, live, into the chat. A chat sees the user's tabs and
+its own, never another chat's.
+
+Settings › Browser › Import brings a Chromium browser's sign-ins (its cookies, decrypted with
+the key the browser keeps in the macOS keychain, or the Linux keyring) and the extensions you
+added from the Chrome Web Store (`packages/browser/src/main/browser-import.ts`). Linux offers
+Chrome, Brave and Chromium.
 
 ## Translation
 

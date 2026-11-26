@@ -99,20 +99,38 @@ test("signed Mac builds notarize through our hook, which retries stapling", () =
   assert.equal(build(false).afterSign, undefined);
 });
 
-test("the iPhone's Sentry release is the one the app reports, with commits since the last iPhone tag", () => {
-  assert.equal(iosSentryRelease("0.8.4", "202611040931"), "otter-mail-ios@0.8.4+202611040931");
+test("an iPhone app's Sentry release is the one it reports, with commits since its last tag", () => {
+  assert.equal(
+    iosSentryRelease("mail", "0.8.4", "202611040931"),
+    "otter-mail-ios@0.8.4+202611040931",
+  );
+  assert.equal(
+    iosSentryRelease("agents", "0.2.5", "202611261200"),
+    "otter-agents-ios@0.2.5+202611261200",
+  );
   for (const [version, build] of [
     ["0.8", "202611040931"],
     ["0.8.4", "1"],
     ["0.8.4", ""],
   ]) {
-    assert.throws(() => iosSentryRelease(version!, build!));
+    assert.throws(() => iosSentryRelease("mail", version!, build!));
   }
 
-  const tags = ["v0.13.9", "ios-v0.8.10", "ios-v0.8.9", "ios-v0.8.4", "ios-v0.9.0", "ios-v1.0"];
-  assert.equal(previousIosTag(tags, "0.8.11"), "ios-v0.8.10");
-  assert.equal(previousIosTag(tags, "0.9.0"), "ios-v0.8.10");
-  assert.equal(previousIosTag(tags, "0.8.4"), undefined);
+  const tags = [
+    "v0.13.9",
+    "ios-v0.8.10",
+    "ios-v0.8.9",
+    "ios-v0.8.4",
+    "ios-v0.9.0",
+    "ios-v1.0",
+    "ios-agents-v0.2.4",
+    "ios-agents-v0.2.3",
+  ];
+  assert.equal(previousIosTag("mail", tags, "0.8.11"), "ios-v0.8.10");
+  assert.equal(previousIosTag("mail", tags, "0.9.0"), "ios-v0.8.10");
+  assert.equal(previousIosTag("mail", tags, "0.8.4"), undefined);
+  assert.equal(previousIosTag("agents", tags, "0.2.5"), "ios-agents-v0.2.4");
+  assert.equal(previousIosTag("agents", tags, "0.2.3"), undefined);
 
   const [a, b] = ["a".repeat(40), "b".repeat(40)];
   assert.equal(iosCommitSpec("otterware-app/otter", a, b), `otterware-app/otter@${a}..${b}`);

@@ -1,6 +1,6 @@
 {
   "name": "@otter/agents-mobile",
-  "version": "0.2.0",
+  "version": "0.2.6",
   "private": true,
   "type": "module",
   "main": "./index.ts",
@@ -26,6 +26,7 @@
     "@otter/mobile": "workspace:*",
     "@otter/shared": "workspace:*",
     "@otter/ui-native": "workspace:*",
+    "@sentry/react-native": "8.28.1",
     "@shopify/flash-list": "2.3.2",
     "@tanstack/react-query": "catalog:",
     "expo": "catalog:",
@@ -46,6 +47,7 @@
     "expo-status-bar": "~58.0.5",
     "expo-symbols": "catalog:",
     "expo-system-ui": "~58.0.7",
+    "expo-updates": "~58.0.22",
     "expo-web-browser": "~58.1.0",
     "react": "catalog:",
     "react-native": "catalog:",

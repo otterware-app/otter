@@ -18,6 +18,7 @@ import {
   WATCHING_FOR_MS,
 } from "@otter/contracts/relay";
 import { AgentData } from "./agent-sync.ts";
+import { retryingReset } from "./durable-objects.ts";
 import { openOldAgentKeys } from "./preferences.ts";
 import * as apns from "./apns.ts";
 import * as push from "./push.ts";
@@ -210,10 +211,13 @@ export class UserHub extends DurableObject<Env> {
 
   async queuePush(userId: string, email: string, _historyId: string): Promise<void> {
     // Legacy change markers never produce a visible alert. The provider watcher verifies additions.
-    if (this.env.NOTIFICATION_MAILBOX) {
-      await this.env.NOTIFICATION_MAILBOX.get(
-        this.env.NOTIFICATION_MAILBOX.idFromName(JSON.stringify([userId, email])),
-      ).changed();
+    const mailboxes = this.env.NOTIFICATION_MAILBOX;
+    if (mailboxes) {
+      const id = mailboxes.idFromName(JSON.stringify([userId, email]));
+      await retryingReset(
+        () => mailboxes.get(id),
+        (stub) => stub.changed(),
+      );
     }
   }
 

@@ -24,8 +24,6 @@ export type AppMenuItems = {
 };
 
 export interface HostOS {
-  nativeMessagingDirectories(): string[];
-
   modifierKey: "metaKey" | "ctrlKey";
 
   mainWindowOptions(): BrowserWindowConstructorOptions;

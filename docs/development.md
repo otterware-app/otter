@@ -21,6 +21,7 @@
 | `pnpm licenses:mobile:agents`           | Re-exports the licenses Otter Agents on Expo lists (see [below](#open-source-licenses)). |
 | `pnpm start`                            | Runs the built app unpackaged (`pnpm build` first).                                      |
 | `pnpm build`                            | Builds `apps/web/dist` and `apps/desktop/dist-electron`.                                 |
+| `pnpm bench:desktop`                    | Times the built desktop app on a large made-up mailbox (see [Speed](#speed)).            |
 | `pnpm build:translator`                 | Builds the Swift translator helper.                                                      |
 | `pnpm build:notifier`                   | Builds the addon for agents' notifications with their pictures (see below).              |
 | `pnpm typecheck`                        | TypeScript across the workspace.                                                         |
@@ -326,6 +327,16 @@ because you asked: it reads and changes your real mail.
 
 `pnpm --filter @otter/site build` assembles the deployable site (the web app) in
 `site/dist`.
+
+## Speed
+
+`pnpm bench:desktop` (after `pnpm build`) launches the built desktop app on the made-up
+mailboxes, with 5,000 messages cached (`--messages`), and prints the median of its launches
+(`--runs`): launch to the window and to mail on screen, opening a message, switching folders,
+searching, scrolling the list, Calendar, Agents, memory. `--loaded` reopens everything a day's
+use leaves open: the browser panel with three tabs (real sites: it needs the network), the
+calendar panel and the chat window. `--json` keeps every run. Compare a change with `main` by
+running it in both checkouts. Set `OTTER_BENCH_HOME` to keep its data home between runs.
 
 ## CI
 

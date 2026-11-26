@@ -16,6 +16,7 @@
     "agents-server": "node scripts/agents-server.ts",
     "start": "vp run --filter @otter/desktop start",
     "build": "vp run --filter './apps/*' build",
+    "bench:desktop": "node scripts/bench-desktop.ts",
     "build:translator": "node scripts/build-translator.ts",
     "build:notifier": "node scripts/build-notifier.ts",
     "icons:export": "node scripts/export-brand-icons.ts",

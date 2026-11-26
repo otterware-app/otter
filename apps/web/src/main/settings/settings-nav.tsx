@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { AgentIcon } from "../agent/agent-icon";
 import { changelogUrl } from "@otter/shared/changelog";
-import { openLink } from "../browser/store";
+import { openLink } from "@otter/browser/ui/store";
 import { ScrollArea } from "@otter/ui/components/scroll-area";
 import { features } from "../features";
 import { useCommandHandlers } from "../keybindings/dispatch";

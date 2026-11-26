@@ -194,6 +194,10 @@ ${extra}  <key>com.apple.security.cs.allow-jit</key>
   <true/>
   <key>com.apple.security.device.audio-input</key>
   <true/>
+  <key>com.apple.security.device.camera</key>
+  <true/>
+  <key>com.apple.security.personal-information.location</key>
+  <true/>
 </dict>
 </plist>
 `;
@@ -262,7 +266,13 @@ export function createBuildConfig(options: {
         NSUserNotificationAlertStyle: "banner",
         CFBundleDisplayName: MAC_BUNDLE_NAME,
         LSHasLocalizedDisplayName: true,
-        NSMicrophoneUsageDescription: "Otter listens while you're on a call with your agent.",
+        NSMicrophoneUsageDescription:
+          "Otter listens while you're on a call with your agent, or when a site you allow asks.",
+        NSCameraUsageDescription:
+          "Sites you allow in Otter's browser use your camera (video calls).",
+        NSLocationUsageDescription: "Sites you allow in Otter's browser know your location.",
+        NSLocationWhenInUseUsageDescription:
+          "Sites you allow in Otter's browser know your location.",
         NSUserActivityTypes: ["INSendMessageIntent"],
       },
       ...(options.signed

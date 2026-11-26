@@ -181,6 +181,8 @@ export function enableNativeMessaging(session: Session, directories: string[]): 
     const worker = session.serviceWorkers.getWorkerFromVersionID(versionId);
     if (!worker || !worker.scope.startsWith("chrome-extension://")) return;
     workers.set(versionId, worker);
+    // A worker that stopped and started again is the same object, its handler still there.
+    worker.ipc.removeHandler("crx:nativeCall");
     worker.ipc.handle("crx:nativeCall", (event, ...args) =>
       call(event, ...(args as [unknown, unknown, unknown])),
     );

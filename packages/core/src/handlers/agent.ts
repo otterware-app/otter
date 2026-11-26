@@ -11,6 +11,7 @@ import {
   setWindowPresence,
 } from "../services/realtime.ts";
 import type { AgentId, ApprovalDecision, ChatAttachment } from "../services/agent/types.ts";
+import { setTurnChat } from "../services/agent/turn-chats.ts";
 
 type Params = Record<string, unknown> | undefined;
 
@@ -147,6 +148,8 @@ export function registerAgentHandlers(): void {
     const attachments = attachmentsOf(p?.attachments);
     if (!requestId || (!input.trim() && !skillName && attachments.length === 0))
       throw new Error("Nothing to send.");
+    const chatId = str(p?.chatId);
+    if (chatId) setTurnChat(requestId, chatId);
     await agent.sendTurn(providerOf(p), {
       requestId,
       input,
@@ -163,6 +166,8 @@ export function registerAgentHandlers(): void {
     const p = params as Params;
     const requestId = str(p?.requestId);
     if (!requestId) throw new Error("A request id is required.");
+    const chatId = str(p?.chatId);
+    if (chatId) setTurnChat(requestId, chatId);
     return {
       resumed: await agent.resumeTurn(providerOf(p), { requestId, sessionId: sessionIdOf(p) }),
     };

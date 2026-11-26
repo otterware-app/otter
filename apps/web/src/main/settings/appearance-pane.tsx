@@ -1,7 +1,7 @@
 import { useLatest } from "@otter/client/use-latest";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { toast } from "@otter/ui/components/toast";
-import { openLink } from "../browser/store";
+import { openLink } from "@otter/browser/ui/store";
 import type { NativeThemeInfo } from "@otter/contracts";
 import {
   CopyIcon,

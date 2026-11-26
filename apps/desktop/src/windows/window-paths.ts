@@ -31,6 +31,8 @@ export function registerRendererScheme(): void {
         supportFetchAPI: true,
         corsEnabled: true,
         stream: true,
+        // Each launch reuses V8's compiled code instead of compiling the app's scripts again.
+        codeCache: true,
       },
     },
   ]);

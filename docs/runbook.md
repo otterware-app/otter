@@ -121,8 +121,9 @@ bundles from `packages/shared` has changed. A Mac release doesn't need one.
 The second iPhone app, released the same way with its own version (`ios-agents-vX.Y.Z` tags).
 
 1. Each merge to main that touches `apps/agents-mobile` or one of its release dependencies
-   builds the Expo app (the Release workflow's
-   "Otter Agents for iPhone" job). By hand:
+   ships it: as an over-the-air update when its native code is the last build's ("Otter Agents
+   update", a minute; phones run it from their next launch), else as a build (the "Otter Agents
+   for iPhone" job). The run's summary says which and why. By hand (always a build):
    `gh workflow run release.yml -f apps=agents -f bump=minor`. From this Mac:
    `pnpm release:ios:agents`.
 2. Apple processes it (10–30 min). The internal group **Nightly (Internal)** gets it

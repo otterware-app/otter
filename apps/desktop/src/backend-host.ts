@@ -1,3 +1,4 @@
+import { runAgentBrowser } from "@otter/browser/main";
 import {
   app,
   clipboard,
@@ -14,7 +15,7 @@ import { createHash } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import type { AppSettings } from "@otter/core";
+import type { AppSettings, ErrorReportsConfig } from "@otter/core";
 
 import {
   appInfoEnv,
@@ -23,7 +24,7 @@ import {
   type MainRequests,
   type ToBackend,
 } from "./backend-protocol.ts";
-import { reportedByBackend, setErrorReportsAllowed, sendsErrorReports } from "./error-reports.ts";
+import { followErrorReportsConfig, reportedByBackend, sendsErrorReports } from "./error-reports.ts";
 import { broadcast } from "./ipc.ts";
 import { logger, writeLog } from "./logger.ts";
 import { hostOS } from "./os/index.ts";
@@ -86,6 +87,9 @@ export function startBackend(): Promise<void> {
   });
   return ready;
 }
+
+/** Settles once the backend serves its channels: the preload holds the page's invokes until then. */
+ipcMain.handle("backend:ready", () => ready);
 
 export function stopBackend(): void {
   stopping = true;
@@ -208,6 +212,10 @@ async function answer(
       await fs.writeFile(result.filePath, bytes);
       return true;
     }
+    case "browser": {
+      const { command, args } = params as MainRequests["browser"]["params"];
+      return runAgentBrowser(command, args);
+    }
     case "pickFiles": {
       const result = await dialog.showOpenDialog({ properties: ["openFile", "multiSelections"] });
       if (result.canceled) return [];
@@ -295,6 +303,8 @@ function postAsAgent(
 function carryOut(effect: MainEffect): void {
   switch (effect.kind) {
     case "broadcast":
+      if (effect.channel === "errorReports:changed")
+        followErrorReportsConfig(effect.params as ErrorReportsConfig);
       broadcast(effect.channel, effect.params);
       return;
     case "notify": {
@@ -403,9 +413,6 @@ function applySettings(settings: AppSettings, patch: Partial<AppSettings>): void
   }
   if (patch.launchAtLogin !== undefined) {
     hostOS.setLaunchAtLogin(settings.launchAtLogin);
-  }
-  if (patch.errorReports !== undefined) {
-    setErrorReportsAllowed(settings.errorReports);
   }
 }
 

@@ -9,7 +9,7 @@
 
 import { contextBridge, ipcRenderer } from "electron";
 
-import { installNativeMessaging } from "./native-messaging-preload.ts";
+import { installNativeMessaging } from "./native-messaging.ts";
 
 function ownExtensionId(): string | null {
   const own = (where: { protocol: string; host: string }) =>
@@ -197,6 +197,8 @@ if (extensionId) {
         goBack: method("tabs.goBack"),
         goForward: method("tabs.goForward"),
         captureVisibleTab: method("tabs.captureVisibleTab"),
+        group: method("tabs.group"),
+        ungroup: method("tabs.ungroup"),
         onCreated: event("tabs.onCreated"),
         onUpdated: event("tabs.onUpdated"),
         onActivated: event("tabs.onActivated"),
@@ -266,6 +268,33 @@ if (extensionId) {
             remove: method("contextMenus.remove"),
             removeAll: method("contextMenus.removeAll"),
             onClicked: event("contextMenus.onClicked"),
+          },
+        });
+      }
+      if (!chrome.tabGroups) {
+        put(chrome, {
+          tabGroups: {
+            TAB_GROUP_ID_NONE: -1,
+            get: method("tabGroups.get"),
+            query: method("tabGroups.query"),
+            update: method("tabGroups.update"),
+            move: method("tabGroups.move"),
+            onCreated: event("tabGroups.onCreated"),
+            onUpdated: event("tabGroups.onUpdated"),
+            onRemoved: event("tabGroups.onRemoved"),
+            onMoved: event("tabGroups.onMoved"),
+          },
+        });
+      }
+      if (!chrome.debugger) {
+        put(chrome, {
+          debugger: {
+            attach: method("debugger.attach"),
+            detach: method("debugger.detach"),
+            sendCommand: method("debugger.sendCommand"),
+            getTargets: method("debugger.getTargets"),
+            onEvent: event("debugger.onEvent"),
+            onDetach: event("debugger.onDetach"),
           },
         });
       }

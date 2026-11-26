@@ -76,13 +76,13 @@ used 30 ms of CPU during the longest timer delay and reached 76 ms of CPU in a s
 interval. A synchronous SQLite write took 119 ms. The 200-change replay peaked at 67 ms
 with 42 ms p95. The 50 ms maximum remains open.
 
-|                   | Otter Mail (`apps/ios`) | Otter Agents (`apps/ios-agents`) |
-| ----------------- | ----------------------- | -------------------------------- |
-| Swift, app        | about 13,500 lines      | about 18,000 lines               |
-| Swift, tests      | about 2,200             | about 3,000                      |
-| Ports TypeScript  | about 8,500 lines       | about 8,000 lines                |
-| Swift packages    | Sentry                  | none                             |
-| Extension targets | notification service    | notification service             |
+|                   | Otter Mail (`apps/ios`) | Otter Agents (`apps/ios-agents`, deleted) |
+| ----------------- | ----------------------- | ----------------------------------------- |
+| Swift, app        | about 13,500 lines      | about 18,000 lines                        |
+| Swift, tests      | about 2,200             | about 3,000                               |
+| Ports TypeScript  | about 8,500 lines       | about 8,000 lines                         |
+| Swift packages    | Sentry                  | none                                      |
+| Extension targets | notification service    | notification service                      |
 
 About half of the Swift is a second implementation of code that already exists in TypeScript:
 

@@ -3,6 +3,7 @@ import { useOtterAccount } from "@otter/client/otter-account";
 import { startSyncedPreferences } from "@otter/client/preferences";
 import { Spinner } from "@otter/ui-native/components/spinner";
 import { useTheme } from "@otter/ui-native/theme";
+import * as Sentry from "@sentry/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -23,7 +24,10 @@ export { ErrorBoundary } from "expo-router";
 
 const queryClient = new QueryClient();
 
-export default function RootLayout() {
+// What was touched, as breadcrumbs for error reports.
+export default Sentry.wrap(RootLayout);
+
+function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardProvider>

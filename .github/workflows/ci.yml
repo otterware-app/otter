@@ -188,10 +188,49 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/otter-mail-build" \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build
 
-  agents:
-    name: iPhone, Otter Agents
+  # The Expo app's Xcode build takes ~20 minutes, mostly React Native's pods. Most changes are
+  # JavaScript, which Checks covers: build only when the native app's fingerprint
+  # (scripts/agents-runtime.ts) differs from the base's, or the lockfile changed.
+  agents-native:
+    name: Otter Agents, native changes
     needs: changes
     if: needs.changes.outputs.agents == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.compare.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Expo workspace
+        uses: ./.github/actions/setup
+
+      - id: compare
+        name: Compare with the base
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          runtime() { node scripts/agents-runtime.ts | grep -oE '[0-9a-f]{40}\.$' | tr -d .; }
+          if [[ "$EVENT" != pull_request ]] ||
+            ! git diff --quiet "$PR_BASE" HEAD -- pnpm-lock.yaml; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          head="$(runtime)"
+          git checkout -q --detach "$(git merge-base "$PR_BASE" HEAD)"
+          base="$(runtime)"
+          echo "Head $head, base $base."
+          echo "changed=$([[ "$head" != "$base" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  agents:
+    name: iPhone, Otter Agents
+    needs: agents-native
+    if: needs.agents-native.outputs.changed == 'true'
     runs-on: xcode-27
     timeout-minutes: 35
     steps:

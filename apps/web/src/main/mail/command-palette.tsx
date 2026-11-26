@@ -41,7 +41,7 @@ import { useDebouncedValue, useSearchMessages } from "@otter/client/mail/hooks";
 import { getAccountColor, getAccountDisplayName } from "@otter/client/mail/account-style";
 import { senderLabel } from "@otter/client/mail/address";
 import { changelogUrl } from "@otter/shared/changelog";
-import { openLink } from "../browser/store";
+import { openLink } from "@otter/browser/ui/store";
 import { getThemeModes } from "../theme/themePalette";
 import {
   previewTheme,

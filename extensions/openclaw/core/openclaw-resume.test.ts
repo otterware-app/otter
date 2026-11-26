@@ -328,6 +328,42 @@ describe("OpenClaw runs picked up again", () => {
     await ended;
   });
 
+  it("follows a call's run, which the gateway lists neither as active nor in the history at first", async () => {
+    let done = false;
+    const voiceRun = { ...reply, __openclaw: { runId: "talk-1" } };
+    fixture.request.mockImplementation(async (method: string) => {
+      if (method === "chat.history")
+        return done
+          ? { messages: [voiceRun], sessionInfo: { hasActiveRun: false, activeRunIds: [] } }
+          : { messages: [], sessionInfo: { hasActiveRun: false, activeRunIds: [] } };
+      if (method === "sessions.list") return { sessions: [] };
+      if (method === "exec.approval.list") return [];
+      return {};
+    });
+    const started: string[] = [];
+    openclaw.watch!(settings, [{ id: "s", since: 0 }], (run) => started.push(run.requestId));
+    await vi.waitFor(() =>
+      expect(fixture.request).toHaveBeenCalledWith("sessions.subscribe", expect.anything()),
+    );
+    const run = { sessionKey: "s", runId: "talk-1" };
+    fixture.onEvent({
+      event: "agent",
+      payload: { ...run, stream: "lifecycle", data: { phase: "start" } },
+    });
+    expect(started).toEqual(["run:talk-1"]);
+    const { events, ended } = await resume("run:talk-1");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(events.some((e) => e.type === "done")).toBe(false);
+    done = true;
+    fixture.onEvent({ event: "chat", payload: { ...run, state: "final", message: reply } });
+    await ended;
+    expect(events.at(-2)).toMatchObject({
+      type: "transcript",
+      messages: [{ role: "assistant", text: "The build passes." }],
+    });
+    expect(events.at(-1)).toEqual({ requestId: "run:talk-1", type: "done", responseId: null });
+  });
+
   it("says so when the message never reached the gateway", async () => {
     gateway(() => ({ messages: earlier, sessionInfo: { hasActiveRun: false } }));
     const { events, ended } = await resume("req-1");

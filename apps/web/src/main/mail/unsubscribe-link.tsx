@@ -4,7 +4,7 @@ import { Dialog } from "@otter/ui/components/dialog";
 import { Text } from "@otter/ui/components/text";
 import { toast } from "@otter/ui/components/toast";
 import { mailApi } from "@otter/client/mail/api";
-import { openLink } from "../browser/store";
+import { openLink } from "@otter/browser/ui/store";
 
 export function UnsubscribeLink({
   accountId,

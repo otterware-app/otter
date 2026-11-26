@@ -16,7 +16,7 @@ import {
   type PagePointer,
   type Placer,
 } from "./agent-browser-overlay";
-import { faviconFor } from "../browser/browser-view";
+import { faviconFor } from "@otter/browser/ui/browser-view";
 import { addressToUrl, hostOf } from "@otter/client/web-address";
 import {
   chooseBrowserFiles,

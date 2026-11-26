@@ -28,6 +28,7 @@ export const HOUR_PX = 48;
 const SNAP = 15;
 const GUTTER = "w-14";
 const GUTTER_PX = 56;
+const GLIDE_MS = 200;
 
 type Actions = ReturnType<typeof useCalendarActions>;
 
@@ -134,10 +135,23 @@ export function TimeGrid({
     const el = scrollRef.current;
     if (!el || !colW) return;
     let timer: ReturnType<typeof setTimeout>;
+    let glide = 0;
     let peeked = 0;
     onPeekRef.current(0);
     // Where a glide is headed: steps taken mid-glide add up from there.
     let aim: number | null = null;
+    // At rest between days: glide onto the nearest, then settle there.
+    // (Not CSS snapping: a mouse wheel's steps would each be pulled back.)
+    const rest = () => {
+      const nearest = Math.round(el.scrollLeft / colW) * colW;
+      if (Math.abs(nearest - el.scrollLeft) > 1) {
+        el.scrollTo({ left: nearest, behavior: "smooth" });
+        return;
+      }
+      aim = null;
+      const shift = Math.round(el.scrollLeft / colW) - buffer;
+      if (shift) onSettleRef.current(shift);
+    };
     const scroll = () => {
       const leading = Math.round(el.scrollLeft / colW) - buffer;
       if (leading !== peeked) {
@@ -145,27 +159,34 @@ export function TimeGrid({
         onPeekRef.current(leading);
       }
       clearTimeout(timer);
-      timer = setTimeout(() => {
-        // At rest between days: glide onto the nearest, then settle there.
-        // (Not CSS snapping: a mouse wheel's steps would each be pulled back.)
-        const nearest = Math.round(el.scrollLeft / colW) * colW;
-        if (Math.abs(nearest - el.scrollLeft) > 1) {
-          el.scrollTo({ left: nearest, behavior: "smooth" });
-          return;
-        }
-        aim = null;
-        const shift = Math.round(el.scrollLeft / colW) - buffer;
-        if (shift) onSettleRef.current(shift);
-      }, 140);
+      if (!glide) timer = setTimeout(rest, 140);
     };
     el.addEventListener("scroll", scroll, { passive: true });
+    // A step glides in GLIDE_MS and settles as it lands: the browser's smooth scroll takes
+    // the better part of a second over a week.
     stepRef.current = (n) => {
       const max = el.scrollWidth - el.clientWidth;
       aim = Math.min(max, Math.max(0, (aim ?? el.scrollLeft) + n * colW));
-      el.scrollTo({ left: aim, behavior: "smooth" });
+      const from = el.scrollLeft;
+      const to = aim;
+      const start = performance.now();
+      cancelAnimationFrame(glide);
+      const frame = (time: number) => {
+        const t = Math.min(1, (time - start) / GLIDE_MS);
+        el.scrollLeft = from + (to - from) * (1 - (1 - t) ** 3);
+        if (t < 1) {
+          glide = requestAnimationFrame(frame);
+          return;
+        }
+        glide = 0;
+        clearTimeout(timer);
+        rest();
+      };
+      glide = requestAnimationFrame(frame);
     };
     return () => {
       clearTimeout(timer);
+      cancelAnimationFrame(glide);
       el.removeEventListener("scroll", scroll);
       stepRef.current = null;
     };

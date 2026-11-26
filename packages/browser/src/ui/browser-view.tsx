@@ -3,11 +3,8 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   ArrowUpRightIcon,
-  CodeIcon,
-  CopyIcon,
   GlobeIcon,
   LockIcon,
-  MoreHorizontalIcon,
   PuzzleIcon,
   RotateCwIcon,
   SlidersHorizontalIcon,
@@ -18,6 +15,14 @@ import {
 import { toast } from "@otter/ui/components/toast";
 import { addressToUrl, hostOf } from "@otter/client/web-address";
 import { ExtensionToolbar } from "./extension-toolbar";
+import { PermissionPrompt } from "./permission-prompt";
+import {
+  DownloadsButton,
+  HistoryDialog,
+  PageMenu,
+  useSuggestions,
+  type PageView,
+} from "./page-tools";
 import {
   CHROME_WEB_STORE_URL,
   closeTab,
@@ -27,8 +32,6 @@ import {
   useBrowser,
   type BrowserTab,
 } from "./store";
-import { shortcutText } from "../keybindings/keys";
-import { FindBar, isFindKey } from "../agent/chat-find";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +44,8 @@ import { Button, IconButton } from "@otter/ui/components/button";
 import { Spinner } from "@otter/ui/components/spinner";
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { cn } from "@otter/ui/lib/utils";
-import { appApi } from "../app-api";
+import { uiHost } from "./host";
+import { desktopBridge } from "./bridge";
 
 type Webview = HTMLElement & {
   getWebContentsId(): number;
@@ -90,6 +94,7 @@ export function BrowserTabIcon({ tab }: { tab: BrowserTab }) {
 export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean }) {
   const [view, setView] = useState<Webview | null>(null);
   const [pageId, setPageId] = useState<number | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   // The address the page opens at; later ones go through loadURL (a new src
   // attribute would load the page over again).
   const [src, setSrc] = useState(tab.url);
@@ -162,20 +167,31 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
   }, [view, tab.id]);
 
   useEffect(() => {
-    if (active && pageId !== null) void window.desktopBridge.invoke("browser:activeTab", pageId);
+    if (active && pageId !== null) void desktopBridge().invoke("browser:activeTab", pageId);
   }, [active, pageId]);
+  useEffect(() => {
+    if (pageId !== null) updateTab(tab.id, { pageId });
+  }, [pageId, tab.id]);
+  useEffect(() => {
+    if (pageId === null || !tab.requestId) return;
+    void desktopBridge().invoke("browser:tabCreated", {
+      requestId: tab.requestId,
+      webContentsId: pageId,
+    });
+    updateTab(tab.id, { requestId: undefined });
+  }, [pageId, tab.id, tab.requestId]);
   useEffect(() => {
     if (pageId === null) return;
     const mine = (params: unknown) =>
       (params as { webContentsId?: number }).webContentsId === pageId;
     const offs = [
-      window.desktopBridge.on("browser:selectTab", (params) => {
+      desktopBridge().on("browser:selectTab", (params) => {
         if (mine(params)) selectTab(tab.id);
       }),
-      window.desktopBridge.on("browser:closeTab", (params) => {
+      desktopBridge().on("browser:closeTab", (params) => {
         if (mine(params)) closeTab(tab.id);
       }),
-      window.desktopBridge.on("browser:find", (params) => {
+      desktopBridge().on("browser:find", (params) => {
         if (mine(params)) setFind((key) => (key ?? 0) + 1);
       }),
     ];
@@ -193,14 +209,14 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
       <div
         className="flex h-12 shrink-0 items-center gap-2 border-b border-border/70 px-3"
         onKeyDown={(e) => {
-          if (!view || !isFindKey(e.nativeEvent)) return;
+          if (!view || !uiHost().isFindKey(e.nativeEvent)) return;
           e.preventDefault();
           e.stopPropagation();
           setFind((key) => (key ?? 0) + 1);
         }}
       >
         <div className="flex shrink-0 items-center rounded-pill bg-foreground/[0.06] p-0.5">
-          <HintTooltip label="Back" hint={shortcutText("mod+[")} side="bottom">
+          <HintTooltip label="Back" hint={uiHost().shortcutText("mod+[")} side="bottom">
             <IconButton
               label="Back"
               className="rounded-pill"
@@ -210,7 +226,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
               <ArrowLeftIcon className="size-4" />
             </IconButton>
           </HintTooltip>
-          <HintTooltip label="Forward" hint={shortcutText("mod+]")} side="bottom">
+          <HintTooltip label="Forward" hint={uiHost().shortcutText("mod+]")} side="bottom">
             <IconButton
               label="Forward"
               className="rounded-pill"
@@ -228,7 +244,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
               </IconButton>
             </HintTooltip>
           ) : (
-            <HintTooltip label="Reload" hint={shortcutText("mod+r")} side="bottom">
+            <HintTooltip label="Reload" hint={uiHost().shortcutText("mod+r")} side="bottom">
               <IconButton
                 label="Reload"
                 className="rounded-pill"
@@ -247,7 +263,14 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
           onSiteDataCleared={() => view?.reload()}
         />
         {src ? <ExtensionToolbar /> : null}
-        <PageMenu url={tab.url} onDevTools={view ? () => view.openDevTools() : undefined} />
+        <DownloadsButton />
+        <PageMenu
+          url={tab.url}
+          view={src ? (view as unknown as PageView | null) : null}
+          onFind={() => setFind((key) => (key ?? 0) + 1)}
+          onHistory={() => setHistoryOpen(true)}
+        />
+        {historyOpen ? <HistoryDialog onClose={() => setHistoryOpen(false)} /> : null}
       </div>
       <div className="relative flex min-h-0 flex-1 flex-col">
         {src ? (
@@ -263,6 +286,7 @@ export function BrowserPage({ tab, active }: { tab: BrowserTab; active: boolean 
         ) : (
           <StartPage onNavigate={navigate} />
         )}
+        {src ? <PermissionPrompt pageId={pageId} /> : null}
         {view && find !== null ? (
           <div className="absolute top-3 right-3 z-10 w-72 max-w-[calc(100%-1.5rem)]">
             <PageFind
@@ -319,6 +343,7 @@ function PageFind({
       view.stopFindInPage("keepSelection");
     };
   }, [view]);
+  const { FindBar } = uiHost();
   return (
     <FindBar
       label="Find in page"
@@ -364,6 +389,13 @@ function AddressBar({
   }, [focusRequest]);
   const editing = draft !== null;
   const origin = URL.parse(url)?.origin;
+  // What history suggests for what's typed (not for the address as it was).
+  const suggestions = useSuggestions(editing && draft !== url ? draft : null);
+  const [highlight, setHighlight] = useState(-1);
+  const go = (next: string) => {
+    onNavigate(next);
+    inputRef.current?.blur();
+  };
   return (
     <div className="group/address relative mx-auto flex h-8 min-w-0 max-w-[56rem] flex-1 items-center rounded-pill bg-foreground/[0.06] focus-within:bg-foreground/[0.09] hover:bg-foreground/[0.09]">
       <input
@@ -379,17 +411,26 @@ function AddressBar({
           const input = e.currentTarget;
           requestAnimationFrame(() => input.select());
         }}
-        onBlur={() => setDraft(null)}
-        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          setDraft(null);
+          setHighlight(-1);
+        }}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setHighlight(-1);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.preventDefault();
             e.currentTarget.blur();
+          } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && suggestions.length > 0) {
+            e.preventDefault();
+            const n = suggestions.length;
+            setHighlight((at) => (e.key === "ArrowDown" ? (at + 1) % n : (at - 1 + n) % n));
           } else if (e.key === "Enter") {
-            const next = addressToUrl(draft ?? "");
-            if (!next) return;
-            onNavigate(next);
-            e.currentTarget.blur();
+            const picked = suggestions[highlight];
+            const next = picked ? picked.url : addressToUrl(draft ?? "");
+            if (next) go(next);
           }
         }}
         className={cn(
@@ -397,6 +438,38 @@ function AddressBar({
           editing ? "text-left" : "text-center",
         )}
       />
+      {suggestions.length > 0 ? (
+        <div
+          role="listbox"
+          className="absolute top-full right-0 left-0 z-30 mt-1 flex flex-col rounded-xl border border-border bg-popover p-1 shadow-lg"
+        >
+          {suggestions.map((s, i) => (
+            <button
+              key={s.url}
+              type="button"
+              role="option"
+              aria-selected={i === highlight}
+              // Before the input's blur drops the list.
+              onMouseDown={(e) => {
+                e.preventDefault();
+                go(s.url);
+              }}
+              className={cn(
+                "flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-accent-surface",
+                i === highlight && "bg-accent-surface",
+              )}
+            >
+              <GlobeIcon className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 truncate text-sm text-foreground">
+                {s.title || hostOf(s.url)}
+              </span>
+              <span className="min-w-0 shrink truncate text-xs text-muted-foreground">
+                {s.url.replace(/^https?:\/\/(www\.)?/, "")}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {origin && origin !== "null" && !editing ? (
         <>
           <SiteInfo url={url} origin={origin} onCleared={onSiteDataCleared} />
@@ -404,7 +477,11 @@ function AddressBar({
             <IconButton
               label="Open in default browser"
               className="absolute right-0.5 rounded-pill opacity-0 group-hover/address:opacity-100 focus-visible:opacity-100"
-              onClick={() => void window.desktopBridge.openExternal(url).catch(() => {})}
+              onClick={() =>
+                void desktopBridge()
+                  .openExternal(url)
+                  .catch(() => {})
+              }
             >
               <ArrowUpRightIcon className="size-4" />
             </IconButton>
@@ -427,7 +504,7 @@ function SiteInfo({
   const secure = url.startsWith("https:");
   const clear = async () => {
     try {
-      await window.desktopBridge.invoke("browser:clearData", { origin });
+      await desktopBridge().invoke("browser:clearData", { origin });
       toast.success(`Cleared ${hostOf(url)}'s cookies and data`);
       onCleared();
     } catch (error) {
@@ -467,50 +544,6 @@ function SiteInfo({
   );
 }
 
-function PageMenu({ url, onDevTools }: { url: string; onDevTools?: () => void }) {
-  return (
-    <DropdownMenu>
-      <HintTooltip label="More" side="bottom">
-        <DropdownMenuTrigger
-          render={<IconButton label="More" size="icon" className="shrink-0 rounded-pill" />}
-        >
-          <MoreHorizontalIcon className="size-4" />
-        </DropdownMenuTrigger>
-      </HintTooltip>
-      <DropdownMenuContent align="end" className="w-56">
-        {url ? (
-          <>
-            <DropdownMenuItem
-              icon={<ArrowUpRightIcon className="size-4" />}
-              onClick={() => void window.desktopBridge.openExternal(url).catch(() => {})}
-            >
-              Open in Default Browser
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              icon={<CopyIcon className="size-4" />}
-              onClick={() => void navigator.clipboard.writeText(url)}
-            >
-              Copy Link
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-          </>
-        ) : null}
-        <DropdownMenuItem
-          icon={<PuzzleIcon className="size-4" />}
-          onClick={() => void appApi.openSettings({ pane: "browser" })}
-        >
-          Extensions
-        </DropdownMenuItem>
-        {onDevTools ? (
-          <DropdownMenuItem icon={<CodeIcon className="size-4" />} onClick={onDevTools}>
-            Developer Tools
-          </DropdownMenuItem>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 function StartPage({ onNavigate }: { onNavigate: (url: string) => void }) {
   const tile =
     "flex cursor-pointer items-center gap-2.5 rounded-xl bg-foreground/[0.04] px-4 py-3 text-left text-sm text-foreground outline-none hover:bg-foreground/[0.07] focus-visible:ring-2 focus-visible:ring-focus-ring [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground";
@@ -519,11 +552,7 @@ function StartPage({ onNavigate }: { onNavigate: (url: string) => void }) {
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-6 py-8">
         <h2 className="text-sm font-medium text-foreground">Tools</h2>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-3">
-          <button
-            type="button"
-            className={tile}
-            onClick={() => void appApi.openSettings({ pane: "browser" })}
-          >
+          <button type="button" className={tile} onClick={() => uiHost().openSettings()}>
             <PuzzleIcon />
             Extensions
           </button>

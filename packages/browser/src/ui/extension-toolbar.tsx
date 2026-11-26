@@ -24,7 +24,8 @@ import {
 import { HintTooltip } from "@otter/ui/components/tooltip";
 import { IconButton, buttonVariants } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
-import { appApi } from "../app-api";
+import { uiHost } from "./host";
+import { desktopBridge } from "./bridge";
 
 type ExtensionAction = {
   id: string;
@@ -50,8 +51,8 @@ export function useExtensionActions(): ExtensionAction[] {
   useEffect(() => {
     const refresh = () => void queryClient.invalidateQueries({ queryKey: ACTIONS_KEY });
     const offs = [
-      window.desktopBridge.on("browser:extensionActionsChanged", refresh),
-      window.desktopBridge.on("browser:extensionsChanged", refresh),
+      desktopBridge().on("browser:extensionActionsChanged", refresh),
+      desktopBridge().on("browser:extensionsChanged", refresh),
     ];
     return () => offs.forEach((off) => off());
   }, [queryClient]);
@@ -99,7 +100,7 @@ export function ExtensionToolbar() {
 
   useEffect(
     () =>
-      window.desktopBridge.on("browser:openExtensionPopup", (params) => {
+      desktopBridge().on("browser:openExtensionPopup", (params) => {
         const { id } = params as { id: string };
         run(id, buttons.current.get(id) ?? menuButton.current);
       }),
@@ -190,7 +191,7 @@ export function ExtensionToolbar() {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       icon={<PuzzleIcon className="size-4" />}
-                      onClick={() => void appApi.openSettings({ pane: "browser" })}
+                      onClick={() => uiHost().openSettings()}
                     >
                       Manage extension
                     </DropdownMenuItem>
@@ -199,7 +200,7 @@ export function ExtensionToolbar() {
               );
             })}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => void appApi.openSettings({ pane: "browser" })}>
+            <DropdownMenuItem onClick={() => uiHost().openSettings()}>
               <span className="flex items-center justify-between gap-2">
                 Manage extensions
                 <ArrowUpRightIcon className="size-4 text-muted-foreground" />

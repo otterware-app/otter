@@ -6,6 +6,8 @@ const fixture = vi.hoisted(() => ({
   error: vi.fn(),
 }));
 
+vi.mock("@otter/browser/main", () => ({ runAgentBrowser: vi.fn() }));
+
 vi.mock("electron", async () => {
   const { EventEmitter } = await import("node:events");
   fixture.app = Object.assign(new EventEmitter(), {
@@ -35,7 +37,7 @@ vi.mock("electron", async () => {
 });
 vi.mock("./error-reports.ts", () => ({
   reportedByBackend: vi.fn(),
-  setErrorReportsAllowed: vi.fn(),
+  followErrorReportsConfig: vi.fn(),
   sendsErrorReports: false,
 }));
 vi.mock("./ipc.ts", () => ({ broadcast: vi.fn() }));

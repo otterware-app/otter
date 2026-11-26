@@ -53,7 +53,7 @@ function worker(versionId = 1) {
     isDestroyed: () => false,
     startTask: vi.fn(() => ({ end })),
     end,
-    ipc: { handle: vi.fn() },
+    ipc: { handle: vi.fn(), removeHandler: vi.fn() },
   };
 }
 

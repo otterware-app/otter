@@ -7,7 +7,6 @@ import { Switch } from "@otter/ui/components/switch";
 import { Text } from "@otter/ui/components/text";
 import { ipc } from "@otter/client/bridge";
 import { toast } from "@otter/ui/components/toast";
-import { searchableSetting } from "../settings/settings-search";
 import { CHROME_WEB_STORE_URL, openTab, setExtensionsButton, setPinned, useBrowser } from "./store";
 import { Button } from "@otter/ui/components/button";
 import { cn } from "@otter/ui/lib/utils";
@@ -17,6 +16,8 @@ import {
   SettingsRow,
   SettingsSection,
 } from "@otter/ui/components/settings";
+import { uiHost } from "./host";
+import { desktopBridge } from "./bridge";
 
 type Extension = {
   id: string;
@@ -41,7 +42,7 @@ function useExtensions() {
   });
   useEffect(
     () =>
-      window.desktopBridge.on("browser:extensionsChanged", () => {
+      desktopBridge().on("browser:extensionsChanged", () => {
         void queryClient.invalidateQueries({ queryKey: EXTENSIONS_KEY });
       }),
     [queryClient],
@@ -86,10 +87,10 @@ export function ExtensionsSection() {
   };
 
   return (
-    <SettingsSection {...searchableSetting("browser-extensions")} variant="plain">
+    <SettingsSection {...uiHost().settingProps("browser-extensions")} variant="plain">
       <SettingsGroup>
         <SettingsRow
-          {...searchableSetting("browser-extensions-button")}
+          {...uiHost().settingProps("browser-extensions-button")}
           resetAction={
             extensionsButton ? null : (
               <SettingsResetButton

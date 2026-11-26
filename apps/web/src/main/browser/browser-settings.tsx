@@ -7,9 +7,12 @@ import { toast } from "@otter/ui/components/toast";
 import { searchableSetting } from "../settings/settings-search";
 import { osNames } from "../os-names";
 import { modKeyName } from "../keybindings/keys";
-import { ExtensionsSection } from "./extensions-section";
-import { setOpenLinksIn, useBrowser, type OpenLinksIn } from "./store";
+import { ExtensionsSection } from "@otter/browser/ui/extensions-section";
+import { ImportSection } from "@otter/browser/ui/import-section";
+import { setOpenLinksIn, useBrowser, type OpenLinksIn } from "@otter/browser/ui/store";
 import { Button } from "@otter/ui/components/button";
+import { Switch } from "@otter/ui/components/switch";
+import { getSyncedPreference, setSyncedPreference } from "@otter/client/preferences";
 import {
   SettingsSelect,
   SettingsResetButton,
@@ -26,6 +29,9 @@ const OPEN_LINKS_OPTIONS: { value: OpenLinksIn; label: string }[] = [
 export function BrowserSettingsPane() {
   const openLinksIn = useBrowser((s) => s.openLinksIn);
   const [clearing, setClearing] = useState(false);
+  const [solveCaptchas, setSolveCaptchas] = useState(
+    () => getSyncedPreference("browser:solve-captchas") !== "false",
+  );
 
   return (
     <SettingsPageContainer title="Browser">
@@ -49,7 +55,25 @@ export function BrowserSettingsPane() {
         />
       </SettingsSection>
 
+      <SettingsSection title="Agents">
+        <SettingsRow
+          {...searchableSetting("browser-solve-captchas")}
+          description="Your agents solve the CAPTCHAs they meet on websites during your tasks, without asking you each time."
+          control={
+            <Switch
+              checked={solveCaptchas}
+              onCheckedChange={(on) => {
+                setSolveCaptchas(on);
+                setSyncedPreference("browser:solve-captchas", on ? "true" : "false");
+              }}
+            />
+          }
+        />
+      </SettingsSection>
+
       <ExtensionsSection />
+
+      <ImportSection />
 
       <SettingsSection title="Browsing data">
         <SettingsRow

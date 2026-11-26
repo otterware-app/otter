@@ -41,6 +41,8 @@ export async function startMobileCore(options: {
   prepare?: (platform: Platform) => Promise<void>;
   existingAgentOutbox?: (userId: string) => Promise<string | null>;
   initialStorage?: Record<string, string>;
+  /** Sentry is running: core's errors and log lines go to it. */
+  errorReports?: boolean;
 }): Promise<void> {
   const largeMailbox = options.fake && options.fakeGmailMessages;
   const home = largeMailbox ? "fake-mail-benchmark" : options.fake ? "fake" : "otter";
@@ -58,6 +60,7 @@ export async function startMobileCore(options: {
     backgroundCheckpoints: options.modules.includes("mail"),
     secretsService: options.fake ? `${options.secretsService}.fake` : options.secretsService,
     relayUrl: options.relayUrl,
+    errorReports: options.errorReports,
   });
   let extensions = options.extensions.filter((e) => runsOn(e.manifest, "ios"));
   if (options.fake) {
