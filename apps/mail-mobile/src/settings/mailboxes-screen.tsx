@@ -1,9 +1,11 @@
 import { getAccountDisplayName } from "@otter/client/mail/account-style";
+import { demo } from "@otter/mobile/demo";
 import { SettingsPage, SettingsRow, SettingsSection } from "@otter/ui-native/components/settings";
 import { useRouter } from "expo-router";
 
 import { MailboxAvatar } from "../frame/mail-places.tsx";
 import { useMailboxes } from "../mail/mailboxes.ts";
+import { ProviderMark } from "./provider-mark.tsx";
 
 export function MailboxesScreen() {
   const { mailboxes } = useMailboxes();
@@ -24,10 +26,11 @@ export function MailboxesScreen() {
             }
           />
         ) : null}
-        {mailboxes.map(({ look, enabled, account }) => (
+        {mailboxes.map(({ look, enabled, account, alias }) => (
           <SettingsRow
             key={look.id}
             icon={<MailboxAvatar mailbox={look} />}
+            mark={alias ? undefined : <ProviderMark account={account} size={14} />}
             title={getAccountDisplayName(look)}
             value={account.signedOut ? "Signed out" : enabled ? undefined : "Off"}
             onPress={() =>
@@ -35,11 +38,13 @@ export function MailboxesScreen() {
             }
           />
         ))}
-        <SettingsRow
-          icon="plus"
-          title="Manage connections"
-          onPress={() => router.push("/settings/account")}
-        />
+        {demo ? null : (
+          <SettingsRow
+            icon="plus"
+            title="Manage connections"
+            onPress={() => router.push("/settings/account")}
+          />
+        )}
       </SettingsSection>
     </SettingsPage>
   );

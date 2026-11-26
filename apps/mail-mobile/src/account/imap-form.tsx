@@ -65,7 +65,7 @@ export function ImapForm({ onDone }: { onDone: () => void }) {
 
   return (
     <>
-      <SettingsSection title="IMAP mailbox">
+      <SettingsSection title="IMAP mailbox" headline>
         <SettingsField placeholder="Email" value={email} onChangeText={setEmail} />
         <SettingsField
           placeholder="Username (defaults to email)"
@@ -108,7 +108,7 @@ function ServerFields({
   onChange: (server: Server) => void;
 }) {
   return (
-    <SettingsSection title={name}>
+    <SettingsSection title={name} headline>
       <SettingsField
         placeholder="Server hostname"
         value={server.host}

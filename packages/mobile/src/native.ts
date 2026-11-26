@@ -36,6 +36,7 @@ export const native = requireNativeModule<{
       Pick<AppSettings, "notificationsMode" | "readLanguages" | "autoTranslate" | "errorReports">
     >;
   };
+  isAppStoreInstall(): Promise<boolean>;
   existingMailDrafts(userId: string): Promise<string[]>;
   existingMailDraftAttachment(folder: string, filename: string): Promise<string>;
   makeAgentPicture(uri: string, maxLength: number): Promise<string>;

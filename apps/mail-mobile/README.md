@@ -9,6 +9,11 @@ replying. What is still unverified on a phone is in the
 pnpm dev:mobile:mail:fake
 ```
 
+Development and TestFlight builds also offer the same made-up mail on the welcome screen, as
+**Try the demo mailbox** (`@otter/mobile/demo`): a flag read before core starts, which opens
+core's fake in its own home and Keychain service and reloads the app. Settings → Account →
+**Sign in with Google** leaves it. The demo never sends error reports.
+
 The app runs under `dev.otterware.mail.dev`, with Metro on port 8099. Expo prebuild generates
 `ios/` from `app.config.ts`.
 

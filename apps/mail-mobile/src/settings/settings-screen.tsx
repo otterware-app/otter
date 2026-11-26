@@ -8,6 +8,7 @@ import { mailApi, type NotificationsMode } from "@otter/client/mail/api";
 import { useOtterAccount } from "@otter/client/otter-account";
 import { setSyncedPreference } from "@otter/client/preferences";
 import type { ErrorReportsConfig } from "@otter/core";
+import { demo, setDemo } from "@otter/mobile/demo";
 import { Avatar } from "@otter/ui-native/components/avatar";
 import {
   SettingsFooterText,
@@ -20,10 +21,12 @@ import { Text } from "@otter/ui-native/components/text";
 import { useTheme } from "@otter/ui-native/theme";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Constants from "expo-constants";
+import { Image } from "expo-image";
 import { requestPermissionsAsync } from "expo-notifications";
 import { Stack, useRouter } from "expo-router";
 import { View } from "react-native";
 
+import otterMark from "../account/otter-mark.png";
 import { mailFailure } from "../mail/mail-actions.tsx";
 import { useMailboxes } from "../mail/mailboxes.ts";
 import {
@@ -87,7 +90,21 @@ export function SettingsScreen() {
           onPress={() => router.back()}
         />
       </Stack.Toolbar>
-      {name ? (
+      {demo ? (
+        <View style={{ alignItems: "center", paddingVertical: 15, gap: 5 }}>
+          <Image
+            source={otterMark}
+            accessible={false}
+            style={{ width: 58, height: 58, borderRadius: 29 }}
+          />
+          <Text size="xl" weight="semibold">
+            Demo mailbox
+          </Text>
+          <Text color="mutedForeground" style={{ textAlign: "center" }}>
+            Pretend mail, to try Otter Mail. Nothing here reaches Google.
+          </Text>
+        </View>
+      ) : name ? (
         <View style={{ alignItems: "center", paddingVertical: 15, gap: 5 }}>
           <Avatar source={otter?.user?.picture} initials={Array.from(name)[0]} size={58} />
           <Text size="xl" weight="semibold">
@@ -185,11 +202,20 @@ export function SettingsScreen() {
       </SettingsSection>
       {errorReportsAvailable && <SupportSection />}
       <SettingsSection title="Account" headline>
-        <SettingsRow
-          icon="person.crop.circle"
-          title="Otter account"
-          onPress={() => router.push("/settings/account")}
-        />
+        {demo ? (
+          <SettingsRow
+            icon="person.crop.circle.badge.plus"
+            title="Sign in with Google"
+            chevron={false}
+            onPress={() => void setDemo(false)}
+          />
+        ) : (
+          <SettingsRow
+            icon="person.crop.circle"
+            title="Otter account"
+            onPress={() => router.push("/settings/account")}
+          />
+        )}
         <SettingsRow icon="info.circle" title="Version" value={Constants.expoConfig?.version} />
         <SettingsRow
           icon="doc.text"

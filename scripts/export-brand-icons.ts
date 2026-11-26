@@ -228,7 +228,7 @@ try {
       info,
     });
   }
-  await iphoneIcons(catalog, MAIL);
+  await iphoneIcons(catalog, MAIL, "apps/mail-mobile/src/account/otter-mark.png");
   await iphoneIcons(agentsCatalog, AGENT, "apps/agents-mobile/src/account/otter-mark.png");
 } finally {
   await browser.close();

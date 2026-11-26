@@ -4,7 +4,7 @@ import {
   getAccountDisplayName,
 } from "@otter/client/mail/account-style";
 import { signatureFor, withAliasMailbox } from "@otter/client/mail/alias-mailboxes";
-import { isICloud, mailServerName } from "@otter/client/mail/capabilities";
+import { mailServerName } from "@otter/client/mail/capabilities";
 import { useUpdateAccount } from "@otter/client/mail/hooks";
 import { Button } from "@otter/ui-native/components/button";
 import { EmptyState } from "@otter/ui-native/components/empty-state";
@@ -27,6 +27,7 @@ import { mailFailure } from "../mail/mail-actions.tsx";
 import { useMailboxes, type Mailbox } from "../mail/mailboxes.ts";
 import { MailboxNotifications } from "../notifications/mailbox-notifications.tsx";
 import { setMailboxArrangement, useMailboxArrangement } from "./preferences.ts";
+import { ProviderMark } from "./provider-mark.tsx";
 
 export function MailboxSettingsScreen() {
   const { account } = useLocalSearchParams<{ account: string }>();
@@ -58,7 +59,6 @@ function MailboxSettings({ mailbox, mailboxes }: { mailbox: Mailbox; mailboxes: 
   const locked = alias
     ? arrangement.off.includes(account.id)
     : enabled && mailboxes.filter((entry) => !entry.alias && entry.enabled).length === 1;
-  const icon = isICloud(account) ? "icloud" : account.provider === "outlook" ? "tray" : "envelope";
 
   function move(delta: -1 | 1) {
     const next = index + delta;
@@ -92,7 +92,11 @@ function MailboxSettings({ mailbox, mailboxes }: { mailbox: Mailbox; mailboxes: 
     <SettingsPage keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: getAccountDisplayName(look) }} />
       <SettingsSection>
-        <SettingsRow icon={icon} title={mailServerName(account)} value={look.email} />
+        <SettingsRow
+          icon={<ProviderMark account={account} />}
+          title={mailServerName(account)}
+          value={look.email}
+        />
         {account.signedOut && (
           <SettingsRow
             icon="exclamationmark.triangle"
@@ -117,7 +121,7 @@ function MailboxSettings({ mailbox, mailboxes }: { mailbox: Mailbox; mailboxes: 
         {index < ids.length - 1 && <SettingsButton title="Move down" onPress={() => move(1)} />}
       </SettingsSection>
       {!alias && <MailboxNotifications account={account} />}
-      <SettingsSection title="Appearance">
+      <SettingsSection title="Appearance" headline>
         <SettingsField placeholder="Mailbox name" value={name} onChangeText={setName} />
         <View style={{ flexDirection: "row", flexWrap: "wrap", padding: 10, gap: 5 }}>
           {ACCOUNT_COLOR_PALETTE.map((swatch) => (
@@ -143,7 +147,7 @@ function MailboxSettings({ mailbox, mailboxes }: { mailbox: Mailbox; mailboxes: 
           ))}
         </View>
       </SettingsSection>
-      <SettingsSection title="Signature">
+      <SettingsSection title="Signature" headline>
         <TextInput
           accessibilityLabel="Signature"
           placeholder="Signature"

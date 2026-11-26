@@ -63,6 +63,7 @@ export function MailboxNotifications({ account }: { account: MailAccount }) {
   return (
     <SettingsSection
       title="Background notifications"
+      headline
       footer={
         status
           ? setupStatus[status]

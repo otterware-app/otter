@@ -120,6 +120,8 @@ export type SettingsRowProps = {
   title: string;
   /** A symbol's name, or an avatar. */
   icon?: IconName | ReactNode;
+  /** Small, before the title: a mailbox's provider. */
+  mark?: ReactNode;
   /** What it's set to, muted at the end. */
   value?: string;
   /** In place of the chevron: a picker's ⌃⌄, a checkmark. */
@@ -135,6 +137,7 @@ export type SettingsRowProps = {
 export function SettingsRow({
   title,
   icon,
+  mark,
   value,
   accessory,
   chevron,
@@ -145,6 +148,7 @@ export function SettingsRow({
   const content = (
     <SettingsCell>
       <Leading icon={icon} tone={tone} />
+      {mark}
       <Text size="base" color={tone ?? "foreground"} numberOfLines={1} style={{ flexShrink: 1 }}>
         {title}
       </Text>

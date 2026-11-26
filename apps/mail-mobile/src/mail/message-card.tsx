@@ -9,12 +9,12 @@ import { Button } from "@otter/ui-native/components/button";
 import { Icon, type IconName } from "@otter/ui-native/components/icon";
 import { Spinner } from "@otter/ui-native/components/spinner";
 import { Text } from "@otter/ui-native/components/text";
-import { useTheme } from "@otter/ui-native/theme";
+import { typeStyle, useTheme } from "@otter/ui-native/theme";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import { ActionSheetIOS, Alert, Pressable, StyleSheet, View } from "react-native";
+import { ActionSheetIOS, Alert, Pressable, StyleSheet, TextInput, View } from "react-native";
 
-import { decodeEntities, htmlToPlain, plainToHtml } from "./compose-text.ts";
+import { decodeEntities, htmlToPlain } from "./compose-text.ts";
 import { shortMailDate } from "./format-date.ts";
 import HTMLBody from "./html-body.tsx";
 import { mailFailure } from "./mail-actions.tsx";
@@ -314,15 +314,10 @@ function MessageBody({
       )}
       <View style={{ marginTop: 12, paddingHorizontal: fullWidth ? 0 : 20 }}>
         {translation && !showOriginal ? (
-          <Text selectable size="lg" style={{ lineHeight: 23 }}>
-            {translation}
-          </Text>
-        ) : body.bodyHtml || agents ? (
+          <PlainText text={translation} onSelection={agents ? setSelection : undefined} />
+        ) : body.bodyHtml ? (
           <HTMLBody
-            html={
-              body.bodyHtml ??
-              plainToHtml(showQuote ? (body.bodyText ?? text) : text || body.snippet)
-            }
+            html={body.bodyHtml}
             light={theme.scheme === "light"}
             colors={{
               foreground: theme.colors.foreground,
@@ -338,13 +333,13 @@ function MessageBody({
               automaticallyAdjustContentInsets: false,
               allowFileAccess: false,
               allowFileAccessFromFileURLs: false,
-              dataDetectorTypes: ["phoneNumber", "link"],
             }}
           />
         ) : (
-          <Text selectable size="lg" style={{ lineHeight: 23 }}>
-            {text || body.snippet}
-          </Text>
+          <PlainText
+            text={showQuote ? (body.bodyText ?? text) : text || body.snippet}
+            onSelection={agents ? setSelection : undefined}
+          />
         )}
         {translation && (
           <Button
@@ -374,11 +369,6 @@ function MessageBody({
               size="sm"
               onPress={() => setShowQuote(!showQuote)}
             />
-            {showQuote && !agents ? (
-              <Text selectable size="body" color="mutedForeground">
-                {quote}
-              </Text>
-            ) : null}
           </>
         ) : null}
       </View>
@@ -429,6 +419,29 @@ function MessageBody({
 }
 
 const emptyImages: Record<string, string> = {};
+
+/** A plain-text body as UIKit draws one: selectable, its links, phone numbers and addresses the system's. */
+function PlainText({ text, onSelection }: { text: string; onSelection?: (text: string) => void }) {
+  const theme = useTheme();
+  return (
+    <TextInput
+      value={text}
+      editable={false}
+      multiline
+      scrollEnabled={false}
+      dataDetectorTypes={["link", "phoneNumber", "address"]}
+      onSelectionChange={
+        onSelection &&
+        (({ nativeEvent: { selection } }) =>
+          onSelection(text.slice(selection.start, selection.end).slice(0, 4000)))
+      }
+      style={[
+        typeStyle(theme, "lg", "regular"),
+        { lineHeight: 23, padding: 0, color: theme.colors.foreground },
+      ]}
+    />
+  );
+}
 
 function fileSymbol(mimeType: string): IconName {
   if (mimeType.startsWith("image/")) return "photo";

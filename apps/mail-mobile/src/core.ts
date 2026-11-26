@@ -1,4 +1,5 @@
 import translation from "@otter/extension-translation/core";
+import { demo } from "@otter/mobile/demo";
 import { native } from "@otter/mobile/native";
 import { watchLongTasks } from "@otter/mobile/long-tasks";
 import { startMobileCore } from "@otter/mobile/start";
@@ -6,7 +7,7 @@ import { startMobileCore } from "@otter/mobile/start";
 import { importSwiftMailState } from "./account/migration.ts";
 import { errorReportsAvailable, followErrorReports, startErrorReports } from "./error-reports.ts";
 
-export const fake = process.env.EXPO_PUBLIC_OTTER_DATA === "fake";
+export const fake = process.env.EXPO_PUBLIC_OTTER_DATA === "fake" || demo;
 export const benchmark = fake && process.env.EXPO_PUBLIC_OTTER_MAIL_BENCHMARK === "1";
 export let benchmarkAccountId: string | undefined;
 

@@ -2,6 +2,7 @@ import CryptoKit
 import ExpoModulesCore
 import Foundation
 import NaturalLanguage
+import StoreKit
 import SwiftUI
 @preconcurrency import Translation
 
@@ -197,6 +198,15 @@ public class OtterMobileModule: Module {
         settings["notifications"] = "off"
       }
       return settings
+    }
+
+    // Not TestFlight's or Xcode's: those offer the demo mailbox, as WelcomeView.swift did.
+    AsyncFunction("isAppStoreInstall") { () async -> Bool in
+      guard let result = try? await AppTransaction.shared else { return false }
+      switch result {
+      case .verified(let transaction), .unverified(let transaction, _):
+        return transaction.environment == .production
+      }
     }
 
     Function("formatMailDate") { (timestamp: Double) -> String in

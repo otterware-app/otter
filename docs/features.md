@@ -84,7 +84,7 @@ account offers each kind.
 | Remote images                                                                          | load; broken ones proxied by backend                                     | load; proxy only where CORS lets                                    | load                                                                |
 | Remote-image blocking                                                                  | —                                                                        | —                                                                   | —                                                                   |
 | Select and copy message text: a word, a sentence, any range                            | ✓                                                                        | ✓                                                                   | ✓                                                                   |
-| Phone numbers in a message: click for Call, Send Message, Copy                         | ✓ (Linux: Copy)                                                          | ✓ (Call and Message on a Mac)                                       | ✓ (the system's: tap to call, hold for more)                        |
+| Phone numbers in a message: click for Call, Send Message, Copy                         | ✓ (Linux: Copy)                                                          | ✓ (Call and Message on a Mac)                                       | plain text: the system's (tap, hold for more); HTML: `tel:` links   |
 | Quoted text collapsed                                                                  | ✓ (HTML and plain text)                                                  | ✓                                                                   | plain text only                                                     |
 | Attachments                                                                            | preview in app (⌘F finds), save, open in default app, drag out to Finder | preview in app (⌘F finds), save                                     | Quick Look, save / share                                            |
 | Unsubscribe (one-click, web, mailto)                                                   | ✓                                                                        | ✓                                                                   | ✓                                                                   |
@@ -794,11 +794,8 @@ What each scope in `GMAIL_SCOPES` (`packages/contracts/src/google.ts`) is for:
 - iPhone: Gmail contact photos for senders (it doesn't ask for the contacts scope).
 - iPhone: create, rename and delete labels; Empty Trash / Junk.
 - iPhone: views.
-- iPhone: devices and Delete account (it signs out only).
 - iPhone: automatic translation of HTML mail (plain text only).
-- iPhone: links and phone numbers in plain-text mail without Otter Agents installed.
-- iPhone: the demo mailbox in TestFlight builds.
-- iPhone: provider logos in mailbox settings.
+- iPhone: phone numbers and addresses in HTML mail (only its `tel:` links).
 - iPhone: unread counts in the mailbox picker, a list row's menu, New message from a held tab,
   conversations zooming from their rows.
 - Web: translation outside Chrome.

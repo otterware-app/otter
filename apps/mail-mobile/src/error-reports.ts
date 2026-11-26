@@ -6,6 +6,7 @@ import {
   reportEnvironment,
   SENTRY_DSN,
 } from "@otter/shared/error-reports";
+import { demo } from "@otter/mobile/demo";
 import * as Sentry from "@sentry/react-native";
 import Constants from "expo-constants";
 
@@ -15,6 +16,7 @@ const build = Constants.expoConfig?.ios?.buildNumber ?? "0";
 /** Release builds over real mail, and a development one started with `EXPO_PUBLIC_OTTER_ERROR_REPORTS=1`. */
 export const errorReportsAvailable =
   Boolean(SENTRY_DSN.mail) &&
+  !demo &&
   (__DEV__
     ? process.env.EXPO_PUBLIC_OTTER_ERROR_REPORTS === "1"
     : process.env.EXPO_PUBLIC_OTTER_DATA !== "fake");
