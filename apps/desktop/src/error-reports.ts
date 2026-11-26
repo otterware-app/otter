@@ -9,12 +9,13 @@ import {
   reportEnvironment,
   reportLog,
   SENTRY_DSN,
+  type ReportUser,
 } from "@otter/shared/error-reports";
 
 import { reportLogsTo } from "./logger.ts";
 
-/** Native crash dumps hold memory, local variables hold values: either could be mail. */
-const LEFT_OUT = new Set(["SentryMinidump", "LocalVariables", "Console", "Screenshots"]);
+/** Local variables can hold sign-in tokens; the console repeats our log lines. */
+const LEFT_OUT = new Set(["LocalVariables", "Console"]);
 
 const gate = new ConsentGate();
 
@@ -48,7 +49,7 @@ export function startErrorReports(): void {
     // Avoid injecting Sentry into browser tab sessions.
     ipcMode: Sentry.IPCMode.Classic,
     getSessions: () => [],
-    attachScreenshot: false,
+    attachScreenshot: true,
     integrations: (defaults) => defaults.filter((integration) => !LEFT_OUT.has(integration.name)),
   });
   gate.set(savedChoice());
@@ -67,10 +68,13 @@ function savedChoice(): boolean {
   }
 }
 
-export function setErrorReportsAllowed(enabled: boolean): void {
-  gate.set(enabled);
-}
-
-export function setReportId(reportId: string): void {
-  if (sendsErrorReports) Sentry.setUser({ id: reportId });
+export function followErrorReportsConfig(config: {
+  enabled: boolean;
+  reportId: string;
+  user: ReportUser;
+}): void {
+  if (!sendsErrorReports) return;
+  Sentry.setUser(config.user);
+  Sentry.setContext("install", { reportId: config.reportId });
+  gate.set(config.enabled);
 }

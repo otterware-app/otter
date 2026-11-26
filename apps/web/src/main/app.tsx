@@ -8,7 +8,7 @@ import { ToastProvider } from "@otter/ui/components/toast";
 import { ReportProblemDialog } from "./support/report-problem";
 import { reactErrorHandlers, startErrorReports } from "./error-reports";
 
-startErrorReports();
+startErrorReports(router);
 
 declare const __APP_DISPLAY_NAME__: string | undefined;
 

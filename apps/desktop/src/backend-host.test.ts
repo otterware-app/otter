@@ -37,7 +37,7 @@ vi.mock("electron", async () => {
 });
 vi.mock("./error-reports.ts", () => ({
   reportedByBackend: vi.fn(),
-  setErrorReportsAllowed: vi.fn(),
+  followErrorReportsConfig: vi.fn(),
   sendsErrorReports: false,
 }));
 vi.mock("./ipc.ts", () => ({ broadcast: vi.fn() }));

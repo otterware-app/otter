@@ -1,8 +1,17 @@
+import type { ReportUser } from "@otter/shared/error-reports";
+
+import { broadcast } from "../ipc.ts";
 import { readJson, writeJson } from "../json-file.ts";
 import { platform } from "../platform.ts";
-import { getSettings } from "./settings-store.ts";
+import { getOtterUser, onOtterAccountChange } from "./otter-account.ts";
+import { getSettings, onSettingsChanged } from "./settings-store.ts";
 
-export type ErrorReportsConfig = { available: boolean; enabled: boolean; reportId: string };
+export type ErrorReportsConfig = {
+  available: boolean;
+  enabled: boolean;
+  reportId: string;
+  user: ReportUser;
+};
 
 let id: Promise<string> | null = null;
 
@@ -20,5 +29,20 @@ function reportId(): Promise<string> {
 export async function errorReportsConfig(): Promise<ErrorReportsConfig> {
   const [settings, reportIdValue] = await Promise.all([getSettings(), reportId()]);
   const available = platform().errorReports === true;
-  return { available, enabled: available && settings.errorReports, reportId: reportIdValue };
+  const otter = getOtterUser();
+  return {
+    available,
+    enabled: available && settings.errorReports,
+    reportId: reportIdValue,
+    user: otter
+      ? { id: otter.id, email: otter.email, username: otter.name ?? undefined }
+      : { id: reportIdValue },
+  };
+}
+
+export function followErrorReportsConfig(): void {
+  const changed = () =>
+    void errorReportsConfig().then((config) => broadcast("errorReports:changed", config));
+  onOtterAccountChange(changed);
+  onSettingsChanged(changed);
 }

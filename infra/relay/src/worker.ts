@@ -307,6 +307,7 @@ authed.use(async (c, next) => {
   if (!found) throw new HTTPException(401, { message: "Not signed in." });
   const { session, user } = found;
   if (central) await store.ensureUser(c.env.DB, user);
+  Sentry.setUser({ id: user.id, email: user.email, username: user.name || undefined });
   c.set("session", {
     id: session.id,
     expiresAt: session.expiresAt.getTime(),
