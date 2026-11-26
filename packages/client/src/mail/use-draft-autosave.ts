@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { host } from "../host.ts";
-import { useLatest } from "../use-latest.ts";
+import { useHandlers, useLatest } from "../use-latest.ts";
 import { mailApi } from "./api.ts";
 import type { ComposeAttachment, MessageDetail } from "./types.ts";
 
@@ -222,34 +222,23 @@ export function useDraftAutosave({
       setSaveState("error");
       // Retry while the composer is open; a closed one's last save carries on
       // in the backend (same session, so no duplicate draft).
-      if (!unmountedRef.current && autosaveRef.current)
-        setTimeout(() => void triggerRef.current?.(), 5000);
+      if (!unmountedRef.current && autosaveRef.current) setTimeout(() => void trigger(), 5000);
     } finally {
       savingRef.current = false;
     }
   };
-  const saveRef = useLatest(save);
-  // The in-flight save, so finalize can await the unmount flush before
-  // deleting (send path closes the composer first, optimistically).
-  const pendingRef = useRef<Promise<void> | null>(null);
-  const trigger = () => {
-    if (savingRef.current && pendingRef.current) return pendingRef.current;
-    const pending = saveRef.current();
-    pendingRef.current = pending;
-    return pending;
-  };
-  const triggerRef = useRef<typeof trigger | null>(null);
-  useLayoutEffect(() => {
-    // oxlint-disable-next-line react/immutability -- The retry callback closes over this ref; layout updates it before timers or cleanup can invoke it.
-    triggerRef.current = trigger;
-  });
+  const latest = useHandlers({ save });
+  // finalize awaits the unmount flush through it before deleting (the send
+  // path closes the composer first, optimistically).
+  const [saves] = useState(() => draftSaveQueue(latest.save));
+  const trigger = saves.trigger;
 
   useEffect(() => {
     if (!autosave) return;
-    const timer = setTimeout(() => void triggerRef.current?.(), delayMs);
+    const timer = setTimeout(() => void trigger(), delayMs);
     return () => clearTimeout(timer);
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Re-run this DOM/reset lifecycle when its explicit trigger changes, even when the callback reads refs.
-  }, [signal, delayMs, triggerRef, autosave]);
+  }, [signal, delayMs, trigger, autosave]);
 
   const handleRemoteVersionForEffect = useLatest(handleRemoteVersion);
   const markGoneForEffect = useLatest(markGone);
@@ -297,9 +286,9 @@ export function useDraftAutosave({
         messageIdRef.current = null;
         pausedRef.current = false;
       }
-      void Promise.resolve(triggerRef.current?.()).finally(() => refreshRef.current());
+      void trigger().finally(() => refreshRef.current());
     },
-    [refreshRef, remoteRef, triggerRef, autosaveRef],
+    [refreshRef, remoteRef, trigger, autosaveRef],
   );
 
   const takeTheirs = () => {
@@ -316,7 +305,7 @@ export function useDraftAutosave({
     messageIdRef.current = current.detail.id;
     setRemote(null);
     pausedRef.current = false;
-    void triggerRef.current?.();
+    void trigger();
   };
 
   const saveAsNew = () => {
@@ -326,18 +315,17 @@ export function useDraftAutosave({
     snapshotRef.current = "";
     setRemote(null);
     pausedRef.current = false;
-    void triggerRef.current?.();
+    void trigger();
   };
 
   const flush = async () => {
-    await pendingRef.current;
     await trigger();
     return signalRef.current === snapshotRef.current && remoteRef.current === null;
   };
 
   const finalize = async (opts?: { deleteDraft?: boolean }) => {
     doneRef.current = true;
-    if (pendingRef.current) await pendingRef.current;
+    await saves.pending();
     // Delete by id, or through the session: the backend waits for any save
     // still in flight and removes whatever draft it became.
     const account = draftAccountRef.current ?? accountRef.current;
@@ -353,7 +341,7 @@ export function useDraftAutosave({
   };
 
   const savedDraft = async (): Promise<{ accountId: string; messageId: string } | null> => {
-    if (pendingRef.current) await pendingRef.current;
+    await saves.pending();
     for (let i = 0; i < 100 && savingRef.current; i++) {
       await new Promise((r) => setTimeout(r, 100));
     }
@@ -414,4 +402,34 @@ export function draftStatusText(state: DraftSaveState): string | null {
   if (state === "saved") return "Draft saved";
   if (state === "error") return "Couldn't save draft. Retrying…";
   return null;
+}
+
+/**
+ * One save at a time. A save asked for while one is in flight runs once that one finishes, and
+ * the promise handed back settles only after it: what was typed meanwhile is saved too.
+ */
+export function draftSaveQueue(save: () => Promise<void>) {
+  let pending: Promise<void> | null = null;
+  let again = false;
+  const run = async () => {
+    try {
+      do {
+        again = false;
+        await save();
+      } while (again);
+    } finally {
+      pending = null;
+    }
+  };
+  return {
+    trigger(): Promise<void> {
+      if (pending) {
+        again = true;
+        return pending;
+      }
+      pending = run();
+      return pending;
+    },
+    pending: () => pending,
+  };
 }
