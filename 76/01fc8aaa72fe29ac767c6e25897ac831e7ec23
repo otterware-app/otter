@@ -1,0 +1,71 @@
+apps/mail-mobile/src/settings/settings-screen.tsx
+  s_d443cfafdeb497::t_902af20739ed56 11,24,29,93,99-107,205-218
+  s_d443cfafdeb497::t_afe7224e1008db 95-98
+  s_d443cfafdeb497::t_8bfa2d8587e45a 94
+docs/features.md
+  s_d443cfafdeb497::t_36758cb0db9c2a 87,798
+packages/mobile/src/native.ts
+  s_d443cfafdeb497::t_ece70579c035f8 39
+packages/core/src/fake/index.ts
+  s_d443cfafdeb497::t_eb238d5fa74274 8-9
+apps/mail-mobile/src/settings/languages-screen.tsx
+  s_d443cfafdeb497::t_d8d10cd21c73ef 51
+packages/mobile/src/demo.ts
+  s_d443cfafdeb497::t_3a9e527bf05dfb 1-18
+apps/mail-mobile/src/mail/message-card.tsx
+  s_d443cfafdeb497::t_c1d02498d4011a 12,15,17,423-444
+  s_d443cfafdeb497::t_527832c8def615 317-318,320,339-342
+  s_d443cfafdeb497::t_2cd007b82e957f 445
+apps/mail-mobile/src/account/imap-form.tsx
+  s_d443cfafdeb497::t_83bd9caf4bebe0 68,111
+packages/mobile/ios/OtterMobileModule.swift
+  s_d443cfafdeb497::t_ece70579c035f8 5,203-209
+  s_d443cfafdeb497::t_db3f32305b4db1 210-211
+apps/mail-mobile/README.md
+  s_d443cfafdeb497::t_dfcfb7bb917d9a 12-16
+apps/mail-mobile/tsconfig.json
+  s_d443cfafdeb497::t_109d94784a72f2 3
+apps/mail-mobile/src/settings/provider-mark.tsx
+  s_d443cfafdeb497::t_f780765b489753 1-46,48-51
+  s_d443cfafdeb497::t_382da469ec52b8 47
+scripts/export-brand-icons.ts
+  s_d443cfafdeb497::t_ece70579c035f8 231
+apps/mail-mobile/src/account/welcome-screen.tsx
+  s_d443cfafdeb497::t_74ee9030476826 102-107
+  s_d443cfafdeb497::t_d47952c592be2b 1-6,10-14,16-17,19-21,23-75,77-80,82-101,110-140,142-191
+  s_d443cfafdeb497::t_109d94784a72f2 76
+packages/ui-native/src/components/settings.tsx
+  s_d443cfafdeb497::t_dc762e95d2dd7e 123-124,140,151
+apps/mail-mobile/src/settings/mailboxes-screen.tsx
+  s_d443cfafdeb497::t_fc846adca97068 8,29,33,41-47
+  s_d443cfafdeb497::t_c2fc33345f9f75 2
+apps/mail-mobile/src/notifications/mailbox-notifications.tsx
+  s_d443cfafdeb497::t_d8d10cd21c73ef 66
+apps/mail-mobile/src/account/account-screen.tsx
+  s_d443cfafdeb497::t_5cd79524571de9 1,3,10,12,18-20,37,40-92,94-97,104-141,143,146-156,158-168
+apps/mail-mobile/src/account/mailbox-settings.tsx
+  s_d443cfafdeb497::t_83bd9caf4bebe0 16,85,109,113,122-128,130-135,137-141
+apps/mail-mobile/src/settings/mailbox-settings-screen.tsx
+  s_d443cfafdeb497::t_74ee9030476826 95-99
+  s_d443cfafdeb497::t_a67e38b9b83d27 7,30,124,150
+apps/mail-mobile/src/error-reports.ts
+  s_d443cfafdeb497::t_838d15c5b32be1 9,19
+apps/mail-mobile/src/core.ts
+  s_d443cfafdeb497::t_838d15c5b32be1 2,10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7601fc8aaa72fe29ac767c6e25897ac831e7ec23",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
