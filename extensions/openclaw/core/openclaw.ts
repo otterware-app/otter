@@ -2574,7 +2574,11 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
     },
 
     async browserView(settings, sessionId, { width, height, except }) {
-      const g = await gateway(settings);
+      const g = await gateway(settings).catch((error: unknown) => {
+        if (error instanceof Error && error.message === "not_configured") return null;
+        throw error;
+      });
+      if (!g) return null;
       const { messages = [] } = await g.client.request<{ messages?: Record<string, unknown>[] }>(
         "chat.history",
         { sessionKey: sessionId, limit: 200 },
