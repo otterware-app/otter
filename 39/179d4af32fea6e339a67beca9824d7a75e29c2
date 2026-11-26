@@ -1,0 +1,57 @@
+apps/mail-mobile/src/error-reports.ts
+  s_d443cfafdeb497::t_91b88b97cf3899 15,17-20
+  s_d443cfafdeb497::t_c16eb518900a8d 1-14,16,21-64
+apps/mail-mobile/package.json
+  s_d443cfafdeb497::t_91b88b97cf3899 3
+  s_d443cfafdeb497::t_ace826a6791ab4 15
+  s_d443cfafdeb497::t_8dbe47bdea32f9 21,23
+packages/shared/src/error-reports.ts
+  s_d443cfafdeb497::t_c16eb518900a8d 24
+docs/error-reports.md
+  s_d443cfafdeb497::t_bffd8a81d7f5b7 60-67
+  s_d443cfafdeb497::t_b4f0fe5325a464 41-43,77-78,83,92-94,109-110
+packages/mobile/src/native.ts
+  s_d443cfafdeb497::t_884a1c050f4c60 35-37
+  s_d443cfafdeb497::t_84b9853491bc33 50
+  s_d443cfafdeb497::t_d2841b3423bd9b 51
+apps/mail-mobile/src/app/_layout.tsx
+  s_d443cfafdeb497::t_8dbe47bdea32f9 5,23-26
+apps/mail-mobile/metro.config.cjs
+  s_d443cfafdeb497::t_c16eb518900a8d 1-18
+apps/mail-mobile/src/settings/licenses.json
+  s_d443cfafdeb497::t_4bd6f4e3abbbc6 72,128-190,485-491,590-596,765-771
+  s_d443cfafdeb497::t_91da4293b2e33b 73-78
+apps/mail-mobile/src/core.ts
+  s_d443cfafdeb497::t_8dbe47bdea32f9 7,13-14,27,29
+packages/mobile/ios/OtterMobileModule.swift
+  s_d443cfafdeb497::t_d2841b3423bd9b 220-221
+  s_d443cfafdeb497::t_84b9853491bc33 206-217,228
+  s_d443cfafdeb497::t_884a1c050f4c60 149
+  s_d443cfafdeb497::t_18c6c787c56d54 162
+  s_d443cfafdeb497::t_6c40b5aad83697 218-219,222-223
+apps/mail-mobile/app.config.ts
+  s_d443cfafdeb497::t_8dbe47bdea32f9 53-61
+apps/mail-mobile/README.md
+  s_d443cfafdeb497::t_8b42077784307c 1
+  s_d443cfafdeb497::t_8f35426ba999ec 5-6
+  s_d443cfafdeb497::t_0c15b6dd0c7439 39-49
+  s_d443cfafdeb497::t_896cf4a9172d74 50
+pnpm-lock.yaml
+  s_d443cfafdeb497::t_7b3bd74c660581 155,338-340,356-358,362-364,1374,1384,11910,11921,11982,12000,12531-12542,12573-12589,12625-12632,15600-15612,16648-16680,17151-17152,17154,17164,17295,17298,17315,17404-17421
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "39179d4af32fea6e339a67beca9824d7a75e29c2",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
