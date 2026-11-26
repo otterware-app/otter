@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { ErrorEvent } from "@sentry/core";
+import type { ErrorEvent, Event, TransactionEvent } from "@sentry/core";
 
 const sentry = vi.hoisted(() => ({ captureException: vi.fn(), captureMessage: vi.fn() }));
 vi.mock("@sentry/core", async (original) => ({
@@ -94,6 +94,26 @@ describe("scrubEvent", () => {
   });
 });
 
+describe("scrubEvent on a transaction", () => {
+  it("redacts a device token in a span's URL", () => {
+    const token = "a".repeat(64);
+    const event = scrubEvent({
+      type: "transaction",
+      spans: [
+        {
+          span_id: "1",
+          trace_id: "2",
+          start_timestamp: 0,
+          data: { "url.full": `https://api.push.apple.com/3/device/${token}` },
+        },
+      ],
+    } as unknown as TransactionEvent);
+    expect(event.spans?.[0]?.data?.["url.full"]).toBe(
+      "https://api.push.apple.com/3/device/[redacted]",
+    );
+  });
+});
+
 describe("scrubBreadcrumb", () => {
   it("leaves out the console and keeps clicks", () => {
     expect(scrubBreadcrumb({ category: "console", message: "x" })).toBeNull();
@@ -106,7 +126,7 @@ describe("scrubBreadcrumb", () => {
 
 describe("ConsentGate", () => {
   it("holds reports until the choice is known", () => {
-    const sent: ErrorEvent[] = [];
+    const sent: Event[] = [];
     const gate = new ConsentGate((event) => sent.push(event));
     const early = { type: undefined, message: "early" } as ErrorEvent;
     expect(gate.allowed(early)).toBe(false);
@@ -116,7 +136,7 @@ describe("ConsentGate", () => {
   });
 
   it("drops them when reports are off", () => {
-    const sent: ErrorEvent[] = [];
+    const sent: Event[] = [];
     const gate = new ConsentGate((event) => sent.push(event));
     gate.allowed({ type: undefined } as ErrorEvent);
     gate.set(false);

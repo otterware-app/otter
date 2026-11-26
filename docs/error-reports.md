@@ -25,7 +25,8 @@ Everything goes through `packages/shared/src/error-reports.ts`:
 - **Traces** (`TRACES_SAMPLE_RATE`, every one for now): page loads and route changes, the
   desktop and iPhone apps' launches, handlers (`ipc.handler`, a tenth of them), mail and
   calendar sync (`mail.sync`, `calendar.sync`), agent turns and scheduled runs
-  (`agent.turn`, `agent.scheduled`), and in the relay its requests, watch renewals
+  (`agent.turn`, `agent.scheduled`; core's spans reach Sentry from the desktop app, not yet from
+  the web app's worker), and in the relay its requests, watch renewals
   (`watch.renew`) and push fan-out (`push.fanout`). Add one with `measure(name, op, work)`.
 - **Never**: screenshots, the view hierarchy or session replays: they show mail, which
   Google's Limited Use rules keep people from reading without the user's consent for it. And

@@ -14,8 +14,8 @@ import {
 
 import { reportLogsTo } from "./logger.ts";
 
-/** Local variables can hold sign-in tokens; the console repeats our log lines. */
-const LEFT_OUT = new Set(["LocalVariables", "Console"]);
+/** Native crash dumps and local variables can hold sign-in tokens; the console repeats our log lines. */
+const LEFT_OUT = new Set(["SentryMinidump", "LocalVariables", "Console"]);
 
 const gate = new ConsentGate();
 
@@ -26,7 +26,7 @@ export function reportedByBackend(serves: (channel: string) => boolean): void {
   servedByBackend = serves;
 }
 
-const backendFailure = (event: Sentry.ErrorEvent): boolean => {
+const backendFailure = (event: Sentry.Event): boolean => {
   const value = event.exception?.values?.[0]?.value ?? "";
   const channel = /^Error invoking remote method '([^']+)'/.exec(value)?.[1];
   return channel !== undefined && servedByBackend(channel);

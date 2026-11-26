@@ -9,6 +9,7 @@ import {
   type Event,
   type Options,
   type TracesSamplerSamplingContext,
+  type TransactionEvent,
 } from "@sentry/core";
 
 import { releaseChannel } from "./release-channel.ts";
@@ -47,7 +48,7 @@ export function errorReportOptions(opts: {
   release?: string;
   environment: string;
   tracesSampleRate?: number;
-  allowed?: (event: ErrorEvent) => boolean;
+  allowed?: (event: Event) => boolean;
 }): Options {
   return {
     dsn: opts.dsn || undefined,
@@ -76,7 +77,12 @@ export function errorReportOptions(opts: {
       stackFrameVariables: false,
     },
     beforeBreadcrumb: scrubBreadcrumb,
-    beforeSend: (event) => {
+    beforeSend: (event: ErrorEvent) => {
+      const scrubbed = scrubEvent(event);
+      return !opts.allowed || opts.allowed(scrubbed) ? scrubbed : null;
+    },
+    // Traces follow the same choice, and their spans' URLs can hold tokens (an APNs device's).
+    beforeSendTransaction: (event: TransactionEvent) => {
       const scrubbed = scrubEvent(event);
       return !opts.allowed || opts.allowed(scrubbed) ? scrubbed : null;
     },
@@ -86,11 +92,10 @@ export function errorReportOptions(opts: {
 /** Send held events directly: recapturing them triggers Sentry's deduplication. */
 export class ConsentGate {
   private enabled: boolean | undefined;
-  private held: ErrorEvent[] = [];
+  private held: Event[] = [];
 
   constructor(
-    private readonly send: (event: ErrorEvent) => unknown = (event) =>
-      getClient()?.sendEvent(event),
+    private readonly send: (event: Event) => unknown = (event) => getClient()?.sendEvent(event),
   ) {}
 
   set(enabled: boolean): void {
@@ -100,7 +105,7 @@ export class ConsentGate {
     if (enabled) for (const event of held) this.send(event);
   }
 
-  readonly allowed = (event: ErrorEvent): boolean => {
+  readonly allowed = (event: Event): boolean => {
     if (this.enabled === undefined && this.held.length < 20) this.held.push(event);
     return this.enabled === true;
   };

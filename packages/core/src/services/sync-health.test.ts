@@ -47,7 +47,7 @@ describe("a mailbox that keeps failing to sync", () => {
     expect(error).toHaveBeenCalledOnce();
     const [scope, message, data] = error.mock.calls[0]!;
     expect(scope).toBe("sync-health");
-    expect(message).toBe("Mail hasn't synced in 6 hours");
+    expect(message).toBe("Mail hasn't synced in 6 hours: a@gmail.com");
     expect(data.error.cause.message).toBe("boom");
     expect(data.tags).toEqual({ provider: "gmail", reason: "error" });
 
@@ -57,7 +57,7 @@ describe("a mailbox that keeps failing to sync", () => {
 
   it("tags an IMAP mailbox's server", () => {
     failFor("b@icloud.com", STALE_MS, new Error("boom"), "calendar");
-    expect(error.mock.calls[0]![1]).toBe("Calendar hasn't synced in 6 hours");
+    expect(error.mock.calls[0]![1]).toBe("Calendar hasn't synced in 6 hours: b@icloud.com");
     expect(error.mock.calls[0]![2].tags).toEqual({
       provider: "imap",
       server: "imap.mail.me.com",

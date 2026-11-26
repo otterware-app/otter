@@ -480,12 +480,16 @@ function reportTurnError(kind: string, code: string): void {
   logger.failure("agent", message, new Error(code), { agent: kind, phase: "turn" });
 }
 
-/** Runs a turn as a span that lasts until it's done, reporting how it failed. */
+/**
+ * Runs a turn as a span that lasts until it's done, reporting how it failed. A resume of a turn
+ * already followed settles without a done or an error, so it ends the span when it settles.
+ */
 function runTurn(
   kind: string,
   requestId: string,
   run: (emit: Emit) => Promise<void>,
   crashed: string,
+  endsWhenSettled = false,
 ): void {
   void measure(
     `${kind} turn`,
@@ -502,11 +506,19 @@ function runTurn(
           if (!open || event.requestId !== requestId) return;
           if (event.type === "error") reportTurnError(kind, event.message);
           if (event.type === "done" || event.type === "error") close();
-        }).catch((error: unknown) => {
-          logger.failure("agent", "An agent's turn crashed", error, { agent: kind, phase: "turn" });
-          emit({ requestId, type: "error", message: crashed });
-          close();
-        });
+        }).then(
+          () => {
+            if (endsWhenSettled && open) close();
+          },
+          (error: unknown) => {
+            logger.failure("agent", "An agent's turn crashed", error, {
+              agent: kind,
+              phase: "turn",
+            });
+            emit({ requestId, type: "error", message: crashed });
+            close();
+          },
+        );
       }),
     { agent: kind },
   );
@@ -543,7 +555,7 @@ export async function resumeTurn(id: AgentId, turn: ResumeTurnInput): Promise<bo
   const resume = provider.resume?.bind(provider);
   if (!resume || !settings.enabled) return false;
   logger.info("agent", "resume", { id, requestId: turn.requestId });
-  runTurn(entry.kind, turn.requestId, (send) => resume(turn, settings, send), "detached");
+  runTurn(entry.kind, turn.requestId, (send) => resume(turn, settings, send), "detached", true);
   return true;
 }
 
