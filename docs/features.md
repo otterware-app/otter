@@ -46,33 +46,33 @@ Settings › Connections lists every account you've connected and what each give
 Google and Microsoft (Mail · Calendar), IMAP (Mail), then other services (Todoist: Tasks). Add
 account offers each kind.
 
-| Feature                                                                                                                                                  | Mac                | Web                                 | iPhone                  |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ----------------------------------- | ----------------------- |
-| Add a Gmail mailbox (Google sign-in)                                                                                                                     | ✓ (loopback OAuth) | ✓ (popup; tokens kept by the relay) | ✓ (PKCE)                |
-| Add an IMAP mailbox, servers discovered                                                                                                                  | ✓                  | ✓ (no domain autoconfig file: CORS) | ✓                       |
-| Add an Outlook mailbox (Microsoft sign-in)                                                                                                               | ✓ (loopback OAuth) | ✓ (popup; tokens kept by the relay) | ✓ (PKCE)                |
-| Provider icons in mailbox settings (Gmail, Outlook, iCloud, IMAP)                                                                                        | ✓                  | ✓                                   | ✓ (iCloud's: IMAP's)    |
-| IMAP through the relay tunnel                                                                                                                            | — (direct)         | ✓ (TLS 1.3 servers only)            | — (direct)              |
-| Several mailboxes: on/off, reorder (drag them in the sidebar, all together; alias mailboxes anywhere)                                                    | ✓                  | ✓                                   | ✓ (aliases by parent)   |
-| One sidebar: a mailbox at a time with a switcher, or all together with their folders, each closing to its row (Appearance)                               | ✓                  | ✓                                   | — (bar menu)            |
-| Modes at the sidebar's foot: Mail, Calendar, Drive, Agent (G M, G C, G D, G A); each its own sidebar, back where it was; drag to reorder (this computer) | ✓                  | ✓                                   | —                       |
-| ⌘-click a place (folder, conversation, chat, mode, Settings), or right-click → Open in New Window: a new window                                          | ✓                  | ✓ (browser window)                  | —                       |
-| Sidebar: each mailbox opens to its folders and labels; views                                                                                             | ✓                  | ✓                                   | — (bar menu)            |
-| Customize sidebar: folders' order, Always show / Show when badged / Don't show (the rest under More), count or dot badges                                | ✓                  | ✓                                   | —                       |
-| Sidebar hidden: hover the window's edge to peek                                                                                                          | ✓                  | ✓                                   | —                       |
-| Rename and color a mailbox (synced)                                                                                                                      | ✓                  | ✓                                   | ✓                       |
-| Own mailbox for a Send from address (IMAP): a tab, filtered folders, name, color, signature; synced                                                      | ✓                  | ✓                                   | ✓ (made on Mac, web)    |
-| A message Bcc'd to two of your addresses: a copy in each alias mailbox, shown once elsewhere                                                             | ✓                  | ✓                                   | ✓                       |
-| The parent without its alias mailboxes' mail (a switch; synced)                                                                                          | ✓                  | ✓                                   | —                       |
-| Google profile picture per mailbox                                                                                                                       | ✓ (kept current)   | ✓ (kept current)                    | —                       |
-| Your own picture for a mailbox (Settings › Connections; synced, over Google's)                                                                           | ✓                  | ✓                                   | shown                   |
-| Your own picture for an alias mailbox (its settings; synced with its parent)                                                                             | ✓                  | ✓                                   | shown                   |
-| Remove a mailbox (unlinks it everywhere)                                                                                                                 | ✓                  | ✓                                   | ✓                       |
-| Mailbox linked elsewhere shows "signed out"                                                                                                              | ✓                  | ✓                                   | ✓                       |
-| Sync health at the foot of the sidebar, Sync now                                                                                                         | ✓                  | ✓                                   | ✓ (tap to sync)         |
-| Refused sign-in: toast and card to sign in again                                                                                                         | ✓                  | ✓                                   | ✓ (banner on the list)  |
-| Missing permission (calendar, Gmail signatures): "Needs permission", Settings › Access, an Allow button                                                  | ✓                  | ✓                                   | —                       |
-| Demo mailbox                                                                                                                                             | —                  | `pnpm dev:fake` only                | TestFlight / Xcode only |
+| Feature                                                                                                                                                  | Mac                | Web                                 | iPhone                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ----------------------------------- | ----------------------------------------- |
+| Add a Gmail mailbox (Google sign-in)                                                                                                                     | ✓ (loopback OAuth) | ✓ (popup; tokens kept by the relay) | ✓ (PKCE)                                  |
+| Add an IMAP mailbox, servers discovered                                                                                                                  | ✓                  | ✓ (no domain autoconfig file: CORS) | ✓                                         |
+| Add an Outlook mailbox (Microsoft sign-in)                                                                                                               | ✓ (loopback OAuth) | ✓ (popup; tokens kept by the relay) | ✓ (PKCE)                                  |
+| Provider icons in mailbox settings (Gmail, Outlook, iCloud, IMAP)                                                                                        | ✓                  | ✓                                   | ✓ (iCloud's: IMAP's)                      |
+| IMAP through the relay tunnel                                                                                                                            | — (direct)         | ✓ (TLS 1.3 servers only)            | — (direct)                                |
+| Several mailboxes: on/off, reorder (drag them in the sidebar, all together; alias mailboxes anywhere)                                                    | ✓                  | ✓                                   | ✓ (aliases by parent)                     |
+| One sidebar: a mailbox at a time with a switcher, or all together with their folders, each closing to its row (Appearance)                               | ✓                  | ✓                                   | — (bar menu)                              |
+| Modes at the sidebar's foot: Mail, Calendar, Drive, Agent (G M, G C, G D, G A); each its own sidebar, back where it was; drag to reorder (this computer) | ✓                  | ✓                                   | —                                         |
+| ⌘-click a place (folder, conversation, chat, mode, Settings), or right-click → Open in New Window: a new window                                          | ✓                  | ✓ (browser window)                  | —                                         |
+| Sidebar: each mailbox opens to its folders and labels; views                                                                                             | ✓                  | ✓                                   | — (bar menu)                              |
+| Customize sidebar: folders' order, Always show / Show when badged / Don't show (the rest under More), count or dot badges                                | ✓                  | ✓                                   | —                                         |
+| Sidebar hidden: hover the window's edge to peek                                                                                                          | ✓                  | ✓                                   | —                                         |
+| Rename and color a mailbox (synced)                                                                                                                      | ✓                  | ✓                                   | ✓                                         |
+| Own mailbox for a Send from address (IMAP): a tab, filtered folders, name, color, signature; synced                                                      | ✓                  | ✓                                   | ✓ (made on Mac, web)                      |
+| A message Bcc'd to two of your addresses: a copy in each alias mailbox, shown once elsewhere                                                             | ✓                  | ✓                                   | ✓                                         |
+| The parent without its alias mailboxes' mail (a switch; synced)                                                                                          | ✓                  | ✓                                   | —                                         |
+| Google profile picture per mailbox                                                                                                                       | ✓ (kept current)   | ✓ (kept current)                    | ✓                                         |
+| Your own picture for a mailbox (Settings › Connections; synced, over Google's)                                                                           | ✓                  | ✓                                   | shown                                     |
+| Your own picture for an alias mailbox (its settings; synced with its parent)                                                                             | ✓                  | ✓                                   | shown                                     |
+| Remove a mailbox (unlinks it everywhere)                                                                                                                 | ✓                  | ✓                                   | ✓                                         |
+| Mailbox linked elsewhere shows "signed out"                                                                                                              | ✓                  | ✓                                   | ✓                                         |
+| Sync health at the foot of the sidebar, Sync now                                                                                                         | ✓                  | ✓                                   | ✓ (in the folders sheet; pull to refresh) |
+| Refused sign-in: toast and card to sign in again                                                                                                         | ✓                  | ✓                                   | ✓ (banner on the list)                    |
+| Missing permission (calendar, Gmail signatures): "Needs permission", Settings › Access, an Allow button                                                  | ✓                  | ✓                                   | —                                         |
+| Demo mailbox                                                                                                                                             | —                  | `pnpm dev:fake` only                | TestFlight / Xcode only                   |
 
 ## Reading
 
@@ -104,7 +104,7 @@ account offers each kind.
 | Empty Trash / Empty Junk                 | ✓                                                                  | ✓                               | —                                                        |
 | Star (flag), read / unread               | ✓                                                                  | ✓                               | ✓                                                        |
 | Mark all as read                         | ✓ (a folder's menu)                                                | ✓ (a folder's menu)             | ✓                                                        |
-| Multi-select and bulk actions            | ✓ (⌥/⇧-click, ⇧↑/⇧↓, Select all)                                   | ✓                               | ✓ (archive, trash, read, labels/folders)                 |
+| Multi-select and bulk actions            | ✓ (⌥/⇧-click, ⇧↑/⇧↓, Select all)                                   | ✓                               | ✓ (archive, trash, read / unread, junk, move, labels)    |
 | Undo and redo (z ⌘Z, ⇧Z ⇧⌘Z)             | ✓                                                                  | ✓                               | Undo archive/trash (6 seconds)                           |
 | Apply / remove labels                    | ✓ (IMAP: move to folder; Outlook: categories, or move to a folder) | ✓                               | ✓ (IMAP: move; Outlook: categories, or move to a folder) |
 | Create, rename, delete labels            | ✓ (IMAP: folders; Outlook: categories; folders rename, delete)     | ✓                               | —                                                        |
@@ -261,25 +261,27 @@ chats read the same everywhere and continue on that Mac. On iPhone the chats are
 
 ## Composing & sending
 
-| Feature                                | Mac                                                                                                                               | Web      | iPhone                                         |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------- |
-| New, reply, reply all                  | ✓                                                                                                                                 | ✓        | ✓                                              |
-| Forward                                | ✓ (with attachments)                                                                                                              | ✓        | last message, with attachments                 |
-| Cc / Bcc                               | ✓ / ✓                                                                                                                             | ✓        | ✓ / ✓                                          |
-| From: pick the mailbox                 | ✓                                                                                                                                 | ✓        | ✓                                              |
-| From: other addresses (aliases)        | Gmail: its "Send mail as"; IMAP: entered in Settings (suggested from its mail), synced; replies from the address mail was sent to | ✓        | IMAP: synced from the Mac and the web          |
-| From in an alias mailbox               | new mail and replies from its address; its signature, else the mailbox's                                                          | ✓        | ✓                                              |
-| Contact suggestions (from cached mail) | ✓                                                                                                                                 | ✓        | ✓ (recipient chips)                            |
-| Attachments (25 MB)                    | ✓                                                                                                                                 | ✓        | ✓ (Photos / Files)                             |
-| Rich text (bold, lists, links, quotes) | toolbar and shortcuts: bold, italic, underline, size, color, links, nested lists (Tab, Shift+Tab), quotes, undo                   | ✓        | —                                              |
-| Drafts                                 | autosaved, conflict-aware                                                                                                         | ✓        | local autosave/recovery; mailbox save on close |
-| Undo send (10 s)                       | ✓                                                                                                                                 | ✓        | —                                              |
-| Send later                             | ✓ (on this device, while open; Outlook: by Outlook)                                                                               | ✓ (same) | —                                              |
-| Signatures                             | Gmail: saved in Gmail; IMAP, Outlook: synced preference                                                                           | ✓        | ✓ (same)                                       |
-| Handles mailto: links                  | ✓ (default mail app)                                                                                                              | —        | —                                              |
+| Feature                                | Mac                                                                                                                               | Web      | iPhone                                                                                                      |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------- |
+| New, reply, reply all                  | ✓                                                                                                                                 | ✓        | ✓                                                                                                           |
+| Forward                                | ✓ (with attachments)                                                                                                              | ✓        | any message, with attachments (as plain text)                                                               |
+| Cc / Bcc                               | ✓ / ✓                                                                                                                             | ✓        | ✓ / ✓                                                                                                       |
+| From: pick the mailbox                 | ✓                                                                                                                                 | ✓        | ✓                                                                                                           |
+| From: other addresses (aliases)        | Gmail: its "Send mail as"; IMAP: entered in Settings (suggested from its mail), synced; replies from the address mail was sent to | ✓        | Gmail: its "Send mail as"; IMAP: synced from the Mac and the web; replies from the address mail was sent to |
+| From in an alias mailbox               | new mail and replies from its address; its signature, else the mailbox's                                                          | ✓        | ✓                                                                                                           |
+| Contact suggestions (from cached mail) | ✓                                                                                                                                 | ✓        | ✓ (recipient chips)                                                                                         |
+| Attachments (25 MB)                    | ✓                                                                                                                                 | ✓        | ✓ (Photos / Files)                                                                                          |
+| Rich text (bold, lists, links, quotes) | toolbar and shortcuts: bold, italic, underline, size, color, links, nested lists (Tab, Shift+Tab), quotes, undo                   | ✓        | —                                                                                                           |
+| Drafts                                 | autosaved, conflict-aware                                                                                                         | ✓        | local autosave/recovery; mailbox save on close                                                              |
+| Undo send (10 s)                       | ✓                                                                                                                                 | ✓        | —                                                                                                           |
+| Send later                             | ✓ (on this device, while open; Outlook: by Outlook)                                                                               | ✓ (same) | —                                                                                                           |
+| Signatures                             | Gmail: saved in Gmail; IMAP, Outlook: synced preference                                                                           | ✓        | ✓ (same)                                                                                                    |
+| Handles mailto: links                  | ✓ (default mail app)                                                                                                              | —        | —                                                                                                           |
 
-On iPhone, Compose sits at the bottom right, beside Search (hold it for your drafts). In a conversation, tap the compact Reply button to
-reply to the sender, or hold it for Reply, Reply all and Forward; Trash sits beside Archive.
+On iPhone, Compose sits at the bottom right, beside Search (hold it for your newest drafts). In a conversation, tap Reply at the
+bottom right to reply to the sender, or hold it for Reply, Reply all and Forward; Archive and Trash sit at the bottom left, and
+Star and the ⋯ menu at the top. Each message's own menu (touch and hold its sender) replies to or forwards that message. The
+composer keeps what you type on this iPhone; closing it asks to save to Drafts, keep it on this iPhone or delete it.
 
 Scheduled sends and snoozes work with Gmail, IMAP and Outlook on Mac and web. The queue is local to
 that device/browser, survives restarts, and runs overdue actions when the app next opens. Outlook's
@@ -299,13 +301,13 @@ These are Otter actions, separate from Gmail's own scheduled and snoozed folders
 
 ## Search
 
-| Feature                        | Mac                                                                                                     | Web | iPhone                                     |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------- | --- | ------------------------------------------ |
-| Gmail: server search           | ✓ (all Gmail operators, paged; local when offline)                                                      | ✓   | ✓ (25 results, plus local)                 |
-| IMAP: local search             | ✓ (in: from: to: subject: is: has: after: before: newer_than: older_than:)                              | ✓   | ✓ (from: to: subject: label: is: has:)     |
-| Outlook: server search         | ✓ (Outlook's search; from: to: cc: subject: has: after: before: newer_than: older_than: in: is: label:) | ✓   | ✓ (same operators; 25 results, plus local) |
-| Search chips / advanced search | ✓                                                                                                       | ✓   | —                                          |
-| Search tabs in the sidebar     | ✓                                                                                                       | ✓   | —                                          |
+| Feature                        | Mac                                                                                                     | Web | iPhone                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------- | --- | --------------------------------------------------------------- |
+| Gmail: server search           | ✓ (all Gmail operators, paged; local when offline)                                                      | ✓   | ✓                                                               |
+| IMAP: local search             | ✓ (in: from: to: subject: is: has: after: before: newer_than: older_than:)                              | ✓   | ✓                                                               |
+| Outlook: server search         | ✓ (Outlook's search; from: to: cc: subject: has: after: before: newer_than: older_than: in: is: label:) | ✓   | ✓                                                               |
+| Search chips / advanced search | ✓                                                                                                       | ✓   | chips: Unread, Starred (Flagged), Attachments, frequent senders |
+| Search tabs in the sidebar     | ✓                                                                                                       | ✓   | —                                                               |
 
 ## Calendar invitations
 
@@ -345,9 +347,9 @@ color, the others their color in Google or Outlook. IMAP mailboxes have none.
 
 ## Contacts & avatars
 
-| Feature       | Mac                                                                               | Web | iPhone        |
-| ------------- | --------------------------------------------------------------------------------- | --- | ------------- |
-| Sender photos | Gmail: contacts → Gravatar → domain logo → initials; IMAP, Outlook: from Gravatar | ✓   | initials only |
+| Feature       | Mac                                                                               | Web | iPhone                                                |
+| ------------- | --------------------------------------------------------------------------------- | --- | ----------------------------------------------------- |
+| Sender photos | Gmail: contacts → Gravatar → domain logo → initials; IMAP, Outlook: from Gravatar | ✓   | Gravatar → domain logo → initials (no Gmail contacts) |
 
 ## Notifications & live mail
 
@@ -366,7 +368,7 @@ color, the others their color in Google or Outlook. IMAP mailboxes have none.
 | Gmail push via relay                                                                                                                                                                                                                                                                    | ✓ (with an Otter account)                        | ✓                       | ✓ (WebSocket + verified APNs)                                        |
 | Outlook push via relay (Graph subscription)                                                                                                                                                                                                                                             | ✓ (with an Otter account)                        | ✓                       | ✓ (WebSocket + verified APNs)                                        |
 | IMAP IDLE                                                                                                                                                                                                                                                                               | ✓ (while running)                                | ✓ (while a tab is open) | while open; server watcher for connected APNs                        |
-| Background sync                                                                                                                                                                                                                                                                         | ✓ (15 s – 15 min, or manual)                     | ✓ (while a tab is open) | BGAppRefresh, ≥ 15 min                                               |
+| Background sync                                                                                                                                                                                                                                                                         | ✓ (15 s – 15 min, or manual)                     | ✓ (while a tab is open) | a background task, ≥ 15 min (with an Otter account)                  |
 | Unread badge                                                                                                                                                                                                                                                                            | Dock                                             | tab title, app badge    | app icon                                                             |
 
 iPhone APNs alerts require a per-mailbox background-notification connection. Gmail uses a
@@ -382,45 +384,45 @@ recalled. See [behavior and setup](../apps/mail-mobile/README.md#verified-backgr
 
 ## Offline & sync
 
-| Feature                               | Mac                                | Web                    | iPhone                               |
-| ------------------------------------- | ---------------------------------- | ---------------------- | ------------------------------------ |
-| Local cache                           | SQLite, whole mailbox              | SQLite WASM on OPFS    | JSON, newest 400 threads per mailbox |
-| Gmail: first sync                     | every row over IMAP, in seconds    | Gmail API, inbox first | newest threads                       |
-| Bodies downloaded for offline         | ✓ (inbox first, then newest first) | — (fetched on open)    | —                                    |
-| New mail during a long sync           | ✓                                  | ✓                      | —                                    |
-| Changes applied at once, synced after | ✓                                  | ✓                      | ✓ (no outbox)                        |
+| Feature                               | Mac                                | Web                    | iPhone                 |
+| ------------------------------------- | ---------------------------------- | ---------------------- | ---------------------- |
+| Local cache                           | SQLite, whole mailbox              | SQLite WASM on OPFS    | SQLite, whole mailbox  |
+| Gmail: first sync                     | every row over IMAP, in seconds    | Gmail API, inbox first | Gmail API, inbox first |
+| Bodies downloaded for offline         | ✓ (inbox first, then newest first) | — (fetched on open)    | — (fetched on open)    |
+| New mail during a long sync           | ✓                                  | ✓                      | ✓                      |
+| Changes applied at once, synced after | ✓                                  | ✓                      | ✓                      |
 
-On iPhone, the bottom holds a pill with the mailbox's picture (tap for every mailbox, with their pictures and unread counts), Search (a sheet that searches the mailbox shown, opening on filters for unread, starred and attachments and the people who write most) and Compose, and under it a row of tabs: Inbox, Starred (Flagged), every other folder and label (with Search and Settings), and Settings, which tuck away while you scroll down the list. Slide across the tabs to switch; touch and hold one for its five newest conversations and New message. With Otter Agents on the iPhone, Send to agent (beside Reply in the reader, where it sends the text selected in a message when there is some; a message's or a list row's menu; the selection's bar, for every conversation selected; a saved draft's composer) opens a new chat about that mail there. The bar steps aside for the reader and selection. Conversations zoom from their list rows (respecting Reduce Motion), the reader's navigation bar minimizes while scrolling, and selection morphs the glass buttons into bulk actions.
+On iPhone, the bottom holds a pill with the mailbox's picture (tap for every mailbox), Search (a sheet that searches the mailbox shown, or another picked from its chip, opening on filters for unread, starred and attachments and the people who write most) and Compose, and under it four tabs: Inbox, Starred (Flagged), every folder and label (a sheet, with Sync now; the list's title opens it too) and Settings, which tuck away while you scroll down the list. Slide across the tabs to switch; touch and hold Inbox or Starred for its newest conversations. The list's ⋯ menu selects conversations or marks all as read; touching and holding a row selects it, and the bar becomes the selection's actions. With Otter Agents on the iPhone, Send to agent (beside Reply in the reader, and in its ⋯ menu; a message's menu, where it sends the text selected in the message when there is some; the selection's menu, for every conversation selected; a saved draft's composer) opens a new chat about that mail there.
 
 ## Settings & customization
 
-| Feature                                                                                                          | Mac | Web | iPhone                                                                     |
-| ---------------------------------------------------------------------------------------------------------------- | --- | --- | -------------------------------------------------------------------------- |
-| System / Light / Dark color scheme (iPhone: white light background, pitch-black dark background)                 | ✓   | ✓   | ✓                                                                          |
-| 6 themes, a light and a dark pick; Margin's sets fonts and shapes too                                            | ✓   | ✓   | —                                                                          |
-| Inter, the same typeface in every app                                                                            | ✓   | ✓   | ✓                                                                          |
-| App icon follows the build (stable, nightly or dev; iPhone: stable or dev)                                       | ✓   | ✓   | ✓                                                                          |
-| Stable / Nightly update channel, selected in General and remembered on this computer (web: this browser)         | ✓   | ✓   | —                                                                          |
-| Your own themes (T3 Code's editor): duplicate, edit, import/export                                               | ✓   | ✓   | —                                                                          |
-| Panel animations                                                                                                 | ✓   | ✓   | —                                                                          |
-| Contrast, glass opacity, font size, reading width                                                                | ✓   | ✓   | —                                                                          |
-| Full-width messages: content edge to edge, without the side inset (off by default)                               | —   | —   | ✓                                                                          |
-| Collapsible day separators, on by default in every mail layout                                                   | ✓   | ✓   | ✓                                                                          |
-| Full-width rows: the message list edge to edge with a line between, instead of cards (off by default)            | ✓   | ✓   | ✓                                                                          |
-| Overlay scrollbars in the mail panes and Settings, hidden when idle                                              | ✓   | ✓   | native                                                                     |
-| Unread messages on a soft background, in every mail layout                                                       | ✓   | ✓   | ✓                                                                          |
-| Keyboard navigation highlights rows; Enter opens (optional open with arrows)                                     | ✓   | ✓   | —                                                                          |
-| Configurable delay before keyboard previews are marked read (2 seconds by default); clicks mark read immediately | ✓   | ✓   | —                                                                          |
-| Mail layouts: Auto, Split view, Full inbox                                                                       | ✓   | ✓   | —                                                                          |
-| Floating reader: move, snap, resize, minimize, expand                                                            | ✓   | ✓   | —                                                                          |
-| Keyboard shortcuts, rebindable (incl. move to label)                                                             | ✓   | ✓   | —                                                                          |
-| Command palette (⌘K)                                                                                             | ✓   | ✓   | —                                                                          |
-| Recently viewed, back and forward (Mac: title bar; web: browser's)                                               | ✓   | ✓   | —                                                                          |
-| Reset customized preferences to their defaults (General, Appearance, agent preferences, mailbox name/color)      | ✓   | ✓   | —                                                                          |
-| Settings search (/ or ⌘F in Settings)                                                                            | ✓   | ✓   | —                                                                          |
-| Changelog (opens the site's, from ⌘K and Settings' ? menu)                                                       | ✓   | ✓   | —                                                                          |
-| Views: filters across mailboxes, in the sidebar (icon or emoji)                                                  | ✓   | ✓   | —                                                                          |
-| Preferences synced through the Otter account                                                                     | ✓   | ✓   | ✓ (color scheme, advance, mailboxes, notifications, languages, signatures) |
+| Feature                                                                                                          | Mac | Web | iPhone                                                                                              |
+| ---------------------------------------------------------------------------------------------------------------- | --- | --- | --------------------------------------------------------------------------------------------------- |
+| System / Light / Dark color scheme (iPhone: white light background, pitch-black dark background)                 | ✓   | ✓   | ✓                                                                                                   |
+| 6 themes, a light and a dark pick; Margin's sets fonts and shapes too                                            | ✓   | ✓   | —                                                                                                   |
+| Inter, the same typeface in every app                                                                            | ✓   | ✓   | ✓                                                                                                   |
+| App icon follows the build (stable, nightly or dev; iPhone: stable or dev)                                       | ✓   | ✓   | ✓                                                                                                   |
+| Stable / Nightly update channel, selected in General and remembered on this computer (web: this browser)         | ✓   | ✓   | —                                                                                                   |
+| Your own themes (T3 Code's editor): duplicate, edit, import/export                                               | ✓   | ✓   | —                                                                                                   |
+| Panel animations                                                                                                 | ✓   | ✓   | —                                                                                                   |
+| Contrast, glass opacity, font size, reading width                                                                | ✓   | ✓   | —                                                                                                   |
+| Full-width messages: content edge to edge, without the side inset (off by default)                               | —   | —   | ✓                                                                                                   |
+| Collapsible day separators, on by default in every mail layout                                                   | ✓   | ✓   | ✓                                                                                                   |
+| Full-width rows: the message list edge to edge with a line between, instead of cards (off by default)            | ✓   | ✓   | ✓                                                                                                   |
+| Overlay scrollbars in the mail panes and Settings, hidden when idle                                              | ✓   | ✓   | native                                                                                              |
+| Unread messages on a soft background, in every mail layout                                                       | ✓   | ✓   | ✓                                                                                                   |
+| Keyboard navigation highlights rows; Enter opens (optional open with arrows)                                     | ✓   | ✓   | —                                                                                                   |
+| Configurable delay before keyboard previews are marked read (2 seconds by default); clicks mark read immediately | ✓   | ✓   | —                                                                                                   |
+| Mail layouts: Auto, Split view, Full inbox                                                                       | ✓   | ✓   | —                                                                                                   |
+| Floating reader: move, snap, resize, minimize, expand                                                            | ✓   | ✓   | —                                                                                                   |
+| Keyboard shortcuts, rebindable (incl. move to label)                                                             | ✓   | ✓   | —                                                                                                   |
+| Command palette (⌘K)                                                                                             | ✓   | ✓   | —                                                                                                   |
+| Recently viewed, back and forward (Mac: title bar; web: browser's)                                               | ✓   | ✓   | —                                                                                                   |
+| Reset customized preferences to their defaults (General, Appearance, agent preferences, mailbox name/color)      | ✓   | ✓   | —                                                                                                   |
+| Settings search (/ or ⌘F in Settings)                                                                            | ✓   | ✓   | —                                                                                                   |
+| Changelog (opens the site's, from ⌘K and Settings' ? menu)                                                       | ✓   | ✓   | —                                                                                                   |
+| Views: filters across mailboxes, in the sidebar (icon or emoji)                                                  | ✓   | ✓   | —                                                                                                   |
+| Preferences synced through the Otter account                                                                     | ✓   | ✓   | ✓ (color scheme, advance, mailboxes, notifications, languages, signatures, list and message layout) |
 
 ## Support
 
@@ -749,11 +751,11 @@ Chrome, Brave and Chromium.
 
 ## Otter account & devices
 
-| Feature                              | Mac      | Web      | iPhone                              |
-| ------------------------------------ | -------- | -------- | ----------------------------------- |
-| Otter account                        | optional | required | required (the first Google sign-in) |
-| Sign out; devices, sign out a device | ✓        | ✓        | ✓                                   |
-| Delete account                       | ✓        | ✓        | ✓                                   |
+| Feature                              | Mac      | Web      | iPhone   |
+| ------------------------------------ | -------- | -------- | -------- |
+| Otter account                        | optional | required | optional |
+| Sign out; devices, sign out a device | ✓        | ✓        | ✓        |
+| Delete account                       | ✓        | ✓        | ✓        |
 
 The Google-backed Otter identity also signs in to Otter Drive. Drive receives only identity
 claims; Gmail authorization stays with Mail. Existing Mail accounts and sessions keep their IDs.
@@ -771,8 +773,8 @@ clients receive a link to that page instead of deleting a shared identity withou
 What each scope in `GMAIL_SCOPES` (`packages/contracts/src/google.ts`) is for:
 
 - `https://mail.google.com/`: every Gmail mail feature (reading, search, sending, drafts,
-  labels, delete forever, push). The iPhone app asks for this one only (plus `openid email
-profile`).
+  labels, delete forever, push). The iPhone app asks for this one and `gmail.settings.basic`
+  only (plus `openid email profile`).
 - `gmail.settings.basic`: saving signatures in Gmail (reading them needs only the mail scope).
 - `calendar.events.owned`: answering invitations in Google Calendar, replacing the broader
   `calendar.events` the Mac and web apps ask for today. Without it, invitations can't be answered from the card.
@@ -789,10 +791,16 @@ profile`).
 - iPhone: rich text in the composer.
 - iPhone: forward with the original HTML.
 - iPhone: synced draft autosave and undo send.
-- iPhone: sender photos (contacts, Gravatar, logos) instead of initials only.
+- iPhone: Gmail contact photos for senders (it doesn't ask for the contacts scope).
 - iPhone: create, rename and delete labels; Empty Trash / Junk.
 - iPhone: views.
-- Mac and web: Mark all as read (iPhone has it).
+- iPhone: devices and Delete account (it signs out only).
+- iPhone: automatic translation of HTML mail (plain text only).
+- iPhone: links and phone numbers in plain-text mail without Otter Agents installed.
+- iPhone: the demo mailbox in TestFlight builds.
+- iPhone: provider logos in mailbox settings.
+- iPhone: unread counts in the mailbox picker, a list row's menu, New message from a held tab,
+  conversations zooming from their rows.
 - Web: translation outside Chrome.
 - Web: offline bodies (the Mac downloads them).
 - iPhone: snooze and send later.

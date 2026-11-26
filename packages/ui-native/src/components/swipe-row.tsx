@@ -24,7 +24,7 @@ export type SwipeAction = {
   onPerform: () => void;
 };
 
-/** How far to pull before letting go runs the action (MailSwipeActions.swift's `MailSwipe`). */
+/** How far to pull before letting go runs the action. */
 const armedAt = (width: number) => {
   "worklet";
   return Math.min(width * 0.35, 150);
@@ -33,7 +33,7 @@ const armedAt = (width: number) => {
 /** How wide each of several actions is once they're showing, as a List's swipe buttons. */
 const BUTTON_WIDTH = 74;
 
-/** Black or white, whichever reads on the color (Palette.swift's `contrastingText`). */
+/** Black or white, whichever reads on the color. */
 function contrasting(hex: string): string {
   const channel = (at: number) => {
     const value = parseInt(hex.slice(at, at + 2), 16) / 255;
@@ -55,7 +55,7 @@ const settle = (at: SharedValue<number>, to = 0) => {
 };
 
 /**
- * Linear's swipe (MailSwipeActions.swift): the row follows the finger and rounds off on the side
+ * Linear's swipe: the row follows the finger and rounds off on the side
  * it uncovers, over a grey pill with the action. Past the threshold the pill takes the action's
  * color, with a haptic; let go there and it runs, short of it and the row springs back. Only a
  * horizontal pan starts it, so the list keeps scrolling. `square`: a full-width row, its pill
