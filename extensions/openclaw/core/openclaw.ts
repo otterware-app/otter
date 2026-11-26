@@ -1699,6 +1699,11 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
   const sent = new Set<string>();
   /** Sessions whose run yielded: the run that starts next is its continuation, followed where it was sent. */
   const continuing = new Set<string>();
+  /**
+   * Runs in a watched session seen starting and not yet ended. The gateway lists a call's runs
+   * (what the voice asked of the agent) neither as active nor in the history until they write.
+   */
+  const going = new Set<string>();
 
   function announce(
     sessionKey: string,
@@ -1730,6 +1735,11 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
   listeners.add(({ event, payload }) => {
     const p = (payload ?? {}) as Record<string, unknown>;
     if (typeof p.sessionKey !== "string" || !watching?.sessions.has(p.sessionKey)) return;
+    if (event === "agent" && p.stream === "lifecycle" && typeof p.runId === "string") {
+      const phase = (p.data as { phase?: unknown } | undefined)?.phase;
+      if (phase === "start") remember(going, p.runId);
+      else if (phase === "end" || phase === "error") going.delete(p.runId);
+    }
     // Written into the chat by no run of it (a scheduled job's result, kept here when it had no
     // channel to go to): only the session's change says so.
     if (event === "sessions.changed") {
@@ -2300,6 +2310,8 @@ export function createOpenClaw({ secrets }: AgentContext): OpenClawProvider {
         waiting: state.waiting,
       });
       const agentRun = requestId.startsWith(AGENT_RUN);
+      if (agentRun && going.has(turn.runId) && !state.active.includes(turn.runId))
+        state.active.push(turn.runId);
       // A run the agent started may not have written anything yet.
       if (!state.found && !(agentRun && state.active.includes(turn.runId)))
         return emit(
