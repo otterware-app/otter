@@ -1,0 +1,33 @@
+diff --git a/build/DomWebView.js b/build/DomWebView.js
+index 9c61f8347f7bd96b51b5277df3e8bf3073aebc3f..64b45d539780117084bf761515fdda0de8175bd7 100644
+--- a/build/DomWebView.js
++++ b/build/DomWebView.js
+@@ -9,7 +9,9 @@ const WebView = /*#__PURE__*/ React.forwardRef(({ containerStyle, style, injecte
+     const viewRef = React.useRef(null);
+     React.useImperativeHandle(ref, ()=>({
+             scrollTo: (params)=>viewRef.current?.scrollTo(params),
+-            injectJavaScript: (script)=>viewRef.current?.injectJavaScript(script),
++            injectJavaScript: (script)=>{
++                viewRef.current?.injectJavaScript(script)?.catch(()=>{});
++            },
+             reload: ()=>viewRef.current?.reload()
+         }), []);
+     const webViewStyles = [
+diff --git a/src/DomWebView.tsx b/src/DomWebView.tsx
+index 3a07ac938325385dc7e314f0e6d557068bc6f622..85bcced37854d1f65b14a794103f5794334b138f 100644
+--- a/src/DomWebView.tsx
++++ b/src/DomWebView.tsx
+@@ -23,7 +23,12 @@ const WebView = React.forwardRef<DomWebViewRef, DomWebViewProps>(
+       ref,
+       () => ({
+         scrollTo: (params) => viewRef.current?.scrollTo(params),
+-        injectJavaScript: (script: string) => viewRef.current?.injectJavaScript(script),
++        // Fire and forget, as on react-native-webview: the native call only rejects when the view
++        // is already gone (a DOM component's reply landing after its screen closed), with nobody
++        // left to run the script.
++        injectJavaScript: (script: string) => {
++          (viewRef.current?.injectJavaScript(script) as Promise<void> | undefined)?.catch(() => {});
++        },
+         reload: () => viewRef.current?.reload(),
+       }),
+       []
