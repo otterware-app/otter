@@ -161,6 +161,22 @@ it("moves a thread when its other messages change", () => {
   expect(inbox()).toEqual(["replied"]);
 });
 
+it("indexes a write's threads in its transaction, so no read catches up on a whole sync", () => {
+  const stale = () => database.prepare("SELECT COUNT(*) AS n FROM stale_threads").get()!.n;
+  const indexed = (threadId: string) =>
+    database
+      .prepare("SELECT labelId FROM thread_labels WHERE threadId = ? ORDER BY labelId")
+      .all(threadId)
+      .map((r) => r.labelId);
+  expect(stale()).toBe(0);
+  store.upsertMessages("me", [row("later", "later", 500, ["INBOX"])]);
+  expect(stale()).toBe(0);
+  expect(indexed("later")).toEqual(["ALL_MAIL", "INBOX"]);
+  store.applyHistoryChanges("me", [{ kind: "labelsAdded", id: "later", labelIds: ["STARRED"] }]);
+  expect(stale()).toBe(0);
+  expect(indexed("later")).toEqual(["ALL_MAIL", "INBOX", "STARRED"]);
+});
+
 it("lists threads cached before they were indexed", async () => {
   database.close();
   await open((db) => {

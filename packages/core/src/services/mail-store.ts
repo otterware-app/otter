@@ -139,8 +139,8 @@ function getDb(): SqlDatabase {
     CREATE INDEX IF NOT EXISTS idx_messages_unread
       ON messages (accountId, COALESCE(messageIdHeader, id), id) WHERE unread = 1;
   `);
-  // Each thread's place in every list it's in (`getThreadsPage`), recomputed on the next
-  // read for threads whose messages or labels changed since (`stale_threads`).
+  // Each thread's place in every list it's in (`getThreadsPage`), recomputed for threads whose
+  // messages or labels changed (`stale_threads`, `refreshThreads`).
   const threadLabelsExist =
     handle
       .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'thread_labels'")
@@ -342,6 +342,7 @@ function inTransaction(fn: () => void): void {
   d.exec("BEGIN");
   try {
     fn();
+    refreshThreads(d);
     d.exec("COMMIT");
   } catch (err) {
     d.exec("ROLLBACK");
@@ -641,6 +642,7 @@ export function renameMessage(
       d.prepare(
         "UPDATE message_labels SET messageId = ? WHERE accountId = ? AND messageId = ?",
       ).run(toId, accountId, fromId);
+      refreshThreads(d);
       d.exec("COMMIT");
     } catch (err) {
       d.exec("ROLLBACK");
@@ -794,47 +796,50 @@ function matchedPage(matchedSql: string, draftsView: boolean, listed: boolean): 
   `;
 }
 
+const hasStaleThreads = (d: SqlDatabase) =>
+  d.prepare("SELECT 1 FROM stale_threads LIMIT 1").get() !== undefined;
+
 /**
  * Brings `thread_labels` up to date for the threads changed since: a row for each label a
  * thread has a message in (one outside Trash and Junk, but for those two), and one for All
- * Mail, with the date the list sorts it by, as `matchedPage` computes it.
+ * Mail, with the date the list sorts it by, as `matchedPage` computes it. Each write's
+ * transaction runs it for what it changed, so no read waits on thousands of threads at once
+ * (a sync writes in small batches); a read catches up on writes made outside one.
  */
 function refreshThreads(d: SqlDatabase): void {
-  if (!d.prepare("SELECT 1 FROM stale_threads LIMIT 1").get()) return;
-  inTransaction(() =>
-    d.exec(`
-      DELETE FROM thread_labels
-       WHERE (accountId, threadId) IN (SELECT accountId, threadId FROM stale_threads);
-      WITH t AS (
-        SELECT m.accountId AS accountId, m.threadId AS threadId, m.id AS id, m.date AS date,
-               EXISTS (SELECT 1 FROM message_labels l
-                        WHERE l.accountId = m.accountId AND l.messageId = m.id AND l.labelId = 'DRAFT') AS draft,
-               NOT ${notInBins("m")} AS binned
-          FROM (SELECT DISTINCT accountId, threadId FROM stale_threads) s
-          CROSS JOIN messages m ON m.accountId = s.accountId AND m.threadId = s.threadId
-      ),
-      dated AS (
-        SELECT id, accountId, threadId, binned,
-               COALESCE(MAX(CASE WHEN NOT draft AND NOT binned THEN date END) OVER thread,
-                        MAX(CASE WHEN NOT binned THEN date END) OVER thread) AS listed,
-               MAX(CASE WHEN NOT binned THEN date END) OVER thread AS drafts,
-               COALESCE(MAX(CASE WHEN NOT draft THEN date END) OVER thread, MAX(date) OVER thread) AS bins
-          FROM t
-        WINDOW thread AS (PARTITION BY accountId, threadId)
-      )
-      INSERT INTO thread_labels (accountId, threadId, labelId, sortDate)
-      SELECT DISTINCT d.accountId, d.threadId, ml.labelId,
-             CASE WHEN ml.labelId IN ('SPAM', 'TRASH') THEN d.bins
-                  WHEN ml.labelId = 'DRAFT' THEN d.drafts
-                  ELSE d.listed END
-        FROM dated d
-        CROSS JOIN message_labels ml ON ml.accountId = d.accountId AND ml.messageId = d.id
-       WHERE (ml.labelId IN ('SPAM', 'TRASH') OR NOT d.binned) AND ml.labelId != '${ALL_MAIL_LABEL_ID}'
-      UNION ALL
-      SELECT DISTINCT accountId, threadId, '${ALL_MAIL_LABEL_ID}', listed FROM dated WHERE listed IS NOT NULL;
-      DELETE FROM stale_threads;
-    `),
-  );
+  if (!hasStaleThreads(d)) return;
+  d.exec(`
+    DELETE FROM thread_labels
+     WHERE (accountId, threadId) IN (SELECT accountId, threadId FROM stale_threads);
+    WITH t AS (
+      SELECT m.accountId AS accountId, m.threadId AS threadId, m.id AS id, m.date AS date,
+             EXISTS (SELECT 1 FROM message_labels l
+                      WHERE l.accountId = m.accountId AND l.messageId = m.id AND l.labelId = 'DRAFT') AS draft,
+             NOT ${notInBins("m")} AS binned
+        FROM (SELECT DISTINCT accountId, threadId FROM stale_threads) s
+        CROSS JOIN messages m ON m.accountId = s.accountId AND m.threadId = s.threadId
+    ),
+    dated AS (
+      SELECT id, accountId, threadId, binned,
+             COALESCE(MAX(CASE WHEN NOT draft AND NOT binned THEN date END) OVER thread,
+                      MAX(CASE WHEN NOT binned THEN date END) OVER thread) AS listed,
+             MAX(CASE WHEN NOT binned THEN date END) OVER thread AS drafts,
+             COALESCE(MAX(CASE WHEN NOT draft THEN date END) OVER thread, MAX(date) OVER thread) AS bins
+        FROM t
+      WINDOW thread AS (PARTITION BY accountId, threadId)
+    )
+    INSERT INTO thread_labels (accountId, threadId, labelId, sortDate)
+    SELECT DISTINCT d.accountId, d.threadId, ml.labelId,
+           CASE WHEN ml.labelId IN ('SPAM', 'TRASH') THEN d.bins
+                WHEN ml.labelId = 'DRAFT' THEN d.drafts
+                ELSE d.listed END
+      FROM dated d
+      CROSS JOIN message_labels ml ON ml.accountId = d.accountId AND ml.messageId = d.id
+     WHERE (ml.labelId IN ('SPAM', 'TRASH') OR NOT d.binned) AND ml.labelId != '${ALL_MAIL_LABEL_ID}'
+    UNION ALL
+    SELECT DISTINCT accountId, threadId, '${ALL_MAIL_LABEL_ID}', listed FROM dated WHERE listed IS NOT NULL;
+    DELETE FROM stale_threads;
+  `);
 }
 
 const notInBins = (alias: string) =>
@@ -909,7 +914,7 @@ export function getThreadsPage(
   scope?: MailboxScope,
 ): { messages: MessageSummary[]; hasMore: boolean } {
   const d = getDb();
-  refreshThreads(d);
+  if (hasStaleThreads(d)) inTransaction(() => refreshThreads(d));
   const listed = labelId !== "SPAM" && labelId !== "TRASH";
   const own = scope ? scopeWhere(labelId, scope) : null;
   const inLabel =
@@ -1311,6 +1316,7 @@ export function applyHistoryChanges(
       if (counted) addCounts(counts, after, unread, 1);
     }
     if (counted) moveCounts(accountId, counts);
+    refreshThreads(d);
     d.exec("COMMIT");
   } catch (err) {
     d.exec("ROLLBACK");
