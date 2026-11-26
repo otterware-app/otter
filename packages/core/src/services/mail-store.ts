@@ -365,9 +365,10 @@ function writeSummaries(accountId: string, fetched: MessageSummary[], counted = 
   const counts: LabelCounts = new Map();
   const before = counted ? countedRows(accountId, messages) : null;
 
-  // A downloaded message's attachments are known: a summary's guess (Gmail's)
-  // doesn't override them. A summary without Cc (Gmail's lists) keeps the Cc,
-  // and the recipients, a detail brought.
+  // A downloaded message's attachments are known: a summary doesn't override them.
+  // Before that a summary can say it has some (Outlook's, or Gmail's guess from a
+  // multipart/mixed message) but never that it has none, which a list can't tell.
+  // A summary without Cc (Gmail's lists) keeps the Cc, and the recipients, a detail brought.
   const upsert = d.prepare(`
     INSERT INTO messages
       (accountId, id, threadId, fromName, fromEmail, toField, subject, snippet, date, unread, starred, hasAttachments, labelIds, messageIdHeader, referencesHeader, cc, recipients, deliveredTo)
@@ -383,7 +384,8 @@ function writeSummaries(accountId: string, fetched: MessageSummary[], counted = 
       unread         = excluded.unread,
       starred        = excluded.starred,
       labelIds       = excluded.labelIds,
-      hasAttachments = CASE WHEN messages.detailFetched = 1 THEN messages.hasAttachments ELSE excluded.hasAttachments END,
+      hasAttachments = CASE WHEN messages.detailFetched = 1 THEN messages.hasAttachments
+                            ELSE MAX(messages.hasAttachments, excluded.hasAttachments) END,
       messageIdHeader  = COALESCE(excluded.messageIdHeader, messages.messageIdHeader),
       referencesHeader = COALESCE(excluded.referencesHeader, messages.referencesHeader),
       cc               = COALESCE(excluded.cc, messages.cc),

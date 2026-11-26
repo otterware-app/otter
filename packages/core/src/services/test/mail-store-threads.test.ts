@@ -101,17 +101,34 @@ it("keeps a message's Reply-To with its detail", () => {
   expect(store.getMessageDetail("me", "asked")?.replyTo).toBeUndefined();
 });
 
-it("takes a summary's attachments until the message is downloaded", () => {
-  const attached = () => store.getMessageDetail("me", "photos")?.hasAttachments;
+it("takes a summary's attachments until the message is downloaded, never its lack of them", () => {
+  const attached = () => store.getThreadMessages("me", "trip")[0].hasAttachments;
   const summary = { ...row("photos", "trip", 500, ["INBOX"]), hasAttachments: true };
   store.upsertMessages("me", [summary]);
-  expect(store.getThreadMessages("me", "trip")[0].hasAttachments).toBe(true);
+  expect(attached()).toBe(true);
   store.upsertMessages("me", [{ ...summary, hasAttachments: false }]);
-  expect(store.getThreadMessages("me", "trip")[0].hasAttachments).toBe(false);
+  expect(attached()).toBe(true);
+
   const detail = { ...summary, hasAttachments: false, bodyHtml: null, bodyText: "Hi" };
   store.upsertMessageDetail("me", { ...detail, attachments: [] });
+  expect(attached()).toBe(false);
   store.upsertMessages("me", [summary]);
   expect(attached()).toBe(false);
+});
+
+it("keeps a downloaded message's attachments when its body is read again", () => {
+  const attached = () => store.getThreadMessages("me", "billing")[0].hasAttachments;
+  const summary = { ...row("invoice", "billing", 600, ["INBOX"]), hasAttachments: false };
+  store.upsertMessageDetail("me", {
+    ...summary,
+    hasAttachments: true,
+    bodyHtml: null,
+    bodyText: "Attached",
+    attachments: [{ id: "a1", filename: "invoice.pdf", mimeType: "application/pdf", size: 10 }],
+  });
+  store.invalidateMessageDetail("me", "invoice");
+  store.upsertMessages("me", [summary]);
+  expect(attached()).toBe(true);
 });
 
 it("reads details cached before Reply-To was kept again", async () => {
