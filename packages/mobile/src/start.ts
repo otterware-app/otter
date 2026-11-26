@@ -33,6 +33,8 @@ export async function startMobileCore(options: {
   existingDeviceId?: string;
   existingAgentOutbox?: (userId: string) => Promise<string | null>;
   initialStorage?: Record<string, string>;
+  /** Sentry is running: core's errors and log lines go to it. */
+  errorReports?: boolean;
 }): Promise<void> {
   const home = options.fake ? "fake" : "otter";
   const kv = new SQLiteStorage(`${home}-storage.db`);
@@ -47,6 +49,7 @@ export async function startMobileCore(options: {
     home,
     secretsService: options.fake ? `${options.secretsService}.fake` : options.secretsService,
     relayUrl: options.relayUrl,
+    errorReports: options.errorReports,
   });
   let extensions = options.extensions.filter((e) => runsOn(e.manifest, "ios"));
   if (options.fake) {

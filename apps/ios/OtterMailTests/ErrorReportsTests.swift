@@ -10,12 +10,17 @@ struct ErrorReportsTests {
         #expect(options.enableMetricKit)
     }
 
-    @Test func reportsStayScrubbedAndMinimal() {
+    @Test func reportsSayWhatHappenedWithoutReplays() {
         let options = Options()
         ErrorReports.configure(options)
-        #expect(!options.sendDefaultPii)
-        #expect(!options.attachScreenshot)
-        #expect(!options.attachViewHierarchy)
+        #expect(options.tracesSampleRate == 1)
+        #expect(options.enableAutoPerformanceTracing)
+        #expect(options.attachScreenshot)
+        #expect(options.attachViewHierarchy)
+        #expect(options.enableNetworkBreadcrumbs)
+        #expect(options.enableAutoBreadcrumbTracking)
+        #expect(options.sessionReplay.sessionSampleRate == 0)
+        #expect(options.sessionReplay.onErrorSampleRate == 0)
         #expect(!options.enableMetricKitRawPayload)
         #expect(options.beforeSend != nil)
     }

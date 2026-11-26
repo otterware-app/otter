@@ -48,6 +48,7 @@ import { NotificationMailbox as NotificationMailboxObject } from "./notification
 import * as apns from "./apns.ts";
 import * as tunnel from "./tunnel.ts";
 import { forHost } from "./hosts.ts";
+import { log } from "./log.ts";
 import { deliverAgentPush, SESSION_HEADER, UserHub as UserHubObject } from "./user-hub.ts";
 
 export const UserHub = Sentry.instrumentDurableObjectWithSentry(errorReports, UserHubObject);
@@ -824,6 +825,32 @@ async function notifyAgentDevices(env: Env, userId: string, pointer: AgentPointe
   await deliverAgentPush(env, userId, pointer);
 }
 
+/** A provider's push, sent on to the devices of everyone who linked the mailbox; `then` runs after, per user. */
+async function fanOut(
+  env: Env,
+  provider: "gmail" | "outlook",
+  event: Extract<RelayEvent, { email: string }>,
+  users: string[],
+  then?: (userId: string) => Promise<unknown>,
+): Promise<void> {
+  const fields = { provider, kind: event.type, email: event.email };
+  log("push.received", { ...fields, userIds: users });
+  await Sentry.startSpan(
+    { name: "push.fanout", op: "push.fanout", attributes: { provider, kind: event.type } },
+    () =>
+      Promise.all(
+        users.map(async (userId) => {
+          const devices = await retryingReset(
+            () => hub(env, userId),
+            (target) => target.publish(event),
+          );
+          log("push.fanout", { ...fields, userId, devices });
+          await then?.(userId);
+        }),
+      ),
+  );
+}
+
 const gmailNotification = z.object({
   emailAddress: mailbox,
   historyId: z
@@ -865,17 +892,12 @@ app.post(
     if (!parsed.success) return c.body(null, 204);
 
     const email = parsed.data.emailAddress.toLowerCase();
-    const event: RelayEvent = { type: "mail", email, historyId: parsed.data.historyId };
+    const event = { type: "mail", email, historyId: parsed.data.historyId } satisfies RelayEvent;
     const users = await store.usersWithMailbox(c.var.db, email, "gmail");
-    await Promise.all(
-      users.map((userId) =>
-        retryingReset(
-          () => hub(c.env, userId),
-          async (target) => {
-            await target.publish(event);
-            await target.queuePush(userId, email, parsed.data.historyId);
-          },
-        ),
+    await fanOut(c.env, "gmail", event, users, (userId) =>
+      retryingReset(
+        () => hub(c.env, userId),
+        (target) => target.queuePush(userId, email, parsed.data.historyId),
       ),
     );
     return c.body(null, 204);
@@ -913,19 +935,13 @@ app.post(
     }
     if (!genuine) return c.body(null, 202);
 
-    const event: RelayEvent = { type: "mail", email, historyId: "" };
+    const event = { type: "mail", email, historyId: "" } satisfies RelayEvent;
     const users = await store.usersWithMailbox(c.var.db, email, "outlook");
-    await Promise.all(
-      users.map(async (userId) => {
-        await retryingReset(
-          () => hub(c.env, userId),
-          (target) => target.publish(event),
-        );
-        await retryingReset(
-          () => notificationConnections.watcher(c.env, userId, email),
-          (watcher) => watcher.changed(),
-        );
-      }),
+    await fanOut(c.env, "outlook", event, users, (userId) =>
+      retryingReset(
+        () => notificationConnections.watcher(c.env, userId, email),
+        (watcher) => watcher.changed(),
+      ),
     );
     return c.body(null, 202);
   },
@@ -973,16 +989,9 @@ app.post(
     const status = channelToken !== undefined ? 200 : 202;
     if (!provider) return c.body(null, status);
 
-    const event: RelayEvent = { type: "calendar", email };
+    const event = { type: "calendar", email } satisfies RelayEvent;
     const users = await store.usersWithMailbox(c.var.db, email, provider);
-    await Promise.all(
-      users.map((userId) =>
-        retryingReset(
-          () => hub(c.env, userId),
-          (target) => target.publish(event),
-        ),
-      ),
-    );
+    await fanOut(c.env, provider, event, users);
     return c.body(null, status);
   },
 );

@@ -1,4 +1,5 @@
 import type { CalendarWatchResponse } from "@otter/contracts/relay";
+import { measure } from "@otter/shared/error-reports";
 
 import { broadcast } from "../ipc.ts";
 import { logger } from "../logger.ts";
@@ -19,6 +20,7 @@ import { linkedAccountIds } from "./linked-accounts.ts";
 import { turnedOffMailboxes } from "./mail-sync.ts";
 import { getOtterUser, relayRequest } from "./otter-account.ts";
 import { getRealtimeState } from "./realtime.ts";
+import { syncFailed, syncSucceeded, syncTags } from "./sync-health.ts";
 
 /**
  * Keeps calendar-store.ts current: each calendar's window, three months back to a year ahead
@@ -142,7 +144,12 @@ async function refreshList(accountId: string): Promise<store.StoredList | null> 
     list = { calendars, syncedAt: Date.now() };
   } catch (error) {
     if (!(error instanceof NoCalendarAccess)) {
-      logger.failure("calendar-sync", `Couldn't list ${accountId}'s calendars`, error);
+      logger.failure(
+        "calendar-sync",
+        `Couldn't list ${accountId}'s calendars`,
+        error,
+        syncTags(accountId),
+      );
       return null;
     }
     noteRefused(accountId, "listCalendars", generation);
@@ -321,6 +328,7 @@ async function runSync(accountId: string): Promise<void> {
     list = (await refreshList(accountId)) ?? list;
   if (!list) return;
   let any = false;
+  let failed: unknown = null;
   for (const calendar of list.calendars) {
     check();
     try {
@@ -329,6 +337,7 @@ async function runSync(accountId: string): Promise<void> {
     } catch (error) {
       if (error instanceof Superseded) continue;
       noteFailure(accountId, calendar.id, error);
+      if (!(error instanceof NoCalendarAccess)) failed ??= error;
       logger.info("calendar-sync", "A calendar didn't sync", {
         accountId,
         error: String(error).slice(0, 200),
@@ -336,9 +345,16 @@ async function runSync(accountId: string): Promise<void> {
     }
   }
   if (any) changed(accountId);
+  if (failed) syncFailed("calendar", accountId, failed);
+  else syncSucceeded("calendar", accountId);
   check();
   await watch(accountId, list.calendars, check).catch((err: unknown) =>
-    logger.failure("calendar-sync", `Couldn't watch ${accountId}'s calendars`, err),
+    logger.failure(
+      "calendar-sync",
+      `Couldn't watch ${accountId}'s calendars`,
+      err,
+      syncTags(accountId),
+    ),
   );
 }
 
@@ -384,10 +400,13 @@ export function syncCalendarAccount(accountId: string): Promise<void> {
     rerun.add(accountId);
     return current;
   }
-  const work = background(accountId, () => runSync(accountId))
+  const work = background(accountId, () =>
+    measure("calendar sync", "calendar.sync", () => runSync(accountId), syncTags(accountId)),
+  )
     .catch((err: unknown) => {
-      if (!(err instanceof Superseded))
-        logger.failure("calendar-sync", `${accountId} didn't sync`, err);
+      if (err instanceof Superseded) return;
+      syncFailed("calendar", accountId, err);
+      logger.failure("calendar-sync", `${accountId} didn't sync`, err, syncTags(accountId));
     })
     .finally(() => {
       running.delete(accountId);

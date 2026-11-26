@@ -43,6 +43,8 @@ const entry = (id: string, kindName: string, name: string) => ({
   settings: {},
 });
 vi.mock("../../extensions.ts", () => ({ registeredAgents: () => types }));
+const failure = vi.fn();
+vi.mock("../../logger.ts", () => ({ logger: { info: vi.fn(), failure } }));
 vi.mock("./settings.ts", () => ({
   agentSecrets: () => ({}),
   getProviderSettings: async () => ({
@@ -79,6 +81,12 @@ describe("scheduled tasks across agents", () => {
         },
       },
     ]);
+    expect(failure).toHaveBeenCalledWith(
+      "agent",
+      "Couldn't list an agent's scheduled tasks",
+      new Error("Can't reach Hermes."),
+      { agent: "hermes", phase: "schedule" },
+    );
   });
 
   it("routes a change to its agent", async () => {

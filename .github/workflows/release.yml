@@ -622,11 +622,10 @@ jobs:
           echo "::error::Couldn't push the version bump to main."
           exit 1
 
-      # The release Otter Mail reports under, with every commit since its last one, so
-      # `Fixes OTTER-MAIL-IOS-…` resolves its issue. Bookkeeping: never fails the release
-      # (docs/error-reports.md has the command to run it again).
+      # The release the app reports under, with every commit since its last one, so
+      # `Fixes OTTER-MAIL-IOS-…` (or OTTER-AGENTS-IOS-…) resolves its issue. Bookkeeping: never
+      # fails the release (docs/error-reports.md has the command to run it again).
       - name: Sentry release
-        if: env.IOS_APP == 'mail'
         continue-on-error: true
         env:
           VERSION: ${{ steps.meta.outputs.version }}
@@ -635,7 +634,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
         run: >-
-          node scripts/sentry-release-ios.ts --version "$VERSION" --build "$BUILD"
+          node scripts/sentry-release-ios.ts --app "$IOS_APP" --version "$VERSION" --build "$BUILD"
           --repository "$REPOSITORY" --ref "$GITHUB_SHA"
 
   # Otter Agents builds only when its native code changed since its last build, as t3code's

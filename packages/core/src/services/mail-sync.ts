@@ -1,5 +1,7 @@
 // Keep backfill and body downloads in separate lanes so they cannot delay new-mail sync.
 
+import { measure } from "@otter/shared/error-reports";
+
 import { logger } from "../logger.ts";
 import { broadcast } from "../ipc.ts";
 import { mapPool } from "../pool.ts";
@@ -10,6 +12,7 @@ import { isAccountId, listAccounts } from "./account-store.ts";
 import { platform } from "../platform.ts";
 import * as store from "./mail-store.ts";
 import { notifyNewMail, updateDockBadge } from "./notifier.ts";
+import { forgetSyncHealth, syncFailed, syncSucceeded, syncTags } from "./sync-health.ts";
 import type { MessageDetail, SyncStatus } from "../types.ts";
 
 const statuses = new Map<string, SyncStatus>();
@@ -239,6 +242,7 @@ export function forgetAccount(accountId: string): void {
   failures.delete(accountId);
   backfillFailures.delete(accountId);
   rerun.delete(accountId);
+  forgetSyncHealth(accountId);
 }
 
 function describeSyncError(accountId: string, err: unknown): string {
@@ -258,7 +262,13 @@ function needsSignIn(accountId: string, provider: MailProvider, err: unknown): b
 
 function runSync(accountId: string): Promise<void> {
   const provider = providerFor(accountId);
-  return provider.background("sync", () => runSyncNow(accountId, provider));
+  const full = !store.getSyncState(accountId).fullSyncDone;
+  return provider.background("sync", () =>
+    measure(`${provider.kind} sync`, "mail.sync", () => runSyncNow(accountId, provider), {
+      provider: provider.kind,
+      full,
+    }),
+  );
 }
 
 function laneStatus(
@@ -293,6 +303,7 @@ async function runSyncNow(accountId: string, provider: MailProvider): Promise<vo
     assertActive(accountId);
     store.setSyncState(accountId, { lastSyncAt: startedAt });
     failures.delete(accountId);
+    syncSucceeded("mail", accountId);
     synced = true;
     update(accountId, {
       ...laneStatus(accountId, false),
@@ -306,10 +317,11 @@ async function runSyncNow(accountId: string, provider: MailProvider): Promise<vo
       return;
     }
     recordFailure(accountId);
+    syncFailed("mail", accountId, err);
     logger[syncFailureLevel(provider, err)](
       "mail-sync",
       `${provider.kind} sync failed for ${accountId}: ${describeSyncError(accountId, err)}`,
-      err,
+      { error: err, tags: syncTags(accountId) },
     );
     update(accountId, {
       ...laneStatus(accountId, false),
@@ -342,12 +354,18 @@ function startBackfill(accountId: string, provider: MailProvider): void {
   const backfill = provider.backfill.bind(provider);
   void provider
     .background("backfill", () =>
-      backfill(accountId, {
-        update: (patch) => update(accountId, patch),
-        bumpRevision: () => bumpRevision(accountId),
-        assertActive: () => assertActive(accountId),
-        newMail: async () => {},
-      }),
+      measure(
+        `${provider.kind} backfill`,
+        "mail.sync",
+        () =>
+          backfill(accountId, {
+            update: (patch) => update(accountId, patch),
+            bumpRevision: () => bumpRevision(accountId),
+            assertActive: () => assertActive(accountId),
+            newMail: async () => {},
+          }),
+        { provider: provider.kind, full: true },
+      ),
     )
     .then(
       () => {
@@ -372,7 +390,7 @@ function startBackfill(accountId: string, provider: MailProvider): void {
         logger[syncFailureLevel(provider, err)](
           "mail-sync",
           `${provider.kind} backfill failed for ${accountId}: ${reason}`,
-          err,
+          { error: err, tags: syncTags(accountId) },
         );
         update(accountId, {
           ...laneStatus(accountId),

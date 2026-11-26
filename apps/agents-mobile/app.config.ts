@@ -75,6 +75,15 @@ const config: ExpoConfig = {
     "expo-web-browser",
     "expo-sharing",
     "expo-status-bar",
+    // Release builds upload their source maps and dSYMs (scripts/release-ios.ts); others never do.
+    [
+      "@sentry/react-native/expo",
+      {
+        organization: "otterware-app",
+        project: "otter-agents-ios",
+        disableAutoUpload: !process.env.SENTRY_AUTH_TOKEN,
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,

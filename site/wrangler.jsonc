@@ -17,6 +17,8 @@
     { "pattern": "mail.otterware.dev", "custom_domain": true },
   ],
   "services": [{ "binding": "NIGHTLY", "service": "otter-mail-site-nightly" }],
+  "observability": { "enabled": true },
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "env": {
     // Reachable only through the stable Worker's NIGHTLY binding.
     "nightly": {
@@ -24,6 +26,7 @@
       "workers_dev": false,
       "routes": [],
       "services": [],
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
     },
   },
 }

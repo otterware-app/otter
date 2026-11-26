@@ -1,16 +1,13 @@
 import Foundation
 import Sentry
 
-/** packages/shared/src/error-reports.ts's scrubber, rule for rule. */
+/** packages/shared/src/error-reports.ts's scrubber, rule for rule: secrets only, who and what are kept. */
 nonisolated enum Scrubber {
     private static let rules: [(NSRegularExpression, String)] = [
-        // Ends in a letter: `otter-mail-ios@1.2.3` is a release, not an address.
-        (#"[\w.+-]+(?:@|%40)[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}\b(/[^\s"'<>?#]*)?"#, "[email]", true),
         (#"\b([Bb]earer|[Bb]asic)\s+[\w.~+/=-]+"#, "$1 [redacted]", false),
         (#"\beyJ[\w-]+\.[\w-]+\.[\w-]*"#, "[token]", false),
         (#"\bya29\.[\w.-]+|\b1//[\w-]{20,}"#, "[token]", false),
         (#"(\b[a-z][\w+.-]*://[^\s?"'<>]*)\?[^\s"'<>#]*"#, "$1", true),
-        (#"(/Users/|/home/|\\Users\\)[^/\\\s"']+"#, "$1[user]", false),
         (#"[\w+=-]{48,}"#, "[redacted]", false),
     ].map { pattern, template, ignoringCase in
         (try! NSRegularExpression(pattern: pattern, options: ignoringCase ? .caseInsensitive : []), template)
@@ -51,10 +48,6 @@ nonisolated enum Scrubber {
         event.fingerprint = event.fingerprint?.map(scrub)
         event.transaction = event.transaction.map(scrub)
         event.logger = event.logger.map(scrub)
-        event.serverName = nil
-        event.user = event.user?.userId.map { User(userId: $0) }
-        // Sentry otherwise places the sender by its IP address (a city) before it drops it.
-        event.sdk = (event.sdk ?? [:]).merging(["settings": ["infer_ip": "never"]]) { _, new in new }
         if let url = event.request?.url {
             let request = SentryRequest()
             request.url = scrub(url)
@@ -66,7 +59,7 @@ nonisolated enum Scrubber {
     }
 
     static func scrub(_ breadcrumb: Breadcrumb) -> Breadcrumb? {
-        if breadcrumb.category == "console" || breadcrumb.category.hasPrefix("ui.") { return nil }
+        if breadcrumb.category == "console" { return nil }
         breadcrumb.message = breadcrumb.message.map(scrub)
         for (key, value) in breadcrumb.data ?? [:] { breadcrumb.setData(value: scrub(value), key: key) }
         return breadcrumb

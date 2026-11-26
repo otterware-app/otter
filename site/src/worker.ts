@@ -1,7 +1,23 @@
+import * as Sentry from "@sentry/cloudflare";
+
+import { errorReportOptions, SENTRY_DSN } from "@otter/shared/error-reports";
+
 interface Env {
   ASSETS: Fetcher;
   NIGHTLY?: Fetcher;
+  CF_VERSION_METADATA?: WorkerVersionMetadata;
 }
+
+const errorReports = (env: Env) =>
+  errorReportOptions({
+    dsn: SENTRY_DSN.site,
+    version: "site",
+    release: `otter-site@${env.CF_VERSION_METADATA?.id ?? "local"}`,
+    // Only the stable Worker has NIGHTLY.
+    environment: env.NIGHTLY ? "stable" : "nightly",
+    // Most requests are the app's files: a few are enough to see the Worker's speed.
+    tracesSampleRate: 0.05,
+  }) as Sentry.CloudflareOptions;
 
 const CHANNEL_PATH = "/__otter-mail/channel";
 const CHANNEL_COOKIE = "otter_mail_channel";
@@ -38,7 +54,7 @@ const CHANGELOG_VERSION = /^\/changelog\/(\d+\.\d+\.\d+)\/?$/;
 
 const MOVED = /^\/(?:changelog|privacy|terms)(?:\/|$)/;
 
-export default {
+export default Sentry.withSentry(errorReports, {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.hostname === "mail.otterware.dev" && url.pathname === "/")
@@ -67,4 +83,4 @@ export default {
     }
     return response;
   },
-} satisfies ExportedHandler<Env>;
+} satisfies ExportedHandler<Env>);

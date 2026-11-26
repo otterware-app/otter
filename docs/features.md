@@ -431,7 +431,7 @@ On iPhone, the bottom holds a pill with the mailbox's picture (tap for every mai
 | Open a support investigation in an installed Claude / Codex terminal session | ✓   | —   | —      |
 | Return local-agent drafts and findings to the report preview                 | ✓   | —   | —      |
 | Download diagnostics as a file and import an agent's Markdown draft          | ✓   | ✓   | —      |
-| Scrubbed error reports (Sentry), off in Settings → General                   | ✓   | ✓   | ✓      |
+| Error reports and tracing (Sentry), off in Settings → General                | ✓   | ✓   | ✓      |
 | Open-source licenses (Settings → General, About; Settings on the iPhone)     | ✓   | ✓   | ✓      |
 
 The support playbook covers diagnosis, duplicate detection, issue review, and

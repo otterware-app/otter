@@ -19,6 +19,8 @@ export const SENTRY_DSN = {
   web: "https://7f770b56a78c138844e07a6977df9b43@o4512364656459776.ingest.de.sentry.io/4512364729270352",
   relay:
     "https://e4aca7bd12ed2618a2512e44546ad947@o4512364656459776.ingest.de.sentry.io/4512364730581072",
+  site: "",
+  agents: "",
 } as const;
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -43,6 +45,7 @@ export function errorReportOptions(opts: {
   version: string;
   release?: string;
   environment: string;
+  tracesSampleRate?: number;
   allowed?: (event: ErrorEvent) => boolean;
 }): Options {
   return {
@@ -54,7 +57,9 @@ export function errorReportOptions(opts: {
     maxBreadcrumbs: 100,
     tracesSampler: (context: TracesSamplerSamplingContext) =>
       context.inheritOrSampleWith(
-        SAMPLE_RATE_BY_OP[String(context.attributes?.["sentry.op"])] ?? TRACES_SAMPLE_RATE,
+        SAMPLE_RATE_BY_OP[String(context.attributes?.["sentry.op"])] ??
+          opts.tracesSampleRate ??
+          TRACES_SAMPLE_RATE,
       ),
     // Requests carry sign-in tokens in their headers, cookies and bodies: those stay out.
     dataCollection: {

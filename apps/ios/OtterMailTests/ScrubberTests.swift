@@ -1,15 +1,12 @@
+import Sentry
 import Testing
 @testable import Otter_Mail
 
 struct ScrubberTests {
-    @Test func addressAndItsRoute() {
+    @Test func keepsAddresses() {
         #expect(Scrubber.scrub("GET https://gmail.googleapis.com/gmail/v1/users/me@gmail.com/threads/18c failed")
-            == "GET https://gmail.googleapis.com/gmail/v1/users/[email] failed")
-        #expect(Scrubber.scrub("From Jane.Doe+x@Example.CO.uk") == "From [email]")
-    }
-
-    @Test func encodedAddress() {
-        #expect(Scrubber.scrub("/v1/accounts/me%40gmail.com/labels") == "/v1/accounts/[email]")
+            == "GET https://gmail.googleapis.com/gmail/v1/users/me@gmail.com/threads/18c failed")
+        #expect(Scrubber.scrub("From Jane.Doe+x@Example.CO.uk") == "From Jane.Doe+x@Example.CO.uk")
     }
 
     @Test func authorization() {
@@ -31,8 +28,20 @@ struct ScrubberTests {
             == "https://relay.mail.otterware.app/v1/search failed")
     }
 
-    @Test func homeFolder() {
-        #expect(Scrubber.scrub("/Users/chris/Library/Developer/x.swift") == "/Users/[user]/Library/Developer/x.swift")
+    @Test func keepsHomeFolders() {
+        #expect(Scrubber.scrub("/Users/chris/Library/Developer/x.swift") == "/Users/chris/Library/Developer/x.swift")
+    }
+
+    @Test func keepsTheUser() {
+        let event = Event()
+        let user = User(userId: "u1")
+        user.email = "jane@example.com"
+        user.username = "Jane"
+        event.user = user
+        let scrubbed = Scrubber.scrub(event)
+        #expect(scrubbed.user?.userId == "u1")
+        #expect(scrubbed.user?.email == "jane@example.com")
+        #expect(scrubbed.user?.username == "Jane")
     }
 
     @Test func longOpaqueStrings() {

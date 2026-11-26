@@ -117,7 +117,7 @@ struct SettingsView: View {
                         Text("Support").sectionHeader()
                     } footer: {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("When something fails, tell Otterware what broke and where. Never your mail, addresses or passwords.")
+                            Text("When something fails, tell Otterware what broke, where and for whom: your Otter account, the screen and what led to it. Never passwords or sign-in tokens.")
                             Text("Report ID \(ErrorReports.reportID)").textSelection(.enabled)
                         }
                         .sectionFooter()

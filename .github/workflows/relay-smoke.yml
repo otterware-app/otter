@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  issues: write
 
 concurrency:
   group: relay-smoke
@@ -41,3 +42,26 @@ jobs:
 
       - name: Smoke test production
         run: pnpm --filter @otter/relay smoke
+
+      - name: Open or update the failure issue
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          issue=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"Relay smoke test failing\"" --json number --jq '.[0].number')
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --repo "$GITHUB_REPOSITORY" --body "Failed again: $RUN_URL"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "Relay smoke test failing" --body "The production relay's smoke test failed: $RUN_URL"
+          fi
+
+      - name: Close the failure issue
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          for issue in $(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"Relay smoke test failing\"" --json number --jq '.[].number'); do
+            gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --comment "Passing again: $RUN_URL"
+          done
