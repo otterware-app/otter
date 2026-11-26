@@ -129,6 +129,8 @@ export interface Env {
    * the dev runner sets it; never in wrangler.jsonc.
    */
   DEV_DEMO?: string;
+  /** Set by scripts/local-config.ts for tests and dev runs: they never send error reports. */
+  LOCAL?: string;
 }
 
 type Session = { id: string; user: RelayUser; expiresAt: number; createdAt: number };
