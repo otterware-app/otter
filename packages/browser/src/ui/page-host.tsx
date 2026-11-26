@@ -73,15 +73,22 @@ export function PageSlot({ tabId, className }: { tabId: string; className?: stri
       }
     };
     observeAround();
-    // A pane mounted later (a panel opening) moves it too.
+    // A pane mounted later (a panel opening) moves it too. Once a frame, before it paints:
+    // the window mounts a lot as it opens, and measuring at each would lay it out each time.
+    let pending = 0;
     const added = new MutationObserver(() => {
-      observeAround();
-      update();
+      if (pending) return;
+      pending = requestAnimationFrame(() => {
+        pending = 0;
+        observeAround();
+        update();
+      });
     });
     for (let node = el.parentElement; node; node = node.parentElement)
       added.observe(node, { childList: true });
     window.addEventListener("resize", update);
     return () => {
+      cancelAnimationFrame(pending);
       observer.disconnect();
       added.disconnect();
       window.removeEventListener("resize", update);
