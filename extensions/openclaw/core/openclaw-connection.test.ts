@@ -477,3 +477,20 @@ describe("an OpenClaw turn whose message isn't in the history read", () => {
     await ended;
   });
 });
+
+describe("an OpenClaw chat's browser", () => {
+  it("shows no browser for a gateway that isn't connected, and still reports failures", async () => {
+    await expect(
+      createOpenClaw(testAgent({})).browserView!({ url: "" } as OpenClawSettings, "s", {
+        width: 320,
+        height: 320,
+      }),
+    ).resolves.toBeNull();
+    gateway((method) => {
+      if (method === "chat.history") throw new Error("Can't reach the gateway.");
+    });
+    await expect(openclaw.browserView!(settings, "s", { width: 320, height: 320 })).rejects.toThrow(
+      "Can't reach the gateway.",
+    );
+  });
+});
